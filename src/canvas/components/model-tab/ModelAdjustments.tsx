@@ -255,7 +255,21 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
   const factorCount = adjustments.length
   // totalCount keeps its historic meaning (all visible rows) for any gating
   // logic that depends on whether anything at all is present.
-  const totalCount = factorCount + repairActions.length
+  /**
+   * ⚠⚠ `postRunRepairs` IS IN THE COUNT NOW, AND LEAVING IT OUT DROPPED CONTENT
+   * — not merely a number. This gates the compact single-item layout, whose arm
+   * RETURNS EARLY and never renders the post-run block. So `adjustments = [one
+   * factor]` with `postRunRepairs = [three items]` gave `totalCount === 1`, took
+   * the compact path, and **three analysis-time adjustments vanished from the
+   * UI**. Strictly worse than the "0 adjustments" header this file was opened to
+   * fix, and concealed by a comment claiming the value meant "all visible rows"
+   * when it never counted the third array.
+   *
+   * Found by an independent review, not by me: I had looked at this very value,
+   * reasoned about widening it, and decided against — on the strength of the
+   * comment rather than the code.
+   */
+  const totalCount = factorCount + repairActions.length + postRunRepairs.length
   /**
    * What the multi-item HEADER may claim. Deliberately a different number from
    * `totalCount`: that one gates layout and is documented as meaning "all

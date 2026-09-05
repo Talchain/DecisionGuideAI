@@ -88,6 +88,75 @@ describe('the implication block reaches a screen', () => {
     expect(implication, 'the implication must precede the option rows').toBeLessThan(options)
   })
 
+  it('a STALE run says so on the block itself, not only in the ribbon far above', () => {
+    // ⚠ RAISED BY REVIEW, AND IT IS EXPOSURE THIS MOUNT CREATED. Before the
+    // mount the component had no importers, so it could not mislead anyone.
+    // It is now the ONLY block on the panel that does not rest behind a
+    // chevron, and it makes the strongest claim on the surface — so it carries
+    // its own qualifier rather than relying on a ribbon several sections up.
+    cleanup()
+    render(<ModelImplication implication={DIVERGED} isStale />)
+    expect(screen.getByTestId('analysis-new-implication-stale')).toBeVisible()
+  })
+
+  it('DISCRIMINATOR: a fresh run carries NO stale marker', () => {
+    // The cheapest wrong implementation stamps every render. That would make
+    // the marker meaningless, which is worse than not having one.
+    cleanup()
+    render(<ModelImplication implication={DIVERGED} />)
+    expect(screen.queryByTestId('analysis-new-implication-stale')).toBeNull()
+  })
+
+  it('does not become a THIRD request for the success target', () => {
+    // ⚠ RAISED BY REVIEW. The `needs_target` reading closes with an ASK, and the
+    // model strip asks for the same thing. `successTargetAskedOnce.spec.tsx`
+    // exists because this panel once put one fact on screen four times — and it
+    // mentions neither `implication` nor `needs_target`, so the new claimant
+    // this mount created was invisible to the guard written to prevent exactly
+    // it. The finding survives; the duplicate ask does not.
+    const NEEDS: Model = {
+      kind: 'needs_target',
+      outcome: CLAIM('Adopt Segment has the highest expected outcome.'),
+    }
+    cleanup()
+    render(<ModelImplication implication={NEEDS} targetAskedElsewhere />)
+    expect(screen.getByTestId('analysis-new-implication-outcome')).toBeVisible()
+    expect(
+      screen.queryByTestId('analysis-new-implication-resolve'),
+      'a third request for one target',
+    ).toBeNull()
+  })
+
+  it('DISCRIMINATOR: when NOTHING else asks, this block still does', () => {
+    // The cheapest wrong fix deletes the ask outright. Then a user with no
+    // target and no strip affordance is never told the run could answer more.
+    const NEEDS: Model = {
+      kind: 'needs_target',
+      outcome: CLAIM('Adopt Segment has the highest expected outcome.'),
+    }
+    cleanup()
+    render(<ModelImplication implication={NEEDS} />)
+    expect(screen.getByTestId('analysis-new-implication-resolve')).toBeVisible()
+  })
+
+  it('DISCRIMINATOR: a DIVERGED reading keeps its close either way', () => {
+    // The suppression is scoped to the arm that asks. Diverged closes with what
+    // to do about the disagreement, which is not a target request.
+    cleanup()
+    render(<ModelImplication implication={DIVERGED} targetAskedElsewhere />)
+    expect(screen.getByTestId('analysis-new-implication-resolve')).toBeVisible()
+  })
+
+  it('THE WIRING: the tab body passes staleness through', () => {
+    const src = readTabBody()
+    expect(src, 'the block would assert a stale finding unqualified').toMatch(
+      /<ModelImplication[\s\S]{0,200}isStale=\{vm\.status\.isStale\}/,
+    )
+    expect(src, 'the ask-once suppression is not wired').toMatch(
+      /<ModelImplication[\s\S]{0,260}targetAskedElsewhere=\{stripOffersTarget\}/,
+    )
+  })
+
   it('DISCRIMINATOR: a withheld or pre-run implication still renders nothing', () => {
     // The load-bearing one. `{kind:'none'}` is what a withheld-leader run and a
     // pre-run both produce, and mounting a component is precisely the change

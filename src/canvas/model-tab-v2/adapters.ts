@@ -347,12 +347,15 @@ export function relationshipIdentity(
   sourceId: string,
   targetId: string,
   labels: ReadonlyMap<string, string>,
-): { label: string; endpoints?: readonly [string, string] } {
+): { label: string; labelEndpoints?: readonly [string, string] } {
   const own = honestLabel(data?.label)
   if (own !== null) return { label: own }
   const from = resolveCanvasLabel(sourceId, labels) ?? UNNAMED_ELEMENT_LABEL
   const to = resolveCanvasLabel(targetId, labels) ?? UNNAMED_ELEMENT_LABEL
-  return { label: `${from}${RELATIONSHIP_LABEL_SEPARATOR}${to}`, endpoints: [from, to] }
+  return {
+    label: `${from}${RELATIONSHIP_LABEL_SEPARATOR}${to}`,
+    labelEndpoints: [from, to],
+  }
 }
 
 /** One element's name for a navigation target. Never its identifier. */
@@ -580,8 +583,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
       id: edge.id,
       kind: 'relationship',
       group: 'relationships',
-      label: relationshipIdentity(data, edge.source, edge.target, nodeLabels).label,
-      labelEndpoints: relationshipIdentity(data, edge.source, edge.target, nodeLabels).endpoints,
+      ...relationshipIdentity(data, edge.source, edge.target, nodeLabels),
       primaryValue: edgeValue(data),
       provenanceSource: typeof data?.weightSource === 'string' ? data.weightSource : undefined,
       attention,

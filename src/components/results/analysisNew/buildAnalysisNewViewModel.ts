@@ -1766,7 +1766,18 @@ function plainStatus(status: string | null | undefined): string | null {
     not_assessed: 'Not assessed',
     not_attested: 'Not stated',
   }
-  return known[trimmed] ?? `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1)}`.replace(/_/g, ' ')
+  /* ⚠ `Object.hasOwn`, NOT `known[t] ?? …`. A plain object literal inherits
+     `constructor`, `toString`, `valueOf` … so `plainStatus('constructor')`
+     returned a FUNCTION, which `??` does not treat as absent — against a
+     declared return type of `string | null`. Producer enums are unlikely to
+     collide, but "unlikely" is not the guarantee the signature makes. */
+  /* ⚠ `hasOwnProperty.call`, NOT `Object.hasOwn` — that is ES2022 and this
+     repo's `lib` stops at ES2020, which is the same gap that bit
+     `Intl.ListFormat` twice in this change. Raising `lib` is the real fix and
+     is a repo-wide config change, so it is rowed for Primary rather than taken
+     here. */
+  if (Object.prototype.hasOwnProperty.call(known, trimmed)) return known[trimmed]!
+  return `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1)}`.replace(/_/g, ' ')
 }
 
 function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication {
@@ -1820,6 +1831,34 @@ function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication
    * `leaderDesignationPermitted = modelLicensesComparativeClaim && resultSeparatesArms`
    * and `resultSeparatesArms IS verdict.hasLeadingOption`, so `composed === true`
    * implies Q2 true. Named here so the next reader does not re-derive it.
+   */
+  /**
+   * ⚠⚠ THIS GATE DIVERGES FROM ITS TWO SIBLINGS IN THIS FILE, DELIBERATELY —
+   * and the divergence is now LIVE, because this block has importers.
+   *
+   * `:1546` and `:2244` both answer the same question as
+   * `leaderDesignationPermitted(rec) === true`, i.e. they WITHHOLD when
+   * `rec.verdict == null`. This line PERMITS in that case, and
+   * `designationWithheldTruthTable.spec.ts:83` pins that as intended
+   * (`withholds({ verdict: null, … })` → `false`). So it is not a slip to
+   * align — aligning it would RED a ratified truth table.
+   *
+   * ⭐ THE REACHABILITY ARGUMENT, PINNED HERE RATHER THAN LEFT IN A REVIEW:
+   * `verdict == null` does not occur on the production path.
+   * `useResultsSectionData.ts:2491` sets `verdict: leaderVerdict` from
+   * `deriveDecisionVerdict`, whose signature is `): DecisionVerdict` —
+   * non-nullable — and which returns `UNKNOWN_VERDICT` rather than null on every
+   * early exit (`decisionVerdict.ts:359-363`).
+   *
+   * ⚠ WHAT WOULD BREAK IT, so a later reader knows what to watch: a second
+   * producer for `verdict`, or the schema-skew hazard dropping the field at a
+   * consumer on an older pin. If `verdict` ever becomes genuinely absent, the
+   * glance withholds the leader while this block names one, ON THE SAME SCREEN.
+   * That is the failure to look for — not a formatting difference.
+   *
+   * Raised by an independent review, which also established the reachability
+   * argument above; recorded at the bytes because a reachability claim that
+   * lives only in a review comment is a claim the next reader cannot find.
    */
   const designationsWithheld = rec.verdict != null && leaderDesignationPermitted(rec) !== true
   if (designationsWithheld) return { kind: 'none' }

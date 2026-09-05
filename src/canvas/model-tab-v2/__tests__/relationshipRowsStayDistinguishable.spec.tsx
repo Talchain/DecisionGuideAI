@@ -68,7 +68,7 @@ describe('a relationship row carries both endpoints as structure', () => {
 
   it('an endpoint pair is exposed as two parts, not one string', () => {
     const id = relationshipIdentity(undefined, 'n1', 'n2', LABELS)
-    expect(id.endpoints, 'the renderer cannot allot space to a half it cannot see').toEqual([
+    expect(id.labelEndpoints, 'the renderer cannot allot space to a half it cannot see').toEqual([
       'Tech Lead Hired',
       'Delivery Throughput',
     ])
@@ -83,7 +83,7 @@ describe('a relationship row carries both endpoints as structure', () => {
     // asserted rather than left to the reading.
     const id = relationshipIdentity({ label: 'Hiring → faster only if onboarding holds' }, 'n1', 'n2', LABELS)
     expect(id.label).toBe('Hiring → faster only if onboarding holds')
-    expect(id.endpoints, 'an own-label edge has no endpoint pair to allot').toBeUndefined()
+    expect(id.labelEndpoints, 'an own-label edge has no endpoint pair to allot').toBeUndefined()
   })
 
   it('three edges out of ONE source differ in their second part', () => {
@@ -91,9 +91,9 @@ describe('a relationship row carries both endpoints as structure', () => {
     // live in the half a tail truncation removes first.
     const a = relationshipIdentity(undefined, 'n1', 'n2', LABELS)
     const b = relationshipIdentity(undefined, 'n1', 'n3', LABELS)
-    expect(a.endpoints![0]).toBe(b.endpoints![0])
-    expect(a.endpoints![1], 'the distinguishing half must be separately addressable').not.toBe(
-      b.endpoints![1],
+    expect(a.labelEndpoints![0]).toBe(b.labelEndpoints![0])
+    expect(a.labelEndpoints![1], 'the distinguishing half must be separately addressable').not.toBe(
+      b.labelEndpoints![1],
     )
   })
 
@@ -148,7 +148,12 @@ describe('a relationship row carries both endpoints as structure', () => {
     // The visible sentence a reader knows, and the hover fallback, are both
     // unchanged — this is a layout change, not a copy change.
     const button = renderRow()
-    expect(button).toHaveTextContent('Tech Lead Hired → Delivery Throughput')
+    // ⚠ `.textContent` EQUALITY, not `toHaveTextContent`. The matcher
+    // whitespace-normalises, so it would pass an implementation that inserted
+    // inter-element spaces between the three spans — which is exactly the
+    // failure mode splitting one string into three creates. Raised by review.
+    expect(button.textContent).toBe('Tech Lead Hired → Delivery Throughput')
+    expect(button).toHaveAccessibleName('Tech Lead Hired → Delivery Throughput')
     expect(button).toHaveAttribute('title', 'Tech Lead Hired → Delivery Throughput')
   })
 
