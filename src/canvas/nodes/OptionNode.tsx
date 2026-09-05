@@ -22,6 +22,7 @@ import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { NodeChip, BriefIcon, NodePopover, ScienceIcon } from './shared'
 import { openNodeInspector } from './shared/openNodeInspector'
+import { leaderRobustnessGrade } from './shared/leaderRobustnessGrade'
 import {
   selectGoalProbability,
   basisWithholdsPossessive,
@@ -454,6 +455,30 @@ export const OptionNode = memo((props: NodeProps) => {
     if (!modelLicensesComparativeClaim) return false
     return verdict.hasLeadingOption && verdict.leaderId === props.id
   }, [displayMetadata.isResultsMode, displayMetadata.winRate, modelLicensesComparativeClaim, verdict, props.id])
+
+  /**
+   * AXIS 2 — HOW MUCH TO TRUST THE CLAIM AXIS 1 JUST LICENSED.
+   *
+   * ⚠ THE HARM THIS CLOSES, measured in ONE payload on deployed `a9c2e050`:
+   * `robustness.aggregate_level: "very_low"` with `leader_claim.permitted:
+   * true`. The prose hedged — *"not yet robust, small changes could flip it"* —
+   * and this card, reading the same run, wore the crown over a bare `Ahead 53%`
+   * with no caveat. The canvas implemented axis 1 and had no surface for axis 2.
+   *
+   * ⭐ A DISCLOSURE, NEVER A SUPPRESSION. `isRecommended` above is untouched, so
+   * a fragile lead is still a lead and still crowned — `src/lib/decisionVerdict.ts`
+   * forbids denying a lead because it is fragile, and collapsing the two axes is
+   * the defect that module exists to prevent.
+   *
+   * ⭐ GATED ON `isRecommended` SO THE TWO CANNOT SEPARATE. The disclosure may
+   * never appear without the claim it qualifies, and may never be absent when
+   * that claim is present on a fragile run. One conjunction, one invariant, and
+   * a mutant that drops either half is visible.
+   */
+  const robustnessGrade = useMemo(
+    () => (isRecommended ? leaderRobustnessGrade(resultsReport) : null),
+    [isRecommended, resultsReport],
+  )
 
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
   // UI-SEM-082 (Lane 4): the "chance of target" badge is a goal-fit claim, so it
@@ -1549,12 +1574,30 @@ export const OptionNode = memo((props: NodeProps) => {
            how the other members declare themselves. It carries NO offset of its
            own: the stack positions it. */
         cornerSlot={isRecommended ? (
-          <span
-            data-testid={`leading-option-pill-${props.id}`}
-            className={`shrink-0 whitespace-nowrap ${typography.edgeLabel} font-medium bg-panel border-2 border-option text-text-body rounded-full px-1.5 py-0.5`}
-          >
-            Leading option
-          </span>
+          <>
+            <span
+              data-testid={`leading-option-pill-${props.id}`}
+              className={`shrink-0 whitespace-nowrap ${typography.edgeLabel} font-medium bg-panel border-2 border-option text-text-body rounded-full px-1.5 py-0.5`}
+            >
+              Leading option
+            </span>
+            {/* The run's robustness travels WITH the designation it qualifies —
+                same stack, same row, so the claim cannot be read without the
+                caveat. `role="img"` + `aria-label` is this codebase's ratified
+                idiom for a meaningful static marker (see MetricPills), because
+                `title` alone is keyboard- and touch-unreachable. */}
+            {robustnessGrade && (
+              <span
+                data-testid={`leading-option-robustness-${props.id}`}
+                className={`shrink-0 whitespace-nowrap ${typography.edgeLabel} font-medium bg-panel border-2 border-danger text-text-body rounded-full px-1.5 py-0.5`}
+                role="img"
+                title={robustnessGrade.title}
+                aria-label={robustnessGrade.title}
+              >
+                {robustnessGrade.label}
+              </span>
+            )}
+          </>
         ) : undefined}
         headerSlot={(stableOptionNumber != null || scienceIcons.length > 0) ? (
           <span className="inline-flex items-center gap-1">
