@@ -19,7 +19,13 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { DriverInfluenceChart } from '../sections/DriverInfluenceChart'
 import type { DriverInfluenceRow } from '../analysisNewTypes'
-import { DISPLAY_CHAR_CUT, NAME_CHAR_BUDGET, isProseNotName, truncateAtWord } from '../nameOrClaim'
+import {
+  DISPLAY_CHAR_CUT,
+  NAME_CHAR_BUDGET,
+  isProseNotName,
+  needsClaimDisclosure,
+  truncateAtWord,
+} from '../nameOrClaim'
 
 vi.mock('../../../../canvas/hooks/useModelEditAuthority', () => ({
   useModelEditAuthority: () => ({
@@ -77,10 +83,28 @@ describe('truncateAtWord — cuts at a word, never invents one', () => {
     expect(truncateAtWord(token)).toBe(token)
   })
 
+  /**
+   * ⚠ THIS TEST USED TO BE INCAPABLE OF FAILING, and a reviewer proved it:
+   * deleting the `.replace()` that strips the dangling punctuation left the
+   * whole spec 12/12 GREEN. The budget it used (30) cut at
+   * "…the mid-market", which never leaves punctuation at the boundary — so the
+   * assertion was true for a reason that had nothing to do with the code.
+   *
+   * My own 6/6 mutant battery reported a perfect score and was silent here,
+   * because none of the six targeted that line. A full kill-rate says nothing
+   * about a line no mutant touches.
+   *
+   * At 34 the cut lands immediately after "segment," — so the comma IS at the
+   * boundary, and removing the strip REDs this.
+   */
   it('leaves no dangling punctuation at the cut', () => {
-    expect(truncateAtWord('Growth in the mid-market segment, which we believe is', 30)).not.toMatch(
-      /[\s,;:–—-]…$/,
-    )
+    const src = 'Growth in the mid-market segment, which we believe is'
+    const cut = truncateAtWord(src, 34)
+    // PRECONDITION: the cut must actually land on punctuation, or this passes
+    // for the same empty reason the old version did.
+    expect(src.slice(0, 34).trimEnd().endsWith(',')).toBe(true)
+    expect(cut).not.toMatch(/[\s,;:–—-]…$/)
+    expect(cut).toMatch(/segment…$/)
   })
 })
 
@@ -114,8 +138,51 @@ describe('isProseNotName', () => {
   it('a short noun phrase is a name', () => {
     expect(isProseNotName('Warm Network Activation')).toBe(false)
   })
-  it('a long SINGLE token is not prose — there is no boundary to cut at', () => {
-    expect(isProseNotName('a'.repeat(NAME_CHAR_BUDGET + 20))).toBe(false)
+  /**
+   * ⚠ THIS CASE USED TO ASSERT THE OPPOSITE, ON A REASON A REVIEWER MEASURED
+   * AS FALSE. The old rule excluded space-free labels because word truncation
+   * "would return it unchanged and the affordance would promise a reveal that
+   * shows the same string". The first half is true; the second does not
+   * follow. The ROW still CSS-clips the token — a 72-character identifier
+   * rendered at 463px inside a 254px column — so the reveal would have shown
+   * 209px of otherwise unreachable text. "Unchanged by the cut" is not
+   * "already visible", and the disclosure is a `<p>` that WRAPS.
+   */
+  it('a long SINGLE token is still longer than a name', () => {
+    expect(isProseNotName('a'.repeat(NAME_CHAR_BUDGET + 20))).toBe(true)
+  })
+})
+
+describe('needsClaimDisclosure — the DISPLAY question, not the contract one', () => {
+  it('offers a route for a space-free token the row cannot show', () => {
+    // The case the old predicate excluded. 72 chars, no boundary to cut at,
+    // and clipped to roughly a third of its width at the 280px floor.
+    expect(needsClaimDisclosure('urn:factor:'.concat('x'.repeat(61)))).toBe(true)
+  })
+
+  it('offers a route for U+00A0-separated prose', () => {
+    // Producer prose arrives with non-breaking spaces. `lastIndexOf(' ')`
+    // matches none of them, so the whole sentence read as one unbreakable
+    // token and fell through every cut.
+    const nbsp = 'We\u00a0heard\u00a0from\u00a0three\u00a0churned\u00a0customers\u00a0about\u00a0pricing'
+    expect(needsClaimDisclosure(nbsp)).toBe(true)
+    // and the cut now finds those boundaries
+    expect(truncateAtWord(nbsp)).toMatch(/…$/)
+    expect(truncateAtWord(nbsp)).not.toContain('\u00a0')
+  })
+
+  it('covers the band between the two budgets, which neither used to guard', () => {
+    const between = 'Competitive Intensity in Target Market' // 38
+    expect(between.length).toBeGreaterThan(DISPLAY_CHAR_CUT)
+    expect(between.length).toBeLessThanOrEqual(NAME_CHAR_BUDGET)
+    expect(needsClaimDisclosure(between)).toBe(true)
+    expect(isProseNotName(between)).toBe(false) // still a name, by contract
+  })
+
+  it('offers NO route for a label the row can show in full', () => {
+    // The discriminating twin: without this, "offers a route" passes on a
+    // predicate that returns true for everything.
+    expect(needsClaimDisclosure('Time Pressure')).toBe(false)
   })
 })
 
@@ -148,6 +215,37 @@ describe('the claim is reachable without hover', () => {
     const li = byId('short').parentElement!
     expect(li.querySelector(`[data-testid="${TID}-claim-toggle"]`)).toBeNull()
     expect(byId('short').querySelector('[data-prose-name="true"]')).toBeNull()
+  })
+
+  /**
+   * ⚠ WCAG 2.2 AA §2.5.8 — 24×24 CSS px minimum. A reviewer measured this
+   * control at 106×15px, identical at all four dock widths: a sub-minimum
+   * touch target on a PR whose entire premise is that TOUCH HAS NO HOVER, and
+   * sitting directly beneath a full-width row button that opens the value
+   * editor, so a mis-tap does the wrong thing.
+   *
+   * jsdom performs no layout, so this binds to the MECHANISM — the shared
+   * class the height comes from. Measured in a browser at both dock widths
+   * after the fix: 114×24, `wcag24: true`.
+   */
+  it('gives the claim control a touch target, not a text link', () => {
+    draw([row({ id: 'churn', label: CLAIM })])
+    const toggle = screen.getByTestId(`${TID}-claim-toggle`)
+    expect(toggle.className).toContain('min-h-[24px]')
+    expect(toggle.className).toContain('items-center')
+  })
+
+  /**
+   * ⚠ THE CLASS THE OLD PREDICATE EXCLUDED. A 72-character space-free token
+   * rendered at 463px inside a 254px column and had NO control — its
+   * remainder lived in `title` only, which is precisely what this section
+   * exists to escape.
+   */
+  it('offers the control for a space-free label the row cannot show', () => {
+    const token = `urn:factor:${'x'.repeat(61)}`
+    draw([row({ id: 'tok', label: token })])
+    const li = byId('tok')
+    expect(li.querySelector(`[data-testid="${TID}-claim-toggle"]`)).not.toBeNull()
   })
 
   it('renders the full name verbatim when it is short — it never rewrites', () => {

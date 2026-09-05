@@ -43,7 +43,12 @@ import { typography } from '../../../../styles/typography'
 import { useFactorValueCommit } from '../useFactorValueCommit'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import type { DriverInfluenceRow } from '../analysisNewTypes'
-import { NAME_OR_CLAIM_COPY, isProseNotName, truncateAtWord } from '../nameOrClaim'
+import {
+  CLAIM_TOGGLE_TOUCH_TARGET,
+  NAME_OR_CLAIM_COPY,
+  needsClaimDisclosure,
+  truncateAtWord,
+} from '../nameOrClaim'
 
 export interface DriverInfluenceChartProps {
   rows: DriverInfluenceRow[]
@@ -117,7 +122,15 @@ export function DriverInfluenceChart({
              row's own expand gesture already means "edit this value"; reading
              what a factor is called must not require entering an editor, and
              a reader on a phone had no other route to it at all. */
-          const isProse = isProseNotName(row.label)
+          /* ⚠ THE DISPLAY QUESTION, NOT THE CONTRACT ONE. `isProseNotName`
+             asks whether this is a claim rather than a name; the row needs to
+             know whether it can SHOW the label in full, which is a different
+             threshold and does not care about spaces. Measured by a reviewer:
+             the old predicate excluded a 72-character space-free token that
+             rendered at 463px inside a 254px column, so its remainder was
+             reachable only through `title` — the exact thing this section
+             exists to escape. */
+          const isProse = needsClaimDisclosure(row.label)
           const claimOpen = claimOpenFor === row.id
           const pct = Math.round(row.fraction * 100)
           const width = `${pct}%`
@@ -213,7 +226,7 @@ export function DriverInfluenceChart({
                      `aria-controls` would reference nothing. */
                   aria-controls={claimOpen ? `${claimRegionId}-${row.id}` : undefined}
                   aria-label={claimOpen ? undefined : NAME_OR_CLAIM_COPY.showFullClaimFor(row.label)}
-                  className={`${typography.panelMeta} text-info hover:underline rounded px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                  className={`${typography.panelMeta} ${CLAIM_TOGGLE_TOUCH_TARGET} text-info hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                   data-testid={`${testId}-claim-toggle`}
                 >
                   {claimOpen ? NAME_OR_CLAIM_COPY.hideFullClaim : NAME_OR_CLAIM_COPY.showFullClaim}

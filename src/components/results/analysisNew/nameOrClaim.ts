@@ -72,12 +72,47 @@ export const DISPLAY_CHAR_CUT = 36
 
 /** A label the producer sent as prose rather than as a name. */
 export function isProseNotName(label: string): boolean {
-  const t = label.trim()
-  // A single long token (an id, a URL, a compound) is not prose — it has no
-  // word boundary to cut at, so word truncation would return it unchanged and
-  // the affordance would promise a reveal that shows the same string.
-  if (!t.includes(' ')) return false
-  return t.length > NAME_CHAR_BUDGET
+  return normaliseSpaces(label).length > NAME_CHAR_BUDGET
+}
+
+/**
+ * ⭐⭐ A DIFFERENT QUESTION FROM `isProseNotName`, AND THE ONE THE ROW ASKS.
+ *
+ * `isProseNotName` answers *"is this a claim rather than a name?"* — a
+ * statement about the CONTRACT, at `NAME_CHAR_BUDGET`. This answers *"can the
+ * row show this in full?"* — a statement about the DISPLAY, at
+ * `DISPLAY_CHAR_CUT`. Splitting them is the same move as splitting the two
+ * budgets, one level up.
+ *
+ * ⚠ AND THE OLD SINGLE PREDICATE WAS WRONG IN TWO WAYS A REVIEWER MEASURED:
+ *
+ * 1. IT EXCLUDED SPACE-FREE LABELS ON A FALSE REASON. Its comment said word
+ *    truncation "would return it unchanged and the affordance would promise a
+ *    reveal that shows the same string". The first half is true and the second
+ *    does not follow: the ROW still CSS-clips the token, so a 72-character
+ *    identifier rendered at 463px inside a 254px column, and the reveal would
+ *    have shown **209px of otherwise unreachable text**. The disclosure is a
+ *    `<p>` that WRAPS; "unchanged by the cut" is not "already visible".
+ *
+ * 2. IT CLASSIFIED AT 42 WHILE THE ROW CUT AT 36, leaving a 37–42 band that is
+ *    truncated by neither — visible only on wide glyphs, but real.
+ *
+ * Length, not word count, is therefore the whole test: a label that cannot fit
+ * needs a route to its full text whether or not it contains a space.
+ */
+export function needsClaimDisclosure(label: string): boolean {
+  return normaliseSpaces(label).length > DISPLAY_CHAR_CUT
+}
+
+/**
+ * ⚠ U+00A0 IS A SPACE THE BOUNDARY SEARCH COULD NOT SEE. Producer prose
+ * arrives with non-breaking spaces (and, less often, narrow/thin spaces), and
+ * `lastIndexOf(' ')` matches none of them — so a whole sentence read as one
+ * unbreakable token, fell through every cut, and was clipped mid-word with no
+ * disclosure. Normalising once, here, keeps every caller honest.
+ */
+function normaliseSpaces(label: string): string {
+  return label.replace(/[\u00a0\u2007\u202f\u2009\u200a]/g, ' ').trim()
 }
 
 /**
@@ -90,7 +125,7 @@ export function isProseNotName(label: string): boolean {
  * an uncuttable string still cannot overflow its column.
  */
 export function truncateAtWord(label: string, budget: number = DISPLAY_CHAR_CUT): string {
-  const t = label.trim()
+  const t = normaliseSpaces(label)
   if (t.length <= budget) return t
   const cut = t.slice(0, budget)
   const lastSpace = cut.lastIndexOf(' ')
@@ -112,3 +147,15 @@ export const NAME_OR_CLAIM_COPY = {
   /** Screen-reader name, so the control is not a bare "Show the full claim" ×N. */
   showFullClaimFor: (label: string) => `Show the full claim behind ${truncateAtWord(label, 30)}`,
 } as const
+
+/**
+ * ⚠ WCAG 2.2 AA §2.5.8 — 24×24 CSS px MINIMUM, and this control had 15px of
+ * height (`padding: 0 4px` at `panelMeta`, identical at every dock width). On a
+ * PR whose entire premise is that TOUCH HAS NO HOVER, shipping a target below
+ * the touch minimum defeats the fix for exactly the users it is for — and it
+ * sits directly beneath a full-width row button that means something else, so
+ * a mis-tap opens the value editor instead.
+ */
+export const CLAIM_TOGGLE_TOUCH_TARGET =
+  'inline-flex items-center min-h-[24px] px-2 py-1'
+
