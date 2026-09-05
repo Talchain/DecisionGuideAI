@@ -122,7 +122,7 @@ describe('claimed removals do not ALSO ride the debounced notification', () => {
     expect(graphEditCalls()).toHaveLength(0)
     expect(useCanvasStore.getState().nodes.map((item) => item.id)).toEqual(beforeNodeIds)
     expect(useCanvasStore.getState().pendingStructuralDeletes).toEqual([])
-    expect(messages).toContain('Sync the shared model before deleting. Nothing was removed.')
+    expect(messages).toContain("Nothing was removed — Olumi hasn't confirmed the shared model's current state yet.")
   })
 })
 

@@ -137,7 +137,7 @@ describe('the stand-downs (twin: recorded vs not)', () => {
       expect(queue()).toEqual([])
       expect(useCanvasStore.getState().nodes.map((n) => n.id)).toEqual(beforeNodeIds)
       expect(useCanvasStore.getState().edges.map((e) => e.id)).toEqual(beforeEdgeIds)
-      expect(messages).toContain('Sync the shared model before deleting. Nothing was removed.')
+      expect(messages).toContain("Nothing was removed — Olumi hasn't confirmed the shared model's current state yet.")
     },
   )
 
