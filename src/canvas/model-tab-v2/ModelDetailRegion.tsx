@@ -163,6 +163,20 @@ export function ModelDetailRegion({
   onCommitIntervention,
   onDiscardInterventionEdit,
 }: ModelDetailRegionProps) {
+  /**
+   * ⚠ THE QUESTION IS "DOES THE TITLE ALREADY SAY THIS?", NOT "IS THIS AN
+   * EDGE?". Written as a containment check against the row's own rendered
+   * label rather than as `kind === 'relationship'`, because a producer-named
+   * relationship does NOT name its target in the title and genuinely needs the
+   * section. Deriving it from the label keeps the two in step even if
+   * `relationshipLabel` changes shape — the predicate reads the same string
+   * the user is looking at.
+   */
+  const affectsRestatesTheTitle =
+    detail !== null &&
+    detail.affects.length === 1 &&
+    detail.affects[0] !== undefined &&
+    row.label.includes(detail.affects[0].label)
   /*
    * The identity gate. This is deliberately a VISIBLE refusal rather than a
    * silent `return null`: a detail region that quietly vanishes looks like a
@@ -401,8 +415,49 @@ export function ModelDetailRegion({
       </section>
       )}
 
-      {/* 4 — What it affects */}
+      {/*
+        4 — What it affects.
+
+        ⭐⭐ A SECTION THAT RESTATES THE TITLE IS NOT INFORMATION.
+
+        For a RELATIONSHIP the projection sets `affects` to exactly one entry —
+        the edge's target (`adapters.ts`). And when the producer did not name
+        the edge, `relationshipLabel` builds the row's own title as
+        `${from} → ${to}` from the SAME `resolveCanvasLabel` call. So the panel
+        rendered:
+
+            Hit Next Launch Date → Boost Productivity     ← the row
+            What it affects                               ← a 14px header
+            Boost Productivity                            ← the same string
+
+        Three lines and a section heading to repeat the second half of the
+        title the reader is already looking at. Paul reported it from a manual
+        test, and he was right: it is furniture, not content.
+
+        ⚠ BUT ONLY ON THE DERIVED-LABEL PATH, WHICH IS WHY THIS IS A PREDICATE
+        AND NOT `kind === 'relationship'`. When the producer DOES name the edge
+        ("product gaps mediate churn"), the target appears nowhere in the title
+        and this section is the only place it is stated — suppressing it there
+        would delete real information. The condition therefore asks the
+        question that actually matters: does the title already say this?
+
+        The AFFORDANCE survives either way. The button is the only route from a
+        relationship to its target on the canvas, so the restating case keeps
+        the control and drops the claim — it states the ACTION instead of
+        repeating the fact.
+      */}
       <section data-testid="model-detail-v2-affects">
+        {affectsRestatesTheTitle ? (
+          <button
+            type="button"
+            data-testid={`model-detail-v2-affects-${detail.affects[0]!.id}`}
+            onClick={() => onFocusOnCanvas?.(detail.affects[0]!.id)}
+            className={`${typography.panelBody} text-info text-left`}
+          >
+            Show {detail.affects[0]!.label} on canvas
+          </button>
+        ) : (
+          <>
         <h4 className={`${typography.panelHeader} text-text-header`}>What it affects</h4>
         {detail.affects.length === 0 ? (
           <p className={`${typography.panelBody} text-text-light`}>
@@ -423,6 +478,8 @@ export function ModelDetailRegion({
               </li>
             ))}
           </ul>
+        )}
+          </>
         )}
       </section>
 
