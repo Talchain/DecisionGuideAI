@@ -131,6 +131,29 @@ export interface AnalysisNewTabBodyProps {
    */
   onReanalyse?: () => void
   /**
+   * ⭐⭐ THE DOCK'S SHARED ADMISSION — `runGateResult.allowed`, the SAME value
+   * the shell's footer bar reads for this surface.
+   *
+   * This surface offers the re-run twice (the staleness ribbon inside
+   * `AtAGlance`, and the footer bar `shellContract.ts` declares for
+   * `analysisNew`). Without this the ribbon control answered "may I
+   * re-analyse?" with a bare handler while the footer answered it with the
+   * gate — one question, two authorities, and the estate's signature defect
+   * (CLAUDE.md trap 21). The fix is ONE verdict with two readers, never two
+   * defaults aligned by hand.
+   *
+   * `null` = no verdict supplied, which is treated as blocked. Absent behaves
+   * as `null` for the same reason: a host that has not answered the question
+   * has not answered it, and the fail-closed render is no control at all.
+   */
+  canRunAnalysis?: boolean | null
+  /**
+   * `getRunButtonTooltip(runGateResult)` — the gate's own refusal sentence,
+   * passed rather than re-composed. Two expressions of one refusal is the
+   * defect `runBlockedListing` was introduced to close one level up.
+   */
+  runBlockedReason?: string | null
+  /**
    * The dock's own chat sender, shared with the existing tab.
    *
    * ⚠ ITS ABSENCE IS NOT A FAILURE — `WhatIWasGivenSection` gates its "Add
@@ -174,9 +197,25 @@ export function AnalysisNewTabBody({
   responseHash,
   onFocusNode,
   onReanalyse,
+  canRunAnalysis = null,
+  runBlockedReason = null,
   onSendMessage,
   blockedListing = null,
 }: AnalysisNewTabBodyProps) {
+  /**
+   * ⭐ THE PRESENTATION PREDICATE, IN THE SHAPE THE OTHER READERS OF THIS
+   * VERDICT ALREADY USE (`AnalysisReadinessBar`, `PanelFooter`, and the dock's
+   * own two copies): `!canRun && !isAnalysing`.
+   *
+   * ⚠ `isRunning` IS LOAD-BEARING. The gate refuses a double-run, so
+   * `canRunAnalysis` is FALSE for the whole time an analysis is in flight —
+   * `!canRun` alone would put the gate's refusal copy on a control whose
+   * action is already happening. `isRunning` is the dock's LOCAL flag, which
+   * is also the flag the gate itself consumed; pairing the verdict with the
+   * composed `isBusy` would test a different run than the one that produced
+   * the verdict.
+   */
+  const reanalyseBlocked = !canRunAnalysis && !isRunning
   /**
    * The fail-closed notice channel for canvas focus. `Safe` because this
    * surface renders inside the dock in tests without a ToastProvider, and a
@@ -507,6 +546,11 @@ export function AnalysisNewTabBody({
           staleKind={vm.status.staleKind}
           isProvisional={vm.status.isProvisional}
           onReanalyse={onReanalyse}
+          /* ⭐ THE GATE'S OWN VERDICT, NOT A SECOND EXPRESSION OF IT — the
+             same pair the shell footer reads for this surface. See
+             `reanalyseBlocked` above for why `isRunning` is in it. */
+          reanalyseBlocked={reanalyseBlocked}
+          reanalyseBlockedReason={reanalyseBlocked ? runBlockedReason : null}
           missingResults={vm.status.missingResults}
           driverTotal={vm.drivers.totalCount}
           primaryIntervention={

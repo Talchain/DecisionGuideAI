@@ -394,7 +394,9 @@ describe('THE RIBBON CANNOT BE DROPPED BY AN EMPTY GLANCE', () => {
 
   it('a stale run with NOTHING to show still says it is stale', () => {
     const { container } = render(
-      <AtAGlance glance={emptyGlance()} isStale staleKind="changed" primaryIntervention={null} />,
+      <AtAGlance
+        reanalyseBlocked={false}
+        reanalyseBlockedReason={null} glance={emptyGlance()} isStale staleKind="changed" primaryIntervention={null} />,
     )
     expect(screen.getByTestId('analysis-new-status-stale')).toBeInTheDocument()
     expect(freshnessStatements(container)).toHaveLength(1)
@@ -406,7 +408,9 @@ describe('THE RIBBON CANNOT BE DROPPED BY AN EMPTY GLANCE', () => {
    * surface is still silent.
    */
   it('a CURRENT run with nothing to show still renders nothing', () => {
-    const { container } = render(<AtAGlance glance={emptyGlance()} primaryIntervention={null} />)
+    const { container } = render(<AtAGlance
+  reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={emptyGlance()} primaryIntervention={null} />)
     expect(container.firstChild).toBeNull()
   })
 })

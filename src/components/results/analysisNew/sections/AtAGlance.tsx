@@ -152,6 +152,40 @@ export interface AtAGlanceProps {
    * alone.
    */
   onReanalyse?: () => void
+  /**
+   * ⭐⭐ THE RUN GATE'S OWN VERDICT, THREADED — NOT A SECOND PREDICATE.
+   *
+   * This surface offers the re-run TWICE: here, on the staleness ribbon, and
+   * in the shell footer (`shellContract.ts` gives `analysisNew`
+   * `footerBar: 'reanalyse'`). The footer control reads the dock's
+   * `runGateResult`; this one was handed a bare handler, so a blocked model
+   * could render a DISABLED footer control carrying the refusal beside an
+   * ENABLED control for the same action, a few hundred pixels apart. The
+   * product contradicted itself about whether the user may run an analysis.
+   *
+   * ⚠ REQUIRED, AND NULLABLE, DELIBERATELY. `AtAGlance` is the component that
+   * RENDERS the control, so this is the boundary at which an omission causes
+   * the harm — and the harm is silent. Optional-with-a-default would let a
+   * future mount site reinstate the ungated control with no diagnostic at all;
+   * required makes that a TS2741 at the mount. `null` is the honest value for
+   * a host that holds no verdict, and it is treated as BLOCKED.
+   *
+   * ⚠ THE CALLER OWNS THE `isAnalysing` CLAUSE. `canRunAnalysis` is FALSE
+   * while a run is in flight, so this is the already-derived
+   * `!canRun && !isAnalysing` — the shape `AnalysisReadinessBar` and
+   * `PanelFooter` use over the same verdict — never a bare `!canRun`, which
+   * would call a RUNNING analysis a refusal.
+   */
+  reanalyseBlocked: boolean
+  /**
+   * The gate's own refusal sentence, or `null` when it did not supply one.
+   *
+   * ⚠ BLOCKED WITH NOTHING TO SAY IS NOT A DISABLED BUTTON — it is a dead
+   * affordance with no explanation, which is the state this panel's other
+   * pre-gates exist to prevent. No reason ⇒ no control, the same shape a
+   * missing handler already gets.
+   */
+  reanalyseBlockedReason: string | null
   /** Which results did not come back, already named for this surface. */
   missingResults?: readonly string[]
   testId?: string
@@ -189,6 +223,8 @@ export function AtAGlance({
   staleKind = 'unconfirmed',
   isProvisional = false,
   onReanalyse,
+  reanalyseBlocked,
+  reanalyseBlockedReason,
   missingResults = [],
   testId = 'analysis-new-glance',
 }: AtAGlanceProps) {
@@ -357,17 +393,26 @@ export function AtAGlance({
 
               ⚠ FAIL-CLOSED. No handler, no button — never a dead affordance,
               the same pre-gate this panel uses for focus targets. */}
-          {onReanalyse ? (
+          {onReanalyse && (!reanalyseBlocked || reanalyseBlockedReason !== null) ? (
             <button
               type="button"
               onClick={onReanalyse}
+              /* ⚠ THE GATE, NOT A RESTATEMENT OF IT. `disabled` here and the
+                 footer control's own disabled state are two READINGS of one
+                 verdict computed once in `OutputsDock`, so the two controls
+                 cannot disagree about admission — only about presentation. */
+              disabled={reanalyseBlocked}
+              title={reanalyseBlocked ? reanalyseBlockedReason ?? undefined : undefined}
               /* ⚠ INFO, NOT THE RIBBON'S AMBER — colour says PRESSABLE here, not
                  SEVERE. Beside it, `r.text` is `panelMeta text-warning`: the
                  same size and the same colour, separated only by an underline
                  at 11px, so a reader scanning an amber block cannot tell the
                  sentence from the control. Amber stays on the status; the one
                  thing you can press is the one thing in the action colour. */
-              className={`${typography.panelMeta} shrink-0 self-start rounded px-1.5 py-0.5 text-info underline underline-offset-2 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              /* `disabled:no-underline` is not decoration: the underline is half of
+                 what says PRESSABLE on this strip (the other half is `text-info`),
+                 so a refused control must stop claiming it. */
+              className={`${typography.panelMeta} shrink-0 self-start rounded px-1.5 py-0.5 text-info underline underline-offset-2 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline disabled:hover:opacity-50`}
               data-testid={`${testId}-ribbon-reanalyse`}
             >
               {COPY.status.reanalyseToBeSure}
