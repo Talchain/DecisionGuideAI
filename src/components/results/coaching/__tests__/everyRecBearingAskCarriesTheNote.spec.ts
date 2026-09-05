@@ -72,7 +72,6 @@ function walk(dir: string, out: string[] = []): string[] {
   return out
 }
 
-/** Every `openAskOlumi({ … })` payload in product code, comments removed. */
 /** The payload extractor, exposed so its brace-balancing can be tested directly. */
 export function extractPayloads(src0: string): string[] {
   const src = stripComments(src0)
@@ -145,10 +144,19 @@ function askPayloads(): Array<{ file: string; body: string }> {
  * because it is generic enough that the next type to carry it would, and the
  * cost of finding out is a disabled guard.
  *
- * THE RESIDUAL, STATED RATHER THAN HIDDEN: a route that destructures ONLY
- * `tryThis` and nothing else is now invisible again. That is a real trade —
- * measured, not assumed — and it is the right side of it, because a false
- * negative costs one missed route while a false positive costs the guard.
+ * THE RESIDUALS, STATED AS A RULE RATHER THAN A LIST — because an earlier
+ * draft wrote "THE RESIDUAL" and named ONE of TWO, which reads as exhaustive
+ * and is how a class gets declared closed while it is open.
+ *
+ * The rule: **a rec-bearing route that destructures ONLY tokens outside
+ * {`whyNow`, `helpType`} is invisible to the bare alternation.** Today that is
+ * `tryThis` and `sourceLine` — two symmetric holes, not one — and it stays
+ * correct if the alternation ever changes, which a list would not.
+ *
+ * That is a real trade, measured rather than assumed, and it is the right side
+ * of it: a false negative costs one missed route, a false positive costs the
+ * guard. Both classes are empty on this tree (zero destructuring-from-a-rec
+ * across the opener files, positive control firing).
  */
 const REC_BEARING =
   /\brec(?:ommendation)?\.(whyNow|signal|title|action|targetId|tryThis|helpType|sourceLine)\b|\b(?:whyNow|helpType)\b/
