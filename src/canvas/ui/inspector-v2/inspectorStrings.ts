@@ -751,3 +751,79 @@ export const EDGE_REVIEW_COPY = {
   showDetail:       'See both estimates',
   hideDetail:       'Hide both estimates',
 } as const
+
+/*
+ * ⭐⭐ AND THE LABEL FIX ABOVE LEFT THE SENTENCES CONTRADICTING EACH OTHER.
+ *
+ * The note above closed the missing-label half and even quoted the result:
+ * "unlikely to change the outcome" sitting directly beneath "one of the most
+ * influential factors". Adding the label explained which BAR was which. It did
+ * not touch the two SENTENCES, and on the deployed build they still read as a
+ * flat contradiction on one card, because both were written in the same words:
+ * one says investigating will not "change the outcome", the next says changes
+ * here "noticeably affect the result".
+ *
+ * They answer DIFFERENT QUESTIONS and always did (CLAUDE.md trap 21):
+ *
+ *   · SENSITIVITY  — does this factor's VALUE move the result?
+ *   · VALUE OF INFO — is reducing our UNCERTAINTY about it worth the effort?
+ *
+ * A factor can be the strongest driver in the model AND not worth researching:
+ * its value matters enormously, and we are already confident enough about it
+ * that a sharper figure would not change the answer. That is a genuinely useful
+ * thing to tell a team — it says "this is the lever, and you already know
+ * enough about it to pull it" — and the old copy made it read as a bug.
+ *
+ * ⚠ THE HIGH ARM WAS ALSO WRONG ON ITS OWN TERMS, and the codebase already said
+ * so. `useNodeDisplayMetadata` states it explicitly where it refuses to use VoI
+ * as a confidence fallback: "VoI is semantically different from confidence (it
+ * measures the value of learning more, not certainty)". The old high-VoI
+ * sentence promised exactly that — "could significantly improve confidence".
+ * Derived from the producer's own stated semantics, not from what the word
+ * sounds like (trap 13c).
+ *
+ * ⚠ AND THE COPY NOW HAS ONE OWNER. These sentences were duplicated verbatim
+ * across three panels (Controllable, Observable, External), so a correction had
+ * to be made three times or the panels would disagree about one factor — the
+ * hand-maintained mirror this estate pays for most often (trap 12).
+ */
+
+/**
+ * How much the element's VALUE moves the result. Null when there is no rank.
+ *
+ * `noun` exists because the Observable panel calls these things measurements
+ * rather than factors, and that distinction is real to a user. It is a noun
+ * substitution, NOT a second copy of the sentence — the three panels used to
+ * carry three slightly different wordings of this claim, which is how they came
+ * to disagree with the investigation sentence in three different ways.
+ */
+export function influenceGuidance(
+  sensitivityRank: number | null,
+  noun: 'factor' | 'measurement' = 'factor',
+): string | null {
+  if (sensitivityRank === null) return null
+  // Names the VALUE as the thing with influence, so it cannot be read as a
+  // claim about how much we know.
+  if (sensitivityRank <= 2) {
+    return `This ${noun}'s value is one of the strongest influences on the result.`
+  }
+  if (sensitivityRank <= 5) return `This ${noun}'s value has moderate influence on the result.`
+  return null
+}
+
+/**
+ * Whether reducing UNCERTAINTY about the factor is worth the effort.
+ *
+ * Every arm now speaks about evidence and uncertainty, never about "the
+ * outcome" or "the result" — those words belong to {@link influenceGuidance},
+ * and sharing them is what made the two read as one contradictory claim.
+ */
+export function investigationGuidance(valueOfInformation: number): string {
+  if (valueOfInformation >= 0.7) {
+    return 'This is where more evidence would be worth most — the uncertainty here is doing real work.'
+  }
+  if (valueOfInformation >= 0.4) {
+    return 'More evidence here would sharpen the picture somewhat.'
+  }
+  return 'More evidence here would add little — you already know enough about this one.'
+}

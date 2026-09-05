@@ -120,6 +120,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup, within, fireEvent } from '@testing-library/react'
+import { investigationGuidance } from '../inspectorStrings'
 
 /*
  * This panel's first render pulls a large import graph and lands within a few
@@ -205,7 +206,22 @@ const COMPUTE_DENIAL =
  * the analysis."). The carve-out is still right to exist; the premise naming
  * which panels share it was wrong, and it named the wrong sibling.
  */
-const VOI_NOTE = 'Additional evidence here would moderately sharpen the analysis.'
+/**
+ * ⚠ DERIVED FROM THE OWNER, NOT PINNED AS A LITERAL — changed 31 Aug 2026.
+ *
+ * This was a verbatim copy of the sentence, with a note saying a change "has to
+ * come here and be argued", and that its wording was "a two-panel decision"
+ * because `FactorControllablePanel` rendered the identical string. That was the
+ * right diagnosis: it was a THREE-panel decision, and the three panels each
+ * carried their own slightly different wording.
+ *
+ * The sentences now have one owner (`investigationGuidance`), so this carve-out
+ * reads from it. The scan below still asserts the note is PRESENT or ABSENT
+ * exactly as before — what it no longer does is go red for a copy edit that
+ * changed nothing about this spec's subject, which is whether the range control
+ * states its actual role.
+ */
+const VOI_NOTE = investigationGuidance(0.5)
 
 function stripVoiNote(text: string, expectPresent: boolean): string {
   const present = text.includes(VOI_NOTE)
@@ -416,12 +432,30 @@ describe('FactorExternalPanel — the range control states its actual role', () 
     await renderExternalPanel({ withResults: true })
     const guidance = screen.getByTestId('factor-external-guidance')
 
-    // "contributes significant uncertainty" is DERIVED from a computed
-    // sensitivity rank, so it stays. Only the promise about what EDITING does
-    // was false, and a fix that scrubbed the true half as well would be a
-    // different kind of dishonesty.
+    // ⚠ THIS EXPECTATION IS OVERTURNED, and the reason is worth reading before
+    // changing it back.
+    //
+    // It previously pinned "This factor contributes significant uncertainty to
+    // your results", on the argument that the sentence is DERIVED from a
+    // computed sensitivity rank and therefore true. The derivation is real; the
+    // inference is not. `sensitivityRank` measures INFLUENCE — how much the
+    // factor's VALUE moves the result — and says nothing about how UNCERTAIN
+    // that value is. They are different quantities, which is precisely why
+    // `useNodeDisplayMetadata` refuses to use value-of-information as a
+    // confidence fallback.
+    //
+    // Rendered twelve lines from `investigationGuidance`, the old sentence
+    // produced, on one card, with low VoI:
+    //
+    //     "More evidence here would add little — you already know enough
+    //      about this one."
+    //     "This factor contributes significant uncertainty to your results."
+    //
+    // The replacement says what the gate actually knows and keeps this panel's
+    // own fact — outside the user's control — which is the "true half" the
+    // original expectation was right to protect.
     expect(guidance.textContent).toBe(
-      'This factor contributes significant uncertainty to your results.',
+      'This factor is outside your control, and its value is one of the strongest influences on the result.',
     )
     expect(guidance.textContent).not.toMatch(COMPUTE_PROMISE)
   })

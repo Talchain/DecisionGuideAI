@@ -18,6 +18,8 @@ import {
   INLINE_LABELS,
   DESCRIPTION_PLACEHOLDERS,
   getExtractionLabel,
+  investigationGuidance,
+  influenceGuidance,
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
@@ -207,11 +209,59 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
    * what is true of the FACTOR; the role note states what the RANGE is and
    * that it cannot be set here; neither tells anyone to act.
    */
+  // The influence clause, from the SINGLE OWNER rather than a threshold of this
+  // panel's own. Null outside results mode and wherever the owner declines to
+  // characterise the rank, which is what selects the fallback arm below.
+  const externalInfluence = isResultsMode
+    ? influenceGuidance(displayMetadata.sensitivityRank)
+    : null
+
   const externalGuidance = flipEntry?.alternative_winner_label
     ? `If ${String(node.data?.label ?? 'this factor')} is high, the result changes to ${flipEntry.alternative_winner_label}.`
-    : isResultsMode && displayMetadata.sensitivityRank != null
-    ? 'This factor contributes significant uncertainty to your results.'
-    : 'This factor is outside your control, so its level is uncertain.'
+    // ⚠ THE MIRROR OF THE CONFLATION THIS PR REMOVES, twelve lines above
+    // `investigationGuidance`'s render site. Gated on `sensitivityRank` — the
+    // INFLUENCE signal — while saying "contributes significant uncertainty",
+    // which is the INVESTIGATION family's claim. With low VoI the card read:
+    //
+    //     "More evidence here would add little — you already know enough
+    //      about this one."
+    //     "This factor contributes significant uncertainty to your results."
+    //
+    // Exactly the contradiction removed from the other two panels, surviving on
+    // the one I had edited. My spec tested the two families in isolation and
+    // never the third sentence beside them, so it stayed green.
+    //
+    // Now says what its gate actually knows: a high sensitivity rank means the
+    // factor's VALUE moves the result, and being outside the user's control is
+    // the fact this panel exists to state. Neither clause borrows the
+    // investigation family's vocabulary.
+    //
+    // ⚠⚠ AND TWO THINGS THE FIRST VERSION OF THIS FIX GOT WRONG — a review
+    // found both, and both were in the direction I had not looked.
+    //
+    // (1) THE FALLBACK ARM REPRODUCED THE DEFECT, IN THE COMMON CASE. It read
+    // "...so its level is uncertain" — the investigation family's word, on the
+    // arm I did not touch. `sensitivityRank` is null for EVERY factor outside
+    // the top three, and null for ALL factors at once when there is no clear
+    // influence leader, while the VoI block gates independently on
+    // `valueOfInformation`. So a low-VoI factor outside the top three rendered
+    // "you already know enough about this one" directly beneath "its level is
+    // uncertain". The arm I fixed covers at most three factors per model; the
+    // arm I left covers all the rest. It now states the panel's own fact and
+    // asserts nothing about how uncertain the level is.
+    //
+    // (2) I MINTED A SECOND INFLUENCE AUTHORITY INSIDE THE PR THAT CREATED THE
+    // SINGLE OWNER. The comment above claims one owner; that was true of
+    // `investigationGuidance` and false of the influence sentence, which used a
+    // bespoke `!= null` threshold (rank 1-3) against `influenceGuidance`'s
+    // `<= 2` / `<= 5`. AT RANK 3 THE PANELS DISAGREED ABOUT THE SAME SIGNAL:
+    // Controllable and Observable said "moderate influence", External said "one
+    // of the strongest". Trap 21 recreated one file away from the fix for it.
+    // Routed through the owner, so the threshold lives in exactly one place and
+    // this panel can no longer drift from its siblings.
+    : externalInfluence
+    ? `This factor is outside your control. ${externalInfluence}`
+    : 'This factor is outside your control — you can plan around it, but you cannot change it.'
 
   return (
     <div>
@@ -279,11 +329,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
                   {INLINE_LABELS.investigationValue}
                 </div>
                 <p className={`${typography.panelMeta} text-text-light mt-1`}>
-                  {displayMetadata.valueOfInformation >= 0.7
-                    ? 'Gathering more evidence here could significantly improve confidence.'
-                    : displayMetadata.valueOfInformation >= 0.4
-                    ? 'Additional evidence here would moderately sharpen the analysis.'
-                    : 'Further investigation here is unlikely to change the outcome.'}
+                  {investigationGuidance(displayMetadata.valueOfInformation)}
                 </p>
               </div>
             )}
