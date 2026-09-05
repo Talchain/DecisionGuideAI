@@ -389,11 +389,19 @@ export function ModelRowView({
            separator constant carries its own spaces, so the three spans
            concatenate to text content byte-identical to `row.label`. Either
            branch, the accessible name is the whole label. */
-        /* ⚠ A PLACEHOLDER NAMES ITSELF ON THREE CHANNELS, NOT ONE. Colour
-           alone is the channel a screen reader cannot use, and DS §1 asks for
-           three. So the title says it in words too, and the word itself is
-           untouched — the vocabulary decision behind "Question" is ratified and
-           this changes only how it is drawn. */
+        /* ⚠ A PLACEHOLDER NAMES ITSELF ON MORE THAN COLOUR — but be precise
+           about how much this buys. `title` is the accessible DESCRIPTION, not
+           the NAME: once an element has content the name comes from the content,
+           as `9d4979e` established in this same file. Most screen readers
+           announce the description, some do not by default, and the NAME a
+           reader hears is still "Question".
+           
+           An earlier version of this comment claimed three channels and that
+           "the title says it in words too" for assistive tech — an overclaim,
+           corrected on review. Colour and italics carry it for sighted readers;
+           the description is a weaker second channel; a genuinely equal one
+           would need the name itself to change, which is a vocabulary decision
+           and is ratified elsewhere. */
         title={labelIsTypeDefault(row) ? UNWRITTEN_QUESTION_TITLE : row.label}
         className={`${typography.panelBody} ${
           labelIsTypeDefault(row) ? 'text-text-light italic' : 'text-text-body'

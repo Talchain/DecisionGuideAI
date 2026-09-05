@@ -797,11 +797,15 @@ export const ModelTabBody = memo(function ModelTabBody({
     for (const n of sortedFactors) {
       const lbl = resolveCanvasLabel(n.id, nodeLabels) ?? UNNAMED_ELEMENT_LABEL
       const obs = (n.data as any)?.observedState ?? (n.data as any)?.observed_state ?? {}
-      // ⚠ NO `?? obs.source` TAIL. `mapSourceToDisplay` already returns the raw
-      // token for anything it cannot classify, so the tail added nothing except a
-      // second, unclassified route for `cee_inference` to reach the clipboard —
-      // and `utils.ts:80-83` records this exact leak as having already "left the
-      // estate in what a user pastes into a document".
+      // ⚠ NO `?? obs.source` TAIL. ⚠⚠ AND THIS COMMENT WAS FALSE FROM THE MOMENT
+      // THE TAIL WAS REMOVED: it said, present tense, that `mapSourceToDisplay`
+      // "already returns the raw token for anything it cannot classify". It
+      // returns `null` now — that was the point of the change — and this sat
+      // directly above the new block saying so. Corrected on review.
+      //
+      // The rule stands: no second, unclassified route for a wire token to
+      // reach the clipboard. `utils.ts` records the original leak as having
+      // "left the estate in what a user pastes into a document".
       /* ⚠ THREE STATES, NOT TWO. `mapSourceToDisplay` now returns `null` for a
          source it cannot classify, so a bare interpolation would paste the word
          "null" into a user's document — strictly worse than the wire token it

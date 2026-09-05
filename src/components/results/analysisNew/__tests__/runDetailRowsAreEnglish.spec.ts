@@ -29,21 +29,44 @@ import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { makeData, manyFragileEdges } from './analysisNewFixtures'
 
 /**
- * ⚠ A LOWERCASE WIRE TOKEN, WITH OR WITHOUT UNDERSCORES. My first cut required
- * an underscore — so `computed` and `full`, the two the healthy run actually
- * prints, sailed straight past it. The corpus I wrote the pattern against was
- * the failure I had been shown (`not_assessed`, `win_probability`), and it
- * could not see the class beside it. CLAUDE.md trap 13d: write the invariant
- * against the SPEC, which is "no producer vocabulary", not against the example.
+ * A lowercase wire token, with or without underscores.
+ *
+ * ⚠ TWO WRONG VERSIONS BEFORE THIS ONE, IN OPPOSITE DIRECTIONS, AND THE PAIR IS
+ * THE LESSON.
+ *
+ * (1) Required an underscore — so `computed` and `full`, the two a healthy run
+ *     actually prints, sailed past it. Written against the failure I had been
+ *     shown (`not_assessed`, `win_probability`).
+ * (2) Fixed that by naming the five mapped tokens in an alternation — which
+ *     made the pattern a MIRROR OF `plainStatus`'s MAP rather than of the
+ *     producer's vocabulary. Review found the hole: `failed`, `blocked`,
+ *     `error` and `suppressed` are real enum members that map to nothing, so
+ *     they matched neither branch and would have been waved through by the very
+ *     guard that exists to catch a row bypassing `plainStatus`.
+ *
+ * The property is "no producer vocabulary reaches a value cell", and producer
+ * vocabulary is lowercase-only — so that is what the pattern says. Every
+ * humanised output is title-cased or is a phrase with spaces, both of which
+ * this rejects; the assertions below pin that in both directions.
  */
-const WIRE_TOKEN = /^[a-z][a-z0-9]*(_[a-z0-9]+)+$|^(computed|full|partial|skipped|unavailable)$/
+const WIRE_TOKEN = /^[a-z][a-z0-9]*(_[a-z0-9]+)+$|^[a-z]+$/
 
 /**
  * The exception, and the only one. `Run reference` is an opaque support handle
  * — a hash. It is not producer vocabulary being read as English, and rendering
  * it is the row's whole point.
  */
-const OPAQUE_ROWS = new Set(['Run reference', 'Seed'])
+const OPAQUE_ROWS = new Set([
+  'Run reference',
+  'Seed',
+  // ⚠ NAMED, NOT PATTERN-MATCHED. `'yes, provisional'` is ordinary English whose
+  // parts are indistinguishable from wire tokens. Exempting the ROW keeps the
+  // pattern honest about the class it detects, instead of carving a hole in it
+  // that also lets four real producer tokens through — which is what the
+  // previous attempt did.
+  'Automatic noise applied',
+  'Some factors unassessed',
+])
 
 const deeperOf = (data: ReturnType<typeof makeData>) =>
   buildAnalysisNewViewModel({
@@ -90,6 +113,11 @@ describe('the run-detail rows speak English', () => {
     // The two the healthy run actually prints, and the two my first pattern missed.
     expect(WIRE_TOKEN.test('computed')).toBe(true)
     expect(WIRE_TOKEN.test('full')).toBe(true)
+    // ⚠ The four the SECOND pattern missed: real enum members that `plainStatus`
+    // does not map, so a mirror-of-the-map pattern waved them through.
+    for (const t of ['failed', 'blocked', 'error', 'suppressed']) {
+      expect(WIRE_TOKEN.test(t), `"${t}" is producer vocabulary`).toBe(true)
+    }
     expect(WIRE_TOKEN.test('Partial')).toBe(false)
     expect(WIRE_TOKEN.test('Not assessed')).toBe(false)
     expect(WIRE_TOKEN.test('the win share')).toBe(false)
@@ -99,8 +127,13 @@ describe('the run-detail rows speak English', () => {
     // producer vocabulary. The pattern now catches snake_case OR the five
     // status tokens by name, which is the actual class, rather than "any
     // lowercase word". It passed only because this fixture never emits that row.
-    expect(WIRE_TOKEN.test('yes')).toBe(false)
-    expect(WIRE_TOKEN.test('provisional')).toBe(false)
+    // ⚠ `'yes, provisional'` is a legitimate value and the pattern now matches
+    // each of its parts — so the SPLIT is what must not flag it. The row check
+    // below exempts it by label, which is honest: the exemption is visible and
+    // named, rather than hidden inside a pattern pretending to be general.
+    expect(WIRE_TOKEN.test('yes')).toBe(true)
+    expect(WIRE_TOKEN.test('Partial')).toBe(false)
+    expect(WIRE_TOKEN.test('Not assessed')).toBe(false)
   })
 
   it('no row renders an EMPTY value', () => {
