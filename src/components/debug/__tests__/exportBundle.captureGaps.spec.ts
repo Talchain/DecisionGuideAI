@@ -222,6 +222,43 @@ describe('GAP 1 — user-authored text reaches the bundle', () => {
     expect(text).toContain('margin floor is 78%')
   })
 
+  // The PR title claims "untruncated". `assistant_text`'s cap has a positive
+  // control (GAP 3); `user_text`'s did not, so the truncation branch at
+  // `exportBundle.ts:2610-2611` had no test at any scope and the completeness
+  // claim rested on the other half alone. These two are that control.
+  //
+  // Derived, not assumed: `USER_TEXT_MAX_CHARS` is `DEBUG_LLM_RAW_MAX_CHARS`,
+  // which defaults to 8000 (`payloadRedaction.ts:65-73`), and this path does
+  // NOT go through `redactPayload` — `collectUserActions` assigns
+  // `redactUserActionDetail(...)` straight onto the entry
+  // (`exportBundle.ts:2418`) — so the 8000 cap is the only bound and is
+  // genuinely observable in the bundle. `user_text` is deliberately absent
+  // from `neverTruncateKeys`.
+  it('caps an over-long user_text and names the cap that cut it', () => {
+    pushTypedMessage('C'.repeat(8001))
+
+    const detail = typedActionDetail()
+    const text = detail!.user_text as string
+
+    // Bind by the exact marker string, not by a length predicate the
+    // safety-cap branch or a future cap could also satisfy.
+    expect(text).toContain('[truncated_by: user_text_cap, 8001 chars total]')
+    expect(text.startsWith('C'.repeat(8000))).toBe(true)
+    expect(text).not.toContain('C'.repeat(8001))
+  })
+
+  it('leaves a user_text exactly at the cap untruncated', () => {
+    pushTypedMessage('D'.repeat(8000))
+
+    const detail = typedActionDetail()
+    const text = detail!.user_text as string
+
+    // The boundary twin: without it, a cap that fired one char early would
+    // still satisfy the case above.
+    expect(text).toHaveLength(8000)
+    expect(text).not.toContain('truncated_by')
+  })
+
   it('pairs each captured turn with the user message that prompted it', () => {
     const result = selectRecentConversationTurns([
       {

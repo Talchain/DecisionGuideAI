@@ -138,11 +138,15 @@ export default async function handler(request: Request, context: Context) {
   //
   // A MISSING origin is a DIFFERENT case and must not be rejected.
   //
-  // ⚠ FIXED 2026-09-05. This function previously rejected both, and
-  // `cee-proxy.ts` already documents the consequence in its own comments:
+  // ⚠ FIXED 2026-09-05. This function previously rejected both. Before this
+  // repair `cee-proxy.ts` documented the consequence in its own comments,
+  // quoted here as it stood then:
   // "which is why `GET /bff/isl/health` answers 403 to the app's own
   // same-origin health check … a pre-existing defect in those two
-  // functions, flagged for separate repair". This is that repair, made
+  // functions, flagged for separate repair". That note has since been
+  // narrowed to `orchestrator-proxy.ts` alone, because this repair made its
+  // isl-proxy half false — so do not expect to find the quoted wording
+  // there now. This is that repair, made
   // because the debug bundle's build capture needs ISL's build and the
   // 403 was the only thing in the way.
   //

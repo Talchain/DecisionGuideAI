@@ -181,9 +181,35 @@ export function shouldCaptureDetailedPayload(): boolean {
 /**
  * THE SINGLE ADMISSION for verbatim user prose in a debug bundle.
  *
- * Every field that can carry the user's own words — `user_actions[].detail
+ * Every field whose PURPOSE is verbatim user prose — `user_actions[].detail
  * .user_text` and `recent_conversation_turns[].user_message` — reads THIS
- * predicate and no other. It exists because those two fields were shipped
+ * predicate and no other. Those are its only two non-test consumers
+ * repo-wide (`exportBundle.ts:2598`, `recentConversationTurns.ts:285`).
+ *
+ * ⚠ IT IS NOT TRUE THAT NO OTHER FIELD CAN CARRY THE USER'S WORDS, and the
+ * sentence above must not be read as a whole-artefact claim. Two other
+ * carriers hold user prose under DIFFERENT gates, and both are named further
+ * down this same comment:
+ *
+ *   - `payloads.cee_request` — the CEE request body, whose root `message` is
+ *     the identical string `readUserMessage` reads
+ *     (`useDebugData.ts:4333` → `buildPayload.ts:486` ←
+ *     `recentConversationTurns.ts:221`). Gated by the trace-store gate, a
+ *     strict SUBSET of this predicate — which is exactly what the union
+ *     argument below turns on; see "In all three states".
+ *   - `full_graph` node `label` / `description` (`exportBundle.ts:2161,2164`)
+ *     — user-authored prose, gated by the default-OFF `includeFullGraph`
+ *     checkbox (`DebugPanelV2.tsx:63`), not by this predicate. See the
+ *     ⚠ SCOPE OF THE OMISSION MARKER block below.
+ *
+ * Taken as a whole-artefact claim the opening sentence would say that driving
+ * this predicate false strips every trace of user prose from the bundle. It
+ * does not. That the omission marker is nonetheless honest rests on the
+ * SEPARATE subset argument below — not on this sentence, which an earlier
+ * revision wrote as "every field that CAN carry the user's own words" and
+ * which this comment then refuted twice in its own body.
+ *
+ * It exists because those two fields were shipped
  * behind two DIFFERENT gates, which is this estate's signature defect (one
  * data class, two answers), and it produced a bundle that could assert an
  * omission it had not made.
