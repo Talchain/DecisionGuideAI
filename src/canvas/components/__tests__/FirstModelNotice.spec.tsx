@@ -88,7 +88,10 @@ const storeEdge = (data: Record<string, unknown>) =>
 
 describe('FirstModelNotice', () => {
   beforeEach(() => {
-    useCanvasStore.setState({ nodes: [], edges: [] })
+    // `hasCompletedFirstRun` is reset explicitly, not left to the store's
+    // initial value: it is written by the run-phase cases below and would
+    // otherwise leak into whichever test happened to follow them.
+    useCanvasStore.setState({ nodes: [], edges: [], hasCompletedFirstRun: false })
   })
 
   it('is absent on an empty canvas — there is no model to characterise', () => {
@@ -118,6 +121,65 @@ describe('FirstModelNotice', () => {
     })
     render(<FirstModelNotice />)
     expect(screen.queryByTestId(FIRST_MODEL_NOTICE_TESTID)).toBeNull()
+  })
+
+  // ── The run-phase clause ─────────────────────────────────────────────────
+  // The pair below is discriminating BY AUTHORITY, not just by presence of a
+  // gate. A predicate written on `results.status === 'complete'` passes the
+  // first case and FAILS the second, so the second is what pins the monotonic
+  // flag rather than the transient status.
+
+  it('is absent once an analysis has completed — the model now carries results', () => {
+    // The graph is the same unedited draft that renders the notice above, so
+    // the only thing that changed is the run phase. Pinned in-test, because
+    // otherwise this could pass for the reason the "user edited it" case does.
+    const nodes = [storeNode('n1'), storeNode('n2')]
+    const edges = [storeEdge({ weight: 0.6, weightSource: 'cee' })]
+    expect(hasUserJudgedAnyElement(nodes as never, edges as never)).toBe(false)
+
+    // Both fields, because `resultsComplete` writes both in one set(): status
+    // 'complete' and the flag. Setting only the flag would make this case fail
+    // under a status-based predicate too, and the pair below would then prove
+    // nothing about WHICH authority is read.
+    useCanvasStore.setState({
+      nodes,
+      edges,
+      hasCompletedFirstRun: true,
+      results: { status: 'complete', progress: 100, report: { ok: true } as never },
+    })
+    render(<FirstModelNotice />)
+    expect(screen.queryByTestId(FIRST_MODEL_NOTICE_TESTID)).toBeNull()
+  })
+
+  it('stays absent mid-rerun, when status has left "complete" but the results are still on screen', () => {
+    // `resultsStart` moves status to 'preparing' while preserving report/hash/
+    // drivers, so this state is reachable on every rerun. The precondition is
+    // asserted so the case cannot silently degrade into the one above.
+    const nodes = [storeNode('n1'), storeNode('n2')]
+    const edges = [storeEdge({ weight: 0.6, weightSource: 'cee' })]
+    useCanvasStore.setState({
+      nodes,
+      edges,
+      hasCompletedFirstRun: true,
+      results: { status: 'preparing', progress: 0, report: { ok: true } as never },
+    })
+    expect(useCanvasStore.getState().results.status).not.toBe('complete')
+    expect(useCanvasStore.getState().results.report).not.toBeUndefined()
+
+    render(<FirstModelNotice />)
+    expect(screen.queryByTestId(FIRST_MODEL_NOTICE_TESTID)).toBeNull()
+  })
+
+  it('still renders pre-run — the clause withdraws the notice, it does not disable it', () => {
+    // The contrast half. Without this, a mutant that hid the notice
+    // unconditionally would pass every assertion above.
+    useCanvasStore.setState({
+      nodes: [storeNode('n1'), storeNode('n2')],
+      edges: [storeEdge({ weight: 0.6, weightSource: 'cee' })],
+      hasCompletedFirstRun: false,
+    })
+    render(<FirstModelNotice />)
+    expect(screen.getByTestId(FIRST_MODEL_NOTICE_TESTID).textContent).toContain(FIRST_MODEL_NOTICE_COPY)
   })
 
   it('the dismiss control removes it', () => {
