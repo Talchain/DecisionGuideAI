@@ -1,38 +1,44 @@
 import { describe, expect, it } from 'vitest'
 import path from 'node:path'
 import fs from 'node:fs'
-import { jsxSourceFilesIn, openingTagSpan } from '../../../../../tests/helpers/jsxTextEntryScan'
-import { stripComments } from '../../../../../tests/helpers/stripSourceComments'
+import ts from 'typescript'
+import { jsxSourceFilesIn } from '../../../../../tests/helpers/jsxTextEntryScan'
 
 /**
  * ⭐⭐ ONE COLOUR, ONE QUESTION: `text-info` MEANS "YOU CAN PRESS THIS".
  *
- * The approved design states the rule as `shape = what it is · colour = how
- * it's doing · icon = what you can do`. The panel had drifted off it in the
- * quietest possible way — not by inventing colours, but by spending the ACTION
- * colour on things that are not actions:
- *
- *   - a `<span>` grounding chip and a `<button>` method chip, both
- *     `rounded-full bg-info/10 px-2 py-0.5 text-info` at `panelMeta`, sitting
- *     side by side. At REST they were pixel-identical; the only difference was
- *     `hover:bg-info/20`, which does not exist on touch and is invisible until
- *     the reader has already guessed;
- *   - the same collision inside `ModelStrip`'s detail chip row, where one
- *     static label shared a `flex-wrap` row with four pressable pills;
- *   - a lead-in LABEL inside a paragraph rendered `text-info`, four lines above
- *     a button that genuinely was pressable.
- *
- * ⚠ WHY A GUARD AND NOT A PASS. Every one of those was correct-looking in
- * isolation and only wrong NEXT TO ITS NEIGHBOUR, so it survives file-by-file
- * review indefinitely — the reviewer never has both elements on screen at once.
- * That is precisely the defect class a derived scan sees and a human does not.
+ * The approved design states it as `shape = what it is · colour = how it's
+ * doing · icon = what you can do`. The panel had drifted off it in the
+ * quietest way — not by inventing colours, but by spending the ACTION colour
+ * on things that are not actions: a pressable method chip and a static
+ * grounding chip rendered identically at rest, separated only by a `hover:`
+ * that does not exist on touch.
  *
  * ⚠ WHAT THIS DELIBERATELY PERMITS: the action colour INSIDE an action. The
- * primary-intervention card in `AtAGlance` is itself a `<button>`, and its
- * `Sparkles` icon and method chip are info-coloured children of it. Nothing
- * there misleads — every pixel in that card is pressable — so the rule is
- * about ANCESTRY, not about the element alone. A guard without the ancestor
- * stack would have demanded that card be de-coloured, which is the wrong fix.
+ * primary-intervention card in `AtAGlance` IS a `<button>`, and its icon and
+ * chip are info-coloured children of it. Nothing there misleads, so the rule
+ * is about ANCESTRY, not about the element alone.
+ *
+ * ⭐⭐⭐ THIS USES THE TYPESCRIPT PARSER, AND THAT IS THE WHOLE POINT.
+ *
+ * Three hand-rolled versions of this scan were defeated in one night, each by
+ * a different delimiter:
+ *
+ *   1. a pseudo-tag in a DOUBLE-QUOTED string   → blanked strings
+ *   2. TypeScript GENERICS (`useState<string | null>`) leaking stack frames,
+ *      and `<` in COMPARISONS (`Array<{`, `a <= b`)  → required a close tag
+ *   3. a pseudo-tag in a TEMPLATE literal        → handled backticks
+ *   4. ⚠ ORDINARY ENGLISH APOSTROPHES — "Here's what we found" … "We don't
+ *      have enough runs yet" — read as a string literal spanning the JSX
+ *      between them, erasing a planted violation. 8/8 GREEN, plant invisible,
+ *      AND THE STACK STILL BALANCED, so the residual-depth control read clean.
+ *
+ * Four rounds on one tokeniser is this estate's own signal that the approach
+ * is wrong, not that the next patch is missing. **The repo already depends on
+ * a parser that knows JSX text from string literals.** So this asks
+ * TypeScript, and every one of those four classes stops being expressible: no
+ * delimiters, no stack to leak, and ancestry comes from the tree rather than
+ * from a counter that can drift.
  */
 
 const PANEL_DIR = path.resolve(__dirname, '..')
@@ -40,87 +46,11 @@ const ACTION_COLOUR = 'text-info'
 
 /**
  * `focus-visible:ring-info` is the focus RING, not the action colour, and it
- * legitimately appears on things that are already interactive. Matching it
- * would make the guard fire on its own permitted cases.
+ * legitimately appears on things that are already interactive.
  */
 const RING_ONLY = /(?:focus-visible:|focus:|hover:|group-\w+:)?ring-info/g
 
 const INTERACTIVE_TAGS = new Set(['button', 'a', 'input', 'select', 'textarea'])
-
-/**
- * ⚠⚠ THE SCAN COPY. Blank the CONTENTS of quoted strings, preserving both the
- * quotes and the byte offsets, so the structural walk cannot mistake prose for
- * markup while `className` values are still read from the ORIGINAL source at
- * the same positions.
- *
- * A reviewer defeated the first version of this guard with one line:
- *
- *     const S = "see <button> for details"
- *
- * `<button` inside a string literal pushed `true` onto the ancestor stack and
- * nothing ever popped it, so every later element in the file was treated as
- * licensed and an unlicensed plant went GREEN.
- */
-function blankStringContents(code: string): string {
-  const out = code.split('')
-  let i = 0
-  while (i < out.length) {
-    const c = out[i]
-    if (c === "'" || c === '"') {
-      const quote = c
-      i += 1
-      while (i < out.length && out[i] !== quote) {
-        if (out[i] === '\\') { out[i] = ' '; i += 1; if (i < out.length) out[i] = ' ' }
-        else if (out[i] !== '\n') out[i] = ' '
-        i += 1
-      }
-    } else if (c === '`') {
-      /*
-       * ⚠⚠ BACKTICKS, AND THEIR ABSENCE DEFEATED THIS GUARD BY ONE CHARACTER.
-       * The first version handled `'` and `"` only, so a matched pseudo-pair
-       * split across two TEMPLATE literals restored the original blindness
-       * with the stack still balanced — the plant went invisible while the
-       * identical file using quotes was caught.
-       *
-       * ⚠ AND IT IS NOT HYPOTHETICAL: seventeen template literals containing
-       * `<` already sit in the sixteen scanned files, `` `<button>` `` among
-       * them. They are harmless only because every one is currently inside a
-       * comment. Uncomment one and the guard goes quiet.
-       *
-       * ⚠ `${…}` IS NOT BLANKED. Interpolations hold real code, including JSX,
-       * so blanking them would hide elements the scan must see — trading a
-       * false-negative for a different one. Brace depth is tracked so the
-       * template's TEXT is blanked and its EXPRESSIONS are not.
-       */
-      i += 1
-      while (i < out.length && out[i] !== '`') {
-        if (out[i] === '\\') { out[i] = ' '; i += 1; if (i < out.length) out[i] = ' '; i += 1; continue }
-        if (out[i] === '$' && out[i + 1] === '{') {
-          let depth = 0
-          i += 1
-          do {
-            if (out[i] === '{') depth += 1
-            else if (out[i] === '}') depth -= 1
-            i += 1
-          } while (i < out.length && depth > 0)
-          continue
-        }
-        if (out[i] !== '\n') out[i] = ' '
-        i += 1
-      }
-    }
-    i += 1
-  }
-  return out.join('')
-}
-
-function isInteractive(tag: string, attrs: string): boolean {
-  return (
-    INTERACTIVE_TAGS.has(tag.toLowerCase()) ||
-    /\bonClick\s*=/.test(attrs) ||
-    /\brole\s*=\s*["'{]?\s*["']?(button|link|menuitem|tab|option|switch)\b/.test(attrs)
-  )
-}
 
 interface Site {
   readonly file: string
@@ -129,161 +59,103 @@ interface Site {
   readonly licensed: boolean
 }
 
-/**
- * Walk a file's JSX maintaining an ancestor stack, and report every element
- * wearing the action colour together with whether an action licenses it.
- *
- * ⚠ The stack is pushed for an opening tag and popped for `</Tag>`; a
- * self-closing tag is never pushed. Fragments (`<>`/`</>`) carry no attributes
- * and no interactivity, so they are tracked purely to keep the stack balanced.
- */
-function actionColourSites(src: string, file: string): { sites: Site[]; residualDepth: number } {
-  const raw = stripComments(src, file)
-  const code = blankStringContents(raw)
-  const sites: Site[] = []
-  const stack: boolean[] = []
-  let i = 0
-  while (i < code.length) {
-    const lt = code.indexOf('<', i)
-    if (lt === -1) break
-
-    if (code[lt + 1] === '/') {
-      stack.pop()
-      i = code.indexOf('>', lt) + 1 || code.length
-      continue
+function isInteractive(
+  el: ts.JsxOpeningElement | ts.JsxSelfClosingElement,
+  sf: ts.SourceFile,
+): boolean {
+  const tag = el.tagName.getText(sf)
+  if (INTERACTIVE_TAGS.has(tag.toLowerCase())) return true
+  for (const p of el.attributes.properties) {
+    if (!ts.isJsxAttribute(p)) continue
+    const name = p.name.getText(sf)
+    if (name === 'onClick') return true
+    if (name === 'role') {
+      const v = p.initializer?.getText(sf) ?? ''
+      if (/button|link|menuitem|tab|option|switch/.test(v)) return true
     }
-
-    const name = /^<([A-Za-z][\w.]*)?/.exec(code.slice(lt))
-    if (name === null) {
-      i = lt + 1
-      continue
-    }
-    const tag = name[1] ?? ''
-    /*
-     * ⚠ AN EMPTY TAG NAME IS A FRAGMENT ONLY WHEN THE VERY NEXT CHARACTER IS
-     * `>`. Otherwise it is a COMPARISON — `a <= b`, `count < 3` — and the span
-     * walk runs on to some unrelated `>` far below, pushing a frame that never
-     * closes. That was the last residue after the generics fix: two phantom
-     * `<>` frames, in `AtAGlance` and `StrengthenTheReasoning`.
-     */
-    if (tag === '' && code[lt + 1] !== '>') {
-      i = lt + 1
-      continue
-    }
-    const span = openingTagSpan(code, lt + 1 + tag.length)
-    if (span === null) {
-      // A tag that never closes is a hard error, never a silent skip.
-      throw new Error(`${file}: unterminated opening tag <${tag}> at offset ${lt}`)
-    }
-    const attrs = raw.slice(lt + 1 + tag.length, span.end)
-    const selfInteractive = isInteractive(tag, attrs)
-
-    const withoutRings = attrs.replace(RING_ONLY, '')
-    if (withoutRings.includes(ACTION_COLOUR)) {
-      sites.push({
-        file,
-        line: raw.slice(0, lt).split('\n').length,
-        tag,
-        licensed: selfInteractive || stack.some(Boolean),
-      })
-    }
-
-    /*
-     * ⚠⚠ THE BIGGER LEAK, AND IT WAS NOT THE STRING LITERAL. Measured across
-     * this directory, SEVEN of sixteen files ended with a non-empty stack —
-     * and the leaked names say why: `NonNullable`, `MarkKind`, `string`,
-     * `boolean`, `ReturnType`. TYPESCRIPT GENERICS. `useState<string | null>`
-     * matches `<string`, walks to its `>`, and pushes a frame nothing closes.
-     *
-     * A real JSX element that is not self-closing HAS a closing tag. A generic
-     * never does. Requiring one is a cheap, total filter for both classes.
-     */
-    const closes = code.indexOf(`</${tag}`, span.end) !== -1
-    if (!span.selfClosing && closes) stack.push(selfInteractive)
-    i = span.end + 1
   }
-  return { sites, residualDepth: stack.length }
+  return false
 }
 
-/**
- * ⚠ THE BLANKER GETS ITS OWN CASES, because a reviewer defeated the first
- * version of it BY ONE CHARACTER — it handled `'` and `"` and not the
- * backtick, so a pseudo-tag in a template literal restored the blindness with
- * the stack still balanced. Proving the whole guard REDs on a plant is
- * necessary and not sufficient: it does not say WHICH delimiter was covered.
- */
-describe('blankStringContents — every delimiter, and interpolations preserved', () => {
-  const hidden = (src: string) => !blankStringContents(src).includes('<button')
+function classNameText(
+  el: ts.JsxOpeningElement | ts.JsxSelfClosingElement,
+  sf: ts.SourceFile,
+): string {
+  for (const p of el.attributes.properties) {
+    if (ts.isJsxAttribute(p) && p.name.getText(sf) === 'className') {
+      return p.initializer?.getText(sf) ?? ''
+    }
+  }
+  return ''
+}
 
-  it('blanks a pseudo-tag in a double-quoted string', () => {
-    expect(hidden('const s = "see <button> here"')).toBe(true)
-  })
+/** Every JSX element in the file, with whether an ACTION encloses it. */
+function actionColourSites(src: string, file: string): { sites: Site[]; elements: number } {
+  const sf = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const sites: Site[] = []
+  let elements = 0
 
-  it('blanks a pseudo-tag in a single-quoted string', () => {
-    expect(hidden("const s = 'see <button> here'")).toBe(true)
-  })
+  const record = (
+    el: ts.JsxOpeningElement | ts.JsxSelfClosingElement,
+    ancestorIsAction: boolean,
+  ): void => {
+    elements += 1
+    const cls = classNameText(el, sf).replace(RING_ONLY, '')
+    if (!cls.includes(ACTION_COLOUR)) return
+    sites.push({
+      file,
+      line: sf.getLineAndCharacterOfPosition(el.getStart(sf)).line + 1,
+      tag: el.tagName.getText(sf),
+      licensed: isInteractive(el, sf) || ancestorIsAction,
+    })
+  }
 
-  it('blanks a pseudo-tag in a TEMPLATE literal — the one that got through', () => {
-    expect(hidden('const s = `see <button> here`')).toBe(true)
-  })
+  const visit = (node: ts.Node, ancestorIsAction: boolean): void => {
+    if (ts.isJsxElement(node)) {
+      const open = node.openingElement
+      record(open, ancestorIsAction)
+      // ⚠ ANCESTRY FROM THE TREE, not from a stack. A stack has to be pushed
+      // and popped in step with the source, which is exactly what generics,
+      // comparisons and pseudo-tags broke. Here it is just recursion.
+      const within = ancestorIsAction || isInteractive(open, sf)
+      node.children.forEach((c) => visit(c, within))
+      return
+    }
+    if (ts.isJsxSelfClosingElement(node)) {
+      record(node, ancestorIsAction)
+      return
+    }
+    ts.forEachChild(node, (c) => visit(c, ancestorIsAction))
+  }
 
-  it('does NOT blank a `${…}` interpolation — that is real code the scan must see', () => {
-    // Blanking interpolations would trade one false negative for another:
-    // JSX and identifiers inside them are elements the walk has to count.
-    const out = blankStringContents('const s = `a ${cond ? <button/> : null} b`')
-    expect(out).toContain('<button/>')
-    expect(out).toContain('cond ?')
-  })
-
-  it('preserves byte offsets exactly, so className is still read from the original', () => {
-    const src = 'const s = "abc"; const t = `de${x}f`;'
-    expect(blankStringContents(src)).toHaveLength(src.length)
-  })
-})
+  visit(sf, false)
+  return { sites, elements }
+}
 
 describe('the action colour means pressable, and nothing else', () => {
   const files = jsxSourceFilesIn(PANEL_DIR)
   const scans = files.map((f) => ({
     file: path.relative(PANEL_DIR, f),
-    ...actionColourSites(fs.readFileSync(f, 'utf8'), path.relative(PANEL_DIR, f)),
+    ...actionColourSites(fs.readFileSync(f, 'utf8'), f),
   }))
   const sites = scans.flatMap((s) => s.sites)
 
   /**
-   * ⭐⭐ THE PRECONDITION THAT ACTUALLY DETECTS THE FAILURE MODE.
+   * ⚠ PRECONDITION. Every assertion below is an ABSENCE claim, and an absence
+   * claim from a blind instrument is vacuous.
    *
-   * ⚠ THE ONE THIS REPLACES WAS INVERTED, AND A REVIEWER PROVED IT. It
-   * asserted `licensed > 5` — but the failure mode is a leaked ancestor frame
-   * that marks everything downstream as licensed, so the corruption PUSHES
-   * THAT NUMBER UP. The control moved in the same direction as the defect: it
-   * could never have fired. An inverted control is worse than none, because it
-   * reads as diligence.
+   * ⚠⚠ AND THE ONE THIS REPLACES WAS DEFEATED TWICE. `licensed > 5` was
+   * INVERTED — over-licensing pushes it UP, the same direction as the defect.
+   * Its replacement, a stack-balance check, read CLEAN while an apostrophe
+   * erased a planted violation, because the phantom string was balanced.
    *
-   * The walk is a stack, so it has a property that cannot be faked in either
-   * direction: over a well-formed file it must END EMPTY. A pseudo-tag inside
-   * a string literal, or a TypeScript generic read as an element, leaves a
-   * residue — and this REDs, naming the file.
-   *
-   * Measured before the fix: SEVEN of sixteen files left residue
-   * (`ModelStrip` 14 deep, `StrengthenTheReasoning` 8), so the ancestor
-   * licensing was unreliable across nearly half the directory while the guard
-   * reported clean.
+   * A parser cannot half-work: if it fails, the element count collapses. So
+   * the control is the count of JSX elements actually parsed, which no
+   * mis-tokenisation can inflate.
    */
-  it('the ancestor walk balances on every file (it cannot be silently blinded)', () => {
+  it('the parser actually read the panel (contrast control)', () => {
     expect(files.length).toBeGreaterThan(10)
-    const leaking = scans.filter((s) => s.residualDepth > 0).map((s) => `${s.file} (+${s.residualDepth})`)
-    expect(
-      leaking,
-      'A non-empty stack at end of file means a frame was pushed and never ' +
-        'popped — a `<tag>` inside a string, or a TypeScript generic read as ' +
-        'an element. Every element after it is then treated as licensed, so ' +
-        'the guard goes quietly blind.',
-    ).toEqual([])
-  })
-
-  it('the scan still sees the licensed uses it is supposed to permit', () => {
-    // Kept as a SEPARATE, non-inverted control: the walk reaching zero files,
-    // or matching nothing, is a different failure from an unbalanced stack.
+    expect(scans.reduce((n, s) => n + s.elements, 0)).toBeGreaterThan(200)
     expect(sites.filter((s) => s.licensed).length).toBeGreaterThan(5)
   })
 
@@ -294,8 +166,7 @@ describe('the action colour means pressable, and nothing else', () => {
       'A non-interactive element is wearing `text-info`. At rest it is ' +
         'indistinguishable from the pressable controls beside it, and hover ' +
         'does not exist on touch. Give it the pill SHAPE if it needs one, but ' +
-        'a neutral colour (`bg-panel-hover` / `text-text-light`) — or, if it ' +
-        'genuinely is a control, make it one.',
+        'a neutral colour — or, if it genuinely is a control, make it one.',
     ).toEqual([])
   })
 })
