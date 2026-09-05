@@ -228,6 +228,37 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   // one is a legacy/fixture caller and keeps the previous behaviour. Read ONCE,
   // here, so a trigger added later cannot quietly reintroduce the conflation by
   // reaching for `analysisComplete` again.
+  //
+  // ⚠ SAME NAME AS THE EXPORT IN `analysisClaimPolicy.ts`, AND — SINCE #1190 —
+  // THE SAME ANSWER. This local is NOT a second question. Both production
+  // callers thread the COMPOSED answer into `inputs.hasLeadingOption`:
+  //
+  //   `strengthen/StrengthenContainer.tsx`                  → leaderDesignationPermitted(data.recommendation)
+  //   `analysisNew/buildStrengthenInputsForAnalysisNew.ts`  → leaderDesignationPermitted(data.recommendation)
+  //
+  // so on every live path `inputs.hasLeadingOption` already carries the CEE
+  // lattice AND this result's separation, and this local means exactly what
+  // the export means. Importing the export here would change no trigger.
+  //
+  // ⚠⚠ AN EARLIER VERSION OF THIS COMMENT SAID THE OPPOSITE — that the local
+  // "answers Q2 ALONE, because `inputs` carries no admission and this module
+  // is not on that seam", and that importing the export "would silently change
+  // which triggers fire". Both sentences were false at the tip that shipped
+  // them: `StrengthenContainer` already threaded the composed answer, so the
+  // divergence was never local-vs-export but CALLER-vs-CALLER, and #1190 then
+  // closed the one caller that did read Q2 alone. A false comment describing
+  // successor work is worse than no comment — it tells the next reader the
+  // question is settled in the wrong direction — which is why the correction
+  // is recorded here rather than the old text simply being deleted.
+  //
+  // THE REAL, REMAINING HAZARD IS THE INTERFACE, NOT THE NAME. This module
+  // DERIVES nothing: it reads whatever its caller threaded. A third caller
+  // that threads `verdict.hasLeadingOption` instead would silently re-open the
+  // divergence on `quantified_provisional`, here, with no red. That is pinned
+  // by `__tests__/strengthenInputsCallersThreadComposed.spec.ts`, which
+  // enumerates the production call sites rather than trusting this paragraph —
+  // a comment is a hand-maintained mirror, and this one has already drifted
+  // once (CLAUDE.md trap 12).
   const leaderClaimWithheld = inputs.hasLeadingOption === false
 
   /**

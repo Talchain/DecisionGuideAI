@@ -18,6 +18,19 @@
 
 import { useMemo, memo, useState, type ReactNode } from 'react'
 import { leaderDesignationPermitted } from './leaderDesignation'
+// MAY THIS PANEL NAME A LEADER? The shared three-answer claim policy. The
+// footer below reads `leaderDesignationPermitted` directly because it needs
+// the tri-state for its own `unknown` glyph; the PROSE sites read
+// `leaderClaimWithheld`, which is that same answer with the strict `=== false`
+// spelling every copy branch wants. One authority, two spellings of the same
+// read — never a second derivation.
+//
+// MAY THIS PANEL STATE A STRENGTH WORD? `mayStateStability` is the THIRD
+// answer, and it is deliberately NOT the leader answer: separation is a
+// property of this result, robustness a property of the run's sensitivity.
+// The two are read separately here — never conjoined, never one standing in
+// for the other (CLAUDE.md trap 21).
+import { analysisClaimPolicy, leaderClaimWithheld } from './analysisClaimPolicy'
 import { AlertTriangle, Check, ChevronDown, ChevronRight, HelpCircle, X } from 'lucide-react'
 import { ConditionalWinnerCards } from './ConditionalWinnerCards'
 import { resolveTriageBodyText } from '@/components/shared/resolveTriageBodyText'
@@ -376,6 +389,20 @@ function T1FlipRiskCallout({
   // footer speaks for a SOLO sweep of root factors. Same fix as the fragile card:
   // the presupposing verb goes, ALL data stays (see `fragileEdgeCopy`).
   const attestsNoFlip = attestsNoFactorFlip(data.recommendation.flipThresholds)
+  // ⚠ A SECOND, INDEPENDENT AUTHORITY — AND IT IS NOT THE FLIP ONE.
+  //
+  // `attestsNoFlip` answers "did a SOLO sweep of root factors move the
+  // leader?"; this answers "may this panel name a leader AT ALL?" Two
+  // questions, and on the witnessed run they disagreed: no flip attestation
+  // was present (so the strong branch below fired, with its percentage) while
+  // the footer three rows down said "Leading option not assessed". The user
+  // read "Two Mid-Level Developers at £70k Each could overtake (57%
+  // probability)" beside a panel that had declined to name a leader.
+  //
+  // Conjoining these two into one boolean would put two questions under one
+  // name (CLAUDE.md trap 21). They stay separate and compose at the point of
+  // use: a permitted run keeps BOTH branches exactly as before.
+  const mayNameLeader = !leaderClaimWithheld(data.recommendation)
   const switchPct = fragile.switchProbability != null
     ? Math.round(fragile.switchProbability * 100)
     : null
@@ -398,9 +425,29 @@ function T1FlipRiskCallout({
     >
       <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
       <p className={`${typography.panelBody} text-text-body`}>
-        If <strong>{fromLabelDisplay}</strong> shifts,{' '}
-        <strong>{altWinnerLabelDisplay}</strong>{' '}
-        {attestsNoFlip ? 'could gain ground' : 'could overtake'}
+        {/* ⭐ THE WITHHELD BRANCH KEEPS THE FINDING AND DROPS THE RANKING.
+            "{alt} could gain ground / could overtake" is a COMPARATIVE claim:
+            gaining ground on something, or overtaking it, both presuppose a
+            leader to close on. On a run that named none, the honest sentence
+            is the fragility itself — this factor moves the result — which is
+            the whole reason the callout exists and the whole reason its
+            Validate route matters.
+
+            The alternative option's NAME goes with the comparison, not out of
+            squeamishness: outside a ranking claim, "Two Mid-Level Developers
+            could…" has no predicate left to attach to. It survives in full on
+            the fragile card, which is where the finding lives in detail. */}
+        {mayNameLeader ? (
+          <>
+            If <strong>{fromLabelDisplay}</strong> shifts,{' '}
+            <strong>{altWinnerLabelDisplay}</strong>{' '}
+            {attestsNoFlip ? 'could gain ground' : 'could overtake'}
+          </>
+        ) : (
+          <>
+            If <strong>{fromLabelDisplay}</strong> shifts, the result could change
+          </>
+        )}
         {/* ⚠ THE PERCENTAGE GOES WITH THE VERB, and the reason is not the
             authority's rule alone — it is that the NUMBER WOULD SAY MORE THAN
             THE SENTENCE IT SITS IN. `switch_probability` means P(the
@@ -414,7 +461,13 @@ function T1FlipRiskCallout({
             This is not the product saying less: it is declining to say
             something false. The finding survives in full on the fragile card
             (count, labels, E-values, alt-winner, Stability pill). */}
-        {!attestsNoFlip && switchPct != null && ` (${switchPct}% probability)`}.
+        {/* ⚠ AND THE PERCENTAGE GOES WITH THE VERB IN THE WITHHELD BRANCH TOO,
+            for the SAME reason the comment above gives for the attested-no-flip
+            branch: `switch_probability` means P(the alternative OVERTAKES), so
+            it is a ranking claim expressed as a number. A run that may not name
+            a leader may not quantify one overtaking it either. It is a CLAIM,
+            not data, and it goes with the sentence that carried it. */}
+        {mayNameLeader && !attestsNoFlip && switchPct != null && ` (${switchPct}% probability)`}.
         {onFocusNode && fragile.fromId && (
           <>
             {' '}
@@ -502,7 +555,18 @@ function T1DominantNudge({
   // could change"; the P0 surface-copy cleanup retired that. The two
   // branches diverge only in noun choice — v17 hero says "the leading
   // option", legacy panel says "the result".
-  const trailingClause = useV17Copy
+  // ⚠ TWO GATES, AND THEY ANSWER DIFFERENT QUESTIONS. `useV17Copy` asks which
+  // VOCABULARY this host speaks; the claim policy asks whether this RUN may
+  // name a leader at all. Only the v17 branch ever said "the leading option",
+  // so only it needs the second gate — and a withheld run falls back to the
+  // legacy spelling, which is already the glossary-safe sentence this file
+  // ships for exactly this meaning. No new copy is authored.
+  //
+  // The claim lives in the `title` and `aria-label` long form, not in the
+  // visible row, which is precisely why a text-only sweep of the panel could
+  // not see it. A tooltip and a screen-reader announcement are the product
+  // speaking.
+  const trailingClause = useV17Copy && !leaderClaimWithheld(data.recommendation)
     ? 'If your assumptions about this factor are wrong, the leading option could change.'
     : 'If your assumptions about this factor are wrong, the result could change.'
   // (Round-5 P1.1) v17 mode: the dominant factor's label is user data and
@@ -627,7 +691,26 @@ function T1ChecksFooter({
   //
   // `unknown` therefore renders the neutral third state — the same idiom the
   // robustness check beside it already uses for 'Robustness not assessed'.
-  const winnerUndetermined = verdict != null && verdict.separation === 'unknown'
+  //
+  // ⚠ AND `separation === 'unknown'` IS NOT THE WHOLE OF "NO AUTHORITY" — the
+  // rule ten lines above is stated about `'unknown'` because that was the state
+  // in hand, but what it LICENSES is narrower than what it forbids: the denial
+  // is licensed for `'tied'` ONLY. A MODE-withheld run walks straight past a
+  // predicate that reads `separation` alone. `quantified_provisional` +
+  // `separation: 'clear'` gives `hasWinner === false` (it reads the COMPOSED
+  // answer) with `winnerUndetermined === false`, so the footer rendered the
+  // affirmative denial "No clear leader" on a run whose model licensed no
+  // comparative claim at all — an invented finding, which is the same class of
+  // lie as a crown, pointing the other way.
+  //
+  // So the predicate is written against what the rule ALLOWS (`'tied'` denies;
+  // everything else without a permitted leader is silence) rather than against
+  // the one state that produced it — CLAUDE.md trap 13d. It is a STRICT
+  // WIDENING: the `'unknown'` disjunct is kept verbatim, so nothing that reads
+  // undetermined today stops doing so, and the `'tied'` denial is untouched.
+  const winnerUndetermined =
+    verdict != null
+    && (verdict.separation === 'unknown' || (!hasWinner && verdict.separation !== 'tied'))
   // Robustness glyph: driven ONLY by the display-safe robustness verdict
   // (`robustnessVerdict`) — never PLoT `report.robustness.level`, never the
   // UI-SEM-005 stability fallback, never a recommendationStability threshold.
@@ -637,13 +720,50 @@ function T1ChecksFooter({
   // producer's meaning; a missing field (older PLoT builds) keeps the
   // "Robustness unknown" state. See ROBUSTNESS-VERDICT-CONTRACT.
   const robustnessVerdict = data.recommendation.robustnessVerdict
-  const robustOk = robustnessVerdict === 'robust'
+  // ⭐ THE MODEL'S AUTHORSHIP, NOT THE RUN'S OUTCOME (#1206, witnessed on
+  // deployed `91724b01`). CEE's admission carries its own sentence about this:
+  //
+  //   "Figures can be shown as provisional, but no option can be called the
+  //    leader and NO RESULT CAN BE CALLED STABLE OR ROBUST until you have set
+  //    at least one of them."
+  //
+  // On that run `permitted_analysis_mode` was `quantified_provisional` and this
+  // glyph rendered "Robust" anyway — while the glyph BESIDE it correctly said
+  // "Leading option not assessed". Half of one admission consumed, half not.
+  //
+  // `mayStateStability` is lattice-only (`comparative_leader` alone licenses a
+  // strength word) and is NOT conjoined with separation: a run may separate its
+  // arms and still license no statement about a ranking holding.
+  const mayStateStability = analysisClaimPolicy(data.recommendation).mayStateStability
+  // The producer's verdict still decides WHICH determinate state we would have
+  // rendered; the admission decides whether we may state it at all.
+  //
+  // ⚠ THIS CONJUNCT IS DEFENCE IN DEPTH AND CANNOT CURRENTLY BE OBSERVED —
+  // stated because a mutant survives here and the next reader deserves the
+  // answer rather than the puzzle. `robustKnown` below carries the same gate,
+  // and whenever it is false `ChecksGlyph` takes its `unknown` branch, which
+  // short-circuits `ok` in the label, the icon AND the colour. So removing
+  // `&& mayStateStability` from THIS line alone changes no rendered output.
+  //
+  // Demonstrated, not asserted, by a discriminating pair: gate removed here
+  // only → 50/50 GREEN (equivalent); gate removed from `robustKnown` only →
+  // REDs the glyph-STATE arm (the row would render the red danger X); both
+  // removed → REDs two arms, including the label going back to "Robust". The
+  // conjunct is kept so that a future edit to `robustKnown`'s branch cannot
+  // silently re-license the strength word from this line.
+  const robustOk = robustnessVerdict === 'robust' && mayStateStability
   // Determinate = a real robust/sensitive claim exists. Explicit allowlist —
   // 'not_assessed' and unknown values must never render as "Sensitive".
+  //
+  // ⚠ "Sensitive to assumptions" IS ALSO A STABILITY VERDICT. Suppressing only
+  // the flattering word would leave the panel free to state the unflattering
+  // one on the same unlicensed authority — a gate that fires in one direction
+  // is not a gate, it is an editorial preference.
   const robustKnown =
-    robustnessVerdict === 'robust' ||
-    robustnessVerdict === 'moderate' ||
-    robustnessVerdict === 'fragile'
+    mayStateStability &&
+    (robustnessVerdict === 'robust' ||
+      robustnessVerdict === 'moderate' ||
+      robustnessVerdict === 'fragile')
   const gaps = data.confidence.topEvidenceGaps ?? data.confidence.evidenceGaps ?? []
   // ⭐ NO DENIAL WITHOUT AUTHORITY — THE EVIDENCE TWIN (UX gate point 8,
   // 18 Aug 2026). This is the SAME ruling applied 24 lines above to the leader
@@ -751,16 +871,55 @@ function T1ChecksFooter({
           // "Sensitive" alone names no subject. Sensitive to WHAT is the whole
           // content of the verdict, and the producer's own reason phrase (the
           // tooltip below) has always said "to assumptions".
+          // ⭐ A FOURTH STATE, AND THE OTHER THREE ARE ALL FALSE HERE.
+          //
+          //   · "Robustness not assessed" says the producer did not test. It
+          //     did.
+          //   · "Robustness unknown" says no verdict came back. One did.
+          //   · "Robust" / "Sensitive to assumptions" state that verdict, which
+          //     is the thing the admission withholds.
+          //
+          // The run tested, and the result held. What is missing is the
+          // AUTHORSHIP that would entitle this panel to say so — so the label
+          // names what is unestablished rather than something that failed to
+          // happen.
           notOkLabel={
-            robustKnown
-              ? 'Sensitive to assumptions'
-              : robustnessVerdict === 'not_assessed'
-                ? 'Robustness not assessed'
-                : 'Robustness unknown'
+            !mayStateStability
+              ? 'Robustness not established'
+              : robustKnown
+                ? 'Sensitive to assumptions'
+                : robustnessVerdict === 'not_assessed'
+                  ? 'Robustness not assessed'
+                  : 'Robustness unknown'
           }
           // Producer-owned reason phrase, verbatim (native tooltip) — never
           // authored in the UI, never shown without its verdict.
-          title={data.recommendation.robustnessVerdictReason}
+          //
+          // ⛔ ON THE WITHHELD STATE THE PRODUCER'S REASON IS REPLACED, NOT
+          // APPENDED: `robustnessVerdictReason` explains the verdict we are
+          // declining to state, so rendering it here would carry the claim
+          // through the tooltip after the label withdrew it.
+          //
+          // ⛔ AND THREE THINGS THIS SENTENCE MUST NOT DO, each derived at the
+          // bytes rather than chosen for tone:
+          //  1. NO "our estimates", and no attribution to Olumi. The witnessed
+          //     payload was `user_stated: 0`, `machine_authored: 9`,
+          //     `unattributed: 8` of 17 — so "Olumi's figures" is FALSE of
+          //     nearly half of them. `glanceProvenanceCopy.ts` keeps a variant
+          //     for exactly this reason, one that "attributes the figures to
+          //     nobody, so it cannot commit the authorship claim this module
+          //     exists to prevent"; that is the vocabulary reused here.
+          //  2. NO NUMBER AND NO COUNT. The wire licenses a per-input
+          //     provenance flag, not a proportion, and this panel has already
+          //     had invented metrics caught on it.
+          //  3. NO PROMISED OUTCOME. Setting a value buys the PERMISSION to
+          //     state a verdict, not a favourable one — "whether it is", never
+          //     "that it is".
+          title={
+            !mayStateStability
+              ? 'The check ran, but on figures whose source is not established there is no basis for calling the result robust. Set a value you know and we can say whether it is.'
+              : data.recommendation.robustnessVerdictReason
+          }
           dataTestid="checks-robust"
         />
         <ChecksGlyph
@@ -849,13 +1008,29 @@ function ChecksGlyph({
 function StabilityNarrative({
   itemCount,
   stabilityScore,
+  mayStateStability = true,
 }: {
   itemCount: number
   stabilityScore: number | undefined
+  /**
+   * ⭐ `Stability: 78%` IS A STRENGTH FIGURE, and it sat here ungated while the
+   * module minting the answer had no consumer at all (cold review, F-COLD-4).
+   * A percentage is not exempt from the admission: "how stable" presupposes the
+   * ranking whose stability the producer refuses to have described.
+   *
+   * ⚠ DEFAULTS TRUE so absence keeps today's behaviour byte for byte — this
+   * consumer must be safe to land ahead of any producer change.
+   *
+   * ⛔ AND THE SUPPRESSED ARM AUTHORS NO NEW COPY. It falls to the lede this
+   * component ALREADY renders when the producer sends no figure, so the
+   * withheld run and the figure-less run read identically and no fifth sentence
+   * enters the surface. What is withdrawn is the figure, not the section.
+   */
+  mayStateStability?: boolean
 }) {
   if (itemCount === 0) return null
   const stabilityPct =
-    typeof stabilityScore === 'number' && Number.isFinite(stabilityScore)
+    typeof stabilityScore === 'number' && Number.isFinite(stabilityScore) && mayStateStability
       ? Math.round(stabilityScore * 100)
       : null
   // ⛔ Two claims removed here, both of which the queue can no longer support.
@@ -1039,6 +1214,13 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
             recommendedOptionId={data.confidence.recommendedOptionId}
             onFocusNode={onFocusNode}
             useV17Copy={useV17Copy}
+            // SURFACE D — the fourth leader-claiming site on this panel, and
+            // the only one that was gated purely on array length. It sat in
+            // THIS FILE, beside the other three, and all three sweeps missed
+            // it: they hunted leader VERBS, and this card's verb is "leads",
+            // which `LEADER_CLAIM_RE` did not carry. The matcher now does;
+            // this prop is the fix the matcher exists to keep honest.
+            mayNameLeader={!leaderClaimWithheld(data.recommendation)}
           />
         </div>
       )}
@@ -1055,6 +1237,7 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
           <StabilityNarrative
             itemCount={top3.length}
             stabilityScore={stabilityScore}
+            mayStateStability={analysisClaimPolicy(data.recommendation).mayStateStability}
           />
 
           {/* ⛔ REMOVED: the "No high-value evidence gaps. Your current
