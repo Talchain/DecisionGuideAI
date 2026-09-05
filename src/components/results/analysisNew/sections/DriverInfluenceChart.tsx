@@ -37,12 +37,13 @@
  * SAME `useFactorValueCommit` hook, and dispatches a real edit. Ranked by what
  * moves the answer most, editable in place: a worklist, not a diagram.
  */
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { ArrowLeft, ArrowRight, Minus } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useFactorValueCommit } from '../useFactorValueCommit'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import type { DriverInfluenceRow } from '../analysisNewTypes'
+import { NAME_OR_CLAIM_COPY, isProseNotName, truncateAtWord } from '../nameOrClaim'
 
 export interface DriverInfluenceChartProps {
   rows: DriverInfluenceRow[]
@@ -73,6 +74,8 @@ export function DriverInfluenceChart({
    * when the list re-orders, which it does on every re-run.
    */
   const [editingFor, setEditingFor] = useState<string | null>(null)
+  const [claimOpenFor, setClaimOpenFor] = useState<string | null>(null)
+  const claimRegionId = useId()
   const [draft, setDraft] = useState('')
   const { commit } = useFactorValueCommit(editingFor)
 
@@ -110,6 +113,12 @@ export function DriverInfluenceChart({
       <ul className="space-y-1">
         {rows.map((row) => {
           const isEditing = editingFor === row.id
+          /* ⚠ A SEPARATE DISCLOSURE FROM `isEditing`, NOT A REUSE OF IT. The
+             row's own expand gesture already means "edit this value"; reading
+             what a factor is called must not require entering an editor, and
+             a reader on a phone had no other route to it at all. */
+          const isProse = isProseNotName(row.label)
+          const claimOpen = claimOpenFor === row.id
           const pct = Math.round(row.fraction * 100)
           const width = `${pct}%`
           return (
@@ -131,11 +140,18 @@ export function DriverInfluenceChart({
                 data-direction={row.direction ?? 'none'}
                 data-fraction={pct}
               >
+                {/* ⚠ CUT AT A WORD, WITH CSS ELLIPSIS STILL BEHIND IT. The
+                    JS cut removes the gross case — a 128-character sentence
+                    sliced mid-word — and `truncate` remains as the backstop
+                    for whatever the column cannot fit at 280px. `title` stays
+                    for mouse users; it is NOT the reachability story, which is
+                    the disclosure below. */}
                 <span
                   className={`${typography.panelBody} text-text-body block truncate`}
                   title={row.label}
+                  data-prose-name={isProse ? 'true' : undefined}
                 >
-                  {row.label}
+                  {isProse ? truncateAtWord(row.label) : row.label}
                 </span>
                 {/* ⚠ `aria-hidden`: the bar is a redraw of `data-fraction` and
                     of the row's position in a sorted list. Announcing a
@@ -179,6 +195,40 @@ export function DriverInfluenceChart({
                   </span>
                 ) : null}
               </button>
+
+              {/* ⭐ DESIGN PICK C2 — TRUNCATE AND DISCLOSE, NEVER REWRITE.
+                  Outside the row `<button>` because a nested button is invalid
+                  markup, and the row's own press means "edit the value".
+                  Costs one line per unnamed factor, which is the point: the
+                  gap creates visible pressure rather than hiding behind a
+                  hover nobody on a phone can reach. */}
+              {isProse ? (
+                <button
+                  type="button"
+                  onClick={() => setClaimOpenFor(claimOpen ? null : row.id)}
+                  aria-expanded={claimOpen}
+                  /* ⚠ POINTS AT THE REGION ONLY WHILE IT EXISTS — the rule
+                     `SectionShell` already follows in this panel. A collapsed
+                     claim is UNMOUNTED rather than CSS-hidden, so a resting
+                     `aria-controls` would reference nothing. */
+                  aria-controls={claimOpen ? `${claimRegionId}-${row.id}` : undefined}
+                  aria-label={claimOpen ? undefined : NAME_OR_CLAIM_COPY.showFullClaimFor(row.label)}
+                  className={`${typography.panelMeta} text-info hover:underline rounded px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                  data-testid={`${testId}-claim-toggle`}
+                >
+                  {claimOpen ? NAME_OR_CLAIM_COPY.hideFullClaim : NAME_OR_CLAIM_COPY.showFullClaim}
+                </button>
+              ) : null}
+
+              {isProse && claimOpen ? (
+                <p
+                  id={`${claimRegionId}-${row.id}`}
+                  className={`${typography.panelBody} text-text-light m-0 px-1 pb-1`}
+                  data-testid={`${testId}-claim`}
+                >
+                  {row.label}
+                </p>
+              ) : null}
 
               {isEditing ? (
                 <div className="pl-1 pt-1 flex items-center gap-1.5" data-testid={`${testId}-editor`}>
