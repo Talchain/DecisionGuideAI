@@ -5,10 +5,10 @@
  * WHY THIS FILE EXISTS
  * --------------------
  * `truncateAtWord` (`DecisionNode.tsx`) was rewritten in this PR so it never
- * cuts inside a word. Its two PRE-EXISTING callers are the triage line's
+ * cuts inside a word. Its ONLY callers in this PR are the triage line's
  * `Top gap: estimate …` and `Top gap: validate …` template literals (measure
- * 40) — a user-visible sentence that has nothing to do with the anchor brief
- * the rewrite was written for. (Cited by the strings they build, not by line
+ * 40) — a user-visible sentence that pre-dates the rewrite and had no test
+ * that could see it move. (Cited by the strings they build, not by line
  * number: an earlier draft gave `:274`/`:313`, which this PR's own docblock
  * then pushed to `:304`/`:343`.) The two specs that already touch
  * this line (`DecisionNode.restingState.spec.tsx`, `.triageProvenance.spec.tsx`)
@@ -37,6 +37,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { DecisionNode } from '../DecisionNode'
+import { compactFactorLabel } from '../../utils/labelUtils'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -202,9 +203,9 @@ describe('DecisionNode triage line — truncation never cuts inside a word', () 
   /**
    * ⚠ THE DELIBERATE OVERRUN, AND IT IS THE ONE WITH A CONSEQUENCE. A single
    * unbroken token has no boundary to cut at, so the rule returns it WHOLE and
-   * the string exceeds the measure. On the anchor brief that is bounded by
-   * `line-clamp-3`; the triage line has NO clamp, so this is the case where the
-   * new rule prints a LONGER line than the old one did.
+   * the string exceeds the measure. The triage line has NO clamp and NO
+   * `break-words`, so this is the case where the new rule prints a LONGER line
+   * than the old one did, with nothing in this file bounding it.
    *
    * ⚠ THE SIZE OF THAT TRADE IS NOT STATED IN PROSE HERE, BECAUSE AN EARLIER
    * DRAFT STATED IT WRONG: it said "60 characters here against the old rule's
@@ -265,5 +266,90 @@ describe('DecisionNode triage line — truncation never cuts inside a word', () 
     renderWith(label)
 
     expect(screen.getByText('Top gap: validate Brand perception')).toBeTruthy()
+  })
+})
+
+/**
+ * ⭐ THE SAME-BEHAVIOUR TWIN THAT NO GREP FOR `truncateAtWord` CAN FIND.
+ *
+ * `canvas/utils/labelUtils.ts:123 truncateLabelAtWord` carries the rule this
+ * PR replaces in `DecisionNode`, under a DIFFERENT NAME. Its source differs
+ * from the merge-base `DecisionNode` helper only in that name and in how the
+ * ellipsis is SPELLED: `'\u2026'` in the node file, the literal character in
+ * `labelUtils`. They are the same character, so a reviewer reading either file
+ * alone sees nothing.
+ *
+ * ⚠ THIS IS AN ASSERTION AND NOT A SENTENCE ON PURPOSE. The prose version of
+ * this fact has been written wrong twice in this PR's own history, both times
+ * as a repo-wide COUNT that no grep can measure. A count cannot be pinned; a
+ * behavioural relationship between two named objects can, and this REDs the
+ * day either side moves.
+ *
+ * It is reached through the exported `compactFactorLabel`, on its FALLBACK
+ * path only — a lookup-table hit returns its replacement verbatim and never
+ * reaches the truncator, so every fixture below pins that precondition rather
+ * than assuming it.
+ *
+ * SCOPE, stated precisely: this asserts a relationship between
+ * `compactFactorLabel`'s fallback path and `OLD_RULE`. It says NOTHING about
+ * how many other truncation helpers exist, and it is not evidence about any
+ * object it does not name.
+ */
+describe('the differently-named twin still carries the pre-PR rule', () => {
+  /** The pre-PR `DecisionNode` helper, reproduced verbatim from `5b764fa6`. */
+  const OLD_RULE = (text: string, maxLength: number): string => {
+    if (text.length <= maxLength) return text
+    const truncated = text.substring(0, maxLength)
+    const lastSpace = truncated.lastIndexOf(' ')
+    return (lastSpace > maxLength * 0.6 ? truncated.substring(0, lastSpace) : truncated).trimEnd() + '…'
+  }
+
+  /** The rule this PR ships in `DecisionNode`, reproduced for the contrast. */
+  const NEW_RULE = (text: string, maxLength: number): string => {
+    if (text.length <= maxLength) return text
+    const lastSpace = text.lastIndexOf(' ', maxLength)
+    if (lastSpace > 0) return text.substring(0, lastSpace).trimEnd() + '…'
+    const firstSpace = text.indexOf(' ')
+    if (firstSpace === -1) return text
+    return text.substring(0, firstSpace).trimEnd() + '…'
+  }
+
+  const MEASURE = 20
+
+  /**
+   * Chosen so the two rules DISAGREE on every one of them — otherwise the
+   * agreement asserted below would be satisfied by a twin carrying either
+   * rule, and the test would discriminate nothing. That precondition is
+   * asserted, not assumed.
+   */
+  const FALLBACK_LABELS = [
+    'Snowflakenativebuildcapacity here',
+    'Use a supercalifragilisticexpialidocious metric',
+    'Averyveryverylongsingletokenindeedhere',
+  ]
+
+  it('every fixture reaches the truncator, and the two rules genuinely disagree on it', () => {
+    expect(FALLBACK_LABELS.length).toBe(3)
+    for (const label of FALLBACK_LABELS) {
+      // Precondition 1: long enough to truncate at all.
+      expect(label.length).toBeGreaterThan(MEASURE)
+      // Precondition 2: the lookup table did NOT short-circuit it. A lookup hit
+      // returns a canonical replacement verbatim; the fallback path returns a
+      // PREFIX of the label plus an ellipsis. Asserting the prefix relation is
+      // what proves the truncator ran at all.
+      const out = compactFactorLabel(label, MEASURE)
+      expect(out.endsWith('…')).toBe(true)
+      expect(label.startsWith(out.slice(0, -1))).toBe(true)
+      // Precondition 3: THE DISCRIMINATOR. If the two rules agreed here, the
+      // assertion in the next test would hold for a twin carrying either one.
+      expect(OLD_RULE(label, MEASURE)).not.toBe(NEW_RULE(label, MEASURE))
+    }
+  })
+
+  it('agrees with the OLD rule and disagrees with the new one — the divergence, pinned', () => {
+    for (const label of FALLBACK_LABELS) {
+      expect(compactFactorLabel(label, MEASURE)).toBe(OLD_RULE(label, MEASURE))
+      expect(compactFactorLabel(label, MEASURE)).not.toBe(NEW_RULE(label, MEASURE))
+    }
   })
 })

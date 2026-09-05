@@ -33,7 +33,6 @@ import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/u
 import { openNodeInspector } from './shared/openNodeInspector'
 import { leaderRobustnessGrade } from './shared/leaderRobustnessGrade'
 import { requestAsk, canReceiveAsk } from '../ui/inspector-v2/askSemantic'
-import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 
 /**
  * EVERY static string the resting state can render or send.
@@ -66,34 +65,6 @@ export const DECISION_RESTING_COPY = {
 } as const
 
 /**
- * ⭐ THE ANCHOR CARD'S OWN COPY — the user's brief, attributed.
- *
- * Paul, 5 Sep 2026, on the deployed anchor node: his brief was not surfaced.
- * That is structurally true and NOT a fallback bug — the wire carries no brief
- * field on the decision node at all, so no default could have supplied it. The
- * brief arrives on a different carrier entirely (`contextIntegrityStore`,
- * written once per scenario by `serverGraphHydration`), and until now reached
- * exactly one surface: the results panel's "What you gave me".
- *
- * ⚠ THE HEADING IS DELIBERATELY THE SAME WORDS THAT PANEL USES. It is the
- * estate's owned phrase for this exact thing, and two different names for one
- * artefact is worse than one name in two places. It is NOT imported from
- * `WhatIWasGivenSection`: that module would pull the whole results panel into
- * the canvas node bundle. Extracting a shared vocabulary module is the right
- * follow-up and is deliberately not taken as a free ride here.
- */
-export const DECISION_ANCHOR_BRIEF_COPY = {
-  heading: 'What you gave me',
-} as const
-
-/**
- * The anchor's measure for the brief. Exported so the guard DERIVES the
- * expected truncation instead of restating a number that would then drift
- * (CLAUDE.md trap 12).
- */
-export const ANCHOR_BRIEF_MAX_CHARS = 160
-
-/**
  * Truncate text at a word boundary — and NEVER inside a word.
  *
  * ⚠ THE OLD FALLBACK CLIPPED MID-WORD. When no space sat past 60% of the
@@ -105,21 +76,35 @@ export const ANCHOR_BRIEF_MAX_CHARS = 160
  *
  * ⚠⚠ THIS IS NOT THE ONE OWNER, AND AN EARLIER DRAFT OF THIS COMMENT SAID IT
  * WAS. The false sentence claimed the exact property this change does not have,
- * so it is corrected here rather than deleted. `canvas/nodes/OptionNode.tsx:38`
- * holds a `truncateAtWord` that was VERBATIM this one: extract both bodies at
- * `5b764fa6` and they differ on a single line, the suffix (`…` here, `...`
- * there), with a live caller at `OptionNode.tsx:1326` that still clips mid-word.
- * `src/utils/text.ts:15-22` already recorded the pair, and its author's reason
- * for leaving them alone — "quietly changing what a canvas node displays is not
- * this change's business." A THIRD, exported `truncateAtWord` lives at
- * `components/results/analysisNew/nameOrClaim.ts:137` with its own edge cases
- * (it normalises unicode spaces, and returns the input UNCHANGED when the first
- * word overruns, where this one keeps that word and appends an ellipsis).
+ * so it is corrected here rather than deleted.
  *
- * So the true statement is: three same-named truncators exist, this PR fixes
- * ONE, and the two node twins that were algorithmically identical now DIVERGE.
- * Converging all three is the remedy; it is ROWED as an explicit follow-up in
- * the PR body rather than done here, because #1226 is already open against
+ * ⚠ NO COUNT OF THE REPO'S TRUNCATION HELPERS APPEARS HERE, DELIBERATELY. Two
+ * versions of that count have already been written and both were false; the
+ * second cited `grep -rn 'function truncateAtWord' src/` as its derivation,
+ * and that command cannot see a helper bound to a `const`, a method, or a
+ * differently-named twin. What follows names only the specific bodies that
+ * were compared, and how.
+ *
+ * · `canvas/nodes/OptionNode.tsx:38` — same name, same signature. At the
+ *   merge-base `5b764fa6` the two bodies differed on exactly ONE line, the
+ *   suffix (`'…'` here, `'...'` there). This PR rewrites THIS one only, so
+ *   they now produce different output for the same input. Its live caller at
+ *   `OptionNode.tsx:1326` still clips mid-word.
+ * · `canvas/utils/labelUtils.ts:123 truncateLabelAtWord` — a DIFFERENT name,
+ *   invisible to any grep for this one, and BEHAVIOURALLY IDENTICAL to the
+ *   merge-base rule this PR replaces. Measured by execution over 20,000
+ *   generated inputs at random measures: 0 differing, while the same probe
+ *   scored 13,281 differing against `OptionNode`'s body as a contrast control.
+ *   Its sources differ only in the function name and in how the ellipsis is
+ *   SPELLED. It is reached from the exported `compactFactorLabel`, and
+ *   `__tests__/DecisionNode.triageTruncation.spec.tsx` asserts it still carries
+ *   the pre-PR rule — so the divergence is pinned, not merely described.
+ * · `components/results/analysisNew/nameOrClaim.ts:137` — exported, same name,
+ *   different rules: it normalises unicode spaces, and `if (lastSpace <= 0)
+ *   return t` returns the input UNCHANGED when the first word overruns.
+ *
+ * Converging them is the remedy; it is ROWED as an explicit follow-up in the
+ * PR body rather than done here, because #1226 is already open against
  * `OptionNode.tsx` and two of this lane's PRs on one file is the overlap that
  * cost an adjudication cycle earlier the same night (CLAUDE.md trap 16).
  *
@@ -128,17 +113,16 @@ export const ANCHOR_BRIEF_MAX_CHARS = 160
  * there is no space at all, the text is one word and is returned whole. A FOURTH
  * case those three do not describe: text that BEGINS with a space and whose next
  * space sits past the measure collapses to a bare `…`, because both boundary
- * searches land on index 0. Unreachable at every call site today — the brief is
- * `.trim()`ed in the `anchorBrief` memo, the triage labels by `cleanFactorLabel`
- * — so it is documented, not guarded.
+ * searches land on index 0. Unreachable at BOTH call sites in this file today —
+ * each passes a label through `cleanFactorLabel`, which `.trim()`s — so it is
+ * documented, not guarded.
  *
- * ⚠ A SINGLE UNBROKEN TOKEN CAN EXCEED THE MEASURE, AND WHAT BOUNDS IT DIFFERS
- * PER CALLER — do not read this as one guarantee. The anchor brief renders in a
- * `line-clamp-3 break-words` blockquote, so its height is genuinely bounded. The
- * two TRIAGE call sites below (`Top gap: estimate …` / `Top gap: validate …`,
- * measure 40) render in a div with NO clamp and NO `break-words`, so there the
- * only bound is the token's own length — unbounded above, where the old rule
- * capped the label at the measure plus one ellipsis character.
+ * ⚠ A SINGLE UNBROKEN TOKEN CAN EXCEED THE MEASURE, AND NOTHING IN THIS FILE
+ * BOUNDS IT. Both call sites are the TRIAGE lines (`Top gap: estimate …` /
+ * `Top gap: validate …`, measure 40), and they render in a div with NO clamp
+ * and NO `break-words`, so the only bound is the token's own length — unbounded
+ * above, where the old rule capped the label at the measure plus one ellipsis
+ * character.
  *
  * ⚠ THE SIZE OF THAT TRADE IS NOT STATED HERE. An earlier draft of this
  * sentence gave "60 characters where the old rule gave 41"; 60 matches neither
@@ -772,80 +756,6 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     return resting.line
   }, [headline, resting, optionCount])
 
-  // ---- The user's brief, on the node their brief is about ----
-  //
-  // ⛔ THE IDENTITY GATE — READ `contextIntegrityStore`'s HEADER BEFORE TOUCHING
-  // THIS. It is not defensive coding; it is the fix for a shipped P0. That store
-  // is written ONLY when the cold read returns `status: 'graph'`. A
-  // freshly-minted scenario reliably answers `absent`, so nothing is written and
-  // nothing is cleared — and a reader without this gate renders THE PREVIOUS
-  // DECISION'S BRIEF on the new decision's anchor node, surviving reset-canvas →
-  // new brief → draft → analysis → edit until a page reload.
-  //
-  // ⚠ IT MUST BE A POSITIVE MATCH, NOT `!==`. A `!==` test passes when either
-  // side is null, and null is exactly the state the store sits in for a decision
-  // it was never told about — i.e. `!==` would be green on the P0 itself.
-  //
-  // The existing reader (`WhatIWasGivenSection`) gates identically. That is two
-  // surfaces asking the same question, which is the shape CLAUDE.md trap 21
-  // warns drifts apart — so the pinning spec asserts the STALE case renders
-  // nothing here, not merely that the fresh case renders something.
-  const recordedScenarioId = useContextIntegrityStore((s) => s.scenarioId)
-  const recordedBriefText = useContextIntegrityStore((s) => s.briefText)
-  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
-
-  const anchorBrief = useMemo(() => {
-    if (typeof recordedScenarioId !== 'string' || recordedScenarioId !== currentScenarioId) return null
-    if (typeof recordedBriefText !== 'string') return null
-    const full = recordedBriefText.trim()
-    if (full.length === 0) return null
-    return { full, shown: truncateAtWord(full, ANCHOR_BRIEF_MAX_CHARS) }
-  }, [recordedScenarioId, currentScenarioId, recordedBriefText])
-
-  /**
-   * ⚠ THE BRIEF REPLACES ONLY THE TWO CONTENT-FREE LINES, and the two that
-   * carry a CTA are left exactly as they are. `unnamedLine` and `noOptionsLine`
-   * prompt an authoring act the user can perform; putting a paragraph above them
-   * dilutes the prompt and buys nothing. `completedRunLine` and `emptyLine` are
-   * pure wayfinding — they exist because the body would otherwise be an empty
-   * box, which is the whole reason this resting state was built — and the user's
-   * own framing is strictly more informative in that slot.
-   */
-  const restingLineIsContentFree =
-    resting.line === DECISION_RESTING_COPY.completedRunLine ||
-    resting.line === DECISION_RESTING_COPY.emptyLine
-
-  /**
-   * ⚠ DELIBERATELY OUTSIDE `decision-node-resting-state`. The resting subtree
-   * is covered by an honesty guard that forbids a fixed word set (`lead`,
-   * `probab`, `question`, …) because product copy there must never describe a
-   * finding the producer did not state. THIS TEXT IS THE USER'S OWN and may
-   * legitimately contain every one of those words. Rendering it inside that
-   * subtree would have forced the guard to be weakened — blunting a real honesty
-   * check to accommodate text it was never written about.
-   *
-   * `title` carries the FULL brief. This file's own triage-line comment states
-   * the rule the ellipsis has to meet: "an ellipsis with somewhere to go is a
-   * caveat; an ellipsis with nowhere to go is hiding."
-   *
-   * `line-clamp-3` bounds the HEIGHT, so the never-clip-mid-word truncation
-   * above can return a single over-long token without the card growing.
-   */
-  const anchorBriefBlock = anchorBrief ? (
-    <div className="mt-1" data-testid="decision-node-brief">
-      <div className={`${typography.edgeLabel} text-text-light`}>
-        {DECISION_ANCHOR_BRIEF_COPY.heading}
-      </div>
-      <blockquote
-        data-testid="decision-node-brief-text"
-        title={anchorBrief.full}
-        className={`${typography.edgeLabel} text-text-body m-0 mt-0.5 break-words line-clamp-3`}
-      >
-        {anchorBrief.shown}
-      </blockquote>
-    </div>
-  ) : null
-
   const restingState = (
     <div className="mt-1" data-testid="decision-node-resting-state">
       <div className={`${typography.edgeLabel} text-text-light`}>{resting.line}</div>
@@ -862,15 +772,6 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
       )}
     </div>
   )
-
-  /**
-   * What the body falls back to when neither branch put a child on screen: the
-   * user's own brief where we hold one for THIS decision, and the resting copy
-   * otherwise. Named ONCE and used at all three sites, so the two cannot
-   * diverge by one site being updated and another forgotten — this file already
-   * renders the fallback three times, which is exactly how that happens.
-   */
-  const bodyFallback = (anchorBriefBlock && restingLineIsContentFree) ? anchorBriefBlock : restingState
 
   // ---- Render ----
 
@@ -995,7 +896,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
             {showPostAnalysisChips && postAnalysisCoachingChips}
             {/* Nothing above rendered — say what is absent rather than
                 presenting an empty box. */}
-            {!bodyHasContent && bodyFallback}
+            {!bodyHasContent && restingState}
           </div>
         ) : isPreAnalysisBranch ? (
           <>
@@ -1057,13 +958,13 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 already drops "What could go wrong?" while the Run CTA is up, so
                 the card never carries three chips at once. */}
             {showPreAnalysisInvitations && preAnalysisCoachingChips}
-            {!bodyHasContent && bodyFallback}
+            {!bodyHasContent && restingState}
           </>
         ) : (
           /* Neither branch applies — most often a decision with no option
              linked, which is the shape measured on `2db13473`. This arm used
              to be a literal `null`, i.e. the empty box itself. */
-          bodyFallback
+          restingState
         )}
       </BaseNode>
 
