@@ -267,8 +267,8 @@ describe('selectDriverDisplayModel (Codex R3-B1: complete-metric-set policy, sha
       { key: 'a', influenceScore: 0.9, rawElasticity: 0.1 },
       { key: 'b', influenceScore: 0.2, rawElasticity: 2.0 },
     ])
-    expect(model.get('a')).toEqual({ value: 0.9, provenance: 'influence_score' })
-    expect(model.get('b')).toEqual({ value: 0.2, provenance: 'influence_score' })
+    expect(model.get('a')).toEqual({ value: 0.9, provenance: 'influence_score', importanceBasis: null })
+    expect(model.get('b')).toEqual({ value: 0.2, provenance: 'influence_score', importanceBasis: null })
   })
 
   it('partial coverage: EVERY factor falls back to normalised elasticity — a producer 0.9 must not outrank the elasticity-dominant factor it cannot be compared with', () => {
@@ -281,9 +281,9 @@ describe('selectDriverDisplayModel (Codex R3-B1: complete-metric-set policy, sha
       { key: 'b', rawElasticity: 1.0 },
       { key: 'c', influenceScore: 0.2, rawElasticity: 0.1 },
     ])
-    expect(model.get('a')).toEqual({ value: 0.4, provenance: 'normalised_elasticity' })
-    expect(model.get('b')).toEqual({ value: 1.0, provenance: 'normalised_elasticity' })
-    expect(model.get('c')).toEqual({ value: 0.1, provenance: 'normalised_elasticity' })
+    expect(model.get('a')).toEqual({ value: 0.4, provenance: 'normalised_elasticity', importanceBasis: null })
+    expect(model.get('b')).toEqual({ value: 1.0, provenance: 'normalised_elasticity', importanceBasis: null })
+    expect(model.get('c')).toEqual({ value: 0.1, provenance: 'normalised_elasticity', importanceBasis: null })
     // And the rank the surfaces crown by follows the same single basis:
     const rankMap = computeFactorRanks([
       { key: 'a', rawElasticity: 0.4, displayValue: model.get('a')!.value },
@@ -300,8 +300,8 @@ describe('selectDriverDisplayModel (Codex R3-B1: complete-metric-set policy, sha
       { key: 'a', rawElasticity: 2.0 },
       { key: 'b', rawElasticity: 1.0 },
     ])
-    expect(model.get('a')).toEqual({ value: 1.0, provenance: 'normalised_elasticity' })
-    expect(model.get('b')).toEqual({ value: 0.5, provenance: 'normalised_elasticity' })
+    expect(model.get('a')).toEqual({ value: 1.0, provenance: 'normalised_elasticity', importanceBasis: null })
+    expect(model.get('b')).toEqual({ value: 0.5, provenance: 'normalised_elasticity', importanceBasis: null })
   })
 })
 

@@ -728,13 +728,19 @@ export const FactorNode = memo((props: NodeProps) => {
           {influencePct != null && displayMetadata.influenceProvenance != null && (
             <div
               className="flex items-center gap-1.5"
-              title={influenceExplanation(displayMetadata.influenceProvenance)}
+              title={influenceExplanation(
+                displayMetadata.influenceProvenance,
+                displayMetadata.influenceImportanceBasis,
+              )}
             >
               <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>{METRIC_NOUN.influence}</span>
               <div className="flex-1 min-w-0">
                 <DataBar
                   value={influencePct / 100}
-                  label={influenceBarAriaLabel(displayMetadata.influenceProvenance)}
+                  label={influenceBarAriaLabel(
+                    displayMetadata.influenceProvenance,
+                    displayMetadata.influenceImportanceBasis,
+                  )}
                   colour="info"
                 />
               </div>
@@ -1011,13 +1017,20 @@ export const FactorNode = memo((props: NodeProps) => {
             formatted={`${influencePct}%`}
             fillClass="bg-info"
             testId="factor-influence-row"
-            title={influenceExplanation(displayMetadata.influenceProvenance)}
-            phrase={influenceBarAriaLabel(displayMetadata.influenceProvenance)}
+            title={influenceExplanation(
+              displayMetadata.influenceProvenance,
+              displayMetadata.influenceImportanceBasis,
+            )}
+            phrase={influenceBarAriaLabel(
+              displayMetadata.influenceProvenance,
+              displayMetadata.influenceImportanceBasis,
+            )}
           />
         )}
         {isPostAnalysis && !isDetailed && (
           <MetricPills
             influenceProvenance={displayMetadata.influenceProvenance}
+            influenceImportanceBasis={displayMetadata.influenceImportanceBasis}
             confidencePct={confidencePct}
             confidenceIsDefaulted={displayMetadata.confidenceIsDefaulted}
             confidenceIsProvisional={displayMetadata.confidenceIsProvisional}

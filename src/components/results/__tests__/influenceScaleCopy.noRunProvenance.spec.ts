@@ -34,6 +34,8 @@ import {
   influenceBarAriaLabel,
   influencePillAriaLabel,
   influenceBasisNoun,
+  INFLUENCE_STRUCTURAL_BASIS_NOTE,
+  STRUCTURAL_IMPORTANCE_BASIS,
 } from '../influenceScaleCopy'
 
 /** Every influence string a mounted surface can render, both provenance arms. */
@@ -51,6 +53,23 @@ const ALL_INFLUENCE_COPY: Array<[string, string]> = [
   ['influencePillAriaLabel(normalised_elasticity)', influencePillAriaLabel(60, 'normalised_elasticity')],
   ['influenceBasisNoun(influence_score)', influenceBasisNoun('influence_score')],
   ['influenceBasisNoun(normalised_elasticity)', influenceBasisNoun('normalised_elasticity')],
+  // The structural-basis disclosure (5 Sep 2026) is copy a mounted surface
+  // renders, so it joins the corpus this property is asserted over. It states
+  // what the figure IS derived from; it must still never attribute it to the
+  // run.
+  ['INFLUENCE_STRUCTURAL_BASIS_NOTE', INFLUENCE_STRUCTURAL_BASIS_NOTE],
+  [
+    'influenceExplanation(influence_score, graph_structural)',
+    influenceExplanation('influence_score', STRUCTURAL_IMPORTANCE_BASIS),
+  ],
+  [
+    'influenceBarAriaLabel(influence_score, graph_structural)',
+    influenceBarAriaLabel('influence_score', STRUCTURAL_IMPORTANCE_BASIS),
+  ],
+  [
+    'influencePillAriaLabel(influence_score, graph_structural)',
+    influencePillAriaLabel(60, 'influence_score', STRUCTURAL_IMPORTANCE_BASIS),
+  ],
 ]
 
 describe('influence copy — no string attributes the figure to the analysis run', () => {

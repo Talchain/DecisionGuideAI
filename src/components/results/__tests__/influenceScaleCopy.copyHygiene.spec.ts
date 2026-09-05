@@ -18,6 +18,8 @@ import {
   INFLUENCE_RANKING_EXPLAINER_GENERIC,
   INFLUENCE_RANKING_EXPLAINER_RELATIVE,
   INFLUENCE_SCALE_CAPTION,
+  INFLUENCE_STRUCTURAL_BASIS_NOTE,
+  STRUCTURAL_IMPORTANCE_BASIS,
   influenceExplanation,
   influencePillAriaLabel,
   influenceBarAriaLabel,
@@ -35,6 +37,8 @@ const BANNED_TERMS = /\b(node|edge|coefficient|elasticity|normalised value|graph
 const AMERICAN = /\b(analyze|optimize|color|behavior|center|favorite)\w*/i
 
 const PROVENANCES = ['normalised_elasticity', 'influence_score', null] as const
+/** Both stamped and unstamped, so the appended disclosure is policed too. */
+const IMPORTANCE_BASES = [STRUCTURAL_IMPORTANCE_BASIS, null] as const
 
 function allStrings(): string[] {
   const metrics = [
@@ -50,13 +54,18 @@ function allStrings(): string[] {
     INFLUENCE_RANKING_EXPLAINER_GENERIC,
     INFLUENCE_RANKING_EXPLAINER_RELATIVE,
     INFLUENCE_SCALE_CAPTION,
+    INFLUENCE_STRUCTURAL_BASIS_NOTE,
     // Exercise the builders across every basis so template output is policed
-    // too (aria-labels are user-facing copy for screen-reader users).
-    ...PROVENANCES.flatMap((p) => [
-      influenceExplanation(p),
-      influencePillAriaLabel(62, p),
-      influenceBarAriaLabel(p),
-    ]),
+    // too (aria-labels are user-facing copy for screen-reader users). The
+    // importance-basis dimension is crossed in as well, so the structural
+    // disclosure and the strings it is appended to are both policed.
+    ...PROVENANCES.flatMap((p) =>
+      IMPORTANCE_BASES.flatMap((basis) => [
+        influenceExplanation(p, basis),
+        influencePillAriaLabel(62, p, basis),
+        influenceBarAriaLabel(p, basis),
+      ]),
+    ),
     ...metrics.flatMap((metric) => [
       analysisMetricVisibleLabel(metric),
       analysisMetricTitle(metric),
