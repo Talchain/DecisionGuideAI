@@ -356,13 +356,39 @@ export function ModelRowView({
            else — see the estimate hint below, which is the secondary text that
            can afford to go. */
         /* ⚠ THE FULL LABEL ON `title`. The identity column truncates, and
-           before this the truncated remainder was unreachable by ANY means —
-           no hover, no tooltip, nothing. Witnessed on the deployed build: three
-           relationship rows all read "Tech Lead Hired..." with no way to tell
-           them apart. This does not FIX that (a tooltip is not an answer to an
-           unreadable row, and it is unreachable by touch and keyboard) — it
-           stops the remainder being lost outright while the column itself is
-           dealt with. */
+           before this the truncated remainder was unreachable by any VISUAL
+           means — no hover, no tooltip, nothing. Witnessed on the deployed
+           build: three relationship rows all read "Tech Lead Hired..." with no
+           way to tell them apart by eye. This does not FIX that (a tooltip is
+           not an answer to an unreadable row, and it is unreachable by touch
+           and keyboard) — it stops the remainder being lost outright while the
+           column itself is dealt with.
+
+           ⚠ A CORRECTION TO THIS COMMENT'S OWN FIRST DRAFT, which said
+           "unreachable by ANY means". THAT SUPERLATIVE WAS FALSE, and the
+           domain it overstated is exactly the one the sentence above already
+           narrows. The full label is this button's own TEXT CONTENT, and this
+           button carries no `aria-label` ATTRIBUTE — every `aria-label` inside
+           the element is comment prose, this sentence included — so the
+           UNTRUNCATED label has always been its accessible name. `truncate` is
+           `overflow:hidden` + `text-overflow:ellipsis`: presentational only,
+           with no effect on the accessibility tree. The contrast control for
+           that absence is in this same file and needs no count to stay true —
+           sibling controls DO carry the attribute, and quote the label in full
+           (`Confirm … is correct`, `New value for …`, `Change …`), so a sweep
+           that found nothing here is discriminating rather than blind. For a
+           screen-reader user the remainder was never lost at all; the defect
+           is, and always was, a VISUAL one.
+
+           ⚠ AND THAT STILL HOLDS UNDER THE ENDPOINT SPLIT BELOW, which landed
+           on this branch after this correction was written — checked rather
+           than assumed, because a rebase is exactly where a sentence like this
+           goes stale. `relationshipIdentity` builds the label as
+           `${from}${RELATIONSHIP_LABEL_SEPARATOR}${to}` and hands the same two
+           halves to `labelEndpoints` (`adapters.ts:303,355`), and the
+           separator constant carries its own spaces, so the three spans
+           concatenate to text content byte-identical to `row.label`. Either
+           branch, the accessible name is the whole label. */
         /* ⚠ A PLACEHOLDER NAMES ITSELF ON THREE CHANNELS, NOT ONE. Colour
            alone is the channel a screen reader cannot use, and DS §1 asks for
            three. So the title says it in words too, and the word itself is
