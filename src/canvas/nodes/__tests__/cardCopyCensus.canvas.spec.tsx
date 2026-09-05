@@ -73,7 +73,7 @@
  *    A compaction guard cannot certify its own accessibility: that obligation
  *    is pinned separately, by `twoCarrier`.
  *  · ⛔ AT THE `lod-line` RUNG IT CAN ONLY SEE A WHOLE-LINE REPEAT. Below the
- *    legibility floor the caption and its value are ONE leaf (`Win share 47%`), so
+ *    legibility floor the caption and its value are ONE leaf (`Ahead 47%`), so
  *    an invariant CAPTION can never be isolated there — those buckets can fire
  *    only when two cards' entire reduced lines match. Their emptiness against
  *    THIS fixture is therefore weak evidence: the fixture's siblings differ by
@@ -438,7 +438,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'What could go wrong?', // CONTROL
   ],
   'option · post · standard': [
-    'Win share', // CAPTION — `METRIC_NOUN.ahead`, beside the bar and the percentage.
+    'Ahead', // CAPTION — `METRIC_NOUN.ahead`, beside the bar and the percentage.
     //          This IS the shape Paul asked for: the sentence
     //          "Came out ahead in 47% of simulated scenarios" is already on the
     //          `title` and in `sr-only` text, and the card shows the bar and
@@ -448,14 +448,10 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   // SET, and an order that depended on render order would RED on an unrelated
   // reshuffle and teach the next session to stop reading it.
   'option · post · expert': [
-    // Alphabetical, per the note above — `invariantRuns` sorts, so this is a
-    // SET read in sorted order. `Win share` sorts AFTER the `What…` entries
-    // ('h' < 'i'), where `Ahead` sorted first; moving it is bookkeeping the
-    // rename forces, not a change of content.
+    'Ahead', // CAPTION
     'View parameters', // CONTROL
     'What this option changes:', // HEADING
     'What would make this lead?', // CONTROL
-    'Win share', // CAPTION
   ],
   'factor · pre · standard': [],
   'factor · pre · expert': [],
@@ -497,7 +493,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   ],
   // ⚠⚠ EVERY LOD BUCKET IS EMPTY, AND THAT ZERO IS NEARLY GUARANTEED — DO NOT
   // READ IT AS A CLEAN BILL. At this rung the caption and its value are ONE
-  // leaf (`Win share 47%`), so no invariant caption can be isolated here; a bucket
+  // leaf (`Ahead 47%`), so no invariant caption can be isolated here; a bucket
   // fires only if two cards' ENTIRE reduced lines match, and this fixture's
   // siblings are disjoint by construction. The zeros are consistent with the
   // rung being clean and equally consistent with the census being unable to
@@ -616,7 +612,7 @@ const byTestId = (suffix: string) => (card: HTMLElement) =>
 
 const ADJUDICATED_POSITIONS: Position[] = [
   // ── decided BY THE CENSUS: these runs are (or are not) in EXPECTED_CENSUS
-  { what: 'option · the `Win share` caption row', by: 'census', present: byTestId('-win-anchor-option-1') },
+  { what: 'option · the `Ahead` caption row', by: 'census', present: byTestId('-win-anchor-option-1') },
   // ⚠ RE-CLASSIFIED (review round 2). This was marked `by: 'census'` and it
   // renders `47% / 31% / 15%` — it varies, so it sits in NO census bucket, and
   // that is byte-for-byte the status of the completeness line below, which was
@@ -765,7 +761,7 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     // disappearance would mean the collector had stopped reading cards.
     expect(measured['risk · pre · standard']).toContain('Strength')
     expect(measured['factor · post · standard']).toContain('Influence')
-    expect(measured['option · post · standard']).toContain('Win share')
+    expect(measured['option · post · standard']).toContain('Ahead')
     expect(Object.values(measured).flat().length).toBeGreaterThan(15)
   })
 

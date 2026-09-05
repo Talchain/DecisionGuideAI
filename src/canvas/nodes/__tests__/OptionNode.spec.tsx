@@ -643,28 +643,8 @@ describe('OptionNode', () => {
     expect(anchorEl.className).not.toContain('sr-only')
     expect(anchorEl.className).not.toContain(typography.screenReaderOnly)
 
-    // ⚠ AN ASSERTION WAS REMOVED HERE, AND THIS RECORDS WHY RATHER THAN LEAVING
-    // A SILENT GAP. It read
-    //     expect(COMPARATIVE_COPY.phrase('72%')).toContain(anchor.toLowerCase())
-    // under the comment "the word must not be re-typed at the call site". The
-    // comment and the assertion were about different things: it tested neither
-    // the call site nor re-typing, but a LEXICAL COUPLING between two
-    // independent register entries — that the caption word must also appear
-    // inside the sentence.
-    //
-    // That coupling is not a product rule, and it held only by accident of the
-    // old caption. `Ahead` happened to occur in "Came out ahead in 72% of
-    // simulated scenarios"; `Win share` does not. The caption NAMES the
-    // measure, the sentence DEFINES it — they are tied by the figure they
-    // share, not by a word.
-    //
-    // ⭐ AND IT WAS PASSING ON THE WRONG OBJECT, which is why removing it is a
-    // repair and not a weakening. Both properties its comment reached for are
-    // covered, by identity, and neither could ever have been carried by this
-    // line: the rendered caption equals the register at the `anchorEl` check
-    // above, and the sentence is pinned as the hover title and the sr-only text
-    // by 'the ratified sentence survives as the hover title AND as text for
-    // assistive tech' below.
+    // The word must not be re-typed at the call site — it is the register's.
+    expect(COMPARATIVE_COPY.phrase('72%')).toContain(COMPARATIVE_COPY.anchor.toLowerCase())
   })
 
   it('density: the VISIBLE readout is the bare percentage, and it is hidden from assistive tech', () => {

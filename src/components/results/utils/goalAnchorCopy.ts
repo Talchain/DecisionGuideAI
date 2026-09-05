@@ -205,53 +205,12 @@ export const COMPARATIVE_COPY = {
    * the same rule that produced `leadNoMagnitude` and `phraseMidSentence`
    * after two call sites did their own casing surgery inline.
    *
-   * Short, because it sits in a `w-14` column beside a bar on a node card.
+   * One word, because it sits in a `w-14` column beside a bar on a node card.
    * `FactorNode` ships "Influence" and "Confidence" in exactly that slot, so
    * this matches the canvas's existing anchored-row pattern rather than
    * inventing a second one.
-   *
-   * ⭐⭐ IT NAMES WHAT WAS MEASURED, NOT WHAT WON — changed from 'Ahead'
-   * 5 Sep 2026 on Paul's direction, and the reason is the product's stance
-   * rather than taste: *"we're not telling them which outcome won. We're
-   * enhancing critical and creative thinking … we're not telling them that the
-   * analysis is the answer."*
-   *
-   * `Ahead` is a VERDICT word. Stripped of its sentence it reads as a result
-   * the product is handing the user — the one thing this product declines to
-   * do. Every sibling anchor names a QUANTITY (`Influence`, `Strength`,
-   * `Chance`); `Ahead` was the only one naming an OUTCOME, which is why it
-   * read as the odd one out.
-   *
-   * `Win share` NAMES THE QUANTITY, which is what the three siblings do and
-   * what neither `Ahead` nor a first draft's `Scenarios` did. The distinction,
-   * from the review that caught it: 72% IS the influence / strength / chance,
-   * but 72% is NOT the scenarios — it is the proportion OF them. `Scenarios`
-   * swapped naming the OUTCOME for naming the SAMPLE SPACE; neither is the
-   * quantity, and only this caption would have made the reader supply a
-   * preposition.
-   *
-   * ⭐ AND IT IS NOT NEW VOCABULARY — `lodMetricLine.ts` already calls this
-   * quantity a "win share" in its own prose. The register is adopting the
-   * term the code was using internally, not minting one.
-   *
-   * ⚠ TWO WORDS, DELIBERATELY, AND THE REGISTER'S RULE BENDS HERE ON A STATED
-   * REASON. The siblings are ONE-PLACE quantities (a factor's influence, an
-   * edge's strength). This one is TWO-PLACE: the share of runs in which THIS
-   * option beat THE OTHERS. A bare noun cannot carry a two-place quantity
-   * without the reader filling the gap — so the constraint that bends is the
-   * word count, not the meaning. `Win share` is the same width as the shipping
-   * `Influence`, so the layout reason for the original rule is untouched.
-   *
-   * ⚠ `Win` HERE IS ARITHMETIC, NOT A VERDICT. `Ahead` was an adjective
-   * describing this option's STATUS — a result handed to the user. `Win share`
-   * is the NAME OF A MEASURE, the same way `Chance` is. That distinction is
-   * what Paul's steer was about: *"we're not telling them which outcome won"*
-   * is a rule against pronouncing a winner, not against naming the metric that
-   * was computed.
-   * The full `phrase()` above keeps "came out ahead", and should: it is an
-   * explicit statement about SIMULATED SCENARIOS, not a recommendation.
    */
-  anchor: 'Win share',
+  anchor: 'Ahead',
   /**
    * The same claim with NO magnitude — for the runs that carry the
    * comparative RANK but not a displayable probability for the leader.
