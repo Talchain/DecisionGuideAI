@@ -40,6 +40,7 @@ import {
   GOAL_LABEL_FROM_BRIEF_TESTID,
 } from '../domain/goalLabelProvenance'
 import { SourceProvenancePill } from '../components/model-tab/SourceProvenancePill'
+import { RELATIONSHIP_LABEL_SEPARATOR } from './adapters'
 import {
   ATTENTION_IS_SEVERE,
   ATTENTION_LABEL,
@@ -361,13 +362,56 @@ export function ModelRowView({
            stops the remainder being lost outright while the column itself is
            dealt with. */
         title={row.label}
-        className={`${typography.panelBody} text-text-body text-left truncate min-w-[6rem] flex-1`}
+        className={`${typography.panelBody} text-text-body text-left min-w-[6rem] flex-1 ${
+          row.labelEndpoints ? 'flex items-baseline overflow-hidden' : 'truncate'
+        }`}
         onClick={e => {
           e.stopPropagation()
           onFocusOnCanvas?.(row.id)
         }}
       >
-        {row.label}
+        {/* ⭐⭐ A DIRECTED RELATIONSHIP TRUNCATES FROM BOTH ENDS, NEVER FROM ONE.
+            Witnessed on deployed `a9c2e050`: three consecutive rows all read
+            "Tech Lead Hired…". They were three edges out of ONE source node, so
+            the only thing telling them apart was the TARGET — and a single
+            `truncate` eats the tail first, which is exactly the half that
+            discriminates. At the 6rem floor the row said the same thing three
+            times.
+
+            Each endpoint now gets `flex-1 min-w-0 truncate`, so they share the
+            column and ellipsise independently: "Tech L… → Deliv…" instead of
+            "Tech Lead H…". Both ends survive at ANY width, which is the
+            property — for a directed edge both endpoints are identity and
+            neither is optional.
+
+            ⚠ ONLY WHEN A PAIR EXISTS. An edge carrying its OWN authored label
+            has no endpoints and keeps the plain single truncate; splitting a
+            sentence on an arrow it happens to contain would invent a structure
+            nobody wrote. `labelEndpoints` is set only where a pair is real, so
+            the two states are distinguished by data rather than by a guess.
+
+            ⚠ The arrow is `aria-hidden` and the accessible name still comes
+            from the row's own `aria-label`/`title`, so nothing about the label
+            changes for a screen reader — this is a layout change only. */}
+        {row.labelEndpoints ? (
+          <>
+            <span className="truncate min-w-0 flex-1">{row.labelEndpoints[0]}</span>
+            {/* ⚠ NOT `aria-hidden`, AND THE SPACES ARE IN THE STRING. The
+                separator IS the shared constant, so the button's text content
+                stays byte-identical to `row.label` — a screen reader, a
+                copy-paste and the `title` all read exactly what they read
+                before. Hiding the arrow and spacing the halves with `gap`
+                would have left assistive tech with
+                "Tech Lead HiredDelivery Throughput", which is a regression
+                dressed as a layout tidy-up. */}
+            <span className="shrink-0 text-text-light whitespace-pre">
+              {RELATIONSHIP_LABEL_SEPARATOR}
+            </span>
+            <span className="truncate min-w-0 flex-1">{row.labelEndpoints[1]}</span>
+          </>
+        ) : (
+          row.label
+        )}
       </button>
 
       {/* The label is the user's own sentence lifted from the brief, not an

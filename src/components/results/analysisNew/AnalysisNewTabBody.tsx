@@ -69,6 +69,7 @@ import { AtAGlance } from './sections/AtAGlance'
 import { ModelHeldUp } from './sections/ModelHeldUp'
 import { WhatWeChecked } from './sections/WhatWeChecked'
 import { OptionsComparison } from './sections/OptionsComparison'
+import { ModelImplication } from './sections/ModelImplication'
 import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
 import { CritiqueWarningStrip } from '../CritiqueWarningStrip'
 import { InferenceWarningStrip } from '../InferenceWarningStrip'
@@ -163,6 +164,24 @@ export function selectAlsoWorthDoing<T extends { id: string }>(
   focused: { id: string } | null,
 ): readonly T[] {
   if (focused === null) return interventions
+  /**
+   * ⚠⚠ THE LONE RECOMMENDATION KEEPS ITS CARD, AND THAT IS NOT A HEDGE.
+   *
+   * The glance card is a POINTER — icon, action label, method chip, one
+   * sentence. The Strengthen card is the full one: the finding's own title, the
+   * method as a dispatchable control, the science grounding, "show on canvas",
+   * and the dismissal that is how a human stays authoritative over the
+   * coaching. Excluding unconditionally would, on a one-recommendation run,
+   * delete every one of those affordances to prevent a repeat that does not
+   * occur — the section is collapsed at rest, so at rest there is no second
+   * copy to remove.
+   *
+   * What the exclusion is FOR is the state Paul was in: the section opened,
+   * with other findings under it, the promoted one repeating at the top. Below
+   * two items there is no "also" to be relative to, so there is nothing to fix
+   * and something to lose.
+   */
+  if (interventions.length < 2) return interventions
   return interventions.filter((rec) => rec.id !== focused.id)
 }
 
@@ -726,6 +745,27 @@ export function AnalysisNewTabBody({
             It costs ONE collapsed row at rest — the same idiom as every
             section below it — so closing the largest content gap on the
             surface does not spend the first viewport. */}
+        {/* ── WHAT YOUR MODEL IMPLIES ─────────────────────────────────────
+            ⭐ MOUNTED 5 Sep 2026. This block was written, typed, gated, built
+            onto the view model and covered by two spec files — and had ZERO
+            production importers, which the estate had already noticed and
+            written down (`heroWithholdsOnTheSameCells.spec.ts:30`). So the
+            design pack's centrepiece, and every sentence in
+            `analysisNewCopy.ts:108-178`, reached no screen: the panel showed
+            the option ROWS and never the sentence saying what they mean.
+
+            It leads the rows rather than following them, because when the two
+            readings DISAGREE that is the most decision-relevant thing the run
+            produced — the component's own header argues it at length, and the
+            prototype draws it the same way.
+
+            ⚠ IT ADDS NO CLAIM. Every sentence arrives pre-composed and already
+            gated: `{kind:'none'}` for pre-run, for a single option, and on any
+            run whose verdict withholds the leader claim — in which case this
+            renders nothing at all. Mounting a component is exactly the change
+            that could put a withheld claim on screen, so that is pinned. */}
+        <ModelImplication implication={vm.modelImplication} />
+
         <OptionsComparison options={vm.optionsComparison} />
 
         {/* ── KEY INSIGHTS ────────────────────────────────────────────────── */}

@@ -24,7 +24,10 @@
  * truncating halves) rather than a measured width, and says so.
  */
 import '@testing-library/jest-dom/vitest'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { render, screen, cleanup } from '@testing-library/react'
+import { ModelRowView } from '../ModelRowView'
+import type { ModelRow } from '../types'
 import type { Edge, Node } from '@xyflow/react'
 import type { EdgeData } from '../../domain/edges'
 import { relationshipIdentity, toModelRows, RELATIONSHIP_LABEL_SEPARATOR } from '../adapters'
@@ -92,5 +95,79 @@ describe('a relationship row carries both endpoints as structure', () => {
     expect(a.endpoints![1], 'the distinguishing half must be separately addressable').not.toBe(
       b.endpoints![1],
     )
+  })
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // THE RENDER. The assertions above prove the DATA carries both halves; they
+  // cannot see a renderer that joins them straight back into one truncating
+  // element, which is what shipped. jsdom performs no layout, so this pins the
+  // STRUCTURE that makes the property hold — two independently shrinkable,
+  // independently truncating halves — and says so rather than pretending to
+  // measure pixels.
+  // ══════════════════════════════════════════════════════════════════════════
+
+  const REL: ModelRow = {
+    id: 'e1',
+    kind: 'relationship',
+    group: 'relationships',
+    label: 'Tech Lead Hired → Delivery Throughput',
+    labelEndpoints: ['Tech Lead Hired', 'Delivery Throughput'],
+    primaryValue: 'Moderate positive effect',
+    attention: [],
+    editable: false,
+  }
+
+  const renderRow = (over: Partial<ModelRow> = {}) => {
+    cleanup()
+    render(
+      <ul>
+        <ModelRowView row={{ ...REL, ...over }} onSelect={vi.fn()} onFocusOnCanvas={vi.fn()} />
+      </ul>,
+    )
+    return screen.getByTestId('model-row-v2-e1-label')
+  }
+
+  it('THE RENDER: each endpoint truncates on its own', () => {
+    const button = renderRow()
+    const halves = Array.from(button.querySelectorAll('span')).filter((el) =>
+      /(^|\s)truncate(\s|$)/.test(el.className),
+    )
+    expect(
+      halves.map((el) => el.textContent),
+      'both endpoints must be separately shrinkable, or the tail is eaten first',
+    ).toEqual(['Tech Lead Hired', 'Delivery Throughput'])
+    for (const half of halves) {
+      expect(half.className, 'a half that cannot shrink cannot share the column').toMatch(
+        /min-w-0/,
+      )
+      expect(half.className).toMatch(/flex-1/)
+    }
+  })
+
+  it('the full identity is still one readable string', () => {
+    // The visible sentence a reader knows, and the hover fallback, are both
+    // unchanged — this is a layout change, not a copy change.
+    const button = renderRow()
+    expect(button).toHaveTextContent('Tech Lead Hired → Delivery Throughput')
+    expect(button).toHaveAttribute('title', 'Tech Lead Hired → Delivery Throughput')
+  })
+
+  it("DISCRIMINATOR: a row with NO endpoint pair keeps the plain single truncate", () => {
+    // The load-bearing render case. An authored edge label, a factor, a goal —
+    // none has endpoints, and giving them a two-half layout would split text on
+    // an arrow nobody wrote. Measured by the class the button itself carries.
+    const button = renderRow({
+      labelEndpoints: undefined,
+      label: 'Hiring → faster only if onboarding holds',
+    })
+    expect(button.className, 'a single label must keep its own truncate').toMatch(
+      /(^|\s)truncate(\s|$)/,
+    )
+    expect(
+      Array.from(button.querySelectorAll('span')).filter((el) =>
+        /(^|\s)truncate(\s|$)/.test(el.className),
+      ),
+      'nothing may be split when there is no pair',
+    ).toEqual([])
   })
 })
