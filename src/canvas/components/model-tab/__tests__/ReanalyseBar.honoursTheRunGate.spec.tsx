@@ -26,6 +26,15 @@
  * banner already displaying it. ZERO-NETWORK is measured; SILENCE was not.
  * The defect is a control that looks pressable and cannot work.
  *
+ * ⚠ AND THE WITHDRAWAL DID NOT REACH EVERY SITE IT NEEDED TO. Writing this block
+ * closed the header and `ReanalyseBar.tsx`; review then found the withdrawn claim
+ * STILL asserted three places further on — in a comment 78 lines below this one,
+ * in a test NAME ("the silent no-op becomes impossible", the string CI prints),
+ * and in the PR body. All three are corrected now. A withdrawal reads as
+ * adjudicated, so nobody re-checks it: withdrawing a claim means enumerating
+ * every place it is asserted and closing all of them in the same commit, not
+ * correcting the paragraph the reviewer happened to quote.
+ *
  * ── WHY THE FIX IS WIRING, NOT COPY ────────────────────────────────────────
  * `OutputsDock` computes `canRunAnalysis` and `runBlockedTooltip` ONCE, above
  * the tab branch, and its footer switch has two arms:
@@ -98,14 +107,15 @@ describe('ReanalyseBar honours the run gate', () => {
   })
 
   it('shows the reason as TEXT, not only on hover', () => {
-    // A `title` is unreachable by touch and by keyboard. The deployed defect was
-    // not merely that the button was enabled — it was that pressing it said
-    // nothing at all, so the reason has to be legible without a pointer.
+    // A `title` is unreachable by touch and by keyboard, so a reason that exists
+    // only on hover is not a reason the user can reach. The withdrawn half — that
+    // pressing it "said nothing at all" — is NOT restated here: what was measured
+    // is that the press produced zero network requests, and the header says so.
     render(<ReanalyseBar onReanalyse={vi.fn()} canRun={false} blockedReason={HELD} isAnalysing={false} />)
     expect(screen.getByTestId('reanalyse-blocked-reason')).toHaveTextContent(HELD)
   })
 
-  it('cannot fire the runner while the gate is shut — the silent no-op becomes impossible', () => {
+  it('cannot fire the runner while the gate is shut — the press never reaches onReanalyse', () => {
     const onReanalyse = vi.fn()
     render(<ReanalyseBar onReanalyse={onReanalyse} canRun={false} blockedReason={HELD} isAnalysing={false} />)
     fireEvent.click(screen.getByTestId('reanalyse-button'))

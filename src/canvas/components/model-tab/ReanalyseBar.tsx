@@ -59,18 +59,37 @@ import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { useCanvasStore } from '../../store'
 
 /**
- * ⚠⚠ THE GATE PROPS ARE REQUIRED KEYS WITH NULLABLE TYPES, AND THAT IS THE
- * MECHANISM — the source scan is now only a backstop.
+ * ⚠⚠ TWO GUARDS, TWO DIFFERENT CLASSES — AND NEITHER COVERS THE OTHER'S.
+ * An earlier version of this block said *"a cast still defeats the scan; it can
+ * no longer defeat the type"*. MEASURED FALSE at `5502f10d`, and the correction
+ * is the point of this comment.
  *
- * They were optional, defaulting to today's behaviour so an absent verdict could
- * never remove the control. Review defeated the guard that made that safe with
- * TWO ONE-TOKEN SPELLINGS — `canRun={undefined as any}` and `canRun={(undefined)}`
- * — because the check was exact-equality on a collapsed expression string, i.e.
- * a regex mirror of a rule the compiler could hold instead.
+ * These props were optional, defaulting to today's behaviour so an absent verdict
+ * could never remove the control. Review defeated the scan that made that safe
+ * with TWO ONE-TOKEN SPELLINGS — `canRun={undefined as any}` and
+ * `canRun={(undefined)}` — because the check was exact-equality on a collapsed
+ * expression string.
  *
- * Required-and-nullable keeps the runtime default (an explicit `undefined` still
- * falls back, so the control is never lost) while making OMISSION a TypeScript
- * error. A cast still defeats the scan; it can no longer defeat the type.
+ * Making the keys REQUIRED does not close those. `canRun` is a PRESENT key of
+ * type `boolean | undefined`, so every spelling of `undefined` type-checks and
+ * the compiler never had to be defeated. Re-measured by mutating the `reanalyse`
+ * arm alone: each of `(undefined)` and `undefined as any` left
+ * `tsc -p tsconfig.app.json` at **1826 errors — the pristine number, +0**.
+ *
+ * What each guard actually covers:
+ *
+ *   · THE TYPE closes OMISSION. Dropping `canRun` from the mount is
+ *     `TS2741` at `OutputsDock.tsx(3665,22)`, total 1826 → **1827, exactly +1**.
+ *     A caller that stops passing the verdict cannot compile.
+ *   · THE SCAN closes SPELLINGS. `reanalyseBarIsGated.sourceScan.spec.ts`
+ *     normalises wrapping parens, a trailing `as …` cast and a trailing `!`
+ *     before its emptiness test, so both spellings above now RED there — proved
+ *     as a discriminating pair, since `canRun={(canRunAnalysis)}` stays GREEN.
+ *
+ * Neither is a backstop for the other, and the runtime default is unchanged:
+ * an explicit `undefined` still falls back to `true`, so the control is never
+ * lost to an absent verdict. What is stopped is a mount that passes NOTHING.
+ * A spelling that reaches `undefined` through a BINDING is beyond both.
  */
 interface ReanalyseBarProps {
   onReanalyse?: () => void

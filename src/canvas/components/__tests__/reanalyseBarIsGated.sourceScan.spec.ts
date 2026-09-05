@@ -20,12 +20,30 @@
  *     button. TypeScript accepts that spelling too. The EXPRESSION is now
  *     checked, not the name.
  *
+ * ⚠ AND A THIRD ROUND DEFEATED THAT ONE, WITH TWO ONE-TOKEN RESPELLINGS.
+ * `canRun={(undefined)}` and `canRun={undefined as any}` both hand the component
+ * `undefined`, both let its `canRun = true` default reinstate the ungated button
+ * — and both were GREEN here, because `EMPTY` was exact-equality on the raw
+ * expression string and matches neither. Re-measured at `5502f10d` before this
+ * change: each mutant left `tsc -p tsconfig.app.json` at **1826 errors, the
+ * pristine number**, and this file at **5/5 passing**. Neither guard saw them.
+ * The compiler CANNOT see them either — `canRun` is a PRESENT key of type
+ * `boolean | undefined`, so every one of those spellings type-checks. What the
+ * required-and-nullable prop closes is OMISSION (`TS2741`, +1 error at the exact
+ * line), which is a different class. So the spelling class is THIS scan's job
+ * alone, and `normaliseExpression` below is where it is done: wrapping parens, a
+ * trailing `as …` cast and a trailing `!` are stripped before `EMPTY` is applied.
+ *
  * ⚠ AND THE LIMITS THAT REMAIN, because a guard whose header overstates its
  * reach is the next stale mirror: this scans `.tsx` files under `src/` only. A
  * `.jsx` mount, a mount outside `src/`, or one built through a component
  * indirection (`const C = cond ? ReanalyseBar : Other`) is NOT covered. The
- * failure message says so, so nobody inherits a guarantee the code does not
- * make.
+ * normaliser is textual and quote-unaware, so an expression whose parens sit
+ * inside a string literal is normalised conservatively (it can under-strip, i.e.
+ * miss a disguised `undefined`; it does not invent one). A spelling that reaches
+ * `undefined` through a BINDING (`const u = undefined; canRun={u}`) is likewise
+ * out of reach of any textual scan. The failure message states the scope, so
+ * nobody inherits a guarantee the code does not make.
  *
  * ⚠ THE CONTRAST CONTROL IS NOT OPTIONAL. A scan that extracts nothing agrees
  * with every claim made about what it extracted. The control asserts the
@@ -123,8 +141,52 @@ function mountsOf(exported: string): { file: string; span: string }[] {
   return found
 }
 
+/**
+ * Wrapping parens stripped, then a trailing `as …` cast, then a trailing `!`,
+ * repeatedly until the expression stops shrinking — so `(undefined)`,
+ * `undefined as any`, `undefined!` and `(undefined as unknown as boolean)` all
+ * reduce to the token `EMPTY` tests. Parens are stripped ONLY when they wrap the
+ * whole expression (`f(undefined)` and `(a)(b)` are left alone), so a legitimate
+ * call or a parenthesised identifier is never mistaken for an absent verdict.
+ */
+function normaliseExpression(expr: string): string {
+  let e = expr.trim()
+  for (let round = 0; round < 10; round++) {
+    const before = e
+    e = stripWrappingParens(e)
+    e = e.replace(/\s+as\s+[A-Za-z0-9_$.<>[\]|&\s]+$/, '').trim()
+    e = e.replace(/!+$/, '').trim()
+    if (e === before) break
+  }
+  return e
+}
+
+/** Parens removed only when the FIRST one closes at the very end. */
+function stripWrappingParens(expr: string): string {
+  let s = expr.trim()
+  while (s.startsWith('(') && s.endsWith(')')) {
+    let depth = 0
+    let wrapsWhole = true
+    for (let i = 0; i < s.length; i++) {
+      if (s[i] === '(') depth++
+      else if (s[i] === ')') {
+        depth--
+        if (depth === 0 && i < s.length - 1) { wrapsWhole = false; break }
+      }
+    }
+    if (!wrapsWhole || depth !== 0) break
+    s = s.slice(1, -1).trim()
+  }
+  return s
+}
+
 /** A prop that is present but hands over nothing usable. */
 const EMPTY = /^(undefined|null|void 0)$/
+
+/** The whole test: normalise the spelling away, then ask whether anything is left. */
+function handsOverNothing(expr: string): boolean {
+  return EMPTY.test(normaliseExpression(expr))
+}
 
 describe('every ReanalyseBar mount receives the shell run gate', () => {
   it('CONTROL: the scan can see a gated sibling — AnalysisReadinessBar carries canRun', () => {
@@ -145,8 +207,50 @@ describe('every ReanalyseBar mount receives the shell run gate', () => {
   })
 
   it('CONTROL: an explicit undefined is recognised as handing over nothing', () => {
-    expect(EMPTY.test(propExpression('<X canRun={undefined} />', 'canRun') ?? '')).toBe(true)
-    expect(EMPTY.test(propExpression('<X canRun={canRunAnalysis} />', 'canRun') ?? '')).toBe(false)
+    expect(handsOverNothing(propExpression('<X canRun={undefined} />', 'canRun') ?? '')).toBe(true)
+    expect(handsOverNothing(propExpression('<X canRun={canRunAnalysis} />', 'canRun') ?? '')).toBe(false)
+  })
+
+  it('CONTROL: the two spellings that defeated the previous cut are normalised away', () => {
+    // These are not hypotheticals. Review handed the mount each of them and both
+    // were GREEN here, at `tsc` +0. They are the reason `normaliseExpression`
+    // exists, so they are pinned by name rather than described in a comment.
+    for (const spelling of [
+      '(undefined)',
+      'undefined as any',
+      '(undefined as any)',
+      'undefined!',
+      '((undefined))',
+      'undefined as unknown as boolean',
+      '(null) as any',
+      '(void 0)',
+    ]) {
+      expect(
+        handsOverNothing(propExpression(`<X canRun={${spelling}} />`, 'canRun') ?? ''),
+        `${spelling} hands over nothing and must be caught`,
+      ).toBe(true)
+    }
+  })
+
+  it('CONTROL: a guard that REDs on everything is not a guard — real verdicts pass', () => {
+    // The other half of the discriminating pair. Stripping casts and parens must
+    // not start swallowing legitimate expressions: an over-eager normaliser that
+    // reduced everything to `undefined` would catch the mutants AND the product.
+    for (const spelling of [
+      'canRunAnalysis',
+      '(canRunAnalysis)',
+      'canRunAnalysis as boolean',
+      'canRunAnalysis!',
+      '!isRunning && canRunAnalysis',
+      'gate(undefined)',
+      'false',
+      'true',
+    ]) {
+      expect(
+        handsOverNothing(propExpression(`<X canRun={${spelling}} />`, 'canRun') ?? ''),
+        `${spelling} is a real expression and must NOT be flagged`,
+      ).toBe(false)
+    }
   })
 
   it('finds at least one ReanalyseBar mount — an empty sweep proves nothing', () => {
@@ -159,14 +263,16 @@ describe('every ReanalyseBar mount receives the shell run gate', () => {
       for (const prop of ['canRun', 'blockedReason', 'isAnalysing']) {
         const expr = propExpression(span, prop)
         if (expr === null) bad.push(`${file}: no ${prop}`)
-        else if (EMPTY.test(expr)) bad.push(`${file}: ${prop}={${expr}} hands over nothing`)
+        else if (handsOverNothing(expr)) bad.push(`${file}: ${prop}={${expr}} hands over nothing`)
       }
     }
     expect(
       bad,
       'A ReanalyseBar mounted without the run gate offers a button the shell knows is refused.\n' +
-        'Scope enforced: .tsx under src/, aliases resolved. NOT covered: .jsx, mounts outside src/,\n' +
-        'or a component reached through an indirection.\n' +
+        'Scope enforced: .tsx under src/, aliases resolved, and wrapping parens / a trailing\n' +
+        '`as …` cast / a trailing `!` stripped before the emptiness test. NOT covered: .jsx,\n' +
+        'mounts outside src/, a component reached through an indirection, or an `undefined`\n' +
+        'reached through a binding rather than written at the mount.\n' +
         bad.join('\n'),
     ).toEqual([])
   })
