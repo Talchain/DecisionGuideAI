@@ -736,8 +736,21 @@ function T1ChecksFooter({
   // arms and still license no statement about a ranking holding.
   const mayStateStability = analysisClaimPolicy(data.recommendation).mayStateStability
   // The producer's verdict still decides WHICH determinate state we would have
-  // rendered; the admission decides whether we may state it at all. Kept as two
-  // reads so neither silently becomes the other.
+  // rendered; the admission decides whether we may state it at all.
+  //
+  // ⚠ THIS CONJUNCT IS DEFENCE IN DEPTH AND CANNOT CURRENTLY BE OBSERVED —
+  // stated because a mutant survives here and the next reader deserves the
+  // answer rather than the puzzle. `robustKnown` below carries the same gate,
+  // and whenever it is false `ChecksGlyph` takes its `unknown` branch, which
+  // short-circuits `ok` in the label, the icon AND the colour. So removing
+  // `&& mayStateStability` from THIS line alone changes no rendered output.
+  //
+  // Demonstrated, not asserted, by a discriminating pair: gate removed here
+  // only → 50/50 GREEN (equivalent); gate removed from `robustKnown` only →
+  // REDs the glyph-STATE arm (the row would render the red danger X); both
+  // removed → REDs two arms, including the label going back to "Robust". The
+  // conjunct is kept so that a future edit to `robustKnown`'s branch cannot
+  // silently re-license the strength word from this line.
   const robustOk = robustnessVerdict === 'robust' && mayStateStability
   // Determinate = a real robust/sensitive claim exists. Explicit allowlist —
   // 'not_assessed' and unknown values must never render as "Sensitive".
