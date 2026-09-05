@@ -345,6 +345,23 @@ export function AnalysisNewTabBody({
       className="flex-1 min-h-0 olumi-scrollbar overflow-y-auto"
       data-testid="analysis-new-tab-body"
       data-run-identity={responseHash ?? ''}
+      /* ⚠⚠ ON THE ELEMENT THAT ALREADY EXISTS — AND THE FIRST ATTEMPT AT THIS
+         ADDED A NEW ONE, WHICH BROKE THE TAB.
+         A previous cut put `aria-busy` on a classless wrapper `<div>` inserted
+         in `OutputsDock` between the tabpanel and this root. `SectionErrorBoundary`
+         renders its children with no DOM node of its own, so this root WAS a
+         direct flex item; demoted to a block child, its `flex-1 min-h-0` went
+         inert. Measured in a real browser: the body grew 400px → 2000px, stopped
+         scrolling, and 1600px of content became unreachable inside the panel's
+         `overflow: hidden`. Caught in review; it never shipped.
+         All four sibling surfaces put the attribute on an element that already
+         exists — `CompareTabBody:263-265` puts it on the very
+         `flex-1 min-h-0 overflow-y-auto` scroll container, which is exactly the
+         shape of this one. So does this.
+         `|| undefined` so the attribute is ABSENT when false rather than
+         `aria-busy="false"` — the same form the four siblings use, and the
+         difference matters to assistive tech. */
+      aria-busy={isRunning || undefined}
     >
       {/* The narrower measure (§11): wider gutters and a capped line length
           inside the unchanged 416px dock. */}
