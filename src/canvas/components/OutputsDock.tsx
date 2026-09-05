@@ -3562,6 +3562,24 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   isStale={analysisNotConfirmedFresh}
                   staleReason={analysisStaleReason}
                   onReanalyse={handleRunAnalysis}
+                  /* ⭐⭐ THE SAME ADMISSION THE SHELL FOOTER READS FOR THIS
+                     SURFACE. `shellContract.ts` gives `analysisNew`
+                     `footerBar: 'reanalyse'`, so the shell renders a re-run
+                     control below this body — and `AtAGlance` renders a second
+                     one on its staleness ribbon. Handing the ribbon a bare
+                     handler let the surface show a refused footer control
+                     beside a live ribbon control for the same action: one
+                     question ("may I re-analyse?") under two authorities.
+
+                     These are the identical two expressions
+                     `AnalysisReadinessBar` receives below, off the one
+                     `runGateResult` computed above — threaded, never
+                     re-derived, so the readers cannot disagree about
+                     admission. `ribbonAndFooterShareOneAdmission.sourceScan`
+                     pins that identity at this mount rather than trusting this
+                     comment. */
+                  canRunAnalysis={canRunAnalysis}
+                  runBlockedReason={runBlockedTooltip}
                   onSendMessage={sendMessage}
                   /* ⭐ THE GATE'S OWN REFUSAL, NOT A SECOND EXPRESSION OF IT.
                      `runBlockedListing` is `runGateResult.blockedListing`,
