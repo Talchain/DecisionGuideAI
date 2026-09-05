@@ -402,7 +402,51 @@ export function ModelOutline({
                   role="listbox"
                   aria-label={GROUP_TITLE[group.id]}
                   data-testid={`model-outline-v2-${group.id}-rows`}
-                  className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto]"
+/* ⚠⚠ THE LABEL TRACK HAS A FLOOR, AND THE VALUE TRACK CAN GIVE.
+                     Both halves are required; neither works alone.
+
+                     MEASURED on a factor row with an estimate hint: the label
+                     "Bottom-Up Adoption Friction" rendered at **37px** — about
+                     four characters — while its value took 173px and the
+                     attention column 111px. Unreadable, and present on
+                     `staging` before this change (verified by reverting this
+                     file to origin/staging and re-measuring: 51px of genuine
+                     box overlap, identical).
+
+                     WHY THE OBVIOUS FIXES DO NOT WORK, both tried and measured:
+                     `1fr` means "a share of what is left AFTER the other tracks
+                     are sized", so an `auto` track is satisfied to max-content
+                     FIRST and the label only ever gets the remainder. And
+                     `min-w-[6rem]` on the label ITEM cannot help either: these
+                     rows are `grid-cols-subgrid`, so the PARENT sizes the track
+                     across every row at once and one item's minimum is not the
+                     track's.
+
+                     A track MINIMUM is honoured before other tracks reach their
+                     maximum. So the floor belongs on the TRACK —
+                     `minmax(6rem,1fr)` — and that is the WHOLE change.
+
+                     ⚠⚠ THE VALUE TRACK KEEPS `auto`, AND AN EARLIER CUT OF THIS
+                     FIX DID NOT. It read `minmax(0,auto)`, justified here by a
+                     sentence claiming *"NUMBERS STAY SAFE BY CONSTRUCTION …
+                     a bare '35 %' keeps its automatic minimum"*. That sentence
+                     was FALSE THE DAY IT WAS WRITTEN: CSS Grid §6.6 grants the
+                     automatic minimum only when the track's min sizing function
+                     is `auto`, and `minmax(0,auto)` is exactly the spelling that
+                     removes it. `ValueLeaf` cannot cover the gap either, because
+                     `valueMayShrink` returns false for anything containing a
+                     digit.
+
+                     Measured on the DEPLOYED build's own rows (dock driven to
+                     both reachable widths, value text set to
+                     "£1,250,000 per year"): with `minmax(0,auto)` at the 280px
+                     floor the value box is crushed to 44.4px against 118px of
+                     content; with `auto` it sizes to 118.4px and fits. And the
+                     identity floor ALONE reaches zero label-over-value at 416px
+                     AND 280px — 51.6px and 96px of overlap removed — so the
+                     second track change bought nothing and cost the numeric
+                     case. */
+                  className="grid grid-cols-[auto_minmax(6rem,1fr)_auto_auto]"
                 >
                   {group.rows.map(row => (
                     <ModelRowView
