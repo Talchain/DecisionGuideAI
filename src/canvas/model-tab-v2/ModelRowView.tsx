@@ -127,6 +127,27 @@ export interface ModelRowViewProps {
  * is a measurement and keeps its protection, as does anything short enough that
  * shrinking it would buy the label nothing.
  */
+/**
+ * ⚠⚠ THE LEAF THAT MAKES `min-w-0` MEAN ANYTHING. Granting the CONTAINER
+ * `min-w-0` lets the flex item shrink — and a bare text node inside it, with
+ * `whitespace-nowrap` and no `overflow:hidden` anywhere, simply SPILLS. Review
+ * measured the producer-real "Very strong effect, direction not stated"
+ * (`strengthBands.ts:84`, 8 reachable sites) escaping its box by 111.1px, the
+ * 280px dock by 65px, and overdrawing the attention column by 29px. Base
+ * control 0.0px.
+ *
+ * ⚠ AND THE REMEDY WAS ALREADY WRITTEN IN THIS FILE'S OWN COMMENT — "the
+ * ellipsis belongs on a text LEAF, not on the flex box" — three lines above
+ * the code that did not do it. `truncate` on the CONTAINER is the separate
+ * defect that caused text-over-text; on the leaf it is correct.
+ *
+ * The leaf truncates ONLY when the value may shrink. A bare value ("35 %")
+ * must never be cut — that is the defect that broke a number from its unit.
+ */
+function ValueLeaf({ display, mayShrink }: { display: string | null; mayShrink: boolean }) {
+  return <span className={mayShrink ? 'truncate min-w-0' : undefined}>{display ?? ''}</span>
+}
+
 function valueMayShrink(display: string | null): boolean {
   if (display === null) return false
   const text = display.trim()
@@ -824,7 +845,7 @@ function ValueCell({
           estimate === null && !valueMayShrink(display) ? 'shrink-0' : 'min-w-0'
         }`}
       >
-        {display ?? ''}
+        <ValueLeaf display={display} mayShrink={valueMayShrink(display)} />
         {estimate}
       </span>
     )
@@ -862,7 +883,11 @@ function ValueCell({
         onBeginEdit?.(row.id)
       }}
     >
-      {display ?? 'Not set'}
+      {/* ⚠ THE SAME LEAF, because this file's own rule applies: "a fix applied
+          to one of the two idle elements is a fix that half the rows never
+          receive." The editable rows are exactly the ones carrying the long
+          strength bands, so this is the site the overflow was measured on. */}
+      <ValueLeaf display={display ?? 'Not set'} mayShrink={valueMayShrink(display)} />
       {estimate}
     </button>
   )

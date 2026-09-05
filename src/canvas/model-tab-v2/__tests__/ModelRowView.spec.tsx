@@ -208,11 +208,24 @@ describe('ModelRowView — the three-beat states tell the truth (design §5.1)',
     expect(screen.getByTestId('model-row-v2-f1-value-from')).toHaveTextContent('45 days')
     expect(screen.getByTestId('model-row-v2-f1-value-to')).toHaveTextContent('60 days')
     /*
-     * ⚠ "Nothing has changed yet" WAS FALSE IN THIS STATE. A proposal HAS been
-     * made — that is what `phase: 'proposed'` means, and the row is showing
-     * `45 days → 60 days` two lines above. What has not happened is the APPLY.
-     * The caption now says so, and this asserts the claim rather than the old
-     * string.
+     * ⚠⚠ CORRECTION — I CALLED THE OLD COPY FALSE AND IT WAS NOT.
+     *
+     * "Nothing has changed yet" was TRUE OF THE STORE. The producer's type at
+     * `types.ts:92` says so in capitals — "The user has stated an intent. THE
+     * MODEL IS UNCHANGED." — and so does this component's own comment. A
+     * reviewer put the two side by side.
+     *
+     * The change is still right, for a different and weaker reason: the
+     * sentence is true and MISREAD, because it sits directly beneath its own
+     * diff (`45 days → 60 days`), where "nothing has changed" reads as a
+     * contradiction of the line above it. `Not applied yet` is true of the
+     * same state and cannot be misread that way; it is also the estate's
+     * existing wording at `HowComputedModal.tsx:252`.
+     *
+     * ⚠ THE JUSTIFICATION MATTERED MORE THAN THE COPY, which is why this is
+     * corrected rather than quietly dropped: a future reader inherits the
+     * REASON, and "the old copy lied" would license removing the store's
+     * unchanged-ness claim somewhere it is load-bearing.
      */
     expect(screen.getByTestId('model-row-v2-f1-value')).toHaveTextContent(/not applied yet/i)
     expect(screen.getByTestId('model-row-v2-f1-value')).not.toHaveTextContent(/nothing has changed/i)
