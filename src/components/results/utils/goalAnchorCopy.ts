@@ -205,12 +205,32 @@ export const COMPARATIVE_COPY = {
    * the same rule that produced `leadNoMagnitude` and `phraseMidSentence`
    * after two call sites did their own casing surgery inline.
    *
-   * One word, because it sits in a `w-14` column beside a bar on a node card.
+   * Short, because it sits in a `w-14` column beside a bar on a node card.
    * `FactorNode` ships "Influence" and "Confidence" in exactly that slot, so
    * this matches the canvas's existing anchored-row pattern rather than
    * inventing a second one.
+   *
+   * ⭐⭐ IT NAMES WHAT WAS MEASURED, NOT WHAT WON — changed from 'Ahead'
+   * 5 Sep 2026 on Paul's direction, and the reason is the product's stance
+   * rather than taste: *"we're not telling them which outcome won. We're
+   * enhancing critical and creative thinking … we're not telling them that the
+   * analysis is the answer."*
+   *
+   * `Ahead` is a VERDICT word. Stripped of its sentence it reads as a result
+   * the product is handing the user — the one thing this product declines to
+   * do. Every sibling anchor names a QUANTITY (`Influence`, `Strength`,
+   * `Chance`); `Ahead` was the only one naming an OUTCOME, which is why it
+   * read as the odd one out.
+   *
+   * `Scenarios` renders as "72%" over "Scenarios" — measurement language,
+   * no claim about which option is right, and it satisfies the register's own
+   * rule that every noun is a SINGLE SENTENCE-CASE WORD, which a first draft
+   * (`of scenarios`) broke. The guard was right: the siblings are all single
+   * nouns, and matching them is what makes the four read as one set.
+   * The full `phrase()` above keeps "came out ahead", and should: it is an
+   * explicit statement about SIMULATED SCENARIOS, not a recommendation.
    */
-  anchor: 'Ahead',
+  anchor: 'Scenarios',
   /**
    * The same claim with NO magnitude — for the runs that carry the
    * comparative RANK but not a displayable probability for the leader.
