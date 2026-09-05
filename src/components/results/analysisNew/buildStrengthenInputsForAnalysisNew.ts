@@ -33,6 +33,7 @@
  */
 
 import { resolveFactorConfidenceDisplay } from '../driverConfidenceDisplayPolicy'
+import { leaderDesignationPermitted } from '../leaderDesignation'
 import { adaptivePriorityFromStage } from '../strengthen/StrengthenContainer'
 import { toStrengthenPhase3Item } from '../strengthen/buildRecommendations'
 import { mergeBiasFindingTypes } from '../strengthen/biasTypesFromGuidance'
@@ -61,9 +62,12 @@ export function buildStrengthenInputsForAnalysisNew({
     goalThreshold: data.recommendation.goalThreshold ?? null,
     hasStatedGoalTarget: data.recommendation.hasGoalTarget,
     analysisComplete: data.recommendation.analysisStatus === 'computed',
-    // The OWNED leader entitlement, quoted from the single verdict and never
-    // re-derived. A completed analysis is not an entitlement to name a leader.
-    hasLeadingOption: data.recommendation.verdict?.hasLeadingOption,
+    // The OWNED leader entitlement, read through THE one reader
+    // (`leaderDesignationPermitted`) exactly as `StrengthenContainer:114` does.
+    // `verdict.hasLeadingOption` is Q2 ALONE; this needs the COMPOSED answer,
+    // or this tab invites the user to challenge a leader the Analysis tab has
+    // withheld. A completed analysis is not an entitlement to name a leader.
+    hasLeadingOption: leaderDesignationPermitted(data.recommendation),
     flipThresholds: data.recommendation.flipThresholds ?? null,
     fragileEdges: fragile
       .filter((fe) => typeof fe.switch_probability === 'number')

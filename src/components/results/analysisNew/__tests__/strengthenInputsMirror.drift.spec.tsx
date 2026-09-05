@@ -50,10 +50,42 @@ import { useCanvasStore } from '../../../../canvas/store'
 import { useGuidanceStore } from '../../../../canvas/stores/guidanceStore'
 import { genuineDecision, highUncertainty, makeDriver, openStrategicChallenge } from './analysisNewFixtures'
 
+/**
+ * ⭐⭐ THE SCENARIO THE OTHER THREE COULD NOT SEE — and the reason this guard
+ * passed 4/4 while the two sides disagreed on a reachable run.
+ *
+ * `hasLeadingOption` is fed from two DIFFERENT authorities:
+ *   container → `leaderDesignationPermitted(rec)`   the COMPOSED answer (Q1 ∧ Q2)
+ *   mirror    → `rec.verdict?.hasLeadingOption`      Q2 ALONE
+ * `leaderDesignationPermitted()` falls back to Q2 when the composed field is
+ * absent — and NO fixture in `analysisNewFixtures.ts` sets it (contrast-
+ * controlled sweep of that file: `leaderDesignationPermitted` 0,
+ * `recommendation` 11, `verdict` 5). So on every existing scenario both sides
+ * evaluate the SAME expression and agree BY CONSTRUCTION. The guard was
+ * agreeing with itself.
+ *
+ * This scenario is the only shape that separates them: Q2 says the arms
+ * separated, the composed admission says the model does not license naming a
+ * leader. It is not hypothetical — it is the `quantified_provisional` shape.
+ */
+const leaderAdmissionWithheld = (): ReturnType<typeof genuineDecision> => {
+  const data = genuineDecision()
+  return {
+    ...data,
+    recommendation: {
+      ...data.recommendation,
+      // Q2 stays `true` (inherited from `genuineDecision`) — the divergence
+      // lives entirely in the composed field, which only one side reads today.
+      leaderDesignationPermitted: false,
+    },
+  }
+}
+
 const SCENARIOS = {
   'open strategic challenge': openStrategicChallenge,
   'genuine decision': genuineDecision,
   'high uncertainty': highUncertainty,
+  'leader admission withheld (composed false, verdict true)': leaderAdmissionWithheld,
 }
 
 beforeEach(() => {
