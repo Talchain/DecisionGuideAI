@@ -104,63 +104,35 @@ export interface EdgeDescription {
  * hedge at 0.6 or at the registry's 0.7.* **It is a copy decision, and it is
  * owed.**
  *
- * ⚠ THIS SENTENCE SAID THE OPPOSITE — "AND IT IS NOT ROWED ANYWHERE" — AND IT
- * WAS FALSE. Kept in the record rather than quietly swapped, because the
- * correction is the lesson: the original was itself written to correct an
- * *earlier* draft that claimed a row, and it over-corrected. Twice in a row,
- * on one sentence, in opposite directions.
+ * ⚠ THIS SENTENCE HAS BEEN WRONG FIVE TIMES, IN FIVE DIRECTIONS, AND THE
+ * SHORTENING IS THE FIX. It has claimed a row, claimed no row anywhere,
+ * blamed a blind probe, mis-dated its own correction, and finally announced
+ * the removal of a figure it had not removed. Every draft was longer than the
+ * one before and every one contained a false limb, which is the tell: the
+ * elaboration was generating the defects, not documenting them (CLAUDE.md
+ * trap 22f). So what follows is only what is load-bearing.
  *
- * ⚠⚠ AND THE OBVIOUS EXPLANATION IS WRONG — THIS IS THE THIRD VERSION OF THIS
- * PARAGRAPH, IN THE THIRD DIRECTION, AND THE FIRST TWO EACH SOUNDED FINISHED.
- * A draft here said the probe that "proved" the absence WAS BLIND. It was not.
- * `#1171`'s sweep carried a contrast control proving it saw rows S45–S49, and
- * it was reading the pushed copies correctly. **Measured across the three
- * `CANVAS-BACKLOG.md` paths in `Talchain/olumi-programme-docs`, as at
- * 2026-09-05** (contrast `S45`, negative control `S900`): `S58` entered at
- * `593de90b`, 2026-09-03T23:42:23Z — **barely half a minute** before `#1171`'s
- * own squash (the exact figure lands at 33-35s depending which timestamp you
- * take, which is the same instability this paragraph is about, so it is not
- * quoted to the second). Until that moment the row lived only in the local
- * `Documents/GitHub` working copy, which is NOT A GIT REPOSITORY. A sighted,
- * correctly-controlled sweep of the pushed copies returned zero because the
- * row was genuinely not in them.
+ * WHAT WAS ACTUALLY WRONG: not the instrument, the SCOPE (trap 20). `#1171`'s
+ * sweep was sighted and correctly controlled, and it read the pushed copies
+ * correctly — the row entered `CANVAS-BACKLOG.md` at `593de90b`, barely half a
+ * minute before `#1171`'s own squash, and until then lived only in the local
+ * `Documents/GitHub` working copy, which is NOT A GIT REPOSITORY. "Absent from
+ * the pushed register" was then recorded as "NOT ROWED ANYWHERE".
  *
- * ⚠ THAT SENTENCE IS SCOPED ON PURPOSE. An earlier draft made the same claim
- * as a bare repo-wide count. That count was CORRECT when measured — it was
- * re-derived independently with token boundaries, its same-family contrast
- * control fired and its negative control read zero — and it went stale
- * **within minutes**, because the review that checked it wrote the second
- * occurrence. A count with no scope and no date is a claim that decays without
- * telling anyone.
- *
- * ⚠ AND THE CONTRAST FIGURE IS DELIBERATELY NOT QUOTED HERE. Three independent
- * measurements of it returned three different numbers — because one counted
- * commits repo-wide, one counted files at `origin/main`, and one was scoped to
- * a single path in a blob-filtered clone where the pickaxe is unreliable. All
- * three were honest; none was comparable. What a contrast control has to
- * establish is that it FIRED while the negative control did not, and that
- * cannot drift. The number can, and this paragraph is about numbers that
- * drift.
- *
- * ⭐⭐ SO THE DEFECT WAS SCOPE, NOT BLINDNESS (CLAUDE.md trap 20): "absent from
- * the pushed register" was recorded as "NOT ROWED ANYWHERE". And the lesson
- * the blind-probe draft prescribed — *an absence claim is only as good as a
- * control run in the same sweep* — WOULD NOT HAVE PREVENTED IT, because `#1171`
- * already had one. A remedy that the defect already satisfies teaches the next
- * reader to repeat it, which is worse than no remedy at all.
- *
- * THE LESSON THAT DOES BITE: **the register this estate treats as canonical is
+ * THE LESSON THAT BITES: **the register this estate treats as canonical is
  * routinely edited in a directory that is not under version control, so
- * "swept the repo" and "swept the register" are DIFFERENT CLAIMS.** An
- * absence claim must name the artefact searched and the moment it was searched
- * — not merely prove the instrument could see.
+ * "swept the repo" and "swept the register" are DIFFERENT CLAIMS.** An absence
+ * claim must name the artefact searched AND the moment. Note what this
+ * REPLACES: an earlier draft prescribed *"run a contrast control in the same
+ * sweep"* — which would not have prevented anything, because `#1171` already
+ * had one. A remedy the defect already satisfies teaches the next reader to
+ * repeat it.
  *
  * Re-derived for this block against `origin/main`: `S58` present, the contrast
  * control FIRED and the negative control read ZERO, so the instrument
- * discriminates. (A first attempt anchored on a table-row pattern returned
- * **zero for the contrast too** — which voids a run rather than cleaning it.)
- * Neither the contrast's count nor the row's line number is restated here:
- * both are another repo's numbering and both drift silently.
+ * discriminates. No count and no line number is quoted — both are another
+ * repo's numbering, both drift silently, and one of them is how draft five
+ * went wrong.
  *
  * What the constant still buys is unchanged: the divergence is NAMED, ADJACENT
  * to the registry it differs from, and asserted in `edgeLabels.spec.ts` — so it
