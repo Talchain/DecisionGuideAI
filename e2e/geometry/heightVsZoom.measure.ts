@@ -12,21 +12,28 @@
  * for the guarantee. A declared control that nothing asserts is prose.
  *
  * ASSERTED — these RED the run:
- *  · NON-VACUITY (`:346`): at least one card must CHANGE height across the LOD
+ *  · BOTH LOD ARMS POPULATED (`:338`, `:339`): a settled sample must exist on
+ *    each side of the legibility threshold, or the direction check below has
+ *    nothing to compare.
+ *  · NON-VACUITY (`:353`): at least one card must CHANGE height across the LOD
  *    threshold. A comparison that discriminates nothing cannot report that
  *    nothing grew.
- *  · COMPLETENESS (`:382`): every requested zoom was visited, and cards were
- *    measured at all. A cell producing no data is an INSTRUMENT failure, and
- *    the probe must be the thing that says so.
+ *  · COMPLETENESS (`:389`-`:390`): every requested zoom was visited, and cards
+ *    were measured at all. A cell producing no data is an INSTRUMENT failure,
+ *    and the probe must be the thing that says so.
  *
- * CAPTURED AND NEVER READ — recorded in `HZJSON` for a human, enforced nowhere:
- *  · POSITIVE: the `--canvas-label-scale` custom property on the React Flow
- *    root (`:174`), and the computed font-size of a node title, SHOULD change
- *    across the zoom series; if they do not, the probe never exercised the
- *    mechanism — but nothing here checks that.
- *  · CONTRAST: `outsideFont` (`:177`), an element OUTSIDE the React Flow
- *    subtree, SHOULD NOT change across the same series; a probe reporting
- *    "everything moved" is measuring a page re-render — again, unchecked.
+ * NEVER ASSERTED — and the two are NOT in the same state, which an earlier
+ * draft of this block flattened under one heading ("captured and never read"):
+ *  · POSITIVE — `labelScale` (`:181`) IS READ, at `:269`, into
+ *    `invariant.distinctScalesHeld`. It reaches `HZJSON` as a derived count a
+ *    human can check. What no `expect` does is REQUIRE it to change, so the
+ *    probe can silently stop exercising the mechanism and stay green.
+ *  · CONTRAST — `outsideFont` (`:184`) is captured and has NO reader at all,
+ *    derived or otherwise. An element outside the React Flow subtree SHOULD NOT
+ *    change across the series; nothing checks, and nothing even counts.
+ *
+ *  Read-but-unasserted and captured-unread are different failures and want
+ *  different fixes, which is why they are now named apart.
  *  Promoting these two to assertions is real work, not a rename: it needs a
  *  settled-sample guard, since an unsettled camera moves neither.
  *

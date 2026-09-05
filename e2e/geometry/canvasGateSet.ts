@@ -371,21 +371,24 @@ export const GATED_TESTS: readonly GatedTest[] = [
       'restated) — the mirror case, where a layout computed while LOD is ON reserves the shorter ' +
       'height and zooming back in pushes a card into the row beneath. One direction alone is a ' +
       'guard watching one door (CLAUDE.md trap 22b). ' +
-      '⚠ TWO OF ITS FOUR DECLARED CONTROLS ARE ASSERTED; TWO ARE CAPTURED AND NEVER READ. ' +
-      'ASSERTED, at the bytes: the NON-VACUITY control is `heightVsZoom.measure.ts:346-349`, ' +
+      '⚠ TWO OF ITS FOUR DECLARED CONTROLS ARE ASSERTED; TWO ARE NEVER ASSERTED — AND THOSE ' +
+      'TWO ARE NOT IN THE SAME STATE (`labelScale` IS read, at `:269`, into a derived count; ' +
+      '`outsideFont` has no reader at all). ' +
+      'ASSERTED, at the bytes: the NON-VACUITY control is `heightVsZoom.measure.ts:353-356`, ' +
       '`expect([...new Set(moved)].length, \'NO card changed height across the LOD threshold ' +
       '\u2014 the comparison is not discriminating\u2026\').toBeGreaterThan(0)`; the COMPLETENESS ' +
-      'control is `:382`, `expect(series.length, \'the sweep did not visit every requested ' +
+      'control is `:389`, `expect(series.length, \'the sweep did not visit every requested ' +
       'zoom\').toBe(ZOOMS.length)`, under the file\'s own ' +
       '\'COMPLETENESS, ASSERTED IN THE PROBE ITSELF\' banner. NOT ASSERTED: the POSITIVE control ' +
       '(`--canvas-label-scale` and the computed title font-size MUST change across the series, ' +
       'or the probe never exercised the mechanism) and the CONTRAST control (an element OUTSIDE ' +
       'the React Flow subtree must NOT change, or the probe is measuring a page re-render). Both ' +
-      'are CAPTURED \u2014 `labelScale` at `:174`, `outsideFont` at `:177` \u2014 and no `expect` ' +
-      'ever reads either. Those two, and only those two, are a DESIGN NOTE the file does not enforce. ' +
+      'are CAPTURED \u2014 `labelScale` at `:181`, `outsideFont` at `:184` \u2014 and no `expect` ' +
+      'ever REQUIRES either to move. Those two, and only those two, are a DESIGN NOTE the file does ' +
+      'not enforce. ' +
       '⭐⭐ AND THE PREVIOUS VERSION OF THIS SENTENCE CLAIMED ALL FOUR, ON A PROBE THAT COULD NOT ' +
       'SEE A MULTI-LINE ASSERTION. It reported the four phrases at \'ZERO times inside any ' +
-      '`expect(`\'. The non-vacuity phrase sits at `:348` INSIDE the `expect(` opened at `:346`, ' +
+      '`expect(`\'. The non-vacuity phrase sits at `:355` INSIDE the `expect(` opened at `:353`, ' +
       'so a single-line `expect(.*phrase)` grep returns a STRUCTURAL zero for every assertion ' +
       'spanning more than one line \u2014 and the completeness phrase was a PARAPHRASE of mine, ' +
       'not the file\'s literal, so it could not match at all. The contrast control that was ' +
