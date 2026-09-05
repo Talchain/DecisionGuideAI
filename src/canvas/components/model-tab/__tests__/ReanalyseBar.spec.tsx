@@ -21,32 +21,40 @@ vi.mock('../../../store', () => ({
   ),
 }))
 
+/**
+ * The gate props are REQUIRED KEYS with nullable types — omission is a compile
+ * error, an explicit `undefined` still falls back to today's behaviour. These
+ * pre-existing cases are about the bar's MOUNT CONDITIONS, not its gate, so they
+ * pass the absent form explicitly rather than silently relying on a default.
+ */
+const NO_GATE = { canRun: undefined, blockedReason: undefined, isAnalysing: undefined } as const
+
 describe('ReanalyseBar', () => {
   it('renders nothing when the analysis is confirmed current (fresh, clean)', () => {
     mockFreshness = { freshness: 'fresh' }
     mockDirty = false
-    const { container } = render(<ReanalyseBar />)
+    const { container } = render(<ReanalyseBar {...NO_GATE} />)
     expect(container.firstChild).toBeNull()
   })
 
   it('renders nothing when there is no freshness verdict', () => {
     mockFreshness = null
     mockDirty = false
-    const { container } = render(<ReanalyseBar />)
+    const { container } = render(<ReanalyseBar {...NO_GATE} />)
     expect(container.firstChild).toBeNull()
   })
 
   it('renders nothing for a CEE cannot-confirm (unknown) verdict — never fabricates "changed"', () => {
     mockFreshness = { freshness: 'unknown' }
     mockDirty = false
-    const { container } = render(<ReanalyseBar />)
+    const { container } = render(<ReanalyseBar {...NO_GATE} />)
     expect(container.firstChild).toBeNull()
   })
 
   it('renders the bar on a genuine CEE stale verdict', () => {
     mockFreshness = { freshness: 'stale' }
     mockDirty = false
-    render(<ReanalyseBar />)
+    render(<ReanalyseBar {...NO_GATE} />)
     expect(screen.getByTestId('reanalyse-bar')).toBeInTheDocument()
     expect(screen.getByText(/Model changed/)).toBeInTheDocument()
   })
@@ -54,7 +62,7 @@ describe('ReanalyseBar', () => {
   it('renders the bar when a retained fresh verdict is dirtied by a local edit (changed)', () => {
     mockFreshness = { freshness: 'fresh' }
     mockDirty = true
-    render(<ReanalyseBar />)
+    render(<ReanalyseBar {...NO_GATE} />)
     expect(screen.getByTestId('reanalyse-bar')).toBeInTheDocument()
   })
 
@@ -71,7 +79,7 @@ describe('ReanalyseBar', () => {
   it('renders the bar AND the re-run control after an applied edit (silent verdict + local edit)', () => {
     mockFreshness = { freshness: 'unknown', freshnessReason: 'payload_carried_no_freshness_verdict' }
     mockDirty = true
-    render(<ReanalyseBar />)
+    render(<ReanalyseBar {...NO_GATE} />)
     expect(screen.getByTestId('reanalyse-bar')).toBeInTheDocument()
     expect(screen.getByTestId('reanalyse-button')).toBeInTheDocument()
     expect(screen.getByText(/Model changed/)).toBeInTheDocument()
@@ -80,7 +88,7 @@ describe('ReanalyseBar', () => {
   it('still renders nothing for that same silent verdict with NO local edit', () => {
     mockFreshness = { freshness: 'unknown', freshnessReason: 'payload_carried_no_freshness_verdict' }
     mockDirty = false
-    const { container } = render(<ReanalyseBar />)
+    const { container } = render(<ReanalyseBar {...NO_GATE} />)
     expect(container.firstChild).toBeNull()
   })
 
@@ -88,7 +96,7 @@ describe('ReanalyseBar', () => {
     mockFreshness = { freshness: 'stale' }
     mockDirty = false
     const onReanalyse = vi.fn()
-    render(<ReanalyseBar onReanalyse={onReanalyse} />)
+    render(<ReanalyseBar {...NO_GATE} onReanalyse={onReanalyse} />)
 
     fireEvent.click(screen.getByTestId('reanalyse-button'))
     expect(onReanalyse).toHaveBeenCalledOnce()
@@ -97,7 +105,7 @@ describe('ReanalyseBar', () => {
   it('re-analyse button is disabled when onReanalyse is not provided', () => {
     mockFreshness = { freshness: 'stale' }
     mockDirty = false
-    render(<ReanalyseBar />)
+    render(<ReanalyseBar {...NO_GATE} />)
     const btn = screen.getByTestId('reanalyse-button')
     expect(btn).toBeDisabled()
   })
