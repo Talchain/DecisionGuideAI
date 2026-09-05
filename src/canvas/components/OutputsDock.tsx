@@ -28,7 +28,6 @@ import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, Message
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
-import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { AnalysisRunningBanner } from './AnalysisRunningBanner'
 import { AnalysisRunAnnouncer } from './AnalysisRunAnnouncer'
 import { AnalysisRunStateCover } from './AnalysisRunStateCover'
@@ -1015,8 +1014,15 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
    * unchanged: only the authority's own `'changed'` licenses the stronger
    * sentence — see `staleReasonFromTrustSemantic`.
    */
-  const { semantic: analysisTrustSemantic } = useAnalysisTrust()
-  const analysisStaleReason = staleReasonFromTrustSemantic(analysisTrustSemantic)
+  /**
+   * ⚠ READ FROM THE BINDING ALREADY IN SCOPE, NOT FROM A SECOND SUBSCRIPTION.
+   * The first cut called `useAnalysisTrust()` here — which is literally
+   * `useAnalysisState().trust`, and `composedAnalysisState` is that same
+   * selector, bound 35 lines above. Two independent subscriptions to one
+   * authority is harmless within a render and is exactly what the comment
+   * beneath this argues against; caught in review.
+   */
+  const analysisStaleReason = staleReasonFromTrustSemantic(composedAnalysisState.trust.semantic)
   // Brief step 6 — the composed run state that decides WHICH truth-state
   // banner this surface may render. It derives nothing new: it maps the
   // verdicts the refusal/freshness/results owners already publish onto the

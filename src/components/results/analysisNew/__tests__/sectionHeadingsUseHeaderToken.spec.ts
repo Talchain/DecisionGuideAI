@@ -81,13 +81,59 @@ describe('Analysis (New) — a section title is typed as a section title', () =>
     ).toEqual([])
   })
 
-  it('the two headings this closed are on panelHeader, by identity', () => {
+  /**
+   * ⚠⚠ THIS USED TO SAY "by identity" AND BIND BY FILE — `byFile(f).some(…)`,
+   * which is identity-equivalent only for as long as each file holds exactly
+   * one heading. A second `h1`–`h3` in either file would have silently
+   * downgraded it to "some heading somewhere in this file", which is the
+   * value-predicate binding this directory's own header bans. The count is now
+   * asserted, so the claim and the check are the same claim.
+   */
+  it('the two headings this closed are on panelHeader — one heading per file, asserted', () => {
     const all = headings()
     const byFile = (f: string) => all.filter((h) => h.file.endsWith(f))
-    // Bound by IDENTITY to the two surfaces measured on the deployed build,
-    // so a future refactor that drops either one fails loudly rather than
-    // silently shrinking the set this test protects.
-    expect(byFile('sections/WhatWeChecked.tsx').some((h) => /typography\.panelHeader/.test(h.snippet)), 'WhatWeChecked').toBe(true)
-    expect(byFile('AnalysisNewTabBody.tsx').some((h) => /typography\.panelHeader/.test(h.snippet)), 'the decision-VOI heading').toBe(true)
+    for (const f of ['sections/WhatWeChecked.tsx', 'AnalysisNewTabBody.tsx']) {
+      const found = byFile(f)
+      expect(found.length, `${f} must hold exactly one h1-h3 for this binding to BE an identity binding`).toBe(1)
+      expect(/typography\.panelHeader/.test(found[0]!.snippet), f).toBe(true)
+    }
+  })
+
+  /**
+   * ⭐⭐ THE POSITIVE REQUIREMENT, WHICH THIS FILE'S NAME ALWAYS CLAIMED AND ITS
+   * ASSERTIONS DID NOT MAKE.
+   *
+   * Everything above BANS one token. A heading typed `text-[10px]`, or
+   * `panelBody`, or nothing at all, passed every one of them — so the guard
+   * closed the measured defect and did not enforce the property on its own
+   * filename. Caught in review.
+   *
+   * ⚠ THE ONE EXEMPTION IS PINNED AS AN EXACT SET, not as a predicate. A
+   * `KNOWN_DELEGATING` list that must match EXACTLY reds if it grows (a new
+   * untyped heading) or shrinks (the exemption stops being needed) — a gap
+   * recorded in the suite is honest; a gap invisible to it is how this shipped
+   * twice. `SectionShell`'s `<h3 className="m-0">` legitimately delegates its
+   * type to an inner span, which is why it carries no token of its own.
+   */
+  const KNOWN_DELEGATING = ['sections/SectionShell.tsx'] as const
+
+  it('every section heading REQUIRES panelHeader — and the delegating exemption is exactly one file', () => {
+    const all = headings()
+    const delegating = all
+      .filter((h) => !/typography\./.test(h.snippet))
+      .map((h) => h.file)
+    expect(
+      [...new Set(delegating)].sort(),
+      'the set of headings that delegate their type must not grow or shrink unnoticed',
+    ).toEqual([...KNOWN_DELEGATING])
+
+    const wrongToken = all
+      .filter((h) => !KNOWN_DELEGATING.some((k) => h.file.endsWith(k)))
+      .filter((h) => !/typography\.panelHeader/.test(h.snippet))
+      .map((h) => `${h.file}: ${h.snippet.replace(/\s+/g, ' ').slice(0, 90)}`)
+    expect(
+      wrongToken,
+      `A section heading is not typed as a section title. The token table reserves panelHeader for these.\n${wrongToken.join('\n')}`,
+    ).toEqual([])
   })
 })
