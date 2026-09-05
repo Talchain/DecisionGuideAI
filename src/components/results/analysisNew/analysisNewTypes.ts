@@ -54,13 +54,22 @@ export interface InspectRow {
    * error code, so the `<dt>` column printed EDGE_E_VALUE_NON_FINITE_DROPPED to
    * the user (witnessed by Paul on deployed `a9c2e050`).
    *
-   * The estate's ratified shape for this content is sentence-first with the code
-   * de-emphasised after it — `ModelHealthSection.tsx:393-398`, pinned by
-   * `auditInferenceWarningsNeverBareCode.spec.tsx`, whose header rules the
-   * property is `code + sentence`, NEVER `sentence instead of code`. A
-   * two-column grid cannot express that order, which is why the flag exists
-   * rather than a swap of the two columns: swapping would put the sentence in
-   * the muted column and the code in the emphasised one, which is worse.
+   * The row renders as a full-width sentence; the code stays in the DOM as the
+   * `sr-only` `<dt>` and `data-gap-code`, so the `<dl>` keeps a term and support
+   * keeps its handle. A swap of the two columns would not do — it would put the
+   * sentence in the muted column and the code in the emphasised one, which is
+   * worse — which is why this is a flag rather than a column swap.
+   *
+   * ⚠⚠ THIS COMMENT PREVIOUSLY CALLED `code + sentence` "the estate's ratified
+   * shape" AND THAT WAS FALSE (review S1). It generalised
+   * `auditInferenceWarningsNeverBareCode.spec.tsx`, whose own first line scopes
+   * it — "The Model card's audit trail never renders a machine code ALONE" — and
+   * whose rule, quoted from `humaniseCritique.ts`, is that a machine code is
+   * right for an AUDIT TRAIL and wrong for a CAVEAT STRIP. The Model tab is the
+   * audit trail and lists the code regardless. `AdvancedSection.tsx:383-398`
+   * renders these same entries, from the same selector, with no code at all — so
+   * `sentence instead of code` already shipped on the sibling tab for exactly
+   * this content, under a green suite.
    */
   statement?: boolean
 }

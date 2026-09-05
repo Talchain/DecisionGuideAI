@@ -116,7 +116,33 @@ export function DeeperAnalysis({ deeper, testId = 'analysis-new-deeper' }: Deepe
                             code does not name a sentence.
                             The `<dl>` stays valid — every `<dd>` still has its
                             `<dt>` — and the six term/definition groups are
-                            untouched, since the flag is opt-in per row. */}
+                            untouched, since the flag is opt-in per row.
+
+                            ⚠⚠ THE CODE IS NOT PRINTED AFTER THE SENTENCE EITHER,
+                            AND THE FIRST VERSION OF THIS CHANGE WAS WRONG TO DO
+                            SO (review S1). It appended ` (ROOT_NODE_DEFAULT_VALUE)`
+                            de-emphasised, citing "the estate's ratified shape".
+                            That generalised a ruling scoped to ONE surface:
+                            `auditInferenceWarningsNeverBareCode.spec.tsx` opens
+                            "The Model card's audit trail…", and the rule it
+                            enforces — `humaniseCritique.ts`'s own words — is that
+                            "a machine code is correct content for an AUDIT TRAIL
+                            and wrong content for a CAVEAT STRIP". This group is
+                            the caveat surface; the Model tab is the audit trail,
+                            and it lists the code regardless, which is where that
+                            fallback sentence already points the reader.
+                            The disconfirming case was live in the repo the whole
+                            time: `AdvancedSection.tsx:383-398` renders the
+                            IDENTICAL entries — the same
+                            `selectHumanisedInferenceWarningsOutsideStrip` call —
+                            as a bare sentence with no code at all. Printing it
+                            here would have made this panel the only surface
+                            showing SCREAMING_SNAKE to a reader.
+                            The code stays in the DOM twice over — the `sr-only`
+                            `<dt>` (so the `<dl>` keeps a term and support can
+                            quote it) and `data-gap-code` — so nothing loses
+                            traceability. Pinned in both directions by
+                            `gapCodeIsNotTheHeading.spec.tsx`. */}
                         {r.statement ? (
                           <>
                             <dt className="sr-only">{r.label}</dt>
@@ -125,16 +151,6 @@ export function DeeperAnalysis({ deeper, testId = 'analysis-new-deeper' }: Deepe
                               data-gap-code={r.label || undefined}
                             >
                               {r.value}
-                              {/* The code, de-emphasised, AFTER the sentence —
-                                  the Model tab's ratified shape. `aria-hidden`
-                                  because the `<dt>` above already carries it, so
-                                  a screen reader hears it once, not twice. It is
-                                  a separate element rather than appended to
-                                  `r.value` because a spec requires that string
-                                  to BE the shared humaniser's output. */}
-                              {r.label ? (
-                                <span className="text-text-light" aria-hidden="true">{` (${r.label})`}</span>
-                              ) : null}
                             </dd>
                           </>
                         ) : (
