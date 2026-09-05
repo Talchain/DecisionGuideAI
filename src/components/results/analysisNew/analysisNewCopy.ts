@@ -368,6 +368,25 @@ export const ANALYSIS_NEW_COPY = {
     lowers: 'Lowers the goal',
     raises: 'Raises the goal',
     /**
+     * ⚠⚠ THE SCALE, AND IT IS DELIBERATELY NOT A PERCENTAGE.
+     *
+     * The bars are scaled to the STRONGEST DRIVER IN THIS RUN
+     * (`buildAnalysisNewViewModel.ts:558/565`), never to a sum and never to 1.0
+     * — the builder's own comment states why: scaling to a sum would render
+     * each bar as a SHARE OF THE OUTCOME, "a claim neither basis licenses".
+     *
+     * So an axis reading 0%–100% would be exactly the unlicensed claim, dressed
+     * as a courtesy to the reader. What the outer edge actually means is "the
+     * strongest driver this run found", and what the centre means is "no effect
+     * on the goal". Naming those two points is the whole scale, and it is the
+     * only scale the data supports.
+     *
+     * Witnessed by Paul on deployed `a9c2e050`: the chart gave direction with no
+     * reference point, so a bar's position and length were unreadable.
+     */
+    axisCentre: 'no effect',
+    axisEdge: 'strongest this run',
+    /**
      * ⚠ NOT "no direction" AND NOT SILENCE. `mixed` and `unknown` are results:
      * the producer measured the factor and declined to assert one direction.
      * "Direction not established" says that; "no direction" would report an
