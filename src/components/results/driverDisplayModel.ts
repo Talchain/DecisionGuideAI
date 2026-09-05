@@ -44,7 +44,11 @@ export type AnalysisMetricBasis =
   | 'value_of_information'
 
 export type PermittedAnalysisMetricLanguage =
-  | 'absolute_influence_score'
+  /* ⚠ `'absolute_influence_score'` WAS HERE AND IS DELETED, NOT DEPRECATED.
+     No basis is absolute — see `PERMITTED_LANGUAGE_BY_BASIS` — so leaving the
+     member in the union would keep three `switch` arms alive for a state
+     nothing can produce, and would let a future mapping quietly reach for it
+     again. Removing it makes that a type error. */
   | 'set_relative_influence'
   | 'pre_analysis_influence_score'
   | 'value_of_information'
@@ -60,7 +64,32 @@ export interface ResolvedAnalysisMetric {
 }
 
 const PERMITTED_LANGUAGE_BY_BASIS: Record<AnalysisMetricBasis, PermittedAnalysisMetricLanguage> = {
-  influence_score: 'absolute_influence_score',
+  /**
+   * ⭐⭐ `influence_score` IS SET-RELATIVE. IT WAS MAPPED TO ABSOLUTE LANGUAGE,
+   * AND THAT MAPPING IS WHAT LICENSED "Influence score 100%".
+   *
+   * The producer divides every factor by `max|influence|`, so the top row is
+   * **1.0 by construction** — driver count is irrelevant, and 100% means
+   * "largest in this set" and nothing more. Confirmed independently from this
+   * side before the change: every capture in this repo carrying
+   * `influence_score` has a maximum of EXACTLY 1.0, across twelve files
+   * including live staging responses. A quantity whose maximum is always
+   * exactly 1 is a ratio to that maximum.
+   *
+   * ⚠⚠ AND WHY IT IS A TRUST DEFECT RATHER THAN A WORDING ONE.
+   * `live-influence-score-one-2026-08-23.json`, a real staging response, holds
+   * `"Monthly Payroll Burn"` at `influence_score: 1` with `elasticity: 0`. That
+   * is a DEMOTED LEVER — the producer zeroes sensitivity, elasticity and
+   * value-of-information for a lever and deliberately leaves the structural
+   * weight alone. So the panel said a factor "has an influence score of 100%"
+   * about one the same response says moves nothing.
+   *
+   * ⚠ THE TWO BASES ARE NOT ABSOLUTE-vs-RELATIVE. They are two different
+   * NORMALISATIONS: this one is the producer's (against max |influence|),
+   * `normalised_elasticity` is this app's own. The distinction is real and
+   * worth keeping; only the label was wrong.
+   */
+  influence_score: 'set_relative_influence',
   normalised_elasticity: 'set_relative_influence',
   pre_analysis_influence: 'pre_analysis_influence_score',
   value_of_information: 'value_of_information',
