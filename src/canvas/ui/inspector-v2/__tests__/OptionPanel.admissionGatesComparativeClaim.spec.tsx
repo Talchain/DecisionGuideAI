@@ -34,6 +34,7 @@ import { render } from '@testing-library/react'
 
 import { InspectorModal } from '../../../components/InspectorModal'
 import { useCanvasStore } from '../../../store'
+import type { AnalysisAdmissionV1, PermittedAnalysisMode } from '../../../../adapters/cee/types'
 
 vi.mock('@xyflow/react', async importOriginal => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -68,7 +69,39 @@ function optionNode(id: string, label: string) {
  * `ceeAnalysisReady` at all, which is the legacy-producer arm and must behave
  * exactly as before.
  */
-function seedRun(mode: 'comparative_leader' | 'single_option' | null) {
+/**
+ * ⚠ THE REFUSING MODES ARE THE REAL ENUM, NOT A LITERAL I INVENTED.
+ *
+ * A first draft passed `'single_option'`, which is NOT a `PermittedAnalysisMode`
+ * at all — it is borrowed from `flipReasonVocabulary`, an ISL flip-reason enum.
+ * It changed no behaviour (the gate is one equality against `comparative_leader`)
+ * but it put a FALSE RECORD in a spec whose whole job is pinning an honesty
+ * claim, and a local string-literal type plus an `as never` cast hid it from the
+ * compiler. Typed against the contract now, so the compiler is the guard.
+ *
+ * ⭐ AND IT SWEEPS ALL THREE REFUSING MODES rather than one. The ladder is
+ * `none < exploratory < quantified_provisional < comparative_leader`, and only
+ * the last licenses naming a leader — so a spec that tested one literal bound to
+ * that literal, where the property is about the ENUM.
+ */
+const REFUSING_MODES: readonly PermittedAnalysisMode[] = [
+  'none',
+  'exploratory',
+  'quantified_provisional',
+]
+
+/** `reasons` is NEVER empty on a refusal, by contract (`AnalysisAdmissionReason`). */
+const admission = (mode: PermittedAnalysisMode): AnalysisAdmissionV1 => ({
+  permitted_analysis_mode: mode,
+  reasons: mode === 'comparative_leader'
+    ? []
+    : [{
+        field: 'semantic_quality_sufficient',
+        message: 'Every confidence-bearing number in this model was estimated by Olumi, not stated by you.',
+      }],
+})
+
+function seedRun(mode: PermittedAnalysisMode | null) {
   useCanvasStore.setState({
     nodes: [optionNode(LEADER_ID, LEADER_LABEL), optionNode(RIVAL_ID, RIVAL_LABEL)] as never[],
     edges: [],
@@ -97,7 +130,7 @@ function seedRun(mode: 'comparative_leader' | 'single_option' | null) {
     },
     ceeAnalysisReady: mode == null
       ? null
-      : { status: 'ready', options: [], goal_node_id: 'goal_1', analysis_admission: { permitted_analysis_mode: mode } },
+      : { status: 'ready', options: [], goal_node_id: 'goal_1', analysis_admission: admission(mode) },
     selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: { x: 0, y: 0 } },
     goalThreshold: null,
     confirmedNodeIds: new Set(),
@@ -122,8 +155,8 @@ describe('OptionPanel — the model admission gates the comparative claim', () =
       .toMatch(AHEAD_CLAIM)
   })
 
-  it('WITHHELD: with a non-comparative mode, the leader is NOT named', () => {
-    seedRun('single_option')
+  it.each(REFUSING_MODES)('WITHHELD (%s): the leader is NOT named', mode => {
+    seedRun(mode)
     const text = openInspector(LEADER_ID)
     expect(text).not.toMatch(AHEAD_CLAIM)
   })
@@ -135,8 +168,8 @@ describe('OptionPanel — the model admission gates the comparative claim', () =
       .toMatch(BEHIND_CLAIM)
   })
 
-  it('WITHHELD: a non-leader is NOT told how far behind', () => {
-    seedRun('single_option')
+  it.each(REFUSING_MODES)('WITHHELD (%s): a non-leader is NOT told how far behind', mode => {
+    seedRun(mode)
     const text = openInspector(RIVAL_ID)
     expect(text).not.toMatch(BEHIND_CLAIM)
   })
