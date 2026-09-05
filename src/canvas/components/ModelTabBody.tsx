@@ -802,7 +802,17 @@ export const ModelTabBody = memo(function ModelTabBody({
       // second, unclassified route for `cee_inference` to reach the clipboard —
       // and `utils.ts:80-83` records this exact leak as having already "left the
       // estate in what a user pastes into a document".
-      const src = obs.source ? ` [${mapSourceToDisplay(obs.source)}]` : ' [no source]'
+      /* ⚠ THREE STATES, NOT TWO. `mapSourceToDisplay` now returns `null` for a
+         source it cannot classify, so a bare interpolation would paste the word
+         "null" into a user's document — strictly worse than the wire token it
+         replaced. "No source" and "a source we cannot name" are different facts
+         and the clipboard says which. */
+      const namedSource = obs.source ? mapSourceToDisplay(obs.source) : null
+      const src = namedSource
+        ? ` [${namedSource}]`
+        : obs.source
+          ? ' [source not recognised]'
+          : ' [no source]'
       lines.push(`  • ${lbl}${src}`)
     }
     lines.push('')
