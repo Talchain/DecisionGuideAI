@@ -144,9 +144,22 @@ describe('the row atoms align to ONE grid, not 199 of them', () => {
      * share of what is left", spelled differently, which is how the label
      * reached 37px in the first place.
      */
+    /**
+     * ⚠⚠ AND THE FIRST NARROWING WAS STILL A REGEX ARMS RACE. It was
+     * `/^(?!0(?:px|rem|em|ch)?$)…/`, which rejects the literal `0` and admits
+     * every spelling of it: `0.0rem`, `00px`, `0.00px`, `000rem` all left this
+     * spec GREEN. Found in review, and it is the same shape as the wiring pin
+     * next door — five rounds of narrowing a string, each defeat moving
+     * sideways within it.
+     *
+     * So this PARSES the value instead of matching it. A number and a unit,
+     * and the number must be greater than zero. There is no spelling of zero
+     * that survives `parseFloat`, which is what takes it out of the arms race.
+     */
+    const floor = /^(\d+(?:\.\d+)?)(px|rem|em|ch)$/.exec(identityTrack ?? '')
     expect(
-      /^(?!0(?:px|rem|em|ch)?$)\d+(\.\d+)?(px|rem|em|ch)$/.test(identityTrack ?? ''),
-      `the identity track's floor must be a NON-ZERO fixed length, not "${identityTrack}" — an unbounded (or zero) minimum lets a long label push the value column off-axis`,
+      floor !== null && Number.parseFloat(floor[1]!) > 0,
+      `the identity track's floor must be a NON-ZERO fixed length, not "${identityTrack}" — an unbounded (or zero) minimum lets a long label push the value column off-axis, and every spelling of zero is a zero`,
     ).toBe(true)
 
     /**

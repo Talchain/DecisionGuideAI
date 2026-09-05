@@ -82,8 +82,8 @@ export interface ModelRowViewProps {
   onDiscardEdit?: (id: string) => void
   /** The inline confirm chip — dispatches the canonical transaction. */
   onConfirmEdit?: (id: string) => void
-  
-/**
+
+  /**
    * Ratify this row's AI-estimated value as correct — the v1 Confirm ✓,
    * rehomed (18 Aug 2026).
    *

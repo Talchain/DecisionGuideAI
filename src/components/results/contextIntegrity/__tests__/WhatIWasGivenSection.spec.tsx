@@ -54,6 +54,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { figureTallySubtitle } from '../figureTallySubtitle'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 
 import { ResultsBody } from '../../ResultsBody'
@@ -178,19 +179,18 @@ describe('the fixtures carry the case they are used to prove (anti-vacuity)', ()
  */
 describe('the subtitle counts in English', () => {
   /**
-   * ⚠ THE MANIFEST SHAPE IS DERIVED FROM THE TYPE, NOT GUESSED. A first draft
-   * passed `manifest: []` and the render threw on `.items` — the component
-   * reads `manifest.quantities` when `status === 'derived'`, and
-   * `notYetCount = absent + proseOnly`. Building it from the interface is what
-   * makes `total` mean what the subtitle claims it means.
-   */
-  /**
-   * ⚠ EVERY QUANTITY IS NOW EXPLICIT, because the first version hardcoded
-   * `inModel: total, proseOnly: 0, absent: 0` and could therefore only ever
-   * reach ONE of the subtitle's arms. Two defects lived in the arms it could
-   * not reach, and both were found by a reviewer rendering the component with
-   * quantities this seeder could not express. A fixture that can only produce
-   * one state cannot certify a four-way branch.
+   * ⚠⚠ THE DOMAIN LIVES IN `figureTallySubtitle.spec.ts` NOW, AND THAT IS THE
+   * POINT. Three passes of per-case assertions here each closed the case a
+   * reviewer named and shipped a new instance of the same defect one arm
+   * across. The sentence is derived by a pure function which is enumerated over
+   * the whole quantity box; what remains HERE is the binding — that the
+   * component renders exactly what that function returns, on the real store.
+   *
+   * ⚠ AND THE CASES BELOW MATCH THE SENTENCE EXACTLY. The previous version
+   * asserted three loose predicates (`not /aren't/`, `/in the model/`,
+   * `not /All 1 figures/`) which the PLAIN-TALLY arm also satisfies — so a
+   * mutant breaking the all-clear gate for n = 1 left all 58 cases green on a
+   * sentence carrying the defect. An exact match cannot land on the wrong arm.
    */
   const seedQuantities = (q: {
     total: number
@@ -212,12 +212,10 @@ describe('the subtitle counts in English', () => {
           truncated: false,
           items: [],
         },
-        // ⚠ THESE TWO WERE GUESSED AND `as never` SILENCED THE COMPILER.
+        // ⚠ THESE TWO WERE ONCE GUESSED AND `as never` SILENCED THE COMPILER.
         // `'none'` is in NEITHER union: `DeclaredExclusions.status` is
         // `reported | none_reported | not_recorded`, `InferredFactors.status`
-        // is `derived | not_recorded`. Behaviourally inert — the subtitle
-        // reads only `quantities` — but the comment above claimed the fixture
-        // was derived from the type, and for two of six fields it was not.
+        // is `derived | not_recorded`.
         declaredExclusions: { status: 'none_reported', items: [] },
         inferredFactors: { status: 'not_recorded', items: [] },
         notTracked: [],
@@ -225,109 +223,34 @@ describe('the subtitle counts in English', () => {
     })
   }
 
-  /** All present — the arm the original two cases were written against. */
-  const seedTally = (total: number): void => seedQuantities({ total, inModel: total })
-
   const subtitle = (): string => {
     render(<WhatIWasGivenSection />)
     return screen.getByTestId('what-i-was-given-summary').textContent ?? ''
   }
 
-  it('n = 1 reads in the singular, and never "All 1 figures"', () => {
-    seedTally(1)
-    const text = subtitle()
-    // ⚠ PRECONDITION, AND THE FIRST ONE WAS VACUOUS: `/in the model/i` also
-    // matches the SHORTFALL arm ("… aren't in the model yet"), so a fixture
-    // drift to `absent: 1` would have left this green while measuring the
-    // wrong sentence. This pins the all-present arm by excluding the other.
-    expect(text, 'the all-present arm must be rendering').not.toMatch(/aren't in the model yet/i)
-    expect(text).toMatch(/in the model/i)
-    expect(text, 'the defect: "All 1 figures you mentioned are in the model"').not.toMatch(
-      /All 1 figures/i,
-    )
-  })
-
-  it('n > 1 still reads in the plural — the discriminating twin', () => {
-    // Without this, the singular arm could be satisfied by copy that never
-    // says "figures" at all, for any count.
-    seedTally(3)
-    expect(subtitle()).toMatch(/All 3 figures/i)
+  it.each([
+    ['n = 1, all present', { total: 1, inModel: 1 }, 'The figure you mentioned is in the model'],
+    ['n > 1, all present', { total: 3, inModel: 3 }, 'All 3 figures you mentioned are in the model'],
+    ['n = 1, shortfall', { total: 1, inModel: 0, absent: 1 }, "The figure you mentioned isn't in the model yet"],
+    ['one of many missing', { total: 4, inModel: 3, absent: 1 }, "1 of 4 figures you mentioned isn't in the model yet"],
+    ['several missing', { total: 4, inModel: 2, absent: 2 }, "2 of 4 figures you mentioned aren't in the model yet"],
+    ['unreconciled, some in the model', { total: 5, inModel: 3 }, '3 of 5 figures you mentioned are in the model'],
+    ['unreconciled, none in the model, n = 1', { total: 1, inModel: 0 }, 'None of the 1 figure you mentioned is in the model'],
+  ])('renders the derived sentence VERBATIM: %s', (_name, q, expected) => {
+    seedQuantities(q)
+    expect(subtitle()).toBe(expected)
   })
 
   /**
-   * ⭐ THE SHORTFALL ARM'S OWN SINGULAR — the twin the first fix skipped.
-   * The singular handling was added to the all-present arm and not to the one
-   * three lines below it, so the most ordinary small manifest there is (one
-   * figure in the brief, it did not land) read "1 of 1 figures … aren't".
+   * ⭐ THE BINDING ITSELF, PINNED. Without this the cases above would still
+   * pass if the component stopped calling the derivation and happened to
+   * reproduce these seven strings by other means — which is exactly how the
+   * wiring pin on the neighbouring surface was defeated four times.
    */
-  it('the shortfall arm counts in English too, at n = 1', () => {
-    seedQuantities({ total: 1, inModel: 0, absent: 1 })
-    const text = subtitle()
-    // PRECONDITION: this is the SHORTFALL arm, not the all-present one — else
-    // the assertions below are about a sentence this case never renders.
-    expect(text, 'the shortfall arm must be rendering').toMatch(/isn't in the model yet/i)
-    expect(text, 'the defect: "1 of 1 figures you mentioned aren\'t in the model yet"').not.toMatch(
-      /1 of 1 figures/i,
-    )
-    expect(text).not.toMatch(/aren't/i)
-  })
-
-  // ⚠ ONE RENDER PER TEST. The first cut asserted both numbers in one case and
-  // RED'd on "Found multiple elements" — RTL cleans up per test, not per
-  // `render`, so the second call left two live trees and the query was
-  // ambiguous. The failure was in the harness, not the copy: the sentence it
-  // did find was already correct.
-  it('the shortfall arm reads "isn\'t" for a single missing figure of many', () => {
-    seedQuantities({ total: 4, inModel: 3, absent: 1 })
-    expect(subtitle()).toMatch(/1 of 4 figures you mentioned isn't in the model yet/i)
-  })
-
-  it('…and "aren\'t" for several — the discriminating twin', () => {
-    seedQuantities({ total: 4, inModel: 2, absent: 2 })
-    expect(subtitle()).toMatch(/2 of 4 figures you mentioned aren't in the model yet/i)
-  })
-
-  /**
-   * ⭐⭐ THE ALL-CLEAR MUST BE GATED ON `inModel === total`, NOT ON
-   * `absent + proseOnly === 0`.
-   *
-   * `parseNotModelled` validates each of the four numbers independently and
-   * DELIBERATELY never reconciles them, so a manifest whose tally does not add
-   * up is admitted by the contract. On one, the earlier gate rendered
-   * "All 5 figures you mentioned are in the model" with three of them in it —
-   * a confident all-clear over an unreconciled count, in the section whose
-   * whole subject is context integrity.
-   *
-   * ⚠ HONEST BOUND, RECORDED RATHER THAN CLAIMED AWAY: all three real
-   * derivation fixtures in this repo reconcile, so producer-reachability is
-   * NOT established. The gate is here because the claim must be true over the
-   * domain the parser accepts, not over the domain we happen to have seen.
-   */
-  it('an unreconciled tally gets a plain count, never an all-clear', () => {
-    seedQuantities({ total: 5, inModel: 3 })
-    const text = subtitle()
-    expect(text, 'the defect: a confident all-clear over a tally that does not add up').not.toMatch(
-      /All 5 figures/i,
-    )
-    // …and not the pre-PR falsehood either: nothing is "not in the model yet"
-    // by the producer's own marking, so the shortfall sentence is equally wrong.
-    expect(text).not.toMatch(/aren't in the model yet/i)
-    expect(text).toMatch(/3 of 5 figures you mentioned are in the model/i)
-  })
-
-  it('the plain-count arm counts in English at inModel = 1', () => {
-    seedQuantities({ total: 4, inModel: 1 })
-    expect(subtitle()).toMatch(/1 of 4 figures you mentioned is in the model/i)
-  })
-
-  /**
-   * The DISCRIMINATING TWIN for the gate above: a reconciled tally must still
-   * reach the all-clear. Without this, tightening the gate to something that
-   * never fires would leave every case above green.
-   */
-  it('a reconciled tally still earns the all-clear', () => {
-    seedQuantities({ total: 5, inModel: 5 })
-    expect(subtitle()).toMatch(/All 5 figures you mentioned are in the model/i)
+  it('the rendered sentence IS the derivation, on a case no test above names', () => {
+    const q = { total: 7, inModel: 4, proseOnly: 1, absent: 0 }
+    seedQuantities(q)
+    expect(subtitle()).toBe(figureTallySubtitle({ ...q, proseOnly: 1, absent: 0 }))
   })
 })
 
