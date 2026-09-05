@@ -360,9 +360,19 @@ export function applyScenarioAnalysisRead(
   // Boot alone cannot arm it (`running` is boot-declined), which is why this
   // needed its own repair rather than riding the boot fix.
   //
-  // ⚠ SCOPE, CARRIED WITH THE FIX: reachable IN CODE, conditional on a refused
-  // boot, which has NOT been observed live. Given a refused boot the harm
-  // follows; that refused boots reach real users is unproven.
+  // ⚠⚠ SCOPE — CORRECTED, AND THE OLD SCOPE WAS WRONG IN THE DIRECTION THAT
+  // MATTERS. This comment used to read: "reachable IN CODE, conditional on a
+  // refused boot, which has NOT been observed live". **Withdrawn.** The harm
+  // was WITNESSED ON THE DEPLOYED BUILD (issue #1204) and NO REFUSED BOOT IS
+  // REQUIRED: the reproduction is guest · load one shipped starter · send one
+  // brief · first turn. Creating a scenario seeds `lastAuthoritativeGraph` with
+  // an EMPTY-BUT-NON-NULL identity record, and the starter's nodes land after
+  // it — so the acceptance proxy is satisfied by the very gesture that creates
+  // the hazard. A scope that says "unproven for real users" teaches every later
+  // reader to deprioritise a live P0; that is why it is corrected here rather
+  // than only in the register. The supplying derivation now also requires
+  // OPTION-IDENTITY CONTAINMENT (`useProvisionalAnalysisDelivery.ts`), which is
+  // what closes the witnessed journey.
   //
   // ⚠ PLACED BEFORE THE RESULTS HYDRATION BELOW, AND THAT IS A DECISION.
   // Declining the verdict while still writing the REPORT would show the user
