@@ -115,9 +115,15 @@ function makeStore(nodes: Node[]): {
   store: V5ApplicatorStore
   setCeeAnalysisReady: ReturnType<typeof vi.fn>
   backfillGoalThreshold: ReturnType<typeof vi.fn>
+  resultsComplete: ReturnType<typeof vi.fn>
+  clearAnalysisFreshnessDirty: ReturnType<typeof vi.fn>
+  noteRunCompletedWithoutVerdict: ReturnType<typeof vi.fn>
 } {
   const setCeeAnalysisReady = vi.fn()
   const backfillGoalThreshold = vi.fn()
+  const resultsComplete = vi.fn()
+  const clearAnalysisFreshnessDirty = vi.fn()
+  const noteRunCompletedWithoutVerdict = vi.fn()
   return {
     store: {
       setCurrentStage: vi.fn(),
@@ -127,12 +133,60 @@ function makeStore(nodes: Node[]): {
       setCeeAnalysisReady,
       backfillGoalThreshold,
       setAnalysisFreshness: vi.fn(),
+      resultsComplete,
+      clearAnalysisFreshnessDirty,
+      noteRunCompletedWithoutVerdict,
+      currentResultsHash: null,
       nodes,
       edges: [],
     },
     setCeeAnalysisReady,
     backfillGoalThreshold,
+    resultsComplete,
+    clearAnalysisFreshnessDirty,
+    noteRunCompletedWithoutVerdict,
   }
+}
+
+/**
+ * The pricing model's analysis, as an `analysis_result` block. Its identity is
+ * carried in `leading_option_id` / `win_probabilities` — the two fields the
+ * reviewer's execution printed when the foreign report hydrated onto the hiring
+ * canvas.
+ */
+const PRICING_ANALYSIS_BLOCK = {
+  type: 'analysis_result' as const,
+  summary: 'Raising the price leads',
+  leading_option_id: PRICING_OPTION_A,
+  win_probabilities: { [PRICING_OPTION_A]: 0.71, [PRICING_OPTION_B]: 0.29 },
+  enrichment: {
+    factor_sensitivity: [
+      {
+        factor_id: 'fac-price-elasticity',
+        factor_label: 'Price elasticity',
+        sensitivity: 0.5,
+        direction: 'positive' as const,
+      },
+    ],
+  },
+}
+
+/** The hiring model's own analysis — the one the user is entitled to see. */
+const HIRING_ANALYSIS_BLOCK = {
+  type: 'analysis_result' as const,
+  summary: 'Hiring two juniors leads',
+  leading_option_id: HIRING_OPTION_B,
+  win_probabilities: { [HIRING_OPTION_A]: 0.42, [HIRING_OPTION_B]: 0.58 },
+  enrichment: {
+    factor_sensitivity: [
+      {
+        factor_id: 'fac-ramp-time',
+        factor_label: 'Ramp time',
+        sensitivity: 0.6,
+        direction: 'negative' as const,
+      },
+    ],
+  },
 }
 
 /** The payload actually handed to the store, or undefined when none was. */
@@ -185,12 +239,21 @@ describe('P0 #1204 — foreign readiness must not be painted onto a mounted mode
   })
 
   it('DECLINES a PARTIALLY contained readiness (deliberate: fail closed, same as every restore path)', () => {
-    // Deliberate and stated: `validateCeeAnalysisReady` fail-closes on the FIRST
-    // missing option, and it is the same predicate `loadScenario`,
-    // `RecoveryBanner`, `ReactFlowGraph` and the autosave/crash restores already
-    // use. Admitting a partial here would make the live turn leg the ONE reader
-    // that answers this question differently — which is the drift the reuse
-    // exists to prevent.
+    // Deliberate and stated: `ceeAnalysisReadyContainment` fail-closes on the
+    // FIRST missing option, and it is the same code `validateCeeAnalysisReady`
+    // runs for the two LIVE restore consumers — `loadScenario`
+    // (`store.ts:5517`) and the boot sessionStorage/crash restore
+    // (`ReactFlowGraph.tsx:559`). Admitting a partial here would make the live
+    // turn leg the ONE reader that answers this question differently — the
+    // drift the reuse exists to prevent.
+    //
+    // ⚠ THE COUNT IN THIS COMMENT WAS WRONG AND IS CORRECTED AT THE BYTES. It
+    // used to claim four guarded consumers — "loadScenario, RecoveryBanner,
+    // ReactFlowGraph and the autosave/crash restores". There are THREE call
+    // sites, of which TWO are live: `RecoveryBanner.tsx:88` is never mounted
+    // (`ReactFlowGraph.tsx:2750` reads `{/* RecoveryBanner removed */}`), and
+    // "ReactFlowGraph" and "the autosave/crash restores" are the SAME site,
+    // counted twice.
     const { store, setCeeAnalysisReady } = makeStore(HIRING_CANVAS)
 
     const result = applyV5State(
@@ -321,11 +384,21 @@ describe('P0 #1204 — the pre-existing arms are untouched', () => {
 
   it('an ARM-B blocked refusal (identity-preserving, CONTAINED) still SETS — containment must not swallow the refusal carrier', () => {
     // `validateCeeAnalysisReady` also rejects `status: 'blocked'` as
-    // `blocked_refusal` — a question about RESTORING a refusal, not about
-    // containment. applyV5State deliberately ACCEPTS the identity-preserving
-    // refusal carrier (CEE #1023) so the refusal notice can render. Acting on
-    // the whole verdict rather than the containment reasons would silently
-    // reverse that.
+    // `blocked_refusal` — a question about RESTORING a refusal into a fresh
+    // session, not about containment. applyV5State deliberately ACCEPTS a
+    // CONTAINED identity-preserving refusal carrier (CEE #1023).
+    //
+    // ⚠ THE REASON STATED HERE USED TO BE FALSE — "so the refusal notice can
+    // render" — and is corrected at the bytes:
+    // `deriveAnalysisRefusalNoticeUpdate` runs at `applyV5State.ts:1334`, well
+    // BEFORE this write, takes `(response: unknown)`, reads the raw payload and
+    // imports nothing at all, so refusing the write could never have stopped the
+    // notice. The TRUE reason to accept a contained blocked carrier is that
+    // `blocked` ∈ `EXPLICIT_NOT_READY_STATUSES`
+    // (`deriveAnalysisDisplayState.ts:106`) is how the turn drives the display
+    // to not-ready FOR THE MODEL ON SCREEN. That reason applies only when the
+    // payload IS about the model on screen — hence the foreign-blocked test
+    // above, which this case is the opposite-direction twin of.
     const { store, setCeeAnalysisReady } = makeStore(HIRING_CANVAS)
 
     const result = applyV5State(
@@ -341,5 +414,260 @@ describe('P0 #1204 — the pre-existing arms are untouched', () => {
 
     expect(result.applied).toContain('analysis_ready:set')
     expect(writtenPayload(setCeeAnalysisReady)).toBeTruthy()
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BLOCKING B — the `status: 'blocked'` class must not bypass containment
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// `validateCeeAnalysisReady`'s returns are ORDERED AND MUTUALLY EXCLUSIVE:
+// `blocked_refusal` returns at `ceeAnalysisReadyValidation.ts:65`, BEFORE the
+// goal check and the option loop. A gate that asked the composite and then read
+// `reason` therefore got `blocked_refusal` for every blocked payload and NEVER
+// asked containment — structurally vacuous for the whole class, with the
+// aggravating consequence that `setCeeAnalysisReady` stamps
+// `ceeAnalysisReadyNodeIds` from the CURRENT canvas, laundering the foreign
+// payload's provenance so no later staleness check can tell.
+//
+// The fix asks `ceeAnalysisReadyContainment` directly. These two cases are the
+// discriminating pair: same status, opposite containment, opposite outcomes.
+
+describe('P0 #1204 / blocked bypass — containment is asked of BLOCKED payloads too', () => {
+  it('DECLINES a FOREIGN blocked readiness, so no foreign payload is stamped with this canvas node ids', () => {
+    const { store, setCeeAnalysisReady } = makeStore(HIRING_CANVAS)
+
+    const result = applyV5State(
+      baseResponse({
+        analysis_ready: {
+          ...readiness(PRICING_GOAL, [PRICING_OPTION_A, PRICING_OPTION_B]),
+          status: 'blocked',
+          blocked_reason: 'insufficient_model',
+        },
+      }),
+      store,
+    )
+
+    // The provenance-laundering write must not happen at all.
+    expect(setCeeAnalysisReady).not.toHaveBeenCalled()
+    expect(result.applied).not.toContain('analysis_ready:set')
+    expect(result.deferred.map((d) => d.reason)).toContain(
+      'analysis_ready_not_about_current_graph',
+    )
+  })
+
+  it('still DECLINES a foreign blocked readiness whose GOAL collides but whose options do not', () => {
+    // Binds to the option loop specifically, so the case cannot pass on the
+    // goal check alone.
+    const { store, setCeeAnalysisReady } = makeStore(HIRING_CANVAS)
+
+    const result = applyV5State(
+      baseResponse({
+        analysis_ready: {
+          ...readiness(HIRING_GOAL, [PRICING_OPTION_A]),
+          status: 'blocked',
+          blocked_reason: 'insufficient_model',
+        },
+      }),
+      store,
+    )
+
+    expect(setCeeAnalysisReady).not.toHaveBeenCalled()
+    expect(result.deferred.map((d) => d.reason)).toContain(
+      'analysis_ready_not_about_current_graph',
+    )
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BLOCKING A — the REPORT write is the slice the Analysis tab renders
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Guarding `setCeeAnalysisReady` alone did NOT close the founder's
+// reproduction. The Analysis tab reads `results.report` (`OutputsDock.tsx:928`
+// -> `selectReport` -> `store.ts:7558`), written only by `resultsComplete`.
+// With the readiness gate in place and no report gate, a single response
+// carrying a foreign readiness AND a foreign `analysis_result` refused the
+// readiness and hydrated the pricing model's report onto the hiring canvas.
+//
+// ⚠ OVER-SUPPRESSION IS THE EXPENSIVE DIRECTION HERE, MORE SO THAN FOR
+// READINESS: a refused readiness costs a badge, a refused report costs the user
+// the analysis they just ran and waited a minute for. Every DECLINE below
+// therefore carries its opposite-direction twin, and the twins assert the
+// payload is passed through UNCHANGED, not merely that a call happened.
+
+describe('P0 #1204 — a foreign ANALYSIS REPORT must not hydrate onto the mounted model', () => {
+  it('DECLINES the REPORT write when the same response carries a foreign readiness (the founder reproduction)', () => {
+    const { store, setCeeAnalysisReady, resultsComplete } = makeStore(HIRING_CANVAS)
+
+    const result = applyV5State(
+      baseResponse({
+        analysis_ready: readiness(PRICING_GOAL, [PRICING_OPTION_A, PRICING_OPTION_B]),
+        blocks: [PRICING_ANALYSIS_BLOCK],
+      }),
+      store,
+    )
+
+    // Both writes refused — this is the pair the reviewer's execution split.
+    expect(setCeeAnalysisReady).not.toHaveBeenCalled()
+    expect(resultsComplete).not.toHaveBeenCalled()
+    expect(result.applied).not.toContain('analysis_result:results_hydrated')
+    expect(result.deferred.map((d) => d.reason)).toContain(
+      'analysis_result_not_about_current_graph',
+    )
+  })
+
+  it('REFUSES the report write without CLEARING — resultsComplete is never called with a cleared report', () => {
+    // Refuse, never clear: the report the user already holds passed this check
+    // when it was written. A `resultsComplete` call of ANY shape would replace
+    // it, so the assertion is that the writer was not invoked at all.
+    const { store, resultsComplete, clearAnalysisFreshnessDirty, noteRunCompletedWithoutVerdict } =
+      makeStore(HIRING_CANVAS)
+
+    applyV5State(
+      baseResponse({
+        analysis_ready: readiness(PRICING_GOAL, [PRICING_OPTION_A, PRICING_OPTION_B]),
+        blocks: [PRICING_ANALYSIS_BLOCK],
+      }),
+      store,
+    )
+
+    expect(resultsComplete).not.toHaveBeenCalled()
+    // The freshness overlay must not move for a run that never landed.
+    expect(clearAnalysisFreshnessDirty).not.toHaveBeenCalled()
+    expect(noteRunCompletedWithoutVerdict).not.toHaveBeenCalled()
+  })
+
+  it('DECLINES the REPORT write on PARTIAL containment (deliberate: the same verdict step 4 gives)', () => {
+    // Decided deliberately: a report whose option set is only partly ours prices
+    // options that are not on the canvas beside ones that are, and the leading
+    // option it designates may be a foreign one. That is the founder's harm in
+    // miniature, not a milder version of it. It is also the SAME verdict step 4
+    // reaches, because it is literally the same verdict — one question, one
+    // authority, two consumers.
+    const { store, resultsComplete } = makeStore(HIRING_CANVAS)
+
+    const result = applyV5State(
+      baseResponse({
+        analysis_ready: readiness(HIRING_GOAL, [HIRING_OPTION_A, PRICING_OPTION_B]),
+        blocks: [HIRING_ANALYSIS_BLOCK],
+      }),
+      store,
+    )
+
+    expect(resultsComplete).not.toHaveBeenCalled()
+    expect(result.deferred.map((d) => d.reason)).toContain(
+      'analysis_result_not_about_current_graph',
+    )
+  })
+})
+
+describe('P0 #1204 — a legitimate ANALYSIS REPORT must still hydrate, byte-identically', () => {
+  it('APPLIES the report for the canvas the user is actually on, with the payload UNCHANGED', () => {
+    // Byte-identity control: the SAME response applied on an EMPTY canvas takes
+    // exclusion 1 and therefore cannot be gated at all. Its resultsComplete
+    // argument is the gate-off reference. The gated-but-contained arm must
+    // produce a deep-equal argument — so the gate is proven to pass the payload
+    // through rather than merely to let a call happen.
+    const gateOff = makeStore([])
+    applyV5State(
+      baseResponse({
+        analysis_ready: readiness(HIRING_GOAL, [HIRING_OPTION_A, HIRING_OPTION_B]),
+        blocks: [HIRING_ANALYSIS_BLOCK],
+      }),
+      gateOff.store,
+    )
+    expect(gateOff.resultsComplete).toHaveBeenCalledTimes(1)
+    const reference = gateOff.resultsComplete.mock.calls[0][0]
+
+    const { store, resultsComplete } = makeStore(HIRING_CANVAS)
+    const result = applyV5State(
+      baseResponse({
+        analysis_ready: readiness(HIRING_GOAL, [HIRING_OPTION_A, HIRING_OPTION_B]),
+        blocks: [HIRING_ANALYSIS_BLOCK],
+      }),
+      store,
+    )
+
+    expect(resultsComplete).toHaveBeenCalledTimes(1)
+    expect(result.applied).toContain('analysis_result:results_hydrated')
+    expect(result.deferred.map((d) => d.reason)).not.toContain(
+      'analysis_result_not_about_current_graph',
+    )
+
+    const written = resultsComplete.mock.calls[0][0] as {
+      report: { leading_option_id?: string }
+      hash: string
+      resultsSource: string
+      enrichment: unknown
+      rawV2Response: unknown
+      v5Enrichment: unknown
+    }
+    // Byte-identical to the ungated reference, across every param.
+    expect(written).toEqual(reference)
+    // And bound by IDENTITY to the hiring model, not merely "some report".
+    expect(written.report.leading_option_id).toBe(HIRING_OPTION_B)
+    expect(written.resultsSource).toBe('conversation')
+    expect(written.enrichment).toBeNull()
+    expect(written.rawV2Response).toBeNull()
+    expect(written.v5Enrichment).toEqual(HIRING_ANALYSIS_BLOCK.enrichment)
+  })
+
+  it('APPLIES the report on an EMPTY canvas — the nodes arrive after this step', () => {
+    const { store, resultsComplete } = makeStore([])
+
+    const result = applyV5State(
+      baseResponse({
+        analysis_ready: readiness(PRICING_GOAL, [PRICING_OPTION_A, PRICING_OPTION_B]),
+        blocks: [PRICING_ANALYSIS_BLOCK],
+      }),
+      store,
+    )
+
+    expect(resultsComplete).toHaveBeenCalledTimes(1)
+    expect(result.applied).toContain('analysis_result:results_hydrated')
+  })
+
+  it('APPLIES the report when the turn CARRIES the graph that supplies the ids', () => {
+    const { store, resultsComplete } = makeStore(HIRING_CANVAS)
+
+    const result = applyV5State(
+      baseResponse({
+        analysis_ready: readiness(PRICING_GOAL, [PRICING_OPTION_A, PRICING_OPTION_B]),
+        blocks: [PRICING_ANALYSIS_BLOCK],
+        draft_graph: {
+          nodes: [
+            { id: PRICING_GOAL, type: 'goal', data: {} },
+            { id: PRICING_OPTION_A, type: 'option', data: {} },
+            { id: PRICING_OPTION_B, type: 'option', data: {} },
+          ],
+          edges: [],
+        },
+      }),
+      store,
+    )
+
+    expect(resultsComplete).toHaveBeenCalledTimes(1)
+    expect(result.applied).toContain('analysis_result:results_hydrated')
+  })
+
+  it('APPLIES the report when the response carries NO analysis_ready — the stated residual, pinned', () => {
+    // ⚠ NOT a closure claim. This gate can only refuse a report when the SAME
+    // response also carried an `analysis_ready` that failed containment. CEE's
+    // contract is to send `analysis_ready` with every `analysis_result`, so a
+    // block arriving alone is a contract violation rather than a routine turn —
+    // but the residual is real and is pinned here so it is visible rather than
+    // implied closed. If it is ever closed, this test is the one that must move.
+    const { store, resultsComplete } = makeStore(HIRING_CANVAS)
+
+    const result = applyV5State(
+      baseResponse({ blocks: [PRICING_ANALYSIS_BLOCK] }),
+      store,
+    )
+
+    expect(resultsComplete).toHaveBeenCalledTimes(1)
+    expect(result.deferred.map((d) => d.reason)).not.toContain(
+      'analysis_result_not_about_current_graph',
+    )
   })
 })
