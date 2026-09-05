@@ -116,18 +116,32 @@ export const InlineField = memo(function InlineField({
     return (
       <div className="grid min-h-8 grid-cols-[56px_1fr_auto] items-center gap-2">
         <span className={`${typography.panelMeta} text-text-light`}>{label}</span>
-        {/* ⭐ THIS READ `truncate`, AND THE FIELD IT TRUNCATES IS A VALUE.
-            `HeroSection` passes `hero.success.displayText`, which
-            `selectors/computeSuccessState.ts` builds with `formatWithUnit` — a
-            number and its unit — so `£2,500,000 ARR` ellipsised mid-magnitude.
-            Worse than the edge badge for recovery: there was no `title`, and
-            `role="textbox"` without `tabIndex` is not focusable, so the full
-            number had no hover, keyboard OR touch route. The editable branch
-            below uses a real `<input>`, which scrolls and is caret-recoverable
-            — but this branch is the one that ships: `readOnly` is
-            `!GOAL_SUCCESS_EDIT_CONNECTED`, and `mutationAuthority.ts` declares
+        {/* ⭐ THIS READ `truncate`, AND ONE OF THE TWO FIELDS IT TRUNCATES IS A
+            VALUE. `HeroSection` mounts this component TWICE, and the two are
+            not the same case — so, deliberately, is the reasoning:
+
+            · the SUCCESS field (`SUCCESS_INPUT_ID`) passes
+              `hero.success.displayText`, which
+              `selectors/computeSuccessState.ts` builds with `formatWithUnit` —
+              a number and its unit — so `£2,500,000 ARR` ellipsised
+              mid-magnitude. A value must never truncate at all.
+            · the GOAL field (`GOAL_INPUT_ID`) passes `hero.goal?.label`, a
+              LABEL. A label MAY truncate — but only where the full text has a
+              recovery route, and this one had none (see
+              `../../../ui/truncation.ts`). It wraps now too, and that is the
+              call rather than a special case: the recovery argument below is
+              identical at both sites, and a second branch here would be a
+              second rule to keep in step.
+
+            Recovery is what makes this worse than the edge badge: there is no
+            `title`, and `role="textbox"` without `tabIndex` is not focusable,
+            so the full text had no hover, keyboard OR touch route. The editable
+            branch below uses a real `<input>`, which scrolls and is
+            caret-recoverable — but this branch is the one that ships:
+            `readOnly` is `!GOAL_SUCCESS_EDIT_CONNECTED`, and
+            `mutations/mutationAuthority.ts` declares
             `goalSuccessTarget: 'disabled'`, so `hasServerGraphAuthority` is
-            false and the truncating branch is unconditional today.
+            false and the truncating branch was unconditional.
 
             The remedy is the one `nodes/OptionNode.tsx` already ratified for a
             value that will not fit: the value "keeps as many lines as it needs".

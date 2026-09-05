@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
 import { jsxSourceFilesIn } from '../../../../tests/helpers/jsxTextEntryScan'
+import { stripJsComments } from '../../../../tests/helpers/stripSourceComments'
 import { PROTECTED_VALUE_CLASS, PROTECTED_VALUE_STYLE, TRUNCATING_LABEL_STYLE } from '../truncation'
 
 /**
@@ -32,11 +33,21 @@ import { PROTECTED_VALUE_CLASS, PROTECTED_VALUE_STYLE, TRUNCATING_LABEL_STYLE } 
  * `actionColourMeansPressable.spec.ts` records four hand-rolled tokenisers
  * defeated in one night — by generics, by comparisons, by template literals and
  * finally by an ordinary English apostrophe that erased a planted violation
- * while leaving every control clean. A parser also makes the comment/prose
- * false positive unrepresentable: the enumerating sweep of this class found 41
- * of 184 raw grep hits were comments, two of them the very comments EXPLAINING
- * this rule. A guard that cannot tell a use from a mention reads the
- * explanation as the offence. The AST never sees a comment at all.
+ * while leaving every control clean. The enumerating sweep of this class found
+ * 41 of 184 raw grep hits were comments, two of them the very comments
+ * EXPLAINING this rule, and a guard that cannot tell a use from a mention reads
+ * the explanation as the offence.
+ *
+ * ⚠⚠ BUT THE PARSER DOES NOT BY ITSELF BUY THAT IMMUNITY. An earlier version of
+ * this docblock said "the AST never sees a comment at all", and the false half
+ * of that was the half doing the work. The QUANTITY side is genuinely
+ * comment-immune — a comment is never a `JsxText`, never a template literal's
+ * cooked text, never an identifier. `truncationMechanism` is not: it reads an
+ * attribute's RAW SOURCE via `getText()`, which spans any comment inside it, so
+ * the use/mention confusion was live on the truncation side and had already
+ * fired once in this repo. It is closed there by blanking comments first, with
+ * a fixture pair pinning it; the counterexample and the measurement are on that
+ * function.
  *
  * ⚠⚠ WHAT THIS GUARD CANNOT SEE — stated because a blind spot is never a
  * licence, and because the next lane will otherwise read green as "clean":
@@ -75,8 +86,13 @@ import { PROTECTED_VALUE_CLASS, PROTECTED_VALUE_STYLE, TRUNCATING_LABEL_STYLE } 
  * Measured with this same scanner over the excluded subtrees, each with a
  * non-zero truncating count so no directory was read blind:
  * `canvas/components/model-tab` 6 truncating / 0 findings · `canvas/model-tab-v2`
- * 9 / 0 · `canvas/ui/inspector-v2` 10 / 0 · `canvas/conversation` 1 / 0 ·
+ * 8 / 0 · `canvas/ui/inspector-v2` 10 / 0 · `canvas/conversation` 1 / 0 ·
  * `components/results` 32 / 2 · `pages` 3 / 1.
+ *
+ * (`model-tab-v2` read 9 before comments were blanked. The ninth was the
+ * comment false positive described on `truncationMechanism` — a census figure
+ * inflated by the guard's own defect, which is why that number moved and no
+ * other did.)
  */
 
 const CANVAS_DIR = path.resolve(__dirname, '..', '..')
@@ -155,17 +171,38 @@ function attrValue(
   return undefined
 }
 
+/**
+ * ⚠⚠ COMMENTS ARE BLANKED OUT OF THE ATTRIBUTE TEXT BEFORE ANY REGEX RUNS,
+ * AND THAT IS NOT BELT-AND-BRACES — IT CLOSED A LIVE FALSE POSITIVE.
+ *
+ * This is the one place the scan leaves the AST: `getText()` returns the node's
+ * SOURCE RANGE, and a comment sitting inside that range comes with it. So a
+ * comment in a `className` expression reached these regexes as if it were a
+ * class — and one already did. `model-tab-v2/ModelRowView.tsx:852` carries the
+ * comment "⚠ `min-w-0` ONLY — NEVER `truncate` HERE", and this scan counted
+ * that element as truncating: the guard reading the explanation as the offence,
+ * on a comment explaining this very rule. It cost no FINDING only because that
+ * span's children match no quantity rule — one rename to `displayValue` and it
+ * is a false RED. Measured at this tip, it was the only one: `src/canvas`
+ * counted 94 truncating elements raw and 93 with comments blanked.
+ *
+ * `stripJsComments` BLANKS rather than strips — comment bytes become spaces —
+ * so offsets never shift and two identifiers either side of a removed comment
+ * cannot fuse into a new token. It treats strings and templates as CODE, so a
+ * real `'truncate'` in a class list survives; the fixture pair below pins both
+ * directions.
+ */
 function truncationMechanism(
   el: ts.JsxOpeningElement | ts.JsxSelfClosingElement,
   sf: ts.SourceFile,
 ): string | null {
   const cls = attrValue(el, sf, 'className')
-  const clsText = cls ? cls.getText(sf) : ''
+  const clsText = cls ? stripJsComments(cls.getText(sf), true) : ''
   if (cls && TRUNCATING_CLASS.test(clsText)) return 'className truncate/line-clamp'
   if (cls && AUTHORITY_TRUNCATION.test(clsText)) return 'className TRUNCATING_LABEL_CLASS'
   const style = attrValue(el, sf, 'style')
   if (!style) return null
-  const text = style.getText(sf)
+  const text = stripJsComments(style.getText(sf), true)
   if (/textOverflow\s*:\s*['"`]ellipsis/.test(text)) return "style textOverflow:'ellipsis'"
   if (/WebkitLineClamp\s*:/.test(text)) return 'style WebkitLineClamp'
   if (AUTHORITY_TRUNCATION.test(text)) return 'style TRUNCATING_LABEL_STYLE'
@@ -317,6 +354,33 @@ export const AlsoBad = () => (
 )
 `
 
+/**
+ * ⭐ USE vs MENTION, AS A PINNED PAIR. The only `truncate` in the first fixture
+ * is inside a COMMENT in the `className` expression, so the element does not
+ * truncate; the twin puts the same word in the class list, where it IS the
+ * mechanism. They differ in nothing else. Before comments were blanked the
+ * mention arm scanned as a truncating element carrying a value — a false RED
+ * against a comment WARNING AGAINST the very thing it was accused of.
+ *
+ * A fixture rather than the repo file that exposed this: a control pinned to
+ * "whatever `ModelRowView.tsx` says today" decays the moment that comment is
+ * reworded, and this estate has the scar.
+ */
+const COMMENT_MENTION_FIXTURE = `
+export const Mentioned = () => (
+  <span className={cx(base, /* min-w-0 ONLY — NEVER truncate HERE, it is a flex container */ 'min-w-0')}>
+    Sensitive · {Math.round(p * 100)}%
+  </span>
+)
+`
+const COMMENT_MENTION_TWIN_FIXTURE = `
+export const Real = () => (
+  <span className={cx(base, 'min-w-0 truncate')}>
+    Sensitive · {Math.round(p * 100)}%
+  </span>
+)
+`
+
 describe('a label may truncate; a value never may', () => {
   const files = jsxSourceFilesIn(CANVAS_DIR)
   const scans = files.map((f) => ({
@@ -346,6 +410,21 @@ describe('a label may truncate; a value never may', () => {
     const viaAuthority = scanSource(DEFECT_VIA_AUTHORITY_FIXTURE, 'fixture.tsx')
     expect(viaAuthority.truncating, 'the authority spread was not recognised as truncation').toBe(1)
     expect(viaAuthority.findings).toHaveLength(1)
+  })
+
+  it('reads a comment MENTIONING truncation as a mention, not as the mechanism', () => {
+    const mention = scanSource(COMMENT_MENTION_FIXTURE, 'fixture.tsx')
+    const real = scanSource(COMMENT_MENTION_TWIN_FIXTURE, 'fixture.tsx')
+
+    // The twin FIRST: it proves this fixture shape reaches the detector at all,
+    // so "the mention arm saw no truncation" is a discrimination and not a
+    // fixture that failed to parse. Without it, both arms reading zero would
+    // look exactly like a pass.
+    expect(real.truncating, 'the twin fixture parsed no truncating element').toBe(1)
+    expect(real.findings, 'a real `truncate` around a value was not reported').toHaveLength(1)
+
+    expect(mention.truncating, 'a comment was counted as a truncation mechanism').toBe(0)
+    expect(mention.findings).toHaveLength(0)
   })
 
   it('the PROTECTED primitives do not themselves truncate', () => {
