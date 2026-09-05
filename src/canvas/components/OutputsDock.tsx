@@ -3542,6 +3542,23 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 startedAt={composedAnalysisState.trust.runStartedAt}
                 contentRetained={!isPreRun}
               />
+              {/* ⚠ `aria-busy` — THE ONE ATTRIBUTE THE PARITY CLAIM WAS SHORT.
+                  Every other surface that mounts the in-flight cover marks its
+                  content busy (`ModelTabBody:882`, `CompareTabBody:265`,
+                  `CoachingPanel:59`), and so does the Analysis tab
+                  (`:3381`, `aria-busy={isRunning || undefined}`). This tab
+                  mounted the cover and did not, so a screen-reader user was
+                  told a run had started and then read the retained report with
+                  nothing marking it as superseded. Raised by review on #1201.
+
+                  `|| undefined` so the attribute is ABSENT when false rather
+                  than `aria-busy="false"` — the same form the four siblings
+                  use, and the difference matters to assistive tech.
+
+                  A plain wrapper with no layout classes: the branch's flex
+                  behaviour is the boundary's and the body's, and this must not
+                  become a new box in that chain. */}
+              <div aria-busy={composedAnalysisState.trust.isRunning || undefined} data-testid="analysis-new-busy-region">
               <SectionErrorBoundary section="Analysis (New)">
                 <AnalysisNewTabBody
                   resultsSectionData={resultsSectionData}
@@ -3563,6 +3580,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   blockedListing={runBlockedListing}
                 />
               </SectionErrorBoundary>
+              </div>
               </>
             )}
             {effectiveActiveTab === 'compare' && (
