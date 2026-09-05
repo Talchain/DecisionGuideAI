@@ -111,11 +111,19 @@ export function ModelImplication({
         ⚠⚠ THE STALE MARKER IS A SIBLING OF THE HEADING, NOT A CHILD OF IT, AND
         THAT IS TWO FIXES IN ONE.
         
-        It sat inside the `<h3>`, where `panelHeader`'s `font-semibold` reached
-        it — `panelMeta` declares no weight of its own — so it carried a raw
-        `font-normal` to escape. That token trips the `raw-typography` guard,
-        and this component's own header says "no raw weights". Moving the marker
-        out removes the inheritance instead of overriding it.
+        It sat inside the `<h3>`, inheriting `panelHeader`'s weight — `panelMeta`
+        declares none of its own — so it carried a raw weight utility to escape.
+        That trips `raw-typography`, and this component's own header says "no raw
+        weights". Moving the marker out removes the inheritance instead of
+        overriding it.
+
+        ⚠ THE TOKEN NAMES ARE DELIBERATELY NOT SPELLED HERE. `check-ds-compliance`'s
+        `panel-typography-scoped` rule matches raw lines and, unlike its
+        `production-hex` sibling, sets no `stripComments` — so a comment
+        DESCRIBING a weight utility is counted as USING one. This comment tripped
+        the guard the fix was for. Reported rather than fixed: that rule is a
+        shared CI guard and changing what it detects is an estate-wide change,
+        not mine to make from inside a panel PR.
         
         ⭐ AND THE GUARD ONLY FIRED BECAUSE THIS PR IS THE MOUNT. The file had no
         importers, so no conformance guard had ever scanned it — it was fully
