@@ -7,8 +7,8 @@ import { jsxSourceFilesIn } from '../../../../tests/helpers/jsxTextEntryScan'
 /**
  * ⭐⭐⭐ A VALUE MUST NEVER TRUNCATE. THIS IS THE GATE FOR `../truncation.ts`.
  *
- * The rule was ratified twice in Paul's words and enforced at roughly a dozen
- * sites by hand — then missed at two, because a hand-enforced rule is only as
+ * The rule was ratified twice (see `../truncation.ts`) and enforced at roughly a
+ * dozen sites by hand — then missed at two, because a hand-enforced rule is only as
  * good as whoever last wrote a badge. The deployed edge badge painted
  * `Sensitive · 5…`, with the digits of the flip risk eaten by the ellipsis. A
  * cut-off number is worse than an absent one: the reader does not see a gap,

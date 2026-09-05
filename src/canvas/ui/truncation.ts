@@ -9,7 +9,11 @@ import type { CSSProperties } from 'react'
  * ellipsis, with nothing on screen saying so.
  *
  * ⚠ THIS RULE IS NOT NEW, AND THAT IS THE POINT OF THIS FILE. It was ratified
- * twice, in Paul's words, and both statements are still in the tree:
+ * twice and both statements are still in the tree. (The brief that commissioned
+ * this fix called both "Paul's own words". Only the FIRST is attributed at the
+ * bytes — as an approved brief — and neither line names him, so that
+ * attribution is not repeated here. An inherited attribution written into a
+ * durable comment is how a claim nobody checked becomes doctrine.)
  *
  *   · `nodes/OptionNode.tsx` — the approved brief, quoted there as "one line
  *     per change, label truncates, value NEVER truncates". That comment also
