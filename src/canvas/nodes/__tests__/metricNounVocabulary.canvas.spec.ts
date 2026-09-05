@@ -481,6 +481,29 @@ describe('canvas metric-noun vocabulary (Paul, 31 Aug 2026)', () => {
     // notice the sibling. Twice now this guard's NAME has been wider than its
     // reach, in the two different dimensions a scope has.
     //
+    // ⚠⚠⚠ AND "TWO DIMENSIONS" WAS ITSELF WRONG — THERE IS A THIRD, AND IT IS
+    // STILL OPEN (review of #1209 round 4, measured by injection). A scope has
+    // FILES, PATTERN and FORM, and `LIVE` below still recognises only two
+    // spellings: `label="Noun"` and `` `Noun ${` ``. It does NOT see
+    //
+    //     <span …>Influence: {Math.round(v * 100)}%</span>     JSX text + colon
+    //     <span …>Influence</span>                             bare JSX caption
+    //     `Influence: ${pct}%`                                 colon in a literal
+    //
+    // Both of the first two are LIVE today, outside this SCOPE:
+    // `conversation/InlineBlocks.tsx` and `components/model-tab/FactorsSection.tsx`
+    // (the bare caption and the `label=` twin on adjacent lines). So the honest
+    // claim is narrow: this guard closes the TEMPLATE and ATTRIBUTE forms inside
+    // `src/canvas/nodes`. It does not close the noun across the canvas surface.
+    //
+    // ⭐ NOT WIDENED HERE ON PURPOSE. Covering those needs a wider SCOPE
+    // (`src/canvas`) and a wider pattern, and would then demand edits on the
+    // Model tab and the conversation panel — two surfaces this lane does not
+    // own. Rowed rather than smuggled into a canvas-caption PR. What is fixed
+    // here is that the guard no longer LOOKS like it covers them: the sentence
+    // above now states which forms and which tree.
+
+    //
     // Every non-test source under SCOPE is now swept. Derived before widening,
     // not after: across all 42 files the widened sweep returns exactly ONE
     // offender, the `lodMetricLine.ts` line fixed alongside this change — so
