@@ -184,6 +184,30 @@ export function deriveResultCompleteness(
   // numeric outcome reading is partial coverage. We check the same
   // sources as `useResultsSectionData`'s fallback chain so a value
   // present anywhere counts.
+  //
+  // ⛔ DELIBERATELY NOT GATED ON `status`, AND MAKING IT SYMMETRIC WITH FIELD 2
+  // WOULD MAKE THE PRODUCT QUIETER ABOUT A REAL FAILURE. A review asked why
+  // the sibling ten lines up now consults `status` and this does not. The two
+  // `.some()` calls point in OPPOSITE directions, so the same gate has
+  // opposite effects:
+  //
+  //   · Field 2 asks "did ANY option produce a win?" — so a failed option
+  //     contributing a fabricated value could MANUFACTURE presence and silence
+  //     a disclosure. That is under-disclosure, and it is the defect fixed.
+  //   · Field 3 asks "is ANY option missing an outcome?" — a failed option has
+  //     none, so it TRIGGERS a disclosure. That is over-disclosure.
+  //
+  // Worked through: four computed options and one failed. Field 2 sees the
+  // four, `anyWin` is true, and it says nothing. Field 3 sees the failed one
+  // and marks `expected_outcome`. **Field 3 is currently the ONLY thing that
+  // discloses a partially-failed run at all** — gating it on `status` would
+  // leave that run disclosed by neither field.
+  //
+  // ⚠ WHAT IS ACTUALLY MISSING is a disclosure that names the real event. A
+  // failed option is reported to the user as "the expected outcome" being
+  // absent, which is true of the symptom and wrong about the cause. That is a
+  // new user-facing string and a new key in `missingResultLabels`, i.e. its own
+  // change — rowed, not smuggled in here.
   if (optionIds.length > 0) {
     const anyOutcomeMissing = optionIds.some((id) => {
       const prob = optionProbs[id] as
