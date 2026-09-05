@@ -215,10 +215,29 @@ describe('the briefed false-negative fix is UNSAFE on the silent arm — held de
  * ⭐ THE COMPOSITION MATRIX — pending model-changing edits × duplicate hash ×
  * freshness arm, driven against the REAL store.
  *
- * This is what makes the SHIPPED half of this PR (the widened undispatched-edit
- * hold) safe to reason about: it proves the widened hold governs every cell it
- * should and no cell it should not. Cells 3, 4, 7 and 8 are the ones the widened
- * predicate reaches.
+ * WHICH CELLS THE HOLD ACTUALLY REACHES — measured by mutation on 2026-09-05,
+ * not asserted. The hold is the three `pendingEmittedEdits` refusals in
+ * `canvas/store.ts`, and breaking each one REDs a DIFFERENT cell of this matrix:
+ *
+ *   · `setAnalysisFreshness`'s `pendingEmittedEdits === 0` conjunct → CELLs 7 and 8
+ *   · `noteRunCompletedWithoutVerdict`'s hold                      → CELL 3
+ *   · `clearAnalysisFreshnessDirty`'s early return                 → CELL 7
+ *
+ * So the hold-sensitive cells are 3, 7 and 8. CELL 8 — pending edits × duplicate
+ * hash × explicit verdict — is the one that makes this PR's shipped half compose
+ * with the RETAINED hash gate, because it is bound to the hold on the very arm
+ * where the gate does nothing.
+ *
+ * ⚠ CELL 4 IS NOT ONE OF THEM, and this comment claimed it was until
+ * 2026-09-05. Both freshness resolvers sit INSIDE `applyV5State`'s
+ * `hash !== prevHash` gate, so on a duplicate hash neither is called: CELL 4 is
+ * governed by that gate plus the deliberate silent-verdict retain, and all three
+ * hold-mutants leave it GREEN. It is a matrix-completeness pin, not evidence
+ * about the hold — and the cell asserts that about itself rather than leaving a
+ * comment to be trusted.
+ *
+ * CELLs 1, 2, 5 and 6 carry no pending edits, so the hold cannot bite there by
+ * construction.
  */
 describe('composition: the widened undispatched-edit hold governs every arm', () => {
   describe('the turn is SILENT about freshness', () => {
@@ -231,8 +250,18 @@ describe('composition: the widened undispatched-edit hold governs every arm', ()
     it('CELL 3 — pending edits, NEW hash → stays dirty', () => {
       expect(runCell({ pendingEmittedEdits: 1, duplicateHash: false, carriesVerdict: false })).toBe(true)
     })
-    it('CELL 4 — pending edits, DUPLICATE hash → stays dirty', () => {
+    it('CELL 4 — pending edits, DUPLICATE hash → stays dirty (the HASH GATE, not the hold)', () => {
       expect(runCell({ pendingEmittedEdits: 1, duplicateHash: true, carriesVerdict: false })).toBe(true)
+
+      // ⚠ THIS CELL CANNOT DISCRIMINATE THE HOLD — pinned here rather than
+      // noted, because a comment claiming coverage this cell does not have is
+      // exactly what shipped in this file's first draft. Removing the hold's
+      // only input leaves the outcome identical: on a duplicate hash neither
+      // resolver is reached, so the pending count cannot matter.
+      expect(
+        runCell({ pendingEmittedEdits: 0, duplicateHash: true, carriesVerdict: false }),
+        'identical with the hold input removed — CELL 4 is the hash gate, not the hold',
+      ).toBe(true)
     })
   })
 

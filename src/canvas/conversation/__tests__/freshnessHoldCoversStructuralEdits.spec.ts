@@ -28,7 +28,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useCanvasStore } from '../../store'
 import type { WireSystemEvent } from '../types'
-import { MODEL_CHANGING_SYSTEM_EVENT_TYPES } from '../types'
+import { MODEL_CHANGING_SYSTEM_EVENT_TYPES, WIRE_SYSTEM_EVENT_TYPES } from '../types'
 
 const dispatched: Array<Record<string, unknown>> = []
 let resolveInFlight: ((v: unknown) => void) | null = null
@@ -265,7 +265,14 @@ describe('the undispatched-edit hold covers EVERY model-changing system event', 
   })
 })
 
-describe('the model-changing set is DERIVED, not a second hand-kept list', () => {
+/**
+ * The set is a HAND-KEPT list asserting something about ANOTHER SERVICE.
+ * This block's heading read "the model-changing set is DERIVED, not a second
+ * hand-kept list" until 2026-09-05, and that was false — the list is hand-kept
+ * and nothing derives it. What each test below pins, and what it does not, is
+ * stated on the test itself.
+ */
+describe('what actually pins the model-changing set', () => {
   it('names exactly the four mutating wire members', () => {
     expect([...MODEL_CHANGING_SYSTEM_EVENT_TYPES].sort()).toEqual([
       'factor_value_edit',
@@ -273,5 +280,34 @@ describe('the model-changing set is DERIVED, not a second hand-kept list', () =>
       'structural_delete',
       'structural_rename',
     ])
+  })
+
+  it('PARTITION — every wire member is adjudicated held or held-out', () => {
+    const held = new Set<string>(MODEL_CHANGING_SYSTEM_EVENT_TYPES)
+
+    // Contrast control first: the probe must see the held members at all,
+    // or an empty held-out list would "pass" by seeing nothing.
+    expect(
+      WIRE_SYSTEM_EVENT_TYPES.filter((t) => held.has(t)).length,
+      'contrast control — the partition can see the held members',
+    ).toBe(4)
+
+    expect(
+      WIRE_SYSTEM_EVENT_TYPES.filter((t) => !held.has(t))
+        .slice()
+        .sort(),
+      'a NEW wire member REDs here until it is adjudicated into one side',
+    ).toEqual([
+      'direct_analysis_run',
+      'direct_graph_edit',
+      'edge_adjudication',
+      'feedback_submitted',
+      'patch_accepted',
+      'patch_dismissed',
+      'prior_range_edit',
+    ])
+
+    // ⚠ WHAT THIS DOES NOT CATCH: CEE re-classifying an existing kind as
+    // 'mutating'. Both lists here would be unchanged and this stays GREEN.
   })
 })

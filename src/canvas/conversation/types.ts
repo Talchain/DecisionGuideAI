@@ -1064,8 +1064,17 @@ export const WIRE_SYSTEM_EVENT_TYPES = [
 export type WireSystemEventType = (typeof WIRE_SYSTEM_EVENT_TYPES)[number]
 
 /**
- * The MODEL-CHANGING subset — the members CEE's `SYSTEM_EVENT_HANDLING`
+ * The MODEL-CHANGING subset — the WIRE members CEE's `SYSTEM_EVENT_HANDLING`
  * classifies `'mutating'`, i.e. the ones that write graph state on the server.
+ *
+ * ⚠ "WIRE" IS LOAD-BEARING, NOT A HEDGE. CEE classifies FIVE kinds
+ * `'mutating'`, not four (`olumi-assistants-service` staging `90edb1fa`,
+ * `src/orchestrator-v5/system-events/dispatch.ts`): the four below plus
+ * `edge_strength_edit`. That fifth is absent from `WIRE_SYSTEM_EVENT_TYPES` and
+ * the UI has no emitter for it, so it cannot be deferred and cannot be missed
+ * here today — but `model-tab-v2/contracts.ts` records `proposeEdgeStrength →
+ * edge_strength_edit` as in-flight work, and the day that emitter lands this
+ * list needs the member.
  *
  * ⭐ WHY THE SUBSET EXISTS, AND WHY IT IS NOT "ALL OF THEM". An undispatched
  * event holds the freshness overlay dirty
@@ -1078,11 +1087,19 @@ export type WireSystemEventType = (typeof WIRE_SYSTEM_EVENT_TYPES)[number]
  * on one of those would fabricate "Model changed since this analysis" over a run
  * that genuinely is current, which is the same lie pointing the other way.
  *
- * ⚠ MEMBERSHIP IS A CLAIM ABOUT CEE, NOT A UI PREFERENCE. Adding a member here
- * asserts that CEE's dispatch table classifies it `'mutating'`; adding a new
- * mutating wire member WITHOUT adding it here silently reopens the false
- * affirmative, which no test outside `freshnessHoldCoversStructuralEdits.spec.ts`
- * would notice.
+ * ⚠ MEMBERSHIP IS A CLAIM ABOUT CEE, AND NOTHING HERE EXECUTES A CHECK OF IT.
+ * `satisfies readonly WireSystemEventType[]` rejects a member that is not a
+ * wire type; it says nothing about whether CEE calls that member `'mutating'`.
+ * Swept 2026-09-05: every mention of `SYSTEM_EVENT_HANDLING` under `src/` and
+ * `scripts/` is prose in a comment, this one included.
+ *
+ * THE REACH WE DO HAVE, stated with its gap: a partition pin in
+ * `freshnessHoldCoversStructuralEdits.spec.ts` asserts that every member of
+ * `WIRE_SYSTEM_EVENT_TYPES` is either in this list or in the held-out seven, so
+ * adding ANY new wire member REDs until it has been adjudicated into one of
+ * them. THE GAP: a kind CEE RE-classifies as `'mutating'` while both UI lists
+ * stay put changes nothing here and REDs nothing — the false affirmative
+ * reopens silently. Only a cross-service derived guard closes that one.
  */
 export const MODEL_CHANGING_SYSTEM_EVENT_TYPES = [
   'factor_value_edit',
