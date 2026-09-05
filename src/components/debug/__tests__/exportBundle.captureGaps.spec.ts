@@ -582,21 +582,38 @@ describe('GAP 4 — unavailable capture states say why', () => {
     expect(m.available).toBe(false)
   })
 
-  it('KNOWN GAP, pinned exactly: `NODE_ENV=development vite build` is invisible here', () => {
-    // Terser's `drop_console` is unconditional, so it strips in this build
+  it('KNOWN GAP, pinned as a SET: `NODE_ENV=development` AND `--mode <non-production>`', () => {
+    // Terser's `drop_console` is unconditional, so it strips in these builds
     // too — but its condition cannot be READ (there is none), and the proxy
     // used for "this is build output", `!import.meta.env.DEV`, is false
     // here. That artefact is indistinguishable at runtime from the dev
     // server; separating them needs a build-time flag in `vite.config.ts`,
     // which this change does not touch.
     //
-    // Pinned as an explicit KNOWN-DROPPED state rather than left silent, so
+    // The gap needs BOTH conditions, and it is a SET of states, not one.
+    // Measured on this repo's pinned Vite 5.4.21 by running the builds, and
+    // derived at its bytes: `build()` calls `resolveConfig(cfg, 'build',
+    // 'production', 'production')` and defaults `NODE_ENV` only when unset,
+    // so `DEV` follows `NODE_ENV` alone and `--mode` moves `MODE` alone.
+    //
+    // Pinned as an explicit KNOWN-DROPPED SET rather than left silent, so
     // this REDs if the gap grows OR shrinks — including if someone closes
     // it properly and forgets to retire this case.
+
+    // Member 1 — `NODE_ENV=development vite build --mode development`
+    // (also the dev server's runtime state, which is why they cannot be told apart).
     const m = consoleMarkerUnder('development', true)
     expect(m.producers_stripped_at_build).toBe(false)
-    // The gap is exactly this one state. Its two neighbours are covered:
+    // Member 2 — `NODE_ENV=development vite build --mode staging`.
+    expect(consoleMarkerUnder('staging', true).producers_stripped_at_build).toBe(false)
+
+    // CONTRAST — each neighbour sets only ONE of the two conditions, and is COVERED:
+    // `vite build --mode development`   (mode only)     -> terser proxy fires
     expect(consoleMarkerUnder('development', false).producers_stripped_at_build).toBe(true)
+    // `NODE_ENV=development vite build` (NODE_ENV only) -> MODE is still 'production',
+    // so the mode disjunct fires. This case's title used to name THIS command as the
+    // gap; it is covered, and naming it would have invited a later reader to run it,
+    // watch the marker read true, and retire a case guarding a reachable state.
     expect(consoleMarkerUnder('production', true).producers_stripped_at_build).toBe(true)
   })
 })

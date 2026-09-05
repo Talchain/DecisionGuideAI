@@ -2502,14 +2502,26 @@ const CONSOLE_LOGS_UNAVAILABLE_REASON =
  * a build" — an inference, stated as one, not a derivation dressed up as
  * a reading.
  *
- * KNOWN RESIDUAL GAP, pinned by
- * `exportBundle.captureGaps.spec.ts` so it REDs if it grows or shrinks:
- * a build run as `NODE_ENV=development vite build` has `DEV === true` in
- * its output while terser has still stripped the producers, and that
- * artefact is indistinguishable at runtime from the dev server — closing
- * it needs a build-time flag in `vite.config.ts`, which this change does
- * not touch. Every ordinary build (`vite build`, and `--mode <anything>`,
- * where Vite leaves `NODE_ENV=production`) is covered.
+ * KNOWN RESIDUAL GAP — a SET of build states, not one — pinned by
+ * `exportBundle.captureGaps.spec.ts` so it REDs if it grows or shrinks.
+ * The marker misses a build only when BOTH conditions hold TOGETHER:
+ * `NODE_ENV=development` (what makes `DEV === true`) AND
+ * `--mode <non-production>` (what makes the mode disjunct miss). So
+ * `NODE_ENV=development vite build --mode development` and
+ * `NODE_ENV=development vite build --mode staging` are both in the gap,
+ * and both are pinned. Terser has still stripped the producers in those
+ * builds, but the artefact is indistinguishable at runtime from the dev
+ * server — closing it needs a build-time flag in `vite.config.ts`, which
+ * this change does not touch.
+ *
+ * A build that sets only ONE of the two conditions is COVERED. In
+ * particular `NODE_ENV=development vite build`, with no `--mode`, has
+ * `MODE === 'production'`, so the mode disjunct fires and this marker is
+ * correct there. Derived at Vite 5.4.21's bytes and confirmed by running
+ * the builds: `build()` calls
+ * `resolveConfig(cfg, 'build', 'production', 'production')`, and `NODE_ENV`
+ * is defaulted only when unset (`if (!isNodeEnvSet)`), so `DEV` follows
+ * `NODE_ENV` alone while `--mode` moves `MODE` alone.
  */
 function describeConsoleLogCapture(): DebugBundle['console_logs_capture'] {
   // Stripper 1 — `esbuild.drop`, gated on the mode (vite.config.ts:199).
