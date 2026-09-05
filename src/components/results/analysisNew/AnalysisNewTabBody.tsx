@@ -602,6 +602,28 @@ export function AnalysisNewTabBody({
             ABOUT IT → THE DETAIL. */}
         <WhatIWasGivenSection onSendMessage={onSendMessage} />
 
+        {/* ⚠ THE PROMOTED RECOMMENDATION IS NOT EXCLUDED, AND THAT IS A KNOWN
+            DUPLICATION rather than an oversight — recorded here because the
+            obvious fix is wrong.
+
+            `glancePrimary` lifts one intervention into the glance card and
+            nothing removes it from this list, so the producer's `signal` — a
+            128-character sentence — renders TWICE in one panel, at 11px in the
+            glance and 12px here. Witnessed on the deployed build `b14cd478`
+            (guest, 291px dock, completed run, every section expanded):
+            "The ordering holds in about 68% of variations, but is exposed to
+            uncertainty around how your largest accounts would react to usage
+            pricing." — verbatim, in `analysis-new-glance-primary-intervention`
+            and again in `analysis-new-strengthen-why`.
+
+            ⚠⚠ FILTERING THE PROMOTED ROW OUT WAS TRIED AND REVERTED. On a run
+            with exactly ONE intervention it empties this section completely —
+            `AnalysisNewTabBody.spec.tsx`'s "a grounded intervention reaches the
+            screen through the real engine" REDs, and a section that renders
+            zero rows is a worse outcome than a repeated sentence. Any real fix
+            has to decide what the glance card owns versus what this list owns,
+            which is an IA decision for the design pack
+            (`2-consolidation-map.html` slot "Focus now"), not a filter. */}
         <StrengthenTheReasoning
           interventions={vm.strengthen.interventions}
           scienceGrounding={vm.strengthen.scienceGrounding}
@@ -781,7 +803,10 @@ export function AnalysisNewTabBody({
           >
             <h3
               id="analysis-new-decision-voi-heading"
-              className={`${typography.panelMeta} text-text-light mb-1`}
+              // `panelHeader` — a section title, for the same reason as
+              // `WhatWeChecked`. These two were the only section headings on
+              // this tab not rendering at 14px/600.
+              className={`${typography.panelHeader} text-text-header mb-1`}
               data-testid="analysis-new-decision-voi-heading"
             >
               {COPY.decisionVoi.label}

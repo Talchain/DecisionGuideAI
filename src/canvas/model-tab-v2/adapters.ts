@@ -83,11 +83,19 @@
  *      aligned into a fifth reading of this one.
  *
  * D2 — `'no-value'` IS AUTHORED FRESH, NOT PORTED. There is no per-factor
- *      "has no value" predicate anywhere in the live tree. The Model card's
- *      "N factors have no value set" is a count of the PRODUCER's
- *      `ROOT_NODE_DEFAULT_VALUE` inference warnings
- *      (`ModelHealthSection.tsx:93-98`) — a different question, answerable only
- *      after an analysis has run. This adapter's `no-value` means "the client
+ *      "has no value" predicate anywhere in the live tree. The Model card
+ *      counts the PRODUCER's `ROOT_NODE_DEFAULT_VALUE` inference warnings
+ *      (`ModelHealthSection.tsx`, `rootNodeWarningCount`) — a different
+ *      question, answerable only after an analysis has run.
+ *      ⚠ THIS NOTE QUOTED "N factors have no value set" AND THAT SENTENCE NO
+ *      LONGER EXISTS. It was the very copy defect this PR fixed — it named the
+ *      wrong set and read as a contradiction beside the outline — and the card
+ *      now says "N starting factors had no value recorded, so zero was
+ *      assumed." Quoting live copy by hand is a mirror that goes stale on the
+ *      day the copy is corrected, which is exactly what happened here, in the
+ *      note whose whole job is to keep these two questions apart. The
+ *      DISTINCTION is what this note records; the wording and the line number
+ *      are not restated. This adapter's `no-value` means "the client
  *      can display no value for this factor", derived from the live
  *      `getPrimaryValue` returning null. ⚠ The two will not always agree, and
  *      neither is wrong; they are answers to different questions (trap 21).

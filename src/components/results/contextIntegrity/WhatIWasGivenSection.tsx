@@ -55,6 +55,7 @@ import { useCanvasStore } from '../../../canvas/store'
 import { useContextIntegrityStore } from '../../../canvas/stores/contextIntegrityStore'
 import type { NotModelledItem } from '../../../adapters/cee/notModelled'
 import { ClampToggle } from '../ClampToggle'
+import { figureTallySubtitle } from './figureTallySubtitle'
 
 /** Rows shown per group before "show all". Keeps the open state scannable. */
 const VISIBLE_ROWS = 6
@@ -429,11 +430,28 @@ export function WhatIWasGivenSection({ onSendMessage }: WhatIWasGivenSectionProp
   // Counts come from the manifest's own tallies, NOT from `items.length`:
   // `items` is capped (`truncated`) while `total` is not, so counting rendered
   // rows against an uncapped total silently under-reports on a long brief.
-  const notYetCount = tally === null ? 0 : tally.absent + tally.proseOnly
-  const subtitle =
-    tally === null
-      ? "I can't show this yet"
-      : `${notYetCount} of ${tally.total} figures you mentioned aren't in the model yet`
+  /**
+   * ⚠⚠ THREE STATES, NOT ONE TEMPLATE. The single template rendered
+   * "0 of 0 figures you mentioned aren't in the model yet" on a brief with no
+   * figures in it — a double negative about nothing, witnessed on the deployed
+   * build as this section's subtitle. It also stated the GOOD outcome
+   * negatively: "0 of 5 … aren't in the model yet" is the all-clear, phrased as
+   * a shortfall.
+   *
+   *   no figures at all  → say there is nothing to track, and count nothing
+   *   all of them landed → say so positively; it is the reassuring state
+   *   some are missing   → the original sentence, which is right for that case
+   *
+   * The counting rule above is unchanged: totals come from the manifest's
+   * tallies, never from the capped `items` array.
+   */
+  /**
+   * The sentence is derived by `figureTallySubtitle`, which owns the arm order
+   * and the noun/verb agreement and is enumerated over the whole quantity
+   * domain in its own spec. Three passes of patching it inline each shipped a
+   * defect while closing one; that file's header records all three.
+   */
+  const subtitle = figureTallySubtitle(tally)
 
   const addMessage = (item: NotModelledItem) =>
     onSendMessage?.(composeNotModelledQuestion(item, briefText))

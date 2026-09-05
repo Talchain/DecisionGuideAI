@@ -54,6 +54,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { figureTallySubtitle } from '../figureTallySubtitle'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 
 import { ResultsBody } from '../../ResultsBody'
@@ -168,6 +169,91 @@ describe('the fixtures carry the case they are used to prove (anti-vacuity)', ()
  * while scenario B is current" — never to a value predicate another decision's
  * brief could also satisfy (CLAUDE.md trap 19).
  */
+/**
+ * ⚠ THE SUBTITLE'S SINGULAR ARM HAD ZERO COVERAGE, and a reviewer proved it:
+ * reverting the `n === 1` branch left **347 files / 5,721 tests green**, with a
+ * contrast control confirming this very spec is alive and aimed at this
+ * subtitle. Same shape as the blocker it shipped beside — a fix with no
+ * assertion behind it — and the second singular/plural miss of the night,
+ * introduced in the change that corrected the first one two files away.
+ */
+describe('the subtitle counts in English', () => {
+  /**
+   * ⚠⚠ THE DOMAIN LIVES IN `figureTallySubtitle.spec.ts` NOW, AND THAT IS THE
+   * POINT. Three passes of per-case assertions here each closed the case a
+   * reviewer named and shipped a new instance of the same defect one arm
+   * across. The sentence is derived by a pure function which is enumerated over
+   * the whole quantity box; what remains HERE is the binding — that the
+   * component renders exactly what that function returns, on the real store.
+   *
+   * ⚠ AND THE CASES BELOW MATCH THE SENTENCE EXACTLY. The previous version
+   * asserted three loose predicates (`not /aren't/`, `/in the model/`,
+   * `not /All 1 figures/`) which the PLAIN-TALLY arm also satisfies — so a
+   * mutant breaking the all-clear gate for n = 1 left all 58 cases green on a
+   * sentence carrying the defect. An exact match cannot land on the wrong arm.
+   */
+  const seedQuantities = (q: {
+    total: number
+    inModel: number
+    proseOnly?: number
+    absent?: number
+  }): void => {
+    useContextIntegrityStore.getState().setContextIntegrity({
+      scenarioId: LIVE_SCENARIO_ID,
+      briefText: 'A brief.',
+      manifest: {
+        status: 'derived',
+        unavailableReason: null,
+        quantities: {
+          total: q.total,
+          inModel: q.inModel,
+          proseOnly: q.proseOnly ?? 0,
+          absent: q.absent ?? 0,
+          truncated: false,
+          items: [],
+        },
+        // ⚠ THESE TWO WERE ONCE GUESSED AND `as never` SILENCED THE COMPILER.
+        // `'none'` is in NEITHER union: `DeclaredExclusions.status` is
+        // `reported | none_reported | not_recorded`, `InferredFactors.status`
+        // is `derived | not_recorded`.
+        declaredExclusions: { status: 'none_reported', items: [] },
+        inferredFactors: { status: 'not_recorded', items: [] },
+        notTracked: [],
+      },
+    })
+  }
+
+  const subtitle = (): string => {
+    render(<WhatIWasGivenSection />)
+    return screen.getByTestId('what-i-was-given-summary').textContent ?? ''
+  }
+
+  it.each([
+    ['n = 1, all present', { total: 1, inModel: 1 }, 'The figure you mentioned is in the model'],
+    ['n > 1, all present', { total: 3, inModel: 3 }, 'All 3 figures you mentioned are in the model'],
+    ['n = 1, shortfall', { total: 1, inModel: 0, absent: 1 }, "The figure you mentioned isn't in the model yet"],
+    ['one of many missing', { total: 4, inModel: 3, absent: 1 }, "1 of 4 figures you mentioned isn't in the model yet"],
+    ['several missing', { total: 4, inModel: 2, absent: 2 }, "2 of 4 figures you mentioned aren't in the model yet"],
+    ['unreconciled, some in the model', { total: 5, inModel: 3 }, '3 of 5 figures you mentioned are in the model'],
+    ['unreconciled, none in the model, n = 1', { total: 1, inModel: 0 }, 'None of the 1 figure you mentioned is in the model'],
+  ])('renders the derived sentence VERBATIM: %s', (_name, q, expected) => {
+    seedQuantities(q)
+    expect(subtitle()).toBe(expected)
+  })
+
+  /**
+   * ⭐ THE BINDING ITSELF, PINNED. Without this the cases above would still
+   * pass if the component stopped calling the derivation and happened to
+   * reproduce these seven strings by other means — which is exactly how the
+   * wiring pin on the neighbouring surface was defeated four times.
+   */
+  it('the rendered sentence IS the derivation, on a case no test above names', () => {
+    const q = { total: 7, inModel: 4, proseOnly: 1, absent: 0 }
+    seedQuantities(q)
+    expect(subtitle()).toBe(figureTallySubtitle({ ...q, proseOnly: 1, absent: 0 }))
+  })
+})
+
 describe("identity gate — the receipt never speaks for a decision it isn't about", () => {
   it('THE P0: content recorded for another scenario is NOT rendered on this one', () => {
     // Scenario A's brief is in the store; scenario B (LIVE) is on screen.
@@ -764,9 +850,23 @@ describe('THE THREE ZEROS MUST NOT COLLAPSE', () => {
       manifest,
     })
     render(<WhatIWasGivenSection />)
-    expect(screen.getByTestId('what-i-was-given-summary').textContent).toBe(
-      "0 of 0 figures you mentioned aren't in the model yet",
-    )
+    const summary = screen.getByTestId('what-i-was-given-summary').textContent ?? ''
+
+    // ⚠ THE DISTINCTION IS WHAT THIS PROTECTS, NOT THE STRING. This zero means
+    // "we looked and your brief had no figures", and it must stay separable
+    // from the zeros above that mean "we could not look". That is asserted
+    // directly: it must NOT be the cannot-show sentence.
+    expect(summary).not.toBe("I can't show this yet")
+
+    // ⚠⚠ AND IT MAY NOT REPORT A SHORTFALL THAT DOES NOT EXIST. The original
+    // wording here was "0 of 0 figures you mentioned aren't in the model yet" —
+    // a double negative about nothing, witnessed as this section's subtitle on
+    // the deployed build. A zero "allowed to reassure" that reads as a
+    // deficiency is not reassuring; it was the right STATE with the wrong
+    // sentence.
+    expect(/\d+ of \d+/.test(summary), `a no-figures brief still reports a tally: "${summary}"`).toBe(false)
+    expect(/aren't in the model/.test(summary), `a no-figures brief still reports a shortfall: "${summary}"`).toBe(false)
+    expect(summary.length, 'the reassuring zero must still say something').toBeGreaterThan(0)
   })
 
   it('renders nothing only when there is genuinely nothing on file', () => {

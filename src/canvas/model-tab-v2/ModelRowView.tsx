@@ -82,6 +82,7 @@ export interface ModelRowViewProps {
   onDiscardEdit?: (id: string) => void
   /** The inline confirm chip — dispatches the canonical transaction. */
   onConfirmEdit?: (id: string) => void
+
   /**
    * Ratify this row's AI-estimated value as correct — the v1 Confirm ✓,
    * rehomed (18 Aug 2026).
@@ -99,6 +100,77 @@ export interface ModelRowViewProps {
    * cannot honour it.
    */
   onConfirmValueAsIs?: (id: string) => void
+}
+
+/**
+ * ⭐ MAY THIS VALUE GIVE UP WIDTH TO THE LABEL BESIDE IT?
+ *
+ * `shrink-0` exists to stop a number breaking away from its unit — "35 %"
+ * splitting across the gap is the defect it was written for. That protection is
+ * about ATOMICITY, and a multi-word qualitative PHRASE has none: "Moderate
+ * positive effect" truncates to "Moderate positive…" and still says what it
+ * means.
+ *
+ * ⚠ WHY THIS MATTERS, MEASURED. The identity track is the only flexible one, so
+ * 100% of the width an `auto` value cell takes comes out of the label — this
+ * file records that hazard for the arms that were dark. It arrived on a LIVE
+ * arm instead: at a 291px dock, thirteen relationship rows each rendered a
+ * ~24-character effect phrase as immovable, pushing the label to its 6rem floor.
+ * FOUR CONSECUTIVE ROWS read "Development he… Moderate positive effect", with
+ * the arrow and the target — the half that tells them apart — truncated away.
+ * Witnessed on the deployed build.
+ *
+ * A row whose identity is unreadable is worse than a phrase missing its last
+ * word, and between the two the phrase is the one repeated on every row.
+ *
+ * The predicate is deliberately narrow: prose only. Anything carrying a DIGIT
+ * is a measurement and keeps its protection, as does anything short enough that
+ * shrinking it would buy the label nothing.
+ */
+/**
+ * ⚠⚠ THE LEAF THAT MAKES `min-w-0` MEAN ANYTHING. Granting the CONTAINER
+ * `min-w-0` lets the flex item shrink — and a bare text node inside it, with
+ * `whitespace-nowrap` and no `overflow:hidden` anywhere, simply SPILLS. Review
+ * measured a long "<magnitude> effect, direction not stated" value escaping its
+ * box by 111.1px, the 280px dock by 65px, and overdrawing the attention column
+ * by 29px. Base control 0.0px.
+ *
+ * ⚠ THIS PARAGRAPH NAMED A STRING THE PRODUCER CANNOT EMIT, and the correction
+ * belongs beside the measurement rather than in a changelog. It read "the
+ * producer-real 'Very strong effect, direction not stated'". `StrengthBand` is
+ * `strong | moderate | weak | negligible` (`model-tab/strengthBands.ts:13`) —
+ * there is no "very strong" band on this path, so that exact string is
+ * unreachable here. The measurement was real and the phrasing family is real;
+ * the specimen was not. The producer's longest is "Moderate effect, direction
+ * not stated" at 37 characters, which is the one the corpus test uses.
+ *
+ * ⚠ AND THE REMEDY WAS ALREADY WRITTEN IN THIS FILE'S OWN COMMENT — "the
+ * ellipsis belongs on a text LEAF, not on the flex box" — three lines above
+ * the code that did not do it. `truncate` on the CONTAINER is the separate
+ * defect that caused text-over-text; on the leaf it is correct.
+ *
+ * The leaf truncates ONLY when the value may shrink. A bare value ("35 %")
+ * must never be cut — that is the defect that broke a number from its unit.
+ */
+function ValueLeaf({ display, mayShrink }: { display: string | null; mayShrink: boolean }) {
+  return <span className={mayShrink ? 'truncate min-w-0' : undefined}>{display ?? ''}</span>
+}
+
+/**
+ * ⚠ EXPORTED FOR TEST, AND THAT IS NOT A STYLE CHOICE. Review found this
+ * predicate and `ValueLeaf` — the whole of `1d6e528b` — had ZERO coverage:
+ * reverting both left 52 files / 808 tests green. It is a pure function of a
+ * string with a bare magic boundary, so "jsdom performs no layout" is no
+ * excuse for leaving it unasserted. See
+ * `__tests__/valueMayShrink.spec.tsx`, whose corpus is DERIVED by calling the
+ * real producer rather than by pasting strings.
+ */
+export function valueMayShrink(display: string | null): boolean {
+  if (display === null) return false
+  const text = display.trim()
+  if (/\d/.test(text)) return false
+  if (!text.includes(' ')) return false
+  return text.length > 12
 }
 
 export function ModelRowView({
@@ -623,8 +695,26 @@ function ValueCell({
               {' → '}
               <span data-testid={`${testid}-to`}>{commit.to}</span>
             </span>
+            {/* ⚠⚠ THE CAPTION IS ABOUT THE STORE, AND IT WAS WORDED AS IF IT
+                WERE ABOUT THE USER'S EDIT — a contradiction inside one cell.
+                "Nothing has changed yet" is TRUE of the canonical state (this
+                beat proposes; `Confirm` is what writes, and
+                `ModelTabV2Panel.spec.tsx` pins that the store is untouched and
+                nothing is sent). But it renders two atoms to the right of
+                `Not set → 45`, so the reader takes it as a denial of the value
+                they just typed.
+
+                Witnessed on the deployed build `b14cd478` (guest, 291px dock,
+                live-drafted model, completed run): the cell read
+                "Not set → 45 · Nothing has changed yet · Confirm · Discard".
+
+                "Not applied yet" says the same thing about the same subject and
+                cannot be read as contradicting the diff beside it. The
+                vocabulary is the estate's own — `HowComputedModal` renders
+                `applied ? 'Applied' : 'Not applied'` for this exact
+                distinction. */}
             <span className={`${typography.panelBody} text-text-light ml-2 min-w-0 truncate`}>
-              Nothing has changed yet
+              Not applied yet
             </span>
             {/*
               R9 — the inline confirm CHIPS. Rendered only when the host can
@@ -762,10 +852,17 @@ function ValueCell({
       <span
         data-testid={testid}
         className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} flex items-center whitespace-nowrap ${
-          estimate === null ? 'shrink-0' : 'min-w-0'
+          /* ⚠ `min-w-0` ONLY — NEVER `truncate` HERE. This element is a FLEX
+             CONTAINER (`flex items-center`) holding the value and its estimate
+             hint. `truncate` sets `overflow:hidden` on the container, and the
+             rendered result was the value drawing OVER the label: rows read
+             "Bottom-Not sett… Olumi: Very high (0.8)". Caught in a screenshot
+             of this very change, not by a test — jsdom performs no layout.
+             The ellipsis belongs on a text LEAF, not on the flex box. */
+          estimate === null && !valueMayShrink(display) ? 'shrink-0' : 'min-w-0'
         }`}
       >
-        {display ?? ''}
+        <ValueLeaf display={display} mayShrink={valueMayShrink(display)} />
         {estimate}
       </span>
     )
@@ -791,15 +888,23 @@ function ValueCell({
          arms. The rule is about the two IDLE elements, not about the function.
          Getting that number wrong is what let the `proposed` cell ship
          unfixed, and it was found by review rather than by me. */
+      /* ⚠ THE SAME PREDICATE AS THE `<span>` ABOVE, AND THIS FILE'S OWN RULE IS
+         WHY IT IS HERE TOO: "a fix applied to one of the two idle elements is a
+         fix that half the rows never receive." The editable rows are exactly the
+         ones carrying "Not set", which is where the relationship list lives. */
       className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} text-left underline decoration-dotted flex items-center whitespace-nowrap ${
-        estimate === null ? 'shrink-0' : 'min-w-0'
+        estimate === null && !valueMayShrink(display) ? 'shrink-0' : 'min-w-0'
       }`}
       onClick={e => {
         e.stopPropagation()
         onBeginEdit?.(row.id)
       }}
     >
-      {display ?? 'Not set'}
+      {/* ⚠ THE SAME LEAF, because this file's own rule applies: "a fix applied
+          to one of the two idle elements is a fix that half the rows never
+          receive." The editable rows are exactly the ones carrying the long
+          strength bands, so this is the site the overflow was measured on. */}
+      <ValueLeaf display={display ?? 'Not set'} mayShrink={valueMayShrink(display)} />
       {estimate}
     </button>
   )

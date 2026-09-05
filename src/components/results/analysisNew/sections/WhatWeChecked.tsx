@@ -88,7 +88,15 @@ export function WhatWeChecked({
     >
       <h3
         id={`${testId}-heading`}
-        className={`${typography.panelMeta} text-text-light mb-1`}
+        // ⚠ `panelHeader`, NOT `panelMeta`. This is a SECTION TITLE, and the
+        // token table says so in its own comment: panelHeader is "section
+        // titles"; panelMeta is "badges, pills, axis labels, tertiary
+        // metadata". Measured on the deployed build with a completed analysis:
+        // five of the seven section headings on this tab rendered 14px/600 via
+        // SectionShell and this one rendered 11px/400 — SMALLER than the body
+        // text beneath it. Same defect class as #1179 on the Model tab: a
+        // surface reaching for the nearest token rather than the right one.
+        className={`${typography.panelHeader} text-text-header mb-1`}
         data-testid={`${testId}-heading`}
       >
         {COPY.sections.checks}
