@@ -14,6 +14,20 @@
  * day it lands, which a per-route test cannot do (CLAUDE.md trap 12 — derive,
  * don't mirror, and where you cannot derive, fail loud).
  *
+ * ⛔ WHAT THIS GUARD CANNOT SEE, STATED SO NOBODY OVER-TRUSTS IT. The
+ * rec-bearing predicate matches MEMBER ACCESS (`rec.whyNow`). A route that
+ * DESTRUCTURED (`const { whyNow } = rec`) or ALIASED to an unrecognised name
+ * would be invisible to it, and the guard would report the class closed while
+ * it was not — the precise failure this file exists to end, one level up.
+ *
+ * Measured at this SHA, with controls: **no such route exists today** — zero
+ * destructuring-from-a-rec and zero aliasing at any opener file, against a
+ * contrast of 154 files in `src/components/results/**` that DO destructure
+ * (so the probe is not blind) and a fabricated-symbol negative control at 0.
+ * That is a fact about today, not a property of the guard. If a future route
+ * destructures, WIDEN THE PREDICATE — do not conclude from a green run that
+ * the class is still closed.
+ *
  * ⚠ COMMENTS ARE STRIPPED BEFORE MATCHING, and that is not defensive noise:
  * these files are heavily commented and several comments mention both
  * `attentionNote` and `rec.`, so an unstripped scan would pass by reading
