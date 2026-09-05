@@ -30,6 +30,7 @@ import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
 import { AnalysisRunningBanner } from './AnalysisRunningBanner'
 import { AnalysisRunAnnouncer } from './AnalysisRunAnnouncer'
+import { AnalysisRunStateCover } from './AnalysisRunStateCover'
 import { runStatusRegion } from './analysisRunStatus'
 import { registerCanonicalRunner, RUN_DISPATCHER_UNAVAILABLE_REASON, type CanonicalRunOptions, type CanonicalRunOutcome } from '../analysis/canonicalRunRegistry'
 import { useShowToastSafe } from '../ToastContext'
@@ -3500,6 +3501,47 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                * whole tab is the experiment, so degrading it as a unit is the
                * honest granularity. Sections inside can earn their own later.
                */
+              <>
+              {/* #1198 — THE RUN, SHOWN. `AnalysisRunStateCover` is the shared
+                  in-flight treatment for dock surfaces outside the Analysis
+                  tab; Compare, Model and the coaching panel all mount it, and
+                  this tab — added later — never did. Dispatching a run with it
+                  fronted therefore changed nothing on screen, and the reachable
+                  path is this tab's OWN "Re-analyse": the auto-switch above
+                  fires only from idle/cancelled, so a re-run leaves the user
+                  exactly here.
+
+                  ⚠ VISUAL ONLY, DELIBERATELY. The dock-level announcer yields
+                  just for `results`, so it ALREADY says "Analysis started." on
+                  this tab — assistive tech was told and a sighted user was not.
+                  The cover mounts the banner with `announces={false}`, keeping
+                  one live region per surface (the stacked-narration class
+                  Wave1-L2 exists to prevent). A second one here would be the
+                  regression, not the fix.
+
+                  Fed from the COMPOSED trust pair, not from the dock's local
+                  `isRunning`. An earlier cut used the local one on the
+                  reasoning that it avoided a second source at this call site;
+                  that was backwards. The composed selector IS the single
+                  authority — `localRunning || wireRunning`, with the clock
+                  supplied by whichever source asserts the run
+                  (`analysisStateSelector.ts:477-500`, which states in terms
+                  that the pair must not be split) — and the local derivation is
+                  its narrower half. The three sibling surfaces that already
+                  mount this cover all read the trust pair; the local value
+                  would have made this tab the only one blind to a wire-asserted
+                  run.
+
+                  ⚠ AND IT IS READ FROM `composedAnalysisState`, ALREADY BOUND
+                  ABOVE, rather than from a second `useAnalysisTrust()` call —
+                  that hook is literally `useAnalysisState().trust`, so calling
+                  it here would have been two subscriptions to one authority in
+                  the file whose comments argue against exactly that. */}
+              <AnalysisRunStateCover
+                isRunning={composedAnalysisState.trust.isRunning}
+                startedAt={composedAnalysisState.trust.runStartedAt}
+                contentRetained={!isPreRun}
+              />
               <SectionErrorBoundary section="Analysis (New)">
                 <AnalysisNewTabBody
                   resultsSectionData={resultsSectionData}
@@ -3521,6 +3563,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   blockedListing={runBlockedListing}
                 />
               </SectionErrorBoundary>
+              </>
             )}
             {effectiveActiveTab === 'compare' && (
               // 2.581 — ONE expert mode for the product. The Compare pill used
