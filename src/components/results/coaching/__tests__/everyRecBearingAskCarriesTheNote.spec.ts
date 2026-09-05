@@ -24,9 +24,21 @@
  * destructuring-from-a-rec and zero aliasing at any opener file, against a
  * contrast of 154 files in `src/components/results/**` that DO destructure
  * (so the probe is not blind) and a fabricated-symbol negative control at 0.
- * That is a fact about today, not a property of the guard. If a future route
- * destructures, WIDEN THE PREDICATE — do not conclude from a green run that
- * the class is still closed.
+ * That is a fact about today, not a property of the guard.
+ *
+ * ⭐ THE DESTRUCTURED AND ALIASED FORMS ARE NOW CLOSED by the second
+ * alternation in `REC_BEARING`. What remains open, and cannot be closed by any
+ * predicate: a payload built in a VARIABLE and passed by reference
+ * (`const p = {…}; openAskOlumi(p)`) is invisible by construction, because the
+ * capture requires a literal `{` at the call.
+ *
+ * ⚠⚠ AND THE PLACE A SIXTH ROUTE WOULD ACTUALLY APPEAR, named by the review
+ * that found it: `ModelStrip` is rec-derived IN SUBSTANCE — it renders
+ * `finding.title` / `finding.tryThis` and opens the drawer with a `targetId` —
+ * and is excluded only because its view-model type drops the fields. **If
+ * `NodeInsightFinding` ever gains `helpType`, this guard binds to the
+ * identifier NAME, not the shape, so it would still not fire.** A lane
+ * widening that type must wire the note itself; the guard will not remind it.
  *
  * ⚠ COMMENTS ARE STRIPPED BEFORE MATCHING, and that is not defensive noise:
  * these files are heavily commented and several comments mention both
@@ -99,8 +111,25 @@ function askPayloads(): Array<{ file: string; body: string }> {
   return found
 }
 
-/** A payload is rec-bearing if it reads fields off a recommendation. */
-const REC_BEARING = /\brec(?:ommendation)?\.(whyNow|signal|title|action|targetId|tryThis|helpType|sourceLine)\b/
+/**
+ * A payload is rec-bearing if it reads fields off a recommendation.
+ *
+ * TWO ALTERNATIONS, AND THE SECOND ONE'S MEMBERSHIP IS THE WHOLE DESIGN.
+ * The first matches MEMBER ACCESS (`rec.whyNow`). The second matches BARE
+ * IDENTIFIERS, closing the destructured (`const { whyNow } = rec`) and aliased
+ * (`const finding = record.snapshot`) forms that an earlier version of this
+ * guard was blind to — measured blind, by a review that injected both.
+ *
+ * ⚠ `title`, `action`, `targetId` and `signal` are DELIBERATELY EXCLUDED from
+ * the bare-identifier alternation. They are generic enough to appear in
+ * payloads that hold no recommendation, and a guard that fires on innocent
+ * changes gets disabled — which costs more than the false negatives it closes.
+ * The four kept are recommendation-specific vocabulary. Measured: GREEN on the
+ * pristine tree, GREEN on an innocent route carrying `targetId`, RED on both
+ * the destructured and aliased forms.
+ */
+const REC_BEARING =
+  /\brec(?:ommendation)?\.(whyNow|signal|title|action|targetId|tryThis|helpType|sourceLine)\b|\b(?:whyNow|tryThis|sourceLine|helpType)\b/
 
 describe('every rec-bearing ask route carries the producer\'s note', () => {
   const payloads = askPayloads()
