@@ -14,9 +14,17 @@
  *
  * Clicking the enabled control produced **zero network requests** (read at the
  * CDP layer, not through a patched `window.fetch`: 109 requests before, 109
- * after, same last request id) and no state change of any kind. The product
- * offered an action that terminates in silence, while the sentence explaining
- * the refusal was already on screen — attached to the other tab's control.
+ * after, same last request id) and no change to the tab's content, while the
+ * sentence explaining the refusal was already on screen — attached to the other
+ * tab's control.
+ *
+ * ⚠ AN EARLIER VERSION OF THIS BLOCK SAID "no state change of any kind" AND
+ * "terminates in silence". BOTH ARE WITHDRAWN. `handleRunAnalysis` calls
+ * `showToast(outcome.reason, 'warning')` and the dock sits inside a real
+ * `ToastProvider`, so a blocked click should raise a `role="alert"` carrying
+ * that sentence; the capture could not tell a raised toast from the starter
+ * banner already displaying it. ZERO-NETWORK is measured; SILENCE was not.
+ * The defect is a control that looks pressable and cannot work.
  *
  * ── WHY THE FIX IS WIRING, NOT COPY ────────────────────────────────────────
  * `OutputsDock` computes `canRunAnalysis` and `runBlockedTooltip` ONCE, above
@@ -72,7 +80,7 @@ beforeEach(() => {
 
 describe('ReanalyseBar honours the run gate', () => {
   it('PRECONDITION: this fixture mounts the bar on the model-changed branch', () => {
-    render(<ReanalyseBar onReanalyse={vi.fn()} />)
+    render(<ReanalyseBar onReanalyse={vi.fn()} canRun={undefined} blockedReason={undefined} isAnalysing={undefined} />)
     // Pins the precondition in-test: every assertion below is about a MOUNTED
     // bar on the branch the defect was measured on, not a bar that failed to
     // render for some unrelated reason.
@@ -80,12 +88,12 @@ describe('ReanalyseBar honours the run gate', () => {
   })
 
   it('disables the control when the shell says the run is refused', () => {
-    render(<ReanalyseBar onReanalyse={vi.fn()} canRun={false} blockedReason={HELD} />)
+    render(<ReanalyseBar onReanalyse={vi.fn()} canRun={false} blockedReason={HELD} isAnalysing={false} />)
     expect(screen.getByTestId('reanalyse-button')).toBeDisabled()
   })
 
   it('carries the gate’s own sentence as the control’s title', () => {
-    render(<ReanalyseBar onReanalyse={vi.fn()} canRun={false} blockedReason={HELD} />)
+    render(<ReanalyseBar onReanalyse={vi.fn()} canRun={false} blockedReason={HELD} isAnalysing={false} />)
     expect(screen.getByTestId('reanalyse-button')).toHaveAttribute('title', HELD)
   })
 
@@ -93,20 +101,20 @@ describe('ReanalyseBar honours the run gate', () => {
     // A `title` is unreachable by touch and by keyboard. The deployed defect was
     // not merely that the button was enabled — it was that pressing it said
     // nothing at all, so the reason has to be legible without a pointer.
-    render(<ReanalyseBar onReanalyse={vi.fn()} canRun={false} blockedReason={HELD} />)
+    render(<ReanalyseBar onReanalyse={vi.fn()} canRun={false} blockedReason={HELD} isAnalysing={false} />)
     expect(screen.getByTestId('reanalyse-blocked-reason')).toHaveTextContent(HELD)
   })
 
   it('cannot fire the runner while the gate is shut — the silent no-op becomes impossible', () => {
     const onReanalyse = vi.fn()
-    render(<ReanalyseBar onReanalyse={onReanalyse} canRun={false} blockedReason={HELD} />)
+    render(<ReanalyseBar onReanalyse={onReanalyse} canRun={false} blockedReason={HELD} isAnalysing={false} />)
     fireEvent.click(screen.getByTestId('reanalyse-button'))
     expect(onReanalyse).not.toHaveBeenCalled()
   })
 
   it('leaves the working control exactly as it was when the gate is open', () => {
     const onReanalyse = vi.fn()
-    render(<ReanalyseBar onReanalyse={onReanalyse} canRun={true} />)
+    render(<ReanalyseBar onReanalyse={onReanalyse} canRun={true} blockedReason={undefined} isAnalysing={false} />)
     const btn = screen.getByTestId('reanalyse-button')
     expect(btn).toBeEnabled()
     expect(btn).not.toHaveAttribute('title')
@@ -121,7 +129,7 @@ describe('ReanalyseBar honours the run gate', () => {
     // its button silently taken away; the shell-binding guard below is what
     // stops that default from quietly reinstating the original defect.
     const onReanalyse = vi.fn()
-    render(<ReanalyseBar onReanalyse={onReanalyse} />)
+    render(<ReanalyseBar onReanalyse={onReanalyse} canRun={undefined} blockedReason={undefined} isAnalysing={undefined} />)
     expect(screen.getByTestId('reanalyse-button')).toBeEnabled()
   })
 
@@ -129,13 +137,13 @@ describe('ReanalyseBar honours the run gate', () => {
     // The two questions are independently true. If a later edit replaces the
     // "Model changed" claim with the refusal sentence, the surface stops saying
     // that results are out of date - which is still a fact the user needs.
-    render(<ReanalyseBar onReanalyse={vi.fn()} canRun={false} blockedReason={HELD} />)
+    render(<ReanalyseBar onReanalyse={vi.fn()} canRun={false} blockedReason={HELD} isAnalysing={false} />)
     expect(screen.getByText(/Model changed\. Results may be out of date\./)).toBeInTheDocument()
     expect(screen.getByTestId('reanalyse-blocked-reason')).toHaveTextContent(HELD)
   })
 
   it('falls back to the shared subline when the gate refuses without a sentence', () => {
-    render(<ReanalyseBar onReanalyse={vi.fn()} canRun={false} />)
+    render(<ReanalyseBar onReanalyse={vi.fn()} canRun={false} blockedReason={undefined} isAnalysing={false} />)
     const reason = screen.getByTestId('reanalyse-blocked-reason')
     expect(reason.textContent?.trim().length ?? 0).toBeGreaterThan(0)
     expect(screen.getByTestId('reanalyse-button')).toBeDisabled()
@@ -161,11 +169,36 @@ describe('ReanalyseBar honours the run gate', () => {
     expect(screen.getByTestId('reanalyse-button')).not.toHaveAttribute('title')
   })
 
+  it('says it is analysing, rather than offering a dead "Re-analyse"', () => {
+    // A control disabled with no title, no subline and an unchanged label reads
+    // as broken rather than busy. The sibling says "Analysing…"; so does this.
+    render(<ReanalyseBar onReanalyse={vi.fn()} canRun={false} blockedReason={undefined} isAnalysing />)
+    expect(screen.getByTestId('reanalyse-button')).toHaveTextContent('Analysing')
+  })
+
+  it('bounds the refusal sentence so it cannot take over the panel', () => {
+    // The sibling bar has a MEASURED defect where an unbounded footer sentence
+    // took 465px of a 772px panel. jsdom performs no layout, so this pins the
+    // STRUCTURAL fact it can see: the sentence carries a height bound and a
+    // scroll, rather than growing without limit.
+    render(
+      <ReanalyseBar
+        onReanalyse={vi.fn()}
+        canRun={false}
+        blockedReason={'A very long refusal. '.repeat(40)}
+        isAnalysing={false}
+      />,
+    )
+    const reason = screen.getByTestId('reanalyse-blocked-reason')
+    expect(reason.className).toMatch(/max-h-\[/)
+    expect(reason.className).toMatch(/overflow-y-auto/)
+  })
+
   it('still prevents a second dispatch while the analysis runs', () => {
     // The sibling's exact rule: `disabled = isAnalysing || !canRun`. Not calling
     // it a refusal must not make it pressable mid-run.
     const onReanalyse = vi.fn()
-    render(<ReanalyseBar onReanalyse={onReanalyse} canRun={false} isAnalysing />)
+    render(<ReanalyseBar onReanalyse={onReanalyse} canRun={false} blockedReason={undefined} isAnalysing />)
     const btn = screen.getByTestId('reanalyse-button')
     expect(btn).toBeDisabled()
     fireEvent.click(btn)
@@ -182,7 +215,7 @@ describe('ReanalyseBar honours the run gate', () => {
   it('gates the import-hold branch too, and says so on its own terms', () => {
     mockFreshness = { freshness: 'unknown' }
     mockImportHold = true
-    render(<ReanalyseBar onReanalyse={vi.fn()} canRun={false} blockedReason={HELD} />)
+    render(<ReanalyseBar onReanalyse={vi.fn()} canRun={false} blockedReason={HELD} isAnalysing={false} />)
     const bar = screen.getByTestId('reanalyse-bar')
     // PRECONDITION: this really is the other branch.
     expect(bar).toHaveAttribute('data-reason', 'import-unregistered')

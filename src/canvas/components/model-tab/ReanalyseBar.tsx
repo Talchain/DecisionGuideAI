@@ -58,6 +58,20 @@ import { gateBlockedSubline } from '../pre-analysis-v3/footer/readinessDisplay'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { useCanvasStore } from '../../store'
 
+/**
+ * ⚠⚠ THE GATE PROPS ARE REQUIRED KEYS WITH NULLABLE TYPES, AND THAT IS THE
+ * MECHANISM — the source scan is now only a backstop.
+ *
+ * They were optional, defaulting to today's behaviour so an absent verdict could
+ * never remove the control. Review defeated the guard that made that safe with
+ * TWO ONE-TOKEN SPELLINGS — `canRun={undefined as any}` and `canRun={(undefined)}`
+ * — because the check was exact-equality on a collapsed expression string, i.e.
+ * a regex mirror of a rule the compiler could hold instead.
+ *
+ * Required-and-nullable keeps the runtime default (an explicit `undefined` still
+ * falls back, so the control is never lost) while making OMISSION a TypeScript
+ * error. A cast still defeats the scan; it can no longer defeat the type.
+ */
 interface ReanalyseBarProps {
   onReanalyse?: () => void
   /**
@@ -69,9 +83,9 @@ interface ReanalyseBarProps {
    * because a guard asserts the shell's `reanalyse` arm actually passes the
    * pair — without it the default would quietly reinstate the ungated button.
    */
-  canRun?: boolean
+  canRun: boolean | undefined
   /** `OutputsDock`'s `runBlockedTooltip`. Read only while the gate is shut. */
-  blockedReason?: string
+  blockedReason: string | undefined
   /**
    * `OutputsDock`'s `isRunning`, and it is NOT optional to the logic even though
    * it is optional to the type.
@@ -84,7 +98,7 @@ interface ReanalyseBarProps {
    * `blocked = !canRun && !isAnalysing`, and so do `PanelFooter:168` and both
    * `OutputsDock` sites. This bar is now the same expression, not a fourth one.
    */
-  isAnalysing?: boolean
+  isAnalysing: boolean | undefined
 }
 
 export function ReanalyseBar({
@@ -132,13 +146,23 @@ export function ReanalyseBar({
         {heldUnsure
           ? "Can't confirm this analysis matches the current model."
           : 'Model changed. Results may be out of date.'}
-        {/* ⚠ TEXT, NOT ONLY A `title`. The witnessed defect was not merely that
-            the button was pressable — it was that pressing it said NOTHING, and
-            a tooltip is unreachable by touch and by keyboard, so the reason has
-            to be legible without a pointer. The `title` below is kept as well,
-            for parity with the sibling bar's blocked treatment. */}
+        {/* ⚠ TEXT, NOT ONLY A `title`. A tooltip is unreachable by touch and by
+            keyboard, so a reason that exists only on hover is not a reason the
+            user can reach. The `title` below is kept as well, for parity with
+            the sibling bar's blocked treatment.
+            (This comment previously justified itself with "pressing it said
+            NOTHING" — the claim withdrawn in this file's header. Withdrawing it
+            once and leaving it asserted here is the same defect one level down.) */}
+        {/* ⚠ BOUNDED. The sibling bar has a MEASURED defect where an unbounded
+            footer sentence took 465px of a 772px panel (and 1392px at the 280px
+            dock floor), and the string rendered here is the one its header
+            records at 603 characters on deployed `236bb14a`. Three lines, then
+            scroll — the bar states the refusal, it does not become the panel. */}
         {blocked && (
-          <span className="block text-text-light/80" data-testid="reanalyse-blocked-reason">
+          <span
+            className="block text-text-light/80 max-h-[3.75rem] overflow-y-auto"
+            data-testid="reanalyse-blocked-reason"
+          >
             {blockedSentence}
           </span>
         )}
@@ -152,7 +176,10 @@ export function ReanalyseBar({
         data-testid="reanalyse-button"
       >
         <RefreshCw className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-        Re-analyse
+        {/* The sibling's ANALYSING arm, which the first cut left behind while
+            taking its two expressions: a control disabled with no title, no
+            subline and an unchanged label reads as broken rather than busy. */}
+        {isAnalysing ? 'Analysing…' : 'Re-analyse'}
       </button>
     </div>
   )
