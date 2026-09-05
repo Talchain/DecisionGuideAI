@@ -228,6 +228,23 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   // one is a legacy/fixture caller and keeps the previous behaviour. Read ONCE,
   // here, so a trigger added later cannot quietly reintroduce the conflation by
   // reaching for `analysisComplete` again.
+  //
+  // ⚠ NAME COLLISION, AND IT IS THE DANGEROUS KIND — SAME NAME, DIFFERENT
+  // QUESTION. `analysisClaimPolicy.ts` now EXPORTS a `leaderClaimWithheld`
+  // that answers the COMPOSED question ("may this panel name a leader?" =
+  // the CEE lattice AND this result's separation). This local answers Q2
+  // ALONE ("did this run separate the arms?"), because `inputs` carries no
+  // admission and this module is not on that seam.
+  //
+  // They agree on three of the four lattice modes and diverge on
+  // `quantified_provisional`, so importing the export here — or assuming this
+  // local already means it — would silently change which triggers fire.
+  // Neither is wrong; they are two questions, and this estate's signature
+  // defect is putting two questions under one name (CLAUDE.md trap 21). The
+  // name is left alone rather than churned: renaming a symbol with live
+  // readers to document a hazard is a bigger change than the hazard, and this
+  // comment is what a reader needs. If this module ever gains the admission,
+  // read the export and delete the local — do not widen the local in place.
   const leaderClaimWithheld = inputs.hasLeadingOption === false
 
   /**

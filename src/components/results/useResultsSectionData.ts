@@ -2238,8 +2238,26 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     //     Q2 absent => false  (no result, so no claim may be authored)
     // Aligning them — `??`-ing one through the other, or giving them a shared
     // default — would put two questions under one name, which is the defect this
-    // estate has paid for twice. Neither term is folded into the other, and
-    // neither is ever read alone at a render site.
+    // estate has paid for twice. Neither term is folded into the other.
+    //
+    // ⚠ THIS COMMENT USED TO END "…and neither is ever read alone at a render
+    // site." THAT WAS FALSE AT THE TIP THAT SHIPPED IT, and a false sentence
+    // describing verification is worse than no sentence: it tells the next
+    // reader the sweep has already been done.
+    //
+    // MEASURED (`buildHeroModel.ts:279`): the hero reads Q2 ALONE —
+    // `verdict != null && !verdict.hasLeadingOption`. On a run where Q2 is true
+    // and Q1 is false (arms separated, mode `exploratory` or `none`) the hero
+    // emits `designationsWithheld: false` with both rows `isRanked: true`,
+    // so `AnalysisHeroPanel:485` shows ordinals — while THIS composed answer
+    // says withheld and the checks footer on the same tab says
+    // "Leading option not assessed". Reproduced with the hero's own
+    // `makeHeroData` fixture; pinned as a KNOWN GAP in
+    // `analysis-hero/__tests__/heroReadsQ2Alone.knownGap.spec.ts`, which
+    // documents what would settle it.
+    //
+    // The narrow true statement, which is all this comment may now assert:
+    // neither term is read alone at a render site IN THIS MODULE.
     const leaderDesignationPermitted = modelLicensesComparativeClaim && resultSeparatesArms
 
     const designationsWithheld = !leaderDesignationPermitted
