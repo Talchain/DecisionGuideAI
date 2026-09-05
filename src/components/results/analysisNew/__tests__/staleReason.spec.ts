@@ -98,6 +98,27 @@ describe('staleReasonFromTrustSemantic — the one the dock actually calls', () 
    * — ~10 `vi.mock` calls, per the existing dock specs — and that is the
    * stronger artefact. Stated as a known gap rather than left implied.
    */
+  /**
+   * Does this import specifier resolve to THE reader module — the one this
+   * suite tests — rather than to something merely spelled like it?
+   *
+   * Both operands are normalised through `path.resolve`, so `./x/../y`,
+   * `../../components/results/analysisNew/staleReason` and a shim at
+   * `components/compat/analysisNew/staleReason` are compared as the filesystem
+   * sees them and not as text. The extension is stripped because a TS
+   * specifier omits it.
+   */
+  const READER_MODULE = path.resolve(__dirname, '../staleReason')
+
+  function resolvesToTheReaderModule(specifierText: string, importingFile: string): boolean {
+    const spec = specifierText.replace(/^['"]|['"]$/g, '')
+    // Only relative specifiers can name a file in this repo; a bare package
+    // specifier is somebody else's module by definition.
+    if (!spec.startsWith('.')) return false
+    const resolved = path.resolve(path.dirname(importingFile), spec).replace(/\.tsx?$/, '')
+    return resolved === READER_MODULE
+  }
+
   it('the dock is wired to the TRUST reader — by syntax, not by string match', () => {
     const file = path.resolve(__dirname, '../../../../canvas/components/OutputsDock.tsx')
     const sf = ts.createSourceFile(
@@ -115,23 +136,29 @@ describe('staleReasonFromTrustSemantic — the one the dock actually calls', () 
     let shadowed = false
 
     const walk = (n: ts.Node): void => {
-      // ⚠⚠ ANCHORED, AND UNANCHORED IS HOW ATTACK D1 GOT THROUGH. The check was
-      // a SUBSTRING match, so `analysisNew/staleReasonCompat.ts` satisfied it —
-      // and a re-export shim there (`export { staleReasonFromFreshness as
-      // staleReasonFromTrustSemantic }`) puts the aliasing one hop away, where
-      // the IMMEDIATE import has no `propertyName` for clause A to read.
-      // Result: pin green, typecheck green, 2,057 tests green, and the dock
-      // returning `unconfirmed` for every member of the domain — Attack A's
-      // outcome verbatim. The mechanism was isolated with a contrast control:
-      // the same shim at `analysisNew/compat/reader.ts` REDs, differing only
-      // in path.
+      // ⚠⚠⚠ THIS RESOLVES THE SPECIFIER TO AN ABSOLUTE PATH. IT USED TO MATCH A
+      // STRING, AND THE STRING LOST FIVE ROUNDS RUNNING.
       //
-      // ⚠ WHAT ANCHORING DOES NOT DO: it kills the shim-PATH family, not
-      // re-exports in general. A shim at the exact path would still pass, and
-      // only a behavioural test closes that. Stated, not implied.
+      //   D1  substring match      → a shim at `analysisNew/staleReasonCompat.ts`
+      //   D2  two-segment anchor   → a shim at `components/compat/analysisNew/staleReason.ts`
+      //
+      // Both re-export `staleReasonFromFreshness as staleReasonFromTrustSemantic`,
+      // so the aliasing sits one hop away where the IMMEDIATE import has no
+      // `propertyName` for clause A to read. D2 measured: this pin 11/11,
+      // typecheck PASSED, ESLint 0 errors, 1522/1522 across every
+      // `OutputsDock`-referencing spec — and the dock returning `unconfirmed`
+      // for all four members of the producer's domain.
+      //
+      // ⚠ THE COUNT IS THE FINDING, NOT THE DEFEAT. Every fix narrowed the
+      // string; every defeat moved sideways within it. Five rounds is past the
+      // point where "one more rule" is engineering rather than sunk cost
+      // (CLAUDE.md trap 22f). So this is a CHANGE OF KIND: resolve the module
+      // specifier against the importing file and compare absolute paths. A path
+      // that resolves elsewhere cannot be spelled to look like this one, which
+      // is what ends the series rather than extending it.
       if (
         ts.isImportDeclaration(n) &&
-        /analysisNew\/staleReason['"]$/.test(n.moduleSpecifier.getText(sf).trim())
+        resolvesToTheReaderModule(n.moduleSpecifier.getText(sf).trim(), file)
       ) {
         const named = n.importClause?.namedBindings
         if (named && ts.isNamedImports(named)) {
