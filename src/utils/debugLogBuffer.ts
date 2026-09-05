@@ -5,6 +5,8 @@
  * Intercepts console.log/warn/error and stores matching patterns.
  */
 
+import { shouldCaptureDetailedPayload } from './payloadRedaction'
+
 const DEBUG_LOG_PATTERNS = [
   'CEE_V2_OPTIONS_REQUEST',
   'CEE_ORCHESTRATOR',
@@ -168,7 +170,23 @@ export function getLogsByPattern(pattern: string): BufferedLog[] {
   return logBuffer.filter((entry) => entry.message.toUpperCase().includes(upperPattern))
 }
 
-// Auto-enable interception in development mode
-if (typeof window !== 'undefined' && import.meta.env?.DEV) {
+/**
+ * Auto-enable interception wherever detailed diagnostic capture is
+ * permitted — development AND staging.
+ *
+ * ⚠ WIDENED 2026-09-05 (was `import.meta.env?.DEV` alone). Staging is a
+ * PRODUCTION Vite build, so `DEV` is false there and this interceptor
+ * never started. Every staging debug bundle therefore reported
+ * `console_logs: []` — not "nothing matched the patterns", but "nothing
+ * was ever listening" — and the two states are indistinguishable in the
+ * exported artefact. Since staging IS the PoC product, that is the only
+ * environment whose console logs anyone wants.
+ *
+ * `shouldCaptureDetailedPayload()` is the estate's existing dev-or-staging
+ * predicate and already gates the payload capture these logs sit beside;
+ * reusing it keeps one answer to "may we capture diagnostics here?" rather
+ * than a second copy that can drift from it.
+ */
+if (typeof window !== 'undefined' && shouldCaptureDetailedPayload()) {
   enableLogInterception()
 }

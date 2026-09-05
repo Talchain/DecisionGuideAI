@@ -77,6 +77,31 @@ export interface RecentConversationTurn {
   /** True when `assistant_text` is a non-empty string. */
   has_assistant_text: boolean
   /**
+   * The user's own message for this turn, read verbatim from the root
+   * `message` field of the captured V5 turn REQUEST body. Null when the
+   * turn carried none (e.g. a system-initiated run).
+   *
+   * ⚠ ADDED 2026-09-05, and this is the field the module was missing.
+   * Every turn already carried the model's reply and the served prompt
+   * identity, and nothing carried the thing they were answering — so a
+   * reviewer could judge 19 assistant turns without being able to see one
+   * of the questions. Reply, prompt identity and question now sit on the
+   * same record.
+   *
+   * Already redacted: the trace store runs `redactPayload` over every
+   * request body at capture time, so this is a passthrough of an
+   * already-scrubbed value — never a second capture of raw user input.
+   */
+  user_message: string | null
+  /** True when `user_message` is a non-empty string. */
+  has_user_message: boolean
+  /**
+   * How the message was entered (`composer`, `chip`, `chip_click`,
+   * `retry`). Distinguishes what the user TYPED from a chip's canned
+   * text — the founder's bundle contained only the latter.
+   */
+  user_message_source: string | null
+  /**
    * Passthrough of `_diagnostic_trace.prompt_identity` (served prompt
    * identity — e.g. staging_version / PMS id — when CEE's diagnostic
    * trace is enabled and the field is present on the turn record).
@@ -103,6 +128,13 @@ export interface RecentConversationTurnsResult {
    * from a scenario with real conversation should read > 0 here.
    */
   llm_authored_count: number
+  /**
+   * Of the captured turns, how many carried a non-null `user_message`.
+   * The twin of `llm_authored_count`: a bundle from a real conversation
+   * should read > 0 on BOTH, and a zero here is the specific defect this
+   * field was added to make visible.
+   */
+  user_authored_count: number
 }
 
 /**
@@ -114,6 +146,30 @@ function readAssistantText(p: ConversationTurnSourcePayload): string | null {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return null
   const text = (body as Record<string, unknown>).assistant_text
   return typeof text === 'string' && text.length > 0 ? text : null
+}
+
+/**
+ * Read the root `message` field from a V5 CEE turn's captured REQUEST
+ * body — the user's own words for this turn. Passthrough only.
+ *
+ * `buildPayload.ts` puts the user's text at `message` on every V5 turn
+ * shape (`MessageTurnPayload.message`), with `source` recording whether
+ * it came from the composer, a chip, or a retry.
+ */
+function readUserMessage(
+  p: ConversationTurnSourcePayload,
+): { text: string | null; source: string | null } {
+  const body = (p as { request?: { body?: unknown } }).request?.body
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return { text: null, source: null }
+  }
+  const root = body as Record<string, unknown>
+  const message = root.message
+  const source = root.source
+  return {
+    text: typeof message === 'string' && message.length > 0 ? message : null,
+    source: typeof source === 'string' && source.length > 0 ? source : null,
+  }
 }
 
 /**
@@ -168,6 +224,7 @@ export function selectRecentConversationTurns(
     const turnKind = readTurnOrActionType(p)
     const assistantText = readAssistantText(p)
     const promptIdentity = readPromptIdentity(p)
+    const userMessage = readUserMessage(p)
     return {
       trace_id: typeof p.id === 'string' ? p.id : null,
       timestamp: typeof p.timestamp === 'number' ? p.timestamp : null,
@@ -179,6 +236,9 @@ export function selectRecentConversationTurns(
       scenario_id: readScenarioId(p),
       assistant_text: assistantText,
       has_assistant_text: assistantText !== null,
+      user_message: userMessage.text,
+      has_user_message: userMessage.text !== null,
+      user_message_source: userMessage.source,
       prompt_identity: promptIdentity,
       has_prompt_identity: promptIdentity !== null,
     }
@@ -190,5 +250,6 @@ export function selectRecentConversationTurns(
     truncated: v5Turns.length > turns.length,
     captured_count: turns.length,
     llm_authored_count: turns.filter((t) => t.has_assistant_text).length,
+    user_authored_count: turns.filter((t) => t.has_user_message).length,
   }
 }

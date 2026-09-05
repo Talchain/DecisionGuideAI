@@ -205,9 +205,12 @@ describe('buildDebugBundle structured debug sections', () => {
         retries: 1,
       },
     ])
+    // `reason` added 2026-09-05: `available: false` alone cannot be told
+    // apart from a capture that was attempted and failed.
     expect(bundle.render_summary).toEqual({
       available: false,
       source: null,
+      reason: 'not_implemented: no render capture producer exists in the client',
     })
     expect(bundle.panel_state).toEqual({
       available: false,
@@ -276,7 +279,11 @@ describe('buildDebugBundle structured debug sections', () => {
         retries: null,
       },
     ])
-    expect(bundle.render_summary).toEqual({ available: false, source: null })
+    expect(bundle.render_summary).toEqual({
+      available: false,
+      source: null,
+      reason: 'not_implemented: no render capture producer exists in the client',
+    })
     expect(bundle.panel_state).toEqual({ available: false, source: null })
     expect(bundle.user_actions).toEqual([])
     expect(bundle.cross_surface_events).toEqual([])

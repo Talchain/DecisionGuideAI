@@ -81,9 +81,57 @@ export const DEBUG_BUNDLE_REDACTION_OPTIONS: RedactionOptions = {
   maxDepth: 8,
   maxArrayItems: 100,
   maxStringLength: 1000,
-  neverTruncateKeys: ['text', 'output_preview', 'output', 'content'],
+  // `assistant_text` added 2026-09-05. It is the ROOT field of the V5
+  // OlumiResponse envelope carrying the model's reply, and it was the one
+  // LLM-authored surface in the bundle NOT on this list — so every reply
+  // over 1000 chars arrived cut mid-sentence. Measured in
+  // `olumi-debug-1679eb88-20260905.json`: two turns truncated, and a
+  // reviewer read the fragments as the whole answer.
+  //
+  // Anything added here MUST also be safe to carry at full length: the
+  // `neverTruncateMaxLength` safety cap below is the only remaining bound.
+  neverTruncateKeys: ['text', 'output_preview', 'output', 'content', 'assistant_text'],
   neverTruncateMaxLength: DEBUG_LLM_RAW_MAX_CHARS,
   neverRedactKeys: ['constraint_analysis', 'observed_state', 'goal_constraints'],
+}
+
+/**
+ * Scrub secret-shaped substrings from a free-form string.
+ *
+ * `redactPayload` operates on object KEYS. A free-form VALUE — an
+ * `Error.cause` snippet, a plain-text response body, a message the user
+ * typed — bypasses the structural pass entirely and would carry a bearer
+ * token or JWT through verbatim. This is the substring-level pass that
+ * runs before such a value lands in a diagnostic bundle.
+ *
+ * Patterns (ordered so longer overlapping shapes match first):
+ *   - JWT-shape three-segment base64 (`eyJ...`)
+ *   - `bearer <token>` (case-insensitive, to whitespace)
+ *   - `(api[_-]?key|token|secret|password|authorization)[\s=:]+<value>`
+ *
+ * The replacement is a fixed `[REDACTED:<reason>]` so a reader can see a
+ * value WAS redacted without inferring what it held.
+ *
+ * ⚠ Promoted here from `payload-trace-store.ts` on 2026-09-05, which is
+ * what that module's own note invited once a second consumer appeared
+ * ("any future caller should consider promoting this to a shared util").
+ * The second consumer is `exportBundle.ts`, which now captures the user's
+ * typed message text and must scrub it by VALUE — there is no key to
+ * match on. Keep the store and the bundle on this one copy: two scrubbers
+ * would drift, and the weaker one would be the one that shipped.
+ */
+export function scrubSecretsInString(input: string): string {
+  let out = input
+  // JWT — three base64-segment shape.
+  out = out.replace(/eyJ[\w-]+\.[\w-]+\.[\w-]+/g, '[REDACTED:JWT]')
+  // Bearer + opaque token.
+  out = out.replace(/\bbearer\s+\S+/gi, 'bearer [REDACTED]')
+  // Sensitive-key=value / sensitive-key: value pairs.
+  out = out.replace(
+    /\b(api[_-]?key|token|secret|password|authorization)\s*[:=]\s*\S+/gi,
+    '$1=[REDACTED]',
+  )
+  return out
 }
 
 /** Maximum size for raw error data storage (50KB) */

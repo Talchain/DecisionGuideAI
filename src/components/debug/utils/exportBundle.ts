@@ -33,7 +33,16 @@ import {
   type DroppedContentCounterSnapshot,
 } from '../../../lib/droppedContentCounter'
 import { getBufferedLogs, type BufferedLog } from '../../../utils/debugLogBuffer'
-import { DEBUG_LLM_RAW_MAX_CHARS } from '../../../utils/payloadRedaction'
+import {
+  DEBUG_LLM_RAW_MAX_CHARS,
+  DEBUG_BUNDLE_REDACTION_OPTIONS,
+  scrubSecretsInString,
+  shouldCaptureDetailedPayload,
+} from '../../../utils/payloadRedaction'
+import {
+  collectServiceBuilds,
+  type ServiceBuildCapture,
+} from '../../../lib/service-health'
 import { getUserActions } from '../../../lib/debug-state'
 import type { PayloadInspectionReason } from '../../../lib/payload-trace-store'
 // ROADMAP 1.31 (Brief I): most-recent-N V5 CEE turn capture, INCLUDING
@@ -1104,6 +1113,21 @@ interface DebugBundle {
   diagnostic: DiagnosticInfo
   /** Service build versions */
   builds: BuildVersions
+  /**
+   * Per-service provenance for `builds`: how each value was obtained, the
+   * seam probed, and — when it is null — WHY.
+   *
+   * Only the async export path populates this (the probe is a network
+   * call). A bundle without it came from the synchronous path.
+   */
+  builds_capture?: {
+    note: string
+    ui: ServiceBuildCapture
+    cee?: ServiceBuildCapture
+    plot?: ServiceBuildCapture
+    isl?: ServiceBuildCapture
+    probe_error?: string
+  }
   /** All payloads */
   payloads: {
     cee_request: unknown
@@ -1504,6 +1528,8 @@ interface DebugBundle {
   render_summary: {
     available: boolean
     source: null
+    /** Why the capture is unavailable. Present whenever `available` is false. */
+    reason?: string
   }
   panel_state: {
     available: boolean
@@ -2338,8 +2364,9 @@ function withUiSchemaVersionFacts(
 function collectUserActions(): UserActionEntry[] {
   try {
     const actions = getUserActions()
-    // Map from debug-state format to bundle format, cap at 50
-    // Redact raw_message/display_text (user content) → replace with message_length
+    // Map from debug-state format to bundle format, cap at 50.
+    // User text is SCRUBBED and capped, no longer deleted — see
+    // `redactUserActionDetail`.
     return actions.slice(-50).map((a) => ({
       action: a.actionType,
       timestamp: a.timestamp,
@@ -2350,12 +2377,44 @@ function collectUserActions(): UserActionEntry[] {
   }
 }
 
-/** Strip user-authored text from action detail, preserving structural metadata */
+/**
+ * Cap for a single captured user message. Shares the never-truncate
+ * safety cap (default 8000) so user text and assistant text are bounded
+ * by the same number rather than by two constants that can drift.
+ */
+const USER_TEXT_MAX_CHARS = DEBUG_LLM_RAW_MAX_CHARS
+
+/**
+ * Normalise a user-authored action detail for the bundle.
+ *
+ * ⚠ CHANGED 2026-09-05. This function previously DELETED `raw_message`
+ * and `display_text` and left only `message_length` behind. The effect,
+ * measured in `olumi-debug-1679eb88-20260905.json`: 19 assistant turns
+ * captured and ZERO of the user's 14 typed messages — the only
+ * user-authored string in a 198 KB bundle was a chip's canned label. A
+ * reviewer could read every answer and not one of the questions.
+ *
+ * The replacement is REDACTION, not omission, which is the distinction
+ * that matters for a diagnostic artefact:
+ *   - the text is scrubbed by VALUE (`scrubSecretsInString`) because a
+ *     free-form message has no key for the structural redactor to match;
+ *   - it is capped at `USER_TEXT_MAX_CHARS`;
+ *   - `message_length` is the length of the ORIGINAL text, so a reader
+ *     can still see when a cap engaged;
+ *   - it is emitted under `user_text`, never back under `raw_message` —
+ *     any consumer keyed on the old name must opt in to the new one.
+ *
+ * Capture is already environment-gated upstream: bundles are a
+ * dev/staging affordance and `shouldCaptureDetailedPayload()` governs the
+ * payload capture this sits alongside. Gated again here so a production
+ * build cannot emit user prose even if an export path reaches this code.
+ */
 function redactUserActionDetail(
   detail: Record<string, unknown> | undefined,
 ): Record<string, unknown> | undefined {
   if (!detail) return detail
   const redacted = { ...detail }
+  const captureText = shouldCaptureDetailedPayload()
   let hasRedaction = false
   for (const key of ['raw_message', 'display_text'] as const) {
     if (key in redacted) {
@@ -2364,6 +2423,18 @@ function redactUserActionDetail(
       delete redacted[key]
       if (!hasRedaction) {
         redacted.message_length = len
+        if (captureText && typeof val === 'string') {
+          const scrubbed = scrubSecretsInString(val)
+          redacted.user_text =
+            scrubbed.length > USER_TEXT_MAX_CHARS
+              ? `${scrubbed.slice(0, USER_TEXT_MAX_CHARS)}... [truncated_by: user_text_cap, ${scrubbed.length} chars total]`
+              : scrubbed
+        } else if (!captureText && typeof val === 'string') {
+          // Name the omission so a reader can tell "withheld by policy"
+          // from "the user typed nothing" — the ambiguity this whole
+          // change exists to remove.
+          redacted.user_text_omitted_reason = 'detailed_capture_disabled_in_this_environment'
+        }
         hasRedaction = true
       }
     }
@@ -3211,7 +3282,13 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
         max_string_length: 1000,
         max_array_items: 100,
         max_depth: 8,
-        never_truncate_keys: ['text', 'output_preview', 'output', 'content'],
+        // DERIVED from the constant the redactor actually consumes — not
+        // a second hand-copied list. The copy that used to sit here read
+        // `['text','output_preview','output','content']` and stayed
+        // literally correct only for as long as nobody changed the
+        // policy; a bundle that MISDESCRIBES its own redaction is worse
+        // than one that omits the description, because a reader trusts it.
+        never_truncate_keys: [...(DEBUG_BUNDLE_REDACTION_OPTIONS.neverTruncateKeys ?? [])],
         never_truncate_max_length: DEBUG_LLM_RAW_MAX_CHARS,
       },
       ...(truncationApplied && {
@@ -3241,6 +3318,7 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
       truncated: false,
       captured_count: 0,
       llm_authored_count: 0,
+      user_authored_count: 0,
     },
     payloads: {
       // Fall back to downstream CEE calls (extracted from PLoT response) when
@@ -3388,6 +3466,22 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     render_summary: {
       available: false,
       source: null,
+      // DELIBERATELY NOT BUILT, and saying so is the point. `available:
+      // false` alone cannot be told apart from a capture that was
+      // attempted and failed, so a reader cannot know whether to retry.
+      //
+      // Derived 2026-09-05: `render_summary` has NO producer anywhere in
+      // the tree — the only references are this literal, its type, and
+      // test fixtures (contrast control: `user_actions` resolves to a
+      // real collector in the same sweep). A summary able to catch the
+      // defects it would exist for — misaligned text, a chart plotted
+      // from the wrong field — needs geometry measurement, and this repo
+      // has already shipped two wrap detectors that were wrong in
+      // opposite directions (padding fools height/lineHeight, clipping
+      // fools getClientRects). That is not a cheap addition, and a
+      // half-built one would report confident nonsense. Until it is
+      // built, read the DOM directly.
+      reason: 'not_implemented: no render capture producer exists in the client',
     },
     panel_state: {
       available: false,
@@ -3613,6 +3707,59 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
   }
 
   const bundle = buildDebugBundle(data, options)
+
+  // ---------------------------------------------------------------------
+  // Service builds (2026-09-05).
+  //
+  // `data.builds` is derived by `extractBuildVersions` from whatever the
+  // CAPTURED PAYLOADS happen to contain. When a turn's response carries no
+  // build field — the common case — cee/plot/isl all come out null, which
+  // collapses `schema_versions.consistency_status` to "unknown" with
+  // reason "missing_schema_versions". A bundle in that state cannot see
+  // schema-version skew, which this estate documents as its dominant
+  // cross-service risk.
+  //
+  // So ASK the services rather than hoping a payload mentions it. Each has
+  // an open health seam reachable same-origin through the app's own
+  // proxies (derived live, see `collectServiceBuilds`). Payload-derived
+  // values still win when present: they describe the build that actually
+  // served THIS request, whereas a probe describes the build serving now,
+  // and on a redeploy mid-session those differ. The probe fills gaps; it
+  // does not overwrite a witnessed value.
+  //
+  // Failures are recorded, never thrown: a diagnostic nicety must not be
+  // able to fail an export.
+  try {
+    const probed = await collectServiceBuilds()
+    bundle.builds = {
+      ...bundle.builds,
+      cee: bundle.builds.cee ?? probed.cee.build,
+      plot: bundle.builds.plot ?? probed.plot.build,
+      isl: bundle.builds.isl ?? probed.isl.build,
+    }
+    bundle.builds_capture = {
+      note: 'Payload-derived build wins when present (it describes the build that served THIS request); the health probe fills gaps and describes the build serving at export time.',
+      ui: {
+        build: bundle.builds.ui,
+        source: bundle.builds.ui ? 'client_bundle_stamp' : null,
+        endpoint: 'dist/version.json',
+        ...(bundle.builds.ui ? {} : { unavailable_reason: 'no_client_build_stamp' }),
+      },
+      cee: probed.cee,
+      plot: probed.plot,
+      isl: probed.isl,
+    }
+  } catch (error) {
+    bundle.builds_capture = {
+      note: 'Build probe failed as a whole; bundle.builds carries payload-derived values only.',
+      ui: {
+        build: bundle.builds.ui,
+        source: bundle.builds.ui ? 'client_bundle_stamp' : null,
+        endpoint: 'dist/version.json',
+      },
+      probe_error: error instanceof Error ? error.message : 'unknown error',
+    }
+  }
 
   // Round-4 review (P0): centralized provenance decision. Compute the
   // `bundlePayloadsAreV5Confirmed` boolean ONCE at the bundle entry
