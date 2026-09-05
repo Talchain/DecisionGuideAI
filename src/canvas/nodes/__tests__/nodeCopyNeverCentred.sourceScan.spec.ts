@@ -154,20 +154,57 @@ function hits(pred: (line: string) => boolean): string[] {
  * spans lines, and a per-line predicate reads that as clean — so the
  * co-occurrence is asserted over the whole class VALUE as well.
  *
- * Reaches `className="…"` and ``className={`…`}``, the two forms this surface
- * uses. It does NOT reach a value built by a ternary or a helper call; those
- * stay covered by the per-line scan only. The two scans run TOGETHER and
- * neither supersedes the other — that union, not either one alone, is the
- * coverage claim.
+ * The value is read to its END — a quoted string to its closing quote, a
+ * braced expression to its BALANCING brace. Balancing rather than a regex is
+ * deliberate, because the two forms a regex misses are both live in this
+ * surface: a template literal with a nested backtick inside `${…}`
+ * (`BaseNode.tsx:614`, where ``[^`]*`` stops early) and a ternary choosing
+ * between two templates (`BaseNode.tsx:1124`, which is not the `{`…`}` form).
+ * An extractor that silently skipped those two would leave the gap it was
+ * written to close open in exactly the largest classNames here.
+ *
+ * A braced extent includes the surrounding JS, so a ternary holding
+ * `flex-col` in one branch and `items-center` in the other would be flagged
+ * although only one can apply. That asymmetry is chosen: no such case exists
+ * here today, and a false RED is a review while a false GREEN is the defect
+ * shipping. The per-line scan is kept alongside, so the two run TOGETHER.
  */
-const CLASS_VALUE = /className\s*=\s*(?:"([^"]*)"|\{\s*`([^`]*)`\s*\})/g
+function classValueExtents(src: string): string[] {
+  const out: string[] = []
+  let i = -1
+  while ((i = src.indexOf('className', i + 1)) !== -1) {
+    let j = i + 'className'.length
+    while (j < src.length && /\s/.test(src[j])) j++
+    if (src[j] !== '=') continue
+    j++
+    while (j < src.length && /\s/.test(src[j])) j++
+    const open = src[j]
+    if (open === '"' || open === "'") {
+      const end = src.indexOf(open, j + 1)
+      if (end === -1) continue
+      out.push(src.slice(j, end + 1))
+      continue
+    }
+    if (open !== '{') continue
+    let depth = 0
+    let k = j
+    for (; k < src.length; k++) {
+      if (src[k] === '{') depth++
+      else if (src[k] === '}') {
+        depth--
+        if (depth === 0) break
+      }
+    }
+    if (k >= src.length) continue
+    out.push(src.slice(j, k + 1))
+  }
+  return out
+}
 
 const CLASS_VALUES: { file: string; value: string }[] = []
 for (const [f, src] of BLANKED) {
-  CLASS_VALUE.lastIndex = 0
-  let m: RegExpExecArray | null
-  while ((m = CLASS_VALUE.exec(src)) !== null) {
-    CLASS_VALUES.push({ file: f.slice(NODES_DIR.length + 1), value: m[1] ?? m[2] ?? '' })
+  for (const value of classValueExtents(src)) {
+    CLASS_VALUES.push({ file: f.slice(NODES_DIR.length + 1), value })
   }
 }
 
@@ -201,7 +238,13 @@ describe('canvas node surface — copy is never centrally aligned', () => {
     // splits, so if no class value spans lines it is asserting over the same
     // unit as `hits` and the extra coverage is imaginary. Both must hold.
     expect(CLASS_VALUES.length).toBeGreaterThan(200)
-    expect(CLASS_VALUES.filter((c) => c.value.includes('\n')).length).toBeGreaterThan(0)
+    const multiLine = CLASS_VALUES.filter((c) => c.value.includes('\n'))
+    expect(multiLine.length).toBeGreaterThan(0)
+    // And the two forms a regex-based extractor dropped are specifically
+    // reachable — the whole reason this reads to a balancing brace. Bound by
+    // FILE identity, so losing either one to a refactor of the extractor goes
+    // red rather than quietly shrinking the scan.
+    expect(multiLine.some((c) => c.file === 'BaseNode.tsx' && c.value.includes('${'))).toBe(true)
   })
 
   it('no text-center anywhere in the node surface', () => {
