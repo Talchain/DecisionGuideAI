@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
 import { jsxSourceFilesIn } from '../../../../tests/helpers/jsxTextEntryScan'
+import { PROTECTED_VALUE_CLASS, PROTECTED_VALUE_STYLE, TRUNCATING_LABEL_STYLE } from '../truncation'
 
 /**
  * ⭐⭐⭐ A VALUE MUST NEVER TRUNCATE. THIS IS THE GATE FOR `../truncation.ts`.
@@ -330,6 +331,26 @@ describe('a label may truncate; a value never may', () => {
     const viaAuthority = scanSource(DEFECT_VIA_AUTHORITY_FIXTURE, 'fixture.tsx')
     expect(viaAuthority.truncating, 'the authority spread was not recognised as truncation').toBe(1)
     expect(viaAuthority.findings).toHaveLength(1)
+  })
+
+  it('the PROTECTED primitives do not themselves truncate', () => {
+    // ⚠ THE HOLE THIS CLOSES: the scan above only asks whether a value sits
+    // inside a TRUNCATING element. Add `textOverflow: 'ellipsis'` to
+    // `PROTECTED_VALUE_STYLE` and every value in the repo starts clipping while
+    // this file stays green — the authority hollowed out, with the gate
+    // watching the wrong door. The primitives are the one thing the scan cannot
+    // check by scanning, so they are asserted directly.
+    expect(PROTECTED_VALUE_STYLE.textOverflow).toBeUndefined()
+    expect(PROTECTED_VALUE_STYLE.overflow).toBeUndefined()
+    expect(PROTECTED_VALUE_STYLE.WebkitLineClamp).toBeUndefined()
+    expect(PROTECTED_VALUE_STYLE.whiteSpace, 'a value must not break across lines').toBe('nowrap')
+    expect(PROTECTED_VALUE_STYLE.flexShrink, 'a value must refuse to give up width').toBe(0)
+    expect(TRUNCATING_CLASS.test(` ${PROTECTED_VALUE_CLASS} `)).toBe(false)
+    expect(AUTHORITY_TRUNCATION.test(PROTECTED_VALUE_CLASS)).toBe(false)
+
+    // Positive control: the same predicates DO fire on the truncating twin, so
+    // "not truncating" above is a discrimination and not a blind read.
+    expect(TRUNCATING_LABEL_STYLE.textOverflow).toBe('ellipsis')
   })
 
   it('reaches every JSX element the parser produced', () => {
