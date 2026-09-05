@@ -90,7 +90,28 @@ function classNameText(
 }
 
 /** Every JSX element in the file, with whether an ACTION encloses it. */
-function actionColourSites(src: string, file: string): { sites: Site[]; elements: number } {
+/**
+ * ⭐⭐ WHAT THE PARSER PRODUCED, counted WITHOUT the guard's own traversal.
+ *
+ * This is the reference the completeness control compares against, and it must
+ * not share a step with the walker or the two go blind together — which is the
+ * root cause a reviewer named for all five rounds of this guard: instrument and
+ * control were reading the same reach.
+ */
+function parserElementCount(sf: ts.SourceFile): number {
+  let n = 0
+  const all = (node: ts.Node): void => {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) n += 1
+    ts.forEachChild(node, all)
+  }
+  all(sf)
+  return n
+}
+
+function actionColourSites(
+  src: string,
+  file: string,
+): { sites: Site[]; elements: number; parserElements: number } {
   const sf = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
   const sites: Site[] = []
   let elements = 0
@@ -118,44 +139,84 @@ function actionColourSites(src: string, file: string): { sites: Site[]; elements
       // and popped in step with the source, which is exactly what generics,
       // comparisons and pseudo-tags broke. Here it is just recursion.
       const within = ancestorIsAction || isInteractive(open, sf)
+      // ⚠⚠ ATTRIBUTES, NOT JUST CHILDREN — AND THE GUARD WAS ALREADY BLIND TO
+      // A LIVE ELEMENT WITHOUT THIS. Recursing into `children` alone never
+      // reaches JSX passed as a PROP: `<Wrap header={<span className=
+      // "text-info"/>} />` was invisible, and three such plants sat 2/2 GREEN.
+      // Measured at this head: an unconditional walk finds 346 elements, this
+      // walk reached 345 — the miss being `AnalysisNewTabBody.tsx:702`,
+      // `header={<DriverInfluenceChart … />}` inside `SectionShell`'s own prop.
+      // A render-prop panel is exactly where this pattern lives.
+      visit(open.attributes, within)
       node.children.forEach((c) => visit(c, within))
       return
     }
     if (ts.isJsxSelfClosingElement(node)) {
       record(node, ancestorIsAction)
+      visit(node.attributes, ancestorIsAction || isInteractive(node, sf))
       return
     }
     ts.forEachChild(node, (c) => visit(c, ancestorIsAction))
   }
 
   visit(sf, false)
-  return { sites, elements }
+  return { sites, elements, parserElements: parserElementCount(sf) }
 }
 
 describe('the action colour means pressable, and nothing else', () => {
   const files = jsxSourceFilesIn(PANEL_DIR)
   const scans = files.map((f) => ({
     file: path.relative(PANEL_DIR, f),
-    ...actionColourSites(fs.readFileSync(f, 'utf8'), f),
+    // ⚠ THE RELATIVE PATH GOES IN, not the absolute one — a failure message
+    // carrying `/private/tmp/<lane-clone>/…` names a machine rather than a
+    // file, and the reader has to strip it before it means anything.
+    ...actionColourSites(fs.readFileSync(f, 'utf8'), path.relative(PANEL_DIR, f)),
   }))
   const sites = scans.flatMap((s) => s.sites)
 
   /**
-   * ⚠ PRECONDITION. Every assertion below is an ABSENCE claim, and an absence
-   * claim from a blind instrument is vacuous.
+   * ⭐⭐⭐ THE FOURTH PRECONDITION, AND THE FIRST THAT IS NOT A PROXY.
    *
-   * ⚠⚠ AND THE ONE THIS REPLACES WAS DEFEATED TWICE. `licensed > 5` was
-   * INVERTED — over-licensing pushes it UP, the same direction as the defect.
-   * Its replacement, a stack-balance check, read CLEAN while an apostrophe
-   * erased a planted violation, because the phantom string was balanced.
+   * The three before it all inferred health from a NUMBER and all failed:
    *
-   * A parser cannot half-work: if it fails, the element count collapses. So
-   * the control is the count of JSX elements actually parsed, which no
-   * mis-tokenisation can inflate.
+   *   `licensed > 5`     moved WITH the defect — over-licensing pushes it up
+   *   stack balances     stayed BALANCED THROUGH it — a phantom string is balanced
+   *   `elements > 200`   asserted a collapse that CANNOT HAPPEN, and moved the
+   *                      same way as the first: planting an attribute-position
+   *                      violation took the count 345 → 346, UPWARD, while
+   *                      hiding a real defect. It also had 145 elements of
+   *                      headroom — `AtAGlance.tsx` could have vanished
+   *                      entirely, all 80 of its elements, and it would still
+   *                      have read clean.
+   *
+   * ⚠ AND MY JUSTIFICATION FOR THE THIRD WAS FALSE ON EVERY CLAUSE. I wrote
+   * "a parser cannot half-work; if it fails the count collapses". Measured:
+   * `ts.createSourceFile` never throws, an unbalanced brace after the imports
+   * leaves `parseDiagnostics` at ZERO and the plant still found, and an
+   * unclosed `<div>` made the count go UP. Error recovery is the parser's
+   * SPECIFICATION. The behaviour was safe; the reasoning was invented.
+   *
+   * ⚠⚠ ROOT CAUSE OF ALL FIVE ROUNDS, named by a reviewer: instrument and
+   * control shared the guard's own reach, so every round tested the walker
+   * using the walker. This asserts WALKER-REACHED == PARSER-PRODUCED, with the
+   * reference derived from the AST rather than chosen — so it cannot decay,
+   * and any node class the walk forgets to enter REDs by file and by count
+   * rather than passing quietly.
    */
-  it('the parser actually read the panel (contrast control)', () => {
+  it('the walk reaches every element the parser produced (completeness)', () => {
     expect(files.length).toBeGreaterThan(10)
-    expect(scans.reduce((n, s) => n + s.elements, 0)).toBeGreaterThan(200)
+    const missed = scans
+      .filter((s) => s.elements !== s.parserElements)
+      .map((s) => `${s.file}: walked ${s.elements} of ${s.parserElements}`)
+    expect(
+      missed,
+      'The walk did not reach every JSX element the parser produced. A node ' +
+        'class it never enters is a class it cannot police — attributes were ' +
+        'exactly this, and the guard was blind to a live element for it.',
+    ).toEqual([])
+  })
+
+  it('the scan still sees the licensed uses it is supposed to permit', () => {
     expect(sites.filter((s) => s.licensed).length).toBeGreaterThan(5)
   })
 
