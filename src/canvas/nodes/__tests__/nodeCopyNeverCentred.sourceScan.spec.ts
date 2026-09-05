@@ -201,10 +201,16 @@ describe('canvas node surface — the UA button centring is overridden', () => {
   })
 
   it('is keyed on the attribute NodePopover actually emits', () => {
-    // The portalled half. `NodePopover` createPortals to document.body, so its
-    // content is NOT a descendant of `.react-flow__node`; `NodeChip` — the
-    // shared chip every node type uses — renders in both places. Renaming the
-    // attribute on either side must go red rather than go quiet.
+    // The portalled half. With an `anchorRef`, `NodePopover` createPortals to
+    // document.body, so that branch's content is NOT a descendant of
+    // `.react-flow__node`; `NodeChip` — the shared chip every node type uses —
+    // renders both inline and inside the popover. Renaming the attribute on
+    // either side must go red rather than go quiet.
+    //
+    // The component emits the attribute at TWO sites (the portalled branch and
+    // the no-anchorRef inline fallback). That is why the mutant for this test
+    // has to rename BOTH: renaming one leaves the attribute genuinely still
+    // emitted, so a GREEN would be correct and would prove nothing.
     //
     // ⚠ THE ATTRIBUTE NAME IS DERIVED FROM THE CSS, NOT WRITTEN TWICE, and the
     // match is BOUNDED. The first version of this test hardcoded the name and

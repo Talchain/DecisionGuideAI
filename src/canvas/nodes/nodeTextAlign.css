@@ -25,15 +25,18 @@
  * ## Why two selectors
  *
  * `.react-flow__node` is React Flow's own node wrapper (this repo derives
- * against it in `nodeKeyboardScope.tsx`). It covers node bodies — but NOT
- * `NodePopover`, which `createPortal`s to `document.body` and is therefore
- * not a DOM descendant of any node. `NodeChip` — the shared coaching chip
- * used by every node type — renders in BOTH places: inline in the body, and
- * inside the portal via `outcomeChips` (OutcomeNode) and `factorChips`
- * (FactorNode). A rule scoped to the node wrapper alone would miss the
- * portalled half and look green while the chip still centred.
- * `[data-node-popover]` is the attribute `NodePopover` puts on its portal
- * root.
+ * against it in `nodeKeyboardScope.tsx`). It covers node bodies. It does NOT
+ * cover `NodePopover`'s portalled branch: with an `anchorRef` that component
+ * `createPortal`s to `document.body`, so its content is not a DOM descendant
+ * of any node. (Its other branch, the no-`anchorRef` inline fallback, does
+ * render inside the node — both branches carry the attribute, so the second
+ * selector covers the portalled one without the first losing the inline one.)
+ *
+ * This matters because `NodeChip` — the shared coaching chip used by every
+ * node type — renders in BOTH places: inline in the body, and inside the
+ * popover via `outcomeChips` (OutcomeNode) and `factorChips` (FactorNode). A
+ * rule scoped to the node wrapper alone would miss the portalled half and
+ * look green while the chip still centred.
  *
  * ## Specificity, so this is not order-dependent
  *
