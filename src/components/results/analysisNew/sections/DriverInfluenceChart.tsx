@@ -115,6 +115,29 @@ export function DriverInfluenceChart({
         </span>
       </div>
 
+      {/* ⚠⚠ THE SCALE, WHICH THE CHART SHIPPED WITHOUT. Direction was named and
+          magnitude was not, so a bar's length and position were unreadable:
+          nothing said what the outer edge or the centre meant.
+
+          It is NOT a 0-100% axis, deliberately. The bars are scaled to the
+          strongest driver in this run, so a percentage axis would assert a
+          share of the outcome — the exact claim the builder refuses to make
+          (`buildAnalysisNewViewModel.ts:555-557`). Naming the two real points
+          is the only scale this data supports.
+
+          `aria-hidden` for the same reason the bars are: this is a redraw of
+          `data-fraction` and of the sorted order, both of which a screen reader
+          already has. */}
+      <div
+        className={`${typography.panelMeta} text-text-light flex items-center mb-1 px-0.5`}
+        data-testid={`${testId}-scale`}
+        aria-hidden="true"
+      >
+        <span className="w-1/2 text-left">{COPY.driverChart.axisEdge}</span>
+        <span className="text-center whitespace-nowrap px-1">{COPY.driverChart.axisCentre}</span>
+        <span className="w-1/2 text-right">{COPY.driverChart.axisEdge}</span>
+      </div>
+
       <ul className="space-y-1">
         {rows.map((row) => {
           const isEditing = editingFor === row.id
@@ -181,7 +204,15 @@ export function DriverInfluenceChart({
                       />
                     ) : null}
                   </span>
-                  <span className="w-px bg-panel-border flex-shrink-0" />
+                  {/* ⚠ THE ZERO LINE. It existed before this change and was
+                      invisible: 1px of `bg-panel-border`, the same token every
+                      other rule on the panel uses, so the eye read the two
+                      halves as one empty track with bars floating in it. The
+                      line is the reference point the whole chart depends on —
+                      a bar's side and length mean nothing without it — so it
+                      gets a colour that separates it from ordinary furniture
+                      and a little height beyond the bar. */}
+                  <span className="w-px bg-text-light/70 flex-shrink-0 -my-0.5" />
                   <span className={HALF}>
                     {row.direction === 'positive' ? (
                       <span
