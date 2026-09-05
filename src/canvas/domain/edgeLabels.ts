@@ -97,13 +97,44 @@ export interface EdgeDescription {
  * cut is right for prose — not a defect this PR is entitled to settle by
  * picking a number.
  *
- * ⚠ AND IT IS NOT ROWED ANYWHERE. An earlier draft of this block said it was
- * rowed in `CANVAS-BACKLOG.md`; measured against that file (both copies in
- * `Talchain/olumi-programme-docs`, with a contrast control proving the probe
- * sees rows S45–S49), no such row exists. A comment that claims a row is worse
- * than one that admits there is none, because it teaches the next reader to
- * stop looking. **This block and the test below are the ONLY record of the
- * decision.** What the constant buys is that the divergence is NAMED, ADJACENT
+ * ⭐ IT IS ROWED, AS **S58** in `CANVAS-BACKLOG.md` (`Talchain/olumi-programme-docs`,
+ * `origin/main`) — and that row states this divergence in the same terms this
+ * block does, down to the two reachable windows at 0.45 and 0.65. The row's
+ * open item is the one this block declines to settle: *whether prose should
+ * hedge at 0.6 or at the registry's 0.7.* **It is a copy decision, and it is
+ * owed.**
+ *
+ * ⚠ THIS SENTENCE HAS BEEN WRONG FIVE TIMES, IN FIVE DIRECTIONS, AND THE
+ * SHORTENING IS THE FIX. It has claimed a row, claimed no row anywhere,
+ * blamed a blind probe, mis-dated its own correction, and finally announced
+ * the removal of a figure it had not removed. Every draft was longer than the
+ * one before and every one contained a false limb, which is the tell: the
+ * elaboration was generating the defects, not documenting them (CLAUDE.md
+ * trap 22f). So what follows is only what is load-bearing.
+ *
+ * WHAT WAS ACTUALLY WRONG: not the instrument, the SCOPE (trap 20). `#1171`'s
+ * sweep was sighted and correctly controlled, and it read the pushed copies
+ * correctly — the row entered `CANVAS-BACKLOG.md` at `593de90b`, barely half a
+ * minute before `#1171`'s own squash, and until then lived only in the local
+ * `Documents/GitHub` working copy, which is NOT A GIT REPOSITORY. "Absent from
+ * the pushed register" was then recorded as "NOT ROWED ANYWHERE".
+ *
+ * THE LESSON THAT BITES: **the register this estate treats as canonical is
+ * routinely edited in a directory that is not under version control, so
+ * "swept the repo" and "swept the register" are DIFFERENT CLAIMS.** An absence
+ * claim must name the artefact searched AND the moment. Note what this
+ * REPLACES: an earlier draft prescribed *"run a contrast control in the same
+ * sweep"* — which would not have prevented anything, because `#1171` already
+ * had one. A remedy the defect already satisfies teaches the next reader to
+ * repeat it.
+ *
+ * Re-derived for this block against `origin/main`: `S58` present, the contrast
+ * control FIRED and the negative control read ZERO, so the instrument
+ * discriminates. No count and no line number is quoted — both are another
+ * repo's numbering, both drift silently, and one of them is how draft five
+ * went wrong.
+ *
+ * What the constant still buys is unchanged: the divergence is NAMED, ADJACENT
  * to the registry it differs from, and asserted in `edgeLabels.spec.ts` — so it
  * can only change on purpose.
  *
