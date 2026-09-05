@@ -611,7 +611,21 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       {...(nodeType === 'factor' && data?.category === 'external' ? { title: 'Outside your control' } : {})}
       {...(isAnalysisDriver ? { 'data-analysis-driver': 'true' } : {})}
       {...(isAssistantFocused ? { 'data-assistant-focused': 'true' } : {})}
+      // ⭐ `text-left` IS A DECLARATION, AND THE CARD PREVIOUSLY HAD NONE.
+      //
+      // Paul, 5 Sep 2026: node copy "should NEVER be centrally aligned". Two
+      // components were centring text and both were deleted — but this root
+      // declared no `text-align` at all, so the card's left alignment was
+      // INHERITED from whatever mounts the canvas. Any ancestor, or any
+      // third-party stylesheet, that centred text would have centred every node
+      // title and nothing in these components would have resisted it.
+      // `node_modules` is outside every grep this estate runs, so
+      // `@xyflow/react`'s own stylesheet was an unaudited route in.
+      //
+      // Deleting two classes cannot enforce a rule; a declaration can. Pinned by
+      // `__tests__/nodeCopyIsNeverCentred.spec.tsx`.
       className={`
+        text-left
         group relative rounded-lg ${isCausalLens ? 'border' : isIncomplete ? 'border-2' : borderWidth} shadow-1
         ${borderColourClass}
         transition-all duration-200
@@ -935,6 +949,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         {typeof displayMetadata.sensitivityRank === 'number' && (
           <span
             data-testid={`sensitivity-rank-${id}`}
+            // A fixed round box holding `#N` — centring IS the design here, and
+            // this DECLARES that rather than letting the alignment guard carry a
+            // hand-maintained exemption list of its own (CLAUDE.md trap 12: the
+            // exemption must be visible in the diff, so centring new copy costs
+            // a reviewer's attention instead of nothing).
+            data-node-glyph
             className={`${typography.nodeLabel} font-semibold text-text-body bg-panel-border rounded-full flex items-center justify-center shadow-sm`}
             style={{ minWidth: '20px', height: '20px', padding: '0 4px', pointerEvents: 'none' }}
             title={`Key driver #${displayMetadata.sensitivityRank}: ranked by influence on the outcome`}
