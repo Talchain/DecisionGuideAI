@@ -184,16 +184,34 @@ describe('the subtitle counts in English', () => {
    * `notYetCount = absent + proseOnly`. Building it from the interface is what
    * makes `total` mean what the subtitle claims it means.
    */
-  const seedTally = (total: number): void => {
+  /**
+   * ⚠ EVERY QUANTITY IS NOW EXPLICIT, because the first version hardcoded
+   * `inModel: total, proseOnly: 0, absent: 0` and could therefore only ever
+   * reach ONE of the subtitle's arms. Two defects lived in the arms it could
+   * not reach, and both were found by a reviewer rendering the component with
+   * quantities this seeder could not express. A fixture that can only produce
+   * one state cannot certify a four-way branch.
+   */
+  const seedQuantities = (q: {
+    total: number
+    inModel: number
+    proseOnly?: number
+    absent?: number
+  }): void => {
     useContextIntegrityStore.getState().setContextIntegrity({
       scenarioId: LIVE_SCENARIO_ID,
       briefText: 'A brief.',
       manifest: {
         status: 'derived',
         unavailableReason: null,
-        // absent = 0 and proseOnly = 0 → notYetCount = 0 → the ALL-PRESENT arm,
-        // which is the one carrying the singular bug.
-        quantities: { total, inModel: total, proseOnly: 0, absent: 0, truncated: false, items: [] },
+        quantities: {
+          total: q.total,
+          inModel: q.inModel,
+          proseOnly: q.proseOnly ?? 0,
+          absent: q.absent ?? 0,
+          truncated: false,
+          items: [],
+        },
         // ⚠ THESE TWO WERE GUESSED AND `as never` SILENCED THE COMPILER.
         // `'none'` is in NEITHER union: `DeclaredExclusions.status` is
         // `reported | none_reported | not_recorded`, `InferredFactors.status`
@@ -206,6 +224,9 @@ describe('the subtitle counts in English', () => {
       },
     })
   }
+
+  /** All present — the arm the original two cases were written against. */
+  const seedTally = (total: number): void => seedQuantities({ total, inModel: total })
 
   const subtitle = (): string => {
     render(<WhatIWasGivenSection />)
@@ -231,6 +252,82 @@ describe('the subtitle counts in English', () => {
     // says "figures" at all, for any count.
     seedTally(3)
     expect(subtitle()).toMatch(/All 3 figures/i)
+  })
+
+  /**
+   * ⭐ THE SHORTFALL ARM'S OWN SINGULAR — the twin the first fix skipped.
+   * The singular handling was added to the all-present arm and not to the one
+   * three lines below it, so the most ordinary small manifest there is (one
+   * figure in the brief, it did not land) read "1 of 1 figures … aren't".
+   */
+  it('the shortfall arm counts in English too, at n = 1', () => {
+    seedQuantities({ total: 1, inModel: 0, absent: 1 })
+    const text = subtitle()
+    // PRECONDITION: this is the SHORTFALL arm, not the all-present one — else
+    // the assertions below are about a sentence this case never renders.
+    expect(text, 'the shortfall arm must be rendering').toMatch(/isn't in the model yet/i)
+    expect(text, 'the defect: "1 of 1 figures you mentioned aren\'t in the model yet"').not.toMatch(
+      /1 of 1 figures/i,
+    )
+    expect(text).not.toMatch(/aren't/i)
+  })
+
+  // ⚠ ONE RENDER PER TEST. The first cut asserted both numbers in one case and
+  // RED'd on "Found multiple elements" — RTL cleans up per test, not per
+  // `render`, so the second call left two live trees and the query was
+  // ambiguous. The failure was in the harness, not the copy: the sentence it
+  // did find was already correct.
+  it('the shortfall arm reads "isn\'t" for a single missing figure of many', () => {
+    seedQuantities({ total: 4, inModel: 3, absent: 1 })
+    expect(subtitle()).toMatch(/1 of 4 figures you mentioned isn't in the model yet/i)
+  })
+
+  it('…and "aren\'t" for several — the discriminating twin', () => {
+    seedQuantities({ total: 4, inModel: 2, absent: 2 })
+    expect(subtitle()).toMatch(/2 of 4 figures you mentioned aren't in the model yet/i)
+  })
+
+  /**
+   * ⭐⭐ THE ALL-CLEAR MUST BE GATED ON `inModel === total`, NOT ON
+   * `absent + proseOnly === 0`.
+   *
+   * `parseNotModelled` validates each of the four numbers independently and
+   * DELIBERATELY never reconciles them, so a manifest whose tally does not add
+   * up is admitted by the contract. On one, the earlier gate rendered
+   * "All 5 figures you mentioned are in the model" with three of them in it —
+   * a confident all-clear over an unreconciled count, in the section whose
+   * whole subject is context integrity.
+   *
+   * ⚠ HONEST BOUND, RECORDED RATHER THAN CLAIMED AWAY: all three real
+   * derivation fixtures in this repo reconcile, so producer-reachability is
+   * NOT established. The gate is here because the claim must be true over the
+   * domain the parser accepts, not over the domain we happen to have seen.
+   */
+  it('an unreconciled tally gets a plain count, never an all-clear', () => {
+    seedQuantities({ total: 5, inModel: 3 })
+    const text = subtitle()
+    expect(text, 'the defect: a confident all-clear over a tally that does not add up').not.toMatch(
+      /All 5 figures/i,
+    )
+    // …and not the pre-PR falsehood either: nothing is "not in the model yet"
+    // by the producer's own marking, so the shortfall sentence is equally wrong.
+    expect(text).not.toMatch(/aren't in the model yet/i)
+    expect(text).toMatch(/3 of 5 figures you mentioned are in the model/i)
+  })
+
+  it('the plain-count arm counts in English at inModel = 1', () => {
+    seedQuantities({ total: 4, inModel: 1 })
+    expect(subtitle()).toMatch(/1 of 4 figures you mentioned is in the model/i)
+  })
+
+  /**
+   * The DISCRIMINATING TWIN for the gate above: a reconciled tally must still
+   * reach the all-clear. Without this, tightening the gate to something that
+   * never fires would leave every case above green.
+   */
+  it('a reconciled tally still earns the all-clear', () => {
+    seedQuantities({ total: 5, inModel: 5 })
+    expect(subtitle()).toMatch(/All 5 figures you mentioned are in the model/i)
   })
 })
 

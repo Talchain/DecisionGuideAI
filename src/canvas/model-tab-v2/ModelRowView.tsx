@@ -131,10 +131,18 @@ export interface ModelRowViewProps {
  * ⚠⚠ THE LEAF THAT MAKES `min-w-0` MEAN ANYTHING. Granting the CONTAINER
  * `min-w-0` lets the flex item shrink — and a bare text node inside it, with
  * `whitespace-nowrap` and no `overflow:hidden` anywhere, simply SPILLS. Review
- * measured the producer-real "Very strong effect, direction not stated"
- * (`strengthBands.ts:84`, 8 reachable sites) escaping its box by 111.1px, the
- * 280px dock by 65px, and overdrawing the attention column by 29px. Base
- * control 0.0px.
+ * measured a long "<magnitude> effect, direction not stated" value escaping its
+ * box by 111.1px, the 280px dock by 65px, and overdrawing the attention column
+ * by 29px. Base control 0.0px.
+ *
+ * ⚠ THIS PARAGRAPH NAMED A STRING THE PRODUCER CANNOT EMIT, and the correction
+ * belongs beside the measurement rather than in a changelog. It read "the
+ * producer-real 'Very strong effect, direction not stated'". `StrengthBand` is
+ * `strong | moderate | weak | negligible` (`model-tab/strengthBands.ts:13`) —
+ * there is no "very strong" band on this path, so that exact string is
+ * unreachable here. The measurement was real and the phrasing family is real;
+ * the specimen was not. The producer's longest is "Moderate effect, direction
+ * not stated" at 37 characters, which is the one the corpus test uses.
  *
  * ⚠ AND THE REMEDY WAS ALREADY WRITTEN IN THIS FILE'S OWN COMMENT — "the
  * ellipsis belongs on a text LEAF, not on the flex box" — three lines above
@@ -148,7 +156,16 @@ function ValueLeaf({ display, mayShrink }: { display: string | null; mayShrink: 
   return <span className={mayShrink ? 'truncate min-w-0' : undefined}>{display ?? ''}</span>
 }
 
-function valueMayShrink(display: string | null): boolean {
+/**
+ * ⚠ EXPORTED FOR TEST, AND THAT IS NOT A STYLE CHOICE. Review found this
+ * predicate and `ValueLeaf` — the whole of `1d6e528b` — had ZERO coverage:
+ * reverting both left 52 files / 808 tests green. It is a pure function of a
+ * string with a bare magic boundary, so "jsdom performs no layout" is no
+ * excuse for leaving it unasserted. See
+ * `__tests__/valueMayShrink.spec.tsx`, whose corpus is DERIVED by calling the
+ * real producer rather than by pasting strings.
+ */
+export function valueMayShrink(display: string | null): boolean {
   if (display === null) return false
   const text = display.trim()
   if (/\d/.test(text)) return false
