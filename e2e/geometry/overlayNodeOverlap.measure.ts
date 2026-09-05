@@ -29,6 +29,8 @@
  * `overlaysVisible`, and the assertion refuses to pass on a run that saw none.
  */
 import { test, expect, type Page } from '@playwright/test'
+
+import { GATE_TAG } from './canvasGateSet'
 import {
   preparePage,
   openCanvas,
@@ -222,9 +224,28 @@ async function measure(page: Page, testids: string[]): Promise<Reading> {
   }, testids)
 }
 
+/**
+ * ⭐ GATED. Every cell in this matrix carries `GATE_TAG` and is registered by
+ * name in `e2e/geometry/canvasGateSet.ts`, so the `Canvas Browser Gate` job runs
+ * all ten on every push and pull request. The describe title is what the
+ * registry records as the SUITE — `canvasGateReporter` keys on the last two
+ * elements of `titlePath()`, so a top-level test would key on the FILE PATH and
+ * a file move would silently become a rename. Renaming this describe REDs the
+ * gate with MISSING/UNEXPECTED, which is the intended behaviour.
+ *
+ * ⚠ ALL TEN CELLS, NOT A SAMPLE, AND THAT IS A MEASURED CHOICE. The
+ * overlay-overlay collision this asserts against
+ * (`model-extent-notice` × `floating-olumi-panel-pill`) was reproduced at the
+ * merge base in FIVE of these ten — so a sampled subset has a real chance of
+ * being the five that were clean, and a gate that can miss the defect it was
+ * written for is wall clock with no safety. The cells cost 3.0-3.9s each on
+ * darwin (measured, whole file 33.3s), which is why taking all of them is
+ * affordable; see the budget in `canvasGateSet.ts`.
+ */
+test.describe('canvas overlay band', () => {
 for (const viewport of VIEWPORTS) {
   for (const starter of STARTERS) {
-    test(`OVERLAP ${starter} @ ${viewport.name}`, async ({ page }) => {
+    test(`OVERLAP ${starter} @ ${viewport.name}`, { tag: GATE_TAG }, async ({ page }) => {
       await preparePage(page, viewport)
       await openCanvas(page)
       await assertPaneCanRenderGeometry(page)
@@ -419,3 +440,4 @@ for (const viewport of VIEWPORTS) {
     })
   }
 }
+})

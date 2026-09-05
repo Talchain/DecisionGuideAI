@@ -32,16 +32,38 @@
  *
  * A job that takes twenty minutes will be routed around within a week — which
  * is exactly how this repo acquired a permanently-red visual check. So this
- * gate is the SMALLEST SET THAT WOULD HAVE CAUGHT THE SHIPPED DEFECT, and
- * nothing else. `e2e/geometry` holds twenty `*.measure.ts` files; the rest are
- * MEASURES — viewport sweeps, exhaustive placement scans, 390-element censuses
- * — and they stay measures, run deliberately, out of the merge path.
+ * gate is the SMALLEST SET THAT WOULD HAVE CAUGHT THE SHIPPED DEFECTS, and
+ * nothing else. `e2e/geometry` holds TWENTY-ONE `*.measure.ts` files (derive it:
+ * `ls e2e/geometry/*.measure.ts | wc -l` — this sentence said "twenty" while the
+ * directory held twenty-one, which is the hand-maintained mirror this estate
+ * pays for, inside the file that bans them).
  *
  * The distinction is not size, it is CLAIM TYPE:
  *   - a MEASURE answers "what is the number?" and its output is a report;
  *   - a GATED ASSERTION answers "did this behaviour survive?" and its output is
  *     RED or GREEN.
  * Only the second kind belongs on a merge path.
+ *
+ * ── ⚠ AND FOR ONE MONTH THE SET WAS TOO SMALL, WHICH IS THE OTHER FAILURE ────
+ *
+ * Until 3 Sep 2026 all four gated arms sat in `nodeKeyboardBleed.measure.ts`,
+ * so of the three shipped defects named above the gate watched ONE. Working
+ * browser guards for the other two — the ghost doors and the zoom-dependent
+ * card height — were sitting in this same directory, GREEN, and CI ran neither.
+ * Every defect found in the 24h before this commit was geometric, several had
+ * guards written for them, and none of those guards ran. Writing an alarm and
+ * not connecting it is worse than not writing it, because the alarm's existence
+ * is what stops anybody writing a second one.
+ *
+ * The set is now 25 arms across five files — 19 admitted here, plus the four
+ * `nodeKeyboardBleed` arms this job started with and the two
+ * `modelRowEditReflow` arms that landed on `staging` as #1179 while this PR was
+ * open. (It said "23 across four" until the rebase; DERIVE it — `GATED_TESTS`
+ * is the only authority and a written count is a mirror.) What is still out,
+ * and why, is in
+ * `DELIBERATE_EXCLUSIONS` below — which also carries THE BUDGET (600s of job
+ * wall clock, derived from the workflow's critical path) and the standing rule
+ * for admitting the next one.
  *
  * ── HOW THE SET IS PINNED (two independent mechanisms that must agree) ───────
  *
@@ -180,6 +202,187 @@ export const GATED_TESTS: readonly GatedTest[] = [
       'first fix was correct and blind at the same time, across 56-59 controls. Shipped as #1146. ' +
       'Without this arm the gate proves the bleed is closed only where the markup happens to nest.',
   },
+
+  /*
+   * ══════════════════════════════════════════════════════════════════════════
+   * ⭐⭐ EVERY ARM BELOW WAS SHOWN TO GO RED. An admitted arm that cannot fail
+   * is wall clock with no safety, so the admission evidence is a MUTATION, not
+   * a green run. Throwaway worktree outside the repo root, isolation proven by
+   * WRITING a sentinel and asserting the source did not change (CLAUDE.md trap
+   * 9g — `cp -R` can preserve an APFS hard link, and locating a path proves
+   * nothing); committed state only; restores HEAD-relative, never
+   * `git checkout -- <path>`, which restores from the INDEX and can write the
+   * defect back (trap 9h); applied-check scoped to `src/` asserting exactly one
+   * changed file each time; trailing control at the end.
+   *
+   *   A  band back over the canvas (`bottom: OVERLAY_BAND_BOTTOM` -> `top: 72`,
+   *      the shipped defect's own geometry)          -> OVERLAP 10/10 RED
+   *   B  revert the `nodesChanged` identity guard
+   *      (`c1b662fc`/#1136), restoring the livelock   -> GHOST 7 of 8 RED
+   *   C  LOD title boost -> `text-5xl` (the file's own
+   *      recorded discriminating size; `text-3xl` is a
+   *      DEMONSTRATED equivalent mutant)              -> HZ RED
+   *   D  re-introduce the post-analysis withdrawal
+   *      Paul deleted on 1 Sep                        -> GHOST arm 6 RED, ALONE
+   *   trailing control, src clean                     -> 19/19 GREEN
+   *
+   * ⭐ B AND D ARE A DISCRIMINATING PAIR, AND WITHOUT D THE EVIDENCE WOULD HAVE
+   * BEEN WRONG IN A WAY THAT LOOKS LIKE THOROUGHNESS. `GHOST doors SURVIVE a
+   * completed analysis` SURVIVED mutant B — it counts DOM presence, and the
+   * livelock hides doors rather than removing them, so B is simply not a
+   * mutation of that arm's property. A kit that stopped at "7 of 8 bit" would
+   * have shipped one arm with no evidence at all, and read as a strong result
+   * while doing it. D REDs that arm and ONLY that arm; B REDs the other seven
+   * and leaves it green. Neither alone shows binding — the RED/GREEN pair does
+   * (CLAUDE.md trap 19).
+   * ══════════════════════════════════════════════════════════════════════════
+   */
+
+  /*
+   * ══════════════════════════════════════════════════════════════════════════
+   * ⭐⭐ ADMITTED 3 Sep 2026 — THE GATE WAS WATCHING ONE DEFECT OUT OF THREE.
+   *
+   * The header above names three shipped defects as the reason this job exists.
+   * Only the FIRST of them was gated: all four arms lived in
+   * `nodeKeyboardBleed.measure.ts`. (⚠ TRUE AT THIS PR'S BASE `bd18bace`, which
+   * is the state this paragraph describes — #1179 has since added two
+   * `modelRowEditReflow` arms, so the set the rebase lands on is 6 + 19 = 25.
+   * The sentence is kept in its original scope rather than quietly restated,
+   * because it is a claim about a measured past.) The ghost doors and the zoom-dependent card
+   * height — defects 2 and 3 in this file's own justification — had working
+   * browser guards sitting in `e2e/geometry`, and CI ran neither. So did the
+   * overlay-over-node defect, which shipped TWICE. We were writing alarms and
+   * not connecting them, which is a more expensive failure than not writing
+   * them: the guard's existence is what stops anyone writing a second one.
+   * ══════════════════════════════════════════════════════════════════════════
+   */
+  ...([
+    'vendor-selection @ 1280x800',
+    'market-entry @ 1280x800',
+    'build-vs-buy @ 1280x800',
+    'headcount-allocation @ 1280x800',
+    'pricing-model @ 1280x800',
+    'vendor-selection @ 1440x900',
+    'market-entry @ 1440x900',
+    'build-vs-buy @ 1440x900',
+    'headcount-allocation @ 1440x900',
+    'pricing-model @ 1440x900',
+  ].map((cell) => ({
+    file: 'overlayNodeOverlap.measure.ts',
+    suite: 'canvas overlay band',
+    title: `OVERLAP ${cell}`,
+    /**
+     * ⚠ ONE STRING, TEN ARMS — 5 starters x 2 viewports, derived from the cell
+     * array directly above rather than restated. This `catches` is `.map()`ed
+     * across every one of them, so it describes the ASSERTION FAMILY and not
+     * what any single cell caught. Read it that way: each cell runs the same
+     * three assertions against a different model and viewport. Written out
+     * because a shared description reads as ten independent findings, and this
+     * registry's whole purpose is that an entry says no more than it can.
+     *
+     * ⚠ THIS PARAGRAPH SAID "EIGHT" UNTIL A REVIEW COUNTED THE CELLS. Eight is
+     * the arity of the GHOST-DOOR map further down this file — a neighbouring
+     * number, inherited rather than derived. The `catches` string three lines
+     * below said "ten" twice the whole time, so the entry contradicted itself
+     * in the one direction nobody reads: a comment about a list, sitting next
+     * to the list. Count the cells; do not carry a number across an entry.
+     */
+    catches:
+      'THE OVERLAY-OVER-NODE DEFECT, WHICH SHIPPED TWICE. The CI-rendered reference at staging ' +
+      '`f59ffc26` shows the first-model notice painted across the decision node so only ' +
+      '"Us… / Bi… / To…" of its title is readable, and "Showing 9 of 19 elements" with its ' +
+      '"Show whole model" button clipped by the minimised Olumi pill. Three independent ' +
+      'assertions, each pinning a different way that returns: no overlay over a `dec_` node; ' +
+      'no two overlays in one slot (the pill collision, reproduced at the merge base in FIVE ' +
+      'of these ten cells); and no band occupant TALLER than the 64px band, which is how an ' +
+      'occupant grows UPWARD out of the reservation and back over the canvas with every unit ' +
+      'test still green (measured: `py-2` gave 71px in all ten cells). ' +
+      '⭐ AND IT CANNOT PASS VACUOUSLY: "zero overlaps" is also what a run with no overlays ' +
+      'produces, so the arm asserts nodes were measured, an overlay was visible, and a decision ' +
+      'node was on screen, BEFORE it scores any of them (CLAUDE.md trap 13). It also asserts ' +
+      'the starter stamp landed — without it `StarterProvenanceBanner`, the component carrying ' +
+      'the motivating defect, does not mount at all and the measure was blind to its own subject.',
+  })) as GatedTest[]),
+
+  ...([
+    { title: 'GHOST doors are visible and focusable — vendor-selection', what: 'the FRESH-DRAFT class, per starter' },
+    { title: 'GHOST doors are visible and focusable — market-entry', what: 'the FRESH-DRAFT class, per starter' },
+    { title: 'GHOST doors are visible and focusable — build-vs-buy', what: 'the FRESH-DRAFT class, per starter' },
+    { title: 'GHOST doors are visible and focusable — headcount-allocation', what: 'the FRESH-DRAFT class, per starter' },
+    { title: 'GHOST doors are visible and focusable — pricing-model', what: 'the FRESH-DRAFT class, per starter' },
+    {
+      title: 'GHOST doors SURVIVE a completed analysis in Standard view — Paul, 1 Sep 2026',
+      what: 'THE OPPOSITE DIRECTION, and a ruling. Bound as an EQUALITY to the pre-analysis count, ' +
+        'so a PARTIAL withdrawal — some tiers surviving, others vanishing — cannot pass as "still present"',
+    },
+    {
+      title: 'GHOST doors are visible on the SAVED-EXAMPLE route — applyStarter, not applyDraftResult',
+      what: 'a DIFFERENT SEED PATH. A fresh-draft witness is not evidence about `applyStarter`',
+    },
+    {
+      title: 'GHOST doors are visible in the RESTORED class — a saved example after a real reload',
+      what: 'the RESTORED state class, where `layoutVersion` stays 0 and both fit triggers are latched off. ' +
+        'The fixture state-class rule: a seeded session is not evidence about a reloaded one',
+    },
+  ].map((arm) => ({
+    file: 'ghostDoorVisibility.measure.ts',
+    suite: 'reasoning-frontier doors',
+    title: arm.title,
+    catches:
+      'DEFECT 2 IN THIS FILE\'S OWN HEADER — the four reasoning-frontier doors invisible from ' +
+      '27 March 2026 behind a ResizeObserver livelock (1,660 callbacks in ~3s for four elements ' +
+      `whose box never changed). This arm covers ${arm.what}. ` +
+      'jsdom was GREEN throughout the entire period the doors were invisible, BY CONSTRUCTION: ' +
+      'it has no layout, `innerText` is not layout-aware there, and `.focus()` succeeds on ' +
+      'elements a browser refuses to focus. ' +
+      '⭐ IT CARRIES ITS OWN POSITIVE CONTROL — the probe is shown a deliberately hidden clone ' +
+      'of a real door, in the same DOM, through the same reader, and must call it hidden and ' +
+      'unfocusable; without that, "everything reads visible" is also what a blind probe says. ' +
+      'AND A LIVELOCK COUNTER, so the mechanism cannot return wearing a passing appearance: a ' +
+      'door can be visible at rest and still be re-measured hundreds of times a second. ' +
+      'AND a suppressed-too-much control: real nodes must still persist their measured dimensions.',
+  })) as GatedTest[]),
+
+  {
+    file: 'heightVsZoom.measure.ts',
+    suite: 'card height vs camera zoom',
+    title: 'HZ build-vs-buy @1280x800',
+    catches:
+      'DEFECT 3 IN THIS FILE\'S OWN HEADER — card HEIGHT being a function of camera ZOOM. The ' +
+      'layout fixes its vertical stride at layout time from measured heights, so a card whose ' +
+      'height in MODEL px moves with the zoom makes every row under-spaced with nothing in the ' +
+      'layout being wrong. Nothing else in this gate watches it, and nothing in jsdom can: jsdom ' +
+      'returns 0 for every rect. ' +
+      '⚠⚠ WHAT IT ASSERTS IS NARROWER THAN ITS TITLE, AND THIS ENTRY SAID OTHERWISE UNTIL IT WAS ' +
+      'CHECKED AT THE BYTES. The draft here claimed the arm asserts that ' +
+      '`measureNodeHeightsAtLabelBound()` returns the same map at every zoom. IT DOES NOT: ' +
+      '`boundIsZoomInvariant` is COMPUTED AND PRINTED in `HZJSON`, and there is no `expect` on ' +
+      'it anywhere in the file — which is correct, because it is FALSE at this tip by a named, ' +
+      'bounded margin (the map takes TWO values, one for every zoom at or above ' +
+      '`LABEL_LEGIBLE_ZOOM` and a 92px / 1.48% shorter one below it, where the LOD rung flips to ' +
+      '`line`). Asserting it would put this job permanently red. An oracle written from a ' +
+      'docblock rather than from the assertions is a perfect score on the wrong exam ' +
+      '(CLAUDE.md trap 13c), and this entry nearly shipped one. ' +
+      '⭐ WHAT IT DOES ASSERT, and it is the LOD DIRECTION, which is the half the safety argument ' +
+      'actually rests on: (a) no card is TALLER with LOD on than the tallest it reaches with LOD ' +
+      'off — the layout reserves the LOD-off height, so a card that grew overflows its row band; ' +
+      'and (b) the worst LOD SHRINK stays under the tightest slack the layout leaves ' +
+      '(`SUB_ROW_SLACK`, derived from the same two values `normaliseTierRows` uses, never ' +
+      'restated) — the mirror case, where a layout computed while LOD is ON reserves the shorter ' +
+      'height and zooming back in pushes a card into the row beneath. One direction alone is a ' +
+      'guard watching one door (CLAUDE.md trap 22b). ' +
+      '⚠ THREE OF ITS FIVE DECLARED CONTROLS ARE ASSERTED, TWO ARE NOT. Asserted: both LOD arms populated (`heightVsZoom.measure.ts:336-337`), non-vacuity (`:351-354`), completeness (`:387-388`). Not asserted: the POSITIVE control (`labelScale` `:179` and `titleFont` `:171`) and the CONTRAST control (`outsideFont` `:182`) \u2014 all three are emitted into `HZJSON` for a human, and no `expect` requires any of them to move, so the probe can stop exercising the mechanism and stay green. '  +
+      '\u2b50 HOW THIS ENTRY GOT IT WRONG FOUR TIMES, because the mechanism generalises. Draft 1 said the four control phrases appear \'ZERO times inside any `expect(`\'. Two are assertions: the message sits at `:353` inside the `expect(` opened at `:351`, so a SINGLE-LINE `expect(.*phrase)` grep returns a structural zero for every multi-line assertion \u2014 and one phrase was a paraphrase that could not match the file\'s literal. Its contrast control (7 `expect(` calls, \'so the probe was not blind\') proved the FILE has assertions, which was never in doubt; it never tested whether the probe could see INSIDE one. A CONTRAST ON THE WRONG AXIS PASSES EXACTLY LIKE ONE THAT WORKS. Drafts 2 and 3 then over-corrected into a read-vs-unread taxonomy that does not exist here \u2014 `JSON.stringify` (`:391`) reads every captured field \u2014 and neither named `titleFont` at all. ASSERTED vs NOT is the whole distinction; the elaboration was the defect generator (CLAUDE.md trap 22f). '  +
+      '⚠ ITS DETECTION FLOOR IS MEASURED, NOT ASSUMED — `text-3xl` on the LOD title boost is a ' +
+      'DEMONSTRATED equivalent mutant (at 30px the card lands level with its LOD-off self, so ' +
+      'there is no harm to detect), and it REDs from `text-5xl` up. That floor is not a weakness, ' +
+      'it IS the property. `lodTitleBoostIsBounded.spec.ts` compares DECLARED SIZES and is ' +
+      'strictly more sensitive on the title alone; neither substitutes for the other. ' +
+      '⚠ ITS OWN FIRST VERSION WAS WORTHLESS IN BOTH DIRECTIONS — it set the camera and assumed ' +
+      'it held, while the product re-fitted underneath it (`1.2 1 0.5 0.5 0.7` for a requested ' +
+      '`1.2 1 0.9 0.8 0.7`). Every sample now re-reads the camera and excludes-and-reports what ' +
+      'did not settle rather than averaging it in.',
+  },
 ]
 
 /**
@@ -190,7 +393,14 @@ export const GATED_TESTS: readonly GatedTest[] = [
  * it is not gated because it carries no `GATE_TAG`. This list exists for the
  * cases where somebody will reasonably ask "why isn't that one in?".
  */
-export const DELIBERATE_EXCLUSIONS: readonly { readonly what: string; readonly why: string }[] = [
+export interface DeliberateExclusion {
+  /** The file(s) or arm(s) this decision is about. `registryCoverage()` reads the `*.measure.ts` names out of it. */
+  readonly what: string
+  /** Why it is not on the merge path. */
+  readonly why: string
+}
+
+export const DELIBERATE_EXCLUSIONS: readonly DeliberateExclusion[] = [
   {
     what: "nodeKeyboardBleed.measure.ts — 'census: focusable controls inside .react-flow__node, all five starters'",
     why:
@@ -199,13 +409,308 @@ export const DELIBERATE_EXCLUSIONS: readonly { readonly what: string; readonly w
       'bulk of the file\'s wall-clock. The three gated arms prove the BEHAVIOUR; the census ' +
       'bounds the claim, and bounding a claim is not a merge gate.',
   },
+
+  /*
+   * ── EXCLUDED BECAUSE THEY EMIT A REPORT, NOT A VERDICT ────────────────────
+   * The claim-type test at the top of this file, applied. Each of these has
+   * ZERO product assertions at this tip — derived by reading them, and the
+   * count is checkable: `grep -c 'expect(' <file>` returns 0 for the first
+   * four. A gate arm must be able to go RED for a product reason; a file whose
+   * only hard failures are instrument failures can only ever report that the
+   * instrument broke.
+   */
   {
-    what: 'every other e2e/geometry/*.measure.ts (ghostDoorVisibility, overlapSequence, heightVsZoom, dockClippingPopulated, ...)',
+    what: 'edgeLabelOverlap.measure.ts (5 cells, 17.7s darwin) — the P0 glyph-on-glyph defect',
     why:
-      'Heavier by design — viewport sweeps and exhaustive placement scans — and mostly ' +
-      'measures rather than assertions. Gating them would put this job well past the few ' +
-      'minutes at which a check starts being routed around. They remain runnable deliberately ' +
-      'via playwright.geometry.config.ts, which still collects ALL of them.',
+      '⚠ THE MOST PAINFUL EXCLUSION HERE, AND IT IS NOT ABOUT COST — at 3.5s a cell it is the ' +
+      'cheapest thing in this directory. Its own header states it: "a MEASUREMENT instrument, ' +
+      'not a gate ... No assertions about what the numbers ought to be beyond the vacuity ' +
+      'control". It emits one `EDGELBL {...}` line per cell and asserts nothing about them, so ' +
+      'tagging it would add a green arm that cannot fail — wall clock with no safety, which is ' +
+      'the precise thing this admission round exists to avoid. THE WORK TO MAKE IT GATEABLE IS ' +
+      'SMALL AND WORTH DOING: it already computes `overlaps` and `occluded` and already reports ' +
+      'a VACUOUS cell (fewer than two labels can never observe an overlap), so what is missing ' +
+      'is the ruling on what those numbers are ALLOWED to be. That is a product decision, not a ' +
+      'test edit, and inventing one here would be an oracle written from the author\'s head ' +
+      '(CLAUDE.md trap 13c). Rowed in the PR.',
+  },
+  {
+    what: 'canonicalGeometry.measure.ts (15 cells, 44.8s), overlapSequence.measure.ts, threadAutoScroll.measure.ts, nodeMarkCensus.measure.ts (31.7s)',
+    why:
+      'Same claim-type test. Each says so in its own header — "a MEASUREMENT instrument, not a ' +
+      'gate" / "the census that decides what a middle rung is allowed to drop" — and the first ' +
+      'three carry zero `expect(` calls between them. They answer "what is the number?"; a gate ' +
+      'answers "did this behaviour survive?".',
+  },
+  {
+    what: 'savedExampleShowWholeModel.measure.ts (20 arms, ~200s darwin — the single most expensive file here)',
+    why:
+      '⚠ EXCLUDED ON COST. THE CLAIM-TYPE REASON THAT STOOD HERE WAS FALSE, and it is corrected ' +
+      'rather than deleted because it would have misled precisely the lane it was written for. ' +
+      'It quoted the header — "THIS FILE MEASURES; IT DOES NOT JUDGE ... the only hard failures ' +
+      'are INSTRUMENT failures" — and the header is wrong about its own file: `:571-575` is ' +
+      '`expect(after.outsideVisible, ...).toEqual([])`, a PRODUCT assertion, gated on ' +
+      '`clicked && after`. So a lane admitting this file on the strength of that sentence ' +
+      'would get exactly the first-bad-arm abort the entry claimed to be avoiding. ' +
+      'The surviving reason is cost, and cost alone — ~200s darwin, the most expensive file ' +
+      'here — which is weaker, and is stated as the weaker reason it is. ⭐ ITS TWO INSTRUMENT DEFECTS ARE ' +
+      'FIXED IN THIS COMMIT ANYWAY (the overlay-band blindness and the settle latch, below): ' +
+      'an ungated measure whose numbers are systematically wrong still misleads every lane that ' +
+      'reads them, and a before/after built on a biased instrument is not a comparison.',
+  },
+
+  /*
+   * ── EXCLUDED BECAUSE THEY ARE RED AT THE BASE ────────────────────────────
+   * An arm that is already failing cannot gate anything: it would put this job
+   * permanently red, which is exactly how this repo acquired `Visual
+   * Regression`. Measured at `bd18bace` on darwin, whole-directory sweep,
+   * 87 passed / 32 failed / 17.9m. These are FINDINGS, and they are rowed in
+   * the PR rather than silently absorbed — a red nobody rowed is how a standing
+   * red starts.
+   */
+  {
+    what: "showWholeModel.measure.ts — 'the user's overview survives a re-layout of the same model' (RED at the base, and the red is the HARNESS's)",
+    why:
+      '⚠⚠ WITHDRAWN. THIS ENTRY CLAIMED A PRODUCT DEFECT AND THERE IS NONE — the arm measures '
+      + 'the WRONG BRANCH, faithfully, every time, so no amount of re-running could have exposed '
+      + 'it. The previous text called this "A REAL RED, AND THE MOST VALUABLE THING THIS '
+      + 'ADMISSION ROUND FOUND" and read: "\'Show whole model\' does not survive a corrective '
+      + 'layout pass at the current tip". IT IS NOT WITHDRAWN AS A TIDY-UP — it is withdrawn '
+      + 'because leaving it would send the next lane to "fix" `useFitViewOnLayoutVersion`, and '
+      + 'the only available fix REOPENS THE AUTO-ARRANGE HARM that hook\'s second conjunct exists '
+      + 'to guard. ⭐ DERIVED AT THE BYTES, INDEPENDENTLY, AT `b14cd478`: the arm calls '
+      + '`applyLayout({ skipHistory: true })` with NO `initiatedBy`; `store.ts:4092` reads '
+      + '`lastLayoutInitiatedBy: opts?.initiatedBy ?? \'user\'` and `store.ts:1213` says so in '
+      + 'terms ("Omitted means `\'user\'`"); `useFitViewOnLayoutVersion.ts:317-318` is '
+      + '`const layoutWasAutomatic = initiatedBy === \'product\'` / '
+      + '`if (layoutWasAutomatic && userOwnsCameraFor(currentModelKey())) return`. So the '
+      + 'measure drives the USER-INITIATED branch, where re-framing is SPECIFIED — the same file '
+      + 'at :302 names the harm of suppressing it ("a layout the USER asked for is silently '
+      + 'suppressed and the new arrangement is never framed") and at :316 states the default '
+      + 'outright ("It defaults to `\'user\'`, so a call site that says nothing keeps the '
+      + 'previous always-re-fit behaviour"). ⭐ THE PRODUCTION CORRECTIVE PASS THE ARM\'S OWN '
+      + 'COMMENT NAMES DOES THE OPPOSITE: all FOUR `useMeasureThenLayout` call sites (:129, '
+      + ':158, :176, :210) pass `initiatedBy: \'product\'`, so the guard applies and the user\'s '
+      + 'overview survives. The USER sites — `useMenuItems.ts:268` (Auto-arrange) and '
+      + '`EmptyState.tsx:24` — pass nothing, which is exactly the shape the measure copied. '
+      + '⭐ THE RED IS ITSELF THE PROOF: for the arm to fail, `fitNow()` must have run; for that, '
+      + 'the guard must not have applied; it would have applied had the call carried '
+      + '`initiatedBy: \'product\'`. The 11 -> 12 re-run does not rescue it (both draws are of '
+      + 'the wrong branch) and the passing opposite-direction twin does not either (that is a '
+      + 'NEW MODEL ARRIVING, a third branch). ⚠ AND THE SHAPE IS THIS ESTATE\'S OWN: the same '
+      + 'hook comment warns that `initiatedBy` "is a NEW EXPLICIT OPTION on `applyLayout`, never '
+      + 'a second meaning for `skipHistory`" — the measure copied `skipHistory` and dropped the '
+      + 'half that discriminates (CLAUDE.md trap 16-inverse: a fixture you wrote yourself is not '
+      + 'evidence about the wire). NOT ROWED AS A PRODUCT DEFECT. It stays excluded, now on '
+      + 'INSTRUMENT grounds. To make it a gate arm, pass `initiatedBy: \'product\'` and '
+      + 're-measure — that is the arm that would actually gate the reserved-box behaviour, and '
+      + 'it is expected GREEN. This lane did not make that edit: changing the arm and admitting '
+      + 'it are a separate ruling with their own base-green and can-it-fail evidence, which the '
+      + 'standing rule below requires and machine load this evening did not permit.',
+  },
+  {
+    what: 'analysisAnswerFirst.measure.ts (2 arms), decisionNodeHittest.measure.ts (29 arms), viewportRestoreFit.measure.ts (1 of 3 arms), zoomLadder.measure.ts (RED at the base)',
+    why:
+      'Same rule. Measured at `bd18bace`: 32 of the directory\'s 119 arms fail at pristine and ' +
+      'these are the rest of them. ⚠ NAMED RATHER THAN SUMMARISED, because "some measures are ' +
+      'red" is the kind of sentence that stops anyone looking. Nothing here is a claim about ' +
+      'WHY they are red — a red at the base can be a product defect, a stale expectation or a ' +
+      'darwin-only artefact, and this lane did not diagnose them. Rowed in the PR.',
+  },
+
+  /*
+   * ── EXCLUDED ON THE BUDGET, AND HERE IS THE BUDGET ───────────────────────
+   *
+   * ⭐⭐ THE BUDGET IS "THE GATE MUST NOT BE ON THE WORKFLOW'S CRITICAL PATH",
+   * NOT A NUMBER SOMEBODY LIKED. Derived from the run at `bd18bace`
+   * (33743994788), every job in `staging-full-tests.yml`, seconds:
+   *
+   *     674  Full Test Suite (shard 2/4)   <- the critical path
+   *     667  Full Test Suite (shard 1/4)
+   *     643  Full Test Suite (shard 3/4)
+   *     554  Visual Regression (advisory)
+   *     488  Full Test Suite (shard 4/4)
+   *     361  Typecheck Gate Self-Test
+   *     280  Core E2E (advisory)
+   *     226  Canvas Browser Gate (advisory) <- before this commit
+   *     196  TypeScript + Lint
+   *
+   * `canvas-gate` runs in PARALLEL with those and is absent from `Staging
+   * Gate`'s `needs`, so every second it spends under ~674s costs the workflow
+   * NOTHING — not one second of anybody's wait. The budget is therefore
+   * **600s of job wall clock**, which keeps a margin under the critical path
+   * for runner variance and stays far under both the 20-minute
+   * `timeout-minutes` and the "twenty minutes and people route around it"
+   * threshold this file was shaped by.
+   *
+   * MEASURED FROM THE JOB'S OWN STEP TIMINGS, both sides, not extrapolated:
+   *   before  226s job  =  28s setup + 17s vite boot + 174s tests (4 arms)
+   *                        run 33743994788, `bd18bace`
+   *   after   346s job  =  45s setup + 21s vite boot + 271s tests (23 arms)
+   *                        run 33750968965, `9c3a8e9b`
+   *           429s job  =  the SAME 23 arms, run 33752104701, `e15987d8`,
+   *                        on a diff that changed only comments
+   *
+   * ⭐⭐ USE 429s, NOT 346s, AND THE 83s BETWEEN THEM IS THE POINT. Two runs of
+   * an identical set differ by a quarter of the job, so a single figure is not
+   * a measurement of this job, it is one draw from it — and the next lane will
+   * compute its headroom from whatever number is written here. Against 346s the
+   * headroom reads 254s and `draftFitCameraOwnership` (~103s) looks like an easy
+   * yes; against 429s it reads 171s and the same admission lands at ~532s, still
+   * inside 600s but with the margin nearly gone. Same decision, very different
+   * confidence. ⚠ Two observations bound nothing tightly: treat 429s as a FLOOR
+   * on the worst case, not as the worst case (CLAUDE.md trap 23 — compare
+   * distributions, never a rate).
+   *
+   * ⭐⭐⭐ AND THE FLOOR CAUTION ABOVE WAS RIGHT, BY A WIDER MARGIN THAN IT
+   * IMAGINED — RE-DERIVED AT THE REBASE (4 Sep 2026), AND IT CHANGES WHAT THIS
+   * NUMBER CAN BE USED FOR.
+   *
+   * All 13 non-cancelled `staging` runs of this workflow, `filter=all`, job
+   * `Canvas Browser Gate (advisory)`, computed from `started_at`/`completed_at`:
+   *
+   *    4 arms (7 runs, `4fed93fd`..`b7d91382`)   199 231 232 236 238 247 277
+   *    6 arms (6 runs, `577870f1`..`b14cd478`)   207 229 257 263 289    751
+   *
+   * ⚠ THE 751s DRAW IS AT **SIX** ARMS — a set a quarter the size of this one —
+   * AND IT IS 25% OVER THE 600s "BUDGET". Its run is `33898794713` at
+   * `bfe26f26`, i.e. #1186, A `.gitignore` FIX: zero test code changed, so 751s
+   * is runner variance with the workload held constant. The same set drew 207s
+   * three runs later — a 3.6x spread.
+   *
+   * ⭐ WHAT THAT MEANS, STATED NARROWLY. At this scale the job's wall clock is
+   * dominated by RUNNER VARIANCE, not by arm count, so 600s is a PLANNING
+   * figure and NOT a bound this job observes — it has already been exceeded by
+   * a smaller set. What actually bounds the job is `timeout-minutes: 20`
+   * (1200s), and 751s sits comfortably inside it. Nothing is broken by that:
+   * the job is parallel, `continue-on-error`, and absent from `Staging Gate`'s
+   * `needs`, so even a 751s draw costs the workflow nothing.
+   *
+   * ⚠ THE CONSEQUENCE FOR ADMISSIONS IS THE OPPOSITE OF "THERE IS ROOM". The
+   * headroom arithmetic used below to refuse `draftFitCameraOwnership`
+   * (~544s projected against 600s, "under 60s of headroom") is arithmetic on
+   * ONE DRAW from a distribution whose observed spread is ~550s. It cannot
+   * discriminate a 544s admission from a 429s one. **Do not admit an arm on the
+   * strength of that subtraction, and do not raise the 600s figure on the
+   * strength of these thirteen either** — the honest next step is a
+   * distribution measured at THIS set (n >= 10 at 25 arms), which this lane did
+   * not take. Reported as unmeasured rather than projected, because a projected
+   * number written here becomes the next lane's inherited fact (CLAUDE.md
+   * trap 20).
+   *
+   * ⭐ SEPARATELY, AND USEFUL: 13/13 of those runs were GREEN. That is a datum
+   * for the promotion precondition below (which recorded 4/20 on 2 Sep), but it
+   * is NOT 13/20 toward it — this sample is "the 13 most recent non-cancelled
+   * staging runs", not "13 consecutive since the 2 Sep count", and the two are
+   * different claims. Re-derive the chain before advancing the counter.
+   *
+   * The 4 -> 23 arm growth is ~6x the assertions for 1.5-1.9x the wall clock,
+   * because the two arms already in the gate are the expensive ones (~66-78s
+   * each on ubuntu; they reseed once per key per control) and the 19 admitted
+   * ones average 10.5s. The two `modelRowEditReflow` arms added by #1179 are
+   * cheap: 4-arm median 236s vs 6-arm median 260s, ~12s an arm, ignoring the
+   * 751s outlier — which is a median comparison over 7 and 6 draws and should
+   * be treated as an indication, not a measurement.
+   *
+   * ⚠ THE PROJECTION THAT PRECEDED THIS MEASUREMENT WAS 440-465s — PESSIMISTIC
+   * BY ~100s, and it is left recorded rather than quietly replaced. It came from
+   * multiplying darwin timings by the worst observed ubuntu ratio (1.9x), which
+   * is the right way to be wrong for a budget decision: it can refuse an arm
+   * that would have fitted, and it cannot admit one that will not. Do not
+   * "correct" the multiplier downwards on the strength of one run.
+   *
+   * ⚠ ubuntu RUNS ~1.9x DARWIN ON THIS SUITE, derived from the three arms
+   * measured on both (41.2 -> 78s, 6.2 -> 9.3s, 6.9 -> 8.7s) and applied at the
+   * WORST of those ratios. Do not convert darwin numbers with a friendlier one.
+   */
+  {
+    what: 'draftFitCameraOwnership.measure.ts (5 arms, 54.4s darwin ≈ 103s ubuntu) — green at the base, genuinely assertive',
+    why:
+      'THE FIRST THING OVER THE LINE, AND THE HONEST ANSWER IS THE BUDGET. Admitting it takes ' +
+      'the job to ~544s against a 600s budget, leaving under 60s of headroom for runner ' +
+      'variance on a suite whose slowest arm already varies by ~20s between runs. It is also ' +
+      'the LEAST marginal of the candidates: it asks the same question as `showWholeModel` ' +
+      '(does the user\'s overview hold?) and its own header records that the gated half of its ' +
+      'fix already exists as a vitest spec, ' +
+      '`src/canvas/__tests__/useFitViewOnLayoutVersion.userOverview.spec.tsx`. ⭐ IT IS THE ' +
+      'NAMED NEXT ADMISSION: if the 600s budget is ever raised, or if the two nodeKeyboardBleed ' +
+      'arms are made cheaper, this goes in before anything else.',
+  },
+  {
+    what: 'dockClippingPopulated.measure.ts (3 arms, 13.6s), dominantNudgeNumber.measure.ts (4.1s), decisionBriefAssumed.measure.ts, restoreHeightDelta.measure.ts (41.8s), lazyChunkStall.measure.ts (67.8s)',
+    why:
+      'Green at the base and cheap enough, but NONE of them is a CANVAS GEOMETRY defect of the ' +
+      'class this job exists for — they are dock clipping, panel copy, a restore-delta ' +
+      'diagnostic and a route-chunk timeout. This gate is deliberately the smallest set that ' +
+      'would have caught the shipped canvas defects, and the reason it can be believed is that ' +
+      'it has not become "the browser job". Widening it by subject is a separate ruling with ' +
+      'its own budget, not a tidy-up. ⚠ `lazyChunkStall` also spends 45s of its 68s ' +
+      'DELIBERATELY WAITING on a stall bound, so its cost cannot be optimised away.',
+  },
+  /*
+   * ── ARRIVED WHILE THIS PR WAS OPEN, AND NOTHING WENT RED ──────────────────
+   * The four below landed on `staging` between this PR's base (`bd18bace`, 21
+   * files) and its rebase (`b14cd478`, 26 files). Every one of them was named
+   * NOWHERE in this file, and the teardown printed the exclusion list without
+   * asserting anything about it — so the registry that claims to answer "why
+   * isn't that one in?" quietly stopped answering it for one file in six.
+   * `registryCoverage()` now derives that from the directory and REDs; these
+   * entries are the reconciliation it demanded. Their costs are NOT stated:
+   * this lane did not measure them (machine load 119-176 all evening), and an
+   * unmeasured number in a list read as an authority is how the wrong figure
+   * gets inherited.
+   */
+  {
+    what: 'leadingPillCorner.measure.ts, statusPillCorner.measure.ts — the corner-stack migrations (#1176, #1177)',
+    why:
+      'CLAIM TYPE, and for `leadingPillCorner` a STATE-CLASS limit it declares itself. Derived '
+      + 'at `b14cd478`: `leadingPillCorner` carries ZERO `expect(` calls — it emits a report, and '
+      + 'its own header states the harder limit, that "no committed capture can produce a leading '
+      + 'option on any committed starter", so its analysis is HAND-WRITTEN from a seeded state '
+      + '(the file cites trap 16 against itself). `statusPillCorner` has 3 `expect(` calls and '
+      + 'says "Not a gate" in its first sentence; its arm A is an instrument control that must '
+      + 'read zero co-occurrence, not a product verdict. Neither carries `GATE_TAG`. Contrast '
+      + 'control for that grep in the same sweep: `legendViewportFit` 37, `showWholeModelDockBudget` 13.',
+  },
+  {
+    what: 'legendViewportFit.measure.ts (#1168) — 37 assertions, and the strongest promotion candidate here',
+    why:
+      '⚠ THE MOST ARGUABLE EXCLUSION ON THIS LIST, and it is excluded on SEQUENCING, not on '
+      + 'claim type — which is a weaker reason and is named as one. It is a real assertion suite '
+      + '(37 `expect(` calls) guarding a witnessed geometry defect of exactly this job\'s class: '
+      + 'a legend 816px tall with its top 43px above the window, GREEN in jsdom throughout '
+      + '(`CanvasLegendPopover.spec.tsx` asserted the rows were in the document, and they were). '
+      + 'Its own header defers the decision — "whether it should be promoted into the canvas '
+      + 'browser gate is a decision for that gate\'s owner, not this lane\'s to take" — and it is '
+      + 'right to. Admitting it here would mean shipping an arm this lane has NOT shown green at '
+      + 'the base twice and has NOT shown can fail, against a budget it has not re-measured; '
+      + 'the standing rule below forbids exactly that, and waiving the rule in the commit that '
+      + 'writes it would leave the rule meaning nothing. ROWED FOR THE NEXT LANE.',
+  },
+  {
+    what: 'showWholeModelDockBudget.measure.ts (#1165) — the frame budget, derived',
+    why:
+      'ITS DELIVERABLE IS A MEASUREMENT THAT REFUTED ITS OWN COMMISSION, which is the clearest '
+      + 'possible case of the claim-type test. It was commissioned to fix "the fit does not '
+      + 'account for the 416px OutputsDock"; its header records that premise as FALSE at the '
+      + 'bytes — `computeFitPadding` reserves the dock\'s live rect, returning `right: 444px` at '
+      + '1280x800 — established across 260 arms at five commits. It carries 13 `expect(` calls '
+      + 'and no `GATE_TAG`, and its own header opens "RUN IT DELIBERATELY ... no merge gate runs '
+      + 'it". A before/after sweep whose NON-reproduction is as reportable as a defect is the '
+      + 'right instrument for a question and the wrong one for a merge path.',
+  },
+  {
+    what: 'THE STANDING RULE FOR THE NEXT LANE',
+    why:
+      'A file is not excluded by being absent from `GATED_TESTS` — it is excluded by carrying ' +
+      'no `GATE_TAG`. To admit one: (1) show it GREEN at the base, twice, or it is a standing ' +
+      'red waiting to happen; (2) show it can FAIL, by reverting the fix it guards or ' +
+      'perturbing the geometry — an arm that cannot go red is wall clock with no safety, and ' +
+      'that is the only test this list refuses to waive; (3) name the SHIPPED defect it would ' +
+      'have caught, in its registry entry; (4) state its measured cost and the resulting job ' +
+      'wall clock against the 600s budget above, from the job\'s own timings and not from a ' +
+      'local run; (5) land the tag and the registry entry IN THE SAME COMMIT, because either ' +
+      'alone REDs the teardown by design.',
   },
 ]
 
@@ -382,6 +887,20 @@ export const KNOWN_FLAKE_IN_GATE: GatedTest = (() => {
  * expensive one — it reseeds once per key per control, so its cost scales with
  * the driven-kind cap rather than with the file. Read the figure off the job
  * rather than extrapolating from a local run.
+ *
+ * ⭐ PARTLY SETTLED 4 Sep 2026: the four-arm distribution IS now measured — 7
+ * `staging` runs, 199-277s, median 236s (budget block above).
+ *
+ * ⭐ AND THE FIRST DRAW AT THE 25-ARM SET IS IN: **354s** job wall clock,
+ * `25 passed (5.2m)` of it tests, job `101188734128` on `0a5babab` (this PR's
+ * rebased head). Comfortably inside the 600s planning figure.
+ *
+ * ⚠ IT IS ONE DRAW, NOT A DISTRIBUTION, AND THIS FILE'S OWN BUDGET BLOCK IS THE
+ * REASON TO SAY SO: the same job drew 207s and 751s at SIX arms. 354s at 25 is
+ * therefore consistent with the whole 4-arm and 6-arm range and discriminates
+ * nothing about the cost of the 19 admitted arms. What remains owed is a
+ * DISTRIBUTION at this set (n >= 10) before any headroom subtraction is
+ * believed.
  */
 
 /** `"suite › title"`, the shape a Playwright `titlePath` collapses to. */
@@ -391,4 +910,138 @@ export function gatedKey(t: GatedTest): string {
 
 export function expectedGatedKeys(): string[] {
   return GATED_TESTS.map(gatedKey)
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * ⭐⭐ THE EXCLUSION LIST WAS A HAND-MAINTAINED MIRROR INSIDE THE REGISTRY
+ * WRITTEN TO END HAND-MAINTAINED MIRRORS — and it had already drifted.
+ *
+ * `canvasGateTeardown.ts` PRINTED `DELIBERATE_EXCLUSIONS` and asserted nothing
+ * about it. So a new `*.measure.ts` landing in this directory was neither
+ * gated nor recorded as a deliberate exclusion, and NOTHING WENT RED. The
+ * header above says the gated set "cannot grow, shrink, or drift without a
+ * human editing this file"; that was true of the GATED set and false of the
+ * EXCLUDED one, which is the half that answers "why isn't that one in?".
+ *
+ * MEASURED at `b14cd478` (staging), 26 files on disk: FOUR were named nowhere
+ * in this file — `leadingPillCorner`, `legendViewportFit`, `statusPillCorner`
+ * (all merged while this PR was open) and `showWholeModelDockBudget` (#1165).
+ * Contrast control in the same sweep: `nodeKeyboardBleed` 7 mentions,
+ * `modelRowEditReflow` 2, 22 of 26 non-zero — the probe was not blind, the
+ * list was short (CLAUDE.md trap 12d: a derived guard proves AGREEMENT and
+ * never COMPLETENESS, so the completeness check must come from OUTSIDE the
+ * list — here, from the filesystem).
+ *
+ * So coverage is now DERIVED FROM THE DIRECTORY and asserted in BOTH
+ * directions, in two places that fail for different reasons:
+ *   - `tests/ci-guards/canvas-gate-registry-covers-geometry.spec.ts` runs in
+ *     the `vitest` job, which IS in `Staging Gate`'s `needs` — so drift blocks
+ *     a merge. The teardown could never do that: the `canvas-gate` job is
+ *     `continue-on-error: true` and absent from that aggregator.
+ *   - the teardown throws too, so a drifted registry is loud in the job that
+ *     owns the gate as well.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+export interface RegistryCoverage {
+  /** On disk, named neither by `GATED_TESTS` nor by `DELIBERATE_EXCLUSIONS`. */
+  readonly unaccounted: readonly string[]
+  /** Named by `GATED_TESTS`, absent from disk — a registry entry pointing at nothing. */
+  readonly staleGated: readonly string[]
+  /** Named by a `DELIBERATE_EXCLUSIONS` entry, absent from disk. */
+  readonly staleExcluded: readonly string[]
+}
+
+/**
+ * Does `haystack` name this exact file?
+ *
+ * A substring match would score a file as "accounted for" because a DIFFERENT
+ * file's name contains it — an absence probe answering about the wrong object
+ * (CLAUDE.md trap 19). So the character before the match must not be part of
+ * an identifier.
+ *
+ * ⚠⚠ BUT IT IS DEFENSIVE, NOT CURRENTLY LOAD-BEARING, AND THE FIRST VERSION OF
+ * THIS COMMENT CLAIMED OTHERWISE. It said the hazard was one "this directory
+ * ACTUALLY CONTAINS", naming `showWholeModel` against
+ * `savedExampleShowWholeModel` and `showWholeModelDockBudget`. MEASURED by
+ * replacing this function with `haystack.includes(file)` in a mutation
+ * worktree: the guard stayed 9/9 GREEN. Neither pair collides — the first
+ * capitalises the stem (`ShowWholeModel`; the match is case-sensitive) and the
+ * second has `D` where the needle has `.`. Derived over the whole directory in
+ * the same run: NO real basename is a substring of another, because camelCase
+ * capitalises every joined stem, and two names both ending `.measure.ts` can
+ * only collide on a LOWERCASE join (`budget.measure.ts` inside
+ * `…Modelbudget.measure.ts`).
+ *
+ * Kept, because it costs nothing and the lowercase-join shape is one rename
+ * away. But the claim is now the true one: this is a guard against a shape that
+ * has not yet occurred. `canvas-gate-registry-covers-geometry.spec.ts` carries
+ * the fixture that genuinely discriminates it.
+ */
+function namesFile(haystack: string, file: string): boolean {
+  let from = 0
+  for (;;) {
+    const at = haystack.indexOf(file, from)
+    if (at === -1) return false
+    const before = at === 0 ? '' : haystack[at - 1]
+    if (!/[A-Za-z0-9_]/.test(before)) return true
+    from = at + 1
+  }
+}
+
+/**
+ * Reconcile the registry against the files that actually exist.
+ *
+ * Pure and fully injectable, so the guard can be shown to DISCRIMINATE rather
+ * than merely to agree: the spec runs it over the real tree (expecting empty)
+ * and over a tree carrying a planted unregistered file (expecting exactly that
+ * one back). A checker that cannot be made to fail is not evidence
+ * (CLAUDE.md trap 13).
+ */
+export function registryCoverage(
+  measureFiles: readonly string[],
+  gated: readonly GatedTest[] = GATED_TESTS,
+  exclusions: readonly DeliberateExclusion[] = DELIBERATE_EXCLUSIONS,
+): RegistryCoverage {
+  const onDisk = new Set(measureFiles)
+  const gatedFiles = new Set(gated.map((t) => t.file))
+
+  const unaccounted = measureFiles
+    .filter((f) => !gatedFiles.has(f) && !exclusions.some((e) => namesFile(e.what, f)))
+    .sort()
+
+  const staleGated = [...gatedFiles].filter((f) => !onDisk.has(f)).sort()
+
+  // An exclusion may legitimately describe a CLASS rather than a file, so only
+  // the `*.measure.ts` tokens it actually spells are checked for existence.
+  const spelled = new Set<string>()
+  for (const e of exclusions) {
+    for (const m of e.what.match(/[A-Za-z0-9_]+\.measure\.ts/g) ?? []) spelled.add(m)
+  }
+  const staleExcluded = [...spelled].filter((f) => !onDisk.has(f)).sort()
+
+  return { unaccounted, staleGated, staleExcluded }
+}
+
+/** Renders a coverage result as the failure message both callers use. */
+export function coverageFailureMessage(c: RegistryCoverage): string | null {
+  if (!c.unaccounted.length && !c.staleGated.length && !c.staleExcluded.length) return null
+  return (
+    `[canvas-gate] REGISTRY COVERAGE FAILED — e2e/geometry/canvasGateSet.ts no longer accounts for this directory.\n` +
+    (c.unaccounted.length
+      ? `  UNACCOUNTED (on disk, named nowhere in the registry)\n${c.unaccounted.map((f) => `    - ${f}`).join('\n')}\n` +
+        `              Every '*.measure.ts' is either GATED (an entry in GATED_TESTS naming the\n` +
+        `              shipped defect it would have caught) or DELIBERATELY EXCLUDED (an entry in\n` +
+        `              DELIBERATE_EXCLUSIONS naming it and saying why). Silence is neither, and\n` +
+        `              silence is how this list went four files short while reading as current.\n`
+      : '') +
+    (c.staleGated.length
+      ? `  STALE GATED (registered, not on disk)\n${c.staleGated.map((f) => `    - ${f}`).join('\n')}\n` +
+        `              A GATED_TESTS entry points at a file that no longer exists.\n`
+      : '') +
+    (c.staleExcluded.length
+      ? `  STALE EXCLUSION (named as excluded, not on disk)\n${c.staleExcluded.map((f) => `    - ${f}`).join('\n')}\n` +
+        `              A DELIBERATE_EXCLUSIONS entry documents a decision about a file that is gone.\n`
+      : '') +
+    `  Registry: e2e/geometry/canvasGateSet.ts\n`
+  )
 }
