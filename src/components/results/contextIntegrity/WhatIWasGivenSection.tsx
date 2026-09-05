@@ -451,7 +451,13 @@ export function WhatIWasGivenSection({ onSendMessage }: WhatIWasGivenSectionProp
       : tally.total === 0
         ? 'No figures to track from your brief yet'
         : notYetCount === 0
-          ? `All ${tally.total} figures you mentioned are in the model`
+          ? /* ⚠ n = 1 READ "All 1 figures you mentioned are in the model". Caught
+               in review, and it is the same singular/plural miss as the one
+               this PR fixes in `ModelHealthSection` — introduced in the very
+               change that corrected the other one. */
+            tally.total === 1
+            ? 'The figure you mentioned is in the model'
+            : `All ${tally.total} figures you mentioned are in the model`
           : `${notYetCount} of ${tally.total} figures you mentioned aren't in the model yet`
 
   const addMessage = (item: NotModelledItem) =>
