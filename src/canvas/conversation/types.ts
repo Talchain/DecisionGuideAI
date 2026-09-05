@@ -1063,6 +1063,45 @@ export const WIRE_SYSTEM_EVENT_TYPES = [
 /** Event types accepted by CEE's v3 Zod schema — safe to send over the wire. */
 export type WireSystemEventType = (typeof WIRE_SYSTEM_EVENT_TYPES)[number]
 
+/**
+ * The MODEL-CHANGING subset — the members CEE's `SYSTEM_EVENT_HANDLING`
+ * classifies `'mutating'`, i.e. the ones that write graph state on the server.
+ *
+ * ⭐ WHY THE SUBSET EXISTS, AND WHY IT IS NOT "ALL OF THEM". An undispatched
+ * event holds the freshness overlay dirty
+ * (`useConversation.publishPendingEditCount` → `store.pendingEmittedEdits`),
+ * because a verdict computed without it is a statement about a DIFFERENT graph.
+ * That argument only holds for events that change the graph. The other seven
+ * members are notifications (`direct_graph_edit`, `direct_analysis_run`,
+ * `patch_accepted`, `patch_dismissed`, `feedback_submitted`) or carry-only turn
+ * facts that write NO graph (`edge_adjudication`, `prior_range_edit`) — holding
+ * on one of those would fabricate "Model changed since this analysis" over a run
+ * that genuinely is current, which is the same lie pointing the other way.
+ *
+ * ⚠ MEMBERSHIP IS A CLAIM ABOUT CEE, NOT A UI PREFERENCE. Adding a member here
+ * asserts that CEE's dispatch table classifies it `'mutating'`; adding a new
+ * mutating wire member WITHOUT adding it here silently reopens the false
+ * affirmative, which no test outside `freshnessHoldCoversStructuralEdits.spec.ts`
+ * would notice.
+ */
+export const MODEL_CHANGING_SYSTEM_EVENT_TYPES = [
+  'factor_value_edit',
+  'structural_add',
+  'structural_delete',
+  'structural_rename',
+] as const satisfies readonly WireSystemEventType[]
+
+/** A system event whose dispatch changes the graph CEE holds. */
+export type ModelChangingSystemEventType =
+  (typeof MODEL_CHANGING_SYSTEM_EVENT_TYPES)[number]
+
+/** Membership test for the freshness hold. */
+export function isModelChangingSystemEvent(
+  type: string | undefined,
+): type is ModelChangingSystemEventType {
+  return (MODEL_CHANGING_SYSTEM_EVENT_TYPES as readonly string[]).includes(type ?? '')
+}
+
 /** Event types used only within the UI — never sent to CEE. */
 export type InternalSystemEventType = 'session_resume' | 'undo_draft'
 
