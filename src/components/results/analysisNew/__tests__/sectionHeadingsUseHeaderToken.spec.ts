@@ -119,12 +119,16 @@ describe('Analysis (New) — a section title is typed as a section title', () =>
 
   it('every section heading REQUIRES panelHeader — and the delegating exemption is exactly one file', () => {
     const all = headings()
-    const delegating = all
-      .filter((h) => !/typography\./.test(h.snippet))
-      .map((h) => h.file)
+    // ⚠ NOT DEDUPED, AND THE FIRST VERSION WAS. `[...new Set(files)]` collapses
+    // two untyped headings in ONE file to a single entry, so a second one in
+    // `SectionShell.tsx` passed while the comment claimed the set reds when it
+    // grows. The exemption is one HEADING, not one file — so the list compared
+    // is per-heading.
+    const delegating = all.filter((h) => !/typography\./.test(h.snippet)).map((h) => h.file)
     expect(
-      [...new Set(delegating)].sort(),
-      'the set of headings that delegate their type must not grow or shrink unnoticed',
+      delegating.sort(),
+      'the headings that delegate their type must not grow or shrink unnoticed — ' +
+        'one entry per HEADING, so a second untyped one in the same file reds',
     ).toEqual([...KNOWN_DELEGATING])
 
     const wrongToken = all

@@ -55,6 +55,7 @@ import { useCanvasStore } from '../../../canvas/store'
 import { useContextIntegrityStore } from '../../../canvas/stores/contextIntegrityStore'
 import type { NotModelledItem } from '../../../adapters/cee/notModelled'
 import { ClampToggle } from '../ClampToggle'
+import { figureTallySubtitle } from './figureTallySubtitle'
 
 /** Rows shown per group before "show all". Keeps the open state scannable. */
 const VISIBLE_ROWS = 6
@@ -429,7 +430,6 @@ export function WhatIWasGivenSection({ onSendMessage }: WhatIWasGivenSectionProp
   // Counts come from the manifest's own tallies, NOT from `items.length`:
   // `items` is capped (`truncated`) while `total` is not, so counting rendered
   // rows against an uncapped total silently under-reports on a long brief.
-  const notYetCount = tally === null ? 0 : tally.absent + tally.proseOnly
   /**
    * ⚠⚠ THREE STATES, NOT ONE TEMPLATE. The single template rendered
    * "0 of 0 figures you mentioned aren't in the model yet" on a brief with no
@@ -446,60 +446,12 @@ export function WhatIWasGivenSection({ onSendMessage }: WhatIWasGivenSectionProp
    * tallies, never from the capped `items` array.
    */
   /**
-   * ⚠⚠ THE ORDER OF THESE ARMS IS THE WHOLE CORRECTNESS ARGUMENT — and the
-   * first cut had it wrong in two ways, both found by an independent review
-   * that RENDERED the component rather than reading it.
-   *
-   * ── (1) THE ALL-CLEAR WAS GATED ON THE WRONG QUESTION.
-   * It fired on `notYetCount === 0`, i.e. `absent + proseOnly === 0`. That does
-   * NOT entail `inModel === total`, and `parseNotModelled` deliberately never
-   * reconciles the four numbers — its own docstring says so, because "every
-   * available default is a false statement about the user's own words". So a
-   * manifest of `{total: 5, inModel: 3, absent: 0, proseOnly: 0}` rendered
-   * **"All 5 figures you mentioned are in the model"**. The pre-PR copy was a
-   * misleading TALLY; this had turned it into a confident ALL-CLEAR, in the one
-   * section whose entire job is context integrity. Reachability is not
-   * established — all three real fixtures reconcile — but an unreconciled tally
-   * is admitted by the parser, and a claim must be true over the domain it can
-   * receive, not over the domain we happen to have seen.
-   *
-   * ── (2) THE SHORTFALL ARM DID NOT COUNT IN ENGLISH.
-   * The singular fix went on the all-present arm and not on its twin three
-   * lines away, so `{total: 1, absent: 1}` — one figure in the brief, it did not
-   * land — read "1 of 1 figures you mentioned aren't in the model yet". Exactly
-   * the miss this PR was fixing elsewhere, introduced in the same change.
-   *
-   * ── WHY THIS ORDER IS HONEST IN EVERY COMBINATION, INCLUDING INCOHERENT ONES.
-   *  · shortfall FIRST: `notYetCount > 0` is a fact about figures the producer
-   *    itself marked absent/prose-only. It is true whatever the other numbers
-   *    say, so it can never be pre-empted by an all-clear.
-   *  · all-clear SECOND, and only on `inModel === total`: the one state where
-   *    "all of them" is a statement the numbers actually support.
-   *  · a PLAIN TALLY LAST, claiming nothing about the remainder. That arm is
-   *    reached only when the four numbers do not add up, and its sentence stays
-   *    true no matter how they fail to: it reports what IS in the model and
-   *    makes no assertion about the rest. Falling through to the shortfall
-   *    sentence there would print "0 of 5 … aren't in the model yet", which is
-   *    the pre-PR falsehood; falling through to the all-clear is the new one.
+   * The sentence is derived by `figureTallySubtitle`, which owns the arm order
+   * and the noun/verb agreement and is enumerated over the whole quantity
+   * domain in its own spec. Three passes of patching it inline each shipped a
+   * defect while closing one; that file's header records all three.
    */
-  const subtitle =
-    tally === null
-      ? "I can't show this yet"
-      : tally.total === 0
-        ? 'No figures to track from your brief yet'
-        : notYetCount > 0
-          ? tally.total === 1
-            ? "The figure you mentioned isn't in the model yet"
-            : `${notYetCount} of ${tally.total} figures you mentioned ${
-                notYetCount === 1 ? "isn't" : "aren't"
-              } in the model yet`
-          : tally.inModel === tally.total
-            ? tally.total === 1
-              ? 'The figure you mentioned is in the model'
-              : `All ${tally.total} figures you mentioned are in the model`
-            : `${tally.inModel} of ${tally.total} figures you mentioned ${
-                tally.inModel === 1 ? 'is' : 'are'
-              } in the model`
+  const subtitle = figureTallySubtitle(tally)
 
   const addMessage = (item: NotModelledItem) =>
     onSendMessage?.(composeNotModelledQuestion(item, briefText))
