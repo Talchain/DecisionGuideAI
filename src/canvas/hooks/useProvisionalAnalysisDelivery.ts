@@ -32,15 +32,46 @@
  * ═══════════════════════════════════════════════════════════════════════════
  * WHY A BOUNDED SCHEDULE AND NOT A TIGHT LOOP
  * ═══════════════════════════════════════════════════════════════════════════
- * The run is ~20s, so the useful window is short and the answer is not worth
- * chasing at high frequency. The read route's limiter is keyed PER CLIENT IP —
- * not per key — and the same bucket serves boot hydration and the in-session
- * draft recovery, so a tight poll spends a budget other paths need. Derived at
- * CEE's tip: the `read` tier is 90 rpm (`cee/config/limits.ts:47-50`), and the
- * schedule below spends 7 reads over 60s.
+ * The typical run is ~20s, so the common case resolves in the first two or
+ * three reads and the answer is not worth chasing at high frequency. The read
+ * route's limiter is keyed PER CLIENT IP — not per key — and the same bucket
+ * serves boot hydration and the in-session draft recovery, so a tight poll
+ * spends a budget other paths need. Derived at CEE's tip: the `read` tier is
+ * 90 rpm (`cee/config/limits.ts:47-50`); the schedule below spends 17 reads
+ * over 130s, and at most 9 in any 60s window — a fraction of that bucket, and
+ * pinned as such in `provisionalDeliveryReachesSlowRuns.spec.ts`.
  *
- * The delays are front-loaded around the expected commit and then spread, so the
- * common case resolves in one or two reads and the tail costs almost nothing.
+ * The delays stay front-loaded around the expected commit, but the gap is
+ * CAPPED at the opening wait rather than widening. The gaps are dead time a
+ * user experiences as silence, and a read taken later has no reason to be
+ * lazier than the first one.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * WHY THE BOUND IS 130s, AND NOT THE 60s IT WAS
+ * ═══════════════════════════════════════════════════════════════════════════
+ * The schedule was originally tuned to the ~20s run this header describes, and
+ * stopped at 60s. A provisional run that committed AFTER 60s was therefore
+ * never delivered at all — the user waited, nothing appeared, and the result
+ * surfaced only if they happened to send another turn. That is not "slow" to a
+ * user; it is never.
+ *
+ * The bound is now the manual path's own budget, and for the manual path's own
+ * reason. `v5/getTimeoutMs.ts` sets `TURN_WAIT_MS` (130s) deliberately above
+ * `SERVER_TURN_DEADLINE_MS` (125s, CEE's `BROWSER_PROXY_TIMEOUT_MS`), on the
+ * stated invariant that the client must never stop waiting before the server's
+ * own deadline — CEE runs a turn to completion and commits it whether or not
+ * the browser is still listening. A provisional run is the SAME
+ * CEE → PLoT → ISL computation, merely scheduled by CEE instead of requested
+ * by a click, so a bound below the manual one abandoned a class of runs this
+ * same client would have waited for had the user pressed Run.
+ *
+ * ⚠ SCOPE OF THAT DERIVATION, STATED NARROWLY. 125s is CEE's bound on a
+ * BROWSER-PROXIED turn, read from the manual path's own file. The provisional
+ * dispatch is a background job and its server-side bound was NOT read at CEE's
+ * bytes for this change. The claim made here is only the comparative one — this
+ * client should not give up on a scheduled run sooner than on a clicked one —
+ * and being wrong about CEE's background bound is contained: the hook still
+ * stops and still writes nothing (H3), just later.
  *
  * ═══════════════════════════════════════════════════════════════════════════
  * ⚠ H3 — ON DEADLINE IT INVENTS NOTHING
@@ -82,15 +113,27 @@ import {
 } from '../hydrate/applyScenarioAnalysisRead'
 
 /**
- * Delays from arming, in ms. Front-loaded around the ~20s commit, then spread.
+ * ABSOLUTE offsets from arming, in ms — not gaps. Front-loaded around the ~20s
+ * commit, then held at a constant 8s step (never wider than the opening wait)
+ * out to the bound.
+ *
  * Exported so the spec asserts the SCHEDULE rather than restating it (trap 12),
  * and so the budget claim in the header is checkable.
  */
 export const PROVISIONAL_DELIVERY_DELAYS_MS: readonly number[] = [
-  8_000, 14_000, 20_000, 27_000, 36_000, 47_000, 60_000,
+  8_000, 14_000, 20_000, 27_000, 35_000, 43_000, 51_000, 59_000, 67_000, 75_000, 83_000, 91_000,
+  99_000, 107_000, 115_000, 123_000, 130_000,
 ]
 
-/** The bound. Past this the hook stops and writes nothing (H3). */
+/**
+ * The bound. Past this the hook stops and writes nothing (H3).
+ *
+ * Equals `TURN_WAIT_MS` from `v5/getTimeoutMs.ts` — the client's budget for the
+ * same computation on the manual path — and the two are tied together by
+ * assertion in `provisionalDeliveryReachesSlowRuns.spec.ts` rather than by this
+ * sentence. It is deliberately DERIVED from the last offset rather than written
+ * twice, so the schedule cannot end anywhere other than the declared bound.
+ */
 export const PROVISIONAL_DELIVERY_DEADLINE_MS =
   PROVISIONAL_DELIVERY_DELAYS_MS[PROVISIONAL_DELIVERY_DELAYS_MS.length - 1]
 
