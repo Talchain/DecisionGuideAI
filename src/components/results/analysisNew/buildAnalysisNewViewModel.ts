@@ -1075,11 +1075,32 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
 
   // ⚠ COVERAGE, NOT READINESS (rule 5). These rows say what the run did and did
   // not cover. None of them is a statement about whether analysis may run.
+  // ⚠ THE VALUE IS HUMANISED, NOT JUST THE LABEL (review S3). Renaming this row
+  // from "Fields the producer did not supply" left the VALUE as
+  // `missing.join(', ')` — raw `MissingFieldKey` tokens, so the row read
+  // "Not included in this result: win_probability, sensitivity" one line above
+  // the gap row being fixed for exactly that defect. Neither the gap-code regex
+  // nor `WAVE-A-COPY-SPEC`'s `/^[A-Z][A-Z0-9_]{6,}$/` can see lower snake_case,
+  // which is how it survived.
+  //
+  // `missingResultLabels` already existed and was already used by `buildStatus`;
+  // this row simply was not calling it. The unknown-key drop is the same ruling
+  // `buildStatus` states: an unrecognised name on screen is worse than the
+  // generic sentence it would replace. It is load-bearing rather than
+  // theoretical — `deriveResultCompleteness` DOES emit the deliberately-unmapped
+  // `recommendation_stability`, always paired with `robustness_level` in one
+  // branch (`useResultCompleteness.ts:222-225`), so this is what keeps a
+  // withheld field from being named as a missing one.
+  // Pinned in both directions by `missingResultsNamedInWords.spec.tsx`.
+  const missingResultPhrases = data.completeness.missing
+    .map((k) => COPY.status.missingResultLabels[k])
+    .filter((label): label is string => Boolean(label))
+
   const coverage = rows(
     row('Result completeness', data.completeness.status),
     row(
       'Not included in this result',
-      data.completeness.missing.length ? data.completeness.missing.join(', ') : null,
+      missingResultPhrases.length ? missingResultPhrases.join(', ') : null,
     ),
     row(
       'Evidence coverage',
