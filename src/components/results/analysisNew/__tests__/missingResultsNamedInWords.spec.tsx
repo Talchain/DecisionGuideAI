@@ -116,12 +116,31 @@ describe('"Not included in this result" names results in words', () => {
     expect(row.value).not.toContain('recommendation_stability')
   })
 
-  it('DISCRIMINATOR: the sibling coverage rows are untouched', () => {
-    // If a change ever blanket-dropped or rewrote this group, this REDs while
+  it('DISCRIMINATOR: the sibling coverage rows survive, whole and distinct', () => {
+    // If a change ever blanket-dropped or collapsed this group, this REDs while
     // the assertions above would stay green on an empty group.
+    //
+    // ⚠ THIS ASSERTED `'partial'` — THE RAW ENUM — UNTIL 5 Sep 2026, and the
+    // literal was doing two jobs. Its INTENT is scope: "the fix above did not
+    // reach beyond its own row". Its WITNESS was the sibling's exact value, so
+    // it also, incidentally, pinned a wire token as correct output. A later
+    // change humanised those tokens for a different reason — `computed`,
+    // `full`, `not_assessed` were the producer's vocabulary rendered verbatim
+    // in a value cell — and this REDded, on the value, not on the scope.
+    //
+    // Restated against the property. A test that pins a literal as a proxy for
+    // a structural claim will RED on the day the literal is legitimately
+    // improved, and reads as a regression when it is not one.
     const group = coverageGroup(['win_probability'])!
     const completeness = group.rows.find((r) => r.label === 'Result completeness')
-    expect(completeness?.value).toBe('partial')
+    expect(completeness, 'the sibling row must still exist').toBeTruthy()
+    expect(String(completeness!.value ?? '').trim().length, 'and still carry a value').toBeGreaterThan(0)
+    // The two rows must stay DISTINCT — collapsing them is the failure this
+    // guards, and it is what "untouched" was really protecting.
+    const missing = group.rows.find((r) => r.label === ROW_LABEL)
+    expect(missing?.value, 'the two coverage rows must not collapse into one').not.toBe(
+      completeness!.value,
+    )
   })
 
   it('END TO END: no producer key reaches the rendered DOM for this row', () => {
