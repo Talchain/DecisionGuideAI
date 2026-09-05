@@ -69,10 +69,10 @@ describe('AskOlumiDrawer — the reason travels to the canvas', () => {
   })
 
   it('CONTRAST — an opener with nothing to say still gets the plain camera move', () => {
-    // The great majority of openers (28 product call sites across 14 files,
-    // derived at `origin/staging` 5 Sep with a fabricated-symbol contrast at
-    // 0; three carry a recommendation). Absence must stay absence: a drawer
-    // that manufactured a note here would be inventing a producer claim.
+    // The great majority of openers, which hold no `Recommendation`. Absence
+    // must stay absence: a drawer that manufactured a note here would be
+    // inventing a producer claim. (No count is quoted — the set is open and
+    // the two figures this comment carried before were both wrong.)
     openAskOlumi({
       context: 'some context',
       draft: 'a draft',

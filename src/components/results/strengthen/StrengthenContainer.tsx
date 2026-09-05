@@ -255,6 +255,12 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
             targetId: rec.targetId ?? undefined,
             parameters: rec.action.parameters,
             source: 'chip',
+            // ⚠ FOUND BY THE DERIVED GUARD, NOT BY READING. Three rounds of
+            // hand-enumeration missed this route — in the very file the first
+            // round "fixed" — because it is a FALLBACK arm, only taken when
+            // the user lacks server graph authority. That is exactly the kind
+            // of branch a reader skims and a scan does not.
+            attentionNote: attentionNoteForRecommendation(rec),
           })
         }
         ok = true

@@ -43,11 +43,13 @@ export interface AskOlumiPayload {
    * `attentionNoteForRecommendation`; the rest pass nothing and keep exactly
    * the camera move they had, the same shape `intent` above uses.
    *
-   * Derived at `origin/staging`, 5 Sep: 28 product call sites across 14 files
-   * (contrast: a fabricated symbol reads 0). THREE of them carry a
-   * recommendation and now pass a note. The count is a floor measured at one
-   * SHA, not an inventory anyone must keep in step — the field is optional
-   * precisely so a new opener needs no change here.
+   * ⚠ NO COUNT IS QUOTED HERE, DELIBERATELY. This sentence has carried a
+   * figure twice and been wrong both times ("nine", then "28"; two
+   * independent instruments make it 26). Openers live across 14 files and the
+   * set is open, so any number here is a floor that decays silently — and the
+   * field is optional precisely so a new opener needs no change in this file.
+   * What matters is the RULE: an opener that holds a `Recommendation` passes
+   * the note; one that does not, does not.
    */
   attentionNote?: OlumiAttentionNote | null
 }
