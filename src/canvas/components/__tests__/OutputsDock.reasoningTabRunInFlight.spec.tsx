@@ -46,6 +46,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 import { AnalysisStateV1Schema } from '@talchain/schemas/boundary'
+import { maximalAnalysisStateRunning } from '@talchain/schemas/fixtures'
 
 import { OutputsDock, OUTPUTS_DOCK_STORAGE_KEY } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
@@ -228,9 +229,22 @@ function frontAndAssert(tab: 'analysisNew' | 'results') {
 }
 
 /**
- * A contract-valid `AnalysisStateV1`, built through the REAL parser exactly as
- * `analysisStateSelector.spec.ts` does. Hand-casting it would let this suite
- * assert behaviour over a payload no producer could send.
+ * ⚠⚠ THE RUNNING VERDICT NOW COMES FROM THE CONTRACT'S OWN FIXTURE, NOT FROM
+ * MY OVERRIDE — and the difference is the whole point of the distinction.
+ *
+ * The first cut passed `{run_state: {kind:'running'}}` over a
+ * `complete_current` base, so the payload paired a run IN FLIGHT with
+ * `leader_claim.permitted: true` and every `usable_for_*: true`. It PARSED —
+ * and parsing proves validity, never REACHABILITY. The contract publishes
+ * `maximalAnalysisStateRunning`, whose running state is the exact opposite
+ * (`permitted: false`, `withheld_reason: 'FIXTURE_RUN_IN_FLIGHT'`, all three
+ * usability flags false), which is what a producer actually emits mid-run.
+ *
+ * A self-authored fixture encodes the author's model of the producer rather
+ * than the producer; this one is the producer's. Raised by review on #1201,
+ * which also proved the substitution INERT — the banner mounts identically on
+ * both — so this buys honesty in the comment rather than a behaviour change,
+ * and that is exactly the kind of claim worth not overstating.
  */
 function wireVerdict(over: Partial<AnalysisStateV1> = {}): AnalysisStateV1 {
   const parsed = AnalysisStateV1Schema.safeParse({
@@ -266,6 +280,13 @@ describe('the Reasoning tab shows a run in flight (#1198)', () => {
     useCanvasStore.setState({
       results: { status: 'idle', progress: 0 },
       hasCompletedFirstRun: false,
+      // ⚠ THE WIRE VERDICT MUST BE CLEARED, AND IT WAS NOT. A `running` verdict
+      // set by the wire test leaked into every test after it. Benign today —
+      // the later cases gate on the LOCAL run and RED without `startRun()` —
+      // but it is a trap for the next test added here, and it already cost a
+      // reviewer a near-miss: their first announcer probe read empty under the
+      // leak and was one step from being filed as a refutation.
+      analysisStateV1: null,
     } as never)
   })
 
@@ -393,9 +414,9 @@ describe('the Reasoning tab shows a run in flight (#1198)', () => {
     expect(screen.queryByTestId('analysis-running-banner')).not.toBeInTheDocument()
     act(() => {
       useCanvasStore.setState({
-        analysisStateV1: wireVerdict({
-          run_state: { kind: 'running', started_at: '2026-08-16T09:30:00.000Z' },
-        }),
+        // The producer's own mid-run shape, parsed to prove this build accepts
+        // it rather than merely that it type-checks.
+        analysisStateV1: wireVerdict(maximalAnalysisStateRunning as Partial<AnalysisStateV1>),
       } as never)
     })
     // PRECONDITION 2: still no local run after the wire verdict lands.
@@ -405,6 +426,32 @@ describe('the Reasoning tab shows a run in flight (#1198)', () => {
       'The wire says a run is in flight and this surface did not show it. That ' +
         'is the local-only read: it sees `resultsStatus` and nothing else.',
     ).toBeInTheDocument()
+  })
+
+  /**
+   * ⭐ THE PARITY CLAIM, MADE CHECKABLE. The PR said this tab now behaves like
+   * its three sibling surfaces; review found it one attribute short. Every
+   * other cover-mounting surface marks its content busy, and so does the
+   * Analysis tab. A test rather than a comment, because "parity" is the kind of
+   * claim that quietly stops being true.
+   */
+  it('marks its content busy while a run is in flight — and not otherwise', () => {
+    seedCompletedRun()
+    frontTab('analysisNew')
+    renderDock()
+    frontAndAssert('analysisNew')
+    const region = () => screen.getByTestId('analysis-new-busy-region')
+    // PRECONDITION and the opposite-direction twin in one: ABSENT when idle.
+    // `aria-busy="false"` is not the same as absent to assistive tech, so the
+    // `|| undefined` form is what is being pinned, not merely the truthiness.
+    expect(region().getAttribute('aria-busy')).toBeNull()
+    startRun()
+    expect(
+      region().getAttribute('aria-busy'),
+      'the three sibling surfaces and the Analysis tab all set this; without it ' +
+        'a screen-reader user is told a run started and then reads the retained ' +
+        'report with nothing marking it superseded',
+    ).toBe('true')
   })
 
   it('the Analysis tab keeps its own run narration', () => {
