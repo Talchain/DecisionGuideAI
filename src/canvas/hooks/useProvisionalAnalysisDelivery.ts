@@ -117,7 +117,10 @@ import {
  * store, and so a future reader can see the rule instead of inferring it.
  */
 export function ceeReadinessOptionsAreOnCanvas(
-  ready: { options?: ReadonlyArray<{ id?: unknown }> } | null | undefined,
+  // `readonly unknown[]`, deliberately: this validates a WIRE payload, and a
+  // narrower element type here would be a claim about the producer that the
+  // producer does not honour. Each element is narrowed at the point of use.
+  ready: { options?: readonly unknown[] } | null | undefined,
   snapshotNodeIds: readonly string[] | null | undefined,
 ): boolean {
   if (ready == null) return true
@@ -128,7 +131,7 @@ export function ceeReadinessOptionsAreOnCanvas(
   // `every` over the JUDGEABLE options only: an id-less option is skipped
   // (it is not evidence of divergence), a well-formed one is checked.
   return options.every((o) => {
-    const id = o?.id
+    const id = (o as { id?: unknown } | null | undefined)?.id
     if (typeof id !== 'string' || id.length === 0) return true
     return onCanvas.has(id)
   })
