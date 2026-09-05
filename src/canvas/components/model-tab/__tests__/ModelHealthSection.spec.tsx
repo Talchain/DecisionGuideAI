@@ -127,7 +127,24 @@ describe('ModelHealthSection', () => {
     }
     render(<ModelHealthSection auditTrail={auditTrail} />)
     expect(screen.getByTestId('root-node-warning')).toBeInTheDocument()
-    expect(screen.getByText(/2 factors have no value set/)).toBeInTheDocument()
+
+    /*
+     * ⚠ THE OLD PIN READ "2 factors have no value set", AND THAT SENTENCE WAS
+     * FALSE ABOUT THIS COUNTER. `rootNodeWarningCount` counts
+     * `ROOT_NODE_DEFAULT_VALUE` warnings — STARTING factors for which the
+     * engine SUBSTITUTED zero. "No value set" describes a different and larger
+     * population (every factor the user has not filled in), and it drops the
+     * two load-bearing facts: that these are starting factors, and that a
+     * value was substituted rather than merely absent.
+     *
+     * So this asserts the CLAIM, not the old string: the count, that zero was
+     * assumed, and the consequence. Pluralisation is asserted too, because the
+     * singular/plural branch is the kind of thing a later edit silently breaks.
+     */
+    const warning = screen.getByTestId('root-node-warning')
+    expect(warning).toHaveTextContent(/2 starting factors had no value recorded/i)
+    expect(warning).toHaveTextContent(/zero was assumed/i)
+    expect(warning).toHaveTextContent(/anything downstream of them may be unreliable/i)
   })
 
   it('shows penalty text when stabilityPenaltyFactor < 1.0', () => {

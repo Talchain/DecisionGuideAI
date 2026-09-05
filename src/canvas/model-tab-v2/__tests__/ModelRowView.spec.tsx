@@ -197,7 +197,7 @@ describe('ModelRowView — the three-beat states tell the truth (design §5.1)',
     expect(screen.getByTestId('model-row-v2-f1-value')).not.toHaveTextContent('45 days')
   })
 
-  it('PROPOSED keeps the old value on screen and says nothing has changed yet', () => {
+  it('PROPOSED keeps the old value on screen and says it is not applied yet', () => {
     render(
       <ModelRowView
         row={row({ id: 'f1' })}
@@ -207,7 +207,15 @@ describe('ModelRowView — the three-beat states tell the truth (design §5.1)',
     )
     expect(screen.getByTestId('model-row-v2-f1-value-from')).toHaveTextContent('45 days')
     expect(screen.getByTestId('model-row-v2-f1-value-to')).toHaveTextContent('60 days')
-    expect(screen.getByTestId('model-row-v2-f1-value')).toHaveTextContent(/nothing has changed yet/i)
+    /*
+     * ⚠ "Nothing has changed yet" WAS FALSE IN THIS STATE. A proposal HAS been
+     * made — that is what `phase: 'proposed'` means, and the row is showing
+     * `45 days → 60 days` two lines above. What has not happened is the APPLY.
+     * The caption now says so, and this asserts the claim rather than the old
+     * string.
+     */
+    expect(screen.getByTestId('model-row-v2-f1-value')).toHaveTextContent(/not applied yet/i)
+    expect(screen.getByTestId('model-row-v2-f1-value')).not.toHaveTextContent(/nothing has changed/i)
   })
 
   it('REFUSED shows the value reverted AND states the reason', () => {
