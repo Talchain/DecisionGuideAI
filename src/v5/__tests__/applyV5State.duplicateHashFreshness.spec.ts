@@ -48,6 +48,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { OlumiResponse } from '@talchain/schemas/boundary'
+import { AnalysisResultBlockSchema } from '@talchain/schemas/boundary'
 
 import { applyV5State, type V5ApplicatorStore } from '../applyV5State'
 import { useCanvasStore } from '../../canvas/store'
@@ -192,17 +193,21 @@ describe('the briefed false-negative fix is UNSAFE on the silent arm — held de
     ).toBe(false)
   })
 
-  it('the contract carries no run identity — measured, with a contrast control', async () => {
-    const blocks = await import('@talchain/schemas/boundary')
-    const shape = (blocks as Record<string, { shape?: Record<string, unknown> }>)
-      .AnalysisResultBlockSchema?.shape
-    // Contrast control: the probe must SEE a field we know is there, or its
-    // silence about run identity is blindness rather than evidence.
-    expect(shape, 'the schema shape is reachable at all').toBeTruthy()
-    expect(Object.keys(shape ?? {}), 'contrast control').toContain('leading_option_id')
-    expect(Object.keys(shape ?? {})).not.toContain('run_id')
-    expect(Object.keys(shape ?? {})).not.toContain('computed_at')
-    expect(Object.keys(shape ?? {})).not.toContain('analysis_id')
+  it('the contract carries no run identity — measured, with a contrast control', () => {
+    // Read the SHIPPED schema's own shape rather than a hand-copied field list:
+    // a mirror of the contract would go stale at the next re-vendor and read
+    // green while doing so.
+    const keys = Object.keys(AnalysisResultBlockSchema.shape)
+
+    // ⚠ CONTRAST CONTROL FIRST. An absence claim from a probe that can see
+    // nothing is blindness, not evidence — so assert it sees a field we know
+    // is there before believing the three it does not find.
+    expect(keys, 'contrast control — the probe can see real members').toContain('leading_option_id')
+    expect(keys).toContain('computed_against_hash')
+
+    expect(keys, 'no run identity on the block').not.toContain('run_id')
+    expect(keys).not.toContain('computed_at')
+    expect(keys).not.toContain('analysis_id')
   })
 })
 
