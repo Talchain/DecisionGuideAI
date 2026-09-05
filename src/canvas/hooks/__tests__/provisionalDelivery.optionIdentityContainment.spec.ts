@@ -24,15 +24,29 @@
  * both recorded this class as *"reachable in code, CONDITIONAL ON A REFUSED
  * BOOT, which has NOT been observed live"*. **That is wrong. No refused boot is
  * required.** The reproduction is: **guest · load one shipped starter · send
- * one brief · first turn.** Creating a scenario seeds
- * `lastAuthoritativeGraph` with an EMPTY-BUT-NON-NULL identity record
- * (`store.ts`'s `identityFromCanvasGraph(nodes, edges)` on an empty scenario —
- * *"an empty scenario yields an EMPTY record, which is the honest value for
- * it"*), and the starter's nodes are installed afterwards. So
- * `lastAuthoritativeGraph !== null` is satisfied BY THE VERY GESTURE THAT
- * CREATES THE HAZARD, and the guard never fires. Measured
- * `derivedGraphAccepted: true` with an empty authoritative record against a
- * 16-node canvas at every capture.
+ * one brief · first turn.**
+ *
+ * The mechanism, traced at the bytes: `StarterDecisions.tsx:111` →
+ * `loadStarter.ts:216` (`applyStarter`) → `applyDraftResult`, which installs the
+ * starter's nodes at `:237` and then at `:293` UNCONDITIONALLY records
+ * `setLastAuthoritativeGraph(identityFromCanvasGraph(nodes, edges))` over those
+ * same nodes. So `lastAuthoritativeGraph !== null` is satisfied BY THE VERY
+ * GESTURE THAT CREATES THE HAZARD, and the guard never fires.
+ *
+ * ⚠ AN EARLIER VERSION OF THIS HEADER GOT THE MECHANISM WRONG and is withdrawn:
+ * it said the record is seeded EMPTY-but-non-null by "creating a scenario" with
+ * the starter's nodes landing afterwards. That empty seed is `store.ts:5504`,
+ * inside `loadScenario`, and the STARTER path records a **FULL** record — the
+ * recorder fires over the very nodes it just installed, so the record and the
+ * canvas cannot disagree. It also cited a live-measured field
+ * `derivedGraphAccepted`, which exists nowhere in this repo (contrast control:
+ * `graphAcceptedForCanvas` resolves in 8 files in the same sweep), so no reader
+ * could reproduce it. The CONCLUSION is unchanged — the predicate reads only
+ * `!== null`, which holds for a full record as much as an empty one — but the
+ * fixture below is now the shape the starter path really produces, and the
+ * fidelity control asserts that by identity rather than asserting an inert
+ * property. The harm itself was WITNESSED on the deployed build; the chain above
+ * is DERIVED in this repo, not observed in a browser by this spec's author.
  *
  * ═══════════════════════════════════════════════════════════════════════════
  * WHY CONTAINMENT, AND WHY IT IS THE SAME QUESTION RATHER THAN A SECOND ONE
@@ -77,6 +91,7 @@ import {
   ceeReadinessOptionsAreOnCanvas,
 } from '../useProvisionalAnalysisDelivery'
 import { applyScenarioAnalysisRead } from '../../hydrate/applyScenarioAnalysisRead'
+import { identityFromCanvasGraph } from '../../utils/graphIdentity'
 
 const SCENARIO_ID = '9a1b2c3d-4444-4555-8666-777788889999'
 
@@ -144,9 +159,18 @@ const ANALYSIS_RESULT_BLOCK = {
 
 /**
  * The STARTER-TEMPLATE shape, not the refused-boot shape: an authoritative
- * identity record that is present and EMPTY, against a populated canvas.
+ * identity record that is present and holds THIS CANVAS'S OWN identities,
+ * against a populated canvas that CEE has never accepted.
  *
- * ⚠ `{ nodeIds: [], edgePairs: [] }` — NOT `{ nodes: [] }`. The field's type is
+ * ⚠ THIS FIXTURE USED TO SEED `{ nodeIds: [], edgePairs: [] }` and call that the
+ * starter shape. It is not. `applyStarter` → `applyDraftResult.ts:293` records
+ * `identityFromCanvasGraph(nodes, edges)` over the nodes it has just installed,
+ * so the starter journey leaves a FULL record. The record is built here by the
+ * PRODUCTION helper for the same reason `setCeeAnalysisReady` is used below —
+ * a record this file writes by hand can only confirm the author's model of what
+ * the recorder does.
+ *
+ * ⚠ `{ nodeIds, edgePairs }` — NOT `{ nodes }`. The field's type is
  * `{ nodeIds: string[]; edgePairs: string[] } | null` (`canvas/store.ts`), and
  * an `AuthoritativeGraphIdentity` carries identities, never nodes.
  */
@@ -155,7 +179,7 @@ function seedStarterTemplateCanvas(over: Record<string, unknown> = {}): void {
     currentScenarioId: SCENARIO_ID,
     nodes: PRICING_NODES as never,
     edges: [] as never,
-    lastAuthoritativeGraph: { nodeIds: [], edgePairs: [] },
+    lastAuthoritativeGraph: identityFromCanvasGraph(PRICING_NODES, []),
     serverGraphIdentity: null,
     importPendingServerRegistration: false,
     history: { past: [], future: [] },
@@ -190,16 +214,43 @@ afterEach(() => {
 
 // ═══════════════════════════════════════════════════════════════════════════
 describe('#1204 — the starter-template fixture really is the live shape', () => {
-  it('POSITIVE CONTROL — authoritative record is present, EMPTY, and the canvas is populated', () => {
+  it('POSITIVE CONTROL — the authoritative record is the starter apply\'s OWN full record', () => {
     // Without this, every assertion below could pass because the fixture never
-    // reproduced the hazard. Each clause is the one the old guard read.
+    // reproduced the hazard.
+    //
+    // ⚠ THIS CONTROL USED TO ASSERT `nodeIds` WAS `[]`, AND IT COULD NOT FAIL
+    // FOR THE RIGHT REASON. Two defects in one line: (a) `[]` is not the shape
+    // the starter path produces — `applyDraftResult.ts:293` records the nodes it
+    // has just installed — so the "really is the live shape" claim above it was
+    // false; and (b) `nodeIds` is INERT to the predicate under test, which reads
+    // only `!== null` from this field, so any value at all would have passed.
+    // A fidelity control that pins a property the code never consults is a
+    // guard agreeing with itself.
     const s = useCanvasStore.getState()
+    // The clause the OLD guard actually read — the reason it was dark.
     expect(s.lastAuthoritativeGraph).not.toBeNull()
-    expect(s.lastAuthoritativeGraph?.nodeIds).toEqual([])
     expect(s.nodes.length).toBeGreaterThan(0)
-    // And the OLD predicate — `lastAuthoritativeGraph !== null || nodes.length === 0`
-    // — is satisfied by this fixture, which is precisely why the guard was dark.
     expect(s.lastAuthoritativeGraph !== null || s.nodes.length === 0).toBe(true)
+    // ⭐ FIDELITY, BOUND BY IDENTITY: the record holds THESE nodes' ids, in the
+    // canvas's own order — not "some non-empty record", which a different graph
+    // would also satisfy. `applyStarter` → `applyDraftResult.ts:293` records
+    // `identityFromCanvasGraph(nodes, edges)` in the same step that installs
+    // them, so a record naming anything else is not this journey's shape and
+    // this REDs. Expected ids are written out longhand rather than mapped from
+    // the fixture: a derivation from the same array the fixture used could not
+    // observe the recorder dropping them.
+    expect(s.lastAuthoritativeGraph?.nodeIds).toEqual([
+      'px-goal',
+      'px-opt-seats',
+      'px-opt-hybrid',
+      'px-opt-switch',
+      'px-factor-churn',
+    ])
+    // And the CEE options at issue are NOT in it — so "non-empty record" and
+    // "record that describes the graph CEE is talking about" are demonstrably
+    // different things here, which is the whole reason the proxy is insufficient.
+    const recorded = new Set(s.lastAuthoritativeGraph?.nodeIds ?? [])
+    expect(HIRING_OPTION_IDS.filter((id) => recorded.has(id))).toEqual([])
   })
 
   it('POSITIVE CONTROL — the reducer snapshots the CANVAS ids, so the operands really differ', () => {

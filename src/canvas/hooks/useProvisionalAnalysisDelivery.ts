@@ -321,11 +321,29 @@ export function readProvisionalApplyStore(): ScenarioAnalysisApplyStore {
     // accepted path is exactly the body that records — and FALSE OF THE FIELD,
     // which has THREE recorders and a seed. Derived at the bytes:
     //
-    //   RECORDERS (non-null):
-    //   `mergeServerGraph.ts:412`    accepted server merge  ← the ONLY genuine
+    //   ⚠ RE-DERIVED AT `dead382d` WITH A CASE-INSENSITIVE SWEEP, AND THE
+    //   CASE-SENSITIVE ONE THAT PRECEDED IT WAS BLIND. The action is
+    //   `set**L**astAuthoritativeGraph`; a `grep "lastAuthoritativeGraph"` cannot
+    //   see it, and reported a FALSE ZERO in `applyDraftResult.ts` — with a
+    //   contrast control that FIRED, which is exactly why it was convincing. Any
+    //   sweep for this field must be `grep -i`. Line numbers below are a
+    //   hand-maintained mirror and will drift; the NAMES are the durable part.
+    //
+    //   RECORDERS (non-null) — complete manifest, `grep -rin setlastauthoritative`
+    //   plus every direct property-assignment in `store.ts`, contrast control
+    //   `setCeeAnalysisReady` = 42 non-test hits in the same run:
+    //   `mergeServerGraph.ts:461`    accepted server merge  ← the ONLY genuine
     //                                server acceptance
     //   `mergeAppliedGraph.ts:606`   applied-edit receipt
-    //   `applyDraftResult.ts:292`    a fresh DRAFT. ⚠ NOT "the local canvas CEE
+    //   `store.ts:5504`              `loadScenario`'s scenario-switch seed,
+    //                                property-assignment form. Seeded, never
+    //                                nulled — see its own note there.
+    //   `store.ts:7404`              `hydrateGraphSlice`'s COLD-LOAD SEED,
+    //                                property-assignment form
+    //   `applyDraftResult.ts:293`    a fresh DRAFT — and, through
+    //                                `loadStarter.ts:216` (`applyStarter`), a
+    //                                shipped STARTER TEMPLATE too. ⚠ NOT "the
+    //                                local canvas CEE
     //                                has never seen" — an earlier version of this
     //                                comment said that and it is FALSE at the
     //                                bytes: `nodes`/`edges` are mapped from
@@ -336,12 +354,11 @@ export function readProvisionalApplyStore(): ScenarioAnalysisApplyStore {
     //                                decisive: CEE DRAFTED it, but never ACCEPTED
     //                                it as this scenario's authoritative SERVER
     //                                graph. A draft still defeats the guard.
-    //   `store.ts:6084`              COLD-LOAD SEED, property-assignment form
     //
     //   NULLERS (all fail-safe — they can only make the guard MORE cautious):
-    //   `store.ts:1439`              scenario reset
-    //   `store.ts:1999`              initial state
-    //   `useConversation.ts:502`     nulled, and NOT on un-acceptance
+    //   `store.ts:1934`              DECISION_CONTEXT_CLEAR (scenario reset)
+    //   `store.ts:2761`              initial state
+    //   `useConversation.ts:464`     nulled, and NOT on un-acceptance
     //
     // **A MERGE REFUSAL DOES NOT CLEAR IT.** So once any recorder has fired,
     // this reads `true` and the guards below do not fire — reachable mid-session
@@ -370,21 +387,65 @@ export function readProvisionalApplyStore(): ScenarioAnalysisApplyStore {
     // ⚠⚠ THE SECOND CONJUNCT CLOSES ISSUE #1204, AND THE SCOPE THIS FILE USED
     // TO CARRY WAS WRONG. The recorded scope was "reachable in code, CONDITIONAL
     // ON A REFUSED BOOT, which has not been observed live". NO REFUSED BOOT IS
-    // REQUIRED. Creating a scenario seeds `lastAuthoritativeGraph` with an
-    // EMPTY-BUT-NON-NULL identity record — `identityFromCanvasGraph(nodes, edges)`
-    // on an empty scenario, whose own comment says "an empty scenario yields an
-    // EMPTY record, which is the honest value for it" — and the starter
-    // template's nodes are installed AFTER that seed. So the first conjunct is
-    // satisfied BY THE VERY GESTURE THAT CREATES THE HAZARD, and the guard was
-    // dark for the plainest journey the product has: guest · load one shipped
-    // starter · send one brief · first turn. Live-measured `derivedGraphAccepted:
-    // true` with an EMPTY authoritative record against a 16-node canvas.
+    // REQUIRED, and the guard was dark for the plainest journey the product has:
+    // guest · load one shipped starter · send one brief · first turn.
+    //
+    // THE MECHANISM, TRACED AT THE BYTES ON THAT JOURNEY:
+    //   `StarterDecisions.tsx:111` → `loadStarter.ts:216` (`applyStarter`) →
+    //   `applyDraftResult`, which at `:237` installs the starter's nodes and at
+    //   `:293` UNCONDITIONALLY records
+    //   `setLastAuthoritativeGraph(identityFromCanvasGraph(nodes, edges))` over
+    //   those same nodes. `skipAutosave` does not gate it.
+    // So one gesture both puts a graph CEE has never accepted on the canvas and
+    // satisfies `lastAuthoritativeGraph !== null`: THE ACCEPTANCE PROXY IS
+    // SATISFIED BY THE VERY GESTURE THAT CREATES THE HAZARD. No second event,
+    // no refusal, no boot state is needed.
+    //
+    // ⚠ AND AN EARLIER VERSION OF THIS PARAGRAPH GOT THE MECHANISM WRONG, in a
+    // way worth keeping because it is this estate's signature defect. It said the
+    // record is seeded EMPTY-but-non-null by "creating a scenario", with the
+    // starter's nodes landing after. Two errors: (1) that seed is
+    // `store.ts:5504`, inside `loadScenario` — not scenario creation; and
+    // (2) on the starter path the record is FULL, not empty, because the
+    // recorder fires in the same `set()`-adjacent step that installs the nodes
+    // ("`nodes`/`edges` are the graph being installed by this very `set`, so the
+    // record and the canvas cannot disagree" — `store.ts:5501`). I could
+    // construct no ordering yielding an empty record against a populated starter
+    // canvas. The empty/full distinction is NOT cosmetic here — `store.ts:5491`
+    // says the existence consumers read the difference between `null`, empty and
+    // populated — which is why the wrong version is withdrawn rather than left
+    // as harmless colour. The conclusion it was offered for is unchanged and now
+    // rests on a derivation instead: non-null is non-null either way, and this
+    // predicate reads only `!== null`.
+    //
+    // ⚠ WHAT IS MEASURED vs DERIVED. The harm was WITNESSED on the deployed
+    // build (issue #1204). The chain above is DERIVED at the bytes in this repo,
+    // not observed in a browser by the author of this comment. An earlier
+    // version cited a live-measured field `derivedGraphAccepted`; that name
+    // exists nowhere in this repo (contrast control: `graphAcceptedForCanvas`
+    // resolves in 8 files in the same sweep), so no reader could reproduce it,
+    // and it is withdrawn.
     //
     // STRICTLY STRONGER, NEVER LOOSER: `A'` implies `A`, so this can only ever
     // decline more, never accept something the previous rule refused. That
     // implication is asserted over the truth table in
     // `__tests__/provisionalDelivery.optionIdentityContainment.spec.ts` rather
     // than argued here.
+    //
+    // ⚠ WHAT THIS CONJUNCT STILL DOES NOT CATCH — stated so no later reader
+    // mistakes it for a complete instrument:
+    //  1. IT IS ONE-DIRECTIONAL. It checks CEE's options ⊆ the canvas snapshot.
+    //     Canvas options CEE's readiness does NOT name still accept, so a
+    //     currency claim can stand over an analysis that omits an option the
+    //     user has. Same harm class, narrower door; not closed here.
+    //  2. `goal_node_id` IS NOT AN OPERAND. A foreign goal with coincidentally
+    //     matching option ids passes. (`validateCeeAnalysisReady` checks goal
+    //     existence on the RESTORE paths; this conjunct does not.)
+    //  3. IT COMPARES AGAINST A SNAPSHOT, NOT THE CURRENT CANVAS.
+    //     `ceeAnalysisReadyNodeIds` is fixed at the instant CEE spoke, which is
+    //     what makes the comparison skew-free — and also what makes canvas churn
+    //     AFTER that instant invisible to it. Pre-existing; this change is
+    //     strictly stronger and does not widen it.
     graphAcceptedForCanvas:
       s.nodes.length === 0 ||
       (s.lastAuthoritativeGraph !== null &&

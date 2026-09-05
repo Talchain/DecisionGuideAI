@@ -365,12 +365,21 @@ export function applyScenarioAnalysisRead(
   // refused boot, which has NOT been observed live". **Withdrawn.** The harm
   // was WITNESSED ON THE DEPLOYED BUILD (issue #1204) and NO REFUSED BOOT IS
   // REQUIRED: the reproduction is guest · load one shipped starter · send one
-  // brief · first turn. Creating a scenario seeds `lastAuthoritativeGraph` with
-  // an EMPTY-BUT-NON-NULL identity record, and the starter's nodes land after
-  // it — so the acceptance proxy is satisfied by the very gesture that creates
-  // the hazard. A scope that says "unproven for real users" teaches every later
-  // reader to deprioritise a live P0; that is why it is corrected here rather
-  // than only in the register. The supplying derivation now also requires
+  // brief · first turn. `applyStarter` (`loadStarter.ts:216`) routes the starter
+  // through `applyDraftResult`, which installs the starter's nodes and then, at
+  // `applyDraftResult.ts:293`, UNCONDITIONALLY records
+  // `identityFromCanvasGraph(nodes, edges)` over those same nodes — so the
+  // acceptance proxy `lastAuthoritativeGraph !== null` is satisfied by the very
+  // gesture that puts a graph CEE never accepted on the canvas. ⚠ An earlier
+  // version of this sentence said the record is seeded EMPTY by "creating a
+  // scenario" with the starter's nodes landing after; that is withdrawn — the
+  // empty seed is `store.ts:5504` inside `loadScenario`, and the starter path
+  // records a FULL record. The conclusion is unchanged (this predicate reads
+  // only `!== null`), but the mechanism was wrong at the bytes and a correcting
+  // comment reads as already adjudicated. A scope that says "unproven for real
+  // users" teaches every later reader to deprioritise a live P0; that is why it
+  // is corrected here rather than only in the register. The supplying derivation
+  // now also requires
   // OPTION-IDENTITY CONTAINMENT (`useProvisionalAnalysisDelivery.ts`), which is
   // what closes the witnessed journey.
   //
