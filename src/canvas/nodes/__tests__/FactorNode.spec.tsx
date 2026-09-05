@@ -881,15 +881,15 @@ describe('FactorNode', () => {
       )
     })
 
-    it('producer basis: the row discloses the absolute causal influence score', () => {
+    it('producer basis: the row discloses the set-relative scale, like its sibling', () => {
       renderDetailedWithProvenance('influence_score', 0.6)
       const bar = screen.getByRole('progressbar', {
-        name: 'Influence, an absolute causal influence score from the analysis',
+        name: 'Influence, relative to the strongest factor. The top driver always shows 100%',
       })
       expect(bar.getAttribute('aria-valuenow')).toBe('60')
       const row = screen.getByText('Influence').closest('div')
       expect(row?.getAttribute('title')).toBe(
-        'Influence: how much this factor affects the outcome, as an absolute causal influence score from the analysis.'
+        'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
       )
     })
 

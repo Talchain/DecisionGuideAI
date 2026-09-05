@@ -35,7 +35,7 @@ vi.mock('../../../canvas/utils/focusHelpers', () => ({
 const RELATIVE_TOOLTIP =
   'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
 const ABSOLUTE_TOOLTIP =
-  'Influence: how much this factor affects the outcome, as an absolute causal influence score from the analysis.'
+  'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
 const GENERIC_TOOLTIP = 'Influence: how much this factor affects the outcome'
 const RELATIVE_EXPLAINER =
   'Ranked by how much each factor affects the outcome, relative to the strongest factor'
@@ -231,12 +231,26 @@ describe('DriversSection influence-scale disclosure (lane C4)', () => {
       expect(screen.queryByText(RELATIVE_EXPLAINER)).toBeNull()
     })
 
-    it('Influence header tooltip uses the absolute-basis wording, not the relative claim', () => {
+    it('Influence header tooltip DISCLOSES the 100%-by-construction scale', () => {
+      /**
+       * ⚠⚠ THIS ASSERTED THE OPPOSITE UNTIL 5 Sep 2026 — that the producer-basis
+       * tooltip must NOT contain "always shows 100%". That was the sharpest
+       * expression of the two-scales design, and the design's premise is false:
+       * `influence_score` is normalised against `max|influence|`, so the top row
+       * is 1.0 by construction, exactly as the relative basis is. Every capture
+       * in this repo carrying the field maxes at exactly 1.0 — twelve files,
+       * live staging responses among them.
+       *
+       * Withholding the disclosure on THIS basis is what let a
+       * 100%-by-construction figure read as a causal share. The negative
+       * assertion is therefore inverted rather than deleted: it now REDs if the
+       * disclosure is ever taken away again.
+       */
       render(<DriversSection data={producerBasisData()} goalLabel="test" />)
       hoverInfluenceHeader()
       const tooltip = screen.getByRole('tooltip')
       expect(tooltip.textContent).toContain(ABSOLUTE_TOOLTIP)
-      expect(tooltip.textContent).not.toContain('always shows 100%')
+      expect(tooltip.textContent).toContain('always shows 100%')
     })
   })
 

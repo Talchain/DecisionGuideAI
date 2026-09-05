@@ -7,11 +7,26 @@
  * surfaces cannot drift ("keep in step" comments are not a mechanism) and so
  * the copy-hygiene spec has one import to police.
  *
- * Basis semantics (driverDisplayModel): 'normalised_elasticity' is the
- * set-relative fallback (top driver shows 100% by construction) and MUST be
- * disclosed; 'influence_score' is the producer's absolute causal influence
- * score; no provenance (legacy fixtures / cached payloads) fails closed to
- * the generic wording, never claiming a basis the pipeline did not stamp.
+ * Basis semantics (driverDisplayModel). ⚠⚠ CORRECTED 5 Sep 2026 — this
+ * paragraph said 'influence_score' was "the producer's ABSOLUTE causal
+ * influence score", and that sentence is where the false wording downstream
+ * came from.
+ *
+ * BOTH stamped provenances are SET-RELATIVE. They are two different
+ * NORMALISATIONS: 'normalised_elasticity' is this app's own, and
+ * 'influence_score' is the producer's, against `max|influence|` — so its top
+ * row is 1.0 by construction exactly as the other's is. Verified from this
+ * side rather than taken on trust: every capture in this repo carrying
+ * `influence_score` has a maximum of exactly 1.0, twelve files including live
+ * staging responses.
+ *
+ * So BOTH must be disclosed, in the same words. No provenance (legacy fixtures
+ * / cached payloads) still fails closed to the generic wording, never claiming
+ * a basis the pipeline did not stamp.
+ *
+ * ⚠ The distinction between the two normalisations is real and is still carried
+ * in `provenance`. It is not a difference a reader can act on, which is why it
+ * no longer buys a separate — and false — vocabulary.
  *
  * Copy hygiene (influenceScaleCopy.copyHygiene.spec.ts): sentence case,
  * en-GB, no internal analytical vocabulary, and NO em dashes (DS ban) in any
@@ -30,9 +45,22 @@ export const INFLUENCE_EXPLANATION_GENERIC =
 export const INFLUENCE_EXPLANATION_RELATIVE =
   'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
 
-/** Header tooltip / pill title — absolute producer basis. */
-export const INFLUENCE_EXPLANATION_ABSOLUTE =
-  'Influence: how much this factor affects the outcome, as an absolute causal influence score from the analysis.'
+/**
+ * ⚠⚠ RETIRED WORDING, KEPT AS AN ALIAS SO NOTHING SILENTLY LOSES ITS TITLE.
+ *
+ * This said "as an absolute causal influence score from the analysis". There is
+ * no absolute basis: `influence_score` is the producer's normalisation against
+ * `max|influence|`, so the top row is 1.0 by construction — every capture in
+ * this repo carrying the field maxes at exactly 1.0, twelve files including
+ * live staging responses. The relative wording beside it was true of BOTH
+ * bases the whole time.
+ *
+ * Kept as an alias rather than deleted because it is exported and consumed by
+ * canvas surfaces outside this lane: changing what it SAYS fixes every consumer
+ * at once; deleting the symbol would break them and force an unrelated lane to
+ * take the change on my schedule.
+ */
+export const INFLUENCE_EXPLANATION_ABSOLUTE = INFLUENCE_EXPLANATION_RELATIVE
 
 /** Drivers panel ranking explainer — generic (absolute or unstamped basis). */
 export const INFLUENCE_RANKING_EXPLAINER_GENERIC =
@@ -72,11 +100,25 @@ export function influencePillAriaLabel(
   // string gained its basis, this label still opened with the bare noun — one
   // quantity under two names, which is the exact shape the visible change was
   // made to close. The explanatory clause stays: it says what the noun means.
-  return provenance === 'normalised_elasticity'
+  /**
+   * ⚠⚠ THE `influence_score` ARM SAID "an absolute causal influence score from
+   * the analysis". IT IS NOT ABSOLUTE, AND THE ARM BESIDE IT ALREADY SAID SO.
+   *
+   * Both provenances are set-relative — they are two different NORMALISATIONS,
+   * not absolute-vs-relative. `influence_score` is the producer's, against
+   * `max|influence|`, so the top row is 1.0 by construction; every capture in
+   * this repo carrying the field maxes at exactly 1.0. The
+   * `normalised_elasticity` arm has disclosed "The top driver always shows
+   * 100%" the whole time, which is equally true of this one.
+   *
+   * The two arms therefore say the same thing to a reader. The distinction is
+   * still real and is still carried — in `provenance`, where it belongs — but
+   * it is not a difference a user can act on, and spending a false word on it
+   * was the cost.
+   */
+  return provenance === 'normalised_elasticity' || provenance === 'influence_score'
     ? `Relative influence ${pct}%, scaled against the strongest factor. The top driver always shows 100%`
-    : provenance === 'influence_score'
-      ? `Influence score ${pct}%, an absolute causal influence score from the analysis`
-      : 'Influence basis unavailable'
+    : 'Influence basis unavailable'
 }
 
 /**
@@ -97,11 +139,13 @@ export function influencePillAriaLabel(
 export function influenceBasisNoun(
   provenance: DriverDisplayProvenance | null | undefined,
 ): string {
-  return provenance === 'normalised_elasticity'
+  /* ⚠ Same ruling as `influencePillAriaLabel`: both provenances are
+     set-relative, so both take the relative noun. "Influence score" as a bare
+     noun invited exactly the absolute reading this function's own docblock
+     describes a deployed graph producing. */
+  return provenance === 'normalised_elasticity' || provenance === 'influence_score'
     ? 'Relative influence'
-    : provenance === 'influence_score'
-      ? 'Influence score'
-      : 'Influence'
+    : 'Influence'
 }
 
 /**
@@ -111,11 +155,12 @@ export function influenceBasisNoun(
 export function influenceBarAriaLabel(
   provenance: DriverDisplayProvenance | null | undefined,
 ): string {
-  return provenance === 'normalised_elasticity'
+  /* Same ruling as the pill: both provenances are set-relative normalisations,
+     so both get the disclosure that the top driver always shows 100% — which
+     was previously given to only one of the two it is true of. */
+  return provenance === 'normalised_elasticity' || provenance === 'influence_score'
     ? 'Influence, relative to the strongest factor. The top driver always shows 100%'
-    : provenance === 'influence_score'
-      ? 'Influence, an absolute causal influence score from the analysis'
-      : 'Influence'
+    : 'Influence'
 }
 
 /** Convert a resolved metric to display percent without rescaling its value. */
@@ -127,8 +172,6 @@ export function analysisMetricPercent(metric: ResolvedAnalysisMetric): number {
 export function analysisMetricVisibleLabel(metric: ResolvedAnalysisMetric): string {
   const pct = analysisMetricPercent(metric)
   switch (metric.permittedLanguage) {
-    case 'absolute_influence_score':
-      return `Influence score ${pct}%`
     case 'set_relative_influence':
       return `Relative influence ${pct}%`
     case 'pre_analysis_influence_score':
@@ -142,8 +185,6 @@ export function analysisMetricVisibleLabel(metric: ResolvedAnalysisMetric): stri
 export function analysisMetricTitle(metric: ResolvedAnalysisMetric): string {
   const pct = analysisMetricPercent(metric)
   switch (metric.permittedLanguage) {
-    case 'absolute_influence_score':
-      return `Influence score ${pct}% on the analysis scale`
     case 'set_relative_influence':
       return `Influence ${pct}%, relative to the strongest factor in this analysis`
     case 'pre_analysis_influence_score':
@@ -157,8 +198,6 @@ export function analysisMetricTitle(metric: ResolvedAnalysisMetric): string {
 export function analysisMetricPredicate(metric: ResolvedAnalysisMetric): string {
   const pct = analysisMetricPercent(metric)
   switch (metric.permittedLanguage) {
-    case 'absolute_influence_score':
-      return `has an influence score of ${pct}%`
     case 'set_relative_influence':
       return `has relative influence of ${pct}% within this analysis`
     case 'pre_analysis_influence_score':
