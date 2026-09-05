@@ -16,7 +16,7 @@
  * action id / turn id / key name), never by a value predicate another
  * object in the same bundle could satisfy.
  */
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import type { DebugData } from '../hooks/useDebugData'
 
 vi.mock('../../../lib/version-cache', () => ({
@@ -42,6 +42,7 @@ import {
   DEBUG_BUNDLE_REDACTION_OPTIONS,
   redactPayload,
   scrubSecretsInString,
+  USER_AUTHORED_TEXT_OMITTED_REASON,
 } from '../../../utils/payloadRedaction'
 import { selectRecentConversationTurns } from '../../../lib/recentConversationTurns'
 import { collectServiceBuilds } from '../../../lib/service-health'
@@ -124,6 +125,39 @@ function makeDebugData(overrides: Partial<DebugData> = {}): DebugData {
 beforeEach(() => {
   mockUserActions.length = 0
 })
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
+
+/**
+ * Push the one action whose detail carries user prose, plus a second
+ * action that carries none. Every assertion about the first binds to it by
+ * its action name, so it cannot be satisfied by the second.
+ */
+function pushTypedMessage(text: string): void {
+  mockUserActions.push({
+    actionType: 'sent chat message',
+    timestamp: '2026-09-05T10:00:00.000Z',
+    payloadSummary: {
+      action_type: 'sent chat message',
+      raw_message: text,
+      source: 'composer',
+    },
+  })
+  mockUserActions.push({
+    actionType: 'clicked chip',
+    timestamp: '2026-09-05T10:00:05.000Z',
+    payloadSummary: { action_type: 'clicked chip', label: 'Run analysis' },
+  })
+}
+
+function typedActionDetail(): Record<string, unknown> | undefined {
+  const bundle = buildDebugBundle(makeDebugData()) as unknown as {
+    user_actions: Array<{ action: string; detail?: Record<string, unknown> }>
+  }
+  return bundle.user_actions.find((a) => a.action === 'sent chat message')?.detail
+}
 
 // ===========================================================================
 // GAP 1 — the user's own text
@@ -339,6 +373,73 @@ describe('GAP 3 — assistant_text is not truncated at 1000 chars', () => {
 // GAP 4 — render/console capture reasons
 // ===========================================================================
 
+// ===========================================================================
+// PRIVACY — the one admission, executed in BOTH directions
+//
+// The cold review's finding: no test executed either gate, which is how a
+// two-gate defect reached review. `user_text` is the bundle-side half;
+// `user_message` is covered in `lib/__tests__/userAuthoredTextAdmission.spec.ts`
+// alongside the matrix that pins the subset claim between the two gates.
+// ===========================================================================
+
+describe('user_text honours the one user-prose admission', () => {
+  it('CONTAINS the text and claims no omission in a capturing environment', () => {
+    vi.stubEnv('DEV', true)
+    pushTypedMessage('We are deciding whether to acquire the smaller competitor.')
+
+    const detail = typedActionDetail()
+    expect(detail).toBeDefined()
+    expect(detail!.user_text).toBe(
+      'We are deciding whether to acquire the smaller competitor.',
+    )
+    // Opposite-direction assertion: a bundle that HOLDS the text must not
+    // also carry a marker saying it withheld it.
+    expect(detail).not.toHaveProperty('user_text_omitted_reason')
+  })
+
+  it('OMITS the text and SAYS SO in a production build with no opt-in', () => {
+    vi.stubEnv('DEV', false)
+    vi.stubEnv('VITE_APP_ENV', 'production')
+    vi.stubEnv('VITE_ENABLE_PAYLOAD_INSPECTION', '')
+    pushTypedMessage('We are deciding whether to acquire the smaller competitor.')
+
+    const detail = typedActionDetail()
+    expect(detail).toBeDefined()
+    expect(detail).not.toHaveProperty('user_text')
+    expect(detail!.user_text_omitted_reason).toBe(USER_AUTHORED_TEXT_OMITTED_REASON)
+    // The structural metadata still lands — this withholds the prose, it
+    // does not hide that a message was sent.
+    expect(detail!.message_length).toBe(
+      'We are deciding whether to acquire the smaller competitor.'.length,
+    )
+  })
+
+  it('CONTAINS the text under the production-build inspection opt-in', () => {
+    // The reviewed defect's exact state. The trace store captures request
+    // bodies here, so the bundle already holds the user's prose; emitting
+    // an omission marker would make the artefact misdescribe itself.
+    vi.stubEnv('DEV', false)
+    vi.stubEnv('VITE_APP_ENV', 'production')
+    vi.stubEnv('VITE_ENABLE_PAYLOAD_INSPECTION', 'true')
+    pushTypedMessage('We are deciding whether to acquire the smaller competitor.')
+
+    const detail = typedActionDetail()
+    expect(detail!.user_text).toBe(
+      'We are deciding whether to acquire the smaller competitor.',
+    )
+    expect(detail).not.toHaveProperty('user_text_omitted_reason')
+  })
+
+  it('names the DATA CLASS, not an environment-wide policy', () => {
+    // The previous string claimed `detailed_capture_disabled_in_this_
+    // environment`, i.e. more than the gate decides. Pinned by identity so
+    // the wider claim cannot return.
+    expect(USER_AUTHORED_TEXT_OMITTED_REASON).toBe(
+      'user_authored_text_capture_disabled_in_this_environment',
+    )
+  })
+})
+
 describe('GAP 4 — unavailable capture states say why', () => {
   it('states the reason render_summary is unavailable', () => {
     const bundle = buildDebugBundle(makeDebugData()) as unknown as {
@@ -349,6 +450,58 @@ describe('GAP 4 — unavailable capture states say why', () => {
     // was attempted and failed.
     expect(bundle.render_summary.reason).toBeTruthy()
     expect(bundle.render_summary.reason).toContain('not_implemented')
+  })
+
+  // -------------------------------------------------------------------------
+  // Console capture: the finding, not an attempted fix.
+  //
+  // Interception was moved off `import.meta.env.DEV` in the first version
+  // of this change and reverted: the staging Netlify build is a
+  // `mode === 'production'` build, so `vite.config.ts`'s
+  // `esbuild.drop: ['console']` removes the call sites before any listener
+  // could see them (CI's `ci:no-console` asserts `dist` holds none), and
+  // running the repo's own transform over `debugLogBuffer.ts` shows
+  // `console.log.bind(console)` folding to `void 0` while the wrapper
+  // ASSIGNMENTS survive — executed, it throws
+  // `TypeError: originalConsole.log is not a function`.
+  //
+  // What ships instead is the honest statement, in the same shape as the
+  // Gap-4 `not_implemented` marker.
+  // -------------------------------------------------------------------------
+
+  it('says console capture is impossible in a build that strips the producers', () => {
+    vi.stubEnv('MODE', 'production')
+    const bundle = buildDebugBundle(makeDebugData()) as unknown as {
+      console_logs_capture: {
+        available: boolean
+        producers_stripped_at_build: boolean
+        unavailable_reason?: string
+      }
+    }
+    expect(bundle.console_logs_capture.producers_stripped_at_build).toBe(true)
+    expect(bundle.console_logs_capture.available).toBe(false)
+    expect(bundle.console_logs_capture.unavailable_reason).toContain(
+      'not_capturable_in_this_build',
+    )
+    // The reason must name the BUILD-TIME cause, so the next reader does
+    // not re-attempt interception.
+    expect(bundle.console_logs_capture.unavailable_reason).toContain('BUILD time')
+  })
+
+  it('claims no unavailability in a build that keeps the producers', () => {
+    // Opposite-direction twin. Without it, a marker hardcoded to
+    // "unavailable" would pass the case above while saying nothing.
+    vi.stubEnv('MODE', 'development')
+    const bundle = buildDebugBundle(makeDebugData()) as unknown as {
+      console_logs_capture: {
+        available: boolean
+        producers_stripped_at_build: boolean
+        unavailable_reason?: string
+      }
+    }
+    expect(bundle.console_logs_capture.producers_stripped_at_build).toBe(false)
+    expect(bundle.console_logs_capture.available).toBe(true)
+    expect(bundle.console_logs_capture).not.toHaveProperty('unavailable_reason')
   })
 })
 

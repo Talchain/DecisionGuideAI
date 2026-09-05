@@ -37,7 +37,8 @@ import {
   DEBUG_LLM_RAW_MAX_CHARS,
   DEBUG_BUNDLE_REDACTION_OPTIONS,
   scrubSecretsInString,
-  shouldCaptureDetailedPayload,
+  shouldCaptureUserAuthoredText,
+  USER_AUTHORED_TEXT_OMITTED_REASON,
 } from '../../../utils/payloadRedaction'
 import {
   collectServiceBuilds,
@@ -1249,6 +1250,41 @@ interface DebugBundle {
   }
   /** Captured console logs */
   console_logs: BufferedLog[]
+  /**
+   * Why `console_logs` is empty — or that it is genuinely trustworthy.
+   *
+   * ⚠ This block exists because an empty `console_logs` array had TWO
+   * indistinguishable meanings, and in every staging bundle ever exported
+   * it meant the second one:
+   *   (a) the session produced no matching logs, or
+   *   (b) console capture could not work in this build at all.
+   *
+   * Nothing here attempts to fix (b). It cannot be fixed by starting the
+   * interceptor earlier, which was tried and reverted — see
+   * `unavailable_reason` for the measurement.
+   */
+  console_logs_capture: {
+    /**
+     * Whether `console_logs` can be read as a complete record.
+     *
+     * ⚠ SCOPE OF THIS CLAIM, stated because a boolean invites a wider
+     * reading than it earns: `false` means this build removed the
+     * `console.*()` call sites, which is the only condition that has ever
+     * made console capture impossible in a DEPLOYED bundle. It does not
+     * separately verify a listener is running — where the producers
+     * survive, `debugLogBuffer` auto-enables under the Vite dev server.
+     */
+    available: boolean
+    /**
+     * Did this build strip the `console.*()` call sites themselves?
+     * Read from `import.meta.env.MODE` — the SAME expression
+     * `vite.config.ts` switches its `esbuild.drop` on — rather than
+     * restating that config's decision as a second boolean here.
+     */
+    producers_stripped_at_build: boolean
+    /** Present whenever `available` is false. */
+    unavailable_reason?: string
+  }
   /** Diagnostic checks for troubleshooting */
   diagnostic_checks: DiagnosticChecks
   /**
@@ -2365,8 +2401,10 @@ function collectUserActions(): UserActionEntry[] {
   try {
     const actions = getUserActions()
     // Map from debug-state format to bundle format, cap at 50.
-    // User text is SCRUBBED and capped, no longer deleted — see
-    // `redactUserActionDetail`.
+    // User text is kept, with secret-shaped substrings removed and a
+    // length cap applied, instead of being deleted outright — see
+    // `redactUserActionDetail` for exactly what that does and does not
+    // remove.
     return actions.slice(-50).map((a) => ({
       action: a.actionType,
       timestamp: a.timestamp,
@@ -2374,6 +2412,69 @@ function collectUserActions(): UserActionEntry[] {
     }))
   } catch {
     return []
+  }
+}
+
+/**
+ * The finding that replaced the reverted console-interception change.
+ *
+ * Deliberately a single exported-shape constant rather than a sentence
+ * assembled at the call site: it is the artefact's own statement of why a
+ * whole capture channel is empty, and it must read identically in every
+ * bundle so a reader can grep for it across bundles.
+ */
+const CONSOLE_LOGS_UNAVAILABLE_REASON =
+  'not_capturable_in_this_build: the console.*() call sites are removed at BUILD time, before any interceptor could see them (vite.config.ts esbuild.drop=["console","debugger"] and terserOptions.compress.drop_console, both active at mode==="production" — which is how netlify.toml builds staging, since build:ci runs a bare `vite build` with no --mode). ci.yml then runs ci:no-console, which FAILS the build if dist contains any console.<name>( outside vendored chunks, so the absence is asserted rather than inferred. Starting the interceptor earlier cannot fix this: capturing staging console diagnostics requires the PRODUCERS to survive the build (e.g. a debugLog() helper that is not a bare console.* call), which is a build-policy change with a CI guard attached.'
+
+/**
+ * Say whether `console_logs` can be believed, and when it cannot, why.
+ *
+ * ## The finding this records (GAP 4, console half — measured 2026-09-05)
+ *
+ * Console capture on staging IS NOT ACHIEVABLE BY INTERCEPTION, because
+ * the console calls are removed at BUILD time, before any interceptor
+ * could see them. The first version of this change moved the interceptor's
+ * gate from `import.meta.env.DEV` to a dev-or-staging predicate; that was
+ * reverted, because it would have started a listener with nothing to hear
+ * — and, worse, `esbuild --drop:console` turns
+ * `console.log.bind(console)` into `void 0` while leaving the wrapper
+ * ASSIGNMENTS in place, so the retained module throws
+ * `TypeError: originalConsole.log is not a function` on the first
+ * `console.*` reaching the global from anywhere (a vendored dependency,
+ * say). The dead `DEV` branch is what let the whole module tree-shake
+ * away; replacing it with a function call is exactly what retains it.
+ *
+ * The derivation, at this repo's own bytes:
+ *   - `netlify.toml` `[build] command` runs `npm run build:ci`, whose
+ *     build step is a bare `vite build` — no `--mode`, and no
+ *     context-specific command override. The staging context differs from
+ *     production only by `VITE_APP_ENV`, so staging builds at
+ *     `mode === 'production'`.
+ *   - `vite.config.ts` sets `esbuild.drop = ['console','debugger']` and
+ *     `terserOptions.compress.drop_console = true` on that mode.
+ *   - `ci.yml` then runs `ci:no-console`, which FAILS the build if `dist`
+ *     contains any `console.<name>(` outside the vendored chunks. CI
+ *     asserts the absence; it is not an inference.
+ *
+ * A real fix has to make the PRODUCERS survive the build — e.g. route
+ * diagnostics through a `debugLog()` helper that is not a bare `console.*`
+ * call — and changing `drop` is a build-policy decision with a CI guard
+ * attached, so it is not this change's to make. Recorded here so the next
+ * reader is not tempted to re-attempt interception.
+ */
+function describeConsoleLogCapture(): DebugBundle['console_logs_capture'] {
+  // Same expression `vite.config.ts` switches `esbuild.drop` on. Read,
+  // not restated: if that condition ever changes, this reads the new one.
+  const producersStripped = import.meta.env.MODE === 'production'
+
+  return {
+    available: !producersStripped,
+    producers_stripped_at_build: producersStripped,
+    ...(producersStripped
+      ? {
+          unavailable_reason: CONSOLE_LOGS_UNAVAILABLE_REASON,
+        }
+      : {}),
   }
 }
 
@@ -2394,27 +2495,39 @@ const USER_TEXT_MAX_CHARS = DEBUG_LLM_RAW_MAX_CHARS
  * user-authored string in a 198 KB bundle was a chip's canned label. A
  * reviewer could read every answer and not one of the questions.
  *
- * The replacement is REDACTION, not omission, which is the distinction
- * that matters for a diagnostic artefact:
- *   - the text is scrubbed by VALUE (`scrubSecretsInString`) because a
- *     free-form message has no key for the structural redactor to match;
+ * The replacement KEEPS the text and removes secret-shaped substrings
+ * from it, rather than deleting it:
+ *   - `scrubSecretsInString` runs over the value, because a free-form
+ *     message has no key for the structural redactor to match;
  *   - it is capped at `USER_TEXT_MAX_CHARS`;
  *   - `message_length` is the length of the ORIGINAL text, so a reader
  *     can still see when a cap engaged;
  *   - it is emitted under `user_text`, never back under `raw_message` —
  *     any consumer keyed on the old name must opt in to the new one.
  *
- * Capture is already environment-gated upstream: bundles are a
- * dev/staging affordance and `shouldCaptureDetailedPayload()` governs the
- * payload capture this sits alongside. Gated again here so a production
- * build cannot emit user prose even if an export path reaches this code.
+ * ⚠ DO NOT READ THIS AS ANONYMISATION, and do not describe it that way
+ * to anyone. `user_text` is USER PROSE WITH SECRET-SHAPED SUBSTRINGS
+ * REMOVED. Measured on realistic prose 2026-09-05: names, email
+ * addresses, phone numbers, monetary figures and card numbers all pass
+ * through VERBATIM, as does `"my password is hunter2"` (the scrubber's
+ * key=value branch requires a `:` or `=` separator). What it removes is
+ * bearer tokens, JWTs and `key=value` credential shapes. That is
+ * defensible for a dev/staging diagnostic artefact — but only while it
+ * is described accurately, which is why this paragraph is here.
+ *
+ * The gate is `shouldCaptureUserAuthoredText()` — the SINGLE admission
+ * for this data class, shared with
+ * `recent_conversation_turns[].user_message`. When it is false the text
+ * is withheld and `user_text_omitted_reason` says so; see that
+ * predicate's own doc for why it is a union and what makes that marker
+ * true of the whole bundle rather than of this one field.
  */
 function redactUserActionDetail(
   detail: Record<string, unknown> | undefined,
 ): Record<string, unknown> | undefined {
   if (!detail) return detail
   const redacted = { ...detail }
-  const captureText = shouldCaptureDetailedPayload()
+  const captureText = shouldCaptureUserAuthoredText()
   let hasRedaction = false
   for (const key of ['raw_message', 'display_text'] as const) {
     if (key in redacted) {
@@ -2433,7 +2546,14 @@ function redactUserActionDetail(
           // Name the omission so a reader can tell "withheld by policy"
           // from "the user typed nothing" — the ambiguity this whole
           // change exists to remove.
-          redacted.user_text_omitted_reason = 'detailed_capture_disabled_in_this_environment'
+          //
+          // The constant is shared with
+          // `recent_conversation_turns.user_message_omitted_reason`: one
+          // gate, one sentence. It names the DATA CLASS, not an
+          // environment-wide policy, because the gate decides only this
+          // class — and because a marker that overstates its own scope is
+          // the defect this rework exists to close.
+          redacted.user_text_omitted_reason = USER_AUTHORED_TEXT_OMITTED_REASON
         }
         hasRedaction = true
       }
@@ -3413,6 +3533,7 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
       issues: data.validation.issues,
     },
     console_logs: getBufferedLogs(),
+    console_logs_capture: describeConsoleLogCapture(),
     diagnostic_checks: data.diagnostics,
     // Track C Step 1 (D-5): always emitted; empty snapshot when nothing was
     // dropped this session. The getter never throws.

@@ -96,7 +96,10 @@ export const DEBUG_BUNDLE_REDACTION_OPTIONS: RedactionOptions = {
 }
 
 /**
- * Scrub secret-shaped substrings from a free-form string.
+ * Remove SECRET-SHAPED substrings from a free-form string.
+ *
+ * ⚠ THIS IS A SECRETS SCRUBBER, NOT A PII SCRUBBER. Read the second list
+ * below before relying on it for anything.
  *
  * `redactPayload` operates on object KEYS. A free-form VALUE — an
  * `Error.cause` snippet, a plain-text response body, a message the user
@@ -104,13 +107,35 @@ export const DEBUG_BUNDLE_REDACTION_OPTIONS: RedactionOptions = {
  * token or JWT through verbatim. This is the substring-level pass that
  * runs before such a value lands in a diagnostic bundle.
  *
- * Patterns (ordered so longer overlapping shapes match first):
- *   - JWT-shape three-segment base64 (`eyJ...`)
- *   - `bearer <token>` (case-insensitive, to whitespace)
- *   - `(api[_-]?key|token|secret|password|authorization)[\s=:]+<value>`
+ * WHAT IT REMOVES (verified by execution against the implementation
+ * below; each has a case in `__tests__/payloadRedaction.scrubber.spec.ts`,
+ * which also pins the non-removals below so this comment cannot drift
+ * back into overstating the function):
+ *   - a JWT-shape three-segment base64 run (`eyJ…`) → `[REDACTED:JWT]`
+ *   - `bearer <token>` (case-insensitive, up to whitespace)
+ *     → `bearer [REDACTED]`
+ *   - `<sensitive-key><separator><value>`, where `<sensitive-key>` is one
+ *     of `api_key` / `api-key` / `apikey` / `token` / `secret` /
+ *     `password` / `authorization` and `<separator>` is a `:` or `=` with
+ *     optional surrounding whitespace → `<sensitive-key>=[REDACTED]`
  *
- * The replacement is a fixed `[REDACTED:<reason>]` so a reader can see a
- * value WAS redacted without inferring what it held.
+ * ⚠ WHAT IT DOES NOT REMOVE — measured on realistic prose, 2026-09-05:
+ *   - the SAME sensitive words in ordinary prose with NO `:` or `=`
+ *     separator. `"My password is hunter2"` passes through VERBATIM: the
+ *     separator is REQUIRED, not optional. (This comment previously
+ *     documented the third pattern as `[\s=:]+`, i.e. whitespace alone
+ *     would separate — that was FALSE of the code beside it, and false in
+ *     the permissive direction, which is the worst way for a comment on a
+ *     security predicate to be wrong.)
+ *   - personal data of every kind: names, email addresses, phone numbers,
+ *     postal addresses, monetary figures and card numbers all pass
+ *     through verbatim. `4111 1111 1111 1111` is not touched.
+ *
+ * The replacements are NOT one fixed token: only the JWT branch emits the
+ * `[REDACTED:<reason>]` form; the other two emit `bearer [REDACTED]` and
+ * `<key>=[REDACTED]`. All three are visible to a reader as a redaction,
+ * which is the property that matters — but do not write a consumer that
+ * greps for a single literal.
  *
  * ⚠ Promoted here from `payload-trace-store.ts` on 2026-09-05, which is
  * what that module's own note invited once a second consumer appeared
@@ -152,6 +177,73 @@ export function shouldCaptureDetailedPayload(): boolean {
     import.meta.env?.VITE_APP_ENV === 'staging'
   )
 }
+
+/**
+ * THE SINGLE ADMISSION for verbatim user prose in a debug bundle.
+ *
+ * Every field that can carry the user's own words — `user_actions[].detail
+ * .user_text` and `recent_conversation_turns[].user_message` — reads THIS
+ * predicate and no other. It exists because those two fields were shipped
+ * behind two DIFFERENT gates, which is this estate's signature defect (one
+ * data class, two answers), and it produced a bundle that could assert an
+ * omission it had not made.
+ *
+ * ## Why it is a UNION rather than the narrower `shouldCaptureDetailedPayload`
+ *
+ * The two gates diverge in BOTH directions, so neither one alone can be
+ * "the" gate:
+ *
+ *   `shouldCaptureDetailedPayload()`   DEV | MODE=staging | VITE_APP_ENV=staging
+ *   payload-trace-store's gate         DEV | VITE_ENABLE_PAYLOAD_INSPECTION=true
+ *                                          | VITE_APP_ENV=development
+ *                                          | VITE_APP_ENV=staging
+ *
+ * `VITE_ENABLE_PAYLOAD_INSPECTION=true` is a documented explicit opt-in
+ * that works in a PRODUCTION build. In that state the trace store captures
+ * request bodies, so the bundle already carries the user's prose — under
+ * `payloads.cee_request` at minimum, which predates any of this. Gating the
+ * user-text fields on the narrower predicate there would have the bundle
+ * emit an omission marker while HOLDING the very thing it says it omitted.
+ *
+ * Taking the union makes the marker true of the artefact as a whole:
+ *
+ *   union TRUE   → the user-text fields are populated; nothing claims an
+ *                  omission. Honest.
+ *   union FALSE  → the trace-store gate is necessarily false too (it is a
+ *                  strict subset of this disjunction), so the store captured
+ *                  nothing, `payloads.cee_request` is null, and there is no
+ *                  user prose anywhere in the bundle. The omission marker is
+ *                  then true of the WHOLE bundle, not just of one field.
+ *
+ * ## Keeping it derived
+ *
+ * The subset relation above is the load-bearing claim, and it is a claim
+ * about ANOTHER module's gate — exactly the hand-maintained mirror this
+ * estate keeps paying for. It is therefore asserted by execution, not by
+ * this comment: `userAuthoredTextAdmission.spec.ts` walks the env matrix,
+ * loads the real `getPayloadInspectionStatus()` under each entry, and REDs
+ * if any state exists where trace capture is enabled and this predicate is
+ * false. Widen the trace-store gate and that spec goes red here.
+ */
+export function shouldCaptureUserAuthoredText(): boolean {
+  return (
+    shouldCaptureDetailedPayload() ||
+    import.meta.env?.VITE_ENABLE_PAYLOAD_INSPECTION === 'true' ||
+    import.meta.env?.VITE_APP_ENV === 'development'
+  )
+}
+
+/**
+ * The reason emitted in place of user prose when
+ * `shouldCaptureUserAuthoredText()` is false. One constant, so the two
+ * emission sites cannot describe the same policy differently.
+ *
+ * Named for the DATA CLASS it governs, not for an environment-wide policy:
+ * the previous string (`detailed_capture_disabled_in_this_environment`)
+ * claimed more than the gate decides.
+ */
+export const USER_AUTHORED_TEXT_OMITTED_REASON =
+  'user_authored_text_capture_disabled_in_this_environment'
 
 // =============================================================================
 // Redaction Functions
