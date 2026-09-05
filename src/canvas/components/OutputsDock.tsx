@@ -3669,7 +3669,19 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
               const bar = surfaceFor(effectiveActiveTab).footerBar
               switch (bar) {
                 case 'reanalyse':
-                  return <ReanalyseBar onReanalyse={handleRunAnalysis} />
+                  return (
+                    <ReanalyseBar
+                      onReanalyse={handleRunAnalysis}
+                      /* ⭐ THE SAME PAIR THE `readiness` ARM BELOW RECEIVES,
+                         from the same two expressions in this file. This arm
+                         went without them, so on a saved example the Analysis
+                         tab's control sat disabled with the reason while this
+                         one sat enabled and silently did nothing — one switch,
+                         one owner, two bars, and only one handed the verdict. */
+                      canRun={canRunAnalysis}
+                      blockedReason={runBlockedTooltip}
+                    />
+                  )
                 case 'readiness':
                   return (
                     <AnalysisReadinessBar
