@@ -114,12 +114,21 @@ export interface EdgeDescription {
  * PARAGRAPH, IN THE THIRD DIRECTION, AND THE FIRST TWO EACH SOUNDED FINISHED.
  * A draft here said the probe that "proved" the absence WAS BLIND. It was not.
  * `#1171`'s sweep carried a contrast control proving it saw rows S45–S49, and
- * it was reading the pushed copies correctly: measured in the docs repo's whole
- * history, `S58` has appeared in exactly ONE commit and ONE path — `593de90b`,
- * 2026-09-03T23:42:23Z, **34 seconds** before `#1171`'s own squash. Until that
- * moment the row lived only in the local `Documents/GitHub` working copy, which
- * is NOT A GIT REPOSITORY. A sighted, correctly-controlled sweep of the pushed
- * copies returned zero because the row was genuinely not in them.
+ * it was reading the pushed copies correctly. **Measured across the three
+ * `CANVAS-BACKLOG.md` paths in `Talchain/olumi-programme-docs`, as at
+ * 2026-09-05** (contrast `S45`, negative control `S900`): `S58` entered at
+ * `593de90b`, 2026-09-03T23:42:23Z — **34 seconds** before `#1171`'s own
+ * squash. Until that moment the row lived only in the local
+ * `Documents/GitHub` working copy, which is NOT A GIT REPOSITORY. A sighted,
+ * correctly-controlled sweep of the pushed copies returned zero because the
+ * row was genuinely not in them.
+ *
+ * ⚠ THAT SENTENCE IS SCOPED ON PURPOSE, AND AN EARLIER DRAFT OF IT WAS NOT.
+ * It read "`S58` has appeared in exactly ONE commit and ONE path" — a
+ * repo-wide count, which was **already false when it was written** (a session
+ * note on another branch mentions the row) and which drifts every time anyone
+ * writes the string. Naming the paths searched and the date is what the lesson
+ * below actually demands; a bare count names neither.
  *
  * ⭐⭐ SO THE DEFECT WAS SCOPE, NOT BLINDNESS (CLAUDE.md trap 20): "absent from
  * the pushed register" was recorded as "NOT ROWED ANYWHERE". And the lesson
