@@ -124,12 +124,21 @@ export interface EdgeDescription {
  * row was genuinely not in them.
  *
  * ⚠ THAT SENTENCE IS SCOPED ON PURPOSE. An earlier draft made the same claim
- * as a bare repo-wide count. The count was CORRECT when measured — a reviewer
- * re-derived it with token boundaries and got 1, against a contrast of 4 for
- * `S45` and 0 for a negative control — and it went stale within MINUTES,
- * because the review that checked it wrote the second occurrence. A count with
- * no date is a claim that decays without telling anyone; naming the paths and
- * the moment is what the lesson below actually demands.
+ * as a bare repo-wide count. That count was CORRECT when measured — it was
+ * re-derived independently with token boundaries, its same-family contrast
+ * control fired and its negative control read zero — and it went stale
+ * **within minutes**, because the review that checked it wrote the second
+ * occurrence. A count with no scope and no date is a claim that decays without
+ * telling anyone.
+ *
+ * ⚠ AND THE CONTRAST FIGURE IS DELIBERATELY NOT QUOTED HERE. Three independent
+ * measurements of it returned three different numbers — because one counted
+ * commits repo-wide, one counted files at `origin/main`, and one was scoped to
+ * a single path in a blob-filtered clone where the pickaxe is unreliable. All
+ * three were honest; none was comparable. What a contrast control has to
+ * establish is that it FIRED while the negative control did not, and that
+ * cannot drift. The number can, and this paragraph is about numbers that
+ * drift.
  *
  * ⭐⭐ SO THE DEFECT WAS SCOPE, NOT BLINDNESS (CLAUDE.md trap 20): "absent from
  * the pushed register" was recorded as "NOT ROWED ANYWHERE". And the lesson
