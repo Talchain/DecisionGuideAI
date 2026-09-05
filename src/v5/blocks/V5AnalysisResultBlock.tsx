@@ -58,6 +58,7 @@ import {
 import { useCanvasNodeLabels } from './useCanvasLabels'
 import { resolveCanvasLabel } from '../../canvas/domain/canvasLabels'
 import { deriveDecisionVerdict } from '../../lib/decisionVerdict'
+import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../../canvas/hooks/useAnalysisReady'
 import { isRecord } from '../../lib/guards'
 import { formatProbabilityWithResolution } from '../../utils/formatPercent'
 import { calibrateUncertaintyCopy } from '../../components/results/utils/uncertaintyCalibration'
@@ -318,8 +319,23 @@ function V5AnalysisResultBlockImpl({
   // So the verdict is wired in explicitly rather than pinned as equivalent.
   // `deriveDecisionVerdict` is the one module entitled to answer WHETHER; it
   // is quoted, never re-derived, and `resolveLeaderKeys` keeps answering WHO.
+  // ⭐ AND *WHETHER ANYONE LEADS* IS STILL NOT *WHETHER WE MAY SAY SO*.
+  //
+  // The paragraph above closed Q2 — did THIS RESULT separate the arms? It left
+  // Q1 open: does the MODEL license a comparative-leader claim at all
+  // (`analysis_ready.analysis_admission.permitted_analysis_mode`)? On a run
+  // that separated cleanly but was admitted only at `exploratory`, this card
+  // hoisted an option, tagged it `data-leader` and gave it the heavier border
+  // while the results panel — reading the SAME two questions, composed into
+  // `leaderDesignationPermitted` — withheld every designation on the same run.
+  //
+  // `licensesComparativeLeaderClaim` is imported, never re-spelled: the results
+  // panel imports the same function from the same module. Its absence arm is
+  // `true`, so a pre-admission CEE leaves this card byte-for-byte as it was and
+  // the two services stay deploy-order independent.
+  const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(useAnalysisAdmission())
   const verdict = deriveDecisionVerdict(buildV5VerdictReportLike(block))
-  const leaderKeys = verdict.hasLeadingOption
+  const leaderKeys = verdict.hasLeadingOption && modelLicensesComparativeClaim
     ? resolveLeaderKeys(block.enrichment, block.leading_option_id)
     : new Set<string>()
 

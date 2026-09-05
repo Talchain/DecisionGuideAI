@@ -30,6 +30,7 @@ import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../../components/results/uti
 import { NOT_COMPUTED_BADGE, notComputedReasonCopy } from '../../components/results/utils/notAnalysedCopy'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
+import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/useAnalysisReady'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
 
 /** Truncate text at word boundary to avoid mid-word cuts. */
@@ -421,11 +422,38 @@ export const OptionNode = memo((props: NodeProps) => {
     })
   }, [nodes, resultsReport])
 
-  /** True only when this node is the leader AND a leading option exists at all. */
+  // Q1 OF TWO — THE MODEL'S LICENCE. "Does the model, as CEE admitted it THIS
+  // TURN, license a comparative-leader claim at all?" A property of the GRAPH,
+  // decided before the run: strong separation between two machine-invented
+  // estimates is a perfectly good run and still not a licence to crown.
+  //
+  // ⚠ THE CANVAS ASKED ONLY Q2 UNTIL NOW, AND THE RESULTS PANEL HAS ASKED BOTH
+  // SINCE ROADMAP 1.267. `useResultsSectionData` composes exactly these two and
+  // publishes `leaderDesignationPermitted`; every designation site on the panel
+  // reads it, and this file read `verdict.hasLeadingOption` alone. So a run CEE
+  // admitted at `exploratory` put a crown on a card inches from a panel that
+  // was withholding every designation on the same run.
+  //
+  // ONE READER, IMPORTED — never re-spelled. `licensesComparativeLeaderClaim`
+  // lives in `hooks/useAnalysisReady` and the results panel imports it from
+  // there too. A second local expression of the same question is how two
+  // authorities drift apart.
+  //
+  // ABSENCE => OLDER PRODUCER => EXACTLY TODAY'S BEHAVIOUR. Q1's absence arm is
+  // `true` and Q2's is `false`, and they are opposite ON PURPOSE — a shared
+  // default would blank the canvas on every legacy payload, or license a claim
+  // on every one. Neither term is folded into the other's default.
+  const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(useAnalysisAdmission())
+
+  /**
+   * True only when this node is the leader, a leading option exists at all, AND
+   * the model was admitted to name one.
+   */
   const isRecommended = useMemo(() => {
     if (!displayMetadata.isResultsMode || displayMetadata.winRate === null) return false
+    if (!modelLicensesComparativeClaim) return false
     return verdict.hasLeadingOption && verdict.leaderId === props.id
-  }, [displayMetadata.isResultsMode, displayMetadata.winRate, verdict, props.id])
+  }, [displayMetadata.isResultsMode, displayMetadata.winRate, modelLicensesComparativeClaim, verdict, props.id])
 
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
   // UI-SEM-082 (Lane 4): the "chance of target" badge is a goal-fit claim, so it
@@ -467,6 +495,10 @@ export const OptionNode = memo((props: NodeProps) => {
     // close race fires it. Found while verifying the "Behind:" line at the
     // bytes rather than dispatched, and gated here as defence in depth.
     if (!verdict.hasLeadingOption) return null
+    // Q1, ON ITS OWN LINE BESIDE Q2. "Within N points of the leading option" is
+    // a distance to a leader, so a model CEE did not admit to naming one on
+    // cannot carry it either — the same claim as the crown, in measured form.
+    if (!modelLicensesComparativeClaim) return null
     // SINGLE VERDICT: `isRecommended` is now false for the front-runner too
     // when no leading option exists (a tied run). Without this guard the
     // front-runner would compute a zero gap against itself and render
@@ -522,7 +554,7 @@ export const OptionNode = memo((props: NodeProps) => {
     // early return (within-0.0001 tolerance), but rounding can still produce
     // 0 from a small positive gap like 0.004.
     return Math.max(1, Math.round(gap * 100))
-  }, [isPostAnalysis, isRecommended, verdict, resultsReport, props.id, displayMetadata.winComputationFailed])
+  }, [isPostAnalysis, isRecommended, modelLicensesComparativeClaim, verdict, resultsReport, props.id, displayMetadata.winComputationFailed])
 
   const allInterventionChips = useMemo<InterventionChip[]>(() => {
     // Primary: ceeAnalysisReady.options[optionId].interventions
@@ -980,6 +1012,15 @@ export const OptionNode = memo((props: NodeProps) => {
     // boolean computed in this component, never an optional prop, so it
     // carries none of the omitted-input risk that made #491 choose ordering.
     if (!verdict.hasLeadingOption) return null
+    // ⭐ Q1, AND WITHOUT IT GATING THE CROWN ALONE WOULD MAKE THIS WORSE.
+    // `isRecommended` now also answers Q1, so on a model CEE did not admit for
+    // a comparative claim NO option is the leader — and the only gate this line
+    // ever had (`!isRecommended`) is then satisfied by every option, including
+    // the front-runner. That is precisely the 30-vs-20 measurement recorded in
+    // `residualComparative.optionNode.spec.ts`: everything behind, nothing
+    // ahead. Suppressing the crown without suppressing its inverse does not
+    // withhold the claim, it inverts it.
+    if (!modelLicensesComparativeClaim) return null
     const report = resultsReport as any
     const myReason = computeBehindReason(props.id, isBaselineOption, report, ceeAnalysisReady, nodes)
     if (!myReason) return null
@@ -1005,7 +1046,7 @@ export const OptionNode = memo((props: NodeProps) => {
       return computeBehindReason(n.id, siblingIsBaseline, report, ceeAnalysisReady, nodes) === myReason
     })
     return hasDuplicate ? null : myReason
-  }, [isPostAnalysis, isRecommended, verdict, isBaselineOption, resultsReport, ceeAnalysisReady, props.id, nodes, displayMetadata.winComputationFailed])
+  }, [isPostAnalysis, isRecommended, modelLicensesComparativeClaim, verdict, isBaselineOption, resultsReport, ceeAnalysisReady, props.id, nodes, displayMetadata.winComputationFailed])
 
   const handleWinsViaClick = useCallback(() => {
     if (!winsVia) return
