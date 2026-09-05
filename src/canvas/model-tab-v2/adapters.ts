@@ -321,11 +321,38 @@ function relationshipLabel(
    * an id-shaped edge label falls back to the endpoint pair — which reads
    * better than the id whether or not the case occurs.
    */
+  return relationshipIdentity(data, sourceId, targetId, labels).label
+}
+
+/**
+ * The same identity, with its two halves still separable.
+ *
+ * ⭐ WHY THIS EXISTS AS A SECOND FUNCTION RATHER THAN A SPLIT AT THE RENDERER.
+ * Witnessed on deployed `a9c2e050`: three consecutive Relationships rows all
+ * read `Tech Lead Hired...`. They were three edges out of ONE source, so the
+ * only thing telling them apart was the TARGET — and the target sits at the far
+ * end of a single tail-truncating element, which deletes the distinguishing
+ * half first. For a DIRECTED relationship BOTH endpoints are identity; neither
+ * is optional, and a renderer cannot allot space to a half it cannot see.
+ *
+ * ⚠ AND WHY NOT `label.split(RELATIONSHIP_LABEL_SEPARATOR)` AT THE RENDERER:
+ * the first branch below returns the EDGE'S OWN label — an author's sentence,
+ * which has no endpoints. Splitting one that happens to contain an arrow would
+ * invent a structure nobody wrote, and would do it silently. `endpoints` is
+ * therefore set ONLY where a pair genuinely exists, and is `undefined`
+ * otherwise; the two states are different facts, not one with a fallback.
+ */
+export function relationshipIdentity(
+  data: Record<string, unknown> | undefined,
+  sourceId: string,
+  targetId: string,
+  labels: ReadonlyMap<string, string>,
+): { label: string; endpoints?: readonly [string, string] } {
   const own = honestLabel(data?.label)
-  if (own !== null) return own
+  if (own !== null) return { label: own }
   const from = resolveCanvasLabel(sourceId, labels) ?? UNNAMED_ELEMENT_LABEL
   const to = resolveCanvasLabel(targetId, labels) ?? UNNAMED_ELEMENT_LABEL
-  return `${from}${RELATIONSHIP_LABEL_SEPARATOR}${to}`
+  return { label: `${from}${RELATIONSHIP_LABEL_SEPARATOR}${to}`, endpoints: [from, to] }
 }
 
 /** One element's name for a navigation target. Never its identifier. */
@@ -553,7 +580,8 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
       id: edge.id,
       kind: 'relationship',
       group: 'relationships',
-      label: relationshipLabel(data, edge.source, edge.target, nodeLabels),
+      label: relationshipIdentity(data, edge.source, edge.target, nodeLabels).label,
+      labelEndpoints: relationshipIdentity(data, edge.source, edge.target, nodeLabels).endpoints,
       primaryValue: edgeValue(data),
       provenanceSource: typeof data?.weightSource === 'string' ? data.weightSource : undefined,
       attention,
