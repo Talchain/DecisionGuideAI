@@ -24,8 +24,9 @@ import type { CSSProperties } from 'react'
  *     of the triage line shipped cut.
  *
  * So the class that keeps reopening is not an unknown rule. It is a known rule
- * with no shared authority and no gate: enforced correctly at most sites,
- * missed at the two that had no reason to know. This module is the authority;
+ * with no shared authority and no gate: enforced correctly at most sites, and
+ * missed at three that had no reason to know — two fixed alongside this file,
+ * the third reported in the gate's docblock. This module is the authority;
  * `__tests__/valueNeverTruncates.spec.ts` is the gate.
  *
  * ⭐ THE OPERATIVE TEST, which decides badges nobody has written yet:
