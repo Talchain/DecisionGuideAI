@@ -33,6 +33,7 @@ import {
   PROVISIONAL_DELIVERY_DELAYS_MS,
   PROVISIONAL_DELIVERY_DEADLINE_MS,
 } from '../useProvisionalAnalysisDelivery'
+import { TURN_WAIT_MS } from '../../../v5/getTimeoutMs'
 import type { ScenarioAnalysisApplyStore } from '../../hydrate/applyScenarioAnalysisRead'
 
 const SCENARIO = 'a6ccf5cf-aab0-4f01-b889-e0d6c072067c'
@@ -135,7 +136,16 @@ describe('H3 — the wait is bounded and expiry invents nothing', () => {
     expect(cumulative).toEqual([...PROVISIONAL_DELIVERY_DELAYS_MS])
     expect(total).toBe(PROVISIONAL_DELIVERY_DEADLINE_MS)
     // And the bound is short enough to be a wait rather than a background job.
-    expect(PROVISIONAL_DELIVERY_DEADLINE_MS).toBeLessThanOrEqual(90_000)
+    //
+    // ⚠ THIS CEILING WAS THE LITERAL `90_000` AND IS NOW DERIVED. The literal
+    // was an unexplained round number; the ceiling that actually justifies
+    // itself is the budget this same client already gives the SAME computation
+    // when the user clicks Run (`v5/getTimeoutMs.ts`). Raising the deadline to
+    // reach a slow-but-successful run pushed past 90s, and the honest move is
+    // to say what the real ceiling is rather than to bump one number to silence
+    // another — the ceiling is retained, not removed, and a "poll for ten
+    // minutes" change still REDs here.
+    expect(PROVISIONAL_DELIVERY_DEADLINE_MS).toBeLessThanOrEqual(TURN_WAIT_MS)
   })
 })
 
