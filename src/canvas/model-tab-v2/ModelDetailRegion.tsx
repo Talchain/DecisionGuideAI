@@ -184,7 +184,26 @@ export function ModelDetailRegion({
    * the user is looking at.
    */
   const affectsRestatesTheTitle =
+    /*
+     * ⚠ `kind` FIRST, AND IT IS NOT REDUNDANT WITH THE FORMAT TEST. `affects`
+     * is NOT relationship-only: `adapters.ts` gives EVERY node row an affects
+     * list from its outgoing edges. The format test alone already refuses the
+     * node cases a reviewer found ("Churn rate"/"Churn",
+     * "Revenue growth"/"Revenue" — 0 of 5 suppressed), but it refuses them by
+     * ACCIDENT of their wording, and a node whose prose label happened to end
+     * in `→ Something` would slip through. The kind guard makes it
+     * structural rather than fortunate.
+     *
+     * ⚠⚠ AND IT CLOSES A SECOND, WORSE THING. On a NODE row `affects[0].id` is
+     * the EDGE id while its label is the TARGET NODE's name, so the suppressed
+     * branch's "Show X on canvas" would focus the edge, not X — a false
+     * promise in new copy. Node rows can no longer reach that branch at all.
+     */
+    row.kind === 'relationship' &&
     detail !== null &&
+    // A relationship projects exactly one entry, by construction. The check is
+    // defensive: if that ever changes, this branch would render ONE target and
+    // silently drop the rest, so it must keep the list instead of guessing.
     detail.affects.length === 1 &&
     detail.affects[0] !== undefined &&
     row.label.endsWith(`${RELATIONSHIP_LABEL_SEPARATOR}${detail.affects[0].label}`)

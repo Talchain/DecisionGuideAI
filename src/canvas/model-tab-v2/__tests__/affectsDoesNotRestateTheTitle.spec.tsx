@@ -113,6 +113,59 @@ describe('the derived-title case — the repetition goes, the affordance stays',
  * what keeps this from being a four-round problem, and it is why the predicate
  * is allowed to be simple as long as it fails toward KEEPING.
  */
+describe('a NODE row can never be suppressed, whatever its label says', () => {
+  const nodeRow = (label: string): ModelRow => ({
+    ...relationshipRow(label),
+    id: 'f1',
+    kind: 'factor',
+    group: 'factors',
+  })
+
+  /**
+   * ⚠ `affects` IS NOT RELATIONSHIP-ONLY — `adapters.ts` gives every node row
+   * one from its outgoing edges. A reviewer found four realistic node pairs
+   * losing the whole section. The format test alone already refuses them, but
+   * by accident of their wording; these pin the STRUCTURAL refusal, including
+   * a node whose label ends in the separator, which the format test would NOT
+   * have caught.
+   */
+  it.each([
+    ['Churn rate', 'Churn'],
+    ['Revenue growth', 'Revenue'],
+    ['Customer satisfaction score', 'Customer satisfaction'],
+    [`Something${'\u2192'.padStart(2).padEnd(3)}Churn`, 'Churn'],
+  ])('keeps the section for node row %s', (label, target) => {
+    render(
+      <ModelDetailRegion
+        row={nodeRow(label)}
+        detail={detail({ rowId: 'f1', affects: [{ id: 'e_out', label: target }] })}
+        tier="plain"
+      />,
+    )
+    expect(screen.getByText(HEADING)).toBeTruthy()
+    cleanup()
+  })
+})
+
+describe('⚠ the length clause — a surviving mutant, now bound', () => {
+  it('a relationship with MORE than one target keeps the list, losing nothing', () => {
+    // A reviewer demonstrated `affects.length === 1` as a NON-EQUIVALENT
+    // survivor: without it, a multi-target row renders ONE entry and silently
+    // drops the rest. A relationship projects exactly one today, so this is
+    // defensive — but "unreachable today" is why nothing pinned it.
+    render(
+      <ModelDetailRegion
+        row={relationshipRow(`Hit Date${' \u2192 '}Boost Productivity`)}
+        detail={detail({ affects: [TARGET, { id: 'n2', label: 'Revenue' }] })}
+        tier="plain"
+      />,
+    )
+    expect(screen.getByText(HEADING)).toBeTruthy()
+    expect(screen.getByTestId(`model-detail-v2-affects-${TARGET.id}`)).toBeTruthy()
+    expect(screen.getByTestId('model-detail-v2-affects-n2')).toBeTruthy()
+  })
+})
+
 describe('the corpus — both directions, cases not drawn from the implementation', () => {
   /*
    * ⚠ IMPORTED, NOT SPELT. A first draft wrote the separator into this spec as
