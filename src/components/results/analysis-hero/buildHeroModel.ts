@@ -43,6 +43,7 @@
  */
 
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
+import { leaderDesignationPermitted } from '../leaderDesignation'
 import type { FlipThreshold, OptionResult } from '../types'
 import { formatThreshold } from '../RangeVisualization'
 import { stripEncodingNotation } from '../utils/cleanFactorLabel'
@@ -276,7 +277,52 @@ export function buildHeroModel(
   // A caller supplying NO verdict is a legacy fixture, not a withheld run, so
   // it keeps byte-identical behaviour. The live path always supplies one
   // (`useResultsSectionData` derives it unconditionally).
-  const designationsWithheld = recommendation.verdict != null && !recommendation.verdict.hasLeadingOption
+  // READS THE COMPOSED ANSWER, NOT ONE CONJUNCT. `verdict.hasLeadingOption`
+  // answers only "did this result separate the arms"; designating a leader also
+  // requires the MODEL to license a comparative claim
+  // (`permitted_analysis_mode === 'comparative_leader'`). Reading the verdict
+  // here would name a leader on a model whose confidence-bearing numbers Olumi
+  // invented rather than the user stating.
+  //
+  // ⚠ THROUGH THE SHARED READER, NOT THE RAW FIELD. An earlier version of this
+  // line read `recommendation.leaderDesignationPermitted === false` directly and
+  // BROKE WITHHOLDING: the field is published by `useResultsSectionData`, so a
+  // recommendation that does not come through that hook has it `undefined`, and
+  // `undefined === false` is `false` — the hero stopped withholding and started
+  // naming a leader. 35 tests across 10 files went red, and the reader's own
+  // doc comment had already described this exact failure.
+  //
+  // The reader's `??` fallback is what preserves the historic behaviour: the
+  // composed answer when the hook produced one, else `verdict.hasLeadingOption`.
+  // `=== false` then keeps a caller with NO verdict at today's behaviour.
+  /*
+   * ⚠⚠ `!== true` AND VERDICT-GATED — NOT `=== false`. A truth table over
+   * `composed × verdict × hasLeadingOption` found the strict-equality form
+   * DIVERGING FROM THE PREDICATE IT REPLACED IN TWO REACHABLE CELLS, and one
+   * of them fails OPEN:
+   *
+   *   composed absent · verdict present · hasLeadingOption UNDEFINED
+   *     old: withhold      new: DO NOT WITHHOLD      ← a leader claim on a run
+   *                                                    where nothing licenses one
+   *   composed absent · verdict NULL
+   *     old: no claim      new: withhold             ← a withholding notice on a
+   *                                                    run that never happened
+   *
+   * The first is the same `undefined` this fix exists to handle: the composed
+   * field is absent for any recommendation that did not come through
+   * `useResultsSectionData`, and `undefined === false` is `false`, which stops
+   * the withholding. Replacing one `undefined ===` bug with its mirror is not
+   * a fix. `!== true` fails CLOSED — unknown withholds — and the `verdict`
+   * guard keeps "no run" meaning no claim in either direction rather than
+   * asserting one.
+   *
+   * The two cells where `=== false` looked wrong for `composed === true` are
+   * UNREACHABLE: `useResultsSectionData.ts:2243` computes
+   * `leaderDesignationPermitted = modelLicensesComparativeClaim && resultSeparatesArms`
+   * and `resultSeparatesArms IS verdict.hasLeadingOption`, so `composed === true`
+   * implies Q2 true. Named here so the next reader does not re-derive it.
+   */
+  const designationsWithheld = recommendation.verdict != null && leaderDesignationPermitted(recommendation) !== true
 
   // Present rows in the SHARED option display order (win probability when
   // complete, else expected — sortOptionsForDisplay) so hero numbering always
