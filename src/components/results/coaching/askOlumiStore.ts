@@ -42,6 +42,12 @@ export interface AskOlumiPayload {
    * (Strengthen recommendations) build it with
    * `attentionNoteForRecommendation`; the rest pass nothing and keep exactly
    * the camera move they had, the same shape `intent` above uses.
+   *
+   * Derived at `origin/staging`, 5 Sep: 28 product call sites across 14 files
+   * (contrast: a fabricated symbol reads 0). THREE of them carry a
+   * recommendation and now pass a note. The count is a floor measured at one
+   * SHA, not an inventory anyone must keep in step — the field is optional
+   * precisely so a new opener needs no change here.
    */
   attentionNote?: OlumiAttentionNote | null
 }

@@ -327,6 +327,10 @@ export function StrengthenTheReasoning({
       label: rec.action.label,
       ...(rec.targetId ? { targetId: rec.targetId } : {}),
       ...(rec.action.parameters ? { parameters: rec.action.parameters } : {}),
+      // The finding travels with the user, exactly as the focus route below
+      // (`:727`) already sends it. Without this the SAME recommendation reaches
+      // the canvas explained through one door and bare through the other.
+      attentionNote: attentionNoteForRecommendation(rec),
     })
   }, [showToast])
 
@@ -632,6 +636,10 @@ export function StrengthenTheReasoning({
                             ...(method.intent ? { intent: method.intent } : {}),
                             source: 'chip',
                             ...(rec.targetId ? { targetId: rec.targetId } : {}),
+                            // Same reason as the ask route above: the context
+                            // IS the finding, so the finding should still be
+                            // the finding when the user reaches the element.
+                            attentionNote: attentionNoteForRecommendation(rec),
                           })
                         }
                         className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
