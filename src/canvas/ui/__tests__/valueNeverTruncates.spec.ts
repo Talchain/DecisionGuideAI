@@ -9,8 +9,15 @@ import { PROTECTED_VALUE_CLASS, PROTECTED_VALUE_STYLE, TRUNCATING_LABEL_STYLE } 
  * ⭐⭐⭐ A VALUE MUST NEVER TRUNCATE. THIS IS THE GATE FOR `../truncation.ts`.
  *
  * The rule was ratified twice (see `../truncation.ts`) and enforced at roughly a
- * dozen sites by hand — then missed at two, because a hand-enforced rule is only as
- * good as whoever last wrote a badge. The deployed edge badge painted
+ * dozen sites by hand — then missed at three, because a hand-enforced rule is
+ * only as good as whoever last wrote a badge. Two are fixed with this guard
+ * (`edges/StyledEdge.tsx`'s fragility badge, `hero/InlineField.tsx`); the third
+ * is reported, not fixed — `StyledEdge`'s NUMERIC-mode label renders
+ * `w −0.60 • b 85%`, two values, inside the same truncating span, and its only
+ * correct remedy is to let the box grow, which collides with a `maxWidth`
+ * derived from the collision resolver's cleared box and pinned by a spec. It
+ * needs a pre-existing `canvas.edge-labels-mode` localStorage key to reach:
+ * `EdgeLabelToggle` has no mount site. The deployed edge badge painted
  * `Sensitive · 5…`, with the digits of the flip risk eaten by the ellipsis. A
  * cut-off number is worse than an absent one: the reader does not see a gap,
  * they see the wrong magnitude.
@@ -55,13 +62,21 @@ import { PROTECTED_VALUE_CLASS, PROTECTED_VALUE_STYLE, TRUNCATING_LABEL_STYLE } 
  * `truncate`. It returns "Created 3 days ago" — a relative TIME phrase, not a
  * magnitude the reader acts on, so it is a false positive of the `format[A-Z]`
  * heuristic and adjudicating it is the price of widening this scope. The name
- * rule flags two more, both under `src/components/results/**` and both real:
- * `SuccessTargetRow.tsx:86` renders `{item.label} {operator} {item.threshold}`
- * in one `flex-1 truncate` span — an operator-plus-operand constraint whose
- * BOUND is last and therefore cut first — and `DecisionOverviewCard.tsx:666`
- * puts `unsetCount` first inside a truncating focusable button, which is
- * acceptable. Those are another lane's files; they are named here so a widening
+ * rule flags two more, both under `src/components/results/**`, and they
+ * adjudicate DIFFERENTLY: `SuccessTargetRow.tsx:86` is a REAL defect — one
+ * `flex-1 truncate` span carrying `{item.label} {operator} {item.threshold}`,
+ * an operator-plus-operand constraint whose BOUND is last and therefore cut
+ * first — whereas `DecisionOverviewCard.tsx:666` is ACCEPTABLE, because
+ * `unsetCount` comes FIRST (an end-cutting ellipsis reaches the suffix, not the
+ * digits) on a focusable `<button>` whose `title` and `aria-label` restate the
+ * count. Those are another lane's files; they are named here so a widening
  * finds them already adjudicated rather than rediscovering them.
+ *
+ * Measured with this same scanner over the excluded subtrees, each with a
+ * non-zero truncating count so no directory was read blind:
+ * `canvas/components/model-tab` 6 truncating / 0 findings · `canvas/model-tab-v2`
+ * 9 / 0 · `canvas/ui/inspector-v2` 10 / 0 · `canvas/conversation` 1 / 0 ·
+ * `components/results` 32 / 2 · `pages` 3 / 1.
  */
 
 const CANVAS_DIR = path.resolve(__dirname, '..', '..')
