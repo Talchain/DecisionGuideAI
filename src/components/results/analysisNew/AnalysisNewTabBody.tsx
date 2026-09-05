@@ -48,6 +48,7 @@ import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { openAskOlumi } from '../coaching/askOlumiStore'
+import { attentionNoteForRecommendation } from '../strengthen/recommendationAttention'
 import { openDecisionRecord } from '../modals'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
@@ -330,6 +331,12 @@ export function AnalysisNewTabBody({
       draft: rec.action.prompt ?? rec.tryThis ?? rec.title,
       label: rec.action.label,
       ...(rec.targetId ? { targetId: rec.targetId } : {}),
+      // The FOURTH rec-bearing ask route, and the one an earlier pass of this
+      // change missed while claiming the class was closed. Same reason as the
+      // other three: `rec.targetId` makes the drawer's "Focus on canvas" button
+      // render, so without this the finding is left behind at exactly the
+      // moment the user asks to see the thing it is about.
+      attentionNote: attentionNoteForRecommendation(rec),
     })
   }
 

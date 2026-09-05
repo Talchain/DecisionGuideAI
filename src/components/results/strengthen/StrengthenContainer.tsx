@@ -255,6 +255,12 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
             targetId: rec.targetId ?? undefined,
             parameters: rec.action.parameters,
             source: 'chip',
+            // ⚠ FOUND BY THE DERIVED GUARD, NOT BY READING. Three rounds of
+            // hand-enumeration missed this route — in the very file the first
+            // round "fixed" — because it is a FALLBACK arm, only taken when
+            // the user lacks server graph authority. That is exactly the kind
+            // of branch a reader skims and a scan does not.
+            attentionNote: attentionNoteForRecommendation(rec),
           })
         }
         ok = true
@@ -311,6 +317,22 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
       targetId: rec.targetId ?? undefined,
       parameters: rec.action.parameters,
       source: 'chip',
+      /*
+       * ⭐ THE FINDING TRAVELS ONE HOP FURTHER THAN IT USED TO.
+       *
+       * The two `canvas-focus` routes above already hold the element under
+       * attention with this note. The ask route did not: it handed the drawer
+       * the why-line as prose, and if the user then pressed "Focus on canvas"
+       * the camera moved and the finding stayed behind in the drawer. Same
+       * recommendation, same producer text, two different outcomes depending
+       * on which door was taken.
+       *
+       * Built HERE because this is where the producer data is. The drawer
+       * receives no `helpType` and so cannot derive the `move` honestly;
+       * `attentionNoteForRecommendation` returns null when there is nothing
+       * honest to say, and a null note is exactly the old behaviour.
+       */
+      attentionNote: attentionNoteForRecommendation(rec),
     })
   }
 
