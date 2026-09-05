@@ -471,8 +471,45 @@ describe('canvas metric-noun vocabulary (Paul, 31 Aug 2026)', () => {
     // The nouns must reach the cards BY REFERENCE. A card that imports the
     // register and then hand-types the word beside it would pass the ban above
     // (the word is not retired) while re-opening the exact drift this closes.
-    const cards = sources.filter((s) => /\/(Decision|Option|Goal|Outcome|Risk|Factor)Node\.tsx$/.test(s.file))
-    expect(cards.length, 'no card sources matched — the filename pattern drifted').toBeGreaterThan(3)
+    // ⚠⚠ WIDENED AGAIN (review of #1209 round 3). The previous widening fixed
+    // the PATTERN and left the FILE SCOPE alone: this filter admitted only the
+    // six `*Node.tsx` components, so `shared/lodMetricLine.ts` — which renders
+    // the very same captions at low zoom — was invisible to a test named "the
+    // register is the ONLY place the live nouns are spelled". It hand-typed
+    // `Influence` for as long as the guard existed, and a round of #1209 fixed
+    // the neighbouring `Ahead` literal in that same file with nothing to
+    // notice the sibling. Twice now this guard's NAME has been wider than its
+    // reach, in the two different dimensions a scope has.
+    //
+    // ⚠⚠⚠ AND "TWO DIMENSIONS" WAS ITSELF WRONG — THERE IS A THIRD, AND IT IS
+    // STILL OPEN (review of #1209 round 4, measured by injection). A scope has
+    // FILES, PATTERN and FORM, and `LIVE` below still recognises only two
+    // spellings: `label="Noun"` and `` `Noun ${` ``. It does NOT see
+    //
+    //     <span …>Influence: {Math.round(v * 100)}%</span>     JSX text + colon
+    //     <span …>Influence</span>                             bare JSX caption
+    //     `Influence: ${pct}%`                                 colon in a literal
+    //
+    // Both of the first two are LIVE today, outside this SCOPE:
+    // `conversation/InlineBlocks.tsx` and `components/model-tab/FactorsSection.tsx`
+    // (the bare caption and the `label=` twin on adjacent lines). So the honest
+    // claim is narrow: this guard closes the TEMPLATE and ATTRIBUTE forms inside
+    // `src/canvas/nodes`. It does not close the noun across the canvas surface.
+    //
+    // ⭐ NOT WIDENED HERE ON PURPOSE. Covering those needs a wider SCOPE
+    // (`src/canvas`) and a wider pattern, and would then demand edits on the
+    // Model tab and the conversation panel — two surfaces this lane does not
+    // own. Rowed rather than smuggled into a canvas-caption PR. What is fixed
+    // here is that the guard no longer LOOKS like it covers them: the sentence
+    // above now states which forms and which tree.
+
+    //
+    // Every non-test source under SCOPE is now swept. Derived before widening,
+    // not after: across all 42 files the widened sweep returns exactly ONE
+    // offender, the `lodMetricLine.ts` line fixed alongside this change — so
+    // this closes a real gap rather than absorbing a backlog.
+    const cards = sources
+    expect(cards.length, 'no card sources matched — the walk or SCOPE drifted').toBeGreaterThan(3)
 
     // ⚠ WIDENED (review of #1160, S2). This read ONLY `label="…"`, so the
     // template-literal captions `` `Strength ${pct}%` `` in OutcomeNode and
