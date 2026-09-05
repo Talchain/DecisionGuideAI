@@ -5,6 +5,12 @@
  */
 
 import type { NodeTypes } from '@xyflow/react'
+// Node copy is never centred. This rule has to travel with the renderers
+// rather than sit in a stylesheet someone has to remember to import, for the
+// same reason the keyboard scope below is derived rather than listed. See the
+// file's own header for the mechanism (the UA `button { text-align: center }`
+// that no ancestor can override) and for why it carries two selectors.
+import './nodeTextAlign.css'
 import { GoalNode } from './GoalNode'
 import DecisionNode from './DecisionNode'
 import { OptionNode } from './OptionNode'

@@ -144,7 +144,15 @@ export const GhostTierNode = memo((props: NodeProps) => {
           open()
         }
       }}
-      className="rounded-lg cursor-pointer hover:bg-panel-hover transition-colors flex flex-col items-center justify-center gap-1 nodrag nopan"
+      // ⚠ `items-start`, NOT `items-center`, AND THE AXIS IS THE WHOLE REASON.
+      // This is a flex COLUMN, so `items-center` is the HORIZONTAL axis: it
+      // centres the label's whole box, not just the text inside it. Measured
+      // at the shipped 187px door width, the label span shrink-wraps to
+      // ~150px, so `items-center` left ~18.5px of gap on each side and
+      // removing the span's `text-center` alone changed nothing. `justify-*`
+      // is the VERTICAL axis here and `justify-center` stays: it is what keeps
+      // the content vertically centred in a door sized for two lines.
+      className="rounded-lg cursor-pointer hover:bg-panel-hover transition-colors flex flex-col items-start justify-center gap-1 nodrag nopan"
       style={{
         // Matches GhostOptionNode's measured 3:1 non-text contrast outline —
         // the dashes are the only thing marking this affordance's bounds.
@@ -165,7 +173,7 @@ export const GhostTierNode = memo((props: NodeProps) => {
       <Plus className="w-4 h-4 text-text-light" aria-hidden="true" />
       {/* `break-words`: the last-resort rule that stops a single long word
           overflowing the measure horizontally, as node titles already use. */}
-      <span className={`${typography.nodeLabel} text-text-light text-center px-1 break-words`}>{label}</span>
+      <span className={`${typography.nodeLabel} text-text-light px-1 break-words`}>{label}</span>
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0, pointerEvents: 'none' }} />
     </div>
   )
