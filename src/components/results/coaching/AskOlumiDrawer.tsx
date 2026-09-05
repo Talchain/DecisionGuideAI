@@ -48,6 +48,7 @@ export function AskOlumiDrawer() {
   const parameters = useAskOlumiStore((s) => s.parameters)
   const source = useAskOlumiStore((s) => s.source)
   const intent = useAskOlumiStore((s) => s.intent)
+  const attentionNote = useAskOlumiStore((s) => s.attentionNote)
   const setDraft = useAskOlumiStore((s) => s.setDraft)
   const close = useAskOlumiStore((s) => s.close)
 
@@ -144,7 +145,21 @@ export function AskOlumiDrawer() {
 
   const handleFocusCanvas = () => {
     if (!targetId) return
-    const ok = focusModelTarget(targetId)
+    /*
+     * ⭐ THE REASON TRAVELS WITH THE USER. Moving the camera is not an
+     * explanation: without the note the user arrives at the element with the
+     * why-line left behind in the drawer they just navigated away from. With
+     * it, the element is held under attention and the sentence is anchored
+     * beside the thing it is about.
+     *
+     * ⚠ THE TOAST STAYS, AND IT IS NOT REDUNDANT BELT-AND-BRACES.
+     * `requestOlumiAttention` is FAIL-CLOSED: if the targets have gone stale
+     * it writes nothing and no card appears, while this call still returns
+     * true. So a passed note does NOT imply a rendered card, and suppressing
+     * the toast on that assumption would trade a duplicated message for total
+     * silence — the dead-button class this drawer's own header exists to end.
+     */
+    const ok = focusModelTarget(targetId, attentionNote)
     showToast(
       ok
         ? 'Focused the relevant model elements on the canvas'

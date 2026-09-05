@@ -11,6 +11,8 @@
  */
 import { create } from 'zustand'
 
+import type { OlumiAttentionNote } from '../../../canvas/utils/olumiAttention'
+
 export interface AskOlumiPayload {
   /** Drawer context line, e.g. the method description or classification hint */
   context: string
@@ -30,6 +32,18 @@ export interface AskOlumiPayload {
    * most asks; the wire gate fails closed, so absence changes nothing.
    */
   intent?: string
+  /**
+   * What Olumi has to SAY beside the element, carried to "Focus on canvas".
+   *
+   * ⚠ BUILT BY THE OPENER, NEVER BY THE DRAWER. A note needs a `move` from the
+   * closed four-move grammar, and the drawer never receives `helpType` — so it
+   * cannot derive one honestly, and composing a note here would be the UI
+   * putting words in the producer's mouth. Openers that hold producer data
+   * (Strengthen recommendations) build it with
+   * `attentionNoteForRecommendation`; the rest pass nothing and keep exactly
+   * the camera move they had, the same shape `intent` above uses.
+   */
+  attentionNote?: OlumiAttentionNote | null
 }
 
 interface AskOlumiState {
@@ -41,6 +55,7 @@ interface AskOlumiState {
   parameters: Record<string, unknown> | undefined
   source: string
   intent: string | undefined
+  attentionNote: OlumiAttentionNote | null
   openAsk: (payload: AskOlumiPayload) => void
   setDraft: (draft: string) => void
   close: () => void
@@ -55,6 +70,7 @@ export const useAskOlumiStore = create<AskOlumiState>((set) => ({
   parameters: undefined,
   source: 'chip',
   intent: undefined,
+  attentionNote: null,
   openAsk: (payload) =>
     set({
       isOpen: true,
@@ -66,6 +82,9 @@ export const useAskOlumiStore = create<AskOlumiState>((set) => ({
       source: payload.source ?? 'chip',
       // Absent stays absent — never defaulted to a routable intent.
       intent: payload.intent,
+      // Absent stays absent here too: `focusModelTarget` treats a null note as
+      // "focus without a card", which is the pre-existing behaviour.
+      attentionNote: payload.attentionNote ?? null,
     }),
   setDraft: (draft) => set({ draft }),
   close: () => set({ isOpen: false }),
