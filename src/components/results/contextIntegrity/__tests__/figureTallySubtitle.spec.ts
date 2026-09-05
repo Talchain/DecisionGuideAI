@@ -84,6 +84,31 @@ describe('figureTallySubtitle — properties over the whole quantity domain', ()
     expect(bad, `"N of 0 figures" is not a sentence about anything:\n${bad.join('\n')}`).toEqual([])
   })
 
+  /**
+   * ⭐⭐ THE INVARIANT THAT MAKES "N of M" A SENTENCE AT ALL — and its absence is
+   * the one the 400-cell enumeration MISSED.
+   *
+   * Round 6 deleted the `notYet <= tally.total` guard and this file stayed
+   * **19/19 green**, and the component spec **58/58 green**, while the module
+   * emitted `"2 of 1 figure you mentioned aren't in the model yet"` at
+   * `{total: 1, absent: 2}` — a cell INSIDE this very box, and one
+   * `parseNotModelled` admits.
+   *
+   * ⚠ THE LESSON IS NOT "ADD A CASE". Walking every cell is worthless if the
+   * PROPERTIES asserted over them are incomplete: the enumeration was complete
+   * and the invariants were not. `never prints a denominator of zero` is only
+   * the `M = 0` corner of this rule, and I mistook the corner for the rule.
+   */
+  it('a numerator never exceeds its denominator — "N of M" with N > M is not a sentence', () => {
+    const bad: string[] = []
+    for (const t of domain()) {
+      const s = figureTallySubtitle(t)
+      const m = /^(\d+) of (\d+) /.exec(s)
+      if (m && Number(m[1]) > Number(m[2])) bad.push(`${JSON.stringify(t)} → ${s}`)
+    }
+    expect(bad, `numerator exceeds denominator:\n${bad.join('\n')}`).toEqual([])
+  })
+
   it('never says there is nothing to track while any count is non-zero', () => {
     const bad = domain()
       .filter(
