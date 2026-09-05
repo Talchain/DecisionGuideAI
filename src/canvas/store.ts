@@ -38,6 +38,7 @@ import type { AnalysisRefusalNotice } from './store/analysisRefusalNotice'
 import {
   captureStructuralDelete,
   mergeStructuralDeleteIntents,
+  STRUCTURAL_DELETE_STOOD_DOWN_NOTICE,
   type StructuralDeleteIntent,
 } from './mutations/structuralDelete'
 import {
@@ -2195,19 +2196,14 @@ function recordStructuralDeleteIntent(
           window.dispatchEvent(new CustomEvent('topbar:show-toast', {
             detail: {
               /*
-               * ⚠ THE COPY NAMES THE REAL REASON, NOT A CONTROL THAT DOES NOT
-               * EXIST. This read "Sync the shared model before deleting" —
-               * and there is no Sync affordance anywhere in the product, so it
-               * asked the user to perform an action they cannot perform, which
-               * is worse than saying less.
-               *
-               * The actual precondition is `no_server_graph_hash`: this client
-               * has not yet seen the server's current CAS base, so a delete
-               * cannot be addressed to it. That resolves on its own when the
-               * next authoritative graph arrives, so the copy states the
-               * SITUATION and does not prescribe a step or promise a moment.
+               * The sentence lives beside its siblings in
+               * `structuralDelete.ts` — see
+               * {@link STRUCTURAL_DELETE_STOOD_DOWN_NOTICE} for why it names a
+               * message as the way out, why it is NOT a member of
+               * `STRUCTURAL_DELETE_NOTICE`, and why it must not borrow the
+               * add/rename "I'll save it with your next message" promise.
                */
-              message: "Nothing was removed \u2014 Olumi hasn't confirmed the shared model's current state yet.",
+              message: STRUCTURAL_DELETE_STOOD_DOWN_NOTICE,
               level: 'warning',
             },
           }))

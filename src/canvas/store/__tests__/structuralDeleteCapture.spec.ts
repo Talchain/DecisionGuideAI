@@ -13,7 +13,33 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import type { Edge, Node } from '@xyflow/react'
 
 import { useCanvasStore } from '../../store'
+import { STRUCTURAL_DELETE_STOOD_DOWN_NOTICE } from '../../mutations/structuralDelete'
 import type { EdgeData } from '../../domain/edges'
+
+/**
+ * ⭐ EVERY ARM CAPTURES TOASTS, INCLUDING THE ARMS THAT MUST EMIT NONE.
+ *
+ * The stand-down toast used to be captured only where it was EXPECTED. That
+ * made the two negative arms below — a local scratch graph, and a
+ * producer-driven removal — structurally unable to observe it: hoisting the
+ * dispatch out of the `reason === 'no_server_graph_hash'` check, or out of the
+ * `ownsServerGraph` check, left both GREEN while the product asserted a false
+ * cause to the user. A guard that only ever looks where the thing is supposed
+ * to be cannot notice it somewhere else.
+ */
+function toastsDuring(act: () => void): string[] {
+  const messages: string[] = []
+  const onToast = (event: Event) => {
+    messages.push((event as CustomEvent<{ message?: string }>).detail?.message ?? '')
+  }
+  window.addEventListener('topbar:show-toast', onToast)
+  try {
+    act()
+  } finally {
+    window.removeEventListener('topbar:show-toast', onToast)
+  }
+  return messages
+}
 
 const HASH = 'f3d31f75957c5cb5'
 
@@ -125,19 +151,14 @@ describe('the stand-downs (twin: recorded vs not)', () => {
       seed({ lastServerGraphHash: null })
       const beforeNodeIds = useCanvasStore.getState().nodes.map((n) => n.id)
       const beforeEdgeIds = useCanvasStore.getState().edges.map((e) => e.id)
-      const messages: string[] = []
-      const onToast = (event: Event) => {
-        messages.push((event as CustomEvent<{ message?: string }>).detail?.message ?? '')
-      }
-      window.addEventListener('topbar:show-toast', onToast)
+      const messages = toastsDuring(act)
 
-      act()
-
-      window.removeEventListener('topbar:show-toast', onToast)
       expect(queue()).toEqual([])
       expect(useCanvasStore.getState().nodes.map((n) => n.id)).toEqual(beforeNodeIds)
       expect(useCanvasStore.getState().edges.map((e) => e.id)).toEqual(beforeEdgeIds)
-      expect(messages).toContain("Nothing was removed — Olumi hasn't confirmed the shared model's current state yet.")
+      // Bound to the register, not to a hand-typed twin: a copy change moves
+      // the product and this assertion together, by construction.
+      expect(messages).toContain(STRUCTURAL_DELETE_STOOD_DOWN_NOTICE)
     },
   )
 
@@ -147,15 +168,24 @@ describe('the stand-downs (twin: recorded vs not)', () => {
       lastAuthoritativeGraph: null,
       lastServerGraphHash: null,
     })
-    useCanvasStore.getState().deleteNodeById('option_b')
+    const messages = toastsDuring(() => useCanvasStore.getState().deleteNodeById('option_b'))
     expect(queue()).toEqual([])
     expect(useCanvasStore.getState().nodes.map((n) => n.id)).not.toContain('option_b')
+    // OPPOSITE DIRECTION. The delete SUCCEEDED here, so the stand-down sentence
+    // would be false twice over — it would claim nothing was removed when the
+    // node is gone, and blame a saved model this graph does not have.
+    expect(messages).not.toContain(STRUCTURAL_DELETE_STOOD_DOWN_NOTICE)
   })
 
   it('records NOTHING for a producer-driven removal, so CEE never hears its own write back', () => {
     seed({ _externalMutationActive: 1 })
-    useCanvasStore.getState().deleteNodeById('option_b')
+    const messages = toastsDuring(() => useCanvasStore.getState().deleteNodeById('option_b'))
     expect(queue()).toEqual([])
+    // OPPOSITE DIRECTION. `external_mutation` is a different stand-down reason
+    // and no user gesture happened, so telling a user "nothing was removed" —
+    // about a removal a producer just made — would be a false cause and an
+    // unprompted interruption.
+    expect(messages).not.toContain(STRUCTURAL_DELETE_STOOD_DOWN_NOTICE)
   })
 })
 

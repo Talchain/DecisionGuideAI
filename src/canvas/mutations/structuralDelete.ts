@@ -543,4 +543,34 @@ export const STRUCTURAL_DELETE_NOTICE = {
     "That deletion didn't reach the server, so the saved model may still contain it. It's still gone from the canvas — reload this decision to see what the model actually holds.",
 } as const
 
+/**
+ * What the user is told when a delete gesture never becomes a turn at all,
+ * because this client holds no CEE-stamped `graph_hash` to address it to
+ * (`no_server_graph_hash`).
+ *
+ * ⛔ DELIBERATELY NOT A MEMBER OF `STRUCTURAL_DELETE_NOTICE`, AND THE TWO MUST
+ * NOT BE FOLDED. That register answers "a delete was SENT and we could not
+ * confirm its fate"; this answers "a delete was never sent, and we know exactly
+ * why". Same feature, same bridge, two different questions — aligning them
+ * would put an epistemic hedge on an outcome that carries no uncertainty at
+ * all. Nothing was removed, the canvas is untouched, and that is certain.
+ *
+ * ⚠ THE ACTION NAMED IS THE ONE THAT WORKS, derived the same way its sibling
+ * `base_hash_diverged` derives its own: `lastServerGraphHash` has exactly ONE
+ * non-test writer (`setLastServerGraphHash`), whose only non-test caller is
+ * `applyV5State.ts:1210`, on a turn response. So no turn, no hash, however long
+ * the user waits — and a reload makes it worse, not better (see the
+ * `base_hash_diverged` note: hydration returns `graph_identity_hash`, never a
+ * `graph_hash`). Any message re-syncs.
+ *
+ * ⛔ AND IT MUST NOT BORROW THE ADD/RENAME PROMISE. `STRUCTURAL_ADD_DEFERRED_NOTICE`
+ * and `STRUCTURAL_RENAME_DEFERRED_NOTICE` can say "I'll save it with your next
+ * message" because those gestures DEFER — they stand on the canvas and queue.
+ * A stood-down delete queues nothing and restores, so the same promise here
+ * would be a durability claim nothing keeps, which is what UI #1025 was
+ * reverted for. The gesture stays with the user.
+ */
+export const STRUCTURAL_DELETE_STOOD_DOWN_NOTICE =
+  "Nothing was removed — I haven't seen the saved model's current state in this session, so I can't address a deletion to it. Ask me anything about this decision and I'll re-sync, then delete it again."
+
 export type StructuralDeleteNoticeKey = keyof typeof STRUCTURAL_DELETE_NOTICE
