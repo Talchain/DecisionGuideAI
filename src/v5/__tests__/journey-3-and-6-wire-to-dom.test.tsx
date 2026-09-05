@@ -34,9 +34,17 @@ import type { AnalysisFreshnessValue } from '../../canvas/store/analysisFreshnes
 // it can resolve raw target_id → friendly label. Mock it with the same
 // node set the test envelope references.
 
+// ⭐ `opt-a` IS PART OF "the same node set the test envelope references" — the
+// envelope's `analysis_ready.options` names it, and this list omitted it. That
+// was invisible until the P0 #1204 containment gate made `applyV5State` read
+// the option nodes: the real product cannot hold a readiness whose options are
+// not canvas nodes, because `validateCeeAnalysisReady` discards exactly that on
+// every scenario load (`store.ts` loadScenario). Fixed here rather than
+// absorbed into a baseline — the fixture was incoherent, not the gate.
 const NODES = [
   { id: 'fac_team_morale', data: { label: 'team morale' } },
   { id: 'goal_outcome', data: { label: 'overall outcome' } },
+  { id: 'opt-a', data: { label: 'Option A' } },
 ]
 const EDGES = [
   { id: 'edge_morale_to_outcome', source: 'fac_team_morale', target: 'goal_outcome' },

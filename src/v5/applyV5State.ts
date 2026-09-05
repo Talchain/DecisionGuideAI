@@ -76,6 +76,8 @@ import {
   leaderClaimWithholdingReason,
   type LeaderClaimWithholdingReason,
 } from '../canvas/hydrate/applyScenarioAnalysisRead'
+import { validateCeeAnalysisReady } from '../canvas/utils/ceeAnalysisReadyValidation'
+import { logger } from '../lib/logger'
 
 /**
  * Minimal store-shape interface. useCanvasStore.getState() returns a larger
@@ -363,6 +365,87 @@ function inlinePathWillOwnAnalysisReadyWrite(
     return false
   }
   return wouldPassStrictAttachContract(normalisedAnalysisReady)
+}
+
+/**
+ * P0 #1204 — is this readiness ABOUT the canvas it is about to be painted onto?
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⛔ THIS IS NOT A SECOND SCENARIO FENCE, AND MUST NOT BECOME ONE.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * `responseBelongsToDispatchingScenario` (`canvas/conversation/scenarioResponseFence.ts`)
+ * already fences this call: its `terminal_response` site sits in the same
+ * lexical block as the ONLY production `applyV5State(` call and `return`s
+ * before it, with zero awaits between. `scenarioResponseFence.spec.ts` pins
+ * both that there are exactly five call sites and that NO raw re-derivation of
+ * that comparison survives in the turn path — so a scenario comparison written
+ * here would be the drift that module exists to end.
+ *
+ * These are two questions and they are named apart deliberately (trap 21):
+ *
+ *   fence:       "is this response's scenario the scenario id now mounted?"
+ *   containment: "do the option nodes this readiness NAMES exist on the canvas
+ *                 I am about to paint it onto?"
+ *
+ * Containment is the stronger one for THIS harm, because it does not rely on
+ * scenario-id bookkeeping being correct: if the mounted node set is swapped
+ * while `currentScenarioId` still agrees, the fence passes and only this
+ * refuses. It reuses `validateCeeAnalysisReady` — the SAME predicate already
+ * guarding `loadScenario`, `RecoveryBanner`, `ReactFlowGraph` and the
+ * autosave/crash restores — so the live turn leg cannot answer this question
+ * differently from every restore path. ⛔ Do not fork it.
+ *
+ * ⚠ ACTS ON THE CONTAINMENT REASONS ONLY, and that is load-bearing.
+ * `validateCeeAnalysisReady` also returns `empty_options` (this path's
+ * normaliser already rejected that, on its own terms) and `blocked_refusal`
+ * (a question about RESTORING a refusal — this path deliberately ACCEPTS the
+ * identity-preserving refusal carrier from CEE #1023 so the refusal notice can
+ * render). Acting on the whole verdict would silently reverse both.
+ * `node_ids_changed` cannot arise: no snapshot is passed.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⚠ THE TWO EXCLUSIONS — DERIVED FROM THE CALL ORDER, NOT ASSUMED
+ * ═══════════════════════════════════════════════════════════════════════════
+ * This is a SUPPRESSION gate on the primary path, so it errs toward applying:
+ * silencing a correct analysis costs the user work, which is worse than showing
+ * a foreign one.
+ *
+ *  1. EMPTY CANVAS → never refuse. The nodes arrive AFTER this step, always:
+ *     `applyDraftResult` at `useConversation.ts:4824` (inline draft) and
+ *     `:4925` (the async DB re-fetch fallback), `reconcileAppliedGraph` at
+ *     `:4861` — all downstream of the `applyV5State(` call at `:4665`. An empty
+ *     canvas is the normal state of the turn that DELIVERS the model, and it is
+ *     also not a model that can be contradicted.
+ *  2. THIS TURN CARRIES A GRAPH → never refuse. A response bearing a
+ *     `draft_graph` with nodes reconciles the canvas to exactly those ids, so
+ *     the PRE-turn node set is the wrong operand. Deliberately a conservative
+ *     superset of "a graph will be installed": every member of it errs toward
+ *     applying.
+ *
+ * `applyV5State` itself never adds nodes — its only graph_patch operators are
+ * `set_factor_value`, `adjust_edge_strength` and `add_constraint` — so
+ * `store.nodes` (spread from `getState()` at apply time, immediately before the
+ * call) is the live mounted set and needs no adjustment for this turn's own
+ * mutations.
+ *
+ * Returns a human-readable refusal detail, or `null` to apply.
+ */
+function readinessContainmentRefusal(
+  response: OlumiResponse,
+  store: V5ApplicatorStore,
+  normalised: CEEAnalysisReady,
+): string | null {
+  if (store.nodes.length === 0) return null
+
+  const draftGraphNodes = response.draft_graph?.nodes
+  if (Array.isArray(draftGraphNodes) && draftGraphNodes.length > 0) return null
+
+  const validation = validateCeeAnalysisReady(normalised, null, store.nodes)
+  if (validation.isValid) return null
+  if (validation.reason !== 'missing_goal' && validation.reason !== 'missing_option_nodes') {
+    return null
+  }
+  return validation.details ?? validation.reason
 }
 
 function isNonEmptyString(v: unknown): v is string {
@@ -1334,7 +1417,38 @@ export function applyV5State(
     const normalised = normaliseV5AnalysisReady(rawAnalysisReady)
     if (normalised) {
       const inlineOwns = inlinePathWillOwnAnalysisReadyWrite(response, store, normalised)
-      if (!inlineOwns) {
+      const containmentRefusal = inlineOwns
+        ? null
+        : readinessContainmentRefusal(response, store, normalised)
+      if (containmentRefusal) {
+        // ⛔ REFUSE THE WRITE — DO NOT CLEAR. The readiness the user already has
+        // passed this same check when it was written, so it is about the model
+        // on screen; clearing it would cost them a correct analysis in order to
+        // reject a foreign one, which is the worse of the two defects.
+        deferred.push({
+          reason: 'analysis_ready_not_about_current_graph',
+          detail: containmentRefusal,
+        })
+        // ⚠ `logger.warn`, NOT a DEV-gated console.warn — the same lesson the
+        // scenario fence records: `import.meta.env.DEV` is false on every
+        // deployed build, so a DEV-only note would make this discard invisible
+        // in exactly the environment where it matters. No user text, no brief,
+        // no tokens: node ids and a count.
+        logger.warn('analysis_ready.refused_not_about_current_graph', {
+          detail: containmentRefusal,
+          goalNodeId: normalised.goal_node_id ?? null,
+          optionCount: normalised.options?.length ?? 0,
+          currentNodeCount: store.nodes.length,
+        })
+        logV5StateStep({
+          step_number: 4,
+          step_name: 'analysis_ready_consumption',
+          input_keys: ['analysis_ready'],
+          output_keys: [],
+          applied: false,
+          skip_reason: 'not_about_current_graph',
+        })
+      } else if (!inlineOwns) {
         store.setCeeAnalysisReady(normalised)
         applied.push('analysis_ready:set')
         logV5StateStep({
