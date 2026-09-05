@@ -1157,10 +1157,22 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
   // TERM column is not an audit trail, it is a heading.
   //
   // `statement: true` moves the code out of the visual term column and into the
-  // row's accessible name, and the renderer prints it de-emphasised AFTER the
-  // sentence — the shape `ModelHealthSection.tsx:393-398` already ships and
-  // `auditInferenceWarningsNeverBareCode.spec.tsx` already rules on: the
-  // property is `code + sentence`, never `sentence instead of code`.
+  // row's accessible name and `data-gap-code`. The renderer prints the sentence
+  // and nothing else.
+  //
+  // ⚠⚠ AN EARLIER VERSION OF THIS COMMENT CLAIMED THE CODE STAYS ON SCREEN
+  // BECAUSE "the estate's ratified shape is `code + sentence`, never `sentence
+  // instead of code`". THAT WAS A GENERALISATION OF A RULING SCOPED TO ONE
+  // SURFACE, and the repo refutes it (review S1).
+  // `auditInferenceWarningsNeverBareCode.spec.tsx` opens "The Model card's audit
+  // trail never renders a machine code ALONE"; the rule it enforces is
+  // `humaniseCritique.ts`'s own — "a machine code is correct content for an
+  // AUDIT TRAIL and wrong content for a CAVEAT STRIP". The Model tab is that
+  // audit trail. This group is not.
+  // The disconfirming case was live here the whole time: `AdvancedSection.tsx`
+  // renders these IDENTICAL entries, through this same selector, as a bare
+  // sentence with no code. Keeping a second, code-bearing rendering would have
+  // made this panel the only surface printing SCREAMING_SNAKE to a reader.
   //
   // ⚠⚠ TWO THINGS I TRIED FIRST AND REVERTED, BOTH REFUTED BY SPECS THAT
   // ALREADY ENCODE THE RIGHT ANSWER:
@@ -1174,11 +1186,24 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
   //      requires `value` to BE the shared humaniser's output for that entry, so
   //      the code is the renderer's business, not the string's.
   //
-  // ⚠ STILL OPEN, AND STATED RATHER THAN IMPLIED: the two rows remain
-  // indistinguishable, because `selectHumanisedInferenceWarningsOutsideStrip`
-  // projects to `{code, title}` and drops `affected_labels`. Naming the node in
-  // each row needs that shared selector widened, which changes the existing
-  // Analysis tab too — a separate change, not a silent one.
+  // ⚠ STILL OPEN, AND STATED RATHER THAN IMPLIED: the two `ROOT_NODE_DEFAULT_VALUE`
+  // rows remain indistinguishable. ⚠ AN EARLIER VERSION OF THIS COMMENT BLAMED
+  // ONLY THE SELECTOR, AND THAT WAS HALF THE CAUSE (review S2). Both halves:
+  //  (a) `selectHumanisedInferenceWarningsOutsideStrip` projects to
+  //      `{code, title}` and drops `affected_labels`; AND
+  //  (b) the label map is ALREADY passed to the humaniser
+  //      (`humaniseInferenceWarning.ts:75` builds one via
+  //      `buildInferenceWarningLabelMap(w)`), but `ROOT_NODE_DEFAULT_VALUE`'s
+  //      template is a ZERO-ARGUMENT arrow (`humaniseCritique.ts:498-505`) that
+  //      ignores it.
+  // So widening the selector ALONE would change nothing on screen — the template
+  // has to take the label too. Both changes reach the existing Analysis tab, so
+  // this is a separate change, not a silent one.
+  //
+  // ⚠ NO INFORMATION IS LOST BY LEAVING IT: before, `<dt>CODE</dt><dd>sentence</dd>`;
+  // now, `<dt class="sr-only">CODE</dt><dd>sentence</dd>`. Two rows were
+  // indistinguishable then and are indistinguishable now, and a screen reader
+  // still hears the code once per row. Nothing is over-suppressed.
   const inferenceRows = selectHumanisedInferenceWarningsOutsideStrip(conf.inferenceWarnings)
     .map((w) => ({ label: w.code, value: w.title, statement: true }))
   if (inferenceRows.length) groups.push({ title: 'Model gaps the analysis worked around', rows: inferenceRows })
