@@ -194,10 +194,16 @@ describe('the subtitle counts in English', () => {
         // absent = 0 and proseOnly = 0 → notYetCount = 0 → the ALL-PRESENT arm,
         // which is the one carrying the singular bug.
         quantities: { total, inModel: total, proseOnly: 0, absent: 0, truncated: false, items: [] },
-        declaredExclusions: { status: 'none', items: [] },
-        inferredFactors: { status: 'none', items: [] },
+        // ⚠ THESE TWO WERE GUESSED AND `as never` SILENCED THE COMPILER.
+        // `'none'` is in NEITHER union: `DeclaredExclusions.status` is
+        // `reported | none_reported | not_recorded`, `InferredFactors.status`
+        // is `derived | not_recorded`. Behaviourally inert — the subtitle
+        // reads only `quantities` — but the comment above claimed the fixture
+        // was derived from the type, and for two of six fields it was not.
+        declaredExclusions: { status: 'none_reported', items: [] },
+        inferredFactors: { status: 'not_recorded', items: [] },
         notTracked: [],
-      } as never,
+      },
     })
   }
 
@@ -209,8 +215,11 @@ describe('the subtitle counts in English', () => {
   it('n = 1 reads in the singular, and never "All 1 figures"', () => {
     seedTally(1)
     const text = subtitle()
-    // PRECONDITION: the all-present arm must be the one rendering, or "not
-    // plural" holds because a different sentence is on screen entirely.
+    // ⚠ PRECONDITION, AND THE FIRST ONE WAS VACUOUS: `/in the model/i` also
+    // matches the SHORTFALL arm ("… aren't in the model yet"), so a fixture
+    // drift to `absent: 1` would have left this green while measuring the
+    // wrong sentence. This pins the all-present arm by excluding the other.
+    expect(text, 'the all-present arm must be rendering').not.toMatch(/aren't in the model yet/i)
     expect(text).toMatch(/in the model/i)
     expect(text, 'the defect: "All 1 figures you mentioned are in the model"').not.toMatch(
       /All 1 figures/i,
