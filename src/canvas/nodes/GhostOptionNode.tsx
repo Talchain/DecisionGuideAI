@@ -71,7 +71,7 @@ export const GhostOptionNode = memo((props: NodeProps) => {
       // minWidth with the content occupying most of it — but the shape is the
       // same defect as the ghost tier door one line-wrap away, and one reword
       // of the label makes it visible.
-      className="rounded-lg cursor-pointer hover:bg-panel-hover transition-colors flex items-center nodrag nopan"
+      className="rounded-lg cursor-pointer hover:bg-panel-hover transition-colors flex items-center nodrag nopan text-left"
       style={{
         // A11y (WCAG 1.4.11, 3:1 non-text contrast). The outline is the only
         // thing that marks this affordance's bounds, so it is measured against
