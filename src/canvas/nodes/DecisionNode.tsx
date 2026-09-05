@@ -29,6 +29,7 @@ import { cleanFactorLabel } from '../utils/labelUtils'
 import { biasSignal } from '../shared/biasSignalTitles'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
+import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/useAnalysisReady'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { requestAsk, canReceiveAsk } from '../ui/inspector-v2/askSemantic'
 
@@ -282,8 +283,21 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // all", so on a withheld turn the canvas printed this sentence four inches
   // from CEE's own "no option can be put forward yet", and directly above an
   // `OptionNode` that had correctly withheld its "Leading option" badge.
+  // Q1 OF TWO — THE MODEL'S LICENCE (`permitted_analysis_mode`). "{X} leads in
+  // N% of scenarios" is the most explicit comparative-leader claim on the
+  // canvas, and until now it asked only Q2. The results panel has composed both
+  // since ROADMAP 1.267; this node asked half the question, so a model CEE
+  // admitted at `exploratory` printed the sentence beside a panel withholding
+  // every designation for the same run. Imported from the one reader of Q1,
+  // never re-spelled locally.
+  const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(useAnalysisAdmission())
+
   const headline = useMemo(() => {
     if (!isPostAnalysis || !report) return null
+    // Absence of the admission means an older producer and is `true`, so this
+    // is exactly today's behaviour until CEE speaks. The opposite arm from Q2
+    // below, deliberately: never fold either into the other's default.
+    if (!modelLicensesComparativeClaim) return null
     const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
     const verdict = deriveDecisionVerdict(report as DecisionVerdictReportLike | null, {
       visibleOptionIds: new Set(optionNodes.map(n => n.id)),
@@ -303,7 +317,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     const winProb = optionProbs[recommendedId]?.win_probability as number | undefined
 
     return { winnerLabel, winProb }
-  }, [isPostAnalysis, report, nodes])
+  }, [isPostAnalysis, modelLicensesComparativeClaim, report, nodes])
 
   // Biggest risk: risk node with highest bridge edge weight to goal
   const biggestRisk = useMemo(() => {
