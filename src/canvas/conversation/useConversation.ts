@@ -124,7 +124,7 @@ import type {
   RelatedElementRef,
   ReviewCardBlock,
 } from './types'
-import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
+import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS, isModelChangingSystemEvent } from './types'
 import { loadScenario as loadScenarioFromDb } from '../../services/scenarioService'
 import { applyDraftResult, backfillGoalThresholdOntoGoalNode } from '../utils/applyDraftResult'
 import {
@@ -3569,6 +3569,22 @@ export function useConversation(): UseConversationReturn {
   /**
    * Publish the hold count — SCENARIO-SCOPED.
    *
+   * ⚠ EVERY MODEL-CHANGING EVENT COUNTS, NOT JUST `factor_value_edit`. This
+   * filter named that one type until 2026-09-05, and the three structural
+   * members — `structural_add`, `structural_delete`, `structural_rename` — sit
+   * in the SAME deferral buffer and contributed ZERO to the hold. So a node
+   * added, deleted or renamed while an analysis was running was withheld from
+   * the server (SEND_DEFERRED, so CEE provably never saw it during that run),
+   * marked the model dirty, and was then UN-marked by the answer that never saw
+   * it: the completed analysis displayed with the affirmative "reflects the
+   * current model" over a graph CEE never held.
+   *
+   * The set is `MODEL_CHANGING_SYSTEM_EVENT_TYPES` and it is deliberately a
+   * SUBSET — the seven notification / carry-only members write no graph, and
+   * holding on one of those would fabricate "model changed" over a run that is
+   * genuinely current. See that constant for why membership is a claim about
+   * CEE's dispatch table rather than a UI preference.
+   *
    * Only entries belonging to the CURRENTLY-OPEN scenario count. An edit queued
    * against scenario A must not hold scenario B's freshness overlay dirty: that
    * would manufacture a "model changed" banner in a decision the user never
@@ -3581,7 +3597,7 @@ export function useConversation(): UseConversationReturn {
   const publishPendingEditCount = useCallback(() => {
     const scenarioNow = useCanvasStore.getState().currentScenarioId ?? null
     const modelEdits = deferredSystemSendsRef.current.filter(
-      (d) => d.opts.systemEvent?.type === 'factor_value_edit' && d.scenarioId === scenarioNow,
+      (d) => isModelChangingSystemEvent(d.opts.systemEvent?.type) && d.scenarioId === scenarioNow,
     ).length
     useCanvasStore.getState().setPendingEmittedEdits?.(modelEdits)
   }, [])
