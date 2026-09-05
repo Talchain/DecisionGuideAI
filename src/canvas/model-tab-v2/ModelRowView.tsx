@@ -318,6 +318,15 @@ export function ModelRowView({
            node you already know. Below that the row should give up something
            else — see the estimate hint below, which is the secondary text that
            can afford to go. */
+        /* ⚠ THE FULL LABEL ON `title`. The identity column truncates, and
+           before this the truncated remainder was unreachable by ANY means —
+           no hover, no tooltip, nothing. Witnessed on the deployed build: three
+           relationship rows all read "Tech Lead Hired..." with no way to tell
+           them apart. This does not FIX that (a tooltip is not an answer to an
+           unreadable row, and it is unreachable by touch and keyboard) — it
+           stops the remainder being lost outright while the column itself is
+           dealt with. */
+        title={row.label}
         className={`${typography.panelBody} text-text-body text-left truncate min-w-[6rem] flex-1`}
         onClick={e => {
           e.stopPropagation()
