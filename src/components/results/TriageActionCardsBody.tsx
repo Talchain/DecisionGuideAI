@@ -685,7 +685,26 @@ function T1ChecksFooter({
   //
   // `unknown` therefore renders the neutral third state — the same idiom the
   // robustness check beside it already uses for 'Robustness not assessed'.
-  const winnerUndetermined = verdict != null && verdict.separation === 'unknown'
+  //
+  // ⚠ AND `separation === 'unknown'` IS NOT THE WHOLE OF "NO AUTHORITY" — the
+  // rule ten lines above is stated about `'unknown'` because that was the state
+  // in hand, but what it LICENSES is narrower than what it forbids: the denial
+  // is licensed for `'tied'` ONLY. A MODE-withheld run walks straight past a
+  // predicate that reads `separation` alone. `quantified_provisional` +
+  // `separation: 'clear'` gives `hasWinner === false` (it reads the COMPOSED
+  // answer) with `winnerUndetermined === false`, so the footer rendered the
+  // affirmative denial "No clear leader" on a run whose model licensed no
+  // comparative claim at all — an invented finding, which is the same class of
+  // lie as a crown, pointing the other way.
+  //
+  // So the predicate is written against what the rule ALLOWS (`'tied'` denies;
+  // everything else without a permitted leader is silence) rather than against
+  // the one state that produced it — CLAUDE.md trap 13d. It is a STRICT
+  // WIDENING: the `'unknown'` disjunct is kept verbatim, so nothing that reads
+  // undetermined today stops doing so, and the `'tied'` denial is untouched.
+  const winnerUndetermined =
+    verdict != null
+    && (verdict.separation === 'unknown' || (!hasWinner && verdict.separation !== 'tied'))
   // Robustness glyph: driven ONLY by the display-safe robustness verdict
   // (`robustnessVerdict`) — never PLoT `report.robustness.level`, never the
   // UI-SEM-005 stability fallback, never a recommendationStability threshold.

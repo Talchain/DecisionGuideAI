@@ -469,3 +469,87 @@ describe('§6 SURFACE D — ConditionalWinnerCards honours the leader claim', ()
     expect(prose).not.toContain(ALT_LABEL)
   })
 })
+
+// ── §7 THE CHECKS FOOTER — an affirmative DENIAL needs its own licence ───────
+
+/**
+ * ⭐ THE SAME CLASS, POINTING THE OTHER WAY, AND IT IS PRE-EXISTING.
+ *
+ * §3-§6 are about the panel CLAIMING a leader it may not name. This is about
+ * the panel DENYING one it has no authority to deny. `TriageActionCardsBody`'s
+ * own comment states the rule — *"'unknown' licenses silence, never a denial"*,
+ * with the denial licensed for `separation === 'tied'` ONLY — and then
+ * implements it as `separation === 'unknown'`, which is the state that produced
+ * the rule rather than the rule itself (CLAUDE.md trap 13d: write the invariant
+ * against the SPEC, never against the failure mode you came in on).
+ *
+ * A MODE-withheld run walks past that: `quantified_provisional` licenses the
+ * figures and not the leader, so `hasWinner` (which reads the COMPOSED answer)
+ * is false while `separation` is `'clear'` — and the footer rendered
+ * "No clear leader", a FINDING the run never produced.
+ *
+ * ⚠ NOTE WHICH FIXTURE THIS NEEDS. WITHHELD() cannot see it: its separation is
+ * already `'unknown'`, so the old predicate is right about it for the wrong
+ * reason. The state that discriminates is `'clear'` separation with the leader
+ * withheld by the LATTICE — which is exactly the row §1 uses to prove the three
+ * answers are not one.
+ */
+describe('§7 the checks footer denies a leader only when licensed to', () => {
+  /** A run the MODE withholds: figures licensed, leader not, arms separated. */
+  const modeWithheld = (): ResultsSectionDataReturn => {
+    const d = PERMITTED() as unknown as { recommendation: Record<string, unknown> }
+    d.recommendation.leaderDesignationPermitted = false
+    d.recommendation.analysisAdmission = admission('quantified_provisional')
+    return d as unknown as ResultsSectionDataReturn
+  }
+
+  it('PRECONDITION: this fixture is genuinely the divergent state', () => {
+    // Pin it IN-TEST (trap 13b): assert the payload really does separate the
+    // arms while withholding the leader, or the arm below could pass because
+    // the fixture quietly stopped reproducing the state it names.
+    const rec = modeWithheld().recommendation
+    expect(rec.verdict?.separation).toBe('clear')
+    expect(rec.verdict?.hasLeadingOption).toBe(true)
+    expect(leaderClaimWithheld(rec)).toBe(true)
+    expect(analysisClaimPolicy(rec).mayShowComparativeFigures).toBe(true)
+  })
+
+  it('MODE-WITHHELD: the footer states silence, never the denial', () => {
+    render(<TriageActionCardsBody data={modeWithheld()} useV17Copy onFocusNode={() => {}} />)
+    const t = screen.getByTestId('checks-winner').textContent ?? ''
+    expect(t).toContain('Leading option not assessed')
+    expect(t).not.toContain('No clear leader')
+    expect(t).not.toContain('Has leading option')
+  })
+
+  it('THE TIE DENIAL SURVIVES — this widening withdraws no licensed claim', () => {
+    // The opposite-direction twin. `'tied'` is the ONE separation that licenses
+    // "No clear leader", and a fix that silenced it would trade this defect for
+    // over-suppression — the worse one.
+    const tied = PERMITTED() as unknown as { recommendation: Record<string, unknown> }
+    tied.recommendation.leaderDesignationPermitted = false
+    tied.recommendation.verdict = {
+      leaderId: 'opt_a', separation: 'tied', hasLeadingOption: false,
+      gapPp: 0, source: 'producer_band',
+    }
+    render(<TriageActionCardsBody data={tied as unknown as ResultsSectionDataReturn} useV17Copy onFocusNode={() => {}} />)
+    const t = screen.getByTestId('checks-winner').textContent ?? ''
+    expect(t).toContain('No clear leader')
+    expect(t).not.toContain('Leading option not assessed')
+  })
+
+  it('ANTI-VACUITY: a fully licensed run still reads "Has leading option"', () => {
+    render(<TriageActionCardsBody data={PERMITTED()} useV17Copy onFocusNode={() => {}} />)
+    const t = screen.getByTestId('checks-winner').textContent ?? ''
+    expect(t).toContain('Has leading option')
+    expect(t).not.toContain('Leading option not assessed')
+  })
+
+  it('UNCHANGED: the witnessed unknown-separation run reads exactly as before', () => {
+    // The `'unknown'` disjunct is kept verbatim; this pins that the widening
+    // did not move the state it was already right about.
+    render(<TriageActionCardsBody data={WITHHELD()} useV17Copy onFocusNode={() => {}} />)
+    expect(screen.getByTestId('checks-winner').textContent ?? '')
+      .toContain('Leading option not assessed')
+  })
+})
