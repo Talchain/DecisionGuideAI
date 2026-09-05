@@ -34,7 +34,7 @@ import { describe, expect, it } from 'vitest'
 
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
-import { makeData, manyFragileEdges } from './analysisNewFixtures'
+import { genuineDecision, makeData, manyFragileEdges } from './analysisNewFixtures'
 
 const PRODUCER = /producer/i
 
@@ -115,11 +115,62 @@ describe('the panel names Olumi, not "the producer"', () => {
   })
 
   it('the two driver strings say "Olumi\'s structural influence score"', () => {
-    const vm = vmOf(makeData({ drivers: { drivers: [], driversStatus: 'computed' } }))
-    // Guard the guard: if this fixture stops producing findings the assertion
-    // below becomes vacuous, so the absence case is asserted explicitly.
-    const findings = [...vm.sensitivity.findings, ...vm.uncertainty.findings]
-    const grounded = findings.map((f) => f.groundedIn).filter(Boolean) as string[]
+    /**
+     * ⚠⚠ THIS TEST COULD NOT FAIL, AND THE COMMENT THAT STOOD HERE CLAIMED THE
+     * OPPOSITE. Two independent reasons, both measured rather than read:
+     *
+     *   1. it read the strings out of `vm.sensitivity.findings` and
+     *      `vm.uncertainty.findings`, which a driver finding NEVER reaches —
+     *      `driverFinding` is called from exactly one place, `buildDrivers`
+     *      (`buildAnalysisNewViewModel.ts:552`, `buildDrivers`), and lands in
+     *      `vm.drivers.findings`; and
+     *   2. its fixture passed `drivers: []`, so there were no driver findings
+     *      to read anywhere.
+     *
+     * Instrumented at the head that shipped it: FINDINGS_COUNT = 0,
+     * GROUNDED = [], i.e. the whole assertion was `expect([]).toEqual([])`. The
+     * comment that stood here — "the absence case is asserted explicitly" —
+     * named a non-emptiness guard that was never written. Proven by execution,
+     * not by inspection: with BOTH strings reverted to "the producer influence
+     * score" this test stayed GREEN while the walker test one line above bit.
+     *
+     * Now: both strings are asserted POSITIVELY, and the finding they ride on
+     * is found BY IDENTITY (`id === 'driver:f_elasticity'`), never by a value
+     * predicate another row could satisfy. The walk's non-emptiness is asserted
+     * BEFORE the absence case, so a fixture that stops producing drivers REDs
+     * here instead of passing silently.
+     *
+     * ⚠ THE FIXTURE'S BRANCH IS PINNED IN-TEST. These two strings live on the
+     * ABSOLUTE-basis branch only; under a set-relative basis the builder emits
+     * "ranked within this run" and neither string is reachable. So the branch
+     * is asserted rather than assumed — otherwise a change to
+     * `displayProvenance` handling would make this test vacuous again by a new
+     * route.
+     */
+    const vm = vmOf(genuineDecision())
+    expect(
+      vm.drivers.influenceIsSetRelative,
+      'PRECONDITION: the absolute-basis branch is the one that carries these strings',
+    ).toBe(false)
+
+    const finding = vm.drivers.findings.find((f) => f.id === 'driver:f_elasticity')
+    expect(finding, 'PRECONDITION: the fixture must produce the driver finding').toBeDefined()
+
+    // 1. the grounding line — `driverFinding`'s `groundedIn`
+    //    (`buildAnalysisNewViewModel.ts:493-495`).
+    expect(finding!.groundedIn).toBe("Olumi's structural influence score")
+
+    // 2. the inspect `Basis` row (`buildAnalysisNewViewModel.ts:503`) — a
+    //    SECOND rendered surface for the same quantity, and the review found it
+    //    was the one nothing pinned.
+    const basis = (finding!.inspect ?? []).filter((r) => r.label === 'Basis')
+    expect(basis, 'PRECONDITION: the fixture must produce the Basis row').toHaveLength(1)
+    expect(basis[0]!.value).toBe("Olumi's structural influence score")
+
+    // 3. and the negative direction, over the same two strings — so a reword
+    //    that reintroduces the banned word REDs here as well as in the walker.
+    const grounded = [finding!.groundedIn, basis[0]!.value].filter(Boolean) as string[]
+    expect(grounded, 'PRECONDITION: both strings were reached').toHaveLength(2)
     expect(grounded.filter((g) => PRODUCER.test(g))).toEqual([])
   })
 })

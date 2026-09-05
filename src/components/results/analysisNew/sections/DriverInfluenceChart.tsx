@@ -125,9 +125,25 @@ export function DriverInfluenceChart({
           (`buildAnalysisNewViewModel.ts:555-557`). Naming the two real points
           is the only scale this data supports.
 
-          `aria-hidden` for the same reason the bars are: this is a redraw of
-          `data-fraction` and of the sorted order, both of which a screen reader
-          already has. */}
+          `aria-hidden` for the same reason the bars are: it is a legend for a
+          graphic that is itself hidden, so announcing "most" / "none" / "most"
+          would name the endpoints of something assistive tech never receives.
+
+          ⚠ A CORRECTION TO THIS COMMENT'S OWN FIRST DRAFT, which said the
+          scale is "a redraw of `data-fraction` and of the sorted order, both
+          of which a screen reader already has". THE `data-fraction` HALF IS
+          FALSE: `data-*` attributes carry no accessibility semantics and take
+          no part in accessible-name or accessible-description computation, so
+          no screen reader has it. Measured on a two-row render, not inferred:
+          each bar button's accessible name is the factor LABEL alone, with
+          `aria-label`, `aria-valuenow`, `aria-valuetext`, `aria-describedby`
+          and `role` all null, while `data-fraction` read 100 and 60. What AT
+          actually receives from this chart is the label and the LIST ORDERING
+          — rank, never magnitude. Hiding the scale is still right; the reason
+          above is the true one. The false version mattered because it is the
+          sentence a successor reads before deciding whether magnitude needs an
+          `aria-valuetext` — and it says the answer is already there. It is
+          not. Whether to add one is open, and is not decided here. */}
       <div
         className={`${typography.panelMeta} text-text-light flex items-center mb-1 px-0.5`}
         data-testid={`${testId}-scale`}
@@ -189,11 +205,19 @@ export function DriverInfluenceChart({
                 >
                   {isProse ? truncateAtWord(row.label) : row.label}
                 </span>
-                {/* ⚠ `aria-hidden`: the bar is a redraw of `data-fraction` and
-                    of the row's position in a sorted list. Announcing a
-                    decorative div would add noise, not information — the
-                    ordering already carries the ranking for a screen reader,
-                    and the direction is spoken by the text below. */}
+                {/* ⚠ `aria-hidden`: announcing a decorative div would add
+                    noise, not information — the ordering already carries the
+                    ranking for a screen reader, and the direction is spoken by
+                    the text below.
+
+                    ⚠ THIS COMMENT ALSO CLAIMED THE BAR IS "a redraw of
+                    `data-fraction`", and the scale comment above inherited the
+                    clause from here. It is false — `data-*` has no
+                    accessibility semantics, so `data-fraction` reaches no
+                    screen reader; see the measurement recorded on the scale.
+                    The ordering half is true and is the whole justification.
+                    Consequence, stated rather than hidden: AT gets the RANK of
+                    each driver and never its MAGNITUDE. */}
                 <span className="flex items-stretch h-2 mt-0.5" aria-hidden="true">
                   <span className={`${HALF} justify-end`}>
                     {row.direction === 'negative' ? (
