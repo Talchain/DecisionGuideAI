@@ -7,35 +7,33 @@
  * every row can be under-spaced without anything in the layout being wrong.
  *
  * CONTROLS (a probe with no control proves nothing — CLAUDE.md trap 13).
- * ⚠ SPLIT INTO WHAT IS ENFORCED AND WHAT IS ONLY RECORDED, because this block
- * previously listed all four under one heading and a reader took the heading
- * for the guarantee. A declared control that nothing asserts is prose.
  *
  * ASSERTED — these RED the run:
- *  · BOTH LOD ARMS POPULATED (`:338`, `:339`): a settled sample must exist on
- *    each side of the legibility threshold, or the direction check below has
- *    nothing to compare.
- *  · NON-VACUITY (`:353`): at least one card must CHANGE height across the LOD
- *    threshold. A comparison that discriminates nothing cannot report that
+ *  · BOTH LOD ARMS POPULATED (`:336`, `:337`) — a settled sample on each side
+ *    of the legibility threshold, or the direction check has nothing to compare.
+ *  · NON-VACUITY (`:351`) — at least one card must CHANGE height across the
+ *    threshold; a comparison that discriminates nothing cannot report that
  *    nothing grew.
- *  · COMPLETENESS (`:389`-`:390`): every requested zoom was visited, and cards
- *    were measured at all. A cell producing no data is an INSTRUMENT failure,
- *    and the probe must be the thing that says so.
+ *  · COMPLETENESS (`:387`-`:388`) — every requested zoom visited, and cards
+ *    measured at all.
  *
- * NEVER ASSERTED — and the two are NOT in the same state, which an earlier
- * draft of this block flattened under one heading ("captured and never read"):
- *  · POSITIVE — `labelScale` (`:181`) IS READ, at `:269`, into
- *    `invariant.distinctScalesHeld`. It reaches `HZJSON` as a derived count a
- *    human can check. What no `expect` does is REQUIRE it to change, so the
- *    probe can silently stop exercising the mechanism and stay green.
- *  · CONTRAST — `outsideFont` (`:184`) is captured and has NO reader at all,
- *    derived or otherwise. An element outside the React Flow subtree SHOULD NOT
- *    change across the series; nothing checks, and nothing even counts.
+ * NEVER ASSERTED — the POSITIVE control (`labelScale` `:179` AND `titleFont`
+ * `:171`) and the CONTRAST control (`outsideFont` `:182`). All three are
+ * emitted into `HZJSON` for a human to read; no `expect` requires any of them
+ * to move, so the probe can stop exercising the mechanism and stay green.
+ * Promoting them is real work, not a rename: it needs a settled-sample guard,
+ * since an unsettled camera moves nothing.
  *
- *  Read-but-unasserted and captured-unread are different failures and want
- *  different fixes, which is why they are now named apart.
- *  Promoting these two to assertions is real work, not a rename: it needs a
- *  settled-sample guard, since an unsettled camera moves neither.
+ * ⚠ THREE DRAFTS OF THIS BLOCK WERE WRONG, AND THE THIRD WAS WRONG BECAUSE IT
+ * WAS ELABORATE. It split the unasserted controls into "read" and "captured
+ * and never read" and put `outsideFont` in the second. There is no such state
+ * in this file: `sample()` spreads the capture at `:159`, `as Sample` strips
+ * nothing at runtime, and `JSON.stringify` at `:391` reads EVERY own field —
+ * so everything captured is emitted, and `titleFont`, which no draft named at
+ * all, is in exactly the same state as the other two. ASSERTED vs NOT is the
+ * whole distinction. Each round added more precise-sounding prose and each
+ * round had a false limb (CLAUDE.md trap 22f: when revisions oscillate, the
+ * approach is wrong, not the wording).
  *
  * ⭐ AND THE SECOND HALF, WHICH IS THE ONE THE FIX ACTUALLY RESTS ON (review
  * note 1). "The layout ignores zoom" and "the number we feed the layout ignores

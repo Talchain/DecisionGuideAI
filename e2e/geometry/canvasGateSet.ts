@@ -371,32 +371,8 @@ export const GATED_TESTS: readonly GatedTest[] = [
       'restated) — the mirror case, where a layout computed while LOD is ON reserves the shorter ' +
       'height and zooming back in pushes a card into the row beneath. One direction alone is a ' +
       'guard watching one door (CLAUDE.md trap 22b). ' +
-      '⚠ TWO OF ITS FOUR DECLARED CONTROLS ARE ASSERTED; TWO ARE NEVER ASSERTED — AND THOSE ' +
-      'TWO ARE NOT IN THE SAME STATE (`labelScale` IS read, at `:269`, into a derived count; ' +
-      '`outsideFont` has no reader at all). ' +
-      'ASSERTED, at the bytes: the NON-VACUITY control is `heightVsZoom.measure.ts:353-356`, ' +
-      '`expect([...new Set(moved)].length, \'NO card changed height across the LOD threshold ' +
-      '\u2014 the comparison is not discriminating\u2026\').toBeGreaterThan(0)`; the COMPLETENESS ' +
-      'control is `:389`, `expect(series.length, \'the sweep did not visit every requested ' +
-      'zoom\').toBe(ZOOMS.length)`, under the file\'s own ' +
-      '\'COMPLETENESS, ASSERTED IN THE PROBE ITSELF\' banner. NOT ASSERTED: the POSITIVE control ' +
-      '(`--canvas-label-scale` and the computed title font-size MUST change across the series, ' +
-      'or the probe never exercised the mechanism) and the CONTRAST control (an element OUTSIDE ' +
-      'the React Flow subtree must NOT change, or the probe is measuring a page re-render). Both ' +
-      'are CAPTURED \u2014 `labelScale` at `:181`, `outsideFont` at `:184` \u2014 and no `expect` ' +
-      'ever REQUIRES either to move. Those two, and only those two, are a DESIGN NOTE the file does ' +
-      'not enforce. ' +
-      '⭐⭐ AND THE PREVIOUS VERSION OF THIS SENTENCE CLAIMED ALL FOUR, ON A PROBE THAT COULD NOT ' +
-      'SEE A MULTI-LINE ASSERTION. It reported the four phrases at \'ZERO times inside any ' +
-      '`expect(`\'. The non-vacuity phrase sits at `:355` INSIDE the `expect(` opened at `:353`, ' +
-      'so a single-line `expect(.*phrase)` grep returns a STRUCTURAL zero for every assertion ' +
-      'spanning more than one line \u2014 and the completeness phrase was a PARAPHRASE of mine, ' +
-      'not the file\'s literal, so it could not match at all. The contrast control that was ' +
-      'supposed to catch this (7 `expect(` calls, so the probe was not blind) proved the FILE ' +
-      'HAS assertions, which was never in doubt; it did not test whether the probe could see ' +
-      'INSIDE one. A contrast on the wrong axis passes exactly like a contrast that works ' +
-      '(CLAUDE.md trap 13). A correction reads as already-audited, which is why this one is ' +
-      'shown with its mechanism rather than quietly restated. '  +
+      '⚠ THREE OF ITS FIVE DECLARED CONTROLS ARE ASSERTED, TWO ARE NOT. Asserted: both LOD arms populated (`heightVsZoom.measure.ts:336-337`), non-vacuity (`:351-354`), completeness (`:387-388`). Not asserted: the POSITIVE control (`labelScale` `:179` and `titleFont` `:171`) and the CONTRAST control (`outsideFont` `:182`) \u2014 all three are emitted into `HZJSON` for a human, and no `expect` requires any of them to move, so the probe can stop exercising the mechanism and stay green. '  +
+      '\u2b50 HOW THIS ENTRY GOT IT WRONG FOUR TIMES, because the mechanism generalises. Draft 1 said the four control phrases appear \'ZERO times inside any `expect(`\'. Two are assertions: the message sits at `:353` inside the `expect(` opened at `:351`, so a SINGLE-LINE `expect(.*phrase)` grep returns a structural zero for every multi-line assertion \u2014 and one phrase was a paraphrase that could not match the file\'s literal. Its contrast control (7 `expect(` calls, \'so the probe was not blind\') proved the FILE has assertions, which was never in doubt; it never tested whether the probe could see INSIDE one. A CONTRAST ON THE WRONG AXIS PASSES EXACTLY LIKE ONE THAT WORKS. Drafts 2 and 3 then over-corrected into a read-vs-unread taxonomy that does not exist here \u2014 `JSON.stringify` (`:391`) reads every captured field \u2014 and neither named `titleFont` at all. ASSERTED vs NOT is the whole distinction; the elaboration was the defect generator (CLAUDE.md trap 22f). '  +
       '⚠ ITS DETECTION FLOOR IS MEASURED, NOT ASSUMED — `text-3xl` on the LOD title boost is a ' +
       'DEMONSTRATED equivalent mutant (at 30px the card lands level with its LOD-off self, so ' +
       'there is no harm to detect), and it REDs from `text-5xl` up. That floor is not a weakness, ' +
