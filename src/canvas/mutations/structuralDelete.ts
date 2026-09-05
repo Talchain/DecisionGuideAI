@@ -571,13 +571,38 @@ export const STRUCTURAL_DELETE_NOTICE = {
  * ⛔ A WRITER MANIFEST AND A DISPATCH QUESTION ARE NOT THE SAME QUESTION, and an
  * earlier version of this note joined them with a "So" that does not carry.
  * Enumerating writers says what CAN stamp a hash; it says nothing about what
- * FIRES one unprompted. Derived separately: one automatic dispatcher exists,
- * `usePanelApplyDrain`, hosted inside `isAiPanelV2Enabled()`. It is
- * mount-triggered and 5-minute-bounded, so "no turn, no hash, however long the
- * user waits" holds in the DEPLOYED posture (`aiPanelV2` defaults true and is
- * `"true"` in `netlify.toml`) — and would be false under the documented
- * `aiPanelV2=false` rollback. The claim is posture-dependent; naming the
- * posture is the honest form of it.
+ * FIRES one unprompted.
+ *
+ * ⚠⚠ AND THE FIRST ATTEMPT AT THE MISSING HALF NAMED THE WRONG DISPATCHER —
+ * derived here at the bytes rather than inherited, which is how it went wrong.
+ * There are two automatic dispatchers and they differ exactly where it counts:
+ *
+ *   · `usePanelApplyDrain` has TWO hosts, one on each side of the flag —
+ *     `PanelApplyDrainHost` inside `MaybeConversationProvider`'s
+ *     `isAiPanelV2Enabled()` branch, and `DraftChat` on the flag-OFF path. It
+ *     is therefore POSTURE-INDEPENDENT. `StructuralDeleteDrainHost.tsx` says so
+ *     in as many words ("has TWO hosts").
+ *   · `useGraphEditEvents` has ONE production host, `DraftChat`, mounted only
+ *     when the flag is OFF (`ReactFlowGraph.tsx:2915`). It is the
+ *     posture-dependent one. `guidanceStore.ts` already labels it "(flag-OFF)".
+ *
+ * An earlier version named the first and concluded posture-dependence — and on
+ * its own stated premise the conclusion was inverted as well as misattributed.
+ *
+ * ⭐ THE CLAIM SURVIVES, AND FOR A BETTER REASON THAN THE FLAG. Neither
+ * dispatcher fires from waiting: `usePanelApplyDrain` runs from a `useEffect`
+ * and drains only a queued panel intent, and `useGraphEditEvents` subscribes to
+ * the store and debounces 1.5s behind a MUTATION. So "no turn, no hash, however
+ * long the user waits" holds in BOTH postures, because the bound is the TRIGGER
+ * CONDITION, not the flag — and a claim that does not depend on posture is one
+ * fewer thing to keep true.
+ *
+ * ⚠ One honest consequence, unnamed before: with the flag OFF, a LATER canvas
+ * edit would flush a `direct_graph_edit` within 1.5s and stamp a hash, so a
+ * user could find the delete works on a second attempt without ever sending a
+ * message. That does not falsify the copy — the action it names still works —
+ * but it is not the only route, and the refused delete itself returns before
+ * mutating, so it cannot trigger that flush on its own.
  *
  * ⛔ AND IT MUST NOT BORROW THE ADD/RENAME PROMISE. `STRUCTURAL_ADD_DEFERRED_NOTICE`
  * and `STRUCTURAL_RENAME_DEFERRED_NOTICE` can say "I'll save it with your next
