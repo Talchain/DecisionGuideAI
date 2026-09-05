@@ -74,6 +74,40 @@ function blankStringContents(code: string): string {
         else if (out[i] !== '\n') out[i] = ' '
         i += 1
       }
+    } else if (c === '`') {
+      /*
+       * ⚠⚠ BACKTICKS, AND THEIR ABSENCE DEFEATED THIS GUARD BY ONE CHARACTER.
+       * The first version handled `'` and `"` only, so a matched pseudo-pair
+       * split across two TEMPLATE literals restored the original blindness
+       * with the stack still balanced — the plant went invisible while the
+       * identical file using quotes was caught.
+       *
+       * ⚠ AND IT IS NOT HYPOTHETICAL: seventeen template literals containing
+       * `<` already sit in the sixteen scanned files, `` `<button>` `` among
+       * them. They are harmless only because every one is currently inside a
+       * comment. Uncomment one and the guard goes quiet.
+       *
+       * ⚠ `${…}` IS NOT BLANKED. Interpolations hold real code, including JSX,
+       * so blanking them would hide elements the scan must see — trading a
+       * false-negative for a different one. Brace depth is tracked so the
+       * template's TEXT is blanked and its EXPRESSIONS are not.
+       */
+      i += 1
+      while (i < out.length && out[i] !== '`') {
+        if (out[i] === '\\') { out[i] = ' '; i += 1; if (i < out.length) out[i] = ' '; i += 1; continue }
+        if (out[i] === '$' && out[i + 1] === '{') {
+          let depth = 0
+          i += 1
+          do {
+            if (out[i] === '{') depth += 1
+            else if (out[i] === '}') depth -= 1
+            i += 1
+          } while (i < out.length && depth > 0)
+          continue
+        }
+        if (out[i] !== '\n') out[i] = ' '
+        i += 1
+      }
     }
     i += 1
   }
@@ -170,6 +204,42 @@ function actionColourSites(src: string, file: string): { sites: Site[]; residual
   }
   return { sites, residualDepth: stack.length }
 }
+
+/**
+ * ⚠ THE BLANKER GETS ITS OWN CASES, because a reviewer defeated the first
+ * version of it BY ONE CHARACTER — it handled `'` and `"` and not the
+ * backtick, so a pseudo-tag in a template literal restored the blindness with
+ * the stack still balanced. Proving the whole guard REDs on a plant is
+ * necessary and not sufficient: it does not say WHICH delimiter was covered.
+ */
+describe('blankStringContents — every delimiter, and interpolations preserved', () => {
+  const hidden = (src: string) => !blankStringContents(src).includes('<button')
+
+  it('blanks a pseudo-tag in a double-quoted string', () => {
+    expect(hidden('const s = "see <button> here"')).toBe(true)
+  })
+
+  it('blanks a pseudo-tag in a single-quoted string', () => {
+    expect(hidden("const s = 'see <button> here'")).toBe(true)
+  })
+
+  it('blanks a pseudo-tag in a TEMPLATE literal — the one that got through', () => {
+    expect(hidden('const s = `see <button> here`')).toBe(true)
+  })
+
+  it('does NOT blank a `${…}` interpolation — that is real code the scan must see', () => {
+    // Blanking interpolations would trade one false negative for another:
+    // JSX and identifiers inside them are elements the walk has to count.
+    const out = blankStringContents('const s = `a ${cond ? <button/> : null} b`')
+    expect(out).toContain('<button/>')
+    expect(out).toContain('cond ?')
+  })
+
+  it('preserves byte offsets exactly, so className is still read from the original', () => {
+    const src = 'const s = "abc"; const t = `de${x}f`;'
+    expect(blankStringContents(src)).toHaveLength(src.length)
+  })
+})
 
 describe('the action colour means pressable, and nothing else', () => {
   const files = jsxSourceFilesIn(PANEL_DIR)
