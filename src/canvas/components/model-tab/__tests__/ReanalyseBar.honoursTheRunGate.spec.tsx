@@ -46,10 +46,15 @@ import { ReanalyseBar } from '../ReanalyseBar'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let mockFreshness: any = null
 let mockDirty = false
+let mockImportHold = false
 
 vi.mock('../../../store', () => ({
   useCanvasStore: vi.fn((selector: (s: unknown) => unknown) =>
-    selector({ analysisFreshness: mockFreshness, analysisFreshnessDirty: mockDirty })
+    selector({
+      analysisFreshness: mockFreshness,
+      analysisFreshnessDirty: mockDirty,
+      importPendingServerRegistration: mockImportHold,
+    })
   ),
 }))
 
@@ -62,6 +67,7 @@ beforeEach(() => {
   // the bar mounts on its normal `model-changed` branch.
   mockFreshness = { freshness: 'stale' }
   mockDirty = false
+  mockImportHold = false
 })
 
 describe('ReanalyseBar honours the run gate', () => {
@@ -133,5 +139,55 @@ describe('ReanalyseBar honours the run gate', () => {
     const reason = screen.getByTestId('reanalyse-blocked-reason')
     expect(reason.textContent?.trim().length ?? 0).toBeGreaterThan(0)
     expect(screen.getByTestId('reanalyse-button')).toBeDisabled()
+  })
+
+  // ── A RUN IN FLIGHT IS NOT A REFUSAL ───────────────────────────────────────
+  //
+  // `canRunAnalysis` is FALSE while an analysis is running. Without
+  // `isAnalysing` this bar would put "Analysis is currently running" through
+  // `gateBlockedSubline` and print it as the reason the button is dead —
+  // turning a progress state into a refusal. Every other consumer of this pair
+  // excludes the running state; review found this one did not.
+  it('does not call a running analysis a refusal', () => {
+    render(
+      <ReanalyseBar
+        onReanalyse={vi.fn()}
+        canRun={false}
+        blockedReason="Analysis is currently running"
+        isAnalysing
+      />,
+    )
+    expect(screen.queryByTestId('reanalyse-blocked-reason')).toBeNull()
+    expect(screen.getByTestId('reanalyse-button')).not.toHaveAttribute('title')
+  })
+
+  it('still prevents a second dispatch while the analysis runs', () => {
+    // The sibling's exact rule: `disabled = isAnalysing || !canRun`. Not calling
+    // it a refusal must not make it pressable mid-run.
+    const onReanalyse = vi.fn()
+    render(<ReanalyseBar onReanalyse={onReanalyse} canRun={false} isAnalysing />)
+    const btn = screen.getByTestId('reanalyse-button')
+    expect(btn).toBeDisabled()
+    fireEvent.click(btn)
+    expect(onReanalyse).not.toHaveBeenCalled()
+  })
+
+  // ── THE SECOND MOUNT BRANCH, WHICH NOTHING COVERED ─────────────────────────
+  //
+  // `heldUnsure` (an import hold with a cannot-confirm verdict) is the bar's
+  // other reason to render. Neither this file's first cut nor the pre-existing
+  // spec ever set `importPendingServerRegistration`, so every assertion landed
+  // on `model-changed` and the gate was unproven on the branch review judged
+  // most likely to carry the running state.
+  it('gates the import-hold branch too, and says so on its own terms', () => {
+    mockFreshness = { freshness: 'unknown' }
+    mockImportHold = true
+    render(<ReanalyseBar onReanalyse={vi.fn()} canRun={false} blockedReason={HELD} />)
+    const bar = screen.getByTestId('reanalyse-bar')
+    // PRECONDITION: this really is the other branch.
+    expect(bar).toHaveAttribute('data-reason', 'import-unregistered')
+    expect(screen.getByText(/Can't confirm this analysis matches the current model\./)).toBeInTheDocument()
+    expect(screen.getByTestId('reanalyse-button')).toBeDisabled()
+    expect(screen.getByTestId('reanalyse-blocked-reason')).toHaveTextContent(HELD)
   })
 })

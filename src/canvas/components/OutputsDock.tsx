@@ -3672,6 +3672,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                          one owner, two bars, and only one handed the verdict. */
                       canRun={canRunAnalysis}
                       blockedReason={runBlockedTooltip}
+                      /* The THIRD member of the pair the sibling receives —
+                         without it a run in flight reads as a refusal, because
+                         `canRunAnalysis` is false while running. */
+                      isAnalysing={isRunning}
                     />
                   )
                 case 'readiness':

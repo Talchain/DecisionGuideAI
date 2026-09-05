@@ -27,8 +27,16 @@
  * sat DISABLED with "Analysis is held on a saved example. Re-draft it live to run
  * one.", while this button sat ENABLED with no title on both surfaces that host
  * it. Pressing it produced ZERO network requests (read at the CDP layer) and no
- * state change: the product offered an action that terminated in silence, with
- * the explanation already on screen under the other tab's control.
+ * change to the tab's content.
+ *
+ * ⚠ AND THE FIRST TELLING OF THIS OVERSTATED IT. It said the click "terminated
+ * in silence". `handleRunAnalysis` calls `showToast(outcome.reason, 'warning')`
+ * and the dock sits inside a real `ToastProvider`, so a blocked click should
+ * raise a `role="alert"` carrying the same sentence. The capture could not tell
+ * a raised toast from the starter banner, which was already displaying that
+ * exact sentence — so ZERO-NETWORK is measured and SILENCE is not. The defect
+ * is a control that looks pressable and cannot work; the explanation arriving
+ * only after the press, in a notice that dismisses itself, is the lesser half.
  *
  * `canRun`/`blockedReason` are `OutputsDock`'s own `canRunAnalysis` /
  * `runBlockedTooltip` — the SAME pair its sibling `AnalysisReadinessBar` is
@@ -64,9 +72,27 @@ interface ReanalyseBarProps {
   canRun?: boolean
   /** `OutputsDock`'s `runBlockedTooltip`. Read only while the gate is shut. */
   blockedReason?: string
+  /**
+   * `OutputsDock`'s `isRunning`, and it is NOT optional to the logic even though
+   * it is optional to the type.
+   *
+   * ⚠ WITHOUT IT THIS BAR CALLS A RUNNING ANALYSIS A REFUSAL. `canRunAnalysis`
+   * is false WHILE a run is in flight, so `blocked = !canRun` alone puts
+   * "Analysis is currently running" through `gateBlockedSubline` and prints it
+   * as the reason the button is dead. Every other consumer of this pair
+   * excludes the running state — `AnalysisReadinessBar` computes
+   * `blocked = !canRun && !isAnalysing`, and so do `PanelFooter:168` and both
+   * `OutputsDock` sites. This bar is now the same expression, not a fourth one.
+   */
+  isAnalysing?: boolean
 }
 
-export function ReanalyseBar({ onReanalyse, canRun = true, blockedReason }: ReanalyseBarProps) {
+export function ReanalyseBar({
+  onReanalyse,
+  canRun = true,
+  blockedReason,
+  isAnalysing = false,
+}: ReanalyseBarProps) {
   const { semantic } = useAnalysisTrust()
   const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
 
@@ -90,7 +116,8 @@ export function ReanalyseBar({ onReanalyse, canRun = true, blockedReason }: Rean
   // neither is recomputed. `blockedSentence` goes through the shared
   // `gateBlockedSubline` so a refusal without a reason still says something —
   // the same fallback the pre-analysis footer and the readiness bar use.
-  const blocked = !canRun
+  // The sibling's expression, verbatim. A run in flight is not a refusal.
+  const blocked = !canRun && !isAnalysing
   const blockedSentence = blocked ? gateBlockedSubline(blockedReason) : undefined
 
   return (
@@ -119,7 +146,7 @@ export function ReanalyseBar({ onReanalyse, canRun = true, blockedReason }: Rean
       <button
         type="button"
         onClick={onReanalyse}
-        disabled={!onReanalyse || blocked}
+        disabled={!onReanalyse || blocked || isAnalysing}
         title={blocked ? blockedSentence : undefined}
         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-text-on-color ${typography.panelMeta} hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shrink-0`}
         data-testid="reanalyse-button"
