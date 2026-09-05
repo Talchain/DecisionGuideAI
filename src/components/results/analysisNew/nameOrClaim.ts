@@ -47,6 +47,19 @@
  */
 export const NAME_CHAR_BUDGET = 42
 
+/*
+ * ⚠ THERE IS NO `isProseNotName` PREDICATE ANY MORE, DELIBERATELY. One existed
+ * to answer the CONTRACT question ("is this a claim rather than a name?"), was
+ * widened during review, and ended with ZERO production callers — a reviewer
+ * found it. An exported predicate nothing calls is not symmetry, it is a
+ * loaded gun: the next reader reaches for the one whose name sounds right
+ * rather than the one the row actually needs.
+ *
+ * The distinction it carried survives in the TWO CONSTANTS, which is where it
+ * belongs. If the contract question is ever genuinely asked, it is two lines
+ * and it should be written against the caller that needs it.
+ */
+
 /**
  * ⭐⭐ A SECOND, SMALLER NUMBER — AND IT IS A DIFFERENT QUESTION.
  *
@@ -71,18 +84,15 @@ export const NAME_CHAR_BUDGET = 42
 export const DISPLAY_CHAR_CUT = 36
 
 /** A label the producer sent as prose rather than as a name. */
-export function isProseNotName(label: string): boolean {
-  return normaliseSpaces(label).length > NAME_CHAR_BUDGET
-}
-
 /**
- * ⭐⭐ A DIFFERENT QUESTION FROM `isProseNotName`, AND THE ONE THE ROW ASKS.
+ * ⭐⭐ THE DISPLAY QUESTION — "can the ROW SHOW this in full?" — measured
+ * against `DISPLAY_CHAR_CUT`.
  *
- * `isProseNotName` answers *"is this a claim rather than a name?"* — a
- * statement about the CONTRACT, at `NAME_CHAR_BUDGET`. This answers *"can the
- * row show this in full?"* — a statement about the DISPLAY, at
- * `DISPLAY_CHAR_CUT`. Splitting them is the same move as splitting the two
- * budgets, one level up.
+ * It is deliberately NOT the contract question ("is this a claim rather than a
+ * name?", which would be `NAME_CHAR_BUDGET`). The row asks whether it can show
+ * the string; the contract asks what the string IS. They were one predicate
+ * for a revision, which is the same defect as the two budgets sharing one
+ * constant, one level up.
  *
  * ⚠ AND THE OLD SINGLE PREDICATE WAS WRONG IN TWO WAYS A REVIEWER MEASURED:
  *

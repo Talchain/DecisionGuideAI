@@ -19,13 +19,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { DriverInfluenceChart } from '../sections/DriverInfluenceChart'
 import type { DriverInfluenceRow } from '../analysisNewTypes'
-import {
-  DISPLAY_CHAR_CUT,
-  NAME_CHAR_BUDGET,
-  isProseNotName,
-  needsClaimDisclosure,
-  truncateAtWord,
-} from '../nameOrClaim'
+import { DISPLAY_CHAR_CUT, NAME_CHAR_BUDGET, needsClaimDisclosure, truncateAtWord } from '../nameOrClaim'
 
 vi.mock('../../../../canvas/hooks/useModelEditAuthority', () => ({
   useModelEditAuthority: () => ({
@@ -119,7 +113,7 @@ describe('the two budgets answer different questions', () => {
     expect(DISPLAY_CHAR_CUT).toBeLessThan(NAME_CHAR_BUDGET)
   })
 
-  it('classification uses the NAME threshold, not the display cut', () => {
+  it('a string between the two budgets still needs a route to its full text', () => {
     // A real label from the Model tab, whose length lands BETWEEN the two
     // numbers: longer than a row shows, still inside the name contract. It is
     // the case that distinguishes them, so a real one is worth more than a
@@ -127,29 +121,9 @@ describe('the two budgets answer different questions', () => {
     const between = 'Competitive Intensity in Target Market'
     expect(between.length).toBeGreaterThan(DISPLAY_CHAR_CUT)
     expect(between.length).toBeLessThanOrEqual(NAME_CHAR_BUDGET)
-    expect(isProseNotName(between)).toBe(false)
-  })
-})
-
-describe('isProseNotName', () => {
-  it('a long multi-word string is prose', () => {
-    expect(isProseNotName(CLAIM)).toBe(true)
-  })
-  it('a short noun phrase is a name', () => {
-    expect(isProseNotName('Warm Network Activation')).toBe(false)
-  })
-  /**
-   * ⚠ THIS CASE USED TO ASSERT THE OPPOSITE, ON A REASON A REVIEWER MEASURED
-   * AS FALSE. The old rule excluded space-free labels because word truncation
-   * "would return it unchanged and the affordance would promise a reveal that
-   * shows the same string". The first half is true; the second does not
-   * follow. The ROW still CSS-clips the token — a 72-character identifier
-   * rendered at 463px inside a 254px column — so the reveal would have shown
-   * 209px of otherwise unreachable text. "Unchanged by the cut" is not
-   * "already visible", and the disclosure is a `<p>` that WRAPS.
-   */
-  it('a long SINGLE token is still longer than a name', () => {
-    expect(isProseNotName('a'.repeat(NAME_CHAR_BUDGET + 20))).toBe(true)
+    // The row must offer a route for it, because the row cannot SHOW it —
+    // even though it is still inside the contract's idea of a name.
+    expect(needsClaimDisclosure(between)).toBe(true)
   })
 })
 
@@ -176,7 +150,6 @@ describe('needsClaimDisclosure — the DISPLAY question, not the contract one', 
     expect(between.length).toBeGreaterThan(DISPLAY_CHAR_CUT)
     expect(between.length).toBeLessThanOrEqual(NAME_CHAR_BUDGET)
     expect(needsClaimDisclosure(between)).toBe(true)
-    expect(isProseNotName(between)).toBe(false) // still a name, by contract
   })
 
   it('offers NO route for a label the row can show in full', () => {

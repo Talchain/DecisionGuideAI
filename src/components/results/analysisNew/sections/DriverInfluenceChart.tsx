@@ -236,7 +236,21 @@ export function DriverInfluenceChart({
               {isProse && claimOpen ? (
                 <p
                   id={`${claimRegionId}-${row.id}`}
-                  className={`${typography.panelBody} text-text-light m-0 px-1 pb-1`}
+                  /* ⚠ `break-words` IS LOAD-BEARING, AND ITS ABSENCE MADE THE
+                     WHOLE FEATURE FALSE FOR THE CLASS IT WAS ADDED FOR. A
+                     72-character identifier has no break opportunity, so the
+                     revealed paragraph rendered as ONE 420.8px line inside a
+                     264px box — escaping the dock by 152.8px. The claim was
+                     "reachable"; it was off-screen.
+
+                     ⚠⚠ AND MY OWN SPEC ASSERTED THE OPPOSITE IN A COMMENT —
+                     "the disclosure is a `<p>` that WRAPS" — which was an
+                     ASSUMPTION written as a finding. The spec is jsdom, which
+                     performs no layout, so it could never have checked it. I
+                     measured the LABEL's clipping in a browser and never the
+                     revealed paragraph, then reported `anyUnreachable: false`:
+                     true of what I measured, false of what I claimed. */
+                  className={`${typography.panelBody} text-text-light m-0 px-1 pb-1 break-words`}
                   data-testid={`${testId}-claim`}
                 >
                   {row.label}
