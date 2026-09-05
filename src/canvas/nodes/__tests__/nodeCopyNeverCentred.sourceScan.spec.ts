@@ -205,8 +205,17 @@ describe('canvas node surface — the UA button centring is overridden', () => {
     // content is NOT a descendant of `.react-flow__node`; `NodeChip` — the
     // shared chip every node type uses — renders in both places. Renaming the
     // attribute on either side must go red rather than go quiet.
+    //
+    // ⚠ THE ATTRIBUTE NAME IS DERIVED FROM THE CSS, NOT WRITTEN TWICE, and the
+    // match is BOUNDED. The first version of this test hardcoded the name and
+    // used a bare substring match; a mutant renaming the emitted attribute to
+    // `data-node-popover-renamed` left it GREEN, because the old name is a
+    // PREFIX of the new one. A guard that a rename can satisfy by extension is
+    // a guard agreeing with itself. The lookahead is what makes it bite.
+    const attr = css.match(/\[([a-z-]+)\]\s+button/)?.[1]
+    expect(attr).toBe('data-node-popover')
     const popover = blankComments(readFileSync(join(NODES_DIR, 'shared/NodePopover.tsx'), 'utf8'))
-    expect(popover).toMatch(/data-node-popover/)
+    expect(popover).toMatch(new RegExp(`${attr}(?![a-zA-Z0-9_-])`))
     expect(popover).toMatch(/createPortal/)
   })
 })
