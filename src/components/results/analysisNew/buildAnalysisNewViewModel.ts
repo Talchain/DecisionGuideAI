@@ -435,9 +435,22 @@ function buildKeyInsights(
 
 // ── DRIVERS AND DYNAMICS ────────────────────────────────────────────────────
 
+/**
+ * ⚠ THE `setRelative` PARAMETER IS GONE, AND ITS DISAPPEARANCE IS THE EVIDENCE.
+ *
+ * It decided two things in here: whether the row states a FIGURE, and which
+ * QUANTITY the grounding names. Neither is the scale question it was named for
+ * — the first is about provenance (a producer-measured score carries a number;
+ * this app's own normalisation of a raw elasticity does not) and the second is
+ * about which measurement it is. Both now read `d.displayProvenance` directly,
+ * which is what they were always describing.
+ *
+ * Once both were keyed correctly the parameter had no readers left. A flag that
+ * becomes unnecessary the moment its consumers ask the right question is a flag
+ * that was answering the wrong one.
+ */
 function driverFinding(
   d: DriverItem,
-  setRelative: boolean,
   recommendations: Recommendation[],
 ): AnalysisNewFinding {
   const target = d.matchedNodeId ?? d.factorKey
@@ -463,8 +476,11 @@ function driverFinding(
    * shipped.
    *
    * What the row keeps is what a BAR CANNOT STATE: the figure. A bar length is
-   * a rank comparison and never a number, so "Structural influence 90%" is
-   * additive where "lowers the outcome" is not.
+   * a rank comparison and never a number, so a percentage is additive where
+   * "lowers the outcome" is not. (⚠ This example read "Structural influence
+   * 90%" until 6 Sep 2026 — the wording that turned out to be the false
+   * absolute claim. The argument for keeping the FIGURE is untouched and is
+   * what stopped a later fix from deleting it; only the noun was wrong.)
    *
    * ⚠ THE NUANCE MOVES RATHER THAN DISAPPEARS. `mixed`/`unknown` are not a
    * direction, and the chart says so explicitly — a centred bar plus "Direction
@@ -483,16 +499,52 @@ function driverFinding(
     // strongest in this run" — a RANK claim — and never "drives N% of the
     // outcome", which would be an absolute causal share the basis does not
     // license.
-    implication: setRelative || influence == null
-      ? `Among the strongest influences in this run.`
-      : `Structural influence ${pct(influence)}.`,
+    /**
+     * ⭐ THE FIGURE SURVIVES; THE FALSE NOUN DOES NOT.
+     *
+     * This branched to a bare rank claim on a set-relative basis and to
+     * "Structural influence N%" otherwise — and since every stamped basis IS
+     * set-relative, the absolute arm was the one the common run took. That is
+     * the string Paul witnessed.
+     *
+     * ⚠ MY FIRST FIX DROPPED THE FIGURE ENTIRELY, and the spec beside this one
+     * caught it: it exists as an opposite-direction twin arguing that "the
+     * figure is what a BAR LENGTH cannot state — a bar is a rank comparison,
+     * never a number — so it must survive". Correct, and removing a true number
+     * to remove a false noun is a bad trade.
+     *
+     * So the number stays and the NOUN tells the truth: "Relative influence",
+     * the same wording `analysisMetricVisibleLabel` uses, with the scale stated
+     * once by the section caveat rather than repeated on every row.
+     *
+     * ⚠⚠ AND A THIRD DISTINCTION I FLATTENED ON THE WAY, caught by a third
+     * spec: on `normalised_elasticity` the estate ruled NO percentage at all,
+     * and my first two attempts printed one. That rule is about PROVENANCE, not
+     * scale — `normalised_elasticity` is this app's own normalisation of a raw
+     * elasticity, a fallback the producer did not supply, and the ruling is
+     * that a derived figure gets a rank claim rather than a number. Both bases
+     * are set-relative AND only one carries a figure. Three questions on one
+     * branch; two of them were already answered correctly and I nearly took
+     * them both out fixing the third.
+     */
+    implication:
+      influence == null || d.displayProvenance !== 'influence_score'
+        ? `Among the strongest influences in this run.`
+        : `Relative influence ${pct(influence)}.`,
     detail:
       d.fragileEdgeInfo?.switchProbability != null
         ? `This relationship is one the result is sensitive to.`
         : undefined,
-    groundedIn: setRelative
-      ? 'factor sensitivity, ranked within this run'
-      : "Olumi's structural influence score",
+    /* ⚠ THE GROUNDING IS A DIFFERENT QUESTION FROM THE SCALE, and it was
+       riding the same flag. Now that the scale answer is the same for both
+       bases, keying this on it too would have made every row say "factor
+       sensitivity" — including rows measured by the producer's influence
+       score. Keyed on the row's own provenance, which is what it was always
+       describing. */
+    groundedIn:
+      d.displayProvenance === 'influence_score'
+        ? "Olumi's structural influence score"
+        : 'factor sensitivity, ranked within this run',
     // A defaulted confidence is a placeholder, not a measurement — say so
     // rather than rendering it as evidence.
     marker: d.isDefaultedConfidence ? 'not_assessed' : undefined,
@@ -534,11 +586,31 @@ function buildDrivers(
   recommendations: Recommendation[],
 ): AnalysisNewViewModel['drivers'] {
   const drivers = data.drivers.drivers ?? []
-  // Rule 2: the basis is the PRODUCER's token, not the adapter's taste. Any
-  // row on a set-relative basis makes the whole list set-relative — mixing
-  // bases in one list is the defect the token exists to prevent.
-  const influenceIsSetRelative =
-    drivers.length > 0 && drivers.some((d) => d.displayProvenance !== 'influence_score')
+  /**
+   * ⭐⭐ EVERY STAMPED BASIS IS SET-RELATIVE, SO THIS IS TRUE WHENEVER THERE ARE
+   * ROWS. IT USED TO BE THE EXACT OPPOSITE ON THE COMMON CASE.
+   *
+   * It read `rows.some((d) => d.displayProvenance !== 'influence_score')` — FALSE
+   * exactly when every row IS `influence_score`, which is what the producer
+   * sends on an ordinary run. So the branch below took its ABSOLUTE arm on
+   * precisely the runs whose basis is set-relative for every row, and the panel
+   * printed **"Structural influence 100%."** — the string Paul witnessed on the
+   * deployed build.
+   *
+   * `influence_score` is the producer's normalisation against `max|influence|`:
+   * the top row is 1.0 BY CONSTRUCTION, and every capture in this repo maxes at
+   * exactly 1.0. The rule three lines below the branch was already right —
+   * "under a set-relative basis this says 'among the strongest in this run' … it
+   * never says 'drives N% of the outcome'". The predicate implementing it was
+   * upside down.
+   *
+   * ⚠ THE SCALE QUESTION AND THE GROUNDING QUESTION ARE NOT THE SAME QUESTION.
+   * This answers "is the figure a share of the outcome?" — no, on either basis.
+   * It does NOT answer "which quantity is this?", where `influence_score` and
+   * `normalised_elasticity` genuinely differ; that stays keyed on the row's own
+   * provenance. Collapsing both would trade a false claim for a vague one.
+   */
+  const influenceIsSetRelative = drivers.length > 0
 
   // ⚠⚠ THE ROWS DROPPED HERE ARE NOT NOTHING, AND SAYING THEY WERE WAS A LIVE
   // FALSEHOOD. A row carrying `zeroReason` is a row the PRODUCER measured and
@@ -549,7 +621,7 @@ function buildDrivers(
   // empty `findings` array cannot.
   const suppressedZero = drivers.filter((d) => d.zeroReason != null)
   const live = drivers.filter((d) => d.zeroReason == null)
-  const findings = live.map((d) => driverFinding(d, influenceIsSetRelative, recommendations))
+  const findings = live.map((d) => driverFinding(d, recommendations))
 
   // ⭐ THE SAME MAGNITUDE EXPRESSION THE GLANCE USES, FOR THE SAME REASON IT
   // USES IT: `displayInfluence` or nothing. A bar drawn from a mixed basis
@@ -1336,7 +1408,11 @@ function glanceDrivers(data: ResultsSectionDataReturn): {
   setRelative: boolean
 } {
   const rows = (data.drivers.drivers ?? []).filter((d) => d.zeroReason == null)
-  const setRelative = rows.length > 0 && rows.some((d) => d.displayProvenance !== 'influence_score')
+  /* ⚠ Same inversion as `buildDrivers` — see the note there. Every stamped
+     basis is set-relative, so this is true whenever there are rows. Both sites
+     are fixed together because a divergence between them would put two
+     different scale claims on one screen. */
+  const setRelative = rows.length > 0
   // Same contract rule as `driverFinding`: `displayInfluence` or nothing. A bar
   // drawn from a mixed basis ranks across two different scales.
   const magnitude = (d: (typeof rows)[number]) => d.displayInfluence ?? 0

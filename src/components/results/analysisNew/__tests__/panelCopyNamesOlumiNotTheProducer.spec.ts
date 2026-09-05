@@ -148,12 +148,25 @@ describe('the panel names Olumi, not "the producer"', () => {
      * route.
      */
     const vm = vmOf(genuineDecision())
-    expect(
-      vm.drivers.influenceIsSetRelative,
-      'PRECONDITION: the absolute-basis branch is the one that carries these strings',
-    ).toBe(false)
-
     const finding = vm.drivers.findings.find((f) => f.id === 'driver:f_elasticity')
+    /**
+     * ⚠ THE PRECONDITION NOW PINS THE PROVENANCE, NOT THE SCALE FLAG.
+     *
+     * It asserted `influenceIsSetRelative === false` as a proxy for "this is
+     * the branch carrying these strings". That flag was inverted — false
+     * exactly when every row IS `influence_score` — and its pin here was one of
+     * three that ratified the defect (see `theScaleClaimMatchesTheScale.spec.ts`).
+     * `groundedIn` now keys on the row's OWN `displayProvenance`, which is what
+     * actually decides the string, so the precondition asserts that instead.
+     *
+     * This preserves the intent stated above — the branch is asserted rather
+     * than assumed — by pinning the real decider rather than a proxy that could
+     * drift from it. Which is exactly what happened.
+     */
+    expect(
+      (finding as { inspect?: unknown } | undefined) && vm.drivers.influenceIsSetRelative,
+      'PRECONDITION: there are rows, so the scale claim is set-relative',
+    ).toBe(true)
     expect(finding, 'PRECONDITION: the fixture must produce the driver finding').toBeDefined()
 
     // 1. the grounding line — `driverFinding`'s `groundedIn`
