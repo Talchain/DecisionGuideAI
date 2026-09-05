@@ -20,6 +20,23 @@ import { GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
  * sentence — blank, a bare node id, or one carrying a banned glossary term.
  * `safeInterpolatedLabel` is the shared guard; this is what it falls back to.
  */
+/**
+ * The estate's one list joiner. `Intl.ListFormat` is already this repo's answer
+ * for prose lists (`OptionPreview.tsx:439`); reusing it means the en-GB comma
+ * rules have one owner rather than two, and it is correct at every arity —
+ * which a `.join(', ')` is not, as the partial-result ribbon proved on a
+ * deployed build.
+ */
+const MISSING_LIST = new Intl.ListFormat('en-GB', { style: 'long', type: 'conjunction' })
+
+/**
+ * The coverage warning with no names in it. Held as a const because
+ * `provisionalNaming` falls back to it: the guarantee "an empty list never
+ * emits a sentence fragment" then belongs to the STRING, not to its one
+ * call site, and survives a second caller.
+ */
+const PROVISIONAL_UNNAMED = 'This analysis is partial — some results are missing.'
+
 export const ANALYSIS_NEW_LABEL_FALLBACK = 'This option'
 
 export const ANALYSIS_NEW_COPY = {
@@ -749,7 +766,7 @@ export const ANALYSIS_NEW_COPY = {
      * levels: naming them apart is what stops a later reader folding them into
      * one and making the badge speak for the run (CLAUDE.md trap 21).
      */
-    provisional: 'This analysis is partial — some results are missing.',
+    provisional: PROVISIONAL_UNNAMED,
     /**
      * ⭐⭐ THE SAME WARNING, SAYING WHICH RESULTS.
      *
@@ -767,7 +784,9 @@ export const ANALYSIS_NEW_COPY = {
      * if nothing survives the mapping the generic sentence above stands.
      */
     provisionalNaming: (missing: readonly string[]) =>
-      `This analysis is partial — ${missing.join(', ')} did not come back.`,
+      missing.length === 0
+        ? PROVISIONAL_UNNAMED
+        : `This analysis is partial — ${MISSING_LIST.format(missing as string[])} did not come back.`,
     /**
      * Field names as THIS surface says them. Furniture: naming our own fields,
      * never a statement about the run. Keys are the producer's own vocabulary.

@@ -150,6 +150,15 @@ export interface ModelRow {
    */
   labelFromBrief?: boolean
   /**
+   * A relationship's two endpoints, still separable — present ONLY when the
+   * label IS the endpoint pair (an edge carrying its own authored label has
+   * none). The renderer gives each half its own share of the identity column so
+   * both survive truncation; see `relationshipIdentity` for why this is carried
+   * as structure rather than split back out of the joined string.
+   */
+  labelEndpoints?: readonly [string, string]
+
+  /**
    * The value shown in the row, ALREADY RESOLVED FOR DISPLAY and in PLAIN
    * language ("Strong positive effect", "45 days"). `null` means nothing is
    * stated — which is a fact to render, never a zero to invent.

@@ -40,7 +40,14 @@ import {
   GOAL_LABEL_FROM_BRIEF_TESTID,
 } from '../domain/goalLabelProvenance'
 import { SourceProvenancePill } from '../components/model-tab/SourceProvenancePill'
-import { ATTENTION_LABEL, KIND_GLYPH, KIND_LABEL, deferralLabel } from './rowPresentation'
+import {
+  ATTENTION_IS_SEVERE,
+  ATTENTION_LABEL,
+  ATTENTION_MARK,
+  KIND_GLYPH,
+  KIND_LABEL,
+  deferralLabel,
+} from './rowPresentation'
 import type { EditCommitState, DetailTier, ModelRow } from './types'
 
 export interface ModelRowViewProps {
@@ -152,8 +159,35 @@ export interface ModelRowViewProps {
  * The leaf truncates ONLY when the value may shrink. A bare value ("35 %")
  * must never be cut — that is the defect that broke a number from its unit.
  */
-function ValueLeaf({ display, mayShrink }: { display: string | null; mayShrink: boolean }) {
-  return <span className={mayShrink ? 'truncate min-w-0' : undefined}>{display ?? ''}</span>
+function ValueLeaf({
+  display,
+  mayShrink,
+  editable = false,
+}: {
+  display: string | null
+  mayShrink: boolean
+  /**
+   * ⭐ THE EDIT AFFORDANCE LIVES HERE, NOT ON THE WRAPPING `<button>`.
+   * Witnessed on deployed `a9c2e050`: `underline decoration-dotted` sat on the
+   * button, `text-decoration` propagates to every descendant, and so the
+   * secondary "Olumi: Low (0)" hint beside the value was underlined too —
+   * promising a click that does nothing to it, on a row where nothing else is a
+   * link. The mark belongs on the one thing the click edits.
+   */
+  editable?: boolean
+}) {
+  return (
+    <span
+      className={[
+        mayShrink ? 'truncate min-w-0' : '',
+        editable ? 'underline decoration-dotted' : '',
+      ]
+        .filter(Boolean)
+        .join(' ') || undefined}
+    >
+      {display ?? ''}
+    </span>
+  )
 }
 
 /**
@@ -501,17 +535,43 @@ export function ModelRowView({
         </button>
       )}
 
-      {row.attention.map(reason => (
-        <span
-          key={reason}
-          data-testid={`model-row-v2-${row.id}-attention-${reason}`}
-          title={ATTENTION_LABEL[reason]}
-          aria-label={ATTENTION_LABEL[reason]}
-          className={`${typography.panelBody} text-warning shrink-0`}
-        >
-          ⚠
-        </span>
-      ))}
+      {/*
+        ⭐ ONE MARK PER REASON, AND EACH SAYS WHICH.
+        Witnessed on deployed `a9c2e050`: this was `⚠` for all five reasons, in
+        one colour, mapped over an unbounded array — so a contested-AND-fragile
+        relationship drew two identical marks and the row said "something is
+        wrong here, twice" without saying what either time. The five sentences
+        existed the whole time, in `title` only.
+
+        Three things changed, and each answers a separate rule:
+          · SHAPE carries the meaning (`ATTENTION_MARK`), so the row is legible
+            without a legend — which matters because the estate's one legend
+            component sits inside the unmounted legacy block.
+          · COLOUR carries SEVERITY, not category: `fragile` is the only reason
+            that says the ANSWER could change, so it alone keeps `text-warning`
+            and the rest are `text-text-light`. That is DS §1's three-channel
+            rule and the design pack's "filled = act on it, outline = noted".
+          · The icon is a component, never a unicode character — DS §9.9 names
+            `'⚠'` explicitly, and the `emoji-icon` guard could not see a bare
+            JSX text node, so the rule was real and unenforced here.
+      */}
+      {row.attention.map(reason => {
+        const Mark = ATTENTION_MARK[reason]
+        return (
+          <span
+            key={reason}
+            data-testid={`model-row-v2-${row.id}-attention-${reason}`}
+            title={ATTENTION_LABEL[reason]}
+            aria-label={ATTENTION_LABEL[reason]}
+            role="img"
+            className={`shrink-0 ${
+              ATTENTION_IS_SEVERE.has(reason) ? 'text-warning' : 'text-text-light'
+            }`}
+          >
+            <Mark className="w-3.5 h-3.5" aria-hidden="true" />
+          </span>
+        )
+      })}
 
       {/*
         The deferred marker (design §4.2, §5.3). ⚠ It is rendered AFTER the
@@ -901,7 +961,7 @@ function ValueCell({
          WHY IT IS HERE TOO: "a fix applied to one of the two idle elements is a
          fix that half the rows never receive." The editable rows are exactly the
          ones carrying "Not set", which is where the relationship list lives. */
-      className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} text-left underline decoration-dotted flex items-center whitespace-nowrap ${
+      className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} text-left flex items-center whitespace-nowrap ${
         estimate === null && !valueMayShrink(display) ? 'shrink-0' : 'min-w-0'
       }`}
       onClick={e => {
@@ -913,7 +973,7 @@ function ValueCell({
           to one of the two idle elements is a fix that half the rows never
           receive." The editable rows are exactly the ones carrying the long
           strength bands, so this is the site the overflow was measured on. */}
-      <ValueLeaf display={display ?? 'Not set'} mayShrink={valueMayShrink(display)} />
+      <ValueLeaf display={display ?? 'Not set'} mayShrink={valueMayShrink(display)} editable />
       {estimate}
     </button>
   )
