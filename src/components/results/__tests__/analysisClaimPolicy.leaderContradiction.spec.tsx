@@ -735,6 +735,49 @@ describe('§8 the strength word is licensed by the admission, not by the verdict
     expect(t).not.toContain('Robustness unknown')
   })
 
+  /**
+   * ⭐⭐ THE GLYPH STATE, NOT ONLY THE LABEL — ADDED AFTER A MUTANT SURVIVED.
+   *
+   * Removing `mayStateStability` from `robustKnown` alone left every arm above
+   * GREEN. The label was still right — `notOkLabel` carries the fourth state
+   * independently — but `unknown` flipped to false, so the row rendered
+   * "Robustness not established" beside the **red danger X** instead of the
+   * muted help glyph.
+   *
+   * That is the exact harm this component's own comment forbids: *"an
+   * undetermined check is not a failure and must never render as one."* An
+   * absence of authority would have been presented to the user as a negative
+   * finding about their model — a denial minted from a silence, which is the
+   * same class of lie as the crown, pointing the other way.
+   *
+   * A text-only assertion cannot see it. This arm binds the STATE.
+   */
+  it('MODE-WITHHELD: the glyph is NEUTRAL, never the failure state', () => {
+    const { container } = render(
+      <TriageActionCardsBody data={MODE_WITHHELD(STABILITY)} onFocusNode={() => {}} />,
+    )
+    const icon = container.querySelector('[data-testid="checks-robust"] svg')
+    expect(icon, 'the robustness glyph never rendered — this arm would be vacuous').not.toBeNull()
+    const cls = icon!.getAttribute('class') ?? ''
+    expect(cls).toContain('text-text-light')
+    expect(cls).not.toContain('text-danger')
+    expect(cls).not.toContain('text-success')
+  })
+
+  it('ANTI-VACUITY: the failure state is still reachable on a licensed run', () => {
+    // Without this twin the arm above could pass on a component that had
+    // stopped rendering the danger colour at all.
+    const { container } = render(
+      <TriageActionCardsBody
+        data={PERMITTED_STABILITY({ verdict: 'fragile', score: 0.4 })}
+        onFocusNode={() => {}}
+      />,
+    )
+    expect(
+      container.querySelector('[data-testid="checks-robust"] svg')?.getAttribute('class') ?? '',
+    ).toContain('text-danger')
+  })
+
   it('MODE-WITHHELD: "Sensitive to assumptions" is withheld too — the gate is not editorial', () => {
     // The unflattering verdict is a stability verdict as well. A gate that
     // suppressed only the favourable word would be a preference, not a licence.
