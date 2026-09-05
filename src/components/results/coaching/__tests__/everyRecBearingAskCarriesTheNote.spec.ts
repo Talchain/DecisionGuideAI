@@ -24,9 +24,23 @@
  * destructuring-from-a-rec and zero aliasing at any opener file, against a
  * contrast of 154 files in `src/components/results/**` that DO destructure
  * (so the probe is not blind) and a fabricated-symbol negative control at 0.
- * That is a fact about today, not a property of the guard. If a future route
- * destructures, WIDEN THE PREDICATE — do not conclude from a green run that
- * the class is still closed.
+ * That is a fact about today, not a property of the guard.
+ *
+ * ⭐ THE DESTRUCTURED AND ALIASED FORMS ARE NOW CLOSED by the second
+ * alternation in `REC_BEARING`. What remains open, and cannot be closed by any
+ * predicate: a payload built in a VARIABLE and passed by reference
+ * (`const p = {…}; openAskOlumi(p)`) is invisible by construction, because the
+ * capture requires a literal `{` at the call.
+ *
+ * ⚠⚠ AND THE PLACE A SIXTH ROUTE WOULD ACTUALLY APPEAR — with the reason
+ * corrected, because an earlier draft of this paragraph gave the wrong one.
+ * `ModelStrip` is rec-derived IN SUBSTANCE and its `NodeInsightFinding` type
+ * ALREADY carries `tryThis`. The guard is silent there not because the type
+ * lacks the fields, but because its PAYLOAD does not read them — it passes
+ * `finding.context`. It fires the moment a payload reads one of the matched
+ * names, which a review demonstrated. So the risk is not "if the type gains a
+ * field" but "if a payload starts reading one", and that is a change a lane
+ * makes without thinking about this file at all.
  *
  * ⚠ COMMENTS ARE STRIPPED BEFORE MATCHING, and that is not defensive noise:
  * these files are heavily commented and several comments mention both
@@ -58,36 +72,94 @@ function walk(dir: string, out: string[] = []): string[] {
   return out
 }
 
-/** Every `openAskOlumi({ … })` payload in product code, comments removed. */
+/** The payload extractor, exposed so its brace-balancing can be tested directly. */
+export function extractPayloads(src0: string): string[] {
+  const src = stripComments(src0)
+  const out: string[] = []
+  const re = /(?:openAskOlumi|\.openAsk)\(\s*\{/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(src)) !== null) {
+    let depth = 0
+    let i = m.index + m[0].length - 1
+    const start = i
+    for (; i < src.length; i++) {
+      if (src[i] === '{') depth++
+      else if (src[i] === '}') {
+        depth--
+        if (depth === 0) break
+      }
+    }
+    out.push(src.slice(start, i + 1))
+  }
+  return out
+}
+
 function askPayloads(): Array<{ file: string; body: string }> {
   const found: Array<{ file: string; body: string }> = []
   for (const file of walk(SRC)) {
     const raw = readFileSync(file, 'utf8')
     if (!raw.includes('openAskOlumi(') && !raw.includes('.openAsk(')) continue
     if (file.endsWith('askOlumiStore.ts')) continue // the definition, not a caller
-    const src = stripComments(raw)
-    const re = /(?:openAskOlumi|\.openAsk)\(\s*\{/g
-    let m: RegExpExecArray | null
-    while ((m = re.exec(src)) !== null) {
-      // Balance braces from the opening `{` to capture the whole payload.
-      let depth = 0
-      let i = m.index + m[0].length - 1
-      const start = i
-      for (; i < src.length; i++) {
-        if (src[i] === '{') depth++
-        else if (src[i] === '}') {
-          depth--
-          if (depth === 0) break
-        }
-      }
-      found.push({ file: file.replace(SRC, 'src'), body: src.slice(start, i + 1) })
+    // ⚠ ONE extractor, not two. An earlier draft of this file duplicated the
+    // brace-balancing here and exported a second copy for the tests to
+    // exercise — so the tests would have proven a copy the guard did not use,
+    // and the two could drift silently. That is CLAUDE.md trap 12 committed
+    // inside a guard written to end a different instance of it.
+    for (const body of extractPayloads(raw)) {
+      found.push({ file: file.replace(SRC, 'src'), body })
     }
   }
   return found
 }
 
-/** A payload is rec-bearing if it reads fields off a recommendation. */
-const REC_BEARING = /\brec(?:ommendation)?\.(whyNow|signal|title|action|targetId|tryThis|helpType|sourceLine)\b/
+/**
+ * A payload is rec-bearing if it reads fields off a recommendation.
+ *
+ * TWO ALTERNATIONS, AND THE SECOND ONE'S MEMBERSHIP IS THE WHOLE DESIGN.
+ * The first matches MEMBER ACCESS (`rec.whyNow`). The second matches BARE
+ * IDENTIFIERS, closing the destructured (`const { whyNow } = rec`) and aliased
+ * (`const finding = record.snapshot`) forms that an earlier version of this
+ * guard was blind to — measured blind, by a review that injected both.
+ *
+ * ⚠⚠ THE BARE-IDENTIFIER LIST IS TWO TOKENS, NOT FOUR, AND AN EARLIER DRAFT
+ * GOT THIS WRONG IN A WAY THAT WOULD HAVE COST MORE THAN IT BOUGHT. It kept
+ * `tryThis` and `sourceLine` too, on the claim that all four were
+ * "recommendation-specific vocabulary". **False at the bytes for both:**
+ * `tryThis` is also a field of the focus-now `FocusRow`
+ * (`canvas/components/coaching-panel/focus-now/focusTypes.ts:75`), fed from a
+ * CEE coaching signal and not a `Recommendation`; and `sourceLine` is a field
+ * of `OlumiAttentionNote` itself (`canvas/utils/olumiAttention.ts:41`) — the
+ * very type this guard exists to enforce.
+ *
+ * ⛔ AND THE FOCUS-NOW ONE WAS ACTIVELY HARMFUL, which is why it is not a
+ * matter of taste. A focus-now row routed to this drawer reads `row.tryThis`,
+ * so the guard would have fired — and the developer COULD NOT COMPLY, because
+ * `attentionNoteForRecommendation` requires a full `Recommendation` shape that
+ * a `FocusRow` does not have. The only exits are an exclusion list or
+ * disabling the guard, which is precisely the cost this comment cites for
+ * leaving `title`/`targetId` out.
+ *
+ * ⚠ `signal` is excluded for a WEAKER reason than the others and the record
+ * should say so: measured today it does NOT false-positive. It is left out
+ * because it is generic enough that the next type to carry it would, and the
+ * cost of finding out is a disabled guard.
+ *
+ * THE RESIDUALS, STATED AS A RULE RATHER THAN A LIST — because an earlier
+ * draft wrote "THE RESIDUAL" and named ONE of TWO, which reads as exhaustive
+ * and is how a class gets declared closed while it is open.
+ *
+ * The rule: **a rec-bearing route that destructures ONLY tokens outside
+ * {`whyNow`, `helpType`} is invisible to the bare alternation.** Today that is
+ * `tryThis` and `sourceLine` — two symmetric holes, not one — and it stays
+ * correct if the alternation ever changes, which a list would not.
+ *
+ * That is a real trade, measured rather than assumed, and it is the right side
+ * of it: a false negative costs one missed route, a false positive costs the
+ * guard. Both classes are empty on this tree (zero destructuring-from-a-rec
+ * across the opener files, positive control firing).
+ */
+const REC_BEARING =
+  /\brec(?:ommendation)?\.(whyNow|signal|title|action|targetId|tryThis|helpType|sourceLine)\b|\b(?:whyNow|helpType)\b/
 
 describe('every rec-bearing ask route carries the producer\'s note', () => {
   const payloads = askPayloads()
@@ -113,6 +185,37 @@ describe('every rec-bearing ask route carries the producer\'s note', () => {
     expect(stripComments(withProse)).not.toContain('rec.whyNow')
     // …and it must NOT strip real code, or the guard would pass by blindness.
     expect(stripComments('openAskOlumi({ context: rec.whyNow })')).toContain('rec.whyNow')
+  })
+
+  it('the extractor survives NESTED payloads, in both directions', () => {
+    // `parameters: { method_id }` is real in this codebase, so a brace counter
+    // that stopped at the first `}` would truncate the payload BEFORE
+    // `attentionNote` and report a compliant route as a violation. A guard
+    // that cries wolf gets disabled, which is worse than no guard.
+    const withNote = extractPayloads(
+      'openAskOlumi({ context: rec.whyNow, parameters: { a: { b: 1 } }, attentionNote: n })',
+    )
+    expect(withNote).toHaveLength(1)
+    expect(withNote[0]).toContain('attentionNote')
+
+    const withoutNote = extractPayloads(
+      'openAskOlumi({ context: rec.whyNow, parameters: { a: { b: 1 } } })',
+    )
+    expect(withoutNote).toHaveLength(1)
+    expect(withoutNote[0]).not.toContain('attentionNote')
+  })
+
+  it('one call cannot absorb a NEIGHBOUR\'s note — the masking failure', () => {
+    // The inverse of truncation: if the counter over-ran the closing brace, a
+    // compliant call sitting after a violating one would supply the
+    // `attentionNote` the scan is looking for, and the violation would pass.
+    const two = extractPayloads(
+      'openAskOlumi({ context: rec.whyNow }) ; openAskOlumi({ context: rec.title, attentionNote: n })',
+    )
+    expect(two).toHaveLength(2)
+    expect(two[0], 'the first payload absorbed the second\'s note — violations would be masked')
+      .not.toContain('attentionNote')
+    expect(two[1]).toContain('attentionNote')
   })
 
   it('EVERY rec-bearing ask route passes attentionNote', () => {
