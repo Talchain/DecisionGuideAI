@@ -32,13 +32,15 @@
  * (`const p = {…}; openAskOlumi(p)`) is invisible by construction, because the
  * capture requires a literal `{` at the call.
  *
- * ⚠⚠ AND THE PLACE A SIXTH ROUTE WOULD ACTUALLY APPEAR, named by the review
- * that found it: `ModelStrip` is rec-derived IN SUBSTANCE — it renders
- * `finding.title` / `finding.tryThis` and opens the drawer with a `targetId` —
- * and is excluded only because its view-model type drops the fields. **If
- * `NodeInsightFinding` ever gains `helpType`, this guard binds to the
- * identifier NAME, not the shape, so it would still not fire.** A lane
- * widening that type must wire the note itself; the guard will not remind it.
+ * ⚠⚠ AND THE PLACE A SIXTH ROUTE WOULD ACTUALLY APPEAR — with the reason
+ * corrected, because an earlier draft of this paragraph gave the wrong one.
+ * `ModelStrip` is rec-derived IN SUBSTANCE and its `NodeInsightFinding` type
+ * ALREADY carries `tryThis`. The guard is silent there not because the type
+ * lacks the fields, but because its PAYLOAD does not read them — it passes
+ * `finding.context`. It fires the moment a payload reads one of the matched
+ * names, which a review demonstrated. So the risk is not "if the type gains a
+ * field" but "if a payload starts reading one", and that is a change a lane
+ * makes without thinking about this file at all.
  *
  * ⚠ COMMENTS ARE STRIPPED BEFORE MATCHING, and that is not defensive noise:
  * these files are heavily commented and several comments mention both
@@ -120,16 +122,36 @@ function askPayloads(): Array<{ file: string; body: string }> {
  * (`const finding = record.snapshot`) forms that an earlier version of this
  * guard was blind to — measured blind, by a review that injected both.
  *
- * ⚠ `title`, `action`, `targetId` and `signal` are DELIBERATELY EXCLUDED from
- * the bare-identifier alternation. They are generic enough to appear in
- * payloads that hold no recommendation, and a guard that fires on innocent
- * changes gets disabled — which costs more than the false negatives it closes.
- * The four kept are recommendation-specific vocabulary. Measured: GREEN on the
- * pristine tree, GREEN on an innocent route carrying `targetId`, RED on both
- * the destructured and aliased forms.
+ * ⚠⚠ THE BARE-IDENTIFIER LIST IS TWO TOKENS, NOT FOUR, AND AN EARLIER DRAFT
+ * GOT THIS WRONG IN A WAY THAT WOULD HAVE COST MORE THAN IT BOUGHT. It kept
+ * `tryThis` and `sourceLine` too, on the claim that all four were
+ * "recommendation-specific vocabulary". **False at the bytes for both:**
+ * `tryThis` is also a field of the focus-now `FocusRow`
+ * (`canvas/components/coaching-panel/focus-now/focusTypes.ts:75`), fed from a
+ * CEE coaching signal and not a `Recommendation`; and `sourceLine` is a field
+ * of `OlumiAttentionNote` itself (`canvas/utils/olumiAttention.ts:41`) — the
+ * very type this guard exists to enforce.
+ *
+ * ⛔ AND THE FOCUS-NOW ONE WAS ACTIVELY HARMFUL, which is why it is not a
+ * matter of taste. A focus-now row routed to this drawer reads `row.tryThis`,
+ * so the guard would have fired — and the developer COULD NOT COMPLY, because
+ * `attentionNoteForRecommendation` requires a full `Recommendation` shape that
+ * a `FocusRow` does not have. The only exits are an exclusion list or
+ * disabling the guard, which is precisely the cost this comment cites for
+ * leaving `title`/`targetId` out.
+ *
+ * ⚠ `signal` is excluded for a WEAKER reason than the others and the record
+ * should say so: measured today it does NOT false-positive. It is left out
+ * because it is generic enough that the next type to carry it would, and the
+ * cost of finding out is a disabled guard.
+ *
+ * THE RESIDUAL, STATED RATHER THAN HIDDEN: a route that destructures ONLY
+ * `tryThis` and nothing else is now invisible again. That is a real trade —
+ * measured, not assumed — and it is the right side of it, because a false
+ * negative costs one missed route while a false positive costs the guard.
  */
 const REC_BEARING =
-  /\brec(?:ommendation)?\.(whyNow|signal|title|action|targetId|tryThis|helpType|sourceLine)\b|\b(?:whyNow|tryThis|sourceLine|helpType)\b/
+  /\brec(?:ommendation)?\.(whyNow|signal|title|action|targetId|tryThis|helpType|sourceLine)\b|\b(?:whyNow|helpType)\b/
 
 describe('every rec-bearing ask route carries the producer\'s note', () => {
   const payloads = askPayloads()
