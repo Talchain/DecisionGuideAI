@@ -399,8 +399,12 @@ function inlinePathWillOwnAnalysisReadyWrite(
  * ACCEPTING ONLY `missing_goal` / `missing_option_nodes`. THAT WAS STRUCTURALLY
  * VACUOUS FOR THE ENTIRE `status: 'blocked'` CLASS, and it was measured, not
  * argued: the composite's returns are ORDERED AND MUTUALLY EXCLUSIVE, and
- * `blocked_refusal` returns at `ceeAnalysisReadyValidation.ts:65` BEFORE the
- * goal check and the option loop. So for every blocked payload the reason was
+ * `blocked_refusal` returns at `ceeAnalysisReadyValidation.ts:135` BEFORE the
+ * goal check and the option loop. (⚠ This cited `:65` until #1222. That was
+ * stale by a code MOVE in this same PR, and worse than merely stale: `:65` now
+ * lands INSIDE `ceeAnalysisReadyContainment` — the very function this sentence
+ * contrasts against — so a reader who followed it drew the opposite conclusion.
+ * Re-derive a line citation at your own head; do not inherit one.) So for every blocked payload the reason was
  * always `blocked_refusal`, containment was NEVER ASKED, and a foreign blocked
  * readiness applied — after which `setCeeAnalysisReady` stamps
  * `ceeAnalysisReadyNodeIds` from the CURRENT canvas, LAUNDERING the payload's
@@ -424,11 +428,16 @@ function inlinePathWillOwnAnalysisReadyWrite(
  *     the turn drives the display to not-ready for the model on screen.
  *     ⚠ THE JUSTIFICATION THAT USED TO STAND HERE — "so the refusal notice from
  *     CEE #1023 can render" — IS FALSE, and refuted at the bytes:
- *     `deriveAnalysisRefusalNoticeUpdate` runs at `:1334`, 118 lines BEFORE this
- *     write, its signature is `(response: unknown)`, it reads
+ *     `deriveAnalysisRefusalNoticeUpdate` is called in step 3 (grep
+ *     `const refusalUpdate =`), which runs UNCONDITIONALLY and STRICTLY BEFORE
+ *     the step-4 `setCeeAnalysisReady(normalised)` write this comment is
+ *     attached to; its signature is `(response: unknown)`, it reads
  *     `envelope.analysis_ready` off the raw payload, and its module imports
  *     nothing at all. Refusing this write could never have suppressed the
- *     notice. True conclusion, false mechanism — which is why an UNCONTAINED
+ *     notice. (⚠ This cited `:1334` and "118 lines before" until #1222; both
+ *     were stale by a code move — the gap measured 137 at `06f0fec` and 141
+ *     after this commit. The ORDERING is the claim; the arithmetic was a
+ *     hand-maintained mirror and is deliberately not restated.) True conclusion, false mechanism — which is why an UNCONTAINED
  *     blocked payload can now be refused with no cost to the notice.
  *   · `node_ids_changed` cannot arise: no snapshot is passed.
  *
@@ -459,19 +468,89 @@ function inlinePathWillOwnAnalysisReadyWrite(
  *
  * Returns a human-readable refusal detail, or `null` to apply.
  */
+function containmentExclusionApplies(
+  response: OlumiResponse,
+  store: V5ApplicatorStore,
+): boolean {
+  if (store.nodes.length === 0) return true
+
+  const draftGraphNodes = response.draft_graph?.nodes
+  if (Array.isArray(draftGraphNodes) && draftGraphNodes.length > 0) return true
+
+  return false
+}
+
 function readinessContainmentRefusal(
   response: OlumiResponse,
   store: V5ApplicatorStore,
   normalised: CEEAnalysisReady,
 ): string | null {
-  if (store.nodes.length === 0) return null
-
-  const draftGraphNodes = response.draft_graph?.nodes
-  if (Array.isArray(draftGraphNodes) && draftGraphNodes.length > 0) return null
+  if (containmentExclusionApplies(response, store)) return null
 
   const containment = ceeAnalysisReadyContainment(normalised, store.nodes)
   if (containment.isContained) return null
   return containment.details ?? containment.reason ?? 'not_about_current_graph'
+}
+
+/**
+ * P0 #1222 — the SAME question, asked of a readiness whose identity was
+ * destroyed before it could be asked.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⛔ WHY THIS EXISTS: THE REJECTION ARM LEFT THE REPORT GATE DISARMED
+ * ═══════════════════════════════════════════════════════════════════════════
+ * `turnContainmentRefusal` used to be assigned ONLY inside the `if (normalised)`
+ * arm of step 4. When `analysis_ready` is PRESENT and `normaliseV5AnalysisReady`
+ * REJECTS it, step 4 takes the `else` arm — it CLEARS the readiness and leaves
+ * the verdict `null` — so the step-5 gate read `null`, treated the turn as
+ * un-refused, and hydrated whatever `analysis_result` the response carried.
+ * Measured on the hiring canvas with a pricing readiness whose `options` array
+ * was empty: `resultsComplete` called once, and the report's `leading_option_id`
+ * was the PRICING model's option. The founder's harm, through a second door.
+ *
+ * ⚠ THE ASYMMETRY WAS THE AGGRAVATING FACT: that arm CLEARS the readiness, so
+ * the readiness slice and the refusal notice stayed HONEST while the Analysis
+ * tab painted the foreign model — exactly the split this PR exists to end.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⛔ THIS IS NOT A SECOND PREDICATE — IT IS THE SAME ONE, MINUS ITS LAST STEP
+ * ═══════════════════════════════════════════════════════════════════════════
+ * `readinessContainmentRefusal` is three steps: exclusion 1, exclusion 2, then
+ * the identity comparison. BOTH EXCLUSIONS ARE IDENTITY-INDEPENDENT — neither
+ * touches `normalised` — so both survive the loss of the payload's identity and
+ * are shared verbatim via `containmentExclusionApplies`. Only the third step
+ * needs an identity, and here there is none to compare: the normaliser rejected
+ * the payload precisely because its identity fields were absent, empty, or
+ * unusable. So the honest answer to "is this readiness about the mounted model?"
+ * is NOT "yes" — it is "this turn supplied nothing that could establish it".
+ *
+ * The old code answered that question with `null`, which the gate reads as
+ * "apply". This answers it with a refusal, which is the same answer the
+ * identity path gives when containment cannot be established.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⚠ THE OVER-SUPPRESSION PRICE, STATED RATHER THAN GLOSSED
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Refusing a report costs the user an analysis they waited a minute for, which
+ * is the expensive direction. The cost here is bounded, and the bound is the
+ * reason this is the right trade:
+ *   · both must-apply exclusions still fire, so the two classes that most often
+ *     look foreign — an empty canvas, and a turn that carries its own graph —
+ *     are still APPLIED;
+ *   · the dedupe at the write below (`hash !== prevHash`) means a report the
+ *     store ALREADY holds is not rewritten regardless, so this can only ever
+ *     withhold a report the user does not yet have;
+ *   · a rejected readiness is CEE saying it could not name a goal or an option.
+ *     A response that cannot identify what it analysed, arriving on a populated
+ *     canvas it did not deliver, is not evidence about that canvas.
+ */
+function unidentifiableReadinessRefusal(
+  response: OlumiResponse,
+  store: V5ApplicatorStore,
+): string | null {
+  if (containmentExclusionApplies(response, store)) return null
+
+  return 'analysis_ready was present but failed shape validation, so this turn carries no identity to compare against the mounted model'
 }
 
 function isNonEmptyString(v: unknown): v is string {
@@ -1403,7 +1482,7 @@ export function applyV5State(
    * ⛔ ONE QUESTION, ONE AUTHORITY, TWO CONSUMERS — deliberately not a second
    * predicate for the report. Deriving the report's own containment from its
    * `win_probabilities` keys would be a DIFFERENT and unsafe operand: those keys
-   * "may be labels in real staging payloads" (`mapV5AnalysisToReport.ts:936`),
+   * "may be labels in real staging payloads" (`mapV5AnalysisToReport.ts:931`),
    * so a gate reading them would refuse legitimate analyses — and refusing a
    * report is the expensive direction (see the step-5 gate).
    *
@@ -1464,6 +1543,10 @@ export function applyV5State(
       // ⭐ HELD FOR STEP 5. This turn's containment verdict is computed ONCE and
       // consumed by BOTH writes — see the step-5 gate for why the report write
       // needs it and why it must not be a second predicate.
+      // ⚠ ONE VERDICT PER TURN, TWO ARMS THAT SET IT (#1222): the sibling `else`
+      // arm below sets it too, for the case where the normaliser REJECTED the
+      // payload. Any future arm that consumes `rawAnalysisReady` must also answer
+      // this question — leaving it `null` is not "no opinion", it is "apply".
       turnContainmentRefusal = containmentRefusal
       if (containmentRefusal) {
         // ⛔ REFUSE THE WRITE — DO NOT CLEAR. The readiness the user already has
@@ -1529,6 +1612,15 @@ export function applyV5State(
       // Present but malformed (or an empty options array) — clear stale
       // store state from prior turns rather than leaving it to mislead the
       // pre-analysis panel.
+      //
+      // ⭐ P0 #1222 — HELD FOR STEP 5, exactly as the apply arm does. A rejected
+      // readiness destroys the identity the report gate needs, and this arm
+      // already treats the payload as unusable by clearing the slice; leaving
+      // the verdict `null` here made step 5 read the turn as un-refused and
+      // hydrate the foreign report anyway. See `unidentifiableReadinessRefusal`
+      // for why this is the same predicate rather than a second one, and for
+      // the over-suppression bound.
+      turnContainmentRefusal = unidentifiableReadinessRefusal(response, store)
       store.setCeeAnalysisReady(null)
       deferred.push({
         reason: 'analysis_ready_invalid_shape',
@@ -1628,14 +1720,61 @@ export function applyV5State(
       // it. Admitting a partial here would also make this the one consumer
       // answering containment differently from every restore path.
       //
-      // ⚠ RESIDUAL, STATED RATHER THAN IMPLIED CLOSED: this gate can only refuse
-      // a report when the SAME response also carried an `analysis_ready` that
-      // failed containment. A response bearing a foreign `analysis_result` and
-      // NO `analysis_ready` is not covered here — it is covered by the scenario
-      // fence for the cross-scenario class, but not for the same-id/swapped-nodes
-      // class. CEE's contract is to send `analysis_ready` with every
-      // `analysis_result` (see the `responseIsAnalyseShaped` clear-on-absence arm
-      // above), so this is a contract-violation residual, not a routine one.
+      // ⚠⚠ THE RESIDUAL AS THIS COMMENT ONCE STATED IT WAS FALSE, AND THAT IS
+      // WORTH RECORDING RATHER THAN QUIETLY EDITING. It read: "this gate can only
+      // refuse a report when the SAME response also carried an `analysis_ready`
+      // that failed CONTAINMENT … so this is a contract-violation residual, not a
+      // routine one." Both halves were wrong, and it was the sentence a reader
+      // consulted to decide how much to worry.
+      //
+      // The gap was not the ABSENT-readiness case it described. It was the
+      // PRESENT-but-REJECTED case: `normaliseV5AnalysisReady` rejects at five
+      // sites, every one of them resolving to the single `else` arm of step 4,
+      // which CLEARS the readiness and — until #1222 — left the verdict `null`.
+      // A payload carrying `analysis_ready` therefore reached this gate disarmed
+      // and hydrated the foreign report. Measured on the hiring canvas with a
+      // pricing readiness whose `options` array was empty: one `resultsComplete`
+      // call, `leading_option_id` the PRICING model's option.
+      //
+      // ⭐⭐ AND IT IS NOT A CONTRACT VIOLATION — IT IS ORDINARY REFUSAL TRAFFIC.
+      // Derived in a fresh CEE clone at staging `90edb1fa` (byte-identical to
+      // `1af54f6c` across all five carrier files). `blockedIdentityCarrier()`
+      // (`src/schemas/analysis-ready.ts:536`) returns literally
+      // `{ options: [], goal_node_id: "", status: "blocked" }` — BOTH fields that
+      // disarm the normaliser, at once, deliberately, commented "THE ONE
+      // SPELLING" and "PRESENT-BUT-EMPTY, NEVER DROPPED" because
+      // `OlumiResponseSchema` requires the keys. It is pinned byte-exact by
+      // `analysis-refusal-carries-repair-route.test.ts`. Two chains were traced
+      // to a request handler, neither dead nor test-only: the chip arm
+      // (`/orchestrate/v2/turn` → `dispatchDeterministicChipClick` →
+      // `orchestrator-v5/handlers/chip-click-dispatch.ts:855`), whose sole
+      // deterministic action is `run_analysis` — i.e. THE USER CLICKS RUN AND CEE
+      // REFUSES — and the routed arm via
+      // `orchestrator-v5/turn-executor.ts:10556`. `assessCanonicalAnalysisReadiness`
+      // itself returns the carrier when a graph has no goal node.
+      //
+      // ⚠ SCOPE, because the distinction decides how much this sentence proves:
+      // that is CEE's staging BRANCH, not a witnessed deployed build (CEE
+      // `/health` 404s, and a 404 proves nothing). It is also NOT nine days old,
+      // which is how it reached this lane: the FUNCTION dates from #1152
+      // (2026-08-27), but the emitted SHAPE dates from `678a236d` (2026-07-07,
+      // #358/#363) — #1152 centralised three pre-existing literals rather than
+      // inventing one, and #1336 never touched it. Two months, not nine days.
+      //
+      // The UI half of that is measured HERE rather than inherited: CEE's own
+      // source quotes this file's accept predicate verbatim and correctly, and
+      // those two lines are live at `normaliseV5AnalysisReady` (grep
+      // `goalNodeId.length === 0`). CEE cites them as `applyV5State.ts:233-234`;
+      // at this head they are `:251-252`, and `:233` is the per-option doc block
+      // — the same citation drift as below, reaching across the service boundary.
+      //
+      // ⚠ RESIDUAL AS IT NOW STANDS, stated rather than implied closed: this gate
+      // refuses a report when the same response carried an `analysis_ready` that
+      // either FAILED CONTAINMENT or was REJECTED BY THE NORMALISER. A response
+      // bearing a foreign `analysis_result` and NO `analysis_ready` key at all is
+      // still not covered here — the scenario fence covers the cross-scenario
+      // class, but not the same-id/swapped-nodes class. That one residual is
+      // pinned by a live test rather than left to this prose.
       deferred.push({
         reason: 'analysis_result_not_about_current_graph',
         block: analysisBlock,
