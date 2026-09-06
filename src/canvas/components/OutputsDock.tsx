@@ -1002,16 +1002,27 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
    * ⭐⭐ READ FROM THE TRUST SEMANTIC, NOT FROM `displayedFreshness` — the two
    * answer the same question and only one of them can see a LOCAL EDIT.
    *
-   * `displayedFreshness` turns `'stale'` when CEE says so. `ReanalyseBar`'s
-   * header states the wider rule it already uses: the trust semantic is
-   * `'changed'` on CEE `'stale'`, or on a retained-fresh verdict dirtied by a
-   * local edit (its words: "retained-fresh-now-dirtied by a local edit"); a
-   * retained `'unknown'` verdict dirtied locally yields `'cannot_confirm'`
-   * instead (`classifyFreshnessForDisplay`). So immediately after a
-   * user edits a value, the footer said "Model changed. Results may be out of
-   * date." while this panel said "We cannot confirm whether this analysis
-   * reflects the current model" — both on screen, witnessed on the deployed
-   * build. The panel was not being careful, it was blind.
+   * `displayedFreshness` turns `'stale'` only when CEE says so. The trust
+   * semantic is `classifyFreshnessForDisplay`, which also reads the local dirty
+   * overlay. So immediately after a user edits a value, the footer said "Model
+   * changed. Results may be out of date." while this panel said "We cannot
+   * confirm whether this analysis reflects the current model" — both on screen,
+   * witnessed on the deployed build. The panel was not being careful, it was
+   * blind.
+   *
+   * ⚠⚠ THIS COMMENT NO LONGER RESTATES THAT FUNCTION'S RULE, DELIBERATELY.
+   * What sat here was a SECOND COPY of a one-line summary that also sat in
+   * `staleReason.ts`, and nothing kept the two in step — the estate's
+   * hand-maintained-mirror defect, on a claim about another module's branches.
+   * Both copies were rewritten together once and were STILL false, in the
+   * other direction: they said a retained `'unknown'` dirtied locally yields
+   * `'cannot_confirm'`, which is wrong for the `graph_patch: applied` state
+   * (`VERDICT_ABSENT_FROM_PAYLOAD` + dirty, no import hold), where the
+   * function returns `'changed'`. The branches are now enumerated ONCE, beside
+   * the reader this line calls, in
+   * `components/results/analysisNew/staleReason.ts`, derived by executing the
+   * function over its whole input space and pinned by name in its spec.
+   * **Read it there; do not re-summarise it here.**
    *
    * ONE shared admission, read by both surfaces. The fail-closed rule is
    * unchanged: only the authority's own `'changed'` licenses the stronger

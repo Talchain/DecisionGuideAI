@@ -48,12 +48,57 @@ export function staleReasonFromFreshness(freshness: string | null | undefined): 
  * changed a value on the canvas has produced a change this build knows about
  * with certainty and CEE has not been told about yet.
  *
- * The footer already reads the wider authority. `ReanalyseBar`'s own header
- * says so: the trust semantic is `'changed'` on CEE `'stale'`, or on a
- * retained-fresh verdict dirtied by a local edit ("retained-fresh-now-dirtied
- * by a local edit", its words); a retained `'unknown'` dirtied locally yields
- * `'cannot_confirm'` instead. So on exactly the fresh-then-dirtied state the two surfaces disagreed ON SCREEN,
- * witnessed on the deployed build:
+ * The footer already reads the wider authority: `classifyFreshnessForDisplay`,
+ * which also sees the local dirty overlay.
+ *
+ * ⚠⚠ WHAT THAT FUNCTION DOES — ENUMERATED, NOT SUMMARISED, AND THE COUNT IS
+ * THE REASON. Two one-line summaries of it have shipped in this comment and
+ * BOTH were false, in OPPOSITE directions: the first was unqualified, and the
+ * paraphrase that replaced it in review — "a retained `'unknown'` dirtied
+ * locally yields `'cannot_confirm'` instead" — is false on limb 2b below. A
+ * third summary would be the third wrong sentence (CLAUDE.md trap 22f: two
+ * reversals on one predicate is a signal, and "one more rule" is sunk cost),
+ * so this states the branches instead of compressing them.
+ *
+ * Derived by EXECUTING the function over its whole input space at `06979dad`
+ * — 4 freshness values × 6 reason codes × 3 at-run/current hash pairs × dirty
+ * × importHold, plus the null state = 292 rows — never read off either
+ * previous comment. Pinned by name in `__tests__/staleReason.spec.ts`.
+ *
+ * It returns `'changed'` in exactly two limbs:
+ *
+ *   1. the DISPLAYED value is `'stale'`. CEE stated it first-hand, and the
+ *      verdict is not self-contradictory — `isSelfContradictoryStale`
+ *      downgrades a `'stale'` whose own payload carries IDENTICAL non-empty
+ *      at-run/current hashes to `'unknown'` before this branch sees it. A
+ *      STATED `'stale'` reaches `'changed'` even under an import hold; that is
+ *      deliberate, and ROADMAP 2.129 (a) is what happened when it did not.
+ *
+ *   2. there is NO import hold, the local dirty overlay is set, AND the stored
+ *      verdict either
+ *        a. has `freshness: 'fresh'` — the overlay downgraded a retained fresh
+ *           verdict for display, and the `'changed'` inference is drawn from
+ *           the stored value rather than the displayed one; or
+ *        b. carries `freshnessReason === VERDICT_ABSENT_FROM_PAYLOAD` — the
+ *           payload carried no `freshness` field at all, so the UI degraded it
+ *           to `'unknown'` ITSELF.
+ *
+ * ⚠ LIMB 2b IS WHAT THE PARAPHRASE DENIED, and it is not a corner case: it is
+ * the `graph_patch: applied` reply — readiness only, newer `computed_at`,
+ * total silence on freshness — captured verbatim on staging and already
+ * asserted to read `'changed'` by
+ * `canvas/store/__tests__/freshnessOnAppliedEdit.spec.ts`. So the sentence
+ * this replaces described the product's own accepted-edit path as saying the
+ * opposite of what it says.
+ *
+ * Everything else is `'cannot_confirm'` — a CEE-STATED `'unknown'` whatever
+ * the overlay says, the orphan synthesis, the run-completion write, and every
+ * import-held state limb 1 did not already answer — or `'current'` (an
+ * undirtied `'fresh'` with no hold) or `'none'` (no verdict to show).
+ *
+ * The disagreement this fix closes is limb 2a. On exactly the
+ * fresh-then-dirtied state the two surfaces disagreed ON SCREEN, witnessed on
+ * the deployed build:
  *
  *   footer  "Model changed. Results may be out of date."     (definite)
  *   panel   "We cannot confirm whether this analysis
