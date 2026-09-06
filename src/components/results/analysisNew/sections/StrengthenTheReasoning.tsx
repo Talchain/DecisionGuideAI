@@ -582,6 +582,35 @@ export function StrengthenTheReasoning({
                     They are also the same KIND of thing: how urgent this is, and
                     what licenses it. Reading them as a pair beneath the title is
                     what they are. */}
+                {/* ⚠⚠ THE MARK IS NODE KIND. THE SEVERITY CHIP BELOW IS SEVERITY.
+                    THEY ARE NOT A DUPLICATE PAIR, AND THEY HAVE BEEN READ AS ONE.
+
+                    An audit read this mark as a severity mark that the chip
+                    beneath it duplicated, and proposed deleting the chip. That
+                    would have removed the card's ONLY severity signal. The two
+                    answer different questions, from different sources:
+
+                      mark ← markKindForTarget(rec.targetId) — WHICH KIND OF NODE
+                             this finding is about, resolved off the canvas and
+                             drawn in the canvas's own shape/colour vocabulary.
+                      chip ← rec.category — HOW URGENT the producer said it is.
+
+                    Neither is derivable from the other, and both absences are
+                    normal: a finding with no target (or an EDGE target) has no
+                    mark, and a finding the producer never categorised has no
+                    chip. #995, which introduced the mark, says it carries "no
+                    state, no severity" in as many words.
+
+                    ⚠ AND THE FILL IS NOT WHERE SEVERITY GOES. The mark is always
+                    filled deliberately. `buildModelStrip.ts` re-adjudicated that
+                    axis at this tip: the fill is reserved for PROVENANCE and
+                    refused until it can be right for EVERY node in a row.
+                    Severity is a property of the RECOMMENDATION, while this
+                    shape denotes a NODE on every other surface that draws it —
+                    tinting it by severity would make one vocabulary mean two
+                    things, which `nodeMarks.tsx` calls worse than no shape.
+
+                    Both moves RED in `StrengthenSeveritySignals.spec.tsx`. */}
                 <p className={`${typography.panelHeader} text-text-header m-0 flex items-baseline gap-2`}>
                   {markKind ? <NodeMark kind={markKind} className="w-3 h-3 self-center" /> : null}
                   <span className="min-w-0">{rec.title}</span>
