@@ -166,6 +166,18 @@ describe('P2 — the dead gap never widens past the first wait', () => {
       peak = Math.max(peak, inWindow)
     }
     expect(peak).toBeLessThanOrEqual(CEE_READ_TIER_RPM / 4)
+
+    // The hook's header and the PR state two literals about THIS schedule —
+    // "17 reads over 130s, and at most 9 in any 60s window". A sentence cannot
+    // be pinned; these two assertions can, and they exist so the header cannot
+    // drift from the schedule silently: a change to the delay list must
+    // change these numbers AND the sentence that quotes them, in one diff.
+    // (The quarter-budget bound above is the CONTRACT; these are the FACTS of
+    // the current list, deliberately tighter.) Measured before pinning: a
+    // 4s-spaced list of 32 reads with peak 16 satisfied the bound above and
+    // left the header's "at most 9" false with every test green.
+    expect(PROVISIONAL_DELIVERY_DELAYS_MS).toHaveLength(17)
+    expect(peak).toBeLessThanOrEqual(9)
   })
 })
 
