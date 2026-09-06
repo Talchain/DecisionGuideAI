@@ -196,7 +196,7 @@ describe('"Could change if" advertises an action only when it can honour one', (
     ).toBeNull()
 
     render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={vm.atAGlance} onFocusTarget={vi.fn()} />)
 
     const row = screen.getByTestId('analysis-new-glance-condition')
@@ -215,7 +215,7 @@ describe('"Could change if" advertises an action only when it can honour one', (
 
     const onFocusTarget = vi.fn()
     render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={vm.atAGlance} onFocusTarget={onFocusTarget} />)
 
     const focus = screen.getByTestId('analysis-new-glance-condition-focus')
@@ -230,7 +230,7 @@ describe('"Could change if" advertises an action only when it can honour one', (
     // but no handler to spend it on is still an action it cannot honour.
     const vm = vmOf(glanceWithCondition('node_costsave'))
     render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={vm.atAGlance} />)
 
     const row = screen.getByTestId('analysis-new-glance-condition')

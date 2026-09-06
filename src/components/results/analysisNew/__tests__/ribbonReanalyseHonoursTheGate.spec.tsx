@@ -28,11 +28,20 @@
  * pins that the dock hands it the same expression `AnalysisReadinessBar`
  * receives.
  *
- * ⚠ `isRunning` IS LOAD-BEARING AND HAS ITS OWN CASE BELOW. `canRunAnalysis`
- * is FALSE while a run is in flight, so `blocked = !canRun` alone would make
- * this bar call a RUNNING analysis a REFUSAL. The predicate is
- * `!canRun && !isAnalysing`, the same shape `AnalysisReadinessBar` and
- * `PanelFooter` already use over the same verdict.
+ * ⚠ `isRunning` IS LOAD-BEARING AND HAS THREE CASES BELOW, BECAUSE IT ANSWERS
+ * A DIFFERENT QUESTION FROM THE GATE. `canRunAnalysis` is FALSE while a run is
+ * in flight, so `blocked = !canRun` alone would make this control call a
+ * RUNNING analysis a REFUSAL — hence `!canRun && !isRunning` for the copy, the
+ * shape `AnalysisReadinessBar` and `PanelFooter` already use over the same
+ * verdict.
+ *
+ * ⚠⚠ AND THAT PREDICATE MUST NOT ALSO DRIVE `disabled`, WHICH IS HOW THIS FILE
+ * FIRST PINNED THE DEFECT. It is false mid-run, so the control was ENABLED
+ * during a run: the click reached `runCanonicalAnalysis`, took its
+ * `already-running` early return, and `handleRunAnalysis` — which toasts on
+ * `blocked` / `unavailable` only — dropped it. An enabled control that does
+ * nothing and says nothing. Pressability is `isRunning || reanalyseBlocked`;
+ * refusal is `reanalyseBlocked`. One name, two questions (CLAUDE.md trap 21).
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -93,15 +102,69 @@ describe('the ribbon re-analyse control honours the run gate', () => {
   })
 
   /**
+   * ── A RUN IN FLIGHT: ONE STATE, TWO QUESTIONS, THREE ARMS ────────────────
+   *
    * ⭐ THE CLAUSE A NAIVE FIX DROPS. `canRunAnalysis` is false DURING a run —
    * the gate refuses a double-run. Reading that as a refusal would put the
    * gate's blocked copy on a control whose action is already happening.
+   *
+   * ⚠ AND THE CLAUSE THE FIRST FIX DROPPED THE OTHER WAY. The original of
+   * this case asserted `toBeEnabled()` mid-run, which pinned the defect: it
+   * bound one predicate to two questions. A run in flight is genuinely NOT a
+   * refusal (so no refusal copy — the arm below keeps that claim intact) AND
+   * genuinely NOT pressable (so `disabled` — the arm after it). The two are
+   * separated here because a single arm asserting both cannot say which one a
+   * regression broke, and because the mutants that discriminate them are
+   * different mutants.
    */
-  it('does NOT call a run in flight a refusal', () => {
+  it('does NOT call a run in flight a refusal — no refusal copy mid-run', () => {
     draw({ onReanalyse: vi.fn(), isRunning: true, canRunAnalysis: false, runBlockedReason: REFUSAL })
     const control = screen.getByTestId(RIBBON)
-    expect(control).toBeEnabled()
+    // The control is still RENDERED — a run in flight must not make it vanish,
+    // and this pins the precondition for the negative assertion beside it.
+    expect(control).toBeInTheDocument()
     expect(control).not.toHaveAttribute('title', REFUSAL)
+    expect(screen.queryByText(REFUSAL)).toBeNull()
+  })
+
+  /**
+   * ⭐⭐ AND IT IS NOT PRESSABLE EITHER. `reanalyseBlocked` is
+   * `!canRunAnalysis && !isRunning`, so it is FALSE mid-run; binding
+   * `disabled` to it left the button live for the one state in which pressing
+   * it can achieve nothing. The siblings all disable here —
+   * `PanelFooter` (`isAnalysing || !canRun`), `AnalysisReadinessBar`
+   * (`disabled={isAnalysing || !canRun}`) — and so does `ReanalyseBar` once
+   * #1212 lands (`!onReanalyse || blocked || isAnalysing`). This surface now
+   * reads the same shape.
+   */
+  it('disables the control while a run is in flight', () => {
+    draw({ onReanalyse: vi.fn(), isRunning: true, canRunAnalysis: false, runBlockedReason: REFUSAL })
+    expect(screen.getByTestId(RIBBON)).toBeDisabled()
+  })
+
+  /**
+   * ⭐⭐ THE HARM ITSELF, NOT A PROXY FOR IT: A CLICK THAT REACHES NOTHING AND
+   * SAYS NOTHING.
+   *
+   * Mid-run the ribbon is still mounted (`isStale` is independent of
+   * `isRunning` — `OutputsDock` passes `isStale={analysisNotConfirmedFresh}`,
+   * and `useAnalysisNewViewModel` passes it straight through), so the user
+   * genuinely sees this control while an analysis runs. `onReanalyse` is the
+   * dock's `handleRunAnalysis`, whose `runCanonicalAnalysis` opens with
+   * `if (isRunning) return { status: 'already-running' }` — and
+   * `handleRunAnalysis` raises a toast on `'blocked' | 'unavailable'` ONLY.
+   * So a mid-run click was a silent no-op: no run, no message, no change.
+   *
+   * ⚠ THIS ARM ASSERTS THE HANDLER IS NEVER REACHED, which is the only fix
+   * available on this side of the boundary — the toast gap lives in
+   * `OutputsDock`. A disabled button cannot dispatch the click, so the dead
+   * path is unreachable rather than merely quiet.
+   */
+  it('a mid-run click cannot reach the silent already-running no-op', async () => {
+    const onReanalyse = vi.fn()
+    draw({ onReanalyse, isRunning: true, canRunAnalysis: false, runBlockedReason: REFUSAL })
+    await userEvent.click(screen.getByTestId(RIBBON))
+    expect(onReanalyse).not.toHaveBeenCalled()
   })
 
   /**

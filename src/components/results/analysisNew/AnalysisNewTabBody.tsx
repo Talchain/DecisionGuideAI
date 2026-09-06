@@ -618,6 +618,20 @@ export function AnalysisNewTabBody({
              not either of the two values the dock handed this component. */
           reanalyseBlocked={reanalyseBlocked}
           reanalyseBlockedReason={reanalyseBlocked ? runBlockedReason : null}
+          /* ⭐⭐ THE RUNNING STATE, THREADED UNCHANGED — the second of the two
+             questions the ribbon control has to answer. `reanalyseBlocked`
+             above says whether the gate REFUSED; this says whether a run is
+             ALREADY IN FLIGHT, and the button is disabled on either while only
+             the first may caption it.
+
+             ⚠ IT IS THE SAME `isRunning` THE PREDICATE ABOVE WAS DERIVED
+             AGAINST — this prop, the dock's local flag — and deliberately NOT
+             `isBusy`. `isBusy` is `composedAnalysisState.trust.isRunning`,
+             which answers the cover's question, not the gate's; pairing the
+             verdict with it would test a different run than the one that
+             produced the verdict. Two flags, two questions, and this is the
+             one the gate itself consumed. */
+          isRunning={isRunning}
           missingResults={vm.status.missingResults}
           driverTotal={vm.drivers.totalCount}
           primaryIntervention={

@@ -169,7 +169,7 @@ describe('the glance declares its own cap', () => {
     // complete list.
     render(
       <AtAGlance
-        reanalyseBlocked={false}
+        isRunning={false} reanalyseBlocked={false}
         reanalyseBlockedReason={null}
         glance={{
           headline: null, leaderLabel: null, winFraction: null,
@@ -199,7 +199,7 @@ describe('the glance declares its own cap', () => {
     // line would pass the case above and lie on a complete list.
     render(
       <AtAGlance
-        reanalyseBlocked={false}
+        isRunning={false} reanalyseBlocked={false}
         reanalyseBlockedReason={null}
         glance={{
           headline: null, leaderLabel: null, winFraction: null,

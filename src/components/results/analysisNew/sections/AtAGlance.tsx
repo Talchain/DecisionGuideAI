@@ -189,6 +189,38 @@ export interface AtAGlanceProps {
    */
   reanalyseBlocked: boolean
   /**
+   * ⭐⭐ THE SECOND QUESTION. `reanalyseBlocked` answers "does the gate REFUSE
+   * this run?"; this answers "is a run ALREADY HAPPENING?" — and the button's
+   * `disabled` is a function of BOTH, while the refusal COPY is a function of
+   * the first alone. One name cannot carry two questions (CLAUDE.md trap 21),
+   * which is exactly how the first draft of this PR left the control enabled
+   * during a run. (Nothing shipped: before this PR the ribbon control read no
+   * gate at all, so `reanalyseBlocked` and this prop both arrive together.)
+   *
+   * ⚠ WITHOUT THIS INPUT THE CONTROL IS A DEAD AFFORDANCE MID-RUN.
+   * `reanalyseBlocked` is `!canRunAnalysis && !isRunning`, so it is FALSE for
+   * the whole time an analysis is in flight — binding `disabled` to it alone
+   * leaves a pressable button whose click reaches
+   * `runCanonicalAnalysis`, returns `already-running`, and is dropped by
+   * `handleRunAnalysis` (it raises a toast on `blocked` / `unavailable` only).
+   * An enabled control that does nothing and says nothing.
+   *
+   * ⚠ THE SOURCE IS THE DOCK'S LOCAL `isRunning`, THREADED UNCHANGED — the
+   * same flag `reanalyseBlocked` was derived against. Pairing this with the
+   * composed `isBusy` would test a different run than the one that produced
+   * the verdict (`AnalysisNewTabBody` states that reasoning at the
+   * derivation). The siblings spell this same flag `isAnalysing`
+   * (`PanelFooter`, `AnalysisReadinessBar`); the name here follows the value's
+   * own chain, dock -> body -> glance, so one grep finds all of it.
+   *
+   * ⚠ REQUIRED, for the reason the prop above is required: the harm is
+   * SILENT, and this is the component that renders the control. Optional with
+   * a `false` default would let a future mount site reinstate the enabled
+   * mid-run button with no diagnostic at all; required makes that a TS2741 at
+   * the mount.
+   */
+  isRunning: boolean
+  /**
    * The gate's own refusal sentence, or `null` when it did not supply one.
    *
    * ⚠ BLOCKED WITH NOTHING TO SAY IS NOT A DISABLED BUTTON — it is a dead
@@ -236,6 +268,7 @@ export function AtAGlance({
   onReanalyse,
   reanalyseBlocked,
   reanalyseBlockedReason,
+  isRunning,
   missingResults = [],
   testId = 'analysis-new-glance',
 }: AtAGlanceProps) {
@@ -338,6 +371,43 @@ export function AtAGlance({
    */
   const conditionFirst = Boolean(glance.condition) && !driversDiscriminate
 
+  /**
+   * ⭐⭐ TWO QUESTIONS ABOUT ONE ADMISSION, ANSWERED SEPARATELY AND ON PURPOSE.
+   *
+   *   MAY I PRESS IT?      `reanalyseDisabled` — no, if the gate refuses OR a
+   *                        run is already in flight.
+   *   WAS I REFUSED?       `reanalyseBlocked` (the prop) — the gate's verdict
+   *                        alone. A run in flight is NOT a refusal, so the
+   *                        refusal sentence stays off the control mid-run.
+   *
+   * Binding `disabled` to the REFUSAL predicate is the defect this replaces:
+   * `reanalyseBlocked` is `!canRunAnalysis && !isRunning`, which is false
+   * during a run, so the button was ENABLED in a state where pressing it can
+   * achieve nothing.
+   *
+   * ⭐ THE SHAPE IS THE SIBLINGS', NOT A NEW ONE. `PanelFooter` computes
+   * `disabled = isAnalysing || !canRun` with its refusal copy on
+   * `!isAnalysing && !canRun`; `AnalysisReadinessBar` binds
+   * `disabled={isAnalysing || !canRun}` with `blocked = !canRun &&
+   * !isAnalysing`. This is that same split, with the refusal half already
+   * derived upstream.
+   *
+   * ⚠ #1212 IS THE PRECEDENT, NOT THE COUNTER-EXAMPLE — reconciled
+   * deliberately, so the next reader does not "fix" one to match the other.
+   * At `0666f955` it gives `ReanalyseBar` exactly this pair:
+   * `blocked = !canRun && !isAnalysing` for the copy, and
+   * `disabled={!onReanalyse || blocked || isAnalysing}` for pressability. The
+   * two PRs agree that a run in flight DISABLES and does not REFUSE. Where
+   * they genuinely differ is a DIFFERENT question — what an absent verdict
+   * means: `ReanalyseBar` defaults `canRun = true` (fail-open, so the control
+   * is never lost), while this panel fails CLOSED — `AnalysisNewTabBody`
+   * defaults `canRunAnalysis` to `null`, which makes `reanalyseBlocked` true,
+   * and this component then requires that derived boolean outright rather than
+   * defaulting it. Same running-state direction; opposite absent-verdict
+   * default, each argued at its own prop.
+   */
+  const reanalyseDisabled = isRunning || reanalyseBlocked
+
   const showAnswer = Boolean(glance.leaderLabel ?? glance.headline)
 
   /**
@@ -408,14 +478,22 @@ export function AtAGlance({
             <button
               type="button"
               onClick={onReanalyse}
-              /* ⚠ THE CALLER'S PREDICATE, NOT A RESTATEMENT OF THE GATE.
+              /* ⚠ THE CALLER'S PREDICATES, NOT A RESTATEMENT OF THE GATE.
                  `reanalyseBlocked` arrives already derived from the single
-                 `runGateResult` in `OutputsDock`; nothing here re-reads the
-                 gate, so this control cannot form its own opinion about
-                 admission. The footer control, `ReanalyseBar`, disables on
-                 `!onReanalyse` at this head — PR #1212 is what points it at
-                 the same verdict. */
-              disabled={reanalyseBlocked}
+                 `runGateResult` in `OutputsDock`, and `isRunning` is that same
+                 dock's local flag; nothing here re-reads the gate, so this
+                 control cannot form its own opinion about admission. The
+                 footer control, `ReanalyseBar`, disables on `!onReanalyse` at
+                 this head — PR #1212 is what points it at the same verdict.
+
+                 ⭐ THE TWO ATTRIBUTES READ DIFFERENT EXPRESSIONS, AND THAT IS
+                 THE FIX. `disabled` asks whether the button may be pressed
+                 (gate shut OR run in flight); `title` asks whether the gate
+                 refused (gate shut only), so a run in flight disables the
+                 control WITHOUT captioning it with a refusal that did not
+                 happen. Binding both to `reanalyseBlocked` left it pressable
+                 mid-run. */
+              disabled={reanalyseDisabled}
               title={reanalyseBlocked ? reanalyseBlockedReason ?? undefined : undefined}
               /* ⚠ INFO, NOT THE RIBBON'S AMBER — colour says PRESSABLE here, not
                  SEVERE. Beside it, `r.text` is `panelMeta text-warning`: the

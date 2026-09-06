@@ -119,7 +119,7 @@ describe('1 · a subset run shows the share WITH its scope, and names who was le
     expect(glance.comparisonScope.kind).toBe('partial')
 
     render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={glance} />)
 
     // Asserted by CALLING the owner, never by re-typing its wording.
@@ -132,7 +132,7 @@ describe('1 · a subset run shows the share WITH its scope, and names who was le
 
   it('the excluded option says it has no rank and no probability', () => {
     render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={glanceOf(withOptions(THREE_OPTIONS_TWO_ANALYSED))} />)
     const rows = screen.getAllByTestId('analysis-new-glance-excluded-option')
     expect(rows).toHaveLength(1)
@@ -148,7 +148,7 @@ describe('1 · a subset run shows the share WITH its scope, and names who was le
     // reader of the number never reaches the scope. Adjacency IS the fix, so it
     // is what gets pinned: both inside the glance, scope after the share.
     render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={glanceOf(withOptions(THREE_OPTIONS_TWO_ANALYSED))} />)
     const glanceEl = screen.getByTestId('analysis-new-glance')
     const share = screen.getByTestId('analysis-new-glance-win-share')
@@ -221,7 +221,7 @@ describe('1b · the gate is A SET-DEPENDENT CLAIM, not the percentage', () => {
     expect(glance.comparativeClaim).toBe('order')
 
     render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={glance} />)
     expect(screen.getByTestId('comparison-scope-note-analysisNew')).toBeInTheDocument()
     expect(screen.getByTestId('analysis-new-glance-excluded-option')).toBeInTheDocument()
@@ -237,7 +237,7 @@ describe('1b · the gate is A SET-DEPENDENT CLAIM, not the percentage', () => {
     expect(glance.comparativeClaim).toBe('order')
 
     render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={glance} />)
     expect(screen.getByTestId('comparison-scope-note-analysisNew')).toBeInTheDocument()
   })
@@ -247,7 +247,7 @@ describe('1b · the gate is A SET-DEPENDENT CLAIM, not the percentage', () => {
     // is not on screen — an untruth in the opposite direction.
     const glance = glanceOf(partialWith({ verdict: { hasLeadingOption: false } }))
     render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={glance} />)
     const note = screen.getByTestId('comparison-scope-note-analysisNew')
     const scope = deriveComparisonScope([
@@ -279,7 +279,7 @@ describe('1b · the gate is A SET-DEPENDENT CLAIM, not the percentage', () => {
     expect(glance.comparativeClaim).toBe('order')
 
     render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={glance} />)
     expect(screen.queryByTestId('analysis-new-glance-win-share')).toBeNull()
     const note = screen.getByTestId('comparison-scope-note-analysisNew')
@@ -296,7 +296,7 @@ describe('1b · the gate is A SET-DEPENDENT CLAIM, not the percentage', () => {
     expect(glance.comparativeClaim).toBe('none')
 
     render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={glance} />)
     expect(screen.queryByTestId('comparison-scope-note-analysisNew')).toBeNull()
     // The scope is still classified partial — suppression is not reclassification.
@@ -316,7 +316,7 @@ describe('2 · a whole-set run carries NO partial-scope qualification', () => {
     expect(glance.comparisonScope.kind).toBe('whole_set')
 
     render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={glance} />)
     // ⭐ THE DISCRIMINATING CASE. An implementation that rendered the note
     // unconditionally would pass cases 1 and 3 and fail only here.
@@ -338,7 +338,7 @@ describe('3 · an unresolvable candidate set WITHHOLDS the share', () => {
     expect(glance.winShare).toBeNull()
 
     render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={glance} />)
     expect(screen.queryByTestId('analysis-new-glance-win-share')).toBeNull()
   })
@@ -374,7 +374,7 @@ describe('3 · an unresolvable candidate set WITHHOLDS the share', () => {
     expect(glance.comparisonScope.kind).toBe('partial')
 
     const { container } = render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={glance} />)
     expect(screen.queryByTestId('analysis-new-glance-excluded-option')).toBeNull()
     expect(container.textContent).not.toContain('79b5d7c0')
@@ -389,7 +389,7 @@ describe('3 · an unresolvable candidate set WITHHOLDS the share', () => {
       withOptions([option({ id: 'o_a', label: 'A', notAnalysed: true, notAnalysedReason: 'not_returned' })]),
     )
     render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={glance} />)
     expect(screen.queryByTestId('analysis-new-glance-win-share')).toBeNull()
     expect(screen.getByTestId('analysis-new-glance-verdict')).toBeInTheDocument()
@@ -459,7 +459,7 @@ describe('5 · the excluded-option consequence rows are bounded, and nothing is 
     for (const n of [3, 12, 30]) {
       cleanup()
       render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={glanceOf(withOptions(manyExcluded(n)))} />)
       const rows = screen.getAllByTestId('analysis-new-glance-excluded-option')
       // ⚠ `Math.min`, not the bare cap. Asserting the cap exactly makes the
@@ -476,7 +476,7 @@ describe('5 · the excluded-option consequence rows are bounded, and nothing is 
 
   it('the control names how many more there are, and opening it reveals ALL of them', () => {
     render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={glanceOf(withOptions(manyExcluded(9)))} />)
     const more = screen.getByTestId('analysis-new-glance-excluded-more')
     // Derived from the cap, never a typed-in number that drifts when it moves.
@@ -530,7 +530,7 @@ describe('5 · the excluded-option consequence rows are bounded, and nothing is 
     // rather than merely true (CLAUDE.md trap 13).
     const { unmount } = render(
       <AtAGlance
-        reanalyseBlocked={false}
+        isRunning={false} reanalyseBlocked={false}
         reanalyseBlockedReason={null} glance={glanceOf(withOptions(manyExcluded(EXCLUDED_OPTION_VISIBLE_CAP + 1)))} />,
     )
     expect(
@@ -540,7 +540,7 @@ describe('5 · the excluded-option consequence rows are bounded, and nothing is 
     unmount()
 
     render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={glanceOf(withOptions(manyExcluded(EXCLUDED_OPTION_VISIBLE_CAP)))} />)
     expect(screen.getAllByTestId('analysis-new-glance-excluded-option')).toHaveLength(
       EXCLUDED_OPTION_VISIBLE_CAP,
@@ -567,7 +567,7 @@ describe('5 · the excluded-option consequence rows are bounded, and nothing is 
       option({ id: 'o_bareid', label: 'o_bareid', notAnalysed: true, notAnalysedReason: 'not_returned' }),
     ]
     render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={glanceOf(withOptions(options))} />)
 
     // PRECONDITION, pinned in-test: the owner really does drop both, so this
@@ -591,7 +591,7 @@ describe('5 · the excluded-option consequence rows are bounded, and nothing is 
     // fresh render, because a fresh render cannot observe persistence at all:
     // the whole defect is that the component was NOT remounted.
     const { rerender } = render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={glanceOf(withOptions(manyExcluded(9)))} />)
     fireEvent.click(screen.getByTestId('analysis-new-glance-excluded-more'))
     expect(screen.getAllByTestId('analysis-new-glance-excluded-option')).toHaveLength(9)
@@ -609,7 +609,7 @@ describe('5 · the excluded-option consequence rows are bounded, and nothing is 
       ),
     ]
     rerender(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={glanceOf(withOptions(nextOptions))} />)
 
     expect(
@@ -642,13 +642,13 @@ describe('5 · the excluded-option consequence rows are bounded, and nothing is 
     ]
 
     const { rerender } = render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={glanceOf(withOptions(setOne))} />)
     fireEvent.click(screen.getByTestId('analysis-new-glance-excluded-more'))
     expect(screen.getAllByTestId('analysis-new-glance-excluded-option')).toHaveLength(3)
 
     rerender(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={glanceOf(withOptions(setTwo))} />)
 
     expect(
@@ -661,7 +661,7 @@ describe('5 · the excluded-option consequence rows are bounded, and nothing is 
     // ⚠ THE 2.1340 GUARANTEE, pinned against this cap. Capping the consequence
     // rows must not put "how many were left out" behind a click.
     render(<AtAGlance
-  reanalyseBlocked={false}
+  isRunning={false} reanalyseBlocked={false}
   reanalyseBlockedReason={null} glance={glanceOf(withOptions(manyExcluded(30)))} />)
     const scope = deriveComparisonScope(manyExcluded(30))!
     expect(screen.getByTestId('comparison-scope-note-analysisNew')).toHaveTextContent(
