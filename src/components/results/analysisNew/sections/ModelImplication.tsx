@@ -132,10 +132,12 @@ export function ModelImplication({
         had no production importers at base, so `shell-conformance`'s
         `raw-typography` — which walks the dock's import closure — had never
         scanned it. The path-scoped DS ratchet HAD scanned it on every run and
-        cannot see this token (above). So the file was fully typed, covered by
-        two dedicated spec files, and still carried a raw weight that no guard
-        in its path could name. Mounting a dark component is never a one-line
-        change.
+        cannot see this token (above). The weight was not latent: this PR added
+        it at `733a886`, after the mount at `8bbbba7`, and the closure guard
+        named it on the next run. Had the file still been dark, only the DS
+        ratchet would have scanned it — and it cannot see this token. A
+        component in this path that is dark has one guard, and that guard is
+        blind to five of the eight raw weights.
         
         It is also better as markup: the marker is a qualifier on the SECTION,
         not part of its name, and `aria-labelledby` points at this heading.

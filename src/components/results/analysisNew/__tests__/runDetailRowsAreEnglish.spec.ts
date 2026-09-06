@@ -16,10 +16,10 @@
  * completeness key is "DROPPED rather than shown raw". That is TRUE of the
  * status ribbon and FALSE here: this row joins the raw array. One rule, two
  * consumers, one of which never got it — so the guard below asserts the
- * PROPERTY over every row the captures in this file emit, not over the five
- * strings I happened to be shown. Neither capture emits the `Not included in
- * this result` row itself; that row is pinned by identity in
- * `missingResultsNamedInWords.spec.tsx`.
+ * PROPERTY over every row the capture in this file emits
+ * (`manyFragileEdges()`), not over the five strings I happened to be shown.
+ * That capture does not emit the `Not included in this result` row itself;
+ * that row is pinned by identity in `missingResultsNamedInWords.spec.tsx`.
  *
  * ── THE LABELS ARE NOT INVENTED ────────────────────────────────────────────
  * `missingResultLabels` already maps the closed completeness vocabulary to what
