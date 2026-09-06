@@ -119,7 +119,7 @@ describe('S-R5 — the read leg records that a run completed', () => {
   it('a `complete_current` read that HYDRATES RESULTS notes the completion exactly once', () => {
     const { store, note, resultsComplete } = makeStore()
     const outcome = applyScenarioAnalysisRead({
-      analysisState: verdict({ kind: 'complete_current' }),
+      analysisState: verdict({ kind: 'complete_current', computed_at: '2026-08-17T09:15:50.000Z' }),
       analysisResult: RESULT_BLOCK,
       store,
     })
@@ -131,7 +131,11 @@ describe('S-R5 — the read leg records that a run completed', () => {
   it('`complete_stale` notes it too — both kinds mean a run COMPLETED', () => {
     const { store, note } = makeStore()
     applyScenarioAnalysisRead({
-      analysisState: verdict({ kind: 'complete_stale' }),
+      analysisState: verdict({
+        kind: 'complete_stale',
+        computed_at: '2026-08-17T09:15:50.000Z',
+        cause: 'graph_changed',
+      }),
       analysisResult: RESULT_BLOCK,
       store,
     })
@@ -141,7 +145,7 @@ describe('S-R5 — the read leg records that a run completed', () => {
   it('ORDER: results are written BEFORE the completion is noted, and the verdict last', () => {
     const { store, order } = makeStore()
     applyScenarioAnalysisRead({
-      analysisState: verdict({ kind: 'complete_current' }),
+      analysisState: verdict({ kind: 'complete_current', computed_at: '2026-08-17T09:15:50.000Z' }),
       analysisResult: RESULT_BLOCK,
       store,
     })
@@ -157,7 +161,18 @@ describe('S-R5 — the read leg records that a run completed', () => {
   it('TWIN — `blocked` is terminal but NO RUN FINISHED, so nothing is noted', () => {
     const { store, note } = makeStore()
     applyScenarioAnalysisRead({
-      analysisState: verdict({ kind: 'blocked' }),
+      analysisState: verdict({
+        kind: 'blocked',
+        reason_code: 'analysis_blocked_unspecified',
+        blockers: [
+          {
+            code: 'missing_value',
+            message: 'A factor has no value.',
+            category: 'model',
+            repairability: 'user_repairable',
+          },
+        ],
+      }),
       analysisResult: RESULT_BLOCK,
       store,
     })
@@ -167,7 +182,7 @@ describe('S-R5 — the read leg records that a run completed', () => {
   it('TWIN — `refused` likewise notes nothing', () => {
     const { store, note } = makeStore()
     applyScenarioAnalysisRead({
-      analysisState: verdict({ kind: 'refused' }),
+      analysisState: verdict({ kind: 'refused', reason_code: 'analysis_refused_unspecified' }),
       analysisResult: RESULT_BLOCK,
       store,
     })
@@ -177,7 +192,7 @@ describe('S-R5 — the read leg records that a run completed', () => {
   it('TWIN — a read with NO results block hydrates nothing, so notes nothing', () => {
     const { store, note } = makeStore()
     applyScenarioAnalysisRead({
-      analysisState: verdict({ kind: 'complete_current' }),
+      analysisState: verdict({ kind: 'complete_current', computed_at: '2026-08-17T09:15:50.000Z' }),
       analysisResult: null,
       store,
     })
@@ -189,7 +204,7 @@ describe('S-R5 — the read leg records that a run completed', () => {
     // by the REAL value rather than one this spec invented.
     const first = makeStore()
     applyScenarioAnalysisRead({
-      analysisState: verdict({ kind: 'complete_current' }),
+      analysisState: verdict({ kind: 'complete_current', computed_at: '2026-08-17T09:15:50.000Z' }),
       analysisResult: RESULT_BLOCK,
       store: first.store,
     })
@@ -199,7 +214,7 @@ describe('S-R5 — the read leg records that a run completed', () => {
 
     const second = makeStore({ currentResultsHash: hash })
     const outcome = applyScenarioAnalysisRead({
-      analysisState: verdict({ kind: 'complete_current' }),
+      analysisState: verdict({ kind: 'complete_current', computed_at: '2026-08-17T09:15:50.000Z' }),
       analysisResult: RESULT_BLOCK,
       store: second.store,
     })
@@ -221,7 +236,7 @@ describe('S-R5 — the read leg records that a run completed', () => {
   it('a store view WITHOUT the action still applies — the member is optional', () => {
     const { store } = makeStore({ noteRunCompletedWithoutVerdict: undefined })
     const outcome = applyScenarioAnalysisRead({
-      analysisState: verdict({ kind: 'complete_current' }),
+      analysisState: verdict({ kind: 'complete_current', computed_at: '2026-08-17T09:15:50.000Z' }),
       analysisResult: RESULT_BLOCK,
       store,
     })
