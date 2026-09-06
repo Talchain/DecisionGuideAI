@@ -122,7 +122,7 @@ describe('InspectorCoaching', () => {
 
     expect(send).not.toHaveBeenCalled()
     expect(prefill).toHaveBeenCalledTimes(1)
-    expect(prefill).toHaveBeenCalledWith('How important is Marketing Budget to the outcome?')
+    expect(prefill).toHaveBeenCalledWith('How important is this to the outcome?')
   })
 
   it('still lands the draft when only _prefillChat is registered', () => {
@@ -134,7 +134,7 @@ describe('InspectorCoaching', () => {
     fireEvent.click(button)
 
     expect(prefill).toHaveBeenCalledTimes(1)
-    expect(prefill).toHaveBeenCalledWith('How important is Marketing Budget to the outcome?')
+    expect(prefill).toHaveBeenCalledWith('How important is this to the outcome?')
   })
 
   it('hides action button when both _prefillChat and _sendMessage are null', () => {
