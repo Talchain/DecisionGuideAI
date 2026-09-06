@@ -100,7 +100,25 @@ describe('the composed answer still overrides raw Q2 — the defect this PR fixe
   })
 
   it('Q2 false with no composed answer → WITHHOLDS, as it always did', () => {
-    expect(withholds({ verdict: { leaderId: 'opt_b', hasLeadingOption: false } })).toBe(true)
+    // ⚠ `leaderDesignationPermitted: undefined` IS THE POINT OF THIS CASE and
+    // must be stated, not omitted: `withholds` spreads `genuineDecision()`,
+    // which publishes the composed answer, so omitting the key here would
+    // inherit `true` and this arm would test the composed path instead of the
+    // no-composed-answer path its name claims.
+    expect(
+      withholds({ verdict: { leaderId: 'opt_b', hasLeadingOption: false }, leaderDesignationPermitted: undefined }),
+    ).toBe(true)
+  })
+
+  /**
+   * ⭐ THE TWIN THIS TABLE WAS MISSING, and the one the reader's fallback used
+   * to get wrong. Same shape, Q2 flipped: with NO composed answer, separation
+   * alone may WITHHOLD and may never LICENSE, so an unknown Q1 still withholds.
+   */
+  it('Q2 TRUE with no composed answer → still WITHHOLDS (permission is not inferred from separation)', () => {
+    expect(
+      withholds({ verdict: { leaderId: 'opt_b', hasLeadingOption: true }, leaderDesignationPermitted: undefined }),
+    ).toBe(true)
   })
 })
 

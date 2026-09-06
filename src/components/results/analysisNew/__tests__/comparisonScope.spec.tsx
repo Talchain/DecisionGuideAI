@@ -222,7 +222,7 @@ describe('1b · the gate is A SET-DEPENDENT CLAIM, not the percentage', () => {
   it('DISCLOSES on a robustness verdict alone, with no leader named', () => {
     // Row B. No headline, no share — but "the ordering held" is a claim about
     // an ordering over the analysed subset.
-    const glance = glanceOf(partialWith({ verdict: { hasLeadingOption: false } }))
+    const glance = glanceOf(partialWith({ verdict: { hasLeadingOption: false }, leaderDesignationPermitted: false }))
     expect(glance.headline).toBeNull()
     expect(glance.winShare).toBeNull()
     expect(glance.verdict, 'precondition: an ordering verdict IS rendered').toBeTruthy()
@@ -235,7 +235,7 @@ describe('1b · the gate is A SET-DEPENDENT CLAIM, not the percentage', () => {
   it('an ORDER claim takes the sentence alone — no "comparative percentages" line', () => {
     // `ComparisonScopeNote`'s own rule. `detail` would describe a magnitude that
     // is not on screen — an untruth in the opposite direction.
-    const glance = glanceOf(partialWith({ verdict: { hasLeadingOption: false } }))
+    const glance = glanceOf(partialWith({ verdict: { hasLeadingOption: false }, leaderDesignationPermitted: false }))
     render(<AtAGlance glance={glance} />)
     const note = screen.getByTestId('comparison-scope-note-analysisNew')
     const scope = deriveComparisonScope([
@@ -274,7 +274,7 @@ describe('1b · the gate is A SET-DEPENDENT CLAIM, not the percentage', () => {
 
   it('says NOTHING only when no set-dependent claim is made at all', () => {
     const glance = glanceOf(
-      partialWith({ verdict: { hasLeadingOption: false }, robustnessVerdict: undefined, robustnessVerdictReason: undefined }),
+      partialWith({ verdict: { hasLeadingOption: false }, leaderDesignationPermitted: false, robustnessVerdict: undefined, robustnessVerdictReason: undefined }),
     )
     expect(glance.headline).toBeNull()
     expect(glance.winShare).toBeNull()

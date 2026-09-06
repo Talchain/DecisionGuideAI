@@ -64,6 +64,26 @@ const producerVerdict = (
 })
 
 /**
+ * ⭐ THE PRODUCER'S RECOMMENDATION SHAPE — the verdict AND the composed licence,
+ * which `useResultsSectionData` publishes as sibling keys on every real run.
+ *
+ * A fixture that carries a verdict and no `leaderDesignationPermitted` is a
+ * shape the hook never emits, and `leaderDesignationPermitted()` may only
+ * WITHHOLD on it (absence of the composed answer is not permission), so seven
+ * banding assertions below would have silently become assertions about a
+ * withheld run — the hero's crown and headline gate on the same field.
+ *
+ * Q1 is absent in this file and therefore permitting, so the conjunction is the
+ * verdict's own answer. The MODEL-refuses dimension is covered by
+ * `admissionGatesHeroCrown.spec.ts` (real store) and
+ * `heroWithholdsOnTheSameCells.spec.ts`.
+ */
+const producerRun = (...args: Parameters<typeof producerVerdict>) => {
+  const verdict = producerVerdict(...args)
+  return { verdict, leaderDesignationPermitted: verdict.hasLeadingOption }
+}
+
+/**
  * The magnitudes the re-anchored leader sentences carry, read back off the
  * MODEL rather than hard-coded — so these assertions stay template checks
  * (does the builder select the right copy for the right row?) and do not
@@ -222,7 +242,7 @@ describe('buildHeroModel — leaders and headline', () => {
       buildHeroModel(
         makeHeroData({
           options: [OPTION_A, b],
-          recommendation: { verdict: producerVerdict('slight', 12) },
+          recommendation: producerRun('slight', 12),
         }),
       ),
     )
@@ -253,7 +273,7 @@ describe('buildHeroModel — leaders and headline', () => {
       buildHeroModel(
         makeHeroData({
           options: [a, b],
-          recommendation: { verdict: producerVerdict('slight', 12) },
+          recommendation: producerRun('slight', 12),
         }),
       ),
     )
@@ -416,7 +436,7 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
     const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.77, expected: 22, outcome: { mean: 22, p10: -1, p50: 22, p90: 45 } }))
     const m = chart(buildHeroModel(makeHeroData({
       options: [a, b],
-      recommendation: { verdict: producerVerdict('clear', 57) },
+      recommendation: producerRun('clear', 57),
     })))
     expect(m.headline).toBe(
       HERO_COPY.headline.mostLikelyStrongest('Upskill the team', winReadoutOf(m, 'Upskill the team')),
@@ -433,7 +453,7 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
     const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.8, expected: 80, outcome: { mean: 80, p10: 70, p50: 80, p90: 90 } }))
     const m = chart(buildHeroModel(makeHeroData({
       options: [a, b],
-      recommendation: { verdict: producerVerdict('clear', 60) },
+      recommendation: producerRun('clear', 60),
     })))
     expect(m.headline).toBe(
       HERO_COPY.headline.mostLikelyStrongest('Upskill the team', winReadoutOf(m, 'Upskill the team')),
@@ -449,7 +469,7 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
     const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.8, expected: 50, outcome: { mean: 50, p10: 40, p50: 50, p90: 60 } }))
     const m = chart(buildHeroModel(makeHeroData({
       options: [a, b],
-      recommendation: { verdict: producerVerdict('clear', 60) },
+      recommendation: producerRun('clear', 60),
     })))
     expect(m.headline).toBe(
       HERO_COPY.headline.mostLikelyStrongest('Upskill the team', winReadoutOf(m, 'Upskill the team')),
@@ -468,7 +488,7 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
     const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.55, expected: 68, outcome: { mean: 68, p10: 56, p50: 68, p90: 82 } }))
     const m = chart(buildHeroModel(makeHeroData({
       options: [a, b],
-      recommendation: { verdict: producerVerdict('slight', 10) },
+      recommendation: producerRun('slight', 10),
     })))
     expect(m.headline).toBe(HERO_COPY.headline.slightlyAhead('Upskill the team'))
     expect(m.subline).toBe(HERO_COPY.subline.closeOnOutcome('Two developers'))
@@ -481,7 +501,7 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
     const b = noGoal(makeOption({ ...OPTION_B, winProbability: 0.55, expected: 22, outcome: { mean: 22, p10: -1, p50: 22, p90: 45 } }))
     const m = chart(buildHeroModel(makeHeroData({
       options: [a, b],
-      recommendation: { verdict: producerVerdict('slight', 10) },
+      recommendation: producerRun('slight', 10),
     })))
     expect(m.headline).toBe(HERO_COPY.headline.slightlyAhead('Upskill the team'))
     expect(m.subline).toBe(HERO_COPY.subline.aligned('Upskill the team'))
@@ -496,7 +516,7 @@ describe('buildHeroModel — leader-claim banding (UI-SEM-060)', () => {
     const c = noGoal(makeOption({ id: 'opt_c2', label: 'Gamma', winProbability: 0.55, isRecommended: true, expected: 70, outcome: { mean: 70, p10: 58, p50: 70, p90: 82 } }))
     const m = chart(buildHeroModel(makeHeroData({
       options: [b, a, c],
-      recommendation: { verdict: producerVerdict('slight', 30, 'opt_c2') },
+      recommendation: producerRun('slight', 30, 'opt_c2'),
     })))
     expect(m.rows.map((r) => r.label)).toEqual(['Gamma', 'Alpha', 'Beta'])
     expect(m.headline).toBe(HERO_COPY.headline.slightlyAhead('Gamma'))
@@ -641,6 +661,15 @@ describe('buildHeroModel — producer band consumption (PLoT decision_brief.head
       recommendation: {
         headlineBanded: { band: 'very_close', leaderOptionId: 'opt_b', robustnessGated: false },
         verdict: { leaderId: 'opt_b', separation: 'clear', hasLeadingOption: true, gapPp: 52, source: 'producer_near_tie' },
+        // ⚠ THE ONLY ARM IN THIS BLOCK THAT CLAIMS A LEADER, so it is the only
+        // one that needs the COMPOSED answer. Its two siblings withhold on a
+        // TIED verdict, where Q2 is false and Q2 alone is still entitled to
+        // withhold — they are unaffected. Here Q2 permits and, with the
+        // composed answer absent, `leaderDesignationPermitted()` returns
+        // `undefined` (permission is not inferred from separation), so #1232's
+        // `!designationsWithheld` on the naming arms would silence the very
+        // headline this arm exists to assert.
+        leaderDesignationPermitted: true,
       },
     })))
     expect(m.headline).toBe(HERO_COPY.headline.mostLikelyStrongest('Upskill the team', winReadoutOf(m, 'Upskill the team')))
@@ -729,7 +758,7 @@ describe('buildHeroModel — readout-tie coherence (UI-SEM-070) and span floor (
     // outcome"). The headline still carries the claim and still names the
     // panel's recommended leader (no cross-surface contradiction); only the
     // over-claiming subline is gated.
-    const m = chart(buildHeroModel(tiedRun({ verdict: producerVerdict('clear', 12, 'opt_contractor') })))
+    const m = chart(buildHeroModel(tiedRun(producerRun('clear', 12, 'opt_contractor'))))
     expect(m.headline).toBe(
       HERO_COPY.headline.mostLikelyStrongest(
         'Outsourced Contractor Team',
@@ -745,7 +774,7 @@ describe('buildHeroModel — readout-tie coherence (UI-SEM-070) and span floor (
     // The verdict follows the rotation so every pass actually reaches the
     // claim-bearing subline branches the gate has to suppress.
     for (const recId of ['opt_contractor', 'opt_status_quo', 'opt_juniors', 'opt_senior']) {
-      const data = tiedRun({ verdict: producerVerdict('clear', 12, recId) })
+      const data = tiedRun(producerRun('clear', 12, recId))
       const opts = data.recommendation.allOptions!.map((o) => ({ ...o, isRecommended: o.id === recId }))
       ;(data.recommendation as { allOptions: unknown }).allOptions = opts
       ;(data.recommendation as { recommendedOption: unknown }).recommendedOption =

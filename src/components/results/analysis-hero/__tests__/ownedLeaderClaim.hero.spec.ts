@@ -84,7 +84,18 @@ function hero(verdict: ReturnType<typeof deriveDecisionVerdict>) {
       options: heroOptions(),
       // No user goal target: UI-SEM-071 suppresses the goal-fit crown, so the
       // headline falls to the analysis-leader branch — the branch under test.
-      recommendation: { verdict, goalThreshold: null },
+      //
+      // ⭐ THE COMPOSED ANSWER, PUBLISHED BESIDE THE VERDICT — the shape
+      // `useResultsSectionData` emits. Without it these are Q2-only fixtures,
+      // and `leaderDesignationPermitted()` may only WITHHOLD on that shape
+      // (absence of the composed answer is not permission), so the PERMITTED
+      // arm would fall to `noLeader` and its WITHHELD twin would pass for the
+      // wrong reason — the pair would stop discriminating.
+      //
+      // This file varies Q2 only, with Q1 absent and therefore permitting, so
+      // the conjunction is the verdict's own answer. The MODEL-refuses
+      // dimension lives in `admissionGatesHeroCrown.spec.ts`.
+      recommendation: { verdict, leaderDesignationPermitted: verdict?.hasLeadingOption, goalThreshold: null },
     }),
   )
   expect(model.kind).toBe('chart')
