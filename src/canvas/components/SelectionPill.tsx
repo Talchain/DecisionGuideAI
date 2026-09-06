@@ -3,7 +3,7 @@ import { MessageCircleQuestion } from 'lucide-react'
 import { typo } from '../../styles/typography'
 import { CHIP_CLASS } from '../../v5/blocks/chipClass'
 import { useGuidanceStore } from '../stores/guidanceStore'
-import { useSelectionContext } from '../hooks/useSelectionContext'
+import { useSelectionContext, useSelectionCarriage } from '../hooks/useSelectionContext'
 
 /**
  * SelectionPill — the canvas selection's conversation affordance.
@@ -53,6 +53,7 @@ const REFIRE_GUARD_MS = 500
 
 export const SelectionPill = memo(function SelectionPill() {
   const selection = useSelectionContext()
+  const carriage = useSelectionCarriage()
   // Subscribed, not read imperatively: the controls must appear the moment a
   // conversation host registers, without waiting for an unrelated re-render.
   const sendChip = useGuidanceStore((s) => s._sendChip)
@@ -87,7 +88,43 @@ export const SelectionPill = memo(function SelectionPill() {
     sendChip(`Ask about ${label}`, `Ask about ${label}.`)
   }, [sendChip, label, selectionId])
 
-  if (!selection) return null
+  if (!selection) {
+    /**
+     * ⭐ A WITHHELD SELECTION IS NOT THE SAME AS NO SELECTION, and going quiet
+     * on it is a false statement by omission.
+     *
+     * `useSelectionContext` returns null for three different situations. Two of
+     * them are honest silence — nothing selected, or a multi-element selection
+     * this single-element pill was never meant to describe. The third is the
+     * user pointing at something the turn will NOT carry: an over-cap
+     * selection, or one that no longer resolves. There the user believes their
+     * question is grounded and it is not, so the pill says so and says what to
+     * do about it.
+     *
+     * Note the deliberate silence on a carried MULTI-element selection: the
+     * wire does carry it, so there is no falsehood to correct, and this pill's
+     * whole grammar ("Selected: <name>") is single-element. Speaking there
+     * would need a different surface, not a different sentence here.
+     */
+    if (carriage.kind === 'withheld_over_cap' || carriage.kind === 'withheld_unresolvable') {
+      return (
+        <div
+          className="px-3 py-1 flex items-center gap-1.5 flex-wrap"
+          data-testid="ai-panel-selection-pill"
+          data-selection-carriage={carriage.kind}
+          role="status"
+          aria-live="polite"
+        >
+          <span className={typo('panelMeta', 'text-text-light')}>
+            {carriage.kind === 'withheld_over_cap'
+              ? `${carriage.selectedCount} selected \u2014 too many to ask about. Narrow it to ${carriage.cap} or fewer.`
+              : 'That selection is no longer in the model, so a question won\u2019t carry it.'}
+          </span>
+        </div>
+      )
+    }
+    return null
+  }
 
   const canAsk = Boolean(sendChip)
 
@@ -96,6 +133,7 @@ export const SelectionPill = memo(function SelectionPill() {
       className="px-3 py-1 flex items-center gap-1.5 flex-wrap"
       data-testid="ai-panel-selection-pill"
       data-selection-kind={selection.kind}
+      data-selection-carriage={carriage.kind}
       data-selection-actionable={canAsk ? 'true' : 'false'}
     >
       <span className={typo('panelMeta', 'text-text-light')}>Selected:</span>
