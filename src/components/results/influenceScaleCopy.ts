@@ -157,9 +157,22 @@ export function influencePillAriaLabel(
    *
    * Both provenances are set-relative — they are two different NORMALISATIONS,
    * not absolute-vs-relative. `influence_score` is the producer's, against
-   * `max|influence|`, so the top row is 1.0 by construction; every capture in
-   * this repo carrying the field maxes at exactly 1.0. The
-   * `normalised_elasticity` arm has disclosed "The top driver always shows
+   * `max|influence|`, so the top row is 1.0 by construction.
+   *
+   * ⚠ 6 Sep 2026 — THE SENTENCE THAT STOOD HERE WAS THE REFUTED UNIVERSAL,
+   * "every capture in this repo carrying the field maxes at exactly 1.0", and
+   * THIS PR ADDED IT — in the module it designates as the single source of
+   * truth, while narrowing the same claim correctly everywhere else in this
+   * file. What is measured, swept over `src/` at `aa504187`: 21 JSON files
+   * carry `influence_score`; 20 of them max at exactly 1.0; the twenty-first,
+   * `seeded-2026-08-17-w2d-analysis-turn.json`, is uniformly 0 (one factor
+   * stamped `input_quality: "degenerate_fallback"`). None exceeds 1.0, and
+   * none maxes strictly between 0 and 1. That sweep is DERIVED, with the
+   * all-zero file pinned by name as an exact set, in
+   * `influenceIsNeverCalledAbsolute.spec.ts` — which is the guard. This
+   * comment is not, which is exactly how the universal survived here.
+   *
+   * The `normalised_elasticity` arm has disclosed "The top driver always shows
    * 100%" the whole time, which is equally true of this one.
    *
    * The two arms therefore say the same thing to a reader. The distinction is

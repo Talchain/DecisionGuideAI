@@ -42,9 +42,16 @@ describe('MetricPills — influence-scale disclosure (lane C4)', () => {
      * wording, never the relative claim", including an explicit
      * `not.toContain('always shows 100%')`. That design rested on
      * `influence_score` being an absolute scale. It is not: the producer divides
-     * by `max|influence|`, so the top row is 1.0 BY CONSTRUCTION, and every
-     * capture in this repo carrying the field maxes at exactly 1.0 — twelve
-     * files, live staging responses among them.
+     * by `max|influence|`, so the top row is 1.0 BY CONSTRUCTION.
+     *
+     * ⚠ 6 Sep 2026 — THIS PARAGRAPH CONTINUED "and every capture in this repo
+     * carrying the field maxes at exactly 1.0 — twelve files". That is the
+     * universal, and the count, that the very spec this docblock cites below as
+     * its evidence WITHDRAWS BY NAME. What is measured, swept over `src/` at
+     * `aa504187`: 21 JSON files carry `influence_score`, not twelve; 20 of them
+     * max at exactly 1.0; the twenty-first,
+     * `seeded-2026-08-17-w2d-analysis-turn.json`, is uniformly 0. None exceeds
+     * 1.0, and none maxes strictly between 0 and 1.
      *
      * The disclosure the relative arm already carried is true of this arm too,
      * and withholding it here is what let a 100%-by-construction figure read as
