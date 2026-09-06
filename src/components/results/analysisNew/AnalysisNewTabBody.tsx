@@ -133,11 +133,12 @@ export interface AnalysisNewTabBodyProps {
   onReanalyse?: () => void
   /**
    * ⭐⭐ THE DOCK'S RUN GATE — `runGateResult.allowed`, which `OutputsDock`
-   * binds as `canRunAnalysis` and hands unchanged to every reader of that
-   * verdict in the file: `AnalysisReadinessBar`'s `canRun`,
-   * `PreAnalysisPanelV3`'s `canRun`, and this prop. One computation, several
-   * readers — never several predicates that happen to agree (CLAUDE.md
-   * trap 21).
+   * binds as `canRunAnalysis` and passes unchanged to `AnalysisReadinessBar`'s
+   * `canRun`, to `PreAnalysisPanelV3`'s `canRun`, and to this prop. (It has
+   * further consumers in that file — `runCanonicalAnalysis`'s own guard among
+   * them — so this is a list of the prop bindings, not of every read.) One
+   * computation, several readers — never several predicates that happen to
+   * agree (CLAUDE.md trap 21).
    *
    * This surface offers the re-run twice: the staleness ribbon inside
    * `AtAGlance`, and the shell footer bar `shellContract.ts` declares for

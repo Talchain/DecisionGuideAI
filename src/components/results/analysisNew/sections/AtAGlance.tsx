@@ -154,9 +154,9 @@ export interface AtAGlanceProps {
   onReanalyse?: () => void
   /**
    * ⭐⭐ DERIVED FROM THE RUN GATE'S VERDICT IN ONE PLACE — NOT A SECOND
-   * PREDICATE HERE. The caller passes `!canRunAnalysis && !isAnalysing` over
-   * `OutputsDock`'s single `runGateResult`; this component renders that and
-   * derives nothing of its own.
+   * PREDICATE HERE. `AnalysisNewTabBody` passes `!canRunAnalysis && !isRunning`
+   * over `OutputsDock`'s single `runGateResult`; this component renders that
+   * and derives nothing of its own.
    *
    * This surface offers the re-run TWICE: here, on the staleness ribbon, and
    * in the shell footer (`shellContract.ts` gives `analysisNew`
