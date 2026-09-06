@@ -269,6 +269,33 @@ export interface ScenarioAnalysisApplyStore {
    * field behaves exactly as it does today.
    */
   readonly resultsWithholdLeaderClaim?: (reason: LeaderClaimWithholdingReason) => void
+  /**
+   * Record that a run COMPLETED without this leg seeing an explicit freshness
+   * verdict — which is the read leg's ONLY possible branch, because
+   * `ApplyScenarioAnalysisReadInput` carries no `analysis_ready` and therefore
+   * never a `freshness` string. The turn path's `else` is this leg's only case.
+   *
+   * ⚠ THIS EXISTS BECAUSE TWO LEGS DELIVER A COMPLETED ANALYSIS AND ONLY ONE
+   * EVER TOLD THE FRESHNESS AUTHORITY. Measured on deployed `11b995d9`: this
+   * file and `useProvisionalAnalysisDelivery.ts` contained ZERO calls to any
+   * freshness action while `applyV5State` has two of each. A fresh guest who had
+   * made no edits at all was therefore shown "Rerun — model changed" and "Model
+   * changed. Ask or rerun…" over an analysis that had just completed — an
+   * affirmative falsehood about something the user did not do, on the first
+   * screen they see.
+   *
+   * ⚠⚠ IT IS DELIBERATELY *NOT* `clearAnalysisFreshnessDirty`, AND MUST NOT
+   * BECOME IT. A blind clear manufactures a false *fresh* for an analysis that
+   * genuinely is stale — the exact inverse defect, already built and reverted
+   * once in this estate for want of a run-identity signal. The action named here
+   * writes `'unknown'` HONESTLY, records the verdict it superseded so the
+   * reducer's echo guard cannot resurrect "model changed" on the next turn, and
+   * — load-bearing — LEAVES THE OVERLAY DIRTY when `pendingEmittedEdits > 0` or
+   * an import is still unregistered. A run that never saw the user's latest edit
+   * stays dirty, correctly. Clearing and setting are two writes; only the second
+   * can lie, so this leg performs only the one that cannot.
+   */
+  readonly noteRunCompletedWithoutVerdict?: () => void
 }
 
 export type ScenarioAnalysisApplyOutcome =
@@ -472,6 +499,31 @@ export function applyScenarioAnalysisRead(
   // ship an analysis AND refuse the designation over it on the same turn.
   if (withholdingReason !== null) {
     input.store.resultsWithholdLeaderClaim?.(withholdingReason)
+  }
+
+  // ── The freshness transition this leg never performed ────────────────────
+  //
+  // Gated on BOTH conditions, and each excludes a different wrong case:
+  //
+  //   `resultsHydrated`  — only a run whose results actually reached the screen
+  //                        can make a standing "model changed" a lie. A declined
+  //                        or deduped read changes nothing the user is reading,
+  //                        so it must not touch the overlay.
+  //   a COMPLETED kind   — `blocked` and `refused` are terminal but NO RUN
+  //                        FINISHED. Treating them as completion would clear an
+  //                        overlay for work that never happened, which is the
+  //                        same class of falsehood pointing the other way.
+  //
+  // ⚠ `complete_stale` is included with `complete_current` on purpose: both mean
+  // a run COMPLETED, and the honest-unknown write is correct for either. The
+  // staleness itself is carried by the verdict written immediately below, which
+  // is where a consumer should read it from — not inferred from this overlay.
+  if (
+    resultsHydrated &&
+    (kind === 'complete_current' || kind === 'complete_stale') &&
+    typeof input.store.noteRunCompletedWithoutVerdict === 'function'
+  ) {
+    input.store.noteRunCompletedWithoutVerdict()
   }
 
   input.store.setAnalysisStateV1?.(verdict)

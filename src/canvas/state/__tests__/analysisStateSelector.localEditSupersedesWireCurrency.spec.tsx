@@ -28,7 +28,8 @@
  *    mark stale."
  *
  * That guard covers the BOOT writer. The polling writer
- * (`applyScenarioAnalysisRead.ts:383`) has no such decline — it applies
+ * (`applyScenarioAnalysisRead.ts`, at its divergence declines) has no such
+ * decline — it applies
  * `complete_current` by design — so the window stays open behind it.
  *
  * ── THE TWO ROUTES INTO IT, BOTH MOUNTED ─────────────────────────────────
