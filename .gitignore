@@ -64,3 +64,8 @@ storybook-static
 # Claude Code — ignore private config, track shared settings
 .claude/*
 !.claude/settings.json
+
+# Local-only working artefacts (added 6 Sep 2026)
+.worktrees/
+output/
+.tmp-lens3-scripts/
