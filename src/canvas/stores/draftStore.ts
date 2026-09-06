@@ -420,8 +420,35 @@ export function draftStreamInFlight(phase: DraftStreamPhase): boolean {
  * which is the same position-free shape every AI edit already reloads from.
  */
 export function shouldPersistGraphForScenario(currentScenarioId: string | null): boolean {
-  const phase = draftStreamPhaseFor(useDraftStore.getState(), currentScenarioId)
-  return !draftValuesAreUnsettled(phase)
+  return !graphWriteWithheldFor(useDraftStore.getState(), currentScenarioId)
+}
+
+/**
+ * ⭐⭐ THE REACTIVE TWIN OF `shouldPersistGraphForScenario`, AND ITS BODY.
+ *
+ * A surface must not CLAIM what this module is currently WITHHOLDING. The top
+ * bar read `Saved 40s ago` during exactly this window — while the graph write
+ * was refused for unsettled values — and a reload then produced zero nodes,
+ * because `lastSavedAt` is a client-clock stamp from an earlier localStorage
+ * write, not evidence that anything durable happened.
+ *
+ * ⚠ WHY THIS IS THE SAME FUNCTION AND NOT A SECOND PREDICATE. "May I write?"
+ * and "may I say it is saved?" are the same question about the same instant,
+ * and answering them in two places is trap 21 — two authorities under similar
+ * names that were each correct in isolation and disagreed on a reachable class
+ * of run. `shouldPersistGraphForScenario` is expressed THROUGH this function,
+ * so a change to the rule cannot reach the write gate without also reaching
+ * every surface that reports it.
+ *
+ * Takes the state rather than reading it, so a component can subscribe: a
+ * `getState()` read inside a render is not reactive, and the pill has to change
+ * the moment the phase does.
+ */
+export function graphWriteWithheldFor(
+  state: Pick<DraftState, 'draftStreamPhase' | 'draftStreamScenarioId'>,
+  currentScenarioId: string | null,
+): boolean {
+  return draftValuesAreUnsettled(draftStreamPhaseFor(state, currentScenarioId))
 }
 
 /**

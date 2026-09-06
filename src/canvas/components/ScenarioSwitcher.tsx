@@ -18,6 +18,7 @@ import { useCanvasStore } from '../store'
 import { loadScenarios, getScenario, type Scenario, importScenarioFromFile } from '../store/scenarios'
 import { markGraphImported } from '../store/importRegistrationMarker'
 import { SaveStatusPill } from './SaveStatusPill'
+import { useDraftStore, graphWriteWithheldFor } from '../stores/draftStore'
 import { exportScenario } from '../export/exportScenario'
 import { useToast } from '../ToastContext'
 import { typography } from '../../styles/typography'
@@ -99,6 +100,12 @@ export function ScenarioSwitcher({
   const isDirty = useCanvasStore(s => s.isDirty)
   const isSaving = useCanvasStore(s => s.isSaving)
   const lastSavedAt = useCanvasStore(s => s.lastSavedAt)
+  /**
+   * ⚠ SUBSCRIBED, NOT `getState()`. The pill must stop claiming durability the
+   * moment the phase moves, and a one-shot read in render would keep the stale
+   * claim on screen for the whole draft.
+   */
+  const graphWriteWithheld = useDraftStore(s => graphWriteWithheldFor(s, currentScenarioId))
   const loadScenario = useCanvasStore(s => s.loadScenario)
   const saveCurrentScenario = useCanvasStore(s => s.saveCurrentScenario)
   const duplicateCurrentScenario = useCanvasStore(s => s.duplicateCurrentScenario)
@@ -373,6 +380,7 @@ export function ScenarioSwitcher({
           <SaveStatusPill
             isSaving={isSaving}
             lastSavedAt={lastSavedAt}
+            graphWriteWithheld={graphWriteWithheld}
           />
 
           <button
