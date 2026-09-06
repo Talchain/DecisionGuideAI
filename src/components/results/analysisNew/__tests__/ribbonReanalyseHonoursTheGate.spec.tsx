@@ -51,6 +51,8 @@ import userEvent from '@testing-library/user-event'
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
+import { AtAGlance } from '../sections/AtAGlance'
+import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { genuineDecision } from './analysisNewFixtures'
 
 afterEach(cleanup)
@@ -183,5 +185,69 @@ describe('the ribbon re-analyse control honours the run gate', () => {
   it('renders NO control when the gate refuses without a reason', () => {
     draw({ onReanalyse: vi.fn(), canRunAnalysis: false, runBlockedReason: null })
     expect(screen.queryByTestId(RIBBON)).toBeNull()
+  })
+})
+
+/**
+ * ── THE COMPONENT'S OWN REFUSAL GATE, ISOLATED FROM THE CALLER'S MASK ───────
+ *
+ * ⚠⚠ WHY THIS BLOCK EXISTS, AND IT IS A MEASURED FINDING RATHER THAN A
+ * PRECAUTION. The mid-run "no refusal copy" arm above renders through
+ * `AnalysisNewTabBody`, which passes
+ * `reanalyseBlockedReason={reanalyseBlocked ? runBlockedReason : null}` — so
+ * mid-run the REASON IS ALREADY NULL before `AtAGlance` sees it. A mutant that
+ * loosens `AtAGlance`'s own `title` gate to the pressability predicate
+ * therefore SURVIVES that arm (measured: 7/7 green under it). The arm is not
+ * wrong, but what protects it is the caller's mask, not the expression it
+ * names, so it cannot discriminate this component's own behaviour.
+ *
+ * Rendering `AtAGlance` directly with `reanalyseBlocked={false}` AND a
+ * NON-NULL reason is the only state that isolates its `title` gate. It is also
+ * a state a future caller could reach by dropping the mask — defence in depth
+ * is only defence if each layer is pinned separately.
+ */
+describe('AtAGlance does not caption a running control with a refusal that did not happen', () => {
+  const glanceOf = () =>
+    buildAnalysisNewViewModel({
+      data: genuineDecision(),
+      recommendations: [],
+      isPreRun: false,
+      isRunning: false,
+      isStale: false,
+    }).atAGlance
+
+  it('CONTROL: this fixture renders the ribbon control at all', () => {
+    render(
+      <AtAGlance
+        glance={glanceOf()}
+        isStale
+        staleKind="unconfirmed"
+        onReanalyse={vi.fn()}
+        reanalyseBlocked={false}
+        reanalyseBlockedReason={REFUSAL}
+        isRunning={false}
+      />,
+    )
+    expect(screen.getByTestId(RIBBON)).toBeInTheDocument()
+  })
+
+  it('withholds the refusal title mid-run even when handed a reason', () => {
+    render(
+      <AtAGlance
+        glance={glanceOf()}
+        isStale
+        staleKind="unconfirmed"
+        onReanalyse={vi.fn()}
+        // A run in flight is NOT a refusal — so the gate's verdict is false…
+        reanalyseBlocked={false}
+        // …while a reason is nonetheless present. Only `AtAGlance`'s own
+        // `title` gate decides whether it is shown.
+        reanalyseBlockedReason={REFUSAL}
+        isRunning
+      />,
+    )
+    const control = screen.getByTestId(RIBBON)
+    expect(control).not.toHaveAttribute('title', REFUSAL)
+    expect(control).not.toHaveAttribute('title')
   })
 })
