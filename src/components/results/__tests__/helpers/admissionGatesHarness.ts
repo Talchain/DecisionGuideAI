@@ -36,6 +36,18 @@ const NODES = [
   { id: 'goal_1', type: 'goal', position: { x: 0, y: 0 }, data: { kind: 'goal', label: 'Reach £30k MRR' } },
 ]
 
+/**
+ * The analysed options' identities, DERIVED from the fixture above rather than
+ * restated. A spec that scans a view model for "does this name an option?"
+ * must take the ids AND labels from the one place they are defined — a second
+ * copy of the label is a second thing to drift, and a scan pointed at a stale
+ * label reads CLEAN on a model that names the real one. (`OPT_HEDGE_LABEL`
+ * above is such a second copy; the class guard asserts the two agree.)
+ */
+export const OPTION_IDENTITIES: readonly { id: string; label: string }[] = NODES.filter(
+  (n) => n.data.kind === 'option',
+).map((n) => ({ id: n.id, label: n.data.label }))
+
 export const admission = (mode: PermittedAnalysisMode): AnalysisAdmissionV1 => ({
   permitted_analysis_mode: mode,
   reasons: mode === 'comparative_leader'
