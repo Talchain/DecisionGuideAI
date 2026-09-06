@@ -63,6 +63,10 @@ import {
 // `canvas/conversation/useConversation.ts` — derived by transitive closure over
 // the 66 value-imported modules reachable from the store, not assumed.
 import { useCanvasStore } from '../canvas/store'
+import {
+  deriveSelectedElementRefs,
+  MAX_SELECTED_ELEMENTS,
+} from '../canvas/conversation/selectedElementRefs'
 
 export interface BuildV5PayloadInput {
   turnId: string
@@ -244,7 +248,10 @@ export function buildV5Payload(input: BuildV5PayloadInput): BuildV5PayloadResult
  * large selections. Both are visible to the guard before they are visible to a
  * user.
  */
-export const MAX_SELECTED_ELEMENTS = 20
+// Re-exported so existing importers (and `selectionCarriage.spec.ts`'s
+// contract-max assertion) keep their import path. The value is defined
+// beside the derivation it bounds.
+export { MAX_SELECTED_ELEMENTS }
 
 /**
  * Read the live canvas selection and shape it as the contract's typed refs.
@@ -301,52 +308,12 @@ export const MAX_SELECTED_ELEMENTS = 20
  * selected SETS.
  */
 function deriveSelectedElements(): MessageTurnPayload['selected_elements'] | undefined {
-  // Defensive read: this is the one place the wire builder depends on store
-  // shape, and a selection-less store (an early boot, a test that stubbed the
-  // store) must degrade to "no selection", never throw on the send path.
-  const state = useCanvasStore.getState()
-  const selectedNodeIds = state?.selection?.nodeIds
-  const selectedEdgeIds = state?.selection?.edgeIds
-  const selectedNodeCount = selectedNodeIds?.size ?? 0
-  const selectedEdgeCount = selectedEdgeIds?.size ?? 0
-  if (selectedNodeCount + selectedEdgeCount === 0) return undefined
-  if (selectedNodeCount + selectedEdgeCount > MAX_SELECTED_ELEMENTS) return undefined
-
-  const refs: NonNullable<MessageTurnPayload['selected_elements']> = []
-  for (const node of state.nodes ?? []) {
-    if (!selectedNodeIds?.has(node.id)) continue
-    const kind = typeof node.type === 'string' ? node.type.trim() : ''
-    if (kind.length === 0) continue
-    const rawLabel = (node.data as { label?: unknown } | undefined)?.label
-    const label = typeof rawLabel === 'string' ? rawLabel.trim() : ''
-    // `label` is optional on the contract and `.min(1)` when present — omit it
-    // rather than send an empty string, which would 422 the whole turn.
-    refs.push(label.length > 0 ? { id: node.id, kind, label } : { id: node.id, kind })
-  }
-
-  // UI-SEM-094: React Flow edge ids are producer-local UI identity, while the
-  // existing CEE relationship-address grammar is the exact endpoint composite.
-  // Resolve ONLY the selected id against the live edge collection, then convert
-  // that same edge's endpoints. A stale id or unencodable endpoint fails closed
-  // by omission; no array-head, neighbouring-edge, label, or fuzzy fallback.
-  for (const edge of state.edges ?? []) {
-    if (!selectedEdgeIds?.has(edge.id)) continue
-    const source = typeof edge.source === 'string' ? edge.source.trim() : ''
-    const target = typeof edge.target === 'string' ? edge.target.trim() : ''
-    if (
-      source.length === 0 ||
-      target.length === 0 ||
-      source.includes('→') ||
-      source.includes('->') ||
-      target.includes('→') ||
-      target.includes('->')
-    ) {
-      continue
-    }
-    refs.push({ id: `${source}→${target}`, kind: 'edge' })
-  }
-
-  return refs.length > 0 ? refs : undefined
+  // ⭐ ONE DERIVATION, TWO CONSUMERS. The rule itself lives in
+  // `canvas/conversation/selectedElementRefs.ts` because the composer's
+  // selection chip renders from it too — the chip must be unable to claim an
+  // attachment this payload withholds. See that module's header for every
+  // withholding branch and why each returns absence rather than a guess.
+  return deriveSelectedElementRefs(useCanvasStore.getState())
 }
 
 function buildSystemEventPayload(input: BuildV5PayloadInput): BuildV5PayloadResult {

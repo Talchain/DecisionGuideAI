@@ -12,6 +12,7 @@ import {
 import { ArrowUp, ChevronUp, Square } from 'lucide-react'
 import { typo } from '../../styles/typography'
 import { useCanvasStore } from '../store'
+import { ComposerSelectionChip } from '../conversation/ComposerSelectionChip'
 import { useConversationContext } from '../conversation/ConversationContext'
 import { useStageAwarePlaceholder } from '../hooks/useStageAwarePlaceholder'
 import { AddOptionPanel } from '../conversation/AddOptionPanel'
@@ -449,6 +450,13 @@ export const AIInputBar = memo(
       )}
       <div className={containerClasses} data-testid={testId ?? `ai-input-bar-${variant}`}>
         <div className="relative flex-1 bg-panel border border-panel-border rounded-lg transition-colors focus-within:border-info">
+          {/* ⭐ What this message is about. Renders the WIRE's own answer about
+              the canvas selection — never a second opinion — so it cannot
+              promise an attachment `selected_elements` withholds. Null when
+              nothing is selected; speaks up when a selection exists but is
+              being withheld, because silence there would be a false statement
+              by omission. See `ComposerSelectionChip`. */}
+          <ComposerSelectionChip testId={testId ?? `ai-input-bar-${variant}`} />
           <textarea
             ref={textareaRef}
             id={textareaId}

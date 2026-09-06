@@ -54,8 +54,14 @@ export function InspectorQuickActions({
     // Fallback keeps the action live for element types with no template rather
     // than silently dropping the affordance for exactly the unusual nodes a
     // user is most likely to have questions about.
-    return templated ?? `Tell me about ${elementLabel} in this model.`
-  }, [panelType, elementLabel, labelContext])
+    //
+    // It uses the same pronoun as the templates, and for the same measured
+    // reason: this panel is open on the single canvas selection, so the element
+    // rides the turn as `selected_elements` and its name is on screen in the
+    // composer's selection chip. Spelling the label into the user's own words
+    // would be the product typing a title on their behalf. See ASK_TEMPLATES.
+    return templated ?? 'What should I know about this?'
+  }, [panelType, elementLabel, labelContext])  // elementLabel still feeds resolveAskTemplate's context
 
   const handleAsk = useCallback(() => {
     requestAsk({

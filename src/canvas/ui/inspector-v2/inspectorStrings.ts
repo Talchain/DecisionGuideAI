@@ -533,17 +533,49 @@ export const DESCRIPTION_PLACEHOLDERS = {
   risk:     'What could go wrong and how would it affect the decision?',
 } as const
 
-// ─── "Ask about this" question templates (Task 2) ────────────────────
+/**
+ * ─── "Ask about this" question templates ─────────────────────────────
+ *
+ * ⭐ THESE USE A PRONOUN, AND THE REASON IS A MEASURED FACT ABOUT THE WIRE.
+ *
+ * They used to spell the element's full name into the user's own words —
+ * `Tell me about the chances of achieving {label}` — which is the product
+ * typing a long node title on the user's behalf and calling it a question.
+ * Nobody talks like that, and it made every ask read as machine-generated.
+ *
+ * The pronoun is safe because the IDENTITY travels separately and always:
+ *
+ *   · the inspector opens on `selection.nodeIds` and ONLY when exactly one
+ *     element is selected (`ReactFlowGraph.tsx`, `selectedNodeId`), so an
+ *     element being asked about is necessarily the canvas selection;
+ *   · that selection rides the turn as `selected_elements` — typed refs
+ *     carrying id, kind AND label — which CEE resolves against canonical
+ *     state for grounding and consumes as a deterministic tie-breaker;
+ *   · and the composer's selection chip shows the user WHICH element is
+ *     attached while they edit the draft, so the name is on screen even
+ *     though it is not in the sentence.
+ *
+ * So the model gets the identity, the reader gets the name, and neither has
+ * to appear in the question. Remove any one of those three legs and these
+ * templates become ambiguous — they are not independently correct.
+ *
+ * ⚠ `edge` KEEPS ITS LABELS, DELIBERATELY. A relationship has no label of its
+ * own: the derivation gives an edge `kind: 'edge'` and no name, so the chip
+ * cannot show one, and "explain this" would leave the reader with nothing on
+ * screen naming what they asked about. Naming both endpoints is the clearest
+ * way to say which relationship — it is not a long title standing in for a
+ * pronoun. This is an exception with a reason, not an oversight.
+ */
 export const ASK_TEMPLATES: Record<string, string> = {
-  goal:                  'Tell me about the chances of achieving {label}',
-  'factor-controllable': 'How important is {label} to the outcome?',
-  'factor-observable':   'What would happen if {label} changed?',
-  'factor-external':     'How sensitive are the results to {label}?',
+  goal:                  'What are the chances of achieving this?',
+  'factor-controllable': 'How important is this to the outcome?',
+  'factor-observable':   'What would happen if this changed?',
+  'factor-external':     'How sensitive are the results to this?',
   edge:                  'Explain the relationship between {sourceLabel} and {targetLabel}',
-  option:                'How does {label} compare to the other options?',
-  outcome:               'What drives {label} the most?',
-  risk:                  'How can we reduce {label}?',
-  decision:              'What are the key trade-offs in {label}?',
+  option:                'How does this compare to the other options?',
+  outcome:               'What drives this the most?',
+  risk:                  'How can we reduce this?',
+  decision:              'What are the key trade-offs here?',
 }
 
 /**
