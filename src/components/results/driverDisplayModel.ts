@@ -29,6 +29,33 @@ export interface DriverDisplayEntry {
   value: number
   /** Which basis produced `value` — explicit so no consumer re-decides it. */
   provenance: DriverDisplayProvenance
+  /**
+   * The producer's own `importance_basis` stamp for this row's
+   * `influence_score`, VERBATIM, or null when the row did not carry one.
+   *
+   * ⚠ CARRIED AS AN OPAQUE STRING ON PURPOSE. This module does not decide
+   * what any particular basis means — it moves the producer's word to the one
+   * copy module, which keys its wording on the VALUE. A stamp this repo has
+   * never seen must reach that decision point intact rather than be collapsed
+   * into a boolean here, or the next basis the producer invents becomes
+   * indistinguishable from the one we measured.
+   */
+  importanceBasis: string | null
+}
+
+/**
+ * Read the producer's `importance_basis` stamp off a raw wire row.
+ *
+ * Snake_case ONLY, matching `extractPolicyRow`'s rule for `influence_score`:
+ * the Drivers panel's normaliser never reads camelCase, so accepting it on
+ * one surface would let the disclosure differ per surface for one report.
+ * Absence, a non-string, and an empty string all fail closed to null — an
+ * absent field is not evidence of any basis.
+ */
+export function readImportanceBasis(raw: unknown): string | null {
+  if (raw == null || typeof raw !== 'object') return null
+  const value = (raw as Record<string, unknown>).importance_basis
+  return typeof value === 'string' && value.length > 0 ? value : null
 }
 
 /**
@@ -262,7 +289,12 @@ export function computeNormalisedInfluences(
  */
 export function extractPolicyRow(
   raw: unknown,
-): { key: string; influenceScore: number | null; rawElasticity: number } | null {
+): {
+  key: string
+  influenceScore: number | null
+  rawElasticity: number
+  importanceBasis: string | null
+} | null {
   if (raw == null || typeof raw !== 'object') return null
   const f = raw as Record<string, unknown>
   const key = (f.factor_id ?? f.factorId ?? f.node_id ?? f.nodeId) as string | undefined
@@ -282,11 +314,21 @@ export function extractPolicyRow(
     key,
     influenceScore: producer,
     rawElasticity: magnitude === null || !Number.isFinite(magnitude) ? 0 : Math.abs(magnitude),
+    // Additive passthrough of the producer's basis stamp — never derived.
+    importanceBasis: readImportanceBasis(raw),
   }
 }
 
 export function selectDriverDisplayModel(
-  factors: ReadonlyArray<{ key: string; influenceScore?: number | null; rawElasticity: number }>,
+  factors: ReadonlyArray<{
+    key: string
+    influenceScore?: number | null
+    rawElasticity: number
+    /** Producer `importance_basis` stamp, verbatim. Optional: legacy feeders
+     *  and fixtures do not supply it, and its absence must not be read as a
+     *  basis claim. */
+    importanceBasis?: string | null
+  }>,
 ): Map<string, DriverDisplayEntry> {
   const coverageComplete =
     factors.length > 0 &&
@@ -298,10 +340,23 @@ export function selectDriverDisplayModel(
 
   const out = new Map<string, DriverDisplayEntry>()
   for (const f of factors) {
+    // The stamp travels on BOTH arms, unchanged. It describes the producer's
+    // `influence_score` field, not the displayed value, so it is not the job
+    // of this function to suppress it under the fallback basis — the copy
+    // module gates on the pair (provenance, basis) and that is where the
+    // decision belongs, once, for every surface.
+    const importanceBasis =
+      typeof f.importanceBasis === 'string' && f.importanceBasis.length > 0
+        ? f.importanceBasis
+        : null
     if (coverageComplete && typeof f.influenceScore === 'number') {
-      out.set(f.key, { value: f.influenceScore, provenance: 'influence_score' })
+      out.set(f.key, { value: f.influenceScore, provenance: 'influence_score', importanceBasis })
     } else {
-      out.set(f.key, { value: normalisedMap.get(f.key) ?? 0, provenance: 'normalised_elasticity' })
+      out.set(f.key, {
+        value: normalisedMap.get(f.key) ?? 0,
+        provenance: 'normalised_elasticity',
+        importanceBasis,
+      })
     }
   }
   return out

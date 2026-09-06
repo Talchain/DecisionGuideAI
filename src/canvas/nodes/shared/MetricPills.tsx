@@ -31,6 +31,12 @@ interface MetricPillsProps {
   /** Which basis produced influencePct. Absent means the number is withheld. */
   influenceProvenance?: DriverDisplayProvenance | null
   /**
+   * The producer's `importance_basis` stamp, verbatim. Passed straight to the
+   * shared copy module, which decides — on the VALUE — whether anything may
+   * be said. Absent ⇒ nothing new is said (an absent stamp is not evidence).
+   */
+  influenceImportanceBasis?: string | null
+  /**
    * Already gated by the shared display policy
    * (`components/results/driverConfidenceDisplayPolicy`) — this component must
    * never resolve the raw field itself. Null ⇒ render no confidence pill.
@@ -45,6 +51,7 @@ interface MetricPillsProps {
 export function MetricPills({
   influencePct,
   influenceProvenance,
+  influenceImportanceBasis,
   confidencePct,
   confidenceIsDefaulted = false,
   confidenceIsProvisional = false,
@@ -56,13 +63,17 @@ export function MetricPills({
 
   if (!hasInfluence && !hasConfidence) return null
 
-  const influenceTitle = influenceExplanation(influenceProvenance)
+  const influenceTitle = influenceExplanation(influenceProvenance, influenceImportanceBasis)
   // Composed here rather than as JSX children, deliberately: as separate
   // children this becomes several text nodes, and a discriminator elsewhere
   // depends on the pill being ONE. Loosening that assertion would have traded a
   // real guard for a formatting convenience.
   const influenceLabel = `${influenceBasisNoun(influenceProvenance)} ${influencePct}%`
-  const influenceAria = influencePillAriaLabel(influencePct ?? 0, influenceProvenance)
+  const influenceAria = influencePillAriaLabel(
+    influencePct ?? 0,
+    influenceProvenance,
+    influenceImportanceBasis,
+  )
 
   // Confidence disclosure — composed from the two flags the shared policy
   // returns, so the pill states exactly what it was told and never claims a

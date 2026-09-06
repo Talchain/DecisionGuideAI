@@ -605,6 +605,7 @@ describe('OptionNode', () => {
       sensitivityRank: null,
       influence: null,
       influenceProvenance: null,
+      influenceImportanceBasis: null,
       confidence: null,
       confidenceIsDefaulted: false,
       confidenceIsProvisional: false,

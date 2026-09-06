@@ -38,9 +38,7 @@ import { DiscussWithAiButton } from '../../canvas/components/pre-analysis/Discus
 import { ExpertBlock } from './ExpertBlock'
 import { SensitivityReferenceCaption } from './SensitivityReferenceCaption'
 import {
-  INFLUENCE_EXPLANATION_GENERIC,
-  INFLUENCE_EXPLANATION_RELATIVE,
-  INFLUENCE_EXPLANATION_ABSOLUTE,
+  influenceExplanation,
   INFLUENCE_RANKING_EXPLAINER_GENERIC,
   INFLUENCE_RANKING_EXPLAINER_RELATIVE,
   INFLUENCE_SCALE_CAPTION,
@@ -913,15 +911,37 @@ export function DriversSection({
     influenceBasisStamped === 'relative' && (!hasMagnitudeData || visibleDrivers.length === 0)
       ? 'unknown'
       : influenceBasisStamped
+  // The producer's own `importance_basis` stamp for the ranked set. The
+  // display model resolves ONE basis for the whole panel, so a single stamped
+  // row describes it — the same belt-and-braces read as influenceBasisStamped
+  // above. Fail-closed: an absent stamp, or two rows disagreeing, yields null
+  // and the panel says nothing new. (Disagreement is not observed in any
+  // capture in this tree, but a mixed set must not silently pick a winner.)
+  const stampedBases = Array.from(
+    new Set(
+      drivers
+        .map(d => d.importanceBasis)
+        .filter((b): b is string => typeof b === 'string' && b.length > 0),
+    ),
+  )
+  const panelImportanceBasis = stampedBases.length === 1 ? stampedBases[0] : null
   // Copy comes from the ONE shared module (influenceScaleCopy) the canvas
   // pill consumes too — surfaces cannot drift (review fix 3: the strings are
   // also policed there for the DS em-dash ban).
-  const influenceTooltipContent =
+  //
+  // ⚠ ROUTED THROUGH THE SHARED BUILDER, not re-spelled here. This used to be
+  // its own ternary over the same three constants — a second copy of a
+  // decision the module already makes, and the seam that would have let the
+  // panel and the canvas pill disclose different things about one figure.
+  // Behaviour for the three existing arms is unchanged.
+  const influenceTooltipContent = influenceExplanation(
     influenceBasis === 'relative'
-      ? INFLUENCE_EXPLANATION_RELATIVE
+      ? 'normalised_elasticity'
       : influenceBasis === 'absolute'
-        ? INFLUENCE_EXPLANATION_ABSOLUTE
-        : INFLUENCE_EXPLANATION_GENERIC
+        ? 'influence_score'
+        : null,
+    panelImportanceBasis,
+  )
 
   return (
     <div className="space-y-4">

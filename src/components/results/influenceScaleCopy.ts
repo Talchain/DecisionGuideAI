@@ -67,6 +67,67 @@ export const INFLUENCE_EXPLANATION_RELATIVE =
 export const INFLUENCE_EXPLANATION_ABSOLUTE =
   'Influence: how much this factor affects the outcome, as an absolute causal influence score.'
 
+/**
+ * The producer's own basis stamp meaning "this score came from the model's
+ * structure". Matched EXACTLY, and it is the only value that unlocks the
+ * disclosure below.
+ *
+ * ⭐ WHY A VALUE AND NOT AN ASSUMPTION. Measured in this tree (base
+ * `53dbd616`): `importance_basis` is `"graph_structural"` on 67/67 factor
+ * rows across all 12 live capture fixtures (31 Jul - 17 Aug 2026), complete
+ * manifest, no sampling; no row carries any other value. That is a complete
+ * manifest of the CAPTURES HERE, not of every possible run. Keying the copy
+ * on the value means that if the producer ever stamps a simulation-derived
+ * basis, this module simply says nothing new — whereas copy keyed on "it is
+ * always structural" would silently become the next false sentence, which is
+ * exactly how "from the analysis" got here.
+ */
+export const STRUCTURAL_IMPORTANCE_BASIS = 'graph_structural'
+
+/**
+ * What the figure is derived from, in the user's terms.
+ *
+ * ⚠ WHAT THIS SENTENCE IS AND IS NOT CLAIMING. It states the BASIS the
+ * producer itself stamped on the row. It deliberately does NOT claim the
+ * number is invariant across runs: that is true on the graph path and is not
+ * bounded from this repo (the fallback arm is unmeasured), so asserting it
+ * would trade one unbounded claim for another. The user's question - "I
+ * re-ran and these numbers did not move" - is answered by naming the basis,
+ * without buying a claim nobody here has measured.
+ */
+export const INFLUENCE_STRUCTURAL_BASIS_NOTE =
+  'Based on the structure of your model, not on this run’s simulated outcomes.'
+
+/**
+ * The structural-basis disclosure for a given (display basis, producer stamp)
+ * pair, or null when nothing may be said.
+ *
+ * ⚠ GATED ON BOTH, AND THE SECOND GATE IS THE SUBTLE ONE. `importance_basis`
+ * describes the producer's `influence_score`. When the display model falls
+ * back to `normalised_elasticity` the number on screen is normalised
+ * magnitude derived from the run, NOT the producer score - so the structural
+ * sentence would be false about the figure the reader is looking at, even
+ * though the stamp is genuinely present on the row. One name, two questions:
+ * "what basis did the producer stamp" and "what is this number on screen".
+ */
+export function influenceStructuralBasisNote(
+  provenance: DriverDisplayProvenance | null | undefined,
+  importanceBasis: string | null | undefined,
+): string | null {
+  if (provenance !== 'influence_score') return null
+  return importanceBasis === STRUCTURAL_IMPORTANCE_BASIS ? INFLUENCE_STRUCTURAL_BASIS_NOTE : null
+}
+
+/** Append the disclosure to a sentence, or return the sentence untouched. */
+function withStructuralBasisNote(
+  sentence: string,
+  provenance: DriverDisplayProvenance | null | undefined,
+  importanceBasis: string | null | undefined,
+): string {
+  const note = influenceStructuralBasisNote(provenance, importanceBasis)
+  return note === null ? sentence : `${sentence} ${note}`
+}
+
 /** Drivers panel ranking explainer — generic (absolute or unstamped basis). */
 export const INFLUENCE_RANKING_EXPLAINER_GENERIC =
   'Ranked by how much each factor affects the outcome'
@@ -85,12 +146,15 @@ export const INFLUENCE_SCALE_CAPTION =
  */
 export function influenceExplanation(
   provenance: DriverDisplayProvenance | null | undefined,
+  importanceBasis?: string | null,
 ): string {
-  return provenance === 'normalised_elasticity'
-    ? INFLUENCE_EXPLANATION_RELATIVE
-    : provenance === 'influence_score'
-      ? INFLUENCE_EXPLANATION_ABSOLUTE
-      : INFLUENCE_EXPLANATION_GENERIC
+  const base =
+    provenance === 'normalised_elasticity'
+      ? INFLUENCE_EXPLANATION_RELATIVE
+      : provenance === 'influence_score'
+        ? INFLUENCE_EXPLANATION_ABSOLUTE
+        : INFLUENCE_EXPLANATION_GENERIC
+  return withStructuralBasisNote(base, provenance, importanceBasis)
 }
 
 /**
@@ -100,16 +164,23 @@ export function influenceExplanation(
 export function influencePillAriaLabel(
   pct: number,
   provenance: DriverDisplayProvenance | null | undefined,
+  importanceBasis?: string | null,
 ): string {
   // ⚠ THE NAME LEADS WITH THE SAME NOUN THE PILL NOW SHOWS. When the visible
   // string gained its basis, this label still opened with the bare noun — one
   // quantity under two names, which is the exact shape the visible change was
   // made to close. The explanatory clause stays: it says what the noun means.
-  return provenance === 'normalised_elasticity'
-    ? `Relative influence ${pct}%, scaled against the strongest factor. The top driver always shows 100%`
-    : provenance === 'influence_score'
-      ? `Influence score ${pct}%, an absolute causal influence score`
-      : 'Influence basis unavailable'
+  const base =
+    provenance === 'normalised_elasticity'
+      ? `Relative influence ${pct}%, scaled against the strongest factor. The top driver always shows 100%`
+      : provenance === 'influence_score'
+        ? `Influence score ${pct}%, an absolute causal influence score`
+        : 'Influence basis unavailable'
+  // The disclosure must reach a screen-reader user too: `title` is
+  // pointer-only, so a note that lived there alone would be a disclosure a
+  // whole class of readers never receives.
+  const note = influenceStructuralBasisNote(provenance, importanceBasis)
+  return note === null ? base : `${base}. ${note}`
 }
 
 /**
@@ -143,12 +214,16 @@ export function influenceBasisNoun(
  */
 export function influenceBarAriaLabel(
   provenance: DriverDisplayProvenance | null | undefined,
+  importanceBasis?: string | null,
 ): string {
-  return provenance === 'normalised_elasticity'
-    ? 'Influence, relative to the strongest factor. The top driver always shows 100%'
-    : provenance === 'influence_score'
-      ? 'Influence, an absolute causal influence score'
-      : 'Influence'
+  const base =
+    provenance === 'normalised_elasticity'
+      ? 'Influence, relative to the strongest factor. The top driver always shows 100%'
+      : provenance === 'influence_score'
+        ? 'Influence, an absolute causal influence score'
+        : 'Influence'
+  const note = influenceStructuralBasisNote(provenance, importanceBasis)
+  return note === null ? base : `${base}. ${note}`
 }
 
 /** Convert a resolved metric to display percent without rescaling its value. */

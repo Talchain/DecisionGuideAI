@@ -454,6 +454,14 @@ export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<strin
     direction,
     confidence,
     importanceRank: typeof typed.importance_rank === 'number' ? typed.importance_rank : 0,
+    // Producer basis stamp — STRICT read, snake_case only (same rule as
+    // influence_score above: the panel never reads camelCase, so accepting it
+    // here would let one surface disclose a basis another surface cannot see).
+    // Absence and an empty string both fail closed to undefined.
+    importanceBasis:
+      typeof typed.importance_basis === 'string' && typed.importance_basis.length > 0
+        ? typed.importance_basis
+        : undefined,
     influenceScore,
     influenceRank,
     zeroReason,
@@ -504,6 +512,14 @@ export interface DriverPolicyRow {
   key: string
   /** Producer influence score — snake-case wire field only; undefined when absent. */
   influenceScore: number | undefined
+  /**
+   * The producer's `importance_basis` stamp for `influenceScore`, verbatim,
+   * or null when the row carried none. Carried on the SHARED feed for the
+   * same reason `confidenceIsDefaulted` is: the canvas and the panel must
+   * disclose the same basis for the same report, and a per-surface re-read of
+   * the wire is exactly how those two forked before.
+   */
+  importanceBasis: string | null
   /**
    * Resolved magnitude (normaliseFactorSensitivity chain; 0 when absent).
    * UNSIGNED — always `Math.abs`'d at construction. Consumers rank on this
@@ -687,6 +703,7 @@ export function selectDriverPolicyFeed(
     return {
       key: getFactorKey(norm, index),
       influenceScore: norm.influenceScore,
+      importanceBasis: norm.importanceBasis ?? null,
       // Math.abs is load-bearing, not defensive: this field is a MAGNITUDE
       // (see DriverPolicyRow), and the sole consumer ranks on it via
       // compareByDisplayModel, whose tie-break sorts the number as given. A
@@ -2892,6 +2909,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           // (Triage dominance nudge) can distinguish a producer causal share
           // from a set-relative fallback value.
           displayProvenance: displayModel.get(f.key)?.provenance,
+          // Producer basis stamp, verbatim, off the SAME shared display entry
+          // the canvas pill reads — so the panel and the canvas cannot answer
+          // "what is this figure derived from" differently for one report.
+          importanceBasis: displayModel.get(f.key)?.importanceBasis ?? undefined,
           // Producer influence_rank passthrough (roadmap 1.7, provisional_doctrine_v0)
           influenceRank: f.raw.influenceRank,
           // ISL zero_reason - explains why sensitivity is zero
