@@ -135,7 +135,11 @@ describe('driver bars — a rank comparison, never a share of the outcome', () =
 
   it('caps at three and flags a set-relative basis from the producer token', () => {
     expect(glanceOf(highUncertainty()).influenceIsSetRelative).toBe(true)
-    expect(glanceOf(openStrategicChallenge()).influenceIsSetRelative).toBe(false)
+    // ⚠ WAS `false`, and that pin ratified the defect — see
+    // `theScaleClaimMatchesTheScale.spec.ts`. BOTH stamped bases are
+    // set-relative; the producer's is normalised against `max|influence|`, so
+    // its top row is 1.0 by construction.
+    expect(glanceOf(openStrategicChallenge()).influenceIsSetRelative).toBe(true)
     expect(glanceOf(openStrategicChallenge()).drivers.length).toBeLessThanOrEqual(3)
   })
 
