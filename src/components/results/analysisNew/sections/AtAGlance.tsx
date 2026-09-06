@@ -478,8 +478,9 @@ export function AtAGlance({
                   as an 11px block with its antecedent two elements away.
 
                   `AnalysisFooter` already renders this exact producer string
-                  directly beneath its status word, with nothing between, and that
-                  arrangement is proven (`AnalysisFooter.metaWrap.spec.tsx`).
+                  directly beneath its status word, with nothing between, and
+                  `AnalysisFooter.metaWrap.spec.tsx` pins the wrap treatment and
+                  the verbatim text (not the adjacency).
 
                   ⚠ THE COPY IS UNCHANGED AND STAYS THE PRODUCER'S. An ORDERING
                   fix, not a rewrite. Capitalising the clause here would falsify a

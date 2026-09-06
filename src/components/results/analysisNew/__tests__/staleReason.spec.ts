@@ -41,7 +41,7 @@ describe('staleReasonFromFreshness', () => {
  *   mutate `staleReasonFromFreshness`     → 'changed'   REDs 2 by name
  *
  * Same file, same mutation, same 61-file / 788-test net. **All of the coverage
- * sat on the function nothing calls.** `OutputsDock.tsx:1018` uses
+ * sat on the function nothing calls.** `OutputsDock.tsx` (the `analysisStaleReason` binding) uses
  * `staleReasonFromTrustSemantic`; `staleReasonFromFreshness` has no production
  * caller on this path, and it is the one every existing case exercised.
  *

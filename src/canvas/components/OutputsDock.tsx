@@ -1004,7 +1004,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
    *
    * `displayedFreshness` turns `'stale'` when CEE says so. `ReanalyseBar`'s
    * header states the wider rule it already uses: the trust semantic is
-   * `'changed'` on "CEE 'stale' OR a local dirty edit". So immediately after a
+   * `'changed'` on CEE `'stale'`, or on a retained-fresh verdict dirtied by a
+   * local edit (its words: "retained-fresh-now-dirtied by a local edit"); a
+   * retained `'unknown'` verdict dirtied locally yields `'cannot_confirm'`
+   * instead (`classifyFreshnessForDisplay`). So immediately after a
    * user edits a value, the footer said "Model changed. Results may be out of
    * date." while this panel said "We cannot confirm whether this analysis
    * reflects the current model" — both on screen, witnessed on the deployed
@@ -1018,7 +1021,9 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
    * ⚠ READ FROM THE BINDING ALREADY IN SCOPE, NOT FROM A SECOND SUBSCRIPTION.
    * The first cut called `useAnalysisTrust()` here — which is literally
    * `useAnalysisState().trust`, and `composedAnalysisState` is that same
-   * selector, bound 35 lines above. Two independent subscriptions to one
+   * selector, already bound above in this component (no line number here —
+   * this PR removed one from `adapters.ts` for going stale, and the first
+   * draft of this sentence had gone stale the same way). Two independent subscriptions to one
    * authority is harmless within a render and is exactly what the comment
    * beneath this argues against; caught in review.
    */

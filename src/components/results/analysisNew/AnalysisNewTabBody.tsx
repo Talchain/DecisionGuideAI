@@ -705,7 +705,7 @@ export function AnalysisNewTabBody({
 
             `glancePrimary` lifts one intervention into the glance card and
             nothing removes it from this list, so the producer's `signal` — a
-            128-character sentence — renders TWICE in one panel, at 11px in the
+            long sentence — renders TWICE in one panel, at 11px in the
             glance and 12px here. Witnessed on the deployed build `b14cd478`
             (guest, 291px dock, completed run, every section expanded):
             "The ordering holds in about 68% of variations, but is exposed to

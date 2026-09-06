@@ -49,8 +49,10 @@ export function staleReasonFromFreshness(freshness: string | null | undefined): 
  * with certainty and CEE has not been told about yet.
  *
  * The footer already reads the wider authority. `ReanalyseBar`'s own header
- * says so: the trust semantic is `'changed'` on "CEE 'stale' OR a local dirty
- * edit". So on exactly that state the two surfaces disagreed ON SCREEN,
+ * says so: the trust semantic is `'changed'` on CEE `'stale'`, or on a
+ * retained-fresh verdict dirtied by a local edit ("retained-fresh-now-dirtied
+ * by a local edit", its words); a retained `'unknown'` dirtied locally yields
+ * `'cannot_confirm'` instead. So on exactly the fresh-then-dirtied state the two surfaces disagreed ON SCREEN,
  * witnessed on the deployed build:
  *
  *   footer  "Model changed. Results may be out of date."     (definite)
