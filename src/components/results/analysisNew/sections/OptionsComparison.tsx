@@ -177,6 +177,27 @@ export function OptionsComparison({
    */
   const unnamed = options.totalCount - options.rows.length
 
+  /**
+   * ⭐ EVERY OPTION ANALYSED AND NOT ONE OF THEM NUMBERED.
+   *
+   * Witnessed on deployed `a9c2e050`: this section rendered its title, its
+   * count, and three option names with nothing beside them — no figure, no bar,
+   * no badge, no reason. The `not_computed` and `not_analysed` kinds each carry
+   * a badge and so explain themselves; an ANALYSED option whose win share did
+   * not come back falls between them and renders nothing at all.
+   *
+   * A heading promising a comparison over a body containing none is worse than
+   * an absent section: a reader concludes the panel is broken, or — the more
+   * damaging reading — that the options came out level.
+   *
+   * ⚠ ONLY WHEN NOTHING IS NUMBERED. One numberless option among figures is an
+   * ordinary mixed run and the reader can see which rows carry numbers; a
+   * caveat there would contradict the percentages printed beside it.
+   */
+  const noneNumbered =
+    options.rows.length > 0 &&
+    options.rows.every((o) => o.kind !== 'analysed' || o.winReadout === null)
+
   return (
     <SectionShell
       title={COPY.sections.options}
@@ -187,6 +208,20 @@ export function OptionsComparison({
       count={options.totalCount}
       testId={testId}
     >
+      {/* ⚠ THE SENTENCE IS `checks.leaderMeaning`, NOT A NEW ONE. It already
+          states exactly this fact, is already licensed, and is already on this
+          surface in "What we checked" — so one wording covers one fact and the
+          two cannot drift. It is also deliberately not a claim that the options
+          are level, which is the false reading a silent list invites. */}
+      {noneNumbered ? (
+        <p
+          className={`${typography.panelMeta} text-text-light mb-2 mt-0`}
+          data-testid={`${testId}-no-figures`}
+        >
+          {COPY.checks.leader_not_assessed.meaning}
+        </p>
+      ) : null}
+
       <ul className="list-none p-0 m-0 space-y-2.5">
         {options.rows.map((o) => (
           <li

@@ -115,6 +115,45 @@ export function DriverInfluenceChart({
         </span>
       </div>
 
+      {/* ⚠⚠ THE SCALE, WHICH THE CHART SHIPPED WITHOUT. Direction was named and
+          magnitude was not, so a bar's length and position were unreadable:
+          nothing said what the outer edge or the centre meant.
+
+          It is NOT a 0-100% axis, deliberately. The bars are scaled to the
+          strongest driver in this run, so a percentage axis would assert a
+          share of the outcome — the exact claim the builder refuses to make
+          (`buildAnalysisNewViewModel.ts:555-557`). Naming the two real points
+          is the only scale this data supports.
+
+          `aria-hidden` for the same reason the bars are: it is a legend for a
+          graphic that is itself hidden, so announcing "most" / "none" / "most"
+          would name the endpoints of something assistive tech never receives.
+
+          ⚠ A CORRECTION TO THIS COMMENT'S OWN FIRST DRAFT, which said the
+          scale is "a redraw of `data-fraction` and of the sorted order, both
+          of which a screen reader already has". THE `data-fraction` HALF IS
+          FALSE: `data-*` attributes carry no accessibility semantics and take
+          no part in accessible-name or accessible-description computation, so
+          no screen reader has it. Measured on a two-row render, not inferred:
+          each bar button's accessible name is the factor LABEL alone, with
+          `aria-label`, `aria-valuenow`, `aria-valuetext`, `aria-describedby`
+          and `role` all null, while `data-fraction` read 100 and 60. What AT
+          actually receives from this chart is the label and the LIST ORDERING
+          — rank, never magnitude. Hiding the scale is still right; the reason
+          above is the true one. The false version mattered because it is the
+          sentence a successor reads before deciding whether magnitude needs an
+          `aria-valuetext` — and it says the answer is already there. It is
+          not. Whether to add one is open, and is not decided here. */}
+      <div
+        className={`${typography.panelMeta} text-text-light flex items-center mb-1 px-0.5`}
+        data-testid={`${testId}-scale`}
+        aria-hidden="true"
+      >
+        <span className="w-1/2 text-left">{COPY.driverChart.axisEdge}</span>
+        <span className="text-center whitespace-nowrap px-1">{COPY.driverChart.axisCentre}</span>
+        <span className="w-1/2 text-right">{COPY.driverChart.axisEdge}</span>
+      </div>
+
       <ul className="space-y-1">
         {rows.map((row) => {
           const isEditing = editingFor === row.id
@@ -166,11 +205,19 @@ export function DriverInfluenceChart({
                 >
                   {isProse ? truncateAtWord(row.label) : row.label}
                 </span>
-                {/* ⚠ `aria-hidden`: the bar is a redraw of `data-fraction` and
-                    of the row's position in a sorted list. Announcing a
-                    decorative div would add noise, not information — the
-                    ordering already carries the ranking for a screen reader,
-                    and the direction is spoken by the text below. */}
+                {/* ⚠ `aria-hidden`: announcing a decorative div would add
+                    noise, not information — the ordering already carries the
+                    ranking for a screen reader, and the direction is spoken by
+                    the text below.
+
+                    ⚠ THIS COMMENT ALSO CLAIMED THE BAR IS "a redraw of
+                    `data-fraction`", and the scale comment above inherited the
+                    clause from here. It is false — `data-*` has no
+                    accessibility semantics, so `data-fraction` reaches no
+                    screen reader; see the measurement recorded on the scale.
+                    The ordering half is true and is the whole justification.
+                    Consequence, stated rather than hidden: AT gets the RANK of
+                    each driver and never its MAGNITUDE. */}
                 <span className="flex items-stretch h-2 mt-0.5" aria-hidden="true">
                   <span className={`${HALF} justify-end`}>
                     {row.direction === 'negative' ? (
@@ -181,7 +228,15 @@ export function DriverInfluenceChart({
                       />
                     ) : null}
                   </span>
-                  <span className="w-px bg-panel-border flex-shrink-0" />
+                  {/* ⚠ THE ZERO LINE. It existed before this change and was
+                      invisible: 1px of `bg-panel-border`, the same token every
+                      other rule on the panel uses, so the eye read the two
+                      halves as one empty track with bars floating in it. The
+                      line is the reference point the whole chart depends on —
+                      a bar's side and length mean nothing without it — so it
+                      gets a colour that separates it from ordinary furniture
+                      and a little height beyond the bar. */}
+                  <span className="w-px bg-text-light/70 flex-shrink-0 -my-0.5" />
                   <span className={HALF}>
                     {row.direction === 'positive' ? (
                       <span

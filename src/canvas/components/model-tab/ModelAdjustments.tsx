@@ -255,12 +255,43 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
   const factorCount = adjustments.length
   // totalCount keeps its historic meaning (all visible rows) for any gating
   // logic that depends on whether anything at all is present.
+  /**
+   * ⚠⚠ `postRunRepairs` IS DELIBERATELY *NOT* IN THIS SUM, AND I ADDED IT ONCE
+   * AND BROKE THE COMPONENT.
+   *
+   * `totalCount` gates the compact single-item arm below, and that arm RETURNS
+   * EARLY — it never renders the post-run block. Widening the sum sent a
+   * post-run-only payload into a layout built for one factor adjustment, where
+   * both its locals are `undefined`: the header claimed an adjustment over an
+   * empty span and the repair rendered nowhere.
+   *
+   * The spec's own header had said so, verbatim, before I did it: "Adding
+   * post-run repairs to it would silently reroute a post-run-only payload into
+   * a layout built for one factor adjustment." I widened it anyway, answering a
+   * review finding, and left that paragraph standing above the change.
+   *
+   * The two questions stay apart. `totalCount` = how many rows the compact arm
+   * would have to draw. `adjustmentTally` = what the multi-item HEADER may
+   * claim. The compact arm additionally requires that there be no post-run
+   * block to lose.
+   */
   const totalCount = factorCount + repairActions.length
+  /**
+   * What the multi-item HEADER may claim. Deliberately a different number from
+   * `totalCount`: that one gates layout and is documented as meaning "all
+   * visible rows" for gating; this one must never be zero while the section is
+   * on screen, which is the whole defect it exists to close.
+   */
+  const adjustmentTally =
+    repairActions.length > 0 ? repairActions.length : postRunRepairs.length
   const constraintAdj = grouped.filter(a => CONSTRAINT_CODES.has(a.type ?? a.code ?? ''))
   const autoFixAdj = grouped.filter(a => !CONSTRAINT_CODES.has(a.type ?? a.code ?? ''))
 
   // Single fix: compact inline row — no collapsible wrapper
-  if (totalCount === 1) {
+  /* ⚠ AND THE GATE IS THE HONEST ONE: compact only when there is genuinely ONE
+     thing to show. `totalCount === 1` alone was true of `(1 factor, 0 repairs,
+     3 post-run)` too, and returned early on all three. */
+  if (totalCount === 1 && postRunRepairs.length === 0) {
     const singleAdj = grouped[0]
     const singleRepair = repairActions[0]
     // Header uses factor-specific copy only when the sole item is a factor
@@ -300,9 +331,23 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
         <Wrench size={14} className="text-info flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <span className={`${typography.panelHeader} text-text-header`}>
+            {/* ⚠ THE THIRD BRANCH IS NOT DEFENSIVE PADDING — it is a state the
+                section already renders. The mount test admits `postRunRepairs`
+                (see the early return above) while `totalCount` counts only the
+                other two arrays, so a post-run-only payload reaches HERE with
+                both counts at zero and the header read "Olumi applied 0
+                adjustments" over a populated list. A heading that states a
+                count is a claim about what is under it.
+
+                It is fixed here rather than by widening `totalCount`, because
+                that value also gates the compact single-item layout and its own
+                comment reserves it for that: rerouting a post-run payload into
+                a one-factor layout would trade a wrong number for a wrong
+                shape. The header is a different question, so it gets its own
+                answer (CLAUDE.md trap 21). */}
             {factorCount > 0
               ? `Olumi adjusted ${factorCount} ${factorCount === 1 ? 'factor' : 'factors'}`
-              : `Olumi applied ${repairActions.length} ${repairActions.length === 1 ? 'adjustment' : 'adjustments'}`}
+              : `Olumi applied ${adjustmentTally} ${adjustmentTally === 1 ? 'adjustment' : 'adjustments'}`}
           </span>
         </div>
         {isExpanded ? (

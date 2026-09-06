@@ -78,7 +78,11 @@ import { formatGoalProbability } from '../utils/displayFloors'
 import { formatThreshold } from '../RangeVisualization'
 import { safeInterpolatedLabel } from '../utils/glossaryCheck'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
-import { ANALYSIS_NEW_COPY as COPY, ANALYSIS_NEW_LABEL_FALLBACK } from './analysisNewCopy'
+import {
+  ANALYSIS_NEW_COPY as COPY,
+  ANALYSIS_NEW_LABEL_FALLBACK,
+  formatConjunctionList,
+} from './analysisNewCopy'
 import type {
   AnalysisNewFinding,
   AnalysisNewStatus,
@@ -488,7 +492,7 @@ function driverFinding(
         : undefined,
     groundedIn: setRelative
       ? 'factor sensitivity, ranked within this run'
-      : 'the producer influence score',
+      : "Olumi's structural influence score",
     // A defaulted confidence is a placeholder, not a measurement — say so
     // rather than rendering it as evidence.
     marker: d.isDefaultedConfidence ? 'not_assessed' : undefined,
@@ -496,7 +500,7 @@ function driverFinding(
     inspect: rows(
       row('Influence', pctOrNull(influence)),
       row('Rank', d.influenceRank != null ? String(d.influenceRank) : String(d.rank)),
-      row('Basis', d.displayProvenance === 'influence_score' ? 'producer influence score' : 'ranked within this run'),
+      row('Basis', d.displayProvenance === 'influence_score' ? "Olumi's structural influence score" : 'ranked within this run'),
       // Absence-safe: a defaulted or absent confidence prints nothing.
       row('Confidence', d.isDefaultedConfidence ? null : pctOrNull(d.confidence)),
       row('Attribution stability', d.attributionStability),
@@ -1064,22 +1068,50 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
   if (inputs.isPreRun) return { groups: [], critiques: [], caveats: [] }
 
   const run = rows(
-    row('Run identity', inputs.responseHash),
+    row('Run reference', inputs.responseHash),
     row('Simulations', inputs.nSamples != null ? String(inputs.nSamples) : null),
     row('Seed', inputs.seedUsed != null ? String(inputs.seedUsed) : null),
-    row('Analysis status', data.recommendation.analysisStatus),
-    row('Drivers status', data.drivers.driversStatus),
-    row('Robustness status', conf.robustnessStatus),
+    row('Analysis status', plainStatus(data.recommendation.analysisStatus)),
+    row('Drivers status', plainStatus(data.drivers.driversStatus)),
+    row('Robustness status', plainStatus(conf.robustnessStatus)),
   )
   if (run.length) groups.push({ title: 'This run', rows: run })
 
   // ⚠ COVERAGE, NOT READINESS (rule 5). These rows say what the run did and did
   // not cover. None of them is a statement about whether analysis may run.
+  // ⚠ THE VALUE IS HUMANISED, NOT JUST THE LABEL (review S3). Renaming this row
+  // from "Fields the producer did not supply" left the VALUE as
+  // `missing.join(', ')` — raw `MissingFieldKey` tokens, so the row read
+  // "Not included in this result: win_probability, sensitivity" one line above
+  // the gap row being fixed for exactly that defect. Neither the gap-code regex
+  // nor `WAVE-A-COPY-SPEC`'s `/^[A-Z][A-Z0-9_]{6,}$/` can see lower snake_case,
+  // which is how it survived.
+  //
+  // `missingResultLabels` already existed and was already used by `buildStatus`;
+  // this row simply was not calling it. The unknown-key drop is the same ruling
+  // `buildStatus` states: an unrecognised name on screen is worse than the
+  // generic sentence it would replace. It is load-bearing rather than
+  // theoretical — `deriveResultCompleteness` DOES emit the deliberately-unmapped
+  // `recommendation_stability`, always paired with `robustness_level` in one
+  // branch (`useResultCompleteness.ts:222-225`), so this is what keeps a
+  // withheld field from being named as a missing one.
+  // Pinned in both directions by `missingResultsNamedInWords.spec.tsx`.
+  const missingResultPhrases = data.completeness.missing
+    .map((k) => COPY.status.missingResultLabels[k])
+    .filter((label): label is string => Boolean(label))
+
   const coverage = rows(
-    row('Result completeness', data.completeness.status),
+    row('Result completeness', plainStatus(data.completeness.status)),
     row(
-      'Fields the producer did not supply',
-      data.completeness.missing.length ? data.completeness.missing.join(', ') : null,
+      'Not included in this result',
+      /* ⚠ BOTH HALVES OF TWO SEPARATE FIXES, KEPT. The mapping above is the
+         earlier one (pinned by `missingResultsNamedInWords.spec.tsx`); the
+         joiner is the later one. A bare `join(', ')` is exactly the defect the
+         status ribbon shipped — "the win share, the robustness check did not
+         come back" — so leaving it here would have fixed the vocabulary and
+         kept the grammar. Taking either side wholesale would have dropped a
+         real fix. */
+      missingResultPhrases.length ? formatConjunctionList(missingResultPhrases) : null,
     ),
     row(
       'Evidence coverage',
@@ -1147,8 +1179,65 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
   // machine code is right content for an audit trail and wrong content for a
   // caveat strip.
   const caveats = (conf.inferenceWarnings ?? []).filter(isStripEntry)
+  // ⚠⚠ THE CODE LEAVES THE TERM COLUMN — AND NOTHING ELSE ABOUT THIS CHANGES.
+  //
+  // Witnessed by Paul on deployed `a9c2e050`: this group printed
+  // `EDGE_E_VALUE_NON_FINITE_DROPPED` and `ROOT_NODE_DEFAULT_VALUE` as the `<dt>`
+  // of a two-column list — the first thing the eye lands on, in the panel whose
+  // job is to make a chain of reasoning trustworthy. The argument above is right
+  // that a machine code belongs in an audit trail; what it missed is that the
+  // TERM column is not an audit trail, it is a heading.
+  //
+  // `statement: true` moves the code out of the visual term column and into the
+  // row's accessible name and `data-gap-code`. The renderer prints the sentence
+  // and nothing else.
+  //
+  // ⚠⚠ AN EARLIER VERSION OF THIS COMMENT CLAIMED THE CODE STAYS ON SCREEN
+  // BECAUSE "the estate's ratified shape is `code + sentence`, never `sentence
+  // instead of code`". THAT WAS A GENERALISATION OF A RULING SCOPED TO ONE
+  // SURFACE, and the repo refutes it (review S1).
+  // `auditInferenceWarningsNeverBareCode.spec.tsx` opens "The Model card's audit
+  // trail never renders a machine code ALONE"; the rule it enforces is
+  // `humaniseCritique.ts`'s own — "a machine code is correct content for an
+  // AUDIT TRAIL and wrong content for a CAVEAT STRIP". The Model tab is that
+  // audit trail. This group is not.
+  // The disconfirming case was live here the whole time: `AdvancedSection.tsx`
+  // renders these IDENTICAL entries, through this same selector, as a bare
+  // sentence with no code. Keeping a second, code-bearing rendering would have
+  // made this panel the only surface printing SCREAMING_SNAKE to a reader.
+  //
+  // ⚠⚠ TWO THINGS I TRIED FIRST AND REVERTED, BOTH REFUTED BY SPECS THAT
+  // ALREADY ENCODE THE RIGHT ANSWER:
+  //  (1) COLLAPSING DUPLICATES to `x2`. `deeperAnalysisEvidence.spec.tsx:200`
+  //      exists to forbid exactly that, and its reason is the point: "the
+  //      producer repeats a code when it raises the same condition about two
+  //      DIFFERENT nodes". Two rows are two findings. Collapsing them would have
+  //      made one finding out of two and still not named either node — the
+  //      user's actual complaint, made worse while looking tidier.
+  //  (2) APPENDING the code to `value`. `deeperAnalysisEvidence.spec.tsx:218`
+  //      requires `value` to BE the shared humaniser's output for that entry, so
+  //      the code is the renderer's business, not the string's.
+  //
+  // ⚠ STILL OPEN, AND STATED RATHER THAN IMPLIED: the two `ROOT_NODE_DEFAULT_VALUE`
+  // rows remain indistinguishable. ⚠ AN EARLIER VERSION OF THIS COMMENT BLAMED
+  // ONLY THE SELECTOR, AND THAT WAS HALF THE CAUSE (review S2). Both halves:
+  //  (a) `selectHumanisedInferenceWarningsOutsideStrip` projects to
+  //      `{code, title}` and drops `affected_labels`; AND
+  //  (b) the label map is ALREADY passed to the humaniser
+  //      (`humaniseInferenceWarning.ts:75` builds one via
+  //      `buildInferenceWarningLabelMap(w)`), but `ROOT_NODE_DEFAULT_VALUE`'s
+  //      template is a ZERO-ARGUMENT arrow (`humaniseCritique.ts:498-505`) that
+  //      ignores it.
+  // So widening the selector ALONE would change nothing on screen — the template
+  // has to take the label too. Both changes reach the existing Analysis tab, so
+  // this is a separate change, not a silent one.
+  //
+  // ⚠ NO INFORMATION IS LOST BY LEAVING IT: before, `<dt>CODE</dt><dd>sentence</dd>`;
+  // now, `<dt class="sr-only">CODE</dt><dd>sentence</dd>`. Two rows were
+  // indistinguishable then and are indistinguishable now, and a screen reader
+  // still hears the code once per row. Nothing is over-suppressed.
   const inferenceRows = selectHumanisedInferenceWarningsOutsideStrip(conf.inferenceWarnings)
-    .map((w) => ({ label: w.code, value: w.title }))
+    .map((w) => ({ label: w.code, value: w.title, statement: true }))
   if (inferenceRows.length) groups.push({ title: 'Model gaps the analysis worked around', rows: inferenceRows })
 
   // ⚠ READINESS SIGNALS, RENDERED AS THE PRODUCER'S OWN NUMBERS. `m1_coaching
@@ -1190,7 +1279,11 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
       'Automatic noise applied',
       data.autoNoiseProvenance?.applied && data.autoNoiseProvenance?.isProvisional ? 'yes, provisional' : null,
     ),
-    row('Per-factor attribution withheld', data.attributionSuppression === 'not_attested' ? null : String(data.attributionSuppression ?? '')),
+    /* ⚠ `String(undefined ?? '')` IS `''`, NOT `null` — so an absent value used
+       to emit a LABELLED ROW WITH A BLANK CELL, which reads as a rendering
+       failure rather than as an absence. `rows()` drops a null; it cannot drop
+       an empty string it was handed. */
+    row('Per-factor attribution withheld', plainStatus(data.attributionSuppression === 'not_attested' ? null : data.attributionSuppression)),
   )
   if (provenance.length) groups.push({ title: 'Provenance', rows: provenance })
 
@@ -1646,6 +1739,47 @@ function usableOptionLabel(o: OptionResult): string | null {
  * outcome" while showing a median would be false. Same data, different
  * obligation — so the difference is deliberate, and it is the safe direction.
  */
+/**
+ * A producer status token as this surface says it.
+ *
+ * ⚠ THE SAME RULE THE GAP-CODE GROUP ALREADY GOT, APPLIED TO ITS NEIGHBOURS.
+ * These rows printed `computed`, `full`, `skipped`, `not_assessed` — the wire
+ * enum verbatim, in a user-facing value cell. A reader has never met that
+ * vocabulary, and the panel's own rule is that a machine token is content at
+ * most, never the thing a person is asked to read.
+ *
+ * ⚠ AN UNKNOWN TOKEN IS TITLE-CASED, NOT DROPPED. Dropping it would delete a
+ * diagnostic the row exists to carry; inventing a sentence for it would assert
+ * something the producer did not say. Replacing underscores is the smallest
+ * change that removes the wire SHAPE without adding meaning.
+ */
+function plainStatus(status: string | null | undefined): string | null {
+  if (status == null) return null
+  const trimmed = status.trim()
+  if (trimmed === '') return null
+  const known: Record<string, string> = {
+    computed: 'Computed',
+    full: 'Complete',
+    partial: 'Partial',
+    skipped: 'Not computed',
+    unavailable: 'Unavailable',
+    not_assessed: 'Not assessed',
+    not_attested: 'Not stated',
+  }
+  /* ⚠ `Object.hasOwn`, NOT `known[t] ?? …`. A plain object literal inherits
+     `constructor`, `toString`, `valueOf` … so `plainStatus('constructor')`
+     returned a FUNCTION, which `??` does not treat as absent — against a
+     declared return type of `string | null`. Producer enums are unlikely to
+     collide, but "unlikely" is not the guarantee the signature makes. */
+  /* ⚠ `hasOwnProperty.call`, NOT `Object.hasOwn` — that is ES2022 and this
+     repo's `lib` stops at ES2020, which is the same gap that bit
+     `Intl.ListFormat` twice in this change. Raising `lib` is the real fix and
+     is a repo-wide config change, so it is rowed for Primary rather than taken
+     here. */
+  if (Object.prototype.hasOwnProperty.call(known, trimmed)) return known[trimmed]!
+  return `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1)}`.replace(/_/g, ' ')
+}
+
 function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication {
   const rec = data.recommendation
   const options = rec.allOptions ?? []
@@ -1697,6 +1831,40 @@ function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication
    * `leaderDesignationPermitted = modelLicensesComparativeClaim && resultSeparatesArms`
    * and `resultSeparatesArms IS verdict.hasLeadingOption`, so `composed === true`
    * implies Q2 true. Named here so the next reader does not re-derive it.
+   */
+  /**
+   * ⚠⚠ THIS GATE DIVERGES FROM ITS TWO SIBLINGS IN THIS FILE, DELIBERATELY —
+   * and the divergence is now LIVE, because this block has importers.
+   *
+   * Its two siblings (search `leaderDesignationPermitted(`) both answer the
+   * same question as
+   * `leaderDesignationPermitted(rec) === true`, i.e. they WITHHOLD when
+   * `rec.verdict == null`. This line PERMITS in that case, and
+   * `designationWithheldTruthTable.spec.ts` pins that as intended
+   * (`withholds({ verdict: null, … })` → `false`). So it is not a slip to
+   * align — aligning it would RED a ratified truth table.
+   *
+   * ⭐ THE REACHABILITY ARGUMENT, PINNED HERE RATHER THAN LEFT IN A REVIEW:
+   * `verdict == null` does not occur on the production path.
+   * `useResultsSectionData` sets `verdict: leaderVerdict` from
+   * `deriveDecisionVerdict`, whose signature is `): DecisionVerdict` —
+   * non-nullable — and which returns `UNKNOWN_VERDICT` rather than null on every
+   * early exit (`decisionVerdict.ts:359-363`).
+   *
+   * ⚠ WHAT WOULD BREAK IT, so a later reader knows what to watch: a second
+   * producer for `verdict`, or the schema-skew hazard dropping the field at a
+   * consumer on an older pin. If `verdict` ever becomes genuinely absent, the
+   * glance withholds the leader while this block names one, ON THE SAME SCREEN.
+   * That is the failure to look for — not a formatting difference.
+   *
+   * Raised by an independent review, which also established the reachability
+   * argument above; recorded at the bytes because a reachability claim that
+   * lives only in a review comment is a claim the next reader cannot find.
+   *
+   * ⚠ AND THE REFERENCES ARE BY SYMBOL, NOT BY LINE. The first version of this
+   * block cited `:1546` / `:2244` / `:1830` — and the block's own ~35 lines
+   * pushed every one of them out of date the moment it was written. A comment
+   * that moves its own targets should not cite coordinates.
    */
   const designationsWithheld = rec.verdict != null && leaderDesignationPermitted(rec) !== true
   if (designationsWithheld) return { kind: 'none' }
