@@ -232,13 +232,18 @@ export interface DriverInfluenceRow {
 export interface DriversSection {
   findings: AnalysisNewFinding[]
   /**
-   * TRUE when the influence figures on display are SET-RELATIVE
-   * (`displayProvenance === 'normalised_elasticity'`), i.e. "largest in this
-   * set", NOT a causal share of the outcome. Drives the caveat line.
+   * TRUE when the influence figures on display are SET-RELATIVE, i.e. "largest
+   * in this set", NOT a causal share of the outcome. Drives the caveat line.
    *
-   * ⚠ This is the "do not conflate structurally different scientific
-   * quantities" rule made mechanical: the caveat is a function of the
-   * producer's own provenance token, not of the adapter's taste.
+   * ⚠⚠ IT USED TO NARROW THAT TO `displayProvenance === 'normalised_elasticity'`.
+   * Refuted (#1228): `influence_score` is the producer's normalisation against
+   * `max|influence|`, so its top row is 1.0 by construction too. BOTH stamped
+   * provenances are set-relative, so this is true whenever there are rows.
+   *
+   * ⚠ The "do not conflate structurally different scientific quantities" rule
+   * still holds — it is just a DIFFERENT question, and it stays keyed on
+   * `displayProvenance`. This field answers the SCALE question; provenance
+   * answers the QUANTITY one. Collapsing them is what produced the defect.
    */
   influenceIsSetRelative: boolean
   /**
@@ -945,9 +950,20 @@ export interface AtAGlance {
   verdict: GlanceVerdict | null
   drivers: GlanceDriver[]
   /**
-   * TRUE when the bars are set-relative (`normalised_elasticity`) rather than
-   * the producer's absolute influence scale. Drives the basis caption, which
-   * is a truth claim and therefore visible, not hover-only.
+   * TRUE when the bars are set-relative — which is EVERY stamped basis, so in
+   * practice whenever there are rows at all.
+   *
+   * ⚠⚠ IT USED TO SAY "set-relative (`normalised_elasticity`) rather than the
+   * producer's absolute influence scale". That premise is refuted (#1228):
+   * `influence_score` is normalised against `max|influence|`. The field answers
+   * the SCALE question only; the QUANTITY question is still `displayProvenance`.
+   *
+   * ⚠ CONSEQUENCE, MEASURED AND OPEN: because `AtAGlance` renders the basis
+   * caption only inside `glance.drivers.length > 0`, and this is `rows.length > 0`
+   * over the same rows, the caption's `basisAbsolute` arm is UNREACHABLE at both
+   * of its sites. Deliberately not revived here — `influenceBasisNoun` now rules
+   * "Relative influence" for BOTH provenances, so reviving the visible arm is a
+   * copy decision, not a bug fix. Reported on #1228.
    */
   influenceIsSetRelative: boolean
   condition: GlanceCondition | null

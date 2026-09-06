@@ -13,9 +13,14 @@
  *     unless `recommendation.verdict.hasLeadingOption === true`. A completed
  *     analysis is not an entitlement. Comparative copy is "currently scores
  *     higher", never "wins".
- *  2. INFLUENCE IS NOT A CAUSAL SHARE. `displayProvenance` decides: only
- *     `'influence_score'` is an absolute producer scale; `'normalised_elasticity'`
- *     means "largest in this set" and must carry the caveat.
+ *  2. INFLUENCE IS NOT A CAUSAL SHARE — ON EITHER BASIS. ⚠⚠ THIS RULE USED TO
+ *     READ "only `'influence_score'` is an absolute producer scale;
+ *     `'normalised_elasticity'` … must carry the caveat", and that is the
+ *     premise the whole of #1228 refutes. BOTH stamped provenances are
+ *     set-relative NORMALISATIONS — `influence_score` against `max|influence|`,
+ *     so its top row is 1.0 by construction too — so BOTH carry the caveat.
+ *     `displayProvenance` still decides WHICH QUANTITY is named; it does not
+ *     decide whether the caveat is owed. Two questions, two gates.
  *  3. ROBUSTNESS. The display-safe verdict is `robustnessVerdict` (+ its
  *     producer-authored reason, rendered VERBATIM). `robustnessLevel` is
  *     structured data and never drives the headline.
