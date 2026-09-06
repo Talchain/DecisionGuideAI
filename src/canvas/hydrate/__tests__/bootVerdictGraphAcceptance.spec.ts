@@ -225,7 +225,8 @@ beforeEach(() => {
   //
   // `applyBootAnalysisVerdict`'s contract distinguishes WRITING NOTHING from
   // writing `null` — "not `null`, which would replace a standing belief with a
-  // claim of ignorance" (`applyScenarioAnalysisRead.ts:402-405`). A store field
+  // claim of ignorance" (`applyScenarioAnalysisRead.ts`, its absence-is-not-a-state
+  // note). A store field
   // that reads `null` cannot tell those apart, because boot seeds it to `null`.
   // Recording the CALLS makes "the boot leg did not touch this seam" assertable
   // rather than inferred, and it is the assertion a future refactor that writes

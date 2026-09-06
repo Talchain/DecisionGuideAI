@@ -543,7 +543,8 @@ export function composeAnalysisState(
   // consulted, so restoring a currency claim here would render 'Analysis
   // complete' over a canvas the merge below is about to mark stale." That guard
   // covers the BOOT writer only — the polling writer
-  // (`applyScenarioAnalysisRead.ts:383`) applies `complete_current` by design,
+  // (`applyScenarioAnalysisRead.ts`, at its divergence declines) applies
+  // `complete_current` by design,
   // so the window stayed open behind it, and a restore
   // (`mergeAppliedGraph.ts:717`) or an "add a baseline" (`useAddBaseline.ts:123`)
   // walked straight into it.

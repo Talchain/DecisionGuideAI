@@ -334,7 +334,8 @@ export async function hydrateCanvasFromServer(
     // operative word, not `null`. Writing `null` would replace whatever belief
     // the user's session already holds with a claim of ignorance, which is a
     // second falsehood rather than the absence of the first
-    // (`applyScenarioAnalysisRead.ts:402-405` makes the same distinction on the
+    // (`applyScenarioAnalysisRead.ts`'s "AFTER THE DIVERGENCE GUARDS" note makes
+    // the same distinction on the
     // decline side). The refusal simply does not touch this seam.
     return 'mergeRefused'
   }
