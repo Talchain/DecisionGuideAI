@@ -73,6 +73,7 @@ import {
   deriveAnalysisDisplayState,
   type AnalysisDisplayStateView,
 } from '../utils/deriveAnalysisDisplayState'
+import { selectHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import {
   deriveResultsTabFreshness,
   type ResultsTabFreshnessIndicator,
@@ -432,6 +433,19 @@ export interface ComposeAnalysisStateInput {
   importHold: boolean
   /** Legacy: whether a populated report is on screen. */
   hasReport: boolean
+  /**
+   * ⭐ Whether that report actually contains a renderable probability.
+   *
+   * `hasReport` is a claim about the ENVELOPE; this is a claim about the
+   * CONTENT, and they came apart on a real run: build `acd3db4d` displayed
+   * "Analysis complete" while all 5 rendered factors reported
+   * `influence_source: "unmatched"` and all 3 options
+   * `win_probability_source: "unmatched"`, with no PLoT or ISL leg present.
+   * Derived from `hasAnyRealProbability`, the guard written for this and not
+   * previously consumed by the headline. Optional so an existing caller keeps
+   * its behaviour rather than degrading every run to the new state.
+   */
+  hasRenderableResult?: boolean
   /** Legacy: `ceeAnalysisReady.status`, for the hero/banner copy state. */
   ceeAnalysisReadyStatus: string | undefined
   /** Legacy: whether the aiPanelV2 surface is enabled (Results-tab glyph gate). */
@@ -457,6 +471,7 @@ export function composeAnalysisState(
     ceeAnalysisReadyStatus,
     aiPanelV2On,
   } = input
+  const hasRenderableResult = input.hasRenderableResult ?? true
 
   // ── The legacy answer, computed by WRAPPING the existing derivations. ──────
   // Always computed: it is the fallback, and under the wire branch it is still
@@ -639,6 +654,7 @@ export function composeAnalysisState(
   const wireForcesStale =
     wire !== null && wireKind !== 'complete_current' && wireKind !== 'blocked'
   const displayState: AnalysisDisplayStateView = deriveAnalysisDisplayState({
+    hasRenderableResult,
     // Readiness under the wire branch is the PRODUCER's own readiness, not the
     // legacy `ceeAnalysisReady` slice — same producer, one less derivation.
     // `blocked` is stated by `run_state`, not by the readiness code, so it is
@@ -762,6 +778,10 @@ export function useAnalysisState(): ComposedAnalysisState {
   const resultsStartedAt = useCanvasStore((s) => s.results?.startedAt)
   const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
   const hasReport = useCanvasStore((s) => s.results?.report != null)
+  // The CONTENT check, not the envelope check — see `hasRenderableResult`.
+  // Subscribed as a primitive boolean so this cannot re-render on every report
+  // identity change.
+  const hasRenderableResult = useCanvasStore(selectHasAnyRealProbability)
   const ceeAnalysisReadyStatus = useCanvasStore((s) => s.ceeAnalysisReady?.status)
   const { source } = useAnalysisStateSource()
 
@@ -776,6 +796,7 @@ export function useAnalysisState(): ComposedAnalysisState {
         resultsStartedAt,
         importHold,
         hasReport,
+        hasRenderableResult,
         ceeAnalysisReadyStatus,
         // The Results-tab glyph is the only member gated on the aiPanelV2
         // surface, and its existing gate lives at the OutputsDock call site.
@@ -788,6 +809,7 @@ export function useAnalysisState(): ComposedAnalysisState {
       freshness,
       dirty,
       source,
+      hasRenderableResult,
       resultsStatus,
       resultsStartedAt,
       importHold,

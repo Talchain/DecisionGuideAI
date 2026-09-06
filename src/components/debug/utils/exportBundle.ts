@@ -970,7 +970,21 @@ export interface DisplayState {
    * Backwards-compatible: added alongside the legacy fields so existing
    * bundle consumers keep working until they migrate.
    */
-  analysis_display_state: 'not_ready' | 'ready_to_analyse' | 'complete' | 'results_stale' | null
+  /**
+   * ⚠ A HAND-COPIED UNION OF `AnalysisDisplayState`, and adding a member to the
+   * source broke it — which is the point: this is the one place the bundle's
+   * shape is pinned, so it fails loud rather than exporting a state it cannot
+   * name. Kept as a literal union (not an import) deliberately: the bundle is a
+   * WIRE FORMAT read by tools outside this repo, and it should be a compile
+   * error here when the product gains a state, not a silent widening.
+   */
+  analysis_display_state:
+    | 'not_ready'
+    | 'ready_to_analyse'
+    | 'complete'
+    | 'ran_without_result'
+    | 'results_stale'
+    | null
   /** Headline matching what the pre-analysis hero banner displays. */
   analysis_display_headline: string | null
 }
