@@ -253,9 +253,23 @@ describe('the row atoms align to ONE grid, not 199 of them', () => {
    * text and 102px on attention marks and gave the identity track 96px, so
    * 0 of 13 relationship rows showed their target. `fit-content(L)` keeps the
    * automatic minimum the test above protects (a nowrap "£1,250,000 per year"
-   * still sized to 118px) and caps only content that can truncate, which took
-   * the identity track to 181px. The rejected `minmax(0,L)` reserved its cap
-   * even for EMPTY cells and cost four fully-visible option labels.
+   * still sized to 118px), which took the identity track to 181px. The
+   * rejected `minmax(0,L)` reserved its cap even for EMPTY cells and cost four
+   * fully-visible option labels.
+   *
+   * ⚠⚠ AND THIS PARAGRAPH USED TO END "and caps only content that can
+   * truncate", WHICH IS TRUE OF ONE TRACK AND NOT THE OTHER. The automatic
+   * minimum is a property of the CELL, not of the track: CSS Grid §6.6 grants
+   * it only where the item's own `min-width` is `auto`. The value cell's idle
+   * arms are `shrink-0` in the bare-number case and so keep it — that is why
+   * the 118px above is what it is. The META cell is `min-w-0`
+   * UNCONDITIONALLY, so it keeps NO automatic minimum and its cap is hard,
+   * over content that is not all shrinkable: `Confirm` and the attention
+   * markers are `shrink-0`, and `rowAtomsDoNotWrap.spec` asserts by name that
+   * neither may shrink. Whether they exceed 5rem at a reachable width is
+   * UNMEASURED — see the block beside the class in `ModelOutline.tsx`, which
+   * records it as open. This test pins the CLASS CONTRACT and cannot settle
+   * it: jsdom performs no layout.
    *
    * ⚠⚠ AND THE FIRST CUT OF THIS TEST PINNED THE SHAPE AND NOTHING ABOUT THE
    * LENGTH. It asserted only `fit-content(<non-zero length>)`, so BOTH numbers
