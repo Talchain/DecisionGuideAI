@@ -169,8 +169,20 @@ export function genuineDecision(): ResultsSectionDataReturn {
       isSingleOption: false,
       winProbability: 0.69,
       determinedBy: 'win_probability',
-      // The ONE boolean that entitles naming a leader.
+      // ⚠ TWO BOOLEANS ENTITLE NAMING A LEADER, NOT ONE — this comment used to
+      // say "the ONE boolean" and name only the verdict, which is the exact
+      // conflation `leaderDesignationPermitted` exists to abolish, written into
+      // the workhorse fixture. `verdict.hasLeadingOption` answers Q2 (did THIS
+      // RESULT separate the arms?) and says nothing about Q1 (does the MODEL
+      // license a comparative claim at all?). A fixture supplying only Q2 is the
+      // shape on which the reader CANNOT discriminate, so every scenario built
+      // from it was blind to admission.
       verdict: { leaderId: 'opt_b', hasLeadingOption: true } as DecisionResultData['verdict'],
+      // Q1 ∧ Q2, composed — the field `useResultsSectionData` publishes beside
+      // the verdict on every real run. Stated explicitly so this scenario means
+      // "a run entitled to name a leader" rather than "a run whose numbers
+      // happen to separate".
+      leaderDesignationPermitted: true,
       robustnessVerdict: 'robust',
       robustnessVerdictReason: 'The ordering held across the simulated range.',
     },
@@ -181,7 +193,16 @@ export function genuineDecision(): ResultsSectionDataReturn {
   })
 }
 
-/** The same decision, but the producer WITHHELD the leader entitlement. */
+/**
+ * The same decision, but the producer WITHHELD the leader entitlement.
+ *
+ * ⚠ BOTH FIELDS MOVE TOGETHER. This spreads `genuineDecision()`, which now
+ * publishes `leaderDesignationPermitted: true`; overriding only the verdict
+ * would leave the composed answer saying "permitted" while Q2 says "no leader"
+ * — a shape `useResultsSectionData` cannot emit (`Q1 && Q2` is false whenever
+ * Q2 is false) and one on which the withheld arms would test the composed field
+ * rather than the withholding.
+ */
 export function decisionWithLeaderWithheld(): ResultsSectionDataReturn {
   const data = genuineDecision()
   return {
@@ -189,6 +210,7 @@ export function decisionWithLeaderWithheld(): ResultsSectionDataReturn {
     recommendation: {
       ...data.recommendation,
       verdict: { leaderId: 'opt_b', hasLeadingOption: false } as DecisionResultData['verdict'],
+      leaderDesignationPermitted: false,
     },
   }
 }

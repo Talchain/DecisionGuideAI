@@ -109,7 +109,15 @@ function makeData(options: OptionResult[]): ResultsSectionDataReturn {
     coachingReadinessDimensions: { evidence: 0.6, robustness: 0.6, clarity: 0.6 },
     // A run that DOES rank: on a withheld run the ranked chrome is suppressed
     // for every card and the absence assertions would pass for free.
+    //
+    // ⚠ BOTH QUESTIONS, because ranking is gated on the COMPOSED answer and not
+    // on the verdict. `verdict.hasLeadingOption` answers Q2 alone, and a Q2-only
+    // recommendation is one `leaderDesignationPermitted()` may only WITHHOLD on
+    // — which would suppress the ordinal on EVERY row and make the positive
+    // control below ("an analysed option still carries its ordinal") impossible
+    // to satisfy, i.e. the whole file's absence assertions vacuous.
     verdict: { hasLeadingOption: true },
+    leaderDesignationPermitted: true,
   } as unknown as DecisionResultData
   const drivers: DriversSectionData = {
     drivers: [], topDrivers: [], driversStatus: 'computed', totalCount: 0, hasMagnitudeData: false,

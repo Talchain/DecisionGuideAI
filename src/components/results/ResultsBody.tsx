@@ -246,6 +246,14 @@ export const ResultsBody = memo(function ResultsBody({
   // `=== false` preserves the existing convention EXACTLY: a caller supplying no
   // verdict is a legacy fixture, not a withheld run, so `undefined` keeps
   // today's behaviour and no fixture-driven mount changes.
+  //
+  // ⚠ `undefined` NOW HAS A SECOND SOURCE, and it does not change this line.
+  // The reader also returns `undefined` for an object that carries a verdict but
+  // no composed answer — Q2 alone may withhold and may never license — so a
+  // caller outside `useResultsSectionData` no longer arrives here holding an
+  // inferred `true`. This surface keeps the permissive reading of absence on
+  // purpose; the conservative one lives at `=== true` a few lines down, and
+  // aligning the two is what the paragraph above forbids.
   const designationsWithheld =
     leaderDesignationPermitted(resultsSectionData.recommendation) === false
 

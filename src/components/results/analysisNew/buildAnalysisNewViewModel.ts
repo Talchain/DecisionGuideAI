@@ -2269,10 +2269,18 @@ function buildChecks(data: ResultsSectionDataReturn): AnalysisNewViewModel['chec
    * row still reading raw Q2 while the ban above was cited as the reason. The
    * banned one is `!!recommendedOption`: a UI-DERIVED claim rebuilt from numbers
    * the producer deliberately kept silent about. `leaderDesignationPermitted`'s
-   * fallback is `?? verdict?.hasLeadingOption` — it falls back to the PRODUCER'S
-   * OWN Q2, never to a UI derivation, so it cannot resurrect Authority 3. The
-   * paragraph above forbids INVENTING a leader; it does not license ignoring the
-   * MODEL's refusal to license one.
+   * fallback reads the PRODUCER'S OWN Q2, never a UI derivation, so it cannot
+   * resurrect Authority 3. The paragraph above forbids INVENTING a leader; it
+   * does not license ignoring the MODEL's refusal to license one.
+   *
+   * ⚠⚠ AND THIS PARAGRAPH USED TO SAY THE FALLBACK WAS `?? verdict?.hasLeadingOption`
+   * AND DEFEND IT AS SAFE ON THAT GROUND. It was right that Q2 is the producer's
+   * own answer and wrong that being the producer's answer makes it a LICENCE:
+   * Q2 is one of two conjuncts, and reading it alone when the composed answer is
+   * absent is the same "ignoring the MODEL's refusal" this very sentence forbids
+   * — defended one line after being banned. The fallback is now asymmetric (Q2
+   * alone may WITHHOLD, never LICENSE), so an object that never answered Q1
+   * reaches this row as `leader_not_assessed` rather than as a pass.
    *
    * Reading raw Q2 here rendered "Has leading option / pass" on a run the model
    * refuses to let us claim a leader on — and the reviewer's CONTRAST CONTROL is

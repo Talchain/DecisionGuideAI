@@ -62,10 +62,38 @@ function verdict(over: Partial<DecisionVerdict>): DecisionVerdict {
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe('leader check — the denial is licensed by `tied` alone', () => {
-  it('hasLeadingOption true → leader_present', () => {
-    expect(codeFor(makeData({ recommendation: { verdict: verdict({}) } }), 'leader')).toBe(
-      'leader_present',
-    )
+  /**
+   * ⚠ THIS ARM USED TO READ `hasLeadingOption true → leader_present` AND SUPPLY
+   * ONLY Q2 — i.e. it certified that SEPARATION ALONE ticks this row, which is
+   * the claim the composed reader exists to refuse. It passed because the
+   * reader's fallback answered raw Q2 whenever the composed field was absent.
+   * Both questions are now stated, so the arm means "an entitled run ticks the
+   * row" rather than "a separated run does".
+   */
+  it('BOTH questions answered yes → leader_present', () => {
+    const data = makeData({
+      recommendation: { verdict: verdict({}), leaderDesignationPermitted: true },
+    })
+    expect(data.recommendation?.verdict?.hasLeadingOption, 'Q2 must be TRUE here').toBe(true)
+    expect(data.recommendation?.leaderDesignationPermitted, 'Q1 ∧ Q2 must be stated, not inferred').toBe(true)
+    expect(codeFor(data, 'leader')).toBe('leader_present')
+  })
+
+  /**
+   * ⭐ THE ARM THE OLD ONE WAS STANDING IN FOR. Q2 permits and the composed
+   * answer is ABSENT — the shape any object built outside `useResultsSectionData`
+   * has. Absence of the composed answer is not permission, so this row must not
+   * tick; the tie DENIAL is not reachable here either, because that is licensed
+   * by `separation === 'tied'` alone.
+   */
+  it('Q2 permits but NO composed answer → not leader_present, and not a denial either', () => {
+    const data = makeData({ recommendation: { verdict: verdict({}) } })
+    expect(data.recommendation?.verdict?.hasLeadingOption, 'Q2 must be TRUE or this arm tests Q2').toBe(true)
+    expect(
+      Object.prototype.hasOwnProperty.call(data.recommendation ?? {}, 'leaderDesignationPermitted'),
+      'this arm tests the ABSENT composed answer',
+    ).toBe(false)
+    expect(codeFor(data, 'leader')).toBe('leader_not_assessed')
   })
 
   /**
@@ -277,7 +305,13 @@ describe('evidence check — the empty list is TWO states', () => {
  */
 describe('every code maps to the right glyph state (the survivor that closed this hole)', () => {
   const CASES: ReadonlyArray<readonly [ChecksCode, 'pass' | 'finding' | 'not_assessed', ResultsSectionDataReturn]> = [
-    ['leader_present', 'pass', makeData({ recommendation: { verdict: verdict({}) } })],
+    // Q1 ∧ Q2 both stated: `leader_present` requires the COMPOSED answer, and a
+    // row supplying only Q2 now lands on `leader_not_assessed`.
+    [
+      'leader_present',
+      'pass',
+      makeData({ recommendation: { verdict: verdict({}), leaderDesignationPermitted: true } }),
+    ],
     [
       'leader_tied',
       'finding',
@@ -500,7 +534,10 @@ describe('WhatWeChecked renders the readout', () => {
   it('an ASSESSED check renders no explanation line (density)', () => {
     renderFor(
       makeData({
-        recommendation: { verdict: verdict({}), robustnessVerdict: 'robust' },
+        // Every check here must be ASSESSED, so the leader row needs the
+        // COMPOSED answer and not Q2 alone — Q2 alone lands on
+        // `leader_not_assessed`, which carries an explanation line.
+        recommendation: { verdict: verdict({}), leaderDesignationPermitted: true, robustnessVerdict: 'robust' },
         confidence: { evidenceGaps: [], evidenceGapsAssessed: true } as never,
       }),
     )

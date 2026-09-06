@@ -101,9 +101,11 @@ function renderWith(
   /**
    * The COMPOSED answer `useResultsSectionData` publishes: does the MODEL
    * license a comparative claim (`permitted_analysis_mode`) AND did THIS result
-   * separate the arms (`verdict.hasLeadingOption`)? Omitted by every existing
-   * case here, which is what pins the fallback: a fixture with no composed
-   * field must behave exactly as it did before the field existed.
+   * separate the arms (`verdict.hasLeadingOption`)? Omitting it is what pins the
+   * fallback — and the fallback is now ASYMMETRIC: with no composed answer, Q2
+   * alone may WITHHOLD (`false` reaches the cards) and may never LICENSE
+   * (`undefined` reaches them, not `true`). Every arm below states which of the
+   * two it is exercising.
    */
   leaderDesignationPermitted?: boolean,
 ) {
@@ -156,8 +158,24 @@ describe('ResultsBody → OptionCards — the entitlement is actually wired', ()
     expect(renderWith(PERMITTED, true).hasLeadingOption).toBe(true)
   })
 
-  it('PERMITTED verdict reaches the cards as hasLeadingOption=true', () => {
-    expect(renderWith(PERMITTED).hasLeadingOption).toBe(true)
+  /**
+   * ⚠ THIS ARM USED TO ASSERT `hasLeadingOption === true` FOR A PERMITTED
+   * VERDICT WITH NO COMPOSED ANSWER — i.e. it required that SEPARATION ALONE be
+   * wired through as a licence, which is the claim the composed reader exists to
+   * refuse. It passed because the reader's fallback answered raw Q2.
+   *
+   * The value is now `undefined` — NO AUTHORITY AT ALL — and the SURFACE is
+   * unchanged, because `OptionCards` resolves the prop with `=== false`. Both
+   * halves are asserted: an object that never answered Q1 is not licensed, and
+   * no crown moves because of it.
+   */
+  it('a PERMITTED verdict with NO composed answer reaches the cards as undefined, not as a licence', () => {
+    const props = renderWith(PERMITTED)
+    expect(props.hasLeadingOption, 'permission is not inferred from separation').toBeUndefined()
+    // The over-suppression half: `OptionCards` reads `=== false`, so `undefined`
+    // leaves the crown, the ordering and the chip exactly as they were.
+    expect(props.hasLeadingOption === false, 'undefined must not read as a withholding here').toBe(false)
+    expect(props.winnerId).toBe(WINNER_ID)
   })
 
   it('WITHHELD still passes winnerId — identity is not the entitlement', () => {
