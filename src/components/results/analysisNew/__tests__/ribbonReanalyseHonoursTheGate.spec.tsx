@@ -3,21 +3,30 @@
  *
  * The Analysis (New) surface offers the re-run twice: the staleness ribbon's
  * inline control inside `AtAGlance`, and the shell's footer bar
- * (`shellContract.ts` declares `footerBar: 'reanalyse'` for this surface). The
- * footer control reads the dock's shared admission (`runGateResult`); the
- * ribbon control was handed a bare handler and no gate at all.
+ * (`shellContract.ts` declares `footerBar: 'reanalyse'` for this surface,
+ * which renders `ReanalyseBar`). The ribbon control was handed a bare handler
+ * and no gate at all, so it could not refuse anything.
  *
- * ⭐ THE HARM IS A SELF-CONTRADICTING SURFACE. Once the footer control honours
- * the gate, a blocked model renders a DISABLED footer control carrying the
- * refusal beside an ENABLED ribbon control for the same action, ~200px apart.
- * The product tells the user both that it will not run and that it will.
+ * ⚠ NEITHER CONTROL READ THE GATE AT THE HEAD THIS FILE WAS WRITTEN AGAINST.
+ * `ReanalyseBar` takes only `onReanalyse` and disables on `!onReanalyse`; PR
+ * #1212 is what gives it the dock's `canRunAnalysis` / `runBlockedTooltip`.
+ * The two are siblings and should land adjacent.
+ *
+ * ⭐ THE HARM IS A SELF-CONTRADICTING SURFACE. With only #1212 landed, a
+ * blocked model renders a DISABLED footer control carrying the refusal beside
+ * an ENABLED ribbon control for the same action on the same screen: the
+ * product tells the user both that it will not run and that it will. With
+ * only this half landed the contradiction runs the other way — the ribbon
+ * refuses while the footer still offers the run, which fails loudly through
+ * `showToast` rather than silently. This file closes the ribbon's half.
  *
  * ⚠ AND THE FIX IS NOT TWO AGREEING DEFAULTS. This estate has shipped that
  * before (CLAUDE.md trap 21): two predicates that agree today drift tomorrow.
  * Both controls must read the SAME verdict, threaded down from the one place
  * `canRunAnalysis` is computed. This file pins what the component does with
  * the verdict it is handed; `ribbonAndFooterShareOneAdmission.sourceScan`
- * pins that the dock hands it the footer's own expression.
+ * pins that the dock hands it the same expression `AnalysisReadinessBar`
+ * receives.
  *
  * ⚠ `isRunning` IS LOAD-BEARING AND HAS ITS OWN CASE BELOW. `canRunAnalysis`
  * is FALSE while a run is in flight, so `blocked = !canRun` alone would make

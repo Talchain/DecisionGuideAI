@@ -132,16 +132,23 @@ export interface AnalysisNewTabBodyProps {
    */
   onReanalyse?: () => void
   /**
-   * ⭐⭐ THE DOCK'S SHARED ADMISSION — `runGateResult.allowed`, the SAME value
-   * the shell's footer bar reads for this surface.
+   * ⭐⭐ THE DOCK'S RUN GATE — `runGateResult.allowed`, which `OutputsDock`
+   * binds as `canRunAnalysis` and hands unchanged to every reader of that
+   * verdict in the file: `AnalysisReadinessBar`'s `canRun`,
+   * `PreAnalysisPanelV3`'s `canRun`, and this prop. One computation, several
+   * readers — never several predicates that happen to agree (CLAUDE.md
+   * trap 21).
    *
-   * This surface offers the re-run twice (the staleness ribbon inside
-   * `AtAGlance`, and the footer bar `shellContract.ts` declares for
-   * `analysisNew`). Without this the ribbon control answered "may I
-   * re-analyse?" with a bare handler while the footer answered it with the
-   * gate — one question, two authorities, and the estate's signature defect
-   * (CLAUDE.md trap 21). The fix is ONE verdict with two readers, never two
-   * defaults aligned by hand.
+   * This surface offers the re-run twice: the staleness ribbon inside
+   * `AtAGlance`, and the shell footer bar `shellContract.ts` declares for
+   * `analysisNew` (`footerBar: 'reanalyse'`, which renders `ReanalyseBar`).
+   * Without this prop the ribbon control answered "may I re-analyse?" with a
+   * bare handler and could not refuse at all.
+   *
+   * ⚠ THE FOOTER CONTROL DOES NOT READ THIS TODAY. `ReanalyseBar` takes only
+   * `onReanalyse` and disables on `!onReanalyse`; PR #1212 is what points it
+   * at the same verdict. This prop closes the ribbon's half, and the surface
+   * is coherent only once both halves have landed.
    *
    * `null` = no verdict supplied, which is treated as blocked. Absent behaves
    * as `null` for the same reason: a host that has not answered the question
@@ -600,9 +607,14 @@ export function AnalysisNewTabBody({
           staleKind={vm.status.staleKind}
           isProvisional={vm.status.isProvisional}
           onReanalyse={onReanalyse}
-          /* ⭐ THE GATE'S OWN VERDICT, NOT A SECOND EXPRESSION OF IT — the
-             same pair the shell footer reads for this surface. See
-             `reanalyseBlocked` above for why `isRunning` is in it. */
+          /* ⭐ DERIVED FROM THE GATE'S VERDICT, NOT A SECOND EXPRESSION OF
+             IT — and not the verdict itself. `reanalyseBlocked` is
+             `!canRunAnalysis && !isRunning` (see above for why `isRunning` is
+             in it), and the reason is masked by that same boolean so a
+             permitted control carries no refusal text. What `AtAGlance` gets
+             is therefore a PRESENTATION predicate over the one admission, in
+             the shape `AnalysisReadinessBar` and `PanelFooter` already use —
+             not either of the two values the dock handed this component. */
           reanalyseBlocked={reanalyseBlocked}
           reanalyseBlockedReason={reanalyseBlocked ? runBlockedReason : null}
           missingResults={vm.status.missingResults}

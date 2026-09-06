@@ -1,26 +1,33 @@
 /**
- * THE RIBBON'S RE-ANALYSE CONTROL AND THE SHELL'S FOOTER READ ONE ADMISSION.
+ * THE DOCK HANDS THE RIBBON THE SAME GATE EXPRESSIONS THE READINESS BAR GETS.
  *
  * ── WHY THIS GUARD EXISTS ──────────────────────────────────────────────────
  * `AtAGlance` renders a re-analyse control inside the staleness ribbon on the
- * Analysis (New) surface, and `shellContract.ts` gives that same surface a
- * footer bar whose control reads the dock's `runGateResult`. The ribbon
- * control was handed a bare `handleRunAnalysis` and no gate, so once the
- * footer honours the verdict the surface can show a DISABLED footer control
- * carrying the refusal beside an ENABLED ribbon control for the same action.
+ * Analysis (New) surface. It was handed a bare `handleRunAnalysis` and no
+ * gate, so it could not refuse a run the dock's `runGateResult` refuses.
  *
  * `AnalysisNewTabBody`'s own spec can pin what the component does with the
  * verdict it is handed. It cannot see WHICH value the dock hands it, and that
  * is where the defect lived — so the binding is asserted here, at the mount,
  * by requiring the SAME EXPRESSION rather than merely a present prop.
  * `canRunAnalysis={someOtherFlag}` would satisfy "present" and reinstate the
- * contradiction.
+ * ungated control.
  *
  * The anchor is `AnalysisReadinessBar`, the in-file reader of the shared
  * verdict that already takes both halves of it (`canRun` + `blockedReason`)
  * off `runGateResult`. Aligning to an anchor that is itself derived is the
  * point: this asserts ONE admission with many readers, never two defaults
  * that happen to agree today (CLAUDE.md trap 21).
+ *
+ * ⚠ THE ANCHOR IS NOT THIS SURFACE'S FOOTER, AND THIS FILE'S NAME RUNS AHEAD
+ * OF THE CODE. `AnalysisReadinessBar` is the footer bar `shellContract.ts`
+ * declares for `olumi` (`footerBar: 'readiness'`). This surface declares
+ * `footerBar: 'reanalyse'`, which renders `ReanalyseBar` — whose only prop is
+ * `onReanalyse` and whose button disables on `!onReanalyse`, so it reads no
+ * gate value at this head. PR #1212 is what points it at the same verdict.
+ * What this file asserts today is therefore ONE admission with several
+ * readers inside `OutputsDock`; "ribbon and footer" is the state the pair
+ * reaches once #1212 has landed beside it.
  *
  * ⚠ THE CONTRAST CONTROL IS NOT OPTIONAL. A scan that extracts nothing agrees
  * with every claim made about what it extracted (trap 13). The controls below
@@ -75,7 +82,7 @@ function propExpression(span: string, prop: string): string | null {
   return span.slice(start, i - 1).replace(/\s+/g, ' ').trim()
 }
 
-describe('the ribbon re-analyse control reads the footer’s own admission', () => {
+describe('the ribbon re-analyse control reads the readiness bar’s own admission', () => {
   const src = stripComments(readFileSync(DOCK, 'utf8'), DOCK)
   const barSpan = elementSpan(src, 'AnalysisReadinessBar')
   const bodySpan = elementSpan(src, 'AnalysisNewTabBody')
@@ -105,7 +112,7 @@ describe('the ribbon re-analyse control reads the footer’s own admission', () 
     ).toBeTruthy()
     expect(
       mine,
-      `the ribbon and the footer must read ONE admission.\n  bar  canRun         = ${anchor}\n  body canRunAnalysis = ${mine}`,
+      `the ribbon and the readiness bar must read ONE admission.\n  bar  canRun         = ${anchor}\n  body canRunAnalysis = ${mine}`,
     ).toBe(anchor)
   })
 
@@ -118,7 +125,7 @@ describe('the ribbon re-analyse control reads the footer’s own admission', () 
     ).toBeTruthy()
     expect(
       mine,
-      `the ribbon and the footer must state ONE refusal.\n  bar  blockedReason   = ${anchor}\n  body runBlockedReason = ${mine}`,
+      `the ribbon and the readiness bar must state ONE refusal.\n  bar  blockedReason   = ${anchor}\n  body runBlockedReason = ${mine}`,
     ).toBe(anchor)
   })
 })

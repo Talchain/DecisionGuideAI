@@ -153,15 +153,26 @@ export interface AtAGlanceProps {
    */
   onReanalyse?: () => void
   /**
-   * ⭐⭐ THE RUN GATE'S OWN VERDICT, THREADED — NOT A SECOND PREDICATE.
+   * ⭐⭐ DERIVED FROM THE RUN GATE'S VERDICT IN ONE PLACE — NOT A SECOND
+   * PREDICATE HERE. The caller passes `!canRunAnalysis && !isAnalysing` over
+   * `OutputsDock`'s single `runGateResult`; this component renders that and
+   * derives nothing of its own.
    *
    * This surface offers the re-run TWICE: here, on the staleness ribbon, and
    * in the shell footer (`shellContract.ts` gives `analysisNew`
-   * `footerBar: 'reanalyse'`). The footer control reads the dock's
-   * `runGateResult`; this one was handed a bare handler, so a blocked model
-   * could render a DISABLED footer control carrying the refusal beside an
-   * ENABLED control for the same action, a few hundred pixels apart. The
-   * product contradicted itself about whether the user may run an analysis.
+   * `footerBar: 'reanalyse'`, which renders `ReanalyseBar`). This one was
+   * handed a bare handler and could not refuse at all, so a model the gate
+   * refuses got a live ribbon control for a run that reaches `showToast` and
+   * fails.
+   *
+   * ⚠ THE FOOTER CONTROL IS UNGATED AT THIS HEAD. `ReanalyseBar` takes only
+   * `onReanalyse` and disables on `!onReanalyse`; PR #1212 is what gives it
+   * `canRun` / `blockedReason`. Whichever of the two lands first leaves this
+   * surface incoherent in one direction until the other follows — with only
+   * #1212, a DISABLED footer control carrying the refusal sits beside an
+   * ENABLED ribbon control for the same action, and the product contradicts
+   * itself about whether the user may run an analysis. This prop closes the
+   * ribbon's half.
    *
    * ⚠ REQUIRED, AND NULLABLE, DELIBERATELY. `AtAGlance` is the component that
    * RENDERS the control, so this is the boundary at which an omission causes
@@ -397,10 +408,13 @@ export function AtAGlance({
             <button
               type="button"
               onClick={onReanalyse}
-              /* ⚠ THE GATE, NOT A RESTATEMENT OF IT. `disabled` here and the
-                 footer control's own disabled state are two READINGS of one
-                 verdict computed once in `OutputsDock`, so the two controls
-                 cannot disagree about admission — only about presentation. */
+              /* ⚠ THE CALLER'S PREDICATE, NOT A RESTATEMENT OF THE GATE.
+                 `reanalyseBlocked` arrives already derived from the single
+                 `runGateResult` in `OutputsDock`; nothing here re-reads the
+                 gate, so this control cannot form its own opinion about
+                 admission. The footer control, `ReanalyseBar`, disables on
+                 `!onReanalyse` at this head — PR #1212 is what points it at
+                 the same verdict. */
               disabled={reanalyseBlocked}
               title={reanalyseBlocked ? reanalyseBlockedReason ?? undefined : undefined}
               /* ⚠ INFO, NOT THE RIBBON'S AMBER — colour says PRESSABLE here, not

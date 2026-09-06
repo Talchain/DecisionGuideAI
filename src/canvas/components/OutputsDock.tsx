@@ -3562,22 +3562,32 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   isStale={analysisNotConfirmedFresh}
                   staleReason={analysisStaleReason}
                   onReanalyse={handleRunAnalysis}
-                  /* ⭐⭐ THE SAME ADMISSION THE SHELL FOOTER READS FOR THIS
-                     SURFACE. `shellContract.ts` gives `analysisNew`
-                     `footerBar: 'reanalyse'`, so the shell renders a re-run
-                     control below this body — and `AtAGlance` renders a second
-                     one on its staleness ribbon. Handing the ribbon a bare
-                     handler let the surface show a refused footer control
-                     beside a live ribbon control for the same action: one
-                     question ("may I re-analyse?") under two authorities.
+                  /* ⭐⭐ THE GATE'S OWN TWO EXPRESSIONS, THREADED. These are
+                     the identifiers `canRunAnalysis` and `runBlockedTooltip`
+                     bound above off the one `runGateResult` — the same two
+                     `AnalysisReadinessBar` receives below as `canRun` /
+                     `blockedReason`, and the same two `PreAnalysisPanelV3`
+                     receives. Not two values that agree: the same two.
+                     `ribbonAndFooterShareOneAdmission.sourceScan` pins that
+                     identity at this mount rather than trusting this comment.
 
-                     These are the identical two expressions
-                     `AnalysisReadinessBar` receives below, off the one
-                     `runGateResult` computed above — threaded, never
-                     re-derived, so the readers cannot disagree about
-                     admission. `ribbonAndFooterShareOneAdmission.sourceScan`
-                     pins that identity at this mount rather than trusting this
-                     comment. */
+                     Why the ribbon needs them: `AtAGlance` renders a re-run
+                     control on its staleness ribbon, and this surface also
+                     carries a shell footer bar (`shellContract.ts` gives
+                     `analysisNew` `footerBar: 'reanalyse'`). The ribbon
+                     control was handed a bare handler and no gate, so it could
+                     not refuse a run this verdict refuses.
+
+                     ⚠ THE FOOTER FOR THIS SURFACE READS NEITHER OF THESE AT
+                     THIS HEAD, and the comment this replaced said it did. The
+                     `reanalyse` arm below renders `ReanalyseBar`, whose only
+                     prop is `onReanalyse` and whose button disables on
+                     `!onReanalyse`. The bar that reads `canRunAnalysis` /
+                     `runBlockedTooltip` is `AnalysisReadinessBar` — the
+                     `readiness` arm, which `shellContract.ts` declares for
+                     `olumi`, not for this surface. PR #1212 is what gives
+                     `ReanalyseBar` the gate; the two are siblings and should
+                     land adjacent. */
                   canRunAnalysis={canRunAnalysis}
                   runBlockedReason={runBlockedTooltip}
                   onSendMessage={sendMessage}
