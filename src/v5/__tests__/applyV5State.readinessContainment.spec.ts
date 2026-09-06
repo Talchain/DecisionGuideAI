@@ -242,7 +242,8 @@ describe('P0 #1204 — foreign readiness must not be painted onto a mounted mode
     // Deliberate and stated: `ceeAnalysisReadyContainment` fail-closes on the
     // FIRST missing option, and it is the same code `validateCeeAnalysisReady`
     // runs for the two LIVE restore consumers — `loadScenario`
-    // (`store.ts:5517`) and the boot sessionStorage/crash restore
+    // (`loadScenario`'s `validateCeeAnalysisReady` call in `store.ts`) and the
+    // boot sessionStorage/crash restore
     // (`ReactFlowGraph.tsx:559`). Admitting a partial here would make the live
     // turn leg the ONE reader that answers this question differently — the
     // drift the reuse exists to prevent.
@@ -390,7 +391,7 @@ describe('P0 #1204 — the pre-existing arms are untouched', () => {
     //
     // ⚠ THE REASON STATED HERE USED TO BE FALSE — "so the refusal notice can
     // render" — and is corrected at the bytes:
-    // `deriveAnalysisRefusalNoticeUpdate` runs at `applyV5State.ts:1334`, well
+    // `deriveAnalysisRefusalNoticeUpdate` runs in `applyV5State.ts`, well
     // BEFORE this write, takes `(response: unknown)`, reads the raw payload and
     // imports nothing at all, so refusing the write could never have stopped the
     // notice. The TRUE reason to accept a contained blocked carrier is that
@@ -422,7 +423,7 @@ describe('P0 #1204 — the pre-existing arms are untouched', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 //
 // `validateCeeAnalysisReady`'s returns are ORDERED AND MUTUALLY EXCLUSIVE:
-// `blocked_refusal` returns at `ceeAnalysisReadyValidation.ts:65`, BEFORE the
+// `blocked_refusal` returns from `ceeAnalysisReadyValidation.ts`, BEFORE the
 // goal check and the option loop. A gate that asked the composite and then read
 // `reason` therefore got `blocked_refusal` for every blocked payload and NEVER
 // asked containment — structurally vacuous for the whole class, with the
@@ -485,7 +486,7 @@ describe('P0 #1204 / blocked bypass — containment is asked of BLOCKED payloads
 //
 // Guarding `setCeeAnalysisReady` alone did NOT close the founder's
 // reproduction. The Analysis tab reads `results.report` (`OutputsDock.tsx:928`
-// -> `selectReport` -> `store.ts:7558`), written only by `resultsComplete`.
+// -> `selectReport` in `store.ts`), written only by `resultsComplete`.
 // With the readiness gate in place and no report gate, a single response
 // carrying a foreign readiness AND a foreign `analysis_result` refused the
 // readiness and hydrated the pricing model's report onto the hiring canvas.
@@ -653,7 +654,11 @@ describe('P0 #1204 — a legitimate ANALYSIS REPORT must still hydrate, byte-ide
 
   it('APPLIES the report when the response carries NO analysis_ready — the stated residual, pinned', () => {
     // ⚠ NOT a closure claim. This gate can only refuse a report when the SAME
-    // response also carried an `analysis_ready` that failed containment. CEE's
+    // response also carried an `analysis_ready` that FAILED — either containment
+    // or, since this PR's second commit, SHAPE validation (`applyV5State.ts`'s
+    // invalid-shape arm sets `turnContainmentRefusal` via
+    // `unidentifiableReadinessRefusal`). An earlier version of this comment said
+    // "failed containment" alone and was too narrow by one arm. CEE's
     // contract is to send `analysis_ready` with every `analysis_result`, so a
     // block arriving alone is a contract violation rather than a routine turn —
     // but the residual is real and is pinned here so it is visible rather than
