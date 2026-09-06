@@ -54,7 +54,12 @@ const coachingProps = {
   labelContext: { label: 'Marketing Budget' },
 }
 
-const EXPECTED_QUESTION = 'How important is Marketing Budget to the outcome?'
+// ⭐ The question no longer spells the element's label. The inspector opens on
+// the single canvas selection, so the element rides the turn as
+// `selected_elements` and the composer's selection chip shows its name on
+// screen. Model gets the identity, reader gets the name, neither needs it in
+// the sentence. Do not 'restore' the label here — see ASK_TEMPLATES.
+const EXPECTED_QUESTION = 'How important is this to the outcome?'
 
 function makeGuidanceItem(overrides: Partial<GuidanceItem> = {}): GuidanceItem {
   return {
@@ -348,7 +353,14 @@ describe('R5 · quick actions sit at the top of the inspector', () => {
     fireEvent.click(screen.getByTestId('inspector-quick-ask'))
     expect(send).not.toHaveBeenCalled()
     expect(prefill).toHaveBeenCalledTimes(1)
-    expect(String(prefill.mock.calls[0][0])).toContain('Marketing Budget')
+    expect(String(prefill.mock.calls[0][0])).toBe(EXPECTED_QUESTION)
+    // ⭐ AND THE NEGATIVE ARM, which is the point of the change: the prefill
+    // must NOT spell the element's name into the user's own words. The identity
+    // travels as `selected_elements` (this panel is open on the single canvas
+    // selection) and the name is on screen in the composer's selection chip. If
+    // this ever starts containing the label again, the product has gone back to
+    // typing titles on the user's behalf.
+    expect(String(prefill.mock.calls[0][0])).not.toContain('Marketing Budget')
   })
 
   it('hides the quick ask when no conversation surface exists — no dead button', () => {
