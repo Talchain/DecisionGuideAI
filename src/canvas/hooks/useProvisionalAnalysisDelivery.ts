@@ -247,6 +247,10 @@ export function readProvisionalApplyStore(): ScenarioAnalysisApplyStore {
   return {
     setAnalysisStateV1: s.setAnalysisStateV1,
     resultsComplete: s.resultsComplete,
+    // Named explicitly, like every member here — NOT spread. A drift in this
+    // action's signature must RED `tsc` rather than resolve to `undefined` and
+    // silently restore the very defect this binding was added to close.
+    noteRunCompletedWithoutVerdict: s.noteRunCompletedWithoutVerdict,
     currentResultsHash: s.results?.hash ?? null,
     // ── Does the canvas on screen derive from a server graph we ACCEPTED? ──
     //
