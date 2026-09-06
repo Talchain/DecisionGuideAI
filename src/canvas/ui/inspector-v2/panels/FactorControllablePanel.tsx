@@ -28,6 +28,8 @@ import {
   getExtractionLabel,
   getProvenanceLabel,
   INLINE_LABELS,
+  influenceGuidance,
+  investigationGuidance,
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
@@ -387,12 +389,10 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   if (!nodeId || !node) return null
 
   // Contextual guidance sentence based on sensitivity rank
-  const sensitivityGuidance = isResultsMode && displayMetadata.sensitivityRank != null
-    ? displayMetadata.sensitivityRank <= 2
-      ? 'This is one of the most influential factors in your model. Changes here noticeably affect the result.'
-      : displayMetadata.sensitivityRank <= 5
-      ? 'This factor has moderate influence on the results.'
-      : null
+  // One owner for this sentence and its VoI neighbour — see `influenceGuidance`
+  // in inspectorStrings for why they used to read as a contradiction.
+  const sensitivityGuidance = isResultsMode
+    ? influenceGuidance(displayMetadata.sensitivityRank)
     : null
 
   return (
@@ -459,11 +459,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
                     {INLINE_LABELS.investigationValue}
                   </div>
                   <p className={`${typography.panelMeta} text-text-light mt-1`}>
-                    {displayMetadata.valueOfInformation >= 0.7
-                      ? 'Gathering more evidence here could significantly improve confidence.'
-                      : displayMetadata.valueOfInformation >= 0.4
-                      ? 'Additional evidence here would moderately sharpen the analysis.'
-                      : 'Further investigation here is unlikely to change the outcome.'}
+                    {investigationGuidance(displayMetadata.valueOfInformation)}
                   </p>
                 </div>
               )}
