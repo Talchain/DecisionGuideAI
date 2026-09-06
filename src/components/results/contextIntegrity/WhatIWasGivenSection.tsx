@@ -406,8 +406,9 @@ export function WhatIWasGivenSection({ onSendMessage }: WhatIWasGivenSectionProp
   // empty one — which is the truthful reading of it.
   //
   // Suppressing rather than refetching is deliberate: there is no fetch this
-  // component owns (`serverGraphHydration` is the sole writer, once per
-  // scenario id), and inventing one here would race the boot path. Silence is
+  // component owns (`serverGraphHydration` writes the store on the cold read,
+  // and the draft turn records a fresh decision's brief — neither is this
+  // component's), and inventing one here would race the boot path. Silence is
   // the honest answer; the previous decision's brief never is.
   const isForCurrentDecision =
     typeof recordedScenarioId === 'string' && recordedScenarioId === currentScenarioId
