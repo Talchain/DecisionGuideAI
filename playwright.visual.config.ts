@@ -17,11 +17,31 @@ import { defineConfig, devices } from '@playwright/test'
  *    seeding, not something to paper over — and this harness has to be trusted
  *    to be worth running at all.
  *
- *  - Its own dev server on its own port. `playwright.config.ts` sets
- *    `reuseExistingServer: true` on 5177, which under concurrent lanes means
- *    silently measuring somebody else's server with somebody else's env
- *    (CLAUDE.md trap 9b). This one always boots its own on 5187 with
- *    `strictPort`, so a collision is a loud failure rather than a wrong answer.
+ *  - Its own dev server on its own port, AND AN IDENTITY ASSERTION ON TOP OF IT.
+ *    `playwright.config.ts` sets `reuseExistingServer: true` on 5177, which under
+ *    concurrent lanes means silently measuring somebody else's server with
+ *    somebody else's env (CLAUDE.md trap 9b). This one always boots its own on
+ *    5187 with `strictPort`.
+ *
+ *    ⚠ THIS PARAGRAPH USED TO END "so a collision is a loud failure rather than a
+ *    wrong answer". THAT WAS FALSIFIED ON 1 SEP 2026 AND IS CORRECTED HERE. It is
+ *    true of exactly one case and false of the one that actually bites:
+ *      - ALREADY LISTENING when Playwright starts -> genuinely loud.
+ *        `reuseExistingServer: false` throws `... is already used`.
+ *      - BOUND INSIDE OUR BOOT WINDOW -> silent, and WRONG. Playwright checks the
+ *        port, finds it FREE, launches vite; a sibling binds it ~1-3s later; OUR
+ *        vite dies with one `Port 5187 is already in use` line above a green
+ *        summary; and Playwright's wait-for-the-port is satisfied BY THE SIBLING'S
+ *        SERVER. The run then proceeds against a foreign checkout and passes.
+ *    A fixed port cannot close that race and neither can a per-lane one, because
+ *    two lanes can always be handed the same value. The half that closes it is
+ *    `e2e/visual/globalSetup.ts`, which asks the server WHICH CHECKOUT it is
+ *    serving and refuses to measure if the answer is not this one.
+ *
+ *    ⚠⚠ AND THE CONSEQUENCE HERE IS WORSE THAN A WRONG NUMBER. `pnpm visual:bless`
+ *    runs THIS config with `updateSnapshots: 'all'`, so a raced bless WRITES
+ *    ANOTHER CHECKOUT'S PIXELS INTO `e2e/visual/references/` as this repo's
+ *    baseline — a committed artefact that then judges every later PR.
  *
  *  - The dev server's required proxy env is set explicitly. `vite.config.ts`
  *    THROWS at config load unless `ENGINE_SERVICE_URL`, `CEE_SERVICE_URL` and
@@ -37,6 +57,9 @@ const UNREACHABLE = 'http://127.0.0.1:9'
 
 export default defineConfig({
   testDir: 'e2e/visual',
+  // ⭐ The identity assertion (and the manifest reset). In globalSetup, not in a
+  // spec, so `--grep` cannot exclude the check that proves the run captured THIS
+  // checkout. It runs before any pixel is written, blessing included.
   globalSetup: './e2e/visual/globalSetup.ts',
   // The completeness guard. In teardown, not in a spec, so `--grep` cannot
   // exclude the check that proves the run measured something.
