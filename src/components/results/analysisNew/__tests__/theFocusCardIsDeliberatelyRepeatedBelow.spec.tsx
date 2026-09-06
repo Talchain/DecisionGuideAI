@@ -51,17 +51,75 @@
  *      (`selectAlsoWorthDoing`, ~:393-396), handed to
  *      `<StrengthenTheReasoning interventions={alsoWorthDoing}>` (~:702) and
  *      rendered by `StrengthenTheReasoning.tsx` as
- *      `strengthenWhyLine(rec.signal, rec.whyNow)` (~:699).
+ *      `strengthenWhyLine(rec.signal, rec.whyNow)` — grep that call, no line
+ *      number: sibling PR #1235 inserts 29 lines above it in the same file
+ *      (`@@ -582,6 +582,35 @@`), so any number written here is already known
+ *      to be about to rot, and a number known to be wrong is worse than none.
  *
- * The two are BYTE-IDENTICAL whenever the producer sends no `signal` of its
- * own, which is the ordinary case: `buildRecommendations.ts` (~:368-369) sets
- * `signal: item.signal ?? item.body` and `whyNow: item.body`, so both collapse
- * to `item.body`; `strengthenWhyLine` (`analysisNewCopy.ts` ~:1097-1100)
- * returns `signal` alone when `whyNow === signal`. When the producer DOES
- * carry its own `signal` (today only the deterministic stale-rerun nudge), the
- * Strengthen line is `signal + ' ' + whyNow` — a superset that still repeats
- * the glance paragraph verbatim, but is not byte-identical. Both cases repeat;
- * only the first repeats exactly.
+ * ── HOW EXACTLY IT REPEATS: IT VARIES, AND THIS IS WHEN ────────────────────
+ * The glance card prints `rec.signal` and nothing else. The Strengthen row
+ * prints `strengthenWhyLine(rec.signal, rec.whyNow)`, which
+ * (`analysisNewCopy.ts` ~:1097-1100) returns `signal` alone when
+ * `whyNow === signal`, and otherwise `signal`, one space, then `whyNow`. So
+ * `signal` is always a literal prefix of what Strengthen renders, and the
+ * question "is the repeat byte-identical?" is exactly the question "does this
+ * recommendation have `signal === whyNow`?".
+ *
+ * The eight `recs.push` sites in `buildRecommendations.ts` answer that three
+ * different ways:
+ *
+ *   (a) NOT byte-identical — the SEVEN UI-authored catalogue recommendations:
+ *       `strengthen:success-measure`, `strengthen:flip:*`, `strengthen:lehi:*`,
+ *       `strengthen:voi:*`, `strengthen:robustness`, `strengthen:broaden`,
+ *       `strengthen:commit`. Each pairs a UI-authored `signal` — a literal, or
+ *       for `strengthen:flip:*` a UI-authored template with analysis data
+ *       interpolated — with a DIFFERENT UI-authored `whyNow` literal. E.g.
+ *       "No measurable success target is set." against "Without a target the
+ *       analysis cannot say how likely each option is to succeed, only how
+ *       they compare with one another." `signal !== whyNow` at all seven, by
+ *       construction: both fields are this repo's copy, never producer copy,
+ *       so no wire value can collapse them. Strengthen renders the SUPERSET:
+ *       the glance paragraph verbatim, then a sentence the glance card never
+ *       showed.
+ *   (b) BYTE-IDENTICAL — the phase-3 producer loop (`strengthen:phase3:*`,
+ *       ~:368-369) when the wire item has a `body` and no `signal` of its own.
+ *       It maps `signal: item.signal ?? item.body ?? <boilerplate>` and
+ *       `whyNow: item.body ?? <a different boilerplate>`, so both collapse to
+ *       `item.body`, `whyNow === signal`, and Strengthen renders `signal`
+ *       alone. This is the ordinary phase-3 case, and the ONLY case that
+ *       repeats exactly.
+ *   (c) NOT byte-identical — the same phase-3 loop when the item DOES carry
+ *       its own `signal` (then `signal` is the producer's subtitle and
+ *       `whyNow` its body), or when it carries neither `signal` nor `body`
+ *       (the two boilerplate fallbacks are different strings). Either way
+ *       Strengthen renders the superset, as in (a).
+ *
+ * So EVERY case repeats the glance paragraph — that is what this file pins,
+ * and it holds throughout. Only (b) repeats byte-for-byte; (a) and (c) render
+ * the glance paragraph as the opening sentence of a longer line.
+ *
+ * (Edge, stated rather than swept: `body` and `signal` are `body?: string` /
+ * `signal?: string` on `StrengthenPhase3Item`, and `??` passes an empty string
+ * through. A producer `body` of `''` with no `signal` gives `signal === whyNow
+ * === ''` — it lands in (b), and both surfaces render nothing.)
+ *
+ * ⚠ WHY THE FIRST VERSION OF THIS PARAGRAPH WAS FALSE, because the mechanism
+ * will recur and is worth more than the correction. It keyed the whole
+ * partition on "did the producer send a `signal`?" and closed with "Both cases
+ * repeat; only the first repeats exactly" — an exhaustive TWO-case partition.
+ * It reached that by quoting `buildRecommendations.ts` :364-366, "carried
+ * today only on the deterministic stale-rerun nudge". The quotation is
+ * ACCURATE, word for word. But that comment sits INSIDE the phase-3 branch,
+ * and the same qualifier appears again in `strengthenTypes.ts` (~:150) on
+ * `StrengthenPhase3Item.signal` — both occurrences are statements about the
+ * phase-3 WIRE ITEM's optional `signal` field, not about `Recommendation`.
+ * Lifted out of that branch the sentence silently became a statement about
+ * `Recommendation.signal`, i.e. about every recommendation — and so put the
+ * seven in (a), whose `signal` is UI-authored copy set unconditionally with no
+ * wire `signal` to be absent, in the byte-identical case. Seven mispredictions
+ * from one dropped qualifier. The falsehood arrived by FAITHFUL QUOTATION that
+ * lost its scope on the way out, not by invention: carry a quotation's scope
+ * out with it, or do not quote.
  *
  * ── WHAT IS STILL OPEN ─────────────────────────────────────────────────────
  * The duplication is real and unfixed. It costs a repeated paragraph to a
