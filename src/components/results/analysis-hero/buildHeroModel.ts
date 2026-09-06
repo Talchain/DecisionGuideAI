@@ -582,33 +582,25 @@ export function buildHeroModel(
   // do not yet supply a verdict (older fixtures), and is byte-identical to
   // what it did before.
   const sharedVerdict = recommendation.verdict ?? null
-  // ⭐ WITHHELD GATE — the shared-verdict path obeys the model's licence too.
+  // ⚠ DO NOT ADD `!designationsWithheld` HERE. It looks like the obvious fix for
+  // the headline leak closed below, and it is WRONG — measured, not guessed.
   //
-  // This conjunct was absent while its sibling `producerBandApplies` below had
-  // it, so the two answered DIFFERENT questions under near-identical names: this
-  // one asked "does the verdict name the headline row?", the other "may this turn
-  // name a leader at all?". On a turn where the model admits a run but REFUSES a
-  // leader designation (`permitted_analysis_mode: 'quantified_provisional'` =>
-  // `leaderDesignationPermitted` false) while the run still separated the options
-  // (`hasLeadingOption` true), this predicate stayed true, set `leaderBand` to
-  // 'strong', and the headline below became
-  // `mostLikelyStrongest(label, readout)` — "<option> came out ahead in 78% of
-  // simulated scenarios." The crown was correctly withheld, the ordinals were
-  // suppressed, the leader ids were nulled, and the headline named a leader
-  // anyway: every other surface told the truth and the largest sentence on the
-  // panel did not.
+  // On EVERY producer-tie run `designationsWithheld` is ALREADY true:
+  // `deriveDecisionVerdict` returns `separation: 'tied'` with
+  // `hasLeadingOption: false`, `leaderDesignationPermitted` is a conjunction over
+  // that, so `:325` is true. Gating this predicate therefore does not NARROW the
+  // tie path, it DELETES it — `leaderBand` never reaches 'none', and the
+  // producer's own "No option is clearly ahead." becomes unreachable, degrading
+  // to "Here is how your options compare." That swaps a true sentence the product
+  // HAS earned for silence: a different harm, not a fix. It reddens
+  // `buildHeroModel.spec.ts`'s tied-verdict arm, which is the guard that caught
+  // it.
   //
-  // With the conjunct, such a turn falls through to `producerBandApplies` (which
-  // already carries it), `leaderBand` stays null, and the headline takes
-  // `noLeader` — "Here is how your options compare." That is SILENCE, not a
-  // denial, and it is the behaviour the comment at the headline assignment
-  // already describes: `noClearLeader` stays reserved for a producer TIE call,
-  // because asserting "No option is clearly ahead" on a withheld turn would swap
-  // one unearned claim for another.
+  // The licence belongs on the leader-NAMING arms of the headline, not on the
+  // band resolution — see the gate at the headline assignment below.
   const sharedVerdictApplies =
     sharedVerdict != null &&
     headlineRow != null &&
-    !designationsWithheld &&
     sharedVerdict.separation !== 'unknown' &&
     sharedVerdict.leaderId === headlineRow.id
 
@@ -803,8 +795,26 @@ export function buildHeroModel(
     // asserting it on a withheld turn would swap one unearned claim for
     // another. Same doctrine as `decisionVerdict`: 'unknown' licenses silence,
     // never a denial.
+    // ⭐ THE WITHHELD GATE, ON THE ARMS THAT NAME AN OPTION — NOT ON THE BAND.
+    //
+    // `leaderBand`'s three values are NOT equivalent and must not share one gate:
+    //   'strong' / 'ahead' NAME an option, so they need the model's licence;
+    //   'none' is the producer POSITIVELY saying the options are close, which a
+    //   withheld turn has not lost the right to report.
+    //
+    // Without this, a turn where the model admits the run but REFUSES a leader
+    // designation (`permitted_analysis_mode: 'quantified_provisional'`, so
+    // `leaderDesignationPermitted` is false) while the run still separated the
+    // options (`hasLeadingOption` true) reached `mostLikelyStrongest` and printed
+    // "<option> came out ahead in 78% of simulated scenarios." The crown was
+    // withheld, the ordinals suppressed and the leader ids nulled — and the
+    // largest sentence on the panel named a leader anyway.
+    //
+    // Withheld now falls to `noLeader`: SILENCE, not a denial. `noClearLeader`
+    // stays reserved for the producer's TIE call, because asserting "No option is
+    // clearly ahead" on a withheld turn would swap one unearned claim for another.
     headline =
-      leaderBand === 'strong'
+      leaderBand === 'strong' && !designationsWithheld
         ? HERO_COPY.headline.mostLikelyStrongest(
             safeLabel(headlineRow),
             // null, NOT the missing glyph: the sentence drops its magnitude
@@ -817,7 +827,7 @@ export function buildHeroModel(
             // shape every drift defect in this file has taken.
             headlineRow.comparativeReadout ?? null,
           )
-        : leaderBand === 'ahead'
+        : leaderBand === 'ahead' && !designationsWithheld
           ? HERO_COPY.headline.slightlyAhead(safeLabel(headlineRow))
           : leaderBand === 'none'
             ? HERO_COPY.headline.noClearLeader

@@ -103,6 +103,26 @@ describe('the hero crown obeys the model licence', () => {
     expect(heroHeadline(r.result.current)).toContain(OPT_HEDGE_LABEL)
   })
 
+  it('ARM J — a producer TIE keeps its own sentence even though designations are withheld', () => {
+    // ⭐ THE REGRESSION GUARD. The first attempt at ARM H gated `sharedVerdictApplies`
+    // itself, which DELETED this case: on every tie run `designationsWithheld` is
+    // already true, so the band never reached 'none' and the producer's own
+    // "No option is clearly ahead." became unreachable — a true sentence swapped
+    // for silence. Withholding removes the right to NAME an option; it does not
+    // remove the producer's right to say the options are close.
+    setStore({ separated: false, admission: admission('quantified_provisional') })
+    const r = renderHook(() => useResultsSectionData())
+    const rec = r.result.current.recommendation
+    expect(rec?.allOptions?.length, 'harness precondition').toBe(2)
+    // Preconditions pinned in-arm: designations ARE withheld, and the verdict is a
+    // TIE rather than a separated run. Without both, this arm proves nothing.
+    expect(leaderDesignationPermitted(rec!), 'designations must be withheld here').toBe(false)
+    expect(rec?.verdict?.separation, 'this arm requires the producer TIE path').toBe('tied')
+
+    expect(heroHeadline(r.result.current),
+      'the producer tie sentence was deleted by a withholding gate').toBe(HERO_COPY.headline.noClearLeader)
+  })
+
   it('ARM G — the HERO is unchanged when the producer has not spoken', () => {
     setStore({ separated: true })
     const r = renderHook(() => useResultsSectionData())
