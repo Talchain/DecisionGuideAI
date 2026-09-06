@@ -426,8 +426,8 @@ export function ModelOutline({
                      maximum. So the floor belongs on the TRACK —
                      `minmax(6rem,1fr)` — and that is the WHOLE change.
 
-                     ⚠⚠ THE VALUE TRACK KEEPS `auto`, AND AN EARLIER CUT OF THIS
-                     FIX DID NOT. It read `minmax(0,auto)`, justified here by a
+                     ⚠⚠ THE VALUE TRACK KEEPS ITS AUTOMATIC MINIMUM, AND AN
+                     EARLIER CUT OF THIS FIX DID NOT. It read `minmax(0,auto)`, justified here by a
                      sentence claiming *"NUMBERS STAY SAFE BY CONSTRUCTION …
                      a bare '35 %' keeps its automatic minimum"*. That sentence
                      was FALSE THE DAY IT WAS WRITTEN: CSS Grid §6.6 grants the
@@ -445,8 +445,30 @@ export function ModelOutline({
                      identity floor ALONE reaches zero label-over-value at 416px
                      AND 280px — 51.6px and 96px of overlap removed — so the
                      second track change bought nothing and cost the numeric
-                     case. */
-                  className="grid grid-cols-[auto_minmax(6rem,1fr)_auto_auto]"
+                     case.
+
+                     ⭐ 6 Sep 2026 — THE VALUE AND ATTENTION TRACKS ARE CAPPED
+                     WITH `fit-content`, NOT `minmax(0, …)`. `fit-content(L)` is
+                     `minmax(auto, min(max-content, L))`: the automatic minimum
+                     above is KEPT, so a nowrap figure cannot be crushed, and
+                     only content that can shrink (the `truncate min-w-0`
+                     strength and attention text) is capped. The identity track
+                     then receives whatever those two do not use.
+
+                     MEASURED on the deployed build `127bdee7` (guest scenario,
+                     dock 372px, overrides applied to these `<ul>`s and restored
+                     exactly): the relationships list's identity track went
+                     96px → 181px and relationship labels from 0 to 8 of 13 more
+                     than half visible (mean 28% → 53%); goal, option and factor
+                     labels were unchanged (11 of 13 fully visible before and
+                     after). The #1208 case "£1,250,000 per year" sized to 118px
+                     under `fit-content(5.5rem)` exactly as under `auto`; the
+                     rejected alternative `minmax(0,5.5rem)` crushed it to 80px
+                     and cost four fully-visible option labels, because a
+                     zero-minimum track reserves its cap even when empty.
+                     `rowAtomsAlignToOneGrid.spec.tsx` pins both halves: the
+                     automatic minimum, and the cap. */
+                  className="grid grid-cols-[auto_minmax(6rem,1fr)_fit-content(5.5rem)_fit-content(5rem)]"
                 >
                   {group.rows.map(row => (
                     <ModelRowView

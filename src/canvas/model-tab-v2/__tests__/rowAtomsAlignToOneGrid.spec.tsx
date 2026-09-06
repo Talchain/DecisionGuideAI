@@ -247,6 +247,35 @@ describe('the row atoms align to ONE grid, not 199 of them', () => {
   })
 
   /**
+   * ⭐ THE VALUE AND ATTENTION TRACKS ARE CAPPED — AND THE CAP MUST NOT BE A
+   * ZERO MINIMUM. Measured on the deployed build (6 Sep 2026, dock 372px):
+   * with bare `auto` tracks the relationships list spent 150px on strength
+   * text and 102px on attention marks and gave the identity track 96px, so
+   * 0 of 13 relationship rows showed their target. `fit-content(L)` keeps the
+   * automatic minimum the test above protects (a nowrap "£1,250,000 per year"
+   * still sized to 118px) and caps only content that can truncate, which took
+   * the identity track to 181px. The rejected `minmax(0,L)` reserved its cap
+   * even for EMPTY cells and cost four fully-visible option labels.
+   *
+   * Parsed, not matched, for the same reason as the floor above: the cap must
+   * be a NON-ZERO fixed length inside `fit-content(…)`. A zero cap is a track
+   * that can never hold content; a missing cap is today's defect restated.
+   */
+  it('⭐ the value and attention tracks are capped with fit-content, keeping their automatic minimum', () => {
+    render(<ModelOutline rows={FIXTURE} tier="plain" />)
+    const ul = list('factors')
+    const trackList = parseTracks(classes(ul).find(c => /^grid-cols-\[/.test(c))!)
+    expect(trackList.length).toBe(4)
+    for (const [index, name] of [[2, 'value'], [3, 'attention']] as const) {
+      const cap = /^fit-content\((\d+(?:\.\d+)?)(px|rem|em|ch)\)$/.exec(trackList[index]!)
+      expect(
+        cap !== null && Number.parseFloat(cap[1]!) > 0,
+        `the ${name} track must be fit-content(<non-zero length>) — parsed "${trackList[index]}"`,
+      ).toBe(true)
+    }
+  })
+
+  /**
    * ⭐⭐ THE LOAD-BEARING NUMBER, WHICH NOTHING GUARDED — AND IT IS A PAIR.
    *
    * The fix works because the identity TRACK's floor and the label BUTTON's
