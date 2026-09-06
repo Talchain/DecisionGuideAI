@@ -120,16 +120,22 @@ export function ModelImplication({
         ⚠ THE TOKEN NAMES ARE DELIBERATELY NOT SPELLED HERE. `check-ds-compliance`'s
         `panel-typography-scoped` rule matches raw lines and, unlike its
         `production-hex` sibling, sets no `stripComments` — so a comment
-        DESCRIBING a weight utility is counted as USING one. This comment tripped
-        the guard the fix was for. Reported rather than fixed: that rule is a
-        shared CI guard and changing what it detects is an estate-wide change,
-        not mine to make from inside a panel PR.
+        DESCRIBING a weight utility is counted as USING one. A comment that spells
+        one of the three weights that rule matches trips the DS ratchet (measured
+        by injection) — a DIFFERENT guard from the one the fix was for
+        (`raw-typography`, which strips comments), and one that cannot see the
+        original token at all. Reported rather than fixed: that rule is a shared
+        CI guard and changing what it detects is an estate-wide change, not mine
+        to make from inside a panel PR.
         
-        ⭐ AND THE GUARD ONLY FIRED BECAUSE THIS PR IS THE MOUNT. The file had no
-        importers, so no conformance guard had ever scanned it — it was fully
-        typed and covered by two spec files and still non-conformant, because
-        its specs ran and the estate's guards did not. Mounting a dark component
-        is never a one-line change.
+        ⭐ AND THE CLOSURE GUARD ONLY FIRED BECAUSE THIS PR IS THE MOUNT. The file
+        had no production importers at base, so `shell-conformance`'s
+        `raw-typography` — which walks the dock's import closure — had never
+        scanned it. The path-scoped DS ratchet HAD scanned it on every run and
+        cannot see this token (above). So the file was fully typed, covered by
+        two dedicated spec files, and still carried a raw weight that no guard
+        in its path could name. Mounting a dark component is never a one-line
+        change.
         
         It is also better as markup: the marker is a qualifier on the SECTION,
         not part of its name, and `aria-labelledby` points at this heading.

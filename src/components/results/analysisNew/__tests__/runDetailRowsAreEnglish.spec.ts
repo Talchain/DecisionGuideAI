@@ -16,8 +16,10 @@
  * completeness key is "DROPPED rather than shown raw". That is TRUE of the
  * status ribbon and FALSE here: this row joins the raw array. One rule, two
  * consumers, one of which never got it — so the guard below asserts the
- * PROPERTY over every row this builder emits, not over the five strings I
- * happened to be shown.
+ * PROPERTY over every row the captures in this file emit, not over the five
+ * strings I happened to be shown. Neither capture emits the `Not included in
+ * this result` row itself; that row is pinned by identity in
+ * `missingResultsNamedInWords.spec.tsx`.
  *
  * ── THE LABELS ARE NOT INVENTED ────────────────────────────────────────────
  * `missingResultLabels` already maps the closed completeness vocabulary to what
@@ -52,7 +54,7 @@ import { makeData, manyFragileEdges } from './analysisNewFixtures'
 const WIRE_TOKEN = /^[a-z][a-z0-9]*(_[a-z0-9]+)+$|^[a-z]+$/
 
 /**
- * The exception, and the only one. `Run reference` is an opaque support handle
+ * One of the exceptions in the set below. `Run reference` is an opaque support handle
  * — a hash. It is not producer vocabulary being read as English, and rendering
  * it is the row's whole point.
  */
@@ -120,9 +122,8 @@ describe('the run-detail rows speak English', () => {
     }
     expect(WIRE_TOKEN.test('the win share')).toBe(false)
     /**
-     * ⚠⚠ THIS BLOCK CARRIED A DESCRIPTION OF THE SUPERSEDED PATTERN, sitting
-     * directly above a comment that contradicted it and a file header that
-     * contradicted both. It said the pattern "catches snake_case OR the five
+     * ⚠⚠ THIS BLOCK CARRIED A DESCRIPTION OF THE SUPERSEDED PATTERN, under a
+     * file header that contradicted it. It said the pattern "catches snake_case OR the five
      * status tokens by name" — the SECOND of three attempts, and the one whose
      * hole let `failed`, `blocked`, `error` and `suppressed` through. Removed
      * on review; the header carries the full three-attempt history once.
