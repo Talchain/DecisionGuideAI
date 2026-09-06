@@ -247,6 +247,76 @@ describe('the row atoms align to ONE grid, not 199 of them', () => {
   })
 
   /**
+   * ⭐ THE VALUE AND ATTENTION TRACKS ARE CAPPED — AND THE CAP MUST NOT BE A
+   * ZERO MINIMUM. Measured on the deployed build (6 Sep 2026, dock 372px):
+   * with bare `auto` tracks the relationships list spent 150px on strength
+   * text and 102px on attention marks and gave the identity track 96px, so
+   * 0 of 13 relationship rows showed their target. `fit-content(L)` keeps the
+   * automatic minimum the test above protects (a nowrap "£1,250,000 per year"
+   * still sized to 118px), which took the identity track to 181px. The
+   * rejected `minmax(0,L)` reserved its cap even for EMPTY cells and cost four
+   * fully-visible option labels.
+   *
+   * ⚠⚠ AND THIS PARAGRAPH USED TO END "and caps only content that can
+   * truncate", WHICH IS TRUE OF ONE TRACK AND NOT THE OTHER. The automatic
+   * minimum is a property of the CELL, not of the track: CSS Grid §6.6 grants
+   * it only where the item's own `min-width` is `auto`. The value cell's idle
+   * arms are `shrink-0` in the bare-number case and so keep it — that is why
+   * the 118px above is what it is. The META cell is `min-w-0`
+   * UNCONDITIONALLY, so it keeps NO automatic minimum and its cap is hard,
+   * over content that is not all shrinkable: `Confirm` and the attention
+   * markers are `shrink-0`, and `rowAtomsDoNotWrap.spec` asserts by name that
+   * neither may shrink. Whether they exceed 5rem at a reachable width is
+   * UNMEASURED — see the block beside the class in `ModelOutline.tsx`, which
+   * records it as open. This test pins the CLASS CONTRACT and cannot settle
+   * it: jsdom performs no layout.
+   *
+   * ⚠⚠ AND THE FIRST CUT OF THIS TEST PINNED THE SHAPE AND NOTHING ABOUT THE
+   * LENGTH. It asserted only `fit-content(<non-zero length>)`, so BOTH numbers
+   * the whole change rests on were free parameters. Proven by execution rather
+   * than by reading it: with the tracks mutated to `fit-content(7rem)` and
+   * `fit-content(3rem)` this file stayed GREEN, 8 of 8 — a guard that cannot
+   * fail in the one dimension it exists for, which is the same defect as the
+   * `minmax(0,1fr)` admission two blocks up.
+   *
+   * ⭐ SO THE CAPS ARE PINNED AS VALUES, NOT AS A SHAPE, AND THAT IS DELIBERATE
+   * RATHER THAN A MIRROR. There is nothing to derive them FROM: they are
+   * measurements taken on a deployed build, so the only honest guard is one
+   * that REDs when the code stops agreeing with the measurement and sends the
+   * next author to take a new one. Structure is still checked first, so a track
+   * that is not a `fit-content` cap at all fails saying so; and the number is
+   * compared numerically, not as a string, so `5.0rem` is not a false RED while
+   * `7rem` is a true one.
+   */
+  const CAPS = [
+    { index: 2, name: 'value', length: 5.5, unit: 'rem' },
+    { index: 3, name: 'attention', length: 5, unit: 'rem' },
+  ] as const
+
+  it('⭐ the value and attention tracks are capped with fit-content, at the MEASURED lengths', () => {
+    render(<ModelOutline rows={FIXTURE} tier="plain" />)
+    const ul = list('factors')
+    const trackList = parseTracks(classes(ul).find(c => /^grid-cols-\[/.test(c))!)
+    // PRECONDITION: four tracks, or every index below names a different column.
+    expect(trackList.length, `expected four tracks, parsed ${JSON.stringify(trackList)}`).toBe(4)
+    for (const { index, name, length, unit } of CAPS) {
+      const cap = /^fit-content\((\d+(?:\.\d+)?)(px|rem|em|ch)\)$/.exec(trackList[index]!)
+      expect(
+        cap !== null,
+        `the ${name} track must be fit-content(<length>) — parsed "${trackList[index]}". A missing cap is today's defect restated; a zero-minimum \`minmax(0,L)\` is the alternative this change rejected on measurement.`,
+      ).toBe(true)
+      expect(
+        Number.parseFloat(cap![1]!),
+        `the ${name} track's cap is a MEASURED length (${length}${unit}), not a free parameter — parsed "${trackList[index]}". If this is a deliberate change, it invalidates the 6 Sep 2026 measurement recorded beside the class in ModelOutline.tsx: take a new one and replace both.`,
+      ).toBe(length)
+      expect(cap![2], `the ${name} track's cap must be in ${unit}`).toBe(unit)
+      // Non-zero is subsumed by the pin above — 5.5 and 5 are both > 0 — but a
+      // zero cap is the specific harm, so it is stated where it can be read.
+      expect(Number.parseFloat(cap![1]!) > 0, `the ${name} cap must be non-zero`).toBe(true)
+    }
+  })
+
+  /**
    * ⭐⭐ THE LOAD-BEARING NUMBER, WHICH NOTHING GUARDED — AND IT IS A PAIR.
    *
    * The fix works because the identity TRACK's floor and the label BUTTON's

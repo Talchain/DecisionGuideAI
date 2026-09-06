@@ -482,19 +482,49 @@ export function ModelRowView({
       </span>
       {/* ── CELL 3 · VALUE — the column this whole change exists to create.
 
-          ⚠⚠ THE TRACK IS `auto`, WHICH MEANS THIS CELL SIZES TO ITS CONTENT AND
-          TAKES THAT WIDTH OUT OF THE IDENTITY TRACK. That is correct for every
-          arm a producer can currently reach — `idle` and `proposed`, whose
-          content is bounded — and it is a LOADED GUN for the arms that are dark
-          today.
+          ⚠⚠ THE TRACK IS `fit-content(5.5rem)` (declared once, in
+          `ModelOutline.tsx`), AND FOR THESE ARMS THAT STILL MEANS THIS CELL
+          SIZES TO ITS CONTENT AND TAKES THAT WIDTH OUT OF THE IDENTITY TRACK.
+          ⚠ The sentence here read "THE TRACK IS `auto`" until the cap landed on
+          6 Sep 2026; the cap changed the spelling and NOT this hazard, so the
+          correction is a rename, not a reprieve. `fit-content(L)` keeps the
+          automatic minimum, and every arm below leaves `min-width: auto`, so
+          the 5.5rem limit does not bound them — an unbounded receipt sizes to
+          its content exactly as it did under bare `auto`. ⚠ THEY REACH THAT
+          BY TWO ROUTES, AND THIS SENTENCE CLAIMED ONLY ONE UNTIL 6 Sep 2026:
+          it read "(they are `shrink-0`, which sets no minimum)". The two idle
+          arms and `case 'editing'` ARE `shrink-0`. `case 'applied'`,
+          `'inflight'` and `'refused'` are NOT and never have been — they carry
+          `className={typography.panelTabular}` and nothing else, so they leave
+          `min-width: auto` by carrying no width class at all. Same conclusion,
+          different mechanism, and the difference matters: an arm holding its
+          minimum by `shrink-0` says so, and an arm holding it by omission is
+          one `min-w-0` away from losing it silently.
+
+          That is correct for every arm a producer can currently reach —
+          `idle` and `proposed`, whose content is bounded — and it is a
+          LOADED GUN for the arms that are dark today.
 
           Named by an independent seat and traced by PRODUCER rather than by
-          field name: the sole live writer of `commit` is `ModelOutline.tsx:385`
-          ← `ModelTabV2Panel`'s `ActiveEdit`, typed `'editing' | 'proposed'`. So
-          `inflight`, `applied`, `refused` and the `editing` fallback are
-          unreachable — by accident of the host, not by design. `types.ts:108`
-          already specifies `applied` as receipt-driven, so the wiring is
-          PLANNED, not hypothetical.
+          field name: the sole live writer of `commit` is the single
+          `commit={commitByRowId?.get(row.id)}` in `ModelOutline.tsx` — grep
+          `commit=` there and it is the only hit — fed by `ModelTabV2Panel`'s
+          `ActiveEdit`, typed `'editing' | 'proposed'`. So `inflight`,
+          `applied`, `refused` and the `editing` fallback are unreachable — by
+          accident of the host, not by design. `types.ts:108` already specifies
+          `applied` as receipt-driven, so the wiring is PLANNED, not
+          hypothetical.
+
+          ⚠ THIS SENTENCE CITED `ModelOutline.tsx:385` UNTIL 6 Sep 2026, AND
+          THAT NUMBER WAS ALREADY WRONG BEFORE THIS PR TOUCHED ANYTHING. The
+          prop sat at `:457` at this branch's merge base and at staging
+          `acd3db4d`; this PR's own additions then moved it to `:581`. Which
+          commit the number was true at has NOT been traced — only that it was
+          not true at either base, so it had been rotting for some while under
+          review. The symbol is the handle; the number was a mirror with no
+          owner. `types.ts:108` above is the same shape and is left as a number
+          only because it was verified correct at this tip — it will rot the
+          same way on the next insert into `types.ts`.
 
           ⚠ AND THE HAZARD IS LARGER AFTER THIS CHANGE, NOT SMALLER. Before the
           grid, a row's deficit was distributed across every atom by flex. Now
