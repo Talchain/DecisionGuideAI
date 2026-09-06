@@ -58,50 +58,81 @@
  *
  * ── HOW EXACTLY IT REPEATS: IT VARIES, AND THIS IS WHEN ────────────────────
  * The glance card prints `rec.signal` and nothing else. The Strengthen row
- * prints `strengthenWhyLine(rec.signal, rec.whyNow)`, which
- * (`analysisNewCopy.ts` ~:1097-1100) returns `signal` alone when
- * `whyNow === signal`, and otherwise `signal`, one space, then `whyNow`. So
- * `signal` is always a literal prefix of what Strengthen renders, and the
- * question "is the repeat byte-identical?" is exactly the question "does this
- * recommendation have `signal === whyNow`?".
+ * prints `strengthenWhyLine(rec.signal, rec.whyNow)` — grep that symbol in
+ * `analysisNewCopy.ts`, no line number. Its whole body is two arms:
  *
- * The eight `recs.push` sites in `buildRecommendations.ts` answer that three
- * different ways:
+ *     if (!whyNow || whyNow === signal) return signal
+ *     return `${signal} ${whyNow}`
  *
- *   (a) NOT byte-identical — the SEVEN UI-authored catalogue recommendations:
- *       `strengthen:success-measure`, `strengthen:flip:*`, `strengthen:lehi:*`,
- *       `strengthen:voi:*`, `strengthen:robustness`, `strengthen:broaden`,
- *       `strengthen:commit`. Each pairs a UI-authored `signal` — a literal, or
- *       for `strengthen:flip:*` a UI-authored template with analysis data
- *       interpolated — with a DIFFERENT UI-authored `whyNow` literal. E.g.
- *       "No measurable success target is set." against "Without a target the
- *       analysis cannot say how likely each option is to succeed, only how
- *       they compare with one another." `signal !== whyNow` at all seven, by
- *       construction: both fields are this repo's copy, never producer copy,
- *       so no wire value can collapse them. Strengthen renders the SUPERSET:
+ * So `signal` is always a literal prefix of what Strengthen renders, and the
+ * question "is the repeat byte-identical?" is exactly the question "is
+ * `whyNow` EMPTY, or equal to `signal`?".
+ *
+ * ⚠ BOTH ARMS. `whyNow === signal` alone is half the test: an empty `whyNow`
+ * collapses the line just as completely, by the other arm. The paragraph this
+ * replaces described the function with the `whyNow === signal` arm only.
+ *
+ * The eight `recs.push` sites in `buildRecommendations.ts` are read against
+ * THAT EQUALITY, never against a proxy for it:
+ *
+ *   (a) NEVER byte-identical — the SEVEN UI-authored catalogue
+ *       recommendations: `strengthen:success-measure`, `strengthen:flip:*`,
+ *       `strengthen:lehi:*`, `strengthen:voi:*`, `strengthen:robustness`,
+ *       `strengthen:broaden`, `strengthen:commit`. Each pairs a UI-authored
+ *       `signal` — a literal, or for `strengthen:flip:*` a UI-authored
+ *       template with analysis data interpolated — with a DIFFERENT
+ *       UI-authored `whyNow` literal. E.g. "No measurable success target is
+ *       set." against "Without a target the analysis cannot say how likely
+ *       each option is to succeed, only how they compare with one another."
+ *       `signal !== whyNow` at all seven, by construction: both fields are
+ *       this repo's copy, never producer copy, so no wire value can collapse
+ *       them. And all seven `whyNow` values are non-empty literals, so the
+ *       `!whyNow` arm cannot fire either. Strengthen renders the SUPERSET:
  *       the glance paragraph verbatim, then a sentence the glance card never
  *       showed.
- *   (b) BYTE-IDENTICAL — the phase-3 producer loop (`strengthen:phase3:*`,
- *       ~:368-369) when the wire item has a `body` and no `signal` of its own.
- *       It maps `signal: item.signal ?? item.body ?? <boilerplate>` and
- *       `whyNow: item.body ?? <a different boilerplate>`, so both collapse to
- *       `item.body`, `whyNow === signal`, and Strengthen renders `signal`
- *       alone. This is the ordinary phase-3 case, and the ONLY case that
- *       repeats exactly.
- *   (c) NOT byte-identical — the same phase-3 loop when the item DOES carry
- *       its own `signal` (then `signal` is the producer's subtitle and
- *       `whyNow` its body), or when it carries neither `signal` nor `body`
- *       (the two boilerplate fallbacks are different strings). Either way
- *       Strengthen renders the superset, as in (a).
+ *
+ *   (b) EITHER, AND THE WIRE ITEM DECIDES — the phase-3 producer loop
+ *       (`strengthen:phase3:*`, grep the id template), the one site whose two
+ *       display fields are producer-fed:
+ *
+ *           signal: item.signal ?? item.body ?? <one fallback literal>
+ *           whyNow: item.body ?? <a DIFFERENT fallback literal>
+ *
+ *       `??` catches null and undefined only, so an empty string passes
+ *       through both. Splitting on `item.body` — empty / non-empty / absent —
+ *       is total, so what follows is CLOSED rather than merely long:
+ *
+ *       BYTE-IDENTICAL
+ *         1. `body` present and EMPTY, whatever `signal` is. `whyNow` is `''`,
+ *            so the `!whyNow` arm returns `signal` alone. (With `signal`
+ *            absent too, both fields are `''` and both surfaces render
+ *            nothing.)
+ *         2. `body` non-empty, `signal` ABSENT — both fields become
+ *            `item.body`. This is the ordinary phase-3 case.
+ *         3. `body` non-empty, `signal` PRESENT AND EQUAL to it — the producer
+ *            sent one string in both fields. Nothing at any hop forbids that:
+ *            they are independent optionals — `body?: string` / `signal?:
+ *            string` on `StrengthenPhase3Item`, `detail?` / `signal?` on
+ *            `GuidanceItem` — each carried verbatim.
+ *         4. `body` ABSENT and `signal` exactly equal to the `whyNow` fallback
+ *            literal. A coincidence rather than a producer behaviour, and
+ *            recorded only because the enumeration is CLOSED with it and open
+ *            without it.
+ *
+ *       NOT BYTE-IDENTICAL
+ *         5. `body` non-empty, `signal` present and DIFFERENT — this, and only
+ *            this, is the shape where `signal` is the producer's subtitle and
+ *            `whyNow` its body.
+ *         6. `body` absent, `signal` present and not the fallback literal —
+ *            here `whyNow` is the boilerplate, NOT the body.
+ *         7. `body` and `signal` both absent — the two fallback literals
+ *            differ.
  *
  * So EVERY case repeats the glance paragraph — that is what this file pins,
- * and it holds throughout. Only (b) repeats byte-for-byte; (a) and (c) render
- * the glance paragraph as the opening sentence of a longer line.
- *
- * (Edge, stated rather than swept: `body` and `signal` are `body?: string` /
- * `signal?: string` on `StrengthenPhase3Item`, and `??` passes an empty string
- * through. A producer `body` of `''` with no `signal` gives `signal === whyNow
- * === ''` — it lands in (b), and both surfaces render nothing.)
+ * and it holds throughout. Whether the repeat is EXACT is decided by the
+ * equality above and never by provenance: 1-4 repeat byte-for-byte, while (a)
+ * and 5-7 render `signal`, one space, then `whyNow` — so the glance paragraph
+ * is a literal PREFIX of the longer line, not merely similar to it.
  *
  * ⚠ WHY THE FIRST VERSION OF THIS PARAGRAPH WAS FALSE, because the mechanism
  * will recur and is worth more than the correction. It keyed the whole
@@ -120,6 +151,24 @@
  * from one dropped qualifier. The falsehood arrived by FAITHFUL QUOTATION that
  * lost its scope on the way out, not by invention: carry a quotation's scope
  * out with it, or do not quote.
+ *
+ * ⚠ AND WHY THE PARTITION THIS ONE REPLACED WAS FALSE — a DIFFERENT mechanism
+ * from the first, and worth more than the correction. That version named the
+ * right KIND of test — an equality on the two rendered fields ("does this
+ * recommendation have `signal === whyNow`?") — and then partitioned the
+ * phase-3 branch by SIGNAL-PRESENCE, filing "the item carries its own
+ * `signal`" as not-byte-identical. Presence
+ * of a `signal` is a PROXY for that equality, and not an equivalent one: an
+ * item carrying its own `signal` repeats byte-for-byte whenever `body` equals
+ * it (route 3) or `body` is empty (route 1). The same version glossed that
+ * case as "`signal` is the producer's subtitle and `whyNow` its body", which
+ * is true of route 5 alone — with a `signal` and no `body`, `whyNow` is the
+ * fallback literal, not the body (route 6). The right test had been written
+ * down one paragraph earlier and was then not used. PARTITION BY THE
+ * PREDICATE YOU NAMED, and let provenance illustrate the answer rather than
+ * decide it. It is the same shape as the filename this header opens by
+ * disowning: a convenient label standing in for the predicate it only
+ * approximates, one scope smaller.
  *
  * ── WHAT IS STILL OPEN ─────────────────────────────────────────────────────
  * The duplication is real and unfixed. It costs a repeated paragraph to a
