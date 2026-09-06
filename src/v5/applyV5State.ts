@@ -414,7 +414,7 @@ function inlinePathWillOwnAnalysisReadyWrite(
  * verdict that pre-empts it. ⛔ This is NOT a second predicate:
  * `ceeAnalysisReadyContainment` is the extracted containment leg that
  * `validateCeeAnalysisReady` itself now calls, so `loadScenario`
- * (`store.ts:5517`) and the boot restore (`ReactFlowGraph.tsx:559`) compare ids
+ * (`validateCeeAnalysisReady` in `store.ts`) and the boot restore (`ReactFlowGraph.tsx:559`) compare ids
  * with this exact code. One question, one authority, one more consumer.
  *
  * The `kind` verdicts are correctly NOT consulted here, and each for its own
@@ -1691,7 +1691,7 @@ export function applyV5State(
       // Guarding `setCeeAnalysisReady` alone did NOT close the founder's
       // reproduction, and that was measured, not argued: the Analysis tab reads
       // `results.report` (`OutputsDock.tsx:928` → `selectReport` →
-      // `store.ts:7558`), written ONLY by `resultsComplete` here. With the
+      // `selectReport` in `store.ts`), written ONLY by `resultsComplete` here. With the
       // readiness gate in place and this gate absent, one response carrying a
       // foreign readiness AND a foreign `analysis_result` refused the readiness
       // (0 writes) and hydrated the pricing model's report onto the hiring
