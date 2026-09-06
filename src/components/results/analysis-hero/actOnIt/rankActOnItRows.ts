@@ -39,6 +39,10 @@ import {
   containsBannedTerm as rowContainsBannedTerm,
   safeInterpolatedLabel as safeRowLabel,
 } from '../../utils/glossaryCheck'
+// MAY THIS ROW NAME A LEADER? The shared three-answer claim policy — the one
+// reader for the lattice. Row copy asks `leaderClaimWithheld`; it never reads
+// `verdict.hasLeadingOption` (one conjunct) or the mode (the other) on its own.
+import { leaderClaimWithheld } from '../../analysisClaimPolicy'
 
 /**
  * READY-TO-BRIEF PREDICATE.
@@ -280,7 +284,19 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): ActOnItRow | null {
   // verb — earlier forms ("If {label} changes, …") produced mid-sentence
   // repetition for labels that themselves end in "changes"/"shifts".
   const safeFromLabel = safeOrFallback(rawLabel)
-  const reason = `If the estimate changes for ${safeFromLabel}, the leading option could change.`
+  // ⚠ WITNESSED CONTRADICTION (deployed staging, 4 Sep 2026). This sentence
+  // rendered VERBATIM — "If the estimate changes for Technical Leadership
+  // Capacity, the leading option could change." — a few lines above the same
+  // panel's footer saying "Leading option not assessed". The row consulted the
+  // leader authority zero times.
+  //
+  // The CLAIM goes, the FINDING stays: the factor is still named, the row is
+  // still built, its priority, actions and target are untouched. "the result"
+  // is the spelling the sibling nudge in `TriageActionCardsBody` already uses
+  // for exactly this branch — one vocabulary, not a new one.
+  const reason = leaderClaimWithheld(data?.recommendation)
+    ? `If the estimate changes for ${safeFromLabel}, the result could change.`
+    : `If the estimate changes for ${safeFromLabel}, the leading option could change.`
   return {
     key: `risk-${fragile.fromId}`,
     title,
