@@ -538,3 +538,174 @@ describe('WhatWeChecked renders the readout', () => {
     expect(chip.querySelector('.text-danger')).not.toBeNull()
   })
 })
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 4. SCOPE IS NOT A VERDICT — the structural separation (design note F)
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * ⭐⭐ "PASSED" AND "FAILED" ARE ANSWERS. "NOT ASSESSED" IS A STATEMENT ABOUT
+ * SCOPE — and rendering it as their PEER makes the panel look like it reached a
+ * conclusion it never reached.
+ *
+ * Section 3 above proves the three states are DISTINGUISHABLE (different code,
+ * different glyph state, different label). That is a necessary condition and
+ * not a sufficient one: a reader scanning a single flat row of chips reads
+ * three results, because the row itself asserts they are the same KIND of
+ * thing. This block pins the STRUCTURE that says otherwise.
+ *
+ * ⚠ EVERY ASSERTION BINDS BY CHECK IDENTITY (`data-testid` + the check's `id`),
+ * never by text and never by `data-check-state`. A state attribute says what a
+ * chip IS; it says nothing about WHERE it sits, so a state-only assertion would
+ * pass unchanged on the flat row this block exists to replace.
+ */
+describe('a check that was NOT made is a scope disclosure, not a third verdict', () => {
+  const TID = 'analysis-new-checks'
+
+  function renderFor(data: ResultsSectionDataReturn) {
+    return render(<WhatWeChecked checks={vmChecks(data)} />)
+  }
+
+  /** One pass, one finding, one never-assessed — all three states at once. */
+  function mixedRun(): ResultsSectionDataReturn {
+    return makeData({
+      recommendation: { verdict: verdict({}), robustnessVerdict: 'fragile' },
+      confidence: { evidenceGaps: [], evidenceGapsAssessed: false } as never,
+    })
+  }
+
+  /**
+   * ⚠ THE PRECONDITION, PINNED IN-TEST RATHER THAN ASSUMED. If this fixture
+   * ever stopped producing one of each state, the containment assertions below
+   * would still pass while testing nothing — the separation would be gone and
+   * the suite silent (CLAUDE.md trap 13b).
+   */
+  function assertMixedPrecondition(data: ResultsSectionDataReturn) {
+    const states = Object.fromEntries(vmChecks(data).items.map((i) => [i.id, i.state]))
+    expect(states, 'fixture must produce pass + finding + not_assessed together').toEqual({
+      leader: 'pass',
+      robustness: 'finding',
+      evidence: 'not_assessed',
+    })
+  }
+
+  it('the two real verdicts share one line and the unassessed check is NOT on it', () => {
+    const data = mixedRun()
+    assertMixedPrecondition(data)
+    renderFor(data)
+
+    const verdicts = screen.getByTestId(`${TID}-verdicts`)
+    const scope = screen.getByTestId(`${TID}-scope`)
+
+    expect(verdicts).toContainElement(screen.getByTestId(`${TID}-leader`))
+    expect(verdicts).toContainElement(screen.getByTestId(`${TID}-robustness`))
+    // The load-bearing half: peer-ness is what is being denied.
+    expect(verdicts).not.toContainElement(screen.getByTestId(`${TID}-evidence`))
+    expect(scope).toContainElement(screen.getByTestId(`${TID}-evidence`))
+  })
+
+  /**
+   * ⚠ ORDER AND STROKE ARE TWO PROPERTIES AND GET TWO TESTS. Held in one, a
+   * mutant that inverts the order and a mutant that solidifies the rule RED the
+   * same test name, and the suite cannot show it is discriminating between
+   * them. Split, each mutant REDs its own named assertion.
+   */
+  it('the unassessed check drops BELOW the verdict line (DOM order)', () => {
+    const data = mixedRun()
+    assertMixedPrecondition(data)
+    renderFor(data)
+
+    const verdicts = screen.getByTestId(`${TID}-verdicts`)
+    const scope = screen.getByTestId(`${TID}-scope`)
+
+    /**
+     * ⚠ "BELOW" IS A DOM-ORDER CLAIM AND IS ASSERTED AS ONE. A dashed class on
+     * a region rendered ABOVE the verdicts would satisfy a class-only check
+     * while inverting the demotion the rule exists to perform.
+     */
+    expect(
+      verdicts.compareDocumentPosition(scope) & Node.DOCUMENT_POSITION_FOLLOWING,
+      'the scope region must FOLLOW the verdict line in document order',
+    ).toBeTruthy()
+  })
+
+  it('the boundary is a DASHED rule on the disclosure’s top edge, not a solid one', () => {
+    const data = mixedRun()
+    assertMixedPrecondition(data)
+    renderFor(data)
+
+    const scope = screen.getByTestId(`${TID}-scope`)
+
+    /**
+     * ⚠ THE STROKE IS THE CLAIM. The section's own top edge is SOLID because it
+     * divides this readout from the one before it; this edge divides two kinds
+     * of statement inside one readout. A solid rule here would read as a second
+     * section — i.e. as more findings — which is the reading being denied.
+     */
+    expect(scope.className).toMatch(/(^|\s)border-t(\s|$)/)
+    expect(scope.className).toMatch(/(^|\s)border-dashed(\s|$)/)
+  })
+
+  it('the explanation travels WITH the disclosure — separation is not suppression', () => {
+    const data = mixedRun()
+    assertMixedPrecondition(data)
+    renderFor(data)
+
+    const scope = screen.getByTestId(`${TID}-scope`)
+    const chip = screen.getByTestId(`${TID}-evidence`)
+
+    expect(scope).toContainElement(chip)
+    expect(scope).toContainElement(screen.getByTestId(`${TID}-meaning-evidence`))
+    // Demoting the row must not quietly change or drop what it says.
+    expect(chip.getAttribute('data-check-state')).toBe('not_assessed')
+    expect(chip.getAttribute('data-check-code')).toBe('evidence_not_assessed')
+  })
+
+  /**
+   * ⭐ THE CONTRAST CONTROL. Without it, an UNCONDITIONAL scope region — one
+   * that renders a dashed rule on every run, healthy or not — would satisfy
+   * every assertion above. This is the arm that proves the separation is driven
+   * by the data rather than always drawn.
+   */
+  it('a fully assessed run renders NO scope region and keeps all three on the line', () => {
+    const data = makeData({
+      recommendation: { verdict: verdict({}), robustnessVerdict: 'robust' },
+      confidence: { evidenceGaps: [], evidenceGapsAssessed: true } as never,
+    })
+    expect(
+      vmChecks(data).items.map((i) => i.state),
+      'contrast arm must have NOTHING unassessed or it is not a contrast',
+    ).toEqual(['pass', 'pass', 'pass'])
+
+    renderFor(data)
+    expect(screen.queryByTestId(`${TID}-scope`)).toBeNull()
+
+    const verdicts = screen.getByTestId(`${TID}-verdicts`)
+    for (const id of ['leader', 'robustness', 'evidence'] as const) {
+      expect(verdicts).toContainElement(screen.getByTestId(`${TID}-${id}`))
+    }
+  })
+
+  /**
+   * ⚠ THE OTHER END OF THE RANGE, AND IT IS REACHABLE: a run with no verdict,
+   * no robustness field and no evidence assessment puts ALL THREE checks in the
+   * third state. There is then no verdict line to demote anything below, so an
+   * empty verdict `<ul>` must not render — an empty list with a dashed rule
+   * under it would be a rule separating nothing from everything.
+   */
+  it('an all-unassessed run renders the disclosure only — no empty verdict line', () => {
+    const data = makeData()
+    expect(
+      vmChecks(data).items.map((i) => i.state),
+      'this fixture must be the all-unassessed run',
+    ).toEqual(['not_assessed', 'not_assessed', 'not_assessed'])
+
+    renderFor(data)
+    expect(screen.queryByTestId(`${TID}-verdicts`)).toBeNull()
+
+    const scope = screen.getByTestId(`${TID}-scope`)
+    for (const id of ['leader', 'robustness', 'evidence'] as const) {
+      expect(scope).toContainElement(screen.getByTestId(`${TID}-${id}`))
+    }
+  })
+})
