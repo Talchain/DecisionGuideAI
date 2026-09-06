@@ -79,7 +79,7 @@ import { useCanvasStore } from '../../store'
  * What each guard actually covers:
  *
  *   · THE TYPE closes OMISSION. Dropping `canRun` from the mount is
- *     `TS2741` at `OutputsDock.tsx(3665,22)`, total 1826 → **1827, exactly +1**.
+ *     `TS2741` at `OutputsDock.tsx` at the `<ReanalyseBar` mount, total 1826 → **1827, exactly +1**.
  *     A caller that stops passing the verdict cannot compile.
  *   · THE SCAN closes SPELLINGS. `reanalyseBarIsGated.sourceScan.spec.ts`
  *     normalises wrapping parens, a trailing `as …` cast and a trailing `!`
