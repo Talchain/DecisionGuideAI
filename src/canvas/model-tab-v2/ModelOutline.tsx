@@ -489,40 +489,102 @@ export function ModelOutline({
                      `min-width` is `auto`, so a cell carrying `min-w-0` has
                      none and its cap is hard. Read at the bytes:
 
-                       · VALUE — the two idle arms of `ValueCell` (the read-
-                         only `<span>` and the editable `<button>`,
-                         `ModelRowView.tsx:869` and `:903` at time of writing)
-                         are `shrink-0` in exactly the bare-number case
-                         (`estimate === null && !valueMayShrink(display)`), and
-                         `shrink-0` sets no `min-width`. The automatic minimum
-                         SURVIVES there, which is why "£1,250,000 per year"
-                         sizes to 118px under `fit-content(5.5rem)` and not to
-                         88px — the measurement below is that claim's witness.
-                         The cap binds on the other arm, whose container is
-                         `min-w-0` and whose `ValueLeaf` (`:156`) is
-                         `truncate min-w-0` — the strength phrases. The dark
-                         `editing`/`applied` arms are `shrink-0` too (`:646`),
-                         so the cap does not bound them either and the
-                         "loaded gun" hazard recorded in `ModelRowView` is
-                         UNCHANGED by this change.
+                       · VALUE — the two idle arms of `ValueCell` in
+                         `ModelRowView.tsx` (the read-only `<span>` and the
+                         editable `<button>`; grep the predicate
+                         `estimate === null && !valueMayShrink(display)` and it
+                         returns exactly those two) are `shrink-0` in exactly
+                         the bare-number case, and `shrink-0` sets no
+                         `min-width`. The automatic minimum SURVIVES there,
+                         which is why "£1,250,000 per year" sizes to 118px
+                         under `fit-content(5.5rem)` and not to 88px — the
+                         measurement below is that claim's witness. The cap
+                         binds on the other arm, whose container is `min-w-0`
+                         and whose `ValueLeaf` applies `truncate min-w-0`
+                         whenever `mayShrink` — the strength phrases.
 
-                       · META — the `CELL 4 · META` container, the
-                         `justify-end` run (`ModelRowView.tsx:404`), is
-                         `min-w-0` UNCONDITIONALLY. Its automatic minimum is therefore
-                         ZERO and `fit-content(5rem)` is a hard 5rem cap. Nor
-                         is its content all shrinkable: the `Confirm` button
-                         (`:492`) and the attention markers (`:508`) are both
-                         `shrink-0`, and an attention marker is a bare `⚠`
-                         glyph — not text that can truncate at all. Only the
-                         provenance pill (`:471`) and the Advanced id (`:600`)
-                         carry `truncate min-w-0`. ⚠ Those numbers are a hint,
-                         not a handle — each atom is named, because a line
-                         reference in a comment is a mirror that the next edit
-                         breaks silently. This one broke within the hour.
+                         The dark arms do not receive the cap either, and they
+                         reach that by TWO DIFFERENT ROUTES, which the sentence
+                         here collapsed into one until 6 Sep 2026. `case
+                         'editing'` carries `shrink-0` outright. `case
+                         'applied'`, `'inflight'` and `'refused'` carry
+                         `className={typography.panelTabular}` and NOTHING
+                         ELSE — no `shrink-0`, and equally no `min-w-0`, so
+                         their `min-width` stays `auto` and CSS Grid §6.6
+                         grants them the automatic minimum for free. ⚠ The
+                         earlier wording said "the dark `editing`/`applied`
+                         arms are `shrink-0` too". `applied` has never been
+                         `shrink-0` — not at this PR's merge base, not at its
+                         first head, not now; the claim was false when written
+                         and the right conclusion was reached by a mechanism
+                         the sentence misnamed. Either way the "loaded gun"
+                         hazard recorded in `ModelRowView` is UNCHANGED by this
+                         change — but an arm that keeps its automatic minimum
+                         by ACCIDENT (no class at all) is one `min-w-0` away
+                         from losing it, and an arm that keeps it by `shrink-0`
+                         is not. Whoever wires those arms owns that difference.
 
-                         The classes above were read at
-                         `f0169655` + this commit; `rowAtomsDoNotWrap.spec` is
-                         the derived, non-drifting statement of the same facts.
+                       · META — the `CELL 4 · META` container in
+                         `ModelRowView.tsx`, the sole `justify-end` element in
+                         that file, is `min-w-0` UNCONDITIONALLY: the class is
+                         a static string literal, not a ternary, so there is no
+                         arm in which it is absent. Its automatic minimum is
+                         therefore ZERO and `fit-content(5rem)` is a hard 5rem
+                         cap. Nor is its content all shrinkable. Named by the
+                         `data-testid` each atom renders, which is what a grep
+                         finds and what the specs already bind to:
+
+                           `model-row-v2-<id>-confirm-as-is`  `shrink-0`
+                           `model-row-v2-<id>-attention-<r>`  `shrink-0`
+                           `model-row-v2-<id>-provenance`     `truncate min-w-0`
+                           `model-row-v2-<id>-id`             `truncate min-w-0`
+                           `model-row-v2-<id>-deferred`       NEITHER
+
+                         So two atoms cannot give, two can, and the deferred
+                         marker carries no width class at all — it is not
+                         `shrink-0`, so it may be squeezed, and it has no
+                         `truncate`, so it has nothing to truncate WITH. That
+                         fifth row went unlisted while these were line numbers.
+
+                         ⚠ AND THE ATTENTION MARKER IS NOT WHAT THIS BLOCK SAID
+                         IT WAS. Until 6 Sep 2026 it read "an attention marker
+                         is a bare `⚠` glyph — not text that can truncate at
+                         all". #1215 replaced that glyph. Read at the bytes:
+                         `ATTENTION_MARK` in `rowPresentation.ts` is
+                         `Record<AttentionReason, LucideIcon>` over five
+                         DISTINCT `lucide-react` icons — `CircleDashed`,
+                         `HelpCircle`, `Split`, `AlertTriangle`, `Target`, one
+                         per reason — rendered as `<Mark className="w-3.5
+                         h-3.5" />` inside the `shrink-0` span. The CONCLUSION
+                         is unchanged and is now stronger: an SVG at a fixed
+                         `w-3.5 h-3.5` cannot truncate for a better reason than
+                         a text glyph could, because it is not text at all and
+                         its width is authored, not intrinsic. The count is
+                         also bounded differently — up to five marks, one per
+                         distinct `AttentionReason`, not an unbounded map over
+                         repeated `⚠`s, which is the specific thing #1215 fixed.
+
+                         ⚠⚠ EVERY LINE NUMBER IN THIS BLOCK IS GONE, AND THE
+                         REASON IS THIS PR'S OWN HISTORY. It shipped nine of
+                         them — `:869`, `:903`, `:156`, `:646`, `:404`, `:492`,
+                         `:508`, `:471`, `:600` — every one CORRECT when
+                         written and reviewed. #1215 then rewrote
+                         `ModelRowView.tsx` by +182/−18 (918 → 1082 lines)
+                         before this branch landed, and ALL NINE moved. One of
+                         them, `:492`, came to rest on a comment line THIS PR
+                         had itself added. The numbers were not wrong; they
+                         were unowned. A symbol a grep resolves survives an
+                         insert above it, and a number does not — so the rule
+                         this block already stated in words ("a line reference
+                         in a comment is a mirror that the next edit breaks
+                         silently") is now obeyed rather than annotated.
+
+                         The classes above were read at the tip of this branch
+                         rebased onto staging `acd3db4d`;
+                         `rowAtomsDoNotWrap.spec` is the derived, non-drifting
+                         statement of the same facts, and it asserts by name
+                         that neither `Confirm` nor the attention marker may
+                         shrink.
 
                      ⚠ SO THE SENTENCE THIS BLOCK SHIPPED WITH — "only content
                      that can shrink (the `truncate min-w-0` strength and
@@ -533,8 +595,27 @@ export function ModelOutline({
                      in that cell that cannot give at all.
 
                      ⚠⚠ WHAT IS NOT MEASURED, STATED AS UNMEASURED. Whether
-                     `Confirm` + one or more `⚠` + their 6px gaps exceed 5rem at
-                     any reachable dock width. If they do they cannot yield, and
+                     `Confirm` + one or more attention marks + their 6px gaps
+                     (`gap-1.5`) exceed 5rem at any reachable dock width. ⚠ The
+                     mark is no longer the `⚠` this sentence used to name, and
+                     the substitution moved ONE of the three unknowns: each
+                     mark is now an SVG at an AUTHORED `w-3.5`, so its width is
+                     14px by declaration rather than font-dependent, and the
+                     count is bounded at five. `Confirm` is still TEXT — the
+                     word itself, sized by `typography.buttonSmall` and
+                     carrying no padding class at all — so its width is a
+                     function of font metrics, not of a class, and the sum
+                     still needs layout. Two of three terms known is not a
+                     measurement. ⚠ THE TWO LITERAL TOKEN NAMES THAT STOOD IN
+                     THIS PARENTHESIS WERE REMOVED, NOT REWORDED, AND THE
+                     REASON IS WORTH KNOWING BEFORE YOU WRITE THE NEXT COMMENT
+                     HERE: the DS v5 drift guard
+                     (`tools/ci-guards/check-ds-compliance.mjs`) scans FILE
+                     TEXT, not JSX, so a scale token quoted inside a COMMENT
+                     counts as a usage and reds the scoped-typography ratchet.
+                     Naming it cost two net-new violations and a red CI job on
+                     a comment-only change. Cite the `typography` symbol.
+                     If they do exceed it they cannot yield, and
                      a `justify-end` flex line overflows past its START edge —
                      leftwards, over the value column. The measurement below
                      priced LABEL VISIBILITY and did not point at this cell, so
