@@ -381,15 +381,44 @@ export function ModelOutline({
                   column is a real column across the whole group rather than a
                   per-row accident.
 
-                  Tracks, and why each is what it is:
-                    `auto`            glyph — intrinsic, never negotiates
-                    `minmax(0,1fr)`   identity — takes the slack. The `0` floor
-                                      is load-bearing: `1fr` alone resolves its
-                                      automatic minimum to `min-content`, so a
-                                      long label would push the value column
-                                      off-axis and reintroduce the defect.
-                    `auto`            value — the column this change exists for
-                    `auto`            meta — provenance, attention, id
+                  Tracks, and why each is what it is. ⚠ READ FROM THE CLASS
+                  BELOW, WHICH IS THE ONLY PLACE THEY ARE DECLARED — this
+                  legend is the block a later session reads INSTEAD of the
+                  60-line history under it, and it had drifted from that class
+                  in THREE of its four lines: it still described the identity
+                  track as `minmax(0,1fr)` after the 6rem floor landed, and
+                  both caps as `auto` after they were capped. A summary that
+                  disagrees with the code it summarises is worse than no
+                  summary, because it is the one that gets believed.
+                    `auto`                  glyph — intrinsic, never negotiates
+                    `minmax(6rem,1fr)`      identity — takes the slack, and the
+                                            FLOOR is load-bearing. `1fr` alone
+                                            resolves its automatic minimum to
+                                            `min-content`, and a `0` floor is
+                                            that same unbounded share spelled
+                                            differently: either way a long
+                                            label pushes the value column
+                                            off-axis and reintroduces the
+                                            defect. A track minimum is honoured
+                                            before other tracks reach their
+                                            maximum — that is what reserves the
+                                            label's width first.
+                    `fit-content(5.5rem)`   value — the column this change
+                                            exists for, capped so a long prose
+                                            value cannot take the label's width
+                    `fit-content(5rem)`     meta — provenance, attention, id.
+                                            ⚠ NOT the same story as the value
+                                            track: this cell is `min-w-0`, so
+                                            it has no automatic minimum and the
+                                            5rem is a HARD cap on everything in
+                                            it, shrinkable or not. Two of its
+                                            atoms are `shrink-0`. The block
+                                            above the class prices what is and
+                                            is not known about that.
+                  ⚠ THE TWO CAPS ARE MEASURED LENGTHS, NOT ROUND NUMBERS —
+                  `rowAtomsAlignToOneGrid.spec.tsx` pins both, so changing
+                  either REDs until a fresh measurement replaces the one
+                  recorded below.
 
                   ⚠ THE COLUMN COUNT IS A CONTRACT WITH `ModelRowView`. A
                   subgrid item adopts only the tracks it SPANS, so adding a
@@ -449,11 +478,84 @@ export function ModelOutline({
 
                      ⭐ 6 Sep 2026 — THE VALUE AND ATTENTION TRACKS ARE CAPPED
                      WITH `fit-content`, NOT `minmax(0, …)`. `fit-content(L)` is
-                     `minmax(auto, min(max-content, L))`: the automatic minimum
-                     above is KEPT, so a nowrap figure cannot be crushed, and
-                     only content that can shrink (the `truncate min-w-0`
-                     strength and attention text) is capped. The identity track
-                     then receives whatever those two do not use.
+                     `max(auto-minimum, min(L, max-content))`, so unlike
+                     `minmax(0,L)` it keeps the automatic minimum AND does not
+                     reserve its cap when the cell is empty. The identity track
+                     receives whatever the two capped tracks do not use.
+
+                     ⚠⚠ BUT THE AUTOMATIC MINIMUM IS A PROPERTY OF THE CELL, NOT
+                     OF THE TRACK — AND ONLY ONE OF THESE TWO CELLS HAS ONE.
+                     CSS Grid §6.6 grants it only where the item's own
+                     `min-width` is `auto`, so a cell carrying `min-w-0` has
+                     none and its cap is hard. Read at the bytes:
+
+                       · VALUE — the two idle arms of `ValueCell` (the read-
+                         only `<span>` and the editable `<button>`,
+                         `ModelRowView.tsx:869` and `:903` at time of writing)
+                         are `shrink-0` in exactly the bare-number case
+                         (`estimate === null && !valueMayShrink(display)`), and
+                         `shrink-0` sets no `min-width`. The automatic minimum
+                         SURVIVES there, which is why "£1,250,000 per year"
+                         sizes to 118px under `fit-content(5.5rem)` and not to
+                         88px — the measurement below is that claim's witness.
+                         The cap binds on the other arm, whose container is
+                         `min-w-0` and whose `ValueLeaf` (`:156`) is
+                         `truncate min-w-0` — the strength phrases. The dark
+                         `editing`/`applied` arms are `shrink-0` too (`:646`),
+                         so the cap does not bound them either and the
+                         "loaded gun" hazard recorded in `ModelRowView` is
+                         UNCHANGED by this change.
+
+                       · META — the `CELL 4 · META` container, the
+                         `justify-end` run (`ModelRowView.tsx:404`), is
+                         `min-w-0` UNCONDITIONALLY. Its automatic minimum is therefore
+                         ZERO and `fit-content(5rem)` is a hard 5rem cap. Nor
+                         is its content all shrinkable: the `Confirm` button
+                         (`:492`) and the attention markers (`:508`) are both
+                         `shrink-0`, and an attention marker is a bare `⚠`
+                         glyph — not text that can truncate at all. Only the
+                         provenance pill (`:471`) and the Advanced id (`:600`)
+                         carry `truncate min-w-0`. ⚠ Those numbers are a hint,
+                         not a handle — each atom is named, because a line
+                         reference in a comment is a mirror that the next edit
+                         breaks silently. This one broke within the hour.
+
+                         The classes above were read at
+                         `f0169655` + this commit; `rowAtomsDoNotWrap.spec` is
+                         the derived, non-drifting statement of the same facts.
+
+                     ⚠ SO THE SENTENCE THIS BLOCK SHIPPED WITH — "only content
+                     that can shrink (the `truncate min-w-0` strength and
+                     attention text) is capped" — WAS TRUE OF THE VALUE TRACK
+                     AND FALSE OF THE OTHER ONE, and the false half was the half
+                     doing the safety work. It named `attention text` as the
+                     thing being capped; the attention atoms are the two things
+                     in that cell that cannot give at all.
+
+                     ⚠⚠ WHAT IS NOT MEASURED, STATED AS UNMEASURED. Whether
+                     `Confirm` + one or more `⚠` + their 6px gaps exceed 5rem at
+                     any reachable dock width. If they do they cannot yield, and
+                     a `justify-end` flex line overflows past its START edge —
+                     leftwards, over the value column. The measurement below
+                     priced LABEL VISIBILITY and did not point at this cell, so
+                     it cannot settle it either way. This file's own rule is
+                     that a loss is priced at a WIDTH; this one has no width, so
+                     it is recorded as open rather than claimed safe. The
+                     honest reading of the 6 Sep run is that the identity track
+                     gained what the two capped tracks gave up, and that what
+                     the META cell gives up has not been looked at.
+
+                     ⭐ AND THE REPO ALREADY HOLDS THE OTHER HALF OF THAT
+                     CONTRADICTION, one directory over. `rowAtomsDoNotWrap.spec`
+                     asserts, by name and green today, "the attention marker
+                     never shrinks" and "Confirm never shrinks and never wraps —
+                     a truncated affordance is a fake one". Those two guards and
+                     this cap are each correct in isolation and answer different
+                     questions — may this atom yield? vs how wide may this track
+                     be? — which is exactly the shape that ships a defect
+                     neither PR's tests can see. Whoever prices the width above
+                     should read that spec first: it is the statement of what
+                     the meta cell is NOT allowed to give up.
 
                      MEASURED on the deployed build `127bdee7` (guest scenario,
                      dock 372px, overrides applied to these `<ul>`s and restored

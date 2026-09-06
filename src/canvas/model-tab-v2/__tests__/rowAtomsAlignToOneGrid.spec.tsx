@@ -257,21 +257,48 @@ describe('the row atoms align to ONE grid, not 199 of them', () => {
    * the identity track to 181px. The rejected `minmax(0,L)` reserved its cap
    * even for EMPTY cells and cost four fully-visible option labels.
    *
-   * Parsed, not matched, for the same reason as the floor above: the cap must
-   * be a NON-ZERO fixed length inside `fit-content(…)`. A zero cap is a track
-   * that can never hold content; a missing cap is today's defect restated.
+   * ⚠⚠ AND THE FIRST CUT OF THIS TEST PINNED THE SHAPE AND NOTHING ABOUT THE
+   * LENGTH. It asserted only `fit-content(<non-zero length>)`, so BOTH numbers
+   * the whole change rests on were free parameters. Proven by execution rather
+   * than by reading it: with the tracks mutated to `fit-content(7rem)` and
+   * `fit-content(3rem)` this file stayed GREEN, 8 of 8 — a guard that cannot
+   * fail in the one dimension it exists for, which is the same defect as the
+   * `minmax(0,1fr)` admission two blocks up.
+   *
+   * ⭐ SO THE CAPS ARE PINNED AS VALUES, NOT AS A SHAPE, AND THAT IS DELIBERATE
+   * RATHER THAN A MIRROR. There is nothing to derive them FROM: they are
+   * measurements taken on a deployed build, so the only honest guard is one
+   * that REDs when the code stops agreeing with the measurement and sends the
+   * next author to take a new one. Structure is still checked first, so a track
+   * that is not a `fit-content` cap at all fails saying so; and the number is
+   * compared numerically, not as a string, so `5.0rem` is not a false RED while
+   * `7rem` is a true one.
    */
-  it('⭐ the value and attention tracks are capped with fit-content, keeping their automatic minimum', () => {
+  const CAPS = [
+    { index: 2, name: 'value', length: 5.5, unit: 'rem' },
+    { index: 3, name: 'attention', length: 5, unit: 'rem' },
+  ] as const
+
+  it('⭐ the value and attention tracks are capped with fit-content, at the MEASURED lengths', () => {
     render(<ModelOutline rows={FIXTURE} tier="plain" />)
     const ul = list('factors')
     const trackList = parseTracks(classes(ul).find(c => /^grid-cols-\[/.test(c))!)
-    expect(trackList.length).toBe(4)
-    for (const [index, name] of [[2, 'value'], [3, 'attention']] as const) {
+    // PRECONDITION: four tracks, or every index below names a different column.
+    expect(trackList.length, `expected four tracks, parsed ${JSON.stringify(trackList)}`).toBe(4)
+    for (const { index, name, length, unit } of CAPS) {
       const cap = /^fit-content\((\d+(?:\.\d+)?)(px|rem|em|ch)\)$/.exec(trackList[index]!)
       expect(
-        cap !== null && Number.parseFloat(cap[1]!) > 0,
-        `the ${name} track must be fit-content(<non-zero length>) — parsed "${trackList[index]}"`,
+        cap !== null,
+        `the ${name} track must be fit-content(<length>) — parsed "${trackList[index]}". A missing cap is today's defect restated; a zero-minimum \`minmax(0,L)\` is the alternative this change rejected on measurement.`,
       ).toBe(true)
+      expect(
+        Number.parseFloat(cap![1]!),
+        `the ${name} track's cap is a MEASURED length (${length}${unit}), not a free parameter — parsed "${trackList[index]}". If this is a deliberate change, it invalidates the 6 Sep 2026 measurement recorded beside the class in ModelOutline.tsx: take a new one and replace both.`,
+      ).toBe(length)
+      expect(cap![2], `the ${name} track's cap must be in ${unit}`).toBe(unit)
+      // Non-zero is subsumed by the pin above — 5.5 and 5 are both > 0 — but a
+      // zero cap is the specific harm, so it is stated where it can be read.
+      expect(Number.parseFloat(cap![1]!) > 0, `the ${name} cap must be non-zero`).toBe(true)
     }
   })
 

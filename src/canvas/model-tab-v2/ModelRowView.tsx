@@ -482,11 +482,18 @@ export function ModelRowView({
       </span>
       {/* ── CELL 3 · VALUE — the column this whole change exists to create.
 
-          ⚠⚠ THE TRACK IS `auto`, WHICH MEANS THIS CELL SIZES TO ITS CONTENT AND
-          TAKES THAT WIDTH OUT OF THE IDENTITY TRACK. That is correct for every
-          arm a producer can currently reach — `idle` and `proposed`, whose
-          content is bounded — and it is a LOADED GUN for the arms that are dark
-          today.
+          ⚠⚠ THE TRACK IS `fit-content(5.5rem)` (declared once, in
+          `ModelOutline.tsx`), AND FOR THESE ARMS THAT STILL MEANS THIS CELL
+          SIZES TO ITS CONTENT AND TAKES THAT WIDTH OUT OF THE IDENTITY TRACK.
+          ⚠ The sentence here read "THE TRACK IS `auto`" until the cap landed on
+          6 Sep 2026; the cap changed the spelling and NOT this hazard, so the
+          correction is a rename, not a reprieve. `fit-content(L)` keeps the
+          automatic minimum, and every arm below leaves `min-width: auto` (they
+          are `shrink-0`, which sets no minimum), so the 5.5rem limit does not
+          bound them — an unbounded receipt sizes to its content exactly as it
+          did under bare `auto`. That is correct for every arm a producer can
+          currently reach — `idle` and `proposed`, whose content is bounded —
+          and it is a LOADED GUN for the arms that are dark today.
 
           Named by an independent seat and traced by PRODUCER rather than by
           field name: the sole live writer of `commit` is `ModelOutline.tsx:385`
