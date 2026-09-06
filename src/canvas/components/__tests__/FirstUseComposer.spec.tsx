@@ -55,7 +55,12 @@ vi.mock('../../store', () => {
 vi.mock('../../hooks/useStageAwarePlaceholder', () => ({
   useStageAwarePlaceholder: () => 'Describe your decision…',
 }))
-vi.mock('../../hooks/useSelectionContext', () => ({
+// ⚠ SPREAD THE REAL MODULE: a `vi.mock` factory REPLACES it, so any export added
+// later is silently absent and this file dies at collection. That fired on
+// `useSelectionCarriage`; `importOriginal` means the overrides below only have to
+// name what is genuinely being stubbed.
+vi.mock('../../hooks/useSelectionContext', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../hooks/useSelectionContext')>()),
   useSelectionContext: () => null,
 }))
 
