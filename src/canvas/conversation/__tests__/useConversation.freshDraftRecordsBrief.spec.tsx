@@ -17,12 +17,17 @@
  * the half that was missing, draft turn → store, against the live hook.
  *
  * ── WHAT IS MOCKED, AND WHAT IS NOT ────────────────────────────────────────
- * Only the two network calls are mocked (the streamed transport and the buffered
- * adapter). The scenario id is minted by the real `sendTurn`, the response is
- * fenced by the real `responseBelongsToDispatchingScenario`, the graph is
- * applied by the real `applyDraftResult`, and the store is the real
- * `useContextIntegrityStore`. The assertions bind to the MINTED id, never to a
- * value another decision's record could satisfy (CLAUDE.md trap 19).
+ * Mocked (eight `vi.mock` calls, listed so the header cannot under-count them):
+ * the streamed transport and the buffered adapter (the two network calls);
+ * `isV5Eligible`, forced eligible, exactly as the sibling harness
+ * `scenarioResponseFence.dispatchIdIsMinted.spec.tsx` does; the supabase
+ * identity (a guest — no user id, no token); `scenarioService.loadScenario`
+ * (null); and, for the node render only, React Flow's `Handle`, the
+ * `NodePopover` shell and `useNodeDisplayMetadata`.
+ * NOT mocked: `sendTurn` and its lazy mint, `responseBelongsToDispatchingScenario`,
+ * `applyDraftResult`, `useCanvasStore`, `useContextIntegrityStore`, and
+ * `DecisionNode` itself. The assertions bind to the MINTED id, never to a value
+ * another decision's record could satisfy (CLAUDE.md trap 19).
  *
  * ── THE NEGATIVE CASES ARE THE LOAD-BEARING ONES ───────────────────────────
  * A record that displaced the cold read's copy would drop the manifest; a
@@ -191,27 +196,6 @@ describe('the draft turn records the brief for the decision it drafted', () => {
     const decision = canvas.nodes.find((n) => n.type === 'decision')
     expect(decision).toBeDefined()
 
-    // The brief displaces only the CONTENT-FREE resting lines (#1229's rule),
-    // and straight after a draft the card carries a `Top gap:` triage headline
-    // instead — measured, not assumed: without the run below the block is
-    // absent. A completed run puts the card on `completedRunLine`, which is
-    // the state the deployed witness was taken in (a provisional analysis had
-    // delivered itself within the first minute).
-    expect(screen.queryByTestId('decision-node-brief')).toBeNull()
-    const options = canvas.nodes.filter((n) => n.type === 'option').map((n) => n.id)
-    expect(options.length).toBeGreaterThan(0)
-    useCanvasStore.setState({
-      results: {
-        status: 'complete',
-        report: {
-          option_probabilities: Object.fromEntries(
-            options.map((id, i) => [id, { win_probability: i === 0 ? 0.6 : 0.4 }]),
-          ),
-          robustness: { recommended_option_id: options[0], recommendation_stability: 0.62 },
-        },
-      },
-    } as never)
-
     const nodeProps = {
       id: decision!.id,
       type: 'decision',
@@ -224,11 +208,47 @@ describe('the draft turn records the brief for the decision it drafted', () => {
       dragging: false,
       zIndex: 0,
     } as unknown as Parameters<typeof DecisionNode>[0]
-    render(
+    const view = render(
       <ReactFlowProvider>
         <DecisionNode {...nodeProps} />
       </ReactFlowProvider>,
     )
+
+    // The brief displaces only the CONTENT-FREE resting lines (#1229's rule).
+    // Straight after a draft the card carries a `Top gap:` triage headline
+    // instead, and the block is ABSENT — measured on the RENDERED card, with
+    // the headline asserted as the precondition so this cannot pass on a card
+    // that simply failed to mount (trap 13b). A cold seat found the first
+    // version of this check ran before the render and measured nothing.
+    expect(view.container.textContent).toContain('Top gap:')
+    expect(screen.queryByTestId('decision-node-brief')).toBeNull()
+
+    // A completed run puts the card on `completedRunLine`, which is the state
+    // the deployed witness was taken in (a provisional analysis had delivered
+    // itself within the first minute). The store is the real one, so the
+    // subscribed card re-renders inside `act`; the explicit rerender is
+    // belt-and-braces, not the mechanism.
+    const options = canvas.nodes.filter((n) => n.type === 'option').map((n) => n.id)
+    expect(options.length).toBeGreaterThan(0)
+    act(() => {
+      useCanvasStore.setState({
+        results: {
+          status: 'complete',
+          report: {
+            option_probabilities: Object.fromEntries(
+              options.map((id, i) => [id, { win_probability: i === 0 ? 0.6 : 0.4 }]),
+            ),
+            robustness: { recommended_option_id: options[0], recommendation_stability: 0.62 },
+          },
+        },
+      } as never)
+    })
+    view.rerender(
+      <ReactFlowProvider>
+        <DecisionNode {...nodeProps} />
+      </ReactFlowProvider>,
+    )
+    expect(view.container.textContent).not.toContain('Top gap:')
 
     const quote = screen.getByTestId('decision-node-brief-text')
     expect(quote.getAttribute('title')).toBe(BRIEF)

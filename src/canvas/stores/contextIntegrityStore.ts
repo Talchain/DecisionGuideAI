@@ -21,6 +21,13 @@
  * same scenario, so the cold read's copy — which carries the manifest — wins
  * whenever it has landed, and a follow-up turn cannot replace the brief.
  *
+ * ⚠ OVERWRITE ORDER, stated because it is not guarded: `setContextIntegrity`
+ * overwrites unconditionally, and `useServerGraphHydration` re-fires for a
+ * scenario id minted in-session, so its absent re-ask can later replace this
+ * record with the server's copy of the same brief — or with `null` if CEE
+ * persisted no `brief_text`, which would take the anchor block down until the
+ * next draft. Disclosed, not closed.
+ *
  * ── WHY A STORE RATHER THAN A PROP ─────────────────────────────────────────
  * The cold read happens at canvas boot, in a hydration path; the surface that
  * shows this lives in the results panel, many levels away and mounted later.

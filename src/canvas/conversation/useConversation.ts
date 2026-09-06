@@ -4831,10 +4831,22 @@ export function useConversation(): UseConversationReturn {
               // anchor node and "What you gave me" showed nothing for the whole
               // first session (deployed `127bdee7`, 6 Sep 2026: brief typed,
               // model drafted and analysed, decision node still "Question" until
-              // a reload). This is the ONE site both transports reach when a
-              // graph first lands on a scenario (the streamed path resolves its
-              // GRAPH_READY preview here too), and `scenarioIdAtDispatch` is
-              // the id the response was fenced against a moment ago.
+              // a reload).
+              //
+              // ⚠ THIS IS ONE OF THREE `applyDraftResult` SITES IN `sendTurn`, and
+              // the record is written at THIS one only — measured, not assumed:
+              //  · `runStreamedDraftTurn`'s GRAPH_READY preview applies EARLIER
+              //    (streamed path only; no readiness, no record), so during the
+              //    `settling` phase the card shows no brief until this terminal
+              //    apply resolves the preview — which it does, because
+              //    `canvasIsEmpty` counts a standing preview as empty;
+              //  · the DB re-fetch fallback below (`row.graph`; signed-in sessions
+              //    only, either transport) applies a graph and writes NO record —
+              //    a draft that lands only that way carries no brief until the
+              //    cold read.
+              // So: the terminal inline graph of BOTH transports resolves here,
+              // and `scenarioIdAtDispatch` is the id the response was fenced
+              // against a moment ago.
               //
               // `message` is the text that went on the wire; on the deployed
               // build the cold read returned exactly that text as `brief_text`
