@@ -468,6 +468,36 @@ export function AtAGlance({
                 </span>
               </div>
 
+              {/* ⚠ DIRECTLY UNDER THE LABEL, BEFORE THE BAR — the producer's reason
+                  is the SECOND CLAUSE of a sentence whose first clause is the
+                  verdict label, so it begins lowercase by construction:
+                  "Sensitive" + "none of the factors we could test changed which
+                  option leads on its own, but…". Rendered after the win bar it
+                  read as a detached fragment starting mid-sentence — witnessed on
+                  the deployed build (`b14cd478`, guest, 291px dock, completed run)
+                  as an 11px block with its antecedent two elements away.
+
+                  `AnalysisFooter` already renders this exact producer string
+                  directly beneath its status word, with nothing between, and
+                  `AnalysisFooter.metaWrap.spec.tsx` pins the wrap treatment and
+                  the verbatim text (not the adjacency).
+
+                  ⚠ THE COPY IS UNCHANGED AND STAYS THE PRODUCER'S. An ORDERING
+                  fix, not a rewrite. Capitalising the clause here would falsify a
+                  sentence CEE composed as a continuation.
+
+                  ⚠ RESOLVED AGAINST #1195, WHICH LANDED FIRST AND KEPT THE OLD
+                  ORDER INSIDE A NEW WRAPPER. Both fixes are kept: the wrapper is
+                  staging's, the order is this one's. Taking either side wholesale
+                  reverts the other. */}
+              {glance.verdict.reason ? (
+                <p
+                  className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+                  data-testid={`${testId}-verdict-reason`}
+                >
+                  {glance.verdict.reason}
+                </p>
+              ) : null}
               {glance.winFraction !== null ? (
                 <span
                   className="mt-1.5 block h-1 w-full rounded-full bg-panel-hover overflow-hidden"
@@ -481,14 +511,6 @@ export function AtAGlance({
                 </span>
               ) : null}
 
-              {glance.verdict.reason ? (
-                <p
-                  className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
-                  data-testid={`${testId}-verdict-reason`}
-                >
-                  {glance.verdict.reason}
-                </p>
-              ) : null}
             </div>
           ) : null}
 

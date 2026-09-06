@@ -148,7 +148,7 @@ import { useResultsSectionData } from '../../components/results/useResultsSectio
 import type { TornadoRow } from '../../components/results/TornadoChart'
 import { useCanvasResultsSync } from '../../components/results/useCanvasResultsSync'
 import { ResultsBody } from '../../components/results/ResultsBody'
-import { staleReasonFromFreshness } from '../../components/results/analysisNew/staleReason'
+import { staleReasonFromTrustSemantic } from '../../components/results/analysisNew/staleReason'
 import { AnalysisNewTabBody } from '../../components/results/analysisNew/AnalysisNewTabBody'
 import { SectionErrorBoundary } from './SectionErrorBoundary'
 import { useGuidanceStore } from '../stores/guidanceStore'
@@ -998,7 +998,58 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
    * the distinction through its own notice; handing it a second authority for
    * one question is the trap this is fixing, not a symmetry to restore.
    */
-  const analysisStaleReason = staleReasonFromFreshness(displayedFreshness)
+  /**
+   * ⭐⭐ READ FROM THE TRUST SEMANTIC, NOT FROM `displayedFreshness` — the two
+   * answer the same question and only one of them can see a LOCAL EDIT.
+   *
+   * `displayedFreshness` turns `'stale'` only when CEE says so. The trust
+   * semantic is a SEPARATELY COMPOSED value that a local edit can turn
+   * `'changed'`; `classifyFreshnessForDisplay` is one of the four routes to it,
+   * not the value itself. The four are enumerated once, at
+   * `components/results/analysisNew/staleReason.ts`, and deliberately not
+   * repeated here. So immediately after a user edits a value, the footer said "Model
+   * changed. Results may be out of date." while this panel said "We cannot
+   * confirm whether this analysis reflects the current model" — both on screen,
+   * witnessed on the deployed build. The panel was not being careful, it was
+   * blind.
+   *
+   * ⚠⚠ THIS COMMENT NO LONGER RESTATES THAT FUNCTION'S RULE, DELIBERATELY.
+   * What sat here was a SECOND COPY of a one-line summary that also sat in
+   * `staleReason.ts`, and nothing kept the two in step — the estate's
+   * hand-maintained-mirror defect, on a claim about another module's branches.
+   * Both copies were rewritten together once and were STILL false, in the
+   * other direction: they said a retained `'unknown'` dirtied locally yields
+   * `'cannot_confirm'`, which is wrong for the `graph_patch: applied` state
+   * (`VERDICT_ABSENT_FROM_PAYLOAD` + dirty, no import hold), where the
+   * function returns `'changed'`. The branches are now enumerated ONCE, beside
+   * the reader this line calls, in
+   * `components/results/analysisNew/staleReason.ts`, derived by executing the
+   * function over its whole input space and pinned by name in its spec.
+   * **Read it there; do not re-summarise it here.**
+   *
+   * ⚠ A THIRD FALSE SENTENCE SAT HERE THROUGH `1eeb360c`, and it was the same
+   * mirror one level up: BOTH files claimed the trust semantic simply IS
+   * `classifyFreshnessForDisplay`. It is one route of four — see the `semantic`
+   * assignment in `canvas/state/analysisStateSelector.ts` (`:584-591` at that
+   * commit) — so it was a closed claim about one function, attached to a value
+   * with more routes than it accounts for. Corrected in both copies together;
+   * the routes are listed only in `staleReason.ts`.
+   *
+   * ONE shared admission, read by both surfaces. The fail-closed rule is
+   * unchanged: only the authority's own `'changed'` licenses the stronger
+   * sentence — see `staleReasonFromTrustSemantic`.
+   */
+  /**
+   * ⚠ READ FROM THE BINDING ALREADY IN SCOPE, NOT FROM A SECOND SUBSCRIPTION.
+   * The first cut called `useAnalysisTrust()` here — which is literally
+   * `useAnalysisState().trust`, and `composedAnalysisState` is that same
+   * selector, already bound above in this component (no line number here —
+   * this PR removed one from `adapters.ts` for going stale, and the first
+   * draft of this sentence had gone stale the same way). Two independent subscriptions to one
+   * authority is harmless within a render and is exactly what the comment
+   * beneath this argues against; caught in review.
+   */
+  const analysisStaleReason = staleReasonFromTrustSemantic(composedAnalysisState.trust.semantic)
   // Brief step 6 — the composed run state that decides WHICH truth-state
   // banner this surface may render. It derives nothing new: it maps the
   // verdicts the refusal/freshness/results owners already publish onto the
