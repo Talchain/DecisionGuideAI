@@ -2275,6 +2275,11 @@ function recordStructuralRenameIntent(
     label,
     baseGraphHash: state.lastServerGraphHash,
     externalMutationActive: state._externalMutationActive > 0,
+    // The elements CEE has acknowledged, or null when none have been seen. A
+    // node absent from a record that EXISTS was created after CEE last spoke,
+    // so there is no server-side rename to confirm and nothing to send — see
+    // `captureStructuralRename` for why null must NOT stand down.
+    authoritativeNodeIds: state.lastAuthoritativeGraph?.nodeIds ?? null,
     makeId: () =>
       typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
@@ -5878,6 +5883,29 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         draftChatPreDraftSnapshot.edges,
       ),
       ceePipelineTrace: null,
+      // ⭐ THE FOURTH GRAPH-REPLACEMENT SITE, AND THE ONLY ONE THAT DID NOT
+      // STAND THE RECORD DOWN. `useImportRegistration.ts:6-7` enumerates all
+      // four — `importCanvas`, `hydrateGraphSlice`, `loadScenario`, `undoDraft`
+      // — and the other three already handle it: `importCanvas` nulls it via
+      // `DECISION_CONTEXT_CLEAR`, `hydrateGraphSlice` writes it (`:7327`),
+      // `loadScenario` writes it inside its own `set()` (`:5427`, added by
+      // #1133). This one wrote neither.
+      //
+      // ⚠ WHAT THAT COSTS, and it is a LIE not a gap: after draft → undo, the
+      // record still describes the DRAFT graph while the canvas shows the
+      // PRE-DRAFT one. A rename-stand-down that trusts the record then
+      // suppresses a legitimate warning about a node the server never held —
+      // the data-loss class #1108 closed, reopened through a door nobody
+      // checked.
+      //
+      // `null` rather than a re-derivation is deliberate: it means "no
+      // authoritative graph seen for THIS canvas", which routes the reader
+      // back to the FAIL-SAFE disclosure path. Re-deriving would be a second
+      // authority guessing at what the server holds, and guessing is the thing
+      // being fixed. ⛔ Do NOT reach for `DECISION_CONTEXT_CLEAR` here — it
+      // also nulls `currentScenarioId`, `serverGraphIdentity` and the delete
+      // queue, none of which an undo invalidates.
+      lastAuthoritativeGraph: null,
       // Graph Lens: auto-reset on draft undo (graph shape changed)
       lens: createDefaultLensState(),
     })
