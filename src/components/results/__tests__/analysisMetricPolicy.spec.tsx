@@ -63,9 +63,11 @@ describe('analysis metric value + basis + permitted-language policy', () => {
      * ⚠⚠ THIS ROW SAID `'absolute_influence_score'` UNTIL 5 Sep 2026, AND THAT
      * PIN RATIFIED THE DEFECT. `influence_score` is set-relative: the producer
      * divides by `max|influence|`, so the top row is 1.0 by construction.
-     * Verified from this side before changing it — every capture in the repo
-     * carrying the field has a maximum of exactly 1.0, twelve files including
-     * live staging responses.
+     * Verified from this side before changing it, and narrowed 6 Sep 2026 to
+     * what is measured after a reviewer refuted the universal: of the 21 JSON
+     * files under `src/` carrying the field, every one whose maximum is non-zero
+     * maxes at exactly 1.0 (live staging responses among them), none exceeds
+     * 1.0, and one real degenerate turn is uniformly 0.
      *
      * The change is deliberate and is the ruling, not a test bent to fit a
      * change. See `influenceIsNeverCalledAbsolute.spec.ts` for the evidence and

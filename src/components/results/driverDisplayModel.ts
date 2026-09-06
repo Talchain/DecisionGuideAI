@@ -46,9 +46,15 @@ export interface DriverDisplayEntry {
  * and `normalised_elasticity` is this app's own normalisation of a raw
  * elasticity. They are two different NORMALISATIONS, not absolute vs relative.
  *
- * Measured on data rather than argued from code: every capture in this repo
- * carrying `influence_score` has a maximum of EXACTLY 1.0, twelve files
- * including live staging responses.
+ * Measured on data rather than argued from code — and NARROWED 6 Sep 2026 to
+ * what is actually measured, after a reviewer refuted the universal this line
+ * used to state ("every capture … twelve files"). Of the 21 JSON files under
+ * `src/` carrying `influence_score`, every one whose maximum is NON-ZERO maxes
+ * at EXACTLY 1.0 (live staging responses among them), and none exceeds 1.0.
+ * ONE is uniformly 0 — `seeded-2026-08-17-w2d-analysis-turn.json`, a real
+ * `response_version: 2` turn — which is the degenerate run, not a counter-scale.
+ * The sweep is DERIVED in `influenceIsNeverCalledAbsolute.spec.ts`, so it REDs
+ * if either half changes.
  *
  * ⚠ The distinction between them is real and worth keeping — one is a producer
  * measurement and the other our fallback, which is why only the first licenses
@@ -91,10 +97,11 @@ const PERMITTED_LANGUAGE_BY_BASIS: Record<AnalysisMetricBasis, PermittedAnalysis
    * The producer divides every factor by `max|influence|`, so the top row is
    * **1.0 by construction** — driver count is irrelevant, and 100% means
    * "largest in this set" and nothing more. Confirmed independently from this
-   * side before the change: every capture in this repo carrying
-   * `influence_score` has a maximum of EXACTLY 1.0, across twelve files
-   * including live staging responses. A quantity whose maximum is always
-   * exactly 1 is a ratio to that maximum.
+   * side before the change, and stated as measured (see the file header for the
+   * 6 Sep narrowing): of the 21 JSON files under `src/` carrying
+   * `influence_score`, every one whose maximum is non-zero maxes at EXACTLY 1.0,
+   * none exceeds 1.0, and one is uniformly 0. A quantity that is either exactly
+   * 1 at its top or uniformly zero is a ratio to its own maximum.
    *
    * ⚠⚠ AND WHY IT IS A TRUST DEFECT RATHER THAN A WORDING ONE.
    * `live-influence-score-one-2026-08-23.json`, a real staging response, holds

@@ -16,9 +16,12 @@
  * NORMALISATIONS: 'normalised_elasticity' is this app's own, and
  * 'influence_score' is the producer's, against `max|influence|` — so its top
  * row is 1.0 by construction exactly as the other's is. Verified from this
- * side rather than taken on trust: every capture in this repo carrying
- * `influence_score` has a maximum of exactly 1.0, twelve files including live
- * staging responses.
+ * side rather than taken on trust — and narrowed 6 Sep 2026 to what is measured
+ * (the previous sentence claimed EVERY capture maxes at 1.0; a reviewer refuted
+ * it): of the 21 JSON files under `src/` carrying `influence_score`, every one
+ * whose maximum is non-zero maxes at exactly 1.0 (live staging responses among
+ * them), none exceeds 1.0, and one real degenerate turn is uniformly 0. The
+ * sweep is derived in `influenceIsNeverCalledAbsolute.spec.ts`.
  *
  * So BOTH must be disclosed, in the same words. No provenance (legacy fixtures
  * / cached payloads) still fails closed to the generic wording, never claiming
@@ -70,10 +73,12 @@ export const INFLUENCE_EXPLANATION_RELATIVE =
  * file** — which is why a careful lane relied on it.
  *
  * `influence_score` is normalised against `max|influence|`, so the top row is
- * 1.0 BY CONSTRUCTION. Measured on data rather than argued from code: every
- * capture in this repo carrying the field has a maximum of EXACTLY 1.0 —
- * twelve files, live staging responses among them. A quantity whose maximum is
- * always exactly 1 is a ratio to that maximum.
+ * 1.0 BY CONSTRUCTION. Measured on data rather than argued from code, and
+ * stated as measured (see the module header for the 6 Sep narrowing): of the 21
+ * JSON files under `src/` carrying the field, every one whose maximum is
+ * non-zero maxes at EXACTLY 1.0 (live staging responses among them), none
+ * exceeds 1.0, and one is uniformly 0. A quantity that is either exactly 1 at
+ * its top or uniformly zero is a ratio to its own maximum.
  *
  * So the clause was false twice over, for two unrelated reasons, and neither
  * lane could see the other's. It is now the relative wording — which was true

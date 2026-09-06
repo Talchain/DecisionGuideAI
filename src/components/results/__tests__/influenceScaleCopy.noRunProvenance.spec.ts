@@ -67,8 +67,10 @@ describe('influence copy — no string attributes the figure to the analysis run
     // ⚠ THE WITNESS CHANGED; THE PROPERTY DID NOT. This asserted the producer
     // arm contains "absolute" — a true witness for a FALSE claim. #1228
     // established that `influence_score` is set-relative (normalised against
-    // `max|influence|`; every capture in this repo maxes at exactly 1.0), so
-    // that word had to go.
+    // `max|influence|`; of the 21 JSON files under `src/` carrying the field,
+    // every one whose maximum is non-zero maxes at exactly 1.0 and none exceeds
+    // it — narrowed 6 Sep 2026 from a universal a reviewer refuted, the sweep is
+    // derived in `influenceIsNeverCalledAbsolute.spec.ts`), so that word had to go.
     //
     // What this control is FOR survives untouched, and it caught a real
     // over-reach: the first cut of #1228 aliased the two constants together and
@@ -104,8 +106,9 @@ describe('influence copy — no string attributes the figure to the analysis run
      * 'an absolute producer scale, not a share'". **That sentence in
      * `driverDisplayModel.ts` was wrong**, and it is corrected at its source in
      * the same change as this. `influence_score` is normalised against
-     * `max|influence|` — top row 1.0 by construction, every capture in this repo
-     * maxing at exactly 1.0.
+     * `max|influence|` — top row 1.0 by construction, and of the 21 JSON files
+     * under `src/` carrying the field every one whose maximum is non-zero maxes
+     * at exactly 1.0 (one real degenerate turn is uniformly 0; none exceeds 1.0).
      *
      * So this guard was defending a true property with a false witness. The
      * property stays; the witness becomes the scale that is actually there.

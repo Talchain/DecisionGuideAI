@@ -5,9 +5,11 @@
  * Paul witnessed **"Structural influence 100%"** on the deployed panel and I
  * told Primary the UI was faithfully printing an absolute 1.0 the producer had
  * sent. **That was wrong.** The producer sends a SET-RELATIVE 1.0 — it divides
- * every factor by `max|influence|`, so the top row is 1.0 by construction, and
- * every capture in this repo maxes at exactly 1.0. The absolute claim is made
- * HERE.
+ * every factor by `max|influence|`, so the top row is 1.0 by construction: of
+ * the 21 JSON files under `src/` carrying the field, every one whose maximum is
+ * non-zero maxes at exactly 1.0 and none exceeds it (one real degenerate turn is
+ * uniformly 0 — narrowed 6 Sep 2026 from a universal a reviewer refuted). The
+ * absolute claim is made HERE.
  *
  * ── THE PREDICATE IS INVERTED AGAINST ITS OWN STATED RULE ──────────────────
  * `driverFinding` carries the rule three lines above the branch:

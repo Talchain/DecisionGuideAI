@@ -598,8 +598,11 @@ function buildDrivers(
    * deployed build.
    *
    * `influence_score` is the producer's normalisation against `max|influence|`:
-   * the top row is 1.0 BY CONSTRUCTION, and every capture in this repo maxes at
-   * exactly 1.0. The rule three lines below the branch was already right —
+   * the top row is 1.0 BY CONSTRUCTION, and of the 21 JSON files under `src/`
+   * carrying the field every one whose maximum is non-zero maxes at exactly 1.0
+   * (one real degenerate turn is uniformly 0; none exceeds 1.0 — the derived
+   * sweep is `influenceIsNeverCalledAbsolute.spec.ts`). The rule three lines
+   * below the branch was already right —
    * "under a set-relative basis this says 'among the strongest in this run' … it
    * never says 'drives N% of the outcome'". The predicate implementing it was
    * upside down.

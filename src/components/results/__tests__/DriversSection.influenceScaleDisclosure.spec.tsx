@@ -9,12 +9,28 @@
  * leaving "Influence: how much this factor affects the outcome" — read as an
  * absolute causal share.
  *
+ * ⚠⚠ THE SECOND BULLET BELOW USED TO READ "provenance 'influence_score' →
+ * honest absolute-basis wording, NO relative caption". THAT WAS THE DEFECT,
+ * not the fix. `influence_score` is normalised against `max|influence|`, so its
+ * top row is 1.0 by construction exactly as the fallback basis's is — and the
+ * producer sends it on an ordinary run. The panel therefore withheld the
+ * disclosure on the COMMON CASE and rendered the generic explainer beside a
+ * figure that is 100% by construction. Corrected 6 Sep 2026 (PR #1228 review).
+ *
+ * TWO QUESTIONS, TWO GATES — the component now separates them:
+ * - SCALE ("does the top row read 100% by construction?") — yes on BOTH
+ *   stamped bases, so both get the visible caption and the relative explainer;
+ * - QUANTITY ("which normalisation is this?") — genuinely different, so the
+ *   header tooltip keeps its three arms and each names its own quantity.
+ *
  * Fix under test (copy/caption only — numbers and ranking policy untouched):
  * - provenance 'normalised_elasticity' → header tooltip + explainer carry the
  *   relative-scale wording, and a visible caption disclosing "top driver
  *   always shows 100%" renders near the panel;
- * - provenance 'influence_score' → honest absolute-basis wording (types.ts:
- *   influence_score is "structural causal influence"), NO relative caption;
+ * - provenance 'influence_score' → the SAME caption and explainer, with the
+ *   tooltip naming the producer's quantity;
+ * - either basis, degenerate set (nothing renders) → fail-closed to the
+ *   generic wording: never claim a 100% top row over zero rows;
  * - no provenance stamp (legacy fixtures / cached payloads) → fail-closed:
  *   today's generic wording, no caption — never claim a basis the pipeline
  *   did not stamp.
@@ -96,7 +112,19 @@ function relativeBasisData(): DriversSectionData {
   ])
 }
 
-/** Full producer coverage: every factor carries a raw influence_score. */
+/**
+ * Full producer coverage: every factor carries a raw influence_score — the
+ * ORDINARY run, which is what the producer sends.
+ *
+ * ⚠ THE VALUES USED TO BE 0.62 / 0.31, AND NO PRODUCER RUN LOOKS LIKE THAT.
+ * `influence_score` is normalised against `max|influence|`, so the top row is
+ * 1.0. Derived over this tree rather than argued: of the 21 JSON files under
+ * `src/` carrying the field, every one whose maximum is non-zero maxes at
+ * exactly 1.0 (the sweep lives in `influenceIsNeverCalledAbsolute.spec.ts`).
+ * A fixture outside the producer's output domain proves nothing about the
+ * producer, so this one is 1.0 / 0.88 — the pair measured on the deployed
+ * build that opened this PR.
+ */
 function producerBasisData(): DriversSectionData {
   return makeDriversData([
     makeDriver({
@@ -104,8 +132,8 @@ function producerBasisData(): DriversSectionData {
       factorLabel: 'Technical Leadership Capability',
       rawElasticity: 0.9,
       normalisedInfluence: 1,
-      influenceScore: 0.62,
-      displayInfluence: 0.62,
+      influenceScore: 1,
+      displayInfluence: 1,
       displayProvenance: 'influence_score',
     }),
     makeDriver({
@@ -113,11 +141,49 @@ function producerBasisData(): DriversSectionData {
       factorLabel: 'Market Timing',
       rawElasticity: 0.45,
       normalisedInfluence: 0.5,
-      influenceScore: 0.31,
-      displayInfluence: 0.31,
+      influenceScore: 0.88,
+      displayInfluence: 0.88,
       displayProvenance: 'influence_score',
       rank: 2,
       semanticLabel: 'moderate',
+    }),
+  ])
+}
+
+/**
+ * The producer basis in its DEGENERATE state, and it is not hypothetical:
+ * `src/lib/coherence/__tests__/fixtures/captures/seeded-2026-08-17-w2d-analysis-turn.json`
+ * is a real `response_version: 2` analysis turn whose three factors all carry
+ * `influence_score: 0` (one stamped `input_quality: "degenerate_fallback"`).
+ * Nothing clears the panel's >= 0.01 visibility filter, so a "top driver always
+ * shows 100%" claim would point at zero rows — fail closed, exactly as the
+ * fallback basis already does.
+ *
+ * ⚠ `hasMagnitudeData` is TRUE here on purpose. It is `maxRawElasticity > 0.001`
+ * — a fact about the app's own basis — so it cannot be the degeneracy test for
+ * the producer's. This fixture would pass a hasMagnitudeData-only guard.
+ */
+function degenerateProducerData(): DriversSectionData {
+  return makeDriversData([
+    makeDriver({
+      factorKey: 'fac_a',
+      factorLabel: 'Wholesale Gas Price',
+      rawElasticity: 0.5,
+      normalisedInfluence: 0,
+      influenceScore: 0,
+      displayInfluence: 0,
+      displayProvenance: 'influence_score',
+    }),
+    makeDriver({
+      factorKey: 'fac_b',
+      factorLabel: 'Price Lock Level',
+      rawElasticity: 0.5,
+      normalisedInfluence: 0,
+      influenceScore: 0,
+      displayInfluence: 0,
+      displayProvenance: 'influence_score',
+      rank: 2,
+      semanticLabel: 'minor',
     }),
   ])
 }
@@ -151,7 +217,7 @@ function degenerateRelativeData(): DriversSectionData {
         displayInfluence: 0,
         displayProvenance: 'normalised_elasticity',
         rank: 2,
-        semanticLabel: 'weak',
+        semanticLabel: 'minor',
       }),
       makeDriver({
         factorKey: 'fac_c',
@@ -161,7 +227,7 @@ function degenerateRelativeData(): DriversSectionData {
         displayInfluence: 0,
         displayProvenance: 'normalised_elasticity',
         rank: 3,
-        semanticLabel: 'weak',
+        semanticLabel: 'minor',
       }),
     ],
     topDrivers: [],
@@ -225,16 +291,43 @@ describe('DriversSection influence-scale disclosure (lane C4)', () => {
     })
   })
 
-  describe('producer basis (influence_score) — absolute scale', () => {
-    it('does NOT render the relative-scale caption', () => {
+  describe('producer basis (influence_score) — set-relative too, and it is the ORDINARY run', () => {
+    /**
+     * ⚠⚠ BOTH ASSERTIONS BELOW WERE THE EXACT OPPOSITE UNTIL 6 Sep 2026, and
+     * they pinned a user-visible defect rather than a behaviour.
+     *
+     * The premise was that `influence_score` is "an absolute structural-causal
+     * -influence score from the producer" (`DriversSection.tsx`, the comment
+     * above the branch). It is not: the producer normalises against
+     * `max|influence|`, so the top row is 1.0 BY CONSTRUCTION. On an ordinary
+     * run every row carries this provenance, so the panel rendered the generic
+     * explainer and withheld the caption on precisely the case that needs it.
+     *
+     * Inverted rather than deleted, following #1221's idiom in this same file:
+     * they now RED if the disclosure is ever withheld on this basis again.
+     */
+    it('renders the relative-scale caption (the top row is 1.0 by construction)', () => {
       render(<DriversSection data={producerBasisData()} goalLabel="test" />)
-      expect(screen.queryByTestId('influence-scale-caption')).toBeNull()
+      const caption = screen.getByTestId('influence-scale-caption')
+      expect(caption.textContent).toBe(CAPTION_COPY)
     })
 
-    it('explainer keeps the generic wording (no relative clause)', () => {
+    it('explainer carries the relative framing, not the generic wording', () => {
       render(<DriversSection data={producerBasisData()} goalLabel="test" />)
-      expect(screen.getByText(GENERIC_EXPLAINER)).toBeDefined()
-      expect(screen.queryByText(RELATIVE_EXPLAINER)).toBeNull()
+      expect(screen.getByText(RELATIVE_EXPLAINER)).toBeDefined()
+      expect(screen.queryByText(GENERIC_EXPLAINER)).toBeNull()
+    })
+
+    it('DISCRIMINATOR: the QUANTITY is still the producer one, not the fallback basis one', () => {
+      // Two questions, two gates. Widening the SCALE gate to both bases must
+      // not collapse the QUANTITY distinction — if the tooltip ever served the
+      // fallback basis's sentence here, the two normalisations would have one
+      // name and this REDs.
+      render(<DriversSection data={producerBasisData()} goalLabel="test" />)
+      hoverInfluenceHeader()
+      const tooltip = screen.getByRole('tooltip')
+      expect(tooltip.textContent).toContain(ABSOLUTE_TOOLTIP)
+      expect(tooltip.textContent).not.toContain(RELATIVE_TOOLTIP)
     })
 
     it('Influence header tooltip DISCLOSES the 100%-by-construction scale', () => {
@@ -243,9 +336,12 @@ describe('DriversSection influence-scale disclosure (lane C4)', () => {
        * tooltip must NOT contain "always shows 100%". That was the sharpest
        * expression of the two-scales design, and the design's premise is false:
        * `influence_score` is normalised against `max|influence|`, so the top row
-       * is 1.0 by construction, exactly as the relative basis is. Every capture
-       * in this repo carrying the field maxes at exactly 1.0 — twelve files,
-       * live staging responses among them.
+       * is 1.0 by construction, exactly as the relative basis is. Narrowed to
+       * what is measured (6 Sep 2026): of the 21 JSON files under `src/`
+       * carrying the field, every one whose maximum is non-zero maxes at exactly
+       * 1.0, live staging responses among them; none exceeds 1.0, and one real
+       * degenerate turn is uniformly 0 (covered by the degenerate PRODUCER block
+       * below). The sweep is derived in `influenceIsNeverCalledAbsolute.spec.ts`.
        *
        * Withholding the disclosure on THIS basis is what let a
        * 100%-by-construction figure read as a causal share. The negative
@@ -257,6 +353,35 @@ describe('DriversSection influence-scale disclosure (lane C4)', () => {
       const tooltip = screen.getByRole('tooltip')
       expect(tooltip.textContent).toContain(ABSOLUTE_TOOLTIP)
       expect(tooltip.textContent).toContain('always shows 100%')
+    })
+  })
+
+  describe('degenerate PRODUCER set — the same fail-closed rule, on the other basis', () => {
+    it('renders no relative-scale caption when every influence_score is 0', () => {
+      render(<DriversSection data={degenerateProducerData()} goalLabel="test" />)
+      expect(screen.queryByTestId('influence-scale-caption')).toBeNull()
+    })
+
+    it('keeps the generic explainer (no relative clause) in the degenerate state', () => {
+      render(<DriversSection data={degenerateProducerData()} goalLabel="test" />)
+      expect(screen.getByText(GENERIC_EXPLAINER)).toBeDefined()
+      expect(screen.queryByText(RELATIVE_EXPLAINER)).toBeNull()
+    })
+
+    it('header tooltip falls back to the generic wording, not the 100% claim', () => {
+      render(<DriversSection data={degenerateProducerData()} goalLabel="test" />)
+      hoverInfluenceHeader()
+      const tooltip = screen.getByRole('tooltip')
+      expect(tooltip.textContent).toBe(GENERIC_TOOLTIP)
+      expect(tooltip.textContent).not.toContain('always shows 100%')
+    })
+
+    it('sanity: the fixture really does render zero driver rows', () => {
+      // Without this the three assertions above could pass on a panel that is
+      // simply not degenerate.
+      render(<DriversSection data={degenerateProducerData()} goalLabel="test" />)
+      expect(screen.queryByText('Wholesale Gas Price')).toBeNull()
+      expect(screen.queryByText('Price Lock Level')).toBeNull()
     })
   })
 

@@ -196,8 +196,10 @@ describe('influence basis (§16) — displayProvenance decides, not taste', () =
      * basis, which is the ordinary run. So the panel took its ABSOLUTE arm on
      * precisely the runs whose basis is set-relative for every row, and printed
      * "Structural influence 100%" — the string Paul witnessed on the deployed
-     * build. Every capture in this repo maxes at exactly 1.0, because the
-     * producer divides by `max|influence|`.
+     * build. Of the 21 JSON files under `src/` carrying the field, every one
+     * whose maximum is non-zero maxes at exactly 1.0 and none exceeds it, because
+     * the producer divides by `max|influence|` (narrowed 6 Sep 2026 from a
+     * universal a reviewer refuted with a real all-zero degenerate turn).
      *
      * Evidence and the full ruling: `theScaleClaimMatchesTheScale.spec.ts`.
      */

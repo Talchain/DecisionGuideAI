@@ -881,41 +881,67 @@ export function DriversSection({
   // place. DriversSection still surfaces per-row sensitivity / confidence;
   // the cross-driver dominance signal is owned by T1.
 
-  // Lane C4 (influence-scale disclosure): the shared display model
+  // Lane C4 (influence-scale disclosure) — TWO QUESTIONS, TWO GATES.
+  //
+  // Q1 · WHICH QUANTITY is on screen? The shared display model
   // (driverDisplayModel.selectDriverDisplayModel) resolves ONE basis for the
-  // entire ranked set — so any stamped row's `displayProvenance` describes
-  // the whole panel. On the fallback basis ('normalised_elasticity') the
-  // displayed value is per-set normalised |elasticity| and the top driver
-  // shows 100% BY CONSTRUCTION — that must be disclosed (the "Relative
-  // influence" wording was dropped in v7.10 T9). On the producer basis
-  // ('influence_score') the value is an absolute structural-causal-influence
-  // score from the producer (see the DriverItem type) — say that instead. No stamp
-  // (legacy fixtures / cached payloads) → fail-closed: keep the generic
+  // entire ranked set, so any stamped row's `displayProvenance` describes the
+  // whole panel. 'normalised_elasticity' is this app's own normalisation of
+  // |elasticity|; 'influence_score' is the producer's structural score. No
+  // stamp (legacy fixtures / cached payloads) → fail-closed: keep the generic
   // wording; never claim a basis the pipeline did not stamp. Derived from the
   // FULL drivers list (same belt-and-braces as anyConfidenceProvisional).
+  //
+  // ⚠ THE VARIANT NAMES ARE NOW A MISNOMER AND ARE KEPT ON PURPOSE. 'absolute'
+  // means "the producer's quantity", NOT "an absolute scale" — neither basis has
+  // one (Q2). They match `INFLUENCE_EXPLANATION_ABSOLUTE`, which canvas surfaces
+  // outside this lane import by name, so renaming is a coordinated change rather
+  // than a local tidy-up. Read them as quantity labels.
   const influenceBasisStamped: 'relative' | 'absolute' | 'unknown' =
     drivers.some(d => d.displayProvenance === 'normalised_elasticity')
       ? 'relative'
       : drivers.some(d => d.displayProvenance === 'influence_score')
         ? 'absolute'
         : 'unknown'
-  // Review fix 1 (degenerate-state false caption): never claim "the top
-  // driver always shows 100%" when the claim has nothing to point at. In the
-  // degenerate state (max magnitude below the data layer's 0.001 floor)
-  // every normalised value is 0 — rows keep the fallback provenance stamp,
-  // but the >=0.01 visibility filter empties the rendered list, so the
-  // caption/explainer would assert a 100% top driver over ZERO rows.
-  // hasMagnitudeData is the data layer's own flag for that floor;
-  // visibleDrivers.length is the belt-and-braces for any other all-hidden
-  // set. Fail closed to the generic wording (same doctrine as the unstamped
-  // branch).
+  // Q3 · HAS THE CLAIM ANYTHING TO POINT AT? Never say "the top driver always
+  // shows 100%" over zero rows. Two ways a stamped set can be degenerate, and
+  // they are NOT the same test:
+  //  · the fallback basis collapses when max |elasticity| sits below the data
+  //    layer's 0.001 floor — `hasMagnitudeData` is that flag, and it is a fact
+  //    about THIS APP'S basis only, so it gates only that arm. (A demoted lever
+  //    carries elasticity 0 with `influence_score` 1 deliberately — witnessed in
+  //    `live-influence-score-one-2026-08-23.json` — so applying it to the
+  //    producer arm would withhold the disclosure on exactly the trust case.)
+  //  · either basis can arrive all-zero. The producer does:
+  //    `seeded-2026-08-17-w2d-analysis-turn.json` is a real response_version 2
+  //    turn whose every `influence_score` is 0. The >= 0.01 visibility filter
+  //    then empties the rendered list, so `visibleDrivers.length` is the
+  //    basis-agnostic guard and applies to both.
+  // Fail closed to the generic wording (same doctrine as the unstamped branch).
   const influenceBasis: 'relative' | 'absolute' | 'unknown' =
-    influenceBasisStamped === 'relative' && (!hasMagnitudeData || visibleDrivers.length === 0)
+    influenceBasisStamped === 'unknown' ||
+    visibleDrivers.length === 0 ||
+    (influenceBasisStamped === 'relative' && !hasMagnitudeData)
       ? 'unknown'
       : influenceBasisStamped
+  // Q2 · IS THE SCALE SET-RELATIVE — does the top row read 100% by construction?
+  //
+  // ⚠⚠ CORRECTED 6 Sep 2026 (PR #1228 review). Q1 and Q2 were ONE gate, on the
+  // premise stated above this branch that 'influence_score' is "an absolute
+  // structural-causal-influence score from the producer". THAT PREMISE IS FALSE
+  // — the producer normalises against `max|influence|` (see influenceScaleCopy,
+  // and the corpus sweep in influenceIsNeverCalledAbsolute.spec.ts). Because the
+  // producer sends that provenance on an ORDINARY run, the panel rendered the
+  // generic explainer and WITHHELD the caption on the common case, beside a
+  // figure that is 100% by construction — the misreading this lane exists to
+  // stop. Both stamped bases answer Q2 yes, so both scale-claiming surfaces
+  // follow it. Q1 keeps its own gate below: the two normalisations still differ,
+  // and collapsing them would trade a false claim for a vague one.
+  const influenceScaleIsSetRelative = influenceBasis !== 'unknown'
   // Copy comes from the ONE shared module (influenceScaleCopy) the canvas
   // pill consumes too — surfaces cannot drift (review fix 3: the strings are
-  // also policed there for the DS em-dash ban).
+  // also policed there for the DS em-dash ban). This is the Q1 gate: each arm
+  // names its own quantity, and neither claims an absolute scale.
   const influenceTooltipContent =
     influenceBasis === 'relative'
       ? INFLUENCE_EXPLANATION_RELATIVE
@@ -925,9 +951,10 @@ export function DriversSection({
 
   return (
     <div className="space-y-4">
-      {/* Ranking explainer — carries the relative framing on the fallback basis (C4) */}
+      {/* Ranking explainer — carries the relative framing on EITHER stamped
+          basis (C4; widened from the fallback basis alone 6 Sep 2026, see Q2). */}
       <p className={`${typography.panelMeta} text-text-light`}>
-        {influenceBasis === 'relative'
+        {influenceScaleIsSetRelative
           ? INFLUENCE_RANKING_EXPLAINER_RELATIVE
           : INFLUENCE_RANKING_EXPLAINER_GENERIC}
       </p>
@@ -936,11 +963,12 @@ export function DriversSection({
           producer did not disclose a reference option (fail-closed). */}
       <SensitivityReferenceCaption optionLabel={sensitivityReferenceLabel} />
 
-      {/* Lane C4: relative-scale caption — visible (not hover-only) whenever
-          the fallback basis is active, following the SensitivityReferenceCaption
-          idiom (role="note", panelMeta). Absent on the producer basis and on
-          unstamped legacy payloads. */}
-      {influenceBasis === 'relative' && (
+      {/* Lane C4: relative-scale caption — visible (not hover-only) whenever a
+          set-relative basis is active, following the SensitivityReferenceCaption
+          idiom (role="note", panelMeta). Absent on unstamped legacy payloads and
+          in the degenerate state. ⚠ It was absent on the PRODUCER basis too
+          until 6 Sep 2026, which withheld it on the ordinary run — see Q2. */}
+      {influenceScaleIsSetRelative && (
         <p
           role="note"
           data-testid="influence-scale-caption"
