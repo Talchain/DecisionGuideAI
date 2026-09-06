@@ -1003,8 +1003,11 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
    * answer the same question and only one of them can see a LOCAL EDIT.
    *
    * `displayedFreshness` turns `'stale'` only when CEE says so. The trust
-   * semantic is `classifyFreshnessForDisplay`, which also reads the local dirty
-   * overlay. So immediately after a user edits a value, the footer said "Model
+   * semantic is a SEPARATELY COMPOSED value that a local edit can turn
+   * `'changed'`; `classifyFreshnessForDisplay` is one of the four routes to it,
+   * not the value itself. The four are enumerated once, at
+   * `components/results/analysisNew/staleReason.ts`, and deliberately not
+   * repeated here. So immediately after a user edits a value, the footer said "Model
    * changed. Results may be out of date." while this panel said "We cannot
    * confirm whether this analysis reflects the current model" — both on screen,
    * witnessed on the deployed build. The panel was not being careful, it was
@@ -1023,6 +1026,14 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
    * `components/results/analysisNew/staleReason.ts`, derived by executing the
    * function over its whole input space and pinned by name in its spec.
    * **Read it there; do not re-summarise it here.**
+   *
+   * ⚠ A THIRD FALSE SENTENCE SAT HERE THROUGH `1eeb360c`, and it was the same
+   * mirror one level up: BOTH files claimed the trust semantic simply IS
+   * `classifyFreshnessForDisplay`. It is one route of four — see the `semantic`
+   * assignment in `canvas/state/analysisStateSelector.ts` (`:584-591` at that
+   * commit) — so it was a closed claim about one function, attached to a value
+   * with more routes than it accounts for. Corrected in both copies together;
+   * the routes are listed only in `staleReason.ts`.
    *
    * ONE shared admission, read by both surfaces. The fail-closed rule is
    * unchanged: only the authority's own `'changed'` licenses the stronger

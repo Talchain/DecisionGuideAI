@@ -48,8 +48,51 @@ export function staleReasonFromFreshness(freshness: string | null | undefined): 
  * changed a value on the canvas has produced a change this build knows about
  * with certainty and CEE has not been told about yet.
  *
- * The footer already reads the wider authority: `classifyFreshnessForDisplay`,
- * which also sees the local dirty overlay.
+ * The footer reads the SAME value this mapper takes:
+ * `useAnalysisState().trust.semantic`. `ReanalyseBar` — the surface that
+ * renders "Model changed. Results may be out of date." — reads it through
+ * `useAnalysisTrust()`, which is `useAnalysisState().trust` and nothing else.
+ * The sticky `AnalysisFooter`'s rerun label lands on the same const by the
+ * other name: `deriveRerunActionLabel` documents its `semantic` parameter as
+ * `useAnalysisState().semantic` (`canvas/components/utils/postAnalysisFooter.ts`).
+ *
+ * ⚠ SCOPE, AND THE SENTENCE THAT USED TO SIT HERE WAS WRONG ABOUT IT. It said
+ * that value IS `classifyFreshnessForDisplay`. It is not — that function is ONE
+ * of four routes to it. The composed `semantic` is assigned in exactly one
+ * place, `canvas/state/analysisStateSelector.ts` (`:584-591`), and that
+ * assignment is the only writer of the value `useAnalysisState()` exposes as
+ * BOTH `.semantic` and `.trust.semantic` — the composed const is spread over
+ * the legacy one at `:602-607`, and the hook returns the composition
+ * unaltered. So these four routes are the COMPLETE set, derived at `1eeb360c`:
+ *
+ *   1. NO wire verdict on the turn → `classifyFreshnessForDisplay(effective,
+ *      dirty, importHold)`, reached through `computeAnalysisTrust` (`:166`).
+ *   2. wire present, `run_state.kind === 'complete_current'`, dirty overlay
+ *      set, NO import hold → the literal `'changed'` (`wireCurrencySuperseded`,
+ *      `:570`).
+ *   3. those same conditions WITH an import hold → the literal
+ *      `'cannot_confirm'`.
+ *   4. wire present, not superseded → `mapRunStateKindToSemantic(kind,
+ *      hasReport)`, whose `'complete_stale'` arm returns `'changed'`
+ *      (`:321-322`).
+ *
+ * On routes 2–4 `classifyFreshnessForDisplay` still RUNS — `legacyTrust` is
+ * computed unconditionally at `:464`, because the wire carries no `orphaned` or
+ * `runStartedAt` — but its answer is DISCARDED for `semantic`. Saying it is
+ * never called would be the next false sentence; it is called and outranked.
+ *
+ * The wire branch is LIVE at this pin: schemas `0.50.0`, past the `0.46.0`
+ * payload cut-over `canvas/store/analysisFreshness.ts` names, and
+ * `analysisStateV1` is written by `v5/applyV5State.ts` on the turn,
+ * `canvas/hydrate/serverGraphHydration.ts` on boot,
+ * `canvas/hydrate/applyScenarioAnalysisRead.ts` on the poll, and
+ * `canvas/hooks/useProvisionalAnalysisDelivery.ts`. The selector's own doc
+ * (`:225-229`) and `canvas/hooks/useAnalysisTrust.ts` (`:17-21`) already state
+ * this two-branch reality; this comment did not.
+ *
+ * WHAT FOLLOWS IS SCOPED TO ROUTE 1 ONLY. It enumerates
+ * `classifyFreshnessForDisplay`'s branches — correct about that function, and
+ * NOT an account of every way `semantic` becomes `'changed'`.
  *
  * ⚠⚠ WHAT THAT FUNCTION DOES — ENUMERATED, NOT SUMMARISED, AND THE COUNT IS
  * THE REASON. Two one-line summaries of it have shipped in this comment and
