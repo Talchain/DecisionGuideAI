@@ -582,9 +582,33 @@ export function buildHeroModel(
   // do not yet supply a verdict (older fixtures), and is byte-identical to
   // what it did before.
   const sharedVerdict = recommendation.verdict ?? null
+  // ⭐ WITHHELD GATE — the shared-verdict path obeys the model's licence too.
+  //
+  // This conjunct was absent while its sibling `producerBandApplies` below had
+  // it, so the two answered DIFFERENT questions under near-identical names: this
+  // one asked "does the verdict name the headline row?", the other "may this turn
+  // name a leader at all?". On a turn where the model admits a run but REFUSES a
+  // leader designation (`permitted_analysis_mode: 'quantified_provisional'` =>
+  // `leaderDesignationPermitted` false) while the run still separated the options
+  // (`hasLeadingOption` true), this predicate stayed true, set `leaderBand` to
+  // 'strong', and the headline below became
+  // `mostLikelyStrongest(label, readout)` — "<option> came out ahead in 78% of
+  // simulated scenarios." The crown was correctly withheld, the ordinals were
+  // suppressed, the leader ids were nulled, and the headline named a leader
+  // anyway: every other surface told the truth and the largest sentence on the
+  // panel did not.
+  //
+  // With the conjunct, such a turn falls through to `producerBandApplies` (which
+  // already carries it), `leaderBand` stays null, and the headline takes
+  // `noLeader` — "Here is how your options compare." That is SILENCE, not a
+  // denial, and it is the behaviour the comment at the headline assignment
+  // already describes: `noClearLeader` stays reserved for a producer TIE call,
+  // because asserting "No option is clearly ahead" on a withheld turn would swap
+  // one unearned claim for another.
   const sharedVerdictApplies =
     sharedVerdict != null &&
     headlineRow != null &&
+    !designationsWithheld &&
     sharedVerdict.separation !== 'unknown' &&
     sharedVerdict.leaderId === headlineRow.id
 
