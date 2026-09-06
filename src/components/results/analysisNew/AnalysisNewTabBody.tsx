@@ -132,6 +132,37 @@ export interface AnalysisNewTabBodyProps {
    */
   onReanalyse?: () => void
   /**
+   * ⭐⭐ THE DOCK'S RUN GATE — `runGateResult.allowed`, which `OutputsDock`
+   * binds as `canRunAnalysis` and passes unchanged to `AnalysisReadinessBar`'s
+   * `canRun`, to `PreAnalysisPanelV3`'s `canRun`, and to this prop. (It has
+   * further consumers in that file — `runCanonicalAnalysis`'s own guard among
+   * them — so this is a list of the prop bindings, not of every read.) One
+   * computation, several readers — never several predicates that happen to
+   * agree (CLAUDE.md trap 21).
+   *
+   * This surface offers the re-run twice: the staleness ribbon inside
+   * `AtAGlance`, and the shell footer bar `shellContract.ts` declares for
+   * `analysisNew` (`footerBar: 'reanalyse'`, which renders `ReanalyseBar`).
+   * Without this prop the ribbon control answered "may I re-analyse?" with a
+   * bare handler and could not refuse at all.
+   *
+   * ⚠ THE FOOTER CONTROL DOES NOT READ THIS TODAY. `ReanalyseBar` takes only
+   * `onReanalyse` and disables on `!onReanalyse`; PR #1212 is what points it
+   * at the same verdict. This prop closes the ribbon's half, and the surface
+   * is coherent only once both halves have landed.
+   *
+   * `null` = no verdict supplied, which is treated as blocked. Absent behaves
+   * as `null` for the same reason: a host that has not answered the question
+   * has not answered it, and the fail-closed render is no control at all.
+   */
+  canRunAnalysis?: boolean | null
+  /**
+   * `getRunButtonTooltip(runGateResult)` — the gate's own refusal sentence,
+   * passed rather than re-composed. Two expressions of one refusal is the
+   * defect `runBlockedListing` was introduced to close one level up.
+   */
+  runBlockedReason?: string | null
+  /**
    * The dock's own chat sender, shared with the existing tab.
    *
    * ⚠ ITS ABSENCE IS NOT A FAILURE — `WhatIWasGivenSection` gates its "Add
@@ -223,9 +254,25 @@ export function AnalysisNewTabBody({
   responseHash,
   onFocusNode,
   onReanalyse,
+  canRunAnalysis = null,
+  runBlockedReason = null,
   onSendMessage,
   blockedListing = null,
 }: AnalysisNewTabBodyProps) {
+  /**
+   * ⭐ THE PRESENTATION PREDICATE, IN THE SHAPE THE OTHER READERS OF THIS
+   * VERDICT ALREADY USE (`AnalysisReadinessBar`, `PanelFooter`, and the dock's
+   * own two copies): `!canRun && !isAnalysing`.
+   *
+   * ⚠ `isRunning` IS LOAD-BEARING. The gate refuses a double-run, so
+   * `canRunAnalysis` is FALSE for the whole time an analysis is in flight —
+   * `!canRun` alone would put the gate's refusal copy on a control whose
+   * action is already happening. `isRunning` is the dock's LOCAL flag, which
+   * is also the flag the gate itself consumed; pairing the verdict with the
+   * composed `isBusy` would test a different run than the one that produced
+   * the verdict.
+   */
+  const reanalyseBlocked = !canRunAnalysis && !isRunning
   /**
    * The fail-closed notice channel for canvas focus. `Safe` because this
    * surface renders inside the dock in tests without a ToastProvider, and a
@@ -561,6 +608,30 @@ export function AnalysisNewTabBody({
           staleKind={vm.status.staleKind}
           isProvisional={vm.status.isProvisional}
           onReanalyse={onReanalyse}
+          /* ⭐ DERIVED FROM THE GATE'S VERDICT, NOT A SECOND EXPRESSION OF
+             IT — and not the verdict itself. `reanalyseBlocked` is
+             `!canRunAnalysis && !isRunning` (see above for why `isRunning` is
+             in it), and the reason is masked by that same boolean so a
+             permitted control carries no refusal text. What `AtAGlance` gets
+             is therefore a PRESENTATION predicate over the one admission, in
+             the shape `AnalysisReadinessBar` and `PanelFooter` already use —
+             not either of the two values the dock handed this component. */
+          reanalyseBlocked={reanalyseBlocked}
+          reanalyseBlockedReason={reanalyseBlocked ? runBlockedReason : null}
+          /* ⭐⭐ THE RUNNING STATE, THREADED UNCHANGED — the second of the two
+             questions the ribbon control has to answer. `reanalyseBlocked`
+             above says whether the gate REFUSED; this says whether a run is
+             ALREADY IN FLIGHT, and the button is disabled on either while only
+             the first may caption it.
+
+             ⚠ IT IS THE SAME `isRunning` THE PREDICATE ABOVE WAS DERIVED
+             AGAINST — this prop, the dock's local flag — and deliberately NOT
+             `isBusy`. `isBusy` is `composedAnalysisState.trust.isRunning`,
+             which answers the cover's question, not the gate's; pairing the
+             verdict with it would test a different run than the one that
+             produced the verdict. Two flags, two questions, and this is the
+             one the gate itself consumed. */
+          isRunning={isRunning}
           missingResults={vm.status.missingResults}
           driverTotal={vm.drivers.totalCount}
           primaryIntervention={

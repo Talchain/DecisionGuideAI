@@ -195,7 +195,9 @@ describe('"Could change if" advertises an action only when it can honour one', (
       'precondition: and it carries no target',
     ).toBeNull()
 
-    render(<AtAGlance glance={vm.atAGlance} onFocusTarget={vi.fn()} />)
+    render(<AtAGlance
+  isRunning={false} reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={vm.atAGlance} onFocusTarget={vi.fn()} />)
 
     const row = screen.getByTestId('analysis-new-glance-condition')
     expect(row).toHaveTextContent('Could change if')
@@ -212,7 +214,9 @@ describe('"Could change if" advertises an action only when it can honour one', (
     expect(vm.atAGlance.condition!.targetId).toBe('node_costsave')
 
     const onFocusTarget = vi.fn()
-    render(<AtAGlance glance={vm.atAGlance} onFocusTarget={onFocusTarget} />)
+    render(<AtAGlance
+  isRunning={false} reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={vm.atAGlance} onFocusTarget={onFocusTarget} />)
 
     const focus = screen.getByTestId('analysis-new-glance-condition-focus')
     expect(focus.tagName).toBe('BUTTON')
@@ -225,7 +229,9 @@ describe('"Could change if" advertises an action only when it can honour one', (
     // The second reachable arm of the same gate — a target the surface holds
     // but no handler to spend it on is still an action it cannot honour.
     const vm = vmOf(glanceWithCondition('node_costsave'))
-    render(<AtAGlance glance={vm.atAGlance} />)
+    render(<AtAGlance
+  isRunning={false} reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={vm.atAGlance} />)
 
     const row = screen.getByTestId('analysis-new-glance-condition')
     expect(row).toHaveTextContent('Could change if')

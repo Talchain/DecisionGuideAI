@@ -54,7 +54,9 @@ afterEach(() => cleanup())
 
 describe('the qualifier belongs to the reading it qualifies', () => {
   it('renders the provenance line INSIDE the reading block, not beside it', () => {
-    render(<AtAGlance glance={glanceOf(genuineDecision())} onReanalyse={vi.fn()} />)
+    render(<AtAGlance
+  isRunning={false} reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={glanceOf(genuineDecision())} onReanalyse={vi.fn()} />)
 
     const provenance = screen.getByTestId('analysis-new-glance-input-provenance')
     const reading = screen.getByTestId('analysis-new-glance-reading')
@@ -89,6 +91,8 @@ describe('the staleness ribbon does not crush its own sentence', () => {
   const ribbonOf = () => {
     render(
       <AtAGlance
+        isRunning={false} reanalyseBlocked={false}
+        reanalyseBlockedReason={null}
         glance={glanceOf(genuineDecision())}
         isStale
         staleKind="changed"

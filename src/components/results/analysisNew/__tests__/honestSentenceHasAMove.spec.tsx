@@ -22,6 +22,16 @@ import { genuineDecision } from './analysisNewFixtures'
 
 afterEach(cleanup)
 
+/**
+ * ⚠ `canRunAnalysis` IS STATED HERE, NOT INHERITED. The ribbon control now
+ * reads the dock's shared run admission, and the component is fail-closed: a
+ * host that hands no verdict gets NO control, because the honest answer to
+ * "may I re-analyse?" from a caller that never said is "I do not know", and a
+ * live button on that answer is the defect
+ * `ribbonReanalyseHonoursTheGate.spec.tsx` exists to close. These cases are
+ * about the MOVE being offered beside the sentence, so they assert the gate
+ * they need rather than leaning on a default that would hide the difference.
+ */
 const draw = (over = {}) =>
   render(
     <AnalysisNewTabBody
@@ -30,6 +40,8 @@ const draw = (over = {}) =>
       isRunning={false}
       isStale={false}
       responseHash="run_abc123"
+      canRunAnalysis
+      runBlockedReason={null}
       {...over}
     />,
   )
