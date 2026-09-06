@@ -157,8 +157,8 @@
  * right KIND of test — an equality on the two rendered fields ("does this
  * recommendation have `signal === whyNow`?") — and then partitioned the
  * phase-3 branch by SIGNAL-PRESENCE, filing "the item carries its own
- * `signal`" as not-byte-identical. Presence
- * of a `signal` is a PROXY for that equality, and not an equivalent one: an
+ * `signal`" as not-byte-identical. Presence of a `signal` is a PROXY for that
+ * equality, and not an equivalent one: an
  * item carrying its own `signal` repeats byte-for-byte whenever `body` equals
  * it (route 3) or `body` is empty (route 1). The same version glossed that
  * case as "`signal` is the producer's subtitle and `whyNow` its body", which
