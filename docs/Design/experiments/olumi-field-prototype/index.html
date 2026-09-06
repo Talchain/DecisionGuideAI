@@ -1,0 +1,918 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A disposable interactive design experiment for Olumi as a living team reasoning field."
+    />
+    <title>Olumi Field, interactive PoC concept</title>
+    <link rel="icon" href="../../../../public/olumi-logo.png" />
+    <link rel="stylesheet" href="prototype.css?v=20260812b" />
+  </head>
+  <body data-view="field" data-step="initial" data-lens="structure">
+    <svg class="icon-sprite" aria-hidden="true">
+      <defs>
+        <symbol id="i-chevron-down" viewBox="0 0 24 24">
+          <path d="m6 9 6 6 6-6" />
+        </symbol>
+        <symbol id="i-chevron-right" viewBox="0 0 24 24">
+          <path d="m9 18 6-6-6-6" />
+        </symbol>
+        <symbol id="i-x" viewBox="0 0 24 24">
+          <path d="M18 6 6 18M6 6l12 12" />
+        </symbol>
+        <symbol id="i-lightbulb" viewBox="0 0 24 24">
+          <path d="M9 18h6M10 22h4M8.6 14.4A7 7 0 1 1 15.4 14.4C14.5 15.2 14 16 14 17h-4c0-1-.5-1.8-1.4-2.6Z" />
+        </symbol>
+        <symbol id="i-message" viewBox="0 0 24 24">
+          <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />
+        </symbol>
+        <symbol id="i-history" viewBox="0 0 24 24">
+          <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+          <path d="M3 3v5h5M12 7v5l3 2" />
+        </symbol>
+        <symbol id="i-users" viewBox="0 0 24 24">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" />
+        </symbol>
+        <symbol id="i-check-circle" viewBox="0 0 24 24">
+          <path d="M22 11.1V12a10 10 0 1 1-5.9-9.1" />
+          <path d="m9 11 3 3L22 4" />
+        </symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24">
+          <path d="M10.3 2.9 1.8 17a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 2.9a2 2 0 0 0-3.4 0Z" />
+          <path d="M12 9v4M12 17h.01" />
+        </symbol>
+        <symbol id="i-info" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 16v-4M12 8h.01" />
+        </symbol>
+        <symbol id="i-edit" viewBox="0 0 24 24">
+          <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
+        </symbol>
+        <symbol id="i-flask" viewBox="0 0 24 24">
+          <path d="M9 3h6M10 3v6l-5.5 9.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3" />
+          <path d="M7 16h10" />
+        </symbol>
+        <symbol id="i-lock" viewBox="0 0 24 24">
+          <rect x="3" y="11" width="18" height="10" rx="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </symbol>
+        <symbol id="i-eye" viewBox="0 0 24 24">
+          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+          <circle cx="12" cy="12" r="3" />
+        </symbol>
+        <symbol id="i-layers" viewBox="0 0 24 24">
+          <path d="m12 2 9 5-9 5-9-5 9-5Z" />
+          <path d="m3 12 9 5 9-5M3 17l9 5 9-5" />
+        </symbol>
+        <symbol id="i-git-branch" viewBox="0 0 24 24">
+          <circle cx="6" cy="4" r="2" />
+          <circle cx="18" cy="6" r="2" />
+          <circle cx="6" cy="20" r="2" />
+          <path d="M6 6v12M18 8a6 6 0 0 1-6 6H6" />
+        </symbol>
+        <symbol id="i-sparkles" viewBox="0 0 24 24">
+          <path d="m12 3-1.2 3.3L7.5 7.5l3.3 1.2L12 12l1.2-3.3 3.3-1.2-3.3-1.2L12 3ZM5 14l-.8 2.2L2 17l2.2.8L5 20l.8-2.2L8 17l-2.2-.8L5 14ZM19 13l-.8 2.2L16 16l2.2.8L19 19l.8-2.2L22 16l-2.2-.8L19 13Z" />
+        </symbol>
+        <symbol id="i-arrow-right" viewBox="0 0 24 24">
+          <path d="M5 12h14M13 6l6 6-6 6" />
+        </symbol>
+        <symbol id="i-send" viewBox="0 0 24 24">
+          <path d="m22 2-7 20-4-9-9-4Z" />
+          <path d="M22 2 11 13" />
+        </symbol>
+        <symbol id="i-paperclip" viewBox="0 0 24 24">
+          <path d="m21.4 11.6-8.5 8.5a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5" />
+        </symbol>
+        <symbol id="i-maximise" viewBox="0 0 24 24">
+          <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 16v5h-5" />
+        </symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24">
+          <path d="M12 5v14M5 12h14" />
+        </symbol>
+        <symbol id="i-minus" viewBox="0 0 24 24">
+          <path d="M5 12h14" />
+        </symbol>
+      </defs>
+    </svg>
+
+    <main id="field-view" class="field-view" aria-label="Olumi Field prototype">
+      <header class="top-cluster" aria-label="Workspace controls">
+        <div class="scenario-control floating-surface">
+          <img
+            src="../../../../public/olumi-logo.png"
+            alt="Olumi"
+            class="olumi-logo"
+          />
+          <span class="control-divider" aria-hidden="true"></span>
+          <button class="scenario-name" type="button" data-action="scenario-menu">
+            Enterprise renewal
+            <svg class="icon icon-sm"><use href="#i-chevron-down"></use></svg>
+          </button>
+          <span class="status-pill"><span class="status-dot"></span>Live model</span>
+        </div>
+
+        <nav class="stage-compass floating-surface" aria-label="Strategic reasoning stages">
+          <button type="button" data-stage="strategise">Strategise</button>
+          <button type="button" data-stage="frame" class="is-active">Frame</button>
+          <button type="button" data-stage="ideate">Ideate</button>
+          <button type="button" data-stage="evaluate">Evaluate</button>
+          <button type="button" data-stage="act">Act</button>
+          <button type="button" data-stage="improve">Improve</button>
+        </nav>
+
+        <div class="people-control floating-surface">
+          <div class="avatar-stack" aria-label="Maya, Noah and Paul are in this workspace">
+            <span class="avatar" title="Maya Chen">MC</span>
+            <span class="avatar" title="Noah Williams">NW</span>
+            <span class="avatar avatar-you" title="Paul">PS</span>
+          </div>
+          <button class="icon-button" type="button" data-action="open-log" data-tooltip="Thinking log" aria-label="Open thinking log">
+            <svg class="icon"><use href="#i-history"></use></svg>
+          </button>
+          <button class="secondary-button compact" type="button" data-action="open-board">
+            Review board
+          </button>
+        </div>
+      </header>
+
+      <div class="lens-cluster floating-surface" aria-label="Model lenses">
+        <span class="cluster-label">Lens</span>
+        <button type="button" class="lens-button is-active" data-lens="structure">
+          <svg class="icon icon-sm"><use href="#i-git-branch"></use></svg>
+          <span>Structure</span>
+        </button>
+        <button type="button" class="lens-button" data-lens="outcome">
+          <svg class="icon icon-sm"><use href="#i-eye"></use></svg>
+          <span>Outcome</span>
+        </button>
+        <button type="button" class="lens-button" data-lens="changes">
+          <svg class="icon icon-sm"><use href="#i-history"></use></svg>
+          <span>Changes</span>
+        </button>
+        <span class="cluster-rule"></span>
+        <button class="icon-button" type="button" data-action="zoom-in" data-tooltip="Zoom in" aria-label="Zoom in">
+          <svg class="icon"><use href="#i-plus"></use></svg>
+        </button>
+        <button class="icon-button" type="button" data-action="zoom-out" data-tooltip="Zoom out" aria-label="Zoom out">
+          <svg class="icon"><use href="#i-minus"></use></svg>
+        </button>
+        <button class="icon-button" type="button" data-action="focus-model" data-tooltip="Fit model" aria-label="Fit model">
+          <svg class="icon"><use href="#i-maximise"></use></svg>
+        </button>
+      </div>
+
+      <button class="model-key-control floating-surface" type="button" data-action="toggle-key" aria-expanded="false">
+        <span class="shape shape-factor" aria-hidden="true"></span>
+        Model key
+        <svg class="icon icon-sm"><use href="#i-chevron-right"></use></svg>
+      </button>
+
+      <section class="graph-shell" aria-label="Living strategic model">
+        <div class="model-heading">
+          <p class="eyebrow">Shared understanding</p>
+          <h1>How might we lift enterprise renewal without scaling service cost?</h1>
+          <p class="model-subtitle">Built from the brief, workshop notes and three team contributions</p>
+        </div>
+
+        <div class="graph-plane" id="graph-plane">
+          <svg class="edge-layer" viewBox="0 0 1200 650" preserveAspectRatio="none" aria-hidden="true" role="presentation" focusable="false">
+            <defs>
+              <marker id="arrow-neutral" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"></path>
+              </marker>
+            </defs>
+            <path class="edge edge-exec-sponsor path-executive" d="M198 181 C238 195 266 248 306 322" />
+            <path class="edge edge-adoption-activation path-adoption" d="M568 181 C568 226 588 272 606 322" />
+            <path class="edge edge-capacity-capacity path-capacity" d="M940 181 C940 232 930 275 918 322" />
+            <path class="edge edge-sponsor-renewal path-executive is-fragile" d="M306 364 C350 430 458 462 596 497" data-edge="sponsor-renewal" />
+            <path class="edge edge-activation-renewal path-adoption" d="M606 364 C606 410 606 456 606 497" />
+            <path class="edge edge-capacity-renewal path-capacity" d="M918 364 C850 430 755 470 616 505" />
+            <path class="edge edge-capacity-cost path-capacity is-negative" d="M932 360 C985 392 1008 430 1018 484" />
+            <path class="edge edge-cost-renewal is-negative" d="M1008 522 C900 546 760 540 624 520" />
+            <path class="edge edge-renewal-goal path-shared" d="M606 496 C674 420 696 254 606 78" />
+            <path class="edge edge-health-sponsor proposed-edge" d="M190 495 C220 438 255 397 294 360" />
+            <path class="edge edge-health-renewal proposed-edge" d="M190 500 C318 506 434 512 588 516" />
+            <path class="edge edge-previous-sponsor previous-edge" d="M306 364 C350 430 458 462 596 497" />
+            <path class="edge conditional-edge conditional-high-edge" d="M606 364 C568 405 565 456 594 497" />
+            <path class="edge conditional-edge conditional-self-edge" d="M606 364 C650 406 646 456 618 497" />
+            <circle class="change-marker marker-one" cx="438" cy="442" r="11"></circle>
+            <text class="change-marker-text marker-one" x="438" y="446" text-anchor="middle">1</text>
+            <circle class="change-marker marker-two" cx="296" cy="406" r="11"></circle>
+            <text class="change-marker-text marker-two" x="296" y="410" text-anchor="middle">2</text>
+            <circle class="change-marker marker-three" cx="614" cy="410" r="11"></circle>
+            <text class="change-marker-text marker-three" x="614" y="414" text-anchor="middle">3</text>
+          </svg>
+
+          <button class="model-node goal-node confidence-high" data-node="goal" type="button" style="--x:42%; --y:2%; --w:196px">
+            <span class="confidence-glyph" aria-label="High confidence">✓</span>
+            <span class="node-kicker"><span class="shape shape-goal"></span>Goal</span>
+            <strong>90% enterprise renewal by Q4</strong>
+            <span class="node-meta"><span>From brief</span><span>82% now</span></span>
+          </button>
+
+          <button class="model-node option-node confidence-high" data-node="executive-reviews" type="button" style="--x:8%; --y:21%; --w:198px">
+            <span class="confidence-glyph" aria-label="High confidence">✓</span>
+            <span class="node-kicker"><span class="shape shape-option"></span>Strategic route</span>
+            <strong>Executive value reviews</strong>
+            <span class="node-meta"><span>Maya</span><span class="route-score initial-score">Leading route</span><span class="route-score changed-score">37%</span></span>
+          </button>
+
+          <button class="model-node option-node confidence-medium" data-node="adoption-support" type="button" style="--x:39%; --y:21%; --w:198px">
+            <span class="confidence-glyph" aria-label="Medium confidence">~</span>
+            <span class="node-kicker"><span class="shape shape-option"></span>Strategic route</span>
+            <strong>Targeted adoption support</strong>
+            <span class="node-meta"><span>Olumi draft</span><span class="route-score initial-score">Promising</span><span class="route-score changed-score">58%</span></span>
+          </button>
+
+          <button class="model-node option-node confidence-high" data-node="csm-capacity" type="button" style="--x:70%; --y:21%; --w:198px">
+            <span class="confidence-glyph" aria-label="High confidence">✓</span>
+            <span class="node-kicker"><span class="shape shape-option"></span>Strategic route</span>
+            <strong>Add CSM capacity</strong>
+            <span class="node-meta"><span>Finance team</span><span>Cost risk</span></span>
+          </button>
+
+          <button class="model-node factor-node confidence-low" data-node="sponsor-engagement" type="button" style="--x:18%; --y:45%; --w:188px">
+            <span class="confidence-glyph" aria-label="Low confidence">?</span>
+            <span class="node-kicker"><span class="shape shape-factor"></span>Factor</span>
+            <strong>Executive sponsor engagement</strong>
+            <span class="node-meta"><span>47% engaged</span><span>Cause?</span></span>
+          </button>
+
+          <button class="model-node factor-node confidence-high" data-node="activation" type="button" style="--x:43%; --y:45%; --w:188px">
+            <span class="confidence-glyph" aria-label="High confidence">✓</span>
+            <span class="node-kicker"><span class="shape shape-factor"></span>Factor</span>
+            <strong>Product activation</strong>
+            <span class="node-meta"><span>Warehouse data</span><span>74%</span></span>
+          </button>
+
+          <button class="model-node factor-node confidence-high" data-node="capacity" type="button" style="--x:69%; --y:45%; --w:188px">
+            <span class="confidence-glyph" aria-label="High confidence">✓</span>
+            <span class="node-kicker"><span class="shape shape-factor"></span>Factor</span>
+            <strong>CSM capacity</strong>
+            <span class="node-meta"><span>Ops plan</span><span>8:1 ratio</span></span>
+          </button>
+
+          <button class="model-node risk-node confidence-medium" data-node="service-cost" type="button" style="--x:78%; --y:70%; --w:174px">
+            <span class="confidence-glyph" aria-label="Medium confidence">~</span>
+            <span class="node-kicker"><span class="shape shape-risk"></span>Risk</span>
+            <strong>Service cost rises above 10%</strong>
+            <span class="node-meta"><span>Constraint</span><span>Finance</span></span>
+          </button>
+
+          <button class="model-node outcome-node confidence-medium" data-node="renewal" type="button" style="--x:43%; --y:72%; --w:188px">
+            <span class="confidence-glyph" aria-label="Medium confidence">~</span>
+            <span class="node-kicker"><span class="shape shape-outcome"></span>Outcome</span>
+            <strong>Enterprise renewal</strong>
+            <span class="node-meta"><span class="outcome-value">Expected 88%</span><span>Range 84–92%</span></span>
+          </button>
+
+          <button class="model-node factor-node confidence-medium proposed-node" data-node="account-health" type="button" style="--x:7%; --y:68%; --w:188px">
+            <span class="confidence-glyph" aria-label="Medium confidence">~</span>
+            <span class="node-kicker"><span class="shape shape-factor"></span>Competing explanation</span>
+            <strong>Existing account health</strong>
+            <span class="node-meta"><span class="proposed-label">Proposed by Olumi</span><span class="accepted-label">Accepted by Paul</span></span>
+          </button>
+
+          <button class="edge-label edge-label-sponsor" data-edge-label="sponsor-renewal" type="button" aria-label="Edit sponsor engagement to renewal relationship">
+            <span class="edge-strength">Strong, uncertain</span>
+            <span class="edge-strength-edited">Weak, provisional</span>
+          </button>
+
+          <button class="conditional-claim conditional-high" type="button" data-node="conditional-high-touch" aria-label="High-touch relationship, strong, from Maya and Paul">
+            <span><span class="shape shape-factor"></span>High-touch</span>
+            <strong>Strong relationship</strong>
+            <small>MC + PS · Experience + judgement</small>
+          </button>
+          <button class="conditional-claim conditional-self" type="button" data-node="conditional-self-serve" aria-label="Self-serve relationship, weak, from Noah's evidence">
+            <span><span class="shape shape-factor"></span>Self-serve</span>
+            <strong>Weak relationship</strong>
+            <small>NW · Q2 cohort evidence</small>
+          </button>
+
+          <div class="private-contribution-dots" aria-label="Three private contributions received">
+            <span class="avatar avatar-small">MC</span>
+            <span class="avatar avatar-small">NW</span>
+            <span class="avatar avatar-small avatar-you">PS</span>
+            <span>3 private views</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="model-key-popover floating-surface" aria-label="Model key">
+        <div class="popover-header">
+          <strong>Read the field</strong>
+          <button class="icon-button" type="button" data-action="toggle-key" aria-label="Close model key">
+            <svg class="icon icon-sm"><use href="#i-x"></use></svg>
+          </button>
+        </div>
+        <div class="key-grid">
+          <div><span class="shape shape-goal"></span><span>Goal</span></div>
+          <div><span class="shape shape-option"></span><span>Strategic route</span></div>
+          <div><span class="shape shape-factor"></span><span>Factor</span></div>
+          <div><span class="shape shape-risk"></span><span>Risk</span></div>
+          <div><span class="confidence-sample high">✓</span><span>Supported</span></div>
+          <div><span class="confidence-sample medium">~</span><span>Provisional</span></div>
+          <div><span class="confidence-sample low">?</span><span>Unknown</span></div>
+        </div>
+        <p>Source labels show who contributed each belief. Colour is reserved for state and meaning.</p>
+      </aside>
+
+      <section class="interaction-tray next-move-tray" data-state-panel="initial" aria-label="Olumi's suggested next move">
+        <div class="tray-accent success"></div>
+        <div class="ai-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="next-move-copy">
+          <span class="tray-label">Resolve next</span>
+          <h2>Does sponsor engagement cause renewal, or signal an already healthy account?</h2>
+          <p>This is the smallest unknown that could change the strongest route.</p>
+        </div>
+        <button class="primary-button" type="button" data-action="go-resolve">
+          Resolve this
+          <svg class="icon icon-sm"><use href="#i-arrow-right"></use></svg>
+        </button>
+        <button class="ask-field-button" type="button" data-action="open-composer">
+          <svg class="icon icon-sm"><use href="#i-message"></use></svg>
+          Ask Olumi about the field
+        </button>
+      </section>
+
+      <section class="interaction-tray resolve-tray" data-state-panel="resolve" aria-label="Resolve an important uncertainty">
+        <div class="resolve-choices" data-resolve-view="choices">
+          <div class="tray-heading-row">
+            <div>
+              <span class="tray-label">High-value unknown</span>
+              <h2>How should we resolve the sponsor engagement relationship?</h2>
+              <p>Your judgement comes first where an Olumi estimate could anchor the team.</p>
+            </div>
+            <button class="icon-button" type="button" data-action="go-initial" aria-label="Close resolve panel">
+              <svg class="icon"><use href="#i-x"></use></svg>
+            </button>
+          </div>
+          <div class="resolve-grid">
+            <button type="button" class="resolve-option recommended" data-resolve="judgement">
+              <span class="option-icon"><svg class="icon"><use href="#i-edit"></use></svg></span>
+              <strong>Give my judgement</strong>
+              <span>Start privately, then compare</span>
+              <small>Available in prototype</small>
+            </button>
+            <button type="button" class="resolve-option" data-action="go-collaborate">
+              <span class="option-icon"><svg class="icon"><use href="#i-users"></use></svg></span>
+              <strong>Ask the team</strong>
+              <span>Private input, then reveal</span>
+              <small>Available in prototype</small>
+            </button>
+            <button type="button" class="resolve-option concept" data-action="concept-only" data-concept="Expert request">
+              <span class="option-icon"><svg class="icon"><use href="#i-message"></use></svg></span>
+              <strong>Ask an expert</strong>
+              <span>Route to a named specialist</span>
+              <small>Future concept</small>
+            </button>
+            <button type="button" class="resolve-option concept" data-action="concept-only" data-concept="Internal evidence search">
+              <span class="option-icon"><svg class="icon"><use href="#i-paperclip"></use></svg></span>
+              <strong>Find internal evidence</strong>
+              <span>Search research and metrics</span>
+              <small>Future concept</small>
+            </button>
+            <button type="button" class="resolve-option concept" data-action="concept-only" data-concept="External research">
+              <span class="option-icon"><svg class="icon"><use href="#i-flask"></use></svg></span>
+              <strong>Research externally</strong>
+              <span>Look for causal evidence</span>
+              <small>Future concept</small>
+            </button>
+            <button type="button" class="resolve-option" data-resolve="estimate">
+              <span class="option-icon"><svg class="icon"><use href="#i-sparkles"></use></svg></span>
+              <strong>Use a provisional estimate</strong>
+              <span>Make the uncertainty explicit</span>
+              <small>Fixture estimate</small>
+            </button>
+            <button type="button" class="resolve-option leave-unknown" data-resolve="unknown">
+              <span class="option-icon"><svg class="icon"><use href="#i-info"></use></svg></span>
+              <strong>Leave unknown</strong>
+              <span>Keep it visible and move on</span>
+              <small>Available in prototype</small>
+            </button>
+          </div>
+        </div>
+
+        <form class="judgement-form" data-resolve-view="judgement">
+          <div class="tray-heading-row">
+            <div>
+              <span class="tray-label">Your private judgement</span>
+              <h2>How strong is the causal effect?</h2>
+            </div>
+            <span class="withheld-pill"><svg class="icon icon-sm"><use href="#i-lock"></use></svg>Olumi estimate hidden</span>
+          </div>
+          <fieldset class="judgement-scale">
+            <legend class="sr-only">Relationship strength</legend>
+            <label><input type="radio" name="strength" value="Strong" /><span>Strong</span></label>
+            <label><input type="radio" name="strength" value="Modest" checked /><span>Modest</span></label>
+            <label><input type="radio" name="strength" value="Weak" /><span>Weak</span></label>
+            <label><input type="radio" name="strength" value="Not causal" /><span>Not causal</span></label>
+          </fieldset>
+          <label class="field-label" for="judgement-reason">What makes you think that?</label>
+          <textarea id="judgement-reason" rows="2">Executive sponsors unblock renewal, but healthy accounts are also more likely to engage them.</textarea>
+          <div class="form-actions">
+            <button class="secondary-button" type="button" data-resolve="choices">Back</button>
+            <button class="primary-button" type="submit">Commit my view</button>
+          </div>
+        </form>
+
+        <div class="resolve-confirmation" data-resolve-view="confirmed">
+          <div class="confirmation-icon"><svg class="icon"><use href="#i-check-circle"></use></svg></div>
+          <div>
+            <span class="tray-label">View recorded</span>
+            <h2>Your view is close to Olumi's provisional estimate, but for different reasons.</h2>
+            <p>Olumi estimated a modest effect with low confidence. Your rationale adds a competing explanation, so the relationship remains open to challenge.</p>
+          </div>
+          <button class="primary-button" type="button" data-action="run-analysis">Analyse the field</button>
+        </div>
+      </section>
+
+      <section class="interaction-tray canonical-result" data-state-panel="analyse" aria-label="Current analysis result">
+        <div class="result-heading">
+          <div>
+            <span class="tray-label">Current direction</span>
+            <h2 class="current-direction-title">Start with executive value reviews</h2>
+            <p><strong class="current-direction-percent">64%</strong> likelihood of reaching the renewal target within the cost constraint.</p>
+          </div>
+          <span class="result-status"><svg class="icon icon-sm"><use href="#i-check-circle"></use></svg>Moderately stable</span>
+        </div>
+        <div class="result-grid">
+          <div class="result-cell answer-cell">
+            <span class="cell-label">Answer</span>
+            <strong class="answer-title">Executive value reviews</strong>
+            <p class="answer-reason">Best current balance of renewal influence and service cost.</p>
+          </div>
+          <div class="result-cell">
+            <span class="cell-label">Because</span>
+            <button class="graph-reference" type="button" data-highlight="executive">
+              Sponsor access can unblock value decisions
+            </button>
+            <button class="graph-reference" type="button" data-highlight="shared">
+              It works through the renewal path without adding headcount
+            </button>
+          </div>
+          <div class="result-cell fragile-cell">
+            <span class="cell-label">Could change</span>
+            <button class="graph-reference" type="button" data-action="go-edit">
+              Sponsor engagement may be a proxy, not a cause
+            </button>
+            <p>Weak evidence on one influential relationship.</p>
+          </div>
+          <div class="result-cell action-cell">
+            <span class="cell-label">Do next</span>
+            <strong>Challenge the proxy</strong>
+            <button class="primary-button small" type="button" data-action="go-intervention">Inspect intervention</button>
+          </div>
+        </div>
+        <button class="method-toggle" type="button" data-action="toggle-method" aria-expanded="false">
+          Evidence and method
+          <svg class="icon icon-sm"><use href="#i-chevron-down"></use></svg>
+        </button>
+        <div class="method-disclosure">
+          <p>1,000 fixture simulations. Three causal paths. Evidence coverage 62%. The full receipts retain source, assumption and model version for each input.</p>
+        </div>
+      </section>
+
+      <section class="interaction-tray intervention-tray" data-state-panel="intervention" aria-label="Science-grounded intervention">
+        <div class="intervention-accent"></div>
+        <div class="intervention-copy">
+          <span class="tray-label">Strengthen the reasoning</span>
+          <h2>Check the proxy</h2>
+          <p>Sponsor engagement may reflect healthier accounts rather than cause renewal. Add the competing mechanism before committing the pilot.</p>
+          <button class="inline-reference" type="button" data-highlight="executive">Sponsor engagement → renewal</button>
+        </div>
+        <div class="intervention-actions" data-patch-view="offer">
+          <button class="primary-button" type="button" data-action="preview-patch">Add competing explanation</button>
+          <button class="secondary-button" type="button" data-action="concept-only" data-concept="Matched cohort test">Test with a matched cohort <span>Future</span></button>
+          <button class="quiet-button" type="button" data-action="dismiss-intervention">Dismiss with reason</button>
+        </div>
+        <div class="patch-actions" data-patch-view="preview">
+          <span class="patch-pill"><span class="shape shape-factor"></span>1 factor and 2 relationships proposed</span>
+          <p>The dashed items are a preview. Olumi never applies them without review.</p>
+          <div>
+            <button class="secondary-button" type="button" data-action="reject-patch">Reject</button>
+            <button class="secondary-button" type="button" data-action="edit-patch">Edit</button>
+            <button class="primary-button" type="button" data-action="accept-patch">Accept changes</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="edge-editor floating-surface" data-state-panel="edit" aria-label="Edit sponsor engagement relationship">
+        <div class="editor-accent"></div>
+        <div class="popover-header">
+          <div>
+            <span class="tray-label">Relationship</span>
+            <h2>Sponsor engagement → renewal</h2>
+          </div>
+          <button class="icon-button" type="button" data-action="go-analyse" aria-label="Close editor">
+            <svg class="icon"><use href="#i-x"></use></svg>
+          </button>
+        </div>
+        <div class="relationship-crumbs">
+          <span><span class="shape shape-factor"></span>Executive sponsor engagement</span>
+          <svg class="icon icon-sm"><use href="#i-arrow-right"></use></svg>
+          <span><span class="shape shape-outcome"></span>Enterprise renewal</span>
+        </div>
+        <form id="edge-form">
+          <label class="field-label" for="edge-direction">Direction</label>
+          <select id="edge-direction">
+            <option>Positive</option>
+            <option>Negative</option>
+          </select>
+          <label class="field-label" for="edge-strength">Strength</label>
+          <select id="edge-strength">
+            <option>Strong</option>
+            <option>Modest</option>
+            <option selected>Weak</option>
+          </select>
+          <label class="field-label" for="edge-confidence">Confidence</label>
+          <select id="edge-confidence">
+            <option>High</option>
+            <option>Medium</option>
+            <option selected>Low</option>
+          </select>
+          <label class="field-label" for="edge-note">Reason</label>
+          <textarea id="edge-note" rows="2">Likely confounded by existing account health.</textarea>
+          <div class="evidence-row"><svg class="icon icon-sm"><use href="#i-paperclip"></use></svg><span>No direct causal evidence attached</span><button type="button" data-action="concept-only" data-concept="Attach evidence">Attach <small>Future</small></button></div>
+          <div class="form-actions">
+            <button class="secondary-button" type="button" data-action="go-analyse">Cancel</button>
+            <button class="primary-button" type="submit">Save relationship</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="stale-ribbon floating-surface" data-state-panel="stale" aria-label="Analysis is out of date">
+        <svg class="icon"><use href="#i-alert"></use></svg>
+        <div>
+          <strong>Current direction is out of date</strong>
+          <span>One material relationship changed. The model is saved.</span>
+        </div>
+        <button class="primary-button" type="button" data-action="rerun">Rerun analysis</button>
+      </section>
+
+      <section class="interaction-tray changes-tray" data-state-panel="changes" aria-label="What changed">
+        <div class="changes-heading">
+          <div>
+            <span class="tray-label">Current direction, updated</span>
+            <h2 class="updated-direction-title">Targeted adoption support is now the stronger first move</h2>
+          </div>
+          <div class="direction-shift">
+            <span>Executive reviews <strong class="executive-shift">64% → 37%</strong></span>
+            <span>Adoption support <strong class="adoption-shift">31% → 58%</strong></span>
+          </div>
+        </div>
+        <p class="change-summary">Sponsor engagement was reclassified as a weak causal driver. Executive reviews now support the plan rather than lead it.</p>
+        <div class="changes-list">
+          <button type="button" data-change="1">
+            <span>1</span><strong>Belief changed</strong><small class="belief-change-copy">Sponsor engagement became weak and provisional.</small>
+          </button>
+          <button type="button" data-change="2">
+            <span>2</span><strong>Mechanism added</strong><small>Existing account health explains part of the signal.</small>
+          </button>
+          <button type="button" data-change="3">
+            <span>3</span><strong>Action changed</strong><small class="action-change-copy">Adoption support moves from second to first.</small>
+          </button>
+        </div>
+        <div class="changes-footer">
+          <button class="method-toggle" type="button" data-action="toggle-change-detail" aria-expanded="false">Why this matters <svg class="icon icon-sm"><use href="#i-chevron-down"></use></svg></button>
+          <p class="change-detail">The pilot should target activation barriers first, while using executive reviews selectively where sponsorship is genuinely absent.</p>
+          <button class="primary-button small" type="button" data-action="go-collaborate">Bring in the team</button>
+        </div>
+      </section>
+
+      <section class="interaction-tray collaboration-tray" data-state-panel="collaborate" aria-label="Collaborative contribution round">
+        <div class="collaboration-private" data-collaboration-view="private">
+          <div class="private-icon"><svg class="icon"><use href="#i-lock"></use></svg></div>
+          <div>
+            <span class="tray-label">Private contribution round</span>
+            <h2>How much does product activation affect renewal in your part of the business?</h2>
+            <p>Everyone has responded. Views stay private until the group reveals them together.</p>
+          </div>
+          <div class="response-status">
+            <div class="avatar-stack">
+              <span class="avatar">MC</span><span class="avatar">NW</span><span class="avatar avatar-you">PS</span>
+            </div>
+            <strong>3 of 3 ready</strong>
+            <button class="primary-button" type="button" data-action="reveal-contributions">Reveal together</button>
+          </div>
+        </div>
+        <div class="collaboration-reveal" data-collaboration-view="reveal">
+          <div class="claim-list">
+            <article class="claim-card">
+              <span class="avatar">MC</span>
+              <div><strong>Maya, CSM director</strong><p>Activation is a strong renewal driver for high-touch accounts.</p><small>Confidence: high · Direct account experience</small></div>
+            </article>
+            <article class="claim-card evidence-claim">
+              <span class="avatar">NW</span>
+              <div><strong>Noah, data lead</strong><p>The effect is modest and depends on the service segment.</p><small><svg class="icon icon-sm"><use href="#i-paperclip"></use></svg>Q2 cohort analysis, 1,842 accounts</small></div>
+            </article>
+            <article class="claim-card your-claim">
+              <span class="avatar avatar-you">PS</span>
+              <div><strong>Paul, pilot lead</strong><p>Activation matters most where support usage is already high.</p><small>Confidence: medium · Private judgement</small></div>
+            </article>
+          </div>
+          <div class="synthesis-card">
+            <div class="ai-mark small" aria-hidden="true"><span></span><span></span><span></span></div>
+            <span class="tray-label">Disagreement that matters</span>
+            <h2>Do not average these views</h2>
+            <p>The evidence suggests two conditional relationships: strong for high-touch accounts, weak for self-serve accounts.</p>
+            <button class="primary-button" type="button" data-action="apply-conditional">Split relationship by segment</button>
+            <button class="quiet-button" type="button" data-action="keep-disagreement">Keep views separate</button>
+          </div>
+        </div>
+        <div class="collaboration-applied" data-collaboration-view="applied">
+          <div class="confirmation-icon"><svg class="icon"><use href="#i-check-circle"></use></svg></div>
+          <div>
+            <span class="tray-label">Shared model evolved</span>
+            <h2>One relationship became two conditional claims.</h2>
+            <p>Both views and Noah's evidence remain attached. The current analysis is now marked out of date.</p>
+          </div>
+          <button class="secondary-button" type="button" data-action="inspect-conditional">Inspect conditional claims</button>
+        </div>
+      </section>
+
+      <section class="reason-popover floating-surface" role="dialog" aria-label="Record a reason" aria-modal="false">
+        <div class="popover-header">
+          <div><span class="tray-label">Reasoning receipt</span><h2>Why are you dismissing this?</h2></div>
+          <button class="icon-button" type="button" data-action="cancel-reason" aria-label="Cancel"><svg class="icon"><use href="#i-x"></use></svg></button>
+        </div>
+        <form id="reason-form">
+          <label class="field-label" for="reason-note">Reason</label>
+          <textarea id="reason-note" rows="2">Not material enough to change this pilot.</textarea>
+          <div class="form-actions">
+            <button class="secondary-button" type="button" data-action="cancel-reason">Cancel</button>
+            <button class="primary-button" type="submit">Record and dismiss</button>
+          </div>
+        </form>
+      </section>
+
+      <div class="prototype-tour floating-surface">
+        <button type="button" data-action="tour-menu" aria-expanded="false">
+          <span class="tour-count">1 of 7</span>
+          <span class="tour-name">Initial model</span>
+          <svg class="icon icon-sm"><use href="#i-chevron-down"></use></svg>
+        </button>
+        <div class="tour-menu" role="menu">
+          <button role="menuitem" type="button" data-go-step="initial"><span>A</span>Initial strategic model</button>
+          <button role="menuitem" type="button" data-go-step="resolve"><span>B</span>Resolve uncertainty</button>
+          <button role="menuitem" type="button" data-go-step="analyse"><span>C</span>Analyse</button>
+          <button role="menuitem" type="button" data-go-step="intervention"><span>D</span>Science intervention</button>
+          <button role="menuitem" type="button" data-go-step="edit"><span>E</span>Workspace action</button>
+          <button role="menuitem" type="button" data-go-step="changes"><span>F</span>What changed</button>
+          <button role="menuitem" type="button" data-go-step="collaborate"><span>G</span>Collaboration</button>
+        </div>
+      </div>
+
+      <div class="composer-popover floating-surface" aria-label="Ask Olumi">
+        <div class="popover-header">
+          <div><span class="tray-label">Ask in context</span><strong>Olumi can act on the field</strong></div>
+          <button class="icon-button" type="button" data-action="close-composer" aria-label="Close composer"><svg class="icon"><use href="#i-x"></use></svg></button>
+        </div>
+        <form id="ask-form">
+          <textarea id="ask-input" rows="2" placeholder="Ask a question or request a change…">Show me what would overturn the current view.</textarea>
+          <button class="icon-button send-button" type="submit" aria-label="Send to Olumi"><svg class="icon"><use href="#i-send"></use></svg></button>
+        </form>
+        <p>Responses become explanations or reviewable changes to the shared model.</p>
+      </div>
+
+      <div class="thinking-log floating-surface" role="dialog" aria-modal="false" aria-label="Thinking log">
+        <div class="log-header">
+          <div><span class="tray-label">Thinking log</span><h2>How the model evolved</h2></div>
+          <button class="icon-button" type="button" data-action="close-log" aria-label="Close thinking log"><svg class="icon"><use href="#i-x"></use></svg></button>
+        </div>
+        <ol class="log-list">
+          <li><span class="log-time">09:42</span><div><strong>Brief structured</strong><p>Goal, three routes, five factors and one risk added.</p><small>Olumi proposal accepted by Paul</small></div></li>
+          <li><span class="log-time">10:08</span><div><strong>Team contribution</strong><p>Maya linked executive reviews to sponsor engagement.</p><small>Source retained on relationship</small></div></li>
+          <li class="dynamic-log"><span class="log-time">Now</span><div><strong>Question asked</strong><p>“Show me what would overturn the current view.”</p><small>Olumi prioritised the sponsor engagement proxy</small></div></li>
+        </ol>
+        <p class="log-note">The log retains conversation and receipts. The field remains the canonical work.</p>
+      </div>
+
+      <div class="toast" role="status" aria-live="polite"></div>
+    </main>
+
+    <main id="board-view" class="board-view" aria-label="Current and proposed component review board">
+      <header class="board-header">
+        <div class="board-brand">
+          <img src="../../../../public/olumi-logo.png" alt="Olumi" class="olumi-logo" />
+          <span class="control-divider" aria-hidden="true"></span>
+          <div><strong>Experience review board</strong><span>No production code is changed</span></div>
+        </div>
+        <nav class="board-tabs" aria-label="Review board views">
+          <button type="button" class="is-active" data-board-tab="disposition">Disposition</button>
+          <button type="button" data-board-tab="removals">Proposed removals</button>
+          <button type="button" data-board-tab="map">Current → proposed</button>
+          <button type="button" data-board-tab="rationale">Rationale</button>
+        </nav>
+        <button class="primary-button small" type="button" data-action="close-board">Return to prototype</button>
+      </header>
+
+      <section class="board-panel is-active" data-board-panel="disposition">
+        <div class="board-intro">
+          <span class="eyebrow">Component disposition</span>
+          <h1>Preserve capability, remove repetition</h1>
+          <p>This judges the experienced PoC surface, not React component names. Recreated thumbnails are grounded in the current canvas, results, inspector and conversation patterns.</p>
+        </div>
+        <div class="disposition-board">
+          <section class="disposition-column keep-column">
+            <header><span class="column-mark"></span><h2>Keep</h2><p>Distinctive foundations</p></header>
+            <article class="surface-card">
+              <div class="surface-thumb canvas-thumb"><span class="mini-toolbar"></span><span class="mini-node goal"></span><span class="mini-node factor a"></span><span class="mini-node factor b"></span><span class="mini-node option"></span><i></i></div>
+              <h3>Spatial canvas and floating controls</h3>
+              <p>The openness is distinctive and keeps the model primary.</p>
+            </article>
+            <article class="surface-card">
+              <div class="surface-thumb shape-thumb"><span class="shape shape-goal"></span><span class="shape shape-option"></span><span class="shape shape-factor"></span><span class="shape shape-risk"></span><span class="shape shape-outcome"></span></div>
+              <h3>Shape-led model language</h3>
+              <p>A rigorous, learnable grammar for what each element is.</p>
+            </article>
+            <article class="surface-card compact-card"><h3>Editable causal relationships</h3><p>Keep direct manipulation and confidence, source and evidence receipts.</p></article>
+          </section>
+
+          <section class="disposition-column merge-column">
+            <header><span class="column-mark"></span><h2>Merge / consolidate</h2><p>One canonical answer</p></header>
+            <article class="surface-card">
+              <div class="surface-thumb result-stack-thumb"><div class="mini-hero">Likely direction <b>71%</b></div><div class="mini-option-row"></div><div class="mini-option-row"></div><div class="mini-driver-row"></div></div>
+              <h3>Result hero, options and likely outcome</h3>
+              <p>Merge into the Current direction card and Outcome lens.</p>
+            </article>
+            <article class="surface-card">
+              <div class="surface-thumb readiness-thumb"><div><b>Fix before running</b><i></i><i></i></div><div><b>Decision quality</b><i></i></div><div><b>Must address</b><i></i></div></div>
+              <h3>Readiness, quality and must-address stacks</h3>
+              <p>Consolidate into one prioritised Resolve next interaction.</p>
+            </article>
+            <article class="surface-card compact-card"><h3>Floating Olumi, docked Olumi and persistent composer</h3><p>Consolidate into one adaptive AI entry, plus a retained Thinking log.</p></article>
+          </section>
+
+          <section class="disposition-column move-column">
+            <header><span class="column-mark"></span><h2>Move / collapse</h2><p>Available in context</p></header>
+            <article class="surface-card">
+              <div class="surface-thumb inspector-thumb"><div class="mini-inspector-head"></div><label></label><input><label></label><input><div class="mini-accordion"></div></div>
+              <h3>Permanent inspector</h3>
+              <p>Move into a temporary editor anchored to the selected element.</p>
+            </article>
+            <article class="surface-card">
+              <div class="surface-thumb conversation-thumb"><span class="bubble user"></span><span class="bubble ai"></span><span class="bubble ai short"></span><div class="mini-composer"></div></div>
+              <h3>Full conversation transcript</h3>
+              <p>Collapse into the Thinking log, with one contextual composer.</p>
+            </article>
+            <article class="surface-card compact-card"><h3>Advanced science, run metadata and receipts</h3><p>Keep one level down under Evidence and method or the evolution receipt.</p></article>
+          </section>
+
+          <section class="disposition-column remove-column">
+            <header><span class="column-mark"></span><h2>Remove</h2><p>Unique value is too low</p></header>
+            <article class="surface-card removal-link" data-open-removal="assistant-options">
+              <div class="surface-thumb duplicate-thumb"><div>Attach evidence · Coming soon</div><div>Voice mode · Coming soon</div><div>Decision depth · Coming soon</div></div>
+              <h3>Disabled assistant-options theatre</h3>
+              <p>Remove controls that cannot act in the current PoC.</p>
+            </article>
+            <article class="surface-card removal-link" data-open-removal="version-history">
+              <div class="surface-thumb receipt-thumb"><b>Version history</b><span>Button produces a toast only</span><span>No inspectable history opens</span><button>Version history</button></div>
+              <h3>Inactive Version history button</h3>
+              <p>Remove until a real evolution view exists.</p>
+            </article>
+          </section>
+
+          <section class="disposition-column rebuild-column">
+            <header><span class="column-mark"></span><h2>Rebuild</h2><p>The need remains important</p></header>
+            <article class="surface-card">
+              <div class="surface-thumb dock-thumb"><div class="mini-tabs"><span>Olumi</span><span>Analysis</span><span>Model</span></div><div class="dock-body"></div><div class="dock-footer"></div></div>
+              <h3>Permanent Olumi / Analysis / Model dock</h3>
+              <p>Rebuild as lenses and transient trays over one stable field.</p>
+            </article>
+            <article class="surface-card">
+              <div class="surface-thumb qa-thumb"><span class="bubble ai"></span><span class="bubble user"></span><span class="bubble ai short"></span><div class="mini-composer"></div></div>
+              <h3>Question-by-question elicitation</h3>
+              <p>Rebuild as model-first momentum plus one high-value unknown.</p>
+            </article>
+            <article class="surface-card compact-card"><h3>Stress tests and “What changed?”</h3><p>Rebuild as an actionable intervention and a causal change story.</p></article>
+          </section>
+        </div>
+      </section>
+
+      <section class="board-panel removals-panel" data-board-panel="removals">
+        <div class="board-intro">
+          <span class="eyebrow">Proposed-removals gallery</span>
+          <h1>Every current shell retired by this concept</h1>
+          <p>Sixteen shells are merged, moved or rebuilt. Only the inactive Version history button and disabled Assistant options are outright removals. Every card records what survives.</p>
+        </div>
+        <div class="retired-gallery">
+          <article class="retired-card" data-removal-card="outputs-dock">
+            <div class="retired-thumb dock-current"><div class="mini-tabs"><span>Olumi</span><span>Analysis</span><span>Model</span></div><div class="dock-body"></div><div class="dock-footer"></div></div>
+            <div class="retired-copy"><span class="disposition-pill rebuild">Rebuild shell</span><h2>Permanent OutputsDock</h2><dl><div><dt>Purpose</dt><dd>Houses AI, analysis and model detail.</dd></div><div><dt>Why retire</dt><dd>A fixed dock competes with the model and creates duplicate destinations.</dd></div><div><dt>Survives as</dt><dd>Contextual trays, model lenses and the Thinking log.</dd></div></dl></div>
+          </article>
+          <article class="retired-card" data-removal-card="model-tab">
+            <div class="retired-thumb model-current"><div class="mini-tabs"><span>Overview</span><span>Factors</span><span>Edges</span></div><b>Model quality</b><i></i><i></i><div class="mini-accordion"></div></div>
+            <div class="retired-copy"><span class="disposition-pill merge">Merge shell</span><h2>Standalone Model tab</h2><dl><div><dt>Purpose</dt><dd>Lists model content, provenance, repairs and audit detail.</dd></div><div><dt>Why retire</dt><dd>It re-describes the living model beside the living model.</dd></div><div><dt>Survives as</dt><dd>On-model semantics, contextual workbench and receipts.</dd></div></dl></div>
+          </article>
+          <article class="retired-card" data-removal-card="floating-olumi">
+            <div class="retired-thumb floating-current"><div class="floating-window"><b>Olumi</b><span class="bubble ai"></span><span class="bubble user"></span><div class="mini-composer"></div></div><span class="side-bump"></span></div>
+            <div class="retired-copy"><span class="disposition-pill rebuild">Rebuild shell</span><h2>Floating Olumi window and side bump</h2><dl><div><dt>Purpose</dt><dd>Keep conversation accessible without docking it.</dd></div><div><dt>Why retire</dt><dd>A resizable chat window still feels bolted beside the work.</dd></div><div><dt>Survives as</dt><dd>Contextual composer, model proposals and Thinking log.</dd></div></dl></div>
+          </article>
+          <article class="retired-card" data-removal-card="docked-olumi">
+            <div class="retired-thumb docked-chat-current"><div class="mini-tabs"><span>Olumi</span><span>Analysis</span><span>Model</span></div><span class="bubble ai"></span><span class="bubble user"></span><div class="mini-composer"></div></div>
+            <div class="retired-copy"><span class="disposition-pill merge">Merge shell</span><h2>Docked Olumi tab</h2><dl><div><dt>Purpose</dt><dd>Provides the complete transcript inside the output rail.</dd></div><div><dt>Why retire</dt><dd>It makes chat a peer destination to the shared model.</dd></div><div><dt>Survives as</dt><dd>Thinking log and ask-in-context entry.</dd></div></dl></div>
+          </article>
+          <article class="retired-card" data-removal-card="persistent-strip">
+            <div class="retired-thumb strip-current"><div class="selection-pill">Selected: Sponsor engagement</div><div class="stale-mini">Analysis stale · Rerun</div><div class="persistent-composer">Ask Olumi… <span></span></div><small>Olumi is open · Focus</small></div>
+            <div class="retired-copy"><span class="disposition-pill merge">Merge shell</span><h2>Persistent input, focus and status stack</h2><dl><div><dt>Purpose</dt><dd>Keeps selection, staleness, AI input and focus behaviour visible.</dd></div><div><dt>Why retire</dt><dd>Several stacked statuses consume space and narrate interface state.</dd></div><div><dt>Survives as</dt><dd>Contextual composer, direct focus and selection, and a material-change ribbon.</dd></div></dl></div>
+          </article>
+          <article class="retired-card" data-removal-card="readiness-stack">
+            <div class="retired-thumb readiness-current"><div><b>Fix before running</b><span>2</span></div><article>Evidence gap <i></i></article><article>Unverified estimate <i></i></article><div><b>Decision quality</b><span>1</span></div></div>
+            <div class="retired-copy"><span class="disposition-pill merge">Merge shell</span><h2>Pre-analysis readiness stack</h2><dl><div><dt>Purpose</dt><dd>Lists blockers, critiques and values to verify.</dd></div><div><dt>Why retire</dt><dd>Many equal-looking cards turn preparation into a queue.</dd></div><div><dt>Survives as</dt><dd>One graph-anchored Resolve next flow while wider issues remain visible on the field.</dd></div></dl></div>
+          </article>
+          <article class="retired-card" data-removal-card="decision-confidence">
+            <div class="retired-thumb confidence-current"><span>Decision confidence</span><div class="confidence-ring">64%</div><b>Executive value reviews</b><i></i><i></i><i></i></div>
+            <div class="retired-copy"><span class="disposition-pill merge">Merge shell</span><h2>Decision-confidence hero shell</h2><dl><div><dt>Purpose</dt><dd>Summarises the leader, probability, readiness and stability.</dd></div><div><dt>Why retire</dt><dd>It overlaps the option list, gauges and result narration.</dd></div><div><dt>Survives as</dt><dd>The answer and status in one Current direction tray.</dd></div></dl></div>
+          </article>
+          <article class="retired-card" data-removal-card="options-gauge">
+            <div class="retired-thumb options-current"><b>Your options</b><article><span>Executive reviews</span><strong>64%</strong><i></i></article><article><span>Adoption support</span><strong>31%</strong><i></i></article><article><span>CSM capacity</span><strong>5%</strong><i></i></article></div>
+            <div class="retired-copy"><span class="disposition-pill merge">Merge shell</span><h2>Your options matrix and WinGauge</h2><dl><div><dt>Purpose</dt><dd>Ranks routes and shows their chance of success.</dd></div><div><dt>Why retire</dt><dd>The ranking repeats the hero and detaches options from mechanisms.</dd></div><div><dt>Survives as</dt><dd>Outcome lens route values and compact result comparison.</dd></div></dl></div>
+          </article>
+          <article class="retired-card" data-removal-card="drivers">
+            <div class="retired-thumb drivers-current"><b>What's driving this</b><article><span>Sponsor engagement</span><i style="--bar:74%"></i><small>48%</small></article><article><span>Product activation</span><i style="--bar:55%"></i><small>35%</small></article><article><span>Service capacity</span><i style="--bar:32%"></i><small>22%</small></article></div>
+            <div class="retired-copy"><span class="disposition-pill merge">Merge shell</span><h2>What's driving this accordion</h2><dl><div><dt>Purpose</dt><dd>Shows influential factors and confidence.</dd></div><div><dt>Why retire</dt><dd>A list repeats relationships already visible on the model.</dd></div><div><dt>Survives as</dt><dd>Saturated causal paths plus compact Because references.</dd></div></dl></div>
+          </article>
+          <article class="retired-card" data-removal-card="tornado">
+            <div class="retired-thumb tornado-current"><b>What could change the result</b><div><span>Sponsor engagement</span><i class="left"></i><i class="right"></i></div><div><span>Activation</span><i class="left short"></i><i class="right medium"></i></div><small>Weaker ← Expected → Stronger</small></div>
+            <div class="retired-copy"><span class="disposition-pill merge">Merge shell</span><h2>What could change the result tornado</h2><dl><div><dt>Purpose</dt><dd>Explores sensitivity to estimate changes.</dd></div><div><dt>Why retire</dt><dd>The chart is powerful but too detached from the causal object.</dd></div><div><dt>Survives as</dt><dd>Could change references, edge editing and on-model response.</dd></div></dl></div>
+          </article>
+          <article class="retired-card" data-removal-card="stress-test">
+            <div class="retired-thumb stress-current"><b>Stress-test your decision</b><article>What would overturn this view?</article><article>Which assumption is most fragile?</article><article>What perspective is missing?</article></div>
+            <div class="retired-copy"><span class="disposition-pill rebuild">Rebuild shell</span><h2>Stress-test accordion</h2><dl><div><dt>Purpose</dt><dd>Offers challenge prompts and robustness checks.</dd></div><div><dt>Why retire</dt><dd>A menu of generic prompts leaves prioritisation to the user.</dd></div><div><dt>Survives as</dt><dd>One grounded, actionable intervention at the relevant relationship.</dd></div></dl></div>
+          </article>
+          <article class="retired-card" data-removal-card="advanced">
+            <div class="retired-thumb advanced-current"><div><b>Advanced</b><span>&lt;/&gt;</span></div><article>Stability <strong>0.72</strong></article><article>Evidence coverage <strong>62%</strong></article><article>Seed <strong>73941</strong></article><article>Model hash <strong>8a3f…</strong></article></div>
+            <div class="retired-copy"><span class="disposition-pill move">Move shell</span><h2>Advanced and expert accordion</h2><dl><div><dt>Purpose</dt><dd>Exposes method, diagnostics and technical receipts.</dd></div><div><dt>Why retire</dt><dd>A large generic accordion competes with interpretation.</dd></div><div><dt>Survives as</dt><dd>Evidence and method disclosure attached to the result.</dd></div></dl></div>
+          </article>
+          <article class="retired-card" data-removal-card="run-metadata">
+            <div class="retired-thumb metadata-current"><span class="mini-logo">Olumi</span><span>12 nodes</span><span>Stable 72%</span><span>Last run 3m</span><button>Run</button></div>
+            <div class="retired-copy"><span class="disposition-pill move">Move shell</span><h2>Top-bar run metadata chips</h2><dl><div><dt>Purpose</dt><dd>Shows model size, stability and last analysis time.</dd></div><div><dt>Why retire</dt><dd>Persistent operational metadata dilutes the strategic focus.</dd></div><div><dt>Survives as</dt><dd>Result status, Thinking log and method receipts on demand.</dd></div></dl></div>
+          </article>
+          <article class="retired-card" data-removal-card="stage-pill">
+            <div class="retired-thumb stage-current"><span>Current stage</span><button>Evaluate <svg class="icon icon-sm"><use href="#i-chevron-down"></use></svg></button><small>Frame · Ideate · Evaluate · Decide · Optimise</small></div>
+            <div class="retired-copy"><span class="disposition-pill rebuild">Rebuild shell</span><h2>Current single stage pill</h2><dl><div><dt>Purpose</dt><dd>Indicates the current step and changes stage-aware AI context.</dd></div><div><dt>Why retire</dt><dd>The taxonomy is outdated and a single pill hides flexibility.</dd></div><div><dt>Survives as</dt><dd>Settled six-stage compass: Strategise to Improve, with no forced wizard.</dd></div></dl></div>
+          </article>
+          <article class="retired-card" data-removal-card="stale-banner">
+            <div class="retired-thumb stale-current"><svg class="icon"><use href="#i-alert"></use></svg><div><b>Analysis may be out of date</b><p>The model changed since this result.</p></div><button>Rerun</button></div>
+            <div class="retired-copy"><span class="disposition-pill rebuild">Rebuild shell</span><h2>Stale-analysis banner</h2><dl><div><dt>Purpose</dt><dd>Warns that model edits may invalidate the result.</dd></div><div><dt>Why retire</dt><dd>It states staleness without explaining the material consequence.</dd></div><div><dt>Survives as</dt><dd>Change ribbon, rerun and causal What changed story.</dd></div></dl></div>
+          </article>
+          <article class="retired-card" data-removal-card="olumi-added">
+            <div class="retired-thumb added-current"><b>What Olumi added</b><article><span class="shape shape-factor"></span>Existing account health <small>Added</small></article><article><span class="shape shape-option"></span>Adoption support <small>Adjusted</small></article><button>View model adjustments</button></div>
+            <div class="retired-copy"><span class="disposition-pill merge">Merge shell</span><h2>What Olumi added and Model adjustments</h2><dl><div><dt>Purpose</dt><dd>Reports inferred additions, repairs and provenance.</dd></div><div><dt>Why retire</dt><dd>Two receipts repeat changes already visible on the model.</dd></div><div><dt>Survives as</dt><dd>Inline attribution, reviewable patches and one evolution receipt.</dd></div></dl></div>
+          </article>
+          <article class="retired-card" data-removal-card="version-history">
+            <div class="retired-thumb history-current"><button><svg class="icon icon-sm"><use href="#i-history"></use></svg>Version history</button><div class="mini-toast">Version history coming soon</div></div>
+            <div class="retired-copy"><span class="disposition-pill remove">Remove</span><h2>Inactive Version history button</h2><dl><div><dt>Purpose</dt><dd>Promises access to previous model versions.</dd></div><div><dt>Why remove</dt><dd>It only emits a toast and creates false affordance.</dd></div><div><dt>Survives as</dt><dd>The genuine Changes lens and retained evolution receipts.</dd></div></dl></div>
+          </article>
+          <article class="retired-card" data-removal-card="assistant-options">
+            <div class="retired-thumb assistant-current"><b>Assistant options</b><article><svg class="icon icon-sm"><use href="#i-paperclip"></use></svg>Attach evidence <small>Coming soon</small></article><article><svg class="icon icon-sm"><use href="#i-message"></use></svg>Voice mode <small>Coming soon</small></article><article><svg class="icon icon-sm"><use href="#i-layers"></use></svg>Decision depth <small>Coming soon</small></article></div>
+            <div class="retired-copy"><span class="disposition-pill remove">Remove</span><h2>Disabled Assistant options</h2><dl><div><dt>Purpose</dt><dd>Previews evidence attachment, voice and depth controls.</dd></div><div><dt>Why remove</dt><dd>All three are disabled in the mounted PoC and imply unavailable capability.</dd></div><div><dt>Survives as</dt><dd>Nothing until each action has a credible end-to-end flow.</dd></div></dl></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="board-panel map-panel" data-board-panel="map">
+        <div class="board-intro">
+          <span class="eyebrow">Current → proposed capability map</span>
+          <h1>Subtraction without capability loss</h1>
+          <p>Important content and actions move closer to the shared model. They do not disappear.</p>
+        </div>
+        <div class="capability-map">
+          <div class="map-head"><span>Current PoC cluster</span><span>What is preserved</span><span>Olumi Field destination</span></div>
+          <article class="map-row"><div><b>Analysis hero + option list + likely-outcome chart</b><p>Headline, ranking, probability and target fit</p></div><div class="capability-chip">Interpret the result</div><div><b>Current direction tray + Outcome lens</b><p>One answer with clickable causal support</p></div></article>
+          <article class="map-row"><div><b>Chat reference + canvas highlight + inspector</b><p>Connect explanation to model detail</p></div><div class="capability-chip">Inspect and edit</div><div><b>Hover path + click to anchored editor</b><p>Reference becomes direct manipulation</p></div></article>
+          <article class="map-row"><div><b>Stress-test cards + decision-confidence actions</b><p>Find fragility and suggest follow-up</p></div><div class="capability-chip">Challenge the reasoning</div><div><b>One prioritised intervention</b><p>Test, add a competing mechanism or dismiss</p></div></article>
+          <article class="map-row"><div><b>Pre-analysis checks + conversational elicitation</b><p>Fill gaps before analysis</p></div><div class="capability-chip">Resolve missing information</div><div><b>Model-first Resolve next flow</b><p>Human judgement, team, evidence, estimate or unknown</p></div></article>
+          <article class="map-row"><div><b>Current Olumi / Analysis / Model dock</b><p>Move among conversation, analysis and model detail. Compare and Journey remain latent, not default.</p></div><div class="capability-chip">Change perspective</div><div><b>Structure / Outcome / Changes lenses</b><p>The model stays spatially stable under every lens</p></div></article>
+          <article class="map-row"><div><b>Stale badges + rerun + activity delta</b><p>Know when an edit affects analysis</p></div><div class="capability-chip">Understand evolution</div><div><b>Material-change ribbon + Changes lens</b><p>Edit → result change → practical implication</p></div></article>
+          <article class="map-row"><div><b>Conversation panel + model receipt blocks</b><p>Retain requests, responses and provenance</p></div><div class="capability-chip">Keep context</div><div><b>Contextual composer + Thinking log</b><p>Conversation is retained but not the canonical work</p></div></article>
+          <article class="map-row"><div><b>Individual comments and expert contributions</b><p>Bring distributed expertise into the work</p></div><div class="capability-chip">Collaborate without forced consensus</div><div><b>Private round + attributed parallel claims</b><p>Disagreement changes the model when it matters</p></div></article>
+          <article class="map-row"><div><b>Advanced analysis and methodology</b><p>Audit science, evidence and provenance</p></div><div class="capability-chip">Inspect rigour</div><div><b>Evidence and method disclosure</b><p>Progressive detail attached to the canonical result</p></div></article>
+        </div>
+      </section>
+
+      <section class="board-panel rationale-panel" data-board-panel="rationale">
+        <div class="board-intro">
+          <span class="eyebrow">Frozen design rationale</span>
+          <h1>The field is the work</h1>
+          <p>The shared visual model remains stable while lenses, interventions and contextual trays change how the team reads or edits it.</p>
+        </div>
+        <div class="rationale-grid">
+          <article class="rationale-hero"><span>Core interaction model</span><h2>One living reasoning field, one next move, reviewable AI changes.</h2><p>Conversation, analysis and collaboration attach to the field instead of becoming competing destinations.</p></article>
+          <article><span>Strong decision 1</span><h3>One model, multiple lenses</h3><p>Structure, outcome and change reuse spatial memory and remove the pre/post-analysis product split.</p></article>
+          <article><span>Strong decision 2</span><h3>AI acts through proposals</h3><p>Olumi adds, edits, connects and challenges with explicit human review.</p></article>
+          <article><span>Strong decision 3</span><h3>One most valuable move</h3><p>Scientific reasoning becomes a useful optional intervention, not an annotation layer.</p></article>
+          <article class="tradeoff"><span>Biggest trade-off</span><h3>Less simultaneous detail</h3><p>This depends on excellent prioritisation, stable layout and reliable retrieval through the Thinking log.</p></article>
+          <article class="rejected"><span>Deliberately rejected</span><h3>Permanent side panels, graph theatre and chat-first elicitation</h3><p>Also rejected: rigid stage gating, hidden AI edits, early AI estimates and forced consensus.</p></article>
+        </div>
+        <div class="archive-note"><svg class="icon"><use href="#i-info"></use></svg><div><strong>Later implementation safeguard</strong><p>Preserve the current PoC as a time-limited, read-only reference build or tagged deploy while the chosen redesign is tested. Do not maintain two permanent products.</p></div></div>
+      </section>
+    </main>
+
+    <script src="prototype.js?v=20260812b"></script>
+  </body>
+</html>
