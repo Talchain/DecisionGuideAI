@@ -26,6 +26,8 @@ import { GoalTargetNudge } from './GoalTargetNudge'
 import { AnalysisSettings } from './AnalysisSettings'
 import { deriveExpertiseGroups } from './hooks/deriveExpertiseGroups'
 import { StickyFooter } from './StickyFooter'
+import { applyAnalysisHold } from './footerGate'
+import { analysisHeldNotice } from '../../utils/analysisHeldOnInjectedModel'
 import { focusNodeById } from '../../utils/focusHelpers'
 // The canonical "open the editor for this node" seam — see handleSetValueForGap.
 import { openNodeInspector } from '../../nodes/shared/openNodeInspector'
@@ -2473,12 +2475,18 @@ export function PreAnalysisPanel({
           disabled whenever the API says !isReady OR Must fix has items.
           The "0/N addressed" meta is removed (redundant with section counts). */}
       <StickyFooter
-        isReady={data.isReady && mustFixCount === 0}
-        hasBlockers={data.hasBlockers || mustFixCount > 0}
-        blockerCount={Math.max(data.blockerCount, mustFixCount)}
+        {...applyAnalysisHold(
+          {
+            isReady: data.isReady && mustFixCount === 0,
+            hasBlockers: data.hasBlockers || mustFixCount > 0,
+            blockerCount: Math.max(data.blockerCount, mustFixCount),
+            blockedReason,
+          },
+          /* The hold authority, not a local re-test of it — see footerGate.ts. */
+          analysisHeldNotice(nodes),
+        )}
         isAnalysing={isAnalysing}
         onAnalyse={onAnalyse}
-        blockedReason={blockedReason}
         isLoading={data.isLoading}
         isRetrying={isRetrying}
       />
