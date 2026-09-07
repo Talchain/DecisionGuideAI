@@ -606,7 +606,17 @@ describe('a check that was NOT made is a scope disclosure, not a third verdict',
   /** One pass, one finding, one never-assessed — all three states at once. */
   function mixedRun(): ResultsSectionDataReturn {
     return makeData({
-      recommendation: { verdict: verdict({}), robustnessVerdict: 'fragile' },
+      recommendation: {
+        verdict: verdict({}),
+        // ⚠ THE COMPOSED ANSWER, not just Q2. `leaderDesignationPermitted`
+        // is what licenses a leader claim; a recommendation carrying only a
+        // verdict answers 'did the arms separate?' and never 'may we say so?',
+        // so the leader check reads not_assessed and this arm loses the very
+        // state it exists to mix. The Q2-only case is tested deliberately
+        // elsewhere in this file and must stay absent there.
+        leaderDesignationPermitted: true,
+        robustnessVerdict: 'fragile',
+      },
       confidence: { evidenceGaps: [], evidenceGapsAssessed: false } as never,
     })
   }
@@ -706,7 +716,17 @@ describe('a check that was NOT made is a scope disclosure, not a third verdict',
    */
   it('a fully assessed run renders NO scope region and keeps all three on the line', () => {
     const data = makeData({
-      recommendation: { verdict: verdict({}), robustnessVerdict: 'robust' },
+      recommendation: {
+        verdict: verdict({}),
+        // ⚠ THE COMPOSED ANSWER, not just Q2. `leaderDesignationPermitted`
+        // is what licenses a leader claim; a recommendation carrying only a
+        // verdict answers 'did the arms separate?' and never 'may we say so?',
+        // so the leader check reads not_assessed and this arm loses the very
+        // state it exists to mix. The Q2-only case is tested deliberately
+        // elsewhere in this file and must stay absent there.
+        leaderDesignationPermitted: true,
+        robustnessVerdict: 'robust',
+      },
       confidence: { evidenceGaps: [], evidenceGapsAssessed: true } as never,
     })
     expect(
