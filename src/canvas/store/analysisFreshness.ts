@@ -484,17 +484,80 @@ export function deriveRestoredFreshnessAttestation(
  * cannot-confirm marker to `fresh`; it can never downgrade, never overwrite a
  * live CEE verdict, and never invent a verdict from silence.
  */
+/**
+ * ⭐⭐ WHY THE RESTORE DECLINED TO ATTEST — the same decision, said out loud.
+ *
+ * `resolveRestoredFreshnessUpdate` returns `null` for FOUR structurally
+ * different reasons, and a caller cannot tell them apart. That silence cost a
+ * session: the deployed product renders "Analysis complete." and "Cannot
+ * confirm whether this analysis is current." 175 characters apart on the
+ * restore path, and answering *why* took an hour of source reading plus a
+ * runtime store dump, because every decline looks identical from outside.
+ *
+ * A mechanism that declines silently is indistinguishable from one that was
+ * never asked — this estate's chronic shape (we lose schedulers, not records).
+ *
+ * ⚠ ONE DECISION, TWO VIEWS. `resolveRestoredFreshnessUpdate` now DELEGATES
+ * here rather than restating the conditions. Two spellings of one question is
+ * the defect this estate pays for most often, and a diagnostic that drifts
+ * from the behaviour it describes is worse than no diagnostic.
+ */
+export type RestoredFreshnessDecision =
+  /** Upgraded: the stored attestation validated. */
+  | { readonly outcome: 'attested'; readonly state: AnalysisFreshnessState }
+  /** Not the hydration marker — a live verdict, never overwritten. */
+  | { readonly outcome: 'declined'; readonly reason: 'not_a_hydrated_snapshot' }
+  /** The user edited since; the attestation describes a graph that is gone. */
+  | { readonly outcome: 'declined'; readonly reason: 'edited_since_restore' }
+  /** The stored payload did not state `fresh` — nothing to recover. */
+  | { readonly outcome: 'declined'; readonly reason: 'stored_verdict_not_fresh' }
+  /** `graph_hash_at_run` and/or `current_graph_hash` absent from the payload. */
+  | { readonly outcome: 'declined'; readonly reason: 'attestation_hashes_absent' }
+  /** Both hashes present and DIFFERENT — the graph moved. */
+  | { readonly outcome: 'declined'; readonly reason: 'attestation_hashes_differ' }
+
+export function explainRestoredFreshnessDecision(
+  current: AnalysisFreshnessState | null,
+  dirty: boolean,
+  storedAnalysisReady: unknown,
+): RestoredFreshnessDecision {
+  // 1. Only the hydration marker is eligible. A live CEE verdict — including a
+  //    'stale' one — is never touched.
+  if (current?.freshnessReason !== 'hydrated_without_capture') {
+    return { outcome: 'declined', reason: 'not_a_hydrated_snapshot' }
+  }
+  // 2. If the user has edited since, the attestation is about a graph that no
+  //    longer exists.
+  if (dirty) return { outcome: 'declined', reason: 'edited_since_restore' }
+
+  // 3. The attestation must validate on its own terms. The state is produced by
+  //    `deriveRestoredFreshnessAttestation` — the ONE validator — and the
+  //    branches below only classify WHY it said no. They never re-decide.
+  const state = deriveRestoredFreshnessAttestation(storedAnalysisReady)
+  if (state !== null) return { outcome: 'attested', state }
+
+  const o =
+    storedAnalysisReady !== null && typeof storedAnalysisReady === 'object'
+      ? (storedAnalysisReady as Record<string, unknown>)
+      : {}
+  if (o.freshness !== 'fresh') {
+    return { outcome: 'declined', reason: 'stored_verdict_not_fresh' }
+  }
+  const atRun = nonEmptyString(o.graph_hash_at_run)
+  const current_ = nonEmptyString(o.current_graph_hash)
+  if (atRun === undefined || current_ === undefined) {
+    return { outcome: 'declined', reason: 'attestation_hashes_absent' }
+  }
+  return { outcome: 'declined', reason: 'attestation_hashes_differ' }
+}
+
 export function resolveRestoredFreshnessUpdate(
   current: AnalysisFreshnessState | null,
   dirty: boolean,
   storedAnalysisReady: unknown,
 ): AnalysisFreshnessState | null {
-  // 1. Only the hydration marker is eligible. A live CEE verdict — including a
-  //    'stale' one — is never touched.
-  if (current?.freshnessReason !== 'hydrated_without_capture') return null
-  // 2. If the user has edited since, the attestation is about a graph that no
-  //    longer exists.
-  if (dirty) return null
-  // 3. The attestation must validate on its own terms.
-  return deriveRestoredFreshnessAttestation(storedAnalysisReady)
+  // DELEGATES — see `explainRestoredFreshnessDecision`. The conditions live in
+  // exactly one place so the diagnostic can never disagree with the behaviour.
+  const decision = explainRestoredFreshnessDecision(current, dirty, storedAnalysisReady)
+  return decision.outcome === 'attested' ? decision.state : null
 }
