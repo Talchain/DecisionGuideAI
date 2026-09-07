@@ -2847,8 +2847,9 @@ export async function captureDisplayState(
     // `src/lib/decisionVerdict.ts`). Q2 is DELIBERATELY OUT OF SCOPE here, not
     // impossible: `deriveDecisionVerdict` is a zero-import module and needs
     // only `report` / `visibleOptionIds` / `rawHeadlineBanded`, all three of
-    // which this function ALREADY reads off the same canvas store a few dozen
-    // lines above (`results.report`, `optionNodes`, `state.rawV2Response`
+    // which this function ALREADY reads off the same canvas store earlier in
+    // this same body — `report` and `rawV2Response` at the top of the results
+    // read, `optionNodes` just above `resolvedOptions`
     // — the panel's `rawHeadlineBanded` is literally
     // `rawV2Response.decision_brief.headline_banded`). Importing that single
     // authority is the technique used for Q1 above, and is the opposite of
