@@ -25,6 +25,7 @@ import { NodeQuickActions } from '../NodeQuickActions'
 import { openNodeInspector } from '../openNodeInspector'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
+import { CANVAS_CORNER_INSET_CLASSES, CANVAS_QUICK_ACTION_INSET_PX } from '../canvasGlyphScale'
 
 const NODE_A = { id: 'node-a', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Hiring spend' } }
 const NODE_B = { id: 'node-b', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Team productivity' } }
@@ -179,8 +180,22 @@ describe('NodeQuickActions — stays out of the owned top-right corner', () => {
     render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
     const el = screen.getByTestId('node-quick-actions-node-a')
 
-    expect(el.className).toContain('bottom-1.5')
-    expect(el.className).toContain('right-1.5')
+    // ⚠ ASSERTED THROUGH THE SHARED CONSTANT, NOT THROUGH A TAILWIND SPELLING.
+    // This read `toContain('bottom-1.5')` — a hand-copy of the class literal,
+    // which pinned HOW the inset is spelled rather than WHICH CORNER it claims.
+    // The inset is now a keyed map so the card's bottom band can be derived
+    // from it (`NODE_QUICK_ACTION_BAND_PX`), and the spelling changed to
+    // `bottom-[6px]` with the corner and the px both unchanged — so the old
+    // assertion failed on a change it has no opinion about, while an actual
+    // move to `bottom-3` would have passed a `toContain('bottom-')`. Binding to
+    // the constant means this cannot fail for a rename and cannot pass for a
+    // move (CLAUDE.md trap 19: bind by identity, not by a predicate something
+    // else could satisfy).
+    expect(el.className).toContain(CANVAS_CORNER_INSET_CLASSES[CANVAS_QUICK_ACTION_INSET_PX])
+    // …and the constant really does claim the bottom-right corner, so the
+    // assertion above cannot be satisfied by a map entry that stopped doing so.
+    expect(CANVAS_CORNER_INSET_CLASSES[CANVAS_QUICK_ACTION_INSET_PX]).toMatch(/(^|\s)bottom-/)
+    expect(CANVAS_CORNER_INSET_CLASSES[CANVAS_QUICK_ACTION_INSET_PX]).toMatch(/(^|\s)right-/)
     // The defect, stated exactly: any top anchor puts it back in the band.
     expect(el.className).not.toMatch(/(^|\s)-?top-/)
   })
