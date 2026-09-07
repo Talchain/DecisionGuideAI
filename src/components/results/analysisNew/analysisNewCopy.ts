@@ -852,6 +852,15 @@ export const ANALYSIS_NEW_COPY = {
      * did not make. An unrecognised key is DROPPED rather than shown raw, and
      * if nothing survives the mapping the generic sentence above stands.
      */
+    /**
+     * ⚠ JOINED WITH A CONJUNCTION, NOT A BARE COMMA. `join(', ')` produced
+     * "the win share, the robustness check did not come back" — a comma splice
+     * that reads as a truncated sentence, witnessed on the deployed build in
+     * the panel's most prominent warning. Two missing results is the common
+     * case, so this was the usual rendering rather than an edge one.
+     *
+     * British English list punctuation: no serial comma before "and".
+     */
     provisionalNaming: (missing: readonly string[]) =>
       missing.length === 0
         ? PROVISIONAL_UNNAMED
