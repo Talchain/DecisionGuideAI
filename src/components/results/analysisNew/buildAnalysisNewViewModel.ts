@@ -65,6 +65,7 @@ import type {
   EvidenceGapItem,
   OptionResult,
   UncertaintyItem,
+  ZeroReasonCode,
 } from '../types'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 // ⚠ IMPORTED FROM ITS OWNER, NEVER RESTATED. `resolveNextCopy.ts` is "the ONE
@@ -587,6 +588,21 @@ function buildDrivers(
     // analysis happened at all.
     driversStatus: data.drivers.driversStatus,
     suppressedZeroCount: suppressedZero.length,
+    /* ⚠ DE-DUPLICATED, ORDER-PRESERVING, AND DERIVED FROM THE SUPPRESSED ROWS
+       THEMSELVES — never from a hand-listed set of codes. A `zero_reason` the
+       union gains later flows through here without anyone remembering to add
+       it, and the copy map it feeds is total over the union, so a new code
+       fails the BUILD rather than rendering a blank reason (CLAUDE.md trap 12).
+
+       The `!= null` narrowing is the same predicate `suppressedZero` was
+       filtered by, so the cast-free assertion below holds by construction. */
+    suppressedZeroReasons: [
+      ...new Set(
+        suppressedZero
+          .map((d) => d.zeroReason)
+          .filter((r): r is NonNullable<ZeroReasonCode> => r != null),
+      ),
+    ],
   }
 }
 
@@ -2468,6 +2484,7 @@ export function buildAnalysisNewViewModel(
           // inert here and is the honest token for "we have nothing".
           driversStatus: 'unavailable' as const,
           suppressedZeroCount: 0,
+          suppressedZeroReasons: [],
         }
       : buildDrivers(data, recommendations),
     // ⚠ ONE BUILD, TWO SECTIONS. `buildUncertainty` is called ONCE and its two

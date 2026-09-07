@@ -44,6 +44,7 @@ import {
   INFLUENCE_RANKING_EXPLAINER_GENERIC,
   INFLUENCE_RANKING_EXPLAINER_RELATIVE,
   INFLUENCE_SCALE_CAPTION,
+  ZERO_REASON_BADGE_LABELS,
 } from './influenceScaleCopy'
 import { ExpandableCoachingText } from '../../components/shared/ExpandableCoachingText'
 import { isExpertField } from './utils/isExpertField'
@@ -137,11 +138,11 @@ const GRID_COLS = gridCols(DISPLAY_SAFE_DRIVER_CONFIDENCE)
 // never left unexplained. Display/label only — the badge reflects the producer's
 // stamp verbatim; it never fabricates or recomputes a value (a suppressed value
 // shows the badge, never a 0).
-const ZERO_REASON_BADGE_LABELS: Record<string, string> = {
-  intervention_override: 'Controlled by your options',
-  disconnected: 'No path to the goal',
-  zero_outcome_diff: "Doesn't change the outcome",
-}
+//
+// ⚠ THE MAP MOVED TO `influenceScaleCopy.ts` AND IS IMPORTED, NOT DECLARED. The
+// Reasoning tab now discloses the same suppression in its drivers caveat, and
+// two file-local copies of one producer stamp is the mirror CLAUDE.md trap 12
+// is about. Only the declaration moved; this row's rendering is unchanged.
 
 /**
  * P1 Results Brief Item 7: Detect binary (0/1) factors from label pattern.

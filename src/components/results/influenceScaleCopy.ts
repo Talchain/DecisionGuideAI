@@ -21,6 +21,7 @@ import type {
   DriverDisplayProvenance,
   ResolvedAnalysisMetric,
 } from './driverDisplayModel'
+import type { ZeroReasonCode } from './types'
 
 /** Header tooltip / pill title — no basis stamped (fail-closed). */
 export const INFLUENCE_EXPLANATION_GENERIC =
@@ -204,4 +205,35 @@ export function analysisMetricPredicate(metric: ResolvedAnalysisMetric): string 
 /** Complete context sentence used by compact coaching surfaces. */
 export function analysisMetricContextSentence(metric: ResolvedAnalysisMetric): string {
   return `${analysisMetricTitle(metric)}.`
+}
+
+/**
+ * ⭐⭐ WHY A FACTOR THE PRODUCER RETURNED CARRIES NO SENSITIVITY — the
+ * producer's own stamp, in one spelling.
+ *
+ * `ZeroReasonCode` (`results/types.ts`) is the producer's explanation for a
+ * suppressed sensitivity, and the three codes differ in a way no summary
+ * survives. `analysisNewCopy.ts` states the rule for its own empty state:
+ * "three reasons cannot share one summary without one of them being described
+ * wrongly". So every surface that discloses a suppression names the CODE.
+ *
+ * ⚠ MOVED HERE FROM `DriversSection.tsx`, WHERE IT WAS A FILE-LOCAL CONST, so
+ * that the Reasoning tab's exclusion notice and the Drivers panel's row badge
+ * cannot drift into two spellings of one producer stamp (CLAUDE.md trap 12).
+ * `DriversSection` imports it rather than declaring it; nothing else changed
+ * there.
+ *
+ * ⚠ TOTAL OVER THE CODE UNION, DELIBERATELY. Typed as a `Record` over
+ * `NonNullable<ZeroReasonCode>` rather than `Record<string, string>`, so a
+ * fourth code added to the union fails the BUILD instead of rendering a blank
+ * reason. That is the derived half of the guard; the copy-hygiene cases above
+ * are the corpus half.
+ *
+ * Display/label only — it reflects the producer's stamp and never fabricates
+ * or recomputes a value.
+ */
+export const ZERO_REASON_BADGE_LABELS: Record<NonNullable<ZeroReasonCode>, string> = {
+  intervention_override: 'Controlled by your options',
+  disconnected: 'No path to the goal',
+  zero_outcome_diff: "Doesn't change the outcome",
 }
