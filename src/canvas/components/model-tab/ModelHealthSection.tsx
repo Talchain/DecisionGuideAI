@@ -263,7 +263,29 @@ function ModelHealthSectionInner({
           >
             <AlertTriangle className="w-3.5 h-3.5 text-danger shrink-0" aria-hidden="true" />
             <span className={`${typography.panelMeta} text-danger`}>
-              {rootNodeWarningCount} factor{rootNodeWarningCount !== 1 ? 's have' : ' has'} no value set. This reduces analysis reliability.
+              {/* ⚠⚠ THIS SENTENCE NAMED THE WRONG SET, AND THE OUTLINE FOUR
+                  INCHES ABOVE MADE IT READ AS A CONTRADICTION.
+
+                  `rootNodeWarningCount` counts `ROOT_NODE_DEFAULT_VALUE`
+                  inference warnings — STARTING (root) factors where the engine
+                  substituted zero. It is NOT "factors with no value set", which
+                  is what it said. Witnessed on the deployed build: this read
+                  "1 factor has no value set" while `ModelOutline` said
+                  "Factors 3 · 3 with no value yet", all three showing Not set.
+
+                  `ModelOutline.tsx:192-213` records that this exact incoherence
+                  already happened once and "sent an expert lane chasing a
+                  regression that did not exist". The resolution then was to name
+                  the predicates apart rather than align them — the outline's
+                  copy was fixed and THIS half was not.
+
+                  The wording is the estate's own for this code:
+                  `humaniseCritique.ts` renders `ROOT_NODE_DEFAULT_VALUE` as
+                  "A starting factor has no current value recorded, so zero was
+                  assumed — anything downstream of it may be unreliable."
+                  Both facts it drops are load-bearing: WHICH factors, and that
+                  a value was SUBSTITUTED rather than merely missing. */}
+              {rootNodeWarningCount} starting factor{rootNodeWarningCount !== 1 ? 's had' : ' had'} no value recorded, so zero was assumed. Anything downstream of {rootNodeWarningCount !== 1 ? 'them' : 'it'} may be unreliable.
               {auditTrail?.stabilityPenaltyFactor != null && auditTrail.stabilityPenaltyFactor < 1.0 && (
                 <> Penalty: {auditTrail.stabilityPenaltyFactor.toFixed(2)}x stability</>
               )}

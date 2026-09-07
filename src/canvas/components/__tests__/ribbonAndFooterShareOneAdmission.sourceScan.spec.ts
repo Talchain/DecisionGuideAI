@@ -19,15 +19,21 @@
  * point: this asserts ONE admission with many readers, never two defaults
  * that happen to agree today (CLAUDE.md trap 21).
  *
- * ⚠ THE ANCHOR IS NOT THIS SURFACE'S FOOTER, AND THIS FILE'S NAME RUNS AHEAD
- * OF THE CODE. `AnalysisReadinessBar` is the footer bar `shellContract.ts`
- * declares for `olumi` (`footerBar: 'readiness'`). This surface declares
- * `footerBar: 'reanalyse'`, which renders `ReanalyseBar` — whose only prop is
- * `onReanalyse` and whose button disables on `!onReanalyse`, so it reads no
- * gate value at this head. PR #1212 is what points it at the same verdict.
- * What this file asserts today is therefore ONE admission with several
- * readers inside `OutputsDock`; "ribbon and footer" is the state the pair
- * reaches once #1212 has landed beside it.
+ * ⚠ THE ANCHOR IS NOT THIS SURFACE'S FOOTER, AND THAT IS DELIBERATE.
+ * `AnalysisReadinessBar` is the footer bar `shellContract.ts` declares for
+ * `olumi` (`footerBar: 'readiness'`). This surface declares
+ * `footerBar: 'reanalyse'`, which renders `ReanalyseBar`. It is the anchor
+ * because it is the in-file reader that already takes BOTH halves of the
+ * verdict off `runGateResult` — not because it is this surface's footer.
+ * What this file asserts is ONE admission with several readers inside
+ * `OutputsDock`.
+ *
+ * ⚠ AND IT DOES NOT COVER THE FOOTER ARM. Since #1212 `ReanalyseBar` is
+ * gated too (it disables on `!onReanalyse || blocked || isAnalysing`), but
+ * that binding is pinned by `reanalyseBarIsGated.sourceScan`, NOT here —
+ * this scan reads only the `AnalysisReadinessBar` and `AnalysisNewTabBody`
+ * spans, so it would stay GREEN if the `reanalyse` arm regressed. Read the
+ * name as the state of the surface, never as the coverage of this file.
  *
  * ⚠ THE CONTRAST CONTROL IS NOT OPTIONAL. A scan that extracts nothing agrees
  * with every claim made about what it extracted (trap 13). The controls below

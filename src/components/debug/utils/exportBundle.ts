@@ -875,8 +875,19 @@ export type WinProbabilitySource =
   | 'results.report.option_probabilities.win_probability'
   | 'unmatched'
 
-/** How the captured rank was computed (analytical vs canvas fallback). */
-export type RankSource = 'win_probability_desc' | 'canvas_order' | 'unranked'
+/**
+ * How the captured rank was computed, or why it was not computed at all.
+ *
+ * `withheld` is not a rank — it records that CEE did not license a
+ * comparative-leader claim for this model, so the bundle declines to invent an
+ * ordering the product itself suppresses (`OptionCards.tsx`:
+ * `const rank = designationsWithheld ? undefined : ...`).
+ */
+export type RankSource =
+  | 'win_probability_desc'
+  | 'canvas_order'
+  | 'unranked'
+  | 'withheld'
 
 /**
  * Where the captured influence / sensitivity value came from.
@@ -926,13 +937,29 @@ export interface DisplayState {
     /** Provenance discriminator: which payload path supplied `win_probability_displayed`. */
     win_probability_source: WinProbabilitySource
     /**
-     * Analytical rank computed from `win_probability` descending, matching the
-     * sort order used by `OptionCards.tsx` (`OptionCards.tsx:506-513`) so the
-     * bundle reflects what the user actually sees in the rendered list.
-     * Deterministic tie-break: equal win_probability → secondary sort by option_id ascending.
+     * DIAGNOSTIC, NOT A CAPTURE OF A RENDERED BADGE. The product ships no
+     * numeric rank badge — `OptionCards.tsx` records "D17: '#N of M' rank
+     * prefix removed", and its `rank` drives only an `aria-hidden` colour
+     * swatch (`rank-marker-<id>`). The crowned border is a SIBLING of `rank`,
+     * not driven by it: `const crowned = designationsWithheld ? false : ...`
+     * feeds `borderClass`, sharing `rank`'s suppressor but not its value.
+     * The digits a user reads are
+     * `Option {N}` from `optionNumbering`, which is identity-anchored and
+     * stable across reruns. This field is the BUNDLE's own re-derivation of
+     * an ordering, provided so a bundle consumer can compare the analytical
+     * and canvas orders; it is not evidence about anything displayed.
+     *
+     * Analytical rank is `win_probability` descending, deterministic
+     * tie-break equal win_probability → secondary sort by option_id ascending.
+     * `null` whenever `rank_source` is `withheld` or `unranked`.
      */
     rank_displayed: number | null
-    /** How `rank_displayed` was computed: analytical sort, canvas fallback, or unranked. */
+    /**
+     * How `rank_displayed` was computed, or why it is absent: analytical sort,
+     * canvas fallback, no options, or licence withheld. Read this BEFORE
+     * reading `rank_displayed` — a `canvas_order` rank is iteration order, and
+     * carries no analytical meaning.
+     */
     rank_source: RankSource
   }> | null
   rendered_factors: Array<{
@@ -2676,6 +2703,13 @@ export async function captureDisplayState(
     const { readAnalysisStateSourceFromStore } = await import(
       '../../../canvas/hooks/useAnalysisStateSource'
     )
+    // ONE READER, IMPORTED — never re-spelled here. `licensesComparativeLeaderClaim`
+    // is the codebase's single answer to "does this MODEL license a
+    // comparative-leader claim?", and re-implementing its predicate in the
+    // export path would create a second authority that drifts from the panel's.
+    const { licensesComparativeLeaderClaim } = await import(
+      '../../../canvas/hooks/useAnalysisReady'
+    )
     const state = useCanvasStore.getState()
 
     const nodes = state.nodes ?? []
@@ -2827,6 +2861,32 @@ export async function captureDisplayState(
     }
 
     const resolvedOptions = optionNodes.map(resolveOption)
+
+    // Q1 OF TWO — "does the MODEL license a comparative-leader claim?" Read
+    // from the same store path `useAnalysisAdmission` reads
+    // (`ceeAnalysisReady.analysis_admission`) and answered by the imported
+    // selector, so this cannot drift from the panel.
+    //
+    // ⚠ SCOPE, STATED EXACTLY. The product's `designationsWithheld`
+    // (`useResultsSectionData.ts`) is Q1 AND Q2, where Q2 is "did THIS run
+    // separate the arms?" (`deriveDecisionVerdict().hasLeadingOption`,
+    // `src/lib/decisionVerdict.ts`). Q2 is DELIBERATELY OUT OF SCOPE here, not
+    // impossible: `deriveDecisionVerdict` is a zero-import module and needs
+    // only `report` / `visibleOptionIds` / `rawHeadlineBanded`, all three of
+    // which this function ALREADY reads off the same canvas store earlier in
+    // this same body — `report` and `rawV2Response` at the top of the results
+    // read, `optionNodes` just above `resolvedOptions`. The panel's
+    // `rawHeadlineBanded` is literally
+    // `rawV2Response.decision_brief.headline_banded`. Importing that single
+    // authority is the technique used for Q1 above, and is the opposite of
+    // rebuilding it. So a run withheld on Q2 ALONE still reports an analytical
+    // rank_source here. That gap is known and recorded, NOT closed — closing it
+    // is a follow-up, not a blocked one. `rank_source` answers the
+    // model-licence question only, and the field docs say so.
+    const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(
+      (state as { ceeAnalysisReady?: CEEAnalysisReady | null })
+        .ceeAnalysisReady?.analysis_admission,
+    )
     // `allHaveWinProb` now mirrors the finite-number guard above so the
     // rank-source decision is consistent: any non-finite slipping through
     // would have been resolved as null/unmatched anyway, but this keeps the
@@ -2836,7 +2896,18 @@ export async function captureDisplayState(
 
     let rankByNodeId: Map<string, number>
     let rankSource: RankSource
-    if (allHaveWinProb) {
+    if (resolvedOptions.length > 0 && !modelLicensesComparativeClaim) {
+      // Licence withheld: emit no rank at all, mirroring OptionCards.tsx
+      // (`const rank = designationsWithheld ? undefined : ...`). Before this
+      // branch existed the withheld case fell straight through to the two
+      // arms below and emitted a rank regardless — `win_probability_desc`
+      // when every option carried a probability, `canvas_order` when they did
+      // not. Either way the bundle asserted an ordering the product had
+      // deliberately suppressed. An empty map leaves every `rank_displayed`
+      // null, so `rank_source` is the only field a consumer needs to read.
+      rankByNodeId = new Map()
+      rankSource = 'withheld'
+    } else if (allHaveWinProb) {
       // Analytical rank, mirroring OptionCards.tsx:506-513 production sort.
       // Deterministic tie-break: equal win_probability → secondary sort by option_id asc.
       const sorted = [...resolvedOptions].sort((a, b) => {

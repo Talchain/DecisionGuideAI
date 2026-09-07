@@ -188,10 +188,27 @@ describe('influence basis (§16) — displayProvenance decides, not taste', () =
     expect(vm.drivers.findings[0].implication).toMatch(/\d+%/)
   })
 
-  it('states structural influence numerically ONLY on the producer influence scale', () => {
+  it('states the figure ONLY on the producer influence scale, and states it as RELATIVE', () => {
+    /**
+     * ⚠⚠ THIS ASSERTED `false` UNTIL 6 Sep 2026, AND THAT PIN RATIFIED THE
+     * DEFECT. `influenceIsSetRelative` was `rows.some(d => d.displayProvenance
+     * !== 'influence_score')` — false exactly when every row IS the producer
+     * basis, which is the ordinary run. So the panel took its ABSOLUTE arm on
+     * precisely the runs whose basis is set-relative for every row, and printed
+     * "Structural influence 100%" — the string Paul witnessed on the deployed
+     * build. Of the 21 JSON files under `src/` carrying the field, every one
+     * whose maximum is non-zero maxes at exactly 1.0 and none exceeds it, because
+     * the producer divides by `max|influence|` (narrowed 6 Sep 2026 from a
+     * universal a reviewer refuted with a real all-zero degenerate turn).
+     *
+     * Evidence and the full ruling: `theScaleClaimMatchesTheScale.spec.ts`.
+     */
     const vm = build(openStrategicChallenge())
-    expect(vm.drivers.influenceIsSetRelative).toBe(false)
-    expect(vm.drivers.findings[0].implication).toContain('Structural influence 60%')
+    expect(vm.drivers.influenceIsSetRelative).toBe(true)
+    // The figure survives — a bar length cannot state a number — but the noun
+    // no longer claims a share of the outcome.
+    expect(vm.drivers.findings[0].implication).toContain('Relative influence 60%')
+    expect(vm.drivers.findings[0].implication).not.toContain('Structural influence')
   })
 })
 

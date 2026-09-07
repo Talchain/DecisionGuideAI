@@ -60,7 +60,18 @@ describe('the driver chart states its scale', () => {
     expect(scale).toBeVisible()
     // Both ends AND the centre — a chart that labels only its extremes still
     // leaves the reference point unstated, which is the defect.
-    expect(scale).toHaveTextContent('strongest this run')
+    //
+    // ⚠ THE TWO ENDS WERE ONE STRING UNTIL `e15416ad`, AND THIS ASSERTION COULD
+    // NOT SEE IT. It read `toHaveTextContent('strongest this run')`, which is
+    // satisfied by ONE match, so the scale labelling BOTH poles with those same
+    // three words passed here and shipped — witnessed in the founder captures on
+    // staging `acd3db4d`. A containment assertion over a whole element cannot
+    // observe that two of its children are identical. The poles are now named
+    // apart, and the assertion that they MUST differ is in
+    // `driversSeamSaysOneThing.spec.tsx`, bound to the two endpoint spans
+    // separately rather than to their concatenation.
+    expect(scale).toHaveTextContent('lowers most')
+    expect(scale).toHaveTextContent('raises most')
     expect(scale).toHaveTextContent('no effect')
   })
 
