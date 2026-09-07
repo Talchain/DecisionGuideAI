@@ -56,9 +56,30 @@ const TESTID = 'hero-designation-withheld-reason'
 
 const PANEL_PROPS = { rerunDisabled: false, focusPanelMounted: false } as const
 
-function admission(messages: string[]) {
+/**
+ * ⭐⭐ THE ADMISSION IS Q1. THE VERDICT IS Q2. THE FIXTURE MUST SET BOTH.
+ *
+ * `leaderDesignationPermitted(rec)` is `rec.leaderDesignationPermitted ??
+ * rec.verdict?.hasLeadingOption` — so a fixture that omits the composed field
+ * falls through to the VERDICT arm, and every case in this file was landing
+ * there. The tests passed, the product was right, and they were pointed at a
+ * different cause: they could not distinguish "explains the admission refusal"
+ * from "printed whenever the run failed to separate".
+ *
+ * Measured before this was fixed — model refuses, run separates:
+ *   headline = "Hire two developers has the highest chance … 80%."
+ *   reason   = null            ← an admission refusal rendered NOTHING
+ *
+ * `useResultsSectionData` publishes the CONJUNCTION as
+ * `leaderDesignationPermitted`, so the fixture below mirrors the producer and
+ * sets it from Q1 && Q2 rather than leaving it absent.
+ */
+const MODE_REFUSES = 'quantified_provisional'
+const MODE_PERMITS = 'comparative_leader'
+
+function admission(messages: string[], mode: string = MODE_REFUSES) {
   return {
-    permitted_analysis_mode: 'quantified_provisional',
+    permitted_analysis_mode: mode,
     reasons: messages.map((message, i) => ({ field: `field_${i}`, message })),
   }
 }
@@ -66,13 +87,24 @@ function admission(messages: string[]) {
 function heroModel(opts: {
   verdict: typeof WITHHELD_VERDICT
   analysisAdmission?: ReturnType<typeof admission>
+  /**
+   * Q2 — did this RESULT separate the arms? Defaults to the verdict's own
+   * answer, which is what a run with no surprises reports.
+   */
+  resultSeparatesArms?: boolean
 }): HeroChartModel {
+  const q1 = opts.analysisAdmission == null
+    ? true
+    : opts.analysisAdmission.permitted_analysis_mode === MODE_PERMITS
+  const q2 = opts.resultSeparatesArms ?? opts.verdict.hasLeadingOption === true
   return buildHeroModel(
     makeHeroData({
       options: options(),
       recommendation: {
         verdict: opts.verdict,
         analysisAdmission: opts.analysisAdmission,
+        // THE COMPOSED ANSWER, exactly as `useResultsSectionData` publishes it.
+        leaderDesignationPermitted: q1 && q2,
         storyHeadlines: {},
       } as NonNullable<Parameters<typeof makeHeroData>[0]>['recommendation'],
     }),
@@ -175,14 +207,99 @@ describe('analysis hero — the withheld run says WHY no leader was named', () =
     // The opposite-direction twin. An admission message present on a
     // permitted run is not an explanation of a silence that never happened —
     // rendering it would invent a refusal.
+    //
+    // ⚠ THE ADMISSION MUST PERMIT, or this is not a permitted run. The fixture
+    // used to leave the mode at its refusing default and still expect
+    // `designationsWithheld === false`; that only held because the composed
+    // field was absent and the reader fell through to the verdict. Now that
+    // the fixture answers both questions the way the producer does, a
+    // refusing admission makes the run WITHHELD — so reproducing "permitted"
+    // means permitting on both conjuncts, and the reason must still be null
+    // even though a message rode along.
     const model = heroModel({
       verdict: PERMITTED_VERDICT,
-      analysisAdmission: admission([ADMISSION_MESSAGE]),
+      analysisAdmission: admission([ADMISSION_MESSAGE], MODE_PERMITS),
     })
     expect(model.designationsWithheld, 'control must reproduce the PERMITTED state').toBe(false)
 
     expect(model.designationWithheldReason).toBeNull()
     const { queryByTestId } = render(<AnalysisHeroPanel model={model} {...PANEL_PROPS} />)
     expect(queryByTestId(TESTID)).toBeNull()
+  })
+})
+
+/**
+ * ⭐⭐ THE DISCRIMINATING ARMS — these are what make this file about the
+ * ADMISSION rather than about separation. Each one holds the other question
+ * fixed, so a passing result can only be caused by the question it names.
+ */
+describe('the sentence answers Q1, and only Q1', () => {
+  it('⭐ MODEL REFUSES, RUN SEPARATES → the sentence appears', () => {
+    // The flagship case the feature exists for, and the one the old fixture
+    // could not reach: Q2 is TRUE, so only the admission can be withholding.
+    const model = heroModel({
+      verdict: PERMITTED_VERDICT,
+      analysisAdmission: admission([ADMISSION_MESSAGE], MODE_REFUSES),
+      resultSeparatesArms: true,
+    })
+    expect(model.designationsWithheld, 'Q1 alone must withhold here').toBe(true)
+    expect(model.designationWithheldReason).toBe(ADMISSION_MESSAGE)
+  })
+
+  it('⭐ THE TWIN: MODEL PERMITS, RUN TIES → no admission sentence', () => {
+    // Q1 permitted the claim; the arms merely tied. The admission refused
+    // NOTHING, so attaching its wording here would state a refusal that did
+    // not happen. Before the Q1 gate this rendered the sentence.
+    const model = heroModel({
+      verdict: WITHHELD_VERDICT,
+      analysisAdmission: admission([ADMISSION_MESSAGE], MODE_PERMITS),
+      resultSeparatesArms: false,
+    })
+    expect(model.designationsWithheld, 'the run still withholds — via Q2').toBe(true)
+    expect(model.designationWithheldReason).toBeNull()
+  })
+
+  it('the pair actually DIFFER — the discrimination is asserted, not assumed', () => {
+    const q1Refused = heroModel({
+      verdict: PERMITTED_VERDICT,
+      analysisAdmission: admission([ADMISSION_MESSAGE], MODE_REFUSES),
+      resultSeparatesArms: true,
+    })
+    const q2Tied = heroModel({
+      verdict: WITHHELD_VERDICT,
+      analysisAdmission: admission([ADMISSION_MESSAGE], MODE_PERMITS),
+      resultSeparatesArms: false,
+    })
+    // Both are withheld runs carrying the SAME admission message. Only the
+    // refusing conjunct differs, and it must change the answer.
+    expect(q1Refused.designationsWithheld).toBe(q2Tied.designationsWithheld)
+    expect(q1Refused.designationWithheldReason).not.toBe(q2Tied.designationWithheldReason)
+  })
+
+  it('a whitespace-only producer message is an absence, not an empty paragraph', () => {
+    const model = heroModel({
+      verdict: PERMITTED_VERDICT,
+      analysisAdmission: admission(['   '], MODE_REFUSES),
+      resultSeparatesArms: true,
+    })
+    expect(model.designationsWithheld).toBe(true)
+    expect(model.designationWithheldReason).toBeNull()
+    const { queryByTestId } = render(
+      <AnalysisHeroPanel model={model} {...PANEL_PROPS} />,
+    )
+    expect(queryByTestId(TESTID)).toBeNull()
+  })
+
+  it('the slot obeys house style — em dashes become hyphens, like every producer slot', () => {
+    const EM = 'No leader — the estimates are ours, not yours.'
+    const model = heroModel({
+      verdict: PERMITTED_VERDICT,
+      analysisAdmission: admission([EM], MODE_REFUSES),
+      resultSeparatesArms: true,
+    })
+    const { getByTestId } = render(<AnalysisHeroPanel model={model} {...PANEL_PROPS} />)
+    expect(getByTestId(TESTID).textContent).toBe('No leader - the estimates are ours, not yours.')
+    // The guard is a GLYPH swap: no words added, removed or reordered.
+    expect(getByTestId(TESTID).textContent).toContain('the estimates are ours, not yours.')
   })
 })

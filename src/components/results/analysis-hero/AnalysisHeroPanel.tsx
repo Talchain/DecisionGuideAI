@@ -391,17 +391,32 @@ export function AnalysisHeroPanel({
             {model.subline}
           </p>
         )}
-        {/* ⭐ WHY NO LEADER WAS NAMED — the producer's own sentence, VERBATIM.
+        {/* ⭐ WHY NO LEADER WAS NAMED — the producer's own sentence.
             Present only on a withheld run that supplied one; null renders
             nothing at all, which is exactly what this panel did before the
             slot existed. No prefix, no label, no paraphrase: the hero never
-            authors refusal wording (same contract as `trustLine` below). */}
+            authors refusal wording.
+
+            ⚠ ROUTED THROUGH `dashSafe`, LIKE EVERY OTHER PRODUCER SLOT. This
+            comment used to claim "same contract as `trustLine` below" while
+            NOT applying the guard `trustLine` applies — measured: the same
+            string rendered here kept its em dash and rendered in the trust
+            line as a hyphen, so the two slots disagreed on house style and
+            the sentence claiming they agreed was false.
+
+            Nothing catches this on its own: `copyHygiene.spec.tsx` scans
+            UI-authored `HERO_COPY` only, because producer text is rendered as
+            data. So the guard has to be applied here, at the slot. It is a
+            glyph swap and adds, removes and reorders nothing, so "the
+            producer's sentence" survives it — which is why the word VERBATIM
+            has been dropped from this comment rather than the guard from the
+            slot. */}
         {model.designationWithheldReason && (
           <p
             className={`${typography.panelBody} text-text-light`}
             data-testid="hero-designation-withheld-reason"
           >
-            {model.designationWithheldReason}
+            {dashSafe(model.designationWithheldReason)}
           </p>
         )}
         {/* ⭐ SUBSET DISCLOSURE — the headline names a LEADER, and a superlative

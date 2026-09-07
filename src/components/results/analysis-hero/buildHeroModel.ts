@@ -44,6 +44,7 @@
 
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { leaderDesignationPermitted } from '../leaderDesignation'
+import { licensesComparativeLeaderClaim } from '../../../canvas/hooks/useAnalysisReady'
 import type { FlipThreshold, OptionResult } from '../types'
 import { formatThreshold } from '../RangeVisualization'
 import { stripEncodingNotation } from '../utils/cleanFactorLabel'
@@ -862,10 +863,17 @@ export function buildHeroModel(
 
   // ⭐ WHY NO LEADER WAS NAMED — the withheld run stops going silent.
   //
-  // Every headline a withheld run can take names no option, and that is the
-  // whole defect: the refusal leaves no trace, so it is indistinguishable
-  // from an ordinary run and the user cannot tell one happened or what would
-  // change it.
+  // On the MULTI-OPTION chain every headline a withheld run can take names no
+  // option, and that is the defect: the refusal leaves no trace, so it is
+  // indistinguishable from an ordinary run and the user cannot tell one
+  // happened or what would change it.
+  //
+  // ⚠ NOT "every headline", which is what this said and it was FALSE. The
+  // single-option branch above (`rows.length === 1`) is ungated by
+  // `designationsWithheld` and DOES name its option — measured: one option
+  // plus a withheld verdict renders "<Option> is your only option." with this
+  // reason beside it. That is acceptable (naming the sole option asserts no
+  // comparison), but the claim had to be narrowed to what was measured.
   //
   // The explanation is already on this object. `analysisAdmission` is put
   // there by `useResultsSectionData` (`analysisAdmission:
@@ -899,9 +907,36 @@ export function buildHeroModel(
   // one headline; any further reasons are not rendered on this surface. They
   // are untouched on `recommendation.analysisAdmission` for any consumer that
   // wants them.
-  const designationWithheldReason = designationsWithheld
-    ? recommendation.analysisAdmission?.reasons?.[0]?.message ?? null
-    : null
+  //
+  // ⚠⚠ GATED ON THE Q1 REFUSAL, NOT ON `designationsWithheld` ALONE — this is
+  // the fix for two questions under one name.
+  //
+  // `designationsWithheld` is `!(Q1 && Q2)`: Q1 is "does the MODEL license a
+  // comparative claim?" and Q2 is "did THIS RESULT separate the arms?".
+  // `analysis_admission.reasons[]` explains Q1 ONLY — `types.ts` types its
+  // `field` as "Which conjunct refused". So on a run where the model PERMITTED
+  // the claim and the arms merely TIED, the old gate printed the admission's
+  // sentence as the reason no leader was named. Measured: Q1
+  // `comparative_leader`, Q2 false, headline "Here is how your options
+  // compare.", reason rendered — and the admission had refused nothing.
+  //
+  // Requiring the Q1 refusal explicitly means the sentence answers the
+  // question it is actually about. A tie now correctly renders nothing here;
+  // the tie has its own copy elsewhere and does not need CEE's admission
+  // wording bolted onto it.
+  //
+  // ⚠ AND WHY `.trim() || null` RATHER THAN `?? null`. Nullish coalescing is
+  // nullish-only, so a whitespace-only producer message survived it and
+  // rendered an EMPTY paragraph in the panel's most prominent block —
+  // defeating the "absence stays absent" guarantee two paragraphs up, which
+  // promises the markup is identical to its pre-field markup when nothing was
+  // supplied. An empty string and "   " are both "the producer said nothing".
+  const modelRefusedComparativeClaim =
+    licensesComparativeLeaderClaim(recommendation.analysisAdmission) === false
+  const designationWithheldReason =
+    designationsWithheld && modelRefusedComparativeClaim
+      ? recommendation.analysisAdmission?.reasons?.[0]?.message?.trim() || null
+      : null
 
   // Tension subline: the headlined leader vs the strongest expected outcome.
   // PERSISTENT across goal and no-goal headline branches (review-locked):
