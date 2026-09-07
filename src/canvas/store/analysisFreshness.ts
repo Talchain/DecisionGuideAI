@@ -487,34 +487,69 @@ export function deriveRestoredFreshnessAttestation(
 /**
  * ⭐⭐ WHY THE RESTORE DECLINED TO ATTEST — the same decision, said out loud.
  *
- * `resolveRestoredFreshnessUpdate` returns `null` for FOUR structurally
- * different reasons, and a caller cannot tell them apart. That silence cost a
- * session: the deployed product renders "Analysis complete." and "Cannot
- * confirm whether this analysis is current." 175 characters apart on the
- * restore path, and answering *why* took an hour of source reading plus a
- * runtime store dump, because every decline looks identical from outside.
+ * `resolveRestoredFreshnessUpdate` returns `null` for several structurally
+ * different reasons and a caller cannot tell them apart, so every decline looks
+ * identical from outside. Answering *which one fired* on the deployed build
+ * took an hour of source reading plus a runtime store dump.
  *
  * A mechanism that declines silently is indistinguishable from one that was
  * never asked — this estate's chronic shape (we lose schedulers, not records).
+ *
+ * ⚠ AN EARLIER VERSION OF THIS DOCBLOCK JUSTIFIED THE FUNCTION WITH A CLAIM I
+ * HAVE SINCE WITHDRAWN — that the product renders "Analysis complete." and
+ * "Cannot confirm whether this analysis is current." 175 characters apart on
+ * the restore path. Re-measured on a genuine fresh load: 'Analysis complete' is
+ * ABSENT in every form. The completion sentence I saw was a TRANSIENT settle
+ * announcement in a tab that had just finished a run, not part of the restore
+ * path. A real co-occurrence with a wrong cause, and it does not belong in
+ * shipped source. What survives, and is all this function needs: the restore
+ * path renders the cannot-confirm hedge, and nothing says why.
  *
  * ⚠ ONE DECISION, TWO VIEWS. `resolveRestoredFreshnessUpdate` now DELEGATES
  * here rather than restating the conditions. Two spellings of one question is
  * the defect this estate pays for most often, and a diagnostic that drifts
  * from the behaviour it describes is worse than no diagnostic.
+ *
+ * ⚠ NO PRODUCTION CONSUMER TODAY. Nothing in the product calls this; it exists
+ * as the acceptance harness for the upstream staleness repair, where
+ * `stored_verdict_not_fresh → attested` is the visible transition that proves
+ * the fix landed. Do not read it as user-facing.
  */
+
+/**
+ * ⭐ THE DECLINE REASONS, AS A RUNTIME VALUE — so completeness is CHECKABLE.
+ *
+ * ⚠ THIS USED TO BE A BARE UNION AND A TEST CLAIMING "adding a member without a
+ * case REDs". It could not: a TS union is erased at runtime, so a seat added a
+ * sixth member with no producing code and the spec stayed 9/9 GREEN. The type
+ * carried a guarantee only a runtime value can carry.
+ *
+ * Deriving the type FROM this array inverts that: the test asserts the reasons
+ * it reached equal this list, so a member added here without a producing branch
+ * fails, and a branch returning a reason absent here fails to typecheck.
+ */
+export const RESTORED_FRESHNESS_DECLINE_REASONS = [
+  /** Not the hydration marker — a live verdict, never overwritten. */
+  'not_a_hydrated_snapshot',
+  /** The user edited since; the attestation describes a graph that is gone. */
+  'edited_since_restore',
+  /** No stored payload at all — distinct from one that stated the wrong thing. */
+  'stored_payload_absent',
+  /** The stored payload did not state `fresh` — nothing to recover. */
+  'stored_verdict_not_fresh',
+  /** `graph_hash_at_run` and/or `current_graph_hash` absent from the payload. */
+  'attestation_hashes_absent',
+  /** Both hashes present and DIFFERENT — the graph moved. */
+  'attestation_hashes_differ',
+] as const
+
+export type RestoredFreshnessDeclineReason =
+  (typeof RESTORED_FRESHNESS_DECLINE_REASONS)[number]
+
 export type RestoredFreshnessDecision =
   /** Upgraded: the stored attestation validated. */
   | { readonly outcome: 'attested'; readonly state: AnalysisFreshnessState }
-  /** Not the hydration marker — a live verdict, never overwritten. */
-  | { readonly outcome: 'declined'; readonly reason: 'not_a_hydrated_snapshot' }
-  /** The user edited since; the attestation describes a graph that is gone. */
-  | { readonly outcome: 'declined'; readonly reason: 'edited_since_restore' }
-  /** The stored payload did not state `fresh` — nothing to recover. */
-  | { readonly outcome: 'declined'; readonly reason: 'stored_verdict_not_fresh' }
-  /** `graph_hash_at_run` and/or `current_graph_hash` absent from the payload. */
-  | { readonly outcome: 'declined'; readonly reason: 'attestation_hashes_absent' }
-  /** Both hashes present and DIFFERENT — the graph moved. */
-  | { readonly outcome: 'declined'; readonly reason: 'attestation_hashes_differ' }
+  | { readonly outcome: 'declined'; readonly reason: RestoredFreshnessDeclineReason }
 
 export function explainRestoredFreshnessDecision(
   current: AnalysisFreshnessState | null,
@@ -536,10 +571,14 @@ export function explainRestoredFreshnessDecision(
   const state = deriveRestoredFreshnessAttestation(storedAnalysisReady)
   if (state !== null) return { outcome: 'attested', state }
 
-  const o =
-    storedAnalysisReady !== null && typeof storedAnalysisReady === 'object'
-      ? (storedAnalysisReady as Record<string, unknown>)
-      : {}
+  // An ABSENT payload is not the same finding as a payload that stated the
+  // wrong thing — one means nothing was persisted, the other means what was
+  // persisted does not attest. Collapsing them sends the reader to the wrong
+  // place.
+  if (storedAnalysisReady === null || typeof storedAnalysisReady !== 'object') {
+    return { outcome: 'declined', reason: 'stored_payload_absent' }
+  }
+  const o = storedAnalysisReady as Record<string, unknown>
   if (o.freshness !== 'fresh') {
     return { outcome: 'declined', reason: 'stored_verdict_not_fresh' }
   }

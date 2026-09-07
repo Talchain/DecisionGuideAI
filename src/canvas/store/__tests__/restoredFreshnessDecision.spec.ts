@@ -1,30 +1,41 @@
 /**
- * ⭐⭐ WHY THE RESTORE DECLINED — pinned against the REAL captured payload.
+ * ⭐⭐ WHY THE RESTORE DECLINED — pinned against REAL captured payloads.
  *
- * On deployed `e2016182` the product renders, 175 characters apart, on one
- * screen, on the restore path:
+ * On the restore path the deployed product renders "Cannot confirm whether this
+ * analysis is current." and nothing says WHY it cannot be resolved.
  *
- *     "Analysis complete."
- *     "Cannot confirm whether this analysis is current."
+ * ⚠ AN EARLIER VERSION OF THIS HEADER BUILT ITS WHOLE RATIONALE ON A CLAIM I
+ * HAVE WITHDRAWN — that "Analysis complete." renders 175 characters away on the
+ * same screen. Re-measured on a genuine fresh load: 'Analysis complete' is
+ * ABSENT in every form. What I saw was a TRANSIENT settle announcement in a tab
+ * that had just finished a run. A real co-occurrence with a wrong cause, and
+ * the rationale below does not need it.
  *
- * Both sentences are TRUE. They answer different questions — *did a run finish
- * and produce a report* versus *does that report match the model in front of
- * you* — and on the restore path both answers are correct. The defect is not
- * that they disagree; it is that nothing says WHY the second one cannot be
- * resolved, so a reader is left resolving a contradiction that is not one.
- *
- * `resolveRestoredFreshnessUpdate` returns `null` for FOUR structurally
+ * `resolveRestoredFreshnessUpdate` returns `null` for several structurally
  * different reasons and a caller cannot tell them apart. Answering "which one
  * fired?" took an hour of source reading plus a runtime store dump. A
  * mechanism that declines silently is indistinguishable from one that was
  * never asked.
  *
- * THE FIXTURE BELOW IS NOT INVENTED. Every field is copied from the live
- * `window.useCanvasStore` read and the `olumi-canvas-autosave` record on
- * `e2016182`, and the two timestamps are the finding: the persisted readiness
- * snapshot PREDATES the analysis it was persisted beside by 110 seconds. It is
- * a PRE-RUN payload, so of course it states `none` and carries no
- * `graph_hash_at_run`.
+ * ⚠ THE TWO FIXTURES COME FROM DIFFERENT CAPTURES, AND THAT IS DELIBERATE —
+ * an earlier header implied one run and a seat rightly could not settle it from
+ * their differing graph hashes. They are two different models by the same user
+ * on the same build:
+ *
+ *   PRERUN  — live `window.useCanvasStore` + `olumi-canvas-autosave` on
+ *             `e2016182`. `current_graph_hash: 35b5f37cb8173907`.
+ *   POSTRUN — the debug bundle `olumi-debug-5e09c107-20260906.json`, a
+ *             different model. `graph_hash_at_run == current_graph_hash ==
+ *             799c04738bd20ee7`.
+ *
+ * Nothing here compares one to the other; each is fed to the validator on its
+ * own, and the pair's job is to show the SAME validator declining one and
+ * attesting the other. That argument does not need them to share a run.
+ *
+ * THE FIXTURES ARE NOT INVENTED. Within the PRERUN capture the two timestamps
+ * are the finding: the persisted readiness snapshot PREDATES the analysis it
+ * was persisted beside by 110 seconds. It is a PRE-RUN payload, so of course it
+ * states `none` and carries no `graph_hash_at_run`.
  *
  * ⚠ WHAT THIS SPEC DOES NOT CLAIM. It does not claim the restore SHOULD have
  * attested. On this payload the decline is CORRECT and fail-closed — there is
@@ -35,6 +46,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import {
+  RESTORED_FRESHNESS_DECLINE_REASONS,
   explainRestoredFreshnessDecision,
   resolveRestoredFreshnessUpdate,
   RESTORED_ATTESTATION_HASHES_ALIGNED,
@@ -55,7 +67,8 @@ const CAPTURED_PRERUN_READINESS = {
   // NOTE: no `graph_hash_at_run` key. That absence is the finding.
 } as const
 
-/** VERBATIM from the same user's live run capture, which DOES attest. */
+/** VERBATIM from the same user's debug-bundle capture (a DIFFERENT model —
+ *  see the header). Its only job here is to be a payload that DOES attest. */
 const CAPTURED_POSTRUN_READINESS = {
   freshness: 'fresh',
   freshness_reason: 'graph_hash_match',
@@ -112,26 +125,29 @@ describe('explainRestoredFreshnessDecision — the decline names itself', () => 
     ).toEqual({ outcome: 'declined', reason: 'attestation_hashes_differ' })
   })
 
-  it('every decline reason is REACHABLE — no dead arm in the union', () => {
-    // A union member nothing can produce is a claim the type makes and the
-    // code cannot honour. Collect what the cases above actually reached and
-    // assert the whole set, so adding a member without a case REDs.
+  it('every declared decline reason is REACHABLE — derived, not asserted', () => {
+    // ⚠ THIS TEST USED TO CLAIM "adding a member without a case REDs" AND COULD
+    // NOT DO IT. A TS union is erased at runtime, so a seat added a sixth member
+    // with no producing code and this spec stayed 9/9 GREEN — the comment
+    // described what would be valuable to guard, the assertion described what
+    // was easy to assert.
+    //
+    // It is real now because the reasons are a RUNTIME array that the type is
+    // derived FROM. Compare against that array and a member added there without
+    // a producing branch fails here; a branch returning a reason absent there
+    // fails to typecheck. Neither direction can drift silently.
     const reached = new Set([
       explainRestoredFreshnessDecision({ freshness: 'stale', freshnessReason: 'x' }, false, {}),
       explainRestoredFreshnessDecision(HYDRATED, true, {}),
+      explainRestoredFreshnessDecision(HYDRATED, false, null),
       explainRestoredFreshnessDecision(HYDRATED, false, CAPTURED_PRERUN_READINESS),
       explainRestoredFreshnessDecision(HYDRATED, false, { freshness: 'fresh' }),
       explainRestoredFreshnessDecision(HYDRATED, false, {
         ...CAPTURED_POSTRUN_READINESS, current_graph_hash: 'different',
       }),
     ].map((d) => (d.outcome === 'declined' ? d.reason : 'attested')))
-    expect([...reached].sort()).toEqual([
-      'attestation_hashes_absent',
-      'attestation_hashes_differ',
-      'edited_since_restore',
-      'not_a_hydrated_snapshot',
-      'stored_verdict_not_fresh',
-    ])
+    // Derived from the shipped array — never a second hand-maintained copy.
+    expect([...reached].sort()).toEqual([...RESTORED_FRESHNESS_DECLINE_REASONS].sort())
   })
 })
 
