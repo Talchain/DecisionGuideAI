@@ -39,7 +39,7 @@ import {
   GOAL_LABEL_FROM_BRIEF_COPY,
   GOAL_LABEL_FROM_BRIEF_TESTID,
 } from '../domain/goalLabelProvenance'
-import { SourceProvenancePill } from '../components/model-tab/SourceProvenancePill'
+import { ValueProvenanceMark } from './ValueProvenanceMark'
 import { RELATIONSHIP_LABEL_SEPARATOR } from './adapters'
 import {
   ATTENTION_IS_SEVERE,
@@ -630,7 +630,7 @@ export function ModelRowView({
            not occur. Rewritten rather than deleted because the wrong reason
            was load-bearing in four places and would have been re-derived. */
         <span data-testid={`model-row-v2-${row.id}-provenance`} className="min-w-0 truncate">
-          <SourceProvenancePill source={row.provenanceSource} showWhenAbsent={false} />
+          <ValueProvenanceMark source={row.provenanceSource} rowId={row.id} />
         </span>
       )}
 
