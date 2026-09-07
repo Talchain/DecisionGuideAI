@@ -830,12 +830,17 @@ export const FactorNode = memo((props: NodeProps) => {
         nodeType="factor"
         icon={metadata.icon}
         headerSlot={(() => {
-          // Graph v1.1 Task 2: low-priority factors keep their identity cues
-          // (sparkle for inferred, fileQuestion for needs-input) but lose extra
-          // science icons in Standard view. Detailed view always shows the full
-          // set. The needs-input fileQuestion icon is preserved regardless of
-          // priority because the truth table mandates it.
-          const KEEP_LOW_PRIORITY = new Set(['olumi-estimate', 'evidence-gap'])
+          // Graph v1.1 Task 2: low-priority factors keep their identity cue
+          // (fileQuestion for needs-input) but lose extra science icons in
+          // Standard view. Detailed view always shows the full set. The
+          // needs-input fileQuestion icon is preserved regardless of priority
+          // because the truth table mandates it.
+          //
+          // The set held 'olumi-estimate' too until that icon was deleted: it
+          // was the THIRD statement of "Olumi estimated this" on one factor
+          // card, 99px from `node-provenance-mark`, drawn with the SAME lucide
+          // Sparkles glyph. `node-provenance-mark` is the surviving one.
+          const KEEP_LOW_PRIORITY = new Set(['evidence-gap'])
           const visibleIcons = (!isDetailed && isLowPriority)
             ? scienceIcons.filter(si => KEEP_LOW_PRIORITY.has(si.id))
             : scienceIcons
