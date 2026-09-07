@@ -203,24 +203,57 @@ const ALL: StarterId[] = ['vendor-selection', 'market-entry', 'build-vs-buy', 'h
  *      would most easily get wrong;
  *   6. the same for `GhostTierNode`.
  */
-const DRIVEN_KINDS: Array<{ kind: string; starter: StarterId; why: string }> = [
+/*
+ * ⚠⚠ TWO OF THESE FIVE ROWS ARE THE SAME RENDER PATH, AND THE TABLE DID NOT KNOW
+ * IT — a pre-existing mislabel, surfaced (not caused) by #1274. Read this before
+ * trusting the "five distinct paths" claim above.
+ *
+ * `kind` prefers `data-testid`, and falls back to
+ * `TAG[role]:first-three-words-of-the-accessible-name` when there is none (see
+ * `censusFocusables`). `ScienceIcon` carried no testid, so its instances
+ * censused under the FALLBACK — i.e. under three words of a FIXTURE-SUPPLIED
+ * tooltip, a different string per instance. That made two instances of ONE
+ * component look like two different render paths:
+ *
+ *   `BUTTON:Olumi estimated this`  → ScienceIcon on a FACTOR node
+ *   `BUTTON:Status quo bias`       → ScienceIcon on the BASELINE OPTION node
+ *                                    (`useScienceIcons`, option-only,
+ *                                     `is_baseline === true`)
+ *
+ * The second row's `why` said "NodeCoachingMarker". That was never true:
+ * `NodeCoachingMarker` renders `data-testid="node-coaching-marker-<id>"`, so it
+ * has ALWAYS censused as `node-coaching-marker` — a kind that does not appear in
+ * `vendor-selection`'s census at all. **NodeCoachingMarker is therefore NOT
+ * driven here and never was.** That is a real gap, it is stated rather than
+ * quietly inherited, and closing it is not this repair's to make.
+ *
+ * #1274 gave `ScienceIcon` a `data-testid="science-icon-trigger"` (it needed a
+ * binding that was not fixture prose), which collapsed both instances onto one
+ * stable kind and made the duplication visible.
+ *
+ * ⭐ SO `kind` AND `name` ANSWER DIFFERENT QUESTIONS AND BOTH ARE KEPT:
+ * `kind` is the RENDER PATH (stable, from the testid); `name` picks WHICH
+ * INSTANCE of it, and is the only thing that can (CLAUDE.md trap 21 — name the
+ * two apart rather than collapsing them). Dropping the duplicate row would have
+ * silently reduced what is driven, so the set driven here is EXACTLY the set the
+ * base commit drove.
+ */
+const DRIVEN_KINDS: Array<{ kind: string; starter: StarterId; why: string; name?: string }> = [
   { kind: 'node-action-ask', starter: 'vendor-selection', why: 'NodeQuickActions — the shared row on every node' },
   { kind: 'BUTTON:Explore more options', starter: 'vendor-selection', why: "DecisionNode's own call-to-action button" },
-  /* ⚠ THIS ROW NAMES AN IDENTITY, AND THE IDENTITY MOVED — it is not a new
-     render path. `kind` prefers `data-testid` and falls back to
-     `TAG[role]:first-three-words-of-the-accessible-name` (see `censusFocusables`).
-     `ScienceIcon` carried no testid, so it censused as the FALLBACK
-     `BUTTON:Olumi estimated this` — three words of a FIXTURE-SUPPLIED tooltip.
-     It now declares `data-testid="science-icon-trigger"`, so the same element
-     censuses under the stable half of the same derivation.
-     Coverage is unchanged: the element driven is the one this row always meant
-     (the base run names it `factor/fac_annual_cost BUTTON "Olumi estimated this
-     value. May not match reality."`). Binding to the testid is also the BETTER
-     binding — the old string would have shifted again the day a fixture reworded
-     that tooltip, with no product change at all (CLAUDE.md trap 19). */
-  { kind: 'science-icon-trigger', starter: 'vendor-selection', why: 'a science/provenance badge (useScienceIcons)' },
+  {
+    kind: 'science-icon-trigger',
+    name: 'Olumi estimated this',
+    starter: 'vendor-selection',
+    why: 'a science/provenance badge (useScienceIcons) on a FACTOR node',
+  },
   { kind: 'goal-node-no-target-chip', starter: 'vendor-selection', why: "GoalNode's own chip, outside the quick-action row" },
-  { kind: 'BUTTON:Status quo bias', starter: 'vendor-selection', why: 'NodeCoachingMarker — a coaching badge inside the card' },
+  {
+    kind: 'science-icon-trigger',
+    name: 'Status quo bias',
+    starter: 'vendor-selection',
+    why: 'the same ScienceIcon path on the BASELINE OPTION node — NOT NodeCoachingMarker, see above',
+  },
 ]
 
 /*
@@ -976,23 +1009,43 @@ test.describe('in-node keyboard bleed', () => {
      * both directions.
      */
     const targets: Array<{ kind: string; starter: StarterId; row: FocusableCensusRow }> = []
-    for (const { kind, starter } of DRIVEN_KINDS) {
+    for (const { kind, starter, name } of DRIVEN_KINDS) {
       const hit = (censusByStarter.get(starter) ?? []).find(
-        (r) => !r.isInputLike && r.name && (r.kind === kind || r.kind.startsWith(`${kind} `)),
+        (r) =>
+          !r.isInputLike &&
+          r.name &&
+          (r.kind === kind || r.kind.startsWith(`${kind} `)) &&
+          // `name` narrows to ONE INSTANCE of a render path that has several.
+          // Without it, two rows sharing a kind both resolve to `find`'s first
+          // match — the same element driven twice, and one row silently lost.
+          (!name || r.name.startsWith(name)),
       )
       // FAIL LOUD ON A MISSING RENDER PATH. A drive that silently skips one
       // reads exactly like a drive that covered it (trap 13: an absence probe
       // must be able to see a presence).
       expect(
         hit,
-        `render path "${kind}" is not in the census for "${starter}" — coverage would silently shrink. ` +
+        `render path "${kind}"${name ? ` (instance "${name}")` : ''} is not in the census for "${starter}" — ` +
+          `coverage would silently shrink. ` +
           `Kinds present: ${[...new Set((censusByStarter.get(starter) ?? []).map((r) => r.kind))].join(' | ')}`,
       ).toBeTruthy()
-      // Recorded under the kind ACTUALLY found, so the table names the element
-      // driven rather than the pattern that selected it.
-      targets.push({ kind: hit!.kind, starter, row: hit! })
+      /*
+       * Recorded under the kind ACTUALLY found, so the table names the element
+       * driven rather than the pattern that selected it — QUALIFIED BY THE
+       * INSTANCE where one was asked for, because this label is the KEY of the
+       * `gated` map below. Two targets sharing a bare kind would share a key,
+       * and the second would overwrite the first: a genuinely ungated control
+       * could then be masked by a gated sibling and the final assertion would
+       * still read true.
+       */
+      targets.push({ kind: name ? `${hit!.kind} (${name})` : hit!.kind, starter, row: hit! })
     }
     expect(targets.length, 'no control kinds to drive').toBe(DRIVEN_KINDS.length)
+    // The labels are the `gated` map's keys, so a collision would silently
+    // hide a row. Assert they are distinct rather than trusting they are.
+    expect(new Set(targets.map((t) => t.kind)).size, 'two driven targets share a label — one would mask the other in `gated`').toBe(
+      targets.length,
+    )
 
     const table: string[] = []
     const gated: Record<string, boolean> = {}
