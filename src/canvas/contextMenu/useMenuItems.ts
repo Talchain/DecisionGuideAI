@@ -27,7 +27,6 @@ import {
   CANVAS_STRUCTURAL_EDIT_SHORT_REASON,
 } from '../mutations/mutationAuthority'
 import { canvasUndoUnavailableNotice } from '../useKeyboardShortcuts'
-import { Info } from 'lucide-react'
 import {
   deleteAction,
   addNodeAction,
@@ -214,7 +213,8 @@ export function applyContextMenuMutationAuthority(
     {
       id: STRUCTURAL_EDITS_NOTE_ID,
       label: 'Other model edits: ask Olumi',
-      icon: Info,
+      // No icon on purpose: every other row's icon marks something you can DO,
+      // and this row is a sentence, not an action.
       tooltip: CANVAS_STRUCTURAL_EDIT_NOTICE,
       enabled: false,
       action: () => {},

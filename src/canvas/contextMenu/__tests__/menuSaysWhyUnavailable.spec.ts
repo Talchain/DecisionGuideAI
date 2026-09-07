@@ -63,7 +63,7 @@ vi.mock('../../store', () => {
     setViewMode: vi.fn(),
     applyLayout: vi.fn(),
   }
-  const mockStore = vi.fn((selector: any) => selector(mockState))
+  const mockStore: any = vi.fn((selector: any) => selector(mockState))
   mockStore.getState = () => mockState
   mockStore.setState = (_partial: any) => {}
   return {
