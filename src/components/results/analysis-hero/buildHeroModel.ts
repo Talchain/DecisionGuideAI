@@ -876,8 +876,12 @@ export function buildHeroModel(
   // (`decisionVerdict.ts:381`, whose own comment calls that state REACHABLE,
   // not defensive) to `NO_CLAIM_VERDICT`, whose `hasLeadingOption` is `false`
   // (`:340`); with that verdict on the recommendation `leaderDesignationPermitted`
-  // (`leaderDesignation.ts:80` — `:38` pre-merge, the logic moved) is `false`,
-  // via the withhold-only arm rather than a fallback, so line 326 computes
+  // (`leaderDesignation.ts:77` — `:38` pre-merge, the logic moved) is `false`,
+  // via the COMPOSED arm, not the fallback: the producer publishes
+  // `leaderDesignationPermitted` as a sibling key of `verdict` in one object
+  // literal (`useResultsSectionData.ts:2491`/`:2495`), so the field is present
+  // and `false`, `:77` returns first, and the `:80` withhold-only fallback is
+  // never reached on this chain. So line 326 computes
   // `designationsWithheld === true`, the `kind: 'empty'` return above fires
   // only at ZERO options, and the headline is still "<Option> is your only
   // option." (`heroCopy.ts:198`). That is acceptable — naming the sole option
