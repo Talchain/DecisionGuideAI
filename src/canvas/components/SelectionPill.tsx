@@ -8,9 +8,19 @@ import { useSelectionContext, useSelectionCarriage } from '../hooks/useSelection
 /**
  * SelectionPill — the canvas selection's conversation affordance.
  *
- * Renders directly above the persistent input strip whenever exactly ONE canvas
- * element is selected. Hidden when nothing (or more than one element) is
- * selected.
+ * Renders directly above the persistent input strip. WHAT it renders is decided
+ * by `describeSelectionCarriage` — the same rule that decides what the turn
+ * carries — and NOT by how many elements are selected:
+ *
+ *   · a carried single element the pill can name → "Selected: <name>" plus the
+ *     ask controls;
+ *   · a WITHHELD selection (over the contract cap, or resolving to nothing
+ *     truthful) → the notice below, whatever the selected count is. 21 elements
+ *     selected RENDERS here; it does not hide.
+ *   · anything else → nothing: nothing selected, a CARRIED multi-element
+ *     selection this single-element grammar cannot describe, or a carried single
+ *     element the pill has no truthful name for (a node carrying a kind but no
+ *     label — `useSelectionContext` returns null there rather than show its id).
  *
  * ── L-17: WHY THIS IS NO LONGER A LABEL ────────────────────────────────────
  * Selecting a connector used to produce two pieces of GREY TEXT and no way to
@@ -93,13 +103,14 @@ export const SelectionPill = memo(function SelectionPill() {
      * ⭐ A WITHHELD SELECTION IS NOT THE SAME AS NO SELECTION, and going quiet
      * on it is a false statement by omission.
      *
-     * `useSelectionContext` returns null for three different situations. Two of
-     * them are honest silence — nothing selected, or a multi-element selection
-     * this single-element pill was never meant to describe. The third is the
-     * user pointing at something the turn will NOT carry: an over-cap
-     * selection, or one that no longer resolves. There the user believes their
-     * question is grounded and it is not, so the pill says so and says what to
-     * do about it.
+     * `useSelectionContext` returns null for FOUR different situations. Three of
+     * them are silent here — nothing selected; a multi-element selection this
+     * single-element pill was never meant to describe; and a CARRIED single
+     * element the pill has no truthful name for (a node carrying a kind but no
+     * label). The fourth is the user pointing at something the turn will NOT
+     * carry: an over-cap selection, or one that no longer resolves. There the
+     * user believes their question is grounded and it is not, so the pill says
+     * so and says what to do about it.
      *
      * Note the deliberate silence on a carried MULTI-element selection: the
      * wire does carry it, so there is no falsehood to correct, and this pill's
