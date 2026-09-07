@@ -33,12 +33,50 @@
  *
  * ── WHAT IS DELIBERATELY *NOT* CLAIMED HERE ─────────────────────────────────
  * The subtitle is NOT made to say the figure is structural and re-run-invariant.
- * That is false on the set-relative branch: `displayProvenance` is
+ * That is false on the elasticity branch: `displayProvenance` is
  * `'influence_score' | 'normalised_elasticity'` (`results/types.ts`), and only
- * the first is the structural score. The basis is therefore disclosed
- * CONDITIONALLY, in the section caveat, with one sentence per branch — and the
- * discriminating pair below is what stops either sentence reaching the run it
- * would lie about.
+ * the first is the structural score.
+ *
+ * ⚠⚠ CORRECTED 7 Sep 2026 — THIS FILE SHIPPED THE PARAGRAPH BELOW AS "the basis
+ * is disclosed CONDITIONALLY in the section caveat, one sentence per branch, and
+ * the discriminating pair below is what stops either sentence reaching the run it
+ * would lie about". IT WAS ALREADY FALSE WHEN IT MERGED, and it is the reason
+ * `staging` went red: this spec (#1245) and `influenceScaleCopy` (#1228) landed
+ * one after the other, touched different lines, merged without conflict, and
+ * disagreed about one sentence.
+ *
+ * ⭐ THE ESTATE'S SIGNATURE DEFECT (CLAUDE.md trap 21): ONE NAME, TWO QUESTIONS.
+ * Write down the question each surface answers and the disagreement dissolves.
+ *
+ *  • THE SCALE QUESTION — "is this figure a share of the outcome?" Answered by
+ *    the section CAVEAT. The answer is NO ON BOTH BASES, and it is this app's
+ *    own doing: `buildDrivers` renders every bar as
+ *    `magnitude(d) / strongest` where `strongest = Math.max(...live.map(
+ *    magnitude), 0)` (`buildAnalysisNewViewModel.ts`). A bar is scaled to the
+ *    strongest factor in the run whatever provenance stamped it, so
+ *    `coverage.setRelativeInfluence` is true unconditionally and
+ *    `influenceIsSetRelative` is `drivers.length > 0`.
+ *
+ *  • THE QUANTITY (GROUNDING) QUESTION — "which quantity is this?" Answered PER
+ *    ROW, and it genuinely does differ: `driverFinding`'s `groundedIn` and its
+ *    `Basis` inspect row are keyed on `d.displayProvenance === 'influence_score'`
+ *    (`buildAnalysisNewViewModel.ts`), which is where "Olumi's structural
+ *    influence score" is said and where it is true.
+ *
+ * So the sentence this spec demanded on the caveat was not deleted by #1228 —
+ * it was never the caveat's sentence. Asserting it there also asserted the
+ * ABSENCE of "not a share of the outcome" on the ORDINARY run (`makeDriver`
+ * defaults to `influence_score`), which is precisely the deployed defect #1228
+ * merged to fix: the panel printed "Structural influence 100%." over a figure
+ * that is 100% BY CONSTRUCTION. Honouring this spec would have re-shipped it.
+ *
+ * ⚠ AND THE PAIR HAD ALREADY GONE VACUOUS. Measured at `f4966c20`:
+ * `openStrategicChallenge` stamps `["influence_score","influence_score"]` and
+ * `highUncertainty` stamps `["normalised_elasticity"]`, and
+ * `influenceIsSetRelative` is `true` for BOTH. The two cases were reading one
+ * branch while their comments claimed they read two — a guard agreeing with
+ * itself (trap 13b). The pair below is rebuilt on the surface that does
+ * discriminate, and it pins its own precondition so it cannot go vacuous again.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -47,7 +85,11 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
+import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { AtAGlance } from '../sections/AtAGlance'
 import { DriverInfluenceChart } from '../sections/DriverInfluenceChart'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
@@ -317,33 +359,174 @@ describe('the diverging scale names its two ends differently', () => {
 
 describe('the drivers section states which basis its magnitudes are on', () => {
   /**
-   * ⚠ THE PAIR IS THE EVIDENCE, NOT EITHER CASE ALONE. One sentence is true on
-   * exactly one branch of `displayProvenance` and false on the other, so a
-   * single case would pass just as happily against a component that printed one
-   * sentence unconditionally.
+   * ⚠ THE PAIR IS STILL THE EVIDENCE — but it is a pair across the two
+   * QUESTIONS, not across two branches of one sentence. See the module header:
+   * the scale answer is provenance-INDEPENDENT and the grounding answer is
+   * provenance-KEYED, so a pair that varies only the fixture cannot see either.
+   *
+   * ⚠ NO COPY IS TYPED HERE. Every expected sentence is the `ANALYSIS_NEW_COPY`
+   * constant the component itself consumes, bound by identity. That is the
+   * mechanism, not a preference: the red this file caused was a hand-typed
+   * second copy of one sentence drifting from its owner (CLAUDE.md trap 12),
+   * and `theCaveatHasOneSourceOfTruth` below FAILS if a literal comes back.
    */
+  const provenancesOf = (data: ResultsSectionDataReturn) =>
+    (data.drivers.drivers ?? []).map((d) => d.displayProvenance)
+
   const caveatText = (data: ResultsSectionDataReturn) => {
     renderBody(data)
     openDrivers()
     return screen.getByTestId('analysis-new-drivers-caveat').textContent ?? ''
   }
 
-  it('says it is the structural score when every row is on that basis', () => {
-    // `openStrategicChallenge`'s drivers are `displayProvenance:
-    // 'influence_score'` (the `makeDriver` default), so `influenceIsSetRelative`
-    // is false and this is the branch on which "structural" is true.
-    const text = caveatText(openStrategicChallenge())
-    expect(text).toContain("Olumi's structural influence score")
-    expect(text).not.toContain('not a share of the outcome')
+  const findingsOf = (data: ResultsSectionDataReturn) =>
+    buildAnalysisNewViewModel({
+      data,
+      recommendations: [],
+      isPreRun: false,
+      isRunning: false,
+      isStale: false,
+    }).drivers.findings
+
+  it('PRECONDITION: the two fixtures really are on different bases', () => {
+    /* ⭐⭐ WITHOUT THIS THE WHOLE BLOCK IS VACUOUS, AND IT SILENTLY WAS. At
+       `f4966c20` both cases below read the SAME branch while their comments
+       claimed otherwise, because `influenceIsSetRelative` had become
+       `drivers.length > 0`. A fixture drifting to one provenance would restore
+       exactly that, and every assertion here would keep passing. This case is
+       what makes the two that follow mean anything (trap 13b: a discriminator
+       must pin its own precondition in-test). */
+    const structural = provenancesOf(openStrategicChallenge())
+    const elasticity = provenancesOf(highUncertainty())
+    expect(structural.length, 'the structural fixture must carry rows').toBeGreaterThan(0)
+    expect(elasticity.length, 'the elasticity fixture must carry rows').toBeGreaterThan(0)
+    expect(new Set(structural), 'the structural fixture must be all influence_score').toEqual(
+      new Set(['influence_score']),
+    )
+    expect(new Set(elasticity), 'the elasticity fixture must be all normalised_elasticity').toEqual(
+      new Set(['normalised_elasticity']),
+    )
   })
 
-  it('TWIN: says the set-relative sentence instead when any row is elasticity', () => {
-    // `highUncertainty`'s single driver is `normalised_elasticity`. The
-    // structural sentence must NOT appear here — that is the lie this pair
-    // exists to stop.
-    const text = caveatText(highUncertainty())
-    expect(text).toContain(COPY.coverage.setRelativeInfluence)
-    expect(text).not.toContain('structural influence score')
+  it('the SCALE sentence is the same on both bases, because every bar is scaled the same way', () => {
+    /* #1228's ruling, pinned. `buildDrivers` divides every magnitude by
+       `strongest` whatever stamped it, so "not a share of the outcome" is owed
+       to BOTH runs. Asserting the structural run must NOT say it — which is what
+       this file used to do — withholds the disclosure on the ORDINARY run, which
+       is the deployed defect #1228 closed. */
+    const structural = caveatText(openStrategicChallenge())
+    cleanup()
+    const elasticity = caveatText(highUncertainty())
+    expect(structural).toContain(COPY.coverage.setRelativeInfluence)
+    expect(elasticity).toContain(COPY.coverage.setRelativeInfluence)
+    // NEITHER may answer the quantity question here. That is the row's job, and
+    // a caveat that names one quantity is false for the run stamped the other.
+    expect(structural).not.toContain(COPY.coverage.structuralInfluence)
+    expect(elasticity).not.toContain(COPY.coverage.structuralInfluence)
+  })
+
+  it('DISCRIMINATOR: the QUANTITY question is answered per row, and it DOES differ', () => {
+    /* ⭐ #1245'S REAL CONCERN, PINNED WHERE IT IS TRUE. The sentence that PR
+       wanted was not lost when the caveat stopped branching — it lives on the
+       row (`driverFinding.groundedIn`, keyed on `displayProvenance`). If a later
+       change collapses the grounding onto the scale flag the way the caveat is,
+       every row would name one quantity and this REDs. */
+    const structural = findingsOf(openStrategicChallenge())[0]
+    const elasticity = findingsOf(highUncertainty())[0]
+    expect(structural, 'no structural finding — the comparison would be vacuous').toBeDefined()
+    expect(elasticity, 'no elasticity finding — the comparison would be vacuous').toBeDefined()
+    expect(
+      structural!.groundedIn,
+      'the two bases must not be described by one grounding noun',
+    ).not.toBe(elasticity!.groundedIn)
+    /* The structural row's noun is the SAME noun the structural copy uses —
+       bound to the constant rather than retyped, so the two surfaces cannot
+       drift into two spellings of one quantity (trap 12). */
+    expect(COPY.coverage.structuralInfluence).toContain(String(structural!.groundedIn))
+  })
+})
+
+/**
+ * ⭐⭐⭐ THE CLASS PIN: ONE SENTENCE, ONE SOURCE OF TRUTH.
+ *
+ * The red this file caused was NOT "an expectation was wrong". It was that the
+ * caveat's wording existed in TWO places — `analysisNewCopy.ts` and a string
+ * typed into this spec — so #1228 could change one while #1245 changed the
+ * other, both stay green in isolation, and `git` merges them without a conflict
+ * because they touch different lines. That is CLAUDE.md trap 12 (the
+ * hand-maintained mirror) reaching the test suite, and flipping the literal
+ * would leave the mechanism intact for the next pair of PRs.
+ *
+ * These two cases remove the mirror rather than re-syncing it:
+ *  1. the arm SELECTION is derived from the component's own inputs, so a change
+ *     to the predicate REDs here instead of silently re-pointing a sentence;
+ *  2. this spec is asserted to contain NO verbatim copy of any basis sentence,
+ *     so a future author cannot reintroduce the second source of truth.
+ */
+describe('theCaveatHasOneSourceOfTruth', () => {
+  const noRows = (over: Partial<ResultsSectionDataReturn> = {}): ResultsSectionDataReturn => {
+    const base = openStrategicChallenge()
+    return { ...base, drivers: { ...base.drivers, drivers: [] }, ...over } as ResultsSectionDataReturn
+  }
+
+  const caveatOf = (data: ResultsSectionDataReturn) => {
+    renderBody(data)
+    openDrivers()
+    return screen.queryByTestId('analysis-new-drivers-caveat')?.textContent ?? ''
+  }
+
+  it('every basis arm is reachable, and each renders exactly its own constant', () => {
+    /* ⚠ ALL THREE ARMS OF `driversCaveat`, EXERCISED THROUGH THE COMPONENT. A
+       table over the constants, so an arm that becomes unreachable or starts
+       rendering a neighbour's sentence cannot pass. */
+    const withRows = caveatOf(openStrategicChallenge())
+    expect(withRows).toContain(COPY.coverage.setRelativeInfluence)
+    cleanup()
+
+    /* ⚠ THE REFERENCE LINE KEEPS ITS PRECEDENCE over the structural one. */
+    const withReference = caveatOf(
+      noRows({ sensitivityReference: { optionLabel: 'Hold price' } } as Partial<ResultsSectionDataReturn>),
+    )
+    expect(withReference).toContain(COPY.coverage.referencePrefix)
+    expect(withReference).toContain('Hold price')
+    expect(withReference).not.toContain(COPY.coverage.structuralInfluence)
+    cleanup()
+
+    /* ⚠⚠ MEASURED, NOT BLESSED. Since #1228 made `influenceIsSetRelative` equal
+       `drivers.length > 0`, this arm is reachable ONLY on a run with NO rows —
+       where its own sentence opens "Each bar shows". That wording is a live
+       finding reported with this fix, not something this case endorses; what is
+       pinned is the CONDITION, so the arm cannot move again unnoticed. */
+    const structuralArm = caveatOf(noRows())
+    expect(structuralArm).toContain(COPY.coverage.structuralInfluence)
+    expect(structuralArm).not.toContain(COPY.coverage.setRelativeInfluence)
+  })
+
+  it('this spec types no copy of its own — the mirror cannot come back', () => {
+    /* ⭐ THE ACTUAL REGRESSION PIN FOR THE CLASS. Reads its OWN source and
+       refuses any verbatim basis sentence. Re-typing "Influence is relative to
+       the other factors in this run, not a share of the outcome." here — the
+       shape that produced the red — REDs immediately, at authoring time, in the
+       file that would carry the drift. */
+    const source = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+    // POSITIVE CONTROL: the probe must be reading this file and not an empty
+    // string, or every absence below is vacuous (trap 13).
+    expect(source.length, 'own source unreadable — the assertions would be vacuous').toBeGreaterThan(
+      2000,
+    )
+    expect(source, 'the probe is not pointed at this spec').toContain('theCaveatHasOneSourceOfTruth')
+
+    const owned: readonly string[] = [
+      COPY.coverage.setRelativeInfluence,
+      COPY.coverage.structuralInfluence,
+      COPY.coverage.referencePrefix,
+    ]
+    for (const sentence of owned) {
+      expect(
+        source.includes(sentence),
+        `this spec types a copy of "${sentence}" — import it from ANALYSIS_NEW_COPY instead`,
+      ).toBe(false)
+    }
   })
 })
 
