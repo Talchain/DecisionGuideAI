@@ -1,27 +1,40 @@
 /**
- * The footer must refuse what the banner already refuses.
+ * The legacy pre-analysis footer must refuse what the banner already refuses.
  *
- * ⚠ WITNESSED, NOT IMAGINED. On deployed `a2fd0656`, a saved example showed
- * BOTH `Run analysis` buttons enabled and silently no-op — 12 polls over 30 s,
- * `aria-busy` 0 throughout, `POST /bff/cee/graph-readiness → 200` and no
- * analysis turn — while `StarterProvenanceBanner` on the SAME surface said
- * *"Analysis is held on a saved example — re-draft it live to run one"*.
+ * ⚠⚠ SCOPE FIRST, BECAUSE THE EARLIER VERSION OF THIS HEADER OVERSTATED IT.
+ * These tests pin `applyAnalysisHold` and its call site in `PreAnalysisPanel`,
+ * which is the FLAG-OFF reinstatement branch: `OutputsDock.tsx:3080` mounts
+ * `PreAnalysisPanelV3` instead whenever `isPreAnalysisV3Enabled()`, and
+ * `netlify.toml:179` bakes `VITE_FEATURE_PRE_ANALYSIS_V3 = "1"`. So a green run
+ * here is evidence about the reinstatement branch and about NOTHING a fresh
+ * staging user renders. The V3 surface already refuses the hold through the run
+ * gate (`OutputsDock.tsx:1227` → `canRunAnalysis.ts:826` → `PanelFooter.tsx:69`).
+ * An earlier revision of this file cited a witnessed deployed no-op as the
+ * defect under test; that attribution is WITHDRAWN and is not re-made here.
  *
- * These tests bind to the two properties that make the button actually refuse,
- * because either alone leaves the defect standing:
+ * What the tests bind to are the two properties that make the button actually
+ * refuse, because either alone leaves the gap standing:
  *   1. `hasBlockers` is raised, AND
  *   2. `blockerCount > 0` — `StickyFooter` disables on the CONJUNCTION, so a
  *      raised flag with a zero count changes nothing on screen.
  */
 import { describe, it, expect } from 'vitest'
 import { applyAnalysisHold, type FooterGate } from '../footerGate'
+import { ANALYSIS_HELD_NOTICE } from '../../../utils/analysisHeldOnInjectedModel'
 
 const READY: FooterGate = { isReady: true, hasBlockers: false, blockerCount: 0, blockedReason: undefined }
-const HELD = 'Analysis is held on a saved example. Re-draft it live to run one.'
+const HELD = ANALYSIS_HELD_NOTICE.starter
 
-/** `StickyFooter`'s own disable rule, restated once so the tests assert the
- *  thing the USER experiences rather than the field names. Mirrors
- *  `StickyFooter.tsx`'s `isHardBlocked` for the not-analysing/not-loading case. */
+/**
+ * ⚠ A RESTATEMENT, NOT THE AUTHORITY. `StickyFooter.tsx:57`'s `isHardBlocked`
+ * owns this rule and `StickyFooter.spec.tsx` is the spec that pins it — a
+ * reviewer measured that dropping the `(hasBlockers && _blockerCount > 0)`
+ * conjunct from the component leaves THIS file 6/6 green while
+ * `StickyFooter.spec.tsx` reds. So treat a green here as a statement about
+ * `applyAnalysisHold`'s output, never as proof the component still disables.
+ * It is kept because it makes the assertions read as the thing the USER
+ * experiences rather than as field names.
+ */
 const footerWouldDisable = (g: FooterGate) => g.hasBlockers && g.blockerCount > 0
 
 describe('applyAnalysisHold', () => {
@@ -34,6 +47,15 @@ describe('applyAnalysisHold', () => {
   })
 
   it('shows the hold sentence, and the SAME one the banner shows', () => {
+    // ⭐ PINNED BY IMPORT, not by a second copy of the sentence. `HELD` IS the
+    // shipped constant `StarterProvenanceBanner` and the run gate both render,
+    // so the "SAME one" in this test's name is structural and cannot drift.
+    // Deliberately NOT re-asserted against a literal here: this sentence has
+    // exactly one author by design, enforced by the `src/**` sweep in
+    // `analyseAffordanceTruthfulness.spec.ts`, and a hardcoded copy would be
+    // the hand-maintained mirror that guard exists to prevent (trap 12).
+    // The earlier revision quoted a RETIRED em-dash form of it in its header
+    // while using the compliant one here; the import removes that second copy.
     expect(applyAnalysisHold(READY, HELD).blockedReason).toBe(HELD)
   })
 
@@ -57,7 +79,7 @@ describe('applyAnalysisHold', () => {
 
   it('does not treat the EMPTY STRING as "not held"', () => {
     // A falsy-check (`if (!heldNotice)`) instead of `=== null` would reopen the
-    // defect for any provenance whose sentence is ever empty. The contract is
+    // gap for any provenance whose sentence is ever empty. The contract is
     // `string | null`, so only `null` means not held.
     const g = applyAnalysisHold(READY, '')
     expect(footerWouldDisable(g), 'empty string read as not-held').toBe(true)
@@ -68,6 +90,9 @@ describe('applyAnalysisHold', () => {
  * ⭐ THE WIRING GUARD — because "we build more than we plug in" is this
  * estate's chronic failure #1, and a pure helper with a perfect test suite and
  * no call site is exactly that failure wearing a green tick.
+ *
+ * ⚠ It proves the helper is CALLED, not that the surface calling it is mounted.
+ * On the current staging flag posture it is not — see the scope note above.
  */
 describe('the panel actually uses it', () => {
   it('passes the hold authority into the gate at the render site', async () => {
