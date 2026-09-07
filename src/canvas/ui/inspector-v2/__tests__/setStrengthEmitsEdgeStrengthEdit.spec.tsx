@@ -21,7 +21,23 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook } from '@testing-library/react'
 
-const sendSystemEvent = vi.fn(() => Promise.resolve('SENT'))
+import type { WireSystemEvent } from '../../../conversation/types'
+
+/**
+ * ⚠ TYPED BY ITS ARGUMENT, NOT BARE. A bare `vi.fn(() => ...)` infers
+ * `mock.calls: [][]`, so `calls[0][0]` is a TYPE ERROR the ratchet catches —
+ * and the tempting workaround (`as any`) would make every payload assertion
+ * below unchecked.
+ */
+const sendSystemEvent =
+  vi.fn<[WireSystemEvent, unknown?], Promise<string>>(() => Promise.resolve('SENT'))
+
+/** The single typed read of the one dispatched event — never re-indexed inline. */
+function dispatchedEvent(index = 0): WireSystemEvent {
+  const call = sendSystemEvent.mock.calls[index]
+  expect(call, `expected a dispatched event at call index ${index}`).toBeDefined()
+  return call[0]
+}
 
 vi.mock('../../../conversation/ConversationContext', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>()
@@ -101,7 +117,7 @@ describe('setStrength reaches the server', () => {
 
     expect(outcome).toBe('dispatched')
     expect(sendSystemEvent).toHaveBeenCalledTimes(1)
-    expect(sendSystemEvent.mock.calls[0][0]).toEqual({
+    expect(dispatchedEvent()).toEqual({
       type: 'edge_strength_edit',
       payload: {
         from: 'fac_price',
@@ -135,7 +151,7 @@ describe('setStrength reaches the server', () => {
 
     result.current.setStrength(0.9)
 
-    const payload = sendSystemEvent.mock.calls[0][0].payload as Record<string, unknown>
+    const payload = dispatchedEvent().payload as Record<string, unknown>
     expect(payload.expected).toEqual({ mean: 0.4, effect_direction: 'positive' })
     expect(payload.magnitude).toBe(0.9)
   })
@@ -147,7 +163,7 @@ describe('setStrength reaches the server', () => {
     // Zero on a NEGATIVE edge is the proven regression: `-0 >= 0` is `true`.
     result.current.setStrength(0, { preserveDirection: true })
 
-    expect(sendSystemEvent.mock.calls[0][0].payload).toMatchObject({
+    expect(dispatchedEvent().payload).toMatchObject({
       magnitude: 0,
       direction_intent: 'preserve',
       expected: { mean: -0.6, effect_direction: 'negative' },
