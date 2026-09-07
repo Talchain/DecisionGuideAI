@@ -314,6 +314,39 @@ describe('applyV5State — a ui_directive may not visually designate a leader th
     expect(result.applied).not.toContain(`ui_directive:highlight:${LEADER}`)
   })
 
+  /**
+   * ⭐ THE DISCRIMINATING FIXTURE FOR `!isEdge`.
+   *
+   * Dropping `!isEdge` from the gate SURVIVED the ordinary corpus, because no
+   * ordinary edge id can equal an option id. A survivor is a CLAIM either way
+   * and must be demonstrated, never asserted — so this pins the one payload
+   * that separates them: an edge whose id COLLIDES with the front-runner's.
+   *
+   * Node ids and edge ids are separate spaces and both are producer-supplied,
+   * so a collision is possible. Without `!isEdge` the gate would compare an
+   * edge id into the option identity space and silently withhold a perfectly
+   * legitimate edge highlight. With it, the edge is untouched.
+   */
+  it('IDENTITY SPACES DO NOT MIX: an EDGE whose id collides with the front-runner still pulses', () => {
+    const store = makeStore()
+    // The collision, constructed deliberately.
+    store.edges = [{ id: LEADER, source: RIVAL, target: THIRD }] as never
+    const result = applyV5State(
+      envelope(
+        ADMISSION_QUANTIFIED_PROVISIONAL,
+        directive('highlight', [{ id: LEADER, label: 'Influence', kind: 'edge' }]),
+      ),
+      store,
+    )
+    // PRECONDITION PINNED IN-TEST: the collision really is present, so a green
+    // result is the `!isEdge` conjunct's doing and not a fixture that stopped
+    // reproducing the collision.
+    expect(store.edges.some((e) => e.id === LEADER)).toBe(true)
+    expect(pulseMock).toHaveBeenCalledTimes(1)
+    expect(pulseMock.mock.calls[0][0].edgeIds).toContain(LEADER)
+    expect(result.deferred.some((d) => d.reason === DEFER_REASON)).toBe(false)
+  })
+
   it('AN EDGE is never a leader designation: an edge target is untouched under refusal', () => {
     const result = applyV5State(
       envelope(
