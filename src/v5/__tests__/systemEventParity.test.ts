@@ -43,6 +43,7 @@ const UI_WIRE_EVENT_TYPES = [
   'structural_delete',
   'structural_rename',
   'structural_add',
+  'edge_strength_edit',
 ] as const satisfies readonly WireSystemEventType[]
 
 // The `satisfies` above is ONE-DIRECTIONAL: it proves every listed member is a
@@ -196,6 +197,42 @@ const UI_COVERAGE: Record<
       base_graph_hash: 'f3d31f75957c5cb5',
     },
   },
+  // 0.42.0, EMITTED SINCE 2026-09-07 — the value-carrying EDGE edit. Emitted
+  // from the one seam every strength editor shares,
+  // `useEdgeMutations.setStrength`, which until now performed a local
+  // `updateEdge` and told the server nothing.
+  //
+  // ⚠⚠ NOTE WHAT ADDRESSES THE EDGE: the `(from, to)` NODE-ID PAIR, which is
+  // the canonical GraphV3 edge identity. The client edge id is a local artefact
+  // CEE has never seen and is deliberately absent — unlike `edge_adjudication`,
+  // which carries an optional informative `edge_id`. Adding one here would be a
+  // `.strict()` violation, not a nicety.
+  //
+  // ⚠ AND NOTE `expected`: an OPTIMISTIC-CONCURRENCY ASSERTION about what the
+  // SERVER holds ("the exact signed mean last read from the canonical persisted
+  // edge ... not the requested value"). The builder refuses to fill it from a
+  // UI default — see `canvas/conversation/edgeStrengthEdit.ts`, which is the
+  // gate this payload-level adapter structurally cannot be.
+  //
+  // ⚠ SERVER HANDLING IS CONDITIONAL, uniquely among the mutating kinds. CEE
+  // staging `9de184f1` (the DEPLOYED build) demotes this kind to
+  // `'reader_only_refusal'` unless `config.features.graphCas.rpcEnforce` is
+  // true (`system-events/dispatch.ts:570-577`). Emitting is still right: under
+  // enforce the write lands, under shadow/off the user gets a typed refusal
+  // that NAMES this gesture. Contrast `structural_add_edge`, which is deferred
+  // below precisely because it has no writer under ANY posture.
+  edge_strength_edit: {
+    kind: 'system_event',
+    eventKind: 'edge_strength_edit',
+    payload: {
+      from: 'fac_price',
+      to: 'goal_revenue',
+      magnitude: 0.75,
+      direction_intent: 'positive',
+      expected: { mean: 0.4, effect_direction: 'positive' },
+      intent: 'set',
+    },
+  },
 }
 
 describe('UI ↔ V5 system event parity', () => {
@@ -290,10 +327,10 @@ describe('UI ↔ V5 system event parity', () => {
       // path (debounced selection_change on canvas selection) is the R5 UI
       // half — a scheduled Experience lane; CEE consumes it already.
       'selection_change',
-      // 0.43.0 transitively exposes CEE's existing edge-strength server event.
-      // This is a reader-only adoption lane, so it must not invent a UI emitter;
-      // a separately reviewed product/transport lane owns that future decision.
-      'edge_strength_edit',
+      // ⚠ `edge_strength_edit` WAS HERE UNTIL 2026-09-07 and is now EMITTED
+      // (see its UI_COVERAGE entry above). The comment it carried — "a
+      // separately reviewed product/transport lane owns that future decision" —
+      // was correct and that lane has now run.
       // 0.50.0 added three direct-canvas verbs. `structural_rename` IS wired
       // (see above) and `structural_add` IS NOW WIRED TOO — the durable node
       // writer, which is the close of "the factor I added wasn't there when I
@@ -324,7 +361,7 @@ describe('UI ↔ V5 system event parity', () => {
     }
   })
 
-  it('locks UI emission count at 10 of 16 V5 SystemEventKind values', () => {
+  it('locks UI emission count at 11 of 16 V5 SystemEventKind values', () => {
     // Explicit canary: if someone adds a new UI emission (extending the
     // system_event branch of UI_COVERAGE) without updating this test, the
     // count will drift and flag for docs reconciliation.
@@ -345,10 +382,21 @@ describe('UI ↔ V5 system event parity', () => {
     // the durable-add lane wires `structural_add` (9 -> 10). `structural_add_edge`
     // has no CEE writer at all (still 'reader_only_refusal'), so emitting it
     // would buy the user a refusal.
+    //
+    // 2026-09-07: the edge-strength emitter lands (10 -> 11). It is the 0.43.0
+    // addition this test deferred, and the reason it is now emitted while
+    // `structural_add_edge` still is not comes down to ONE derived difference:
+    // `edge_strength_edit` HAS a CEE writer in the deployed bytes
+    // (`system-events/edge-strength-edit.ts` at staging `9de184f1`, routed from
+    // `dispatch.ts:611`), merely gated behind `rpcEnforce`, whereas
+    // `structural_add_edge` has NO writer under any posture. A gate a deploy can
+    // flip is not the same thing as an absent implementation — and under the
+    // gated posture the user gets a refusal that names THEIR gesture instead of
+    // today's silence.
     const uiEmittedCount = Object.values(UI_COVERAGE).filter(
       (c) => c.kind === 'system_event',
     ).length
-    expect(uiEmittedCount).toBe(10)
+    expect(uiEmittedCount).toBe(11)
     expect(V5_EVENT_KINDS).toHaveLength(16)
   })
 })
