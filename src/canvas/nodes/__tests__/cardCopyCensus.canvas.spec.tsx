@@ -438,20 +438,20 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'What could go wrong?', // CONTROL
   ],
   'option · post · standard': [
-    'Ahead', // CAPTION — `METRIC_NOUN.support`, beside the bar and the percentage.
-    //          This IS the shape Paul asked for: the sentence
-    //          "Came out ahead in 47% of simulated scenarios" is already on the
-    //          `title` and in `sr-only` text, and the card shows the bar and
-    //          the figure. His own example was fixed before this lane opened.
+    'Support', // CAPTION — `METRIC_NOUN.support`, beside the bar and the percentage.
+    //            ⭐ WAS 'Ahead' until 7 Sep 2026. Paul: "There's never a
+    //            winner." The sentence "Supported in 47% of simulated
+    //            scenarios" is on the `title` and in `sr-only` text, and the
+    //            card shows the bar and the figure.
   ],
   // Sorted, because `invariantRuns` sorts — the pinned set must be read as a
   // SET, and an order that depended on render order would RED on an unrelated
   // reshuffle and teach the next session to stop reading it.
   'option · post · expert': [
-    'Ahead', // CAPTION
+    'Support', // CAPTION
     'View parameters', // CONTROL
     'What this option changes:', // HEADING
-    'What would make this lead?', // CONTROL
+    'What would make this better supported?', // CONTROL
   ],
   'factor · pre · standard': [],
   'factor · pre · expert': [],
@@ -761,7 +761,7 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     // disappearance would mean the collector had stopped reading cards.
     expect(measured['risk · pre · standard']).toContain('Strength')
     expect(measured['factor · post · standard']).toContain('Influence')
-    expect(measured['option · post · standard']).toContain('Ahead')
+    expect(measured['option · post · standard']).toContain('Support')
     expect(Object.values(measured).flat().length).toBeGreaterThan(15)
   })
 

@@ -104,6 +104,29 @@ const CONTEST_FRAMES: ReadonlyArray<{ readonly name: string; readonly re: RegExp
   { name: 'leading option', re: /\bleading options?\b/i },
   // `leads to` is causal and survives.
   { name: 'leads', re: /\bleads\b(?!\s+to\b)/i },
+  // ⚠⚠ THE SINGULAR VERB WAS A REAL GAP, FOUND BY A SIBLING GUARD RATHER THAN
+  // BY THIS ONE. `\bleads\b` walked straight past three live chips — "Why
+  // does this lead?", "What would make this lead?", "for another option to
+  // lead instead of X" — and the census spec's own CONTROL string was one of
+  // them.
+  //
+  // ⛔ AND THE FIRST FIX WAS TOO WIDE, WHICH IS THE HALF WORTH RECORDING.
+  // `\b(?:this|it) leads?\b` caught "Where else could this lead?" — a
+  // deliberately CAUSAL door on outcome nodes, whose own comment says it
+  // "asks for the consequence". `lead` is genuinely ambiguous between "be in
+  // front" and "result in", and no punctuation rule separates them
+  // (CLAUDE.md trap 22f: when a predicate over natural language oscillates,
+  // stop adding rules and make the limit explicit).
+  //
+  // ⚠ SO THIS ENTRY IS AN ENUMERATION OF THE COMPETITIVE CONSTRUCTIONS FOUND
+  // LIVE, NOT A CLAIM TO COVER THE VERB. A bare `\blead\b` cannot be banned
+  // at all: `lead` is a live copy KEY on every pre-analysis signal row
+  // ("lead"/"emphasis") and "lead-in" is ordinary English. A fourth
+  // competitive construction would pass, and that is a known, stated gap.
+  {
+    name: 'lead (verb)',
+    re: /\bto lead\b(?!\s+(?:to|into|toward))|\bleads? over\b|\bmake (?:this|it) lead\b/i,
+  },
   { name: 'runner-up', re: /\brunner[- ]?up\b/i },
   { name: 'front-runner', re: /\bfront[- ]?runner\b/i },
 ]
@@ -297,6 +320,7 @@ describe('the canvas never frames a decision as a contest', () => {
     ['New leader by a narrow margin', 'leader'],
     ['No clear leading option', 'leading option'],
     ['Segment leads in 48% of scenarios', 'leads'],
+    ['What would make this lead?', 'lead (verb)'],
     ['Close race vs the runner-up', 'runner-up'],
     ['the front-runner on this run', 'front-runner'],
   ])('detects contest framing in %j', (sentence, expectedFrame) => {
@@ -314,6 +338,11 @@ describe('the canvas never frames a decision as a contest', () => {
     "It won't affect the analysis.",
     'Move fluidly between the canvas, Model, analysis and Olumi without losing model authority.',
     'leading or trailing whitespace',
+    'Bold lead-in before a row nudge',
+    'Which decision is most likely to lead to a robust result?',
+    // ⛔ The outcome-node door. CAUSAL, and the first draft of the
+    // `lead (verb)` entry broke it — pinned so a re-widening REDs here.
+    'Where else could this lead?',
     'The numbers behind these are mine, not yours.',
     'This reshapes your model, so it needs your go-ahead before it is applied.',
     'text-gray-400 hover:text-gray-600 text-2xl leading-none',

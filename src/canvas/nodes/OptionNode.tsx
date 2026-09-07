@@ -1223,10 +1223,10 @@ export const OptionNode = memo((props: NodeProps) => {
                 product recommends what to INVESTIGATE, never what to CHOOSE.
                 Asking about the ALTERNATIVE keeps the whole what_would_flip
                 question while presupposing nothing about the leader. Same
-                register as the sibling non-leader chips ("to become the
-                leader") and `winnerChipCopy.ts` (ROADMAP 1.223). */}
-            <NodeChip chipId="option_what_would_change" actionType="what_would_flip" label="What would change this?" message={`What would need to change for another option to lead instead of ${optionLabel}?`} />
-            <NodeChip chipId="option_why_lead" actionType="explain_results" label="Why does this lead?" message={`Why does ${optionLabel} lead over the other options?`} />
+                register as the sibling chips and `winnerChipCopy.ts`
+                (ROADMAP 1.223). */}
+            <NodeChip chipId="option_what_would_change" actionType="what_would_flip" label="What would change this?" message={`What would need to change for another option to be better supported than ${optionLabel}?`} />
+            <NodeChip chipId="option_why_lead" actionType="explain_results" label="Why is this best supported?" message={`Why is ${optionLabel} better supported than the other options?`} />
             {/* ⭐ THE COUNTER-CASE — the reasoning frontier's one door on the
                 leading option, and the moment a team is most likely to stop
                 looking.
@@ -1235,8 +1235,8 @@ export const OptionNode = memo((props: NodeProps) => {
                 the objection worth answering before adding a chip to a row that
                 already has two. Both existing chips are questions about the
                 MODEL'S ARITHMETIC: "what would need to change for another
-                option to lead" asks which inputs the computed ranking is
-                sensitive to, and "why does this lead" asks it to explain the
+                option to be better supported" asks which inputs the computed
+                figure is sensitive to, and "why is this best supported" asks it to explain the
                 numbers it already produced. Both are answerable entirely from
                 what the model contains.
 
@@ -1283,7 +1283,7 @@ export const OptionNode = memo((props: NodeProps) => {
                 message={`What would need to be true for ${optionLabel} to be the better choice?`}
               />
             )}
-            <NodeChip chipId="option_what_would_make_lead" actionType="what_would_flip" label="What would make this lead?" message={`What would need to change for ${optionLabel} to lead?`} />
+            <NodeChip chipId="option_what_would_make_lead" actionType="what_would_flip" label="What would make this better supported?" message={`What would need to change for ${optionLabel} to be better supported?`} />
           </div>
         )
       }
