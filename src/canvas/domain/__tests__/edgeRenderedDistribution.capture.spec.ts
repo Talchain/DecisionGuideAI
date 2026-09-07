@@ -370,11 +370,28 @@ describe('canvas edge rendering over the 6 Sep 2026 capture', () => {
    * field's other consumer is staleness hashing. A write-mostly field with no
    * live reader cannot mislead a user.
    *
-   * This test's job is to make that stop being true LOUDLY. If someone binds a
-   * surface to `beliefStrength`, this constant becomes user-visible and the
-   * assertion below is the record of what it was when that happened.
+   * ⚠⚠ THIS TEST DOES NOT DETECT A NEW READER, AND AN EARLIER VERSION OF THIS
+   * COMMENT CLAIMED IT DID. Its entire input is two frozen JSON fixtures and
+   * three pure domain modules — it observes no call site and no product module,
+   * so if someone mounted `GraphTextView` tomorrow every test in this file would
+   * stay green. An independent seat named that: a comment manufacturing a
+   * guarantee the code does not provide.
+   *
+   * The guarantee now exists, derived, in
+   * `beliefStrengthHasNoProductRenderer.spec.ts` — it walks the product tree and
+   * REDs when any non-test file imports the component, with a contrast control
+   * proving the probe can see importers at all.
+   *
+   * ⚠ AND THE FIGURE THAT COMMENT CARRIED WAS FALSE. "Its module is imported
+   * once, for SectionErrorBoundary" — measured with no truncation, the module
+   * has NINE importers (seven product files, all for `SectionErrorBoundary`).
+   * It is the COMPONENT that has none in product code, and only that supports
+   * the conclusion. The "once" came from a grep piped through `head -5`.
+   *
+   * What THIS test does, honestly stated: it records the constant's value in a
+   * dated capture, so a future reader can see what it was.
    */
-  it('beliefStrength is still the flat UI default, and still has no live reader', () => {
+  it('beliefStrength is the flat UI default in this capture, beside four real values', () => {
     const distinct = new Set(EDGES_0906.map((e) => e.beliefStrength))
     expect(distinct.size).toBe(1)
     expect([...distinct][0]).toBe(0.5)
