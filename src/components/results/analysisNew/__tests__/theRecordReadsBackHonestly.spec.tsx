@@ -267,9 +267,28 @@ describe('the date is the record’s own, or there is no date', () => {
     expect(screen.getByTestId(`${T}-savedat`).textContent).toMatch(/^Recorded 23 Jan 2025$/)
   })
 
+  /**
+   * ⭐⭐ THE THIRD CASE WAS ADDED BY A SURVIVING MUTANT, AND IT IS THE ONE THAT
+   * MATTERED. `formatRecordedOn` has TWO guards — `!Number.isFinite(savedAt)`
+   * and `Number.isNaN(d.getTime())` — and the first two cases here reach only
+   * the first, because `NaN` and `Infinity` are both non-finite. Breaking the
+   * SECOND guard (returning a fabricated date instead of null) therefore left
+   * all 27 tests GREEN.
+   *
+   * ⚠ AND IT IS NOT DEAD CODE, WHICH IS WHY THE FIX IS A CASE AND NOT A
+   * DELETION. `Date`'s range is ±8.64e15 ms, so `1e16` is a perfectly finite
+   * number that yields an Invalid Date — measured, not assumed. A `savedAt`
+   * read back out of a browser store the user can edit is exactly where such a
+   * value comes from.
+   *
+   * The corpus omitted a value class the input admits, so it could not certify
+   * the code over that class (CLAUDE.md trap 22 — check what your corpus
+   * EXCLUDES, not what it covers).
+   */
   it.each([
-    ['NaN', Number.NaN],
-    ['Infinity', Number.POSITIVE_INFINITY],
+    ['NaN — first guard', Number.NaN],
+    ['Infinity — first guard', Number.POSITIVE_INFINITY],
+    ['1e16: finite, but outside Date range — SECOND guard', 1e16],
   ])('withholds the line entirely on an unreadable timestamp (%s)', (_name, savedAt) => {
     withRecord({ savedAt })
     expect(screen.queryByTestId(`${T}-savedat`)).toBeNull()
@@ -278,6 +297,9 @@ describe('the date is the record’s own, or there is no date', () => {
   it('the formatter returns null rather than a fallback string', () => {
     expect(formatRecordedOn(Number.NaN)).toBeNull()
     expect(formatRecordedOn(Number.POSITIVE_INFINITY)).toBeNull()
+    // Finite, and still not a date — the second guard, at the unit.
+    expect(formatRecordedOn(1e16)).toBeNull()
+    expect(formatRecordedOn(-1e16)).toBeNull()
     // The positive half: it must return a real date, not merely "not null".
     expect(formatRecordedOn(SAVED_AT)).toMatch(/^7 Sept? 2026$/)
   })
