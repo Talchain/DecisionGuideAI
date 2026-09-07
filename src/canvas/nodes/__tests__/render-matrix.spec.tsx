@@ -12,7 +12,9 @@
  *   - chips present / absent per the audit table
  *   - coaching line gated to top-3 (high-priority) factors
  *   - value suppression for scale-no-raw factors
- *   - differentiator line only renders in Standard pre-analysis on options
+ *   - differentiator line renders in Standard view on non-baseline options,
+ *     BEFORE AND AFTER the run (it used to be pre-analysis only; the run
+ *     ranks options, it does not change which factor differentiates them)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'

@@ -140,6 +140,52 @@ describe('permitted_analysis_mode gates leader designation — the two questions
     expect(permitted).toEqual(['comparative_leader'])
   })
 
+  /**
+   * ⭐⭐ THE PRODUCER INVARIANT — asserted here rather than assumed everywhere
+   * else. `leaderDesignation.ts` may only WITHHOLD, never LICENSE, when the
+   * composed answer is absent; that rule is precautionary ONLY because this
+   * hook never emits a verdict without the composed answer beside it. Nothing
+   * pinned that. It is a property of ONE object literal — `verdict` and
+   * `leaderDesignationPermitted` are sibling keys of the same `return` — and a
+   * future exit, a hydrated snapshot, or a second producer could break it in a
+   * diff that touches neither file, with no red anywhere.
+   *
+   * ⚠ EVERY ARM PINS ITS OWN PRECONDITION. Without the verdict assertion an arm
+   * whose store produced no run would "pass" by having nothing to check, which
+   * is how a completeness guard stops discriminating without going red.
+   */
+  const PRODUCER_CASES: ReadonlyArray<readonly [string, () => void]> = [
+    ['no admission at all', () => setStore({ separated: true })],
+    ['model refuses, result separates', () => setStore({ separated: true, admission: admission('quantified_provisional') })],
+    ['model permits, result ties', () => setStore({ separated: false, admission: admission('comparative_leader') })],
+    ['both permit', () => setStore({ separated: true, admission: admission('comparative_leader') })],
+  ]
+
+  it.each(PRODUCER_CASES)(
+    'PRODUCER INVARIANT (%s) — a verdict never travels without the composed answer beside it',
+    (_label, set) => {
+      set()
+      const rec = render()
+      expect(rec?.verdict, 'precondition: this case must produce a verdict, or the invariant is vacuous here').toBeTruthy()
+      expect(
+        typeof rec?.leaderDesignationPermitted,
+        'a verdict without the composed answer is the shape leaderDesignation.ts can only withhold on',
+      ).toBe('boolean')
+    },
+  )
+
+  it('PRODUCER INVARIANT — the pre-run exit carries NEITHER field, so absence never means "a run with no licence"', () => {
+    // The hook's other exit (`!hasCompletedFirstRun || !report`). It publishes
+    // no verdict, so `undefined` from the reader keeps meaning NO AUTHORITY AT
+    // ALL rather than an unlicensed run — which is why collapsing that third
+    // state to `false` would turn every pre-run render into an active
+    // withholding.
+    resetStore()
+    const r = renderHook(() => useResultsSectionData())
+    expect(r.result.current.recommendation?.verdict, 'the pre-run exit must publish no verdict').toBeFalsy()
+    expect(r.result.current.recommendation?.leaderDesignationPermitted).toBeUndefined()
+  })
+
   it('absence is not a refusal — undefined and null both keep today’s behaviour', () => {
     // The two ways "the producer has not spoken" can reach this predicate. If
     // either were read as a refusal, every legacy payload would lose its leader.

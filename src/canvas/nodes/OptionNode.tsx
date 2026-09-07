@@ -805,24 +805,81 @@ export const OptionNode = memo((props: NodeProps) => {
 
   /**
    * Differentiator line — a complete sentence describing what's strategically
-   * unique about this option (Standard pre-analysis only).
+   * unique about this option. Standard view; baseline excluded.
    *
    * Delegates to computeAllDifferentiators() which computes all options in
    * one pass. See that helper's docblock for the algorithm, thresholds, and
-   * deduplication logic. Returns null for baseline/post-analysis.
+   * deduplication logic.
+   *
+   * ⭐⭐ IT NO LONGER STOPS AT THE RUN, AND THAT WAS THE DEFECT. This memo used
+   * to open `if (isPostAnalysis) return null`, so running the analysis DELETED
+   * the only sentence saying which factor makes this option different.
+   *
+   * WITNESSED on deployed `e2016182` with a completed analysis: all three
+   * option cards rendered their name and an ordinal and NOTHING ELSE —
+   * "Open a Second Roastery in Leeds | 1". No differentiator, no "Behind:"
+   * line. The user is handed a ranking with no reasons at the exact moment
+   * they are choosing.
+   *
+   * ⚠ WHY THE "Behind:" LINE DOES NOT COVER THIS. It names the key factor
+   * ("no X added" / "X lower") but renders ONLY for a non-recommended option,
+   * and `computeBehindReason` returns null outright when there is no
+   * recommended option — which is precisely what a WITHHELD LEADER produces.
+   * So on the honest-withholding path, which this estate has invested heavily
+   * in, every card loses its reason at once. That is the state witnessed
+   * above.
+   *
+   * ⚠ AND IT IS STRUCTURAL, so nothing here goes stale. The sentence is
+   * derived from `nodes` + `ceeAnalysisReady.options[].interventions` — the
+   * MODEL, not the result. A run does not change which factor differentiates
+   * an option; it only ranks the options. Hiding it after a run withheld
+   * information the run never touched.
+   *
+   * This file already argued the point, two thousand lines down, about not
+   * deleting this line to stop it repeating a label: "the differentiator — its
+   * sentence frame IS the caption for the factor name it carries... Deleting
+   * the line would remove the only statement of WHICH factor is key."
    */
   const differentiator = useMemo<{ label: string; fullLabel: string; factorId: string } | null>(() => {
-    if (isPostAnalysis) return null
     if (isBaselineOption) return null
     const allDiffs = computeAllDifferentiators(nodes, ceeAnalysisReady)
     return allDiffs.get(props.id) ?? null
-  }, [isPostAnalysis, isBaselineOption, ceeAnalysisReady, nodes, props.id])
+  }, [isBaselineOption, ceeAnalysisReady, nodes, props.id])
+
+  /**
+   * Do the from→to chips actually render? ONE spelling, consumed by both the
+   * chip block below and the duplicate-suppression beside it.
+   *
+   * ⚠⚠ THIS IS THE FIX FOR A DEFECT THIS PR ITSELF CREATED, and it is the same
+   * shape as the one it set out to fix — one line further up.
+   *
+   * `differentiatorDuplicatesChip` says "drop the footer when it repeats a
+   * value already shown in a VISIBLE chip". The word visible was always the
+   * intent and the code never checked it: it asked whether a matching delta
+   * EXISTS, not whether a chip is on screen. That was harmless only while the
+   * differentiator was itself suppressed post-analysis. Now that it survives
+   * the run, the suppression fires POST-analysis against a chip that renders
+   * PRE-analysis only — so on an option whose top factor is shared with
+   * another (the `X → value` form), the card lost its last line and rendered
+   * ZERO paragraphs. Measured by an independent seat at `92da8e7`:
+   *
+   *     distinct factors, POST → "Hiring is the key difference"   ✓ fixed
+   *     shared factor,    POST → (no differentiator, no Behind)   ✗ still bare
+   *
+   * That is the exact witnessed state this PR exists to end, so half the fix
+   * was no fix. Suppressing against something that is not on screen is the
+   * same error as gating on a re-derived condition instead of the real render
+   * one — which is precisely what the Behind-line gate below gets right.
+   */
+  const structuredDeltaChipsRender =
+    !isPostAnalysis && !isBaselineOption && structuredDeltas.length > 0
 
   // Brief scope 7: drop the differentiator footer only when it repeats a value
-  // already shown in a visible from→to chip — same factor AND the same value
+  // already shown in a VISIBLE from→to chip — same factor AND the same value
   // text. A differentiator carrying a value the chip doesn't show (e.g. a CEE
   // display_value where the chip fell back to "%") is kept, so no info is lost.
-  const differentiatorDuplicatesChip = !!differentiator
+  const differentiatorDuplicatesChip = structuredDeltaChipsRender
+    && !!differentiator
     && differentiator.label.includes('→')
     && structuredDeltas.some(d => {
       if (d.factorId !== differentiator.factorId) return false
@@ -1895,7 +1952,7 @@ export const OptionNode = memo((props: NodeProps) => {
             a LEGIBILITY change, not a density one. First-view legibility is
             height-bound at the GRAPH level (build-vs-buy lays out 2693 units
             against ~1600 showable) and no card change reaches that. */}
-        {!isPostAnalysis && !isBaselineOption && structuredDeltas.length > 0 && (
+        {structuredDeltaChipsRender && (
           <ul className="flex flex-col gap-1 mt-1.5 m-0 p-0 list-none">
             {structuredDeltas.map(d => (
               <li
@@ -1928,9 +1985,32 @@ export const OptionNode = memo((props: NodeProps) => {
 
         {/* Polish 4 Task 5: differentiator line — what's strategically unique
             about this option vs the others. Standard view only (Detailed
-            already shows the full intervention list). */}
-        {!isPostAnalysis && !isBaselineOption && !isDetailed && differentiator
-          && !differentiatorDuplicatesChip && (
+            already shows the full intervention list).
+
+            ⭐ SURVIVES THE RUN NOW. It used to be gated `!isPostAnalysis`, so
+            analysing the model deleted the reason from every card.
+
+            ⚠ SUPPRESSED ONLY WHERE THE "Behind:" LINE IS ACTUALLY RENDERING,
+            and the condition is spelled to MATCH that render exactly rather
+            than re-derived — `isPostAnalysis && !isRecommended && behindReason`
+            is the same expression the Behind block below uses. Two spellings of
+            one question is how these two lines would drift into contradicting
+            each other. Where Behind renders, it already names the key factor
+            ("no X added" / "X lower") and this line would repeat it.
+
+            ⚠ WHERE IT DOES NOT RENDER, THIS LINE IS USUALLY — NOT ALWAYS — THE
+            ONLY STATEMENT OF WHICH FACTOR IS KEY. An earlier draft of this
+            comment said EVERY option when the leader is withheld, and an
+            independent seat refuted it by measurement: the differentiator is
+            also dropped when it duplicates a rendering chip, and when
+            `computeAllDifferentiators` returns null for the option at all
+            (fewer than two non-baseline options, a sub-threshold difference,
+            or a label shared with another option and deduped away). The
+            universal quantifier was doing rhetorical work the code does not
+            do. */}
+        {!isBaselineOption && !isDetailed && differentiator
+          && !differentiatorDuplicatesChip
+          && !(isPostAnalysis && !isRecommended && behindReason) && (
           <p
             className={`${typography.edgeLabel} text-text-light mt-1 m-0`}
             /* Ellipsis-with-recovery, not ellipsis-with-nowhere-to-go. `label`

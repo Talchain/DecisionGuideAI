@@ -110,6 +110,18 @@ function ensureMatchMedia() {
 const fakeReport: Record<string, unknown> = {
   results: { conservative: 10, likely: 20, optimistic: 30, units: 'percent', unitSymbol: '%' },
   run: { bands: { p10: 10, p50: 20, p90: 30 } },
+  // ⚠ ADDED so this fixture is a report the product can actually RENDER. The
+  // run announcer now consults `selectHasAnyRealProbability`, which reads
+  // `option_comparison[].win_probability` and falls back to
+  // `probability_of_goal` — neither of which this stub carried, so it scored as
+  // "finished without a result" and the completion assertions below failed.
+  //
+  // ⚠ AND THE OPEN QUESTION THIS RAISES, flagged rather than settled here: a
+  // report carrying outcome BANDS but no probability is, on that predicate,
+  // "no result". If such reports are real in production this gate is too
+  // narrow — but the predicate is pre-existing and already gates three other
+  // surfaces, so widening it is a product decision, not a fixture edit.
+  probability_of_goal: 0.62,
 }
 
 function seedCompletedRun() {

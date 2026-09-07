@@ -40,6 +40,7 @@ export type AnalysisDisplayState =
   | 'not_ready'
   | 'ready_to_analyse'
   | 'complete'
+  | 'ran_without_result'
   | 'results_stale'
 
 export interface DeriveAnalysisDisplayStateInput {
@@ -56,6 +57,30 @@ export interface DeriveAnalysisDisplayStateInput {
    * outdated' claim here (it falls through to the neutral 'complete' completion fact).
    */
   analysisChanged: boolean
+  /**
+   * ⭐ True when the report carries at least one FINITE renderable probability —
+   * `hasAnyRealProbability`, the guard already written for exactly this and,
+   * until now, consumed by three surfaces and not by this one, the canonical
+   * headline.
+   *
+   * MEASURED, NOT HYPOTHETICAL. In Paul's manual test on build `acd3db4d` the
+   * product displayed `Analysis complete` while every analytic value the UI
+   * rendered was `unmatched`: 5 of 5 factors `influence_source: "unmatched"`,
+   * 3 of 3 options `win_probability_source: "unmatched"`, no PLoT or ISL leg in
+   * the bundle at all (`isl_data_source: "none"`), and CEE's own
+   * `leader_claim.permitted: false / separation_unavailable`.
+   *
+   * `hasReport` cannot catch that: a report can be POPULATED and carry
+   * all-null probabilities, which is an engine "I tried and failed" state, not
+   * a result. The docstring above already promised that 'complete' requires a
+   * populated report; this makes it require a populated report WITH SOMETHING
+   * IN IT.
+   *
+   * Optional, defaulting to `true`, so an existing caller that cannot yet
+   * supply it keeps its current behaviour rather than silently degrading every
+   * completed run to the new state.
+   */
+  hasRenderableResult?: boolean
 }
 
 export interface AnalysisDisplayCTA {
@@ -115,17 +140,26 @@ function isExplicitNotReady(status: string | undefined): boolean {
  * Precedence (first match wins):
  *   1. Explicit non-ready CEE status (needs_encoding / needs_user_mapping /
  *      needs_user_input) → 'not_ready' even when a prior report exists.
- *   2. hasReport && !analysisChanged → 'complete'
+ *   2. hasReport && !analysisChanged && !hasRenderableResult
+ *        → 'ran_without_result'
+ *      A report can be POPULATED and carry all-null probabilities — an engine
+ *      "I tried per-option and failed" state, which is not a result. This sits
+ *      ABOVE 'complete' deliberately: `hasReport` answers "did a report
+ *      arrive", never "does it contain anything", and only the second licenses
+ *      the word complete. It sits BELOW 'results_stale' equally deliberately —
+ *      an out-of-date report is a more specific statement about a report the
+ *      user has already seen.
+ *   3. hasReport && !analysisChanged → 'complete'
  *      Works even when readiness is briefly absent (undefined / 'missing'),
  *      because a populated report stands on its own — readiness gating only
  *      matters before a successful run lands. 'Analysis complete' is a completion
  *      fact, not a currentness claim, so this is also the correct neutral
  *      fallback for the CEE-unknown 'cannot_confirm' case (which is NOT 'changed').
- *   3. hasReport && analysisChanged → 'results_stale'
- *   4. ceeAnalysisReadyStatus === 'ready' (no report) → 'ready_to_analyse'
- *   5. else (no report, no readiness signal) → 'not_ready'
+ *   4. hasReport && analysisChanged → 'results_stale'
+ *   5. ceeAnalysisReadyStatus === 'ready' (no report) → 'ready_to_analyse'
+ *   6. else (no report, no readiness signal) → 'not_ready'
  *
- * Note rule (2) is keyed on `hasReport`, not on the run-status enum. A
+ * Note rule (3) is keyed on `hasReport`, not on the run-status enum. A
  * stale enum value with a cleared report (e.g. results.status='complete'
  * left over after a new draft cleared `report` to null) must NEVER
  * produce 'complete'. Without a populated report there is nothing to
@@ -135,6 +169,7 @@ export function deriveAnalysisDisplayState(
   input: DeriveAnalysisDisplayStateInput,
 ): AnalysisDisplayStateView {
   const { ceeAnalysisReadyStatus, hasReport, analysisChanged } = input
+  const hasRenderableResult = input.hasRenderableResult ?? true
 
   if (isExplicitNotReady(ceeAnalysisReadyStatus)) {
     return {
@@ -143,6 +178,21 @@ export function deriveAnalysisDisplayState(
       iconName: 'AlertCircle',
       textColorClass: 'text-text-light',
       cta: null,
+    }
+  }
+
+  if (hasReport && !analysisChanged && !hasRenderableResult) {
+    // The run finished and returned a report with nothing renderable in it.
+    // That is neither 'complete' (there is no result) nor 'results_stale' (it
+    // is not out of date) nor 'ready_to_analyse' (it already ran) — a fourth
+    // situation that had no state, which is why it was being reported as the
+    // nearest one and reading as success.
+    return {
+      state: 'ran_without_result',
+      headline: 'Analysis finished without a result',
+      iconName: 'AlertCircle',
+      textColorClass: 'text-warning',
+      cta: { kind: 'secondary', label: 'Rerun analysis' },
     }
   }
 

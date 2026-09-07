@@ -471,7 +471,32 @@ export const ANALYSIS_NEW_COPY = {
      * reference point, so a bar's position and length were unreadable.
      */
     axisCentre: 'no effect',
-    axisEdge: 'strongest this run',
+    /**
+     * ⚠⚠ TWO ENDPOINTS, TWO NAMES. Both ends read `'strongest this run'` until
+     * `e15416ad` — the SAME THREE WORDS at opposite poles of a diverging scale,
+     * witnessed in the founder captures on staging `acd3db4d`. The geometry was
+     * correct and remains untouched: bars extend from the centre and the side
+     * is the direction. Only the labels could not be told apart, so the scale
+     * discriminated nothing and the reader had to infer the poles from the
+     * legend above it.
+     *
+     * ⚠ WHAT THE ENDPOINT IS CALIBRATED TO, stated here because the wording no
+     * longer says it: `buildDrivers` scales every bar to
+     * `Math.max(...live.map(magnitude))` — the strongest driver in the run
+     * REGARDLESS OF DIRECTION — so both poles sit at the same magnitude and an
+     * end is reached only by a bar of that magnitude pushing that way. "Most"
+     * is therefore the honest word for the pole and a percentage is not: see
+     * `axisCentre`'s note for why a 0-100% axis would assert a share of the
+     * outcome that neither basis licenses.
+     *
+     * ⚠ THE VERBS ARE THE LEGEND'S. `lowers` / `raises` above name the effect
+     * ON THE GOAL, and these two must keep agreeing with them — a scale whose
+     * poles contradict the legend directly above it is worse than one that
+     * repeats itself. `driversSeamSaysOneThing.spec.tsx` pins the agreement
+     * rather than trusting this note.
+     */
+    axisEdgeLowers: 'lowers most',
+    axisEdgeRaises: 'raises most',
     /**
      * ⚠ NOT "no direction" AND NOT SILENCE. `mixed` and `unknown` are results:
      * the producer measured the factor and declined to assert one direction.
@@ -480,10 +505,18 @@ export const ANALYSIS_NEW_COPY = {
      */
     directionNotEstablished: 'Direction not established',
     /**
-     * The section header for the chart. It names the QUESTION the chart
-     * answers, which is not the question the glance's bars answer — those rank
-     * the top three by size; this one says which way each pushes and lets you
-     * change it.
+     * The section header for the chart. It names the QUESTION the chart answers.
+     *
+     * ⚠⚠ THIS COMMENT USED TO SAY THE GLANCE'S BARS ANSWERED A DIFFERENT
+     * QUESTION — "those rank the top three by size; this one says which way each
+     * pushes". THE SECOND HALF WAS TRUE AND THE FIRST WAS TRUE OF BOTH, which is
+     * how one ranking came to be rendered twice on one scroll. Derived at
+     * `e15416ad`: `glanceDrivers` and `buildDrivers` read the same
+     * `data.drivers.drivers`, apply the same `zeroReason` filter, take the same
+     * `displayInfluence` magnitude and divide by the same within-run maximum.
+     * The glance's list was a strict subset of these rows carrying a strict
+     * subset of this information. It has been removed; this is the one
+     * rendering. A false comment is what let the duplication read as a decision.
      */
     title: 'Which way each driver pushes',
   },
@@ -737,22 +770,28 @@ export const ANALYSIS_NEW_COPY = {
      * `freshnessSaidOnce.spec.tsx` holds the count at one.
      */
     eyebrowLeading: 'Leading option',
+    /**
+     * ⚠ STILL LIVE, AND ITS ONLY CONSUMER IS NOW `ModelStrip`'s per-node chip —
+     * a standalone claim that the run ranked this node among its top drivers.
+     * The glance's own driver LIST, which this used to head, was removed at
+     * `e15416ad`: it restated the drivers section's ranking from the same
+     * fields one scroll above it.
+     */
     whatMattersMost: 'What matters most',
     couldChangeIf: 'Could change if',
-    /** ⚠ Declares the glance's own cap. See `AtAGlance`'s driver overflow. */
-    moreDrivers: (n: number) => `+ ${n} more driver${n === 1 ? '' : 's'} in this run`,
     /**
-     * ⚠ THE BASIS CAPTION IS A TRUTH CLAIM, NOT A LEGEND, which is why it is
-     * visible rather than hover-only. "Relative influence" says the bars rank
-     * within THIS run; "Influence" says they sit on the producer's own scale.
-     * A reader who mistakes the first for the second reads a rank as a share.
+     * ⛔ `moreDrivers`, `basisRelative`, `basisAbsolute` and
+     * `basisRelativeExplain` DELETED with the glance's driver list — they were
+     * that list's cap disclosure and its basis caption, and nothing else read
+     * them. `basisAbsoluteExplain`'s SENTENCE survives, relocated verbatim to
+     * `coverage.structuralInfluence`, because the claim it makes is still owed
+     * to the reader; it is now a visible caveat on the drivers section rather
+     * than a `title` tooltip the touch reader could never open.
+     *
+     * The set-relative half of that caption is not lost either: the drivers
+     * section has always carried `coverage.setRelativeInfluence`, which is the
+     * same claim in the place the bars now live.
      */
-    basisRelative: 'Relative influence',
-    basisAbsolute: 'Influence',
-    basisRelativeExplain:
-      'Each bar is scaled against the strongest factor in this run, so the bars rank the factors against each other. They are not shares of the outcome.',
-    basisAbsoluteExplain:
-      "Each bar shows Olumi's structural influence score, scaled against the strongest factor in this run.",
   },
 
   markers: {
@@ -922,6 +961,53 @@ export const ANALYSIS_NEW_COPY = {
     /** Influence figures are set-relative, not a causal share of the outcome. */
     setRelativeInfluence:
       'Influence is relative to the other factors in this run, not a share of the outcome.',
+    /**
+     * ⭐ THE OTHER BRANCH OF THE SAME QUESTION, AND IT HAD NO VISIBLE ANSWER.
+     * `setRelativeInfluence` fires when any row is `normalised_elasticity`; a
+     * run where EVERY row is `influence_score` got no basis line at all on this
+     * tab. The only place that said so was the glance's basis caption, whose
+     * explanation was a `title` tooltip — unreachable on touch — and the glance
+     * driver list has now been removed. This is that disclosure, made visible
+     * and moved to the section that still renders the bars.
+     *
+     * ⚠⚠ THE SENTENCE IS CONDITIONAL AND MUST STAY SO. It is TRUE only where
+     * `influenceIsSetRelative` is false. A brief for this work proposed stating
+     * in the section SUBTITLE that the figure is structural and that a re-run
+     * never moves it; that is false on the elasticity branch, where the figure
+     * IS a run output, and an unconditional subtitle cannot tell the two apart.
+     * `driversSeamSaysOneThing.spec.tsx` holds the pair.
+     *
+     * ⚠ NOT RESPELLED. This is `glance.basisAbsoluteExplain`'s sentence,
+     * relocated verbatim with its render; `panelCopyNamesOlumiNotTheProducer`
+     * follows it here.
+     */
+    structuralInfluence:
+      "Each bar shows Olumi's structural influence score, scaled against the strongest factor in this run.",
+    /**
+     * ⭐⭐ WHAT THE SECTION LEFT OUT, AND THE PRODUCER'S REASON FOR EACH.
+     *
+     * `buildDrivers` drops every row the producer stamped with a `zero_reason`.
+     * That filter is deliberate and stays — but it was SILENT:
+     * `suppressedZeroCount` reached the DOM only through `driversEmptyMessage`,
+     * which renders when there are NO findings, so a run with survivors dropped
+     * rows and said nothing. Measured against the canvas on staging `acd3db4d`,
+     * the dropped row can be the model's rank-1 factor: a pinned factor carries
+     * `intervention_override` while keeping the highest `influence_score`, so
+     * the canvas ranked it #1 and this panel deleted it without a word.
+     *
+     * ⚠ THE REASONS ARE NAMED, NEVER SUMMARISED — the rule this file already
+     * states at `driversAllZero`: "three reasons cannot share one summary
+     * without one of them being described wrongly". The labels come from
+     * `influenceScaleCopy.ZERO_REASON_BADGE_LABELS`, the same map the Drivers
+     * panel badges rows with.
+     *
+     * ⚠ "NOT RANKED HERE", NOT "EXCLUDED" AND NOT "HIDDEN". The producer
+     * returned these factors and scored their sensitivity at zero; they are
+     * absent from a RANKING, which is a narrower claim than being left out of
+     * the analysis, and the narrower claim is the true one.
+     */
+    notRanked: (n: number, reasons: readonly string[]) =>
+      `${n} ${n === 1 ? 'factor is' : 'factors are'} not ranked here: ${reasons.join('; ')}.`,
     referencePrefix: 'Sensitivities are measured against',
   },
 
