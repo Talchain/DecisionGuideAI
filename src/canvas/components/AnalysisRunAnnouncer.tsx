@@ -27,6 +27,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useCanvasStore } from '../store'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { runAnnouncementForTransition } from './analysisRunStatus'
+import { selectHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 
 export interface AnalysisRunAnnouncerProps {
   /** The Analysis tab is fronted (dock open, results tab active). */
@@ -38,6 +39,11 @@ export function AnalysisRunAnnouncer({ analysisTabFronted }: AnalysisRunAnnounce
   const resultsStatus = useCanvasStore((s) => s.results?.status ?? null)
   // C2: a settle that restored the OLD report (abort/timeout) must announce
   // the honest resultless copy, never "Analysis complete."
+  // The CONTENT check, not the envelope check. `settledWithoutNewReport`
+  // answers "did a new report arrive"; this answers "does it carry anything".
+  // Routed through the one selector three other surfaces already consult, so
+  // the announcement cannot come to mean something different from them.
+  const hasRenderableResult = useCanvasStore(selectHasAnyRealProbability)
   const settledWithoutNewReport = useCanvasStore(
     (s) => s.results?.settledWithoutNewReport ?? false,
   )
@@ -71,12 +77,13 @@ export function AnalysisRunAnnouncer({ analysisTabFronted }: AnalysisRunAnnounce
       preRunStatus: preRunStatusRef.current,
       analysisTabFronted,
       settledWithoutNewReport,
+      hasRenderableResult,
     })
     if (!isRunning) preRunStatusRef.current = resultsStatus
     // A yielded transition clears the region (an empty string announces
     // nothing) rather than holding stale text into the next transition.
     setMessage(announcement ?? '')
-  }, [isRunning, resultsStatus, analysisTabFronted, settledWithoutNewReport])
+  }, [isRunning, resultsStatus, analysisTabFronted, settledWithoutNewReport, hasRenderableResult])
 
   return (
     <div

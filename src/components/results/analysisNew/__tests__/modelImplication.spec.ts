@@ -60,6 +60,17 @@ const ENTITLED = { leaderId: 'opt_a', hasLeadingOption: true } as DecisionResult
 const WITHHELD = { leaderId: 'opt_a', hasLeadingOption: false } as DecisionResultData['verdict']
 
 /**
+ * ⚠ A VERDICT CANNOT EXPRESS ENTITLEMENT ON ITS OWN. `ENTITLED` answers Q2
+ * (did THIS RESULT separate the arms?) and says nothing about Q1 (does the
+ * MODEL license a comparative claim at all?). `leaderDesignationPermitted` is
+ * the conjunction, and `useResultsSectionData` publishes it as a SIBLING of the
+ * verdict on every real run — so a fixture that sets only the verdict is not a
+ * smaller version of an entitled run, it is a shape the producer never emits.
+ * Spread this pair wherever a fixture means "a run entitled to name a leader".
+ */
+const ENTITLED_RUN = { verdict: ENTITLED, leaderDesignationPermitted: true }
+
+/**
  * A ranged, centred option. `p10`/`p90` are what make the OUTCOME reading
  * available at all (`rows.some(p10 != null && p90 != null)`), so every fixture
  * that expects an outcome claim must carry them.
@@ -100,7 +111,7 @@ function divergingRun(
       allOptions: [a, b],
       recommendedOption: a,
       goalThreshold: 100,
-      verdict: ENTITLED,
+      ...ENTITLED_RUN,
       ...overrides,
     },
   })
@@ -191,7 +202,7 @@ describe('what your model implies — the two readings', () => {
           allOptions: [a, medianOnly],
           recommendedOption: a,
           goalThreshold: 100,
-          verdict: ENTITLED,
+          ...ENTITLED_RUN,
         },
       }),
     )
@@ -208,7 +219,7 @@ describe('what your model implies — the two readings', () => {
           allOptions: [a, b],
           recommendedOption: b,
           goalThreshold: 100,
-          verdict: ENTITLED,
+          ...ENTITLED_RUN,
         },
       }),
     )
@@ -256,7 +267,7 @@ describe('the second reading is a USER ACTION away, and the surface says so hone
           allOptions: [a, b],
           recommendedOption: a,
           goalThreshold: 100,
-          verdict: ENTITLED,
+          ...ENTITLED_RUN,
         },
       }),
     )
@@ -273,7 +284,7 @@ describe('the second reading is a USER ACTION away, and the surface says so hone
           allOptions: [a, b],
           recommendedOption: a,
           goalThreshold: 100,
-          verdict: ENTITLED,
+          ...ENTITLED_RUN,
         },
       }),
     )
@@ -289,8 +300,29 @@ describe('WITHHOLDING — the half a "does it speak?" test cannot see', () => {
   it('says NOTHING AT ALL on a run whose verdict withholds the leader claim', () => {
     // ROADMAP 1.267: order, ordinals and crowns are DESIGNATIONS and go. A
     // sentence naming two options is the largest designation on the surface.
-    const result = implicationOf(divergingRun({ verdict: WITHHELD }))
+    // ⚠ BOTH HALVES OF THE OVERRIDE ARE REQUIRED. `divergingRun` spreads
+    // `ENTITLED_RUN`, so overriding the verdict alone would leave the COMPOSED
+    // answer saying "permitted" beside a verdict saying "no leader" — a shape
+    // `useResultsSectionData` cannot emit (`Q1 && Q2` is false whenever Q2 is),
+    // and one on which this arm would be testing the composed field rather than
+    // the withholding it names.
+    const result = implicationOf(divergingRun({ verdict: WITHHELD, leaderDesignationPermitted: false }))
     expect(result.kind).toBe('none')
+  })
+
+  /**
+   * ⭐ THE OTHER WAY A LEADER CLAIM IS WITHHELD, and the one this file could not
+   * see: Q2 PERMITS — the numbers did separate — and the MODEL refuses to
+   * license a comparative claim. The surface must fall to silence on it exactly
+   * as it does on a tied run.
+   */
+  it('says NOTHING AT ALL when the MODEL refuses while the RESULT separates', () => {
+    const data = divergingRun({ leaderDesignationPermitted: false })
+    expect(
+      data.recommendation?.verdict?.hasLeadingOption,
+      'Q2 must still be TRUE here, or this arm is testing Q2 rather than the model’s refusal',
+    ).toBe(true)
+    expect(implicationOf(data).kind).toBe('none')
   })
 
   it('says nothing when the run has a SINGLE option — a superlative over one thing is not a finding', () => {
@@ -302,7 +334,7 @@ describe('WITHHOLDING — the half a "does it speak?" test cannot see', () => {
           recommendedOption: only,
           goalThreshold: 100,
           isSingleOption: true,
-          verdict: ENTITLED,
+          ...ENTITLED_RUN,
         },
       }),
     )
@@ -321,7 +353,7 @@ describe('WITHHOLDING — the half a "does it speak?" test cannot see', () => {
           allOptions: [a, b],
           recommendedOption: a,
           goalThreshold: 100,
-          verdict: ENTITLED,
+          ...ENTITLED_RUN,
         },
       }),
     )

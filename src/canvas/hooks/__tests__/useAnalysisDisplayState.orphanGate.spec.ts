@@ -45,7 +45,16 @@ import { useAnalysisDisplayState } from '../useAnalysisDisplayState'
 function makeStore(initial: Partial<MockCanvasState> = {}) {
   return create<MockCanvasState>(() => ({
     ceeAnalysisReady: { status: 'ready' },
-    results: { status: 'complete', report: { option_comparison: [] } },
+    // This report must carry a REAL probability. The subject of this file is
+    // the orphan gate, but 'complete' is now also conditional on the run
+    // having produced something renderable -- an empty option_comparison is a
+    // run that finished with no result, and would earn 'ran_without_result'
+    // for an honest reason that has nothing to do with orphaning. Keeping the
+    // fixture realistic tests the gate; emptying it would test the new rule.
+    results: {
+      status: 'complete',
+      report: { option_comparison: [{ id: 'opt-a', win_probability: 0.62 }] },
+    },
     analysisFreshness: { freshness: 'unknown' },
     analysisFreshnessDirty: false,
     ...initial,

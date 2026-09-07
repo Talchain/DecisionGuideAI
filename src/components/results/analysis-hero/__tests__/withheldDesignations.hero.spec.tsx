@@ -65,6 +65,20 @@ function heroModel(
       options: overrides.options ?? options(),
       recommendation: {
         verdict,
+        // ⭐ THE COMPOSED ANSWER, PUBLISHED BESIDE THE VERDICT — the shape
+        // `useResultsSectionData` actually emits. Without it these fixtures are
+        // Q2-only objects, and `leaderDesignationPermitted` may only WITHHOLD on
+        // that shape (absence of the composed answer is not permission), so
+        // every PERMITTED arm below would have become an assertion about a
+        // withheld run and the over-suppression controls would have stopped
+        // controlling anything.
+        //
+        // THIS FILE VARIES Q2 ONLY, with Q1 absent and therefore permitting
+        // (`licensesComparativeLeaderClaim(undefined) === true`), so the
+        // conjunction collapses to the verdict's own answer. The Q1 dimension —
+        // the MODEL refusing while the RESULT separates — is covered by
+        // `admissionGatesHeroCrown.spec.ts`, which drives the real store.
+        leaderDesignationPermitted: verdict?.hasLeadingOption,
         storyHeadlines: {},
         ...overrides.recommendation,
       } as never,
