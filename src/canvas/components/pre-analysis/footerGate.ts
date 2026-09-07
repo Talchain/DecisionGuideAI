@@ -6,8 +6,11 @@
  * and nothing in that chain carries the injected-model hold:
  * `usePreAnalysisData.ts`, `deriveAnalysisDisplayState.ts` and
  * `useAnalysisDisplayState.ts` each read ZERO for
- * `analysisHeld|starterId|isV5CanonicalRunPath` against in-file contrasts of
- * 58 / 7 / 1, and `StickyFooter.tsx` reads 0 against a contrast of 16. So on a
+ * `analysisHeld|starterId|isV5CanonicalRunPath`. The contrast symbol is NAMED so
+ * the zeros are reproducible rather than asserted: `isReady`, a footer-gate field,
+ * reads 48 / 7 / 1 in those three files and 6 in `StickyFooter.tsx`, which also
+ * reads 0 for the target. A zero beside a non-zero contrast is an absence; a zero
+ * beside an unnamed number is a grep nobody can re-run. So on a
  * held model this footer painted an ENABLED `Run analysis` while
  * `StarterProvenanceBanner`, on the same surface, said
  * "Analysis is held on a saved example. Re-draft it live to run one."
@@ -21,9 +24,18 @@
  * branch: the documented reinstatement path (`OutputsDock.tsx:3135` — "flag off
  * restores the legacy branch below"), and `PreAnalysisPanel.tsx:2477` is the
  * ONLY non-test render site of `StickyFooter` in the tree. Under the current
- * staging posture a fresh user therefore never renders this footer. What this
- * change buys is a reinstatement branch that refuses the hold if that flag is
- * ever turned off. It is not a live-surface fix and must not be reported as one.
+ * staging posture a FRESH user therefore never renders this footer, and this must
+ * not be reported as a live-surface fix.
+ *
+ * ⚠ BUT "NOT THE DEFAULT" IS NOT "UNREACHABLE", AND THE DIFFERENCE IS WHY THIS IS
+ * WORTH HAVING. `preAnalysisV3` carries `storageKey: 'feature.preAnalysisV3'`
+ * (`flags.ts:262-265`), and `makeFlag` resolves localStorage BEFORE the baked env
+ * snapshot — `flagFactory.ts:59-69` returns `false` for a stored `'0'`/`'false'`
+ * and only then falls through to `envKey` at `:75-85`. So the baked `"1"` is a
+ * DEFAULT, not a lock: any browser that has set that key off renders this footer
+ * on the deployed build, with no redeploy and no flag flip. That is the posture
+ * this change covers, and it is a measured one rather than a hypothetical
+ * "if the flag is ever turned off".
  *
  * ⛔ IT ALSO DOES NOT EXPLAIN ANY DEPLOYED NO-OP, AND NO LONGER CLAIMS TO.
  * The V3 surface already refuses the hold — through the GATE rather than through
