@@ -6,8 +6,8 @@
  */
 
 import '@testing-library/jest-dom/vitest'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { AtAGlance } from '../sections/AtAGlance'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
@@ -169,7 +169,11 @@ describe('driver bars — a rank comparison, never a share of the outcome', () =
 
   it('caps at three and flags a set-relative basis from the producer token', () => {
     expect(glanceOf(highUncertainty()).influenceIsSetRelative).toBe(true)
-    expect(glanceOf(openStrategicChallenge()).influenceIsSetRelative).toBe(false)
+    // ⚠ WAS `false`, and that pin ratified the defect — see
+    // `theScaleClaimMatchesTheScale.spec.ts`. BOTH stamped bases are
+    // set-relative; the producer's is normalised against `max|influence|`, so
+    // its top row is 1.0 by construction.
+    expect(glanceOf(openStrategicChallenge()).influenceIsSetRelative).toBe(true)
     expect(glanceOf(openStrategicChallenge()).drivers.length).toBeLessThanOrEqual(3)
   })
 
@@ -238,32 +242,27 @@ describe('could change if — a tipping point, gated on the honesty field', () =
   })
 })
 
-describe('fail-closed focus, and the interaction grammar', () => {
-  it('renders an unfocusable driver as text, never as a dead control', () => {
-    const data = makeData({
-      drivers: { drivers: [makeDriver({ factorKey: 'x', factorLabel: 'X', canFocus: false })] },
-    })
-    render(<AtAGlance
-  isRunning={false} reanalyseBlocked={false}
-  reanalyseBlockedReason={null} glance={glanceOf(data)} onFocusTarget={vi.fn()} />)
-    expect(screen.getByTestId('analysis-new-glance-driver')).toBeInTheDocument()
-    expect(screen.queryByTestId('analysis-new-glance-driver-focus')).toBeNull()
-  })
-
-  it('routes a focusable driver to the Living Model by its producer target id', () => {
-    const onFocusTarget = vi.fn()
-    const data = makeData({
-      drivers: {
-        drivers: [makeDriver({ factorKey: 'x', factorLabel: 'X', matchedNodeId: 'node_x' })],
-      },
-    })
-    render(<AtAGlance
-  isRunning={false} reanalyseBlocked={false}
-  reanalyseBlockedReason={null} glance={glanceOf(data)} onFocusTarget={onFocusTarget} />)
-    fireEvent.click(screen.getByTestId('analysis-new-glance-driver-focus'))
-    expect(onFocusTarget).toHaveBeenCalledWith('node_x')
-  })
-})
+/**
+ * ⛔ RETIRED AT `e15416ad` WITH THE GLANCE'S DRIVER LIST.
+ *
+ * These cases asserted the rendering of "What matters most" — the glance's
+ * top-three driver rows. That list restated the drivers section's ranking from
+ * the same view-model fields one scroll above it (`glanceDrivers` and
+ * `buildDrivers` read one array, one filter, one magnitude, one normalisation),
+ * so it was removed and `DriverInfluenceChart` is now the one rendering.
+ *
+ * ⚠ RECORDED, NOT SILENTLY DELETED, because two of them pinned real properties
+ * and a successor is entitled to know where those went:
+ *   · the BAR-SPREAD rule (no bars unless the values differ) has NO equivalent
+ *     on the chart, which draws a bar per row whatever the spread. Named as a
+ *     known gap at the retired `DRIVER_SPREAD_MIN` in `AtAGlance.tsx`.
+ *   · the FAIL-CLOSED FOCUS rule survives in a different shape: the chart's row
+ *     is always a button (it opens the value editor) and guards the call
+ *     instead — `if (row.targetId) onFocusTarget?.(row.targetId)`. It is pinned
+ *     against that shape in `driversSeamSaysOneThing.spec.tsx`.
+ * The view-model cases above (`glanceOf(...).drivers`) are UNAFFECTED: the field
+ * survives, because `nodeInsights.ts` still reads it for `ModelStrip`'s chip.
+ */
 
 describe('the whole region collapses honestly', () => {
   it('renders nothing at all when no producer supplied any of it', () => {
@@ -467,54 +466,42 @@ describe("the producer's reason is rendered whole, never clipped", () => {
     expect(clipping, `producer prose sits inside a clipping container:\n${clipping.join('\n')}`).toEqual([])
   })
 
-  it('still permits a driver LABEL to truncate — the two are different objects', () => {
-    // Contrast control. Without it this rule would read as "never truncate
-    // anything", which would cost the fixed bar track its comparability.
-    const { container } = render(<AtAGlance
-  isRunning={false} reanalyseBlocked={false}
-  reanalyseBlockedReason={null} glance={glanceOf(genuineDecision())} />)
-    expect(container.querySelector('.truncate'), 'no label truncation left to distinguish from prose').not.toBeNull()
-  })
+  /**
+   * ⛔ THE CONTRAST CONTROL MOVED OUT OF THIS FILE AT `e15416ad`, AND THE MOVE
+   * IS ITSELF A FINDING.
+   *
+   * It asserted that a driver LABEL may still truncate, so the rule above could
+   * not be read as "never truncate anything". Its object was the glance's driver
+   * row, which is gone — and `AtAGlance` now contains NO truncating element at
+   * all (`grep -n 'truncate' AtAGlance.tsx` at this head: zero hits), so there
+   * is nothing left in this component to contrast the prose rule against.
+   *
+   * ⚠ THE CONTROL IS NOT DROPPED, ONLY RELOCATED: the surviving truncating
+   * label is `DriverInfluenceChart`'s row (`block truncate`), and the contrast
+   * is pinned against it in `driversSeamSaysOneThing.spec.tsx`. A weaker
+   * binding than a same-component pair, and stated as such rather than left to
+   * look equivalent.
+   */
 })
 
 /**
- * ⭐ A BAR IS A COMPARISON. WITH ONE ROW THERE IS NOTHING TO COMPARE.
+ * ⛔ RETIRED AT `e15416ad` — the second half of the glance driver-list removal.
  *
- * `fraction` is magnitude ÷ the run's strongest magnitude, so a lone driver is
- * 1 by construction and its bar renders FULL whatever the producer measured.
- * Witnessed on a real run: a single non-zero driver at contribution 0.5 drew a
- * full-width bar, which reads as "maximum influence" and is a magnitude claim
- * the encoding cannot support.
+ * The rule it pinned, kept verbatim because the observation behind it is still
+ * true of any bar encoding: "A BAR IS A COMPARISON. WITH ONE ROW THERE IS
+ * NOTHING TO COMPARE. `fraction` is magnitude ÷ the run's strongest magnitude,
+ * so a lone driver is 1 by construction and its bar renders FULL whatever the
+ * producer measured. Witnessed on a real run: a single non-zero driver at
+ * contribution 0.5 drew a full-width bar, which reads as 'maximum influence'
+ * and is a magnitude claim the encoding cannot support."
  *
- * The pair below is the discrimination — one alone would not show the rule is
- * about COMPARABILITY rather than about hiding bars.
+ * ⚠ `DriverInfluenceChart` DOES NOT IMPLEMENT THIS RULE and now owns the only
+ * bars on the panel, so a single-row run draws one full-width bar there. It is
+ * a weaker defect — the chart's bar also carries a SIDE, so it still says
+ * something the length does not — but it is a live gap, recorded here and at
+ * the retired `DRIVER_SPREAD_MIN` in `AtAGlance.tsx` rather than fixed inside a
+ * seam whose question was duplication.
  */
-describe('the influence bar appears only when it compares something', () => {
-  const withDrivers = (n: number) => ({
-    ...glanceOf(genuineDecision()),
-    drivers: Array.from({ length: n }, (_, i) => ({
-      id: `d${i}`,
-      label: `Driver ${i}`,
-      fraction: i === 0 ? 1 : 0.4,
-      targetId: null,
-    })),
-  })
-
-  it('draws no bar for a single driver', () => {
-    render(<AtAGlance
-  isRunning={false} reanalyseBlocked={false}
-  reanalyseBlockedReason={null} glance={withDrivers(1)} />)
-    expect(screen.getAllByTestId('analysis-new-glance-driver')).toHaveLength(1)
-    expect(screen.queryByTestId('analysis-new-glance-driver-bar')).toBeNull()
-  })
-
-  it('draws a bar for every driver once two or more can be ranked', () => {
-    render(<AtAGlance
-  isRunning={false} reanalyseBlocked={false}
-  reanalyseBlockedReason={null} glance={withDrivers(3)} />)
-    expect(screen.getAllByTestId('analysis-new-glance-driver-bar')).toHaveLength(3)
-  })
-})
 
 /**
  * ⭐ "COULD CHANGE IF" — WHAT THE NUMBER LOOKS LIKE, not whether it is gated.

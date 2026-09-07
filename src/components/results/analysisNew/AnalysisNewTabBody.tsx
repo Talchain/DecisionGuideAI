@@ -71,6 +71,7 @@ import { WhatWeChecked } from './sections/WhatWeChecked'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { ModelImplication } from './sections/ModelImplication'
 import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
+import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
 import { CritiqueWarningStrip } from '../CritiqueWarningStrip'
 import { InferenceWarningStrip } from '../InferenceWarningStrip'
 import { DeeperAnalysis } from './sections/DeeperAnalysis'
@@ -146,10 +147,12 @@ export interface AnalysisNewTabBodyProps {
    * Without this prop the ribbon control answered "may I re-analyse?" with a
    * bare handler and could not refuse at all.
    *
-   * ⚠ THE FOOTER CONTROL DOES NOT READ THIS TODAY. `ReanalyseBar` takes only
-   * `onReanalyse` and disables on `!onReanalyse`; PR #1212 is what points it
-   * at the same verdict. This prop closes the ribbon's half, and the surface
-   * is coherent only once both halves have landed.
+   * ⭐ THE FOOTER CONTROL READS IT TOO, SINCE #1212. `OutputsDock` hands
+   * `ReanalyseBar` the same gate value and refusal sentence it hands this
+   * prop, plus the running flag, and that bar disables on
+   * `!onReanalyse || blocked || isAnalysing`. This prop closes the ribbon's
+   * half; both halves have landed, so the surface is coherent — and neither
+   * control may grow a predicate of its own.
    *
    * `null` = no verdict supplied, which is treated as blocked. Absent behaves
    * as `null` for the same reason: a host that has not answered the question
@@ -227,6 +230,55 @@ export function selectAlsoWorthDoing<T extends { id: string }>(
    * its guard can pin it rather than being reasoned about again from scratch.
    */
   return [...interventions]
+}
+
+/**
+ * ⭐⭐ WHAT A READER MUST KNOW TO READ THESE BARS — the basis they are on, and
+ * what the section left out.
+ *
+ * ⚠⚠ THE BASIS SENTENCE IS CONDITIONAL AND THAT IS THE POINT. `displayProvenance`
+ * is `'influence_score' | 'normalised_elasticity'` (`results/types.ts`), and only
+ * the first is the structural score. A brief for this work proposed putting
+ * "derived from the graph, not from this run" in the section SUBTITLE, which is
+ * unconditional; that sentence is FALSE on the elasticity branch, where the
+ * figure is a run output and a re-run can move it. So the two branches get two
+ * sentences and neither can reach the run it would lie about.
+ *
+ * ⚠ THE STRUCTURAL BRANCH HAD NO VISIBLE ANSWER BEFORE. It was disclosed only by
+ * the glance's basis caption, through a `title` tooltip — which a touch reader
+ * cannot open — and that list has been removed. This is that disclosure, made
+ * visible, in the section that still renders the bars.
+ *
+ * ⚠ THE REFERENCE-OPTION LINE KEEPS ITS PRECEDENCE OVER THE STRUCTURAL ONE. It
+ * names the option sensitivities were measured against, which is a stronger and
+ * more specific qualifier than the basis noun; where the producer disclosed one,
+ * that is the sentence worth the line.
+ *
+ * ⚠⚠ THE EXCLUSION LINE IS ADDITIVE, NEVER A REPLACEMENT. It answers a different
+ * question from the basis (CLAUDE.md trap 21) — "what scale are these on" versus
+ * "what is missing from them" — and a run can owe the reader both. Suppressed
+ * rows reached the DOM through `driversEmptyMessage` alone, which renders only
+ * when there are NO findings, so a partial suppression said nothing at all.
+ */
+function driversCaveat(vm: AnalysisNewViewModel): string | null {
+  const basis = vm.drivers.influenceIsSetRelative
+    ? COPY.coverage.setRelativeInfluence
+    : vm.drivers.referenceOptionLabel
+      ? `${COPY.coverage.referencePrefix} ${vm.drivers.referenceOptionLabel}.`
+      : COPY.coverage.structuralInfluence
+  /* ⚠ GATED ON THE REASONS, NOT ON THE COUNT. They move together by
+     construction, but the count is what a sentence naming reasons cannot be
+     written from: a non-empty count with an empty reason list would render
+     "1 factor is not ranked here: ." — the blank-reason state the total copy map
+     exists to make impossible. Reading the list the sentence actually consumes
+     is the fail-closed order. */
+  const reasons = vm.drivers.suppressedZeroReasons
+  if (reasons.length === 0) return basis
+  const excluded = COPY.coverage.notRanked(
+    vm.drivers.suppressedZeroCount,
+    reasons.map((code) => ZERO_REASON_BADGE_LABELS[code]),
+  )
+  return `${basis} ${excluded}`
 }
 
 function driversEmptyMessage(vm: AnalysisNewViewModel): string | null {
@@ -597,10 +649,12 @@ export function AnalysisNewTabBody({
         <ModelStrip isPreRun={vm.status.isPreRun} insights={nodeInsights} />
 
         {/* ── AT A GLANCE — the 5-to-10-second read ───────────────────────── */}
-        {/* ⚠ `driverTotal` is the RUN's non-zero driver count, not the
-            glance's capped list — the glance shows at most three and must say
-            so. `primaryIntervention` is the ENGINE's top recommendation,
-            passed rather than re-derived: this surface never mints one. */}
+        {/* ⛔ `driverTotal` NO LONGER PASSED. It let the glance declare its cap
+            of three ("+N more drivers in this run"); the glance's driver list
+            was removed at `e15416ad` because it restated the drivers section's
+            ranking from the same fields, so there is no cap here to declare.
+            `primaryIntervention` is the ENGINE's top recommendation, passed
+            rather than re-derived: this surface never mints one. */}
         <AtAGlance
           glance={vm.atAGlance}
           onFocusTarget={focusTarget}
@@ -633,7 +687,6 @@ export function AnalysisNewTabBody({
              one the gate itself consumed. */
           isRunning={isRunning}
           missingResults={vm.status.missingResults}
-          driverTotal={vm.drivers.totalCount}
           primaryIntervention={
             glancePrimary
               ? {
@@ -890,13 +943,7 @@ export function AnalysisNewTabBody({
           // ⚠ The caveat is a function of the PRODUCER's provenance token, not
           // of taste: a set-relative influence is "largest in this set", never
           // a causal share of the outcome.
-          caveat={
-            vm.drivers.influenceIsSetRelative
-              ? COPY.coverage.setRelativeInfluence
-              : vm.drivers.referenceOptionLabel
-                ? `${COPY.coverage.referencePrefix} ${vm.drivers.referenceOptionLabel}.`
-                : null
-          }
+          caveat={driversCaveat(vm)}
           // ⚠⚠ THREE STATES, THREE SENTENCES — ONE SENTENCE FOR ALL THREE WAS
           // A LIVE FALSEHOOD. A run whose factors all came back with a producer
           // `zero_reason` DID return influence and measured it at zero, and was
