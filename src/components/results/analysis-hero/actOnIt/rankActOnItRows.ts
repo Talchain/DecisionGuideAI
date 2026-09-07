@@ -311,8 +311,9 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): ActOnItRow | null {
   //     On the production path this is the ONLY way withholding arrives:
   //     `useResultsSectionData` computes it as
   //     `licensesComparativeLeaderClaim(...) && verdict.hasLeadingOption`, and
-  //     BOTH terms are declared strictly `boolean`
-  //     (`decisionVerdict.ts:170`, `useAnalysisReady.ts:77`), so the
+  //     BOTH terms are declared strictly `boolean` — the return type of
+  //     `licensesComparativeLeaderClaim` (`useAnalysisReady.ts`) and the field
+  //     `DecisionVerdict.hasLeadingOption` (`decisionVerdict.ts`) — so the
   //     conjunction cannot widen to `undefined`. Proved at the type level: the
   //     same expression assigned to `boolean` compiles clean, while the
   //     identical shape over an optional field fails TS2322.

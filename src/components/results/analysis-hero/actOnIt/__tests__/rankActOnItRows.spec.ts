@@ -139,10 +139,17 @@ function makeData(overrides: DataOverrides = {}): ResultsSectionDataReturn {
     recommendationStability: overrides.stability,
     robustnessVerdict: overrides.robustnessVerdict,
     // Spread rather than assigned, so an omitted override leaves the KEY
-    // ABSENT rather than present-and-undefined. `leaderDesignationPermitted`
-    // reads `rec.leaderDesignationPermitted ?? rec.verdict?.hasLeadingOption`,
-    // and an explicit `undefined` would still short-circuit the `??` chain
-    // differently from a missing key if a verdict is ever added here.
+    // literally ABSENT rather than present-and-undefined, matching the
+    // "ABSENT BY DEFAULT" arm named in `DataOverrides` above.
+    //
+    // ⚠ FIXTURE SHAPE ONLY — NOT A BEHAVIOURAL DIFFERENCE, and an earlier
+    // revision of this comment claimed that it was. `??` CANNOT distinguish a key
+    // that is present with value `undefined` from a key that is absent: property
+    // access yields `undefined` either way, so
+    // `rec.leaderDesignationPermitted ?? rec.verdict?.hasLeadingOption` takes the
+    // same arm for both shapes. Measured on that pair, with and without a
+    // `verdict` present: identical results — while `hasOwnProperty`, an operator
+    // that CAN see the difference, read `true` vs `false` on the same two objects.
     ...(overrides.leaderDesignationPermitted === undefined
       ? {}
       : { leaderDesignationPermitted: overrides.leaderDesignationPermitted }),
