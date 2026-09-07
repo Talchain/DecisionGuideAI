@@ -52,6 +52,8 @@ import {
   deferralLabel,
 } from './rowPresentation'
 import type { EditCommitState, DetailTier, ModelRow } from './types'
+import { splitEffectLabel } from './effectDirection'
+import { directionToneClass } from '../components/model-tab/utils'
 
 export interface ModelRowViewProps {
   row: ModelRow
@@ -179,15 +181,60 @@ function ValueLeaf({
    */
   editable?: boolean
 }) {
+  const textClass =
+    [mayShrink ? 'truncate min-w-0' : '', editable ? 'underline decoration-dotted' : '']
+      .filter(Boolean)
+      .join(' ') || undefined
+
+  /*
+   * ⭐⭐ THE STATED DIRECTION RIDES A MARK THAT CANNOT SHRINK.
+   *
+   * MEASURED on deployed `d0f4628b`, guest board, dock 414px: eleven of eleven
+   * relationship rows rendered "Moderat…" — six negative and five positive,
+   * BYTE-IDENTICAL on screen, with no `title` anywhere to recover it from. The
+   * cell is 80px and the phrase needs 138–142px, so the cut lands five
+   * characters before the only word that carries the meaning.
+   *
+   * ⚠ THE TRADE ABOVE IS NOT REVERSED. The phrase still shrinks, so the label
+   * keeps every pixel the 6 Sep measurement bought it. What changes is that the
+   * DIRECTION leaves the shrinking text and becomes a `shrink-0` mark, so it
+   * survives at any width the dock can reach. The header above was right that a
+   * phrase may be cut; it was wrong that this one "still says what it means"
+   * once cut — that sentence was never measured against 80px.
+   *
+   * `null` for "Negligible effect" and for the producer's own
+   * "…, direction not stated": neither states a direction, and marking them
+   * would invent the claim the second one exists to withhold.
+   */
+  const split = splitEffectLabel(display)
+  if (split !== null) {
+    return (
+      <span className="flex items-center gap-1 min-w-0" title={display ?? undefined}>
+        {/* Tone comes from the ESTATE'S OWN authority, not a second green/red
+            map: `directionToneClass` already answers "what colour is a stated
+            direction?" and is what the old model tab uses. Colour is the
+            SECOND channel here — the arrow's shape carries the claim on its
+            own, so this reads correctly with no colour vision at all. */}
+        <span
+          aria-hidden="true"
+          className={`shrink-0 ${directionToneClass({ show: true, direction: split.direction, source: 'cee' })}`}
+        >
+          {split.direction === 'negative' ? '\u2193' : '\u2191'}
+        </span>
+        {/* The FULL producer string, unshortened, for assistive tech — so the
+            split is a visual arrangement and never a loss of content. The
+            visible half is hidden from the reader to stop it being announced
+            twice. */}
+        <span className="sr-only">{display}</span>
+        <span aria-hidden="true" className={textClass}>
+          {split.remainder}
+        </span>
+      </span>
+    )
+  }
+
   return (
-    <span
-      className={[
-        mayShrink ? 'truncate min-w-0' : '',
-        editable ? 'underline decoration-dotted' : '',
-      ]
-        .filter(Boolean)
-        .join(' ') || undefined}
-    >
+    <span className={textClass}>
       {display ?? ''}
     </span>
   )
