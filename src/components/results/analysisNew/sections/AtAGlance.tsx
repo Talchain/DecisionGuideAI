@@ -165,10 +165,14 @@ export interface AtAGlanceProps {
    * refuses got a live ribbon control for a run that reaches `showToast` and
    * fails.
    *
-   * ⭐ THE FOOTER CONTROL IS GATED TOO, SINCE #1212. `OutputsDock` hands
-   * `ReanalyseBar` the same gate value and refusal sentence it hands this
-   * prop, plus the running flag, and that bar disables on
-   * `!onReanalyse || blocked || isAnalysing`. While only one half had landed
+   * ⭐ THE FOOTER CONTROL IS GATED TOO, SINCE #1212 — same verdict, same
+   * shape, derived one level further down. This prop arrives ALREADY derived
+   * (`AnalysisNewTabBody` computes `!canRunAnalysis && !isRunning`), whereas
+   * `OutputsDock` hands `ReanalyseBar` the RAW `canRunAnalysis` / `isRunning`
+   * and that bar computes the identical `blocked = !canRun && !isAnalysing`
+   * for itself before disabling on `!onReanalyse || blocked || isAnalysing`.
+   * Two derivation sites, one verdict — which is why neither may be
+   * "simplified" into a predicate of its own. While only one half had landed
    * this surface was incoherent in one direction or the other — one control
    * refusing the run beside another still offering it, the product
    * contradicting itself about whether the user may run an analysis. This
