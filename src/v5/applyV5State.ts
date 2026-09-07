@@ -49,7 +49,11 @@ import { AnalysisStateV1Schema, Stage } from '@talchain/schemas/boundary'
 import type { Edge, Node } from '@xyflow/react'
 
 import type { ReportV1 } from '../adapters/plot/types'
-import type { CEEAnalysisReady, CEEGoalConstraint } from '../adapters/cee/types'
+import type {
+  AnalysisAdmissionV1,
+  CEEAnalysisReady,
+  CEEGoalConstraint,
+} from '../adapters/cee/types'
 import type { CeeDecisionReviewPayloadV1 } from '../types/cee'
 import type { ScenarioStage } from '../types/scenario'
 import { logV5StateStep } from './debugLog'
@@ -66,7 +70,9 @@ import {
   readDecisionReviewWireState,
   type DecisionReview030,
 } from './decisionReviewAdapter'
-import { mapV5AnalysisToReport } from './mapV5AnalysisToReport'
+import { mapV5AnalysisToReport, buildV5VerdictReportLike } from './mapV5AnalysisToReport'
+import { deriveDecisionVerdict } from '../lib/decisionVerdict'
+import { licensesComparativeLeaderClaim } from '../canvas/hooks/useAnalysisReady'
 import { v5StageToScenarioStage } from './stageMapper'
 import {
   deriveAnalysisRefusalNoticeUpdate,
@@ -1156,6 +1162,81 @@ export function applyV5State(
               })()
             : null
 
+        /*
+         * ═════════════════════════════════════════════════════════════════
+         * ⛔ P0 — A DIRECTIVE MAY NOT VISUALLY DESIGNATE A LEADER THE MODEL
+         *    IS NOT ENTITLED TO NAME.
+         * ═════════════════════════════════════════════════════════════════
+         * Measured on deployed staging: inside ONE HTTP 200 the assistant
+         * text said "No single option can be put forward yet" (twice) while
+         * a `ui_directive` highlighted the leading option, and the canvas
+         * obeyed. Every TEXTUAL designation already withholds correctly —
+         * the "Leading option" pill, the robustness badge, "Leads via",
+         * "Behind:", the close-call marker, the decision headline and bar.
+         * The highlight was the one un-ruled hole, and it is the worst kind:
+         * A SILENT VISUAL CLAIM, because nothing on screen admits that a
+         * claim is being made.
+         *
+         * ─────────────────────────────────────────────────────────────────
+         * WHICH QUESTION THIS GATE ANSWERS (trap 21 is live in this seam —
+         * two PRs a day apart once closed this harm and reopened it because
+         * each answered a different question under a similar name):
+         *
+         *   ⭐ "MAY THIS TURN VISUALLY SINGLE OUT THE FRONT-RUNNING OPTION
+         *      ON THE CANVAS?"
+         *
+         * That is Q1 — the MODEL'S LICENCE — applied to the IDENTITY case.
+         * NOT Q2 ("did this run separate the arms?"), and NOT the panel's
+         * composition of both.
+         *
+         * ⚠ Q2 IS DELIBERATELY ABSENT FROM THE CONDITION, and that is the
+         * load-bearing decision. `decisionVerdict.ts` states the rule this
+         * follows: *"a non-null `leaderId` does NOT license the phrase
+         * 'leading option' — identity and entitlement are different
+         * questions."* So `leaderId` is consulted for IDENTITY ONLY, which
+         * is precisely its documented purpose. Conjoining
+         * `hasLeadingOption` here would REOPEN the P0 through the other
+         * door: on a run that did not separate the arms Q2 is false, the
+         * gate would not fire, and the front-runner would still be pulsed
+         * while the panel withheld every designation.
+         *
+         * ─────────────────────────────────────────────────────────────────
+         * ONE READER, IMPORTED — never re-spelled.
+         * `licensesComparativeLeaderClaim` is the codebase's single answer
+         * to Q1 and every textual surface reads it. A second local
+         * expression of the same question is how two authorities drift
+         * apart, which is the defect this estate keeps paying for.
+         *
+         * ABSENCE ARM PRESERVED: `licensesComparativeLeaderClaim(undefined)`
+         * is `true` ON PURPOSE — a pre-admission CEE has not spoken, so the
+         * UI behaves exactly as it did before and the two services stay free
+         * to deploy in either order. A missing carrier must never become a
+         * silent suppression.
+         *
+         * ─────────────────────────────────────────────────────────────────
+         * ⚠ BOTH INPUTS COME FROM THIS ENVELOPE, AND THEY MUST.
+         * This arm runs in STEP 2 (the block loop). `ceeAnalysisReady` is
+         * written in STEP 4 and `results.report` in STEP 5 — BOTH AFTER — so
+         * reading the store here would gate on the PREVIOUS turn's
+         * admission, which answers a different question again.
+         * `V5ApplicatorStore` also exposes only WRITES for those slices.
+         * KNOWN, DELIBERATE GAP (pinned by a test, not hidden): a turn
+         * carrying a highlight but no `analysis_result` block has no
+         * in-envelope leader identity, so nothing is gated.
+         */
+        const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(
+          (response as { analysis_ready?: { analysis_admission?: AnalysisAdmissionV1 } })
+            .analysis_ready?.analysis_admission,
+        )
+        const envelopeAnalysisBlock = response.blocks.find(
+          (b): b is Extract<V5Block, { type: 'analysis_result' }> =>
+            b.type === 'analysis_result',
+        )
+        const frontRunnerOptionId =
+          envelopeAnalysisBlock === undefined
+            ? null
+            : deriveDecisionVerdict(buildV5VerdictReportLike(envelopeAnalysisBlock)).leaderId
+
         let singleTargetActioned = false
         for (const t of targets) {
           if (!t?.id) continue
@@ -1172,6 +1253,41 @@ export function applyV5State(
             continue
           }
           if (verb === 'highlight') {
+            /*
+             * ⛔ THE DESIGNATION GATE. Placed BEFORE the note/pulse fork so
+             * it covers BOTH highlight sub-paths: the 2s ring AND the held
+             * attention channel. The attention channel is the more prominent
+             * of the two (a persistent marker, not a fading pulse), so
+             * gating one and not the other would leave the louder half open.
+             *
+             * SCOPED PRECISELY — this is a DESIGNATION, not navigation:
+             *   · `highlight` only. `focus` and `open_inspector` take the
+             *     user somewhere; they assert no ranking. Over-gating them
+             *     would break legitimate assistant behaviour, which is a
+             *     worse defect than the one being closed.
+             *   · The FRONT-RUNNER only. Any other option, and any factor,
+             *     still highlights normally under the same refusal.
+             *   · NODES only. `!isEdge` is explicit: a leading option is an
+             *     option node, and an edge id must never be compared into
+             *     the option identity space.
+             *
+             * DEFERRED WITH A STATED REASON rather than dropped silently, so
+             * `applied[]` stays truthful and the withholding is visible to
+             * anyone reading the applicator's result.
+             */
+            if (
+              !modelLicensesComparativeClaim &&
+              !isEdge &&
+              frontRunnerOptionId !== null &&
+              t.id === frontRunnerOptionId
+            ) {
+              deferred.push({
+                reason: 'ui_directive_leader_designation_withheld',
+                block,
+                detail: t.id,
+              })
+              continue
+            }
             /*
              * ⭐ A HIGHLIGHT THAT CARRIES A NOTE IS ATTENTION, NOT AN
              * ACKNOWLEDGEMENT — and the two have different lifetimes.
