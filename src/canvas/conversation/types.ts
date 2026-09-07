@@ -1080,12 +1080,24 @@ export type WireSystemEventType = (typeof WIRE_SYSTEM_EVENT_TYPES)[number]
  * event holds the freshness overlay dirty
  * (`useConversation.publishPendingEditCount` → `store.pendingEmittedEdits`),
  * because a verdict computed without it is a statement about a DIFFERENT graph.
- * That argument only holds for events that change the graph. The other seven
- * members are notifications (`direct_graph_edit`, `direct_analysis_run`,
- * `patch_accepted`, `patch_dismissed`, `feedback_submitted`) or carry-only turn
- * facts that write NO graph (`edge_adjudication`, `prior_range_edit`) — holding
- * on one of those would fabricate "Model changed since this analysis" over a run
- * that genuinely is current, which is the same lie pointing the other way.
+ * That argument only holds for events that change the graph. NONE of the other
+ * seven writes one, and the split is CEE's own, not a UI grouping (staging
+ * `243287ed`, `system-events/dispatch.ts:271-323`): `direct_graph_edit`,
+ * `patch_accepted` and `patch_dismissed` are `'ack_and_commit'` (a turn row, no
+ * graph write); `edge_adjudication`, `prior_range_edit` and `feedback_submitted`
+ * — which goes over the wire as kind `feedback` (`v5/buildPayload.ts:451-463`) —
+ * are `'fact_and_commit'` (a committed turn fact, never a graph write); and
+ * `direct_analysis_run` is not a CEE system-event kind at all, becoming
+ * `kind='message'` (`buildPayload.ts:369`). Holding on any of them would
+ * fabricate "Model changed since this analysis" over a run that genuinely is
+ * current, which is the same lie pointing the other way.
+ *
+ * ⚠ `feedback_submitted` SAT IN A "notifications" BUCKET HERE UNTIL 2026-09-07,
+ * beside `patch_dismissed`. CEE reclassified `feedback` OUT of `'ack_and_commit'`
+ * on 2026-08-05 precisely because an empty ack DISCARDED the user's rating, so
+ * "notification" was the one word its own dispatch table rules out. The
+ * operative claim — writes NO graph — was true throughout and the held set never
+ * moved; only the bucket label was wrong.
  *
  * ⚠ MEMBERSHIP IS A CLAIM ABOUT CEE, AND NOTHING HERE EXECUTES A CHECK OF IT.
  * `satisfies readonly WireSystemEventType[]` rejects a member that is not a

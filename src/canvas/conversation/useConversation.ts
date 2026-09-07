@@ -3580,7 +3580,7 @@ export function useConversation(): UseConversationReturn {
    * current model" over a graph CEE never held.
    *
    * The set is `MODEL_CHANGING_SYSTEM_EVENT_TYPES` and it is deliberately a
-   * SUBSET — the seven notification / carry-only members write no graph, and
+   * SUBSET — the other seven wire members write no graph at CEE, and
    * holding on one of those would fabricate "model changed" over a run that is
    * genuinely current. See that constant for why membership is a claim about
    * CEE's dispatch table rather than a UI preference.

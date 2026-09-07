@@ -14,9 +14,9 @@
  * hold must cover every MODEL-CHANGING deferred event and NOTHING ELSE. Four
  * of the eleven `WIRE_SYSTEM_EVENT_TYPES` write graph state at CEE
  * (`SYSTEM_EVENT_HANDLING: 'mutating'`): factor_value_edit, structural_add,
- * structural_delete, structural_rename. The other seven are notifications or
- * carry-only turn facts that write NO graph, so an undispatched one does not
- * make a verdict false — counting them would manufacture a "model changed"
+ * structural_delete, structural_rename. The other seven are `'ack_and_commit'`
+ * or `'fact_and_commit'` at CEE and write NO graph, so an undispatched one
+ * does not make a verdict false — counting them would manufacture a "model changed"
  * banner over a run that is genuinely current, which is the OPPOSITE harm and
  * just as much a lie.
  *
@@ -193,7 +193,7 @@ describe('the undispatched-edit hold covers EVERY model-changing system event', 
     },
   )
 
-  it('OPPOSITE TWIN: a run completing behind a deferred notification DOES clear the overlay', async () => {
+  it('OPPOSITE TWIN: a run completing behind a deferred feedback_submitted DOES clear the overlay', async () => {
     const { result } = renderHook(() => useConversation())
     await holdTheLock(result)
 
