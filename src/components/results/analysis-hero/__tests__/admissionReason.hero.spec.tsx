@@ -59,10 +59,23 @@ const PANEL_PROPS = { rerunDisabled: false, focusPanelMounted: false } as const
 /**
  * ⭐⭐ THE ADMISSION IS Q1. THE VERDICT IS Q2. THE FIXTURE MUST SET BOTH.
  *
- * `leaderDesignationPermitted(rec)` is `rec.leaderDesignationPermitted ??
- * rec.verdict?.hasLeadingOption` — so a fixture that omits the composed field
- * falls through to the VERDICT arm, and every case in this file was landing
- * there. The tests passed, the product was right, and they were pointed at a
+ * ⚠ THIS COMMENT DESCRIBED THE PRE-MERGE HELPER AND THE MERGE FALSIFIED IT.
+ * It said `leaderDesignationPermitted(rec)` is `rec.leaderDesignationPermitted
+ * ?? rec.verdict?.hasLeadingOption`. At `leaderDesignation.ts:77/:80` it is now
+ * the composed field when present (`!= null`, so a composed `false` survives),
+ * and otherwise `rec.verdict?.hasLeadingOption === false ? false : undefined`.
+ *
+ * ⛔ THE DIFFERENCE IS THE WHOLE POINT OF THE SEAM. Omitting the composed field
+ * used to yield the PERMISSIVE answer via the verdict arm; it now yields
+ * `undefined` — WITHHELD. Absence of the composed answer is not permission: Q2
+ * is one of two conjuncts, so it may only ever withhold, never license. Leaving
+ * the old sentence here would have taught the inferred-licence read that the
+ * merged docstring exists to abolish, restated as fact inside the regression
+ * pin for that very behaviour.
+ *
+ * What still holds, and is why the fixtures below set BOTH: a fixture omitting
+ * the composed field does not exercise the composed arm at all, and every case
+ * in this file was landing on the fallback. The tests passed, the product was right, and they were pointed at a
  * different cause: they could not distinguish "explains the admission refusal"
  * from "printed whenever the run failed to separate".
  *
