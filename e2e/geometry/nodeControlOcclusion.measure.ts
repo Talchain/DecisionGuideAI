@@ -279,40 +279,60 @@ async function census(page: Page, optNodeId?: string): Promise<Census> {
   )
 }
 
-/** Drive the camera through React Flow's own store, then REPORT what it did. */
-async function setZoom(page: Page, zoom: number): Promise<number> {
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    await page.evaluate((z) => {
-      const store = (
-        window as unknown as {
-          __rfStore?: {
-            getState: () => {
-              panZoom?: { setViewport: (v: unknown, o?: unknown) => Promise<unknown> }
-              transform: number[]
-            }
-          }
-        }
-      ).__rfStore
-      if (!store) return
-      const s = store.getState()
-      const [x, y] = s.transform
-      void s.panZoom?.setViewport({ x, y, zoom: z }, { duration: 0 })
-    }, zoom)
-    await page.waitForTimeout(700)
-    const got = await page.evaluate(
-      () =>
-        (window as unknown as { __rfStore?: { getState: () => { transform: number[] } } }).__rfStore?.getState()
-          .transform[2] ?? NaN,
-    )
-    if (Math.abs(got - zoom) < 0.005) return +got.toFixed(4)
-  }
-  return +(
-    await page.evaluate(
-      () =>
-        (window as unknown as { __rfStore?: { getState: () => { transform: number[] } } }).__rfStore?.getState()
-          .transform[2] ?? NaN,
-    )
-  ).toFixed(4)
+/**
+ * Read the LIVE zoom off the viewport's own transform matrix.
+ *
+ * ⚠ NOT off React Flow's internal store. `heightVsZoom` reaches that by walking
+ * the container's React fibre for a context value carrying `transform` — 20
+ * lines of private-API archaeology that is correct there and would be a SECOND
+ * AUTHORITY here (CLAUDE.md trap 21). The rendered transform is the thing the
+ * counter-scale is actually a function of, it is public, and the census below
+ * already reads it, so there is exactly one answer to "what zoom is this?".
+ */
+async function readZoom(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const vp = document.querySelector('.react-flow__viewport') as HTMLElement | null
+    if (!vp) return NaN
+    return +new DOMMatrixReadOnly(getComputedStyle(vp).transform).a.toFixed(4)
+  })
+}
+
+/**
+ * Drive the camera with ctrl+wheel over the pane — d3-zoom's OWN input, the
+ * gesture a user performs — rather than writing a transform.
+ *
+ * Same mechanism `nodeMarkCensus.measure.ts` uses, and for the same reason: a
+ * written transform can land in a state the product's zoom path never produces,
+ * and the whole question here is what the product renders at the zoom it parks
+ * at. Returns the zoom ACHIEVED, never the one requested — a camera that
+ * refused to move must present as a failed assertion, not as a silent
+ * measurement of a different zoom.
+ */
+async function setZoom(page: Page, target: number): Promise<number> {
+  await page.evaluate(async (z: number) => {
+    const pane = document.querySelector('.react-flow__pane') as HTMLElement | null
+    const vp = document.querySelector('.react-flow__viewport') as HTMLElement | null
+    if (!pane || !vp) return
+    const zoomNow = () => new DOMMatrixReadOnly(getComputedStyle(vp).transform).a
+    const r = pane.getBoundingClientRect()
+    for (let i = 0; i < 600; i += 1) {
+      const cur = zoomNow()
+      if (Math.abs(cur - z) < 0.002) break
+      pane.dispatchEvent(
+        new WheelEvent('wheel', {
+          bubbles: true,
+          cancelable: true,
+          ctrlKey: true,
+          clientX: r.left + r.width / 2,
+          clientY: r.top + r.height / 2,
+          deltaY: cur > z ? 4 : -4,
+        }),
+      )
+      await new Promise((res) => requestAnimationFrame(() => res(null)))
+    }
+  }, target)
+  await page.waitForTimeout(800)
+  return readZoom(page)
 }
 
 test.describe('in-node control occlusion', () => {
@@ -328,13 +348,7 @@ test.describe('in-node control occlusion', () => {
       await waitForVisualQuiescence(page)
       await page.waitForTimeout(2000)
 
-      const settled = await page.evaluate(
-        () =>
-          +(
-            (window as unknown as { __rfStore?: { getState: () => { transform: number[] } } }).__rfStore?.getState()
-              .transform[2] ?? NaN
-          ).toFixed(4),
-      )
+      const settled = await readZoom(page)
 
       // ── The measurement is taken at the WORST CASE, which is also where the
       //    product's own post-draft fit parks: `MAX_LABEL_COUNTER_SCALE` is
