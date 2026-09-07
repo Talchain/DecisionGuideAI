@@ -1024,7 +1024,19 @@ export interface DisplayState {
     | 'ran_without_result'
     | 'results_stale'
     | null
-  /** Headline matching what the pre-analysis hero banner displays. */
+  /**
+   * `deriveAnalysisDisplayState`'s own headline string, recorded for the
+   * bundle. NOT the hero banner's — that is `hero_headline_displayed` at
+   * `:990`, built by `deriveHeroHeadline`, 37 lines above this line.
+   *
+   * ⚠ THIS COMMENT SAID "matching what the pre-analysis hero banner
+   * displays", which named the wrong field AND asserted a render. The
+   * docblock 26 lines above states the derived fact: `StickyFooter` is the
+   * sole product consumer of `useAnalysisDisplayState` and reads only
+   * `view.cta`, so `.headline` reaches no screen. Two sentences in one
+   * interface disagreeing about one field is how a repair goes to the wrong
+   * surface — it already did once, which is why that docblock exists.
+   */
   analysis_display_headline: string | null
 }
 
