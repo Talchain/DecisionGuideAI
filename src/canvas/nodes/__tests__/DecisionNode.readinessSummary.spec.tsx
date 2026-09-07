@@ -220,9 +220,13 @@ const renderDecision = (overrides: Partial<typeof baseProps> = {}) =>
  * no admission. So a SECOND state reaches the summary: `status: 'complete'`
  * with `report: null` and `optionCount === 0` falls to the third,
  * UNCONDITIONAL `bodyFallback` arm while the line is still `completedRunLine`.
- * The reviewer measured it renders there ("2 factors · 1 missing"), against a
- * positive control in the same run. Nothing in this file mounts that state, and
- * no test here claims to cover it.
+ * MEASURED TWICE, INDEPENDENTLY: the reviewer's probe and then this lane's,
+ * each with a positive control in the same run so a null could not have been
+ * blindness. Both read "2 factors · 1 missing", above the `completedRunLine`
+ * wayfinding text. Nothing in this file mounts that state, and no test here
+ * claims to cover it — §3's no-options case is the discriminating twin: the
+ * same graph WITHOUT `status: 'complete'` falls to `noOptionsLine` and the
+ * summary is absent, which is asserted there.
  */
 const mountCompletedRun = (factors: unknown[], overrides: Record<string, unknown> = {}) => {
   setStore({
