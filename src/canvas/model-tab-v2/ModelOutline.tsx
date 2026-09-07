@@ -121,13 +121,38 @@ export function outlineLayout(
   const matches = (r: ModelRow) =>
     needle === '' || r.label.toLowerCase().includes(needle)
 
+  // ⭐⭐ A SEARCH THAT REVEALS NOTHING IS NOT A SEARCH.
+  //
+  // ⚠ THIS IS A REGRESSION FIX, NOT A FEATURE, AND IT WAS FOUND BY A FAILING
+  // TEST THAT I ALMOST "FIXED" THE WRONG WAY. Once the outline began opening
+  // CLOSED (`initiallyClosedGroups`, this PR), `open` was still computed from
+  // the closed-state ALONE — the needle was used to narrow `rows` and never
+  // consulted for `open`. So a user who typed into the one search box on
+  // arrival, with every group shut, matched rows that were never rendered: the
+  // filter narrowed a list nobody could see.
+  //
+  // `ModelTabBody.spec.tsx`'s "the one search surface actually filters the
+  // outline" caught it. The tempting repair was to open the groups in the TEST
+  // and move on — which would have left the product defect live and the suite
+  // green. Worse, that test's own negative assertion (`factor-budget` absent)
+  // passes VACUOUSLY against a closed group, so half of it was already
+  // incapable of failing.
+  //
+  // A group opens while searching only if it HAS a match: a group with nothing
+  // to show stays shut, so the result reads as a result rather than as seven
+  // headings. When the needle is empty this is exactly the previous behaviour.
+  const searching = needle !== ''
+
   return {
-    groups: MODEL_GROUP_IDS.map(id => ({
-      id,
-      open: openGroups.has(id),
+    groups: MODEL_GROUP_IDS.map(id => {
       // `filter` preserves the caller's order by construction.
-      rows: rows.filter(r => r.group === id && matches(r)),
-    })),
+      const groupRows = rows.filter(r => r.group === id && matches(r))
+      return {
+        id,
+        open: openGroups.has(id) || (searching && groupRows.length > 0),
+        rows: groupRows,
+      }
+    }),
     unknownGroupRowIds,
   }
 }

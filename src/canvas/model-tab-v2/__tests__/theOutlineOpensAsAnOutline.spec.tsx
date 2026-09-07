@@ -107,6 +107,63 @@ describe('the Model outline opens as an outline', () => {
     expect(screen.queryByTestId(`model-row-v2-${FACTOR_UNSET}`)).toBeNull()
   })
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // ⭐⭐ THE REGRESSION THE CLOSED DEFAULT INTRODUCED, AND ITS FIX.
+  //
+  // Closing the groups made the tab's ONE search box useless on arrival: the
+  // needle narrowed `rows` and never touched `open`, so a reader who typed
+  // matched rows that were never rendered. `outlineLayout` now opens a group
+  // WHILE SEARCHING if that group has a match — and only then.
+  //
+  // Found by an existing test going RED, not by inspection. The tempting
+  // repair was to open the groups inside that test, which would have left the
+  // defect live under a green suite.
+  // ══════════════════════════════════════════════════════════════════════════
+  it('a search REVEALS its matches even though every group is shut', () => {
+    renderPanel()
+    // PRECONDITION, pinned: nothing is on screen before the search, so the
+    // negative assertions below cannot pass merely because a group is closed.
+    expect(screen.queryByTestId(`model-row-v2-${FACTOR_SET}`)).toBeNull()
+    expect(screen.queryByTestId(`model-row-v2-${FACTOR_UNSET}`)).toBeNull()
+
+    fireEvent.change(screen.getByTestId('model-tab-v2-filter'), {
+      target: { value: 'Engineering' },
+    })
+
+    // The match is revealed...
+    expect(
+      screen.getByTestId(`model-row-v2-${FACTOR_SET}`),
+      'a search that reveals nothing is not a search',
+    ).toBeInTheDocument()
+    // ...and its group is genuinely OPEN, which is what makes the next
+    // assertion mean "filtered out" rather than "still collapsed".
+    expect(
+      screen.getByTestId('model-group-v2-factors-toggle').getAttribute('aria-expanded'),
+    ).toBe('true')
+    // The sibling in the SAME group is absent because it does not match.
+    expect(screen.queryByTestId(`model-row-v2-${FACTOR_UNSET}`)).toBeNull()
+  })
+
+  it('DISCRIMINATOR: searching opens ONLY the groups that have a match', () => {
+    // The paired half. Without it, "open every group whenever the box is
+    // non-empty" would satisfy the test above and turn any keystroke into the
+    // 1,817px dump this PR exists to remove.
+    renderPanel()
+    fireEvent.change(screen.getByTestId('model-tab-v2-filter'), {
+      target: { value: 'Engineering' },
+    })
+    expect(
+      screen.getByTestId('model-group-v2-goal-toggle').getAttribute('aria-expanded'),
+      'the goal group holds no match and must stay shut',
+    ).toBe('false')
+    expect(screen.queryByTestId(`model-row-v2-${GOAL_ID}`)).toBeNull()
+
+    const opened = MODEL_GROUP_IDS.filter(
+      id => screen.queryByTestId(`model-group-v2-${id}-toggle`)?.getAttribute('aria-expanded') === 'true',
+    )
+    expect(opened, `only a matching group may open; these did: ${opened.join(', ')}`).toEqual(['factors'])
+  })
+
   it('one click opens the group the reader asked for, and only that one', () => {
     renderPanel()
     fireEvent.click(screen.getByTestId('model-group-v2-factors-toggle'))
