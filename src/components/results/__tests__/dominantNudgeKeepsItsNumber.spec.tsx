@@ -106,7 +106,13 @@ describe('T1 dominant-factor nudge — the number survives its own container', (
     expect(label, 'label and metric must be different elements').not.toBe(metric)
     expect(row.contains(label) && row.contains(metric), 'both must live inside the measured row').toBe(true)
     expect(label.textContent).toBe(WITNESSED_LABEL)
-    expect(metric.textContent).toMatch(/has an influence score of 100%\.$/)
+    /* ⚠ RE-PINNED 5 Sep 2026: "has an influence score of 100%" → "has relative
+       influence of 100% within this analysis". `influence_score` is set-relative
+       (the producer divides by `max|influence|`, so the top row is 1.0 by
+       construction), and the absolute wording was the false half. This
+       assertion is a PRECONDITION for the layout test below — it cares that the
+       metric carries the number, not which noun precedes it. */
+    expect(metric.textContent).toMatch(/has relative influence of 100% within this analysis\.$/)
   })
 
   it('the row can take a second line instead of clipping its children away', () => {

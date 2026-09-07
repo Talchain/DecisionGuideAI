@@ -149,9 +149,15 @@ export function DriverInfluenceChart({
         data-testid={`${testId}-scale`}
         aria-hidden="true"
       >
-        <span className="w-1/2 text-left">{COPY.driverChart.axisEdge}</span>
+        {/* ⚠ TWO STRINGS, NOT ONE RENDERED TWICE. Both ends read "strongest
+            this run" until `e15416ad`, so the scale's two poles were labelled
+            identically and discriminated nothing. The words are the legend's
+            own verbs, so the two rows agree by construction; the LEFT span must
+            stay the lowering side, because it sits under the legend's left
+            arrow and the bars extend leftwards for `negative`. */}
+        <span className="w-1/2 text-left">{COPY.driverChart.axisEdgeLowers}</span>
         <span className="text-center whitespace-nowrap px-1">{COPY.driverChart.axisCentre}</span>
-        <span className="w-1/2 text-right">{COPY.driverChart.axisEdge}</span>
+        <span className="w-1/2 text-right">{COPY.driverChart.axisEdgeRaises}</span>
       </div>
 
       <ul className="space-y-1">

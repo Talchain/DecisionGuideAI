@@ -33,10 +33,36 @@ export interface DriverDisplayEntry {
 
 /**
  * The bases that may license a numeric analysis claim in mounted UI copy.
- * `influence_score` is an absolute producer scale, not a share. The
- * elasticity fallback is set-relative. Pre-analysis influence and value of
- * information are separate producer metrics and must never borrow each
- * other's label.
+ *
+ * ⚠⚠ THIS SAID "`influence_score` is an absolute producer scale, not a share"
+ * UNTIL 6 Sep 2026, AND THAT SENTENCE PROPAGATED. It is the premise PR #1221
+ * cited, in good faith and by name, when it removed a DIFFERENT falsehood from
+ * the same tooltip clause and deliberately kept the scale wording: "the
+ * producer's own declared semantics". A careful lane got a false sentence from
+ * this file and had no reason to doubt it.
+ *
+ * BOTH stamped bases are SET-RELATIVE. `influence_score` is the producer's
+ * normalisation against `max|influence|` — its top row is 1.0 BY CONSTRUCTION —
+ * and `normalised_elasticity` is this app's own normalisation of a raw
+ * elasticity. They are two different NORMALISATIONS, not absolute vs relative.
+ *
+ * Measured on data rather than argued from code — and NARROWED 6 Sep 2026 to
+ * what is actually measured, after a reviewer refuted the universal this line
+ * used to state ("every capture … twelve files"). Of the 21 JSON files under
+ * `src/` carrying `influence_score`, every one whose maximum is NON-ZERO maxes
+ * at EXACTLY 1.0 (live staging responses among them), and none exceeds 1.0.
+ * ONE is uniformly 0 — `seeded-2026-08-17-w2d-analysis-turn.json`, a real
+ * `response_version: 2` turn — which is the degenerate run, not a counter-scale.
+ * The sweep is DERIVED in `influenceIsNeverCalledAbsolute.spec.ts`, so it REDs
+ * if either half changes.
+ *
+ * ⚠ The distinction between them is real and worth keeping — one is a producer
+ * measurement and the other our fallback, which is why only the first licenses
+ * a FIGURE. That is a provenance question, not a scale one, and conflating the
+ * two is what this sentence was doing.
+ *
+ * Pre-analysis influence and value of information remain separate producer
+ * metrics and must never borrow each other's label.
  */
 export type AnalysisMetricBasis =
   | DriverDisplayProvenance
@@ -44,7 +70,11 @@ export type AnalysisMetricBasis =
   | 'value_of_information'
 
 export type PermittedAnalysisMetricLanguage =
-  | 'absolute_influence_score'
+  /* ⚠ `'absolute_influence_score'` WAS HERE AND IS DELETED, NOT DEPRECATED.
+     No basis is absolute — see `PERMITTED_LANGUAGE_BY_BASIS` — so leaving the
+     member in the union would keep three `switch` arms alive for a state
+     nothing can produce, and would let a future mapping quietly reach for it
+     again. Removing it makes that a type error. */
   | 'set_relative_influence'
   | 'pre_analysis_influence_score'
   | 'value_of_information'
@@ -60,7 +90,33 @@ export interface ResolvedAnalysisMetric {
 }
 
 const PERMITTED_LANGUAGE_BY_BASIS: Record<AnalysisMetricBasis, PermittedAnalysisMetricLanguage> = {
-  influence_score: 'absolute_influence_score',
+  /**
+   * ⭐⭐ `influence_score` IS SET-RELATIVE. IT WAS MAPPED TO ABSOLUTE LANGUAGE,
+   * AND THAT MAPPING IS WHAT LICENSED "Influence score 100%".
+   *
+   * The producer divides every factor by `max|influence|`, so the top row is
+   * **1.0 by construction** — driver count is irrelevant, and 100% means
+   * "largest in this set" and nothing more. Confirmed independently from this
+   * side before the change, and stated as measured (see the file header for the
+   * 6 Sep narrowing): of the 21 JSON files under `src/` carrying
+   * `influence_score`, every one whose maximum is non-zero maxes at EXACTLY 1.0,
+   * none exceeds 1.0, and one is uniformly 0. A quantity that is either exactly
+   * 1 at its top or uniformly zero is a ratio to its own maximum.
+   *
+   * ⚠⚠ AND WHY IT IS A TRUST DEFECT RATHER THAN A WORDING ONE.
+   * `live-influence-score-one-2026-08-23.json`, a real staging response, holds
+   * `"Monthly Payroll Burn"` at `influence_score: 1` with `elasticity: 0`. That
+   * is a DEMOTED LEVER — the producer zeroes sensitivity, elasticity and
+   * value-of-information for a lever and deliberately leaves the structural
+   * weight alone. So the panel said a factor "has an influence score of 100%"
+   * about one the same response says moves nothing.
+   *
+   * ⚠ THE TWO BASES ARE NOT ABSOLUTE-vs-RELATIVE. They are two different
+   * NORMALISATIONS: this one is the producer's (against max |influence|),
+   * `normalised_elasticity` is this app's own. The distinction is real and
+   * worth keeping; only the label was wrong.
+   */
+  influence_score: 'set_relative_influence',
   normalised_elasticity: 'set_relative_influence',
   pre_analysis_influence: 'pre_analysis_influence_score',
   value_of_information: 'value_of_information',
