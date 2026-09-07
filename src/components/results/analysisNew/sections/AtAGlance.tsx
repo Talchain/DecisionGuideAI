@@ -1095,11 +1095,19 @@ export function AtAGlance({
               ) : null
             })()}
             {/* ⭐ THE ACTION, NOT THE FINDING. This line carried
-                `Recommendation.signal` — the same paragraph the Strengthen row
-                prints — while the header above carried the generic action
-                label, so the card spent its heading on boilerplate and its
-                body on a repeat. The two are swapped: the header names the
-                finding, this names what pressing the card does.
+                `Recommendation.signal` — the paragraph the Strengthen row also
+                prints — while the header above carried `action.label`. The two
+                are swapped: the header names the finding, this names what
+                pressing the card does.
+
+                ⚠ SCOPED, because the old header was not always boilerplate.
+                On the seven UI catalogue recommendations `action.label` is
+                specific copy ("Define success"). On the PHASE-3 producer
+                findings — the kind in the 6 Sep capture — it is
+                `item.actionLabel ?? 'Work through with Olumi'`, so a producer
+                sending no label bought a heading of boilerplate above a body
+                that repeated the row. Derived at the eight `recs.push` sites in
+                `buildRecommendations.ts`, 7 Sep 2026.
 
                 Still conditional. `action.label` is `item.actionLabel ?? '…'`
                 and `??` passes an empty string through, so a producer sending
