@@ -41,6 +41,8 @@ import {
   DRAFT_RECOVERED_TERMINAL_ERROR_NOTICE,
 } from '../../components/DraftLoadingAnimation'
 import type { ScenarioGraphResult } from '../../../adapters/cee/scenarioGraph'
+import * as flags from '../../../flags'
+import { ADDITIVE_EXTENSIONS_KEY } from '../../../v5/responseParser'
 import wireFixture from './fixtures/cee-draft-goal-constraints-wire.json'
 import nativeGraphlessFallback from './fixtures/cee-normal-start-graphless-fallback-wire-20260907.json'
 
@@ -267,6 +269,7 @@ beforeEach(() => {
     },
     ceeAnalysisReady: null,
     analysisStateV1: null,
+    analysisFreshness: null,
     hasCompletedFirstRun: false,
     lastAuthoritativeGraph: null,
     serverGraphIdentity: null,
@@ -352,19 +355,61 @@ describe('normal start loses every usable preview before the draft commits', () 
     expect(useCanvasStore.getState().results.status).toBe('idle')
   })
 
-  it('does not treat options alone as proof that a saved or current model exists', async () => {
+  it.each([false, true])('keeps the same clarification with provisional options present: %s', async withOptions => {
     mockFetchScenarioGraph.mockResolvedValue({ status: 'notReadable' })
-    const { result, sent } = await startMissingPreview({
+    const clarification = {
       ...DECLINE_RESPONSE.response,
-      analysis_ready: nativeGraphlessFallback.analysis_ready,
-    })
+      assistant_text: 'What outcome are you hoping to improve?',
+      ...(withOptions ? {
+        analysis_ready: {
+          options: nativeGraphlessFallback.analysis_ready.options,
+          status: 'needs_user_input',
+          may_run: false,
+        },
+      } : {}),
+    }
+    const { result, sent } = await startMissingPreview(clarification)
     await act(async () => { await sent })
-    expect(result.current.messages.map(m => m.content)).toContain(DRAFT_DELIVERY_UNRESOLVED_NOTICE)
-    expect(result.current.messages.map(m => m.content)).not.toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+    expect(result.current.messages.filter(m => m.role === 'assistant').map(m => m.content))
+      .toEqual([clarification.assistant_text])
+    expect(result.current.messages.some(m => m.synthetic)).toBe(false)
+    expect(result.current.messages.flatMap(m => m.actionChips ?? []).some(c => c.id === LOAD_SAVED_MODEL_CHIP_ID)).toBe(false)
     expect(useCanvasStore.getState().nodes).toEqual([])
     expect(useCanvasStore.getState().analysisStateV1).toBeNull()
     expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
     expect(useCanvasStore.getState().results.status).toBe('idle')
+    await act(async () => { await result.current.retryLast() })
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(2)
+    expect(result.current.messages.filter(m => m.role === 'user')).toHaveLength(1)
+  })
+
+  it('preserves the question and non-enumerable Reasoning without applying unconfirmed ready/fresh metadata', async () => {
+    vi.spyOn(flags, 'isReasoningDisclosureEnabled').mockReturnValue(true)
+    mockFetchScenarioGraph.mockResolvedValue({ status: 'notReadable' })
+    const clarification = {
+      ...DECLINE_RESPONSE.response,
+      assistant_text: 'Which of these approaches should we explore first?',
+      analysis_ready: nativeGraphlessFallback.analysis_ready,
+    }
+    const reasoning = 'Your preferred direction is still an open question.'
+    Object.defineProperty(clarification, ADDITIVE_EXTENSIONS_KEY, {
+      value: { _reasoning: reasoning },
+      enumerable: false,
+    })
+    Object.freeze(clarification)
+    const { result, sent } = await startMissingPreview(clarification)
+    await act(async () => { await sent })
+    const assistant = result.current.messages.filter(m => m.role === 'assistant')
+    expect(assistant.map(m => m.content)).toEqual([clarification.assistant_text])
+    expect(assistant[0].reasoning).toBe(reasoning)
+    expect(assistant[0].synthetic).not.toBe(true)
+    expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+    expect(useCanvasStore.getState().analysisFreshness).toBeNull()
+    expect(useCanvasStore.getState().analysisStateV1).toBeNull()
+    expect(useCanvasStore.getState().hasCompletedFirstRun).toBe(false)
+    expect(useCanvasStore.getState().results.status).toBe('idle')
+    expect(useCanvasStore.getState().nodes).toEqual([])
+    expect(clarification.analysis_ready).toBe(nativeGraphlessFallback.analysis_ready)
   })
 
   it('reads again after boot 404 and mounts the original committed graph without another generation', async () => {
