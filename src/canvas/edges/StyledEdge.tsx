@@ -31,6 +31,9 @@ import {
   readContestedState,
   resolveEdgeStroke,
   resolveEdgeDash,
+  resolveEdgeDirectionMarker,
+  edgeArrowheadMarkerId,
+  EDGE_ARROWHEAD_FLOW_SIZE,
   type EdgePresentationState,
 } from './edgePresentation'
 import {
@@ -1051,6 +1054,21 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const edgeStroke = useMemo(() => resolveEdgeStroke(presentationState), [presentationState])
   const edgeDash = useMemo(() => resolveEdgeDash(presentationState), [presentationState])
 
+  // ⭐ DIRECTION OF CAUSATION. Measured on deployed staging 7 Sep 2026: 39 edges,
+  // zero arrowheads — the most basic thing a causal graph must state had no
+  // channel. The rule (structural / non-directional type / causal) and the
+  // arrowhead geometry live in `edgePresentation`, beside the stroke and dash
+  // precedences, so all three of an edge's presentation decisions are reviewable
+  // in one place and none of them is an early-return chain pasted in here.
+  const directionMarker = useMemo(
+    () => resolveEdgeDirectionMarker({
+      isStructural: isStructuralEdge,
+      edgeType: (data as Record<string, unknown> | undefined)?.edge_type,
+    }),
+    [isStructuralEdge, data],
+  )
+  const arrowheadId = useMemo(() => edgeArrowheadMarkerId(edgeIdKey), [edgeIdKey])
+
   // Causal lens: hide structural edges entirely
   if (isLensHidden) return null
 
@@ -1091,10 +1109,51 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           data-testid={`assistant-focus-edge-halo-${edgeIdKey}`}
         />
       )}
+      {/* ⭐ THE DIRECTION MARK. One `<marker>` per marked edge, and the reason is
+          COLOUR: stroke colour is decided by a seven-rule ordered precedence
+          (`EDGE_STROKE_RULES`) whose outputs include a `color-mix(…)`, two
+          `var(…)` tokens and the polarity stroke. A single shared `<defs>` entry
+          cannot know which rule won, so it would be a second copy of a decision
+          that already has an authority — the hand-maintained mirror this estate
+          keeps paying for. This reads `edgeStroke.value`: the SAME resolved
+          decision that sets `stroke` two elements below. One quantity, two
+          readers, so a new or reordered rule carries the arrow with it and no
+          edit is needed here at all.
+
+          SVG 2's `fill="context-stroke"` would do this in one shared marker.
+          Deliberately not used: this lane has no browser witness, and a feature
+          whose failure mode is a black arrowhead on every edge cannot be
+          verified with the instruments in hand. An explicit fill can be.
+
+          `markerUnits="userSpaceOnUse"` decouples the mark from stroke width.
+          Under the default (`strokeWidth`) a selected edge — width 4 rather
+          than 2 — would get a double-sized arrowhead, leaking the interaction
+          channel into the direction channel.
+
+          `refX={6}` is the tip of the 6-unit viewBox, so the point lands ON the
+          path's end rather than overshooting into the node card. */}
+      {directionMarker.show && (
+        <marker
+          id={arrowheadId}
+          viewBox="0 0 6 6"
+          markerWidth={EDGE_ARROWHEAD_FLOW_SIZE}
+          markerHeight={EDGE_ARROWHEAD_FLOW_SIZE}
+          refX={6}
+          refY={3}
+          orient="auto"
+          markerUnits="userSpaceOnUse"
+        >
+          <polygon points="0 0, 6 3, 0 6" fill={edgeStroke.value} />
+        </marker>
+      )}
       <BaseEdge
         id={id}
         path={edgePath}
         interactionWidth={EDGE_HIT_AREA_WIDTH}
+        // Target end only. The mark states ONE direction of causation; a
+        // marker-start as well would read as bidirectional, which is the claim
+        // the `non_directional_type` rule exists to refuse.
+        markerEnd={directionMarker.show ? `url(#${arrowheadId})` : undefined}
         style={{
           // Graph Interaction P1: Highlighted edges get thicker stroke
           strokeWidth: (() => {

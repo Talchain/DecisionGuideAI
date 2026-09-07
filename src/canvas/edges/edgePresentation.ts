@@ -1,6 +1,11 @@
 /**
- * edgePresentation — THE single authority for a causal edge's stroke colour and
- * dash pattern.
+ * edgePresentation — THE single authority for a causal edge's stroke colour,
+ * dash pattern and direction mark.
+ *
+ * (The direction mark joined on 7 Sep 2026; its own derivation is at
+ * `EDGE_DIRECTION_MARKER_RULES` near the foot of this file. It follows the same
+ * three rules below — an ordered array, a named rule returned, the order
+ * asserted in a spec.)
  *
  * WHY THIS MODULE EXISTS (measured defect, deployed staging bundle, 17 Aug 2026)
  * -----------------------------------------------------------------------------
@@ -55,6 +60,7 @@
  */
 
 import type { ValidationMetadata } from '../../types/validation'
+import { MAX_LABEL_COUNTER_SCALE } from '../utils/zoomLegibility'
 
 // ── Colour constants ────────────────────────────────────────────────────────
 
@@ -312,4 +318,193 @@ export function resolveEdgeDash(state: EdgePresentationState): EdgeDashDecision 
     return { value: state.existenceDash, rule: 'existence_certainty' }
   }
   return { value: state.visualPropsDash, rule: 'visual_props' }
+}
+
+// ── Direction of causation ──────────────────────────────────────────────────
+
+/**
+ * THE MARK THAT SAYS WHICH WAY THE CAUSATION RUNS.
+ *
+ * Measured on deployed staging, 7 Sep 2026: 39 edges on the board, `marker-end`
+ * and `marker-start` empty on all 39. On a causal-reasoning canvas the direction
+ * of causation is the most basic thing the picture has to state, and it had no
+ * dedicated channel at all — the reader inferred it from layout.
+ *
+ * Two arrowheads WERE painted into `ReactFlowGraph`'s `<defs>` and referenced by
+ * nothing (a repo-wide sweep: 2 hits for `arrowhead-(default|selected)`, both
+ * definitions, against a contrast control of 18 for `edge-influence-label` in
+ * the same run). They are NOT reused, and the reason is colour, derived at the
+ * token bytes rather than assumed:
+ *
+ *   `arrowhead-default`  → `var(--surface-border)` → `--border-default`
+ *                        → `238 230 216` = #EEE6D8, the pale cream StyledEdge's
+ *                          own leader-line note calls *"very nearly the
+ *                          background"* on the canvas ground. An arrowhead in it
+ *                          is the invisible-leader defect of 31 Aug, again.
+ *   `arrowhead-selected` → `var(--info)` = `rgb(39 122 157)`, keyed on SELECTION
+ *                          — which is not a colour rule in `EDGE_STROKE_RULES`
+ *                          at all; selection changes stroke WIDTH.
+ *
+ * Neither is among the seven values `resolveEdgeStroke` can return, so both are
+ * deleted with this change rather than left as a decoy for the next lane.
+ *
+ * ⚠ WHAT THIS MARK IS NOT. It states DIRECTION OF CAUSATION (source causes
+ * target). It does not state SIGN. Polarity's channel is the `+`/`−` glyph and
+ * the polarity stroke — and the glyph, not the hue, is the load-bearing half:
+ * the shipped green/rose pair separates by ΔE2000 11.7 under deuteranopia (vs
+ * 28.3 for the green/red it replaced). The arrow must never displace or
+ * duplicate it. Two facts, two channels.
+ *
+ * ⚠⚠ AND THE NAMING TRAP IN THIS VERY MODULE. `ContestedState.directionDisputed`
+ * is TRUE when `contested_reasons` includes `sign_flip` — that is a dispute
+ * about the SIGN, not about which node causes which. It is deliberately NOT
+ * consulted below. Suppressing the arrowhead on it would withhold a fact nobody
+ * is contesting, on the strength of a shared word. (CLAUDE.md trap 21: write
+ * down the question each thing answers before reconciling two that look alike.)
+ */
+export const EDGE_DIRECTION_MARKER_RULES = [
+  /**
+   * Structural scaffolding (decision→option, option→factor) asserts MEMBERSHIP,
+   * not causation — "this option belongs to this decision". The module header
+   * already rules that structural edges "never carry a data claim", and an
+   * arrowhead is a data claim. One mark, one meaning.
+   */
+  'structural',
+  /**
+   * `edge_type` says the relationship has no single direction. In causal-graph
+   * notation `A <-> B` asserts an unobserved COMMON CAUSE — it is a refusal to
+   * say that A causes B — so a one-way arrowhead would state exactly the thing
+   * the type denies.
+   *
+   * Not hypothetical: `edge_type` is a bare `z.string().optional()`,
+   * `turnRequestShape.spec.ts` pins that `bidirected` survives the wire, and
+   * `StyledEdge.structural.spec.tsx` pins that it keeps full causal styling.
+   */
+  'non_directional_type',
+  /**
+   * The default. A causal edge is a directed claim by construction — source
+   * causes target — whether or not its sign, strength or existence is known.
+   */
+  'causal',
+] as const
+
+export type EdgeDirectionMarkerRule = (typeof EDGE_DIRECTION_MARKER_RULES)[number]
+
+/**
+ * `edge_type` values that deny a single direction of causation.
+ *
+ * Kept as an exported list so the spec iterates THIS array rather than a
+ * hand-copied one: a value added here is covered by the suite the moment it is
+ * added, and cannot drift out of test (CLAUDE.md trap 12).
+ */
+export const NON_DIRECTIONAL_EDGE_TYPES = [
+  'bidirected',
+  'undirected',
+  'confounder',
+] as const
+
+/**
+ * Narrows an `edge_type` off the wire. Takes `unknown` on purpose, for the same
+ * reason `readContestedState` does: `edge_type` crosses the CEE→UI boundary as a
+ * bare optional string with no runtime validator, so the guard belongs here
+ * rather than in a declared type nobody enforces.
+ */
+export function isNonDirectionalEdgeType(edgeType: unknown): boolean {
+  if (typeof edgeType !== 'string') return false
+  const normalised = edgeType.trim().toLowerCase()
+  return (NON_DIRECTIONAL_EDGE_TYPES as readonly string[]).includes(normalised)
+}
+
+/** Everything the direction-marker rule may read. Nothing else is in scope. */
+export interface EdgeDirectionMarkerState {
+  readonly isStructural: boolean
+  /** Raw `data.edge_type`, unnarrowed — see `isNonDirectionalEdgeType`. */
+  readonly edgeType: unknown
+}
+
+export interface EdgeDirectionMarkerDecision {
+  readonly show: boolean
+  readonly rule: EdgeDirectionMarkerRule
+}
+
+/**
+ * Returns the NAMED rule that fired, not just the boolean — because `false` is
+ * returned by two different rules here and they mean different things. Tests
+ * bind to `rule`, exactly as they do for the stroke and dash resolvers above
+ * (CLAUDE.md trap 19).
+ */
+export function resolveEdgeDirectionMarker(
+  state: EdgeDirectionMarkerState,
+): EdgeDirectionMarkerDecision {
+  if (state.isStructural) return { show: false, rule: 'structural' }
+  if (isNonDirectionalEdgeType(state.edgeType)) {
+    return { show: false, rule: 'non_directional_type' }
+  }
+  return { show: true, rule: 'causal' }
+}
+
+// ── Arrowhead geometry ──────────────────────────────────────────────────────
+
+/**
+ * ⭐⭐ THE MARK'S SCREEN SIZE AT THE ZOOM THE CANVAS ACTUALLY PARKS AT.
+ *
+ * A marker's geometry is USER SPACE, multiplied by the viewport transform before
+ * it reaches a pixel — and `vector-effect: non-scaling-stroke`, the mechanism
+ * the edge STROKE uses for exactly this problem, DOES NOT REACH IT: that governs
+ * stroke rendering, and an arrowhead is a filled polygon. So the dead `<defs>`
+ * markers' 6 units would have rendered at 3px at the 0.50 auto-fit floor the
+ * product parks a fresh model at — an arrow added to fix a legibility gap, too
+ * small to see at the only zoom the product chooses for the user.
+ *
+ * THE ANSWER IS THIS CODEBASE'S OWN, TAKEN FOR ITS OWN STATED REASON. Node
+ * GEOMETRY faces the identical trade and `zoomLegibility.ts` resolves it:
+ * *"the settle zoom IS the worst case, and the worst case is a CONSTANT rather
+ * than a number that has to be tracked at runtime."* So the size is sized for
+ * the BOUND — `MAX_LABEL_COUNTER_SCALE`, imported, not restated — and is a
+ * compile-time constant.
+ *
+ * WHY THAT MATTERS BEYOND TIDINESS: no edge subscribes to zoom. A per-edge
+ * `useStore(s => s.transform[2])` would re-render every edge on every wheel
+ * frame — precisely the cost `CanvasLabelScaleSync` was built to avoid
+ * (*"would re-render every node and every edge on every zoom tick"*). Sizing for
+ * the bound buys the legibility with zero added render pressure.
+ *
+ * THE TRADE, STATED: past 1:1 the mark grows with the canvas, like node geometry
+ * and unlike the stroke width. `zoomLegibility.ts` already rules that
+ * magnification past 1:1 "is then the user's own deliberate choice". Below the
+ * legibility floor it shrinks with everything else, which is the honest LOD
+ * rendering — structure without detail.
+ */
+export const EDGE_ARROWHEAD_BASE_PX = 8
+
+/** Flow-space size of the arrowhead. Derived from the single zoom authority. */
+export const EDGE_ARROWHEAD_FLOW_SIZE = EDGE_ARROWHEAD_BASE_PX * MAX_LABEL_COUNTER_SCALE
+
+/**
+ * The rendered size, in CSS px, of the arrowhead at a given viewport zoom.
+ *
+ * Exported for the same reason `renderedLabelPx` is: jsdom has no layout, so a
+ * DOM assertion proves an attribute is present and proves nothing about size on
+ * screen. Specs assert this arithmetic instead, and say so.
+ */
+export function renderedArrowheadPx(zoom: number): number {
+  return EDGE_ARROWHEAD_FLOW_SIZE * zoom
+}
+
+/**
+ * The marker id for an edge.
+ *
+ * INJECTIVE ON PURPOSE. A sanitiser that mapped every unsafe character to `_`
+ * would be fragment-safe and would collide `a b` with `a_b` — two edges sharing
+ * one marker, so one edge's arrowhead silently takes the other's colour.
+ * `encodeURIComponent` is injective; the extra pass escapes the five characters
+ * it leaves alone that `url(#…)` or a CSS selector would choke on, and cannot
+ * collide with its output because a literal `%` is already `%25`.
+ */
+export function edgeArrowheadMarkerId(edgeId: string): string {
+  const escaped = encodeURIComponent(edgeId).replace(
+    /[!'()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+  )
+  return `edge-direction-${escaped}`
 }
