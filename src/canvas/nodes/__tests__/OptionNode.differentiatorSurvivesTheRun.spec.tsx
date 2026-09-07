@@ -9,14 +9,14 @@
  *     "Expand the Manchester Site | 2"
  *     "Status Quo — hold current capacity | 3"
  *
- * No differentiator, no "Behind:" line. A ranking with no reasons, handed to
+ * No differentiator, no "Held back by:" line. A ranking with no reasons, handed to
  * the user at the exact moment they are choosing.
  *
  * TWO GATES CAUSED IT, and both are removed:
  *   1. the `differentiator` memo opened `if (isPostAnalysis) return null`
  *   2. the render gate opened `!isPostAnalysis &&`
  *
- * ⚠ WHY THE "Behind:" LINE DOES NOT COVER THE GAP. It names the key factor
+ * ⚠ WHY THE "Held back by:" LINE DOES NOT COVER THE GAP. It names the key factor
  * ("no X added" / "X lower") but renders ONLY for a NON-RECOMMENDED option,
  * and `computeBehindReason` returns null outright when there is no
  * recommended option — exactly what a WITHHELD LEADER produces. That is the

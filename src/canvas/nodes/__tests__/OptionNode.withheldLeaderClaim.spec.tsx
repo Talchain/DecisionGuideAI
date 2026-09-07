@@ -137,7 +137,7 @@ describe('OptionNode — a withheld leader claim removes the designation', () =>
     expect(screen.queryByTestId(`leading-option-pill-${NODE_ID}`)).toBeNull()
     // Bound by identity AND by text, because the text is the claim the user
     // reads and the test id is the element the fix removes.
-    expect(screen.queryByText('Leading option')).toBeNull()
+    expect(screen.queryByText("Most supported")).toBeNull()
   })
 
   it('CONTRAST CONTROL: `permitted:true` leaves the pill exactly where it was', () => {

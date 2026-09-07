@@ -5,7 +5,7 @@
  * shouldSoftenPhrasing helper imported by winnerChipLabel.
  *
  * Softening gate (Brief 5.5 §2.7):
- *   Hedged copy ("What makes this the current leader?") fires ONLY when BOTH:
+ *   Hedged copy ("What makes this best supported?") fires ONLY when BOTH:
  *     1. confidenceTier ∈ {'needs_work', 'fair'}
  *     2. recommendationStability < 0.85  (null/undefined treated as weak)
  *   coachingReadiness is NOT a softening trigger (spec correction — the
@@ -63,23 +63,23 @@ describe('winnerChipLabel — winner copy (definitive paths)', () => {
 
 describe('winnerChipLabel — winner copy (soft paths)', () => {
   it('returns the hedged copy for needs_work when stability is absent', () => {
-    expect(winnerChipLabel(true, 'needs_work')).toBe('What makes this the current leader?')
-    expect(winnerChipLabel(true, 'needs_work', undefined)).toBe('What makes this the current leader?')
+    expect(winnerChipLabel(true, 'needs_work')).toBe('What makes this best supported?')
+    expect(winnerChipLabel(true, 'needs_work', undefined)).toBe('What makes this best supported?')
   })
 
   it('returns the hedged copy for needs_work when stability < 0.85', () => {
-    expect(winnerChipLabel(true, 'needs_work', 0.84)).toBe('What makes this the current leader?')
-    expect(winnerChipLabel(true, 'needs_work', 0.70)).toBe('What makes this the current leader?')
-    expect(winnerChipLabel(true, 'needs_work', 0.00)).toBe('What makes this the current leader?')
+    expect(winnerChipLabel(true, 'needs_work', 0.84)).toBe('What makes this best supported?')
+    expect(winnerChipLabel(true, 'needs_work', 0.70)).toBe('What makes this best supported?')
+    expect(winnerChipLabel(true, 'needs_work', 0.00)).toBe('What makes this best supported?')
   })
 
   it('returns the hedged copy for fair when stability is absent (new per Brief 5.5 §2.7)', () => {
-    expect(winnerChipLabel(true, 'fair')).toBe('What makes this the current leader?')
+    expect(winnerChipLabel(true, 'fair')).toBe('What makes this best supported?')
   })
 
   it('returns the hedged copy for fair when stability < 0.85 (new per Brief 5.5 §2.7)', () => {
-    expect(winnerChipLabel(true, 'fair', 0.84)).toBe('What makes this the current leader?')
-    expect(winnerChipLabel(true, 'fair', 0.50)).toBe('What makes this the current leader?')
+    expect(winnerChipLabel(true, 'fair', 0.84)).toBe('What makes this best supported?')
+    expect(winnerChipLabel(true, 'fair', 0.50)).toBe('What makes this best supported?')
   })
 })
 
@@ -91,9 +91,9 @@ describe('winnerChipLabel — non-winner (always forward-looking)', () => {
   it.each(['strong', 'fair', 'needs_work', 'unknown', undefined] as const)(
     'returns the forward-looking copy regardless of tier (%s)',
     (tier) => {
-      expect(winnerChipLabel(false, tier)).toBe('What would make this lead?')
-      expect(winnerChipLabel(false, tier, 0.50)).toBe('What would make this lead?')
-      expect(winnerChipLabel(false, tier, 0.95)).toBe('What would make this lead?')
+      expect(winnerChipLabel(false, tier)).toBe('What would make this better supported?')
+      expect(winnerChipLabel(false, tier, 0.50)).toBe('What would make this better supported?')
+      expect(winnerChipLabel(false, tier, 0.95)).toBe('What would make this better supported?')
     },
   )
 })
@@ -105,7 +105,7 @@ describe('winnerChipLabel — non-winner (always forward-looking)', () => {
 describe('winnerChipPrompt', () => {
   it('builds a winner prompt that quotes the option label', () => {
     expect(winnerChipPrompt(true, 'Option A')).toBe(
-      'What makes "Option A" the leading option? What are its key advantages?',
+      'What makes "Option A" the best-supported option? What are its key advantages?',
     )
   })
 

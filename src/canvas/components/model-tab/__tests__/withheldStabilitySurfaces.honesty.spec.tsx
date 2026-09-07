@@ -10,7 +10,7 @@
  * `option_wins[winner] / n_samples`, i.e. the leading option's
  * `win_probability` RELABELLED, carrying zero independent information. The UI
  * rendered it as "{N}% stability" — the same quantity a user already reads
- * honestly as "came out ahead in N% of simulated scenarios", shown a second
+ * honestly as "supported in N% of simulated scenarios", shown a second
  * time under a name that implies an independent robustness measurement.
  *
  * Three surfaces rendered that percentage and are removed here:

@@ -57,7 +57,7 @@ const LEADER_LANGUAGE: ReadonlyArray<[string, RegExp]> = [
   ['currently leads', /currently leads/i],
   // SUPERSEDED 2026-07-31: 'performs best' is retired; the leader surface
   // now emits the comparative claim with its magnitude.
-  ['the re-anchored leader headline', /came out ahead in .+ of simulated scenarios/i],
+  ['the re-anchored leader headline', /supported in .+ of simulated scenarios/i],
   ['leading option', /leading option/i],
   ['leads by N points', /leads by \d+ point/i],
   ['leads in N% of scenarios', /leads in \d+% of scenarios/i],

@@ -55,7 +55,7 @@ function rankMovement(delta: number): string {
  */
 function leaderText(claim: LeaderClaim): string {
   if (claim.kind === 'named') return claim.label ?? NOT_ASSESSED
-  if (claim.kind === 'tied') return 'No clear leading option'
+  if (claim.kind === 'tied') return 'Support is split'
   return NOT_ASSESSED
 }
 
@@ -184,14 +184,14 @@ export function RunPairCompare({ comparison }: RunPairCompareProps) {
       </div>
       <Row
         testId="leader-row"
-        label="Leading option"
+        label="Most supported"
         from={leaderText(comparison.fromLeader)}
         to={leaderText(comparison.toLeader)}
         delta={
           comparison.leaderChange === 'changed'
-            ? 'Leader changed'
+            ? 'Most support moved'
             : comparison.leaderChange === 'unchanged'
-              ? 'Leader unchanged'
+              ? 'Most support unchanged'
               : 'Not comparable'
         }
       />

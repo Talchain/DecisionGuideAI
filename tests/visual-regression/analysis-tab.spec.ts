@@ -114,7 +114,14 @@ describe('visual-regression scaffold (Brief 5)', () => {
     // `hasGoalNumbers`, so it exercises the safe default — the neutral
     // wording. The goal-bearing arm is asserted immediately below, so both
     // sides of the gate are covered here rather than one being assumed.
-    expect(snap).toContain('A view lens over the outcome range. The comparative ranking above is unchanged.')
+    //
+    // ⭐ RE-ANCHORED AGAIN 2026-09-07 (Paul's no-contest ruling). The neutral
+    // arm read "The comparative ranking above is unchanged."; "ranking" is a
+    // placing, so `LENS_COPY.unchanged`'s comparative arm is now "The
+    // comparison above is unchanged." The GOAL arm is untouched and still
+    // says "goal ranking", which is why the negative assertion below still
+    // discriminates rather than passing on a string nothing emits.
+    expect(snap).toContain('A view lens over the outcome range. The comparison above is unchanged.')
     expect(snap).not.toContain('goal ranking')
     // ⚠ THE PERCENTILE NOTATION MOVED OUT OF THE BUTTON TEXT (cockpit
     // simplification, L-38): `p10`/`p50`/`p90` is engineering notation, and a

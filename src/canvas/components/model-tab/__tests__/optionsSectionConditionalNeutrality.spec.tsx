@@ -113,13 +113,13 @@ describe('OptionsSection — conditional winners rendered neutrally (2.296 C3)',
     // nothing at all.
     renderSection(CROSS_WINNERS)
     const cardB = screen.getByTestId('conditional-winner-opt-b')
-    expect(cardB.textContent).toContain('Leads when Adoption rate is above 0.4')
+    expect(cardB.textContent).toContain('Best supported when Adoption rate is above 0.4')
   })
 
   it('the LOW-bucket winner gets the below-split statement, with no "overall" claim', () => {
     renderSection(CROSS_WINNERS)
     const cardA = screen.getByTestId('conditional-winner-opt-a')
-    expect(cardA.textContent).toContain('Leads when Adoption rate is below 0.4')
+    expect(cardA.textContent).toContain('Best supported when Adoption rate is below 0.4')
     expect(cardA.textContent).not.toContain('overall')
   })
 
