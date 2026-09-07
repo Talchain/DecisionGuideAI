@@ -737,7 +737,7 @@ describe('TornadoChart — disclaimer, axis, display modes', () => {
     // No label supplied — the copy must still say WHOSE spread, without
     // inventing a designation and without falling silent.
     expect(screen.getByTestId('tornado-intro').textContent).toBe(
-      'Illustrative range for each factor: the overall spread of a single option, scaled by that factor\u2019s influence. A proportional guide to relative leverage, not a per-factor forecast from the analysis.'
+      'Illustrative range for each factor: the overall spread of one option \u2014 the same one for every bar, scaled by that factor\u2019s influence. A proportional guide to relative leverage, not a per-factor forecast from the analysis.'
     )
   })
 
@@ -764,9 +764,13 @@ describe('TornadoChart — disclaimer, axis, display modes', () => {
       expect(t).not.toContain('best')
     })
 
-    it('says "a single option" when no label is available — never a designation', () => {
+    it('names no designation without a label, and cannot be read as "only one option exists"', () => {
       const t = introOf(null)
-      expect(t).toContain('the overall spread of a single option,')
+      expect(t).toContain('the overall spread of one option \u2014 the same one for every bar,')
+      // ⚠ The earlier fallback was "a single option", which a reader could take
+      // as a claim that the model HAS only one option. Pinned so a future
+      // shortening cannot reintroduce that reading.
+      expect(t).not.toContain('a single option')
       expect(t).not.toContain('recommended')
       // The load-bearing fact survives the fallback: every bar comes from ONE
       // option's spread, so these are not per-factor forecasts.

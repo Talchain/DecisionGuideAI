@@ -143,8 +143,8 @@ export interface TornadoChartProps {
    * Label of the option whose p10/p90 spread every bar is scaled from. Naming it
    * is a statement of IDENTITY — whose numbers these are — and deliberately not
    * of entitlement: it must stay true on a turn that withheld the leader
-   * designation. Absent, the copy says "a single option" rather than inventing
-   * a designation or falling silent.
+   * designation. Absent, the copy says "one option — the same one for every
+   * bar" rather than inventing a designation or falling silent.
    */
   referenceOptionLabel?: string | null
 }
@@ -411,9 +411,25 @@ export function TornadoChart({
           would leave the reader unable to tell WHOSE spread the bars are — the
           one fact they need to read the chart at all. Naming the option makes a
           strictly WEAKER claim than the old copy and carries strictly MORE
-          information. Absent a label it falls to "a single option", which still
+          information. Absent a label it falls to "one option — the same one for
+          every bar", which still
           conveys the load-bearing fact: every bar derives from ONE option's
           spread, so these are not per-factor forecasts.
+          ⚠ The earlier fallback read "a single option", which a reader could
+          take as "only one option exists" rather than "one option's spread" —
+          the same ambiguity class this sentence exists to remove.
+          ⚠⚠ "scaled by that factor's INFLUENCE" IS UNCHANGED AND IS CONTESTED.
+          `factor_sensitivity[].influence_score` (structural causal influence)
+          and `drivers[].contribution` (contribution to outcome variance) are
+          different quantities rendered under one word on different tabs, both
+          faithfully — an open product ruling. Worse here: this chart's scaling
+          factor is `displayInfluence ?? influenceScore ?? normalisedInfluence`
+          (`OutputsDock.tsx:1110`), the chain `types.ts:718` bans BY NAME —
+          "Consumers must render/sort this, not influenceScore ??
+          normalisedInfluence, which mixes bases under partial producer
+          coverage." NOT touched here: this PR changes the OPTION referent only,
+          and rewording a contested term mid-ruling would be scope expansion
+          into a decision this lane does not hold.
           The bars remain that option's OVERALL p10/p90 spread scaled by each
           factor's influence
           (see the module header): a proportional illustration, NOT producer
@@ -428,7 +444,7 @@ export function TornadoChart({
         data-testid="tornado-intro"
       >
         Illustrative range for each factor: the overall spread of{' '}
-        {referenceOptionLabel ? referenceOptionLabel : 'a single option'}, scaled by that factor&rsquo;s influence. A proportional guide to relative leverage, not a per-factor forecast from the analysis.
+        {referenceOptionLabel ? referenceOptionLabel : 'one option \u2014 the same one for every bar'}, scaled by that factor&rsquo;s influence. A proportional guide to relative leverage, not a per-factor forecast from the analysis.
       </p>
 
       {/* Brief 5.1 Task 5: legend occupies its own full-width row above the
