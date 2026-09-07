@@ -940,7 +940,10 @@ export interface DisplayState {
      * DIAGNOSTIC, NOT A CAPTURE OF A RENDERED BADGE. The product ships no
      * numeric rank badge — `OptionCards.tsx` records "D17: '#N of M' rank
      * prefix removed", and its `rank` drives only an `aria-hidden` colour
-     * swatch and the crowned border. The digits a user reads are
+     * swatch (`rank-marker-<id>`). The crowned border is a SIBLING of `rank`,
+     * not driven by it: `const crowned = designationsWithheld ? false : ...`
+     * feeds `borderClass`, sharing `rank`'s suppressor but not its value.
+     * The digits a user reads are
      * `Option {N}` from `optionNumbering`, which is identity-anchored and
      * stable across reruns. This field is the BUNDLE's own re-derivation of
      * an ordering, provided so a bundle consumer can compare the analytical
@@ -2841,12 +2844,18 @@ export async function captureDisplayState(
     // ⚠ SCOPE, STATED EXACTLY. The product's `designationsWithheld`
     // (`useResultsSectionData.ts`) is Q1 AND Q2, where Q2 is "did THIS run
     // separate the arms?" (`deriveDecisionVerdict().hasLeadingOption`,
-    // `src/lib/decisionVerdict.ts`). Q2 is not derivable from the canvas store
-    // at capture time; re-deriving it here would rebuild exactly the second
-    // authority this branch exists to remove. So a run withheld on Q2 ALONE
-    // still reports an analytical rank_source here. That gap is known and
-    // recorded, not closed — `rank_source` answers the model-licence question
-    // only, and the field docs say so.
+    // `src/lib/decisionVerdict.ts`). Q2 is DELIBERATELY OUT OF SCOPE here, not
+    // impossible: `deriveDecisionVerdict` is a zero-import module and needs
+    // only `report` / `visibleOptionIds` / `rawHeadlineBanded`, all three of
+    // which this function ALREADY reads off the same canvas store a few dozen
+    // lines above (`results.report`, `optionNodes`, `state.rawV2Response`
+    // — the panel's `rawHeadlineBanded` is literally
+    // `rawV2Response.decision_brief.headline_banded`). Importing that single
+    // authority is the technique used for Q1 above, and is the opposite of
+    // rebuilding it. So a run withheld on Q2 ALONE still reports an analytical
+    // rank_source here. That gap is known and recorded, NOT closed — closing it
+    // is a follow-up, not a blocked one. `rank_source` answers the
+    // model-licence question only, and the field docs say so.
     const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(
       (state as { ceeAnalysisReady?: CEEAnalysisReady | null })
         .ceeAnalysisReady?.analysis_admission,
