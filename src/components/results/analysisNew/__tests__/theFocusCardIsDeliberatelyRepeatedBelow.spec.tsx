@@ -47,6 +47,13 @@
  *   1. `AnalysisNewTabBody.tsx` `glancePrimary` (~:385-391) is passed as
  *      `why: glancePrimary.signal` (~:557-572) and rendered by
  *      `AtAGlance.tsx` as `primaryIntervention.why` (~:918-920).
+ *      ⚠ AMENDED 7 Sep 2026: THIS HOP NO LONGER EXISTS. `primaryIntervention`
+ *      carries `title` where it carried `why`, so the promoted card is handed
+ *      the finding's NAME and never its paragraph. Route 2 below is unchanged
+ *      and is now the only place the paragraph is rendered. Everything from
+ *      "HOW EXACTLY IT REPEATS" to the end of that enumeration described the
+ *      two-surface repeat and is kept as the derivation the ruling rests on —
+ *      it is history from this date, not current behaviour.
  *   2. The SAME object is still in `alsoWorthDoing`
  *      (`selectAlsoWorthDoing`, ~:393-396), handed to
  *      `<StrengthenTheReasoning interventions={alsoWorthDoing}>` (~:702) and
@@ -171,11 +178,25 @@
  * approximates, one scope smaller.
  *
  * ── WHAT IS STILL OPEN ─────────────────────────────────────────────────────
- * The duplication is real and unfixed. It costs a repeated paragraph to a
- * reader who OPENS the section (it rests closed). The correct fix is the
- * Focus/Also split the design pack draws, where the affordances live on the
- * focus card — an IA change, with Paul. Recorded here rather than in a comment
- * nobody greps.
+ * ⚠ AMENDED 7 Sep 2026 — THE PROSE REPEAT IS CLOSED, THE ITEM REPEAT IS NOT,
+ * AND CONFLATING THE TWO IS WHAT THIS FILE'S OLD NAME ALREADY COST US ONCE.
+ * Superseded text: ~~The duplication is real and unfixed. It costs a repeated
+ * paragraph to a reader who OPENS the section (it rests closed).~~
+ *
+ * The PARAGRAPH is no longer printed twice. The promoted card names the
+ * finding ("Narrow framing") and the action it runs ("Work through with
+ * Olumi"); the paragraph, the severity, the grounding, the source line, "I
+ * disagree" and "Not relevant" render once, in the row. Guarded by
+ * `theFocusCardReferencesRatherThanReprints.spec.tsx`.
+ *
+ * ⭐ EVERYTHING THIS FILE PINS IS UNCHANGED AND STILL LOAD-BEARING. The
+ * promoted recommendation stays in the list below, so dismiss stays reachable
+ * and `glancePrimary` can still advance. The fix deliberately changed the
+ * CARD rather than the LIST, for exactly the reason recorded above.
+ *
+ * Still open: one finding still occupies two places on the tab, and only the
+ * row carries the affordances. The Focus/Also split the design pack draws —
+ * affordances on the focus card — remains an IA change, with Paul.
  */
 import '@testing-library/jest-dom/vitest'
 import { describe, expect, it } from 'vitest'
