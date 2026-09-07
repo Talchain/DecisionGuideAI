@@ -1222,26 +1222,86 @@ test.describe('in-node keyboard bleed', () => {
     const marqueeVisible = () =>
       page.evaluate(() => !!document.querySelector('.react-flow__selection, .react-flow__nodesselection-rect'))
 
-    // Pick a node that is fully on screen — a drag whose start point is outside
-    // the viewport measures nothing (this bit the click comparator earlier).
-    const target = await page.evaluate(() => {
+    /*
+     * Pick a node that is fully on screen — a drag whose start point is outside
+     * the viewport measures nothing (this bit the click comparator earlier) —
+     * and a point on it that is genuinely BARE CARD BODY.
+     *
+     * ⭐⭐ WHY THIS SEARCHES INSTEAD OF PROBING ONE HARD-CODED POINT.
+     *
+     * It used to test exactly one pixel per node, `(centre-x, bottom - 6)`, and
+     * skip the whole node if that pixel was a control. Two things were wrong
+     * with that, and the second is the one that matters:
+     *
+     * (a) IT DID NOT DO WHAT ITS COMMENT SAID. At the base commit that pixel
+     *     resolved to `.react-flow__handle` — the bottom CONNECTION HANDLE, not
+     *     card body — on all 13 on-screen nodes (measured, 7 Sep 2026). So the
+     *     "bare card body" drag was in fact starting on a handle, and the
+     *     exclusion list never mentioned handles.
+     *
+     * (b) IT BOUND THE TEST'S PRECONDITION TO ONE ARBITRARY PIXEL INSIDE THE
+     *     QUICK-ACTION BAND. `NodeQuickActions` is pinned `bottom-1.5 right-1.5`,
+     *     so `bottom - 6` is inside its row by construction; whether the probe
+     *     landed on a button was decided by how far LEFT that row happened to
+     *     reach. Counter-scaling the row's boxes and gap to their declared px
+     *     (#1274) widened it from 49px to 98px on a 115px-wide card at the
+     *     0.50 settle zoom, the row crossed centre-x, and every node was
+     *     skipped — reporting "no bare card body" about cards that are 122-176px
+     *     tall and, measured on the same build, 9-15 of 15 grid cells bare.
+     *
+     * The property under test is the PANE's: a Shift-drag over a node starts a
+     * marquee and does not move the node. Which bare pixel it starts from is an
+     * instrument detail, so the instrument now finds one instead of assuming
+     * one. Every assertion below is unchanged.
+     *
+     * ⚠ AND IT STILL FAILS LOUD ON THE REAL REGRESSION. If controls ever do
+     * swallow a card, no cell is bare on any node and this REDs — now naming the
+     * element that covered each candidate, so the next reader gets the cause
+     * rather than a bare precondition.
+     */
+    const search = await page.evaluate(() => {
+      const CONTROLS = 'button, [role="button"], a, input, textarea, select'
+      const blockedBy: string[] = []
       for (const el of Array.from(document.querySelectorAll<HTMLElement>('.react-flow__node'))) {
         const r = el.getBoundingClientRect()
         const onScreen =
           r.width > 40 && r.height > 40 && r.x > 60 && r.y > 60 &&
           r.x + r.width < window.innerWidth - 60 && r.y + r.height < window.innerHeight - 60
-        // Start the drag on BARE CARD BODY, not on a control: a pointerdown on a
-        // control is a different gesture and would prove nothing about the pane.
         if (!onScreen) continue
-        const cx = Math.round(r.x + r.width / 2)
-        const cy = Math.round(r.y + r.height - 6)
-        const top = document.elementFromPoint(cx, cy)
-        if (!top || top.closest('button, [role="button"], a, input, textarea, select')) continue
-        return { id: el.getAttribute('data-id') ?? '', x: cx, y: cy }
+        const id = el.getAttribute('data-id') ?? ''
+        for (const fy of [0.35, 0.5, 0.2, 0.65, 0.8]) {
+          for (const fx of [0.5, 0.25, 0.75]) {
+            const x = Math.round(r.x + r.width * fx)
+            const y = Math.round(r.y + r.height * fy)
+            const top = document.elementFromPoint(x, y)
+            // The point must land on THIS node — otherwise it is over an edge,
+            // a neighbour or the pane, and proves nothing about dragging a card.
+            if (!top || !el.contains(top)) continue
+            // Start on bare body: not a control, and NOT a connection handle —
+            // a pointerdown on either is a different gesture (see (a) above).
+            const control = top.closest(CONTROLS)
+            const handle = top.closest('.react-flow__handle')
+            if (control || handle) {
+              if (blockedBy.length < 6) {
+                const what = control ?? handle!
+                blockedBy.push(
+                  `${id}@${fx}/${fy}:${what.tagName}${what.getAttribute('data-testid') ? `[${what.getAttribute('data-testid')}]` : ''}`,
+                )
+              }
+              continue
+            }
+            return { target: { id, x, y }, blockedBy }
+          }
+        }
       }
-      return null
+      return { target: null, blockedBy }
     })
-    expect(target, 'no fully-on-screen node with bare card body to start a drag on').not.toBeNull()
+    const target = search.target
+    expect(
+      target,
+      'no fully-on-screen node has ANY bare card body to start a drag on — in-node controls now cover every ' +
+        `candidate point. Blocked samples: ${search.blockedBy.join(' | ') || '(none recorded — no node passed the on-screen filter)'}`,
+    ).not.toBeNull()
 
     const before = await nodeGeom(target!.id)
     expect(before, 'the target node vanished before the drag').not.toBeNull()
