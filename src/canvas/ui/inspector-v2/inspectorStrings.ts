@@ -551,13 +551,28 @@ export const DESCRIPTION_PLACEHOLDERS = {
  *   · that selection rides the turn as `selected_elements` — typed refs
  *     carrying id, kind AND label — which CEE resolves against canonical
  *     state for grounding and consumes as a deterministic tie-breaker;
- *   · and the composer's selection chip shows the user WHICH element is
- *     attached while they edit the draft, so the name is on screen even
- *     though it is not in the sentence.
+ *   · and `SelectionPill` shows the user WHICH element is attached while they
+ *     edit the draft, so the name is on screen even though it is not in the
+ *     sentence — WHENEVER THAT PILL IS ON SCREEN, which is not always.
  *
  * So the model gets the identity, the reader gets the name, and neither has
  * to appear in the question. Remove any one of those three legs and these
  * templates become ambiguous — they are not independently correct.
+ *
+ * ⚠⚠ AND THE THIRD LEG IS NOT UNCONDITIONAL, which is why `ASK_TEMPLATES_NAMED`
+ * exists below. Measured at `7294c12d`: `SelectionPill` has exactly ONE product
+ * mount site (`OutputsDock.tsx`, inside `{aiPanelV2On && effectiveIsOpen}`), so
+ * a COLLAPSED dock mounts no pill — and `revealOlumiSurface()` deliberately
+ * leaves the dock collapsed while a floating or first-use composer is hosting
+ * (`if (focusFloating()) return true`). The ask's draft then lands in that
+ * composer with no referent on screen, and `requestAsk`'s composer path
+ * discards `req.label`, so the drawer's "Ask about X" heading is not rendered
+ * either. The templates' own sentence above says what follows: with leg three
+ * gone they are ambiguous. So the callers ASK whether the element is named on
+ * screen (`useSelectionIsNamedOnScreen`, published by the pill itself) and pick
+ * the register — pronoun when the name is visible, `ASK_TEMPLATES_NAMED` when
+ * it is not. Naming an element already named on screen is verbose; a pronoun
+ * with no referent misleads, and only one of those is a defect.
  *
  * ⚠ `edge` KEEPS ITS LABELS, DELIBERATELY. A relationship has no label of its
  * own: the derivation gives an edge `kind: 'edge'` and no name, so the chip
@@ -576,6 +591,38 @@ export const ASK_TEMPLATES: Record<string, string> = {
   outcome:               'What drives this the most?',
   risk:                  'How can we reduce this?',
   decision:              'What are the key trade-offs here?',
+}
+
+/**
+ * ⭐ THE SAME QUESTIONS FOR THE STATE WHERE NOTHING ON SCREEN NAMES THE ELEMENT.
+ *
+ * These are the pre-de-labelling strings, unchanged: they shipped for months and
+ * their only fault was being verbose when the pill was already saying the name.
+ * Where the pill is NOT on screen that fault is a virtue, because the reader has
+ * nothing else to resolve "this" against.
+ *
+ * ⚠ `edge` IS DELIBERATELY BYTE-IDENTICAL to its `ASK_TEMPLATES` twin. An edge
+ * has no name of its own — the derivation gives it `kind: 'edge'` and no label —
+ * so its template already names both endpoints in BOTH registers and there is
+ * nothing to switch. The key exists here so the two tables stay a matched pair.
+ *
+ * ⚠ TWO TABLES ARE A MIRROR (trap 12), so the mirror is made to FAIL LOUD rather
+ * than trusted: `inspectorStrings.askRegisters.spec.ts` derives both key sets
+ * from the objects themselves and REDs on a key present in one and not the
+ * other, on a named template missing `{label}`, on a pronoun template that
+ * contains one, and on `edge` diverging. A key added to one table alone cannot
+ * reach a user silently.
+ */
+export const ASK_TEMPLATES_NAMED: Record<string, string> = {
+  goal:                  'Tell me about the chances of achieving {label}',
+  'factor-controllable': 'How important is {label} to the outcome?',
+  'factor-observable':   'What would happen if {label} changed?',
+  'factor-external':     'How sensitive are the results to {label}?',
+  edge:                  'Explain the relationship between {sourceLabel} and {targetLabel}',
+  option:                'How does {label} compare to the other options?',
+  outcome:               'What drives {label} the most?',
+  risk:                  'How can we reduce {label}?',
+  decision:              'What are the key trade-offs in {label}?',
 }
 
 /**
@@ -657,12 +704,20 @@ function resolveTemplate(
 /**
  * Resolve an "Ask about this" question template with element labels.
  * Returns null if no template matches or required placeholders are missing.
+ *
+ * `nameElement` picks the REGISTER, and the caller must derive it from whether
+ * the element is named on screen (`useSelectionIsNamedOnScreen`) rather than
+ * from dock state — see the `ASK_TEMPLATES` header. It defaults to true, so a
+ * caller that has not thought about the referent gets the verbose-but-honest
+ * form rather than an unresolved pronoun.
  */
 export function resolveAskTemplate(
   panelType: string,
   context: { label?: string; sourceLabel?: string; targetLabel?: string },
+  options: { nameElement?: boolean } = {},
 ): string | null {
-  return resolveTemplate(ASK_TEMPLATES[panelType], context)
+  const table = options.nameElement === false ? ASK_TEMPLATES : ASK_TEMPLATES_NAMED
+  return resolveTemplate(table[panelType], context)
 }
 
 /**

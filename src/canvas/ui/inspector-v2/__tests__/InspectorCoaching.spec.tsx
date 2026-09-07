@@ -15,6 +15,10 @@ import { join } from 'node:path'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useGuidanceStore, type GuidanceItem } from '../../../stores/guidanceStore'
+import {
+  publishSelectionReferent,
+  resetSelectionReferentForTest,
+} from '../../../conversation/selectionReferent'
 
 function makeGuidanceItem(overrides: Partial<GuidanceItem> = {}): GuidanceItem {
   return {
@@ -39,6 +43,7 @@ const defaultProps = {
 }
 
 beforeEach(() => {
+  resetSelectionReferentForTest()
   useGuidanceStore.setState({
     guidanceItems: [],
     activeGuidanceItemId: null,
@@ -112,6 +117,10 @@ describe('InspectorCoaching', () => {
    * deleted so the reversal is legible.
    */
   it('"Ask about this" PREFILLS the question and does NOT auto-send', () => {
+    // The docked arm: something on screen IS naming this element, which is the
+    // only state the pronoun register is correct in. Published through the same
+    // channel `SelectionPill` uses.
+    publishSelectionReferent(defaultProps.elementId)
     const prefill = vi.fn()
     const send = vi.fn()
     useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send })
@@ -126,6 +135,7 @@ describe('InspectorCoaching', () => {
   })
 
   it('still lands the draft when only _prefillChat is registered', () => {
+    publishSelectionReferent(defaultProps.elementId)
     const prefill = vi.fn()
     useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: null })
     render(<InspectorCoaching {...defaultProps} />)
@@ -135,6 +145,22 @@ describe('InspectorCoaching', () => {
 
     expect(prefill).toHaveBeenCalledTimes(1)
     expect(prefill).toHaveBeenCalledWith('How important is this to the outcome?')
+  })
+
+  it('names the element when NOTHING on screen does — the pill-less composer', () => {
+    // No referent published, which is the state a collapsed dock leaves behind
+    // while a floating composer hosts: `SelectionPill` never mounts there and
+    // `revealOlumiSurface()` does not claim the dock. The pronoun would have no
+    // referent, so the register switches. `askCopy.selectionReferent.spec.tsx`
+    // carries the derivation and the identity-bound twins.
+    const prefill = vi.fn()
+    useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: null })
+    render(<InspectorCoaching {...defaultProps} />)
+
+    fireEvent.click(screen.getByText('Ask about this'))
+
+    expect(prefill).toHaveBeenCalledTimes(1)
+    expect(String(prefill.mock.calls[0][0])).toContain('Marketing Budget')
   })
 
   it('hides action button when both _prefillChat and _sendMessage are null', () => {

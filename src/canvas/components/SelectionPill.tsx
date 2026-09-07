@@ -4,6 +4,7 @@ import { typo } from '../../styles/typography'
 import { CHIP_CLASS } from '../../v5/blocks/chipClass'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { useSelectionContext, useSelectionCarriage } from '../hooks/useSelectionContext'
+import { usePublishSelectionReferent } from '../conversation/selectionReferent'
 
 /**
  * SelectionPill — the canvas selection's conversation affordance.
@@ -80,6 +81,24 @@ export const SelectionPill = memo(function SelectionPill() {
   const sentRef = useRef<{ id: string; at: number } | null>(null)
 
   const label = selection?.label ?? ''
+  /**
+   * ⭐ THIS PILL IS THE REFERENT THE INSPECTOR'S PRONOUN DEPENDS ON, so it says
+   * so rather than letting another surface model when it is on screen.
+   *
+   * `ASK_TEMPLATES` de-labels its questions ("How important is this to the
+   * outcome?") on the argument that the name is visible HERE. That argument is
+   * false wherever this component does not mount — a collapsed dock, with
+   * `revealOlumiSurface()` leaving it collapsed while a floating composer is
+   * hosting. Publishing from inside the component that draws the name is the
+   * only version of the claim that cannot go stale; see
+   * `conversation/selectionReferent.ts` for why this is a registration and not
+   * a second copy of the dock's mount rule.
+   *
+   * Published only when there is a name: `useSelectionContext` already returns
+   * null for a withheld or unnameable selection, and the notice branch below
+   * renders no element name at all.
+   */
+  usePublishSelectionReferent(selection?.id ?? null)
   /**
    * ONE dispatch for both controls.
    *

@@ -309,10 +309,10 @@ export { MAX_SELECTED_ELEMENTS }
  */
 function deriveSelectedElements(): MessageTurnPayload['selected_elements'] | undefined {
   // ⭐ ONE DERIVATION, TWO CONSUMERS. The rule itself lives in
-  // `canvas/conversation/selectedElementRefs.ts` because the composer's
-  // selection chip renders from it too — the chip must be unable to claim an
-  // attachment this payload withholds. See that module's header for every
-  // withholding branch and why each returns absence rather than a guess.
+  // `canvas/conversation/selectedElementRefs.ts` because `SelectionPill`
+  // renders from it too — the pill must be unable to claim an attachment this
+  // payload withholds. See that module's header for every withholding branch
+  // and why each returns absence rather than a guess.
   return deriveSelectedElementRefs(useCanvasStore.getState())
 }
 

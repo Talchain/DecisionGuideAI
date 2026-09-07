@@ -27,6 +27,7 @@ import { useGuidanceStore, compareGuidanceDisplayOrder } from '../../../stores/g
 import { revealOlumiSurface } from '../../../conversation/revealOlumi'
 import { CoachingCard } from './CoachingCard'
 import { resolveAskTemplate } from '../inspectorStrings'
+import { useSelectionIsNamedOnScreen } from '../../../conversation/selectionReferent'
 import { requestAsk } from '../askSemantic'
 
 interface InspectorCoachingProps {
@@ -74,10 +75,16 @@ export function InspectorCoaching({
     })[0]
   }, [guidanceItems, elementId])
 
-  // Resolve the question text
+  // Resolve the question text. The register follows the on-screen referent, for
+  // the reason `ASK_TEMPLATES` records: the pronoun is borrowed from
+  // `SelectionPill`, and this surface reaches the same pill-less floating
+  // composer that `InspectorQuickActions` does — same `requestAsk`, same
+  // `revealOlumiSurface()`. Reading the same published referent is what keeps
+  // the two ask affordances from coming to mean different things.
+  const nameIsOnScreen = useSelectionIsNamedOnScreen(elementId)
   const questionText = useMemo(
-    () => resolveAskTemplate(panelType, labelContext),
-    [panelType, labelContext],
+    () => resolveAskTemplate(panelType, labelContext, { nameElement: !nameIsOnScreen }),
+    [panelType, labelContext, nameIsOnScreen],
   )
 
   // ASK — the one semantic. Lands an editable draft the user sends; never

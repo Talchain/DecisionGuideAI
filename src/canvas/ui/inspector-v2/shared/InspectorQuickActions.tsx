@@ -24,6 +24,7 @@ import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { useUIStore, type OutputTab } from '../../../../stores/uiStore'
 import { requestAsk } from '../askSemantic'
 import { resolveAskTemplate, resolveChangeTemplate } from '../inspectorStrings'
+import { useSelectionIsNamedOnScreen } from '../../../conversation/selectionReferent'
 
 interface InspectorQuickActionsProps {
   /** Node or edge id — the ask's model target. */
@@ -49,19 +50,40 @@ export function InspectorQuickActions({
     (s) => s._prefillChat !== null || s._sendMessage !== null || s._dispatchAction !== null,
   )
 
+  /**
+   * ⭐ THE PRONOUN IS BORROWED FROM THE SCREEN, so it is only used when the
+   * screen is actually saying the name.
+   *
+   * `SelectionPill` publishes the element it is naming; this asks whether that
+   * is the element this panel is open on. It is deliberately NOT a re-derivation
+   * of the pill's mount rule — that rule lives in `OutputsDock` and a second
+   * copy here would drift (trap 12). `conversation/selectionReferent.ts` carries
+   * the reasoning and the measured state where the pill is absent: a collapsed
+   * dock with a floating composer hosting, which `revealOlumiSurface()` leaves
+   * collapsed on purpose.
+   */
+  const nameIsOnScreen = useSelectionIsNamedOnScreen(elementId)
+
   const question = useMemo(() => {
-    const templated = resolveAskTemplate(panelType, { label: elementLabel, ...labelContext })
+    const templated = resolveAskTemplate(
+      panelType,
+      { label: elementLabel, ...labelContext },
+      { nameElement: !nameIsOnScreen },
+    )
     // Fallback keeps the action live for element types with no template rather
     // than silently dropping the affordance for exactly the unusual nodes a
     // user is most likely to have questions about.
     //
-    // It uses the same pronoun as the templates, and for the same measured
-    // reason: this panel is open on the single canvas selection, so the element
-    // rides the turn as `selected_elements` and its name is on screen in the
-    // composer's selection chip. Spelling the label into the user's own words
-    // would be the product typing a title on their behalf. See ASK_TEMPLATES.
-    return templated ?? 'What should I know about this?'
-  }, [panelType, elementLabel, labelContext])  // elementLabel still feeds resolveAskTemplate's context
+    // It follows the same register rule as the templates: a pronoun while the
+    // pill is naming this element (the identity also rides the turn as
+    // `selected_elements`, so spelling the label in would be the product typing
+    // a title on the user's behalf), and the name when nothing on screen carries
+    // it. See ASK_TEMPLATES.
+    if (templated) return templated
+    return nameIsOnScreen
+      ? 'What should I know about this?'
+      : `What should I know about ${elementLabel}?`
+  }, [panelType, elementLabel, labelContext, nameIsOnScreen])
 
   const handleAsk = useCallback(() => {
     requestAsk({

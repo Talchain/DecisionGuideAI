@@ -5,19 +5,18 @@
  * defect, not tidiness. Two consumers now need this answer:
  *
  *   1. `buildPayload.ts`, which puts `selected_elements` on the wire.
- *   2. the composer's selection chip, which TELLS THE USER their selection is
- *      attached.
+ *   2. `SelectionPill`, which TELLS THE USER their selection is attached.
  *
- * If the chip computed its own answer, it would be a hand-maintained mirror of
+ * If the pill computed its own answer, it would be a hand-maintained mirror of
  * the wire rule — and every withholding branch below (a stale id, a kindless
- * node, an over-cap selection) is a case where the chip would claim an
- * attachment the payload does not make. A chip that says "Asking about X" while
+ * node, an over-cap selection) is a case where the pill would claim an
+ * attachment the payload does not make. A pill that says "Asking about X" while
  * the wire withholds X is a lie of exactly the class this product exists not to
  * tell. So the visible claim and the wire payload are ONE derivation, and the
- * chip renders what the wire will actually send.
+ * pill renders what the wire will actually send.
  *
  * The function is PURE and takes the state slice explicitly, so the wire path
- * can call it with `useCanvasStore.getState()` on the send leg while the chip
+ * can call it with `useCanvasStore.getState()` on the send leg while the pill
  * subscribes reactively — same code, two call styles, no drift possible.
  *
  * ⚠ THE WITHHOLDING RULES ARE LOAD-BEARING AND ARE NOT DEFAULTS. Each returns
