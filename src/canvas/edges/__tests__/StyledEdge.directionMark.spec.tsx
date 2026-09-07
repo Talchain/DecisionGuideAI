@@ -27,14 +27,31 @@
  * ── HONEST LIMIT ──────────────────────────────────────────────────────────
  * jsdom has no layout, no paint and no viewport transform. Nothing here shows
  * that the arrowhead LOOKS right, is the right size on screen, or does not
- * collide with a node card. `Visual Regression` is a standing estate-wide red,
- * so no automated gate covers appearance either. That half is unwitnessed.
+ * collide with a node card. `Visual Regression` is a standing estate-wide red;
+ * `Canvas Browser Gate` is green on staging as well as on this change, so it
+ * discriminates nothing about the mark. **Nobody has seen this arrowhead
+ * painted** — every size and clearance number in this file and in
+ * `edgePresentation.ts` is arithmetic over declared constants. The geometry
+ * cases below assert that the rendered ELEMENT carries those numbers; they do
+ * not and cannot assert what happens on a screen. Read them at that rung.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'
 import { StyledEdge } from '../StyledEdge'
 import { Position } from '@xyflow/react'
-import { edgeArrowheadMarkerId, STRUCTURAL_EDGE_COLOUR } from '../edgePresentation'
+import {
+  edgeArrowheadMarkerId,
+  STRUCTURAL_EDGE_COLOUR,
+  EDGE_ARROWHEAD_FLOW_LENGTH,
+  EDGE_ARROWHEAD_FLOW_WIDTH,
+  EDGE_ARROWHEAD_VIEWBOX,
+  EDGE_ARROWHEAD_POLYGON_POINTS,
+} from '../edgePresentation'
+import {
+  GLYPH_ANCHOR_RADIUS,
+  GLYPH_PAINTED_BOX_FLOW,
+  GLYPH_BOX_GAP_FLOW,
+} from '../../utils/edgeGlyphPlacement'
 
 // ── Node kind registry — switched per-test ───────────────────────────────────
 const nodeKinds: Record<string, string> = {}
@@ -77,6 +94,13 @@ vi.mock('@xyflow/react', async () => {
   }
 })
 
+// ⚠ SWITCHABLE, and that is the whole point of this harness change. The store
+// used to be a frozen literal with `highlightedEdges: new Set()`, so the
+// `highlighted` stroke rule COULD NOT FIRE in this file — and a case whose
+// docblock claimed to exercise it silently exercised `polarity` instead,
+// returning a byte-identical result to the case above it. A per-test override
+// is what lets the colour battery below reach four DIFFERENT rules and prove it.
+const storeOverrides: Record<string, unknown> = {}
 vi.mock('../../store', () => ({
   useCanvasStore: vi.fn((selector: any) =>
     selector({
@@ -95,6 +119,7 @@ vi.mock('../../store', () => ({
         _fragileEdgeIds: new Set<string>(),
         _lensFragileLabels: new Map<string, string>(),
       },
+      ...storeOverrides,
     })
   ),
 }))
@@ -150,6 +175,7 @@ const strokeOf = () => (baseEdgeProps?.style as Record<string, unknown> | undefi
 describe('StyledEdge — the direction of causation carries a mark', () => {
   beforeEach(() => {
     for (const k of Object.keys(nodeKinds)) delete nodeKinds[k]
+    for (const k of Object.keys(storeOverrides)) delete storeOverrides[k]
     baseEdgeProps = null
     document.body.innerHTML = ''
     nodeKinds.src = 'factor'
@@ -174,28 +200,119 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
   })
 
   /**
-   * ⭐ THE LOAD-BEARING ASSERTION. Bound by IDENTITY to the resolved decision,
-   * not to a colour literal another rule could also produce: the fill is read
-   * back and compared against the stroke THIS SAME RENDER passed to BaseEdge.
-   * A hard-coded expected colour would keep passing if the precedence changed
-   * underneath it.
+   * ⭐ THE LOAD-BEARING PROPERTY, AND THE EVIDENCE FOR IT WAS FALSE UNTIL NOW.
+   *
+   * What stood here: two cases. The first rendered `direction: 'positive'`, the
+   * second `direction: 'negative'`, under a docblock claiming the second fired
+   * `highlighted` → `var(--semantic-info)` "so agreement is shown across two
+   * rules rather than at one point where a constant could coincide."
+   *
+   * MEASURED, 7 Sep 2026, by reading the stroke back out of both renders:
+   *
+   *   case 1  stroke = "var(--edge-neutral)"
+   *   case 2  stroke = "var(--edge-neutral)"      ← byte-identical
+   *
+   * `highlighted` could not fire at all: `isHighlightedEdge` is
+   * `s.highlightedEdges.has(id)` and the mocked store supplied an EMPTY Set. And
+   * `{direction, direction_source}` is not the shape the polarity stroke reads
+   * (the shipped glyph reads `effect_direction` — see
+   * `StyledEdge.polarityGlyphPlacement.spec.tsx`), so both fell to the same
+   * neutral. The second case was a byte-equivalent duplicate of the first, and
+   * the exact property its own docblock claimed to establish — that agreement
+   * is not a coincidence at one constant — was the one thing it could not show.
+   *
+   * ⭐ THE REPLACEMENT, and note what each case has to carry. Every row PINS ITS
+   * OWN PRECONDITION: it asserts the stroke really is the distinct value its
+   * rule produces, so a case cannot silently degrade back into the neutral one
+   * and keep passing. That is the failure this table exists to make impossible.
+   * Four DIFFERENT rules, five distinct values, including the `color-mix()` that
+   * an explicit `fill` attribute is most likely to mishandle.
    */
-  it('paints the arrow in the exact colour the stroke precedence resolved', () => {
-    const root = renderEdge({ data: { direction: 'positive', direction_source: 'user' } })
-    const fill = markerOf(root)!.querySelector('polygon')!.getAttribute('fill')
-    expect(fill).toBe(strokeOf())
-    expect(fill).toBeTruthy()
-  })
+  const COLOUR_CASES: ReadonlyArray<{
+    rule: string
+    stroke: string
+    data: Record<string, unknown>
+    store?: Record<string, unknown>
+  }> = [
+    {
+      rule: 'polarity (resting neutral)',
+      stroke: 'var(--edge-neutral)',
+      data: { direction: 'positive', direction_source: 'user' },
+    },
+    {
+      rule: 'polarity (a stated negative — same rule, different value)',
+      stroke: 'var(--edge-negative)',
+      data: { strength_mean: 0.6, effect_direction: 'negative', exists_probability: 0.8 },
+    },
+    {
+      rule: 'highlighted',
+      stroke: 'var(--semantic-info)',
+      data: { direction: 'positive', direction_source: 'user' },
+      store: { highlightedEdges: new Set(['e1']) },
+    },
+    {
+      rule: 'contested_needs_user_input',
+      stroke: 'var(--semantic-warning)',
+      data: {
+        direction: 'positive',
+        direction_source: 'user',
+        validation: {
+          status: 'contested',
+          user_action: 'pending',
+          max_divergence: 0.5,
+          pass2: { needs_user_input: true },
+        },
+      },
+    },
+    {
+      rule: 'contested_direction_disputed (the color-mix value)',
+      stroke: 'color-mix(in srgb, var(--semantic-warning) 70%, transparent)',
+      data: {
+        direction: 'positive',
+        direction_source: 'user',
+        validation: {
+          status: 'contested',
+          user_action: 'pending',
+          max_divergence: 0.5,
+          contested_reasons: ['sign_flip'],
+        },
+      },
+    },
+  ]
+
+  it.each(COLOUR_CASES)(
+    'paints the arrow in the exact colour the stroke precedence resolved — $rule',
+    ({ stroke, data, store }) => {
+      Object.assign(storeOverrides, store ?? {})
+      const root = renderEdge({ data })
+      // PRECONDITION PIN. Without this the case passes when the rule it names
+      // never fires and the neutral wins instead — which is exactly how the two
+      // cases this table replaces came to be identical.
+      expect(strokeOf(), `the ${stroke} rule did not fire; this case proves nothing`).toBe(stroke)
+      const fill = markerOf(root)!.querySelector('polygon')!.getAttribute('fill')
+      expect(fill).toBe(strokeOf())
+      expect(fill).toBeTruthy()
+    },
+  )
 
   /**
-   * The same assertion again on an edge the precedence colours by a DIFFERENT
-   * rule (`highlighted` → `var(--semantic-info)`), so agreement is shown across
-   * two rules rather than at one point where a constant could coincide.
+   * ⭐ AND THE GUARD AGAINST THE DEFECT ITSELF, not just against its symptom.
+   * The table above is only evidence about "agreement across rules" while its
+   * rows actually differ. If a future change collapses two of them onto one
+   * value — the precise thing that happened here — this REDs, whereas every
+   * individual row would keep passing.
    */
-  it('still agrees when a different stroke rule wins', () => {
-    const root = renderEdge({ data: { direction: 'negative', direction_source: 'user' } })
-    const fill = markerOf(root)!.querySelector('polygon')!.getAttribute('fill')
-    expect(fill).toBe(strokeOf())
+  it('exercises five DISTINCT stroke values, so agreement is not one constant coinciding', () => {
+    const seen = new Set<string>()
+    for (const c of COLOUR_CASES) {
+      for (const k of Object.keys(storeOverrides)) delete storeOverrides[k]
+      Object.assign(storeOverrides, c.store ?? {})
+      document.body.innerHTML = ''
+      renderEdge({ data: c.data })
+      seen.add(String(strokeOf()))
+    }
+    expect(seen.size).toBe(COLOUR_CASES.length)
+    expect([...seen].sort()).toEqual([...COLOUR_CASES.map((c) => c.stroke)].sort())
   })
 
   it('orients along the path, so the arrow points the way the edge runs', () => {
@@ -212,6 +329,48 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
   it('sizes itself independently of stroke width', () => {
     const root = renderEdge({ data: { direction: 'positive', direction_source: 'user' } })
     expect(markerOf(root)!.getAttribute('markerUnits')).toBe('userSpaceOnUse')
+  })
+
+  /**
+   * ⛔ THE MARK MUST STOP SHORT OF THE POLARITY GLYPH — ASSERTED ON THE RENDERED
+   * ELEMENT, not only on the constants.
+   *
+   * The constant-level derivation lives in
+   * `edgePresentation.directionMarker.spec.ts`; this case is the other half of
+   * the pair, and it is the one that bites if someone hardcodes a size back into
+   * the JSX. `markerWidth` is the ALONG-path dimension under `orient="auto"`, so
+   * it is the distance the mark reaches back from the target anchor — and the
+   * glyph's near edge sits at `GLYPH_ANCHOR_RADIUS - GLYPH_PAINTED_BOX_FLOW/2`
+   * back from the same anchor, on very nearly the same axis.
+   *
+   * ⚠ Arithmetic over constants. jsdom has no layout: this proves the attributes
+   * carry the derived numbers, never that anything clears on screen.
+   */
+  it('reaches back less far than the polarity glyph begins, by the full gap', () => {
+    const root = renderEdge({ data: { direction: 'positive', direction_source: 'user' } })
+    const marker = markerOf(root)!
+    const tailFlow = Number(marker.getAttribute('markerWidth'))
+    const glyphNearEdgeFlow = GLYPH_ANCHOR_RADIUS - GLYPH_PAINTED_BOX_FLOW / 2
+    expect(tailFlow).toBe(EDGE_ARROWHEAD_FLOW_LENGTH)
+    expect(glyphNearEdgeFlow - tailFlow).toBe(GLYPH_BOX_GAP_FLOW)
+    expect(glyphNearEdgeFlow - tailFlow).toBeGreaterThan(0)
+  })
+
+  /**
+   * The across-path dimension is the legibility one and is NOT bounded by the
+   * glyph — the glyph sits along the axis, not across it. Pinned separately so a
+   * future shrink of the length cannot quietly take the width with it.
+   */
+  it('keeps its full across-path base, and its viewBox at 1:1 so nothing is letterboxed', () => {
+    const root = renderEdge({ data: { direction: 'positive', direction_source: 'user' } })
+    const marker = markerOf(root)!
+    expect(Number(marker.getAttribute('markerHeight'))).toBe(EDGE_ARROWHEAD_FLOW_WIDTH)
+    expect(marker.getAttribute('viewBox')).toBe(EDGE_ARROWHEAD_VIEWBOX)
+    expect(marker.querySelector('polygon')!.getAttribute('points'))
+      .toBe(EDGE_ARROWHEAD_POLYGON_POINTS)
+    // refX at the tip: the point lands ON the path's end, not past it.
+    expect(Number(marker.getAttribute('refX'))).toBe(EDGE_ARROWHEAD_FLOW_LENGTH)
+    expect(Number(marker.getAttribute('refY'))).toBe(EDGE_ARROWHEAD_FLOW_WIDTH / 2)
   })
 
   /**
@@ -248,6 +407,7 @@ describe('StyledEdge — the direction of causation carries a mark', () => {
 describe('StyledEdge — edges that make no claim about direction get no mark', () => {
   beforeEach(() => {
     for (const k of Object.keys(nodeKinds)) delete nodeKinds[k]
+    for (const k of Object.keys(storeOverrides)) delete storeOverrides[k]
     baseEdgeProps = null
     document.body.innerHTML = ''
   })
