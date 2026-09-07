@@ -46,6 +46,12 @@ function fixtureChart(o: Partial<HeroChartModel>): HeroChartModel {
     provenance: 'fixture',
     headline: 'Here is how your options compare.',
     subline: null,
+    // The gallery illustrates the PERMITTED presentation (same reason
+    // `designationsWithheld` is false below), so there is no withheld run to
+    // explain. Required on the model precisely so the compiler names this
+    // constructor rather than letting the gallery quietly show a refusal
+    // sentence the fixture never declared.
+    designationWithheldReason: null,
     lenses: ['outcome'],
     defaultLens: 'outcome',
     hasConstraints: false,
