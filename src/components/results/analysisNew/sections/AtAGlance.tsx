@@ -15,10 +15,12 @@
  * ── THE FOUR RULES IT ENFORCES ─────────────────────────────────────────────
  * 1. ONE DOMINANT ANSWER. The leading option is the only large type on screen.
  *    Five equal answers in a 280px column is the density we came from.
- * 2. NO CHART UNLESS THE VALUES DIFFER. The deployed surface drew three driver
- *    bars all at 100% — three identical bars is three times no information.
- *    Bars render only when the spread clears `DRIVER_SPREAD_MIN`; otherwise the
- *    ranked labels stand alone and NOTHING is claimed about their equality.
+ * 2. NO CHART UNLESS THE VALUES DIFFER. ⛔ RETIRED HERE at `e15416ad`, with the
+ *    driver list this rule governed. It is recorded rather than deleted because
+ *    the observation that produced it stands: the deployed surface drew three
+ *    driver bars all at 100%, and three identical bars is three times no
+ *    information. The bars themselves now live only in `DriverInfluenceChart`,
+ *    which does not implement this rule — see the note at the retired constant.
  * 3. STALE KILLS THE PRESENT TENSE. `headline` is composed here in the present
  *    ("currently scores higher"), which is false on a run that predates the
  *    model. When stale, the eyebrow reframes it and the sentence is not used.
@@ -32,7 +34,7 @@
  */
 
 import { useState } from 'react'
-import { AlertTriangle, ArrowRight, CheckCircle, ChevronRight, Sparkles } from 'lucide-react'
+import { AlertTriangle, CheckCircle, ChevronRight, Sparkles } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ComparisonScopeNote } from '../../ComparisonScopeNote'
 import { EXCLUDED_LABEL_NAME_CAP } from '../../utils/goalAnchorCopy'
@@ -95,14 +97,23 @@ function reassuranceIsStale(tone: string, isStale: boolean): boolean {
 }
 
 /**
- * Below this spread, driver bars are not drawn.
+ * ⛔ `DRIVER_SPREAD_MIN` DELETED WITH THE DRIVER LIST IT GATED (`e15416ad`).
  *
- * `fraction` is each driver against the STRONGEST in the run, so the leader is
- * always 1. A spread under 5 percentage points means every bar renders within
- * a few pixels of every other at these widths — visually identical, and read as
- * "these are the same" whether or not that is what the producer meant.
+ * It read 0.05 and suppressed this section's driver bars when every driver's
+ * `fraction` sat within five percentage points of every other — "three
+ * identical bars is three times no information", rule 2 in the header above.
+ * It had no consumer outside this file and none in any spec, so it goes with
+ * the render rather than becoming an exported constant nothing reads.
+ *
+ * ⚠ THE RULE IT ENFORCED IS NOT INHERITED BY THE SURVIVING CHART, AND THAT IS
+ * A KNOWN GAP RATHER THAN AN OVERSIGHT. `DriverInfluenceChart` draws a bar for
+ * every row whatever the spread, and it can therefore render the flat case this
+ * constant existed to refuse. It is a weaker defect there — the chart's bars
+ * carry DIRECTION, so a flat set still discriminates left from right, which was
+ * exactly what the suppressed list could not do — but it is not nothing. Left
+ * alone deliberately: suppressing bars in a chart is a different change from
+ * suppressing them in a list, and it is not this seam's question.
  */
-export const DRIVER_SPREAD_MIN = 0.05
 
 /**
  * How many excluded options these rows name at rest.
@@ -125,7 +136,13 @@ export const EXCLUDED_OPTION_VISIBLE_CAP = EXCLUDED_LABEL_NAME_CAP
 export interface AtAGlanceProps {
   glance: AtAGlanceModel
   onFocusTarget?: (targetId: string) => void
-  driverTotal?: number
+  /**
+   * ⛔ `driverTotal` REMOVED WITH THE DRIVER LIST. It existed so the glance
+   * could say "+N more drivers in this run" beneath its cap of three. With the
+   * list gone there is no cap here to declare, and the drivers section states
+   * the true count on its own collapsed row (`SectionShell`'s `count`, derived
+   * from the actual list rather than passed in).
+   */
   primaryIntervention?: {
     id: string
     label: string
@@ -263,7 +280,6 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 export function AtAGlance({
   glance,
   onFocusTarget,
-  driverTotal,
   primaryIntervention,
   onRunIntervention,
   isStale = false,
@@ -347,33 +363,34 @@ export function AtAGlance({
    * 1,584px against a 769px viewport, and reopening a section would spend
    * that fix. One card is not a section.
    */
+  /* ⚠ `glance.drivers.length > 0` WAS A DISJUNCT HERE AND HAD TO GO WITH THE
+     LIST. This guard asks "have I anything to SHOW?" — the question the header
+     above records it getting wrong once already, in the other direction. A run
+     whose only glance-worthy content was drivers now genuinely has nothing to
+     show here, and keeping the disjunct would have rendered the section's
+     wrapper and heading over empty space: the "heading promising content"
+     defect `AnalysisNewSection` records at its own early return. */
   const hasAnything =
     glance.headline ||
     glance.verdict ||
-    glance.drivers.length > 0 ||
     glance.condition ||
     (primaryIntervention && onRunIntervention) ||
     ribbon.length > 0
   if (!hasAnything) return null
 
-  // Rule 2. `fraction` is relative to the strongest, so max is 1 by
-  // construction; the spread is therefore 1 - min.
-  const fractions = glance.drivers.map((d) => d.fraction)
-  const driversDiscriminate =
-    glance.drivers.length > 1 &&
-    Math.max(...fractions) - Math.min(...fractions) >= DRIVER_SPREAD_MIN
-
   /**
-   * ⭐ WHAT COULD CHANGE IT OUTRANKS DRIVERS THAT DO NOT DISCRIMINATE.
+   * ⛔ `driversDiscriminate` AND `conditionFirst` REMOVED WITH THE DRIVER LIST.
    *
-   * A tipping point ("the ordering changes if X moves to 0.8") is a different
-   * and far more actionable quantity than a structural-influence ranking — and
-   * when the influence values are all within `DRIVER_SPREAD_MIN` of each other
-   * the ranking is telling the reader nothing at all. In that state the
-   * condition is promoted above it. When the drivers DO discriminate, the
-   * original order stands: the ranking is then the better orientation.
+   * They answered one question: does the driver ranking discriminate enough to
+   * outrank "what could change it" in the reading order? Both of the things
+   * being ordered had to exist for that to be a question, and only one of them
+   * does now. The condition block is unconditionally where the list used to
+   * sit, which is where `conditionFirst` put it whenever the ranking was flat.
+   *
+   * ⚠ THE JUDGEMENT THEY ENCODED IS NOT LOST, it is relocated: a tipping point
+   * is the more actionable quantity, so it keeps the position nearer the top of
+   * the panel and the ranking now lives one click down in its own section.
    */
-  const conditionFirst = Boolean(glance.condition) && !driversDiscriminate
 
   /**
    * ⭐⭐ TWO QUESTIONS ABOUT ONE ADMISSION, ANSWERED SEPARATELY AND ON PURPOSE.
@@ -426,9 +443,12 @@ export function AtAGlance({
    * plain `.-mt-2` — measured in a browser, the override changed the file and
    * NOT the render. The gap is owned by the parent, so the fix is structural.
    */
+  /* ⚠ THE DRIVERS DISJUNCT WENT WITH THE LIST. This line says WHOSE numbers the
+     run consumed, and it is a qualifier: it must render only where there is
+     something on this surface for it to qualify. The driver rows were such a
+     thing and are no longer here. */
   const showInputProvenance =
-    Boolean(glance.inputProvenance) &&
-    (showAnswer || Boolean(glance.verdict) || glance.drivers.length > 0)
+    Boolean(glance.inputProvenance) && (showAnswer || Boolean(glance.verdict))
 
   return (
     <section className="space-y-3" data-testid={testId} aria-label={COPY.sections.atAGlance}>
@@ -774,8 +794,33 @@ export function AtAGlance({
         </div>
       ) : null}
 
-      {conditionFirst ? (
-        <>
+      {/* ⛔ THE GLANCE NO LONGER LISTS DRIVERS — REMOVED AT `e15416ad`.
+
+          It rendered "What matters most": the top three factors with a bar
+          each, one scroll above "Drivers and dynamics", which renders the
+          same factors again. Derived at the bytes rather than judged by eye:
+          `glanceDrivers` and `buildDrivers` (both `buildAnalysisNewViewModel`)
+          read the same `data.drivers.drivers`, drop the same `zeroReason`
+          rows, take the same `displayInfluence` magnitude and divide by the
+          same within-run maximum. This list was a strict SUBSET of the
+          chart’s rows carrying a strict SUBSET of its information — it had no
+          direction — so it was a summary of something one click away, not a
+          second question.
+
+          ⚠ WHAT WENT WITH IT, AND WHERE IT WENT. The basis caption
+          ("Influence" / "Relative influence") disclosed which scale the bars
+          were on through a `title` tooltip, which a touch reader cannot open;
+          the drivers section now carries both branches of that disclosure as a
+          VISIBLE caveat (`coverage.structuralInfluence` /
+          `coverage.setRelativeInfluence`). The "+N more drivers" line declared
+          this list’s cap of three; the section states the true count on its
+          collapsed row and the chart renders every row, so there is no cap
+          left to declare.
+
+          ⚠ `glance.drivers` ITSELF IS NOT REMOVED. `nodeInsights.ts` still
+          reads it to decide whether a node earns `ModelStrip`’s
+          "What matters most" chip, which is a per-node claim rather than a
+          restatement of the ranking. */}
       {/* ── WHAT COULD CHANGE IT ───────────────────────────────────────────── */}
       {glance.condition ? (
         (() => {
@@ -820,225 +865,6 @@ export function AtAGlance({
           )
         })()
       ) : null}
-      {/* ── WHAT IS SHAPING IT ─────────────────────────────────────────────── */}
-      {glance.drivers.length > 0 ? (
-        <div data-testid={`${testId}-drivers`}>
-          <div className="flex items-baseline justify-between gap-2">
-            <Eyebrow>{COPY.glance.whatMattersMost}</Eyebrow>
-            {driversDiscriminate ? (
-              <span
-                className={`${typography.panelMeta} text-text-light shrink-0`}
-                title={
-                  glance.influenceIsSetRelative
-                    ? COPY.glance.basisRelativeExplain
-                    : COPY.glance.basisAbsoluteExplain
-                }
-                data-testid={`${testId}-basis`}
-              >
-                {glance.influenceIsSetRelative
-                  ? COPY.glance.basisRelative
-                  : COPY.glance.basisAbsolute}
-              </span>
-            ) : null}
-          </div>
-          <ul className="mt-1.5 space-y-1 list-none p-0 m-0">
-            {glance.drivers.map((d) => {
-              const focusable = Boolean(d.targetId && onFocusTarget)
-              const Row = (
-                <>
-                  <span className="min-w-0 flex-1 truncate text-left" title={d.label}>
-                    {d.label}
-                  </span>
-                  {driversDiscriminate ? (
-                    /* ⚠ THE BAR USED TO WIDEN ON THE VIEWPORT, NOT THE PANEL.
-                       This lives in a dock whose floor is 278px, and the
-                       breakpoint it branched on is satisfied by any desktop
-                       window — so on the narrowest, shipped default it took the
-                       WIDER size and the label beside it, which is truncated,
-                       lost the room. The bar is decoration; the driver's name is
-                       the information. A panel-aware branch is available
-                       (`usePanelWidth`) if a wide dock should ever get more. */
-                    <span
-                      className="h-1.5 w-16 shrink-0 rounded-full bg-panel-hover overflow-hidden"
-                      aria-hidden="true"
-                      data-testid={`${testId}-driver-bar`}
-                    >
-                      <span
-                        className="block h-full rounded-full bg-info"
-                        style={{ width: `${Math.round(d.fraction * 100)}%` }}
-                      />
-                    </span>
-                  ) : null}
-                  {focusable ? (
-                    <ArrowRight
-                      className="w-3 h-3 shrink-0 text-text-light opacity-0 group-hover:opacity-100"
-                      aria-hidden="true"
-                    />
-                  ) : null}
-                </>
-              )
-              return (
-                <li key={d.id} data-testid={`${testId}-driver`} data-driver-id={d.id}>
-                  {focusable ? (
-                    <button
-                      type="button"
-                      onClick={() => onFocusTarget!(d.targetId!)}
-                      className={`${typography.panelBody} group text-text-body w-full flex items-center gap-2 rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-                      data-testid={`${testId}-driver-focus`}
-                    >
-                      {Row}
-                    </button>
-                  ) : (
-                    <span
-                      className={`${typography.panelBody} group text-text-body w-full flex items-center gap-2`}
-                    >
-                      {Row}
-                    </span>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-          {typeof driverTotal === 'number' && driverTotal > glance.drivers.length ? (
-            <p
-              className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
-              data-testid={`${testId}-drivers-more`}
-            >
-              {COPY.glance.moreDrivers(driverTotal - glance.drivers.length)}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-        </>
-      ) : (
-        <>
-      {/* ── WHAT IS SHAPING IT ─────────────────────────────────────────────── */}
-      {glance.drivers.length > 0 ? (
-        <div data-testid={`${testId}-drivers`}>
-          <div className="flex items-baseline justify-between gap-2">
-            <Eyebrow>{COPY.glance.whatMattersMost}</Eyebrow>
-            {driversDiscriminate ? (
-              <span
-                className={`${typography.panelMeta} text-text-light shrink-0`}
-                title={
-                  glance.influenceIsSetRelative
-                    ? COPY.glance.basisRelativeExplain
-                    : COPY.glance.basisAbsoluteExplain
-                }
-                data-testid={`${testId}-basis`}
-              >
-                {glance.influenceIsSetRelative
-                  ? COPY.glance.basisRelative
-                  : COPY.glance.basisAbsolute}
-              </span>
-            ) : null}
-          </div>
-          <ul className="mt-1.5 space-y-1 list-none p-0 m-0">
-            {glance.drivers.map((d) => {
-              const focusable = Boolean(d.targetId && onFocusTarget)
-              const Row = (
-                <>
-                  <span className="min-w-0 flex-1 truncate text-left" title={d.label}>
-                    {d.label}
-                  </span>
-                  {driversDiscriminate ? (
-                    <span
-                      className="h-1.5 w-16 shrink-0 rounded-full bg-panel-hover overflow-hidden"
-                      aria-hidden="true"
-                      data-testid={`${testId}-driver-bar`}
-                    >
-                      <span
-                        className="block h-full rounded-full bg-info"
-                        style={{ width: `${Math.round(d.fraction * 100)}%` }}
-                      />
-                    </span>
-                  ) : null}
-                  {focusable ? (
-                    <ArrowRight
-                      className="w-3 h-3 shrink-0 text-text-light opacity-0 group-hover:opacity-100"
-                      aria-hidden="true"
-                    />
-                  ) : null}
-                </>
-              )
-              return (
-                <li key={d.id} data-testid={`${testId}-driver`} data-driver-id={d.id}>
-                  {focusable ? (
-                    <button
-                      type="button"
-                      onClick={() => onFocusTarget!(d.targetId!)}
-                      className={`${typography.panelBody} group text-text-body w-full flex items-center gap-2 rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-                      data-testid={`${testId}-driver-focus`}
-                    >
-                      {Row}
-                    </button>
-                  ) : (
-                    <span
-                      className={`${typography.panelBody} group text-text-body w-full flex items-center gap-2`}
-                    >
-                      {Row}
-                    </span>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-          {typeof driverTotal === 'number' && driverTotal > glance.drivers.length ? (
-            <p
-              className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
-              data-testid={`${testId}-drivers-more`}
-            >
-              {COPY.glance.moreDrivers(driverTotal - glance.drivers.length)}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-      {/* ── WHAT COULD CHANGE IT ───────────────────────────────────────────── */}
-      {glance.condition ? (
-        (() => {
-          const focusable = Boolean(glance.condition.targetId && onFocusTarget)
-          const Row = (
-            <>
-              <AlertTriangle
-                className="w-3.5 h-3.5 mt-[3px] shrink-0 text-warning"
-                aria-hidden="true"
-              />
-              <span className="min-w-0 flex-1">
-                <span className="text-text-header">{COPY.glance.couldChangeIf}</span>{' '}
-                {glance.condition!.text}
-              </span>
-              {focusable ? (
-                <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0 text-text-light" aria-hidden="true" />
-              ) : null}
-            </>
-          )
-          return (
-            <div
-              className="rounded-md border border-warning/30 bg-warning/[0.04] px-2 py-1.5"
-              data-testid={`${testId}-condition`}
-            >
-              {focusable ? (
-                <button
-                  type="button"
-                  onClick={() => onFocusTarget!(glance.condition!.targetId!)}
-                  className={`${typography.panelBody} text-text-body w-full flex items-start gap-1.5 text-left rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-                  data-testid={`${testId}-condition-focus`}
-                >
-                  {Row}
-                </button>
-              ) : (
-                <p
-                  className={`${typography.panelBody} text-text-body w-full flex items-start gap-1.5 m-0`}
-                >
-                  {Row}
-                </p>
-              )}
-            </div>
-          )
-        })()
-      ) : null}
-        </>
-      )}
 
       {/* ── WHAT TO THINK ABOUT NEXT ───────────────────────────────────────── */}
       {primaryIntervention && onRunIntervention ? (

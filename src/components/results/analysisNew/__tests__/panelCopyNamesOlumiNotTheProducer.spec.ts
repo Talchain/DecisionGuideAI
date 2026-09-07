@@ -111,7 +111,13 @@ describe('the panel names Olumi, not "the producer"', () => {
     expect(labels, 'fixture must produce the coverage row').toContain('Not included in this result')
     expect(labels).not.toContain('Fields the producer did not supply')
 
-    expect(COPY.glance.basisAbsoluteExplain).toContain("Olumi's structural influence score")
+    /* ⚠ FOLLOWED ITS SENTENCE. This asserted `glance.basisAbsoluteExplain`,
+       which was the glance basis caption's `title` tooltip. The caption went
+       with the glance's driver list at `e15416ad`; the sentence did not — it is
+       relocated verbatim to `coverage.structuralInfluence` and is now a VISIBLE
+       caveat on the drivers section instead of a tooltip a touch reader could
+       never open. Same words, same claim, same guard. */
+    expect(COPY.coverage.structuralInfluence).toContain("Olumi's structural influence score")
   })
 
   it('the two driver strings say "Olumi\'s structural influence score"', () => {
