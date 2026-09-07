@@ -333,7 +333,7 @@ describe('composition: the widened undispatched-edit hold governs every arm', ()
 
     expect(
       useCanvasStore.getState().analysisFreshnessDirty,
-      'the run consumed CEE own graph, not the imported canvas',
+      "the run consumed CEE's own graph, not the imported canvas",
     ).toBe(true)
   })
 })

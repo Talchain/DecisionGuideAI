@@ -14,8 +14,11 @@
  * hold must cover every MODEL-CHANGING deferred event and NOTHING ELSE. Four
  * of the eleven `WIRE_SYSTEM_EVENT_TYPES` write graph state at CEE
  * (`SYSTEM_EVENT_HANDLING: 'mutating'`): factor_value_edit, structural_add,
- * structural_delete, structural_rename. The other seven are `'ack_and_commit'`
- * or `'fact_and_commit'` at CEE and write NO graph, so an undispatched one
+ * structural_delete, structural_rename. Of the other seven, SIX are
+ * `'ack_and_commit'` or `'fact_and_commit'` at CEE and the seventh —
+ * `direct_analysis_run` — is not a CEE system-event kind at ALL, going over as
+ * `kind='message'` (`v5/buildPayload.ts:369`). None of the seven writes a
+ * graph, which is the only property this file rests on, so an undispatched one
  * does not make a verdict false — counting them would manufacture a "model changed"
  * banner over a run that is genuinely current, which is the OPPOSITE harm and
  * just as much a lie.
@@ -85,7 +88,13 @@ const structuralRename: WireSystemEvent = {
   payload: { target_id: 'fac_a', label: 'Renamed', expected_label: 'Old', base_graph_hash: 'aag_v1:abc' },
 }
 
-/** A NON-mutating member — CEE records a turn fact and writes no graph. */
+/**
+ * NON-mutating members — and CEE's classes for these two DIFFER, so this
+ * comment names them rather than bucketing them. `feedback_submitted` goes over
+ * as kind `feedback` (`v5/buildPayload.ts:451-463`) and is `'fact_and_commit'`
+ * (a committed turn fact); `patch_dismissed` is `'ack_and_commit'` (a turn row,
+ * no fact). Neither writes a graph — the only property this file rests on.
+ */
 const feedbackSubmitted: WireSystemEvent = {
   type: 'feedback_submitted',
   payload: { rating: 'up', turn_id: 't1' },
