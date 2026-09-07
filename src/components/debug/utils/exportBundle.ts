@@ -2849,9 +2849,9 @@ export async function captureDisplayState(
     // only `report` / `visibleOptionIds` / `rawHeadlineBanded`, all three of
     // which this function ALREADY reads off the same canvas store earlier in
     // this same body — `report` and `rawV2Response` at the top of the results
-    // read, `optionNodes` just above `resolvedOptions`
-    // — the panel's `rawHeadlineBanded` is literally
-    // `rawV2Response.decision_brief.headline_banded`). Importing that single
+    // read, `optionNodes` just above `resolvedOptions`. The panel's
+    // `rawHeadlineBanded` is literally
+    // `rawV2Response.decision_brief.headline_banded`. Importing that single
     // authority is the technique used for Q1 above, and is the opposite of
     // rebuilding it. So a run withheld on Q2 ALONE still reports an analytical
     // rank_source here. That gap is known and recorded, NOT closed — closing it
