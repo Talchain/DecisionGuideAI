@@ -13,11 +13,42 @@
  * So this suite asserts the PROPERTY, over the module's whole exported surface:
  * no influence string may attribute the figure to the analysis run.
  *
- * WHAT WAS MEASURED (PLoT `d37c8cfd`). `influence_score` is a normalised product
- * of authored edge weights along the paths to the goal, computed over a graph
- * with option and decision nodes FILTERED OUT, at a line that runs before the
- * ISL result exists. A founder added an option and flipped the leader outright;
- * all five canvas influence numbers were byte-identical across both runs.
+ * WHAT WAS MEASURED (PLoT `d37c8cfd`, the deployed SHA, verified at its bytes
+ * on 7 Sep 2026 — this paragraph was PROSE ASSERTED FROM A DOCBLOCK until then,
+ * and two of its clauses were wrong).
+ *
+ * On the graph path `influence_score` is `f.normalised_influence`
+ * (`src/lib/factor-influence.ts:798`): a DFS accumulates the PRODUCT of
+ * `edge.strength_mean` along each path to the goal (`:444`), those path effects
+ * are SUMMED (`:471`, "Influence = Sum of all path effects"), and the total is
+ * divided by the largest absolute influence in the SAME RESPONSE (`:604-613`).
+ *
+ *   ⚠ CORRECTED: it is a normalised SUM OVER PATHS OF PRODUCTS, not "a
+ *     normalised product". And "normalised" means BY THE MAX ROW — a row's
+ *     value is therefore not a property of that row alone, and an absolute gap
+ *     between two rows can be moved by a third row outside the pair.
+ *
+ *   ⚠ CORRECTED: "at a line that runs before the ISL result exists" is FALSE.
+ *     The sole call site (`src/routes/v2/run.ts:7989`) runs AFTER the ISL await
+ *     at `:7599`, inside the ISL-success branch. The true and defensible claim
+ *     is ISL-INDEPENDENCE, not temporal precedence: its graph argument is fixed
+ *     from `body.graph` before ISL is called, and its one ISL-derived argument
+ *     (`fragileEdgesForVoi`) reaches only `value_of_information`
+ *     (`factor-influence.ts:822`) and `flip_risk_category` (`:859`) — never
+ *     `influence_score`.
+ *
+ * ⚠⚠ AND THE CLAIM IS PATH-CONDITIONAL, WHICH THE OLD WORDING HID. All of the
+ * above holds on the GRAPH path. When the graph path finds no factor with a
+ * path to the goal it returns null (`factor-influence.ts:766-768`) and the ISL
+ * fallback publishes `influence_score: prob01(f.influence_score)`
+ * (`run.ts:1056`) — ISL's own Monte-Carlo value, which is NOT structural. The
+ * wire discloses which one you got via `importance_basis`
+ * (`'graph_structural' | 'isl_uncertainty'`), and `influenceScaleCopy.ts` gates
+ * the structural noun on it for exactly this reason.
+ *
+ * The run-invariance witness stands unchanged: a founder added an option and
+ * flipped the leader outright; all five canvas influence numbers were
+ * byte-identical across both runs.
  *
  * ⚠ THE POSITIVE CONTROL IS THE LOAD-BEARING PART. An absence assertion over
  * strings is vacuous if the strings stop being reachable, get renamed, or come
@@ -34,6 +65,7 @@ import {
   influenceBarAriaLabel,
   influencePillAriaLabel,
   influenceBasisNoun,
+  INFLUENCE_QUANTITY_BY_BASIS,
 } from '../influenceScaleCopy'
 
 /** Every influence string a mounted surface can render, both provenance arms. */
@@ -51,13 +83,32 @@ const ALL_INFLUENCE_COPY: Array<[string, string]> = [
   ['influencePillAriaLabel(normalised_elasticity)', influencePillAriaLabel(60, 'normalised_elasticity')],
   ['influenceBasisNoun(influence_score)', influenceBasisNoun('influence_score')],
   ['influenceBasisNoun(normalised_elasticity)', influenceBasisNoun('normalised_elasticity')],
+  /* ⭐ THE QUANTITY VOCABULARY IS SUBJECT TO THE SAME PROPERTY, AND IT IS THE
+     ONE MOST AT RISK OF BREAKING IT. Naming a quantity invites a sentence about
+     where the quantity came from, and for `influence_score` the honest answer is
+     NOT the run: this suite's header records the measurement (on the graph
+     path, a normalised sum over paths of products of authored strengths,
+     computed independently of the ISL result; five canvas numbers
+     byte-identical across two runs with different option sets). Derived over the total record so a third basis is
+     covered without an edit here. */
+  ...Object.entries(INFLUENCE_QUANTITY_BY_BASIS).flatMap(
+    ([basis, quantity]): Array<[string, string]> => [
+      [`INFLUENCE_QUANTITY_BY_BASIS.${basis}.noun`, quantity.noun],
+      [`INFLUENCE_QUANTITY_BY_BASIS.${basis}.gloss`, quantity.gloss],
+      [`INFLUENCE_QUANTITY_BY_BASIS.${basis}.runDisclosure`, quantity.runDisclosure],
+    ],
+  ),
 ]
 
 describe('influence copy — no string attributes the figure to the analysis run', () => {
   it('POSITIVE CONTROL: the corpus is non-empty and still says what it should', () => {
     // Without this, every absence assertion below would pass on an empty or
     // renamed export — an instrument that cannot fail.
-    expect(ALL_INFLUENCE_COPY.length).toBeGreaterThanOrEqual(13)
+    // ⚠ 13 WAS THE WHOLE CORPUS WHEN THIS WAS WRITTEN; the quantity vocabulary
+    // added six more (three fields x two bases) on 7 Sep 2026. The floor is
+    // raised rather than left at 13 so a change that DROPPED the new strings
+    // from this corpus would RED here instead of passing on the old count.
+    expect(ALL_INFLUENCE_COPY.length).toBeGreaterThanOrEqual(19)
     for (const [name, copy] of ALL_INFLUENCE_COPY) {
       expect(copy, `${name} must be non-empty`).toBeTruthy()
       expect(copy.length, `${name} must be real copy`).toBeGreaterThan(3)
