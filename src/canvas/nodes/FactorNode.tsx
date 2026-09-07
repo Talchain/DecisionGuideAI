@@ -23,7 +23,7 @@ import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { ConnRow, ConnRowsOverflow, Sep, NodeChip, ActionIcons, MetricPills, NodeMetricRow, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
+import { ConnRow, ConnRowsOverflow, Sep, NodeChip, MetricPills, NodeMetricRow, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { resolveFactorPriorRange } from './shared/factorPriorRange'
 import { useGuidanceStore } from '../stores/guidanceStore'
@@ -452,16 +452,6 @@ export const FactorNode = memo((props: NodeProps) => {
   }, [isDetailed, isPostAnalysis, ceeAnalysisReady, props.id, observedState?.value, valueDisplay])
 
   const outboundConnections = useNodeConnections(props.id, 'outbound')
-
-  const handleConfirm = useCallback(() => {
-    if (!observedState) return
-    const store = useCanvasStore.getState()
-    const node = store.nodes.find(n => n.id === props.id)
-    if (!node) return
-    store.updateNode(props.id, {
-      data: { ...node.data, observedState: { ...observedState, extractionType: 'explicit' as const } },
-    })
-  }, [props.id, observedState])
 
   const influencePct = displayMetadata.influence != null ? Math.round(displayMetadata.influence * 100) : null
   // Already gated by the shared display policy — see useNodeDisplayMetadata.
@@ -1054,18 +1044,6 @@ export const FactorNode = memo((props: NodeProps) => {
           </button>
         )}
 
-        {/* Action icons — wireframe v4 Task 5: external factors get no footer
-            actions (their data is outside the user's control). Low-priority
-            factors in Standard view drop the confirm icon entirely — "open the
-            details" now lives in the R5 quick-action layer on every node, so
-            the dead edit pencil that used to sit here is gone. */}
-        {nodeCategory !== 'external' && (
-          <ActionIcons
-            nodeId={props.id}
-            showConfirm={isInferred && valueDisplay !== null && (isDetailed || isHighPriority)}
-            onConfirm={handleConfirm}
-          />
-        )}
       </BaseNode>
 
       {/* ===== LAYER 2: Popover (Standard view) =====

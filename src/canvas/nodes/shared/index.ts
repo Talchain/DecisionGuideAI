@@ -1,6 +1,5 @@
 export { ConnRow, ConnRowsOverflow } from './ConnRow'
 export { NodeChip } from './NodeChip'
-export { ActionIcons } from './ActionIcons'
 export { Sep } from './Sep'
 export { BriefIcon } from './BriefIcon'
 export { MetricPills } from './MetricPills'
