@@ -846,11 +846,40 @@ export const OptionNode = memo((props: NodeProps) => {
     return allDiffs.get(props.id) ?? null
   }, [isBaselineOption, ceeAnalysisReady, nodes, props.id])
 
+  /**
+   * Do the from→to chips actually render? ONE spelling, consumed by both the
+   * chip block below and the duplicate-suppression beside it.
+   *
+   * ⚠⚠ THIS IS THE FIX FOR A DEFECT THIS PR ITSELF CREATED, and it is the same
+   * shape as the one it set out to fix — one line further up.
+   *
+   * `differentiatorDuplicatesChip` says "drop the footer when it repeats a
+   * value already shown in a VISIBLE chip". The word visible was always the
+   * intent and the code never checked it: it asked whether a matching delta
+   * EXISTS, not whether a chip is on screen. That was harmless only while the
+   * differentiator was itself suppressed post-analysis. Now that it survives
+   * the run, the suppression fires POST-analysis against a chip that renders
+   * PRE-analysis only — so on an option whose top factor is shared with
+   * another (the `X → value` form), the card lost its last line and rendered
+   * ZERO paragraphs. Measured by an independent seat at `92da8e7`:
+   *
+   *     distinct factors, POST → "Hiring is the key difference"   ✓ fixed
+   *     shared factor,    POST → (no differentiator, no Behind)   ✗ still bare
+   *
+   * That is the exact witnessed state this PR exists to end, so half the fix
+   * was no fix. Suppressing against something that is not on screen is the
+   * same error as gating on a re-derived condition instead of the real render
+   * one — which is precisely what the Behind-line gate below gets right.
+   */
+  const structuredDeltaChipsRender =
+    !isPostAnalysis && !isBaselineOption && structuredDeltas.length > 0
+
   // Brief scope 7: drop the differentiator footer only when it repeats a value
-  // already shown in a visible from→to chip — same factor AND the same value
+  // already shown in a VISIBLE from→to chip — same factor AND the same value
   // text. A differentiator carrying a value the chip doesn't show (e.g. a CEE
   // display_value where the chip fell back to "%") is kept, so no info is lost.
-  const differentiatorDuplicatesChip = !!differentiator
+  const differentiatorDuplicatesChip = structuredDeltaChipsRender
+    && !!differentiator
     && differentiator.label.includes('→')
     && structuredDeltas.some(d => {
       if (d.factorId !== differentiator.factorId) return false
@@ -1923,7 +1952,7 @@ export const OptionNode = memo((props: NodeProps) => {
             a LEGIBILITY change, not a density one. First-view legibility is
             height-bound at the GRAPH level (build-vs-buy lays out 2693 units
             against ~1600 showable) and no card change reaches that. */}
-        {!isPostAnalysis && !isBaselineOption && structuredDeltas.length > 0 && (
+        {structuredDeltaChipsRender && (
           <ul className="flex flex-col gap-1 mt-1.5 m-0 p-0 list-none">
             {structuredDeltas.map(d => (
               <li
@@ -1967,9 +1996,18 @@ export const OptionNode = memo((props: NodeProps) => {
             is the same expression the Behind block below uses. Two spellings of
             one question is how these two lines would drift into contradicting
             each other. Where Behind renders, it already names the key factor
-            ("no X added" / "X lower") and this line would repeat it; everywhere
-            else — the recommended option, and EVERY option when the leader is
-            withheld — this is the only statement of which factor is key. */}
+            ("no X added" / "X lower") and this line would repeat it.
+
+            ⚠ WHERE IT DOES NOT RENDER, THIS LINE IS USUALLY — NOT ALWAYS — THE
+            ONLY STATEMENT OF WHICH FACTOR IS KEY. An earlier draft of this
+            comment said EVERY option when the leader is withheld, and an
+            independent seat refuted it by measurement: the differentiator is
+            also dropped when it duplicates a rendering chip, and when
+            `computeAllDifferentiators` returns null for the option at all
+            (fewer than two non-baseline options, a sub-threshold difference,
+            or a label shared with another option and deduped away). The
+            universal quantifier was doing rhetorical work the code does not
+            do. */}
         {!isBaselineOption && !isDetailed && differentiator
           && !differentiatorDuplicatesChip
           && !(isPostAnalysis && !isRecommended && behindReason) && (

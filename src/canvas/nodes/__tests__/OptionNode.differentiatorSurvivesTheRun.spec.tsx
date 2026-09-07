@@ -180,3 +180,119 @@ describe('OptionNode differentiator — the run must not delete the reason', () 
     expect(el.textContent).toContain('Developer headcount')
   })
 })
+/**
+ * ⭐⭐ THE SHARED-TOP-FACTOR CASE — half a fix is no fix, and this is the half
+ * the first cut missed.
+ *
+ * An independent seat measured, at the first version of this change:
+ *
+ *     distinct factors, POST, leader withheld → "Hiring is the key difference"  ✓
+ *     shared factor,    POST, leader withheld → (zero paragraphs on the card)   ✗
+ *
+ * When two options share their top factor the differentiator takes the
+ * `X → value` form, and `differentiatorDuplicatesChip` suppressed it against a
+ * from→to chip that renders PRE-analysis only. So the suppression compared
+ * against something not on screen and removed the card's last line — the exact
+ * witnessed state this file exists to end, still reachable.
+ *
+ * The repair binds the suppression to `structuredDeltaChipsRender`, the SAME
+ * expression the chip block uses, so it can never again suppress against a chip
+ * nobody can see.
+ */
+describe('OptionNode differentiator — a SHARED top factor survives the run too', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  /** Both options differ on the SAME factor, so the sentence takes `X → value`. */
+  const SHARED_CEE = {
+    options: [
+      // `display_value` is what drives the `X → value` form: with a SHARED top
+      // factor the sentence disambiguates by value, and CEE's own string is
+      // rendered verbatim. Bare numbers here would fall through to directional
+      // language and BOTH options would produce the same sentence, which the
+      // deduplication then nulls — so the fixture would silently stop
+      // exercising the shared branch at all.
+      { id: 'option-1', interventions: { 'f-head': { value: 3, display_value: '3 engineers' } } },
+      { id: 'option-2', interventions: { 'f-head': { value: 9, display_value: '9 engineers' } } },
+    ],
+  }
+
+  /**
+   * ⚠ THE FIXTURE MUST PRODUCE A CHIP, or the suppression never fires and these
+   * tests pass without exercising the branch. Measured: without an
+   * `observedState` on the factor and a baseline option present,
+   * `structuredDeltas` is EMPTY, `differentiatorDuplicatesChip` can never be
+   * true, and reverting the fix leaves every test GREEN — which is exactly what
+   * the first cut of this block did.
+   *
+   * With them, the case reproduces:
+   *   PRE  → chip "Developer headcount…→ 3 engineers", paragraphs []  (suppressed, correct)
+   *   POST → chip gone, paragraph "Developer headcount → 3 engineers"  (the fix)
+   */
+  const SHARED_FACTOR = {
+    id: 'f-head',
+    type: 'factor',
+    data: {
+      label: 'Developer headcount',
+      type: 'factor',
+      observedState: { value: 0, unit: 'count' },
+      unit: 'count',
+    },
+  }
+  const BASELINE_OPTION = {
+    id: 'option-b',
+    type: 'option',
+    data: { label: 'Status quo', type: 'option', is_baseline: true },
+  }
+
+  const renderShared = (storeOverrides: Record<string, unknown> = {}) => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        ceeAnalysisReady: SHARED_CEE,
+        nodes: [SHARED_FACTOR, FACTOR_COST, OPTION_1, OPTION_2, BASELINE_OPTION],
+        ...storeOverrides,
+      }) as any))
+    return render(
+      <ReactFlowProvider>
+        <OptionNode {...baseProps} data={{ label: 'Hire two developers', type: 'option' }} />
+      </ReactFlowProvider>
+    )
+  }
+
+  /** Every paragraph the card renders — the seat measured ZERO of these. */
+  const paragraphTexts = (c: HTMLElement) =>
+    Array.from(c.querySelectorAll('p')).map((p) => (p.textContent ?? '').trim()).filter(Boolean)
+
+  it('⭐ POST-ANALYSIS the card is not left bare — it still says which factor differs', () => {
+    const { container } = renderShared({ results: { status: 'complete', report: {} } })
+    const paras = paragraphTexts(container)
+    // Bind by IDENTITY to the shared factor's name, not by "some text exists".
+    expect(paras.join(' | ')).toContain('Developer headcount')
+    expect(paras.length).toBeGreaterThan(0)
+  })
+
+  it('⭐ THE TWIN: pre-analysis is UNCHANGED — still suppressed, because the chip is there', () => {
+    // The fix must not widen into pre-analysis. There the chip renders and
+    // already carries the value, so the footer would repeat it.
+    const { container } = renderShared({ results: { status: 'idle', report: null } })
+    expect(paragraphTexts(container)).toEqual([])
+  })
+
+  it('PRECONDITION: the shared `→` form, AND the suppression was really in play', () => {
+    // Two preconditions, because either one failing makes the case above pass
+    // for the wrong reason (CLAUDE.md trap 13b).
+    const post = renderShared({ results: { status: 'complete', report: {} } })
+    const joined = paragraphTexts(post.container).join(' | ')
+    expect(joined).toContain('→')
+    expect(joined).not.toContain('is the key difference')
+    post.unmount()
+
+    // ⭐ AND THE ONE THE FIRST CUT MISSED: pre-analysis the chip must RENDER and
+    // the differentiator must be SUPPRESSED. If no chip exists there is nothing
+    // to suppress against, `differentiatorDuplicatesChip` is false either way,
+    // and reverting the fix would leave this whole block green.
+    const pre = renderShared({ results: { status: 'idle', report: null } })
+    const chips = Array.from(pre.container.querySelectorAll('li')).map((li) => li.textContent ?? '')
+    expect(chips.join(' | ')).toContain('3 engineers')
+    expect(paragraphTexts(pre.container)).toEqual([])
+  })
+})
