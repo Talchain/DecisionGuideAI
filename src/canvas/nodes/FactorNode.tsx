@@ -307,7 +307,6 @@ export const FactorNode = memo((props: NodeProps) => {
   )
 
   const isInferred = observedState?.extractionType === 'inferred'
-  const isExplicit = observedState?.extractionType === 'explicit'
 
   // ⭐ WHO PUT THIS NUMBER HERE — read from the EXISTING owners, never re-derived.
   //
@@ -642,46 +641,22 @@ export const FactorNode = memo((props: NodeProps) => {
       {/* The other two `inferred` populations — a value a PERSON owns, and one
           with no stamp at all — reach NEITHER arm and show no coaching line.
           That is a refusal to claim, not a hidden surface: the value, the
-          evidence badge, the chips and the connections all still render. For
-          the source-less case there is genuinely nothing true to say (claiming
-          the user authored it would invent authorship). For the user-owned
-          case there IS — but see the note on the arm below, which cannot
-          currently deliver it.
-          ⚠ FOUND WHILE FIXING THIS, NOT FIXED HERE: the arm below is
-          STRUCTURALLY DEAD. `useNodeConnections` returns `[]` unless
-          `results.status === 'complete'` (hooks/useNodeConnections.ts:35),
-          and this whole block renders only when NOT post-analysis — so
-          `outboundConnections.length > 0` can never hold here and this
-          sentence has never been able to render. Left in place and reported
-          rather than deleted or widened: deleting it is a separate
-          dead-code call, and widening it would ship a branch no test in this
-          harness can reach. */}
-      {isExplicit && isHighPriority && outboundConnections.length > 0 && (
-        <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
-          You provided this value. It strongly influences {outboundConnections[0]?.connectedNodeLabel ?? 'connected outcomes'}.
-        </p>
-      )}
+          evidence badge and the chips all still render. For the source-less
+          case there is genuinely nothing true to say (claiming the user
+          authored it would invent authorship).
+          ⚠ THE USER-OWNED ARM AND THE PRE-ANALYSIS CONNECTION LIST THAT USED
+          TO SIT HERE ARE DELETED, not merely quiet. Both gated on
+          `outboundConnections.length > 0`, and `useNodeConnections` returns
+          `[]` unless `results.status === 'complete'`
+          (hooks/useNodeConnections.ts:35) while this whole block renders only
+          when `!isPostAnalysis` — a contradiction, so neither could ever
+          render. The previous author found this, wrote it down here, and left
+          it as "a separate dead-code call". This is that call. The
+          post-analysis ConnRows list is the live one and is untouched. */}
       {nodeCategory === 'external' && outcomesAffected > 0 && (
         <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
           Uncertainty here affects {outcomesAffected} outcome{outcomesAffected !== 1 ? 's' : ''}.
         </p>
-      )}
-      {/* Connection list with strengths — max 3 whole rows, remainder
-          disclosed via "+N more in inspector" (audit §8 P0-5 containment). */}
-      {outboundConnections.length > 0 && (
-        <>
-          <Sep />
-          {outboundConnections.slice(0, 3).map(conn => (
-            <ConnRow
-              key={conn.edgeId}
-              edgeId={conn.edgeId}
-              nodeKind={conn.connectedNodeKind}
-              label={conn.connectedNodeLabel}
-              confidencePct={conn.confidencePct}
-            />
-          ))}
-          <ConnRowsOverflow total={outboundConnections.length} shown={3} />
-        </>
       )}
       {/* Coaching chips — moved out of body. They appear here in the
           high-priority Standard popover and in the Detailed inline render
