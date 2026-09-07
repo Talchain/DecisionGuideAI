@@ -165,14 +165,14 @@ export interface AtAGlanceProps {
    * refuses got a live ribbon control for a run that reaches `showToast` and
    * fails.
    *
-   * ⚠ THE FOOTER CONTROL IS UNGATED AT THIS HEAD. `ReanalyseBar` takes only
-   * `onReanalyse` and disables on `!onReanalyse`; PR #1212 is what gives it
-   * `canRun` / `blockedReason`. Whichever of the two lands first leaves this
-   * surface incoherent in one direction until the other follows — with only
-   * #1212, a DISABLED footer control carrying the refusal sits beside an
-   * ENABLED ribbon control for the same action, and the product contradicts
-   * itself about whether the user may run an analysis. This prop closes the
-   * ribbon's half.
+   * ⭐ THE FOOTER CONTROL IS GATED TOO, SINCE #1212. `OutputsDock` hands
+   * `ReanalyseBar` the same gate value and refusal sentence it hands this
+   * prop, plus the running flag, and that bar disables on
+   * `!onReanalyse || blocked || isAnalysing`. While only one half had landed
+   * this surface was incoherent in one direction or the other — one control
+   * refusing the run beside another still offering it, the product
+   * contradicting itself about whether the user may run an analysis. This
+   * prop closes the ribbon's half; both are closed now.
    *
    * ⚠ REQUIRED, AND NULLABLE, DELIBERATELY. `AtAGlance` is the component that
    * RENDERS the control, so this is the boundary at which an omission causes
@@ -483,8 +483,9 @@ export function AtAGlance({
                  `runGateResult` in `OutputsDock`, and `isRunning` is that same
                  dock's local flag; nothing here re-reads the gate, so this
                  control cannot form its own opinion about admission. The
-                 footer control, `ReanalyseBar`, disables on `!onReanalyse` at
-                 this head — PR #1212 is what points it at the same verdict.
+                 footer control, `ReanalyseBar`, reads that same verdict since
+                 #1212 and disables on
+                 `!onReanalyse || blocked || isAnalysing`.
 
                  ⭐ THE TWO ATTRIBUTES READ DIFFERENT EXPRESSIONS, AND THAT IS
                  THE FIX. `disabled` asks whether the button may be pressed

@@ -146,10 +146,12 @@ export interface AnalysisNewTabBodyProps {
    * Without this prop the ribbon control answered "may I re-analyse?" with a
    * bare handler and could not refuse at all.
    *
-   * ⚠ THE FOOTER CONTROL DOES NOT READ THIS TODAY. `ReanalyseBar` takes only
-   * `onReanalyse` and disables on `!onReanalyse`; PR #1212 is what points it
-   * at the same verdict. This prop closes the ribbon's half, and the surface
-   * is coherent only once both halves have landed.
+   * ⭐ THE FOOTER CONTROL READS IT TOO, SINCE #1212. `OutputsDock` hands
+   * `ReanalyseBar` the same gate value and refusal sentence it hands this
+   * prop, plus the running flag, and that bar disables on
+   * `!onReanalyse || blocked || isAnalysing`. This prop closes the ribbon's
+   * half; both halves have landed, so the surface is coherent — and neither
+   * control may grow a predicate of its own.
    *
    * `null` = no verdict supplied, which is treated as blocked. Absent behaves
    * as `null` for the same reason: a host that has not answered the question

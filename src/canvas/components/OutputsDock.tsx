@@ -3578,16 +3578,19 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                      control was handed a bare handler and no gate, so it could
                      not refuse a run this verdict refuses.
 
-                     ⚠ THE FOOTER FOR THIS SURFACE READS NEITHER OF THESE AT
-                     THIS HEAD, and the comment this replaced said it did. The
-                     `reanalyse` arm below renders `ReanalyseBar`, whose only
-                     prop is `onReanalyse` and whose button disables on
-                     `!onReanalyse`. The bar that reads `canRunAnalysis` /
-                     `runBlockedTooltip` is `AnalysisReadinessBar` — the
-                     `readiness` arm, which `shellContract.ts` declares for
-                     `olumi`, not for this surface. PR #1212 is what gives
-                     `ReanalyseBar` the gate; the two are siblings and should
-                     land adjacent. */
+                     ⭐ AND THE FOOTER FOR THIS SURFACE READS THE SAME PAIR.
+                     The `reanalyse` arm below hands `ReanalyseBar` the same
+                     three expressions the `readiness` arm passes to
+                     `AnalysisReadinessBar` — the gate value, its refusal
+                     sentence, and the running flag. `AnalysisReadinessBar` is
+                     the bar `shellContract.ts` declares for `olumi`, not for
+                     this surface; both are now readers of the one verdict
+                     computed above, so do not give either control a predicate
+                     of its own (CLAUDE.md trap 21). Before #1212 this arm took
+                     a bare handler and disabled on it alone; `ReanalyseBar`
+                     now disables on `!onReanalyse || blocked || isAnalysing`.
+                     `reanalyseBarIsGated.sourceScan` pins that binding at the
+                     mount rather than trusting this comment. */
                   canRunAnalysis={canRunAnalysis}
                   runBlockedReason={runBlockedTooltip}
                   onSendMessage={sendMessage}
