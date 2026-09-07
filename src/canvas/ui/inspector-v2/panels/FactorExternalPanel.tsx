@@ -257,9 +257,16 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
         {/* Post-analysis: ImportanceBar + VoI folded in (no separate bordered card) */}
         <StaleGuardBanner hasResults={isResultsMode}>
           {/* ⭐ GROUPING, NOT DECORATION — 4px WITHIN a pair, 16px BETWEEN.
-          Both bars in this stack put their label BELOW their own value
-          (`ImportanceBar` ends with its label; the VoI block does the
-          same). At `space-y-2` the gap BETWEEN pairs was 8px while the
+          Both bars in this stack put their label BELOW their own value,
+          and each group then ENDS WITH ITS OWN GUIDANCE SENTENCE.
+
+          ⚠ AN EARLIER VERSION OF THIS COMMENT SAID "`ImportanceBar` ends
+          with its label; the VoI block does the same". The first half is
+          true at the bytes; the second is FALSE - the VoI block ends with
+          a guidance `<p>`, a third `mt-1` item. That "two pairs" model is
+          exactly what made the influence sentence's placement invisible to
+          the author: a group modelled as a PAIR has no room in it for the
+          third element that was actually there. At `space-y-2` the gap BETWEEN pairs was 8px while the
           gap WITHIN a pair was `mt-1` = 4px — only 2x — so a reader
           scanning down met:
 
@@ -284,7 +291,10 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
           Adding the `Investigation value` label (the prior fix) told the
           reader the second bar HAS a name; it could not tell them which
           bar each name belongs to, because proximity still said
-          otherwise. 4px vs 16px makes proximity say the true thing. */}
+          otherwise. 4px within a group vs 16px between them makes proximity say
+            the true thing - but ONLY once every sentence sits inside the
+            group it describes, which is the change below and is what the
+            first cut of this fix missed. */}
           <div className="mt-2 space-y-4">
             <ImportanceBar
               importanceScore={displayMetadata.influence}
@@ -319,9 +329,32 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
           </div>
         </StaleGuardBanner>
 
-        {/* Contextual guidance */}
+        {/* ⚠ SEPARATED, NOT GROUPED — AND THE ASYMMETRY WITH THE OTHER TWO PANELS
+            IS THE POINT. In `FactorControllablePanel` and `FactorObservablePanel`
+            this sentence moves INSIDE the metrics container, because there it is
+            always about influence and is non-null only when that container renders.
+            NEITHER holds here:
+
+              · `externalGuidance` is UNCONDITIONAL — its last branch is a plain
+                string ("This factor is outside your control..."), so it renders
+                whether or not the metrics container above exists. Moving it inside
+                would silently delete it in every state where that container is absent.
+              · It is not always a statement about influence. One branch is about a
+                FLIP ("If X is high, the result changes to Y"), one about uncertainty,
+                one about controllability.
+
+            So it stays a sibling — but it may not sit CLOSER to the group above than
+            that group's own members sit to each other. At `mt-2` = 8px against the
+            container's `space-y-4` = 16px it read as the tail of the
+            value-of-information block, which is the misreading
+            `inspectorStrings.ts:403-419` records. `mt-6` = 24px puts it clearly
+            outside: 1.5x the group separator, so proximity reads it as its own
+            panel-level remark rather than as a third line of somebody else's bar.
+
+            The three panels look identical and are not. Applying one byte-identical
+            change to all three is what produced the defect this repairs. */}
         <p
-          className={`${typography.panelBody} text-text-body mt-2`}
+          className={`${typography.panelBody} text-text-body mt-6`}
           data-testid="factor-external-guidance"
         >
           {externalGuidance}

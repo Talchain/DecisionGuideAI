@@ -178,9 +178,16 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
         {/* Post-analysis: ImportanceBar + VoI folded in (no separate bordered card) */}
         <StaleGuardBanner hasResults={isResultsMode}>
           {/* ⭐ GROUPING, NOT DECORATION — 4px WITHIN a pair, 16px BETWEEN.
-          Both bars in this stack put their label BELOW their own value
-          (`ImportanceBar` ends with its label; the VoI block does the
-          same). At `space-y-2` the gap BETWEEN pairs was 8px while the
+          Both bars in this stack put their label BELOW their own value,
+          and each group then ENDS WITH ITS OWN GUIDANCE SENTENCE.
+
+          ⚠ AN EARLIER VERSION OF THIS COMMENT SAID "`ImportanceBar` ends
+          with its label; the VoI block does the same". The first half is
+          true at the bytes; the second is FALSE - the VoI block ends with
+          a guidance `<p>`, a third `mt-1` item. That "two pairs" model is
+          exactly what made the influence sentence's placement invisible to
+          the author: a group modelled as a PAIR has no room in it for the
+          third element that was actually there. At `space-y-2` the gap BETWEEN pairs was 8px while the
           gap WITHIN a pair was `mt-1` = 4px — only 2x — so a reader
           scanning down met:
 
@@ -205,12 +212,42 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
           Adding the `Investigation value` label (the prior fix) told the
           reader the second bar HAS a name; it could not tell them which
           bar each name belongs to, because proximity still said
-          otherwise. 4px vs 16px makes proximity say the true thing. */}
+          otherwise. 4px within a group vs 16px between them makes proximity say
+            the true thing - but ONLY once every sentence sits inside the
+            group it describes, which is the change below and is what the
+            first cut of this fix missed. */}
           <div className="mt-2 space-y-4">
-            <ImportanceBar
+            {/* ⚠ THE GUIDANCE SENTENCE IS PART OF THIS GROUP, AND MOVING IT HERE IS
+                THE WHOLE REPAIR. It was rendered as the container's next SIBLING at
+                `mt-2` = 8px, while the two groups inside sit `space-y-4` = 16px
+                apart — so a sentence about INFLUENCE ended up twice as close to the
+                value-of-information group as the two groups are to each other, and
+                proximity is comparative. `inspectorStrings.ts:403-419` names exactly
+                this juxtaposition: *"'influence: Low' directly above 'one of the most
+                influential'"*.
+
+                SAFE BY DERIVATION, not by inspection: `sensitivityGuidance` is
+                non-null only when `isResultsMode && sensitivityRank != null`, and the
+                container renders on `isResultsMode && (influence != null ||
+                sensitivityRank != null)`. The first implies the second, so nothing
+                can be lost by moving it inside. ⚠ THAT PROOF IS PANEL-SPECIFIC and
+                does NOT hold for `FactorExternalPanel`, whose guidance is
+                unconditional and is not always about influence — it is separated
+                there instead. The three panels look identical and are not; treating
+                them as one is what produced this defect.
+
+                Typography is deliberately UNCHANGED (`panelBody`/`text-text-body`).
+                This is a change of POSITION, not of type — sizing the sentence to
+                its neighbours is a separate question and is not smuggled in here. */}
+            <div>
+              <ImportanceBar
               importanceScore={displayMetadata.influence}
               sensitivityRank={displayMetadata.sensitivityRank}
-            />
+              />
+              {sensitivityGuidance && (
+                <p className={`${typography.panelBody} text-text-body mt-1`}>{sensitivityGuidance}</p>
+              )}
+            </div>
             {displayMetadata.valueOfInformation !== null && (
               <div>
                 <DataBar
@@ -240,10 +277,6 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
           </div>
         </StaleGuardBanner>
 
-        {/* Contextual guidance */}
-        {sensitivityGuidance && (
-          <p className={`${typography.panelBody} text-text-body mt-2`}>{sensitivityGuidance}</p>
-        )}
       </PanelGroup>
 
       {/* ── Your input group ──────────────────────────────────── */}
