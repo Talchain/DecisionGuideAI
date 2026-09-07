@@ -48,8 +48,11 @@
  *   the MODULE      → 9 importers (7 product files, all for SectionErrorBoundary)
  *   the COMPONENT   → 2 importers (one Storybook story, one test) — ZERO product
  *
- * The narrow conclusion survives — `beliefStrength` has no product renderer —
- * but only the second line supports it. My original figure came from a `grep`
+ * The narrow conclusion those figures support is the one this file is named
+ * for — NOTHING MOUNTS THE COMPONENT — and only the second line supports even
+ * that. ⚠ It is NOT "beliefStrength has no product renderer": the header above
+ * refutes that 25 lines earlier, and the sentence survived here anyway, inside
+ * the very block written to correct it. My original figure came from a `grep`
  * piped through `head -5`: an enumeration read from a truncated list, which is
  * how "once" was produced from nine.
  */

@@ -364,11 +364,25 @@ describe('canvas edge rendering over the 6 Sep 2026 capture', () => {
    * `beliefStrength` is `0.5` on all 23 edges — `DEFAULT_EDGE_DATA.beliefStrength`,
    * a UI constant — while `beliefExists` beside it carries four distinct values
    * CEE sourced. This is the exact shape the guard exists to catch, and it is
-   * recorded here rather than fixed because the reader manifest says it reaches
-   * NO live surface: the only renderer of it, `GraphTextView`, has no product
-   * call site (its module is imported once, for `SectionErrorBoundary`), and the
-   * field's other consumer is staleness hashing. A write-mostly field with no
-   * live reader cannot mislead a user.
+   * recorded here rather than fixed — but ⚠⚠ NOT for the reason this comment
+   * used to give. It said the field "reaches NO live surface", that
+   * `GraphTextView` is "the only renderer of it", and that its module is
+   * "imported once". All three are false, derived at the bytes:
+   *
+   *   `captureModelVersion.ts:104`  `collectFields` is a DENYLIST, and
+   *                                 `beliefStrength` is not in `EXCLUDED_FIELDS`
+   *   `describeChange.ts:47`        maps it to the label `'effect size'`
+   *   `WhatChangedPanel.tsx:118`    renders those lines via `describeChangeset`,
+   *                                 mounted from `routes/CanvasMVP.tsx`
+   *
+   * So a CHANGE to the field already reaches a user as "Link a -> b effect size
+   * 0.5 -> 0.7". The module has 9 importers, not one.
+   *
+   * What still justifies recording rather than fixing is narrower and is what
+   * the manifest actually supports: the value is CONSTANT, so no change line is
+   * produced from it in normal operation, and the added-edge path renders no
+   * value at all. That is a bound on the current data, not a claim that the
+   * field has no reader.
    *
    * ⚠⚠ THIS TEST DOES NOT DETECT A NEW READER, AND AN EARLIER VERSION OF THIS
    * COMMENT CLAIMED IT DID. Its entire input is two frozen JSON fixtures and
@@ -377,10 +391,10 @@ describe('canvas edge rendering over the 6 Sep 2026 capture', () => {
    * stay green. An independent seat named that: a comment manufacturing a
    * guarantee the code does not provide.
    *
-   * The guarantee now exists, derived, in
-   * `beliefStrengthHasNoProductRenderer.spec.ts` — it walks the product tree and
-   * REDs when any non-test file imports the component, with a contrast control
-   * proving the probe can see importers at all.
+   * The guarantee now exists, derived, in `graphTextViewIsNotMounted.spec.ts`
+   * — it walks the product tree and REDs when any non-test file imports OR
+   * lazy-imports the component, with a contrast control that runs the door's
+   * own regex against a module this repo really does lazy-mount.
    *
    * ⚠ AND THE FIGURE THAT COMMENT CARRIED WAS FALSE. "Its module is imported
    * once, for SectionErrorBoundary" — measured with no truncation, the module
