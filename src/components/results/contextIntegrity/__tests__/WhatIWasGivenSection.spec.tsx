@@ -164,6 +164,12 @@ describe('the fixtures carry the case they are used to prove (anti-vacuity)', ()
  * so it never self-corrects. The store simply kept the previous decision's
  * content and the surface had no identity assertion to stop it.
  *
+ * ⚠ Since the draft turn began recording a fresh decision's brief under its own
+ * id (`recordBriefForFreshDraft`, 6 Sep 2026), "nothing is written" above is
+ * history for the case where the draft lands; the interval before it lands, and
+ * hidden turns, still leave the previous content standing. The identity
+ * assertion below is unchanged and is still what protects that interval.
+ *
  * These tests bind to DECISION IDENTITY — "this text belongs to scenario A
  * while scenario B is current" — never to a value predicate another decision's
  * brief could also satisfy (CLAUDE.md trap 19).

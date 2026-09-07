@@ -62,6 +62,17 @@ const GLYPH = {
   not_assessed: { Icon: HelpCircle, colour: 'text-text-light' },
 } as const
 
+/**
+ * One row idiom, used by both rows.
+ *
+ * ⚠ SHARED RATHER THAN COPIED. The two rows must stay typographically
+ * identical: the demotion is carried by the RULE and by position, never by
+ * making the disclosure smaller or fainter. Shrinking it would be a second,
+ * unreviewed claim — that the scope statement matters less than the verdicts,
+ * when the whole point is that a reader must not miss it.
+ */
+const CHIP_ROW = `flex items-center flex-wrap gap-x-3 gap-y-1 ${typography.panelMeta} text-text-light list-none p-0 m-0`
+
 export interface WhatWeCheckedProps {
   checks: ChecksSection
   testId?: string
@@ -80,6 +91,34 @@ export function WhatWeChecked({
    */
   if (checks.items.length === 0) return null
 
+  /**
+   * ⭐⭐ THE PARTITION: AN ANSWER IS NOT A STATEMENT ABOUT SCOPE.
+   *
+   * `pass` and `finding` are VERDICTS — the analysis looked and this is what it
+   * found. `not_assessed` is a statement about what the analysis DID NOT COVER,
+   * and it is not a third possible answer to the same question.
+   *
+   * Rendered as peers in one flat row, the row itself asserts they are the same
+   * KIND of thing, and a reader scanning three chips reads three results. The
+   * glyph and colour distinguish them (and `whatWeChecked.spec.tsx` §3 pins
+   * that they do) — but a distinction carried only by a symbol is a distinction
+   * the panel is not making structurally. The panel must never appear to have
+   * reached a conclusion the analysis did not license.
+   *
+   * ⚠ THIS SPLITS ON `state`, WHICH IS THE VIEW MODEL'S OWN VOCABULARY — never
+   * on `id` and never on `code`. Four codes across all three checks reach
+   * `not_assessed` (`leader_not_assessed`, `robustness_not_assessed`,
+   * `robustness_unknown`, `evidence_not_assessed`), and any of the three checks
+   * can land there. A partition keyed on the evidence row alone would leave an
+   * unassessed leader or robustness check sitting among the verdicts.
+   *
+   * ⚠ NOTHING HERE CHANGES WHAT A STATE MEANS OR WHEN IT FIRES. The codes, the
+   * states, the labels and the sentences are the adapter's and the copy deck's,
+   * untouched — this is a presentation change only.
+   */
+  const verdicts = checks.items.filter((i) => i.state !== 'not_assessed')
+  const disclosures = checks.items.filter((i) => i.state === 'not_assessed')
+
   return (
     <section
       className="border-t border-panel-border pt-3"
@@ -94,38 +133,78 @@ export function WhatWeChecked({
         {COPY.sections.checks}
       </h3>
 
-      <ul className={`flex items-center flex-wrap gap-x-3 gap-y-1 ${typography.panelMeta} text-text-light list-none p-0 m-0`}>
-        {checks.items.map((item) => (
-          <ChecksChip key={item.id} item={item} testId={testId} />
-        ))}
-      </ul>
+      {verdicts.length > 0 ? (
+        <ul className={CHIP_ROW} data-testid={`${testId}-verdicts`}>
+          {verdicts.map((item) => (
+            <ChecksChip key={item.id} item={item} testId={testId} />
+          ))}
+        </ul>
+      ) : null}
 
       {/*
-        ⚠ THE SENTENCES SIT BELOW THE ROW, NOT INSIDE THE CHIPS. Inline they
-        would break the one-line scan that is the readout's whole value, and on
-        a run where two checks were unassessed the row would wrap into a
-        paragraph with glyphs in it. Below, the row stays scannable and the
-        explanations read as prose.
+        ⚠ A DASHED RULE, NOT A SOLID ONE, AND THE DIFFERENCE IS THE CLAIM. The
+        section's own top edge is solid (`border-t border-panel-border`, above)
+        because it divides this readout from the one before it. This edge
+        divides two kinds of statement INSIDE one readout, and a dashed rule is
+        the repo's existing mark for a soft, provisional boundary
+        (`DecisionPanel.tsx:227`, `OptionPanel.tsx:380`). Same token, same
+        weight, different stroke — no new visual language.
+
+        ⚠ THE RULE IS DRAWN ONLY WHEN THERE IS A VERDICT LINE TO DEMOTE BELOW.
+        An all-unassessed run is reachable (no verdict + no robustness field +
+        no evidence assessment), and there a rule would separate nothing from
+        everything.
       */}
-      {checks.items.some((i) => meaningFor(i)) ? (
-        <ul
-          className="mt-2 space-y-1 list-none p-0"
-          data-testid={`${testId}-meanings`}
+      {disclosures.length > 0 ? (
+        <div
+          className={
+            verdicts.length > 0
+              ? 'mt-2 pt-2 border-t border-dashed border-panel-border'
+              : 'mt-1'
+          }
+          data-testid={`${testId}-scope`}
         >
-          {checks.items.map((item) => {
-            const meaning = meaningFor(item)
-            if (!meaning) return null
-            return (
-              <li
-                key={item.id}
-                className={`${typography.panelBody} text-text-light`}
-                data-testid={`${testId}-meaning-${item.id}`}
-              >
-                {meaning}
-              </li>
-            )
-          })}
-        </ul>
+          <ul className={CHIP_ROW}>
+            {disclosures.map((item) => (
+              <ChecksChip key={item.id} item={item} testId={testId} />
+            ))}
+          </ul>
+
+          {/*
+            ⚠ THE SENTENCES SIT BELOW THE ROW, NOT INSIDE THE CHIPS. Inline they
+            would break the one-line scan that is the readout's whole value, and
+            on a run where two checks were unassessed the row would wrap into a
+            paragraph with glyphs in it. Below, the row stays scannable and the
+            explanations read as prose.
+
+            ⚠ AND THEY NOW TRAVEL WITH THE DISCLOSURE RATHER THAN WITH THE
+            SECTION. Every meaning-bearing code is a `not_assessed` one — the
+            copy deck's §7.5 rule, pinned in both directions by
+            `whatWeChecked.spec.tsx` — so iterating the partition drops nothing.
+            A sentence explaining an absence belongs under the rule that says an
+            absence is what is being reported.
+          */}
+          {disclosures.some((i) => meaningFor(i)) ? (
+            <ul
+              className="mt-2 space-y-1 list-none p-0"
+              data-testid={`${testId}-meanings`}
+            >
+              {disclosures.map((item) => {
+                const meaning = meaningFor(item)
+                if (!meaning) return null
+                return (
+                  <li
+                    key={item.id}
+                    className={`${typography.panelBody} text-text-light`}
+                    data-testid={`${testId}-meaning-${item.id}`}
+                  >
+                    {meaning}
+                  </li>
+                )
+              })}
+            </ul>
+          ) : null}
+        </div>
       ) : null}
     </section>
   )

@@ -72,7 +72,8 @@ export const DECISION_RESTING_COPY = {
  * That is structurally true and NOT a fallback bug — the wire carries no brief
  * field on the decision node at all, so no default could have supplied it. The
  * brief arrives on a different carrier entirely (`contextIntegrityStore`,
- * written once per scenario by `serverGraphHydration`), and until now reached
+ * written by `serverGraphHydration` on the cold read, and by the draft turn
+ * that first lands a graph on a fresh scenario), and until now reached
  * exactly one surface: the results panel's "What you gave me".
  *
  * ⚠ THE HEADING IS DELIBERATELY THE SAME WORDS THAT PANEL USES. It is the
@@ -718,12 +719,16 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // ---- The user's brief, on the node their brief is about ----
   //
   // ⛔ THE IDENTITY GATE — READ `contextIntegrityStore`'s HEADER BEFORE TOUCHING
-  // THIS. It is not defensive coding; it is the fix for a shipped P0. That store
-  // is written ONLY when the cold read returns `status: 'graph'`. A
-  // freshly-minted scenario reliably answers `absent`, so nothing is written and
-  // nothing is cleared — and a reader without this gate renders THE PREVIOUS
-  // DECISION'S BRIEF on the new decision's anchor node, surviving reset-canvas →
-  // new brief → draft → analysis → edit until a page reload.
+  // THIS. It is not defensive coding; it is the fix for a shipped P0. That
+  // store's cold-read writer runs ONLY when the read returns `status: 'graph'`,
+  // and a freshly-minted scenario reliably answers `absent` — so nothing is
+  // cleared at reset, and a reader without this gate renders THE PREVIOUS
+  // DECISION'S BRIEF on the new decision's anchor node. The draft turn now
+  // records the NEW decision's brief under its own id once its graph lands
+  // (`recordBriefForFreshDraft`), which is what makes the fresh case render;
+  // it does not retire this gate, because between reset-canvas and that
+  // landing — and for any draft the record does not reach — the store still
+  // holds the previous decision.
   //
   // ⚠ IT MUST BE A POSITIVE MATCH, NOT `!==`. A `!==` test passes when either
   // side is null, and null is exactly the state the store sits in for a decision
