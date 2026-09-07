@@ -20,9 +20,27 @@ interface TooltipProps {
   className?: string;
   /** Hover delay in ms before showing (default: 0, DS v5 recommends 300) */
   delay?: number;
+  /**
+   * Classes for the REFERENCE wrapper (the element that hosts `children`), not
+   * the floating bubble — `className` above is the bubble's.
+   *
+   * ⚠ WHY THIS EXISTS. The wrapper is a plain `<div>`, i.e. block-level. That is
+   * invisible in the panel and drawer layouts this component grew up in, but a
+   * canvas NODE icon sits inside an `inline-flex` row of sibling glyphs, where a
+   * bare block wrapper drops `shrink-0` and the row's baseline alignment. Node
+   * adopters pass `inline-flex shrink-0` here.
+   *
+   * Defaults to `undefined`, NOT `''`, so every existing call site renders the
+   * wrapper with no `class` attribute exactly as before — this prop is additive
+   * and cannot change the 38 production files importing this component (counted
+   * by resolving every `*Tooltip` import path against this module, because the
+   * repo has a same-named twin at `canvas/components/Tooltip` with 19 importers
+   * of its own and a suffix grep cannot tell the two apart).
+   */
+  wrapperClassName?: string;
 }
 
-export default function Tooltip({ children, content, className = '', delay }: TooltipProps) {
+export default function Tooltip({ children, content, className = '', delay, wrapperClassName }: TooltipProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const arrowRef = React.useRef(null);
 
@@ -61,7 +79,7 @@ export default function Tooltip({ children, content, className = '', delay }: To
 
   return (
     <>
-      <div ref={refs.setReference} {...getReferenceProps()}>
+      <div ref={refs.setReference} className={wrapperClassName} {...getReferenceProps()}>
         {children}
       </div>
       <FloatingPortal>

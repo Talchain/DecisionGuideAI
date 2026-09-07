@@ -410,7 +410,7 @@ describe('GoalNode', () => {
 
   it('does not show provenance icon for user source', () => {
     renderGoal({ observedState: { source: 'user' } })
-    expect(screen.queryByTitle('From your brief')).toBeNull()
+    expect(screen.queryByLabelText('From your brief')).toBeNull()
   })
 
   it('does not show provenance icon when observedState is absent', () => {

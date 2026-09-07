@@ -1005,7 +1005,7 @@ describe('FactorNode — QA Brief A-series', () => {
     })
     // No extractionType='inferred' → no Olumi estimate science icon
     expect(screen.queryByLabelText(/Olumi estimated/)).toBeNull()
-    expect(screen.queryByTitle('From your brief')).toBeNull()
+    expect(screen.queryByLabelText('From your brief')).toBeNull()
   })
 
   // A16: source='user' → no provenance icon
@@ -1016,7 +1016,7 @@ describe('FactorNode — QA Brief A-series', () => {
       observedState: { value: 0.7, source: 'user' },
     })
     expect(screen.queryByTitle('Generated from your brief')).toBeNull()
-    expect(screen.queryByTitle('Estimated by Olumi')).toBeNull()
+    expect(screen.queryByLabelText('Estimated by Olumi')).toBeNull()
     expect(screen.queryByText('Set by you')).toBeNull()
   })
 
