@@ -987,7 +987,6 @@ export const FactorNode = memo((props: NodeProps) => {
         )}
         {isPostAnalysis && !isDetailed && (
           <MetricPills
-            influenceProvenance={displayMetadata.influenceProvenance}
             confidencePct={confidencePct}
             confidenceIsDefaulted={displayMetadata.confidenceIsDefaulted}
             confidenceIsProvisional={displayMetadata.confidenceIsProvisional}
