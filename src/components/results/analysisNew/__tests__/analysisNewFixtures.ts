@@ -44,8 +44,27 @@ export function makeOption(
   } as OptionResult
 }
 
+/**
+ * ⚠ THE STAMPED DISPLAY PAIR IS KEPT CONSISTENT, BECAUSE AN INCONSISTENT ONE
+ * IS A ROW THE LIVE PIPELINE CANNOT PRODUCE (2026-09-07).
+ *
+ * This builder stamped `displayProvenance: 'influence_score'` while leaving
+ * `influenceScore` UNSET. `resolveDriverClaimBasis` — the estate's owner of
+ * "what may this number license?" — deliberately fails closed on exactly that
+ * shape: a stamped pair is accepted only when it agrees with the field
+ * attesting its basis. So every fixture row built here was rejected by the
+ * policy, and any surface gated on it read as "no claim licensed" for a reason
+ * that had nothing to do with the case under test — a fixture defect that
+ * cannot fail loudly, since a rejected row simply suppresses copy.
+ *
+ * Live rows never look like this: `useResultsSectionData` sets
+ * `displayInfluence`/`displayProvenance` from the shared display policy AND
+ * carries `influenceScore` off the wire, and the policy only stamps
+ * `influence_score` when EVERY row has one. The fill below reproduces that
+ * invariant and never overrides a value a caller supplied explicitly.
+ */
 export function makeDriver(overrides: Partial<DriverItem> & { factorKey: string; factorLabel: string }): DriverItem {
-  return {
+  const row = {
     rawElasticity: 0.4,
     normalisedInfluence: 0.6,
     rank: 1,
@@ -55,6 +74,14 @@ export function makeDriver(overrides: Partial<DriverItem> & { factorKey: string;
     displayProvenance: 'influence_score',
     ...overrides,
   } as DriverItem
+  if (
+    row.displayProvenance === 'influence_score' &&
+    row.influenceScore === undefined &&
+    typeof row.displayInfluence === 'number'
+  ) {
+    row.influenceScore = row.displayInfluence
+  }
+  return row
 }
 
 const EMPTY_COMPLETENESS: ResultCompleteness = { status: 'full', missing: [], reasons: [] }

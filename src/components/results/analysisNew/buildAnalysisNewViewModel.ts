@@ -83,6 +83,9 @@ import {
   ANALYSIS_NEW_LABEL_FALLBACK,
   formatConjunctionList,
 } from './analysisNewCopy'
+// ⚠ THE PRODUCER'S DOMINANCE VERDICT IS NOT SELF-CERTIFYING ON THIS SURFACE.
+// Read that file's header before touching the concentration insight below.
+import { dominanceClaimSupported } from './dominanceSupport'
 import type {
   AnalysisNewFinding,
   AnalysisNewStatus,
@@ -386,7 +389,23 @@ function buildKeyInsights(
 
   // 4. Concentration: one factor carries most of the influence. A structural
   //    finding about the MODEL, not about a decision.
-  if (rec.dominantFactorLabel) {
+  //
+  // ⚠ THE GATE IS NOT `if (rec.dominantFactorLabel)` — A PRESENCE CHECK, WHICH
+  // IS WHAT SHIPPED. `dominantFactorLabel` is carried straight off the wire
+  // (`useResultsSectionData.ts:2603-2606` reads `report.dominant_factor` with
+  // no ratio, tie or basis check of any kind), so the sole protection for a
+  // quantitative comparative claim was the producer honouring one sentence of
+  // its own doc comment. `dominanceSupport.ts` records why that is not enough:
+  // PLoT judges dominance on `influence_score` while this surface's displayed
+  // influence falls back to normalised |elasticity| for the WHOLE set as soon
+  // as any row lacks that field, so the two can be different quantities — and
+  // the sibling nudge already had to add a tie gate after asserting dominance
+  // on a run where three factors tied at 100%.
+  //
+  // This does NOT re-derive dominance. The producer still names the factor;
+  // the gate only refuses to repeat the claim when the distribution rendered
+  // beside it contradicts one.
+  if (rec.dominantFactorLabel && dominanceClaimSupported(data.drivers, rec.dominantFactorId)) {
     out.push({
       id: 'insight:dominant-factor',
       headline: `${rec.dominantFactorLabel} dominates the model`,

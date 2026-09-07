@@ -152,6 +152,19 @@ describe('key insights — the strategic tensions, all of them', () => {
         dominantFactorId: 'f_dom',
         dominantFactorLabel: 'Supplier lead time',
       },
+      // ⚠ THE DOMINANCE INSIGHT NEEDS AN INFLUENCE DISTRIBUTION TO BE TRUE OF
+      // (2026-09-07). This case named a dominant factor with NO drivers at
+      // all, and the surface printed "Supplier lead time dominates the model"
+      // anyway — the presence-only gate `dominanceSupport.ts` now closes. The
+      // rows below are what make the claim licensed, so this case goes on
+      // counting the push sites it exists to count rather than passing on a
+      // finding the data never supported.
+      drivers: {
+        drivers: [
+          makeDriver({ factorKey: 'f_dom', factorLabel: 'Supplier lead time', displayInfluence: 1 }),
+          makeDriver({ factorKey: 'f_other', factorLabel: 'Demand volatility', rank: 2, displayInfluence: 0.3 }),
+        ],
+      },
       confidence: {
         conditionalWinners: ['f_1', 'f_2', 'f_3', 'f_4', 'f_5'].map((id) => cw({ factor_id: id })),
       },
