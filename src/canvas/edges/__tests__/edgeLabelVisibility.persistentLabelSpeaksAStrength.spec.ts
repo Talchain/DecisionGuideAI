@@ -63,7 +63,10 @@
  */
 import { describe, it, expect } from 'vitest'
 import { describeEdge, LABEL_HEDGE_CUT } from '../../domain/edgeLabels'
-import type { EdgeValueDisplay } from '../../domain/edgeValueProvenance'
+import type {
+  EdgeDirectionDisplay,
+  EdgeValueDisplay,
+} from '../../domain/edgeValueProvenance'
 import {
   selectPersistentStrengthIds,
   PERSISTENT_LABEL_LIMIT,
@@ -91,10 +94,20 @@ const LIKELIHOOD_STATES: ReadonlyArray<{ name: string; v: EdgeValueDisplay }> = 
   { name: 'likelihood:absent', v: { show: false, reason: 'absent' } },
 ]
 
-const DIRECTION_STATES = [
-  { name: 'direction:positive', v: { show: true, direction: 'positive' } as const },
-  { name: 'direction:negative', v: { show: true, direction: 'negative' } as const },
-  { name: 'direction:unstated', v: { show: false } as const },
+/**
+ * ⚠ TYPED EXPLICITLY, AND THE FIRST DRAFT WAS NOT — the repo's typecheck gate
+ * caught it (TS2345). Written as bare `as const` literals, the array's inferred
+ * element type was a union whose `show: false` member carried
+ * `direction?: undefined`, which `EdgeDirectionDisplay` does not admit, and
+ * whose `show: true` members omitted the REQUIRED `source`. Annotating the
+ * array makes the discriminated union do its job here exactly as it does at the
+ * call sites: an unstated direction cannot be written without saying WHY, and a
+ * stated one cannot be written without a provenance.
+ */
+const DIRECTION_STATES: ReadonlyArray<{ name: string; v: EdgeDirectionDisplay }> = [
+  { name: 'direction:positive', v: { show: true, direction: 'positive', source: 'cee' } },
+  { name: 'direction:negative', v: { show: true, direction: 'negative', source: 'cee' } },
+  { name: 'direction:unstated', v: { show: false, reason: 'unknown' } },
 ]
 
 interface EnumeratedLabel {
