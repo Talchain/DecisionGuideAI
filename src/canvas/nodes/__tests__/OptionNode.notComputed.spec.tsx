@@ -240,7 +240,7 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
         <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option' }} />
       </ReactFlowProvider>,
     )
-    expect(screen.queryByText(/Close call/i)).toBeNull()
+    expect(screen.queryByText(/Within a small margin/i)).toBeNull()
   })
 
   it('POSITIVE CONTROL: the same 3pp gap DOES render the close-call line for a COMPUTED option', () => {
@@ -270,20 +270,20 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
         <OptionNode {...baseProps} id={FAILED} data={{ label: 'Hold the current plan', type: 'option' }} />
       </ReactFlowProvider>,
     )
-    expect(screen.getByText(/Close call/i)).toBeInTheDocument()
+    expect(screen.getByText(/Within a small margin/i)).toBeInTheDocument()
   })
 
   // ── THE THIRD SURFACE: A COMPARATIVE DESIGNATION CARRYING NO NUMBER ────────
 
   /**
-   * "Behind: X" is a RANK CLAIM in inverse form. Until this gate existed, the
+   * "Held back by: X" is a RANK CLAIM in inverse form. Until this gate existed, the
    * same card said both of these, about sixty lines apart:
    *
    *   "Not computed — the analysis ran on this option but could not produce a
    *    usable result, so it has no rank and no probability."
-   *   "Behind: fewer key changes"
+   *   "Held back by: fewer key changes"
    *
-   * Before the not-computed disclosure existed the card read `0%` + `Behind: X`
+   * Before the not-computed disclosure existed the card read `0%` + `Held back by: X`
    * — consistent, and wrong. Adding the disclosure without this gate made the
    * card assert "no rank" AND a rank, so the contradiction is INTRODUCED by
    * that change and closed here. It is the same one-line gate `closeCallGapPp`
@@ -291,7 +291,7 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
    *
    * The fixture is a DISCRIMINATING PAIR: both cases render the identical
    * report, the identical nodes and the identical `win_probability: 0` for the
-   * subject. ONLY `status` differs, so a gate that suppressed "Behind:" for
+   * subject. ONLY `status` differs, so a gate that suppressed "Held back by:" for
    * every option — or one that never fired at all — cannot pass both.
    */
   const renderBehindFixture = (subjectStatus: string) => {
@@ -335,21 +335,21 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
     // branch. Without this the absence below could be a fixture that simply
     // never produced a reason (trap 13b — a guard agreeing with itself).
     expect(screen.getByTestId(`option-not-computed-${FAILED}`)).toBeInTheDocument()
-    expect(screen.queryByText(/Behind:/)).toBeNull()
+    expect(screen.queryByText(/Held back by:/)).toBeNull()
   })
 
-  it('POSITIVE CONTROL: the identical fixture DOES render "Behind:" for a COMPUTED non-leader', () => {
+  it('POSITIVE CONTROL: the identical fixture DOES render "Held back by:" for a COMPUTED non-leader', () => {
     // Same report, same nodes, same `win_probability: 0`, same leader, same
     // gap. Only `status` differs — so this fails the moment the gate is
     // widened past the producer's failing token, and the assertion above
     // fails the moment it is removed.
     renderBehindFixture('computed')
     expect(screen.queryByTestId(`option-not-computed-${FAILED}`)).toBeNull()
-    expect(screen.getByText(/Behind:/)).toBeInTheDocument()
+    expect(screen.getByText(/Held back by:/)).toBeInTheDocument()
   })
 
   // ⚠ MY DUPLICATE OF THE ABOVE WAS DROPPED IN THE MERGE, NOT LOST.
-  // Two lanes fixed the "Behind:" designation independently within minutes of
+  // Two lanes fixed the "Held back by:" designation independently within minutes of
   // each other — a genuine collision, not a mistake by either. Theirs covers it
   // more completely (it also carries the `goalFitAvailable` half), so this file
   // keeps THEIR pair and drops mine rather than asserting the same thing twice.
@@ -386,17 +386,17 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
 
   it('makes no BEHIND claim about an option that was never scored', () => {
     // The third reader of the same non-measurement, and my own PR comment said
-    // there were two. "Behind: <reason>" places this option relative to the
+    // there were two. "Held back by: <reason>" places this option relative to the
     // others; on an option with no distribution there is nothing to be behind
     // WITH. It rendered directly beside the "Not computed" disclosure.
     renderBoth(twoOptionReport())
     const card = screen.getByTestId(`option-not-computed-${FAILED}`).closest('div')
-    expect(screen.queryAllByText(/^Behind:/).length).toBe(0)
+    expect(screen.queryAllByText(/^Held back by:/).length).toBe(0)
     expect(card).toBeInTheDocument()
   })
 
-  it('POSITIVE CONTROL: a COMPUTED non-leader DOES carry its "Behind:" reason', () => {
-    // Without this the assertion above passes if "Behind:" is simply
+  it('POSITIVE CONTROL: a COMPUTED non-leader DOES carry its "Held back by:" reason', () => {
+    // Without this the assertion above passes if "Held back by:" is simply
     // unreachable in this harness (trap 13). Same fixture, same non-leader
     // position; only `status` differs.
     const r = twoOptionReport()
@@ -406,7 +406,7 @@ describe('OptionNode — a failed computation is not a measured zero', () => {
     }
     ;(r.report.option_probabilities[COMPUTED_TRUE_ZERO] as { win_probability: number }).win_probability = 0.6
     renderBoth(r)
-    expect(screen.queryAllByText(/^Behind:/).length).toBeGreaterThan(0)
+    expect(screen.queryAllByText(/^Held back by:/).length).toBeGreaterThan(0)
   })
 
   it('renders nothing at all outside results mode', () => {

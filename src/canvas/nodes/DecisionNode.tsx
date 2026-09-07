@@ -901,7 +901,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 data-testid="decision-leader-robustness"
                 title={robustnessGrade.title}
               >
-                {robustnessGrade.label}: small changes could shift which option the data supports.
+                {robustnessGrade.label}: small changes could flip which option the data supports.
               </div>
             )}
 

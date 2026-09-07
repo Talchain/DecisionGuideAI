@@ -584,13 +584,13 @@ describe('Render matrix — OptionNode × view × phase', () => {
       isResultsMode: true,
     } as any)
     renderOption({})
-    // Bound to the marker that actually renders — the old /Close call:/ pattern
+    // Bound to the marker that actually renders — the old /Within a small margin/ pattern
     // stops matching once the colon-and-number form is gone, which would make
     // this absence assertion pass by testing nothing.
     //
     // ⚠ RE-BOUND 7 Sep 2026, FOR THE SECOND TIME AND FOR THE SAME REASON. The
     // marker stopped saying "Close call" at all (Paul's no-contest ruling), so
-    // /Close call/i would now pass against a card that renders the marker in
+    // /Within a small margin/i would now pass against a card that renders the marker in
     // full. The comment above was already the warning; this is it firing.
     expect(screen.queryByText(/Within a small margin/i)).toBeNull()
     expect(screen.queryByText('What would change this?')).toBeNull()

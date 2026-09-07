@@ -53,7 +53,7 @@ const RIVAL_LABEL = 'Full switch'
 // panel never renders, so the withheld arm passed against a string that could
 // not appear. Bound to the shape the panel actually authors.
 const AHEAD_CLAIM = /supported in .+ of simulated scenarios/i
-const BEHIND_CLAIM = /behind .* by \d+pp|within \d+pp of the leading option/i
+const BEHIND_CLAIM = /\d+pp less support than|within \d+pp of the most-supported option/i
 
 function optionNode(id: string, label: string) {
   return {

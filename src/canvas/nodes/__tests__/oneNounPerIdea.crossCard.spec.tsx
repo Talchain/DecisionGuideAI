@@ -216,7 +216,7 @@ describe('one noun per idea — the decision card and the option card agree', ()
   })
 
   it('⚠ RESIDUAL, DECIDED NOT DISCOVERED: "Leads" survives as a VERB on the option card', () => {
-    // The review found `OptionNode:1601` — "Leads via {factor}" beneath the
+    // The review found `OptionNode:1601` — "Supported by {factor}" beneath the
     // `Ahead 47%` anchor — and rightly said it should be decided explicitly
     // rather than left to be found. It is: the register retires "Leads" as a
     // CAPTION, and both survivors are verbs inside sentences.
@@ -229,8 +229,8 @@ describe('one noun per idea — the decision card and the option card agree', ()
     const src = readFileSync(resolve(__dirname, '../OptionNode.tsx'), 'utf8')
     expect(src.length, 'source read as empty — the assertion below is vacuous').toBeGreaterThan(1000)
     expect(
-      src.includes('Leads via'),
-      'the "Leads via" sentence has gone — good, but update the residual note in metricVocabulary.ts',
+      src.includes('Supported by'),
+      'the "Supported by" sentence has gone — good, but update the residual note in metricVocabulary.ts',
     ).toBe(true)
     // …and it is prose, not a caption: no `label=` binds it.
     expect(src).not.toMatch(/label=["']Leads["']/)

@@ -103,7 +103,7 @@ describe('buildCertaintyCopy — decision table', () => {
   // `recommendationStability < 0.70`. That denied a leading option because the
   // result was FRAGILE, which is a different fact — on the reported staging run
   // it printed "no clear leading option / leads slightly more often" about a
-  // 52-point lead while the canvas badged the same option "Leading option".
+  // 52-point lead while the canvas badged the same option "Most supported".
   // The tie call now belongs to `deriveDecisionVerdict` (src/lib), which reads
   // PLoT's own `robustness.near_tie`. These two tests pin BOTH directions.
   it('row 2: a TIED verdict produces the canonical no-clear-leader headline', () => {

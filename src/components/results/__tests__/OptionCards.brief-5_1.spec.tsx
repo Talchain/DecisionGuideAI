@@ -4,7 +4,7 @@
  * Covers:
  * - Runner-up / baseline card title strips a trailing "(Status Quo)" only
  *   when the Baseline pill renders (hasBaselinePill === true).
- * - Non-winner chip copy unified to "What would make this lead?" — no
+ * - Non-winner chip copy unified to "What would make this better supported?" — no
  *   longer renders the earlier baseline-specific "Why does this lose?".
  * - formatOptionLabelForCard helper itself: stripping rules + idempotence.
  */
@@ -120,7 +120,7 @@ describe('OptionCards — Brief 5.1 Task 7 card integration', () => {
 })
 
 describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
-  it('non-winner (non-baseline) renders "What would make this lead?"', () => {
+  it('non-winner (non-baseline) renders "What would make this better supported?"', () => {
     const options = [
       makeOption({ id: 'opt-a', isRecommended: true, rank: 1, winProbability: 0.65 }),
       makeOption({ id: 'opt-b', label: 'Option B', isRecommended: false, rank: 2, winProbability: 0.35 }),
@@ -131,7 +131,7 @@ describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
 
     // Winner renders the strong-tier chip; non-winner always uses the forward-looking copy.
     expect(screen.getByText('What makes this lead?')).toBeInTheDocument()
-    expect(screen.getByText('What would make this lead?')).toBeInTheDocument()
+    expect(screen.getByText('What would make this better supported?')).toBeInTheDocument()
   })
 
   it('Brief 5.5 §2.7: fair tier with high stability (≥0.85) renders definitive copy (stability override)', () => {
@@ -144,8 +144,8 @@ describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
     render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="fair" recommendationStability={0.90} />)
 
     expect(screen.getByText('What makes this lead?')).toBeInTheDocument()
-    expect(screen.queryByText('What makes this the current leader?')).not.toBeInTheDocument()
-    expect(screen.getByText('What would make this lead?')).toBeInTheDocument()
+    expect(screen.queryByText('What makes this best supported?')).not.toBeInTheDocument()
+    expect(screen.getByText('What would make this better supported?')).toBeInTheDocument()
   })
 
   it('Brief 5.5 §2.7: fair tier with low stability (<0.85) renders soft chip copy', () => {
@@ -157,7 +157,7 @@ describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
     ]
     render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="fair" recommendationStability={0.75} />)
 
-    expect(screen.getByText('What makes this the current leader?')).toBeInTheDocument()
+    expect(screen.getByText('What makes this best supported?')).toBeInTheDocument()
     expect(screen.queryByText('What makes this lead?')).not.toBeInTheDocument()
   })
 
@@ -169,12 +169,12 @@ describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
     // needs_work + absent stability → evidenceIsWeak AND stabilityIsWeak → hedged
     render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="needs_work" />)
 
-    expect(screen.getByText('What makes this the current leader?')).toBeInTheDocument()
+    expect(screen.getByText('What makes this best supported?')).toBeInTheDocument()
     expect(screen.queryByText('What makes this lead?')).not.toBeInTheDocument()
-    expect(screen.getByText('What would make this lead?')).toBeInTheDocument()
+    expect(screen.getByText('What would make this better supported?')).toBeInTheDocument()
   })
 
-  it('baseline non-winner renders "What would make this lead?" — no "Why does this lose?"', () => {
+  it('baseline non-winner renders "What would make this better supported?" — no "Why does this lose?"', () => {
     const options = [
       makeOption({ id: 'opt-a', isRecommended: true, rank: 1 }),
       makeOption({
@@ -189,7 +189,7 @@ describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
 
     expect(screen.queryByText(/Why does this lose\?/)).not.toBeInTheDocument()
     expect(
-      screen.getAllByRole('button', { name: 'What would make this lead?' }),
+      screen.getAllByRole('button', { name: 'What would make this better supported?' }),
     ).toHaveLength(1)
   })
 })

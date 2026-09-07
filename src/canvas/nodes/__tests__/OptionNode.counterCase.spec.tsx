@@ -19,7 +19,7 @@
  *  2. It NAMES THE LEADER, so it may only appear when the product is ENTITLED
  *     to name one. On a withheld turn no option is the leader; a chip saying
  *     "what would make X the wrong choice" would then be a leader claim in
- *     disguise — the same inverse-form leak that put "Behind:" on every option
+ *     disguise — the same inverse-form leak that put "Held back by:" on every option
  *     including the front-runner (ROADMAP 1.239). The entitlement is INHERITED
  *     from `isRecommended` rather than re-derived, so the withheld case below
  *     is testing that inheritance actually holds, not a second predicate.
@@ -168,7 +168,7 @@ describe('the counter-case door on the leading option', () => {
     // The trust assertion. On a withheld turn `verdict.hasLeadingOption` is
     // false, so no option is `isRecommended` — and a chip that names an option
     // as the one to argue against would designate a leader the producer
-    // declined to name. Inverse-form leader claim, exactly as "Behind:" was.
+    // declined to name. Inverse-form leader claim, exactly as "Held back by:" was.
     withStore(WITHHELD_REPORT)
     renderNode(LEADER_ID, LEADER_LABEL)
     expect(screen.queryByText(COUNTER_CASE_LABEL)).toBeNull()

@@ -13,7 +13,7 @@
  *   · "Statistically tied with the leading option"   ← a DENIAL
  *   · "Compare against the leading option."
  *   · "This option currently leads, but …"           ← the downside pill
- *   · "What makes this the current leader?"          ← the chip
+ *   · "What makes this best supported?"          ← the chip
  *
  * The denial matters as much as the assertions: "statistically tied with the
  * leading option" asserts a leader exists in the same breath as calling it a
@@ -86,7 +86,7 @@ const LEADER_LANGUAGE: ReadonlyArray<[string, RegExp]> = [
   ['Statistically tied with the leading option', /statistically tied with the leading option/i],
   ['Compare against the leading option', /compare against the leading option/i],
   ['This option currently leads', /this option currently leads/i],
-  ['the current leader', /the current leader/i],
+  ['best supported', /best supported/i],
 ]
 
 describe('OptionCards — withheld leader claim', () => {
@@ -113,11 +113,11 @@ describe('OptionCards — withheld leader claim', () => {
     expect(screen.queryByTestId(`leading-option-downside-${WINNER_ID}`)).toBeNull()
   })
 
-  it('offers the forward-looking chip instead of "the current leader"', () => {
+  it('offers the forward-looking chip instead of "best supported"', () => {
     renderCards(false)
     // Existing copy, not invented: this is already the module's phrasing for
     // an option that does not hold a lead.
-    expect(screen.getAllByText('What would make this lead?').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('What would make this better supported?').length).toBeGreaterThan(0)
   })
 })
 
@@ -147,8 +147,8 @@ describe('OptionCards — permitted leader claim (over-suppression controls)', (
   it('keeps the leader chip copy', () => {
     const { container } = renderCards(true)
     // `fair` tier + stability 0.5 is the softened branch, i.e. the exact
-    // combination that produces "the current leader".
-    expect(container.textContent ?? '').toMatch(/the current leader/i)
+    // combination that produces "best supported".
+    expect(container.textContent ?? '').toMatch(/best supported/i)
   })
 
   it('an ABSENT flag behaves exactly as a permitted one (older callers/fixtures)', () => {

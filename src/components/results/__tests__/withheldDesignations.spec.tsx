@@ -145,7 +145,7 @@ describe('OptionCards — the ranked repeat', () => {
   it('WITHHELD: still renders the win-probability bar for each visible card', () => {
     const { container } = renderCards(WITHHELD_VERDICT)
     expect(
-      container.querySelectorAll('[title^="Came out ahead in"]').length,
+      container.querySelectorAll('[title^="Supported in"]').length,
     ).toBeGreaterThan(0)
   })
 

@@ -170,7 +170,12 @@ describe('The lens "unchanged" sentence must not assert a goal ranking that does
     expect(text).not.toContain('goal ranking')
     // Over-suppression control: the lens sentence is still made.
     expect(text).toMatch(/Ahead on this outcome view/)
-    expect(text).toMatch(/ranking above is unchanged/)
+    // ⚠ RE-BOUND 7 Sep 2026. `LENS_COPY.unchanged` has two arms and this is
+    // the COMPARATIVE one, which stopped saying "ranking" under the
+    // no-contest ruling ("The comparison above is unchanged."). The goal arm
+    // still says "The goal ranking above is unchanged.", so the old pattern
+    // would have kept passing on the wrong branch rather than failing loudly.
+    expect(text).toMatch(/comparison above is unchanged/)
   })
 
   it('OptionCards lens crown: goal numbers present ⇒ the goal-ranking claim stands', () => {
