@@ -129,7 +129,24 @@ export interface AtAGlanceProps {
   primaryIntervention?: {
     id: string
     label: string
-    why: string
+    /**
+     * The finding's OWN name, e.g. "Narrow framing" — never the action.
+     *
+     * ⭐ THIS FIELD REPLACED `why`, WHICH CARRIED THE FINDING'S PARAGRAPH, AND
+     * THE REPLACEMENT IS THE FIX RATHER THAN A RENAME. `why` was
+     * `Recommendation.signal`, and the Strengthen row renders
+     * `strengthenWhyLine(signal, whyNow)` — every arm of which begins with
+     * `signal`. One `Recommendation` therefore had its paragraph printed on
+     * both surfaces, with nothing saying they were one finding. The card is a
+     * POINTER, so it now names the item it points at and the action it runs;
+     * the paragraph, the severity, the grounding, the source line, "I
+     * disagree" and "Not relevant" are rendered once, in the row.
+     *
+     * The field is GONE rather than merely unrendered, so the reprint is
+     * unavailable to a later edit. See
+     * `theFocusCardReferencesRatherThanReprints.spec.tsx`.
+     */
+    title: string
     /** The producer's `signal_code` on a phase-3 finding; absent on the UI's
      * own triggers. Carried so the primary card can name a technique when the
      * producer's code names one — see `recommendationMethod.ts`. */
@@ -1025,7 +1042,7 @@ export function AtAGlance({
           <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0 text-info" aria-hidden="true" />
           <span className="min-w-0 flex-1">
             <span className={`${typography.panelHeader} text-text-header block`}>
-              {primaryIntervention.label}
+              {primaryIntervention.title}
             </span>
             {/* ⭐ THE MOST PROMINENT COACHING CARD NAMES ITS TECHNIQUE. This is
                 the one move a reader meets without opening anything, so if any
@@ -1052,9 +1069,22 @@ export function AtAGlance({
                 </span>
               ) : null
             })()}
-            {primaryIntervention.why ? (
-              <span className={`${typography.panelMeta} text-text-light block mt-0.5`}>
-                {primaryIntervention.why}
+            {/* ⭐ THE ACTION, NOT THE FINDING. This line carried
+                `Recommendation.signal` — the same paragraph the Strengthen row
+                prints — while the header above carried the generic action
+                label, so the card spent its heading on boilerplate and its
+                body on a repeat. The two are swapped: the header names the
+                finding, this names what pressing the card does.
+
+                Still conditional. `action.label` is `item.actionLabel ?? '…'`
+                and `??` passes an empty string through, so a producer sending
+                `""` would otherwise buy a blank muted line. */}
+            {primaryIntervention.label ? (
+              <span
+                className={`${typography.panelMeta} text-text-light block mt-0.5`}
+                data-testid={`${testId}-primary-action`}
+              >
+                {primaryIntervention.label}
               </span>
             ) : null}
           </span>

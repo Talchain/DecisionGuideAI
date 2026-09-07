@@ -639,7 +639,15 @@ export function AnalysisNewTabBody({
               ? {
                   id: glancePrimary.id,
                   label: glancePrimary.action.label,
-                  why: glancePrimary.signal,
+                  /* ⭐ `title`, NOT `signal`. The glance card used to be handed
+                     `signal` — the finding's paragraph — which the Strengthen
+                     row below also prints, because `strengthenWhyLine` begins
+                     with `signal` on every arm. The promoted card is a
+                     reference to the row, so it is handed the finding's NAME
+                     and the paragraph is left to the row that carries the
+                     severity, the grounding and the disagreement controls.
+                     Guarded by `theFocusCardReferencesRatherThanReprints`. */
+                  title: glancePrimary.title,
                   signalCode: glancePrimary.signalCode,
                 }
               : null
