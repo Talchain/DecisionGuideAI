@@ -17,25 +17,32 @@
  * mechanism that declines silently is indistinguishable from one that was
  * never asked.
  *
- * ⚠ THE TWO FIXTURES COME FROM DIFFERENT CAPTURES, AND THAT IS DELIBERATE —
- * an earlier header implied one run and a seat rightly could not settle it from
- * their differing graph hashes. They are two different models by the same user
- * on the same build:
+ * ⚠ THE TWO FIXTURES COME FROM DIFFERENT CAPTURES, and this is now stated with
+ * the measured stamps rather than asserted. Two seats queried this: the first
+ * could not reconcile the divergent graph hashes, and the second found that a
+ * single millisecond appeared in BOTH a PRERUN-sourced and a POSTRUN-sourced
+ * sentence — which two captures cannot do. It was right: the POSTRUN fixture's
+ * `computed_at` had been copied from the PRERUN capture. Corrected below.
  *
  *   PRERUN  — live `window.useCanvasStore` + `olumi-canvas-autosave` on
- *             `e2016182`. `current_graph_hash: 35b5f37cb8173907`.
- *   POSTRUN — the debug bundle `olumi-debug-5e09c107-20260906.json`, a
- *             different model. `graph_hash_at_run == current_graph_hash ==
- *             799c04738bd20ee7`.
+ *             `e2016182`. `current_graph_hash: 35b5f37cb8173907`,
+ *             readiness `computed_at 18:46:54.925Z`.
+ *   POSTRUN — the debug bundle `olumi-debug-5e09c107-20260906.json`.
+ *             `graph_hash_at_run == current_graph_hash == 799c04738bd20ee7`,
+ *             readiness `computed_at 20:10:50.916Z`.
+ *
+ * Different hashes AND stamps ~84 minutes apart: two captures, not one.
  *
  * Nothing here compares one to the other; each is fed to the validator on its
  * own, and the pair's job is to show the SAME validator declining one and
  * attesting the other. That argument does not need them to share a run.
  *
- * THE FIXTURES ARE NOT INVENTED. Within the PRERUN capture the two timestamps
- * are the finding: the persisted readiness snapshot PREDATES the analysis it
- * was persisted beside by 110 seconds. It is a PRE-RUN payload, so of course it
- * states `none` and carries no `graph_hash_at_run`.
+ * Within the PRERUN capture the two timestamps are the finding: its persisted
+ * readiness (`18:46:54.925Z`) PREDATES the analysis persisted beside it
+ * (`18:48:45.206Z`) by 110 seconds. It is a PRE-RUN payload, so it states
+ * `none` and carries no `graph_hash_at_run`. BOTH of those stamps belong to
+ * PRERUN — that is the pair the 110 seconds is measured across, and neither
+ * belongs to POSTRUN.
  *
  * ⚠ WHAT THIS SPEC DOES NOT CLAIM. It does not claim the restore SHOULD have
  * attested. On this payload the decline is CORRECT and fail-closed — there is
@@ -67,14 +74,32 @@ const CAPTURED_PRERUN_READINESS = {
   // NOTE: no `graph_hash_at_run` key. That absence is the finding.
 } as const
 
-/** VERBATIM from the same user's debug-bundle capture (a DIFFERENT model —
- *  see the header). Its only job here is to be a payload that DOES attest. */
+/**
+ * From the debug-bundle capture — a DIFFERENT capture from PRERUN (see header).
+ * Its only job here is to be a payload that DOES attest.
+ *
+ * ⚠⚠ THIS FIXTURE'S `computed_at` WAS FABRICATED AND IS NOW CORRECTED, and the
+ * error is worth leaving recorded because of where it sat. The value read
+ * `2026-09-06T18:48:45.206Z` under a comment saying VERBATIM. That stamp is the
+ * ROASTERY session's `analysis.computedAt` — the OTHER capture. I copied a
+ * timestamp across captures into a fixture I had labelled verbatim.
+ *
+ * A seat caught it by ARITHMETIC, not by reading the prose: the same
+ * millisecond appeared in both a PRERUN-sourced sentence and a POSTRUN-sourced
+ * one, and two different captures cannot coincide to the millisecond. It could
+ * not tell which sentence was false because the bundle is not in the tree.
+ *
+ * Measured at the bundle: the real value is `2026-09-06T20:10:50.916Z`, and it
+ * settles the provenance in the direction the header states — the two captures
+ * are genuinely different (20:10:50 vs 18:46:54, hash `799c…` vs `35b5…`). The
+ * PROVENANCE sentence was right; the FIELD VALUE was wrong.
+ */
 const CAPTURED_POSTRUN_READINESS = {
   freshness: 'fresh',
   freshness_reason: 'graph_hash_match',
   graph_hash_at_run: '799c04738bd20ee7',
   current_graph_hash: '799c04738bd20ee7',
-  computed_at: '2026-09-06T18:48:45.206Z',
+  computed_at: '2026-09-06T20:10:50.916Z',
 } as const
 
 describe('explainRestoredFreshnessDecision — the decline names itself', () => {
