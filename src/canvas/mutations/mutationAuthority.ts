@@ -131,6 +131,42 @@ export const CANONICAL_EDIT_AUTHORITY = {
 export const SHARED_MODEL_AUTHORITY_COPY =
   'Change this through the Model tab or ask Olumi so the shared model stays in sync.'
 
+/**
+ * The sentence for a canvas gesture that changes the model's STRUCTURE —
+ * adding, removing, rewiring or duplicating an element.
+ *
+ * ⚠⚠ DELIBERATELY NOT `SHARED_MODEL_AUTHORITY_COPY`, AND THE REASON IS
+ * MEASURED, NOT STYLISTIC. That constant names TWO destinations, and only one
+ * of them is true for a structural edit:
+ *
+ *   · "the Model tab" — FALSE here. `ModelTabV2Panel.tsx:235` builds
+ *     `editConnectedIds` as `nodeKind(node) === 'factor'` and nothing else,
+ *     under its own comment "the rows whose edit has a canonical transaction
+ *     at this tip: factors". A sweep of `model-tab-v2/` for structural
+ *     add/delete controls returns ZERO against a firing contrast control
+ *     (`editConnectedIds`, 16 hits) — so the sweep can see that directory, and
+ *     what it sees is a surface that edits factor VALUES and cannot add,
+ *     remove or rewire anything.
+ *   · "ask Olumi" — TRUE. `structural_add` is a real receipt-bearing carrier
+ *     (`canvasNodeAddWithServerHash`, `preAnalysisV3StructuralAdd`, both
+ *     `'server_graph'`), and `YourDecisionSection` renders live add rows on it.
+ *
+ * So `SHARED_MODEL_AUTHORITY_COPY` stays correct where it already ships — the
+ * factor-value surfaces, which is exactly the scope `sectionWriterNotice.ts`
+ * calls "correct on the canvas" — and structural gestures get this sentence
+ * instead. A plausible-but-wrong destination is worse than no reason at all:
+ * it sends the user to a tab that cannot do the thing, and they learn the
+ * product lies rather than that it is constrained.
+ *
+ * ⚠ IT DOES NOT PROMISE A CANVAS CONTROL. It names the writer that exists, in
+ * the same voice as the rest of the estate, and stops there.
+ */
+export const CANVAS_STRUCTURAL_EDIT_NOTICE =
+  "The canvas can't save this to the shared model — ask Olumi to make the change."
+
+/** The short form for an inline menu row, where the full sentence will not fit. */
+export const CANVAS_STRUCTURAL_EDIT_SHORT_REASON = 'ask Olumi'
+
 export function hasServerGraphAuthority(authority: MutationAuthority): boolean {
   return authority === 'server_graph'
 }

@@ -67,9 +67,33 @@ const RETIRED_LOCAL_ACTIONS = [
   'Insert factor between',
 ] as const
 
-function expectLocalSemanticActionsAbsent(): void {
+/**
+ * The five gestures a user can also reach by KEY. They are rendered as
+ * disabled rows carrying a reason rather than deleted, so silence cannot be
+ * mistaken for breakage — see `menuSaysWhyUnavailable.spec.ts` for the density
+ * measurement behind that split.
+ */
+const SURFACED_DISABLED_LABELS = new Set(['Paste', 'Undo', 'Redo', 'Cut', 'Duplicate'])
+
+/**
+ * ⚠ SHAPE CHANGED 7 Sep 2026. This used to demand every retired label be
+ * ABSENT from the DOM. Absence was the defect, not the guarantee: the
+ * guarantee is that none of them is ACTIONABLE. A surfaced row must therefore
+ * be present AND `aria-disabled`; a hidden one must stay absent.
+ */
+function expectLocalSemanticActionsInert(): void {
   for (const label of RETIRED_LOCAL_ACTIONS) {
-    expect(screen.queryByText(label), `${label} mounted without shared-model authority`).toBeNull()
+    const node = screen.queryByText(label)
+    if (SURFACED_DISABLED_LABELS.has(label)) {
+      if (node) {
+        expect(
+          node.closest('button'),
+          `${label} is actionable without shared-model authority`,
+        ).toHaveAttribute('aria-disabled', 'true')
+      }
+      continue
+    }
+    expect(node, `${label} mounted without shared-model authority`).toBeNull()
   }
 }
 
@@ -93,7 +117,7 @@ describe('CanvasContextMenu — shared-model authority', () => {
     expect(screen.getByText('Ask AI')).toBeInTheDocument()
     expect(screen.getByText('Auto-arrange')).toBeInTheDocument()
     expect(screen.getByText('Switch to Detailed')).toBeInTheDocument()
-    expectLocalSemanticActionsAbsent()
+    expectLocalSemanticActionsInert()
     expect(storeSpies.undo).not.toHaveBeenCalled()
     expect(storeSpies.redo).not.toHaveBeenCalled()
     expect(storeSpies.applyLayout).not.toHaveBeenCalled()
@@ -110,7 +134,37 @@ describe('CanvasContextMenu — shared-model authority', () => {
     const arrange = screen.getByText('Auto-arrange').closest('button')
     expect(arrange).toHaveAttribute('aria-disabled', 'true')
     expect(arrange).not.toBeDisabled()
-    expect(screen.queryByText('Paste')).toBeNull()
+
+    // Paste is now PRESENT and inert rather than deleted. Pairing the two in
+    // one test is deliberate: both rows are disabled, and the menu must look
+    // the same either way — a disabled row is a disabled row, whether the
+    // reason is "Nothing to paste" or "ask Olumi".
+    const paste = screen.getByText('Paste').closest('button')
+    expect(paste).toHaveAttribute('aria-disabled', 'true')
+    expect(paste).not.toBeDisabled()
+  })
+
+  it('renders the REASON beside a disabled row, not just the grey', () => {
+    // ⚠ THE TOP-LEVEL MENU NEVER RENDERED `disabledReason` BEFORE THIS LANE,
+    // while `Submenu.tsx` always did — so "Nothing to undo" was computed,
+    // attached to the row and never shown. A greyed row with no reason is the
+    // same defect one level down, and it is on the path this fix depends on.
+    //
+    // jsdom proves TEXT PRESENCE only, never visibility (trap 3).
+    render(
+      <CanvasContextMenu
+        target={paneTarget}
+        onClose={onClose}
+        screenToFlowPosition={screenToFlowPosition}
+      />,
+    )
+    const undoRow = screen.getByText('Undo').closest('button')
+    expect(undoRow).toHaveAttribute('aria-disabled', 'true')
+    expect(undoRow?.textContent).toContain('not available here')
+
+    // And the pre-existing reason that was being computed and swallowed.
+    const arrangeRow = screen.getByText('Auto-arrange').closest('button')
+    expect(arrangeRow?.textContent).toContain('No nodes to arrange')
   })
 
   it('opens the read-only Ask AI submenu with current DS and accessibility semantics', () => {
@@ -207,7 +261,7 @@ describe('CanvasContextMenu — target-specific read and inspect tools', () => {
     expect(screen.getByText('Explore')).toBeInTheDocument()
     expect(screen.getByText('Copy')).toBeInTheDocument()
     expect(screen.getByText('Delete')).toBeInTheDocument()
-    expectLocalSemanticActionsAbsent()
+    expectLocalSemanticActionsInert()
   })
 
   it('keeps organisational nodes readable without fabricating factor tools', () => {
@@ -235,7 +289,7 @@ describe('CanvasContextMenu — target-specific read and inspect tools', () => {
     expect(screen.getByText('Copy')).toBeInTheDocument()
     expect(screen.getByText('Delete')).toBeInTheDocument()
     expect(screen.queryByText('Explore')).toBeNull()
-    expectLocalSemanticActionsAbsent()
+    expectLocalSemanticActionsInert()
   })
 
   it('keeps causal edges explainable and durably deletable without local edge edits', () => {
@@ -262,7 +316,7 @@ describe('CanvasContextMenu — target-specific read and inspect tools', () => {
     )
     expect(screen.getByText('Ask AI')).toBeInTheDocument()
     expect(screen.getByText('Delete')).toBeInTheDocument()
-    expectLocalSemanticActionsAbsent()
+    expectLocalSemanticActionsInert()
   })
 
   it('keeps multi-selection explainable and copyable without batch local mutation', () => {
@@ -282,6 +336,6 @@ describe('CanvasContextMenu — target-specific read and inspect tools', () => {
     expect(screen.getByText('Ask AI')).toBeInTheDocument()
     expect(screen.getByText('Copy')).toBeInTheDocument()
     expect(screen.getByText('Delete')).toBeInTheDocument()
-    expectLocalSemanticActionsAbsent()
+    expectLocalSemanticActionsInert()
   })
 })

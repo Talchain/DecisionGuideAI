@@ -281,6 +281,19 @@ export function CanvasContextMenu({ target, onClose, screenToFlowPosition }: Can
                   />
                 )}
                 <span>{item.label}</span>
+                {/*
+                  ⚠ THE TOP-LEVEL MENU DID NOT RENDER `disabledReason` AT ALL
+                  until this lane, while `Submenu.tsx:126` always has. So every
+                  greyed row here — "Nothing to undo", "No nodes to arrange" —
+                  was disabled for a reason the row already carried and never
+                  showed. A disabled row with no reason is the same defect this
+                  menu is being fixed for, one level down.
+                */}
+                {item.disabledReason && !item.enabled && (
+                  <span className={`${typography.panelMeta} text-text-light`}>
+                    ({item.disabledReason})
+                  </span>
+                )}
               </span>
               {item.hasSubmenu ? (
                 <ChevronRight size={14} className="text-text-light" />
