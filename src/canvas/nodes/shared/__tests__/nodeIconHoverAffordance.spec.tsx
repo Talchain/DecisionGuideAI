@@ -40,7 +40,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { BriefIcon, BRIEF_ICON_LABEL } from '../BriefIcon'
-import { OlumiSparkle, OLUMI_SPARKLE_LABEL } from '../OlumiSparkle'
 import { NodeProvenanceMark } from '../NodeProvenanceMark'
 import { NODE_TOOLTIP_DELAY_MS } from '../nodeTooltip'
 
@@ -85,13 +84,6 @@ describe('node icons answer a hover in the page', () => {
     expect(await hoverText(icon)).toContain(icon.getAttribute('aria-label')!)
   })
 
-  it('OlumiSparkle — hovering paints its sentence, and it matches the accessible name', async () => {
-    render(<OlumiSparkle />)
-    const icon = screen.getByTestId('olumi-sparkle')
-    expect(icon.getAttribute('aria-label')).toBe(OLUMI_SPARKLE_LABEL)
-    expect(await hoverText(icon)).toContain(icon.getAttribute('aria-label')!)
-  })
-
   /**
    * ⭐ THE FOUNDER'S OWN EXAMPLE. This mark was converted from a text pill to a
    * glyph ON HIS RULING that identical copy on every card is furniture and
@@ -108,13 +100,11 @@ describe('node icons answer a hover in the page', () => {
 
   /**
    * ⛔ NO DOUBLE TOOLTIP. A styled bubble beside a surviving `title=` paints
-   * BOTH — the bubble at 300ms, OS chrome over it a moment later, same sentence
-   * twice. `OlumiSparkle` shipped exactly that pair; it is fixed here and pinned
-   * so it cannot come back on any of the three.
+   * BOTH — the bubble at 300ms, OS chrome over it a moment later, saying the
+   * same sentence twice. Pinned so it cannot come back on either glyph.
    */
   it.each([
     ['brief-icon', <BriefIcon key="b" />],
-    ['olumi-sparkle', <OlumiSparkle key="o" />],
     ['node-provenance-mark', <NodeProvenanceMark key="p" nodeType="option" data={option('from_brief')} />],
   ])('%s carries NO native title alongside its tooltip', (testid, element) => {
     render(element)
@@ -130,7 +120,7 @@ describe('node icons answer a hover in the page', () => {
    */
   it.each([
     ['brief-icon', <BriefIcon key="b" />],
-    ['olumi-sparkle', <OlumiSparkle key="o" />],
+    ['node-provenance-mark', <NodeProvenanceMark key="p" nodeType="option" data={option('from_brief')} />],
   ])('%s keeps an explicit accessible name, reachable with no hover and no focus', (testid, element) => {
     render(element)
     const el = screen.getByTestId(testid)
@@ -139,12 +129,19 @@ describe('node icons answer a hover in the page', () => {
   })
 
   /**
-   * ⚠ THE DELAY IS THE POINT OF A SHARED CONSTANT. Node cards carry several
-   * glyphs within a few px of each other; at 0ms a pointer crossing the row
-   * flickers a bubble per glyph. This binds the components to the SAME symbol
-   * rather than to a repeated literal.
+   * ⚠ THE SHARED-BEAT PROPERTY IS GUARDED IN `nodeTooltipDelayParity.spec.tsx`,
+   * NOT HERE, AND THE REASON IS THAT THE VERSION THAT LIVED HERE WAS VACUOUS.
+   *
+   * It read `expect(NODE_TOOLTIP_DELAY_MS).toBe(300)` under the name *"all three
+   * open on the one shared beat"*, and it failed in the wrong direction on BOTH
+   * sides: an adopter drifting to `delay={200}` left it GREEN (it never looked at
+   * an adopter), while moving the constant to 250 turned it RED (the adopters
+   * would still agree, so its own name would still be true). A constant's VALUE
+   * is not the property; the property is that every adopter RESOLVES to the same
+   * delay, which needs the adopters in the measurement.
+   *
+   * That guard mocks `Tooltip` to capture the `delay` each adopter actually
+   * passes, so it cannot live in this file — `vi.mock` is file-scoped and these
+   * cases need the real Tooltip to paint a real bubble.
    */
-  it('all three open on the one shared beat', () => {
-    expect(NODE_TOOLTIP_DELAY_MS).toBe(300)
-  })
 })

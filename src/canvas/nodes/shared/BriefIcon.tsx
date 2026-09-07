@@ -8,8 +8,7 @@
  *
  * ⚠ AND THE NATIVE `title` IS GONE, DELIBERATELY — NOT KEPT "AS A FALLBACK".
  * Keeping both renders BOTH: the styled bubble at 300ms and the OS tooltip on
- * top of it a moment later, saying the same sentence twice. `OlumiSparkle`
- * shipped exactly that pair and it is fixed in the same change.
+ * top of it a moment later, saying the same sentence twice.
  *
  * The accessible name moves to `role="img"` + `aria-label`, which is STRONGER
  * than the `title` it replaces: a `title` on a `<span>` is an accessible-name

@@ -17,10 +17,11 @@
  *
  * ⚠ 300ms IS NOT A TASTE. `src/components/Tooltip` records DS v5's recommended
  * 300ms in its own `delay` docstring, and the node surface is exactly the place
- * that needs it: a card can carry a provenance glyph, a sparkle, a brief icon
- * and a science icon within a few px of each other, so a 0ms tooltip flickers a
- * bubble at every pointer crossing. `MenuTooltip.useTooltipDelay` independently
- * arrived at the same 300ms for the context menu.
+ * that needs it: an option card carries `BriefIcon` (`OptionNode.tsx:1445`),
+ * `NodeProvenanceMark` (via `BaseNode.tsx:1169`) and one or more `ScienceIcon`s
+ * (`OptionNode.tsx:1703`) within a few px of each other, so a 0ms tooltip
+ * flickers a bubble at every pointer crossing. `MenuTooltip.useTooltipDelay`
+ * independently arrived at the same 300ms for the context menu.
  *
  * It lives in its own module, rather than as a literal at each call site, so the
  * inventory spec can bind to the SAME symbol the components use — a repeated
