@@ -206,9 +206,23 @@ const renderDecision = (overrides: Partial<typeof baseProps> = {}) =>
 
 /**
  * The completed-run card, in Standard view, with the producer withholding a
- * leader — the ONE state where the fallback renders a content-free line, and
- * therefore the only state where the summary is reachable. `factors` is spread
- * in so each test states the model it is making a claim about.
+ * leader — the state Paul reported, and the one these tests mount. `factors` is
+ * spread in so each test states the model it is making a claim about.
+ *
+ * ⚠ IT IS NOT THE ONLY STATE THE SUMMARY IS REACHABLE IN. This docstring said
+ * it was, on the same axis the PR body already withdrew (`report` is not
+ * required; there is no leader-claim gate on the summary) — the withdrawal
+ * swept the sentence and not the surface, which is why round 2 blocked on it.
+ * Derived at the bytes rather than restated: `showReadinessSummary` is
+ * `Boolean(readinessSummary) && restingLineIsContentFree`, and
+ * `restingLineIsContentFree` resolves through `hasPostAnalysisPopover`, which
+ * is `isPostAnalysis && !isDetailed` — it reads no `report`, no `headline` and
+ * no admission. So a SECOND state reaches the summary: `status: 'complete'`
+ * with `report: null` and `optionCount === 0` falls to the third,
+ * UNCONDITIONAL `bodyFallback` arm while the line is still `completedRunLine`.
+ * The reviewer measured it renders there ("2 factors · 1 missing"), against a
+ * positive control in the same run. Nothing in this file mounts that state, and
+ * no test here claims to cover it.
  */
 const mountCompletedRun = (factors: unknown[], overrides: Record<string, unknown> = {}) => {
   setStore({
@@ -485,15 +499,27 @@ describe('DecisionNode — the readiness summary on the card', () => {
    * only a `ModelReadiness`, so it could not read a report even if it wanted
    * to. The report never varied; the claim in the name was never measured.
    *
-   * ⚠⚠ AND THE NAMED CLAIM IS NOT BINDABLE ON THE CARD AT ALL — measured, not
-   * argued. A mutant appending a marker to the summary WHENEVER the licensing
-   * field is present (`report.robustness.near_tie`) left all 58 tests in these
-   * two files GREEN. It has to: the licensing field is exactly what makes
+   * ⚠⚠ AND THE NAMED CLAIM IS NOT BINDABLE ON THE CARD — ON THE REPORT-SIDE
+   * GATE, which is the one the original test varied. Measured, not argued: a
+   * mutant appending a marker to the summary whenever the licensing field
+   * `report.robustness.near_tie` is present left all 58 tests in these two
+   * files GREEN. It has to: that field is exactly what makes
+   * `verdict.hasLeadingOption` true, so
    * `headline` truthy, `bodyHasContent` truthy, and the whole `bodyFallback` —
-   * the summary with it — absent. So the licensed arm has NO summary to
-   * compare, and no card-level assertion can ever hold the two side by side.
-   * That is why the original fell back to the composer and produced a
-   * tautology: it was reaching for a comparison the surface cannot make.
+   * the summary with it — absent. The licensed arm has NO summary to compare,
+   * and no card-level assertion can hold the two side by side. That is why the
+   * original fell back to the composer and produced a tautology: it was
+   * reaching for a comparison the surface cannot make ON THAT AXIS.
+   *
+   * ⚠ NAME THE GATE, BECAUSE THERE ARE TWO (CLAUDE.md trap 21). "Licensed a
+   * leader claim" covers the report-side gate above AND a second, independent
+   * one: `modelLicensesComparativeClaim` — `licensesComparativeLeaderClaim(
+   * useAnalysisAdmission())` at `DecisionNode.tsx:393`, which this file does
+   * not mock and which defaults true. On THAT axis a comparison IS
+   * constructible: with the report holding no leader, `headline` is null
+   * whichever way the admission falls, so the summary renders in both arms.
+   * The unbindability above is a claim about the report gate ONLY. This file
+   * neither varies the admission axis nor claims to.
    *
    * ⛔ THE LICENSED ARM IS NOT LEFT UNMEASURED — it is measured in §3 above
    * (*"a card that already has content does not get a summary bolted
@@ -539,8 +565,13 @@ describe('DecisionNode — the readiness summary on the card', () => {
     expect(OTHER_WITHHELD_REPORT.option_probabilities['option-1'].win_probability).not.toBe(
       WITHHELD_REPORT.option_probabilities['option-1'].win_probability,
     )
-    // Both arms are in the WITHHELD class — the only class where the fallback,
-    // and therefore the summary, renders at all.
+    // Both arms are in the WITHHELD class, which is what keeps the summary
+    // observable in BOTH: a leader claim in either arm would take the fallback
+    // away there and the comparison would be one line against nothing.
+    // ⚠ IT IS NOT AN EXCLUSIVE CLASS, and this comment used to say it was: the
+    // fallback also renders on the unnamed and no-options arms (§3 above mounts
+    // both), and the summary is reachable with `report: null` as well — see
+    // `mountCompletedRun`, where that second arm is derived.
     expect('near_tie' in WITHHELD_REPORT.robustness).toBe(false)
     expect('near_tie' in OTHER_WITHHELD_REPORT.robustness).toBe(false)
     // And the two arms really do differ on whether stability is reported.
