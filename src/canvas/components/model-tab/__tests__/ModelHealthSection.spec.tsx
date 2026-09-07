@@ -127,7 +127,58 @@ describe('ModelHealthSection', () => {
     }
     render(<ModelHealthSection auditTrail={auditTrail} />)
     expect(screen.getByTestId('root-node-warning')).toBeInTheDocument()
-    expect(screen.getByText(/2 factors have no value set/)).toBeInTheDocument()
+
+    /*
+     * ⚠ THE OLD PIN READ "2 factors have no value set". I first called that
+     * FALSE; a reviewer was right that the accurate charge is narrower, and
+     * the narrower one is enough.
+     *
+     * It NAMED THE WRONG POPULATION. `rootNodeWarningCount` counts
+     * `ROOT_NODE_DEFAULT_VALUE` warnings — STARTING factors for which the
+     * engine SUBSTITUTED zero (`humaniseCritique.ts:498-504`). "Factors with
+     * no value set" is a different and larger population — every factor the
+     * user has not filled in — and it collided ON SCREEN with `ModelOutline`'s
+     * own count of exactly that larger set, so the panel showed two numbers
+     * for two different things under one phrasing.
+     *
+     * The replacement is the estate's existing wording for this code, not new
+     * copy. It restores the two facts the old sentence dropped: that these are
+     * STARTING factors, and that a value was SUBSTITUTED rather than absent.
+     */
+    const warning = screen.getByTestId('root-node-warning')
+    expect(warning).toHaveTextContent(/2 starting factors had no value recorded/i)
+    expect(warning).toHaveTextContent(/zero was assumed/i)
+    expect(warning).toHaveTextContent(/anything downstream of them may be unreliable/i)
+  })
+
+  /**
+   * ⚠ THE SINGULAR ARM, AND ITS ABSENCE MADE A COVERAGE CLAIM FALSE. My commit
+   * said the pluralisation branch "is covered too"; a reviewer mutated only
+   * the singular arms and left 35 tests GREEN. Nothing exercised n = 1 — which
+   * is the state this PR's own deployed witness cites, so it is the likelier
+   * one on screen, not an edge case.
+   */
+  it('reads in the singular at n = 1 — "factor had", "downstream of it"', () => {
+    const auditTrail: AuditTrailData = {
+      seedUsed: null,
+      responseHash: null,
+      nSamples: null,
+      repairsApplied: null,
+      inferenceWarnings: [
+        { code: 'ROOT_NODE_DEFAULT_VALUE', severity: 'warning', message: 'Node has default value' },
+      ],
+      autoNoiseApplied: null,
+      autoNoiseProvenance: null,
+      stabilityPenaltyFactor: null,
+    }
+    render(<ModelHealthSection auditTrail={auditTrail} />)
+    const warning = screen.getByTestId('root-node-warning')
+    expect(warning).toHaveTextContent(/1 starting factor had no value recorded/i)
+    expect(warning).toHaveTextContent(/downstream of it may be unreliable/i)
+    // The discriminating half: the plural forms must be ABSENT, or this passes
+    // on a component that always renders both or ignores the count.
+    expect(warning).not.toHaveTextContent(/factors had/i)
+    expect(warning).not.toHaveTextContent(/downstream of them/i)
   })
 
   it('shows penalty text when stabilityPenaltyFactor < 1.0', () => {

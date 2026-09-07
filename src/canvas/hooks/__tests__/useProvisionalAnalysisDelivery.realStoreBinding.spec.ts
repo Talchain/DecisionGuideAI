@@ -97,9 +97,14 @@ describe('readProvisionalApplyStore is bound to the REAL canvas store', () => {
   it('exposes the two writers the applier is allowed to call, and NOTHING from the graph slices', () => {
     const view = readProvisionalApplyStore()
 
-    // POSITIVE: the applier's whole contract is these two writers.
+    // POSITIVE: the applier's whole contract is these writers.
     expect(typeof view.setAnalysisStateV1).toBe('function')
     expect(typeof view.resultsComplete).toBe('function')
+    // ⭐ S-R5: the freshness transition. This binding IS the fix — the action
+    // existed on the store with exactly the right semantics all along, and this
+    // leg simply never reached it, so a completed analysis arriving here left a
+    // pre-run "model changed" standing over its own results.
+    expect(typeof view.noteRunCompletedWithoutVerdict).toBe('function')
 
     // BOUNDARY: `applyScenarioAnalysisRead`'s header says the graph belongs to
     // `serverGraphHydration`. The previous spread handed over the entire store,
@@ -115,6 +120,12 @@ describe('readProvisionalApplyStore is bound to the REAL canvas store', () => {
         // than quietly widened: the whole point of an identity binding is that
         // adding a member is a decision someone makes on purpose.
         'graphAcceptedForCanvas',
+        // ⚠ ADDED BY S-R5, AND THIS SPEC CORRECTLY OBJECTED AGAIN — which is
+        // the identity binding doing its job for the second time. The member
+        // set genuinely changed: this leg now performs the freshness transition
+        // the turn path has always performed, so the expectation moves WITH the
+        // decision rather than being quietly widened.
+        'noteRunCompletedWithoutVerdict',
         'resultsComplete',
         'setAnalysisStateV1',
       ].sort(),
