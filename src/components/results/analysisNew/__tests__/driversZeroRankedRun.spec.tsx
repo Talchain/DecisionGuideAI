@@ -57,9 +57,6 @@ const renderBody = (data: ResultsSectionDataReturn) =>
       isRunning={false}
       isBusy={false}
       isStale={false}
-      nSamples={null}
-      seedUsed={null}
-      responseHash={null}
       onFocusNode={() => {}}
       onReanalyse={() => {}}
       onSendMessage={() => {}}
