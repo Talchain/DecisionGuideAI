@@ -502,22 +502,7 @@ function T1DominantNudge({
   // could change"; the P0 surface-copy cleanup retired that. The two
   // branches diverge only in noun choice — v17 hero says "the leading
   // option", legacy panel says "the result".
-  // ⭐ ONE NAME, TWO QUESTIONS — this line asked the wrong one.
-  //
-  // Both nouns were already correct and already shipped; the gate chose between
-  // them on `useV17Copy`, which answers "which COPY MODE is this surface in?".
-  // The noun actually turns on a different question: "may this turn NAME a
-  // leader at all?". On a v17 run where the model withheld the designation the
-  // two questions disagree, and this line printed "the leading option" while the
-  // hero above it printed the `noLeader` headline.
-  //
-  // Now composed: v17 copy mode AND the model's licence. `=== false` for the
-  // same reason as `rankActOnItRows` — `undefined` is no-authority, not
-  // withheld, and gating on `=== true` would withhold on legacy runs that never
-  // lost the right to the sentence.
-  const namesLeader =
-    useV17Copy && leaderDesignationPermitted(data.recommendation) !== false
-  const trailingClause = namesLeader
+  const trailingClause = useV17Copy
     ? 'If your assumptions about this factor are wrong, the leading option could change.'
     : 'If your assumptions about this factor are wrong, the result could change.'
   // (Round-5 P1.1) v17 mode: the dominant factor's label is user data and
