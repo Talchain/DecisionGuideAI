@@ -9,7 +9,6 @@ import {
   formatNumericLabel,
   getEdgeLabel,
   getEdgeLabelMode,
-  setEdgeLabelMode,
   LABEL_HEDGE_CUT,
   type EdgeLabelMode
 } from '../edgeLabels'
@@ -241,26 +240,6 @@ describe('edgeLabels', () => {
     })
   })
 
-  describe('setEdgeLabelMode', () => {
-    it('stores "numeric" mode in localStorage', () => {
-      setEdgeLabelMode('numeric')
-      expect(localStorage.getItem('canvas.edge-labels-mode')).toBe('numeric')
-    })
-
-    it('stores "human" mode in localStorage', () => {
-      setEdgeLabelMode('human')
-      expect(localStorage.getItem('canvas.edge-labels-mode')).toBe('human')
-    })
-
-    it('overwrites previous mode', () => {
-      setEdgeLabelMode('numeric')
-      expect(localStorage.getItem('canvas.edge-labels-mode')).toBe('numeric')
-
-      setEdgeLabelMode('human')
-      expect(localStorage.getItem('canvas.edge-labels-mode')).toBe('human')
-    })
-  })
-
   describe('getEdgeLabel', () => {
     it('returns human label when mode is "human"', () => {
       const result = getEdgeLabel(SET(0.9), SET(0.9), STATED_POSITIVE, 'human')
@@ -274,10 +253,10 @@ describe('edgeLabels', () => {
     })
 
     it('uses localStorage mode when mode parameter is not provided', () => {
-      setEdgeLabelMode('numeric')
+      localStorage.setItem('canvas.edge-labels-mode', 'numeric')
       expect(getEdgeLabel(SET(0.6), SET(0.85), STATED_POSITIVE).label).toBe('w 0.60 • b 85%')
 
-      setEdgeLabelMode('human')
+      localStorage.setItem('canvas.edge-labels-mode', 'human')
       expect(getEdgeLabel(SET(0.9), SET(0.9), STATED_POSITIVE).label).toBe('Strong boost')
     })
 
@@ -296,21 +275,21 @@ describe('edgeLabels', () => {
       expect(getEdgeLabel(SET(weight), SET(belief), STATED_POSITIVE).label).toBe('Moderate boost')
 
       // Switch to numeric
-      setEdgeLabelMode('numeric')
+      localStorage.setItem('canvas.edge-labels-mode', 'numeric')
       expect(getEdgeLabel(SET(weight), SET(belief), STATED_POSITIVE).label).toBe('w 0.60 • b 85%')
 
       // Switch back to human
-      setEdgeLabelMode('human')
+      localStorage.setItem('canvas.edge-labels-mode', 'human')
       expect(getEdgeLabel(SET(weight), SET(belief), STATED_POSITIVE).label).toBe('Moderate boost')
     })
 
     it('persists mode across function calls', () => {
-      setEdgeLabelMode('numeric')
+      localStorage.setItem('canvas.edge-labels-mode', 'numeric')
 
       expect(getEdgeLabelMode()).toBe('numeric')
       expect(getEdgeLabel(SET(0.5), SET(0.8), STATED_POSITIVE).label).toBe('w 0.50 • b 80%')
 
-      setEdgeLabelMode('human')
+      localStorage.setItem('canvas.edge-labels-mode', 'human')
 
       expect(getEdgeLabelMode()).toBe('human')
       expect(getEdgeLabel(SET(0.5), SET(0.8), STATED_POSITIVE).label).toBe('Moderate boost')
