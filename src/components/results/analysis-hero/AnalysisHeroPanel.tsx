@@ -130,8 +130,9 @@ export interface AnalysisHeroPanelProps {
 }
 
 /**
- * House-style guard for PRODUCER-slot text (trust line, status chip, named
- * focus action): em/en dashes are swapped for a plain hyphen. Glyph swap
+ * House-style guard for PRODUCER-slot text (status chip,
+ * withheld-designation reason, trust line, named focus action): em/en dashes
+ * are swapped for a plain hyphen. Glyph swap
  * only — no words are added, removed or reordered, so the producer's
  * content passes through untouched. (The app-wide '—' missing-value
  * placeholder glyph is unaffected: it never flows through these slots.)

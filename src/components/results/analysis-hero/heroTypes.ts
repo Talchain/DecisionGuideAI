@@ -394,13 +394,19 @@ export interface HeroChartModel {
    */
   subline: string | null
   /**
-   * WHY no leader was named — CEE's own sentence, rendered VERBATIM.
+   * WHY no leader was named — CEE's own sentence.
    *
    * Non-null ONLY on a withheld run (`designationsWithheld`), and only when
    * the producer supplied one: `analysisAdmission.reasons[0].message`, typed
    * on `AnalysisAdmissionReason` as a user-facing sentence. The hero neither
    * authors, paraphrases, truncates nor templates it — which is why it is
    * carried as a whole string and not as an id the UI maps to copy.
+   *
+   * NOT a byte-identical render. The panel routes this slot through
+   * `dashSafe`, the house-style glyph swap it applies to every producer
+   * slot; it adds, removes and reorders nothing, so the producer's sentence
+   * survives it. Say what is measured: unauthored, unparaphrased,
+   * untruncated, untemplated, with the glyph swap applied at the slot.
    *
    * The withheld headline (`HERO_COPY.headline.noLeader`) is SILENCE, not a
    * denial, and silence is indistinguishable from an ordinary run. This slot

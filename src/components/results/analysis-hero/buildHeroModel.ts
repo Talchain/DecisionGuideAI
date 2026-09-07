@@ -891,10 +891,11 @@ export function buildHeroModel(
   // of `analysisAdmission` anywhere under `src/` were that write, its type
   // declaration and one spec — no consumer rendered it.
   //
-  // PASSTHROUGH ONLY. Rendered verbatim: no paraphrase, no truncation, no
-  // template, no prefix. The hero does not author refusal wording, and an id
-  // mapped to local copy here would be the hand-maintained mirror trap 12
-  // warns about.
+  // PASSTHROUGH ONLY: no paraphrase, no truncation, no template, no prefix.
+  // The hero does not author refusal wording, and an id mapped to local copy
+  // here would be the hand-maintained mirror trap 12 warns about. NOT a
+  // byte-identical render: the panel applies the house-style glyph swap
+  // (`dashSafe`) at the slot, as it does to every producer slot.
   //
   // ⚠ GATED ON `designationsWithheld`, NOT ON THE HEADLINE STRING. The state
   // is what licenses the sentence — "this run may not designate a leader" —
