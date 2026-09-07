@@ -649,12 +649,38 @@ export function ModelRowView({
            glyph renders no characters at ANY width.
 
            ⚠ NOT CHANGED HERE, DELIBERATELY, and this is the judgement rather
-           than an oversight. Marks relieve roughly 62px of row pressure, so it
-           is unlikely to clip in practice — and NOBODY HAS MEASURED IT CLIPPING,
-           in either direction. Swapping to `shrink-0` would be an unmeasured
+           than an oversight. Swapping to `shrink-0` would be an unmeasured
            layout change to a row already under review, and would move the
            deficit onto an atom that has not been priced for it. Rowed instead:
            re-price the yield ladder now that its last item is INDIVISIBLE.
+
+           ⚠⚠ THE TWO SENTENCES THAT USED TO CARRY THIS DEFERRAL ARE WITHDRAWN,
+           AND THE WITHDRAWAL IS WHY THE ROW MATTERS MORE, NOT LESS. They read
+           "marks relieve roughly 62px of row pressure, so it is unlikely to
+           clip in practice" and "NOBODY HAS MEASURED IT CLIPPING, in either
+           direction". **Both are refuted**, measured on deployed staging
+           `18b79ae4` in a guest session at real panel width (7 Sep 2026, an
+           independent lane — NOT reproduced by this author, and recorded here
+           as that lane's reading):
+
+             · Clipping HAS now been measured, and it is not marginal: the
+               provenance sub-line renders a 31px box for content needing 125px
+               — three readable characters of "Olumi: Moderate (0.5)" — and
+               **24 of 44 value cells** in the tab are clipped.
+             · ⛔ The 62px RELIEF FIGURE DOES NOT TRANSFER. A counterfactual
+               forcing the badge element to 14px left the sub-line at 31px and
+               the value block at 80px — **no change at all.** So the 80px value
+               column is pinned by something OTHER than this pill, and swapping
+               pill→glyph does not recover the width.
+
+           The 62px and 3px readings are kept above as DATED CAPTURES of the
+           pill; what is withdrawn is the INFERENCE drawn from them, which is a
+           different thing from the measurement. **Consequence for this file:
+           the swap below must not be read as a width or truncation fix — it is
+           a legibility and density change (glyph + legend, the candidate the
+           product owner chose), and the geometry question is OPEN with its
+           cause unidentified.** That is the row, and it is now actionable:
+           whoever takes it should start from what the counterfactual excludes.
 
            ⚠ This disclosure was written by the change that introduced the mark
            and was DROPPED when that change was re-applied onto a moved base —
