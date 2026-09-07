@@ -145,11 +145,19 @@ function makeData(overrides: DataOverrides = {}): ResultsSectionDataReturn {
     // ⚠ FIXTURE SHAPE ONLY — NOT A BEHAVIOURAL DIFFERENCE, and an earlier
     // revision of this comment claimed that it was. `??` CANNOT distinguish a key
     // that is present with value `undefined` from a key that is absent: property
-    // access yields `undefined` either way, so
-    // `rec.leaderDesignationPermitted ?? rec.verdict?.hasLeadingOption` takes the
-    // same arm for both shapes. Measured on that pair, with and without a
-    // `verdict` present: identical results — while `hasOwnProperty`, an operator
-    // that CAN see the difference, read `true` vs `false` on the same two objects.
+    // access yields `undefined` either way, so the helper's own guard
+    // `if (rec.leaderDesignationPermitted != null)` takes the same arm for both
+    // shapes. Measured on that pair, with and without a `verdict` present:
+    // identical results — while `hasOwnProperty`, an operator that CAN see the
+    // difference, read `true` vs `false` on the same two objects.
+    //
+    // ⚠ THE QUOTED EXPRESSION WAS UPDATED, THE FINDING WAS NOT. This previously
+    // quoted `rec.leaderDesignationPermitted ?? rec.verdict?.hasLeadingOption`,
+    // which #1238 replaced with the explicit `!= null` guard above. `!= null` is
+    // blind to present-with-`undefined` versus absent in exactly the way `??`
+    // was, so the point survives the rewrite verbatim — but a comment quoting
+    // code that no longer exists is a false comment whether or not its claim
+    // still holds, which is why this is corrected rather than left.
     ...(overrides.leaderDesignationPermitted === undefined
       ? {}
       : { leaderDesignationPermitted: overrides.leaderDesignationPermitted }),

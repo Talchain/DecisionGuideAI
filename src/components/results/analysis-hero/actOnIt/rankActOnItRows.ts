@@ -294,9 +294,27 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): ActOnItRow | null {
   // before this change), so the sentence was emitted unconditionally.
   //
   // ⚠ GATED ON `=== false`, NOT `=== true`, DELIBERATELY. The helper returns
-  // `true | false | undefined`, and `undefined` means NO AUTHORITY (a legacy
-  // caller with no verdict), not "withheld" — its own docs say callers read it
-  // strictly so absence keeps existing behaviour. Gating on `=== true` would
+  // `true | false | undefined`, and `undefined` is not "withheld".
+  //
+  // ⚠⚠ WHAT `undefined` COVERS CHANGED UNDER THIS PR, and an earlier revision of
+  // this comment described only the older half. #1238 rewrote
+  // `leaderDesignation.ts` so Q2 alone MAY WITHHOLD AND MAY NEVER LICENSE:
+  //
+  //     rec == null                                          -> undefined
+  //     composed answer present                              -> that answer
+  //     no composed answer, hasLeadingOption === false       -> false
+  //     no composed answer, hasLeadingOption === true        -> undefined  (was `true`)
+  //
+  // So `undefined` now covers TWO shapes, not one: a caller with no verdict at
+  // all, AND a verdict asserting separation with no composed answer beside it —
+  // the licence-inferred-from-separation read that #1238 exists to abolish. The
+  // older gloss, "a legacy caller with no verdict", named only the first and is
+  // why this comment had to be rewritten rather than merely re-dated.
+  //
+  // The gate is UNAFFECTED: `!== false` maps `true` and `undefined` to the same
+  // arm, so the one cell #1238 moved cannot change what this row prints. That is
+  // the reason this is a comment repair and not a behavioural one. Gating on
+  // `=== true` would
   // withhold on every no-authority run too, which is the over-broad gate that
   // DELETED the producer-tie sentence in #1232: a true sentence the product had
   // earned, swapped for silence. This gate fires only where the model has
