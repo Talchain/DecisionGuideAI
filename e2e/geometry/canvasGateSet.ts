@@ -113,6 +113,29 @@ export interface GatedTest {
  */
 export const GATED_TESTS: readonly GatedTest[] = [
   {
+    file: 'nodeControlOcclusion.measure.ts',
+    suite: 'in-node control occlusion',
+    title: 'CONTROLS DO NOT COVER CARD CONTENT @vendor-selection 1440x900',
+    catches:
+      'THE HALF `#1274` MOVED WITHOUT ITS PAIR. `BaseNode` reserves the quick-action band by hand '
+      + "— `padding: '12px 12px 24px 12px'` — and that `24` is a MIRROR of `NodeQuickActions`' own "
+      + '`bottom-1.5` + `h-5`, with nothing deriving one from the other (CLAUDE.md trap 12). '
+      + '`#1274` counter-scaled the row so its targets reach 24 RENDERED px at the parked zoom, '
+      + 'correctly fixing 80 of 117 unclickable controls — and the reservation stayed a literal 24 '
+      + 'while the row became `(6 + 20) x 2 = 52`. The row then sat 28px inside the card\'s own '
+      + 'content box, covering the value a user hovers the card in order to act on. '
+      + '⭐ AND IT IS IN THE GATE BECAUSE THE GATE WAS GREEN ON THE DEFECT: `#1274`\'s head passed '
+      + '`Canvas Browser Gate` with this live. jsdom cannot see it at all (no layout: every rect is '
+      + '0x0 and an overlap of zeroes is zero), and `Visual Regression` is red estate-wide and '
+      + 'discriminates nothing — so a browser-level overlap assertion was the only instrument that '
+      + 'could. It carries a CONTRAST CONTROL whose expected answer DIFFERS (the same intersector '
+      + 'must return NON-ZERO for the row against its own card), a two-limbed NON-VACUITY floor '
+      + '(rows AND text had to exist to collide), a zoom-held assertion (the worst case is the '
+      + 'parked zoom and a drifted camera under-reports), and a NO-JUMP assertion, because a '
+      + 'reservation that appeared only on hover would clear the occlusion by moving the target '
+      + 'away from the cursor.',
+  },
+  {
     file: 'modelRowEditReflow.measure.ts',
     suite: 'model row edit reflow',
     title: 'MODEL ROW EDIT REFLOW @dock 280px',
