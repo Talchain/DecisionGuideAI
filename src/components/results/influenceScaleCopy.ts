@@ -113,15 +113,44 @@ export const INFLUENCE_EXPLANATION_ABSOLUTE =
  * coordinated change, not mine to make unilaterally.
  */
 
-/** Drivers panel ranking explainer — generic (absolute or unstamped basis). */
+/**
+ * Drivers panel ranking explainer — the FAIL-CLOSED arm, taken exactly when
+ * `DriversSection` resolves `influenceBasis === 'unknown'`: no provenance stamp,
+ * OR no visible driver rows, OR the fallback basis below its magnitude floor.
+ *
+ * ⚠ 7 Sep 2026 — THIS SAID "generic (absolute or unstamped basis)", AND THIS PR
+ * FALSIFIED IT. It was true at `11b995d9`, where `DriversSection` gated the
+ * explainer on `influenceBasis === 'relative'`, so the producer basis fell
+ * through to this string. The Q2 widening routes BOTH stamped bases to the
+ * relative explainer (`DriversSection.tsx`, `influenceScaleIsSetRelative`), so
+ * this arm no longer serves the producer basis — and "absolute" is the scale
+ * word this PR retires. Sole consumer: `DriversSection.tsx`.
+ */
 export const INFLUENCE_RANKING_EXPLAINER_GENERIC =
   'Ranked by how much each factor affects the outcome'
 
-/** Drivers panel ranking explainer — set-relative fallback basis. */
+/**
+ * Drivers panel ranking explainer — EITHER stamped basis.
+ *
+ * ⚠ 7 Sep 2026 — THIS SAID "set-relative fallback basis", naming one basis when
+ * this PR widened it to two. Both stamped provenances are set-relative
+ * normalisations, so both take this string; only the unstamped and degenerate
+ * states fall through to the generic one above.
+ */
 export const INFLUENCE_RANKING_EXPLAINER_RELATIVE =
   'Ranked by how much each factor affects the outcome, relative to the strongest factor'
 
-/** Drivers panel always-visible caption — set-relative fallback basis only. */
+/**
+ * Drivers panel always-visible caption — EITHER stamped basis.
+ *
+ * ⚠⚠ 7 Sep 2026 — THIS SAID "set-relative fallback basis ONLY", AND THAT WORD IS
+ * THE DEFECT THIS PR EXISTS TO REMOVE. Withholding this caption on the producer
+ * basis is what let a figure that is 100% BY CONSTRUCTION read as a causal
+ * share, on the ordinary run. `DriversSection.tsx` now renders it whenever
+ * `influenceScaleIsSetRelative` (i.e. any stamped basis with visible rows);
+ * `DriversSection.influenceScaleDisclosure.spec.tsx` pins that by test id on
+ * both bases and pins its ABSENCE in both degenerate states.
+ */
 export const INFLUENCE_SCALE_CAPTION =
   'Influence is relative to the strongest factor. The top driver always shows 100%.'
 

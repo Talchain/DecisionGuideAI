@@ -140,12 +140,20 @@ describe('the panel names Olumi, not "the producer"', () => {
      * BEFORE the absence case, so a fixture that stops producing drivers REDs
      * here instead of passing silently.
      *
-     * ⚠ THE FIXTURE'S BRANCH IS PINNED IN-TEST. These two strings live on the
+     * ⚠⚠ 7 Sep 2026 — THIS PARAGRAPH SAID "these two strings live on the
      * ABSOLUTE-basis branch only; under a set-relative basis the builder emits
-     * "ranked within this run" and neither string is reachable. So the branch
-     * is asserted rather than assumed — otherwise a change to
-     * `displayProvenance` handling would make this test vacuous again by a new
-     * route.
+     * 'ranked within this run' and neither string is reachable", AND THIS PR
+     * FALSIFIED IT. It was true at `11b995d9`, where `groundedIn` and the
+     * `Basis` row keyed on the `setRelative` FLAG. They now key on the row's own
+     * `displayProvenance`, and `influence_score` IS a set-relative basis — so on
+     * that basis both strings are reachable, and they are exactly what this test
+     * asserts. There is no absolute-basis branch left to name.
+     *
+     * What decides them now is `d.displayProvenance === 'influence_score'` in
+     * `driverFinding`; under any other provenance `groundedIn` is "factor
+     * sensitivity, ranked within this run" and the `Basis` row is "ranked within
+     * this run". That is what the positive assertions below pin — see the note
+     * on the precondition, which states what it does and does not pin.
      */
     const vm = vmOf(genuineDecision())
     const finding = vm.drivers.findings.find((f) => f.id === 'driver:f_elasticity')
