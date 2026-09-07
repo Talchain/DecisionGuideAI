@@ -256,7 +256,36 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
 
         {/* Post-analysis: ImportanceBar + VoI folded in (no separate bordered card) */}
         <StaleGuardBanner hasResults={isResultsMode}>
-          <div className="mt-2 space-y-2">
+          {/* ⭐ GROUPING, NOT DECORATION — 4px WITHIN a pair, 16px BETWEEN.
+          Both bars in this stack put their label BELOW their own value
+          (`ImportanceBar` ends with its label; the VoI block does the
+          same). At `space-y-2` the gap BETWEEN pairs was 8px while the
+          gap WITHIN a pair was `mt-1` = 4px — only 2x — so a reader
+          scanning down met:
+
+          100%                  <- influence value
+          Influence on results  <- ITS label
+          Low                   <- the VoI value
+          Investigation value   <- ITS label
+
+          and paired "Influence on results" with the "Low" beneath it,
+          reading "influence: Low" directly under "100%".
+
+          ⚠ THE DATA WAS NEVER WRONG and this is NOT a data fix. Influence
+          and value-of-information are different quantities and both were
+          rendered correctly. But the misreading is reproducible and has
+          now caught THREE independent readers: a reviewer who nearly
+          filed it as a data-integrity defect, the author who documented
+          that near-miss at `inspectorStrings.ts:404`, and a lane that
+          re-filed it as a "100% vs Low contradiction" from a deployed
+          capture on 7 Sep 2026. A presentation that reliably produces a
+          false reading is a defect even when every number in it is right.
+
+          Adding the `Investigation value` label (the prior fix) told the
+          reader the second bar HAS a name; it could not tell them which
+          bar each name belongs to, because proximity still said
+          otherwise. 4px vs 16px makes proximity say the true thing. */}
+          <div className="mt-2 space-y-4">
             <ImportanceBar
               importanceScore={displayMetadata.influence}
               sensitivityRank={displayMetadata.sensitivityRank}
