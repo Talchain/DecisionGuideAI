@@ -20,16 +20,22 @@ const ALL_KINDS = Object.keys(VALUE_PROVENANCE_LABEL) as ValueProvenanceKind[]
  * ⭐⭐⭐ THE MOUNT, WHICH IS THE HALF THAT WAS MISSING.
  *
  * ⚠⚠ MEASURED BY INDEPENDENT REVIEW: deleting `<ValueProvenanceKey />` from
- * `ModelTabV2Panel` left **42 files / 682 tests GREEN**. Every case below
- * renders the component DIRECTLY, so they prove the key is correct and say
- * NOTHING about whether a user can reach it. That is this estate's chronic
- * failure in its purest form — "we build more than we plug in" — and this PR's
- * own body supplies the severity: without the key the marks are "a private
- * code". A legend nobody can open is worse than no legend, because the reader
- * learns the code exists and cannot read it.
+ * `ModelTabV2Panel` left **42 files / 682 tests GREEN**. Every case in the
+ * `the provenance key` describe FURTHER below renders the component DIRECTLY,
+ * so they prove the key is correct and say NOTHING about whether a user can
+ * reach it. (⚠ Not the describe immediately below this block — that one is the
+ * repair, and it renders the REAL panel. The earlier wording said "every case
+ * below" while sitting directly above the one case to which it does not apply.)
+ * That is this estate's chronic failure in its purest form — "we build more
+ * than we plug in" — and this PR's own body supplies the severity: without the
+ * key the marks are "a private code". A legend nobody can open is worse than no
+ * legend, because the reader learns the code exists and cannot read it.
  *
  * So the mount is asserted through the REAL panel, and deleting the mount now
- * REDs here.
+ * REDs here. ⭐ MEASURED 7 Sep 2026 at this head, not merely reasoned: deleting
+ * `<ValueProvenanceKey />` from `ModelTabV2Panel` REDs the one case below and
+ * leaves all four direct-render cases GREEN — which is also what makes the
+ * distinction this block draws a real one rather than a stylistic note.
  */
 describe('the key is REACHABLE from the panel, not merely correct', () => {
   const goal = { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Grow ARR' } }
