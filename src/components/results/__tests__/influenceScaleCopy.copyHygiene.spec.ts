@@ -26,6 +26,9 @@ import {
   analysisMetricTitle,
   analysisMetricVisibleLabel,
   ZERO_REASON_BADGE_LABELS,
+  INFLUENCE_QUANTITY_BY_BASIS,
+  INFLUENCE_STABILITY_DISCLOSURE,
+  INFLUENCE_LEVER_DISCLOSURE,
 } from '../influenceScaleCopy'
 import {
   resolveAnalysisMetric,
@@ -73,6 +76,32 @@ function allStrings(): string[] {
        `NonNullable<ZeroReasonCode>`, so a fourth code added to the union is
        policed here without anyone remembering to extend this line. */
     ...Object.values(ZERO_REASON_BADGE_LABELS),
+    /* The quantity vocabulary, DERIVED rather than listed. The record is TOTAL
+       over `DriverDisplayProvenance`, so a third basis is policed here without
+       anyone remembering to extend this array — same mechanism as
+       `ZERO_REASON_BADGE_LABELS` above, and for the same reason the comment
+       there gives. All three fields are user-facing: `noun` and `gloss` reach a
+       reader through the vocabulary's consumers, and `runDisclosure` is
+       rendered as visible caption copy by `DriversSection`. */
+    ...Object.values(INFLUENCE_QUANTITY_BY_BASIS).flatMap((q) => [
+      q.noun,
+      q.gloss,
+      q.runDisclosure,
+    ]),
+    /* The stability and lever sentences, added 7 Sep 2026. Listed by hand
+       BECAUSE THEY CANNOT BE DERIVED: neither hangs off a record that is total
+       over a union, so there is nothing to iterate. That is precisely the
+       hand-maintained mirror the comment above warns about, so it is named as
+       one rather than left to look derived.
+
+       ⚠ THE LEVER SENTENCE IS THE ONE THAT NEEDS POLICING HERE. It
+       INTERPOLATES `ZERO_REASON_BADGE_LABELS.intervention_override`, so a
+       future reword of that badge lands inside a second user-facing string
+       without anyone editing this file. Listing the composed sentence means
+       the em-dash, shouting-caps and en-GB cases run over the RESULT of the
+       interpolation, not just over the badge label on its own. */
+    INFLUENCE_STABILITY_DISCLOSURE,
+    INFLUENCE_LEVER_DISCLOSURE,
   ]
 }
 

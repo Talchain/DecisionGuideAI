@@ -712,6 +712,25 @@ export interface DriverItem {
   normalisedInfluence: number
   /** ISL influence_score (0-1) - structural causal influence, used for Influence column */
   influenceScore?: number
+  /**
+   * The producer's declared basis for the importance/influence family
+   * (`importance_basis` on the wire), carried through unchanged from
+   * `UiFactorSensitivity`.
+   *
+   * ⚠ THIS IS A DIFFERENT AXIS FROM `displayProvenance`, AND CONFLATING THEM IS
+   * THE ESTATE'S SIGNATURE DEFECT (CLAUDE.md trap 21). Write down the question
+   * each one answers:
+   *   · `displayProvenance` — WHICH QUANTITY IS THIS RUN SHOWING? Decided by
+   *     THIS APP from coverage (`selectDriverDisplayModel`), all or nothing.
+   *   · `importanceBasis`   — WHAT DOES THE PRODUCER SAY ITS OWN IMPORTANCE
+   *     FIGURE IS? Decided by the PRODUCER, stamped per row.
+   * They are not two spellings of one fact and must never be aliased. The stamp
+   * is the evidence for the word "structural" in
+   * `INFLUENCE_QUANTITY_BY_BASIS.influence_score`; it does not decide which
+   * basis is displayed, and the display basis does not decide what the producer
+   * measured.
+   */
+  importanceBasis?: string
   /** Codex R3-B1: the value every surface displays AND ranks by, resolved under the
    *  complete-metric-set policy — producer influenceScore only when EVERY ranked factor
    *  carries one (a single comparable basis), otherwise normalisedInfluence for every
@@ -719,11 +738,31 @@ export interface DriverItem {
    *  which mixes bases under partial producer coverage. Optional only for legacy
    *  fixtures — the live pipeline always sets it. */
   displayInfluence?: number
-  /** Which basis produced displayInfluence ('influence_score' = absolute producer
-   *  scale; 'normalised_elasticity' = set-relative). Lane 2 review fold: surfaces
-   *  making ABSOLUTE claims ("drives NN% of the outcome") must gate on this —
-   *  a set-relative 1.0 is "largest in this set", not a causal share. Optional
-   *  only for legacy fixtures — the live pipeline always sets it. */
+  /** Which basis produced displayInfluence.
+   *
+   *  ⚠⚠ THIS SAID "'influence_score' = absolute producer scale" UNTIL 7 Sep 2026
+   *  AND THAT SENTENCE IS FALSE. It is also the sentence that PROPAGATED:
+   *  `analysisNew/buildAnalysisNewViewModel.ts` cites this comment BY LINE to
+   *  justify calling the field "an absolute producer score". Both stamped bases
+   *  are SET-RELATIVE — two different NORMALISATIONS, not absolute vs relative.
+   *  `influence_score` is the producer's, against `max|influence|`, so its top
+   *  row is 1.0 by construction exactly as the fallback's is. The corpus sweep
+   *  is derived in `influenceIsNeverCalledAbsolute.spec.ts`; the corrected
+   *  semantics live in `influenceScaleCopy.ts` and `driverDisplayModel.ts`,
+   *  which were fixed on 6 Sep while this copy of the claim was missed.
+   *
+   *  What the two bases DO differ on is the QUANTITY, and that difference is
+   *  real: 'influence_score' is the producer's structural score (it stamps the
+   *  row `importance_basis: "graph_structural"`) and 'normalised_elasticity' is
+   *  this app's own normalisation of the magnitude chain. Measured over every
+   *  JSON under `src/`, the two diverge on 41 of 123 factor rows. The user-
+   *  facing vocabulary for that distinction is `INFLUENCE_QUANTITY_BY_BASIS`
+   *  (`influenceScaleCopy.ts`); do not re-type either noun elsewhere.
+   *
+   *  Lane 2 review fold: surfaces making ABSOLUTE claims ("drives NN% of the
+   *  outcome") must gate on this — a set-relative 1.0 is "largest in this set",
+   *  not a causal share. Neither basis licenses such a claim. Optional only for
+   *  legacy fixtures — the live pipeline always sets it. */
   displayProvenance?: 'influence_score' | 'normalised_elasticity'
   /** Producer influence_rank (1 = most influential). Additive; roadmap 1.7 (provisional_doctrine_v0). */
   influenceRank?: number
@@ -1215,6 +1254,14 @@ export interface UiFactorSensitivity {
   importanceRank: number
   /** ISL influence_score (0-1) - structural causal influence */
   influenceScore?: number
+  /**
+   * The producer's declared basis for the importance/influence family
+   * (`importance_basis` on the wire). RAW producer string, never narrowed —
+   * an unrecognised value must stay distinguishable from an absent one, which
+   * is what lets `importanceBasisTrust` fail closed. See the read in
+   * `normalizeFactorSensitivity` and the policy in `influenceScaleCopy.ts`.
+   */
+  importanceBasis?: string
   /** Producer influence_rank (1 = most influential). Additive; roadmap 1.7 (provisional_doctrine_v0). */
   influenceRank?: number
   /** ISL zero_reason - explains why sensitivity is zero */
