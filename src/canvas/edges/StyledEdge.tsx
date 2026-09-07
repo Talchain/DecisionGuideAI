@@ -33,7 +33,10 @@ import {
   resolveEdgeDash,
   resolveEdgeDirectionMarker,
   edgeArrowheadMarkerId,
-  EDGE_ARROWHEAD_FLOW_SIZE,
+  EDGE_ARROWHEAD_FLOW_LENGTH,
+  EDGE_ARROWHEAD_FLOW_WIDTH,
+  EDGE_ARROWHEAD_VIEWBOX,
+  EDGE_ARROWHEAD_POLYGON_POINTS,
   type EdgePresentationState,
 } from './edgePresentation'
 import {
@@ -1130,20 +1133,30 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           than 2 — would get a double-sized arrowhead, leaking the interaction
           channel into the direction channel.
 
-          `refX={6}` is the tip of the 6-unit viewBox, so the point lands ON the
-          path's end rather than overshooting into the node card. */}
+          `refX` sits at the tip of the viewBox, so the point lands ON the path's
+          end rather than overshooting into the node card. ⚠ THE NODE CARD IS NOT
+          THE NEAREST NEIGHBOUR AT THIS END — the `+`/`−` polarity glyph is, 26
+          graph units back on very nearly the same axis, and the first version of
+          this mark abutted it at exactly 0.0px of clearance. That is why the
+          mark's LENGTH is derived from the glyph rather than chosen; the
+          derivation, the measurement and its honest limits are at
+          `EDGE_ARROWHEAD_FLOW_LENGTH` in `edges/edgePresentation.ts`. Length and
+          width are two different quantities here and the viewBox is derived from
+          both, because a viewBox with a different aspect ratio would be
+          LETTERBOXED by the default `preserveAspectRatio` rather than
+          stretched. */}
       {directionMarker.show && (
         <marker
           id={arrowheadId}
-          viewBox="0 0 6 6"
-          markerWidth={EDGE_ARROWHEAD_FLOW_SIZE}
-          markerHeight={EDGE_ARROWHEAD_FLOW_SIZE}
-          refX={6}
-          refY={3}
+          viewBox={EDGE_ARROWHEAD_VIEWBOX}
+          markerWidth={EDGE_ARROWHEAD_FLOW_LENGTH}
+          markerHeight={EDGE_ARROWHEAD_FLOW_WIDTH}
+          refX={EDGE_ARROWHEAD_FLOW_LENGTH}
+          refY={EDGE_ARROWHEAD_FLOW_WIDTH / 2}
           orient="auto"
           markerUnits="userSpaceOnUse"
         >
-          <polygon points="0 0, 6 3, 0 6" fill={edgeStroke.value} />
+          <polygon points={EDGE_ARROWHEAD_POLYGON_POINTS} fill={edgeStroke.value} />
         </marker>
       )}
       <BaseEdge

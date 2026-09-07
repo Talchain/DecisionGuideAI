@@ -41,11 +41,20 @@ import {
   isNonDirectionalEdgeType,
   NON_DIRECTIONAL_EDGE_TYPES,
   EDGE_ARROWHEAD_BASE_PX,
-  EDGE_ARROWHEAD_FLOW_SIZE,
-  renderedArrowheadPx,
+  EDGE_ARROWHEAD_FLOW_WIDTH,
+  EDGE_ARROWHEAD_FLOW_LENGTH,
+  EDGE_ARROWHEAD_VIEWBOX,
+  EDGE_ARROWHEAD_POLYGON_POINTS,
+  renderedArrowheadWidthPx,
+  renderedArrowheadLengthPx,
   edgeArrowheadMarkerId,
 } from '../edgePresentation'
 import { LABEL_LEGIBLE_ZOOM, MAX_LABEL_COUNTER_SCALE } from '../../utils/zoomLegibility'
+import {
+  GLYPH_ANCHOR_RADIUS,
+  GLYPH_PAINTED_BOX_FLOW,
+  GLYPH_BOX_GAP_FLOW,
+} from '../../utils/edgeGlyphPlacement'
 
 describe('EDGE_DIRECTION_MARKER_RULES — the order is the contract', () => {
   it('states the precedence, highest first', () => {
@@ -133,9 +142,16 @@ describe('resolveEdgeDirectionMarker', () => {
  * A marker's geometry is USER-SPACE and is multiplied by the viewport transform
  * before it reaches a pixel. `vector-effect: non-scaling-stroke` — the mechanism
  * the edge STROKE uses — does not reach it: that governs stroke rendering, and
- * an arrowhead is a filled polygon. So a naive 6-unit marker renders at 3px at
- * the 0.50 auto-fit floor the canvas parks a fresh model at, and the mark that
- * was supposed to fix the legibility gap is itself illegible.
+ * an arrowhead is a filled polygon.
+ *
+ * ⚠⚠ THE NUMBER THIS BLOCK USED TO CARRY WAS WRONG, AND THE ASSERTION BELOW WAS
+ * LOOSE ENOUGH TO ACCOMMODATE IT. It said a naive 6-unit marker "renders at 3px
+ * at the 0.50 auto-fit floor". The deleted `<defs>` markers carried NO
+ * `markerUnits` attribute, so the SVG default `strokeWidth` applied and the
+ * marker viewport was `6 × stroke-width 2` = 12 user units → **6px**, not 3px.
+ * The old assertion was `toBeGreaterThan(6 * 0.50)` = `> 3`, which is satisfied
+ * by 8 whether the dead marker was 3px or 6px — a wrong figure surviving because
+ * nothing pinned it. Corrected and pinned to exact px, 7 Sep 2026.
  *
  * THE ANSWER IS THE ONE THIS CODEBASE ALREADY CHOSE FOR NODE GEOMETRY, and it is
  * chosen here for the same stated reason (`zoomLegibility.ts`, on
@@ -149,38 +165,123 @@ describe('resolveEdgeDirectionMarker', () => {
  * declares: jsdom has no layout and no viewport transform, so nothing here
  * observes a rendered pixel. What is checkable is the arithmetic that decides
  * the size, and that it is derived from the single zoom source rather than
- * hand-tuned. The pixel half is NOT established by this suite.
+ * hand-tuned. The pixel half is NOT established by this suite, and no other
+ * instrument in this estate establishes it either.
  */
 describe('arrowhead size — sized for the bound, not tracked at runtime', () => {
-  it('derives its flow-space size from the single zoom authority, not a second constant', () => {
-    expect(EDGE_ARROWHEAD_FLOW_SIZE).toBe(EDGE_ARROWHEAD_BASE_PX * MAX_LABEL_COUNTER_SCALE)
+  it('derives its ACROSS-path size from the single zoom authority, not a second constant', () => {
+    expect(EDGE_ARROWHEAD_FLOW_WIDTH).toBe(EDGE_ARROWHEAD_BASE_PX * MAX_LABEL_COUNTER_SCALE)
   })
 
-  it('renders at its full declared size at the zoom the product parks a fresh model at', () => {
-    expect(renderedArrowheadPx(LABEL_LEGIBLE_ZOOM)).toBeCloseTo(EDGE_ARROWHEAD_BASE_PX, 10)
+  it('renders its full declared width at the zoom the product parks a fresh model at', () => {
+    expect(renderedArrowheadWidthPx(LABEL_LEGIBLE_ZOOM)).toBeCloseTo(EDGE_ARROWHEAD_BASE_PX, 10)
   })
 
   /**
-   * The point of the whole exercise: at the parked zoom the mark must be big
-   * enough to read against a 2px line. A bare 6-unit marker — the size the dead
-   * `<defs>` used — would have rendered at 3px there.
+   * ⭐ THE COMPARISON THE PR'S CASE RESTS ON, PINNED TO EXACT PIXELS RATHER THAN
+   * MERELY EXCEEDED.
+   *
+   * The deleted `<defs>` markers were `markerWidth="6" markerHeight="6"` with NO
+   * `markerUnits`, so the SVG default `strokeWidth` applied against the 2px
+   * causal stroke: a 12 × 12 user-unit viewport, i.e. 6px × 6px at the 0.50
+   * park. Not 3px. The dead figures are spelled out here rather than baked into
+   * one number so the derivation is auditable, and every quantity is asserted to
+   * an exact value so a future drift REDs instead of squeaking past a `>`.
+   *
+   * ⚠ AND THE HONEST READING OF THE RESULT: 6px × 8px against 6px × 6px is the
+   * SAME LENGTH and a third more width. This is not the justification for the
+   * mark — the deleted markers were referenced by nothing, so the real baseline
+   * is no arrow at all. It is simply the true comparison.
    */
-  it('is materially larger at that zoom than the dead defs marker would have been', () => {
-    const deadDefsMarkerSize = 6
-    expect(renderedArrowheadPx(LABEL_LEGIBLE_ZOOM)).toBeGreaterThan(
-      deadDefsMarkerSize * LABEL_LEGIBLE_ZOOM,
-    )
-    expect(renderedArrowheadPx(LABEL_LEGIBLE_ZOOM)).toBeGreaterThanOrEqual(8)
+  it('is exactly 6px long and 8px wide at the park — against the dead markers exact 6px × 6px', () => {
+    const DEAD_DEFS_MARKER_UNITS = 6
+    const CAUSAL_STROKE_WIDTH = 2 // markerUnits defaulted to `strokeWidth`
+    const deadDefsFlowSize = DEAD_DEFS_MARKER_UNITS * CAUSAL_STROKE_WIDTH
+    expect(deadDefsFlowSize).toBe(12)
+    expect(deadDefsFlowSize * LABEL_LEGIBLE_ZOOM).toBe(6)
+
+    expect(renderedArrowheadWidthPx(LABEL_LEGIBLE_ZOOM)).toBe(8)
+    expect(renderedArrowheadLengthPx(LABEL_LEGIBLE_ZOOM)).toBe(6)
   })
 
   /**
    * STATED, NOT HIDDEN: past 1:1 the mark grows with the canvas, exactly as node
-   * geometry does and unlike the stroke width. That is the cost of sizing for
-   * the bound, and `zoomLegibility.ts` already rules that magnification past 1:1
-   * "is then the user's own deliberate choice".
+   * geometry does and unlike the stroke width, which is `non-scaling-stroke` and
+   * therefore 2px at every zoom. That is the cost of sizing for the bound, and
+   * `zoomLegibility.ts` already rules that magnification past 1:1 "is then the
+   * user's own deliberate choice".
    */
   it('grows with deliberate magnification past 1:1, like node geometry', () => {
-    expect(renderedArrowheadPx(1)).toBeGreaterThan(renderedArrowheadPx(LABEL_LEGIBLE_ZOOM))
+    expect(renderedArrowheadWidthPx(1)).toBeGreaterThan(renderedArrowheadWidthPx(LABEL_LEGIBLE_ZOOM))
+    expect(renderedArrowheadLengthPx(1)).toBeGreaterThan(renderedArrowheadLengthPx(LABEL_LEGIBLE_ZOOM))
+  })
+})
+
+/**
+ * ⛔⛔ THE CLEARANCE THE FIRST VERSION OF THIS MARK DID NOT HAVE.
+ *
+ * The arrowhead and the `+`/`−` polarity glyph both live at the TARGET end, on
+ * very nearly the same axis: the arrowhead occupies `0 → length` graph units
+ * back from the target anchor along the path's end tangent, and the glyph's
+ * centre sits at `GLYPH_ANCHOR_RADIUS` back from the same anchor along the
+ * target→source centre direction. On a straight edge running to its source they
+ * coincide.
+ *
+ * At the shipped length of 16 units those two footprints met at exactly 16 units
+ * — clearance 0.0px at the park. And that is a trust defect rather than clutter:
+ * `directionStroke.ts:23-32` measures the polarity pair at ΔE2000 11.7 under
+ * deuteranopia, so the GLYPH, not the hue, is what carries direction-of-effect
+ * for a red-green dichromat. Crowding it trades one channel for another at the
+ * expense of the readers with the least redundancy to spare.
+ *
+ * These cases compute both footprints from the primitive constants and pin the
+ * gap in BOTH units. They are the reason `EDGE_ARROWHEAD_FLOW_LENGTH` is derived
+ * from the glyph rather than chosen, and restoring the square 16-unit mark REDs
+ * every one of them.
+ *
+ * ⚠ ARITHMETIC, NOT AN OBSERVATION. Every quantity here is a constant this
+ * codebase declares; none is a measured pixel. `GLYPH_PAINTED_BOX_FLOW` is the
+ * codebase's own committed figure for the glyph's box and is used as found.
+ */
+describe('arrowhead clearance — the polarity glyph is the nearest neighbour, not the node card', () => {
+  const glyphNearEdgeFlow = GLYPH_ANCHOR_RADIUS - GLYPH_PAINTED_BOX_FLOW / 2
+  const arrowTailFlow = EDGE_ARROWHEAD_FLOW_LENGTH
+
+  it('positions the two footprints where the constants say, in graph units', () => {
+    expect(glyphNearEdgeFlow).toBe(16)
+    expect(arrowTailFlow).toBe(12)
+  })
+
+  it('leaves a POSITIVE clearance, pinned at 4 graph units / 2.0px at the 0.50 park', () => {
+    const clearanceFlow = glyphNearEdgeFlow - arrowTailFlow
+    expect(clearanceFlow).toBe(4)
+    expect(clearanceFlow).toBe(GLYPH_BOX_GAP_FLOW)
+    expect(clearanceFlow * LABEL_LEGIBLE_ZOOM).toBe(2)
+  })
+
+  /**
+   * The regression this exists for, named: the mark as first written was square,
+   * so its length was the WIDTH constant and its tail landed exactly on the
+   * glyph's near edge. Length and width must stay separate quantities.
+   */
+  it('keeps length and width as separate quantities — a square mark reopens the collision', () => {
+    expect(EDGE_ARROWHEAD_FLOW_LENGTH).not.toBe(EDGE_ARROWHEAD_FLOW_WIDTH)
+    expect(EDGE_ARROWHEAD_FLOW_WIDTH).toBeGreaterThan(glyphNearEdgeFlow - GLYPH_BOX_GAP_FLOW)
+    expect(EDGE_ARROWHEAD_FLOW_LENGTH).toBeLessThanOrEqual(glyphNearEdgeFlow - GLYPH_BOX_GAP_FLOW)
+  })
+
+  /**
+   * ⚠ THE `preserveAspectRatio` TRAP. It defaults to `xMidYMid meet`, so a
+   * viewBox whose aspect ratio differs from `markerWidth`/`markerHeight` is
+   * LETTERBOXED rather than stretched — the mark would render smaller than every
+   * number above says, silently and in a browser only. Deriving the viewBox from
+   * the same two constants makes the mismatch unrepresentable; this pins that.
+   */
+  it('declares a viewBox at 1:1 with the marker box, so nothing is letterboxed', () => {
+    expect(EDGE_ARROWHEAD_VIEWBOX)
+      .toBe(`0 0 ${EDGE_ARROWHEAD_FLOW_LENGTH} ${EDGE_ARROWHEAD_FLOW_WIDTH}`)
+    expect(EDGE_ARROWHEAD_POLYGON_POINTS)
+      .toBe(`0 0, ${EDGE_ARROWHEAD_FLOW_LENGTH} ${EDGE_ARROWHEAD_FLOW_WIDTH / 2}, 0 ${EDGE_ARROWHEAD_FLOW_WIDTH}`)
   })
 })
 
@@ -193,14 +294,54 @@ describe('edgeArrowheadMarkerId', () => {
   })
 
   /**
-   * Injectivity is the property that matters: two edges resolving to ONE marker
-   * id would silently paint one edge's arrowhead in the other's colour. A
-   * sanitiser that maps every unsafe character to `_` is fragment-safe and NOT
-   * injective, which is why this case exists.
+   * ⚠⚠ SAY WHICH COLLISION CLASS THIS GUARDS. This docblock previously justified
+   * injectivity by "two edges resolving to ONE marker id would silently paint
+   * one edge's arrowhead in the other's colour" — but React Flow already
+   * guarantees distinct edge ids WITHIN one instance, so that cannot arise from
+   * the graph. Corrected 7 Sep 2026.
+   *
+   * The class this genuinely guards is SANITISATION: a sanitiser mapping every
+   * unsafe character to `_` is fragment-safe and NOT injective, so `a b` and
+   * `a_b` — both perfectly legal edge ids — would collapse onto one marker.
+   * That is what the cases below are, and it is a real risk because the obvious
+   * implementation is exactly that sanitiser.
    */
-  it('is injective — distinct edge ids never share a marker', () => {
+  it('is injective under SANITISATION — ids that a lossy escape would collapse stay distinct', () => {
     const raws = ['a b', 'a_b', 'a(b', 'a)b', 'a%20b', 'a b ', 'A B']
     const ids = raws.map(edgeArrowheadMarkerId)
     expect(new Set(ids).size).toBe(raws.length)
+  })
+
+  /**
+   * ⛔ THE KNOWN, MEASURED GAP — PINNED SO IT CANNOT DRIFT SILENTLY.
+   *
+   * `ComparisonCanvasLayout` mounts one `<MiniCanvas>` per scenario and
+   * `generateScenarios` filters a shared edge list WITHOUT re-keying, so an edge
+   * common to two scenarios is mounted twice and emits the same marker id twice.
+   * Measured on a 5-node/5-edge graph: `e_f1_g1` (factor→goal, direction
+   * positive — exactly the marked class) appears in both scenarios, and
+   * `url(#…)` then resolves to whichever marker is first in document order.
+   *
+   * It is DOCUMENTED rather than fixed, and the reasoning is at
+   * `edgeArrowheadMarkerId`'s docblock. What makes that honest rather than
+   * accidental is this case: the id is a PURE FUNCTION OF THE EDGE ID and
+   * carries no canvas-instance component. Namespacing it later (a `useId()`
+   * suffix, say) is then a deliberate act with a red test in front of it — and
+   * whoever does it must also confront that every assertion in
+   * `StyledEdge.directionMark.spec.tsx` computes the expected id from the edge
+   * id, which is what binds those assertions to their object by IDENTITY.
+   *
+   * ⚠ Scope: no visual divergence was demonstrated. Both instances read the same
+   * global store, so both resolve the same stroke rule and the same colour
+   * today. This is invalid DOM and a latent divergence, not a witnessed break.
+   */
+  it('KNOWN GAP — the id carries no canvas-instance component, so two mounted canvases share it', () => {
+    const sharedEdgeId = 'e_f1_g1'
+    expect(edgeArrowheadMarkerId(sharedEdgeId)).toBe(edgeArrowheadMarkerId(sharedEdgeId))
+    expect(edgeArrowheadMarkerId(sharedEdgeId)).toBe('edge-direction-e_f1_g1')
+    // Purity, stated as the property it is: same input, same output, no hidden
+    // per-mount salt. A `useId()`-namespaced implementation fails this line.
+    const twoMounts = new Set([1, 2].map(() => edgeArrowheadMarkerId(sharedEdgeId)))
+    expect(twoMounts.size).toBe(1)
   })
 })
