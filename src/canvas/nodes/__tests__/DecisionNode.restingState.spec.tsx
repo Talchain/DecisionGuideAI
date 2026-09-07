@@ -69,6 +69,7 @@ import { ReactFlowProvider } from '@xyflow/react'
 import { DecisionNode, DECISION_RESTING_COPY, DECISION_READINESS_COPY } from '../DecisionNode'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useAskOlumiStore } from '../../../components/results/coaching/askOlumiStore'
+import { canvasCopyIsHonest } from './__helpers__/canvasCopyHonesty'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -190,17 +191,23 @@ const RESTING_CTA = 'decision-node-resting-cta'
 /**
  * ⛔ THE CONSTRAINT, AS ONE PREDICATE, APPLIED IN TWO PLACES.
  *
- * Left half: any word that would make this node describe the analysis.
- * Right half: the node-type vocabulary another lane owns.
- *
  * `canvasCopyIsHonest` is used BOTH over the declared record (complete over
  * what is declared) AND over every rendered case (notices what was never
  * declared). Neither alone is sufficient — that is the whole of B2.
+ *
+ * ⚠ THE PREDICATE NO LONGER LIVES HERE, and that is a repair, not a tidy-up.
+ * This file used to define it and carry a comment promising the sibling
+ * `DecisionNode.readinessSummary.spec.tsx` imported it "rather than a second
+ * copy of the regex". That sibling shipped a BYTE-IDENTICAL copy in the same
+ * PR, so the comment was false on arrival (review finding B2). It now lives in
+ * `__helpers__/canvasCopyHonesty.ts` and BOTH specs import it, which makes the
+ * promise true by construction instead of by memory (CLAUDE.md trap 12).
  */
-const FORBIDDEN =
-  /lead|winner|win |robust|stabil|scenario|too close|tie|result|analysis|confiden|likel|probab|\bdecisions?\b|\bquestions?\b/i
-
-const canvasCopyIsHonest = (text: string) => !FORBIDDEN.test(text)
+// The predicate is imported at the top of this file with the other imports.
+// `FORBIDDEN` itself is deliberately NOT imported here: this file only ever asks
+// the QUESTION (`canvasCopyIsHonest`), never pokes at the regex, and an unused
+// binding is a lint failure that gates the whole required check before a single
+// test runs (CLAUDE.md trap 22e).
 
 /**
  * ⭐⭐ READ THE TEXT THE WAY THE USER READS IT — ONE LINE PER TEXT NODE.

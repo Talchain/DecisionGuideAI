@@ -56,6 +56,7 @@ import {
   type ModelReadiness,
 } from '../DecisionNode'
 import { useGuidanceStore } from '../../stores/guidanceStore'
+import { canvasCopyIsHonest } from './__helpers__/canvasCopyHonesty'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -499,19 +500,23 @@ describe('DecisionNode — the readiness summary on the card', () => {
   // This re-derives its verdict on the composed line, with a positive control,
   // so a change here that made the line dishonest REDs in two files.
 
-  const FORBIDDEN =
-    /lead|winner|win |robust|stabil|scenario|too close|tie|result|analysis|confiden|likel|probab|\bdecisions?\b|\bquestions?\b/i
+  // ⚠ THE REGEX IS NOT RE-SPELLED HERE, and it used to be. This file shipped a
+  // BYTE-IDENTICAL copy of the sibling's `FORBIDDEN` (125 bytes, diffed) while
+  // the sibling carried a comment promising there was no second copy — review
+  // finding B2. Both now import the ONE definition from
+  // `__helpers__/canvasCopyHonesty.ts`, so widening the guard is a single edit
+  // and the two files cannot drift apart (CLAUDE.md trap 12).
 
-  it('the forbidden-word predicate can still fail (positive control)', () => {
-    expect(FORBIDDEN.test('2 uncertainties')).toBe(true)
-    expect(FORBIDDEN.test('the leading option')).toBe(true)
-    expect(FORBIDDEN.test(`4 ${DECISION_READINESS_COPY.factorPlural}`)).toBe(false)
+  it('the honesty predicate can still fail (positive control)', () => {
+    expect(canvasCopyIsHonest('2 uncertainties')).toBe(false)
+    expect(canvasCopyIsHonest('the leading option')).toBe(false)
+    expect(canvasCopyIsHonest(`4 ${DECISION_READINESS_COPY.factorPlural}`)).toBe(true)
   })
 
   it('every readiness word, and every summary the composer can build, is honest', () => {
     for (const word of Object.values(DECISION_READINESS_COPY)) {
       expect(word.trim().length).toBeGreaterThan(0)
-      expect(FORBIDDEN.test(word)).toBe(false)
+      expect(canvasCopyIsHonest(word)).toBe(true)
     }
     // The composer over every non-empty combination of the four buckets, so a
     // segment that only appears in one arrangement cannot slip past.
@@ -525,7 +530,7 @@ describe('DecisionNode — the readiness summary on the card', () => {
         }),
       )
       expect(summary).not.toBeNull()
-      expect(FORBIDDEN.test(summary as string)).toBe(false)
+      expect(canvasCopyIsHonest(summary as string)).toBe(true)
     }
   })
 
