@@ -712,6 +712,25 @@ export interface DriverItem {
   normalisedInfluence: number
   /** ISL influence_score (0-1) - structural causal influence, used for Influence column */
   influenceScore?: number
+  /**
+   * The producer's declared basis for the importance/influence family
+   * (`importance_basis` on the wire), carried through unchanged from
+   * `UiFactorSensitivity`.
+   *
+   * ⚠ THIS IS A DIFFERENT AXIS FROM `displayProvenance`, AND CONFLATING THEM IS
+   * THE ESTATE'S SIGNATURE DEFECT (CLAUDE.md trap 21). Write down the question
+   * each one answers:
+   *   · `displayProvenance` — WHICH QUANTITY IS THIS RUN SHOWING? Decided by
+   *     THIS APP from coverage (`selectDriverDisplayModel`), all or nothing.
+   *   · `importanceBasis`   — WHAT DOES THE PRODUCER SAY ITS OWN IMPORTANCE
+   *     FIGURE IS? Decided by the PRODUCER, stamped per row.
+   * They are not two spellings of one fact and must never be aliased. The stamp
+   * is the evidence for the word "structural" in
+   * `INFLUENCE_QUANTITY_BY_BASIS.influence_score`; it does not decide which
+   * basis is displayed, and the display basis does not decide what the producer
+   * measured.
+   */
+  importanceBasis?: string
   /** Codex R3-B1: the value every surface displays AND ranks by, resolved under the
    *  complete-metric-set policy — producer influenceScore only when EVERY ranked factor
    *  carries one (a single comparable basis), otherwise normalisedInfluence for every
@@ -1235,6 +1254,14 @@ export interface UiFactorSensitivity {
   importanceRank: number
   /** ISL influence_score (0-1) - structural causal influence */
   influenceScore?: number
+  /**
+   * The producer's declared basis for the importance/influence family
+   * (`importance_basis` on the wire). RAW producer string, never narrowed —
+   * an unrecognised value must stay distinguishable from an absent one, which
+   * is what lets `importanceBasisTrust` fail closed. See the read in
+   * `normalizeFactorSensitivity` and the policy in `influenceScaleCopy.ts`.
+   */
+  importanceBasis?: string
   /** Producer influence_rank (1 = most influential). Additive; roadmap 1.7 (provisional_doctrine_v0). */
   influenceRank?: number
   /** ISL zero_reason - explains why sensitivity is zero */

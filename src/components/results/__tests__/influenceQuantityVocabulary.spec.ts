@@ -46,9 +46,14 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  HANDLED_IMPORTANCE_BASES,
+  IMPORTANCE_BASIS_GRAPH_STRUCTURAL,
   INFLUENCE_QUANTITY_BY_BASIS,
+  importanceBasisTrust,
   influenceQuantity,
+  influenceQuantityForRun,
   influenceQuantityRunDisclosure,
+  influenceQuantityRunDisclosureForRun,
 } from '../influenceScaleCopy'
 import {
   selectDriverDisplayModel,
@@ -305,5 +310,180 @@ describe('influence quantity vocabulary — the corpus says the two quantities d
     expect(both, 'no row carries both ranks — probe blind').toBeGreaterThanOrEqual(50)
     // Measured 55 of 95 at 80bacf36; asserted as a floor for the same reason.
     expect(disagree).toBeGreaterThanOrEqual(25)
+  })
+})
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * THE STAMP IS READ, AND AN UNRECOGNISED ONE FAILS CLOSED.
+ * ══════════════════════════════════════════════════════════════════════════
+ *
+ * The suite above cites `importance_basis` as EVIDENCE for the word
+ * "structural" and says explicitly that it does not make the field a read path.
+ * This block is that read path's guard.
+ *
+ * ⚠ THE LOAD-BEARING CASE IS THE DERIVED ONE ("handles exactly the stamp set
+ * the corpus carries"). Everything else here is behaviour over hand-written
+ * inputs, which can only ever prove the code does what this file imagined. The
+ * derived case is the one that REDs when the PRODUCER moves, and it is the
+ * reason a new basis value cannot reach a user under a noun written for the old
+ * one.
+ */
+describe('importance_basis — the producer stamp is read, and fails closed', () => {
+  const rows = factorRows()
+
+  it('POSITIVE CONTROL: the sweep found real factor rows', () => {
+    // Without this, "the observed stamp set equals the handled set" would pass
+    // vacuously on an empty corpus — an absence probe pointed at nothing.
+    expect(rows.length).toBeGreaterThanOrEqual(100)
+  })
+
+  /**
+   * ⭐⭐ THE DERIVED COMPLETENESS GUARD — the deliverable of this lane.
+   *
+   * `HANDLED_IMPORTANCE_BASES` is hand-written and cannot be derived: the
+   * producer's value space lives in another service. So the check on it is not
+   * derived FROM it (that would be a guard agreeing with itself, trap 13b) —
+   * it is derived from the CORPUS, which is written by the producer. Equality
+   * in BOTH directions is asserted deliberately:
+   *
+   *   · corpus ⊄ handled → a new producer value has arrived and the code would
+   *     name a quantity on evidence that no longer supports it. RED.
+   *   · handled ⊄ corpus → the code claims to handle a basis nothing has ever
+   *     stamped, which is an unreviewed assumption about the producer. RED.
+   *
+   * A `toContain`/superset assertion would satisfy the first and miss the
+   * second, and the second is exactly how a well-meaning "let's also accept
+   * `structural_graph`" edit slips in.
+   */
+  it('handles EXACTLY the stamp set the corpus carries, in both directions', () => {
+    const stamps = rows
+      .map((row) => row.importance_basis)
+      .filter((v): v is string => typeof v === 'string')
+    expect(stamps.length, 'no importance_basis stamp found — probe blind').toBeGreaterThanOrEqual(50)
+    expect([...new Set(stamps)].sort()).toEqual([...HANDLED_IMPORTANCE_BASES].sort())
+  })
+
+  it('the handled value is the one the corpus actually stamps', () => {
+    // Binds the exported constant to the wire string by identity, so renaming
+    // the constant's VALUE (rather than adding to the list) also REDs.
+    expect(HANDLED_IMPORTANCE_BASES).toContain(IMPORTANCE_BASIS_GRAPH_STRUCTURAL)
+    expect(rows.some((row) => row.importance_basis === IMPORTANCE_BASIS_GRAPH_STRUCTURAL)).toBe(true)
+  })
+
+  /* ── the three states, kept apart ─────────────────────────────────────── */
+
+  it('CONFIRMED when every stamp present is one the code handles', () => {
+    expect(importanceBasisTrust([IMPORTANCE_BASIS_GRAPH_STRUCTURAL])).toBe('confirmed')
+    expect(
+      importanceBasisTrust([IMPORTANCE_BASIS_GRAPH_STRUCTURAL, undefined, IMPORTANCE_BASIS_GRAPH_STRUCTURAL]),
+    ).toBe('confirmed')
+  })
+
+  it('UNSTAMPED — absent is NOT unrecognised, and that distinction is the point', () => {
+    // A narrowing read in the normaliser would collapse these two states into
+    // one and make the fail-closed rule unimplementable. 56 of the corpus's 123
+    // factor rows carry no stamp; blanking the disclosure on those would be a
+    // regression against legacy payloads, not caution.
+    expect(importanceBasisTrust([])).toBe('unstamped')
+    expect(importanceBasisTrust([undefined, null])).toBe('unstamped')
+    expect(importanceBasisTrust(['', '   '])).toBe('unstamped')
+  })
+
+  it('UNRECOGNISED as soon as ANY row stamps a value the code does not handle', () => {
+    expect(importanceBasisTrust(['montecarlo_variance'])).toBe('unrecognised')
+    // Eager and set-wide: one unhandled stamp poisons the run, mirroring
+    // selectDriverDisplayModel's own all-or-nothing coverage rule. A majority
+    // of good rows does NOT rescue the sentence.
+    expect(
+      importanceBasisTrust([
+        IMPORTANCE_BASIS_GRAPH_STRUCTURAL,
+        IMPORTANCE_BASIS_GRAPH_STRUCTURAL,
+        'montecarlo_variance',
+      ]),
+    ).toBe('unrecognised')
+    // Near-misses are unrecognised too — this is not a fuzzy match.
+    expect(importanceBasisTrust(['graph_structural_v2'])).toBe('unrecognised')
+    expect(importanceBasisTrust(['GRAPH_STRUCTURAL'])).toBe('unrecognised')
+  })
+
+  /* ── the gate over the vocabulary ─────────────────────────────────────── */
+
+  /**
+   * ⭐⭐ THE DISCRIMINATING PAIR, BOUND TO THE NAMED ARM.
+   *
+   * Two assertions that a single mutant cannot satisfy together, so the pair
+   * proves the gate is bound to the `influence_score` arm rather than to
+   * "some withholding happens somewhere":
+   *
+   *   · widen `HANDLED_IMPORTANCE_BASES` to accept everything → the WITHHOLDING
+   *     assertion REDs, the control stays green;
+   *   · empty `HANDLED_IMPORTANCE_BASES` so nothing is accepted → the CONTROL
+   *     REDs, the withholding assertion stays green.
+   *
+   * Either alone proves only sensitivity to something. The pair proves the
+   * binding, and each mutant fails a DIFFERENT assertion.
+   */
+  it('withholds the structural noun on an unrecognised stamp, and only then', () => {
+    // WITHHOLDING: the noun's evidence is falsified, so it is not named.
+    expect(influenceQuantityForRun('influence_score', ['montecarlo_variance'])).toBeNull()
+    expect(influenceQuantityRunDisclosureForRun('influence_score', ['montecarlo_variance'])).toBeNull()
+
+    // CONTROL: the gate is not simply always-null. A handled stamp still names
+    // the quantity, and names the SAME one the ungated path names — so the gate
+    // narrows and never substitutes.
+    expect(influenceQuantityForRun('influence_score', [IMPORTANCE_BASIS_GRAPH_STRUCTURAL])).toBe(
+      INFLUENCE_QUANTITY_BY_BASIS.influence_score,
+    )
+    // CONTROL: an unstamped run is unchanged from the pre-gate behaviour.
+    expect(influenceQuantityRunDisclosureForRun('influence_score', [])).toBe(
+      influenceQuantityRunDisclosure('influence_score'),
+    )
+  })
+
+  /**
+   * ⚠ SCOPE, ASSERTED RATHER THAN DESCRIBED. Only the `influence_score` arm is
+   * gated. The fallback arm's noun is this app's own normalisation of the
+   * magnitude chain and `importance_basis` is not evidence for it either way,
+   * so suppressing it on an unrecognised stamp would blank a sentence whose
+   * support is untouched — on the run that is already the degraded one.
+   */
+  it('does NOT withhold the fallback arm, whose noun the stamp is not evidence for', () => {
+    expect(influenceQuantityRunDisclosureForRun('normalised_elasticity', ['montecarlo_variance'])).toBe(
+      INFLUENCE_QUANTITY_BY_BASIS.normalised_elasticity.runDisclosure,
+    )
+  })
+
+  it('still names nothing when there is no basis at all, stamp or no stamp', () => {
+    expect(influenceQuantityForRun(null, [IMPORTANCE_BASIS_GRAPH_STRUCTURAL])).toBeNull()
+    expect(influenceQuantityForRun(undefined, ['montecarlo_variance'])).toBeNull()
+  })
+
+  /**
+   * The gate may only ever NARROW. Whatever the stamps, the gated function
+   * returns either exactly what the ungated one returns, or null — it can never
+   * introduce a quantity the ungated path would not have named. This is what
+   * bounds the blast radius of a bug in this file to a missing sentence.
+   */
+  it('is a strict narrowing of the ungated vocabulary, over every stamp state', () => {
+    const stampStates: ReadonlyArray<ReadonlyArray<string | null | undefined>> = [
+      [],
+      [undefined],
+      [IMPORTANCE_BASIS_GRAPH_STRUCTURAL],
+      ['montecarlo_variance'],
+      [IMPORTANCE_BASIS_GRAPH_STRUCTURAL, 'montecarlo_variance'],
+    ]
+    let sawNamed = 0
+    for (const provenance of ['influence_score', 'normalised_elasticity'] as const) {
+      for (const stamps of stampStates) {
+        const gated = influenceQuantityForRun(provenance, stamps)
+        if (gated !== null) {
+          expect(gated).toBe(influenceQuantity(provenance))
+          sawNamed += 1
+        }
+      }
+    }
+    // Control: the loop above must have exercised the NAMED branch, or
+    // "never substitutes" would hold vacuously on an all-null result.
+    expect(sawNamed).toBeGreaterThan(0)
   })
 })

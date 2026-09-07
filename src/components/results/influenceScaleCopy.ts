@@ -457,6 +457,141 @@ export function influenceQuantityRunDisclosure(
   return influenceQuantity(provenance)?.runDisclosure ?? null
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+ * THE PRODUCER'S STAMP, NOW ACTUALLY READ — AND THE FAIL-CLOSED RULE OVER IT.
+ * ══════════════════════════════════════════════════════════════════════════
+ *
+ * The block above cites `importance_basis: "graph_structural"` as the EVIDENCE
+ * for the word "structural", and says in as many words that it does not make
+ * the stamp a read path: "Consuming the stamp — and failing closed when a
+ * future run stamps something other than `graph_structural` — is a separate
+ * change with its own review." This is that change.
+ *
+ * ── WHAT WAS WRONG WITH CITING IT AND NOT READING IT ──────────────────────
+ *
+ * A noun justified by a producer declaration that nothing checks is a noun
+ * justified by a SNAPSHOT. The evidence was true when it was written and the
+ * code had no way to notice it stopping being true. The moment a run stamps a
+ * different basis, the screen keeps saying "structural influence" with the
+ * justification silently withdrawn — and nothing REDs, because no test and no
+ * branch ever looked at the field. That is this estate's hand-maintained mirror
+ * (CLAUDE.md trap 12) wearing an unusual disguise: the mirror is not a list in
+ * the code, it is a sentence in a docblock asserting a fact about the wire.
+ *
+ * ── THE RULE, AND WHY ABSENT ≠ UNRECOGNISED ───────────────────────────────
+ *
+ * Three states, not two, and collapsing them is the available mistake:
+ *
+ *   · CONFIRMED    — at least one row stamps a basis this code handles, and no
+ *                    row stamps one it does not. The producer agrees with our
+ *                    noun. Name the quantity.
+ *   · UNSTAMPED    — no row carries a stamp at all. We learn NOTHING. The
+ *                    pre-existing wording stands, exactly as it did before this
+ *                    change; withholding here would be a regression against
+ *                    legacy payloads, not caution. Measured at this head: 67 of
+ *                    the 123 factor rows in the corpus carry a stamp, so 56 do
+ *                    not — treating absent as unrecognised would blank the
+ *                    disclosure on every one of those.
+ *   · UNRECOGNISED — some row stamps a value this code does not handle. Our
+ *                    noun is FALSIFIED, not merely unsupported. Withhold it.
+ *
+ * ⚠ THE UNRECOGNISED VERDICT IS EAGER AND SET-WIDE, ON PURPOSE. One unhandled
+ * stamp anywhere in the feed poisons the run, mirroring
+ * `selectDriverDisplayModel`'s own all-or-nothing coverage rule. A disclosure
+ * is one sentence about the whole column; if any row in that column is on a
+ * basis we cannot name, the sentence cannot be made true by majority.
+ *
+ * ── THE SCOPE OF THE WITHHOLDING, STATED NARROWLY (trap 20) ───────────────
+ *
+ * ONLY the `influence_score` arm is gated. That arm's noun is "Structural
+ * influence" and the stamp is its evidence, so an unrecognised stamp falsifies
+ * it. The `normalised_elasticity` arm is NOT gated: its noun is this app's own
+ * normalisation of the magnitude chain, its gloss is derived from
+ * `elasticityShiftCopy` that this product already ships, and `importance_basis`
+ * is not evidence for it either way. Withholding it too would suppress a
+ * sentence whose support is untouched, on the run that is already the degraded
+ * one. Fail-closed means "do not assert what you cannot support" — not "assert
+ * nothing whenever anything is uncertain".
+ *
+ * ⚠⚠ AND THE THING THIS CODE DOES *NOT* KNOW, SAID OUT LOUD. Measured over the
+ * 67 stamped rows: `importance_basis` co-occurs with `importance_rank` (67/67)
+ * AND with `influence_score` (67/67), and the producer's `importance_rank` and
+ * `influence_rank` DISAGREE on 55 of 95 rows. So whether the stamp governs
+ * `influence_score` specifically, or the `importance_*` ordering beside it, is
+ * a PRODUCER-SIDE question this corpus cannot settle, and nothing here claims
+ * to have settled it. The fail-closed direction is correct under either
+ * reading, which is precisely why the rule is written as withholding rather
+ * than as a re-interpretation: withholding needs only that the stamp is
+ * evidence for the noun, never that it governs one exact field.
+ */
+
+/** The one basis value this code knows how to name. */
+export const IMPORTANCE_BASIS_GRAPH_STRUCTURAL = 'graph_structural'
+
+/**
+ * Every `importance_basis` value this code handles.
+ *
+ * ⚠ THIS IS A HAND-WRITTEN LIST AND IT IS SUPPOSED TO BE. It cannot be derived
+ * — the producer's value space lives in another service — so the completeness
+ * check lives OUTSIDE it: `influenceQuantityVocabulary.spec.ts` sweeps every
+ * JSON under `src/` and asserts the observed stamp set equals this list
+ * EXACTLY. Growing or shrinking either side REDs. That is CLAUDE.md 12d's
+ * ruling in practice: a derived guard proves agreement and can never prove
+ * completeness, so the list gets a corpus check rather than a second mirror.
+ */
+export const HANDLED_IMPORTANCE_BASES: readonly string[] = [IMPORTANCE_BASIS_GRAPH_STRUCTURAL]
+
+/** What the run's stamps let us say about the producer's declared basis. */
+export type ImportanceBasisTrust = 'confirmed' | 'unstamped' | 'unrecognised'
+
+/**
+ * Fold a run's per-row stamps into one verdict. See the three states above.
+ *
+ * Blank strings count as absent, not as unrecognised: an empty stamp is a
+ * producer emitting nothing, and treating it as a hostile value would blank the
+ * disclosure on a whitespace bug rather than on a semantic change.
+ */
+export function importanceBasisTrust(
+  stamps: ReadonlyArray<string | null | undefined>,
+): ImportanceBasisTrust {
+  let sawHandled = false
+  for (const stamp of stamps) {
+    if (typeof stamp !== 'string' || stamp.trim().length === 0) continue
+    if (!HANDLED_IMPORTANCE_BASES.includes(stamp)) return 'unrecognised'
+    sawHandled = true
+  }
+  return sawHandled ? 'confirmed' : 'unstamped'
+}
+
+/**
+ * The quantity a run's figures represent, gated on the producer's own stamp.
+ *
+ * ⚠ STRICTLY A NARROWING OF `influenceQuantity`. This function can only ever
+ * return what that one returns, or null — it never names a quantity the
+ * ungated path would not have named. So the worst case of a bug here is a
+ * disclosure that goes missing, never a new claim appearing.
+ */
+export function influenceQuantityForRun(
+  provenance: DriverDisplayProvenance | null | undefined,
+  importanceBasisStamps: ReadonlyArray<string | null | undefined>,
+): InfluenceQuantity | null {
+  if (
+    provenance === 'influence_score'
+    && importanceBasisTrust(importanceBasisStamps) === 'unrecognised'
+  ) {
+    return null
+  }
+  return influenceQuantity(provenance)
+}
+
+/** The per-run disclosure, gated on the producer's stamp. Null withholds it. */
+export function influenceQuantityRunDisclosureForRun(
+  provenance: DriverDisplayProvenance | null | undefined,
+  importanceBasisStamps: ReadonlyArray<string | null | undefined>,
+): string | null {
+  return influenceQuantityForRun(provenance, importanceBasisStamps)?.runDisclosure ?? null
+}
+
 /** Convert a resolved metric to display percent without rescaling its value. */
 export function analysisMetricPercent(metric: ResolvedAnalysisMetric): number {
   return Math.round(metric.value * 100)

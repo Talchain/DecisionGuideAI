@@ -388,6 +388,24 @@ export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<strin
   // ISL influence_score (0-1) - structural causal influence
   const influenceScore = typeof typed.influence_score === 'number' ? typed.influence_score : undefined
 
+  // The producer's OWN declaration of the basis behind the importance/influence
+  // family. Until 7 Sep 2026 this field was stamped on every recent capture and
+  // read by ZERO lines of code under `src/` — a declared semantics the UI had
+  // never consulted while naming the quantity "structural" on its own authority.
+  //
+  // ⚠⚠ DELIBERATELY TYPED AS A RAW `string`, NOT NARROWED TO THE KNOWN VALUE,
+  // AND THAT IS THE WHOLE POINT OF THE FIELD. The obvious read here is
+  //   `typed.importance_basis === 'graph_structural' ? 'graph_structural' : undefined`
+  // and it would DESTROY the signal this lane exists to carry: a narrowing read
+  // collapses "the producer stamped something we do not handle" into "the
+  // producer stamped nothing", which are the two states the fail-closed rule in
+  // `influenceScaleCopy.ts` has to tell apart. Absent means we learn nothing and
+  // the pre-existing wording stands; unrecognised means our noun is falsified
+  // and must be withheld. Narrow at the POLICY, never at the read.
+  const importanceBasis = typeof typed.importance_basis === 'string' && typed.importance_basis.length > 0
+    ? typed.importance_basis
+    : undefined
+
   // Producer influence_rank (1 = most influential). Additive passthrough;
   // roadmap 1.7 (provisional_doctrine_v0: influence ≠ sensitivity).
   const influenceRank = typeof typed.influence_rank === 'number' ? typed.influence_rank : undefined
@@ -455,6 +473,7 @@ export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<strin
     confidence,
     importanceRank: typeof typed.importance_rank === 'number' ? typed.importance_rank : 0,
     influenceScore,
+    importanceBasis,
     influenceRank,
     zeroReason,
     valueOfInformation,
@@ -2886,6 +2905,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           normalisedInfluence,
           // ISL influence_score (0-1) - use directly for Influence column
           influenceScore: f.raw.influenceScore,
+          // Producer's declared basis for its own importance figure. Strict
+          // passthrough — NOT combined with displayProvenance below, which
+          // answers a different question (see DriverItem.importanceBasis).
+          importanceBasis: f.raw.importanceBasis,
           // Codex R3-B1: single display basis (see DriverItem.displayInfluence)
           displayInfluence: displayModel.get(f.key)?.value ?? 0,
           // Lane 2 review fold: basis marker so absolute-claim surfaces

@@ -45,7 +45,7 @@ import {
   INFLUENCE_RANKING_EXPLAINER_RELATIVE,
   INFLUENCE_SCALE_CAPTION,
   ZERO_REASON_BADGE_LABELS,
-  influenceQuantityRunDisclosure,
+  influenceQuantityRunDisclosureForRun,
 } from './influenceScaleCopy'
 import { ExpandableCoachingText } from '../../components/shared/ExpandableCoachingText'
 import { isExpertField } from './utils/isExpertField'
@@ -982,8 +982,21 @@ export function DriversSection({
   // collapsed fallback basis all yield null and render nothing. A disclosure
   // naming a quantity over zero rows would be the same over-reach as a scale
   // caption over zero rows, which Q3 exists to prevent.
-  const influenceQuantityDisclosure = influenceQuantityRunDisclosure(
+  //
+  // ⭐ AND SINCE 7 Sep 2026 IT IS GATED ON THE PRODUCER'S OWN STAMP, which is a
+  // THIRD question again: not "what scale" (Q2) and not "which quantity did
+  // THIS APP pick" (Q1b), but "what does the PRODUCER say its importance figure
+  // is". The word "structural" in the `influence_score` arm rests on
+  // `importance_basis: "graph_structural"`, and until now that evidence was a
+  // sentence in a docblock rather than a branch in the code — so a run stamping
+  // a different basis would have kept the noun on screen with its justification
+  // silently withdrawn. `influenceQuantityRunDisclosureForRun` withholds the
+  // sentence in that state. Absent stamps are NOT that state and still render
+  // (56 of 123 corpus rows carry none); see the three-state rule in
+  // `influenceScaleCopy.ts`.
+  const influenceQuantityDisclosure = influenceQuantityRunDisclosureForRun(
     influenceBasis === 'unknown' ? null : stampedProvenance,
+    drivers.map(d => d.importanceBasis),
   )
   // Copy comes from the ONE shared module (influenceScaleCopy) the canvas
   // pill consumes too — surfaces cannot drift (review fix 3: the strings are
