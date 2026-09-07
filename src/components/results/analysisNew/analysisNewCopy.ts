@@ -306,6 +306,22 @@ export const ANALYSIS_NEW_COPY = {
      * your options") in the same breath, so the panel contradicted itself on
      * one screen.
      *
+     * ⚠ HOW OFTEN THIS HAPPENS IS NOT MEASURED, AND THE TWO OBVIOUS ADJECTIVES
+     * ARE BOTH WRONG. What IS measured: **1 of 26 driver lists** carrying
+     * `zero_reason` across the capture fixtures under `src/` is all-suppressed
+     * (the other 25 are partial). ⚠ THAT IS A NUMBER ABOUT THE CORPUS, NOT A
+     * SAMPLE OF USER RUNS — the fixtures were collected for other reasons and
+     * nobody has measured how often a user meets this state.
+     *
+     * The MECHANISM, marked as mechanism rather than observation: a factor the
+     * user pins is SET rather than learned, so contributing no outcome
+     * variance is the expected consequence and not a defect. That explains
+     * both captures we hold without counting either, so it licenses no
+     * frequency claim in either direction. Calling the state "rare" or
+     * "ordinary" would swap one unmeasured frequency for another, and
+     * "ordinary" is the more dangerous, because it licenses design decisions
+     * that "rare" does not.
+     *
      * ⚠ THIS FILE ALREADY STATED THE RULE AT THE CONSTANT THAT BROKE IT:
      * "three reasons cannot share one summary without one of them being
      * described wrongly". So the summary is gone and the producer's own reason
