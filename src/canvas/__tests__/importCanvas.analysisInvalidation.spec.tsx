@@ -234,7 +234,20 @@ function renderFreshnessSurfaces() {
   return render(
     <>
       <AnalysisFreshnessNotice />
-      <ReanalyseBar onReanalyse={() => {}} />
+      {/*
+        The three gate props are REQUIRED KEYS WITH NULLABLE TYPES, deliberately:
+        omission is a TypeScript error so no mount site can silently drop the gate,
+        while an explicit `undefined` still falls back to the component's defaults
+        (`canRun = true`, `isAnalysing = false`) so the control is never lost.
+        This file is about FRESHNESS, not the run gate, so it takes those defaults
+        — but it must now say so, which is the mechanism working, not a workaround.
+      */}
+      <ReanalyseBar
+        onReanalyse={() => {}}
+        canRun={undefined}
+        blockedReason={undefined}
+        isAnalysing={undefined}
+      />
     </>,
   )
 }
