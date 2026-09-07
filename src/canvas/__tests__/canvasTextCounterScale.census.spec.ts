@@ -181,7 +181,13 @@ const PORTALLED = ['nodes/shared/NodePopover.tsx']
  *                                   not a typography one, and out of scope here.
  */
 const KNOWN_FIXED = [
-  'nodes/EvidenceGapBadge.tsx:inline-7',
+  // ⭐ `nodes/EvidenceGapBadge.tsx:inline-7` WAS HERE AND IS NOW FIXED, in the
+  // direction this file's own header prescribed: the note said it *"needs a
+  // size ruling, not a counter-scale"* because 7px is below the DS v5 §2.4 10px
+  // canvas floor even at zoom 1. It got both — the raw inline `fontSize: '7px'`
+  // became `typography.edgeLabel` (10px, and one of the three counter-scaled
+  // canvas tokens), so the "?" goes from a rendered 3.5px to 10px. Removing the
+  // pin here is the point of asserting this set exactly.
   'nodes/shared/NodeCoachingMarker.tsx:typography.caption',
   'edges/EdgeEditPopover.tsx:typography.panelHeader',
   'edges/EdgeEditPopover.tsx:typography.panelMeta',

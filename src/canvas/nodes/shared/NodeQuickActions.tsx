@@ -8,6 +8,11 @@ import { FULL_MENU_KINDS } from '../../contextMenu/useMenuItems'
 import { requestAsk, canReceiveAsk } from '../../ui/inspector-v2/askSemantic'
 import type { NodeType } from '../../domain/nodes'
 import { openNodeInspector } from './openNodeInspector'
+import {
+  CANVAS_GLYPH_SIZE_CLASSES,
+  CANVAS_HIT_SLOP_CLASSES,
+  CANVAS_GAP_CLASSES,
+} from './canvasGlyphScale'
 
 /**
  * Does this node type have a generative prompt to offer?
@@ -82,6 +87,35 @@ function hasChallengePrompt(nodeType: NodeType): boolean {
  * Confirm icon moves to bottom-LEFT, which it has. The geometry is pinned in
  * this component's spec: change it there too, or leave it alone.
  */
+/**
+ * ⭐⭐ 20px VISUAL, 24px TARGET — AND NOW IN THE px THE USER ACTUALLY GETS.
+ *
+ * ⚠ THIS SHIPPED AS A 12px TARGET WHILE ITS SPEC ASSERTED 24. `h-5 w-5` plus
+ * `before:-inset-[2px]` is `20 + 2x2 = 24` in CSS px — but this row is node DOM
+ * inside React Flow's viewport transform, and a post-draft auto-fit parks at
+ * `LABEL_LEGIBLE_ZOOM` (0.50), so the user was handed **12px**. The slop was
+ * scaled by the zoom exactly like the box it was expanding, which is why
+ * **slop alone fails and counter-scale alone fails: the target is 24px only
+ * when BOTH carry the scale.**
+ *
+ * ⚠ AND THE GAP HAD TO MOVE WITH THEM. This row's separation invariant is
+ * `gap > 2 x slop`. Counter-scaling the slop while leaving `gap-1.5` fixed
+ * would double each expansion into a still-6px gap (`2 x 4 = 8 > 6`) and make
+ * two hit areas OVERLAP — reintroducing the mis-click this row's spec exists to
+ * prevent, as a side effect of fixing the size. Both scale; the ratio holds at
+ * every zoom.
+ *
+ * One constant, used by all four buttons, so a fifth cannot be added with a
+ * quietly different geometry — they were four identical literals before, which
+ * is three chances to drift.
+ */
+const BUTTON_CLASSES =
+  'nodrag relative inline-flex ' +
+  CANVAS_GLYPH_SIZE_CLASSES[20] +
+  ' items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body ' +
+  'hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info ' +
+  CANVAS_HIT_SLOP_CLASSES[2]
+
 export interface NodeQuickActionsProps {
   nodeId: string
   nodeType: NodeType
@@ -298,7 +332,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
 
   return (
     <div
-      className={`node-quick-actions absolute bottom-1.5 right-1.5 z-[2] flex gap-1.5 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 motion-reduce:transition-none ${alwaysVisible ? 'opacity-100' : 'opacity-0'}`}
+      className={`node-quick-actions absolute bottom-1.5 right-1.5 z-[2] flex ${CANVAS_GAP_CLASSES[6]} transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 motion-reduce:transition-none ${alwaysVisible ? 'opacity-100' : 'opacity-0'}`}
       data-testid={`node-quick-actions-${nodeId}`}
     >
       {canAsk && (
@@ -306,12 +340,12 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           type="button"
           onClick={handleAsk}
           onPointerDown={stopPointer}
-          className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
+          className={BUTTON_CLASSES}
           aria-label={`Ask Olumi about ${label}`}
           title={`Ask Olumi about ${label}`}
           data-testid={`node-action-ask-${nodeId}`}
         >
-          <MessageSquare size={11} aria-hidden="true" />
+          <MessageSquare size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
         </button>
       )}
       {/* ⭐ THE GENERATIVE PEER OF THE ASK. Second, not last: it sits beside
@@ -328,24 +362,24 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           type="button"
           onClick={handleChallenge}
           onPointerDown={stopPointer}
-          className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
+          className={BUTTON_CLASSES}
           aria-label={`Challenge ${label}`}
           title={`Challenge ${label} — what could be wrong or missing?`}
           data-testid={`node-action-challenge-${nodeId}`}
         >
-          <Zap size={11} aria-hidden="true" />
+          <Zap size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
         </button>
       )}
       <button
         type="button"
         onClick={handleInspect}
         onPointerDown={stopPointer}
-        className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
+        className={BUTTON_CLASSES}
         aria-label={`Open details for ${label}`}
         title={`Open details for ${label}`}
         data-testid={`node-action-inspect-${nodeId}`}
       >
-        <PanelRight size={11} aria-hidden="true" />
+        <PanelRight size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
       </button>
       {/* ⭐ THE DOOR TO EVERYTHING ELSE THIS NODE CAN DO.
           Deliberately LAST: the two named shortcuts above are the ruling's
@@ -361,14 +395,13 @@ export const NodeQuickActions = memo(function NodeQuickActions({
         type="button"
         onClick={handleOpenMenu}
         onPointerDown={stopPointer}
-        /* ⭐ 20px VISUAL, 24px TARGET — and as of this change ALL of them, not
-           just this one. `h-5 w-5` keeps the visual identical to its siblings;
-           `before:-inset-[2px]` expands the hit area to 24×24, WCAG 2.2 AA
-           2.5.8's minimum. The comment here used to end "the siblings share the
-           shortfall and are left alone" — a correctly-scoped decision then, and
-           the rowed work this change closes. See the wrapper's `gap-1.5` for
-           why the gap had to move with it. */
-        className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
+        /* Geometry is `BUTTON_CLASSES`, shared with the three buttons above and
+           derived there — see its header for why the box, the slop AND the row
+           gap all carry the counter-scale. This comment used to spell `h-5 w-5`
+           / `before:-inset-[2px]` / `gap-1.5` here, all three of which are now
+           wrong; a class literal repeated in prose is a mirror that goes stale
+           the first time the class moves. */
+        className={BUTTON_CLASSES}
         aria-label={`More actions for ${label}`}
         /* Announces that a menu follows. `aria-haspopup` is used by five other
            canvas components, so its absence here was a real gap rather than a
@@ -380,7 +413,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
         title={`More actions for ${label} — the same menu as right-click`}
         data-testid={`node-action-menu-${nodeId}`}
       >
-        <MoreHorizontal size={11} aria-hidden="true" />
+        <MoreHorizontal size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
       </button>
     </div>
   )

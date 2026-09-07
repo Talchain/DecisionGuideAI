@@ -46,8 +46,10 @@ describe('EvidenceGapBadge', () => {
     const { container } = render(<EvidenceGapBadge label="X" />)
     const badge = container.querySelector('[data-testid="evidence-gap-badge"]')
     expect(badge?.className).toContain('absolute')
-    expect(badge?.className).toContain('-bottom-1.5')
-    expect(badge?.className).toContain('-right-1.5')
+    // The corner offset is counter-scaled: `-6px` centres the circle on the
+    // card's corner only while the circle is 12px, and the circle now scales.
+    expect(badge?.className).toContain('bottom-[calc(-6px*var(--canvas-label-scale,1))]')
+    expect(badge?.className).toContain('right-[calc(-6px*var(--canvas-label-scale,1))]')
   })
 
   it('is a circle (rounded-full)', () => {
