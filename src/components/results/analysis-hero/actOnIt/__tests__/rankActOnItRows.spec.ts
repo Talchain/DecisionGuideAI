@@ -66,6 +66,18 @@ interface DataOverrides {
   optionCount?: number
   /** `recommendation.recommendedOption` present (default true). */
   hasWinner?: boolean
+  /**
+   * `recommendation.leaderDesignationPermitted` — the model's licence to NAME a
+   * leading option.
+   *
+   * ⚠ ABSENT BY DEFAULT, AND ABSENT IS NOT `false`. The helper returns
+   * `true | false | undefined`, where `undefined` means NO AUTHORITY (a legacy
+   * caller with no verdict) and `false` means the model POSITIVELY WITHHELD.
+   * Every pre-existing fixture in this file leaves it absent, so they all sit
+   * on the `undefined` arm — which is why the gate reads `=== false` and none
+   * of them changed. Collapsing the two would be the #1232 defect again.
+   */
+  leaderDesignationPermitted?: boolean
   /** `recommendation.recommendationStability`. */
   stability?: number
   /** `recommendation.robustnessVerdict`. */
@@ -126,6 +138,14 @@ function makeData(overrides: DataOverrides = {}): ResultsSectionDataReturn {
     analysisStatus: 'computed',
     recommendationStability: overrides.stability,
     robustnessVerdict: overrides.robustnessVerdict,
+    // Spread rather than assigned, so an omitted override leaves the KEY
+    // ABSENT rather than present-and-undefined. `leaderDesignationPermitted`
+    // reads `rec.leaderDesignationPermitted ?? rec.verdict?.hasLeadingOption`,
+    // and an explicit `undefined` would still short-circuit the `??` chain
+    // differently from a missing key if a verdict is ever added here.
+    ...(overrides.leaderDesignationPermitted === undefined
+      ? {}
+      : { leaderDesignationPermitted: overrides.leaderDesignationPermitted }),
   } as unknown as DecisionResultData
 
   const gaps =
@@ -456,6 +476,51 @@ describe('rankActOnItRows — §2 per-category row shape', () => {
     for (const row of rows) {
       expect(row.chatPrompt.trim().length, `row ${row.key} has an empty chatPrompt`).toBeGreaterThan(0)
     }
+  })
+})
+
+// ── §3b The fragile-row sentence obeys the model's leader licence ───────────
+
+describe('rankActOnItRows — the risk row does not name a leader the run withheld', () => {
+  const fragile = { fromId: 'n_f', fromLabel: 'Hiring rate' }
+  const reasonFor = (leaderDesignationPermitted?: boolean) =>
+    rowByKey(
+      rankActOnItRows(makeData({ fragile, leaderDesignationPermitted }), NOT_READY),
+      'risk-n_f',
+    ).reason
+
+  const NAMES = 'If the estimate changes for Hiring rate, the leading option could change.'
+  const WITHHOLDS = 'If the estimate changes for Hiring rate, the result could change.'
+
+  it('WITHHELD — says "the result", not "the leading option"', () => {
+    // ⭐ THE DEFECT. Witnessed on deployed `e2016182` (fresh guest journey,
+    // 7 Sep 2026): this sentence printed "the leading option could change."
+    // on a run whose hero headline was "Here is how your options compare."
+    // with "Leading option not assessed" on the same screen.
+    const reason = reasonFor(false)
+    expect(reason).toBe(WITHHOLDS)
+    // Bind by the CLAIM, not just the whole string: a future rewording must
+    // not reintroduce the definite description by another route.
+    expect(reason).not.toContain('leading option')
+    expect(reason).not.toContain('recommended option')
+  })
+
+  it('PERMITTED — still names the leading option (the case the gate must NOT affect)', () => {
+    expect(reasonFor(true)).toBe(NAMES)
+  })
+
+  it('NO AUTHORITY — absent licence is not withholding, so the sentence survives', () => {
+    // ⚠ THE #1232 REGRESSION GUARD, and the reason the gate is `=== false`.
+    // Gating on `=== true` would swallow this arm — a true sentence the
+    // product had earned, swapped for a vaguer one on every legacy run.
+    expect(reasonFor(undefined)).toBe(NAMES)
+  })
+
+  it('the three arms are genuinely discriminating', () => {
+    // Pins the precondition: if these ever collapse to one string the arms
+    // above would all pass while proving nothing.
+    expect(new Set([reasonFor(false), reasonFor(true)]).size).toBe(2)
+    expect(reasonFor(true)).toBe(reasonFor(undefined))
   })
 })
 

@@ -29,6 +29,7 @@
  * from copy.
  */
 
+import { leaderDesignationPermitted } from '../../leaderDesignation'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { ActOnItRow, PriorityBand, RowAction, RowCategory } from './types'
 // Single canonical glossary matcher shared across production + test scanner.
@@ -280,7 +281,33 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): ActOnItRow | null {
   // verb — earlier forms ("If {label} changes, …") produced mid-sentence
   // repetition for labels that themselves end in "changes"/"shifts".
   const safeFromLabel = safeOrFallback(rawLabel)
-  const reason = `If the estimate changes for ${safeFromLabel}, the leading option could change.`
+  // ⭐ THE LEADER LICENCE, ON THE ARM THAT NAMES ONE.
+  //
+  // "the leading option" is a DEFINITE DESCRIPTION: it asserts a leading option
+  // exists. Witnessed on deployed `e2016182` (fresh guest journey, 7 Sep 2026)
+  // printing on a run whose hero headline was the `noLeader` arm — "Here is how
+  // your options compare." — with "Leading option not assessed", "Goal fit (not
+  // available for this run)", "Robustness unknown" and "Evidence not assessed"
+  // all on the same screen. Five surfaces reported no leader; this one asserted
+  // one three inches below them. Nothing in `actOnIt/` read the licence at all
+  // (zero non-test occurrences of `leaderDesignationPermitted` in the directory
+  // before this change), so the sentence was emitted unconditionally.
+  //
+  // ⚠ GATED ON `=== false`, NOT `=== true`, DELIBERATELY. The helper returns
+  // `true | false | undefined`, and `undefined` means NO AUTHORITY (a legacy
+  // caller with no verdict), not "withheld" — its own docs say callers read it
+  // strictly so absence keeps existing behaviour. Gating on `=== true` would
+  // withhold on every no-authority run too, which is the over-broad gate that
+  // DELETED the producer-tie sentence in #1232: a true sentence the product had
+  // earned, swapped for silence. This gate fires only where the model has
+  // POSITIVELY withheld, so it cannot regress a run that was never withheld.
+  //
+  // The fallback is not new copy — `TriageActionCardsBody` already ships "the
+  // result could change" as the truthful noun for exactly this sentence.
+  const reason =
+    leaderDesignationPermitted(data.recommendation) === false
+      ? `If the estimate changes for ${safeFromLabel}, the result could change.`
+      : `If the estimate changes for ${safeFromLabel}, the leading option could change.`
   return {
     key: `risk-${fragile.fromId}`,
     title,
