@@ -291,7 +291,42 @@ export const ANALYSIS_NEW_COPY = {
      * that, and three reasons cannot share one summary without one of them
      * being described wrongly.
      */
-    driversAllZero: 'This run returned factor influence, and every factor came back at zero.',
+    /**
+     * ⚠⚠ REPLACES `driversAllZero`, WHICH ASSERTED A ZERO THE PRODUCER NEVER
+     * MEASURED. It read "This run returned factor influence, and every factor
+     * came back at zero." — said whenever `suppressedZeroCount > 0` and nothing
+     * survived to be ranked, i.e. for ALL THREE `zero_reason` codes.
+     *
+     * `intervention_override` is not a zero. Measured on
+     * `conditional-winners-2026-08-17-probe-A.json`, a capture already in this
+     * repo: both rows carry `zero_reason: 'intervention_override'` with
+     * `influence_score` 1 and 0.556 at ranks 1 and 2 — the two STRONGEST
+     * factors in the run — and the reader was told every factor came back at
+     * zero. The caveat one line above named the real reason ("Controlled by
+     * your options") in the same breath, so the panel contradicted itself on
+     * one screen.
+     *
+     * ⚠ THIS FILE ALREADY STATED THE RULE AT THE CONSTANT THAT BROKE IT:
+     * "three reasons cannot share one summary without one of them being
+     * described wrongly". So the summary is gone and the producer's own reason
+     * labels carry the meaning — the same `ZERO_REASON_BADGE_LABELS` the
+     * exclusion clause and the Drivers panel badges already use, so there is
+     * one spelling of each reason across the surface.
+     *
+     * The distinction `driversAllZero` existed to protect SURVIVES: "returned
+     * and set aside" is still audibly different from `drivers`, which says the
+     * run did not return factor influence at all.
+     */
+    noneRanked: (n: number, reasons: readonly string[]) =>
+      `No factor is ranked in this run. ${n === 1 ? '1 factor was' : `${n} factors were`} returned and set aside: ${reasons.join('; ')}.`,
+    /**
+     * ⚠ FAIL-CLOSED SIBLING. `suppressedZeroCount` and `suppressedZeroReasons`
+     * move together by construction, but the count is not what a sentence
+     * naming reasons can be written from — a non-empty count with an empty
+     * reason list would render "... set aside: ." This states only the half
+     * that is always true. Same order of reasoning as `driversCaveat`.
+     */
+    noneRankedUnexplained: 'No factor is ranked in this run.',
     /**
      * TRUTH CONDITION: `driversStatus === 'skipped'` — the producer's own word
      * for "I did not look". Distinct from 'unavailable'/'error', which mean it
