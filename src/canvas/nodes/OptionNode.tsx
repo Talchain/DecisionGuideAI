@@ -805,18 +805,46 @@ export const OptionNode = memo((props: NodeProps) => {
 
   /**
    * Differentiator line — a complete sentence describing what's strategically
-   * unique about this option (Standard pre-analysis only).
+   * unique about this option. Standard view; baseline excluded.
    *
    * Delegates to computeAllDifferentiators() which computes all options in
    * one pass. See that helper's docblock for the algorithm, thresholds, and
-   * deduplication logic. Returns null for baseline/post-analysis.
+   * deduplication logic.
+   *
+   * ⭐⭐ IT NO LONGER STOPS AT THE RUN, AND THAT WAS THE DEFECT. This memo used
+   * to open `if (isPostAnalysis) return null`, so running the analysis DELETED
+   * the only sentence saying which factor makes this option different.
+   *
+   * WITNESSED on deployed `e2016182` with a completed analysis: all three
+   * option cards rendered their name and an ordinal and NOTHING ELSE —
+   * "Open a Second Roastery in Leeds | 1". No differentiator, no "Behind:"
+   * line. The user is handed a ranking with no reasons at the exact moment
+   * they are choosing.
+   *
+   * ⚠ WHY THE "Behind:" LINE DOES NOT COVER THIS. It names the key factor
+   * ("no X added" / "X lower") but renders ONLY for a non-recommended option,
+   * and `computeBehindReason` returns null outright when there is no
+   * recommended option — which is precisely what a WITHHELD LEADER produces.
+   * So on the honest-withholding path, which this estate has invested heavily
+   * in, every card loses its reason at once. That is the state witnessed
+   * above.
+   *
+   * ⚠ AND IT IS STRUCTURAL, so nothing here goes stale. The sentence is
+   * derived from `nodes` + `ceeAnalysisReady.options[].interventions` — the
+   * MODEL, not the result. A run does not change which factor differentiates
+   * an option; it only ranks the options. Hiding it after a run withheld
+   * information the run never touched.
+   *
+   * This file already argued the point, two thousand lines down, about not
+   * deleting this line to stop it repeating a label: "the differentiator — its
+   * sentence frame IS the caption for the factor name it carries... Deleting
+   * the line would remove the only statement of WHICH factor is key."
    */
   const differentiator = useMemo<{ label: string; fullLabel: string; factorId: string } | null>(() => {
-    if (isPostAnalysis) return null
     if (isBaselineOption) return null
     const allDiffs = computeAllDifferentiators(nodes, ceeAnalysisReady)
     return allDiffs.get(props.id) ?? null
-  }, [isPostAnalysis, isBaselineOption, ceeAnalysisReady, nodes, props.id])
+  }, [isBaselineOption, ceeAnalysisReady, nodes, props.id])
 
   // Brief scope 7: drop the differentiator footer only when it repeats a value
   // already shown in a visible from→to chip — same factor AND the same value
@@ -1928,9 +1956,23 @@ export const OptionNode = memo((props: NodeProps) => {
 
         {/* Polish 4 Task 5: differentiator line — what's strategically unique
             about this option vs the others. Standard view only (Detailed
-            already shows the full intervention list). */}
-        {!isPostAnalysis && !isBaselineOption && !isDetailed && differentiator
-          && !differentiatorDuplicatesChip && (
+            already shows the full intervention list).
+
+            ⭐ SURVIVES THE RUN NOW. It used to be gated `!isPostAnalysis`, so
+            analysing the model deleted the reason from every card.
+
+            ⚠ SUPPRESSED ONLY WHERE THE "Behind:" LINE IS ACTUALLY RENDERING,
+            and the condition is spelled to MATCH that render exactly rather
+            than re-derived — `isPostAnalysis && !isRecommended && behindReason`
+            is the same expression the Behind block below uses. Two spellings of
+            one question is how these two lines would drift into contradicting
+            each other. Where Behind renders, it already names the key factor
+            ("no X added" / "X lower") and this line would repeat it; everywhere
+            else — the recommended option, and EVERY option when the leader is
+            withheld — this is the only statement of which factor is key. */}
+        {!isBaselineOption && !isDetailed && differentiator
+          && !differentiatorDuplicatesChip
+          && !(isPostAnalysis && !isRecommended && behindReason) && (
           <p
             className={`${typography.edgeLabel} text-text-light mt-1 m-0`}
             /* Ellipsis-with-recovery, not ellipsis-with-nowhere-to-go. `label`
