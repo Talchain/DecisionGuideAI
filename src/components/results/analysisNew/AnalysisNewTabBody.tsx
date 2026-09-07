@@ -261,6 +261,33 @@ export function selectAlsoWorthDoing<T extends { id: string }>(
  * when there are NO findings, so a partial suppression said nothing at all.
  */
 function driversCaveat(vm: AnalysisNewViewModel): string | null {
+  /**
+   * ⚠⚠ EVERY ARM OF THE BASIS BRANCH IS A CLAIM ABOUT RANKED ROWS, SO IT MAY
+   * ONLY BE SAID WHERE THE RANKING HAS MEMBERS. `AnalysisNewSection` renders
+   * this caveat ABOVE the empty state (`:114` early-returns only when there is
+   * no `emptyMessage` either), so on a run with no surviving rows the basis
+   * sentence was rendered over nothing — and contradicted the sentence
+   * directly beneath it:
+   *
+   *   "Each bar shows Olumi's structural influence score, scaled against the
+   *    strongest factor in this run."
+   *   "This run did not return factor influence."
+   *
+   * There are no bars, and `strongest` is 0. The set-relative arm fails the
+   * same way ("relative to the other factors in this run" — there are none).
+   *
+   * ⚠ THE ROOT CAUSE IS ONE NAME ANSWERING TWO QUESTIONS (CLAUDE.md trap 21).
+   * `influenceIsSetRelative` is `drivers.length > 0` — "did the producer send
+   * anything?" — while the basis sentence needs "is there a ranked set to be
+   * relative to?". They differ exactly when every row is suppressed. The
+   * existing guard chooses WHICH basis and is blind to whether one exists.
+   *
+   * ⚠ NOT `findings.length`: `influenceRows` is what the chart draws and what
+   * the word "bar" refers to, so the gate binds to the thing the sentence
+   * describes rather than to a sibling that happens to move with it.
+   */
+  if (vm.drivers.influenceRows.length === 0) return null
+
   const basis = vm.drivers.influenceIsSetRelative
     ? COPY.coverage.setRelativeInfluence
     : vm.drivers.referenceOptionLabel
@@ -284,8 +311,18 @@ function driversCaveat(vm: AnalysisNewViewModel): string | null {
 function driversEmptyMessage(vm: AnalysisNewViewModel): string | null {
   // Pre-run: nothing has been returned OR not returned. No claim either way.
   if (vm.status.isPreRun) return null
-  // The producer sent rows and scored every one of them at zero.
-  if (vm.drivers.suppressedZeroCount > 0) return COPY.empty.driversAllZero
+  // The producer sent rows and NONE of them survived to be ranked. What it
+  // said about them is the producer's reason, not a zero we did not measure:
+  // `intervention_override` rows carry a real, often rank-1 influence score.
+  if (vm.drivers.suppressedZeroCount > 0) {
+    const reasons = vm.drivers.suppressedZeroReasons
+    return reasons.length > 0
+      ? COPY.empty.noneRanked(
+          vm.drivers.suppressedZeroCount,
+          reasons.map((code) => ZERO_REASON_BADGE_LABELS[code]),
+        )
+      : COPY.empty.noneRankedUnexplained
+  }
   // The producer's own word for "I did not look" — distinct from having looked
   // and come back with nothing.
   if (vm.drivers.driversStatus === 'skipped') return COPY.empty.driversNotComputed

@@ -475,31 +475,64 @@ describe('theCaveatHasOneSourceOfTruth', () => {
     return screen.queryByTestId('analysis-new-drivers-caveat')?.textContent ?? ''
   }
 
-  it('every basis arm is reachable, and each renders exactly its own constant', () => {
-    /* ⚠ ALL THREE ARMS OF `driversCaveat`, EXERCISED THROUGH THE COMPONENT. A
-       table over the constants, so an arm that becomes unreachable or starts
-       rendering a neighbour's sentence cannot pass. */
+  it('the caveat is silent where no ranking exists, and set-relative where one does', () => {
+    /* ⚠ THE ARM TABLE, RE-DERIVED AFTER THE BASIS GATE. `driversCaveat` now
+       returns null when `influenceRows` is empty, because every arm is a claim
+       about ranked rows. That gate CHANGES WHICH ARMS ARE REACHABLE, and this
+       case states the new reachability rather than re-pointing an expectation.
+
+       The previous version of this case pinned the structural arm as reachable
+       "ONLY on a run with NO rows — where its own sentence opens 'Each bar
+       shows'", and called that wording "a live finding reported with this fix".
+       That finding is now CLOSED: the sentence no longer renders there. */
     const withRows = caveatOf(openStrategicChallenge())
     expect(withRows).toContain(COPY.coverage.setRelativeInfluence)
     cleanup()
 
-    /* ⚠ THE REFERENCE LINE KEEPS ITS PRECEDENCE over the structural one. */
-    const withReference = caveatOf(
-      noRows({ sensitivityReference: { optionLabel: 'Hold price' } } as Partial<ResultsSectionDataReturn>),
-    )
-    expect(withReference).toContain(COPY.coverage.referencePrefix)
-    expect(withReference).toContain('Hold price')
-    expect(withReference).not.toContain(COPY.coverage.structuralInfluence)
+    /* No rows ⇒ no ranking ⇒ no basis claim, on either former arm. */
+    expect(caveatOf(noRows())).toBe('')
     cleanup()
+    expect(
+      caveatOf(noRows({ sensitivityReference: { optionLabel: 'Hold price' } } as Partial<ResultsSectionDataReturn>)),
+    ).toBe('')
+  })
 
-    /* ⚠⚠ MEASURED, NOT BLESSED. Since #1228 made `influenceIsSetRelative` equal
-       `drivers.length > 0`, this arm is reachable ONLY on a run with NO rows —
-       where its own sentence opens "Each bar shows". That wording is a live
-       finding reported with this fix, not something this case endorses; what is
-       pinned is the CONDITION, so the arm cannot move again unnoticed. */
-    const structuralArm = caveatOf(noRows())
-    expect(structuralArm).toContain(COPY.coverage.structuralInfluence)
-    expect(structuralArm).not.toContain(COPY.coverage.setRelativeInfluence)
+  /**
+   * ⚠⚠ A REPORTED CONSEQUENCE, PINNED SO IT CANNOT DRIFT SILENTLY — NOT AN
+   * ENDORSEMENT, AND NOT MINE TO RESOLVE.
+   *
+   * The gate leaves TWO of the three basis arms with no reachable render path,
+   * and it is arithmetic rather than judgement: the gate passes only when
+   * `influenceRows` is non-empty; `influenceRows` is built from the rows that
+   * survived suppression, so a non-empty `influenceRows` implies a non-empty
+   * `drivers`; and `influenceIsSetRelative` IS `drivers.length > 0`. So
+   * wherever the caveat renders at all, the set-relative arm is taken.
+   *
+   * `structuralInfluence` and `referencePrefix` are therefore dead through this
+   * component. Deleting them, or re-gating the reference line on something
+   * other than `!influenceIsSetRelative` so it can be said alongside a ranking,
+   * is a decision for the lane that owns the basis branch. This case exists so
+   * that whichever way it goes, it goes deliberately.
+   */
+  it('records that two basis arms are now unreachable — owed to the basis-branch owner', () => {
+    /* ⚠ ONE RENDER AT A TIME. `caveatOf` renders into the shared container, so
+       collecting these in an array literal leaves three trees mounted and the
+       testid query throws "multiple elements" before any assertion runs — a
+       harness failure that reads exactly like a failed claim. */
+    const reachable: string[] = []
+    for (const data of [
+      () => openStrategicChallenge(),
+      () => noRows(),
+      () => noRows({ sensitivityReference: { optionLabel: 'Hold price' } } as Partial<ResultsSectionDataReturn>),
+    ]) {
+      reachable.push(caveatOf(data()))
+      cleanup()
+    }
+    // POSITIVE CONTROL: at least one arm must actually render, or the two
+    // absence assertions below are vacuous (trap 13).
+    expect(reachable.some((c) => c.length > 0), 'no caveat rendered at all — the probe is blind').toBe(true)
+    expect(reachable.some((c) => c.includes(COPY.coverage.structuralInfluence))).toBe(false)
+    expect(reachable.some((c) => c.includes(COPY.coverage.referencePrefix))).toBe(false)
   })
 
   it('this spec types no copy of its own — the mirror cannot come back', () => {

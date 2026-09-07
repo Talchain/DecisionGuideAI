@@ -21,6 +21,7 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
+import { ZERO_REASON_BADGE_LABELS } from '../../influenceScaleCopy'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import {
   decisionWithLeaderWithheld,
@@ -460,6 +461,17 @@ describe('the drivers empty state distinguishes "measured at zero" from "we got 
       },
     })
 
+  /**
+   * ⚠ BUILT, NOT SPELLED. The expected sentence is composed from the same copy
+   * function and the same label map the product uses, in the order
+   * `suppressedZeroReasons` preserves from the fixture's rows — so a change to
+   * either reaches this spec instead of silently passing a stale literal.
+   */
+  const ALL_ZERO_SENTENCE = COPY.empty.noneRanked(2, [
+    ZERO_REASON_BADGE_LABELS.zero_outcome_diff,
+    ZERO_REASON_BADGE_LABELS.disconnected,
+  ])
+
   const nothingReturned = () =>
     makeData({ drivers: { driversStatus: 'unavailable', drivers: [] } })
 
@@ -482,10 +494,10 @@ describe('the drivers empty state distinguishes "measured at zero" from "we got 
     expect(vmOf(none).drivers.findings).toHaveLength(0)
   })
 
-  it('MEASURED AT ZERO — says the run returned influence, and NOT that it returned none', () => {
+  it('NOTHING RANKED — says the run returned rows and set them aside, NOT that it returned none', () => {
     renderBody(allFactorsZero())
     openAllSections()
-    expect(emptyText()).toBe(COPY.empty.driversAllZero)
+    expect(emptyText()).toBe(ALL_ZERO_SENTENCE)
     // The twin half: the false sentence must be gone, not merely joined.
     expect(emptyText()).not.toBe(COPY.empty.drivers)
   })
@@ -494,7 +506,7 @@ describe('the drivers empty state distinguishes "measured at zero" from "we got 
     renderBody(nothingReturned())
     openAllSections()
     expect(emptyText()).toBe(COPY.empty.drivers)
-    expect(emptyText()).not.toBe(COPY.empty.driversAllZero)
+    expect(emptyText()).not.toBe(ALL_ZERO_SENTENCE)
   })
 
   /**
@@ -509,7 +521,7 @@ describe('the drivers empty state distinguishes "measured at zero" from "we got 
     expect(data.drivers.drivers).toHaveLength(0)
     renderBody(data)
     openAllSections()
-    expect(emptyText()).not.toBe(COPY.empty.driversAllZero)
+    expect(emptyText()).not.toBe(ALL_ZERO_SENTENCE)
     expect(emptyText()).toBe(COPY.empty.drivers)
   })
 
@@ -518,7 +530,7 @@ describe('the drivers empty state distinguishes "measured at zero" from "we got 
     openAllSections()
     expect(emptyText()).toBe(COPY.empty.driversNotComputed)
     expect(emptyText()).not.toBe(COPY.empty.drivers)
-    expect(emptyText()).not.toBe(COPY.empty.driversAllZero)
+    expect(emptyText()).not.toBe(ALL_ZERO_SENTENCE)
   })
 
   /**
@@ -532,7 +544,7 @@ describe('the drivers empty state distinguishes "measured at zero" from "we got 
     openAllSections()
     const drivers = screen.getByTestId('analysis-new-drivers')
     expect(within(drivers).getByTestId('analysis-new-drivers-empty')).toHaveTextContent(
-      COPY.empty.driversAllZero,
+      ALL_ZERO_SENTENCE,
     )
   })
 })
