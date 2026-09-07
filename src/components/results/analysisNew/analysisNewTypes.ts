@@ -19,7 +19,7 @@
  * property that makes a wrong row diagnosable rather than merely wrong.
  */
 
-import type { DriversSectionData, InferenceWarning } from '../types'
+import type { DriversSectionData, InferenceWarning, ZeroReasonCode } from '../types'
 import type { CritiqueWarningEntry } from '../CritiqueWarningStrip'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import type { ComparisonScope } from '../utils/goalAnchorCopy'
@@ -287,6 +287,29 @@ export interface DriversSection {
    * (`types.ts` — "explains why influence is ZERO for intervention factors").
    */
   suppressedZeroCount: number
+  /**
+   * ⭐⭐ WHY each suppressed row was suppressed — the producer's own codes, in
+   * first-seen order, de-duplicated.
+   *
+   * ⚠ A COUNT CANNOT CARRY THIS, AND THAT IS THE WHOLE REASON THE FIELD EXISTS.
+   * `analysisNewCopy.ts` already ruled on it for the all-zero empty state:
+   * "three reasons cannot share one summary without one of them being described
+   * wrongly". `intervention_override` means a factor is HELD FIXED by the
+   * options and therefore cannot vary; `disconnected` means it reaches nothing;
+   * `zero_outcome_diff` means it varies and changes nothing. Telling a reader
+   * that a pinned factor "has no effect" is false, so the surface names the
+   * code rather than summarising the set.
+   *
+   * ⚠ IT MATTERS BECAUSE THE SUPPRESSED ROW CAN BE THE MODEL'S RANK-1 FACTOR.
+   * A pinned factor keeps its `influence_score` — `deriveFactorInfluenceMap`
+   * says so in terms — so the canvas ranks it first while this list drops it.
+   * Measured against the canvas on staging `acd3db4d`: the panel named three
+   * factors and the one it omitted was the canvas's 100%.
+   *
+   * Empty whenever `suppressedZeroCount` is 0, and never longer than the three
+   * codes the union admits.
+   */
+  suppressedZeroReasons: NonNullable<ZeroReasonCode>[]
 }
 
 export interface UncertaintySection {
