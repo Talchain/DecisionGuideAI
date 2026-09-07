@@ -9,7 +9,7 @@ import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import { useNodeDisplayMetadata } from './useNodeDisplayMetadata'
 import {
-  FileQuestion, Sparkles, Unlink, Frame, ShieldAlert, Anchor, Gauge,
+  FileQuestion, Unlink, Frame, ShieldAlert, Anchor, Gauge,
 } from 'lucide-react'
 import { biasSignal } from '../shared/biasSignalTitles'
 import type { ComponentType } from 'react'
@@ -18,7 +18,6 @@ import type { NodeType } from '../domain/nodes'
 // bytes, ROADMAP 2.954) — removed rather than left as an invitation to wire a
 // fourth raw-signed channel (#629's `getStrengthDescription` precedent).
 import { unwrapInterventionValue } from '../utils/labelUtils'
-import { isReviewedSource } from '../components/pre-analysis/utils/isReviewedByUser'
 
 export interface ScienceIconDef {
   id: string
@@ -61,26 +60,6 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
           action: `Help me estimate ${label}`,
           colour: 'text-warning',
           priority: 1,
-        })
-      }
-
-      // 2. Olumi estimate — journey-walk gap #3 (third contradicting
-      // surface): gating on `extractionType === 'inferred'` ALONE kept this
-      // claim alive after a user override (commitValue sets source
-      // 'user_override' but never touches extractionType), so the canvas said
-      // "Olumi estimated this value" about a factor the sidebar called
-      // "checked by you". The user-ownership question is answered by the
-      // canonical reviewed-source predicate — the SAME one the sidebar pill
-      // derives from — never a second hand-kept source list (trap 12).
-      const source = observedState?.source as string | undefined
-      if (extractionType === 'inferred' && !isReviewedSource(source)) {
-        icons.push({
-          id: 'olumi-estimate',
-          icon: Sparkles,
-          tooltip: 'Olumi estimated this value. May not match reality.',
-          action: `Confirm or adjust the value for ${label}`,
-          colour: 'text-text-light',
-          priority: 3,
         })
       }
 

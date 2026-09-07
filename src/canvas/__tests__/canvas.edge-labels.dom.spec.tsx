@@ -3,7 +3,7 @@
  * Tests blueprint metadata pipeline (weight, belief, provenance) → readable labels
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { getEdgeLabel, describeEdge, formatNumericLabel, setEdgeLabelMode, getEdgeLabelMode } from '../domain/edgeLabels'
+import { getEdgeLabel, describeEdge, formatNumericLabel, getEdgeLabelMode } from '../domain/edgeLabels'
 import { cleanupCanvas } from './__helpers__/renderCanvas'
 import type { EdgeDirectionDisplay, EdgeValueDisplay } from '../domain/edgeValueProvenance'
 
@@ -28,7 +28,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
   beforeEach(() => {
     cleanupCanvas()
     // Reset to human mode for consistent tests
-    setEdgeLabelMode('human')
+    localStorage.setItem('canvas.edge-labels-mode', 'human')
   })
 
   describe('Human-readable labels (default)', () => {
@@ -110,7 +110,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
 
   describe('Numeric labels mode', () => {
     beforeEach(() => {
-      setEdgeLabelMode('numeric')
+      localStorage.setItem('canvas.edge-labels-mode', 'numeric')
     })
 
     it('generates numeric format with belief', () => {
@@ -158,7 +158,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
     })
 
     it('switches to numeric mode when set', () => {
-      setEdgeLabelMode('numeric')
+      localStorage.setItem('canvas.edge-labels-mode', 'numeric')
 
       const mode = getEdgeLabelMode()
 
@@ -166,7 +166,7 @@ describe('Canvas: Edge labels (blueprint metadata → UI)', () => {
     })
 
     it('persists mode to localStorage', () => {
-      setEdgeLabelMode('numeric')
+      localStorage.setItem('canvas.edge-labels-mode', 'numeric')
 
       const stored = localStorage.getItem('canvas.edge-labels-mode')
 
