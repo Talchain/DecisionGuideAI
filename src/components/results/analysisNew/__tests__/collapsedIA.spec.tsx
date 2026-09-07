@@ -25,7 +25,6 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 
 import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
-import { AtAGlance } from '../sections/AtAGlance'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { genuineDecision, manyFragileEdges, openStrategicChallenge } from './analysisNewFixtures'
@@ -162,62 +161,20 @@ describe('the surface below the glance is a list of collapsed rows', () => {
   })
 })
 
-describe('the glance declares its own cap', () => {
-  it('says how many drivers the run produced beyond the three it shows', () => {
-    // Measured on the deployed build: one driver shown, several in the run, and
-    // no disclosure anywhere. A cap that does not declare itself reads as a
-    // complete list.
-    render(
-      <AtAGlance
-        isRunning={false} reanalyseBlocked={false}
-        reanalyseBlockedReason={null}
-        glance={{
-          headline: null, leaderLabel: null, winFraction: null,
-          winShare: null,
-          comparisonScope: { kind: 'whole_set' },
-          comparativeClaim: 'none',
-          verdict: null,
-          drivers: [
-            { id: 'a', label: 'A', fraction: 1, targetId: null },
-            { id: 'b', label: 'B', fraction: 0.5, targetId: null },
-            { id: 'c', label: 'C', fraction: 0.2, targetId: null },
-          ],
-          influenceIsSetRelative: false,
-          condition: null,
-          inputProvenance: null,
-        }}
-        driverTotal={7}
-      />,
-    )
-    expect(screen.getByTestId('analysis-new-glance-drivers-more')).toHaveTextContent(
-      '+ 4 more drivers in this run',
-    )
-  })
-
-  it('says NOTHING when the glance is showing every driver there is', () => {
-    // The discriminating twin. Without it, a component that always printed the
-    // line would pass the case above and lie on a complete list.
-    render(
-      <AtAGlance
-        isRunning={false} reanalyseBlocked={false}
-        reanalyseBlockedReason={null}
-        glance={{
-          headline: null, leaderLabel: null, winFraction: null,
-          winShare: null,
-          comparisonScope: { kind: 'whole_set' },
-          comparativeClaim: 'none',
-          verdict: null,
-          drivers: [{ id: 'a', label: 'A', fraction: 1, targetId: null }],
-          influenceIsSetRelative: false,
-          condition: null,
-          inputProvenance: null,
-        }}
-        driverTotal={1}
-      />,
-    )
-    expect(screen.queryByTestId('analysis-new-glance-drivers-more')).toBeNull()
-  })
-})
+/**
+ * ⛔ RETIRED AT `e15416ad`. "The glance declares its own cap" pinned
+ * "+N more drivers in this run" beneath the glance's three driver rows. The
+ * rows are gone — they restated the drivers section's ranking from the same
+ * view-model fields — so there is no cap on this surface left to declare.
+ *
+ * ⚠ THE PROPERTY IT PROTECTED IS NOT LOST, it is now structural rather than
+ * asserted: `SectionShell` renders `count={findings.length}` on the collapsed
+ * "Drivers and dynamics" row, DERIVED from the actual list, and
+ * `DriverInfluenceChart` renders every row with no slice. A truncation that
+ * misreports what it hid cannot arise where nothing is truncated.
+ * `AnalysisNewSection`'s own "Show more" count is separately derived and is
+ * covered by the cases above.
+ */
 
 describe('the one action stays in the glance', () => {
   /**

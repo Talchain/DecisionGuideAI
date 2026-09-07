@@ -59,7 +59,22 @@ function makeTriageData(drivers: DriverItem[]): ResultsSectionDataReturn {
 
 describe('analysis metric value + basis + permitted-language policy', () => {
   it.each([
-    ['influence_score', 'absolute_influence_score'],
+    /**
+     * ⚠⚠ THIS ROW SAID `'absolute_influence_score'` UNTIL 5 Sep 2026, AND THAT
+     * PIN RATIFIED THE DEFECT. `influence_score` is set-relative: the producer
+     * divides by `max|influence|`, so the top row is 1.0 by construction.
+     * Verified from this side before changing it, and narrowed 6 Sep 2026 to
+     * what is measured after a reviewer refuted the universal: of the 21 JSON
+     * files under `src/` carrying the field, every one whose maximum is non-zero
+     * maxes at exactly 1.0 (live staging responses among them), none exceeds
+     * 1.0, and one real degenerate turn is uniformly 0.
+     *
+     * The change is deliberate and is the ruling, not a test bent to fit a
+     * change. See `influenceIsNeverCalledAbsolute.spec.ts` for the evidence and
+     * for the live capture where a 100% row carries `elasticity: 0` — a demoted
+     * lever the panel was calling a 100% influence score.
+     */
+    ['influence_score', 'set_relative_influence'],
     ['normalised_elasticity', 'set_relative_influence'],
     ['pre_analysis_influence', 'pre_analysis_influence_score'],
     ['value_of_information', 'value_of_information'],
@@ -75,7 +90,7 @@ describe('analysis metric value + basis + permitted-language policy', () => {
     expect(resolveAnalysisMetric({ value: 0, basis: 'influence_score' })).toEqual({
       value: 0,
       basis: 'influence_score',
-      permittedLanguage: 'absolute_influence_score',
+      permittedLanguage: 'set_relative_influence',
     })
     expect(resolveAnalysisMetric({ value: undefined, basis: 'influence_score' })).toBeNull()
     expect(resolveAnalysisMetric({ value: 0.4, basis: undefined })).toBeNull()
@@ -94,13 +109,13 @@ describe('analysis metric value + basis + permitted-language policy', () => {
     const voi = resolveAnalysisMetric({ value: 0.62, basis: 'value_of_information' })!
     const influence = resolveAnalysisMetric({ value: 0.62, basis: 'influence_score' })!
     expect(analysisMetricVisibleLabel(voi)).toBe('Value of information 62%')
-    expect(analysisMetricVisibleLabel(influence)).toBe('Influence score 62%')
+    expect(analysisMetricVisibleLabel(influence)).toBe('Relative influence 62%')
     expect(analysisMetricTitle(voi)).not.toMatch(/influence score/i)
     expect(analysisMetricTitle(influence)).not.toMatch(/value of information/i)
   })
 
   it.each([
-    ['influence_score', 'Influence score 68%'],
+    ['influence_score', 'Relative influence 68%'],
     ['normalised_elasticity', 'Relative influence 68%'],
     ['pre_analysis_influence', 'Pre-analysis influence score 68%'],
     ['value_of_information', 'Value of information 68%'],
