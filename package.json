@@ -141,7 +141,7 @@
     "eslint-plugin-react": "7.35.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-storybook": "^10.2.8",
-    "jsdom": "^24.0.0",
+    "jsdom": "^30.0.1",
     "msw": "^2.11.6",
     "postcss": "^8.4.35",
     "prelude-ls": "^1.2.1",
