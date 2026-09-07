@@ -162,8 +162,25 @@ describe.each([
       'the detector did not fire on the row’s own text — it is not discriminating here',
     ).not.toEqual([])
 
-    // THE RULING.
+    // THE RULING, HALF ONE — it does not reprint the finding.
     expect(reprintedChunks(textChunks(glance), rowWhy)).toEqual([])
+
+    // THE RULING, HALF TWO — and it DOES name it. Without this, a card
+    // reverted to showing only the generic action label would satisfy half one
+    // perfectly: "Work through with Olumi" reprints nothing. A card that
+    // repeats nothing and identifies nothing is not the fix.
+    //
+    // Bound to the SAME `Recommendation`: both elements render that object's
+    // `title`, and the row was selected by engine id above. Comparing against
+    // a literal would let any row with a matching string satisfy it.
+    const glanceTitle = within(glance)
+      .getByTestId('analysis-new-glance-primary-title')
+      .textContent?.trim()
+    const rowTitle = within(row!)
+      .getByTestId('analysis-new-strengthen-title')
+      .textContent?.trim()
+    expect(rowTitle, 'the row has no title — this pair would be vacuous').toBeTruthy()
+    expect(glanceTitle).toBe(rowTitle)
   })
 
   it('every disagreement affordance survives on the promoted row', () => {

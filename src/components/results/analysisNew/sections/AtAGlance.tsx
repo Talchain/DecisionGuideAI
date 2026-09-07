@@ -1041,7 +1041,10 @@ export function AtAGlance({
         >
           <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0 text-info" aria-hidden="true" />
           <span className="min-w-0 flex-1">
-            <span className={`${typography.panelHeader} text-text-header block`}>
+            <span
+              className={`${typography.panelHeader} text-text-header block`}
+              data-testid={`${testId}-primary-title`}
+            >
               {primaryIntervention.title}
             </span>
             {/* ⭐ THE MOST PROMINENT COACHING CARD NAMES ITS TECHNIQUE. This is
