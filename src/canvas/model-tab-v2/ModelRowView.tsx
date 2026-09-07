@@ -628,7 +628,38 @@ export function ModelRowView({
            out of anything. The ladder is still right, but it is ordered by
            LEGIBILITY under compression, not by a containment failure that does
            not occur. Rewritten rather than deleted because the wrong reason
-           was load-bearing in four places and would have been re-derived. */
+           was load-bearing in four places and would have been re-derived.
+
+           ⚠⚠ EVERYTHING ABOVE THIS LINE IS ABOUT A WORDED PILL, AND THIS SPAN
+           NO LONGER HOLDS ONE. The wrapper is unchanged and only the CHILD was
+           swapped — `SourceProvenancePill` became the 14px `ValueProvenanceMark`
+           — so the sentences above quietly stopped being true of what renders
+           here. They are kept, not rewritten: the 3px reading and the 62px
+           merge-base reading are DATED CAPTURES of the pill, and a measurement
+           is a record of what was observed, not a field to keep current.
+
+           What changed, and it lands on the wrong side of this file's own rule:
+           a truncated text span reports as a signalled ellipsis, which the
+           doctrine above calls "a disclosed loss, not a silent one" — but a
+           CLIPPED GLYPH EMITS NO ELLIPSIS AND SIMPLY VANISHES. By this file's
+           own standard that is a SILENT loss, the thing it refuses everywhere
+           else. The sentence "an atom squeezed below the width at which it
+           renders any characters at all is not [recoverable]" therefore now
+           describes the ordinary case rather than the forbidden one, because a
+           glyph renders no characters at ANY width.
+
+           ⚠ NOT CHANGED HERE, DELIBERATELY, and this is the judgement rather
+           than an oversight. Marks relieve roughly 62px of row pressure, so it
+           is unlikely to clip in practice — and NOBODY HAS MEASURED IT CLIPPING,
+           in either direction. Swapping to `shrink-0` would be an unmeasured
+           layout change to a row already under review, and would move the
+           deficit onto an atom that has not been priced for it. Rowed instead:
+           re-price the yield ladder now that its last item is INDIVISIBLE.
+
+           ⚠ This disclosure was written by the change that introduced the mark
+           and was DROPPED when that change was re-applied onto a moved base —
+           the one thing the re-application lost. Restored here, because the
+           deferral is defensible and its silence was not. */
         <span data-testid={`model-row-v2-${row.id}-provenance`} className="min-w-0 truncate">
           <ValueProvenanceMark source={row.provenanceSource} rowId={row.id} />
         </span>
