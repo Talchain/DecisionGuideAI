@@ -140,17 +140,26 @@ function isExplicitNotReady(status: string | undefined): boolean {
  * Precedence (first match wins):
  *   1. Explicit non-ready CEE status (needs_encoding / needs_user_mapping /
  *      needs_user_input) → 'not_ready' even when a prior report exists.
- *   2. hasReport && !analysisChanged → 'complete'
+ *   2. hasReport && !analysisChanged && !hasRenderableResult
+ *        → 'ran_without_result'
+ *      A report can be POPULATED and carry all-null probabilities — an engine
+ *      "I tried per-option and failed" state, which is not a result. This sits
+ *      ABOVE 'complete' deliberately: `hasReport` answers "did a report
+ *      arrive", never "does it contain anything", and only the second licenses
+ *      the word complete. It sits BELOW 'results_stale' equally deliberately —
+ *      an out-of-date report is a more specific statement about a report the
+ *      user has already seen.
+ *   3. hasReport && !analysisChanged → 'complete'
  *      Works even when readiness is briefly absent (undefined / 'missing'),
  *      because a populated report stands on its own — readiness gating only
  *      matters before a successful run lands. 'Analysis complete' is a completion
  *      fact, not a currentness claim, so this is also the correct neutral
  *      fallback for the CEE-unknown 'cannot_confirm' case (which is NOT 'changed').
- *   3. hasReport && analysisChanged → 'results_stale'
- *   4. ceeAnalysisReadyStatus === 'ready' (no report) → 'ready_to_analyse'
- *   5. else (no report, no readiness signal) → 'not_ready'
+ *   4. hasReport && analysisChanged → 'results_stale'
+ *   5. ceeAnalysisReadyStatus === 'ready' (no report) → 'ready_to_analyse'
+ *   6. else (no report, no readiness signal) → 'not_ready'
  *
- * Note rule (2) is keyed on `hasReport`, not on the run-status enum. A
+ * Note rule (3) is keyed on `hasReport`, not on the run-status enum. A
  * stale enum value with a cleared report (e.g. results.status='complete'
  * left over after a new draft cleared `report` to null) must NEVER
  * produce 'complete'. Without a populated report there is nothing to

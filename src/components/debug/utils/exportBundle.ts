@@ -962,11 +962,23 @@ export interface DisplayState {
   analysis_status_displayed: string | null
   hero_headline_displayed: string | null
   /**
-   * Canonical analysis display state from `deriveAnalysisDisplayState`.
-   * Distinct from `analysis_status_displayed` (which mirrors the raw
-   * `results.status` enum) — this field captures the four-state UI
-   * mapping the user actually sees: not_ready / ready_to_analyse /
-   * complete / results_stale.
+   * Canonical analysis display state from `deriveAnalysisDisplayState`:
+   * not_ready / ready_to_analyse / ran_without_result / complete /
+   * results_stale. Distinct from `analysis_status_displayed`, which mirrors
+   * the raw `results.status` enum.
+   *
+   * ⚠ THIS IS NOT "WHAT THE USER SEES", AND THAT CLAIM USED TO BE HERE.
+   * Derived at the bytes: this field is the ONLY emitter of that headline in
+   * the repo, and `StickyFooter` — the sole product consumer of
+   * `useAnalysisDisplayState` — reads only `view.cta?.label` and
+   * `view.cta?.kind`. The `.headline` is never rendered anywhere.
+   *
+   * The string a user actually meets is `runAnnouncementForTransition`'s
+   * "Analysis complete." — note the FULL STOP, a different string from this
+   * mapper's "Analysis complete" — announced through `AnalysisRunAnnouncer`.
+   * A comment claiming this bundle field is what the user sees sent a repair
+   * to the wrong surface once; it is corrected here rather than deleted so the
+   * next reader meets the correction where the error was.
    * Backwards-compatible: added alongside the legacy fields so existing
    * bundle consumers keep working until they migrate.
    */
