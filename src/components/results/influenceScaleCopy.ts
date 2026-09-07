@@ -84,10 +84,25 @@ export const INFLUENCE_EXPLANATION_RELATIVE =
  * lane could see the other's. It is now the relative wording — which was true
  * of both bases the whole time.
  *
- * Kept as an ALIAS rather than deleted: canvas surfaces outside this lane
- * import the symbol, so changing what it SAYS fixes every consumer at once,
- * where deleting it would force an unrelated lane to take a breaking change on
- * my schedule.
+ * Kept as an ALIAS rather than deleted: canvas surfaces reach this copy through
+ * `influenceExplanation()` below (`canvas/nodes/FactorNode.tsx`,
+ * `canvas/nodes/shared/MetricPills.tsx`), so changing what it SAYS fixes every
+ * consumer at once.
+ *
+ * ⚠ 7 Sep 2026 — THIS PARAGRAPH USED TO SAY "canvas surfaces outside this lane
+ * import the symbol … deleting it would force an unrelated lane to take a
+ * breaking change on my schedule", and the docblock below reused that premise to
+ * justify keeping the name. MEASURED AT THIS HEAD AND FALSE.
+ * `INFLUENCE_EXPLANATION_ABSOLUTE` is referenced in 5 files, ALL of them under
+ * `src/components/results/`: this module, `DriversSection.tsx`, and three specs.
+ * `src/canvas/` references it ZERO times, and there is no barrel or re-export
+ * (`src/components/results/index.ts` does not exist). Contrast control in the
+ * same sweep, so the zero is an absence rather than a blind probe:
+ * `INFLUENCE_EXPLANATION_GENERIC` IS imported by name in two canvas files, and
+ * eight canvas files import from this module. So renaming this symbol is a LOCAL
+ * change, not a coordinated cross-lane one. What survives of the original
+ * sentence is its true half: rewriting the STRING fixes every surface at once,
+ * because canvas goes through the accessor rather than the constant.
  */
 export const INFLUENCE_EXPLANATION_ABSOLUTE =
   "Influence: Olumi's structural influence score, relative to the strongest factor in this run. The top driver always shows 100%."
@@ -109,8 +124,10 @@ export const INFLUENCE_EXPLANATION_ABSOLUTE =
  * taken that away to fix something else.
  *
  * So both arms name their own quantity and NEITHER claims an absolute scale.
- * The symbol keeps its name because canvas surfaces import it; renaming it is a
- * coordinated change, not mine to make unilaterally.
+ * The name is kept on judgement, not on coupling: per the measurement in the
+ * docblock above, renaming `INFLUENCE_EXPLANATION_ABSOLUTE` is a local change
+ * inside `src/components/results/`. It is a tidy-up this lane declined so the
+ * diff stays about the copy, not one it was barred from making.
  */
 
 /**

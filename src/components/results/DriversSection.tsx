@@ -894,9 +894,13 @@ export function DriversSection({
   //
   // ⚠ THE VARIANT NAMES ARE NOW A MISNOMER AND ARE KEPT ON PURPOSE. 'absolute'
   // means "the producer's quantity", NOT "an absolute scale" — neither basis has
-  // one (Q2). They match `INFLUENCE_EXPLANATION_ABSOLUTE`, which canvas surfaces
-  // outside this lane import by name, so renaming is a coordinated change rather
-  // than a local tidy-up. Read them as quantity labels.
+  // one (Q2). They match `INFLUENCE_EXPLANATION_ABSOLUTE`, and renaming THAT
+  // symbol would be a LOCAL change confined to `src/components/results/`
+  // (measured 7 Sep 2026: zero references under `src/canvas/`, which reaches the
+  // copy through `influenceExplanation()`; the sweep and its contrast control are
+  // recorded on that constant's docblock in `influenceScaleCopy.ts`). The rename
+  // is a tidy-up deferred out of this diff, not a cross-lane constraint. Read
+  // them as quantity labels.
   const influenceBasisStamped: 'relative' | 'absolute' | 'unknown' =
     drivers.some(d => d.displayProvenance === 'normalised_elasticity')
       ? 'relative'
