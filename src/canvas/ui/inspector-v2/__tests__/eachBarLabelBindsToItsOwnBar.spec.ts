@@ -122,6 +122,66 @@ function stackSpacing(src: string): { between: number; within: number; ratio: nu
   return { between, within, ratio: between / within }
 }
 
+/**
+ * ⚠⚠ THE SAME COMMENT-VS-CODE HOLE I CLOSED IN `stackSpacing`, LEFT OPEN IN THE
+ * TEST SIXTY LINES BELOW IT. Round 2 executed it: restore the B1 regression —
+ * guidance rendered AFTER `</StaleGuardBanner>` — and leave ANY comment inside
+ * the banner that merely NAMES `{sensitivityGuidance}`, and an `indexOf` over
+ * raw source finds the COMMENT and the pin PASSES. In files this heavily
+ * commented, the regression the guard exists to block was one comment away from
+ * invisible. Reproduced standalone before repairing it.
+ *
+ * So every index below is taken from COMMENT-STRIPPED source, and the stripper
+ * has its own positive control — an instrument that silently strips nothing
+ * would restore the hole while every assertion still read green.
+ */
+function stripComments(src: string): string {
+  return src
+    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, ' ') // JSX {/* … */}
+    .replace(/\/\*[\s\S]*?\*\//g, ' ') // block /* … */
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1') // line // … , but not a URL's `://`
+}
+
+/**
+ * Where the influence sentence sits relative to the things it must bind to.
+ *
+ * ⚠ ORDER ALONE IS NOT ENOUGH, and round 2 proved it with four mutations that
+ * all satisfied the previous one-line pin. `depthAtGuidance` is what closes the
+ * remaining one: a guidance rendered as a DIRECT CHILD of the stack container
+ * belongs to neither bar — it sits under the container's own `space-y-4`, 16px
+ * from both — and no ordering test can see that, because its index is in
+ * exactly the right place. Nesting can.
+ */
+function guidanceBinding(src: string): {
+  container: number
+  bar: number
+  guidance: number
+  voi: number
+  banner: number
+  depthAtGuidance: number
+  closesBetweenBarAndGuidance: number
+} {
+  const code = stripComments(src)
+  const container = code.search(/className="mt-2 space-y-\d+"/)
+  const bar = code.indexOf('<ImportanceBar')
+  const guidance = code.indexOf('{sensitivityGuidance}')
+  const voi = code.indexOf('INLINE_LABELS.investigationValue')
+  const banner = code.indexOf('</StaleGuardBanner>')
+  const between = container >= 0 && guidance > container ? code.slice(container, guidance) : ''
+  const opens = (between.match(/<div\b/g) ?? []).length
+  const closes = (between.match(/<\/div>/g) ?? []).length
+  const barToGuidance = bar >= 0 && guidance > bar ? code.slice(bar, guidance) : ''
+  return {
+    container,
+    bar,
+    guidance,
+    voi,
+    banner,
+    depthAtGuidance: opens - closes,
+    closesBetweenBarAndGuidance: (barToGuidance.match(/<\/div>/g) ?? []).length,
+  }
+}
+
 describe('the post-analysis factor stack groups each bar with its own sentences', () => {
   it.each(ALL_PANELS)('%s — the between-group gap is at least 4x the largest within-group gap', (file) => {
     const src = panelSource(file)
@@ -165,20 +225,109 @@ describe('the post-analysis factor stack groups each bar with its own sentences'
     ).toBeGreaterThanOrEqual(REQUIRED_RATIO)
   })
 
+  it('PRECONDITION: the comment stripper actually strips — otherwise every index below is raw text', () => {
+    // The positive control for the instrument itself. If this stripper silently
+    // stopped stripping, the M8 hole would reopen and nothing else here would
+    // notice, because every assertion would still find an index.
+    const withComment = '{/* mentions {sensitivityGuidance} in prose */}<p>{sensitivityGuidance}</p>'
+    const stripped = stripComments(withComment)
+    expect(stripped.indexOf('{sensitivityGuidance}')).toBeGreaterThan(-1) // the real render survives
+    expect([...stripped.matchAll(/\{sensitivityGuidance\}/g)].length).toBe(1) // the prose mention does not
+  })
+
   it.each(GROUPED_PANELS)('%s — the influence sentence sits INSIDE the group it describes', (file) => {
-    const src = panelSource(file)
-    const banner = src.indexOf('</StaleGuardBanner>')
-    const guidance = src.indexOf('{sensitivityGuidance}')
-    expect(banner, `${file}: no </StaleGuardBanner> — the stack is not where this guard thinks`).toBeGreaterThan(-1)
-    expect(guidance, `${file}: the guidance sentence is not rendered at all`).toBeGreaterThan(-1)
-    // THE B1 PROPERTY. Rendered after the banner closes, the sentence is a sibling
-    // of the whole stack and binds by proximity to whichever group ends last —
-    // which is the value-of-information group, not influence.
+    const b = guidanceBinding(panelSource(file))
+    for (const [name, idx] of [
+      ['the stack container', b.container],
+      ['<ImportanceBar>', b.bar],
+      ['the guidance render', b.guidance],
+      ['the VoI label', b.voi],
+      ['</StaleGuardBanner>', b.banner],
+    ] as const) {
+      expect(idx, `${file}: ${name} not found in comment-stripped source`).toBeGreaterThan(-1)
+    }
+
+    // ORDER — the sentence follows the bar it describes and PRECEDES the group
+    // it must not join. `guidance < voi` is what closes a guidance nested inside
+    // the value-of-information group, which is B1 at maximum severity.
+    expect(b.bar, `${file}: the guidance renders BEFORE <ImportanceBar>`).toBeLessThan(b.guidance)
     expect(
-      guidance,
-      `${file}: the influence sentence renders AFTER </StaleGuardBanner>, so proximity ` +
-        'binds it to the value-of-information group instead of to the influence bar.',
-    ).toBeLessThan(banner)
+      b.guidance,
+      `${file}: the influence sentence renders at or after the value-of-information ` +
+        'group, so proximity binds it there instead of to the influence bar.',
+    ).toBeLessThan(b.voi)
+    expect(b.guidance, `${file}: the guidance renders outside the stack`).toBeLessThan(b.banner)
+
+    // NESTING — order cannot see a guidance that is a DIRECT CHILD of the
+    // container: its index is in exactly the right place while it sits under the
+    // container's own `space-y-4`, 16px from both bars and belonging to neither.
+    expect(
+      b.depthAtGuidance,
+      `${file}: the guidance is a direct child of the stack container, so the ` +
+        'group separator governs it and it belongs to neither bar.',
+    ).toBeGreaterThanOrEqual(1)
+    expect(
+      b.closesBetweenBarAndGuidance,
+      `${file}: an element closes between <ImportanceBar> and the guidance, so they ` +
+        'are not in the same group.',
+    ).toBe(0)
+  })
+
+  // ── THE FOUR PLACEMENTS ROUND 2 PROVED THE ONE-LINE PIN COULD NOT SEE ──────
+  // Each runs the SHIPPED `guidanceBinding`, not a re-implementation.
+  const BAD_PLACEMENTS = [
+    [
+      'M8 — the B1 regression restored, with a comment naming the guidance left inside',
+      `<div className="mt-2 space-y-4"><div><ImportanceBar />
+         {/* the influence sentence {sensitivityGuidance} used to live here */}
+       </div><div><DataBar label={INLINE_LABELS.investigationValue} /></div></div>
+       </StaleGuardBanner><p className="mt-2">{sensitivityGuidance}</p>`,
+    ],
+    [
+      'M4 — the guidance nested INSIDE the value-of-information group',
+      `<div className="mt-2 space-y-4"><div><ImportanceBar /></div>
+       <div><DataBar label={INLINE_LABELS.investigationValue} />
+         <p className="mt-1">{sensitivityGuidance}</p></div></div></StaleGuardBanner>`,
+    ],
+    [
+      'M5 — the guidance outside the container but inside the banner',
+      `<div className="mt-2 space-y-4"><div><ImportanceBar /></div>
+       <div><DataBar label={INLINE_LABELS.investigationValue} /></div></div>
+       <p className="mt-2">{sensitivityGuidance}</p></StaleGuardBanner>`,
+    ],
+    [
+      'M3 — the guidance a direct child of the container, belonging to neither bar',
+      `<div className="mt-2 space-y-4"><ImportanceBar />
+       <p className="mt-1">{sensitivityGuidance}</p>
+       <div><DataBar label={INLINE_LABELS.investigationValue} /></div></div></StaleGuardBanner>`,
+    ],
+  ] as const
+
+  it.each(BAD_PLACEMENTS)('DISCRIMINATOR: %s is REJECTED', (_label, source) => {
+    const b = guidanceBinding(source)
+    const bindsToItsOwnBar =
+      b.bar > -1 &&
+      b.guidance > -1 &&
+      b.voi > -1 &&
+      b.banner > -1 &&
+      b.bar < b.guidance &&
+      b.guidance < b.voi &&
+      b.guidance < b.banner &&
+      b.depthAtGuidance >= 1 &&
+      b.closesBetweenBarAndGuidance === 0
+    expect(bindsToItsOwnBar).toBe(false)
+  })
+
+  it('DISCRIMINATOR: the CORRECT placement is accepted — the rejections are not blanket', () => {
+    const good = `<div className="mt-2 space-y-4"><div><ImportanceBar />
+       <p className="mt-1">{sensitivityGuidance}</p></div>
+       <div><DataBar label={INLINE_LABELS.investigationValue} /></div></div></StaleGuardBanner>`
+    const b = guidanceBinding(good)
+    expect(b.bar).toBeLessThan(b.guidance)
+    expect(b.guidance).toBeLessThan(b.voi)
+    expect(b.guidance).toBeLessThan(b.banner)
+    expect(b.depthAtGuidance).toBeGreaterThanOrEqual(1)
+    expect(b.closesBetweenBarAndGuidance).toBe(0)
   })
 
   it(`${SEPARATED_PANEL} — the unconditional guidance is separated by MORE than the group separator`, () => {

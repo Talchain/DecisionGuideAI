@@ -257,8 +257,17 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
         {/* Post-analysis: ImportanceBar + VoI folded in (no separate bordered card) */}
         <StaleGuardBanner hasResults={isResultsMode}>
           {/* ⭐ GROUPING, NOT DECORATION — 4px WITHIN a pair, 16px BETWEEN.
-          Both bars in this stack put their label BELOW their own value,
-          and each group then ENDS WITH ITS OWN GUIDANCE SENTENCE.
+          Both bars in this stack put their label BELOW their own value.
+
+          ⚠ AND THE SENTENCE THAT USED TO FOLLOW HERE WAS FALSE OF THIS PANEL.
+          It read "and each group then ENDS WITH ITS OWN GUIDANCE SENTENCE",
+          copied verbatim from the two panels where it IS true. In THIS file the
+          value-of-information group ends with its guidance and the INFLUENCE
+          group does not have one: `externalGuidance` is a sibling BELOW this
+          container (see the note at its render), because it is unconditional and
+          is not always about influence. Copying a true sentence into a file it is
+          not true of is precisely the byte-identical-across-three-panels defect
+          this fix was written to repair, committed inside the repair.
 
           ⚠ AN EARLIER VERSION OF THIS COMMENT SAID "`ImportanceBar` ends
           with its label; the VoI block does the same". The first half is
@@ -292,9 +301,11 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
           reader the second bar HAS a name; it could not tell them which
           bar each name belongs to, because proximity still said
           otherwise. 4px within a group vs 16px between them makes proximity say
-            the true thing - but ONLY once every sentence sits inside the
-            group it describes, which is the change below and is what the
-            first cut of this fix missed. */}
+          the true thing about the two BARS. ⚠ The other two panels finish the job
+          by moving their guidance sentence inside the group it describes; THIS
+          panel cannot, for the reasons at `externalGuidance`'s render, and
+          separates it instead. Do not read the sibling files' change into this
+          one. */}
           <div className="mt-2 space-y-4">
             <ImportanceBar
               importanceScore={displayMetadata.influence}

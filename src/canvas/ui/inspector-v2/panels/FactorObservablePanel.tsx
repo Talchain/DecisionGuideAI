@@ -226,11 +226,18 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
                 this juxtaposition: *"'influence: Low' directly above 'one of the most
                 influential'"*.
 
-                SAFE BY DERIVATION, not by inspection: `sensitivityGuidance` is
-                non-null only when `isResultsMode && sensitivityRank != null`, and the
-                container renders on `isResultsMode && (influence != null ||
-                sensitivityRank != null)`. The first implies the second, so nothing
-                can be lost by moving it inside. ⚠ THAT PROOF IS PANEL-SPECIFIC and
+                SAFE BY DERIVATION, not by inspection — and the derivation here is
+                SIMPLER than the one in `FactorControllablePanel`, which is why this
+                paragraph no longer copies it. ⚠ IT DID COPY IT, and review caught the
+                copy: it cited a container gate of `isResultsMode && (influence != null
+                || sensitivityRank != null)`, which is real CODE in Controllable
+                (`:437`) and appears in THIS file only inside that borrowed sentence.
+                A comment that describes its neighbour's code is the same defect one
+                level down from the one this fix exists to close.
+                What is true here: this panel's `<StaleGuardBanner>` is UNCONDITIONAL —
+                it takes `hasResults` as a prop and is not behind any `&&` — so the
+                container always renders and nothing can be lost by moving the guidance
+                inside, whatever `sensitivityGuidance` evaluates to. ⚠ THAT PROOF IS PANEL-SPECIFIC and
                 does NOT hold for `FactorExternalPanel`, whose guidance is
                 unconditional and is not always about influence — it is separated
                 there instead. The three panels look identical and are not; treating
