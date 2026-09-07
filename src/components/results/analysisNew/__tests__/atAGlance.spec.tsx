@@ -105,7 +105,9 @@ describe('the read — no UI-generated strategic conclusion', () => {
     expect(g.verdict?.reason, 'fixture must carry a producer reason').toBeTruthy()
     expect(g.winFraction, 'fixture must carry a win fraction, or there is no bar').not.toBeNull()
 
-    render(<AtAGlance glance={g} />)
+    render(<AtAGlance
+  isRunning={false} reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={g} />)
     const reason = screen.getByTestId('analysis-new-glance-verdict-reason')
     const bar = screen.getByTestId('analysis-new-glance-win-bar')
     // DOCUMENT_POSITION_FOLLOWING === 4: the bar comes after the reason.
