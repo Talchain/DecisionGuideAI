@@ -225,7 +225,13 @@ describe('visual-regression scaffold (Brief 5)', () => {
     // Codex final-audit B1: intro copy made honest — the bars are a proportional
     // illustration (option spread x influence), not producer per-factor forecasts.
     expect(snap).toContain(
-      'Illustrative range for each factor: the recommended option’s overall spread scaled by that factor’s influence. A proportional guide to relative leverage, not a per-factor forecast from the analysis.',
+      // ⚠ UPDATED WITH THE COPY, AND THIS SPEC IS WHY THE CHANGE WAS INCOMPLETE.
+      // The original sweep for this sentence was scoped to `src/`, so this file
+      // — under `tests/` — was never searched, and CI caught what the grep could
+      // not. The lesson is the scope, not the string: a copy change must be
+      // swept REPO-WIDE, because assertions on user-facing text live outside
+      // `src/` as well as inside it.
+      'Illustrative range for each factor: the overall spread of one option \u2014 the same one for every bar, scaled by that factor\u2019s influence. A proportional guide to relative leverage, not a per-factor forecast from the analysis.',
     )
     // Legend relocated above the first bar
     expect(snap).toContain('data-testid="tornado-legend"')
