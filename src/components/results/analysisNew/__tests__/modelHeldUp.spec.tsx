@@ -8,9 +8,13 @@
  * different way of being wrong about that, so each gets its own case.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+// ⚠ `vi` AND `userEvent` WERE DROPPED WITH "THE MOVE". They existed only for
+// the two `onRecord` cases removed below; leaving them behind put two fresh
+// TS6133 errors past a green local suite and into the required check, which is
+// the honest reminder that this repo's gate is `lint → typecheck → tests` and a
+// green vitest run says nothing about the first two steps.
+import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { ModelHeldUp, modelHeldUp } from '../sections/ModelHeldUp'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 
