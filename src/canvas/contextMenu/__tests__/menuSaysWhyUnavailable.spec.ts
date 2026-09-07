@@ -34,10 +34,23 @@ import type { PaneTarget, NodeTarget, EdgeTarget, MultiTarget, MenuItemDef, Menu
 import type { Node, Edge } from '@xyflow/react'
 import type { EdgeData } from '../../domain/edges'
 
+/**
+ * ⚠ MUTABLE ON PURPOSE. Measuring menu density against an EMPTY canvas would
+ * measure the fixture, not the policy: with zero nodes `auto-arrange` is
+ * disabled for its own honest reason ("No nodes to arrange") and with a null
+ * clipboard so is `paste`, so an empty store inflates the inert count of BOTH
+ * policies equally and hides the difference between them. The density block
+ * below therefore loads a canvas that has nodes and a filled clipboard.
+ */
+const storeState = {
+  clipboard: null as null | { nodes: unknown[] },
+  nodes: [] as unknown[],
+}
+
 vi.mock('../../store', () => {
   const mockState = {
-    clipboard: null,
-    nodes: [],
+    get clipboard() { return storeState.clipboard },
+    get nodes() { return storeState.nodes },
     edges: [],
     currentScenarioId: null,
     selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
@@ -126,7 +139,11 @@ function expectMenuRendered(entries: MenuEntry[], anchorId: string) {
   expect(findItem(entries, anchorId), `anchor ${anchorId} missing — menu did not render`).toBeDefined()
 }
 
-beforeEach(() => { authorityValue.current = 'disabled' })
+beforeEach(() => {
+  authorityValue.current = 'disabled'
+  storeState.clipboard = null
+  storeState.nodes = []
+})
 
 describe('the removed gestures are surfaced with a reason, not deleted', () => {
   it.each(['undo', 'redo', 'paste'])('pane menu shows %s as present-but-disabled', id => {
@@ -233,6 +250,14 @@ describe('SAFETY: nothing gains an authority it does not have', () => {
 })
 
 describe('menu density — the measurement that chose the policy', () => {
+  beforeEach(() => {
+    // A canvas a user would actually be looking at, so `auto-arrange` and the
+    // pristine `paste` are enabled for their own reasons and the counts
+    // reflect the POLICY rather than an empty fixture.
+    storeState.nodes = [{ id: 'f1' }, { id: 'f2' }]
+    storeState.clipboard = { nodes: [{ id: 'f1' }] }
+  })
+
   /**
    * Policy A, applied to the SAME pristine entry list the shipped policy sees:
    * surface all thirteen ids as disabled rows instead of hiding any.
@@ -274,7 +299,11 @@ describe('menu density — the measurement that chose the policy', () => {
     expect(shipped.rows).toBeLessThan(a.rows)
   })
 
-  it('the pane menu: the same comparison, where Add node is the casualty', () => {
+  it('the pane menu: the two policies TIE, and that is worth recording', () => {
+    // Its only menu-only casualty is `add-node`, which the note replaces one
+    // for one — so the pane cannot discriminate between the policies. Recorded
+    // rather than omitted: a measurement that only reports the case that
+    // favours the shipped choice is not a measurement.
     const base = pristine(PANE)
     expectMenuRendered(base, 'ask-ai-pane')
     expect(density(policyAllDisabled(base))).toEqual({ rows: 7, inert: 4, pct: 57 })
