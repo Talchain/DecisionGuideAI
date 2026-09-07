@@ -89,6 +89,38 @@ export const CANONICAL_EDIT_AUTHORITY = {
   // `EditableLabel`. `structural_add` supplies it.
   preAnalysisV3StructuralAdd: 'server_graph',
   analysisAssumedEdgeStrength: 'disabled',
+  // ⚠ DELIBERATELY **NOT** FLIPPED by the 2026-09-07 edge-strength emitter lane,
+  // and the reasoning is recorded here so the next lane does not re-open the
+  // question or, worse, flip it for the wrong surface.
+  //
+  // That lane wired `useEdgeMutations.setStrength` to emit `edge_strength_edit`,
+  // so an edge-strength edit now genuinely reaches a CEE writer. The tempting
+  // conclusion is that this key should become `'server_graph'`. It should not,
+  // for two derived reasons and one structural one:
+  //
+  //  1. THIS KEY NAMES A DIFFERENT SURFACE. Its `entrySurfaces` is
+  //     `['canvas edge label']` and its `requiredEvidence` is "double-click
+  //     opens read-only details and writes no edge data" — a claim about the
+  //     LABEL, which still writes nothing. The emitter sits in the panel that
+  //     double-click opens, which is a separate surface with its own authority.
+  //     Flipping this key would license the label to present ITSELF as a saved
+  //     shared-model edit, which the lane did not make true (trap 21: write down
+  //     the question each authority answers before reconciling them).
+  //  2. THE PANEL IS INERT ANYWAY. `InspectorRouter` wraps every panel,
+  //     `EdgePanel` included, in an UNCONDITIONAL `<fieldset disabled>`. The
+  //     user-reachable strength editor today is the Model tab's weight chip
+  //     (`model-tab/RelationshipsSection.tsx`), not the inspector's slider.
+  //  3. THIS TABLE HAS NO CODE CONSUMER FOR THIS KEY. Swept 2026-09-07: outside
+  //     its own definition, `canvasEdgeStrength` appears only in
+  //     `__tests__/mutationAuthority.spec.ts` (contrast control:
+  //     `canvasNodeAddWithServerHash` has 4 references and a live consumer). Per
+  //     this file's own header that is UNENFORCED POLICY, not dead policy — so
+  //     flipping it would change no behaviour while asserting something false.
+  //
+  // What the emitter reports instead is `EdgeStrengthCommitOutcome`
+  // (`ui/inspector-v2/useInspectorMutations.ts`), which names the four states a
+  // strength commit can land in. A returned token the seam actually produces is
+  // a stronger honesty mechanism than a presentation row nothing reads.
   canvasEdgeStrength: 'disabled',
   canvasFactorConfirmation: 'disabled',
   goalSuccessTarget: 'disabled',
