@@ -391,6 +391,19 @@ export function AnalysisHeroPanel({
             {model.subline}
           </p>
         )}
+        {/* ⭐ WHY NO LEADER WAS NAMED — the producer's own sentence, VERBATIM.
+            Present only on a withheld run that supplied one; null renders
+            nothing at all, which is exactly what this panel did before the
+            slot existed. No prefix, no label, no paraphrase: the hero never
+            authors refusal wording (same contract as `trustLine` below). */}
+        {model.designationWithheldReason && (
+          <p
+            className={`${typography.panelBody} text-text-light`}
+            data-testid="hero-designation-withheld-reason"
+          >
+            {model.designationWithheldReason}
+          </p>
+        )}
         {/* ⭐ SUBSET DISCLOSURE — the headline names a LEADER, and a superlative
             ranges over the candidate set even where the underlying per-option
             quantity is subset-invariant. "Highest chance of hitting your goal"

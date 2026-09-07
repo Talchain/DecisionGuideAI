@@ -860,6 +860,49 @@ export function buildHeroModel(
     headline = HERO_COPY.headline.noLeader
   }
 
+  // ⭐ WHY NO LEADER WAS NAMED — the withheld run stops going silent.
+  //
+  // Every headline a withheld run can take names no option, and that is the
+  // whole defect: the refusal leaves no trace, so it is indistinguishable
+  // from an ordinary run and the user cannot tell one happened or what would
+  // change it.
+  //
+  // The explanation is already on this object. `analysisAdmission` is put
+  // there by `useResultsSectionData` (`analysisAdmission:
+  // ceeAnalysisReady?.analysis_admission`), and `AnalysisAdmissionReason.message`
+  // is typed in `adapters/cee/types.ts` as "User-facing sentence. By contract
+  // `reasons` is NEVER empty on a refusal". Before this line, the only reads
+  // of `analysisAdmission` anywhere under `src/` were that write, its type
+  // declaration and one spec — no consumer rendered it.
+  //
+  // PASSTHROUGH ONLY. Rendered verbatim: no paraphrase, no truncation, no
+  // template, no prefix. The hero does not author refusal wording, and an id
+  // mapped to local copy here would be the hand-maintained mirror trap 12
+  // warns about.
+  //
+  // ⚠ GATED ON `designationsWithheld`, NOT ON THE HEADLINE STRING. The state
+  // is what licenses the sentence — "this run may not designate a leader" —
+  // and it is the same predicate the withheld gates above read. Gating on the
+  // headline text would bind by a value another branch could satisfy, and
+  // would exclude the `noClearLeader` arm of the same withheld chain, which
+  // names no leader either.
+  //
+  // A PERMITTED run gets `null` even if an admission object rides along:
+  // there is no silence to explain, and printing a refusal sentence beside a
+  // named leader would invent a refusal that did not happen.
+  //
+  // ⚠ ABSENCE STAYS ABSENT. A pre-admission CEE sends no `analysis_admission`
+  // at all; `?? null` keeps the panel's markup identical to its pre-field
+  // markup rather than substituting a placeholder the producer never wrote.
+  //
+  // ONLY `reasons[0]` reaches this slot. The hero shows one sentence under
+  // one headline; any further reasons are not rendered on this surface. They
+  // are untouched on `recommendation.analysisAdmission` for any consumer that
+  // wants them.
+  const designationWithheldReason = designationsWithheld
+    ? recommendation.analysisAdmission?.reasons?.[0]?.message ?? null
+    : null
+
   // Tension subline: the headlined leader vs the strongest expected outcome.
   // PERSISTENT across goal and no-goal headline branches (review-locked):
   // whenever a leader is claimed and the outcome leader differs, the
@@ -1245,6 +1288,7 @@ export function buildHeroModel(
     provenance: 'live',
     headline,
     subline,
+    designationWithheldReason,
     lenses,
     defaultLens: goalAvailable ? 'goal' : 'outcome',
     hasConstraints,

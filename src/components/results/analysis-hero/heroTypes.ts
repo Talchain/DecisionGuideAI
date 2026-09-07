@@ -394,6 +394,31 @@ export interface HeroChartModel {
    */
   subline: string | null
   /**
+   * WHY no leader was named — CEE's own sentence, rendered VERBATIM.
+   *
+   * Non-null ONLY on a withheld run (`designationsWithheld`), and only when
+   * the producer supplied one: `analysisAdmission.reasons[0].message`, typed
+   * on `AnalysisAdmissionReason` as a user-facing sentence. The hero neither
+   * authors, paraphrases, truncates nor templates it — which is why it is
+   * carried as a whole string and not as an id the UI maps to copy.
+   *
+   * The withheld headline (`HERO_COPY.headline.noLeader`) is SILENCE, not a
+   * denial, and silence is indistinguishable from an ordinary run. This slot
+   * is what makes the refusal legible.
+   *
+   * `null` when the run permitted the designation (a refusal sentence there
+   * would invent a refusal that did not happen), and when a pre-admission CEE
+   * sent no `analysis_admission` at all — in both cases the panel renders
+   * exactly what it rendered before this field existed.
+   *
+   * REQUIRED for the same reason `HeroEvidenceModel.decisionVoi` and
+   * `.attributionSuppression` are (declared above): null renders NOTHING, so
+   * an OPTIONAL field every fixture omitted would look precisely like a
+   * working feature with nothing to show — a permanently silent surface under
+   * a green suite. Required means the compiler names every constructor.
+   */
+  designationWithheldReason: string | null
+  /**
    * DATA-BEARING lenses (never empty). The strip always renders all four
    * prototype lenses; a lens absent from this list renders the honest
    * unavailable body instead of chart rows when selected.
