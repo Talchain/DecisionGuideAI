@@ -184,7 +184,7 @@ describe('one noun per idea — the decision card and the option card agree', ()
     // Bound to the authority as well as to each other — so the pair cannot be
     // "fixed" by making BOTH cards say some third word.
     expect(decision).toBe(COMPARATIVE_COPY.anchor)
-    expect(decision).toBe(METRIC_NOUN.ahead)
+    expect(decision).toBe(METRIC_NOUN.support)
   })
 
   it('neither card uses a retired synonym for the shared quantity', () => {
@@ -197,7 +197,7 @@ describe('one noun per idea — the decision card and the option card agree', ()
     // Discrimination: the board HAS text and DOES carry the live noun, so the
     // absence above is not passing on an empty container.
     expect(text.length).toBeGreaterThan(50)
-    expect(text).toContain(METRIC_NOUN.ahead)
+    expect(text).toContain(METRIC_NOUN.support)
   })
 
   it('CONTRAST: the sentence the row encodes is UNCHANGED — this was a caption change', () => {

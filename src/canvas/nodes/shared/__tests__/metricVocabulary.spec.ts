@@ -44,7 +44,7 @@ describe('METRIC_NOUN', () => {
     // Necessary and NOT sufficient — see the header. This catches the
     // authority changing its word without the register following; it is blind
     // to a re-typed literal, which is what the source test below is for.
-    expect(METRIC_NOUN.ahead).toBe(COMPARATIVE_COPY.anchor)
+    expect(METRIC_NOUN.support).toBe(COMPARATIVE_COPY.anchor)
     // PRECONDITION PINNED: the authority actually carries a word. Without
     // this, both sides being `undefined` would satisfy the line above.
     expect(typeof COMPARATIVE_COPY.anchor).toBe('string')

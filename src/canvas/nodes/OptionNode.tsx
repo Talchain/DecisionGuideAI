@@ -1208,7 +1208,7 @@ export const OptionNode = memo((props: NodeProps) => {
         // Baseline chips already pre-existed inside layer2Content; keep them.
         return (
           <div className="flex gap-1 flex-wrap mt-1.5">
-            <NodeChip chipId="option_why_win_lose" actionType="explain_results" label="Why is this ahead or behind on your goal?" message={`Why does the baseline (${optionLabel}) do better or worse against my goal than the other options?`} />
+            <NodeChip chipId="option_why_win_lose" actionType="explain_results" label="Why does this do better or worse on your goal?" message={`Why does the baseline (${optionLabel}) do better or worse against my goal than the other options?`} />
             <NodeChip chipId="option_risks_of_inaction" actionType={null} label="Risks of inaction" message="What are the risks of staying with the baseline?" />
           </div>
         )
@@ -1280,7 +1280,7 @@ export const OptionNode = memo((props: NodeProps) => {
                 chipId="option_what_would_change_close_call"
                 actionType="what_would_flip"
                 label="What would change this?"
-                message={`What would need to change for ${optionLabel} to become the leader?`}
+                message={`What would need to be true for ${optionLabel} to be the better choice?`}
               />
             )}
             <NodeChip chipId="option_what_would_make_lead" actionType="what_would_flip" label="What would make this lead?" message={`What would need to change for ${optionLabel} to lead?`} />
@@ -1668,7 +1668,7 @@ export const OptionNode = memo((props: NodeProps) => {
               data-testid={`leading-option-pill-${props.id}`}
               className={`shrink-0 whitespace-nowrap ${typography.edgeLabel} font-medium bg-panel border-2 border-option text-text-body rounded-full px-1.5 py-0.5`}
             >
-              Leading option
+              Most supported
             </span>
             {/* The run's robustness travels WITH the designation it qualifies —
                 same stack, same row, so the claim cannot be read without the
@@ -1780,7 +1780,7 @@ export const OptionNode = memo((props: NodeProps) => {
               className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}
               aria-hidden="true"
             >
-              {METRIC_NOUN.ahead}
+              {METRIC_NOUN.support}
             </span>
             <div
               className="h-1 min-w-0 flex-1 bg-panel-border rounded-full overflow-hidden"
@@ -1872,10 +1872,10 @@ export const OptionNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* "Wins via [factor]" link (winner, post-analysis) */}
+        {/* "Supported by [factor]" link (most-supported option, post-analysis) */}
         {isPostAnalysis && isRecommended && winsVia && (
           <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
-            Leads via{' '}
+            Supported by{' '}
             <button
               type="button"
               className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
@@ -1913,14 +1913,15 @@ export const OptionNode = memo((props: NodeProps) => {
             rule licenses. */}
         {closeCallGapPp != null && (
           <p className={`${typography.nodeLabel} text-warning mt-0.5 m-0`}>
-            Close call with the leading option
+            Within a small margin of the most-supported option
           </p>
         )}
 
-        {/* "Behind:" reason (non-winner, post-analysis -- includes status quo) */}
+        {/* "Held back by:" reason (not the most-supported option, post-analysis
+            -- includes status quo) */}
         {isPostAnalysis && !isRecommended && behindReason && (
           <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
-            Behind: {behindReason}
+            Held back by: {behindReason}
           </p>
         )}
 

@@ -373,7 +373,7 @@ describe('canvas metric-noun vocabulary (Paul, 31 Aug 2026)', () => {
     // the test that stops it.
     const mustSurvive: Array<[string, string]> = [
       ['the register is read by reference', `label={METRIC_NOUN.strength}`],
-      ['…and so is the other noun', `label={METRIC_NOUN.ahead}`],
+      ['…and so is the other noun', `label={METRIC_NOUN.support}`],
       ['a live noun is not a retired one', `label="Chance"`],
       ['a kebab-case test id', `testId="risk-strength-row"`],
       ['a camel-case field', `bridgeEdgeData.bridgeStrengthPct`],

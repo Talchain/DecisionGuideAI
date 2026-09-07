@@ -343,7 +343,7 @@ describe('CanvasLegendPopover — the numbers (Paul, 31 Aug 2026)', () => {
     // Discrimination: the popover HAS text and the live noun IS there, so the
     // three absences above are not passing on an empty container.
     expect(text.length).toBeGreaterThan(200)
-    expect(text).toContain(METRIC_NOUN.ahead)
+    expect(text).toContain(METRIC_NOUN.support)
   })
 
   it('the numbers copy respects the popover vocabulary ban', () => {
@@ -649,7 +649,7 @@ describe('CanvasLegendPopover — the key describes only what is on screen (Defe
     files: readonly string[]
     pattern: RegExp
   }> = [
-    { noun: METRIC_NOUN.ahead, files: ['OptionNode.tsx', 'DecisionNode.tsx'], pattern: /METRIC_NOUN\.ahead/ },
+    { noun: METRIC_NOUN.support, files: ['OptionNode.tsx', 'DecisionNode.tsx'], pattern: /METRIC_NOUN\.support/ },
     { noun: METRIC_NOUN.chance, files: ['GoalNode.tsx', 'OutcomeNode.tsx'], pattern: /METRIC_NOUN\.chance/ },
     { noun: METRIC_NOUN.influence, files: ['FactorNode.tsx'], pattern: /METRIC_NOUN\.influence/ },
     { noun: METRIC_NOUN.strength, files: ['RiskNode.tsx', 'OutcomeNode.tsx'], pattern: /METRIC_NOUN\.strength/ },

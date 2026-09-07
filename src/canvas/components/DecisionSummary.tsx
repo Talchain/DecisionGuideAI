@@ -381,7 +381,7 @@ export function DecisionSummary({
         <div className="flex items-center gap-2 mb-2">
           <Zap className="h-4 w-4 text-mint-600" aria-hidden="true" />
           <span className={`${typography.caption} font-medium text-mint-700 uppercase tracking-wide`}>
-            Leading Option
+            Most supported
           </span>
           {ranking && (
             <span className={`${typography.caption} px-2 py-0.5 rounded-full ${
@@ -395,7 +395,7 @@ export function DecisionSummary({
           )}
           {ranking?.confidence === 'low' && (
             <span className={`${typography.caption} text-banana-700 bg-banana-50 px-2 py-0.5 rounded`}>
-              Close call
+              Not settled
             </span>
           )}
         </div>
@@ -479,7 +479,7 @@ export function DecisionSummary({
             {/* Win probability - shown as secondary context */}
             {summaryData.goalProbability.winProbability !== undefined && (
               <p className={`${typography.caption} text-ink-500`}>
-                {Math.round(summaryData.goalProbability.winProbability * 100)}% likely to outperform other options
+                Supported in {Math.round(summaryData.goalProbability.winProbability * 100)}% of scenarios
               </p>
             )}
           </div>
@@ -489,7 +489,7 @@ export function DecisionSummary({
         {/* Brief 26 Task 5: Use canvas node label for consistency */}
         {ranking && ranking.rank !== 1 && (
           <p className={`${typography.caption} text-ink-500 mb-2`}>
-            Leading option: {optionNodes.find(o => o.label === ranking.winnerName)?.label || ranking.winnerName || 'Alternative option'}
+            Most supported: {optionNodes.find(o => o.label === ranking.winnerName)?.label || ranking.winnerName || 'Alternative option'}
           </p>
         )}
 

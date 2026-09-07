@@ -438,7 +438,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'What could go wrong?', // CONTROL
   ],
   'option · post · standard': [
-    'Ahead', // CAPTION — `METRIC_NOUN.ahead`, beside the bar and the percentage.
+    'Ahead', // CAPTION — `METRIC_NOUN.support`, beside the bar and the percentage.
     //          This IS the shape Paul asked for: the sentence
     //          "Came out ahead in 47% of simulated scenarios" is already on the
     //          `title` and in `sr-only` text, and the card shows the bar and

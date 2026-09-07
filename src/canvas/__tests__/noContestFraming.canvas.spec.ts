@@ -235,6 +235,7 @@ function sweep(): Offence[] {
     const rel = path.relative(ROOT, full)
     const lines = readFileSync(full, 'utf8').split('\n')
     let inBlockComment = false
+    let inRetiredList = false
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       // Track /* … */ blocks so JSDoc prose (which quotes the retired words on
@@ -253,8 +254,19 @@ function sweep(): Offence[] {
       // guard derives its sweep from it. A guard that fires on the list of
       // banned words would force the estate to stop writing down what it
       // banned (CLAUDE.md trap 14b: the record is evidence, not copy).
-      if (/RETIRED_METRIC_NOUNS/.test(line)) continue
-      for (const run of renderedRuns(line.replace(/\/\/.*$/, ''))) {
+      //
+      // ⚠ The exemption spans the ARRAY, not the declaring line. It was
+      // written line-scoped first and the array's own members walked straight
+      // past it the moment the list grew long enough to be formatted across
+      // several lines — a one-line exemption for a multi-line fact.
+      if (/RETIRED_METRIC_NOUNS/.test(line)) inRetiredList = true
+      if (inRetiredList) {
+        if (/\]\s*as const/.test(line)) inRetiredList = false
+        continue
+      }
+      // A JSX comment (`{/* … */}`) is prose, and prose in this estate QUOTES
+      // the retired words on purpose — to record what the product used to say.
+      for (const run of renderedRuns(line.replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, ' ').replace(/\/\/.*$/, ''))) {
         const frames = matchContest(run)
         if (frames.length > 0) offences.push({ file: rel, line: i + 1, text: run.trim(), frames })
       }

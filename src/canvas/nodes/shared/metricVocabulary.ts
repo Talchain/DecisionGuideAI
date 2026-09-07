@@ -60,12 +60,19 @@ import { INFLUENCE_EXPLANATION_GENERIC } from '../../../components/results/influ
  */
 export const METRIC_NOUN = {
   /**
-   * Win probability — how often an option came out in front.
+   * The comparative quantity — how much of the simulated evidence supports an
+   * option.
+   *
+   * ⭐ RENAMED FROM `ahead` ON 7 Sep 2026, KEY AND VALUE TOGETHER. Paul:
+   * *"There's never a winner… Terminology like 'winner' is wrong."* Leaving
+   * the KEY as `ahead` while the value read `Support` would have been the
+   * estate's signature defect — one name answering a question it no longer
+   * asks — so the next lane would inherit the race word as canonical.
    *
    * ⭐ BY REFERENCE. See the header: this must stay `COMPARATIVE_COPY.anchor`
    * itself, never its value re-typed.
    */
-  ahead: COMPARATIVE_COPY.anchor,
+  support: COMPARATIVE_COPY.anchor,
   /** Achievement probability — how often the goal target was reached. */
   chance: 'Chance',
   /** How much a factor moves the result. Already correct; here so it is one set. */
@@ -304,12 +311,17 @@ export interface MetricLegendRow {
 
 export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
   {
-    noun: METRIC_NOUN.ahead,
-    gloss: 'how often an option came out ahead of the others across the simulated runs',
+    noun: METRIC_NOUN.support,
+    gloss: 'the share of simulated runs that support this option over the alternatives',
   },
   {
     noun: METRIC_NOUN.chance,
-    gloss: 'how often the leading option reached the goal target across the simulated runs',
+    // ⚠ THE REFERENT IS LOAD-BEARING AND WAS PRESERVED THROUGH THE RE-FRAME.
+    // This gloss said "the leading option", which names the option with the
+    // highest comparative figure — NOT any option. Dropping the qualifier to
+    // shed the race word would have widened the claim to something false.
+    // "the most-supported option" is the same referent in the new vocabulary.
+    gloss: 'how often the most-supported option reached the goal target across the runs',
   },
   {
     noun: METRIC_NOUN.influence,
@@ -435,7 +447,17 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
  * plus the legend; if that reads as a loss on the inspector specifically, the
  * fix is a gloss there, not the synonym back.
  */
-export const RETIRED_METRIC_NOUNS = ['Leads', 'Achievement', 'Chance of leading', 'strength'] as const
+export const RETIRED_METRIC_NOUNS = [
+  'Leads',
+  'Achievement',
+  'Chance of leading',
+  'strength',
+  // ⭐ Added 7 Sep 2026. `Ahead` was the LIVE caption for the comparative
+  // quantity until Paul's no-contest ruling retired the frame itself. It is
+  // in this list — rather than simply changed at the register — so the
+  // derived sweep REDs if it is ever re-typed onto a card.
+  'Ahead',
+] as const
 
 /**
  * The qualifier the ordinal row MUST carry, pinned so a rewrite cannot drop it.
