@@ -198,7 +198,16 @@ const edgeProps = {
   targetPosition: Position.Left,
   selected: false,
   data: {
+    // ⛔ `strength_mean` IS LOAD-BEARING HERE, AND IT IS A PRECONDITION, NOT
+    // DECORATION. This suite measures label PLACEMENT geometry, which requires
+    // a PERSISTENT label to place. Since P2 (a pinned label must speak a
+    // strength) the persistent set refuses edges whose strength nobody set, and
+    // a bare `weight` is exactly that: `DEFAULT_EDGE_DATA.weight = 0.5` is a UI
+    // default with no provenance, so `resolveEdgeSignedStrengthDisplay` returns
+    // `show: false` for it. Without this field every dodge assertion below
+    // measures an edge that pins no label at all and the suite goes vacuous.
     weight: 0.6,
+    strength_mean: 0.6,
     direction: 'positive' as const,
     beliefExists: 0.8,
   },
@@ -209,7 +218,7 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
     for (const k of Object.keys(nodeRegistry)) delete nodeRegistry[k]
     nodeRegistry.n1 = card('n1', 'factor', -400, -40)
     nodeRegistry.n2 = card('n2', 'outcome', 200, -40)
-    edgeList = [{ id: 'e1', source: 'n1', target: 'n2', data: { weight: 0.6 } }]
+    edgeList = [{ id: 'e1', source: 'n1', target: 'n2', data: { weight: 0.6, strength_mean: 0.6 } }]
     mockReport = null
     fragileIds.clear()
     lensEnabled = false
@@ -447,7 +456,7 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
       // no label renders for it, so e1 must stay put.
       nodeRegistry.n3 = card('n3', 'factor', -200, -300) // bottom handle (−100, −220)
       nodeRegistry.n4 = card('n4', 'outcome', 0, 200) // top handle (100, 200)
-      edgeList = [...edgeList, { id: 'e2', source: 'n3', target: 'n4', data: { weight: 0.5 } }]
+      edgeList = [...edgeList, { id: 'e2', source: 'n3', target: 'n4', data: { weight: 0.5, strength_mean: 0.5 } }]
       lensState._hiddenNodeIds.add('n3')
       lensState._hiddenEdgeIds.add('e2')
 
