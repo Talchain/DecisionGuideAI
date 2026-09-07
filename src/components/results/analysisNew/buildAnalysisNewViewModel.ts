@@ -461,11 +461,23 @@ function driverFinding(
 ): AnalysisNewFinding {
   const target = d.matchedNodeId ?? d.factorKey
   // ⚠⚠ NO FALLBACK OFF `displayInfluence`, AND THE CONTRACT SAYS SO IN TERMS.
-  // `types.ts:638-644`: "Consumers must render/sort this, not
+  // `types.ts:718`: "Consumers must render/sort this, not
   // `influenceScore ?? normalisedInfluence`, which mixes bases under partial
-  // producer coverage." The old chain did exactly the banned thing — an absolute
-  // producer score and a set-relative elasticity through one `pct()` as if they
-  // were one quantity. The live pipeline always sets `displayInfluence`; the
+  // producer coverage." The old chain did exactly the banned thing — but name
+  // the defect precisely, because the earlier wording here got it wrong.
+  //
+  // ⚠ IT IS NOT "AN ABSOLUTE SCORE VS A RELATIVE ONE". BOTH BASES ARE
+  // SET-RELATIVE NORMALISATIONS: the producer normalises `influence_score`
+  // against `max|influence|`, so its top row is 1.0 BY CONSTRUCTION, exactly as
+  // the fallback basis's top row is. They agree on scale and differ on QUANTITY
+  // — one is the producer's structural score, the other is this app's
+  // normalisation of the magnitude chain. Pushing two different quantities
+  // through one `pct()` is the banned mixing; a difference of scale never was.
+  //
+  // ⚠ `types.ts:722` still glosses `'influence_score'` as "absolute producer
+  // scale" at this head. That gloss is the SOURCE this comment inherited the
+  // error from, and it is corrected by a PR not yet merged — do not re-inherit
+  // it from there. The live pipeline always sets `displayInfluence`; the
   // chain existed for legacy fixtures, and a fixture must not dictate production
   // semantics. Absent, the honest render is no number (rule 4).
   const influence = d.displayInfluence

@@ -877,6 +877,11 @@ export const ResultsBody = memo(function ResultsBody({
               expectedOutcome={tornadoData.expectedOutcome}
               outcomeUnit={resultsSectionData.recommendation.outcomeUnit}
               outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
+              // The SAME object OutputsDock draws the spread from
+              // (`tornadoData`, `recommendation.recommendedOption`), so the
+              // label can never name an option other than the one the bars
+              // are scaled from.
+              referenceOptionLabel={resultsSectionData.recommendation.recommendedOption?.label ?? null}
               onFocusNode={onFocusNode}
               isNormalised={resultsSectionData.recommendation.isNormalised}
               goalDirection={goalDirection}
