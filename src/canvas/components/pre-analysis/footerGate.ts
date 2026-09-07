@@ -15,10 +15,10 @@
  * EXISTING hold authority into that gate.
  *
  * ⚠⚠ SCOPE — THIS IS NOT THE SURFACE STAGING MOUNTS, AND THAT IS SAID HERE
- * RATHER THAN LEFT TO BE DISCOVERED. `OutputsDock.tsx:3080` selects
+ * RATHER THAN LEFT TO BE DISCOVERED. `OutputsDock.tsx:3132` selects
  * `PreAnalysisPanelV3` when `isPreAnalysisV3Enabled()`, and `netlify.toml:179`
  * bakes `VITE_FEATURE_PRE_ANALYSIS_V3 = "1"`. `PreAnalysisPanel` is the ELSE
- * branch: the documented reinstatement path (`OutputsDock.tsx:3083` — "flag off
+ * branch: the documented reinstatement path (`OutputsDock.tsx:3135` — "flag off
  * restores the legacy branch below"), and `PreAnalysisPanel.tsx:2477` is the
  * ONLY non-test render site of `StickyFooter` in the tree. Under the current
  * staging posture a fresh user therefore never renders this footer. What this
@@ -27,9 +27,9 @@
  *
  * ⛔ IT ALSO DOES NOT EXPLAIN ANY DEPLOYED NO-OP, AND NO LONGER CLAIMS TO.
  * The V3 surface already refuses the hold — through the GATE rather than through
- * the footer: `OutputsDock.tsx:1227` passes `analysisHeldOn(nodes)` into
+ * the footer: `OutputsDock.tsx:1279` passes `analysisHeldOn(nodes)` into
  * `canRunAnalysis`, rung 2.5 returns `allowed: false` (`canRunAnalysis.ts:826`),
- * `OutputsDock.tsx:3090` hands that verdict to the V3 footer as `canRun`, and
+ * `OutputsDock.tsx:3142` hands that verdict to the V3 footer as `canRun`, and
  * `PanelFooter.tsx:69` disables on `!canRun`. An earlier revision of this file
  * attributed a witnessed deployed no-op to the gap above; that attribution is
  * WITHDRAWN. It was derived correctly on this branch and then asserted about the

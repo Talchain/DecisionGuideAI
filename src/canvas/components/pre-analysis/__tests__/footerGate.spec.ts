@@ -3,12 +3,12 @@
  *
  * ⚠⚠ SCOPE FIRST, BECAUSE THE EARLIER VERSION OF THIS HEADER OVERSTATED IT.
  * These tests pin `applyAnalysisHold` and its call site in `PreAnalysisPanel`,
- * which is the FLAG-OFF reinstatement branch: `OutputsDock.tsx:3080` mounts
+ * which is the FLAG-OFF reinstatement branch: `OutputsDock.tsx:3132` mounts
  * `PreAnalysisPanelV3` instead whenever `isPreAnalysisV3Enabled()`, and
  * `netlify.toml:179` bakes `VITE_FEATURE_PRE_ANALYSIS_V3 = "1"`. So a green run
  * here is evidence about the reinstatement branch and about NOTHING a fresh
  * staging user renders. The V3 surface already refuses the hold through the run
- * gate (`OutputsDock.tsx:1227` → `canRunAnalysis.ts:826` → `PanelFooter.tsx:69`).
+ * gate (`OutputsDock.tsx:1279` → `canRunAnalysis.ts:826` → `PanelFooter.tsx:69`).
  * An earlier revision of this file cited a witnessed deployed no-op as the
  * defect under test; that attribution is WITHDRAWN and is not re-made here.
  *
