@@ -27,6 +27,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import capture from './__fixtures__/manual-test-2026-09-03.edges.json'
+import capture0906 from './__fixtures__/manual-test-2026-09-06.edges.json'
 import { getEdgeLabel } from '../edgeLabels'
 import {
   resolveEdgeSignedStrengthDisplay,
@@ -41,6 +42,7 @@ import {
 
 type CapturedEdge = Record<string, unknown> & { id: string }
 const EDGES = capture.edges as unknown as CapturedEdge[]
+const EDGES_0906 = capture0906.edges as unknown as CapturedEdge[]
 
 /**
  * The DOMAIN RESOLVERS the canvas label and hover popover read, run per edge.
@@ -285,5 +287,130 @@ describe('renderedDistributionGuard — positive controls', () => {
         { channel: 'nan-vs-blank', source: [0.2, 0.9], rendered: [NaN, null] },
       ]),
     ).toEqual([])
+  })
+})
+
+/**
+ * ⭐ A SECOND CORPUS, THREE DAYS LATER — because one capture certifies one day.
+ *
+ * The 3 Sep block above is the reason this guard exists. It is also, on its
+ * own, a claim about ONE build: a channel that flattened afterwards would not
+ * appear in it, and the suite would stay green for the wrong reason. Paul drove
+ * staging by hand again on 6 Sep 2026 (UI `acd3db4d`) and that capture is now
+ * pinned here beside the first.
+ *
+ * ⚠ IT IS APPENDED, NEVER SUBSTITUTED. Both corpora are historic records of
+ * what the product actually emitted on a dated build; keeping only the newest
+ * would delete the evidence that caught the original defect (CLAUDE.md trap
+ * 14b — a dated capture is evidence, not a fixture to keep current).
+ *
+ * WHAT THIS CORPUS ADDS, and it is not a repeat of the first: this run reached
+ * a COMPLETED display state with `builds.cee/plot/isl` all null and no compute
+ * leg, so its edge values are CEE-drafted rather than analysis-derived. That is
+ * a different production path through the same renderers, and nothing pinned it.
+ */
+describe('canvas edge rendering over the 6 Sep 2026 capture', () => {
+  it('collects the whole captured corpus', () => {
+    // Trap 2b: assert THIS corpus by name and size. The two corpora differ (24
+    // vs 23 edges), so a copy-paste that pointed both blocks at one fixture
+    // REDs here instead of quietly testing the same edges twice.
+    expect(EDGES_0906).toHaveLength(23)
+    expect(EDGES_0906).not.toBe(EDGES)
+  })
+
+  it('renders no channel flatter than its source', () => {
+    const rendered = EDGES_0906.map(resolveEdgeChannels)
+
+    const samples: RenderedChannelSample[] = [
+      {
+        channel: '0906 canvas edge label (human mode)',
+        source: EDGES_0906.map((e) => e.strength_mean),
+        rendered: rendered.map((r) => r.humanLabel),
+      },
+      {
+        channel: '0906 canvas edge label (numeric mode)',
+        source: EDGES_0906.map((e) => e.strength_mean),
+        rendered: rendered.map((r) => r.numericLabel),
+      },
+      {
+        channel: '0906 hover popover — strength %',
+        source: EDGES_0906.map((e) => e.strength_mean),
+        rendered: rendered.map((r) => r.popoverStrengthPct),
+      },
+      {
+        channel: '0906 hover popover — confidence %',
+        source: EDGES_0906.map((e) => e.exists_probability),
+        rendered: rendered.map((r) => r.popoverConfidencePct),
+      },
+    ]
+
+    assertRenderedDistributionsTrackSource(samples)
+  })
+
+  /**
+   * ⚠ THE PRECONDITION, PINNED IN-TEST. Every assertion above is vacuous if the
+   * corpus stopped VARYING — a flat source can never be rendered flatter than
+   * itself, so the guard would pass by agreeing with itself (trap 13b). These
+   * bind to the source distributions the 6 Sep capture actually carries.
+   */
+  it('the corpus varies, or the guard above proves nothing', () => {
+    expect(new Set(EDGES_0906.map((e) => e.strength_mean)).size).toBe(9)
+    expect(new Set(EDGES_0906.map((e) => e.exists_probability)).size).toBe(4)
+  })
+
+  /**
+   * ⭐ THE KNOWN CONSTANT, PINNED AS A KNOWN CONSTANT.
+   *
+   * `beliefStrength` is `0.5` on all 23 edges — `DEFAULT_EDGE_DATA.beliefStrength`,
+   * a UI constant — while `beliefExists` beside it carries four distinct values
+   * CEE sourced. This is the exact shape the guard exists to catch, and it is
+   * recorded here rather than fixed — but ⚠⚠ NOT for the reason this comment
+   * used to give. It said the field "reaches NO live surface", that
+   * `GraphTextView` is "the only renderer of it", and that its module is
+   * "imported once". All three are false, derived at the bytes:
+   *
+   *   `captureModelVersion.ts:104`  `collectFields` is a DENYLIST, and
+   *                                 `beliefStrength` is not in `EXCLUDED_FIELDS`
+   *   `describeChange.ts:47`        maps it to the label `'effect size'`
+   *   `WhatChangedPanel.tsx:118`    renders those lines via `describeChangeset`,
+   *                                 mounted from `routes/CanvasMVP.tsx`
+   *
+   * So a CHANGE to the field already reaches a user as "Link a -> b effect size
+   * 0.5 -> 0.7". The module has 9 importers, not one.
+   *
+   * What still justifies recording rather than fixing is narrower and is what
+   * the manifest actually supports: the value is CONSTANT, so no change line is
+   * produced from it in normal operation, and the added-edge path renders no
+   * value at all. That is a bound on the current data, not a claim that the
+   * field has no reader.
+   *
+   * ⚠⚠ THIS TEST DOES NOT DETECT A NEW READER, AND AN EARLIER VERSION OF THIS
+   * COMMENT CLAIMED IT DID. Its entire input is two frozen JSON fixtures and
+   * three pure domain modules — it observes no call site and no product module,
+   * so if someone mounted `GraphTextView` tomorrow every test in this file would
+   * stay green. An independent seat named that: a comment manufacturing a
+   * guarantee the code does not provide.
+   *
+   * The guarantee now exists, derived, in `graphTextViewIsNotMounted.spec.ts`
+   * — it walks the product tree and REDs when any non-test file imports OR
+   * lazy-imports the component, with a contrast control that runs the door's
+   * own regex against a module this repo really does lazy-mount.
+   *
+   * ⚠ AND THE FIGURE THAT COMMENT CARRIED WAS FALSE. "Its module is imported
+   * once, for SectionErrorBoundary" — measured with no truncation, the module
+   * has NINE importers (seven product files, all for `SectionErrorBoundary`).
+   * It is the COMPONENT that has none in product code, and only that supports
+   * the conclusion. The "once" came from a grep piped through `head -5`.
+   *
+   * What THIS test does, honestly stated: it records the constant's value in a
+   * dated capture, so a future reader can see what it was.
+   */
+  it('beliefStrength is the flat UI default in this capture, beside four real values', () => {
+    const distinct = new Set(EDGES_0906.map((e) => e.beliefStrength))
+    expect(distinct.size).toBe(1)
+    expect([...distinct][0]).toBe(0.5)
+    // The contrast that makes this a finding and not a fact about the graph:
+    // the field it sits beside is NOT flat.
+    expect(new Set(EDGES_0906.map((e) => e.beliefExists)).size).toBe(4)
   })
 })
