@@ -304,10 +304,36 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): ActOnItRow | null {
   //
   // The fallback is not new copy — `TriageActionCardsBody` already ships "the
   // result could change" as the truthful noun for exactly this sentence.
-  const reason =
-    leaderDesignationPermitted(data.recommendation) === false
-      ? `If the estimate changes for ${safeFromLabel}, the result could change.`
-      : `If the estimate changes for ${safeFromLabel}, the leading option could change.`
+  // ⚠ TWO WITHHOLDING ROUTES, NOT ONE. Derived at the producer's declared
+  // output domain rather than inferred from a fixture:
+  //
+  //   · `leaderDesignationPermitted === false` — the model positively withheld.
+  //     On the production path this is the ONLY way withholding arrives:
+  //     `useResultsSectionData` computes it as
+  //     `licensesComparativeLeaderClaim(...) && verdict.hasLeadingOption`, and
+  //     BOTH terms are declared strictly `boolean`
+  //     (`decisionVerdict.ts:170`, `useAnalysisReady.ts:77`), so the
+  //     conjunction cannot widen to `undefined`. Proved at the type level: the
+  //     same expression assigned to `boolean` compiles clean, while the
+  //     identical shape over an optional field fails TS2322.
+  //
+  //   · `recommendation == null` — there is no recommendation object AT ALL,
+  //     so the helper returns `undefined` and the `=== false` test alone would
+  //     let the sentence name a leader on a run that has no comparison
+  //     whatsoever. This row is reachable in that state because it is built
+  //     from `confidence.topFragileEdge`, which does not depend on
+  //     `recommendation`. You cannot have a leading option with no
+  //     recommendation, so this is withholding too.
+  //
+  // `undefined` WITH a recommendation present stays on the naming arm: that is
+  // a legacy object that never went through this producer, and treating
+  // no-authority as withheld is the over-broad gate that deleted the
+  // producer-tie sentence in #1232.
+  const mayNameLeader =
+    data.recommendation != null && leaderDesignationPermitted(data.recommendation) !== false
+  const reason = mayNameLeader
+    ? `If the estimate changes for ${safeFromLabel}, the leading option could change.`
+    : `If the estimate changes for ${safeFromLabel}, the result could change.`
   return {
     key: `risk-${fragile.fromId}`,
     title,

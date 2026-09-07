@@ -516,6 +516,18 @@ describe('rankActOnItRows — the risk row does not name a leader the run withhe
     expect(reasonFor(undefined)).toBe(NAMES)
   })
 
+  it('NO RECOMMENDATION AT ALL — withholds, though the licence reads undefined', () => {
+    // The second withholding route. `leaderDesignationPermitted(null)` returns
+    // `undefined`, so a gate testing only `=== false` would NAME a leading
+    // option on a run carrying no recommendation object at all — and this row
+    // is reachable there, being built from `confidence.topFragileEdge`.
+    const data = makeData({ fragile })
+    ;(data as { recommendation: unknown }).recommendation = null
+    const reason = rowByKey(rankActOnItRows(data, NOT_READY), 'risk-n_f').reason
+    expect(reason).toBe(WITHHOLDS)
+    expect(reason).not.toContain('leading option')
+  })
+
   it('the three arms are genuinely discriminating', () => {
     // Pins the precondition: if these ever collapse to one string the arms
     // above would all pass while proving nothing.
