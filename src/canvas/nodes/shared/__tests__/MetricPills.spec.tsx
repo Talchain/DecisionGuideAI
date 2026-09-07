@@ -20,8 +20,6 @@ import { MetricPills } from '../MetricPills'
 // review fix 3 — policed by influenceScaleCopy.copyHygiene.spec.ts).
 const RELATIVE_TITLE =
   'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
-const ABSOLUTE_TITLE =
-  'Influence: how much this factor affects the outcome, as an absolute causal influence score.'
 
 describe('MetricPills — influence-scale disclosure (lane C4)', () => {
   // Review fix 5: aria-label on a role-less <span> is unreliably announced
@@ -38,14 +36,34 @@ describe('MetricPills — influence-scale disclosure (lane C4)', () => {
     expect(pill.getAttribute('title')).toBe(RELATIVE_TITLE)
   })
 
-  it('producer basis: pill carries the absolute-basis wording, never the relative claim', () => {
+  it('producer basis: pill says RELATIVE, because that is what the basis is', () => {
+    /**
+     * ⚠⚠ THIS PINNED THE OPPOSITE UNTIL 5 Sep 2026 — "carries the absolute-basis
+     * wording, never the relative claim", including an explicit
+     * `not.toContain('always shows 100%')`. That design rested on
+     * `influence_score` being an absolute scale. It is not: the producer divides
+     * by `max|influence|`, so the top row is 1.0 BY CONSTRUCTION.
+     *
+     * ⚠ 6 Sep 2026 — THIS PARAGRAPH CONTINUED "and every capture in this repo
+     * carrying the field maxes at exactly 1.0 — twelve files". That is the
+     * universal, and the count, that the very spec this docblock cites below as
+     * its evidence WITHDRAWS BY NAME. What is measured, swept over `src/` at
+     * `aa504187`: 21 JSON files carry `influence_score`, not twelve; 20 of them
+     * max at exactly 1.0; the twenty-first,
+     * `seeded-2026-08-17-w2d-analysis-turn.json`, is uniformly 0. None exceeds
+     * 1.0, and none maxes strictly between 0 and 1.
+     *
+     * The disclosure the relative arm already carried is true of this arm too,
+     * and withholding it here is what let a 100%-by-construction figure read as
+     * a causal share. Changed by the panel lane; evidence in
+     * `components/results/__tests__/influenceIsNeverCalledAbsolute.spec.ts`.
+     */
     render(<MetricPills influencePct={62} influenceProvenance="influence_score" />)
     const pill = screen.getByRole('img', {
-      name: 'Influence score 62%, an absolute causal influence score',
+      name: 'Relative influence 62%, scaled against the strongest factor. The top driver always shows 100%',
     })
-    expect(pill.textContent).toBe('Influence score 62%')
-    expect(pill.getAttribute('title')).toBe(ABSOLUTE_TITLE)
-    expect(pill.getAttribute('title')).not.toContain('always shows 100%')
+    expect(pill.textContent).toBe('Relative influence 62%')
+    expect(pill.getAttribute('title')).toContain('always shows 100%')
   })
 
   it('no provenance (fail-closed): withholds the numeric claim', () => {
@@ -55,7 +73,7 @@ describe('MetricPills — influence-scale disclosure (lane C4)', () => {
 
   it('preserves an attested zero', () => {
     render(<MetricPills influencePct={0} influenceProvenance="influence_score" />)
-    expect(screen.getByText('Influence score 0%')).toBeInTheDocument()
+    expect(screen.getByText('Relative influence 0%')).toBeInTheDocument()
   })
 
   it('unchanged behaviour: renders nothing when no metric is present', () => {

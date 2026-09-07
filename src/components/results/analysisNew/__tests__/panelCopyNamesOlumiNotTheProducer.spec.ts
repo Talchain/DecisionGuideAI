@@ -140,20 +140,56 @@ describe('the panel names Olumi, not "the producer"', () => {
      * BEFORE the absence case, so a fixture that stops producing drivers REDs
      * here instead of passing silently.
      *
-     * ⚠ THE FIXTURE'S BRANCH IS PINNED IN-TEST. These two strings live on the
+     * ⚠⚠ 7 Sep 2026 — THIS PARAGRAPH SAID "these two strings live on the
      * ABSOLUTE-basis branch only; under a set-relative basis the builder emits
-     * "ranked within this run" and neither string is reachable. So the branch
-     * is asserted rather than assumed — otherwise a change to
-     * `displayProvenance` handling would make this test vacuous again by a new
-     * route.
+     * 'ranked within this run' and neither string is reachable", AND THIS PR
+     * FALSIFIED IT. It was true at `11b995d9`, where `groundedIn` and the
+     * `Basis` row keyed on the `setRelative` FLAG. They now key on the row's own
+     * `displayProvenance`, and `influence_score` IS a set-relative basis — so on
+     * that basis both strings are reachable, and they are exactly what this test
+     * asserts. There is no absolute-basis branch left to name.
+     *
+     * What decides them now is `d.displayProvenance === 'influence_score'` in
+     * `driverFinding`; under any other provenance `groundedIn` is "factor
+     * sensitivity, ranked within this run" and the `Basis` row is "ranked within
+     * this run". That is what the positive assertions below pin — see the note
+     * on the precondition, which states what it does and does not pin.
      */
     const vm = vmOf(genuineDecision())
-    expect(
-      vm.drivers.influenceIsSetRelative,
-      'PRECONDITION: the absolute-basis branch is the one that carries these strings',
-    ).toBe(false)
-
     const finding = vm.drivers.findings.find((f) => f.id === 'driver:f_elasticity')
+    /**
+     * ⚠ WHAT THIS PRECONDITION PINS, AND WHAT IT DOES NOT.
+     *
+     * ⚠ 6 Sep 2026 — the heading here read "THE PRECONDITION NOW PINS THE
+     * PROVENANCE, NOT THE SCALE FLAG", and it closed "so the precondition
+     * asserts that instead". Both are false. The assertion below evaluates
+     * `vm.drivers.influenceIsSetRelative`, which IS the scale flag. The code is
+     * correct and is left untouched; only this comment was wrong.
+     *
+     * What it actually pins, and all it pins: that the finding was found, and
+     * that `influenceIsSetRelative` is true. That flag is `drivers.length > 0`
+     * (`buildAnalysisNewViewModel.ts`, `influenceIsSetRelative`), so it states
+     * "the walk produced at least one driver row" and carries NO provenance
+     * information — `theScaleClaimMatchesTheScale.spec.ts` asserts it true for
+     * an all-`influence_score` list and for a mixed list alike, and false only
+     * when there are no rows. The assertion message beside it already said this
+     * ("there are rows, so the scale claim is set-relative"); the heading above
+     * it did not.
+     *
+     * For the history of this flag's earlier inversion, and why pinning it as a
+     * proxy for this branch was wrong, see `theScaleClaimMatchesTheScale.spec.ts`.
+     *
+     * ⚠ THE BRANCH IS STILL PINNED — by the positive assertions below, not by
+     * this line. Both strings are decided by `d.displayProvenance ===
+     * 'influence_score'` in `driverFinding`: under any other provenance
+     * `groundedIn` is "factor sensitivity, ranked within this run" and the
+     * `Basis` row is "ranked within this run", so both `.toBe` assertions RED.
+     * This is a wrong comment, not a broken guard — the guard is unchanged.
+     */
+    expect(
+      (finding as { inspect?: unknown } | undefined) && vm.drivers.influenceIsSetRelative,
+      'PRECONDITION: there are rows, so the scale claim is set-relative',
+    ).toBe(true)
     expect(finding, 'PRECONDITION: the fixture must produce the driver finding').toBeDefined()
 
     // 1. the grounding line — `driverFinding`'s `groundedIn`
