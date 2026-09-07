@@ -513,6 +513,18 @@ describe('importance_basis — the producer stamp is read, and fails closed', ()
  * So this block pins BOTH facts — the split, and its mechanism — because the
  * split alone is exactly the misleading half.
  *
+ * ⚠ SCOPED TO `graph_structural` GROUPS ON PURPOSE, AND THE SCOPE IS THE CLAIM.
+ * Everything asserted here is a fact about the GRAPH path: that is where
+ * `elasticity` and `influence_score` start life as the same expression and
+ * where lever suppression pulls them apart. On an `isl_uncertainty` response
+ * both quantities come from ISL instead, and nothing below has been measured
+ * against one — no such capture exists in this repo. Asserting over "any
+ * stamped row" would state a predicate broader than the evidence behind it
+ * (CLAUDE.md trap 22) and would RED on the first ISL capture to land, for a
+ * reason that is not a defect. The arrival of a new basis value is caught by
+ * the corpus completeness guard above, loudly, which is its job and not this
+ * block's.
+ *
  * ⚠ TIES ARE NOT VIOLATIONS. A pair only contradicts an ordering when the
  * better-ranked row has a STRICTLY smaller value; equal values are consistent
  * with any rank order. Without that, zero-elasticity runs would read as
@@ -534,7 +546,10 @@ describe('the two rank families track different values — and that is lever sup
         if (Array.isArray(node)) {
           const rows = node.filter(
             (x): x is Record<string, unknown> =>
-              x !== null && typeof x === 'object' && !Array.isArray(x) && 'importance_basis' in x,
+              x !== null
+              && typeof x === 'object'
+              && !Array.isArray(x)
+              && (x as Record<string, unknown>).importance_basis === IMPORTANCE_BASIS_GRAPH_STRUCTURAL,
           )
           if (rows.length >= 2) {
             const key = JSON.stringify(rows)
@@ -617,7 +632,9 @@ describe('the two rank families track different values — and that is lever sup
    * re-derived at PLoT before anything here is "corrected".
    */
   it('every divergence between elasticity and influence_score is a suppressed lever', () => {
-    const stamped = factorRows().filter((r) => 'importance_basis' in r)
+    const stamped = factorRows().filter(
+      (r) => r.importance_basis === IMPORTANCE_BASIS_GRAPH_STRUCTURAL,
+    )
     const diverging = stamped.filter((r) => num(r.elasticity) !== num(r.influence_score))
     expect(diverging.length, 'no diverging rows — this guard would be vacuous').toBeGreaterThanOrEqual(10)
     for (const row of diverging) {
