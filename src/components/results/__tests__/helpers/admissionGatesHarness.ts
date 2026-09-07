@@ -18,11 +18,20 @@ import { useCanvasStore } from '../../../../canvas/store'
 import type { AnalysisAdmissionV1, PermittedAnalysisMode } from '../../../../adapters/cee/types'
 
 export const OPT_HEDGE = 'opt_hedge'
+/**
+ * The option's user-visible LABEL, exported from the one place it is defined.
+ *
+ * The hero HEADLINE renders labels, not ids, so an arm asserting on the headline
+ * must bind to this. Exporting it — rather than letting a spec spell the string
+ * again — keeps the assertion and the fixture from drifting apart: a mirrored
+ * literal would go on passing after the fixture changed underneath it.
+ */
+export const OPT_HEDGE_LABEL = 'Hedge and stage the rollout'
 export const OPT_BOLD = 'opt_bold'
 
 
 const NODES = [
-  { id: OPT_HEDGE, type: 'option', position: { x: 0, y: 0 }, data: { kind: 'option', label: 'Hedge and stage the rollout' } },
+  { id: OPT_HEDGE, type: 'option', position: { x: 0, y: 0 }, data: { kind: 'option', label: OPT_HEDGE_LABEL } },
   { id: OPT_BOLD, type: 'option', position: { x: 0, y: 0 }, data: { kind: 'option', label: 'Go big in one step' } },
   { id: 'goal_1', type: 'goal', position: { x: 0, y: 0 }, data: { kind: 'goal', label: 'Reach £30k MRR' } },
 ]

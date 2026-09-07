@@ -5,7 +5,28 @@
  * leave out?"*: the user's ORIGINAL BRIEF as they wrote it, and CEE's
  * not-modelled manifest. Both arrive together on the cold read
  * (`POST /bff/cee/scenarios/:id/graph`) and are written here by
- * `serverGraphHydration`.
+ * `serverGraphHydration` through `setContextIntegrity`.
+ *
+ * ── THE SECOND WRITER, AND WHY IT EXISTS ───────────────────────────────────
+ * The brief ALSO exists earlier than any cold read: the user typed it, and it
+ * is the `message` of the draft turn. On a fresh decision the cold read
+ * answers `absent` (CEE has not written the graph back yet), so a reader of
+ * this store showed nothing for the whole first session — witnessed on the
+ * deployed build `127bdee7` (6 Sep 2026): a 279-character brief, a drafted
+ * and analysed model, and the anchor node still reading "Question" until a
+ * page reload. `recordBriefForFreshDraft` closes that: the turn that first
+ * puts a graph on a scenario records that scenario's brief under ITS id, with
+ * `manifest: null` (we were told nothing — the manifest only ever arrives on
+ * the cold read). It NEVER overwrites a record that already exists for the
+ * same scenario, so the cold read's copy — which carries the manifest — wins
+ * whenever it has landed, and a follow-up turn cannot replace the brief.
+ *
+ * ⚠ OVERWRITE ORDER, stated because it is not guarded: `setContextIntegrity`
+ * overwrites unconditionally, and `useServerGraphHydration` re-fires for a
+ * scenario id minted in-session, so its absent re-ask can later replace this
+ * record with the server's copy of the same brief — or with `null` if CEE
+ * persisted no `brief_text`, which would take the anchor block down until the
+ * next draft. Disclosed, not closed.
  *
  * ── WHY A STORE RATHER THAN A PROP ─────────────────────────────────────────
  * The cold read happens at canvas boot, in a hydration path; the surface that
@@ -49,6 +70,10 @@ import type { NotModelledManifest } from '../../adapters/cee/notModelled'
  * `useServerGraphHydration` fires — so nothing is written, nothing is cleared,
  * and the previous decision's brief simply stays. The hook attempts ONCE PER
  * SCENARIO ID, so it never self-corrects.
+ * (`recordBriefForFreshDraft` now writes the NEW decision's brief under its own
+ * id once its graph lands, so the fresh case renders — but between reset-canvas
+ * and that landing, and for any draft the record does not reach, the store
+ * still holds the previous decision. The gate at the readers stays load-bearing.)
  *
  * The removal reasoning about write-only fields (trap 10) was right in general
  * and wrong here: the answer was not to delete the field but to GIVE IT A
@@ -84,6 +109,14 @@ export interface ContextIntegrityState {
     briefText: string | null
     manifest: NotModelledManifest | null
   }) => void
+  /**
+   * Record the brief for a scenario the cold read has NOT written yet. Returns
+   * `true` only when it wrote. Refuses — and writes nothing — when a record for
+   * this scenario already exists (the cold read's copy, or an earlier call),
+   * when the brief is blank, or when the id is not a non-empty string: content
+   * this store cannot attribute to a decision must never be stored.
+   */
+  recordBriefForFreshDraft: (input: { scenarioId: string; briefText: string }) => boolean
   reset: () => void
 }
 
@@ -93,9 +126,18 @@ const EMPTY = {
   manifest: null,
 } as const
 
-export const useContextIntegrityStore = create<ContextIntegrityState>((set) => ({
+export const useContextIntegrityStore = create<ContextIntegrityState>((set, get) => ({
   ...EMPTY,
   setContextIntegrity: ({ scenarioId, briefText, manifest }) =>
     set({ scenarioId, briefText, manifest }),
+  recordBriefForFreshDraft: ({ scenarioId, briefText }) => {
+    if (typeof scenarioId !== 'string' || scenarioId.length === 0) return false
+    if (typeof briefText !== 'string' || briefText.trim().length === 0) return false
+    // A record for this scenario already stands — the cold read's (with its
+    // manifest) or an earlier draft turn's. Never displace it.
+    if (get().scenarioId === scenarioId) return false
+    set({ scenarioId, briefText, manifest: null })
+    return true
+  },
   reset: () => set({ ...EMPTY }),
 }))
