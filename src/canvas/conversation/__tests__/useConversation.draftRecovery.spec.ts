@@ -24,9 +24,13 @@
  *        the phase/run-gate assertions in the success tests RED.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { createElement } from 'react'
+import { render, renderHook, act, waitFor, fireEvent } from '@testing-library/react'
 
-import { useConversation, START_NEW_DRAFT_CHIP_ID } from '../useConversation'
+import { useConversation, START_NEW_DRAFT_CHIP_ID, DRAFT_DELIVERY_UNRESOLVED_NOTICE, DRAFT_DELIVERY_RECOVERED_NOTICE } from '../useConversation'
+import { ActionChipRow } from '../ActionChipRow'
+import { LOAD_SAVED_MODEL_CHIP_ID, isChipRenderable } from '../chipDispatch'
+import { hydrateCanvasFromServer } from '../../hydrate/serverGraphHydration'
 import { useCanvasStore } from '../../store'
 import { useDraftStore, draftStreamPhaseFor } from '../../stores/draftStore'
 import { canRunAnalysis, DRAFT_VALUES_UNSETTLED_REFUSAL } from '../../utils/canRunAnalysis'
@@ -261,6 +265,8 @@ beforeEach(() => {
       lastHistoryHash: null,
     },
     ceeAnalysisReady: null,
+    analysisStateV1: null,
+    hasCompletedFirstRun: false,
     lastAuthoritativeGraph: null,
     serverGraphIdentity: null,
     results: { status: 'idle' } as never,
@@ -273,6 +279,134 @@ afterEach(() => {
 })
 
 // ---------------------------------------------------------------------------
+
+describe('normal start loses every usable preview before the draft commits', () => {
+  async function startMissingPreview() {
+    const stream = controllableStream()
+    mockOpenStream.mockResolvedValue(stream.response)
+    mockCallV5Turn.mockResolvedValue({
+      ...DECLINE_RESPONSE,
+      response: {
+        ...DECLINE_RESPONSE.response,
+        assistant_text: "I haven't changed the model.",
+        // The observed graphless fallback carried a current analysis claim.
+        // It must not enter the canvas before the missing graph is recovered.
+        analysis_state: {
+          run_state: { kind: 'complete_current', computed_at: '2026-09-07T17:31:58.567Z' },
+          readiness: { status: 'ready', blockers: [] },
+          leader_claim: { permitted: false, withheld_reason: 'separation_unavailable' },
+        },
+        analysis_ready: { ...(TERMINAL_BODY.analysis_ready as object), status: 'ready' },
+      },
+    })
+    const hook = renderHook(() => useConversation())
+    let sent!: Promise<void>
+    await act(async () => {
+      sent = hook.result.current.sendMessage(BRIEF, { turnType: 'explicit_generate' }) as Promise<void>
+    })
+    await stream.push(F_DRAFTING)
+    await stream.fail()
+    return { ...hook, sent }
+  }
+
+  it('reads again after boot 404 and mounts the original committed graph without another generation', async () => {
+    mockFetchScenarioGraph.mockResolvedValueOnce({ status: 'notReadable' })
+      .mockResolvedValueOnce(serverGraphResult())
+    expect(await hydrateCanvasFromServer(SCENARIO)).toBe('notReadable')
+    const { result, sent } = await startMissingPreview()
+    await act(async () => { await sent })
+
+    expect(mockFetchScenarioGraph.mock.calls.map(([id]) => id)).toEqual([SCENARIO, SCENARIO])
+    expect(useCanvasStore.getState().nodes.map(n => n.id).sort())
+      .toEqual(TERMINAL_GRAPH.nodes.map(n => String(n.id)).sort())
+    expect(canvasEdgeWeight('d1', 'opt_a')).toBe(1)
+    expect(canvasEdgeWeight('opt_a', 'fac_year_budget')).toBe(0.5)
+    expect(useCanvasStore.getState().serverGraphIdentity?.value).toBe('srv-hash-1')
+    expect(useCanvasStore.getState().results.status).toBe('idle')
+    expect(useCanvasStore.getState().analysisStateV1).toBeNull()
+    expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+    expect(mockOpenStream).toHaveBeenCalledTimes(1)
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    expect(mockCallV5Turn.mock.calls[0][0]).toEqual(mockOpenStream.mock.calls[0][0])
+    expect(result.current.messages.map(m => m.content)).toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+    expect(result.current.messages.map(m => m.content)).not.toContain("I haven't changed the model.")
+    expect(useDraftStore.getState().draftStreamPhase).toBe('idle')
+  })
+
+  it.each(['notReadable', 'unavailable', 'unusable', 'absent'] as const)(
+    '%s leaves an honest, visible read-only retry which loads the same scenario', async status => {
+      mockFetchScenarioGraph.mockResolvedValueOnce(status === 'absent' ? { status, requestId: null } : { status })
+        .mockResolvedValueOnce(serverGraphResult())
+      const { result, sent } = await startMissingPreview()
+      await act(async () => { await sent })
+      const notice = result.current.messages.find(m => m.content === DRAFT_DELIVERY_UNRESOLVED_NOTICE)!
+      expect(notice).toBeDefined()
+      expect(useCanvasStore.getState().nodes).toEqual([])
+      expect(useCanvasStore.getState().results.status).toBe('idle')
+      expect(useCanvasStore.getState().analysisStateV1).toBeNull()
+      expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+      expect(result.current.messages.map(m => m.content)).not.toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+      const chip = notice.actionChips!.find(c => c.id === LOAD_SAVED_MODEL_CHIP_ID)!
+      expect(isChipRenderable(chip)).toBe(true)
+      const row = render(createElement(ActionChipRow, { chips: notice.actionChips!, onChipClick: result.current.sendChip }))
+      fireEvent.click(row.getByRole('button', { name: 'Try loading model' }))
+      await waitFor(() => expect(useCanvasStore.getState().nodes).toHaveLength(TERMINAL_GRAPH.nodes.length))
+      expect(mockFetchScenarioGraph.mock.calls.map(([id]) => id)).toEqual([SCENARIO, SCENARIO])
+      expect(canvasEdgeWeight('d1', 'opt_a')).toBe(1)
+      expect(mockOpenStream).toHaveBeenCalledTimes(1)
+      expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+      expect(result.current.messages.find(m => m.id === notice.id)?.content).toBe(DRAFT_DELIVERY_RECOVERED_NOTICE)
+      expect(result.current.messages.find(m => m.id === notice.id)?.actionChips).toEqual([])
+    },
+  )
+
+  it.each(['different', 'closed', 'away-and-back', 'cancelled', 'unmounted', 'user-edit', 'new-turn'] as const)(
+    'refuses a late graph after %s, without writing graph identity or a recovered notice', async change => {
+      let finishRead!: (result: ScenarioGraphResult) => void
+      mockFetchScenarioGraph.mockImplementation(() => new Promise(resolve => { finishRead = resolve }))
+      const { result, sent, unmount } = await startMissingPreview()
+      await waitFor(() => expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1))
+      await act(async () => {
+        if (change === 'cancelled') result.current.cancelTurn()
+        else if (change === 'unmounted') unmount()
+        else if (change === 'new-turn') {
+          mockOpenStream.mockResolvedValueOnce(new Response(frame({
+            stage: 'COMPLETE', seq: 1, status: 'complete', status_code: 200, payload: TERMINAL_BODY,
+          }), { headers: { 'content-type': 'text/event-stream' } }))
+          await result.current.sendMessage('Build a different model', { turnType: 'explicit_generate' })
+        }
+        else if (change === 'user-edit') {
+          useCanvasStore.setState({ nodes: [{ id: 'd1', type: 'decision', position: { x: 1, y: 2 }, data: { label: 'My new idea' } }] })
+        } else useCanvasStore.setState({ currentScenarioId: change === 'closed' ? null : 'b0b0b0b0-b1b1-4c2c-8d3d-e4e4e4e4e4e4' })
+      })
+      if (change === 'away-and-back') await act(async () => { useCanvasStore.setState({ currentScenarioId: SCENARIO }) })
+      const before = useCanvasStore.getState()
+      await act(async () => { finishRead(serverGraphResult()); await sent })
+      expect(useCanvasStore.getState().nodes).toEqual(before.nodes)
+      expect(useCanvasStore.getState().edges).toEqual(before.edges)
+      expect(useCanvasStore.getState().serverGraphIdentity).toBeNull()
+      expect(result.current.messages.map(m => m.content)).not.toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+      expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    },
+  )
+
+  it('the existing Retry action also reads only, and duplicate clicks cannot race a recovery', async () => {
+    let finishRead!: (result: ScenarioGraphResult) => void
+    mockFetchScenarioGraph.mockResolvedValueOnce({ status: 'notReadable' })
+      .mockImplementationOnce(() => new Promise(resolve => { finishRead = resolve }))
+    const { result, sent } = await startMissingPreview()
+    await act(async () => { await sent })
+    let retry!: Promise<void>
+    await act(async () => {
+      retry = result.current.retryLast()
+      await result.current.retryLast()
+    })
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(2)
+    await act(async () => { finishRead(serverGraphResult()); await retry })
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    expect(canvasEdgeWeight('d1', 'opt_a')).toBe(1)
+  })
+})
 
 describe('stream loss + fallback decline — the server HOLDS the draft', () => {
   it('recovers the committed draft in-session: server values land, phase settles, gate opens, no start-new-draft chip', async () => {
