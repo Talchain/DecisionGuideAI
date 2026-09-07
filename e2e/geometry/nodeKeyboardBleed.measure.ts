@@ -206,7 +206,19 @@ const ALL: StarterId[] = ['vendor-selection', 'market-entry', 'build-vs-buy', 'h
 const DRIVEN_KINDS: Array<{ kind: string; starter: StarterId; why: string }> = [
   { kind: 'node-action-ask', starter: 'vendor-selection', why: 'NodeQuickActions — the shared row on every node' },
   { kind: 'BUTTON:Explore more options', starter: 'vendor-selection', why: "DecisionNode's own call-to-action button" },
-  { kind: 'BUTTON:Olumi estimated this', starter: 'vendor-selection', why: 'a science/provenance badge (useScienceIcons)' },
+  /* ⚠ THIS ROW NAMES AN IDENTITY, AND THE IDENTITY MOVED — it is not a new
+     render path. `kind` prefers `data-testid` and falls back to
+     `TAG[role]:first-three-words-of-the-accessible-name` (see `censusFocusables`).
+     `ScienceIcon` carried no testid, so it censused as the FALLBACK
+     `BUTTON:Olumi estimated this` — three words of a FIXTURE-SUPPLIED tooltip.
+     It now declares `data-testid="science-icon-trigger"`, so the same element
+     censuses under the stable half of the same derivation.
+     Coverage is unchanged: the element driven is the one this row always meant
+     (the base run names it `factor/fac_annual_cost BUTTON "Olumi estimated this
+     value. May not match reality."`). Binding to the testid is also the BETTER
+     binding — the old string would have shifted again the day a fixture reworded
+     that tooltip, with no product change at all (CLAUDE.md trap 19). */
+  { kind: 'science-icon-trigger', starter: 'vendor-selection', why: 'a science/provenance badge (useScienceIcons)' },
   { kind: 'goal-node-no-target-chip', starter: 'vendor-selection', why: "GoalNode's own chip, outside the quick-action row" },
   { kind: 'BUTTON:Status quo bias', starter: 'vendor-selection', why: 'NodeCoachingMarker — a coaching badge inside the card' },
 ]
