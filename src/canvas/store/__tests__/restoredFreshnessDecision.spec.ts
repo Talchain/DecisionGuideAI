@@ -1,0 +1,197 @@
+/**
+ * ⭐⭐ WHY THE RESTORE DECLINED — pinned against REAL captured payloads.
+ *
+ * On the restore path the deployed product renders "Cannot confirm whether this
+ * analysis is current." and nothing says WHY it cannot be resolved.
+ *
+ * ⚠ AN EARLIER VERSION OF THIS HEADER BUILT ITS WHOLE RATIONALE ON A CLAIM I
+ * HAVE WITHDRAWN — that "Analysis complete." renders 175 characters away on the
+ * same screen. Re-measured on a genuine fresh load: 'Analysis complete' is
+ * ABSENT in every form. What I saw was a TRANSIENT settle announcement in a tab
+ * that had just finished a run. A real co-occurrence with a wrong cause, and
+ * the rationale below does not need it.
+ *
+ * `resolveRestoredFreshnessUpdate` returns `null` for several structurally
+ * different reasons and a caller cannot tell them apart. Answering "which one
+ * fired?" took an hour of source reading plus a runtime store dump. A
+ * mechanism that declines silently is indistinguishable from one that was
+ * never asked.
+ *
+ * ⚠ THE TWO FIXTURES COME FROM DIFFERENT CAPTURES, and this is now stated with
+ * the measured stamps rather than asserted. Two seats queried this: the first
+ * could not reconcile the divergent graph hashes, and the second found that a
+ * single millisecond appeared in BOTH a PRERUN-sourced and a POSTRUN-sourced
+ * sentence — which two captures cannot do. It was right: the POSTRUN fixture's
+ * `computed_at` had been copied from the PRERUN capture. Corrected below.
+ *
+ *   PRERUN  — live `window.useCanvasStore` + `olumi-canvas-autosave` on
+ *             `e2016182`. `current_graph_hash: 35b5f37cb8173907`,
+ *             readiness `computed_at 18:46:54.925Z`.
+ *   POSTRUN — the debug bundle `olumi-debug-5e09c107-20260906.json`.
+ *             `graph_hash_at_run == current_graph_hash == 799c04738bd20ee7`,
+ *             readiness `computed_at 20:10:50.916Z`.
+ *
+ * Different hashes AND stamps ~84 minutes apart: two captures, not one.
+ *
+ * Nothing here compares one to the other; each is fed to the validator on its
+ * own, and the pair's job is to show the SAME validator declining one and
+ * attesting the other. That argument does not need them to share a run.
+ *
+ * Within the PRERUN capture the two timestamps are the finding: its persisted
+ * readiness (`18:46:54.925Z`) PREDATES the analysis persisted beside it
+ * (`18:48:45.206Z`) by 110 seconds. It is a PRE-RUN payload, so it states
+ * `none` and carries no `graph_hash_at_run`. BOTH of those stamps belong to
+ * PRERUN — that is the pair the 110 seconds is measured across, and neither
+ * belongs to POSTRUN.
+ *
+ * ⚠ WHAT THIS SPEC DOES NOT CLAIM. It does not claim the restore SHOULD have
+ * attested. On this payload the decline is CORRECT and fail-closed — there is
+ * no attestation to recover. What is wrong is upstream: the store's
+ * `ceeAnalysisReady` was never updated after the run, so the attestation CEE
+ * did emit (`fresh`, `graph_hash_at_run == current_graph_hash`) never reached
+ * persistence. That repair is not in this PR.
+ */
+import { describe, it, expect } from 'vitest'
+import {
+  RESTORED_FRESHNESS_DECLINE_REASONS,
+  explainRestoredFreshnessDecision,
+  resolveRestoredFreshnessUpdate,
+  RESTORED_ATTESTATION_HASHES_ALIGNED,
+} from '../analysisFreshness'
+
+const HYDRATED = { freshness: 'unknown', freshnessReason: 'hydrated_without_capture' } as const
+
+/**
+ * VERBATIM from the deployed capture — the persisted, PRE-RUN readiness.
+ * `computed_at` 18:46:54.925Z against the analysis's 18:48:45.206Z.
+ */
+const CAPTURED_PRERUN_READINESS = {
+  status: 'ready',
+  freshness: 'none',
+  freshness_reason: 'no_successful_run_analysis_fact',
+  current_graph_hash: '35b5f37cb8173907',
+  computed_at: '2026-09-06T18:46:54.925Z',
+  // NOTE: no `graph_hash_at_run` key. That absence is the finding.
+} as const
+
+/**
+ * From the debug-bundle capture — a DIFFERENT capture from PRERUN (see header).
+ * Its only job here is to be a payload that DOES attest.
+ *
+ * ⚠⚠ THIS FIXTURE'S `computed_at` WAS FABRICATED AND IS NOW CORRECTED, and the
+ * error is worth leaving recorded because of where it sat. The value read
+ * `2026-09-06T18:48:45.206Z` under a comment saying VERBATIM. That stamp is the
+ * ROASTERY session's `analysis.computedAt` — the OTHER capture. I copied a
+ * timestamp across captures into a fixture I had labelled verbatim.
+ *
+ * A seat caught it by ARITHMETIC, not by reading the prose: the same
+ * millisecond appeared in both a PRERUN-sourced sentence and a POSTRUN-sourced
+ * one, and two different captures cannot coincide to the millisecond. It could
+ * not tell which sentence was false because the bundle is not in the tree.
+ *
+ * Measured at the bundle: the real value is `2026-09-06T20:10:50.916Z`, and it
+ * settles the provenance in the direction the header states — the two captures
+ * are genuinely different (20:10:50 vs 18:46:54, hash `799c…` vs `35b5…`). The
+ * PROVENANCE sentence was right; the FIELD VALUE was wrong.
+ */
+const CAPTURED_POSTRUN_READINESS = {
+  freshness: 'fresh',
+  freshness_reason: 'graph_hash_match',
+  graph_hash_at_run: '799c04738bd20ee7',
+  current_graph_hash: '799c04738bd20ee7',
+  computed_at: '2026-09-06T20:10:50.916Z',
+} as const
+
+describe('explainRestoredFreshnessDecision — the decline names itself', () => {
+  it('⭐ THE CAPTURED STATE: a pre-run readiness declines as stored_verdict_not_fresh', () => {
+    const d = explainRestoredFreshnessDecision(HYDRATED, false, CAPTURED_PRERUN_READINESS)
+    expect(d).toEqual({ outcome: 'declined', reason: 'stored_verdict_not_fresh' })
+  })
+
+  it('⭐ THE TWIN: the SAME user’s post-run readiness attests', () => {
+    // The discrimination that makes the case above a finding rather than a
+    // fact about the code: CEE emitted everything the validator needs, on this
+    // very run. The payload that reached persistence was simply the wrong one.
+    const d = explainRestoredFreshnessDecision(HYDRATED, false, CAPTURED_POSTRUN_READINESS)
+    expect(d.outcome).toBe('attested')
+    if (d.outcome !== 'attested') throw new Error('unreachable')
+    expect(d.state.freshness).toBe('fresh')
+    expect(d.state.freshnessReason).toBe(RESTORED_ATTESTATION_HASHES_ALIGNED)
+  })
+
+  it('the pair actually DIFFER — the discrimination is asserted, not assumed', () => {
+    const pre = explainRestoredFreshnessDecision(HYDRATED, false, CAPTURED_PRERUN_READINESS)
+    const post = explainRestoredFreshnessDecision(HYDRATED, false, CAPTURED_POSTRUN_READINESS)
+    expect(pre.outcome).not.toBe(post.outcome)
+  })
+
+  it('a live verdict is never overwritten — not_a_hydrated_snapshot', () => {
+    const live = { freshness: 'stale', freshnessReason: 'graph_hash_mismatch' } as const
+    expect(explainRestoredFreshnessDecision(live, false, CAPTURED_POSTRUN_READINESS))
+      .toEqual({ outcome: 'declined', reason: 'not_a_hydrated_snapshot' })
+  })
+
+  it('an edit since restore beats a valid attestation — edited_since_restore', () => {
+    expect(explainRestoredFreshnessDecision(HYDRATED, true, CAPTURED_POSTRUN_READINESS))
+      .toEqual({ outcome: 'declined', reason: 'edited_since_restore' })
+  })
+
+  it('fresh but no hashes — attestation_hashes_absent', () => {
+    expect(explainRestoredFreshnessDecision(HYDRATED, false, { freshness: 'fresh' }))
+      .toEqual({ outcome: 'declined', reason: 'attestation_hashes_absent' })
+  })
+
+  it('fresh, both hashes, but DIFFERENT — attestation_hashes_differ', () => {
+    expect(
+      explainRestoredFreshnessDecision(HYDRATED, false, {
+        ...CAPTURED_POSTRUN_READINESS,
+        current_graph_hash: '3346784355b3fc7b',
+      }),
+    ).toEqual({ outcome: 'declined', reason: 'attestation_hashes_differ' })
+  })
+
+  it('every declared decline reason is REACHABLE — derived, not asserted', () => {
+    // ⚠ THIS TEST USED TO CLAIM "adding a member without a case REDs" AND COULD
+    // NOT DO IT. A TS union is erased at runtime, so a seat added a sixth member
+    // with no producing code and this spec stayed 9/9 GREEN — the comment
+    // described what would be valuable to guard, the assertion described what
+    // was easy to assert.
+    //
+    // It is real now because the reasons are a RUNTIME array that the type is
+    // derived FROM. Compare against that array and a member added there without
+    // a producing branch fails here; a branch returning a reason absent there
+    // fails to typecheck. Neither direction can drift silently.
+    const reached = new Set([
+      explainRestoredFreshnessDecision({ freshness: 'stale', freshnessReason: 'x' }, false, {}),
+      explainRestoredFreshnessDecision(HYDRATED, true, {}),
+      explainRestoredFreshnessDecision(HYDRATED, false, null),
+      explainRestoredFreshnessDecision(HYDRATED, false, CAPTURED_PRERUN_READINESS),
+      explainRestoredFreshnessDecision(HYDRATED, false, { freshness: 'fresh' }),
+      explainRestoredFreshnessDecision(HYDRATED, false, {
+        ...CAPTURED_POSTRUN_READINESS, current_graph_hash: 'different',
+      }),
+    ].map((d) => (d.outcome === 'declined' ? d.reason : 'attested')))
+    // Derived from the shipped array — never a second hand-maintained copy.
+    expect([...reached].sort()).toEqual([...RESTORED_FRESHNESS_DECLINE_REASONS].sort())
+  })
+})
+
+describe('resolveRestoredFreshnessUpdate — unchanged behaviour, one decision', () => {
+  it('agrees with the explainer on EVERY case — they cannot drift apart', () => {
+    const cases: Array<[Parameters<typeof resolveRestoredFreshnessUpdate>[0], boolean, unknown]> = [
+      [HYDRATED, false, CAPTURED_PRERUN_READINESS],
+      [HYDRATED, false, CAPTURED_POSTRUN_READINESS],
+      [HYDRATED, true, CAPTURED_POSTRUN_READINESS],
+      [{ freshness: 'stale', freshnessReason: 'x' }, false, CAPTURED_POSTRUN_READINESS],
+      [HYDRATED, false, { freshness: 'fresh' }],
+      [HYDRATED, false, null],
+    ]
+    for (const [cur, dirty, stored] of cases) {
+      const legacy = resolveRestoredFreshnessUpdate(cur, dirty, stored)
+      const decision = explainRestoredFreshnessDecision(cur, dirty, stored)
+      // The delegation is the point: one decision, two views. If these ever
+      // disagree, the diagnostic has drifted from the behaviour it describes.
+      expect(legacy).toEqual(decision.outcome === 'attested' ? decision.state : null)
+    }
+  })
+})
