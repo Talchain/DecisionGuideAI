@@ -93,18 +93,12 @@ function productImportersOf(symbol: string): string[] {
  *
  * This catches any dynamic import of the module, however the result is bound.
  */
-function productDynamicImportersOfModule(): string[] {
-  const re = /import\s*\(\s*(?:\/\*[^*]*\*\/\s*)?'[^']*GraphTextView'/
+function dynamicImportersOf(module: string): string[] {
+  const re = new RegExp(`import\\s*\\(\\s*(?:\\/\\*[^*]*\\*\\/\\s*)?'[^']*${module}'`)
   return FILES.filter((f) => re.test(readFileSync(f, 'utf8'))).map((f) => f.slice(SRC.length + 1))
 }
 
-/** Any dynamic import at all — the control for the probe above. */
-function anyDynamicImporters(): string[] {
-  const re = /lazy\(\(\)\s*=>\s*import\s*\(/
-  return FILES.filter((f) => re.test(readFileSync(f, 'utf8'))).map((f) => f.slice(SRC.length + 1))
-}
-
-describe('beliefStrength has no product renderer — derived, not asserted', () => {
+describe('GraphTextView is not mounted in the product — derived, not asserted', () => {
   it('the sweep can see the tree at all', () => {
     // Trap 13: an absence claim needs a probe proven capable of a presence.
     // A path or filter mistake would return an empty file list and every
@@ -136,19 +130,25 @@ describe('beliefStrength has no product renderer — derived, not asserted', () 
     expect(productImportersOf('GraphTextView')).toEqual([])
   })
 
-  it('CONTRAST CONTROL: the dynamic probe can see this repo\'s lazy-mount idiom', () => {
-    // Without this, "zero dynamic importers" below is indistinguishable from a
-    // regex that matches nothing (trap 13). `lazy(() => import(...))` is how
-    // this repo actually mounts deferred panels, so the control asserts the
-    // probe finds real instances of the exact syntax it must not miss.
-    const lazySites = anyDynamicImporters()
-    expect(lazySites.length).toBeGreaterThan(4)
-    expect(lazySites).toContain('canvas/components/OutputsDock.tsx')
+  it('CONTRAST CONTROL: THE DOOR\'S OWN REGEX finds a real lazy-mounted module', () => {
+    /* ⚠⚠ THIS CONTROL USED TO CALL A DIFFERENT FUNCTION WITH A DIFFERENT REGEX,
+       and its comment claimed it made the door's zero meaningful. It did not.
+       Measured by a seat on a pristine tree: rotting the DOOR's regex so it
+       matched nothing left all five cases GREEN — the control asserted the
+       property for a sibling while the door stayed exactly as unguarded as the
+       comment said it must not be.
+
+       ⭐ A CONTROL ONLY VALIDATES THE PROBE IT SHARES A COMMAND SHAPE WITH.
+       Mine shared a concept. So there is now ONE parameterised function, and
+       the control calls it with a module this repo really does lazy-mount —
+       rot the regex and this REDs before the door is ever consulted. */
+    const control = dynamicImportersOf('VersionsPanelHost')
+    expect(control).toContain('routes/CanvasMVP.tsx')
   })
 
   it('⭐ THE TRIPWIRE, SECOND DOOR: no product file LAZY-mounts the module either', () => {
     // The static probe cannot see `lazy(() => import('./GraphTextView'))`, and
     // that is the idiom a future mount is most likely to use here.
-    expect(productDynamicImportersOfModule()).toEqual([])
+    expect(dynamicImportersOf('GraphTextView')).toEqual([])
   })
 })
