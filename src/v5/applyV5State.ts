@@ -1728,8 +1728,11 @@ export function applyV5State(
       // consulted to decide how much to worry.
       //
       // The gap was not the ABSENT-readiness case it described. It was the
-      // PRESENT-but-REJECTED case: `normaliseV5AnalysisReady` rejects at five
-      // sites, every one of them resolving to the single `else` arm of step 4,
+      // PRESENT-but-REJECTED case: `normaliseV5AnalysisReady` rejects at SIX
+      // sites — four function-level `return undefined` (`:247`, `:251`, `:252`,
+      // `:278` at this head) and TWO per-option `return null` inside the `.map()`
+      // (`:256`, `:264`) — every one of them resolving to the single `else` arm
+      // of step 4,
       // which CLEARS the readiness and — until #1222 — left the verdict `null`.
       // A payload carrying `analysis_ready` therefore reached this gate disarmed
       // and hydrated the foreign report. Measured on the hiring canvas with a

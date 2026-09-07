@@ -24,18 +24,21 @@
  * exists to end.
  *
  * ═══════════════════════════════════════════════════════════════════════════
- * WHY THIS IS ONE BRANCH AND NOT FIVE — THE CLASS, DERIVED
+ * WHY THIS IS ONE BRANCH AND NOT SIX — THE CLASS, DERIVED
  * ═══════════════════════════════════════════════════════════════════════════
- * `normaliseV5AnalysisReady` rejects at FIVE sites. Four are function-level
- * `return undefined`; one (`:264`) is a per-option `return null` inside the
- * `.map()` that drops the entry and reaches the same exit via the all-dropped
- * check. Derived, not assumed: the normaliser has EXACTLY ONE call site in the
- * repo, so every rejection cause resolves to the single `undefined` the caller
- * tests, and therefore to the single `else` arm. Closing that arm closes the
- * whole class.
+ * `normaliseV5AnalysisReady` rejects at SIX sites. Four are function-level
+ * `return undefined` (`:247`, `:251`, `:252`, `:278`); TWO — `:256` and `:264` —
+ * are per-option `return null` inside the `.map()` that drop the entry and reach
+ * the same exit via the all-dropped check at `:278`. (An earlier version of this
+ * docblock said FIVE and named only `:264`; `:256` is structurally identical to
+ * it and was uncounted. Corrected against an `awk` line-numbered read of
+ * `applyV5State.ts:246-282`.) Derived, not assumed: the normaliser has EXACTLY
+ * ONE call site in the repo, so every rejection cause resolves to the single
+ * `undefined` the caller tests, and therefore to the single `else` arm. Closing
+ * that arm closes the whole class.
  *
  * The enumeration is nonetheless exercised CAUSE BY CAUSE below, because a
- * structural argument that all five land in one place is exactly the kind of
+ * structural argument that all six land in one place is exactly the kind of
  * claim this estate has been wrong about before. Note in particular that the
  * reviewer's reproduction (`options: []` with a real goal id) and CEE's own
  * refusal carrier (`goal_node_id: ""` AND `options: []`) trip DIFFERENT sites.
@@ -163,7 +166,7 @@ function hydratedLeadingOptionId(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// THE FIVE REJECTION CAUSES — every one must refuse the foreign report.
+// THE SIX REJECTION CAUSES — every one must refuse the foreign report.
 // Each names the normaliser site it trips.
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -198,6 +201,21 @@ describe('P0 #1222 — a REJECTED readiness must still refuse the foreign report
     [
       'a non-array options field (:252)',
       { status: 'blocked', goal_node_id: PRICING_GOAL, options: {} },
+    ],
+    // `:256` → `:278` — one entry per CLAUSE of that guard: `null` trips
+    // `optRaw == null`, the string trips `typeof optRaw !== 'object'`. Both are
+    // dropped before any id is read. This site is NOT a duplicate of `:264`: it
+    // is the guard that stops `opt.id` being read off `null`. Measured by
+    // deleting `:256` in an isolated tree — this row REDs at `applyV5State.ts`
+    // with a TypeError while the other 14 cases here stay green, so it pins the
+    // site itself, not merely the exit it shares with `:264`.
+    [
+      'a null option entry and a non-object one, dropped before any id is read (:256 → :278)',
+      {
+        status: 'blocked',
+        goal_node_id: PRICING_GOAL,
+        options: [null, 'blocked'],
+      },
     ],
     // `:264` → `:278` — options present, every entry dropped for want of an id.
     [
