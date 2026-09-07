@@ -342,16 +342,25 @@ export function influenceBarAriaLabel(
  * The noun is not this lane's reading of what the field ought to mean. The
  * producer stamps the row: `importance_basis` reads `"graph_structural"` on
  * 67 of 67 rows carrying it, across 12 files, with NO other value anywhere in
- * the corpus. It is currently read by ZERO lines of code under `src/` — a
- * declared semantics the UI has never consulted. That stamp, plus
- * `types.ts`'s own "structural causal influence", plus PR #1221's witness that
- * five canvas influence numbers were byte-identical across two runs with
- * different option sets, is the evidence for the word "structural".
+ * the corpus.
  *
- * ⚠ SCOPE, NARROWLY (trap 20). This block does not make `importance_basis` a
- * read path. It cites it as evidence for a noun. Consuming the stamp — and
- * failing closed when a future run stamps something other than
- * `graph_structural` — is a separate change with its own review.
+ * ⭐ AND THAT STAMP IS NO LONGER A SNAPSHOT CITED IN A COMMENT. It is now read,
+ * and an unrecognised value withholds this noun — see the stamp block further
+ * down. Its scope was also challenged and has been SETTLED at PLoT's own bytes
+ * (`d37c8cfd`, the deployed SHA): the stamp is set from the same branch that
+ * decides whether `influence_score` is the graph path-analysis quantity or
+ * ISL's Monte-Carlo output, so it is evidence for this noun specifically. The
+ * derivation, the reachable second value `isl_uncertainty`, and the ordering
+ * measurement that was twice MISREAD as refuting it, are all recorded there.
+ *
+ * The other strand is PR #1221's witness that five canvas influence numbers
+ * were byte-identical across two runs with different option sets — run
+ * invariance, which is what "structural" predicts.
+ *
+ * ⚠ `types.ts`'s own "structural causal influence" comment was once cited here
+ * as a third strand. It is THIS REPO describing the field to itself, so it is
+ * not independent evidence about the producer, and it is no longer offered as
+ * any.
  */
 
 /** The two questions a driver figure raises, kept apart. This is the second. */
@@ -505,24 +514,126 @@ export function influenceQuantityRunDisclosure(
  *
  * ONLY the `influence_score` arm is gated. That arm's noun is "Structural
  * influence" and the stamp is its evidence, so an unrecognised stamp falsifies
- * it. The `normalised_elasticity` arm is NOT gated: its noun is this app's own
- * normalisation of the magnitude chain, its gloss is derived from
- * `elasticityShiftCopy` that this product already ships, and `importance_basis`
- * is not evidence for it either way. Withholding it too would suppress a
- * sentence whose support is untouched, on the run that is already the degraded
- * one. Fail-closed means "do not assert what you cannot support" — not "assert
+ * it. The `normalised_elasticity` arm is NOT gated, and the reason is narrower
+ * than it first looks.
+ *
+ * ⚠ THE STAMP IS NOT IRRELEVANT TO THAT ARM — an earlier draft of this comment
+ * claimed it was "not evidence for it either way", and that is wrong: the stamp
+ * is written per RESPONSE, so it describes the provenance of every field on the
+ * row, `elasticity` included (graph path: `f.normalised_influence`; ISL path:
+ * ISL's signed Monte-Carlo elasticity). What actually justifies leaving it
+ * ungated is that the fallback noun is a claim about WHAT THIS APP COMPUTED AND
+ * IS SHOWING — its own normalisation of the magnitude chain, glossed from
+ * `elasticityShiftCopy` that this product already ships — and that claim stays
+ * true under either producer. Blanking it would suppress a sentence whose
+ * support is untouched, on the run that is already the degraded one.
+ *
+ * Fail-closed means "do not assert what you cannot support" — not "assert
  * nothing whenever anything is uncertain".
  *
- * ⚠⚠ AND THE THING THIS CODE DOES *NOT* KNOW, SAID OUT LOUD. Measured over the
- * 67 stamped rows: `importance_basis` co-occurs with `importance_rank` (67/67)
- * AND with `influence_score` (67/67), and the producer's `importance_rank` and
- * `influence_rank` DISAGREE on 55 of 95 rows. So whether the stamp governs
- * `influence_score` specifically, or the `importance_*` ordering beside it, is
- * a PRODUCER-SIDE question this corpus cannot settle, and nothing here claims
- * to have settled it. The fail-closed direction is correct under either
- * reading, which is precisely why the rule is written as withholding rather
- * than as a re-interpretation: withholding needs only that the stamp is
- * evidence for the noun, never that it governs one exact field.
+ * ── ⭐⭐ WHICH QUANTITIES THE STAMP GOVERNS — SETTLED AT PLoT'S BYTES ───────
+ *
+ * ⚠⚠ THIS PARAGRAPH REPLACES ONE THAT SAID THE QUESTION COULD NOT BE SETTLED,
+ * AND THE REPLACEMENT IS THE WHOLE POINT. The earlier text defended this gate
+ * with "the fail-closed direction is correct under either reading". That
+ * defence was INVALID: withholding is only the conservative move when the
+ * stamp is evidence FOR THE THING WITHHELD, so if the stamp had governed only
+ * the `importance_*` ordering, this gate would have been deleting a true
+ * sentence on an unrelated trigger — a behaviour change wearing the costume of
+ * caution. The question had to be answered, not routed around. It now is.
+ *
+ * Derived at `Talchain/plot-lite-service`, branch `staging`, commit
+ * `d37c8cfd` — the SHA staging actually serves (`/health` build `d37c8cf`).
+ *
+ *   · `src/routes/v2/run.ts:8077-8082` — the ONE assignment site, tree-wide:
+ *         const importanceBasis = factorSensitivitySource === 'isl'
+ *           ? IMPORTANCE_BASIS_ISL : IMPORTANCE_BASIS_GRAPH;
+ *         for (const f of factorSensitivity) f.importance_basis = importanceBasis;
+ *     Constant per RESPONSE, stamped onto every row. It is not a per-field
+ *     label; it discloses WHICH PRODUCER built this response's
+ *     `factor_sensitivity` array.
+ *
+ *   · That same branch decides what `influence_score` IS:
+ *       – graph path  → `src/lib/factor-influence.ts:798`
+ *                       `influence_score: f.normalised_influence`, a graph
+ *                       path-analysis quantity over `graph.nodes`/`graph.edges`
+ *                       alone. STRUCTURAL.
+ *       – ISL path    → `src/routes/v2/run.ts:1056` (`mapIslFactorEntry`, via
+ *                       `transformFactorSensitivity` at `:7994`)
+ *                       `influence_score: prob01(f.influence_score)` — ISL's
+ *                       own Monte-Carlo value, passed through. NOT structural.
+ *
+ * So the stamp and `influence_score`'s nature are decided by the SAME branch.
+ * `importance_basis` IS evidence for the noun on `influence_score`, and this
+ * gate is keyed to exactly the right field.
+ *
+ * ── ⚠ THE SECOND VALUE EXISTS AND IS REACHABLE ────────────────────────────
+ *
+ * `src/lib/importance-authority.ts:65-66` — the producer's value space is
+ * CLOSED at two: `type ImportanceBasis = 'graph_structural' | 'isl_uncertainty'`.
+ * The ISL arm fires when the graph path finds no factor with a path to the
+ * goal (`factor-influence.ts:766-768`, `if (influences.length === 0) return null`).
+ *
+ * That makes this gate CORRECT ON A KNOWN RUN, not merely cautious about an
+ * unknown one: on an `isl_uncertainty` response the figures are ISL's
+ * Monte-Carlo output, and the sentence "These show structural influence" would
+ * be FALSE. Withholding it is the right answer, not a safe one.
+ *
+ * ⚠⚠ AND DO NOT "HELPFULLY" ADD `isl_uncertainty` TO `HANDLED_IMPORTANCE_BASES`.
+ * It would RED the corpus guard below, CORRECTLY: no capture in this repo has
+ * ever carried that value, so handling it would be this code claiming to have
+ * seen a basis it has never seen. Handling it properly means giving it its own
+ * noun — a real change, with a real capture behind it, not a list edit.
+ *
+ * ── ⚠ THE FIELD IS NOT IN THE SHARED CONTRACT. KNOWN, AND IT IS A RISK ────
+ *
+ * `importance_basis` is UNDECLARED in `@talchain/schemas` — 0 files at the UI's
+ * own vendored 0.50.0 pin, swept with live contrast controls (`influence_score`
+ * 6 files, `elasticity` 8, `factor_sensitivity` 7, so the zero is real absence
+ * and not a blind instrument). It reaches this app only because the enrichment
+ * entry schema ends `.passthrough()`.
+ *
+ * ⚠ THE FAILURE IS NOT SAFE, AND SAYING SO IS THE POINT. If a schema tightening
+ * ever drops `.passthrough()`, the stamp vanishes, this code reads `unstamped`,
+ * and the pre-existing wording STANDS — which on an `isl_uncertainty` run is
+ * exactly the false sentence the gate exists to withhold. The gate's guarantee
+ * is therefore only as strong as an undeclared passthrough field. Declaring
+ * `importance_basis` in the contract is the durable fix and is NOT done here.
+ *
+ * ── ⚠⚠ THE TRAP THIS PARAGRAPH EXISTS TO STOP (read before "correcting" it) ─
+ *
+ * The producer ships TWO rank families and they track DIFFERENT values.
+ * Measured here over the 13 deduplicated stamped groups, ties-aware, pairwise,
+ * on absolute values:
+ *
+ *     importance_rank ordered by |elasticity|      13 consistent /  0 not
+ *     importance_rank ordered by influence_score    3            / 10
+ *     influence_rank  ordered by influence_score   13            /  0
+ *     influence_rank  ordered by elasticity         3            / 10
+ *
+ * That measurement is TRUE, and TWO SEPARATE REVIEWS READ IT AS PROVING THIS
+ * GATE WRONG — reasoning that `importance_basis` shares a prefix with
+ * `importance_rank`, so it must describe the elasticity family and not
+ * `influence_score`. THE INFERENCE IS FALSE, and the corpus says why:
+ *
+ *   all 36 stamped rows where `elasticity !== influence_score` carry
+ *   `zero_reason: 'intervention_override'` — 36 of 36, with `elasticity === 0`
+ *   and `influence_score > 0` on every one.
+ *
+ * The families diverge because option-controlled LEVERS are suppressed in one
+ * and not the other (`factor-influence.ts:84-89` zeroes `elasticity` for
+ * levers; `importance-authority.ts:96-115` re-ranks them to the back), NOT
+ * because they come from different producers. On the graph path
+ * `elasticity` and `influence_score` are the same expression
+ * (`f.normalised_influence`, `factor-influence.ts:798,805`) before suppression.
+ *
+ * ⭐ This is CLAUDE.md trap 21 in its purest form. Two questions, one field:
+ *   · "which value does `importance_rank` ORDER BY?"        → elasticity
+ *   · "which producer built this response, and therefore
+ *      what IS `influence_score`?"                          → the stamp
+ * The ordering measurement answers the first and is SILENT on the second. The
+ * gate depends only on the second. `influenceQuantityVocabulary.spec.ts` pins
+ * both facts so the next reader cannot collapse them again.
  */
 
 /** The one basis value this code knows how to name. */

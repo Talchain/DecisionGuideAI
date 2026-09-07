@@ -33,8 +33,8 @@
  *     carrying `importance_rank` and `influence_rank`, they differ on 55.
  *   · `importance_basis` reads `"graph_structural"` on 67 of 67 rows carrying
  *     it, with no other value anywhere in the corpus. That producer stamp is
- *     the evidence for the word "structural", and it is read by ZERO lines of
- *     code under `src/` — a declared semantics the UI has never consulted.
+ *     the evidence for the word "structural". It is READ as of this branch, and
+ *     its scope is settled at PLoT `d37c8cfd` — see the final describe block.
  *
  * ⚠ THE ASSERTIONS ARE WRITTEN AGAINST THE PROPERTY, NOT THE COUNT, wherever a
  * count would go stale on an unrelated fixture landing (CLAUDE.md 12b: a control
@@ -485,5 +485,144 @@ describe('importance_basis — the producer stamp is read, and fails closed', ()
     // Control: the loop above must have exercised the NAMED branch, or
     // "never substitutes" would hold vacuously on an all-null result.
     expect(sawNamed).toBeGreaterThan(0)
+  })
+})
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * ⭐⭐ THE TWO RANK FAMILIES, AND WHY THEIR SPLIT IS *NOT* EVIDENCE ABOUT THE
+ * STAMP. THIS BLOCK EXISTS BECAUSE TWO SEPARATE REVIEWS GOT IT WRONG.
+ * ══════════════════════════════════════════════════════════════════════════
+ *
+ * The producer ships `importance_rank` and `influence_rank`, and they order by
+ * DIFFERENT values. That is true, it is measured below, and it was twice read
+ * as proving that `importance_basis` — sharing the `importance_` prefix —
+ * describes the elasticity family and therefore cannot be evidence for the noun
+ * on `influence_score`. The gate in `influenceScaleCopy.ts` was very nearly
+ * deleted on that inference.
+ *
+ * THE INFERENCE IS FALSE. Derived at PLoT `d37c8cfd` (the deployed SHA): the
+ * stamp is written once per RESPONSE from `factorSensitivitySource`
+ * (`run.ts:8077-8082`), which is the same branch that decides whether
+ * `influence_score` is the graph path-analysis quantity (`factor-influence.ts:798`)
+ * or ISL's Monte-Carlo output (`run.ts:1056`). The families diverge for an
+ * unrelated reason: option-controlled LEVERS have `elasticity` zeroed
+ * (`factor-influence.ts:84-89`) and are re-ranked to the back of
+ * `importance_rank` (`importance-authority.ts:96-115`), while `influence_score`
+ * and `influence_rank` keep their structural values.
+ *
+ * So this block pins BOTH facts — the split, and its mechanism — because the
+ * split alone is exactly the misleading half.
+ *
+ * ⚠ TIES ARE NOT VIOLATIONS. A pair only contradicts an ordering when the
+ * better-ranked row has a STRICTLY smaller value; equal values are consistent
+ * with any rank order. Without that, zero-elasticity runs would read as
+ * counter-evidence when they are simply uninformative.
+ */
+describe('the two rank families track different values — and that is lever suppression, not two producers', () => {
+  /** Factor-row arrays, deduplicated by content (debug bundles repeat one array 5×). */
+  function stampedGroups(): Array<Array<Record<string, unknown>>> {
+    const groups: Array<Array<Record<string, unknown>>> = []
+    const seen = new Set<string>()
+    for (const file of jsonFilesUnderSrc(SRC_ROOT)) {
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(readFileSync(file, 'utf8'))
+      } catch {
+        continue
+      }
+      const visit = (node: unknown): void => {
+        if (Array.isArray(node)) {
+          const rows = node.filter(
+            (x): x is Record<string, unknown> =>
+              x !== null && typeof x === 'object' && !Array.isArray(x) && 'importance_basis' in x,
+          )
+          if (rows.length >= 2) {
+            const key = JSON.stringify(rows)
+            if (!seen.has(key)) {
+              seen.add(key)
+              groups.push(rows)
+            }
+          }
+          for (const child of node) visit(child)
+          return
+        }
+        if (node !== null && typeof node === 'object') {
+          for (const child of Object.values(node as Record<string, unknown>)) visit(child)
+        }
+      }
+      visit(parsed)
+    }
+    return groups
+  }
+
+  /** Rank/value pairs that contradict each other, ties-aware, on absolute values. */
+  function violations(
+    rows: ReadonlyArray<Record<string, unknown>>,
+    rankField: string,
+    valueField: string,
+  ): number {
+    const usable = rows
+      .map((r) => ({ rank: num(r[rankField]), value: num(r[valueField]) }))
+      .filter((r): r is { rank: number; value: number } => r.rank !== null && r.value !== null)
+    let bad = 0
+    for (const a of usable) {
+      for (const b of usable) {
+        if (a.rank < b.rank && Math.abs(a.value) < Math.abs(b.value)) bad += 1
+      }
+    }
+    return bad
+  }
+
+  const groups = stampedGroups()
+
+  it('POSITIVE CONTROL: the sweep found stamped groups, and groups that can DISCRIMINATE', () => {
+    // Without the second assertion every ordering claim below could pass on a
+    // corpus where the two values never differ — an absence probe pointed at
+    // nothing (CLAUDE.md trap 13).
+    expect(groups.length, 'no stamped factor-row groups found — probe blind').toBeGreaterThanOrEqual(10)
+    const discriminating = groups.filter(
+      (rows) =>
+        violations(rows, 'importance_rank', 'influence_score') > 0
+        || violations(rows, 'influence_rank', 'elasticity') > 0,
+    )
+    expect(
+      discriminating.length,
+      'no group distinguishes the two families — the ordering assertions would be vacuous',
+    ).toBeGreaterThanOrEqual(5)
+  })
+
+  it('importance_rank orders by |elasticity|, and influence_rank by influence_score', () => {
+    for (const rows of groups) {
+      expect(violations(rows, 'importance_rank', 'elasticity')).toBe(0)
+      expect(violations(rows, 'influence_rank', 'influence_score')).toBe(0)
+    }
+  })
+
+  it('and each family CONTRADICTS the other quantity — they are not two names for one order', () => {
+    const crossed = groups.filter(
+      (rows) =>
+        violations(rows, 'importance_rank', 'influence_score') > 0
+        && violations(rows, 'influence_rank', 'elasticity') > 0,
+    )
+    // Measured 10 of 13 at 015d2dbb; pinned as a floor so a growing corpus
+    // stays green and a corpus that loses the property REDs.
+    expect(crossed.length).toBeGreaterThanOrEqual(5)
+  })
+
+  /**
+   * ⭐ THE LOAD-BEARING ONE. The split above is caused by lever suppression, so
+   * it says NOTHING about which producer built the response — which is what
+   * `importance_basis` discloses and what the structural noun rests on. If this
+   * ever REDs, the mechanism has changed and the gate's justification must be
+   * re-derived at PLoT before anything here is "corrected".
+   */
+  it('every divergence between elasticity and influence_score is a suppressed lever', () => {
+    const stamped = factorRows().filter((r) => 'importance_basis' in r)
+    const diverging = stamped.filter((r) => num(r.elasticity) !== num(r.influence_score))
+    expect(diverging.length, 'no diverging rows — this guard would be vacuous').toBeGreaterThanOrEqual(10)
+    for (const row of diverging) {
+      expect(row.zero_reason).toBe('intervention_override')
+      expect(num(row.elasticity)).toBe(0)
+    }
   })
 })
