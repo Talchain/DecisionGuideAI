@@ -130,6 +130,30 @@ for (const width of WIDTHS) {
       return el instanceof HTMLElement ? Math.round(el.getBoundingClientRect().width) : -1
     })
 
+    // ⚠ NAVIGATION, NOT A RELAXED MEASURE — and it is why this gate went RED.
+    // The outline now opens CLOSED (`initiallyClosedGroups`), so NO row is
+    // mounted until a group is opened. The `rowId` precondition below then
+    // reads null and the measure asserts about nothing — which is exactly what
+    // that precondition exists to catch, and it caught it.
+    //
+    // This performs the click a reader now performs. Not one assertion below
+    // changes: the subject is still whether an editable row's geometry moves
+    // when its editor opens.
+    //
+    // Playwright's `click` is used rather than an in-page `el.click()`: the
+    // estate has already been caught reporting a control inert because a bare
+    // `.click()` did not drive the full pointer sequence some controls need.
+    // Iterating a fixed count, not re-querying a live `[aria-expanded="false"]`
+    // list, so this cannot spin if a toggle refuses to open.
+    const groupToggles = page.locator('[data-testid^="model-group-v2-"][data-testid$="-toggle"]')
+    const groupCount = await groupToggles.count()
+    expect(groupCount, 'no outline groups found — the model tab did not mount').toBeGreaterThan(0)
+    for (let i = 0; i < groupCount; i++) {
+      const toggle = groupToggles.nth(i)
+      if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click()
+    }
+    await waitForVisualQuiescence(page)
+
     // Find an EDITABLE row: its value cell is a <button> (the read-only arm is a
     // <span>). Binding by the element's identity, not by "the first row".
     const rowId = await page.evaluate(() => {
