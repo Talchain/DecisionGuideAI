@@ -38,7 +38,7 @@
  * `aria-label`, read off the element under test rather than typed here.
  */
 import { describe, it, expect } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { BriefIcon, BRIEF_ICON_LABEL } from '../BriefIcon'
 import { OlumiSparkle, OLUMI_SPARKLE_LABEL } from '../OlumiSparkle'
 import { NodeProvenanceMark } from '../NodeProvenanceMark'
