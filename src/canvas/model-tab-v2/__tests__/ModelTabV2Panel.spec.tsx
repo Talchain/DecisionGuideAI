@@ -54,6 +54,7 @@ vi.mock('../../utils/focusHelpers', () => ({
 import { ModelTabV2Panel } from '../ModelTabV2Panel'
 import { useCanvasStore } from '../../store'
 import { normaliseRawFactorValue } from '../../utils/observedStateHelpers'
+import { openOutlineGroups } from './openOutlineGroups'
 
 const FACTOR_ID = 'fac_monthly_eng_cost'
 const CAP = 30000
@@ -143,6 +144,8 @@ function renderPanel() {
       goalThreshold={null}
     />,
   )
+  openOutlineGroups()
+
 }
 
 /** Drive the row to the PROPOSED state: click value → type → Enter. */
@@ -390,6 +393,7 @@ describe('ModelTabV2Panel — the rehomed affordances, at the mounted consumer',
         onHandOffToOlumi={onHandOffToOlumi}
       />,
     )
+    openOutlineGroups()
     fireEvent.click(screen.getByTestId('model-action-v2-factors-add'))
     expect(onHandOffToOlumi).toHaveBeenCalledTimes(1)
     expect(onHandOffToOlumi.mock.calls[0][0]).toBe('I want to add a new factor to the model')
@@ -420,6 +424,7 @@ describe('ModelTabV2Panel — the rehomed affordances, at the mounted consumer',
         onHandOffToOlumi={onHandOffToOlumi}
       />,
     )
+    openOutlineGroups()
     fireEvent.click(screen.getByTestId('model-action-v2-goal-discuss'))
     // The label is the goal NODE's label, taken from the projected row — not a
     // second read of the store, and not the node id.
@@ -439,6 +444,7 @@ describe('ModelTabV2Panel — the rehomed affordances, at the mounted consumer',
     render(
       <ModelTabV2Panel nodes={allNodes()} edges={[unlabelled]} goalThreshold={null} />,
     )
+    openOutlineGroups()
     const row = screen.getByTestId('model-row-v2-e_unlabelled')
     expect(row.textContent).toContain('Monthly Engineering Cost → Hit ARR target')
     expect(row.textContent).not.toContain(FACTOR_ID)

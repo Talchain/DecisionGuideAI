@@ -1,0 +1,121 @@
+/**
+ * THE MODEL OUTLINE OPENS AS AN OUTLINE, AND CLOSING COSTS NO INFORMATION.
+ *
+ * `initiallyClosedGroups` has existed since `ModelOutline` was written and
+ * NOTHING ever passed it, so all seven groups rendered open. Measured on
+ * deployed staging with a real completed analysis: **8 of 9 expanded regions
+ * and 1,817px of scroll** before the reader has chosen anything. That is a
+ * dump, not progressive disclosure.
+ *
+ * ⚠⚠ THE SECOND HALF IS THE POINT, AND IT IS THE HALF A NAIVE PIN WOULD MISS.
+ * "Every group is closed" is trivially satisfiable by rendering nothing useful
+ * — hiding information and calling it disclosure. What makes this change safe
+ * is that the COLLAPSED HEADER still carries the group name, the row COUNT and
+ * `unsetSummary` ("2 with no value yet"), all derived from the same fields the
+ * rows read. So the closed state IS the model at a glance.
+ *
+ * Both halves are asserted. A change that closed the groups AND dropped the
+ * counts would satisfy the first and REDs on the second.
+ *
+ * ⚠ NOT the piecemeal pattern Paul named. Each of these seven hides a real
+ * list, not a sentence; the complaint being answered is twelve small doors each
+ * buying one line. Level 1 is the shape of the model, level 2 is the rows.
+ */
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { render, cleanup, fireEvent, screen } from '@testing-library/react'
+import type { Node, Edge } from '@xyflow/react'
+
+vi.mock('../../conversation/ConversationContext', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return { ...actual, useOptionalConversationContext: () => ({ sendSystemEvent: vi.fn() }) }
+})
+vi.mock('../../utils/focusHelpers', () => ({ focusNodeById: vi.fn(), focusEdgeById: vi.fn() }))
+
+import { ModelTabV2Panel } from '../ModelTabV2Panel'
+import { MODEL_GROUP_IDS } from '../types'
+import { useCanvasStore } from '../../store'
+
+const GOAL_ID = 'goal_arr'
+const FACTOR_SET = 'fac_priced'
+const FACTOR_UNSET = 'fac_unpriced'
+
+const nodes = (): Node[] =>
+  [
+    { id: GOAL_ID, type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Hit ARR target', kind: 'goal' } },
+    {
+      id: FACTOR_SET,
+      type: 'factor',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Monthly Engineering Cost',
+        kind: 'factor',
+        category: 'observable',
+        observedState: { value: 1, raw_value: 30000, cap: 30000, unit: '£', source: 'cee_inference' },
+      },
+    },
+    // Deliberately UNVALUED, so `unsetSummary` has something to say on the
+    // factors header. Without it the second half of the ruling is vacuous.
+    {
+      id: FACTOR_UNSET,
+      type: 'factor',
+      position: { x: 0, y: 0 },
+      data: { label: 'Data Team Capacity', kind: 'factor', category: 'observable' },
+    },
+  ] as unknown as Node[]
+
+const edges = (): Edge[] => []
+
+const renderPanel = () =>
+  render(<ModelTabV2Panel nodes={nodes()} edges={edges()} goalThreshold={null} />)
+
+beforeEach(() => {
+  useCanvasStore.setState({ nodes: nodes(), edges: edges() } as never, false)
+})
+afterEach(cleanup)
+
+describe('the Model outline opens as an outline', () => {
+  it('PRECONDITION: the fixture really does have an unvalued factor, or half two is vacuous', () => {
+    renderPanel()
+    expect(
+      screen.queryByTestId('model-group-v2-factors-unknown-summary'),
+      'no unknown summary in the fixture — the information-survives assertion would prove nothing',
+    ).not.toBeNull()
+  })
+
+  it('HALF ONE: every group is CLOSED on first render', () => {
+    renderPanel()
+    const open = MODEL_GROUP_IDS.filter(
+      id => screen.queryByTestId(`model-group-v2-${id}-toggle`)?.getAttribute('aria-expanded') === 'true',
+    )
+    expect(open, `these groups opened uninvited: ${open.join(', ')}`).toEqual([])
+  })
+
+  it('HALF TWO: the closed header still carries the COUNT and the unknown summary', () => {
+    renderPanel()
+    const header = screen.getByTestId('model-group-v2-factors-toggle')
+    // Closed, and still saying what is inside.
+    expect(header.getAttribute('aria-expanded')).toBe('false')
+    expect(header.textContent).toContain('2') // both factors counted
+    const summary = screen.getByTestId('model-group-v2-factors-unknown-summary')
+    expect(summary.textContent?.trim().length).toBeGreaterThan(0)
+    // IDENTITY, not proximity: the summary belongs to THIS group's header.
+    expect(header.contains(summary)).toBe(true)
+  })
+
+  it('the rows are genuinely hidden while closed — this is disclosure, not a style change', () => {
+    renderPanel()
+    expect(screen.queryByTestId(`model-row-v2-${FACTOR_UNSET}`)).toBeNull()
+  })
+
+  it('one click opens the group the reader asked for, and only that one', () => {
+    renderPanel()
+    fireEvent.click(screen.getByTestId('model-group-v2-factors-toggle'))
+    expect(screen.getByTestId('model-group-v2-factors-toggle').getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByTestId(`model-row-v2-${FACTOR_UNSET}`)).toBeInTheDocument()
+    // Toggling one NEVER touches another — the outline's own design rule.
+    const others = MODEL_GROUP_IDS.filter(id => id !== 'factors').filter(
+      id => screen.queryByTestId(`model-group-v2-${id}-toggle`)?.getAttribute('aria-expanded') === 'true',
+    )
+    expect(others, `opening factors also opened: ${others.join(', ')}`).toEqual([])
+  })
+})
