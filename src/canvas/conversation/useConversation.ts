@@ -4428,7 +4428,10 @@ export function useConversation(): UseConversationReturn {
             !controller.signal.aborted &&
             abortRef.current === controller &&
             missingDraftRecoveryRef.current === recover &&
-            useCanvasStore.getState().currentScenarioId === scenarioIdAtDispatch
+            responseBelongsToDispatchingScenario(
+              useCanvasStore.getState().currentScenarioId,
+              scenarioIdAtDispatch,
+            )
           let reading = false
           let recovered = false
           let noticeId: string | null = null
@@ -4459,7 +4462,10 @@ export function useConversation(): UseConversationReturn {
                   { id: LOAD_SAVED_MODEL_CHIP_ID, label: 'Try loading model', intent: 'primary' as const },
                 ],
               }
-              if (noticeId) updateMessage(noticeId, notice)
+              if (noticeId) updateMessage(noticeId, {
+                content: notice.content,
+                actionChips: notice.actionChips,
+              })
               else {
                 noticeId = crypto.randomUUID()
                 addMessage({ id: noticeId, role: 'assistant', synthetic: true, ...notice, timestamp: new Date() })
