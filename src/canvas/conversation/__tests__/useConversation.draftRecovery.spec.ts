@@ -42,6 +42,7 @@ import {
 } from '../../components/DraftLoadingAnimation'
 import type { ScenarioGraphResult } from '../../../adapters/cee/scenarioGraph'
 import wireFixture from './fixtures/cee-draft-goal-constraints-wire.json'
+import nativeGraphlessFallback from './fixtures/cee-normal-start-graphless-fallback-wire-20260907.json'
 
 // ---------------------------------------------------------------------------
 // Network seams — the only things mocked
@@ -281,23 +282,15 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('normal start loses every usable preview before the draft commits', () => {
-  async function startMissingPreview() {
+  // Captured normal-20260907-1729/C1-fallback-response.json, verbatim except
+  // _diagnostic_trace (not consumed here). Canonical reads still use the
+  // existing graph fixture above; this is not a native journey acceptance.
+  async function startMissingPreview(fallbackResponse?: Record<string, unknown>) {
     const stream = controllableStream()
     mockOpenStream.mockResolvedValue(stream.response)
     mockCallV5Turn.mockResolvedValue({
       ...DECLINE_RESPONSE,
-      response: {
-        ...DECLINE_RESPONSE.response,
-        assistant_text: "I haven't changed the model.",
-        // The observed graphless fallback carried a current analysis claim.
-        // It must not enter the canvas before the missing graph is recovered.
-        analysis_state: {
-          run_state: { kind: 'complete_current', computed_at: '2026-09-07T17:31:58.567Z' },
-          readiness: { status: 'ready', blockers: [] },
-          leader_claim: { permitted: false, withheld_reason: 'separation_unavailable' },
-        },
-        analysis_ready: { ...(TERMINAL_BODY.analysis_ready as object), status: 'ready' },
-      },
+      response: fallbackResponse ?? nativeGraphlessFallback,
     })
     const hook = renderHook(() => useConversation())
     let sent!: Promise<void>
@@ -308,6 +301,71 @@ describe('normal start loses every usable preview before the draft commits', () 
     await stream.fail()
     return { ...hook, sent }
   }
+
+  it.each(['notReadable', 'unavailable'] as const)('keeps a legitimate clarification after a %s read, including ordinary retry behavior', async status => {
+    const clarification = {
+      response_version: 2,
+      assistant_text: 'What outcome are you hoping to improve?',
+      blocks: [],
+      stage_indicator: 'frame',
+    }
+    mockFetchScenarioGraph.mockResolvedValue({ status })
+    const { result, sent } = await startMissingPreview(clarification)
+    await act(async () => { await sent })
+
+    expect(result.current.messages.filter(m => m.role === 'assistant').map(m => m.content))
+      .toEqual([clarification.assistant_text])
+    expect(result.current.messages.some(m => m.synthetic)).toBe(false)
+    expect(result.current.messages.flatMap(m => m.actionChips ?? []).some(c => c.id === LOAD_SAVED_MODEL_CHIP_ID)).toBe(false)
+    expect(useCanvasStore.getState().nodes).toEqual([])
+    expect(useCanvasStore.getState().analysisStateV1).toBeNull()
+    expect(mockFetchScenarioGraph).toHaveBeenCalledTimes(1)
+
+    await act(async () => { await result.current.retryLast() })
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(2)
+    expect(result.current.messages.filter(m => m.role === 'user')).toHaveLength(1)
+    expect(result.current.messages.some(m => m.synthetic)).toBe(false)
+  })
+
+  it('still recovers a canonical graph even when the graphless fallback carries only plain text', async () => {
+    mockFetchScenarioGraph.mockResolvedValue(serverGraphResult())
+    const { result, sent } = await startMissingPreview(DECLINE_RESPONSE.response)
+    await act(async () => { await sent })
+    expect(canvasEdgeWeight('d1', 'opt_a')).toBe(1)
+    expect(result.current.messages.map(m => m.content)).toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(['complete_current', 'complete_stale'])('withholds a %s claim without options while graph delivery is unresolved', async kind => {
+    mockFetchScenarioGraph.mockResolvedValue({ status: 'notReadable' })
+    const { result, sent } = await startMissingPreview({
+      ...DECLINE_RESPONSE.response,
+      analysis_state: {
+        run_state: { kind, computed_at: '2026-09-07T17:31:58.567Z' },
+        readiness: { status: 'ready', blockers: [] },
+        leader_claim: { permitted: false, withheld_reason: 'separation_unavailable' },
+      },
+    })
+    await act(async () => { await sent })
+    expect(result.current.messages.map(m => m.content)).toContain(DRAFT_DELIVERY_UNRESOLVED_NOTICE)
+    expect(useCanvasStore.getState().analysisStateV1).toBeNull()
+    expect(useCanvasStore.getState().results.status).toBe('idle')
+  })
+
+  it('does not treat options alone as proof that a saved or current model exists', async () => {
+    mockFetchScenarioGraph.mockResolvedValue({ status: 'notReadable' })
+    const { result, sent } = await startMissingPreview({
+      ...DECLINE_RESPONSE.response,
+      analysis_ready: nativeGraphlessFallback.analysis_ready,
+    })
+    await act(async () => { await sent })
+    expect(result.current.messages.map(m => m.content)).toContain(DRAFT_DELIVERY_UNRESOLVED_NOTICE)
+    expect(result.current.messages.map(m => m.content)).not.toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
+    expect(useCanvasStore.getState().nodes).toEqual([])
+    expect(useCanvasStore.getState().analysisStateV1).toBeNull()
+    expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+    expect(useCanvasStore.getState().results.status).toBe('idle')
+  })
 
   it('reads again after boot 404 and mounts the original committed graph without another generation', async () => {
     mockFetchScenarioGraph.mockResolvedValueOnce({ status: 'notReadable' })
@@ -329,7 +387,7 @@ describe('normal start loses every usable preview before the draft commits', () 
     expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
     expect(mockCallV5Turn.mock.calls[0][0]).toEqual(mockOpenStream.mock.calls[0][0])
     expect(result.current.messages.map(m => m.content)).toContain(DRAFT_DELIVERY_RECOVERED_NOTICE)
-    expect(result.current.messages.map(m => m.content)).not.toContain("I haven't changed the model.")
+    expect(result.current.messages.map(m => m.content)).not.toContain(nativeGraphlessFallback.assistant_text)
     expect(useDraftStore.getState().draftStreamPhase).toBe('idle')
   })
 

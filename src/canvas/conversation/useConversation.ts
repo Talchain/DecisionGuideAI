@@ -4411,6 +4411,19 @@ export function useConversation(): UseConversationReturn {
 
         if (missingGraphAfterFallback) {
           if (userBubbleIdForTurn) updateMessage(userBubbleIdForTurn, { deliveryState: 'sent' })
+          // A graphless answer can be a valid clarification or coaching turn.
+          // Options/completed-run claims are not proof of a saved/current
+          // model: they only warrant an unconfirmed delivery notice if the
+          // read fails. With neither a claim nor a recovered graph, preserve
+          // normal response ingestion.
+          const fallbackOptions = v5Result.kind === 'response'
+            ? (v5Result.response as { analysis_ready?: { options?: unknown[] } }).analysis_ready?.options
+            : undefined
+          const fallbackRunKind = v5Result.kind === 'response'
+            ? (v5Result.response as { analysis_state?: { run_state?: { kind?: string } } }).analysis_state?.run_state?.kind
+            : undefined
+          const fallbackClaimsModel = (Array.isArray(fallbackOptions) && fallbackOptions.length > 0)
+            || fallbackRunKind === 'complete_current' || fallbackRunKind === 'complete_stale'
           // The first boot read can have returned 404 before draft commit.
           // Reuse the same canonical read/merge; never generate another model.
           // Capture the empty canvas by reference so an intervening user edit
@@ -4442,7 +4455,7 @@ export function useConversation(): UseConversationReturn {
             reading = false
             if (!ownsRecovery()) return
             recovered = recovery === 'recovered'
-            if (mode === 'user' && !hidden) {
+            if ((recovered || fallbackClaimsModel) && mode === 'user' && !hidden) {
               const notice = {
                 content: recovered
                   ? DRAFT_DELIVERY_RECOVERED_NOTICE
@@ -4462,7 +4475,10 @@ export function useConversation(): UseConversationReturn {
           await recover()
           // The canonical read owns graph and analysis restoration. The
           // graphless replay's prose/readiness cannot certify this delivery.
-          return
+          if (!ownsRecovery() || recovered || fallbackClaimsModel) return
+          // No saved graph and no model claim: this may simply be a valid
+          // question/answer. Preserve ingestion and ordinary retry semantics.
+          missingDraftRecoveryRef.current = null
         }
 
         const target = routeV5Response(v5Result)
