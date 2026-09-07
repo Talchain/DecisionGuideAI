@@ -160,11 +160,24 @@ function guidanceBinding(src: string): {
   banner: number
   depthAtGuidance: number
   closesBetweenBarAndGuidance: number
+  renderedGuidanceCount: number
 } {
   const code = stripComments(src)
   const container = code.search(/className="mt-2 space-y-\d+"/)
   const bar = code.indexOf('<ImportanceBar')
-  const guidance = code.indexOf('{sensitivityGuidance}')
+  // ⚠⚠ THE SAME HOLE A THIRD TIME, AND THIS TIME IN THE BINDING ITSELF. Round 3
+  // (external reviewer) executed it: `indexOf('{sensitivityGuidance}')` matches
+  // inside a PROP — `title={sensitivityGuidance}` contains that exact substring.
+  // So adding the prop anywhere inside the banner and moving the visible <p>
+  // back after `</StaleGuardBanner>` restores the literal B1 regression while
+  // every assertion here reads GREEN, because the index it measured was the
+  // prop's, not the render's.
+  //
+  // Bind to the RENDERED occurrence — `>{sensitivityGuidance}<` — which a prop
+  // cannot satisfy. Same lesson as `stripComments` above and as the boundary
+  // matching in the preconditions: a bare substring is not an identity.
+  const guidance = code.search(/>\s*\{sensitivityGuidance\}\s*</)
+  const renderedGuidanceCount = [...code.matchAll(/>\s*\{sensitivityGuidance\}\s*</g)].length
   const voi = code.indexOf('INLINE_LABELS.investigationValue')
   const banner = code.indexOf('</StaleGuardBanner>')
   const between = container >= 0 && guidance > container ? code.slice(container, guidance) : ''
@@ -179,6 +192,7 @@ function guidanceBinding(src: string): {
     banner,
     depthAtGuidance: opens - closes,
     closesBetweenBarAndGuidance: (barToGuidance.match(/<\/div>/g) ?? []).length,
+    renderedGuidanceCount,
   }
 }
 
@@ -296,6 +310,15 @@ describe('the post-analysis factor stack groups each bar with its own sentences'
        <p className="mt-2">{sensitivityGuidance}</p></StaleGuardBanner>`,
     ],
     [
+      // ROUND 3, the external reviewer's exact attack. The prop is what the old
+      // bare `indexOf` bound to; the visible render is back outside the banner,
+      // i.e. the literal B1 regression. This case passed the previous binding.
+      'M9 — a `title=` PROP inside the banner while the visible render sits after it',
+      `<div className="mt-2 space-y-4"><div><ImportanceBar title={sensitivityGuidance} />
+       </div><div><DataBar label={INLINE_LABELS.investigationValue} /></div></div>
+       </StaleGuardBanner><p className="mt-2">{sensitivityGuidance}</p>`,
+    ],
+    [
       'M3 — the guidance a direct child of the container, belonging to neither bar',
       `<div className="mt-2 space-y-4"><ImportanceBar />
        <p className="mt-1">{sensitivityGuidance}</p>
@@ -316,6 +339,15 @@ describe('the post-analysis factor stack groups each bar with its own sentences'
       b.depthAtGuidance >= 1 &&
       b.closesBetweenBarAndGuidance === 0
     expect(bindsToItsOwnBar).toBe(false)
+  })
+
+  it('DISCRIMINATOR: a PROP alone is not a render — M9 has no rendered guidance inside the banner', () => {
+    // Pins the MECHANISM, not just the verdict: the prop must contribute zero
+    // rendered occurrences, so a future refactor cannot make M9 pass by accident.
+    const propOnly = `<div className="mt-2 space-y-4"><div><ImportanceBar title={sensitivityGuidance} />
+       </div><div><DataBar label={INLINE_LABELS.investigationValue} /></div></div></StaleGuardBanner>`
+    expect(guidanceBinding(propOnly).renderedGuidanceCount).toBe(0)
+    expect(guidanceBinding(propOnly).guidance).toBe(-1)
   })
 
   it('DISCRIMINATOR: the CORRECT placement is accepted — the rejections are not blanket', () => {
