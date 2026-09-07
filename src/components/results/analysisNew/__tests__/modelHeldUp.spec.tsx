@@ -126,18 +126,20 @@ describe('the condition is testable as a condition', () => {
   })
 })
 
-describe('the move', () => {
-  it('offers the decision-recording ask', async () => {
-    const onRecord = vi.fn()
-    draw({ onRecord })
-    await userEvent.click(screen.getByTestId('held-record'))
-    expect(onRecord).toHaveBeenCalledTimes(1)
-  })
-
-  /** Fail-closed: no handler, no button — never a dead affordance. */
-  it('renders no button when there is nothing to run', () => {
-    draw({ onRecord: undefined })
-    expect(screen.getByTestId('held')).toBeInTheDocument()
-    expect(screen.queryByTestId('held-record')).toBeNull()
-  })
-})
+/**
+ * ⚠⚠ "THE MOVE" USED TO LIVE HERE AND HAS BEEN REMOVED WITH THE PROP THAT
+ * CARRIED IT. Superseded: ~~two cases over `onRecord` — that the banner offers
+ * the decision-recording ask, and that it renders no button without a
+ * handler.~~
+ *
+ * The banner answers "did this model hold up?"; recording a decision answers
+ * "may I write down what we chose?". Hanging the second off the first made the
+ * act reachable ONLY on the rare run that held up — backwards, since a fragile
+ * result is when the reasoning is most worth keeping (CLAUDE.md trap 21).
+ *
+ * ⚠ THE REPLACEMENT GUARD IS NOT IN THIS FILE, DELIBERATELY. Asserting the
+ * absence of a button here would pass on a panel that never mounts the act at
+ * all, which is the defect one level up. It is pinned at the MOUNT instead —
+ * `theActIsNotGatedOnSuccess.spec.tsx` asserts both that this banner carries no
+ * record control and that the door renders on runs this banner refuses.
+ */

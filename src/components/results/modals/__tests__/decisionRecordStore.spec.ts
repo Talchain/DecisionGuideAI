@@ -1,6 +1,16 @@
 /**
- * decisionRecordStore — scenario-keyed sessionStorage persistence for the
- * prototype-only decision record (no backend persistence exists).
+ * decisionRecordStore — scenario-keyed `localStorage` persistence.
+ *
+ * ⚠ THE HEADER USED TO SAY "sessionStorage … prototype-only … no backend
+ * persistence exists". Both halves had gone stale: the durable half of the
+ * record commits to CEE (`attachRemote`), and the local half moved to
+ * `localStorage` on 7 Sep 2026 so that a record survives the tab closing.
+ *
+ * ⭐ THE LIFETIME IS THE PROPERTY UNDER TEST, NOT THE API NAME. A suite that
+ * only swapped `sessionStorage` for `localStorage` throughout would be green on
+ * a store that had not changed behaviour at all — the two APIs are identical in
+ * shape. `a record survives the tab closing` below is the assertion that can
+ * only pass on the new store: it clears sessionStorage and nothing else.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 
@@ -29,6 +39,9 @@ function record(overrides: Partial<DecisionRecord> = {}): DecisionRecord {
 
 beforeEach(() => {
   useDecisionRecordStore.getState()._reset()
+  // Both, deliberately: `_reset` should leave neither store holding a record,
+  // and clearing only the one under test would hide a write to the other.
+  localStorage.clear()
   sessionStorage.clear()
 })
 
@@ -45,7 +58,7 @@ describe('decisionRecordStore', () => {
     expect(selectDecisionRecord(state, 'scn_c')).toBeNull()
   })
 
-  it('round-trips through sessionStorage (simulated reload) including the analysis hash', () => {
+  it('round-trips through storage (simulated reload) including the analysis hash', () => {
     useDecisionRecordStore.getState().saveRecord('scn_a', record())
 
     useDecisionRecordStore.setState({ byScenario: {} })
@@ -59,10 +72,10 @@ describe('decisionRecordStore', () => {
 
   it('persists a version-keyed payload and ignores unknown versions', () => {
     useDecisionRecordStore.getState().saveRecord('scn_a', record())
-    const raw = sessionStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(STORAGE_KEY)
     expect(JSON.parse(raw as string).version).toBe(1)
 
-    sessionStorage.setItem(
+    localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({ version: 2, byScenario: { scn_a: record() } }),
     )
@@ -71,7 +84,7 @@ describe('decisionRecordStore', () => {
   })
 
   it('ignores corrupt storage payloads', () => {
-    sessionStorage.setItem(STORAGE_KEY, '¬ not json')
+    localStorage.setItem(STORAGE_KEY, '¬ not json')
     useDecisionRecordStore.getState()._rehydrateForTests()
     expect(useDecisionRecordStore.getState().byScenario).toEqual({})
   })
@@ -80,6 +93,51 @@ describe('decisionRecordStore', () => {
     useDecisionRecordStore.getState().saveRecord('scn_a', record())
     useDecisionRecordStore.getState()._reset()
     expect(useDecisionRecordStore.getState().byScenario).toEqual({})
-    expect(sessionStorage.getItem(STORAGE_KEY)).toBeNull()
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
+  })
+
+  /**
+   * ⭐⭐ THE CAPABILITY, AND THE ONLY TEST HERE THAT COULD NOT PASS BEFORE.
+   *
+   * "Record what you decided, and read it back when you come back" is worthless
+   * if the record dies with the tab. `sessionStorage.clear()` is the closest a
+   * jsdom suite gets to closing the tab — it is precisely what the browser does
+   * to that store and to nothing else — so a record that survives it is a
+   * record that survives the visit.
+   *
+   * ⚠ IT ASSERTS BOTH DIRECTIONS ON PURPOSE. The survival alone would pass on a
+   * store that wrote to BOTH; the second half pins that sessionStorage is not
+   * being written at all, so the claim "on this device" is about one store whose
+   * lifetime we have actually checked.
+   */
+  it('a record survives the tab closing (sessionStorage cleared, record intact)', () => {
+    useDecisionRecordStore.getState().saveRecord('scn_a', record())
+
+    expect(
+      sessionStorage.getItem(STORAGE_KEY),
+      'the record must not be written to sessionStorage — that store dies with the tab',
+    ).toBeNull()
+
+    sessionStorage.clear()
+    useDecisionRecordStore.setState({ byScenario: {} })
+    useDecisionRecordStore.getState()._rehydrateForTests()
+
+    expect(selectDecisionRecord(useDecisionRecordStore.getState(), 'scn_a')).toEqual(record())
+  })
+
+  /**
+   * ⚠ THE DISCRIMINATION FOR THE TEST ABOVE. Clearing sessionStorage proves
+   * survival only if clearing the store the record IS in destroys it — without
+   * this, the survival test would also pass on a store that persisted nothing
+   * and returned a stale in-memory value.
+   */
+  it('…and does NOT survive localStorage being cleared — the twin', () => {
+    useDecisionRecordStore.getState().saveRecord('scn_a', record())
+
+    localStorage.clear()
+    useDecisionRecordStore.setState({ byScenario: {} })
+    useDecisionRecordStore.getState()._rehydrateForTests()
+
+    expect(selectDecisionRecord(useDecisionRecordStore.getState(), 'scn_a')).toBeNull()
   })
 })

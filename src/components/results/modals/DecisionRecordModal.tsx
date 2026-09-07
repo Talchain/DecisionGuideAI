@@ -69,8 +69,23 @@ export const DECISION_RECORD_COPY = {
    */
   persistenceNote:
     'Your choice, confidence, expectation and review date are saved to your account. The rationale, assumption and revisit trigger stay on this device for this scenario.',
+  /**
+   * ⚠⚠ STILL UNCONSUMED (zero call sites), AND ITS SESSION CLAUSE WAS MADE
+   * FALSE BY THE MOVE TO `localStorage`. Superseded text: ~~'Signed out, so
+   * this stays on this device for this scenario and ends with the browser
+   * session. Sign in to keep a durable record.'~~ — a decision record now
+   * survives the tab closing, so "ends with the browser session" would be a
+   * false disclosure the first time anyone mounted this string.
+   *
+   * ⚠ CORRECTED RATHER THAN DELETED, DELIBERATELY. Retiring the dead constant
+   * is already ROWED in `src/test/guestStorageClaims.ts`'s adjudication for
+   * this file; doing it here would be the "while we're here" expansion, and
+   * leaving a false sentence in the tree for that row to find later is worse
+   * than either. The minimal true edit is to drop the clause that stopped
+   * being true.
+   */
   guestNote:
-    'Signed out, so this stays on this device for this scenario and ends with the browser session. Sign in to keep a durable record.',
+    'Signed out, so this stays on this device for this scenario. Sign in to keep a durable record.',
   savedRemoteNote: 'Saved to your account.',
   emptyState:
     'Run an analysis first. There are no analysed options to record a decision against yet.',

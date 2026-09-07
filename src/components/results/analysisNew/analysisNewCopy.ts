@@ -585,8 +585,82 @@ export const ANALYSIS_NEW_COPY = {
      * and the product's first principle is that humans remain the authors.
      */
     limit: 'That is a result about the model, not about the decision. What it assumes is still yours to judge.',
-    /** The move. Named for what the team gets, not for what the system does. */
-    record: 'Record what you decided, and why',
+    /**
+     * ⚠⚠ `record` WAS HERE AND HAS BEEN MOVED TO `decisionRecord.open` — the
+     * banner no longer carries the act. Superseded text: ~~record: 'Record what
+     * you decided, and why'~~.
+     *
+     * This block answers "did this model hold up?"; recording a decision
+     * answers "may I write down what we chose?". Hanging the second off the
+     * first made the act reachable ONLY on a run that held up, which is exactly
+     * backwards — a fragile or mixed result is when writing down your reasoning
+     * matters most. Two questions under one predicate (CLAUDE.md trap 21), and
+     * the cost was the whole ACT half of the panel on every run but the rare
+     * clean one. The banner keeps its predicate and its congratulation; the act
+     * now stands on its own, gated only on a run existing.
+     */
+  },
+  /**
+   * ⭐⭐ THE ACT — the panel's other terminal state, and the half that was
+   * unserved. Everything above this reads the model; this is the only place the
+   * team writes down what they are going to DO about it, and the only place a
+   * later session can read that back.
+   *
+   * ⚠⚠ EVERY SENTENCE HERE IS SCOPED TO THE SCENARIO, NEVER TO THE RUN.
+   * `useDecisionRecordForScenario` keys on `currentScenarioId` and nothing
+   * else — it cannot tell whether the record was captured against the analysis
+   * currently on screen or an earlier one. So the copy says "for this
+   * scenario", which is exactly what the selector licenses. "For this run"
+   * would be a claim about an anchor comparison this surface does not make.
+   *
+   * ⚠⚠ AND WHERE THE RECORD LIVES IS NEVER INFERRED FROM WHY. `remote === null`
+   * licenses one statement — that there is no record id, so no account claim.
+   * It does NOT license naming a cause: the store's own contract lists three
+   * (guest, offline, a failed commit), and a signed-in user whose commit failed
+   * would be told to sign in. So `storedLocal` states the FACT and stops.
+   */
+  decisionRecord: {
+    /**
+     * The door. Carried over verbatim from `heldUp.record`, where it was gated
+     * on the model having held up.
+     */
+    open: 'Record what you decided, and why',
+    /**
+     * ⚠ A FACT ABOUT STATE, NOT A STANDING EXPLANATION. This is the negative
+     * half of a pair — it flips to the read-back the moment a record exists —
+     * so it earns the line the P2 ruling would otherwise deny it. A sentence
+     * telling the reader WHY recording is worthwhile would be identical on
+     * every instance forever, which is the definition of furniture.
+     */
+    none: 'Nothing recorded for this scenario yet.',
+    /** The read-back heading. */
+    recorded: 'Decision recorded',
+    /** The modal prefills from the existing record, so this genuinely edits. */
+    update: 'Update this record',
+    confidenceLabel: 'Confidence',
+    expectationLabel: 'Expected',
+    rationaleLabel: 'Because',
+    assumptionLabel: 'Assumption to watch',
+    revisitLabel: 'Revisit',
+    /**
+     * ⚠ "of 100", NOT "%". The capture field is labelled "Confidence, 0–100"
+     * and the producer is the user's own typed number. Rendering it as a
+     * percentage would attach a unit nobody supplied.
+     */
+    confidenceSuffix: 'of 100',
+    recordedOnPrefix: 'Recorded',
+    /**
+     * ⚠ NO CAUSE, AND NO ADVICE. See the block header — the three routes to a
+     * local-only record are not distinguishable from `remote === null`.
+     */
+    storedLocal: 'On this device only, for this scenario. It is not on your account.',
+    /**
+     * The split named exactly, in the same words the capture modal uses — one
+     * thing learned once. Licensed by `remote.recordId`, which is CEE's own
+     * proof the durable half landed.
+     */
+    storedRemote:
+      'Your choice, confidence, expectation and review date are on your account. The rationale, assumption and revisit trigger are on this device.',
   },
   /**
    * The success target — the question a strategist answers FIRST and this panel

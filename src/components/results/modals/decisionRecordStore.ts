@@ -24,8 +24,34 @@
  * A surface rendering a "Decision recorded" state must label which of those
  * it is showing; `DecisionRecord.remote` is how it can tell.
  *
- * Persistence mirrors strengthenStore: zustand + manual, version-keyed
- * sessionStorage, keyed per scenario id.
+ * ⭐⭐ PERSISTENCE IS `localStorage`, AND THAT IS A DELIBERATE DIVERGENCE FROM
+ * ITS SIBLINGS. Superseded text: ~~Persistence mirrors strengthenStore: zustand
+ * + manual, version-keyed sessionStorage, keyed per scenario id.~~ The shape
+ * still mirrors strengthenStore — zustand + manual, version-keyed, keyed per
+ * scenario id — but the STORE does not, because the two hold different kinds of
+ * thing.
+ *
+ * `sessionStorage` is cleared when the tab closes. A decision record whose
+ * whole purpose is to be read back on a LATER visit — "what did we decide, and
+ * what were we watching for?" — cannot live in a store that empties between
+ * visits. The guest half of the honesty split above ("everything stays local")
+ * was, under sessionStorage, closer to "everything is discarded": the surface
+ * offered to record a decision and then dropped it at the end of the session,
+ * which is a worse failure than refusing to record one.
+ *
+ * ⚠ THE SCOPE CLAIM CHANGES WITH IT, AND SO DOES THE COPY. Under sessionStorage
+ * the honest sentence was "this ends with the browser session"; under
+ * localStorage it is "on this device" — and it must be exactly that, never
+ * "saved" without qualification. `localStorage` is per browser profile: it does
+ * not follow the user to another machine, another browser, or a private window,
+ * and there is STILL no read/list endpoint on CEE, so the durable half written
+ * by `attachRemote` cannot be read back either. Cross-device read-back does not
+ * exist and no surface may imply it does.
+ *
+ * ⚠ THE SIBLING STORES ARE UNCHANGED. `successMeasureStore` stays on
+ * sessionStorage; this file is not a template for it, and `scenarioKey.ts`'s
+ * header records the divergence so the shared helper does not read as a claim
+ * about both.
  *
  * ⚠ `analysisHash` IS NOT THE DURABLE RECORD'S ANCHOR AND MUST NEVER BE SENT
  * AS ONE. It is `results.hash`, annotated `// response_hash` in the canvas
@@ -98,7 +124,7 @@ export interface DecisionRecordState {
   attachRemote: (scenarioKey: string, remote: DecisionRecordRemote) => void
   /** Test/reset seam — clears memory AND storage. */
   _reset: () => void
-  /** Test seam — re-reads sessionStorage (simulates a reload). */
+  /** Test seam — re-reads localStorage (simulates a reload, or a new tab). */
   _rehydrateForTests: () => void
 }
 
@@ -106,7 +132,7 @@ const STORAGE_KEY = 'decisionRecord.v1'
 
 function loadPersisted(): Pick<DecisionRecordState, 'byScenario'> {
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return { byScenario: {} }
     const parsed = JSON.parse(raw)
     if (parsed?.version !== 1) return { byScenario: {} }
@@ -118,9 +144,10 @@ function loadPersisted(): Pick<DecisionRecordState, 'byScenario'> {
 
 function persist(byScenario: Record<string, DecisionRecord>): void {
   try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, byScenario }))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, byScenario }))
   } catch {
-    // sessionStorage unavailable — the record degrades to in-memory only.
+    // localStorage unavailable (private mode, quota, blocked site data) —
+    // the record degrades to in-memory only rather than throwing at the user.
   }
 }
 
@@ -147,7 +174,7 @@ export const useDecisionRecordStore = create<DecisionRecordState>((set, get) => 
 
   _reset: () => {
     try {
-      sessionStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(STORAGE_KEY)
     } catch {
       /* ignore */
     }

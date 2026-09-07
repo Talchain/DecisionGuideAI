@@ -49,7 +49,7 @@ import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import { attentionNoteForRecommendation } from '../strengthen/recommendationAttention'
-import { openDecisionRecord } from '../modals'
+import { openDecisionRecord, useDecisionRecordForScenario } from '../modals'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
@@ -67,6 +67,7 @@ import { WhatIWasGivenSection } from '../contextIntegrity/WhatIWasGivenSection'
 import { ModelStrip } from './sections/ModelStrip'
 import { AtAGlance } from './sections/AtAGlance'
 import { ModelHeldUp } from './sections/ModelHeldUp'
+import { DecisionRecorded } from './sections/DecisionRecorded'
 import { WhatWeChecked } from './sections/WhatWeChecked'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { ModelImplication } from './sections/ModelImplication'
@@ -503,6 +504,16 @@ export function AnalysisNewTabBody({
    */
   const nodes = useCanvasStore((state) => state.nodes)
   /**
+   * ⚠ THE SCENARIO ID IS SUBSCRIBED TO, NOT READ ONCE. A record captured in
+   * the modal must appear in the section below WITHOUT a tab switch, and a
+   * scenario change must swap the record with it — `useDecisionRecordForScenario`
+   * is the store's own reactive hook and both stores re-render this component.
+   * Reading `getState()` here would render a record from whichever scenario was
+   * current at mount, which is the read-back lying by one scenario.
+   */
+  const currentScenarioId = useCanvasStore((state) => state.currentScenarioId)
+  const decisionRecord = useDecisionRecordForScenario(currentScenarioId)
+  /**
    * ⚠⚠ "THE STRIP IS OFFERING THE CONTROL", NOT "THE MODEL HAS A GOAL" — and
    * the difference is a shipped regression, caught by independent review.
    *
@@ -758,12 +769,36 @@ export function AnalysisNewTabBody({
              the panel names the results that did not come back and then
              congratulates the reader on the model, in that order. */
           isProvisional={vm.status.isProvisional}
-          /* ⭐ THE REAL DECISION RECORD, not a chat prefill. `openDecisionRecord`
-             already exists and is what the Strengthen section's own succeeded
-             state commits through — routing this elsewhere would fork the one
-             act the product treats as committing. */
-          onRecord={openDecisionRecord}
+          /* ⚠⚠ `onRecord={openDecisionRecord}` STOOD HERE AND HAS MOVED DOWN.
+             The banner's predicate answers "did this model hold up?"; the act
+             answers "may I write down what we chose?" — and hanging the second
+             off the first made recording a decision reachable ONLY on a run
+             that held up, which is backwards (CLAUDE.md trap 21). The act is
+             now the section directly below, on its own gate. */
           testId="analysis-new-held-up"
+        />
+
+        {/* ── RECORD WHAT YOU DECIDED ───────────────────────────────────────
+            ⭐⭐ THE ACT, AND THE PANEL'S ONLY UNCONDITIONAL ONE. Every section
+            above reads the model. This is the one place the team writes down
+            what they will DO, and the one place a later session reads it back.
+
+            ⚠⚠ THE GATE IS `!isPreRun` AND NOTHING ELSE — see the component
+            header. `ModelHeldUp` above renders on almost no runs by design;
+            this renders on all of them, because the quality of a result has no
+            bearing on whether a team may record the choice they made from it.
+            A fragile or stale run is when the reasoning is most worth keeping.
+
+            ⚠ THE RECORD IS SCENARIO-KEYED, NOT RUN-KEYED.
+            `useDecisionRecordForScenario` resolves `currentScenarioId` through
+            `resolveScenarioKey`, so it survives re-runs and returns to the same
+            scenario — which is the capability — and cannot distinguish the run
+            it was captured against. The section's copy is scoped accordingly. */}
+        <DecisionRecorded
+          isPreRun={vm.status.isPreRun}
+          record={decisionRecord}
+          onRecord={openDecisionRecord}
+          testId="analysis-new-decision-record"
         />
 
         {/* ── WHAT WOULD CHANGE YOUR MIND ──────────────────────────────────
