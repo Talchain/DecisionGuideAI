@@ -474,23 +474,102 @@ describe('DecisionNode — the readiness summary on the card', () => {
     expect(text).not.toContain('45')
   })
 
-  it('⛔ the summary is identical whether the producer licensed a leader claim or not', () => {
+  /**
+   * ⭐ THIS TEST REPLACES ONE THAT COULD NOT FAIL — review finding B1.
+   *
+   * It was named *"the summary is identical whether the producer licensed a
+   * leader claim or not"* and its second assertion was
+   * `composeReadinessSummary(readiness({…})) === composeReadinessSummary(readiness({…}))`
+   * — the same pure function on the same literal arguments. `f(x) === f(x)`
+   * cannot fail for any deterministic implementation, and the composer takes
+   * only a `ModelReadiness`, so it could not read a report even if it wanted
+   * to. The report never varied; the claim in the name was never measured.
+   *
+   * ⚠⚠ AND THE NAMED CLAIM IS NOT BINDABLE ON THE CARD AT ALL — measured, not
+   * argued. A mutant appending a marker to the summary WHENEVER the licensing
+   * field is present (`report.robustness.near_tie`) left all 58 tests in these
+   * two files GREEN. It has to: the licensing field is exactly what makes
+   * `headline` truthy, `bodyHasContent` truthy, and the whole `bodyFallback` —
+   * the summary with it — absent. So the licensed arm has NO summary to
+   * compare, and no card-level assertion can ever hold the two side by side.
+   * That is why the original fell back to the composer and produced a
+   * tautology: it was reaching for a comparison the surface cannot make.
+   *
+   * ⛔ THE LICENSED ARM IS NOT LEFT UNMEASURED — it is measured in §3 above
+   * (*"a card that already has content does not get a summary bolted
+   * underneath"*), which mounts `PERMITTED_REPORT`, pins the precondition that
+   * the leader sentence really is on screen, and asserts the summary is null.
+   * The question is answered there. It is not retired; it is moved to the
+   * section that can actually ask it.
+   *
+   * What IS true, bindable, and is what §4 exists to hold: the summary's every
+   * input is a property of the GRAPH, so it does not read the report. This
+   * varies the report materially — different win probabilities, a different
+   * recommended option, stability present in one arm and absent in the other —
+   * while holding the graph fixed, and asserts the line is byte-identical.
+   */
+  it('⛔ the summary reads no report: materially different runs, byte-identical line', () => {
     const factors = [explicitFactor('f1'), inferredFactor('f2'), missingFactor('f3')]
     const expected = composeReadinessSummary(
       readiness({ explicitCount: 1, inferredCount: 1, missingCount: 1 }),
     )
 
-    // Withheld: the card shows it.
+    /**
+     * The SECOND run. Every analysis-owned field differs from `WITHHELD_REPORT`
+     * — and `near_tie` is absent from BOTH, which is what keeps the summary
+     * observable in both arms rather than suppressed in one.
+     */
+    const OTHER_WITHHELD_REPORT = {
+      option_probabilities: {
+        'option-1': { win_probability: 0.09 },
+        'option-2': { win_probability: 0.91 },
+      },
+      robustness: { recommended_option_id: 'option-2' },
+    }
+
+    // ── PRECONDITIONS, PINNED IN-TEST ────────────────────────────────────────
+    // A guard whose discrimination depends on a fixture that nothing pins is a
+    // guard agreeing with itself: if these two reports silently became equal,
+    // or if either grew a leader claim, the comparison below would still pass
+    // while measuring nothing. Both hazards are asserted away here.
+    expect(OTHER_WITHHELD_REPORT).not.toEqual(WITHHELD_REPORT)
+    expect(OTHER_WITHHELD_REPORT.robustness.recommended_option_id).not.toBe(
+      WITHHELD_REPORT.robustness.recommended_option_id,
+    )
+    expect(OTHER_WITHHELD_REPORT.option_probabilities['option-1'].win_probability).not.toBe(
+      WITHHELD_REPORT.option_probabilities['option-1'].win_probability,
+    )
+    // Both arms are in the WITHHELD class — the only class where the fallback,
+    // and therefore the summary, renders at all.
+    expect('near_tie' in WITHHELD_REPORT.robustness).toBe(false)
+    expect('near_tie' in OTHER_WITHHELD_REPORT.robustness).toBe(false)
+    // And the two arms really do differ on whether stability is reported.
+    expect(WITHHELD_REPORT.robustness.recommendation_stability).toBeDefined()
+    expect(
+      (OTHER_WITHHELD_REPORT.robustness as Record<string, unknown>).recommendation_stability,
+    ).toBeUndefined()
+
+    // ── ARM A ────────────────────────────────────────────────────────────────
     mountCompletedRun(factors)
-    expect(screen.getByTestId(SUMMARY).textContent).toBe(expected)
+    const armA = screen.getByTestId(SUMMARY).textContent
+    expect(armA).toBe(expected)
     cleanup()
 
-    // The counts are a function of the GRAPH alone, so swapping the report for
-    // one that DOES license a leader cannot change them — asserted on the
-    // composer, since the card correctly stops rendering the fallback there.
-    expect(
-      composeReadinessSummary(readiness({ explicitCount: 1, inferredCount: 1, missingCount: 1 })),
-    ).toBe(expected)
+    // ── ARM B — same graph, a materially different run ───────────────────────
+    setStore({
+      nodes: [decisionNode, ...optionNodes, ...factors],
+      edges: optionEdges,
+      results: { status: 'complete', report: OTHER_WITHHELD_REPORT },
+      viewMode: 'standard',
+    })
+    renderDecision()
+    // The summary really did render in this arm too — without this the arms
+    // could "agree" by both being absent.
+    const armB = screen.getByTestId(SUMMARY).textContent
+    expect(armB).toBe(expected)
+
+    // The line is a function of the graph, which did not move.
+    expect(armB).toBe(armA)
   })
 
   // ── §5 THE HONESTY GUARD, CROSS-CHECKED ──────────────────────────────────

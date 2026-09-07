@@ -409,6 +409,13 @@ describe('DecisionNode — honest resting state', () => {
         viewMode: 'standard',
       })
       renderDecision()
+      // ⭐ THE CASE PINS ITS OWN PRECONDITION (review finding R1). The shared
+      // body below only asserts the subtree is non-empty and honest — and the
+      // wayfinding line alone satisfies both. If the summary stopped rendering
+      // in this fixture the case would stay GREEN while certifying the guard
+      // over a line it never saw, which is the exact hazard this case was added
+      // to close. `getByTestId` throws when absent, so the case now fails loud.
+      expect(screen.getByTestId('decision-node-readiness-summary')).toBeDefined()
     }],
   ]
 
