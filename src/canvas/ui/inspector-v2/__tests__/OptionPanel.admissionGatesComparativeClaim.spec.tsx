@@ -52,7 +52,7 @@ const RIVAL_LABEL = 'Full switch'
 // draft matched 'came out ahead across scenarios' — the chart LABEL — which the
 // panel never renders, so the withheld arm passed against a string that could
 // not appear. Bound to the shape the panel actually authors.
-const AHEAD_CLAIM = /came out ahead in .+ of simulated scenarios/i
+const AHEAD_CLAIM = /supported in .+ of simulated scenarios/i
 const BEHIND_CLAIM = /behind .* by \d+pp|within \d+pp of the leading option/i
 
 function optionNode(id: string, label: string) {

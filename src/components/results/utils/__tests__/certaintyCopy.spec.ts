@@ -52,7 +52,7 @@ const WINNER = 'Option A'
  *
  * `buildCertaintyCopy` therefore emits exactly one form of this sentence.
  */
-const AHEAD = `${WINNER} came out ahead most often across simulated scenarios`
+const AHEAD = `${WINNER} supported in more simulated scenarios than any other option`
 
 // SINGLE VERDICT helpers — the shape `deriveDecisionVerdict` returns. Built by
 // hand here ONLY because this is a unit spec of the copy function; the

@@ -359,7 +359,7 @@ describe('a factor edit whose turn is ABORTED must not vanish in silence', () =>
    *
    * It is also, on the deployed evidence, not the lever: staging `9308a30c`
    * dirtied freshness at the edit exactly as designed and STILL rendered
-   * "Came out ahead in 92% of simulated scenarios — Leads via Migration
+   * "Supported in 92% of simulated scenarios — Leads via Migration
    * investment, its biggest lever". So the fix adds no `markAnalysisFreshnessDirty`
    * call: it would be a no-op dressed as a remedy. The sentence is the remedy.
    */
