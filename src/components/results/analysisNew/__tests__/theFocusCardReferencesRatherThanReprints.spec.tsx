@@ -162,8 +162,42 @@ describe.each([
       'the detector did not fire on the row’s own text — it is not discriminating here',
     ).not.toEqual([])
 
-    // THE RULING, HALF ONE — it does not reprint the finding.
-    expect(reprintedChunks(textChunks(glance), rowWhy)).toEqual([])
+    // ⚠⚠ THE RULING IS SCOPED BY PROVENANCE, AND IT WAS NOT WHEN FIRST WRITTEN.
+    // An independent seat MEASURED the cost of applying it to every kind, on
+    // the top-priority recommendation, before anything is opened:
+    //
+    //   staging    ["Define success", "No measurable success target is set."]
+    //   unscoped   ["Define what success looks like", "Define success"]
+    //
+    // The card lost its only informative line and gained a near-restatement of
+    // its own header. On the CATALOGUE recommendations `action.label` is
+    // specific copy and the sentence IS the card's information; on PHASE-3
+    // findings the label is `item.actionLabel ?? 'Work through with Olumi'`,
+    // so the header was boilerplate above a body repeating the row. One name,
+    // two situations — the swap is right for one and wrong for the other.
+    const isProducerFinding = promotedId!.startsWith('strengthen:phase3:')
+    const second = within(glance)
+      .getByTestId('analysis-new-glance-primary-action')
+      .textContent?.trim()
+
+    if (isProducerFinding) {
+      // THE RULING, HALF ONE — on a producer finding it does not reprint.
+      expect(reprintedChunks(textChunks(glance), rowWhy)).toEqual([])
+    } else {
+      // THE REGRESSION PIN — on a catalogue recommendation the sentence is the
+      // card's information and MUST survive, and the second line must not be a
+      // restatement of the header. Asserted as an identity against the row's
+      // own paragraph, never as a literal.
+      expect(
+        second,
+        'the catalogue card must still carry the finding’s sentence',
+      ).toBeTruthy()
+      expect(rowWhy.includes(second!)).toBe(true)
+      const header = within(glance)
+        .getByTestId('analysis-new-glance-primary-title')
+        .textContent?.trim()
+      expect(second).not.toBe(header)
+    }
 
     // THE RULING, HALF TWO — and it DOES name it. Without this, a card
     // reverted to showing only the generic action label would satisfy half one
@@ -180,7 +214,14 @@ describe.each([
       .getByTestId('analysis-new-strengthen-title')
       .textContent?.trim()
     expect(rowTitle, 'the row has no title — this pair would be vacuous').toBeTruthy()
-    expect(glanceTitle).toBe(rowTitle)
+    if (isProducerFinding) {
+      expect(glanceTitle).toBe(rowTitle)
+    } else {
+      // On the catalogue path the header is the ACTION, deliberately — that is
+      // what staging shipped and what the seat measured as the better card.
+      expect(glanceTitle).not.toBe(rowTitle)
+      expect(glanceTitle).toBeTruthy()
+    }
   })
 
   it('every disagreement affordance survives on the promoted row', () => {

@@ -168,6 +168,22 @@ export interface AtAGlanceProps {
      * own triggers. Carried so the primary card can name a technique when the
      * producer's code names one — see `recommendationMethod.ts`. */
     signalCode?: string
+    /**
+     * ⚠ RESTORED, AND ONLY THE CATALOGUE PATH MAY RENDER IT. Removing this
+     * outright made the card strictly LESS informative on the catalogue
+     * recommendations, measured on the top-priority one:
+     *
+     *   staging     ["Define success", "No measurable success target is set."]
+     *   unscoped    ["Define what success looks like", "Define success"]
+     *
+     * — the only informative line replaced by a near-restatement of the header.
+     * On the catalogue, `action.label` is SPECIFIC copy and the sentence IS the
+     * information; on phase-3 findings `action.label` is
+     * `item.actionLabel ?? 'Work through with Olumi'`, so the header was
+     * boilerplate above a body repeating the row. Two different situations
+     * under one name — the swap is right for one and wrong for the other.
+     */
+    signal?: string
   } | null
   onRunIntervention?: (recommendationId: string) => void
   /** The displayed run predates the current model. Reframes the answer. */
@@ -884,7 +900,11 @@ export function AtAGlance({
       ) : null}
 
       {/* ── WHAT TO THINK ABOUT NEXT ───────────────────────────────────────── */}
-      {primaryIntervention && onRunIntervention ? (
+      {primaryIntervention && onRunIntervention ? (() => {
+        // PHASE-3 producer findings vs the UI's own catalogue. The id prefix is
+        // minted in one place and is identity, not similarity.
+        const isProducerFinding = primaryIntervention.id.startsWith('strengthen:phase3:')
+        return (
         <button
           type="button"
           onClick={() => onRunIntervention(primaryIntervention.id)}
@@ -894,11 +914,17 @@ export function AtAGlance({
         >
           <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0 text-info" aria-hidden="true" />
           <span className="min-w-0 flex-1">
+            {/* ⭐ GATED ON PROVENANCE, NOT ON SIMILARITY. A text comparison
+                between the header and the action would fire on whatever
+                happened to look alike; the id says which KIND of
+                recommendation this is, which is the actual discriminator.
+                `strengthen:phase3:` is minted in exactly one place
+                (`buildRecommendations.ts:348`). */}
             <span
               className={`${typography.panelHeader} text-text-header block`}
               data-testid={`${testId}-primary-title`}
             >
-              {primaryIntervention.title}
+              {isProducerFinding ? primaryIntervention.title : primaryIntervention.label}
             </span>
             {/* ⭐ THE MOST PROMINENT COACHING CARD NAMES ITS TECHNIQUE. This is
                 the one move a reader meets without opening anything, so if any
@@ -943,18 +969,26 @@ export function AtAGlance({
                 Still conditional. `action.label` is `item.actionLabel ?? '…'`
                 and `??` passes an empty string through, so a producer sending
                 `""` would otherwise buy a blank muted line. */}
-            {primaryIntervention.label ? (
-              <span
-                className={`${typography.panelMeta} text-text-light block mt-0.5`}
-                data-testid={`${testId}-primary-action`}
-              >
-                {primaryIntervention.label}
-              </span>
-            ) : null}
+            {(() => {
+              // On a producer finding the header names the finding, so this
+              // names the ACTION. On a catalogue rec the header IS the action,
+              // so this carries the SENTENCE — which is that card's only
+              // information and what the unscoped version deleted.
+              const second = isProducerFinding ? primaryIntervention.label : primaryIntervention.signal
+              return second ? (
+                <span
+                  className={`${typography.panelMeta} text-text-light block mt-0.5`}
+                  data-testid={`${testId}-primary-action`}
+                >
+                  {second}
+                </span>
+              ) : null
+            })()}
           </span>
           <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0 text-text-light" aria-hidden="true" />
         </button>
-      ) : null}
+        )
+      })() : null}
     </section>
   )
 }

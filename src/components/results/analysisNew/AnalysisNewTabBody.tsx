@@ -751,6 +751,10 @@ export function AnalysisNewTabBody({
                      Guarded by `theFocusCardReferencesRatherThanReprints`. */
                   title: glancePrimary.title,
                   signalCode: glancePrimary.signalCode,
+                  /* ⚠ The CATALOGUE path renders this and the phase-3 path does
+                     not — see `AtAGlance`'s `signal` prop. Passed for both
+                     because the card, not the caller, owns which kind it is. */
+                  signal: glancePrimary.signal,
                 }
               : null
           }
