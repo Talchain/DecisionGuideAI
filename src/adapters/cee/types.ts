@@ -437,6 +437,36 @@ export interface UsableCEEAnalysisReady extends Omit<CEEAnalysisReady, 'status'>
   status?: Exclude<AnalysisReadyStatus, 'blocked'>
 }
 
+/**
+ * What the product may CLAIM from a run of this model, as CEE admitted it this
+ * turn. The four fields below are the contract owner's FROZEN shape.
+ *
+ * `permitted_analysis_mode` is monotonically increasing in what may be claimed:
+ *   none < exploratory < quantified_provisional < comparative_leader
+ * Only `comparative_leader` licenses naming a leading option, an ordinal, or a
+ * strength word ("Stable", "Robust").
+ */
+export type PermittedAnalysisMode =
+  | 'none'
+  | 'exploratory'
+  | 'quantified_provisional'
+  | 'comparative_leader'
+
+export interface AnalysisAdmissionReason {
+  /** Which conjunct refused. Machine-readable; never user copy on its own. */
+  field: string
+  /** User-facing sentence. By contract `reasons` is NEVER empty on a refusal. */
+  message: string
+}
+
+export interface AnalysisAdmissionV1 {
+  permitted_analysis_mode: PermittedAnalysisMode
+  reasons: AnalysisAdmissionReason[]
+  /** The same object as `may_run` on the producer, so they cannot drift. */
+  structurally_analysable?: boolean
+  missing_important_inputs?: Array<{ id?: string; message: string; why_it_matters?: string }>
+}
+
 export interface CEEAnalysisReady {
   /** Options with resolved interventions */
   options: CEEOptionV3[]
@@ -464,6 +494,30 @@ export interface CEEAnalysisReady {
    * `ANALYSIS_REFUSAL_REASON_COPY` maps to sentences. NEVER user copy on its own.
    */
   blocked_reason?: string
+  /**
+   * CEE's admission of what may be CLAIMED from a run of this model — a
+   * different question from whether the run may PROCEED.
+   *
+   * ⚠ NOT A RESTATEMENT OF `may_run`, AND NOT A SECOND RUN GATE.
+   * `may_run` answers *"will the engine proceed if asked?"*. This answers
+   * *"given how this model was AUTHORED, what may the product CLAIM from a run
+   * of it?"* Strong separation between two machine-invented estimates is a
+   * perfectly good run and still not a licence to say "Robust".
+   * `structurally_analysable` IS LITERALLY THE SAME OBJECT as `may_run` on the
+   * producer, so they cannot drift — which is exactly why the Run affordance
+   * must keep gating on `may_run` and never on this field.
+   *
+   * ABSENT means a pre-admission CEE, never "no". Consumers must fall back to
+   * their existing behaviour when it is missing, so the two services can deploy
+   * in either order — the same doctrine as `may_run` above, and the reason this
+   * consumer is safe to land before the CEE half.
+   *
+   * ⚠ `graph_hash` and `semantic_signals` are DELIBERATELY NOT TYPED HERE. The
+   * contract owner froze the four fields below and explicitly did not freeze
+   * those two (`graph_hash` is currently null on every payload). Typing them
+   * would invite a consumer the contract does not yet support.
+   */
+  analysis_admission?: AnalysisAdmissionV1
   /**
    * CEE's OWN admission answer for this turn — will the analysis proceed if
    * asked, right now? (cee `src/orchestrator/types.ts`,

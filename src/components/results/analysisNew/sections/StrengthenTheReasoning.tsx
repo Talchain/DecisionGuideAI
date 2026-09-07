@@ -327,6 +327,10 @@ export function StrengthenTheReasoning({
       label: rec.action.label,
       ...(rec.targetId ? { targetId: rec.targetId } : {}),
       ...(rec.action.parameters ? { parameters: rec.action.parameters } : {}),
+      // The finding travels with the user, exactly as the focus route below
+      // (`:727`) already sends it. Without this the SAME recommendation reaches
+      // the canvas explained through one door and bare through the other.
+      attentionNote: attentionNoteForRecommendation(rec),
     })
   }, [showToast])
 
@@ -578,6 +582,35 @@ export function StrengthenTheReasoning({
                     They are also the same KIND of thing: how urgent this is, and
                     what licenses it. Reading them as a pair beneath the title is
                     what they are. */}
+                {/* ⚠⚠ THE MARK IS NODE KIND. THE SEVERITY CHIP BELOW IS SEVERITY.
+                    THEY ARE NOT A DUPLICATE PAIR, AND THEY HAVE BEEN READ AS ONE.
+
+                    An audit read this mark as a severity mark that the chip
+                    beneath it duplicated, and proposed deleting the chip. That
+                    would have removed the card's ONLY severity signal. The two
+                    answer different questions, from different sources:
+
+                      mark ← markKindForTarget(rec.targetId) — WHICH KIND OF NODE
+                             this finding is about, resolved off the canvas and
+                             drawn in the canvas's own shape/colour vocabulary.
+                      chip ← rec.category — HOW URGENT the producer said it is.
+
+                    Neither is derivable from the other, and both absences are
+                    normal: a finding with no target (or an EDGE target) has no
+                    mark, and a finding the producer never categorised has no
+                    chip. #995, which introduced the mark, says it carries "no
+                    state, no severity" in as many words.
+
+                    ⚠ AND THE FILL IS NOT WHERE SEVERITY GOES. The mark is always
+                    filled deliberately. `buildModelStrip.ts` re-adjudicated that
+                    axis at this tip: the fill is reserved for PROVENANCE and
+                    refused until it can be right for EVERY node in a row.
+                    Severity is a property of the RECOMMENDATION, while this
+                    shape denotes a NODE on every other surface that draws it —
+                    tinting it by severity would make one vocabulary mean two
+                    things, which `nodeMarks.tsx` calls worse than no shape.
+
+                    Both moves RED in `StrengthenSeveritySignals.spec.tsx`. */}
                 <p className={`${typography.panelHeader} text-text-header m-0 flex items-baseline gap-2`}>
                   {markKind ? <NodeMark kind={markKind} className="w-3 h-3 self-center" /> : null}
                   <span className="min-w-0">{rec.title}</span>
@@ -632,6 +665,10 @@ export function StrengthenTheReasoning({
                             ...(method.intent ? { intent: method.intent } : {}),
                             source: 'chip',
                             ...(rec.targetId ? { targetId: rec.targetId } : {}),
+                            // Same reason as the ask route above: the context
+                            // IS the finding, so the finding should still be
+                            // the finding when the user reaches the element.
+                            attentionNote: attentionNoteForRecommendation(rec),
                           })
                         }
                         className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
@@ -653,7 +690,16 @@ export function StrengthenTheReasoning({
                     ) : null}
                     {grounding ? (
                       <span
-                        className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-info`}
+                        /* ⚠ NEUTRAL, AND THE CHIP TEN LINES ABOVE IS WHY. That
+                           one is a `<button>`; this is a `<span>`. Both were
+                           `rounded-full bg-info/10 text-info` at `panelMeta`,
+                           so at REST they were pixel-identical — the only
+                           difference was `hover:bg-info/20`, which does not
+                           exist on touch and is invisible until you have
+                           already guessed. Provenance is metadata, not an
+                           action: it keeps the pill SHAPE (still a chip) and
+                           gives up the action COLOUR. */
+                        className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full bg-panel-hover px-2 py-0.5 text-text-light`}
                         data-testid={`${testId}-science-grounding`}
                         data-dsk-claim-id={grounding.claimId}
                         {...(grounding.protocolId
@@ -687,7 +733,12 @@ export function StrengthenTheReasoning({
                     className={`${typography.panelBody} text-text-light mt-1 mb-0`}
                     data-testid={`${testId}-try`}
                   >
-                    <span className="text-info">{STRENGTHEN_COPY.tryThisLead}</span>{' '}
+                    {/* ⚠ NOT `text-info`. This is a lead-in LABEL inside a paragraph, and
+                        it was the link colour — so the panel used one colour for
+                        "press me" and for "read me", four lines above a button
+                        that genuinely is pressable. Emphasis now comes from the
+                        header colour, which is already on the panel's palette. */}
+                    <span className="text-text-header">{STRENGTHEN_COPY.tryThisLead}</span>{' '}
                     {rec.tryThis}
                   </p>
                 ) : null}

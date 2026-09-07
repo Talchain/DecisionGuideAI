@@ -666,6 +666,109 @@
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Read-only Inspector — make the inertness VISIBLE, not just real.
+
+   `InspectorRouter` wraps every panel in `<fieldset disabled
+   data-authority="disabled">`, which genuinely inerts the controls inside: an
+   input there matches `:disabled`, takes no focus and accepts no typing. That
+   part works.
+
+   ⚠ WHAT DID NOT WORK WAS SAYING SO. Measured on deployed staging: the inert
+   value input and a live input elsewhere on the same screen rendered with
+   IDENTICAL opacity (1), IDENTICAL text colour and IDENTICAL border colour.
+   The only difference the browser gave the user was `cursor: default` versus
+   `cursor: text` — invisible until hover, and absent entirely on touch. So a
+   field captioned "Enter value", drawn exactly like every field that works,
+   silently swallowed clicks. The panel's read-only notice sits at the TOP of
+   the panel; the control at the point of failure said nothing.
+
+   That is the same shape as the defects this canvas keeps paying for: the
+   product is technically honest and reads as broken.
+
+   ⭐ KEYED ON THE FIELDSET, NOT LISTED PER CONTROL. One rule derived from the
+   authority boundary, selecting via `:disabled` — the browser's own answer to
+   "is this inert", not a second opinion. So it covers the controls there today
+   and the ones added later, without a hand-maintained list of `disabled:`
+   classes to drift (CLAUDE.md trap 12).
+
+   ⚠ "EVERY CONTROL INSIDE IT" IS WHAT THIS COMMENT USED TO SAY, AND IT IS
+   FALSE. `<fieldset disabled>` inerts FORM-ASSOCIATED descendants only —
+   `useInspectorMutations.ts` records exactly that, and
+   `inspectorAuthorityBinding.spec.tsx` pins the one control it does not reach:
+   the Context prompt, a `<div role="button" tabindex="0">`. Reproduced: three
+   controls fade, that one does not.
+
+   ⭐ AND IT MUST NOT BE FADED — but NOT for the reason I first gave, which was
+   itself an over-claim in the same family as the one above.
+
+   I wrote that the div "opens a prompt and works". A review traced it: the
+   prompt toggles the panel into edit mode, and what that reveals is a
+   `<textarea>` INSIDE THE SAME DISABLED FIELDSET. The div is not inerted, so it
+   responds to a click — and then the thing it opens accepts no typing. "It
+   works" is false in the half that matters.
+
+   The scope of this rule is still correct as written, for the narrower reason:
+   `:disabled` is the browser's own answer to "is this inert", and that div is
+   NOT inert. Fading a control the user can still activate would say "dead"
+   about something that responds — the same lie as this rule's original defect,
+   pointed the other way. Whether the interaction behind it should exist at all
+   is a different question from whether THIS rule should paint it, and painting
+   it would not fix the dead end; it would only hide the entrance to one.
+
+   ⚠ SO THE DEAD END IS A SEPARATE, REAL DEFECT, not fixed here: a read-only
+   panel offers an affordance that opens an editor nobody can type into. It is
+   carried as CANVAS-BACKLOG.md row E3 — replace this blanket fieldset with a
+   per-field boundary, carrying forward its recorded scope limit (it inerts
+   form-associated controls only, never a [role=button] div). Cited by row id
+   rather than asserted as "is rowed", because a bookkeeping claim no reader can
+   check is the same dead end one level up. Recorded rather than absorbed, because a comment that says "and works"
+   is exactly how the next reader stops looking — which is the failure this
+   whole block exists to document.
+
+   `contents` on the fieldset means it has no box of its own, so this styles
+   descendants and never the wrapper. */
+[data-authority="disabled"] :disabled {
+  /* ⛔ NO `opacity` HERE, DELIBERATELY — it was `0.55` and it faded THE MODEL'S
+     OWN CONTENT, not just the affordance. Every panel renders the node's
+     description in a `<textarea>` inside this fieldset
+     (`FactorControllablePanel.tsx:404`, `OptionPanel.tsx:288`,
+     `GoalPanel.tsx:344`), so the rule took that text from 10.5:1 to 3.0:1 —
+     below WCAG 2.2 AA 1.4.3's 4.5:1 minimum. **Read-only should still be
+     readable.**
+
+     ⚠ AND IT CANNOT BE FIXED BY EXEMPTING THE TEXT. `opacity` creates a
+     stacking context and composites the whole subtree; a child cannot exceed
+     its parent's opacity, so there is no "full-strength value inside a faded
+     field". The channel had to move, not the number — and tuning `0.55`
+     upward would only have traded one unmeasured ratio for another.
+
+     Inertness is now signalled on channels that carry NO information: the
+     cursor, the border and the surface. Full-strength text means the contrast
+     is by construction identical to the enabled state, so this rule cannot put
+     any field below AA regardless of theme — which a tuned opacity could not
+     promise. The placeholder keeps its own fade below: it IS an invitation, so
+     it is the one part that should read as withdrawn. */
+  cursor: not-allowed;
+  /* ⚠ THE FALLBACKS ARE LOAD-BEARING, NOT BELT-AND-BRACES. An unsupported or
+     malformed `color-mix()` is dropped as an INVALID DECLARATION — silently,
+     per CSS error handling — and with no fallback the field would revert to
+     looking exactly like an editable one. That is the defect this rule exists
+     to close, reappearing through its own remedy with nothing to notice it.
+     A plain value first, the richer one second: the cascade takes the later
+     declaration only if it parses. */
+  border-color: rgba(0, 0, 0, 0.22);
+  border-color: color-mix(in srgb, currentColor 22%, transparent);
+  background-color: rgba(0, 0, 0, 0.05);
+  background-color: color-mix(in srgb, currentColor 5%, transparent);
+}
+
+/* The placeholder is the part that most reads as an invitation ("Enter
+   value"), so it fades furthest — the field still shows any value it holds. */
+[data-authority="disabled"] :disabled::placeholder {
+  opacity: 0.7;
+}
+
 /* Streaming cursor — injected via dangerouslySetInnerHTML in MessageBubble */
 .streaming-cursor {
   display: inline;

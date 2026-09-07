@@ -13,6 +13,7 @@ import { setCurrentScenarioId } from '../store/scenarios'
 // is neither `useAuth()` nor a canvas-store field.
 import { isPersistenceSessionActive } from '../../lib/persistenceSession'
 import { useDraftStore, streamedPreviewStandingFor } from '../stores/draftStore'
+import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 import { generateGraphHash } from '../utils/graphHash'
 // `OrchestratorError` is KEPT: `buildErrorMessage` below still discriminates on it,
 // and `./turnService` still exports it. `callOrchestratorTurn` / `streamOrchestratorTurn`
@@ -4823,6 +4824,46 @@ export function useConversation(): UseConversationReturn {
               // identical.
               applyDraftResult(inlineGraph as any, { skipHistory: streamedPreviewOwnsCanvas })
               draftAppliedThisTurn = true
+              // ── The user's brief, recorded for the decision it just drafted ──
+              //
+              // `contextIntegrityStore` is otherwise written only by the cold
+              // read, which answers `absent` for a scenario this fresh — so the
+              // anchor node and "What you gave me" showed nothing for the whole
+              // first session (deployed `127bdee7`, 6 Sep 2026: brief typed,
+              // model drafted and analysed, decision node still "Question" until
+              // a reload).
+              //
+              // ⚠ THIS IS ONE OF THREE `applyDraftResult` SITES IN `sendTurn`, and
+              // the record is written at THIS one only — measured, not assumed:
+              //  · `runStreamedDraftTurn`'s GRAPH_READY preview applies EARLIER
+              //    (streamed path only; no readiness, no record), so during the
+              //    `settling` phase the card shows no brief until this terminal
+              //    apply resolves the preview — which it does, because
+              //    `canvasIsEmpty` counts a standing preview as empty;
+              //  · the DB re-fetch fallback below (`row.graph`; signed-in sessions
+              //    only, either transport) applies a graph and writes NO record —
+              //    a draft that lands only that way carries no brief until the
+              //    cold read.
+              // So: the terminal inline graph of BOTH transports resolves here,
+              // and `scenarioIdAtDispatch` is the id the response was fenced
+              // against a moment ago.
+              //
+              // `message` is the text that went on the wire; on the deployed
+              // build the cold read returned exactly that text as `brief_text`
+              // after a reload. `displayText` is a chip's label, not what CEE
+              // received, so it is not used. Hidden and system turns carry text
+              // the user did not write and record nothing: attributing machine
+              // text to the user under "What you gave me" would be a new lie.
+              // The store refuses to overwrite a record that already exists for
+              // this scenario, so a cold-read copy (which carries the manifest)
+              // is never displaced. Pinned by
+              // `useConversation.freshDraftRecordsBrief.spec.tsx`.
+              if (mode === 'user' && !hidden && typeof scenarioIdAtDispatch === 'string') {
+                useContextIntegrityStore.getState().recordBriefForFreshDraft({
+                  scenarioId: scenarioIdAtDispatch,
+                  briefText: message,
+                })
+              }
               if (import.meta.env.DEV) {
                 console.log('[sendTurn V5] graph applied from inline response:', inlineNodeCount, 'nodes')
               }

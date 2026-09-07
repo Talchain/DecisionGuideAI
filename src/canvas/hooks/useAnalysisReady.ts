@@ -13,7 +13,7 @@
  */
 
 import { useCanvasStore } from '../store'
-import type { CEEOptionV3 } from '../../adapters/cee/types'
+import type { CEEOptionV3, AnalysisAdmissionV1 } from '../../adapters/cee/types'
 
 /**
  * Returns the wire-format `analysis_ready.status` string, or `'missing'`
@@ -76,6 +76,54 @@ export function admitsRunAffordance(
   mayRun: boolean | undefined,
 ): boolean {
   return analysisStatus === 'ready' || mayRun === true
+}
+
+/**
+ * CEE's admission of what may be CLAIMED from a run of this model.
+ *
+ * `undefined` is load-bearing and must NOT be collapsed to a refusal: it means a
+ * pre-admission CEE, and the consumer's job is then to behave exactly as it did
+ * before. That is what makes this consumer safe to land before the CEE half —
+ * the two services can deploy in either order.
+ *
+ * Distinct from a refusal BY TYPE, not by a sentinel value:
+ *   `undefined`                           -> the producer has not spoken
+ *   `{ permitted_analysis_mode: 'none' }` -> the producer refused, and `reasons`
+ *                                            is non-empty by contract
+ * They cannot collapse: one is `undefined`, the other an object.
+ */
+export function useAnalysisAdmission(): AnalysisAdmissionV1 | undefined {
+  return useCanvasStore((s) => s.ceeAnalysisReady?.analysis_admission)
+}
+
+/**
+ * Q1 OF TWO. **Does the MODEL license a comparative-leader claim at all?**
+ *
+ * A property of the GRAPH, decided before the run — given how this model was
+ * authored, may the product name a leader, an ordinal, or a strength word?
+ *
+ * NOT THE WHOLE ANSWER, AND NEVER TO BE USED ALONE. The second question — did
+ * THIS RESULT separate the arms? — is answered by `deriveDecisionVerdict`'s
+ * `hasLeadingOption`, and the two are conjoined AT THE POINT OF USE, on their
+ * own lines. Two questions under one name is the defect this estate has paid
+ * for twice; do not fold either into the other's default.
+ *
+ * AND THEIR ABSENCE ARMS ARE OPPOSITE, ON PURPOSE:
+ *   Q1 absent -> `true`  (the producer has not spoken, so nothing changes)
+ *   Q2 absent -> `false` (no result, so no claim may be authored)
+ * A shared default would silently blank the panel on every legacy payload, or
+ * license a claim on every one. Neither is acceptable.
+ *
+ * NOT A RUN GATE. `structurally_analysable` is literally the same object as
+ * `may_run` on the producer; the Run affordance keeps gating on `may_run` via
+ * {@link admitsRunAffordance}. Adding the mode there would refuse runs the
+ * engine would happily accept.
+ */
+export function licensesComparativeLeaderClaim(
+  admission: AnalysisAdmissionV1 | undefined | null,
+): boolean {
+  if (admission == null) return true
+  return admission.permitted_analysis_mode === 'comparative_leader'
 }
 
 /**

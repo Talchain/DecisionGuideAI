@@ -33,6 +33,29 @@ export function jsxSourceFilesIn(dir: string): string[] {
 }
 
 /**
+ * Every shipping `.ts` AND `.tsx` under `dir`, recursively — for scans that
+ * follow IMPORTS rather than JSX. `jsxSourceFilesIn` is deliberately `.tsx`-only
+ * (JSX cannot live in a `.ts`), but an import specifier certainly can: a barrel,
+ * a re-export or a hook file would be invisible to it. A reviewer found an
+ * importer-closure assertion whose TITLE claimed "nothing else imports these"
+ * while its walk covered one subtree of `.tsx` only — narrower than it read.
+ */
+export function sourceFilesIn(dir: string): string[] {
+  const out: string[] = []
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry)
+    if (statSync(full).isDirectory()) {
+      if (!EXCLUDED_DIR_NAMES.has(entry)) out.push(...sourceFilesIn(full))
+      continue
+    }
+    if (!/\.tsx?$/.test(entry)) continue
+    if (/\.(spec|test)\.tsx?$/.test(entry)) continue
+    out.push(full)
+  }
+  return out
+}
+
+/**
  * The text-entry tags. The negative lookahead (rather than `\b`) is deliberate:
  * it states the intent — `<input` must not be the prefix of a longer tag name —
  * and keeps this estate out of the `\b` habit that silently zeroes `git grep`.

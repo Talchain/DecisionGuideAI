@@ -43,6 +43,7 @@
  */
 
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
+import { leaderDesignationPermitted } from '../leaderDesignation'
 import type { FlipThreshold, OptionResult } from '../types'
 import { formatThreshold } from '../RangeVisualization'
 import { stripEncodingNotation } from '../utils/cleanFactorLabel'
@@ -276,7 +277,52 @@ export function buildHeroModel(
   // A caller supplying NO verdict is a legacy fixture, not a withheld run, so
   // it keeps byte-identical behaviour. The live path always supplies one
   // (`useResultsSectionData` derives it unconditionally).
-  const designationsWithheld = recommendation.verdict != null && !recommendation.verdict.hasLeadingOption
+  // READS THE COMPOSED ANSWER, NOT ONE CONJUNCT. `verdict.hasLeadingOption`
+  // answers only "did this result separate the arms"; designating a leader also
+  // requires the MODEL to license a comparative claim
+  // (`permitted_analysis_mode === 'comparative_leader'`). Reading the verdict
+  // here would name a leader on a model whose confidence-bearing numbers Olumi
+  // invented rather than the user stating.
+  //
+  // ⚠ THROUGH THE SHARED READER, NOT THE RAW FIELD. An earlier version of this
+  // line read `recommendation.leaderDesignationPermitted === false` directly and
+  // BROKE WITHHOLDING: the field is published by `useResultsSectionData`, so a
+  // recommendation that does not come through that hook has it `undefined`, and
+  // `undefined === false` is `false` — the hero stopped withholding and started
+  // naming a leader. 35 tests across 10 files went red, and the reader's own
+  // doc comment had already described this exact failure.
+  //
+  // The reader's `??` fallback is what preserves the historic behaviour: the
+  // composed answer when the hook produced one, else `verdict.hasLeadingOption`.
+  // `=== false` then keeps a caller with NO verdict at today's behaviour.
+  /*
+   * ⚠⚠ `!== true` AND VERDICT-GATED — NOT `=== false`. A truth table over
+   * `composed × verdict × hasLeadingOption` found the strict-equality form
+   * DIVERGING FROM THE PREDICATE IT REPLACED IN TWO REACHABLE CELLS, and one
+   * of them fails OPEN:
+   *
+   *   composed absent · verdict present · hasLeadingOption UNDEFINED
+   *     old: withhold      new: DO NOT WITHHOLD      ← a leader claim on a run
+   *                                                    where nothing licenses one
+   *   composed absent · verdict NULL
+   *     old: no claim      new: withhold             ← a withholding notice on a
+   *                                                    run that never happened
+   *
+   * The first is the same `undefined` this fix exists to handle: the composed
+   * field is absent for any recommendation that did not come through
+   * `useResultsSectionData`, and `undefined === false` is `false`, which stops
+   * the withholding. Replacing one `undefined ===` bug with its mirror is not
+   * a fix. `!== true` fails CLOSED — unknown withholds — and the `verdict`
+   * guard keeps "no run" meaning no claim in either direction rather than
+   * asserting one.
+   *
+   * The two cells where `=== false` looked wrong for `composed === true` are
+   * UNREACHABLE: `useResultsSectionData.ts:2243` computes
+   * `leaderDesignationPermitted = modelLicensesComparativeClaim && resultSeparatesArms`
+   * and `resultSeparatesArms IS verdict.hasLeadingOption`, so `composed === true`
+   * implies Q2 true. Named here so the next reader does not re-derive it.
+   */
+  const designationsWithheld = recommendation.verdict != null && leaderDesignationPermitted(recommendation) !== true
 
   // Present rows in the SHARED option display order (win probability when
   // complete, else expected — sortOptionsForDisplay) so hero numbering always
@@ -536,6 +582,22 @@ export function buildHeroModel(
   // do not yet supply a verdict (older fixtures), and is byte-identical to
   // what it did before.
   const sharedVerdict = recommendation.verdict ?? null
+  // ⚠ DO NOT ADD `!designationsWithheld` HERE. It looks like the obvious fix for
+  // the headline leak closed below, and it is WRONG — measured, not guessed.
+  //
+  // On EVERY producer-tie run `designationsWithheld` is ALREADY true:
+  // `deriveDecisionVerdict` returns `separation: 'tied'` with
+  // `hasLeadingOption: false`, `leaderDesignationPermitted` is a conjunction over
+  // that, so `:325` is true. Gating this predicate therefore does not NARROW the
+  // tie path, it DELETES it — `leaderBand` never reaches 'none', and the
+  // producer's own "No option is clearly ahead." becomes unreachable, degrading
+  // to "Here is how your options compare." That swaps a true sentence the product
+  // HAS earned for silence: a different harm, not a fix. It reddens
+  // `buildHeroModel.spec.ts`'s tied-verdict arm, which is the guard that caught
+  // it.
+  //
+  // The licence belongs on the leader-NAMING arms of the headline, not on the
+  // band resolution — see the gate at the headline assignment below.
   const sharedVerdictApplies =
     sharedVerdict != null &&
     headlineRow != null &&
@@ -733,8 +795,26 @@ export function buildHeroModel(
     // asserting it on a withheld turn would swap one unearned claim for
     // another. Same doctrine as `decisionVerdict`: 'unknown' licenses silence,
     // never a denial.
+    // ⭐ THE WITHHELD GATE, ON THE ARMS THAT NAME AN OPTION — NOT ON THE BAND.
+    //
+    // `leaderBand`'s three values are NOT equivalent and must not share one gate:
+    //   'strong' / 'ahead' NAME an option, so they need the model's licence;
+    //   'none' is the producer POSITIVELY saying the options are close, which a
+    //   withheld turn has not lost the right to report.
+    //
+    // Without this, a turn where the model admits the run but REFUSES a leader
+    // designation (`permitted_analysis_mode: 'quantified_provisional'`, so
+    // `leaderDesignationPermitted` is false) while the run still separated the
+    // options (`hasLeadingOption` true) reached `mostLikelyStrongest` and printed
+    // "<option> came out ahead in 78% of simulated scenarios." The crown was
+    // withheld, the ordinals suppressed and the leader ids nulled — and the
+    // largest sentence on the panel named a leader anyway.
+    //
+    // Withheld now falls to `noLeader`: SILENCE, not a denial. `noClearLeader`
+    // stays reserved for the producer's TIE call, because asserting "No option is
+    // clearly ahead" on a withheld turn would swap one unearned claim for another.
     headline =
-      leaderBand === 'strong'
+      leaderBand === 'strong' && !designationsWithheld
         ? HERO_COPY.headline.mostLikelyStrongest(
             safeLabel(headlineRow),
             // null, NOT the missing glyph: the sentence drops its magnitude
@@ -747,7 +827,7 @@ export function buildHeroModel(
             // shape every drift defect in this file has taken.
             headlineRow.comparativeReadout ?? null,
           )
-        : leaderBand === 'ahead'
+        : leaderBand === 'ahead' && !designationsWithheld
           ? HERO_COPY.headline.slightlyAhead(safeLabel(headlineRow))
           : leaderBand === 'none'
             ? HERO_COPY.headline.noClearLeader

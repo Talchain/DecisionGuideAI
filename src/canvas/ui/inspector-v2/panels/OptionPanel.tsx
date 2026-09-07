@@ -7,6 +7,7 @@
 import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { Sparkles } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
+import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../../../hooks/useAnalysisReady'
 import { parseDraftingNotes, composeDescription } from '../draftingNote'
 import type { NodeType, OptionNodeData } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
@@ -54,6 +55,25 @@ export const OptionPanel = memo(function OptionPanel({
   // SINGLE VERDICT: the shared "is there a leading option?" answer, derived
   // from the same PLoT report the canvas badge and results panel read.
   const resultsReport = useCanvasStore(s => s.results?.report)
+
+  /*
+   * ⭐ Q1 OF TWO, IMPORTED — NEVER RE-SPELLED HERE.
+   *
+   * A leader claim needs both: Q1 — does the MODEL license a comparative claim
+   * at all (`permitted_analysis_mode`)? — and Q2 — did THIS RESULT separate the
+   * arms (`verdict.hasLeadingOption`)? This panel consulted Q2 alone at both
+   * its comparative sites, so CEE could withhold the designation while the
+   * inspector still said "Came out ahead in 72% of simulated scenarios" and
+   * "Behind X by Npp". UI #1202 closed the same defect on the canvas nodes;
+   * the inspector was outside its diff.
+   *
+   * ⚠ CONJOINED AT THE POINT OF USE, ON THEIR OWN LINES, because their ABSENCE
+   * ARMS ARE OPPOSITE: Q1 absent -> `true` (an older producer has not spoken,
+   * so nothing changes), Q2 absent -> `false` (no result, so no claim may be
+   * authored). Folding either into the other's default would silence every
+   * legacy payload or license every one — `useAnalysisReady.ts:110-116`.
+   */
+  const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(useAnalysisAdmission())
 
   const verdict = useMemo(
     () => deriveDecisionVerdict(resultsReport as DecisionVerdictReportLike | null | undefined, {
@@ -474,6 +494,7 @@ export const OptionPanel = memo(function OptionPanel({
                   // so it could assert a leader in the same session where the
                   // results panel said "no clear leading option".
                   if (verdict.hasLeadingOption === false) return null
+                  if (!modelLicensesComparativeClaim) return null
                   return (
                     <p className={`${typography.panelBody} text-success mt-1`}>
                       {COMPARATIVE_COPY.sentence(myReadout)}
@@ -488,6 +509,7 @@ export const OptionPanel = memo(function OptionPanel({
                 // claim the branch above had just declined to make. Same gate,
                 // same silent-omission convention.
                 if (verdict.hasLeadingOption === false) return null
+                if (!modelLicensesComparativeClaim) return null
                 if (gap <= 5) {
                   return <p className={`${typography.panelBody} text-text-body mt-1`}>Within {gap}pp of the leading option. Small model changes could shift this.</p>
                 }

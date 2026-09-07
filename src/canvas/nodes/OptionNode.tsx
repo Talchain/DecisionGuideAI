@@ -22,6 +22,7 @@ import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { NodeChip, BriefIcon, NodePopover, ScienceIcon } from './shared'
 import { openNodeInspector } from './shared/openNodeInspector'
+import { leaderRobustnessGrade } from './shared/leaderRobustnessGrade'
 import {
   selectGoalProbability,
   basisWithholdsPossessive,
@@ -30,6 +31,7 @@ import { COMPARATIVE_COPY, GOAL_ANCHOR_COPY } from '../../components/results/uti
 import { NOT_COMPUTED_BADGE, notComputedReasonCopy } from '../../components/results/utils/notAnalysedCopy'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
+import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/useAnalysisReady'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
 
 /** Truncate text at word boundary to avoid mid-word cuts. */
@@ -173,19 +175,39 @@ function computeBehindReason(
 
 /**
  * Compute differentiator labels for ALL non-baseline options in one pass.
- * Returns a Map<optionId, string | null> where the string is the complete
- * sentence to render (e.g. "Tech lead hired is the key difference" or
- * "Tech lead hired → 90%").
+ * Returns a Map<optionId, { label, fullLabel, factorId } | null> where
+ * `label` is the complete sentence to render (e.g. "Tech lead hired is the
+ * key difference" or "Tech lead hired → 90%") and `fullLabel` is THAT SAME
+ * SENTENCE built from the untruncated factor label.
+ *
+ * ⭐ WHY `fullLabel` EXISTS — ellipsis-with-recovery, not
+ * ellipsis-with-nowhere-to-go. It is the standard this file already applies
+ * to the intervention chips below ("so the full string was recoverable").
+ * Witnessed on deployed staging `16336b13`: this footer rendered "Account
+ * Executive… is the key difference" and "Platform Engineer… → Low (0)" with
+ * the elided words present NOWHERE in the DOM. `compactFactorLabel` shortens
+ * in JS, so there is no CSS overflow for a browser tooltip to recover, and
+ * the node-level aria-label does not contain the truncated text — the user
+ * is told something is the key difference and not told what.
+ *
+ * ⚠ THE LABEL STILL TRUNCATES, DELIBERATELY. The card is width-constrained
+ * and the standing rule is "label truncates, value NEVER truncates"
+ * (PR #1220, merged and deployed). `fullLabel` changes only what HOVER can
+ * recover; the visible text, the width and the truncation length are
+ * untouched.
  *
  * When two options share the same top-differentiating factor, values are
  * appended to disambiguate. If the values are also identical (or both
  * produce empty formatted text), the differentiator is suppressed for both.
+ * That de-duplication reads the VISIBLE `label` — two options whose footers
+ * read the same on screen are indistinguishable to a user however their
+ * hover text differs.
  */
 function computeAllDifferentiators(
   nodes: readonly { id: string; type?: string; data?: any }[],
   ceeAnalysisReady: { options?: { id: string; interventions?: Record<string, unknown> }[] } | null,
-): Map<string, { label: string; factorId: string } | null> {
-  const result = new Map<string, { label: string; factorId: string } | null>()
+): Map<string, { label: string; fullLabel: string; factorId: string } | null> {
+  const result = new Map<string, { label: string; fullLabel: string; factorId: string } | null>()
 
   const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
   if (optionNodes.length < 2) return result
@@ -263,19 +285,30 @@ function computeAllDifferentiators(
   }
 
   // Phase 3: build label for each option
-  const candidateLabels = new Map<string, string>()
+  const candidateLabels = new Map<string, { label: string; fullLabel: string }>()
   for (const [optionId, { factorId, myValue, myDisplayValue }] of bestFactors.entries()) {
     const factorNode = nodes.find(n => n.id === factorId)
     const rawLabel = (factorNode?.data?.label as string | undefined) ?? factorId
-    const compactLabel = compactFactorLabel(cleanFactorLabel(rawLabel), 20)
+    const fullFactorLabel = cleanFactorLabel(rawLabel)
+    const compactLabel = compactFactorLabel(fullFactorLabel, 20)
 
-    if ((factorClaimCount.get(factorId) ?? 0) <= 1) {
-      // Unique factor — simple sentence
-      candidateLabels.set(optionId, `${compactLabel.charAt(0).toUpperCase()}${compactLabel.slice(1)} is the key difference`)
-    } else if (myDisplayValue) {
-      // Shared factor with CEE display_value — render verbatim, skip unit/tier inference.
-      candidateLabels.set(optionId, `${compactLabel.charAt(0).toUpperCase()}${compactLabel.slice(1)} \u2192 ${myDisplayValue}`)
-    } else {
+    // ⭐ ONE code path, evaluated TWICE — once with the compacted label token
+    // and once with the untruncated one. The branches below are deliberately
+    // NOT duplicated: a second hand-maintained copy of this sentence-building
+    // logic is the drift this estate pays for most often, and the two
+    // sentences must stay identical apart from the label token or the hover
+    // stops recovering the very thing it is hovering over.
+    const buildSentence = (labelToken: string): string => {
+      const leading = `${labelToken.charAt(0).toUpperCase()}${labelToken.slice(1)}`
+
+      if ((factorClaimCount.get(factorId) ?? 0) <= 1) {
+        // Unique factor — simple sentence
+        return `${leading} is the key difference`
+      }
+      if (myDisplayValue) {
+        // Shared factor with CEE display_value — render verbatim, skip unit/tier inference.
+        return `${leading} \u2192 ${myDisplayValue}`
+      }
       // Shared factor — disambiguate. Placeholder-unit factors (scale, index, score, …)
       // have no real-world anchor, so tier labels like "Very high" are meaningless.
       // For those, skip formatting entirely and use directional language against
@@ -289,46 +322,47 @@ function computeAllDifferentiators(
       // Audit §8 P0-4: "Does not change" fires ONLY on exact equality with the
       // baseline (shared formatter semantics) — never a ±0.1 display epsilon.
       const directional = (): string =>
-        describeInterventionDirection(observedBaselineFor(factorId), myValue, compactLabel)
-      if (unitKind === 'placeholder') {
-        candidateLabels.set(optionId, directional())
-      } else {
-        const formatted = formatInterventionValue(
-          myValue,
-          effectiveUnit,
-          obs?.factor_type,
-          obs?.cap,
-          obs?.value,
-          obs?.raw_value,
-        )
-        // A unitless qualitative factor (e.g. factor_type="quality", no unit)
-        // still reaches formatInterventionValue's qualitativeTierLabel branch
-        // and returns "Very high" / "High" / …. These tier labels are just as
-        // meaningless in differentiator text as the placeholder-unit ones,
-        // so force directional phrasing whenever the formatter returned one.
-        if (formatted && !isTierLabel(formatted)) {
-          candidateLabels.set(optionId, `${compactLabel.charAt(0).toUpperCase()}${compactLabel.slice(1)} \u2192 ${formatted}`)
-        } else {
-          candidateLabels.set(optionId, directional())
-        }
-      }
+        describeInterventionDirection(observedBaselineFor(factorId), myValue, labelToken)
+      if (unitKind === 'placeholder') return directional()
+
+      const formatted = formatInterventionValue(
+        myValue,
+        effectiveUnit,
+        obs?.factor_type,
+        obs?.cap,
+        obs?.value,
+        obs?.raw_value,
+      )
+      // A unitless qualitative factor (e.g. factor_type="quality", no unit)
+      // still reaches formatInterventionValue's qualitativeTierLabel branch
+      // and returns "Very high" / "High" / …. These tier labels are just as
+      // meaningless in differentiator text as the placeholder-unit ones,
+      // so force directional phrasing whenever the formatter returned one.
+      if (formatted && !isTierLabel(formatted)) return `${leading} \u2192 ${formatted}`
+      return directional()
     }
+
+    candidateLabels.set(optionId, {
+      label: buildSentence(compactLabel),
+      fullLabel: buildSentence(fullFactorLabel),
+    })
   }
 
-  // Phase 4: suppress any labels that are still identical across options
+  // Phase 4: suppress any labels that are still identical across options.
+  // Counted on the VISIBLE sentence — what a user can actually compare.
   const labelCount = new Map<string, number>()
-  for (const label of candidateLabels.values()) {
+  for (const { label } of candidateLabels.values()) {
     labelCount.set(label, (labelCount.get(label) ?? 0) + 1)
   }
 
-  for (const [optionId, label] of candidateLabels.entries()) {
+  for (const [optionId, { label, fullLabel }] of candidateLabels.entries()) {
     if ((labelCount.get(label) ?? 0) > 1) {
       result.set(optionId, null)
     } else {
       const factorId = bestFactors.get(optionId)?.factorId
       // Carry the factorId so the option card can drop this footer line when
       // the same factor is already shown as a visible "from → to" chip.
-      result.set(optionId, factorId ? { label, factorId } : null)
+      result.set(optionId, factorId ? { label, fullLabel, factorId } : null)
     }
   }
 
@@ -421,11 +455,62 @@ export const OptionNode = memo((props: NodeProps) => {
     })
   }, [nodes, resultsReport])
 
-  /** True only when this node is the leader AND a leading option exists at all. */
+  // Q1 OF TWO — THE MODEL'S LICENCE. "Does the model, as CEE admitted it THIS
+  // TURN, license a comparative-leader claim at all?" A property of the GRAPH,
+  // decided before the run: strong separation between two machine-invented
+  // estimates is a perfectly good run and still not a licence to crown.
+  //
+  // ⚠ THE CANVAS ASKED ONLY Q2 UNTIL NOW, AND THE RESULTS PANEL HAS ASKED BOTH
+  // SINCE ROADMAP 1.267. `useResultsSectionData` composes exactly these two and
+  // publishes `leaderDesignationPermitted`; every designation site on the panel
+  // reads it, and this file read `verdict.hasLeadingOption` alone. So a run CEE
+  // admitted at `exploratory` put a crown on a card inches from a panel that
+  // was withholding every designation on the same run.
+  //
+  // ONE READER, IMPORTED — never re-spelled. `licensesComparativeLeaderClaim`
+  // lives in `hooks/useAnalysisReady` and the results panel imports it from
+  // there too. A second local expression of the same question is how two
+  // authorities drift apart.
+  //
+  // ABSENCE => OLDER PRODUCER => EXACTLY TODAY'S BEHAVIOUR. Q1's absence arm is
+  // `true` and Q2's is `false`, and they are opposite ON PURPOSE — a shared
+  // default would blank the canvas on every legacy payload, or license a claim
+  // on every one. Neither term is folded into the other's default.
+  const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(useAnalysisAdmission())
+
+  /**
+   * True only when this node is the leader, a leading option exists at all, AND
+   * the model was admitted to name one.
+   */
   const isRecommended = useMemo(() => {
     if (!displayMetadata.isResultsMode || displayMetadata.winRate === null) return false
+    if (!modelLicensesComparativeClaim) return false
     return verdict.hasLeadingOption && verdict.leaderId === props.id
-  }, [displayMetadata.isResultsMode, displayMetadata.winRate, verdict, props.id])
+  }, [displayMetadata.isResultsMode, displayMetadata.winRate, modelLicensesComparativeClaim, verdict, props.id])
+
+  /**
+   * AXIS 2 — HOW MUCH TO TRUST THE CLAIM AXIS 1 JUST LICENSED.
+   *
+   * ⚠ THE HARM THIS CLOSES, measured in ONE payload on deployed `a9c2e050`:
+   * `robustness.aggregate_level: "very_low"` with `leader_claim.permitted:
+   * true`. The prose hedged — *"not yet robust, small changes could flip it"* —
+   * and this card, reading the same run, wore the crown over a bare `Ahead 53%`
+   * with no caveat. The canvas implemented axis 1 and had no surface for axis 2.
+   *
+   * ⭐ A DISCLOSURE, NEVER A SUPPRESSION. `isRecommended` above is untouched, so
+   * a fragile lead is still a lead and still crowned — `src/lib/decisionVerdict.ts`
+   * forbids denying a lead because it is fragile, and collapsing the two axes is
+   * the defect that module exists to prevent.
+   *
+   * ⭐ GATED ON `isRecommended` SO THE TWO CANNOT SEPARATE. The disclosure may
+   * never appear without the claim it qualifies, and may never be absent when
+   * that claim is present on a fragile run. One conjunction, one invariant, and
+   * a mutant that drops either half is visible.
+   */
+  const robustnessGrade = useMemo(
+    () => (isRecommended ? leaderRobustnessGrade(resultsReport) : null),
+    [isRecommended, resultsReport],
+  )
 
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
   // UI-SEM-082 (Lane 4): the "chance of target" badge is a goal-fit claim, so it
@@ -467,6 +552,10 @@ export const OptionNode = memo((props: NodeProps) => {
     // close race fires it. Found while verifying the "Behind:" line at the
     // bytes rather than dispatched, and gated here as defence in depth.
     if (!verdict.hasLeadingOption) return null
+    // Q1, ON ITS OWN LINE BESIDE Q2. "Within N points of the leading option" is
+    // a distance to a leader, so a model CEE did not admit to naming one on
+    // cannot carry it either — the same claim as the crown, in measured form.
+    if (!modelLicensesComparativeClaim) return null
     // SINGLE VERDICT: `isRecommended` is now false for the front-runner too
     // when no leading option exists (a tied run). Without this guard the
     // front-runner would compute a zero gap against itself and render
@@ -522,7 +611,7 @@ export const OptionNode = memo((props: NodeProps) => {
     // early return (within-0.0001 tolerance), but rounding can still produce
     // 0 from a small positive gap like 0.004.
     return Math.max(1, Math.round(gap * 100))
-  }, [isPostAnalysis, isRecommended, verdict, resultsReport, props.id, displayMetadata.winComputationFailed])
+  }, [isPostAnalysis, isRecommended, modelLicensesComparativeClaim, verdict, resultsReport, props.id, displayMetadata.winComputationFailed])
 
   const allInterventionChips = useMemo<InterventionChip[]>(() => {
     // Primary: ceeAnalysisReady.options[optionId].interventions
@@ -722,7 +811,7 @@ export const OptionNode = memo((props: NodeProps) => {
    * one pass. See that helper's docblock for the algorithm, thresholds, and
    * deduplication logic. Returns null for baseline/post-analysis.
    */
-  const differentiator = useMemo<{ label: string; factorId: string } | null>(() => {
+  const differentiator = useMemo<{ label: string; fullLabel: string; factorId: string } | null>(() => {
     if (isPostAnalysis) return null
     if (isBaselineOption) return null
     const allDiffs = computeAllDifferentiators(nodes, ceeAnalysisReady)
@@ -980,6 +1069,15 @@ export const OptionNode = memo((props: NodeProps) => {
     // boolean computed in this component, never an optional prop, so it
     // carries none of the omitted-input risk that made #491 choose ordering.
     if (!verdict.hasLeadingOption) return null
+    // ⭐ Q1, AND WITHOUT IT GATING THE CROWN ALONE WOULD MAKE THIS WORSE.
+    // `isRecommended` now also answers Q1, so on a model CEE did not admit for
+    // a comparative claim NO option is the leader — and the only gate this line
+    // ever had (`!isRecommended`) is then satisfied by every option, including
+    // the front-runner. That is precisely the 30-vs-20 measurement recorded in
+    // `residualComparative.optionNode.spec.ts`: everything behind, nothing
+    // ahead. Suppressing the crown without suppressing its inverse does not
+    // withhold the claim, it inverts it.
+    if (!modelLicensesComparativeClaim) return null
     const report = resultsReport as any
     const myReason = computeBehindReason(props.id, isBaselineOption, report, ceeAnalysisReady, nodes)
     if (!myReason) return null
@@ -1005,7 +1103,7 @@ export const OptionNode = memo((props: NodeProps) => {
       return computeBehindReason(n.id, siblingIsBaseline, report, ceeAnalysisReady, nodes) === myReason
     })
     return hasDuplicate ? null : myReason
-  }, [isPostAnalysis, isRecommended, verdict, isBaselineOption, resultsReport, ceeAnalysisReady, props.id, nodes, displayMetadata.winComputationFailed])
+  }, [isPostAnalysis, isRecommended, modelLicensesComparativeClaim, verdict, isBaselineOption, resultsReport, ceeAnalysisReady, props.id, nodes, displayMetadata.winComputationFailed])
 
   const handleWinsViaClick = useCallback(() => {
     if (!winsVia) return
@@ -1508,12 +1606,30 @@ export const OptionNode = memo((props: NodeProps) => {
            how the other members declare themselves. It carries NO offset of its
            own: the stack positions it. */
         cornerSlot={isRecommended ? (
-          <span
-            data-testid={`leading-option-pill-${props.id}`}
-            className={`shrink-0 whitespace-nowrap ${typography.edgeLabel} font-medium bg-panel border-2 border-option text-text-body rounded-full px-1.5 py-0.5`}
-          >
-            Leading option
-          </span>
+          <>
+            <span
+              data-testid={`leading-option-pill-${props.id}`}
+              className={`shrink-0 whitespace-nowrap ${typography.edgeLabel} font-medium bg-panel border-2 border-option text-text-body rounded-full px-1.5 py-0.5`}
+            >
+              Leading option
+            </span>
+            {/* The run's robustness travels WITH the designation it qualifies —
+                same stack, same row, so the claim cannot be read without the
+                caveat. `role="img"` + `aria-label` is this codebase's ratified
+                idiom for a meaningful static marker (see MetricPills), because
+                `title` alone is keyboard- and touch-unreachable. */}
+            {robustnessGrade && (
+              <span
+                data-testid={`leading-option-robustness-${props.id}`}
+                className={`shrink-0 whitespace-nowrap ${typography.edgeLabel} font-medium bg-panel border-2 border-danger text-text-body rounded-full px-1.5 py-0.5`}
+                role="img"
+                title={robustnessGrade.title}
+                aria-label={robustnessGrade.title}
+              >
+                {robustnessGrade.label}
+              </span>
+            )}
+          </>
         ) : undefined}
         headerSlot={(stableOptionNumber != null || scienceIcons.length > 0) ? (
           <span className="inline-flex items-center gap-1">
@@ -1815,7 +1931,21 @@ export const OptionNode = memo((props: NodeProps) => {
             already shows the full intervention list). */}
         {!isPostAnalysis && !isBaselineOption && !isDetailed && differentiator
           && !differentiatorDuplicatesChip && (
-          <p className={`${typography.edgeLabel} text-text-light mt-1 m-0`}>
+          <p
+            className={`${typography.edgeLabel} text-text-light mt-1 m-0`}
+            /* Ellipsis-with-recovery, not ellipsis-with-nowhere-to-go. `label`
+               carries a 20-char compaction of the factor label, so the elision
+               is a JS one: `text-overflow` never fires, the "…" is IN THE TEXT,
+               and a browser tooltip has no overflow to recover. Witnessed on
+               deployed staging `16336b13` as "Account Executive… is the key
+               difference" — a claim about what differentiates this option with
+               the SUBJECT of the claim absent from the DOM. Native `title` is
+               the canvas-node tooltip idiom in this repo — see the
+               structuredDeltas `<li>` above and `nodes/shared/MetricPills.tsx`.
+               Undefined when nothing was elided, so hover never merely repeats
+               what is already on screen. */
+            title={differentiator.fullLabel !== differentiator.label ? differentiator.fullLabel : undefined}
+          >
             {differentiator.label}
           </p>
         )}

@@ -461,13 +461,25 @@ export type EdgeValueDisplay =
  * in principle (ingestion clamps `weight` to `[0, 2]`), but because gating them
  * would change what `ModelTabBody`'s sort, `RelationshipsSection` and the
  * model-tab adapters do with values this lane has not enumerated. Closing them
- * is its own piece of work, and — measured against `CANVAS-BACKLOG.md` in
- * `Talchain/olumi-programme-docs` — it is NOT ROWED. An earlier draft of this
- * line said it was. This comment and the scope test in
- * `__tests__/edgeValueProvenance.spec.ts` ("leaves the OPEN-domain fields
- * alone") are the only record that the omission is deliberate. A future lane
- * that narrows them must derive the writers first, exactly as the block above
- * does.
+ * is its own piece of work, and it IS ROWED — as **S59** in
+ * `CANVAS-BACKLOG.md` (`Talchain/olumi-programme-docs`, `origin/main`), the row
+ * immediately after S58, added by the same commit and describing **#1171** —
+ * the lane that INTRODUCED the gate this block documents, not the PR you are
+ * reading — nearly verbatim: it names `weight` and `strengthStd` as OPEN on
+ * purpose and records that `resolveEdgeSignedStrengthDisplay` is not covered
+ * either.
+ *
+ * ⚠ THIS LINE HAS NOW BEEN WRONG IN BOTH DIRECTIONS. It first claimed a row,
+ * was "corrected" to NOT ROWED, and that correction was false — the third of
+ * three instances of one claim from a single sweep, and the second whose row
+ * is ADJACENT to the one the other instance was about. The failure was
+ * closing against the INSTANCE found rather than the ENUMERATION the register
+ * already held. The scope test in `__tests__/edgeValueProvenance.spec.ts`
+ * ("leaves the OPEN-domain fields alone") remains the record that the omission
+ * is DELIBERATE — which is a different claim from whether it is rowed, and
+ * that conflation is how one sweep produced three false sentences. A future
+ * lane that narrows these must derive the writers first, exactly as the block
+ * above does.
  *
  * ⚠ ALSO NOT COVERED: `resolveEdgeSignedStrengthDisplay` is a SEPARATE function
  * and does not consult this record. It reads `strength_mean`/`weight` under a

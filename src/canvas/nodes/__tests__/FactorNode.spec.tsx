@@ -884,12 +884,12 @@ describe('FactorNode', () => {
     it('producer basis: the row discloses the absolute causal influence score', () => {
       renderDetailedWithProvenance('influence_score', 0.6)
       const bar = screen.getByRole('progressbar', {
-        name: 'Influence, an absolute causal influence score from the analysis',
+        name: 'Influence, an absolute causal influence score',
       })
       expect(bar.getAttribute('aria-valuenow')).toBe('60')
       const row = screen.getByText('Influence').closest('div')
       expect(row?.getAttribute('title')).toBe(
-        'Influence: how much this factor affects the outcome, as an absolute causal influence score from the analysis.'
+        'Influence: how much this factor affects the outcome, as an absolute causal influence score.'
       )
     })
 

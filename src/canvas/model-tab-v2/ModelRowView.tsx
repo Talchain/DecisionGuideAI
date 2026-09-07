@@ -40,7 +40,17 @@ import {
   GOAL_LABEL_FROM_BRIEF_TESTID,
 } from '../domain/goalLabelProvenance'
 import { SourceProvenancePill } from '../components/model-tab/SourceProvenancePill'
-import { ATTENTION_LABEL, KIND_GLYPH, KIND_LABEL, deferralLabel } from './rowPresentation'
+import { RELATIONSHIP_LABEL_SEPARATOR } from './adapters'
+import {
+  ATTENTION_IS_SEVERE,
+  UNWRITTEN_QUESTION_TITLE,
+  labelIsTypeDefault,
+  ATTENTION_LABEL,
+  ATTENTION_MARK,
+  KIND_GLYPH,
+  KIND_LABEL,
+  deferralLabel,
+} from './rowPresentation'
 import type { EditCommitState, DetailTier, ModelRow } from './types'
 
 export interface ModelRowViewProps {
@@ -82,6 +92,7 @@ export interface ModelRowViewProps {
   onDiscardEdit?: (id: string) => void
   /** The inline confirm chip — dispatches the canonical transaction. */
   onConfirmEdit?: (id: string) => void
+
   /**
    * Ratify this row's AI-estimated value as correct — the v1 Confirm ✓,
    * rehomed (18 Aug 2026).
@@ -99,6 +110,104 @@ export interface ModelRowViewProps {
    * cannot honour it.
    */
   onConfirmValueAsIs?: (id: string) => void
+}
+
+/**
+ * ⭐ MAY THIS VALUE GIVE UP WIDTH TO THE LABEL BESIDE IT?
+ *
+ * `shrink-0` exists to stop a number breaking away from its unit — "35 %"
+ * splitting across the gap is the defect it was written for. That protection is
+ * about ATOMICITY, and a multi-word qualitative PHRASE has none: "Moderate
+ * positive effect" truncates to "Moderate positive…" and still says what it
+ * means.
+ *
+ * ⚠ WHY THIS MATTERS, MEASURED. The identity track is the only flexible one, so
+ * 100% of the width an `auto` value cell takes comes out of the label — this
+ * file records that hazard for the arms that were dark. It arrived on a LIVE
+ * arm instead: at a 291px dock, thirteen relationship rows each rendered a
+ * ~24-character effect phrase as immovable, pushing the label to its 6rem floor.
+ * FOUR CONSECUTIVE ROWS read "Development he… Moderate positive effect", with
+ * the arrow and the target — the half that tells them apart — truncated away.
+ * Witnessed on the deployed build.
+ *
+ * A row whose identity is unreadable is worse than a phrase missing its last
+ * word, and between the two the phrase is the one repeated on every row.
+ *
+ * The predicate is deliberately narrow: prose only. Anything carrying a DIGIT
+ * is a measurement and keeps its protection, as does anything short enough that
+ * shrinking it would buy the label nothing.
+ */
+/**
+ * ⚠⚠ THE LEAF THAT MAKES `min-w-0` MEAN ANYTHING. Granting the CONTAINER
+ * `min-w-0` lets the flex item shrink — and a bare text node inside it, with
+ * `whitespace-nowrap` and no `overflow:hidden` anywhere, simply SPILLS. Review
+ * measured a long "<magnitude> effect, direction not stated" value escaping its
+ * box by 111.1px, the 280px dock by 65px, and overdrawing the attention column
+ * by 29px. Base control 0.0px.
+ *
+ * ⚠ THIS PARAGRAPH NAMED A STRING THE PRODUCER CANNOT EMIT, and the correction
+ * belongs beside the measurement rather than in a changelog. It read "the
+ * producer-real 'Very strong effect, direction not stated'". `StrengthBand` is
+ * `strong | moderate | weak | negligible` (`model-tab/strengthBands.ts:13`) —
+ * there is no "very strong" band on this path, so that exact string is
+ * unreachable here. The measurement was real and the phrasing family is real;
+ * the specimen was not. The producer's longest is "Moderate effect, direction
+ * not stated" at 37 characters, which is the one the corpus test uses.
+ *
+ * ⚠ AND THE REMEDY WAS ALREADY WRITTEN IN THIS FILE'S OWN COMMENT — "the
+ * ellipsis belongs on a text LEAF, not on the flex box" — three lines above
+ * the code that did not do it. `truncate` on the CONTAINER is the separate
+ * defect that caused text-over-text; on the leaf it is correct.
+ *
+ * The leaf truncates ONLY when the value may shrink. A bare value ("35 %")
+ * must never be cut — that is the defect that broke a number from its unit.
+ */
+function ValueLeaf({
+  display,
+  mayShrink,
+  editable = false,
+}: {
+  display: string | null
+  mayShrink: boolean
+  /**
+   * ⭐ THE EDIT AFFORDANCE LIVES HERE, NOT ON THE WRAPPING `<button>`.
+   * Witnessed on deployed `a9c2e050`: `underline decoration-dotted` sat on the
+   * button, `text-decoration` propagates to every descendant, and so the
+   * secondary "Olumi: Low (0)" hint beside the value was underlined too —
+   * promising a click that does nothing to it, on a row where nothing else is a
+   * link. The mark belongs on the one thing the click edits.
+   */
+  editable?: boolean
+}) {
+  return (
+    <span
+      className={[
+        mayShrink ? 'truncate min-w-0' : '',
+        editable ? 'underline decoration-dotted' : '',
+      ]
+        .filter(Boolean)
+        .join(' ') || undefined}
+    >
+      {display ?? ''}
+    </span>
+  )
+}
+
+/**
+ * ⚠ EXPORTED FOR TEST, AND THAT IS NOT A STYLE CHOICE. Review found this
+ * predicate and `ValueLeaf` — the whole of `1d6e528b` — had ZERO coverage:
+ * reverting both left 52 files / 808 tests green. It is a pure function of a
+ * string with a bare magic boundary, so "jsdom performs no layout" is no
+ * excuse for leaving it unasserted. See
+ * `__tests__/valueMayShrink.spec.tsx`, whose corpus is DERIVED by calling the
+ * real producer rather than by pasting strings.
+ */
+export function valueMayShrink(display: string | null): boolean {
+  if (display === null) return false
+  const text = display.trim()
+  if (/\d/.test(text)) return false
+  if (!text.includes(' ')) return false
+  return text.length > 12
 }
 
 export function ModelRowView({
@@ -246,13 +355,114 @@ export function ModelRowView({
            node you already know. Below that the row should give up something
            else — see the estimate hint below, which is the secondary text that
            can afford to go. */
-        className={`${typography.panelBody} text-text-body text-left truncate min-w-[6rem] flex-1`}
+        /* ⚠ THE FULL LABEL ON `title`. The identity column truncates, and
+           before this the truncated remainder was unreachable by any VISUAL
+           means — no hover, no tooltip, nothing. Witnessed on the deployed
+           build: three relationship rows all read "Tech Lead Hired..." with no
+           way to tell them apart by eye. This does not FIX that (a tooltip is
+           not an answer to an unreadable row, and it is unreachable by touch
+           and keyboard) — it stops the remainder being lost outright while the
+           column itself is dealt with.
+
+           ⚠ A CORRECTION TO THIS COMMENT'S OWN FIRST DRAFT, which said
+           "unreachable by ANY means". THAT SUPERLATIVE WAS FALSE, and the
+           domain it overstated is exactly the one the sentence above already
+           narrows. The full label is this button's own TEXT CONTENT, and this
+           button carries no `aria-label` ATTRIBUTE — every `aria-label` inside
+           the element is comment prose, this sentence included — so the
+           UNTRUNCATED label has always been its accessible name. `truncate` is
+           `overflow:hidden` + `text-overflow:ellipsis`: presentational only,
+           with no effect on the accessibility tree. The contrast control for
+           that absence is in this same file and needs no count to stay true —
+           sibling controls DO carry the attribute, and quote the label in full
+           (`Confirm … is correct`, `New value for …`, `Change …`), so a sweep
+           that found nothing here is discriminating rather than blind. For a
+           screen-reader user the remainder was never lost at all; the defect
+           is, and always was, a VISUAL one.
+
+           ⚠ AND THAT STILL HOLDS UNDER THE ENDPOINT SPLIT BELOW, which landed
+           on this branch after this correction was written — checked rather
+           than assumed, because a rebase is exactly where a sentence like this
+           goes stale. `relationshipIdentity` builds the label as
+           `${from}${RELATIONSHIP_LABEL_SEPARATOR}${to}` and hands the same two
+           halves to `labelEndpoints` (`adapters.ts:303,355`), and the
+           separator constant carries its own spaces, so the three spans
+           concatenate to text content byte-identical to `row.label`. Either
+           branch, the accessible name is the whole label. */
+        /* ⚠ A PLACEHOLDER NAMES ITSELF ON MORE THAN COLOUR — but be precise
+           about how much this buys. `title` is the accessible DESCRIPTION, not
+           the NAME: once an element has content the name comes from the content,
+           as `9d4979e` established in this same file. Most screen readers
+           announce the description, some do not by default, and the NAME a
+           reader hears is still "Question".
+           
+           An earlier version of this comment claimed three channels and that
+           "the title says it in words too" for assistive tech — an overclaim,
+           corrected on review. Colour and italics carry it for sighted readers;
+           the description is a weaker second channel; a genuinely equal one
+           would need the name itself to change, which is a vocabulary decision
+           and is ratified elsewhere. */
+        title={labelIsTypeDefault(row) ? UNWRITTEN_QUESTION_TITLE : row.label}
+        className={`${typography.panelBody} ${
+          labelIsTypeDefault(row) ? 'text-text-light italic' : 'text-text-body'
+        } text-left min-w-[6rem] flex-1 ${
+          row.labelEndpoints ? 'flex items-baseline overflow-hidden' : 'truncate'
+        }`}
         onClick={e => {
           e.stopPropagation()
           onFocusOnCanvas?.(row.id)
         }}
       >
-        {row.label}
+        {/* ⭐⭐ A DIRECTED RELATIONSHIP TRUNCATES FROM BOTH ENDS, NEVER FROM ONE.
+            Witnessed on deployed `a9c2e050`: three consecutive rows all read
+            "Tech Lead Hired…". They were three edges out of ONE source node, so
+            the only thing telling them apart was the TARGET — and a single
+            `truncate` eats the tail first, which is exactly the half that
+            discriminates. At the 6rem floor the row said the same thing three
+            times.
+
+            Each endpoint now gets `flex-1 min-w-0 truncate`, so they share the
+            column and ellipsise independently: "Tech L… → Deliv…" instead of
+            "Tech Lead H…". Both ends survive at ANY width, which is the
+            property — for a directed edge both endpoints are identity and
+            neither is optional.
+
+            ⚠ ONLY WHEN A PAIR EXISTS. An edge carrying its OWN authored label
+            has no endpoints and keeps the plain single truncate; splitting a
+            sentence on an arrow it happens to contain would invent a structure
+            nobody wrote. `labelEndpoints` is set only where a pair is real, so
+            the two states are distinguished by data rather than by a guess.
+
+            ⚠ CORRECTED: an earlier version of this comment said the accessible
+            name "comes from the row's own `aria-label`/`title`". FALSE at the
+            bytes — this button has no `aria-label`, and `title` is a last-resort
+            fallback that never applies once an element has content. The name is
+            computed FROM THESE SPANS. That is fine, and it is fine for a
+            specific reason rather than by luck: the separator is the shared
+            constant, rendered `whitespace-pre` in its own non-hidden span, so
+            the concatenation is byte-identical to `row.label`. The spec asserts
+            that with `.textContent` equality, not `toHaveTextContent`, which
+            whitespace-normalises and would pass an accname that inserted
+            inter-element spaces. */}
+        {row.labelEndpoints ? (
+          <>
+            <span className="truncate min-w-0 flex-1">{row.labelEndpoints[0]}</span>
+            {/* ⚠ NOT `aria-hidden`, AND THE SPACES ARE IN THE STRING. The
+                separator IS the shared constant, so the button's text content
+                stays byte-identical to `row.label` — a screen reader, a
+                copy-paste and the `title` all read exactly what they read
+                before. Hiding the arrow and spacing the halves with `gap`
+                would have left assistive tech with
+                "Tech Lead HiredDelivery Throughput", which is a regression
+                dressed as a layout tidy-up. */}
+            <span className="shrink-0 text-text-light whitespace-pre">
+              {RELATIONSHIP_LABEL_SEPARATOR}
+            </span>
+            <span className="truncate min-w-0 flex-1">{row.labelEndpoints[1]}</span>
+          </>
+        ) : (
+          row.label
+        )}
       </button>
 
       {/* The label is the user's own sentence lifted from the brief, not an
@@ -272,19 +482,49 @@ export function ModelRowView({
       </span>
       {/* ── CELL 3 · VALUE — the column this whole change exists to create.
 
-          ⚠⚠ THE TRACK IS `auto`, WHICH MEANS THIS CELL SIZES TO ITS CONTENT AND
-          TAKES THAT WIDTH OUT OF THE IDENTITY TRACK. That is correct for every
-          arm a producer can currently reach — `idle` and `proposed`, whose
-          content is bounded — and it is a LOADED GUN for the arms that are dark
-          today.
+          ⚠⚠ THE TRACK IS `fit-content(5.5rem)` (declared once, in
+          `ModelOutline.tsx`), AND FOR THESE ARMS THAT STILL MEANS THIS CELL
+          SIZES TO ITS CONTENT AND TAKES THAT WIDTH OUT OF THE IDENTITY TRACK.
+          ⚠ The sentence here read "THE TRACK IS `auto`" until the cap landed on
+          6 Sep 2026; the cap changed the spelling and NOT this hazard, so the
+          correction is a rename, not a reprieve. `fit-content(L)` keeps the
+          automatic minimum, and every arm below leaves `min-width: auto`, so
+          the 5.5rem limit does not bound them — an unbounded receipt sizes to
+          its content exactly as it did under bare `auto`. ⚠ THEY REACH THAT
+          BY TWO ROUTES, AND THIS SENTENCE CLAIMED ONLY ONE UNTIL 6 Sep 2026:
+          it read "(they are `shrink-0`, which sets no minimum)". The two idle
+          arms and `case 'editing'` ARE `shrink-0`. `case 'applied'`,
+          `'inflight'` and `'refused'` are NOT and never have been — they carry
+          `className={typography.panelTabular}` and nothing else, so they leave
+          `min-width: auto` by carrying no width class at all. Same conclusion,
+          different mechanism, and the difference matters: an arm holding its
+          minimum by `shrink-0` says so, and an arm holding it by omission is
+          one `min-w-0` away from losing it silently.
+
+          That is correct for every arm a producer can currently reach —
+          `idle` and `proposed`, whose content is bounded — and it is a
+          LOADED GUN for the arms that are dark today.
 
           Named by an independent seat and traced by PRODUCER rather than by
-          field name: the sole live writer of `commit` is `ModelOutline.tsx:385`
-          ← `ModelTabV2Panel`'s `ActiveEdit`, typed `'editing' | 'proposed'`. So
-          `inflight`, `applied`, `refused` and the `editing` fallback are
-          unreachable — by accident of the host, not by design. `types.ts:108`
-          already specifies `applied` as receipt-driven, so the wiring is
-          PLANNED, not hypothetical.
+          field name: the sole live writer of `commit` is the single
+          `commit={commitByRowId?.get(row.id)}` in `ModelOutline.tsx` — grep
+          `commit=` there and it is the only hit — fed by `ModelTabV2Panel`'s
+          `ActiveEdit`, typed `'editing' | 'proposed'`. So `inflight`,
+          `applied`, `refused` and the `editing` fallback are unreachable — by
+          accident of the host, not by design. `types.ts:108` already specifies
+          `applied` as receipt-driven, so the wiring is PLANNED, not
+          hypothetical.
+
+          ⚠ THIS SENTENCE CITED `ModelOutline.tsx:385` UNTIL 6 Sep 2026, AND
+          THAT NUMBER WAS ALREADY WRONG BEFORE THIS PR TOUCHED ANYTHING. The
+          prop sat at `:457` at this branch's merge base and at staging
+          `acd3db4d`; this PR's own additions then moved it to `:581`. Which
+          commit the number was true at has NOT been traced — only that it was
+          not true at either base, so it had been rotting for some while under
+          review. The symbol is the handle; the number was a mirror with no
+          owner. `types.ts:108` above is the same shape and is left as a number
+          only because it was verified correct at this tip — it will rot the
+          same way on the next insert into `types.ts`.
 
           ⚠ AND THE HAZARD IS LARGER AFTER THIS CHANGE, NOT SMALLER. Before the
           grid, a row's deficit was distributed across every atom by flex. Now
@@ -420,17 +660,43 @@ export function ModelRowView({
         </button>
       )}
 
-      {row.attention.map(reason => (
-        <span
-          key={reason}
-          data-testid={`model-row-v2-${row.id}-attention-${reason}`}
-          title={ATTENTION_LABEL[reason]}
-          aria-label={ATTENTION_LABEL[reason]}
-          className={`${typography.panelBody} text-warning shrink-0`}
-        >
-          ⚠
-        </span>
-      ))}
+      {/*
+        ⭐ ONE MARK PER REASON, AND EACH SAYS WHICH.
+        Witnessed on deployed `a9c2e050`: this was `⚠` for all five reasons, in
+        one colour, mapped over an unbounded array — so a contested-AND-fragile
+        relationship drew two identical marks and the row said "something is
+        wrong here, twice" without saying what either time. The five sentences
+        existed the whole time, in `title` only.
+
+        Three things changed, and each answers a separate rule:
+          · SHAPE carries the meaning (`ATTENTION_MARK`), so the row is legible
+            without a legend — which matters because the estate's one legend
+            component sits inside the unmounted legacy block.
+          · COLOUR carries SEVERITY, not category: `fragile` is the only reason
+            that says the ANSWER could change, so it alone keeps `text-warning`
+            and the rest are `text-text-light`. That is DS §1's three-channel
+            rule and the design pack's "filled = act on it, outline = noted".
+          · The icon is a component, never a unicode character — DS §9.9 names
+            `'⚠'` explicitly, and the `emoji-icon` guard could not see a bare
+            JSX text node, so the rule was real and unenforced here.
+      */}
+      {row.attention.map(reason => {
+        const Mark = ATTENTION_MARK[reason]
+        return (
+          <span
+            key={reason}
+            data-testid={`model-row-v2-${row.id}-attention-${reason}`}
+            title={ATTENTION_LABEL[reason]}
+            aria-label={ATTENTION_LABEL[reason]}
+            role="img"
+            className={`shrink-0 ${
+              ATTENTION_IS_SEVERE.has(reason) ? 'text-warning' : 'text-text-light'
+            }`}
+          >
+            <Mark className="w-3.5 h-3.5" aria-hidden="true" />
+          </span>
+        )
+      })}
 
       {/*
         The deferred marker (design §4.2, §5.3). ⚠ It is rendered AFTER the
@@ -623,8 +889,26 @@ function ValueCell({
               {' → '}
               <span data-testid={`${testid}-to`}>{commit.to}</span>
             </span>
+            {/* ⚠⚠ THE CAPTION IS ABOUT THE STORE, AND IT WAS WORDED AS IF IT
+                WERE ABOUT THE USER'S EDIT — a contradiction inside one cell.
+                "Nothing has changed yet" is TRUE of the canonical state (this
+                beat proposes; `Confirm` is what writes, and
+                `ModelTabV2Panel.spec.tsx` pins that the store is untouched and
+                nothing is sent). But it renders two atoms to the right of
+                `Not set → 45`, so the reader takes it as a denial of the value
+                they just typed.
+
+                Witnessed on the deployed build `b14cd478` (guest, 291px dock,
+                live-drafted model, completed run): the cell read
+                "Not set → 45 · Nothing has changed yet · Confirm · Discard".
+
+                "Not applied yet" says the same thing about the same subject and
+                cannot be read as contradicting the diff beside it. The
+                vocabulary is the estate's own — `HowComputedModal` renders
+                `applied ? 'Applied' : 'Not applied'` for this exact
+                distinction. */}
             <span className={`${typography.panelBody} text-text-light ml-2 min-w-0 truncate`}>
-              Nothing has changed yet
+              Not applied yet
             </span>
             {/*
               R9 — the inline confirm CHIPS. Rendered only when the host can
@@ -762,10 +1046,17 @@ function ValueCell({
       <span
         data-testid={testid}
         className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} flex items-center whitespace-nowrap ${
-          estimate === null ? 'shrink-0' : 'min-w-0'
+          /* ⚠ `min-w-0` ONLY — NEVER `truncate` HERE. This element is a FLEX
+             CONTAINER (`flex items-center`) holding the value and its estimate
+             hint. `truncate` sets `overflow:hidden` on the container, and the
+             rendered result was the value drawing OVER the label: rows read
+             "Bottom-Not sett… Olumi: Very high (0.8)". Caught in a screenshot
+             of this very change, not by a test — jsdom performs no layout.
+             The ellipsis belongs on a text LEAF, not on the flex box. */
+          estimate === null && !valueMayShrink(display) ? 'shrink-0' : 'min-w-0'
         }`}
       >
-        {display ?? ''}
+        <ValueLeaf display={display} mayShrink={valueMayShrink(display)} />
         {estimate}
       </span>
     )
@@ -791,15 +1082,23 @@ function ValueCell({
          arms. The rule is about the two IDLE elements, not about the function.
          Getting that number wrong is what let the `proposed` cell ship
          unfixed, and it was found by review rather than by me. */
-      className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} text-left underline decoration-dotted flex items-center whitespace-nowrap ${
-        estimate === null ? 'shrink-0' : 'min-w-0'
+      /* ⚠ THE SAME PREDICATE AS THE `<span>` ABOVE, AND THIS FILE'S OWN RULE IS
+         WHY IT IS HERE TOO: "a fix applied to one of the two idle elements is a
+         fix that half the rows never receive." The editable rows are exactly the
+         ones carrying "Not set", which is where the relationship list lives. */
+      className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} text-left flex items-center whitespace-nowrap ${
+        estimate === null && !valueMayShrink(display) ? 'shrink-0' : 'min-w-0'
       }`}
       onClick={e => {
         e.stopPropagation()
         onBeginEdit?.(row.id)
       }}
     >
-      {display ?? 'Not set'}
+      {/* ⚠ THE SAME LEAF, because this file's own rule applies: "a fix applied
+          to one of the two idle elements is a fix that half the rows never
+          receive." The editable rows are exactly the ones carrying the long
+          strength bands, so this is the site the overflow was measured on. */}
+      <ValueLeaf display={display ?? 'Not set'} mayShrink={valueMayShrink(display)} editable />
       {estimate}
     </button>
   )

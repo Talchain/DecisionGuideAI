@@ -72,6 +72,8 @@
  *     GEOMETRY_PORT=5393 pnpm exec playwright test -c playwright.geometry.config.ts --grep GHOST
  */
 import { test, expect } from '@playwright/test'
+
+import { GATE_TAG } from './canvasGateSet'
 import {
   openCanvas,
   preparePage,
@@ -277,8 +279,17 @@ async function assertPaneCanRenderGeometry(page: import('@playwright/test').Page
   ).toBe(true)
 }
 
+/**
+ * ⭐ GATED — and the describe exists for the REGISTRY, not for grouping.
+ * `canvasGateReporter` keys on the last two elements of `titlePath()`, so a
+ * top-level test keys on the FILE PATH and a file move silently reads as a
+ * rename. The four blocks below deliberately share ONE describe title so all
+ * seven arms key under the same suite; the helpers between them are why this is
+ * four blocks and not one.
+ */
+test.describe('reasoning-frontier doors', () => {
 for (const id of STARTERS) {
-  test(`GHOST doors are visible and focusable — ${id}`, async ({ page }) => {
+  test(`GHOST doors are visible and focusable — ${id}`, { tag: GATE_TAG }, async ({ page }) => {
     await page.addInitScript(INSTRUMENT)
     await preparePage(page, { width: 1440, height: 900 })
     await openCanvas(page)
@@ -452,8 +463,10 @@ for (const id of STARTERS) {
     expect(m.realMeasuredCount, 'real nodes stopped persisting their measured dimensions').toBe(m.storeRealCount)
   })
 }
+})
 
-test('GHOST doors SURVIVE a completed analysis in Standard view — Paul, 1 Sep 2026', async ({ page }) => {
+test.describe('reasoning-frontier doors', () => {
+test('GHOST doors SURVIVE a completed analysis in Standard view — Paul, 1 Sep 2026', { tag: GATE_TAG }, async ({ page }) => {
   await preparePage(page, { width: 1440, height: 900 })
   await openCanvas(page)
     await assertPaneCanRenderGeometry(page)
@@ -495,6 +508,7 @@ test('GHOST doors SURVIVE a completed analysis in Standard view — Paul, 1 Sep 
     after,
     'the reasoning frontier must remain reachable after an analysis outside Expert view (Paul, 1 Sep 2026)',
   ).toBe(before)
+})
 })
 
 /*
@@ -775,7 +789,8 @@ function assertFrontierIsUsable(m: Awaited<ReturnType<typeof FRAME_READER>>, whe
   expect(m.realMeasuredCount, `${where}: real nodes stopped persisting their measured dimensions`).toBe(m.storeNodeCount)
 }
 
-test('GHOST doors are visible on the SAVED-EXAMPLE route — applyStarter, not applyDraftResult', async ({ page }) => {
+test.describe('reasoning-frontier doors', () => {
+test('GHOST doors are visible on the SAVED-EXAMPLE route — applyStarter, not applyDraftResult', { tag: GATE_TAG }, async ({ page }) => {
   await page.addInitScript(INSTRUMENT)
   await preparePage(page, { width: 1440, height: 900 })
   await openCanvas(page)
@@ -799,7 +814,7 @@ test('GHOST doors are visible on the SAVED-EXAMPLE route — applyStarter, not a
   assertFrontierIsUsable(m, 'saved-example')
 })
 
-test('GHOST doors are visible in the RESTORED class — a saved example after a real reload', async ({ page }) => {
+test('GHOST doors are visible in the RESTORED class — a saved example after a real reload', { tag: GATE_TAG }, async ({ page }) => {
   await page.addInitScript(INSTRUMENT)
   await preparePage(page, { width: 1440, height: 900 })
   await openCanvas(page)
@@ -914,4 +929,5 @@ test('GHOST doors are visible in the RESTORED class — a saved example after a 
    */
   expect(m.postReloadDocument, 'this document is not the one the reload produced, so the graph on screen was not restored — this test is not measuring the restored class').toBe(true)
   expect(m.starterStamped, 'the restored graph carries no starter stamp, so it is not the saved example this test opened').toBe(m.storeNodeCount)
+})
 })

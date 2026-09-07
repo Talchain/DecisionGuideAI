@@ -48,6 +48,7 @@ import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { openAskOlumi } from '../coaching/askOlumiStore'
+import { attentionNoteForRecommendation } from '../strengthen/recommendationAttention'
 import { openDecisionRecord } from '../modals'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
@@ -68,6 +69,7 @@ import { AtAGlance } from './sections/AtAGlance'
 import { ModelHeldUp } from './sections/ModelHeldUp'
 import { WhatWeChecked } from './sections/WhatWeChecked'
 import { OptionsComparison } from './sections/OptionsComparison'
+import { ModelImplication } from './sections/ModelImplication'
 import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
 import { CritiqueWarningStrip } from '../CritiqueWarningStrip'
 import { InferenceWarningStrip } from '../InferenceWarningStrip'
@@ -89,6 +91,28 @@ export interface AnalysisNewTabBodyProps {
   resultsSectionData: ResultsSectionDataReturn
   isPreRun: boolean
   isRunning: boolean
+  /**
+   * ⭐ THE COMPOSED RUN AUTHORITY, AND IT IS A DIFFERENT QUESTION FROM
+   * `isRunning` ABOVE — which is why it is a second prop and not a swap.
+   *
+   * `isRunning` feeds `useAnalysisNewViewModel`, so it decides `vm.status` and
+   * every sentence derived from it; changing what it carries would move all of
+   * that. This one decides ONE thing: whether the content is marked busy for
+   * assistive tech.
+   *
+   * They must not diverge, and they did. Review of the first cut demonstrated
+   * by execution that the marker read the dock's LOCAL `isRunning` while
+   * `AnalysisRunStateCover` and `AnalysisRunAnnouncer` — mounted beside it, on
+   * the same tab — read the composed `localRunning || wireRunning`. In the
+   * wire-asserted-run class the user was TOLD an analysis was running and the
+   * content was NOT marked: `cover=present`, `isRunning_prop=false`,
+   * `aria-busy=null`. This surface was the one thing #1201 exists to stop it
+   * being: the surface blind to a wire-asserted run.
+   *
+   * Absent, it falls back to `isRunning` — today's behaviour for any caller
+   * that has not been given the composed value, never a silent "not running".
+   */
+  isBusy?: boolean
   /** The displayed report predates the current model. Freshness only. */
   isStale: boolean
   /**
@@ -108,6 +132,37 @@ export interface AnalysisNewTabBodyProps {
    */
   onReanalyse?: () => void
   /**
+   * ⭐⭐ THE DOCK'S RUN GATE — `runGateResult.allowed`, which `OutputsDock`
+   * binds as `canRunAnalysis` and passes unchanged to `AnalysisReadinessBar`'s
+   * `canRun`, to `PreAnalysisPanelV3`'s `canRun`, and to this prop. (It has
+   * further consumers in that file — `runCanonicalAnalysis`'s own guard among
+   * them — so this is a list of the prop bindings, not of every read.) One
+   * computation, several readers — never several predicates that happen to
+   * agree (CLAUDE.md trap 21).
+   *
+   * This surface offers the re-run twice: the staleness ribbon inside
+   * `AtAGlance`, and the shell footer bar `shellContract.ts` declares for
+   * `analysisNew` (`footerBar: 'reanalyse'`, which renders `ReanalyseBar`).
+   * Without this prop the ribbon control answered "may I re-analyse?" with a
+   * bare handler and could not refuse at all.
+   *
+   * ⚠ THE FOOTER CONTROL DOES NOT READ THIS TODAY. `ReanalyseBar` takes only
+   * `onReanalyse` and disables on `!onReanalyse`; PR #1212 is what points it
+   * at the same verdict. This prop closes the ribbon's half, and the surface
+   * is coherent only once both halves have landed.
+   *
+   * `null` = no verdict supplied, which is treated as blocked. Absent behaves
+   * as `null` for the same reason: a host that has not answered the question
+   * has not answered it, and the fail-closed render is no control at all.
+   */
+  canRunAnalysis?: boolean | null
+  /**
+   * `getRunButtonTooltip(runGateResult)` — the gate's own refusal sentence,
+   * passed rather than re-composed. Two expressions of one refusal is the
+   * defect `runBlockedListing` was introduced to close one level up.
+   */
+  runBlockedReason?: string | null
+  /**
    * The dock's own chat sender, shared with the existing tab.
    *
    * ⚠ ITS ABSENCE IS NOT A FAILURE — `WhatIWasGivenSection` gates its "Add
@@ -126,6 +181,54 @@ export interface AnalysisNewTabBodyProps {
  * set, rather than as a ternary chain inside JSX. Each returns the string whose
  * documented truth condition (`analysisNewCopy.ts`) the run actually satisfies.
  */
+/**
+ * The coaching list, WHOLE. Nothing is removed.
+ *
+ * ⚠⚠ THIS SUMMARY SAID "with the promoted card removed" AFTER THE REMOVAL WAS
+ * REVERTED. The body was corrected and the JSDoc — the tooltip every call site
+ * hovers — was left describing behaviour that no longer exists, above a long
+ * and correct explanation of why it does not. A reader meets the summary first.
+ * Caught by review; it is the same defect this PR fixes two commits earlier
+ * ("close the provenance leak two comments say is already closed").
+ *
+ * `focused` is accepted and IGNORED on purpose: it keeps the decision visible
+ * at the call site rather than leaving a bare array pass-through that reads as
+ * an oversight. The reasoning is in the body.
+ */
+export function selectAlsoWorthDoing<T extends { id: string }>(
+  interventions: readonly T[],
+  _focused: { id: string } | null,
+): T[] {
+  /**
+   * ⚠⚠ THIS EXCLUDED THE PROMOTED CARD, AND THAT WAS A CAPABILITY REGRESSION.
+   * Reverted 5 Sep 2026 on an independent review's finding, which was right and
+   * which I should have caught: my own argument for keeping the card at n=1 —
+   * "the dismissal is how a human stays authoritative over the coaching" —
+   * applies just as hard at every n, and I did not notice.
+   *
+   * The two surfaces are NOT interchangeable. The glance card is a pointer:
+   * icon, label, method chip, one sentence, one click. The Strengthen card
+   * carries the severity, the method as a dispatchable control, the science
+   * grounding, "show on canvas", "I disagree", the source line — and DISMISS.
+   *
+   * And dismiss is load-bearing in a way that makes the regression worse than
+   * "some buttons moved": retiring a recommendation is the ONLY thing that
+   * advances `glancePrimary`. Exclude the promoted card and the user cannot
+   * reach its dismiss, so the focus card can never be advanced — one
+   * recommendation pinned to the top of the panel for the life of the run.
+   *
+   * The duplication is real and stays open. It costs a repeated paragraph to
+   * someone who OPENS the section; the exclusion cost a capability to everyone.
+   * The right fix is the Focus/Also split the design pack draws, where the
+   * affordances live on the focus card — which is an IA change, and is with
+   * Paul.
+   *
+   * Kept as a function, and exported, so the decision has one place to live and
+   * its guard can pin it rather than being reasoned about again from scratch.
+   */
+  return [...interventions]
+}
+
 function driversEmptyMessage(vm: AnalysisNewViewModel): string | null {
   // Pre-run: nothing has been returned OR not returned. No claim either way.
   if (vm.status.isPreRun) return null
@@ -143,6 +246,7 @@ export function AnalysisNewTabBody({
   resultsSectionData,
   isPreRun,
   isRunning,
+  isBusy,
   isStale,
   staleReason = 'unconfirmed',
   nSamples,
@@ -150,9 +254,25 @@ export function AnalysisNewTabBody({
   responseHash,
   onFocusNode,
   onReanalyse,
+  canRunAnalysis = null,
+  runBlockedReason = null,
   onSendMessage,
   blockedListing = null,
 }: AnalysisNewTabBodyProps) {
+  /**
+   * ⭐ THE PRESENTATION PREDICATE, IN THE SHAPE THE OTHER READERS OF THIS
+   * VERDICT ALREADY USE (`AnalysisReadinessBar`, `PanelFooter`, and the dock's
+   * own two copies): `!canRun && !isAnalysing`.
+   *
+   * ⚠ `isRunning` IS LOAD-BEARING. The gate refuses a double-run, so
+   * `canRunAnalysis` is FALSE for the whole time an analysis is in flight —
+   * `!canRun` alone would put the gate's refusal copy on a control whose
+   * action is already happening. `isRunning` is the dock's LOCAL flag, which
+   * is also the flag the gate itself consumed; pairing the verdict with the
+   * composed `isBusy` would test a different run than the one that produced
+   * the verdict.
+   */
+  const reanalyseBlocked = !canRunAnalysis && !isRunning
   /**
    * The fail-closed notice channel for canvas focus. `Safe` because this
    * surface renders inside the dock in tests without a ToastProvider, and a
@@ -317,6 +437,11 @@ export function AnalysisNewTabBody({
     )
   }, [vm.strengthen.interventions, stripOffersTarget])
 
+  const alsoWorthDoing = useMemo(
+    () => selectAlsoWorthDoing(vm.strengthen.interventions, glancePrimary),
+    [vm.strengthen.interventions, glancePrimary],
+  )
+
   const runIntervention = (recommendationId: string) => {
     const rec = vm.strengthen.interventions.find((r) => r.id === recommendationId)
     if (!rec) return
@@ -330,6 +455,12 @@ export function AnalysisNewTabBody({
       draft: rec.action.prompt ?? rec.tryThis ?? rec.title,
       label: rec.action.label,
       ...(rec.targetId ? { targetId: rec.targetId } : {}),
+      // The FOURTH rec-bearing ask route, and the one an earlier pass of this
+      // change missed while claiming the class was closed. Same reason as the
+      // other three: `rec.targetId` makes the drawer's "Focus on canvas" button
+      // render, so without this the finding is left behind at exactly the
+      // moment the user asks to see the thing it is about.
+      attentionNote: attentionNoteForRecommendation(rec),
     })
   }
 
@@ -338,6 +469,26 @@ export function AnalysisNewTabBody({
       className="flex-1 min-h-0 olumi-scrollbar overflow-y-auto"
       data-testid="analysis-new-tab-body"
       data-run-identity={responseHash ?? ''}
+      /* ⚠⚠ ON THE ELEMENT THAT ALREADY EXISTS — AND THE FIRST ATTEMPT AT THIS
+         ADDED A NEW ONE, WHICH BROKE THE TAB.
+         A previous cut put `aria-busy` on a classless wrapper `<div>` inserted
+         in `OutputsDock` between the tabpanel and this root. `SectionErrorBoundary`
+         renders its children with no DOM node of its own, so this root WAS a
+         direct flex item; demoted to a block child, its `flex-1 min-h-0` went
+         inert. Measured in a real browser: the body grew 400px → 2000px, stopped
+         scrolling, and 1600px of content became unreachable inside the panel's
+         `overflow: hidden`. Caught in review; it never shipped.
+         All four sibling surfaces put the attribute on an element that already
+         exists — `CompareTabBody:263-265` puts it on the very
+         `flex-1 min-h-0 overflow-y-auto` scroll container, which is exactly the
+         shape of this one. So does this.
+         `|| undefined` so the attribute is ABSENT when false rather than
+         `aria-busy="false"` — the same form the four siblings use, and the
+         difference matters to assistive tech.
+         ⚠ `isBusy`, NOT `isRunning`: the marker answers the same question the
+         cover and the announcer answer, and must read the same authority they
+         read. See the prop's own note for the divergence this closes. */
+      aria-busy={(isBusy ?? isRunning) || undefined}
     >
       {/* The narrower measure (§11): wider gutters and a capped line length
           inside the unchanged 416px dock. */}
@@ -457,6 +608,30 @@ export function AnalysisNewTabBody({
           staleKind={vm.status.staleKind}
           isProvisional={vm.status.isProvisional}
           onReanalyse={onReanalyse}
+          /* ⭐ DERIVED FROM THE GATE'S VERDICT, NOT A SECOND EXPRESSION OF
+             IT — and not the verdict itself. `reanalyseBlocked` is
+             `!canRunAnalysis && !isRunning` (see above for why `isRunning` is
+             in it), and the reason is masked by that same boolean so a
+             permitted control carries no refusal text. What `AtAGlance` gets
+             is therefore a PRESENTATION predicate over the one admission, in
+             the shape `AnalysisReadinessBar` and `PanelFooter` already use —
+             not either of the two values the dock handed this component. */
+          reanalyseBlocked={reanalyseBlocked}
+          reanalyseBlockedReason={reanalyseBlocked ? runBlockedReason : null}
+          /* ⭐⭐ THE RUNNING STATE, THREADED UNCHANGED — the second of the two
+             questions the ribbon control has to answer. `reanalyseBlocked`
+             above says whether the gate REFUSED; this says whether a run is
+             ALREADY IN FLIGHT, and the button is disabled on either while only
+             the first may caption it.
+
+             ⚠ IT IS THE SAME `isRunning` THE PREDICATE ABOVE WAS DERIVED
+             AGAINST — this prop, the dock's local flag — and deliberately NOT
+             `isBusy`. `isBusy` is `composedAnalysisState.trust.isRunning`,
+             which answers the cover's question, not the gate's; pairing the
+             verdict with it would test a different run than the one that
+             produced the verdict. Two flags, two questions, and this is the
+             one the gate itself consumed. */
+          isRunning={isRunning}
           missingResults={vm.status.missingResults}
           driverTotal={vm.drivers.totalCount}
           primaryIntervention={
@@ -595,8 +770,30 @@ export function AnalysisNewTabBody({
             ABOUT IT → THE DETAIL. */}
         <WhatIWasGivenSection onSendMessage={onSendMessage} />
 
+        {/* ⚠ THE PROMOTED RECOMMENDATION IS NOT EXCLUDED, AND THAT IS A KNOWN
+            DUPLICATION rather than an oversight — recorded here because the
+            obvious fix is wrong.
+
+            `glancePrimary` lifts one intervention into the glance card and
+            nothing removes it from this list, so the producer's `signal` — a
+            long sentence — renders TWICE in one panel, at 11px in the
+            glance and 12px here. Witnessed on the deployed build `b14cd478`
+            (guest, 291px dock, completed run, every section expanded):
+            "The ordering holds in about 68% of variations, but is exposed to
+            uncertainty around how your largest accounts would react to usage
+            pricing." — verbatim, in `analysis-new-glance-primary-intervention`
+            and again in `analysis-new-strengthen-why`.
+
+            ⚠⚠ FILTERING THE PROMOTED ROW OUT WAS TRIED AND REVERTED. On a run
+            with exactly ONE intervention it empties this section completely —
+            `AnalysisNewTabBody.spec.tsx`'s "a grounded intervention reaches the
+            screen through the real engine" REDs, and a section that renders
+            zero rows is a worse outcome than a repeated sentence. Any real fix
+            has to decide what the glance card owns versus what this list owns,
+            which is an IA decision for the design pack
+            (`2-consolidation-map.html` slot "Focus now"), not a filter. */}
         <StrengthenTheReasoning
-          interventions={vm.strengthen.interventions}
+          interventions={alsoWorthDoing}
           scienceGrounding={vm.strengthen.scienceGrounding}
           preview={ANALYSIS_NEW_LIMITS.STRENGTHEN_PREVIEW}
           analysisHash={responseHash ?? null}
@@ -635,6 +832,31 @@ export function AnalysisNewTabBody({
             It costs ONE collapsed row at rest — the same idiom as every
             section below it — so closing the largest content gap on the
             surface does not spend the first viewport. */}
+        {/* ── WHAT YOUR MODEL IMPLIES ─────────────────────────────────────
+            ⭐ MOUNTED 5 Sep 2026. This block was written, typed, gated, built
+            onto the view model and covered by two spec files — and had ZERO
+            production importers, which the estate had already noticed and
+            written down (`heroWithholdsOnTheSameCells.spec.ts:30`). So the
+            design pack's centrepiece, and every sentence in
+            `analysisNewCopy.ts:108-178`, reached no screen: the panel showed
+            the option ROWS and never the sentence saying what they mean.
+
+            It leads the rows rather than following them, because when the two
+            readings DISAGREE that is the most decision-relevant thing the run
+            produced — the component's own header argues it at length, and the
+            prototype draws it the same way.
+
+            ⚠ IT ADDS NO CLAIM. Every sentence arrives pre-composed and already
+            gated: `{kind:'none'}` for pre-run, for a single option, and on any
+            run whose verdict withholds the leader claim — in which case this
+            renders nothing at all. Mounting a component is exactly the change
+            that could put a withheld claim on screen, so that is pinned. */}
+        <ModelImplication
+          implication={vm.modelImplication}
+          isStale={vm.status.isStale}
+          targetAskedElsewhere={stripOffersTarget}
+        />
+
         <OptionsComparison options={vm.optionsComparison} />
 
         {/* ── KEY INSIGHTS ────────────────────────────────────────────────── */}
@@ -662,6 +884,7 @@ export function AnalysisNewTabBody({
         {/* ── DRIVERS AND DYNAMICS ────────────────────────────────────────── */}
         <AnalysisNewSection
           title={COPY.sections.drivers}
+          subtitle={COPY.sectionSubtitles.drivers}
           findings={vm.drivers.findings}
           preview={ANALYSIS_NEW_LIMITS.DRIVER_PREVIEW}
           // ⚠ The caveat is a function of the PRODUCER's provenance token, not
@@ -723,6 +946,7 @@ export function AnalysisNewTabBody({
         {/* ── UNCERTAINTY AND GAPS ────────────────────────────────────────── */}
         <AnalysisNewSection
           title={COPY.sections.uncertainty}
+          subtitle={COPY.sectionSubtitles.uncertainty}
           findings={vm.uncertainty.findings}
           preview={ANALYSIS_NEW_LIMITS.UNCERTAINTY_PREVIEW}
           // ⚠⚠ THE EMPTY STATE HERE IS A TRUTH CLAIM AND IT SPLITS TWO WAYS.
@@ -774,7 +998,10 @@ export function AnalysisNewTabBody({
           >
             <h3
               id="analysis-new-decision-voi-heading"
-              className={`${typography.panelMeta} text-text-light mb-1`}
+              // `panelHeader` — a section title, for the same reason as
+              // `WhatWeChecked`. These two were the only section headings on
+              // this tab not rendering at 14px/600.
+              className={`${typography.panelHeader} text-text-header mb-1`}
               data-testid="analysis-new-decision-voi-heading"
             >
               {COPY.decisionVoi.label}

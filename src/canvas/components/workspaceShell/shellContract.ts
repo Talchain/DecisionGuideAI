@@ -392,7 +392,7 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
    */
   analysisNew: {
     id: 'analysisNew',
-    label: 'Analysis (New)',
+    label: 'Reasoning',
     footerBar: 'reanalyse',
     scroll: 'self',
     padding: 'self',

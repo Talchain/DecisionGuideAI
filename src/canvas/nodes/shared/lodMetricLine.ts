@@ -218,7 +218,20 @@ export function resolveLodMetricLine({
       // reason.
       const { influence, influenceProvenance } = displayMetadata
       if (influence != null && influenceProvenance != null) {
-        return `Influence ${Math.round(influence * 100)}%`
+        // ⚠ THE REGISTER, for the same reason as the `ahead` arm below — and
+        // this line is why round 3 of #1209 was not enough. That round fixed
+        // ONE hardcoded noun in this function and its body then claimed "every
+        // other surface read the register". This one, 44 lines up the same
+        // live low-zoom path, had been hardcoded the whole time, while
+        // `FactorNode.tsx:733` reads `METRIC_NOUN.influence` by reference at
+        // full zoom. The identical two-words-for-one-number-at-two-zoom-levels
+        // defect, live for `influence` while it was being closed for `ahead`.
+        //
+        // ⭐ CLOSED AGAINST THE ENUMERATION, NOT THE INSTANCE FOUND. Both arms
+        // are now pinned by widening `metricNounVocabulary.canvas.spec.ts`
+        // past its `cards` filter — see the note there. Nothing had been
+        // watching this file.
+        return `${METRIC_NOUN.influence} ${Math.round(influence * 100)}%`
       }
 
       // ⭐ THE PRE-ANALYSIS ARM, AND THE ONE THAT CLOSES THE DEFECT. Both rules
@@ -246,7 +259,23 @@ export function resolveLodMetricLine({
       // ruling on card density (31 Aug) is the same shape one zoom level up —
       // "show the bar with the percentage next to it", the sentence on hover.
       if (displayMetadata.isResultsMode && displayMetadata.winRate != null) {
-        return `Ahead ${formatWinProbability(displayMetadata.winRate)}`
+        // ⚠ THE REGISTER, NOT A LITERAL — and this line is why. It read
+        // `Ahead ${…}` while its sibling arm, the `achievementProbability`
+        // return in this same function, already read `${METRIC_NOUN.chance}`.
+        // So a rename in the register changed the zoomed-IN card and left this
+        // zoomed-OUT one saying the old word.
+        //
+        // ⚠ CITED BY SYMBOL, NOT BY LINE. An earlier version of this comment
+        // said "`:305`, two hundred lines below"; both numbers were wrong (314,
+        // and 56 lines) and a neighbouring edit would have falsified any
+        // correct pair anyway. The sibling is findable by name for as long as
+        // it exists, which a line number is not.
+        // The estate adjudicated this exact case in this exact file for the
+        // sibling noun (`Achievement` -> `Chance`) and took it here rather
+        // than deferring, precisely so the board could not say two words for
+        // one number at two zoom levels. Nothing REDded because the canvas
+        // noun guard filters sources to `*Node.tsx` and this file is not one.
+        return `${METRIC_NOUN.ahead} ${formatWinProbability(displayMetadata.winRate)}`
       }
 
       // ⭐ THE PRE-ANALYSIS ARM. Before a run an option has no win share, and

@@ -261,7 +261,9 @@ const glanceModel = (
 
 describe('the condition line on screen', () => {
   it('renders the sentence, tagged with the kind it came from', () => {
-    render(<AtAGlance glance={glanceModel('estimated')} />)
+    render(<AtAGlance
+  isRunning={false} reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={glanceModel('estimated')} />)
     const line = screen.getByTestId(PROVENANCE_TESTID)
     expect(line).toHaveAttribute('data-input-provenance', 'estimated')
     expect(line).toHaveTextContent('On inputs Olumi estimated')
@@ -270,7 +272,9 @@ describe('the condition line on screen', () => {
   it('renders the mixed sentence under its own kind', () => {
     // The discriminating pair: a render bound to the model rather than to one
     // hardcoded string would fail here.
-    render(<AtAGlance glance={glanceModel('mixed')} />)
+    render(<AtAGlance
+  isRunning={false} reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={glanceModel('mixed')} />)
     const line = screen.getByTestId(PROVENANCE_TESTID)
     expect(line).toHaveAttribute('data-input-provenance', 'mixed')
     expect(line).toHaveTextContent("On a mix of your figures and Olumi's estimates")
@@ -280,7 +284,9 @@ describe('the condition line on screen', () => {
     // THE SHIPPED BEHAVIOUR. A reader who sees "Ahead in 68% of simulated
     // futures" now also sees, without interaction, that its basis was never
     // established. This is the case that used to render nothing.
-    render(<AtAGlance glance={glanceModel('undetermined')} />)
+    render(<AtAGlance
+  isRunning={false} reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={glanceModel('undetermined')} />)
     const line = screen.getByTestId(PROVENANCE_TESTID)
     expect(line).toHaveAttribute('data-input-provenance', 'undetermined')
     expect(line).toHaveTextContent('On inputs whose source Olumi could not establish')
@@ -292,13 +298,17 @@ describe('the condition line on screen', () => {
     // The other direction, and the one that matters. No fallback, no hedge, no
     // element at all — with no factor rows there is nothing to describe, and a
     // sentence about a set the producer never returned would be invented.
-    render(<AtAGlance glance={glanceModel(null)} />)
+    render(<AtAGlance
+  isRunning={false} reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={glanceModel(null)} />)
     expect(screen.queryByTestId(PROVENANCE_TESTID)).toBeNull()
   })
 
   it('does not render an orphan caveat when there is no reading to condition', () => {
     render(
       <AtAGlance
+        isRunning={false} reanalyseBlocked={false}
+        reanalyseBlockedReason={null}
         glance={glanceModel('estimated', {
           headline: null,
           leaderLabel: null,
@@ -316,14 +326,18 @@ describe('the condition line on screen', () => {
   })
 
   it('states no number in the rendered line', () => {
-    render(<AtAGlance glance={glanceModel('partly_estimated')} />)
+    render(<AtAGlance
+  isRunning={false} reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={glanceModel('partly_estimated')} />)
     expect(screen.getByTestId(PROVENANCE_TESTID).textContent ?? '').not.toMatch(/\d/)
   })
 
   it('sits beside the share it conditions, not behind a disclosure', () => {
     // Both in the same panel, both visible without interaction. A reader who
     // sees the percentage must see what it rests on.
-    render(<AtAGlance glance={glanceModel('estimated')} />)
+    render(<AtAGlance
+  isRunning={false} reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={glanceModel('estimated')} />)
     expect(screen.getByTestId('analysis-new-glance-win-share')).toBeVisible()
     expect(screen.getByTestId(PROVENANCE_TESTID)).toBeVisible()
   })

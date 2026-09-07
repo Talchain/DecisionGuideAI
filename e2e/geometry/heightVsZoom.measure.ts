@@ -6,13 +6,34 @@
  * then the stride is computed against a height the card does not keep, and
  * every row can be under-spaced without anything in the layout being wrong.
  *
- * CONTROLS (a probe with no control proves nothing — CLAUDE.md trap 13):
- *  · POSITIVE: the `--canvas-label-scale` custom property on the React Flow
- *    root, and the computed font-size of a node title, MUST change across the
- *    zoom series. If they do not, the probe never exercised the mechanism.
- *  · CONTRAST: an element OUTSIDE the React Flow subtree must NOT change its
- *    font-size across the same series. A probe that reports "everything moved"
- *    is measuring a page re-render, not this mechanism.
+ * CONTROLS (a probe with no control proves nothing — CLAUDE.md trap 13).
+ *
+ * ASSERTED — these RED the run:
+ *  · BOTH LOD ARMS POPULATED (`:336`, `:337`) — a settled sample on each side
+ *    of the legibility threshold, or the direction check has nothing to compare.
+ *  · NON-VACUITY (`:351`) — at least one card must CHANGE height across the
+ *    threshold; a comparison that discriminates nothing cannot report that
+ *    nothing grew.
+ *  · COMPLETENESS (`:387`-`:388`) — every requested zoom visited, and cards
+ *    measured at all.
+ *
+ * NEVER ASSERTED — the POSITIVE control (`labelScale` `:179` AND `titleFont`
+ * `:171`) and the CONTRAST control (`outsideFont` `:182`). All three are
+ * emitted into `HZJSON` for a human to read; no `expect` requires any of them
+ * to move, so the probe can stop exercising the mechanism and stay green.
+ * Promoting them is real work, not a rename: it needs a settled-sample guard,
+ * since an unsettled camera moves nothing.
+ *
+ * ⚠ THREE DRAFTS OF THIS BLOCK WERE WRONG, AND THE THIRD WAS WRONG BECAUSE IT
+ * WAS ELABORATE. It split the unasserted controls into "read" and "captured
+ * and never read" and put `outsideFont` in the second. There is no such state
+ * in this file: `sample()` spreads the capture at `:159`, `as Sample` strips
+ * nothing at runtime, and `JSON.stringify` at `:391` reads EVERY own field —
+ * so everything captured is emitted, and `titleFont`, which no draft named at
+ * all, is in exactly the same state as the other two. ASSERTED vs NOT is the
+ * whole distinction. Each round added more precise-sounding prose and each
+ * round had a false limb (CLAUDE.md trap 22f: when revisions oscillate, the
+ * approach is wrong, not the wording).
  *
  * ⭐ AND THE SECOND HALF, WHICH IS THE ONE THE FIX ACTUALLY RESTS ON (review
  * note 1). "The layout ignores zoom" and "the number we feed the layout ignores
@@ -42,6 +63,8 @@
  * Run: pnpm exec playwright test -c playwright.geometry.config.ts heightVsZoom
  */
 import { test, expect } from '@playwright/test'
+
+import { GATE_TAG } from './canvasGateSet'
 import { LAYOUT_PADDING_Y } from '../../src/canvas/utils/nodeLayoutConstants'
 import { LAYOUT_DENSITY_PRESETS } from '../../src/canvas/layoutStore'
 import {
@@ -60,7 +83,20 @@ const VP = { width: Number(process.env.HZ_W ?? 1280), height: Number(process.env
 const ZOOMS = (process.env.HZ_ZOOMS ?? '1.2,1,0.9,0.8,0.7,0.6,0.5,0.45,0.434,0.4')
   .split(',').map(Number)
 
-test(`HZ ${STARTER} @${VP.width}x${VP.height}`, async ({ page }) => {
+/**
+ * ⭐ GATED. The describe is for the REGISTRY: `canvasGateReporter` keys on the
+ * last two elements of `titlePath()`, so a top-level test keys on the FILE PATH.
+ *
+ * ⚠ THE TITLE IS DERIVED FROM `HZ_STARTER`/`HZ_W`/`HZ_H`, so the registry names
+ * the DEFAULT POSTURE (`HZ build-vs-buy @1280x800`) and any run that overrides
+ * those REDs the gate with MISSING + UNEXPECTED. That is deliberate rather than
+ * a hazard to route around: a gate arm reconfigured by an environment variable
+ * is an arm whose subject nobody can read off the registry, and the guard
+ * refusing to bless it is the guard doing its job. Override the vars for a
+ * deliberate LOCAL sweep, never in CI.
+ */
+test.describe('card height vs camera zoom', () => {
+test(`HZ ${STARTER} @${VP.width}x${VP.height}`, { tag: GATE_TAG }, async ({ page }) => {
   await preparePage(page, VP)
   await openCanvas(page)
   await seedStarterDraft(page, STARTER)
@@ -353,4 +389,5 @@ test(`HZ ${STARTER} @${VP.width}x${VP.height}`, async ({ page }) => {
 
   // eslint-disable-next-line no-console
   console.log('HZJSON ' + JSON.stringify({ starter: STARTER, vp: `${VP.width}x${VP.height}`, invariant, lod, series }))
+})
 })

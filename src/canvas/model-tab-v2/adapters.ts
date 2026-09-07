@@ -83,11 +83,19 @@
  *      aligned into a fifth reading of this one.
  *
  * D2 — `'no-value'` IS AUTHORED FRESH, NOT PORTED. There is no per-factor
- *      "has no value" predicate anywhere in the live tree. The Model card's
- *      "N factors have no value set" is a count of the PRODUCER's
- *      `ROOT_NODE_DEFAULT_VALUE` inference warnings
- *      (`ModelHealthSection.tsx:93-98`) — a different question, answerable only
- *      after an analysis has run. This adapter's `no-value` means "the client
+ *      "has no value" predicate anywhere in the live tree. The Model card
+ *      counts the PRODUCER's `ROOT_NODE_DEFAULT_VALUE` inference warnings
+ *      (`ModelHealthSection.tsx`, `rootNodeWarningCount`) — a different
+ *      question, answerable only after an analysis has run.
+ *      ⚠ THIS NOTE QUOTED "N factors have no value set" AND THAT SENTENCE NO
+ *      LONGER EXISTS. It was the very copy defect this PR fixed — it named the
+ *      wrong set and read as a contradiction beside the outline — and the card
+ *      now says "N starting factors had no value recorded, so zero was
+ *      assumed." Quoting live copy by hand is a mirror that goes stale on the
+ *      day the copy is corrected, which is exactly what happened here, in the
+ *      note whose whole job is to keep these two questions apart. The
+ *      DISTINCTION is what this note records; the wording and the line number
+ *      are not restated. This adapter's `no-value` means "the client
  *      can display no value for this factor", derived from the live
  *      `getPrimaryValue` returning null. ⚠ The two will not always agree, and
  *      neither is wrong; they are answers to different questions (trap 21).
@@ -277,6 +285,31 @@ export function optionHasNoInterventions(data: unknown): boolean {
  * `label` still wins — the producer naming a relationship outranks anything
  * derived from its endpoints.
  */
+/**
+ * ⭐ THE ONE SEPARATOR, EXPORTED SO THE DETAIL REGION CAN TEST FOR THE
+ * CONSTRUCTION RATHER THAN FOR THE TEXT.
+ *
+ * `ModelDetailRegion` needs to know whether a relationship's title was DERIVED
+ * as `from → to` (in which case its "What it affects" list restates the second
+ * half) or was NAMED by the producer (in which case the section is the only
+ * place the target appears). Matching the target's label as a SUBSTRING of the
+ * title looked like the way to ask that and is not: measured over a
+ * ten-case corpus it produced FIVE false suppressions — "Cost" inside "Costs",
+ * "Revenue" inside "Revenue Growth Rate", "Capacity" inside "Team Capacity".
+ *
+ * ⚠ AND A WORD-BOUNDARY MATCH DOES NOT RESCUE IT: "Revenue Growth Rate"
+ * contains "Revenue" as a whole word. That is the point at which this stops
+ * being a text problem — this estate has watched a predicate over natural
+ * language oscillate through four rounds, and the exit is to make the question
+ * structural. The derived form ends with SEPARATOR + the target's label, by
+ * construction, so that is what gets tested. Same corpus: 10/10, zero false
+ * suppressions.
+ *
+ * Exported rather than spelled twice: two copies of this string is the
+ * hand-maintained mirror this estate pays for, and a guard asserts the pair.
+ */
+export const RELATIONSHIP_LABEL_SEPARATOR = ' \u2192 '
+
 function relationshipLabel(
   data: Record<string, unknown> | undefined,
   sourceId: string,
@@ -296,11 +329,41 @@ function relationshipLabel(
    * an id-shaped edge label falls back to the endpoint pair — which reads
    * better than the id whether or not the case occurs.
    */
+  return relationshipIdentity(data, sourceId, targetId, labels).label
+}
+
+/**
+ * The same identity, with its two halves still separable.
+ *
+ * ⭐ WHY THIS EXISTS AS A SECOND FUNCTION RATHER THAN A SPLIT AT THE RENDERER.
+ * Witnessed on deployed `a9c2e050`: three consecutive Relationships rows all
+ * read `Tech Lead Hired...`. They were three edges out of ONE source, so the
+ * only thing telling them apart was the TARGET — and the target sits at the far
+ * end of a single tail-truncating element, which deletes the distinguishing
+ * half first. For a DIRECTED relationship BOTH endpoints are identity; neither
+ * is optional, and a renderer cannot allot space to a half it cannot see.
+ *
+ * ⚠ AND WHY NOT `label.split(RELATIONSHIP_LABEL_SEPARATOR)` AT THE RENDERER:
+ * the first branch below returns the EDGE'S OWN label — an author's sentence,
+ * which has no endpoints. Splitting one that happens to contain an arrow would
+ * invent a structure nobody wrote, and would do it silently. `endpoints` is
+ * therefore set ONLY where a pair genuinely exists, and is `undefined`
+ * otherwise; the two states are different facts, not one with a fallback.
+ */
+export function relationshipIdentity(
+  data: Record<string, unknown> | undefined,
+  sourceId: string,
+  targetId: string,
+  labels: ReadonlyMap<string, string>,
+): { label: string; labelEndpoints?: readonly [string, string] } {
   const own = honestLabel(data?.label)
-  if (own !== null) return own
+  if (own !== null) return { label: own }
   const from = resolveCanvasLabel(sourceId, labels) ?? UNNAMED_ELEMENT_LABEL
   const to = resolveCanvasLabel(targetId, labels) ?? UNNAMED_ELEMENT_LABEL
-  return `${from} → ${to}`
+  return {
+    label: `${from}${RELATIONSHIP_LABEL_SEPARATOR}${to}`,
+    labelEndpoints: [from, to],
+  }
 }
 
 /** One element's name for a navigation target. Never its identifier. */
@@ -528,7 +591,7 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
       id: edge.id,
       kind: 'relationship',
       group: 'relationships',
-      label: relationshipLabel(data, edge.source, edge.target, nodeLabels),
+      ...relationshipIdentity(data, edge.source, edge.target, nodeLabels),
       primaryValue: edgeValue(data),
       provenanceSource: typeof data?.weightSource === 'string' ? data.weightSource : undefined,
       attention,

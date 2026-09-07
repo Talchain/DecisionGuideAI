@@ -32,6 +32,7 @@
  *   the tab's freshness surface — same contract as FocusNowContainer).
  */
 import { useEffect, useMemo, useRef } from 'react'
+import { leaderDesignationPermitted } from '../leaderDesignation'
 import { useCanvasStore } from '../../../canvas/store'
 import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
 import {
@@ -110,7 +111,7 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
       // lifecycle fact, not an entitlement — the engine needs both, separately.
       // Undefined when a legacy caller supplies no verdict; the engine's read
       // is strict (`=== false`), so only an explicit withheld claim suppresses.
-      hasLeadingOption: data.recommendation.verdict?.hasLeadingOption,
+      hasLeadingOption: leaderDesignationPermitted(data.recommendation),
       // Presence branch (schemas 0.30.0; UI half of plot-lite-service#294):
       // only a MEASURED switch_probability may feed the engine's rendered
       // "% chance the result flips" claim and the switch_probability wire
@@ -254,6 +255,12 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
             targetId: rec.targetId ?? undefined,
             parameters: rec.action.parameters,
             source: 'chip',
+            // ⚠ FOUND BY THE DERIVED GUARD, NOT BY READING. Three rounds of
+            // hand-enumeration missed this route — in the very file the first
+            // round "fixed" — because it is a FALLBACK arm, only taken when
+            // the user lacks server graph authority. That is exactly the kind
+            // of branch a reader skims and a scan does not.
+            attentionNote: attentionNoteForRecommendation(rec),
           })
         }
         ok = true
@@ -310,6 +317,22 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
       targetId: rec.targetId ?? undefined,
       parameters: rec.action.parameters,
       source: 'chip',
+      /*
+       * ⭐ THE FINDING TRAVELS ONE HOP FURTHER THAN IT USED TO.
+       *
+       * The two `canvas-focus` routes above already hold the element under
+       * attention with this note. The ask route did not: it handed the drawer
+       * the why-line as prose, and if the user then pressed "Focus on canvas"
+       * the camera moved and the finding stayed behind in the drawer. Same
+       * recommendation, same producer text, two different outcomes depending
+       * on which door was taken.
+       *
+       * Built HERE because this is where the producer data is. The drawer
+       * receives no `helpType` and so cannot derive the `move` honestly;
+       * `attentionNoteForRecommendation` returns null when there is nothing
+       * honest to say, and a null note is exactly the old behaviour.
+       */
+      attentionNote: attentionNoteForRecommendation(rec),
     })
   }
 

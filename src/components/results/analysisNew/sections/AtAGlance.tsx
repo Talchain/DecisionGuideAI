@@ -152,6 +152,83 @@ export interface AtAGlanceProps {
    * alone.
    */
   onReanalyse?: () => void
+  /**
+   * ⭐⭐ DERIVED FROM THE RUN GATE'S VERDICT IN ONE PLACE — NOT A SECOND
+   * PREDICATE HERE. `AnalysisNewTabBody` passes `!canRunAnalysis && !isRunning`
+   * over `OutputsDock`'s single `runGateResult`; this component renders that
+   * and derives nothing of its own.
+   *
+   * This surface offers the re-run TWICE: here, on the staleness ribbon, and
+   * in the shell footer (`shellContract.ts` gives `analysisNew`
+   * `footerBar: 'reanalyse'`, which renders `ReanalyseBar`). This one was
+   * handed a bare handler and could not refuse at all, so a model the gate
+   * refuses got a live ribbon control for a run that reaches `showToast` and
+   * fails.
+   *
+   * ⚠ THE FOOTER CONTROL IS UNGATED AT THIS HEAD. `ReanalyseBar` takes only
+   * `onReanalyse` and disables on `!onReanalyse`; PR #1212 is what gives it
+   * `canRun` / `blockedReason`. Whichever of the two lands first leaves this
+   * surface incoherent in one direction until the other follows — with only
+   * #1212, a DISABLED footer control carrying the refusal sits beside an
+   * ENABLED ribbon control for the same action, and the product contradicts
+   * itself about whether the user may run an analysis. This prop closes the
+   * ribbon's half.
+   *
+   * ⚠ REQUIRED, AND NULLABLE, DELIBERATELY. `AtAGlance` is the component that
+   * RENDERS the control, so this is the boundary at which an omission causes
+   * the harm — and the harm is silent. Optional-with-a-default would let a
+   * future mount site reinstate the ungated control with no diagnostic at all;
+   * required makes that a TS2741 at the mount. `null` is the honest value for
+   * a host that holds no verdict, and it is treated as BLOCKED.
+   *
+   * ⚠ THE CALLER OWNS THE `isAnalysing` CLAUSE. `canRunAnalysis` is FALSE
+   * while a run is in flight, so this is the already-derived
+   * `!canRun && !isAnalysing` — the shape `AnalysisReadinessBar` and
+   * `PanelFooter` use over the same verdict — never a bare `!canRun`, which
+   * would call a RUNNING analysis a refusal.
+   */
+  reanalyseBlocked: boolean
+  /**
+   * ⭐⭐ THE SECOND QUESTION. `reanalyseBlocked` answers "does the gate REFUSE
+   * this run?"; this answers "is a run ALREADY HAPPENING?" — and the button's
+   * `disabled` is a function of BOTH, while the refusal COPY is a function of
+   * the first alone. One name cannot carry two questions (CLAUDE.md trap 21),
+   * which is exactly how the first draft of this PR left the control enabled
+   * during a run. (Nothing shipped: before this PR the ribbon control read no
+   * gate at all, so `reanalyseBlocked` and this prop both arrive together.)
+   *
+   * ⚠ WITHOUT THIS INPUT THE CONTROL IS A DEAD AFFORDANCE MID-RUN.
+   * `reanalyseBlocked` is `!canRunAnalysis && !isRunning`, so it is FALSE for
+   * the whole time an analysis is in flight — binding `disabled` to it alone
+   * leaves a pressable button whose click reaches
+   * `runCanonicalAnalysis`, returns `already-running`, and is dropped by
+   * `handleRunAnalysis` (it raises a toast on `blocked` / `unavailable` only).
+   * An enabled control that does nothing and says nothing.
+   *
+   * ⚠ THE SOURCE IS THE DOCK'S LOCAL `isRunning`, THREADED UNCHANGED — the
+   * same flag `reanalyseBlocked` was derived against. Pairing this with the
+   * composed `isBusy` would test a different run than the one that produced
+   * the verdict (`AnalysisNewTabBody` states that reasoning at the
+   * derivation). The siblings spell this same flag `isAnalysing`
+   * (`PanelFooter`, `AnalysisReadinessBar`); the name here follows the value's
+   * own chain, dock -> body -> glance, so one grep finds all of it.
+   *
+   * ⚠ REQUIRED, for the reason the prop above is required: the harm is
+   * SILENT, and this is the component that renders the control. Optional with
+   * a `false` default would let a future mount site reinstate the enabled
+   * mid-run button with no diagnostic at all; required makes that a TS2741 at
+   * the mount.
+   */
+  isRunning: boolean
+  /**
+   * The gate's own refusal sentence, or `null` when it did not supply one.
+   *
+   * ⚠ BLOCKED WITH NOTHING TO SAY IS NOT A DISABLED BUTTON — it is a dead
+   * affordance with no explanation, which is the state this panel's other
+   * pre-gates exist to prevent. No reason ⇒ no control, the same shape a
+   * missing handler already gets.
+   */
+  reanalyseBlockedReason: string | null
   /** Which results did not come back, already named for this surface. */
   missingResults?: readonly string[]
   testId?: string
@@ -189,6 +266,9 @@ export function AtAGlance({
   staleKind = 'unconfirmed',
   isProvisional = false,
   onReanalyse,
+  reanalyseBlocked,
+  reanalyseBlockedReason,
+  isRunning,
   missingResults = [],
   testId = 'analysis-new-glance',
 }: AtAGlanceProps) {
@@ -291,18 +371,82 @@ export function AtAGlance({
    */
   const conditionFirst = Boolean(glance.condition) && !driversDiscriminate
 
+  /**
+   * ⭐⭐ TWO QUESTIONS ABOUT ONE ADMISSION, ANSWERED SEPARATELY AND ON PURPOSE.
+   *
+   *   MAY I PRESS IT?      `reanalyseDisabled` — no, if the gate refuses OR a
+   *                        run is already in flight.
+   *   WAS I REFUSED?       `reanalyseBlocked` (the prop) — the gate's verdict
+   *                        alone. A run in flight is NOT a refusal, so the
+   *                        refusal sentence stays off the control mid-run.
+   *
+   * Binding `disabled` to the REFUSAL predicate is the defect this replaces:
+   * `reanalyseBlocked` is `!canRunAnalysis && !isRunning`, which is false
+   * during a run, so the button was ENABLED in a state where pressing it can
+   * achieve nothing.
+   *
+   * ⭐ THE SHAPE IS THE SIBLINGS', NOT A NEW ONE. `PanelFooter` computes
+   * `disabled = isAnalysing || !canRun` with its refusal copy on
+   * `!isAnalysing && !canRun`; `AnalysisReadinessBar` binds
+   * `disabled={isAnalysing || !canRun}` with `blocked = !canRun &&
+   * !isAnalysing`. This is that same split, with the refusal half already
+   * derived upstream.
+   *
+   * ⚠ #1212 IS THE PRECEDENT, NOT THE COUNTER-EXAMPLE — reconciled
+   * deliberately, so the next reader does not "fix" one to match the other.
+   * At `0666f955` it gives `ReanalyseBar` exactly this pair:
+   * `blocked = !canRun && !isAnalysing` for the copy, and
+   * `disabled={!onReanalyse || blocked || isAnalysing}` for pressability. The
+   * two PRs agree that a run in flight DISABLES and does not REFUSE. Where
+   * they genuinely differ is a DIFFERENT question — what an absent verdict
+   * means: `ReanalyseBar` defaults `canRun = true` (fail-open, so the control
+   * is never lost), while this panel fails CLOSED — `AnalysisNewTabBody`
+   * defaults `canRunAnalysis` to `null`, which makes `reanalyseBlocked` true,
+   * and this component then requires that derived boolean outright rather than
+   * defaulting it. Same running-state direction; opposite absent-verdict
+   * default, each argued at its own prop.
+   */
+  const reanalyseDisabled = isRunning || reanalyseBlocked
+
   const showAnswer = Boolean(glance.leaderLabel ?? glance.headline)
+
+  /**
+   * ⚠ HOISTED SO THE READING AND ITS QUALIFIER CAN BE ONE BLOCK. The
+   * provenance line modifies the verdict above it, but lived as a SIBLING of
+   * the verdict inside the section's `space-y-3` — 12px below the sentence it
+   * qualifies and 12px above one it does not, in identical typography.
+   * Nothing bound it upward, and it read as an orphaned fragment.
+   *
+   * ⚠ A LOCAL MARGIN CANNOT FIX IT: `space-y-3` compiles to
+   * `.space-y-3 > :not([hidden]) ~ :not([hidden])`, which out-specifies a
+   * plain `.-mt-2` — measured in a browser, the override changed the file and
+   * NOT the render. The gap is owned by the parent, so the fix is structural.
+   */
+  const showInputProvenance =
+    Boolean(glance.inputProvenance) &&
+    (showAnswer || Boolean(glance.verdict) || glance.drivers.length > 0)
 
   return (
     <section className="space-y-3" data-testid={testId} aria-label={COPY.sections.atAGlance}>
       {ribbon.length > 0 ? (
         <div
-          className="flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning/[0.05] px-2 py-1.5"
+          /* ⚠ WRAPS RATHER THAN CRUSHES. Measured in a browser at the 280px
+             dock floor: "Re-run to be sure" is 102.7px — 45% of the 230px
+             ribbon — leaving 85.3px for a 51-character sentence, which set it
+             to FOUR lines of two words. `flex-wrap` plus the floor below drops
+             the control to its own line exactly when the sentence can no
+             longer afford to share one, and keeps it inline at 420px. */
+          className="flex flex-wrap items-start gap-1.5 rounded-md border border-warning/30 bg-warning/[0.05] px-2 py-1.5"
           role="status"
           data-testid={`${testId}-ribbon`}
         >
           <AlertTriangle className="w-3 h-3 mt-[3px] shrink-0 text-warning" aria-hidden="true" />
-          <span className="min-w-0 flex-1">
+          {/* ⚠ `min-w-[11rem]` IS THE WRAP TRIGGER, and it is why `min-w-0`
+              had to go: `min-w-0` says "I will shrink to nothing", which is
+              precisely the permission that let this sentence be squeezed to
+              85px at the dock floor. `text-balance` removes the widow the
+              two-line wrap would otherwise leave at 420px. */}
+          <span className="min-w-[11rem] flex-1 text-balance">
             {ribbon.map((r, i) => (
               <span
                 key={r.testId}
@@ -330,11 +474,37 @@ export function AtAGlance({
 
               ⚠ FAIL-CLOSED. No handler, no button — never a dead affordance,
               the same pre-gate this panel uses for focus targets. */}
-          {onReanalyse ? (
+          {onReanalyse && (!reanalyseBlocked || reanalyseBlockedReason !== null) ? (
             <button
               type="button"
               onClick={onReanalyse}
-              className={`${typography.panelMeta} shrink-0 self-start rounded px-1.5 py-0.5 text-warning underline underline-offset-2 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              /* ⚠ THE CALLER'S PREDICATES, NOT A RESTATEMENT OF THE GATE.
+                 `reanalyseBlocked` arrives already derived from the single
+                 `runGateResult` in `OutputsDock`, and `isRunning` is that same
+                 dock's local flag; nothing here re-reads the gate, so this
+                 control cannot form its own opinion about admission. The
+                 footer control, `ReanalyseBar`, disables on `!onReanalyse` at
+                 this head — PR #1212 is what points it at the same verdict.
+
+                 ⭐ THE TWO ATTRIBUTES READ DIFFERENT EXPRESSIONS, AND THAT IS
+                 THE FIX. `disabled` asks whether the button may be pressed
+                 (gate shut OR run in flight); `title` asks whether the gate
+                 refused (gate shut only), so a run in flight disables the
+                 control WITHOUT captioning it with a refusal that did not
+                 happen. Binding both to `reanalyseBlocked` left it pressable
+                 mid-run. */
+              disabled={reanalyseDisabled}
+              title={reanalyseBlocked ? reanalyseBlockedReason ?? undefined : undefined}
+              /* ⚠ INFO, NOT THE RIBBON'S AMBER — colour says PRESSABLE here, not
+                 SEVERE. Beside it, `r.text` is `panelMeta text-warning`: the
+                 same size and the same colour, separated only by an underline
+                 at 11px, so a reader scanning an amber block cannot tell the
+                 sentence from the control. Amber stays on the status; the one
+                 thing you can press is the one thing in the action colour. */
+              /* `disabled:no-underline` is not decoration: the underline is half of
+                 what says PRESSABLE on this strip (the other half is `text-info`),
+                 so a refused control must stop claiming it. */
+              className={`${typography.panelMeta} shrink-0 self-start rounded px-1.5 py-0.5 text-info underline underline-offset-2 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline disabled:hover:opacity-50`}
               data-testid={`${testId}-ribbon-reanalyse`}
             >
               {COPY.status.reanalyseToBeSure}
@@ -395,105 +565,133 @@ export function AtAGlance({
           it is simply no longer the largest thing on screen, and it now
           arrives inside a claim that says what it ranges over. The separate
           caption beneath it went with it; the sentence subsumes it. */}
-      {glance.verdict ? (
-        <div data-testid={`${testId}-verdict`} data-verdict-tone={glance.verdict.tone}>
-          <div className="flex items-start gap-2">
-            {glance.winShare ? (
-              <span
-                className={`${typography.panelBody} text-text-header`}
-                data-testid={`${testId}-win-share`}
-              >
-                {glance.winShare}
-              </span>
-            ) : null}
-            <span
-              className={`${typography.panelMeta} shrink-0 rounded-full px-2 py-0.5 ${
-                reassuranceIsStale(glance.verdict.tone, isStale)
-                  ? TONE_PILL_STALE
-                  : TONE_PILL[glance.verdict.tone]
-              }`}
-              data-testid={`${testId}-verdict-line`}
-              // The producer's own verdict, unchanged — the demotion is a
-              // display decision about currency, never a re-reading of what the
-              // analysis found.
-              data-verdict-demoted={
-                reassuranceIsStale(glance.verdict.tone, isStale) ? 'stale' : undefined
-              }
-            >
-              {reassuranceIsStale(glance.verdict.tone, isStale) ? null : glance.verdict.tone ===
-                'stable' ? (
-                <CheckCircle className="inline w-3 h-3 -mt-px mr-1" aria-hidden="true" />
-              ) : (
-                <AlertTriangle className="inline w-3 h-3 -mt-px mr-1" aria-hidden="true" />
-              )}
-              {glance.verdict.label}
-            </span>
-          </div>
+      {/* ⭐ ONE UNIT: THE READING, AND WHAT IT RESTS ON. Grouped so the
+          section's `space-y-3` spaces the PAIR from its neighbours rather than
+          spacing the qualifier away from the claim it qualifies. */}
+      {glance.verdict || showInputProvenance ? (
+        <div data-testid={`${testId}-reading`}>
+          {glance.verdict ? (
+            <div data-testid={`${testId}-verdict`} data-verdict-tone={glance.verdict.tone}>
+              <div className="flex items-start gap-2">
+                {glance.winShare ? (
+                  <span
+                    className={`${typography.panelBody} text-text-header`}
+                    data-testid={`${testId}-win-share`}
+                  >
+                    {glance.winShare}
+                  </span>
+                ) : null}
+                <span
+                  className={`${typography.panelMeta} shrink-0 rounded-full px-2 py-0.5 ${
+                    reassuranceIsStale(glance.verdict.tone, isStale)
+                      ? TONE_PILL_STALE
+                      : TONE_PILL[glance.verdict.tone]
+                  }`}
+                  data-testid={`${testId}-verdict-line`}
+                  // The producer's own verdict, unchanged — the demotion is a
+                  // display decision about currency, never a re-reading of what the
+                  // analysis found.
+                  data-verdict-demoted={
+                    reassuranceIsStale(glance.verdict.tone, isStale) ? 'stale' : undefined
+                  }
+                >
+                  {reassuranceIsStale(glance.verdict.tone, isStale) ? null : glance.verdict.tone ===
+                    'stable' ? (
+                    <CheckCircle className="inline w-3 h-3 -mt-px mr-1" aria-hidden="true" />
+                  ) : (
+                    <AlertTriangle className="inline w-3 h-3 -mt-px mr-1" aria-hidden="true" />
+                  )}
+                  {glance.verdict.label}
+                </span>
+              </div>
 
-          {glance.winFraction !== null ? (
-            <span
-              className="mt-1.5 block h-1 w-full rounded-full bg-panel-hover overflow-hidden"
-              aria-hidden="true"
-              data-testid={`${testId}-win-bar`}
-            >
-              <span
-                className={`block h-full rounded-full ${glance.verdict.tone === 'stable' ? 'bg-success' : 'bg-warning'}`}
-                style={{ width: `${Math.round(glance.winFraction * 100)}%` }}
-              />
-            </span>
+              {/* ⚠ DIRECTLY UNDER THE LABEL, BEFORE THE BAR — the producer's reason
+                  is the SECOND CLAUSE of a sentence whose first clause is the
+                  verdict label, so it begins lowercase by construction:
+                  "Sensitive" + "none of the factors we could test changed which
+                  option leads on its own, but…". Rendered after the win bar it
+                  read as a detached fragment starting mid-sentence — witnessed on
+                  the deployed build (`b14cd478`, guest, 291px dock, completed run)
+                  as an 11px block with its antecedent two elements away.
+
+                  `AnalysisFooter` already renders this exact producer string
+                  directly beneath its status word, with nothing between, and
+                  `AnalysisFooter.metaWrap.spec.tsx` pins the wrap treatment and
+                  the verbatim text (not the adjacency).
+
+                  ⚠ THE COPY IS UNCHANGED AND STAYS THE PRODUCER'S. An ORDERING
+                  fix, not a rewrite. Capitalising the clause here would falsify a
+                  sentence CEE composed as a continuation.
+
+                  ⚠ RESOLVED AGAINST #1195, WHICH LANDED FIRST AND KEPT THE OLD
+                  ORDER INSIDE A NEW WRAPPER. Both fixes are kept: the wrapper is
+                  staging's, the order is this one's. Taking either side wholesale
+                  reverts the other. */}
+              {glance.verdict.reason ? (
+                <p
+                  className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+                  data-testid={`${testId}-verdict-reason`}
+                >
+                  {glance.verdict.reason}
+                </p>
+              ) : null}
+              {glance.winFraction !== null ? (
+                <span
+                  className="mt-1.5 block h-1 w-full rounded-full bg-panel-hover overflow-hidden"
+                  aria-hidden="true"
+                  data-testid={`${testId}-win-bar`}
+                >
+                  <span
+                    className={`block h-full rounded-full ${glance.verdict.tone === 'stable' ? 'bg-success' : 'bg-warning'}`}
+                    style={{ width: `${Math.round(glance.winFraction * 100)}%` }}
+                  />
+                </span>
+              ) : null}
+
+            </div>
           ) : null}
 
-          {glance.verdict.reason ? (
+          {/* ── WHAT IT RESTS ON ───────────────────────────────────────────────
+              ⭐⭐ THE ANTECEDENT, AND IT BELONGS HERE RATHER THAN ANYWHERE ELSE.
+
+              Olumi's alignment principle is conditional in form: analysis describes
+              what the model implies GIVEN its assumptions and evidence, and what
+              the product invented must stay distinguishable from what the user
+              knows. This panel had the consequent in its largest type and the
+              antecedent nowhere — on a run driven 30 Aug 2026 every factor was
+              Olumi's own estimate, and the surface stating "Ahead in 68% of
+              simulated futures" said so in no place a reader would reach.
+
+              It sits immediately beneath the share, not in a disclosure and not at
+              the foot of the panel, for the same reason the scope note does: it
+              changes what the sentence above means, so a reader who sees one must
+              see the other.
+
+              ⚠ IT DOES NOT GO QUIET WHEN THE PRODUCER DOES. That was the defect:
+              a run whose factor rows the producer left unsettled — the commonest
+              real payload, 9 of the 25 factor-bearing captures in this repo —
+              rendered no line at all, so the share above sat with its basis stated
+              nowhere and read as though something had established it. That run now
+              resolves to the `undetermined` kind and says so.
+
+              ⚠ STILL SILENT WHERE SILENCE IS THE TRUTH. `inputProvenance` is null
+              when there are no factor rows to describe, and this renders nothing
+              at all in that state. There is no fallback wording, because every
+              wording that attributes the figures to somebody is a claim.
+
+              ⚠ GATED ON A READING BEING PRESENT. A bare statement of what the
+              inputs were, with no conclusion above it to condition, is a caveat
+              orphaned from its claim. */}
+          {showInputProvenance && glance.inputProvenance ? (
             <p
-              className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
-              data-testid={`${testId}-verdict-reason`}
+              className={`${typography.panelMeta} text-text-light m-0 mt-1`}
+              data-testid={`${testId}-input-provenance`}
+              data-input-provenance={glance.inputProvenance}
             >
-              {glance.verdict.reason}
+              {GLANCE_PROVENANCE_COPY[glance.inputProvenance]}
             </p>
           ) : null}
         </div>
-      ) : null}
-
-      {/* ── WHAT IT RESTS ON ───────────────────────────────────────────────
-          ⭐⭐ THE ANTECEDENT, AND IT BELONGS HERE RATHER THAN ANYWHERE ELSE.
-
-          Olumi's alignment principle is conditional in form: analysis describes
-          what the model implies GIVEN its assumptions and evidence, and what
-          the product invented must stay distinguishable from what the user
-          knows. This panel had the consequent in its largest type and the
-          antecedent nowhere — on a run driven 30 Aug 2026 every factor was
-          Olumi's own estimate, and the surface stating "Ahead in 68% of
-          simulated futures" said so in no place a reader would reach.
-
-          It sits immediately beneath the share, not in a disclosure and not at
-          the foot of the panel, for the same reason the scope note does: it
-          changes what the sentence above means, so a reader who sees one must
-          see the other.
-
-          ⚠ IT DOES NOT GO QUIET WHEN THE PRODUCER DOES. That was the defect:
-          a run whose factor rows the producer left unsettled — the commonest
-          real payload, 9 of the 25 factor-bearing captures in this repo —
-          rendered no line at all, so the share above sat with its basis stated
-          nowhere and read as though something had established it. That run now
-          resolves to the `undetermined` kind and says so.
-
-          ⚠ STILL SILENT WHERE SILENCE IS THE TRUTH. `inputProvenance` is null
-          when there are no factor rows to describe, and this renders nothing
-          at all in that state. There is no fallback wording, because every
-          wording that attributes the figures to somebody is a claim.
-
-          ⚠ GATED ON A READING BEING PRESENT. A bare statement of what the
-          inputs were, with no conclusion above it to condition, is a caveat
-          orphaned from its claim. */}
-      {glance.inputProvenance &&
-      (showAnswer || glance.verdict || glance.drivers.length > 0) ? (
-        <p
-          className={`${typography.panelMeta} text-text-light m-0`}
-          data-testid={`${testId}-input-provenance`}
-          data-input-provenance={glance.inputProvenance}
-        >
-          {GLANCE_PROVENANCE_COPY[glance.inputProvenance]}
-        </p>
       ) : null}
 
       {/* ── SCOPE ──────────────────────────────────────────────────────────

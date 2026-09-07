@@ -67,9 +67,18 @@ export default defineConfig({
   reporter: [['list'], ['./e2e/geometry/canvasGateReporter.ts']],
   outputDir: GATE_OUTPUT_DIR,
   retries: 0,
-  // A merge gate must not sit for three minutes on a hang before saying so.
-  // The three gated arms measured 41.2s / 6.2s / 6.9s on darwin; the ceiling is
-  // generous against that, and deliberately far below the CI job timeout so a
+  // A merge gate must not sit on a hang before saying so. The ceiling is
+  // per-ARM, not per-run, and is deliberately far below the CI job timeout so a
   // stuck arm presents as a NAMED test timeout rather than as a killed job.
+  //
+  // MEASURED on darwin at the pre-rebase tip, whole gate 23 arms / 4.2m (the
+  // set is now 25 — #1179's two `modelRowEditReflow` arms joined at the rebase
+  // and are NOT in this darwin measurement): the slowest arm
+  // is `portalled` at 53.3s, then `drive` at 38.0s and `HZ build-vs-buy` at
+  // 33.0s; the ten OVERLAP cells are 3.4-4.6s each. On ubuntu the same suite
+  // runs ~1.66-1.9x slower (derived by comparing the three arms measured on
+  // both), so the slowest arm lands near 100s and this ceiling still leaves
+  // most of a minute of margin. The BUDGET for the job as a whole — 600s, and
+  // why — is in `e2e/geometry/canvasGateSet.ts` § DELIBERATE_EXCLUSIONS.
   timeout: 180_000,
 })

@@ -50,10 +50,48 @@ import { useCanvasStore } from '../../../../canvas/store'
 import { useGuidanceStore } from '../../../../canvas/stores/guidanceStore'
 import { genuineDecision, highUncertainty, makeDriver, openStrategicChallenge } from './analysisNewFixtures'
 
+/**
+ * ⭐⭐ THE ADMISSION-BEARING SCENARIO — added RED-FIRST, because without it this
+ * guard COULD NOT FAIL on the dimension it now needs to police.
+ *
+ * Every other scenario omits `leaderDesignationPermitted`. With Q1 absent the
+ * composed answer collapses to `verdict.hasLeadingOption`, so the mirror and the
+ * container were compared on the one axis where they CANNOT differ — deep
+ * equality, a positive control and a discriminating half, all green, all blind.
+ * A corpus that omits the dimension the code discriminates on cannot certify the
+ * code over that dimension. (CLAUDE.md trap 13d: check what your corpus
+ * EXCLUDES, not what it covers.)
+ *
+ * This scenario is the one shape that separates the two questions: the MODEL
+ * refuses a comparative claim while the RESULT does separate the arms. On it,
+ * `StrengthenContainer` passes the composed answer (`false`) and the mirror
+ * passed raw Q2 (`true`) — so Analysis (New) invited the user to challenge a
+ * leader on a run where the producer refuses to name one.
+ */
+// ⚠ RETURN TYPE PINNED. Without it this factory widens `typeof data` at the
+// call site into a UNION, and `render(<StrengthenContainer data={enriched} />)`
+// stops type-checking — which is precisely what CI caught (TS2322 x2) after a
+// push where local typecheck was unrunnable at load 191.
+const modelRefusesButResultSeparates = (): ReturnType<typeof genuineDecision> => {
+  const d = genuineDecision()
+  return {
+    ...d,
+    recommendation: {
+      ...d.recommendation,
+      // Q1 refuses.
+      leaderDesignationPermitted: false,
+      // Q2 permits — asserted below, so this scenario cannot silently stop
+      // separating the two questions and start agreeing for the wrong reason.
+      verdict: { ...(d.recommendation?.verdict ?? {}), hasLeadingOption: true },
+    },
+  } as ReturnType<typeof genuineDecision>
+}
+
 const SCENARIOS = {
   'open strategic challenge': openStrategicChallenge,
   'genuine decision': genuineDecision,
   'high uncertainty': highUncertainty,
+  'MODEL refuses while RESULT separates (admission-bearing)': modelRefusesButResultSeparates,
 }
 
 beforeEach(() => {

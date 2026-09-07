@@ -96,11 +96,26 @@ function makeData(verdict: DecisionVerdict | undefined): ResultsSectionDataRetur
   } as ResultsSectionDataReturn
 }
 
-function renderWith(verdict: DecisionVerdict | undefined) {
+function renderWith(
+  verdict: DecisionVerdict | undefined,
+  /**
+   * The COMPOSED answer `useResultsSectionData` publishes: does the MODEL
+   * license a comparative claim (`permitted_analysis_mode`) AND did THIS result
+   * separate the arms (`verdict.hasLeadingOption`)? Omitted by every existing
+   * case here, which is what pins the fallback: a fixture with no composed
+   * field must behave exactly as it did before the field existed.
+   */
+  leaderDesignationPermitted?: boolean,
+) {
   captured = null
+  const data = makeData(verdict)
+  if (leaderDesignationPermitted !== undefined) {
+    ;(data.recommendation as { leaderDesignationPermitted?: boolean })
+      .leaderDesignationPermitted = leaderDesignationPermitted
+  }
   render(
     <ResultsBody
-      resultsSectionData={makeData(verdict)}
+      resultsSectionData={data}
       tornadoData={{ rows: [], expectedOutcome: null }}
       onSendMessage={() => {}}
     />,
@@ -116,6 +131,29 @@ describe('ResultsBody → OptionCards — the entitlement is actually wired', ()
     // The assertion the component suite structurally cannot make. Deleting the
     // `hasLeadingOption={…}` line in ResultsBody makes ONLY this test fail.
     expect(renderWith(WITHHELD).hasLeadingOption).toBe(false)
+  })
+
+  /**
+   * ⭐ THE CROWN, AND WHY THIS ARM EXISTS. `OptionCards` turns `hasLeadingOption`
+   * into its own `designationsWithheld`, which gates the crowned border, the
+   * ordinal rank swatch, `isLeader`, the leader fill AND the card order — the
+   * most visible designation on the panel.
+   *
+   * This line read `verdict?.hasLeadingOption` — ONE of the two conjuncts —
+   * while a comment 420 lines above it in the same file said the file read the
+   * composed answer. A reviewer found it. So the crown still fired on exactly
+   * the runs the admission gate exists to withhold, and the false comment would
+   * have told the next lane this file was already done.
+   */
+  it('a model that licenses no comparative claim does NOT reach the cards as a leader', () => {
+    // Q2 says the arms separated. Q1 says the model may not be claimed from.
+    // The crown must be withheld, and it must be withheld for the MODEL's
+    // reason — which is why the verdict here is PERMITTED, not WITHHELD.
+    expect(renderWith(PERMITTED, false).hasLeadingOption).toBe(false)
+  })
+
+  it('both conjuncts permitting still reaches the cards as a leader (not always-refuse)', () => {
+    expect(renderWith(PERMITTED, true).hasLeadingOption).toBe(true)
   })
 
   it('PERMITTED verdict reaches the cards as hasLeadingOption=true', () => {

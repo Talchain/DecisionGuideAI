@@ -72,6 +72,10 @@ import {
   deriveAnalysisRefusalNoticeUpdate,
   type AnalysisRefusalNotice,
 } from '../canvas/store/analysisRefusalNotice'
+import {
+  leaderClaimWithholdingReason,
+  type LeaderClaimWithholdingReason,
+} from '../canvas/hydrate/applyScenarioAnalysisRead'
 
 /**
  * Minimal store-shape interface. useCanvasStore.getState() returns a larger
@@ -204,6 +208,16 @@ export interface V5ApplicatorStore {
    * analysis has been hydrated yet.
    */
   currentResultsHash?: string | null
+  /**
+   * Withdraw the leading-option designation from the report the slice holds,
+   * on the producer's own word (`analysis_state.leader_claim.permitted:false`,
+   * or `blocked_unusable:true`). Optional so the applicator stays testable
+   * against minimal store doubles, and so a store view that predates the field
+   * behaves exactly as it does today.
+   *
+   * ⚠ IT MARKS, IT DOES NOT DELETE. The user's numbers stay; the CLAIM goes.
+   */
+  resultsWithholdLeaderClaim?: (reason: LeaderClaimWithholdingReason) => void
 }
 
 /**
@@ -1262,6 +1276,18 @@ export function applyV5State(
   // there means "nothing changed about the verdict I already gave you". Here
   // the field's whole contract is "CEE stated this FOR THIS TURN", so silence
   // must clear or the authority claim becomes a lie about which turn spoke.
+  /**
+   * The turn's verdict, held for step 5 below.
+   *
+   * ⚠ THE WITHHOLDING IS TURN-SCOPED WHERE IT IS READ AND REPORT-SCOPED WHERE
+   * IT IS APPLIED, which is exactly why it is captured here and used there.
+   * `analysis_state` clears on absence (see above) because its contract is
+   * "CEE stated this FOR THIS TURN". The leading-option DESIGNATION it governs
+   * belongs to the REPORT, which outlives the turn — so a consumer reading the
+   * permission off this slice loses it on the user's next message and the
+   * withheld claim comes back. That is the second half of the witnessed harm.
+   */
+  let turnVerdict: AnalysisStateV1 | null = null
   const rawAnalysisState = (response as { analysis_state?: unknown }).analysis_state
   if (rawAnalysisState === undefined) {
     store.setAnalysisStateV1?.(null)
@@ -1269,6 +1295,7 @@ export function applyV5State(
     const parsedAnalysisState = AnalysisStateV1Schema.safeParse(rawAnalysisState)
     if (parsedAnalysisState.success) {
       const verdict: AnalysisStateV1 = parsedAnalysisState.data
+      turnVerdict = verdict
       store.setAnalysisStateV1?.(verdict)
       applied.push('analysis_state:set')
       logV5StateStep({
@@ -1515,6 +1542,47 @@ export function applyV5State(
       output_keys: [],
       applied: false,
       skip_reason: 'no_analysis_result_block',
+    })
+  }
+
+  // ── ⚠⚠ STEP 5b — THE PRODUCER'S REFUSAL REACHES THE REPORT ────────────────
+  //
+  // THE HARM, witnessed on deployed staging `113375a1` (drive 3, 4 Sep 2026).
+  // A user corrects a value. CEE answers `leader_claim { permitted: false,
+  // withheld_reason: 'separation_unavailable' }` and, on the refusal,
+  // `blocked_unusable: true` — usually with NO analysis block, because the
+  // numbers it holds no longer describe the model. Step 5 above is gated on
+  // that block, so nothing touched the results slice, the previously-held
+  // report went on presenting itself, and the canvas went on wearing
+  // `Leading option` over a payload that had just refused to name one.
+  //
+  // ⭐ DELIBERATELY OUTSIDE THE `analysisBlock` GATE. A withholding is a fact
+  // about the report ALREADY HELD as much as about one arriving, and the turn
+  // where it matters most is the one that brings no report at all.
+  //
+  // ⭐ AFTER step 5, and the order is the correctness: the withholding is
+  // stamped onto whatever report the slice holds, so stamping it before a
+  // results write would simply be overwritten by that write. CEE may
+  // legitimately ship an analysis AND refuse the designation over it.
+  //
+  // ⚠ IT SUBTRACTS AND NEVER ADDS — there is no branch here that grants. A
+  // permitting verdict writes nothing, and permission returns the only way it
+  // safely can: with a NEW run, whose report carries no withholding at all.
+  //
+  // The predicate is `leaderClaimWithholdingReason`, imported from the read
+  // applier so the turn leg, the poll leg and the boot leg share ONE definition
+  // rather than three spellings of it (CLAUDE.md trap 12).
+  const withholdingReason =
+    turnVerdict !== null ? leaderClaimWithholdingReason(turnVerdict) : null
+  if (withholdingReason !== null) {
+    store.resultsWithholdLeaderClaim?.(withholdingReason)
+    applied.push(`leader_claim:withheld:${withholdingReason}`)
+    logV5StateStep({
+      step_number: 5,
+      step_name: 'leader_claim_withholding',
+      input_keys: ['analysis_state.leader_claim', 'analysis_state.blocked_unusable'],
+      output_keys: ['results.report.producer_leader_permission'],
+      applied: true,
     })
   }
 

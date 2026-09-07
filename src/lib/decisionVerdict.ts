@@ -192,10 +192,94 @@ export const LEADER_CLEAR_WIN_PROBABILITY = 0.65
 /** Tolerance for IEEE-754 subtraction noise at the band boundaries. */
 const FP_EPSILON = 1e-9
 
+/**
+ * The PRODUCER'S OWN PERMISSION to name a leading option, bound to the report
+ * it was uttered about.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * TWO QUESTIONS, NAMED APART, COMPOSED AT THE POINT OF USE
+ * ═══════════════════════════════════════════════════════════════════════════
+ *   Q1 PERMISSION  "may a leading option be named for this analysis?"
+ *                  Answered by the PRODUCER. This field.
+ *   Q2 SEPARATION  "does this report separate the arms?"
+ *                  Answered by the CLIENT, from the report's own numbers and
+ *                  the producer's near-tie / band signals. Everything else in
+ *                  this module.
+ *
+ * Neither leaf is redefined by the other and their defaults are NOT aligned:
+ * Q2's default is "no claim", Q1's default is "the producer has not spoken".
+ * They are conjoined once, in `deriveDecisionVerdict`, and Q1 may only ever
+ * SUBTRACT.
+ *
+ * ⭐ WHY THIS RIDES THE REPORT RATHER THAN THE LIVE WIRE SLICE, and it is the
+ * decisive design point rather than a convenience. On the wire the fact lives
+ * at `analysis_state.leader_claim.permitted`, and `applyV5State` CLEARS
+ * `analysis_state` on every turn that does not restate it — deliberately and
+ * correctly, because "the field's whole contract is 'CEE stated this FOR THIS
+ * TURN'". But the CLAIM it governs belongs to the REPORT, which outlives the
+ * turn, the session and the reload. Read from the turn-scoped slice, the
+ * permission evaporates on the user's next message and the withheld
+ * designation comes back — which is precisely the witnessed harm (staging
+ * `113375a1`, 4 Sep 2026: the refusal was transient, the unsafe claim was
+ * durable). Bound to the report, it lives exactly as long as the thing it is
+ * about, and rides the autosave record home.
+ *
+ * ⚠ IT IS THE PRODUCER'S LEAF, CARRIED — NOT A SECOND AUTHORITY. Exactly one
+ * writer (`canvas/store.ts`'s `resultsWithholdLeaderClaim`) and exactly one
+ * reader (`readProducerLeaderPermission`, below). It is never re-derived from
+ * anything the client can compute.
+ */
+export interface ProducerLeaderPermission {
+  /** The producer's `leader_claim.permitted`, verbatim. */
+  permitted: boolean
+  /** The producer's `leader_claim.withheld_reason`, or this UI's own reason
+   *  code when the withholding came from a sibling fact (`blocked_unusable`). */
+  withheld_reason?: string
+}
+
+/**
+ * Read the permission fail-OPEN.
+ *
+ * ⭐ ABSENCE MEANS AN OLDER PRODUCER, NEVER "NO". `permitted` is REQUIRED and
+ * BOOLEAN inside `leader_claim` at the pinned contract — `@talchain/schemas`
+ * 0.50.0, `dist/boundary/analysis-state.d.ts`, symbol
+ * `AnalysisLeaderClaimSchema` (`permitted: z.ZodBoolean` in a `"strict"`
+ * object), inlined identically as `AnalysisStateV1Schema`'s `leader_claim`.
+ * ⚠ CITED BY SYMBOL, NOT BY LINE: this is a VENDORED `.d.ts` that is
+ * regenerated on every bump, so a line number here is stale at the next one and
+ * silently misdirects rather than failing.
+ *
+ * But the field on the REPORT is new here and is absent from every report this
+ * UI has ever persisted, from every V1/V2 PLoT path, and from every producer
+ * older than this change. Reading absence as a refusal would blank the leading
+ * option on every restored answer in the estate.
+ *
+ * ⚠ STRICT BOOLEAN, NOT FALSINESS. `0`, `''`, `null` and a missing block are
+ * all falsy and none of them is the producer saying no. A malformed field is a
+ * producer we cannot READ, and an unreadable producer has said nothing — the
+ * same fail-open reasoning `readNearTie` applies one field over.
+ *
+ * @returns `false` only on an explicit boolean refusal; `true` on an explicit
+ *          boolean permission; `null` when the producer has not spoken.
+ */
+export function readProducerLeaderPermission(raw: unknown): boolean | null {
+  if (raw === null || typeof raw !== 'object') return null
+  const permitted = (raw as Record<string, unknown>).permitted
+  return typeof permitted === 'boolean' ? permitted : null
+}
+
 /** Minimal shape this module reads out of the PLoT report. Structural, so a
  *  mapped ReportV1, a raw V2 response, or a hydrated report all satisfy it. */
 export interface DecisionVerdictReportLike {
   option_probabilities?: Record<string, { win_probability?: number | null } | null | undefined> | null
+  /**
+   * Q1 — see `ProducerLeaderPermission`. `unknown` deliberately: persisted
+   * JSON is not a type, this field comes back off a localStorage record written
+   * by an older build as readily as from this session, and typing it as the
+   * interface would let it be read directly. `readProducerLeaderPermission` is
+   * the only way in, and the compiler enforces that rather than a reviewer.
+   */
+  producer_leader_permission?: unknown
   robustness?: {
     recommended_option_id?: string | null
     /** PLoT `computeNearTie` output. Snake and camel both appear on the wire. */
@@ -316,6 +400,40 @@ export function deriveDecisionVerdict(
   const gap = top1.win - top2.win
   const gapPp = Math.round(gap * 100)
 
+  // ── ⚠⚠ Q1 — THE PRODUCER REFUSED PERMISSION. NO AUTHORITY BELOW MAY ─────
+  //       OVERRIDE IT. ───────────────────────────────────────────────────────
+  //
+  // THE HARM THIS CLOSES, witnessed on deployed staging `113375a1` (drive 3,
+  // 4 Sep 2026). A user corrects a value. CEE answers
+  //   `leader_claim { permitted: false, withheld_reason: 'separation_unavailable' }`
+  // and the canvas goes on rendering `Leading option`, because this module —
+  // the ONE module entitled to answer "is there a leading option?" — read
+  // `option_probabilities`, `robustness.*` and `decision_brief.headline_banded`
+  // and read the producer's PERMISSION nowhere. An explicit refusal had no path
+  // to the surface that acts on it.
+  //
+  // ⭐ PLACED HERE, ABOVE BOTH PRODUCER AUTHORITIES, AND THAT POSITION IS THE
+  // CORRECTNESS. Two authorities below can each mint `hasLeadingOption: true`
+  // (the near-tie exit and the band exit). A guard on one of them only would
+  // leave the other open — one question behind two gates, this estate's
+  // signature defect. One conjunction, above both, cannot be half-applied.
+  //
+  // ⭐ IT SUBTRACTS AND NEVER ADDS. The exit is byte-identical to the
+  // no-applicable-producer-signal exit at the bottom of this function, so a
+  // report Q2 had already declined comes back unchanged and no relaxation of Q1
+  // can ever manufacture a claim. IDENTITY SURVIVES for the same reason it does
+  // there: `leaderId` and `gapPp` are still returned, because identity and
+  // entitlement are different questions and the non-claiming consumers —
+  // ordering, focus, the decision record — must keep working.
+  //
+  // ⛔ FAIL TOWARD SILENCE, NEVER TOWARD A DENIAL. `separation: 'unknown'`, not
+  // `'tied'`: the latter licenses "no clear leading option", a second claim we
+  // have no more authority for than the first. The producer said it could not
+  // name one, not that they are level.
+  if (readProducerLeaderPermission(report.producer_leader_permission) === false) {
+    return { leaderId, separation: 'unknown', hasLeadingOption: false, gapPp, source: 'none' }
+  }
+
   // ── Authority 1: PLoT's own near-tie verdict ────────────────────────────
   // The producer already answered "is there a clear leader?" — honour it, but
   // only when it NAMES the option it is talking about, and that option is the
@@ -338,8 +456,8 @@ export function deriveDecisionVerdict(
   // from the producer: `computeNearTie` (PLoT `routes/v2/run.ts:2045`) returns
   // `NearTieInfoV3 | undefined` and every non-undefined exit sets
   // `top_option_id`; its sole attachment site assigns the block WHOLE or omits
-  // it; and `EnrichmentNearTieSchema` (`@talchain/schemas` 0.48.0 — the version
-  // THIS repo pins, `file:./vendor/talchain-schemas-0.48.0.tgz`) declares
+  // it; and `EnrichmentNearTieSchema` (`@talchain/schemas` 0.50.0 — the version
+  // THIS repo pins, `file:./vendor/talchain-schemas-0.50.0.tgz`) declares
   // `top_option_id: z.string()` — REQUIRED, while the BLOCK is `.optional()`.
   // Three real captures in this repo carry all six keys. So a `near_tie`
   // arriving without its identity is CONTRACT-INVALID, and the only thing that

@@ -48,6 +48,7 @@ export function AskOlumiDrawer() {
   const parameters = useAskOlumiStore((s) => s.parameters)
   const source = useAskOlumiStore((s) => s.source)
   const intent = useAskOlumiStore((s) => s.intent)
+  const attentionNote = useAskOlumiStore((s) => s.attentionNote)
   const setDraft = useAskOlumiStore((s) => s.setDraft)
   const close = useAskOlumiStore((s) => s.close)
 
@@ -144,7 +145,26 @@ export function AskOlumiDrawer() {
 
   const handleFocusCanvas = () => {
     if (!targetId) return
-    const ok = focusModelTarget(targetId)
+    /*
+     * ⭐ THE REASON TRAVELS WITH THE USER. Moving the camera is not an
+     * explanation: without the note the user arrives at the element with the
+     * why-line left behind in the drawer they just navigated away from. With
+     * it, the element is held under attention and the sentence is anchored
+     * beside the thing it is about.
+     *
+     * ⚠ THE TOAST STAYS, AND THE REASON THAT ALWAYS HOLDS IS THE SIMPLE ONE:
+     * most openers pass NO note, so for them the toast is the only feedback
+     * there is. Removing it would restore the dead-button class this drawer's
+     * own header exists to end.
+     *
+     * A second reason is real but narrower than an earlier draft of this
+     * comment claimed. `requestOlumiAttention` is fail-closed, so a passed
+     * note does not guarantee a rendered card — but on the NODE branch the
+     * staleness check and the request read the same store synchronously, so
+     * the race that draft cited cannot occur there. It can still write nothing
+     * when the target is genuinely gone.
+     */
+    const ok = focusModelTarget(targetId, attentionNote)
     showToast(
       ok
         ? 'Focused the relevant model elements on the canvas'

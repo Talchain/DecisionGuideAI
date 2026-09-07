@@ -16,6 +16,7 @@
  * `BaseNode.lodBodyLine.spec.tsx` (mounting) and belongs, for the geometry
  * claim, to the real-browser harness.
  */
+import { METRIC_NOUN } from '../metricVocabulary'
 import { describe, it, expect } from 'vitest'
 import { resolveLodMetricLine } from '../lodMetricLine'
 import type { NodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
@@ -101,7 +102,7 @@ describe('the other three types, which rendered nothing at any zoom before', () 
         label: 'Build',
         displayMetadata: meta({ isResultsMode: true, winRate: 0.47 }),
       }),
-    ).toBe('Ahead 47%')
+    ).toBe(`${METRIC_NOUN.ahead} 47%`)
   })
 
   it('and says nothing before a run — a win share with no run behind it is a fabrication', () => {
@@ -316,7 +317,7 @@ describe('the pre-analysis arms, and the opposite-direction twin for each', () =
         displayMetadata: meta({ isResultsMode: true, winRate: 0.41 }),
         facts: { optionIsBaseline: false, optionInterventionCount: 2 },
       }),
-    ).toBe('Ahead 41%')
+    ).toBe(`${METRIC_NOUN.ahead} 41%`)
   })
 
   it('a factor with a prior range reads it when it has no stated value and no influence', () => {

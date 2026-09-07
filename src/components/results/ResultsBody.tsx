@@ -10,6 +10,7 @@
  */
 
 import { useOptionCoverage } from '../../v5/blocks/useOptionCoverage'
+import { leaderDesignationPermitted } from './leaderDesignation'
 import { buildCoverageDisclosure } from './utils/optionCoverage'
 import { useCanvasNodeLabels } from '../../v5/blocks/useCanvasLabels'
 import { resolveCanvasLabel } from '../../canvas/domain/canvasLabels'
@@ -182,9 +183,71 @@ export const ResultsBody = memo(function ResultsBody({
   // patterns). Absent verdict ⇒ NOT withheld, the same convention
   // `buildV7Lenses` and `buildHeroModel` use for a verdict-less caller, so no
   // fixture-driven mount changes behaviour.
+  // ⚠ READS THE COMPOSED ANSWER, NOT ONE CONJUNCT. `verdict.hasLeadingOption`
+  // answers only "did the result separate the arms"; designating a leader also
+  // requires that the MODEL licenses a comparative claim at all
+  // (`permitted_analysis_mode === 'comparative_leader'`). Reading the verdict
+  // here would silently drop that second question — which is exactly the defect
+  // `leaderDesignationPermitted` exists to close.
+  //
+  // ⚠⚠ AND AN EARLIER VERSION OF THIS COMMENT WAS FALSE BY OMISSION, WHICH IS
+  // WORSE THAN BEING WRONG. It said this file reads the composed answer — 420
+  // lines above two sites that still read ONE conjunct. A reviewer found them.
+  // A lane reading it would have concluded `ResultsBody` was done and skipped
+  // the panel's most visible designation, so the comment would have STOPPED the
+  // work rather than merely misdirecting it.
+  //
+  // ⚠⚠⚠ AND THE VERSION AFTER THAT SAID "ALL FOUR" AND GAVE LINE NUMBERS. BOTH
+  // HALVES WERE WRONG, AND THEY WERE WRONG ON COMMIT — not stale by drift; the
+  // file had not moved since. Every one of the four integers was off (three by
+  // 16, one by 22). The worst, `:450`, did not land on nothing: it landed on a
+  // comment CONTAINING the string `TriageActionCardsBody`, so a reader
+  // following it saw the name they were told to expect and ticked it off.
+  // A comment written to stop people trusting reproduced the exact failure it
+  // named. Line numbers are a hand-maintained mirror of a file that moves
+  // whenever anyone edits it — including the edit that writes them.
+  //
+  // ⚠⚠⚠ AND "SIX" WAS ALSO SHORT. A reviewer counted NINE at the previous head;
+  // this PR adds two more. DERIVED at this tip, code only, tests and the
+  // reader's own module excluded: ELEVEN call sites across SIX files, and ZERO
+  // raw-field designation reads outside the type declaration.
+  //
+  // That is the THIRD count in this comment's history — four, six, eleven — and
+  // the lesson is not "count more carefully". It is that ANY enumeration written
+  // by hand is a mirror of a moving tree. Named by SYMBOL and by FILE so the set
+  // survives edits; re-derive it rather than trusting the number:
+  //
+  //   this file (4):  `designationsWithheld` · `leaderClaimPermitted` prop ·
+  //                   the win-probability gauge · OptionCards `hasLeadingOption`
+  //   TriageActionCardsBody (1):        `hasWinner`
+  //   StrengthenContainer (1):          `hasLeadingOption`
+  //   buildHeroModel (1):               `designationsWithheld`
+  //   buildAnalysisNewViewModel (3):    at-a-glance headline · model implication ·
+  //                                     the "What we checked" leader row
+  //   buildStrengthenInputsForAnalysisNew (1): `hasLeadingOption` (the mirror)
+  //
+  // ⚠ THREE IDIOMS, NOT TWO, AND THE THIRD IS INVISIBLE AT THE CALL SITE.
+  //   `=== false`  withholds — absence reads as NOT withheld (permissive)
+  //   `=== true`   speaks    — absence reads as DO NOT SPEAK (conservative)
+  //   raw pass-through (this file's OptionCards prop, and StrengthenContainer)
+  //                          — defers the comparison one component down, where
+  //                            it resolves to `=== false`. The permissive
+  //                            reading, chosen somewhere you cannot see it here.
+  // Each is correct for its surface and each preserves that surface's prior
+  // behaviour, so this is NOT one-name-two-questions — the remedy is naming, not
+  // aligning. But "does absence fail safe?" has two answers in this file, and
+  // only running it settles which.
+  //
+  // Verify the set with a repo-wide grep for `leaderDesignationPermitted`
+  // (excluding `__tests__` and the reader's own module). If that returns more
+  // than these eleven call sites, this comment is short again and the new one is
+  // unaudited — which is the failure mode above, one level up.
+  //
+  // `=== false` preserves the existing convention EXACTLY: a caller supplying no
+  // verdict is a legacy fixture, not a withheld run, so `undefined` keeps
+  // today's behaviour and no fixture-driven mount changes.
   const designationsWithheld =
-    resultsSectionData.recommendation.verdict != null
-    && !resultsSectionData.recommendation.verdict.hasLeadingOption
+    leaderDesignationPermitted(resultsSectionData.recommendation) === false
 
   // Outcome-view lens — all three arms rank the SAME quantity family.
   const [riskAppetite, setRiskAppetite] = useState<RiskAppetite>('neutral')
@@ -377,7 +440,7 @@ export const ResultsBody = memo(function ResultsBody({
           or Compare authority. */}
       <SectionErrorBoundary section="Decision brief">
         <DecisionBriefSectionContainer
-          leaderClaimPermitted={resultsSectionData.recommendation.verdict?.hasLeadingOption === true}
+          leaderClaimPermitted={leaderDesignationPermitted(resultsSectionData.recommendation) === true}
         />
       </SectionErrorBoundary>
 
@@ -604,7 +667,7 @@ export const ResultsBody = memo(function ResultsBody({
                 }))}
               decisionState={vm.decisionState}
               designationsWithheld={
-                resultsSectionData.recommendation.verdict?.hasLeadingOption === false
+                leaderDesignationPermitted(resultsSectionData.recommendation) === false
               }
               // ⭐ L65 — the same store-derived target signal the V7 goal
               // lens gates with (`recommendation.goalThreshold`). Lets the
@@ -638,7 +701,13 @@ export const ResultsBody = memo(function ResultsBody({
               // none of which claim anything", and row 1.306 refutes that at
               // the screenshots. Ordering, ordinal colour and the crown ARE
               // claims; OptionCards now gates them off this same boolean.
-              hasLeadingOption={resultsSectionData.recommendation.verdict?.hasLeadingOption}
+              // ⭐ THE CROWN. `OptionCards` turns this into its own
+              // `designationsWithheld`, which gates the crowned border, the
+              // ordinal rank swatch, `isLeader`, the leader fill and the card
+              // ORDER — plus the chip copy "What makes this the current
+              // leader?". It is the most visible designation on the panel, so
+              // it must read the COMPOSED answer and not Q2 alone.
+              hasLeadingOption={leaderDesignationPermitted(resultsSectionData.recommendation)}
               lensActive={riskAppetite !== 'neutral'}
               lensHighlightedId={riskAppetite !== 'neutral' && lensComparison.comparable ? lensComparison.id : undefined}
               stableNumbers={stableNumbersForCards}
