@@ -869,11 +869,19 @@ export function buildHeroModel(
   // happened or what would change it.
   //
   // ⚠ NOT "every headline", which is what this said and it was FALSE. The
-  // single-option branch above (`rows.length === 1`) is ungated by
-  // `designationsWithheld` and DOES name its option — measured: one option
-  // plus a withheld verdict renders "<Option> is your only option." with this
-  // reason beside it. That is acceptable (naming the sole option asserts no
-  // comparison), but the claim had to be narrowed to what was measured.
+  // single-option branch above (`rows.length === 1`; `rows` is a 1:1 `.map()`
+  // of `options`) is ungated by `designationsWithheld` and DOES name its
+  // option. Derived at the bytes: one comparable option sends
+  // `deriveDecisionVerdict` down `comparable.length < 2`
+  // (`decisionVerdict.ts:381`, whose own comment calls that state REACHABLE,
+  // not defensive) to `NO_CLAIM_VERDICT`, whose `hasLeadingOption` is `false`
+  // (`:340`); with that verdict on the recommendation `leaderDesignationPermitted`
+  // (`leaderDesignation.ts:38`) is `false`, so line 326 computes
+  // `designationsWithheld === true`, the `kind: 'empty'` return above fires
+  // only at ZERO options, and the headline is still "<Option> is your only
+  // option." (`heroCopy.ts:198`). That is acceptable — naming the sole option
+  // asserts no comparison — but the claim had to be narrowed to the chain on
+  // which it holds.
   //
   // The explanation is already on this object. `analysisAdmission` is put
   // there by `useResultsSectionData` (`analysisAdmission:
