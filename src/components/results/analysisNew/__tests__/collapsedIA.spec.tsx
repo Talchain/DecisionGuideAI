@@ -25,7 +25,6 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 
 import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
-import { AtAGlance } from '../sections/AtAGlance'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { genuineDecision, manyFragileEdges, openStrategicChallenge } from './analysisNewFixtures'
