@@ -274,6 +274,189 @@ export function influenceBarAriaLabel(
     : 'Influence'
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+ * THE QUANTITY VOCABULARY — a SECOND question, named apart from the scale.
+ * ══════════════════════════════════════════════════════════════════════════
+ *
+ * Everything above this line answers "WHAT SCALE IS THIS NUMBER ON?", and it
+ * answers it correctly: both stamped bases are set-relative, so both take the
+ * same scale wording. Nothing above answers "WHICH QUANTITY IS THIS?", and the
+ * two bases genuinely differ there. `influenceBasisNoun` returns the SAME
+ * visible noun for both; `influencePillAriaLabel` and `influenceBarAriaLabel`
+ * make the same collapse. That collapse is CORRECT about scale and SILENT
+ * about quantity, and this block exists to say the silent half out loud.
+ *
+ * This is CLAUDE.md trap 21 inside one module: two authorities answering
+ * different questions look like an inconsistency to reconcile, and aligning
+ * them is the wrong fix. `influenceBasisNoun`'s own docblock already records
+ * the ruling that produced it — "The SCALE is shared; the QUANTITY is not" —
+ * and then the code beside it spends one noun on both. So the fix is not to
+ * change that function. It is to give the second question its own vocabulary,
+ * with its own name, exported from the same module so there is still ONE home
+ * for influence copy and one import for the hygiene spec to police.
+ *
+ * ── WHY THE TWO QUANTITIES ARE DIFFERENT, MEASURED RATHER THAN ARGUED ──────
+ *
+ * Swept over every JSON under `src/` at `80bacf36` (the sweep is derived in
+ * `influenceQuantityVocabulary.spec.ts`, so it REDs if the corpus moves):
+ *
+ *   · 123 factor rows across 21 files carry `influence_score`.
+ *   · `influence_score` EQUALS the magnitude chain's `elasticity` on 57 rows
+ *     and DIVERGES on 41. (25 rows carry no `elasticity` at all.)
+ *   · The divergences are the trust cases, not rounding. In
+ *     `live-influence-score-one-2026-08-23.json`, a real staging response,
+ *     "Monthly Payroll Burn" carries `influence_score: 1` with `elasticity: 0`
+ *     — the producer's demoted lever, which is top-ranked on one quantity and
+ *     bottom-ranked on the other.
+ *   · The producer ships BOTH ORDERINGS and they disagree: of the 95 rows
+ *     carrying `importance_rank` and `influence_rank`, the two ranks differ on
+ *     55. A user reading "the top driver" is reading whichever ordering the
+ *     display basis happened to pick.
+ *
+ * So a reader who is not told which quantity they are looking at cannot tell a
+ * factor that is strongly wired to the goal from one that moves the outcome,
+ * and on 41 of 123 measured rows those are different factors.
+ *
+ * ── AND WHY THE ANSWER IS PER-RUN, WHICH IS THE HALF THAT BITES ────────────
+ *
+ * `selectDriverDisplayModel` (`driverDisplayModel.ts`) decides the basis ONCE
+ * FOR THE WHOLE SET: `factors.every((f) => typeof f.influenceScore === 'number'
+ * && Number.isFinite(f.influenceScore))`. It is all-or-nothing. One factor
+ * missing a finite producer score drops EVERY factor in the run onto the
+ * fallback basis.
+ *
+ * ⚠⚠ THE CONSEQUENCE IS THE WHOLE REASON THIS BLOCK EXISTS, AND IT MUST NOT BE
+ * COMPRESSED INTO "the basis varies". The number 100% is printed by the top row
+ * on BOTH bases, by construction, on every run. So the same "100%" beside the
+ * same factor name means "most strongly wired to the goal in this model" on one
+ * run and "moves the outcome most" on the next, with the switch invisible and
+ * nothing on screen distinguishing them. The figure is not comparable across
+ * two runs unless both landed on the same basis, and no surface has ever said
+ * which basis a run landed on.
+ *
+ * ⚠ NOTHING HERE MAY IMPLY THE FIGURE MEANS THE SAME THING FROM ONE RUN TO THE
+ * NEXT. Every string below is scoped to the figures currently on screen.
+ *
+ * ── THE PRODUCER'S OWN STAMP, WHICH IS WHERE "STRUCTURAL" COMES FROM ───────
+ *
+ * The noun is not this lane's reading of what the field ought to mean. The
+ * producer stamps the row: `importance_basis` reads `"graph_structural"` on
+ * 67 of 67 rows carrying it, across 12 files, with NO other value anywhere in
+ * the corpus. It is currently read by ZERO lines of code under `src/` — a
+ * declared semantics the UI has never consulted. That stamp, plus
+ * `types.ts`'s own "structural causal influence", plus PR #1221's witness that
+ * five canvas influence numbers were byte-identical across two runs with
+ * different option sets, is the evidence for the word "structural".
+ *
+ * ⚠ SCOPE, NARROWLY (trap 20). This block does not make `importance_basis` a
+ * read path. It cites it as evidence for a noun. Consuming the stamp — and
+ * failing closed when a future run stamps something other than
+ * `graph_structural` — is a separate change with its own review.
+ */
+
+/** The two questions a driver figure raises, kept apart. This is the second. */
+export interface InfluenceQuantity {
+  /** The quantity's own name. Distinct per basis, by construction. */
+  readonly noun: string
+  /** One line saying what this quantity measures, for a reader who asks. */
+  readonly gloss: string
+  /**
+   * The per-run disclosure, for rendering beside the figures themselves.
+   *
+   * Scoped to "these figures" deliberately: the basis is decided per run, so a
+   * sentence in the present tense about what is on screen is the only true
+   * form. A sentence about what "influence" means would be false the next run.
+   */
+  readonly runDisclosure: string
+}
+
+/**
+ * ⭐ TOTAL OVER `DriverDisplayProvenance`, DELIBERATELY, AND THAT IS THE GUARD.
+ *
+ * Typed as a `Record` over the union rather than `Record<string, ...>`, so a
+ * third basis added to `DriverDisplayProvenance` fails the BUILD here instead
+ * of silently rendering the fail-closed wording for a quantity that has a name.
+ * Same mechanism as `ZERO_REASON_BADGE_LABELS` below, for the same reason.
+ *
+ * ⚠ THE TWO ENTRIES MUST NEVER BE ALIASED TO EACH OTHER. That is the entire
+ * point of the block, and `influenceQuantityVocabulary.spec.ts` asserts the
+ * nouns are distinct — the same positive-control shape #1221 used on
+ * `INFLUENCE_EXPLANATION_*`, which caught exactly that over-reach once already.
+ */
+export const INFLUENCE_QUANTITY_BY_BASIS: Record<DriverDisplayProvenance, InfluenceQuantity> = {
+  /**
+   * The producer's structural score. See the sweep above for why the word is
+   * "structural" and not this lane's opinion.
+   *
+   * ⚠ THE GLOSS DOES NOT SAY "in this analysis" OR ANY VARIANT.
+   * `influenceScaleCopy.noRunProvenance.spec.ts` establishes that this figure
+   * is NOT computed from the run: it is a normalised product of authored
+   * strengths along the paths to the goal, computed before the result exists.
+   * Attributing it to the run is the exact falsehood that suite exists to stop.
+   */
+  influence_score: {
+    noun: 'Structural influence',
+    gloss: 'How strongly this factor connects to the goal in your model.',
+    runDisclosure:
+      'These show structural influence: how strongly each factor connects to the goal in your model.',
+  },
+  /**
+   * This app's own normalisation of the producer's magnitude chain
+   * (`elasticity`, then `sensitivity_score`, `sensitivity`, `importance_score`
+   * — `driverDisplayModel.ts`'s `MAGNITUDE_FIELDS`).
+   *
+   * ⚠ THE GLOSS IS DERIVED FROM COPY THIS PRODUCT ALREADY SHIPS, not from this
+   * lane's reading of the field name. `elasticityShiftCopy` in
+   * `DriversSection.tsx` renders "Higher values tend to shift outcome by N%"
+   * off the same quantity, so "how much the outcome shifts" is the semantics
+   * already on screen rather than a new claim about the producer.
+   *
+   * ⚠ THE SECOND SENTENCE OF `runDisclosure` STATES THE ACTUAL PRODUCER
+   * CONDITION, and it is the per-run half. The fallback is taken when NOT every
+   * factor carried a finite `influence_score` — not because sensitivity was
+   * preferred, and not because of anything about the factors on screen. Saying
+   * "for every factor shown" would be FALSE: the coverage verdict is computed
+   * over the whole feed, and the factor that failed it may be one the >= 0.01
+   * visibility filter removed from the list the reader is looking at.
+   */
+  normalised_elasticity: {
+    noun: 'Outcome sensitivity',
+    gloss: 'How much the outcome shifts when this factor changes.',
+    runDisclosure:
+      'Olumi did not have a structural influence figure for every factor, so these show outcome sensitivity: how much the outcome shifts when each factor changes.',
+  },
+}
+
+/**
+ * The quantity a figure on THIS basis represents, or null when nothing is
+ * stamped.
+ *
+ * Fail-closed on purpose, and null rather than a generic quantity: there is no
+ * honest third noun. An unstamped payload is one whose quantity we do not know,
+ * and naming it anyway is the fabrication this module keeps being corrected for.
+ * Callers render the existing basis-free wording in that state.
+ */
+export function influenceQuantity(
+  provenance: DriverDisplayProvenance | null | undefined,
+): InfluenceQuantity | null {
+  return provenance === 'influence_score' || provenance === 'normalised_elasticity'
+    ? INFLUENCE_QUANTITY_BY_BASIS[provenance]
+    : null
+}
+
+/**
+ * The per-run basis disclosure for a set of figures, or null when unstamped.
+ *
+ * ⚠ THE ARGUMENT IS THE BASIS THE SURFACE RESOLVED, NEVER A PER-TAB CONSTANT.
+ * A surface that hardcodes which quantity it shows is asserting a per-run fact
+ * from a compile-time one, and the basis moves per run.
+ */
+export function influenceQuantityRunDisclosure(
+  provenance: DriverDisplayProvenance | null | undefined,
+): string | null {
+  return influenceQuantity(provenance)?.runDisclosure ?? null
+}
+
 /** Convert a resolved metric to display percent without rescaling its value. */
 export function analysisMetricPercent(metric: ResolvedAnalysisMetric): number {
   return Math.round(metric.value * 100)

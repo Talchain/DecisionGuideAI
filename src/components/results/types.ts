@@ -719,11 +719,31 @@ export interface DriverItem {
    *  which mixes bases under partial producer coverage. Optional only for legacy
    *  fixtures — the live pipeline always sets it. */
   displayInfluence?: number
-  /** Which basis produced displayInfluence ('influence_score' = absolute producer
-   *  scale; 'normalised_elasticity' = set-relative). Lane 2 review fold: surfaces
-   *  making ABSOLUTE claims ("drives NN% of the outcome") must gate on this —
-   *  a set-relative 1.0 is "largest in this set", not a causal share. Optional
-   *  only for legacy fixtures — the live pipeline always sets it. */
+  /** Which basis produced displayInfluence.
+   *
+   *  ⚠⚠ THIS SAID "'influence_score' = absolute producer scale" UNTIL 7 Sep 2026
+   *  AND THAT SENTENCE IS FALSE. It is also the sentence that PROPAGATED:
+   *  `analysisNew/buildAnalysisNewViewModel.ts` cites this comment BY LINE to
+   *  justify calling the field "an absolute producer score". Both stamped bases
+   *  are SET-RELATIVE — two different NORMALISATIONS, not absolute vs relative.
+   *  `influence_score` is the producer's, against `max|influence|`, so its top
+   *  row is 1.0 by construction exactly as the fallback's is. The corpus sweep
+   *  is derived in `influenceIsNeverCalledAbsolute.spec.ts`; the corrected
+   *  semantics live in `influenceScaleCopy.ts` and `driverDisplayModel.ts`,
+   *  which were fixed on 6 Sep while this copy of the claim was missed.
+   *
+   *  What the two bases DO differ on is the QUANTITY, and that difference is
+   *  real: 'influence_score' is the producer's structural score (it stamps the
+   *  row `importance_basis: "graph_structural"`) and 'normalised_elasticity' is
+   *  this app's own normalisation of the magnitude chain. Measured over every
+   *  JSON under `src/`, the two diverge on 41 of 123 factor rows. The user-
+   *  facing vocabulary for that distinction is `INFLUENCE_QUANTITY_BY_BASIS`
+   *  (`influenceScaleCopy.ts`); do not re-type either noun elsewhere.
+   *
+   *  Lane 2 review fold: surfaces making ABSOLUTE claims ("drives NN% of the
+   *  outcome") must gate on this — a set-relative 1.0 is "largest in this set",
+   *  not a causal share. Neither basis licenses such a claim. Optional only for
+   *  legacy fixtures — the live pipeline always sets it. */
   displayProvenance?: 'influence_score' | 'normalised_elasticity'
   /** Producer influence_rank (1 = most influential). Additive; roadmap 1.7 (provisional_doctrine_v0). */
   influenceRank?: number

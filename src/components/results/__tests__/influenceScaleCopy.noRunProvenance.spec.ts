@@ -34,6 +34,7 @@ import {
   influenceBarAriaLabel,
   influencePillAriaLabel,
   influenceBasisNoun,
+  INFLUENCE_QUANTITY_BY_BASIS,
 } from '../influenceScaleCopy'
 
 /** Every influence string a mounted surface can render, both provenance arms. */
@@ -51,13 +52,32 @@ const ALL_INFLUENCE_COPY: Array<[string, string]> = [
   ['influencePillAriaLabel(normalised_elasticity)', influencePillAriaLabel(60, 'normalised_elasticity')],
   ['influenceBasisNoun(influence_score)', influenceBasisNoun('influence_score')],
   ['influenceBasisNoun(normalised_elasticity)', influenceBasisNoun('normalised_elasticity')],
+  /* ⭐ THE QUANTITY VOCABULARY IS SUBJECT TO THE SAME PROPERTY, AND IT IS THE
+     ONE MOST AT RISK OF BREAKING IT. Naming a quantity invites a sentence about
+     where the quantity came from, and for `influence_score` the honest answer is
+     NOT the run: this suite's header records the measurement (a normalised
+     product of authored strengths along the paths to the goal, computed before
+     the result exists; five canvas numbers byte-identical across two runs with
+     different option sets). Derived over the total record so a third basis is
+     covered without an edit here. */
+  ...Object.entries(INFLUENCE_QUANTITY_BY_BASIS).flatMap(
+    ([basis, quantity]): Array<[string, string]> => [
+      [`INFLUENCE_QUANTITY_BY_BASIS.${basis}.noun`, quantity.noun],
+      [`INFLUENCE_QUANTITY_BY_BASIS.${basis}.gloss`, quantity.gloss],
+      [`INFLUENCE_QUANTITY_BY_BASIS.${basis}.runDisclosure`, quantity.runDisclosure],
+    ],
+  ),
 ]
 
 describe('influence copy — no string attributes the figure to the analysis run', () => {
   it('POSITIVE CONTROL: the corpus is non-empty and still says what it should', () => {
     // Without this, every absence assertion below would pass on an empty or
     // renamed export — an instrument that cannot fail.
-    expect(ALL_INFLUENCE_COPY.length).toBeGreaterThanOrEqual(13)
+    // ⚠ 13 WAS THE WHOLE CORPUS WHEN THIS WAS WRITTEN; the quantity vocabulary
+    // added six more (three fields x two bases) on 7 Sep 2026. The floor is
+    // raised rather than left at 13 so a change that DROPPED the new strings
+    // from this corpus would RED here instead of passing on the old count.
+    expect(ALL_INFLUENCE_COPY.length).toBeGreaterThanOrEqual(19)
     for (const [name, copy] of ALL_INFLUENCE_COPY) {
       expect(copy, `${name} must be non-empty`).toBeTruthy()
       expect(copy.length, `${name} must be real copy`).toBeGreaterThan(3)

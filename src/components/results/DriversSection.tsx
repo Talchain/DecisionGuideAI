@@ -30,7 +30,7 @@ import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpe
 import { EMPTY_STATES } from './emptyStates'
 import { FactorInsights, hasEnrichmentContent } from './FactorInsights'
 import { cleanFactorLabel } from './utils/cleanFactorLabel'
-import { INFLUENCE_TIE_EPSILON } from './driverDisplayModel'
+import { INFLUENCE_TIE_EPSILON, type DriverDisplayProvenance } from './driverDisplayModel'
 import { typography } from '../../styles/typography'
 import { DataBar } from '../../canvas/ui/shared/DataBar'
 import Tooltip from '../../components/Tooltip'
@@ -45,6 +45,7 @@ import {
   INFLUENCE_RANKING_EXPLAINER_RELATIVE,
   INFLUENCE_SCALE_CAPTION,
   ZERO_REASON_BADGE_LABELS,
+  influenceQuantityRunDisclosure,
 } from './influenceScaleCopy'
 import { ExpandableCoachingText } from '../../components/shared/ExpandableCoachingText'
 import { isExpertField } from './utils/isExpertField'
@@ -902,10 +903,24 @@ export function DriversSection({
   // recorded on that constant's docblock in `influenceScaleCopy.ts`). The rename
   // is a tidy-up deferred out of this diff, not a cross-lane constraint. Read
   // them as quantity labels.
-  const influenceBasisStamped: 'relative' | 'absolute' | 'unknown' =
+  //
+  // ⭐ THE STAMP IS DERIVED ONCE AND TWO QUESTIONS ARE ASKED OF IT. This used to
+  // be two `drivers.some(...)` scans inline in the ternary below; the quantity
+  // disclosure added 7 Sep 2026 needs the SAME answer, and a second scan beside
+  // the first is the hand-maintained mirror (CLAUDE.md trap 12) in miniature —
+  // two expressions that agree today and drift the first time either moves.
+  // Reading the provenance itself, rather than the misnamed variant, also means
+  // the quantity question never has to translate back out of 'absolute'.
+  const stampedProvenance: DriverDisplayProvenance | null =
     drivers.some(d => d.displayProvenance === 'normalised_elasticity')
-      ? 'relative'
+      ? 'normalised_elasticity'
       : drivers.some(d => d.displayProvenance === 'influence_score')
+        ? 'influence_score'
+        : null
+  const influenceBasisStamped: 'relative' | 'absolute' | 'unknown' =
+    stampedProvenance === 'normalised_elasticity'
+      ? 'relative'
+      : stampedProvenance === 'influence_score'
         ? 'absolute'
         : 'unknown'
   // Q3 · HAS THE CLAIM ANYTHING TO POINT AT? Never say "the top driver always
@@ -943,6 +958,33 @@ export function DriversSection({
   // follow it. Q1 keeps its own gate below: the two normalisations still differ,
   // and collapsing them would trade a false claim for a vague one.
   const influenceScaleIsSetRelative = influenceBasis !== 'unknown'
+  // Q1b · WHICH QUANTITY ARE THESE FIGURES? A DIFFERENT QUESTION FROM Q2, AND
+  // THE ONE NO MOUNTED SURFACE HAS EVER ANSWERED IN VISIBLE COPY.
+  //
+  // Q2 above asks what SCALE the number is on and answers "set-relative" on
+  // both bases, correctly. It says nothing about WHICH quantity was scaled, and
+  // the two differ materially: measured over every JSON under `src/`,
+  // `influence_score` diverges from the magnitude chain's `elasticity` on 41 of
+  // 123 factor rows, and the producer's own `importance_rank` and
+  // `influence_rank` disagree on 55 of 95. The sweep is derived in
+  // `influenceQuantityVocabulary.spec.ts`.
+  //
+  // ⚠⚠ AND THE BASIS IS DECIDED PER RUN, ALL OR NOTHING.
+  // `selectDriverDisplayModel` adopts the producer score only when EVERY ranked
+  // factor carries a finite one, so a single missing score drops the whole run
+  // onto the fallback. The top row prints 100% by construction on BOTH bases.
+  // So without this line the same "100%" beside the same factor means "most
+  // strongly wired to the goal" on one run and "moves the outcome most" on the
+  // next, and nothing on screen distinguishes them.
+  //
+  // ⚠ GATED ON `influenceBasis`, NOT ON `stampedProvenance`, so it inherits the
+  // whole fail-closed resolution above: no stamp, no visible rows, or a
+  // collapsed fallback basis all yield null and render nothing. A disclosure
+  // naming a quantity over zero rows would be the same over-reach as a scale
+  // caption over zero rows, which Q3 exists to prevent.
+  const influenceQuantityDisclosure = influenceQuantityRunDisclosure(
+    influenceBasis === 'unknown' ? null : stampedProvenance,
+  )
   // Copy comes from the ONE shared module (influenceScaleCopy) the canvas
   // pill consumes too — surfaces cannot drift (review fix 3: the strings are
   // also policed there for the DS em-dash ban). This is the Q1 gate: each arm
@@ -980,6 +1022,20 @@ export function DriversSection({
           className={`${typography.panelMeta} text-text-light`}
         >
           {INFLUENCE_SCALE_CAPTION}
+        </p>
+      )}
+
+      {/* Per-run QUANTITY disclosure. Separate element from the scale caption
+          above, deliberately: they answer different questions (trap 21) and a
+          run can owe the reader both. Same `role="note"` / panelMeta idiom, so
+          it reads as one more caption rather than a new kind of thing. */}
+      {influenceQuantityDisclosure != null && (
+        <p
+          role="note"
+          data-testid="influence-quantity-caption"
+          className={`${typography.panelMeta} text-text-light`}
+        >
+          {influenceQuantityDisclosure}
         </p>
       )}
 

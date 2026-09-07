@@ -26,6 +26,7 @@ import {
   analysisMetricTitle,
   analysisMetricVisibleLabel,
   ZERO_REASON_BADGE_LABELS,
+  INFLUENCE_QUANTITY_BY_BASIS,
 } from '../influenceScaleCopy'
 import {
   resolveAnalysisMetric,
@@ -73,6 +74,18 @@ function allStrings(): string[] {
        `NonNullable<ZeroReasonCode>`, so a fourth code added to the union is
        policed here without anyone remembering to extend this line. */
     ...Object.values(ZERO_REASON_BADGE_LABELS),
+    /* The quantity vocabulary, DERIVED rather than listed. The record is TOTAL
+       over `DriverDisplayProvenance`, so a third basis is policed here without
+       anyone remembering to extend this array — same mechanism as
+       `ZERO_REASON_BADGE_LABELS` above, and for the same reason the comment
+       there gives. All three fields are user-facing: `noun` and `gloss` reach a
+       reader through the vocabulary's consumers, and `runDisclosure` is
+       rendered as visible caption copy by `DriversSection`. */
+    ...Object.values(INFLUENCE_QUANTITY_BY_BASIS).flatMap((q) => [
+      q.noun,
+      q.gloss,
+      q.runDisclosure,
+    ]),
   ]
 }
 
