@@ -41,9 +41,27 @@
  * `canRun`/`blockedReason` are `OutputsDock`'s own `canRunAnalysis` /
  * `runBlockedTooltip` — the SAME pair its sibling `AnalysisReadinessBar` is
  * handed from the SAME switch, computed once above the tab branch. Nothing is
- * re-derived here, and that sibling's rule applies verbatim: the button "is
- * `disabled` on exactly `!canRun`, and carries the gate's own sentence as its
- * `title`. It must never look pressable while the gate is shut."
+ * re-derived here.
+ *
+ * ⚠ AND THE SIBLING'S RULE HOLDS IN SUBSTANCE, NOT VERBATIM — THE VERBATIM
+ * READING PRESCRIBES THE DEFECT THIS BAR JUST CLOSED. An earlier version of this
+ * block said that rule "applies verbatim: the button is `disabled` on exactly
+ * `!canRun`". Measured at this head, that is false of BOTH components, and a
+ * maintainer applying it literally would narrow `disabled` to `!canRun` and drop
+ * the `isAnalysing` term — which is exactly the arm added here so that a run in
+ * flight cannot be re-dispatched:
+ *
+ *   · `AnalysisReadinessBar` — `disabled={isAnalysing || !canRun}`
+ *   · this bar               — `disabled={!onReanalyse || blocked || isAnalysing}`,
+ *     which, with `blocked = !canRun && !isAnalysing`, normalises to
+ *     `!onReanalyse || !canRun || isAnalysing`: the sibling's predicate plus a
+ *     handler-presence term.
+ *
+ * The OPERATIVE half is what must not be weakened, and it is shared: the control
+ * must never look pressable while the gate is shut, and it carries the gate's own
+ * sentence as its `title` whenever it is BLOCKED. A run in flight is not a
+ * refusal, so mid-run there is no `title` and no subline — the label reads
+ * "Analysing…" instead.
  *
  * Visible only when the analysis is DEFINITELY out of date — the composed
  * trust semantic (`useAnalysisTrust`) is 'changed' (CEE 'stale' OR a
@@ -175,8 +193,13 @@ export function ReanalyseBar({
         {/* ⚠ BOUNDED. The sibling bar has a MEASURED defect where an unbounded
             footer sentence took 465px of a 772px panel (and 1392px at the 280px
             dock floor), and the string rendered here is the one its header
-            records at 603 characters on deployed `236bb14a`. Three lines, then
-            scroll — the bar states the refusal, it does not become the panel. */}
+            records at 603 characters on deployed `236bb14a`.
+            `max-h-[3.75rem]` is 60px at the default 16px root (no `html`/`:root`
+            font-size override in this tree) against `panelMeta`'s 11px with
+            `leading-snug` (1.375 → 15.125px a line, Tailwind's default: this
+            config extends neither `fontSize` nor `lineHeight`). That is 3.97
+            lines — just under four, NOT three — and then it scrolls. The bar
+            states the refusal, it does not become the panel. */}
         {blocked && (
           <span
             className="block text-text-light/80 max-h-[3.75rem] overflow-y-auto"

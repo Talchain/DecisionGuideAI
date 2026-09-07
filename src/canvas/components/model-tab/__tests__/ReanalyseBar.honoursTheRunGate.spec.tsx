@@ -43,11 +43,23 @@
  *     case 'readiness':  <AnalysisReadinessBar canRun={…} blockedReason={…} …/>
  *
  * One switch, one owner, two bars — and only one of them was handed the
- * verdict. `AnalysisReadinessBar`'s header already states the rule this spec
+ * verdict. `AnalysisReadinessBar`'s header states the PRINCIPLE this spec
  * enforces for its sibling: *"THE BUTTON'S HONESTY IS THE POINT AND IS NOT
- * NEGOTIABLE. It is `disabled` on exactly `!canRun`, and carries the gate's own
- * sentence as its `title`. It must never look pressable while the gate is
- * shut."* Nothing is re-derived here; the gate stays the shell's.
+ * NEGOTIABLE … It must never look pressable while the gate is shut."* Nothing is
+ * re-derived here; the gate stays the shell's.
+ *
+ * ⚠ WHAT IS *NOT* QUOTED, AND WHY. That header goes on to say the button is
+ * "`disabled` on exactly `!canRun`". No test below enforces that, because it is
+ * false of both bars at this head: the sibling is
+ * `disabled={isAnalysing || !canRun}` and this bar is
+ * `disabled={!onReanalyse || blocked || isAnalysing}` (with
+ * `blocked = !canRun && !isAnalysing`, i.e. `!onReanalyse || !canRun ||
+ * isAnalysing`). "still prevents a second dispatch while the analysis runs"
+ * below pins the `isAnalysing` term directly, and `ReanalyseBar.spec.tsx`
+ * asserts a DISABLED button while `!canRun` is false — so a spec claiming to
+ * enforce "exactly `!canRun`" would contradict the suite it sits in. The
+ * sibling's own sentence is inaccurate and pre-existing; it is left to its
+ * owner rather than edited from here.
  *
  * ⚠ THE TWO QUESTIONS STAY APART (trap 21). *"Has the model changed since the
  * last run?"* is the bar's CLAIM; *"may an analysis run right now?"* is the
@@ -191,6 +203,16 @@ describe('ReanalyseBar honours the run gate', () => {
     // took 465px of a 772px panel. jsdom performs no layout, so this pins the
     // STRUCTURAL fact it can see: the sentence carries a height bound and a
     // scroll, rather than growing without limit.
+    //
+    // ⚠ AND IT PINS THE BOUND'S VALUE, NOT ONLY ITS PRESENCE. An earlier version
+    // asserted `/max-h-\[/`, which ANY bound satisfies. Measured on the two
+    // className strings: `/max-h-\[/` returns true for `max-h-[999rem]` as well
+    // as for `max-h-[3.75rem]`, while `/max-h-\[3\.75rem\]/` returns true only
+    // for the real one — and both return false once the class is deleted. So the
+    // loose pattern could only red on DELETION, never on a bound widened until it
+    // bounds nothing, which is precisely the property this test's NAME claims.
+    // The exact token is asserted below; a deliberate change to the bound must
+    // edit this line too.
     render(
       <ReanalyseBar
         onReanalyse={vi.fn()}
@@ -200,7 +222,7 @@ describe('ReanalyseBar honours the run gate', () => {
       />,
     )
     const reason = screen.getByTestId('reanalyse-blocked-reason')
-    expect(reason.className).toMatch(/max-h-\[/)
+    expect(reason.className).toMatch(/max-h-\[3\.75rem\]/)
     expect(reason.className).toMatch(/overflow-y-auto/)
   })
 
