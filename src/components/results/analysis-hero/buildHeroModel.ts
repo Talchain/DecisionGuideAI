@@ -44,6 +44,7 @@
 
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { leaderDesignationPermitted } from '../leaderDesignation'
+import { licensesComparativeLeaderClaim } from '../../../canvas/hooks/useAnalysisReady'
 import type { FlipThreshold, OptionResult } from '../types'
 import { formatThreshold } from '../RangeVisualization'
 import { stripEncodingNotation } from '../utils/cleanFactorLabel'
@@ -860,6 +861,97 @@ export function buildHeroModel(
     headline = HERO_COPY.headline.noLeader
   }
 
+  // ⭐ WHY NO LEADER WAS NAMED — the withheld run stops going silent.
+  //
+  // On the MULTI-OPTION chain every headline a withheld run can take names no
+  // option, and that is the defect: the refusal leaves no trace, so it is
+  // indistinguishable from an ordinary run and the user cannot tell one
+  // happened or what would change it.
+  //
+  // ⚠ NOT "every headline", which is what this said and it was FALSE. The
+  // single-option branch above (`rows.length === 1`; `rows` is a 1:1 `.map()`
+  // of `options`) is ungated by `designationsWithheld` and DOES name its
+  // option. Derived at the bytes: one comparable option sends
+  // `deriveDecisionVerdict` down `comparable.length < 2`
+  // (`decisionVerdict.ts:381`, whose own comment calls that state REACHABLE,
+  // not defensive) to `NO_CLAIM_VERDICT`, whose `hasLeadingOption` is `false`
+  // (`:340`); with that verdict on the recommendation `leaderDesignationPermitted`
+  // (`leaderDesignation.ts:77` — `:38` pre-merge, the logic moved) is `false`,
+  // via the COMPOSED arm, not the fallback: the producer publishes
+  // `leaderDesignationPermitted` as a sibling key of `verdict` in one object
+  // literal (`useResultsSectionData.ts:2491`/`:2495`), so the field is present
+  // and `false`, `:77` returns first, and the `:80` withhold-only fallback is
+  // never reached on this chain. So line 326 computes
+  // `designationsWithheld === true`, the `kind: 'empty'` return above fires
+  // only at ZERO options, and the headline is still "<Option> is your only
+  // option." (`heroCopy.ts:198`). That is acceptable — naming the sole option
+  // asserts no comparison — but the claim had to be narrowed to the chain on
+  // which it holds.
+  //
+  // The explanation is already on this object. `analysisAdmission` is put
+  // there by `useResultsSectionData` (`analysisAdmission:
+  // ceeAnalysisReady?.analysis_admission`), and `AnalysisAdmissionReason.message`
+  // is typed in `adapters/cee/types.ts` as "User-facing sentence. By contract
+  // `reasons` is NEVER empty on a refusal". Before this line, the only reads
+  // of `analysisAdmission` anywhere under `src/` were that write, its type
+  // declaration and one spec — no consumer rendered it.
+  //
+  // PASSTHROUGH ONLY: no paraphrase, no truncation, no template, no prefix.
+  // The hero does not author refusal wording, and an id mapped to local copy
+  // here would be the hand-maintained mirror trap 12 warns about. NOT a
+  // byte-identical render: the panel applies the house-style glyph swap
+  // (`dashSafe`) at the slot, as it does to every producer slot.
+  //
+  // ⚠ GATED ON `designationsWithheld`, NOT ON THE HEADLINE STRING. The state
+  // is what licenses the sentence — "this run may not designate a leader" —
+  // and it is the same predicate the withheld gates above read. Gating on the
+  // headline text would bind by a value another branch could satisfy, and
+  // would exclude the `noClearLeader` arm of the same withheld chain, which
+  // names no leader either.
+  //
+  // A PERMITTED run gets `null` even if an admission object rides along:
+  // there is no silence to explain, and printing a refusal sentence beside a
+  // named leader would invent a refusal that did not happen.
+  //
+  // ⚠ ABSENCE STAYS ABSENT. A pre-admission CEE sends no `analysis_admission`
+  // at all; `?? null` keeps the panel's markup identical to its pre-field
+  // markup rather than substituting a placeholder the producer never wrote.
+  //
+  // ONLY `reasons[0]` reaches this slot. The hero shows one sentence under
+  // one headline; any further reasons are not rendered on this surface. They
+  // are untouched on `recommendation.analysisAdmission` for any consumer that
+  // wants them.
+  //
+  // ⚠⚠ GATED ON THE Q1 REFUSAL, NOT ON `designationsWithheld` ALONE — this is
+  // the fix for two questions under one name.
+  //
+  // `designationsWithheld` is `!(Q1 && Q2)`: Q1 is "does the MODEL license a
+  // comparative claim?" and Q2 is "did THIS RESULT separate the arms?".
+  // `analysis_admission.reasons[]` explains Q1 ONLY — `types.ts` types its
+  // `field` as "Which conjunct refused". So on a run where the model PERMITTED
+  // the claim and the arms merely TIED, the old gate printed the admission's
+  // sentence as the reason no leader was named. Measured: Q1
+  // `comparative_leader`, Q2 false, headline "Here is how your options
+  // compare.", reason rendered — and the admission had refused nothing.
+  //
+  // Requiring the Q1 refusal explicitly means the sentence answers the
+  // question it is actually about. A tie now correctly renders nothing here;
+  // the tie has its own copy elsewhere and does not need CEE's admission
+  // wording bolted onto it.
+  //
+  // ⚠ AND WHY `.trim() || null` RATHER THAN `?? null`. Nullish coalescing is
+  // nullish-only, so a whitespace-only producer message survived it and
+  // rendered an EMPTY paragraph in the panel's most prominent block —
+  // defeating the "absence stays absent" guarantee two paragraphs up, which
+  // promises the markup is identical to its pre-field markup when nothing was
+  // supplied. An empty string and "   " are both "the producer said nothing".
+  const modelRefusedComparativeClaim =
+    licensesComparativeLeaderClaim(recommendation.analysisAdmission) === false
+  const designationWithheldReason =
+    designationsWithheld && modelRefusedComparativeClaim
+      ? recommendation.analysisAdmission?.reasons?.[0]?.message?.trim() || null
+      : null
+
   // Tension subline: the headlined leader vs the strongest expected outcome.
   // PERSISTENT across goal and no-goal headline branches (review-locked):
   // whenever a leader is claimed and the outcome leader differs, the
@@ -1245,6 +1337,7 @@ export function buildHeroModel(
     provenance: 'live',
     headline,
     subline,
+    designationWithheldReason,
     lenses,
     defaultLens: goalAvailable ? 'goal' : 'outcome',
     hasConstraints,

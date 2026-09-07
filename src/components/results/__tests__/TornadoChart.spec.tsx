@@ -734,10 +734,55 @@ describe('TornadoChart — disclaimer, axis, display modes', () => {
     )
 
     expect(screen.getByTestId('tornado-intro')).toBeInTheDocument()
-    // Brief 5.4 Phase 16: intro copy updated to exploration-only (removed "Drag to preview" which implied apply/rerun)
-    expect(screen.getByText(
-      'Illustrative range for each factor: the recommended option\u2019s overall spread scaled by that factor\u2019s influence. A proportional guide to relative leverage, not a per-factor forecast from the analysis.'
-    )).toBeInTheDocument()
+    // No label supplied — the copy must still say WHOSE spread, without
+    // inventing a designation and without falling silent.
+    expect(screen.getByTestId('tornado-intro').textContent).toBe(
+      'Illustrative range for each factor: the overall spread of one option \u2014 the same one for every bar, scaled by that factor\u2019s influence. A proportional guide to relative leverage, not a per-factor forecast from the analysis.'
+    )
+  })
+
+  // ── The intro names the option; it never designates one ────────────────────
+  describe('tornado intro — identity, not entitlement', () => {
+    const introOf = (label?: string | null) => {
+      const { unmount } = render(
+        <TornadoChart rows={[positiveRow]} expectedOutcome={100} referenceOptionLabel={label} />
+      )
+      const t = screen.getByTestId('tornado-intro').textContent ?? ''
+      unmount()
+      return t
+    }
+
+    it('names the option whose spread the bars are scaled from', () => {
+      // ⭐ THE FIX. `recommendedOption` stays populated on a turn that withheld
+      // the leader designation, so the old copy called it "the recommended
+      // option" while the hero above printed "Here is how your options
+      // compare." Witnessed on deployed `e2016182`, 7 Sep 2026.
+      const t = introOf('Expand the Manchester Site')
+      expect(t).toContain('the overall spread of Expand the Manchester Site,')
+      expect(t).not.toContain('recommended')
+      expect(t).not.toContain('leading')
+      expect(t).not.toContain('best')
+    })
+
+    it('names no designation without a label, and cannot be read as "only one option exists"', () => {
+      const t = introOf(null)
+      expect(t).toContain('the overall spread of one option \u2014 the same one for every bar,')
+      // ⚠ The earlier fallback was "a single option", which a reader could take
+      // as a claim that the model HAS only one option. Pinned so a future
+      // shortening cannot reintroduce that reading.
+      expect(t).not.toContain('a single option')
+      expect(t).not.toContain('recommended')
+      // The load-bearing fact survives the fallback: every bar comes from ONE
+      // option's spread, so these are not per-factor forecasts.
+      expect(t).toContain('not a per-factor forecast from the analysis.')
+    })
+
+    it('the two arms are genuinely discriminating', () => {
+      // Pins the precondition: if the label never reached the DOM both arms
+      // would pass while proving nothing about the prop.
+      expect(introOf('Expand the Manchester Site')).not.toBe(introOf(null))
+      expect(introOf(undefined)).toBe(introOf(null))
+    })
   })
 
   it('shows intro copy with count unit (bars show relative, not absolute)', () => {
