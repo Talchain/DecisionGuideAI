@@ -66,6 +66,8 @@ import {
   influencePillAriaLabel,
   influenceBasisNoun,
   INFLUENCE_QUANTITY_BY_BASIS,
+  INFLUENCE_STABILITY_DISCLOSURE,
+  INFLUENCE_LEVER_DISCLOSURE,
 } from '../influenceScaleCopy'
 
 /** Every influence string a mounted surface can render, both provenance arms. */
@@ -98,6 +100,17 @@ const ALL_INFLUENCE_COPY: Array<[string, string]> = [
       [`INFLUENCE_QUANTITY_BY_BASIS.${basis}.runDisclosure`, quantity.runDisclosure],
     ],
   ),
+  /* ⭐⭐ THE STABILITY SENTENCE IS THE HIGHEST-RISK STRING IN THIS MODULE FOR
+     THIS PROPERTY, AND THAT IS WHY IT IS HERE RATHER THAN TRUSTED.
+     It is the only copy that NAMES the analysis at all. It does so to DENY that
+     the figure comes from it, which is the opposite claim and the whole reason
+     the sentence exists — but "mentions the run while denying it" and "asserts
+     the run" are one small reword apart, and a later softening ("these figures
+     from the analysis stay the same") would flip it into the exact falsehood
+     this suite was written to stop. Policing it here costs nothing and removes
+     the possibility. */
+  ['INFLUENCE_STABILITY_DISCLOSURE', INFLUENCE_STABILITY_DISCLOSURE],
+  ['INFLUENCE_LEVER_DISCLOSURE', INFLUENCE_LEVER_DISCLOSURE],
 ]
 
 describe('influence copy — no string attributes the figure to the analysis run', () => {
@@ -108,7 +121,11 @@ describe('influence copy — no string attributes the figure to the analysis run
     // added six more (three fields x two bases) on 7 Sep 2026. The floor is
     // raised rather than left at 13 so a change that DROPPED the new strings
     // from this corpus would RED here instead of passing on the old count.
-    expect(ALL_INFLUENCE_COPY.length).toBeGreaterThanOrEqual(19)
+    // ⚠ RAISED 19 -> 21 on 7 Sep 2026 by the stability and lever sentences,
+    // for the same reason the 13 -> 19 raise records: leaving the floor where
+    // it was would let a change that DROPPED the new strings from this corpus
+    // pass on the old count, which is the failure mode a floor exists to catch.
+    expect(ALL_INFLUENCE_COPY.length).toBeGreaterThanOrEqual(21)
     for (const [name, copy] of ALL_INFLUENCE_COPY) {
       expect(copy, `${name} must be non-empty`).toBeTruthy()
       expect(copy.length, `${name} must be real copy`).toBeGreaterThan(3)

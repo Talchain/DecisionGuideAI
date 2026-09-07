@@ -782,3 +782,137 @@ export const ZERO_REASON_BADGE_LABELS: Record<NonNullable<ZeroReasonCode>, strin
   disconnected: 'No path to the goal',
   zero_outcome_diff: "Doesn't change the outcome",
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * DOES THIS FIGURE MOVE WHEN I RE-RUN? — the founding question, answered.
+ * ══════════════════════════════════════════════════════════════════════════
+ *
+ * The question put to this product was whether it builds poor models or
+ * displays good ones badly. On the structural basis the answer is neither: the
+ * factor influence figure is not an output of the run. So a re-run moves the
+ * option shares and leaves every factor figure standing still, and until now
+ * nothing on screen said so. Factors are the bulk of a model, so the panel read
+ * as unresponsive, and on the factor half it genuinely was.
+ *
+ * ⛔ DISCLOSURE, NEVER REMOVAL. The figure is real and useful — honest
+ * structural leverage is exactly what a team needs when deciding where to push.
+ * What was wrong is the sentence attached to it, and there was no sentence.
+ *
+ * ── WHY THIS IS A THIRD GATE AND NOT A CLAUSE ON AN EXISTING ONE ──────────
+ *
+ * `influenceQuantityRunDisclosureForRun` above withholds only on an
+ * UNRECOGNISED stamp: an absent stamp still names the quantity, and that is
+ * right, because the fallback noun is a claim about what THIS APP computed and
+ * blanking it on 56 of 123 legacy rows would be a regression rather than
+ * caution.
+ *
+ * ⚠⚠ THAT GATE IS TOO WEAK FOR THIS SENTENCE, AND REUSING IT WOULD SHIP A
+ * FALSEHOOD ON A RUN WE CAN ALREADY RECEIVE. Invariance is not a claim about
+ * what this app computed; it is a claim about WHICH PRODUCER built the
+ * response, and only the stamp says that. The producer's value space is closed
+ * at two (`importance-authority.ts:65-66`), and on the `isl_uncertainty` arm
+ * `influence_score` is ISL's Monte-Carlo output (`run.ts:1056`), which DOES
+ * move between runs. An unstamped payload is one where we cannot tell the two
+ * apart, so it gets no invariance sentence.
+ *
+ * So: `confirmed` only. Strictly stronger than the quantity gate, deliberately,
+ * and `influenceStabilityAndLeverCopy.spec.ts` pins BOTH SIDES of that
+ * difference in one assertion so a later tidy-up cannot quietly collapse them
+ * in either direction (CLAUDE.md trap 21).
+ *
+ * ── WHAT THE SENTENCE MAY AND MAY NOT CLAIM ──────────────────────────────
+ *
+ * "They only change when you edit your model" is a NECESSARY condition, not a
+ * sufficient one, and the direction is load-bearing. Figures cannot change
+ * without the model changing — true. The converse is FALSE and is not claimed:
+ * the founder added an option and the figures did not move, because option and
+ * decision nodes are filtered out of the path walk. A sentence promising the
+ * figures WOULD move on any edit would be the next false sentence here.
+ *
+ * ⚠ It also may not attribute the figure to the run, which is the property
+ * `influenceScaleCopy.noRunProvenance.spec.ts` enforces over this module. This
+ * sentence DENIES that attribution, which is the opposite claim, but it names
+ * the analysis in doing so and therefore has to be careful.
+ */
+export const INFLUENCE_STABILITY_DISCLOSURE =
+  'Re-running the analysis does not change these figures. They only change when you edit your model.'
+
+/**
+ * The invariance disclosure for a run, or null when it cannot be supported.
+ *
+ * ⚠ STRICTLY A NARROWING, like `influenceQuantityForRun`: the worst case of a
+ * bug here is a sentence going missing, never a new claim appearing.
+ */
+export function influenceStabilityDisclosureForRun(
+  provenance: DriverDisplayProvenance | null | undefined,
+  importanceBasisStamps: ReadonlyArray<string | null | undefined>,
+): string | null {
+  if (provenance !== 'influence_score') return null
+  return importanceBasisTrust(importanceBasisStamps) === 'confirmed'
+    ? INFLUENCE_STABILITY_DISCLOSURE
+    : null
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * WHICH KIND OF ROW IS THIS? — a lever and an uncertainty both reach the top.
+ * ══════════════════════════════════════════════════════════════════════════
+ *
+ * When a factor is something the user's own options directly control, the
+ * producer DELIBERATELY suppresses its sensitivity and stamps
+ * `zero_reason: 'intervention_override'` (`factor-influence.ts:84-89` zeroes
+ * `elasticity` for levers; `importance-authority.ts:96-115` re-ranks them to
+ * the back). Measured over this repo's corpus and recorded above: all 36
+ * stamped rows where `elasticity` and `influence_score` disagree carry exactly
+ * that stamp, with `elasticity === 0` and `influence_score > 0` on every one.
+ *
+ * ⚠⚠ THE CONSEQUENCE IS A PRODUCT PROBLEM, NOT A DATA PROBLEM. Such a factor
+ * can rank at the very top of this panel AND be correctly absent from what is
+ * worth resolving. BOTH ARE RIGHT — you control it, so that is where to push,
+ * and there is nothing to resolve because you decide it. A reader given neither
+ * sentence has only one way to reconcile the two surfaces, which is to conclude
+ * the product is contradicting itself. Saying which kind of row it is, is the
+ * product.
+ *
+ * ── THE BADGE IS QUOTED, NOT COPIED ──────────────────────────────────────
+ *
+ * The sentence points at a badge the row already renders
+ * (`DriversSection.tsx`'s `leverBadgeLabel`). Two hand-typed spellings of one
+ * label WILL drift (CLAUDE.md trap 12) and the drift would leave the sentence
+ * naming a badge that does not exist, so the label is interpolated from
+ * `ZERO_REASON_BADGE_LABELS` and pinned by a test. That is also why this
+ * constant is declared HERE, after the record: referencing it above would be a
+ * temporal-dead-zone crash at module init, not a type error.
+ *
+ * ── ⚠ WHY THE STRUCTURAL BASIS GATES IT, WHICH IS A FACT ABOUT THE FILTER ─
+ *
+ * On the fallback basis a demoted lever carries a near-zero magnitude, so
+ * `DriversSection`'s `>= 0.01` visibility filter removes it from the rendered
+ * list altogether. A sentence about rows the reader cannot see is furniture.
+ * The confirmed-stamp gate is inherited for the same reason as the stability
+ * sentence: "they can still rank near the top" is a claim about what
+ * `influence_score` IS on this run, and only the stamp says which producer
+ * built it.
+ */
+export const INFLUENCE_LEVER_DISCLOSURE =
+  `Factors marked "${ZERO_REASON_BADGE_LABELS.intervention_override}" are yours to set, `
+  + 'so there is nothing to resolve for them. They can still rank near the top: '
+  + 'that is where you decide, not where you need more evidence.'
+
+/**
+ * The lever disclosure for a run, or null when no visible row is a lever.
+ *
+ * ⚠ THE CALLER MUST PASS THE VISIBLE ROWS' STAMPS, NOT THE WHOLE FEED. The
+ * sentence describes rows the reader can see; a lever filtered out of the list
+ * is not one of them.
+ */
+export function influenceLeverDisclosureForRun(
+  provenance: DriverDisplayProvenance | null | undefined,
+  importanceBasisStamps: ReadonlyArray<string | null | undefined>,
+  visibleZeroReasons: ReadonlyArray<ZeroReasonCode | undefined>,
+): string | null {
+  if (provenance !== 'influence_score') return null
+  if (importanceBasisTrust(importanceBasisStamps) !== 'confirmed') return null
+  return visibleZeroReasons.some(reason => reason === 'intervention_override')
+    ? INFLUENCE_LEVER_DISCLOSURE
+    : null
+}

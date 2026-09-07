@@ -46,6 +46,8 @@ import {
   INFLUENCE_SCALE_CAPTION,
   ZERO_REASON_BADGE_LABELS,
   influenceQuantityRunDisclosureForRun,
+  influenceStabilityDisclosureForRun,
+  influenceLeverDisclosureForRun,
 } from './influenceScaleCopy'
 import { ExpandableCoachingText } from '../../components/shared/ExpandableCoachingText'
 import { isExpertField } from './utils/isExpertField'
@@ -998,6 +1000,48 @@ export function DriversSection({
     influenceBasis === 'unknown' ? null : stampedProvenance,
     drivers.map(d => d.importanceBasis),
   )
+  // Q1c · DOES THIS FIGURE MOVE WHEN THE USER RE-RUNS? THE FOUNDING QUESTION,
+  // AND THE FOURTH DISTINCT QUESTION THIS PANEL NOW ANSWERS.
+  //
+  // Q2 says what SCALE the figures are on, Q1b says WHICH QUANTITY was scaled,
+  // and both are silent on whether the number responds to running the analysis
+  // again. On the structural basis it does not: a re-run moves the option
+  // shares and leaves every factor figure standing still. Factors are the bulk
+  // of a model, so the panel read as unresponsive, and on the factor half it
+  // genuinely was.
+  //
+  // ⚠⚠ GATED HARDER THAN Q1b, ON PURPOSE, AND THE DIFFERENCE IS NOT A DETAIL.
+  // `influenceQuantityRunDisclosureForRun` renders on an UNSTAMPED run because
+  // the fallback noun is a claim about what THIS APP computed. Invariance is a
+  // claim about WHICH PRODUCER built the response, and only `importance_basis`
+  // says that — on the producer's other arm `influence_score` is Monte-Carlo
+  // output, which does move. So this one needs `confirmed`, not merely
+  // "not unrecognised". Collapsing the two gates would ship a false sentence on
+  // a run this codebase can already receive (CLAUDE.md trap 21), and
+  // `DriversSection.influenceStabilityAndLever.spec.tsx` pins both sides of the
+  // difference in a single render so the collapse cannot happen quietly.
+  const influenceStabilityDisclosure = influenceStabilityDisclosureForRun(
+    influenceBasis === 'unknown' ? null : stampedProvenance,
+    drivers.map(d => d.importanceBasis),
+  )
+  // Q1d · IS THIS ROW A LEVER OR AN UNCERTAINTY? THEY BOTH REACH THE TOP, FOR
+  // OPPOSITE REASONS.
+  //
+  // An option-controlled factor has its sensitivity deliberately suppressed by
+  // the producer and stamped `intervention_override`, so it can rank at the top
+  // of THIS panel and be correctly absent from what is worth resolving. Both
+  // are right. Without a sentence the only available reading is that the
+  // product contradicts itself.
+  //
+  // ⚠ RANGES OVER `visibleDrivers`, NOT `drivers`. The sentence describes rows
+  // the reader can see, and the >= 0.01 filter above removes levers on the
+  // fallback basis (a demoted lever carries a near-zero magnitude). Deriving it
+  // from the full feed would put a sentence on screen about a row that is not.
+  const influenceLeverDisclosure = influenceLeverDisclosureForRun(
+    influenceBasis === 'unknown' ? null : stampedProvenance,
+    drivers.map(d => d.importanceBasis),
+    visibleDrivers.map(d => d.zeroReason),
+  )
   // Copy comes from the ONE shared module (influenceScaleCopy) the canvas
   // pill consumes too — surfaces cannot drift (review fix 3: the strings are
   // also policed there for the DS em-dash ban). This is the Q1 gate: each arm
@@ -1049,6 +1093,34 @@ export function DriversSection({
           className={`${typography.panelMeta} text-text-light`}
         >
           {influenceQuantityDisclosure}
+        </p>
+      )}
+
+      {/* Per-run STABILITY disclosure — the answer to "does this move when I
+          re-run?". A separate element again, and gated harder than the quantity
+          caption above (confirmed stamp only): they are three different
+          questions and a run can owe the reader all of them. */}
+      {influenceStabilityDisclosure != null && (
+        <p
+          role="note"
+          data-testid="influence-stability-caption"
+          className={`${typography.panelMeta} text-text-light`}
+        >
+          {influenceStabilityDisclosure}
+        </p>
+      )}
+
+      {/* Per-run LEVER disclosure — the answer to "why is a top-ranked factor
+          missing from what is worth resolving?". Renders only when a VISIBLE
+          row is actually option-controlled, so it never explains a badge the
+          reader cannot see. */}
+      {influenceLeverDisclosure != null && (
+        <p
+          role="note"
+          data-testid="influence-lever-caption"
+          className={`${typography.panelMeta} text-text-light`}
+        >
+          {influenceLeverDisclosure}
         </p>
       )}
 
