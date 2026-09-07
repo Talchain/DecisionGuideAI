@@ -48,6 +48,7 @@ vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
+import { AtAGlance } from '../sections/AtAGlance'
 import { DriverInfluenceChart } from '../sections/DriverInfluenceChart'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { ZERO_REASON_BADGE_LABELS } from '../../influenceScaleCopy'
@@ -116,6 +117,80 @@ describe('the factor ranking is rendered once on the tab', () => {
     // The cap's self-disclosure goes with the cap. A "+N more drivers" line
     // over no drivers is a footnote to nothing.
     expect(screen.queryByTestId('analysis-new-glance-drivers-more')).toBeNull()
+  })
+
+  it('a run whose ONLY glance content was drivers now renders no glance at all', () => {
+    /* ⭐⭐ WRITTEN BECAUSE A MUTANT SURVIVED, AND THE SURVIVOR WAS THE FINDING.
+       Reinstating `glance.drivers.length > 0` into `AtAGlance`'s `hasAnything`
+       guard RED-ed nothing: every fixture above also carries a headline or a
+       verdict, so the disjunct is unobservable on them and the mutant looked
+       equivalent. It is not. `hasAnything` asks "have I anything to SHOW?", and
+       drivers are no longer something this component shows — so on a run whose
+       only glance-worthy content was drivers, the disjunct renders the section
+       wrapper over empty space. That is the "heading promising content" defect
+       `AnalysisNewSection` refuses at its own early return, and a comment in
+       `AtAGlance` claims this guard handles it; nothing pinned the claim.
+
+       ⚠ THE FIXTURE IS THE WHOLE POINT — every other disjunct is nulled, so the
+       assertion can only be satisfied by the drivers one being absent. */
+    render(
+      <AtAGlance
+        isRunning={false}
+        reanalyseBlocked={false}
+        reanalyseBlockedReason={null}
+        glance={
+          {
+            headline: null,
+            leaderLabel: null,
+            winShare: null,
+            winFraction: null,
+            comparisonScope: { kind: 'whole_set' },
+            comparativeClaim: 'none',
+            verdict: null,
+            drivers: [
+              { id: 'a', label: 'A', fraction: 1, targetId: null },
+              { id: 'b', label: 'B', fraction: 0.4, targetId: null },
+            ],
+            influenceIsSetRelative: false,
+            condition: null,
+            inputProvenance: null,
+          } as never
+        }
+      />,
+    )
+    expect(
+      screen.queryByTestId('analysis-new-glance'),
+      'drivers alone must no longer keep an empty glance on screen',
+    ).toBeNull()
+  })
+
+  it('CONTROL: the same fixture WITH a verdict still renders the glance', () => {
+    // Without this, the case above passes against an `AtAGlance` that renders
+    // nothing at all — which would be a far worse regression than the one it is
+    // written to catch.
+    render(
+      <AtAGlance
+        isRunning={false}
+        reanalyseBlocked={false}
+        reanalyseBlockedReason={null}
+        glance={
+          {
+            headline: null,
+            leaderLabel: null,
+            winShare: null,
+            winFraction: null,
+            comparisonScope: { kind: 'whole_set' },
+            comparativeClaim: 'none',
+            verdict: { tone: 'stable', label: 'Stable' },
+            drivers: [],
+            influenceIsSetRelative: false,
+            condition: null,
+            inputProvenance: null,
+          } as never
+        }
+      />,
+    )
+    expect(screen.getByTestId('analysis-new-glance')).toBeInTheDocument()
   })
 
   it('the surviving rendering is the one that carries direction', () => {
