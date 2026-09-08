@@ -454,7 +454,7 @@ describe('DecisionNode — honest resting state', () => {
     })
     renderDecision()
     // The leader sentence stays withheld — this is not a softening of it.
-    expect(screen.queryByText(/leads in \d+% of scenarios/i)).toBeNull()
+    expect(screen.queryByText(/supported in \d+% of simulated scenarios/i)).toBeNull()
     expect(screen.getByTestId(RESTING)).toBeDefined()
   })
 
@@ -510,7 +510,7 @@ describe('DecisionNode — honest resting state', () => {
     })
     renderDecision()
     // Positive control: the headline really is on screen on this fixture.
-    expect(screen.getByText(/leads in 55% of scenarios/i)).toBeDefined()
+    expect(screen.getByText(/supported in 55% of simulated scenarios/i)).toBeDefined()
     expect(screen.queryByTestId(RESTING)).toBeNull()
   })
 })

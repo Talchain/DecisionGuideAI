@@ -2,6 +2,7 @@ import { AuthError } from '@supabase/supabase-js';
 import { clearAccessValidation } from './accessValidation';
 import { authLogger } from './authLogger';
 import { clearDurableDissent } from '../../canvas/stores/dissentStore'
+import { clearDecisionRecords } from '../../components/results/modals/decisionRecordStore';
 
 function parseAuthError(error: AuthError | Error | unknown): string {
   if (!error) return 'An unknown error occurred';
@@ -70,6 +71,7 @@ export function validateAuthInputs(email: string, password: string): string | nu
 // Clear all auth-related states
 export function clearAuthStates(): void {
     console.debug('[authUtils] clearAuthStates() called', new Error().stack);
+  clearDecisionRecords();
   // Clear early access validation state
   clearAccessValidation();
 
@@ -83,9 +85,9 @@ export function clearAuthStates(): void {
    * ⚠⚠ AND THE HONEST LIMIT, because the obvious claim would be false:
    * `signOut` opens `if (!session) return`, so on the deployed GUEST posture —
    * the default — this never runs. It protects a signed-in user. It does not
-   * separate two guests, and nothing in the product does: **no product-data key
-   * is cleared by any sign-out path today.** This joins an existing gap rather
-   * than closing it, and saying otherwise would overstate what shipped.
+   * separate two guests in one browser profile. This shared cleanup also runs
+   * on some expired/failed-session paths; it is not a server deletion or a
+   * claim that browser-local dissent is shared with a team.
    */
   clearDurableDissent();
   

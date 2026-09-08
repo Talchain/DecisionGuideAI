@@ -389,11 +389,11 @@ describe('OptionNode "Close call" — a distance to a leader nobody may name', (
 })
 
 // ───────────────────────────────────────────────────────────────────────────
-// DecisionNode — "X leads in N% of scenarios"
+// DecisionNode — "X supported in N% of simulated scenarios"
 // ───────────────────────────────────────────────────────────────────────────
 
 describe('DecisionNode headline — Q1 is consulted, not only Q2', () => {
-  const leads = () => screen.queryByText(/leads in/)
+  const leads = () => screen.queryByText(/supported in/)
 
   it('HARNESS PRECONDITION: Q2 is TRUE, so every arm below isolates Q1', () => {
     withStore(undefined)
@@ -416,7 +416,7 @@ describe('DecisionNode headline — Q1 is consulted, not only Q2', () => {
     expect(leads()).not.toBeNull()
   })
 
-  it('⭐ ARM C — refused (`none`): no "leads in N% of scenarios" sentence', () => {
+  it('⭐ ARM C — refused (`none`): no "supported in N% of simulated scenarios" sentence', () => {
     withStore(ADMISSION_WITHHELD)
     renderDecision()
     expect(

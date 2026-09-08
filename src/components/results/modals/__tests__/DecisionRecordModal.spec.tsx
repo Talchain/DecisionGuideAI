@@ -72,6 +72,9 @@ function fillValid() {
 
 beforeEach(() => {
   sessionStorage.clear()
+  // The decision record persists to localStorage (it must outlive the tab), so
+  // clearing only sessionStorage would leak a record between cases in this file.
+  localStorage.clear()
   useDecisionRecordStore.getState()._reset()
   seedAnalysedOptions()
 })

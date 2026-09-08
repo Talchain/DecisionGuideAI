@@ -13,8 +13,16 @@
  * POSTed to CEE and persisted in `decision_records` with
  * `committed_by_user: true` and `confidence_source: 'user_stated'` — the
  * first user-stated calibration population this product has ever had.
- * Everything still lands in sessionStorage first, so a failed commit
+ * Everything still lands in the browser store first, so a failed commit
  * degrades the record from "durable" to "on this device", never to "lost".
+ *
+ * ⚠ THAT STORE IS `localStorage`, NOT `sessionStorage`. Superseded text:
+ * ~~Everything still lands in sessionStorage first~~. `decisionRecordStore`
+ * moved on 7 Sep 2026 so a record survives to the LATER visit it exists to be
+ * read back on; this sentence is corrected here rather than left as a stale
+ * mirror of a file it does not own (CLAUDE.md trap 12). See that store's
+ * header for the lifetime, and `scenarioKey.ts` for why its sibling
+ * `successMeasureStore` did NOT move.
  *
  * ⭐ WHY AN "EXPECTATION" FIELD RATHER THAN REUSING THE RATIONALE. The
  * outcome is scored against `prediction.statement`, a FORWARD claim. A
@@ -49,6 +57,7 @@ import {
   PRIMARY_BUTTON_CLASS,
   useModalToast,
 } from './ModalShell'
+import { selectAnalysedOptions, type AnalysedOption } from './analysedOptions'
 import { resolveScenarioKey } from './scenarioKey'
 import {
   selectDecisionRecord,
@@ -69,8 +78,23 @@ export const DECISION_RECORD_COPY = {
    */
   persistenceNote:
     'Your choice, confidence, expectation and review date are saved to your account. The rationale, assumption and revisit trigger stay on this device for this scenario.',
+  /**
+   * ⚠⚠ STILL UNCONSUMED (zero call sites), AND ITS SESSION CLAUSE WAS MADE
+   * FALSE BY THE MOVE TO `localStorage`. Superseded text: ~~'Signed out, so
+   * this stays on this device for this scenario and ends with the browser
+   * session. Sign in to keep a durable record.'~~ — a decision record now
+   * survives the tab closing, so "ends with the browser session" would be a
+   * false disclosure the first time anyone mounted this string.
+   *
+   * ⚠ CORRECTED RATHER THAN DELETED, DELIBERATELY. Retiring the dead constant
+   * is already ROWED in `src/test/guestStorageClaims.ts`'s adjudication for
+   * this file; doing it here would be the "while we're here" expansion, and
+   * leaving a false sentence in the tree for that row to find later is worse
+   * than either. The minimal true edit is to drop the clause that stopped
+   * being true.
+   */
   guestNote:
-    'Signed out, so this stays on this device for this scenario and ends with the browser session. Sign in to keep a durable record.',
+    'Signed out, so this stays on this device for this scenario. Sign in to keep a durable record.',
   savedRemoteNote: 'Saved to your account.',
   emptyState:
     'Run an analysis first. There are no analysed options to record a decision against yet.',
@@ -98,17 +122,11 @@ export const DECISION_RECORD_COPY = {
   assumptionError: 'Add the assumption most likely to change the choice.',
   revisitError: 'Add a revisit trigger or date.',
   toastSaved: 'Decision recorded and saved to your account.',
+  toastNotKept: 'This record could not be kept. Please try again.',
   toastSavedLocal: 'Decision recorded on this device.',
   toastSavedLocalAfterError:
     'Decision recorded on this device — we could not save it to your account.',
 } as const
-
-interface AnalysedOption {
-  id: string
-  label: string
-  /** Stable number from optionNumbering, only when EVERY option has one. */
-  number: number | null
-}
 
 function parseConfidence(raw: string): number {
   // NON-EMPTY strict parse — the prototype accepted '' because
@@ -131,27 +149,21 @@ export function DecisionRecordModal() {
   const analysisHash = useCanvasStore((s) => s.results.hash ?? null)
   const numbering = useCanvasStore((s) => s.optionNumbering)
 
-  const options = useMemo<AnalysedOption[]>(() => {
-    if (resultsStatus !== 'complete') return []
-    const optionNodes = nodes.filter(
-      (n) =>
-        n.type === 'option' ||
-        (n.data as Record<string, unknown> | undefined)?.kind === 'option',
-    )
-    if (optionNodes.length === 0) return []
-    const allNumbered = optionNodes.every((n) => numbering[n.id] != null)
-    const mapped = optionNodes.map((n) => {
-      const label = (n.data as Record<string, unknown> | undefined)?.label
-      return {
-        id: n.id,
-        label: typeof label === 'string' && label.trim() !== '' ? label : n.id,
-        number: allNumbered ? numbering[n.id] : null,
-      }
-    })
-    return allNumbered
-      ? [...mapped].sort((a, b) => (a.number as number) - (b.number as number))
-      : mapped
-  }, [nodes, resultsStatus, numbering])
+  /**
+   * ⚠⚠ THIS PREDICATE NOW LIVES IN `analysedOptions.ts` AND IS SHARED. It used
+   * to be computed inline here, and the `DecisionRecorded` section offered its
+   * door on `!isPreRun` instead — a DIFFERENT question ("has this session ever
+   * completed a run?" vs "is there an analysed option set on screen now?").
+   * The two diverge on every rerun, error and cancellation, because
+   * `hasCompletedFirstRun` is monotonic while `resultsStart` preserves the
+   * prior report — so the section rendered a door onto this fail-closed empty
+   * state. Restating the condition there would have been a hand-maintained
+   * mirror (CLAUDE.md trap 12); both surfaces derive it from one function.
+   */
+  const options = useMemo<AnalysedOption[]>(
+    () => selectAnalysedOptions(nodes, resultsStatus, numbering),
+    [nodes, resultsStatus, numbering],
+  )
 
   const hasOptions = options.length > 0
 
@@ -267,8 +279,6 @@ export function DecisionRecordModal() {
     // LOCAL FIRST, ALWAYS. Whatever happens on the network, the user's input
     // is already kept — a failed commit degrades the record from "durable" to
     // "on this device", never to "lost".
-    useDecisionRecordStore.getState().saveRecord(scenarioKey, record)
-
     // A stable per-save id: a retry of THIS save replays through CEE's dedupe
     // branch, while a genuinely new save gets a new id and is never swallowed
     // by the previous one.
@@ -276,6 +286,13 @@ export function DecisionRecordModal() {
       typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
         : `${scenarioKey}:${record.savedAt}`
+
+    const capture = useDecisionRecordStore.getState().saveRecord(scenarioKey, record, clientCommitId)
+    if (!capture) {
+      saveFiredRef.current = false
+      showToast(DECISION_RECORD_COPY.toastNotKept)
+      return
+    }
 
     if (typeof scenarioId !== 'string' || scenarioId === '') {
       // No persisted scenario ⇒ nothing CEE could anchor an owner to. Local
@@ -295,14 +312,20 @@ export function DecisionRecordModal() {
       expectationStatement: record.expectation ?? '',
       revisitTriggerOrDate: record.revisitTrigger,
       clientCommitId,
+      expectedOwnerId: capture.ownerId,
+      isCurrentCapture: () => useDecisionRecordStore.getState().isCurrentCapture(scenarioKey, capture),
     }).then((result) => {
+      // A different capture or account may now own this modal. An old response
+      // must neither confirm its text nor close it or toast for the new user.
+      if (!useDecisionRecordStore.getState().isCurrentCapture(scenarioKey, capture)) return
       setSaving(false)
       if (result.status === 'saved') {
-        useDecisionRecordStore.getState().attachRemote(scenarioKey, {
+        const promoted = useDecisionRecordStore.getState().attachRemote(scenarioKey, capture, {
           recordId: result.recordId,
           reviewDate: result.reviewDate,
           reviewDateSource: result.reviewDateSource,
         })
+        if (!promoted) return
         close()
         showToast(DECISION_RECORD_COPY.toastSaved)
         return
