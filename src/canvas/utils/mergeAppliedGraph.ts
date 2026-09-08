@@ -442,16 +442,19 @@ export function overlayEdge(
   // stamps ride along with it.
   const nextDataWithoutStamps = { ...(existing.data ?? {}) }
   for (const [k, v] of Object.entries(supplied)) {
-    // The mapper only emits serverStrength after validating the signed tuple.
-    // Hydration must retain that readback even without a display-value change;
-    // receipts keep their metadata-only no-op policy. Repeated hydration is
-    // still a no-op once the same tuple is recorded.
-    if (!EDGE_METADATA_ONLY_KEYS.has(k)
-      || (opts?.presenceFromProvenanceStamps && k === 'serverStrength')) {
-      nextDataWithoutStamps[k] = v
-    }
+    if (!EDGE_METADATA_ONLY_KEYS.has(k)) nextDataWithoutStamps[k] = v
   }
-  if (sameValue(existing.data, nextDataWithoutStamps)) return existing
+  if (sameValue(existing.data, nextDataWithoutStamps)) {
+    // A validated readback enables the first edit, but does not restate who
+    // supplied an unchanged value. Preserve every existing field/stamp and
+    // acquire only the tuple; the receipt path stays a strict metadata no-op.
+    if (opts?.presenceFromProvenanceStamps
+      && supplied.serverStrength !== undefined
+      && !sameValue(existing.data?.serverStrength, supplied.serverStrength)) {
+      return { ...existing, data: { ...(existing.data ?? {}), serverStrength: supplied.serverStrength } }
+    }
+    return existing
+  }
 
   const nextData = { ...(existing.data ?? {}), ...supplied }
   if (sameValue(existing.data, nextData)) return existing

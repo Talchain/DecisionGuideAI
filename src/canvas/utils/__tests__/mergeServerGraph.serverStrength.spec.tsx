@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import type { WireSystemEvent } from '../../conversation/types'
 
@@ -15,6 +15,7 @@ import { serverStatedStrengthOf } from '../../conversation/edgeServerStatedStren
 import { mapDraftEdgeToCanvas } from '../applyDraftResult'
 import { overlayEdge } from '../mergeAppliedGraph'
 import { mergeServerGraphOnHydrate } from '../mergeServerGraph'
+import { __resetAppliedEditPulseForTests, PULSE_COALESCE_MS } from '../appliedEditPulse'
 
 const EDGE = 'local_edge_124ec3bb_72ede081'
 const OTHER = 'local_edge_other'
@@ -153,5 +154,75 @@ describe('receipt overlay retains its separate no-op policy', () => {
     const next = overlayEdge(currentEdge(), { ...wire, strength_mean: 0.7 })
     expect(next.data.weight).toBe(0.7)
     expect(serverStatedStrengthOf(next.data)).toEqual({ mean: 0.7, effect_direction: 'positive' })
+  })
+})
+
+describe('authority acquisition is not an analytical edit', () => {
+  beforeEach(() => {
+    __resetAppliedEditPulseForTests()
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    __resetAppliedEditPulseForTests()
+    vi.useRealTimers()
+  })
+
+  function seedCurrentAnalysis() {
+    const fixture = seedMatchingValues({ strength_mean: 0.5, effect_direction: 'positive' })
+    useCanvasStore.setState(state => ({
+      edges: state.edges.map(edge => edge.id === EDGE ? {
+        ...edge, data: { ...edge.data, weightSource: 'user', directionSource: 'user' },
+      } : edge),
+      graphEditedSinceLastRun: false, analysisStateReady: true, analysisFreshnessDirty: false,
+      highlightedNodes: new Set(), highlightedEdges: new Set(),
+    }))
+    return fixture
+  }
+
+  it('retains fresh analysis, undo history and user provenance without pulsing unchanged values', () => {
+    const { wire } = seedCurrentAnalysis()
+    const history = useCanvasStore.getState().history
+    const beforeData = currentEdge().data
+    const result = mergeServerGraphOnHydrate({ nodes: NODES, edges: [wire] })
+    expect(result.accepted).toBe(true)
+    expect(result.changed, 'the authority record is actually stored').toBe(true)
+    expect(serverStatedStrengthOf(currentEdge().data)).toEqual({ mean: 0.5, effect_direction: 'positive' })
+    expect.soft(currentEdge().data).toEqual({ ...beforeData, serverStrength: { mean: 0.5, effect_direction: 'positive' } })
+    expect.soft(useCanvasStore.getState().history).toBe(history)
+    expect.soft(useCanvasStore.getState()).toMatchObject({
+      graphEditedSinceLastRun: false, analysisStateReady: true, analysisFreshnessDirty: false,
+    })
+    vi.advanceTimersByTime(PULSE_COALESCE_MS)
+    expect.soft(useCanvasStore.getState().highlightedEdges.size).toBe(0)
+    expect.soft(useCanvasStore.getState().highlightedNodes.size).toBe(0)
+  })
+
+  it('still invalidates, snapshots and pulses a genuine edge-value overwrite', () => {
+    const { wire } = seedCurrentAnalysis()
+    const result = mergeServerGraphOnHydrate({ nodes: NODES, edges: [{ ...wire, strength_mean: 0.7 }] })
+    expect(result.updatedEdgeCount).toBe(1)
+    expect(currentEdge().data?.weight).toBe(0.7)
+    expect(useCanvasStore.getState().history.past).toHaveLength(1)
+    expect(useCanvasStore.getState()).toMatchObject({
+      graphEditedSinceLastRun: true, analysisStateReady: false, analysisFreshnessDirty: true,
+    })
+    vi.advanceTimersByTime(PULSE_COALESCE_MS)
+    expect([...useCanvasStore.getState().highlightedEdges]).toEqual([EDGE])
+  })
+
+  it('still invalidates an addition without inventing an overwritten value or pulse', () => {
+    const { wire } = seedCurrentAnalysis()
+    const history = useCanvasStore.getState().history
+    const result = mergeServerGraphOnHydrate({
+      nodes: [...NODES, { id: 'new-factor', kind: 'factor', label: 'New factor' }], edges: [wire],
+    })
+    expect(result.addedNodeCount).toBe(1)
+    expect(useCanvasStore.getState().nodes.some(node => node.id === 'new-factor')).toBe(true)
+    expect.soft(useCanvasStore.getState().history).toBe(history)
+    expect(useCanvasStore.getState()).toMatchObject({
+      graphEditedSinceLastRun: true, analysisStateReady: false, analysisFreshnessDirty: true,
+    })
+    vi.advanceTimersByTime(PULSE_COALESCE_MS)
+    expect.soft(useCanvasStore.getState().highlightedEdges.size).toBe(0)
   })
 })

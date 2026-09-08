@@ -298,6 +298,7 @@ export function mergeServerGraphOnHydrate(
   })
 
   let updatedEdgeCount = 0
+  const valueChangedEdgeIds: string[] = []
   const mergedEdges = store.edges.map((e: any) => {
     const key = canvasEdgePairKey(e)
     const serverEdge = key ? serverEdgeByPair.get(key) : undefined
@@ -322,6 +323,12 @@ export function mergeServerGraphOnHydrate(
     if (deepEqual(next.data, e.data)) return e
 
     updatedEdgeCount += 1
+    // Acquiring server readback is a store change, not a changed model value.
+    // Mask ONLY that record; every other change retains the existing edit
+    // classification. The overlay preserves user stamps on tuple-only reads.
+    if (!deepEqual({ ...next.data, serverStrength: e.data?.serverStrength }, e.data)) {
+      valueChangedEdgeIds.push(e.id)
+    }
     return next
   })
 
@@ -490,7 +497,8 @@ export function mergeServerGraphOnHydrate(
   // So: whenever at least one EXISTING element's value changes, snapshot first.
   // Additions alone do not qualify — nothing is being overwritten — and a
   // no-op merge already returned above.
-  const overwroteExistingValues = updatedNodeCount > 0 || updatedEdgeCount > 0
+  const overwroteExistingValues = updatedNodeCount > 0 || valueChangedEdgeIds.length > 0
+  const modelChanged = overwroteExistingValues || addedNodes.length > 0 || addedEdges.length > 0
   if (overwroteExistingValues) {
     useCanvasStore.getState().pushHistory()
   }
@@ -506,7 +514,7 @@ export function mergeServerGraphOnHydrate(
   useCanvasStore.getState().beginExternalGraphMutation?.('hydrate')
   try {
     useCanvasStore.setState({
-      nodes: [...mergedNodes, ...addedNodes] as any,
+      nodes: modelChanged ? [...mergedNodes, ...addedNodes] as any : store.nodes,
       edges: [...mergedEdges, ...addedEdges] as any,
       // Requested in the SAME write as the nodes it describes: a separate
       // `setPendingLayout` call would leave a frame in which the canvas holds an
@@ -573,7 +581,7 @@ export function mergeServerGraphOnHydrate(
   // the EXPLICIT, ATOMIC 3-flag call — `markGraphStructurallyEdited` is the
   // store's declared API for external mutators for this reason.
   //
-  // ⚠ THE PREDICATE IS `changed`, NOT `overwroteExistingValues`, AND THE
+  // ⚠ THE PREDICATE IS `modelChanged`, NOT `overwroteExistingValues`, AND THE
   // DIVERGENCE FROM THE TWO GATES EITHER SIDE OF IT IS DELIBERATE — DO NOT
   // "TIDY" THESE INTO ONE. Three different questions share this block:
   //   · pushHistory            — "is the user's work about to be destroyed?"
@@ -588,9 +596,10 @@ export function mergeServerGraphOnHydrate(
   //
   // ⚠ NOT UNCONDITIONAL: marking every boot stale would be its own defect — a
   // false stale on the commonest boot of all, the idempotent one. The
-  // `if (!changed) return result` above is what buys that, and both directions
-  // are pinned in `mergeServerGraph.staleness.spec.ts`.
-  useCanvasStore.getState().markGraphStructurallyEdited?.()
+  // The early no-op return and modelChanged guard buy that. A tuple-only
+  // readback is stored (result.changed=true) without invalidating unchanged
+  // analysis; real overwrites AND additions still invalidate it.
+  if (modelChanged) useCanvasStore.getState().markGraphStructurallyEdited?.()
 
   // ── DISCLOSURE: never move a number the user is looking at in silence ──────
   //
@@ -604,9 +613,7 @@ export function mergeServerGraphOnHydrate(
       nodeIds: mergedNodes
         .filter((n: any, i: number) => n !== store.nodes[i])
         .map((n: any) => n.id as string),
-      edgeIds: mergedEdges
-        .filter((e: any, i: number) => e !== store.edges[i])
-        .map((e: any) => e.id as string),
+      edgeIds: valueChangedEdgeIds,
     })
   }
 
