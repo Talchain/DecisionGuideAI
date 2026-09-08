@@ -66,9 +66,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
-import { DecisionNode, DECISION_RESTING_COPY } from '../DecisionNode'
+import { DecisionNode, DECISION_RESTING_COPY, DECISION_READINESS_COPY } from '../DecisionNode'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useAskOlumiStore } from '../../../components/results/coaching/askOlumiStore'
+import { canvasCopyIsHonest } from './__helpers__/canvasCopyHonesty'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -190,17 +191,23 @@ const RESTING_CTA = 'decision-node-resting-cta'
 /**
  * ⛔ THE CONSTRAINT, AS ONE PREDICATE, APPLIED IN TWO PLACES.
  *
- * Left half: any word that would make this node describe the analysis.
- * Right half: the node-type vocabulary another lane owns.
- *
  * `canvasCopyIsHonest` is used BOTH over the declared record (complete over
  * what is declared) AND over every rendered case (notices what was never
  * declared). Neither alone is sufficient — that is the whole of B2.
+ *
+ * ⚠ THE PREDICATE NO LONGER LIVES HERE, and that is a repair, not a tidy-up.
+ * This file used to define it and carry a comment promising the sibling
+ * `DecisionNode.readinessSummary.spec.tsx` imported it "rather than a second
+ * copy of the regex". That sibling shipped a BYTE-IDENTICAL copy in the same
+ * PR, so the comment was false on arrival (review finding B2). It now lives in
+ * `__helpers__/canvasCopyHonesty.ts` and BOTH specs import it, which makes the
+ * promise true by construction instead of by memory (CLAUDE.md trap 12).
  */
-const FORBIDDEN =
-  /lead|winner|win |robust|stabil|scenario|too close|tie|result|analysis|confiden|likel|probab|\bdecisions?\b|\bquestions?\b/i
-
-const canvasCopyIsHonest = (text: string) => !FORBIDDEN.test(text)
+// The predicate is imported at the top of this file with the other imports.
+// `FORBIDDEN` itself is deliberately NOT imported here: this file only ever asks
+// the QUESTION (`canvasCopyIsHonest`), never pokes at the regex, and an unused
+// binding is a lint failure that gates the whole required check before a single
+// test runs (CLAUDE.md trap 22e).
 
 /**
  * ⭐⭐ READ THE TEXT THE WAY THE USER READS IT — ONE LINE PER TEXT NODE.
@@ -339,6 +346,26 @@ describe('DecisionNode — honest resting state', () => {
     },
   )
 
+  /**
+   * ⭐ THE READINESS WORDS ARE NOW COPY IN THIS SUBTREE, SO THE GUARD COVERS
+   * THEM — extended, never weakened.
+   *
+   * `composeReadinessSummary` renders "4 factors · 2 estimated · 1 missing"
+   * inside `decision-node-resting-state` on `completedRunLine`. Its words are
+   * product copy exactly like `DECISION_RESTING_COPY`'s, so they are enumerated
+   * through the SAME `canvasCopyIsHonest` predicate rather than a second copy
+   * of the regex living in the new spec (CLAUDE.md trap 12 — one predicate, one
+   * place). The rendered corpus below gains a factor-bearing fixture for the
+   * same reason B2 exists: enumeration cannot notice a string nobody declared.
+   */
+  it.each(Object.entries(DECISION_READINESS_COPY))(
+    'declared readiness copy %s makes no claim about the analysis and names no node type',
+    (_key, text) => {
+      expect(text.trim().length).toBeGreaterThan(0)
+      expect(canvasCopyIsHonest(text)).toBe(true)
+    },
+  )
+
   // The corpus half. Enumeration proves every DECLARED string is honest; only
   // rendering notices a string that was never declared.
   const renderedCases: Array<[string, () => void]> = [
@@ -361,6 +388,34 @@ describe('DecisionNode — honest resting state', () => {
         viewMode: 'standard',
       })
       renderDecision()
+    }],
+    // ⭐ THE CASE THAT ACTUALLY RENDERS THE READINESS SUMMARY. Without factors
+    // in the store the summary is null and this corpus would certify the guard
+    // over a line it never saw — the corpus-excludes-the-class defect
+    // (CLAUDE.md trap 13d). All four buckets are populated so every segment the
+    // composer can emit passes under the guard.
+    ['post-analysis Standard, leader withheld, readiness summary rendered', () => {
+      setStore({
+        nodes: [
+          decisionNode,
+          ...optionNodes,
+          { id: 'f-explicit', type: 'factor', data: { type: 'factor', label: 'Salary budget', category: 'controllable', observedState: { value: 42 } } },
+          { id: 'f-inferred', type: 'factor', data: { type: 'factor', label: 'Ramp time', category: 'controllable', observedState: { value: 7, extractionType: 'inferred' } } },
+          { id: 'f-missing', type: 'factor', data: { type: 'factor', label: 'Attrition', category: 'controllable' } },
+          { id: 'f-external', type: 'factor', data: { type: 'factor', label: 'Market rate', category: 'external' } },
+        ],
+        edges: optionEdges,
+        results: { status: 'complete', report: WITHHELD_REPORT_WITH_STABILITY },
+        viewMode: 'standard',
+      })
+      renderDecision()
+      // ⭐ THE CASE PINS ITS OWN PRECONDITION (review finding R1). The shared
+      // body below only asserts the subtree is non-empty and honest — and the
+      // wayfinding line alone satisfies both. If the summary stopped rendering
+      // in this fixture the case would stay GREEN while certifying the guard
+      // over a line it never saw, which is the exact hazard this case was added
+      // to close. `getByTestId` throws when absent, so the case now fails loud.
+      expect(screen.getByTestId('decision-node-readiness-summary')).toBeDefined()
     }],
   ]
 

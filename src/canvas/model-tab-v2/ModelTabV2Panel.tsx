@@ -64,6 +64,7 @@ import {
   nodeKind,
   type ModelProjectionInput,
 } from './adapters'
+import { MODEL_GROUP_IDS, type ModelGroupId } from './types'
 import type { DetailTier, EditCommitState, RepairQueue } from './types'
 
 export interface ModelTabV2PanelProps {
@@ -77,6 +78,8 @@ export interface ModelTabV2PanelProps {
    * otherwise.
    */
   fragileEdgeIds?: ReadonlySet<string>
+  /** A group a deep link wants open; forwarded straight to `ModelOutline`. */
+  openGroupRequest?: ModelGroupId | null
   /**
    * Hand a turn to Olumi, having FRONTED the conversation first.
    *
@@ -127,6 +130,7 @@ export function ModelTabV2Panel({
   edges,
   goalThreshold,
   fragileEdgeIds,
+  openGroupRequest,
   onHandOffToOlumi,
 }: ModelTabV2PanelProps) {
   const [tier, setTier] = useState<DetailTier>('plain')
@@ -571,6 +575,25 @@ export function ModelTabV2Panel({
         </>
       ) : (
       <ModelOutline
+        /* ⭐ THE OUTLINE OPENS AS AN OUTLINE.
+           `initiallyClosedGroups` has existed since this component was written
+           and NOTHING has ever passed it, so all seven groups rendered open:
+           measured on deployed staging with a real analysis, 8 of 9 expanded
+           regions and 1,817px of scroll before the reader has chosen anything.
+           That is a dump, not disclosure.
+
+           Closing them costs NO information, which is the only reason this is
+           safe: the collapsed header already carries the group name, the row
+           COUNT, and `unsetSummary` — "2 with no value yet" — all derived from
+           the same fields the rows read. So the closed state IS the model at a
+           glance, and one click opens the part the reader wants.
+
+           ⚠ NOT the piecemeal pattern. Each of these seven hides a real list,
+           not a sentence; the complaint being answered is twelve small doors
+           each buying one line. Level 1 is the shape of the model, level 2 is
+           the rows. */
+        initiallyClosedGroups={MODEL_GROUP_IDS}
+        openGroupRequest={openGroupRequest}
         rows={rows}
         tier={tier}
         filter={filter}

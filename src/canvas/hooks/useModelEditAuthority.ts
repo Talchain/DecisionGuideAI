@@ -59,11 +59,27 @@
  * `setPriorRange`), `edge_adjudication`, and — since schemas 0.48.0 —
  * `structural_delete`, the durable REMOVAL, which is emitted from the canvas
  * delete gestures via `useStructuralDeleteEvents` and resolves its own receipt
- * inside `sendTurn` (this hook is not on that path). Edge strength / likelihood
- * / direction and the goal target still have NO canonical carrier and NO entry
- * point here; the v2 surface keeps rendering those affordances DISABLED with an
+ * inside `sendTurn` (this hook is not on that path).
+ *
+ * ⚠ CORRECTED 2026-09-07 — THIS PARAGRAPH SAID "Edge strength / likelihood /
+ * direction and the goal target still have NO canonical carrier". THE EDGE
+ * STRENGTH HALF IS NOW FALSE, and it was the most misleading kind of stale: it
+ * grouped a member that HAS had a contract carrier since schemas 0.42.0 and a
+ * CEE writer since Train C with three that genuinely have none, so a lane
+ * reading this would have concluded the carrier had to be designed. It only ever
+ * lacked a UI EMITTER, and that landed at `useEdgeMutations.setStrength`.
+ *
+ * Edge LIKELIHOOD, edge DIRECTION and the GOAL TARGET still have no canonical
+ * carrier and no entry point here, and for those three the original sentence
+ * stands: the v2 surface keeps rendering their affordances DISABLED with an
  * honest label rather than routing them through a local-only write that would
  * look identical to a server-backed one (design §2 F6).
+ *
+ * ⚠ AND EDGE STRENGTH IS **NOT** AN ENTRY POINT HERE EITHER, which is a
+ * different statement from "has no carrier". This hook is parameterised by a
+ * NODE id; an edge is addressed by its `(from, to)` pair. Adding an edge
+ * operation to a node authority would be the two-questions-one-name defect
+ * (trap 21), so the emitter lives at the edge setter instead.
  *
  * ⚠ AND F6 IS *NOT* RE-OPENED BY THE TWO LOCAL COMMITS. F6's harm is that a
  * local write and a server-backed one are INDISTINGUISHABLE on screen. These

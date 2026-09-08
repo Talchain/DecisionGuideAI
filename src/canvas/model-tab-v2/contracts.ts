@@ -69,9 +69,18 @@ export interface EditProposalHandle {
  *                                  persists a typed fact and writes no graph)
  *     · resolveContestedEdge    → `edge_adjudication`
  *
- *   IN FLIGHT ON CODEX'S LANE:
- *     · proposeEdgeStrength     → `edge_strength_edit`  (zero occurrences in the
- *                                  tree at derivation time)
+ *   LANDED 2026-09-07 (was "IN FLIGHT ON CODEX'S LANE", "zero occurrences in
+ *   the tree at derivation time" — both true then, neither true now):
+ *     · proposeEdgeStrength     → `edge_strength_edit`
+ *       The emitter lives at the seam every strength editor shares,
+ *       `useEdgeMutations.setStrength`, and builds through
+ *       `canvas/conversation/edgeStrengthEdit.ts`.
+ *       ⚠ NOT "with optimistic revert" — see the SERVER-AUTHORITATIVE group
+ *       above, which earns that clause and this does not. There is no revert on
+ *       refusal yet, and CEE's refusal for this kind is a POSITIVE, typed
+ *       signal (`FEATURE_NOT_ENABLED` / `edge_strength_edit_reader_only`)
+ *       rather than the absence-based rule `factor_value_edit` has to infer
+ *       from, so the revert is buildable — it is simply not built.
  *
  *   LOCAL-ONLY TODAY — the gap this design depends on closing:
  *     · proposeEdgeLikelihood, proposeEdgeDirection, proposeOptionIntervention,

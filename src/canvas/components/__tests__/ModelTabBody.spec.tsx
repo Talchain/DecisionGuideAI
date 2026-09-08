@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import type { Node, Edge } from '@xyflow/react'
 import { ModelTabBody } from '../ModelTabBody'
+import { openOutlineGroups } from '../../model-tab-v2/__tests__/openOutlineGroups'
 
 vi.mock('../../utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
@@ -103,6 +104,10 @@ beforeEach(() => { vi.clearAllMocks() })
 describe('connected Model surface', () => {
   it('shows each entity exactly once on the v2 outline', () => {
     renderTab()
+    // NAVIGATION, NOT A RELAXED ASSERTION: the outline opens closed, so rows are
+    // not on screen at mount. The subject — each entity appears exactly ONCE —
+    // and every assertion below are unchanged.
+    openOutlineGroups()
     expect(screen.getAllByText('Protect gross margin')).toHaveLength(1)
     expect(screen.getAllByText('Migration budget')).toHaveLength(1)
     expect(screen.getAllByText('Team adoption')).toHaveLength(1)
@@ -113,8 +118,16 @@ describe('connected Model surface', () => {
     renderTab()
     const search = screen.getByTestId('model-tab-v2-filter')
     expect(search).toBeEnabled()
+    // ⭐ PRECONDITION, PINNED IN-TEST. Groups start CLOSED, so BOTH rows are
+    // absent before the search runs. Without this line the negative assertion
+    // below passes VACUOUSLY — a collapsed group and a filtered-out row are
+    // indistinguishable to `queryByTestId`, so half this test could not fail.
+    expect(screen.queryByTestId('model-row-v2-factor-adoption')).not.toBeInTheDocument()
     fireEvent.change(search, { target: { value: 'adoption' } })
+    // Searching REVEALS the match even though its group was shut...
     expect(screen.getByTestId('model-row-v2-factor-adoption')).toBeInTheDocument()
+    // ...and the non-match is absent because it does not MATCH, not because it
+    // is still collapsed — its group is the same one that just opened.
     expect(screen.queryByTestId('model-row-v2-factor-budget')).not.toBeInTheDocument()
   })
 
