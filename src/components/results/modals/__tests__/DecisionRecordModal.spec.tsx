@@ -112,13 +112,32 @@ describe('DecisionRecordModal — chrome and a11y', () => {
     expect(document.activeElement).toBe(opener)
   })
 
-  it('names the durable/local split honestly — never "prototype only" now that the record persists', () => {
+  /**
+   * ⚠ PREMISE CHANGED DELIBERATELY, AND THE CASE IS STRONGER FOR IT.
+   *
+   * This asserted the ACCOUNT sentence unconditionally, which was correct only
+   * for a signed-in user. The note is now chosen by the save path's own
+   * predicate (`getSessionIdentity().accessToken`, the very rule
+   * `commitDecisionRecord` uses), because rendering it to a guest told every
+   * signed-out visitor — the DEFAULT state on staging — that their record was
+   * "saved to your account" while CEE refuses an unowned scenario by design.
+   *
+   * This file's harness has no access token, so it is the GUEST arm. The
+   * original intent — the split is named honestly and never reverts to
+   * "prototype only" — is unchanged and now asserted for BOTH identities
+   * rather than one, which is why this is a strengthening and not an
+   * accommodation. The signed-in arm and the unresolved/failed-read arms are
+   * pinned in `recordNoteMatchesIdentity.spec.tsx`.
+   */
+  it('names the durable/local split honestly for a GUEST — never "prototype only"', () => {
     render(<DecisionRecordModal />)
     openModal()
     const note = screen.getByTestId('decision-record-note')
-    // What IS durable, and what is NOT — both stated, neither over-claimed.
-    expect(note).toHaveTextContent('saved to your account')
-    expect(note).toHaveTextContent('stay on this device')
+    // What is true for a signed-out user: local, scenario-scoped, and it ends.
+    expect(note).toHaveTextContent('this device')
+    expect(note).toHaveTextContent('Sign in to keep a durable record')
+    // ⛔ AND THE CLAIM IT MUST NOT MAKE. This is the defect the change fixes.
+    expect(note.textContent ?? '').not.toContain('saved to your account')
     expect(note.textContent ?? '').not.toContain('Prototype only')
   })
 })
