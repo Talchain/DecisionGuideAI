@@ -152,7 +152,7 @@ export const GhostTierNode = memo((props: NodeProps) => {
       // removing the span's `text-center` alone changed nothing. `justify-*`
       // is the VERTICAL axis here and `justify-center` stays: it is what keeps
       // the content vertically centred in a door sized for two lines.
-      className="rounded-lg cursor-pointer hover:bg-panel-hover transition-colors flex flex-col items-start justify-center gap-1 nodrag nopan"
+      className="rounded-lg cursor-pointer hover:bg-panel-hover transition-colors flex flex-col items-start justify-center gap-1 nodrag nopan text-left"
       style={{
         // Matches GhostOptionNode's measured 3:1 non-text contrast outline —
         // the dashes are the only thing marking this affordance's bounds.

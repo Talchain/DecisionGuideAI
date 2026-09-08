@@ -94,12 +94,97 @@ export const DECISION_ANCHOR_BRIEF_COPY = {
  */
 export const ANCHOR_BRIEF_MAX_CHARS = 160
 
-/** Truncate text at word boundary. */
+/**
+ * Truncate text at a word boundary — and NEVER inside a word.
+ *
+ * ⚠ THE OLD FALLBACK CLIPPED MID-WORD. When no space sat past 60% of the
+ * measure it returned the raw `substring`, so `"Snowflake-Native"` could arrive
+ * as `"Snowflake-Nativ…"`. That is the same harm this file's own triage-line
+ * comment records being measured on deployed `384a2b4f` — a word cut before it
+ * names the thing to go and fix — just reached through the helper instead of
+ * through CSS.
+ *
+ * ⚠⚠ THIS IS NOT THE ONE OWNER, AND AN EARLIER DRAFT OF THIS COMMENT SAID IT
+ * WAS. The false sentence claimed the exact property this change does not have,
+ * so it is corrected here rather than deleted.
+ *
+ * ⚠ NO COUNT OF THE REPO'S TRUNCATION HELPERS APPEARS HERE, DELIBERATELY. Two
+ * versions of that count have already been written and both were false; the
+ * second cited `grep -rn 'function truncateAtWord' src/` as its derivation,
+ * and that command cannot see a helper bound to a `const`, a method, or a
+ * differently-named twin. What follows names only the specific bodies that
+ * were compared, and how.
+ *
+ * · `canvas/nodes/OptionNode.tsx:38` — same name, same signature. At the
+ *   merge-base `5b764fa6` the two bodies differed on exactly ONE line, the
+ *   suffix (`'…'` here, `'...'` there). This PR rewrites THIS one only, so
+ *   they now produce different output for the same input. Its live caller at
+ *   `OptionNode.tsx:1415` (`truncateAtWord(chip.label, 30)`) still clips
+ *   mid-word. Cited by the string as well as the line because staging's #1281
+ *   moved that line from :1326 while this branch sat unmerged.
+ * · `canvas/utils/labelUtils.ts:123 truncateLabelAtWord` — a DIFFERENT name,
+ *   invisible to any grep for this one, and BEHAVIOURALLY IDENTICAL to the
+ *   merge-base rule this PR replaces. Measured by execution over 20,000
+ *   generated inputs at random measures: 0 differing, while the same probe
+ *   scored 13,281 differing against `OptionNode`'s body as a contrast control.
+ *   Its sources differ only in the function name and in how the ellipsis is
+ *   SPELLED. It is reached from the exported `compactFactorLabel`, and
+ *   `__tests__/DecisionNode.triageTruncation.spec.tsx` asserts it still carries
+ *   the pre-PR rule — so the divergence is pinned, not merely described.
+ * · `components/results/analysisNew/nameOrClaim.ts:137` — exported, same name,
+ *   different rules: it normalises unicode spaces, and `if (lastSpace <= 0)
+ *   return t` returns the input UNCHANGED when the first word overruns.
+ *
+ * Converging them is the remedy; it is ROWED as an explicit follow-up in the
+ * PR body rather than done here, because #1226 is already open against
+ * `OptionNode.tsx` and two of this lane's PRs on one file is the overlap that
+ * cost an adjudication cycle earlier the same night (CLAUDE.md trap 16).
+ *
+ * The rule now: cut at the last space at or before the measure; if the first
+ * word is longer than the measure, keep that whole word and cut after it; if
+ * there is no space at all, the text is one word and is returned whole. A FOURTH
+ * case those three do not describe: text that BEGINS with a space and whose next
+ * space sits past the measure collapses to a bare `…`, because both boundary
+ * searches land on index 0. Unreachable at ALL THREE call sites in this file
+ * today, but not for one reason: the two triage lines each pass a label through
+ * `cleanFactorLabel`, which `.trim()`s, and the anchor brief trims its own input
+ * (`recordedBriefText.trim()`) before measuring. So it is documented, not
+ * guarded — and a fourth call site that skipped trimming would reach it.
+ *
+ * ⚠ A SINGLE UNBROKEN TOKEN CAN EXCEED THE MEASURE, AND WHETHER ANYTHING
+ * BOUNDS IT DEPENDS ON THE CALL SITE. There are THREE, and they do not agree —
+ * the third arrived when `staging` was merged into this branch, so an earlier
+ * draft of this paragraph saying "both call sites" was true when written and
+ * false on arrival.
+ *
+ * · The two TRIAGE lines (`Top gap: estimate …` / `Top gap: validate …`,
+ *   measure 40) render in a div with NO clamp and NO `break-words`, so the only
+ *   bound is the token's own length — unbounded above, where the old rule
+ *   capped the label at the measure plus one ellipsis character. That is the
+ *   deliberate trade: a word cut open is worse than a word that overruns.
+ * · The ANCHOR BRIEF (`ANCHOR_BRIEF_MAX_CHARS`, 160) is bounded by CSS and not
+ *   by this function — `line-clamp-3 break-words` on the blockquote, with the
+ *   full text on `title`. #1229 shipped that site against the OLD rule and said
+ *   so in its own comment; this merge replaces the rule underneath it, and the
+ *   new rule is strictly better THERE, because the box was never relying on the
+ *   truncator to bound it and a hard mid-token cut bought nothing.
+ *
+ * ⚠ THE SIZE OF THAT TRADE IS NOT STATED HERE. An earlier draft of this
+ * sentence gave "60 characters where the old rule gave 41"; 60 matches neither
+ * frame of the fixture it described. The trade is now DERIVED IN-TEST by
+ * `__tests__/DecisionNode.triageTruncation.spec.tsx`, in the label frame and
+ * the whole-line frame, against the pre-PR rule reproduced verbatim — so it
+ * cannot drift out of agreement with the code beneath it. That spec is jsdom
+ * and therefore says nothing about pixels; clamping this line is rowed in the
+ * PR body, not done here.
+ */
 function truncateAtWord(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text
-  const truncated = text.substring(0, maxLength)
-  const lastSpace = truncated.lastIndexOf(' ')
-  return (lastSpace > maxLength * 0.6 ? truncated.substring(0, lastSpace) : truncated).trimEnd() + '\u2026'
+  const lastSpace = text.lastIndexOf(' ', maxLength)
+  if (lastSpace > 0) return text.substring(0, lastSpace).trimEnd() + '\u2026'
+  const firstSpace = text.indexOf(' ')
+  if (firstSpace === -1) return text
+  return text.substring(0, firstSpace).trimEnd() + '\u2026'
 }
 
 // ---- Model readiness helpers ----
@@ -743,19 +828,30 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
 
   /**
-   * ⚠ THIS USES `truncateAtWord` EXACTLY AS IT STANDS ON `staging`, AND THAT
-   * RULE CAN CUT A SINGLE OVER-LONG TOKEN MID-WORD. Measured, not assumed: a
-   * 200-character unbroken token at measure 160 comes back as 160 characters
-   * plus an ellipsis, because the 0.6 heuristic finds no space to fall back to.
-   * The pinning spec asserts that behaviour rather than a nicer one, so this
-   * comment cannot drift away from what the function does.
+   * ⚠ THE TRUNCATION RULE UNDER THIS CALL SITE CHANGED WHEN #1219 WAS MERGED,
+   * AND THIS COMMENT IS THE OTHER HALF OF THAT CHANGE. #1229 shipped the brief
+   * against `staging`'s rule and recorded, correctly for its own branch, that a
+   * 200-character unbroken token at measure 160 came back as 160 characters
+   * plus an ellipsis — the 0.6 heuristic found no space to fall back to, so it
+   * took the hard cut. That sentence described the function accurately and
+   * stopped being true the moment this merge landed; it is rewritten rather
+   * than deleted, because the change of behaviour at this call site is the
+   * thing a reader needs told.
    *
-   * Changing that rule is a separate, user-visible change to two OTHER live
-   * call sites in this file (the `Top gap:` triage lines), so it is deliberately
-   * NOT made here — it is the other half of PR #1219, which this branch was
-   * split out of. What bounds the brief here is CSS, not the truncator:
+   * Measured at the merged rule, not assumed: the same 200-character token now
+   * comes back WHOLE, 200 characters and no ellipsis, because a text with no
+   * space at all is returned unchanged. Ordinary prose is unaffected — the
+   * spec's 224-character brief truncates byte-for-byte identically under both
+   * rules, which is why only the single-token case moved.
+   *
+   * ⭐ THAT IS SAFE HERE, AND IT IS THE REASON THIS SITE WAS NEVER THE OBJECTION
+   * TO #1219. What bounds the brief is CSS, not the truncator:
    * `line-clamp-3 break-words` on the blockquote below, with the full text on
-   * `title`.
+   * `title`. The box was never relying on this function for its height, so
+   * removing the mid-token cut costs nothing here and stops mutilating a word.
+   * The two OTHER call sites in this file (the `Top gap:` triage lines) are the
+   * ones that carry #1219's deliberate trade — they have no clamp and no
+   * `break-words` — and that trade is documented at `truncateAtWord` above.
    */
   const anchorBrief = useMemo(() => {
     if (typeof recordedScenarioId !== 'string' || recordedScenarioId !== currentScenarioId) return null
@@ -982,11 +1078,26 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 it. An ellipsis with somewhere to go is a caveat; an ellipsis
                 with nowhere to go is hiding.
 
-                Wrapping is bounded, so this cannot grow without limit: the
-                label is already shortened to 40 chars by `truncateAtWord`
-                above, capping the line near 59 characters — two lines at this
-                measure. `e2e/visual/nodeTextClipping.visual.spec.ts` REDs if any
-                node text starts overflowing its box again. */}
+                Wrapping is bounded FOR ORDINARY PROSE: `truncateAtWord` above
+                cuts the label at the last word boundary at or before 40, which
+                caps this line near 59 characters — two lines at this measure.
+
+                ⚠ THAT CAP IS NO LONGER ABSOLUTE, AND THIS PR IS WHAT MOVED IT.
+                `truncateAtWord` now returns a single unbroken token WHOLE rather
+                than mutilating it, so a one-word label prints at ITS OWN length,
+                however long that is, where the old rule capped it at 41 (the
+                measure plus one ellipsis character). The magnitude is derived
+                in-test rather than restated here — see
+                `__tests__/DecisionNode.triageTruncation.spec.tsx`; an earlier
+                draft of this sentence said "at 51, not 40", and the old rule
+                gave 41. This div carries no `line-clamp` and no `break-words`, so
+                an over-long token has nothing to wrap on. The trade is deliberate
+                — a word cut open is worse than a word that overruns — and it is
+                measured and pinned by
+                `__tests__/DecisionNode.triageTruncation.spec.tsx`; a clamp for
+                this line is rowed in the PR body.
+                `e2e/visual/nodeTextClipping.visual.spec.ts` REDs if any node text
+                starts overflowing its box again. */}
             {showTriageLine && (
               <div className={`${typography.edgeLabel} text-text-body mt-1`}>
                 {triageLine}

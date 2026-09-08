@@ -44,17 +44,34 @@
  *
  * ── WHICH TRUNCATION RULE THESE ASSERT ─────────────────────────────────────
  *
- * This branch was split out of PR #1219 at `52d7e1e7` and carries the anchor
- * brief ONLY. It does NOT carry that PR's rewrite of `DecisionNode`'s private
- * `truncateAtWord`, because that rewrite also changes two OTHER live call
- * sites in the same file (the `Top gap: estimate/validate …` triage lines).
+ * ⚠ THIS SECTION WAS REWRITTEN WHEN #1219 WAS MERGED INTO THIS BRANCH, AND THE
+ * PREVIOUS VERSION OF IT PREDICTED EXACTLY THAT. This spec arrived on `staging`
+ * with #1229, which was split out of PR #1219 at `52d7e1e7` and carried the
+ * anchor brief ONLY. It therefore asserted `staging`'s truncation rule as it
+ * then stood — cut at the last space past 60% of the measure, HARD cut when
+ * there is none — and said, in the single-token case below, that it was
+ * asserting the less good behaviour on purpose because "PR #1219 changes that
+ * rule; this branch does not".
  *
- * So the truncation cases below assert `staging`'s rule as it actually is —
- * cut at the last space past 60% of the measure, and fall back to a HARD cut
- * when there is none. An over-long single token IS cut mid-token here, and the
- * case below says so rather than claiming a guarantee this branch does not
- * have. What makes that acceptable at THIS call site, and only here, is that
- * the full text is on `title` and the height is bounded by `line-clamp-3`.
+ * #1219 has now been merged in, so this branch DOES carry that rewrite and the
+ * rule beneath these cases is the new one: cut at the last space at or before
+ * the measure; if the first word overruns, keep that whole word; if there is no
+ * space at all, return the text WHOLE. The single-token case is re-bound to
+ * that below rather than left to fail, because a spec asserting a rule the file
+ * no longer has is a false record, not a guard.
+ *
+ * Measured across both rules on these exact fixtures, which is why only ONE
+ * case moved: the 224-character prose BRIEF truncates byte-for-byte identically
+ * under old and new, and the short brief is returned whole by both. Only the
+ * unbroken-token case differs — 160 chars + ellipsis before, 200 chars whole
+ * after.
+ *
+ * What makes the whole-token return acceptable at THIS call site is unchanged
+ * from what #1229 wrote: the full text is on `title` and the height is bounded
+ * by `line-clamp-3 break-words`. The brief never relied on the truncator for
+ * its bound. The two `Top gap:` triage lines in the same file DO carry #1219's
+ * trade, and they are pinned by `DecisionNode.triageTruncation.spec.tsx`, not
+ * here.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -236,16 +253,26 @@ describe('the anchor node surfaces the brief it is about', () => {
     expect(quote.textContent).not.toContain('…')
   })
 
-  it('an unbroken token IS cut at the measure — and stays recoverable on `title`', () => {
+  it('an unbroken token is returned WHOLE, not mutilated — and the box still bounds it', () => {
     /**
-     * ⚠ THIS ASSERTS THE LESS GOOD BEHAVIOUR ON PURPOSE. `staging`'s
-     * `truncateAtWord` finds no space to fall back to in a single token, so it
-     * takes the hard cut. PR #1219 changes that rule; this branch does not, and
-     * a spec claiming "never mutilated" here would be false.
+     * ⚠ THIS CASE ASSERTED THE OPPOSITE UNTIL #1219 WAS MERGED, AND THAT IS
+     * RECORDED RATHER THAN QUIETLY SWAPPED. Under `staging`'s rule this token
+     * came back as 160 characters plus an ellipsis, because the 0.6 heuristic
+     * found no space to fall back to. #1219 replaced that rule with one that
+     * never cuts inside a word, so a text containing no space at all is now
+     * returned unchanged. The old expectation is not "still true, differently
+     * spelled" — it is the behaviour this PR exists to remove.
      *
-     * What makes the cut survivable at THIS call site is the pair below: the
-     * full token is on `title`, so the ellipsis has somewhere to go, and
-     * `line-clamp-3 break-words` bounds the box either way.
+     * ⭐ THE PRECONDITION IS PINNED IN-TEST because the new expectation is
+     * `shown === token`, which a truncator that had been deleted outright would
+     * also satisfy (CLAUDE.md trap 13b). Asserting that the fixture genuinely
+     * exceeds the measure proves the function had the opportunity to cut and
+     * declined; the neighbouring prose case is the contrast that proves it still
+     * cuts when there IS a word boundary, so the two together discriminate a
+     * working truncator from an absent one.
+     *
+     * What bounds the box is unchanged and is still asserted: `line-clamp-3
+     * break-words` on the blockquote, with the full text on `title`.
      */
     const token = 'A'.repeat(ANCHOR_BRIEF_MAX_CHARS + 40)
     setBrief(SCENARIO, token)
@@ -253,8 +280,12 @@ describe('the anchor node surfaces the brief it is about', () => {
 
     const quote = screen.getByTestId('decision-node-brief-text')
     const shown = quote.textContent ?? ''
-    expect(shown).toBe('A'.repeat(ANCHOR_BRIEF_MAX_CHARS) + '…')
-    expect(shown.length).toBe(ANCHOR_BRIEF_MAX_CHARS + 1)
+
+    // Precondition: the fixture must actually overrun the measure.
+    expect(token.length).toBeGreaterThan(ANCHOR_BRIEF_MAX_CHARS)
+
+    expect(shown).toBe(token)
+    expect(shown).not.toContain('…')
     expect(quote.getAttribute('title')).toBe(token)
     expect(quote.className).toContain('line-clamp-3')
     expect(quote.className).toContain('break-words')
