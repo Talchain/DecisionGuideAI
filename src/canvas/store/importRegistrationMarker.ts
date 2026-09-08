@@ -75,6 +75,7 @@
  * replaces this marker. Delete the module then.
  */
 import { identityFromCanvasGraph } from '../utils/graphIdentity'
+import { buildRegistrationGraph } from '../registration/buildRegistrationGraph'
 
 const STORAGE_KEY = 'olumi.import.pendingServerRegistration.v1'
 /** Bounded so a session that imports repeatedly cannot grow the record without limit. */
@@ -243,34 +244,92 @@ function readAcks(): string[] {
  * persistence round-trip still matches — the property the sorted digest was
  * chosen for in the first place.
  */
+/**
+ * Stable 64-bit content hash (two FNV-1a passes at different offsets).
+ *
+ * The key must not BE the payload: a starter projects to ~40 KB, and 50 of
+ * those would exhaust the very localStorage quota this module is trying to
+ * survive. A hash keeps the record bounded. Collisions are not a safety
+ * boundary here — a collision would release a graph, so the width is chosen to
+ * make that vanishingly unlikely rather than merely unlikely.
+ */
+function stableHash(input: string): string {
+  let a = 0x811c9dc5
+  let b = 0x01000193
+  for (let i = 0; i < input.length; i += 1) {
+    const c = input.charCodeAt(i)
+    a = Math.imul(a ^ c, 0x01000193) >>> 0
+    b = Math.imul(b + c, 0x85ebca6b) >>> 0
+    b = (b ^ (b >>> 13)) >>> 0
+  }
+  return `${a.toString(36)}${b.toString(36)}`
+}
+
+/** Deterministic JSON: object keys sorted at every depth, arrays left in order. */
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null'
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(([, v]) => v !== undefined)
+    .sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))
+  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(',')}}`
+}
+
+/**
+ * ⭐ THE ACKNOWLEDGEMENT IDENTITY IS THE REGISTRATION PAYLOAD ITSELF.
+ *
+ * ⚠ TWO EARLIER KEYS WERE BOTH WRONG, AND IN THE SAME WAY. The first was
+ *   `graphImportDigest` — node ids and edge endpoints only. The second replaced
+ *   it with a hand-listed "analytical subset": node `data.value`, edge weight,
+ *   direction, belief. Both admitted receipts for models the server never saw,
+ *   and the second was refuted by exactly the fields it had forgotten:
+ *
+ *     · edge `strengthStd` — sent on the wire as `strength.std`
+ *     · node `observedState` — sent on the wire as `observed_state`
+ *
+ *   Send A with `strengthStd=0.1`, replace mid-flight with B at `0.8`, resolve
+ *   A's receipt: B read as acknowledged. Same for `observedState` 0.1 → 0.8.
+ *
+ * A hand-maintained field list cannot be completed by adding two more fields —
+ * that is the mirror this repo pays for most often, and it would be wrong again
+ * the next time the projection gains a field. So the key is now derived from
+ * `buildRegistrationGraph`, THE SAME PROJECTION THE REQUEST ACTUALLY SENDS.
+ * A field that reaches CEE is in the identity by construction; one that does
+ * not, is not. There is no list to keep in step.
+ *
+ * Layout and ordering stay equivalent: nodes are sorted by id, edges by their
+ * endpoint pair, and every object's keys are sorted at every depth — so a
+ * re-layout or a persistence round-trip still matches, which is the property
+ * the original sorted digest existed for.
+ *
+ * A graph the projection REFUSES (divergent or unresolvable node kind, empty)
+ * has no identity and returns null, so it is never acknowledged — fail-closed,
+ * and the same answer CEE would give.
+ */
 function analyticalDigest(
   scenarioId: string | null,
   nodes: GraphNodes,
   edges: GraphEdges,
 ): string | null {
-  const topology = graphImportDigest(nodes, edges)
-  if (topology === null) return null
   if (typeof scenarioId !== 'string' || scenarioId.length === 0) return null
-  const readNum = (v: unknown): string => (typeof v === 'number' ? String(v) : '~')
-  const nodeVals = (nodes ?? [])
-    .map((n) => {
-      const d = (n as { id?: unknown; data?: Record<string, unknown> }) ?? {}
-      const data = d.data ?? {}
-      return `${String(d.id)}=${readNum(data.value)}`
-    })
-    .sort()
-    .join(',')
-  const edgeVals = (edges ?? [])
-    .map((e) => {
-      const x = (e as { source?: unknown; target?: unknown; data?: Record<string, unknown> }) ?? {}
-      const data = x.data ?? {}
-      const dir = typeof data.direction === 'string' ? data.direction : '~'
-      const belief = readNum(data.beliefExists ?? data.belief ?? data.confidence)
-      return `${String(x.source)}->${String(x.target)}:w=${readNum(data.weight)}:d=${dir}:b=${belief}`
-    })
-    .sort()
-    .join(',')
-  return `s:${scenarioId}|${topology}|nv:${nodeVals}|ev:${edgeVals}`
+  if (!nodes || nodes.length === 0) return null
+  const projected = buildRegistrationGraph(
+    nodes as never,
+    (edges ?? []) as never,
+  )
+  if (!projected.ok) return null
+  const graph = projected.graph as unknown as {
+    nodes: Array<Record<string, unknown>>
+    edges: Array<Record<string, unknown>>
+  }
+  const orderedNodes = [...graph.nodes].sort((x, y) =>
+    String(x.id) < String(y.id) ? -1 : String(x.id) > String(y.id) ? 1 : 0,
+  )
+  const pair = (e: Record<string, unknown>) => `${String(e.from)}\u0000${String(e.to)}`
+  const orderedEdges = [...graph.edges].sort((x, y) =>
+    pair(x) < pair(y) ? -1 : pair(x) > pair(y) ? 1 : 0,
+  )
+  return `s:${scenarioId}|p:${stableHash(canonicalJson({ nodes: orderedNodes, edges: orderedEdges }))}`
 }
 
 /**

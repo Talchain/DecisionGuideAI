@@ -358,7 +358,12 @@ describe('fidelity of the registered projection', () => {
  * false affirmation.
  */
 describe('the hold fails CLOSED: released only on positive acknowledgement', () => {
-  const NODES = [{ id: 'n1', data: { starterId: 'build-vs-buy' } }] as any
+  // Real starter nodes carry a kind; `buildRegistrationGraph` refuses a node it
+  // cannot type, and the identity is now derived from that projection — so a
+  // kind-less fixture would be unprojectable and held forever, testing nothing.
+  const NODES = [
+    { id: 'n1', type: 'factor', data: { kind: 'factor', label: 'N1', starterId: 'build-vs-buy' } },
+  ] as any
   const EDGES = [] as any
   const SC = '33333333-3333-4333-8333-333333333333'
   const st = (nodes: unknown = NODES, edges: unknown = EDGES, scenarioId: string | null = SC) =>
@@ -395,7 +400,9 @@ describe('the hold fails CLOSED: released only on positive acknowledgement', () 
 
   it('acknowledgement is keyed to THIS graph, not to any graph', () => {
     markGraphServerAcknowledged(SC, NODES, EDGES)
-    const other = [{ id: 'other', data: { starterId: 'market-entry' } }] as any
+    const other = [
+      { id: 'other', type: 'factor', data: { kind: 'factor', label: 'O', starterId: 'market-entry' } },
+    ] as any
     expect(analysisHeldOn(st(other))).toBe('starter')
   })
 
@@ -428,8 +435,8 @@ describe('the hold fails CLOSED: released only on positive acknowledgement', () 
 describe('an edge-bearing acknowledgement releases the REAL Run-consumer shape', () => {
   const SCENARIO = '11111111-1111-4111-8111-111111111111'
   const NODES = [
-    { id: 'a', data: { starterId: 'build-vs-buy', value: 1 } },
-    { id: 'b', data: { starterId: 'build-vs-buy' } },
+    { id: 'a', type: 'factor', data: { kind: 'factor', label: 'A', starterId: 'build-vs-buy', value: 1 } },
+    { id: 'b', type: 'goal', data: { kind: 'goal', label: 'B', starterId: 'build-vs-buy' } },
   ] as any
   const EDGES = [{ source: 'a', target: 'b', data: { weight: 0.2, direction: 'positive' } }] as any
 
@@ -465,5 +472,68 @@ describe('an edge-bearing acknowledgement releases the REAL Run-consumer shape',
       { source: 'a', target: 'b', data: { weight: 0.9, direction: 'positive' } },
     ] as any
     expect(analysisHeldOn(consumerInput(SCENARIO, NODES, changed) as never)).toBe('starter')
+  })
+})
+
+/**
+ * THE IDENTITY IS THE PAYLOAD — pinned against the two fields that refuted the
+ * previous key, and against the class of failure they represent.
+ *
+ * Two hand-maintained keys were both wrong the same way. The second forgot edge
+ * `strengthStd` (wire `strength.std`) and node `observedState` (wire
+ * `observed_state`), so a receipt for A released a B that differed only in
+ * those. Adding two fields would have left the next projection change wrong
+ * again, so the identity is now derived from `buildRegistrationGraph` itself.
+ *
+ * These cases would all pass under a key that merely added those two fields.
+ * The one that would NOT is `edge_type` below: it is in the projection, was in
+ * no hand-written list, and is therefore the discriminator that this is derived
+ * rather than enumerated.
+ */
+describe('acknowledgement identity is derived from the registration projection', () => {
+  const SC = '55555555-5555-4555-8555-555555555555'
+  const N = (extra: Record<string, unknown> = {}) =>
+    [
+      { id: 'a', type: 'factor', data: { kind: 'factor', label: 'A', starterId: 's', ...extra } },
+      { id: 'b', type: 'goal', data: { kind: 'goal', label: 'B', starterId: 's' } },
+    ] as any
+  const E = (extra: Record<string, unknown> = {}) =>
+    [{ source: 'a', target: 'b', data: { weight: 0.4, direction: 'positive', ...extra } }] as any
+  const st = (nodes: unknown, edges: unknown, scenarioId: string | null = SC) =>
+    ({ nodes, edges, currentScenarioId: scenarioId, importPendingServerRegistration: false }) as never
+
+  beforeEach(() => clearImportRegistrationMarkers())
+  afterEach(() => clearImportRegistrationMarkers())
+
+  it('a changed edge strengthStd (wire strength.std) is NOT the acknowledged model', () => {
+    markGraphServerAcknowledged(SC, N(), E({ strengthStd: 0.1 }))
+    expect(analysisHeldOn(st(N(), E({ strengthStd: 0.1 })))).toBeNull()
+    expect(analysisHeldOn(st(N(), E({ strengthStd: 0.8 })))).toBe('starter')
+  })
+
+  it('a changed node observedState (wire observed_state) is NOT the acknowledged model', () => {
+    markGraphServerAcknowledged(SC, N({ observedState: { value: 0.1 } }), E())
+    expect(analysisHeldOn(st(N({ observedState: { value: 0.1 } }), E()))).toBeNull()
+    expect(analysisHeldOn(st(N({ observedState: { value: 0.8 } }), E()))).toBe('starter')
+  })
+
+  it('⭐ DISCRIMINATOR — edge_type is in the projection and in no hand-written list', () => {
+    markGraphServerAcknowledged(SC, N(), E({ edge_type: 'directed' }))
+    expect(analysisHeldOn(st(N(), E({ edge_type: 'directed' })))).toBeNull()
+    expect(analysisHeldOn(st(N(), E({ edge_type: 'undirected' })))).toBe('starter')
+  })
+
+  it('layout and ordering remain equivalent — a re-layout still matches', () => {
+    markGraphServerAcknowledged(SC, N(), E())
+    const reordered = [...N()].reverse()
+    const moved = reordered.map((n: any) => ({ ...n, position: { x: 999, y: 999 } }))
+    expect(analysisHeldOn(st(moved, E()))).toBeNull()
+  })
+
+  it('a graph the projection REFUSES has no identity, so it is never acknowledged', () => {
+    // No resolvable kind: `buildRegistrationGraph` returns unresolvable_node_kind.
+    const untypeable = [{ id: 'x', data: { starterId: 's' } }] as any
+    markGraphServerAcknowledged(SC, untypeable, [] as any)
+    expect(analysisHeldOn(st(untypeable, [] as any))).toBe('starter')
   })
 })
