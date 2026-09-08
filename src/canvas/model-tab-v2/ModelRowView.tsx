@@ -1152,37 +1152,59 @@ function ValueCell({
            `min-width:auto` atom absorbs 100% of the squeeze.
 
            ⛔ TWO FIXES ARE ALREADY EXCLUDED ON MEASUREMENT — do not re-propose
-           them. (a) WIDENING THE GRID CAP: the column is the THIRD track of the
-           declaration at `ModelOutline.tsx:679`
-           (`grid-cols-[auto_minmax(6rem,1fr)_fit-content(5.5rem)_fit-content(5rem)]`)
-           — `fit-content(5.5rem)`, the track `CELL 3 · VALUE` below names in its
-           own header. Track 2 is the LABEL's `minmax(6rem,1fr)`; track 4 is META.
+           them.
 
-           ⚠⚠ THIS CITATION HAS NOW BEEN WRONG TWICE, AND THE SECOND TIME WAS MY
-           CORRECTION OF THE FIRST. It read "track 2 of `ModelOutline.tsx:654`";
-           I corrected it to "the FOURTH track of :679" — right about the line,
-           wrong about the track again, so it would have sent the next reader to
-           widen META instead of the label. A second reviewer caught it against
-           five authorities I had not consulted: `CELL 3 · VALUE` at :530, "THE
-           TRACK IS `fit-content(5.5rem)`" at :532, `CELL 4 · META` at :605, the
-           `ModelOutline` legend, and `rowAtomsAlignToOneGrid.spec.tsx:235`
-           (`trackList[2]` — a LIVE EXECUTING guard, which is the authority I
-           should have started from). The PR's own resolved template
-           `23.1px 194.9px 88px 66px` settles it: the 80px value cell sits inside
-           the 88px track, the third.
+           (a) WIDENING THE GRID CAP. The value column is the THIRD of four
+           tracks, `fit-content(5.5rem)`. The whole declaration, so the ordinal
+           and the length can be checked in one step:
+           `grid-cols-[auto_minmax(6rem,1fr)_fit-content(5.5rem)_fit-content(5rem)]`
+           — track 1 `auto` (the kind glyph), track 2 `minmax(6rem,1fr)`
+           (`CELL 2 · IDENTITY`), track 3 `fit-content(5.5rem)`
+           (`CELL 3 · VALUE`, this one), track 4 `fit-content(5rem)`
+           (`CELL 4 · META`). At the 16px browser default — no
+           `html { font-size }` override exists in `src/` or `index.html` —
+           **5.5rem = 88px and 5rem = 80px**, and the PR's own resolved template
+           was `23.1px 194.9px 88px 66px`. So the 80px value cell sits inside
+           the **88px** track: the third.
 
-           ⚠ AND I OVERSTATED THE CHECK. I wrote that the file "carries exactly
-           ONE `grid-cols` declaration, so the line was checkable in one grep".
-           A plain grep returns THREE hits — and no grep yields a track INDEX
-           anyway. That sentence made a wrong citation sound verified, which is
-           worse than leaving it unsourced. Read the executing guard, not a grep.
+           ⚠⚠ DO THAT ARITHMETIC BEFORE YOU "CORRECT" THIS PARAGRAPH, BECAUSE IT
+           HAS BEEN WRONG TWICE AND BOTH TIMES THE WRONG VERSION WAS ITSELF A
+           CORRECTION — first "track 2", then "the FOURTH track", each surviving
+           a review. `5rem = 80px` and the measured value cell is 80.0px, so the
+           META cap coincides numerically with a cell in a different column and
+           track 4 reads as obviously right. The 88px in the template is the
+           tell, and it is the only tell: it is a track that resolved to its
+           cap, and 5.5rem is the only cap that can produce it. A reader who
+           matches the cell width to a cap instead of matching the TEMPLATE to a
+           cap will get this wrong a third time.
 
-           `minmax(0,5.5rem)` was tried and rejected
-           because a zero-minimum track reserves its cap even when empty and
-           cost four fully-visible option labels. (b) STACKING THE HINT ONTO A
-           SECOND LINE: the `<button>` arm below records that it once did
-           exactly that and the rows measured 42px, which is why
-           `whitespace-nowrap` is on both idle arms.
+           THE AUTHORITY IS AN EXECUTING GUARD, NOT A NUMBER AND NOT THIS
+           COMMENT. `CAPS` in `rowAtomsAlignToOneGrid.spec.tsx` pins
+           `{ index: 2, name: 'value', length: 5.5 }` and
+           `{ index: 3, name: 'attention', length: 5 }` — zero-indexed, so value
+           is the third track — and REDs if either the ordinal or the length
+           moves. Start there.
+
+           WHERE THE DECLARATION LIVES, CITED AS A SYMBOL: `ModelOutline.tsx`
+           holds exactly one `grid-cols-[…]` class and that is the handle. No
+           line number — the one that stood here was `:679`, true at this
+           branch's head and ALREADY `:777` on `staging`, so it was rotten
+           before merge, which is the failure the `commit=` note above names
+           ("the symbol is the handle; the number was a mirror with no owner").
+           Grep the BRACKETED form, `grep -n -F 'grid-cols-['` — one hit, at
+           this branch's head and on `staging` alike. The loose `grid-cols`
+           returns three there, the other two prose in that file's own comments;
+           an earlier note cited that three to argue the grep was worthless,
+           which talked the next reader out of the one check that would have
+           caught the wrong track.
+
+           The rejected widening was `minmax(0,5.5rem)`, a replacement for that
+           same third track: a zero-minimum track reserves its cap even when
+           empty and cost four fully-visible option labels.
+
+           (b) STACKING THE HINT ONTO A SECOND LINE: the `<button>` arm below
+           records that it once did exactly that and the rows measured 42px,
+           which is why `whitespace-nowrap` is on both idle arms.
 
            So the trade stands — the hint is still the atom that gives. ⚠ AND
            THE SENTENCE THAT FOLLOWED THIS ONE CLAIMED MORE THAN WAS MEASURED,
