@@ -998,13 +998,18 @@ export const ANALYSIS_NEW_COPY = {
      * `basisRelativeExplain` DELETED with the glance's driver list — they were
      * that list's cap disclosure and its basis caption, and nothing else read
      * them. `basisAbsoluteExplain`'s SENTENCE survives, relocated verbatim to
-     * `coverage.structuralInfluence`, because the claim it makes is still owed
-     * to the reader; it is now a visible caveat on the drivers section rather
-     * than a `title` tooltip the touch reader could never open.
+     * `coverage.structuralInfluence`. ⚠⚠ THIS USED TO END "because the claim it
+     * makes is still owed to the reader; it is now a visible caveat on the
+     * drivers section rather than a `title` tooltip the touch reader could
+     * never open" — FALSE since #1228 and corrected 7 Sep 2026. The relocated
+     * sentence reached only runs with no bars, and `driversCaveat` now withholds
+     * the basis line there; see that constant's own block for where the claim
+     * IS still made (per row, on `driverFinding.groundedIn`).
      *
-     * The set-relative half of that caption is not lost either: the drivers
-     * section has always carried `coverage.setRelativeInfluence`, which is the
-     * same claim in the place the bars now live.
+     * The set-relative half of that caption is not lost: the drivers section
+     * carries `coverage.setRelativeInfluence` wherever bars are drawn, which is
+     * the same claim in the place the bars now live. Since #1228 it is the ONLY
+     * basis sentence this panel renders.
      */
   },
 
@@ -1201,24 +1206,38 @@ export const ANALYSIS_NEW_COPY = {
     setRelativeInfluence:
       'Influence is relative to the other factors in this run, not a share of the outcome.',
     /**
-     * ⭐ THE OTHER BRANCH OF THE SAME QUESTION, AND IT HAD NO VISIBLE ANSWER.
-     * `setRelativeInfluence` fires when any row is `normalised_elasticity`; a
-     * run where EVERY row is `influence_score` got no basis line at all on this
-     * tab. The only place that said so was the glance's basis caption, whose
-     * explanation was a `title` tooltip — unreachable on touch — and the glance
-     * driver list has now been removed. This is that disclosure, made visible
-     * and moved to the section that still renders the bars.
+     * ⛔⛔ THIS SENTENCE REACHES NO SCREEN, DELIBERATELY, AND THE SUITE PINS
+     * THAT — `theBasisLineHasNoReferentWithoutBars` in
+     * `driversSeamSaysOneThing.spec.tsx` REDs the day it renders again.
      *
-     * ⚠⚠ THE SENTENCE IS CONDITIONAL AND MUST STAY SO. It is TRUE only where
-     * `influenceIsSetRelative` is false. A brief for this work proposed stating
-     * in the section SUBTITLE that the figure is structural and that a re-run
-     * never moves it; that is false on the elasticity branch, where the figure
-     * IS a run output, and an unconditional subtitle cannot tell the two apart.
-     * `driversSeamSaysOneThing.spec.tsx` holds the pair.
+     * ⚠⚠ THE DOCBLOCK THAT STOOD HERE WAS FALSE, AND IT IS THE REASON THE
+     * SENTENCE SHIPPED OVER AN EMPTY STATE. It opened "`setRelativeInfluence`
+     * fires when any row is `normalised_elasticity`; a run where EVERY row is
+     * `influence_score` got no basis line at all on this tab." That was true
+     * until #1228, which measured that `influence_score` is the producer's
+     * normalisation against `max|influence|` and made `influenceIsSetRelative`
+     * equal `drivers.length > 0`. From that commit on, this arm was reachable
+     * ONLY on a run with ZERO driver rows — where its own first two words,
+     * "Each bar", refer to bars that were never drawn.
      *
-     * ⚠ NOT RESPELLED. This is `glance.basisAbsoluteExplain`'s sentence,
-     * relocated verbatim with its render; `panelCopyNamesOlumiNotTheProducer`
-     * follows it here.
+     * MEASURED at `cdd2f9d8`, rendering `AnalysisNewTabBody` with `drivers: []`:
+     * this sentence rendered directly above "This run did not return factor
+     * influence.", with no chart. `driversCaveat` now withholds the whole basis
+     * line when nothing is on display, which is what makes this arm unreachable.
+     *
+     * ⭐ RETAINED ON PURPOSE, NOT LEFT BEHIND. The noun it carries — "Olumi's
+     * structural influence score" — IS rendered, per row, by
+     * `driverFinding.groundedIn` and its `Basis` inspect row, and
+     * `driversSeamSaysOneThing` binds that row's noun to THIS constant so the
+     * two cannot drift into two spellings of one quantity (CLAUDE.md trap 12).
+     * `panelCopyNamesOlumiNotTheProducer` pins the same words here. Deleting the
+     * constant would force both to retype the sentence and rebuild the mirror.
+     *
+     * ⚠ IF YOU MAKE IT REACHABLE AGAIN, REWRITE IT FIRST. As a section caveat
+     * it answers the QUANTITY question, which this surface must not answer —
+     * `driversSeamSaysOneThing` asserts the caveat names neither quantity, on
+     * either basis, because a caveat that names one is false for the run
+     * stamped the other.
      */
     structuralInfluence:
       "Each bar shows Olumi's structural influence score, scaled against the strongest factor in this run.",
@@ -1247,6 +1266,26 @@ export const ANALYSIS_NEW_COPY = {
      */
     notRanked: (n: number, reasons: readonly string[]) =>
       `${n} ${n === 1 ? 'factor is' : 'factors are'} not ranked here: ${reasons.join('; ')}.`,
+    /**
+     * ⛔ UNREACHABLE SINCE #1228, AND THAT IS A REPORTED FINDING RATHER THAN A
+     * DECISION THIS FIX MADE. `driversCaveat` reaches this arm only when
+     * `influenceIsSetRelative` is false, i.e. only on a run with no driver rows
+     * — and the basis line is now withheld entirely on such a run, because
+     * this sentence followed by an option label, sitting over "This run did not
+     * return factor influence.", was the same defect as the structural arm's
+     * (both reproduced at `cdd2f9d8`).
+     *
+     * ⚠ THE DISCLOSURE IS REAL AND IS NOW OWED NOWHERE. `data.sensitivityReference
+     * .optionLabel` is the producer naming the option sensitivities were measured
+     * against; it was designed to take PRECEDENCE over the structural basis noun,
+     * which stopped meaning anything when the scale sentence became unconditional.
+     * Whether it should instead be ADDITIVE alongside the scale line — the way
+     * `notRanked` is, since it answers a different question (trap 21) — is a
+     * product decision, deliberately NOT taken here.
+     *
+     * Kept, with `theBasisLineHasNoReferentWithoutBars` asserting the
+     * unreachability, so restoring it is a conscious act rather than a silent one.
+     */
     referencePrefix: 'Sensitivities are measured against',
   },
 

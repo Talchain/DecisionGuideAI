@@ -843,9 +843,13 @@ export function AtAGlance({
           ⚠ WHAT WENT WITH IT, AND WHERE IT WENT. The basis caption
           ("Influence" / "Relative influence") disclosed which scale the bars
           were on through a `title` tooltip, which a touch reader cannot open;
-          the drivers section now carries both branches of that disclosure as a
-          VISIBLE caveat (`coverage.structuralInfluence` /
-          `coverage.setRelativeInfluence`). The "+N more drivers" line declared
+          the drivers section carries that disclosure as a VISIBLE caveat.
+          ⚠ CORRECTED 7 Sep 2026 — this said "both branches … (`coverage.
+          structuralInfluence` / `coverage.setRelativeInfluence`)". Since #1228
+          only `coverage.setRelativeInfluence` reaches a screen; the structural
+          branch was reachable only on a run with no bars, where its own
+          sentence opens "Each bar", and the basis line is now withheld there.
+          The "+N more drivers" line declared
           this list’s cap of three; the section states the true count on its
           collapsed row and the chart renders every row, so there is no cap
           left to declare.
