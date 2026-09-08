@@ -91,6 +91,18 @@ import { isGraphServerAcknowledged } from '../store/importRegistrationMarker'
 export type ClientInjectedProvenance = 'starter' | 'template'
 
 export interface NodeLike {
+  /**
+   * ⚠ REQUIRED BY THE ACKNOWLEDGEMENT LOOKUP, NOT DECORATION.
+   *
+   * This interface used to declare `data` alone, because the only question ever
+   * asked of a node here was "does it carry a starter stamp?". The hold now
+   * also asks whether the SERVER acknowledged this graph, and that identity is
+   * derived from the registration projection — which addresses nodes by id.
+   * Declaring only `data` while handing these nodes to a projection that reads
+   * `id` is the type quietly disagreeing with what the code does, so the shape
+   * is widened rather than the call being cast through `any`.
+   */
+  id?: unknown
   data?: Record<string, unknown> | undefined
 }
 

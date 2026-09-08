@@ -213,11 +213,30 @@ describe('seam 2 — the scenario row a registration needs', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 // SEAM 3 — the registration conjunct in analysisHeldOn
 // ═══════════════════════════════════════════════════════════════════════════
+/**
+ * Complete hold state for a graph with no recorded acknowledgement.
+ *
+ * ⚠ The five calls this replaces passed `{ nodes, importPendingServerRegistration }`
+ *   — the pre-repair two-field shape. They compiled while `edges` and
+ *   `currentScenarioId` were optional, and the CI TypeScript gate caught them
+ *   the moment those became required. That is the type doing its job: the
+ *   omission this candidate exists to prevent is now unconstructible, in tests
+ *   as well as in production.
+ */
+function heldState(nodes: unknown) {
+  return {
+    nodes,
+    edges: [],
+    currentScenarioId: '66666666-6666-4666-8666-666666666666',
+    importPendingServerRegistration: true,
+  } as never
+}
+
 describe('seam 3 — analysisHeldOn carries the registration conjunct', () => {
   it('HOLDS a starter the server has not acknowledged', () => {
-    const held = analysisHeldOn({ nodes: STARTER_NODES, importPendingServerRegistration: true })
+    const held = analysisHeldOn(heldState(STARTER_NODES))
     expect(held).toBe('starter')
-    expect(analysisHeldNotice({ nodes: STARTER_NODES, importPendingServerRegistration: true })).toBe(
+    expect(analysisHeldNotice(heldState(STARTER_NODES))).toBe(
       ANALYSIS_HELD_NOTICE.starter,
     )
   })
@@ -249,18 +268,18 @@ describe('seam 3 — analysisHeldOn carries the registration conjunct', () => {
     // The pair-mate of the case above. Without this, an implementation that
     // simply returned the flag would pass — and would then claim a live CEE
     // draft was "a saved example".
-    expect(analysisHeldOn({ nodes: DRAFTED_NODES, importPendingServerRegistration: true })).toBeNull()
+    expect(analysisHeldOn(heldState(DRAFTED_NODES))).toBeNull()
   })
 
   it('is still scoped to the V5 canonical run path', () => {
     // A V2-direct run SENDS the canvas graph, so nothing is held there — the
     // conjunct this lane added must not have swallowed the one already here.
     isV5CanonicalRunPathMock.mockReturnValue(false)
-    expect(analysisHeldOn({ nodes: STARTER_NODES, importPendingServerRegistration: true })).toBeNull()
+    expect(analysisHeldOn(heldState(STARTER_NODES))).toBeNull()
     // CONTROL, same run: the identical input DOES hold on the canonical path,
     // so the null above is the run path's doing and not a dead fixture.
     isV5CanonicalRunPathMock.mockReturnValue(true)
-    expect(analysisHeldOn({ nodes: STARTER_NODES, importPendingServerRegistration: true })).toBe('starter')
+    expect(analysisHeldOn(heldState(STARTER_NODES))).toBe('starter')
   })
 })
 
