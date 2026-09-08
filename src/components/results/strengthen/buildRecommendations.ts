@@ -71,7 +71,43 @@ export function toStrengthenPhase3Item(item: GuidanceItem): StrengthenPhase3Item
     // assumption check and minted `clarify` for both.
     ...(item.signal_code ? { signalCode: item.signal_code } : {}),
     ...(item.coaching_kind ? { coachingKind: item.coaching_kind } : {}),
-    targetIds: item.target_object?.id ? [item.target_object.id] : [],
+    /**
+     * ⭐⭐ `target_object` FIRST, THEN `related_elements` — AND THE SECOND HALF
+     * WAS SIMPLY NOT READ, WHICH LEFT A DEAD AFFORDANCE ON THIS PANEL.
+     *
+     * `GuidanceItem.related_elements` is the producer's own list of the other
+     * elements a finding is about — its declared job, in the field's own words,
+     * is that *"Inspectors match `id` against the currently selected element in
+     * addition to `target_object.id`"*, and `InspectorCoaching.tsx:58-66` does
+     * exactly that, with `target_object` taking precedence.
+     *
+     * This mapper read only `target_object`. So a finding the producer named
+     * ONLY through `related_elements` — a WEAKLY_CONNECTED_NODE signal about a
+     * node and its isolated neighbours is the documented example — arrived here
+     * with `targetIds: []`, became `targetId: null` at `:397`, and
+     * `StrengthenPanel.tsx:239` gates "Show me on the canvas" on exactly that.
+     * **The Inspector could take you to the element and this panel could not**,
+     * on the same producer fact. Two surfaces, one payload, different answers —
+     * and the panel's silence looked like the producer had said nothing.
+     *
+     * ⚠ PRECEDENCE IS COPIED FROM THE INSPECTOR, NOT INVENTED. `target_object`
+     * stays first, so `targetIds[0]` is UNCHANGED for every item that has one:
+     * this can only add a route where there was none. A second ordering rule
+     * for one producer field is how two readers of one fact drift apart.
+     *
+     * ⚠ AND NOTHING IS FILTERED BY `type` OR CHECKED AGAINST THE CANVAS HERE.
+     * This mapper is pure and has no store; `focusModelTarget` is fail-CLOSED
+     * and already resolves nodes AND edges, and its callers degrade with
+     * `STRENGTHEN_COPY.focusFailedNotice` when an id names nothing — the same
+     * contract `target_object.id` has always had. Adding a resolution test here
+     * would put a second, store-bound answer beside the one that exists.
+     */
+    targetIds: [
+      ...(item.target_object?.id ? [item.target_object.id] : []),
+      ...(item.related_elements ?? [])
+        .map((r) => r.id)
+        .filter((id): id is string => typeof id === 'string' && id !== ''),
+    ].filter((id, i, all) => all.indexOf(id) === i),
     ...(typeof item.priorityRank === 'number' ? { priorityRank: item.priorityRank } : {}),
   }
 }
