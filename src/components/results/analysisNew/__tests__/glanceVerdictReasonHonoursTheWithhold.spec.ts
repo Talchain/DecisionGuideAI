@@ -28,8 +28,19 @@
  */
 import { describe, expect, it } from 'vitest'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
-import { makeData } from './analysisNewFixtures'
+import { makeData, openStrategicChallenge } from './analysisNewFixtures'
 import type { DecisionResultData } from '../../types'
+
+/**
+ * ⚠ TWO ARMS ON EVERY CASE BELOW, AND A REVIEWER IS WHY. A ranking can only be
+ * WITHHELD if there was one to withhold, so a fixture with no options tests the
+ * wrong question entirely — see the option-less case at the foot of this file,
+ * which is the licensed sentence the first version of this gate deleted.
+ */
+const TWO_ARMS = [
+  { id: 'opt_segment', label: 'Segment' },
+  { id: 'opt_defer', label: 'Status quo' },
+] as unknown[]
 
 const PRODUCER_REASON =
   'none of the factors we could test changed which option leads on its own, and this result mostly held up under the other changes we tested'
@@ -47,10 +58,12 @@ const recommendationFor = (
     ? {
         robustnessVerdict: 'moderate',
         robustnessVerdictReason: PRODUCER_REASON,
+        allOptions: TWO_ARMS,
       }
     : {
         robustnessVerdict: 'moderate',
         robustnessVerdictReason: PRODUCER_REASON,
+        allOptions: TWO_ARMS,
         leaderDesignationPermitted,
         /**
          * ⭐⭐ `leaderId` IS NON-NULL IN BOTH ARMS, ON PURPOSE, AND IT IS THE
@@ -133,5 +146,46 @@ describe('the glance may not explain the verdict by a ranking the run withheld',
     expect(v).not.toBeNull()
     expect(v?.tone).toBeTruthy()
     expect(v?.label).toBeTruthy()
+  })
+
+  /**
+   * ⭐⭐ THE HARM THIS GATE MUST NOT CAUSE — and the case the first version of it
+   * failed. An OPEN STRATEGIC CHALLENGE has no options and no verdict: there was
+   * never a ranking to withhold, so the producer's sentence is about FACTOR
+   * SENSITIVITY and is fully licensed. Deleting it is a second harm pointing the
+   * opposite way, and two harms cannot share one parameter.
+   *
+   * Found by PoC Core's review seat, not by my own corpus — which contained no
+   * option-less run at all, so it could not observe the class.
+   */
+  it('⭐ renders the producer sentence on a run that never HAD a ranking', () => {
+    const v = buildAnalysisNewViewModel({
+      data: openStrategicChallenge(),
+      recommendations: [],
+      isPreRun: false,
+      isRunning: false,
+      isStale: false,
+    } as never).atAGlance.verdict
+    expect(v?.reason).toBe(
+      'Small changes in supplier lead time change which direction looks better.',
+    )
+  })
+
+  /**
+   * ⭐ THE DISCRIMINATING PAIR FOR "A RANKING EXISTED". Same unanswerable
+   * authority, same absent permission — the ONLY difference is whether there
+   * were arms to separate. If these two ever agree, the predicate has collapsed
+   * back into the permission-only gate that deleted a licensed sentence.
+   */
+  it('⭐ the SAME unanswerable authority withholds WITH arms and renders WITHOUT them', () => {
+    expect(verdictOf(undefined)?.reason).toBeUndefined()
+    const noArms = buildAnalysisNewViewModel({
+      data: openStrategicChallenge(),
+      recommendations: [],
+      isPreRun: false,
+      isRunning: false,
+      isStale: false,
+    } as never).atAGlance.verdict
+    expect(noArms?.reason).toBeTruthy()
   })
 })

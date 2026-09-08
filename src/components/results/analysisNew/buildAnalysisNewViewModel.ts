@@ -42,7 +42,7 @@
  */
 
 import { truncateAtWordBoundary } from '../../../utils/text'
-import { leaderDesignationPermitted } from '../leaderDesignation'
+import { leaderDesignationPermitted, rankingWasWithheld } from '../leaderDesignation'
 import { licensesComparativeLeaderClaim } from '../../../canvas/hooks/useAnalysisReady'
 import {
   ASSUMED_STRENGTH_TITLE,
@@ -1912,7 +1912,15 @@ function buildAtAGlance(
    * predicate is three-valued and an `undefined` that coerces to "permitted" is
    * the fail-OPEN default this seam has been burned by before.
    */
-  const mayExplainByRanking = leaderDesignationPermitted(rec) === true
+  /**
+   * ⚠ CORRECTED AFTER REVIEW: this was `leaderDesignationPermitted(rec) === true`,
+   * which is TOO WIDE. It withheld on an open strategic challenge — no options,
+   * no arms to separate, never a ranking to withhold — deleting the producer's
+   * licensed FACTOR-SENSITIVITY sentence ("Small changes in supplier lead time
+   * change which direction looks better."). Two harms cannot share one
+   * parameter; `rankingWasWithheld` asks whether a ranking EXISTED first.
+   */
+  const mayExplainByRanking = !rankingWasWithheld(rec)
   const verdictBlock = word
     ? {
         tone: word.tone,

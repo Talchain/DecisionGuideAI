@@ -79,3 +79,53 @@ export function leaderDesignationPermitted(rec: {
   // conjuncts, so it may only ever WITHHOLD here — never license.
   return rec.verdict?.hasLeadingOption === false ? false : undefined
 }
+
+/**
+ * ⭐⭐ WAS A RANKING WITHHELD? — which is NOT the same question as "may a leader
+ * be named", and conflating them deleted a licensed sentence.
+ *
+ * ⚠ THIS EXISTS BECAUSE THE OBVIOUS PREDICATE IS TOO WIDE, and a reviewer caught
+ * it. Gating a surface on `leaderDesignationPermitted(rec) !== true` withholds on
+ * BOTH of these, which are different runs:
+ *
+ *   · a ranking existed and the producer refused to license it — WITHHELD, and
+ *     nothing may explain a verdict by reference to it;
+ *   · there was never a ranking at all (an open strategic challenge: no options,
+ *     no arms to separate) — in which case the producer's sentence is about
+ *     FACTOR SENSITIVITY, is fully licensed, and deleting it is a second harm.
+ *
+ * Measured: `openStrategicChallenge()` carries `allOptions: []`, no verdict, and
+ * the sentence *"Small changes in supplier lead time change which direction looks
+ * better."* A permission-only gate deletes it.
+ *
+ * ⚠⚠ TWO HARMS CANNOT SHARE ONE PARAMETER (CLAUDE.md trap 22b). A false positive
+ * that DROPS a licensed sentence and one that INVENTS a leader claim point in
+ * opposite directions; this predicate answers only the second, and asks about the
+ * EXISTENCE of a ranking first.
+ *
+ * ⚠ "A ranking existed" is TWO independent signals, either sufficient, because a
+ * payload may carry one without the other: two or more arms to separate, or an
+ * identified leader. `decisionVerdict.ts` states at the field that identity and
+ * entitlement are different questions — `leaderId` is the identity half, and it
+ * is exactly what a withheld run still carries (measured on deployed `73825428`:
+ * `leading_option_id` present beside `permitted: false`).
+ *
+ * Fail-closed is preserved where it matters: on a run that HAS a ranking, an
+ * authority that cannot answer (`undefined`) still withholds.
+ */
+export function rankingWasWithheld(
+  rec:
+    | {
+        leaderDesignationPermitted?: boolean
+        verdict?: { hasLeadingOption?: boolean; leaderId?: string | null }
+        allOptions?: unknown[]
+      }
+    | null
+    | undefined,
+): boolean {
+  if (rec == null) return false
+  const arms = Array.isArray(rec.allOptions) ? rec.allOptions.length : 0
+  const aRankingExisted = arms >= 2 || rec.verdict?.leaderId != null
+  if (!aRankingExisted) return false
+  return leaderDesignationPermitted(rec) !== true
+}
