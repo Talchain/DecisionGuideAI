@@ -188,8 +188,9 @@ const KNOWN_FIXED = [
 ] as const
 
 /**
- * Components defined outside the derived scope but RENDERED from inside it, so
- * they are in the transform and this directory walk cannot see their sizes.
+ * Components defined outside the derived scope but RENDERED from inside it.
+ * This directory walk cannot see their sizes or whether their content portals
+ * out of the transform; the distinction is recorded for each entry below.
  * Derived per run and asserted EXACTLY — see the header. Declared sizes and
  * what they render at the 0.50 floor, so the gap is costed and not merely named:
  *
@@ -202,30 +203,22 @@ const KNOWN_FIXED = [
  *                                       counter-scaled ✓.
  *   canvas/components/UnknownKindWarning typography.caption 12px -> 6.0px.
  *
- * ⚠ `components/Tooltip.tsx` WAS THE FOURTH ENTRY AND IS GONE — REMOVED BECAUSE
- * THE DERIVATION STOPPED REACHING IT, WHICH IS THIS GUARD WORKING, NOT A
- * RELAXATION. It was listed as "renders un-portalled inside BaseNode and
- * OlumiSparkle". `OlumiSparkle` is deleted (it had zero JSX render sites), and
- * it was the LAST importer of `Tooltip` anywhere under the derived scope
- * (`nodes/` + `edges/`) — so the walk no longer crosses the boundary to it and
- * the exact assertion RED'd, correctly.
+ *   components/Tooltip.tsx             NodeQuickActions now renders this with
+ *                                       asChild. The reference button remains
+ *                                       inside the transform; all tooltip text
+ *                                       renders through FloatingPortal outside
+ *                                       it. Its text-xs size must NOT receive
+ *                                       the canvas counter-scale.
  *
- * ⚠ AND THE OTHER HALF OF THAT SENTENCE WAS ALREADY FALSE BEFORE THAT:
- * `BaseNode.tsx` imports no Tooltip at all and, on the evidence of this tip,
- * did not render one. The pin stayed green on a reason that had already
- * expired, because only ONE of its two named renderers had to survive for the
- * derived entry to persist. A hand-written justification beside a derived list
- * can rot without the list ever going red.
- *
- * `Tooltip` still renders in ~26 canvas files (panels, inspectors,
- * pre-analysis). None is inside the viewport transform, which is the only
- * scope this census governs — so its size is out of this census's remit, not
- * unexamined.
+ * Tooltip previously left this inventory when OlumiSparkle, its last scoped
+ * caller, was deleted. NodeQuickActions is a new scoped caller, so the exact
+ * derivation requires the entry again; this is not an un-portalled text gap.
  */
 const FOREIGN_RENDERED = [
   'src/canvas/components/CoachingCard.tsx',
   'src/canvas/components/UnknownKindWarning.tsx',
   'src/canvas/ui/shared/DataBar.tsx',
+  'src/components/Tooltip.tsx',
 ] as const
 
 const TW_NAMED = new Set(['xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl'])
