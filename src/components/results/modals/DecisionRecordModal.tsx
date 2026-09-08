@@ -39,6 +39,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { useCanvasStore } from '../../../canvas/store'
 import { commitDecisionRecord } from '../../../services/decisionRecordCommitService'
+import { getSessionIdentity } from '../../../lib/supabase'
 import { typography } from '../../../styles/typography'
 import {
   FIELD_INPUT_CLASS,
@@ -168,11 +169,50 @@ export function DecisionRecordModal() {
   const rationaleErrorId = useId()
   const assumptionErrorId = useId()
 
+  /**
+   * ⭐⭐ WHICH PERSISTENCE NOTE IS TRUE FOR THIS USER — AND IT IS READ FROM THE
+   * SAVE PATH'S OWN PREDICATE, NOT A SECOND ANSWER TO THE SAME QUESTION.
+   *
+   * `commitDecisionRecord` decides guest-vs-account with exactly this call:
+   * `const { accessToken } = await getSessionIdentity(); if (!accessToken)
+   * return { status: 'guest' }`. Reading anything else here — an auth context,
+   * a flag, a user object — would be a second authority on one question, and
+   * the two would eventually disagree about the same save (CLAUDE.md trap 12).
+   *
+   * ⚠ `useAuth()` is NOT used, deliberately: it THROWS without an
+   * `AuthProvider` (`AuthContext.tsx:653-655`) and no spec in this directory
+   * wraps one, so calling it would turn a copy fix into a crash.
+   *
+   * `null` means NOT YET RESOLVED, and it renders the GUEST note. The account
+   * sentence is the claim that requires proof, so the absence of proof must
+   * never license it — the same asymmetry the reviewer applied to
+   * `storedLocal`. The failure direction is understating what we do with the
+   * user's data, never overstating it, and it self-corrects within a tick.
+   */
+  const [hasAccount, setHasAccount] = useState<boolean | null>(null)
   const [chosenOptionId, setChosenOptionId] = useState('')
   const [confidence, setConfidence] = useState('')
   const [expectation, setExpectation] = useState('')
   const [revisit, setRevisit] = useState('')
   const [rationale, setRationale] = useState('')
+
+  // Resolved when the modal opens, and re-resolved on every open: a user may
+  // sign in between two captures in one session.
+  useEffect(() => {
+    if (!isOpen) return
+    let live = true
+    void getSessionIdentity()
+      .then(({ accessToken }) => {
+        if (live) setHasAccount(Boolean(accessToken))
+      })
+      .catch(() => {
+        // An identity read that fails is not evidence of an account.
+        if (live) setHasAccount(false)
+      })
+    return () => {
+      live = false
+    }
+  }, [isOpen])
   const [assumption, setAssumption] = useState('')
   const [saving, setSaving] = useState(false)
   const [touched, setTouched] = useState<{
@@ -334,7 +374,16 @@ export function DecisionRecordModal() {
           data-testid="decision-record-note"
           className={`mt-2.5 rounded-[9px] border border-panel-border bg-panel px-[9px] py-2 ${typography.panelMeta} text-text-light`}
         >
-          {DECISION_RECORD_COPY.persistenceNote}
+          {/* ⛔ THIS WAS UNCONDITIONAL, AND ON STAGING SIGNED-OUT IS THE DEFAULT
+              FRESH-VISITOR STATE. Every guest was told "…are saved to your
+              account" before capturing a record that CEE refuses by design
+              (DR001), and was then correctly told "Decision recorded on this
+              device." — two contradictory statements about one save, the false
+              one shown at the moment of deciding to record. `guestNote` was
+              already written, correct, and had ZERO render sites. */}
+          {hasAccount === true
+            ? DECISION_RECORD_COPY.persistenceNote
+            : DECISION_RECORD_COPY.guestNote}
         </p>
 
         {!hasOptions && (
