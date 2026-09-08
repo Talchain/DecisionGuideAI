@@ -23,6 +23,7 @@ import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { typography } from '../../styles/typography'
 import { METRIC_NOUN } from './shared/metricVocabulary'
+import { COMPARATIVE_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { NodeChip, NodeMetricRow, NodePopover } from './shared'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { cleanFactorLabel } from '../utils/labelUtils'
@@ -306,6 +307,11 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
 
   // ---- Post-analysis: winner headline ----
   //
+  // ⭐ THE SENTENCE NOW READS "{X} supported in N% of simulated scenarios"
+  // (8 Sep 2026). The two paragraphs below quote the OLD wording because they
+  // are the record of why the GATE exists, and the gate is unchanged — only
+  // the words it permits changed. See the render site for the rename.
+  //
   // ROADMAP 1.223: "{X} leads in N% of scenarios" is a comparative leader
   // claim, so it quotes `deriveDecisionVerdict` — the one module entitled to
   // say a leading option exists — exactly as the sibling `OptionNode` badge
@@ -340,14 +346,19 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     const recommendedId = verdict.leaderId
     if (!recommendedId) return null
 
-    const winnerNode = nodes.find(n => n.id === recommendedId)
-    const winnerLabel = (winnerNode?.data?.label as string | undefined) ?? null
-    if (!winnerLabel) return null
+    // ⭐ NAMED FOR THE QUESTION IT ANSWERS. `winnerLabel` was a local
+    // identifier, so `noContestFraming.canvas.spec` correctly waved it through
+    // as not-copy and rowed it as the next lane's work — but it is also the
+    // vocabulary the next hand inherits as canonical, and the sentence it fed
+    // is the reason this card kept its race verb through four rulings.
+    const mostSupportedNode = nodes.find(n => n.id === recommendedId)
+    const mostSupportedLabel = (mostSupportedNode?.data?.label as string | undefined) ?? null
+    if (!mostSupportedLabel) return null
 
     const optionProbs = (report as any)?.option_probabilities ?? {}
     const winProb = optionProbs[recommendedId]?.win_probability as number | undefined
 
-    return { winnerLabel, winProb }
+    return { mostSupportedLabel, winProb }
   }, [isPostAnalysis, modelLicensesComparativeClaim, report, nodes])
 
   // Biggest risk: risk node with highest bridge edge weight to goal
@@ -706,9 +717,9 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
    * whose job is to say "Add options".
    */
   const lodMetric = useMemo<string | null>(() => {
-    if (headline?.winnerLabel) {
+    if (headline?.mostSupportedLabel) {
       const pct = headline.winProb != null ? ` ${Math.round(headline.winProb * 100)}%` : ''
-      return `${headline.winnerLabel}${pct}`
+      return `${headline.mostSupportedLabel}${pct}`
     }
     if (resting.line === DECISION_RESTING_COPY.emptyLine && optionCount > 0) {
       return `${optionCount} option${optionCount === 1 ? '' : 's'}`
@@ -873,7 +884,10 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               <div
                 className={`${typography.nodeLabel} text-text-body`}
               >
-                {headline.winnerLabel} leads in {headline.winProb != null ? `${Math.round(headline.winProb * 100)}%` : ''} of scenarios{biggestRisk && biggestRisk.label ? (
+                {headline.mostSupportedLabel}{' '}
+                {headline.winProb != null
+                  ? COMPARATIVE_COPY.clause(`${Math.round(headline.winProb * 100)}%`)
+                  : COMPARATIVE_COPY.phraseNoMagnitude}{biggestRisk && biggestRisk.label ? (
                   <>
                     , but sensitive to{' '}
                     <button
@@ -889,7 +903,8 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               </div>
             )}
             {/* AXIS 2, ON THE STRONGEST SENTENCE THE CANVAS SPEAKS.
-                "{X} leads in N% of scenarios" renders in Standard AND Detailed,
+                "{X} supported in N% of simulated scenarios" renders in Standard
+                AND Detailed,
                 while this node's existing stability line is `isDetailed`-gated
                 (see `showStabilityLine`) — i.e. behind a hover popover in the
                 Standard view the founder was in. So the claim was always-on and
@@ -923,14 +938,24 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 before.
 
                 ⚠ `bg-option` DELIBERATELY, not a decision hue. This is the same
-                field, for the same option, that the winning OptionNode renders
-                as `Ahead 47%` — so the two bars are the same quantity on the
-                same scale and a reader is entitled to compare them by eye. A
-                different fill would imply a different measure.
+                field, for the same option, that the most-supported OptionNode
+                renders under the same `METRIC_NOUN.support` caption
+                (`OptionNode.tsx:1783`) — so the two bars are the same quantity
+                on the same scale and a reader is entitled to compare them by
+                eye. A different fill would imply a different measure.
+
+                ⛔ AND AS OF 8 Sep 2026 THE SENTENCE ABOVE AGREES WITH THE
+                CAPTION. It read "{X} leads in N% of scenarios" while this row
+                read `Support` — one number, one binding, two vocabularies,
+                eight pixels apart. That is the defect the 7 Sep
+                `ahead` → `support` rename was written to close, stopping one
+                line short of the sentence. `oneNounPerIdea.crossCard.spec`
+                left the reversal point explicit; this is it.
 
                 ⚠ NO `phrase`. Every span in the row is `aria-hidden`, and that
                 is correct here: the sentence directly above already states
-                "{X} leads in N% of scenarios" to assistive tech. A phrase would
+                "{X} supported in N% of simulated scenarios" to assistive tech.
+                A phrase would
                 make a screen reader say the same claim twice. The row is a
                 VISUAL encoding of a sentence that stays where it was — nothing
                 moved out of visible text, so the eight-surface leader-claim
