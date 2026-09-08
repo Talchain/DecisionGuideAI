@@ -214,7 +214,7 @@ describe('OutputsDock DOM', () => {
       // than the list being loosened: an exact, ordered list is what catches a
       // surface silently appearing OR disappearing, and loosening it to make
       // room for the experiment would retire the guard along with it.
-      'Analysis (New)',
+      'Reasoning',
       'Model',
     ])
   })
@@ -1209,7 +1209,7 @@ describe('I.2a: Secondary action button interaction', () => {
       // than the list being loosened: an exact, ordered list is what catches a
       // surface silently appearing OR disappearing, and loosening it to make
       // room for the experiment would retire the guard along with it.
-      'Analysis (New)',
+      'Reasoning',
       'Model',
     ])
     // ⭐ 18 Aug 2026: 'Compare' left this list the same way Journey did, and
@@ -1441,7 +1441,20 @@ describe('F9: dock-level run announcer (single voice for start/settle)', () => {
     const current = useCanvasStore.getState().results
     act(() => {
       useCanvasStore.setState({
-        results: { ...current, status },
+        results: {
+          ...current,
+          status,
+          // ⚠ A COMPLETE SETTLE CARRIES A RENDERABLE REPORT. The run announcer
+          // now consults `selectHasAnyRealProbability`, because "a report
+          // arrived" and "the report contains anything" are different questions
+          // and only the second licenses the word complete. Without this the
+          // settle scores as empty and announces the honest resultless copy —
+          // so these tests would assert the wrong string for the right reason.
+          // An 'error' settle deliberately keeps whatever it had.
+          ...(status === 'complete'
+            ? { report: { option_comparison: [{ id: 'opt-a', win_probability: 0.62 }] } }
+            : {}),
+        },
       } as any)
     })
   }

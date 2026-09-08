@@ -208,7 +208,7 @@ describe('pick-two-runs side-by-side (2.113a slice 2)', () => {
       run(2, '11', 0.62, { nearTie: { is_tie: false, top_option_id: 'opt-a' } }),
     ])
     openPicker()
-    expect(within(screen.getByTestId('leader-row')).getByText('Leader unchanged')).toBeTruthy()
+    expect(within(screen.getByTestId('leader-row')).getByText('Most support unchanged')).toBeTruthy()
   })
 
   it('MODEL STRUCTURE compares two persisted aag hashes, and says so honestly when they match', async () => {

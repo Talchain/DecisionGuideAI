@@ -6,7 +6,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  * CEE refuses to name a leading option. The refusal renders in the
  * conversation. The user reloads. Measured post-reload: "did not run" 0
- * occurrences, "Leading option" 1, "49%" 7. **The honest half was transient and
+ * occurrences, "Most supported" 1, "49%" 7. **The honest half was transient and
  * the unsafe half was durable, which is exactly backwards.**
  *
  * ⭐ WHAT THIS FILE PROVES, AND WHAT IT DOES NOT (CLAUDE.md trap 3, and the

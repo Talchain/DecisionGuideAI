@@ -106,6 +106,16 @@ export function hasAnyRealProbability(report: InspectorReport | undefined | null
   return isFiniteNumber(report.probability_of_goal)
 }
 
+/**
+ * Store-selector form, for callers that are already inside a `useCanvasStore`
+ * selector and must not call a hook. Routed through `selectReport` so the
+ * `unknown`→`InspectorReport` cast stays in the one place this file declares
+ * it happens, rather than each caller inventing its own.
+ */
+export function selectHasAnyRealProbability(s: { results?: { report?: unknown } }): boolean {
+  return hasAnyRealProbability(selectReport(s))
+}
+
 /** Hook wrapper over hasAnyRealProbability for components. */
 export function useHasAnyRealProbability(): boolean {
   return useCanvasStore((s) => hasAnyRealProbability(selectReport(s)))

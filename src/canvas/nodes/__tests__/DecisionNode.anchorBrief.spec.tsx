@@ -276,7 +276,10 @@ describe('⛔ the identity gate — the P0 twin, and the reason this file exists
   /**
    * Each of these is a state the store REACHES in production, not a defensive
    * hypothetical. `setContextIntegrity` runs only on `status: 'graph'`; every
-   * other cold-read outcome leaves whatever was there before.
+   * other cold-read outcome leaves whatever was there before, and the draft
+   * turn's `recordBriefForFreshDraft` writes only once the NEW decision's graph
+   * has landed — so between reset-canvas and that landing the store still
+   * holds the previous decision.
    */
   it('a brief recorded for ANOTHER decision never renders on this one', () => {
     setBrief(OTHER_SCENARIO, BRIEF)

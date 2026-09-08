@@ -242,8 +242,29 @@ describe('the atoms that must hold their size', () => {
     expect(c).toMatch(/\bwhitespace-nowrap\b/)
   })
 
-  /** The provenance pill is LAST in the yield ladder, so it is allowed to give. */
-  it('the provenance pill may truncate, because it is the thing that gives', () => {
+  /**
+   * The provenance atom is LAST in the yield ladder, so its WRAPPER is the one
+   * carrying the shrink classes.
+   *
+   * ⚠⚠ RENAMED, AND THE OLD NAME IS THE FINDING. It read *"the provenance PILL
+   * MAY TRUNCATE, because it is the thing that gives"* — but the assertions
+   * below are CLASS PRESENCE on the wrapper (`min-w-0`, `truncate`), and that
+   * predicate is satisfied identically by any child. The property the old name
+   * asserted — a truncation that DISCLOSES itself with an ellipsis — was never
+   * established here, and stopped being true of the child the moment
+   * `SourceProvenancePill` became `ValueProvenanceMark`: **a clipped `<svg>`
+   * emits no ellipsis, it simply vanishes.**
+   *
+   * So this pins what it actually checks — the wrapper still yields — and the
+   * name no longer claims the disclosure. Re-pricing the ladder now that its
+   * last item is INDIVISIBLE is rowed, not done here; the full disclosure and
+   * the reason for deferring it live at `ModelRowView.tsx`'s provenance span.
+   *
+   * ⚠ A test whose NAME is stronger than its assertions is the same defect as a
+   * comment that is stronger than its code: the suite reads green and the reader
+   * inherits a guarantee nothing is holding.
+   */
+  it('the provenance wrapper still yields — it carries the shrink classes', () => {
     render(<ModelRowView row={row({ id: 'f1', provenanceSource: 'cee_inference' })} tier="plain" />)
     const c = cls('model-row-v2-f1-provenance')
     expect(c).toMatch(/\bmin-w-0\b/)

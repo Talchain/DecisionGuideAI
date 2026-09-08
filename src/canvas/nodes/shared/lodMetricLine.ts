@@ -275,7 +275,7 @@ export function resolveLodMetricLine({
         // than deferring, precisely so the board could not say two words for
         // one number at two zoom levels. Nothing REDded because the canvas
         // noun guard filters sources to `*Node.tsx` and this file is not one.
-        return `${METRIC_NOUN.ahead} ${formatWinProbability(displayMetadata.winRate)}`
+        return `${METRIC_NOUN.support} ${formatWinProbability(displayMetadata.winRate)}`
       }
 
       // ⭐ THE PRE-ANALYSIS ARM. Before a run an option has no win share, and

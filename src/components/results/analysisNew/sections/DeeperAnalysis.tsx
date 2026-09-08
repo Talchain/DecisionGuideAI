@@ -68,15 +68,30 @@ export function DeeperAnalysis({ deeper, testId = 'analysis-new-deeper' }: Deepe
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
             aria-controls={open ? `${testId}-region` : undefined}
-            className={`${typography.panelBody} text-text-light flex items-center gap-1.5 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            className={`${typography.panelBody} text-text-light flex items-start gap-1.5 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
             data-testid={`${testId}-toggle`}
           >
             {open ? (
-              <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
+              <ChevronDown className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden="true" />
             ) : (
-              <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+              <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0" aria-hidden="true" />
             )}
-            {COPY.sections.deeper}
+            {/* ⚠ THIS ROW IS THE ODD ONE OUT AND IS NOT MIGRATED HERE. Every
+                other collapsed row on the panel is a `SectionShell` — icon,
+                count, chevron. This one is a bare button, which the IA audit
+                flagged. Moving it onto the shell is a real change with its own
+                review; what it gets NOW is the subtitle the design pack draws
+                on all three detail rows, in the shell's own shape, so the three
+                read as one group rather than two-and-a-stray. */}
+            <span className="min-w-0">
+              <span className="block">{COPY.sections.deeper}</span>
+              <span
+                className={`${typography.panelMeta} text-text-light block mt-0.5`}
+                data-testid={`${testId}-subtitle`}
+              >
+                {COPY.sectionSubtitles.deeper}
+              </span>
+            </span>
           </button>
 
           {open ? (
@@ -107,8 +122,58 @@ export function DeeperAnalysis({ deeper, testId = 'analysis-new-deeper' }: Deepe
                   <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
                     {group.rows.map((r, i) => (
                       <div key={`${i}:${r.label}`} className="contents">
-                        <dt className={`${typography.panelMeta} text-text-light break-words`}>{r.label}</dt>
-                        <dd className={`${typography.panelMeta} text-text-body break-words min-w-0`}>{r.value}</dd>
+                        {/* ⚠ A STATEMENT ROW IS NOT A TERM/DEFINITION PAIR, and
+                            rendering it as one is what printed a machine code to
+                            the user. Its `label` is the producer's code: kept in
+                            the DOM for support, tests and assistive tech, but not
+                            given the `<dt>` column, because the column's whole
+                            visual job is "this names the thing beside it" and a
+                            code does not name a sentence.
+                            The `<dl>` stays valid — every `<dd>` still has its
+                            `<dt>` — and the six term/definition groups are
+                            untouched, since the flag is opt-in per row.
+
+                            ⚠⚠ THE CODE IS NOT PRINTED AFTER THE SENTENCE EITHER,
+                            AND THE FIRST VERSION OF THIS CHANGE WAS WRONG TO DO
+                            SO (review S1). It appended ` (ROOT_NODE_DEFAULT_VALUE)`
+                            de-emphasised, citing "the estate's ratified shape".
+                            That generalised a ruling scoped to ONE surface:
+                            `auditInferenceWarningsNeverBareCode.spec.tsx` opens
+                            "The Model card's audit trail…", and the rule it
+                            enforces — `humaniseCritique.ts`'s own words — is that
+                            "a machine code is correct content for an AUDIT TRAIL
+                            and wrong content for a CAVEAT STRIP". This group is
+                            the caveat surface; the Model tab is the audit trail,
+                            and it lists the code regardless, which is where that
+                            fallback sentence already points the reader.
+                            The disconfirming case was live in the repo the whole
+                            time: `AdvancedSection.tsx:383-398` renders the
+                            IDENTICAL entries — the same
+                            `selectHumanisedInferenceWarningsOutsideStrip` call —
+                            as a bare sentence with no code at all. Printing it
+                            here would have made this panel the only surface
+                            showing SCREAMING_SNAKE to a reader.
+                            The code stays in the DOM twice over — the `sr-only`
+                            `<dt>` (so the `<dl>` keeps a term and support can
+                            quote it) and `data-gap-code` — so nothing loses
+                            traceability. Pinned in both directions by
+                            `gapCodeIsNotTheHeading.spec.tsx`. */}
+                        {r.statement ? (
+                          <>
+                            <dt className="sr-only">{r.label}</dt>
+                            <dd
+                              className={`${typography.panelMeta} text-text-body break-words min-w-0 col-span-2`}
+                              data-gap-code={r.label || undefined}
+                            >
+                              {r.value}
+                            </dd>
+                          </>
+                        ) : (
+                          <>
+                            <dt className={`${typography.panelMeta} text-text-light break-words`}>{r.label}</dt>
+                            <dd className={`${typography.panelMeta} text-text-body break-words min-w-0`}>{r.value}</dd>
+                          </>
+                        )}
                       </div>
                     ))}
                   </dl>

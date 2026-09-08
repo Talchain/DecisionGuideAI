@@ -406,8 +406,8 @@ function findConditionalWinner(
   // This is deliberately NOT a suppression of the finding — over-suppressing a
   // quantity the producer DID compute is the mirror defect, weighted equally.
   return match.winner !== null
-    ? `${match.condition}, ${match.winner} takes over`
-    : `${match.condition}, the leading option changes (which option is withheld on this run)`
+    ? `${match.condition}, support moves to ${match.winner}`
+    : `${match.condition}, support moves to another option (which one is withheld on this run)`
 }
 
 // ---------------------------------------------------------------------------

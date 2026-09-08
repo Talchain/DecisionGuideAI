@@ -19,7 +19,7 @@
  * property that makes a wrong row diagnosable rather than merely wrong.
  */
 
-import type { DriversSectionData, InferenceWarning } from '../types'
+import type { DriversSectionData, InferenceWarning, ZeroReasonCode } from '../types'
 import type { CritiqueWarningEntry } from '../CritiqueWarningStrip'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import type { ComparisonScope } from '../utils/goalAnchorCopy'
@@ -45,6 +45,33 @@ export interface InspectRow {
   label: string
   /** Already formatted for display by the adapter. Components never compute. */
   value: string
+  /**
+   * A row whose `value` is a SENTENCE, not a datum keyed by `label`.
+   *
+   * ⚠ ADDITIVE AND OPT-IN, so the six groups that are genuinely term/definition
+   * pairs are untouched. It exists because "Model gaps the analysis worked
+   * around" is not a term/definition list at all: its `label` was the producer's
+   * error code, so the `<dt>` column printed EDGE_E_VALUE_NON_FINITE_DROPPED to
+   * the user (witnessed by Paul on deployed `a9c2e050`).
+   *
+   * The row renders as a full-width sentence; the code stays in the DOM as the
+   * `sr-only` `<dt>` and `data-gap-code`, so the `<dl>` keeps a term and support
+   * keeps its handle. A swap of the two columns would not do — it would put the
+   * sentence in the muted column and the code in the emphasised one, which is
+   * worse — which is why this is a flag rather than a column swap.
+   *
+   * ⚠⚠ THIS COMMENT PREVIOUSLY CALLED `code + sentence` "the estate's ratified
+   * shape" AND THAT WAS FALSE (review S1). It generalised
+   * `auditInferenceWarningsNeverBareCode.spec.tsx`, whose own first line scopes
+   * it — "The Model card's audit trail never renders a machine code ALONE" — and
+   * whose rule, quoted from `humaniseCritique.ts`, is that a machine code is
+   * right for an AUDIT TRAIL and wrong for a CAVEAT STRIP. The Model tab is the
+   * audit trail and lists the code regardless. `AdvancedSection.tsx:383-398`
+   * renders these same entries, from the same selector, with no code at all — so
+   * `sentence instead of code` already shipped on the sibling tab for exactly
+   * this content, under a green suite.
+   */
+  statement?: boolean
 }
 
 /**
@@ -205,13 +232,18 @@ export interface DriverInfluenceRow {
 export interface DriversSection {
   findings: AnalysisNewFinding[]
   /**
-   * TRUE when the influence figures on display are SET-RELATIVE
-   * (`displayProvenance === 'normalised_elasticity'`), i.e. "largest in this
-   * set", NOT a causal share of the outcome. Drives the caveat line.
+   * TRUE when the influence figures on display are SET-RELATIVE, i.e. "largest
+   * in this set", NOT a causal share of the outcome. Drives the caveat line.
    *
-   * ⚠ This is the "do not conflate structurally different scientific
-   * quantities" rule made mechanical: the caveat is a function of the
-   * producer's own provenance token, not of the adapter's taste.
+   * ⚠⚠ IT USED TO NARROW THAT TO `displayProvenance === 'normalised_elasticity'`.
+   * Refuted (#1228): `influence_score` is the producer's normalisation against
+   * `max|influence|`, so its top row is 1.0 by construction too. BOTH stamped
+   * provenances are set-relative, so this is true whenever there are rows.
+   *
+   * ⚠ The "do not conflate structurally different scientific quantities" rule
+   * still holds — it is just a DIFFERENT question, and it stays keyed on
+   * `displayProvenance`. This field answers the SCALE question; provenance
+   * answers the QUANTITY one. Collapsing them is what produced the defect.
    */
   influenceIsSetRelative: boolean
   /**
@@ -255,6 +287,29 @@ export interface DriversSection {
    * (`types.ts` — "explains why influence is ZERO for intervention factors").
    */
   suppressedZeroCount: number
+  /**
+   * ⭐⭐ WHY each suppressed row was suppressed — the producer's own codes, in
+   * first-seen order, de-duplicated.
+   *
+   * ⚠ A COUNT CANNOT CARRY THIS, AND THAT IS THE WHOLE REASON THE FIELD EXISTS.
+   * `analysisNewCopy.ts` already ruled on it for the all-zero empty state:
+   * "three reasons cannot share one summary without one of them being described
+   * wrongly". `intervention_override` means a factor is HELD FIXED by the
+   * options and therefore cannot vary; `disconnected` means it reaches nothing;
+   * `zero_outcome_diff` means it varies and changes nothing. Telling a reader
+   * that a pinned factor "has no effect" is false, so the surface names the
+   * code rather than summarising the set.
+   *
+   * ⚠ IT MATTERS BECAUSE THE SUPPRESSED ROW CAN BE THE MODEL'S RANK-1 FACTOR.
+   * A pinned factor keeps its `influence_score` — `deriveFactorInfluenceMap`
+   * says so in terms — so the canvas ranks it first while this list drops it.
+   * Measured against the canvas on staging `acd3db4d`: the panel named three
+   * factors and the one it omitted was the canvas's 100%.
+   *
+   * Empty whenever `suppressedZeroCount` is 0, and never longer than the three
+   * codes the union admits.
+   */
+  suppressedZeroReasons: NonNullable<ZeroReasonCode>[]
 }
 
 export interface UncertaintySection {
@@ -918,9 +973,20 @@ export interface AtAGlance {
   verdict: GlanceVerdict | null
   drivers: GlanceDriver[]
   /**
-   * TRUE when the bars are set-relative (`normalised_elasticity`) rather than
-   * the producer's absolute influence scale. Drives the basis caption, which
-   * is a truth claim and therefore visible, not hover-only.
+   * TRUE when the bars are set-relative — which is EVERY stamped basis, so in
+   * practice whenever there are rows at all.
+   *
+   * ⚠⚠ IT USED TO SAY "set-relative (`normalised_elasticity`) rather than the
+   * producer's absolute influence scale". That premise is refuted (#1228):
+   * `influence_score` is normalised against `max|influence|`. The field answers
+   * the SCALE question only; the QUANTITY question is still `displayProvenance`.
+   *
+   * ⚠ CONSEQUENCE, MEASURED AND OPEN: because `AtAGlance` renders the basis
+   * caption only inside `glance.drivers.length > 0`, and this is `rows.length > 0`
+   * over the same rows, the caption's `basisAbsolute` arm is UNREACHABLE at both
+   * of its sites. Deliberately not revived here — `influenceBasisNoun` now rules
+   * "Relative influence" for BOTH provenances, so reviving the visible arm is a
+   * copy decision, not a bug fix. Reported on #1228.
    */
   influenceIsSetRelative: boolean
   condition: GlanceCondition | null

@@ -875,8 +875,19 @@ export type WinProbabilitySource =
   | 'results.report.option_probabilities.win_probability'
   | 'unmatched'
 
-/** How the captured rank was computed (analytical vs canvas fallback). */
-export type RankSource = 'win_probability_desc' | 'canvas_order' | 'unranked'
+/**
+ * How the captured rank was computed, or why it was not computed at all.
+ *
+ * `withheld` is not a rank — it records that CEE did not license a
+ * comparative-leader claim for this model, so the bundle declines to invent an
+ * ordering the product itself suppresses (`OptionCards.tsx`:
+ * `const rank = designationsWithheld ? undefined : ...`).
+ */
+export type RankSource =
+  | 'win_probability_desc'
+  | 'canvas_order'
+  | 'unranked'
+  | 'withheld'
 
 /**
  * Where the captured influence / sensitivity value came from.
@@ -926,13 +937,29 @@ export interface DisplayState {
     /** Provenance discriminator: which payload path supplied `win_probability_displayed`. */
     win_probability_source: WinProbabilitySource
     /**
-     * Analytical rank computed from `win_probability` descending, matching the
-     * sort order used by `OptionCards.tsx` (`OptionCards.tsx:506-513`) so the
-     * bundle reflects what the user actually sees in the rendered list.
-     * Deterministic tie-break: equal win_probability → secondary sort by option_id ascending.
+     * DIAGNOSTIC, NOT A CAPTURE OF A RENDERED BADGE. The product ships no
+     * numeric rank badge — `OptionCards.tsx` records "D17: '#N of M' rank
+     * prefix removed", and its `rank` drives only an `aria-hidden` colour
+     * swatch (`rank-marker-<id>`). The crowned border is a SIBLING of `rank`,
+     * not driven by it: `const crowned = designationsWithheld ? false : ...`
+     * feeds `borderClass`, sharing `rank`'s suppressor but not its value.
+     * The digits a user reads are
+     * `Option {N}` from `optionNumbering`, which is identity-anchored and
+     * stable across reruns. This field is the BUNDLE's own re-derivation of
+     * an ordering, provided so a bundle consumer can compare the analytical
+     * and canvas orders; it is not evidence about anything displayed.
+     *
+     * Analytical rank is `win_probability` descending, deterministic
+     * tie-break equal win_probability → secondary sort by option_id ascending.
+     * `null` whenever `rank_source` is `withheld` or `unranked`.
      */
     rank_displayed: number | null
-    /** How `rank_displayed` was computed: analytical sort, canvas fallback, or unranked. */
+    /**
+     * How `rank_displayed` was computed, or why it is absent: analytical sort,
+     * canvas fallback, no options, or licence withheld. Read this BEFORE
+     * reading `rank_displayed` — a `canvas_order` rank is iteration order, and
+     * carries no analytical meaning.
+     */
     rank_source: RankSource
   }> | null
   rendered_factors: Array<{
@@ -962,16 +989,54 @@ export interface DisplayState {
   analysis_status_displayed: string | null
   hero_headline_displayed: string | null
   /**
-   * Canonical analysis display state from `deriveAnalysisDisplayState`.
-   * Distinct from `analysis_status_displayed` (which mirrors the raw
-   * `results.status` enum) — this field captures the four-state UI
-   * mapping the user actually sees: not_ready / ready_to_analyse /
-   * complete / results_stale.
+   * Canonical analysis display state from `deriveAnalysisDisplayState`:
+   * not_ready / ready_to_analyse / ran_without_result / complete /
+   * results_stale. Distinct from `analysis_status_displayed`, which mirrors
+   * the raw `results.status` enum.
+   *
+   * ⚠ THIS IS NOT "WHAT THE USER SEES", AND THAT CLAIM USED TO BE HERE.
+   * Derived at the bytes: this field is the ONLY emitter of that headline in
+   * the repo, and `StickyFooter` — the sole product consumer of
+   * `useAnalysisDisplayState` — reads only `view.cta?.label` and
+   * `view.cta?.kind`. The `.headline` is never rendered anywhere.
+   *
+   * The string a user actually meets is `runAnnouncementForTransition`'s
+   * "Analysis complete." — note the FULL STOP, a different string from this
+   * mapper's "Analysis complete" — announced through `AnalysisRunAnnouncer`.
+   * A comment claiming this bundle field is what the user sees sent a repair
+   * to the wrong surface once; it is corrected here rather than deleted so the
+   * next reader meets the correction where the error was.
    * Backwards-compatible: added alongside the legacy fields so existing
    * bundle consumers keep working until they migrate.
    */
-  analysis_display_state: 'not_ready' | 'ready_to_analyse' | 'complete' | 'results_stale' | null
-  /** Headline matching what the pre-analysis hero banner displays. */
+  /**
+   * ⚠ A HAND-COPIED UNION OF `AnalysisDisplayState`, and adding a member to the
+   * source broke it — which is the point: this is the one place the bundle's
+   * shape is pinned, so it fails loud rather than exporting a state it cannot
+   * name. Kept as a literal union (not an import) deliberately: the bundle is a
+   * WIRE FORMAT read by tools outside this repo, and it should be a compile
+   * error here when the product gains a state, not a silent widening.
+   */
+  analysis_display_state:
+    | 'not_ready'
+    | 'ready_to_analyse'
+    | 'complete'
+    | 'ran_without_result'
+    | 'results_stale'
+    | null
+  /**
+   * `deriveAnalysisDisplayState`'s own headline string, recorded for the
+   * bundle. NOT the hero banner's — that is `hero_headline_displayed` at
+   * `:990`, built by `deriveHeroHeadline`, 37 lines above this line.
+   *
+   * ⚠ THIS COMMENT SAID "matching what the pre-analysis hero banner
+   * displays", which named the wrong field AND asserted a render. The
+   * docblock 26 lines above states the derived fact: `StickyFooter` is the
+   * sole product consumer of `useAnalysisDisplayState` and reads only
+   * `view.cta`, so `.headline` reaches no screen. Two sentences in one
+   * interface disagreeing about one field is how a repair goes to the wrong
+   * surface — it already did once, which is why that docblock exists.
+   */
   analysis_display_headline: string | null
 }
 
@@ -2650,6 +2715,13 @@ export async function captureDisplayState(
     const { readAnalysisStateSourceFromStore } = await import(
       '../../../canvas/hooks/useAnalysisStateSource'
     )
+    // ONE READER, IMPORTED — never re-spelled here. `licensesComparativeLeaderClaim`
+    // is the codebase's single answer to "does this MODEL license a
+    // comparative-leader claim?", and re-implementing its predicate in the
+    // export path would create a second authority that drifts from the panel's.
+    const { licensesComparativeLeaderClaim } = await import(
+      '../../../canvas/hooks/useAnalysisReady'
+    )
     const state = useCanvasStore.getState()
 
     const nodes = state.nodes ?? []
@@ -2801,6 +2873,32 @@ export async function captureDisplayState(
     }
 
     const resolvedOptions = optionNodes.map(resolveOption)
+
+    // Q1 OF TWO — "does the MODEL license a comparative-leader claim?" Read
+    // from the same store path `useAnalysisAdmission` reads
+    // (`ceeAnalysisReady.analysis_admission`) and answered by the imported
+    // selector, so this cannot drift from the panel.
+    //
+    // ⚠ SCOPE, STATED EXACTLY. The product's `designationsWithheld`
+    // (`useResultsSectionData.ts`) is Q1 AND Q2, where Q2 is "did THIS run
+    // separate the arms?" (`deriveDecisionVerdict().hasLeadingOption`,
+    // `src/lib/decisionVerdict.ts`). Q2 is DELIBERATELY OUT OF SCOPE here, not
+    // impossible: `deriveDecisionVerdict` is a zero-import module and needs
+    // only `report` / `visibleOptionIds` / `rawHeadlineBanded`, all three of
+    // which this function ALREADY reads off the same canvas store earlier in
+    // this same body — `report` and `rawV2Response` at the top of the results
+    // read, `optionNodes` just above `resolvedOptions`. The panel's
+    // `rawHeadlineBanded` is literally
+    // `rawV2Response.decision_brief.headline_banded`. Importing that single
+    // authority is the technique used for Q1 above, and is the opposite of
+    // rebuilding it. So a run withheld on Q2 ALONE still reports an analytical
+    // rank_source here. That gap is known and recorded, NOT closed — closing it
+    // is a follow-up, not a blocked one. `rank_source` answers the
+    // model-licence question only, and the field docs say so.
+    const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(
+      (state as { ceeAnalysisReady?: CEEAnalysisReady | null })
+        .ceeAnalysisReady?.analysis_admission,
+    )
     // `allHaveWinProb` now mirrors the finite-number guard above so the
     // rank-source decision is consistent: any non-finite slipping through
     // would have been resolved as null/unmatched anyway, but this keeps the
@@ -2810,7 +2908,18 @@ export async function captureDisplayState(
 
     let rankByNodeId: Map<string, number>
     let rankSource: RankSource
-    if (allHaveWinProb) {
+    if (resolvedOptions.length > 0 && !modelLicensesComparativeClaim) {
+      // Licence withheld: emit no rank at all, mirroring OptionCards.tsx
+      // (`const rank = designationsWithheld ? undefined : ...`). Before this
+      // branch existed the withheld case fell straight through to the two
+      // arms below and emitted a rank regardless — `win_probability_desc`
+      // when every option carried a probability, `canvas_order` when they did
+      // not. Either way the bundle asserted an ordering the product had
+      // deliberately suppressed. An empty map leaves every `rank_displayed`
+      // null, so `rank_source` is the only field a consumer needs to read.
+      rankByNodeId = new Map()
+      rankSource = 'withheld'
+    } else if (allHaveWinProb) {
       // Analytical rank, mirroring OptionCards.tsx:506-513 production sort.
       // Deterministic tie-break: equal win_probability → secondary sort by option_id asc.
       const sorted = [...resolvedOptions].sort((a, b) => {

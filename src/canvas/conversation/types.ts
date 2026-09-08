@@ -1063,6 +1063,74 @@ export const WIRE_SYSTEM_EVENT_TYPES = [
 /** Event types accepted by CEE's v3 Zod schema — safe to send over the wire. */
 export type WireSystemEventType = (typeof WIRE_SYSTEM_EVENT_TYPES)[number]
 
+/**
+ * The MODEL-CHANGING subset — the WIRE members CEE's `SYSTEM_EVENT_HANDLING`
+ * classifies `'mutating'`, i.e. the ones that write graph state on the server.
+ *
+ * ⚠ "WIRE" IS LOAD-BEARING, NOT A HEDGE. CEE classifies FIVE kinds
+ * `'mutating'`, not four (`olumi-assistants-service` staging `90edb1fa`,
+ * `src/orchestrator-v5/system-events/dispatch.ts`): the four below plus
+ * `edge_strength_edit`. That fifth is absent from `WIRE_SYSTEM_EVENT_TYPES` and
+ * the UI has no emitter for it, so it cannot be deferred and cannot be missed
+ * here today — but `model-tab-v2/contracts.ts` records `proposeEdgeStrength →
+ * edge_strength_edit` as in-flight work, and the day that emitter lands this
+ * list needs the member.
+ *
+ * ⭐ WHY THE SUBSET EXISTS, AND WHY IT IS NOT "ALL OF THEM". An undispatched
+ * event holds the freshness overlay dirty
+ * (`useConversation.publishPendingEditCount` → `store.pendingEmittedEdits`),
+ * because a verdict computed without it is a statement about a DIFFERENT graph.
+ * That argument only holds for events that change the graph. NONE of the other
+ * seven writes one, and the split is CEE's own, not a UI grouping (staging
+ * `243287ed`, `system-events/dispatch.ts:271-323`): `direct_graph_edit`,
+ * `patch_accepted` and `patch_dismissed` are `'ack_and_commit'` (a turn row, no
+ * graph write); `edge_adjudication`, `prior_range_edit` and `feedback_submitted`
+ * — which goes over the wire as kind `feedback` (`v5/buildPayload.ts:451-463`) —
+ * are `'fact_and_commit'` (a committed turn fact, never a graph write); and
+ * `direct_analysis_run` is not a CEE system-event kind at all, becoming
+ * `kind='message'` (`buildPayload.ts:369`). Holding on any of them would
+ * fabricate "Model changed since this analysis" over a run that genuinely is
+ * current, which is the same lie pointing the other way.
+ *
+ * ⚠ `feedback_submitted` SAT IN A "notifications" BUCKET HERE UNTIL 2026-09-07,
+ * beside `patch_dismissed`. CEE reclassified `feedback` OUT of `'ack_and_commit'`
+ * on 2026-08-05 precisely because an empty ack DISCARDED the user's rating, so
+ * "notification" was the one word its own dispatch table rules out. The
+ * operative claim — writes NO graph — was true throughout and the held set never
+ * moved; only the bucket label was wrong.
+ *
+ * ⚠ MEMBERSHIP IS A CLAIM ABOUT CEE, AND NOTHING HERE EXECUTES A CHECK OF IT.
+ * `satisfies readonly WireSystemEventType[]` rejects a member that is not a
+ * wire type; it says nothing about whether CEE calls that member `'mutating'`.
+ * Swept 2026-09-05: every mention of `SYSTEM_EVENT_HANDLING` under `src/` and
+ * `scripts/` is prose in a comment, this one included.
+ *
+ * THE REACH WE DO HAVE, stated with its gap: a partition pin in
+ * `freshnessHoldCoversStructuralEdits.spec.ts` asserts that every member of
+ * `WIRE_SYSTEM_EVENT_TYPES` is either in this list or in the held-out seven, so
+ * adding ANY new wire member REDs until it has been adjudicated into one of
+ * them. THE GAP: a kind CEE RE-classifies as `'mutating'` while both UI lists
+ * stay put changes nothing here and REDs nothing — the false affirmative
+ * reopens silently. Only a cross-service derived guard closes that one.
+ */
+export const MODEL_CHANGING_SYSTEM_EVENT_TYPES = [
+  'factor_value_edit',
+  'structural_add',
+  'structural_delete',
+  'structural_rename',
+] as const satisfies readonly WireSystemEventType[]
+
+/** A system event whose dispatch changes the graph CEE holds. */
+export type ModelChangingSystemEventType =
+  (typeof MODEL_CHANGING_SYSTEM_EVENT_TYPES)[number]
+
+/** Membership test for the freshness hold. */
+export function isModelChangingSystemEvent(
+  type: string | undefined,
+): type is ModelChangingSystemEventType {
+  return (MODEL_CHANGING_SYSTEM_EVENT_TYPES as readonly string[]).includes(type ?? '')
+}
+
 /** Event types used only within the UI — never sent to CEE. */
 export type InternalSystemEventType = 'session_resume' | 'undo_draft'
 

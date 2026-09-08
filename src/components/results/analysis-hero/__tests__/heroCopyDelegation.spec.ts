@@ -97,7 +97,7 @@ describe('HERO_COPY.headline.mostLikelyStrongest — no magnitude, no placeholde
    * REGRESSION PIN for a defect this change introduced and an existing
    * readout-tie spec caught: with no comparative probability for the leader,
    * the builder passed the missing-value glyph INTO the sentence, producing
-   * "came out ahead in — of simulated scenarios". A placeholder rendered
+   * "supported in — of simulated scenarios". A placeholder rendered
    * where a quantity belongs is exactly the dishonesty this whole re-anchoring
    * exists to remove.
    */

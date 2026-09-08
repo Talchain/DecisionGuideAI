@@ -72,7 +72,7 @@ import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { useScienceIcons } from '../../hooks/useScienceIcons'
 import { isGraphBadgesEnabled } from '../../../flags'
-import { Sparkles } from 'lucide-react'
+import { FileQuestion } from 'lucide-react'
 
 const baseProps = {
   id: 'factor-1',
@@ -284,78 +284,6 @@ describe('FactorNode', () => {
     // "Missing value. Weakens analysis." text removed — chip only
     expect(screen.queryByText('Missing value. Weakens analysis.')).toBeNull()
     expect(screen.getByText('Help me estimate this')).toBeDefined()
-  })
-
-  // T5: Provenance now handled by science icons (useScienceIcons hook)
-  // Science icons use aria-label, not title attribute
-  it('shows science icon for inferred extraction type (via aria-label)', () => {
-    vi.mocked(useScienceIcons).mockReturnValue([{
-      id: 'olumi-estimate', icon: Sparkles,
-      tooltip: 'Olumi estimated this value. May not match reality.',
-      action: 'Confirm or adjust the value for Salary', colour: 'text-text-light', priority: 3,
-    }])
-    renderFactor({
-      label: 'Salary',
-      type: 'factor',
-      observedState: { value: 0.5, extractionType: 'inferred' },
-    })
-    // Science icon: "Olumi estimated this value. May not match reality."
-    expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
-  })
-
-  it('does not show Olumi estimate icon for explicit extraction type', () => {
-    renderFactor({
-      label: 'Salary',
-      type: 'factor',
-      observedState: { value: 0.5, extractionType: 'explicit' },
-    })
-    expect(screen.queryByLabelText(/Olumi estimated/)).toBeNull()
-  })
-
-  // Provenance combinations — science icons replaced old provenance icons
-  // Combination 1: extractionType='inferred' + source='brief_extraction' → science icon still shows (based on extractionType)
-  it('shows science icon when extractionType=inferred and source=brief_extraction', () => {
-    vi.mocked(useScienceIcons).mockReturnValue([{
-      id: 'olumi-estimate', icon: Sparkles,
-      tooltip: 'Olumi estimated this value. May not match reality.',
-      action: 'Confirm or adjust the value for Salary', colour: 'text-text-light', priority: 3,
-    }])
-    renderFactor({
-      label: 'Salary',
-      type: 'factor',
-      observedState: { value: 0.5, extractionType: 'inferred', source: 'brief_extraction' },
-    })
-    expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
-  })
-
-  // Combination 2: extractionType='inferred' + no source → science icon shows
-  it('shows science icon when extractionType=inferred and no source', () => {
-    vi.mocked(useScienceIcons).mockReturnValue([{
-      id: 'olumi-estimate', icon: Sparkles,
-      tooltip: 'Olumi estimated this value. May not match reality.',
-      action: 'Confirm or adjust the value for Salary', colour: 'text-text-light', priority: 3,
-    }])
-    renderFactor({
-      label: 'Salary',
-      type: 'factor',
-      observedState: { value: 0.5, extractionType: 'inferred' },
-    })
-    expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
-  })
-
-  // Combination 3: source='cee_inference' + extractionType='inferred' → science icon shows
-  it('shows science icon when source=cee_inference and extractionType=inferred', () => {
-    vi.mocked(useScienceIcons).mockReturnValue([{
-      id: 'olumi-estimate', icon: Sparkles,
-      tooltip: 'Olumi estimated this value. May not match reality.',
-      action: 'Confirm or adjust the value for Salary', colour: 'text-text-light', priority: 3,
-    }])
-    renderFactor({
-      label: 'Salary',
-      type: 'factor',
-      observedState: { value: 0.5, extractionType: 'inferred', source: 'cee_inference' },
-    })
-    expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
   })
 
   // T6: Influence/Confidence bars in results mode — only in Layer 2 (Detailed view)
@@ -578,9 +506,9 @@ describe('FactorNode', () => {
   // local-only confirmation action because it has no canonical carrier.
   it('inferred factor keeps science and inspect affordances while confirm value is withheld (P5)', () => {
     vi.mocked(useScienceIcons).mockReturnValue([{
-      id: 'olumi-estimate', icon: Sparkles,
-      tooltip: 'Olumi estimated this value. May not match reality.',
-      action: 'Confirm or adjust the value for Salary', colour: 'text-text-light', priority: 3,
+      id: 'evidence-gap', icon: FileQuestion,
+      tooltip: 'No evidence for this factor. Analysis will use defaults.',
+      action: 'Help me estimate Salary', colour: 'text-warning', priority: 1,
     }])
     renderFactor({
       label: 'Salary',
@@ -589,7 +517,7 @@ describe('FactorNode', () => {
       observedState: { value: 0, extractionType: 'inferred', factor_type: 'binary' },
     })
     // Science icon uses aria-label
-    expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
+    expect(screen.getByLabelText(/No evidence for this factor/)).toBeDefined()
     expect(screen.queryByTitle('Confirm value')).toBeNull()
     // Positive control: the canonical route to inspect and act remains mounted.
     expect(screen.getByTitle('Open details for Salary')).toBeDefined()
@@ -881,15 +809,20 @@ describe('FactorNode', () => {
       )
     })
 
-    it('producer basis: the row discloses the absolute causal influence score', () => {
+    it('producer basis: the row discloses the set-relative scale, like its sibling', () => {
       renderDetailedWithProvenance('influence_score', 0.6)
       const bar = screen.getByRole('progressbar', {
-        name: 'Influence, an absolute causal influence score',
+        name: 'Influence, relative to the strongest factor. The top driver always shows 100%',
       })
       expect(bar.getAttribute('aria-valuenow')).toBe('60')
       const row = screen.getByText('Influence').closest('div')
       expect(row?.getAttribute('title')).toBe(
-        'Influence: how much this factor affects the outcome, as an absolute causal influence score.'
+        // ⚠ THE PRODUCER ARM NAMES ITS OWN QUANTITY, and the two arms are
+        // deliberately NOT one string — #1221's positive control forbids
+        // collapsing them and is right: the scale is shared, the measurement
+        // is not. #1228 changed only that this one stopped calling itself
+        // absolute.
+        "Influence: Olumi's structural influence score, relative to the strongest factor in this run. The top driver always shows 100%."
       )
     })
 
@@ -979,27 +912,13 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(screen.getByText('CHF 500')).toBeDefined()
   })
 
-  // A14: source='cee_inference' — provenance icons removed, science icons handle this
-  // The science icon triggers on extractionType='inferred', not source alone
-  it('A14: source="cee_inference" without extractionType=inferred does not render science icon', () => {
-    renderFactor({
-      label: 'Market rate',
-      type: 'factor',
-      observedState: { value: 0.5, source: 'cee_inference' },
-    })
-    // No extractionType='inferred' → no Olumi estimate science icon
-    expect(screen.queryByLabelText(/Olumi estimated/)).toBeNull()
-  })
-
-  // A15: source='brief_extraction' — old provenance icon removed, science icons based on extractionType
-  it('A15: source="brief_extraction" without extractionType=inferred does not render science icon', () => {
+  // A15: source='brief_extraction' — the old provenance icon is gone.
+  it('A15: source="brief_extraction" renders no "From your brief" provenance icon', () => {
     renderFactor({
       label: 'Revenue',
       type: 'factor',
       observedState: { value: 0.6, source: 'brief_extraction' },
     })
-    // No extractionType='inferred' → no Olumi estimate science icon
-    expect(screen.queryByLabelText(/Olumi estimated/)).toBeNull()
     expect(screen.queryByTitle('From your brief')).toBeNull()
   })
 
@@ -1018,9 +937,9 @@ describe('FactorNode — QA Brief A-series', () => {
   // A17: Contextual value text + science icon are separate elements
   it('A17: contextual value text and science icon are separate elements', () => {
     vi.mocked(useScienceIcons).mockReturnValue([{
-      id: 'olumi-estimate', icon: Sparkles,
-      tooltip: 'Olumi estimated this value. May not match reality.',
-      action: 'Confirm or adjust the value for Item', colour: 'text-text-light', priority: 3,
+      id: 'evidence-gap', icon: FileQuestion,
+      tooltip: 'No evidence for this factor. Analysis will use defaults.',
+      action: 'Help me estimate Item', colour: 'text-warning', priority: 1,
     }])
     renderFactor({
       label: 'Item',
@@ -1030,16 +949,16 @@ describe('FactorNode — QA Brief A-series', () => {
     // Value text exists (contextual) — requires factor_type='binary' post Polish 4 review
     expect(screen.getByText('No item in place')).toBeDefined()
     // Science icon via aria-label
-    expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
+    expect(screen.getByLabelText(/No evidence for this factor/)).toBeDefined()
   })
 
   // A17b: value=0 + extractionType=inferred → contextual text + science icon;
   // B3 withholds the local-only confirmation action.
   it('A17b: inferred zero keeps contextual science and inspect affordances without confirm value', () => {
     vi.mocked(useScienceIcons).mockReturnValue([{
-      id: 'olumi-estimate', icon: Sparkles,
-      tooltip: 'Olumi estimated this value. May not match reality.',
-      action: 'Confirm or adjust the value for Item', colour: 'text-text-light', priority: 3,
+      id: 'evidence-gap', icon: FileQuestion,
+      tooltip: 'No evidence for this factor. Analysis will use defaults.',
+      action: 'Help me estimate Item', colour: 'text-warning', priority: 1,
     }])
     renderFactor({
       label: 'Item',
@@ -1049,7 +968,7 @@ describe('FactorNode — QA Brief A-series', () => {
     // Contextual value display — requires factor_type='binary' post Polish 4 review
     expect(screen.getByText('No item in place')).toBeDefined()
     // Science icon via aria-label
-    expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
+    expect(screen.getByLabelText(/No evidence for this factor/)).toBeDefined()
     expect(screen.queryByTitle('Confirm value')).toBeNull()
     // Positive control: the canonical details path is still available.
     expect(screen.getByTitle('Open details for Item')).toBeDefined()

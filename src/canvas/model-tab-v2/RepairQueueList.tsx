@@ -237,8 +237,17 @@ export function RepairQueueList({
           data-testid={`repair-queue-v2-${q}-count`}
           className={`${typography.panelBody} text-text-light`}
         >
-          {items.length === 1 ? '1 item' : `${items.length} items`}
-          {deferredItems.length > 0 && ` · ${deferredItems.length} left unresolved`}
+          {/* ⚠ NO BARE ZERO. At `items.length === 0` this read "0 items"
+              directly above "Nothing needs attention here." — the same fact
+              twice, one of them a number that only says the other one again.
+              The empty state below is the better sentence, so the count yields
+              to it rather than competing with it. */}
+          {items.length === 0
+            ? null
+            : items.length === 1
+              ? '1 item'
+              : `${items.length} items`}
+          {deferredItems.length > 0 && `${items.length === 0 ? '' : ' · '}${deferredItems.length} left unresolved`}
         </p>
       </header>
 
