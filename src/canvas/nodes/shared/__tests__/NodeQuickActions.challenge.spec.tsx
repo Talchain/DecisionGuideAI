@@ -32,9 +32,21 @@
  *    context menu calls — rather than pasted. A literal here would pass while
  *    the two copies drifted, which is how one idea comes to have two wordings.
  *
- * 4. THE EMPTINESS CONDITION. `option` and `decision` have no challenge prompt
- *    (the menu gates it on `FULL_MENU_KINDS ∪ {goal}`), so they must get NO
- *    button. An affordance that opens nothing is worse than no affordance.
+ * 4. THE EMPTINESS CONDITION — REWRITTEN 8 Sep 2026, BECAUSE IT STOPPED BEING
+ *    TRUE. It read: *"`option` and `decision` have no challenge prompt (the
+ *    menu gates it on `FULL_MENU_KINDS ∪ {goal}`), so they must get NO button.
+ *    An affordance that opens nothing is worse than no affordance."*
+ *
+ *    The principle stands and is what this file still enforces. The FACT
+ *    underneath it does not: the producer now builds a kind-appropriate
+ *    challenge for `decision`, `option` and `constraint`, so the button opens
+ *    onto a real prompt, a live composer and a CEE turn carrying the node's
+ *    kind. What survives is the shape of the guard — the button renders exactly
+ *    where a prompt exists, derived from `CHALLENGE_KINDS`, with `action` held
+ *    out so the gate still discriminates.
+ *
+ *    The old sentence is quoted rather than deleted because a comment that
+ *    outlives its truth is what teaches the next reader to stop checking.
  *
  * 5. A DISCRIMINATING PAIR. Clicking node-a's control must act on node-a and
  *    must NOT act on node-b — binding by identity, not by a value predicate
@@ -51,6 +63,7 @@ import { NodeQuickActions } from '../NodeQuickActions'
 import { buildAskAIPrompt } from '../../../contextMenu/actions'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
+import type { NodeType } from '../../../domain/nodes'
 
 const NODE_A = { id: 'node-a', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Hiring spend' } }
 const NODE_B = { id: 'node-b', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Team productivity' } }
@@ -61,10 +74,18 @@ function seedGraph() {
 
 /** The prompt the CONTEXT MENU would produce for the same node — the one
  *  authority for this copy. Built here rather than pasted so a drift between
- *  the menu's wording and the button's is a RED, not an invisible divergence. */
-function menuChallengePromptFor(node: typeof NODE_A): string {
+ *  the menu's wording and the button's is a RED, not an invisible divergence.
+ *
+ *  ⚠ THE KIND IS A PARAMETER, AND IT HAS TO BE. This helper used to hardcode
+ *  `nodeType: 'factor'`. That was harmless while every challengeable kind got
+ *  one sentence; now that the copy varies by kind, a fixed 'factor' here would
+ *  compare a decision node's button against a FACTOR's expected string — a test
+ *  passing on the wrong object (bind by identity, never by a value predicate
+ *  another object satisfies). It would have read green on a component that
+ *  ignored `nodeType` entirely. */
+function menuChallengePromptFor(node: typeof NODE_A, nodeType: NodeType = 'factor'): string {
   return buildAskAIPrompt(
-    { kind: 'node', nodeId: node.id, nodeType: 'factor', node: node as never, screenPos: { x: 0, y: 0 } },
+    { kind: 'node', nodeId: node.id, nodeType, node: node as never, screenPos: { x: 0, y: 0 } },
     'challenge_element',
   )
 }
@@ -169,11 +190,17 @@ describe('NodeQuickActions — no challenge button where there is no challenge p
   })
 
   /**
-   * The gate must derive from the SAME set the menu gates on. `option` and
-   * `decision` are organisational kinds: the menu builds no "Challenge this"
-   * for them, so a button here would open a prompt that does not exist.
+   * The gate must derive from the SAME set the menu gates on — still true, and
+   * that Set is now `CHALLENGE_KINDS`, which lives beside the copy in the
+   * producer. `action` is the kind held out: it is in `NodeTypeEnum` but is not
+   * user-creatable and has no kind-specific copy, and nothing established that
+   * it is reachable at all.
+   *
+   * This is the case that keeps the gate DISCRIMINATING. Without a kind that
+   * must not render, every positive case below would pass on a component that
+   * renders the button unconditionally.
    */
-  it.each(['option', 'decision'] as const)('renders no challenge button for %s nodes', (kind) => {
+  it.each(['action'] as const)('renders no challenge button for %s nodes', (kind) => {
     useGuidanceStore.setState({ _prefillChat: vi.fn() } as never)
     render(<NodeQuickActions nodeId="node-a" nodeType={kind} label="Hiring spend" />)
 
@@ -181,12 +208,58 @@ describe('NodeQuickActions — no challenge button where there is no challenge p
   })
 
   /** The positive half of the same gate — without this the case above passes
-   *  on a component that renders the button for nothing at all. */
-  it.each(['factor', 'risk', 'outcome', 'goal'] as const)('DOES render a challenge button for %s nodes', (kind) => {
+   *  on a component that renders the button for nothing at all.
+   *
+   *  ⭐ `decision`, `option` and `constraint` are the change: staging
+   *  `80ccf768` rendered no challenge control on any of them. One gate move in
+   *  the producer lights this hover row AND the right-click menu, because this
+   *  component derives from that Set rather than mirroring it. */
+  it.each(['factor', 'risk', 'outcome', 'goal', 'decision', 'option', 'constraint'] as const)('DOES render a challenge button for %s nodes', (kind) => {
     useGuidanceStore.setState({ _prefillChat: vi.fn() } as never)
     render(<NodeQuickActions nodeId="node-a" nodeType={kind} label="Hiring spend" />)
 
     expect(screen.getByTestId('node-action-challenge-node-a')).toBeInTheDocument()
+  })
+
+  /**
+   * THE PAYLOAD CASE FOR THE NEWLY-OPENED KINDS — and the one that proves the
+   * button is not merely present but carries the RIGHT sentence.
+   *
+   * A decision node's control must land the decision copy. Bound by identity
+   * twice over: the expected string is built from the producer at the SAME
+   * kind, and the case additionally asserts the factor sentence was NOT what
+   * arrived — so a component that ignored `nodeType` and passed 'factor'
+   * through REDs here rather than passing on a shared substring.
+   */
+  it('lands the DECISION copy for a decision node, not the generic factor sentence', () => {
+    const prefillChat = vi.fn()
+    const sendMessage = vi.fn()
+    useGuidanceStore.setState({ _prefillChat: prefillChat, _sendMessage: sendMessage } as never)
+    render(<NodeQuickActions nodeId="node-a" nodeType="decision" label="Hiring spend" />)
+
+    fireEvent.click(screen.getByTestId('node-action-challenge-node-a'))
+
+    const expected = menuChallengePromptFor(NODE_A, 'decision')
+    // Sanity: the producer really did vary by kind, so the assertion below
+    // cannot pass by both strings being identical.
+    expect(expected).not.toBe(menuChallengePromptFor(NODE_A, 'factor'))
+    expect(prefillChat).toHaveBeenCalledWith(expected)
+    expect(prefillChat).not.toHaveBeenCalledWith(menuChallengePromptFor(NODE_A, 'factor'))
+    // Still a draft. Widening the gate must not widen the semantic.
+    expect(sendMessage).not.toHaveBeenCalled()
+  })
+
+  it('lands the OPTION copy for an option node, not the generic factor sentence', () => {
+    const prefillChat = vi.fn()
+    useGuidanceStore.setState({ _prefillChat: prefillChat } as never)
+    render(<NodeQuickActions nodeId="node-a" nodeType="option" label="Hiring spend" />)
+
+    fireEvent.click(screen.getByTestId('node-action-challenge-node-a'))
+
+    const expected = menuChallengePromptFor(NODE_A, 'option')
+    expect(expected).not.toBe(menuChallengePromptFor(NODE_A, 'factor'))
+    expect(prefillChat).toHaveBeenCalledWith(expected)
+    expect(prefillChat).not.toHaveBeenCalledWith(menuChallengePromptFor(NODE_A, 'factor'))
   })
 
   it('keeps the challenge button in the tab order and focus-ringed, like its siblings', () => {

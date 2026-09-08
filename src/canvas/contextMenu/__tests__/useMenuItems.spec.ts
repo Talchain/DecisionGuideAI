@@ -35,7 +35,29 @@ vi.mock('../../store', () => {
   }
 })
 
-vi.mock('../actions', () => ({
+/**
+ * ⚠ THIS MOCK WAS A HAND-MAINTAINED ALLOWLIST, AND IT BIT ON 8 Sep 2026.
+ *
+ * A `vi.mock` factory REPLACES the module. This one listed the thirteen action
+ * FUNCTIONS the menu calls, which was fine while `actions.ts` exported nothing
+ * else the menu reads. The moment `useMenuItems` also read `CHALLENGE_KINDS`
+ * and `buildChallengeTooltip` from it, both arrived `undefined` and every node
+ * menu case threw — the estate's dominant defect (a list a human must remember
+ * to sync), in the mock written to isolate the thing being tested.
+ *
+ * It is now `importOriginal`-spread: the real module first, the side-effecting
+ * mutation actions stubbed over it by name. So a NEW export is visible here by
+ * construction, and the copy this file asserts on comes from the real producer
+ * rather than from a fixture that could drift from it. The stubs stay because
+ * these tests assert menu SHAPE, and letting `deleteAction` &c. run would drive
+ * the store.
+ *
+ * Note the direction of the original failure: it was loud (a throw), not green.
+ * The version of this that reads green is a mock listing a PREDICATE the code
+ * later stops using — so keep the spread, not a longer list.
+ */
+vi.mock('../actions', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../actions')>()),
   deleteAction: vi.fn(),
   addNodeAction: vi.fn(),
   addConnectedFactorAction: vi.fn(),
@@ -170,23 +192,57 @@ describe('decision node menu (reduced)', () => {
     kind: 'node', nodeId: 'd1', nodeType: 'decision', node, screenPos: { x: 0, y: 0 },
   }
 
-  it('does NOT include explore, set value, or trace to goal', () => {
+  /**
+   * ⭐ THE NON-WIDENING GUARD, and the reason challenge got its own Set.
+   *
+   * The obvious way to give a Question node "Challenge this" was to add
+   * `decision` to `FULL_MENU_KINDS`. That Set gates FOUR things, so it would
+   * also have handed this node Explore, Set value (Best case / Worst case /
+   * Reset to observed) and Mark as assumption — controls for a kind that has no
+   * range and no observed value, which would render permanently disabled.
+   *
+   * This case is what REDs if a later change reaches for that shortcut.
+   */
+  it('does NOT include explore, set value, trace to goal, or mark as assumption', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
     const ids = getItemIds(result.current)
     expect(ids).not.toContain('explore')
     expect(ids).not.toContain('set-value')
+    expect(ids).not.toContain('mark-assumption')
   })
 
-  it('Ask AI only has Explain (no Challenge)', () => {
+  /**
+   * A team must be able to argue with the QUESTION it is answering. Staging
+   * `80ccf768` withheld it: decision carried ask · inspect · menu only.
+   */
+  it('Ask AI has both Explain and Challenge', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
     const askAI = findItem(result.current, 'ask-ai')
     const subIds = askAI?.submenuItems?.filter((e): e is MenuItemDef => !('type' in e)).map((i) => i.id) ?? []
     expect(subIds).toContain('ask-ai-explain')
-    expect(subIds).not.toContain('ask-ai-challenge')
+    expect(subIds).toContain('ask-ai-challenge')
+  })
+
+  /**
+   * The tooltip must be true for the kind it is shown on. The shipped string
+   * says "argue against this element's current setup" — a Question has no
+   * setup, it has a framing. Bound to the decision entry by identity (the item
+   * id), not by position in the submenu.
+   */
+  it('offers a tooltip about the framing, not about a "current setup"', () => {
+    const { result } = renderHook(() =>
+      useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+    )
+    const askAI = findItem(result.current, 'ask-ai')
+    const challenge = askAI?.submenuItems?.find(
+      (e): e is MenuItemDef => !('type' in e) && e.id === 'ask-ai-challenge',
+    )
+    expect(challenge?.tooltip).toBe('Ask AI to argue this is the wrong question to be asking')
+    expect(challenge?.tooltip).not.toContain('current setup')
   })
 
   it('withholds add connected factor without a receipt-bearing carrier', () => {
@@ -195,6 +251,54 @@ describe('decision node menu (reduced)', () => {
     )
     const ids = getItemIds(result.current)
     expect(ids).not.toContain('add-connected-factor')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Node menu — option
+// ---------------------------------------------------------------------------
+
+describe('option node menu', () => {
+  const node = {
+    id: 'o1', type: 'option', position: { x: 0, y: 0 },
+    data: { label: 'Enter via partnership', kind: 'option' },
+  } as Node
+  const target: NodeTarget = {
+    kind: 'node', nodeId: 'o1', nodeType: 'option', node, screenPos: { x: 0, y: 0 },
+  }
+
+  /** The choices on the table are the other thing a team most wants to
+   *  contest, and staging withheld it. */
+  it('Ask AI has both Explain and Challenge', () => {
+    const { result } = renderHook(() =>
+      useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+    )
+    const askAI = findItem(result.current, 'ask-ai')
+    const subIds = askAI?.submenuItems?.filter((e): e is MenuItemDef => !('type' in e)).map((i) => i.id) ?? []
+    expect(subIds).toContain('ask-ai-explain')
+    expect(subIds).toContain('ask-ai-challenge')
+  })
+
+  it('names the option in its tooltip rather than an "element\'s current setup"', () => {
+    const { result } = renderHook(() =>
+      useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+    )
+    const askAI = findItem(result.current, 'ask-ai')
+    const challenge = askAI?.submenuItems?.find(
+      (e): e is MenuItemDef => !('type' in e) && e.id === 'ask-ai-challenge',
+    )
+    expect(challenge?.tooltip).toBe('Ask AI to argue against this option')
+  })
+
+  /** Same non-widening guard as the decision block: challenge arrives without
+   *  the range-shaped controls an option has no values for. */
+  it('still does NOT include explore or set value', () => {
+    const { result } = renderHook(() =>
+      useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+    )
+    const ids = getItemIds(result.current)
+    expect(ids).not.toContain('explore')
+    expect(ids).not.toContain('set-value')
   })
 })
 
@@ -210,6 +314,22 @@ describe('constraint node menu', () => {
   const target: NodeTarget = {
     kind: 'node', nodeId: 'c1', nodeType: 'constraint', node, screenPos: { x: 0, y: 0 },
   }
+
+  /**
+   * Constraint is included on the strength of its own schema, not by analogy:
+   * `ConstraintNodeDataSchema` carries `constraintType`, `thresholdValue`,
+   * `unit` and `hardConstraint`, so it has more genuinely challengeable setup
+   * than a goal — which already ships the control.
+   */
+  it('Ask AI has both Explain and Challenge', () => {
+    const { result } = renderHook(() =>
+      useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+    )
+    const askAI = findItem(result.current, 'ask-ai')
+    const subIds = askAI?.submenuItems?.filter((e): e is MenuItemDef => !('type' in e)).map((i) => i.id) ?? []
+    expect(subIds).toContain('ask-ai-explain')
+    expect(subIds).toContain('ask-ai-challenge')
+  })
 
   it('does NOT include add connected factor or mark as assumption', () => {
     const { result } = renderHook(() =>

@@ -3,8 +3,7 @@ import { MessageSquare, PanelRight, MoreHorizontal, Zap } from 'lucide-react'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useShowToastSafe } from '../../ToastContext'
-import { askAI, buildAskAIPrompt } from '../../contextMenu/actions'
-import { FULL_MENU_KINDS } from '../../contextMenu/useMenuItems'
+import { askAI, buildAskAIPrompt, CHALLENGE_KINDS } from '../../contextMenu/actions'
 import { requestAsk, canReceiveAsk } from '../../ui/inspector-v2/askSemantic'
 import type { NodeType } from '../../domain/nodes'
 import { openNodeInspector } from './openNodeInspector'
@@ -12,20 +11,32 @@ import { openNodeInspector } from './openNodeInspector'
 /**
  * Does this node type have a generative prompt to offer?
  *
- * ⭐ DERIVED FROM THE MENU'S OWN SET, NEVER MIRRORED. `buildNodeMenu` gates
- * "Challenge this" on `FULL_MENU_KINDS.has(kind) || kind === 'goal'`; this
- * imports that same Set rather than re-listing `factor | risk | outcome`. A
- * hand-copied list here would drift the first time a kind joined or left the
- * menu's gate, and the drift would read as green — the hand-maintained mirror
- * this estate keeps paying for. If the menu stops offering the prompt, this
- * button stops rendering, by construction.
+ * ⭐ DERIVED, NEVER MIRRORED — the principle is unchanged and it is what made
+ * this a one-line change. A hand-copied list here would drift the first time a
+ * kind joined or left the gate, and the drift would read as green.
  *
- * The organisational kinds (`decision`, `option`, `constraint`) get NO button:
- * the menu builds no challenge prompt for them, so a control here would open
- * nothing. An affordance that opens nothing is worse than no affordance.
+ * WHAT MOVED (8 Sep 2026). This used to read
+ * `FULL_MENU_KINDS.has(nodeType) || nodeType === 'goal'`, deriving from the
+ * menu. It now derives from `CHALLENGE_KINDS` in the PRODUCER, which is one
+ * step closer to the fact it was reaching for: a kind is challengeable exactly
+ * when `buildAskAIPrompt` can build a challenge for it. The `|| 'goal'`
+ * epicycle — the one fragment that really was hand-copied into both files —
+ * disappears into the Set.
+ *
+ * ⚠ THE PARAGRAPH THAT USED TO CLOSE THIS BLOCK IS FALSE AND IS REPLACED. It
+ * read: *"The organisational kinds (`decision`, `option`, `constraint`) get NO
+ * button: the menu builds no challenge prompt for them, so a control here would
+ * open nothing. An affordance that opens nothing is worse than no affordance."*
+ * The producer now builds kind-appropriate copy for all three, so the control
+ * opens onto a real prompt, a live composer and an ordinary CEE turn carrying
+ * the node's kind in `selected_elements`. The PRINCIPLE in that last sentence
+ * stands and still governs the gate — `action` is held out on exactly it. The
+ * fact underneath it does not, and it is quoted rather than deleted because a
+ * comment that outlives its truth is what teaches the next reader to stop
+ * checking.
  */
 function hasChallengePrompt(nodeType: NodeType): boolean {
-  return FULL_MENU_KINDS.has(nodeType as string) || nodeType === 'goal'
+  return CHALLENGE_KINDS.has(nodeType)
 }
 
 /**
@@ -222,7 +233,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
    * what a thing does teaches the next reader to stop checking.**
    *
    * WHAT THIS BUTTON ACTUALLY UNBURIES, derived rather than recalled:
-   * "Challenge this" (gated `isFull || isGoal`), "Explore ▸ Trace to goal" and
+   * "Challenge this" (gated `CHALLENGE_KINDS`), "Explore ▸ Trace to goal" and
    * "Select path to goal" (gated `isFull`), "Explain this", Copy and Delete —
    * plus two Graph Lens items, "Isolate this option's paths"
    * (`lens-isolate-option`, option nodes) and "Show sensitivity view"
