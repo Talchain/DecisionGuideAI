@@ -46,6 +46,8 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { useCanvasStore } from '../../../canvas/store'
+import { useAuth } from '../../../contexts/AuthContext'
+import { sanitiseUserId } from '../../../lib/guestIdentity'
 import { commitDecisionRecord } from '../../../services/decisionRecordCommitService'
 import { typography } from '../../../styles/typography'
 import {
@@ -68,33 +70,13 @@ import {
 export const DECISION_RECORD_COPY = {
   title: 'Record the decision',
   subtitle: 'Capture the choice and what would justify revisiting it.',
-  /**
-   * ⚠ THIS NOTE USED TO SAY "Prototype only … Durable saving depends on
-   * identity and Model Management." Leaving it would have been a FALSE
-   * disclosure in the other direction: for a signed-in user the choice, the
-   * confidence, the expectation and the review date now persist to their
-   * account. The note names the split precisely rather than claiming more or
-   * less than is true.
-   */
+  // Before save, identity licenses an attempt, not a claim of remote success.
   persistenceNote:
-    'Your choice, confidence, expectation and review date are saved to your account. The rationale, assumption and revisit trigger stay on this device for this scenario.',
-  /**
-   * ⚠⚠ STILL UNCONSUMED (zero call sites), AND ITS SESSION CLAUSE WAS MADE
-   * FALSE BY THE MOVE TO `localStorage`. Superseded text: ~~'Signed out, so
-   * this stays on this device for this scenario and ends with the browser
-   * session. Sign in to keep a durable record.'~~ — a decision record now
-   * survives the tab closing, so "ends with the browser session" would be a
-   * false disclosure the first time anyone mounted this string.
-   *
-   * ⚠ CORRECTED RATHER THAN DELETED, DELIBERATELY. Retiring the dead constant
-   * is already ROWED in `src/test/guestStorageClaims.ts`'s adjudication for
-   * this file; doing it here would be the "while we're here" expansion, and
-   * leaving a false sentence in the tree for that row to find later is worse
-   * than either. The minimal true edit is to drop the clause that stopped
-   * being true.
-   */
+    'We’ll try to save your choice, confidence, expectation and review date to your account. The rationale, assumption and revisit trigger stay on this device for this scenario.',
   guestNote:
-    'Signed out, so this stays on this device for this scenario. Sign in to keep a durable record.',
+    'Signed out: this record stays on this device for this scenario. It is not saved to an account.',
+  identityPendingNote: 'We’re checking your sign-in. Account saving is not confirmed.',
+  localOnlyNote: 'Account saving is unavailable for this model. The record stays on this device.',
   savedRemoteNote: 'Saved to your account.',
   emptyState:
     'Run an analysis first. There are no analysed options to record a decision against yet.',
@@ -136,6 +118,7 @@ function parseConfidence(raw: string): number {
 }
 
 export function DecisionRecordModal() {
+  const { user, loading } = useAuth()
   const isOpen = useDecisionRecordStore((s) => s.isOpen)
   const close = useDecisionRecordStore((s) => s.close)
   const { showToast, toastElement } = useModalToast('decision-record-toast')
@@ -148,6 +131,16 @@ export function DecisionRecordModal() {
   const resultsStatus = useCanvasStore((s) => s.results.status)
   const analysisHash = useCanvasStore((s) => s.results.hash ?? null)
   const numbering = useCanvasStore((s) => s.optionNumbering)
+  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+  // Optional auth calls guests authenticated too; use the actual identity.
+  // The commit service rechecks identity/capture and confirms a real save.
+  const persistenceNote = loading
+    ? DECISION_RECORD_COPY.identityPendingNote
+    : sanitiseUserId(user?.id) === null
+      ? DECISION_RECORD_COPY.guestNote
+      : typeof currentScenarioId !== 'string' || currentScenarioId === ''
+        ? DECISION_RECORD_COPY.localOnlyNote
+        : DECISION_RECORD_COPY.persistenceNote
 
   /**
    * ⚠⚠ THIS PREDICATE NOW LIVES IN `analysedOptions.ts` AND IS SHARED. It used
@@ -357,7 +350,7 @@ export function DecisionRecordModal() {
           data-testid="decision-record-note"
           className={`mt-2.5 rounded-[9px] border border-panel-border bg-panel px-[9px] py-2 ${typography.panelMeta} text-text-light`}
         >
-          {DECISION_RECORD_COPY.persistenceNote}
+          {persistenceNote}
         </p>
 
         {!hasOptions && (
