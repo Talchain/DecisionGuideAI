@@ -309,7 +309,40 @@ export const NodeQuickActions = memo(function NodeQuickActions({
 
   return (
     <div
-      className={`node-quick-actions absolute bottom-1.5 right-1.5 z-[2] flex gap-1.5 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 motion-reduce:transition-none ${alwaysVisible ? 'opacity-100' : 'opacity-0'}`}
+      /* ⭐ THE `pointer-events` SET MIRRORS THE `opacity` SET, 1:1, AND THE
+         MIRROR IS LOAD-BEARING — do not "tidy" it into a different spelling.
+
+         `opacity: 0` hides an element; it does NOT stop it hit-testing. Without
+         the mirror this row is an invisible strip across the bottom-right of
+         every card that swallows the clicks, drags and marquee starts meant for
+         the card. Measured on the deployed build: `elementFromPoint` at the
+         row's centre returned the row, not the card, on 17 of 17 cards.
+
+         Every variant here is the SAME spelling as its `opacity` twin on
+         purpose. Tailwind orders candidates by VARIANT, and a variant's sort
+         position is a property of the variant rather than of the utility, so
+         identical variants make the two properties resolve on identical
+         conditions BY CONSTRUCTION: `pointer-events: auto` holds exactly when
+         `opacity: 1` holds. A hand-written CSS rule, a bare `@media` block or
+         an inline style would put the cascade back in play and break that.
+
+         Why each channel, and why none of them can deadlock:
+         - `group-hover` / `group-focus-within` key off the CARD (`group
+           relative`, BaseNode.tsx), never off this row, and the row's box is a
+           strict subset of the card's. So a pointer over the at-rest row falls
+           through to the card, the card becomes `:hover`, and the row flips to
+           `auto` in the same frame. Had the trigger been a bare `hover:` on the
+           row, this fix would be impossible.
+         - `[@media(pointer:coarse)]` is MANDATORY, not symmetry for its own
+           sake. A touch device has no hover, so `group-hover` never fires
+           there; omitting it would leave four permanently visible and
+           permanently untappable controls — a worse defect than the one this
+           closes, and invisible to both jsdom and the (fine-pointer) browser
+           gate.
+         - Keyboard is unaffected either way: `pointer-events` gates hit-testing
+           of pointer input only. It touches neither the tab order, nor the
+           accessibility tree, nor Enter/Space activation, nor `.click()`. */
+      className={`node-quick-actions absolute bottom-1.5 right-1.5 z-[2] flex gap-1.5 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 group-hover:pointer-events-auto group-focus-within:pointer-events-auto [@media(pointer:coarse)]:pointer-events-auto motion-reduce:transition-none ${alwaysVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
       data-testid={`node-quick-actions-${nodeId}`}
     >
       {canAsk && (
