@@ -368,7 +368,10 @@ export const ANALYSIS_NEW_COPY = {
     open: 'I disagree',
     edit: 'Edit what you said',
     /** Placed on the textarea. States what happens, so saving is not a guess. */
-    prompt: 'Why? This stays on the card.',
+    prompt: 'Why? This stays on the card in this browser.',
+    notSaved: 'Not saved for next time. Your words are still here — retry, or copy them before leaving.',
+    sessionOnly: 'Kept in this tab only.',
+    scenarioChanged: 'The model on screen changed. Your words have not been saved to it. Copy them or return to the original model before retrying.',
     save: 'Record this',
     cancel: 'Cancel',
     /** Prefix on the standing objection. The user's own words follow. */

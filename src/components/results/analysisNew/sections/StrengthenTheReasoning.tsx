@@ -212,6 +212,8 @@ export function StrengthenTheReasoning({
   const showToast = useShowToastSafe()
   const [disputingId, setDisputingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  const [dissentSaveError, setDissentSaveError] = useState<string | null>(null)
+  const disputeContext = useRef<{ scenarioId: string | null; analysisHash: string | null } | null>(null)
   /**
    * ⭐ THE DURABLE DISSENT FOR THE SCENARIO ON SCREEN.
    *
@@ -237,7 +239,7 @@ export function StrengthenTheReasoning({
    * own words about a decision they never wrote them about.
    */
   const activeScenarioId = useCanvasStore((st) => st.currentScenarioId)
-  const durableDissent = useMemo(() => readDissent(), [dissentEpoch, activeScenarioId])
+  const durableDissent = useMemo(() => readDissent(activeScenarioId), [dissentEpoch, activeScenarioId])
 
   /**
    * ⭐ WHERE FOCUS GOES, AND WHY THIS DIRECTORY HAD NO ANSWER.
@@ -263,10 +265,12 @@ export function StrengthenTheReasoning({
   const openDispute = useCallback(
     (id: string, existing: string, trigger: HTMLButtonElement | null) => {
       disputeTriggerRef.current = trigger
+      disputeContext.current = { scenarioId: activeScenarioId, analysisHash: analysisHash ?? null }
+      setDissentSaveError(null)
       setDisputingId(id)
       setDraft(existing)
     },
-    [],
+    [activeScenarioId, analysisHash],
   )
 
   /** Focus into the composer on open — without it, activating "I disagree"
@@ -365,6 +369,8 @@ export function StrengthenTheReasoning({
   const closeDispute = useCallback(() => {
     setDisputingId(null)
     setDraft('')
+    setDissentSaveError(null)
+    disputeContext.current = null
     // Restore BEFORE the browser settles on body. The trigger is still mounted.
     disputeTriggerRef.current?.focus()
   }, [])
@@ -396,14 +402,23 @@ export function StrengthenTheReasoning({
 
   const commitDispute = useCallback(
     (rec: Recommendation) => {
+      if (!draft.trim()) { closeDispute(); return }
+      const context = disputeContext.current
+      if (!context || context.scenarioId !== useCanvasStore.getState().currentScenarioId) {
+        setDissentSaveError(COPY.dissent.scenarioChanged)
+        return
+      }
       // ⚠ SEED FIRST. `dispute` opens with `if (!record) return`, and this
       // surface never reconciles — so without this the objection would be
       // silently discarded on any finding the OTHER tab had not already
       // recorded, which on a measured run was four of six.
-      seedIfAbsent(rec, analysisHash)
+      seedIfAbsent(rec, context.analysisHash)
       // The store no-ops on an empty reason; closing without recording is the
       // honest outcome, not a silent empty entry.
       dispute(rec.id, draft)
+      // A board without a persisted identity can still keep a session-only
+      // objection. Its standing text explicitly names that narrower scope.
+      if (!context.scenarioId) { closeDispute(); return }
       /**
        * ⭐ AND DURABLY, so it outlives the tab. `strengthenStore` keeps its
        * session scope untouched — its lifecycle statuses are written from the
@@ -415,11 +430,17 @@ export function StrengthenTheReasoning({
        * event carries no run identity at all, so without this a dissent shown
        * beside a later analysis would be a claim the user never made.
        */
-      recordDissent(rec.id, draft, analysisHash)
+      const saved = recordDissent(context.scenarioId, rec.id, draft, context.analysisHash)
       setDissentEpoch((n) => n + 1)
+      if (!saved) {
+        // Do not close/clear the user's new words or let the old durable copy
+        // masquerade as the submitted revision. The same editor can retry.
+        setDissentSaveError(COPY.dissent.notSaved)
+        return
+      }
       closeDispute()
     },
-    [dispute, seedIfAbsent, analysisHash, draft, closeDispute],
+    [dispute, seedIfAbsent, draft, closeDispute],
   )
 
   const retired = useMemo(
@@ -916,6 +937,12 @@ export function StrengthenTheReasoning({
                       className={`${typography.panelBody} w-full rounded border border-panel-border bg-panel-hover px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                       data-testid={`${testId}-disagree-input`}
                     />
+                    {dissentSaveError ? (
+                      <p role="alert" className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+                        data-testid={`${testId}-disagree-save-error`}>
+                        {dissentSaveError}
+                      </p>
+                    ) : null}
                     <div className="mt-1 flex items-center gap-3">
                       <button
                         type="button"
@@ -945,6 +972,11 @@ export function StrengthenTheReasoning({
                       {COPY.dissent.standing}:{' '}
                     </span>
                     {standingDispute}
+                    {!activeScenarioId ? (
+                      <span className={`${typography.panelMeta} text-text-light ml-1`}>
+                        {COPY.dissent.sessionOnly}
+                      </span>
+                    ) : null}
                     {disputeCurrency === 'changed' ? (
                       <span
                         className={`${typography.panelMeta} text-text-light ml-1`}

@@ -21,14 +21,11 @@
  *
  * So: the dissent becomes durable. The lifecycle stays exactly as it is.
  *
- * ── ⚠⚠ WHY EVERY WRITE RE-READS ──────────────────────────────────────────
- * An independent review of PR #1272 faulted a store that read its map once at
- * module init and wrote the whole map back on every save. **A `storage` event
- * listener does NOT fix that** — it is delivered only to OTHER tabs and only
- * AFTER the write, so the losing tab learns about the loss it already caused.
- * The only structural answer is **read-modify-write against live storage**,
- * which is what `record()` does. Per-scenario keys then make a clobber between
- * DIFFERENT scenarios impossible as well.
+ * Each scenario/finding has its own key. Whole-bucket read/modify/write is
+ * not atomic between tabs, even when both read immediately before writing.
+ * Distinct findings cannot overwrite each other; for the SAME finding, the
+ * last completed storage write deliberately replaces the earlier words.
+ * This is browser-local editing, not collaborative text merging.
  *
  * ── ⚠ WHY THE RUN IS STAMPED ─────────────────────────────────────────────
  * A dissent written against one analysis, shown beside a later one with no
@@ -38,9 +35,8 @@
  * holds. Consumers compare it and caveat; they must never assert "changed"
  * from an ABSENCE of a stamp, which is what an older record has.
  */
-import { getCurrentScenarioId } from '../store/scenarios'
-
-const KEY_PREFIX = 'olumi.dissent.v1.'
+const LEGACY_PREFIX = 'olumi.dissent.v1.'
+const KEY_PREFIX = 'olumi.dissent.v2.'
 
 export interface DissentRecord {
   /** The user's words, verbatim and trimmed. Never rewritten. */
@@ -56,30 +52,49 @@ export interface DissentRecord {
 
 type Bucket = Record<string, DissentRecord>
 
-function keyFor(scenarioId: string | null): string | null {
-  return scenarioId ? `${KEY_PREFIX}${scenarioId}` : null
+function scenarioPrefix(scenarioId: string): string {
+  return `${KEY_PREFIX}${encodeURIComponent(scenarioId)}:`
 }
 
-function read(key: string): Bucket {
+function recordKey(scenarioId: string, recommendationId: string): string {
+  return `${scenarioPrefix(scenarioId)}${encodeURIComponent(recommendationId)}`
+}
+
+function isRecord(value: unknown): value is DissentRecord {
+  if (!value || typeof value !== 'object') return false
+  const record = value as Partial<DissentRecord>
+  return typeof record.reason === 'string' && record.reason.trim().length > 0 &&
+    typeof record.at === 'number' && Number.isFinite(record.at) &&
+    (record.analysisHash === undefined || typeof record.analysisHash === 'string')
+}
+
+/** Preserve existing browser records without rewriting an entire legacy bucket. */
+function readLegacy(scenarioId: string): Bucket {
+  const records: Bucket = Object.create(null)
   try {
-    const raw = localStorage.getItem(key)
-    if (!raw) return {}
+    const raw = localStorage.getItem(`${LEGACY_PREFIX}${scenarioId}`)
+    if (!raw) return records
     const parsed = JSON.parse(raw)
-    return parsed?.version === 1 && parsed.records ? (parsed.records as Bucket) : {}
+    if (parsed?.version === 1 && parsed.records && typeof parsed.records === 'object') {
+      for (const [id, record] of Object.entries(parsed.records)) {
+        if (isRecord(record)) records[id] = record
+      }
+    }
   } catch {
-    return {}
+    // Unreadable legacy bytes are not rewritten or asserted as a valid record.
   }
+  return records
 }
 
 /**
  * Record one disagreement durably.
  *
- * ⚠ READ-MODIFY-WRITE, deliberately. It re-reads live storage immediately
- * before writing and merges, so a second tab on the SAME scenario cannot lose
- * the first tab's entry. Returns whether the durable write landed, so the
- * caller can tell the truth about what happened rather than assume.
+ * The caller supplies the displayed scenario, never the shared last-opened
+ * pointer. Independent record keys prevent cross-finding lost updates.
+ * Returns false on storage failure; the caller must keep the unsaved words.
  */
 export function recordDissent(
+  scenarioId: string | null,
   recommendationId: string,
   reason: string,
   analysisHash?: string | null,
@@ -89,15 +104,16 @@ export function recordDissent(
   // An empty reason is a no-op here as it is in `strengthenStore.dispute` — a
   // recorded disagreement with no stated ground is the same silence in a
   // different costume.
-  if (!trimmed) return false
-  const key = keyFor(getCurrentScenarioId())
+  if (!trimmed || !recommendationId || !Number.isFinite(now)) return false
   // No scenario id means no durable home. The caller keeps its in-memory and
   // session copy either way; inventing a global bucket would mix unrelated
   // boards and outlive the thing it describes.
-  if (!key) return false
+  if (!scenarioId) return false
   try {
-    const merged: Bucket = { ...read(key), [recommendationId]: { reason: trimmed, at: now, ...(analysisHash ? { analysisHash } : {}) } }
-    localStorage.setItem(key, JSON.stringify({ version: 1, records: merged }))
+    const record: DissentRecord = { reason: trimmed, at: now, ...(analysisHash ? { analysisHash } : {}) }
+    localStorage.setItem(recordKey(scenarioId, recommendationId), JSON.stringify({
+      version: 2, scenarioId, recommendationId, record,
+    }))
     return true
   } catch {
     return false
@@ -105,14 +121,29 @@ export function recordDissent(
 }
 
 /** Every durable dissent for the scenario on screen. `{}` when there is none. */
-export function readDissent(): Bucket {
-  const key = keyFor(getCurrentScenarioId())
-  if (!key) return {}
+export function readDissent(scenarioId: string | null): Bucket {
+  if (!scenarioId) return {}
+  const records = readLegacy(scenarioId)
   try {
-    return read(key)
+    const prefix = scenarioPrefix(scenarioId)
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i)
+      if (!key?.startsWith(prefix)) continue
+      try {
+        const parsed = JSON.parse(localStorage.getItem(key) ?? 'null')
+        if (parsed?.version === 2 && parsed.scenarioId === scenarioId &&
+            typeof parsed.recommendationId === 'string' &&
+            key === recordKey(scenarioId, parsed.recommendationId) && isRecord(parsed.record)) {
+          records[parsed.recommendationId] = parsed.record
+        }
+      } catch {
+        // One damaged record must not erase unrelated valid records.
+      }
+    }
   } catch {
-    return {}
+    // Storage enumeration can be unavailable. Do not claim a successful write.
   }
+  return records
 }
 
 /**
@@ -145,15 +176,15 @@ export function dissentCurrency(
  * `AuthContext.signOut` opens `if (!session) return`, so on the deployed guest
  * posture — the DEFAULT — sign-out never runs and this is never called. It
  * protects a signed-in user on a shared machine. It does **not** separate two
- * guests, and nothing in the product does: no product-data key is cleared by
- * any sign-out path today. This joins an existing gap rather than closing it.
+ * guests in one browser profile. The existing auth cleanup also invokes this
+ * on some session-expiry paths. No server/team persistence is implied.
  */
 export function clearDurableDissent(): void {
   try {
     const doomed: string[] = []
     for (let i = 0; i < localStorage.length; i += 1) {
       const k = localStorage.key(i)
-      if (k && k.startsWith(KEY_PREFIX)) doomed.push(k)
+      if (k && (k.startsWith(KEY_PREFIX) || k.startsWith(LEGACY_PREFIX))) doomed.push(k)
     }
     for (const k of doomed) localStorage.removeItem(k)
   } catch {

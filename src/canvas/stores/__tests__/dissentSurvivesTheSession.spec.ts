@@ -17,20 +17,19 @@
  *     about a decision they never wrote them about.
  *  2. CROSS-TAB CLOBBER — PR #1272's review faulted a read-once/write-whole-map
  *     store. A `storage` listener cannot fix it (it fires in OTHER tabs, AFTER
- *     the loss); only read-modify-write can.
+ *     the loss); separate per-record writes avoid the lost bucket.
  *  3. A STALENESS LIE — the `disputed` history event carries no run identity at
  *     all, so a dissent read beside a later analysis is a claim never made.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 let scenarioId: string | null = 'scn_alpha'
-vi.mock('../../store/scenarios', () => ({ getCurrentScenarioId: () => scenarioId }))
 
 import {
   recordDissent, readDissent, dissentCurrency, clearDurableDissent,
 } from '../dissentStore'
 
-const PREFIX = 'olumi.dissent.v1.'
+const PREFIX = 'olumi.dissent.v2.'
 const keys = () => Object.keys(localStorage).filter((k) => k.startsWith(PREFIX))
 
 beforeEach(() => {
@@ -40,22 +39,22 @@ beforeEach(() => {
 
 describe('the words outlive the tab', () => {
   it('⭐ a disagreement is written to a durable, scenario-keyed home', () => {
-    expect(recordDissent('strengthen:robustness', 'Our team has spare capacity in Q1.', 'hash_1')).toBe(true)
-    expect(keys()).toEqual([`${PREFIX}scn_alpha`])
-    expect(readDissent()['strengthen:robustness'].reason).toBe('Our team has spare capacity in Q1.')
+    expect(recordDissent(scenarioId, 'strengthen:robustness', 'Our team has spare capacity in Q1.', 'hash_1')).toBe(true)
+    expect(keys()).toEqual([`${PREFIX}scn_alpha:strengthen%3Arobustness`])
+    expect(readDissent(scenarioId)['strengthen:robustness'].reason).toBe('Our team has spare capacity in Q1.')
   })
 
   it('⛔ an empty reason is a no-op — silence in a different costume is still silence', () => {
-    expect(recordDissent('r1', '   ', 'hash_1')).toBe(false)
+    expect(recordDissent(scenarioId, 'r1', '   ', 'hash_1')).toBe(false)
     expect(keys()).toEqual([])
   })
 
   it('⛔ NO SCENARIO ID MEANS NO DURABLE HOME, and it says so rather than inventing one', () => {
     // A global bucket would mix unrelated boards and outlive what it describes.
     scenarioId = null
-    expect(recordDissent('r1', 'a real objection', 'hash_1')).toBe(false)
+    expect(recordDissent(scenarioId, 'r1', 'a real objection', 'hash_1')).toBe(false)
     expect(keys()).toEqual([])
-    expect(readDissent()).toEqual({})
+    expect(readDissent(scenarioId)).toEqual({})
   })
 })
 
@@ -64,43 +63,74 @@ describe('⛔ HARM 1 — false attribution across decisions', () => {
     // `strengthen:robustness` is a literal, identical in every decision. This is
     // the case an unpartitioned store gets wrong, and it is the worst harm
     // available here: not losing the user's words, but misattributing them.
-    recordDissent('strengthen:robustness', 'ALPHA reasoning', 'hash_a')
+    recordDissent(scenarioId, 'strengthen:robustness', 'ALPHA reasoning', 'hash_a')
     scenarioId = 'scn_beta'
-    recordDissent('strengthen:robustness', 'BETA reasoning', 'hash_b')
+    recordDissent(scenarioId, 'strengthen:robustness', 'BETA reasoning', 'hash_b')
 
-    expect(readDissent()['strengthen:robustness'].reason).toBe('BETA reasoning')
+    expect(readDissent(scenarioId)['strengthen:robustness'].reason).toBe('BETA reasoning')
     scenarioId = 'scn_alpha'
-    expect(readDissent()['strengthen:robustness'].reason).toBe('ALPHA reasoning')
+    expect(readDissent(scenarioId)['strengthen:robustness'].reason).toBe('ALPHA reasoning')
     // PRECONDITION for the two reads above: both really are stored, under
     // different keys — otherwise this passes by one of them being absent.
-    expect(keys().sort()).toEqual([`${PREFIX}scn_alpha`, `${PREFIX}scn_beta`])
+    expect(keys().sort()).toEqual([`${PREFIX}scn_alpha:strengthen%3Arobustness`, `${PREFIX}scn_beta:strengthen%3Arobustness`])
   })
 })
 
 describe('⛔ HARM 2 — the cross-tab clobber', () => {
-  it('a write MERGES into live storage rather than overwriting a snapshot', () => {
+  it('a new record preserves unrelated legacy browser records without rewriting the bucket', () => {
     // Another tab wrote this while we were on screen. A read-once/write-whole
     // store — the shape #1272's review faulted — would erase it.
-    localStorage.setItem(`${PREFIX}scn_alpha`, JSON.stringify({
+    localStorage.setItem('olumi.dissent.v1.scn_alpha', JSON.stringify({
       version: 1,
       records: { 'strengthen:broaden': { reason: 'WRITTEN BY THE OTHER TAB', at: 1 } },
     }))
 
-    recordDissent('strengthen:commit', 'written by this tab', 'hash_1')
+    recordDissent(scenarioId, 'strengthen:commit', 'written by this tab', 'hash_1')
 
-    const now = readDissent()
+    const now = readDissent(scenarioId)
     expect(now['strengthen:commit'].reason).toBe('written by this tab')
     // The discriminating half: the other tab's entry SURVIVED.
     expect(now['strengthen:broaden'].reason).toBe('WRITTEN BY THE OTHER TAB')
   })
 
   it('re-recording the same finding replaces only that entry', () => {
-    recordDissent('r1', 'first words', 'hash_1')
-    recordDissent('r2', 'other finding', 'hash_1')
-    recordDissent('r1', 'revised words', 'hash_1')
-    const now = readDissent()
+    recordDissent(scenarioId, 'r1', 'first words', 'hash_1')
+    recordDissent(scenarioId, 'r2', 'other finding', 'hash_1')
+    recordDissent(scenarioId, 'r1', 'revised words', 'hash_1')
+    const now = readDissent(scenarioId)
     expect(now.r1.reason).toBe('revised words')
     expect(now.r2.reason).toBe('other finding')
+  })
+
+  it('same-record overlap deliberately uses the last completed write, never merged prose', () => {
+    const original = Storage.prototype.setItem
+    let once = true
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function(key, value) {
+      if (this === localStorage && key.startsWith(PREFIX) && once) {
+        once = false
+        expect(recordDissent(scenarioId, 'r1', 'Other writer completes first', 'hash_2')).toBe(true)
+      }
+      return original.call(this, key, value)
+    })
+    expect(recordDissent(scenarioId, 'r1', 'This writer completes last', 'hash_1')).toBe(true)
+    expect(readDissent(scenarioId).r1.reason).toBe('This writer completes last')
+  })
+
+  it('v2 overrides only its own legacy entry and leaves the original bytes and other records intact', () => {
+    const legacy = JSON.stringify({ version: 1, records: { r1: { reason: 'Old', at: 1 }, r2: { reason: 'Other', at: 2 } } })
+    localStorage.setItem('olumi.dissent.v1.scn_alpha', legacy)
+    recordDissent(scenarioId, 'r1', 'New', 'hash_2')
+    expect(readDissent(scenarioId)).toMatchObject({ r1: { reason: 'New' }, r2: { reason: 'Other' } })
+    expect(localStorage.getItem('olumi.dissent.v1.scn_alpha')).toBe(legacy)
+  })
+
+  it('malformed entries do not erase valid neighbours or cross a scenario-key boundary', () => {
+    recordDissent('a:b', 'r1', 'A colon belongs to this identity', 'hash_1')
+    recordDissent('a', 'b:r1', 'A different identity', 'hash_2')
+    localStorage.setItem(`${PREFIX}a:broken`, '{bad')
+    expect(readDissent('a:b').r1.reason).toBe('A colon belongs to this identity')
+    expect(readDissent('a')['b:r1'].reason).toBe('A different identity')
+    expect(Object.keys(readDissent('a'))).toEqual(['b:r1'])
   })
 })
 
@@ -120,16 +150,16 @@ describe('⛔ HARM 3 — the staleness lie', () => {
   })
 
   it('the run is stamped at the moment the words are composed', () => {
-    recordDissent('r1', 'words', 'hash_at_compose_time')
-    expect(readDissent().r1.analysisHash).toBe('hash_at_compose_time')
+    recordDissent(scenarioId, 'r1', 'words', 'hash_at_compose_time')
+    expect(readDissent(scenarioId).r1.analysisHash).toBe('hash_at_compose_time')
   })
 })
 
 describe('sign-out clears durable dissent', () => {
   it('⛔ SWEEPS BY PREFIX, so a scenario nobody listed is still cleared', () => {
-    recordDissent('r1', 'alpha', 'h')
-    scenarioId = 'scn_beta'; recordDissent('r1', 'beta', 'h')
-    scenarioId = 'scn_never_listed'; recordDissent('r1', 'gamma', 'h')
+    recordDissent(scenarioId, 'r1', 'alpha', 'h')
+    scenarioId = 'scn_beta'; recordDissent(scenarioId, 'r1', 'beta', 'h')
+    scenarioId = 'scn_never_listed'; recordDissent(scenarioId, 'r1', 'gamma', 'h')
     expect(keys()).toHaveLength(3)
     // CONTRAST CONTROL: an unrelated key must SURVIVE, or the sweep is just
     // localStorage.clear() wearing a prefix.
