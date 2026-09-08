@@ -28,7 +28,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
-import { makeData, openStrategicChallenge } from './analysisNewFixtures'
+import { makeData, makeOption, openStrategicChallenge } from './analysisNewFixtures'
 import type { DecisionResultData } from '../../types'
 
 /**
@@ -38,9 +38,9 @@ import type { DecisionResultData } from '../../types'
  * which is the licensed sentence the first version of this gate deleted.
  */
 const TWO_ARMS = [
-  { id: 'opt_segment', label: 'Segment' },
-  { id: 'opt_defer', label: 'Status quo' },
-] as unknown[]
+  makeOption({ id: 'opt_segment', label: 'Segment', winProbability: 0.62 }),
+  makeOption({ id: 'opt_defer', label: 'Status quo', winProbability: 0.38 }),
+]
 
 const PRODUCER_REASON =
   'none of the factors we could test changed which option leads on its own, and this result mostly held up under the other changes we tested'
