@@ -233,8 +233,14 @@ function ValueLeaf({
     )
   }
 
+  /* ⚠ SAME RULE AS THE SPLIT ARM ABOVE, WHICH ALREADY CARRIES `title={display}`.
+     This arm is the one that did not. It renders every value that is NOT a
+     recognised effect phrase, and `mayShrink` is precisely the flag saying "this
+     one is allowed to be cut" — so it is exactly the set that needs recovery.
+     Undefined when it cannot shrink, so a value that always renders whole does
+     not grow a tooltip that repeats what is already on screen. */
   return (
-    <span className={textClass}>
+    <span className={textClass} title={mayShrink && display ? display : undefined}>
       {display ?? ''}
     </span>
   )
@@ -1134,6 +1140,38 @@ function ValueCell({
            TIMES the label it was starving. The estimate is a hint about a value
            the user has not set; the node's name is how they find the row at
            all. So the hint truncates and the name does not. */
+        /* ⭐⭐ THE HINT TRUNCATES BY DESIGN — SO IT MUST BE RECOVERABLE, AND IT
+           WAS NOT. MEASURED on deployed `80ccf768` (guest, seeded "Customer
+           Data Platform Selection", dock 414px, Model tab): this span rendered
+           a **31px box for content needing 125px** — "Olu" of
+           "Olumi: Moderate (0.5)" — with **no `title`, no `aria-label` and no
+           `sr-only` anywhere above it**. Seven cells in the tab, and they were
+           the ONLY genuinely unrecoverable clipped text on the surface: every
+           `-label` already carries an exact-text `title`, and the relationship
+           phrase is recovered by `ValueLeaf`'s own `title` plus its `sr-only`.
+
+           The arithmetic, so nobody re-opens the layout question by mistake:
+           the cell is 80px and holds two spans SIDE BY SIDE — "Not set" at
+           40.6px with `min-width: auto` (it cannot shrink, and must not: a
+           truncated affordance is a fake one) plus this hint's `ml-2` 8px,
+           leaving 31.4px. `80 = 40.6 + 8 + 31.4`. A `min-w-0` atom beside a
+           `min-width:auto` atom absorbs 100% of the squeeze.
+
+           ⛔ TWO FIXES ARE ALREADY EXCLUDED ON MEASUREMENT — do not re-propose
+           them. (a) WIDENING THE GRID CAP: the column is track 2 of
+           `ModelOutline.tsx:654`, and `minmax(0,5.5rem)` was tried and rejected
+           because a zero-minimum track reserves its cap even when empty and
+           cost four fully-visible option labels. (b) STACKING THE HINT ONTO A
+           SECOND LINE: the `<button>` arm below records that it once did
+           exactly that and the rows measured 42px, which is why
+           `whitespace-nowrap` is on both idle arms.
+
+           So the trade stands — the hint is still the atom that gives — and
+           what changes here is only that giving it up no longer DESTROYS it.
+           `title` on the leaf, not on the wrapping `<button>`, because the
+           button's own "Change this value" is about the affordance and would
+           otherwise be the only thing a hover could ever tell you. */
+        title={`Olumi: ${row.estimateText}`}
         className={`${typography.panelBody} text-text-light ml-2 truncate min-w-0`}
       >
         Olumi: {row.estimateText}
