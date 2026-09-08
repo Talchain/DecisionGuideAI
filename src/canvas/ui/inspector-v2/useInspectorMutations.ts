@@ -641,6 +641,30 @@ export function useEdgeMutations(edgeId: string) {
    * worse of the two. The outcome token is how the gap is disclosed instead, and
    * `edgeDirectionEditIsAssertable` is how a surface gates the affordance
    * PER EDGE before offering it.
+   *
+   * ⚠⚠ THE ONE KNOWN IMPRECISION THIS OPENS, DISCLOSED RATHER THAN LEFT TO BE
+   * DISCOVERED — and it is the first thing to attack in review. CEE demotes
+   * `edge_strength_edit` to a typed refusal while `config.features.graphCas
+   * .rpcEnforce !== true`, which is the DEFAULT-SHADOW posture, and its
+   * per-kind refusal copy reads *"I can't apply this link-strength change in
+   * this version"*. A user who changed DIRECTION is then told about STRENGTH.
+   * CEE's own dispatch table states the standard this falls short of, in terms:
+   * *"a refusal that names the wrong gesture is worse than a generic one,
+   * because it tells the user something false about their own action"*
+   * (`system-events/dispatch.ts`, above `READER_ONLY_REFUSAL_COPY`).
+   *
+   * WHY IT IS SHIPPED ANYWAY, stated so the trade is reviewable rather than
+   * assumed: before this change the same gesture produced SILENCE and an edit
+   * that vanished on reload, which is strictly worse than an imprecise but
+   * non-fabricated refusal. Under `ENFORCE` the write lands and no refusal is
+   * emitted at all.
+   *
+   * THE FIX IS ONE STRING IN THE OTHER REPO, deliberately not made here: that
+   * copy is CEE-owned and its entry now serves two gestures, so it should read
+   * neutrally about which half changed (the table's own header notes an
+   * unlisted kind falls back to *"I can't apply this change"*, which "can never
+   * produce a FALSE sentence"). Scope-expansion rule: named at the boundary,
+   * not crossed.
    */
   const setDirection = useCallback((
     direction: 'positive' | 'negative',
