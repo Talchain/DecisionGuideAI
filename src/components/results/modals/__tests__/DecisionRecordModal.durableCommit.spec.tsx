@@ -51,6 +51,7 @@ vi.mock('../../../../lib/supabase', () => ({
 
 const SCENARIO_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
 const RECORD_ID = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
+const OWNER_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
 
 function optionNode(id: string, label: string) {
   return { id, type: 'option', position: { x: 0, y: 0 }, data: { label } }
@@ -115,6 +116,7 @@ beforeEach(() => {
   // clearing only sessionStorage would leak a record between cases in this file.
   localStorage.clear()
   useDecisionRecordStore.getState()._reset()
+  observeDecisionRecordOwner(OWNER_ID)
   seedAnalysedOptions()
   mockGetSessionIdentity.mockResolvedValue({
     userId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
@@ -137,6 +139,37 @@ afterEach(() => {
 })
 
 describe('durable commit — the wire', () => {
+  it('account B returned during identity lookup never receives account A captured text', async () => {
+    let finish!: (identity: SessionIdentity) => void
+    mockGetSessionIdentity.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    await saveModal()
+    expect(fetchMock).not.toHaveBeenCalled()
+    await act(async () => { finish({ userId: 'account-b', accessToken: 'different-account-token' }) })
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(selectDecisionRecord(useDecisionRecordStore.getState(), SCENARIO_ID)?.remote).toBeNull()
+    expect(screen.getByTestId('decision-record-toast')).toHaveTextContent(DECISION_RECORD_COPY.toastSavedLocalAfterError)
+  })
+
+  it('a newer capture during identity lookup prevents the old capture being sent', async () => {
+    let finish!: (identity: SessionIdentity) => void
+    mockGetSessionIdentity.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    await saveModal()
+    const original = selectDecisionRecord(useDecisionRecordStore.getState(), SCENARIO_ID)!
+    act(() => { useDecisionRecordStore.getState().saveRecord(SCENARIO_ID, { ...original, optionId: 'opt_a' }, 'newer-request') })
+    await act(async () => { finish({ userId: OWNER_ID, accessToken: 'test-access-token' }) })
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(selectDecisionRecord(useDecisionRecordStore.getState(), SCENARIO_ID)?.optionId).toBe('opt_a')
+    expect(screen.queryByTestId('decision-record-toast')).not.toBeInTheDocument()
+  })
+
+  it('identity lookup refusal keeps the local record and reports failure', async () => {
+    mockGetSessionIdentity.mockRejectedValueOnce(new Error('identity lookup failed'))
+    await saveModal()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(selectDecisionRecord(useDecisionRecordStore.getState(), SCENARIO_ID)?.remote).toBeNull()
+    expect(screen.getByTestId('decision-record-toast')).toHaveTextContent(DECISION_RECORD_COPY.toastSavedLocalAfterError)
+  })
+
   it('storage refusal keeps the editable draft and reports failure, not a saved record', async () => {
     const original = Storage.prototype.setItem
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
@@ -173,7 +206,7 @@ describe('durable commit — the wire', () => {
   })
 
   it('an account transition while committing cannot restore notes or announce account success', async () => {
-    observeDecisionRecordOwner('account-a')
+    observeDecisionRecordOwner(OWNER_ID)
     let finish!: (response: Response) => void
     fetchMock.mockImplementation(() => new Promise(resolve => { finish = resolve }))
     await saveModal()
@@ -236,6 +269,7 @@ describe('durable commit — the wire', () => {
   })
 
   it('a guest makes NO network call and is told the LOCAL story, never "saved to your account"', async () => {
+    observeDecisionRecordOwner(null)
     mockGetSessionIdentity.mockResolvedValue({ userId: null, accessToken: null })
     await saveModal()
 

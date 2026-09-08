@@ -156,7 +156,7 @@ export interface DecisionRecordState {
   _rehydrateForTests: () => void
 }
 
-export interface DecisionRecordCapture { clientCommitId: string; ownerEpoch: string }
+export interface DecisionRecordCapture { clientCommitId: string; ownerEpoch: string; ownerId: string | null }
 interface Boundary { ownerId: string | null; epoch: string }
 interface StoredRecord { version: 2; scenarioKey: string; clientCommitId: string; record: DecisionRecord }
 
@@ -284,7 +284,7 @@ export const useDecisionRecordStore = create<DecisionRecordState>((set, get) => 
 
   saveRecord: (scenarioKey, record, clientCommitId = id()) => {
     if (!boundary || !isActive()) { invalidate(); return null }
-    const capture = { clientCommitId, ownerEpoch: boundary.epoch }
+    const capture = { clientCommitId, ownerEpoch: boundary.epoch, ownerId: boundary.ownerId }
     const outcome = scenarioKey === UNSCOPED_SCENARIO_KEY ? 'memory' : write(recordKey(boundary.epoch, scenarioKey), {
       version: 2, scenarioKey, clientCommitId, record: { ...record, remote: null },
     })

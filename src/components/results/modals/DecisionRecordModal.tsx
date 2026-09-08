@@ -312,6 +312,8 @@ export function DecisionRecordModal() {
       expectationStatement: record.expectation ?? '',
       revisitTriggerOrDate: record.revisitTrigger,
       clientCommitId,
+      expectedOwnerId: capture.ownerId,
+      isCurrentCapture: () => useDecisionRecordStore.getState().isCurrentCapture(scenarioKey, capture),
     }).then((result) => {
       // A different capture or account may now own this modal. An old response
       // must neither confirm its text nor close it or toast for the new user.

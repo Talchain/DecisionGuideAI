@@ -71,6 +71,10 @@ export interface DecisionRecordCommitInput {
    * genuinely different commit is never swallowed.
    */
   clientCommitId: string
+  /** Capture-time principal, checked again after asynchronous token retrieval. */
+  expectedOwnerId: string | null
+  /** Local consent/capture fence; never serialised into the request. */
+  isCurrentCapture: () => boolean
 }
 
 export type DecisionRecordCommitResult =
@@ -118,8 +122,18 @@ function readReviewDateSource(raw: unknown): ReviewDateSource {
 export async function commitDecisionRecord(
   input: DecisionRecordCommitInput,
 ): Promise<DecisionRecordCommitResult> {
-  const { accessToken } = await getSessionIdentity()
-  if (!accessToken) {
+  let identity: Awaited<ReturnType<typeof getSessionIdentity>>
+  try { identity = await getSessionIdentity() }
+  catch {
+    return { status: 'error', code: 'identity_unavailable', message: 'We could not confirm the account for this save.' }
+  }
+  const { userId, accessToken } = identity
+  // Awaiting a token can cross an account change or a newer capture. Check
+  // both before dispatch; response-only checks cannot undo sending old text.
+  if (userId !== input.expectedOwnerId || !input.isCurrentCapture()) {
+    return { status: 'error', code: 'capture_changed', message: 'The account or record changed before this save.' }
+  }
+  if (!accessToken || !userId) {
     // Guests genuinely have no records: CEE's RPC refuses an unowned scenario
     // with DR001 by design. Saying "guest" here, rather than attempting the
     // call and reporting an error, keeps the modal's copy honest.
