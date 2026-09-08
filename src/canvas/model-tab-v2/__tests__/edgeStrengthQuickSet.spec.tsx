@@ -107,6 +107,64 @@ describe('edge strength — the quick-set bands', () => {
   })
 
   /**
+   * ⭐⭐ ONE PARSER, PROVEN WITH THE REVIEWER'S OWN COUNTEREXAMPLES.
+   *
+   * The read-back used `Number` while the commit path uses `parseFloat`
+   * (`ModelTabV2Panel.tsx:495`), so the screen and the write disagreed on real
+   * input. A comment in the source claimed they were "one derivation" — which is
+   * precisely what stopped anyone checking.
+   */
+  it.each([
+    // draft      what parseFloat commits   what the band must therefore say
+    ['0x10',      0,                        'negligible'],
+    ['0.7abc',    0.7,                      'strong'],
+    ['  0.3  ',   0.3,                      'moderate'],
+  ])('the band for %s describes the value that would actually be committed', (draft, committed, band) => {
+    // PRECONDITION: pin what the commit path really does with this string, so
+    // the expectation is derived from the producer rather than from my reading.
+    expect(parseFloat(draft as string)).toBe(committed)
+    const h = handlers()
+    render(<ModelRowView row={edgeRow()} tier="plain" commit={editing(draft as string)} editConnected {...h} />)
+    expect(screen.getByTestId('model-row-v2-e-0-value-band-readback').textContent).toBe(band)
+  })
+
+  /**
+   * ⭐⭐ THE READ-BACK REFUSES WHAT THE EMITTER REFUSES.
+   *
+   * `buildEdgeStrengthEditEvent` rejects `magnitude > 1` rather than clamping —
+   * deliberately, because a clamped 1.5 → 1 sends a number the user never
+   * stated. `getStrengthBand` has no domain guard, so 1.5 read as "strong" and
+   * promised a write that silently never happened.
+   */
+  it.each(['1.5', '-2', '99'])('%s is named out of range, not banded', (draft) => {
+    const h = handlers()
+    render(<ModelRowView row={edgeRow()} tier="plain" commit={editing(draft)} editConnected {...h} />)
+    expect(screen.getByTestId('model-row-v2-e-0-value-band-readback').textContent).toBe('out of range')
+    // ...and no pill claims to be the active one for a value that cannot be sent.
+    for (const b of ['weak', 'moderate', 'strong']) {
+      expect(screen.getByTestId(`model-row-v2-e-0-value-band-${b}`).getAttribute('aria-pressed')).toBe('false')
+    }
+  })
+
+  /**
+   * ⭐ THE PILLS ARE NOT INSIDE THE NO-WRAP CELL.
+   *
+   * That cell is contractually `shrink-0 whitespace-nowrap` because it hosts a
+   * text input that must not be squeezed. Three pills inline in an 80px cell on a
+   * 414px dock came to ~330px. This pins the structural fix — pills on their own
+   * line — so a later tidy-up cannot quietly move them back inside.
+   */
+  it('the pills sit OUTSIDE the value cell, on their own wrapping line', () => {
+    const h = handlers()
+    render(<ModelRowView row={edgeRow()} tier="plain" commit={editing('0.5')} editConnected {...h} />)
+    const cell = screen.getByTestId('model-row-v2-e-0-value')
+    const bands = screen.getByTestId('model-row-v2-e-0-value-bands')
+    expect(cell.className).toContain('whitespace-nowrap')
+    expect(cell.contains(bands)).toBe(false)
+    expect(bands.className).toContain('flex-wrap')
+  })
+
+  /**
    * ⭐ THE DISCRIMINATING CASE. Everything above proves the control APPEARS;
    * this proves it is bound to `kind === 'relationship'` and not merely to
    * "a row is being edited". Without it, a mutant that dropped the kind check

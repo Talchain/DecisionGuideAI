@@ -910,6 +910,29 @@ export function ModelRowView({
  * the value REVERTED. A refusal that looks like nothing happened is the same
  * defect as a silent local write, one step later.
  */
+/**
+ * Name the band of a DRAFT, or say nothing.
+ *
+ * ⚠⚠ `parseFloat`, NOT `Number` — AND THAT WAS A REAL DEFECT, not a style choice.
+ * The commit path parses with `parseFloat` (`ModelTabV2Panel.tsx:495`). This
+ * read-back used `Number`, so the two disagreed on real input: `0x10` read
+ * "strong" here and committed `0`; `0.7abc` read "—" here and committed `0.7`.
+ * A comment in this file claimed the display and the commit were "one
+ * derivation"; they were two, and the claim is what made it invisible.
+ *
+ * ⚠ AND IT REFUSES WHAT THE EMITTER REFUSES. `buildEdgeStrengthEditEvent`
+ * rejects `magnitude > 1` rather than clamping, deliberately: a clamped 1.5 → 1
+ * sends a number the user never stated. `getStrengthBand` has no domain guard,
+ * so banding 1.5 as "strong" promised a write that silently never happened.
+ * Out of range says so instead of naming a band.
+ */
+function bandReadback(draft: string): string {
+  const n = parseFloat(draft)
+  if (!Number.isFinite(n)) return '—'
+  if (Math.abs(n) > 1) return 'out of range'
+  return getStrengthBand(n)
+}
+
 function ValueCell({
   row,
   commit,
@@ -938,61 +961,11 @@ function ValueCell({
         // renders it and reports keystrokes; it decides nothing.
         if (onDraftChange && onProposeEdit && onDiscardEdit) {
           return (
-            <span data-testid={testid} className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} inline-flex items-center shrink-0 whitespace-nowrap`}>
-              {/* ⭐ QUICK-SET BANDS — RELATIONSHIPS ONLY, AND PROMOTED, NOT INVENTED.
-                  Paul, 8 Sep 2026: "a really simple, quick, and easy clickable
-                  solution AND a more detailed, exact number for advanced users."
-                  Both halves already existed on `ContestedEdgeCard` (:239 quick-set
-                  pills over STRENGTH_BAND_MIDPOINTS, plus a `customSignedMean`
-                  field); the v2 relationship rows had NEITHER, so a user could only
-                  reach the abstract number. This promotes the existing control
-                  rather than authoring a second one — a duplicate affordance for one
-                  question is this estate's signature defect.
-
-                  ⚠ SIGN IS PRESERVED, NOT SET. These pills choose a MAGNITUDE band
-                  and re-apply whatever sign the draft already carries. Direction is
-                  deliberately NOT a control here: `getDirectionalStrengthLabel` takes
-                  direction as a REQUIRED argument precisely because inferring it from
-                  a number's sign once rendered every direction-less edge as "Strong
-                  positive effect" (ROADMAP 2.263). Adding a direction toggle changes
-                  what the emitter is told the user STATED, so it is a separate,
-                  separately-reviewed change.
-
-                  ⚠ THE MAGNITUDES ARE IMPORTED, NEVER RETYPED. A second copy of the
-                  band midpoints would be a hand-maintained mirror of thresholds that
-                  `strengthBands.ts` owns and that the whole product bands against. */}
-              {row.kind === 'relationship' && (
-                <span className="inline-flex items-center gap-1 mr-2" data-testid={`${testid}-bands`}>
-                  {(['weak', 'moderate', 'strong'] as const).map(band => {
-                    const negative = commit.draft.trim().startsWith('-')
-                    const magnitude = STRENGTH_BAND_MIDPOINTS[band]
-                    const next = `${negative ? '-' : ''}${magnitude}`
-                    const parsed = Number(commit.draft)
-                    const active =
-                      Number.isFinite(parsed) && getStrengthBand(parsed) === band
-                    return (
-                      <button
-                        key={band}
-                        type="button"
-                        data-testid={`${testid}-band-${band}`}
-                        aria-pressed={active}
-                        title={`Set to ${band} (${next})`}
-                        onClick={e => {
-                          e.stopPropagation()
-                          onDraftChange(row.id, next)
-                        }}
-                        className={`${typography.buttonSmall} px-1.5 rounded border ${
-                          active
-                            ? 'border-info text-info'
-                            : 'border-panel-border text-text-light'
-                        }`}
-                      >
-                        {band.charAt(0).toUpperCase() + band.slice(1)}
-                      </button>
-                    )
-                  })}
-                </span>
-              )}
+            <span className="inline-flex flex-col items-start gap-1 min-w-0">
+            <span
+              data-testid={testid}
+              className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} inline-flex items-center shrink-0 whitespace-nowrap`}
+            >
               <input
                 data-testid={`${testid}-input`}
                 // Focus follows the click that opened this input — it replaces
@@ -1032,9 +1005,78 @@ function ValueCell({
                   data-testid={`${testid}-band-readback`}
                   className={`${typography.panelMeta} text-text-light ml-2 whitespace-nowrap`}
                 >
-                  {Number.isFinite(Number(commit.draft)) && commit.draft.trim() !== ''
-                    ? getStrengthBand(Number(commit.draft))
-                    : '—'}
+                  {bandReadback(commit.draft)}
+                </span>
+              )}
+            </span>
+            {/* ⭐⭐ THE PILLS GET THEIR OWN LINE, AND THAT IS THE WHOLE POINT.
+                They were inline inside the cell above — which is contractually
+                `shrink-0 whitespace-nowrap` (`rowAtomsDoNotWrap.spec.tsx`) because
+                it hosts a text input that must not be squeezed. An independent
+                reviewer measured the consequence: the cell is 80px on a 414px
+                dock, the only flexible track floors at 96px, and three pills plus
+                the input come to roughly 330px — a spill this file has recorded
+                once before at 111.1px.
+                ⚠ AND THE GREEN BROWSER GATE WAS BLIND TO IT: `modelRowEditReflow
+                .measure.ts:159-165` takes `buttons[0]`, and four node groups
+                render before `relationships` — so it measured a row where this
+                control never appears, and asserts height only.
+                v1 solved this the same way (`ContestedEdgeCard.tsx:433`): own
+                line, `flex-wrap`. The input row keeps its no-wrap contract
+                untouched; only this second line may wrap. */}
+
+              {/* ⭐ QUICK-SET BANDS — RELATIONSHIPS ONLY, AND PROMOTED, NOT INVENTED.
+                  Paul, 8 Sep 2026: "a really simple, quick, and easy clickable
+                  solution AND a more detailed, exact number for advanced users."
+                  Both halves already existed on `ContestedEdgeCard` (:239 quick-set
+                  pills over STRENGTH_BAND_MIDPOINTS, plus a `customSignedMean`
+                  field); the v2 relationship rows had NEITHER, so a user could only
+                  reach the abstract number. This promotes the existing control
+                  rather than authoring a second one — a duplicate affordance for one
+                  question is this estate's signature defect.
+
+                  ⚠ SIGN IS PRESERVED, NOT SET. These pills choose a MAGNITUDE band
+                  and re-apply whatever sign the draft already carries. Direction is
+                  deliberately NOT a control here: `getDirectionalStrengthLabel` takes
+                  direction as a REQUIRED argument precisely because inferring it from
+                  a number's sign once rendered every direction-less edge as "Strong
+                  positive effect" (ROADMAP 2.263). Adding a direction toggle changes
+                  what the emitter is told the user STATED, so it is a separate,
+                  separately-reviewed change.
+
+                  ⚠ THE MAGNITUDES ARE IMPORTED, NEVER RETYPED. A second copy of the
+                  band midpoints would be a hand-maintained mirror of thresholds that
+                  `strengthBands.ts` owns and that the whole product bands against. */}
+              {row.kind === 'relationship' && (
+                <span className="flex flex-wrap items-center gap-1" data-testid={`${testid}-bands`}>
+                  {(['weak', 'moderate', 'strong'] as const).map(band => {
+                    const negative = commit.draft.trim().startsWith('-')
+                    const magnitude = STRENGTH_BAND_MIDPOINTS[band]
+                    const next = `${negative ? '-' : ''}${magnitude}`
+                    const parsed = parseFloat(commit.draft)
+                    const active =
+                      Number.isFinite(parsed) && Math.abs(parsed) <= 1 && getStrengthBand(parsed) === band
+                    return (
+                      <button
+                        key={band}
+                        type="button"
+                        data-testid={`${testid}-band-${band}`}
+                        aria-pressed={active}
+                        title={`Set to ${band} (${next})`}
+                        onClick={e => {
+                          e.stopPropagation()
+                          onDraftChange(row.id, next)
+                        }}
+                        className={`${typography.buttonSmall} px-1.5 rounded border ${
+                          active
+                            ? 'border-info text-info'
+                            : 'border-panel-border text-text-light'
+                        }`}
+                      >
+                        {band.charAt(0).toUpperCase() + band.slice(1)}
+                      </button>
+                    )
+                  })}
                 </span>
               )}
             </span>
