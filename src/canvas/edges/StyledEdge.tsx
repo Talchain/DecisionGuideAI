@@ -649,7 +649,38 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     () => getEdgeLabel(edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode),
     [edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode],
   )
-  const ariaLabel = `Edge from ${srcTitle} to ${tgtTitle}${confText}, ${edgeDescription.label}`
+  /**
+   * ⛔⛔ AND THE DISCLOSURE TOO — `aria-label` REPLACES DESCENDANT TEXT, SO THE
+   * VISIBLE MARKER IS ANNOUNCED NOWHERE UNLESS THE NAME CARRIES IT.
+   *
+   * The paragraph five lines above already records this exact rule, as a thing
+   * that had been fixed. It recurred: the `est.` marker beside `desc.label`
+   * went in, and the accessible name stayed built from `edgeDescription.label`
+   * alone — so on the assistive channel a producer's unsettled strength and a
+   * strength a human typed were BYTE-IDENTICAL, "Edge from n1 to n2, Moderate
+   * boost (likelihood not set)", after the visible half of the fix had landed.
+   * The marker carries no `aria-hidden`, so it was not deliberately hidden; it
+   * was accidentally suppressed by the name on its own container.
+   *
+   * ⭐ ONE SENTENCE, ONE SOURCE, BOTH CHANNELS. This is the ratified estate
+   * pattern from `NodeMetricRow` — `RiskNode`/`OutcomeNode` pass the SAME
+   * `unconfirmedStrengthDisclosure(...)` string to `title` AND to the
+   * screen-reader `phrase`, "why `phrase` carries the meaning for assistive
+   * tech independently". The cards can use an `sr-only` span because their
+   * container sets no name; this chip DOES set one, and a name overrides
+   * descendants, so on this surface the same pattern is spelled by extending
+   * the name. `ESTIMATE_SUBJECT_TITLE.strength` is the identical constant the
+   * chip's `title` composition below consumes — IMPORTED, never re-typed, so a
+   * reword of the sentence cannot leave the two channels telling different
+   * stories (CLAUDE.md trap 12).
+   *
+   * Gated on `strengthUnconfirmed` alone rather than `showLabel && …`: this
+   * name has exactly one consumer and that consumer already requires
+   * `showLabel` (`aria-label={showLabel ? ariaLabel : fragileSentence}`).
+   */
+  const ariaLabel =
+    `Edge from ${srcTitle} to ${tgtTitle}${confText}, ${edgeDescription.label}` +
+    (strengthUnconfirmed ? `. ${ESTIMATE_SUBJECT_TITLE.strength}` : '')
 
   // Inspect the relationship without claiming a local React-Flow write is a
   // shared-model edit. Inspector v2 owns the visible read-only authority copy.

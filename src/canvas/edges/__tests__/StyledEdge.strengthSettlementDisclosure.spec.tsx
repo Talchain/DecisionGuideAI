@@ -59,6 +59,8 @@ import { StyledEdge } from '../StyledEdge'
 import { Position } from '@xyflow/react'
 import { strengthIsHumanSettled } from '../../domain/edgeStrengthSettlement'
 import { edgeValueSource } from '../../domain/edgeValueProvenance'
+import { UNCONFIRMED_ESTIMATE_LABEL } from '../../domain/vocabulary'
+import { ESTIMATE_SUBJECT_TITLE } from '../../nodes/shared/EstimateMarker'
 
 let mockEdges: Array<Record<string, unknown>> = []
 
@@ -252,10 +254,92 @@ describe('StyledEdge — an unconfirmed strength is disclosed ON THE LINE', () =
 
   it('the disclosure is recoverable: the marker names the act, and the chip title carries the sentence', () => {
     const c = renderEdge(PRODUCER_UNSETTLED)
-    // The sentence a sighted user gets on hover, and the one assistive tech
-    // gets — the estate's `labelRecoverable` rule, applied to this row.
+    // ⚠⚠ THIS COMMENT READ "and the one assistive tech gets", AND THAT HALF WAS
+    // FALSE FOR AS LONG AS IT WAS WRITTEN — measured through this very file's
+    // fixtures: both `title` attributes carried the sentence while the chip's
+    // `aria-label` was BYTE-IDENTICAL across the settled and the unsettled edge.
+    // A `title` is not an accessible name; on a container that sets
+    // `aria-label`, it is not announced at all. Corrected rather than deleted
+    // (CLAUDE.md trap 14 / the estate's own rule): a comment asserting a
+    // guarantee reads as already audited, so nobody re-checks it. The
+    // assistive-channel claim now lives in the two tests below, which measure
+    // it instead of asserting it.
     expect(marker(c), 'no marker to recover a sentence from').not.toBeNull()
     expect(marker(c)!.getAttribute('title')).toContain('not yet confirmed')
     expect(chip(c)!.getAttribute('title')).toContain('not yet confirmed')
+  })
+
+  /**
+   * ⛔⛔ THE ASSISTIVE CHANNEL — THE HALF THE FIRST CUT OF THIS FILE COULD NOT SEE.
+   *
+   * `aria-label` REPLACES descendant text for assistive technology. The chip
+   * sets one (`StyledEdge.tsx`, `aria-label={showLabel ? ariaLabel : …}`), and
+   * that name was built from `edgeDescription.label` ALONE — so the visible
+   * `est.` marker was announced NOWHERE, and on the assistive channel row 2 and
+   * row 3 stayed byte-identical after the visible fix landed. The file already
+   * records this exact rule five lines above the code that builds the name
+   * ("a name that omitted the description announced something different from
+   * what was on screen"); it recurred anyway.
+   *
+   * ⛔ WHY BOTH TESTS, AND WHY THE SECOND IS THE LOAD-BEARING ONE.
+   * `expect(a).not.toBe(b)` is the shape the visible assertion above already
+   * uses, and on its own it is the VACUITY that let this ship: ask what would
+   * have to be true for it to pass while the property fails, and the answer is
+   * "the clause is attached to the WRONG edge" — two labels that differ, with
+   * the disclosure on the edge a human settled. So the difference test is kept
+   * for symmetry with the visible channel, and the binding is done by IDENTITY
+   * in the test after it: the named constant must be present on the unsettled
+   * edge and ABSENT from the settled one. The discriminating mutant pair is
+   * recorded on the PR: inverting the predicate leaves the difference test
+   * GREEN and REDs the identity test.
+   *
+   * ⛔ THE TOKEN IS IMPORTED, NEVER RE-TYPED. `UNCONFIRMED_ESTIMATE_LABEL` is
+   * the domain vocabulary's one spelling of this boundary and
+   * `ESTIMATE_SUBJECT_TITLE.strength` is built from it; a literal here would be
+   * the hand-maintained mirror (CLAUDE.md trap 12) that survives a reword of
+   * the sentence and stops discriminating in silence.
+   */
+  it('THE ASSISTIVE CHANNEL: the unsettled and the settled edge no longer share an accessible name', () => {
+    const unsettled = renderEdge(PRODUCER_UNSETTLED)
+    const settled = renderEdge(USER_SET)
+
+    // PRECONDITION, pinned in-test: both chips DO carry an accessible name, so
+    // a difference below is two names differing and not one name missing.
+    expect(chip(unsettled)!.getAttribute('aria-label')).toBeTruthy()
+    expect(chip(settled)!.getAttribute('aria-label')).toBeTruthy()
+
+    expect(chip(unsettled)!.getAttribute('aria-label')).not.toBe(
+      chip(settled)!.getAttribute('aria-label'),
+    )
+  })
+
+  it("⭐ BOUND BY IDENTITY: the unconfirmed clause is on the UNSETTLED edge's accessible name and on no other", () => {
+    const unsettled = renderEdge(PRODUCER_UNSETTLED)
+    const settled = renderEdge(USER_SET)
+    const adjudicated = renderEdge(THE_DIVERGENT_CASE)
+    const noFigure = renderEdge(NO_FIGURE)
+
+    // The name announces the same sentence the sighted user hovers — one
+    // sentence, one source (`ESTIMATE_SUBJECT_TITLE.strength`), both channels.
+    expect(chip(unsettled)!.getAttribute('aria-label')).toContain(UNCONFIRMED_ESTIMATE_LABEL)
+    expect(chip(unsettled)!.getAttribute('aria-label')).toContain(
+      ESTIMATE_SUBJECT_TITLE.strength,
+    )
+
+    // …and on NO other row. The settled edge, the adjudicated edge (whose value
+    // provenance is still `cee` — the divergent case), and the edge with no
+    // figure at all must each announce nothing about an unconfirmed estimate.
+    expect(chip(settled)!.getAttribute('aria-label')).not.toContain(UNCONFIRMED_ESTIMATE_LABEL)
+    expect(chip(adjudicated)!.getAttribute('aria-label')).not.toContain(
+      UNCONFIRMED_ESTIMATE_LABEL,
+    )
+    expect(chip(noFigure)!.getAttribute('aria-label')).not.toContain(UNCONFIRMED_ESTIMATE_LABEL)
+
+    // CONTRAST CONTROL in the same assertion set: the shared half of the name
+    // is present on every row, so a `not.toContain` above is the clause being
+    // absent and NOT the selector reading an empty attribute.
+    for (const c of [unsettled, settled, adjudicated, noFigure]) {
+      expect(chip(c)!.getAttribute('aria-label')).toContain('Edge from n1 to n2')
+    }
   })
 })
