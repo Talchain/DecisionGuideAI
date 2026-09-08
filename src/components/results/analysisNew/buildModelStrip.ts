@@ -94,13 +94,42 @@ export interface StripNode {
    * value (CLAUDE.md trap 12), which is the exact defect a detail claiming to
    * show "the data behind this" must not have.
    *
-   * `null` is MEANINGFUL and is a different state from "we could not establish
-   * the source": it says the factor carries no value at all.
+   * ⛔ `null` DOES NOT MEAN "THE FACTOR CARRIES NO VALUE" — corrected 8 Sep 2026
+   * after a review found `noValueTotal` counting this field. It means THERE IS NO
+   * TEXT TO DISPLAY, which is a different question. `factorDisplayText` returns
+   * `null` for factors that DO carry a value: a non-binary numeric `value` with
+   * no usable unit (`formatFactorDisplayValue.ts:412`) and a `value`-only binary
+   * with an unset `factor_type` and no matching heuristic arm (`:401`). Counting
+   * those as "no value yet" tells the user something false about their own model.
+   *
+   * Use `hasValue` for the value question. Two questions, two fields, deliberately
+   * not sharing one (CLAUDE.md trap 21).
    *
    * ⚠ FACTORS ONLY. `factorDisplayText` reads an `observedState` that options,
    * risks and outcomes do not carry in this shape.
    */
   valueText: string | null
+  /**
+   * Does this factor CARRY a value — regardless of whether we can render text
+   * for it?
+   *
+   * ⭐ THIS EXISTS BECAUSE `valueText === null` WAS ANSWERING THE WRONG QUESTION.
+   * The review on #1291 found `noValueTotal` derived from the display text, so a
+   * factor with a real `observed_state.value` that `factorDisplayText`
+   * deliberately declines to render was counted as having no value. The strip
+   * would then offer a worklist of factors to fill in that are already filled in.
+   *
+   * ⚠ READ FROM THE RAW FIELDS, and from the SAME ones `stripNodeValueSignature`
+   * reads — so a producer change that moves the value cannot make the count and
+   * the change-detection disagree. Deriving this from a second field list is the
+   * hand-maintained mirror this file already warns about twice.
+   *
+   * ⚠ FACTORS ONLY, like `valueText`: options, risks and outcomes do not carry
+   * `observed_state` in this shape, so `false` for them would be a claim about a
+   * question they were never asked. Non-factors are excluded from the count at
+   * the reducer, not encoded here.
+   */
+  hasValue: boolean
   /**
    * The node's `observed_state.source` literal, VERBATIM — never a class.
    *
@@ -238,6 +267,34 @@ function labelOf(node: { id: string; data?: unknown }): string {
  * ⚠ AND IT DELIBERATELY IGNORES POSITION, which is the whole reason the
  * signature exists. A drag changes `x`/`y` and nothing here.
  */
+/**
+ * Does this node carry a stated value at all?
+ *
+ * ⚠ THE FIELD LIST IS THE SIGNATURE'S, ON PURPOSE. `stripNodeValueSignature`
+ * below reads exactly these fields to decide "did anything change"; if this
+ * predicate read a different set, a value could exist for one and not the other
+ * — two answers to one question, which is how the defect this fixes arose.
+ *
+ * `display_value` counts: a producer that sends only contextual text ("No
+ * acquisition pursued") has stated something about the factor. `unit` and `cap`
+ * do NOT count — they describe a value rather than being one.
+ */
+export function factorCarriesValue(node: { data?: unknown } | undefined): boolean {
+  const n = node as Record<string, unknown> | undefined
+  const inner = n?.data as Record<string, unknown> | undefined
+  const obs = (n?.observedState ??
+    n?.observed_state ??
+    inner?.observedState ??
+    inner?.observed_state) as Record<string, unknown> | undefined
+  if (!obs) return false
+  for (const v of [obs.value, obs.raw_value, obs.display_value]) {
+    if (v === undefined || v === null) continue
+    if (typeof v === 'string' && v.trim() === '') continue
+    return true
+  }
+  return false
+}
+
 export function stripNodeValueSignature(node: { data?: unknown } | undefined): string {
   const n = node as Record<string, unknown> | undefined
   const inner = n?.data as Record<string, unknown> | undefined
@@ -348,6 +405,7 @@ export function buildModelStrip(
       valueText: isFactor
         ? factorDisplayText(node.data as Record<string, unknown> | null | undefined)
         : null,
+      hasValue: isFactor && factorCarriesValue(node),
       valueSource: isFactor ? nodeValueSource(node) : undefined,
     }
     if (bucket) bucket.push(entry)
@@ -378,9 +436,14 @@ export function buildModelStrip(
     ),
     // ⚠ `r.kind === 'factor'` is not tidiness — `valueText` is null for every
     // non-factor by construction, so an unscoped count returns the whole model.
+    // ⚠ `hasValue`, NOT `valueText === null` — see `StripNode.hasValue`. The
+    // display text answers "is there something to render"; this count is a claim
+    // to the user about THEIR MODEL, so it must ask whether a value exists.
+    // `r.kind === 'factor'` still scopes it: non-factors carry no `observed_state`
+    // in this shape, so an unscoped count would return the whole model.
     noValueTotal: rows.reduce(
       (n, r) =>
-        n + (r.kind === 'factor' ? r.nodes.filter((x) => x.valueText === null).length : 0),
+        n + (r.kind === 'factor' ? r.nodes.filter((x) => !x.hasValue).length : 0),
       0,
     ),
   }
