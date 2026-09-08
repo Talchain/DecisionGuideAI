@@ -1,34 +1,57 @@
 /**
- * TWO RATIFIED BORDER MODIFIERS, NEVER BOTH AT ONCE.
+ * THE BORDER VOCABULARY, AFTER PAUL'S RE-RULING (8 Sep 2026).
  *
- * `DESIGN_SYSTEM.md` §"Border vocabulary (ratified, wireframe v4)":
+ * `DESIGN_SYSTEM.md` §"Border vocabulary (ratified, wireframe v4)" named two
+ * border modifiers:
  *
  *   · **Dashed border = "outside your control"** (external factors).
  *   · **Amber border = "needs your judgement"** (a controllable node missing
  *     its value; the goal missing its target).
- *   · "New states must reuse this vocabulary, not invent a third border
- *     treatment."
  *
- * ── THE DEFECT ─────────────────────────────────────────────────────────────
- * `BaseNode` rendered `isIncomplete ? 'border-warning border-dashed'` — BOTH
- * modifiers, on one card, for one state. So every incomplete node also claimed
- * to be **outside the user's control**. On the founder's pre-analysis
- * screenshot four of five OPTIONS rendered that way, and an option is the most
- * within-the-user's-control object on the canvas: the sentence the card was
- * making is not merely clumsy, it is false.
+ * ── WHAT THIS FILE USED TO PIN, AND WHY IT CHANGED ─────────────────────────
+ * It pinned `border-warning` ON the incomplete card, in both directions
+ * (incomplete loses the dash · external keeps it). That amber-REPLACES-the-hue
+ * treatment carried an OPEN QUESTION in `DESIGN_SYSTEM.md` (flagged
+ * 2026-07-16, "Paul to rule"), recorded here as ΔE2000 = 13.9 between
+ * `--warning` and `--danger`.
  *
- * ⚠ THE AMBER IS NOT THE DEFECT AND IS DELIBERATELY UNTOUCHED. Amber-on-
- * incomplete is ratified. `DESIGN_SYSTEM.md` records an OPEN QUESTION about it
- * (flagged 2026-07-16, "Paul to rule") — amber `#FFA656` sits close to the risk
- * border `#EA7B4B`, and the alternative (kind hue + amber badge) would mean
- * re-ruling wireframe v4. That is his call, not this lane's. Measured for it:
- * **ΔE2000 = 13.9** (ΔE76 = 20.1) between `--warning` and `--danger`.
+ * ⭐ PAUL HAS NOW RULED, AND THE MEASUREMENT THAT PROMPTED IT NAMED THE WRONG
+ * COLLISION. Risk was never the worst case:
  *
- * ── WHY BOTH DIRECTIONS ARE ASSERTED ───────────────────────────────────────
+ *   amber vs …      normal   deuteranopia   protanopia
+ *   risk/danger      13.9        9.0           12.3
+ *   GOAL             17.0        5.5            8.6      ← worst
+ *   outcome/success  43.6       19.6           12.8
+ *
+ * (CIEDE2000; dichromat simulation Viénot–Brettel–Mollon 1999.) The rule
+ * explicitly covers *"the goal missing its target"*, so the treatment was least
+ * distinguishable precisely on the node class it most often applies to. And
+ * amber-replacing-the-hue made COLOUR the SOLE channel for the state, which the
+ * design system's own Developer Checklist forbids.
+ *
+ * ── THE RULING, AS IMPLEMENTED ─────────────────────────────────────────────
+ * The kind hue STAYS (`border-goal`, `border-option`, `border-factor`, … from
+ * `colors.ts`). "Needs your judgement" moves to the amber `StatusPill` that
+ * already carried it for factor and goal — now rendered for EVERY node type
+ * `isIncomplete` admits, so the state has ONE carrier rather than a hue for two
+ * node types and a pill for two others.
+ *
+ * ── WHY BOTH DIRECTIONS ARE STILL ASSERTED ─────────────────────────────────
+ * Unchanged, and it is the reason this file exists rather than a new one.
  * Deleting the dash everywhere would be the easy wrong fix: the dash is a REAL
  * signal that external factors depend on. So every case here has its twin — the
  * incomplete node must LOSE the dash, and the external factor must KEEP it, in
  * the same file, or a change that flattened the whole channel would pass.
+ *
+ * ⭐ AND THE RE-RULING ADDS A THIRD DIRECTION, which is strictly more than this
+ * file checked before: the incomplete card must KEEP ITS KIND HUE **and** carry
+ * the badge. A re-ruling that swapped one assertion for a weaker one would be a
+ * regression wearing a decision's clothes.
+ *
+ * ⚠ ASSERTIONS BIND TO EXACT CLASS TOKENS, NOT SUBSTRINGS. `toContain` on the
+ * className string would let `hover:border-option/80` satisfy a
+ * `'border-option'` assertion — a value predicate a different token can meet
+ * (CLAUDE.md trap 19). The card's class list is split and matched token-exact.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -95,9 +118,13 @@ function mockStore(over: Record<string, unknown>) {
   )
 }
 
-/** The card element every assertion below binds to, by role — never by class. */
-const card = (container: HTMLElement) =>
-  container.querySelector('[role="group"]')!.className
+/**
+ * The card element every assertion below binds to, by role — never by class —
+ * returned as its EXACT class tokens so no assertion can be satisfied by a
+ * longer token that merely contains the one it names.
+ */
+const cardTokens = (container: HTMLElement) =>
+  container.querySelector('[role="group"]')!.className.split(/\s+/).filter(Boolean)
 
 function renderFactor(data: Record<string, unknown>) {
   mockStore({ nodes: [{ id: FACTOR_ID, type: 'factor', data }] })
@@ -132,61 +159,75 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-describe('an incomplete node needs judgement — it is not "outside your control"', () => {
-  it('OPTION — amber, and NOT dashed', () => {
+describe('an incomplete node keeps its kind hue and says so in words', () => {
+  it('OPTION — keeps border-option, is NOT amber, is NOT dashed, and carries the badge', () => {
     const { container } = renderIncompleteOption()
     // Pin the precondition IN-TEST: without this the class assertions below
     // could pass on a node that simply never entered the incomplete state.
     expect(screen.getByTestId('overlay-missing-value')).toBeTruthy()
-    const cls = card(container)
-    expect(cls).toContain('border-warning')
-    expect(cls).not.toContain('border-dashed')
+    const tokens = cardTokens(container)
+    // ⭐ THE RE-RULING. This assertion replaces `toContain('border-warning')`
+    // and is strictly stronger: it names the hue that must SURVIVE, so a future
+    // change that swapped amber for any other single colour would RED here.
+    expect(tokens).toContain('border-option')
+    expect(tokens).not.toContain('border-warning')
+    expect(tokens).not.toContain('border-dashed')
+    // ⭐ AND THE CHANNEL THE HUE NO LONGER CARRIES. Without this the ruling is
+    // half-implemented: the amber would be gone and the state unannounced.
+    expect(screen.getByTestId('needs-input-pill')).toBeTruthy()
   })
 
-  it('FACTOR (controllable, no value) — amber, and NOT dashed', () => {
+  it('FACTOR (controllable, no value) — keeps border-factor, not amber, not dashed, and carries the badge', () => {
     const { container } = renderFactor({
       label: 'Hiring rate',
       type: 'factor',
       category: 'controllable',
     })
     expect(screen.getByTestId('overlay-missing-value')).toBeTruthy()
-    const cls = card(container)
-    expect(cls).toContain('border-warning')
-    expect(cls).not.toContain('border-dashed')
+    const tokens = cardTokens(container)
+    expect(tokens).toContain('border-factor')
+    expect(tokens).not.toContain('border-warning')
+    expect(tokens).not.toContain('border-dashed')
+    expect(screen.getByTestId('needs-input-pill')).toBeTruthy()
   })
 })
 
 describe('⛔ THE TWIN — the dash still means what it has always meant', () => {
   /**
-   * The harm the fix above must not cause. Same component, same missing value;
-   * only `category` differs — so a pass here cannot be explained by the fix
-   * having simply deleted the dashed treatment, only by the dash still being
+   * The harm the ruling above must not cause. Same component, same missing
+   * value; only `category` differs — so a pass here cannot be explained by the
+   * change having simply deleted a treatment, only by the dash still being
    * bound to "outside your control".
    */
-  it('EXTERNAL factor with no value — dashed, and NEVER amber', () => {
+  it('EXTERNAL factor with no value — dashed, NEVER amber, and NO badge', () => {
     const { container } = renderFactor({
       label: 'Market rate',
       type: 'factor',
       category: 'external',
     })
-    const cls = card(container)
-    expect(cls).toContain('border-dashed')
-    expect(cls).not.toContain('border-warning')
+    const tokens = cardTokens(container)
+    expect(tokens).toContain('border-dashed')
+    expect(tokens).not.toContain('border-warning')
     // And it is not incomplete at all — `isFactorNeedsInput` exempts external
     // factors, which is what keeps "external NEVER gets amber" true upstream of
     // the border expression rather than only inside it.
     expect(screen.queryByTestId('overlay-missing-value')).toBeNull()
+    // ⭐ THE EXEMPTION HAD TO SURVIVE THE MOVE. Amber leaving the border is not
+    // an excuse to let it arrive as a badge: an external factor is not missing
+    // the user's judgement, it is outside it.
+    expect(screen.queryByTestId('needs-input-pill')).toBeNull()
   })
 
-  it('a factor that has its value is neither amber nor dashed', () => {
+  it('a factor that has its value is neither amber nor dashed, and carries no badge', () => {
     const { container } = renderFactor({
       label: 'Hiring rate',
       type: 'factor',
       category: 'controllable',
       observedState: { value: 0.7, source: 'user_override' },
     })
-    const cls = card(container)
-    expect(cls).not.toContain('border-warning')
-    expect(cls).not.toContain('border-dashed')
+    const tokens = cardTokens(container)
+    expect(tokens).not.toContain('border-warning')
+    expect(tokens).not.toContain('border-dashed')
+    expect(screen.queryByTestId('needs-input-pill')).toBeNull()
   })
 })

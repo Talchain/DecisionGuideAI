@@ -525,32 +525,59 @@ describe('FactorNode', () => {
     expect(screen.getByTitle('Open details for Salary')).toBeDefined()
   })
 
-  // Graph v1.1 wireframe v4: external factors NEVER get amber treatment.
-  // Dashed border = "outside your control"; amber = "needs your judgement".
-  // The two states must not be confused, even when value is missing.
-  it('uses border-factor (not amber, not goal) for external factor with no observed value', () => {
+  // Graph v1.1 wireframe v4: external factors NEVER get the "needs your
+  // judgement" treatment. Dashed border = "outside your control"; the badge =
+  // "needs your judgement". The two states must not be confused, even when the
+  // value is missing.
+  //
+  // ⚠ THESE TWO CASES CHANGED SHAPE ON 8 Sep 2026 (Paul's badge re-ruling) AND
+  // MUST NOT HAVE BEEN WEAKENED BY IT. What each one was DISCRIMINATING:
+  //   · the external case — that a missing value does NOT buy the
+  //     "needs your judgement" treatment when the factor is outside the user's
+  //     control. Its discriminating power came from `not.toContain(...)` on the
+  //     treatment token, paired with the controllable case below, which is the
+  //     same component and the same missing value with only `category` changed.
+  //   · the controllable case — that a missing value DOES earn it.
+  // The treatment token moved from the border to a badge, so both now assert on
+  // the badge, and BOTH ALSO assert the kind hue that used to be replaced. That
+  // is strictly more than either checked before, and the pairing — one node
+  // gets it, its near-twin does not — is preserved exactly.
+  //
+  // ⚠ AND THE ASSERTIONS BIND TOKEN-EXACT. `toContain` on the className string
+  // would let `hover:border-factor/80` satisfy a `'border-factor'` assertion —
+  // a predicate a different token can meet (CLAUDE.md trap 19).
+  const cardTokens = (container: HTMLElement) =>
+    container.querySelector('[role="group"]')!.className.split(/\s+/).filter(Boolean)
+
+  it('external factor with no observed value: keeps border-factor, and gets NO "needs input" badge', () => {
     const { container } = renderFactor({
       label: 'Market rate',
       type: 'factor',
       category: 'external',
-      // No observedState.value — but external factors are exempt from amber.
+      // No observedState.value — but external factors are exempt.
     })
-    const nodeEl = container.querySelector('[role="group"]')
-    expect(nodeEl?.className).not.toContain('border-goal')
-    expect(nodeEl?.className).not.toContain('border-warning')
-    expect(nodeEl?.className).toContain('border-factor')
+    const tokens = cardTokens(container)
+    expect(tokens).not.toContain('border-goal')
+    expect(tokens).not.toContain('border-warning')
+    expect(tokens).toContain('border-factor')
+    expect(screen.queryByTestId('needs-input-pill')).toBeNull()
   })
 
-  it('uses border-warning for any factor with no observed value (controllable)', () => {
+  it('controllable factor with no observed value: KEEPS border-factor (not amber) and gets the badge', () => {
     const { container } = renderFactor({
       label: 'Hiring rate',
       type: 'factor',
       category: 'controllable',
       // No observedState.value
     })
-    const nodeEl = container.querySelector('[role="group"]')
-    expect(nodeEl?.className).not.toContain('border-goal')
-    expect(nodeEl?.className).toContain('border-warning')
+    const tokens = cardTokens(container)
+    expect(tokens).not.toContain('border-goal')
+    // ⭐ THE RE-RULING. This replaces `toContain('border-warning')`: the kind hue
+    // must SURVIVE the incomplete state rather than be replaced by it.
+    expect(tokens).toContain('border-factor')
+    expect(tokens).not.toContain('border-warning')
+    // ⭐ …and the state must still be announced, or the ruling is half-done.
+    expect(screen.getByTestId('needs-input-pill')).toBeTruthy()
   })
 
   // P0 (feedback): binary factor_type + value=0 → contextual text
