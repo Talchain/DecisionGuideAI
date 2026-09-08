@@ -32,6 +32,10 @@ import { NOT_COMPUTED_BADGE, notComputedReasonCopy } from '../../components/resu
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/useAnalysisReady'
+import {
+  DIRECTIVE_DESIGNATION_CAVEAT_COPY,
+  useDirectiveDesignationStore,
+} from '../stores/directiveDesignationStore'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
 
 /** Truncate text at word boundary to avoid mid-word cuts. */
@@ -477,6 +481,42 @@ export const OptionNode = memo((props: NodeProps) => {
   // default would blank the canvas on every legacy payload, or license a claim
   // on every one. Neither term is folded into the other's default.
   const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(useAnalysisAdmission())
+
+  /*
+   * ⭐⭐ THE VISIBLE CAVEAT ON A HIGHLIGHT THE MODEL MAY NOT MAKE (Paul's
+   *    ruling, 8 Sep 2026 — the rework of PR #1284).
+   *
+   * #1284 measured the defect on deployed staging and diagnosed it correctly:
+   * inside ONE HTTP 200 the assistant text said "No single option can be put
+   * forward yet" (twice) while a `ui_directive` told the canvas to highlight
+   * the front-running option, and the canvas obeyed. Every TEXTUAL designation
+   * on this card already withholds — `isRecommended` is false under a refused
+   * licence, so the "Most supported" pill and the robustness badge both go, and
+   * `DecisionNode`'s headline returns `null`. That correct silence is precisely
+   * what made the highlight A SILENT CLAIM: nothing on screen admitted a claim
+   * was being made, and a caveat cannot ride on a two-second pulse.
+   *
+   * #1284's remedy was to suppress the highlight. Paul rejected it and kept the
+   * diagnosis: *"Keep the highlight. Add on-screen text that admits the claim is
+   * being made and states its uncertainty. The caveat must be VISIBLE, not
+   * carried by the animation."*
+   *
+   * ⚠ IT IS A SEPARATE FACT, NOT A RE-DERIVATION. This deliberately does NOT
+   * re-ask "is there a leader" or "is the model licensed" — those are
+   * `verdict`/`modelLicensesComparativeClaim` above, and a second local
+   * expression of either is how two authorities drift apart (trap 21, already
+   * live in this very seam). The store answers the one question neither can:
+   * DID THIS TURN'S DIRECTIVE ACTUALLY POINT HERE. The applicator writes it
+   * only inside the licence gate and rewrites it on every non-stale turn, so a
+   * card cannot show this sentence on a run that did not earn it, and cannot
+   * keep showing it after the turn that did.
+   *
+   * ⚠ BOUND BY IDENTITY, never by a predicate another node could satisfy: the
+   * store holds ONE option id and this compares `props.id` to it.
+   */
+  const isCaveatedDesignation = useDirectiveDesignationStore(
+    (s) => s.caveatedOptionId === props.id,
+  )
 
   /**
    * True only when this node is the leader, a leading option exists at all, AND
@@ -1706,6 +1746,37 @@ export const OptionNode = memo((props: NodeProps) => {
         ) : undefined}
       >
         {/* ===== LAYER 1: Standard body (always visible) ===== */}
+
+        {/* ⭐⭐ THE ADMISSION, FIRST IN THE BODY AND IN THE DEFAULT VIEW.
+            Placed ABOVE the support row rather than below it because it
+            explains why this card is lit — the reader meets the disclosure
+            before the number, not after it. Layer 1, so it is visible without
+            expanding to Detailed: the ruling is that the caveat must be
+            VISIBLE, and a caveat behind a disclosure control is not.
+
+            `text-info` is Olumi's own voice on this canvas — the same token
+            `OlumiAttentionCard` uses for "Olumi on {node}" — so the sentence
+            reads as the product speaking about itself rather than as a datum
+            about the option. It is the only line on the card in that colour.
+
+            ⚠ NOT `aria-hidden`, and it carries no `title`. The neighbouring
+            support row hides its parts from assistive technology and puts the
+            sentence in an `sr-only` span because the bar and the number are
+            three renderings of ONE statistic. This is one rendering of one
+            sentence: hiding it would remove the disclosure from exactly the
+            users who cannot see the highlight it discloses.
+
+            The copy is never re-typed here — `directiveDesignationStore` owns
+            it, and its header carries the reasoning for every clause and for
+            the percentage it deliberately omits. */}
+        {isCaveatedDesignation && (
+          <p
+            className={`${typography.edgeLabel} text-info mt-1.5 m-0`}
+            data-testid={`directive-designation-caveat-${props.id}`}
+          >
+            {DIRECTIVE_DESIGNATION_CAVEAT_COPY}
+          </p>
+        )}
 
         {/* Win probability — bar and percentage on ONE line (post-analysis, both views).
             ⭐ WHY THIS IS ONE LINE AND NOT TWO (Paul, 31 Aug 2026): "Saying the
