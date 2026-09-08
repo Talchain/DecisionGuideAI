@@ -407,13 +407,6 @@ export function ModelStrip({
    */
   const { commit: commitFactorValue } = useFactorValueCommit(editingFor)
 
-  // Nothing on the canvas: the panel's other surfaces already say so, and a
-  // strip of empty rows would be furniture claiming to be information.
-  // ⚠ ONE OWNER — `stripRendersTargetAffordance` asks this same question, and
-  // a second expression of it is how the glance came to suppress a control this
-  // component was not rendering.
-  if (!stripHasContent(strip)) return null
-
   const open = override ?? isPreRun
 
   /**
@@ -626,8 +619,26 @@ export function ModelStrip({
     writeRing(narrowedKey === '' ? [] : narrowedKey.split('|'))
     // `writeRing` is re-created every render and reads only refs and module
     // functions; the key is the whole dependency.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [narrowedKey])
+
+  // Nothing on the canvas: the panel's other surfaces already say so, and a
+  // strip of empty rows would be furniture claiming to be information.
+  // ⚠ ONE OWNER — `stripRendersTargetAffordance` asks this same question, and
+  // a second expression of it is how the glance came to suppress a control this
+  // component was not rendering.
+  //
+  // ⚠⚠ IT MOVED DOWN HERE, AND THE REASON IS A RULE, NOT A PREFERENCE. This
+  // guard used to sit immediately after `useFactorValueCommit`, which put the
+  // two refs and the reconcile effect below an EARLY RETURN — so on a model
+  // with no strip content React saw three fewer hooks and the hook order
+  // changed between renders. The CI lint caught it (`React Hook "useEffect" is
+  // called conditionally`) after the local named gate passed, which is exactly
+  // the gap CLAUDE.md records: a green named gate is necessary and not
+  // sufficient. Everything between the old position and this one is pure
+  // derivation over `strip` — on an empty strip `visible`, `narrowedIds` and
+  // `narrowedKey` are all empty or null and the effect returns without writing
+  // — so the move is behaviour-preserving and the render below is unchanged.
+  if (!stripHasContent(strip)) return null
   const toggleVerify = () => pickWorklist('verify')
   const toggleNoValue = () => pickWorklist('noValue')
 
