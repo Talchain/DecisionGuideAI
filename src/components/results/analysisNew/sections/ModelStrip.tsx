@@ -152,6 +152,18 @@
 
 import { useCallback, useId, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Crosshair, Lightbulb, ListChecks, Pencil } from 'lucide-react'
+/**
+ * ⭐ DERIVED, NOT CHOSEN. The Model tab already answers "what mark means a
+ * factor has no value?" — `ATTENTION_MARK['no-value']`. Picking an icon here
+ * would be a hand-maintained mirror of that answer, and the two surfaces would
+ * drift the first time either changed. I chose `CircleDashed` independently
+ * before finding this map and it happened to agree; that is luck, not a
+ * mechanism, so the import is what makes it a mechanism.
+ * `modelStripDerivesItsNoValueMark.spec` pins the agreement so a divergence REDs.
+ */
+import { ATTENTION_MARK } from '../../../../canvas/model-tab-v2/rowPresentation'
+
+const NoValueMark = ATTENTION_MARK['no-value']
 
 import { useCanvasStore } from '../../../../canvas/store'
 import { UNCONFIRMED_ESTIMATE_LABEL } from '../../../../canvas/domain/vocabulary'
@@ -347,7 +359,16 @@ export function ModelStrip({
    * switch, so no third "clear" button is needed either.
    */
   const [kindFilter, setKindFilter] = useState<MarkKind | null>(null)
-  const [verifyOnly, setVerifyOnly] = useState(false)
+  /**
+   * ⭐ ONE WORKLIST AT A TIME, NOT TWO INDEPENDENT BOOLEANS.
+   * There are two review questions — "is there a value to RATIFY?" and "is
+   * there a value AT ALL?" — and they are deliberately separate predicates
+   * (trap 21). But a reader narrows the strip to ONE worklist; two booleans
+   * would admit a fourth state ("both on") that names an empty intersection,
+   * because `factorIsConfirmable` requires a value and this one requires its
+   * absence. Mutual exclusion by construction beats a guard nobody re-reads.
+   */
+  const [worklist, setWorklist] = useState<'verify' | 'noValue' | null>(null)
   const regionId = useId()
   const subjectId = useId()
   const detailId = useId()
@@ -393,12 +414,23 @@ export function ModelStrip({
    * turn it off. Deriving it heals that with no effect to keep in sync — the
    * same rule `active` follows.
    */
-  const verifyActive = verifyOnly && strip.needsCheckTotal > 0
+  const verifyActive = worklist === 'verify' && strip.needsCheckTotal > 0
+  /** Same stranding guard as `verifyActive`, for the same reason. */
+  const noValueActive = worklist === 'noValue' && strip.noValueTotal > 0
 
   /** The rows as the current narrowing leaves them — see `VisibleRow`. */
   const visible: VisibleRow[] = strip.rows
     .map((row) => {
-      const nodes = verifyActive ? row.nodes.filter((n) => n.needsCheck) : row.nodes
+      const nodes = verifyActive
+        ? row.nodes.filter((n) => n.needsCheck)
+        : noValueActive
+          ? // ⚠ FACTOR ROWS ONLY. `valueText` is null for every non-factor by
+            // construction, so an unscoped filter would keep every option,
+            // risk and outcome and call them valueless.
+            row.kind === 'factor'
+            ? row.nodes.filter((n) => n.valueText === null)
+            : []
+          : row.nodes
       return {
         row,
         nodes,
@@ -417,7 +449,10 @@ export function ModelStrip({
    * canvas rings, and it is derived rather than stored so it cannot drift from
    * what is on screen.
    */
-  const narrowedIds = (kind: MarkKind | null, onlyVerify: boolean): string[] => {
+  const narrowedIds = (
+    kind: MarkKind | null,
+    mode: 'verify' | 'noValue' | null,
+  ): string[] => {
     /**
      * ⚠ NO NARROWING IS NOT "EVERY NODE", AND THE FIRST DRAFT GOT IT WRONG.
      * With both controls off the loop below matches everything, so releasing a
@@ -425,12 +460,16 @@ export function ModelStrip({
      * pointing at a mark and leaving did the same. Two cases in this file
      * caught it. An empty narrowing names nothing; the caller clears.
      */
-    if (kind === null && !onlyVerify) return []
+    if (kind === null && mode === null) return []
     const out: string[] = []
     for (const row of strip.rows) {
       if (kind !== null && row.kind !== kind) continue
+      // Same factor scoping as the visible rows, for the same reason — the ring
+      // and the marks must name the same set or the canvas contradicts the panel.
+      if (mode === 'noValue' && row.kind !== 'factor') continue
       for (const n of row.nodes) {
-        if (onlyVerify && !n.needsCheck) continue
+        if (mode === 'verify' && !n.needsCheck) continue
+        if (mode === 'noValue' && n.valueText !== null) continue
         out.push(n.id)
       }
     }
@@ -445,8 +484,15 @@ export function ModelStrip({
    * row used to blank the selection the reader had just made. The gesture
    * returns the channel to the narrowing's state, not to empty.
    */
+  /** The worklist as the stranding guards leave it — never the raw state. */
+  const activeMode: 'verify' | 'noValue' | null = verifyActive
+    ? 'verify'
+    : noValueActive
+      ? 'noValue'
+      : null
+
   const restoreRing = () => {
-    const ids = narrowedIds(kindFilter, verifyActive)
+    const ids = narrowedIds(kindFilter, activeMode)
     if (ids.length > 0) ringNodes(ids)
     else clearHighlight()
   }
@@ -454,20 +500,22 @@ export function ModelStrip({
   const pickKind = (kind: MarkKind) => {
     const next = kindFilter === kind ? null : kind
     setKindFilter(next)
-    setVerifyOnly(false)
-    const ids = narrowedIds(next, false)
+    setWorklist(null)
+    const ids = narrowedIds(next, null)
     if (ids.length > 0) ringNodes(ids)
     else clearHighlight()
   }
 
-  const toggleVerify = () => {
-    const next = !verifyActive
-    setVerifyOnly(next)
+  const pickWorklist = (mode: 'verify' | 'noValue') => {
+    const next = activeMode === mode ? null : mode
+    setWorklist(next)
     setKindFilter(null)
     const ids = narrowedIds(null, next)
     if (ids.length > 0) ringNodes(ids)
     else clearHighlight()
   }
+  const toggleVerify = () => pickWorklist('verify')
+  const toggleNoValue = () => pickWorklist('noValue')
 
   /**
    * Resolved against the VISIBLE rows — see `activeNodeId`.
@@ -706,6 +754,40 @@ export function ModelStrip({
           </button>
         ) : null}
 
+        {/* ── THE SECOND WORKLIST ──────────────────────────────────────────
+            ⭐⭐ THE STRIP WAS QUIETEST ON THE MODELS WITH LEAST IN THEM.
+            `needsCheck` is `factorIsConfirmable`, which REQUIRES a value, so a
+            factor with none cannot be "to verify" and had no affordance here at
+            all. Measured on deployed `80ccf768` (guest, seeded "Customer Data
+            Platform Selection"): the Model tab's own outline heading read "2
+            with no value yet" while this strip offered nothing.
+
+            ⚠ A SECOND COUNT, NOT A WIDER PREDICATE. Widening
+            `factorIsConfirmable` would re-ship the defect its narrowing fixed —
+            "an enabled Confirm that silently did nothing" (`FactorsSection.tsx`).
+            Two questions, named apart.
+
+            Same rules as the toggle above, deliberately: renders only above
+            zero, amber keeps the hue and the ring carries pressed, and the
+            criterion is a visible sentence rather than a `title`. */}
+        {strip.noValueTotal > 0 ? (
+          <button
+            type="button"
+            onClick={toggleNoValue}
+            aria-pressed={noValueActive}
+            aria-label={COPY.modelStrip.noValueToggleName(strip.noValueTotal)}
+            className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full px-2 py-0.5 mb-1 ml-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+              noValueActive
+                ? 'bg-warning/20 text-warning ring-1 ring-warning'
+                : 'bg-warning/10 text-warning hover:bg-warning/20'
+            }`}
+            data-testid={`${testId}-no-value-toggle`}
+          >
+            <NoValueMark className="w-3 h-3" aria-hidden={true} />
+            {COPY.modelStrip.noValueCount(strip.noValueTotal)}
+          </button>
+        ) : null}
+
         {/* ⚠ THE CRITERION, VISIBLE AND ONLY WHILE IT APPLIES. "3 to verify"
             does not say what qualified them, and a `title` would put that
             explanation out of reach of touch entirely. */}
@@ -715,6 +797,15 @@ export function ModelStrip({
             data-testid={`${testId}-narrowed-note`}
           >
             {COPY.modelStrip.toVerifyNarrowed}
+          </p>
+        ) : null}
+
+        {noValueActive ? (
+          <p
+            className={`${typography.panelMeta} text-text-light m-0 mb-1`}
+            data-testid={`${testId}-no-value-narrowed-note`}
+          >
+            {COPY.modelStrip.noValueNarrowed}
           </p>
         ) : null}
 

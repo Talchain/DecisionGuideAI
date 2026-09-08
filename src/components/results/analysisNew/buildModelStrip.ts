@@ -159,6 +159,39 @@ export interface ModelStrip {
    * different number for the same model.
    */
   needsCheckTotal: number
+  /**
+   * How many FACTORS carry no value at all — `valueText === null`.
+   *
+   * ⭐⭐ THE STATE `needsCheckTotal` CANNOT SEE, AND THE STRIP WAS SILENT ON IT.
+   * `needsCheck` is `factorIsConfirmable`, i.e. `factorNeedsVerification &&
+   * factorHasConfirmableValue`, so **a factor with no value cannot be "to
+   * verify"** — there is nothing to ratify. The worklist therefore renders
+   * nothing on exactly the models with the least in them, which is the inverse
+   * of what a review signal is for. Measured on the deployed build
+   * `80ccf768` (guest, seeded "Customer Data Platform Selection"): the Model
+   * tab's own outline heading read **"2 with no value yet"** while the
+   * Reasoning strip offered no review affordance at all.
+   *
+   * ⚠ THIS IS NOT A WIDENING OF `factorIsConfirmable`, AND MUST NEVER BECOME
+   * ONE. That narrowing was itself a fix — `utils.ts` records it as "narrowed
+   * 19 Aug", and `FactorsSection.tsx` records what it fixed: "an enabled
+   * Confirm that silently did nothing". Two questions, named apart (trap 21):
+   * *is there a value to RATIFY?* and *is there a value AT ALL?* This is a
+   * SECOND count beside the first, never a replacement for it.
+   *
+   * ⚠ READ FROM `valueText`, WHICH IS `factorDisplayText` — the estate's shared
+   * entry point, the same one `FactorNode` and the inspector-v2 panels call. So
+   * a factor Olumi has estimated is NOT counted here (its `display_value`
+   * yields text), which is the same line `ModelOutline.unsetSummary` draws when
+   * it separates "with no value yet" from "estimated by Olumi". No second
+   * predicate over the same question (trap 12).
+   *
+   * ⚠ FACTORS ONLY, AND THE SCOPING IS LOAD-BEARING RATHER THAN TIDY.
+   * `valueText` is `null` for every non-factor BY CONSTRUCTION (see the field),
+   * so a count that forgot to scope would return every option, risk and
+   * outcome in the model and read as a catastrophe.
+   */
+  noValueTotal: number
 }
 
 const ROW_ORDER: ReadonlyArray<{ kind: StripRow['kind']; label: string }> = [
@@ -341,6 +374,13 @@ export function buildModelStrip(
     total: rows.reduce((n, r) => n + r.nodes.length, 0),
     needsCheckTotal: rows.reduce(
       (n, r) => n + r.nodes.filter((x) => x.needsCheck).length,
+      0,
+    ),
+    // ⚠ `r.kind === 'factor'` is not tidiness — `valueText` is null for every
+    // non-factor by construction, so an unscoped count returns the whole model.
+    noValueTotal: rows.reduce(
+      (n, r) =>
+        n + (r.kind === 'factor' ? r.nodes.filter((x) => x.valueText === null).length : 0),
       0,
     ),
   }

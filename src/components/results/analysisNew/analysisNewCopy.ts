@@ -766,6 +766,36 @@ export const ANALYSIS_NEW_COPY = {
      * and suppressed by many browsers. Rendered only while the filter is on.
      */
     toVerifyNarrowed: 'Showing only factors carrying a number nobody has confirmed.',
+    /**
+     * ⚠⚠ `noValueCount`, NOT `noValue` — AND THE NAME IS THE FIX FOR A DEFECT
+     * I SHIPPED INTO THIS FILE WHILE WRITING THE COMMENT BELOW ABOUT EXACTLY
+     * THIS TRAP. `modelStrip.noValue` ALREADY EXISTS twenty lines up as the
+     * DETAIL panel's `'No value set'` string. A duplicate literal key silently
+     * won at runtime, the detail's value line rendered a function, and three
+     * existing specs went red — `modelStripFactorValueEdit` twice and
+     * `stripDetailReflectsTheEdit` once. They were green at pristine, so the
+     * regression was mine and the baseline is what proved it.
+     * Two questions under one name (trap 21): *what does this cell say when a
+     * factor has no value?* and *how many factors have none?*
+     *
+     * ⭐ THE OTHER HALF OF THE SENTENCE DIRECTLY ABOVE. `toVerify`'s own note
+     * says it "says nothing about the factors with no number at all — those
+     * are excluded by the predicate's value guard and are a different question
+     * the Model tab names `no-value`". This is that question, and the wording
+     * is NOT invented here: `ModelOutline.unsetSummary` already renders
+     * `${nothing} with no value yet` on the Model tab, so the two surfaces name
+     * one state with one phrase rather than teaching two vocabularies.
+     *
+     * ⚠ A COUNT, NEVER A JUDGEMENT. It says N factors carry nothing; it does
+     * not say the model is incomplete, and it excludes factors Olumi has
+     * estimated — those have text and are a different clause on the Model tab.
+     */
+    noValueCount: (n: number) =>
+      n === 1 ? '1 with no value yet' : `${n} with no value yet`,
+    /** Label-in-name, exactly as `toVerifyToggleName`. */
+    noValueToggleName: (n: number) =>
+      `${n === 1 ? '1 with no value yet' : `${n} with no value yet`} — show only these factors`,
+    noValueNarrowed: 'Showing only factors that carry no value at all.',
     /** A row is a filter. Accessible name; the row's own word is the visible half. */
     onlyKind: (label: string) => `Show only ${label}`,
     /**
