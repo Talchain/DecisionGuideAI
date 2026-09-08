@@ -9,6 +9,7 @@ import { useCallback } from 'react'
 import { useCanvasStore } from '../../store'
 import type { RiskImpact } from '../../domain/nodes'
 import { useOptionalConversationContext } from '../../conversation/ConversationContext'
+import { buildEdgeStrengthEditEvent } from '../../conversation/edgeStrengthEdit'
 
 // ─── Editor-written-field manifest (single source of truth) ────────────
 //
@@ -457,9 +458,57 @@ export function useNodeMutations(nodeId: string) {
   }
 }
 
+/**
+ * How an edge-strength commit left the seam.
+ *
+ * ⭐⭐ FOUR TOKENS, NOT THE REFERENCE'S THREE, AND THE FOURTH IS THE POINT.
+ * `FactorValueProposalOutcome` (`canvas/hooks/useModelEditAuthority.ts`) is
+ * `dispatched | local_only | not_encodable`, and the standing rule it exists to
+ * enforce is that a NON-SAVE IS NEVER FLATTENED INTO "SAVED" — a boolean return
+ * would have made the collapse the path of least resistance.
+ *
+ * Edge strength has one non-save the factor path does not: an edit that landed
+ * LOCALLY but could not be encoded for the wire, because the edge's `expected`
+ * tuple is not assertable (its weight or direction is a UI default, so we do not
+ * know what the server holds). Folding that into `local_only` would put two
+ * genuinely different states under one name — this estate's signature defect,
+ * CLAUDE.md trap 21 — and the two need opposite follow-ups: `local_only` is
+ * fixed by mounting a ConversationProvider, `not_wire_encodable` is fixed by
+ * the model gaining a producer-stated strength for that edge.
+ *
+ * - `dispatched`         — the local write landed AND the wire event is with the
+ *                          conversation dispatcher. NOT a claim that the server
+ *                          accepted it: CEE may answer a typed refusal (see
+ *                          `edgeStrengthEdit.ts` on the `rpcEnforce` gate), and
+ *                          nothing here can observe that.
+ * - `local_only`         — the local write landed; no ConversationProvider is
+ *                          mounted, so no turn was sent. The same degradation
+ *                          every other setter has: isolated renders edit
+ *                          locally, never throw.
+ * - `not_wire_encodable` — the local write landed; the edit could not be
+ *                          truthfully described to the server, so it was not
+ *                          sent. The user's edit is real on this canvas and the
+ *                          server does not have it.
+ * - `not_encodable`      — nothing happened anywhere. No such edge, or a
+ *                          non-finite number.
+ *
+ * ⚠ NO CALLER READS THIS TOKEN YET, and that is recorded rather than hidden.
+ * Four call sites drive `setStrength` and all four ignore the return. The token
+ * exists so the states are NAMEABLE and testable at the seam; giving each one a
+ * user-visible sentence is a copy change, and a sibling lane owns copy today.
+ * Under the reachable posture CEE itself discloses the refusal in the
+ * conversation, which is the estate's existing channel for exactly this.
+ */
+export type EdgeStrengthCommitOutcome =
+  | 'dispatched'
+  | 'local_only'
+  | 'not_wire_encodable'
+  | 'not_encodable'
+
 // ─── Edge mutations ────────────────────────────────────────────────
 export function useEdgeMutations(edgeId: string) {
   const updateEdge = useCanvasStore(s => s.updateEdge)
+  const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
   const getEdge = useCallback(() => {
     return useCanvasStore.getState().edges.find(e => e.id === edgeId)
   }, [edgeId])
@@ -498,9 +547,21 @@ export function useEdgeMutations(edgeId: string) {
    * weightSource}` — byte-identical in shape to the hand-rolled write the Model
    * tab used to do, now inside the manifest.
    */
-  const setStrength = useCallback((mean: number, opts?: { preserveDirection?: boolean }) => {
+  const setStrength = useCallback((
+    mean: number,
+    opts?: { preserveDirection?: boolean },
+  ): EdgeStrengthCommitOutcome => {
     const edge = getEdge()
-    if (!edge) return
+    if (!edge) return 'not_encodable'
+    if (!Number.isFinite(mean)) return 'not_encodable'
+    // Built from the edge as it was BEFORE the local write — `expected` is an
+    // assertion about the PAST, and the same read feeds both halves so the wire
+    // event and the store update can never describe different edges.
+    const event = buildEdgeStrengthEditEvent({
+      edge,
+      requestedMean: mean,
+      preserveDirection: opts?.preserveDirection,
+    })
     const absWeight = Math.abs(mean)
     updateEdge(edgeId, {
       data: {
@@ -520,7 +581,26 @@ export function useEdgeMutations(edgeId: string) {
         weightSource: 'user',
       },
     })
-  }, [edgeId, updateEdge, getEdge])
+
+    // ⭐ THE LOCAL WRITE ABOVE IS UNCONDITIONAL, AND THAT IS A DECISION, NOT AN
+    // OVERSIGHT. `useModelEditAuthority.proposeFactorValue` fails CLOSED — an
+    // unencodable factor value writes nothing at all — and the temptation is to
+    // copy that here. It would be wrong: a factor value has a wire carrier for
+    // every reachable value, whereas an edge whose weight came from
+    // `DEFAULT_EDGE_DATA` has no assertable `expected` AT ALL, so failing
+    // closed would make the slider do NOTHING for a whole class of edges. That
+    // trades a disclosed gap for a silently dead control, which is the worse of
+    // the two. The outcome token below is how the gap is disclosed instead.
+    if (!event) return 'not_wire_encodable'
+    if (!sendSystemEvent) return 'local_only'
+    void Promise.resolve(sendSystemEvent(event)).catch(() => {
+      // Swallowed deliberately, exactly as `proposeFactorValue` and
+      // `setPriorRange` do: a genuine send failure is recorded by the
+      // conversation's own failure channel, and a server REFUSAL is not a
+      // failure — the promise resolves normally.
+    })
+    return 'dispatched'
+  }, [edgeId, updateEdge, getEdge, sendSystemEvent])
 
   const setStd = useCallback((std: number) => {
     const edge = getEdge()
