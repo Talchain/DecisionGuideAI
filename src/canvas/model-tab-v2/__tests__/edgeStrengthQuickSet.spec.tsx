@@ -34,7 +34,15 @@ function edgeRow(over: Partial<ModelRow> = {}): ModelRow {
 
 const editing = (draft: string) => ({ phase: 'editing' as const, draft })
 
+/**
+ * ⚠ `editConnected`, NOT `editConnected`. The latter is DERIVED inside the
+ * component (`row.editable && editConnected && typeof onBeginEdit === 'function'`,
+ * ModelRowView.tsx:280) and is not a prop. Passing it typechecked green under
+ * vitest — which does not typecheck — and was caught by CI. `onBeginEdit` is
+ * included for the same reason: without it the derivation is false.
+ */
 const handlers = () => ({
+  onBeginEdit: vi.fn(),
   onDraftChange: vi.fn(),
   onProposeEdit: vi.fn(),
   onDiscardEdit: vi.fn(),
@@ -50,7 +58,7 @@ describe('edge strength — the quick-set bands', () => {
 
   it('a relationship being edited offers all three bands', () => {
     const h = handlers()
-    render(<ModelRowView row={edgeRow()} tier="plain" commit={editing('0.5')} editorAvailable {...h} />)
+    render(<ModelRowView row={edgeRow()} tier="plain" commit={editing('0.5')} editConnected {...h} />)
     expect(screen.getByTestId('model-row-v2-e-0-value-band-weak')).toBeDefined()
     expect(screen.getByTestId('model-row-v2-e-0-value-band-moderate')).toBeDefined()
     expect(screen.getByTestId('model-row-v2-e-0-value-band-strong')).toBeDefined()
@@ -58,7 +66,7 @@ describe('edge strength — the quick-set bands', () => {
 
   it('clicking a band proposes THAT band\'s midpoint, by id', () => {
     const h = handlers()
-    render(<ModelRowView row={edgeRow()} tier="plain" commit={editing('0.5')} editorAvailable {...h} />)
+    render(<ModelRowView row={edgeRow()} tier="plain" commit={editing('0.5')} editConnected {...h} />)
     fireEvent.click(screen.getByTestId('model-row-v2-e-0-value-band-strong'))
     expect(h.onDraftChange).toHaveBeenCalledWith('e-0', '0.7')
   })
@@ -73,14 +81,14 @@ describe('edge strength — the quick-set bands', () => {
    */
   it('preserves a NEGATIVE direction — a band sets size, never sign', () => {
     const h = handlers()
-    render(<ModelRowView row={edgeRow()} tier="plain" commit={editing('-0.2')} editorAvailable {...h} />)
+    render(<ModelRowView row={edgeRow()} tier="plain" commit={editing('-0.2')} editConnected {...h} />)
     fireEvent.click(screen.getByTestId('model-row-v2-e-0-value-band-moderate'))
     expect(h.onDraftChange).toHaveBeenCalledWith('e-0', '-0.4')
   })
 
   it('marks the band the CURRENT DRAFT falls in, and only that one', () => {
     const h = handlers()
-    render(<ModelRowView row={edgeRow()} tier="plain" commit={editing('0.65')} editorAvailable {...h} />)
+    render(<ModelRowView row={edgeRow()} tier="plain" commit={editing('0.65')} editConnected {...h} />)
     expect(screen.getByTestId('model-row-v2-e-0-value-band-strong').getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByTestId('model-row-v2-e-0-value-band-weak').getAttribute('aria-pressed')).toBe('false')
     expect(screen.getByTestId('model-row-v2-e-0-value-band-moderate').getAttribute('aria-pressed')).toBe('false')
@@ -88,13 +96,13 @@ describe('edge strength — the quick-set bands', () => {
 
   it('names the band of the DRAFT, so the number is never abstract', () => {
     const h = handlers()
-    render(<ModelRowView row={edgeRow()} tier="plain" commit={editing('0.65')} editorAvailable {...h} />)
+    render(<ModelRowView row={edgeRow()} tier="plain" commit={editing('0.65')} editConnected {...h} />)
     expect(screen.getByTestId('model-row-v2-e-0-value-band-readback').textContent).toBe('strong')
   })
 
   it('says nothing rather than guessing when the draft is not a number', () => {
     const h = handlers()
-    render(<ModelRowView row={edgeRow()} tier="plain" commit={editing('')} editorAvailable {...h} />)
+    render(<ModelRowView row={edgeRow()} tier="plain" commit={editing('')} editConnected {...h} />)
     expect(screen.getByTestId('model-row-v2-e-0-value-band-readback').textContent).toBe('—')
   })
 
@@ -113,7 +121,7 @@ describe('edge strength — the quick-set bands', () => {
         row={edgeRow({ id: 'f1', kind: 'factor', group: 'factors', label: 'Lead time', primaryValue: '45 days' })}
         tier="plain"
         commit={editing('45')}
-        editorAvailable
+        editConnected
         {...h}
       />,
     )

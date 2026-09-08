@@ -1030,7 +1030,7 @@ function ValueCell({
               {row.kind === 'relationship' && (
                 <span
                   data-testid={`${testid}-band-readback`}
-                  className={`${typography.panelCaption} text-text-light ml-2 whitespace-nowrap`}
+                  className={`${typography.panelMeta} text-text-light ml-2 whitespace-nowrap`}
                 >
                   {Number.isFinite(Number(commit.draft)) && commit.draft.trim() !== ''
                     ? getStrengthBand(Number(commit.draft))
