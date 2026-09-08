@@ -8,7 +8,7 @@ import { cleanup, renderHook, waitFor } from '@testing-library/react'
 import { useCanvasStore } from '../../store'
 import { applyStarter, getStarter } from '../../starters/loadStarter'
 import { clearImportRegistrationMarkers } from '../../store/importRegistrationMarker'
-import { loadAutosave } from '../../store/scenarios'
+import { loadAutosave, type AutosaveData } from '../../store/scenarios'
 import { __resetPersistenceSessionForTests } from '../../../lib/persistenceSession'
 import { useImportRegistration } from '../useImportRegistration'
 import { buildRegistrationGraph } from '../buildRegistrationGraph'
@@ -25,6 +25,14 @@ const SCENARIO = '6f37ea65-964e-4176-bcca-d68a5cc1bf06'
 const OTHER_SCENARIO = '15f41c42-59a1-42f4-b39d-ebc24bde141a'
 const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
 const requests: Array<{ url: string; body: Record<string, unknown> }> = []
+
+function assertSavedEdgesMatch(
+  saved: AutosaveData,
+  expected: ReturnType<typeof useCanvasStore.getState>['edges'],
+): asserts saved is AutosaveData & { edges: typeof expected } {
+  // Narrow this captured fixture by equality, not a cast or invented defaults.
+  expect(saved.edges).toEqual(expected)
+}
 
 beforeEach(() => {
   localStorage.clear()
@@ -74,6 +82,7 @@ describe('saved-example brief registration', () => {
     const saved = loadAutosave()
     if (!saved) throw new Error('Starter did not autosave')
     expect(saved.nodes).toHaveLength(19)
+    assertSavedEdgesMatch(saved, useCanvasStore.getState().edges)
     useCanvasStore.getState().hydrateGraphSlice({ nodes: saved.nodes, edges: saved.edges, currentScenarioId: SCENARIO })
     renderHook(() => useImportRegistration())
     await waitFor(() => expect(requests).toHaveLength(1))
