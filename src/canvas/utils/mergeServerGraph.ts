@@ -70,6 +70,8 @@
 import { useCanvasStore } from '../store'
 import { interventionNumericValue } from '../../utils/interventionValue'
 import { logger } from '../../lib/logger'
+import { canonicalJson } from '../../lib/canonical-hash'
+import { normaliseInterventionKeys } from './normaliseInterventionKeys'
 import { canvasEdgePairKey, wireEdgePairKey } from './graphIdentity'
 import { pulseAppliedTargets } from './appliedEditPulse'
 import { mapDraftEdgeToCanvas, mapDraftNodeToCanvas } from './applyDraftResult'
@@ -87,11 +89,11 @@ import {
   restoreUserProvenance,
 } from './hydrateProvenance'
 
-/** Structural equality, matching the overlay's own no-op test. */
+/** JSON object property order can change at persistence without an edit. */
 function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true
   try {
-    return JSON.stringify(a) === JSON.stringify(b)
+    return canonicalJson(a) === canonicalJson(b)
   } catch {
     return false
   }
@@ -322,13 +324,15 @@ export function mergeServerGraphOnHydrate(
       ? restoreUserProvenance(overlaid.data, userStamps)
       : clearUserProvenance(overlaid.data)
     const next = nextData === overlaid.data ? overlaid : { ...overlaid, data: nextData }
+    const previousData = n.type === 'option' ? normaliseInterventionKeys(n.data ?? {}) : n.data
+    const incomingData = next.type === 'option' ? normaliseInterventionKeys(next.data ?? {}) : next.data
     const recordAcquisition = n.type === 'option' && next.type === 'option' &&
-      isOptionRecordAcquisition(n.data ?? {}, next.data ?? {})
+      isOptionRecordAcquisition(previousData, incomingData)
 
     // A merge whose ONLY effect was to strip a user stamp and then put it back
     // is a no-op, and must stay one — otherwise every boot writes the store and
     // dirties history for a canvas that did not change.
-    if (next.type === n.type && deepEqual(next.data, n.data)) return n
+    if (next.type === n.type && deepEqual(incomingData, previousData)) return n
 
     updatedNodeCount += 1
     if (!recordAcquisition) valueChangedNodeIds.push(n.id)
@@ -364,7 +368,14 @@ export function mergeServerGraphOnHydrate(
     // Acquiring server readback is a store change, not a changed model value.
     // Mask ONLY that record; every other change retains the existing edit
     // classification. The overlay preserves user stamps on tuple-only reads.
-    if (!deepEqual({ ...next.data, serverStrength: e.data?.serverStrength }, e.data)) {
+    const comparableReadback = { ...next.data, serverStrength: e.data?.serverStrength }
+    // Registration already sends absent edge_type as directed. Learning that
+    // explicit spelling on reload is not a new causal relationship. Any other
+    // type/value/direction change still follows the existing invalidation path.
+    if (e.data?.edge_type === undefined && comparableReadback.edge_type === 'directed') {
+      delete comparableReadback.edge_type
+    }
+    if (!deepEqual(comparableReadback, e.data)) {
       valueChangedEdgeIds.push(e.id)
     }
     return next
