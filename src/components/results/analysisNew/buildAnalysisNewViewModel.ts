@@ -382,7 +382,7 @@ function buildKeyInsights(
       implication: namesBoth
         ? `Above ${splitValue}${cw.split_unit ? ` ${cw.split_unit}` : ''}, ${high} scores higher; below it, ${low} does.`
         : `The preferred direction changes around ${splitValue}${cw.split_unit ? ` ${cw.split_unit}` : ''}.`,
-      groundedIn: 'the conditional-winner split from the simulation',
+      groundedIn: 'the conditional split from the simulation',
       marker: staleMarker,
       targetId: cw.factor_id,
       inspect: rows(row('Split value', splitValue), row('Factor', cw.factor_label)),
@@ -1716,7 +1716,7 @@ function buildAtAGlance(
   // probability of reaching the goal. "Achieves your goal in 99%" would have
   // been a worse claim than the contest framing it replaced, so the wording
   // keeps the ranking meaning and drops the contest metaphor only.
-  const winShare = winPct ? `Scored highest against your goal in ${winPct} of simulated futures` : null
+  const winShare = winPct ? `Scored highest in ${winPct} of simulated futures` : null
   // Bar geometry only — see `winFraction`'s doc comment. Gated on exactly the
   // same condition as `winPct`, so the number and the bar can never disagree
   // about whether there is a share at all.
