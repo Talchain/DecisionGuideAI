@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useCanvasStore } from '../../store'
+import { EdgeDataSchema, type EdgeData } from '../../domain/edges'
 import { mergeServerGraphOnHydrate } from '../mergeServerGraph'
 import { hydrateCanvasFromServer } from '../../hydrate/serverGraphHydration'
 import { normaliseInterventionKeys } from '../normaliseInterventionKeys'
@@ -20,7 +21,13 @@ function seed() {
   const nodes = structuredClone(captured.canvas.nodes).map((node, i) => ({
     ...node, position: { x: i * 25, y: 70 },
   }))
-  const edges = structuredClone(captured.canvas.edges)
+  const edges = structuredClone(captured.canvas.edges).map(edge => {
+    // JSON imports widen enum literals. Validate the actual stored shape and
+    // prove the parser did not default, strip or otherwise alter our capture.
+    const data = EdgeDataSchema.parse(edge.data)
+    expect(data).toEqual(edge.data)
+    return { ...edge, data: data as EdgeData }
+  })
   useCanvasStore.setState({
     currentScenarioId: captured.capture.scenario,
     nodes, edges, importPendingServerRegistration: false,
