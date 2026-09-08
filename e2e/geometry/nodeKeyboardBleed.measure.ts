@@ -1329,46 +1329,55 @@ test.describe('in-node keyboard bleed', () => {
     const marqueeVisible = () =>
       page.evaluate(() => !!document.querySelector('.react-flow__selection, .react-flow__nodesselection-rect'))
 
-    /*
-     * Pick a node that is fully on screen — a drag whose start point is outside
-     * the viewport measures nothing (this bit the click comparator earlier) —
-     * and a point on it that is genuinely BARE CARD BODY.
-     *
-     * ⭐⭐ WHY THIS SEARCHES INSTEAD OF PROBING ONE HARD-CODED POINT.
-     *
-     * It used to test exactly one pixel per node, `(centre-x, bottom - 6)`, and
-     * skip the whole node if that pixel was a control. Two things were wrong
-     * with that, and the second is the one that matters:
-     *
-     * (a) IT DID NOT DO WHAT ITS COMMENT SAID. At the base commit that pixel
-     *     resolved to `.react-flow__handle` — the bottom CONNECTION HANDLE, not
-     *     card body — on all 13 on-screen nodes (measured, 7 Sep 2026). So the
-     *     "bare card body" drag was in fact starting on a handle, and the
-     *     exclusion list never mentioned handles.
-     *
-     * (b) IT BOUND THE TEST'S PRECONDITION TO ONE ARBITRARY PIXEL INSIDE THE
-     *     QUICK-ACTION BAND. `NodeQuickActions` is pinned `bottom-1.5 right-1.5`,
-     *     so `bottom - 6` is inside its row by construction; whether the probe
-     *     landed on a button was decided by how far LEFT that row happened to
-     *     reach. Counter-scaling the row's boxes and gap to their declared px
-     *     (#1274) widened it from 49px to 98px on a 115px-wide card at the
-     *     0.50 settle zoom, the row crossed centre-x, and every node was
-     *     skipped — reporting "no bare card body" about cards that are 122-176px
-     *     tall and, measured on the same build, 9-15 of 15 grid cells bare.
-     *
-     * The property under test is the PANE's: a Shift-drag over a node starts a
-     * marquee and does not move the node. Which bare pixel it starts from is an
-     * instrument detail, so the instrument now finds one instead of assuming
-     * one. Every assertion below is unchanged.
-     *
-     * ⚠ AND IT STILL FAILS LOUD ON THE REAL REGRESSION. If controls ever do
-     * swallow a card, no cell is bare on any node and this REDs — now naming the
-     * element that covered each candidate, so the next reader gets the cause
-     * rather than a bare precondition.
-     */
-    const search = await page.evaluate(() => {
-      const CONTROLS = 'button, [role="button"], a, input, textarea, select'
-      const blockedBy: string[] = []
+    // Pick a node that is fully on screen — a drag whose start point is outside
+    // the viewport measures nothing (this bit the click comparator earlier).
+    //
+    // ⭐ THE CANDIDATE POINT IS NOW CHECKED WITH THE POINTER ON IT, AND THE
+    // SCAN OFFERS SEVERAL POINTS PER NODE. Both halves are a STRENGTHENING; the
+    // filter that rejects a control has not been relaxed by one character.
+    //
+    // Why hover-aware. This probe used to hit-test inside a single
+    // `page.evaluate`, i.e. with NO POINTER ANYWHERE ON THE PAGE, and then
+    // drive the real gesture with `mouse.move` + `mouse.down` — i.e. HOVERED.
+    // Those two states used to agree only because the in-node quick-action row
+    // hit-tested whether hovered or not, which was itself the defect (an
+    // invisible strip swallowing clicks on 17 of 17 cards). Now that the row
+    // hit-tests if and only if it is visible, an at-rest probe would report
+    // "bare card body" for a point the hovered gesture lands on a BUTTON — and
+    // this arm would quietly measure a pointerdown on a control, which its own
+    // comment says "would prove nothing about the pane". That is trap 19 at the
+    // level of the gate: the assertion passing on a different object than the
+    // one it was written for. So: enumerate candidates, then re-hit-test each
+    // one WITH THE MOUSE ON IT, which is the exact state `mouse.down()` runs in.
+    //
+    //
+    // ⭐ THE MEASURED HISTORY OF THE SINGLE-POINT PROBE, KEPT FROM STAGING'S
+    // OWN RESOLUTION OF THE SAME PROBLEM — the two sides fixed one defect and
+    // neither record is discarded.
+    //
+    // It used to test exactly one pixel per node, `(centre-x, bottom - 6)`, and
+    // skip the whole node if that pixel was a control. Two things were wrong:
+    //
+    // (a) IT DID NOT DO WHAT ITS COMMENT SAID. At the base commit that pixel
+    //     resolved to `.react-flow__handle` — the bottom CONNECTION HANDLE, not
+    //     card body — on all 13 on-screen nodes (measured, 7 Sep 2026). The
+    //     exclusion list never mentioned handles.
+    // (b) IT BOUND THE PRECONDITION TO ONE ARBITRARY PIXEL INSIDE THE
+    //     QUICK-ACTION BAND. Counter-scaling the row (#1274) widened it from
+    //     49px to 98px on a 115px-wide card at the 0.50 settle zoom, the row
+    //     crossed centre-x, and EVERY node was skipped — reporting "no bare
+    //     card body" about cards measured 9-15 of 15 grid cells bare.
+    //
+    // ⚠ AND IT STILL FAILS LOUD ON THE REAL REGRESSION. If controls ever do
+    // swallow a card, no cell is bare on any node and this REDs.
+    // Why several points. Bottom-centre-minus-6px was one arbitrary point, and
+    // whether it clears the quick-action row is an accident of that row's width
+    // against the card's. Any bare card body point measures this arm's claim
+    // equally well, so the scan walks the card and takes the first point that
+    // is still bare while hovered. A wider control row now costs the gate
+    // nothing; a control that has genuinely eaten the whole card still fails it.
+    const candidates = await page.evaluate(() => {
+      const out: { id: string; x: number; y: number }[] = []
       for (const el of Array.from(document.querySelectorAll<HTMLElement>('.react-flow__node'))) {
         const r = el.getBoundingClientRect()
         const onScreen =
@@ -1376,38 +1385,45 @@ test.describe('in-node keyboard bleed', () => {
           r.x + r.width < window.innerWidth - 60 && r.y + r.height < window.innerHeight - 60
         if (!onScreen) continue
         const id = el.getAttribute('data-id') ?? ''
-        for (const fy of [0.35, 0.5, 0.2, 0.65, 0.8]) {
-          for (const fx of [0.5, 0.25, 0.75]) {
+        // Bottom-centre first (the historic point, so nothing changes on a card
+        // whose row is narrow), then across and up the card.
+        for (const fy of [1, 0.75, 0.5, 0.25]) {
+          for (const fx of [0.5, 0.25, 0.75, 0.12, 0.88]) {
             const x = Math.round(r.x + r.width * fx)
-            const y = Math.round(r.y + r.height * fy)
-            const top = document.elementFromPoint(x, y)
-            // The point must land on THIS node — otherwise it is over an edge,
-            // a neighbour or the pane, and proves nothing about dragging a card.
-            if (!top || !el.contains(top)) continue
-            // Start on bare body: not a control, and NOT a connection handle —
-            // a pointerdown on either is a different gesture (see (a) above).
-            const control = top.closest(CONTROLS)
-            const handle = top.closest('.react-flow__handle')
-            if (control || handle) {
-              if (blockedBy.length < 6) {
-                const what = control ?? handle!
-                blockedBy.push(
-                  `${id}@${fx}/${fy}:${what.tagName}${what.getAttribute('data-testid') ? `[${what.getAttribute('data-testid')}]` : ''}`,
-                )
-              }
-              continue
-            }
-            return { target: { id, x, y }, blockedBy }
+            const y = Math.round(fy === 1 ? r.y + r.height - 6 : r.y + r.height * fy)
+            out.push({ id, x, y })
           }
         }
       }
-      return { target: null, blockedBy }
+      return out
     })
-    const target = search.target
+
+    // Start the drag on BARE CARD BODY, not on a control: a pointerdown on a
+    // control is a different gesture and would prove nothing about the pane.
+    let target: { id: string; x: number; y: number } | null = null
+    for (const c of candidates) {
+      // HOVER FIRST. This is what makes the hit-test below describe the state
+      // the gesture will actually be performed in.
+      await page.mouse.move(c.x, c.y)
+      const usable = await page.evaluate(({ x, y, id }) => {
+        const top = document.elementFromPoint(x, y)
+        if (!top) return false
+        // The filter this arm has always had, unrelaxed.
+        if (top.closest('button, [role="button"], a, input, textarea, select')) return false
+        // …and the point must still resolve to THIS node, not to a neighbour
+        // or an overlay that happens to cover it.
+        return top.closest('.react-flow__node')?.getAttribute('data-id') === id
+      }, { x: c.x, y: c.y, id: c.id })
+      if (!usable) continue
+      target = c
+      break
+    }
+    // Park the pointer away from the cards again so the control drag below runs
+    // from the same resting state it always did.
+    await page.mouse.move(2, 2)
     expect(
       target,
-      'no fully-on-screen node has ANY bare card body to start a drag on — in-node controls now cover every ' +
-        `candidate point. Blocked samples: ${search.blockedBy.join(' | ') || '(none recorded — no node passed the on-screen filter)'}`,
+      'no fully-on-screen node with bare card body to start a drag on (checked WITH the pointer on the point, since hover reveals the in-node control row)',
     ).not.toBeNull()
 
     const before = await nodeGeom(target!.id)
