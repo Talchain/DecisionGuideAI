@@ -2,8 +2,7 @@
 
 The reference is [DESIGN-SPEC.md](DESIGN-SPEC.md), which separates the current
 implementation from the remaining node and inspector design work.
-The separate [interactive V3 prototype](olumi-option-node-v3.html) illustrates
-that contract; the application screenshots below are independent evidence.
+The current visual reference is [the original premium V2, refined in place](../v2/olumi-option-node-v2.html). It illustrates the node, hover and inspector at the application boundary below. The separate V3 prototype was rejected and is excluded from this PR. The component sheet is local simulation, not application evidence.
 
 This version changes the application components. V1 and V2 remain comparison
 artefacts. The scope is the existing node controls, hover preview behaviour,

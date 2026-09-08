@@ -83,3 +83,13 @@ differed from their references. The control reported a difference ratio of
 0.0256813. That result does not by itself distinguish stale references from a
 new regression. No snapshots were re-approved; compare with a base-commit run
 before attributing or accepting those differences.
+
+## 8 September review update
+
+At `e77f8a31043d48ec6a7d3a74726daafe74eff322`, all four hosted full-suite shards, Full Test Suite Summary and Staging Gate pass. The preceding head's shard-2 failure was ours: the Canvas foreign-component census lacked the newly imported, portalled shared Tooltip. The repair adds that exact inventory entry and corrects the stale justification; it does not counter-scale the tooltip or change production code. No local test pass is claimed for the repair under excessive host load. Security Audit and advisory Visual Regression remain failed; neither is waived.
+
+Claude Code Canvas completed an independent source review at that head: [review receipt](https://github.com/Talchain/DecisionGuideAI/pull/1333#issuecomment-5592356351). It found no production blocker in the reviewed scope, flagged redundant screen-reader tooltip descriptions, identified an untested Escape/inspector interaction, and required removal of the rejected V3 prototype from merge content. Its browser leg is explicitly unperformed because host load exceeded the repository guard. This is not complete acceptance.
+
+The subsequent reference update changes documentation only: premium V2 component sheet, current specification and entry point. Rejected V3 HTML/template/build assets and their prototype images are removed from the PR's tracked content; local historical files remain. Application source remains unchanged from the reviewed head.
+
+The refined component sheet was opened locally at 1440 × 900 and 1280 × 800. DOM checks covered rendered node and inspector, non-overflowing layout, full long title, description disclosure, missing origin and inputs, conditional cue, unavailable quick actions, the preview coaching chip, local rename, and the More → Open details excerpt. Tooltip and body-preview visibility states were exercised; no timing benchmark or production browser acceptance is claimed under the current host load. Every AI action explains its actual route without simulating an AI answer. These checks are for the reference file only.

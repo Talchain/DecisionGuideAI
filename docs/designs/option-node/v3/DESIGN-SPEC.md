@@ -1,113 +1,104 @@
-# Option node V3 — pragmatic PoC design
+# Option node V3 — pragmatic PoC specification
 
-**Interactive reference: [open the V3 prototype](olumi-option-node-v3.html).**
-It demonstrates this slice with captured example data and local interactions.
-It does not call AI or write to the PoC. See [PROTOTYPE.md](PROTOTYPE.md) for
-its scope and rebuild instructions.
+**Canonical visual: [the original premium V2, refined in place](../v2/olumi-option-node-v2.html).** Keep that visual foundation for this component sheet and subsequent node specifications. The standalone `v3/olumi-option-node-v3.html` and `v3/prototype.template.html` were rejected; neither is the design reference or a PoC renderer.
 
-**Status: application refinement, locally validated; not deployed.**
-This is the reference for the implementation on
-`codex/option-node-v3-refinements`, based on staging `25164b1e`.
-V1 and V2 remain historical comparisons. V3 replaces their proposed option
-families and quantitative card layout for this implementation; it does not
-claim to deliver every part of the longer-term reasoning experience.
+**Scope:** application changes in draft PR #1333, source reference `e77f8a31043d48ec6a7d3a74726daafe74eff322`, plus the existing behaviour they preserve. This document describes source and intended acceptance. It does not claim deployment, an AI-backed journey, or measured improvement in thinking quality. Values authored for the visual are illustrative unless the specimen identifies a captured source.
 
-## Purpose and scope
+## Purpose and implementation boundary
 
-Help a person understand an option, ask Olumi about it, challenge it and open
-its details without crowding the graph. Preserve the existing node size,
-top-centre type shape, graph connections and canvas typography. The target
-is desktop, with pointer and keyboard access.
+Help someone understand an option, inspect its assumptions and challenge it with Olumi. Refine the existing desktop node and inspector while preserving graph density, the top-centre shape, connections and familiar interaction routes.
 
-The immediate improvement is interaction clarity. Richer reasoning indicators
-are recorded below as separate work, so their absence is explicit rather than
-mistaken for a design decision to discard them.
+**#1333 changes:** reduce the quick-action row to Ask, Challenge and More; add Open details to the existing menu; replace those action buttons' native tooltips with positioned hover/focus tooltips; make body previews yield to action interaction; give option inspector titles a full-width wrapping row. The tooltip/menu improvement is shared across node types. Inspector title wrapping is option-specific.
 
-## Node and inspector contract
+**Existing and unchanged:** option body content, result selectors, provenance, reasoning cues, readiness rules, node title clamp, description expansion, graph geometry and inspector content authority. Do not depict their redesign as work implemented by this PR.
 
-| Surface | V3 behaviour | Reason |
+## Element-by-element content contract
+
+| Element | Meaning and display rule | Source owner |
 |---|---|---|
-| Node at rest | Retain the option title, existing supporting text and existing metadata. Keep the type shape above the card. Add no permanent probability, quantity comparison or coaching paragraph. | Preserve graph density and familiar positions. |
-| Node on hover or selection | Show up to three icon actions, in order: Ask Olumi, Challenge, More. Keyboard focus also reveals the controls. | Make understanding and challenge directly accessible with minimal text. |
-| Body preview | Keep the existing data-backed preview and its 300 ms entry delay. It yields while the action row is hovered or focused. | One explanation surface at a time while choosing an action. |
-| Action tooltip | Show the action and full option name on hover or focus; wrap long text, shift or flip at viewport edges. Keep it open while the pointer enters its content. Escape and activation dismiss it. | Icons remain understandable without permanent labels or native-tooltip collisions. |
-| Open details | Clicking the node retains its existing inspector route. More → Open details provides an explicit pointer and keyboard route to the same node. | Remove the fourth shortcut without losing access to details. |
-| Inspector title | Wrap the full option title across the available width. Place the existing header controls beside the type label. Preserve rename behaviour and limits. | Long names remain readable without widening the inspector or obscuring more graph. |
-| Inspector content | Retain the current option fields, their actual values and existing actions. | This slice does not invent additional data or rebuild the inspector. |
+| Top-centre purple square | This is an option. It remains above the card and does not intercept the connection handle. | `BaseNode`, `NodeShapeIndicator` |
+| Title | Authored option name; two-line node clamp, full name recoverable in inspector. Missing label displays “Untitled”. | `BaseNode`; `data.label` |
+| Description | Show its existing expand/collapse control only when supplied. Expanded markdown reveals the description. Do not add an invented summary. | `BaseNode`; `data.description` |
+| Origin glyph | FileText: “From your brief”; Sparkles: “Olumi suggested this”; UserCheck: “You added this”. Unknown origin renders no glyph. This describes option origin, not evidence quality or review. | `NodeProvenanceMark`, `nodeProvenanceClaim`, `VALUE_PROVENANCE_ICON`; `data.provenance` |
+| Small header numeral | Stable option number, only when registered. It is not votes, comments or contributors. | `optionNumbering[id]` |
+| Changes and distinguishing factor | Retain existing known change rows and the derived differentiator where eligible. Do not invent units, baseline values or before/after quantities. | `OptionNode`, `computeAllDifferentiators`, intervention formatters |
+| Support bar and percentage | Existing post-analysis comparative support, when the shared selectors provide it. **This is not chance of reaching the goal.** #1333 does not remove it. Missing/failed calculations do not become zero. | `useNodeDisplayMetadata`, `formatWinProbability`, `COMPARATIVE_COPY` |
+| Result explanation | Existing “Supported by…”, “Held back by…” and close-margin text appear only on their data and claim-permission branches. No permanent explanation is fabricated. | `OptionNode`, `deriveDecisionVerdict` |
+| Needs input | Before analysis, an assessed CEE option with empty interventions can carry the amber badge. Unknown assessment is not a failed check. No universal “well-formed”, “ready” or “vetted” claim. | `BaseNode.isIncomplete`, `optionsWereAssessed`, `StatusPill` |
+| Reasoning cue | Existing baseline status-quo cue requires explicit `is_baseline: true`; its popover explains the concern and offers Discuss with AI when available. Do not diagnose the person. | `useScienceIcons`, `biasSignal`, `ScienceIcon` |
+| Coaching marker | Appears only when a live guidance item targets this node; one marker, with a count for additional items. Opens the existing guidance route. A count is not team participation. | `NodeCoachingMarker`, `guidanceItems[].target_object.id` |
+| Edited dot | This node differs from the device-local last-analysis snapshot. It does not establish the freshness of every result. | `BaseNode.isEditedSinceRun` |
 
-The action row is shared by other node types. Those types receive the same
-tooltip and menu improvement; their existing capability gates still determine
-which actions appear. Title wrapping and the header arrangement apply to
-option inspectors only.
+Baseline body wording follows the existing explicit flag, with its existing label fallback where applicable. The science cue's explicit-flag condition is narrower; the visual must not assume every inferred baseline receives that cue.
 
-## Icon meaning and Olumi interaction
+## Hover, focus, menu and Olumi routes
 
-| Existing icon | Meaning | Activation and evidence boundary |
-|---|---|---|
-| `MessageSquare` | Ask Olumi about this option | Uses the existing explanation request and sends through the registered conversation channel. This is an AI action, not a comment count. |
-| `Zap` | Challenge this option: what could be wrong or missing? | Opens the existing option-specific draft for the person to review and send. Clicking it does not send a request or edit the model. |
-| `MoreHorizontal` | More actions | Opens the existing node menu. Open details is first; other supported actions remain available. |
-| `PanelRight`, in the menu | Open details | Selects the named node and opens its inspector. No AI request. |
-| Existing provenance and science glyphs | Their existing status or suggestion meanings | Retained through their current modules. This change does not reinterpret origin as accuracy, review or team agreement. |
-
-Challenge makes a counterargument easy to initiate. It is not evidence that a
-bias has been detected, that this is the most valuable issue to resolve, or
-that the option has been vetted. This slice improves access to existing
-coaching; it introduces no new coaching-selection algorithm and makes no
-claim that thinking quality has been measured.
-
-## Ordinary and degraded states
-
-| State | Required behaviour in this slice | Verification |
-|---|---|---|
-| Long option name | Preserve the compact node; reveal the complete name in the tooltip and wrapped inspector title. | Local browser: approximately 100-character title at 1280 × 800. |
-| Missing description | Do not supply invented supporting text. Existing fallback behaviour remains. | Long-name browser fixture has an empty description. |
-| No comparable analysis | Do not add a probability, ranking or “this option versus current” display. Keep the existing pre-analysis preview. | Captured starter before analysis. |
-| Baseline or real units unknown | Do not render `4 → 6`, a scaled delta or a guessed baseline. | No new quantity or baseline renderer. |
-| AI channel unavailable | Hide actions whose existing channel requirements are unmet; keep More and Open details usable. | Component tests and local browser after fixture reload. |
-| Body preview and action tooltip compete | Action explanation takes precedence. Returning to the body restarts its normal preview delay. | Component tests and connected-graph browser check. |
-| Tooltip near a viewport edge | Reposition and wrap within the viewport. | Actual canvas pan near the top edge. |
-| Keyboard use | Focus explains the icon; Escape dismisses the explanation; Enter activates the control. Menu navigation reaches Open details. | Component tests and browser interaction. |
-| Canvas zoom changes | Keep tooltip anchored to the actual control. | Browser checks at 50% and 100%. Existing small targets at reduced zoom are an unresolved limitation. |
-
-The slice does not change long-title truncation on the node itself, empty
-intervention messaging, warning precedence, stale-result handling or the
-meaning of existing count badges. These need their own acceptance checks
-before anyone describes them as resolved by V3.
-
-## Design-system changes in this implementation
-
-The [quick reference](../../../../DESIGN_SYSTEM.md) and
-[V5 specification](../../../Design/Olumi_Design_System_v5.md) record the same
-three-action order, capability gates, tooltip behaviour, preview precedence
-and option-title wrapping. The implementation reuses the shared Floating UI
-tooltip and existing Lucide icons. No new colours, border meanings, font scale
-or option-type taxonomy are introduced.
-
-The shared tooltip's `asChild` mode attaches to the actual button, preserves
-its reference and handlers, and blocks inherited native titles with an empty
-`title` attribute. It does not add a layout wrapper around the node action.
-
-## Remaining design work and the condition for starting it
-
-| Follow-up | Surface and concrete trigger |
+| Interaction | Required behaviour |
 |---|---|
-| Visible readiness and reasoning-risk indicators | Node and inspector: start when each candidate signal is traced from the current response through its option attachment to the mounted view. Specify priority, wording, icon budget and an action before adding it. |
-| Per-value provenance and input clarity | Inspector: start with a field-by-field map of current draft and analysis adapters. Use the ratified provenance module; keep option origin distinct from value origin. |
-| Contextual coaching beyond generic Challenge | Node and inspector: start with a deterministic selection rule for an existing option-specific suggestion, its reason and a dismiss/defer path. Record the coaching method and test its action, without presenting a warning as a diagnosis of the person. |
-| Reviewed, vetted and team contribution | Collaboration and contracts: start when explicit review/contribution events identify the actor, target and current version. Never infer consent from silence or provenance. |
-| Missing and stale data treatment | Inspector and node preview: start with representative zero-intervention, invalid-value, attached-warning and stale-analysis fixtures; define distinct copy and recovery actions. |
-| Target size at reduced zoom | Canvas controls: reopen when testing at normal working zoom shows selection difficulty. Measure the on-screen hit target and nearby edges before changing the geometry. |
-| Deployed acceptance | Canvas release: after this change is merged and served, repeat the relevant checks against the identified deployed build, including a real conversation. Local fixtures do not close this requirement. |
+| Rest → hover, focus or selection | Reveal up to three quick actions in order: Ask, Challenge, More. Existing channel gates determine which appear. |
+| Ask (`MessageSquare`) | Uses the existing `askAI` explanation route and sends through the registered conversation channel. It is not a discussion-count control. |
+| Challenge (`Zap`) | Selects the option and opens its existing editable, unsent challenge through `requestAsk`; the person sends it. It does not alter the model or certify a detected bias. |
+| More (`MoreHorizontal`) | Opens the existing node menu; Open details (`PanelRight`) selects this node and opens its inspector. Preserve other supported menu actions. |
+| Body preview | Keep the existing 300 ms entry and 100 ms exit delays. The pointer can enter the preview. Hover or focus on the action row suppresses it. Returning to the body restarts its delay. |
+| Action tooltip | Positioned against the actual button; 300 ms hover delay, keyboard-focus access, wrapping and viewport flip/shift. Pointer can enter it. Escape and activation dismiss it. |
+| Escape after body preview | Dismiss until pointer leaves and re-enters the node. Do not immediately reopen under a stationary pointer. |
+| AI unavailable | Hide shortcuts whose existing channel requirements are unmet; retain More and Open details. Do not simulate a successful AI response. |
 
-## Visual reference and acceptance evidence
+The existing Ask and Challenge routes have different send semantics. Inspector Ask Olumi and Change this both prepare editable drafts through `requestAsk`. This PR does not unify those routes. The visual must disclose local simulation and must not suggest that a scripted answer came from live Olumi.
 
-![Action tooltip in the connected application graph](action-tooltip.png)
+The standard body preview retains existing intervention targets, empty/baseline messages and contextual chips, such as “What could go wrong?”. Detailed view places its existing additional content inline. Goal probability is conditional detail under existing availability and permission rules, never a new permanent metric in this refinement.
 
-![Full long option title in the existing inspector](inspector.png)
+## Inspector content and authority
 
-See [IMPLEMENTATION.md](IMPLEMENTATION.md) for all eight application captures
-and the producer/consumer trace, and [VALIDATION.md](VALIDATION.md) for test
-outcomes and limitations. These captures are from the local PoC application
-with a captured starter and offline services; they are not a separate card-grid
-prototype or evidence of staging deployment.
+The header retains the option type, full wrapping title, rename pencil, optional inclusion rationale, Back to results when enabled, technical detail and Close. Rename uses the canonical label mutation and retains the 100-character limit. The three top actions remain **Ask Olumi, Change this, Its analysis**.
+
+The current `InspectorRouter` wraps `OptionPanel` in a **disabled fieldset**. Only header rename and the top quick actions sit outside it. Preserve the visible authority notice: the name saves; other fields are currently read-only; supported factor edits use the Model tab and structural requests use Olumi.
+
+| Section | Current content and honest fallback |
+|---|---|
+| Context | Existing description or empty prompt; baseline label and attributed drafting notes when present. Description editing is disabled by the mounted router. |
+| What this option changes | Factor rows from the option's intervention map. Prefer a supplied `display_value`; otherwise retain the existing numeric presentation, including “Currently: N/A” when baseline is absent. Show per-value provenance only when the intervention's own source resolves. Add a change remains visible but disabled. |
+| Coaching within the input section | One existing targeted guidance card, otherwise static coverage coaching. Its buttons are also inside the disabled fieldset on this route; do not show them as working inspector actions. |
+| Impact | Post-analysis only: existing support, permitted context, supplied headline and comparison. Keep stale-result treatment and distinguish “not in last run” from unavailable results. |
+| Connections | Existing outbound factor connections or the empty message. Their buttons are inside the disabled fieldset. |
+| Technical detail | Existing disclosure only in technical mode. Do not promote raw model values into invented real-world quantities. |
+
+`OptionPanel`, `InterventionRow`, `InspectorCoaching`, `InspectorRouter`, `InspectorQuickActions` and `INSPECTOR_READ_ONLY_REASON` own these behaviours. Source-level editors inside `OptionPanel` do not establish mounted edit authority.
+
+## Geometry and design-system constraints
+
+| Component | Current constraint to preserve |
+|---|---|
+| Node | White `#FEFEFE`; option hue `#AAA7E4`, light token `#DDDCF5`; normally 1 px kind-coloured border; 20 px radius. Padding 12 px top/sides, 24 px bottom. Selection uses the existing 4 px purple/50 ring and 2 px offset. |
+| Width and height | Layout-derived width: current minimum 230 px, maximum 320 px; height follows content. Do not use the registry's nominal 220 × 100 as a fixed card size. |
+| Top shape | 18 px square glyph inside a 22 × 22 px surround, centred 10 px above the card. Pointer-transparent; preserve connection handles. |
+| Canvas type | Current source tokens are **12/11/10 px**, multiplied by `--canvas-label-scale`. Title weight 500, two-line clamp. Do not substitute a new font scale. |
+| Quick actions | 20 px visual controls, 24 px effective targets, 11 px icons, 6 px gaps; 6 px from bottom/right. Screen size still depends on canvas zoom. |
+| Body preview | 260 px wide; maximum height 250 px; 10 px vertical/12 px horizontal padding; portalled and viewport-positioned. |
+| Inspector | 340 px wide, 12 px radius; header 16 px horizontal padding and 14/12 px top/bottom. Scrollable body maximum height 560 px. Typography 14/12/11 px. |
+
+Source owners: `BaseNode`, `nodeLayoutConstants`, `typography`, `NodePopover`, `InspectorShell` and `brand.css`. The shared tooltip uses `asChild` without an extra layout wrapper and blocks inherited native titles on its action buttons. Other legacy native titles are not migrated by this slice.
+
+## Acceptance and excluded claims
+
+Use the premium visual foundation to inspect **resting, selected, body-preview, action-tooltip, inspector, long-title and missing-input** specimens. Label pre-analysis and post-analysis examples so conditional content is intelligible.
+
+- At normal desktop working sizes, confirm the top shape, connections and existing card content remain legible; action controls do not overlap header metadata.
+- A 100-character title clamps only on the node and wraps fully in the inspector. Missing description and unknown provenance add no invented content.
+- Pointer and keyboard reach all available shortcuts. More → Open details opens the correct option; Escape dismisses the active explanation.
+- Body preview and action tooltip do not compete while selecting an action; viewport-edge and zoom checks keep explanations attached and readable.
+- Header rename persists through the canonical route. Inspector body controls remain disabled and its notice matches the available editing routes.
+- Check needs-input, unassessed, no-result, failed-result and stale-result branches against their real producers; absence is never rendered as a completed review.
+- Before deployment claims, repeat the relevant interactions on the identified served build with a real conversation. Local fixture interactions are not that proof.
+
+Private contribution/reveal, named dissent or contributors, vetting, authored sacrifice/reversibility/test records, option-type visual families and new coaching selection are **not implemented by #1333**. Preserve them as separate proposed capabilities if discussed; do not place them in a specimen labelled as the PoC being built. Origin is not accuracy; silence is not agreement.
+
+See [IMPLEMENTATION.md](IMPLEMENTATION.md) and [VALIDATION.md](VALIDATION.md) for the earlier local application evidence and its limitations. Those receipts are historical validation of the bounded application change, not acceptance of the rejected standalone prototype or a deployed journey.
+
+## Review-sheet fidelity and current gaps
+
+The refined premium V2 shows a constructed pre-analysis fixture based on Paul's screenshot (label, differentiator and supplied targets); edges are omitted. The other examples are explicit robustness fixtures. Review magnification is not a change to production tokens. The inspector remains present as a component specimen even when its Close/Back route is explained; More shows the Open details excerpt. This reference does not reproduce the whole application or post-analysis journey.
+
+The source check found an existing availability gap: `NodeChip` remains rendered for the pre-analysis “What could go wrong?” prompt, but with neither `_dispatchAction` nor `_sendMessage`, its handler returns without visible feedback. The quick-action shortcut gates do not repair that separate component. Canvas owns the follow-up: reopen at the next preview-coaching refinement; acceptance must include a visible refusal or an honest unavailable state when both channels are absent. No source change is made to that route in #1333.
+
+Independent review candidate is frozen at `e77f8a31`; design files may be refined locally without changing application source. The original project-output HTML and repository V2 copy are synchronised; the rejected V3 prototype remains untouched.
