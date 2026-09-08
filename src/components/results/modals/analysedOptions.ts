@@ -36,11 +36,16 @@ export interface AnalysedOption {
 }
 
 export interface AnalysedOptionInputs {
-  nodes: readonly unknown[]
-  /** `canvasStore.results.status`. */
+  nodes: readonly unknown[] | null | undefined
+  /**
+   * `canvasStore.results?.status`. Nullable on purpose: `results` itself can be
+   * null in the store, and a caller must be able to pass that through rather
+   * than crash reading `.status` off it. Anything that is not the literal
+   * `'complete'` means no capturable options.
+   */
   resultsStatus: string | null | undefined
   /** `canvasStore.optionNumbering`. */
-  numbering: Record<string, number>
+  numbering: Record<string, number> | null | undefined
 }
 
 /**
@@ -57,19 +62,20 @@ export function deriveAnalysedOptions({
   numbering,
 }: AnalysedOptionInputs): AnalysedOption[] {
   if (resultsStatus !== 'complete') return []
-  const optionNodes = (nodes as Array<Record<string, unknown>>).filter(
+  const nums = numbering ?? {}
+  const optionNodes = ((nodes ?? []) as Array<Record<string, unknown>>).filter(
     (n) =>
       n?.type === 'option' ||
       (n?.data as Record<string, unknown> | undefined)?.kind === 'option',
   )
   if (optionNodes.length === 0) return []
-  const allNumbered = optionNodes.every((n) => numbering[n.id as string] != null)
+  const allNumbered = optionNodes.every((n) => nums[n.id as string] != null)
   const mapped = optionNodes.map((n) => {
     const label = (n.data as Record<string, unknown> | undefined)?.label
     return {
       id: n.id as string,
       label: typeof label === 'string' && label.trim() !== '' ? label : (n.id as string),
-      number: allNumbered ? numbering[n.id as string] : null,
+      number: allNumbered ? nums[n.id as string] : null,
     }
   })
   return allNumbered

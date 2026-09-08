@@ -94,10 +94,35 @@ const FIXTURES = [
   ['highUncertainty', highUncertainty],
 ] as const
 
+/**
+ * ⚠⚠ THE STORE IS PUT INTO A REAL POST-RUN STATE, AND IT WAS NOT BEFORE.
+ *
+ * This harness used to set only `currentScenarioId`, leaving `results.status`
+ * at its initial `'idle'` and the canvas with no option nodes. Every case below
+ * is named for a POST-RUN state, and none of them was one in the store — which
+ * is why the case called "a run mid-rerun" could set the `isRunning` PROP and
+ * never notice that the capture modal behind the door was, on a real rerun,
+ * fully disabled. A fixture whose name and whose state disagree is the reason
+ * the gate defect shipped past a green matrix (CLAUDE.md trap 16-inverse: a
+ * fixture you wrote yourself is not evidence about the producer).
+ *
+ * The genuinely uncapturable states — `error`, `cancelled`, `preparing`, and a
+ * completed run with no options — are driven in
+ * `theDoorIsNeverDecorative.spec.tsx`, which exists because this file could not
+ * see them.
+ */
 beforeEach(() => {
   useStrengthenStore.setState({ records: {} })
   useDecisionRecordStore.setState({ isOpen: false, byScenario: {} })
-  useCanvasStore.setState({ currentScenarioId: 'scenario-act-spec' })
+  useCanvasStore.setState({
+    currentScenarioId: 'scenario-act-spec',
+    results: { status: 'complete', progress: 1 },
+    nodes: [
+      { id: 'opt-a', type: 'option', data: { label: 'Phase the rollout' } },
+      { id: 'opt-b', type: 'option', data: { label: 'Hold the price' } },
+    ],
+    optionNumbering: { 'opt-a': 1, 'opt-b': 2 },
+  } as never)
   vi.mocked(openDecisionRecord).mockClear()
 })
 afterEach(cleanup)

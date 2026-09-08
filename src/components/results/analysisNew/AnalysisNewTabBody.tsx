@@ -522,7 +522,16 @@ export function AnalysisNewTabBody({
    * itself uses; importing it is what makes this the SAME fact rather than a
    * second one that agrees (CLAUDE.md trap 12).
    */
-  const resultsStatus = useCanvasStore((state) => state.results.status)
+  /**
+   * ⚠ OPTIONAL-CHAINED, AND NOT DEFENSIVELY. `results` is nullable in the
+   * canvas store and `successTargetSurfacesAgree.spec.tsx` drives the panel
+   * with `results: null` — a state this component renders in. An unguarded
+   * `state.results.status` threw at mount and took 12 unrelated assertions
+   * with it. `deriveAnalysedOptions` treats anything that is not the literal
+   * `'complete'` as "no capturable options", so `null` reaches the right
+   * answer rather than a swallowed one.
+   */
+  const resultsStatus = useCanvasStore((state) => state.results?.status ?? null)
   const optionNumbering = useCanvasStore((state) => state.optionNumbering)
   const canRecordDecision = canCaptureDecision({
     nodes,
