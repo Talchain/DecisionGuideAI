@@ -519,8 +519,22 @@ export function ModelTabV2Panel({
        * ⚠ SO A MINUS TYPED INTO A MAGNITUDE-ONLY ROW SETS THE SIZE AND NOTHING
        * ELSE, disclosed here rather than left to be discovered: this surface
        * offers no direction control, so a sign typed into it states nothing the
-       * product may act on. Giving relationships a direction affordance needs
-       * `proposeEdgeDirection`, which has no carrier — see the file header.
+       * product may act on.
+       *
+       * ⚠⚠ THE REASON GIVEN HERE UNTIL 2026-09-08 WAS FALSE, and it is corrected
+       * rather than deleted so it is not re-derived. It read: *"Giving
+       * relationships a direction affordance needs `proposeEdgeDirection`, which
+       * has no carrier"*. The carrier EXISTS and is deployed —
+       * `edge_strength_edit.direction_intent`, in the schemas version this repo
+       * pins, with a CEE writer that resolves it. The seam is now built
+       * (`useInspectorMutations.setDirection` emits; see `contracts.ts` §1) and
+       * the per-edge gate is `edgeDirectionEditIsAssertable`.
+       *
+       * WHAT REMAINS IS A SURFACE DECISION, NOT A TRANSPORT GAP: adding a
+       * direction control to THIS row is a design change with its own review,
+       * deliberately not made in the lane that built the carrier. The two other
+       * direction controls (`EdgeAdvancedEditor`, `RelationshipsSection`) reach
+       * the server today.
        */
       if (editingRelationshipId === rowId) {
         const edge = edges.find(e => e.id === rowId)

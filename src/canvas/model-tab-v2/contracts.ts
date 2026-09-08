@@ -95,12 +95,36 @@ export interface EditProposalHandle {
  *       rather than the absence-based rule `factor_value_edit` has to infer
  *       from, so the revert is buildable — it is simply not built.
  *
+ *   IMPLEMENTED 2026-09-08 AT THE SEAM, GATED PER EDGE:
+ *     · proposeEdgeDirection    → `edge_strength_edit` (`direction_intent`)
+ *       ⚠⚠ IT NEEDED NO NEW EVENT KIND, AND THE LIST ABOVE SAID OTHERWISE FOR
+ *       LONGER THAN IT SHOULD HAVE. Derived at `@talchain/schemas` 0.50.0 — the
+ *       version BOTH repos pin — `edge_strength_edit` carries
+ *       `direction_intent: 'preserve' | 'positive' | 'negative'` as a field of
+ *       its own ("Direction is carried separately so a strength change cannot
+ *       reverse an edge accidentally"), and CEE's `resolveEdgeStrengthTarget`
+ *       resolves `effectDirection` from it before routing the write through the
+ *       canonical `adjust_edge_strength` handler. So the carrier had been
+ *       deployed since 0.42.0 and the direction control was reaching it with
+ *       NOTHING: `useInspectorMutations.setDirection` did one local `updateEdge`,
+ *       stamped `directionSource: 'user'`, and the claim vanished on reload.
+ *       The emitter is `buildEdgeDirectionEditEvent`, which DELEGATES to the
+ *       strength builder rather than assembling a second payload, and the
+ *       affordance gate is `edgeDirectionEditIsAssertable` — asked of that
+ *       builder, never a copy of its rules.
+ *       ⚠ Reader-first was ALREADY SATISFIED rather than newly incurred: no new
+ *       union member, so no `.strict()` discriminator an older CEE could reject.
+ *
  *   LOCAL-ONLY TODAY — the gap this design depends on closing:
- *     · proposeEdgeLikelihood, proposeEdgeDirection, proposeOptionIntervention,
+ *     · proposeEdgeLikelihood, proposeOptionIntervention,
  *       proposeGoalTarget, proposeFactorConfirmation
  *     These currently terminate in the client store and reach CEE only as the
  *     debounced, VALUE-LESS `direct_graph_edit` ping. Queue A depends on
  *     `proposeOptionIntervention`; Queue B depends on `proposeFactorConfirmation`.
+ *     ⚠ UNLIKE DIRECTION ABOVE, EACH OF THESE GENUINELY NEEDS A NEW EVENT KIND —
+ *     an olumi-schemas release, a CEE re-vendor and a sequenced two-service
+ *     deploy. Checked at 0.50.0's `SystemEventKind`, whose sixteen members carry
+ *     no field any of the four could ride.
  */
 export interface ModelEditAuthority {
   /** Existing. Scale is decided from the node's own cap/unit, not by the row. */

@@ -137,6 +137,24 @@ export interface BuildEdgeStrengthEditArgs {
    * one happened or they are a split-brain by construction.
    */
   preserveDirection?: boolean
+  /**
+   * An EXPLICIT direction, stated by the caller rather than read off the sign of
+   * `requestedMean`. When present it wins over both the sign rule and
+   * `preserveDirection`.
+   *
+   * ⚠⚠ THIS IS NOT A CONVENIENCE, AND ROUTING A DIRECTION THROUGH
+   * `requestedMean` INSTEAD IS UNSOUND. This file's own header states the rule —
+   * *"a MAGNITUDE CANNOT CARRY A SIGN … at zero it is not even ambiguous, it is
+   * unrepresentable (`-0 >= 0` is `true`)"*. A direction-only edit on an edge
+   * whose server-stated magnitude is `0` therefore CANNOT be expressed as a
+   * signed number: `-0` reads as `'positive'` and the user's `negative` is
+   * silently inverted on the wire. `magnitude` and `direction_intent` are
+   * separate fields in the contract for exactly this reason
+   * (`@talchain/schemas` 0.50.0: *"Direction is carried separately so a strength
+   * change cannot reverse an edge accidentally"*), and this parameter is how a
+   * caller reaches the second one without lying through the first.
+   */
+  directionIntent?: 'positive' | 'negative'
 }
 
 /**
@@ -151,6 +169,7 @@ export function buildEdgeStrengthEditEvent({
   edge,
   requestedMean,
   preserveDirection,
+  directionIntent,
 }: BuildEdgeStrengthEditArgs): WireSystemEvent | null {
   if (!edge) return null
   const from = edge.source
@@ -192,11 +211,16 @@ export function buildEdgeStrengthEditEvent({
   // `direction: mean >= 0 ? 'positive' : 'negative'` and writes nothing under
   // `preserveDirection`. Re-deriving it differently here would let the canvas
   // and the server disagree about what the user just said.
-  const direction_intent: 'preserve' | 'positive' | 'negative' = preserveDirection
-    ? 'preserve'
-    : requestedMean >= 0
-      ? 'positive'
-      : 'negative'
+  // An EXPLICIT direction wins over both other rules. It is the only encoding
+  // that survives a zero magnitude — see `directionIntent`'s note for why the
+  // sign rule below cannot be asked to carry this question.
+  const direction_intent: 'preserve' | 'positive' | 'negative' = directionIntent
+    ? directionIntent
+    : preserveDirection
+      ? 'preserve'
+      : requestedMean >= 0
+        ? 'positive'
+        : 'negative'
 
   return {
     type: 'edge_strength_edit',
@@ -257,4 +281,96 @@ export function buildEdgeStrengthEditEvent({
 export function edgeStrengthEditIsAssertable(edge: Edge | undefined | null): boolean {
   if (!edge) return false
   return buildEdgeStrengthEditEvent({ edge, requestedMean: 0, preserveDirection: true }) !== null
+}
+
+/**
+ * Build the wire event for a DIRECTION-ONLY edit — "this link helps rather than
+ * hurts" — leaving the strength the server holds exactly as it is.
+ *
+ * ⭐⭐ THE CARRIER ALREADY EXISTED; WHAT DID NOT WAS A WAY TO REACH IT. Derived
+ * at `@talchain/schemas` 0.50.0 (the version BOTH repos pin — CEE
+ * `package.json:97`, UI `package.json:116`): `edge_strength_edit` carries
+ * `direction_intent: 'preserve' | 'positive' | 'negative'` as a FIELD OF ITS
+ * OWN, and CEE has a `'mutating'` writer for the kind
+ * (`SYSTEM_EVENT_HANDLING`, `system-events/dispatch.ts`) whose
+ * `resolveEdgeStrengthTarget` resolves `effectDirection` from that field and
+ * routes the write through the canonical `adjust_edge_strength` handler. So a
+ * direction change has been server-expressible since 0.42.0 and reached CEE as
+ * nothing at all: `useInspectorMutations.setDirection` performed one local
+ * `updateEdge` and stamped `directionSource: 'user'` — a provenance claim about
+ * a fact the server was never told, which then vanished on the next reload.
+ * That silent loss is the reason this exists.
+ *
+ * ⚠ NO NEW EVENT KIND, AND THAT IS THE POINT. Minting one would need an
+ * olumi-schemas release, a CEE re-vendor and a sequenced two-service deploy
+ * (every `SystemEventSchema` member is `.strict()` inside a discriminated union,
+ * so an older reader rejects the WHOLE turn, not just the field). This reuses
+ * the deployed member instead, so the reader-first obligation is ALREADY
+ * SATISFIED rather than newly incurred.
+ *
+ * ⚠ IT DELEGATES TO `buildEdgeStrengthEditEvent` RATHER THAN ASSEMBLING A
+ * SECOND PAYLOAD. Every rule that decides whether this edit can be asserted —
+ * canonical endpoint ids, the server-stated `expected` tuple, the magnitude
+ * bound — lives there and is applied here by CALLING it. A second copy of those
+ * conditions is this estate's dominant defect class (CLAUDE.md trap 12): it
+ * agrees with its source on the day it is written and drifts silently after.
+ *
+ * ⚠ THE MAGNITUDE IS THE SERVER'S, NOT THE CANVAS'S. `expected.mean` is what
+ * CEE holds; `edge.data.weight` is a locally-mutable number this client may
+ * have written and the server may never have seen. CEE compares `expected` with
+ * a bare `!==` and answers `edge_expected_tuple_mismatch` — *"That link has
+ * changed since you opened it"* — on any disagreement, so sending the local
+ * weight would manufacture a phantom concurrent edit for a change that was fine.
+ *
+ * Returns `null` on the same terms as the strength builder: the edit cannot be
+ * asserted truthfully. `null` is NOT an error and must not suppress the local
+ * write — see `setDirection`.
+ */
+export interface BuildEdgeDirectionEditArgs {
+  /** The edge as it was BEFORE the local write — `expected` describes the past. */
+  edge: Edge
+  /** The direction the USER chose. Never inferred from a number. */
+  direction: 'positive' | 'negative'
+}
+
+export function buildEdgeDirectionEditEvent({
+  edge,
+  direction,
+}: BuildEdgeDirectionEditArgs): WireSystemEvent | null {
+  if (!edge) return null
+
+  // Asked of the same resolver the strength builder uses, for the same reason
+  // its own note gives: no value of `weightSource` — `'cee'` included — can
+  // stand in for a fact the server actually stated.
+  const expected = serverStatedStrengthOf(edge.data as Record<string, unknown> | undefined)
+  if (!expected) return null
+
+  return buildEdgeStrengthEditEvent({
+    edge,
+    // The size the server holds, unchanged. Passed UNSIGNED and paired with an
+    // explicit `directionIntent`: the sign of this number is deliberately not
+    // load-bearing, because at `expected.mean === 0` it could not be.
+    requestedMean: Math.abs(expected.mean),
+    directionIntent: direction,
+  })
+}
+
+/**
+ * Can a direction edit on THIS EDGE be truthfully asserted to the server?
+ *
+ * ⭐ THE PER-EDGE GATE, ASKED OF THE BUILDER RATHER THAN RESTATED — the same
+ * shape as `edgeStrengthEditIsAssertable` above and for the same reason. A
+ * surface offering a direction control where the write cannot land is design §2
+ * F6: an affordance that looks server-backed while writing locally.
+ *
+ * ⚠ THE PROBE DIRECTION IS ARBITRARY AND THAT IS SAFE, unlike the probe VALUE
+ * in the strength gate. `direction` cannot influence the builder's `null` arms —
+ * both members are legal at every magnitude, including zero — so the answer is
+ * a property of the EDGE alone: a non-canonical endpoint id, or no server-stated
+ * `expected` tuple. If that ever stops being true this reads `false` and the
+ * affordance renders DISABLED, which is the safe direction.
+ */
+export function edgeDirectionEditIsAssertable(edge: Edge | undefined | null): boolean {
+  if (!edge) return false
+  return buildEdgeDirectionEditEvent({ edge, direction: 'positive' }) !== null
 }

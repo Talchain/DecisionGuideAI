@@ -9,7 +9,10 @@ import { useCallback } from 'react'
 import { useCanvasStore } from '../../store'
 import type { RiskImpact } from '../../domain/nodes'
 import { useOptionalConversationContext } from '../../conversation/ConversationContext'
-import { buildEdgeStrengthEditEvent } from '../../conversation/edgeStrengthEdit'
+import {
+  buildEdgeStrengthEditEvent,
+  buildEdgeDirectionEditEvent,
+} from '../../conversation/edgeStrengthEdit'
 
 // ─── Editor-written-field manifest (single source of truth) ────────────
 //
@@ -622,13 +625,44 @@ export function useEdgeMutations(edgeId: string) {
     updateEdge(edgeId, { data: { ...edge.data, label: value || undefined } })
   }, [edgeId, updateEdge, getEdge])
 
-  const setDirection = useCallback((direction: 'positive' | 'negative') => {
+  /**
+   * ⭐ THE DEFECT THIS CLOSES, as the user experiences it: picking "helps" or
+   * "hurts" changed the line, stamped `directionSource: 'user'` — and told the
+   * server nothing. The claim survived until the next reload and then silently
+   * vanished, which is the harm CEE's own dispatch table names in terms ("a lie
+   * told by omission"). Direction is the most load-bearing fact in a causal
+   * model, so an analysis re-run after the fix silently used the OLD sign.
+   *
+   * ⚠ THE LOCAL WRITE IS UNCONDITIONAL, AND IT IS THE SAME DECISION `setStrength`
+   * MAKES AND DOCUMENTS ABOVE — read that note rather than re-deriving this one.
+   * An edge with no server-stated `expected` tuple has nothing truthful to
+   * assert, so failing closed would make the control do NOTHING for a whole
+   * class of edges: a disclosed gap traded for a silently dead affordance, the
+   * worse of the two. The outcome token is how the gap is disclosed instead, and
+   * `edgeDirectionEditIsAssertable` is how a surface gates the affordance
+   * PER EDGE before offering it.
+   */
+  const setDirection = useCallback((
+    direction: 'positive' | 'negative',
+  ): EdgeStrengthCommitOutcome => {
     const edge = getEdge()
-    if (!edge) return
+    if (!edge) return 'not_encodable'
+    // Built from the edge as it was BEFORE the local write — `expected` is an
+    // assertion about the PAST, and the same read feeds both halves so the wire
+    // event and the store update can never describe different edges.
+    const event = buildEdgeDirectionEditEvent({ edge, direction })
     // The user picking +/− is the ONLY thing that turns the defaulted
     // `direction: 'positive'` into a stated one (ROADMAP 2.263).
     updateEdge(edgeId, { data: { ...edge.data, direction, directionSource: 'user' } })
-  }, [edgeId, updateEdge, getEdge])
+    if (!event) return 'not_wire_encodable'
+    if (!sendSystemEvent) return 'local_only'
+    void Promise.resolve(sendSystemEvent(event)).catch(() => {
+      // Swallowed deliberately, exactly as `setStrength` does: a genuine send
+      // failure is recorded by the conversation's own failure channel, and a
+      // server REFUSAL is not a failure — the promise resolves normally.
+    })
+    return 'dispatched'
+  }, [edgeId, updateEdge, getEdge, sendSystemEvent])
 
   return { setStrength, setStd, setExistsProbability, setLabel, setDirection }
 }
