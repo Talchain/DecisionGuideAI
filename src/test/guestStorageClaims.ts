@@ -155,8 +155,14 @@ export const GUEST_STORAGE_CLAIM_ADJUDICATED: Readonly<Record<string, string>> =
     + 'and revisit trigger stay local. That is a precise claim about NAMED FIELDS, not a '
     + "blanket claim about the user's model, and its docblock says it was written to "
     + 'claim neither more nor less than is true. `guestNote` beside it reads similarly '
-    + 'and has ZERO CONSUMERS. ROWED: retire the dead `guestNote`, and re-derive whether '
-    + 'the split still holds after any change to decision-record persistence.',
+    + 'and has ZERO CONSUMERS. ROWED: retire the dead `guestNote` — still unconsumed. '
+    + '⭐ THE RE-DERIVATION THIS ENTRY ASKED FOR HAS BEEN DONE (7 Sep 2026, the '
+    + 'sessionStorage-to-localStorage move). THE SPLIT HOLDS: which fields reach CEE is '
+    + 'decided by `DecisionRecordDecisionSchema`/`…PredictionSchema` being `.strict()`, '
+    + 'not by the browser store, so changing WHERE the local half sits moves no field '
+    + 'across the line. What DID change is the local half\'s LIFETIME, and the dead '
+    + '`guestNote` was corrected in the same commit because it asserted the old one '
+    + '("ends with the browser session") — false once a record outlives the tab.',
   'src/canvas/versions/ServerVersionsSection.tsx':
     'THE MATCH IS ON A CORRECTLY-SCOPED TRUE CLAIM, and my pattern is the thing at '
     + 'fault. "Sign in to save SHARED versions" is scoped to shared versions, which are '

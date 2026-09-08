@@ -1,6 +1,7 @@
 import { AuthError } from '@supabase/supabase-js';
 import { clearAccessValidation } from './accessValidation';
 import { authLogger } from './authLogger';
+import { clearDecisionRecords } from '../../components/results/modals/decisionRecordStore';
 
 function parseAuthError(error: AuthError | Error | unknown): string {
   if (!error) return 'An unknown error occurred';
@@ -69,6 +70,7 @@ export function validateAuthInputs(email: string, password: string): string | nu
 // Clear all auth-related states
 export function clearAuthStates(): void {
     console.debug('[authUtils] clearAuthStates() called', new Error().stack);
+  clearDecisionRecords();
   // Clear early access validation state
   clearAccessValidation();
   
