@@ -40,10 +40,12 @@ import { useEffect, useRef } from 'react'
 
 import { useAuth } from '../../contexts/AuthContext'
 import { getSessionIdentity } from '../../lib/supabase'
+import { isPersistenceSessionActive } from '../../lib/persistenceSession'
 import { logger } from '../../lib/logger'
 import { registerScenarioGraph } from '../../adapters/cee/registerScenarioGraph'
 import { useCanvasStore } from '../store'
 import { releaseImportRegistration } from '../store/importRegistrationMarker'
+import { setCurrentScenarioId } from '../store/scenarios'
 import { buildRegistrationGraph } from './buildRegistrationGraph'
 
 /**
@@ -96,10 +98,38 @@ export function useImportRegistration(): void {
   useEffect(() => {
     if (!pending) return
     if (!scenarioId || !UUID_PATTERN.test(scenarioId)) {
-      // No addressable scenario row yet. The hold stays armed and the product
-      // keeps saying it cannot confirm — which is TRUE: there is nowhere to
-      // register this graph.
-      logger.warn('import_registration.no_scenario_id', { scenarioId: scenarioId ?? null })
+      // ⭐ "THERE IS NOWHERE TO REGISTER THIS GRAPH" WAS TRUE, AND THAT MADE IT
+      //    A THING TO FIX RATHER THAN A THING TO LOG. A fresh guest who opens a
+      //    bundled saved example has no `currentScenarioId` at all — one is
+      //    minted lazily by the FIRST TURN (`useConversation`'s mint guard) —
+      //    so the registration train bailed here every single time and the only
+      //    remaining route to an analysable model was an LLM re-draft that
+      //    succeeds roughly 36-57% of the time.
+      //
+      // ⚠ THE MINT RULE IS `useConversation`'S, NOT A NEW ONE, and refusing for
+      //   a persisted session is the load-bearing half. Minting for a signed-in
+      //   user manufactures a decision they never asked for: they have a real
+      //   route to a real scenario (the Decisions page), so refusing costs them
+      //   nothing and inventing one costs them their place. A guest's decisions
+      //   are local and they have no such list, which is exactly why the mint is
+      //   correct there and only there.
+      //
+      // Refusing leaves the hold ARMED, so the product goes on saying it cannot
+      // confirm — the honest posture, unchanged from before this branch existed.
+      if (isPersistenceSessionActive()) {
+        logger.warn('import_registration.no_scenario_id', { scenarioId: scenarioId ?? null })
+        return
+      }
+      const mintedId = crypto.randomUUID()
+      logger.info('import_registration.minted_scenario_id', { scenarioId: mintedId })
+      // Store AND the localStorage writer, exactly as the turn path does, so a
+      // reload reuses this row rather than registering the same graph twice
+      // into a second scenario the user never asked for.
+      useCanvasStore.setState({ currentScenarioId: mintedId })
+      setCurrentScenarioId(mintedId)
+      // The effect re-runs on the new `scenarioId` and registers there. It does
+      // NOT fall through: `attempted` would otherwise be keyed on a scenario
+      // that was null when the key was built.
       return
     }
 

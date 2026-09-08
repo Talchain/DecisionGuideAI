@@ -94,6 +94,40 @@ export interface NodeLike {
 }
 
 /**
+ * ⭐ THE ONE INPUT — the canvas state, not a pair of derived values.
+ *
+ * ⚠ THE ARGUMENT WIDENED FROM `nodes` TO THE STATE, AND THAT IS THE WHOLE
+ *   POINT. The registration conjunct below needs a fact that is NOT derivable
+ *   from the nodes, and the docstring above bans a second parameter beside the
+ *   first — correctly, because two arguments a caller assembles by hand are a
+ *   pairing that drifts. Taking the state object instead keeps the arity at ONE
+ *   and makes a mismatch unconstructible: every call site is
+ *   `useCanvasStore((s) => analysisHeldOn(s))`, so the nodes and the
+ *   registration posture are read from the same snapshot by construction.
+ *
+ *   It also keeps the value REACTIVE. Reading the flag from the store INSIDE
+ *   this function would have compiled and looked tidier, and a selector bound
+ *   to `s.nodes` would then never re-run when the acknowledgement landed — the
+ *   graph does not change when CEE acks it. The claim would go stale exactly
+ *   as the banner's did before this module existed.
+ */
+export interface AnalysisHoldState {
+  readonly nodes: ReadonlyArray<NodeLike>
+  /**
+   * Whether a graph the server has NOT acknowledged holding is on the canvas.
+   *
+   * Deliberately the store's existing derived field rather than a new boolean:
+   * it is armed at every graph-replacement site from a structural, storage-
+   * backed marker and released ONLY by `useImportRegistration` on a 200
+   * carrying the `scenario_graph_registration.v1` envelope. So every failure
+   * mode — 409, 503, transport, unreadable body, no scenario row — leaves it
+   * armed, and this predicate keeps holding. Design §2 F6: the affordance is
+   * enabled BECAUSE the write reached the server, never optimistically.
+   */
+  readonly importPendingServerRegistration: boolean
+}
+
+/**
  * The provenance stamp on the graph, or `null` when Olumi drafted it.
  *
  * Module-private on purpose: it is the RAW graph read, without the run-path
@@ -126,7 +160,7 @@ function readInjectionStamp(
  * Both the run gate and the provenance banner read this, so a surface can no
  * longer claim analysis is held while another disagrees.
  *
- * Two conjuncts, and both are load-bearing:
+ * THREE conjuncts, and all three are load-bearing:
  *  - the graph was injected client-side (`readInjectionStamp`), and
  *  - the run would route through CEE, which analyses its own scenario state,
  *    not the canvas (#343). The V5 turn body carries no graph at all
@@ -134,11 +168,31 @@ function readInjectionStamp(
  *    `.strict()`), so CEE's only route to the nodes is its persisted scenario
  *    row. A V2-direct run DOES send the canvas graph, so the hold does not
  *    apply off the canonical path.
+ *  - ⭐ …and CEE HAS NOT ACKNOWLEDGED HOLDING THIS GRAPH.
+ *
+ * ⚠ THE THIRD CONJUNCT IS WHAT THIS PREDICATE WAS ALWAYS ABOUT, and its
+ *   absence was a real defect rather than an omission. The first two conjuncts
+ *   are a PROXY for it: "client-injected" implied "the server has not seen it"
+ *   only because there was no way to give the server the graph. There is now —
+ *   the deterministic `register` seam — so the proxy is wrong in the direction
+ *   that matters, and it was wrong PERMANENTLY: `starterId` is stamped on every
+ *   node and round-trips persistence by design, so the first two conjuncts stay
+ *   true forever and analysis stayed refused on a model CEE demonstrably holds.
+ *
+ * ⚠ AND THE STAMP IS NOT REMOVED ON REGISTRATION, DELIBERATELY. Stripping it
+ *   would have released this predicate with a one-line change and no new
+ *   argument — and would have silently deleted the "saved example" disclosure
+ *   too, because the banner reads the same stamp. Provenance ("where did this
+ *   graph come from?") and analysability ("can the engine analyse it?") are two
+ *   questions, and one stamp answering both is precisely the conflation this
+ *   estate keeps paying for. The stamp stays; only the hold lifts.
  */
 export function analysisHeldOn(
-  nodes: ReadonlyArray<NodeLike>,
+  state: AnalysisHoldState,
 ): ClientInjectedProvenance | null {
-  return isV5CanonicalRunPath() ? readInjectionStamp(nodes) : null
+  if (!isV5CanonicalRunPath()) return null
+  if (!state.importPendingServerRegistration) return null
+  return readInjectionStamp(state.nodes)
 }
 
 /**
@@ -194,7 +248,7 @@ export const ANALYSIS_HELD_NOTICE: Record<ClientInjectedProvenance, string> = {
  * so a caller CANNOT render the claim in a state where it is untrue. Returning
  * a string unconditionally is what let the banner go stale.
  */
-export function analysisHeldNotice(nodes: ReadonlyArray<NodeLike>): string | null {
-  const held = analysisHeldOn(nodes)
+export function analysisHeldNotice(state: AnalysisHoldState): string | null {
+  const held = analysisHeldOn(state)
   return held === null ? null : ANALYSIS_HELD_NOTICE[held]
 }
