@@ -76,11 +76,11 @@
  * reading this would have concluded the carrier had to be designed. It only ever
  * lacked a UI EMITTER, and that landed at `useEdgeMutations.setStrength`.
  *
- * Edge LIKELIHOOD, edge DIRECTION and the GOAL TARGET still have no canonical
- * carrier and no entry point here, and for those three the original sentence
- * stands: the v2 surface keeps rendering their affordances DISABLED with an
- * honest label rather than routing them through a local-only write that would
- * look identical to a server-backed one (design §2 F6).
+ * Goal targets now use the existing typed add_constraint route, not a new
+ * system event. The earlier no-carrier claim counted only system-event kinds.
+ * The Model control explicitly requests an absolute minimum with stated units;
+ * only the server's committed response updates it. Other disabled controls are
+ * unchanged; no local-only goal write is disguised as a saved target.
  *
  * ⚠⚠ CORRECTED 2026-09-08 — THE PARAGRAPH BELOW WAS TRUE AND IS NOW FALSE, and
  * it is left standing so its reasoning is not re-derived from scratch:
@@ -127,6 +127,7 @@ import {
 import { buildFactorValueEditEvent } from '../conversation/factorValueEdit'
 import { buildEdgeStrengthEditEvent } from '../conversation/edgeStrengthEdit'
 import { captureOptimisticFactorEdit } from '../conversation/optimisticFactorEdit'
+import { buildManualGoalTarget, manualGoalTargetMessage } from '../conversation/manualGoalTarget'
 
 /**
  * How a proposal left this seam.
@@ -208,6 +209,11 @@ export type LocalCommitOutcome = 'committed' | 'not_encodable'
 export type EdgeStrengthProposalOutcome = EdgeStrengthCommitOutcome | 'refused_unassertable'
 
 export interface ModelEditAuthorityLive {
+  goalTargetDispatchAvailable: boolean
+  /** The host captures identity without gaining a separate store access path. */
+  captureScenarioId: () => string | null
+  /** Dispatch only: the central typed-action receipt owns the eventual write. */
+  proposeGoalTarget: (draft: string, unit: string, scenarioId: string | null) => 'dispatched' | 'not_encodable'
   proposeFactorValue: (typedValue: number) => FactorValueProposalOutcome
   /**
    * Set the ACTIVE OPTION's target value for one factor.
@@ -261,7 +267,27 @@ export function useModelEditAuthority(
 ): ModelEditAuthorityLive {
   const mutations = useNodeMutations(activeNodeId ?? '')
   const edgeMutations = useEdgeMutations(activeEdgeId ?? '')
-  const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
+  const conversation = useOptionalConversationContext()
+  const sendSystemEvent = conversation?.sendSystemEvent
+  const dispatchAction = conversation?.dispatchAction
+
+  const proposeGoalTarget = useCallback((draft: string, unit: string, scenarioId: string | null) => {
+    const state = useCanvasStore.getState()
+    const node = state.nodes.find(n => n.id === activeNodeId)
+    if (!node || resolveNodeTypeLiteral(node) !== 'goal' || !dispatchAction ||
+        !scenarioId || state.currentScenarioId !== scenarioId) return 'not_encodable' as const
+    const parameters = buildManualGoalTarget(node.id, draft, unit)
+    if (!parameters) return 'not_encodable' as const
+    // Do not echo the draft into the store or claim saved on promise resolution.
+    // Typed add_constraint uses CEE's existing validated proposal/commit path;
+    // central response application owns both acceptance and refusal.
+    void Promise.resolve(dispatchAction({
+      action_type: 'add_constraint', parameters, source: 'inspector',
+      label: `Set minimum target: ${parameters.value} ${parameters.unit}`,
+      message: manualGoalTargetMessage(parameters.value, parameters.unit),
+    })).catch(() => { /* The conversation's existing failure channel owns this. */ })
+    return 'dispatched' as const
+  }, [activeNodeId, dispatchAction])
 
   const proposeFactorValue = useCallback(
     (typedValue: number): FactorValueProposalOutcome => {
@@ -451,6 +477,9 @@ export function useModelEditAuthority(
   )
 
   return {
+    goalTargetDispatchAvailable: typeof dispatchAction === 'function',
+    captureScenarioId: () => useCanvasStore.getState().currentScenarioId ?? null,
+    proposeGoalTarget,
     proposeFactorValue,
     proposeOptionIntervention,
     proposeFactorConfirmation,

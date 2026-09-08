@@ -92,7 +92,7 @@ export interface ModelRowViewProps {
    */
   editConnected?: boolean
   /** Live-edit callbacks (the three-beat). Absent ⇒ the static renders below. */
-  onDraftChange?: (id: string, draft: string) => void
+  onDraftChange?: (id: string, draft: string, unit?: string) => void
   /** Commit intent: editing → proposed. */
   onProposeEdit?: (id: string) => void
   /** Abandon the edit from either the input (Escape) or the proposal chip. */
@@ -948,7 +948,7 @@ function ValueCell({
   commit?: EditCommitState
   editorAvailable: boolean
   onBeginEdit?: (id: string) => void
-  onDraftChange?: (id: string, draft: string) => void
+  onDraftChange?: (id: string, draft: string, unit?: string) => void
   onProposeEdit?: (id: string) => void
   onDiscardEdit?: (id: string) => void
   onConfirmEdit?: (id: string) => void
@@ -1065,6 +1065,29 @@ function ValueCell({
                 v1 solved this the same way (`ContestedEdgeCard.tsx:433`): own
                 line, `flex-wrap`. The input row keeps its no-wrap contract
                 untouched; only this second line may wrap. */}
+
+              {row.kind === 'goal' && (
+                <span className={`${typography.panelMeta} text-text-light`}>
+                  {/* Two fields need a second line, not paragraphs wrapped in
+                      the narrow value column. The review phase states the
+                      minimum/absolute-level meaning before Confirm can send. */}
+                  <label className="flex flex-col gap-0.5">
+                    Unit
+                    <input
+                      aria-label={`Target unit for ${row.label}`}
+                      value={commit.unit ?? ''}
+                      placeholder="£, %, points"
+                      onClick={e => e.stopPropagation()}
+                      onChange={e => onDraftChange(row.id, commit.draft, e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { e.preventDefault(); onProposeEdit(row.id) }
+                        if (e.key === 'Escape') { e.preventDefault(); onDiscardEdit(row.id) }
+                      }}
+                      className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
+                    />
+                  </label>
+                </span>
+              )}
 
               {/* ⭐ QUICK-SET BANDS — RELATIONSHIPS ONLY, AND PROMOTED, NOT INVENTED.
                   Paul, 8 Sep 2026: "a really simple, quick, and easy clickable
@@ -1216,7 +1239,7 @@ function ValueCell({
             data-testid={testid}
             className={`${typography.panelTabular} min-w-0 flex flex-wrap items-baseline`}
           >
-            <span className="shrink-0 whitespace-nowrap">
+            <span className={row.kind === 'goal' ? 'min-w-0 break-words' : 'shrink-0 whitespace-nowrap'}>
               <span data-testid={`${testid}-from`}>{commit.from}</span>
               {' → '}
               <span data-testid={`${testid}-to`}>{commit.to}</span>
@@ -1239,8 +1262,8 @@ function ValueCell({
                 vocabulary is the estate's own — `HowComputedModal` renders
                 `applied ? 'Applied' : 'Not applied'` for this exact
                 distinction. */}
-            <span className={`${typography.panelBody} text-text-light ml-2 min-w-0 truncate`}>
-              Not applied yet
+            <span role={commit.notice ? 'alert' : undefined} className={`${typography.panelBody} text-text-light ml-2 min-w-0 ${commit.notice ? '' : 'truncate'}`}>
+              {commit.notice ?? 'Not applied yet'}
             </span>
             {/*
               R9 — the inline confirm CHIPS. Rendered only when the host can
