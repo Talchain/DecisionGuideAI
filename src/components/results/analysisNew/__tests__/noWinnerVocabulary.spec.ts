@@ -209,6 +209,39 @@ describe('no contest framing in ANY copy the Reasoning tab renders', () => {
     }
   })
 
+  /*
+   * ⭐ THE INSTRUMENT'S OWN BLIND SPOT, PINNED — because it had one, and the
+   * only reason we know is that a reviewer WROTE THE EVASION AND RAN IT.
+   *
+   * The extractor used to stop at 120 characters. A retired string put back
+   * into an in-scope file at 126 characters left this spec GREEN 10/10, and
+   * nothing in the suite could see it: the literal count silently dropped by
+   * one and the only assertion on it was `> 10`.
+   *
+   * Removing the cap closes the demonstrated evasion. These two cases stop it
+   * SILENTLY RETURNING. They test the EXTRACTOR, not the corpus, so they cannot
+   * drift as the copy files change — the failure mode being guarded is "the
+   * sweep stopped looking", which is invisible to every count-based check.
+   */
+  it('THE EXTRACTOR HAS NO LENGTH BOUND — a longer sentence cannot evade the sweep', () => {
+    const long = 'x'.repeat(300)
+    // Positive control first: the extractor sees an ORDINARY literal, so a hit
+    // below is the absence of a bound and not an extractor that sees anything.
+    expect(literals("const a = 'ordinary copy'")).toContain('ordinary copy')
+    expect(literals(`const a = '${long}'`)).toContain(long)
+  })
+
+  it("THE REVIEWER'S 126-CHARACTER EVASION IS NOW CAUGHT", () => {
+    const evasion =
+      'Build the strongest honest case AGAINST the current leading option. ' +
+      'What evidence or reasoning would genuinely change my mind?'
+    // PRECONDITION PINNED IN-TEST: this string really is past the old cap, so
+    // a RED below is the cap's removal and not a shorter string sneaking in.
+    expect(evasion.length).toBeGreaterThan(120)
+    const seen = literals(`const a = '${evasion}'`).filter((x) => !NOT_COPY.test(x))
+    expect(seen.some((x) => RETIRED_DESIGNATIONS.test(x))).toBe(true)
+  })
+
   it('FABRICATED CONTROL: the widened matcher fires, and does NOT fire on the false positives', () => {
     expect(RETIRED_DESIGNATIONS.test('Pressure-test the leading option')).toBe(true)
     expect(RETIRED_DESIGNATIONS.test('The current lead does not hold up')).toBe(true)
