@@ -20,9 +20,25 @@
  * name (CLAUDE.md trap 21), and the cost was the entire ACT half of the panel
  * on every run but the rare clean one.
  *
- * So the gate here is the weakest honest one: A RUN EXISTS. Nothing about its
- * quality, because nothing about its quality bears on whether a team may record
- * what they chose.
+ * So the gate here is the weakest HONEST one — and "honest" is doing the work.
+ * Nothing about a run's QUALITY belongs in it: a fragile, mixed or stale
+ * result is exactly when the reasoning is worth keeping. But the gate must
+ * still be a claim the product can keep, and "a run happened at some point in
+ * this session" is not one.
+ *
+ * ⚠⚠ THE FIRST VERSION OF THIS COMPONENT GATED ON `!isPreRun` ALONE, AND THAT
+ * WAS DECORATIVE ON A REACHABLE PATH. `isPreRun` is `!hasCompletedFirstRun`, a
+ * monotonic flag; the capture modal fails closed on
+ * `results.status !== 'complete'`; and `resultsStart` preserves the previous
+ * report while setting `'preparing'`. During any rerun, error or cancellation
+ * the door therefore rendered onto a modal that opened fully disabled saying
+ * "Run an analysis first." to a user who had. The gate is now `!isPreRun` AND
+ * `canCapture`, the latter derived from the modal's own predicate — see the
+ * prop, and `modals/analysedOptions.ts`.
+ *
+ * ⚠ THE READ-BACK IS NOT GATED ON IT. Only the DOOR and the UPDATE control
+ * are. A stored record renders in every post-run state, because reading it
+ * back needs nothing from the analysis.
  *
  * ── WHAT IT REFUSES TO SAY ─────────────────────────────────────────────────
  * 1. IT NEVER STATES A FIELD THE RECORD DOES NOT CARRY. Every free-text field
@@ -38,11 +54,14 @@
  *    not make — so the copy is scoped to the SCENARIO, which is what the
  *    selector licenses, and stops there.
  *
- * 3. IT NEVER INFERS WHY A RECORD IS LOCAL-ONLY. `remote === null` has three
- *    documented routes (guest, offline, a failed commit). It licenses exactly
- *    one sentence — there is no record id, so no account claim — and it does
- *    not license "sign in to keep this", which would be false for the
- *    signed-in user whose commit failed.
+ * 3. IT NEVER INFERS WHY A RECORD IS LOCAL-ONLY, AND NEVER ASSERTS THAT IT IS
+ *    NOWHERE ELSE. `remote === null` has three documented routes (guest,
+ *    offline, a failed commit). It does not license "sign in to keep this",
+ *    which would be false for the signed-in user whose commit failed — and it
+ *    does not license "it is not on your account" either, because a FAILED
+ *    COMMIT is a dispatched POST that CEE may have written (hence
+ *    `clientCommitId`'s dedupe). Absence of a record id is absence of
+ *    CONFIRMATION, not absence of a row, and the copy says exactly that.
  *
  * 4. IT NEVER INVENTS A DATE. `formatRecordedOn` returns null on a
  *    non-finite or unparseable `savedAt` and the line is withheld.
@@ -55,6 +74,29 @@ import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 export interface DecisionRecordedProps {
   /** Pre-run there is no decision to record — the options are not analysed. */
   isPreRun: boolean
+  /**
+   * ⭐⭐ CAN THE CAPTURE MODAL ACTUALLY ACCEPT A RECORD RIGHT NOW? Derived by
+   * `hasAnalysedOptions` — the SAME function the modal builds its option list
+   * from — and it is not the same question as `!isPreRun`.
+   *
+   * ⚠⚠ THIS PROP EXISTS BECAUSE THE DOOR WAS DECORATIVE ON A REACHABLE PATH,
+   * which falsified this component's own contract below. `isPreRun` is
+   * `!hasCompletedFirstRun`, a MONOTONIC flag — once a session has completed
+   * one run it never goes back. But `resultsStart` sets
+   * `results.status = 'preparing'` and DELIBERATELY preserves the previous
+   * report so the panel does not flash empty, and the modal fails CLOSED on
+   * `results.status !== 'complete'`. So during any rerun — and on `'error'`
+   * and `'cancelled'` — the section rendered a door, and the modal behind it
+   * opened fully disabled saying "Run an analysis first. There are no analysed
+   * options to record a decision against yet." **to a user who had just run
+   * one.** Two questions under one name (CLAUDE.md trap 21).
+   *
+   * ⚠ IT GATES THE DOOR, NEVER THE READ-BACK. Reading a stored record back is
+   * a pure read of the browser store: it needs no analysed option set, and
+   * hiding it mid-rerun would delete the user's own writing from the screen
+   * exactly when they are re-running to test it.
+   */
+  canCapture: boolean
   /**
    * The record for the CURRENT scenario, or null. Passed in rather than read
    * here so both states can be driven directly in a test, the way
@@ -121,11 +163,59 @@ export function recordedOptionText(record: DecisionRecord): string {
   return record.optionNumber != null ? `Option ${record.optionNumber} — ${named}` : named
 }
 
-export function DecisionRecorded({ isPreRun, record, onRecord, testId }: DecisionRecordedProps) {
+/**
+ * ⚠ THE STORAGE SENTENCE NAMES ONLY FIELDS THE RECORD CARRIES. `expectation`
+ * is optional on `DecisionRecord`, and `Field` withholds its row when it is
+ * absent or blank — so naming it in a fixed sentence would tell the user their
+ * expectation is on their account while the row for it is withheld for want of
+ * one. Same rule as every other row here, applied to the sentence that
+ * describes the rows.
+ */
+export function storageSentenceFor(record: DecisionRecord): string {
+  if (!record.remote?.recordId) return COPY.decisionRecord.storedLocal
+  return record.expectation?.trim()
+    ? COPY.decisionRecord.storedRemoteWithExpectation
+    : COPY.decisionRecord.storedRemote
+}
+
+/**
+ * ⚠ THE CONFIDENCE ROW IS WITHHELD ON A NON-FINITE NUMBER, and the guard has
+ * to live HERE rather than in `Field`. `Field` tests the string it is handed,
+ * and this row hands it a COMPOSED string — `${confidence} of 100` — which is
+ * never blank whatever the number is. An `undefined` or `NaN` confidence read
+ * back out of an editable browser store would therefore render "NaN of 100"
+ * or "undefined of 100" past a blank check that cannot see it.
+ *
+ * This is the same class as `formatRecordedOn`'s: capture validates the field,
+ * but "validated at capture" is not a guarantee about a value that has since
+ * been through `localStorage`, where a user can edit it. It is the value class
+ * the corpus omitted (CLAUDE.md trap 22) applied to the one row the component
+ * rendered unconditionally.
+ */
+export function formatConfidence(confidence: number): string | null {
+  if (typeof confidence !== 'number' || !Number.isFinite(confidence)) return null
+  return `${confidence} ${COPY.decisionRecord.confidenceSuffix}`
+}
+
+export function DecisionRecorded({
+  isPreRun,
+  canCapture,
+  record,
+  onRecord,
+  testId,
+}: DecisionRecordedProps) {
   // Pre-run there are no analysed options, so there is nothing to have chosen.
-  // This is the ONLY gate — see the header for why nothing about the run's
-  // quality belongs in it.
   if (isPreRun) return null
+
+  /**
+   * ⚠⚠ NOTHING AT ALL WHEN THERE IS NEITHER A RECORD TO SHOW NOR A CAPTURE TO
+   * OFFER. This is the gate that keeps the contract above true: an empty
+   * section whose only control opens a disabled modal is worse than no
+   * section, because it invites an act the product will then refuse. The
+   * read-back is unaffected — a record already captured renders in every
+   * post-run state, including mid-rerun.
+   */
+  if (record === null && !canCapture) return null
 
   const recordedOn = record ? formatRecordedOn(record.savedAt) : null
 
@@ -176,14 +266,12 @@ export function DecisionRecorded({ isPreRun, record, onRecord, testId }: Decisio
               >
                 {recordedOptionText(record)}
               </p>
-              {/* ⚠ RENDERED UNCONDITIONALLY BECAUSE IT IS VALIDATED AT CAPTURE.
-                  `parseConfidence` rejects an empty string (the prototype's
-                  `Number('') === 0` hole is closed there), so a record that
-                  exists has a real number — unlike the free-text fields below,
-                  where absence is a genuine state. */}
+              {/* ⚠ GUARDED BEFORE COMPOSITION — see `formatConfidence`. A
+                  composed string is never blank, so `Field`'s blank check
+                  cannot see a NaN or absent confidence behind it. */}
               <Field
                 label={COPY.decisionRecord.confidenceLabel}
-                value={`${record.confidence} ${COPY.decisionRecord.confidenceSuffix}`}
+                value={formatConfidence(record.confidence) ?? undefined}
                 testId={`${testId}-confidence`}
               />
               <Field
@@ -224,18 +312,24 @@ export function DecisionRecorded({ isPreRun, record, onRecord, testId }: Decisio
                 className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
                 data-testid={`${testId}-storage`}
               >
-                {record.remote?.recordId
-                  ? COPY.decisionRecord.storedRemote
-                  : COPY.decisionRecord.storedLocal}
+                {storageSentenceFor(record)}
               </p>
-              <button
-                type="button"
-                onClick={onRecord}
-                className={`${typography.panelMeta} mt-1.5 rounded-full border border-panel-border px-2.5 py-1 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-                data-testid={`${testId}-update`}
-              >
-                {COPY.decisionRecord.update}
-              </button>
+              {/* ⚠ THE UPDATE CONTROL OBEYS THE SAME GATE AS THE DOOR. Updating
+                  a record goes through the same capture modal, whose chosen-
+                  option select is populated from the analysed option set — so
+                  with no set on screen it opens just as disabled, and offering
+                  it would be the same decorative control one state along. The
+                  record itself stays fully readable. */}
+              {canCapture ? (
+                <button
+                  type="button"
+                  onClick={onRecord}
+                  className={`${typography.panelMeta} mt-1.5 rounded-full border border-panel-border px-2.5 py-1 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                  data-testid={`${testId}-update`}
+                >
+                  {COPY.decisionRecord.update}
+                </button>
+              ) : null}
             </>
           )}
         </div>

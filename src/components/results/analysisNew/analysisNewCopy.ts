@@ -652,15 +652,54 @@ export const ANALYSIS_NEW_COPY = {
     /**
      * ⚠ NO CAUSE, AND NO ADVICE. See the block header — the three routes to a
      * local-only record are not distinguishable from `remote === null`.
+     *
+     * ⚠⚠ AND NO NEGATIVE CLAIM EITHER. Superseded text: ~~'On this device
+     * only, for this scenario. It is not on your account.'~~ Both "only" and
+     * "It is not on your account" are assertions that the record is NOWHERE
+     * ELSE, inferred from the mere ABSENCE of `remote.recordId` — and absence
+     * of a record id is not absence of a row. One of the three documented
+     * routes to `remote === null` is a FAILED COMMIT, where the POST was
+     * dispatched and CEE may well have written the record; that is precisely
+     * why `clientCommitId` carries a dedupe key. The PR reasoned correctly
+     * that only `recordId` licenses the positive claim and then treated its
+     * absence as licensing the negative one — the same asymmetry, pointing the
+     * other way.
+     *
+     * What is actually known is a LOCAL fact plus a MISSING CONFIRMATION, and
+     * the correctly-scoped words already existed one layer down in the commit
+     * path: "We could not confirm this decision was saved."
      */
-    storedLocal: 'On this device only, for this scenario. It is not on your account.',
+    storedLocal:
+      'On this device, for this scenario. We have no confirmation it reached your account.',
     /**
      * The split named exactly, in the same words the capture modal uses — one
      * thing learned once. Licensed by `remote.recordId`, which is CEE's own
      * proof the durable half landed.
+     *
+     * ⚠ "A REVIEW DATE", NOT "YOUR REVIEW DATE". Superseded text: ~~'Your
+     * choice, confidence, expectation and review date are on your account.'~~
+     * The possessive claimed the user chose it. `remote.reviewDateSource` is
+     * the field that would settle that — its three values are `user_set`,
+     * `default_horizon` and `default_horizon_after_unparsed_trigger` — and on
+     * two of the three CEE DEFAULTED the date ninety days out after failing to
+     * parse a trigger. The surface has no reader for that field, so it may not
+     * imply the answer; it states that a review date exists, which is true on
+     * all three.
      */
     storedRemote:
-      'Your choice, confidence, expectation and review date are on your account. The rationale, assumption and revisit trigger are on this device.',
+      'Your choice and confidence are on your account, with a review date. The rationale, assumption and revisit trigger are on this device.',
+    /**
+     * ⚠ THE SAME SENTENCE FOR A RECORD THAT ACTUALLY CARRIES AN EXPECTATION.
+     * `expectation` is OPTIONAL on `DecisionRecord` — records written before
+     * the field existed are still readable, and `Field` withholds its row when
+     * it is absent or blank. A fixed sentence naming it would tell a user
+     * their expectation is on their account while the row above it is
+     * withheld for want of one: the section's own first rule ("it never states
+     * a field the record does not carry") broken by the sentence that
+     * describes the record.
+     */
+    storedRemoteWithExpectation:
+      'Your choice, confidence and expectation are on your account, with a review date. The rationale, assumption and revisit trigger are on this device.',
   },
   /**
    * The success target — the question a strategist answers FIRST and this panel

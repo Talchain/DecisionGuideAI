@@ -13,8 +13,16 @@
  * POSTed to CEE and persisted in `decision_records` with
  * `committed_by_user: true` and `confidence_source: 'user_stated'` — the
  * first user-stated calibration population this product has ever had.
- * Everything still lands in sessionStorage first, so a failed commit
+ * Everything still lands in the browser store first, so a failed commit
  * degrades the record from "durable" to "on this device", never to "lost".
+ *
+ * ⚠ THAT STORE IS `localStorage`, NOT `sessionStorage`. Superseded text:
+ * ~~Everything still lands in sessionStorage first~~. `decisionRecordStore`
+ * moved on 7 Sep 2026 so a record survives to the LATER visit it exists to be
+ * read back on; this sentence is corrected here rather than left as a stale
+ * mirror of a file it does not own (CLAUDE.md trap 12). See that store's
+ * header for the lifetime, and `scenarioKey.ts` for why its sibling
+ * `successMeasureStore` did NOT move.
  *
  * ⭐ WHY AN "EXPECTATION" FIELD RATHER THAN REUSING THE RATIONALE. The
  * outcome is scored against `prediction.statement`, a FORWARD claim. A
@@ -49,6 +57,7 @@ import {
   PRIMARY_BUTTON_CLASS,
   useModalToast,
 } from './ModalShell'
+import { selectAnalysedOptions, type AnalysedOption } from './analysedOptions'
 import { resolveScenarioKey } from './scenarioKey'
 import {
   selectDecisionRecord,
@@ -118,13 +127,6 @@ export const DECISION_RECORD_COPY = {
     'Decision recorded on this device — we could not save it to your account.',
 } as const
 
-interface AnalysedOption {
-  id: string
-  label: string
-  /** Stable number from optionNumbering, only when EVERY option has one. */
-  number: number | null
-}
-
 function parseConfidence(raw: string): number {
   // NON-EMPTY strict parse — the prototype accepted '' because
   // Number('')===0; the spec flags that as a validation hole to close.
@@ -146,27 +148,21 @@ export function DecisionRecordModal() {
   const analysisHash = useCanvasStore((s) => s.results.hash ?? null)
   const numbering = useCanvasStore((s) => s.optionNumbering)
 
-  const options = useMemo<AnalysedOption[]>(() => {
-    if (resultsStatus !== 'complete') return []
-    const optionNodes = nodes.filter(
-      (n) =>
-        n.type === 'option' ||
-        (n.data as Record<string, unknown> | undefined)?.kind === 'option',
-    )
-    if (optionNodes.length === 0) return []
-    const allNumbered = optionNodes.every((n) => numbering[n.id] != null)
-    const mapped = optionNodes.map((n) => {
-      const label = (n.data as Record<string, unknown> | undefined)?.label
-      return {
-        id: n.id,
-        label: typeof label === 'string' && label.trim() !== '' ? label : n.id,
-        number: allNumbered ? numbering[n.id] : null,
-      }
-    })
-    return allNumbered
-      ? [...mapped].sort((a, b) => (a.number as number) - (b.number as number))
-      : mapped
-  }, [nodes, resultsStatus, numbering])
+  /**
+   * ⚠⚠ THIS PREDICATE NOW LIVES IN `analysedOptions.ts` AND IS SHARED. It used
+   * to be computed inline here, and the `DecisionRecorded` section offered its
+   * door on `!isPreRun` instead — a DIFFERENT question ("has this session ever
+   * completed a run?" vs "is there an analysed option set on screen now?").
+   * The two diverge on every rerun, error and cancellation, because
+   * `hasCompletedFirstRun` is monotonic while `resultsStart` preserves the
+   * prior report — so the section rendered a door onto this fail-closed empty
+   * state. Restating the condition there would have been a hand-maintained
+   * mirror (CLAUDE.md trap 12); both surfaces derive it from one function.
+   */
+  const options = useMemo<AnalysedOption[]>(
+    () => selectAnalysedOptions(nodes, resultsStatus, numbering),
+    [nodes, resultsStatus, numbering],
+  )
 
   const hasOptions = options.length > 0
 

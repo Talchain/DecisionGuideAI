@@ -49,7 +49,7 @@ import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import { attentionNoteForRecommendation } from '../strengthen/recommendationAttention'
-import { openDecisionRecord, useDecisionRecordForScenario } from '../modals'
+import { openDecisionRecord, useDecisionRecordForScenario, hasAnalysedOptions } from '../modals'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
@@ -514,6 +514,19 @@ export function AnalysisNewTabBody({
   const currentScenarioId = useCanvasStore((state) => state.currentScenarioId)
   const decisionRecord = useDecisionRecordForScenario(currentScenarioId)
   /**
+   * ⚠⚠ THE DOOR'S GATE IS THE CAPTURE MODAL'S OWN PREDICATE, DERIVED — NOT
+   * RESTATED. `hasAnalysedOptions` is the function `DecisionRecordModal`
+   * builds its option list from, so the section cannot offer a capture the
+   * modal will then refuse. Restating `results.status === 'complete' && …`
+   * here would be a hand-maintained mirror of a predicate in another file
+   * (CLAUDE.md trap 12), and the two would drift the first time either moved.
+   *
+   * ⚠ `results.status`, NOT `isPreRun`. The two diverge on every rerun, error
+   * and cancellation — see `sections/DecisionRecorded.tsx`'s `canCapture`.
+   */
+  const resultsStatus = useCanvasStore((state) => state.results.status)
+  const canCaptureDecision = hasAnalysedOptions(nodes, resultsStatus)
+  /**
    * ⚠⚠ "THE STRIP IS OFFERING THE CONTROL", NOT "THE MODEL HAS A GOAL" — and
    * the difference is a shipped regression, caught by independent review.
    *
@@ -783,11 +796,16 @@ export function AnalysisNewTabBody({
             above reads the model. This is the one place the team writes down
             what they will DO, and the one place a later session reads it back.
 
-            ⚠⚠ THE GATE IS `!isPreRun` AND NOTHING ELSE — see the component
-            header. `ModelHeldUp` above renders on almost no runs by design;
-            this renders on all of them, because the quality of a result has no
-            bearing on whether a team may record the choice they made from it.
-            A fragile or stale run is when the reasoning is most worth keeping.
+            ⚠⚠ THE GATE CARRIES NOTHING ABOUT THE RUN'S QUALITY — see the
+            component header. `ModelHeldUp` above renders on almost no runs by
+            design; the read-back here renders on all of them, because the
+            quality of a result has no bearing on whether a team may record, or
+            re-read, the choice they made from it. A fragile or stale run is
+            when the reasoning is most worth keeping.
+
+            ⚠ WHAT IT DOES CARRY IS `canCapture`, AND ONLY OVER THE DOOR. The
+            first version gated on `!isPreRun` alone and offered a door onto a
+            modal that opens disabled during any rerun — see `canCapture`.
 
             ⚠ THE RECORD IS SCENARIO-KEYED, NOT RUN-KEYED.
             `useDecisionRecordForScenario` resolves `currentScenarioId` through
@@ -796,6 +814,7 @@ export function AnalysisNewTabBody({
             it was captured against. The section's copy is scoped accordingly. */}
         <DecisionRecorded
           isPreRun={vm.status.isPreRun}
+          canCapture={canCaptureDecision}
           record={decisionRecord}
           onRecord={openDecisionRecord}
           testId="analysis-new-decision-record"

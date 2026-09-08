@@ -45,6 +45,14 @@
  * "saved" without qualification. `localStorage` is per browser profile: it does
  * not follow the user to another machine, another browser, or a private window.
  *
+ * ⚠⚠ AND `localStorage` BOUGHT TWO DEFECTS WITH THE LIFETIME, BOTH CLOSED HERE
+ * RATHER THAN LEFT FOR THE READ-BACK TO EXPOSE. `sessionStorage` was per-tab,
+ * so it hid them both. (1) The `__unscoped__` fallback key would have become a
+ * permanent, browser-global, identity-independent slot — see `persist` for why
+ * it is now never written. (2) A whole-map write from a once-read snapshot
+ * would have let two tabs clobber each other — see `saveRecord`. Neither was a
+ * bug in the move; both are what the move made reachable.
+ *
  * ⚠⚠ THE DURABLE HALF CANNOT BE READ BACK EITHER — BUT STATE THAT AT THE SCOPE
  * IT WAS DERIVED AT. What is measured is about THIS REPO: the only
  * `decision-records` path anywhere in `src/` is
@@ -78,7 +86,7 @@
  */
 import { create } from 'zustand'
 
-import { resolveScenarioKey } from './scenarioKey'
+import { resolveScenarioKey, UNSCOPED_SCENARIO_KEY } from './scenarioKey'
 
 /**
  * Proof that this record reached CEE — the durable half. `null` while the
@@ -157,9 +165,46 @@ function loadPersisted(): Pick<DecisionRecordState, 'byScenario'> {
   }
 }
 
+/**
+ * ⭐⭐ THE UNSCOPED RECORD IS NEVER WRITTEN TO DURABLE STORAGE, AND THAT IS A
+ * PRIVACY BOUNDARY, NOT A TIDINESS RULE.
+ *
+ * `resolveScenarioKey` folds "no scenario yet" onto the single literal
+ * `__unscoped__`. Under `sessionStorage` that shared key was bounded by the
+ * tab: it died when the tab did. Under `localStorage` it would be a PERMANENT,
+ * browser-global, identity-independent slot — so a decision recorded on an
+ * unsaved canvas would be read back, indefinitely, by the next person to open
+ * an unsaved canvas in that browser profile, rendered as "for this scenario".
+ *
+ * ⚠ AND NO SIGN-OUT HOOK CAN CLOSE THAT. On the deployed staging posture
+ * (`VITE_AUTH_MODE = "guest"`) the optional-auth `signOut` opens
+ * `if (!session) return` (`AuthContext.tsx:625-627`), so a visitor who never
+ * signed in never runs a sign-out path at all. Two guests sharing a machine
+ * are one identity to this product; the only defence available at this layer
+ * is not to write the shared key.
+ *
+ * The record still SAVES — it stays in memory for the session, which is every
+ * bit of the life it can honestly have. A capture with no scenario cannot be
+ * read back "for this scenario" on a later visit, because there is no scenario
+ * for it to be read back against; persisting it durably would buy nothing and
+ * cost a cross-user read.
+ *
+ * ⚠ THE RESIDUAL, STATED RATHER THAN GLOSSED: a record keyed to a REAL
+ * scenario id still survives a sign-out, because nothing in this product
+ * clears product data on sign-out today (measured — `clearAuthStates` clears a
+ * hand-listed set of nine AUTH keys and no product key; PR #1299 is building
+ * that seam for a sibling store). Its exposure is bounded by the scenario's
+ * own: `olumi-canvas-autosave`, `olumi-canvas-current-scenario-id` and the
+ * scenario list are already permanent, un-namespaced `localStorage`, so anyone
+ * who can open that scenario can already see the graph the record belongs to.
+ * That is the estate-wide gap, not this store's to invent a second mechanism
+ * for.
+ */
 function persist(byScenario: Record<string, DecisionRecord>): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, byScenario }))
+    const { [UNSCOPED_SCENARIO_KEY]: _unscoped, ...durable } = byScenario
+    void _unscoped
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, byScenario: durable }))
   } catch {
     // localStorage unavailable (private mode, quota, blocked site data) —
     // the record degrades to in-memory only rather than throwing at the user.
@@ -173,16 +218,40 @@ export const useDecisionRecordStore = create<DecisionRecordState>((set, get) => 
   open: () => set({ isOpen: true }),
   close: () => set({ isOpen: false }),
 
+  /**
+   * ⚠⚠ THE WRITE MERGES ONTO WHAT IS ON DISK RIGHT NOW, NOT ONTO THIS TAB'S
+   * MODULE-INIT SNAPSHOT — and that only became necessary with `localStorage`.
+   *
+   * `sessionStorage` is per-tab, so a whole-map write could not lose another
+   * tab's work. `localStorage` is shared across every tab on the profile, and
+   * this store reads it ONCE (the `...loadPersisted()` spread in the factory
+   * below) and has no `storage` listener. Writing `get().byScenario` wholesale
+   * would therefore take a snapshot that could be minutes old and stamp it
+   * back over the shared map: two tabs on two scenarios, and the second save
+   * silently deletes the first — while both users are told "Decision recorded
+   * on this device."
+   *
+   * Disk wins over this tab's memory, because every in-memory entry was
+   * persisted the moment it was made, so a divergence means another tab moved
+   * on. The record being written wins over both, because it is the newest fact
+   * in the system. The unscoped entry survives the merge without being written
+   * — `loadPersisted` can never return that key, so nothing overrides it.
+   */
   saveRecord: (scenarioKey, record) => {
-    const byScenario = { ...get().byScenario, [scenarioKey]: record }
+    const byScenario = {
+      ...get().byScenario,
+      ...loadPersisted().byScenario,
+      [scenarioKey]: record,
+    }
     persist(byScenario)
     set({ byScenario })
   },
 
   attachRemote: (scenarioKey, remote) => {
-    const existing = get().byScenario[scenarioKey]
+    const merged = { ...get().byScenario, ...loadPersisted().byScenario }
+    const existing = merged[scenarioKey]
     if (!existing) return
-    const byScenario = { ...get().byScenario, [scenarioKey]: { ...existing, remote } }
+    const byScenario = { ...merged, [scenarioKey]: { ...existing, remote } }
     persist(byScenario)
     set({ byScenario })
   },

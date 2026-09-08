@@ -57,10 +57,18 @@ const RECORD: DecisionRecord = {
   remote: null,
 }
 
+/**
+ * ⚠ `canCapture` DEFAULTS TRUE HERE, and the default is deliberate: this file
+ * is about what the read-back SAYS, so every case should sit in the state where
+ * the whole surface is present. The cases that exercise `canCapture={false}`
+ * are named, and they live in `theActIsNotGatedOnSuccess.spec.tsx`, which owns
+ * the gate.
+ */
 const draw = (over: Partial<React.ComponentProps<typeof DecisionRecorded>> = {}) =>
   render(
     <DecisionRecorded
       isPreRun={false}
+      canCapture
       record={RECORD}
       onRecord={vi.fn()}
       testId={T}
@@ -165,10 +173,63 @@ describe('the confidence keeps the unit it was captured in', () => {
     expect(el.textContent).not.toMatch(/%/)
   })
 
-  /** Zero is a REAL confidence and must not be swallowed by a falsiness check. */
+  /**
+   * Zero is a REAL confidence and must not be swallowed by a falsiness check.
+   *
+   * ⚠ THE ASSERTION IS ANCHORED, AND THE FIRST VERSION WAS NOT.
+   * `toHaveTextContent('0 of 100')` is a SUBSTRING match that also passes on
+   * "100 of 100" and on "10 of 100" — a wrong value satisfying the test for
+   * the right one (CLAUDE.md trap 19). The regex pins the whole row.
+   */
   it('prints a confidence of zero rather than dropping the row', () => {
     withRecord({ confidence: 0 })
-    expect(screen.getByTestId(`${T}-confidence`)).toHaveTextContent('0 of 100')
+    expect(screen.getByTestId(`${T}-confidence`)).toHaveTextContent(/^Confidence0 of 100$/)
+  })
+
+  /**
+   * ⭐⭐ A NON-FINITE CONFIDENCE GETS NO ROW, AND THE GUARD CANNOT LIVE IN
+   * `Field`. `Field` blank-checks the STRING it is handed, and this row hands
+   * it a COMPOSED one — `${confidence} of 100` — which is never blank whatever
+   * the number is. So an absent or NaN confidence rendered as "NaN of 100"
+   * straight past a check that was structurally unable to see it.
+   *
+   * "But capture validates it" is not a guarantee about a value that has since
+   * been through `localStorage`, where a user can edit it — the same reasoning
+   * that already withholds an unreadable `savedAt`, applied to the one row the
+   * component rendered unconditionally. This is the value class the corpus
+   * omitted (CLAUDE.md trap 22).
+   */
+  it.each([
+    ['NaN', Number.NaN],
+    ['Infinity', Number.POSITIVE_INFINITY],
+    ['absent', undefined as unknown as number],
+  ])('withholds the confidence row on a %s value rather than printing it', (_label, value) => {
+    withRecord({ confidence: value })
+    expect(screen.queryByTestId(`${T}-confidence`)).toBeNull()
+  })
+
+  /**
+   * ⚠ THE POSITIVE CONTROL FOR THE ASSERTION ABOVE. Without it, "the row is
+   * absent" would pass just as well on a component that never renders a
+   * confidence row at all — an absence assertion that cannot see a presence
+   * (CLAUDE.md trap 13).
+   */
+  it('…while a finite confidence still renders its row (control)', () => {
+    withRecord({ confidence: 65 })
+    expect(screen.getByTestId(`${T}-confidence`)).toHaveTextContent(/^Confidence65 of 100$/)
+  })
+
+  /**
+   * ⚠ AND THE WHOLE SECTION SURVIVES IT. Withholding a row must not take the
+   * record down with it: the option line, which is what a reader came back for,
+   * is still there.
+   */
+  it('a record with an unreadable confidence still reads back everything else', () => {
+    withRecord({ confidence: Number.NaN })
+    expect(screen.getByTestId(`${T}-option`)).toHaveTextContent(
+      /^Option 2 — Phase the rollout by segment$/,
+    )
+    expect(screen.getByTestId(`${T}-title`)).toBeInTheDocument()
   })
 })
 
@@ -191,13 +252,44 @@ describe('where the record lives is stated from the record, never inferred', () 
     expect(line.textContent).not.toMatch(/signed out|offline|guest/i)
     /**
      * ⚠ AND NO POSITIVE ACCOUNT CLAIM. Written as the affirmative phrasings
-     * rather than as `/account\.$/` — the first draft used that and RED'd on
-     * the sentence's own honest ending, "It is not on your account." A negative
-     * assertion has to ban the CLAIM, not a substring the true sentence shares
-     * with the false one.
+     * rather than as `/account\.$/`, because the true sentence ends on the word
+     * "account" too. A negative assertion has to ban the CLAIM, not a substring
+     * the true sentence shares with the false one.
      */
     expect(line.textContent).not.toMatch(/(?:saved|stored|kept) to your account/i)
     expect(line.textContent).not.toMatch(/(?:are|is) on your account/i)
+  })
+
+  /**
+   * ⭐⭐ AND NO NEGATIVE ACCOUNT CLAIM EITHER — the finding that reopened this
+   * file. The sentence used to read "On this device ONLY … It is NOT on your
+   * account", both of which assert the record is nowhere else, inferred from
+   * the mere absence of `remote.recordId`.
+   *
+   * Absence of a record id is absence of CONFIRMATION, not absence of a row.
+   * One of the three documented routes to `remote === null` is a FAILED
+   * COMMIT — a POST that was dispatched and that CEE may well have written,
+   * which is exactly why `clientCommitId` carries a dedupe key. So for that
+   * user the old sentence was simply false, and false in the direction that
+   * matters most: it tells someone their decision is not saved when it may be.
+   *
+   * ⚠ THIS IS THE TWIN OF THE ASSERTION ABOVE, AND IT HAS TO BE. One direction
+   * alone is a guard watching one door (CLAUDE.md trap 22b): banning only the
+   * positive claim is satisfied by any confident negative, and banning only the
+   * negative is satisfied by any confident positive. The sentence is licensed
+   * to state a LOCAL fact and a MISSING CONFIRMATION, and nothing else.
+   */
+  it('…and makes no NEGATIVE account claim either — absence of a record id is absence of proof', () => {
+    withRecord({ remote: null })
+    const line = screen.getByTestId(`${T}-storage`)
+    expect(line.textContent).not.toMatch(/not on your account/i)
+    expect(line.textContent).not.toMatch(/\bonly\b/i)
+    expect(line.textContent).not.toMatch(/(?:is|was) not saved/i)
+    // What it IS licensed to say: it names the local fact and the missing
+    // confirmation. Bound to the copy constant so this cannot drift into
+    // asserting a sentence the component does not render.
+    expect(line).toHaveTextContent(COPY.decisionRecord.storedLocal)
+    expect(COPY.decisionRecord.storedLocal).toMatch(/no confirmation/i)
   })
 
   it('the local sentence is not the account sentence', () => {
@@ -214,6 +306,7 @@ describe('where the record lives is stated from the record, never inferred', () 
    */
   it('a record with a CEE record id names the split, in the modal’s own words', () => {
     withRecord({
+      expectation: undefined,
       remote: {
         recordId: 'dr_123',
         reviewDate: '2026-12-01T00:00:00.000Z',
@@ -221,6 +314,75 @@ describe('where the record lives is stated from the record, never inferred', () 
       },
     })
     expect(screen.getByTestId(`${T}-storage`)).toHaveTextContent(COPY.decisionRecord.storedRemote)
+  })
+
+  /**
+   * ⭐ THE ACCOUNT SENTENCE OBEYS THE SAME RULE AS EVERY ROW ABOVE IT: it names
+   * only fields the record carries. `expectation` is OPTIONAL on the type —
+   * records written before the field existed are still readable, and `Field`
+   * withholds its row when it is absent. A fixed sentence naming it would tell
+   * the user their expectation is on their account while the row for it is
+   * withheld for want of one: the section's own first rule, broken by the
+   * sentence that describes the rows.
+   *
+   * ⚠ THE PAIR IS THE POINT. The case above has no expectation and must NOT
+   * name one; this case has one and must. Either assertion alone passes on a
+   * component that ignores the field entirely.
+   */
+  it('names the expectation on the account only when the record carries one', () => {
+    withRecord({
+      expectation: 'churn stays under 4% through Q1',
+      remote: {
+        recordId: 'dr_123',
+        reviewDate: '2026-12-01T00:00:00.000Z',
+        reviewDateSource: 'user_set',
+      },
+    })
+    const line = screen.getByTestId(`${T}-storage`)
+    expect(line).toHaveTextContent(COPY.decisionRecord.storedRemoteWithExpectation)
+    expect(line.textContent).toMatch(/expectation/i)
+  })
+
+  it('…and withholds it from the sentence when the record does not', () => {
+    withRecord({
+      expectation: undefined,
+      remote: {
+        recordId: 'dr_123',
+        reviewDate: '2026-12-01T00:00:00.000Z',
+        reviewDateSource: 'user_set',
+      },
+    })
+    const line = screen.getByTestId(`${T}-storage`)
+    expect(line.textContent).not.toMatch(/expectation/i)
+    // …and the row it would have described is withheld too, which is the
+    // consistency this pair exists to pin.
+    expect(screen.queryByTestId(`${T}-expectation`)).toBeNull()
+  })
+
+  /**
+   * ⭐⭐ "A REVIEW DATE", NEVER "YOUR REVIEW DATE". The possessive claims the
+   * user CHOSE it. `remote.reviewDateSource` is the field that would settle
+   * that — `user_set` | `default_horizon` |
+   * `default_horizon_after_unparsed_trigger` — and on two of its three values
+   * CEE DEFAULTED the date ninety days out after failing to parse the user's
+   * trigger. This surface has no reader for that field, so it may not imply the
+   * answer.
+   *
+   * ⚠ THE CASE IS BUILT ON A DEFAULTED DATE DELIBERATELY: that is the value on
+   * which the old possessive was false, so a component that went back to
+   * claiming it REDs here rather than only in review.
+   */
+  it('does not claim the user chose the review date', () => {
+    withRecord({
+      remote: {
+        recordId: 'dr_123',
+        reviewDate: '2026-12-01T00:00:00.000Z',
+        reviewDateSource: 'default_horizon_after_unparsed_trigger',
+      },
+    })
+    const line = screen.getByTestId(`${T}-storage`)
+    expect(line.textContent).not.toMatch(/your\s+(?:\w+\s+){0,4}review date/i)
+    expect(line.textContent).toMatch(/a review date|with a review date/i)
   })
 
   /**

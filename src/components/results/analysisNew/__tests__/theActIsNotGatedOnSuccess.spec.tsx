@@ -30,7 +30,7 @@
 
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
@@ -78,14 +78,51 @@ const renderPanel = (
   )
 
 /**
- * Post-run states the panel can be in. Each is a state in which a team may
- * legitimately want to record what they decided — including, especially, the
- * ones the banner refuses.
+ * ⭐ THE ANALYSED OPTION SET THE CAPTURE MODAL POPULATES FROM. Without this in
+ * the store there is no option set on screen, and the modal fails closed —
+ * so a spec that omitted it would be asserting the door renders in a state
+ * where clicking it opens a disabled form.
+ */
+const OPTION_NODES = [
+  { id: 'opt-a', type: 'option', data: { label: 'Phase the rollout by segment' } },
+  { id: 'opt-b', type: 'option', data: { label: 'Hold and re-price' } },
+]
+
+/**
+ * ⚠⚠ THE STORE IS SET, NOT JUST THE PROPS — AND THIS IS THE REPAIR. The first
+ * version of this file drove "a run mid-rerun" by setting the `isRunning`
+ * PROP and nothing else, while leaving `results.status` at its default. That
+ * made the matrix structurally unable to see the defect it was written for:
+ * the panel's gate and the modal's gate read DIFFERENT state, and only one of
+ * them is a prop.
+ */
+function setCanvas(
+  over: { status?: string; nodes?: unknown[]; scenarioId?: string | null } = {},
+): void {
+  const s = useCanvasStore.getState()
+  useCanvasStore.setState({
+    currentScenarioId: over.scenarioId === undefined ? 'scenario-act-spec' : over.scenarioId,
+    nodes: (over.nodes ?? OPTION_NODES) as never,
+    optionNumbering: {},
+    results: { ...s.results, status: (over.status ?? 'complete') as never },
+  } as never)
+}
+
+/**
+ * Post-run states in which a capture is genuinely available. Each is a state in
+ * which a team may legitimately want to record what they decided — including,
+ * especially, the ones the success banner refuses.
+ *
+ * ⚠ "A RUN MID-RERUN" HAS MOVED OUT OF THIS LIST, DELIBERATELY. It sat here
+ * asserting that the door renders — but a real mid-rerun sets
+ * `results.status = 'preparing'`, on which the capture modal fails closed, so
+ * the case was only passing because it never touched the store. It is now
+ * exercised for real in "THE DOOR IS NOT OFFERED WHERE THE CAPTURE WOULD BE
+ * REFUSED" below, with the opposite expectation, which is the honest one.
  */
 const POST_RUN_STATES = [
   { name: 'a clean current run', over: {} },
   { name: 'a stale run', over: { isStale: true } },
-  { name: 'a run mid-rerun', over: { isRunning: true } },
 ] as const
 
 const FIXTURES = [
@@ -97,7 +134,7 @@ const FIXTURES = [
 beforeEach(() => {
   useStrengthenStore.setState({ records: {} })
   useDecisionRecordStore.setState({ isOpen: false, byScenario: {} })
-  useCanvasStore.setState({ currentScenarioId: 'scenario-act-spec' })
+  setCanvas()
   vi.mocked(openDecisionRecord).mockClear()
 })
 afterEach(cleanup)
@@ -139,6 +176,135 @@ describe('the door is offered on every post-run state', () => {
   )('%s offers the door', (_label, fixture, over) => {
     renderPanel(fixture(), over)
     expect(screen.getByTestId(DOOR)).toHaveTextContent(COPY.decisionRecord.open)
+  })
+})
+
+/**
+ * ⭐⭐⭐ THE DOOR IS NOT OFFERED WHERE THE CAPTURE WOULD BE REFUSED.
+ *
+ * The section's gate was `!isPreRun` alone. `isPreRun` is
+ * `!hasCompletedFirstRun` — MONOTONIC, set once in `resultsComplete` and never
+ * unset. The capture modal fails CLOSED on `results.status !== 'complete'`.
+ * And `resultsStart` sets `status: 'preparing'` while DELIBERATELY preserving
+ * the previous report so the panel does not flash empty.
+ *
+ * Those three facts compose into a reachable dead door: on every rerun, error
+ * and cancellation after the first successful run, the panel stayed mounted
+ * with the prior report, offered "Record what you decided, and why", and the
+ * modal behind it opened fully disabled saying "Run an analysis first. There
+ * are no analysed options to record a decision against yet." — to a user who
+ * had just run one. It falsified the component's own contract, "this door is
+ * never decorative".
+ *
+ * ⚠ THE STATES BELOW ARE THE PRODUCER'S OWN, NOT INVENTED. `ResultsStatus` is
+ * `'idle' | 'preparing' | 'connecting' | 'streaming' | 'complete' | 'error' |
+ * 'cancelled'` (`canvas/store.ts:244`), and every member except `'complete'`
+ * is a state in which the modal refuses. Deriving the list from the producer
+ * rather than from the symptom is what stops this closing one status and
+ * leaving its siblings open (CLAUDE.md trap 13c).
+ */
+describe('THE DOOR IS NOT OFFERED WHERE THE CAPTURE WOULD BE REFUSED', () => {
+  const REFUSING_STATUSES = [
+    'preparing',
+    'connecting',
+    'streaming',
+    'error',
+    'cancelled',
+    'idle',
+  ] as const
+
+  it.each(REFUSING_STATUSES)(
+    'results.status=%s — the panel is still mounted, and the door is withheld',
+    (status) => {
+      setCanvas({ status })
+      renderPanel(genuineDecision())
+      /**
+       * ⚠⚠ THE PRECONDITION IS PINNED IN-TEST, AND WITHOUT IT THIS ASSERTS
+       * NOTHING. "The door is absent" passes identically when the whole panel
+       * failed to render — a guard agreeing with itself (CLAUDE.md trap 13b).
+       * The defect being closed is specifically that the panel STAYS MOUNTED
+       * with the prior report while the modal has gone fail-closed, so the
+       * panel's own presence is the condition that makes the absence mean
+       * something.
+       */
+      expect(
+        screen.getByTestId('analysis-new-tab-body'),
+        'precondition: the panel must still be mounted for the absence of the door to mean anything',
+      ).toBeInTheDocument()
+      // The section collapses entirely: an empty box whose only control opens a
+      // disabled modal is worse than no box.
+      expect(screen.queryByTestId(SECTION)).toBeNull()
+      expect(screen.queryByTestId(DOOR)).toBeNull()
+    },
+  )
+
+  /**
+   * ⚠ THE POSITIVE CONTROL, AND IT IS THE LOAD-BEARING HALF. Every assertion
+   * above is an ABSENCE, and an absence assertion is vacuous until the same
+   * harness has been shown to produce a PRESENCE (CLAUDE.md trap 13). This is
+   * the same fixture, the same render, one field different.
+   */
+  it('…while results.status=complete with option nodes DOES offer it (control)', () => {
+    setCanvas({ status: 'complete' })
+    renderPanel(genuineDecision())
+    expect(screen.getByTestId(DOOR)).toHaveTextContent(COPY.decisionRecord.open)
+  })
+
+  /**
+   * ⚠ THE SECOND LIMB OF THE MODAL'S PREDICATE, AND ITS OWN DISCRIMINATING
+   * TWIN. A completed run with NO option nodes refuses just as hard — the
+   * modal's `options` is empty either way. Testing only the status limb would
+   * leave a gate that agrees with the modal on one of its two conditions.
+   */
+  it('a completed run with no option nodes withholds the door too', () => {
+    setCanvas({ status: 'complete', nodes: [] })
+    renderPanel(genuineDecision())
+    expect(screen.queryByTestId(DOOR)).toBeNull()
+  })
+
+  it('…and a completed run whose nodes are not options withholds it (twin)', () => {
+    setCanvas({
+      status: 'complete',
+      nodes: [{ id: 'f-1', type: 'factor', data: { label: 'Churn' } }],
+    })
+    renderPanel(genuineDecision())
+    expect(screen.queryByTestId(DOOR)).toBeNull()
+  })
+
+  /**
+   * ⭐⭐ THE READ-BACK IS NOT GATED ON ANY OF IT, AND THIS IS THE ASSERTION
+   * THAT KEEPS THE FIX FROM OVERSHOOTING. Hiding an already-captured record
+   * mid-rerun would delete the user's own writing from the screen at exactly
+   * the moment they are re-running to test it — a worse defect than the one
+   * being repaired, and the obvious way to get this wrong.
+   */
+  it('a record already captured still reads back mid-rerun, with no update control', () => {
+    useDecisionRecordStore.setState({
+      isOpen: false,
+      byScenario: {
+        'scenario-act-spec': {
+          optionId: 'opt-a',
+          optionLabel: 'Phase the rollout by segment',
+          optionNumber: null,
+          confidence: 65,
+          rationale: 'It keeps the renewal cohort intact.',
+          assumptionToWatch: 'Enterprise accounts accept usage pricing.',
+          revisitTrigger: 'churn crosses 4%',
+          analysisHash: 'run_abc123',
+          savedAt: Date.UTC(2026, 8, 7, 9, 0, 0),
+          remote: null,
+        },
+      },
+    })
+    setCanvas({ status: 'preparing' })
+    renderPanel(genuineDecision())
+    // The record itself: present, and bound to its own value.
+    expect(screen.getByTestId(`${SECTION}-option`)).toHaveTextContent(
+      /^Phase the rollout by segment$/,
+    )
+    // The controls that would open a modal the product will refuse: absent.
+    expect(screen.queryByTestId(`${SECTION}-update`)).toBeNull()
+    expect(screen.queryByTestId(DOOR)).toBeNull()
   })
 })
 
@@ -304,5 +470,71 @@ describe('the panel reads a saved record back', () => {
     renderPanel(genuineDecision())
     expect(screen.queryByTestId(`${SECTION}-option`)).toBeNull()
     expect(screen.getByTestId(DOOR)).toBeInTheDocument()
+  })
+})
+
+/**
+ * ⭐⭐⭐ THE READ-BACK IS REACTIVE, AND UNTIL NOW NOTHING COULD OBSERVE THAT.
+ *
+ * `AnalysisNewTabBody` subscribes through `useDecisionRecordForScenario` and
+ * carries a docblock explaining why it must — a one-shot `getState()` would
+ * render whichever scenario's record was current AT MOUNT. An independent
+ * review measured the gap directly: swapping the hook for `getState()` left
+ * every test in this file green, so the docblock was defending a property the
+ * suite could not see.
+ *
+ * ⚠ BOTH DIRECTIONS ARE PINNED, because they fail differently. A record
+ * arriving must appear WITHOUT a remount (the capture modal saves and closes
+ * over a mounted panel); and the scenario changing must SWAP the record, which
+ * is the case a `getState()` at mount gets wrong even though the first case
+ * might scrape through on an unrelated re-render.
+ */
+describe('THE READ-BACK IS SUBSCRIBED, NOT SAMPLED AT MOUNT', () => {
+  const rec = (over: Record<string, unknown> = {}) => ({
+    optionId: 'opt-a',
+    optionLabel: 'Phase the rollout by segment',
+    optionNumber: null,
+    confidence: 65,
+    rationale: 'It keeps the renewal cohort intact.',
+    assumptionToWatch: 'Enterprise accounts accept usage pricing.',
+    revisitTrigger: 'churn crosses 4%',
+    analysisHash: 'run_abc123',
+    savedAt: Date.UTC(2026, 8, 7, 9, 0, 0),
+    remote: null,
+    ...over,
+  })
+
+  const OPTION = `${SECTION}-option`
+
+  it('a record saved while the panel is mounted appears without a remount', () => {
+    renderPanel(genuineDecision())
+    // Precondition, pinned in-test: the panel starts with no record, so the
+    // appearance below is the subscription's doing and not the fixture's.
+    expect(screen.queryByTestId(OPTION)).toBeNull()
+    expect(screen.getByTestId(DOOR)).toBeInTheDocument()
+
+    act(() => {
+      useDecisionRecordStore
+        .getState()
+        .saveRecord('scenario-act-spec', rec() as never)
+    })
+
+    expect(screen.getByTestId(OPTION)).toHaveTextContent(/^Phase the rollout by segment$/)
+  })
+
+  it('changing scenario swaps the record that is read back', () => {
+    act(() => {
+      const s = useDecisionRecordStore.getState()
+      s.saveRecord('scenario-act-spec', rec({ optionLabel: 'Phase the rollout by segment' }) as never)
+      s.saveRecord('scenario-other', rec({ optionLabel: 'Hold and re-price' }) as never)
+    })
+    renderPanel(genuineDecision())
+    expect(screen.getByTestId(OPTION)).toHaveTextContent(/^Phase the rollout by segment$/)
+
+    act(() => {
+      useCanvasStore.setState({ currentScenarioId: 'scenario-other' })
+    })
+
+    expect(screen.getByTestId(OPTION)).toHaveTextContent(/^Hold and re-price$/)
   })
 })
