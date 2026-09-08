@@ -11,7 +11,7 @@ vi.mock('../../canvas/conversation/ConversationContext', async (importOriginal) 
 import { useCanvasStore } from '../../canvas/store'
 import { useModelEditAuthority } from '../../canvas/hooks/useModelEditAuthority'
 import { serverStatedStrengthOf } from '../../canvas/conversation/edgeServerStatedStrength'
-import { applyV5State } from '../applyV5State'
+import { applyV5State, type V5ApplicatorStore } from '../applyV5State'
 import { parseV5Response } from '../responseParser'
 
 const EDGE = 'client_edge_cost_delivery'
@@ -21,6 +21,14 @@ const TO = 'goal_delivery'
 
 function edgeData(id = EDGE) {
   return useCanvasStore.getState().edges.find(edge => edge.id === id)!.data!
+}
+
+function sentStrengthPayload(index: number): Record<string, unknown> {
+  const event = sendSystemEvent.mock.calls[index]?.[0]
+  if (event?.type !== 'edge_strength_edit' || !event.payload) {
+    throw new Error(`Expected edge_strength_edit with a payload at call ${index}`)
+  }
+  return event.payload
 }
 
 // Shape emitted by CEE 88b4db2c adjust-edge-strength.ts:352–410 and compose.ts:596–609.
@@ -43,7 +51,19 @@ async function receive(body: unknown, status = 200) {
   }))
   if (parsed.kind !== 'response') return { parsed }
   let result: ReturnType<typeof applyV5State> | undefined
-  act(() => { result = applyV5State(parsed.response, useCanvasStore.getState()) })
+  act(() => {
+    const state = useCanvasStore.getState()
+    // Use the real store operations without unrelated optional store contracts.
+    const store: V5ApplicatorStore = {
+      nodes: state.nodes, edges: state.edges,
+      setCurrentStage: state.setCurrentStage,
+      updateNode: state.updateNode,
+      updateEdgeData: state.updateEdgeData,
+      setRunMeta: state.setRunMeta,
+      setCeeAnalysisReady: state.setCeeAnalysisReady,
+    }
+    result = applyV5State(parsed.response, store)
+  })
   return { parsed, result }
 }
 
@@ -69,7 +89,7 @@ describe('accepted relationship strength acknowledgement', () => {
     const unrelated = edgeData(OTHER)
     const { result } = renderHook(() => useModelEditAuthority(null, EDGE))
     act(() => { expect(result.current.proposeEdgeStrength(EDGE, -0.7, { directionStated: false })).toBe('dispatched') })
-    expect(sendSystemEvent.mock.calls[0][0].payload.expected).toEqual({ mean: -0.4, effect_direction: 'negative' })
+    expect(sentStrengthPayload(0).expected).toEqual({ mean: -0.4, effect_direction: 'negative' })
     expect(serverStatedStrengthOf(edgeData())).toEqual({ mean: -0.4, effect_direction: 'negative' })
     const receipt = await receive(acknowledgement())
     expect(receipt.parsed.kind).toBe('response')
@@ -77,7 +97,7 @@ describe('accepted relationship strength acknowledgement', () => {
     expect.soft(serverStatedStrengthOf(edgeData())).toEqual({ mean: -0.7, effect_direction: 'negative' })
     expect(edgeData()).toMatchObject({ weight: 0.7, belief: 0.85, direction: 'negative', strengthStd: 0.15 })
     act(() => { expect(result.current.proposeEdgeStrength(EDGE, -0.8, { directionStated: false })).toBe('dispatched') })
-    expect(sendSystemEvent.mock.calls[1][0].payload.expected).toEqual({ mean: -0.7, effect_direction: 'negative' })
+    expect(sentStrengthPayload(1).expected).toEqual({ mean: -0.7, effect_direction: 'negative' })
     expect(edgeData(OTHER)).toBe(unrelated)
   })
 
@@ -99,7 +119,7 @@ describe('accepted relationship strength acknowledgement', () => {
     expect(receipt.parsed.kind).toBe('boundary_error')
     expect(serverStatedStrengthOf(edgeData())).toEqual({ mean: -0.4, effect_direction: 'negative' })
     act(() => { result.current.proposeEdgeStrength(EDGE, -0.8, { directionStated: false }) })
-    expect(sendSystemEvent.mock.calls[1][0].payload.expected).toEqual({ mean: -0.4, effect_direction: 'negative' })
+    expect(sentStrengthPayload(1).expected).toEqual({ mean: -0.4, effect_direction: 'negative' })
   })
 
   it('does not treat an unaddressable applied receipt as a write to another edge', async () => {
@@ -125,7 +145,7 @@ describe('accepted relationship strength acknowledgement', () => {
     expect(edgeData()).toMatchObject({ weight: 0, direction: 'negative', belief: 0.85 })
     const { result } = renderHook(() => useModelEditAuthority(null, EDGE))
     act(() => { result.current.proposeEdgeStrength(EDGE, -0.2, { directionStated: false }) })
-    expect(sendSystemEvent.mock.calls[0][0].payload.expected).toEqual({ mean: -0, effect_direction: 'negative' })
+    expect(sentStrengthPayload(0).expected).toEqual({ mean: -0, effect_direction: 'negative' })
   })
 
   it('refuses a client-id target whose snapshot describes a different edge', async () => {
