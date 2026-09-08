@@ -233,14 +233,8 @@ function ValueLeaf({
     )
   }
 
-  /* ⚠ SAME RULE AS THE SPLIT ARM ABOVE, WHICH ALREADY CARRIES `title={display}`.
-     This arm is the one that did not. It renders every value that is NOT a
-     recognised effect phrase, and `mayShrink` is precisely the flag saying "this
-     one is allowed to be cut" — so it is exactly the set that needs recovery.
-     Undefined when it cannot shrink, so a value that always renders whole does
-     not grow a tooltip that repeats what is already on screen. */
   return (
-    <span className={textClass} title={mayShrink && display ? display : undefined}>
+    <span className={textClass}>
       {display ?? ''}
     </span>
   )
