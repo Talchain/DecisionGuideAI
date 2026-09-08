@@ -245,7 +245,7 @@ describe('one noun per idea — the decision card and the option card agree', ()
     // text, not folded into the row. The eight-surface corpus still bites.
     renderBoard()
     const sentence = within(decisionCard()).getByText(
-      /supported in 66% of simulated scenarios/i,
+      /scored highest against your goal in 66% of runs/i,
     )
     expect(sentence).toBeDefined()
     // Bound to the AUTHORITY, not to the literal above — so the sentence and
@@ -257,7 +257,7 @@ describe('one noun per idea — the decision card and the option card agree', ()
     // (`COMPARATIVE_COPY.phrase`, `OptionNode.tsx:1582`). Two cards, one
     // quantity, one sentence — which is what made the decision card's old verb
     // visible as a defect rather than a preference.
-    expect(screen.getAllByText(/supported in 66% of simulated scenarios/i)).toHaveLength(2)
+    expect(screen.getAllByText(/scored highest against your goal in 66% of runs/i)).toHaveLength(2)
     // …and "Leads" stays retired as a caption, which is what the register
     // actually ruled. That has not changed.
     expect(RETIRED_METRIC_NOUNS).toContain('Leads')

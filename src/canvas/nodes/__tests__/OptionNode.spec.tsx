@@ -182,7 +182,7 @@ describe('OptionNode', () => {
       voiRank: null,
     })
     renderOption()
-    expect(screen.getByText('Supported in 72% of simulated scenarios')).toBeDefined()
+    expect(screen.getByText('Scored highest against your goal in 72% of runs')).toBeDefined()
   })
 
   // T7: Most supported badge. Post-1.223 this is the POSITIVE CONTROL against
@@ -693,7 +693,7 @@ describe('OptionNode', () => {
 
     // Positive control (trap 13): the copy comes from the ratified register,
     // and this test would be vacuous if that register were empty.
-    expect(expected).toBe('Supported in 72% of simulated scenarios')
+    expect(expected).toBe('Scored highest against your goal in 72% of runs')
   })
 
   it('density: the visible number and the sentence report the SAME statistic', () => {
@@ -2152,7 +2152,7 @@ describe('OptionNode — display coherence (audit §8)', () => {
       }) as any)
     )
     renderOption({ label: 'Status Quo', is_baseline: true })
-    expect(screen.getByText('Supported in 28% of simulated scenarios')).toBeDefined()
+    expect(screen.getByText('Scored highest against your goal in 28% of runs')).toBeDefined()
     expect(screen.queryByText(/win rate across simulations/i)).toBeNull()
     expect(screen.getByText('Current baseline. No changes to factors.')).toBeDefined()
   })

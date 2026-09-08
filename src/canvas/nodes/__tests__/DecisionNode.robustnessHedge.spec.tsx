@@ -13,7 +13,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  * THE HARM
  * ═══════════════════════════════════════════════════════════════════════════
- * "{X} supported in N% of simulated scenarios" is the strongest sentence the
+ * "{X} scored highest against your goal in N% of runs" is the strongest sentence the
  * canvas speaks,
  * and it renders in BOTH views. This node's pre-existing stability line is
  * `isDetailed`-gated (`showStabilityLine`), i.e. behind a hover popover in the
@@ -125,7 +125,7 @@ describe('DecisionNode — the leader headline carries the run\'s robustness', (
     // Without this, every "no grade" case below could pass because no headline
     // rendered at all — a suite agreeing with itself (trap 13b).
     renderDecision(permittedReport({ level: 'high' }))
-    expect(screen.getByText(/supported in/i)).toBeInTheDocument()
+    expect(screen.getByText(/scored highest against your goal/i)).toBeInTheDocument()
   })
 
   it.each([
@@ -136,7 +136,7 @@ describe('DecisionNode — the leader headline carries the run\'s robustness', (
     // line is Detailed-only, which is exactly why the caveat was missing from
     // the view the founder was in.
     renderDecision(permittedReport({ level: 'very_low' }), viewMode)
-    expect(screen.getByText(/supported in/i)).toBeInTheDocument()
+    expect(screen.getByText(/scored highest against your goal/i)).toBeInTheDocument()
     expect(screen.getByTestId(GRADE)).toHaveTextContent(label)
   })
 
@@ -150,7 +150,7 @@ describe('DecisionNode — the leader headline carries the run\'s robustness', (
     'TWIN — %s: the headline renders in full and acquires NO caveat',
     (level) => {
       renderDecision(permittedReport({ level }))
-      expect(screen.getByText(/supported in/i)).toBeInTheDocument()
+      expect(screen.getByText(/scored highest against your goal/i)).toBeInTheDocument()
       expect(screen.queryByTestId(GRADE)).toBeNull()
     },
   )
@@ -172,7 +172,7 @@ describe('DecisionNode — the leader headline carries the run\'s robustness', (
       producer_leader_permission: { permitted: false, withheld_reason: 'separation_unavailable' },
     }
     renderDecision(withheld)
-    expect(screen.queryByText(/supported in/i)).toBeNull()
+    expect(screen.queryByText(/scored highest against your goal/i)).toBeNull()
     expect(screen.queryByTestId(GRADE)).toBeNull()
   })
 
@@ -181,7 +181,7 @@ describe('DecisionNode — the leader headline carries the run\'s robustness', (
     // PLoT withholds this field; it is the leader's win probability relabelled.
     // See `leaderRobustnessGrade.ts` and `withheldFieldReadBan.spec.ts`.
     renderDecision(permittedReport({ recommendation_stability: 0.05 }))
-    expect(screen.getByText(/supported in/i)).toBeInTheDocument()
+    expect(screen.getByText(/scored highest against your goal/i)).toBeInTheDocument()
     expect(screen.queryByTestId(GRADE)).toBeNull()
   })
 })

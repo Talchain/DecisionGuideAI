@@ -376,7 +376,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
 
   // ---- Post-analysis: winner headline ----
   //
-  // ⭐ THE SENTENCE NOW READS "{X} supported in N% of simulated scenarios"
+  // ⭐ THE SENTENCE NOW READS "{X} scored highest against your goal in N% of runs"
   // (8 Sep 2026). The two paragraphs below quote the OLD wording because they
   // are the record of why the GATE exists, and the gate is unchanged — only
   // the words it permits changed. See the render site for the rename.
@@ -953,7 +953,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               </div>
             )}
             {/* AXIS 2, ON THE STRONGEST SENTENCE THE CANVAS SPEAKS.
-                "{X} supported in N% of simulated scenarios" renders in Standard
+                "{X} scored highest against your goal in N% of runs" renders in Standard
                 AND Detailed,
                 while this node's existing stability line is `isDetailed`-gated
                 (see `showStabilityLine`) — i.e. behind a hover popover in the
@@ -1004,7 +1004,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
 
                 ⚠ NO `phrase`. Every span in the row is `aria-hidden`, and that
                 is correct here: the sentence directly above already states
-                "{X} supported in N% of simulated scenarios" to assistive tech.
+                "{X} scored highest against your goal in N% of runs" to assistive tech.
                 A phrase would
                 make a screen reader say the same claim twice. The row is a
                 VISUAL encoding of a sentence that stays where it was — nothing

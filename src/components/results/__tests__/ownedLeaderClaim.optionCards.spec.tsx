@@ -75,7 +75,7 @@ function renderCards(hasLeadingOption: boolean | undefined) {
 /** Comparative phrases that presuppose, assert, or deny a unique leader. */
 const LEADER_LANGUAGE: ReadonlyArray<[string, RegExp]> = [
   ['Top-performing option', /top-performing option/i],
-  ['Highest leading-option likelihood', /supported in .+ of simulated scenarios/i],
+  ['Highest leading-option likelihood', /scored highest against your goal in .+ of runs/i],
   // ⚠ RETIRED EVERYWHERE 2026-08-10, so this row is now UNCONDITIONALLY true
   // and can no longer tell a withheld turn from a permitted one. It is kept
   // deliberately — it still guards against the string coming back — but its
@@ -125,7 +125,7 @@ describe('OptionCards — permitted leader claim (over-suppression controls)', (
   it('keeps the winner sentence, and the non-leader card keeps its OWN number', () => {
     const { container } = renderCards(true)
     const text = container.textContent ?? ''
-    expect(text).toMatch(/supported in .+ of simulated scenarios/i)
+    expect(text).toMatch(/scored highest against your goal in .+ of runs/i)
 
     // ⭐ SUPERSEDED 2026-08-10. This asserted the non-leader's sentence was
     // `/behind by \d+ percentage point/i` — the percentage-point gap between
@@ -156,7 +156,7 @@ describe('OptionCards — permitted leader claim (over-suppression controls)', (
     // the default cannot drift to silence and quietly blank every legacy
     // caller's cards.
     const { container } = renderCards(undefined)
-    expect(container.textContent ?? '').toMatch(/supported in .+ of simulated scenarios/i)
+    expect(container.textContent ?? '').toMatch(/scored highest against your goal in .+ of runs/i)
   })
 })
 

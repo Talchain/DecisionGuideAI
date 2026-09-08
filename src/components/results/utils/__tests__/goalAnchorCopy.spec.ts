@@ -93,9 +93,48 @@ describe('GOAL_ANCHOR_COPY — the no-target state is an invitation, not a wall'
 })
 
 describe('COMPARATIVE_COPY — says what it measures, never what to choose', () => {
-  it('describes the quantity as a share of simulated scenarios', () => {
-    expect(COMPARATIVE_COPY.phrase('60%')).toBe('Supported in 60% of simulated scenarios')
+  it('describes the quantity as a share of runs, in Paul\'s ruled wording', () => {
+    expect(COMPARATIVE_COPY.phrase('60%')).toBe('Scored highest against your goal in 60% of runs')
     expect(COMPARATIVE_COPY.sentence('60%')).toBe(`${COMPARATIVE_COPY.phrase('60%')}.`)
+  })
+
+  it('\u2b50 THE CAPTION WORD APPEARS IN EVERY CLAIM FORM THE REGISTER SPEAKS', () => {
+    // ADDED 8 Sep 2026, because this change proved the invariant was unowned
+    // HERE. It was enforced only at render level
+    // (`oneNounPerIdea.crossCard.spec.tsx`, `decisionCardOneVocabulary.spec.tsx`)
+    // and via a casing check in `OptionNode.spec.tsx` — so a lane editing THIS
+    // file could split the caption from the sentence and see nothing red until
+    // it reached a node spec, if it ran one.
+    //
+    // The property: `anchor` is what the canvas puts beside the bar in a `w-14`
+    // column; the claim forms are what it says eight pixels away off the SAME
+    // binding. If they share no word, the card shows one number twice and a
+    // reader cannot tell (measured on deployed `80ccf768`: "Segment leads in
+    // 99% of scenarios" above "Support ▬▬▬ 99%").
+    //
+    // DERIVED, not mirrored: no literal appears on either side, so this cannot
+    // go stale — it can only go RED (CLAUDE.md trap 12).
+    const stem = COMPARATIVE_COPY.anchor.toLowerCase()
+    expect(stem.length, 'the anchor is empty, so every assertion below is vacuous').toBeGreaterThan(3)
+    for (const [name, form] of [
+      ['phrase', COMPARATIVE_COPY.phrase('60%')],
+      ['clause', COMPARATIVE_COPY.clause('60%')],
+      ['sentence', COMPARATIVE_COPY.sentence('60%')],
+      ['phraseNoMagnitude', COMPARATIVE_COPY.phraseNoMagnitude],
+      ['leadNoMagnitude', COMPARATIVE_COPY.leadNoMagnitude],
+      ['label', COMPARATIVE_COPY.label],
+      ['byOptionAria', COMPARATIVE_COPY.byOptionAria],
+    ] as ReadonlyArray<readonly [string, string]>) {
+      expect(
+        form.toLowerCase().includes(stem),
+        `COMPARATIVE_COPY.${name} shares no word with the caption the same number is given on the card ("${COMPARATIVE_COPY.anchor}")`,
+      ).toBe(true)
+    }
+    // DISCRIMINATION (trap 13b): the predicate is not one that anything passes.
+    // A form from the OTHER register must NOT contain the comparative stem —
+    // proving this asserts a real property rather than a tautology over
+    // ordinary English.
+    expect(GOAL_ANCHOR_COPY.label(false).toLowerCase().includes(stem)).toBe(false)
   })
 
   it('carries no endorsement noun and no bare superlative', () => {

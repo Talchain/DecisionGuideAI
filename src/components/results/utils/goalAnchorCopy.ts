@@ -222,10 +222,42 @@ export const GOAL_ANCHOR_COPY = {
  * meets the mismatch here rather than being surprised by it at the adapter.
  */
 export const COMPARATIVE_COPY = {
-  /** Label form — chart header / data-bar label. */
-  label: 'Support across simulated scenarios',
-  /** Compact readout, no full stop. */
-  phrase: (formatted: string): string => `Supported in ${formatted} of simulated scenarios`,
+  /**
+   * Label form — chart header / data-bar label.
+   *
+   * ⭐ 8 Sep 2026: was `Support across simulated scenarios`. Both halves moved.
+   * The UNIT NOUN is now `runs`, because that is what the ruling counts; and
+   * the STEM is now `highest`, to stay in step with `anchor` below — this is
+   * the same caption slot one size up, and a header that shared no word with
+   * the card's sentence would reproduce, on the chart, exactly the defect
+   * `anchor`'s note describes on the node.
+   *
+   * It keeps the noun phrase a header slot needs ("Share of runs …") rather
+   * than opening with the bare predicate, which is the one thing `anchor` had
+   * no room for.
+   */
+  label: 'Share of runs scoring highest',
+  /**
+   * Compact readout, no full stop.
+   *
+   * ⭐⭐ PAUL'S RULING, 8 Sep 2026 — THE THIRD ATTEMPT AT THIS WORDING, AND THE
+   * ONE THAT STANDS. Was `Supported in {N} of simulated scenarios` (#1290,
+   * shipped live). The ruled sentence is
+   *
+   *     "{X} scored highest against your goal in {N}% of runs"
+   *
+   * taken from CEE's own already-correct sentence in the live payload, so it
+   * is the product's voice rather than an invention. It is a FREQUENCY
+   * STATEMENT, not a placing — which is why the retirement of the contest
+   * frame (see the C-register header above) is untouched by it.
+   *
+   * ⚠ DO NOT INVENT A FOURTH. Four earlier passes each renamed the noun and
+   * kept the race; #1290 then changed the verb to a different dialect from
+   * CEE's. CEE is being brought to this same sentence in parallel — the canvas
+   * matches CEE, never the reverse.
+   */
+  phrase: (formatted: string): string =>
+    `Scored highest against your goal in ${formatted} of runs`,
   /**
    * ⭐ THE ANCHOR WORD, for a bar-and-number row where a sentence will not fit.
    *
@@ -252,7 +284,36 @@ export const COMPARATIVE_COPY = {
    * this matches the canvas's existing anchored-row pattern rather than
    * inventing a second one.
    */
-  anchor: 'Support',
+  /**
+   * ⭐⭐ CHANGED 8 Sep 2026 FROM `Support`, AND NOT BY PREFERENCE — A GUARD
+   * REQUIRED IT.
+   *
+   * `oneNounPerIdea.crossCard.spec.tsx` (written 7 Sep from a DEPLOYED
+   * measurement on `80ccf768`) pins that the decision card's sentence CONTAINS
+   * this caption word, because the caption and the sentence render eight
+   * pixels apart off ONE binding (`headline.winProb`) and a reader has no
+   * other way to know they are the same number. The recorded defect was a card
+   * reading "Segment leads in 99% of scenarios" directly above "Support ▬▬▬
+   * 99%".
+   *
+   * Paul's ruled sentence contains no "support", so keeping `Support` here
+   * would have re-created that exact defect one day after it was closed — and
+   * the only way to ship it would have been to weaken that guard. `Highest` is
+   * the ruled sentence's own distinctive stem, so the tie is explicit again.
+   *
+   * ⚠ IT IS AN ADJECTIVE WHERE ITS THREE SIBLINGS ARE NOUNS. That is a real
+   * cost and it was taken deliberately: the noun candidates the ruled sentence
+   * offers are `runs` ("Runs 72%" names the unit but not what happened in it,
+   * which is LESS anchored than what it replaces) and `goal` (already the
+   * A-register's word for a DIFFERENT quantity). Anchoring beat parts of
+   * speech.
+   *
+   * ⚠ THE KEY `METRIC_NOUN.support` WAS DELIBERATELY NOT RENAMED — see the
+   * note there. It is a scope call, not an oversight.
+   *
+   * One word, because it sits in a `w-14` column beside a bar on a node card.
+   */
+  anchor: 'Highest',
   /**
    * The same claim with NO magnitude — for the runs that carry the
    * comparative RANK but not a displayable probability for the most-supported
@@ -265,7 +326,16 @@ export const COMPARATIVE_COPY = {
    * this whole change serves forbids it. Caught by an existing readout-tie
    * spec, not by a new one.
    */
-  phraseNoMagnitude: 'supported in more simulated scenarios than any other option',
+   * ⭐ 8 Sep 2026 — NOT RULED, CHOSEN. Paul ruled the sentence WITH a
+   * magnitude; this arm is what the card says when the magnitude is missing.
+   * `"scored highest against your goal in more runs than any other option"`
+   * was rejected as a mouthful that buries the one fact this arm carries, so
+   * the possessive goal clause is dropped here and only the frequency claim
+   * survives. This matches the ruling's own magnitude-free row ("despite X
+   * scoring highest so far"). Overrule in one line if the goal clause should
+   * be carried through.
+   */
+  phraseNoMagnitude: 'scored highest in more runs than any other option',
   /**
    * The magnitude-free claim in SENTENCE-INITIAL position.
    *
@@ -276,7 +346,7 @@ export const COMPARATIVE_COPY = {
    * register owns casing; call sites never do it. `goalAnchorCopy.spec.ts`
    * pins this against `phraseNoMagnitude` so the two cannot drift.
    */
-  leadNoMagnitude: 'Supported in more simulated scenarios than any other option',
+  leadNoMagnitude: 'Scored highest in more runs than any other option',
   /**
    * Mid-sentence form — `phrase()` with a lower-case initial, for when the
    * claim follows an option label rather than opening a line.
@@ -300,7 +370,7 @@ export const COMPARATIVE_COPY = {
   /** Sentence form. */
   sentence: (formatted: string): string => `${COMPARATIVE_COPY.phrase(formatted)}.`,
   /** Aria form for the distribution chart. */
-  byOptionAria: 'Share of simulated scenarios supporting each option',
+  byOptionAria: 'Share of runs in which each option scored highest',
   /** Honest absence (deck C3). */
   unavailable: 'Comparative support is unavailable for this run',
 } as const

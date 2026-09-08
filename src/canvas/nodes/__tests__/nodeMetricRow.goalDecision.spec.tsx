@@ -9,7 +9,7 @@
  *
  *   · GOAL     — `From brief` / `No target set`, and post-analysis a PROSE
  *                sentence `73% chance of reaching target`. A number, no bar.
- *   · DECISION — `{X} supported in 47% of simulated scenarios`. The single most
+ *   · DECISION — `{X} scored highest against your goal in 47% of runs`. The single most
  *     consequential
  *                figure on the canvas, and the least visually encoded one.
  *
@@ -247,7 +247,7 @@ describe('DecisionNode — the leader figure gets the shared metric row', () => 
     // `/leads in 66% of scenarios/i` until the decision card was aligned to
     // the noun its own bar carries. What it guards is unchanged: the claim is
     // still a SENTENCE in visible text, above the row, not folded into it.
-    expect(screen.getByText(/supported in 66% of simulated scenarios/i)).toBeDefined()
+    expect(screen.getByText(/scored highest against your goal in 66% of runs/i)).toBeDefined()
   })
 })
 

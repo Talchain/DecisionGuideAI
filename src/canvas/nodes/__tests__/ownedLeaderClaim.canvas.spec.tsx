@@ -87,7 +87,7 @@ function renderWith(report: unknown) {
   )
 }
 
-describe('DecisionNode — "{X} supported in N% of simulated scenarios"', () => {
+describe('DecisionNode — "{X} scored highest against your goal in N% of runs"', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -98,14 +98,14 @@ describe('DecisionNode — "{X} supported in N% of simulated scenarios"', () => 
     // re-worded. Previously this read `robustness.recommended_option_id`
     // directly, which answers "WHO leads?" and never "is there a leader?",
     // so it fired on every completed run.
-    expect(screen.queryByText(/supported in \d+% of simulated scenarios/i)).toBeNull()
+    expect(screen.queryByText(/scored highest against your goal in \d+% of runs/i)).toBeNull()
   })
 
   it('PERMITTED: the sentence renders, with the producer-owned leader named', () => {
     renderWith(PERMITTED_REPORT)
     // Over-suppression control. The node label is split across elements, so
     // match on the distinctive comparative fragment.
-    expect(screen.getByText(/supported in 66% of simulated scenarios/i)).toBeDefined()
+    expect(screen.getByText(/scored highest against your goal in 66% of runs/i)).toBeDefined()
   })
 
   it('WITHHELD: the node still renders — the suppression test is not vacuous', () => {

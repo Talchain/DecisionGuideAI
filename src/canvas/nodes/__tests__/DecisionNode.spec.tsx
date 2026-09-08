@@ -31,8 +31,8 @@ vi.mock('../../store', () => ({
 }))
 
 // ROADMAP 1.223 — RENDER the producer's leader claim, never DERIVE one.
-// ⚠ WORDING, 8 Sep 2026: this headline now reads "{X} supported in N% of
-// simulated scenarios". The sentences quoted below are the wording at the
+// ⚠ WORDING, 8 Sep 2026: this headline now reads "{X} scored highest against your goal in N% of
+// runs". The sentences quoted below are the wording at the
 // time the GATE was built and are kept as the record of why it exists.
 // DecisionNode's "{winner} leads in N% of scenarios" headline now quotes
 // `deriveDecisionVerdict` and renders NOTHING unless a producer signal claimed
@@ -322,7 +322,7 @@ describe('DecisionNode', () => {
       }) as any)
     )
     renderDecision()
-    expect(screen.queryByText(/supported in \d+% of simulated scenarios/i)).toBeNull()
+    expect(screen.queryByText(/scored highest against your goal in \d+% of runs/i)).toBeNull()
     expect(screen.queryByText(/Option A/)).toBeNull()
   })
 
@@ -353,7 +353,7 @@ describe('DecisionNode', () => {
       }) as any)
     )
     renderDecision()
-    expect(screen.queryByText(/supported in \d+% of simulated scenarios/i)).toBeNull()
+    expect(screen.queryByText(/scored highest against your goal in \d+% of runs/i)).toBeNull()
   })
 })
 

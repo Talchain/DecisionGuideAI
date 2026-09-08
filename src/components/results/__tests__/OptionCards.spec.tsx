@@ -112,7 +112,7 @@ describe('OptionCards', () => {
 
       // With win probabilities available, hingeAwareDescription provides the
       // winner's own-probability sentence.
-      expect(screen.getAllByText(/Supported in .+ of simulated scenarios/)[0]).toBeInTheDocument()
+      expect(screen.getAllByText(/Scored highest against your goal in .+ of runs/)[0]).toBeInTheDocument()
       // ⭐ SUPERSEDED 2026-08-10: asserted 'Behind by 30 percentage points'.
       // The percentage-point gap between two win frequencies is retired from
       // every user-facing surface. The non-leader's line is DELETED rather than
@@ -506,7 +506,7 @@ describe('OptionCards', () => {
       // clause it exists to surface is unchanged; only the claim before it
       // moved to the house comparative register, with its magnitude.
       expect(
-        screen.getByText(/supported in .+ of simulated scenarios, but this depends on Customer churn/i),
+        screen.getByText(/scored highest against your goal in .+ of runs, but this depends on Customer churn/i),
       ).toBeInTheDocument()
     })
 
@@ -524,7 +524,7 @@ describe('OptionCards', () => {
       // SUPERSEDED 2026-07-31 (F2) — same retired superlative, same unchanged
       // hinge clause.
       expect(
-        screen.getByText(/supported in .+ of simulated scenarios\. Market size has the widest uncertainty\./i),
+        screen.getByText(/scored highest against your goal in .+ of runs\. Market size has the widest uncertainty\./i),
       ).toBeInTheDocument()
     })
 
@@ -539,7 +539,7 @@ describe('OptionCards', () => {
         />
       )
 
-      expect(screen.getAllByText(/Supported in .+ of simulated scenarios/)[0]).toBeInTheDocument()
+      expect(screen.getAllByText(/Scored highest against your goal in .+ of runs/)[0]).toBeInTheDocument()
     })
 
     it('runner-up: matched alternate winner shows overtake description', () => {
@@ -631,7 +631,7 @@ describe('OptionCards', () => {
       // clause it exists to surface is unchanged; only the claim before it
       // moved to the house comparative register, with its magnitude.
       expect(
-        screen.getByText(/supported in .+ of simulated scenarios, but this depends on Customer churn/i),
+        screen.getByText(/scored highest against your goal in .+ of runs, but this depends on Customer churn/i),
       ).toBeInTheDocument()
       expect(screen.queryByText('Custom headline for winner.')).not.toBeInTheDocument()
     })
@@ -652,7 +652,7 @@ describe('OptionCards', () => {
       render(<OptionCards options={mockOptions} winnerId="option-1" />)
 
       // Win probabilities trigger hingeAwareDescription even without decisionState
-      expect(screen.getAllByText(/Supported in .+ of simulated scenarios/)[0]).toBeInTheDocument()
+      expect(screen.getAllByText(/Scored highest against your goal in .+ of runs/)[0]).toBeInTheDocument()
     })
 
     it('V11.2: renders pre-sanitized story_headline (sanitization at data layer)', () => {
