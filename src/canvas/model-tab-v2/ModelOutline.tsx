@@ -179,9 +179,22 @@ export function outlineLayout(
          * While searching, the override decides the DEFAULT and the reader's
          * own click overrides the override. With an empty needle this is
          * exactly the previous behaviour.
+         *
+         * The `openGroups.has(id) ||` limb is NOT redundant, and dropping it
+         * was a regression `ModelOutline.spec`'s "keeps every group heading
+         * present and says a group has no matches" caught. A group the reader
+         * already had OPEN must stay open while searching even with zero
+         * matches, so it can render "No matches in this group" — otherwise the
+         * search silently collapses a section the reader opened, which is the
+         * defect this file is repairing, arriving from the other direction.
+         *
+         * ⚠ AND THAT SPEC WAS ALREADY PASSING FOR A WEAKER REASON THAN IT
+         * READS: it renders `ModelOutline` with no `initiallyClosedGroups`, so
+         * every group is open by default — while production passes all seven
+         * as closed. It never exercised the closed-and-searching case at all.
          */
         open: searching
-          ? groupRows.length > 0 && !searchClosed.has(id)
+          ? (openGroups.has(id) || groupRows.length > 0) && !searchClosed.has(id)
           : openGroups.has(id),
         rows: groupRows,
       }
