@@ -683,6 +683,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     nodes,
     edges,
     framing,
+    importPendingServerRegistration,
   } = useCanvasStore(
     useShallow(s => ({
       runMeta: s.runMeta,
@@ -693,6 +694,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       nodes: s.nodes,
       edges: s.edges,
       framing: s.currentScenarioFraming,
+      // Read HERE, in the same snapshot as `nodes`, because `analysisHeldOn`
+      // takes both together — see its `AnalysisHoldState` doc. Reading it in a
+      // second selector would re-create the drift that doc exists to prevent.
+      importPendingServerRegistration: s.importPendingServerRegistration,
     }))
   )
 
@@ -1276,7 +1281,18 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     // ONE value carries both "is analysis held?" and "what do we call this
     // model?" — see `analysisHeldOn`. Two parameters here is how the panel and
     // the composer came within one review of naming the same state differently.
-    analysisHeldOn: analysisHeldOn(nodes),
+    // ⚠ THE FULL CURRENT STATE, NOT A RECONSTRUCTION. Passing only
+    // `{ nodes, importPendingServerRegistration }` computed an empty-edge
+    // acknowledgement key, so a real receipt for an edge-bearing starter
+    // released the full-state selector but NOT this affordance.
+    analysisHeldOn: analysisHeldOn({
+      nodes,
+      edges,
+      // The panel already subscribes to this id; reuse it rather than adding a
+      // second selector that could drift from it.
+      currentScenarioId: overviewScenarioId,
+      importPendingServerRegistration,
+    }),
     draftStreamPhase,
     optionsNeedingValues,
     readinessStale,

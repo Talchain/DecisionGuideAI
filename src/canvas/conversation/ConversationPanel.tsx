@@ -543,7 +543,7 @@ export const ConversationPanel = memo(function ConversationPanel({
   // contradiction #343 fixed. It carries the WORDING too, which is why this
   // surface's tooltip cannot describe the held model differently from the
   // Analysis panel's refusal.
-  const heldOn = useCanvasStore((s) => analysisHeldOn(s.nodes))
+  const heldOn = useCanvasStore((s) => analysisHeldOn(s))
   // ROADMAP 2.122 — this surface is a run affordance too, so it needs the
   // streamed-draft honesty rung for the same reason OutputsDock does: between
   // GRAPH_READY (~36 s) and COMPLETE (~61 s) the canvas holds a graph whose

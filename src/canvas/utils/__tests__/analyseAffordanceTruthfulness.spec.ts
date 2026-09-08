@@ -103,7 +103,7 @@ function gateWith(overrides: Partial<Parameters<typeof canRunAnalysis>[0]> = {})
     readiness: null,
     hasBlockers: false,
     nodeCount: 20,
-    analysisHeldOn: analysisHeldOn(starterNodes),
+    analysisHeldOn: analysisHeldOn(unregistered(starterNodes)),
     ...overrides,
   })
 }
@@ -115,13 +115,13 @@ describe('the injected-model refusal never asks for an action the gate cannot ac
 
   it("CONTROL: the rung is live, and its sentence IS the banner's shipped one", () => {
     const result = gateWith()
-    expect(analysisHeldOn(starterNodes)).toBe('starter')
+    expect(analysisHeldOn(unregistered(starterNodes))).toBe('starter')
     expect(result.allowed).toBe(false)
     // ⭐ THE ONE-AUTHORITY PIN, bound BY IDENTITY to the shared notice rather
     // than to a constant this module authors. If the gate ever goes back to
     // writing its own sentence, this REDs.
     expect(result.reason).toBe(ANALYSIS_HELD_NOTICE.starter)
-    expect(result.reason).toBe(analysisHeldNotice(starterNodes))
+    expect(result.reason).toBe(analysisHeldNotice(unregistered(starterNodes)))
   })
 
   it("the wording follows the graph's own provenance, not the call site's guess", () => {
@@ -130,7 +130,7 @@ describe('the injected-model refusal never asks for an action the gate cannot ac
     // answer AND the noun in one value, so a caller cannot supply one without
     // the other (which is how the first attempt at this fix had OutputsDock and
     // ConversationPanel describing one state with two different nouns).
-    expect(gateWith({ analysisHeldOn: analysisHeldOn(templateNodes) }).reason).toBe(
+    expect(gateWith({ analysisHeldOn: analysisHeldOn(unregistered(templateNodes)) }).reason).toBe(
       ANALYSIS_HELD_NOTICE.template,
     )
     expect(ANALYSIS_HELD_NOTICE.template).not.toBe(ANALYSIS_HELD_NOTICE.starter)
@@ -147,11 +147,11 @@ describe('the injected-model refusal never asks for an action the gate cannot ac
     // The sweep found the banner still claiming "analysis is held" beside
     // "Analysis complete." A null here is what makes that unstateable.
     isV5CanonicalRunPathMock.mockReturnValue(false)
-    expect(analysisHeldNotice(starterNodes)).toBeNull()
-    expect(analysisHeldOn(starterNodes)).toBeNull()
+    expect(analysisHeldNotice(unregistered(starterNodes))).toBeNull()
+    expect(analysisHeldOn(unregistered(starterNodes))).toBeNull()
     // CONTROL: the same input DOES yield a notice on the canonical path.
     isV5CanonicalRunPathMock.mockReturnValue(true)
-    expect(analysisHeldNotice(starterNodes)).toBe(ANALYSIS_HELD_NOTICE.starter)
+    expect(analysisHeldNotice(unregistered(starterNodes))).toBe(ANALYSIS_HELD_NOTICE.starter)
   })
 
   it('the rung is UNREACHABLE with an empty canvas, so it may not say "draft a model first"', () => {
@@ -169,11 +169,11 @@ describe('the injected-model refusal never asks for an action the gate cannot ac
 
   it('saving cannot clear the stamp, so the refusal may not ask the user to save', () => {
     // CONTROL first (trap 13): the predicate fires on this input at all.
-    expect(analysisHeldOn(starterNodes)).toBe('starter')
+    expect(analysisHeldOn(unregistered(starterNodes))).toBe('starter')
     // A persistence round-trip preserves `node.data`, which is the predicate's
     // ONLY input — so no save can change this verdict.
     const afterSaveRoundTrip = JSON.parse(JSON.stringify(starterNodes))
-    expect(analysisHeldOn(afterSaveRoundTrip)).toBe('starter')
+    expect(analysisHeldOn(unregistered(afterSaveRoundTrip))).toBe('starter')
 
     // ⚠ THE VERB, NOT THE ADJECTIVE — and this assertion was WRONG first time.
     // It read `/\bsav(e|ed|ing)\b/i`, which fired on "a saved example": the
@@ -194,15 +194,15 @@ describe('the injected-model refusal never asks for an action the gate cannot ac
   it('the named remedy has a MOUNTED control in the same state (P8 acceptance path)', () => {
     // A truthful refusal is only acceptable if the route it names is reachable.
     // `StarterProvenanceBanner` mounts on `resolveStarterId(nodes) !== null` and
-    // carries `Re-draft this live`; the gate holds on `analysisHeldOn(nodes)`.
+    // carries `Re-draft this live`; the gate holds on `analysisHeldOn(state)`.
     // This asserts the two conditions coincide on the witnessed input, so the
     // refusal cannot name a button that is not on screen.
-    expect(analysisHeldOn(starterNodes)).toBe('starter')
+    expect(analysisHeldOn(unregistered(starterNodes))).toBe('starter')
     expect(resolveStarterId(starterNodes as never)).not.toBeNull()
     // CONTRAST: a CEE-drafted graph mounts no banner AND is not refused, so the
     // pin above is a coincidence of state, not of a predicate that is always true.
     expect(resolveStarterId(ceeDraftedNodes as never)).toBeNull()
-    expect(analysisHeldOn(ceeDraftedNodes)).toBeNull()
+    expect(analysisHeldOn(unregistered(ceeDraftedNodes))).toBeNull()
     // ⚠ NOT ASSERTED, and stated rather than implied: a TEMPLATE insert has no
     // one-click re-draft control. Its route is the composer, which is always on
     // screen. Pinning a `starter-redraft` button for a template state would pin
@@ -218,8 +218,8 @@ describe('the injected-model refusal never asks for an action the gate cannot ac
 
     // The twin: a graph Olumi drafted is NOT refused, so the named remedy is
     // one the gate genuinely accepts.
-    expect(analysisHeldOn(ceeDraftedNodes)).toBeNull()
-    expect(gateWith({ analysisHeldOn: analysisHeldOn(ceeDraftedNodes) }).allowed).toBe(true)
+    expect(analysisHeldOn(unregistered(ceeDraftedNodes))).toBeNull()
+    expect(gateWith({ analysisHeldOn: analysisHeldOn(unregistered(ceeDraftedNodes)) }).allowed).toBe(true)
   })
 })
 
@@ -245,7 +245,7 @@ describe('the real journey: a model Olumi drafted must ANALYSE from the obvious 
       readiness: readyVerdict,
       hasBlockers: false,
       nodeCount: 20,
-      analysisHeldOn: analysisHeldOn(ceeDraftedNodes),
+      analysisHeldOn: analysisHeldOn(unregistered(ceeDraftedNodes)),
     })
     expect(result.allowed).toBe(true)
     expect(result.reason).toBeUndefined()
@@ -262,7 +262,7 @@ describe('the real journey: a model Olumi drafted must ANALYSE from the obvious 
       readiness: readyVerdict,
       hasBlockers: false,
       nodeCount: 20,
-      analysisHeldOn: analysisHeldOn(starterNodes),
+      analysisHeldOn: analysisHeldOn(unregistered(starterNodes)),
     })
     expect(held.allowed).toBe(false)
     expect(held.reason).toBe(ANALYSIS_HELD_NOTICE.starter)
@@ -275,7 +275,7 @@ describe('the real journey: a model Olumi drafted must ANALYSE from the obvious 
       readiness: readyVerdict,
       hasBlockers: false,
       nodeCount: 20,
-      analysisHeldOn: analysisHeldOn(starterNodes),
+      analysisHeldOn: analysisHeldOn(unregistered(starterNodes)),
     })
     expect(result.allowed).toBe(true)
   })
@@ -406,3 +406,15 @@ describe('exactly ONE place in the source writes this sentence', () => {
     expect(authors.map((f) => path.basename(f))).toEqual(['composeBlockedReason.ts'])
   })
 })
+
+/**
+ * The hold's input for a graph CEE has NOT acknowledged holding — the state
+ * every case in this file describes. `analysisHeldOn` takes the canvas STATE
+ * rather than the nodes, because the registration posture is not derivable from
+ * them; wrapping here keeps each case reading as it did while making the
+ * posture it assumes explicit rather than implied.
+ */
+function unregistered(nodes: unknown): never {
+  return { nodes, importPendingServerRegistration: true } as never
+}
+
