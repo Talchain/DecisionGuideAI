@@ -137,7 +137,12 @@ export interface DecisionRecordState {
    * with no record behind it would be a claim about nothing.
    */
   attachRemote: (scenarioKey: string, remote: DecisionRecordRemote) => void
-  /** Test/reset seam — clears memory AND storage. */
+  /**
+   * Clears memory AND storage. Used by tests, and — through
+   * `clearDecisionRecordsOnSignOut` — by the sign-out path, so there is ONE
+   * implementation of "forget every decision record on this device" rather
+   * than two that can drift.
+   */
   _reset: () => void
   /** Test seam — re-reads localStorage (simulates a reload, or a new tab). */
   _rehydrateForTests: () => void
@@ -200,6 +205,37 @@ export const useDecisionRecordStore = create<DecisionRecordState>((set, get) => 
     set({ ...loadPersisted() })
   },
 }))
+
+/**
+ * ⭐⭐ SIGN-OUT CLEARS EVERY DECISION RECORD ON THIS DEVICE.
+ *
+ * ⚠⚠ THE MOVE TO `localStorage` MADE THIS MANDATORY, AND IT WAS MISSED.
+ * Under `sessionStorage` a record died with the tab, so the next person at the
+ * machine could not see it. Under `localStorage` it is PERMANENT — and records
+ * captured before a scenario exists land under the single shared
+ * `__unscoped__` key, which every later session also resolves to. Combined
+ * with the read-back this PR adds, one user's decision — their choice, their
+ * confidence, their private rationale and the assumption they are watching —
+ * would render in the NEXT user's session on a shared machine, labelled as
+ * theirs.
+ *
+ * ⚠ CALLED FROM THE DELIBERATE `signOut` ACTIONS ONLY — NOT from
+ * `clearAuthStates`, and that distinction is load-bearing. `clearAuthStates`
+ * also runs from `handleAuthStateChange` on EVERY null session, including the
+ * very first page load of a user who has never signed in. Clearing there would
+ * destroy a guest's records on every visit — which this store's own header
+ * calls a worse failure than refusing to record one.
+ *
+ * ⚠ IT CLEARS EVERYTHING, INCLUDING GUEST-SCOPED RECORDS. There is no
+ * per-owner key: the store is keyed by SCENARIO, and `__unscoped__` is shared
+ * by construction. Keeping "the records that were not this user's" would
+ * require knowing which those were, and nothing here does. Clearing all of
+ * them loses at most this device's copy of the signing-out user's own work;
+ * keeping any of them leaks it to a stranger.
+ */
+export function clearDecisionRecordsOnSignOut(): void {
+  useDecisionRecordStore.getState()._reset()
+}
 
 /**
  * The captured record for a scenario key, or null. This is the selector the

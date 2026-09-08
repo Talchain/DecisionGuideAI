@@ -42,3 +42,12 @@ export {
 } from './decisionRecordStore'
 export { buildMeasureSentence, DIRECTION_OPTIONS, UNIT_OPTIONS } from './measureSentence'
 export { resolveScenarioKey, UNSCOPED_SCENARIO_KEY } from './scenarioKey'
+/**
+ * The capture modal's own precondition, exported so a surface offering the
+ * DOOR asks the same question the ROOM answers — see `analysedOptions.ts`.
+ */
+export {
+  canCaptureDecision,
+  deriveAnalysedOptions,
+  type AnalysedOption,
+} from './analysedOptions'

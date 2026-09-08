@@ -6,6 +6,7 @@ import { supabase, getProfile } from '../lib/supabase';
 import type { UserProfile } from '../types/database';
 import { authLogger } from '../lib/auth/authLogger';
 import { clearAuthStates } from '../lib/auth/authUtils';
+import { clearDecisionRecordsOnSignOut } from '../components/results/modals/decisionRecordStore';
 import { isE2EEnabled } from '../flags';
 import { isGuestAuth } from '../lib/poc';
 import { hasStoredSupabaseSession } from '../lib/storedSupabaseSession';
@@ -357,6 +358,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authLogger.debug('SIGN_OUT', 'Sign out attempt');
       try {
         clearAuthStates();
+        // ⚠ DEVICE-LOCAL DECISION RECORDS GO WITH THE SESSION. They live in
+        // `localStorage` and are keyed by SCENARIO, not by owner — a record
+        // captured before a scenario exists lands under one shared
+        // `__unscoped__` key. Without this, the next person to use this
+        // browser reads the previous user's choice, confidence, rationale and
+        // watched assumption, rendered as their own.
+        clearDecisionRecordsOnSignOut();
         clearSentryUser();
         resetPostHog();
         setState({ user: null, profile: null, loading: false, authenticated: false });
@@ -629,6 +637,9 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
       authLogger.debug('SIGN_OUT', 'Sign out attempt (optional-auth posture)');
       try {
         clearAuthStates();
+        // Same reason as the real-auth branch above: device-local decision
+        // records must not survive a deliberate sign-out on a shared machine.
+        clearDecisionRecordsOnSignOut();
         clearSentryUser();
         resetPostHog();
         setSession(null);

@@ -13,8 +13,16 @@
  * POSTed to CEE and persisted in `decision_records` with
  * `committed_by_user: true` and `confidence_source: 'user_stated'` — the
  * first user-stated calibration population this product has ever had.
- * Everything still lands in sessionStorage first, so a failed commit
- * degrades the record from "durable" to "on this device", never to "lost".
+ * Everything still lands in LOCAL storage first, so a failed commit degrades
+ * the record from "durable" to "on this device", never to "lost".
+ *
+ * ⚠ THIS SENTENCE SAID "sessionStorage" UNTIL THE STORE MOVED AND THIS HEADER
+ * DID NOT. `decisionRecordStore` moved to `localStorage` on 7 Sep 2026 —
+ * deliberately, because a record whose purpose is to be read back on a LATER
+ * visit cannot live in a store the tab empties. A comment naming the wrong
+ * lifetime is not cosmetic here: the whole disclosure below turns on how long
+ * the local half survives, and the guest note 60 lines down was corrected for
+ * exactly this reason while this paragraph was missed.
  *
  * ⭐ WHY AN "EXPECTATION" FIELD RATHER THAN REUSING THE RATIONALE. The
  * outcome is scored against `prediction.statement`, a FORWARD claim. A
@@ -49,6 +57,7 @@ import {
   PRIMARY_BUTTON_CLASS,
   useModalToast,
 } from './ModalShell'
+import { deriveAnalysedOptions, type AnalysedOption } from './analysedOptions'
 import { resolveScenarioKey } from './scenarioKey'
 import {
   selectDecisionRecord,
@@ -118,13 +127,6 @@ export const DECISION_RECORD_COPY = {
     'Decision recorded on this device — we could not save it to your account.',
 } as const
 
-interface AnalysedOption {
-  id: string
-  label: string
-  /** Stable number from optionNumbering, only when EVERY option has one. */
-  number: number | null
-}
-
 function parseConfidence(raw: string): number {
   // NON-EMPTY strict parse — the prototype accepted '' because
   // Number('')===0; the spec flags that as a validation hole to close.
@@ -146,27 +148,18 @@ export function DecisionRecordModal() {
   const analysisHash = useCanvasStore((s) => s.results.hash ?? null)
   const numbering = useCanvasStore((s) => s.optionNumbering)
 
-  const options = useMemo<AnalysedOption[]>(() => {
-    if (resultsStatus !== 'complete') return []
-    const optionNodes = nodes.filter(
-      (n) =>
-        n.type === 'option' ||
-        (n.data as Record<string, unknown> | undefined)?.kind === 'option',
-    )
-    if (optionNodes.length === 0) return []
-    const allNumbered = optionNodes.every((n) => numbering[n.id] != null)
-    const mapped = optionNodes.map((n) => {
-      const label = (n.data as Record<string, unknown> | undefined)?.label
-      return {
-        id: n.id,
-        label: typeof label === 'string' && label.trim() !== '' ? label : n.id,
-        number: allNumbered ? numbering[n.id] : null,
-      }
-    })
-    return allNumbered
-      ? [...mapped].sort((a, b) => (a.number as number) - (b.number as number))
-      : mapped
-  }, [nodes, resultsStatus, numbering])
+  /**
+   * ⚠⚠ DERIVED THROUGH THE SHARED EXPRESSION, NOT INLINE — and that is the
+   * repair, not a tidy-up. `DecisionRecorded` must decide whether to OFFER the
+   * door using the same fact that decides whether this form can capture. A
+   * second predicate over there that merely agrees with this one is a
+   * hand-maintained mirror and drifts (CLAUDE.md trap 12); this way the door
+   * and the room read the SAME function, so they cannot disagree.
+   */
+  const options = useMemo<AnalysedOption[]>(
+    () => deriveAnalysedOptions({ nodes, resultsStatus, numbering }),
+    [nodes, resultsStatus, numbering],
+  )
 
   const hasOptions = options.length > 0
 

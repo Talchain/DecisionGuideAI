@@ -24,6 +24,30 @@
  * quality, because nothing about its quality bears on whether a team may record
  * what they chose.
  *
+ * ⚠⚠ BUT "A RUN EXISTS" WAS THE WRONG FACT FOR THE DOOR, AND THE DOCSTRING'S
+ * OLD CLAIM THAT "this door is never decorative" WAS FALSE. `isPreRun` is
+ * `!hasCompletedFirstRun` — a MONOTONIC latch. The modal behind the door needs
+ * `results.status === 'complete'` AND at least one option node. After a failed
+ * rerun (`store.ts :: resultsError` sets `status: 'error'` and DELIBERATELY
+ * retains the prior report, so this panel stays mounted), the latch was still
+ * true, the door still rendered, and the modal opened fully disabled saying
+ * "Run an analysis first." — to a user who had run one. Same on `cancelled`
+ * and on an in-flight `preparing`.
+ *
+ * `canRecord` is the modal's OWN precondition, threaded in from the one shared
+ * expression (`modals/analysedOptions.ts`) rather than recomputed here — the
+ * door and the room read the same function, so they cannot drift apart.
+ *
+ * ⚠ AND IT IS STILL NOT A QUALITY GATE. `canRecord` asks "is there an analysed
+ * option set to record a decision AGAINST?" and nothing else. Robustness,
+ * evidence, staleness and completeness stay irrelevant, which is the whole
+ * point of the act being decoupled from `ModelHeldUp`.
+ *
+ * ⚠⚠ THE READ-BACK IS NOT GATED ON IT. A captured record is stored data keyed
+ * on the scenario; reading it back is honest whatever the current run is doing,
+ * and a user whose rerun just failed is exactly the user who wants to re-read
+ * what they decided. Only the CAPTURE controls depend on `canRecord`.
+ *
  * ── WHAT IT REFUSES TO SAY ─────────────────────────────────────────────────
  * 1. IT NEVER STATES A FIELD THE RECORD DOES NOT CARRY. Every free-text field
  *    renders through `Field`, which returns null on absent-or-blank. No
@@ -37,6 +61,13 @@
  *    carries `analysisHash`, but comparing it is a claim this component does
  *    not make — so the copy is scoped to the SCENARIO, which is what the
  *    selector licenses, and stops there.
+ *
+ *    ⚠ AND IT DOES NOT SAY "SCENARIO" WHEN THERE IS NOT ONE.
+ *    `resolveScenarioKey` falls back to the single shared `__unscoped__`
+ *    literal before the first scenario exists, so on an unsaved canvas the
+ *    phrase "for this scenario" named an object the model does not have.
+ *    `isScenarioScoped` drops it. See `scenarioKey.ts` for what remains open
+ *    at that key — a product decision, deliberately not taken here.
  *
  * 3. IT NEVER INFERS WHY A RECORD IS LOCAL-ONLY. `remote === null` has three
  *    documented routes (guest, offline, a failed commit). It licenses exactly
@@ -61,7 +92,22 @@ export interface DecisionRecordedProps {
    * `ModelHeldUp` exports its condition.
    */
   record: DecisionRecord | null
-  /** Opens the capture modal. Required — this door is never decorative. */
+  /**
+   * Whether a real scenario backs this record. False before the first scenario
+   * exists, when `resolveScenarioKey` falls back to the shared `__unscoped__`
+   * key — and then the copy may not say "for this scenario", because there is
+   * not one.
+   */
+  isScenarioScoped: boolean
+  /**
+   * Whether the capture modal can actually capture — `canCaptureDecision` from
+   * `modals/analysedOptions`, the modal's own precondition. False on a failed,
+   * cancelled or in-flight rerun, and on a completed run with no option nodes.
+   * When false the capture controls are withheld, so no control leads to the
+   * modal's "Run an analysis first." refusal.
+   */
+  canRecord: boolean
+  /** Opens the capture modal. Only ever rendered when `canRecord`. */
   onRecord: () => void
   testId: string
 }
@@ -121,11 +167,25 @@ export function recordedOptionText(record: DecisionRecord): string {
   return record.optionNumber != null ? `Option ${record.optionNumber} — ${named}` : named
 }
 
-export function DecisionRecorded({ isPreRun, record, onRecord, testId }: DecisionRecordedProps) {
+export function DecisionRecorded({
+  isPreRun,
+  record,
+  isScenarioScoped,
+  canRecord,
+  onRecord,
+  testId,
+}: DecisionRecordedProps) {
   // Pre-run there are no analysed options, so there is nothing to have chosen.
-  // This is the ONLY gate — see the header for why nothing about the run's
-  // quality belongs in it.
   if (isPreRun) return null
+
+  /**
+   * ⚠ NOTHING TO SHOW AND NOTHING TO OFFER. With no record and no capturable
+   * option set, the section would render "Nothing recorded for this scenario
+   * yet." beside a door that leads to a refusal — furniture pointing at a
+   * locked room. Withholding the section asserts nothing; the old behaviour
+   * asserted something false.
+   */
+  if (record === null && !canRecord) return null
 
   const recordedOn = record ? formatRecordedOn(record.savedAt) : null
 
@@ -149,16 +209,21 @@ export function DecisionRecorded({ isPreRun, record, onRecord, testId }: Decisio
                 className={`${typography.panelBody} text-text-light m-0`}
                 data-testid={`${testId}-none`}
               >
-                {COPY.decisionRecord.none}
+                {COPY.decisionRecord.none(isScenarioScoped)}
               </p>
-              <button
-                type="button"
-                onClick={onRecord}
-                className={`${typography.panelMeta} mt-1.5 rounded-full border border-panel-border px-2.5 py-1 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-                data-testid={`${testId}-open`}
-              >
-                {COPY.decisionRecord.open}
-              </button>
+              {/* Unreachable with `canRecord === false` — the section itself is
+                  withheld above in that case — but the condition stays explicit
+                  so the door's precondition is stated where the door is. */}
+              {canRecord ? (
+                <button
+                  type="button"
+                  onClick={onRecord}
+                  className={`${typography.panelMeta} mt-1.5 rounded-full border border-panel-border px-2.5 py-1 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                  data-testid={`${testId}-open`}
+                >
+                  {COPY.decisionRecord.open}
+                </button>
+              ) : null}
             </>
           ) : (
             <>
@@ -176,14 +241,23 @@ export function DecisionRecorded({ isPreRun, record, onRecord, testId }: Decisio
               >
                 {recordedOptionText(record)}
               </p>
-              {/* ⚠ RENDERED UNCONDITIONALLY BECAUSE IT IS VALIDATED AT CAPTURE.
-                  `parseConfidence` rejects an empty string (the prototype's
-                  `Number('') === 0` hole is closed there), so a record that
-                  exists has a real number — unlike the free-text fields below,
-                  where absence is a genuine state. */}
+              {/* ⚠⚠ THE UNIT IS COMPOSED ONLY AFTER THE NUMBER IS CHECKED, AND
+                  THAT ORDER IS THE POINT. `parseConfidence` validates at
+                  CAPTURE, so a record written by this build has a real number —
+                  but this value is read back out of `localStorage`, where an
+                  older build, a partial write or a hand-edited store can put
+                  anything. Composing the string first made `Field`'s blank
+                  check unfalsifiable (`"undefined of 100"` is not blank), so
+                  the surface would print a unit over a number nobody supplied.
+                  Checked here, an unreadable confidence gets no row — the same
+                  rule `formatRecordedOn` applies to a date. */}
               <Field
                 label={COPY.decisionRecord.confidenceLabel}
-                value={`${record.confidence} ${COPY.decisionRecord.confidenceSuffix}`}
+                value={
+                  typeof record.confidence === 'number' && Number.isFinite(record.confidence)
+                    ? `${record.confidence} ${COPY.decisionRecord.confidenceSuffix}`
+                    : undefined
+                }
                 testId={`${testId}-confidence`}
               />
               <Field
@@ -225,17 +299,29 @@ export function DecisionRecorded({ isPreRun, record, onRecord, testId }: Decisio
                 data-testid={`${testId}-storage`}
               >
                 {record.remote?.recordId
-                  ? COPY.decisionRecord.storedRemote
-                  : COPY.decisionRecord.storedLocal}
+                  ? COPY.decisionRecord.storedRemote({
+                      /* Asked the way `Field` asks it, so the sentence cannot
+                         name a row the panel withheld. */
+                      hasExpectation: (record.expectation ?? '').trim() !== '',
+                      reviewDate: record.remote.reviewDate,
+                      reviewDateSource: record.remote.reviewDateSource,
+                    })
+                  : COPY.decisionRecord.storedLocal(isScenarioScoped)}
               </p>
-              <button
-                type="button"
-                onClick={onRecord}
-                className={`${typography.panelMeta} mt-1.5 rounded-full border border-panel-border px-2.5 py-1 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-                data-testid={`${testId}-update`}
-              >
-                {COPY.decisionRecord.update}
-              </button>
+              {/* ⚠ THE UPDATE CONTROL IS A CAPTURE CONTROL. It opens the same
+                  modal, so on an uncapturable run it would lead to the same
+                  false refusal. The read-back above stays; only the way back
+                  into the form is withheld. */}
+              {canRecord ? (
+                <button
+                  type="button"
+                  onClick={onRecord}
+                  className={`${typography.panelMeta} mt-1.5 rounded-full border border-panel-border px-2.5 py-1 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                  data-testid={`${testId}-update`}
+                >
+                  {COPY.decisionRecord.update}
+                </button>
+              ) : null}
             </>
           )}
         </div>

@@ -618,6 +618,22 @@ export const ANALYSIS_NEW_COPY = {
    * It does NOT license naming a cause: the store's own contract lists three
    * (guest, offline, a failed commit), and a signed-in user whose commit failed
    * would be told to sign in. So `storedLocal` states the FACT and stops.
+   *
+   * ⚠⚠⚠ AND THE FIRST VERSION OF THIS BLOCK GOT ITS OWN RULE BACKWARDS. It
+   * reasoned correctly that only `recordId` licenses the POSITIVE claim, then
+   * treated the absence of `recordId` as licensing the NEGATIVE one:
+   * ~~"It is not on your account."~~ That is a claim about CEE's database, and
+   * this surface has no read path to it. On the third documented route — a
+   * FAILED COMMIT — the POST was dispatched and CEE may already have written
+   * the row; `clientCommitId` dedupe exists precisely because that is
+   * reachable. So the product was stating as fact something it does not know,
+   * and stating it to the one user for whom it is most likely false.
+   *
+   * The correctly scoped words already existed one layer down, in the service
+   * that makes the call: `decisionRecordCommitService.ts` answers a 2xx with no
+   * record id as "We could not confirm this decision was saved." Absence of
+   * proof is a fact about OUR EVIDENCE, never a fact about the world — the same
+   * distinction `staleKind` draws between 'changed' and 'unconfirmed'.
    */
   decisionRecord: {
     /**
@@ -632,7 +648,17 @@ export const ANALYSIS_NEW_COPY = {
      * telling the reader WHY recording is worthwhile would be identical on
      * every instance forever, which is the definition of furniture.
      */
-    none: 'Nothing recorded for this scenario yet.',
+    /**
+     * ⚠⚠ "for this scenario" IS ONLY SAID WHEN THERE IS ONE. The store keys on
+     * `resolveScenarioKey(currentScenarioId)`, which falls back to the single
+     * shared literal `__unscoped__` before the first scenario exists. Naming a
+     * scenario the model does not have is a wrong-object claim — the same
+     * class as every other finding here — so the phrase is dropped rather than
+     * asserted. (What remains open at that key is recorded in
+     * `scenarioKey.ts`; it is a product decision, not a wording one.)
+     */
+    none: (scoped: boolean): string =>
+      scoped ? 'Nothing recorded for this scenario yet.' : 'Nothing recorded yet.',
     /** The read-back heading. */
     recorded: 'Decision recorded',
     /** The modal prefills from the existing record, so this genuinely edits. */
@@ -650,17 +676,67 @@ export const ANALYSIS_NEW_COPY = {
     confidenceSuffix: 'of 100',
     recordedOnPrefix: 'Recorded',
     /**
-     * ⚠ NO CAUSE, AND NO ADVICE. See the block header — the three routes to a
-     * local-only record are not distinguishable from `remote === null`.
+     * ⚠ NO CAUSE, NO ADVICE, AND NO NEGATIVE CLAIM. See the block header. Two
+     * words carry the repair:
+     *
+     *   · "only" is GONE. It asserted exclusivity — that no account copy
+     *     exists — which is precisely the unknown.
+     *   · "It is not on your account" became "We could not confirm it reached
+     *     your account", which is a statement about our evidence and is true on
+     *     all three routes: a guest (no account was reached), an offline save
+     *     (the call never landed), and a failed commit (the call landed and we
+     *     do not know what CEE did with it).
      */
-    storedLocal: 'On this device only, for this scenario. It is not on your account.',
+    storedLocal: (scoped: boolean): string =>
+      scoped
+        ? 'On this device, for this scenario. We could not confirm it reached your account.'
+        : 'On this device. We could not confirm it reached your account.',
     /**
-     * The split named exactly, in the same words the capture modal uses — one
-     * thing learned once. Licensed by `remote.recordId`, which is CEE's own
-     * proof the durable half landed.
+     * ⚠⚠ THE ACCOUNT SENTENCE NAMES ONLY THE FIELDS THIS RECORD ACTUALLY HAS.
+     * It used to be a constant reading "Your choice, confidence, expectation
+     * and review date are on your account", and it over-claimed twice:
+     *
+     *   1. `expectation` is OPTIONAL on `DecisionRecord` (records written
+     *      before the field existed are still readable) and `Field` withholds
+     *      the row when it is blank. So the sentence named a field the panel
+     *      had just refused to show — the read-back contradicting itself.
+     *   2. "YOUR … review date" claimed the user AUTHORED it.
+     *      `remote.reviewDateSource` is CEE's own statement about which rung
+     *      set it, and `default_horizon` means CEE defaulted it 90 days out
+     *      after an unparsed trigger. Only `user_set` licenses the possessive.
+     *      That field previously had ZERO readers in any render path; this is
+     *      the wiring that earns it, rather than a claim standing on nothing.
+     *
+     * `reviewDate` may also come back as `''` (the service maps a missing
+     * `review_date` to an empty string), so an absent date is named as absent
+     * by omission rather than asserted.
      */
-    storedRemote:
-      'Your choice, confidence, expectation and review date are on your account. The rationale, assumption and revisit trigger are on this device.',
+    storedRemote: ({
+      hasExpectation,
+      reviewDate,
+      reviewDateSource,
+    }: {
+      hasExpectation: boolean
+      reviewDate: string | undefined
+      reviewDateSource: string | undefined
+    }): string => {
+      const durable = hasExpectation
+        ? 'Your choice, confidence and expectation'
+        : 'Your choice and confidence'
+      /**
+       * ⚠ THE REVIEW DATE IS ITS OWN CLAUSE, NOT A LIST ITEM — because its
+       * AUTHOR differs from the others'. The list is what the user supplied;
+       * the date may have been supplied or defaulted, and only the source
+       * field can say which.
+       */
+      const hasDate = reviewDate != null && reviewDate.trim() !== ''
+      const dateClause = !hasDate
+        ? ''
+        : reviewDateSource === 'user_set'
+          ? ', with the review date you set'
+          : ', with a review date we set'
+      return `${durable} are on your account${dateClause}. The rationale, assumption and revisit trigger are on this device.`
+    },
   },
   /**
    * The success target — the question a strategist answers FIRST and this panel

@@ -49,7 +49,7 @@ import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import { attentionNoteForRecommendation } from '../strengthen/recommendationAttention'
-import { openDecisionRecord, useDecisionRecordForScenario } from '../modals'
+import { canCaptureDecision, openDecisionRecord, useDecisionRecordForScenario } from '../modals'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
@@ -514,6 +514,22 @@ export function AnalysisNewTabBody({
   const currentScenarioId = useCanvasStore((state) => state.currentScenarioId)
   const decisionRecord = useDecisionRecordForScenario(currentScenarioId)
   /**
+   * ⚠⚠ THE CAPTURE MODAL'S OWN PRECONDITION, READ THROUGH ITS OWN FUNCTION.
+   * `isPreRun` is `!hasCompletedFirstRun`, a monotonic latch, so on a failed,
+   * cancelled or in-flight rerun it stayed false while the modal could no
+   * longer capture — and the door opened onto "Run an analysis first." for a
+   * user who had run one. `canCaptureDecision` is the expression the modal
+   * itself uses; importing it is what makes this the SAME fact rather than a
+   * second one that agrees (CLAUDE.md trap 12).
+   */
+  const resultsStatus = useCanvasStore((state) => state.results.status)
+  const optionNumbering = useCanvasStore((state) => state.optionNumbering)
+  const canRecordDecision = canCaptureDecision({
+    nodes,
+    resultsStatus,
+    numbering: optionNumbering,
+  })
+  /**
    * ⚠⚠ "THE STRIP IS OFFERING THE CONTROL", NOT "THE MODEL HAS A GOAL" — and
    * the difference is a shipped regression, caught by independent review.
    *
@@ -783,11 +799,19 @@ export function AnalysisNewTabBody({
             above reads the model. This is the one place the team writes down
             what they will DO, and the one place a later session reads it back.
 
-            ⚠⚠ THE GATE IS `!isPreRun` AND NOTHING ELSE — see the component
-            header. `ModelHeldUp` above renders on almost no runs by design;
-            this renders on all of them, because the quality of a result has no
-            bearing on whether a team may record the choice they made from it.
-            A fragile or stale run is when the reasoning is most worth keeping.
+            ⚠⚠ THE GATE IS `!isPreRun` PLUS THE MODAL'S OWN PRECONDITION —
+            and NOTHING about the run's quality. `ModelHeldUp` above renders on
+            almost no runs by design; the act renders on every run whose option
+            set is capturable, because the quality of a result has no bearing on
+            whether a team may record the choice they made from it. A fragile or
+            stale run is when the reasoning is most worth keeping.
+
+            ⚠ `canRecord` GATES THE CONTROLS, NOT THE READ-BACK. On a failed,
+            cancelled or in-flight rerun the door would have opened onto the
+            modal's "Run an analysis first." refusal — false for a user who has
+            run one — so the controls are withheld. An already-captured record
+            still reads back: it is stored data, and that user is exactly the
+            one who wants to re-read what they decided.
 
             ⚠ THE RECORD IS SCENARIO-KEYED, NOT RUN-KEYED.
             `useDecisionRecordForScenario` resolves `currentScenarioId` through
@@ -797,6 +821,11 @@ export function AnalysisNewTabBody({
         <DecisionRecorded
           isPreRun={vm.status.isPreRun}
           record={decisionRecord}
+          /* Before the first scenario exists the store keys on the shared
+             `__unscoped__` literal, so "for this scenario" would name an
+             object the model does not have. */
+          isScenarioScoped={currentScenarioId != null && currentScenarioId !== ''}
+          canRecord={canRecordDecision}
           onRecord={openDecisionRecord}
           testId="analysis-new-decision-record"
         />

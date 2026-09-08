@@ -57,11 +57,20 @@ const RECORD: DecisionRecord = {
   remote: null,
 }
 
+/**
+ * ⚠ THE DEFAULTS ARE THE STATE THIS FILE IS ABOUT: a real scenario and a
+ * capturable option set. The `false` sides of both are exercised deliberately
+ * — `isScenarioScoped` in `THE SCENARIO IS ONLY NAMED WHEN THERE IS ONE`
+ * below, `canRecord` at the panel level in `theDoorIsNeverDecorative.spec.tsx`,
+ * where the mount that produced the defect actually lives.
+ */
 const draw = (over: Partial<React.ComponentProps<typeof DecisionRecorded>> = {}) =>
   render(
     <DecisionRecorded
       isPreRun={false}
       record={RECORD}
+      isScenarioScoped
+      canRecord
       onRecord={vi.fn()}
       testId={T}
       {...over}
@@ -183,7 +192,7 @@ describe('where the record lives is stated from the record, never inferred', () 
   it('a local-only record says so, and names no cause and no remedy', () => {
     withRecord({ remote: null })
     const line = screen.getByTestId(`${T}-storage`)
-    expect(line).toHaveTextContent(COPY.decisionRecord.storedLocal)
+    expect(line).toHaveTextContent(COPY.decisionRecord.storedLocal(true))
     // No remedy: the store documents three routes to a local-only record and
     // this sentence cannot tell them apart, so it may not prescribe one.
     expect(line.textContent).not.toMatch(/sign (?:in|up)/i)
@@ -203,7 +212,11 @@ describe('where the record lives is stated from the record, never inferred', () 
   it('the local sentence is not the account sentence', () => {
     withRecord({ remote: null })
     expect(screen.getByTestId(`${T}-storage`).textContent).not.toBe(
-      COPY.decisionRecord.storedRemote,
+      COPY.decisionRecord.storedRemote({
+        hasExpectation: true,
+        reviewDate: '2026-12-01T00:00:00.000Z',
+        reviewDateSource: 'user_set',
+      }),
     )
   })
 
@@ -220,7 +233,13 @@ describe('where the record lives is stated from the record, never inferred', () 
         reviewDateSource: 'user_set',
       },
     })
-    expect(screen.getByTestId(`${T}-storage`)).toHaveTextContent(COPY.decisionRecord.storedRemote)
+    expect(screen.getByTestId(`${T}-storage`)).toHaveTextContent(
+      COPY.decisionRecord.storedRemote({
+        hasExpectation: true,
+        reviewDate: '2026-12-01T00:00:00.000Z',
+        reviewDateSource: 'user_set',
+      }),
+    )
   })
 
   /**
@@ -236,7 +255,7 @@ describe('where the record lives is stated from the record, never inferred', () 
         reviewDateSource: 'default_horizon',
       },
     })
-    expect(screen.getByTestId(`${T}-storage`)).toHaveTextContent(COPY.decisionRecord.storedLocal)
+    expect(screen.getByTestId(`${T}-storage`)).toHaveTextContent(COPY.decisionRecord.storedLocal(true))
   })
 })
 
@@ -308,7 +327,7 @@ describe('the date is the record’s own, or there is no date', () => {
 describe('the two states are exclusive', () => {
   it('with no record: the door, and none of the read-back rows', () => {
     draw({ record: null })
-    expect(screen.getByTestId(`${T}-none`)).toHaveTextContent(COPY.decisionRecord.none)
+    expect(screen.getByTestId(`${T}-none`)).toHaveTextContent(COPY.decisionRecord.none(true))
     expect(screen.getByTestId(`${T}-open`)).toHaveTextContent(COPY.decisionRecord.open)
     for (const row of ['option', 'confidence', 'expectation', 'storage', 'savedat', 'update']) {
       expect(screen.queryByTestId(`${T}-${row}`), `${row} rendered with no record`).toBeNull()
@@ -350,5 +369,218 @@ describe('both controls open the capture modal', () => {
     draw({ onRecord })
     await userEvent.click(screen.getByTestId(`${T}-update`))
     expect(onRecord).toHaveBeenCalledTimes(1)
+  })
+})
+
+/**
+ * ⭐⭐⭐ ABSENCE OF PROOF IS NOT PROOF OF ABSENCE — the repair to PR #1272's
+ * one BLOCKING finding.
+ *
+ * The shipped sentence was "On this device only, for this scenario. It is not
+ * on your account." The reasoning behind it was half right and the half it got
+ * wrong is the whole defect: `remote.recordId` is indeed the ONLY thing that
+ * licenses the positive claim — and its ABSENCE was then treated as licensing
+ * the negative one.
+ *
+ * It does not. The store documents three routes to `remote === null`, and on
+ * the third — a FAILED COMMIT — the POST was dispatched and CEE may already
+ * have written the row. `clientCommitId` dedupe exists precisely because that
+ * is reachable. This UI has no read path to `decision_records`, so it cannot
+ * know either way; "It is not on your account" was the product stating as fact
+ * something it does not know, to the one user for whom it is most likely false.
+ */
+describe('THE LOCAL SENTENCE CLAIMS NO KNOWLEDGE OF THE ACCOUNT', () => {
+  it('does not assert the record is absent from the account', () => {
+    withRecord({ remote: null })
+    const text = screen.getByTestId(`${T}-storage`).textContent ?? ''
+    expect(text).not.toMatch(/not on your account/i)
+    expect(text).not.toMatch(/(?:isn't|is not|was not|wasn't) (?:on|saved to|in) your account/i)
+  })
+
+  /**
+   * ⚠ THE POSITIVE HALF, so this is not a test that passes on an empty
+   * sentence. It must actually SAY the unconfirmed thing, in the words the
+   * commit service already uses for the same fact.
+   */
+  it('states the limit of our evidence instead', () => {
+    withRecord({ remote: null })
+    expect(screen.getByTestId(`${T}-storage`)).toHaveTextContent(/could not confirm/i)
+  })
+
+  /**
+   * ⚠ "only" WAS ALSO AN EXCLUSIVITY CLAIM — "on this device ONLY" says no
+   * other copy exists, which is the same unknown wearing a shorter word.
+   */
+  it('does not claim this device is the only place it lives', () => {
+    withRecord({ remote: null })
+    expect(screen.getByTestId(`${T}-storage`).textContent ?? '').not.toMatch(
+      /this device only|only on this device/i,
+    )
+  })
+
+  /** The pre-existing guarantees, re-asserted against the new wording. */
+  it('still names no cause and prescribes no remedy', () => {
+    withRecord({ remote: null })
+    const text = screen.getByTestId(`${T}-storage`).textContent ?? ''
+    expect(text).not.toMatch(/sign (?:in|up)/i)
+    expect(text).not.toMatch(/signed out|offline|guest/i)
+  })
+})
+
+/**
+ * ⭐⭐ THE ACCOUNT SENTENCE NAMES ONLY WHAT THIS RECORD HAS.
+ *
+ * Two over-claims lived in the old constant, and both are the same defect as
+ * the one above pointing the other way:
+ *
+ *   · it named `expectation`, which is OPTIONAL on `DecisionRecord` and which
+ *     `Field` withholds when blank — so the panel refused to show a row and
+ *     then told the reader it was on their account;
+ *   · it said "YOUR … review date", claiming the user authored a date that
+ *     `remote.reviewDateSource` may record as `default_horizon` — CEE's own
+ *     90-day fallback after an unparsed trigger.
+ */
+describe('THE ACCOUNT SENTENCE NAMES ONLY THE FIELDS THE RECORD HAS', () => {
+  const REMOTE_USER_SET = {
+    recordId: 'dr_777',
+    reviewDate: '2026-12-01T00:00:00.000Z',
+    reviewDateSource: 'user_set' as const,
+  }
+
+  it('names the expectation when the record carries one', () => {
+    withRecord({ expectation: 'churn stays under 4%', remote: REMOTE_USER_SET })
+    expect(screen.getByTestId(`${T}-storage`)).toHaveTextContent(/expectation/i)
+  })
+
+  /**
+   * ⭐ THE DISCRIMINATING TWIN. Same remote, same everything — only the
+   * expectation removed. If the sentence were still a constant this would RED,
+   * which is exactly what it did before the repair.
+   */
+  it('does NOT name the expectation when the record carries none — the twin', () => {
+    withRecord({ expectation: undefined, remote: REMOTE_USER_SET })
+    expect(screen.getByTestId(`${T}-storage`).textContent ?? '').not.toMatch(/expectation/i)
+  })
+
+  it('a whitespace-only expectation is treated as absent, like Field treats it', () => {
+    withRecord({ expectation: '   ', remote: REMOTE_USER_SET })
+    expect(screen.getByTestId(`${T}-storage`).textContent ?? '').not.toMatch(/expectation/i)
+    // …and the row itself is withheld too, so the two agree.
+    expect(screen.queryByTestId(`${T}-expectation`)).toBeNull()
+  })
+
+  /**
+   * ⭐⭐ THE AUTHORSHIP PAIR. `reviewDateSource` had ZERO readers in any render
+   * path before this; the sentence claimed the user's authorship of the date
+   * on nothing at all. These two cases are the wiring that earns the field.
+   */
+  it('claims the user set the review date ONLY when reviewDateSource says so', () => {
+    withRecord({ remote: REMOTE_USER_SET })
+    expect(screen.getByTestId(`${T}-storage`)).toHaveTextContent(/review date you set/i)
+  })
+
+  it('a defaulted review date is NOT called the user’s — the twin', () => {
+    withRecord({
+      remote: { ...REMOTE_USER_SET, reviewDateSource: 'default_horizon' },
+    })
+    const text = screen.getByTestId(`${T}-storage`).textContent ?? ''
+    expect(text).not.toMatch(/review date you set/i)
+    expect(text).toMatch(/a review date we set/i)
+  })
+
+  it('a review date defaulted after an unparsed trigger is also not the user’s', () => {
+    withRecord({
+      remote: {
+        ...REMOTE_USER_SET,
+        reviewDateSource: 'default_horizon_after_unparsed_trigger',
+      },
+    })
+    expect(screen.getByTestId(`${T}-storage`).textContent ?? '').not.toMatch(
+      /review date you set/i,
+    )
+  })
+
+  /**
+   * ⚠ `reviewDate` COMES BACK AS `''` WHEN CEE OMITTED IT — the commit service
+   * maps a missing `review_date` to an empty string. An absent date is named
+   * by omission, never asserted.
+   */
+  it('names no review date at all when the remote carries none', () => {
+    withRecord({ remote: { ...REMOTE_USER_SET, reviewDate: '' } })
+    expect(screen.getByTestId(`${T}-storage`).textContent ?? '').not.toMatch(/review date/i)
+  })
+
+  /** The account claim itself is unchanged — this must still be said. */
+  it('still says the durable half is on the account', () => {
+    withRecord({ remote: REMOTE_USER_SET })
+    expect(screen.getByTestId(`${T}-storage`)).toHaveTextContent(/are on your account/i)
+  })
+})
+
+/**
+ * ⭐ THE SCENARIO IS ONLY NAMED WHEN THERE IS ONE.
+ *
+ * `resolveScenarioKey` falls back to the single shared `__unscoped__` literal
+ * before the first scenario exists, so on an unsaved canvas "for this scenario"
+ * named an object the model does not have — a wrong-object claim of the same
+ * class as every other finding here.
+ */
+describe('THE SCENARIO IS ONLY NAMED WHEN THERE IS ONE', () => {
+  it('scoped: the storage line says "for this scenario"', () => {
+    draw({ record: { ...RECORD, remote: null }, isScenarioScoped: true })
+    expect(screen.getByTestId(`${T}-storage`)).toHaveTextContent(/for this scenario/i)
+  })
+
+  it('unscoped: it does not — the twin', () => {
+    draw({ record: { ...RECORD, remote: null }, isScenarioScoped: false })
+    expect(screen.getByTestId(`${T}-storage`).textContent ?? '').not.toMatch(
+      /for this scenario/i,
+    )
+  })
+
+  it('scoped: the empty line says "for this scenario"', () => {
+    draw({ record: null, isScenarioScoped: true })
+    expect(screen.getByTestId(`${T}-none`)).toHaveTextContent(/for this scenario/i)
+  })
+
+  it('unscoped: it does not — the twin', () => {
+    draw({ record: null, isScenarioScoped: false })
+    expect(screen.getByTestId(`${T}-none`).textContent ?? '').not.toMatch(/for this scenario/i)
+  })
+})
+
+/**
+ * ⭐ THE UNIT IS NEVER PRINTED OVER A NUMBER NOBODY SUPPLIED.
+ *
+ * The confidence was composed into `"${confidence} of 100"` BEFORE `Field`'s
+ * blank check, so the check could never withhold it — `"undefined of 100"` is
+ * not blank. `parseConfidence` validates at CAPTURE, but this value is read
+ * back out of `localStorage`, where an older build or a hand-edited store can
+ * put anything.
+ */
+describe('the confidence row is withheld when the number is unreadable', () => {
+  it('renders the row for a real number', () => {
+    withRecord({ confidence: 65 })
+    expect(screen.getByTestId(`${T}-confidence`)).toHaveTextContent('65 of 100')
+  })
+
+  it('renders it for zero — zero is a real answer', () => {
+    withRecord({ confidence: 0 })
+    expect(screen.getByTestId(`${T}-confidence`)).toHaveTextContent('0 of 100')
+  })
+
+  it('withholds the row when the stored value is missing', () => {
+    withRecord({ confidence: undefined as unknown as number })
+    expect(screen.queryByTestId(`${T}-confidence`)).toBeNull()
+  })
+
+  it('withholds the row when the stored value is not finite', () => {
+    withRecord({ confidence: NaN })
+    expect(screen.queryByTestId(`${T}-confidence`)).toBeNull()
+  })
+
+  it('withholds the row when the stored value is not a number at all', () => {
+    withRecord({ confidence: 'seventy' as unknown as number })
+    expect(screen.queryByTestId(`${T}-confidence`)).toBeNull()
   })
 })

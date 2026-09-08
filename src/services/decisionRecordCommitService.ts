@@ -3,10 +3,19 @@
  * (calibration R0, ROADMAP 2.727).
  *
  * The modal has been eliciting the user's chosen option, their confidence and
- * a revisit trigger since it shipped — and throwing all of it into
- * `sessionStorage`, where it dies with the browser session. This module is
- * the one thing standing between that and a durable, personal calibration
- * record: it POSTs the commit to CEE, which owns the write.
+ * a revisit trigger since it shipped — and keeping all of it in BROWSER-LOCAL
+ * storage, which does not follow the user to another machine, another browser
+ * or a private window. This module is the one thing standing between that and
+ * a durable, personal calibration record: it POSTs the commit to CEE, which
+ * owns the write.
+ *
+ * ⚠ THIS PARAGRAPH SAID the record went into `sessionStorage`, "where it dies
+ * with the browser session". Both halves stopped being true when
+ * `decisionRecordStore` moved to `localStorage` on 7 Sep 2026: the local copy
+ * now SURVIVES the session, and the honest limitation is DEVICE scope, not
+ * session lifetime. Left uncorrected it understated what the local half
+ * retains — which is the premise a reader uses to judge how much this module
+ * matters.
  *
  * ⚠ THE BASE IS A LITERAL, AND THAT IS LOAD-BEARING. `import.meta.env.VITE_*`
  * is inlined by Vite at TRANSFORM time, so an env-resolved base reads correct
