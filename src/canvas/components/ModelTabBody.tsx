@@ -62,6 +62,7 @@ import { resolveRawFactorConfidenceDisplay, type FactorConfidenceDisplay } from 
 // are retained UNCHANGED — the design's §7 KEEP/CUT removals await Paul's
 // verdict and are deliberately not executed in this train.
 import { ModelTabV2Panel } from '../model-tab-v2/ModelTabV2Panel'
+import type { ModelGroupId } from '../model-tab-v2/types'
 // THE ONE hand-off for affordances that terminate in a conversation. Built here
 // because this file is the Model tab's only live-app seam; the v2 directory
 // stays free of fronting and store concerns.
@@ -119,15 +120,34 @@ const V1_STACK_CONTENT_ID = 'model-tab-v1-stack-content'
  */
 const LEGACY_DETAILED_EDITOR_MOUNTED = false
 
-/** Assistant/pre-analysis section names → their connected v2 receiver. */
-const MODEL_SECTION_TARGET: Readonly<Record<ModelTabSectionId, string>> = {
-  goal: 'model-group-v2-goal',
-  options: 'model-group-v2-options',
-  factors: 'model-group-v2-factors',
-  relationships: 'model-group-v2-relationships',
-  risks: 'model-group-v2-outcomes-risks',
-  modelcard: 'model-group-v2-evidence-review',
+/**
+ * Assistant/pre-analysis section names → their connected v2 receiver, AS A
+ * GROUP ID.
+ *
+ * ⚠ THE VALUES USED TO BE TESTIDS, AND THE DEEP LINK NEEDS BOTH — the testid to
+ * scroll to, and the group id to OPEN. Holding testids and adding a second
+ * name→group map beside them would be the hand-maintained mirror this estate
+ * pays for repeatedly (trap 12): six pairs to keep in step, drifting silently in
+ * either direction. The group id is the primitive and the testid is a function
+ * of it (`model-group-v2-${id}`, `ModelOutline.tsx`), so the id is what is
+ * stored and `sectionTestId()` below derives the other.
+ *
+ * Typed `Record<ModelTabSectionId, ModelGroupId>`, so the mutual binding
+ * `uiStore` relies on is unchanged and now STRONGER in one direction: a value
+ * that is not one of the seven real groups no longer compiles, where a free
+ * `string` accepted any typo.
+ */
+const MODEL_SECTION_TARGET: Readonly<Record<ModelTabSectionId, ModelGroupId>> = {
+  goal: 'goal',
+  options: 'options',
+  factors: 'factors',
+  relationships: 'relationships',
+  risks: 'outcomes-risks',
+  modelcard: 'evidence-review',
 }
+
+/** The outline's own testid convention, read from where it is declared. */
+const sectionTestId = (group: ModelGroupId): string => `model-group-v2-${group}`
 
 const KIND_ORDER = ['goal', 'decision', 'option', 'factor', 'risk', 'outcome'] as const
 const EMPTY_NODE_IDS = new Set<string>()
@@ -228,21 +248,24 @@ export const ModelTabBody = memo(function ModelTabBody({
   // callback gets a chance to execute, killing the scroll. The mountedRef
   // guard above handles the unmount-during-RAF case without that race.
   //
-  // ⚠⚠ THE DISCLOSURE ABOVE HAD TO BE BUILT AROUND THIS EFFECT, NOT PAST IT.
-  // The scroll target is found with `document.querySelector`, so it exists only
-  // while the v1 sections are MOUNTED. Two consequences, both load-bearing:
+  // ⚠⚠ MOUNTED IS NECESSARY AND NOT SUFFICIENT, AND THAT GAP SHIPPED.
   //
-  //   1. The collapsed v1 stack stays MOUNTED and is hidden with the `hidden`
-  //      ATTRIBUTE — never unmounted, never conditionally rendered. Unmounting
-  //      it would make this `querySelector` return null and the deep link would
-  //      fail SILENTLY: `el?.scrollIntoView` no-ops on null, nothing throws, and
-  //      no test that does not assert the scroll would notice.
-  //   2. Mounted is necessary but NOT sufficient — `scrollIntoView` on a
-  //      `display:none` element does nothing either. So the request also
-  //      EXPANDS the stack, in the same commit as `setOpenSection`, before the
-  //      frame that scrolls. This is the pattern the existing `setOpenSection`
-  //      call already relies on: a passive-effect state update is processed
-  //      before the browser paints, so the RAF callback sees the expanded DOM.
+  // The scroll target is found with `document.querySelector`, so it exists only
+  // while the receiver is MOUNTED — hence the RAF and the mounted guard. What
+  // the previous version of this comment then claimed, and the code did NOT do,
+  // is EXPAND what it scrolls to. `ModelOutline` renders each group's
+  // `<section data-testid="model-group-v2-…">` wrapper whether the group is
+  // open or shut, so after #1275 closed every group by default this effect kept
+  // resolving its target, scrolling to it and draining the request while
+  // `{group.open && …}` rendered nothing inside. A deep link that lands on a
+  // heading is worse than one that fails: the assistant's `applied[]` ledger
+  // records the gesture as successful.
+  //
+  // So the request is ALSO passed down to the panel (`requestedGroupId`, at the
+  // `ModelTabV2Panel` call site below), which opens exactly that group. Both
+  // happen in this same effect flush — the outline is a descendant, so its
+  // effect runs FIRST, and React processes both state updates before the
+  // browser paints. The RAF callback therefore scrolls to an expanded section.
   //
   // Reachable callers of this deep link, all live: the assistant's `open_section`
   // UI directive (`v5/applyV5State.ts`), PreAnalysisPanel's "See all
@@ -253,7 +276,8 @@ export const ModelTabBody = memo(function ModelTabBody({
     if (!pendingSection) return
     requestAnimationFrame(() => {
       if (!mountedRef.current) return
-      const target = MODEL_SECTION_TARGET[pendingSection] ?? 'model-tab-v2-panel'
+      const group = MODEL_SECTION_TARGET[pendingSection]
+      const target = group !== undefined ? sectionTestId(group) : 'model-tab-v2-panel'
       const el = document.querySelector<HTMLElement>(`[data-testid="${target}"]`)
       el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
@@ -910,6 +934,20 @@ export const ModelTabBody = memo(function ModelTabBody({
           canonical transaction exists. ADDITIVE: the v1 sections below are
           unchanged — §7's removals await Paul's KEEP/CUT verdict. */}
       <ModelTabV2Panel
+        /*
+          ⭐⭐ THE SCROLL AND THE OPEN ARE ONE GESTURE, AND ONLY THE SCROLL WAS
+          WIRED. #1275 made the outline open with all seven groups collapsed;
+          nothing that deep-links into a section was updated to open what it
+          points at. The `<section>` wrapper renders regardless of open state,
+          so the effect above found its target, scrolled to it, drained the
+          request — and the reader arrived at a heading with nothing under it.
+
+          Passed as the LIVE store value, deliberately not a remembered copy:
+          it is non-null for one render and drained to null in this same effect
+          flush, and that null-and-back is what lets the SAME section requested
+          twice re-open a group the reader had shut.
+        */
+        requestedGroupId={pendingSection !== null ? MODEL_SECTION_TARGET[pendingSection] : null}
         nodes={nodes}
         edges={edges}
         goalThreshold={goalThreshold}

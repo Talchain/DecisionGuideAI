@@ -94,15 +94,18 @@ function isOverlaySurfaceId(value: unknown): value is OverlaySurfaceId {
  *
  * ⚠ THIS TYPE EXISTS BECAUSE A CALLER PASSED THE TESTID INSTEAD OF THE NAME AND
  * NOTHING FAILED. `MODEL_SECTION_TARGET` (`canvas/components/ModelTabBody.tsx`)
- * maps these names to testids and its consumer coalesces an unknown key to the
+ * maps these names to outline GROUP IDS and its consumer coalesces an unknown key to the
  * panel top, so a wrong string degrades SILENTLY — the user lands at the top of
  * the outline with nothing selected. Typing the parameter turns that into a
  * compile error at the call site.
  *
- * `MODEL_SECTION_TARGET` is declared as `Record<ModelTabSectionId, string>`, so
- * the two cannot drift in EITHER direction: a name added here without a target
+ * `MODEL_SECTION_TARGET` is declared as `Record<ModelTabSectionId, ModelGroupId>`,
+ * so the two cannot drift in EITHER direction: a name added here without a target
  * fails to compile, and a target added there without a name fails to compile.
  * That is the mutual binding a hand-maintained list never has (CLAUDE.md trap 12).
+ * Its values were testids until the deep-link-opens fix; they are GROUP IDS now,
+ * and the testid is derived from one (`model-group-v2-${id}`) rather than stored
+ * beside it, so there is one list to keep true instead of two.
  */
 export const MODEL_TAB_SECTION_IDS = [
   'goal',

@@ -32,7 +32,7 @@ vi.mock('../../conversation/ConversationContext', async (importOriginal) => {
 vi.mock('../../utils/focusHelpers', () => ({ focusNodeById: vi.fn(), focusEdgeById: vi.fn() }))
 
 import { ModelTabV2Panel } from '../ModelTabV2Panel'
-import { MODEL_GROUP_IDS } from '../types'
+import { MODEL_GROUP_IDS, type ModelGroupId } from '../types'
 import { useCanvasStore } from '../../store'
 
 const GOAL_ID = 'goal_arr'
@@ -65,8 +65,22 @@ const nodes = (): Node[] =>
 
 const edges = (): Edge[] => []
 
-const renderPanel = () =>
-  render(<ModelTabV2Panel nodes={nodes()} edges={edges()} goalThreshold={null} />)
+const renderPanel = (requestedGroupId: ModelGroupId | null = null) =>
+  render(
+    <ModelTabV2Panel
+      nodes={nodes()}
+      edges={edges()}
+      goalThreshold={null}
+      requestedGroupId={requestedGroupId}
+    />,
+  )
+
+/** Every group whose header currently reads open — the object of the discriminators. */
+const openGroupIds = (): string[] =>
+  MODEL_GROUP_IDS.filter(
+    id =>
+      screen.queryByTestId(`model-group-v2-${id}-toggle`)?.getAttribute('aria-expanded') === 'true',
+  )
 
 beforeEach(() => {
   useCanvasStore.setState({ nodes: nodes(), edges: edges() } as never, false)
@@ -174,5 +188,65 @@ describe('the Model outline opens as an outline', () => {
       id => screen.queryByTestId(`model-group-v2-${id}-toggle`)?.getAttribute('aria-expanded') === 'true',
     )
     expect(others, `opening factors also opened: ${others.join(', ')}`).toEqual([])
+  })
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ⭐⭐ THE SECOND REGRESSION THE CLOSED DEFAULT INTRODUCED.
+  //
+  // Five live surfaces deep-link INTO a section (`requestModelTabSection`), and
+  // not one of them was updated to open what it points at. The `<section>`
+  // wrapper renders whether the group is open or shut, so the host's
+  // `querySelector` resolved, `scrollIntoView` fired, the request drained — and
+  // the reader arrived at a heading with nothing under it. The spec that should
+  // have caught it asserted on that wrapper and stayed green.
+  //
+  // Same shape as the search fix above, and pinned the same way: the reveal AND
+  // its discriminator, because "open everything on any request" satisfies the
+  // first alone and restores the 1,817px dump.
+  // ══════════════════════════════════════════════════════════════════════════
+  it('a REQUESTED section opens, and its rows are on screen', () => {
+    // PRECONDITION: the same fixture with no request is entirely shut, so the
+    // assertion below cannot pass on a group that was open anyway.
+    renderPanel(null)
+    expect(openGroupIds()).toEqual([])
+    expect(screen.queryByTestId(`model-row-v2-${FACTOR_UNSET}`)).toBeNull()
+    cleanup()
+
+    renderPanel('factors')
+    expect(
+      screen.getByTestId(`model-row-v2-${FACTOR_UNSET}`),
+      'the requested section is on screen but empty — a deep link to a heading',
+    ).toBeInTheDocument()
+  })
+
+  it('DISCRIMINATOR: a request opens ONLY the group it names', () => {
+    renderPanel('factors')
+    const opened = openGroupIds()
+    expect(opened, `only the requested group may open; these did: ${opened.join(', ')}`)
+      .toEqual(['factors'])
+    expect(screen.queryByTestId(`model-row-v2-${GOAL_ID}`)).toBeNull()
+  })
+
+  it('the request is an EVENT — the reader can shut what it opened', () => {
+    renderPanel('factors')
+    fireEvent.click(screen.getByTestId('model-group-v2-factors-toggle'))
+    expect(screen.getByTestId('model-group-v2-factors-toggle').getAttribute('aria-expanded'))
+      .toBe('false')
+    expect(
+      screen.queryByTestId(`model-row-v2-${FACTOR_UNSET}`),
+      'the group reports shut but its rows are still rendered',
+    ).toBeNull()
+  })
+
+  it('a request does not fight the search: both may be true at once', () => {
+    // The two openers write to different things — the request into `closed`,
+    // the needle into `outlineLayout` — so neither can cancel the other.
+    renderPanel('factors')
+    fireEvent.change(screen.getByTestId('model-tab-v2-filter'), {
+      target: { value: 'Engineering' },
+    })
+    expect(screen.getByTestId(`model-row-v2-${FACTOR_SET}`)).toBeInTheDocument()
+    expect(screen.queryByTestId(`model-row-v2-${FACTOR_UNSET}`)).toBeNull()
+    expect(openGroupIds()).toEqual(['factors'])
   })
 })

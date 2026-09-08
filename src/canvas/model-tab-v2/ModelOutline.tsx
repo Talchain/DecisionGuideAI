@@ -25,7 +25,7 @@
  * so the user never has to wonder whether a group disappeared or never existed.
  */
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { classifyValueProvenance } from '../domain/valueProvenance'
 import { typography } from '../../styles/typography'
 import { ModelRowView } from './ModelRowView'
@@ -61,6 +61,23 @@ export interface ModelOutlineProps {
   onFocusOnCanvas?: (id: string) => void
   /** Groups closed at first render. Everything else is open (multi-open always). */
   initiallyClosedGroups?: readonly ModelGroupId[]
+  /**
+   * A section another surface has DEEP-LINKED to — open it.
+   *
+   * ⚠⚠ AN EVENT, NOT A MODE, AND THE DIFFERENCE IS THE WHOLE DESIGN. The value
+   * arrives non-null for a single render and is drained back to null by
+   * `ModelTabBody` in the same effect flush (`pendingModelTabSection`). So this
+   * prop CANNOT be read as a layout override the way `filter` is: a group whose
+   * openness were computed as `… || id === requestedGroupId` would be open for
+   * exactly one render and shut again before the reader saw it, and a version
+   * that HELD the id to avoid that would make the group impossible to close —
+   * the header's one control silently doing nothing.
+   *
+   * It is therefore a WRITER INTO `closed`, not a second source of openness.
+   * `outlineLayout` stays the sole authority on what is open, which is one
+   * mechanism fewer than the search override beside it, not one more.
+   */
+  requestedGroupId?: ModelGroupId | null
   /**
    * The host's edit state per row, keyed by row id. Absent entries render idle.
    * There is deliberately no default map literal here — an absent prop means
@@ -315,6 +332,7 @@ export function ModelOutline({
   onSelect,
   onFocusOnCanvas,
   initiallyClosedGroups,
+  requestedGroupId = null,
   commitByRowId,
   editConnectedIds,
   onBeginEdit,
@@ -344,6 +362,43 @@ export function ModelOutline({
       return next
     })
   }, [])
+
+  /**
+   * ⭐⭐ A REQUESTED SECTION MUST OPEN — THE HALF #1275 LEFT UNDONE.
+   *
+   * #1275 taught this outline to open CLOSED and nothing that deep-links INTO a
+   * section was updated to open what it points at. Five live call sites route
+   * through `requestModelTabSection`; the reachable one measured was the
+   * pre-analysis panel's *"See all 12 relationships in model tab ›"*. Because
+   * the `<section>` wrapper renders regardless of open state, `ModelTabBody`'s
+   * `document.querySelector` resolved, `scrollIntoView` fired, the request
+   * drained, and `{group.open && …}` rendered NOTHING inside. The user asked
+   * for twelve relationships and got a heading; the assistant's `applied[]`
+   * ledger recorded the gesture as successful.
+   *
+   * ⚠ EXACTLY ONE GROUP. Opening all seven on any request satisfies the happy
+   * path and restores the 1,817px dump #1275 existed to remove — the same
+   * discriminator the search override needed, which is why both are pinned by a
+   * paired assertion rather than by a single "it opened" test.
+   *
+   * ⚠ AND IT IS DISMISSIBLE. Deleting the id from `closed` leaves the group in
+   * ordinary user-owned state, so the header's toggle shuts it again. A repeat
+   * request re-opens it: the store drains to null between requests, so the same
+   * section arriving twice is `null → id → null → id` and this effect re-runs.
+   * Depending on a CHANGE OF SECTION instead would fire once and go quiet.
+   *
+   * The bail-out when the group is already open returns the SAME set, so React
+   * skips the re-render rather than churning one on every drained request.
+   */
+  useEffect(() => {
+    if (!requestedGroupId) return
+    setClosed(prev => {
+      if (!prev.has(requestedGroupId)) return prev
+      const next = new Set(prev)
+      next.delete(requestedGroupId)
+      return next
+    })
+  }, [requestedGroupId])
 
   const { groups } = outlineLayout(rows, filter, openGroups)
 

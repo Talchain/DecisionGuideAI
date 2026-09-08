@@ -65,7 +65,7 @@ import {
   type ModelProjectionInput,
 } from './adapters'
 import { MODEL_GROUP_IDS } from './types'
-import type { DetailTier, EditCommitState, RepairQueue } from './types'
+import type { DetailTier, EditCommitState, ModelGroupId, RepairQueue } from './types'
 
 export interface ModelTabV2PanelProps {
   nodes: Node[]
@@ -89,6 +89,15 @@ export interface ModelTabV2PanelProps {
    * boundary guard meaningful.
    */
   onHandOffToOlumi?: (message: string, reason: string) => void
+  /**
+   * The section a cross-panel deep link is asking for, as a GROUP ID.
+   *
+   * The host owns the translation: `ModelTabBody`'s `MODEL_SECTION_TARGET` maps
+   * the store's section NAMES onto these ids. This directory stays free of the
+   * `uiStore` vocabulary, which is the same boundary rule `onHandOffToOlumi`
+   * follows — the mount host owns every live-app seam.
+   */
+  requestedGroupId?: ModelGroupId | null
 }
 
 /**
@@ -129,6 +138,7 @@ export function ModelTabV2Panel({
   goalThreshold,
   fragileEdgeIds,
   onHandOffToOlumi,
+  requestedGroupId = null,
 }: ModelTabV2PanelProps) {
   const [tier, setTier] = useState<DetailTier>('plain')
   /**
@@ -590,6 +600,11 @@ export function ModelTabV2Panel({
            each buying one line. Level 1 is the shape of the model, level 2 is
            the rows. */
         initiallyClosedGroups={MODEL_GROUP_IDS}
+        /* ⚠ THE OTHER HALF OF `initiallyClosedGroups`. Closing the groups made
+           every deep link land the reader on a heading, because nothing that
+           points INTO a section was taught to open it. Passed straight through:
+           the outline owns what "open" means, this panel only relays the ask. */
+        requestedGroupId={requestedGroupId}
         rows={rows}
         tier={tier}
         filter={filter}
