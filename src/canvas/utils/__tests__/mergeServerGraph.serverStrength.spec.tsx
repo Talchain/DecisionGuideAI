@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
+import type { Edge } from '@xyflow/react'
 import type { WireSystemEvent } from '../../conversation/types'
+import type { EdgeData } from '../../domain/edges'
 
 const sendSystemEvent = vi.fn<[WireSystemEvent], Promise<string>>(() => Promise.resolve('SENT'))
 vi.mock('../../conversation/ConversationContext', async (importOriginal) => ({
@@ -170,9 +172,11 @@ describe('authority acquisition is not an analytical edit', () => {
   function seedCurrentAnalysis() {
     const fixture = seedMatchingValues({ strength_mean: 0.5, effect_direction: 'positive' })
     useCanvasStore.setState(state => ({
-      edges: state.edges.map(edge => edge.id === EDGE ? {
-        ...edge, data: { ...edge.data, weightSource: 'user', directionSource: 'user' },
-      } : edge),
+      edges: state.edges.map((edge): Edge<EdgeData> => {
+        if (edge.id !== EDGE) return edge
+        if (!edge.data) throw new Error('Expected mapped fixture edge data')
+        return { ...edge, data: { ...edge.data, weightSource: 'user', directionSource: 'user' } }
+      }),
       graphEditedSinceLastRun: false, analysisStateReady: true, analysisFreshnessDirty: false,
       highlightedNodes: new Set(), highlightedEdges: new Set(),
     }))
