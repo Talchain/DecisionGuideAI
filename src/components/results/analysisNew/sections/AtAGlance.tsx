@@ -15,10 +15,12 @@
  * ── THE FOUR RULES IT ENFORCES ─────────────────────────────────────────────
  * 1. ONE DOMINANT ANSWER. The leading option is the only large type on screen.
  *    Five equal answers in a 280px column is the density we came from.
- * 2. NO CHART UNLESS THE VALUES DIFFER. The deployed surface drew three driver
- *    bars all at 100% — three identical bars is three times no information.
- *    Bars render only when the spread clears `DRIVER_SPREAD_MIN`; otherwise the
- *    ranked labels stand alone and NOTHING is claimed about their equality.
+ * 2. NO CHART UNLESS THE VALUES DIFFER. ⛔ RETIRED HERE at `e15416ad`, with the
+ *    driver list this rule governed. It is recorded rather than deleted because
+ *    the observation that produced it stands: the deployed surface drew three
+ *    driver bars all at 100%, and three identical bars is three times no
+ *    information. The bars themselves now live only in `DriverInfluenceChart`,
+ *    which does not implement this rule — see the note at the retired constant.
  * 3. STALE KILLS THE PRESENT TENSE. `headline` is composed here in the present
  *    ("currently scores higher"), which is false on a run that predates the
  *    model. When stale, the eyebrow reframes it and the sentence is not used.
@@ -32,7 +34,7 @@
  */
 
 import { useState } from 'react'
-import { AlertTriangle, ArrowRight, CheckCircle, ChevronRight, Sparkles } from 'lucide-react'
+import { AlertTriangle, CheckCircle, ChevronRight, Sparkles } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ComparisonScopeNote } from '../../ComparisonScopeNote'
 import { EXCLUDED_LABEL_NAME_CAP } from '../../utils/goalAnchorCopy'
@@ -95,14 +97,23 @@ function reassuranceIsStale(tone: string, isStale: boolean): boolean {
 }
 
 /**
- * Below this spread, driver bars are not drawn.
+ * ⛔ `DRIVER_SPREAD_MIN` DELETED WITH THE DRIVER LIST IT GATED (`e15416ad`).
  *
- * `fraction` is each driver against the STRONGEST in the run, so the leader is
- * always 1. A spread under 5 percentage points means every bar renders within
- * a few pixels of every other at these widths — visually identical, and read as
- * "these are the same" whether or not that is what the producer meant.
+ * It read 0.05 and suppressed this section's driver bars when every driver's
+ * `fraction` sat within five percentage points of every other — "three
+ * identical bars is three times no information", rule 2 in the header above.
+ * It had no consumer outside this file and none in any spec, so it goes with
+ * the render rather than becoming an exported constant nothing reads.
+ *
+ * ⚠ THE RULE IT ENFORCED IS NOT INHERITED BY THE SURVIVING CHART, AND THAT IS
+ * A KNOWN GAP RATHER THAN AN OVERSIGHT. `DriverInfluenceChart` draws a bar for
+ * every row whatever the spread, and it can therefore render the flat case this
+ * constant existed to refuse. It is a weaker defect there — the chart's bars
+ * carry DIRECTION, so a flat set still discriminates left from right, which was
+ * exactly what the suppressed list could not do — but it is not nothing. Left
+ * alone deliberately: suppressing bars in a chart is a different change from
+ * suppressing them in a list, and it is not this seam's question.
  */
-export const DRIVER_SPREAD_MIN = 0.05
 
 /**
  * How many excluded options these rows name at rest.
@@ -125,15 +136,54 @@ export const EXCLUDED_OPTION_VISIBLE_CAP = EXCLUDED_LABEL_NAME_CAP
 export interface AtAGlanceProps {
   glance: AtAGlanceModel
   onFocusTarget?: (targetId: string) => void
-  driverTotal?: number
+  /**
+   * ⛔ `driverTotal` REMOVED WITH THE DRIVER LIST. It existed so the glance
+   * could say "+N more drivers in this run" beneath its cap of three. With the
+   * list gone there is no cap here to declare, and the drivers section states
+   * the true count on its own collapsed row (`SectionShell`'s `count`, derived
+   * from the actual list rather than passed in).
+   */
   primaryIntervention?: {
     id: string
     label: string
-    why: string
+    /**
+     * The finding's OWN name, e.g. "Narrow framing" — never the action.
+     *
+     * ⭐ THIS FIELD REPLACED `why`, WHICH CARRIED THE FINDING'S PARAGRAPH, AND
+     * THE REPLACEMENT IS THE FIX RATHER THAN A RENAME. `why` was
+     * `Recommendation.signal`, and the Strengthen row renders
+     * `strengthenWhyLine(signal, whyNow)` — every arm of which begins with
+     * `signal`. One `Recommendation` therefore had its paragraph printed on
+     * both surfaces, with nothing saying they were one finding. The card is a
+     * POINTER, so it now names the item it points at and the action it runs;
+     * the paragraph, the severity, the grounding, the source line, "I
+     * disagree" and "Not relevant" are rendered once, in the row.
+     *
+     * The field is GONE rather than merely unrendered, so the reprint is
+     * unavailable to a later edit. See
+     * `theFocusCardReferencesRatherThanReprints.spec.tsx`.
+     */
+    title: string
     /** The producer's `signal_code` on a phase-3 finding; absent on the UI's
      * own triggers. Carried so the primary card can name a technique when the
      * producer's code names one — see `recommendationMethod.ts`. */
     signalCode?: string
+    /**
+     * ⚠ RESTORED, AND ONLY THE CATALOGUE PATH MAY RENDER IT. Removing this
+     * outright made the card strictly LESS informative on the catalogue
+     * recommendations, measured on the top-priority one:
+     *
+     *   staging     ["Define success", "No measurable success target is set."]
+     *   unscoped    ["Define what success looks like", "Define success"]
+     *
+     * — the only informative line replaced by a near-restatement of the header.
+     * On the catalogue, `action.label` is SPECIFIC copy and the sentence IS the
+     * information; on phase-3 findings `action.label` is
+     * `item.actionLabel ?? 'Work through with Olumi'`, so the header was
+     * boilerplate above a body repeating the row. Two different situations
+     * under one name — the swap is right for one and wrong for the other.
+     */
+    signal?: string
   } | null
   onRunIntervention?: (recommendationId: string) => void
   /** The displayed run predates the current model. Reframes the answer. */
@@ -152,6 +202,87 @@ export interface AtAGlanceProps {
    * alone.
    */
   onReanalyse?: () => void
+  /**
+   * ⭐⭐ DERIVED FROM THE RUN GATE'S VERDICT IN ONE PLACE — NOT A SECOND
+   * PREDICATE HERE. `AnalysisNewTabBody` passes `!canRunAnalysis && !isRunning`
+   * over `OutputsDock`'s single `runGateResult`; this component renders that
+   * and derives nothing of its own.
+   *
+   * This surface offers the re-run TWICE: here, on the staleness ribbon, and
+   * in the shell footer (`shellContract.ts` gives `analysisNew`
+   * `footerBar: 'reanalyse'`, which renders `ReanalyseBar`). This one was
+   * handed a bare handler and could not refuse at all, so a model the gate
+   * refuses got a live ribbon control for a run that reaches `showToast` and
+   * fails.
+   *
+   * ⭐ THE FOOTER CONTROL IS GATED TOO, SINCE #1212 — same verdict, same
+   * shape, derived one level further down. This prop arrives ALREADY derived
+   * (`AnalysisNewTabBody` computes `!canRunAnalysis && !isRunning`), whereas
+   * `OutputsDock` hands `ReanalyseBar` the RAW `canRunAnalysis` / `isRunning`
+   * and that bar computes the identical `blocked = !canRun && !isAnalysing`
+   * for itself before disabling on `!onReanalyse || blocked || isAnalysing`.
+   * Two derivation sites, one verdict — which is why neither may be
+   * "simplified" into a predicate of its own. While only one half had landed
+   * this surface was incoherent in one direction or the other — one control
+   * refusing the run beside another still offering it, the product
+   * contradicting itself about whether the user may run an analysis. This
+   * prop closes the ribbon's half; both are closed now.
+   *
+   * ⚠ REQUIRED, AND NULLABLE, DELIBERATELY. `AtAGlance` is the component that
+   * RENDERS the control, so this is the boundary at which an omission causes
+   * the harm — and the harm is silent. Optional-with-a-default would let a
+   * future mount site reinstate the ungated control with no diagnostic at all;
+   * required makes that a TS2741 at the mount. `null` is the honest value for
+   * a host that holds no verdict, and it is treated as BLOCKED.
+   *
+   * ⚠ THE CALLER OWNS THE `isAnalysing` CLAUSE. `canRunAnalysis` is FALSE
+   * while a run is in flight, so this is the already-derived
+   * `!canRun && !isAnalysing` — the shape `AnalysisReadinessBar` and
+   * `PanelFooter` use over the same verdict — never a bare `!canRun`, which
+   * would call a RUNNING analysis a refusal.
+   */
+  reanalyseBlocked: boolean
+  /**
+   * ⭐⭐ THE SECOND QUESTION. `reanalyseBlocked` answers "does the gate REFUSE
+   * this run?"; this answers "is a run ALREADY HAPPENING?" — and the button's
+   * `disabled` is a function of BOTH, while the refusal COPY is a function of
+   * the first alone. One name cannot carry two questions (CLAUDE.md trap 21),
+   * which is exactly how the first draft of this PR left the control enabled
+   * during a run. (Nothing shipped: before this PR the ribbon control read no
+   * gate at all, so `reanalyseBlocked` and this prop both arrive together.)
+   *
+   * ⚠ WITHOUT THIS INPUT THE CONTROL IS A DEAD AFFORDANCE MID-RUN.
+   * `reanalyseBlocked` is `!canRunAnalysis && !isRunning`, so it is FALSE for
+   * the whole time an analysis is in flight — binding `disabled` to it alone
+   * leaves a pressable button whose click reaches
+   * `runCanonicalAnalysis`, returns `already-running`, and is dropped by
+   * `handleRunAnalysis` (it raises a toast on `blocked` / `unavailable` only).
+   * An enabled control that does nothing and says nothing.
+   *
+   * ⚠ THE SOURCE IS THE DOCK'S LOCAL `isRunning`, THREADED UNCHANGED — the
+   * same flag `reanalyseBlocked` was derived against. Pairing this with the
+   * composed `isBusy` would test a different run than the one that produced
+   * the verdict (`AnalysisNewTabBody` states that reasoning at the
+   * derivation). The siblings spell this same flag `isAnalysing`
+   * (`PanelFooter`, `AnalysisReadinessBar`); the name here follows the value's
+   * own chain, dock -> body -> glance, so one grep finds all of it.
+   *
+   * ⚠ REQUIRED, for the reason the prop above is required: the harm is
+   * SILENT, and this is the component that renders the control. Optional with
+   * a `false` default would let a future mount site reinstate the enabled
+   * mid-run button with no diagnostic at all; required makes that a TS2741 at
+   * the mount.
+   */
+  isRunning: boolean
+  /**
+   * The gate's own refusal sentence, or `null` when it did not supply one.
+   *
+   * ⚠ BLOCKED WITH NOTHING TO SAY IS NOT A DISABLED BUTTON — it is a dead
+   * affordance with no explanation, which is the state this panel's other
+   * pre-gates exist to prevent. No reason ⇒ no control, the same shape a
+   * missing handler already gets.
+   */
+  reanalyseBlockedReason: string | null
   /** Which results did not come back, already named for this surface. */
   missingResults?: readonly string[]
   testId?: string
@@ -182,13 +313,15 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 export function AtAGlance({
   glance,
   onFocusTarget,
-  driverTotal,
   primaryIntervention,
   onRunIntervention,
   isStale = false,
   staleKind = 'unconfirmed',
   isProvisional = false,
   onReanalyse,
+  reanalyseBlocked,
+  reanalyseBlockedReason,
+  isRunning,
   missingResults = [],
   testId = 'analysis-new-glance',
 }: AtAGlanceProps) {
@@ -263,33 +396,71 @@ export function AtAGlance({
    * 1,584px against a 769px viewport, and reopening a section would spend
    * that fix. One card is not a section.
    */
+  /* ⚠ `glance.drivers.length > 0` WAS A DISJUNCT HERE AND HAD TO GO WITH THE
+     LIST. This guard asks "have I anything to SHOW?" — the question the header
+     above records it getting wrong once already, in the other direction. A run
+     whose only glance-worthy content was drivers now genuinely has nothing to
+     show here, and keeping the disjunct would have rendered the section's
+     wrapper and heading over empty space: the "heading promising content"
+     defect `AnalysisNewSection` records at its own early return. */
   const hasAnything =
     glance.headline ||
     glance.verdict ||
-    glance.drivers.length > 0 ||
     glance.condition ||
     (primaryIntervention && onRunIntervention) ||
     ribbon.length > 0
   if (!hasAnything) return null
 
-  // Rule 2. `fraction` is relative to the strongest, so max is 1 by
-  // construction; the spread is therefore 1 - min.
-  const fractions = glance.drivers.map((d) => d.fraction)
-  const driversDiscriminate =
-    glance.drivers.length > 1 &&
-    Math.max(...fractions) - Math.min(...fractions) >= DRIVER_SPREAD_MIN
+  /**
+   * ⛔ `driversDiscriminate` AND `conditionFirst` REMOVED WITH THE DRIVER LIST.
+   *
+   * They answered one question: does the driver ranking discriminate enough to
+   * outrank "what could change it" in the reading order? Both of the things
+   * being ordered had to exist for that to be a question, and only one of them
+   * does now. The condition block is unconditionally where the list used to
+   * sit, which is where `conditionFirst` put it whenever the ranking was flat.
+   *
+   * ⚠ THE JUDGEMENT THEY ENCODED IS NOT LOST, it is relocated: a tipping point
+   * is the more actionable quantity, so it keeps the position nearer the top of
+   * the panel and the ranking now lives one click down in its own section.
+   */
 
   /**
-   * ⭐ WHAT COULD CHANGE IT OUTRANKS DRIVERS THAT DO NOT DISCRIMINATE.
+   * ⭐⭐ TWO QUESTIONS ABOUT ONE ADMISSION, ANSWERED SEPARATELY AND ON PURPOSE.
    *
-   * A tipping point ("the ordering changes if X moves to 0.8") is a different
-   * and far more actionable quantity than a structural-influence ranking — and
-   * when the influence values are all within `DRIVER_SPREAD_MIN` of each other
-   * the ranking is telling the reader nothing at all. In that state the
-   * condition is promoted above it. When the drivers DO discriminate, the
-   * original order stands: the ranking is then the better orientation.
+   *   MAY I PRESS IT?      `reanalyseDisabled` — no, if the gate refuses OR a
+   *                        run is already in flight.
+   *   WAS I REFUSED?       `reanalyseBlocked` (the prop) — the gate's verdict
+   *                        alone. A run in flight is NOT a refusal, so the
+   *                        refusal sentence stays off the control mid-run.
+   *
+   * Binding `disabled` to the REFUSAL predicate is the defect this replaces:
+   * `reanalyseBlocked` is `!canRunAnalysis && !isRunning`, which is false
+   * during a run, so the button was ENABLED in a state where pressing it can
+   * achieve nothing.
+   *
+   * ⭐ THE SHAPE IS THE SIBLINGS', NOT A NEW ONE. `PanelFooter` computes
+   * `disabled = isAnalysing || !canRun` with its refusal copy on
+   * `!isAnalysing && !canRun`; `AnalysisReadinessBar` binds
+   * `disabled={isAnalysing || !canRun}` with `blocked = !canRun &&
+   * !isAnalysing`. This is that same split, with the refusal half already
+   * derived upstream.
+   *
+   * ⚠ #1212 IS THE PRECEDENT, NOT THE COUNTER-EXAMPLE — reconciled
+   * deliberately, so the next reader does not "fix" one to match the other.
+   * At `0666f955` it gives `ReanalyseBar` exactly this pair:
+   * `blocked = !canRun && !isAnalysing` for the copy, and
+   * `disabled={!onReanalyse || blocked || isAnalysing}` for pressability. The
+   * two PRs agree that a run in flight DISABLES and does not REFUSE. Where
+   * they genuinely differ is a DIFFERENT question — what an absent verdict
+   * means: `ReanalyseBar` defaults `canRun = true` (fail-open, so the control
+   * is never lost), while this panel fails CLOSED — `AnalysisNewTabBody`
+   * defaults `canRunAnalysis` to `null`, which makes `reanalyseBlocked` true,
+   * and this component then requires that derived boolean outright rather than
+   * defaulting it. Same running-state direction; opposite absent-verdict
+   * default, each argued at its own prop.
    */
-  const conditionFirst = Boolean(glance.condition) && !driversDiscriminate
+  const reanalyseDisabled = isRunning || reanalyseBlocked
 
   const showAnswer = Boolean(glance.leaderLabel ?? glance.headline)
 
@@ -305,9 +476,12 @@ export function AtAGlance({
    * plain `.-mt-2` — measured in a browser, the override changed the file and
    * NOT the render. The gap is owned by the parent, so the fix is structural.
    */
+  /* ⚠ THE DRIVERS DISJUNCT WENT WITH THE LIST. This line says WHOSE numbers the
+     run consumed, and it is a qualifier: it must render only where there is
+     something on this surface for it to qualify. The driver rows were such a
+     thing and are no longer here. */
   const showInputProvenance =
-    Boolean(glance.inputProvenance) &&
-    (showAnswer || Boolean(glance.verdict) || glance.drivers.length > 0)
+    Boolean(glance.inputProvenance) && (showAnswer || Boolean(glance.verdict))
 
   return (
     <section className="space-y-3" data-testid={testId} aria-label={COPY.sections.atAGlance}>
@@ -357,17 +531,38 @@ export function AtAGlance({
 
               ⚠ FAIL-CLOSED. No handler, no button — never a dead affordance,
               the same pre-gate this panel uses for focus targets. */}
-          {onReanalyse ? (
+          {onReanalyse && (!reanalyseBlocked || reanalyseBlockedReason !== null) ? (
             <button
               type="button"
               onClick={onReanalyse}
+              /* ⚠ THE CALLER'S PREDICATES, NOT A RESTATEMENT OF THE GATE.
+                 `reanalyseBlocked` arrives already derived from the single
+                 `runGateResult` in `OutputsDock`, and `isRunning` is that same
+                 dock's local flag; nothing here re-reads the gate, so this
+                 control cannot form its own opinion about admission. The
+                 footer control, `ReanalyseBar`, reads that same verdict since
+                 #1212 and disables on
+                 `!onReanalyse || blocked || isAnalysing`.
+
+                 ⭐ THE TWO ATTRIBUTES READ DIFFERENT EXPRESSIONS, AND THAT IS
+                 THE FIX. `disabled` asks whether the button may be pressed
+                 (gate shut OR run in flight); `title` asks whether the gate
+                 refused (gate shut only), so a run in flight disables the
+                 control WITHOUT captioning it with a refusal that did not
+                 happen. Binding both to `reanalyseBlocked` left it pressable
+                 mid-run. */
+              disabled={reanalyseDisabled}
+              title={reanalyseBlocked ? reanalyseBlockedReason ?? undefined : undefined}
               /* ⚠ INFO, NOT THE RIBBON'S AMBER — colour says PRESSABLE here, not
                  SEVERE. Beside it, `r.text` is `panelMeta text-warning`: the
                  same size and the same colour, separated only by an underline
                  at 11px, so a reader scanning an amber block cannot tell the
                  sentence from the control. Amber stays on the status; the one
                  thing you can press is the one thing in the action colour. */
-              className={`${typography.panelMeta} shrink-0 self-start rounded px-1.5 py-0.5 text-info underline underline-offset-2 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              /* `disabled:no-underline` is not decoration: the underline is half of
+                 what says PRESSABLE on this strip (the other half is `text-info`),
+                 so a refused control must stop claiming it. */
+              className={`${typography.panelMeta} shrink-0 self-start rounded px-1.5 py-0.5 text-info underline underline-offset-2 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline disabled:hover:opacity-50`}
               data-testid={`${testId}-ribbon-reanalyse`}
             >
               {COPY.status.reanalyseToBeSure}
@@ -468,6 +663,36 @@ export function AtAGlance({
                 </span>
               </div>
 
+              {/* ⚠ DIRECTLY UNDER THE LABEL, BEFORE THE BAR — the producer's reason
+                  is the SECOND CLAUSE of a sentence whose first clause is the
+                  verdict label, so it begins lowercase by construction:
+                  "Sensitive" + "none of the factors we could test changed which
+                  option leads on its own, but…". Rendered after the win bar it
+                  read as a detached fragment starting mid-sentence — witnessed on
+                  the deployed build (`b14cd478`, guest, 291px dock, completed run)
+                  as an 11px block with its antecedent two elements away.
+
+                  `AnalysisFooter` already renders this exact producer string
+                  directly beneath its status word, with nothing between, and
+                  `AnalysisFooter.metaWrap.spec.tsx` pins the wrap treatment and
+                  the verbatim text (not the adjacency).
+
+                  ⚠ THE COPY IS UNCHANGED AND STAYS THE PRODUCER'S. An ORDERING
+                  fix, not a rewrite. Capitalising the clause here would falsify a
+                  sentence CEE composed as a continuation.
+
+                  ⚠ RESOLVED AGAINST #1195, WHICH LANDED FIRST AND KEPT THE OLD
+                  ORDER INSIDE A NEW WRAPPER. Both fixes are kept: the wrapper is
+                  staging's, the order is this one's. Taking either side wholesale
+                  reverts the other. */}
+              {glance.verdict.reason ? (
+                <p
+                  className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+                  data-testid={`${testId}-verdict-reason`}
+                >
+                  {glance.verdict.reason}
+                </p>
+              ) : null}
               {glance.winFraction !== null ? (
                 <span
                   className="mt-1.5 block h-1 w-full rounded-full bg-panel-hover overflow-hidden"
@@ -481,14 +706,6 @@ export function AtAGlance({
                 </span>
               ) : null}
 
-              {glance.verdict.reason ? (
-                <p
-                  className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
-                  data-testid={`${testId}-verdict-reason`}
-                >
-                  {glance.verdict.reason}
-                </p>
-              ) : null}
             </div>
           ) : null}
 
@@ -610,8 +827,33 @@ export function AtAGlance({
         </div>
       ) : null}
 
-      {conditionFirst ? (
-        <>
+      {/* ⛔ THE GLANCE NO LONGER LISTS DRIVERS — REMOVED AT `e15416ad`.
+
+          It rendered "What matters most": the top three factors with a bar
+          each, one scroll above "Drivers and dynamics", which renders the
+          same factors again. Derived at the bytes rather than judged by eye:
+          `glanceDrivers` and `buildDrivers` (both `buildAnalysisNewViewModel`)
+          read the same `data.drivers.drivers`, drop the same `zeroReason`
+          rows, take the same `displayInfluence` magnitude and divide by the
+          same within-run maximum. This list was a strict SUBSET of the
+          chart’s rows carrying a strict SUBSET of its information — it had no
+          direction — so it was a summary of something one click away, not a
+          second question.
+
+          ⚠ WHAT WENT WITH IT, AND WHERE IT WENT. The basis caption
+          ("Influence" / "Relative influence") disclosed which scale the bars
+          were on through a `title` tooltip, which a touch reader cannot open;
+          the drivers section now carries both branches of that disclosure as a
+          VISIBLE caveat (`coverage.structuralInfluence` /
+          `coverage.setRelativeInfluence`). The "+N more drivers" line declared
+          this list’s cap of three; the section states the true count on its
+          collapsed row and the chart renders every row, so there is no cap
+          left to declare.
+
+          ⚠ `glance.drivers` ITSELF IS NOT REMOVED. `nodeInsights.ts` still
+          reads it to decide whether a node earns `ModelStrip`’s
+          "What matters most" chip, which is a per-node claim rather than a
+          restatement of the ranking. */}
       {/* ── WHAT COULD CHANGE IT ───────────────────────────────────────────── */}
       {glance.condition ? (
         (() => {
@@ -656,228 +898,13 @@ export function AtAGlance({
           )
         })()
       ) : null}
-      {/* ── WHAT IS SHAPING IT ─────────────────────────────────────────────── */}
-      {glance.drivers.length > 0 ? (
-        <div data-testid={`${testId}-drivers`}>
-          <div className="flex items-baseline justify-between gap-2">
-            <Eyebrow>{COPY.glance.whatMattersMost}</Eyebrow>
-            {driversDiscriminate ? (
-              <span
-                className={`${typography.panelMeta} text-text-light shrink-0`}
-                title={
-                  glance.influenceIsSetRelative
-                    ? COPY.glance.basisRelativeExplain
-                    : COPY.glance.basisAbsoluteExplain
-                }
-                data-testid={`${testId}-basis`}
-              >
-                {glance.influenceIsSetRelative
-                  ? COPY.glance.basisRelative
-                  : COPY.glance.basisAbsolute}
-              </span>
-            ) : null}
-          </div>
-          <ul className="mt-1.5 space-y-1 list-none p-0 m-0">
-            {glance.drivers.map((d) => {
-              const focusable = Boolean(d.targetId && onFocusTarget)
-              const Row = (
-                <>
-                  <span className="min-w-0 flex-1 truncate text-left" title={d.label}>
-                    {d.label}
-                  </span>
-                  {driversDiscriminate ? (
-                    /* ⚠ THE BAR USED TO WIDEN ON THE VIEWPORT, NOT THE PANEL.
-                       This lives in a dock whose floor is 278px, and the
-                       breakpoint it branched on is satisfied by any desktop
-                       window — so on the narrowest, shipped default it took the
-                       WIDER size and the label beside it, which is truncated,
-                       lost the room. The bar is decoration; the driver's name is
-                       the information. A panel-aware branch is available
-                       (`usePanelWidth`) if a wide dock should ever get more. */
-                    <span
-                      className="h-1.5 w-16 shrink-0 rounded-full bg-panel-hover overflow-hidden"
-                      aria-hidden="true"
-                      data-testid={`${testId}-driver-bar`}
-                    >
-                      <span
-                        className="block h-full rounded-full bg-info"
-                        style={{ width: `${Math.round(d.fraction * 100)}%` }}
-                      />
-                    </span>
-                  ) : null}
-                  {focusable ? (
-                    <ArrowRight
-                      className="w-3 h-3 shrink-0 text-text-light opacity-0 group-hover:opacity-100"
-                      aria-hidden="true"
-                    />
-                  ) : null}
-                </>
-              )
-              return (
-                <li key={d.id} data-testid={`${testId}-driver`} data-driver-id={d.id}>
-                  {focusable ? (
-                    <button
-                      type="button"
-                      onClick={() => onFocusTarget!(d.targetId!)}
-                      className={`${typography.panelBody} group text-text-body w-full flex items-center gap-2 rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-                      data-testid={`${testId}-driver-focus`}
-                    >
-                      {Row}
-                    </button>
-                  ) : (
-                    <span
-                      className={`${typography.panelBody} group text-text-body w-full flex items-center gap-2`}
-                    >
-                      {Row}
-                    </span>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-          {typeof driverTotal === 'number' && driverTotal > glance.drivers.length ? (
-            <p
-              className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
-              data-testid={`${testId}-drivers-more`}
-            >
-              {COPY.glance.moreDrivers(driverTotal - glance.drivers.length)}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-        </>
-      ) : (
-        <>
-      {/* ── WHAT IS SHAPING IT ─────────────────────────────────────────────── */}
-      {glance.drivers.length > 0 ? (
-        <div data-testid={`${testId}-drivers`}>
-          <div className="flex items-baseline justify-between gap-2">
-            <Eyebrow>{COPY.glance.whatMattersMost}</Eyebrow>
-            {driversDiscriminate ? (
-              <span
-                className={`${typography.panelMeta} text-text-light shrink-0`}
-                title={
-                  glance.influenceIsSetRelative
-                    ? COPY.glance.basisRelativeExplain
-                    : COPY.glance.basisAbsoluteExplain
-                }
-                data-testid={`${testId}-basis`}
-              >
-                {glance.influenceIsSetRelative
-                  ? COPY.glance.basisRelative
-                  : COPY.glance.basisAbsolute}
-              </span>
-            ) : null}
-          </div>
-          <ul className="mt-1.5 space-y-1 list-none p-0 m-0">
-            {glance.drivers.map((d) => {
-              const focusable = Boolean(d.targetId && onFocusTarget)
-              const Row = (
-                <>
-                  <span className="min-w-0 flex-1 truncate text-left" title={d.label}>
-                    {d.label}
-                  </span>
-                  {driversDiscriminate ? (
-                    <span
-                      className="h-1.5 w-16 shrink-0 rounded-full bg-panel-hover overflow-hidden"
-                      aria-hidden="true"
-                      data-testid={`${testId}-driver-bar`}
-                    >
-                      <span
-                        className="block h-full rounded-full bg-info"
-                        style={{ width: `${Math.round(d.fraction * 100)}%` }}
-                      />
-                    </span>
-                  ) : null}
-                  {focusable ? (
-                    <ArrowRight
-                      className="w-3 h-3 shrink-0 text-text-light opacity-0 group-hover:opacity-100"
-                      aria-hidden="true"
-                    />
-                  ) : null}
-                </>
-              )
-              return (
-                <li key={d.id} data-testid={`${testId}-driver`} data-driver-id={d.id}>
-                  {focusable ? (
-                    <button
-                      type="button"
-                      onClick={() => onFocusTarget!(d.targetId!)}
-                      className={`${typography.panelBody} group text-text-body w-full flex items-center gap-2 rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-                      data-testid={`${testId}-driver-focus`}
-                    >
-                      {Row}
-                    </button>
-                  ) : (
-                    <span
-                      className={`${typography.panelBody} group text-text-body w-full flex items-center gap-2`}
-                    >
-                      {Row}
-                    </span>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-          {typeof driverTotal === 'number' && driverTotal > glance.drivers.length ? (
-            <p
-              className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
-              data-testid={`${testId}-drivers-more`}
-            >
-              {COPY.glance.moreDrivers(driverTotal - glance.drivers.length)}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-      {/* ── WHAT COULD CHANGE IT ───────────────────────────────────────────── */}
-      {glance.condition ? (
-        (() => {
-          const focusable = Boolean(glance.condition.targetId && onFocusTarget)
-          const Row = (
-            <>
-              <AlertTriangle
-                className="w-3.5 h-3.5 mt-[3px] shrink-0 text-warning"
-                aria-hidden="true"
-              />
-              <span className="min-w-0 flex-1">
-                <span className="text-text-header">{COPY.glance.couldChangeIf}</span>{' '}
-                {glance.condition!.text}
-              </span>
-              {focusable ? (
-                <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0 text-text-light" aria-hidden="true" />
-              ) : null}
-            </>
-          )
-          return (
-            <div
-              className="rounded-md border border-warning/30 bg-warning/[0.04] px-2 py-1.5"
-              data-testid={`${testId}-condition`}
-            >
-              {focusable ? (
-                <button
-                  type="button"
-                  onClick={() => onFocusTarget!(glance.condition!.targetId!)}
-                  className={`${typography.panelBody} text-text-body w-full flex items-start gap-1.5 text-left rounded hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-                  data-testid={`${testId}-condition-focus`}
-                >
-                  {Row}
-                </button>
-              ) : (
-                <p
-                  className={`${typography.panelBody} text-text-body w-full flex items-start gap-1.5 m-0`}
-                >
-                  {Row}
-                </p>
-              )}
-            </div>
-          )
-        })()
-      ) : null}
-        </>
-      )}
 
       {/* ── WHAT TO THINK ABOUT NEXT ───────────────────────────────────────── */}
-      {primaryIntervention && onRunIntervention ? (
+      {primaryIntervention && onRunIntervention ? (() => {
+        // PHASE-3 producer findings vs the UI's own catalogue. The id prefix is
+        // minted in one place and is identity, not similarity.
+        const isProducerFinding = primaryIntervention.id.startsWith('strengthen:phase3:')
+        return (
         <button
           type="button"
           onClick={() => onRunIntervention(primaryIntervention.id)}
@@ -887,8 +914,17 @@ export function AtAGlance({
         >
           <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0 text-info" aria-hidden="true" />
           <span className="min-w-0 flex-1">
-            <span className={`${typography.panelHeader} text-text-header block`}>
-              {primaryIntervention.label}
+            {/* ⭐ GATED ON PROVENANCE, NOT ON SIMILARITY. A text comparison
+                between the header and the action would fire on whatever
+                happened to look alike; the id says which KIND of
+                recommendation this is, which is the actual discriminator.
+                `strengthen:phase3:` is minted in exactly one place
+                (`buildRecommendations.ts:348`). */}
+            <span
+              className={`${typography.panelHeader} text-text-header block`}
+              data-testid={`${testId}-primary-title`}
+            >
+              {isProducerFinding ? primaryIntervention.title : primaryIntervention.label}
             </span>
             {/* ⭐ THE MOST PROMINENT COACHING CARD NAMES ITS TECHNIQUE. This is
                 the one move a reader meets without opening anything, so if any
@@ -915,15 +951,44 @@ export function AtAGlance({
                 </span>
               ) : null
             })()}
-            {primaryIntervention.why ? (
-              <span className={`${typography.panelMeta} text-text-light block mt-0.5`}>
-                {primaryIntervention.why}
-              </span>
-            ) : null}
+            {/* ⭐ THE ACTION, NOT THE FINDING. This line carried
+                `Recommendation.signal` — the paragraph the Strengthen row also
+                prints — while the header above carried `action.label`. The two
+                are swapped: the header names the finding, this names what
+                pressing the card does.
+
+                ⚠ SCOPED, because the old header was not always boilerplate.
+                On the seven UI catalogue recommendations `action.label` is
+                specific copy ("Define success"). On the PHASE-3 producer
+                findings — the kind in the 6 Sep capture — it is
+                `item.actionLabel ?? 'Work through with Olumi'`, so a producer
+                sending no label bought a heading of boilerplate above a body
+                that repeated the row. Derived at the eight `recs.push` sites in
+                `buildRecommendations.ts`, 7 Sep 2026.
+
+                Still conditional. `action.label` is `item.actionLabel ?? '…'`
+                and `??` passes an empty string through, so a producer sending
+                `""` would otherwise buy a blank muted line. */}
+            {(() => {
+              // On a producer finding the header names the finding, so this
+              // names the ACTION. On a catalogue rec the header IS the action,
+              // so this carries the SENTENCE — which is that card's only
+              // information and what the unscoped version deleted.
+              const second = isProducerFinding ? primaryIntervention.label : primaryIntervention.signal
+              return second ? (
+                <span
+                  className={`${typography.panelMeta} text-text-light block mt-0.5`}
+                  data-testid={`${testId}-primary-action`}
+                >
+                  {second}
+                </span>
+              ) : null
+            })()}
           </span>
           <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0 text-text-light" aria-hidden="true" />
         </button>
-      ) : null}
+        )
+      })() : null}
     </section>
   )
 }

@@ -487,7 +487,7 @@ export interface LegendBoardState {
  * register (three keys are re-typed literals with no exported constant).
  */
 const METRIC_ROW_VISIBLE: Readonly<Record<string, (b: LegendBoardState) => boolean>> = {
-  [METRIC_NOUN.ahead]: (b) => b.isPostAnalysis,
+  [METRIC_NOUN.support]: (b) => b.isPostAnalysis,
   [METRIC_NOUN.chance]: (b) => b.isPostAnalysis,
   [METRIC_NOUN.influence]: (b) => b.isPostAnalysis,
   [METRIC_NOUN.strength]: () => true,

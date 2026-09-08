@@ -4,7 +4,7 @@
  * Two of these are structural rather than cosmetic, and they are the reason
  * this file exists rather than the sweep alone:
  *
- *  · `ahead` must be `COMPARATIVE_COPY.anchor` BY REFERENCE. A copy would be
+ *  · `support` must be `COMPARATIVE_COPY.anchor` BY REFERENCE. A copy would be
  *    a second authority for one word, which is the drift the register was
  *    introduced to abolish.
  *
@@ -44,14 +44,14 @@ describe('METRIC_NOUN', () => {
     // Necessary and NOT sufficient — see the header. This catches the
     // authority changing its word without the register following; it is blind
     // to a re-typed literal, which is what the source test below is for.
-    expect(METRIC_NOUN.ahead).toBe(COMPARATIVE_COPY.anchor)
+    expect(METRIC_NOUN.support).toBe(COMPARATIVE_COPY.anchor)
     // PRECONDITION PINNED: the authority actually carries a word. Without
     // this, both sides being `undefined` would satisfy the line above.
     expect(typeof COMPARATIVE_COPY.anchor).toBe('string')
     expect(COMPARATIVE_COPY.anchor.length).toBeGreaterThan(0)
   })
 
-  it('⭐ `ahead` is COMPARATIVE_COPY.anchor BY REFERENCE — asserted at the source', () => {
+  it('⭐ `support` is COMPARATIVE_COPY.anchor BY REFERENCE — asserted at the source', () => {
     const src = readFileSync(resolve(__dirname, '../metricVocabulary.ts'), 'utf8')
 
     // POSITIVE CONTROL: the file was actually read. An unreadable or empty
@@ -62,9 +62,13 @@ describe('METRIC_NOUN', () => {
     // (a) the authority is imported…
     expect(src, 'the register no longer imports the comparative authority')
       .toMatch(/import \{[^}]*COMPARATIVE_COPY[^}]*\} from/)
-    // (b) …and `ahead` is that reference, not a literal.
-    expect(src, '`ahead` is not bound to COMPARATIVE_COPY.anchor')
-      .toMatch(/ahead:\s*COMPARATIVE_COPY\.anchor/)
+    // (b) …and `support` is that reference, not a literal.
+    //
+    // ⚠ THE KEY WAS `ahead` UNTIL 7 Sep 2026. It moved with its value under
+    // Paul's no-contest ruling — leaving the key behind would have kept the
+    // race word as the canonical name for the quantity.
+    expect(src, '`support` is not bound to COMPARATIVE_COPY.anchor')
+      .toMatch(/support:\s*COMPARATIVE_COPY\.anchor/)
     // (c) CONTRAST: the word is nowhere re-typed as a literal in the register.
     //     This is the assertion a copy actually REDs on.
     const quoted = new RegExp(`['"\`]${COMPARATIVE_COPY.anchor}['"\`]`)
@@ -72,7 +76,7 @@ describe('METRIC_NOUN', () => {
     expect(quoted.test(codeOnly), `"${COMPARATIVE_COPY.anchor}" is re-typed as a literal in the register`)
       .toBe(false)
     // …and prove that contrast predicate can fire, or it is vacuous.
-    expect(quoted.test(`ahead: '${COMPARATIVE_COPY.anchor}',`), 'the literal detector never fires').toBe(true)
+    expect(quoted.test(`support: '${COMPARATIVE_COPY.anchor}',`), 'the literal detector never fires').toBe(true)
   })
 
   it('every noun is a single sentence-case word', () => {

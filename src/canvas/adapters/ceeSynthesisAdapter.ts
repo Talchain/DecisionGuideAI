@@ -149,7 +149,7 @@ export function transformISLToCEESynthesis(
       // Re-anchored: this value is SENT TO CEE, where it seeds the reply
       // vocabulary. A bare endorsement noun taught CEE that the product HAS a
       // recommendation; naming the quantity teaches it the anchored form.
-      recommendation_label: 'Current leading option by goal probability',
+      recommendation_label: 'Current most-supported option by goal probability',
       robustness_score: robustnessLabelToScore(robustnessResult.label),
     }]
     request.recommendation_label = robustnessResult.label

@@ -16,6 +16,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import type { Edge, Node } from '@xyflow/react'
 
+import { STRUCTURAL_DELETE_STOOD_DOWN_NOTICE } from '../../mutations/structuralDelete'
 import {
   removeStructuralDeleteClaims,
   useGraphEditEvents,
@@ -122,7 +123,7 @@ describe('claimed removals do not ALSO ride the debounced notification', () => {
     expect(graphEditCalls()).toHaveLength(0)
     expect(useCanvasStore.getState().nodes.map((item) => item.id)).toEqual(beforeNodeIds)
     expect(useCanvasStore.getState().pendingStructuralDeletes).toEqual([])
-    expect(messages).toContain('Sync the shared model before deleting. Nothing was removed.')
+    expect(messages).toContain(STRUCTURAL_DELETE_STOOD_DOWN_NOTICE)
   })
 })
 

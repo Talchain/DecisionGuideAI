@@ -54,7 +54,7 @@ import {
   selectDriverDisplayModel,
 } from '../driverDisplayModel'
 import { selectDriverPolicyFeed } from '../useResultsSectionData'
-import { MetricPills } from '../../../canvas/nodes/shared/MetricPills'
+import { NodeMetricRow } from '../../../canvas/nodes/shared/NodeMetricRow'
 
 import walkAFixture from '../../../v5/__tests__/fixtures/live-analysis-turn-walkA-2026-08-04.json'
 
@@ -182,28 +182,63 @@ describe('importance_basis is carried through the shared driver policy, not re-d
   })
 })
 
-describe('the canvas pill renders the disclosure it is given', () => {
-  // Bound by IDENTITY: the influence pill is the one whose accessible name
-  // opens with the influence noun and carries THIS percentage, so the
-  // confidence pill (same role, same container) cannot satisfy the query.
-  const influencePill = () => screen.getByRole('img', { name: /^Influence score 62%/ })
+describe('the canvas influence row renders the disclosure it is given', () => {
+  /**
+   * ⚠⚠ RE-BOUND AT THE MERGE WITH STAGING, 8 Sep 2026 — AND THE REBIND IS THE
+   * POINT, NOT A TIDY-UP.
+   *
+   * This block used to render `<MetricPills influencePct … influenceProvenance
+   * … influenceImportanceBasis …/>`. Staging (#1277) DELETED the influence pill
+   * from `MetricPills`, on the measured ground that it was ALREADY UNREACHABLE:
+   * influence became the shared `NodeMetricRow` on 1 Sep 2026 and the sole
+   * `<MetricPills>` mount stopped passing `influencePct`, which `hasInfluence`
+   * required — so the branch could not render on any node under any flag
+   * posture. A guard bound to it was therefore asserting about a component the
+   * product does not mount (CLAUDE.md trap 3b: bind UI tests to the surface the
+   * DEPLOYED flags actually mount, not to the one the fix was written against).
+   *
+   * The PROPERTY this block exists to pin is unchanged and is not weakened: the
+   * structural note must reach BOTH channels — `title` for pointer users and an
+   * assistive-tech string for everyone else — because a note that lived on
+   * `title` alone is a disclosure a whole class of readers never receives.
+   * `NodeMetricRow`'s own docblock states the same rule ("Callers that need a
+   * basis disclosed should pass BOTH"), and `FactorNode` is the caller: it
+   * mounts exactly the shape below, `title={influenceExplanation(…)}` and
+   * `phrase={influenceBarAriaLabel(…)}`, with `testId="factor-influence-row"`.
+   *
+   * Bound by IDENTITY: the row is found by that test id, so another metric row
+   * on the same card (an option's "Ahead", a risk's "strength") cannot satisfy
+   * the query.
+   */
+  const influenceRow = () => screen.getByTestId('factor-influence-row')
 
-  it('puts the structural note on the influence pill title and accessible name', () => {
+  function renderInfluenceRow(importanceBasis?: string | null) {
     render(
-      <MetricPills
-        influencePct={62}
-        influenceProvenance="influence_score"
-        influenceImportanceBasis="graph_structural"
+      <NodeMetricRow
+        label="Influence"
+        value={0.62}
+        formatted="62%"
+        fillClass="bg-info"
+        testId="factor-influence-row"
+        title={influenceExplanation('influence_score', importanceBasis)}
+        phrase={influenceBarAriaLabel('influence_score', importanceBasis)}
       />,
     )
-    const pill = influencePill()
-    expect(pill.getAttribute('title')).toContain(INFLUENCE_STRUCTURAL_BASIS_NOTE)
-    expect(pill.getAttribute('aria-label')).toContain(INFLUENCE_STRUCTURAL_BASIS_NOTE)
+  }
+
+  it('puts the structural note on BOTH the row title and its assistive-tech phrase', () => {
+    renderInfluenceRow(STRUCTURAL_IMPORTANCE_BASIS)
+    const row = influenceRow()
+    expect(row.getAttribute('title')).toContain(INFLUENCE_STRUCTURAL_BASIS_NOTE)
+    // The phrase is rendered inside the row as screen-reader-only text rather
+    // than as an attribute, so assert on what the row actually contains.
+    expect(row.textContent).toContain(INFLUENCE_STRUCTURAL_BASIS_NOTE)
   })
 
   it('renders no structural note when the stamp is absent', () => {
-    render(<MetricPills influencePct={62} influenceProvenance="influence_score" />)
-    const pill = influencePill()
-    expect(pill.getAttribute('title')).not.toContain(INFLUENCE_STRUCTURAL_BASIS_NOTE)
+    renderInfluenceRow(null)
+    const row = influenceRow()
+    expect(row.getAttribute('title')).not.toContain(INFLUENCE_STRUCTURAL_BASIS_NOTE)
+    expect(row.textContent).not.toContain(INFLUENCE_STRUCTURAL_BASIS_NOTE)
   })
 })

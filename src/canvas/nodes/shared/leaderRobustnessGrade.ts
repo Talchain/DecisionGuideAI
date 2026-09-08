@@ -108,7 +108,7 @@ export function leaderRobustnessGrade(report: unknown): LeaderRobustnessGrade | 
     label: ROBUSTNESS_BADGE_LABELS[level],
     title:
       level === 'very_low'
-        ? 'Highly sensitive: which option leads changed often across the scenarios we sampled. Small changes could flip it.'
-        : 'Sensitive: which option leads changed across some of the scenarios we sampled. Small changes could flip it.',
+        ? 'Highly sensitive: which option the data supports changed often across the scenarios we sampled. Small changes could flip it.'
+        : 'Sensitive: which option the data supports changed across some of the scenarios we sampled. Small changes could flip it.',
   }
 }

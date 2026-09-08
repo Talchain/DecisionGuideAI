@@ -30,6 +30,15 @@ import type { CeeDecisionReviewPayloadV1 } from '../../adapters/cee/types'
 import type { DecisionReview030 } from '../../v5/decisionReviewAdapter'
 
 import type { CompletenessReasonCode } from './copy/freshnessReasons'
+import type { OptionComputeStatus } from '../../adapters/plot/optionComputeStatus'
+/**
+ * The producer's per-option classification, read through the ONE predicate that
+ * owns it. Imported from `notAnalysedOptions` rather than respelled here: a
+ * second spelling of `status !== 'failed'` would be a second authority on one
+ * question, and this hook must classify an option identically to the service
+ * that produced it.
+ */
+import { optionComputationProducedResult } from './utils/notAnalysedOptions'
 
 export type ResultCompletenessStatus = 'full' | 'partial' | 'failed'
 
@@ -132,12 +141,39 @@ export function deriveResultCompleteness(
   // `win_probability` for likelihood-based ranking. The brief flagged
   // "Analysis complete" with null win probabilities as the headline
   // bug; this surfaces it.
+  //
+  // ⭐ A FAILED OPTION'S `win_probability` IS NOT ONE OF THEM.
+  //
+  // ISL emits `status: 'failed'` exactly when `n_valid === 0` — zero finite
+  // Monte Carlo samples, so no distribution and no share — and PLoT forwards a
+  // `win_probability: 0` beside it. Zero is a number, so the bare `typeof`
+  // test counted that fabrication as a present measurement and SUPPRESSED this
+  // disclosure on a run where the only "win probability" was invented. The one
+  // surface whose job is to say the field is missing was silenced by the very
+  // absence it exists to report.
+  //
+  // Gated on the PRODUCER'S EMITTED TOKEN, never on falsiness. A `win > 0`
+  // test would be a second, worse classification: it would admit a failed
+  // option carrying any non-zero fabricated value, and would wrongly drop a
+  // GENUINE measured zero — an option ISL computed at full sample count and
+  // found never wins. Those two are indistinguishable by value and
+  // distinguishable only by `status`.
+  //
+  // `optionComputationProducedResult` is QUOTED, not respelled: `'partial'`
+  // stays in (samples exist — a disclosure, not a failure) and an ABSENT
+  // status stays in (the legacy V1 shape, which has no status field at all).
+  // A `status !== 'computed'` test here would discard results ISL honestly
+  // produced.
   const optionProbs = inputs.report.option_probabilities ?? {}
   const optionIds = Object.keys(optionProbs)
   if (optionIds.length > 0) {
-    const anyWin = optionIds.some(
-      (id) => typeof optionProbs[id]?.win_probability === 'number',
-    )
+    const anyWin = optionIds.some((id) => {
+      const entry = optionProbs[id] as
+        | ((typeof optionProbs)[string] & { status?: OptionComputeStatus })
+        | undefined
+      if (!optionComputationProducedResult(entry?.status)) return false
+      return typeof entry?.win_probability === 'number'
+    })
     if (!anyWin) {
       missing.add('win_probability')
       reasons.add('win_probability_missing')
@@ -148,6 +184,39 @@ export function deriveResultCompleteness(
   // numeric outcome reading is partial coverage. We check the same
   // sources as `useResultsSectionData`'s fallback chain so a value
   // present anywhere counts.
+  //
+  // ⛔ DELIBERATELY NOT GATED ON `status`, AND MAKING IT SYMMETRIC WITH FIELD 2
+  // WOULD MAKE THE PRODUCT QUIETER ABOUT A REAL FAILURE. A review asked why
+  // the sibling ten lines up now consults `status` and this does not. The two
+  // `.some()` calls point in OPPOSITE directions, so the same gate has
+  // opposite effects:
+  //
+  //   · Field 2 asks "did ANY option produce a win?" — so a failed option
+  //     contributing a fabricated value could MANUFACTURE presence and silence
+  //     a disclosure. That is under-disclosure, and it is the defect fixed.
+  //   · Field 3 asks "is ANY option missing an outcome?" — a failed option has
+  //     none, so it TRIGGERS a disclosure. That is over-disclosure.
+  //
+  // Worked through: four computed options and one failed. Field 2 sees the
+  // four, `anyWin` is true, and it says nothing. Field 3 sees the failed one
+  // and marks `expected_outcome`. So WITHIN THIS HOOK field 3 is the only
+  // predicate that discloses a partially-failed run, and gating it on `status`
+  // would make the completeness signal silent on that run.
+  //
+  // ⚠ SCOPED TO THIS HOOK ON PURPOSE — an earlier version of this comment said
+  // field 3 was "the ONLY thing that discloses a partially-failed run at all",
+  // and that is FALSE. `OptionCards.tsx:1367` renders `NotComputedOptionCard`
+  // off the same `status`, and `buildAnalysisNewViewModel.ts` reads it too. The
+  // user is not left with nothing; the COMPLETENESS BANNER is what goes quiet.
+  // The design decision is unchanged — the superlative was, and a superlative
+  // in a sentence about coverage is exactly the part nobody measures.
+  //
+  // ⚠ WHAT IS MISSING FROM THIS HOOK is a disclosure that names the real event.
+  // Through this path a failed option reaches the user as "the expected
+  // outcome" being absent — true of the symptom, wrong about the cause. Other
+  // surfaces do name it; this one cannot, because `missing` is keyed by FIELD
+  // and the event is about an OPTION. A new key and a new string, i.e. its own
+  // change — rowed, not smuggled in here.
   if (optionIds.length > 0) {
     const anyOutcomeMissing = optionIds.some((id) => {
       const prob = optionProbs[id] as

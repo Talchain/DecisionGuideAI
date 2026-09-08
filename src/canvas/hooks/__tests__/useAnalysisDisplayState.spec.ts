@@ -44,6 +44,17 @@ function makeStore(initial: Partial<MockCanvasState> = {}) {
   }))
 }
 
+/**
+ * A report these tests can call POPULATED. An empty `option_comparison` is not
+ * a populated report -- it is a run that finished and produced nothing, which
+ * now earns its own display state ('ran_without_result'). Every test below
+ * that says 'populated report' means a run with a real number in it, so the
+ * fixture has to carry one; otherwise these cases quietly stop testing the
+ * dimension they name (freshness, CEE precedence) and start testing the
+ * empty-result rule instead.
+ */
+const POPULATED_REPORT = { option_comparison: [{ id: 'opt-a', win_probability: 0.62 }] }
+
 describe('useAnalysisDisplayState', () => {
   beforeEach(() => {
     store = makeStore()
@@ -60,7 +71,7 @@ describe('useAnalysisDisplayState', () => {
   it('returns complete view when results.report is populated and freshness is current', () => {
     store = makeStore({
       ceeAnalysisReady: { status: 'ready' },
-      results: { status: 'complete', report: { option_comparison: [] } },
+      results: { status: 'complete', report: POPULATED_REPORT },
       analysisFreshness: { freshness: 'fresh' },
       analysisFreshnessDirty: false,
     })
@@ -73,7 +84,7 @@ describe('useAnalysisDisplayState', () => {
   it('returns results_stale view when the CEE freshness verdict is stale (changed)', () => {
     store = makeStore({
       ceeAnalysisReady: { status: 'ready' },
-      results: { status: 'complete', report: { option_comparison: [] } },
+      results: { status: 'complete', report: POPULATED_REPORT },
       analysisFreshness: { freshness: 'stale' },
     })
     const { result } = renderHook(() => useAnalysisDisplayState())
@@ -84,7 +95,7 @@ describe('useAnalysisDisplayState', () => {
   it('returns results_stale when a retained fresh verdict is dirtied by a local edit (changed)', () => {
     store = makeStore({
       ceeAnalysisReady: { status: 'ready' },
-      results: { status: 'complete', report: { option_comparison: [] } },
+      results: { status: 'complete', report: POPULATED_REPORT },
       analysisFreshness: { freshness: 'fresh' },
       analysisFreshnessDirty: true,
     })
@@ -95,7 +106,7 @@ describe('useAnalysisDisplayState', () => {
   it('CEE-sourced unknown (cannot-confirm) → complete, NOT results_stale (no fabricated "outdated")', () => {
     store = makeStore({
       ceeAnalysisReady: { status: 'ready' },
-      results: { status: 'complete', report: { option_comparison: [] } },
+      results: { status: 'complete', report: POPULATED_REPORT },
       analysisFreshness: { freshness: 'unknown' },
       analysisFreshnessDirty: true,
     })
@@ -116,7 +127,7 @@ describe('useAnalysisDisplayState', () => {
   it('non-ready CEE overrides a populated report → not_ready, NOT complete', () => {
     store = makeStore({
       ceeAnalysisReady: { status: 'needs_user_mapping' },
-      results: { status: 'complete', report: { option_comparison: [] } },
+      results: { status: 'complete', report: POPULATED_REPORT },
     })
     const { result } = renderHook(() => useAnalysisDisplayState())
     expect(result.current.state).toBe('not_ready')

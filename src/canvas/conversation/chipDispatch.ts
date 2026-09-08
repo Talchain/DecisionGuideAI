@@ -46,6 +46,8 @@ import type { ActionChip } from './types'
  */
 export const RETRY_CHIP_ID = 'retry'
 export const START_NEW_DRAFT_CHIP_ID = 'start_new_draft'
+/** Read-only retry handled by useConversation.sendChip, with no turn payload. */
+export const LOAD_SAVED_MODEL_CHIP_ID = 'load_saved_model'
 export type LocallyRoutedChipId = typeof RETRY_CHIP_ID | typeof START_NEW_DRAFT_CHIP_ID
 
 /**
@@ -85,6 +87,7 @@ const RENDERABLE_LOCAL_CHIP_IDS: ReadonlySet<string> = new Set<LocallyRoutedChip
  * not be rendered.
  */
 export function isChipRenderable(chip: ActionChip): boolean {
+  if (chip.id === LOAD_SAVED_MODEL_CHIP_ID) return true
   if (RENDERABLE_LOCAL_CHIP_IDS.has(chip.id)) return true
   if (chip.intent === 'undo') return true
   return !!(chip.message || chip.prompt)

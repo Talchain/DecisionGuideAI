@@ -241,9 +241,9 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
         // filtered out at the map (they state nothing about leadership
         // change), and the map only attaches an entry to its bucket winners.
         const statement = cw.lowBucket.winnerId === option.id
-          ? `Leads when ${cw.factorLabel} is below ${splitDisplay}`
+          ? `Best supported when ${cw.factorLabel} is below ${splitDisplay}`
           : cw.highBucket.winnerId === option.id
-            ? `Leads when ${cw.factorLabel} is above ${splitDisplay}`
+            ? `Best supported when ${cw.factorLabel} is above ${splitDisplay}`
             : null
         if (!statement) return null
         return (
@@ -262,7 +262,7 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
       {/* Pre-analysis coaching */}
       {!hasAnalysisData && (
         <p className={`${typography.panelMeta} text-text-light italic`}>
-          Run analysis to see when each option leads and lags
+          Run analysis to see when each option is best supported
         </p>
       )}
 

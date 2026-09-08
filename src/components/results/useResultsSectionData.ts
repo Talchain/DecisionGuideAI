@@ -2910,7 +2910,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           // from a set-relative fallback value.
           displayProvenance: displayModel.get(f.key)?.provenance,
           // Producer basis stamp, verbatim, off the SAME shared display entry
-          // the canvas pill reads — so the panel and the canvas cannot answer
+          // the canvas influence row reads (`FactorNode` via
+          // `useNodeDisplayMetadata`; it was the MetricPills pill until #1277
+          // deleted that branch) — so the panel and the canvas cannot answer
           // "what is this figure derived from" differently for one report.
           importanceBasis: displayModel.get(f.key)?.importanceBasis ?? undefined,
           // Producer influence_rank passthrough (roadmap 1.7, provisional_doctrine_v0)

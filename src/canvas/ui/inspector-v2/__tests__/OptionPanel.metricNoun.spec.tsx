@@ -40,7 +40,7 @@
  *   is preceded by the POSITIVE it depends on — the figure is on screen and the
  *   live noun captions it — and the retired-phrase sweep runs against the same
  *   `textContent` the positive was read from (trap 13).
- * · The caption is compared to `METRIC_NOUN.ahead` BY REFERENCE. Writing
+ * · The caption is compared to `METRIC_NOUN.support` BY REFERENCE. Writing
  *   "Ahead" literally here would create the second authority the register
  *   exists to abolish; `metricVocabulary.spec.ts` already pins the register's
  *   own value with `toBe`.
@@ -130,7 +130,7 @@ beforeEach(() => {
 })
 
 describe("the option inspector captions the win probability with the canvas's noun", () => {
-  it('⭐ the caption beside the figure IS METRIC_NOUN.ahead, on the deployed mount path', () => {
+  it('⭐ the caption beside the figure IS METRIC_NOUN.support, on the deployed mount path', () => {
     const { dialog } = openInspector(OPTION_ID)
 
     // PRECONDITION 1 — the OPTION panel is what opened, identified by
@@ -157,10 +157,10 @@ describe("the option inspector captions the win probability with the canvas's no
     // IMMEDIATELY BEFORE it. That ordering is the claim — a caption that stops
     // sitting beside its number is exactly as broken as a caption with the
     // wrong word in it.
-    const caption = within(dialog).getByText(METRIC_NOUN.ahead)
+    const caption = within(dialog).getByText(METRIC_NOUN.support)
     expect(
       caption.previousElementSibling?.textContent?.trim(),
-      `"${METRIC_NOUN.ahead}" is on screen but is not captioning the win-probability figure`,
+      `"${METRIC_NOUN.support}" is on screen but is not captioning the win-probability figure`,
     ).toBe('62%')
   })
 
@@ -171,7 +171,7 @@ describe("the option inspector captions the win probability with the canvas's no
     // test whose surface never mounted is the vacuity trap 13 exists for, and
     // it is not inherited from the test above.
     expect(
-      within(dialog).getByText(METRIC_NOUN.ahead).previousElementSibling?.textContent?.trim(),
+      within(dialog).getByText(METRIC_NOUN.support).previousElementSibling?.textContent?.trim(),
       'PRECONDITION: the win-probability hero must be on screen for this absence to mean anything',
     ).toBe('62%')
 
@@ -179,7 +179,7 @@ describe("the option inspector captions the win probability with the canvas's no
     // CONTRAST CONTROL: the instrument can see this surface's text at all —
     // and specifically the live noun, so a blank read cannot pass as a clean one.
     expect(copy, 'the inspector read as empty — this absence assertion is vacuous').toContain(
-      METRIC_NOUN.ahead,
+      METRIC_NOUN.support,
     )
     expect(copy).toContain('62%')
 

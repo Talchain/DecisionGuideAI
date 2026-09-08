@@ -62,7 +62,21 @@ import { AnalysisFreshnessNotice } from '../../../components/results/AnalysisFre
 function makeStore(analysisStateV1: AnalysisStateV1 | null) {
   return create<MockCanvasState>(() => ({
     ceeAnalysisReady: { status: 'ready' },
-    results: { status: 'complete', report: { ok: true }, hash: 'h1', startedAt: 1_760_000_000_000 },
+    // ⚠ THE REPORT CARRIES A REAL PROBABILITY, and it must.
+    // This fixture used `{ ok: true }` — a stub with no `option_comparison` and
+    // no `probability_of_goal`. `deriveAnalysisDisplayState` now asks whether a
+    // populated report contains anything RENDERABLE (a run can return a report
+    // full of nulls; that is not a result), so a contentless stub is correctly
+    // classified `ran_without_result` and these freshness tests stopped
+    // exercising the 'complete' path they were written for.
+    // The report is incidental to what this file tests — so it is made
+    // REALISTIC rather than the new gate being weakened to accept a stub.
+    results: {
+      status: 'complete',
+      report: { probability_of_goal: 0.62 },
+      hash: 'h1',
+      startedAt: 1_760_000_000_000,
+    },
     analysisFreshness: {
       freshness: 'fresh',
       freshnessReason: 'graph_hash_match',

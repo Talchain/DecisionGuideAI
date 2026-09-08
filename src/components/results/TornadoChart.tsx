@@ -139,6 +139,14 @@ export interface TornadoChartProps {
   flipThresholds?: FlipThreshold[]
   /** Task 4: Factor IDs with contested inbound edges — highlighted with dashed border */
   contestedFactorIds?: string[]
+  /**
+   * Label of the option whose p10/p90 spread every bar is scaled from. Naming it
+   * is a statement of IDENTITY — whose numbers these are — and deliberately not
+   * of entitlement: it must stay true on a turn that withheld the leader
+   * designation. Absent, the copy says "one option — the same one for every
+   * bar" rather than inventing a designation or falling silent.
+   */
+  referenceOptionLabel?: string | null
 }
 
 /** Whether structured unit data is available (not just normalised model scores). */
@@ -239,6 +247,7 @@ export function TornadoChart({
   isNormalised,
   goalDirection,
   contestedFactorIds,
+  referenceOptionLabel,
 }: TornadoChartProps) {
   const contestedSet = new Set(contestedFactorIds ?? [])
   // P0.2: Use relative % change when no structured unit is available
@@ -386,8 +395,43 @@ export function TornadoChart({
         }
       }}
     >
-      {/* Codex final-audit B1 — honest framing. The bars are the recommended
-          option's OVERALL p10/p90 spread scaled by each factor's influence
+      {/* ⭐ NAMES THE OPTION, NEVER DESIGNATES IT.
+          This read "the recommended option's overall spread". That is exactly
+          accurate about the CODE — `OutputsDock.tsx:1097-1099` takes `expected`,
+          `p10` and `p90` from `recommendation.recommendedOption` — and it is an
+          ENTITLEMENT claim about the RUN, which is a different question.
+          `decisionVerdict.ts` states the distinction for the sibling field: "a
+          non-null `leaderId` does NOT license the phrase 'leading option' …
+          identity and entitlement are different questions". `recommendedOption`
+          is likewise an IDENTITY: it stays populated on a turn where the model
+          withheld the leader designation, and this sentence then called it a
+          recommendation while the hero above it printed "Here is how your
+          options compare." Witnessed on deployed `e2016182`, 7 Sep 2026.
+          ⚠ NOT gated on the licence, deliberately. Withholding the sentence
+          would leave the reader unable to tell WHOSE spread the bars are — the
+          one fact they need to read the chart at all. Naming the option makes a
+          strictly WEAKER claim than the old copy and carries strictly MORE
+          information. Absent a label it falls to "one option — the same one for
+          every bar", which still
+          conveys the load-bearing fact: every bar derives from ONE option's
+          spread, so these are not per-factor forecasts.
+          ⚠ The earlier fallback read "a single option", which a reader could
+          take as "only one option exists" rather than "one option's spread" —
+          the same ambiguity class this sentence exists to remove.
+          ⚠⚠ "scaled by that factor's INFLUENCE" IS UNCHANGED AND IS CONTESTED.
+          `factor_sensitivity[].influence_score` (structural causal influence)
+          and `drivers[].contribution` (contribution to outcome variance) are
+          different quantities rendered under one word on different tabs, both
+          faithfully — an open product ruling. Worse here: this chart's scaling
+          factor is `displayInfluence ?? influenceScore ?? normalisedInfluence`
+          (`OutputsDock.tsx:1110`), the chain `types.ts:718` bans BY NAME —
+          "Consumers must render/sort this, not influenceScore ??
+          normalisedInfluence, which mixes bases under partial producer
+          coverage." NOT touched here: this PR changes the OPTION referent only,
+          and rewording a contested term mid-ruling would be scope expansion
+          into a decision this lane does not hold.
+          The bars remain that option's OVERALL p10/p90 spread scaled by each
+          factor's influence
           (see the module header): a proportional illustration, NOT producer
           per-factor counterfactuals. The prior "Win-likelihood range … drag
           to explore how outcomes shift" copy presented that fabrication as
@@ -399,7 +443,8 @@ export function TornadoChart({
         className={`${typography.panelBody} text-text-body mb-2`}
         data-testid="tornado-intro"
       >
-        Illustrative range for each factor: the recommended option&rsquo;s overall spread scaled by that factor&rsquo;s influence. A proportional guide to relative leverage, not a per-factor forecast from the analysis.
+        Illustrative range for each factor: the overall spread of{' '}
+        {referenceOptionLabel ? referenceOptionLabel : 'one option \u2014 the same one for every bar'}, scaled by that factor&rsquo;s influence. A proportional guide to relative leverage, not a per-factor forecast from the analysis.
       </p>
 
       {/* Brief 5.1 Task 5: legend occupies its own full-width row above the
