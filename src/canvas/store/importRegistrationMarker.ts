@@ -76,6 +76,7 @@
  */
 import { identityFromCanvasGraph } from '../utils/graphIdentity'
 import { buildRegistrationGraph } from '../registration/buildRegistrationGraph'
+import { normaliseInterventionKeys } from '../utils/normaliseInterventionKeys'
 
 const STORAGE_KEY = 'olumi.import.pendingServerRegistration.v1'
 /** Bounded so a session that imports repeatedly cannot grow the record without limit. */
@@ -299,8 +300,11 @@ function canonicalJson(value: unknown): string {
  *
  * Layout and ordering stay equivalent: nodes are sorted by id, edges by their
  * endpoint pair, and every object's keys are sorted at every depth — so a
- * re-layout or a persistence round-trip still matches, which is the property
- * the original sorted digest existed for.
+ * re-layout or a persistence round-trip still matches. The option-only
+ * `interventionKeys` index is sorted too: it indexes a map, not a ranked list.
+ * Membership and duplicates remain significant; every other array stays ordered.
+ * Old unsorted receipts may require one acknowledgement again; there is no
+ * optimistic migration of an identity that was never recorded.
  *
  * A graph the projection REFUSES (divergent or unresolvable node kind, empty)
  * has no identity and returns null, so it is never acknowledged — fail-closed,
@@ -322,7 +326,9 @@ function analyticalDigest(
     nodes: Array<Record<string, unknown>>
     edges: Array<Record<string, unknown>>
   }
-  const orderedNodes = [...graph.nodes].sort((x, y) =>
+  const orderedNodes = graph.nodes.map(node =>
+    node.kind === 'option' ? normaliseInterventionKeys(node) : node,
+  ).sort((x, y) =>
     String(x.id) < String(y.id) ? -1 : String(x.id) > String(y.id) ? 1 : 0,
   )
   const pair = (e: Record<string, unknown>) => `${String(e.from)}\u0000${String(e.to)}`
