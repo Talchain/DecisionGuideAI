@@ -51,6 +51,10 @@ import {
   KIND_LABEL,
   deferralLabel,
 } from './rowPresentation'
+import {
+  STRENGTH_BAND_MIDPOINTS,
+  getStrengthBand,
+} from '../components/model-tab/strengthBands'
 import type { EditCommitState, DetailTier, ModelRow } from './types'
 import { splitEffectLabel } from './effectDirection'
 import { directionToneClass } from '../components/model-tab/utils'
@@ -935,6 +939,60 @@ function ValueCell({
         if (onDraftChange && onProposeEdit && onDiscardEdit) {
           return (
             <span data-testid={testid} className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} inline-flex items-center shrink-0 whitespace-nowrap`}>
+              {/* ⭐ QUICK-SET BANDS — RELATIONSHIPS ONLY, AND PROMOTED, NOT INVENTED.
+                  Paul, 8 Sep 2026: "a really simple, quick, and easy clickable
+                  solution AND a more detailed, exact number for advanced users."
+                  Both halves already existed on `ContestedEdgeCard` (:239 quick-set
+                  pills over STRENGTH_BAND_MIDPOINTS, plus a `customSignedMean`
+                  field); the v2 relationship rows had NEITHER, so a user could only
+                  reach the abstract number. This promotes the existing control
+                  rather than authoring a second one — a duplicate affordance for one
+                  question is this estate's signature defect.
+
+                  ⚠ SIGN IS PRESERVED, NOT SET. These pills choose a MAGNITUDE band
+                  and re-apply whatever sign the draft already carries. Direction is
+                  deliberately NOT a control here: `getDirectionalStrengthLabel` takes
+                  direction as a REQUIRED argument precisely because inferring it from
+                  a number's sign once rendered every direction-less edge as "Strong
+                  positive effect" (ROADMAP 2.263). Adding a direction toggle changes
+                  what the emitter is told the user STATED, so it is a separate,
+                  separately-reviewed change.
+
+                  ⚠ THE MAGNITUDES ARE IMPORTED, NEVER RETYPED. A second copy of the
+                  band midpoints would be a hand-maintained mirror of thresholds that
+                  `strengthBands.ts` owns and that the whole product bands against. */}
+              {row.kind === 'relationship' && (
+                <span className="inline-flex items-center gap-1 mr-2" data-testid={`${testid}-bands`}>
+                  {(['weak', 'moderate', 'strong'] as const).map(band => {
+                    const negative = commit.draft.trim().startsWith('-')
+                    const magnitude = STRENGTH_BAND_MIDPOINTS[band]
+                    const next = `${negative ? '-' : ''}${magnitude}`
+                    const parsed = Number(commit.draft)
+                    const active =
+                      Number.isFinite(parsed) && getStrengthBand(parsed) === band
+                    return (
+                      <button
+                        key={band}
+                        type="button"
+                        data-testid={`${testid}-band-${band}`}
+                        aria-pressed={active}
+                        title={`Set to ${band} (${next})`}
+                        onClick={e => {
+                          e.stopPropagation()
+                          onDraftChange(row.id, next)
+                        }}
+                        className={`${typography.buttonSmall} px-1.5 rounded border ${
+                          active
+                            ? 'border-info text-info'
+                            : 'border-panel-border text-text-light'
+                        }`}
+                      >
+                        {band.charAt(0).toUpperCase() + band.slice(1)}
+                      </button>
+                    )
+                  })}
+                </span>
+              )}
               <input
                 data-testid={`${testid}-input`}
                 // Focus follows the click that opened this input — it replaces
@@ -957,6 +1015,28 @@ function ValueCell({
                 }}
                 className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
               />
+              {/* ⭐ THE NUMBER STOPS BEING ABSTRACT. Paul's concern, 8 Sep: the
+                  raw magnitude "would not make sense" to an expert. Measured on
+                  deployed `15edd2e2`: the editor was a bare field seeded `0.5`
+                  with no scale, no band and no units anywhere near it. This names
+                  the band the CURRENT DRAFT falls in, live, so the exact field and
+                  the phrase the row displays can never silently disagree — they
+                  are one derivation (`getStrengthBand`), not two that happen to
+                  agree today.
+
+                  ⚠ It reads the DRAFT, not the row's stored value: during an edit
+                  those differ, and labelling the stored value beside a changed
+                  number is the "claim attached to a different number" defect. */}
+              {row.kind === 'relationship' && (
+                <span
+                  data-testid={`${testid}-band-readback`}
+                  className={`${typography.panelCaption} text-text-light ml-2 whitespace-nowrap`}
+                >
+                  {Number.isFinite(Number(commit.draft)) && commit.draft.trim() !== ''
+                    ? getStrengthBand(Number(commit.draft))
+                    : '—'}
+                </span>
+              )}
             </span>
           )
         }
