@@ -252,7 +252,13 @@ export const HERO_CLAIM_RE =
   // ahead in {N}% of simulated scenarios" — a claim, and this probe must be
   // able to SEE it. Left at the old alternation the PERMITTED-side
   // over-suppression controls would pass by matching nothing (trap 13).
-  /\b(highest|strongest|most likely|slightly ahead|leads|leading|winner|best|came out ahead)\b/i
+  //
+  // ⚠ WIDENED AGAIN 2026-09-07, FOR THE SAME REASON AND ON THE SAME PROBE.
+  // Paul's no-contest ruling replaced "came out ahead in {N}% …" with
+  // "supported in {N}% …". Every retired alternative is KEPT rather than
+  // swapped out: this probe screens for a claim of ANY vintage, and dropping
+  // the old wording would blind it to a surface that had not been migrated.
+  /\b(highest|strongest|most likely|slightly ahead|leads|leading|winner|best|came out ahead|supported in)\b/i
 
 /**
  * Every string a screen reader can reach that is NOT ordinary body text:

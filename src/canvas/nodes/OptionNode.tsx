@@ -175,19 +175,39 @@ function computeBehindReason(
 
 /**
  * Compute differentiator labels for ALL non-baseline options in one pass.
- * Returns a Map<optionId, string | null> where the string is the complete
- * sentence to render (e.g. "Tech lead hired is the key difference" or
- * "Tech lead hired → 90%").
+ * Returns a Map<optionId, { label, fullLabel, factorId } | null> where
+ * `label` is the complete sentence to render (e.g. "Tech lead hired is the
+ * key difference" or "Tech lead hired → 90%") and `fullLabel` is THAT SAME
+ * SENTENCE built from the untruncated factor label.
+ *
+ * ⭐ WHY `fullLabel` EXISTS — ellipsis-with-recovery, not
+ * ellipsis-with-nowhere-to-go. It is the standard this file already applies
+ * to the intervention chips below ("so the full string was recoverable").
+ * Witnessed on deployed staging `16336b13`: this footer rendered "Account
+ * Executive… is the key difference" and "Platform Engineer… → Low (0)" with
+ * the elided words present NOWHERE in the DOM. `compactFactorLabel` shortens
+ * in JS, so there is no CSS overflow for a browser tooltip to recover, and
+ * the node-level aria-label does not contain the truncated text — the user
+ * is told something is the key difference and not told what.
+ *
+ * ⚠ THE LABEL STILL TRUNCATES, DELIBERATELY. The card is width-constrained
+ * and the standing rule is "label truncates, value NEVER truncates"
+ * (PR #1220, merged and deployed). `fullLabel` changes only what HOVER can
+ * recover; the visible text, the width and the truncation length are
+ * untouched.
  *
  * When two options share the same top-differentiating factor, values are
  * appended to disambiguate. If the values are also identical (or both
  * produce empty formatted text), the differentiator is suppressed for both.
+ * That de-duplication reads the VISIBLE `label` — two options whose footers
+ * read the same on screen are indistinguishable to a user however their
+ * hover text differs.
  */
 function computeAllDifferentiators(
   nodes: readonly { id: string; type?: string; data?: any }[],
   ceeAnalysisReady: { options?: { id: string; interventions?: Record<string, unknown> }[] } | null,
-): Map<string, { label: string; factorId: string } | null> {
-  const result = new Map<string, { label: string; factorId: string } | null>()
+): Map<string, { label: string; fullLabel: string; factorId: string } | null> {
+  const result = new Map<string, { label: string; fullLabel: string; factorId: string } | null>()
 
   const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
   if (optionNodes.length < 2) return result
@@ -265,19 +285,30 @@ function computeAllDifferentiators(
   }
 
   // Phase 3: build label for each option
-  const candidateLabels = new Map<string, string>()
+  const candidateLabels = new Map<string, { label: string; fullLabel: string }>()
   for (const [optionId, { factorId, myValue, myDisplayValue }] of bestFactors.entries()) {
     const factorNode = nodes.find(n => n.id === factorId)
     const rawLabel = (factorNode?.data?.label as string | undefined) ?? factorId
-    const compactLabel = compactFactorLabel(cleanFactorLabel(rawLabel), 20)
+    const fullFactorLabel = cleanFactorLabel(rawLabel)
+    const compactLabel = compactFactorLabel(fullFactorLabel, 20)
 
-    if ((factorClaimCount.get(factorId) ?? 0) <= 1) {
-      // Unique factor — simple sentence
-      candidateLabels.set(optionId, `${compactLabel.charAt(0).toUpperCase()}${compactLabel.slice(1)} is the key difference`)
-    } else if (myDisplayValue) {
-      // Shared factor with CEE display_value — render verbatim, skip unit/tier inference.
-      candidateLabels.set(optionId, `${compactLabel.charAt(0).toUpperCase()}${compactLabel.slice(1)} \u2192 ${myDisplayValue}`)
-    } else {
+    // ⭐ ONE code path, evaluated TWICE — once with the compacted label token
+    // and once with the untruncated one. The branches below are deliberately
+    // NOT duplicated: a second hand-maintained copy of this sentence-building
+    // logic is the drift this estate pays for most often, and the two
+    // sentences must stay identical apart from the label token or the hover
+    // stops recovering the very thing it is hovering over.
+    const buildSentence = (labelToken: string): string => {
+      const leading = `${labelToken.charAt(0).toUpperCase()}${labelToken.slice(1)}`
+
+      if ((factorClaimCount.get(factorId) ?? 0) <= 1) {
+        // Unique factor — simple sentence
+        return `${leading} is the key difference`
+      }
+      if (myDisplayValue) {
+        // Shared factor with CEE display_value — render verbatim, skip unit/tier inference.
+        return `${leading} \u2192 ${myDisplayValue}`
+      }
       // Shared factor — disambiguate. Placeholder-unit factors (scale, index, score, …)
       // have no real-world anchor, so tier labels like "Very high" are meaningless.
       // For those, skip formatting entirely and use directional language against
@@ -291,46 +322,47 @@ function computeAllDifferentiators(
       // Audit §8 P0-4: "Does not change" fires ONLY on exact equality with the
       // baseline (shared formatter semantics) — never a ±0.1 display epsilon.
       const directional = (): string =>
-        describeInterventionDirection(observedBaselineFor(factorId), myValue, compactLabel)
-      if (unitKind === 'placeholder') {
-        candidateLabels.set(optionId, directional())
-      } else {
-        const formatted = formatInterventionValue(
-          myValue,
-          effectiveUnit,
-          obs?.factor_type,
-          obs?.cap,
-          obs?.value,
-          obs?.raw_value,
-        )
-        // A unitless qualitative factor (e.g. factor_type="quality", no unit)
-        // still reaches formatInterventionValue's qualitativeTierLabel branch
-        // and returns "Very high" / "High" / …. These tier labels are just as
-        // meaningless in differentiator text as the placeholder-unit ones,
-        // so force directional phrasing whenever the formatter returned one.
-        if (formatted && !isTierLabel(formatted)) {
-          candidateLabels.set(optionId, `${compactLabel.charAt(0).toUpperCase()}${compactLabel.slice(1)} \u2192 ${formatted}`)
-        } else {
-          candidateLabels.set(optionId, directional())
-        }
-      }
+        describeInterventionDirection(observedBaselineFor(factorId), myValue, labelToken)
+      if (unitKind === 'placeholder') return directional()
+
+      const formatted = formatInterventionValue(
+        myValue,
+        effectiveUnit,
+        obs?.factor_type,
+        obs?.cap,
+        obs?.value,
+        obs?.raw_value,
+      )
+      // A unitless qualitative factor (e.g. factor_type="quality", no unit)
+      // still reaches formatInterventionValue's qualitativeTierLabel branch
+      // and returns "Very high" / "High" / …. These tier labels are just as
+      // meaningless in differentiator text as the placeholder-unit ones,
+      // so force directional phrasing whenever the formatter returned one.
+      if (formatted && !isTierLabel(formatted)) return `${leading} \u2192 ${formatted}`
+      return directional()
     }
+
+    candidateLabels.set(optionId, {
+      label: buildSentence(compactLabel),
+      fullLabel: buildSentence(fullFactorLabel),
+    })
   }
 
-  // Phase 4: suppress any labels that are still identical across options
+  // Phase 4: suppress any labels that are still identical across options.
+  // Counted on the VISIBLE sentence — what a user can actually compare.
   const labelCount = new Map<string, number>()
-  for (const label of candidateLabels.values()) {
+  for (const { label } of candidateLabels.values()) {
     labelCount.set(label, (labelCount.get(label) ?? 0) + 1)
   }
 
-  for (const [optionId, label] of candidateLabels.entries()) {
+  for (const [optionId, { label, fullLabel }] of candidateLabels.entries()) {
     if ((labelCount.get(label) ?? 0) > 1) {
       result.set(optionId, null)
     } else {
       const factorId = bestFactors.get(optionId)?.factorId
       // Carry the factorId so the option card can drop this footer line when
       // the same factor is already shown as a visible "from → to" chip.
-      result.set(optionId, factorId ? { label, factorId } : null)
+      result.set(optionId, factorId ? { label, fullLabel, factorId } : null)
     }
   }
 
@@ -773,24 +805,81 @@ export const OptionNode = memo((props: NodeProps) => {
 
   /**
    * Differentiator line — a complete sentence describing what's strategically
-   * unique about this option (Standard pre-analysis only).
+   * unique about this option. Standard view; baseline excluded.
    *
    * Delegates to computeAllDifferentiators() which computes all options in
    * one pass. See that helper's docblock for the algorithm, thresholds, and
-   * deduplication logic. Returns null for baseline/post-analysis.
+   * deduplication logic.
+   *
+   * ⭐⭐ IT NO LONGER STOPS AT THE RUN, AND THAT WAS THE DEFECT. This memo used
+   * to open `if (isPostAnalysis) return null`, so running the analysis DELETED
+   * the only sentence saying which factor makes this option different.
+   *
+   * WITNESSED on deployed `e2016182` with a completed analysis: all three
+   * option cards rendered their name and an ordinal and NOTHING ELSE —
+   * "Open a Second Roastery in Leeds | 1". No differentiator, no "Behind:"
+   * line. The user is handed a ranking with no reasons at the exact moment
+   * they are choosing.
+   *
+   * ⚠ WHY THE "Behind:" LINE DOES NOT COVER THIS. It names the key factor
+   * ("no X added" / "X lower") but renders ONLY for a non-recommended option,
+   * and `computeBehindReason` returns null outright when there is no
+   * recommended option — which is precisely what a WITHHELD LEADER produces.
+   * So on the honest-withholding path, which this estate has invested heavily
+   * in, every card loses its reason at once. That is the state witnessed
+   * above.
+   *
+   * ⚠ AND IT IS STRUCTURAL, so nothing here goes stale. The sentence is
+   * derived from `nodes` + `ceeAnalysisReady.options[].interventions` — the
+   * MODEL, not the result. A run does not change which factor differentiates
+   * an option; it only ranks the options. Hiding it after a run withheld
+   * information the run never touched.
+   *
+   * This file already argued the point, two thousand lines down, about not
+   * deleting this line to stop it repeating a label: "the differentiator — its
+   * sentence frame IS the caption for the factor name it carries... Deleting
+   * the line would remove the only statement of WHICH factor is key."
    */
-  const differentiator = useMemo<{ label: string; factorId: string } | null>(() => {
-    if (isPostAnalysis) return null
+  const differentiator = useMemo<{ label: string; fullLabel: string; factorId: string } | null>(() => {
     if (isBaselineOption) return null
     const allDiffs = computeAllDifferentiators(nodes, ceeAnalysisReady)
     return allDiffs.get(props.id) ?? null
-  }, [isPostAnalysis, isBaselineOption, ceeAnalysisReady, nodes, props.id])
+  }, [isBaselineOption, ceeAnalysisReady, nodes, props.id])
+
+  /**
+   * Do the from→to chips actually render? ONE spelling, consumed by both the
+   * chip block below and the duplicate-suppression beside it.
+   *
+   * ⚠⚠ THIS IS THE FIX FOR A DEFECT THIS PR ITSELF CREATED, and it is the same
+   * shape as the one it set out to fix — one line further up.
+   *
+   * `differentiatorDuplicatesChip` says "drop the footer when it repeats a
+   * value already shown in a VISIBLE chip". The word visible was always the
+   * intent and the code never checked it: it asked whether a matching delta
+   * EXISTS, not whether a chip is on screen. That was harmless only while the
+   * differentiator was itself suppressed post-analysis. Now that it survives
+   * the run, the suppression fires POST-analysis against a chip that renders
+   * PRE-analysis only — so on an option whose top factor is shared with
+   * another (the `X → value` form), the card lost its last line and rendered
+   * ZERO paragraphs. Measured by an independent seat at `92da8e7`:
+   *
+   *     distinct factors, POST → "Hiring is the key difference"   ✓ fixed
+   *     shared factor,    POST → (no differentiator, no Behind)   ✗ still bare
+   *
+   * That is the exact witnessed state this PR exists to end, so half the fix
+   * was no fix. Suppressing against something that is not on screen is the
+   * same error as gating on a re-derived condition instead of the real render
+   * one — which is precisely what the Behind-line gate below gets right.
+   */
+  const structuredDeltaChipsRender =
+    !isPostAnalysis && !isBaselineOption && structuredDeltas.length > 0
 
   // Brief scope 7: drop the differentiator footer only when it repeats a value
-  // already shown in a visible from→to chip — same factor AND the same value
+  // already shown in a VISIBLE from→to chip — same factor AND the same value
   // text. A differentiator carrying a value the chip doesn't show (e.g. a CEE
   // display_value where the chip fell back to "%") is kept, so no info is lost.
-  const differentiatorDuplicatesChip = !!differentiator
+  const differentiatorDuplicatesChip = structuredDeltaChipsRender
+    && !!differentiator
     && differentiator.label.includes('→')
     && structuredDeltas.some(d => {
       if (d.factorId !== differentiator.factorId) return false
@@ -1119,7 +1208,7 @@ export const OptionNode = memo((props: NodeProps) => {
         // Baseline chips already pre-existed inside layer2Content; keep them.
         return (
           <div className="flex gap-1 flex-wrap mt-1.5">
-            <NodeChip chipId="option_why_win_lose" actionType="explain_results" label="Why is this ahead or behind on your goal?" message={`Why does the baseline (${optionLabel}) do better or worse against my goal than the other options?`} />
+            <NodeChip chipId="option_why_win_lose" actionType="explain_results" label="Why does this do better or worse on your goal?" message={`Why does the baseline (${optionLabel}) do better or worse against my goal than the other options?`} />
             <NodeChip chipId="option_risks_of_inaction" actionType={null} label="Risks of inaction" message="What are the risks of staying with the baseline?" />
           </div>
         )
@@ -1134,10 +1223,10 @@ export const OptionNode = memo((props: NodeProps) => {
                 product recommends what to INVESTIGATE, never what to CHOOSE.
                 Asking about the ALTERNATIVE keeps the whole what_would_flip
                 question while presupposing nothing about the leader. Same
-                register as the sibling non-leader chips ("to become the
-                leader") and `winnerChipCopy.ts` (ROADMAP 1.223). */}
-            <NodeChip chipId="option_what_would_change" actionType="what_would_flip" label="What would change this?" message={`What would need to change for another option to lead instead of ${optionLabel}?`} />
-            <NodeChip chipId="option_why_lead" actionType="explain_results" label="Why does this lead?" message={`Why does ${optionLabel} lead over the other options?`} />
+                register as the sibling chips and `winnerChipCopy.ts`
+                (ROADMAP 1.223). */}
+            <NodeChip chipId="option_what_would_change" actionType="what_would_flip" label="What would change this?" message={`What would need to change for another option to be better supported than ${optionLabel}?`} />
+            <NodeChip chipId="option_why_lead" actionType="explain_results" label="Why is this best supported?" message={`Why is ${optionLabel} better supported than the other options?`} />
             {/* ⭐ THE COUNTER-CASE — the reasoning frontier's one door on the
                 leading option, and the moment a team is most likely to stop
                 looking.
@@ -1146,8 +1235,8 @@ export const OptionNode = memo((props: NodeProps) => {
                 the objection worth answering before adding a chip to a row that
                 already has two. Both existing chips are questions about the
                 MODEL'S ARITHMETIC: "what would need to change for another
-                option to lead" asks which inputs the computed ranking is
-                sensitive to, and "why does this lead" asks it to explain the
+                option to be better supported" asks which inputs the computed
+                figure is sensitive to, and "why is this best supported" asks it to explain the
                 numbers it already produced. Both are answerable entirely from
                 what the model contains.
 
@@ -1191,10 +1280,10 @@ export const OptionNode = memo((props: NodeProps) => {
                 chipId="option_what_would_change_close_call"
                 actionType="what_would_flip"
                 label="What would change this?"
-                message={`What would need to change for ${optionLabel} to become the leader?`}
+                message={`What would need to be true for ${optionLabel} to be the better choice?`}
               />
             )}
-            <NodeChip chipId="option_what_would_make_lead" actionType="what_would_flip" label="What would make this lead?" message={`What would need to change for ${optionLabel} to lead?`} />
+            <NodeChip chipId="option_what_would_make_lead" actionType="what_would_flip" label="What would make this better supported?" message={`What would need to change for ${optionLabel} to be better supported?`} />
           </div>
         )
       }
@@ -1579,7 +1668,7 @@ export const OptionNode = memo((props: NodeProps) => {
               data-testid={`leading-option-pill-${props.id}`}
               className={`shrink-0 whitespace-nowrap ${typography.edgeLabel} font-medium bg-panel border-2 border-option text-text-body rounded-full px-1.5 py-0.5`}
             >
-              Leading option
+              Most supported
             </span>
             {/* The run's robustness travels WITH the designation it qualifies —
                 same stack, same row, so the claim cannot be read without the
@@ -1710,7 +1799,7 @@ export const OptionNode = memo((props: NodeProps) => {
               className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}
               aria-hidden="true"
             >
-              {METRIC_NOUN.ahead}
+              {METRIC_NOUN.support}
             </span>
             <div
               className="h-1 min-w-0 flex-1 bg-panel-border rounded-full overflow-hidden"
@@ -1802,10 +1891,10 @@ export const OptionNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* "Wins via [factor]" link (winner, post-analysis) */}
+        {/* "Supported by [factor]" link (most-supported option, post-analysis) */}
         {isPostAnalysis && isRecommended && winsVia && (
           <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
-            Leads via{' '}
+            Supported by{' '}
             <button
               type="button"
               className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
@@ -1843,14 +1932,15 @@ export const OptionNode = memo((props: NodeProps) => {
             rule licenses. */}
         {closeCallGapPp != null && (
           <p className={`${typography.nodeLabel} text-warning mt-0.5 m-0`}>
-            Close call with the leading option
+            Within a small margin of the most-supported option
           </p>
         )}
 
-        {/* "Behind:" reason (non-winner, post-analysis -- includes status quo) */}
+        {/* "Held back by:" reason (not the most-supported option, post-analysis
+            -- includes status quo) */}
         {isPostAnalysis && !isRecommended && behindReason && (
           <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
-            Behind: {behindReason}
+            Held back by: {behindReason}
           </p>
         )}
 
@@ -1882,7 +1972,7 @@ export const OptionNode = memo((props: NodeProps) => {
             a LEGIBILITY change, not a density one. First-view legibility is
             height-bound at the GRAPH level (build-vs-buy lays out 2693 units
             against ~1600 showable) and no card change reaches that. */}
-        {!isPostAnalysis && !isBaselineOption && structuredDeltas.length > 0 && (
+        {structuredDeltaChipsRender && (
           <ul className="flex flex-col gap-1 mt-1.5 m-0 p-0 list-none">
             {structuredDeltas.map(d => (
               <li
@@ -1915,10 +2005,47 @@ export const OptionNode = memo((props: NodeProps) => {
 
         {/* Polish 4 Task 5: differentiator line — what's strategically unique
             about this option vs the others. Standard view only (Detailed
-            already shows the full intervention list). */}
-        {!isPostAnalysis && !isBaselineOption && !isDetailed && differentiator
-          && !differentiatorDuplicatesChip && (
-          <p className={`${typography.edgeLabel} text-text-light mt-1 m-0`}>
+            already shows the full intervention list).
+
+            ⭐ SURVIVES THE RUN NOW. It used to be gated `!isPostAnalysis`, so
+            analysing the model deleted the reason from every card.
+
+            ⚠ SUPPRESSED ONLY WHERE THE "Behind:" LINE IS ACTUALLY RENDERING,
+            and the condition is spelled to MATCH that render exactly rather
+            than re-derived — `isPostAnalysis && !isRecommended && behindReason`
+            is the same expression the Behind block below uses. Two spellings of
+            one question is how these two lines would drift into contradicting
+            each other. Where Behind renders, it already names the key factor
+            ("no X added" / "X lower") and this line would repeat it.
+
+            ⚠ WHERE IT DOES NOT RENDER, THIS LINE IS USUALLY — NOT ALWAYS — THE
+            ONLY STATEMENT OF WHICH FACTOR IS KEY. An earlier draft of this
+            comment said EVERY option when the leader is withheld, and an
+            independent seat refuted it by measurement: the differentiator is
+            also dropped when it duplicates a rendering chip, and when
+            `computeAllDifferentiators` returns null for the option at all
+            (fewer than two non-baseline options, a sub-threshold difference,
+            or a label shared with another option and deduped away). The
+            universal quantifier was doing rhetorical work the code does not
+            do. */}
+        {!isBaselineOption && !isDetailed && differentiator
+          && !differentiatorDuplicatesChip
+          && !(isPostAnalysis && !isRecommended && behindReason) && (
+          <p
+            className={`${typography.edgeLabel} text-text-light mt-1 m-0`}
+            /* Ellipsis-with-recovery, not ellipsis-with-nowhere-to-go. `label`
+               carries a 20-char compaction of the factor label, so the elision
+               is a JS one: `text-overflow` never fires, the "…" is IN THE TEXT,
+               and a browser tooltip has no overflow to recover. Witnessed on
+               deployed staging `16336b13` as "Account Executive… is the key
+               difference" — a claim about what differentiates this option with
+               the SUBJECT of the claim absent from the DOM. Native `title` is
+               the canvas-node tooltip idiom in this repo — see the
+               structuredDeltas `<li>` above and `nodes/shared/MetricPills.tsx`.
+               Undefined when nothing was elided, so hover never merely repeats
+               what is already on screen. */
+            title={differentiator.fullLabel !== differentiator.label ? differentiator.fullLabel : undefined}
+          >
             {differentiator.label}
           </p>
         )}

@@ -114,7 +114,14 @@ describe('visual-regression scaffold (Brief 5)', () => {
     // `hasGoalNumbers`, so it exercises the safe default — the neutral
     // wording. The goal-bearing arm is asserted immediately below, so both
     // sides of the gate are covered here rather than one being assumed.
-    expect(snap).toContain('A view lens over the outcome range. The comparative ranking above is unchanged.')
+    //
+    // ⭐ RE-ANCHORED AGAIN 2026-09-07 (Paul's no-contest ruling). The neutral
+    // arm read "The comparative ranking above is unchanged."; "ranking" is a
+    // placing, so `LENS_COPY.unchanged`'s comparative arm is now "The
+    // comparison above is unchanged." The GOAL arm is untouched and still
+    // says "goal ranking", which is why the negative assertion below still
+    // discriminates rather than passing on a string nothing emits.
+    expect(snap).toContain('A view lens over the outcome range. The comparison above is unchanged.')
     expect(snap).not.toContain('goal ranking')
     // ⚠ THE PERCENTILE NOTATION MOVED OUT OF THE BUTTON TEXT (cockpit
     // simplification, L-38): `p10`/`p50`/`p90` is engineering notation, and a
@@ -225,7 +232,13 @@ describe('visual-regression scaffold (Brief 5)', () => {
     // Codex final-audit B1: intro copy made honest — the bars are a proportional
     // illustration (option spread x influence), not producer per-factor forecasts.
     expect(snap).toContain(
-      'Illustrative range for each factor: the recommended option’s overall spread scaled by that factor’s influence. A proportional guide to relative leverage, not a per-factor forecast from the analysis.',
+      // ⚠ UPDATED WITH THE COPY, AND THIS SPEC IS WHY THE CHANGE WAS INCOMPLETE.
+      // The original sweep for this sentence was scoped to `src/`, so this file
+      // — under `tests/` — was never searched, and CI caught what the grep could
+      // not. The lesson is the scope, not the string: a copy change must be
+      // swept REPO-WIDE, because assertions on user-facing text live outside
+      // `src/` as well as inside it.
+      'Illustrative range for each factor: the overall spread of one option \u2014 the same one for every bar, scaled by that factor\u2019s influence. A proportional guide to relative leverage, not a per-factor forecast from the analysis.',
     )
     // Legend relocated above the first bar
     expect(snap).toContain('data-testid="tornado-legend"')

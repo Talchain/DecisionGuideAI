@@ -121,7 +121,7 @@ describe('responseBelongsToDispatchingScenario — equivalence to the five origi
 
 // ---------------------------------------------------------------------------
 
-describe('the five sites all go through the ONE predicate — derived, not mirrored', () => {
+describe('the six sites all go through the ONE predicate — derived, not mirrored', () => {
   const SOURCE = blankComments(
     readFileSync(join(process.cwd(), 'src/canvas/conversation/useConversation.ts'), 'utf8'),
   )
@@ -134,25 +134,34 @@ describe('the five sites all go through the ONE predicate — derived, not mirro
    * pass or fail.
    *
    * Its honest limit, stated: this is a STRUCTURAL check on source text. It
-   * proves no raw re-derivation survives and that the predicate is called five
-   * times. It does NOT prove each call passes the live store value — that is
+   * proves no raw re-derivation survives and that the predicate is called at
+   * the five original sites plus canonical-recovery ownership. It does NOT
+   * prove each call passes the live store value — that is
    * what the equivalence table plus the real-drive specs are for.
    */
-  it('calls the predicate at exactly five sites', () => {
+  it('calls the predicate at the five original sites plus canonical recovery', () => {
     const calls = SOURCE.match(/responseBelongsToDispatchingScenario\s*\(/g) ?? []
-    expect(calls).toHaveLength(5)
+    expect(calls).toHaveLength(6)
   })
 
+  function rawComparisonCount(source: string): number {
+    return (source.match(/currentScenarioId\s*!==\s*scenarioIdAtDispatch/g) ?? []).length +
+      (source.match(/currentScenarioId\s*===\s*scenarioIdAtDispatch/g) ?? []).length
+  }
+
   /**
-   * ⭐ THE ANTI-REGRESSION THAT MATTERS. A sixth guard written tomorrow as a raw
+   * ⭐ THE ANTI-REGRESSION THAT MATTERS. Another guard written tomorrow as a raw
    * `!==` would reintroduce exactly the drift this module exists to end — five
    * copies of one rule, each free to be edited alone.
    */
   it('leaves NO raw re-derivation of the comparison anywhere in the turn path', () => {
-    const raw =
-      (SOURCE.match(/currentScenarioId\s*!==\s*scenarioIdAtDispatch/g) ?? []).length +
-      (SOURCE.match(/currentScenarioId\s*===\s*scenarioIdAtDispatch/g) ?? []).length
-    expect(raw).toBe(0)
+    expect(rawComparisonCount(SOURCE)).toBe(0)
+  })
+
+  it('still detects an added raw comparison in either direction, but not the shared predicate', () => {
+    expect(rawComparisonCount(`${SOURCE}\nuseCanvasStore.getState().currentScenarioId === scenarioIdAtDispatch`)).toBe(1)
+    expect(rawComparisonCount(`${SOURCE}\nuseCanvasStore.getState().currentScenarioId !== scenarioIdAtDispatch`)).toBe(1)
+    expect(rawComparisonCount(`${SOURCE}\nresponseBelongsToDispatchingScenario(useCanvasStore.getState().currentScenarioId, scenarioIdAtDispatch)`)).toBe(0)
   })
 
   /**

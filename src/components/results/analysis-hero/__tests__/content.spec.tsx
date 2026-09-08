@@ -52,10 +52,10 @@ describe('AnalysisHeroPanel — content', () => {
 
   it('shows the comparative readout ONLY inside an opened option detail', () => {
     renderPanel(chartModel())
-    expect(screen.queryByText(/Came out ahead in .+ of simulated scenarios/)).toBeNull()
+    expect(screen.queryByText(/Supported in .+ of simulated scenarios/)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /Two developers/ }))
     expect(screen.getByTestId('hero-detail-win')).toHaveTextContent(
-      'Came out ahead in 30% of simulated scenarios.',
+      'Supported in 30% of simulated scenarios.',
     )
   })
 
@@ -145,7 +145,7 @@ describe('AnalysisHeroPanel — content', () => {
     // B has no disclosure button; its win probability is persistent meta.
     expect(screen.queryByRole('button', { name: /Upskill the team/ })).toBeNull()
     expect(screen.getByTestId('hero-win-meta')).toHaveTextContent(
-      'Came out ahead in 29% of simulated scenarios.',
+      'Supported in 29% of simulated scenarios.',
     )
     // A (range detail exists) is still expandable.
     expect(screen.getByRole('button', { name: /Two developers/ })).toBeInTheDocument()

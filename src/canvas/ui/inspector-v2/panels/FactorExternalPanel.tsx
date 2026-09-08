@@ -256,7 +256,57 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
 
         {/* Post-analysis: ImportanceBar + VoI folded in (no separate bordered card) */}
         <StaleGuardBanner hasResults={isResultsMode}>
-          <div className="mt-2 space-y-2">
+          {/* ⭐ GROUPING, NOT DECORATION — 4px WITHIN a pair, 16px BETWEEN.
+          Both bars in this stack put their label BELOW their own value.
+
+          ⚠ AND THE SENTENCE THAT USED TO FOLLOW HERE WAS FALSE OF THIS PANEL.
+          It read "and each group then ENDS WITH ITS OWN GUIDANCE SENTENCE",
+          copied verbatim from the two panels where it IS true. In THIS file the
+          value-of-information group ends with its guidance and the INFLUENCE
+          group does not have one: `externalGuidance` is a sibling BELOW this
+          container (see the note at its render), because it is unconditional and
+          is not always about influence. Copying a true sentence into a file it is
+          not true of is precisely the byte-identical-across-three-panels defect
+          this fix was written to repair, committed inside the repair.
+
+          ⚠ AN EARLIER VERSION OF THIS COMMENT SAID "`ImportanceBar` ends
+          with its label; the VoI block does the same". The first half is
+          true at the bytes; the second is FALSE - the VoI block ends with
+          a guidance `<p>`, a third `mt-1` item. That "two pairs" model is
+          exactly what made the influence sentence's placement invisible to
+          the author: a group modelled as a PAIR has no room in it for the
+          third element that was actually there. At `space-y-2` the gap BETWEEN pairs was 8px while the
+          gap WITHIN a pair was `mt-1` = 4px — only 2x — so a reader
+          scanning down met:
+
+          100%                  <- influence value
+          Influence on results  <- ITS label
+          Low                   <- the VoI value
+          Investigation value   <- ITS label
+
+          and paired "Influence on results" with the "Low" beneath it,
+          reading "influence: Low" directly under "100%".
+
+          ⚠ THE DATA WAS NEVER WRONG and this is NOT a data fix. Influence
+          and value-of-information are different quantities and both were
+          rendered correctly. But the misreading is reproducible and has
+          now caught THREE independent readers: a reviewer who nearly
+          filed it as a data-integrity defect, the author who documented
+          that near-miss at `inspectorStrings.ts:404`, and a lane that
+          re-filed it as a "100% vs Low contradiction" from a deployed
+          capture on 7 Sep 2026. A presentation that reliably produces a
+          false reading is a defect even when every number in it is right.
+
+          Adding the `Investigation value` label (the prior fix) told the
+          reader the second bar HAS a name; it could not tell them which
+          bar each name belongs to, because proximity still said
+          otherwise. 4px within a group vs 16px between them makes proximity say
+          the true thing about the two BARS. ⚠ The other two panels finish the job
+          by moving their guidance sentence inside the group it describes; THIS
+          panel cannot, for the reasons at `externalGuidance`'s render, and
+          separates it instead. Do not read the sibling files' change into this
+          one. */}
+          <div className="mt-2 space-y-4">
             <ImportanceBar
               importanceScore={displayMetadata.influence}
               sensitivityRank={displayMetadata.sensitivityRank}
@@ -290,9 +340,32 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
           </div>
         </StaleGuardBanner>
 
-        {/* Contextual guidance */}
+        {/* ⚠ SEPARATED, NOT GROUPED — AND THE ASYMMETRY WITH THE OTHER TWO PANELS
+            IS THE POINT. In `FactorControllablePanel` and `FactorObservablePanel`
+            this sentence moves INSIDE the metrics container, because there it is
+            always about influence and is non-null only when that container renders.
+            NEITHER holds here:
+
+              · `externalGuidance` is UNCONDITIONAL — its last branch is a plain
+                string ("This factor is outside your control..."), so it renders
+                whether or not the metrics container above exists. Moving it inside
+                would silently delete it in every state where that container is absent.
+              · It is not always a statement about influence. One branch is about a
+                FLIP ("If X is high, the result changes to Y"), one about uncertainty,
+                one about controllability.
+
+            So it stays a sibling — but it may not sit CLOSER to the group above than
+            that group's own members sit to each other. At `mt-2` = 8px against the
+            container's `space-y-4` = 16px it read as the tail of the
+            value-of-information block, which is the misreading
+            `inspectorStrings.ts:403-419` records. `mt-6` = 24px puts it clearly
+            outside: 1.5x the group separator, so proximity reads it as its own
+            panel-level remark rather than as a third line of somebody else's bar.
+
+            The three panels look identical and are not. Applying one byte-identical
+            change to all three is what produced the defect this repairs. */}
         <p
-          className={`${typography.panelBody} text-text-body mt-2`}
+          className={`${typography.panelBody} text-text-body mt-6`}
           data-testid="factor-external-guidance"
         >
           {externalGuidance}

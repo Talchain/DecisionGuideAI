@@ -20,12 +20,12 @@ import { shouldSoftenPhrasing } from './certaintyCopy'
  *
  * Winner copy is gated by shouldSoftenPhrasing(tier, stability):
  *   - tier ∈ {needs_work, fair} AND stability < 0.85
- *       → "What makes this the current leader?"
+ *       → "What makes this best supported?"
  *   - all other combinations (strong / fair≥0.85 / needs_work≥0.85 /
  *     unknown / undefined) → "What makes this lead?"
  *
  * Non-winner copy is always forward-looking and tier-invariant:
- *   → "What would make this lead?"
+ *   → "What would make this better supported?"
  */
 export function winnerChipLabel(
   isWinner: boolean,
@@ -43,13 +43,13 @@ export function winnerChipLabel(
   // already this module's copy for exactly that situation (the non-winner
   // branch below), so nothing is invented.
   if (hasLeadingOption === false) {
-    return 'What would make this lead?'
+    return 'What would make this better supported?'
   }
   if (!isWinner) {
-    return 'What would make this lead?'
+    return 'What would make this better supported?'
   }
   return shouldSoftenPhrasing(confidenceTier, recommendationStability)
-    ? 'What makes this the current leader?'
+    ? 'What makes this best supported?'
     : 'What makes this lead?'
 }
 
@@ -69,7 +69,7 @@ export function winnerChipPrompt(
   // withheld turn it takes the same forward-looking form as the chip label, so
   // the question the user sends matches the question the chip offered.
   if (isWinner && hasLeadingOption !== false) {
-    return `What makes "${label}" the leading option? What are its key advantages?`
+    return `What makes "${label}" the best-supported option? What are its key advantages?`
   }
   return `What would make "${label}" lead instead? What changes would be needed?`
 }

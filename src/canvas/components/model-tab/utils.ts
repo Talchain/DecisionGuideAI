@@ -99,7 +99,28 @@ const KIND_LABELS: Record<ValueProvenanceKind, string> = {
 export function mapSourceToDisplay(source: string | undefined): string | null {
   if (!source) return null
   const cls = classifyValueProvenance(source)
-  return cls ? KIND_LABELS[cls.kind] : source
+  /**
+   * ⚠⚠ THE TAIL WAS `: source`, AND THAT WAS THE LEAK THIS FILE'S OWN HEADER
+   * DESCRIBES IN THE PAST TENSE.
+   *
+   * The header above records the old three-literal map as having "rendered the
+   * RAW WIRE LITERAL to the user" and says the leak "left the estate in what a
+   * user pastes into a document". Keying on the canonical CLASS fixed the
+   * literals it knew about; the fallback kept passing through everything else.
+   * `ModelTabBody.tsx:800-804` then cites that behaviour as settled fact while
+   * declining to add a SECOND route for it — two comments describing a fix that
+   * this one line undid.
+   *
+   * It is not theoretical: `classifyValueProvenance` works from a CLOSED set and
+   * `valueProvenance.ts:229-237` excludes `cee_hypothesis` on purpose, so an
+   * unclassifiable source is a state the producer can reach today.
+   *
+   * `null`, not a prettified token: title-casing `cee_hypothesis` into "Cee
+   * Hypothesis" is the same defect wearing a hat. `null` says what is true —
+   * this surface cannot name that source — and both callers already branch on
+   * an absent label, so nothing has to invent one.
+   */
+  return cls ? KIND_LABELS[cls.kind] : null
 }
 
 // `mapSourceToTooltip` was REMOVED by the 16 Aug 2026 mount train (design

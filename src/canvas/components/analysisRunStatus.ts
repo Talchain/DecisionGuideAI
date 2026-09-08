@@ -127,6 +127,23 @@ export function runStatusRegion({ isRunning }: RunStatusInput): RunStatusRegion 
 export const RUN_ENDED_WITHOUT_NEW_RESULTS_COPY =
   'The run ended without new results. Showing your previous analysis.'
 
+/**
+ * ⭐ THE HONEST EMPTY-RESULT SETTLE — a run that FINISHED and produced a report
+ * with nothing renderable in it.
+ *
+ * ⚠ NOT the same state as `RUN_ENDED_WITHOUT_NEW_RESULTS_COPY`, and the two
+ * must not be merged. That one means "no NEW report arrived, you are looking at
+ * the previous one". This one means "a new report DID arrive and it carries no
+ * value the product can show". A user in the second state has nothing to fall
+ * back on, so telling them their previous analysis is showing would be false.
+ *
+ * The wording deliberately matches `deriveAnalysisDisplayState`'s
+ * 'Analysis finished without a result' headline — one vocabulary for one state
+ * across the two surfaces, so a rewording of either cannot leave them saying
+ * different things about the same run.
+ */
+export const RUN_FINISHED_WITHOUT_RESULT_COPY = 'Analysis finished without a result.'
+
 export interface RunAnnouncementInput {
   /** Which transition just happened. */
   transition: 'start' | 'settle'
@@ -141,6 +158,19 @@ export interface RunAnnouncementInput {
   /** The Analysis tab is fronted (dock open, results tab active). */
   analysisTabFronted: boolean
   /**
+   * Does the settled report carry ANY value the product can render?
+   *
+   * ⚠ THIS IS NOT `hasReport`, AND THE DIFFERENCE IS THE WHOLE POINT. A report
+   * can be POPULATED and carry all-null probabilities — an engine "I tried
+   * per-option and failed" state, which is not a result. Measured on build
+   * `acd3db4d`: the product announced completion while 5/5 factors and 3/3
+   * options read `unmatched`, with no PLoT or ISL leg at all.
+   *
+   * Optional and DEFAULTS TRUE so a caller that does not know keeps today's
+   * behaviour rather than silently claiming emptiness.
+   */
+  hasRenderableResult?: boolean
+  /**
    * The settle restored the previous report without new results
    * (results.settledWithoutNewReport — abort/timeout). Settle transitions
    * only.
@@ -154,6 +184,7 @@ export function runAnnouncementForTransition({
   preRunStatus,
   analysisTabFronted,
   settledWithoutNewReport,
+  hasRenderableResult = true,
 }: RunAnnouncementInput): string | null {
   const firstRun = preRunStatus === 'idle' || preRunStatus === 'cancelled'
   // The C6 asymmetry as ONE expression (/simplify item 8), so the two
@@ -173,9 +204,18 @@ export function runAnnouncementForTransition({
   switch (settledStatus) {
     case 'complete':
       // C2: a settle that carried no new report must not claim completion.
-      return settledWithoutNewReport
-        ? RUN_ENDED_WITHOUT_NEW_RESULTS_COPY
-        : 'Analysis complete.'
+      if (settledWithoutNewReport) return RUN_ENDED_WITHOUT_NEW_RESULTS_COPY
+      // ⭐ AND NEITHER MAY A SETTLE WHOSE NEW REPORT IS EMPTY. `hasReport` and
+      // `settledWithoutNewReport` both answer "did a report ARRIVE"; neither
+      // answers "does it CONTAIN anything", and this announcement is the
+      // surface a user actually hears say the word complete.
+      //
+      // ORDER MATTERS AND IS DELIBERATE. `settledWithoutNewReport` is the more
+      // specific statement — it tells the user their PREVIOUS analysis is
+      // showing, which is a real fallback. The empty-result case has no such
+      // fallback, so it must not borrow that copy.
+      if (!hasRenderableResult) return RUN_FINISHED_WITHOUT_RESULT_COPY
+      return 'Analysis complete.'
     case 'error':
       return 'Analysis failed.'
     case 'cancelled':

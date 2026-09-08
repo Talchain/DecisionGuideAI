@@ -188,7 +188,7 @@ describe('Compare consumer (deriveTransitions) — the surface the asymmetry bla
     const [t] = deriveTransitions([from, to])
     expect(t.eValue).toBe(1.8)
     expect(t.eValueEdge).toBe('A → goal')
-    expect(t.conditionalWinner).toBe('When Factor One exceeds 12, Option B takes over')
+    expect(t.conditionalWinner).toBe('When Factor One exceeds 12, support moves to Option B')
   })
 
   it('ABSENCE: both-absent snapshots keep the current empty rendering (null eValue, null winner)', () => {
