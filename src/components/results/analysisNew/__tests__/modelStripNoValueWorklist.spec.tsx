@@ -196,11 +196,21 @@ describe('the worklist toggle', () => {
     fireEvent.click(screen.getByTestId(`${TID}-toggle`))
     const svg = screen.getByTestId(`${TID}-no-value-toggle`).querySelector('svg')
     expect(svg).not.toBeNull()
-    // lucide stamps its own name on the rendered node; compare against the map's
-    // entry rather than against the literal string 'circle-dashed'.
-    const expected = (ATTENTION_MARK['no-value'] as unknown as { displayName?: string }).displayName
-    expect(expected).toBeTruthy()
-    expect(svg!.getAttribute('class') ?? '').toContain('lucide')
+    const shipped = svg!.getAttribute('class') ?? ''
+
+    // Render the Model tab's OWN answer and compare the two, so the assertion
+    // is about agreement rather than about "some lucide icon rendered".
+    const Expected = ATTENTION_MARK['no-value']
+    const probe = render(<Expected />)
+    const expectedSvg = probe.container.querySelector('svg')
+    expect(expectedSvg).not.toBeNull()
+    const expectedClass = expectedSvg!.getAttribute('class') ?? ''
+
+    // DISCRIMINATION: the class must be a real icon name, not an empty string
+    // that both sides would trivially satisfy.
+    expect(expectedClass).toMatch(/lucide-[a-z-]+/)
+    expect(shipped).toContain(expectedClass.split(' ').find(c => c.startsWith('lucide-'))!)
+    probe.unmount()
   })
 })
 

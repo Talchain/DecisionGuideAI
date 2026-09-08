@@ -153,17 +153,27 @@
 import { useCallback, useId, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Crosshair, Lightbulb, ListChecks, Pencil } from 'lucide-react'
 /**
- * ⭐ DERIVED, NOT CHOSEN. The Model tab already answers "what mark means a
- * factor has no value?" — `ATTENTION_MARK['no-value']`. Picking an icon here
- * would be a hand-maintained mirror of that answer, and the two surfaces would
- * drift the first time either changed. I chose `CircleDashed` independently
- * before finding this map and it happened to agree; that is luck, not a
- * mechanism, so the import is what makes it a mechanism.
- * `modelStripDerivesItsNoValueMark.spec` pins the agreement so a divergence REDs.
+ * ⚠⚠ THE AGREEMENT WITH THE MODEL TAB IS PINNED IN A SPEC, NOT BY AN IMPORT,
+ * AND A GUARD IS WHY.
+ *
+ * The Model tab already answers "what mark means a factor has no value?" —
+ * `ATTENTION_MARK['no-value']` in `model-tab-v2/rowPresentation.ts`. Importing
+ * it from here is the obvious way to make the two surfaces one answer, and I
+ * wrote exactly that. `modelTabV2Boundary.sourceScan.spec` REDs on it: that
+ * directory may be referenced from ONE file, `canvas/components/ModelTabBody.tsx`,
+ * and its own words are that a second path "is a deliberate decision that must
+ * be made here, in the guard, with a reason — never discovered in a diff".
+ *
+ * The guard is right and I am not weakening it for an icon. So the icon is
+ * named here and the AGREEMENT is asserted in
+ * `modelStripNoValueWorklist.spec` — which the boundary sweep excludes
+ * (`.spec.` files are skipped), so the test may import what this file may not.
+ * A divergence still REDs; the mechanism moved rather than being dropped.
+ *
+ * ⚠ I chose `CircleDashed` independently before finding that map, and it
+ * happened to agree. That is luck. The spec is what turns it into a mechanism.
  */
-import { ATTENTION_MARK } from '../../../../canvas/model-tab-v2/rowPresentation'
-
-const NoValueMark = ATTENTION_MARK['no-value']
+import { CircleDashed as NoValueMark } from 'lucide-react'
 
 import { useCanvasStore } from '../../../../canvas/store'
 import { UNCONFIRMED_ESTIMATE_LABEL } from '../../../../canvas/domain/vocabulary'
