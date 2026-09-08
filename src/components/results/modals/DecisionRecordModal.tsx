@@ -90,7 +90,10 @@ export const DECISION_RECORD_COPY = {
   revisitLabel: 'Revisit trigger or date',
   revisitPlaceholder: 'e.g. runway falls below 9 months, or 2026-12-01',
   revisitHelp:
-    'Give a date and we set your review date to it. Give a trigger and we keep the text here and set the review date 90 days out.',
+    'If the account save succeeds, its review date is your recognised date or, when the text is not a recognised date, 90 days from now. Your text stays here.',
+  localRevisitHelp:
+    'Your date or trigger is kept as text in this record. No review date is set automatically.',
+  identityPendingRevisitHelp: 'Enter a date or a trigger for revisiting this decision.',
   rationaleLabel: 'Concise rationale',
   rationalePlaceholder: 'Why this is the best current choice',
   assumptionLabel: 'Key assumption to watch',
@@ -134,13 +137,21 @@ export function DecisionRecordModal() {
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
   // Optional auth calls guests authenticated too; use the actual identity.
   // The commit service rechecks identity/capture and confirms a real save.
+  const accountUserId = sanitiseUserId(user?.id)
+  const canAttemptAccountSave = !loading && accountUserId !== null &&
+    typeof currentScenarioId === 'string' && currentScenarioId !== ''
   const persistenceNote = loading
     ? DECISION_RECORD_COPY.identityPendingNote
-    : sanitiseUserId(user?.id) === null
+    : accountUserId === null
       ? DECISION_RECORD_COPY.guestNote
-      : typeof currentScenarioId !== 'string' || currentScenarioId === ''
-        ? DECISION_RECORD_COPY.localOnlyNote
-        : DECISION_RECORD_COPY.persistenceNote
+      : canAttemptAccountSave
+        ? DECISION_RECORD_COPY.persistenceNote
+        : DECISION_RECORD_COPY.localOnlyNote
+  const revisitHelp = loading
+    ? DECISION_RECORD_COPY.identityPendingRevisitHelp
+    : canAttemptAccountSave
+      ? DECISION_RECORD_COPY.revisitHelp
+      : DECISION_RECORD_COPY.localRevisitHelp
 
   /**
    * ⚠⚠ THIS PREDICATE NOW LIVES IN `analysedOptions.ts` AND IS SHARED. It used
@@ -470,7 +481,7 @@ export function DecisionRecordModal() {
               data-testid="decision-record-revisit-help"
               className={`${typography.panelMeta} text-text-light`}
             >
-              {DECISION_RECORD_COPY.revisitHelp}
+              {revisitHelp}
             </p>
             <FieldError id={revisitErrorId} show={touched.revisit === true && !revisitValid}>
               {DECISION_RECORD_COPY.revisitError}

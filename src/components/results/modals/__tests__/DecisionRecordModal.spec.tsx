@@ -136,6 +136,10 @@ describe('DecisionRecordModal — chrome and a11y', () => {
     expect(note).toHaveTextContent('not saved to an account')
     expect(note).not.toHaveTextContent('saved to your account')
     expect(note).not.toHaveTextContent('Sign in to')
+    const revisitHelp = screen.getByTestId('decision-record-revisit-help')
+    expect(revisitHelp).toHaveTextContent('kept as text')
+    expect(revisitHelp).toHaveTextContent('No review date is set automatically')
+    expect(revisitHelp).not.toHaveTextContent('90 days')
   })
 
   it('names only the signed-in save attempt and the exact durable/local field split', () => {
@@ -147,6 +151,10 @@ describe('DecisionRecordModal — chrome and a11y', () => {
     expect(note).toHaveTextContent('rationale, assumption and revisit trigger stay on this device for this scenario')
     expect(note).not.toHaveTextContent('are saved')
     expect(note.textContent ?? '').not.toContain('Prototype only')
+    const revisitHelp = screen.getByTestId('decision-record-revisit-help')
+    expect(revisitHelp).toHaveTextContent('If the account save succeeds')
+    expect(revisitHelp).toHaveTextContent('recognised date')
+    expect(revisitHelp).toHaveTextContent('90 days')
   })
 
   it.each(['guest', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'])('does not guess account saving while identity %s is unresolved', (id) => {
@@ -159,9 +167,14 @@ describe('DecisionRecordModal — chrome and a11y', () => {
     expect(note).not.toHaveTextContent('Signed out')
     expect(note).not.toHaveTextContent('try to save')
     expect(note).not.toHaveTextContent('saved to your account')
+    expect(screen.getByTestId('decision-record-revisit-help')).toHaveTextContent('Enter a date or a trigger')
+    expect(screen.getByTestId('decision-record-revisit-help')).not.toHaveTextContent('90 days')
     authState.loading = false
     rerender(<DecisionRecordModal />)
     expect(note).toHaveTextContent(id === 'guest' ? 'Signed out' : 'try to save')
+    expect(screen.getByTestId('decision-record-revisit-help')).toHaveTextContent(
+      id === 'guest' ? 'No review date is set automatically' : 'If the account save succeeds',
+    )
   })
 
   it.each([null, ''])('does not offer account saving without a scenario identity (%j)', (currentScenarioId) => {
@@ -174,6 +187,8 @@ describe('DecisionRecordModal — chrome and a11y', () => {
     expect(note).toHaveTextContent('record stays on this device')
     expect(note).not.toHaveTextContent('Signed out')
     expect(note).not.toHaveTextContent('try to save')
+    expect(screen.getByTestId('decision-record-revisit-help')).toHaveTextContent('No review date is set automatically')
+    expect(screen.getByTestId('decision-record-revisit-help')).not.toHaveTextContent('90 days')
   })
 })
 
