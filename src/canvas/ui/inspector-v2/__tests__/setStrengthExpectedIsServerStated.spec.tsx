@@ -161,12 +161,30 @@ describe('`expected` is never built from a client-stamped value', () => {
     result.current.setStrength(0.6)
 
     expect(sendSystemEvent).toHaveBeenCalledTimes(2)
-    const second = dispatchedEvent(1) as { payload: { expected: unknown; magnitude: number } }
-    expect(second.payload.magnitude).toBe(0.6)
-    // 0.75 is the value THIS CLIENT wrote. It is not a readback of anything.
-    expect(second.payload.expected).not.toEqual({ mean: 0.75, effect_direction: 'positive' })
-    // It must still be the last value the SERVER stated.
-    expect(second.payload.expected).toEqual({ mean: 0.4, effect_direction: 'positive' })
+    const second = dispatchedEvent(1)
+    // The whole event, field for field — `expected` must still be the last
+    // value the SERVER stated, not the 0.75 this client wrote a moment ago.
+    expect(second).toEqual({
+      type: 'edge_strength_edit',
+      payload: {
+        from: 'fac_price',
+        to: 'goal_revenue',
+        magnitude: 0.6,
+        direction_intent: 'positive',
+        expected: { mean: 0.4, effect_direction: 'positive' },
+        intent: 'set',
+      },
+    })
+    // Stated as its own assertion too, so the RED names the defect rather than
+    // merely reporting a mismatched object: 0.75 is a number only this client
+    // has ever seen, and it is not a readback of anything.
+    expect(second).not.toEqual(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          expected: { mean: 0.75, effect_direction: 'positive' },
+        }),
+      }),
+    )
   })
 
   /**

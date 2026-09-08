@@ -132,6 +132,36 @@ import { EDGE_PROVENANCED_FIELDS, edgeSourceKey } from '../domain/edgeValueProve
 
 /** Derived from EDGE_PROVENANCED_FIELDS — never a hand-listed set. */
 const EDGE_SOURCE_KEYS: ReadonlySet<string> = new Set(EDGE_PROVENANCED_FIELDS.map(edgeSourceKey))
+
+/**
+ * Keys that are METADATA ABOUT a value rather than a value — so they ride
+ * along with a real change but may never TRIGGER a write on their own.
+ *
+ * The `*Source` stamps are here for the reason given at the no-op test below:
+ * a receipt that genuinely matches the canvas must stay a strict no-op, or it
+ * churns every user's history on their first turn after a deploy for an
+ * outcome identical either way.
+ *
+ * ⚠ `serverStrength` JOINS THEM, AND THE COST IS STATED RATHER THAN GLOSSED.
+ * It is the wire-provenance record `edge_strength_edit.expected` is built from
+ * (domain/edges.ts `readServerStatedStrength`), and unlike the display stamps
+ * its absence has a FUNCTIONAL cost: the strength control cannot assert
+ * anything about the server on an edge that carries none, so the edit is
+ * refused (visibly) rather than sent. It is excluded anyway, because the
+ * alternative is worse and is not this lane's to decide: leaving it in would
+ * make every default-equal receipt write, silently reversing the reviewed
+ * decision above for every edge on every turn.
+ *
+ * The divergence is narrow and fails SAFE: it needs a receipt whose strength
+ * equals the mapper's own default (weight exactly 0.5, direction positive)
+ * AND no other change on that edge. The edge then refuses to assert until the
+ * next receipt that moves something — under-disclosure, never an over-claim,
+ * which is the same direction of error the provenance markers are built on.
+ */
+const EDGE_METADATA_ONLY_KEYS: ReadonlySet<string> = new Set([
+  ...EDGE_SOURCE_KEYS,
+  'serverStrength',
+])
 import {
   backfillInterventionsOntoOptionNodes,
   mapDraftEdgeToCanvas,
@@ -410,7 +440,7 @@ export function overlayEdge(
   // stamps ride along with it.
   const nextDataWithoutStamps = { ...(existing.data ?? {}) }
   for (const [k, v] of Object.entries(supplied)) {
-    if (!EDGE_SOURCE_KEYS.has(k)) nextDataWithoutStamps[k] = v
+    if (!EDGE_METADATA_ONLY_KEYS.has(k)) nextDataWithoutStamps[k] = v
   }
   if (sameValue(existing.data, nextDataWithoutStamps)) return existing
 
