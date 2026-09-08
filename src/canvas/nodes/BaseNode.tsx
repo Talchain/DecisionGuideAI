@@ -95,8 +95,10 @@ interface BaseNodeProps extends NodeProps {
    * badges below at exactly the distance from the corner they already have, and
    * leaves the interactive coaching marker rightmost — which is the reason the
    * stack's contract puts it last. Against the `StatusPill` immediately below
-   * it the order is UNOBSERVABLE (disjoint by node type); against the edited
-   * dot and the coaching marker it is widest-first and load-bearing.
+   * it the order is UNOBSERVABLE (disjoint on RESULTS MODE — this said "by node
+   * type" until 8 Sep 2026, and that gate no longer exists; the mechanism is
+   * derived once, on the stack's contract below); against the edited dot and
+   * the coaching marker it is widest-first and load-bearing.
    */
   cornerSlot?: ReactNode
   /** Override border colour + style classes (e.g. 'border-info border-dashed'). Replaces entity colour. */
@@ -931,10 +933,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             as a separate box outside it. It enters here so the corner keeps
             exactly ONE positioning authority.
 
-            ⚠ Its position relative to the `StatusPill` below is UNOBSERVABLE:
-            `cornerSlot`'s only caller passes `nodeType="option"` and the
-            StatusPill arm is gated to `factor`/`goal`, so no node renders both
-            (see the five-member contract above). Widest-first governs each of
+            ⚠ Its position relative to the `StatusPill` below is UNOBSERVABLE
+            — but NOT for the reason this comment carried until 8 Sep 2026. It
+            said the pill was gated to `factor`/`goal`; Paul's badge re-ruling
+            DELETED that node-type pair, so the pill reaches option cards too and
+            that reason is now false. They are disjoint on RESULTS MODE instead:
+            `cornerSlot`'s caller renders under `isRecommended`, which needs
+            `isResultsMode`; the pill needs `isPreRunMode`. One store field,
+            opposite tests — derived in full in the five-member contract above and
+            pinned by `BaseNode.needsJudgementBadge.spec.tsx`. Widest-first governs each of
             them against the three badges that follow, which is what keeps those
             at their existing distance from the corner and the coaching marker
             rightmost. See the `cornerSlot` prop. */}
