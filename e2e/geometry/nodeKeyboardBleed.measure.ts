@@ -1217,24 +1217,80 @@ test.describe('in-node keyboard bleed', () => {
 
     // Pick a node that is fully on screen — a drag whose start point is outside
     // the viewport measures nothing (this bit the click comparator earlier).
-    const target = await page.evaluate(() => {
+    //
+    // ⭐ THE CANDIDATE POINT IS NOW CHECKED WITH THE POINTER ON IT, AND THE
+    // SCAN OFFERS SEVERAL POINTS PER NODE. Both halves are a STRENGTHENING; the
+    // filter that rejects a control has not been relaxed by one character.
+    //
+    // Why hover-aware. This probe used to hit-test inside a single
+    // `page.evaluate`, i.e. with NO POINTER ANYWHERE ON THE PAGE, and then
+    // drive the real gesture with `mouse.move` + `mouse.down` — i.e. HOVERED.
+    // Those two states used to agree only because the in-node quick-action row
+    // hit-tested whether hovered or not, which was itself the defect (an
+    // invisible strip swallowing clicks on 17 of 17 cards). Now that the row
+    // hit-tests if and only if it is visible, an at-rest probe would report
+    // "bare card body" for a point the hovered gesture lands on a BUTTON — and
+    // this arm would quietly measure a pointerdown on a control, which its own
+    // comment says "would prove nothing about the pane". That is trap 19 at the
+    // level of the gate: the assertion passing on a different object than the
+    // one it was written for. So: enumerate candidates, then re-hit-test each
+    // one WITH THE MOUSE ON IT, which is the exact state `mouse.down()` runs in.
+    //
+    // Why several points. Bottom-centre-minus-6px was one arbitrary point, and
+    // whether it clears the quick-action row is an accident of that row's width
+    // against the card's. Any bare card body point measures this arm's claim
+    // equally well, so the scan walks the card and takes the first point that
+    // is still bare while hovered. A wider control row now costs the gate
+    // nothing; a control that has genuinely eaten the whole card still fails it.
+    const candidates = await page.evaluate(() => {
+      const out: { id: string; x: number; y: number }[] = []
       for (const el of Array.from(document.querySelectorAll<HTMLElement>('.react-flow__node'))) {
         const r = el.getBoundingClientRect()
         const onScreen =
           r.width > 40 && r.height > 40 && r.x > 60 && r.y > 60 &&
           r.x + r.width < window.innerWidth - 60 && r.y + r.height < window.innerHeight - 60
-        // Start the drag on BARE CARD BODY, not on a control: a pointerdown on a
-        // control is a different gesture and would prove nothing about the pane.
         if (!onScreen) continue
-        const cx = Math.round(r.x + r.width / 2)
-        const cy = Math.round(r.y + r.height - 6)
-        const top = document.elementFromPoint(cx, cy)
-        if (!top || top.closest('button, [role="button"], a, input, textarea, select')) continue
-        return { id: el.getAttribute('data-id') ?? '', x: cx, y: cy }
+        const id = el.getAttribute('data-id') ?? ''
+        // Bottom-centre first (the historic point, so nothing changes on a card
+        // whose row is narrow), then across and up the card.
+        for (const fy of [1, 0.75, 0.5, 0.25]) {
+          for (const fx of [0.5, 0.25, 0.75, 0.12, 0.88]) {
+            const x = Math.round(r.x + r.width * fx)
+            const y = Math.round(fy === 1 ? r.y + r.height - 6 : r.y + r.height * fy)
+            out.push({ id, x, y })
+          }
+        }
       }
-      return null
+      return out
     })
-    expect(target, 'no fully-on-screen node with bare card body to start a drag on').not.toBeNull()
+
+    // Start the drag on BARE CARD BODY, not on a control: a pointerdown on a
+    // control is a different gesture and would prove nothing about the pane.
+    let target: { id: string; x: number; y: number } | null = null
+    for (const c of candidates) {
+      // HOVER FIRST. This is what makes the hit-test below describe the state
+      // the gesture will actually be performed in.
+      await page.mouse.move(c.x, c.y)
+      const usable = await page.evaluate(({ x, y, id }) => {
+        const top = document.elementFromPoint(x, y)
+        if (!top) return false
+        // The filter this arm has always had, unrelaxed.
+        if (top.closest('button, [role="button"], a, input, textarea, select')) return false
+        // …and the point must still resolve to THIS node, not to a neighbour
+        // or an overlay that happens to cover it.
+        return top.closest('.react-flow__node')?.getAttribute('data-id') === id
+      }, { x: c.x, y: c.y, id: c.id })
+      if (!usable) continue
+      target = c
+      break
+    }
+    // Park the pointer away from the cards again so the control drag below runs
+    // from the same resting state it always did.
+    await page.mouse.move(2, 2)
+    expect(
+      target,
+      'no fully-on-screen node with bare card body to start a drag on (checked WITH the pointer on the point, since hover reveals the in-node control row)',
+    ).not.toBeNull()
 
     const before = await nodeGeom(target!.id)
     expect(before, 'the target node vanished before the drag').not.toBeNull()

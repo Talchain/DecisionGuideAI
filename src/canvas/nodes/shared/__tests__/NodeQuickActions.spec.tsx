@@ -199,3 +199,119 @@ describe('NodeQuickActions — stays out of the owned top-right corner', () => {
     expect(el.className).not.toMatch(/(^|\s)-?top-/)
   })
 })
+
+/**
+ * ⭐ HIT-TESTING IS A SEPARATE QUESTION FROM VISIBILITY, AND THE ROW ANSWERED
+ * ONLY ONE OF THEM.
+ *
+ * The defect, measured twice by two independent seats on the DEPLOYED build:
+ *
+ *  - `document.elementFromPoint` at the control row's centre returned THE ROW,
+ *    not the card, on 17 of 17 cards. `opacity: 0` hides an element; it does
+ *    not stop it hit-testing. So an invisible strip across the bottom-right of
+ *    every card was swallowing clicks, drags and marquee starts meant for the
+ *    card — on all 16 cards the pointer was nowhere near.
+ *  - The Canvas Browser Gate measured the consequence directly on PR #1274,
+ *    whose counter-scale takes the row from 98 to 196 CSS px: "no fully-on-screen
+ *    node with bare card body to start a drag on" — every node skipped, 13 of 13.
+ *
+ * The fix mirrors the opacity variant set 1:1 onto `pointer-events`, so the row
+ * hit-tests IF AND ONLY IF it is visible. Both halves are pinned here, and they
+ * are pinned two different ways ON PURPOSE:
+ *
+ *  1. An EXPLICIT list of the reveal channels (below). A derived guard proves
+ *     the two properties AGREE; it can never prove the list is COMPLETE — only
+ *     a hand-written enumeration notices a channel that was dropped from both.
+ *  2. A DERIVED mirror assertion. A hand-written list cannot notice a channel
+ *     ADDED to `opacity` and forgotten on `pointer-events`. Neither guard
+ *     supersedes the other and both ship.
+ *
+ * ⚠ SCOPE OF THIS EVIDENCE. Every assertion in this block is STRUCTURAL — it
+ * reads the class string. It is not a hit-testing witness and must not be
+ * reported as one. `vitest.config.ts` sets `css: false` and `tests/setup/rtl.ts`
+ * injects no stylesheet, so `getComputedStyle(el).pointerEvents` returns the
+ * initial `'auto'` for every element whatever its classes — a control that
+ * cannot fail. jsdom also has no layout, so `elementFromPoint` means nothing
+ * here, and these specs render the row with no `.group` ancestor, so the
+ * `group-*` variants cannot be exercised at all. THE HIT-TESTING CLAIM NEEDS A
+ * BROWSER: re-run the `elementFromPoint` census at an unhovered card's control
+ * row centre and require it to return the card.
+ */
+describe('NodeQuickActions — invisible controls must not swallow clicks meant for the card', () => {
+  /**
+   * Whitespace-anchored, so it matches the BARE utility and never the
+   * `group-hover:`-prefixed variant that contains the same substring. A plain
+   * `toContain('pointer-events-auto')` would be satisfied by
+   * `group-hover:pointer-events-auto` and would assert nothing about the
+   * at-rest state.
+   */
+  const bare = (token: string) => new RegExp(`(^|\\s)${token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$)`)
+
+  /** Every variant prefix under which `utility` is emitted, sorted. */
+  const variantsFor = (className: string, utility: string): string[] =>
+    className
+      .split(/\s+/)
+      .filter((t) => t.endsWith(`:${utility}`))
+      .map((t) => t.slice(0, -(utility.length + 1)))
+      .sort()
+
+  it('does not hit-test at rest, and hit-tests on every channel that reveals it', () => {
+    render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
+    // Bound BY IDENTITY to the row itself. A `querySelector('.pointer-events-none')`
+    // would be satisfied by any element in the tree carrying the class.
+    const row = screen.getByTestId('node-quick-actions-node-a')
+
+    // The defect, stated exactly: at rest the row must not be in the hit path.
+    expect(row.className).toMatch(bare('pointer-events-none'))
+    expect(row.className).not.toMatch(bare('pointer-events-auto'))
+
+    // POINTER. `group-hover` keys off the CARD, never off the row, so
+    // `pointer-events: none` on the row cannot deadlock its own reveal: the
+    // pointer falls through to the card, the card becomes `:hover`, and the row
+    // flips to `auto` in the same frame.
+    expect(row.className).toContain('group-hover:pointer-events-auto')
+    // KEYBOARD. Focus lands, `group-focus-within` fires on the card, the row
+    // hit-tests. (Belt and braces: `pointer-events` never gated keyboard
+    // activation, tab order or the accessibility tree in the first place.)
+    expect(row.className).toContain('group-focus-within:pointer-events-auto')
+    // TOUCH. THE MANDATORY ONE. A coarse pointer has no hover, so `group-hover`
+    // never fires there; omitting this mirror would leave four PERMANENTLY
+    // VISIBLE and PERMANENTLY UNTAPPABLE controls on every touch device — a
+    // strictly worse defect than the one being fixed, and invisible to this
+    // suite (no CSS) and to the browser gate (Playwright runs `pointer: fine`).
+    expect(row.className).toContain('[@media(pointer:coarse)]:pointer-events-auto')
+  })
+
+  it('hit-tests whenever it is permanently visible — a selected node', () => {
+    render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" alwaysVisible />)
+    const row = screen.getByTestId('node-quick-actions-node-a')
+
+    expect(row.className).toMatch(bare('pointer-events-auto'))
+    expect(row.className).not.toMatch(bare('pointer-events-none'))
+  })
+
+  /**
+   * THE DERIVED HALF. `pointer-events: auto` must hold on exactly the
+   * conditions `opacity: 1` holds — not on a similar set, the SAME set. Using
+   * the identical variant spelling is what makes that true by construction
+   * under Tailwind, whose candidate ordering is a property of the VARIANT, not
+   * of the utility: if the coarse reveal wins over the base `opacity-0` today,
+   * the coarse hit-test wins over the base `pointer-events-none` identically.
+   * Inventing a different spelling — a hand-written CSS rule, a bare `@media`
+   * block, an inline style — puts the cascade back in play and breaks the
+   * guarantee. That is why this asserts SET EQUALITY rather than a list.
+   */
+  it('mirrors the opacity variant set exactly — it hit-tests if and only if it is visible', () => {
+    render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
+    const cls = screen.getByTestId('node-quick-actions-node-a').className
+
+    const reveals = variantsFor(cls, 'opacity-100')
+    const enables = variantsFor(cls, 'pointer-events-auto')
+
+    // POSITIVE CONTROL FIRST. Two empty arrays compare equal, so an extractor
+    // that matched nothing would agree with the assertion below and prove
+    // nothing at all.
+    expect(reveals.length, 'the extractor found no opacity reveal variants — the comparison below is vacuous').toBeGreaterThanOrEqual(3)
+    expect(enables).toEqual(reveals)
+  })
+})
