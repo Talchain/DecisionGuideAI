@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Olumi — option node V3</title>
+<style>
+/* BRAND_ROOT */
+*{box-sizing:border-box}body{margin:0;background:var(--bg-canvas);color:var(--text-body);font:13px/1.45 Inter,system-ui,sans-serif}button,input,textarea,select{font:inherit;color:inherit}button{cursor:pointer}button:disabled{cursor:default;opacity:.6}a{color:var(--info);text-decoration:none}a:hover{text-decoration:underline}button:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--info);outline-offset:3px}button{border:1px solid var(--border-default);border-radius:7px;background:var(--bg-panel)}[hidden]{display:none!important}svg{flex-shrink:0;vertical-align:middle}header{position:relative;z-index:5;background:var(--bg-panel);border-bottom:1px solid var(--border-default);padding:14px 24px;min-width:1000px}.topline,.tools,.control,.row{display:flex;align-items:center;gap:12px}.topline{justify-content:space-between}.brand{font-size:17px;font-weight:650;color:var(--text-header)}.version{margin-left:12px;font-size:12px;color:var(--text-light);font-weight:400}.reference{font-size:11px;color:var(--text-light)}.tools{margin-top:14px;gap:20px}.tools label{font-size:11px;color:var(--text-light)}select{padding:5px 25px 5px 9px;background:var(--bg-panel);border:1px solid var(--border-default);border-radius:7px}.tools button{min-height:28px;padding:3px 8px}.zoom button[aria-pressed=true]{border-color:var(--info);color:var(--info)}.hint{margin-left:auto;font-size:11px;color:var(--text-light)}#workspace{height:calc(100vh - 113px);min-height:650px;min-width:1000px;position:relative;overflow:auto;background-image:radial-gradient(var(--factor) .7px,transparent .7px);background-size:22px 22px}#plane{width:1000px;height:630px;position:absolute;left:44px;top:30px;transform-origin:top left;transition:transform .15s}.edges{position:absolute;inset:0;pointer-events:none;overflow:visible}.edges path{fill:none;stroke:var(--factor);stroke-width:1.3;opacity:.6}.question,.factor,.node{position:absolute;background:var(--bg-panel);border:1px solid var(--border-default);border-radius:12px;box-shadow:0 2px 4px rgb(0 0 0 / .04)}.question{left:240px;top:32px;width:310px;padding:18px 20px;border-color:var(--info);color:var(--text-header)}.question small{display:block;color:var(--text-light);font-size:11px;margin-top:4px}.node{width:320px;min-height:112px;padding:16px 16px 33px;border:1.5px solid var(--option);cursor:pointer}.node.selected{outline:3px solid var(--option-light);outline-offset:3px}.node .type-shape{position:absolute;top:-12px;left:calc(50% - 12px);width:24px;height:24px;background:var(--option);border:4px solid var(--bg-canvas);border-radius:5px}.node::after{content:"";position:absolute;bottom:-5px;left:calc(50% - 4px);width:8px;height:8px;background:var(--text-header);border:2px solid var(--bg-panel);border-radius:50%}.node h2{margin:0;padding-right:23px;font-size:13px;font-weight:650;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.summary{font-size:11px;color:var(--text-light);margin:4px 0 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.origin{position:absolute;right:16px;top:18px;color:var(--text-light);cursor:help}.actions{position:absolute;right:13px;bottom:9px;display:flex;gap:6px;opacity:0;pointer-events:none}.node:hover .actions,.node:focus-within .actions,.node.selected .actions{opacity:1;pointer-events:auto}.icon-button{position:relative;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;padding:0;border:0;border-radius:4px;background:var(--bg-panel);color:var(--text-light)}.icon-button::before{content:"";position:absolute;inset:-2px}.icon-button svg{width:11px;height:11px}.icon-button:hover{color:var(--text-body);background:var(--bg-canvas)}.factor{width:290px;min-height:93px;padding:20px 16px}.factor strong{font-size:13px;display:block}.factor p{font-size:11px;color:var(--text-light);margin:5px 0 0}.factor .circle{position:absolute;width:23px;height:23px;border:4px solid var(--bg-canvas);border-radius:50%;background:var(--factor);left:calc(50% - 12px);top:-12px}.stage-note{position:absolute;left:34px;top:582px;font-size:11px;color:var(--text-light)}#preview,#tooltip,#menu{position:fixed;z-index:30;box-shadow:0 6px 20px rgb(0 0 0 / .12)}#preview{width:285px;padding:15px 17px;background:var(--bg-panel);border:1px solid var(--border-default);border-radius:12px;font-size:11px}#preview strong{font-size:12px}#preview p{margin:8px 0 0}#tooltip{max-width:220px;padding:7px 10px;border-radius:6px;background:var(--text-header);color:var(--text-on-color);font-size:12px;overflow-wrap:anywhere;line-height:1.45}#menu{background:var(--bg-panel);border:1px solid var(--border-default);border-radius:9px;padding:5px;width:188px}#menu button{border:0;width:100%;display:flex;gap:10px;text-align:left;padding:9px;border-radius:5px}#menu button:hover,#menu button:focus{background:var(--bg-canvas)}.panel{position:absolute;z-index:20;background:var(--bg-panel);border:1px solid var(--border-default);border-radius:14px;box-shadow:0 8px 24px rgb(0 0 0 / .09);overflow:auto;max-height:calc(100% - 40px)}#inspector{left:420px;top:160px;width:340px}.panel-head{padding:14px 16px 12px;border-bottom:1px solid var(--border-default)}.type-row{display:flex;align-items:center;gap:7px;color:var(--option);font-size:12px;margin-bottom:10px}.small-shape{display:inline-block;width:18px;height:18px;background:var(--option);border-radius:3px}.head-actions{margin-left:auto;display:flex;gap:8px;align-items:center}.head-actions button{border:0;background:none;padding:1px;color:var(--text-light);min-width:22px;min-height:22px}.head-actions .back{font-size:10px;color:var(--info)}#rename{display:flex;align-items:flex-start;text-align:left;gap:7px;font-size:14px;font-weight:650;line-height:1.45;width:100%;padding:0;border:0;background:none;border-radius:3px}#rename span{border-bottom:1px dashed var(--border-default);overflow-wrap:anywhere;min-width:0;flex:1}#rename svg{color:var(--info);margin-top:4px}#renameInput{font-size:14px;font-weight:650;width:100%;padding:5px;border:1px solid var(--info);border-radius:4px}#renameHelp{font-size:10px;color:var(--text-light);margin:5px 0 0}.panel-body{padding:15px 16px}.label{font-size:11px;color:var(--text-light);margin:16px 0 7px}.label:first-child{margin-top:0}.notice{font-size:11px;line-height:1.55;border:1px solid var(--border-default);background:var(--bg-canvas);border-radius:6px;padding:10px 12px}.context{font-size:12px;color:var(--text-light);font-style:italic;margin:0}.change{padding:12px;border:1px solid var(--border-default);border-radius:11px;margin:8px 0;font-size:12px}.change .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--factor);margin-right:6px}.change p{margin:7px 0 0;font-size:11px}.empty{font-size:12px;color:var(--text-light);margin-top:6px}.technical{font:11px/1.5 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg-canvas);padding:10px;border-radius:6px}#conversation{right:20px;top:20px;width:370px}.ai-title{font-size:14px;font-weight:650;margin:0}.ai-note{font-size:11px;color:var(--text-light);margin:8px 0 15px}.bubble{font-size:12px;padding:11px;border:1px solid var(--border-default);border-radius:9px;margin:12px 0;overflow-wrap:anywhere}.compose{border:1px solid var(--border-default);border-radius:12px;padding:12px}textarea{width:100%;resize:vertical;min-height:95px;border:0;outline-offset:1px;background:var(--bg-panel);font-size:12px}.compose-footer{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--text-light);gap:10px}.primary{background:var(--primary);color:var(--text-on-color);padding:5px 12px;border:0}.simulated{font-size:11px;color:var(--text-light);margin-top:12px}#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:60;background:var(--text-header);color:var(--text-on-color);padding:9px 16px;border-radius:8px;font-size:12px}footer{position:absolute;bottom:14px;left:24px;font-size:11px;color:var(--text-light);background:var(--bg-canvas);padding:3px 7px}
+</style>
+</head>
+<body>
+<header>
+  <div class="topline"><div class="brand">Olumi <span class="version">Option node / V3</span></div><div class="reference">Interactive reference · local simulation · <a href="DESIGN-SPEC.md">Design specification</a></div></div>
+  <div class="tools">
+    <div class="control"><label for="state">Working state</label><select id="state"><option value="normal">Captured example</option><option value="long">Long option name</option><option value="missing">Missing values and origin</option><option value="offline">AI unavailable</option></select></div>
+    <div class="control zoom"><label>Canvas scale</label><button data-zoom=".5" aria-pressed="false">50%</button><button data-zoom="1" aria-pressed="true">100%</button></div>
+    <button id="reset">Reset example</button><span class="hint">Hover a node. Try Ask, Challenge and More. Click its title in the inspector to rename.</span>
+  </div>
+</header>
+<main id="workspace" aria-label="Option node V3 connected graph">
+  <div id="plane">
+    <svg class="edges" width="1000" height="630" aria-hidden="true"><path d="M395 98 C395 150 190 125 190 188"/><path d="M395 98 C395 150 600 125 600 188"/><path d="M190 300 C190 369 170 369 170 438"/><path d="M190 300 C190 370 615 370 615 438"/><path d="M600 300 C600 355 170 390 170 438"/><path d="M600 300 C600 366 615 380 615 438"/></svg>
+    <div class="question">How should we allocate the new hires?<small>Two options shown from the captured headcount example</small></div>
+    <div id="nodes"></div>
+    <div class="factor" style="left:25px;top:440px"><span class="circle"></span><strong>Account Executive Headcount Added</strong><p>Low (0)</p></div>
+    <div class="factor" style="left:470px;top:440px"><span class="circle"></span><strong>Platform Engineer Headcount Added</strong><p>Low (0)</p></div>
+    <div class="stage-note">The option shape stays at the top. Node and inspector interactions are the focus of this reference.</div>
+  </div>
+  <aside id="inspector" class="panel" role="dialog" aria-modal="false" aria-label="Option inspector" hidden>
+    <div class="panel-head"><div class="type-row"><span class="small-shape"></span>Option<div class="head-actions"><button class="back" id="back">Back to results</button><button id="technicalToggle" aria-label="Show technical detail">&lt;/&gt;</button><button id="closeInspector" aria-label="Close inspector"></button></div></div><button id="rename" aria-label="Rename option"><span></span></button><input id="renameInput" maxlength="100" aria-label="Option name" hidden><p id="renameHelp" hidden>Enter to save · Escape to cancel · changes stay in this example</p></div>
+    <div class="panel-body"><div class="notice">You can rename this — the name saves to this example. Other fields are read-only here. In the PoC, supported changes use the Model tab or Olumi.</div><div class="label">Context</div><p class="context" id="context"></p><div class="label">What this option changes</div><div id="changes"></div><pre id="technical" class="technical" hidden></pre></div>
+  </aside>
+  <aside id="conversation" class="panel" role="dialog" aria-modal="false" aria-label="Olumi interaction preview" hidden>
+    <div class="panel-head row"><p class="ai-title">Olumi</p><button id="closeConversation" class="icon-button" style="margin-left:auto" aria-label="Close Olumi preview"></button></div>
+    <div class="panel-body"><p class="ai-note">Interaction preview. No live AI, shared model or external request.</p><div id="messages" aria-live="polite"></div><div class="compose"><textarea id="draft" aria-label="Message to Olumi"></textarea><div class="compose-footer"><span id="draftState">Your draft · not sent</span><button id="send" class="primary">Preview send</button></div></div><p class="simulated" id="aiExplanation"></p></div>
+  </aside>
+  <footer>V3 refinement · captured example data · no analysis result or review status is invented</footer>
+</main>
+<div id="preview" role="note" hidden></div><div id="tooltip" role="tooltip" hidden></div><div id="menu" role="menu" aria-label="Node actions" hidden></div><div id="toast" role="status" hidden></div>
+<script>
+const SOURCE = /* PROTOTYPE_DATA */;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const icon = (name) => SOURCE.icons[name] || '';
+let options = structuredClone(SOURCE.options), selected = null, state = 'normal', zoom = 1;
+let previewTimer, previewLeave, tooltipTimer, tooltipLeave, tooltipTarget, lastControl, dismissedNode, currentNode;
+const band = (v) => v == null ? 'Value not available' : v === 0 ? 'Low (0)' : v === 1 ? 'Very high (1)' : v === .5 ? 'Moderate (0.5)' : 'High (' + v + ')';
+function renderNodes() {
+  $('nodes').innerHTML = options.map((n, i) => '<article class="node' + (selected === n.id ? ' selected' : '') + '" style="left:' + (30 + i * 410) + 'px;top:190px" data-id="' + n.id + '" tabindex="0" aria-label="' + esc(n.label) + '"><span class="type-shape" aria-hidden="true"></span><h2>' + esc(n.label) + '</h2>' + (n.originKind ? '<span class="origin" tabindex="0" data-tip="' + esc(n.originLabel) + '" aria-label="' + esc(n.originLabel) + '">' + icon('origin-' + n.originKind) + '</span>' : '') + '<p class="summary">' + esc(n.changes.map(c => c.label + ' → ' + band(c.value)).join(' · ')) + '</p><div class="actions">' + (state !== 'offline' ? '<button class="icon-button" data-action="ask" title="" aria-label="Ask Olumi about ' + esc(n.label) + '" data-tip="Ask Olumi about ' + esc(n.label) + '">' + icon('MessageSquare') + '</button><button class="icon-button" data-action="challenge" title="" aria-label="Challenge ' + esc(n.label) + '" data-tip="Challenge ' + esc(n.label) + ' — what could be wrong or missing?">' + icon('Zap') + '</button>' : '') + '<button class="icon-button" data-action="more" title="" aria-haspopup="menu" aria-label="More actions for ' + esc(n.label) + '" data-tip="More actions for ' + esc(n.label) + ' — the same menu as right-click">' + icon('MoreHorizontal') + '</button></div></article>').join('');
+  document.querySelectorAll('.node').forEach(node => {
+    const n = options.find(o => o.id === node.dataset.id);
+    node.addEventListener('mouseenter', () => { currentNode = node; schedulePreview(node, n); });
+    node.addEventListener('mouseleave', () => { currentNode = null; dismissedNode = null; clearTimeout(previewTimer); previewLeave = setTimeout(hidePreview, 120); });
+    node.addEventListener('mousemove', e => { if (e.target.closest('.actions,.origin')) hidePreview(); else if ($('preview').hidden) schedulePreview(node, n); });
+    node.addEventListener('click', e => { if (!e.target.closest('button,.origin')) openInspector(n.id); });
+    node.addEventListener('keydown', e => { if (e.target === node && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openInspector(n.id); } });
+    node.addEventListener('contextmenu', e => { e.preventDefault(); showMenu(n.id, node.querySelector('[data-action=more]')); });
+    node.querySelectorAll('[data-tip]').forEach(control => {
+      control.addEventListener('mouseenter', () => showTip(control, false));
+      control.addEventListener('mouseleave', () => { clearTimeout(tooltipTimer); tooltipLeave = setTimeout(hideTip, 140); });
+      control.addEventListener('focus', () => { hidePreview(); showTip(control, true); });
+      control.addEventListener('blur', () => { hideTip(); if (currentNode === node) schedulePreview(node, n); });
+    });
+    node.querySelectorAll('[data-action]').forEach(control => control.addEventListener('click', e => {
+      e.stopPropagation(); hidePreview(); hideTip(); lastControl = control;
+      if (control.dataset.action === 'more') showMenu(n.id, control);
+      else openConversation(n.id, control.dataset.action);
+    }));
+  });
+}
+function hidePreview() { clearTimeout(previewTimer); previewTimer = null; clearTimeout(previewLeave); $('preview').hidden = true; }
+function schedulePreview(node, n) {
+  clearTimeout(previewLeave);
+  if (previewTimer || dismissedNode === node || !node.querySelector('.actions').matches(':not(:hover)') || node.querySelector('.actions').contains(document.activeElement)) return;
+  previewTimer = setTimeout(() => { previewTimer = null; if (currentNode !== node || !node.querySelector('.actions').matches(':not(:hover)')) return; $('preview').innerHTML = '<strong>This option changes ' + n.changes.length + ' factors.</strong>' + n.changes.map(c => '<p>' + esc(c.label) + ' → <b>' + esc(band(c.value)) + '</b></p>').join(''); $('preview').hidden = false; position($('preview'), node, true); }, 300);
+}
+function position(el, anchor, below) {
+  const a = anchor.getBoundingClientRect(), r = el.getBoundingClientRect(), pad = 8;
+  let y = below ? a.bottom + 10 : a.top - r.height - 10;
+  if (y < pad) y = a.bottom + 10;
+  if (y + r.height > innerHeight - pad) y = Math.max(pad, a.top - r.height - 10);
+  el.style.left = Math.max(pad, Math.min(a.left, innerWidth - r.width - pad)) + 'px'; el.style.top = y + 'px';
+}
+function showTip(control, immediate) {
+  hideTip(); hidePreview(); tooltipTarget = control;
+  tooltipTimer = setTimeout(() => { $('tooltip').textContent = control.dataset.tip; $('tooltip').hidden = false; control.setAttribute('aria-describedby', 'tooltip'); position($('tooltip'), control, false); }, immediate ? 0 : 300);
+}
+function hideTip() {
+  clearTimeout(tooltipTimer); clearTimeout(tooltipLeave);
+  if (tooltipTarget) tooltipTarget.removeAttribute('aria-describedby');
+  $('tooltip').hidden = true;
+}
+$('tooltip').addEventListener('mouseenter', () => clearTimeout(tooltipLeave));
+$('tooltip').addEventListener('mouseleave', hideTip);
+$('preview').addEventListener('mouseenter', () => clearTimeout(previewLeave));
+$('preview').addEventListener('mouseleave', hidePreview);
+function showMenu(id, control) {
+  hideTip(); hidePreview(); lastControl = control;
+  $('menu').innerHTML = '<button role="menuitem" data-menu="details">' + icon('PanelRight') + 'Open details</button><button role="menuitem" data-menu="rename">' + icon('Pencil') + 'Rename</button>';
+  $('menu').hidden = false; position($('menu'), control, true);
+  $('menu').querySelectorAll('button').forEach(b => b.onclick = () => { $('menu').hidden = true; openInspector(id); if (b.dataset.menu === 'rename') startRename(); });
+  $('menu').querySelector('button').focus();
+}
+$('menu').addEventListener('keydown', e => {
+  const items = [...$('menu').querySelectorAll('button')], index = items.indexOf(document.activeElement);
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); items[(index + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus(); }
+});
+function openInspector(id) {
+  selected = id; hidePreview(); hideTip(); $('conversation').hidden = true; $('menu').hidden = true;
+  const n = options.find(o => o.id === id);
+  document.querySelectorAll('.node').forEach(node => node.classList.toggle('selected', node.dataset.id === id));
+  $('rename').innerHTML = '<span>' + esc(n.label) + '</span>' + icon('Pencil');
+  $('rename').setAttribute('aria-label', 'Rename ' + n.label);
+  $('rename').hidden = false; $('renameInput').hidden = true; $('renameHelp').hidden = true;
+  $('context').textContent = n.description || 'What would choosing this option actually mean in practice?';
+  $('changes').innerHTML = n.changes.map(c => '<div class="change"><span class="dot"></span>' + esc(c.label) + '<p>' + esc(band(c.value)) + '</p></div>').join('') || '<p class="empty">No changes are available in this example.</p>';
+  $('technical').textContent = JSON.stringify({ id: n.id, label: n.label, provenance: n.provenance ?? null, interventions: n.changes.map(c => ({ id: c.id, value: c.value })) }, null, 2);
+  $('inspector').hidden = false; $('closeInspector').focus({preventScroll:true});
+}
+function startRename() {
+  const n = options.find(o => o.id === selected);
+  $('renameInput').value = n.label; $('renameInput').hidden = false; $('renameHelp').hidden = false; $('rename').hidden = true; $('renameInput').focus(); $('renameInput').select();
+}
+function endRename(save) {
+  if ($('renameInput').hidden) return;
+  if (save && $('renameInput').value.trim()) options.find(o => o.id === selected).label = $('renameInput').value.trim();
+  renderNodes(); openInspector(selected); $('rename').focus();
+}
+$('rename').onclick = startRename;
+$('renameInput').onkeydown = e => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); endRename(e.key === 'Enter'); } };
+$('renameInput').onblur = () => endRename(true);
+$('technicalToggle').onclick = () => $('technical').hidden = !$('technical').hidden;
+function closeInspector() { $('inspector').hidden = true; document.querySelector('.node[data-id="' + selected + '"]')?.focus(); }
+$('closeInspector').onclick = closeInspector; $('back').onclick = () => { closeInspector(); toast('No analysis result is loaded in this reference.'); };
+$('closeInspector').innerHTML = icon('X'); $('closeConversation').innerHTML = icon('X');
+function openConversation(id, intent) {
+  selected = id; $('inspector').hidden = true; $('menu').hidden = true;
+  document.querySelectorAll('.node').forEach(n => n.classList.toggle('selected', n.dataset.id === id));
+  const n = options.find(o => o.id === id);
+  $('messages').innerHTML = ''; $('draft').value = '';
+  if (intent === 'challenge') {
+    $('draft').value = 'Challenge the option "' + n.label + '". What would make it a worse choice than it looks, and what alternative is missing?';
+    $('aiExplanation').textContent = 'Challenge opens a draft. You decide whether to revise, send or leave it.';
+  } else {
+    $('messages').innerHTML = '<div class="bubble">Ask Olumi about ' + esc(n.label) + '</div>';
+    $('aiExplanation').textContent = 'In the PoC, Ask sends the existing explanation request. This reference shows the interaction without calling AI.';
+  }
+  $('draftState').textContent = 'Your draft · not sent'; $('conversation').hidden = false; $('draft').focus();
+}
+$('send').onclick = () => {
+  if (!$('draft').value.trim()) return;
+  $('messages').innerHTML += '<div class="bubble">' + esc($('draft').value) + '</div>';
+  $('draft').value = ''; $('draftState').textContent = 'Send simulated · no request made'; toast('Preview only. Nothing was sent to Olumi.');
+};
+$('closeConversation').onclick = () => { $('conversation').hidden = true; document.querySelector('.node[data-id="' + selected + '"]')?.focus(); };
+function toast(text) { $('toast').textContent = text; $('toast').hidden = false; setTimeout(() => $('toast').hidden = true, 2800); }
+function reset() {
+  hidePreview(); hideTip(); options = structuredClone(SOURCE.options); selected = null; dismissedNode = null; previewTimer = null;
+  if (state === 'long') { options[0].label = 'A very long option name describing a staged change with several dependencies and unresolved questions'; options[0].description = ''; }
+  if (state === 'missing') { options[0].changes.forEach(c => c.value = null); options[0].provenance = null; options[0].originKind = null; options[0].originLabel = null; }
+  ['inspector','conversation','menu','toast'].forEach(id => $(id).hidden = true); $('draft').value = ''; renderNodes();
+}
+$('state').onchange = () => { state = $('state').value; reset(); };
+$('reset').onclick = reset;
+document.querySelectorAll('[data-zoom]').forEach(b => b.onclick = () => {
+  zoom = Number(b.dataset.zoom); $('plane').style.transform = 'scale(' + zoom + ')'; hideTip(); hidePreview();
+  document.querySelectorAll('[data-zoom]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (!$('tooltip').hidden || !$('preview').hidden) { dismissedNode = currentNode; hideTip(); hidePreview(); return; }
+  if (!$('menu').hidden) { $('menu').hidden = true; lastControl?.focus(); return; }
+  if (!$('conversation').hidden) $('closeConversation').click();
+  else if (!$('inspector').hidden && e.target !== $('renameInput')) closeInspector();
+});
+document.addEventListener('pointerdown', e => { if (!e.target.closest('#menu,[data-action=more]')) $('menu').hidden = true; });
+window.addEventListener('resize', () => { hideTip(); hidePreview(); $('menu').hidden = true; });
+$('workspace').addEventListener('scroll', () => { hideTip(); hidePreview(); });
+reset();
+</script>
+</body>
+</html>

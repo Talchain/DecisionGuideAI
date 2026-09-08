@@ -4,6 +4,10 @@ Recorded on 8 September 2026 for `codex/option-node-v3-refinements`, based on
 staging `25164b1e`. Scope and expected behaviour are in
 [DESIGN-SPEC.md](DESIGN-SPEC.md).
 
+Application change: `e89a206c`. Review:
+[PR #1333](https://github.com/Talchain/DecisionGuideAI/pull/1333), targeting
+staging. Later documentation-only commits do not change the tested application.
+
 ## Automated checks
 
 | Check | Result |
@@ -16,6 +20,8 @@ staging `25164b1e`. Scope and expected behaviour are in
 | Repository typecheck gate | Passed coverage and per-file ratchet: 4247 of 4287 tracked TypeScript files loaded, 40 declared out of scope; 2104 existing diagnostics against baseline 2152, none added. Baseline unchanged. |
 | Full lint and hooks ratchet | Passed: 0 errors, 1163 existing warnings; 225 known hook violations match the baseline. |
 | Additional lint on the final tooltip and inspector edits | Passed. |
+| Critical data-flow smoke suite | 600 tests passed across all 9 named files, in an isolated checkout of `e89a206c`. |
+| Design-system drift, stale JavaScript and dependency integrity checks | Passed. These integrity checks are separate from the CI vulnerability audit below. |
 
 The inspector group initially could not collect because the test process lacked
 the repository's dummy local Supabase settings. Supplying those settings made
@@ -24,9 +30,15 @@ of the tooltip suite hit its five-second test timeout under local load; a
 fresh run passed all six in 1.14 seconds. No timeout was increased and no
 assertion was removed.
 
-The full repository test suite was not run locally. The normal pre-push gate
-also checks critical data-flow smoke tests, dependencies and design-system
-drift; its outcome belongs to the push record, not the counts above.
+The full repository test suite was not run locally. The checkout had
+`core.hooksPath=/dev/null`, so the normal release script was invoked explicitly.
+Its first smoke run stalled when the CSS census followed the parent directory's
+`node_modules` symlink into the assistants-service checkout and blocked reading
+an unrelated type package. That run was stopped and is not counted as a pass.
+All 9 smoke files were then rerun at the same commit in an isolated checkout;
+all 600 passed. The other release-script checks passed; its changed-file lint
+step skipped because the branch had already been pushed, so the explicit full
+and final-file lint results above remain the lint evidence.
 
 ## Browser checks
 
@@ -48,3 +60,26 @@ establish staging deployment, live AI response quality, a two-person journey,
 new reasoning-signal coverage or the complete V3 vision. The existing control
 size still reduces with canvas zoom. Deployment acceptance must identify the
 served build and repeat the relevant interactions there.
+
+## CI release blocker recorded during review
+
+The production build, CEE contract validation, TypeScript/lint, typecheck
+self-test, advisory canvas browser and advisory core E2E checks passed for
+`e89a206c`.
+The [CI security audit](https://github.com/Talchain/DecisionGuideAI/actions/runs/34272060888/job/102216127450)
+failed on four high-severity `fast-uri` advisories. The existing lockfile
+resolves `ajv → fast-uri@3.1.5`; neither the manifest nor the lockfile differs
+from the staging base in this PR. This is an existing dependency issue, not a
+new dependency introduced by the node refinement. The audit reports patched
+versions beginning at 3.1.6.
+
+Dependency maintenance must resolve that audit and rerun it before release
+clearance. This record is not an all-CI-green verdict, and no merge or staging
+deployment has been performed.
+
+The [advisory visual regression job](https://github.com/Talchain/DecisionGuideAI/actions/runs/34272060888/job/102216127716)
+also failed: 10 state images and the unmodified-capture tolerance control
+differed from their references. The control reported a difference ratio of
+0.0256813. That result does not by itself distinguish stale references from a
+new regression. No snapshots were re-approved; compare with a base-commit run
+before attributing or accepting those differences.

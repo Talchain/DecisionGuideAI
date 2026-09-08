@@ -1,5 +1,10 @@
 # Option node V3 — pragmatic PoC design
 
+**Interactive reference: [open the V3 prototype](olumi-option-node-v3.html).**
+It demonstrates this slice with captured example data and local interactions.
+It does not call AI or write to the PoC. See [PROTOTYPE.md](PROTOTYPE.md) for
+its scope and rebuild instructions.
+
 **Status: application refinement, locally validated; not deployed.**
 This is the reference for the implementation on
 `codex/option-node-v3-refinements`, based on staging `25164b1e`.
