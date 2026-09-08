@@ -792,7 +792,7 @@ describe('the partial-analysis warning', () => {
 
   it("names the producer's own missing REQUIRED keys, in this surface's words", () => {
     const vm = withMissing(['win_probability', 'robustness_level'])
-    expect(vm.status.missingResults).toEqual(['the win share', 'the robustness check'])
+    expect(vm.status.missingResults).toEqual(['the win share', 'the overall robustness rating'])
   })
 
   /**

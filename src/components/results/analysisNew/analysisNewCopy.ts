@@ -1096,7 +1096,32 @@ export const ANALYSIS_NEW_COPY = {
       win_probability: 'the win share',
       expected_outcome: 'the expected outcome',
       sensitivity: 'the sensitivity check',
-      robustness_level: 'the robustness check',
+      /**
+       * ⚠⚠ "the robustness check" WAS TOO BROAD, AND IT CONTRADICTED THE LINE
+       * FOUR ROWS BELOW IT. Witnessed on deployed staging `219cbe19` on a live
+       * fresh journey (guest, re-drafted example, analysis complete 03:41:29Z):
+       * the panel read *"This analysis is partial — the win share and the
+       * robustness check did not come back"* while its own confidence sentence
+       * read *"13 fragile edges, 0 robust edges"* — computed from the very
+       * check it had just said did not come back.
+       *
+       * The predicate is right and the WORD was wrong. `useResultCompleteness`
+       * adds this key when `robustness.level` and `robustness.recommendation_
+       * stability` are both absent, and that check exists for a good reason
+       * ("when both are absent, the rendered robustness state is fabricated").
+       * The payload carried `robustness.fragile_edges` 13, `robust_edges` 0,
+       * `edge_e_values` 7 — so the CHECK ran and its edge-level output is on
+       * screen; what is missing is the summarising RATING.
+       *
+       * The key was always precise (`robustness_level`). Only the label
+       * over-claimed. Naming the rating rather than the check tells the reader
+       * what is actually absent and stops the panel contradicting itself.
+       *
+       * ⛔ NOT CHANGED, and deliberately: `From the robustness check.` as a
+       * finding's `sourceLine`. That names where a finding CAME FROM, which is
+       * true and unaffected — a different question under similar words.
+       */
+      robustness_level: 'the overall robustness rating',
       /**
        * ⚠⚠ `recommendation_stability` IS DELIBERATELY ABSENT FROM THIS MAP, and
        * a CI guard exists to keep it that way (`withheldFieldReadBan.spec.ts`,
