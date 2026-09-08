@@ -9,7 +9,7 @@ export function buildManualGoalTarget(targetId: string, draft: string, unit: str
   const built = buildAddConstraintParameters({
     targetId, constraintType: 'at_least', value, unit: unit.trim(),
   })
-  return built.ok ? built.parameters : null
+  return built.ok ? { ...built.parameters, unit: unit.trim() } : null
 }
 
 /** Keep the explicit consent in the existing CEE lower-bound grammar. The
