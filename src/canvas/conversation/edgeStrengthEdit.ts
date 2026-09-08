@@ -218,3 +218,43 @@ export function buildEdgeStrengthEditEvent({
     },
   }
 }
+
+/**
+ * Can a strength edit on THIS EDGE be truthfully asserted to the server?
+ *
+ * ⭐ THE PER-EDGE GATE, AND IT IS A DERIVATION RATHER THAN A RE-STATEMENT OF THE
+ * RULES ABOVE. A surface that offers a strength editor may offer it only where
+ * the edit can reach the server: where `expected` is not assertable the builder
+ * returns null, the edit lands LOCAL-ONLY, and an affordance that looks
+ * server-backed while writing locally is design §2 F6 — the exact harm the Model
+ * tab v2 was built to close. The gate is therefore PER-EDGE, never per-surface:
+ * two rows in one list can legitimately differ.
+ *
+ * The question is asked OF THE BUILDER rather than of a copy of its conditions,
+ * because a hand-copied gate is this estate's dominant defect class — it agrees
+ * with its source on the day it is written and drifts silently afterwards
+ * (CLAUDE.md trap 12). There is no second list here to keep in sync.
+ *
+ * ⚠ THE PROBE VALUE IS `0`, AND THE CHOICE IS LOAD-BEARING. Zero is inside every
+ * numeric bound the builder enforces (finite, `magnitude ∈ [0, 1]`), so the only
+ * things that can make this `null` are properties of the EDGE — a non-canonical
+ * endpoint id, or no server-stated `expected` tuple. `preserveDirection: true`
+ * is chosen for the same reason: it takes the direction question off the table,
+ * so the answer is about the edge rather than about a number nobody has typed.
+ *
+ * ⚠ IT DOES NOT ANSWER "will THIS number be accepted", and must not be read as
+ * though it did. The magnitude the user eventually types is checked at the
+ * commit by the builder itself, against the same rules. Promising more here
+ * would require a second copy of the contract's domain bound — the thing this
+ * function exists to avoid.
+ *
+ * ⚠ AND IT FAILS CLOSED BY CONSTRUCTION. Were the builder ever to gain a rule
+ * that rejects a zero magnitude, this reads `false` and the affordance renders
+ * DISABLED — an edge that could have been edited looking like one that cannot,
+ * which is the SAFE direction. The unsafe direction (an editor whose write
+ * cannot land) is unreachable while this asks the builder rather than telling it.
+ */
+export function edgeStrengthEditIsAssertable(edge: Edge | undefined | null): boolean {
+  if (!edge) return false
+  return buildEdgeStrengthEditEvent({ edge, requestedMean: 0, preserveDirection: true }) !== null
+}
