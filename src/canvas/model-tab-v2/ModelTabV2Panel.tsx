@@ -75,7 +75,6 @@ import { focusEdgeById, focusNodeById } from '../utils/focusHelpers'
 import { resolveValueInputSeed } from '../conversation/factorValueEdit'
 import { edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
-import { useCanvasStore } from '../store'
 import { resolveGoalTarget } from '../domain/goalTarget'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
 import { buildManualGoalTarget } from '../conversation/manualGoalTarget'
@@ -470,7 +469,7 @@ export function ModelTabV2Panel({
       if (row.kind === 'goal') {
         const target = resolveGoalTarget(node.data)
         setEdit({ rowId, phase: 'editing', draft: target ? String(target.raw) : '',
-          unit: target?.unit ?? '', scenarioId: useCanvasStore.getState().currentScenarioId ?? null,
+          unit: target?.unit ?? '', scenarioId: authority.captureScenarioId(),
           from: target ? `${target.raw}${target.unit ? ` ${target.unit}` : ''}` : 'Not set' })
         return
       }
@@ -486,7 +485,7 @@ export function ModelTabV2Panel({
         from: row.primaryValue ?? 'Not set',
       })
     },
-    [rows, nodes, edges],
+    [rows, nodes, edges, authority],
   )
 
   const changeDraft = useCallback((rowId: string, draft: string, unit?: string) => {

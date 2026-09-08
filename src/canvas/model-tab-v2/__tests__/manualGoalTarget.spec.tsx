@@ -42,7 +42,6 @@ describe('manual goal target uses the existing canonical typed action', () => {
     mount()
     const before = structuredClone(useCanvasStore.getState().nodes)
     edit('120000')
-    expect(screen.getByText(/absolute minimum target/i)).toBeInTheDocument()
     expect(screen.getByLabelText('Target unit for Annual revenue')).toHaveValue('£')
     fireEvent.keyDown(screen.getByLabelText('New value for Annual revenue'), { key: 'Escape' })
     expect(dispatchAction).not.toHaveBeenCalled()
@@ -55,6 +54,7 @@ describe('manual goal target uses the existing canonical typed action', () => {
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(dispatchAction).not.toHaveBeenCalled()
     expect(useCanvasStore.getState().nodes).toEqual(before)
+    expect(screen.getByTestId('model-row-v2-goal-revenue-value-to')).toHaveTextContent('At least 120000 £ (absolute level)')
     fireEvent.click(screen.getByRole('button', { name: 'Confirm new value for Annual revenue' }))
     expect(dispatchAction).toHaveBeenCalledOnce()
     expect(dispatchAction.mock.calls[0][0]).toMatchObject({ action_type: 'add_constraint',

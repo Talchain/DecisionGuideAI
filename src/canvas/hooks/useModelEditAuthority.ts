@@ -210,6 +210,8 @@ export type EdgeStrengthProposalOutcome = EdgeStrengthCommitOutcome | 'refused_u
 
 export interface ModelEditAuthorityLive {
   goalTargetDispatchAvailable: boolean
+  /** The host captures identity without gaining a separate store access path. */
+  captureScenarioId: () => string | null
   /** Dispatch only: the central typed-action receipt owns the eventual write. */
   proposeGoalTarget: (draft: string, unit: string, scenarioId: string | null) => 'dispatched' | 'not_encodable'
   proposeFactorValue: (typedValue: number) => FactorValueProposalOutcome
@@ -476,6 +478,7 @@ export function useModelEditAuthority(
 
   return {
     goalTargetDispatchAvailable: typeof dispatchAction === 'function',
+    captureScenarioId: () => useCanvasStore.getState().currentScenarioId ?? null,
     proposeGoalTarget,
     proposeFactorValue,
     proposeOptionIntervention,

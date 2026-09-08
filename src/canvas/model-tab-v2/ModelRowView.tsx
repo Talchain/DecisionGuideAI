@@ -1067,24 +1067,25 @@ function ValueCell({
                 untouched; only this second line may wrap. */}
 
               {row.kind === 'goal' && (
-                <span className={`${typography.panelMeta} flex flex-col gap-1 text-text-light`}>
-                  <span>Absolute minimum target — at least this level, not an increase by this amount.</span>
-                  <label>
+                <span className={`${typography.panelMeta} text-text-light`}>
+                  {/* Two fields need a second line, not paragraphs wrapped in
+                      the narrow value column. The review phase states the
+                      minimum/absolute-level meaning before Confirm can send. */}
+                  <label className="flex flex-col gap-0.5">
                     Unit
                     <input
                       aria-label={`Target unit for ${row.label}`}
                       value={commit.unit ?? ''}
-                      placeholder="e.g. £, %, points"
+                      placeholder="£, %, points"
                       onClick={e => e.stopPropagation()}
                       onChange={e => onDraftChange(row.id, commit.draft, e.target.value)}
                       onKeyDown={e => {
                         if (e.key === 'Enter') { e.preventDefault(); onProposeEdit(row.id) }
                         if (e.key === 'Escape') { e.preventDefault(); onDiscardEdit(row.id) }
                       }}
-                      className="ml-2 w-24 bg-panel-hover border border-panel-border rounded px-1"
+                      className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
                     />
                   </label>
-                  <span>Enter a positive target and its unit, then press Enter to review.</span>
                 </span>
               )}
 
@@ -1238,7 +1239,7 @@ function ValueCell({
             data-testid={testid}
             className={`${typography.panelTabular} min-w-0 flex flex-wrap items-baseline`}
           >
-            <span className="shrink-0 whitespace-nowrap">
+            <span className={row.kind === 'goal' ? 'min-w-0 break-words' : 'shrink-0 whitespace-nowrap'}>
               <span data-testid={`${testid}-from`}>{commit.from}</span>
               {' → '}
               <span data-testid={`${testid}-to`}>{commit.to}</span>
