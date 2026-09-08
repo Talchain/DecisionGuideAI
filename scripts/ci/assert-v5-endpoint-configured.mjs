@@ -33,6 +33,12 @@ const configured = typeof RAW === 'string' && RAW.trim().length > 0
 // Netlify sets NETLIFY=true for every build it runs; CONTEXT names the deploy kind.
 const isDeploy = process.env.NETLIFY === 'true' || Boolean(process.env.DEPLOY_PRIME_URL)
 
+if (process.env.OLUMI_BACKEND_SLOT === 'manual-test' &&
+    RAW?.trim() !== 'https://olumi-assistants-service.onrender.com/proxy/v5/turn') {
+  console.error('::error::The manual-test slot must use its dedicated CEE V5 endpoint.')
+  process.exit(1)
+}
+
 if (configured) {
   // Reject BEFORE reporting success — a PASS line printed above a rejection is
   // the kind of output a reader skims and mis-reads as green.

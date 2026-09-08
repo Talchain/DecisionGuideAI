@@ -27,11 +27,13 @@
  */
 
 import type { Config, Context } from '@netlify/edge-functions'
+import { resolveBackendTarget } from './_shared/backend-slot.ts'
 
-const CEE_TARGET = 'https://cee-staging.onrender.com'
+const CEE_TARGET = resolveBackendTarget('cee')
 
 // SECURITY: CORS allow-list (never use wildcard in production)
 const ALLOWED_ORIGINS = [
+  'https://olumi.netlify.app',
   'https://decisionguide.ai',
   'https://decision-guide-ai.netlify.app',  // Netlify main
   'https://staging--olumi.netlify.app',     // Staging environment

@@ -21,11 +21,13 @@
  */
 
 import type { Config, Context } from '@netlify/edge-functions'
+import { resolveBackendTarget } from './_shared/backend-slot.ts'
 
-const ISL_TARGET = 'https://isl-staging.onrender.com'
+const ISL_TARGET = resolveBackendTarget('isl')
 
 // SECURITY: CORS allow-list (never use wildcard in production)
 const ALLOWED_ORIGINS = [
+  'https://olumi.netlify.app',
   'https://decisionguide.ai',
   'https://decision-guide-ai.netlify.app',  // Netlify main
   'https://staging--olumi.netlify.app',     // Staging environment
