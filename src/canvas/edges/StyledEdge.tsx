@@ -441,10 +441,24 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // ⛔ Provenance gate. `computeSignedMean` falls back to `weight`, which the
   // edge defaults always define, so thickness — the channel the UI explicitly
   // TEACHES the user to read as strength — reported 2px ("Strong") for every
-  // CEE edge whose strength nobody had set. An unset edge now draws at the
-  // floor width: it still has to be drawn, and the minimum is the only width
-  // that cannot be mistaken for a measurement. Colour (grey, above) carries
-  // the "no verdict" claim; width simply stops asserting one.
+  // CEE edge whose strength nobody had set. An unset edge draws at
+  // `UNSET_EDGE_STROKE_WIDTH` instead.
+  //
+  // ⭐ THAT WIDTH IS NOW STRICTLY BELOW EVERY MEASURED BAND (8 Sep 2026). It
+  // used to EQUAL the weakest band (both 1.5), so this gate stopped thickness
+  // claiming "strong" and left it claiming "weak" — an unset strength and a
+  // stated `|mean| < 0.4` were pixel-identical on the one channel with a legend
+  // key teaching people to read it. Width is now a total order that the reader
+  // can follow in one look: unset < weak < moderate < strong. See
+  // `graphDisplayCalculations.UNSET_EDGE_STROKE_WIDTH` for why the fix lands on
+  // width rather than on a dash (dash is spent three times over, and
+  // `resolveEdgeDash`'s first-match precedence would hide a fourth rule on
+  // exactly the edges most in question).
+  //
+  // Colour still carries the "no verdict" claim in the DEFAULT view
+  // (`computeDirectionStroke` returns neutral on `!show`) — but NOT in the
+  // causal lens, whose stroke rule reads `direction` alone and never magnitude.
+  // There, width is the only discriminator there is.
   const edgeSignedStrength = useMemo(
     () => resolveEdgeSignedStrengthDisplay(edgeData as Record<string, unknown> | undefined),
     [edgeData]
