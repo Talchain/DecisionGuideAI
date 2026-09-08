@@ -154,9 +154,18 @@ export const GUEST_STORAGE_CLAIM_ADJUDICATED: Readonly<Record<string, string>> =
     + 'confidence, expectation and review date go to the account; rationale, assumption '
     + 'and revisit trigger stay local. That is a precise claim about NAMED FIELDS, not a '
     + "blanket claim about the user's model, and its docblock says it was written to "
-    + 'claim neither more nor less than is true. `guestNote` beside it reads similarly '
-    + 'and has ZERO CONSUMERS. ROWED: retire the dead `guestNote`, and re-derive whether '
-    + 'the split still holds after any change to decision-record persistence.',
+    + 'claim neither more nor less than is true. '
+    + '⚠ CORRECTED 8 Sep 2026 — THE ADJUDICATION ABOVE STAYS, THE ROW BELOW IT DID NOT '
+    + 'SURVIVE ITS OWN PREMISE. It read: "`guestNote` beside it reads similarly and has '
+    + 'ZERO CONSUMERS. ROWED: retire the dead `guestNote`." That was true when written '
+    + 'and is now FALSE: `guestNote` is the LIVE render for every signed-out user '
+    + '(DecisionRecordModal.tsx, `hasAccount === true ? persistenceNote : guestNote`). '
+    + 'Acting on the retirement row would DELETE the fix and restore the false claim to '
+    + 'every guest — a registry entry that had become an instruction to reintroduce a '
+    + 'defect. The zero-consumer measurement is preserved above as the record of what '
+    + 'was true then; only the row it prescribed is withdrawn. '
+    + 'Still standing: re-derive whether the field split holds after any change to '
+    + 'decision-record persistence.',
   'src/canvas/versions/ServerVersionsSection.tsx':
     'THE MATCH IS ON A CORRECTLY-SCOPED TRUE CLAIM, and my pattern is the thing at '
     + 'fault. "Sign in to save SHARED versions" is scoped to shared versions, which are '

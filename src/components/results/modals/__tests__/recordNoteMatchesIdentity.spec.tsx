@@ -106,6 +106,38 @@ describe('the persistence note matches who the user actually is', () => {
     expect(note()).toBe(DECISION_RECORD_COPY.guestNote)
   })
 
+  /**
+   * ⭐⭐ THE REVIEWER'S FINDING ON #1294, PINNED. `hasAccount` is component state
+   * that OUTLIVES the open it was resolved for. A user who was signed in, signed
+   * out in place, and re-opened the modal kept the stale `true` until the next
+   * identity read resolved — and was shown "…are saved to your account" for that
+   * window. The exact false claim this PR deletes, surviving the deletion.
+   *
+   * The second open deliberately uses a promise that NEVER SETTLES, so the only
+   * thing that can make this pass is the synchronous reset. An awaited mock would
+   * pass either way and prove nothing — the window is precisely the un-resolved
+   * period, so the test has to live inside it.
+   */
+  it('⭐ SIGNING OUT BETWEEN OPENS — the stale account claim does not survive', async () => {
+    getSessionIdentity.mockResolvedValue({ userId: 'u_1', accessToken: 'tok_abc' })
+    await renderOpen()
+    // PRECONDITION: we really are in the signed-in state, so the assertion below
+    // is about the RESET and not about a modal that never claimed an account.
+    expect(note()).toBe(DECISION_RECORD_COPY.persistenceNote)
+
+    await act(async () => {
+      useDecisionRecordStore.getState().close?.()
+    })
+    // Signed out in place; the next read will never settle.
+    getSessionIdentity.mockImplementation(() => new Promise(() => {}) as never)
+    await act(async () => {
+      openDecisionRecord()
+    })
+
+    expect(note()).toBe(DECISION_RECORD_COPY.guestNote)
+    expect(note()).not.toContain('saved to your account')
+  })
+
   it('⛔ IT ASKS THE SAVE PATH’S OWN AUTHORITY — not a second one', async () => {
     // If a later change reads an auth context or a flag instead, this REDs.
     getSessionIdentity.mockResolvedValue({ userId: 'u_1', accessToken: 'tok_abc' })

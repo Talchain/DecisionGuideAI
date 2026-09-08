@@ -200,6 +200,18 @@ export function DecisionRecordModal() {
   // sign in between two captures in one session.
   useEffect(() => {
     if (!isOpen) return
+    // ⚠⚠ RESET FIRST, SYNCHRONOUSLY, BEFORE THE AWAIT — the reviewer's finding.
+    // Without this, `hasAccount` keeps its value from the PREVIOUS open until the
+    // identity read resolves. A user who was signed in, signed out in place, and
+    // re-opened the modal was shown "...are saved to your account" for that
+    // window: the EXACT false claim this PR exists to delete, surviving the fix
+    // that deleted it. State that outlives the session it describes is the
+    // "claim attached to a different thing" defect at component scope.
+    //
+    // `null` is the correct reset value, not `false`: it means NOT YET RESOLVED
+    // and renders the guest note, so the failure direction stays understating
+    // what we do with the user's data rather than overstating it.
+    setHasAccount(null)
     let live = true
     void getSessionIdentity()
       .then(({ accessToken }) => {
