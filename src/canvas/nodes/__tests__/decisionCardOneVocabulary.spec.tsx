@@ -245,9 +245,19 @@ describe('the entitled decision card states one quantity in one vocabulary', () 
     expect(countStem(spoken, PCT), 'the figure is spoken more than once').toBe(1)
   })
 
-  it('ARM WITHHELD — the GATE is untouched: a refused verdict still says nothing', () => {
-    // The copy change must not buy itself a permission. On the withheld
-    // fixture the sentence, the bar and the figure are all absent.
+  it('ARM WITHHELD — Q2 is untouched: a refused VERDICT still says nothing', () => {
+    // The copy change must not buy itself a permission.
+    //
+    // ⚠ SCOPE, STATED BECAUSE A MUTANT MEASURED IT (8 Sep 2026). This arm pins
+    // Q2 ONLY — `verdict.hasLeadingOption` (`DecisionNode.tsx:346`). Widening
+    // Q2 to `false && …` REDs here; widening Q1, the producer's licence
+    // (`modelLicensesComparativeClaim`, `:339`), leaves this arm GREEN,
+    // because `WITHHELD_REPORT` is refused by the verdict and never reaches
+    // Q1's arm. That survivor is not equivalent and is not hand-waved: Q1 is
+    // owned by `canvasLeaderAdmission.spec.tsx` ("DecisionNode headline — Q1
+    // is consulted, not only Q2"), whose ARM C / ARM C2 / metric-row
+    // assertions were re-pointed at this new wording and DO red on the same
+    // mutation. Two gates, two files, both measured.
     const { container } = renderDecision(WITHHELD_REPORT)
     expect(screen.queryByTestId(METRIC_ROW)).toBeNull()
     const text = (container.textContent ?? '').replace(/\s+/g, ' ')
