@@ -88,6 +88,7 @@
  * comparisons only.
  */
 import { create } from 'zustand'
+import { v5 as uuidv5 } from 'uuid'
 
 import { resolveScenarioKey, UNSCOPED_SCENARIO_KEY } from './scenarioKey'
 
@@ -248,7 +249,12 @@ function write(key: string, value: unknown): 'persisted' | false {
 /** Existing auth adoption calls this before exposing the next user's UI. */
 export function observeDecisionRecordOwner(ownerId: string | null): void {
   const current = readBoundary()
-  const next: Boundary = current && current.ownerId === ownerId ? current : { ownerId, epoch: id() }
+  // Tabs observing the same transition must choose the same generation. A
+  // random initial epoch let the later publisher erase the first tab's notes.
+  // Explicit sign-out still rotates to a random epoch before deleting records.
+  const next: Boundary = current && current.ownerId === ownerId ? current : {
+    ownerId, epoch: uuidv5(JSON.stringify([current?.epoch ?? null, ownerId]), uuidv5.URL),
+  }
   if (!current || current.ownerId !== ownerId) {
     // Publish revocation first, so a stale tab cannot refill the cleared generation.
     try { localStorage.setItem(BOUNDARY_KEY, JSON.stringify(next)) } catch { /* memory only */ }

@@ -30,7 +30,7 @@ beforeEach(() => {
   sessionStorage.clear()
   store()._reset()
 })
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => { vi.restoreAllMocks() })
 
 describe('local lifetime and exact scenario scope', () => {
   it('keeps latest record per scenario without replacing a different scenario', () => {
@@ -190,6 +190,30 @@ describe('resolved identity and revocation', () => {
 })
 
 describe('cross-tab interleavings and exact acknowledgement identity', () => {
+  it.each(['initial', 'account-switch'] as const)('concurrent same-owner adoption keeps both scenarios (%s)', async (mode) => {
+    if (mode === 'initial') localStorage.clear()
+    else observeDecisionRecordOwner('previous-account')
+    vi.resetModules()
+    const tab = await import('../decisionRecordStore')
+    const original = Storage.prototype.setItem
+    let crossed = false
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
+      if (key === OWNER_KEY && !crossed) {
+        crossed = true
+        tab.observeDecisionRecordOwner('account-a')
+        expect(tab.useDecisionRecordStore.getState().saveRecord('scn_b', record({ optionId: 'opt_b' }))).not.toBeNull()
+        expect(tab.useDecisionRecordStore.getState().byScenario.scn_b?.optionId).toBe('opt_b')
+      }
+      original.call(this, key, value)
+    })
+    observeDecisionRecordOwner('account-a')
+    expect(crossed).toBe(true)
+    expect(store().saveRecord('scn_a', record())).not.toBeNull()
+    store()._rehydrateForTests()
+    expect(read()?.optionId).toBe('opt_a')
+    expect(read('scn_b')?.optionId).toBe('opt_b')
+  })
+
   it('overlapping writes to different scenarios both survive: A begins, B writes, A completes', async () => {
     const tab = await anotherTab()
     const original = Storage.prototype.setItem
