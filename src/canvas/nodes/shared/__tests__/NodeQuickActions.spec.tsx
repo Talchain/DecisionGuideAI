@@ -200,3 +200,58 @@ describe('NodeQuickActions — stays out of the owned top-right corner', () => {
     expect(el.className).not.toMatch(/(^|\s)-?top-/)
   })
 })
+
+/**
+ * ⭐⭐ THE MIRROR THIS LAYER INTRODUCED, AND THE DERIVATION THAT CLOSES IT.
+ *
+ * `CANVAS_CORNER_INSET_CLASSES` is read TWO ways, and they have to agree:
+ *   · the DOM gets the STRING —
+ *     `CANVAS_CORNER_INSET_CLASSES[CANVAS_QUICK_ACTION_INSET_PX]` →
+ *     `bottom-[6px] right-[6px]`, which is what POSITIONS the row;
+ *   · `NODE_QUICK_ACTION_BAND_PX` gets the KEY — `CANVAS_QUICK_ACTION_INSET_PX`
+ *     → `6`, which is what the card RESERVES against.
+ *
+ * Nothing above asserts the value spells its key, and the assertions in the
+ * block above cannot: `toContain(CANVAS_CORNER_INSET_CLASSES[…])` compares the
+ * class string TO ITSELF, and the `bottom-`/`right-` twins pin the CORNER, not
+ * the px. Measured, not argued: setting the map value to
+ * `bottom-[10px] right-[10px]` while leaving the key at `6` — so the row renders
+ * 10px from the edge while the card reserves for 6 — left this file 11/11 GREEN.
+ *
+ * That is the hand-maintained mirror `canvasGlyphScale.ts` exists to abolish
+ * (CLAUDE.md trap 12/12d), reintroduced inside the file written to abolish it.
+ * The sibling map `CANVAS_GLYPH_SIZE_CLASSES` already carries exactly this guard
+ * — "the size map spells exactly the px each key claims" — and the new map got
+ * the mirror without it.
+ *
+ * ⚠ IT LIVES HERE, in this layer's own spec, deliberately. A bound in
+ * `canvasGlyphTargetScale.spec.tsx` happens to catch this drift too, but a guard
+ * that exists only in a sibling is not this change's coverage and the sibling
+ * could be reverted.
+ */
+describe('NodeQuickActions — the corner inset map cannot drift from the band it feeds', () => {
+  it('the inset map spells exactly the px each key claims', () => {
+    const entries = Object.entries(CANVAS_CORNER_INSET_CLASSES)
+
+    // Non-vacuity first: an EMPTY map satisfies every assertion in the loop
+    // below, so the loop is evidence only once it is known to have run
+    // (CLAUDE.md trap 13 — an absence-shaped check needs to prove it can see).
+    expect(entries.length, 'the inset map is empty — the loop below asserts nothing').toBeGreaterThan(0)
+
+    for (const [key, value] of entries) {
+      // Exact string, never a substring. That is what makes this bite on a px
+      // that disagrees with its key, AND on an inset that quietly acquired the
+      // `calc(… * var(--canvas-label-scale))` its neighbours carry — which
+      // `NODE_QUICK_ACTION_BAND_PX` does not model and its header argues at
+      // length that it must not.
+      expect(value, `inset map key ${key} does not spell ${key}px`).toBe(
+        `bottom-[${key}px] right-[${key}px]`,
+      )
+    }
+
+    // …and the key the reservation actually derives from is one the map
+    // carries, so the loop above covered the entry the band depends on rather
+    // than some other entry that happens to be self-consistent.
+    expect(entries.map(([key]) => Number(key))).toContain(CANVAS_QUICK_ACTION_INSET_PX)
+  })
+})

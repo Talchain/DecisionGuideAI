@@ -15,9 +15,11 @@
  * targets reach 24 RENDERED px at the zoom a post-draft auto-fit parks at
  * (`LABEL_LEGIBLE_ZOOM` = 0.50, counter-scale 2). It fixed 80 of 117
  * unclickable controls and it is right. But it moved ONE HALF of a two-part
- * geometry: the row grew to `(6 + 20) x 2 = 52` CSS px while the reservation
- * stayed at a literal `24`, so the row began sitting 28px INSIDE the card's own
- * content box — over the value a user hovers the card in order to act on.
+ * geometry: the row grew to `6 + (20 + 2) x 2 = 50` CSS px — the box and the hit
+ * slop carry the counter-scale, the INSET deliberately does not — while the
+ * reservation stayed at a literal `24`, so the row began sitting 26px INSIDE the
+ * card's own content box — over the value a user hovers the card in order to act
+ * on.
  *
  * ⭐ THIS IS INVISIBLE TO EVERY OTHER INSTRUMENT IN THE REPO.
  *   · jsdom performs no layout, so every vitest spec on these components is
