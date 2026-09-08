@@ -35,9 +35,39 @@
  * unrepresentable.
  *
  * STILL DISABLED, HONESTLY: edge strength / likelihood / direction and the goal
- * target. They have no authority entry point, so `editConnectedIds` keeps their
- * affordances disabled with a label saying so. Wiring them through a local-only
- * write instead would recreate F6 on the surface built to kill it.
+ * target. `editConnectedIds` keeps their affordances disabled with a label
+ * saying so. Wiring them through a local-only write instead would recreate F6
+ * on the surface built to kill it.
+ *
+ * ⚠⚠ THE REASON ABOVE WAS "They have no authority entry point", AND THAT IS NO
+ * LONGER TRUE OF EDGE STRENGTH — corrected 8 Sep 2026 at the bytes.
+ *
+ * `edge_strength_edit` landed on 7 Sep with a UI emitter
+ * (`useEdgeMutations.setStrength`, building through
+ * `canvas/conversation/edgeStrengthEdit.ts`), a CEE writer, and enforce-mode
+ * CAS. RELAYED, not derived by me: another session's map of the served builds
+ * puts it among only five MUTATING event kinds CEE accepts, so it genuinely
+ * persists — unlike likelihood, direction and the goal target, for which the
+ * original sentence still stands exactly as written. What I did verify at the
+ * bytes is the emitter, the builder and the refusal behaviour.
+ *
+ * So edge strength is disabled here for a DIFFERENT and much smaller reason,
+ * and naming it correctly is the point of this correction: **this panel's edit
+ * path is parameterised by a NODE id, and an edge is addressed by its
+ * `(from, to)` pair.** `useModelEditAuthority`'s own header rules out putting an
+ * edge operation in a node authority — "adding an edge operation to a node
+ * authority would be the two-questions-one-name defect (trap 21), so the
+ * emitter lives at the edge setter instead."
+ *
+ * ⛔ THE PRACTICAL CONSEQUENCE FOR WHOEVER BUILDS THIS, so the hour I spent
+ * finding it is not spent twice: do NOT add `proposeEdgeStrength` to
+ * `useModelEditAuthority`. The work is (a) admit relationship edges to
+ * `editConnectedIds`, which today derives from `nodeKind(node) === 'factor'`
+ * and is the ACTUAL gate — `row.editable` is already `true` for relationships
+ * and is not what disables them — and (b) route a relationship row's commit to
+ * `useEdgeMutations(edgeId).setStrength` rather than to the node authority.
+ * The emitter already refuses a magnitude above 1 rather than clamping, and
+ * already writes a magnitude alone when no direction is stated.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'

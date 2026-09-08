@@ -82,6 +82,16 @@ export interface EditProposalHandle {
  *       rather than the absence-based rule `factor_value_edit` has to infer
  *       from, so the revert is buildable — it is simply not built.
  *
+ *   ⚠ AND WHY `proposeEdgeStrength` HAS NO ENTRY POINT ON THE MOUNTED PANEL
+ *   EVEN THOUGH ITS CARRIER LANDED — the two are different questions and the
+ *   panel's own header used to conflate them. `ModelTabV2Panel`'s edit path is
+ *   parameterised by a NODE id; an edge is addressed by its `(from, to)` pair,
+ *   and `useModelEditAuthority`'s header rules out putting an edge operation in
+ *   a node authority (trap 21). The gate is `editConnectedIds`, derived from
+ *   `nodeKind(node) === 'factor'` — NOT `row.editable`, which is already `true`
+ *   for relationships. Route a relationship commit to
+ *   `useEdgeMutations(edgeId).setStrength`, never through the node authority.
+ *
  *   LOCAL-ONLY TODAY — the gap this design depends on closing:
  *     · proposeEdgeLikelihood, proposeEdgeDirection, proposeOptionIntervention,
  *       proposeGoalTarget, proposeFactorConfirmation
