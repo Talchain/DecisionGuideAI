@@ -1,6 +1,6 @@
 /** Explicit deployment slot; never infer an upstream from a caller-controlled host. */
+import { BACKEND_SLOT } from './backend-slot.generated.ts'
 type Backend = 'cee' | 'plot' | 'isl'
-type ReadEnv = (name: string) => string | undefined
 
 const TARGETS = {
   staging: {
@@ -15,23 +15,9 @@ const TARGETS = {
   },
 } as const
 
-const runtimeEnv: ReadEnv = (name) => {
-  const runtime = globalThis as typeof globalThis & {
-    Netlify?: { env?: { get(name: string): string | undefined } }
-    Deno?: { env?: { get(name: string): string | undefined } }
-  }
-  return runtime.Netlify?.env?.get(name) ?? runtime.Deno?.env?.get(name)
-}
-
-export function resolveBackendTarget(backend: Backend, read: ReadEnv = runtimeEnv): string {
-  const slot = read('OLUMI_BACKEND_SLOT')
-  const context = read('CONTEXT')
-  // Existing staging/local builds retain their upstreams. Production must opt
-  // into the dedicated slot: missing or misspelt configuration fails closed.
-  if (context === 'production' && slot !== 'manual-test') {
-    throw new Error('Production requires OLUMI_BACKEND_SLOT=manual-test')
-  }
-  if (slot === undefined || slot === 'staging') return TARGETS.staging[backend]
-  if (slot === 'manual-test') return TARGETS['manual-test'][backend]
+export function resolveBackendTarget(backend: Backend, slot: string = BACKEND_SLOT): string {
+  // Selection is bundled at build time. CONTEXT is not guaranteed at the edge;
+  // absent runtime variables must never turn a manual-test deployment into staging.
+  if (slot === 'staging' || slot === 'manual-test') return TARGETS[slot][backend]
   throw new Error('Invalid OLUMI_BACKEND_SLOT')
 }

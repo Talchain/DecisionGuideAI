@@ -52,6 +52,18 @@
   # Orchestrator V2 — AI conversation pipeline
   VITE_ENABLE_ORCHESTRATOR_V2 = "true"
 
+# Non-secret selection is compiled into Edge Functions during build: Netlify's
+# build CONTEXT is not a runtime edge variable. No staging context is changed.
+[context.manual-test.environment]
+  OLUMI_BACKEND_SLOT = "manual-test"
+  VITE_STUB_SUPABASE = "0"
+  VITE_FEATURE_HERO_FIXTURE_GALLERY = "1"
+
+[context.production.environment]
+  OLUMI_BACKEND_SLOT = "manual-test"
+  VITE_STUB_SUPABASE = "0"
+  VITE_FEATURE_HERO_FIXTURE_GALLERY = "1"
+
 # =============================================================================
 # Staging-only env overrides
 # Netlify's deploy-context syntax scopes env vars to a specific branch's
