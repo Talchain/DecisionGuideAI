@@ -1757,7 +1757,14 @@ export const OptionNode = memo((props: NodeProps) => {
             `text-info` is Olumi's own voice on this canvas — the same token
             `OlumiAttentionCard` uses for "Olumi on {node}" — so the sentence
             reads as the product speaking about itself rather than as a datum
-            about the option. It is the only line on the card in that colour.
+            about the option.
+
+            ⚠ NOT UNIQUE ON THIS CARD, and the first draft of this comment
+            claimed it was. Measured: `text-info` also carries the "Supported
+            by" and "Review" affordances (lines ~1952 and ~2242), both of them
+            `underline cursor-pointer`. So the colour marks Olumi's register
+            here, not this element — it is a plain `<p>` and reads as text
+            rather than as a control, which is the distinction that matters.
 
             ⚠ NOT `aria-hidden`, and it carries no `title`. The neighbouring
             support row hides its parts from assistive technology and puts the
