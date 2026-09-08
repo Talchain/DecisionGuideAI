@@ -73,7 +73,7 @@ describe('independent PR 1299 acceptance counterexamples', () => {
     recordDissent(A, ID, 'Old words', 'hash-A')
     openCard()
     const original = Storage.prototype.setItem
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function(key, value) {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function(this: Storage, key, value) {
       if (this === localStorage && key.startsWith(PREFIX)) throw new DOMException('Full', 'QuotaExceededError')
       return original.call(this, key, value)
     })
@@ -94,7 +94,7 @@ describe('independent PR 1299 acceptance counterexamples', () => {
   it('failed first save keeps the entered words available, and retry persists them', () => {
     openCard()
     const original = Storage.prototype.setItem
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function(key, value) {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function(this: Storage, key, value) {
       if (this === localStorage && key.startsWith(PREFIX)) throw new DOMException('Full', 'QuotaExceededError')
       return original.call(this, key, value)
     })
@@ -155,7 +155,7 @@ describe('independent PR 1299 acceptance counterexamples', () => {
     const original = Storage.prototype.setItem
     let interleave = true
     let otherWriteSucceeded = false
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function(key, value) {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function(this: Storage, key, value) {
       if (this === localStorage && key.startsWith(PREFIX) && interleave) {
         interleave = false
         // B completes its real write before A's write commits. Per-record

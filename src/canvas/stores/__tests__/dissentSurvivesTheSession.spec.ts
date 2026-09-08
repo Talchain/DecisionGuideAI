@@ -105,7 +105,7 @@ describe('⛔ HARM 2 — the cross-tab clobber', () => {
   it('same-record overlap deliberately uses the last completed write, never merged prose', () => {
     const original = Storage.prototype.setItem
     let once = true
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function(key, value) {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function(this: Storage, key, value) {
       if (this === localStorage && key.startsWith(PREFIX) && once) {
         once = false
         expect(recordDissent(scenarioId, 'r1', 'Other writer completes first', 'hash_2')).toBe(true)
