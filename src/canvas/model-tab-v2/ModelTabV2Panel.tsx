@@ -64,7 +64,7 @@ import {
   nodeKind,
   type ModelProjectionInput,
 } from './adapters'
-import { MODEL_GROUP_IDS } from './types'
+import { MODEL_GROUP_IDS, type ModelGroupId } from './types'
 import type { DetailTier, EditCommitState, RepairQueue } from './types'
 
 export interface ModelTabV2PanelProps {
@@ -78,6 +78,8 @@ export interface ModelTabV2PanelProps {
    * otherwise.
    */
   fragileEdgeIds?: ReadonlySet<string>
+  /** A group a deep link wants open; forwarded straight to `ModelOutline`. */
+  openGroupRequest?: ModelGroupId | null
   /**
    * Hand a turn to Olumi, having FRONTED the conversation first.
    *
@@ -128,6 +130,7 @@ export function ModelTabV2Panel({
   edges,
   goalThreshold,
   fragileEdgeIds,
+  openGroupRequest,
   onHandOffToOlumi,
 }: ModelTabV2PanelProps) {
   const [tier, setTier] = useState<DetailTier>('plain')
@@ -590,6 +593,7 @@ export function ModelTabV2Panel({
            each buying one line. Level 1 is the shape of the model, level 2 is
            the rows. */
         initiallyClosedGroups={MODEL_GROUP_IDS}
+        openGroupRequest={openGroupRequest}
         rows={rows}
         tier={tier}
         filter={filter}
