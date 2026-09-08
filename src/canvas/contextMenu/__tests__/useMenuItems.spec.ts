@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
-import { LOCAL_SEMANTIC_CONTEXT_MENU_IDS, useMenuItems } from '../useMenuItems'
+import { CHALLENGE_KINDS, LOCAL_SEMANTIC_CONTEXT_MENU_IDS, useMenuItems } from '../useMenuItems'
+import { challengeTooltipFor } from '../challengeCopy'
+import { NodeTypeEnum } from '../../domain/nodes'
 import type { PaneTarget, NodeTarget, EdgeTarget, MultiTarget, MenuItemDef, MenuEntry } from '../types'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import type { Node, Edge } from '@xyflow/react'
@@ -155,6 +157,16 @@ describe('factor node menu (full)', () => {
     expect(subIds).toContain('ask-ai-explain')
     expect(subIds).toContain('ask-ai-challenge')
   })
+
+  /** The four kinds that already shipped keep their witnessed wording — this
+   *  change adds kinds, it does not reword the ones already on screen. */
+  it('keeps the shipped generic tooltip for factor', () => {
+    const { result } = renderHook(() =>
+      useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+    )
+    expect(findItem(result.current, 'ask-ai-challenge')?.tooltip)
+      .toBe("Ask AI to argue against this element's current setup")
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -179,14 +191,59 @@ describe('decision node menu (reduced)', () => {
     expect(ids).not.toContain('set-value')
   })
 
-  it('Ask AI only has Explain (no Challenge)', () => {
+  /**
+   * THE GAP THIS CLOSES. A Question node is the thing the whole model is
+   * about, and it was the one element a team could not argue with. Bound by
+   * the control's ID, never by a label another entry could carry.
+   */
+  it('Ask AI offers Challenge — the question itself is contestable', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
     const askAI = findItem(result.current, 'ask-ai')
     const subIds = askAI?.submenuItems?.filter((e): e is MenuItemDef => !('type' in e)).map((i) => i.id) ?? []
     expect(subIds).toContain('ask-ai-explain')
-    expect(subIds).not.toContain('ask-ai-challenge')
+    expect(subIds).toContain('ask-ai-challenge')
+  })
+
+  /**
+   * The tooltip must read true for THIS kind. "argue against this element's
+   * current setup" is false of a question — a question has no setup, it has a
+   * framing. Derived from the one copy producer, so a reword moves both
+   * surfaces or REDs here; pinned non-vacuous first, so a producer that
+   * silently stopped discriminating cannot make this pass by agreeing with
+   * itself (the fallback string is asserted DIFFERENT in the same test).
+   */
+  it('gives Challenge a tooltip written for a question, not the generic element wording', () => {
+    const { result } = renderHook(() =>
+      useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+    )
+    const challenge = findItem(result.current, 'ask-ai-challenge')
+    expect(challenge).toBeDefined()
+    expect(challengeTooltipFor('decision')).not.toBe(challengeTooltipFor('factor'))
+    expect(challenge!.tooltip).toBe(challengeTooltipFor('decision'))
+  })
+
+  /**
+   * ⭐ THE NONSENSE CONTROL. Widening `FULL_MENU_KINDS` would have bought the
+   * challenge entry AND three things that are nonsense here: Explore ▸ trace
+   * to goal, Set value ▸ best/worst case (a question carries no range, so
+   * these render permanently disabled with "Set a range first"), and Mark as
+   * assumption. This test REDs the moment someone takes that shortcut.
+   */
+  it('gains Challenge WITHOUT gaining the range-bearing full-menu items', () => {
+    const { result } = renderHook(() =>
+      useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+    )
+    const all = new Set(getAllItemIds(result.current))
+    expect(all.has('ask-ai-challenge')).toBe(true)
+    expect(all.has('explore')).toBe(false)
+    expect(all.has('trace-to-goal')).toBe(false)
+    expect(all.has('select-path-to-goal')).toBe(false)
+    expect(all.has('set-value')).toBe(false)
+    expect(all.has('set-value-best')).toBe(false)
+    expect(all.has('set-value-worst')).toBe(false)
+    expect(all.has('mark-assumption')).toBe(false)
   })
 
   it('withholds add connected factor without a receipt-bearing carrier', () => {
@@ -218,6 +275,79 @@ describe('constraint node menu', () => {
     const ids = getItemIds(result.current)
     expect(ids).not.toContain('add-connected-factor')
     expect(ids).not.toContain('mark-assumption')
+  })
+
+  it('Ask AI offers Challenge — a constraint carries the most challengeable setup of the three', () => {
+    const { result } = renderHook(() =>
+      useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+    )
+    const subIds = findItem(result.current, 'ask-ai')?.submenuItems
+      ?.filter((e): e is MenuItemDef => !('type' in e)).map((i) => i.id) ?? []
+    expect(subIds).toContain('ask-ai-challenge')
+  })
+
+  it('gives Challenge the constraint-specific tooltip', () => {
+    const { result } = renderHook(() =>
+      useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+    )
+    const challenge = findItem(result.current, 'ask-ai-challenge')
+    expect(challengeTooltipFor('constraint')).not.toBe(challengeTooltipFor('factor'))
+    expect(challenge?.tooltip).toBe(challengeTooltipFor('constraint'))
+  })
+
+  it('gains Challenge WITHOUT gaining the range-bearing full-menu items', () => {
+    const { result } = renderHook(() =>
+      useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+    )
+    const all = new Set(getAllItemIds(result.current))
+    expect(all.has('ask-ai-challenge')).toBe(true)
+    expect(all.has('explore')).toBe(false)
+    expect(all.has('set-value')).toBe(false)
+    expect(all.has('mark-assumption')).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Node menu — option
+// ---------------------------------------------------------------------------
+
+describe('option node menu', () => {
+  const node = {
+    id: 'o1', type: 'option', position: { x: 0, y: 0 },
+    data: { label: 'Hire in-house', kind: 'option' },
+  } as Node
+  const target: NodeTarget = {
+    kind: 'node', nodeId: 'o1', nodeType: 'option', node, screenPos: { x: 0, y: 0 },
+  }
+
+  it('Ask AI offers Challenge — the choices are contestable', () => {
+    const { result } = renderHook(() =>
+      useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+    )
+    const subIds = findItem(result.current, 'ask-ai')?.submenuItems
+      ?.filter((e): e is MenuItemDef => !('type' in e)).map((i) => i.id) ?? []
+    expect(subIds).toContain('ask-ai-explain')
+    expect(subIds).toContain('ask-ai-challenge')
+  })
+
+  it('gives Challenge the option-specific tooltip', () => {
+    const { result } = renderHook(() =>
+      useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+    )
+    const challenge = findItem(result.current, 'ask-ai-challenge')
+    expect(challengeTooltipFor('option')).not.toBe(challengeTooltipFor('factor'))
+    expect(challenge?.tooltip).toBe(challengeTooltipFor('option'))
+  })
+
+  it('gains Challenge WITHOUT gaining the range-bearing full-menu items', () => {
+    const { result } = renderHook(() =>
+      useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+    )
+    const all = new Set(getAllItemIds(result.current))
+    expect(all.has('ask-ai-challenge')).toBe(true)
+    expect(all.has('explore')).toBe(false)
+    expect(all.has('set-value')).toBe(false)
+    expect(all.has('mark-assumption')).toBe(false)
   })
 })
 
@@ -416,5 +546,34 @@ describe('central context-menu authority audit', () => {
       expect(mounted.has(forbidden), `${forbidden} mounted for ${target.kind}`).toBe(false)
     }
     expect(mounted.has('delete')).toBe(target.kind !== 'pane')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// CHALLENGE_KINDS — the gate itself
+// ---------------------------------------------------------------------------
+
+/**
+ * ⭐ A DERIVED GUARD PROVES AGREEMENT AND CAN NEVER PROVE THE LIST IS RIGHT
+ * (trap 12d). Every other test here derives its expectation from
+ * `CHALLENGE_KINDS`, so all of them would stay green if a kind quietly left
+ * the Set. This block is the hand-written corpus that notices a SHORT list —
+ * it is deliberately NOT derived, and it is the only place in this file where
+ * the membership is spelled out.
+ */
+describe('CHALLENGE_KINDS membership', () => {
+  it('offers challenge to every node kind a user can create, and to constraint', () => {
+    expect([...CHALLENGE_KINDS].sort()).toEqual(
+      ['constraint', 'decision', 'factor', 'goal', 'option', 'outcome', 'risk'],
+    )
+  })
+
+  /** `action` is in `NodeTypeEnum` but not in `NODE_TYPE_ITEMS`; nobody has
+   *  verified whether CEE ever emits one, so it is deliberately out of scope
+   *  rather than silently included. Stated, not hidden. */
+  it('leaves `action` out — an unverified kind is out of scope, not assumed in', () => {
+    expect(CHALLENGE_KINDS.has('action')).toBe(false)
+    const unoffered = NodeTypeEnum.options.filter(k => !CHALLENGE_KINDS.has(k))
+    expect(unoffered).toEqual(['action'])
   })
 })

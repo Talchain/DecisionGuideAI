@@ -42,6 +42,7 @@ import {
   setValueReset,
 } from './actions'
 import { DECISION_NODE_LABEL } from '../domain/vocabulary'
+import { challengeTooltipFor } from './challengeCopy'
 
 type ShowToastFn = (message: string, type: 'error' | 'info' | 'success' | 'warning') => void
 
@@ -292,6 +293,30 @@ function buildPaneMenu(
 const FULL_MENU_KINDS = new Set(['factor', 'risk', 'outcome'])
 /** Organisational node kinds: decision, option, constraint */
 const ORG_KINDS = new Set(['decision', 'option', 'constraint'])
+/**
+ * ⭐ WHO MAY BE ARGUED WITH — a SEPARATE Set, deliberately not `FULL_MENU_KINDS`.
+ *
+ * `isFull` gates FOUR unrelated things below: "Challenge this" (:319 before
+ * this change), Explore ▸ trace/select path to goal, Set value ▸ best/worst/
+ * reset/custom, and Mark as assumption. Widening it to reach the challenge
+ * entry would have handed a Question node "Set to the upper bound of this
+ * factor's range" — nonsense for a kind whose schema is the base plus a type
+ * literal, so `getNodeRange` returns null and those items render permanently
+ * disabled with "Set a range first". One name answering four questions is this
+ * estate's signature defect; the fix is to name the concepts apart.
+ *
+ * It also absorbs the `|| isGoal` epicycle that used to sit beside the gate in
+ * BOTH this file and `NodeQuickActions.tsx` — the one hand-copied fragment in
+ * the pair. The hover row derives its gate by importing this Set, so the two
+ * surfaces cannot disagree about who may be challenged.
+ *
+ * `action` is out: it is in `NodeTypeEnum` but absent from `NODE_TYPE_ITEMS`
+ * (six user-creatable kinds), and nobody has verified whether CEE ever emits
+ * one. That is a stated scope boundary, not a finding.
+ */
+const CHALLENGE_KINDS = new Set<string>([
+  'factor', 'risk', 'outcome', 'goal', 'decision', 'option', 'constraint',
+])
 
 function buildNodeMenu(
   target: Extract<ContextTarget, { kind: 'node' }>,
@@ -316,12 +341,12 @@ function buildNodeMenu(
       action: wrap(() => askAI(target, 'explain_element', showToast)),
     },
   ]
-  if (isFull || isGoal) {
+  if (CHALLENGE_KINDS.has(kind)) {
     askAIItems.push({
       id: 'ask-ai-challenge',
       label: 'Challenge this',
       icon: Zap,
-      tooltip: "Ask AI to argue against this element's current setup",
+      tooltip: challengeTooltipFor(target.nodeType),
       enabled: true,
       action: wrap(() => askAI(target, 'challenge_element', showToast)),
     })
@@ -743,4 +768,4 @@ function buildMultiMenu(
 }
 
 // Re-export for testing
-export { NODE_TYPE_ITEMS, FULL_MENU_KINDS, ORG_KINDS, getNodeRange }
+export { NODE_TYPE_ITEMS, FULL_MENU_KINDS, ORG_KINDS, CHALLENGE_KINDS, getNodeRange }

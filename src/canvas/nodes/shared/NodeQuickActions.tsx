@@ -4,7 +4,7 @@ import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useShowToastSafe } from '../../ToastContext'
 import { askAI, buildAskAIPrompt } from '../../contextMenu/actions'
-import { FULL_MENU_KINDS } from '../../contextMenu/useMenuItems'
+import { CHALLENGE_KINDS } from '../../contextMenu/useMenuItems'
 import { requestAsk, canReceiveAsk } from '../../ui/inspector-v2/askSemantic'
 import type { NodeType } from '../../domain/nodes'
 import { openNodeInspector } from './openNodeInspector'
@@ -13,19 +13,24 @@ import { openNodeInspector } from './openNodeInspector'
  * Does this node type have a generative prompt to offer?
  *
  * ⭐ DERIVED FROM THE MENU'S OWN SET, NEVER MIRRORED. `buildNodeMenu` gates
- * "Challenge this" on `FULL_MENU_KINDS.has(kind) || kind === 'goal'`; this
- * imports that same Set rather than re-listing `factor | risk | outcome`. A
- * hand-copied list here would drift the first time a kind joined or left the
- * menu's gate, and the drift would read as green — the hand-maintained mirror
- * this estate keeps paying for. If the menu stops offering the prompt, this
- * button stops rendering, by construction.
+ * "Challenge this" on `CHALLENGE_KINDS`; this imports that same Set rather
+ * than re-listing its members. A hand-copied list here would drift the first
+ * time a kind joined or left the menu's gate, and the drift would read as
+ * green — the hand-maintained mirror this estate keeps paying for. If the menu
+ * stops offering the prompt, this button stops rendering, by construction.
  *
- * The organisational kinds (`decision`, `option`, `constraint`) get NO button:
- * the menu builds no challenge prompt for them, so a control here would open
- * nothing. An affordance that opens nothing is worse than no affordance.
+ * ⚠ THIS DOCBLOCK USED TO SAY the organisational kinds get NO button, because
+ * the menu built no challenge prompt for them. That was true and is now FALSE:
+ * `decision`, `option` and `constraint` joined the Set, each with copy written
+ * for what it actually is (`contextMenu/challengeCopy.ts`). The sentence is
+ * rewritten rather than left standing — a comment that outlives its truth
+ * reads as already-audited, so the next reader trusts it instead of checking.
+ *
+ * The kinds with no button are whatever is OUTSIDE the Set — today, `action`.
+ * Do not re-derive that list here; read it from `CHALLENGE_KINDS`.
  */
 function hasChallengePrompt(nodeType: NodeType): boolean {
-  return FULL_MENU_KINDS.has(nodeType as string) || nodeType === 'goal'
+  return CHALLENGE_KINDS.has(nodeType as string)
 }
 
 /**
@@ -129,8 +134,11 @@ export const NodeQuickActions = memo(function NodeQuickActions({
    * it is `explain_element`: *"Explain the role of X in this decision model."*
    * That is a REPORTING question — it describes what is already on the card.
    * The product's one node-scoped GENERATIVE prompt, `challenge_element`
-   * (*"Challenge the current setup of X. What could be wrong or missing?"*),
-   * had no button: its only doors were RIGHT-CLICK → Ask AI ▸ Challenge this,
+   * (*"Challenge the current setup of X. What could be wrong or missing?"* —
+   * still the wording for factor, risk, outcome and goal; a question, an
+   * option and a constraint each get copy written for what they are, see
+   * `contextMenu/challengeCopy.ts`), had no button: its only doors were
+   * RIGHT-CLICK → Ask AI ▸ Challenge this,
    * and the overflow button beside this one, which re-emits that right-click.
    * Both land it two levels inside a menu, and right-click has no equivalent
    * gesture on a touch device.

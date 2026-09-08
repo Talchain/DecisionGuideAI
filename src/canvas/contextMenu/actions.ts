@@ -23,6 +23,7 @@ import {
 import type { PatchOperation } from '../conversation/types'
 import type { ContextTarget, NodeTarget, EdgeTarget, MultiTarget } from './types'
 import type { NodeType } from '../domain/nodes'
+import { buildNodeChallengePrompt } from './challengeCopy'
 
 type ShowToastFn = (message: string, type: 'error' | 'info' | 'success' | 'warning') => void
 
@@ -688,7 +689,10 @@ export function buildAskAIPrompt(target: ContextTarget, intent: string): string 
       return `Explain the role of "${label}" in this decision model.`
     }
     if (intent === 'challenge_element') {
-      return `Challenge the current setup of "${label}". What could be wrong or missing?`
+      // Per-kind copy lives in `challengeCopy` so the hover button and the
+      // menu tooltip inherit the same words from one edit. See that file for
+      // why it is not inlined here.
+      return buildNodeChallengePrompt(target.nodeType, label)
     }
   }
 

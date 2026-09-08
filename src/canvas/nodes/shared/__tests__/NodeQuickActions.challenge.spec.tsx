@@ -31,10 +31,19 @@
  *    `buildAskAIPrompt(target, 'challenge_element')` — the SAME producer the
  *    context menu calls — rather than pasted. A literal here would pass while
  *    the two copies drifted, which is how one idea comes to have two wordings.
+ *    ⚠ Derivation alone would also pass on a producer that had stopped
+ *    discriminating by kind, so every per-kind case below first asserts its
+ *    sentence DIFFERS from the `factor` one. A guard that agrees with itself
+ *    proves nothing.
  *
- * 4. THE EMPTINESS CONDITION. `option` and `decision` have no challenge prompt
- *    (the menu gates it on `FULL_MENU_KINDS ∪ {goal}`), so they must get NO
- *    button. An affordance that opens nothing is worse than no affordance.
+ * 4. THE GATE IS DERIVED, NEVER MIRRORED. The kinds that get a button are read
+ *    from `CHALLENGE_KINDS` — the menu's own Set — at test time, in both
+ *    directions: every member renders one, every non-member renders none. A
+ *    hand-copied list inside `NodeQuickActions` would REd here the moment it
+ *    disagreed with the menu, which is the drift this binding exists to catch.
+ *    `action` is the one kind still outside the Set, so the emptiness
+ *    condition is asserted on a kind that really is empty rather than on
+ *    `decision`/`option`, which now carry a prompt of their own.
  *
  * 5. A DISCRIMINATING PAIR. Clicking node-a's control must act on node-a and
  *    must NOT act on node-b — binding by identity, not by a value predicate
@@ -49,6 +58,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { NodeQuickActions } from '../NodeQuickActions'
 import { buildAskAIPrompt } from '../../../contextMenu/actions'
+import { CHALLENGE_KINDS } from '../../../contextMenu/useMenuItems'
+import { NodeTypeEnum } from '../../../domain/nodes'
+import type { NodeType } from '../../../domain/nodes'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 
@@ -62,9 +74,9 @@ function seedGraph() {
 /** The prompt the CONTEXT MENU would produce for the same node — the one
  *  authority for this copy. Built here rather than pasted so a drift between
  *  the menu's wording and the button's is a RED, not an invisible divergence. */
-function menuChallengePromptFor(node: typeof NODE_A): string {
+function menuChallengePromptFor(node: typeof NODE_A, nodeType: NodeType = 'factor'): string {
   return buildAskAIPrompt(
-    { kind: 'node', nodeId: node.id, nodeType: 'factor', node: node as never, screenPos: { x: 0, y: 0 } },
+    { kind: 'node', nodeId: node.id, nodeType, node: node as never, screenPos: { x: 0, y: 0 } },
     'challenge_element',
   )
 }
@@ -135,6 +147,50 @@ describe('NodeQuickActions — the generative prompt gets a door', () => {
     expect(selected.has('node-a')).toBe(false)
   })
 
+  /**
+   * ⭐ THE POINT OF THE CHANGE, READ AT THE PAYLOAD.
+   *
+   * A Question node is not "an element with a current setup" — it is the thing
+   * the whole model is about, and the generic sentence asks the wrong
+   * question of it. These cases read the string the composer actually
+   * received, for the node kind under test, bound by that kind.
+   *
+   * ⚠ EACH ONE PINS ITS OWN PRECONDITION. The per-kind assertion is preceded
+   * by a check that the producer returns something DIFFERENT for `factor` —
+   * without it, a producer that stopped discriminating by kind (the switch
+   * deleted, the table emptied) would satisfy every assertion below by handing
+   * out one sentence, and the test would applaud a change that undid itself.
+   */
+  it.each([
+    ['decision', 'how this question is framed'],
+    ['option', 'What would make it a worse choice'],
+    ['constraint', 'who could relax it'],
+  ] as const)('drafts copy written for a %s, not the generic element sentence', (kind, fragment) => {
+    const prefillChat = vi.fn()
+    const sendMessage = vi.fn()
+    useGuidanceStore.setState({ _prefillChat: prefillChat, _sendMessage: sendMessage } as never)
+    render(<NodeQuickActions nodeId="node-a" nodeType={kind} label="Hiring spend" />)
+
+    fireEvent.click(screen.getByTestId('node-action-challenge-node-a'))
+
+    const expected = menuChallengePromptFor(NODE_A, kind)
+    // Precondition: the producer really is discriminating by kind here.
+    expect(expected).not.toBe(menuChallengePromptFor(NODE_A, 'factor'))
+    expect(expected).toContain('Hiring spend')
+    expect(expected).toContain(fragment)
+    // …and the composer got exactly that, not a second spelling of it.
+    expect(prefillChat).toHaveBeenCalledTimes(1)
+    expect(prefillChat).toHaveBeenCalledWith(expected)
+    expect(sendMessage).not.toHaveBeenCalled()
+  })
+
+  /** The four kinds that already shipped keep the sentence users have seen —
+   *  this change adds kinds, it does not reword what is already on screen. */
+  it.each(['factor', 'risk', 'outcome', 'goal'] as const)('leaves the shipped %s wording untouched', (kind) => {
+    expect(menuChallengePromptFor(NODE_A, kind))
+      .toBe('Challenge the current setup of "Hiring spend". What could be wrong or missing?')
+  })
+
   it('falls back to the Ask-Olumi drawer when no composer is registered — still a draft, still not sent', () => {
     const sendMessage = vi.fn()
     const dispatchAction = vi.fn()
@@ -169,24 +225,38 @@ describe('NodeQuickActions — no challenge button where there is no challenge p
   })
 
   /**
-   * The gate must derive from the SAME set the menu gates on. `option` and
-   * `decision` are organisational kinds: the menu builds no "Challenge this"
-   * for them, so a button here would open a prompt that does not exist.
+   * ⭐ THE GATE, DERIVED FROM THE MENU'S OWN SET — BOTH DIRECTIONS.
+   *
+   * These two cases read `CHALLENGE_KINDS` at test time rather than listing
+   * kinds. Replace this component's `CHALLENGE_KINDS.has(...)` with a
+   * hand-copied literal and the pair REDs the moment that literal disagrees
+   * with the menu — in either direction: a SHORT list fails the first case, a
+   * LONG one fails the second. A test that listed the kinds itself would be a
+   * third copy of the same list and would agree with a mirror indefinitely.
+   *
+   * The membership of the Set is pinned separately, by a hand-written corpus
+   * in `useMenuItems.spec.ts`, because a derived guard proves agreement and
+   * can never notice that the list itself is short.
    */
-  it.each(['option', 'decision'] as const)('renders no challenge button for %s nodes', (kind) => {
+  it.each([...CHALLENGE_KINDS] as NodeType[])('DOES render a challenge button for %s nodes — every kind the menu offers it to', (kind) => {
+    useGuidanceStore.setState({ _prefillChat: vi.fn() } as never)
+    render(<NodeQuickActions nodeId="node-a" nodeType={kind} label="Hiring spend" />)
+
+    expect(screen.getByTestId('node-action-challenge-node-a')).toBeInTheDocument()
+  })
+
+  it.each(NodeTypeEnum.options.filter(k => !CHALLENGE_KINDS.has(k)))('renders no challenge button for %s nodes — the menu offers none', (kind) => {
     useGuidanceStore.setState({ _prefillChat: vi.fn() } as never)
     render(<NodeQuickActions nodeId="node-a" nodeType={kind} label="Hiring spend" />)
 
     expect(screen.queryByTestId('node-action-challenge-node-a')).toBeNull()
   })
 
-  /** The positive half of the same gate — without this the case above passes
-   *  on a component that renders the button for nothing at all. */
-  it.each(['factor', 'risk', 'outcome', 'goal'] as const)('DOES render a challenge button for %s nodes', (kind) => {
-    useGuidanceStore.setState({ _prefillChat: vi.fn() } as never)
-    render(<NodeQuickActions nodeId="node-a" nodeType={kind} label="Hiring spend" />)
-
-    expect(screen.getByTestId('node-action-challenge-node-a')).toBeInTheDocument()
+  /** The complement above is only meaningful if it is non-empty. Without this
+   *  an `it.each([])` would silently register ZERO cases and the suite would
+   *  still print green — an absence assertion pointed at nothing. */
+  it('has at least one kind outside the Set, so the negative case above is not vacuous', () => {
+    expect(NodeTypeEnum.options.filter(k => !CHALLENGE_KINDS.has(k)).length).toBeGreaterThan(0)
   })
 
   it('keeps the challenge button in the tab order and focus-ringed, like its siblings', () => {
