@@ -41,7 +41,7 @@
 import { resolveNodeTypeLiteral } from '../../../canvas/domain/nodes'
 import { factorIsConfirmable } from '../../../canvas/domain/valueProvenance'
 import { nodeValueSource } from '../driverValueProvenance'
-import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
+import { factorDisplayText, readFactorDisplayValue } from '../../../utils/formatFactorDisplayValue'
 
 /**
  * Above this many nodes a row shows the first `MARK_CAP` marks and says plainly
@@ -270,18 +270,31 @@ function labelOf(node: { id: string; data?: unknown }): string {
 /**
  * Does this node carry a stated value at all?
  *
- * ⚠ THE FIELD LIST IS THE SIGNATURE'S, ON PURPOSE. `stripNodeValueSignature`
- * below reads exactly these fields to decide "did anything change"; if this
- * predicate read a different set, a value could exist for one and not the other
- * — two answers to one question, which is how the defect this fixes arose.
+ * ⚠⚠ THE PARITY CLAIM THAT WAS HERE WAS FALSE, and a reviewer measured it.
+ * It read: *"THE FIELD LIST IS THE SIGNATURE'S, ON PURPOSE. `stripNodeValueSignature`
+ * reads exactly these fields"*. It does not — that function reads SIX
+ * (`value`, `raw_value`, `unit`, `cap`, `source`, `display_value`) and this
+ * predicate reads three. The divergence is DELIBERATE and the comment was simply
+ * wrong to describe it as parity: `unit`, `cap` and `source` DESCRIBE a value
+ * rather than being one, so a factor carrying only a unit has stated nothing.
+ * The two functions answer different questions and are now documented as doing so.
  *
- * `display_value` counts: a producer that sends only contextual text ("No
- * acquisition pursued") has stated something about the factor. `unit` and `cap`
- * do NOT count — they describe a value rather than being one.
+ * ⚠ AND THE FALSE CLAIM HID A REAL BUG. Reading only `observed_state.display_value`
+ * missed the TOP-LEVEL `data.display_value` — the documented CEE wire shape, and
+ * how an Olumi ESTIMATE arrives (`display_value: '0.25 to 0.75'` with no
+ * observed state at all). Such a factor was counted as "no value yet" while the
+ * Model tab called it "estimated by Olumi": the two surfaces contradicting each
+ * other about one factor, which is the defect this whole change exists to close.
+ *
+ * `readFactorDisplayValue` is the estate's shared entry point for that
+ * top-level→observedState precedence, so the rule is IMPORTED rather than
+ * re-derived here — a second copy is exactly how the two spellings drifted apart.
  */
 export function factorCarriesValue(node: { data?: unknown } | undefined): boolean {
   const n = node as Record<string, unknown> | undefined
   const inner = n?.data as Record<string, unknown> | undefined
+  // Olumi's estimate, and the CEE wire shape, both live here.
+  if (readFactorDisplayValue(inner) !== undefined) return true
   const obs = (n?.observedState ??
     n?.observed_state ??
     inner?.observedState ??

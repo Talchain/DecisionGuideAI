@@ -115,6 +115,37 @@ describe('noValueTotal counts values, not display text', () => {
   })
 
   /**
+   * ⭐⭐ THE TOP-LEVEL WIRE SHAPE — the reviewer's finding, and the CI failure.
+   *
+   * An Olumi ESTIMATE arrives as `data.display_value` at TOP LEVEL with no
+   * `observed_state` at all. Reading only `observed_state.display_value` counted
+   * such a factor as "no value yet" while the Model tab called it "estimated by
+   * Olumi" — the two surfaces contradicting each other about ONE factor, which is
+   * the defect this whole change exists to close. It failed
+   * `modelStripNoValueWorklist.spec.tsx`'s own assertion in CI.
+   */
+  it('an Olumi estimate at TOP LEVEL is a stated value', () => {
+    const estimated = {
+      id: 'f_e', type: 'factor', position: { x: 0, y: 0 },
+      data: { label: 'CRM feature fit', kind: 'factor', display_value: '0.25 to 0.75' },
+    }
+    expect(factorCarriesValue(estimated)).toBe(true)
+    expect(buildModelStrip([estimated as never]).noValueTotal).toBe(0)
+  })
+
+  /**
+   * ⚠ AND THE FIELDS THAT DESCRIBE A VALUE ARE STILL NOT ONE. The reviewer noted
+   * `stripNodeValueSignature` reads six fields while this predicate reads three.
+   * That divergence is deliberate — a unit with no number states nothing — and is
+   * pinned here so it is a decision rather than an oversight.
+   */
+  it('a unit, cap or source alone is not a value', () => {
+    for (const observed of [{ unit: '£' }, { cap: 100 }, { source: 'cee' }]) {
+      expect(factorCarriesValue(factor('x', observed))).toBe(false)
+    }
+  })
+
+  /**
    * ⚠ SCOPE CONTROL. Non-factors carry no `observed_state` in this shape, so an
    * unscoped count would return the whole model — the failure the original
    * `r.kind === 'factor'` guard was written for. It must survive this change.
