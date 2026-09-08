@@ -60,10 +60,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { NodeQuickActions } from '../NodeQuickActions'
-import { buildAskAIPrompt } from '../../../contextMenu/actions'
+import { buildAskAIPrompt, CHALLENGE_KINDS } from '../../../contextMenu/actions'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
-import type { NodeType } from '../../../domain/nodes'
+import { NodeTypeEnum, type NodeType } from '../../../domain/nodes'
 
 const NODE_A = { id: 'node-a', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Hiring spend' } }
 const NODE_B = { id: 'node-b', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Team productivity' } }
@@ -219,6 +219,57 @@ describe('NodeQuickActions — no challenge button where there is no challenge p
     render(<NodeQuickActions nodeId="node-a" nodeType={kind} label="Hiring spend" />)
 
     expect(screen.getByTestId('node-action-challenge-node-a')).toBeInTheDocument()
+  })
+
+  /**
+   * ⭐⭐ THE GUARD THAT PINS THE DERIVATION ITSELF — and it exists because the
+   * cases above DO NOT.
+   *
+   * Measured, not assumed (8 Sep 2026). A mutant that replaced this component's
+   * `CHALLENGE_KINDS.has(nodeType)` with a hand-listed Set of the same seven
+   * kinds AND dropped `decision` from the producer's Set — i.e. introduced
+   * exactly the mirror this file's docblock promises is impossible, and then
+   * drifted it — left this spec **17/17 GREEN**. Every `it.each` case above
+   * passed, because each names a kind and asserts a fixed expectation; none of
+   * them asks whether the component and the producer still AGREE.
+   *
+   * So the "derived, never mirrored" claim was, until this case, an assertion
+   * in a comment with nothing keeping it true — the hand-maintained-mirror
+   * defect one level up, in the guard against hand-maintained mirrors.
+   *
+   * This case is derived on BOTH sides: it walks every member of
+   * `NodeTypeEnum` — so a newly-minted kind is covered the day it is added,
+   * with no list here to update — and asserts the button renders for exactly
+   * the kinds `CHALLENGE_KINDS` admits. A mirror that agrees today passes; a
+   * mirror that drifts REDs on the kind that drifted, which is the whole
+   * property. It pins its own precondition (both classes non-empty), so it
+   * cannot pass by iterating nothing or by every kind landing on one side.
+   */
+  it('renders for EXACTLY the kinds the producer admits — a drifted mirror REDs here', () => {
+    useGuidanceStore.setState({ _prefillChat: vi.fn() } as never)
+
+    const admitted: NodeType[] = []
+    const withheld: NodeType[] = []
+    for (const kind of NodeTypeEnum.options) {
+      const { unmount } = render(
+        <NodeQuickActions nodeId="node-a" nodeType={kind} label="Hiring spend" />,
+      )
+      const rendered = screen.queryByTestId('node-action-challenge-node-a') !== null
+      ;(rendered ? admitted : withheld).push(kind)
+      unmount()
+    }
+
+    // Precondition: the walk must actually discriminate. Without this the
+    // comparison below is satisfiable by a component that renders nothing at
+    // all, or one that renders for everything (trap 13b — a guard agreeing
+    // with itself).
+    expect(admitted.length).toBeGreaterThan(0)
+    expect(withheld.length).toBeGreaterThan(0)
+
+    expect(new Set(admitted)).toEqual(new Set(CHALLENGE_KINDS))
+    for (const kind of withheld) {
+      expect(CHALLENGE_KINDS.has(kind)).toBe(false)
+    }
   })
 
   /**

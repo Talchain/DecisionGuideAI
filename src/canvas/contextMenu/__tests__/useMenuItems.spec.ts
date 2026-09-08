@@ -5,6 +5,8 @@ import type { PaneTarget, NodeTarget, EdgeTarget, MultiTarget, MenuItemDef, Menu
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import type { Node, Edge } from '@xyflow/react'
 import type { EdgeData } from '../../domain/edges'
+import { NodeTypeEnum, type NodeType } from '../../domain/nodes'
+import { CHALLENGE_KINDS, buildChallengeTooltip } from '../actions'
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -251,6 +253,73 @@ describe('decision node menu (reduced)', () => {
     )
     const ids = getItemIds(result.current)
     expect(ids).not.toContain('add-connected-factor')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Challenge — the menu is pinned to the producer, across every kind
+// ---------------------------------------------------------------------------
+
+describe('challenge gate — the menu offers it for exactly the kinds the producer admits', () => {
+  /**
+   * The per-kind blocks above each assert a fixed expectation for one kind, so
+   * none of them can see the menu and the producer DRIFTING APART — the same
+   * hole measured in the hover row's spec, and closed there the same way.
+   *
+   * Derived on both sides and walking every member of `NodeTypeEnum`, so a
+   * newly-minted kind is covered the day it is added. Its own precondition is
+   * pinned: both classes must be non-empty, or the comparison is satisfiable by
+   * a menu that offers challenge everywhere or nowhere.
+   */
+  it('across every NodeTypeEnum member, with no hand-listed kinds', () => {
+    const admitted: NodeType[] = []
+    const withheld: NodeType[] = []
+
+    for (const kind of NodeTypeEnum.options) {
+      const node = {
+        id: `n-${kind}`, type: kind, position: { x: 0, y: 0 },
+        data: { label: 'Anything', kind },
+      } as Node
+      const target: NodeTarget = {
+        kind: 'node', nodeId: `n-${kind}`, nodeType: kind, node, screenPos: { x: 0, y: 0 },
+      }
+      const { result } = renderHook(() =>
+        useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+      )
+      const askAI = findItem(result.current, 'ask-ai')
+      const subIds = askAI?.submenuItems?.filter((e): e is MenuItemDef => !('type' in e)).map((i) => i.id) ?? []
+      ;(subIds.includes('ask-ai-challenge') ? admitted : withheld).push(kind)
+    }
+
+    expect(admitted.length).toBeGreaterThan(0)
+    expect(withheld.length).toBeGreaterThan(0)
+    expect(new Set(admitted)).toEqual(new Set(CHALLENGE_KINDS))
+  })
+
+  /**
+   * And the tooltip, likewise derived: every offered kind's tooltip must be the
+   * string the producer builds for that kind. A menu that reverted to one fixed
+   * literal REDs here on the three kinds whose copy differs.
+   */
+  it('shows the producer\'s tooltip for each admitted kind', () => {
+    for (const kind of NodeTypeEnum.options) {
+      if (!CHALLENGE_KINDS.has(kind)) continue
+      const node = {
+        id: `n-${kind}`, type: kind, position: { x: 0, y: 0 },
+        data: { label: 'Anything', kind },
+      } as Node
+      const target: NodeTarget = {
+        kind: 'node', nodeId: `n-${kind}`, nodeType: kind, node, screenPos: { x: 0, y: 0 },
+      }
+      const { result } = renderHook(() =>
+        useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
+      )
+      const askAI = findItem(result.current, 'ask-ai')
+      const challenge = askAI?.submenuItems?.find(
+        (e): e is MenuItemDef => !('type' in e) && e.id === 'ask-ai-challenge',
+      )
+      expect(challenge?.tooltip).toBe(buildChallengeTooltip(kind))
+    }
   })
 })
 
