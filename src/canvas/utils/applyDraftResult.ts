@@ -13,7 +13,7 @@
 
 import { useCanvasStore } from '../store'
 import { captureBeforeIngest } from '../versions/autoCapture'
-import { DEFAULT_EDGE_DATA, readValidationMetadata } from '../domain/edges'
+import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength } from '../domain/edges'
 import { edgeValueSourcePatch } from '../domain/edgeValueProvenance'
 import { readCeeQualityDimensions } from './ceeQualityDimensions'
 import { saveAutosave } from '../store/scenarios'
@@ -139,6 +139,7 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
   // all lived twice. That reasoning now lives once, with the schema slot and
   // DEFAULT_EDGE_DATA it depends on, in domain/edges.ts. Read it there.
   const validation = readValidationMetadata(e.validation)
+  const serverStrength = readServerStatedStrength(e as Record<string, unknown>)
 
   return {
     id,
@@ -157,6 +158,11 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
       ...(provenanceSource !== undefined ? { provenance_source: provenanceSource } : {}),
       ...(existsProbability !== undefined ? { exists_probability: existsProbability } : {}),
       ...(validation !== undefined ? { validation } : {}),
+      // What the SERVER stated — the ONLY thing `edge_strength_edit.expected`
+      // may assert. HOP 1 OF 3; `buildEdge` (applyPatch.ts) and `DraftChat` are
+      // the twins. All three call the ONE reader, so the lockstep is structural
+      // rather than pinned, exactly as it is for `validation` above.
+      ...(serverStrength !== undefined ? { serverStrength } : {}),
       // Set-vs-defaulted markers. Derived from the resolved values themselves,
       // never from "we are in the CEE mapper so it must be CEE": when the wire
       // carried no belief at all, `beliefExists` is `undefined` here and the

@@ -435,16 +435,65 @@ function factorValue(data: unknown): string | null {
  */
 function edgeValue(data: unknown): string | null {
   const bag = (data ?? undefined) as Record<string, unknown> | undefined
-  const weight = resolveEdgeValueDisplay(bag, 'weight')
+  const seed = resolveEdgeStrengthEditSeed(bag)
+  if (seed === null) return null
+  return getDirectionalStrengthLabel(seed.seed, resolveEdgeDirectionDisplay(bag))
+}
+
+/**
+ * The NUMBER behind a relationship row's label, and whether the edge's direction
+ * is STATED — resolved together, once.
+ *
+ * ⭐⭐ THE TWO HALVES ARE RETURNED AS ONE FACT ON PURPOSE, and this is the whole
+ * reason the function exists rather than two call sites reading two resolvers.
+ * The number's MEANING depends on the flag: with a stated direction the seed is
+ * SIGNED and the editor is a signed control; without one the seed is a bare
+ * MAGNITUDE and the editor may not mint a sign. Deriving the seed in one place
+ * and the flag in another is trap 21 waiting to happen — a magnitude edited as
+ * though it were signed is precisely "a sign taken off a number", which the
+ * `proposeEdgeStrength` contract forbids in capitals.
+ *
+ * ⚠ `edgeValue` ABOVE IS BUILT FROM THIS, not beside it. The label the row shows
+ * and the number its editor opens with are then the same derivation by
+ * construction; they cannot drift into disagreeing about what the row means.
+ * `RelationshipStrengthEditSeed.directionStated` is exactly
+ * `resolveEdgeDirectionDisplay(...).show`, which is also what decides whether the
+ * label reads "... positive effect" or "... effect, direction not stated" — so a
+ * user reading the row and the authority writing the model consult one answer.
+ *
+ * ⚠ THE GATES ARE THE POINT, AND THEY ARE NOT MINE. An unstamped weight resolves
+ * to NOTHING rather than to the UI default (`resolveEdgeValueDisplay`), and a
+ * direction is never inferred from a sign (`resolveEdgeDirectionDisplay`). This
+ * surface must not be the one place in the estate that re-fabricates what those
+ * two resolvers exist to suppress — the Model tab printed "Strong positive
+ * effect" over exactly that fabrication before they were written.
+ *
+ * ⚠ THIS IS A DISPLAY-SIDE ANSWER AND MAY NOT BE USED FOR `expected`. It says
+ * what the row shows; it says NOTHING about what the server holds. That question
+ * belongs to `conversation/edgeServerStatedStrength.ts`, and substituting one for
+ * the other is the defect #1295 was the fix-forward for.
+ */
+export interface RelationshipStrengthEditSeed {
+  /** Signed when the direction is stated, a bare magnitude when it is not. */
+  readonly seed: number
+  /** Whether anyone has STATED this edge's direction — never read off a sign. */
+  readonly directionStated: boolean
+}
+
+export function resolveEdgeStrengthEditSeed(
+  data: Record<string, unknown> | undefined,
+): RelationshipStrengthEditSeed | null {
+  const weight = resolveEdgeValueDisplay(data, 'weight')
   if (!weight.show) return null
 
-  const direction = resolveEdgeDirectionDisplay(bag)
-  if (!direction.show) {
-    // A magnitude with no stated direction is a magnitude, not an effect.
-    return getDirectionalStrengthLabel(weight.value, direction)
+  const direction = resolveEdgeDirectionDisplay(data)
+  // A magnitude with no stated direction is a magnitude, not an effect.
+  if (!direction.show) return { seed: weight.value, directionStated: false }
+
+  return {
+    seed: direction.direction === 'negative' ? -weight.value : weight.value,
+    directionStated: true,
   }
-  const signed = direction.direction === 'negative' ? -weight.value : weight.value
-  return getDirectionalStrengthLabel(signed, direction)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

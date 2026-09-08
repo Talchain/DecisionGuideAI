@@ -57,6 +57,7 @@ import {
 } from '../DecisionNode'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { canvasCopyIsHonest } from './__helpers__/canvasCopyHonesty'
+import { COMPARATIVE_COPY } from '../../../components/results/utils/goalAnchorCopy'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -109,6 +110,50 @@ const optionEdges = [
   { id: 'e1', source: DECISION_ID, target: 'option-1', data: {} },
   { id: 'e2', source: DECISION_ID, target: 'option-2', data: {} },
 ]
+
+/**
+ * ⭐ THE LEADER SENTENCE, DERIVED FROM THE REGISTER RATHER THAN RE-TYPED.
+ *
+ * This spec asserted `/leads in 55% of scenarios/i` until 8 Sep 2026, when
+ * #1290 finished the 7 Sep `ahead`→`support` rename and this file was not
+ * carried with it. `staging` then could not pass its own required check, and
+ * every PR based on it was blocked.
+ *
+ * ⚠⚠ THE TWO ASSERTIONS FAILED IN OPPOSITE DIRECTIONS, WHICH IS WHY BOTH MOVED.
+ * The positive one (§3) went RED and said so. The negative one (§4) stayed
+ * GREEN — and was worse, because "leads in" can no longer render at all, so it
+ * had quietly become a test that could not fail. Re-pointing only the loud one
+ * would have left a permanently vacuous guard behind.
+ *
+ * Both now build their text from `COMPARATIVE_COPY`, the one register
+ * `DecisionNode` itself renders from (`DecisionNode.tsx` composes
+ * `{mostSupportedLabel}{' '}{COMPARATIVE_COPY.clause(pct)}`). Re-typing the
+ * wording here would create the second authority `metricVocabulary.ts` exists
+ * to abolish — the two would agree today and drift later, with no red anywhere.
+ */
+const escapeForRegExp = (literal: string): string => literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * The clause with ANY magnitude. Built by escaping the register's own output
+ * around a placeholder that carries no regex-special characters, so the
+ * escaping cannot corrupt the digit pattern.
+ */
+const SUPPORTED_CLAUSE_ANY_MAGNITUDE = new RegExp(
+  escapeForRegExp(COMPARATIVE_COPY.clause('__MAGNITUDE__')).replace('__MAGNITUDE__', '\\d+%'),
+  'i',
+)
+
+/**
+ * The whole sentence for THIS fixture, bound by IDENTITY: the option the
+ * producer actually recommended (`PERMITTED_REPORT.robustness
+ * .recommended_option_id === 'option-1'`), named, at its own probability —
+ * not a bare percentage another card could satisfy.
+ */
+const RECOMMENDED_OPTION_LABEL = optionNodes[0].data.label
+const LEADER_SENTENCE_FOR_FIXTURE = new RegExp(
+  `${escapeForRegExp(RECOMMENDED_OPTION_LABEL)}\\s+${escapeForRegExp(COMPARATIVE_COPY.clause('55%'))}`,
+  'i',
+)
 
 // ── Factor fixtures, one per bucket `useModelReadiness` can put a factor in ──
 //
@@ -421,8 +466,14 @@ describe('DecisionNode — the readiness summary on the card', () => {
       viewMode: 'standard',
     })
     renderDecision()
-    // Precondition: the producer-owned leader sentence really is on screen.
-    expect(screen.getByText(/leads in 55% of scenarios/i)).toBeDefined()
+    // Precondition: the producer-owned leader sentence really is on screen, and
+    // it NAMES the option the producer recommended — bound by identity, so a
+    // different card carrying the same percentage cannot satisfy it.
+    expect(screen.getByText(LEADER_SENTENCE_FOR_FIXTURE)).toBeDefined()
+    // ⛔ AND THE PATTERN §4 RELIES ON IS PROVEN TO MATCH A REAL SENTENCE HERE.
+    // Without this, §4's `toBeNull()` could pass against wording that no longer
+    // renders — which is exactly how it survived the #1290 rename unnoticed.
+    expect(screen.getByText(SUPPORTED_CLAUSE_ANY_MAGNITUDE)).toBeDefined()
     expect(screen.queryByTestId(RESTING)).toBeNull()
     expect(screen.queryByTestId(SUMMARY)).toBeNull()
   })
@@ -473,7 +524,7 @@ describe('DecisionNode — the readiness summary on the card', () => {
       composeReadinessSummary(readiness({ explicitCount: 1, inferredCount: 1 })),
     )
     // …and the producer's withheld leader stays withheld, in the SAME render.
-    expect(screen.queryByText(/leads in \d+% of scenarios/i)).toBeNull()
+    expect(screen.queryByText(SUPPORTED_CLAUSE_ANY_MAGNITUDE)).toBeNull()
     expect(screen.queryByTestId('decision-leader-metric-row')).toBeNull()
   })
 

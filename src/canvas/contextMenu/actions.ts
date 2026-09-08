@@ -669,6 +669,135 @@ export function traceToGoal(
 // ---------------------------------------------------------------------------
 
 /**
+ * ⭐ WHICH NODE KINDS CAN BE ARGUED WITH — the one gate, and it lives here.
+ *
+ * THE GAP THIS CLOSES, measured across all eight kinds on deployed staging
+ * `80ccf768` (8 Sep 2026): factor, goal, risk and outcome carried
+ * `ask · challenge · inspect · menu`; decision and option carried only
+ * `ask · inspect · menu`. The product would not let a team argue with the
+ * QUESTION it is answering, or with the CHOICES on the table — the two nodes a
+ * strategy team most wants to contest, missing from the strategic reasoning
+ * layer.
+ *
+ * ⚠ WHY THIS IS A NEW SET AND NOT A WIDENED `FULL_MENU_KINDS`. The one-line
+ * version of this change was to add `decision` and `option` to that Set. It
+ * gates FOUR things, not one — Challenge this, Explore ▸ Trace to goal, Set
+ * value ▸ Best case / Worst case / Reset to observed, and Mark as assumption —
+ * so widening it would silently have offered a Question node "Set to the upper
+ * bound of this factor's range". `DecisionNodeDataSchema` is the base schema
+ * plus a type literal: no range, no observed value, so `getNodeRange` returns
+ * null and those items would render permanently disabled behind "Set a range
+ * first". One name answering two questions is how that happens (trap 21), so
+ * the two questions get two names.
+ *
+ * ⭐ WHY IT LIVES IN THE PRODUCER RATHER THAN IN THE MENU. A kind is
+ * challengeable exactly when this file can build a challenge for it. Those are
+ * one fact, so they are one declaration — the Set sits beside the copy it
+ * gates. `NodeQuickActions` already DERIVES its hover control from the menu's
+ * gate rather than mirroring it; it now derives from this Set instead, which is
+ * the same design one step closer to the truth it was reaching for. Its old
+ * docblock asserted *"the menu builds no challenge prompt for them, so a
+ * control here would open nothing"* — a claim about this file, held in a
+ * consumer, where nothing could keep it true.
+ *
+ * CONSEQUENCE, and the reason this is a small change with a wide effect:
+ * moving a kind in or out here moves BOTH the right-click menu and the hover
+ * control row, with no second list to keep in sync.
+ *
+ * ⚠ `action` IS HELD OUT, AND THE SCOPE OF THAT IS STATED RATHER THAN HIDDEN.
+ * It is in `NodeTypeEnum` but absent from `NODE_TYPE_ITEMS` (the six
+ * user-creatable kinds) and its schema is the base plus a type literal. Whether
+ * CEE ever emits an `action` node was NOT verified by this lane. It is excluded
+ * because nothing established it is reachable — not because it was shown to be
+ * unreachable.
+ */
+export const CHALLENGE_KINDS: ReadonlySet<NodeType> = new Set<NodeType>([
+  'factor',
+  'risk',
+  'outcome',
+  'goal',
+  'decision',
+  'option',
+  'constraint',
+])
+
+/**
+ * The sentence the four already-shipped kinds get, unchanged and pinned.
+ *
+ * It is deliberately NOT re-worded for factor / risk / outcome / goal: those
+ * four are journey-witnessed on staging with this exact string, and rewording
+ * witnessed copy is a separate change with a separate justification.
+ */
+const genericChallengePrompt = (label: string) =>
+  `Challenge the current setup of "${label}". What could be wrong or missing?`
+
+/** The menu tooltip those four kinds get, likewise unchanged. */
+const GENERIC_CHALLENGE_TOOLTIP = "Ask AI to argue against this element's current setup"
+
+/**
+ * Per-kind challenge copy — the prompt AND the menu tooltip, together.
+ *
+ * ⭐ THEY ARE ONE ENTRY BECAUSE THEY ARE ONE PROMISE. The tooltip is the label
+ * on the door and the prompt is what is behind it; if they can be edited apart
+ * they will eventually describe different actions. The shipped tooltip is a
+ * single fixed string — *"Ask AI to argue against this element's current
+ * setup"* — which reads fine for a factor and is simply not true of a Question:
+ * a question has no "setup" to argue against, it has a FRAMING. That is what
+ * makes the copy part of this change rather than a follow-up.
+ *
+ * ⚠ "Question", not "Decision", is the user-facing word for this kind
+ * (`DECISION_NODE_LABEL`, `domain/vocabulary.ts` — Paul retired "Decision" on
+ * 31 Aug), so the decision copy argues with the question. Note that
+ * `vocabulary.ts` records why "Challenge" was REJECTED as a name for this NODE:
+ * the product already uses "challenge" as a verb for contesting an element.
+ * That reservation is exactly what this copy spends.
+ *
+ * Register: these say "Ask AI", matching the submenu they sit in ("Ask AI",
+ * tooltip "AI-powered analysis") rather than the "Ask Olumi" wording used on
+ * the hover row. One submenu, one vocabulary; the estate's mixed usage is a
+ * separate question and not this lane's to settle.
+ *
+ * Kinds absent from this table fall back to the generic pair above. The table
+ * is therefore additive: it cannot silently reword what already ships.
+ */
+const CHALLENGE_COPY: Partial<
+  Record<NodeType, { prompt: (label: string) => string; tooltip: string }>
+> = {
+  decision: {
+    prompt: (label) =>
+      `Challenge how this question is framed: "${label}". Is it the right thing to be working out, and what is it assuming?`,
+    tooltip: 'Ask AI to argue this is the wrong question to be asking',
+  },
+  option: {
+    prompt: (label) =>
+      `Challenge the option "${label}". What would make it a worse choice than it looks, and what alternative is missing?`,
+    tooltip: 'Ask AI to argue against this option',
+  },
+  // Constraint is included on the strength of its OWN schema, not by analogy:
+  // `ConstraintNodeDataSchema` carries `constraintType`, `thresholdValue`,
+  // `unit` and `hardConstraint` — more genuinely challengeable setup than a
+  // goal, which already ships the control. The three things worth contesting
+  // about a limit are whether it is real, whether it is set at the right level,
+  // and who has the authority to move it.
+  constraint: {
+    prompt: (label) =>
+      `Challenge the constraint "${label}". Is it real, is it set at the right level, and who could relax it?`,
+    tooltip: 'Ask AI to argue this constraint is wrong or negotiable',
+  },
+}
+
+/**
+ * The menu's tooltip for "Challenge this", from the same table as the prompt.
+ *
+ * Exported so `useMenuItems` reads it rather than holding its own string — the
+ * fixed literal it used to carry is precisely the hand-maintained mirror that
+ * would drift the first time either half was reworded.
+ */
+export function buildChallengeTooltip(nodeType: NodeType): string {
+  return CHALLENGE_COPY[nodeType]?.tooltip ?? GENERIC_CHALLENGE_TOOLTIP
+}
+
+/**
  * The one producer of ask-prompt copy for canvas elements.
  *
  * ⭐ EXPORTED so a surface can offer one of these prompts WITHOUT inheriting
@@ -688,7 +817,7 @@ export function buildAskAIPrompt(target: ContextTarget, intent: string): string 
       return `Explain the role of "${label}" in this decision model.`
     }
     if (intent === 'challenge_element') {
-      return `Challenge the current setup of "${label}". What could be wrong or missing?`
+      return (CHALLENGE_COPY[target.nodeType]?.prompt ?? genericChallengePrompt)(label)
     }
   }
 

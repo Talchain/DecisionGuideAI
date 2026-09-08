@@ -393,7 +393,14 @@ describe('canvas metric-noun vocabulary (Paul, 31 Aug 2026)', () => {
       // and `oneNounPerIdea.crossCard.spec.tsx` pins the decision. They are
       // here because they are the cases the caption rule exists to spare.
       ['the option card verb', `Supported by{' '}`],
-      ['the decision card verb, lower case', `{headline.winnerLabel} leads in {pct} of scenarios`],
+      // ⚠ WAS `{headline.winnerLabel} leads in {pct} of scenarios`, labelled
+      // "the decision card verb, lower case". That line no longer exists: the
+      // decision card was aligned to the register's own clause on 8 Sep 2026.
+      // Replaced with the line that IS there, because this list's contract is
+      // that every member is real and present in scope today — a sample kept
+      // for its rhetorical shape after its subject went away is the same
+      // hand-maintained mirror this file exists to abolish.
+      ['the decision card reading the register by reference', 'COMPARATIVE_COPY.clause(`${Math.round(headline.winProb * 100)}%`)'],
       // The register itself spells every retired noun, by design — it is the
       // authority, not a surface. It is spared by the rule rather than by an
       // exclusion list, which is why no exclusion list exists here any more.

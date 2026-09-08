@@ -41,6 +41,8 @@ const makeData = (over: {
 beforeEach(() => {
   useStrengthenStore.getState()._reset()
   try { sessionStorage.clear() } catch { /* jsdom */ }
+  // This isolated container omits AuthProvider: resolve its guest record owner.
+  useDecisionRecordStore.getState()._reset()
   useGuidanceStore.setState({ guidanceItems: [], _dispatchAction: null, _sendMessage: null } as never)
   useAskOlumiStore.setState({ isOpen: false, context: '', draft: '', label: '', targetId: null })
   useSuccessMeasureStore.setState({ isOpen: false })
@@ -237,7 +239,7 @@ describe('StrengthenContainer — decision-record wiring (Round 2)', () => {
     )
     expect(useStrengthenStore.getState().records['strengthen:commit'].status).toBe('recommended')
     act(() => {
-      useDecisionRecordStore.getState().saveRecord('scn-1', {
+      const capture = useDecisionRecordStore.getState().saveRecord('scn-1', {
         optionId: 'opt_a',
         optionLabel: 'Option A',
         confidence: 70,
@@ -246,6 +248,7 @@ describe('StrengthenContainer — decision-record wiring (Round 2)', () => {
         revisitTrigger: 'rt',
         analysedGraphHash: null,
       } as never)
+      expect(capture).not.toBeNull()
     })
     expect(useStrengthenStore.getState().records['strengthen:commit'].status).toBe('addressed')
   })
