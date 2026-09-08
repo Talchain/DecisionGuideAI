@@ -45,6 +45,18 @@ export interface RecRecord {
   analysisHash: string | null
   /** True when the model changed after this snapshot (label, never hide). */
   isStale: boolean
+  /**
+   * ⭐⭐ THE DECISION THIS RECORD WAS AUTHORED UNDER. `null` when the identity
+   * was unavailable at mint time, which is an HONEST UNKNOWN and is treated as
+   * unattributable rather than as "belongs to whatever is open now".
+   *
+   * Stamped at mint and NEVER re-stamped. It answers *which decision was this
+   * reasoning act about?*, not *which decision is open?* — re-stamping on a
+   * later write would launder a record into the decision that happened to be
+   * on screen, which is precisely the harm. (`guidanceStore`'s `minting` note
+   * records the same distinction, learned there the expensive way.)
+   */
+  scenarioId?: string | null
   history: RecHistoryEvent[]
 }
 
@@ -52,7 +64,13 @@ export interface StrengthenState {
   records: Record<string, RecRecord>
   priorityOrder: string[]
   /** Reconcile-by-id on a COMPLETED analysis — never wholesale replace. */
-  reconcile: (recs: Recommendation[], analysisHash: string, now?: number) => void
+  reconcile: (
+    recs: Recommendation[],
+    analysisHash: string,
+    /** The decision these findings are about. `null` = unattributable. */
+    scenarioId: string | null,
+    now?: number,
+  ) => void
   /** The model changed since the last completed analysis — label, never evict. */
   markAllStale: () => void
   markInProgress: (id: string, now?: number) => void
@@ -86,7 +104,13 @@ export interface StrengthenState {
    * No-op when a record is already held — it must never overwrite lifecycle
    * state that `reconcile` owns.
    */
-  seedIfAbsent: (rec: Recommendation, analysisHash: string | null, now?: number) => void
+  seedIfAbsent: (
+    rec: Recommendation,
+    analysisHash: string | null,
+    /** The decision this finding is about. `null` = unattributable. */
+    scenarioId: string | null,
+    now?: number,
+  ) => void
   /**
    * ⭐⭐ THE USER DISAGREES, AND SAYS WHY. Deliberately NOT A STATUS.
    *
@@ -108,6 +132,31 @@ export interface StrengthenState {
 }
 
 const STORAGE_KEY = 'strengthen.lifecycle.v1'
+
+/**
+ * ⭐⭐ THE DECISION IDENTITY IS PASSED IN, NOT LOOKED UP — and the first draft
+ * of this fix got that wrong in a way worth recording.
+ *
+ * `guidanceStore` states the hazard this closes in as many words: *"an
+ * unidentified blob could be adopted by the wrong decision, and a silent write
+ * with a wrong key is worse than no persistence at all."* This store wrote
+ * exactly such a blob — one fixed `sessionStorage` key, no decision stamp
+ * anywhere — and its history selector filtered on STATUS ALONE. So within one
+ * session, opening a second decision showed the findings retired on the FIRST
+ * one as that decision's own reasoning trail. Nothing in product code has ever
+ * cleared the key: `_reset` is its only remover and every caller is a spec.
+ *
+ * ⚠ THE FIRST DRAFT COPIED THE SIBLING'S *MECHANISM* — a provider installed on
+ * the canvas boot path — AND THAT WAS THE WRONG SHAPE HERE. It made the stamp
+ * depend on a mount ordering this store cannot see: with no provider installed
+ * every record mints unattributed, and an unattributed record is shown NOWHERE,
+ * so a boot-order change would silently empty the whole trail. Nine specs went
+ * red on exactly that, which is the failure mode arriving as a warning rather
+ * than as a defect. Both callers already hold the identity — the panel
+ * subscribes to it and compares against it three lines away — so it is a
+ * PARAMETER. Fewer moving parts, and it cannot be absent without the call site
+ * saying so.
+ */
 
 function loadPersisted(): Pick<StrengthenState, 'records' | 'priorityOrder'> {
   try {
@@ -135,7 +184,7 @@ function persist(records: Record<string, RecRecord>, priorityOrder: string[]): v
 export const useStrengthenStore = create<StrengthenState>((set, get) => ({
   ...loadPersisted(),
 
-  reconcile: (recs, analysisHash, now = Date.now()) => {
+  reconcile: (recs, analysisHash, scenarioId, now = Date.now()) => {
     const records = { ...get().records }
     const firingIds = new Set(recs.map((r) => r.id))
 
@@ -148,6 +197,7 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
           snapshot: rec,
           analysisHash,
           isStale: false,
+          scenarioId,
           history: [{ at: now, event: 'recommended' }],
         }
         continue
@@ -252,7 +302,7 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
     set({ records })
   },
 
-  seedIfAbsent: (rec, analysisHash, now = Date.now()) => {
+  seedIfAbsent: (rec, analysisHash, scenarioId, now = Date.now()) => {
     if (get().records[rec.id]) return
     const records = {
       ...get().records,
@@ -265,6 +315,7 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
         snapshot: rec,
         analysisHash,
         isStale: false,
+        scenarioId,
         history: [{ at: now, event: 'recommended' as const }],
       },
     }
@@ -346,9 +397,37 @@ export function selectActive(state: Pick<StrengthenState, 'records' | 'priorityO
     .filter((r): r is RecRecord => r != null && (r.status === 'recommended' || r.status === 'in_progress' || r.status === 'reopened'))
 }
 
-/** History: addressed or dismissed, most recent event first. */
-export function selectHistory(state: Pick<StrengthenState, 'records' | 'priorityOrder'>): RecRecord[] {
+/**
+ * History: addressed or dismissed **on THIS decision**, most recent event first.
+ *
+ * ⭐⭐ THE SCENARIO ARGUMENT IS THE FIX, AND IT IS REQUIRED ON PURPOSE.
+ *
+ * This filtered on STATUS ALONE while the store persists under one fixed
+ * session key that nothing in product code clears. So a reader who set two
+ * findings aside on one decision and then opened another was shown those
+ * findings as the NEW decision's reasoning trail — a record of thinking that
+ * never happened about it. The worst part is not the noise: the trail is the
+ * surface a reader trusts to say what they have already considered here.
+ *
+ * ⚠ FAIL CLOSED, IN BOTH DIRECTIONS. An unknown current decision (`null`) shows
+ * NOTHING, and a record with no stamp is shown NOWHERE. Both are records this
+ * function cannot attribute, and attributing them to whatever is open is the
+ * defect itself. Nothing is deleted — an unattributable record stays in the
+ * store and in storage; it is simply not claimed as this decision's history.
+ *
+ * ⚠ `selectActive` IS DELIBERATELY UNTOUCHED. It answers a different question —
+ * *what is live now?* — and is read by the parked hero, which is out of scope.
+ * Its records are re-grounded by `reconcile` against the current analysis, so
+ * it does not carry the same staleness. Widening this fix into it would change
+ * a surface this lane does not own (trap 21: name the questions apart).
+ */
+export function selectHistory(
+  state: Pick<StrengthenState, 'records' | 'priorityOrder'>,
+  scenarioId: string | null,
+): RecRecord[] {
+  if (scenarioId == null) return []
   return Object.values(state.records)
     .filter((r) => r.status === 'addressed' || r.status === 'dismissed')
+    .filter((r) => r.scenarioId === scenarioId)
     .sort((a, b) => (b.history[b.history.length - 1]?.at ?? 0) - (a.history[a.history.length - 1]?.at ?? 0))
 }

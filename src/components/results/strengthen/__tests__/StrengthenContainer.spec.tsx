@@ -236,6 +236,7 @@ describe('StrengthenContainer — decision-record wiring (Round 2)', () => {
         },
       ] as never,
       'h-test',
+      'scn-1',
     )
     expect(useStrengthenStore.getState().records['strengthen:commit'].status).toBe('recommended')
     act(() => {

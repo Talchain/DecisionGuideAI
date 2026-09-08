@@ -60,6 +60,11 @@ vi.mock('../../../../canvas/stores/strengthenStore', async (orig) => ({
 }))
 
 import { openAskOlumi } from '../../coaching/askOlumiStore'
+import { useCanvasStore } from '../../../../canvas/store'
+import { clearDurableDissent } from '../../../../canvas/stores/dissentStore'
+
+/** The decision every fixture in this file belongs to. */
+const SPEC_DECISION = 'scenario-under-test'
 
 const rec = (over: Partial<Recommendation> & { id: string }): Recommendation =>
   ({
@@ -82,6 +87,17 @@ const renderOpen = (ui: React.ReactElement) => {
 
 beforeEach(() => {
   records = {}
+  useCanvasStore.setState({ currentScenarioId: SPEC_DECISION })
+  /*
+   * ⚠ AND THE DURABLE DISSENT WITH IT, because giving these tests a decision
+   * identity switched ON a path they had never reached. `commitDispute` writes
+   * a durable, per-decision dissent and returns early when the identity is
+   * absent — which it always was here — so the objection one test recorded had
+   * never survived into the next. It does now, and without this reset a later
+   * test reads the earlier test's words. The leak is the SPEC's, not the
+   * product's: a real reader has a decision identity throughout.
+   */
+  clearDurableDissent()
   dismiss.mockClear()
   restoreDismissed.mockClear()
   dispute.mockClear()
@@ -100,6 +116,10 @@ const retiredRecord = (
   snapshot: { id, title },
   analysisHash: null,
   isStale: false,
+  /* The decision this record was authored under — `selectHistory` claims only
+     records that match the decision on screen, so an unstamped fixture is
+     correctly nobody's history. */
+  scenarioId: SPEC_DECISION,
   history: [
     { at: 1, event: 'recommended' as const },
     { at: 2, event: status, ...(whatChanged ? { whatChanged } : {}) },
@@ -121,7 +141,8 @@ describe('the dismissal can always act, whichever tab the reader came from', () 
      * silence. Bound to the recommendation BY IDENTITY, and to the hash, so a
      * seed of the wrong row or an unstamped record fails here.
      */
-    expect(seedIfAbsent).toHaveBeenCalledWith(one, 'v5:abc')
+    // The decision is threaded at the CALL SITE now, so the seam carries it.
+    expect(seedIfAbsent).toHaveBeenCalledWith(one, 'v5:abc', SPEC_DECISION)
     expect(seedIfAbsent.mock.invocationCallOrder[0]).toBeLessThan(
       dismiss.mock.invocationCallOrder[0],
     )
@@ -335,7 +356,7 @@ describe('recording a disagreement', () => {
 
     // Same ordering obligation as the dismissal: `dispute` no-ops without a
     // record, so a seed that ran second would lose the objection silently.
-    expect(seedIfAbsent).toHaveBeenCalledWith(one[0], 'v5:abc')
+    expect(seedIfAbsent).toHaveBeenCalledWith(one[0], 'v5:abc', SPEC_DECISION)
     expect(seedIfAbsent.mock.invocationCallOrder[0]).toBeLessThan(
       dispute.mock.invocationCallOrder[0],
     )

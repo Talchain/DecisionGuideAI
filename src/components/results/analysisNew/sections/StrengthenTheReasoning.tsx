@@ -412,7 +412,7 @@ export function StrengthenTheReasoning({
       // surface never reconciles — so without this the objection would be
       // silently discarded on any finding the OTHER tab had not already
       // recorded, which on a measured run was four of six.
-      seedIfAbsent(rec, context.analysisHash)
+      seedIfAbsent(rec, context.analysisHash, activeScenarioId)
       // The store no-ops on an empty reason; closing without recording is the
       // honest outcome, not a silent empty entry.
       dispute(rec.id, draft)
@@ -440,12 +440,23 @@ export function StrengthenTheReasoning({
       }
       closeDispute()
     },
-    [dispute, seedIfAbsent, draft, closeDispute],
+    [dispute, seedIfAbsent, draft, closeDispute, activeScenarioId],
   )
 
+  /**
+   * ⭐⭐ SCOPED TO THE DECISION ON SCREEN. This read `selectHistory` with no
+   * identity, and that selector filtered on STATUS ALONE over a store persisted
+   * under one fixed session key that nothing in product code clears — so a
+   * reader who set two findings aside on one decision and then opened another
+   * was shown those findings as the NEW decision's reasoning trail.
+   *
+   * ⚠ `activeScenarioId` IS ALREADY SUBSCRIBED IN THIS COMPONENT (`:241`) and
+   * this file already compares it against the store's own at `:407`. The
+   * identity was here the whole time; the trail simply never asked for it.
+   */
   const retired = useMemo(
-    () => selectHistory({ records: strengthenRecords, priorityOrder }),
-    [strengthenRecords, priorityOrder],
+    () => selectHistory({ records: strengthenRecords, priorityOrder }, activeScenarioId),
+    [strengthenRecords, priorityOrder, activeScenarioId],
   )
   /**
    * Counted BY STATUS, each on its own predicate — see the succeeded-state
@@ -901,7 +912,7 @@ export function StrengthenTheReasoning({
                     type="button"
                     onClick={() => {
                       // Seed first, for the same reason as the objection above.
-                      seedIfAbsent(rec, analysisHash)
+                      seedIfAbsent(rec, analysisHash, activeScenarioId)
                       dismiss(rec.id)
                       showUndo({ id: rec.id, title: rec.title })
                     }}

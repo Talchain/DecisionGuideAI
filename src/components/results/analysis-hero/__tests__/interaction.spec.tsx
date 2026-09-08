@@ -227,7 +227,7 @@ describe('AnalysisHero — interaction', () => {
     })
     useStrengthenStore
       .getState()
-      .reconcile([rec('strengthen:b', 'Second entry', 2), rec('strengthen:a', 'Top entry', 1)], 'hash1')
+      .reconcile([rec('strengthen:b', 'Second entry', 2), rec('strengthen:a', 'Top entry', 1)], 'hash1', 'scenario-under-test')
     const target = document.createElement('div')
     target.setAttribute('data-testid', 'strengthen-panel')
     const scrollSpy = vi.fn()
@@ -263,6 +263,7 @@ describe('AnalysisHero — interaction', () => {
         },
       ],
       'hash1',
+      'scenario-under-test',
     )
     render(<AnalysisHeroContainer data={makeHeroData()} />)
     expect(screen.queryByTestId('hero-next-rec')).toBeNull()

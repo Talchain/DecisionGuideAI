@@ -92,7 +92,23 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
   const records = useStrengthenStore((s) => s.records)
   const priorityOrder = useStrengthenStore((s) => s.priorityOrder)
   const active = useMemo(() => selectActive({ records, priorityOrder }), [records, priorityOrder])
-  const history = useMemo(() => selectHistory({ records, priorityOrder }), [records, priorityOrder])
+  /*
+   * ⭐ THE DECISION ON SCREEN, READ ONCE FOR THE WHOLE COMPONENT. It was
+   * already subscribed further down for `useDecisionRecordForScenario`; hoisted
+   * here rather than declared twice, because two reads of one identity is how
+   * two answers to "which decision is this?" get into one file.
+   */
+  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+  /*
+   * The trail is scoped to that decision. This surface consumes the same
+   * selector as the Reasoning tab, so it gets the same answer — leaving it
+   * unscoped would have made two tabs disagree about whose reasoning this is,
+   * which is the class of split this estate keeps paying for.
+   */
+  const history = useMemo(
+    () => selectHistory({ records, priorityOrder }, currentScenarioId),
+    [records, priorityOrder, currentScenarioId],
+  )
   const addressedCount = useMemo(
     () => Object.values(records).filter((r) => r.status === 'addressed').length,
     [records],
@@ -175,7 +191,16 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
   useEffect(() => {
     if (!inputs.analysisComplete && inputs.goalThreshold != null) return
     const { reconcile } = useStrengthenStore.getState()
-    reconcile(buildRecommendations(inputs), resultsHash ?? 'no-analysis')
+    // The decision these findings are about, so the reasoning trail on the
+    // other tab can tell them from another decision's. Threaded rather than
+    // looked up inside the store: the identity has to be present at MINT time
+    // and a store-side lookup would depend on a mount ordering neither surface
+    // can see.
+    reconcile(
+      buildRecommendations(inputs),
+      resultsHash ?? 'no-analysis',
+      useCanvasStore.getState().currentScenarioId,
+    )
   }, [inputs, resultsHash])
 
   // Setting a success target credits the success-measure rec DIRECTLY —
@@ -201,8 +226,8 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
   }, [freshnessDirty])
 
   // A captured decision record credits the commit rec — same direct-credit
-  // pattern as the success-measure threshold effect above.
-  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+  // pattern as the success-measure threshold effect above. `currentScenarioId`
+  // is read once at the top of this component.
   const decisionRecord = useDecisionRecordForScenario(currentScenarioId)
   useEffect(() => {
     if (!decisionRecord) return

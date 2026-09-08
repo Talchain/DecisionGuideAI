@@ -22,6 +22,9 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { useStrengthenStore } from '../strengthenStore'
 import type { Recommendation } from '../../../components/results/strengthen/strengthenTypes'
 
+/** The decision these pins are about — explicit since the store carries identity. */
+const PIN_DECISION = 'scenario-under-test'
+
 const rec = (id: string, priority = 10): Recommendation => ({
   id,
   helpType: 'clarify',
@@ -42,16 +45,16 @@ describe('strengthenStore.reconcile — observed behaviour pin', () => {
 
   it('PIN (:114): a NEW resultsHash reopens an ADDRESSED record whose trigger fires again', () => {
     const store = useStrengthenStore.getState()
-    store.reconcile([rec('r1')], 'hash-A')
+    store.reconcile([rec('r1')], 'hash-A', PIN_DECISION)
     store.markAddressed('r1', 'user fixed it')
     expect(useStrengthenStore.getState().records.r1.status).toBe('addressed')
 
     // Same hash: never nags.
-    useStrengthenStore.getState().reconcile([rec('r1')], 'hash-A')
+    useStrengthenStore.getState().reconcile([rec('r1')], 'hash-A', PIN_DECISION)
     expect(useStrengthenStore.getState().records.r1.status).toBe('addressed')
 
     // New hash: reopened, with the recorded reason.
-    useStrengthenStore.getState().reconcile([rec('r1')], 'hash-B')
+    useStrengthenStore.getState().reconcile([rec('r1')], 'hash-B', PIN_DECISION)
     const after = useStrengthenStore.getState().records.r1
     expect(after.status).toBe('reopened')
     expect(after.history.at(-1)).toMatchObject({
@@ -62,22 +65,22 @@ describe('strengthenStore.reconcile — observed behaviour pin', () => {
 
   it('PIN (:114): a NEW resultsHash also reopens a DISMISSED record', () => {
     const store = useStrengthenStore.getState()
-    store.reconcile([rec('r1')], 'hash-A')
+    store.reconcile([rec('r1')], 'hash-A', PIN_DECISION)
     store.dismiss('r1')
     expect(useStrengthenStore.getState().records.r1.status).toBe('dismissed')
 
-    useStrengthenStore.getState().reconcile([rec('r1')], 'hash-B')
+    useStrengthenStore.getState().reconcile([rec('r1')], 'hash-B', PIN_DECISION)
     expect(useStrengthenStore.getState().records.r1.status).toBe('reopened')
   })
 
   it('PIN (:133-148): an IN_PROGRESS record that stops firing is auto-addressed as "resolved by a model change"', () => {
     const store = useStrengthenStore.getState()
-    store.reconcile([rec('r1')], 'hash-A')
+    store.reconcile([rec('r1')], 'hash-A', PIN_DECISION)
     store.markInProgress('r1')
     expect(useStrengthenStore.getState().records.r1.status).toBe('in_progress')
 
     // r1 no longer fires under a NEW hash.
-    useStrengthenStore.getState().reconcile([rec('r2')], 'hash-B')
+    useStrengthenStore.getState().reconcile([rec('r2')], 'hash-B', PIN_DECISION)
     const after = useStrengthenStore.getState().records.r1
     expect(after.status).toBe('addressed')
     expect(after.history.at(-1)).toMatchObject({
@@ -88,19 +91,19 @@ describe('strengthenStore.reconcile — observed behaviour pin', () => {
 
   it('PIN (:133-148): a REOPENED record that stops firing is likewise auto-addressed', () => {
     const store = useStrengthenStore.getState()
-    store.reconcile([rec('r1')], 'hash-A')
+    store.reconcile([rec('r1')], 'hash-A', PIN_DECISION)
     store.markAddressed('r1')
-    useStrengthenStore.getState().reconcile([rec('r1')], 'hash-B')
+    useStrengthenStore.getState().reconcile([rec('r1')], 'hash-B', PIN_DECISION)
     expect(useStrengthenStore.getState().records.r1.status).toBe('reopened')
 
-    useStrengthenStore.getState().reconcile([rec('r2')], 'hash-C')
+    useStrengthenStore.getState().reconcile([rec('r2')], 'hash-C', PIN_DECISION)
     expect(useStrengthenStore.getState().records.r1.status).toBe('addressed')
   })
 
   it('PIN: a RECOMMENDED record that stops firing is retained, not auto-addressed or deleted', () => {
     const store = useStrengthenStore.getState()
-    store.reconcile([rec('r1')], 'hash-A')
-    useStrengthenStore.getState().reconcile([rec('r2')], 'hash-B')
+    store.reconcile([rec('r1')], 'hash-A', PIN_DECISION)
+    useStrengthenStore.getState().reconcile([rec('r2')], 'hash-B', PIN_DECISION)
     const after = useStrengthenStore.getState().records.r1
     expect(after).toBeDefined()
     expect(after.status).toBe('recommended')
@@ -108,7 +111,7 @@ describe('strengthenStore.reconcile — observed behaviour pin', () => {
   })
 
   it('PIN: priorityOrder is ASCENDING by priority (lower number sorts first)', () => {
-    useStrengthenStore.getState().reconcile([rec('low', 200), rec('high', 0)], 'hash-A')
+    useStrengthenStore.getState().reconcile([rec('low', 200), rec('high', 0)], 'hash-A', PIN_DECISION)
     expect(useStrengthenStore.getState().priorityOrder).toEqual(['high', 'low'])
   })
 })

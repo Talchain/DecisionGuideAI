@@ -35,6 +35,7 @@ vi.mock('../nodeMarks', async (orig) => ({
 }))
 
 import { openAskOlumi } from '../../coaching/askOlumiStore'
+import { useCanvasStore } from '../../../../canvas/store'
 
 /** Records the mocked store hands back; set per test before rendering. */
 let RECORDS: Record<string, RecRecord> = {}
@@ -69,12 +70,21 @@ const snapshot = (id: string): Recommendation =>
     priority: 10,
   }) as Recommendation
 
+/**
+ * The decision this trail belongs to. The store now stamps every record with
+ * the decision it was authored under, and `selectHistory` claims only records
+ * that match the one on screen — so a fixture with no stamp is, correctly,
+ * nobody's history.
+ */
+const SPEC_DECISION = 'scenario-under-test'
+
 const record = (id: string, status: 'addressed' | 'dismissed'): RecRecord => ({
   id,
   status,
   snapshot: snapshot(id),
   analysisHash: 'h',
   isStale: false,
+  scenarioId: SPEC_DECISION,
   history: [{ at: 1, event: status }],
 })
 
@@ -90,6 +100,7 @@ const renderOpen = () => {
 
 beforeEach(() => {
   RECORDS = {}
+  useCanvasStore.setState({ currentScenarioId: SPEC_DECISION })
   vi.mocked(openAskOlumi).mockClear()
 })
 
