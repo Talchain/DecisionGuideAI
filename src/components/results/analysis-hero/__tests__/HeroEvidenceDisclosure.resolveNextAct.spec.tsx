@@ -141,10 +141,29 @@ describe('the ACT control appears on a resolvable row', () => {
   })
 
   /*
-   * `'none'` is reserved for ids that are not factor nodes. The write authority
-   * returns 'not_encodable' for those (`useModelEditAuthority.ts:247`), so an act
-   * here would be an enabled button that does nothing — the one class that still
-   * gets silence, and it gets it by KIND, never for want of a value.
+   * `'none'` is reserved for ids that are not factor nodes, so an act here would
+   * be an enabled button that does nothing — the one class that still gets
+   * silence, and it gets it by KIND, never for want of a value.
+   *
+   * ⚠ CORRECTED 8 Sep 2026, and the correction matters more than the citation.
+   * This comment used to read "the write authority returns 'not_encodable' for
+   * those (`useModelEditAuthority.ts:247`)". Both halves were wrong.
+   *
+   *   · The LINE was wrong, and had been for some time — a line-number citation
+   *     into another file is a hand-maintained mirror (CLAUDE.md trap 12).
+   *   · The CLAIM was wrong, which is worse. Only
+   *     `proposeFactorConfirmation` refuses by kind, via
+   *     `resolveNodeTypeLiteral(node) !== 'factor'`.
+   *     `proposeFactorValue` performs NO kind check: its refusals are a missing
+   *     `activeNodeId`, a node absent from the store, and a null from
+   *     `buildFactorValueEditEvent` — and that builder is never handed a kind,
+   *     so it cannot refuse on one. Handed a goal id it would proceed.
+   *
+   * So the gate this test pins is NOT a mirror of a refusal downstream. It is
+   * the ONLY kind gate on this path, which is exactly what
+   * `useResultsSectionData`'s own comment says — the two now agree, where before
+   * this one contradicted it. Deriving `resolveNextAct` from the row's kind is
+   * therefore load-bearing, not defensive duplication.
    */
   it('offers nothing at all when the id is not a factor node', () => {
     renderResolveNext([row('goal_1', 'A Goal', 'none')])
