@@ -20,7 +20,7 @@
  * arithmetic invariant rather than a class literal. Enlarging abutting targets
  * makes each easier to hit and does nothing for telling them APART; only
  * SEPARATION discriminates. So the fix is both: `before:-inset-[2px]` on all
- * four (24×24, WCAG 2.2 AA 2.5.8) and `gap-1.5` (6px) so two 2px expansions
+ * quick actions (24×24 before canvas zoom) and `gap-1.5` (6px) so two 2px expansions
  * leave a 2px neutral band instead of overlapping.
  *
  * The invariant, stated against the spec rather than against the failure mode:
@@ -63,13 +63,9 @@ const visualPx = (cls: string): number | null => {
 describe('quick actions are reachable targets that do not touch', () => {
   beforeEach(() => {
     useCanvasStore.setState({ nodes: [NODE] } as never)
-    // ⚠ THE ASK BUTTON IS GATED, AND AN UNSEEDED FIXTURE HIDES IT. `canAsk`
-    // reads `canReceiveAsk` off the guidance store; with none of
-    // `_prefillChat` / `_sendMessage` / `_dispatchAction` set, only INSPECT and
-    // MENU render — measured, and it is why the precondition below asserts a
-    // button count rather than trusting the render. The deployed build shows
-    // ask/inspect/menu on a real node, so an unseeded fixture would have
-    // certified a cluster the user never sees.
+    // The send channel makes both AI shortcuts available; with no channel,
+    // only More renders. Assert the actual button count below so the spacing
+    // test cannot pass on a single isolated button.
     useGuidanceStore.setState({ _sendMessage: vi.fn() } as never)
   })
 
@@ -111,13 +107,13 @@ describe('quick actions are reachable targets that do not touch', () => {
     ).toBeGreaterThan(2 * worst)
   })
 
-  it('keeps ask and inspect distinguishable — the pair whose consequences differ', () => {
+  it('keeps ask and challenge distinguishable — the pair whose consequences differ', () => {
     render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
     // Bound by IDENTITY, never by a value predicate a sibling could satisfy:
-    // `ask` auto-sends a turn, `inspect` only opens a panel.
+    // `ask` auto-sends a turn, `challenge` only opens a draft.
     const ask = screen.getByTestId('node-action-ask-node-a')
-    const inspect = screen.getByTestId('node-action-inspect-node-a')
-    for (const [name, el] of [['ask', ask], ['inspect', inspect]] as const) {
+    const challenge = screen.getByTestId('node-action-challenge-node-a')
+    for (const [name, el] of [['ask', ask], ['challenge', challenge]] as const) {
       expect(expansionPx(el.className), `${name} has no hit expansion`).toBeGreaterThan(0)
     }
   })
