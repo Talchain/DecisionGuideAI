@@ -674,6 +674,24 @@ export interface SensitivitySection {
 
 export interface AnalysisNewViewModel {
   status: AnalysisNewStatus
+  /**
+   * ⭐⭐ MAY THIS RUN'S RANKING BE SPOKEN ABOUT AT ALL? `leaderDesignationPermitted
+   * (rec) === true`, computed ONCE and quoted — never re-derived downstream.
+   *
+   * ⚠ IT EXISTS SO A LEADER-RANKING MEMBER CAN BE GATED THE WAY THE PARKED TAB
+   * GATES IT, and the harm it guards is recorded in that tab's own words:
+   * *"CEE strips it on a withheld turn and its absence IS the withheld signal.
+   * The caveat's own presence must never be read as evidence that a ranking may
+   * be spoken about — that is how Authority 3 came to reconstruct a withheld
+   * leader and print 'X is slightly ahead' beside CEE's 'no option can be put
+   * forward yet'."*
+   *
+   * ⚠ REQUIRED, NEVER DEFAULTED, at every consumer. A default of `true` silently
+   * re-opens the claim for every future caller — the mirror-that-reads-green.
+   * And it is NOT `designationsWithheld`: that one carries an extra
+   * `rec.verdict != null` conjunct and answers a different question (trap 21).
+   */
+  leaderClaimPermitted: boolean
   atAGlance: AtAGlance
   /** ⭐ The two readings and whether they agree. Sits with the glance. */
   modelImplication: ModelImplication

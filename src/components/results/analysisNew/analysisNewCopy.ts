@@ -787,6 +787,14 @@ export const ANALYSIS_NEW_COPY = {
     savedLocally: 'Target set on your model. It will be used the next time you analyse.',
     notEncodable: 'That target could not be applied, so nothing changed.',
   },
+  /**
+   * ⭐ UI-AUTHORED HEADING ONLY. The sentence and its basis are the producer's
+   * and are rendered verbatim; nothing here summarises or qualifies them.
+   */
+  robustnessCaveat: {
+    title: 'How far this held',
+    basisPrefix: 'Tested against: ',
+  },
   modelStrip: {
     /**
      * The affordance, stated once above the marks. It describes the CONTROL,
