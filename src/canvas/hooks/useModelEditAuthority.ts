@@ -127,7 +127,7 @@ import {
 import { buildFactorValueEditEvent } from '../conversation/factorValueEdit'
 import { buildEdgeStrengthEditEvent } from '../conversation/edgeStrengthEdit'
 import { captureOptimisticFactorEdit } from '../conversation/optimisticFactorEdit'
-import { buildManualGoalTarget } from '../conversation/manualGoalTarget'
+import { buildManualGoalTarget, manualGoalTargetMessage } from '../conversation/manualGoalTarget'
 
 /**
  * How a proposal left this seam.
@@ -282,7 +282,7 @@ export function useModelEditAuthority(
     void Promise.resolve(dispatchAction({
       action_type: 'add_constraint', parameters, source: 'inspector',
       label: `Set minimum target: ${parameters.value} ${parameters.unit}`,
-      message: `Set the absolute minimum target for this goal to at least ${parameters.value} ${parameters.unit}. This is an absolute level, not a change from the current level.`,
+      message: manualGoalTargetMessage(parameters.value, parameters.unit),
     })).catch(() => { /* The conversation's existing failure channel owns this. */ })
     return 'dispatched' as const
   }, [activeNodeId, dispatchAction])

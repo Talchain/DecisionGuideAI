@@ -15,6 +15,7 @@ import { buildChipMeta } from '../../conversation/chipMeta'
 import { buildV5Payload } from '../../../v5/buildPayload'
 import { callV5Turn } from '../../../v5/v5Adapter'
 import { OrchestratorTurnPayloadSchema } from '@talchain/schemas/boundary'
+import { manualGoalTargetMessage } from '../../conversation/manualGoalTarget'
 
 const goal: Node = { id: 'goal-revenue', type: 'goal', position: { x: 0, y: 0 },
   data: { kind: 'goal', label: 'Annual revenue', goal_threshold_raw: 100000, goal_threshold_unit: '£' } }
@@ -57,7 +58,8 @@ describe('manual goal target uses the existing canonical typed action', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirm new value for Annual revenue' }))
     expect(dispatchAction).toHaveBeenCalledOnce()
     expect(dispatchAction.mock.calls[0][0]).toMatchObject({ action_type: 'add_constraint',
-      source: 'inspector', parameters: { target_id: 'goal-revenue', constraint_type: 'at_least', value: 120000, unit: '£' } })
+      source: 'inspector', parameters: { target_id: 'goal-revenue', constraint_type: 'at_least', value: 120000, unit: '£' },
+      message: 'This goal must be at least £120000. This is an absolute level, not a change from the current level.' })
     expect(useCanvasStore.getState().nodes).toEqual(before)
   })
   it('has a working factor control as the opposite control', () => {
@@ -95,6 +97,7 @@ describe('manual goal target uses the existing canonical typed action', () => {
     expect(screen.getByTestId('model-row-v2-goal-revenue-value-to')).toHaveTextContent('At least 80 % (absolute level)')
     fireEvent.click(screen.getByRole('button', { name: 'Confirm new value for Annual revenue' }))
     expect(dispatchAction.mock.calls[0][0].parameters).toMatchObject({ value: 80, unit: '%' })
+    expect(dispatchAction.mock.calls[0][0].message).toBe('This goal must be at least 80%. This is an absolute level, not a change from the current level.')
   })
   it('does not retarget an open proposal when another scenario reuses the goal id', () => {
     mount()
@@ -125,8 +128,15 @@ describe('manual goal target uses the existing canonical typed action', () => {
       { status: 200, headers: { 'Content-Type': 'application/json' } }))
     await callV5Turn(built.payload, { fetchImpl })
     const body = JSON.parse(fetchImpl.mock.calls[0][1].body)
+    expect(body.message).toBe(manualGoalTargetMessage(120000, '£'))
     expect(body.source).toBe('chip_click')
     expect(body.chip).toMatchObject({ action_type: 'add_constraint', parameters: {
       target_id: 'goal-revenue', constraint_type: 'at_least', value: 120000, unit: '£' } })
   })
+  it.each([[120000, '£', '£120000'], [80, '%', '80%'], [12.5, 'points', '12.5 points'],
+    [1e21, '$', '$1000000000000000000000'], [1e-7, 'points', '0.0000001 points']] as const)(
+    'states the exact %s %s amount without scientific notation or unit reassignment', (value, unit, amount) => {
+      expect(manualGoalTargetMessage(value, unit)).toBe(
+        `This goal must be at least ${amount}. This is an absolute level, not a change from the current level.`)
+    })
 })

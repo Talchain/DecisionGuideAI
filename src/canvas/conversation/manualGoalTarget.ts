@@ -11,3 +11,12 @@ export function buildManualGoalTarget(targetId: string, draft: string, unit: str
   })
   return built.ok ? built.parameters : null
 }
+
+/** Keep the explicit consent in the existing CEE lower-bound grammar. The
+ * constraint row needs this evidence separately from the goal's target frame. */
+export function manualGoalTargetMessage(value: number, unit: string): string {
+  const number = value.toLocaleString('en-US', { useGrouping: false, maximumSignificantDigits: 21 })
+  const amount = /^[£$€]$/.test(unit) ? `${unit}${number}`
+    : unit === '%' ? `${number}%` : `${number} ${unit}`
+  return `This goal must be at least ${amount}. This is an absolute level, not a change from the current level.`
+}
