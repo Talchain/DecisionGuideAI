@@ -62,6 +62,7 @@ import { resolveRawFactorConfidenceDisplay, type FactorConfidenceDisplay } from 
 // are retained UNCHANGED — the design's §7 KEEP/CUT removals await Paul's
 // verdict and are deliberately not executed in this train.
 import { ModelTabV2Panel } from '../model-tab-v2/ModelTabV2Panel'
+import { MODEL_GROUP_IDS, type ModelGroupId } from '../model-tab-v2/types'
 // THE ONE hand-off for affordances that terminate in a conversation. Built here
 // because this file is the Model tab's only live-app seam; the v2 directory
 // stays free of fronting and store concerns.
@@ -249,8 +250,26 @@ export const ModelTabBody = memo(function ModelTabBody({
   // relationships", and ContestedSection. Pinned in
   // `__tests__/ModelTabBody.v1StackCollapsed.spec.tsx`.
   const pendingSection = useUIStore(s => s.pendingModelTabSection)
+  /**
+   * The group the deep link wants OPEN — held here rather than read from
+   * `pendingSection`, which is cleared at the end of the effect below, so the
+   * outline would never see it.
+   *
+   * Since the outline began arriving closed, all five callers of this deep link
+   * landed the reader on a COLLAPSED heading: the `<section>` this scrolls to
+   * renders unconditionally, its body does not. The comment above still
+   * describes the intended behaviour — a passive-effect state update flushes
+   * before paint, so the RAF callback sees the expanded DOM — which is exactly
+   * what had stopped happening, because nothing outside `ModelOutline` could
+   * open a group.
+   */
+  const [openGroupRequest, setOpenGroupRequest] = useState<ModelGroupId | null>(null)
   useEffect(() => {
     if (!pendingSection) return
+    // Set BEFORE the RAF is scheduled, so the outline re-renders expanded and
+    // only then does the callback measure and scroll.
+    const groupId = MODEL_GROUP_IDS.find(g => g === (pendingSection as string))
+    setOpenGroupRequest((groupId as ModelGroupId | undefined) ?? null)
     requestAnimationFrame(() => {
       if (!mountedRef.current) return
       const target = MODEL_SECTION_TARGET[pendingSection] ?? 'model-tab-v2-panel'
@@ -910,6 +929,7 @@ export const ModelTabBody = memo(function ModelTabBody({
           canonical transaction exists. ADDITIVE: the v1 sections below are
           unchanged — §7's removals await Paul's KEEP/CUT verdict. */}
       <ModelTabV2Panel
+        openGroupRequest={openGroupRequest}
         nodes={nodes}
         edges={edges}
         goalThreshold={goalThreshold}

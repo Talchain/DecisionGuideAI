@@ -725,6 +725,11 @@ export interface DriverItem {
    *  a set-relative 1.0 is "largest in this set", not a causal share. Optional
    *  only for legacy fixtures — the live pipeline always sets it. */
   displayProvenance?: 'influence_score' | 'normalised_elasticity'
+  /** The producer's `importance_basis` stamp for this row's influenceScore,
+   *  verbatim. Consumed only by `influenceScaleCopy`, which keys its wording
+   *  on the VALUE — never interpreted here. Optional: legacy fixtures and
+   *  pre-stamp payloads omit it, and that absence must stay silent. */
+  importanceBasis?: string
   /** Producer influence_rank (1 = most influential). Additive; roadmap 1.7 (provisional_doctrine_v0). */
   influenceRank?: number
   /** ISL zero_reason - explains why sensitivity is zero for intervention factors */
@@ -1213,6 +1218,13 @@ export interface UiFactorSensitivity {
   direction: FactorDirection | null
   confidence: number | null
   importanceRank: number
+  /**
+   * The producer's own `importance_basis` stamp for `influenceScore`,
+   * VERBATIM (e.g. "graph_structural"). Additive passthrough; snake_case wire
+   * field only. Absent when the row did not carry one - an absent stamp is
+   * never evidence of any particular basis.
+   */
+  importanceBasis?: string
   /** ISL influence_score (0-1) - structural causal influence */
   influenceScore?: number
   /** Producer influence_rank (1 = most influential). Additive; roadmap 1.7 (provisional_doctrine_v0). */

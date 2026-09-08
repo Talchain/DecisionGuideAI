@@ -87,11 +87,45 @@ export interface GlyphOffset {
 export const GLYPH_ANCHOR_RADIUS = 26
 
 /**
- * Extra radius per ring, for siblings whose approach directions are too close
- * to separate on angle alone. 24 graph units clears the glyph's own painted box
- * (~20 units wide at the 0.50 auto-fit zoom the product parks a fresh model at).
+ * The glyph's own painted box, in graph units, at the 0.50 auto-fit zoom the
+ * product parks a fresh model at.
+ *
+ * ⚠ THIS FIGURE WAS PROSE UNTIL 7 SEP 2026 and is a constant now because a
+ * SECOND mark at the target end has to be positioned against it: the direction
+ * arrowhead (`EDGE_ARROWHEAD_FLOW_LENGTH`, `edges/edgePresentation.ts`), which
+ * grows BACK from the target anchor along the same axis this glyph sits on. A
+ * number two readers copy is the hand-maintained mirror this estate keeps
+ * paying for (CLAUDE.md trap 12); named here, the arrowhead derives against it.
+ *
+ * ⚠ SCOPE, STATED PLAINLY. `~20 units` is the figure `GLYPH_RING_STEP` was
+ * ALREADY chosen against, and it is NOT re-derived here — re-deriving it would
+ * move a shipped, separately-measured placement rule. Where it comes from:
+ * `typography.edgeLabel` is `calc(10px * var(--canvas-label-scale,1))`, so with
+ * the counter-scale at its bound (`MAX_LABEL_COUNTER_SCALE` = 2) the glyph's
+ * declared font-size is 20 graph units at the park. A `leading-tight` LINE BOX
+ * is taller than that (~25 units); the INK of a `+`/`−` is smaller than either.
+ * None of the three is measured — jsdom has no text metrics and this estate has
+ * no paint witness for the canvas. Read every number here as arithmetic.
  */
-export const GLYPH_RING_STEP = 24
+export const GLYPH_PAINTED_BOX_FLOW = 20
+
+/**
+ * The gap this canvas leaves between two marks at the target end so they read
+ * as separate rather than as one blob. 4 graph units is 2px at the 0.50 park —
+ * one causal stroke width, the thinnest mark this canvas draws, and therefore
+ * the smallest gap that can still read as a gap at the zoom the product parks
+ * a fresh model at.
+ */
+export const GLYPH_BOX_GAP_FLOW = 4
+
+/**
+ * Extra radius per ring, for siblings whose approach directions are too close
+ * to separate on angle alone. Clears the glyph's own painted box, plus the gap.
+ *
+ * ⚠ VALUE UNCHANGED AT 24. This is the same number that stood here as a literal
+ * until 7 Sep 2026, now spelled as the sum its own docblock already described.
+ */
+export const GLYPH_RING_STEP = GLYPH_PAINTED_BOX_FLOW + GLYPH_BOX_GAP_FLOW
 
 /**
  * Two approach directions closer than this are treated as coincident and are

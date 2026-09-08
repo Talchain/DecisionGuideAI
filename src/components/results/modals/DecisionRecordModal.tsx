@@ -13,8 +13,16 @@
  * POSTed to CEE and persisted in `decision_records` with
  * `committed_by_user: true` and `confidence_source: 'user_stated'` — the
  * first user-stated calibration population this product has ever had.
- * Everything still lands in sessionStorage first, so a failed commit
+ * Everything still lands in the browser store first, so a failed commit
  * degrades the record from "durable" to "on this device", never to "lost".
+ *
+ * ⚠ THAT STORE IS `localStorage`, NOT `sessionStorage`. Superseded text:
+ * ~~Everything still lands in sessionStorage first~~. `decisionRecordStore`
+ * moved on 7 Sep 2026 so a record survives to the LATER visit it exists to be
+ * read back on; this sentence is corrected here rather than left as a stale
+ * mirror of a file it does not own (CLAUDE.md trap 12). See that store's
+ * header for the lifetime, and `scenarioKey.ts` for why its sibling
+ * `successMeasureStore` did NOT move.
  *
  * ⭐ WHY AN "EXPECTATION" FIELD RATHER THAN REUSING THE RATIONALE. The
  * outcome is scored against `prediction.statement`, a FORWARD claim. A
@@ -38,6 +46,8 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import { useCanvasStore } from '../../../canvas/store'
+import { useAuth } from '../../../contexts/AuthContext'
+import { sanitiseUserId } from '../../../lib/guestIdentity'
 import { commitDecisionRecord } from '../../../services/decisionRecordCommitService'
 import { typography } from '../../../styles/typography'
 import {
@@ -49,6 +59,7 @@ import {
   PRIMARY_BUTTON_CLASS,
   useModalToast,
 } from './ModalShell'
+import { selectAnalysedOptions, type AnalysedOption } from './analysedOptions'
 import { resolveScenarioKey } from './scenarioKey'
 import {
   selectDecisionRecord,
@@ -59,18 +70,13 @@ import {
 export const DECISION_RECORD_COPY = {
   title: 'Record the decision',
   subtitle: 'Capture the choice and what would justify revisiting it.',
-  /**
-   * ⚠ THIS NOTE USED TO SAY "Prototype only … Durable saving depends on
-   * identity and Model Management." Leaving it would have been a FALSE
-   * disclosure in the other direction: for a signed-in user the choice, the
-   * confidence, the expectation and the review date now persist to their
-   * account. The note names the split precisely rather than claiming more or
-   * less than is true.
-   */
+  // Before save, identity licenses an attempt, not a claim of remote success.
   persistenceNote:
-    'Your choice, confidence, expectation and review date are saved to your account. The rationale, assumption and revisit trigger stay on this device for this scenario.',
+    'We’ll try to save your choice, confidence, expectation and review date to your account. The rationale, assumption and revisit trigger stay on this device for this scenario.',
   guestNote:
-    'Signed out, so this stays on this device for this scenario and ends with the browser session. Sign in to keep a durable record.',
+    'Signed out: this record stays on this device for this scenario. It is not saved to an account.',
+  identityPendingNote: 'We’re checking your sign-in. Account saving is not confirmed.',
+  localOnlyNote: 'Account saving is unavailable for this model. The record stays on this device.',
   savedRemoteNote: 'Saved to your account.',
   emptyState:
     'Run an analysis first. There are no analysed options to record a decision against yet.',
@@ -84,7 +90,10 @@ export const DECISION_RECORD_COPY = {
   revisitLabel: 'Revisit trigger or date',
   revisitPlaceholder: 'e.g. runway falls below 9 months, or 2026-12-01',
   revisitHelp:
-    'Give a date and we set your review date to it. Give a trigger and we keep the text here and set the review date 90 days out.',
+    'If the account save succeeds, its review date is your recognised date or, when the text is not a recognised date, 90 days from now. Your text stays here.',
+  localRevisitHelp:
+    'Your date or trigger is kept as text in this record. No review date is set automatically.',
+  identityPendingRevisitHelp: 'Enter a date or a trigger for revisiting this decision.',
   rationaleLabel: 'Concise rationale',
   rationalePlaceholder: 'Why this is the best current choice',
   assumptionLabel: 'Key assumption to watch',
@@ -98,17 +107,11 @@ export const DECISION_RECORD_COPY = {
   assumptionError: 'Add the assumption most likely to change the choice.',
   revisitError: 'Add a revisit trigger or date.',
   toastSaved: 'Decision recorded and saved to your account.',
+  toastNotKept: 'This record could not be kept. Please try again.',
   toastSavedLocal: 'Decision recorded on this device.',
   toastSavedLocalAfterError:
     'Decision recorded on this device — we could not save it to your account.',
 } as const
-
-interface AnalysedOption {
-  id: string
-  label: string
-  /** Stable number from optionNumbering, only when EVERY option has one. */
-  number: number | null
-}
 
 function parseConfidence(raw: string): number {
   // NON-EMPTY strict parse — the prototype accepted '' because
@@ -118,6 +121,7 @@ function parseConfidence(raw: string): number {
 }
 
 export function DecisionRecordModal() {
+  const { user, loading } = useAuth()
   const isOpen = useDecisionRecordStore((s) => s.isOpen)
   const close = useDecisionRecordStore((s) => s.close)
   const { showToast, toastElement } = useModalToast('decision-record-toast')
@@ -130,28 +134,40 @@ export function DecisionRecordModal() {
   const resultsStatus = useCanvasStore((s) => s.results.status)
   const analysisHash = useCanvasStore((s) => s.results.hash ?? null)
   const numbering = useCanvasStore((s) => s.optionNumbering)
+  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+  // Optional auth calls guests authenticated too; use the actual identity.
+  // The commit service rechecks identity/capture and confirms a real save.
+  const accountUserId = sanitiseUserId(user?.id)
+  const canAttemptAccountSave = !loading && accountUserId !== null &&
+    typeof currentScenarioId === 'string' && currentScenarioId !== ''
+  const persistenceNote = loading
+    ? DECISION_RECORD_COPY.identityPendingNote
+    : accountUserId === null
+      ? DECISION_RECORD_COPY.guestNote
+      : canAttemptAccountSave
+        ? DECISION_RECORD_COPY.persistenceNote
+        : DECISION_RECORD_COPY.localOnlyNote
+  const revisitHelp = loading
+    ? DECISION_RECORD_COPY.identityPendingRevisitHelp
+    : canAttemptAccountSave
+      ? DECISION_RECORD_COPY.revisitHelp
+      : DECISION_RECORD_COPY.localRevisitHelp
 
-  const options = useMemo<AnalysedOption[]>(() => {
-    if (resultsStatus !== 'complete') return []
-    const optionNodes = nodes.filter(
-      (n) =>
-        n.type === 'option' ||
-        (n.data as Record<string, unknown> | undefined)?.kind === 'option',
-    )
-    if (optionNodes.length === 0) return []
-    const allNumbered = optionNodes.every((n) => numbering[n.id] != null)
-    const mapped = optionNodes.map((n) => {
-      const label = (n.data as Record<string, unknown> | undefined)?.label
-      return {
-        id: n.id,
-        label: typeof label === 'string' && label.trim() !== '' ? label : n.id,
-        number: allNumbered ? numbering[n.id] : null,
-      }
-    })
-    return allNumbered
-      ? [...mapped].sort((a, b) => (a.number as number) - (b.number as number))
-      : mapped
-  }, [nodes, resultsStatus, numbering])
+  /**
+   * ⚠⚠ THIS PREDICATE NOW LIVES IN `analysedOptions.ts` AND IS SHARED. It used
+   * to be computed inline here, and the `DecisionRecorded` section offered its
+   * door on `!isPreRun` instead — a DIFFERENT question ("has this session ever
+   * completed a run?" vs "is there an analysed option set on screen now?").
+   * The two diverge on every rerun, error and cancellation, because
+   * `hasCompletedFirstRun` is monotonic while `resultsStart` preserves the
+   * prior report — so the section rendered a door onto this fail-closed empty
+   * state. Restating the condition there would have been a hand-maintained
+   * mirror (CLAUDE.md trap 12); both surfaces derive it from one function.
+   */
+  const options = useMemo<AnalysedOption[]>(
+    () => selectAnalysedOptions(nodes, resultsStatus, numbering),
+    [nodes, resultsStatus, numbering],
+  )
 
   const hasOptions = options.length > 0
 
@@ -267,8 +283,6 @@ export function DecisionRecordModal() {
     // LOCAL FIRST, ALWAYS. Whatever happens on the network, the user's input
     // is already kept — a failed commit degrades the record from "durable" to
     // "on this device", never to "lost".
-    useDecisionRecordStore.getState().saveRecord(scenarioKey, record)
-
     // A stable per-save id: a retry of THIS save replays through CEE's dedupe
     // branch, while a genuinely new save gets a new id and is never swallowed
     // by the previous one.
@@ -276,6 +290,13 @@ export function DecisionRecordModal() {
       typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
         : `${scenarioKey}:${record.savedAt}`
+
+    const capture = useDecisionRecordStore.getState().saveRecord(scenarioKey, record, clientCommitId)
+    if (!capture) {
+      saveFiredRef.current = false
+      showToast(DECISION_RECORD_COPY.toastNotKept)
+      return
+    }
 
     if (typeof scenarioId !== 'string' || scenarioId === '') {
       // No persisted scenario ⇒ nothing CEE could anchor an owner to. Local
@@ -295,14 +316,20 @@ export function DecisionRecordModal() {
       expectationStatement: record.expectation ?? '',
       revisitTriggerOrDate: record.revisitTrigger,
       clientCommitId,
+      expectedOwnerId: capture.ownerId,
+      isCurrentCapture: () => useDecisionRecordStore.getState().isCurrentCapture(scenarioKey, capture),
     }).then((result) => {
+      // A different capture or account may now own this modal. An old response
+      // must neither confirm its text nor close it or toast for the new user.
+      if (!useDecisionRecordStore.getState().isCurrentCapture(scenarioKey, capture)) return
       setSaving(false)
       if (result.status === 'saved') {
-        useDecisionRecordStore.getState().attachRemote(scenarioKey, {
+        const promoted = useDecisionRecordStore.getState().attachRemote(scenarioKey, capture, {
           recordId: result.recordId,
           reviewDate: result.reviewDate,
           reviewDateSource: result.reviewDateSource,
         })
+        if (!promoted) return
         close()
         showToast(DECISION_RECORD_COPY.toastSaved)
         return
@@ -334,7 +361,7 @@ export function DecisionRecordModal() {
           data-testid="decision-record-note"
           className={`mt-2.5 rounded-[9px] border border-panel-border bg-panel px-[9px] py-2 ${typography.panelMeta} text-text-light`}
         >
-          {DECISION_RECORD_COPY.persistenceNote}
+          {persistenceNote}
         </p>
 
         {!hasOptions && (
@@ -454,7 +481,7 @@ export function DecisionRecordModal() {
               data-testid="decision-record-revisit-help"
               className={`${typography.panelMeta} text-text-light`}
             >
-              {DECISION_RECORD_COPY.revisitHelp}
+              {revisitHelp}
             </p>
             <FieldError id={revisitErrorId} show={touched.revisit === true && !revisitValid}>
               {DECISION_RECORD_COPY.revisitError}

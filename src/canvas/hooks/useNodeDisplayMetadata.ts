@@ -54,6 +54,13 @@ export interface NodeDisplayMetadata {
    */
   influenceProvenance: DriverDisplayProvenance | null
   /**
+   * The producer's `importance_basis` stamp for this factor's influence
+   * figure, verbatim, or null. Read off the SAME shared display entry the
+   * Drivers panel reads, and interpreted only by `influenceScaleCopy` — this
+   * hook never decides what a basis means.
+   */
+  influenceImportanceBasis: string | null
+  /**
    * Factor confidence score (0-1), ALREADY GATED by the shared display policy
    * (`components/results/driverConfidenceDisplayPolicy`). Null when the
    * producer sent none OR when the ruled policy says the figure is not fit to
@@ -246,6 +253,7 @@ export function useNodeDisplayMetadata(
         sensitivityRank: null,
         influence: null,
         influenceProvenance: null,
+        influenceImportanceBasis: null,
         confidence: null,
         confidenceIsDefaulted: false,
         confidenceIsProvisional: false,
@@ -269,6 +277,7 @@ export function useNodeDisplayMetadata(
     let sensitivityRank: number | null = null
     let influence: number | null = null
     let influenceProvenance: DriverDisplayProvenance | null = null
+    let influenceImportanceBasis: string | null = null
     let confidence: number | null = null
     let confidenceIsDefaulted = false
     let confidenceIsProvisional = false
@@ -435,6 +444,7 @@ export function useNodeDisplayMetadata(
         if (measured && modelEntry) {
           influence = modelEntry.value
           influenceProvenance = modelEntry.provenance
+          influenceImportanceBasis = modelEntry.importanceBasis
         }
 
         // Confidence: resolved through THE shared display policy, never read
@@ -642,6 +652,7 @@ export function useNodeDisplayMetadata(
       sensitivityRank,
       influence,
       influenceProvenance,
+      influenceImportanceBasis,
       confidence,
       confidenceIsDefaulted,
       confidenceIsProvisional,
