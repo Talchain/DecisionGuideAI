@@ -7,6 +7,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 
+const authState = vi.hoisted(() => ({
+  user: { id: 'guest' } as { id: string } | null,
+  loading: false,
+  // Optional auth deliberately grants route access to guests too.
+  authenticated: true,
+}))
+vi.mock('../../../../contexts/AuthContext', () => ({ useAuth: () => authState }))
+
 // The DURABLE half is exercised end-to-end in
 // DecisionRecordModal.durableCommit.spec.tsx (real service, mocked fetch).
 // Here the commit is stubbed to the GUEST result so this file keeps testing
@@ -71,6 +79,9 @@ function fillValid() {
 }
 
 beforeEach(() => {
+  authState.user = { id: 'guest' }
+  authState.loading = false
+  authState.authenticated = true
   sessionStorage.clear()
   // The decision record persists to localStorage (it must outlive the tab), so
   // clearing only sessionStorage would leak a record between cases in this file.
@@ -115,14 +126,69 @@ describe('DecisionRecordModal — chrome and a11y', () => {
     expect(document.activeElement).toBe(opener)
   })
 
-  it('names the durable/local split honestly — never "prototype only" now that the record persists', () => {
+  it.each(['guest', null, ''])('keeps guest %j recording device-only even when route access is authenticated', (id) => {
+    authState.user = id === null ? null : { id }
     render(<DecisionRecordModal />)
     openModal()
     const note = screen.getByTestId('decision-record-note')
-    // What IS durable, and what is NOT — both stated, neither over-claimed.
-    expect(note).toHaveTextContent('saved to your account')
-    expect(note).toHaveTextContent('stay on this device')
+    expect(note).toHaveTextContent('Signed out')
+    expect(note).toHaveTextContent('this record stays on this device for this scenario')
+    expect(note).toHaveTextContent('not saved to an account')
+    expect(note).not.toHaveTextContent('saved to your account')
+    expect(note).not.toHaveTextContent('Sign in to')
+    const revisitHelp = screen.getByTestId('decision-record-revisit-help')
+    expect(revisitHelp).toHaveTextContent('kept as text')
+    expect(revisitHelp).toHaveTextContent('No review date is set automatically')
+    expect(revisitHelp).not.toHaveTextContent('90 days')
+  })
+
+  it('names only the signed-in save attempt and the exact durable/local field split', () => {
+    authState.user = { id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' }
+    render(<DecisionRecordModal />)
+    openModal()
+    const note = screen.getByTestId('decision-record-note')
+    expect(note).toHaveTextContent('try to save your choice, confidence, expectation and review date to your account')
+    expect(note).toHaveTextContent('rationale, assumption and revisit trigger stay on this device for this scenario')
+    expect(note).not.toHaveTextContent('are saved')
     expect(note.textContent ?? '').not.toContain('Prototype only')
+    const revisitHelp = screen.getByTestId('decision-record-revisit-help')
+    expect(revisitHelp).toHaveTextContent('If the account save succeeds')
+    expect(revisitHelp).toHaveTextContent('recognised date')
+    expect(revisitHelp).toHaveTextContent('90 days')
+  })
+
+  it.each(['guest', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'])('does not guess account saving while identity %s is unresolved', (id) => {
+    authState.user = { id }
+    authState.loading = true
+    const { rerender } = render(<DecisionRecordModal />)
+    openModal()
+    const note = screen.getByTestId('decision-record-note')
+    expect(note).toHaveTextContent('checking your sign-in')
+    expect(note).not.toHaveTextContent('Signed out')
+    expect(note).not.toHaveTextContent('try to save')
+    expect(note).not.toHaveTextContent('saved to your account')
+    expect(screen.getByTestId('decision-record-revisit-help')).toHaveTextContent('Enter a date or a trigger')
+    expect(screen.getByTestId('decision-record-revisit-help')).not.toHaveTextContent('90 days')
+    authState.loading = false
+    rerender(<DecisionRecordModal />)
+    expect(note).toHaveTextContent(id === 'guest' ? 'Signed out' : 'try to save')
+    expect(screen.getByTestId('decision-record-revisit-help')).toHaveTextContent(
+      id === 'guest' ? 'No review date is set automatically' : 'If the account save succeeds',
+    )
+  })
+
+  it.each([null, ''])('does not offer account saving without a scenario identity (%j)', (currentScenarioId) => {
+    authState.user = { id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' }
+    useCanvasStore.setState({ currentScenarioId })
+    render(<DecisionRecordModal />)
+    openModal()
+    const note = screen.getByTestId('decision-record-note')
+    expect(note).toHaveTextContent('Account saving is unavailable for this model')
+    expect(note).toHaveTextContent('record stays on this device')
+    expect(note).not.toHaveTextContent('Signed out')
+    expect(note).not.toHaveTextContent('try to save')
+    expect(screen.getByTestId('decision-record-revisit-help')).toHaveTextContent('No review date is set automatically')
+    expect(screen.getByTestId('decision-record-revisit-help')).not.toHaveTextContent('90 days')
   })
 })
 
