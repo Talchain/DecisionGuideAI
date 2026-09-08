@@ -91,8 +91,31 @@ function makeChip(overrides: Partial<ActionChip> = {}): ActionChip {
   }
 }
 
-function setNodes(nodes: ReturnType<typeof node>[]) {
-  useCanvasStore.setState({ nodes: nodes as any })
+/**
+ * ⚠ THE REGISTRATION POSTURE IS PART OF THE FIXTURE NOW, AND IT MUST BE SET IN
+ * THE STORE — not just passed to `analysisHeldOn` directly.
+ *
+ * `analysisHeldOn` gained a third conjunct: a graph is held only while CEE has
+ * NOT acknowledged holding it. The cases in this file that call the predicate
+ * directly were updated to wrap their nodes; the cases that RENDER `<SuggestedChips>`
+ * were not, and they read the posture from the store via
+ * `useCanvasStore((s) => analysisHeldOn(s))`. With the flag left at its default
+ * `false` those cases assert "the chip is absent" against a state where nothing
+ * is held, so they failed for the right reason — the fixture no longer described
+ * a held model.
+ *
+ * Defaulting to `true` is correct for this file specifically: every case here
+ * describes a starter CEE has not acknowledged. A case that means the opposite
+ * must say so explicitly, which is why this is a parameter and not a constant.
+ */
+function setNodes(
+  nodes: ReturnType<typeof node>[],
+  { pendingServerRegistration = true }: { pendingServerRegistration?: boolean } = {},
+) {
+  useCanvasStore.setState({
+    nodes: nodes as any,
+    importPendingServerRegistration: pendingServerRegistration,
+  } as any)
 }
 
 function setReady(status: string | null) {
@@ -306,7 +329,7 @@ describe('SuggestedChips — the held-model gate (PoC domain 5)', () => {
     setReady('ready')
     setNodes(STARTER_NODES)
 
-    const heldOn = analysisHeldOn(STARTER_NODES)
+    const heldOn = analysisHeldOn(unregistered(STARTER_NODES))
     expect(heldOn).toBe('starter') // precondition PINNED in-test (trap 13b)
 
     // ⚠ THE FIRST DRAFT OF THIS CASE WAS VACUOUS, and the way it was vacuous is
@@ -434,3 +457,15 @@ describe('SuggestedChips — the held-model gate (PoC domain 5)', () => {
     expect(fired).toHaveLength(1)
   })
 })
+
+/**
+ * The hold's input for a graph CEE has NOT acknowledged holding — the state
+ * every case in this file describes. `analysisHeldOn` takes the canvas STATE
+ * rather than the nodes, because the registration posture is not derivable from
+ * them; wrapping here keeps each case reading as it did while making the
+ * posture it assumes explicit rather than implied.
+ */
+function unregistered(nodes: unknown): never {
+  return { nodes, importPendingServerRegistration: true } as never
+}
+

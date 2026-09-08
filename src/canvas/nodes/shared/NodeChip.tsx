@@ -112,7 +112,7 @@ export function NodeChip({ label, message, chipId, actionType }: NodeChipProps) 
    * still be refused on click, which is why the click keeps answering.
    */
   const heldNotice = useCanvasStore((s) =>
-    actionType === 'run_analysis' ? analysisHeldNotice(s.nodes) : null,
+    actionType === 'run_analysis' ? analysisHeldNotice(s) : null,
   )
 
   const handleClick = useCallback((e: React.MouseEvent) => {

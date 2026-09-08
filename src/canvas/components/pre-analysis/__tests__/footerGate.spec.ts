@@ -107,7 +107,12 @@ describe('the panel actually uses it', () => {
     // CONTRAST CONTROL: prove the file was read before believing any absence.
     expect(src.length, 'PreAnalysisPanel.tsx read as empty').toBeGreaterThan(1000)
     expect(src).toContain('applyAnalysisHold(')
-    expect(src).toContain('analysisHeldNotice(nodes)')
+    // ⚠ The argument is the STATE, not the nodes — `analysisHeldOn` needs the
+    //   registration posture in the SAME snapshot (see `AnalysisHoldState`), so
+    //   this guard pins the whole call including the second field. A panel that
+    //   passed only `nodes` would not compile, but one that passed a hand-built
+    //   object with a stale flag would — and that is what this text catches.
+    expect(src).toContain('analysisHeldNotice({ nodes, importPendingServerRegistration })')
     expect(src).toContain("from './footerGate'")
   })
 })

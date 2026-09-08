@@ -977,6 +977,9 @@ export function PreAnalysisPanel({
   // Task P.3.2: Get node and edge counts for minimal graph coaching
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
+  // The hold's second input — see `AnalysisHoldState`. Analysis is held on a
+  // ready-made model only while CEE has NOT acknowledged holding it.
+  const importPendingServerRegistration = useCanvasStore(s => s.importPendingServerRegistration)
   const isMinimalGraph = (nodes?.length ?? 0) < 3 || (edges?.length ?? 0) < 2
 
   // Retry draft hook — for re-running CEE when blocked due to LLM omission
@@ -2483,7 +2486,7 @@ export function PreAnalysisPanel({
             blockedReason,
           },
           /* The hold authority, not a local re-test of it — see footerGate.ts. */
-          analysisHeldNotice(nodes),
+          analysisHeldNotice({ nodes, importPendingServerRegistration }),
         )}
         isAnalysing={isAnalysing}
         onAnalyse={onAnalyse}
