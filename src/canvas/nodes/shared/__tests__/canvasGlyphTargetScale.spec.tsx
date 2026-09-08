@@ -71,7 +71,8 @@ import { BriefIcon } from '../BriefIcon'
 import { EvidenceGapBadge } from '../../EvidenceGapBadge'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
-import { LABEL_LEGIBLE_ZOOM, renderedLabelPx } from '../../../utils/zoomLegibility'
+import { LABEL_LEGIBLE_ZOOM, MAX_LABEL_COUNTER_SCALE, renderedLabelPx } from '../../../utils/zoomLegibility'
+import { NODE_LAYOUT_MIN_W } from '../../../utils/nodeLayoutConstants'
 import { PROVENANCE_ICON_SIZE_CLASSES } from '../../../domain/valueProvenanceIcon'
 import {
   CANVAS_GLYPH_SIZE_CLASSES,
@@ -489,5 +490,175 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
       expect(slop.px, `${name} has no hit expansion`).toBeGreaterThan(0)
       expect(slop.scaled, `${name}'s hit expansion is not counter-scaled`).toBe(true)
     }
+  })
+
+  /**
+   * ⭐⭐⭐ THE ROW'S FOOTPRINT AGAINST THE CARD IT SITS ON — the bound the
+   * 7 Sep review asked for, and the reason it is here rather than in the
+   * browser gate that found it.
+   *
+   * ─── WHAT WAS MEASURED, AND BY WHOM ─────────────────────────────────────
+   *
+   * Counter-scaling this row's boxes and gap (this PR) doubled its footprint.
+   * The `Canvas Browser Gate` felt it immediately: the Shift-drag arm probed one
+   * pixel at `(centre-x, bottom - 6)`, that pixel is inside this row by
+   * construction (`bottom-1.5 right-1.5`), and once the row crossed centre-x
+   * **every one of 13 on-screen nodes was skipped**. The independent reviewer
+   * re-derived the geometry from source and it checks out exactly:
+   *
+   *     row, before   4 x 20px + 3 x 6px               =  98 CSS px
+   *     row, after    4 x 40px + 3 x 12px              = 196 CSS px
+   *     occupied      6 (inset) + 196 + 4 (slop)       = 206 CSS px
+   *     narrowest card  93 x 2 + 20 + 24 = NODE_LAYOUT_MIN_W = 230 CSS px
+   *
+   * So on the narrowest card the row went from **43% to 90% of the card's
+   * width**. It does not overflow — that was checked — but it is a measured 2x
+   * growth in the footprint of the primary in-node control row, on a layer that
+   * hit-tests while it is invisible.
+   *
+   * ⛔ AND IT WAS BOUND BY NOTHING. The e2e comment states the mechanism and the
+   * numbers in prose and asserts none of them; `blockedBy` is built for a
+   * failure message and never asserted on. This file's own rule
+   * (`KNOWN_SHORT_TARGETS`) is that *a gap recorded in the suite is honest; a
+   * gap invisible to it is how this defect reached 80 buttons.* That rule,
+   * applied to this PR itself, is this test.
+   *
+   * ─── WHY THE BOUND LIVES HERE AND NOT IN THE BROWSER GATE ───────────────
+   *
+   * The review said "bind it in the gate that found it". It is bound here
+   * instead, deliberately and for two reasons that make it STRONGER, not weaker:
+   *
+   *   1. `Canvas Browser Gate` is ADVISORY. `Staging Gate` is the only required
+   *      check, and this file runs in it. A bound in an advisory job does not
+   *      stop the next widening.
+   *   2. The gate's one-pixel probe was never a bound on purpose — it was a
+   *      PRECONDITION that happened to fail when the row got wide. PR #1301
+   *      widens that probe to 20 candidate points per card and says so plainly:
+   *      *"A wider control row now costs the gate nothing."* That is correct for
+   *      what that arm tests (the pane's marquee behaviour) and it retires the
+   *      accident. This test is the deliberate replacement, and it is immune to
+   *      that change because it does not go through the probe at all.
+   *
+   * ─── WHAT IS PINNED, AND IN WHICH DIRECTION ─────────────────────────────
+   *
+   * The occupied width is DERIVED FROM THE RENDERED ROW — button count from the
+   * DOM, box/gap/slop/inset from the class strings the component actually
+   * carries — and pinned EXACTLY, in both directions, against a card floor
+   * imported from `nodeLayoutConstants`. Nothing here is a second copy of a
+   * number: a change to the box size, the gap, the inset, the counter-scale, the
+   * card floor, or the NUMBER OF BUTTONS moves the computed value and REDs.
+   *
+   * ⚠ THE FOUR-BUTTON ROW IS NOW REACHED BY EVERY NODE KIND, WHICH IT WAS NOT
+   * WHEN THE 206px WAS MEASURED. `hasChallengePrompt` derived from
+   * `FULL_MENU_KINDS.has(kind) || kind === 'goal'` — `factor | risk | outcome |
+   * goal`. Staging #1292 re-derived it from `CHALLENGE_KINDS`, which holds all
+   * seven kinds, so `decision`, `option` and `constraint` went from a
+   * three-button row (144 CSS px) to the full four-button row (196). The worst
+   * case did not get worse; the number of cards that reach it did. That is an
+   * integration consequence of the base move, it is measured here rather than
+   * inherited, and this test is bound to the four-button row because that is now
+   * every kind's row.
+   *
+   * ⛔ THIS IS AN ACCEPTED TRADE, NOT A CLEAN RESULT. 90% of the narrowest card
+   * is a lot, and the honest reason it is accepted is that the alternative is
+   * handing the user back the 12px targets that caused the founder's report. It
+   * is recorded at this number so the NEXT widening has to be decided rather
+   * than discovered. If this test REDs, do not retune the constant — price the
+   * change against the card first.
+   */
+  describe('the control row against the card it sits on', () => {
+    /**
+     * Occupied width of the row in CSS px at the settle zoom, computed from the
+     * ROW AND ITS BUTTONS AS RENDERED.
+     *
+     * `scaled` values are multiplied by the bound counter-scale; unscaled ones
+     * are not — which is exactly the asymmetry the inset relies on (it is
+     * breathing room against the card edge and deliberately does not scale).
+     * The left-most button's `::before` slop overhangs the visual row, so it is
+     * part of what the row takes from the card.
+     */
+    const atBound = (v: Sized): number => (v.scaled ? v.px * MAX_LABEL_COUNTER_SCALE : v.px)
+
+    const measureRow = () => {
+      const row = screen.getByTestId('node-quick-actions-node-a')
+      const buttons = targetsIn(row)
+      const gap = gapFromClass(cls(row))
+      expect(gap, 'the row carries no gap class to measure from').not.toBeNull()
+      // `bottom-1.5 right-1.5` -> 6px, unscaled. Read from the row, not restated.
+      const inset = sizeFromClass(cls(row).replace(/(^|\s)(bottom|right)-/g, '$1h-'), 'h')
+      expect(inset, 'the row carries no corner inset to measure from').not.toBeNull()
+      let visual = 0
+      for (const b of buttons) {
+        const box = sizeFromClass(cls(b), 'w')
+        expect(box, `${idOf(b)}: no width class to size from`).not.toBeNull()
+        visual += atBound(box!)
+      }
+      visual += (buttons.length - 1) * atBound(gap!)
+      const slop = atBound(slopFromClass(cls(buttons[0])))
+      return { buttons, occupied: atBound(inset!) + visual + slop, visual }
+    }
+
+    /**
+     * Trap 13: an assertion about a magnitude needs a probe that can be shown to
+     * DISCRIMINATE. An un-counter-scaled row must measure smaller, or the
+     * measurement is not reading the scale at all and every number below is
+     * arithmetic about nothing.
+     */
+    it('CONTROL: the measurement discriminates a scaled row from a bare one', () => {
+      expect(atBound({ px: 20, scaled: true })).toBe(40)
+      expect(atBound({ px: 20, scaled: false })).toBe(20)
+      expect(MAX_LABEL_COUNTER_SCALE).toBeGreaterThan(1)
+    })
+
+    /**
+     * The precondition, pinned BY IDENTITY rather than by a count a sibling
+     * could satisfy (trap 19). A fixture rendering two buttons would compute a
+     * comfortable footprint and pass a test that had measured nothing.
+     */
+    it('measures the FULL four-button row, named one by one', () => {
+      render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
+      const { buttons } = measureRow()
+      expect(buttons.map(idOf).sort()).toEqual([
+        'node-action-ask-node-a',
+        'node-action-challenge-node-a',
+        'node-action-inspect-node-a',
+        'node-action-menu-node-a',
+      ])
+    })
+
+    /**
+     * ⚠ THE FOURTH BUTTON IS NOW ON EVERY KIND — asserted, not assumed, because
+     * the whole point of pinning the four-button row is that it is the row every
+     * card gets. If a kind stops reaching it this REDs and the footprint claim
+     * has to be re-scoped.
+     */
+    it('every node kind reaches the same four-button row', () => {
+      for (const kind of ['factor', 'risk', 'outcome', 'goal', 'decision', 'option', 'constraint'] as const) {
+        document.body.innerHTML = ''
+        render(<NodeQuickActions nodeId="node-a" nodeType={kind} label="Hiring spend" />)
+        expect(
+          targetsIn(screen.getByTestId('node-quick-actions-node-a')).length,
+          `${kind} does not render the four-button row the footprint is pinned to`,
+        ).toBe(4)
+      }
+    })
+
+    it('takes EXACTLY the accepted share of the narrowest card, and no more', () => {
+      render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
+      const { occupied, visual } = measureRow()
+
+      // The three numbers the reviewer derived from source, now asserted.
+      expect(visual, 'the row visual width moved').toBe(196)
+      expect(occupied, 'the row footprint moved').toBe(206)
+      expect(NODE_LAYOUT_MIN_W, 'the narrowest card moved').toBe(230)
+
+      // …and the RELATIONSHIP, which is the thing that actually matters and the
+      // thing a change to either side would break silently.
+      expect(occupied).toBeLessThan(NODE_LAYOUT_MIN_W)
+      expect(
+        Math.round((occupied / NODE_LAYOUT_MIN_W) * 1000) / 10,
+        'the row footprint as a % of the narrowest card is the accepted trade — re-decide it, do not retune it',
+      ).toBe(89.6)
+    })
   })
 })
