@@ -74,20 +74,39 @@
  * would earn the user `edge_expected_tuple_mismatch` → "refresh and reconfirm"
  * for an edit that was perfectly fine — a fabricated conflict.
  *
- * So `expected` is taken from the two READ-SIDE GATES that already answer
- * "was this number SET, or did it fall through to a UI default?" —
- * `resolveEdgeSignedStrengthDisplay` and `resolveEdgeDirectionDisplay`
- * (`canvas/domain/edgeValueProvenance.ts`). Neither is re-implemented here: a
- * second copy of a provenance rule is this estate's signature defect, and these
- * two are the gates every other read-side surface already consumes. When either
- * refuses, we do not know what the server holds, so we do not assert it.
+ * ⚠⚠ AND THE FIRST VERSION OF THIS MODULE GOT THAT RULE WRONG IN THE ONE WAY
+ * THAT MATTERS — corrected here, with the wrong reasoning left standing so it
+ * is not re-derived. The original text read:
+ *
+ *   ~~So `expected` is taken from the two READ-SIDE GATES that already answer
+ *   "was this number SET, or did it fall through to a UI default?" —
+ *   `resolveEdgeSignedStrengthDisplay` and `resolveEdgeDirectionDisplay`
+ *   (`canvas/domain/edgeValueProvenance.ts`).~~
+ *
+ * Those gates answer *may a surface SPEAK this number?*, and a user's own entry
+ * is emphatically speakable — `setStrength` stamps `weightSource: 'user'` on
+ * every local edit, INCLUDING the ones this builder refused to send, so the
+ * gate said `show: true` and `expected` became a number only this client had
+ * ever seen. The file those gates live in carries the header **"NOT FOR WIRE
+ * PAYLOADS"**; the reviewer who approved this quoted it and argued it away as
+ * *"a provenance question, not a numeric-behaviour one"*. That was the right
+ * distinction and the wrong conclusion: `expected` is not a numeric-behaviour
+ * question either. It is a question about the SERVER, and neither gate answers
+ * it. The warning was the finding.
+ *
+ * `expected` is now taken from `./edgeServerStatedStrength.ts`, which answers
+ * only that question and refuses when nothing proves the answer. Read its
+ * header for the writer enumeration showing why no value of `weightSource` —
+ * `'cee'` included — can stand in for it.
+ *
+ * ⚠ NOTHING IS RE-IMPLEMENTED. The display gates keep their whole job on the
+ * display side; a second copy of a provenance rule would be this estate's
+ * signature defect, and the fix is to name the two questions apart, not to
+ * duplicate an answer.
  */
 import type { Edge } from '@xyflow/react'
 
-import {
-  resolveEdgeDirectionDisplay,
-  resolveEdgeSignedStrengthDisplay,
-} from '../domain/edgeValueProvenance'
+import { serverStatedStrengthOf } from './edgeServerStatedStrength'
 import type { WireSystemEvent } from './types'
 
 /**
@@ -147,34 +166,27 @@ export function buildEdgeStrengthEditEvent({
   // and CEE would persist it as theirs.
   if (magnitude > 1) return null
 
-  // `expected` — what we believe the SERVER holds. Both halves must come from a
-  // named source or we are asserting a UI default as a fact about the server.
-  const strength = resolveEdgeSignedStrengthDisplay(
-    edge.data as Record<string, unknown> | undefined,
-  )
-  if (!strength.show) return null
-  const expectedMean = strength.value
-  if (!Number.isFinite(expectedMean) || expectedMean < -1 || expectedMean > 1) return null
-
-  const direction = resolveEdgeDirectionDisplay(edge.data as Record<string, unknown> | undefined)
-  if (!direction.show) return null
-  const expectedDirection = direction.direction
-
-  // The contract's own cross-field rule (`refineEdgeStrengthEdit`): a non-zero
-  // `expected.mean` and `expected.effect_direction` must agree. They are
-  // resolved by two SEPARATE gates here, so disagreement is reachable — an edge
-  // carrying a producer `strength_mean: -0.4` beside a user-stamped
-  // `direction: 'positive'`, for instance. That is a state we cannot describe
-  // truthfully in one tuple, so we decline to describe it at all.
+  // `expected` — what the SERVER holds. NOT what this canvas holds.
   //
-  // ⚠ ZERO IS EXEMPT AND DELIBERATELY SO. The contract keeps
-  // `effect_direction` REQUIRED at `mean === 0` precisely because sign cannot
-  // recover direction there — `-0 >= 0` is `true` in JavaScript — so a zero
-  // mean agrees with EITHER direction and must not be refused.
-  if (expectedMean !== 0) {
-    const impliedByMean = expectedMean < 0 ? 'negative' : 'positive'
-    if (impliedByMean !== expectedDirection) return null
-  }
+  // ⚠⚠ THIS IS THE FIX-FORWARD ON #1287 AND THE ONE LINE TO READ. This gate was
+  // `resolveEdgeSignedStrengthDisplay` + `resolveEdgeDirectionDisplay`, the two
+  // DISPLAY resolvers — over a file header that says, in capitals, **NOT FOR
+  // WIRE PAYLOADS**. They admit any value carrying a provenance stamp, and
+  // `setStrength` stamps `weightSource: 'user'` on EVERY local edit including
+  // the ones this builder just refused to send. So `expected` was built from a
+  // number only this client had ever seen, and CEE — which compares it with a
+  // bare `!==` and no tolerance — answers `edge_expected_tuple_mismatch`,
+  // *"That link has changed since you opened it"*: a concurrent modification by
+  // a third party who does not exist, for an edit that was fine.
+  //
+  // `serverStatedStrengthOf` answers the question this payload actually asks,
+  // and refuses when nothing proves the answer. Its header carries the writer
+  // enumeration that shows why no value of `weightSource` — including `'cee'` —
+  // can stand in for it. Both halves arrive together as ONE recorded fact
+  // because CEE compares both exactly; re-deriving either from a field the
+  // canvas mutates locally is how the first version got here.
+  const expected = serverStatedStrengthOf(edge.data as Record<string, unknown> | undefined)
+  if (!expected) return null
 
   // ⚠ THE SAME RULE THE LOCAL WRITE APPLIES, ON PURPOSE. `setStrength` derives
   // `direction: mean >= 0 ? 'positive' : 'negative'` and writes nothing under
@@ -193,7 +205,7 @@ export function buildEdgeStrengthEditEvent({
       to,
       magnitude,
       direction_intent,
-      expected: { mean: expectedMean, effect_direction: expectedDirection },
+      expected: { mean: expected.mean, effect_direction: expected.effect_direction },
       // ⚠ ALWAYS `'set'`, AND THE OMISSION IS DELIBERATE RATHER THAN AN
       // OVERSIGHT. `'confirm_current'` is a PROVENANCE-ONLY act with its own
       // cross-field rules (it requires `direction_intent: 'preserve'` and
