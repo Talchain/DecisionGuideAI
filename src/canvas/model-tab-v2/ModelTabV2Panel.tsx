@@ -64,7 +64,7 @@ import {
   nodeKind,
   type ModelProjectionInput,
 } from './adapters'
-import { MODEL_GROUP_IDS } from './types'
+import { MODEL_GROUP_IDS, type ModelGroupId } from './types'
 import type { DetailTier, EditCommitState, RepairQueue } from './types'
 
 export interface ModelTabV2PanelProps {
