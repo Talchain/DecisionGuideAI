@@ -42,6 +42,7 @@ import {
   analysisHeldOn,
   analysisHeldNotice,
   ANALYSIS_HELD_NOTICE,
+  type AnalysisHoldState,
 } from '../../utils/analysisHeldOnInjectedModel'
 import { useCanvasStore } from '../../store'
 import {
@@ -216,20 +217,27 @@ describe('seam 2 — the scenario row a registration needs', () => {
 /**
  * Complete hold state for a graph with no recorded acknowledgement.
  *
- * ⚠ The five calls this replaces passed `{ nodes, importPendingServerRegistration }`
- *   — the pre-repair two-field shape. They compiled while `edges` and
- *   `currentScenarioId` were optional, and the CI TypeScript gate caught them
- *   the moment those became required. That is the type doing its job: the
- *   omission this candidate exists to prevent is now unconstructible, in tests
- *   as well as in production.
+ * ⚠ THE FIRST VERSION OF THIS HELPER DEFEATED THE CHECK IT WAS WRITTEN TO
+ *   SATISFY, and the receipt that shipped it said otherwise. It was
+ *   `heldState(nodes: unknown)` returning the fixture `as never`, and I
+ *   described that as "neither a cast" with the omission "unconstructible".
+ *   Both were false: `as never` assigns to any parameter, so the required-state
+ *   check that had just exposed five incomplete callers could no longer see
+ *   this one. Proven by compiler-only control — with the cast, deleting `edges`
+ *   and `currentScenarioId` still yields ZERO diagnostics; with the explicit
+ *   types below and no cast, it is TS2739.
+ *
+ *   Annotating the parameter and the return type is what makes the claim true:
+ *   the helper is now held to `AnalysisHoldState` like every production caller,
+ *   so an incomplete fixture here fails to compile exactly as it should.
  */
-function heldState(nodes: unknown) {
+function heldState(nodes: AnalysisHoldState['nodes']): AnalysisHoldState {
   return {
     nodes,
     edges: [],
     currentScenarioId: '66666666-6666-4666-8666-666666666666',
     importPendingServerRegistration: true,
-  } as never
+  }
 }
 
 describe('seam 3 — analysisHeldOn carries the registration conjunct', () => {
