@@ -1,12 +1,12 @@
 import { memo, useCallback } from 'react'
-import { MessageSquare, PanelRight, MoreHorizontal, Zap } from 'lucide-react'
+import { MessageSquare, MoreHorizontal, Zap } from 'lucide-react'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useShowToastSafe } from '../../ToastContext'
 import { askAI, buildAskAIPrompt, CHALLENGE_KINDS } from '../../contextMenu/actions'
 import { requestAsk, canReceiveAsk } from '../../ui/inspector-v2/askSemantic'
 import type { NodeType } from '../../domain/nodes'
-import { openNodeInspector } from './openNodeInspector'
+import Tooltip from '../../../components/Tooltip'
 
 /**
  * Does this node type have a generative prompt to offer?
@@ -66,11 +66,12 @@ function hasChallengePrompt(nodeType: NodeType): boolean {
  *   Touch devices (`pointer: coarse`) get them permanently visible: a touch
  *   device has no hover, so opacity-on-hover would be a tap target that never
  *   appears. So does a SELECTED node, via `alwaysVisible`.
- * - NOTHING BURIED, NOTHING DUPLICATED BADLY. Both actions route through the
- *   machinery that already exists — `askAI` (which selects the element so the
- *   turn carries `selected_elements`, reveals the Olumi surface, and toasts if
- *   the conversation never registers) and `openNodeInspector` (the node twin
- *   of `openEdgeStrengthEditor`). No new transport, no second grammar.
+ * - THREE SHORTCUTS. Ask and Challenge keep their existing conversation
+ *   routes; More opens the existing node menu. Selecting the node opens its
+ *   inspector, so a fourth inspector button would duplicate that route.
+ * - POSITIONED TOOLTIPS. Tooltip attaches to the button itself, preserving
+ *   the hit area and accessible name. usePopoverHover suppresses the node
+ *   preview while this row is hovered or focused, so the two cannot overlap.
  * - NO DEAD CONTROLS, AND NO SILENT ONES. The ask button renders only when a
  *   conversation surface has registered the SEND channel `askAI` actually
  *   needs, and the click passes `showToast` through so a channel that dies
@@ -209,11 +210,6 @@ export const NodeQuickActions = memo(function NodeQuickActions({
     }
   }, [nodeId, nodeType, label, showToast])
 
-  const handleInspect = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    openNodeInspector(nodeId)
-  }, [nodeId])
-
   /**
    * Open this node's own menu — the SAME menu right-click opens, by the same
    * code path.
@@ -313,17 +309,18 @@ export const NodeQuickActions = memo(function NodeQuickActions({
       data-testid={`node-quick-actions-${nodeId}`}
     >
       {canAsk && (
-        <button
-          type="button"
-          onClick={handleAsk}
-          onPointerDown={stopPointer}
-          className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
-          aria-label={`Ask Olumi about ${label}`}
-          title={`Ask Olumi about ${label}`}
-          data-testid={`node-action-ask-${nodeId}`}
-        >
-          <MessageSquare size={11} aria-hidden="true" />
-        </button>
+        <Tooltip asChild delay={300} content={`Ask Olumi about ${label}`}>
+          <button
+            type="button"
+            onClick={handleAsk}
+            onPointerDown={stopPointer}
+            className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
+            aria-label={`Ask Olumi about ${label}`}
+            data-testid={`node-action-ask-${nodeId}`}
+          >
+            <MessageSquare size={11} aria-hidden="true" />
+          </button>
+        </Tooltip>
       )}
       {/* ⭐ THE GENERATIVE PEER OF THE ASK. Second, not last: it sits beside
           "Ask Olumi about this" because the two are the same kind of act — a
@@ -335,29 +332,19 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           (`useMenuItems.ts`), so the button and the menu entry it unburies read
           as the same action rather than as two features. */}
       {canChallenge && (
-        <button
-          type="button"
-          onClick={handleChallenge}
-          onPointerDown={stopPointer}
-          className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
-          aria-label={`Challenge ${label}`}
-          title={`Challenge ${label} — what could be wrong or missing?`}
-          data-testid={`node-action-challenge-${nodeId}`}
-        >
-          <Zap size={11} aria-hidden="true" />
-        </button>
+        <Tooltip asChild delay={300} content={`Challenge ${label} — what could be wrong or missing?`}>
+          <button
+            type="button"
+            onClick={handleChallenge}
+            onPointerDown={stopPointer}
+            className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
+            aria-label={`Challenge ${label}`}
+            data-testid={`node-action-challenge-${nodeId}`}
+          >
+            <Zap size={11} aria-hidden="true" />
+          </button>
+        </Tooltip>
       )}
-      <button
-        type="button"
-        onClick={handleInspect}
-        onPointerDown={stopPointer}
-        className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
-        aria-label={`Open details for ${label}`}
-        title={`Open details for ${label}`}
-        data-testid={`node-action-inspect-${nodeId}`}
-      >
-        <PanelRight size={11} aria-hidden="true" />
-      </button>
       {/* ⭐ THE DOOR TO EVERYTHING ELSE THIS NODE CAN DO.
           Deliberately LAST: the two named shortcuts above are the ruling's
           "powerful science-grounded shortcuts", and this is the overflow, not a
@@ -365,34 +352,35 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           model — it re-emits the gesture that already opens this node's menu,
           for the input classes that cannot perform it.
 
-          The title names right-click on purpose. A user who learns the gesture
+          The tooltip names right-click on purpose. A user who learns the gesture
           from it stops needing the button, which is the right direction for an
           affordance whose job is discoverability. */}
-      <button
-        type="button"
-        onClick={handleOpenMenu}
-        onPointerDown={stopPointer}
-        /* ⭐ 20px VISUAL, 24px TARGET — and as of this change ALL of them, not
-           just this one. `h-5 w-5` keeps the visual identical to its siblings;
-           `before:-inset-[2px]` expands the hit area to 24×24, WCAG 2.2 AA
-           2.5.8's minimum. The comment here used to end "the siblings share the
-           shortfall and are left alone" — a correctly-scoped decision then, and
-           the rowed work this change closes. See the wrapper's `gap-1.5` for
-           why the gap had to move with it. */
-        className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
-        aria-label={`More actions for ${label}`}
-        /* Announces that a menu follows. `aria-haspopup` is used by five other
-           canvas components, so its absence here was a real gap rather than a
-           repo convention. ⛔ NO `aria-expanded`: this button dispatches an
-           event and does not own the menu's open state, so it could not keep
-           that attribute truthful — and a stale `aria-expanded` is worse than
-           none. */
-        aria-haspopup="menu"
-        title={`More actions for ${label} — the same menu as right-click`}
-        data-testid={`node-action-menu-${nodeId}`}
-      >
-        <MoreHorizontal size={11} aria-hidden="true" />
-      </button>
+      <Tooltip asChild delay={300} content={`More actions for ${label} — the same menu as right-click`}>
+        <button
+          type="button"
+          onClick={handleOpenMenu}
+          onPointerDown={stopPointer}
+          /* ⭐ 20px VISUAL, 24px TARGET — and as of this change ALL of them, not
+             just this one. `h-5 w-5` keeps the visual identical to its siblings;
+             `before:-inset-[2px]` expands the hit area to 24×24, WCAG 2.2 AA
+             2.5.8's minimum. The comment here used to end "the siblings share the
+             shortfall and are left alone" — a correctly-scoped decision then, and
+             the rowed work this change closes. See the wrapper's `gap-1.5` for
+             why the gap had to move with it. */
+          className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
+          aria-label={`More actions for ${label}`}
+          /* Announces that a menu follows. `aria-haspopup` is used by five other
+             canvas components, so its absence here was a real gap rather than a
+             repo convention. ⛔ NO `aria-expanded`: this button dispatches an
+             event and does not own the menu's open state, so it could not keep
+             that attribute truthful — and a stale `aria-expanded` is worse than
+             none. */
+          aria-haspopup="menu"
+          data-testid={`node-action-menu-${nodeId}`}
+        >
+          <MoreHorizontal size={11} aria-hidden="true" />
+        </button>
+      </Tooltip>
     </div>
   )
 })

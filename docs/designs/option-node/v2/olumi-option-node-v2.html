@@ -1,0 +1,1432 @@
+<!doctype html>
+<html lang="en" data-visualize-standalone>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src 'unsafe-inline' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Olumi · Option node and inspector</title>
+<style>:root {
+  color-scheme: light dark;
+  background-color: var(
+    --background,
+    var(--color-background-primary, light-dark(rgb(255 255 255), rgb(24 24 24)))
+  ) !important;
+
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: var(
+    --color-background-primary,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --card: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  --card-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --popover: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255), rgb(45 45 45))
+  );
+  --popover-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --primary: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --primary-foreground: var(
+    --color-text-inverse,
+    light-dark(rgb(255 255 255), rgb(13 13 13))
+  );
+  --secondary: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%))
+  );
+  --secondary-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: var(
+    --color-text-secondary,
+    light-dark(rgb(26 28 31 / 49.4%), rgb(255 255 255 / 49.8%))
+  );
+  --accent: var(
+    --color-background-info,
+    light-dark(rgb(229 242 255), rgb(13 39 63))
+  );
+  --accent-foreground: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --destructive: var(
+    --color-text-warning,
+    light-dark(rgb(226 85 7), rgb(255 133 73))
+  );
+  --border: var(
+    --color-border-secondary,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+  --input: var(
+    --color-border-primary,
+    light-dark(
+      rgb(26 28 31 / 11.8%),
+      color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+    )
+  );
+  --ring: var(
+    --color-ring-primary,
+    light-dark(rgb(51 156 255), rgb(131 195 255 / 76%))
+  );
+  --font-size-base: var(--font-text-md-size, 14px);
+  --blue: light-dark(rgb(51 156 255), rgb(51 156 255));
+  --orange: light-dark(rgb(226 85 7), rgb(251 106 34));
+  --green: light-dark(rgb(0 162 64), rgb(64 201 119));
+  --red: light-dark(rgb(224 46 42), rgb(255 103 100));
+  --purple: light-dark(rgb(146 79 247), rgb(173 123 249));
+  --yellow: light-dark(rgb(255 195 0), rgb(255 210 64));
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(rgb(243 136 59), rgb(245 154 86));
+  --viz-series-3: light-dark(rgb(93 201 119), rgb(116 213 139));
+  --viz-series-4: light-dark(rgb(235 119 177), rgb(240 143 192));
+  --viz-series-5: light-dark(rgb(155 121 236), rgb(170 145 239));
+  --viz-series-6: light-dark(rgb(58 185 177), rgb(90 203 194));
+
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans: -apple-system, system-ui, "Segoe UI", sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 430;
+  --font-weight-medium: 500;
+  --icon-size: 16px;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --corner-shape: round;
+  --radius: var(--border-radius-lg, 10px);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 17 17'%3E%3Cpath d='M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z'/%3E%3C/svg%3E");
+
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html > body {
+  /* Preserve MCP aliases for older inline renderers without creating :root cycles. */
+  --color-background-primary: var(
+    --background,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --color-text-primary: var(
+    --foreground,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --color-border-secondary: var(
+    --border,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+
+  margin: 0;
+  padding: var(--visualize-paint-gutter, 0px);
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans) !important;
+  font-size: var(--font-size-normal);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium, 500);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+b,
+strong,
+th {
+  font-weight: var(--font-weight-medium);
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table-responsive > .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead th {
+  padding-block: 8px;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 6px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align="right"]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align="center"]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  corner-shape: var(--corner-shape);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+#widget > :not(.card, .progress) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: none;
+  font-size: var(--font-size-tooltip);
+  line-height: var(--line-height-tooltip);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+hr {
+  width: 100%;
+  height: 1px;
+  margin-block: 6px;
+  border: 0;
+  background: var(--border);
+}
+
+.nav {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.progress {
+  display: flex;
+  height: 8px;
+  margin-block: calc((var(--line-height-normal, 1.5em) - 8px) / 2);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+}
+
+.progress-bar:only-child {
+  border-radius: var(--radius-full);
+}
+
+.progress-bar {
+  height: 100%;
+  flex-shrink: 0;
+  border: 0;
+  background: var(--viz-series-1);
+}
+
+.viz-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+small,
+.text-small,
+.viz-badge {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls > .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls > .form-label > :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.nav-link,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+.btn,
+.nav-link {
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover,
+.nav-link:not(:disabled):not([aria-disabled="true"]):hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--primary-foreground);
+  background: var(--foreground);
+  background-clip: padding-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(in srgb, var(--primary-foreground) 50%, transparent);
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: padding-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.nav-pills .nav-link {
+  min-width: 0;
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.nav-justified .nav-link {
+  flex: 1 1 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.nav-pills .nav-link.active {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+.btn:disabled,
+.nav-link:disabled,
+.nav-link[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type="file"] {
+  padding: 0;
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control[type="file"]::file-selector-button {
+  min-height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+}
+
+.form-control[type="file"]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type="color"] {
+  width: 40px;
+  height: 28px;
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+  corner-shape: var(--corner-shape);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 32px 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: var(--corner-shape);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-check {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type="checkbox"] {
+  border-color: var(--input);
+  border-radius: var(--radius-sm);
+  corner-shape: var(--corner-shape);
+  background-color: var(--secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch) .form-check-input[type="checkbox"]:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type="checkbox"]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: "";
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+}
+
+.form-check-input[type="radio"] {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+}
+
+.form-check-input[type="radio"]:checked {
+  border: 2px solid var(--primary);
+  background:
+    radial-gradient(circle, var(--primary-foreground) 0 2.5px, transparent 3px),
+    var(--primary);
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+  box-shadow: var(--shadow-sm);
+  content: "";
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--primary);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  border: 0;
+  accent-color: var(--primary);
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      color-mix(in srgb, var(--foreground) 7%, transparent)
+    )
+    center / 100% 2px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+  [aria-pressed="true"],
+  [aria-selected="true"],
+  .is-selected
+) {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.btn.viz-tile:is([aria-pressed="true"], [aria-selected="true"], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible,
+.nav-link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .btn,
+  .nav-link,
+  .form-control,
+  .form-select {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Keep small-screen WebKit from zooming when a text field receives focus. */
+  .form-control,
+  .form-select {
+    font-size: max(16px, var(--font-size-normal));
+  }
+
+  .form-control[type="file"]::file-selector-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .form-control-color[type="color"] {
+    width: 44px;
+    height: 44px;
+  }
+
+  .form-control:is(
+    [type="date"],
+    [type="datetime-local"],
+    [type="month"],
+    [type="time"],
+    [type="week"]
+  ) {
+    min-width: 0;
+    max-width: 100%;
+    padding-block: 8px;
+  }
+
+  .form-check {
+    min-height: 44px;
+    padding-inline: 15px;
+  }
+
+  .form-check-input {
+    position: relative;
+  }
+
+  .form-check-input::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    content: "";
+    transform: translate(-50%, -50%);
+  }
+
+  .form-check-label {
+    display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .form-range {
+    height: 44px;
+    touch-action: pan-y;
+  }
+
+  .form-range::-webkit-slider-runnable-track {
+    height: 44px;
+  }
+
+  .form-range::-moz-range-track {
+    height: 44px;
+  }
+
+  .form-range::-webkit-slider-thumb {
+    margin-top: 12px;
+  }
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget > svg {
+  width: 100%;
+}
+
+/* Model-authored chart rules can otherwise stretch icons after these styles load. */
+svg.lucide {
+  display: block;
+  width: var(--icon-size) !important;
+  height: var(--icon-size) !important;
+  flex: none;
+  margin: 0 !important;
+  stroke-width: 1.6;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+
+html>body{padding:16px;max-width:1472px;margin:auto}</style>
+</head>
+<body>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+<div id="olumi-v2" aria-label="Olumi option node design reference">
+<header class="ov-review"><div><strong>Option node</strong><span>V3 refinements · original V2 reference</span></div><span class="ov-review-status">Implementation candidate · PR #1333</span></header>
+<div class="ov-app"><header class="ov-appbar"><span class="ov-logo" aria-label="Olumi"><span></span><span></span><span></span></span><strong>Node and inspector</strong><span class="ov-quiet">Interactive component specification</span></header>
+<div class="ov-intro"><div><h2>A clearer option. One gesture to the detail.</h2><p>The existing node, refined: its identity stays at the top, useful detail stays close, and Olumi’s actions have room to work.</p></div><a class="ov-spec-link" href="https://github.com/Talchain/DecisionGuideAI/pull/1333" target="_blank" rel="noopener">Implementation review ↗</a></div>
+<div class="ov-controls"><div class="ov-state-controls" aria-label="Node presentation"><button data-mode="rest">At rest</button><button data-mode="preview">Hover preview</button><button data-mode="actions">Quick actions</button><button data-mode="selected">Selected</button></div><div class="ov-selectors"><label>Example <select id="ov-example"><option value="normal">From your screenshot</option><option value="long">Long title and description</option><option value="missing">Missing inputs and origin</option><option value="guidance">With a coaching cue</option><option value="offline">AI unavailable</option></select></label><label>Review size <select id="ov-scale"><option value="1.25">125%</option><option value="1">100%</option></select></label></div></div>
+<div class="ov-study"><section class="ov-node-study" aria-label="Option node specimen"><div class="ov-specimen-caption"><span>01 · Option node</span><span id="ov-node-state"></span></div><div class="ov-node-stage"><div id="ov-node-mount"></div></div><div id="ov-interaction-note" class="ov-interaction-note"></div><section id="ov-action-receipt" class="ov-action-receipt" aria-live="polite" hidden></section><div class="ov-stage-foot"><span class="ov-dot"></span><p id="ov-example-note"></p></div></section><section class="ov-panel-study" aria-label="Inspector specimen"><div class="ov-specimen-caption"><span>02 · Inspector</span><span>Same option · full detail</span></div><div id="ov-inspector-mount"></div><p class="ov-inspector-note">The title wraps above the body. Context and inputs remain read-only; the existing coaching card below is also disabled on this route. Technical fields appear only in technical mode.</p></section></div>
+<section class="ov-explanation"><header><h2>What each element communicates</h2><p>Meaning, behaviour and limits belong together.</p></header><div id="ov-element-register" class="ov-element-register"></div></section>
+<section class="ov-change-summary"><div><span class="ov-section-kicker">IN THIS REFINEMENT</span><h3>Better access, with the existing structure</h3><p>Three quick actions; Open details in More; positioned tooltips; clean hand-off from the preview; a wrapping inspector title.</p></div><div><span class="ov-section-kicker">STILL EXISTING BEHAVIOUR</span><h3>Conditional content stays conditional</h3><p>Needs input, coaching cues and post-analysis Support keep their current rules. Support is a different metric from the removed prototype’s goal probability.</p></div><div><span class="ov-section-kicker">NEXT CONTENT WORK</span><h3>More intelligence needs an explicit contract</h3><p>Consistent option-specific reasoning risks and actionable coaching still need their own refinement. Team review, contribution and vetting must be backed by records.</p></div></section>
+<footer class="ov-reference-footer">Source-aligned component reference · pre-analysis examples · local interactions only. No AI requests, analysis results or shared-model saves occur in this file.</footer></div><div id="ov-overlay" hidden></div><div id="ov-tooltip" role="tooltip" hidden></div><div id="ov-menu" role="menu" aria-label="Option actions" hidden></div><div id="ov-status" role="status" aria-live="polite"></div></div>
+<style>
+#olumi-v2{--ov-canvas:light-dark(#f4f0ea,#242321);--ov-panel:light-dark(#fefefe,#302f2d);--ov-hover:light-dark(#fef9f3,#393734);--ov-ink:light-dark(#262626,#f5f1ec);--ov-body:light-dark(#3f3f3e,#e0dbd4);--ov-muted:light-dark(#6e6b6b,#bdb7af);--ov-border:light-dark(#eee6d8,#55514b);--ov-option:#aaa7e4;--ov-option-soft:light-dark(#dddcf5,#484562);--ov-action:light-dark(#277a9d,#91d0eb);--ov-on-action:light-dark(#fff,#172b34);--ov-coach:light-dark(#eef5f7,#283c45);--ov-warning:#ffa656;--ov-goal:#f5c433;--ov-shadow:0 3px 10px rgb(38 38 38 / .06);font:400 14px/1.5 Inter,system-ui,sans-serif;color:var(--ov-ink);text-align:left;isolation:isolate;width:100%}
+#olumi-v2 *{box-sizing:border-box}#olumi-v2 button,#olumi-v2 input,#olumi-v2 textarea,#olumi-v2 select{font:inherit;color:inherit}#olumi-v2 button{cursor:pointer}#olumi-v2 button:focus-visible,#olumi-v2 input:focus-visible,#olumi-v2 textarea:focus-visible,#olumi-v2 select:focus-visible{outline:2px solid var(--ov-action);outline-offset:3px}#olumi-v2 h2,#olumi-v2 h3,#olumi-v2 p{margin:0}#olumi-v2 h2{font-size:18px;font-weight:500;line-height:1.4}#olumi-v2 h3{font-size:14px;font-weight:500;line-height:1.45}#olumi-v2 small{font-size:11px;color:var(--ov-muted);line-height:1.45}#olumi-v2 svg.ov-icon{width:16px;height:16px;flex:none}#olumi-v2 .ov-review{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:0 0 16px}#olumi-v2 .ov-review>div{display:flex;gap:12px;align-items:center;flex-wrap:wrap}#olumi-v2 .ov-review span{font-size:12px;color:var(--ov-muted)}#olumi-v2 nav{display:flex;gap:4px;flex-wrap:wrap}#olumi-v2 .ov-review button{border:1px solid transparent;border-radius:8px;padding:8px 10px;min-height:40px;background:transparent;font-size:12px;color:var(--ov-muted)}#olumi-v2 .ov-review button[aria-pressed=true]{border-color:var(--ov-border);background:var(--ov-panel);color:var(--ov-ink)}
+#olumi-v2 .ov-app{background:var(--ov-canvas);border:1px solid var(--ov-border);border-radius:16px;overflow:hidden}#olumi-v2 .ov-appbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--ov-panel);border-bottom:1px solid var(--ov-border);padding:16px 22px;min-height:64px}#olumi-v2 .ov-logo{display:flex;gap:4px;align-items:center}#olumi-v2 .ov-logo span{width:9px;height:9px;background:var(--ov-ink)}#olumi-v2 .ov-logo span:first-child{border-radius:50%}#olumi-v2 .ov-logo span:last-child{clip-path:polygon(50% 0,100% 100%,0 100%)}#olumi-v2 .ov-appbar strong{font-size:14px;font-weight:500;flex:1}#olumi-v2 .ov-people{display:flex;gap:4px;align-items:center}#olumi-v2 .ov-avatar{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--ov-canvas);font-size:10px;color:var(--ov-body)}#olumi-v2 .ov-people small{margin-left:5px}#olumi-v2 .ov-workspace{display:grid;grid-template-columns:minmax(0,1fr) 352px;align-items:start}#olumi-v2 .ov-workspace.ov-no-detail{grid-template-columns:1fr}#olumi-v2 .ov-canvas{padding:24px 20px;min-width:0}#olumi-v2 .ov-question{max-width:660px;margin-bottom:24px}#olumi-v2 .ov-question p{margin-top:7px;color:var(--ov-muted);font-size:12px}#olumi-v2 .ov-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}#olumi-v2 .ov-option{position:relative;min-width:0;background:var(--ov-panel);border:1px solid var(--ov-option);border-radius:16px;box-shadow:var(--ov-shadow)}#olumi-v2 .ov-option.is-selected{outline:2px solid var(--ov-action);outline-offset:3px}#olumi-v2 .ov-select-option{display:grid;gap:14px;background:transparent;border:0;padding:16px;width:100%;text-align:left;border-radius:16px;min-height:190px;align-content:start}#olumi-v2 .ov-select-option:hover{background:var(--ov-hover)}#olumi-v2 .ov-option-head{display:flex;align-items:center;gap:9px;min-height:24px}#olumi-v2 .ov-option-head strong{font-size:14px;font-weight:500;flex:1;min-width:0;overflow-wrap:anywhere}#olumi-v2 .ov-square{display:inline-block;width:13px;height:13px;flex:none;background:var(--ov-option)}#olumi-v2 .ov-origin-mark{display:inline-flex;color:var(--ov-muted);flex:none}#olumi-v2 .ov-origin-mark .ov-icon{width:14px;height:14px}#olumi-v2 .ov-card-visual{display:grid;gap:6px;min-height:67px;align-content:center}#olumi-v2 .ov-card-foot{font-size:12px;line-height:1.45;color:var(--ov-body);border-top:1px solid var(--ov-border);padding-top:10px}#olumi-v2 .ov-change{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}#olumi-v2 .ov-change b{font-weight:500;font-size:24px;line-height:1.2;font-variant-numeric:tabular-nums}#olumi-v2 .ov-change .ov-was{color:var(--ov-muted);font-size:18px}#olumi-v2 .ov-change span{font-size:12px;color:var(--ov-muted)}#olumi-v2 .ov-mini-meter{display:grid;grid-template-columns:62px 1fr 29px;align-items:center;gap:7px;font-size:11px}#olumi-v2 .ov-mini-meter>span:last-child{font-variant-numeric:tabular-nums;text-align:right}#olumi-v2 .ov-track{height:6px;background:var(--ov-border);border-radius:3px;overflow:hidden}#olumi-v2 .ov-track>span{display:block;height:100%;background:var(--ov-option);border-radius:3px}#olumi-v2 .ov-mini-meter.ov-baseline .ov-track>span{background:var(--ov-muted)}#olumi-v2 .ov-stage-line{display:flex;gap:6px;align-items:center;font-size:12px;flex-wrap:wrap}#olumi-v2 .ov-stage{padding:6px 8px;border:1px solid var(--ov-border);border-radius:6px;background:var(--ov-hover)}#olumi-v2 .ov-stage.is-current{border-color:var(--ov-option);background:var(--ov-option-soft)}#olumi-v2 .ov-schedule{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}#olumi-v2 .ov-schedule span{display:grid;gap:4px;text-align:center;font-size:10px;color:var(--ov-muted)}#olumi-v2 .ov-schedule i{height:13px;border-radius:3px;background:var(--ov-border)}#olumi-v2 .ov-schedule .ov-protected{background:var(--ov-option)}#olumi-v2 .ov-balance{display:grid;gap:7px;font-size:12px}#olumi-v2 .ov-balance>span{display:flex;justify-content:space-between;gap:10px}#olumi-v2 .ov-balance b{font-weight:500}#olumi-v2 .ov-tags{display:flex;gap:6px;flex-wrap:wrap;font-size:12px}#olumi-v2 .ov-tags span{border:1px solid var(--ov-border);padding:5px 8px;border-radius:6px}#olumi-v2 .ov-tags .ov-postponed{color:var(--ov-muted)}#olumi-v2 .ov-board-footer{margin-top:22px;display:grid;gap:10px;border-top:1px solid var(--ov-border);padding-top:16px}#olumi-v2 .ov-board-footer p{font-size:12px;color:var(--ov-muted)}#olumi-v2 .ov-recorded{display:flex;gap:10px;align-items:flex-start;padding:12px;background:var(--ov-panel);border:1px solid var(--ov-border);border-radius:10px;font-size:12px}#olumi-v2 .ov-recorded .ov-icon{color:var(--ov-action)}
+#olumi-v2 .ov-inspector{min-width:0;align-self:stretch;background:var(--ov-panel);border-left:1px solid var(--ov-border)}#olumi-v2 .ov-inspector-head{padding:20px 18px 16px;display:grid;gap:8px;border-bottom:1px solid var(--ov-border)}#olumi-v2 .ov-head-row{display:flex;gap:10px;align-items:center}#olumi-v2 .ov-head-row h2{font-size:16px;flex:1;overflow-wrap:anywhere}#olumi-v2 .ov-icon-button{width:44px;height:44px;display:inline-grid;place-items:center;flex:none;border:0;border-radius:8px;background:transparent;padding:10px}#olumi-v2 .ov-icon-button:hover{background:var(--ov-hover)}#olumi-v2 .ov-origin{display:inline-flex;gap:6px;align-items:center;font-size:11px;color:var(--ov-muted)}#olumi-v2 .ov-inspector-content{padding:20px 18px;display:grid;gap:22px}#olumi-v2 .ov-block{display:grid;gap:10px}#olumi-v2 .ov-block p{color:var(--ov-body);font-size:13px}#olumi-v2 .ov-block .ov-large-copy{font-size:14px}#olumi-v2 .ov-goal-label{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--ov-muted)}#olumi-v2 .ov-diamond{width:10px;height:10px;transform:rotate(45deg);background:var(--ov-goal);flex:none;margin:4px}#olumi-v2 .ov-coach{padding:16px;background:var(--ov-coach);border:1px solid var(--ov-border);border-radius:12px;display:grid;gap:10px}#olumi-v2 .ov-coach-heading{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--ov-action)}#olumi-v2 .ov-coach h3{font-size:16px}#olumi-v2 .ov-coach p{font-size:13px;color:var(--ov-body)}#olumi-v2 .ov-button{display:inline-flex;justify-content:center;align-items:center;gap:8px;min-height:44px;max-width:100%;width:fit-content;border:1px solid var(--ov-border);border-radius:9px;padding:10px 12px;background:var(--ov-panel);font-size:12px;font-weight:500;text-align:center}#olumi-v2 .ov-button:hover{background:var(--ov-hover)}#olumi-v2 .ov-button.ov-primary{color:var(--ov-on-action);border-color:var(--ov-action);background:var(--ov-action)}#olumi-v2 .ov-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}#olumi-v2 .ov-link{background:transparent;border:0;color:var(--ov-action);text-align:left;font-size:12px;min-height:44px;padding:8px 0;width:fit-content;display:inline-flex;align-items:center;gap:7px}#olumi-v2 details{font-size:12px;color:var(--ov-muted)}#olumi-v2 summary{cursor:pointer;min-height:32px;display:list-item;padding:7px 0}#olumi-v2 details p{margin-top:8px;font-size:12px}#olumi-v2 .ov-reason-path{display:grid;gap:0;padding-left:10px}#olumi-v2 .ov-reason-path span{padding:9px 12px;border-left:2px solid var(--ov-option);font-size:12px;color:var(--ov-body);background:var(--ov-hover)}#olumi-v2 .ov-reason-path span+span{border-top:1px solid var(--ov-border)}#olumi-v2 .ov-quiet{font-size:12px;color:var(--ov-muted)}#olumi-v2 .ov-evidence-row{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--ov-body)}#olumi-v2 .ov-evidence-row svg{color:var(--ov-muted);margin-top:2px}#olumi-v2 .ov-value-row{display:flex;justify-content:space-between;gap:12px;font-size:12px;border-bottom:1px solid var(--ov-border);padding:9px 0}#olumi-v2 .ov-value-row strong{font-weight:500}#olumi-v2 .ov-field{display:grid;gap:6px}#olumi-v2 .ov-field label{font-size:12px;font-weight:500}#olumi-v2 input,#olumi-v2 textarea,#olumi-v2 select{width:100%;border:1px solid var(--ov-muted);border-radius:8px;padding:10px;background:var(--ov-panel);font-size:16px;min-height:44px}#olumi-v2 textarea{min-height:84px;resize:vertical}#olumi-v2 .ov-choice{display:flex;gap:8px;align-items:center;font-size:12px;min-height:44px}#olumi-v2 .ov-choice input{width:18px;min-height:18px;flex:none}#olumi-v2 .ov-step{display:grid;gap:14px}#olumi-v2 .ov-preview{border:1px solid var(--ov-option);border-radius:10px;padding:14px;display:grid;gap:10px;background:var(--ov-hover)}#olumi-v2 .ov-preview p{font-size:13px}#olumi-v2 .ov-preview h3{font-size:14px}#olumi-v2 .ov-range-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--ov-muted)}#olumi-v2 .ov-prediction{position:relative;height:52px;margin:2px 0 4px}#olumi-v2 .ov-prediction-line{position:absolute;left:0;right:0;top:21px;height:4px;background:var(--ov-border);border-radius:2px}#olumi-v2 .ov-prediction-band{position:absolute;left:25%;width:62.5%;top:17px;height:12px;background:var(--ov-option);border-radius:6px}#olumi-v2 .ov-prediction-target{position:absolute;top:12px;left:50%;height:22px;border-left:2px solid var(--ov-ink)}#olumi-v2 .ov-prediction>small{position:absolute;left:50%;top:35px;transform:translateX(-50%);white-space:nowrap}#olumi-v2 .ov-notice{border-left:3px solid var(--ov-warning);padding:10px 12px;background:var(--ov-hover);font-size:12px;color:var(--ov-body)}#olumi-v2 .ov-person-view{display:grid;gap:6px;border-bottom:1px solid var(--ov-border);padding:12px 0;font-size:13px}#olumi-v2 .ov-person-view>div{display:flex;align-items:center;gap:8px}#olumi-v2 .ov-person-view strong{font-weight:500}#olumi-v2 .ov-footer-actions{display:flex;gap:8px;flex-wrap:wrap;padding:16px 18px;border-top:1px solid var(--ov-border)}#olumi-v2 .ov-notes-board{background:var(--ov-canvas);border:1px solid var(--ov-border);border-radius:16px;padding:24px;display:grid;gap:22px}#olumi-v2 .ov-notes-board>p{color:var(--ov-muted)}#olumi-v2 .ov-notes-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:16px}#olumi-v2 .ov-note{display:grid;gap:10px;padding:18px;background:var(--ov-panel);border-radius:12px;align-content:start}#olumi-v2 .ov-note p{color:var(--ov-body);font-size:13px}#olumi-v2 #ov-status:not(:empty){padding:12px 16px;margin-top:12px;border-radius:10px;background:var(--ov-panel);border:1px solid var(--ov-border);font-size:12px;color:var(--ov-body)}
+@media(min-width:1280px){#olumi-v2 .ov-workspace{grid-template-columns:minmax(0,1fr) 380px}#olumi-v2 .ov-options{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:900px){#olumi-v2 .ov-workspace{grid-template-columns:1fr}#olumi-v2 .ov-inspector{border-left:0;border-top:1px solid var(--ov-border)}#olumi-v2 .ov-inspector-content{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}#olumi-v2 .ov-inspector-content .ov-step{grid-column:1/-1}#olumi-v2 .ov-inspector-head{padding:18px 20px}}
+@media(max-width:540px){#olumi-v2 .ov-options{grid-template-columns:1fr}#olumi-v2 .ov-canvas{padding:20px 16px}#olumi-v2 .ov-select-option{min-height:0}#olumi-v2 .ov-inspector-content{grid-template-columns:1fr}#olumi-v2 .ov-people small{display:none}#olumi-v2 .ov-review>div{gap:5px}#olumi-v2 .ov-review nav{gap:0}#olumi-v2 .ov-review button{padding:8px}#olumi-v2 .ov-appbar{padding:14px 16px}#olumi-v2 .ov-notes-board{padding:18px}}
+</style><style>
+html>body{padding:24px;max-width:1400px;background:#fefefe}#olumi-v2{color-scheme:light;--ov-zoom:1.25}#olumi-v2 [hidden]{display:none!important}#olumi-v2 .ov-review-status{font-size:11px;color:var(--ov-muted)}#olumi-v2 .ov-appbar{padding:17px 24px}#olumi-v2 .ov-intro{padding:28px 28px 22px;display:flex;justify-content:space-between;gap:28px;align-items:start}#olumi-v2 .ov-intro p{font-size:13px;max-width:620px;color:var(--ov-muted);margin-top:8px}#olumi-v2 .ov-spec-link{font-size:12px;color:var(--ov-action);white-space:nowrap;padding:4px 0}#olumi-v2 .ov-controls{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:0 28px 22px;border-bottom:1px solid var(--ov-border)}#olumi-v2 .ov-state-controls{display:flex;gap:4px;align-items:center}#olumi-v2 .ov-state-controls button{padding:8px 11px;border:1px solid transparent;border-radius:8px;background:transparent;font-size:12px;color:var(--ov-muted)}#olumi-v2 .ov-state-controls button[aria-pressed=true]{background:var(--ov-panel);border-color:var(--ov-border);box-shadow:var(--ov-shadow);color:var(--ov-ink)}#olumi-v2 .ov-selectors{display:flex;gap:14px}#olumi-v2 .ov-selectors label{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--ov-muted)}#olumi-v2 .ov-selectors select{width:auto;min-height:34px;font-size:12px;padding:6px 26px 6px 9px;border-color:var(--ov-border);border-radius:7px}
+#olumi-v2 .ov-study{display:grid;grid-template-columns:minmax(0,1fr) calc(340px * var(--ov-zoom));gap:32px;padding:24px 28px 26px;align-items:start}#olumi-v2 .ov-specimen-caption{display:flex;justify-content:space-between;gap:12px;font-size:11px;color:var(--ov-muted);margin-bottom:28px}#olumi-v2 .ov-node-study{min-width:0}#olumi-v2 .ov-node-stage{min-height:310px;display:flex;align-items:flex-start;justify-content:center;padding-top:55px;position:relative}#olumi-v2 #ov-node-mount{zoom:var(--ov-zoom);width:320px;max-width:100%}#olumi-v2 .ov-live-node{position:relative;width:320px;max-width:100%;padding:12px 12px 24px;border:1px solid var(--ov-option);border-radius:20px;background:var(--ov-panel);box-shadow:0 2px 4px rgb(38 38 38/.06);color:var(--ov-ink);min-height:90px;font-size:11px;line-height:1.4}#olumi-v2 .ov-live-node.is-selected{outline:4px solid #aaa7e480;outline-offset:2px}#olumi-v2 .ov-type-shape{position:absolute;left:50%;top:-11px;transform:translateX(-50%);width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:var(--ov-canvas);box-shadow:0 0 0 2px var(--ov-border);pointer-events:none}#olumi-v2 .ov-type-shape i{width:18px;height:18px;border-radius:1px;background:var(--ov-option)}#olumi-v2 .ov-connector{position:absolute;bottom:-5px;left:50%;transform:translateX(-50%);width:9px;height:9px;background:#282736;outline:2px solid var(--ov-panel);border-radius:50%}#olumi-v2 .ov-live-title-row{display:flex;align-items:flex-start;gap:7px}#olumi-v2 .ov-live-title{min-width:0;flex:1;text-align:left;border:0;padding:0;background:transparent;font-size:12px;font-weight:500;line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}#olumi-v2 .ov-live-origin{flex:none;display:flex;color:var(--ov-muted);padding-top:1px}#olumi-v2 .ov-live-origin .ov-icon{width:12px;height:12px}#olumi-v2 .ov-option-number{border:1px solid var(--ov-border);border-radius:4px;min-width:16px;text-align:center;font-size:11px;color:var(--ov-muted);line-height:15px}#olumi-v2 .ov-live-body{margin-top:6px;color:var(--ov-muted);font-size:11px;line-height:1.4}#olumi-v2 .ov-description-toggle{border:0;background:transparent;padding:0;color:var(--ov-muted);display:flex}#olumi-v2 .ov-description-toggle .ov-icon{width:12px;height:12px}#olumi-v2 .ov-description-copy{margin-top:8px;font-size:11px;line-height:1.5;color:var(--ov-body)}#olumi-v2 .ov-needs-input{display:inline-flex;gap:4px;align-items:center;border:1px solid var(--ov-warning);border-radius:4px;color:var(--ov-body);padding:1px 5px;font-size:10px;margin-top:8px}#olumi-v2 .ov-node-actions{position:absolute;right:6px;bottom:6px;display:flex;gap:6px;opacity:0;pointer-events:none}#olumi-v2 .ov-live-node:hover .ov-node-actions,#olumi-v2 .ov-live-node:focus-within .ov-node-actions,#olumi-v2 .ov-live-node.show-actions .ov-node-actions{opacity:1;pointer-events:auto}#olumi-v2 .ov-node-actions button{display:grid;place-items:center;position:relative;width:20px;height:20px;padding:0;background:var(--ov-panel);border:0;border-radius:4px;color:var(--ov-muted)}#olumi-v2 .ov-node-actions button:before{content:'';position:absolute;inset:-2px}#olumi-v2 .ov-node-actions button:hover{background:var(--ov-hover);color:var(--ov-ink)}#olumi-v2 .ov-node-actions .ov-icon{width:11px;height:11px}#olumi-v2 .ov-coaching-cue{position:absolute;right:-8px;top:-8px;width:26px;height:26px;display:grid;place-items:center;border:1px solid #bdd9e5;background:var(--ov-panel);border-radius:50%;color:var(--ov-action);padding:4px}#olumi-v2 .ov-coaching-cue .ov-icon{width:16px;height:16px}
+#olumi-v2 .ov-interaction-note{font-size:13px;line-height:1.6;color:var(--ov-body);max-width:460px;margin:4px auto 20px;padding-left:15px;border-left:2px solid var(--ov-option)}#olumi-v2 .ov-interaction-note strong{display:block;font-weight:500;color:var(--ov-ink);margin-bottom:5px}#olumi-v2 .ov-stage-foot{display:flex;gap:8px;max-width:460px;margin:24px auto 0;color:var(--ov-muted);font-size:11px;line-height:1.6}#olumi-v2 .ov-dot{width:5px;height:5px;border-radius:50%;background:var(--ov-option);flex:none;margin-top:6px}#olumi-v2 .ov-action-receipt{max-width:460px;margin:18px auto;padding:16px;background:var(--ov-coach);border:1px solid var(--ov-border);border-radius:10px;font-size:12px;line-height:1.6}#olumi-v2 .ov-action-receipt strong{display:block;font-weight:500;margin-bottom:5px}#olumi-v2 .ov-action-receipt small{display:block;margin-top:8px}#olumi-v2 .ov-action-receipt button{background:transparent;border:0;float:right;color:var(--ov-action);padding:0 0 8px 8px;font-size:11px}
+#olumi-v2 #ov-inspector-mount{zoom:var(--ov-zoom)}#olumi-v2 .ov-live-inspector{width:340px;max-width:100%;border:1px solid var(--ov-border);border-radius:12px;background:var(--ov-panel);box-shadow:var(--ov-shadow);overflow:hidden;color:var(--ov-body);font-size:12px;line-height:1.5}#olumi-v2 .ov-live-inspector header{padding:14px 16px 12px;border-bottom:1px solid var(--ov-border)}#olumi-v2 .ov-panel-type{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ov-option);margin-bottom:8px}#olumi-v2 .ov-panel-type>i{width:18px;height:18px;background:var(--ov-option);border-radius:2px}#olumi-v2 .ov-panel-controls{margin-left:auto;display:flex;gap:8px;color:var(--ov-muted);align-items:center}#olumi-v2 .ov-panel-controls button{border:0;background:transparent;padding:0;font-size:11px;color:var(--ov-muted);display:flex;align-items:center;gap:4px}#olumi-v2 .ov-panel-controls .ov-back{color:var(--ov-action)}#olumi-v2 .ov-panel-controls .ov-icon{width:13px;height:13px}#olumi-v2 .ov-panel-title{display:flex;align-items:start;gap:6px}#olumi-v2 .ov-panel-title>button{padding:0;background:transparent;border:0;display:flex;gap:5px;align-items:baseline;text-align:left;font-size:14px;font-weight:500;line-height:1.4;color:var(--ov-ink);max-width:100%}#olumi-v2 .ov-panel-title span{overflow-wrap:anywhere;min-width:0}#olumi-v2 .ov-panel-title .ov-icon{width:12px;height:12px;color:var(--ov-muted)}#olumi-v2 .ov-panel-title input{font-size:14px;min-height:30px;padding:3px 5px;border-radius:5px}#olumi-v2 .ov-live-panel-body{max-height:560px;overflow-y:auto;padding:10px 16px 16px;scrollbar-width:thin}#olumi-v2 .ov-inspector-actions{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}#olumi-v2 .ov-inspector-actions button{display:flex;gap:4px;align-items:center;padding:4px 8px;background:transparent;border:1px solid var(--ov-border);border-radius:30px;font-size:11px;line-height:1.4}#olumi-v2 .ov-inspector-actions .ov-icon{width:12px;height:12px}#olumi-v2 .ov-authority{padding:10px 12px;border:1px solid var(--ov-border);border-radius:4px;background:var(--ov-hover);font-size:12px;line-height:1.6;margin-bottom:16px}#olumi-v2 .ov-live-inspector fieldset{margin:0;padding:0;border:0;min-width:0}#olumi-v2 .ov-live-inspector fieldset>*+*{margin-top:16px}#olumi-v2 .ov-panel-group h3{font-size:11px;font-weight:400;color:var(--ov-muted);margin-bottom:8px}#olumi-v2 .ov-panel-group p{font-size:12px}#olumi-v2 .ov-empty-description{font-style:italic;color:var(--ov-muted)}#olumi-v2 .ov-target-list{padding:10px 12px 0;border:1px solid var(--ov-border);border-radius:16px}#olumi-v2 .ov-target-item{padding:9px 10px;border:1px solid var(--ov-border);border-radius:15px;margin-bottom:8px}#olumi-v2 .ov-factor-name{display:flex;align-items:center;gap:6px;font-size:12px}#olumi-v2 .ov-factor-name:before{content:'';width:11px;height:11px;background:#afa795;border-radius:50%;flex:none}#olumi-v2 .ov-target-value{margin-top:10px;display:flex;align-items:center;gap:12px;font-size:11px;color:var(--ov-muted)}#olumi-v2 .ov-target-value input{margin-left:auto;width:90px;min-height:28px;border-radius:18px;text-align:center;padding:3px 8px;font-size:12px;color:var(--ov-ink);border-color:#d1d1d1;background:#f5f5f5;opacity:1}#olumi-v2 .ov-add-change{display:block;width:calc(100% + 24px);margin:5px -12px 0;padding:10px;border:0;border-top:1px dashed var(--ov-border);background:var(--ov-coach);color:var(--ov-action);font-size:11px}#olumi-v2 .ov-in-panel-coach{font-size:11px!important;color:var(--ov-muted);margin-top:8px!important}#olumi-v2 .ov-connection{display:flex;gap:8px;align-items:center;padding:6px 0;font-size:11px;color:var(--ov-muted)}#olumi-v2 .ov-connection span:last-child{margin-left:auto}#olumi-v2 .ov-inspector-note{font-size:11px;color:var(--ov-muted);line-height:1.6;margin-top:12px}
+#olumi-v2 #ov-overlay{position:fixed;width:calc(260px * var(--ov-zoom));max-height:calc(250px * var(--ov-zoom));overflow:auto;background:var(--ov-panel);border:1px solid var(--ov-border);border-radius:12px;padding:calc(10px * var(--ov-zoom)) calc(12px * var(--ov-zoom));box-shadow:0 8px 28px #26262616;z-index:40;font-size:calc(11px * var(--ov-zoom));line-height:1.5;color:var(--ov-body)}#olumi-v2 #ov-overlay strong{font-weight:500}#olumi-v2 #ov-overlay .ov-hover-origin{margin-top:9px;color:var(--ov-muted)}#olumi-v2 #ov-overlay .ov-icon{width:12px;height:12px}#olumi-v2 #ov-tooltip{position:fixed;max-width:200px;padding:6px 10px;background:var(--ov-ink);color:var(--ov-panel);border:0;border-radius:6px;box-shadow:0 5px 20px #26262618;font-size:12px;line-height:1.5;z-index:60;pointer-events:auto}#olumi-v2 #ov-menu{position:fixed;min-width:200px;padding:5px;background:var(--ov-panel);border:1px solid var(--ov-border);border-radius:9px;box-shadow:0 8px 24px #26262618;z-index:60}#olumi-v2 #ov-menu button{display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;border:0;background:transparent;border-radius:5px;text-align:left;font-size:12px}#olumi-v2 #ov-menu button:hover,#olumi-v2 #ov-menu button:focus{background:var(--ov-hover)}#olumi-v2 #ov-menu small{display:block;padding:7px 10px;border-top:1px solid var(--ov-border);max-width:230px;font-size:10px}
+#olumi-v2 .ov-explanation{padding:28px;background:var(--ov-panel);border-top:1px solid var(--ov-border)}#olumi-v2 .ov-explanation header{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:20px}#olumi-v2 .ov-explanation h2{font-size:16px}#olumi-v2 .ov-explanation header p{font-size:12px;color:var(--ov-muted)}#olumi-v2 .ov-element-register{display:grid;grid-template-columns:1fr 1fr;column-gap:36px}#olumi-v2 .ov-register-row{display:grid;grid-template-columns:28px 1fr;gap:10px;border-top:1px solid var(--ov-border);padding:16px 0;align-items:start}#olumi-v2 .ov-register-symbol{color:var(--ov-muted);display:flex;justify-content:center;margin-top:3px}#olumi-v2 .ov-register-symbol .ov-icon{width:16px;height:16px}#olumi-v2 .ov-register-row h3{font-size:13px;font-weight:500;margin-bottom:4px}#olumi-v2 .ov-register-row p{font-size:12px;color:var(--ov-muted);line-height:1.6}#olumi-v2 .ov-change-summary{display:grid;grid-template-columns:1fr 1fr 1fr;gap:28px;padding:26px 28px;border-top:1px solid var(--ov-border)}#olumi-v2 .ov-section-kicker{font-size:10px;letter-spacing:.07em;color:var(--ov-muted)}#olumi-v2 .ov-change-summary h3{font-size:13px;margin:8px 0}#olumi-v2 .ov-change-summary p{font-size:12px;color:var(--ov-muted);line-height:1.65}#olumi-v2 .ov-reference-footer{font-size:11px;padding:16px 28px;color:var(--ov-muted);background:var(--ov-panel);border-top:1px solid var(--ov-border)}
+@media(max-width:1100px){#olumi-v2 .ov-study{gap:22px;padding-left:20px;padding-right:20px}#olumi-v2{--ov-zoom:1}#olumi-v2 .ov-intro{gap:16px}#olumi-v2 .ov-selectors{gap:8px}}@media(max-width:850px){#olumi-v2 .ov-study{grid-template-columns:1fr}#olumi-v2 .ov-panel-study{width:calc(340px * var(--ov-zoom));max-width:100%;justify-self:center}#olumi-v2 .ov-node-stage{min-height:280px}#olumi-v2 .ov-element-register,#olumi-v2 .ov-change-summary{grid-template-columns:1fr}#olumi-v2 .ov-intro,#olumi-v2 .ov-explanation header{display:block}#olumi-v2 .ov-spec-link{display:inline-block;margin-top:12px}}
+</style><style>#olumi-v2 .ov-coaching-chip{display:block;font-size:10px;line-height:1.25;font-weight:500;border:1px solid #277a9d4d;border-radius:6px;padding:3px 8px;margin-top:8px;background:var(--ov-panel);color:var(--ov-body)}#olumi-v2 .ov-existing-coach{margin-top:12px;border:1px solid #277a9d4d;border-radius:8px;padding:10px;background:var(--ov-panel);font-size:12px}#olumi-v2 .ov-existing-coach>div{display:flex;gap:6px;align-items:start}#olumi-v2 .ov-existing-coach>div>.ov-icon{width:14px;height:14px;color:var(--ov-action);margin-top:2px}#olumi-v2 .ov-existing-coach>div>button{background:transparent;border:0;padding:2px;color:var(--ov-muted)}#olumi-v2 .ov-existing-coach>div>button .ov-icon{width:12px;height:12px}#olumi-v2 .ov-existing-coach>button{display:flex;align-items:center;gap:4px;margin:8px 0 0 20px;background:transparent;border:1px solid #277a9d4d;border-radius:20px;padding:4px 12px;font-size:11px}#olumi-v2 .ov-existing-coach>button .ov-icon{width:11px;height:11px;color:var(--ov-action)}</style><script>
+(()=>{const root=document.getElementById('olumi-v2');const ICONS={"FileText":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-file-text ov-icon\" aria-hidden=\"true\"><path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\"></path><path d=\"M14 2v4a2 2 0 0 0 2 2h4\"></path><path d=\"M10 9H8\"></path><path d=\"M16 13H8\"></path><path d=\"M16 17H8\"></path></svg>","Sparkles":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-sparkles ov-icon\" aria-hidden=\"true\"><path d=\"m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z\"></path><path d=\"M5 3v4\"></path><path d=\"M19 17v4\"></path><path d=\"M3 5h4\"></path><path d=\"M17 19h4\"></path></svg>","UserCheck":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-user-check ov-icon\" aria-hidden=\"true\"><path d=\"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2\"></path><circle cx=\"9\" cy=\"7\" r=\"4\"></circle><polyline points=\"16 11 18 13 22 9\"></polyline></svg>","MessageSquare":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-message-square ov-icon\" aria-hidden=\"true\"><path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"></path></svg>","MessageCircleQuestion":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-message-circle-question ov-icon\" aria-hidden=\"true\"><path d=\"M7.9 20A9 9 0 1 0 4 16.1L2 22Z\"></path><path d=\"M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3\"></path><path d=\"M12 17h.01\"></path></svg>","Zap":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-zap ov-icon\" aria-hidden=\"true\"><polygon points=\"13 2 3 14 12 14 11 22 21 10 12 10 13 2\"></polygon></svg>","MoreHorizontal":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-more-horizontal ov-icon\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"1\"></circle><circle cx=\"19\" cy=\"12\" r=\"1\"></circle><circle cx=\"5\" cy=\"12\" r=\"1\"></circle></svg>","PanelRight":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-panel-right ov-icon\" aria-hidden=\"true\"><rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\"></rect><path d=\"M15 3v18\"></path></svg>","X":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-x ov-icon\" aria-hidden=\"true\"><path d=\"M18 6 6 18\"></path><path d=\"m6 6 12 12\"></path></svg>","Pencil":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-pencil ov-icon\" aria-hidden=\"true\"><path d=\"M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z\"></path><path d=\"m15 5 4 4\"></path></svg>","ArrowLeft":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-arrow-left ov-icon\" aria-hidden=\"true\"><path d=\"m12 19-7-7 7-7\"></path><path d=\"M19 12H5\"></path></svg>","ChevronDown":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-chevron-down ov-icon\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"></path></svg>","ChevronRight":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-chevron-right ov-icon\" aria-hidden=\"true\"><path d=\"m9 18 6-6-6-6\"></path></svg>","Code2":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-code2 ov-icon\" aria-hidden=\"true\"><path d=\"m18 16 4-4-4-4\"></path><path d=\"m6 8-4 4 4 4\"></path><path d=\"m14.5 4-5 16\"></path></svg>","BarChart3":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-bar-chart3 ov-icon\" aria-hidden=\"true\"><path d=\"M3 3v18h18\"></path><path d=\"M18 17V9\"></path><path d=\"M13 17V5\"></path><path d=\"M8 17v-3\"></path></svg>","Lightbulb":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-lightbulb ov-icon\" aria-hidden=\"true\"><path d=\"M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5\"></path><path d=\"M9 18h6\"></path><path d=\"M10 22h4\"></path></svg>","Info":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-info ov-icon\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle><path d=\"M12 16v-4\"></path><path d=\"M12 8h.01\"></path></svg>","Copy":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-copy ov-icon\" aria-hidden=\"true\"><rect width=\"14\" height=\"14\" x=\"8\" y=\"8\" rx=\"2\" ry=\"2\"></rect><path d=\"M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2\"></path></svg>","ArrowRight":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-arrow-right ov-icon\" aria-hidden=\"true\"><path d=\"M5 12h14\"></path><path d=\"m12 5 7 7-7 7\"></path></svg>","Lock":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-lock ov-icon\" aria-hidden=\"true\"><rect width=\"18\" height=\"11\" x=\"3\" y=\"11\" rx=\"2\" ry=\"2\"></rect><path d=\"M7 11V7a5 5 0 0 1 10 0v4\"></path></svg>","Check":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-check ov-icon\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"></path></svg>","AlertCircle":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-alert-circle ov-icon\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle><line x1=\"12\" x2=\"12\" y1=\"8\" y2=\"12\"></line><line x1=\"12\" x2=\"12.01\" y1=\"16\" y2=\"16\"></line></svg>","ChevronUp":"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" class=\"lucide lucide-chevron-up ov-icon\" aria-hidden=\"true\"><path d=\"m18 15-6-6-6 6\"></path></svg>"};
+const icon=n=>ICONS[n]||'';const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const state={mode:'selected',example:'normal',scale:1.25,expanded:false,renamed:null,editing:false};
+const base={name:'Two Developers',description:'',origin:'from_brief',number:2,summary:'Developer is the key difference',changes:[['Developer Capacity',1,'Very high'],['Hiring Cost',.9,'Very high'],['Time to Productivity',.5,'Medium']]};
+const data=()=>({...base,name:state.renamed||(state.example==='long'?'Add two developers while protecting technical leadership capacity and allowing time for onboarding':state.example==='missing'?'Explore a different way to add capacity':base.name),description:state.example==='long'?'Add delivery capacity while preserving time for technical leadership and allowing for the work of onboarding. The timing, cost and practical commitments still need discussion.':'',origin:state.example==='missing'?null:base.origin,changes:state.example==='missing'?[]:base.changes,summary:state.example==='missing'?'':base.summary});
+const originMap={from_brief:['FileText','From your brief'],ai_inferred:['Sparkles','Olumi suggested this'],user_set:['UserCheck','You added this']};
+const overlay=root.querySelector('#ov-overlay'),tip=root.querySelector('#ov-tooltip'),menu=root.querySelector('#ov-menu');let timer,exitTimer,tipTimer,dismissed=false,returnFocus=null;
+function hide(){clearTimeout(timer);clearTimeout(exitTimer);clearTimeout(tipTimer);overlay.hidden=true;tip.hidden=true;root.querySelectorAll('[aria-describedby="ov-tooltip"]').forEach(x=>x.removeAttribute('aria-describedby'));}
+function position(el,anchor,side='bottom'){el.hidden=false;const r=anchor.getBoundingClientRect(),w=el.offsetWidth,h=el.offsetHeight;let top=side==='top'?r.top-h-9:r.bottom+9;if(top+h>innerHeight-12)top=r.top-h-9;if(top<12)top=12;el.style.left=Math.max(12,Math.min(r.left,innerWidth-w-12))+'px';el.style.top=top+'px';}
+function preview(){if(dismissed||!menu.hidden)return;clearTimeout(tipTimer);tip.hidden=true;const d=data();overlay.innerHTML=(d.changes.length?'<strong>This option changes '+d.changes.length+' factors.</strong>'+d.changes.map(c=>'<div>'+esc(c[0])+' → <strong>'+esc(c[2])+'</strong></div>').join(''):'<p>No interventions specified for this option.</p>')+'<button class="ov-coaching-chip" data-action="risk-chip">What could go wrong?</button>';position(overlay,root.querySelector('.ov-live-node'));}
+function showTip(b){hide();if(!menu.hidden)return;tip.textContent=b.dataset.tip;position(tip,b);b.setAttribute('aria-describedby','ov-tooltip');}
+function receipt(title,text){hide();menu.hidden=true;const el=root.querySelector('#ov-action-receipt');el.hidden=false;el.innerHTML='<button data-action="dismiss-receipt" aria-label="Dismiss action explanation">Dismiss</button><strong>'+esc(title)+'</strong><p>'+esc(text)+'</p><small>Interaction explanation only. This reference does not contact Olumi or save to the model.</small>';}
+function renderNode(){const d=data(),o=d.origin&&originMap[d.origin];root.querySelector('#ov-node-mount').innerHTML='<article class="ov-live-node '+(state.mode==='selected'?'is-selected ':'')+(state.mode!=='rest'?'show-actions':'')+'" aria-label="Option: '+esc(d.name)+'"><span class="ov-type-shape" aria-hidden="true"><i></i></span><div class="ov-live-title-row"><button class="ov-live-title" data-action="select" title="'+esc(d.name)+'">'+esc(d.name)+'</button>'+(d.description?'<button class="ov-description-toggle" data-action="description" aria-label="'+(state.expanded?'Hide':'Show')+' option description" aria-expanded="'+state.expanded+'">'+icon(state.expanded?'ChevronUp':'ChevronDown')+'</button>':'')+(o?'<span class="ov-live-origin" role="img" aria-label="'+o[1]+'" title="'+o[1]+'">'+icon(o[0])+'</span>':'')+'<span class="ov-option-number" aria-label="Option number '+d.number+'">'+d.number+'</span></div>'+(state.expanded&&d.description?'<p class="ov-description-copy">'+esc(d.description)+'</p>':'')+(d.summary?'<div class="ov-live-body">'+esc(d.summary)+'</div>':'')+(state.example==='missing'?'<span class="ov-needs-input">Needs input</span>':'')+(state.example==='guidance'?'<button class="ov-coaching-cue" data-action="guidance" aria-label="Open guidance for this option">'+icon('Lightbulb')+'</button>':'')+'<div class="ov-node-actions" aria-label="Option quick actions">'+(state.example!=='offline'?'<button data-action="ask" data-tip="Ask Olumi about '+esc(d.name)+'" aria-label="Ask Olumi about '+esc(d.name)+'">'+icon('MessageSquare')+'</button><button data-action="challenge" data-tip="Challenge '+esc(d.name)+' — what could be wrong or missing?" aria-label="Challenge '+esc(d.name)+'">'+icon('Zap')+'</button>':'')+'<button data-action="more" data-tip="More actions for '+esc(d.name)+' — the same menu as right-click" aria-label="More actions for '+esc(d.name)+'" aria-haspopup="menu">'+icon('MoreHorizontal')+'</button></div><span class="ov-connector" aria-hidden="true"></span></article>';
+const node=root.querySelector('.ov-live-node'),actions=node.querySelector('.ov-node-actions');node.addEventListener('pointerenter',()=>{dismissed=false;clearTimeout(exitTimer);timer=setTimeout(preview,300)});node.addEventListener('pointerleave',()=>{clearTimeout(timer);exitTimer=setTimeout(()=>{overlay.hidden=true},100)});actions.addEventListener('pointerenter',hide);actions.addEventListener('focusin',hide);actions.addEventListener('pointerleave',e=>{if(node.contains(e.relatedTarget)&&!actions.contains(document.activeElement)){clearTimeout(timer);timer=setTimeout(preview,300)}});actions.addEventListener('focusout',e=>{if(node.contains(e.relatedTarget)&&!actions.contains(e.relatedTarget)){clearTimeout(timer);timer=setTimeout(preview,300)}});node.querySelectorAll('[data-tip]').forEach(b=>{b.addEventListener('pointerenter',()=>{hide();tipTimer=setTimeout(()=>showTip(b),300)});b.addEventListener('pointerleave',()=>{clearTimeout(tipTimer);exitTimer=setTimeout(()=>tip.hidden=true,100)});b.addEventListener('focus',()=>showTip(b));b.addEventListener('blur',()=>{tip.hidden=true})});}
+function renderPanel(){const d=data();root.querySelector('#ov-inspector-mount').innerHTML='<aside class="ov-live-inspector"><header><div class="ov-panel-type"><i aria-hidden="true"></i>Option<div class="ov-panel-controls"><button class="ov-back" data-action="results">'+icon('ArrowLeft')+'Back to results</button><button data-action="technical" aria-label="Technical details">'+icon('Code2')+'</button><button data-action="close" aria-label="Close inspector">'+icon('X')+'</button></div></div><div class="ov-panel-title">'+(state.editing?'<input id="ov-rename" aria-label="Option name" maxlength="100" value="'+esc(d.name)+'">':'<button data-action="rename" aria-label="Rename '+esc(d.name)+'"><span>'+esc(d.name)+'</span>'+icon('Pencil')+'</button>')+'</div></header><div class="ov-live-panel-body"><div class="ov-inspector-actions">'+(state.example!=='offline'?'<button data-action="inspector-ask">'+icon('MessageCircleQuestion')+'Ask Olumi</button><button data-action="change">'+icon('Pencil')+'Change this</button>':'')+'<button data-action="analysis">'+icon('BarChart3')+'Its analysis</button></div><p class="ov-authority">You can rename this — the name saves to the shared model. The other fields here are read-only for now because those changes can’t yet be saved. Use the Model tab for supported factor values or ask Olumi to change structure.</p><fieldset disabled><section class="ov-panel-group"><h3>Context</h3><p class="'+(d.description?'':'ov-empty-description')+'">'+esc(d.description||'What would choosing this option actually mean in practice?')+'</p></section><section class="ov-panel-group"><h3>What this option changes</h3><div class="ov-target-list">'+(d.changes.length?d.changes.map(c=>'<div class="ov-target-item"><div class="ov-factor-name">'+esc(c[0])+'</div><div class="ov-target-value"><span>Currently: N/A</span><span>→</span><input aria-label="'+esc(c[0])+' target" value="'+c[1]+'" disabled></div></div>').join(''):'<p style="padding:12px 0">This option doesn’t change any factors yet</p>')+'<button class="ov-add-change" disabled>+ Add a change</button></div>'+(d.changes.length?'<div class="ov-existing-coach"><div>'+icon('Lightbulb')+'<p>Consider whether this option changes enough factors to differentiate from alternatives.</p><button disabled aria-label="Dismiss suggestion">'+icon('X')+'</button></div>'+(state.example!=='offline'?'<button disabled>'+icon('Sparkles')+'Ask about this</button>':'')+'</div>':'')+'</section><section class="ov-panel-group"><h3>Connections</h3><p class="ov-in-panel-coach">No connections yet.</p></section></fieldset></div></aside>';
+if(state.editing){const input=root.querySelector('#ov-rename');input.focus();input.select();input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();saveName()}if(e.key==='Escape'){state.editing=false;renderPanel()}});input.addEventListener('blur',saveName,{once:true})}}
+function saveName(){if(!state.editing)return;const el=root.querySelector('#ov-rename');if(!el)return;const v=el.value.trim();state.renamed=v||data().name;state.editing=false;renderNode();renderPanel();root.querySelector('#ov-status').textContent='Name changed in this local reference. The application uses its canonical shared-model rename route.';}
+const descriptions={rest:['Identity first','The top square identifies an option. The title and existing differentiator do the work. Quick actions appear on hover, focus or selection.'],preview:['Detail without opening the panel','Hover the node body for 300 ms. The preview shows known targets, not invented changes from an unknown baseline. Move onto an action and this preview yields.'],actions:['Ask, Challenge, More','Hover or focus an icon to read its purpose. Ask requests an explanation; Challenge opens an unsent draft; More reaches the existing menu and Open details.'],selected:['A clear selection, with readable detail','The selection ring uses the option colour. The inspector gives the full title and current detail; its body remains read-only in this PoC slice.']};
+function render(){hide();menu.hidden=true;dismissed=false;renderNode();renderPanel();root.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===state.mode)));root.querySelector('#ov-node-state').textContent=({rest:'At rest',preview:'Body preview',actions:'Actions available',selected:'Selected'})[state.mode];const [h,p]=descriptions[state.mode];root.querySelector('#ov-interaction-note').innerHTML='<strong>'+h+'</strong><p>'+p+'</p>';root.querySelector('#ov-example-note').textContent=state.example==='normal'?'Screenshot-based title and values in a pre-analysis specimen. Baselines and units are unknown; edges are omitted from this fixture. Review size magnifies the existing component geometry, not its production type scale.':state.example==='missing'?'Constructed empty-input state: assessed option, no interventions, no recorded origin. This warrants Needs input; it does not imply a failed review.':state.example==='guidance'?'Constructed guidance state: the lightbulb represents guidance explicitly attached to this option. It is an invitation to inspect the guidance, not a diagnosis of a person.':state.example==='offline'?'Constructed unavailable-channel state: Ask and Challenge are absent; More and the inspector remain. The existing preview chip has a separate availability gap; its local explanation identifies it.':'Constructed robustness state: the node clamps the long title to two lines; the full title wraps in the inspector. Expand the optional description with its chevron.';if(state.mode==='preview')requestAnimationFrame(preview);}
+const register=[['<span class="ov-square"></span>','Option identity','The purple square stays at the top. The purple outline means option; it does not encode confidence.'],['FileText','Origin','FileText = brief; Sparkles = Olumi suggestion; UserCheck = added by you. Missing origin means no glyph. This is option origin, not input accuracy or review.'],['<span class="ov-option-number">2</span>','Option number','A stable option label supplied by the numbering map. It is not a count of contributors, comments or votes.'],['ChevronDown','Title and description','Two title lines on the node; full title in the inspector. A chevron appears only when a description exists. No description is fabricated to fill the space.'],['MessageSquare','Ask Olumi','Opens the explanation route for this option. The existing send channel must be available. This refinement improves access; it adds no new AI reasoning engine.'],['Zap','Challenge','Starts the existing challenge draft for this option. You can inspect and change it before sending. The invitation helps question assumptions, omissions and alternatives.'],['Zap','Preview coaching','“What could go wrong?” remains one click away in the body preview. It sends the existing question; it is not a newly detected bias.'],['MoreHorizontal','More and Open details','Uses the existing context menu, with Open details added. This reference exercises that entry; the full menu still varies with node state and available features.'],['Lightbulb','Reasoning cue · conditional','Shown only when guidance is attached to this node. Bias icons and science prompts keep their existing producer and registry rules. A cue is not a claim that an option is vetted.'],['<span class="ov-needs-input" style="margin:0">!</span>','Needs input · conditional','Shown for an assessed option with no interventions, before analysis. Absence of this badge is not proof of quality, agreement or completeness.'],['Pencil','Inspector rename and read-only fields','Rename remains live. Context, intervention values and Add a change are read-only on this route. Ask Olumi and Change this provide the existing conversation routes.']];
+root.querySelector('#ov-element-register').innerHTML=register.map(([i,h,p])=>'<div class="ov-register-row"><span class="ov-register-symbol">'+(ICONS[i]?icon(i):i)+'</span><div><h3>'+h+'</h3><p>'+p+'</p></div></div>').join('');
+root.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.mode){state.mode=b.dataset.mode;render();return;}const a=b.dataset.action;if(!a)return;if(a==='dismiss-receipt'){root.querySelector('#ov-action-receipt').hidden=true;return;}if(a==='select'||a==='details'){state.mode='selected';render();if(a==='details')receipt('Open details','Selects this option and opens its inspector. The same option supplies the full title and values.');return;}if(a==='description'){state.expanded=!state.expanded;renderNode();return;}if(a==='rename'){state.editing=true;renderPanel();return;}if(a==='more'){hide();returnFocus=b;menu.innerHTML='<button role="menuitem" data-action="details">'+icon('PanelRight')+'Open details</button><small>Menu excerpt: the remaining entries depend on the production context.</small>';position(menu,b);menu.querySelector('button').focus();return;}const d=data();const messages={'risk-chip':state.example==='offline'?['Existing availability gap','The preview chip remains visible in the current source. With neither a dispatcher nor a send channel registered, its click has no result. This is an existing gap, outside the quick-action repair.']:['What could go wrong?','Sends the existing coaching prompt: “What could go wrong if we choose '+d.name+'?” It uses the coaching dispatcher where available, with the legacy send channel as fallback.'],'inspector-ask':['Ask Olumi about '+d.name,'The inspector prepares an editable question through its existing request route. You review and send it. This differs from the on-node Ask shortcut, which sends an explanation request.'],ask:['Ask Olumi about '+d.name,'In the application, this sends the existing explanation request for this option to the registered conversation. This reference describes the route and does not simulate an AI answer.'],challenge:['Challenge '+d.name,'In the application, this selects the option and opens its contextual challenge as an unsent draft. Review and amend the question before sending it.'],change:['Ask Olumi to change '+d.name,'Opens the existing request route for changing this element. It is not a direct edit of the disabled fields below.'],analysis:['Its analysis','Opens the existing analysis route for this option. No analysis result has been fabricated for this pre-analysis example.'],results:['Back to results','Returns to the existing results surface. The component reference keeps the inspector specimen visible for review.'],close:['Close inspector','Closes the inspector in the application. This component sheet keeps the specimen available for comparison.'],technical:['Technical details','Opens the existing technical detail route. Raw normalised values do not become real-world units by being displayed here.'],guidance:['Guidance for this option','The application opens the guidance attached to this option. Its content and action come from that guidance record; this constructed state does not invent a bias finding.']};if(messages[a])receipt(...messages[a]);});
+root.querySelector('#ov-example').addEventListener('change',e=>{state.example=e.target.value;state.renamed=null;state.expanded=false;state.editing=false;root.querySelector('#ov-action-receipt').hidden=true;render()});root.querySelector('#ov-scale').addEventListener('change',e=>{state.scale=Number(e.target.value);root.style.setProperty('--ov-zoom',state.scale);render()});
+overlay.addEventListener('pointerenter',()=>clearTimeout(exitTimer));overlay.addEventListener('pointerleave',()=>{exitTimer=setTimeout(()=>overlay.hidden=true,100)});tip.addEventListener('pointerenter',()=>clearTimeout(exitTimer));tip.addEventListener('pointerleave',()=>tip.hidden=true);
+document.addEventListener('pointerdown',e=>{if(!menu.hidden&&!menu.contains(e.target)&&!e.target.closest('[data-action="more"]'))menu.hidden=true;});document.addEventListener('keydown',e=>{if(e.key==='Escape'){const wasMenu=!menu.hidden;hide();menu.hidden=true;dismissed=true;if(wasMenu)returnFocus?.focus();tip.hidden=true;}if(!menu.hidden&&['ArrowDown','ArrowUp','Home','End'].includes(e.key)){e.preventDefault();menu.querySelector('button').focus()}});window.addEventListener('resize',hide);window.addEventListener('scroll',hide,{passive:true});render();
+})();
+</script>
+<script src="https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js"></script>
+<script src="https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js"></script>
+<script>
+(() => {
+  if (window.FloatingUIDOM == null) {
+    return;
+  }
+  const { autoUpdate, computePosition, flip, offset, shift, size } =
+    window.FloatingUIDOM;
+  const tooltipPlacements = new Set(["top", "right", "bottom", "left"]);
+  const tooltipId = `codex-visualization-tooltip-${
+    window.crypto?.randomUUID?.() ?? Date.now().toString(36)
+  }`;
+  const tooltipGap = 5;
+  const hoverDelay = 700;
+  const skipDelay = 300;
+  let activeTrigger = null;
+  let pendingTrigger = null;
+  let tooltip = null;
+  let openTimeout = null;
+  let autoUpdateCleanup = null;
+  let positionRequest = 0;
+  let skipDelayUntil = 0;
+  let lastPointerWasTouch = false;
+  let pinnedByTouch = false;
+
+  const getTrigger = (target) =>
+    target?.nodeType === Node.ELEMENT_NODE
+      ? target.closest("[data-tooltip]")
+      : null;
+  const containsTarget = (trigger, target) =>
+    target?.nodeType != null && trigger.contains(target);
+  const getContent = (trigger) =>
+    trigger.getAttribute("data-tooltip")?.trim() ?? "";
+  const getPlacement = (trigger) => {
+    const placement = trigger.getAttribute("data-tooltip-placement");
+    return tooltipPlacements.has(placement) ? placement : "top";
+  };
+  const getTooltip = () => {
+    if (tooltip == null) {
+      tooltip = document.createElement("div");
+      tooltip.id = tooltipId;
+      tooltip.className = "tooltip";
+      tooltip.setAttribute("role", "tooltip");
+    }
+    return tooltip;
+  };
+  const setDescribedBy = (trigger, described) => {
+    const ids = new Set(
+      (trigger.getAttribute("aria-describedby") ?? "")
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    if (described) {
+      ids.add(tooltipId);
+    } else {
+      ids.delete(tooltipId);
+    }
+    if (ids.size === 0) {
+      trigger.removeAttribute("aria-describedby");
+    } else {
+      trigger.setAttribute("aria-describedby", [...ids].join(" "));
+    }
+  };
+  const clearOpenTimeout = () => {
+    if (openTimeout != null) {
+      window.clearTimeout(openTimeout);
+      openTimeout = null;
+    }
+    pendingTrigger = null;
+  };
+  const closeTooltip = (activateSkipDelay = true) => {
+    clearOpenTimeout();
+    pinnedByTouch = false;
+    positionRequest += 1;
+    autoUpdateCleanup?.();
+    autoUpdateCleanup = null;
+    if (activeTrigger == null) {
+      return;
+    }
+    setDescribedBy(activeTrigger, false);
+    activeTrigger = null;
+    tooltip?.remove();
+    if (activateSkipDelay) {
+      skipDelayUntil = Date.now() + skipDelay;
+    }
+  };
+  const updatePosition = (trigger, floating) => {
+    const request = ++positionRequest;
+    void computePosition(trigger, floating, {
+      middleware: [
+        offset(tooltipGap),
+        flip({ padding: tooltipGap }),
+        shift({ padding: tooltipGap }),
+        size({
+          padding: tooltipGap,
+          apply({ availableHeight, availableWidth, elements }) {
+            elements.floating.style.setProperty(
+              "--tooltip-available-width",
+              `${Math.max(0, availableWidth)}px`,
+            );
+            elements.floating.style.setProperty(
+              "--tooltip-available-height",
+              `${Math.max(0, availableHeight)}px`,
+            );
+          },
+        }),
+      ],
+      placement: getPlacement(trigger),
+      strategy: "fixed",
+    })
+      .then(({ x, y }) => {
+        if (activeTrigger !== trigger || request !== positionRequest) {
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        floating.style.transform = `translate(${Math.round(x * scale) / scale}px, ${Math.round(y * scale) / scale}px)`;
+        floating.style.visibility = "visible";
+      })
+      .catch(() => {
+        if (activeTrigger === trigger && request === positionRequest) {
+          closeTooltip(false);
+        }
+      });
+  };
+  const openTooltip = (trigger) => {
+    const content = getContent(trigger);
+    if (!trigger.isConnected || content.length === 0) {
+      return;
+    }
+    clearOpenTimeout();
+    if (activeTrigger === trigger) {
+      return;
+    }
+    closeTooltip();
+    const floating = getTooltip();
+    floating.textContent = content;
+    floating.style.visibility = "hidden";
+    floating.style.transform = "translate(0, 0)";
+    document.body.appendChild(floating);
+    activeTrigger = trigger;
+    setDescribedBy(trigger, true);
+    autoUpdateCleanup = autoUpdate(trigger, floating, () => {
+      updatePosition(trigger, floating);
+    });
+  };
+  const requestOpen = (trigger, immediate = false) => {
+    if (
+      getContent(trigger).length === 0 ||
+      activeTrigger === trigger ||
+      pendingTrigger === trigger
+    ) {
+      return;
+    }
+    clearOpenTimeout();
+    pendingTrigger = trigger;
+    const delay =
+      immediate || activeTrigger != null || Date.now() < skipDelayUntil
+        ? 0
+        : hoverDelay;
+    if (delay === 0) {
+      openTooltip(trigger);
+      return;
+    }
+    openTimeout = window.setTimeout(() => {
+      openTimeout = null;
+      pendingTrigger = null;
+      openTooltip(trigger);
+    }, delay);
+  };
+  const handlePointerOpen = (event) => {
+    if (event.pointerType === "touch") {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    requestOpen(trigger);
+  };
+  const handlePointer = (event) => {
+    lastPointerWasTouch =
+      event.type === "pointerdown" && event.pointerType === "touch";
+  };
+  const handleTouchClick = (event) => {
+    const isTouch = event.pointerType === "touch" || lastPointerWasTouch;
+    lastPointerWasTouch = false;
+    if (!isTouch || event.detail === 0) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (
+      trigger == null ||
+      !trigger.isConnected ||
+      getContent(trigger).length === 0 ||
+      (pinnedByTouch && activeTrigger === trigger)
+    ) {
+      if (pinnedByTouch) {
+        closeTooltip();
+      }
+      return;
+    }
+    openTooltip(trigger);
+    pinnedByTouch = activeTrigger === trigger;
+    window.setTimeout(() => {
+      if (activeTrigger === trigger && !trigger.isConnected) {
+        closeTooltip(false);
+      }
+    }, 0);
+  };
+  const handleLeave = (event) => {
+    if (pinnedByTouch) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handleFocusIn = (event) => {
+    const trigger = getTrigger(event.target);
+    if (trigger?.matches(":focus-visible")) {
+      requestOpen(trigger, true);
+    }
+  };
+  const handleKeyDown = (event) => {
+    if (event.key === "Escape") {
+      closeTooltip();
+    }
+  };
+  const handleContextMenu = (event) => {
+    lastPointerWasTouch = false;
+    const trigger = getTrigger(event.target);
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const destroy = () => {
+    closeTooltip(false);
+    lastPointerWasTouch = false;
+    document.removeEventListener("pointerover", handlePointerOpen);
+    document.removeEventListener("pointerdown", handlePointer);
+    document.removeEventListener("pointercancel", handlePointer);
+    document.removeEventListener("click", handleTouchClick);
+    document.removeEventListener("pointerout", handleLeave);
+    document.removeEventListener("focusin", handleFocusIn);
+    document.removeEventListener("focusout", handleLeave);
+    document.removeEventListener("keydown", handleKeyDown);
+    document.removeEventListener("contextmenu", handleContextMenu);
+    tooltip = null;
+  };
+
+  document.addEventListener("pointerover", handlePointerOpen);
+  document.addEventListener("pointerdown", handlePointer);
+  document.addEventListener("pointercancel", handlePointer);
+  document.addEventListener("click", handleTouchClick);
+  document.addEventListener("pointerout", handleLeave);
+  document.addEventListener("focusin", handleFocusIn);
+  document.addEventListener("focusout", handleLeave);
+  document.addEventListener("keydown", handleKeyDown);
+  document.addEventListener("contextmenu", handleContextMenu);
+  window.addEventListener("pagehide", destroy, { once: true });
+})();
+</script>
+<script id="codex-visualization-tabs">
+(() => {
+  const selector = '.nav[role="tablist"] [role="tab"]';
+  const disabled = ':disabled,[aria-disabled="true"]';
+  const selectTab = (selected) => {
+    const panelId = selected.getAttribute("aria-controls");
+    for (const tab of selected.closest('[role="tablist"]').querySelectorAll('[role="tab"]')) {
+      const active = tab === selected;
+      tab.classList.toggle("active", active);
+      tab.setAttribute("aria-selected", String(active));
+      const id = tab.getAttribute("aria-controls");
+      const panel = id && document.getElementById(id);
+      if (panel != null) {
+        panel.hidden = id !== panelId;
+        if (!panel.hidden && selected.id) {
+          panel.setAttribute("aria-labelledby", selected.id);
+        }
+      }
+    }
+  };
+  const interact = (event) => {
+    const tab = event.target?.closest?.(selector);
+    if (event.defaultPrevented || tab == null || tab.matches(disabled)) {
+      return;
+    }
+    if (event.type === "click") {
+      selectTab(tab);
+      return;
+    }
+    const tabs = Array.from(
+      tab.closest('[role="tablist"]').querySelectorAll('[role="tab"]'),
+    ).filter((candidate) => !candidate.matches(disabled));
+    const current = tabs.indexOf(tab);
+    let next;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      next = (current + 1) % tabs.length;
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      next = (current + tabs.length - 1) % tabs.length;
+    } else if (event.key === "Home") {
+      next = 0;
+    } else if (event.key === "End") {
+      next = tabs.length - 1;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    tabs[next].focus();
+    selectTab(tabs[next]);
+  };
+
+  for (const list of document.querySelectorAll('.nav[role="tablist"]')) {
+    const selected =
+      list.querySelector('[role="tab"][aria-selected="true"]') ??
+      list.querySelector('[role="tab"].active') ??
+      list.querySelector('[role="tab"]');
+    if (selected != null) {
+      selectTab(selected);
+    }
+  }
+  document.addEventListener("click", interact);
+  document.addEventListener("keydown", interact);
+  window.addEventListener("pagehide", () => {
+    document.removeEventListener("click", interact);
+    document.removeEventListener("keydown", interact);
+  }, { once: true });
+})();
+</script>
+<script id="codex-visualization-lucide" async src="https://unpkg.com/lucide@1.17.0/dist/umd/lucide.js"></script>
+<script>
+(() => {
+  const initialize = () => {
+    globalThis.lucide?.createIcons({ attrs: { width: 16, height: 16 } });
+  };
+  if (globalThis.lucide != null) {
+    initialize();
+    return;
+  }
+  document
+    .getElementById("codex-visualization-lucide")
+    ?.addEventListener("load", initialize, { once: true });
+})();
+</script>
+
+</body>
+</html>

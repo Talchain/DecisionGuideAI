@@ -757,7 +757,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       {/* R5 contextual efficiency layer — quiet at rest, revealed on hover, on
           keyboard focus within the card, and while the node is selected. One
           home for it (here) rather than per-node-type, so every node speaks the
-          same two shortcuts: ask Olumi about this, open this node's details.
+          same three shortcuts: Ask Olumi, Challenge, and More. Details is in
+          More and also opens when the node is clicked.
           Bottom-RIGHT: the top-right corner is owned by node-corner-stack
           below, and this layer overlapped it by ~6px at a lower z until a
           review caught it. ⚠ `showQuickActions` gates THIS MOUNT ONLY. The

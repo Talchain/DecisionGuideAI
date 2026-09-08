@@ -506,7 +506,7 @@ describe('FactorNode', () => {
 
   // P5: Inferred factor keeps its science disclosure, but B3 withholds the
   // local-only confirmation action because it has no canonical carrier.
-  it('inferred factor keeps science and inspect affordances while confirm value is withheld (P5)', () => {
+  it('inferred factor keeps science and menu affordances while confirm value is withheld (P5)', () => {
     vi.mocked(useScienceIcons).mockReturnValue([{
       id: 'evidence-gap', icon: FileQuestion,
       tooltip: 'No evidence for this factor. Analysis will use defaults.',
@@ -521,8 +521,8 @@ describe('FactorNode', () => {
     // Science icon uses aria-label
     expect(screen.getByLabelText(/No evidence for this factor/)).toBeDefined()
     expect(screen.queryByTitle('Confirm value')).toBeNull()
-    // Positive control: the canonical route to inspect and act remains mounted.
-    expect(screen.getByTitle('Open details for Salary')).toBeDefined()
+    // Positive control: the menu containing the details route remains mounted.
+    expect(screen.getByLabelText('More actions for Salary')).toBeDefined()
   })
 
   // Graph v1.1 wireframe v4: external factors NEVER get the "needs your
@@ -986,7 +986,7 @@ describe('FactorNode — QA Brief A-series', () => {
 
   // A17b: value=0 + extractionType=inferred → contextual text + science icon;
   // B3 withholds the local-only confirmation action.
-  it('A17b: inferred zero keeps contextual science and inspect affordances without confirm value', () => {
+  it('A17b: inferred zero keeps contextual science and menu affordances without confirm value', () => {
     vi.mocked(useScienceIcons).mockReturnValue([{
       id: 'evidence-gap', icon: FileQuestion,
       tooltip: 'No evidence for this factor. Analysis will use defaults.',
@@ -1002,8 +1002,8 @@ describe('FactorNode — QA Brief A-series', () => {
     // Science icon via aria-label
     expect(screen.getByLabelText(/No evidence for this factor/)).toBeDefined()
     expect(screen.queryByTitle('Confirm value')).toBeNull()
-    // Positive control: the canonical details path is still available.
-    expect(screen.getByTitle('Open details for Item')).toBeDefined()
+    // Positive control: the menu containing the details route remains available.
+    expect(screen.getByLabelText('More actions for Item')).toBeDefined()
   })
 
   // A18: Tier labels removed — non-binary values without raw_value show no display text
