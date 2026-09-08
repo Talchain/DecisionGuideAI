@@ -217,7 +217,7 @@ const NO_SUBJECT_LABEL = 'Your model so far'
 const NO_INSIGHTS: NodeInsightIndex = new Map()
 
 /** What a node's detail has to say when the run named it nowhere. */
-const EMPTY_INSIGHT: NodeInsight = { driverLabel: null, findings: [], withheldFindings: 0 }
+const EMPTY_INSIGHT: NodeInsight = { mentions: [], driverLabel: null, findings: [], withheldFindings: 0 }
 
 /**
  * Ring several nodes at once on the canvas.
@@ -719,7 +719,12 @@ export function ModelStrip({
   }
   const activeInsight = (active && insights.get(active.id)) || EMPTY_INSIGHT
   const activeHasNothing =
-    activeInsight.driverLabel === null && activeInsight.findings.length === 0
+    activeInsight.driverLabel === null &&
+    activeInsight.findings.length === 0 &&
+    // ⚠ AND NOTHING ELSE ON THE PANEL NAMES IT. Without this conjunct the
+    // sentence below claims the whole panel is silent while the panel is
+    // visibly talking about the node — witnessed on deployed `d82e81f0`.
+    activeInsight.mentions.length === 0
 
   return (
     /* ⚠ A LABELLED LANDMARK, NAMED BY ITS OWN SUBJECT. A `section` is a
@@ -1486,6 +1491,29 @@ export function ModelStrip({
             {/* ⚠ THE ABSENCE IS THE RESULT, AND IT IS RENDERED. Silence here
                 would be indistinguishable from a broken control, and a
                 reassurance would be a claim nothing measured. */}
+            {/* ⭐ POINTERS, NOT A SECOND RENDERING. Each line names a section
+                that is already on screen saying its own thing, so the reader
+                can get there — and so the empty state below can only appear
+                when the panel really is silent about this node. */}
+            {activeInsight.mentions.length > 0 ? (
+              <ul
+                className="list-none p-0 m-0 space-y-0.5"
+                data-testid={`${testId}-detail-mentions`}
+              >
+                {activeInsight.mentions.map(m => (
+                  <li
+                    key={m.id}
+                    className={`${typography.panelMeta} text-text-light m-0`}
+                    data-testid={`${testId}-detail-mention`}
+                    data-mention-id={m.id}
+                    data-mention-section={m.section}
+                  >
+                    {COPY.modelStrip.mentionPrefix(m.section)} {m.headline}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
             {activeHasNothing ? (
               <p
                 className={`${typography.panelMeta} text-text-light m-0`}

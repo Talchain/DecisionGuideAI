@@ -627,8 +627,32 @@ export function AnalysisNewTabBody({
       buildNodeInsights({
         interventions: vm.strengthen.interventions,
         drivers: vm.atAGlance.drivers,
+        /*
+         * ⭐ THE REST OF THE PANEL. The strip's empty state claims *"nothing
+         * else on this panel refers to this node"* — a claim about the WHOLE
+         * panel — and it was answered from two sections only. Witnessed on
+         * deployed `d82e81f0`: "Platform Capability Fit is the hinge" was on
+         * screen while the card said nothing referred to it.
+         *
+         * Every section here renders `AnalysisNewFinding[]`, which carries the
+         * same `targetId` join the two lists above use. If a section gains
+         * findings later, it belongs in this list — and the empty state stays
+         * true only for as long as that stays true.
+         */
+        mentionSections: [
+          { section: 'keyInsights', findings: vm.keyInsights.insights },
+          { section: 'sensitivity', findings: vm.sensitivity.findings },
+          // "How the options compare" is deliberately absent — `rows:
+          // ComparisonOption[]` is a different shape with no finding join.
+          // See `BuildNodeInsightsInput.mentionSections`.
+        ],
       }),
-    [vm.strengthen.interventions, vm.atAGlance.drivers],
+    [
+      vm.strengthen.interventions,
+      vm.atAGlance.drivers,
+      vm.keyInsights.insights,
+      vm.sensitivity.findings,
+    ],
   )
 
   /**

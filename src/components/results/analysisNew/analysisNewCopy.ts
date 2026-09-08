@@ -944,6 +944,20 @@ export const ANALYSIS_NEW_COPY = {
      * capped.
      */
     noInsight: 'Nothing else on this panel refers to this node.',
+    /*
+     * ⭐ NAMES THE SECTION, SO THE POINTER IS ACTIONABLE.
+     *
+     * "Also in: Key insights — Platform Capability Fit is the hinge" tells the
+     * reader WHERE to look. A bare headline would make the reader hunt for a
+     * sentence they have just been shown out of context.
+     *
+     * ⚠ THE HEADLINE ITSELF IS NEVER AUTHORED HERE — it is the finding's own,
+     * verbatim. This function supplies only the label of the section.
+     */
+    mentionPrefix: (section: 'keyInsights' | 'sensitivity'): string =>
+      section === 'keyInsights'
+        ? 'Also in Key insights:'
+        : 'Also in What would change your mind:',
     /**
      * ⚠⚠ THE SAME ABSENCE, WITH THE REASON THE READER ACTUALLY NEEDS. Before a
      * run `noInsight` above is TRUE and still tells the wrong story: it reads

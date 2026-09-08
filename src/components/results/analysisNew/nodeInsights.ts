@@ -81,6 +81,31 @@ export interface NodeInsightFinding {
 /** Everything this run says about ONE node. */
 export interface NodeInsight {
   /**
+   * ⭐ THE OTHER SECTIONS OF THE PANEL THAT NAME THIS NODE, by their headline.
+   *
+   * ⚠⚠ THIS EXISTS BECAUSE THE STRIP'S EMPTY-STATE LIED, AND IT WAS WITNESSED
+   * ON DEPLOYED `d82e81f0`, NOT REASONED ABOUT. Selecting **Platform Capability
+   * Fit** produced *"Nothing else on this panel refers to this node"* while the
+   * SAME PANEL, at the same moment, said all four of:
+   *
+   *   · "Platform Capability Fit is the hinge"                    (key insights)
+   *   · "If \"Platform Capability Fit → …\" changes significantly,
+   *      \"Status Quo / Defer Decision\" could become the better choice"
+   *   · "If \"EU Data Residency Compliance → Platform Capability Fit\" …"
+   *   · "Olumi estimated how strongly Platform Capability Fit affects …"
+   *
+   * The copy claims something about THE WHOLE PANEL; the index knew about TWO
+   * of its sections. One name, two questions — and the narrower one was
+   * answering for the wider. Note the direction of the harm: the panel's single
+   * most important finding was *"this node is the hinge"*, and the card denied
+   * that anything mentioned it at all.
+   *
+   * ⚠ HEADLINES ONLY, VERBATIM. This is a POINTER to a section that is already
+   * on screen saying its own thing — not a second rendering of that finding,
+   * and nothing here composes a sentence.
+   */
+  mentions: NodeMention[]
+  /**
    * The driver's own label when the glance named this node among what matters
    * most, else `null`. See the header: `null` means "the glance did not name
    * it", which is NOT "it does not matter".
@@ -92,6 +117,16 @@ export interface NodeInsight {
   withheldFindings: number
 }
 
+/** One other place on this panel that names the node. */
+export interface NodeMention {
+  /** The finding's own id — the join a test binds to, never its text. */
+  id: string
+  /** Which section is speaking. Used to label the pointer. */
+  section: 'keyInsights' | 'sensitivity'
+  /** The finding's headline, verbatim. */
+  headline: string
+}
+
 export type NodeInsightIndex = ReadonlyMap<string, NodeInsight>
 
 export interface BuildNodeInsightsInput {
@@ -99,6 +134,26 @@ export interface BuildNodeInsightsInput {
   interventions: ReadonlyArray<Recommendation>
   /** `vm.atAGlance.drivers` — the glance's CAPPED driver list. */
   drivers: ReadonlyArray<GlanceDriver>
+  /**
+   * ⭐ THE REST OF THE PANEL. Every other section whose rows carry a
+   * `targetId`, so the strip's *"nothing else refers to this node"* is a claim
+   * about the panel rather than about two of its sections.
+   *
+   * Optional so an existing caller keeps compiling; a caller that omits it gets
+   * the OLD, NARROWER answer, which is why the mount passes both and a test
+   * pins that it does.
+   *
+   * ⚠ SCOPE STATED RATHER THAN LEFT IMPLICIT: "How the options compare" is NOT
+   * here. Its section carries `rows: ComparisonOption[]`, a different shape
+   * with no `AnalysisNewFinding` join, so including it would need its own
+   * derivation rather than this one. It names OPTIONS, and the witnessed defect
+   * was about a FACTOR — but this is a real remaining narrowness in the empty
+   * state's claim, and it is recorded here rather than quietly excluded.
+   */
+  mentionSections?: ReadonlyArray<{
+    section: NodeMention['section']
+    findings: ReadonlyArray<{ id: string; headline: string; targetId?: string }>
+  }>
 }
 
 /**
@@ -112,13 +167,14 @@ export interface BuildNodeInsightsInput {
 export function buildNodeInsights({
   interventions,
   drivers,
+  mentionSections = [],
 }: BuildNodeInsightsInput): NodeInsightIndex {
   const index = new Map<string, NodeInsight>()
 
   const entry = (nodeId: string): NodeInsight => {
     const existing = index.get(nodeId)
     if (existing) return existing
-    const fresh: NodeInsight = { driverLabel: null, findings: [], withheldFindings: 0 }
+    const fresh: NodeInsight = { driverLabel: null, findings: [], withheldFindings: 0, mentions: [] }
     index.set(nodeId, fresh)
     return fresh
   }
@@ -147,6 +203,23 @@ export function buildNodeInsights({
       context: rec.whyNow || rec.signal,
       method: methodForRecommendation(rec.id, rec.signalCode, rec.biasCode),
     })
+  }
+
+  /*
+   * ⚠ NO CAP HERE, DELIBERATELY, AND IT IS A DIFFERENT DECISION FROM THE ONE
+   * ABOVE. `findings` is capped because each one RENDERS a whole card; a
+   * mention is one headline pointing at a card already on screen. Capping these
+   * would reintroduce the same defect one notch quieter — the card would say
+   * "and 2 more" where it used to say "nothing".
+   */
+  for (const { section, findings } of mentionSections) {
+    for (const finding of findings) {
+      if (!finding.targetId) continue
+      const row = entry(finding.targetId)
+      // A section may name a node twice; the reader needs to be told once.
+      if (row.mentions.some(m => m.id === finding.id)) continue
+      row.mentions.push({ id: finding.id, section, headline: finding.headline })
+    }
   }
 
   return index
