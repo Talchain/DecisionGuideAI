@@ -73,7 +73,27 @@ vi.mock('../../store', () => {
   }
 })
 
-vi.mock('../actions', () => ({
+/**
+ * ⚠ SPREAD THE ORIGINAL — DO NOT HAND-LIST THESE EXPORTS.
+ *
+ * This factory previously listed the action functions and nothing else. A
+ * `vi.mock` factory REPLACES the module, so every export the list did not name
+ * was absent at runtime — and `buildNodeMenu` reads more than the actions it
+ * dispatches. When `#1292` ("a team can argue with the question and the
+ * choices") landed `CHALLENGE_KINDS` on this module and `useMenuItems.ts:432`
+ * began reading it, the hand-listed factory made it `undefined` and every test
+ * mounting a node menu threw at `CHALLENGE_KINDS.has(...)`.
+ *
+ * The failure was invisible until a rebase: the list was complete on the day it
+ * was written, and nothing fails when a NEW export is added — it simply is not
+ * there. That is the hand-maintained-mirror defect, and the sibling spec
+ * `useMenuItems.spec.ts` already carries this same importOriginal fix.
+ *
+ * Spreading the original keeps the stubs (nothing dispatches for real) while
+ * every non-action export stays live and future additions arrive on their own.
+ */
+vi.mock('../actions', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../actions')>()),
   deleteAction: vi.fn(), addNodeAction: vi.fn(), addConnectedFactorAction: vi.fn(),
   addConnectedOutcomeAction: vi.fn(), addConnectedRiskAction: vi.fn(),
   reverseEdgeAction: vi.fn(), insertFactorBetweenAction: vi.fn(),
