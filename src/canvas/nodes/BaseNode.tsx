@@ -581,12 +581,30 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    *
    * ⭐ AND THE MEASUREMENT THAT PROMPTED THE QUESTION NAMED THE WRONG COLLISION.
    * The July question was amber `#FFA656` against the risk border `#EA7B4B`.
-   * Measured (CIEDE2000; dichromat simulation Viénot–Brettel–Mollon 1999):
+   *
+   * ⭐ RE-DERIVED 8 Sep 2026 THROUGH THE REPO'S OWN INSTRUMENT — `canvas/edges/
+   * cvdContrast.ts` (`deltaE2000`), the module PR #282's follow-up built for
+   * exactly this. The first cut of these figures came from an ad-hoc script
+   * whose dichromat step nothing validated; quoting ΔE from unbacked prose is
+   * the defect `cvdContrast` exists to end, and this table had reproduced it.
+   * The instrument reproduces its own committed pins (`polarityContrast.spec`)
+   * to three decimals — 11.739 / 13.773 / 28.295 against the pinned 11.7 /
+   * 13.8 / 28.3 — so it is the authority here, and these cells are ITS output
+   * rounded to 1dp. Five of the nine original cells were off by 0.1–0.2; the
+   * ranking, and the ruling, are unchanged.
    *
    *     amber vs …        normal   deuteranopia   protanopia
-   *     risk / danger      13.9         9.0          12.3
-   *     GOAL               17.0         5.5           8.6     ← worst
-   *     outcome / success  43.6        19.6          12.8
+   *     risk / danger      13.9         8.9          12.2
+   *     GOAL               17.0         5.5           8.7     ← worst, both
+   *     factor             22.0        20.6          17.5
+   *     outcome / success  43.6        19.8          12.7
+   *     option             42.9        53.7          50.5
+   *
+   * Now pinned by `polarityContrast.spec` so these numbers cannot drift from
+   * the tokens again — and so any future badge/confidence colour decision is
+   * measured through the same instrument rather than through fresh ad-hoc
+   * maths. `cvdContrast` refuses tritan rather than returning an invalid
+   * figure, which is the other reason to route such questions through it.
    *
    * The rule explicitly covers *"the goal missing its target"*, so the treatment
    * was least distinguishable precisely on the node class it most often applies

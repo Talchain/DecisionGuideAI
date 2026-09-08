@@ -19,11 +19,18 @@
  * COLLISION. Risk was never the worst case:
  *
  *   amber vs …      normal   deuteranopia   protanopia
- *   risk/danger      13.9        9.0           12.3
- *   GOAL             17.0        5.5            8.6      ← worst
- *   outcome/success  43.6       19.6           12.8
+ *   risk/danger      13.9        8.9           12.2
+ *   GOAL             17.0        5.5            8.7      ← worst, both
+ *   factor           22.0       20.6           17.5
+ *   outcome/success  43.6       19.8           12.7
+ *   option           42.9       53.7           50.5
  *
- * (CIEDE2000; dichromat simulation Viénot–Brettel–Mollon 1999.) The rule
+ * ⭐ RE-DERIVED 8 Sep 2026 THROUGH `canvas/edges/cvdContrast.ts` (`deltaE2000`;
+ * CIEDE2000 over a Viénot–Brettel–Mollon 1999 dichromat simulation) — the
+ * repo's own instrument, and now PINNED in `polarityContrast.spec` so these
+ * cells are regression-guarded rather than prose. The first cut came from an
+ * ad-hoc script whose simulation step nothing validated; five of the nine
+ * cells were off by 0.1–0.2 and the ranking was unchanged. The rule
  * explicitly covers *"the goal missing its target"*, so the treatment was least
  * distinguishable precisely on the node class it most often applies to. And
  * amber-replacing-the-hue made COLOUR the SOLE channel for the state, which the
