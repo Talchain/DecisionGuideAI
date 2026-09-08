@@ -199,7 +199,7 @@ export function getRecommendedOptionInterventions(
 
   if (!winnerOption) {
     if (import.meta.env.DEV) {
-      console.log('[getRecommendedOptionInterventions] No winner option found', { requestId })
+      console.log('[getRecommendedOptionInterventions] No recommended option found', { requestId })
     }
     return null
   }

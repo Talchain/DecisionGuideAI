@@ -431,7 +431,13 @@ export const GoalNode = memo((props: NodeProps) => {
     if (!robustnessData) return undefined
     switch (robustnessData.level) {
       case 'moderate': return 'border-info border-dashed'
-      case 'low': return 'border-danger border-dashed'
+      // ⚠ `very_low` WAS MISSING AND FELL TO `default: undefined`, so the WORST
+      // robustness grade the producer can send got LESS border treatment than
+      // `moderate` — the caveat weakened exactly as the run got more fragile.
+      // Its sibling `stabilityBarColour` (see below) has always handled `low`
+      // and `very_low` together; this switch is the one that drifted.
+      case 'low':
+      case 'very_low': return 'border-danger border-dashed'
       default: return undefined
     }
   }, [hasThreshold, robustnessData])

@@ -743,7 +743,7 @@ function RelationshipsSectionInner({
             without the retired noun: what fragility can change is which option
             comes out ahead, not an endorsement the product does not make.
           */}
-          Fragile relationships could change which option leads. Review the strongest ones first.
+          Fragile relationships could change which option the data supports. Review the strongest ones first.
         </CoachingCard>
       )}
 

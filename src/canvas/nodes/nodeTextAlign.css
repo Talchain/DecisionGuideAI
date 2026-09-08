@@ -1,0 +1,68 @@
+/**
+ * Node copy is never centred.
+ *
+ * ## The defect this closes
+ *
+ * The browser's UA stylesheet declares `button { text-align: center }`, and
+ * Tailwind v3's Preflight does not reset it (this repo is on tailwindcss
+ * ^3.4.1 with no `corePlugins` override; a sweep for `text-align` across all
+ * of `src/` returns 6 declarations, none of them a button rule). So every
+ * text-bearing `<button>` inside a canvas node centres its copy, with no
+ * centring class anywhere in the repo to grep for. On a 220px factor card the
+ * what-if link ("What if <factor> worsens?") wraps to two ragged, centred
+ * lines against the left-aligned prose around it.
+ *
+ * ## Why the rule lives here and not on an ancestor
+ *
+ * `BaseNode.tsx` already wraps every node body child in `className="relative
+ * text-left"`. That is correct, and it reaches spans, divs and `<p>`s — but a
+ * value DECLARED on the button element by the UA stylesheet beats an
+ * INHERITED one, so it cannot reach a `<button>`. Strengthening the ancestor
+ * looks like a fix and moves nothing. The declaration has to land on the
+ * button itself; this rule is the one place that does it for all of them at
+ * once, including buttons that do not exist yet.
+ *
+ * ## Why two selectors
+ *
+ * `.react-flow__node` is React Flow's own node wrapper (this repo derives
+ * against it in `nodeKeyboardScope.tsx`). It covers node bodies. It does NOT
+ * cover `NodePopover`'s portalled branch: with an `anchorRef` that component
+ * `createPortal`s to `document.body`, so its content is not a DOM descendant
+ * of any node. (Its other branch, the no-`anchorRef` inline fallback, does
+ * render inside the node — both branches carry the attribute, so the second
+ * selector covers the portalled one without the first losing the inline one.)
+ *
+ * This matters because `NodeChip` — the shared coaching chip used by every
+ * node type — renders in BOTH places: inline in the body, and inside the
+ * popover via `outcomeChips` (OutcomeNode) and `factorChips` (FactorNode). A
+ * rule scoped to the node wrapper alone would miss the portalled half and
+ * look green while the chip still centred.
+ *
+ * ## Specificity, so this is not order-dependent
+ *
+ * Both selectors are (0,1,1). They beat the UA sheet (any author rule does)
+ * and they beat Tailwind's `.text-center` utility (0,1,0), so the rule holds
+ * wherever Vite injects this stylesheet relative to the Tailwind output. That
+ * also means a deliberately centred button label inside a node is no longer
+ * expressible without `!important` — which is the instruction, not a
+ * side-effect: node copy is never centrally aligned.
+ *
+ * ## Scope
+ *
+ * Buttons only, and only under those two roots. It does not touch the
+ * inspector, the model tab, the conversation or the results panel. Icon-only
+ * buttons in the node surface are unaffected: every one of them is
+ * `inline-flex` (its glyph is a flex item, which `text-align` does not
+ * position) or shrink-wraps to its glyph, so there is nothing for the
+ * property to distribute.
+ *
+ * Imported by `nodes/registry.ts` — the single module every surface that
+ * renders nodes must import (`ReactFlowGraph.tsx` and `MiniCanvas.tsx` both
+ * do) — so the rule ships with the renderers rather than depending on someone
+ * remembering to import it. Same reasoning as the keyboard scope in that file.
+ */
+
+.react-flow__node button,
+[data-node-popover] button {
+  text-align: left;
+}

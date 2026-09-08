@@ -51,6 +51,7 @@ import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
 } from '../mutations/mutationAuthority'
+import { ValueProvenanceKey } from './ValueProvenanceKey'
 import { ModelOutline } from './ModelOutline'
 import { ModelDetailRegion } from './ModelDetailRegion'
 import { RepairQueueList } from './RepairQueueList'
@@ -492,6 +493,9 @@ export function ModelTabV2Panel({
           only: `ModelOutline`'s layout function takes no tier argument, so
           flipping this cannot reorder, open or close anything.
         */}
+        {/* The key for the row marks, beside the tier control — the marks are
+            useless as a code until something states what they mean. */}
+        <ValueProvenanceKey />
         <div
           role="group"
           aria-label="Detail tier"

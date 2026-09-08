@@ -82,6 +82,17 @@ function heroModel(verdict: typeof WITHHELD_VERDICT): HeroChartModel {
       options: options(),
       recommendation: {
         verdict,
+        // ⭐ THE COMPOSED ANSWER, PUBLISHED BESIDE THE VERDICT — the shape
+        // `useResultsSectionData` emits. A fixture carrying a verdict and no
+        // composed answer is one `leaderDesignationPermitted` may only WITHHOLD
+        // on, which would make the PERMITTED half of this pair withheld and the
+        // positive control (`the PERMITTED wording contains the presupposition
+        // the matcher hunts`) vacuous.
+        //
+        // Q1 is absent here and therefore permitting, so the conjunction is the
+        // verdict's own answer; the MODEL-refuses dimension lives in
+        // `admissionGatesHeroCrown.spec.ts`.
+        leaderDesignationPermitted: verdict?.hasLeadingOption,
         storyHeadlines: {},
         flipThresholds: FLIP_THRESHOLDS,
       } as NonNullable<Parameters<typeof makeHeroData>[0]>['recommendation'],

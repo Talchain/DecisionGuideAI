@@ -8,7 +8,7 @@
  *
  *   win_probability = 0.002675
  *     canvas option node       → "Came out ahead in < 1% of simulated scenarios"  ✅
- *     Analysis-tab option card → "Came out ahead in 0% of simulated scenarios"    ❌
+ *     Analysis-tab option card → "Supported in 0% of simulated scenarios"    ❌
  *     Olumi decision chip      → "Phased Hub-and-Spoke Pilot · 0%"                ❌
  *
  * The sharpest capture has CEE prose reading "each has less than a 1% chance"
@@ -58,7 +58,7 @@ describe('formatProbabilityWithResolution — the no-sample-count arm applies th
   })
 
   it('an exact ZERO is a measurement, not a floor case — it still reads "0%"', () => {
-    // "Came out ahead in 0% of simulated scenarios" is TRUE when the option
+    // "Supported in 0% of simulated scenarios" is TRUE when the option
     // never came out ahead. The floor exists to stop a non-zero value being
     // printed as zero, not to stop zero being printed.
     expect(formatProbabilityWithResolution(0, undefined)).toBe('0%')

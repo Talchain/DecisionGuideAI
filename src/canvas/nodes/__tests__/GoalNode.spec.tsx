@@ -26,7 +26,11 @@ const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 })
 
-vi.mock('../../ui/inspector-v2/useAnalysisResults', () => ({
+vi.mock('../../ui/inspector-v2/useAnalysisResults', async (importOriginal) => ({
+  // Spread the real module. A bare factory REPLACES it, so every export this
+  // spec does not name silently disappears -- which is how adding
+  // selectHasAnyRealProbability took this whole file red at once.
+  ...(await importOriginal<typeof import('../../ui/inspector-v2/useAnalysisResults')>()),
   useHasAnyRealProbability: vi.fn(() => false),
 }))
 

@@ -54,7 +54,7 @@
  *       `label={'X'}`, `` label={`X ${…}`} ``;
  *   (B) as a JSX TEXT NODE — `<p>X</p>`, `<p>X 68%</p>`, `X {…}%`, or a bare
  *       run of text between tags with no delimiter on its own line at all
- *       (`OptionNode:1601` is `Leads via{' '}`, which is why the extractor
+ *       (`OptionNode:1601` is `Supported by{' '}`, which is why the extractor
  *       cannot simply look between `>` and `<` on one line);
  *   (C) as a TEMPLATE LITERAL composed into a rendered string —
  *       `` return `X ${…}%` ``, which is how every `lodMetric` caption on this
@@ -146,7 +146,7 @@
  *    JSX elements — `<span>Achievement</span><span>{pct}%</span>` — is still
  *    caught, by the end-of-string arm on the first span; but one written as
  *    `<span>Achievement of</span>` reads as prose and passes. That is the price
- *    of sparing "Link strength" and "Leads via {factor}", and it is a
+ *    of sparing "Link strength" and "Supported by {factor}", and it is a
  *    JUDGEMENT, not a derivation — the syntax cannot tell a caption noun from a
  *    sentence verb, and this is where that limit lands.
  *  · It is LINE-BASED. A caption whose noun and quantity sit on different source
@@ -230,7 +230,7 @@ function renderedRuns(line: string): Run[] {
  * is the same caption with punctuation.
  *
  * What follows the noun being anything ELSE — a lower-case word, most of all —
- * is prose, and prose is what "Link strength" and "Leads via {factor}" are.
+ * is prose, and prose is what "Link strength" and "Supported by {factor}" are.
  */
 function isCaptionPosition(run: string, noun: string): boolean {
   const t = run.trim()
@@ -373,7 +373,7 @@ describe('canvas metric-noun vocabulary (Paul, 31 Aug 2026)', () => {
     // the test that stops it.
     const mustSurvive: Array<[string, string]> = [
       ['the register is read by reference', `label={METRIC_NOUN.strength}`],
-      ['…and so is the other noun', `label={METRIC_NOUN.ahead}`],
+      ['…and so is the other noun', `label={METRIC_NOUN.support}`],
       ['a live noun is not a retired one', `label="Chance"`],
       ['a kebab-case test id', `testId="risk-strength-row"`],
       ['a camel-case field', `bridgeEdgeData.bridgeStrengthPct`],
@@ -392,7 +392,7 @@ describe('canvas metric-noun vocabulary (Paul, 31 Aug 2026)', () => {
       // explicitly (`RETIRED_METRIC_NOUNS` retires "Leads" AS A CAPTION only)
       // and `oneNounPerIdea.crossCard.spec.tsx` pins the decision. They are
       // here because they are the cases the caption rule exists to spare.
-      ['the option card verb', `Leads via{' '}`],
+      ['the option card verb', `Supported by{' '}`],
       ['the decision card verb, lower case', `{headline.winnerLabel} leads in {pct} of scenarios`],
       // The register itself spells every retired noun, by design — it is the
       // authority, not a surface. It is spared by the rule rather than by an
@@ -417,7 +417,7 @@ describe('canvas metric-noun vocabulary (Paul, 31 Aug 2026)', () => {
     // …and the other direction for each: prose, which is the whole reason the
     // rule is not a bare-word ban.
     expect(isCaptionPosition('Achievement of the goal', 'Achievement'), 'prose is being banned').toBe(false)
-    expect(isCaptionPosition('Leads via', 'Leads'), 'the verb survivor would RED').toBe(false)
+    expect(isCaptionPosition('Supported by', 'Leads'), 'the verb survivor would RED').toBe(false)
     expect(isCaptionPosition('Link strength', 'strength'), 'a noun mid-phrase is not a caption').toBe(false)
     // …and the EXTRACTOR is not doing the deciding: one line, both answers.
     expect(offence(`<span title="Link strength">Leads 47%</span>`)?.noun).toBe('Leads')
@@ -471,8 +471,45 @@ describe('canvas metric-noun vocabulary (Paul, 31 Aug 2026)', () => {
     // The nouns must reach the cards BY REFERENCE. A card that imports the
     // register and then hand-types the word beside it would pass the ban above
     // (the word is not retired) while re-opening the exact drift this closes.
-    const cards = sources.filter((s) => /\/(Decision|Option|Goal|Outcome|Risk|Factor)Node\.tsx$/.test(s.file))
-    expect(cards.length, 'no card sources matched — the filename pattern drifted').toBeGreaterThan(3)
+    // ⚠⚠ WIDENED AGAIN (review of #1209 round 3). The previous widening fixed
+    // the PATTERN and left the FILE SCOPE alone: this filter admitted only the
+    // six `*Node.tsx` components, so `shared/lodMetricLine.ts` — which renders
+    // the very same captions at low zoom — was invisible to a test named "the
+    // register is the ONLY place the live nouns are spelled". It hand-typed
+    // `Influence` for as long as the guard existed, and a round of #1209 fixed
+    // the neighbouring `Ahead` literal in that same file with nothing to
+    // notice the sibling. Twice now this guard's NAME has been wider than its
+    // reach, in the two different dimensions a scope has.
+    //
+    // ⚠⚠⚠ AND "TWO DIMENSIONS" WAS ITSELF WRONG — THERE IS A THIRD, AND IT IS
+    // STILL OPEN (review of #1209 round 4, measured by injection). A scope has
+    // FILES, PATTERN and FORM, and `LIVE` below still recognises only two
+    // spellings: `label="Noun"` and `` `Noun ${` ``. It does NOT see
+    //
+    //     <span …>Influence: {Math.round(v * 100)}%</span>     JSX text + colon
+    //     <span …>Influence</span>                             bare JSX caption
+    //     `Influence: ${pct}%`                                 colon in a literal
+    //
+    // Both of the first two are LIVE today, outside this SCOPE:
+    // `conversation/InlineBlocks.tsx` and `components/model-tab/FactorsSection.tsx`
+    // (the bare caption and the `label=` twin on adjacent lines). So the honest
+    // claim is narrow: this guard closes the TEMPLATE and ATTRIBUTE forms inside
+    // `src/canvas/nodes`. It does not close the noun across the canvas surface.
+    //
+    // ⭐ NOT WIDENED HERE ON PURPOSE. Covering those needs a wider SCOPE
+    // (`src/canvas`) and a wider pattern, and would then demand edits on the
+    // Model tab and the conversation panel — two surfaces this lane does not
+    // own. Rowed rather than smuggled into a canvas-caption PR. What is fixed
+    // here is that the guard no longer LOOKS like it covers them: the sentence
+    // above now states which forms and which tree.
+
+    //
+    // Every non-test source under SCOPE is now swept. Derived before widening,
+    // not after: across all 42 files the widened sweep returns exactly ONE
+    // offender, the `lodMetricLine.ts` line fixed alongside this change — so
+    // this closes a real gap rather than absorbing a backlog.
+    const cards = sources
+    expect(cards.length, 'no card sources matched — the walk or SCOPE drifted').toBeGreaterThan(3)
 
     // ⚠ WIDENED (review of #1160, S2). This read ONLY `label="…"`, so the
     // template-literal captions `` `Strength ${pct}%` `` in OutcomeNode and

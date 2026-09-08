@@ -178,8 +178,11 @@ export const RiskNode = memo((props: NodeProps) => {
   // rendered in the always-visible Standard body (Layer 1), not Expert/popover-only.
   const detailedMetrics = severity ? (
     <div
+      // The `textAlign: 'center'` that was here is gone. This div carries no
+      // `inline-flex`, no `w-fit` and no width, so it is a full-bleed block
+      // inside the card: the badge text sat centred while every other line of
+      // the node was left-aligned.
       className={`${severityColors.bg} ${severityColors.border} ${severityColors.text} border rounded px-1.5 py-0.5 ${typography.edgeLabel} mb-1`}
-      style={{ textAlign: 'center' }}
     >
       {severity.charAt(0).toUpperCase() + severity.slice(1)} Risk
     </div>

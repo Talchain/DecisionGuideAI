@@ -440,7 +440,7 @@ describe('RiskAppetiteFilter — the lens disclaimer is load-bearing (1.243 item
     expect(screen.getByText('Highlight by outcome:')).toBeInTheDocument()
     expect(
       screen.getByText(
-        'A view lens over the outcome range. The comparative ranking above is unchanged.',
+        'A view lens over the outcome range. The comparison above is unchanged.',
       ),
     ).toBeInTheDocument()
   })

@@ -64,7 +64,11 @@ vi.mock('../shared/NodePopover', () => ({
   ),
 }))
 
-vi.mock('../../ui/inspector-v2/useAnalysisResults', () => ({
+vi.mock('../../ui/inspector-v2/useAnalysisResults', async (importOriginal) => ({
+  // Spread the real module. A bare factory REPLACES it, so every export this
+  // spec does not name silently disappears -- which is how adding
+  // selectHasAnyRealProbability took this whole file red at once.
+  ...(await importOriginal<typeof import('../../ui/inspector-v2/useAnalysisResults')>()),
   useHasAnyRealProbability: vi.fn(() => true),
 }))
 
@@ -210,7 +214,7 @@ describe('DecisionNode — the leader figure gets the shared metric row', () => 
     const row = screen.getByTestId(DECISION_ROW)
     expect(row).toBeDefined()
     // The noun, so a bare percentage cannot read as something else (UI-SEM-089).
-    expect(row.textContent).toContain(METRIC_NOUN.ahead)
+    expect(row.textContent).toContain(METRIC_NOUN.support)
     expect(row.textContent).toContain(`${Math.round(WIN_LEADER * 100)}%`)
     // The bar is the point of the change, not an incidental div.
     expect(fillWidthWithin(DECISION_ROW)).toContain('66%')

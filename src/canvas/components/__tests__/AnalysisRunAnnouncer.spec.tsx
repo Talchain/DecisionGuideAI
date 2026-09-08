@@ -34,10 +34,28 @@ vi.mock('../../store', () => ({
 
 import { AnalysisRunAnnouncer } from '../AnalysisRunAnnouncer'
 
+/**
+ * A report carrying a REAL probability — what "a run completed" means.
+ *
+ * ⚠ WHY THIS EXISTS. The announcer now consults `selectHasAnyRealProbability`,
+ * because "a report arrived" and "the report contains anything" are different
+ * questions and only the second licenses the word complete. Every fixture below
+ * that sets `status: 'complete'` means an ORDINARY completed run, so it needs a
+ * report with something in it — otherwise these tests would silently start
+ * exercising the empty-result path and assert the wrong copy.
+ */
+const COMPLETED_REPORT = { option_comparison: [{ id: 'opt-a', win_probability: 0.62 }] }
+
 function setResults(results: MockResults) {
   mockCanvasState = {
     ...mockCanvasState,
-    results,
+    // A 'complete' status with no explicit report means "an ordinary completed
+    // run". A test that wants the EMPTY-result case passes `report` itself, and
+    // that explicit value always wins.
+    results:
+      results.status === 'complete' && !('report' in results)
+        ? { ...results, report: COMPLETED_REPORT }
+        : results,
   }
 }
 

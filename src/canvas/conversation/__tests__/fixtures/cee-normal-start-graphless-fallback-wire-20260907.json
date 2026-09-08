@@ -1,0 +1,169 @@
+{
+  "response_version": 2,
+  "assistant_text": "I haven't changed the model. It looks like you would like to explore this. I can walk you through the analysis, look at what could change the outcome, or run a pre-mortem.",
+  "blocks": [],
+  "suggested_actions": [
+    {
+      "id": "edit_graph_action_0",
+      "label": "Give me your view first",
+      "message": "Set the model aside for a moment and tell me what you think about that."
+    },
+    {
+      "id": "edit_graph_action_1",
+      "label": "Yes — change Increase Productivity",
+      "message": "Change Increase Productivity."
+    },
+    {
+      "id": "chip_action_explain_results",
+      "label": "Walk me through the analysis",
+      "message": "Walk me through the analysis.",
+      "action_type": "explain_results"
+    },
+    {
+      "id": "chip_action_what_would_flip",
+      "label": "What could change the outcome?",
+      "message": "What could change the outcome of this analysis?",
+      "action_type": "what_would_flip"
+    },
+    {
+      "id": "chip_action_run_pre_mortem",
+      "label": "Run a pre-mortem",
+      "message": "Imagine this decision went wrong. What would have caused it?"
+    }
+  ],
+  "insights": [],
+  "stage_indicator": "frame",
+  "analysis_ready": {
+    "options": [
+      {
+        "option_id": "4242a3ba",
+        "label": "Status Quo (No New Hire)",
+        "status": "ready",
+        "interventions": {
+          "943110e8": 0,
+          "c82c6078": 0
+        },
+        "is_baseline": true,
+        "intervention_details": {
+          "943110e8": {
+            "display_value": "Low (0)",
+            "normalised_value": 0
+          },
+          "c82c6078": {
+            "display_value": "Low (0)",
+            "normalised_value": 0
+          }
+        },
+        "raw_interventions": {
+          "943110e8": 0,
+          "c82c6078": 0
+        },
+        "status_reason": "2 intervention(s) ready for analysis"
+      },
+      {
+        "option_id": "be215545",
+        "label": "Two Developers",
+        "status": "ready",
+        "interventions": {
+          "943110e8": 0.4
+        },
+        "is_baseline": false,
+        "intervention_details": {
+          "943110e8": {
+            "display_value": "Moderate (0.4)",
+            "normalised_value": 0.4
+          }
+        },
+        "raw_interventions": {
+          "943110e8": 2
+        },
+        "status_reason": "1 intervention(s) ready for analysis"
+      },
+      {
+        "option_id": "e70301eb",
+        "label": "Hire a Tech Lead",
+        "status": "ready",
+        "interventions": {
+          "c82c6078": 1
+        },
+        "is_baseline": false,
+        "intervention_details": {
+          "c82c6078": {
+            "display_value": "Very high (1)",
+            "normalised_value": 1
+          }
+        },
+        "raw_interventions": {
+          "c82c6078": 1
+        },
+        "status_reason": "1 intervention(s) ready for analysis"
+      }
+    ],
+    "goal_node_id": "0dde265b",
+    "status": "ready",
+    "bias_findings": [],
+    "may_run": true,
+    "analysis_admission": {
+      "structurally_analysable": true,
+      "missing_important_inputs": [],
+      "semantic_quality_sufficient": false,
+      "permitted_analysis_mode": "quantified_provisional",
+      "reasons": [
+        {
+          "field": "structurally_analysable",
+          "code": "READY_TO_COMPARE",
+          "message": "Analysis can run on this model as it stands."
+        },
+        {
+          "field": "semantic_quality_sufficient",
+          "code": "CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED",
+          "message": "Every estimate this comparison rests on is Olumi’s, not yours. Figures can be shown as provisional, but no option can be called the leader and no result can be called stable or robust until you have set at least one of them."
+        },
+        {
+          "field": "permitted_analysis_mode",
+          "code": "CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED",
+          "message": "Every estimate this comparison rests on is Olumi’s, not yours. Figures can be shown as provisional, but no option can be called the leader and no result can be called stable or robust until you have set at least one of them."
+        }
+      ],
+      "graph_hash": "fa9872ad5b96c8411eb91a61318baa8c3b7a983e18c557dd3f8fc8fe3c81eaab",
+      "semantic_signals": {
+        "confidence_parameters_total": 19,
+        "confidence_parameters_user_stated": 0,
+        "confidence_parameters_machine_authored": 11,
+        "confidence_parameters_unattributed": 8,
+        "material_parameters_total": 19,
+        "material_parameters_user_stated": 0,
+        "intervened_factor_baselines_total": 2,
+        "intervened_factor_baselines_user_stated": 0,
+        "goal_target_stated": false
+      }
+    },
+    "computed_at": "2026-09-07T17:31:58.567Z",
+    "freshness": "fresh",
+    "freshness_reason": "graph_hash_match",
+    "graph_hash_at_run": "651c4919b1c58c7a",
+    "current_graph_hash": "651c4919b1c58c7a"
+  },
+  "graph_hash": "651c4919b1c58c7a",
+  "analysis_state": {
+    "run_state": {
+      "kind": "complete_current",
+      "computed_at": "2026-09-07T17:31:58.567Z"
+    },
+    "readiness": {
+      "status": "ready",
+      "blockers": []
+    },
+    "leader_claim": {
+      "permitted": false,
+      "withheld_reason": "separation_unavailable"
+    },
+    "robustness": {},
+    "usable_for_prose": true,
+    "usable_for_chips": true,
+    "usable_for_followup": true,
+    "requires_rerun": false,
+    "blocked_unusable": false,
+    "contradictions": []
+  }
+}

@@ -45,6 +45,13 @@
  *     `userReviewedStrength`, so an edge strength set from the inspector is
  *     invisible to that predicate on its own.
  *
+ * A FOURTH authority is read, and it answers a DIFFERENT question. The three
+ * above all answer "has a person judged this element". `hasCompletedFirstRun`
+ * answers "does this model carry computed results", which is the sentence's
+ * other expiry condition and one no element-level marker records. They are
+ * conjoined, not reconciled — see the comment on the clause itself for why the
+ * monotonic flag and not `results.status`.
+ *
  * ── WHAT IT DELIBERATELY DOES NOT DO ───────────────────────────────────────
  * It adds no store field. A "model is untouched" flag would have to be written
  * at every ingest site, cleared at every edit chokepoint and restored correctly
@@ -57,6 +64,18 @@
  * against a graph identity would have to decide what a redraft or an applied
  * assistant edit means, and getting that wrong re-shows a notice on a model
  * the team HAS worked on, which is the lie this file exists to avoid.
+ *
+ * The run-phase clause has a residue in the same safe direction, stated rather
+ * than discovered. `useRetryDraft` replaces the graph via `applyDraftResult`
+ * and explicitly does NOT call `resetCanvas` ("Do NOT resetCanvas() before the
+ * draft succeeds", useRetryDraft.ts), and `applyDraftResult` writes no
+ * `hasCompletedFirstRun`. So a graph replaced by that path after an earlier run
+ * keeps the flag true and this notice stays silent on a genuinely first model.
+ * That is a MISS, not a lie, and it is the direction this file already prefers.
+ * The primary redraft path is unaffected — DraftChat calls `resetCanvas()`,
+ * which clears the flag. Fixing the retry path means deciding where a
+ * graph-replacing producer should clear run state, which is a store-lifecycle
+ * question and not this component's to answer.
  */
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -64,6 +83,7 @@ import { X } from 'lucide-react'
 import { useOverlayCell } from './CanvasOverlayBand'
 import type { Edge, Node } from '@xyflow/react'
 import { useCanvasStore } from '../store'
+import { useHasCompletedFirstRun } from '../selectors/results'
 import { isReviewedByUser, isReviewedEdge } from './pre-analysis/utils/isReviewedByUser'
 import { EDGE_PROVENANCED_FIELDS, edgeValueSource } from '../domain/edgeValueProvenance'
 import { resolveStarterId } from '../starters/loadStarter'
@@ -106,6 +126,7 @@ export function hasUserJudgedAnyElement(
 export function FirstModelNotice() {
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
+  const hasCompletedFirstRun = useHasCompletedFirstRun()
   const [dismissed, setDismissed] = useState(false)
 
   // ⚠ THESE ARE NOT THE BAND'S QUESTION, AND COLLAPSING THEM INTO IT WOULD BE
@@ -130,6 +151,27 @@ export function FirstModelNotice() {
     // (`StarterProvenanceBanner`). Two notices about the same graph's standing
     // would compete, and the starter one is the more important of the two.
     resolveStarterId(nodes) === null &&
+    // The sentence's OTHER expiry, and the one no provenance marker can see.
+    // `hasUserJudgedAnyElement` below catches a person putting their judgement
+    // on an element; this catches the MODEL acquiring computed results, which
+    // falsifies "not a conclusion" just as surely. `resultsComplete` writes no
+    // `nodes` and no `edges` (store.ts) — a run stamps no element-level
+    // provenance of any kind — so the predicate below is structurally unable to
+    // notice a completed analysis, and without this clause the notice outlives
+    // one, over cards that now carry result bars.
+    //
+    // ⚠ `hasCompletedFirstRun`, NOT `results.status === 'complete'`. Those
+    // answer different questions, and the transient one would re-create the
+    // same lie in a narrower window: `resultsStart` moves `status` to
+    // 'preparing' when a RERUN begins while DELIBERATELY preserving `report`,
+    // `hash` and `drivers` ("Preserve previous results during re-run",
+    // store.ts), so a status-based predicate would withdraw this notice at
+    // completion and pop it back mid-rerun, on top of results still on screen.
+    // `hasCompletedFirstRun` is monotonic across reruns — `resultsStart` does
+    // not write it. It is set true by `resultsComplete`, `resultsLoadHistorical`
+    // and `resultsHydrateFromSupabase`, and back to false only by
+    // `importCanvas`, `resetCanvas` and `reset`.
+    !hasCompletedFirstRun &&
     !hasUserJudgedAnyElement(nodes, edges)
 
   const { granted, target } = useOverlayCell('bottom-centre', FIRST_MODEL_NOTICE_TESTID, wants)

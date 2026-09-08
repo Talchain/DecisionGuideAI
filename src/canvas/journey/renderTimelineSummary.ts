@@ -49,7 +49,7 @@ export function renderTimelineSummary(events: ScenarioEvent[]): string {
       ? analysisRun.details.robustness : null
 
     if (winner && prob != null) {
-      const base = `Analysis run: ${winner} at ${prob}%`
+      const base = `Analysis run: ${winner} supported at ${prob}%`
       parts.push(robust ? `${base}, robustness ${robust}` : base)
     } else {
       parts.push('Analysis run')

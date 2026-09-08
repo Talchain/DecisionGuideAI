@@ -13,7 +13,7 @@
  *   · "Statistically tied with the leading option"   ← a DENIAL
  *   · "Compare against the leading option."
  *   · "This option currently leads, but …"           ← the downside pill
- *   · "What makes this the current leader?"          ← the chip
+ *   · "What makes this best supported?"          ← the chip
  *
  * The denial matters as much as the assertions: "statistically tied with the
  * leading option" asserts a leader exists in the same breath as calling it a
@@ -75,7 +75,7 @@ function renderCards(hasLeadingOption: boolean | undefined) {
 /** Comparative phrases that presuppose, assert, or deny a unique leader. */
 const LEADER_LANGUAGE: ReadonlyArray<[string, RegExp]> = [
   ['Top-performing option', /top-performing option/i],
-  ['Highest leading-option likelihood', /came out ahead in .+ of simulated scenarios/i],
+  ['Highest leading-option likelihood', /supported in .+ of simulated scenarios/i],
   // ⚠ RETIRED EVERYWHERE 2026-08-10, so this row is now UNCONDITIONALLY true
   // and can no longer tell a withheld turn from a permitted one. It is kept
   // deliberately — it still guards against the string coming back — but its
@@ -86,7 +86,7 @@ const LEADER_LANGUAGE: ReadonlyArray<[string, RegExp]> = [
   ['Statistically tied with the leading option', /statistically tied with the leading option/i],
   ['Compare against the leading option', /compare against the leading option/i],
   ['This option currently leads', /this option currently leads/i],
-  ['the current leader', /the current leader/i],
+  ['best supported', /best supported/i],
 ]
 
 describe('OptionCards — withheld leader claim', () => {
@@ -113,11 +113,11 @@ describe('OptionCards — withheld leader claim', () => {
     expect(screen.queryByTestId(`leading-option-downside-${WINNER_ID}`)).toBeNull()
   })
 
-  it('offers the forward-looking chip instead of "the current leader"', () => {
+  it('offers the forward-looking chip instead of "best supported"', () => {
     renderCards(false)
     // Existing copy, not invented: this is already the module's phrasing for
     // an option that does not hold a lead.
-    expect(screen.getAllByText('What would make this lead?').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('What would make this better supported?').length).toBeGreaterThan(0)
   })
 })
 
@@ -125,7 +125,7 @@ describe('OptionCards — permitted leader claim (over-suppression controls)', (
   it('keeps the winner sentence, and the non-leader card keeps its OWN number', () => {
     const { container } = renderCards(true)
     const text = container.textContent ?? ''
-    expect(text).toMatch(/came out ahead in .+ of simulated scenarios/i)
+    expect(text).toMatch(/supported in .+ of simulated scenarios/i)
 
     // ⭐ SUPERSEDED 2026-08-10. This asserted the non-leader's sentence was
     // `/behind by \d+ percentage point/i` — the percentage-point gap between
@@ -147,8 +147,8 @@ describe('OptionCards — permitted leader claim (over-suppression controls)', (
   it('keeps the leader chip copy', () => {
     const { container } = renderCards(true)
     // `fair` tier + stability 0.5 is the softened branch, i.e. the exact
-    // combination that produces "the current leader".
-    expect(container.textContent ?? '').toMatch(/the current leader/i)
+    // combination that produces "best supported".
+    expect(container.textContent ?? '').toMatch(/best supported/i)
   })
 
   it('an ABSENT flag behaves exactly as a permitted one (older callers/fixtures)', () => {
@@ -156,7 +156,7 @@ describe('OptionCards — permitted leader claim (over-suppression controls)', (
     // the default cannot drift to silence and quietly blank every legacy
     // caller's cards.
     const { container } = renderCards(undefined)
-    expect(container.textContent ?? '').toMatch(/came out ahead in .+ of simulated scenarios/i)
+    expect(container.textContent ?? '').toMatch(/supported in .+ of simulated scenarios/i)
   })
 })
 

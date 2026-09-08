@@ -88,8 +88,32 @@ const DISCUSS_GOAL: GroupAction = {
   id: 'goal-discuss',
   label: 'Discuss the goal with Olumi',
   intent: 'discuss',
-  message: ctx =>
-    `Help me understand my goal '${ctx.goalLabel ?? 'not set'}' and whether the target of ${ctx.goalTarget ?? 'not set'} is appropriate`,
+  /**
+   * ⚠ A FALLBACK IS NEVER QUOTED AS THE USER'S OWN WORDS. This composed
+   * "Help me understand my goal 'not set' and whether the target of not set is
+   * appropriate" — which tells Olumi the goal IS the string "not set", and
+   * starts a different conversation from the one the user asked for. The
+   * panel's rule about not printing a placeholder as a name applies to what we
+   * SEND as much as to what we draw: the message is user-facing the moment it
+   * lands in the chat.
+   *
+   * Four states, each said plainly, because a single template cannot be true of
+   * all four.
+   */
+  message: ctx => {
+    const goal = ctx.goalLabel?.trim()
+    const target = ctx.goalTarget?.trim()
+    if (goal && target) {
+      return `Help me understand my goal '${goal}' and whether the target of ${target} is appropriate`
+    }
+    if (goal) {
+      return `Help me understand my goal '${goal}'. I have not set a target for it yet — help me work out what it should be.`
+    }
+    if (target) {
+      return `I have a target of ${target} but I have not written my goal yet. Help me work out what I am actually trying to achieve.`
+    }
+    return 'I have not written my goal or its target yet. Help me work out what I am actually trying to achieve, and how I would know I had got there.'
+  },
   rehomedFrom: 'model-tab/GoalSection.tsx:243',
 }
 

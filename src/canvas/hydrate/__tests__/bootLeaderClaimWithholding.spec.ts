@@ -6,7 +6,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  * CEE refuses to name a leading option; the refusal is rendered in the
  * conversation. The user reloads. Measured post-reload: "did not run" 0
- * occurrences, "Leading option" 1. **The honest half was transient and the
+ * occurrences, "Most supported" 1. **The honest half was transient and the
  * unsafe half was durable, which is exactly backwards.**
  *
  * `applyBootAnalysisVerdict` restores only `complete_stale` and declines every
