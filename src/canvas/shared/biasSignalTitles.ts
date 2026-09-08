@@ -49,6 +49,7 @@ export const BIAS_SIGNAL_REGISTRY = {
   confirmation: { title: 'Confirmation bias', icon: Frame },
   confirmation_bias: { title: 'Confirmation bias', icon: Frame },
   authority_bias: { title: 'Authority bias', icon: Anchor },
+  availability: { title: 'Availability bias', icon: Frame },
   availability_bias: { title: 'Availability bias', icon: Frame },
   sunk_cost: { title: 'Sunk cost', icon: Anchor },
 } as const satisfies Record<string, BiasSignalEntry>
