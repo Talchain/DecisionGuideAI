@@ -81,7 +81,9 @@ import {
   computeNormalisedInfluences,
   resolveDriverSemanticLabels,
   selectDriverDisplayModel,
+  MAX_BADGED_RANK,
 } from './driverDisplayModel'
+import { deriveDeterminedFactorOrder } from '../../canvas/utils/factorRowOrder'
 import { classifyUnit } from '../../utils/unitClassifier'
 import { buildVoiRanking, type VoiRanking } from './voi/voiRanking'
 import { readDecisionVoi, type DecisionVoiVerdict } from './voi/decisionVoi'
@@ -4199,6 +4201,57 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     useCanvasStore.getState().registerOptionNumbering(optionIds)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- optionIdsKey is the canonical value key for optionIds
   }, [optionIdsKey])
+
+  // ⭐⭐ THE FACTOR ROW READS IN THE ORDER ITS BADGES CLAIM (Paul, 8 Sep 2026).
+  //
+  // Paul's original screenshot complaint, one row down from where it was fixed.
+  // The option cards now read left to right by position; the factor cards still
+  // carry `#1 #2 #3` ("Key driver #N: ranked by influence on the outcome",
+  // `canvas/nodes/BaseNode.tsx`) printed on a row whose left-to-right order is
+  // ELK's edge-crossing pass. Same defect, still on screen.
+  //
+  // ⚠ THE FIX ABOVE CANNOT BE REPEATED HERE, AND THE REASON PICKS THE REMEDY.
+  // `Option N` is a LABEL — it asserts nothing beyond identity, so it was free
+  // to be REDEFINED as canvas reading order and minted from position. `#N` on a
+  // factor is a guarded MEASUREMENT: `useNodeDisplayMetadata.ts` prints it only
+  // to `determinedRankDepth`, and withholds the whole set on a tie, precisely
+  // so `#2` and `#3` are never handed out on `key.localeCompare`. Minting it
+  // from position would reopen that defect by hand. So the remedy inverts: the
+  // number is the true thing, therefore the POSITION moves to the number.
+  // Derivation in `canvas/utils/factorRowOrder.ts`.
+  //
+  // ⚠ IT CLAIMS EXACTLY AS FAR AS THE BADGE CLAIMS. `deriveDeterminedFactorOrder`
+  // asks the badge's own question at the badge's own owner
+  // (`compareByDisplayModel` + `determinedRankDepth` + `MAX_BADGED_RANK`), so a
+  // row the analysis cannot separate is not separated by position either — and
+  // position is the stronger channel, with no tooltip to qualify it.
+  //
+  // THIS SITE OWNS THE ORDER; THE STORE OWNS THE GEOMETRY. The move is a
+  // permutation of slots those same cards already occupy: no new pixels, no new
+  // rows, ruling R1 untouched.
+  const determinedFactorOrder = useMemo(
+    () => {
+      const feed = selectDriverPolicyFeed(report ?? null)
+      return deriveDeterminedFactorOrder(
+        feed.policyRows.map((r) => ({
+          key: r.key,
+          elasticity: r.rawElasticity,
+          // The SAME resolved display value the badge ranks from, and the same
+          // `?? 0` fallback the canvas hook applies — a private default here
+          // would be a second basis for one number.
+          value: feed.displayModel.get(r.key)?.value ?? 0,
+        })),
+        MAX_BADGED_RANK,
+      )
+    },
+    [report],
+  )
+  const determinedFactorOrderKey = JSON.stringify(determinedFactorOrder)
+  useEffect(() => {
+    if (determinedFactorOrder.length < 2) return
+    useCanvasStore.getState().orderFactorRowByInfluence(determinedFactorOrder)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- determinedFactorOrderKey is the canonical value key for determinedFactorOrder
+  }, [determinedFactorOrderKey])
 
   // Lane 3 (SF2) perf — EVIDENCE-DEMANDED (rerunContinuity render-count
   // pin): with the results body mounted through a run, a fresh return

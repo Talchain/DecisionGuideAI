@@ -16,6 +16,7 @@ import {
   determinedRankDepth,
   hasMeaningfulMagnitude,
   rowCarriesMagnitudeMetric,
+  MAX_BADGED_RANK,
 } from '../../components/results/driverDisplayModel'
 import type { DriverDisplayProvenance } from '../../components/results/driverDisplayModel'
 import { selectDriverPolicyFeed } from '../../components/results/useResultsSectionData'
@@ -32,12 +33,15 @@ import type { OptionComputeStatus } from '../../adapters/plot/optionComputeStatu
 /**
  * The deepest ordinal the canvas badge is willing to print ("Key driver #N").
  *
- * Exported so the gate that decides WHETHER a rank is determined and the cap
- * that decides HOW MANY get badged are one number. They were two — a gate
- * about rank 1 and a literal `rank <= 3` — and the gap between them is exactly
- * how `#2` and `#3` came to be handed out on alphabetical order.
+ * ⚠ DECLARED IN `components/results/driverDisplayModel.ts`, beside
+ * `determinedRankDepth`, and re-exported here under the name every existing
+ * importer already uses. It moved when the factor row ordering became a third
+ * consumer: that consumer sits in `useResultsSectionData.ts`, which is where
+ * THIS file imports `selectDriverPolicyFeed` from, so importing the constant
+ * back out of here would have closed a module cycle. One declaration, one
+ * value, no cycle.
  */
-export const MAX_BADGED_RANK = 3
+export { MAX_BADGED_RANK } from '../../components/results/driverDisplayModel'
 
 export interface NodeDisplayMetadata {
   /** Factor sensitivity rank (1-3 for top factors, null otherwise) */

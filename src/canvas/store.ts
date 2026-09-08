@@ -7,6 +7,7 @@ import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportC
 import { setsEqual, mapsEqual } from './store/utils'
 import type { LodRung } from './utils/zoomLegibility'
 import { assignStableOptionNumbers, orderOptionIdsByCanvasPosition } from './store/stableOptionNumbers'
+import { seatNodesIntoRankedSlots } from './utils/factorRowOrder'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS, type EdgeData } from './domain/edges'
 import { edgeValueSourcePatch, type CausalLensEdgeParams } from './domain/edgeValueProvenance'
 import {
@@ -1323,6 +1324,21 @@ interface CanvasState {
    * importCanvas). Read outside React via getAnalysisDisplaySnapshot(). */
   optionNumbering: Record<string, number>
   registerOptionNumbering: (optionIds: readonly string[]) => void
+  /**
+   * Seat the factor cards whose influence ordinal is DETERMINED into canvas
+   * reading order, so the row reads in the order its `#N` badges claim.
+   *
+   * Caller owns the ORDER (it holds the ranking authority — see
+   * `utils/factorRowOrder.ts`); this action owns the GEOMETRY rule, which is
+   * that the move is a permutation of slots those same nodes already occupy.
+   * A caller therefore cannot make the graph grow, re-pack or collide by
+   * passing a longer list — the worst it can do is claim an order it should
+   * have withheld, and that is a question `deriveDeterminedFactorOrder`
+   * answers at the badge's own owner.
+   *
+   * Idempotent: once the row is seated the call is a no-op and writes nothing.
+   */
+  orderFactorRowByInfluence: (orderedFactorIds: readonly string[]) => void
   /** 1.16i: authoritative analysing state for the live V5 run turn — sets
    * 'preparing' at dispatch while preserving the prior report/hash/seed/
    * drivers (unlike resultsStart, no seed is known yet). */
@@ -5188,6 +5204,26 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Merge is append-only: skip the set entirely when nothing was new.
     if (Object.keys(next).length === Object.keys(previous).length) return
     set({ optionNumbering: next })
+  },
+
+  orderFactorRowByInfluence: (orderedFactorIds) => {
+    if (orderedFactorIds.length < 2) return
+    // ⭐ THE STORE OWNS GEOMETRY; THE CALLER OWNS THE ORDER — the same division
+    // as `registerOptionNumbering` above, and for the same reason: a future
+    // registration site must not be able to reintroduce the defect by passing
+    // a differently-sorted array. What it CAN change is which cards are
+    // claimed; what it cannot change is that the move is a permutation of the
+    // slots those cards already occupy.
+    //
+    // ⚠ AND IT IS THE OPPOSITE REMEDY TO THE ONE ABOVE, DELIBERATELY. Options
+    // moved the NUMBER to the position because `Option N` asserts nothing.
+    // `#N` on a factor is a guarded measurement, so the POSITION moves to the
+    // number. `utils/factorRowOrder.ts` carries the derivation.
+    const seated = seatNodesIntoRankedSlots(get().nodes, orderedFactorIds)
+    // Reference-equal ⇒ nothing moved. Skip the write so a results tick cannot
+    // re-render the canvas for a row that is already in order.
+    if (seated === get().nodes) return
+    set({ nodes: seated })
   },
 
   /**
