@@ -2633,17 +2633,36 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} />
             {/* MiniMap temporarily disabled for layout debugging */}
             {/* <MiniMap style={miniMapStyle} /> */}
-            <svg style={{ position: 'absolute', top: 0, left: 0 }}>
-              <defs>
-                {/* Arrowheads matching edge colors - original size (6x6), fixed regardless of stroke width */}
-                <marker id="arrowhead-default" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-                  <polygon points="0 0, 6 3, 0 6" fill="var(--surface-border)" />
-                </marker>
-                <marker id="arrowhead-selected" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-                  <polygon points="0 0, 6 3, 0 6" fill="var(--info)" />
-                </marker>
-              </defs>
-            </svg>
+            {/* ⛔ TWO ARROWHEAD MARKERS STOOD HERE AND NOTHING EVER REFERENCED
+                THEM. A repo-wide sweep returned exactly 2 hits for
+                `arrowhead-(default|selected)` — both of them these definitions —
+                against a contrast control of 18 for `edge-influence-label` in
+                the same run, so the probe discriminated and the absence was
+                real. Meanwhile 39 edges rendered on deployed staging with
+                `marker-end` empty on all 39.
+
+                They are DELETED rather than wired up, because their colours were
+                wrong in two different ways (derived at the token bytes):
+
+                  `arrowhead-default`  fill `var(--surface-border)`
+                    → `--border-default` → `238 230 216` = #EEE6D8. StyledEdge's
+                      own leader-line note measured this exact token on this
+                      exact surface: "a pale cream ... on the canvas ground it is
+                      very nearly the background". An arrowhead in it repeats the
+                      invisible-leader defect fixed on 31 Aug.
+
+                  `arrowhead-selected` fill `var(--info)` = `rgb(39 122 157)`,
+                    keyed on SELECTION — which is not a colour rule in
+                    `EDGE_STROKE_RULES` at all; selection changes stroke WIDTH.
+
+                Neither is among the seven values `resolveEdgeStroke` can return,
+                so either would have shipped an arrow in a different colour from
+                its own line. Left in place they were a decoy: the obvious "just
+                wire up the existing markers" fix was the wrong one.
+
+                The direction mark now lives per-edge in `StyledEdge`, reading
+                the resolved stroke decision directly. See
+                `EDGE_DIRECTION_MARKER_RULES` in `edges/edgePresentation.ts`. */}
             {/* D2: level-of-detail zoom watcher — main canvas only. */}
             <LodSync />
             {/* Counter-scales canvas label text against the viewport transform
