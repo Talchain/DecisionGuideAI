@@ -1256,6 +1256,92 @@ function ValueCell({
            TIMES the label it was starving. The estimate is a hint about a value
            the user has not set; the node's name is how they find the row at
            all. So the hint truncates and the name does not. */
+        /* ⭐⭐ THE HINT TRUNCATES BY DESIGN — SO IT MUST BE RECOVERABLE, AND IT
+           WAS NOT. MEASURED on deployed `80ccf768` (guest, seeded "Customer
+           Data Platform Selection", dock 414px, Model tab): this span rendered
+           a **31px box for content needing 125px** — "Olu" of
+           "Olumi: Moderate (0.5)" — with **no `title`, no `aria-label` and no
+           `sr-only` anywhere above it**. Seven cells in the tab, and they were
+           the ONLY genuinely unrecoverable clipped text on the surface: every
+           `-label` already carries an exact-text `title`, and the relationship
+           phrase is recovered by `ValueLeaf`'s own `title` plus its `sr-only`.
+
+           The arithmetic, so nobody re-opens the layout question by mistake:
+           the cell is 80px and holds two spans SIDE BY SIDE — "Not set" at
+           40.6px with `min-width: auto` (it cannot shrink, and must not: a
+           truncated affordance is a fake one) plus this hint's `ml-2` 8px,
+           leaving 31.4px. `80 = 40.6 + 8 + 31.4`. A `min-w-0` atom beside a
+           `min-width:auto` atom absorbs 100% of the squeeze.
+
+           ⛔ TWO FIXES ARE ALREADY EXCLUDED ON MEASUREMENT — do not re-propose
+           them.
+
+           (a) WIDENING THE GRID CAP. The value column is the THIRD of four
+           tracks, `fit-content(5.5rem)`. The whole declaration, so the ordinal
+           and the length can be checked in one step:
+           `grid-cols-[auto_minmax(6rem,1fr)_fit-content(5.5rem)_fit-content(5rem)]`
+           — track 1 `auto` (the kind glyph), track 2 `minmax(6rem,1fr)`
+           (`CELL 2 · IDENTITY`), track 3 `fit-content(5.5rem)`
+           (`CELL 3 · VALUE`, this one), track 4 `fit-content(5rem)`
+           (`CELL 4 · META`). At the 16px browser default — no
+           `html { font-size }` override exists in `src/` or `index.html` —
+           **5.5rem = 88px and 5rem = 80px**, and the PR's own resolved template
+           was `23.1px 194.9px 88px 66px`. So the 80px value cell sits inside
+           the **88px** track: the third.
+
+           ⚠⚠ DO THAT ARITHMETIC BEFORE YOU "CORRECT" THIS PARAGRAPH, BECAUSE IT
+           HAS BEEN WRONG TWICE AND BOTH TIMES THE WRONG VERSION WAS ITSELF A
+           CORRECTION — first "track 2", then "the FOURTH track", each surviving
+           a review. `5rem = 80px` and the measured value cell is 80.0px, so the
+           META cap coincides numerically with a cell in a different column and
+           track 4 reads as obviously right. The 88px in the template is the
+           tell, and it is the only tell: it is a track that resolved to its
+           cap, and 5.5rem is the only cap that can produce it. A reader who
+           matches the cell width to a cap instead of matching the TEMPLATE to a
+           cap will get this wrong a third time.
+
+           THE AUTHORITY IS AN EXECUTING GUARD, NOT A NUMBER AND NOT THIS
+           COMMENT. `CAPS` in `rowAtomsAlignToOneGrid.spec.tsx` pins
+           `{ index: 2, name: 'value', length: 5.5 }` and
+           `{ index: 3, name: 'attention', length: 5 }` — zero-indexed, so value
+           is the third track — and REDs if either the ordinal or the length
+           moves. Start there.
+
+           WHERE THE DECLARATION LIVES, CITED AS A SYMBOL: `ModelOutline.tsx`
+           holds exactly one `grid-cols-[…]` class and that is the handle. No
+           line number — the one that stood here was `:679`, true at this
+           branch's head and ALREADY `:777` on `staging`, so it was rotten
+           before merge, which is the failure the `commit=` note above names
+           ("the symbol is the handle; the number was a mirror with no owner").
+           Grep the BRACKETED form, `grep -n -F 'grid-cols-['` — one hit, at
+           this branch's head and on `staging` alike. The loose `grid-cols`
+           returns three there, the other two prose in that file's own comments;
+           an earlier note cited that three to argue the grep was worthless,
+           which talked the next reader out of the one check that would have
+           caught the wrong track.
+
+           The rejected widening was `minmax(0,5.5rem)`, a replacement for that
+           same third track: a zero-minimum track reserves its cap even when
+           empty and cost four fully-visible option labels.
+
+           (b) STACKING THE HINT ONTO A SECOND LINE: the `<button>` arm below
+           records that it once did exactly that and the rows measured 42px,
+           which is why `whitespace-nowrap` is on both idle arms.
+
+           So the trade stands — the hint is still the atom that gives. ⚠ AND
+           THE SENTENCE THAT FOLLOWED THIS ONE CLAIMED MORE THAN WAS MEASURED,
+           corrected here rather than left to be inherited: it read "giving it
+           up no longer DESTROYS it", which reads as a claim for every user.
+           What was actually measured is narrower — `title` restores the text on
+           POINTER HOVER. Sighted touch users and keyboard-only users still get
+           the three visible characters and no way to reach the rest; the
+           author's own PR comment tabulated exactly that. So: recoverable on
+           hover, unchanged otherwise, and the gap for touch and keyboard is
+           open rather than closed.
+           `title` on the leaf, not on the wrapping `<button>`, because the
+           button's own "Change this value" is about the affordance and would
+           otherwise be the only thing a hover could ever tell you. */
+        title={`Olumi: ${row.estimateText}`}
         className={`${typography.panelBody} text-text-light ml-2 truncate min-w-0`}
       >
         Olumi: {row.estimateText}
