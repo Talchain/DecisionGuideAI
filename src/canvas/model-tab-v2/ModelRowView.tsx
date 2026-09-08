@@ -1152,16 +1152,32 @@ function ValueCell({
            `min-width:auto` atom absorbs 100% of the squeeze.
 
            ⛔ TWO FIXES ARE ALREADY EXCLUDED ON MEASUREMENT — do not re-propose
-           them. (a) WIDENING THE GRID CAP: the column is the FOURTH track of
-           `ModelOutline.tsx:679`
-           (`grid-cols-[auto_minmax(6rem,1fr)_fit-content(5.5rem)_fit-content(5rem)]`
-           — `fit-content(5rem)` is the 80px value column; track 2 is the LABEL's
-           `minmax(6rem,1fr)`). ⚠ This citation read "track 2 of
-           `ModelOutline.tsx:654`" and was wrong on BOTH halves — caught by an
-           independent seat. `ModelOutline.tsx` carries exactly ONE `grid-cols`
-           declaration, so the line was checkable in one grep and nobody ran it;
-           a comment that names the wrong track sends the next reader to widen
-           the label column. `minmax(0,5.5rem)` was tried and rejected
+           them. (a) WIDENING THE GRID CAP: the column is the THIRD track of the
+           declaration at `ModelOutline.tsx:679`
+           (`grid-cols-[auto_minmax(6rem,1fr)_fit-content(5.5rem)_fit-content(5rem)]`)
+           — `fit-content(5.5rem)`, the track `CELL 3 · VALUE` below names in its
+           own header. Track 2 is the LABEL's `minmax(6rem,1fr)`; track 4 is META.
+
+           ⚠⚠ THIS CITATION HAS NOW BEEN WRONG TWICE, AND THE SECOND TIME WAS MY
+           CORRECTION OF THE FIRST. It read "track 2 of `ModelOutline.tsx:654`";
+           I corrected it to "the FOURTH track of :679" — right about the line,
+           wrong about the track again, so it would have sent the next reader to
+           widen META instead of the label. A second reviewer caught it against
+           five authorities I had not consulted: `CELL 3 · VALUE` at :530, "THE
+           TRACK IS `fit-content(5.5rem)`" at :532, `CELL 4 · META` at :605, the
+           `ModelOutline` legend, and `rowAtomsAlignToOneGrid.spec.tsx:235`
+           (`trackList[2]` — a LIVE EXECUTING guard, which is the authority I
+           should have started from). The PR's own resolved template
+           `23.1px 194.9px 88px 66px` settles it: the 80px value cell sits inside
+           the 88px track, the third.
+
+           ⚠ AND I OVERSTATED THE CHECK. I wrote that the file "carries exactly
+           ONE `grid-cols` declaration, so the line was checkable in one grep".
+           A plain grep returns THREE hits — and no grep yields a track INDEX
+           anyway. That sentence made a wrong citation sound verified, which is
+           worse than leaving it unsourced. Read the executing guard, not a grep.
+
+           `minmax(0,5.5rem)` was tried and rejected
            because a zero-minimum track reserves its cap even when empty and
            cost four fully-visible option labels. (b) STACKING THE HINT ONTO A
            SECOND LINE: the `<button>` arm below records that it once did
