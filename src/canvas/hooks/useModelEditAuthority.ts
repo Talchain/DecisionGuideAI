@@ -54,16 +54,56 @@
  * so the surfaces stop each owning their own copy of it.
  *
  * WIRE-CARRIER SCOPE. The UI's wire vocabulary
- * (`WIRE_SYSTEM_EVENT_TYPES`) carries four server-authoritative edit carriers —
+ * (`WIRE_SYSTEM_EVENT_TYPES`) carries FIVE server-authoritative edit carriers —
  * `factor_value_edit`, `prior_range_edit` (emitted inside the sanctioned
- * `setPriorRange`), `edge_adjudication`, and — since schemas 0.48.0 —
- * `structural_delete`, the durable REMOVAL, which is emitted from the canvas
- * delete gestures via `useStructuralDeleteEvents` and resolves its own receipt
- * inside `sendTurn` (this hook is not on that path). Edge strength / likelihood
- * / direction and the goal target still have NO canonical carrier and NO entry
- * point here; the v2 surface keeps rendering those affordances DISABLED with an
+ * `setPriorRange`), `edge_adjudication`, `structural_delete` (since schemas
+ * 0.48.0), the durable REMOVAL, which is emitted from the canvas delete gestures
+ * via `useStructuralDeleteEvents` and resolves its own receipt inside `sendTurn`
+ * (this hook is not on that path) — and `edge_strength_edit`.
+ *
+ * ⚠ THIS PARAGRAPH SAID "FOUR" AND OMITTED THE FIFTH, which was true when it was
+ * written and stopped being true on 2026-09-07 when `useEdgeMutations.setStrength`
+ * gained its emitter (#1287, fixed forward by #1295). The count is corrected
+ * rather than the sentence rewritten, because a reader who inherited "four" would
+ * conclude edge strength still needs a carrier DESIGNED — and it does not; since
+ * 2026-09-08 this hook is an entry point to it (`proposeEdgeStrength`, below).
+ *
+ * ⚠ CORRECTED 2026-09-07 — THIS PARAGRAPH SAID "Edge strength / likelihood /
+ * direction and the goal target still have NO canonical carrier". THE EDGE
+ * STRENGTH HALF IS NOW FALSE, and it was the most misleading kind of stale: it
+ * grouped a member that HAS had a contract carrier since schemas 0.42.0 and a
+ * CEE writer since Train C with three that genuinely have none, so a lane
+ * reading this would have concluded the carrier had to be designed. It only ever
+ * lacked a UI EMITTER, and that landed at `useEdgeMutations.setStrength`.
+ *
+ * Edge LIKELIHOOD, edge DIRECTION and the GOAL TARGET still have no canonical
+ * carrier and no entry point here, and for those three the original sentence
+ * stands: the v2 surface keeps rendering their affordances DISABLED with an
  * honest label rather than routing them through a local-only write that would
  * look identical to a server-backed one (design §2 F6).
+ *
+ * ⚠⚠ CORRECTED 2026-09-08 — THE PARAGRAPH BELOW WAS TRUE AND IS NOW FALSE, and
+ * it is left standing so its reasoning is not re-derived from scratch:
+ *
+ *   ~~AND EDGE STRENGTH IS **NOT** AN ENTRY POINT HERE EITHER, which is a
+ *   different statement from "has no carrier". This hook is parameterised by a
+ *   NODE id; an edge is addressed by its `(from, to)` pair. Adding an edge
+ *   operation to a node authority would be the two-questions-one-name defect
+ *   (trap 21), so the emitter lives at the edge setter instead.~~
+ *
+ * `proposeEdgeStrength` IS an entry point here now, and the trap-21 objection is
+ * answered rather than ignored. The hook is no longer "the authority for one
+ * NODE": it is the authority for WHATEVER ELEMENT THE ACTIVE GESTURE ADDRESSES,
+ * and it takes the node and the edge in SEPARATE parameters precisely so the two
+ * questions keep two names. Nothing is addressed by a wrong-kind id, and
+ * `proposeEdgeStrength` re-states the edge id it was called with so a caller
+ * whose hook is keyed to a different edge fails CLOSED instead of writing.
+ *
+ * ⚠ AND IT STILL DOES NOT WRITE. The edge write goes through the SANCTIONED
+ * SETTER (`useEdgeMutations.setStrength`), which owns the emitter, the local
+ * patch and the `preserveDirection` rule. This hook adds a refusal in front of
+ * it and nothing else — see `proposeEdgeStrength` for why that refusal exists
+ * and why it is not a copy of the setter's rules.
  *
  * ⚠ AND F6 IS *NOT* RE-OPENED BY THE TWO LOCAL COMMITS. F6's harm is that a
  * local write and a server-backed one are INDISTINGUISHABLE on screen. These
@@ -79,8 +119,13 @@ import { useCanvasStore } from '../store'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
 import { factorHasConfirmableValue } from '../domain/valueProvenance'
 import { useOptionalConversationContext } from '../conversation/ConversationContext'
-import { useNodeMutations } from '../ui/inspector-v2/useInspectorMutations'
+import {
+  useEdgeMutations,
+  useNodeMutations,
+  type EdgeStrengthCommitOutcome,
+} from '../ui/inspector-v2/useInspectorMutations'
 import { buildFactorValueEditEvent } from '../conversation/factorValueEdit'
+import { buildEdgeStrengthEditEvent } from '../conversation/edgeStrengthEdit'
 import { captureOptimisticFactorEdit } from '../conversation/optimisticFactorEdit'
 
 /**
@@ -116,6 +161,52 @@ export type FactorValueProposalOutcome = 'dispatched' | 'local_only' | 'not_enco
  */
 export type LocalCommitOutcome = 'committed' | 'not_encodable'
 
+/**
+ * How an EDGE STRENGTH proposal left this seam.
+ *
+ * ⭐⭐ IT EXTENDS `EdgeStrengthCommitOutcome` RATHER THAN RESTATING IT. The
+ * sibling type at the setter already names the four states an edge-strength
+ * commit can land in, and its header carries the reasoning for the fourth
+ * (`not_wire_encodable` and `local_only` are different states needing opposite
+ * follow-ups). Re-spelling those four here would be two lists of one thing —
+ * this estate's dominant defect — so they are IMPORTED and exactly one member is
+ * added.
+ *
+ * ⭐ THE ADDED MEMBER EXISTS BECAUSE THIS SEAM FAILS CLOSED AND ITS SIBLING DOES
+ * NOT, which is a real difference and not a stylistic one:
+ *
+ *   · `setStrength` writes LOCALLY EVEN WHEN THE WIRE CANNOT CARRY THE EDIT, on
+ *     purpose — it serves the inspector's slider, where a whole class of edges
+ *     has no assertable `expected`, and failing closed there would make the
+ *     control silently dead. It discloses the gap with `not_wire_encodable`.
+ *   · THIS seam serves the Model tab v2, whose entire premise is that an
+ *     affordance is offered ONLY where the write reaches the server (design §2
+ *     F6). A local write behind a server-looking control is the harm that
+ *     surface exists to remove, so an edit the wire cannot carry must leave the
+ *     model UNTOUCHED — the same fail-closed rule `proposeFactorValue` follows.
+ *
+ * So the two seams cannot share one token for that case: at the setter it means
+ * "written locally, not sent"; here it would have to mean "not written at all".
+ * One name, two questions is trap 21, and the fix is to name them apart.
+ *
+ * - `refused_unassertable` — NOTHING HAPPENED ANYWHERE, deliberately. The edit
+ *   could not be truthfully asserted to the server: no server-stated `expected`
+ *   tuple for this edge, a non-canonical endpoint id, or a magnitude outside the
+ *   contract's `[0, 1]`. Refusing beats a local write the row would render as
+ *   though it were saved.
+ * - `dispatched` / `local_only` / `not_wire_encodable` / `not_encodable` — as
+ *   documented on `EdgeStrengthCommitOutcome`, returned verbatim from the setter.
+ *
+ * ⚠ `not_wire_encodable` IS UNREACHABLE FROM THIS SEAM AND IS STILL IN THE UNION,
+ * which is deliberate. The refusal above runs the SAME builder over the SAME
+ * synchronous store read the setter is about to make, so the setter cannot reach
+ * its own null branch after it. The member stays because it belongs to the
+ * imported type, not to this one — narrowing it away would fork the sibling's
+ * vocabulary to assert a property of today's control flow, and if that property
+ * ever stopped holding the honest token would be the one that had been deleted.
+ */
+export type EdgeStrengthProposalOutcome = EdgeStrengthCommitOutcome | 'refused_unassertable'
+
 export interface ModelEditAuthorityLive {
   proposeFactorValue: (typedValue: number) => FactorValueProposalOutcome
   /**
@@ -132,15 +223,44 @@ export interface ModelEditAuthorityLive {
    * ⚠ STAMPS `user_confirmed`, NEVER `user`. See the implementation.
    */
   proposeFactorConfirmation: () => LocalCommitOutcome
+  /**
+   * Set the ACTIVE EDGE's strength — the `edge_strength_edit` carrier.
+   *
+   * `edgeId` is passed explicitly, as `model-tab-v2/contracts.ts` §1 declares
+   * it, and is CHECKED against the edge this hook was keyed to rather than
+   * trusted: a caller holding an authority for a different edge fails closed.
+   *
+   * ⚠ `directionStated` IS THE CALLER'S CLAIM ABOUT ITS OWN CONTROL and must
+   * never be derived from `signedMean`'s sign. See the implementation.
+   */
+  proposeEdgeStrength: (
+    edgeId: string,
+    signedMean: number,
+    opts: { directionStated: boolean },
+  ) => EdgeStrengthProposalOutcome
 }
 
 /**
- * The authority for ONE node — the node whose edit is currently active.
- * Hook-parameterised exactly as `useNodeMutations` is; pass `null` when no
- * edit is active (every proposal is then `not_encodable`).
+ * The authority for the ELEMENT the active gesture addresses.
+ *
+ * Hook-parameterised exactly as `useNodeMutations` / `useEdgeMutations` are; pass
+ * `null` for a kind no gesture is currently addressing (every proposal against
+ * that kind is then `not_encodable`).
+ *
+ * ⚠ TWO PARAMETERS, NOT ONE POLYMORPHIC ID. A node and an edge are addressed by
+ * different identities — a node by its id, an edge canonically by its
+ * `(from, to)` pair — and the sanctioned setters for them are different hooks.
+ * Collapsing both into one `activeId` would put two questions under one name
+ * (trap 21) and would let a node id key an edge mutation without a type error.
+ * `activeEdgeId` DEFAULTS to `null`, so every existing node-only call site keeps
+ * its exact behaviour and the widening cannot silently arm an edge write.
  */
-export function useModelEditAuthority(activeNodeId: string | null): ModelEditAuthorityLive {
+export function useModelEditAuthority(
+  activeNodeId: string | null,
+  activeEdgeId: string | null = null,
+): ModelEditAuthorityLive {
   const mutations = useNodeMutations(activeNodeId ?? '')
+  const edgeMutations = useEdgeMutations(activeEdgeId ?? '')
   const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
 
   const proposeFactorValue = useCallback(
@@ -257,5 +377,83 @@ export function useModelEditAuthority(activeNodeId: string | null): ModelEditAut
     return 'committed'
   }, [activeNodeId, mutations])
 
-  return { proposeFactorValue, proposeOptionIntervention, proposeFactorConfirmation }
+  /**
+   * ⭐⭐ `directionStated` → `preserveDirection`, AND THE MAPPING IS EXACT RATHER
+   * THAN A JUDGEMENT CALL. The two documents describe one behaviour in one
+   * vocabulary, so there is nothing here to choose between:
+   *
+   *   contracts.ts §1 `proposeEdgeStrength`: *"When nothing states a direction,
+   *   the magnitude is written alone and the direction and its stamp are left
+   *   untouched."*
+   *   `useEdgeMutations.setStrength`: *"`opts.preserveDirection` writes the
+   *   MAGNITUDE ONLY and leaves the edge's `direction` exactly as it is —
+   *   including ABSENT"*, and *"Under `preserveDirection` neither key is written
+   *   — a magnitude edit must not mint a direction claim"* (ROADMAP 2.263).
+   *
+   * "the magnitude written alone, direction and stamp untouched" IS
+   * `preserveDirection: true`, sentence for sentence. So:
+   *
+   *     preserveDirection === !directionStated
+   *
+   * and the same flag reaches the wire as `direction_intent: 'preserve'`, so the
+   * local write and the event cannot describe different gestures.
+   *
+   * ⚠ AND THE PROHIBITION THE CONTRACT ACTUALLY STATES: `directionStated` may not
+   * be inferred FROM `signedMean`'s SIGN — *"a MAGNITUDE CANNOT CARRY A SIGN"*.
+   * `-0 >= 0` is `true`, so zeroing a negative edge through a sign-derived write
+   * flips it to positive; and an ABSENT direction has no sign to read at all.
+   * That is why the flag is a parameter and not arithmetic. It is the CALLER's
+   * statement about ITS OWN control — the Model tab v2 answers it from
+   * `resolveEdgeDirectionDisplay`, the same resolver that decides whether its row
+   * reads "positive effect" or "direction not stated", so the control's meaning
+   * and the label above it cannot disagree.
+   *
+   * ⭐ WHY THERE IS A REFUSAL IN FRONT OF THE SANCTIONED SETTER, when the
+   * factor path has none of this shape. `setStrength` writes locally even when
+   * the wire cannot carry the edit — correct for the inspector's slider, and
+   * WRONG here: this hook feeds a surface that offers the affordance only where
+   * the write reaches the server, and a local write behind a server-looking
+   * control is design §2 F6 exactly. So an edit the builder will not build is
+   * refused BEFORE the setter runs, and the model is left untouched.
+   *
+   * ⚠ THE REFUSAL ASKS THE BUILDER, IT DOES NOT RE-STATE THE BUILDER'S RULES.
+   * `buildEdgeStrengthEditEvent` is called with the SAME arguments the setter is
+   * about to pass it, over the same synchronous store read; there is no second
+   * copy of the endpoint-id rule, the `[0, 1]` magnitude bound or the
+   * server-stated-`expected` requirement to drift out of sync (trap 12). It is
+   * pure, so calling it twice costs a computation and changes nothing — the
+   * setter's own call is the one whose event is sent.
+   */
+  const proposeEdgeStrength = useCallback(
+    (
+      edgeId: string,
+      signedMean: number,
+      opts: { directionStated: boolean },
+    ): EdgeStrengthProposalOutcome => {
+      // The hook is keyed to ONE edge. An id that is not that edge is a caller
+      // holding the wrong authority — fail closed rather than write the edge it
+      // happens to be keyed to, which would be an edit to an element the user
+      // was not looking at.
+      if (activeEdgeId === null || edgeId !== activeEdgeId) return 'not_encodable'
+      if (typeof signedMean !== 'number' || !Number.isFinite(signedMean)) return 'not_encodable'
+
+      const edge = useCanvasStore.getState().edges.find(e => e.id === edgeId)
+      if (!edge) return 'not_encodable'
+
+      const preserveDirection = !opts.directionStated
+      if (!buildEdgeStrengthEditEvent({ edge, requestedMean: signedMean, preserveDirection })) {
+        return 'refused_unassertable'
+      }
+
+      return edgeMutations.setStrength(signedMean, { preserveDirection })
+    },
+    [activeEdgeId, edgeMutations],
+  )
+
+  return {
+    proposeFactorValue,
+    proposeOptionIntervention,
+    proposeFactorConfirmation,
+    proposeEdgeStrength,
+  }
 }

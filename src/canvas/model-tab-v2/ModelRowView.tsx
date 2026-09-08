@@ -39,7 +39,7 @@ import {
   GOAL_LABEL_FROM_BRIEF_COPY,
   GOAL_LABEL_FROM_BRIEF_TESTID,
 } from '../domain/goalLabelProvenance'
-import { SourceProvenancePill } from '../components/model-tab/SourceProvenancePill'
+import { ValueProvenanceMark } from './ValueProvenanceMark'
 import { RELATIONSHIP_LABEL_SEPARATOR } from './adapters'
 import {
   ATTENTION_IS_SEVERE,
@@ -52,6 +52,8 @@ import {
   deferralLabel,
 } from './rowPresentation'
 import type { EditCommitState, DetailTier, ModelRow } from './types'
+import { splitEffectLabel } from './effectDirection'
+import { directionToneClass } from '../components/model-tab/utils'
 
 export interface ModelRowViewProps {
   row: ModelRow
@@ -179,15 +181,60 @@ function ValueLeaf({
    */
   editable?: boolean
 }) {
+  const textClass =
+    [mayShrink ? 'truncate min-w-0' : '', editable ? 'underline decoration-dotted' : '']
+      .filter(Boolean)
+      .join(' ') || undefined
+
+  /*
+   * ⭐⭐ THE STATED DIRECTION RIDES A MARK THAT CANNOT SHRINK.
+   *
+   * MEASURED on deployed `d0f4628b`, guest board, dock 414px: eleven of eleven
+   * relationship rows rendered "Moderat…" — six negative and five positive,
+   * BYTE-IDENTICAL on screen, with no `title` anywhere to recover it from. The
+   * cell is 80px and the phrase needs 138–142px, so the cut lands five
+   * characters before the only word that carries the meaning.
+   *
+   * ⚠ THE TRADE ABOVE IS NOT REVERSED. The phrase still shrinks, so the label
+   * keeps every pixel the 6 Sep measurement bought it. What changes is that the
+   * DIRECTION leaves the shrinking text and becomes a `shrink-0` mark, so it
+   * survives at any width the dock can reach. The header above was right that a
+   * phrase may be cut; it was wrong that this one "still says what it means"
+   * once cut — that sentence was never measured against 80px.
+   *
+   * `null` for "Negligible effect" and for the producer's own
+   * "…, direction not stated": neither states a direction, and marking them
+   * would invent the claim the second one exists to withhold.
+   */
+  const split = splitEffectLabel(display)
+  if (split !== null) {
+    return (
+      <span className="flex items-center gap-1 min-w-0" title={display ?? undefined}>
+        {/* Tone comes from the ESTATE'S OWN authority, not a second green/red
+            map: `directionToneClass` already answers "what colour is a stated
+            direction?" and is what the old model tab uses. Colour is the
+            SECOND channel here — the arrow's shape carries the claim on its
+            own, so this reads correctly with no colour vision at all. */}
+        <span
+          aria-hidden="true"
+          className={`shrink-0 ${directionToneClass({ show: true, direction: split.direction, source: 'cee' })}`}
+        >
+          {split.direction === 'negative' ? '\u2193' : '\u2191'}
+        </span>
+        {/* The FULL producer string, unshortened, for assistive tech — so the
+            split is a visual arrangement and never a loss of content. The
+            visible half is hidden from the reader to stop it being announced
+            twice. */}
+        <span className="sr-only">{display}</span>
+        <span aria-hidden="true" className={textClass}>
+          {split.remainder}
+        </span>
+      </span>
+    )
+  }
+
   return (
-    <span
-      className={[
-        mayShrink ? 'truncate min-w-0' : '',
-        editable ? 'underline decoration-dotted' : '',
-      ]
-        .filter(Boolean)
-        .join(' ') || undefined}
-    >
+    <span className={textClass}>
       {display ?? ''}
     </span>
   )
@@ -628,9 +675,66 @@ export function ModelRowView({
            out of anything. The ladder is still right, but it is ordered by
            LEGIBILITY under compression, not by a containment failure that does
            not occur. Rewritten rather than deleted because the wrong reason
-           was load-bearing in four places and would have been re-derived. */
+           was load-bearing in four places and would have been re-derived.
+
+           ⚠⚠ EVERYTHING ABOVE THIS LINE IS ABOUT A WORDED PILL, AND THIS SPAN
+           NO LONGER HOLDS ONE. The wrapper is unchanged and only the CHILD was
+           swapped — `SourceProvenancePill` became the 14px `ValueProvenanceMark`
+           — so the sentences above quietly stopped being true of what renders
+           here. They are kept, not rewritten: the 3px reading and the 62px
+           merge-base reading are DATED CAPTURES of the pill, and a measurement
+           is a record of what was observed, not a field to keep current.
+
+           What changed, and it lands on the wrong side of this file's own rule:
+           a truncated text span reports as a signalled ellipsis, which the
+           doctrine above calls "a disclosed loss, not a silent one" — but a
+           CLIPPED GLYPH EMITS NO ELLIPSIS AND SIMPLY VANISHES. By this file's
+           own standard that is a SILENT loss, the thing it refuses everywhere
+           else. The sentence "an atom squeezed below the width at which it
+           renders any characters at all is not [recoverable]" therefore now
+           describes the ordinary case rather than the forbidden one, because a
+           glyph renders no characters at ANY width.
+
+           ⚠ NOT CHANGED HERE, DELIBERATELY, and this is the judgement rather
+           than an oversight. Swapping to `shrink-0` would be an unmeasured
+           layout change to a row already under review, and would move the
+           deficit onto an atom that has not been priced for it. Rowed instead:
+           re-price the yield ladder now that its last item is INDIVISIBLE.
+
+           ⚠⚠ THE TWO SENTENCES THAT USED TO CARRY THIS DEFERRAL ARE WITHDRAWN,
+           AND THE WITHDRAWAL IS WHY THE ROW MATTERS MORE, NOT LESS. They read
+           "marks relieve roughly 62px of row pressure, so it is unlikely to
+           clip in practice" and "NOBODY HAS MEASURED IT CLIPPING, in either
+           direction". **Both are refuted**, measured on deployed staging
+           `18b79ae4` in a guest session at real panel width (7 Sep 2026, an
+           independent lane — NOT reproduced by this author, and recorded here
+           as that lane's reading):
+
+             · Clipping HAS now been measured, and it is not marginal: the
+               provenance sub-line renders a 31px box for content needing 125px
+               — three readable characters of "Olumi: Moderate (0.5)" — and
+               **24 of 44 value cells** in the tab are clipped.
+             · ⛔ The 62px RELIEF FIGURE DOES NOT TRANSFER. A counterfactual
+               forcing the badge element to 14px left the sub-line at 31px and
+               the value block at 80px — **no change at all.** So the 80px value
+               column is pinned by something OTHER than this pill, and swapping
+               pill→glyph does not recover the width.
+
+           The 62px and 3px readings are kept above as DATED CAPTURES of the
+           pill; what is withdrawn is the INFERENCE drawn from them, which is a
+           different thing from the measurement. **Consequence for this file:
+           the swap below must not be read as a width or truncation fix — it is
+           a legibility and density change (glyph + legend, the candidate the
+           product owner chose), and the geometry question is OPEN with its
+           cause unidentified.** That is the row, and it is now actionable:
+           whoever takes it should start from what the counterfactual excludes.
+
+           ⚠ This disclosure was written by the change that introduced the mark
+           and was DROPPED when that change was re-applied onto a moved base —
+           the one thing the re-application lost. Restored here, because the
+           deferral is defensible and its silence was not. */
         <span data-testid={`model-row-v2-${row.id}-provenance`} className="min-w-0 truncate">
-          <SourceProvenancePill source={row.provenanceSource} showWhenAbsent={false} />
+          <ValueProvenanceMark source={row.provenanceSource} rowId={row.id} />
         </span>
       )}
 

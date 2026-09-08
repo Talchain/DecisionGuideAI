@@ -28,8 +28,8 @@ describe('selectDriverDisplayModel — the exact Codex R3-B1 partial-coverage sc
   it('partial coverage → EVERY factor on the normalised-elasticity basis, provenance marked', () => {
     const model = selectDriverDisplayModel(factors)
     // max |elasticity| = 0.2 → Revenue normalises to 1.0, Investor to 0.5.
-    expect(model.get('revenue_potential')).toEqual({ value: 1.0, provenance: 'normalised_elasticity' })
-    expect(model.get('investor_confidence')).toEqual({ value: 0.5, provenance: 'normalised_elasticity' })
+    expect(model.get('revenue_potential')).toEqual({ value: 1.0, provenance: 'normalised_elasticity', importanceBasis: null })
+    expect(model.get('investor_confidence')).toEqual({ value: 0.5, provenance: 'normalised_elasticity', importanceBasis: null })
     // The producer 0.9 is NOT displayed for Investor — that was the contradiction.
     expect(model.get('investor_confidence')!.value).not.toBe(0.9)
   })
@@ -51,8 +51,8 @@ describe('selectDriverDisplayModel — the exact Codex R3-B1 partial-coverage sc
       { key: 'a', influenceScore: 0.9, rawElasticity: 0.1 },
       { key: 'b', influenceScore: 0.2, rawElasticity: 0.2 },
     ])
-    expect(model.get('a')).toEqual({ value: 0.9, provenance: 'influence_score' })
-    expect(model.get('b')).toEqual({ value: 0.2, provenance: 'influence_score' })
+    expect(model.get('a')).toEqual({ value: 0.9, provenance: 'influence_score', importanceBasis: null })
+    expect(model.get('b')).toEqual({ value: 0.2, provenance: 'influence_score', importanceBasis: null })
   })
 
   it('a non-finite influence_score does NOT count as coverage (fails closed to normalised)', () => {
@@ -103,6 +103,7 @@ describe('extractPolicyRow — panel-parity field semantics (Lane 2 review fold)
       key: 'a',
       influenceScore: null,
       rawElasticity: 0.2,
+      importanceBasis: null,
     })
   })
 

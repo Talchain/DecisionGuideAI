@@ -30,7 +30,7 @@
  *
  * ⚠ GATING `isRecommended` ALONE WOULD MAKE THE CANVAS WORSE, and the estate
  * has already measured exactly that failure. `residualComparative.optionNode.spec.tsx`
- * records it: "Behind: <reason>" is gated only on `!isRecommended`, so when no
+ * records it: "Held back by: <reason>" is gated only on `!isRecommended`, so when no
  * option is the leader the line renders on EVERY option including the
  * front-runner — the probe measured 30 occurrences withheld against 20
  * permitted. "Everything behind, nothing ahead."
@@ -108,7 +108,7 @@ import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 const BASELINE_ID = 'opt_status_quo'
 
 /**
- * The third option is `is_baseline` so its "Behind:" reason ("no changes from
+ * The third option is `is_baseline` so its "Held back by:" reason ("no changes from
  * current state") DIFFERS from the runner-up's ("fewer key changes"). Without
  * that, the identical-reason suppression hides the line on both and an absence
  * assertion would pass for the wrong reason (trap 13).
@@ -327,19 +327,19 @@ describe('OptionNode crown — Q1 is consulted, not only Q2', () => {
 // OptionNode — the two INVERSE-FORM designations
 // ───────────────────────────────────────────────────────────────────────────
 
-describe('OptionNode "Behind:" — a leader claim in inverse form', () => {
+describe('OptionNode "Held back by:" — a leader claim in inverse form', () => {
   it('ARM B — permitted: the runner-up keeps its reason (over-suppression control)', () => {
     withStore(ADMISSION_PERMITTED)
     vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(WIN_RUNNER_UP))
     renderOption(RUNNER_UP_ID, RUNNER_UP_LABEL)
-    expect(screen.getByText(/Behind:/)).toBeDefined()
+    expect(screen.getByText(/Held back by:/)).toBeDefined()
   })
 
-  it('⭐ ARM C — refused: the runner-up carries no "Behind:" line', () => {
+  it('⭐ ARM C — refused: the runner-up carries no "Held back by:" line', () => {
     withStore(ADMISSION_WITHHELD)
     vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(WIN_RUNNER_UP))
     renderOption(RUNNER_UP_ID, RUNNER_UP_LABEL)
-    expect(screen.queryByText(/Behind:/)).toBeNull()
+    expect(screen.queryByText(/Held back by:/)).toBeNull()
   })
 
   it('⭐ ARM C — refused: the FRONT-RUNNER carries none either (the 30-vs-20 half)', () => {
@@ -353,7 +353,7 @@ describe('OptionNode "Behind:" — a leader claim in inverse form', () => {
     // the line anyway, so the assertion would pass before any fix.
     withStore(ADMISSION_WITHHELD, [OPTION_NODES[0], OPTION_NODES[2]])
     renderOption(LEADER_ID, LEADER_LABEL)
-    expect(screen.queryByText(/Behind:/)).toBeNull()
+    expect(screen.queryByText(/Held back by:/)).toBeNull()
   })
 })
 
@@ -377,23 +377,23 @@ describe('OptionNode "Close call" — a distance to a leader nobody may name', (
     withStore(ADMISSION_PERMITTED, CLOSE_NODES, CLOSE_CALL_REPORT)
     vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.47))
     renderOption(RUNNER_UP_ID, RUNNER_UP_LABEL)
-    expect(screen.getByText(/Close call/)).toBeDefined()
+    expect(screen.getByText(/Within a small margin/)).toBeDefined()
   })
 
   it('⭐ ARM C — refused: no close-call line', () => {
     withStore(ADMISSION_WITHHELD, CLOSE_NODES, CLOSE_CALL_REPORT)
     vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.47))
     renderOption(RUNNER_UP_ID, RUNNER_UP_LABEL)
-    expect(screen.queryByText(/Close call/)).toBeNull()
+    expect(screen.queryByText(/Within a small margin/)).toBeNull()
   })
 })
 
 // ───────────────────────────────────────────────────────────────────────────
-// DecisionNode — "X leads in N% of scenarios"
+// DecisionNode — "X supported in N% of simulated scenarios"
 // ───────────────────────────────────────────────────────────────────────────
 
 describe('DecisionNode headline — Q1 is consulted, not only Q2', () => {
-  const leads = () => screen.queryByText(/leads in/)
+  const leads = () => screen.queryByText(/supported in/)
 
   it('HARNESS PRECONDITION: Q2 is TRUE, so every arm below isolates Q1', () => {
     withStore(undefined)
@@ -416,7 +416,7 @@ describe('DecisionNode headline — Q1 is consulted, not only Q2', () => {
     expect(leads()).not.toBeNull()
   })
 
-  it('⭐ ARM C — refused (`none`): no "leads in N% of scenarios" sentence', () => {
+  it('⭐ ARM C — refused (`none`): no "supported in N% of simulated scenarios" sentence', () => {
     withStore(ADMISSION_WITHHELD)
     renderDecision()
     expect(

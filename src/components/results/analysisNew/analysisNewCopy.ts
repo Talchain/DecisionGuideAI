@@ -212,7 +212,7 @@ export const ANALYSIS_NEW_COPY = {
       'Which reading matters more is a judgement about your appetite for risk, not a result this run can settle.',
     /** The aligned state. Agreement across two different questions is evidence. */
     alignedLead: (label: string): string =>
-      `${label} leads on both readings of this run.`,
+      `${label} is most likely on both readings of this run.`,
     alignedResolve:
       'The two readings agree, so the choice does not hinge on which one you weight.',
     /**
@@ -933,7 +933,7 @@ export const ANALYSIS_NEW_COPY = {
      * was TRUE; the defect was the repetition, and repetition is not emphasis.
      * `freshnessSaidOnce.spec.tsx` holds the count at one.
      */
-    eyebrowLeading: 'Leading option',
+    eyebrowLeading: 'Most likely to serve your goal',
     /**
      * ⚠ STILL LIVE, AND ITS ONLY CONSUMER IS NOW `ModelStrip`'s per-node chip —
      * a standalone claim that the run ranked this node among its top drivers.
@@ -1264,14 +1264,14 @@ export const ANALYSIS_NEW_COPY = {
    * `__tests__/firstViewportCensus.spec.tsx` exists to forbid.
    */
   checks: {
-    leader_present: { label: 'Has leading option' },
+    leader_present: { label: 'Most likely option identified' },
     /**
      * The one licensed DENIAL, and it is licensed by `separation === 'tied'`
      * alone (`decisionVerdict.ts:166-168`).
      */
     leader_tied: { label: 'No clear leader' },
     leader_not_assessed: {
-      label: 'Leading option not assessed',
+      label: 'Which option is most likely — not assessed',
       /**
        * ⚠ THE SENTENCE MUST BLOCK BOTH MISREADINGS, not just one. "Not
        * assessed" can be read as "they are level" (the tie this verdict is

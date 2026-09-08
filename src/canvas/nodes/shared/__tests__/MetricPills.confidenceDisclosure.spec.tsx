@@ -52,17 +52,19 @@ describe('MetricPills — confidence disclosure travels with the number', () => 
   })
 
   it('renders no confidence pill at all when the policy withheld the number', () => {
-    // The live state today. Note the influence pill is still asked for, so a
-    // pass here cannot come from the component rendering nothing.
-    render(
-      <MetricPills
-        influencePct={80}
-        influenceProvenance="influence_score"
-        confidencePct={null}
-        confidenceIsDefaulted
-      />,
+    // ⚠ THIS TEST LOST ITS NEGATIVE CONTROL, AND THE LOSS IS STRUCTURAL, NOT AN
+    // OVERSIGHT. It used to ALSO ask for an influence pill, so that a pass
+    // could not come from the component rendering nothing. The influence pill
+    // was deleted (it was unreachable from the product — see MetricPills.tsx),
+    // and with one pill type left "confidence withheld" and "renders nothing"
+    // are now THE SAME STATE. There is no longer a second surface to hold the
+    // component open, so the assertion is stated as what it now actually is:
+    // the whole component collapses. Asserting the container is empty is the
+    // honest form; a control that cannot exist must not be faked.
+    const { container } = render(
+      <MetricPills confidencePct={null} confidenceIsDefaulted />,
     )
-    expect(screen.getByText('Relative influence 80%')).toBeDefined()
+    expect(container.firstChild).toBeNull()
     expect(screen.queryByTestId('metric-pill-confidence')).toBeNull()
     expect(screen.queryByTestId('metric-pill-confidence-default-estimate')).toBeNull()
   })

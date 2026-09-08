@@ -218,9 +218,35 @@ function EdgeCard({
     ? `${Math.round(switchProbability * 100)}% chance of flipping the result`
     : 'Fragile: sensitive to assumption changes'
 
+  /**
+   * ⭐ 0–1, NOT 0–2, AND THE NARROWING IS THE FIX. This control accepted
+   * `n <= 2` while the wire refuses any magnitude above 1 — so every value in
+   * (1, 2] repainted the line, stamped `weightSource: 'user'`, sent NOTHING,
+   * said nothing, and was gone on reload. Half the advertised range was the
+   * exact "control that looks like it saves and does not" defect the strength
+   * lane exists to close, re-opened one field along.
+   *
+   * ⚠ DERIVED, NOT ASSUMED — the cap was NOT widened to 2 on the hope that CEE
+   * accepts it. At `@talchain/schemas` 0.50.0, the version BOTH repos pin:
+   * `magnitude: z.number().finite().min(0).max(1)`
+   * (`dist/boundary/turn-payload.js:478`). CEE's deployed handler agrees on the
+   * derived signed mean (`AdjustEdgeStrengthSchema = z.number().min(-1).max(1)`,
+   * `tools/handlers/adjust-edge-strength.ts:41`, at served build `88b4db2`).
+   * Every OTHER strength editor in this repo already agrees: the signed slider
+   * is −1..+1, the band presets top out at 0.85, and both β fields are
+   * `min={-1} max={1}`. This chip was the only surface out of step.
+   *
+   * ⚠ REFUSING BEATS PERMITTING HERE. `InlineEdit` marks an invalid draft and
+   * declines to commit it, so an out-of-range entry is now a VISIBLE refusal
+   * rather than a silent local-only write. Widening the wire instead is not
+   * this lane's to do and would need a contract change.
+   *
+   * A value above 1 can still ARRIVE on an edge — the ingestion mappers clamp
+   * into [0, 2] — and it still renders. Only stating a NEW one is refused.
+   */
   const validateWeight = useCallback((s: string) => {
     const n = parseFloat(s)
-    return !isNaN(n) && n >= 0 && n <= 2
+    return !isNaN(n) && n >= 0 && n <= 1
   }, [])
 
   const validateLikelihood = useCallback((s: string) => {
@@ -246,7 +272,11 @@ function EdgeCard({
    */
   const handleWeightSave = useCallback((val: string) => {
     const n = parseFloat(val)
-    if (isNaN(n) || n < 0 || n > 2) return
+    // Same bound as `validateWeight` above — read its note for the derivation.
+    // This is the second gate, not a duplicate rule: `InlineEdit` only calls
+    // this after `validate` passes, so a disagreement between the two would
+    // make one of them dead rather than redundant.
+    if (isNaN(n) || n < 0 || n > 1) return
     mutations.setStrength(n, { preserveDirection: true })
   }, [mutations])
 
@@ -350,7 +380,7 @@ function EdgeCard({
                   validate={validateWeight}
                   maxWidth="max-w-[55px]"
                   numeric
-                  tooltip="Weight (0–2). Click to edit."
+                  tooltip="Weight (0–1). Click to edit."
                   testId={`edge-${edgeId}-weight`}
                 />
                 {/* Direction toggle */}
@@ -743,7 +773,7 @@ function RelationshipsSectionInner({
             without the retired noun: what fragility can change is which option
             comes out ahead, not an endorsement the product does not make.
           */}
-          Fragile relationships could change which option leads. Review the strongest ones first.
+          Fragile relationships could change which option the data supports. Review the strongest ones first.
         </CoachingCard>
       )}
 

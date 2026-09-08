@@ -468,7 +468,7 @@ export const OptionPanel = memo(function OptionPanel({
                     <div className={`${typography.panelHeader} text-2xl`} style={{ color: 'var(--option)' }}>
                       {formatWinProbability(displayMetadata.winRate)}
                     </div>
-                    <div className={`${typography.panelMeta} text-text-light`}>{METRIC_NOUN.ahead}</div>
+                    <div className={`${typography.panelMeta} text-text-light`}>{METRIC_NOUN.support}</div>
                     <ResultsLink label="Compare all options" tab="compare" />
                   </div>
                 </div>
@@ -511,10 +511,10 @@ export const OptionPanel = memo(function OptionPanel({
                 if (verdict.hasLeadingOption === false) return null
                 if (!modelLicensesComparativeClaim) return null
                 if (gap <= 5) {
-                  return <p className={`${typography.panelBody} text-text-body mt-1`}>Within {gap}pp of the leading option. Small model changes could shift this.</p>
+                  return <p className={`${typography.panelBody} text-text-body mt-1`}>Within {gap}pp of the most-supported option. Small model changes could shift this.</p>
                 }
                 if (gap > 10) {
-                  return <p className={`${typography.panelBody} text-text-light mt-1`}>Behind {leader.label} by {gap}pp.</p>
+                  return <p className={`${typography.panelBody} text-text-light mt-1`}>{gap}pp less support than {leader.label}.</p>
                 }
                 return null
               })()}

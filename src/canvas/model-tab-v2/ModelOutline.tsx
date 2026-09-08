@@ -25,7 +25,7 @@
  * so the user never has to wonder whether a group disappeared or never existed.
  */
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { classifyValueProvenance } from '../domain/valueProvenance'
 import { typography } from '../../styles/typography'
 import { ModelRowView } from './ModelRowView'
@@ -61,6 +61,11 @@ export interface ModelOutlineProps {
   onFocusOnCanvas?: (id: string) => void
   /** Groups closed at first render. Everything else is open (multi-open always). */
   initiallyClosedGroups?: readonly ModelGroupId[]
+  /**
+   * A group a deep link wants OPEN. One-way by design: a request opens, never
+   * closes. See the effect that consumes it.
+   */
+  openGroupRequest?: ModelGroupId | null
   /**
    * The host's edit state per row, keyed by row id. Absent entries render idle.
    * There is deliberately no default map literal here — an absent prop means
@@ -110,6 +115,17 @@ export function outlineLayout(
   rows: readonly ModelRow[],
   filter: string,
   openGroups: ReadonlySet<ModelGroupId>,
+  /**
+   * Groups the reader closed BY HAND while this search is active.
+   *
+   * Separate from `openGroups`, and that separation is the fix: a search
+   * reveals matches by overriding the resting closed-state, so if one set
+   * carried both, clearing the search would leave the reader's search-time
+   * clicks applied to their resting outline — which is how a click made to
+   * CLOSE a group ended up leaving it open. Optional, so existing callers and
+   * the pure-function tests are unchanged.
+   */
+  searchClosed: ReadonlySet<ModelGroupId> = new Set(),
 ): {
   groups: readonly { id: ModelGroupId; open: boolean; rows: readonly ModelRow[] }[]
   unknownGroupRowIds: readonly string[]
@@ -121,13 +137,68 @@ export function outlineLayout(
   const matches = (r: ModelRow) =>
     needle === '' || r.label.toLowerCase().includes(needle)
 
+  // ⭐⭐ A SEARCH THAT REVEALS NOTHING IS NOT A SEARCH.
+  //
+  // ⚠ THIS IS A REGRESSION FIX, NOT A FEATURE, AND IT WAS FOUND BY A FAILING
+  // TEST THAT I ALMOST "FIXED" THE WRONG WAY. Once the outline began opening
+  // CLOSED (`initiallyClosedGroups`, this PR), `open` was still computed from
+  // the closed-state ALONE — the needle was used to narrow `rows` and never
+  // consulted for `open`. So a user who typed into the one search box on
+  // arrival, with every group shut, matched rows that were never rendered: the
+  // filter narrowed a list nobody could see.
+  //
+  // `ModelTabBody.spec.tsx`'s "the one search surface actually filters the
+  // outline" caught it. The tempting repair was to open the groups in the TEST
+  // and move on — which would have left the product defect live and the suite
+  // green. Worse, that test's own negative assertion (`factor-budget` absent)
+  // passes VACUOUSLY against a closed group, so half of it was already
+  // incapable of failing.
+  //
+  // A group opens while searching only if it HAS a match: a group with nothing
+  // to show stays shut, so the result reads as a result rather than as seven
+  // headings. When the needle is empty this is exactly the previous behaviour.
+  const searching = needle !== ''
+
   return {
-    groups: MODEL_GROUP_IDS.map(id => ({
-      id,
-      open: openGroups.has(id),
+    groups: MODEL_GROUP_IDS.map(id => {
       // `filter` preserves the caller's order by construction.
-      rows: rows.filter(r => r.group === id && matches(r)),
-    })),
+      const groupRows = rows.filter(r => r.group === id && matches(r))
+      return {
+        id,
+        /**
+         * This was `openGroups.has(id) || (searching && rows > 0)`, and the
+         * disjunct made the header toggle INERT — measured on merged staging.
+         * Both `aria-expanded` and the body gate read this value while the
+         * click handler mutated only the resting `closed` set, so the chevron
+         * never moved, a screen reader was told the button controlled an
+         * expanded region it would not collapse, and the hidden flip surfaced
+         * on clearing the search: the click meant to CLOSE the group had
+         * removed it from `closed`, dumping the full list. A control that
+         * cannot act is worse than one that is absent.
+         *
+         * While searching, the override decides the DEFAULT and the reader's
+         * own click overrides the override. With an empty needle this is
+         * exactly the previous behaviour.
+         *
+         * The `openGroups.has(id) ||` limb is NOT redundant, and dropping it
+         * was a regression `ModelOutline.spec`'s "keeps every group heading
+         * present and says a group has no matches" caught. A group the reader
+         * already had OPEN must stay open while searching even with zero
+         * matches, so it can render "No matches in this group" — otherwise the
+         * search silently collapses a section the reader opened, which is the
+         * defect this file is repairing, arriving from the other direction.
+         *
+         * ⚠ AND THAT SPEC WAS ALREADY PASSING FOR A WEAKER REASON THAN IT
+         * READS: it renders `ModelOutline` with no `initiallyClosedGroups`, so
+         * every group is open by default — while production passes all seven
+         * as closed. It never exercised the closed-and-searching case at all.
+         */
+        open: searching
+          ? (openGroups.has(id) || groupRows.length > 0) && !searchClosed.has(id)
+          : openGroups.has(id),
+        rows: groupRows,
+      }
+    }),
     unknownGroupRowIds,
   }
 }
@@ -290,6 +361,7 @@ export function ModelOutline({
   onSelect,
   onFocusOnCanvas,
   initiallyClosedGroups,
+  openGroupRequest,
   commitByRowId,
   editConnectedIds,
   onBeginEdit,
@@ -304,23 +376,74 @@ export function ModelOutline({
   const [closed, setClosed] = useState<ReadonlySet<ModelGroupId>>(
     () => new Set(initiallyClosedGroups ?? []),
   )
+  /** Closes made BY HAND during the current search. Cleared when it ends. */
+  const [searchClosed, setSearchClosed] = useState<ReadonlySet<ModelGroupId>>(() => new Set())
+  const searching = filter.trim() !== ''
+
+  // Search-scoped closes belong to ONE search. Leaving them behind would make
+  // the next search start with groups the reader shut during the last one.
+  useEffect(() => {
+    if (!searching) setSearchClosed(prev => (prev.size === 0 ? prev : new Set()))
+  }, [searching])
+
+  /**
+   * THE DEEP LINK MUST OPEN THE SECTION IT SCROLLS TO.
+   *
+   * `ModelTabBody` scrolls `model-group-v2-<id>` into view for five live
+   * callers. That `<section>` wrapper renders unconditionally while its BODY is
+   * gated on `open` — so once the outline began arriving closed, all five
+   * landed the reader on a collapsed heading. The scroll succeeded and the list
+   * they asked for stayed behind a click nobody told them to make.
+   *
+   * No test could see it: the only pin asserts the section ELEMENT was scrolled
+   * to, and that element still renders. It binds to the container, not to
+   * visible content.
+   *
+   * `closed` was `useState` initial-only with one setter and zero effects, so
+   * nothing outside this component could open a group. This is that missing
+   * door, and it is deliberately ONE-WAY — a request opens, never closes, so a
+   * deep link can never collapse something the reader opened.
+   */
+  useEffect(() => {
+    if (!openGroupRequest) return
+    setClosed(prev => {
+      if (!prev.has(openGroupRequest)) return prev
+      const next = new Set(prev); next.delete(openGroupRequest); return next
+    })
+    setSearchClosed(prev => {
+      if (!prev.has(openGroupRequest)) return prev
+      const next = new Set(prev); next.delete(openGroupRequest); return next
+    })
+  }, [openGroupRequest])
 
   const openGroups = useMemo(
     () => new Set(MODEL_GROUP_IDS.filter(id => !closed.has(id))),
     [closed],
   )
 
-  /** Toggling one group NEVER touches another — design §2 F2. */
-  const toggle = useCallback((id: ModelGroupId) => {
-    setClosed(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }, [])
+  /**
+   * Toggling one group NEVER touches another — design §2 F2.
+   *
+   * WHICH SET it mutates depends on whether a search is active, and that is the
+   * repair: during a search the reader is acting on the SEARCH's outline, not
+   * on their resting one, so the click must not silently rewrite the state they
+   * return to when the needle clears.
+   */
+  const toggle = useCallback(
+    (id: ModelGroupId) => {
+      const flip = (prev: ReadonlySet<ModelGroupId>) => {
+        const next = new Set(prev)
+        if (next.has(id)) next.delete(id)
+        else next.add(id)
+        return next
+      }
+      if (searching) setSearchClosed(flip)
+      else setClosed(flip)
+    },
+    [searching],
+  )
 
-  const { groups } = outlineLayout(rows, filter, openGroups)
+  const { groups } = outlineLayout(rows, filter, openGroups, searchClosed)
 
   return (
     <div data-testid="model-outline-v2" data-tier={tier} className="flex flex-col">

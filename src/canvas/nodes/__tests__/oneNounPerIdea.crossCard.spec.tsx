@@ -22,6 +22,13 @@
  * refactoring underneath — and it is exactly the comparison a reader makes
  * with their eyes when both cards are on screen together.
  *
+ * ⚠ 8 Sep 2026 — THE SECOND HALF LANDED. This file originally pinned the
+ * CAPTION and deliberately left the SENTENCE above it saying "leads", with the
+ * reversal point written into the last test. That test has now been taken: the
+ * decision card's sentence reads the register's own comparative clause, so the
+ * bar's noun and the prose above it are one vocabulary. See
+ * `decisionCardOneVocabulary.spec.tsx`.
+ *
  * ⭐ THE DEFECT IT PINS WAS DOCUMENTED AT ITS OWN CALL SITE AND SHIPPED ANYWAY.
  * `DecisionNode`'s comment read: "this is the same field, for the same option,
  * that the winning OptionNode renders as `Ahead 47%` — so the two bars are the
@@ -42,7 +49,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { DecisionNode } from '../DecisionNode'
 import { OptionNode } from '../OptionNode'
@@ -152,6 +159,20 @@ function renderBoard() {
 const DECISION_ROW = 'decision-leader-metric-row'
 const OPTION_ANCHOR = `option-win-anchor-${LEADER_ID}`
 
+/**
+ * The decision card, as a subtree — the nearest ancestor of its metric row that
+ * also carries the decision's own label. Both cards are in one render here, and
+ * as of 8 Sep 2026 both speak the same comparative phrase, so an unscoped text
+ * query matches twice. Scoping by IDENTITY rather than by picking `[0]`
+ * (CLAUDE.md trap 19).
+ */
+function decisionCard(): HTMLElement {
+  let el: HTMLElement | null = screen.getByTestId(DECISION_ROW)
+  while (el && !(el.textContent ?? '').includes('Which laptops?')) el = el.parentElement
+  if (!el) throw new Error('the decision card ancestor was not found — this probe is blind')
+  return el
+}
+
 /** The caption is the row's FIRST child — the noun column. */
 function decisionCaption(): string {
   const row = screen.getByTestId(DECISION_ROW)
@@ -184,7 +205,7 @@ describe('one noun per idea — the decision card and the option card agree', ()
     // Bound to the authority as well as to each other — so the pair cannot be
     // "fixed" by making BOTH cards say some third word.
     expect(decision).toBe(COMPARATIVE_COPY.anchor)
-    expect(decision).toBe(METRIC_NOUN.ahead)
+    expect(decision).toBe(METRIC_NOUN.support)
   })
 
   it('neither card uses a retired synonym for the shared quantity', () => {
@@ -197,26 +218,53 @@ describe('one noun per idea — the decision card and the option card agree', ()
     // Discrimination: the board HAS text and DOES carry the live noun, so the
     // absence above is not passing on an empty container.
     expect(text.length).toBeGreaterThan(50)
-    expect(text).toContain(METRIC_NOUN.ahead)
+    expect(text).toContain(METRIC_NOUN.support)
   })
 
-  it('CONTRAST: the sentence the row encodes is UNCHANGED — this was a caption change', () => {
-    // The eight-surface owned-leader-claim corpus keys on this SENTENCE, not on
-    // the caption. A "vocabulary consistency" change that quietly moved or
-    // reworded it would hollow every one of those guards without a red here.
-    // This is the assertion that keeps the blast radius honest.
+  it('⭐ THE TENSION IS RESOLVED: the SENTENCE speaks the caption\'s noun too', () => {
+    // ⛔ THIS TEST WAS THE REVERSAL POINT, AND IT HAS BEEN TAKEN.
+    //
+    // It read 'CONTRAST: the sentence the row encodes is UNCHANGED — this was
+    // a caption change', asserted `/leads in 66% of scenarios/i`, and carried
+    // this note:
+    //
+    //   "⚠ Note the tension, deliberately left visible: the PROSE still says
+    //    'leads' while the CAPTION now says 'Ahead'. That is not a synonym
+    //    defect — a verb in a sentence and a noun in a column are different
+    //    parts of speech… Rowed in the PR body rather than silently changed."
+    //
+    // The row was right to bound its own blast radius and right to leave the
+    // question visible. The answer, 8 Sep 2026, is that on THIS card the two
+    // are not different ideas wearing different parts of speech: they are ONE
+    // number, read from ONE binding (`headline.winProb`), rendered eight
+    // pixels apart. Measured on deployed staging `80ccf768`, a real card read
+    // "Segment leads in 99% of scenarios" directly above "Support ▬▬▬ 99%".
+    // A reader has no way to know those are the same quantity.
+    //
+    // What is still guarded, unchanged: the claim is a SENTENCE in visible
+    // text, not folded into the row. The eight-surface corpus still bites.
     renderBoard()
-    expect(screen.getByText(/leads in 66% of scenarios/i)).toBeDefined()
-    // ⚠ Note the tension, deliberately left visible: the PROSE still says
-    // "leads" while the CAPTION now says "Ahead". That is not a synonym defect
-    // — a verb in a sentence and a noun in a column are different parts of
-    // speech, and the corpus that guards the sentence is out of this lane's
-    // scope. Rowed in the PR body rather than silently changed.
+    const sentence = within(decisionCard()).getByText(
+      /supported in 66% of simulated scenarios/i,
+    )
+    expect(sentence).toBeDefined()
+    // Bound to the AUTHORITY, not to the literal above — so the sentence and
+    // the caption cannot drift apart again without a red here.
+    expect((sentence.textContent ?? '').toLowerCase())
+      .toContain(METRIC_NOUN.support.toLowerCase())
+    // ⭐ AND THE CROSS-CARD POINT THIS FILE EXISTS FOR: the option card beside
+    // it speaks the SAME phrase, from the same register
+    // (`COMPARATIVE_COPY.phrase`, `OptionNode.tsx:1582`). Two cards, one
+    // quantity, one sentence — which is what made the decision card's old verb
+    // visible as a defect rather than a preference.
+    expect(screen.getAllByText(/supported in 66% of simulated scenarios/i)).toHaveLength(2)
+    // …and "Leads" stays retired as a caption, which is what the register
+    // actually ruled. That has not changed.
     expect(RETIRED_METRIC_NOUNS).toContain('Leads')
   })
 
   it('⚠ RESIDUAL, DECIDED NOT DISCOVERED: "Leads" survives as a VERB on the option card', () => {
-    // The review found `OptionNode:1601` — "Leads via {factor}" beneath the
+    // The review found `OptionNode:1601` — "Supported by {factor}" beneath the
     // `Ahead 47%` anchor — and rightly said it should be decided explicitly
     // rather than left to be found. It is: the register retires "Leads" as a
     // CAPTION, and both survivors are verbs inside sentences.
@@ -229,8 +277,8 @@ describe('one noun per idea — the decision card and the option card agree', ()
     const src = readFileSync(resolve(__dirname, '../OptionNode.tsx'), 'utf8')
     expect(src.length, 'source read as empty — the assertion below is vacuous').toBeGreaterThan(1000)
     expect(
-      src.includes('Leads via'),
-      'the "Leads via" sentence has gone — good, but update the residual note in metricVocabulary.ts',
+      src.includes('Supported by'),
+      'the "Supported by" sentence has gone — good, but update the residual note in metricVocabulary.ts',
     ).toBe(true)
     // …and it is prose, not a caption: no `label=` binds it.
     expect(src).not.toMatch(/label=["']Leads["']/)

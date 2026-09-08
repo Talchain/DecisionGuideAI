@@ -94,7 +94,7 @@ describe('GOAL_ANCHOR_COPY — the no-target state is an invitation, not a wall'
 
 describe('COMPARATIVE_COPY — says what it measures, never what to choose', () => {
   it('describes the quantity as a share of simulated scenarios', () => {
-    expect(COMPARATIVE_COPY.phrase('60%')).toBe('Came out ahead in 60% of simulated scenarios')
+    expect(COMPARATIVE_COPY.phrase('60%')).toBe('Supported in 60% of simulated scenarios')
     expect(COMPARATIVE_COPY.sentence('60%')).toBe(`${COMPARATIVE_COPY.phrase('60%')}.`)
   })
 

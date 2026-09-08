@@ -2,10 +2,11 @@
  * Model tab v2 — the contracts this surface needs from OTHER lanes.
  * TYPE DECLARATIONS ONLY. No implementations, no runtime values.
  *
- * ⚠ MOUNT-TRAIN STATUS (16 Aug 2026): the surface is now mounted, and the
- * subset of §1 with a live canonical carrier is served by
- * `src/canvas/hooks/useModelEditAuthority.ts` (factor values; prior range and
- * edge adjudication remain reachable through their existing sanctioned seams).
+ * ⚠ MOUNT-TRAIN STATUS (16 Aug 2026, edge strength added 8 Sep 2026): the
+ * surface is now mounted, and the subset of §1 with a live canonical carrier is
+ * served by `src/canvas/hooks/useModelEditAuthority.ts` (factor values, and edge
+ * strength where the server has stated one; prior range and edge adjudication
+ * remain reachable through their existing sanctioned seams).
  * The RECEIPT-bearing handle below (`EditProposalHandle`, `applied` only from
  * a receipt) is still the target API and still unimplemented — the authority
  * hook documents why it must not be faked from an echo.
@@ -69,9 +70,30 @@ export interface EditProposalHandle {
  *                                  persists a typed fact and writes no graph)
  *     · resolveContestedEdge    → `edge_adjudication`
  *
- *   IN FLIGHT ON CODEX'S LANE:
- *     · proposeEdgeStrength     → `edge_strength_edit`  (zero occurrences in the
- *                                  tree at derivation time)
+ *   IMPLEMENTED 2026-09-08, GATED PER EDGE (was "LANDED 2026-09-07", which
+ *   described the EMITTER only — this surface still had no entry point to it,
+ *   and that half is what changed):
+ *     · proposeEdgeStrength     → `edge_strength_edit`
+ *       The emitter lives at the seam every strength editor shares,
+ *       `useEdgeMutations.setStrength`, and builds through
+ *       `canvas/conversation/edgeStrengthEdit.ts`. THIS surface reaches it
+ *       through `useModelEditAuthority.proposeEdgeStrength`, which returns
+ *       `EdgeStrengthProposalOutcome` rather than the receipt-bearing handle
+ *       below, for the reason that hook's header gives for every other member.
+ *       ⚠⚠ ITS AFFORDANCE IS GATED PER EDGE, NOT PER SURFACE, and that is the
+ *       load-bearing part of the implementation. `expected` asserts what the
+ *       SERVER holds, so an edge the server never stated a strength for has
+ *       nothing truthful to put there: the builder refuses, the edit would land
+ *       LOCAL-ONLY, and offering the editor anyway would be design §2 F6. Those
+ *       rows keep the disabled affordance. `editConnectedIds` asks
+ *       `edgeStrengthEditIsAssertable`, which puts the question to the builder
+ *       rather than restating its rules.
+ *       ⚠ NOT "with optimistic revert" — see the SERVER-AUTHORITATIVE group
+ *       above, which earns that clause and this does not. There is no revert on
+ *       refusal yet, and CEE's refusal for this kind is a POSITIVE, typed
+ *       signal (`FEATURE_NOT_ENABLED` / `edge_strength_edit_reader_only`)
+ *       rather than the absence-based rule `factor_value_edit` has to infer
+ *       from, so the revert is buildable — it is simply not built.
  *
  *   LOCAL-ONLY TODAY — the gap this design depends on closing:
  *     · proposeEdgeLikelihood, proposeEdgeDirection, proposeOptionIntervention,

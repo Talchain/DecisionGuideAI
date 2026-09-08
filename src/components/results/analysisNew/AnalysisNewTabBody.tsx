@@ -221,8 +221,20 @@ export function selectAlsoWorthDoing<T extends { id: string }>(
    * reach its dismiss, so the focus card can never be advanced — one
    * recommendation pinned to the top of the panel for the life of the run.
    *
-   * The duplication is real and stays open. It costs a repeated paragraph to
-   * someone who OPENS the section; the exclusion cost a capability to everyone.
+   * ⚠ AMENDED 7 Sep 2026 — THE PARAGRAPH REPEAT IS CLOSED; THE ITEM REPEAT
+   * IS NOT. Superseded text: ~~It costs a repeated paragraph to someone who
+   * OPENS the section~~. `primaryIntervention` is now `{ id, label, title,
+   * signalCode? }` (`AtAGlance.tsx:129-154`) and the finding's paragraph
+   * (`signal`) is not among those fields, so the glance card cannot print it;
+   * the paragraph is left to the row, which renders
+   * `strengthenWhyLine(rec.signal, rec.whyNow)`. Guarded by
+   * `theFocusCardReferencesRatherThanReprints.spec.tsx`.
+   *
+   * What still sits in two places is the ITEM. This function keeps returning
+   * the promoted recommendation, so its `title` heads the glance card and the
+   * row below. The severity, the grounding, the source line and the
+   * disagreement controls stay row-only — the card's props carry none of them.
+   * That trade is unchanged: the exclusion cost a capability to everyone.
    * The right fix is the Focus/Also split the design pack draws, where the
    * affordances live on the focus card — which is an IA change, and is with
    * Paul.
@@ -769,8 +781,20 @@ export function AnalysisNewTabBody({
               ? {
                   id: glancePrimary.id,
                   label: glancePrimary.action.label,
-                  why: glancePrimary.signal,
+                  /* ⭐ `title`, NOT `signal`. The glance card used to be handed
+                     `signal` — the finding's paragraph — which the Strengthen
+                     row below also prints, because `strengthenWhyLine` begins
+                     with `signal` on every arm. The promoted card is a
+                     reference to the row, so it is handed the finding's NAME
+                     and the paragraph is left to the row that carries the
+                     severity, the grounding and the disagreement controls.
+                     Guarded by `theFocusCardReferencesRatherThanReprints`. */
+                  title: glancePrimary.title,
                   signalCode: glancePrimary.signalCode,
+                  /* ⚠ The CATALOGUE path renders this and the phase-3 path does
+                     not — see `AtAGlance`'s `signal` prop. Passed for both
+                     because the card, not the caller, owns which kind it is. */
+                  signal: glancePrimary.signal,
                 }
               : null
           }
@@ -934,15 +958,28 @@ export function AnalysisNewTabBody({
             DUPLICATION rather than an oversight — recorded here because the
             obvious fix is wrong.
 
-            `glancePrimary` lifts one intervention into the glance card and
-            nothing removes it from this list, so the producer's `signal` — a
-            long sentence — renders TWICE in one panel, at 11px in the
-            glance and 12px here. Witnessed on the deployed build `b14cd478`
-            (guest, 291px dock, completed run, every section expanded):
-            "The ordering holds in about 68% of variations, but is exposed to
-            uncertainty around how your largest accounts would react to usage
-            pricing." — verbatim, in `analysis-new-glance-primary-intervention`
-            and again in `analysis-new-strengthen-why`.
+            ⚠ AMENDED 7 Sep 2026 — THE `signal` REPEAT IS CLOSED; THE ITEM
+            REPEAT IS NOT. Superseded text: ~~`glancePrimary` lifts one
+            intervention into the glance card and nothing removes it from this
+            list, so the producer's `signal` — a long sentence — renders TWICE
+            in one panel, at 11px in the glance and 12px here.~~ The
+            `primaryIntervention` call site above now hands the card
+            `title: glancePrimary.title`, and the card's prop type
+            (`AtAGlance.tsx:129-154`) has no `signal` field, so the card cannot
+            print the paragraph.
+
+            The capture below is kept as the record of the build it was taken
+            on — it is history from this date, not current behaviour. Witnessed
+            on the deployed build `b14cd478` (guest, 291px dock, completed run,
+            every section expanded): "The ordering holds in about 68% of
+            variations, but is exposed to uncertainty around how your largest
+            accounts would react to usage pricing." — verbatim, in
+            `analysis-new-glance-primary-intervention` and again in
+            `analysis-new-strengthen-why`.
+
+            Still true, and why this comment stays: `glancePrimary` is not
+            removed from this list, so the finding's `title` heads both the
+            glance card and a row here.
 
             ⚠⚠ FILTERING THE PROMOTED ROW OUT WAS TRIED AND REVERTED. On a run
             with exactly ONE intervention it empties this section completely —

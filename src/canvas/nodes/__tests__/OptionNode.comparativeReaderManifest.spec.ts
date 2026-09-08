@@ -318,7 +318,7 @@ describe('OptionNode — the comparative-position reader manifest', () => {
 
   it('no comment states a gate COUNT — the count is what went stale', () => {
     // The finding, exactly: this file gated two readers, said in a comment that
-    // "both gate on the one flag", and a third was rendering `Behind:` on the
+    // "both gate on the one flag", and a third was rendering `Held back by:` on the
     // failed option's own card beside its "Not computed" disclosure. The code
     // was then fixed and THIS SENTENCE WAS NOT — so the file shipped a review
     // finding's own quoted evidence, still true of the prose and no longer true

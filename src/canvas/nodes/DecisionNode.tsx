@@ -12,6 +12,10 @@
  *   states what is absent from this node and — where an authoring act would
  *   answer that absence — offers to ask Olumi for it. Never a sentence about
  *   the analysis. See `bodyHasContent` and `DECISION_RESTING_COPY`.
+ *   On `completedRunLine` it leads with the model-readiness summary
+ *   ("4 factors · 2 estimated · 1 missing"), which is the same structural count
+ *   the pre-analysis popover shows and is the only thing on this card that
+ *   survives a completed run. See `composeReadinessSummary`.
  */
 import { memo, useMemo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
@@ -23,6 +27,7 @@ import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { typography } from '../../styles/typography'
 import { METRIC_NOUN } from './shared/metricVocabulary'
+import { COMPARATIVE_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { NodeChip, NodeMetricRow, NodePopover } from './shared'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { cleanFactorLabel } from '../utils/labelUtils'
@@ -33,7 +38,6 @@ import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/u
 import { openNodeInspector } from './shared/openNodeInspector'
 import { leaderRobustnessGrade } from './shared/leaderRobustnessGrade'
 import { requestAsk, canReceiveAsk } from '../ui/inspector-v2/askSemantic'
-import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 
 /**
  * EVERY static string the resting state can render or send.
@@ -66,33 +70,56 @@ export const DECISION_RESTING_COPY = {
 } as const
 
 /**
- * ⭐ THE ANCHOR CARD'S OWN COPY — the user's brief, attributed.
+ * ⛔ THE BRIEF ECHO IS GONE, AND WHAT REPLACES IT IS DERIVED (Paul, 7 Sep
+ * 2026): *"The current question node lacks value. There's not enough
+ * information or functionality within it. It also doesn't need to say what you
+ * gave me. The user should be able to see that."*
  *
- * Paul, 5 Sep 2026, on the deployed anchor node: his brief was not surfaced.
- * That is structurally true and NOT a fallback bug — the wire carries no brief
- * field on the decision node at all, so no default could have supplied it. The
- * brief arrives on a different carrier entirely (`contextIntegrityStore`,
- * written by `serverGraphHydration` on the cold read, and by the draft turn
- * that first lands a graph on a fresh scenario), and until now reached
- * exactly one surface: the results panel's "What you gave me".
+ * The echo was added on 5 Sep because he reported his brief was not surfaced,
+ * and it answered the letter of that report — a "What you gave me" heading over
+ * his own words truncated at 160 characters. Echoing the input back is the
+ * least valuable form of surfacing it, and the results panel's
+ * `WhatIWasGivenSection` still holds it: `contextIntegrityStore` keeps a live
+ * product consumer after this removal, so the draft-turn write it depends on is
+ * not orphaned. That was checked, not assumed.
  *
- * ⚠ THE HEADING IS DELIBERATELY THE SAME WORDS THAT PANEL USES. It is the
- * estate's owned phrase for this exact thing, and two different names for one
- * artefact is worse than one name in two places. It is NOT imported from
- * `WhatIWasGivenSection`: that module would pull the whole results panel into
- * the canvas node bundle. Extracting a shared vocabulary module is the right
- * follow-up and is deliberately not taken as a free ride here.
+ * ⭐ WHAT GOES IN ITS PLACE IS ALREADY COMPUTED AND WAS ONLY EVER REACHABLE
+ * BEHIND A PRE-ANALYSIS HOVER. `useModelReadiness` runs unconditionally on every
+ * render of this node, and its four counts render in exactly one place: a
+ * popover gated `!isPostAnalysis && optionCount > 0`. So after a run the node
+ * held the whole readiness breakdown and showed none of it — the estate's
+ * build-more-than-we-plug-in defect at the size of one line. The answer here is
+ * WIRING, not writing: no new derivation, no new number.
  */
-export const DECISION_ANCHOR_BRIEF_COPY = {
-  heading: 'What you gave me',
-} as const
 
 /**
- * The anchor's measure for the brief. Exported so the spec DERIVES the
- * expected truncation instead of restating a number that would then drift
- * (CLAUDE.md trap 12).
+ * The readiness words, spelled ONCE.
+ *
+ * ⚠ THE CARD LINE AND THE POPOVER READ THE SAME RECORD, and that is the point.
+ * The popover spelled `Estimated:` / `Missing:` / `External:` as inline
+ * literals; a card line with its own copies would be two names for one thing in
+ * one component — the hand-maintained mirror this estate keeps paying for
+ * (CLAUDE.md trap 12), and precisely the hazard the copy block this replaces
+ * flagged about its own heading. `popoverLabel` derives the popover's
+ * capitalised form so the rendered bytes are unchanged; the spec pins those
+ * exact strings, so "unchanged" is measured rather than asserted.
  */
-export const ANCHOR_BRIEF_MAX_CHARS = 160
+export const DECISION_READINESS_COPY = {
+  factorSingular: 'factor',
+  factorPlural: 'factors',
+  explicit: 'explicit',
+  inferred: 'estimated',
+  missing: 'missing',
+  external: 'external',
+} as const
+
+/** Same separator the inspector's guidance line already renders. */
+export const READINESS_SEPARATOR = ' \u00b7 '
+
+/** The popover's capitalised form, derived from the one record above. */
+export function popoverLabel(word: string): string {
+  return word.charAt(0).toUpperCase() + word.slice(1)
+}
 
 /** Truncate text at word boundary. */
 function truncateAtWord(text: string, maxLength: number): string {
@@ -104,13 +131,56 @@ function truncateAtWord(text: string, maxLength: number): string {
 
 // ---- Model readiness helpers ----
 
-interface ModelReadiness {
-  // breakdown consumed by the pre-analysis popover and triage line
+export interface ModelReadiness {
+  // breakdown consumed by the pre-analysis popover, the triage line and the
+  // card's own readiness summary
   explicitCount: number
   inferredCount: number
   missingCount: number
   externalCount: number
   biasTriggers: string[]
+}
+
+/**
+ * ⭐ THE READINESS FACTS AS ONE CARD LINE — "4 factors \u00b7 2 estimated \u00b7 1 missing".
+ *
+ * ⛔ IT IS A STRUCTURAL COUNT AND CARRIES NO ANALYSIS PERMISSION. Every input is
+ * a property of the GRAPH — how many factors exist and how each one's value got
+ * there — so nothing here is derived from `report`, from `headline`, or from
+ * `deriveDecisionVerdict`. It says nothing about which option leads and it must
+ * never be changed into something that can: the leader-claim seam is where this
+ * product has shipped a withheld verdict and a named leader two pixels apart
+ * before (CLAUDE.md trap 21). That is also why it needs no gate on
+ * `licensesComparativeLeaderClaim` — a fact that makes no comparative claim
+ * needs no licence to make one.
+ *
+ * ⚠ THE TOTAL IS THE SUM OF THE PARTS, NEVER `factorNodes.length`. Those two
+ * numbers differ: `useModelReadiness` skips a factor with no `data` at all, so a
+ * total taken from the node list could exceed its own breakdown and the line
+ * would fail to add up in front of the user. Summing the four buckets makes that
+ * impossible by construction rather than by care.
+ *
+ * ⚠ `explicit` IS DELIBERATELY NOT SPELLED. It is the remainder — total minus
+ * the three qualifiers — so printing it makes the line longer and says nothing
+ * the reader could not subtract. What earns space is what is NOT nailed down.
+ * The word stays in the record because the popover still renders it.
+ *
+ * Returns `null` when the model has no factors at all: a card with nothing to
+ * count keeps its wayfinding line rather than being handed "0 factors", which
+ * is furniture with a number in it.
+ */
+export function composeReadinessSummary(readiness: ModelReadiness): string | null {
+  const total =
+    readiness.explicitCount + readiness.inferredCount + readiness.missingCount + readiness.externalCount
+  if (total === 0) return null
+
+  const parts = [
+    `${total} ${total === 1 ? DECISION_READINESS_COPY.factorSingular : DECISION_READINESS_COPY.factorPlural}`,
+  ]
+  if (readiness.inferredCount > 0) parts.push(`${readiness.inferredCount} ${DECISION_READINESS_COPY.inferred}`)
+  if (readiness.missingCount > 0) parts.push(`${readiness.missingCount} ${DECISION_READINESS_COPY.missing}`)
+  if (readiness.externalCount > 0) parts.push(`${readiness.externalCount} ${DECISION_READINESS_COPY.external}`)
+  return parts.join(READINESS_SEPARATOR)
 }
 
 function useModelReadiness(decisionId: string): ModelReadiness {
@@ -306,6 +376,11 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
 
   // ---- Post-analysis: winner headline ----
   //
+  // ⭐ THE SENTENCE NOW READS "{X} supported in N% of simulated scenarios"
+  // (8 Sep 2026). The two paragraphs below quote the OLD wording because they
+  // are the record of why the GATE exists, and the gate is unchanged — only
+  // the words it permits changed. See the render site for the rename.
+  //
   // ROADMAP 1.223: "{X} leads in N% of scenarios" is a comparative leader
   // claim, so it quotes `deriveDecisionVerdict` — the one module entitled to
   // say a leading option exists — exactly as the sibling `OptionNode` badge
@@ -340,14 +415,19 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     const recommendedId = verdict.leaderId
     if (!recommendedId) return null
 
-    const winnerNode = nodes.find(n => n.id === recommendedId)
-    const winnerLabel = (winnerNode?.data?.label as string | undefined) ?? null
-    if (!winnerLabel) return null
+    // ⭐ NAMED FOR THE QUESTION IT ANSWERS. `winnerLabel` was a local
+    // identifier, so `noContestFraming.canvas.spec` correctly waved it through
+    // as not-copy and rowed it as the next lane's work — but it is also the
+    // vocabulary the next hand inherits as canonical, and the sentence it fed
+    // is the reason this card kept its race verb through four rulings.
+    const mostSupportedNode = nodes.find(n => n.id === recommendedId)
+    const mostSupportedLabel = (mostSupportedNode?.data?.label as string | undefined) ?? null
+    if (!mostSupportedLabel) return null
 
     const optionProbs = (report as any)?.option_probabilities ?? {}
     const winProb = optionProbs[recommendedId]?.win_probability as number | undefined
 
-    return { winnerLabel, winProb }
+    return { mostSupportedLabel, winProb }
   }, [isPostAnalysis, modelLicensesComparativeClaim, report, nodes])
 
   // Biggest risk: risk node with highest bridge edge weight to goal
@@ -706,9 +786,9 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
    * whose job is to say "Add options".
    */
   const lodMetric = useMemo<string | null>(() => {
-    if (headline?.winnerLabel) {
+    if (headline?.mostSupportedLabel) {
       const pct = headline.winProb != null ? ` ${Math.round(headline.winProb * 100)}%` : ''
-      return `${headline.winnerLabel}${pct}`
+      return `${headline.mostSupportedLabel}${pct}`
     }
     if (resting.line === DECISION_RESTING_COPY.emptyLine && optionCount > 0) {
       return `${optionCount} option${optionCount === 1 ? '' : 's'}`
@@ -716,101 +796,78 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     return resting.line
   }, [headline, resting, optionCount])
 
-  // ---- The user's brief, on the node their brief is about ----
-  //
-  // ⛔ THE IDENTITY GATE — READ `contextIntegrityStore`'s HEADER BEFORE TOUCHING
-  // THIS. It is not defensive coding; it is the fix for a shipped P0. That
-  // store's cold-read writer runs ONLY when the read returns `status: 'graph'`,
-  // and a freshly-minted scenario reliably answers `absent` — so nothing is
-  // cleared at reset, and a reader without this gate renders THE PREVIOUS
-  // DECISION'S BRIEF on the new decision's anchor node. The draft turn now
-  // records the NEW decision's brief under its own id once its graph lands
-  // (`recordBriefForFreshDraft`), which is what makes the fresh case render;
-  // it does not retire this gate, because between reset-canvas and that
-  // landing — and for any draft the record does not reach — the store still
-  // holds the previous decision.
-  //
-  // ⚠ IT MUST BE A POSITIVE MATCH, NOT `!==`. A `!==` test passes when either
-  // side is null, and null is exactly the state the store sits in for a decision
-  // it was never told about — i.e. `!==` would be green on the P0 itself.
-  //
-  // The existing reader (`V7WhatIWasGivenSection`) gates identically. That is two
-  // surfaces asking the same question, which is the shape CLAUDE.md trap 21
-  // warns drifts apart — so the pinning spec asserts the STALE case renders
-  // nothing here, not merely that the fresh case renders something.
-  const recordedScenarioId = useContextIntegrityStore((s) => s.scenarioId)
-  const recordedBriefText = useContextIntegrityStore((s) => s.briefText)
-  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+  /**
+   * ⚠⚠ ONE ARM, BECAUSE THE OTHER IS UNREACHABLE HERE — AND I WROTE TWO FIRST.
+   *
+   * The block this replaces substituted on `completedRunLine || emptyLine`, so
+   * my first cut inherited both and added a second mechanism to suppress
+   * `emptyLine` ("Nothing to show on this node") wherever the summary rendered,
+   * on the grounds that a count of the model directly above that sentence is
+   * the product contradicting itself.
+   *
+   * ⛔ THE SUPPRESSION COULD NEVER FIRE. Derived at this file's own branch
+   * conditions rather than assumed, and pinned by the two tests named below:
+   *
+   *   • The PRE-ANALYSIS branch cannot reach the fallback at all —
+   *     `showPreAnalysisInvitations` IS `isPreAnalysisBranch`, so
+   *     `bodyHasContent` is unconditionally true whenever options are linked.
+   *   • The THIRD arm requires `optionCount === 0`, which the arms above route
+   *     to `noOptionsLine`/`unnamedLine`, never to `emptyLine`.
+   *   • The POST-ANALYSIS branch reaches the fallback only in Standard view
+   *     (Detailed always renders chips), and Standard means
+   *     `hasPostAnalysisPopover`, which is `completedRunLine`.
+   *
+   * So `emptyLine` reaches only `lodMetric`, which is a different surface with
+   * its own `optionCount` arm. A guard that cannot fail is not defence in
+   * depth, it is a second answer to a question already answered — this file
+   * makes exactly that argument sixty lines up about an `optionCount > 0`
+   * conjunct a mutant proved to be a no-op. Narrowed to what is reachable and
+   * testable, and the reachability itself is asserted rather than recorded in
+   * a comment nobody re-derives.
+   *
+   * ⚠ THE TWO CTA ARMS ARE STILL LEFT ALONE, which is the removed block's rule
+   * kept deliberately rather than by inertia: `unnamedLine` and `noOptionsLine`
+   * prompt an authoring act the user can perform, and a count above them
+   * dilutes the prompt and buys nothing.
+   */
+  const restingLineIsContentFree = resting.line === DECISION_RESTING_COPY.completedRunLine
 
   /**
-   * ⚠ THIS USES `truncateAtWord` EXACTLY AS IT STANDS ON `staging`, AND THAT
-   * RULE CAN CUT A SINGLE OVER-LONG TOKEN MID-WORD. Measured, not assumed: a
-   * 200-character unbroken token at measure 160 comes back as 160 characters
-   * plus an ellipsis, because the 0.6 heuristic finds no space to fall back to.
-   * The pinning spec asserts that behaviour rather than a nicer one, so this
-   * comment cannot drift away from what the function does.
+   * ⭐⭐ INSIDE `decision-node-resting-state`, AND THAT IS THE ARGUMENT FOR THIS
+   * LINE RATHER THAN A CAVEAT ABOUT IT.
    *
-   * Changing that rule is a separate, user-visible change to two OTHER live
-   * call sites in this file (the `Top gap:` triage lines), so it is deliberately
-   * NOT made here — it is the other half of PR #1219, which this branch was
-   * split out of. What bounds the brief here is CSS, not the truncator:
-   * `line-clamp-3 break-words` on the blockquote below, with the full text on
-   * `title`.
-   */
-  const anchorBrief = useMemo(() => {
-    if (typeof recordedScenarioId !== 'string' || recordedScenarioId !== currentScenarioId) return null
-    if (typeof recordedBriefText !== 'string') return null
-    const full = recordedBriefText.trim()
-    if (full.length === 0) return null
-    return { full, shown: truncateAtWord(full, ANCHOR_BRIEF_MAX_CHARS) }
-  }, [recordedScenarioId, currentScenarioId, recordedBriefText])
-
-  /**
-   * ⚠ THE BRIEF REPLACES ONLY THE TWO CONTENT-FREE LINES, and the two that
-   * carry a CTA are left exactly as they are. `unnamedLine` and `noOptionsLine`
-   * prompt an authoring act the user can perform; putting a paragraph above them
-   * dilutes the prompt and buys nothing. `completedRunLine` and `emptyLine` are
-   * pure wayfinding — they exist because the body would otherwise be an empty
-   * box, which is the whole reason this resting state was built — and the user's
-   * own framing is strictly more informative in that slot.
-   */
-  const restingLineIsContentFree =
-    resting.line === DECISION_RESTING_COPY.completedRunLine ||
-    resting.line === DECISION_RESTING_COPY.emptyLine
-
-  /**
-   * ⚠ DELIBERATELY OUTSIDE `decision-node-resting-state`. The resting subtree
-   * is covered by an honesty guard that forbids a fixed word set (`lead`,
-   * `probab`, `question`, …) because product copy there must never describe a
-   * finding the producer did not state. THIS TEXT IS THE USER'S OWN and may
-   * legitimately contain every one of those words. Rendering it inside that
-   * subtree would have forced the guard to be weakened — blunting a real honesty
-   * check to accommodate text it was never written about.
+   * The brief block this replaces sat OUTSIDE the subtree for a sound reason:
+   * it rendered the USER'S OWN prose, which may legitimately contain every word
+   * the honesty guard forbids, so hosting it inside would have forced the guard
+   * to be weakened. The same is true of the `triageLine` alternative I tried
+   * first and discarded — it carries a factor LABEL, and "Supplier lead time"
+   * alone REDs the guard.
    *
-   * `title` carries the FULL brief. This file's own triage-line comment states
-   * the rule the ellipsis has to meet: "an ellipsis with somewhere to go is a
-   * caveat; an ellipsis with nowhere to go is hiding."
+   * This line carries no user text at all: four integers and four owned words.
+   * So it belongs INSIDE the guarded subtree, where `DecisionNode.restingState`
+   * now enumerates `DECISION_READINESS_COPY` and runs a factor-bearing fixture
+   * through the same rendered corpus. The guard is EXTENDED to cover new copy,
+   * never relaxed to admit it.
    *
-   * `line-clamp-3` bounds the HEIGHT and `break-words` bounds the WIDTH, so an
-   * over-long token cannot make the card grow in either direction.
+   * ⚠ `triageLine` WAS THE OBVIOUS CANDIDATE AND CANNOT WORK HERE — measured,
+   * not assumed. It opens `if (isPostAnalysis) return null`, so it is null in
+   * exactly the state this fallback exists to fill. Wiring it in would have
+   * produced a block that is always absent where it is needed, under a green
+   * suite built from pre-analysis fixtures.
    */
-  const anchorBriefBlock = anchorBrief ? (
-    <div className="mt-1" data-testid="decision-node-brief">
-      <div className={`${typography.edgeLabel} text-text-light`}>
-        {DECISION_ANCHOR_BRIEF_COPY.heading}
-      </div>
-      <blockquote
-        data-testid="decision-node-brief-text"
-        title={anchorBrief.full}
-        className={`${typography.edgeLabel} text-text-body m-0 mt-0.5 break-words line-clamp-3`}
-      >
-        {anchorBrief.shown}
-      </blockquote>
-    </div>
-  ) : null
+  const readinessSummary = useMemo(() => composeReadinessSummary(readiness), [readiness])
+  const showReadinessSummary = Boolean(readinessSummary) && restingLineIsContentFree
 
   const restingState = (
     <div className="mt-1" data-testid="decision-node-resting-state">
+      {showReadinessSummary && (
+        <div
+          data-testid="decision-node-readiness-summary"
+          className={`${typography.edgeLabel} text-text-body`}
+        >
+          {readinessSummary}
+        </div>
+      )}
       <div className={`${typography.edgeLabel} text-text-light`}>{resting.line}</div>
       {resting.cta && canAsk && (
         <button
@@ -827,13 +884,17 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   )
 
   /**
-   * What the body falls back to when neither branch put a child on screen: the
-   * user's own brief where we hold one for THIS decision, and the resting copy
-   * otherwise. Named ONCE and used at all three sites, so the two cannot
-   * diverge by one site being updated and another forgotten — this file already
-   * renders the fallback three times, which is exactly how that happens.
+   * What the body falls back to when neither branch put a child on screen.
+   *
+   * ⚠ IT IS NOW A PLAIN ALIAS, AND IT STAYS NAMED. The brief block used to
+   * substitute for the resting state here, so this expression chose between two
+   * blocks; the readiness summary is a LINE INSIDE the resting state instead, so
+   * there is nothing left to choose. The name is kept because this file renders
+   * the fallback at THREE sites — collapsing it to a bare `restingState` at each
+   * one is how the three start to diverge, which is the defect the original
+   * comment was written about.
    */
-  const bodyFallback = (anchorBriefBlock && restingLineIsContentFree) ? anchorBriefBlock : restingState
+  const bodyFallback = restingState
 
   // ---- Render ----
 
@@ -873,7 +934,10 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               <div
                 className={`${typography.nodeLabel} text-text-body`}
               >
-                {headline.winnerLabel} leads in {headline.winProb != null ? `${Math.round(headline.winProb * 100)}%` : ''} of scenarios{biggestRisk && biggestRisk.label ? (
+                {headline.mostSupportedLabel}{' '}
+                {headline.winProb != null
+                  ? COMPARATIVE_COPY.clause(`${Math.round(headline.winProb * 100)}%`)
+                  : COMPARATIVE_COPY.phraseNoMagnitude}{biggestRisk && biggestRisk.label ? (
                   <>
                     , but sensitive to{' '}
                     <button
@@ -889,7 +953,8 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               </div>
             )}
             {/* AXIS 2, ON THE STRONGEST SENTENCE THE CANVAS SPEAKS.
-                "{X} leads in N% of scenarios" renders in Standard AND Detailed,
+                "{X} supported in N% of simulated scenarios" renders in Standard
+                AND Detailed,
                 while this node's existing stability line is `isDetailed`-gated
                 (see `showStabilityLine`) — i.e. behind a hover popover in the
                 Standard view the founder was in. So the claim was always-on and
@@ -901,7 +966,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 data-testid="decision-leader-robustness"
                 title={robustnessGrade.title}
               >
-                {robustnessGrade.label}: small changes could flip which option leads.
+                {robustnessGrade.label}: small changes could flip which option the data supports.
               </div>
             )}
 
@@ -923,21 +988,31 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 before.
 
                 ⚠ `bg-option` DELIBERATELY, not a decision hue. This is the same
-                field, for the same option, that the winning OptionNode renders
-                as `Ahead 47%` — so the two bars are the same quantity on the
-                same scale and a reader is entitled to compare them by eye. A
-                different fill would imply a different measure.
+                field, for the same option, that the most-supported OptionNode
+                renders under the same `METRIC_NOUN.support` caption
+                (`OptionNode.tsx:1783`) — so the two bars are the same quantity
+                on the same scale and a reader is entitled to compare them by
+                eye. A different fill would imply a different measure.
+
+                ⛔ AND AS OF 8 Sep 2026 THE SENTENCE ABOVE AGREES WITH THE
+                CAPTION. It read "{X} leads in N% of scenarios" while this row
+                read `Support` — one number, one binding, two vocabularies,
+                eight pixels apart. That is the defect the 7 Sep
+                `ahead` → `support` rename was written to close, stopping one
+                line short of the sentence. `oneNounPerIdea.crossCard.spec`
+                left the reversal point explicit; this is it.
 
                 ⚠ NO `phrase`. Every span in the row is `aria-hidden`, and that
                 is correct here: the sentence directly above already states
-                "{X} leads in N% of scenarios" to assistive tech. A phrase would
+                "{X} supported in N% of simulated scenarios" to assistive tech.
+                A phrase would
                 make a screen reader say the same claim twice. The row is a
                 VISUAL encoding of a sentence that stays where it was — nothing
                 moved out of visible text, so the eight-surface leader-claim
                 corpus keeps biting on the copy it was written against. */}
             {showHeadline && headline && headline.winProb != null && (
               <NodeMetricRow
-                label={METRIC_NOUN.ahead}
+                label={METRIC_NOUN.support}
                 value={headline.winProb}
                 formatted={`${Math.round(headline.winProb * 100)}%`}
                 fillClass="bg-option"
@@ -1026,10 +1101,18 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         >
           <div className={`${typography.edgeLabel} text-text-body space-y-1`}>
             <div className="font-medium text-text-heading">Model readiness</div>
-            {readiness.explicitCount > 0 && <div>Explicit: {readiness.explicitCount}</div>}
-            {readiness.inferredCount > 0 && <div>Estimated: {readiness.inferredCount}</div>}
-            {readiness.missingCount > 0 && <div className="text-danger">Missing: {readiness.missingCount}</div>}
-            {readiness.externalCount > 0 && <div>External: {readiness.externalCount}</div>}
+            {readiness.explicitCount > 0 && (
+              <div>{popoverLabel(DECISION_READINESS_COPY.explicit)}: {readiness.explicitCount}</div>
+            )}
+            {readiness.inferredCount > 0 && (
+              <div>{popoverLabel(DECISION_READINESS_COPY.inferred)}: {readiness.inferredCount}</div>
+            )}
+            {readiness.missingCount > 0 && (
+              <div className="text-danger">{popoverLabel(DECISION_READINESS_COPY.missing)}: {readiness.missingCount}</div>
+            )}
+            {readiness.externalCount > 0 && (
+              <div>{popoverLabel(DECISION_READINESS_COPY.external)}: {readiness.externalCount}</div>
+            )}
             {readiness.biasTriggers.length > 0 && (
               <>
                 <div className="font-medium text-text-heading mt-1">Bias triggers</div>

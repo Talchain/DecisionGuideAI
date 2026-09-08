@@ -60,12 +60,19 @@ import { INFLUENCE_EXPLANATION_GENERIC } from '../../../components/results/influ
  */
 export const METRIC_NOUN = {
   /**
-   * Win probability — how often an option came out in front.
+   * The comparative quantity — how much of the simulated evidence supports an
+   * option.
+   *
+   * ⭐ RENAMED FROM `ahead` ON 7 Sep 2026, KEY AND VALUE TOGETHER. Paul:
+   * *"There's never a winner… Terminology like 'winner' is wrong."* Leaving
+   * the KEY as `ahead` while the value read `Support` would have been the
+   * estate's signature defect — one name answering a question it no longer
+   * asks — so the next lane would inherit the race word as canonical.
    *
    * ⭐ BY REFERENCE. See the header: this must stay `COMPARATIVE_COPY.anchor`
    * itself, never its value re-typed.
    */
-  ahead: COMPARATIVE_COPY.anchor,
+  support: COMPARATIVE_COPY.anchor,
   /** Achievement probability — how often the goal target was reached. */
   chance: 'Chance',
   /** How much a factor moves the result. Already correct; here so it is one set. */
@@ -304,12 +311,17 @@ export interface MetricLegendRow {
 
 export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
   {
-    noun: METRIC_NOUN.ahead,
-    gloss: 'how often an option came out ahead of the others across the simulated runs',
+    noun: METRIC_NOUN.support,
+    gloss: 'the share of simulated runs that support this option over the alternatives',
   },
   {
     noun: METRIC_NOUN.chance,
-    gloss: 'how often the leading option reached the goal target across the simulated runs',
+    // ⚠ THE REFERENT IS LOAD-BEARING AND WAS PRESERVED THROUGH THE RE-FRAME.
+    // This gloss said "the leading option", which names the option with the
+    // highest comparative figure — NOT any option. Dropping the qualifier to
+    // shed the race word would have widened the claim to something false.
+    // "the most-supported option" is the same referent in the new vocabulary.
+    gloss: 'how often the most-supported option reached the goal target across the runs',
   },
   {
     noun: METRIC_NOUN.influence,
@@ -394,27 +406,30 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
  * absence by reference rather than re-typing them, and so a reader of this
  * file can see what the board used to say.
  *
- * ⚠⚠ TWO LIVE USES OF "Leads" SURVIVE ON PURPOSE, AND BOTH ARE VERBS.
- * Disclosed here because the review found the second one and the residual
- * section had named only `lodMetricLine`:
+ * ⭐⭐ BOTH "VERB SURVIVORS" ARE GONE. RE-DERIVED 8 Sep 2026 AT THIS TIP.
  *
- *   · `DecisionNode` — the sentence "{X} leads in N% of scenarios", locked by
- *     the eight-surface owned-leader-claim corpus.
- *   · `OptionNode:1601` — "Leads via {factor}, the #1 driver", beneath the
- *     `Ahead 47%` anchor on the recommended option.
+ * This section used to disclose two deliberate survivors and argue for them on
+ * part-of-speech grounds. Both claims are now false, and the second was
+ * already false when it was written:
  *
- * ⭐ THE DISTINCTION IS PART OF SPEECH, NOT TASTE. This register governs the
- * NOUN that CAPTIONS A NUMBER — the word in the column beside a bar, where a
- * reader must be able to tell that two cards show the same quantity. Neither
- * survivor captions a number: both are verbs inside sentences, and "leads" is
- * ordinary English for what the option is doing. Renaming a verb to match a
- * column heading would make the prose worse to make a table look tidier.
+ *   · `DecisionNode` — "{X} leads in N% of scenarios". CHANGED 8 Sep 2026 to
+ *     the register's own `COMPARATIVE_COPY.clause`, so the card's sentence and
+ *     the card's bar caption are one vocabulary. It was ONE number, read from
+ *     ONE binding, captioned twice eight pixels apart. The part-of-speech
+ *     defence is sound in general and did not hold here: a verb and a noun
+ *     describing the SAME quantity on the SAME card are not two ideas.
+ *   · `OptionNode:1601` — "Leads via {factor}, the #1 driver". NOT PRESENT.
+ *     The live line is `OptionNode:1878`, "Supported by {factor}". Swept with
+ *     a contrast control: `Leads via` → 0 hits under `src/canvas`,
+ *     `Supported by` → 1. The residual note outlived its own subject.
  *
- * ⚠ THE COST, STATED: a reader sees "Ahead 47%" and "Leads via …" on one card.
- * That is a real if minor friction, and it is the strongest argument against
- * this decision. It is left standing because the alternative touches a locked
- * corpus for a copy preference — a bigger and differently-reviewed change.
- * `RETIRED_METRIC_NOUNS` therefore retires "Leads" AS A CAPTION only.
+ * ⭐ SO "Leads" IS RETIRED AS A CAPTION *AND* HAS NO LIVE PROSE USE ON THE
+ * CANVAS. The narrower ruling is kept below because it is the right rule — a
+ * register governs captions, not every verb — but no survivor now relies on it.
+ * `RETIRED_METRIC_NOUNS` still retires "Leads" AS A CAPTION only.
+ *
+ * ⚠ THE COST THIS SECTION USED TO STATE ("a reader sees `Ahead 47%` and
+ * `Leads via …` on one card") IS PAID OFF, not argued away.
  *
  * ⭐ `strength` (LOWER CASE) IS IN THIS LIST, AND IT IS RETIRED BY CASE RATHER
  * THAN BY WORD. `Strength` is live; the lower-case caption that shipped on the
@@ -424,9 +439,11 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
  * hand-maintained mirror this whole file exists to abolish (CLAUDE.md trap 12).
  *
  * ⚠ THE CASE DISTINCTION IS LOAD-BEARING AND THE GUARD RELIES ON IT. The sweep
- * is case-SENSITIVE on purpose: `DecisionNode:718` renders the sentence
- * "{X} leads in N% of scenarios" and `EdgePills` renders "Link strength", and
- * both are ordinary English that must survive.
+ * is case-SENSITIVE on purpose: `EdgePills` renders "Link strength", which is
+ * ordinary English that must survive. (The other example named here was
+ * `DecisionNode`'s "{X} leads in N% of scenarios" — reworded 8 Sep 2026, so
+ * `EdgePills` now carries this justification alone. It is enough; the rule is
+ * not weakened, its second witness simply went away.)
  *
  * ⚠ `Chance of leading` is on the option INSPECTOR, not a card. It is retired
  * for the same reason as the rest — it was a third word for the first
@@ -435,7 +452,17 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
  * plus the legend; if that reads as a loss on the inspector specifically, the
  * fix is a gloss there, not the synonym back.
  */
-export const RETIRED_METRIC_NOUNS = ['Leads', 'Achievement', 'Chance of leading', 'strength'] as const
+export const RETIRED_METRIC_NOUNS = [
+  'Leads',
+  'Achievement',
+  'Chance of leading',
+  'strength',
+  // ⭐ Added 7 Sep 2026. `Ahead` was the LIVE caption for the comparative
+  // quantity until Paul's no-contest ruling retired the frame itself. It is
+  // in this list — rather than simply changed at the register — so the
+  // derived sweep REDs if it is ever re-typed onto a card.
+  'Ahead',
+] as const
 
 /**
  * The qualifier the ordinal row MUST carry, pinned so a rewrite cannot drop it.

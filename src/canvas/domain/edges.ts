@@ -228,6 +228,37 @@ export const EdgeDataSchema = z.object({
   /** Raw exists probability from CEE V3 (preserved alongside beliefExists) */
   exists_probability: z.number().min(0).max(1).optional(),
 
+  /**
+   * The strength tuple the SERVER last stated for this edge, recorded at
+   * ingestion by `readServerStatedStrength` (above — read its header, which
+   * carries the whole rationale).
+   *
+   * ⛔ NOT A DISPLAY FIELD, AND NOT A SECOND `weight`. Nothing renders this.
+   * Its only consumer is the `expected` optimistic-concurrency tuple on
+   * `edge_strength_edit`, which must assert what the SERVER holds and never
+   * what this client wrote. `weight`/`weightSource` cannot answer that — see
+   * the two `'cee'`-stamping client writers named in that header.
+   *
+   * ⚠ IT IS DELIBERATELY NOT UPDATED BY LOCAL EDITS. `setStrength` moves
+   * `weight` and stamps `weightSource: 'user'`; this key keeps the server's
+   * last statement, which is exactly what makes a SECOND edit assertable and is
+   * what stops one out-of-range local value silencing an edge for a session.
+   *
+   * ⚠ NESTED ON PURPOSE, against this module's usual preference for flat keys.
+   * `mergeAppliedGraph.overlayEdge` replaces a nested object wholesale, and for
+   * this field that is the CORRECT semantics: CEE compares both halves exactly
+   * (`edge-strength-edit.ts:366-369`, a bare `!==` on each), so a half-applied
+   * tuple would be a lie rather than a partial truth. The flat-key argument in
+   * `edgeValueProvenance.ts`'s header is about markers that must survive
+   * independently of one another; these two must not.
+   *
+   * ⚠ ABSENT ⇒ WE DO NOT KNOW. Never defaulted, never back-filled from
+   * `weight`. See `DEFAULT_EDGE_DATA`, which deliberately omits it.
+   */
+  serverStrength: z
+    .object({ mean: z.number().min(-1).max(1), effect_direction: EffectDirectionEnum })
+    .optional(),
+
   // Set-vs-defaulted markers. ABSENT MEANS DEFAULTED — see
   // ./edgeValueProvenance.ts for the full rationale. Stamped only where the
   // value demonstrably came from a named source, so a construction site that
@@ -353,6 +384,118 @@ export function readValidationMetadata(
   return wireValidation !== undefined && wireValidation !== null
     ? (wireValidation as ValidationMetadata)
     : undefined
+}
+
+/**
+ * Read the strength tuple the SERVER stated for this edge, off a raw wire edge.
+ *
+ * ⭐ WHY THIS IS A DIFFERENT QUESTION FROM `weightSource`, AND WHY BOTH EXIST.
+ * `edgeValueProvenance.edgeValueSource` answers *whose number is this?* — a
+ * DISPLAY question, whose whole point is that a producer estimate and a user
+ * entry are both real values that must be labelled differently. This function
+ * answers *what does the server's persisted graph hold?* — a WIRE question,
+ * whose only consumer is the optimistic-concurrency `expected` tuple on
+ * `edge_strength_edit`. The two are not interchangeable, and
+ * `edgeValueProvenance.ts` says so in capitals: **NOT FOR WIRE PAYLOADS**.
+ *
+ * ⚠⚠ THAT WARNING WAS ARGUED PAST ONCE AND IT COST A LIVE DEFECT (#1287).
+ * `expected` was gated on `resolveEdgeSignedStrengthDisplay`, which admits any
+ * stamped value — including the `weightSource: 'user'` stamp `setStrength`
+ * writes on EVERY local edit, including the ones the wire never carried. The UI
+ * then asserted a client-only number to CEE as a readback of the persisted
+ * edge, and CEE answers `edge_expected_tuple_mismatch` → *"That link has
+ * changed since you opened it"* — a concurrent modification by a third party
+ * who does not exist. Two further doors reach the same harm through the
+ * `'cee'` stamp, and they are the reason this cannot be fixed by merely
+ * refusing `'user'`:
+ *
+ *   · `ModelTabBody.handleResolveContested` (`accepted_pass2`) writes the
+ *     producer's pass-2 mean LOCALLY and stamps `'cee'` — correctly, the number
+ *     really is the producer's — while CEE persists the adjudication as a turn
+ *     FACT AND WRITES NO GRAPH. The persisted edge still holds its old value.
+ *   · `useModelActionApply` (`update_edge`) likewise writes a producer-PROPOSED
+ *     weight with a `'cee'` stamp before any server write exists.
+ *
+ * So no value of `weightSource` certifies the server's bytes. Only ingestion
+ * does, which is why this reader is called at ingestion and its result stored.
+ *
+ * ── WHY THE TUPLE AND NOT JUST THE NUMBER ──────────────────────────────────
+ * CEE compares BOTH halves and does so EXACTLY — derived at the deployed bytes
+ * (`olumi-assistants-service` `88b4db2c`, which is the served build:
+ * `system-events/edge-strength-edit.ts:366-369` is a bare `!==` on the mean AND
+ * on `effect_direction`, over its own comment *"exact by contract: the event is
+ * a readback assertion, not a tolerance-based scientific comparison"*). There is
+ * no epsilon to hide a reconstruction error in, so the two halves must travel
+ * together as one recorded fact rather than be re-derived from two fields that
+ * can move independently.
+ *
+ * ── WHAT COUNTS AS THE SERVER HAVING STATED IT ─────────────────────────────
+ * BOTH of:
+ *   1. the wire supplied a strength at all (`strength.mean` / `strength_mean` /
+ *      `weight`) — the same three probes the mappers' own priority chain uses,
+ *      so this cannot drift from the value it describes. When none is present
+ *      the number is `DEFAULT_EDGE_DATA.weight`, a UI fallthrough, and there is
+ *      nothing to assert.
+ *   2. the producer explicitly stated `effect_direction`. Nothing in the UI
+ *      fabricates that key (neither default bag defines it and no setter writes
+ *      it), and `'unknown'` is the producer DECLINING, which is not a statement.
+ *      Deriving the direction from the sign of the mean instead would invent the
+ *      half of the tuple CEE compares most strictly.
+ *
+ * ⚠ AND THE SIGN MUST AGREE. A wire edge carrying `strength_mean: -0.4` beside
+ * `effect_direction: 'positive'` is a state we cannot describe truthfully in
+ * one tuple — and the contract's own `refineEdgeStrengthEdit` would reject it —
+ * so we decline to describe it at all rather than pick a half. Zero is exempt
+ * and deliberately so: `-0 >= 0` is `true` in JavaScript, so a zero mean agrees
+ * with EITHER direction, and the contract keeps `effect_direction` required
+ * there for exactly that reason.
+ *
+ * ⚠ OUT OF THE CONTRACT'S DOMAIN IS REFUSED, NEVER CLAMPED. `expected.mean` is
+ * `z.number().finite().min(-1).max(1)`, while the mappers clamp `weight` into
+ * [0, 2] — so a server mean of 1.5 is representable on the canvas and is not
+ * assertable on the wire. Clamping it to 1 would assert a number the server
+ * never held.
+ *
+ * ⚠ ABSENT MEANS UNKNOWN — the same invariant `edgeValueProvenance.ts` is built
+ * on. An ingestion site that forgets to call this produces "we do not know what
+ * the server holds", which costs a refused (and disclosed) edit. The inverse
+ * design — recording local DIVERGENCE instead — fails the other way: a missed
+ * site would assert a fabricated readback. Under-disclose, never over-claim.
+ */
+export function readServerStatedStrength(
+  wireEdge: Record<string, unknown> | undefined | null,
+): { mean: number; effect_direction: 'positive' | 'negative' } | undefined {
+  if (!wireEdge) return undefined
+
+  const nested = wireEdge.strength as Record<string, unknown> | undefined
+  const raw =
+    typeof nested?.mean === 'number'
+      ? nested.mean
+      : typeof wireEdge.strength_mean === 'number'
+        ? wireEdge.strength_mean
+        : typeof wireEdge.weight === 'number'
+          ? wireEdge.weight
+          : undefined
+  if (raw === undefined || !Number.isFinite(raw)) return undefined
+
+  const stated = wireEdge.effect_direction
+  if (stated !== 'positive' && stated !== 'negative') return undefined
+
+  const magnitude = Math.abs(raw)
+  if (magnitude > 1) return undefined
+
+  // Sign agreement — see the header. `raw !== 0` guards the zero exemption;
+  // `Math.abs` above has already collapsed `-0`, so the comparison below reads
+  // the ORIGINAL sign, not a re-derived one.
+  if (raw !== 0) {
+    const impliedByMean = raw < 0 ? 'negative' : 'positive'
+    if (impliedByMean !== stated) return undefined
+  }
+
+  return {
+    mean: stated === 'negative' ? -magnitude : magnitude,
+    effect_direction: stated,
+  }
 }
 
 /**

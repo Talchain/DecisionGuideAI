@@ -4,7 +4,7 @@
  *
  * The deployed panel stated the same banned quantity on TWO surfaces at once:
  * the V7 hero rendered a correct statement of the leader's OWN win probability
- * ("… came out ahead in 71% of simulated scenarios") and then "Leads by 40
+ * ("… supported in 71% of simulated scenarios") and then "Leads by 40
  * points" directly beneath it; and the option card for every non-leader
  * rendered "Behind by 40 percentage points". Both are the percentage-point
  * DIFFERENCE between two Monte-Carlo win frequencies. The ratified rule: no
