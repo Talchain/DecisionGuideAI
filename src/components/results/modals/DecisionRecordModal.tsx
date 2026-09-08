@@ -122,6 +122,7 @@ export const DECISION_RECORD_COPY = {
   assumptionError: 'Add the assumption most likely to change the choice.',
   revisitError: 'Add a revisit trigger or date.',
   toastSaved: 'Decision recorded and saved to your account.',
+  toastNotKept: 'This record could not be kept. Please try again.',
   toastSavedLocal: 'Decision recorded on this device.',
   toastSavedLocalAfterError:
     'Decision recorded on this device — we could not save it to your account.',
@@ -278,8 +279,6 @@ export function DecisionRecordModal() {
     // LOCAL FIRST, ALWAYS. Whatever happens on the network, the user's input
     // is already kept — a failed commit degrades the record from "durable" to
     // "on this device", never to "lost".
-    useDecisionRecordStore.getState().saveRecord(scenarioKey, record)
-
     // A stable per-save id: a retry of THIS save replays through CEE's dedupe
     // branch, while a genuinely new save gets a new id and is never swallowed
     // by the previous one.
@@ -287,6 +286,13 @@ export function DecisionRecordModal() {
       typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
         : `${scenarioKey}:${record.savedAt}`
+
+    const capture = useDecisionRecordStore.getState().saveRecord(scenarioKey, record, clientCommitId)
+    if (!capture) {
+      saveFiredRef.current = false
+      showToast(DECISION_RECORD_COPY.toastNotKept)
+      return
+    }
 
     if (typeof scenarioId !== 'string' || scenarioId === '') {
       // No persisted scenario ⇒ nothing CEE could anchor an owner to. Local
@@ -307,13 +313,17 @@ export function DecisionRecordModal() {
       revisitTriggerOrDate: record.revisitTrigger,
       clientCommitId,
     }).then((result) => {
+      // A different capture or account may now own this modal. An old response
+      // must neither confirm its text nor close it or toast for the new user.
+      if (!useDecisionRecordStore.getState().isCurrentCapture(scenarioKey, capture)) return
       setSaving(false)
       if (result.status === 'saved') {
-        useDecisionRecordStore.getState().attachRemote(scenarioKey, {
+        const promoted = useDecisionRecordStore.getState().attachRemote(scenarioKey, capture, {
           recordId: result.recordId,
           reviewDate: result.reviewDate,
           reviewDateSource: result.reviewDateSource,
         })
+        if (!promoted) return
         close()
         showToast(DECISION_RECORD_COPY.toastSaved)
         return

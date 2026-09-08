@@ -45,13 +45,16 @@
  * "saved" without qualification. `localStorage` is per browser profile: it does
  * not follow the user to another machine, another browser, or a private window.
  *
- * ⚠⚠ AND `localStorage` BOUGHT TWO DEFECTS WITH THE LIFETIME, BOTH CLOSED HERE
- * RATHER THAN LEFT FOR THE READ-BACK TO EXPOSE. `sessionStorage` was per-tab,
- * so it hid them both. (1) The `__unscoped__` fallback key would have become a
- * permanent, browser-global, identity-independent slot — see `persist` for why
- * it is now never written. (2) A whole-map write from a once-read snapshot
- * would have let two tabs clobber each other — see `saveRecord`. Neither was a
- * bug in the move; both are what the move made reachable.
+ * Durable records are now per scenario, scoped to the resolved account and a
+ * revocable storage generation. Sign-out clears memory and disk; an old tab
+ * cannot write into the next generation. Two anonymous guests in one browser
+ * are still one identity — this does not invent guest authentication.
+ * Acknowledgements have separate capture-specific keys, so a delayed response
+ * cannot rewrite or confirm a newer capture. Different scenarios never share
+ * a read/modify/write storage key. Ownerless v1 records are not migrated: their
+ * owner cannot be established safely. They remain quarantined under their
+ * original key until explicit auth cleanup, rather than being assigned to the
+ * next account or silently erased by an ordinary reload.
  *
  * ⚠⚠ THE DURABLE HALF CANNOT BE READ BACK EITHER — BUT STATE THAT AT THE SCOPE
  * IT WAS DERIVED AT. What is measured is about THIS REPO: the only
@@ -138,77 +141,132 @@ export interface DecisionRecordState {
   byScenario: Record<string, DecisionRecord>
   open: () => void
   close: () => void
-  saveRecord: (scenarioKey: string, record: DecisionRecord) => void
+  saveRecord: (scenarioKey: string, record: DecisionRecord, clientCommitId?: string) => DecisionRecordCapture | null
   /**
    * Promote an already-saved local record to DURABLE once CEE has confirmed
    * the write. A no-op when no record exists for the key — a remote marker
    * with no record behind it would be a claim about nothing.
    */
-  attachRemote: (scenarioKey: string, remote: DecisionRecordRemote) => void
+  attachRemote: (scenarioKey: string, capture: DecisionRecordCapture, remote: DecisionRecordRemote) => boolean
+  isCurrentCapture: (scenarioKey: string, capture: DecisionRecordCapture) => boolean
   /** Test/reset seam — clears memory AND storage. */
   _reset: () => void
   /** Test seam — re-reads localStorage (simulates a reload, or a new tab). */
   _rehydrateForTests: () => void
 }
 
-const STORAGE_KEY = 'decisionRecord.v1'
+export interface DecisionRecordCapture { clientCommitId: string; ownerEpoch: string }
+interface Boundary { ownerId: string | null; epoch: string }
+interface StoredRecord { version: 2; scenarioKey: string; clientCommitId: string; record: DecisionRecord }
 
-function loadPersisted(): Pick<DecisionRecordState, 'byScenario'> {
+const PREFIX = 'decisionRecord.v2:'
+const BOUNDARY_KEY = `${PREFIX}owner`
+let boundary: Boundary | null = null // unresolved auth must not expose a previous person's record
+let captures: Record<string, string> = {}
+const volatileCaptures = new Set<string>()
+
+function id(): string { return crypto.randomUUID() }
+function readBoundary(): Boundary | null | undefined {
+  let raw: string | null
+  try { raw = localStorage.getItem(BOUNDARY_KEY) }
+  catch { return undefined } // blocked storage: this tab can still keep an in-memory record
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { byScenario: {} }
-    const parsed = JSON.parse(raw)
-    if (parsed?.version !== 1) return { byScenario: {} }
-    return { byScenario: parsed.byScenario ?? {} }
-  } catch {
-    return { byScenario: {} }
+    const parsed = JSON.parse(raw ?? 'null')
+    return parsed && typeof parsed.epoch === 'string' &&
+      (parsed.ownerId === null || typeof parsed.ownerId === 'string') ? parsed : null
+  } catch { return null } // corruption is not authority to retain the previous owner
+}
+function keys(): string[] {
+  try { return Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i)).filter((k): k is string => k !== null) }
+  catch { return [] }
+}
+function eraseRecords(keepEpoch: string, clearLegacy = false): void {
+  for (const key of keys()) if ((clearLegacy && key === 'decisionRecord.v1') || (key.startsWith(PREFIX) && key !== BOUNDARY_KEY && !key.startsWith(`${PREFIX}${keepEpoch}:`))) {
+    try { localStorage.removeItem(key) } catch { /* memory is still cleared */ }
   }
 }
-
-/**
- * ⭐⭐ THE UNSCOPED RECORD IS NEVER WRITTEN TO DURABLE STORAGE, AND THAT IS A
- * PRIVACY BOUNDARY, NOT A TIDINESS RULE.
- *
- * `resolveScenarioKey` folds "no scenario yet" onto the single literal
- * `__unscoped__`. Under `sessionStorage` that shared key was bounded by the
- * tab: it died when the tab did. Under `localStorage` it would be a PERMANENT,
- * browser-global, identity-independent slot — so a decision recorded on an
- * unsaved canvas would be read back, indefinitely, by the next person to open
- * an unsaved canvas in that browser profile, rendered as "for this scenario".
- *
- * ⚠ AND NO SIGN-OUT HOOK CAN CLOSE THAT. On the deployed staging posture
- * (`VITE_AUTH_MODE = "guest"`) the optional-auth `signOut` opens
- * `if (!session) return` (`AuthContext.tsx:625-627`), so a visitor who never
- * signed in never runs a sign-out path at all. Two guests sharing a machine
- * are one identity to this product; the only defence available at this layer
- * is not to write the shared key.
- *
- * The record still SAVES — it stays in memory for the session, which is every
- * bit of the life it can honestly have. A capture with no scenario cannot be
- * read back "for this scenario" on a later visit, because there is no scenario
- * for it to be read back against; persisting it durably would buy nothing and
- * cost a cross-user read.
- *
- * ⚠ THE RESIDUAL, STATED RATHER THAN GLOSSED: a record keyed to a REAL
- * scenario id still survives a sign-out, because nothing in this product
- * clears product data on sign-out today (measured — `clearAuthStates` clears a
- * hand-listed set of nine AUTH keys and no product key; PR #1299 is building
- * that seam for a sibling store). Its exposure is bounded by the scenario's
- * own: `olumi-canvas-autosave`, `olumi-canvas-current-scenario-id` and the
- * scenario list are already permanent, un-namespaced `localStorage`, so anyone
- * who can open that scenario can already see the graph the record belongs to.
- * That is the estate-wide gap, not this store's to invent a second mechanism
- * for.
- */
-function persist(byScenario: Record<string, DecisionRecord>): void {
+function isActive(): boolean {
+  const current = readBoundary()
+  return boundary !== null && (current === undefined || current?.epoch === boundary.epoch)
+}
+function invalidate(): void {
+  boundary = null
+  captures = {}
+  volatileCaptures.clear()
+  useDecisionRecordStore.setState({ byScenario: {}, isOpen: false })
+}
+function recordKey(epoch: string, scenarioKey: string): string {
+  return `${PREFIX}${epoch}:record:${encodeURIComponent(scenarioKey)}`
+}
+function ackKey(epoch: string, scenarioKey: string, captureId: string): string {
+  return `${PREFIX}${epoch}:ack:${encodeURIComponent(scenarioKey)}:${encodeURIComponent(captureId)}`
+}
+function readRecord(scenarioKey: string): StoredRecord | null {
+  if (!boundary) return null
   try {
-    const { [UNSCOPED_SCENARIO_KEY]: _unscoped, ...durable } = byScenario
-    void _unscoped
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, byScenario: durable }))
-  } catch {
-    // localStorage unavailable (private mode, quota, blocked site data) —
-    // the record degrades to in-memory only rather than throwing at the user.
+    const parsed = JSON.parse(localStorage.getItem(recordKey(boundary.epoch, scenarioKey)) ?? 'null')
+    return parsed?.version === 2 && parsed.scenarioKey === scenarioKey &&
+      typeof parsed.clientCommitId === 'string' && parsed.record && typeof parsed.record === 'object' ? parsed : null
+  } catch { return null }
+}
+function loadPersisted(): Pick<DecisionRecordState, 'byScenario'> {
+  const byScenario: Record<string, DecisionRecord> = {}
+  captures = Object.fromEntries(Object.entries(captures).filter(([key]) => volatileCaptures.has(key)))
+  if (!boundary || !isActive()) return { byScenario }
+  const recordPrefix = `${PREFIX}${boundary.epoch}:record:`
+  for (const key of keys()) {
+    if (!key.startsWith(recordPrefix)) continue
+    let scenarioKey: string
+    try { scenarioKey = decodeURIComponent(key.slice(recordPrefix.length)) } catch { continue }
+    const stored = readRecord(scenarioKey)
+    if (!stored || scenarioKey === UNSCOPED_SCENARIO_KEY) continue
+    let remote: DecisionRecordRemote | null = null
+    try {
+      const ack = JSON.parse(localStorage.getItem(ackKey(boundary.epoch, scenarioKey, stored.clientCommitId)) ?? 'null')
+      if (ack && typeof ack.recordId === 'string' && typeof ack.reviewDate === 'string' &&
+          ['user_set', 'default_horizon', 'default_horizon_after_unparsed_trigger'].includes(ack.reviewDateSource)) remote = ack
+    } catch { /* no confirmation */ }
+    byScenario[scenarioKey] = { ...stored.record, remote }
+    captures[scenarioKey] = stored.clientCommitId
   }
+  return { byScenario }
+}
+function write(key: string, value: unknown): 'persisted' | false {
+  // A write without a readable ownership fence cannot establish retention.
+  if (readBoundary() === undefined) return false
+  if (!isActive()) { invalidate(); return false }
+  try { localStorage.setItem(key, JSON.stringify(value)) } catch { return false }
+  // Sign-out may interleave in another tab between the fence and the write.
+  if (!isActive()) {
+    try { localStorage.removeItem(key) } catch { /* prior generation is never read */ }
+    invalidate()
+    return false
+  }
+  return 'persisted'
+}
+
+/** Existing auth adoption calls this before exposing the next user's UI. */
+export function observeDecisionRecordOwner(ownerId: string | null): void {
+  const current = readBoundary()
+  const next: Boundary = current && current.ownerId === ownerId ? current : { ownerId, epoch: id() }
+  if (!current || current.ownerId !== ownerId) {
+    // Publish revocation first, so a stale tab cannot refill the cleared generation.
+    try { localStorage.setItem(BOUNDARY_KEY, JSON.stringify(next)) } catch { /* memory only */ }
+    eraseRecords(next.epoch, !!current && current.ownerId !== ownerId)
+  }
+  if (boundary?.epoch === next.epoch) return
+  boundary = next
+  captures = {}
+  volatileCaptures.clear()
+  useDecisionRecordStore.setState({ ...loadPersisted(), isOpen: false })
+}
+
+/** Joins clearAuthStates; does not replace or alter the dissent cleanup hook. */
+export function clearDecisionRecords(): void {
+  const epoch = id()
+  try { localStorage.setItem(BOUNDARY_KEY, JSON.stringify({ ownerId: null, epoch })) } catch { /* memory only */ }
+  eraseRecords(epoch, true)
+  invalidate()
 }
 
 export const useDecisionRecordStore = create<DecisionRecordState>((set, get) => ({
@@ -218,57 +276,59 @@ export const useDecisionRecordStore = create<DecisionRecordState>((set, get) => 
   open: () => set({ isOpen: true }),
   close: () => set({ isOpen: false }),
 
-  /**
-   * ⚠⚠ THE WRITE MERGES ONTO WHAT IS ON DISK RIGHT NOW, NOT ONTO THIS TAB'S
-   * MODULE-INIT SNAPSHOT — and that only became necessary with `localStorage`.
-   *
-   * `sessionStorage` is per-tab, so a whole-map write could not lose another
-   * tab's work. `localStorage` is shared across every tab on the profile, and
-   * this store reads it ONCE (the `...loadPersisted()` spread in the factory
-   * below) and has no `storage` listener. Writing `get().byScenario` wholesale
-   * would therefore take a snapshot that could be minutes old and stamp it
-   * back over the shared map: two tabs on two scenarios, and the second save
-   * silently deletes the first — while both users are told "Decision recorded
-   * on this device."
-   *
-   * Disk wins over this tab's memory, because every in-memory entry was
-   * persisted the moment it was made, so a divergence means another tab moved
-   * on. The record being written wins over both, because it is the newest fact
-   * in the system. The unscoped entry survives the merge without being written
-   * — `loadPersisted` can never return that key, so nothing overrides it.
-   */
-  saveRecord: (scenarioKey, record) => {
-    const byScenario = {
-      ...get().byScenario,
-      ...loadPersisted().byScenario,
-      [scenarioKey]: record,
+  saveRecord: (scenarioKey, record, clientCommitId = id()) => {
+    if (!boundary || !isActive()) { invalidate(); return null }
+    const capture = { clientCommitId, ownerEpoch: boundary.epoch }
+    const outcome = scenarioKey === UNSCOPED_SCENARIO_KEY ? 'memory' : write(recordKey(boundary.epoch, scenarioKey), {
+      version: 2, scenarioKey, clientCommitId, record: { ...record, remote: null },
+    })
+    if (!outcome) return null
+    if (outcome === 'memory') { volatileCaptures.add(scenarioKey); captures[scenarioKey] = clientCommitId }
+    else volatileCaptures.delete(scenarioKey)
+    const persisted = loadPersisted().byScenario
+    const byScenario = { ...get().byScenario, ...persisted,
+      ...(outcome === 'memory' ? { [scenarioKey]: { ...record, remote: null } } : {}),
     }
-    persist(byScenario)
     set({ byScenario })
+    return capture
   },
 
-  attachRemote: (scenarioKey, remote) => {
-    const merged = { ...get().byScenario, ...loadPersisted().byScenario }
-    const existing = merged[scenarioKey]
-    if (!existing) return
-    const byScenario = { ...merged, [scenarioKey]: { ...existing, remote } }
-    persist(byScenario)
-    set({ byScenario })
+  isCurrentCapture: (scenarioKey, capture) => {
+    if (!boundary || !isActive() || capture.ownerEpoch !== boundary.epoch) return false
+    return (volatileCaptures.has(scenarioKey) ? captures[scenarioKey] : readRecord(scenarioKey)?.clientCommitId) === capture.clientCommitId
+  },
+  attachRemote: (scenarioKey, capture, remote) => {
+    if (!get().isCurrentCapture(scenarioKey, capture)) return false
+    if (!write(ackKey(capture.ownerEpoch, scenarioKey, capture.clientCommitId), remote)) return false
+    // An intervening newer capture has its own key; this acknowledgement can
+    // never lend it proof, even when its write occurs during our storage write.
+    const existing = get().byScenario[scenarioKey]
+    const persisted = loadPersisted().byScenario
+    const stillCurrent = get().isCurrentCapture(scenarioKey, capture)
+    set({ byScenario: { ...get().byScenario, ...persisted,
+      ...(stillCurrent && existing && !persisted[scenarioKey] ? { [scenarioKey]: { ...existing, remote } } : {}),
+    } })
+    return stillCurrent
   },
 
   _reset: () => {
-    try {
-      localStorage.removeItem(STORAGE_KEY)
-    } catch {
-      /* ignore */
-    }
-    set({ isOpen: false, byScenario: {} })
+    clearDecisionRecords()
+    observeDecisionRecordOwner(null)
   },
 
   _rehydrateForTests: () => {
     set({ ...loadPersisted() })
   },
 }))
+
+if (typeof window !== 'undefined') window.addEventListener('storage', (event) => {
+  if (event.key !== null && !event.key.startsWith(PREFIX)) return
+  if (!isActive()) { invalidate(); return }
+  const unscoped = useDecisionRecordStore.getState().byScenario[UNSCOPED_SCENARIO_KEY]
+  useDecisionRecordStore.setState({ byScenario: { ...loadPersisted().byScenario,
+    ...(unscoped ? { [UNSCOPED_SCENARIO_KEY]: unscoped } : {}),
+  } })
+})
 
 /**
  * The captured record for a scenario key, or null. This is the selector the

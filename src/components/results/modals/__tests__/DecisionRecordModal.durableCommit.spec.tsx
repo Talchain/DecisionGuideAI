@@ -26,6 +26,8 @@ import { render, screen, fireEvent, act } from '@testing-library/react'
 import { DecisionRecordModal, DECISION_RECORD_COPY } from '../DecisionRecordModal'
 import {
   openDecisionRecord,
+  clearDecisionRecords,
+  observeDecisionRecordOwner,
   selectDecisionRecord,
   useDecisionRecordStore,
 } from '../decisionRecordStore'
@@ -130,10 +132,59 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
 
 describe('durable commit — the wire', () => {
+  it('storage refusal keeps the editable draft and reports failure, not a saved record', async () => {
+    const original = Storage.prototype.setItem
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
+      if (key.includes(':record:')) throw new DOMException('Quota exceeded', 'QuotaExceededError')
+      original.call(this, key, value)
+    })
+    await saveModal()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(selectDecisionRecord(useDecisionRecordStore.getState(), SCENARIO_ID)).toBeNull()
+    expect(screen.getByTestId('decision-record-toast')).toHaveTextContent(DECISION_RECORD_COPY.toastNotKept)
+    expect(screen.getByTestId('decision-record-rationale')).toHaveValue('Best current choice given hiring constraints.')
+    expect(screen.getByTestId('decision-record-modal')).toBeInTheDocument()
+    vi.restoreAllMocks()
+    await act(async () => { fireEvent.click(screen.getByTestId('decision-record-save')) })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(selectDecisionRecord(useDecisionRecordStore.getState(), SCENARIO_ID)?.remote?.recordId).toBe(RECORD_ID)
+  })
+
+  it('a delayed response confirms only its exact submitted capture, never a newer local choice', async () => {
+    let finish!: (response: Response) => void
+    fetchMock.mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    await saveModal()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const first = selectDecisionRecord(useDecisionRecordStore.getState(), SCENARIO_ID)!
+    expect(first.optionId).toBe('opt_b')
+    act(() => {
+      useDecisionRecordStore.getState().saveRecord(SCENARIO_ID, { ...first, optionId: 'opt_a' }, 'newer-capture')
+    })
+    await act(async () => { finish(okResponse({ record_id: RECORD_ID, review_date: '2026-12-01', review_date_source: 'user_set' })) })
+    const current = selectDecisionRecord(useDecisionRecordStore.getState(), SCENARIO_ID)!
+    expect(current.optionId).toBe('opt_a')
+    expect(current.remote).toBeNull()
+    expect(screen.queryByTestId('decision-record-toast')).not.toBeInTheDocument()
+  })
+
+  it('an account transition while committing cannot restore notes or announce account success', async () => {
+    observeDecisionRecordOwner('account-a')
+    let finish!: (response: Response) => void
+    fetchMock.mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    await saveModal()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    act(() => { clearDecisionRecords(); observeDecisionRecordOwner('account-b') })
+    await act(async () => { finish(okResponse({ record_id: RECORD_ID, review_date: '2026-12-01', review_date_source: 'user_set' })) })
+    expect(selectDecisionRecord(useDecisionRecordStore.getState(), SCENARIO_ID)).toBeNull()
+    expect(screen.queryByTestId('decision-record-toast')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('decision-record-modal')).not.toBeInTheDocument()
+  })
+
   it('POSTs to the cee-proxy seam with the user token, and the record becomes durable', async () => {
     await saveModal()
 

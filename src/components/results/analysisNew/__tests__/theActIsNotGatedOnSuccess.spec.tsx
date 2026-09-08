@@ -133,7 +133,9 @@ const FIXTURES = [
 
 beforeEach(() => {
   useStrengthenStore.setState({ records: {} })
-  useDecisionRecordStore.setState({ isOpen: false, byScenario: {} })
+  // This isolated panel does not mount AuthProvider. Establish its resolved
+  // guest boundary through the real reset seam; do not bypass account checks.
+  useDecisionRecordStore.getState()._reset()
   setCanvas()
   vi.mocked(openDecisionRecord).mockClear()
 })
