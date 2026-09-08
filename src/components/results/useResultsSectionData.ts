@@ -2245,16 +2245,30 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // describing verification is worse than no sentence: it tells the next
     // reader the sweep has already been done.
     //
-    // MEASURED (`buildHeroModel.ts:279`): the hero reads Q2 ALONE —
-    // `verdict != null && !verdict.hasLeadingOption`. On a run where Q2 is true
-    // and Q1 is false (arms separated, mode `exploratory` or `none`) the hero
-    // emits `designationsWithheld: false` with both rows `isRanked: true`,
-    // so `AnalysisHeroPanel:485` shows ordinals — while THIS composed answer
-    // says withheld and the checks footer on the same tab says
-    // "Leading option not assessed". Reproduced with the hero's own
-    // `makeHeroData` fixture; pinned as a KNOWN GAP in
-    // `analysis-hero/__tests__/heroReadsQ2Alone.knownGap.spec.ts`, which
-    // documents what would settle it.
+    // ⚠⚠ THE PARAGRAPH THAT STOOD HERE IS WITHDRAWN. It described a LIVE hero
+    // gap that is CLOSED at this head, and it did so in the one register this
+    // comment itself warns against two lines above — asserting a measurement.
+    // It was caught by an independent review of a merge resolution, and all
+    // three of its claims were checked at the bytes rather than inferred:
+    //
+    //   (a) IT QUOTED AN EXPRESSION THAT IS IN NO VERSION OF THE FILE. It
+    //       attributed `verdict != null && !verdict.hasLeadingOption` to
+    //       `buildHeroModel.ts:279`. The actual line is `:326` —
+    //       `const designationsWithheld = recommendation.verdict != null &&
+    //       leaderDesignationPermitted(recommendation) !== true` — under a
+    //       docblock at `:281` reading, in as many words, "READS THE COMPOSED
+    //       ANSWER, NOT ONE CONJUNCT". That is the exact opposite of the claim.
+    //   (b) THE GAP IS CLOSED. Because the hero reads the composed answer
+    //       through the same `leaderDesignationPermitted` this module computes,
+    //       the "Q2 true, Q1 false" divergence it described cannot arise.
+    //   (c) THE PIN IT NAMED NEVER EXISTED.
+    //       `analysis-hero/__tests__/heroReadsQ2Alone.knownGap.spec.ts` is
+    //       absent — contrast control in the same check: 41 sibling `.spec.`
+    //       files ARE present in that directory, so the probe discriminates.
+    //
+    // A comment naming a pin spec is the strongest "already audited" signal
+    // this codebase has, which is why a false one costs more than silence.
+    // Nothing replaces it: there is no gap here to record.
     //
     // The narrow true statement, which is all this comment may now assert:
     // neither term is read alone at a render site IN THIS MODULE.
