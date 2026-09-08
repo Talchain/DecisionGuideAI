@@ -40,10 +40,36 @@ const stripComments = (src: string): string =>
 /** Every string literal in the file, comments already removed. */
 function literals(src: string): string[] {
   const out: string[] = []
-  const re = /'([^'\n\\]{2,120})'|"([^"\n\\]{2,120})"|`([^`\n\\]{2,120})`/g
+  // ⚠⚠ NO UPPER BOUND, AND THE 120 THAT WAS HERE WAS A SILENT HOLE.
+  // An independent reviewer put `the current leading option` back into an
+  // IN-SCOPE file at 126 characters and this spec stayed GREEN 10/10. The
+  // prompt this guard was written to protect is EXACTLY 120 characters — zero
+  // headroom — and 6 literals in the in-scope files already exceed the old cap,
+  // one of them about "any ordering you see is unconfirmed". A guard that stops
+  // looking at a length is a guard you evade by writing a longer sentence.
+  // The lower bound of 2 stays: single characters are punctuation, not copy.
+  const re = /'([^'\n\\]{2,})'|"([^"\n\\]{2,})"|`([^`\n\\]{2,})`/g
   let m: RegExpExecArray | null
-  while ((m = re.exec(src)) !== null) out.push(m[1] ?? m[2] ?? m[3] ?? '')
+  while ((m = re.exec(src)) !== null) out.push(interpolationsRemoved(m[1] ?? m[2] ?? m[3] ?? ''))
   return out
+}
+
+/**
+ * ⭐ A TEMPLATE VARIABLE'S NAME IS CODE, NOT COPY — the user reads its VALUE.
+ *
+ * `` `${leader.label} currently scores higher` `` is CORRECT copy under the
+ * ruling: it says "scores higher", the ruled frequency framing. Only the
+ * identifier `leader.label` carries the banned token, and no user ever sees it.
+ * Flagging it would push an author to rename a variable to satisfy a copy guard
+ * — pure noise, and how a guard earns a blanket disable.
+ *
+ * ⚠ REPLACED WITH A SPACE, NOT DELETED. Splicing the halves together would
+ * manufacture adjacencies that were never written — `${a}leader` becoming a word
+ * boundary the source does not contain — which is a false POSITIVE generator in
+ * a function written to remove false positives.
+ */
+function interpolationsRemoved(s: string): string {
+  return s.replace(/\$\{[^}]*\}/g, ' ')
 }
 
 /**
@@ -51,10 +77,26 @@ function literals(src: string): string[] {
  * factors genuinely are ranked by influence, and that is a measurement rather
  * than a contest between the user's options.
  */
-const BANNED = /\b(winner|winners|wins|won|leading option|leads on|ahead in|came out ahead|beats|best option|top option)\b/i
+const BANNED =
+  /\b(winner|winners|winning|wins|won|leading option|leads on|ahead in|came out ahead|beats|best option|top option)\b/i
 
 /** Identifiers and paths are not copy — a user never reads them. */
-const NOT_COPY = /^(src\/|https?:|data-|aria-|analysis-new-|model-row|[a-z_]+\.(ts|tsx|json)$)/
+/**
+ * Identifiers and paths are not copy — a user never reads them.
+ *
+ * ⚠ THE LAST ALTERNATIVE IS A BARE LOWERCASE TOKEN, and it is principled rather
+ * than convenient. User-facing copy is a PHRASE: it has a space or a capital.
+ * `'leader'` in this tree is `{ id: 'leader', code: leaderCode }`
+ * (`buildAnalysisNewViewModel.ts:2480`) — the KEY the copy is looked up by, and
+ * the thing `COPY.checks[item.code].label` renders is the label, not the key.
+ * Flagging it would demand renaming a discriminant to satisfy a copy guard.
+ *
+ * ⚠ IT CANNOT SWALLOW A REAL VIOLATION: every banned phrase this guard exists
+ * for contains a space ("the leading option", "came out ahead") or begins with a
+ * capital, so none of them can match this shape. Pinned as a control below.
+ */
+const NOT_COPY =
+  /^(src\/|https?:|data-|aria-|analysis-new-|model-row|insight:|strengthen:|[a-z_]+\.(ts|tsx|json)$)|^[a-z][a-z0-9_]*([:-][a-z0-9]+)*$/
 
 describe('the Reasoning tab does not frame the analysis as a contest', () => {
   const raw = readFileSync(COPY_FILE, 'utf8')
@@ -133,11 +175,28 @@ const REACHED_COPY_FILES: ReadonlyArray<readonly [string, string]> = [
   ['analysisNewCopy.ts', 'src/components/results/analysisNew/analysisNewCopy.ts'],
   ['strengthen/buildRecommendations.ts', 'src/components/results/strengthen/buildRecommendations.ts'],
   ['decision-overview/actionsCatalogue.ts', 'src/components/results/decision-overview/actionsCatalogue.ts'],
+  // ⭐ ADDED after a reviewer showed this file's fix was UNGUARDED: reverting
+  // `buildAnalysisNewViewModel.ts:385` left 1146 tests green. It was outside the
+  // scope while carrying one of the twelve strings this PR fixed.
+  ['analysisNew/buildAnalysisNewViewModel.ts', 'src/components/results/analysisNew/buildAnalysisNewViewModel.ts'],
 ]
 
 /** Designating placings the 8 Sep ruling retired, over and above BANNED. */
 const RETIRED_DESIGNATIONS =
-  /\bleaders?\b|\bleading option\b|\bthe current lead\b|\ba fragile lead\b|\bcrown a winner\b/i
+  /\bleading option\b|\bthe current lead\b|\ba fragile lead\b|\bcrown a winner\b|(?<!market )(?<!technical )(?<!team )\bleaders?\b/i
+
+/**
+ * ⚠ THE NEGATIVE LOOKBEHINDS ARE NOT TIDINESS. A reviewer measured that a bare
+ * `\bleaders?\b` fires on "market leader" (a market position), "technical
+ * leaders" (people) and on a sentence DEBUNKING the race reading. Each is a
+ * different noun wearing the banned word, and flagging them would push an author
+ * to reword correct copy — which is how a guard earns a blanket disable.
+ *
+ * ⚠ AND THE LIMIT, STATED: this is a NET, not a completeness proof. The same
+ * reviewer found 16 ordinary race constructions the vocabulary still misses. It
+ * catches the forms this estate has actually shipped; it does not claim to
+ * enumerate English.
+ */
 
 describe('no contest framing in ANY copy the Reasoning tab renders', () => {
   it('PRECONDITION: every file in scope is readable and carries copy', () => {
@@ -160,6 +219,28 @@ describe('no contest framing in ANY copy the Reasoning tab renders', () => {
     // That is the same short-hand-maintained-list defect this file exists to
     // catch, occurring inside the catcher. Found by mutating, not by reading.
     expect(RETIRED_DESIGNATIONS.test('No clear leader')).toBe(true)
+    // ⚠ NOUNS THAT WEAR THE WORD WITHOUT CLAIMING A PLACING — measured false
+    // positives from an independent review. Flagging these would push an author
+    // to reword correct copy, which is how a guard gets disabled.
+    expect(RETIRED_DESIGNATIONS.test('the market leader in this segment')).toBe(false)
+    expect(RETIRED_DESIGNATIONS.test('Interview technical leaders')).toBe(false)
+    expect(RETIRED_DESIGNATIONS.test('brief the team leader')).toBe(false)
+    // ⭐ `winning` — absent from a ban list in a file called noWinnerVocabulary.
+    expect(BANNED.test('the winning option')).toBe(true)
+    // ⚠ CODE IS NOT COPY — the three measured false positives from adding the
+    // fourth file. Each is an identifier or a template variable NAME.
+    expect(RETIRED_DESIGNATIONS.test(interpolationsRemoved('${leader.label} currently scores higher'))).toBe(false)
+    expect(NOT_COPY.test('insight:conditional-winner:x')).toBe(true)
+    expect(NOT_COPY.test('leader')).toBe(true) // `{ id: 'leader' }` — a lookup key
+    // ⚠ AND THE BARE-TOKEN RULE MUST NOT SWALLOW A REAL VIOLATION. Every banned
+    // phrase has a space or a capital, so none can wear this shape.
+    expect(NOT_COPY.test('the leading option')).toBe(false)
+    expect(NOT_COPY.test('Leading option not assessed')).toBe(false)
+    // ⚠ AND THE STRIPPER MUST NOT GO BLIND: real copy AROUND an interpolation
+    // still reads, or the exclusion above would hide every templated violation.
+    expect(RETIRED_DESIGNATIONS.test(interpolationsRemoved('${x} is the leading option'))).toBe(true)
+    // ⚠ NOR MANUFACTURE ONE: a space, not a splice.
+    expect(interpolationsRemoved('${a}leader')).toBe(' leader')
     // ⚠ THE FALSE POSITIVES, PINNED. These must stay legal or the guard starts
     // corrupting correct copy — each was measured on the live wire, 8 Sep 2026.
     expect(RETIRED_DESIGNATIONS.test('Interview technical leads or consult partners')).toBe(false)

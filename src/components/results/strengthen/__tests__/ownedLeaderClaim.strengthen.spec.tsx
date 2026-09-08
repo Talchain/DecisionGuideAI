@@ -170,6 +170,12 @@ const DESIGNATING_FORMS: ReadonlyArray<readonly [string, RegExp]> = [
  */
 const PERMITTED_DESIGNATING_FORMS: ReadonlyArray<readonly [string, RegExp]> = [
   ['the option that scored highest', /\bthe option that scored highest\b/i],
+  // ⭐ RESTORED after an independent reviewer measured that I dropped it without
+  // needing to: `buildRecommendations.ts:467` still emits "the ranking" on a
+  // permitted run, so this arm passes and the control keeps its discriminating
+  // power. Narrowing a control further than the change requires is the quiet way
+  // a guard stops proving anything — the reviewer proved 27/27 with it present.
+  ['the ranking', /\bthe ranking\b/i],
   ['flips to <option>', /\bflips to\b/i],
   ['topic: challenge_leader', /challenge_leader/],
 ]
