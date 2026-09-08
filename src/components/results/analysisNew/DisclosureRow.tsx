@@ -30,6 +30,23 @@ const MARKER_LABEL: Record<NonNullable<AnalysisNewFinding['marker']>, string> = 
 }
 
 export interface DisclosureRowProps {
+  /**
+   * Render the level-2 detail already open.
+   *
+   * ⚠ THE ONE CASE THIS EXISTS FOR, AND WHY IT IS NOT A GENERAL DEFAULT.
+   * `AnalysisNewSection` opens a SECTION when it holds exactly one finding —
+   * "one row cannot spend the height budget". But the row inside it stayed
+   * collapsed, so opening the section revealed A SECOND CLOSED DOOR and the
+   * reader needed two clicks to read one sentence. Measured on deployed
+   * staging: "Key insights 1" open, its single insight shut beneath it.
+   *
+   * That is the piecemeal pattern exactly — a click that buys one line. The
+   * argument that justifies auto-opening the section is the SAME argument for
+   * auto-opening its only row, so the two now move together rather than
+   * disagreeing. With two or more findings this stays false and every row
+   * opens on demand, because THEN the height argument bites.
+   */
+  defaultOpen?: boolean
   finding: AnalysisNewFinding
   /** Canvas focus. Absent when the producer named no target. */
   onFocusTarget?: (targetId: string) => void
@@ -44,8 +61,9 @@ export function DisclosureRow({
   onFocusTarget,
   onRunIntervention,
   testIdPrefix,
+  defaultOpen = false,
 }: DisclosureRowProps) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(defaultOpen)
   const [inspectOpen, setInspectOpen] = useState(false)
   const regionId = useId()
   const inspectId = useId()

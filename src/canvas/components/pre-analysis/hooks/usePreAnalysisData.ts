@@ -1575,7 +1575,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     if (!hasBaselineOption && optionNodes.length >= 2) {
       checks.push({
         id: 'no_baseline',
-        message: "No 'do nothing' option. Can't tell if action beats inaction",
+        message: "No 'do nothing' option. Can't tell if acting is better than not acting",
         cta: 'Add baseline',
         ctaAction: 'add_baseline',
         pill: 'framing',

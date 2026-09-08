@@ -90,7 +90,7 @@ import {
 // recordDroppedContent never throws and never changes composition output.
 import { recordDroppedContent } from '../../lib/droppedContentCounter'
 import { buildChipMeta, type ChipMeta } from './chipMeta'
-import { START_NEW_DRAFT_CHIP_ID } from './chipDispatch'
+import { START_NEW_DRAFT_CHIP_ID, LOAD_SAVED_MODEL_CHIP_ID } from './chipDispatch'
 import { isOrchestratorV2Enabled, isThreadHydrateEnabled, isThreadPersistEnabled, isPreAnalysisEnrichedEnabled, isReasoningDisclosureEnabled } from '../../flags'
 import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from '../../v5/responseParser'
 import { extractAnswerShapeSidecar } from './answerShape'
@@ -188,6 +188,11 @@ export const SYSTEM_MESSAGE_SENTINEL = '[system]'
  */
 export const NO_SCENARIO_OPEN_NOTICE =
   'Open or create a decision first — then I can work on it with you. Your decisions are on the Decisions page.'
+
+export const DRAFT_DELIVERY_UNRESOLVED_NOTICE =
+  "The model hasn't reached this canvas, and I couldn't confirm a saved model. Try loading it again below; this won't resend your brief."
+export const DRAFT_DELIVERY_RECOVERED_NOTICE =
+  "The saved model is now on your canvas. The original reply wasn't fully delivered, but you can keep working from the model."
 
 /**
  * Detect assistant text that should NOT be stored in conversation history.
@@ -471,6 +476,8 @@ function discardStreamedPreview(preview: { nodes?: unknown[]; edges?: unknown[] 
 }
 
 export interface StreamedDraftTurnResult {
+  /** A successful buffered fallback supplied neither a preview nor a draft. */
+  missingGraphAfterFallback?: boolean
   /** The SAME shape the buffered path produces. Ingested identically. */
   result: V5CallResult
   /**
@@ -525,27 +532,15 @@ export interface StreamedDraftTurnResult {
  * surfaces it in the next reply on this scenario (the draft-loss notice),
  * which is the receipt channel that does not depend on this socket.
  *
- * The buffered route resolves that ambiguity **for us**, because it is already
- * idempotent for this exact situation. Live-probed read-back control
- * (`cee2-live-latency.md` §commit semantics): firing the ordinary buffered turn
- * on a scenario whose graph is already committed makes CEE reload its own
- * persisted graph and **decline to re-draft**, describing the committed model
- * ("already drafted with four options…", 200, no `draft_graph`); on a
- * never-drafted scenario the same request drafts normally (positive control:
- * a fresh `scenario_id` got "I need a single decision question to start",
- * `contains_already_drafted: false`). So one buffered POST is simultaneously
- * "draft if not drafted" and "read back if drafted".
- *
- * That is why the fallback re-sends the SAME `build.payload` — same `turn_id`,
- * same `scenario_id`, no new scenario, no second stream. It is a RE-ENTERED
- * turn, the shape the product already uses, and CEE's own continuation guard
- * decides which of the two it is. There is no branch here that can double-commit.
+ * The existing buffered fallback re-sends the SAME payload/turn/scenario.
+ * This is not proof of idempotent replay: the 7 September normal-start capture
+ * shows a committed draft being processed as a graphless edit on that fallback.
+ * Server replay protection is a separate repair. Client recovery below uses
+ * the scenario graph read and never submits another generation request.
  *
  * ── THE THREE OUTCOMES, ALL HONEST ───────────────────────────────────────
  *  1. fallback DRAFTS (`draft_graph` present) — ordinary end state, identical to
- *     a buffered cold draft. Provably the only possible outcome when the failure
- *     preceded GRAPH_READY, because the commit runs *after* the pipeline emits
- *     that frame, so no-GRAPH_READY implies no-commit.
+ *     a buffered cold draft.
  *  2. fallback DECLINES and a preview is on screen — the turn committed. The
  *     prose the user reads ("already drafted…") matches the graph they can see,
  *     so nothing contradicts anything; but the numbers are the frame's
@@ -553,8 +548,9 @@ export interface StreamedDraftTurnResult {
  *     the caller states the situation plainly. **The alternative — clearing the
  *     phase and letting the model read as finished — is the fabrication this
  *     branch exists to refuse.**
- *  3. fallback DECLINES and no preview — indistinguishable from today's
- *     "conversational reply to a brief". Nothing new.
+ *  3. fallback carries no graph and no preview reached the client — read the
+ *     same scenario's committed graph, or expose unresolved delivery with a
+ *     read-only retry. Missing client frames cannot prove a missing commit.
  */
 async function runStreamedDraftTurn(args: {
   payload: Parameters<typeof callV5Turn>[0]
@@ -645,9 +641,15 @@ async function runStreamedDraftTurn(args: {
         .setDraftStreamPhase('unsettled', turnClientId, scenarioIdAtDispatch)
       return { result, previewOwnsCanvas: false, unsettledCause: 'stream_loss' }
     }
-    // Outcome 3.
+    // No browser preview does not prove no server commit: frames can be lost
+    // before the original draft finishes. The caller must read the canonical
+    // scenario graph before accepting a graphless fallback as a completed turn.
     useDraftStore.getState().setDraftStreamPhase('idle', null, null)
-    return { result, previewOwnsCanvas: false }
+    return {
+      result,
+      previewOwnsCanvas: false,
+      missingGraphAfterFallback: result.kind === 'response',
+    }
   }
 
   let res: Response
@@ -2510,6 +2512,7 @@ export function useConversation(): UseConversationReturn {
   const timeoutTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const elapsedIntervalRef = useRef<ReturnType<typeof setInterval>>()
   const lastUserInputRef = useRef<{ message: string; clientTurnId?: string }>({ message: '' })
+  const missingDraftRecoveryRef = useRef<(() => Promise<void>) | null>(null)
   // Transcript honesty (trust item #3): id of the most recent VISIBLE user
   // bubble. Written when the V5 path adds a user bubble; read by the
   // retryLast/skipUserBubble path so a retry re-pends and (on the next
@@ -2740,6 +2743,7 @@ export function useConversation(): UseConversationReturn {
       const leavingScenarioId = prevScenarioRef.current ?? null
       const wasNull = leavingScenarioId === null
       prevScenarioRef.current = scenarioId
+      missingDraftRecoveryRef.current = null
 
       // Every branch below ends with `messages` belonging to the NEW scenario,
       // so ownership transfers here, once, rather than in four places.
@@ -4094,6 +4098,7 @@ export function useConversation(): UseConversationReturn {
       abortRef.current?.abort()
       const controller = new AbortController()
       abortRef.current = controller
+      missingDraftRecoveryRef.current = null
 
       setIsThinking(true)
       useDraftStore.getState().setIsGenerating(true)
@@ -4307,6 +4312,7 @@ export function useConversation(): UseConversationReturn {
         })
 
         let v5Result: V5CallResult
+        let missingGraphAfterFallback = false
         if (useStreamedDraft) {
           const streamed = await runStreamedDraftTurn({
             payload: build.payload,
@@ -4318,6 +4324,7 @@ export function useConversation(): UseConversationReturn {
           v5Result = streamed.result
           streamedPreviewOwnsCanvas = streamed.previewOwnsCanvas
           streamedUnsettledCause = streamed.unsettledCause
+          missingGraphAfterFallback = streamed.missingGraphAfterFallback === true
         } else {
           v5Result = await callV5Turn(build.payload, { signal: controller.signal, headers: v5Headers })
         }
@@ -4400,6 +4407,89 @@ export function useConversation(): UseConversationReturn {
             carriedGraph: resultCarriesDraftGraph(v5Result),
           })
           return
+        }
+
+        if (missingGraphAfterFallback) {
+          if (userBubbleIdForTurn) updateMessage(userBubbleIdForTurn, { deliveryState: 'sent' })
+          // A graphless answer can be a valid clarification or coaching turn.
+          // Only an explicit completed-run claim warrants holding this failed
+          // draft delivery unresolved. Options alone also accompany questions;
+          // they must never decide whether the conversational answer survives.
+          const fallbackRunKind = v5Result.kind === 'response'
+            ? (v5Result.response as { analysis_state?: { run_state?: { kind?: string } } }).analysis_state?.run_state?.kind
+            : undefined
+          const fallbackClaimsCompletedRun = fallbackRunKind === 'complete_current' || fallbackRunKind === 'complete_stale'
+          // The first boot read can have returned 404 before draft commit.
+          // Reuse the same canonical read/merge; never generate another model.
+          // Capture the empty canvas by reference so an intervening user edit
+          // (even an overlapping node id) cannot be overwritten by this read.
+          const recoveryCanvas = useCanvasStore.getState()
+          const ownsRecovery = () =>
+            !controller.signal.aborted &&
+            abortRef.current === controller &&
+            missingDraftRecoveryRef.current === recover &&
+            responseBelongsToDispatchingScenario(
+              useCanvasStore.getState().currentScenarioId,
+              scenarioIdAtDispatch,
+            )
+          let reading = false
+          let recovered = false
+          let noticeId: string | null = null
+          const recover = async () => {
+            if (reading || recovered || !ownsRecovery()) return
+            reading = true
+            const recovery = await recoverDraftFromServer({
+              scenarioId: scenarioIdAtDispatch,
+              userId: v5UserId,
+              accessToken: v5Identity.accessToken,
+              turnClientId,
+              signal: controller.signal,
+              canApply: () =>
+                ownsRecovery() &&
+                recoveryCanvas.nodes.length === 0 &&
+                useCanvasStore.getState().nodes === recoveryCanvas.nodes &&
+                useCanvasStore.getState().edges === recoveryCanvas.edges,
+            })
+            reading = false
+            if (!ownsRecovery()) return
+            recovered = recovery === 'recovered'
+            if ((recovered || fallbackClaimsCompletedRun) && mode === 'user' && !hidden) {
+              const notice = {
+                content: recovered
+                  ? DRAFT_DELIVERY_RECOVERED_NOTICE
+                  : DRAFT_DELIVERY_UNRESOLVED_NOTICE,
+                actionChips: recovered ? [] : [
+                  { id: LOAD_SAVED_MODEL_CHIP_ID, label: 'Try loading model', intent: 'primary' as const },
+                ],
+              }
+              if (noticeId) updateMessage(noticeId, {
+                content: notice.content,
+                actionChips: notice.actionChips,
+              })
+              else {
+                noticeId = crypto.randomUUID()
+                addMessage({ id: noticeId, role: 'assistant', synthetic: true, ...notice, timestamp: new Date() })
+              }
+            }
+          }
+          missingDraftRecoveryRef.current = recover
+          await recover()
+          // The canonical read owns graph and analysis restoration. The
+          // graphless replay's prose/readiness cannot certify this delivery.
+          if (!ownsRecovery() || recovered || fallbackClaimsCompletedRun) return
+          // No recovered graph or completed-run claim: preserve the answer and
+          // ordinary retry, but not unconfirmed readiness/freshness. The normal
+          // applicator exempts an empty canvas from readiness containment.
+          // Keep non-enumerable additive fields (including Reasoning) intact.
+          if (v5Result.kind === 'response') {
+            const descriptors = Object.getOwnPropertyDescriptors(v5Result.response)
+            delete descriptors.analysis_ready
+            v5Result = {
+              ...v5Result,
+              response: Object.create(Object.getPrototypeOf(v5Result.response), descriptors),
+            }
+          }
+          missingDraftRecoveryRef.current = null
         }
 
         const target = routeV5Response(v5Result)
@@ -5961,6 +6051,13 @@ export function useConversation(): UseConversationReturn {
 
   const sendChip = useCallback(
     async (chip: ActionChip) => {
+      if (chip.id === LOAD_SAVED_MODEL_CHIP_ID) {
+        if (!missingDraftRecoveryRef.current) {
+          throw new Error('This loading attempt is no longer active.')
+        }
+        await missingDraftRecoveryRef.current()
+        return
+      }
       // Undo draft: restore pre-draft snapshot via store action
       if (chip.intent === 'undo') {
         recordUserAction({
@@ -6012,6 +6109,10 @@ export function useConversation(): UseConversationReturn {
   )
 
   const retryLast = useCallback(async () => {
+    if (missingDraftRecoveryRef.current) {
+      await missingDraftRecoveryRef.current()
+      return
+    }
     const last = lastUserInputRef.current
     if (last.message) {
       recordUserAction({

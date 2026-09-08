@@ -1711,7 +1711,12 @@ function buildAtAGlance(
       ? pctOrNull(leader?.winProbability ?? rec.winProbability)
       : null
 
-  const winShare = winPct ? `Ahead in ${winPct} of simulated futures` : null
+  // ⚠ THE NUMBER'S MEANING IS UNCHANGED AND MUST NOT DRIFT. `winProbability` is
+  // how often this option SCORED HIGHEST in the comparison — it is NOT the
+  // probability of reaching the goal. "Achieves your goal in 99%" would have
+  // been a worse claim than the contest framing it replaced, so the wording
+  // keeps the ranking meaning and drops the contest metaphor only.
+  const winShare = winPct ? `Scored highest against your goal in ${winPct} of simulated futures` : null
   // Bar geometry only — see `winFraction`'s doc comment. Gated on exactly the
   // same condition as `winPct`, so the number and the bar can never disagree
   // about whether there is a share at all.

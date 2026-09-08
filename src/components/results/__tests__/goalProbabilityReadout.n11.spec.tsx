@@ -166,7 +166,7 @@ describe('T-2333-3 — the comparative register agrees with itself on one card',
     // Every other surface stating the win figure carries the same string.
     const titled = Array.from(card.querySelectorAll('[title]'))
       .map((el) => el.getAttribute('title') ?? '')
-      .filter((t) => /came out ahead/i.test(t))
+      .filter((t) => /supported in/i.test(t))
     expect(titled.length).toBeGreaterThan(0)
     for (const t of titled) expect(t).toContain('0.3%')
 

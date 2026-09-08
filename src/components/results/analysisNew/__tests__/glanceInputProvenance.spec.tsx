@@ -318,7 +318,7 @@ describe('the condition line on screen', () => {
           verdict: null,
           drivers: [],
         })}
-        primaryIntervention={{ id: 'r1', label: 'Define success', why: 'because' }}
+        primaryIntervention={{ id: 'r1', label: 'Define success', title: 'Define what success looks like' }}
         onRunIntervention={() => {}}
       />,
     )

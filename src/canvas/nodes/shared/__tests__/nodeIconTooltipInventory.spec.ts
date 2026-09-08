@@ -52,6 +52,16 @@
  * sites are this lane's; the third is `OlumiSparkle`, which is dead code (see
  * below) and was left exactly as it was found.
  *
+ * ⚠ AND THEY HAVE GONE STALE, EXACTLY AS PREDICTED — appended 8 Sep 2026 at the
+ * merge of `origin/staging` into this branch. The FIGURES ABOVE ARE LEFT
+ * UNTOUCHED because they are a dated measurement of a tip that existed, not a
+ * fixture to keep current. What changed underneath them: staging #1277 DELETED
+ * `nodes/shared/OlumiSparkle.tsx`, so the third `<Tooltip>` site described above
+ * no longer exists and both survivors are now this lane's. Production-file and
+ * `title=` totals moved with it. Re-derive with this file's own
+ * `productionFiles` + `countMatches` before quoting any of this; the numbers
+ * below the line are 7 Sep, and nothing here asserts them.
+ *
  * ─────────────────────────────────────────────────────────────────────────────
  * ⚠⚠ THE COUNT IGNORES COMMENTS, AND THAT IS NOT A DETAIL
  * ─────────────────────────────────────────────────────────────────────────────
@@ -64,9 +74,15 @@
  * stripper actually discriminates rather than being decoration.
  *
  * ⚠ AND WHAT NONE OF THIS CLAIMS. It counts SITES IN SOURCE. It is not a claim
- * that any of them is user-reachable (`ActionIcons` renders `null`
- * unconditionally at this tip — `canvasFactorConfirmation` is `'disabled'` — so
- * its `title` reaches nobody), and it is not a claim about what a browser paints.
+ * that any of them is user-reachable, and it is not a claim about what a browser
+ * paints.
+ *
+ * The worked example was `ActionIcons`: on 7 Sep it rendered `null`
+ * unconditionally — `canvasFactorConfirmation` is `'disabled'`, so its `title`
+ * reached nobody while still being counted here. ⚠ Past tense as of 8 Sep: that
+ * component has since been DELETED by staging #1277, on exactly that reasoning.
+ * The example is kept because the distinction it draws is the point of this
+ * paragraph and is unchanged; only the specimen is gone.
  */
 import { describe, it, expect } from 'vitest'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
@@ -175,6 +191,16 @@ const CONTRAST = /className=/g
  * it is `NodeProvenanceMark` rendering `VALUE_PROVENANCE_ICON.ai` (`Sparkles`),
  * which IS converted here. Two components, one glyph, different names: nothing
  * user-visible is lost by leaving `OlumiSparkle` alone.
+ *
+ * ✅ FOLLOW-UP, appended 8 Sep 2026 at the merge of `origin/staging`: THE
+ * SEPARATE CHANGE THIS PARAGRAPH DEFERRED TO HAS HAPPENED. Staging #1277
+ * ("Delete six dead or duplicate canvas surfaces") deleted
+ * `nodes/shared/OlumiSparkle.tsx` and its barrel export, on the same
+ * zero-render-sites derivation reached independently — so the sentences above
+ * describe a file that is no longer in the tree, and are kept as the record of
+ * why this lane declined to convert it rather than as a description of the
+ * current state. The list below is unchanged and still correct: it names the
+ * two glyphs this lane converted, both of which exist.
  */
 const ADOPTERS: string[] = ['shared/BriefIcon.tsx', 'shared/NodeProvenanceMark.tsx']
 

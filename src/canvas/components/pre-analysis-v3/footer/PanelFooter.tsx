@@ -90,7 +90,7 @@ export const PanelFooter = memo(function PanelFooter({
 
   return (
     <div
-      className="flex items-center gap-3 border-t border-panel-border px-4 py-3"
+      className="flex flex-wrap items-center gap-3 border-t border-panel-border px-4 py-3"
       data-testid="pre-analysis-v3-footer"
     >
       <span
@@ -98,7 +98,12 @@ export const PanelFooter = memo(function PanelFooter({
         className={`h-2 w-2 flex-none rounded-full transition-colors ${DOT_CLASSES[display.dot]}`}
       />
       <div
-        className="min-w-0 flex-1"
+        // `flex-1` is `flex: 1 1 0%` — a basis of ZERO, so this column claimed no
+        // width of its own and absorbed the whole squeeze while two `flex-none`
+        // buttons sat beside it untouched. `grow basis-48` claims a floor first;
+        // `min-w-0` is kept so it can still shrink past its longest word, which
+        // is what lets the group wrap instead of being pushed off the row.
+        className="min-w-0 grow basis-48"
         {...(outage ? { 'data-testid': 'pre-analysis-v3-readiness-outage' } : {})}
       >
         <p
@@ -144,32 +149,37 @@ export const PanelFooter = memo(function PanelFooter({
           </p>
         )}
       </div>
-      {/* The check can be retried without touching the run. Deliberately NOT a
-          gate: the verdict is the server's, and this asks it again — it never
-          decides in its place. */}
-      {outage && readinessCheck && (
+      {/* ONE GROUP, NOT TWO SIBLINGS. Loose in the row the buttons could be split
+          across a wrap with the sentence stranded between them; grouped, they move
+          as a unit and `ml-auto` keeps them at the trailing edge on either line. */}
+      <div className="ml-auto flex flex-none items-center gap-3">
+        {/* The check can be retried without touching the run. Deliberately NOT a
+            gate: the verdict is the server's, and this asks it again — it never
+            decides in its place. */}
+        {outage && readinessCheck && (
+          <Button
+            size="sm"
+            variant="secondary"
+            className="flex-none"
+            onClick={readinessCheck.retry}
+            aria-label={FOOTER_COPY.readinessRetry}
+            data-testid="pre-analysis-v3-readiness-retry"
+          >
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+            Retry
+          </Button>
+        )}
         <Button
           size="sm"
-          variant="secondary"
           className="flex-none"
-          onClick={readinessCheck.retry}
-          aria-label={FOOTER_COPY.readinessRetry}
-          data-testid="pre-analysis-v3-readiness-retry"
+          onClick={onAnalyse}
+          disabled={disabled}
+          title={!isAnalysing && !canRun ? gateBlockedSubline(blockedReason) : undefined}
+          data-testid="pre-analysis-v3-analyse"
         >
-          <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-          Retry
+          {isAnalysing ? FOOTER_COPY.analysing : FOOTER_COPY.analyse}
         </Button>
-      )}
-      <Button
-        size="sm"
-        className="flex-none"
-        onClick={onAnalyse}
-        disabled={disabled}
-        title={!isAnalysing && !canRun ? gateBlockedSubline(blockedReason) : undefined}
-        data-testid="pre-analysis-v3-analyse"
-      >
-        {isAnalysing ? FOOTER_COPY.analysing : FOOTER_COPY.analyse}
-      </Button>
+      </div>
     </div>
   )
 })

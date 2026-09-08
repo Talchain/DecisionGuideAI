@@ -146,11 +146,44 @@ export interface AtAGlanceProps {
   primaryIntervention?: {
     id: string
     label: string
-    why: string
+    /**
+     * The finding's OWN name, e.g. "Narrow framing" — never the action.
+     *
+     * ⭐ THIS FIELD REPLACED `why`, WHICH CARRIED THE FINDING'S PARAGRAPH, AND
+     * THE REPLACEMENT IS THE FIX RATHER THAN A RENAME. `why` was
+     * `Recommendation.signal`, and the Strengthen row renders
+     * `strengthenWhyLine(signal, whyNow)` — every arm of which begins with
+     * `signal`. One `Recommendation` therefore had its paragraph printed on
+     * both surfaces, with nothing saying they were one finding. The card is a
+     * POINTER, so it now names the item it points at and the action it runs;
+     * the paragraph, the severity, the grounding, the source line, "I
+     * disagree" and "Not relevant" are rendered once, in the row.
+     *
+     * The field is GONE rather than merely unrendered, so the reprint is
+     * unavailable to a later edit. See
+     * `theFocusCardReferencesRatherThanReprints.spec.tsx`.
+     */
+    title: string
     /** The producer's `signal_code` on a phase-3 finding; absent on the UI's
      * own triggers. Carried so the primary card can name a technique when the
      * producer's code names one — see `recommendationMethod.ts`. */
     signalCode?: string
+    /**
+     * ⚠ RESTORED, AND ONLY THE CATALOGUE PATH MAY RENDER IT. Removing this
+     * outright made the card strictly LESS informative on the catalogue
+     * recommendations, measured on the top-priority one:
+     *
+     *   staging     ["Define success", "No measurable success target is set."]
+     *   unscoped    ["Define what success looks like", "Define success"]
+     *
+     * — the only informative line replaced by a near-restatement of the header.
+     * On the catalogue, `action.label` is SPECIFIC copy and the sentence IS the
+     * information; on phase-3 findings `action.label` is
+     * `item.actionLabel ?? 'Work through with Olumi'`, so the header was
+     * boilerplate above a body repeating the row. Two different situations
+     * under one name — the swap is right for one and wrong for the other.
+     */
+    signal?: string
   } | null
   onRunIntervention?: (recommendationId: string) => void
   /** The displayed run predates the current model. Reframes the answer. */
@@ -867,7 +900,11 @@ export function AtAGlance({
       ) : null}
 
       {/* ── WHAT TO THINK ABOUT NEXT ───────────────────────────────────────── */}
-      {primaryIntervention && onRunIntervention ? (
+      {primaryIntervention && onRunIntervention ? (() => {
+        // PHASE-3 producer findings vs the UI's own catalogue. The id prefix is
+        // minted in one place and is identity, not similarity.
+        const isProducerFinding = primaryIntervention.id.startsWith('strengthen:phase3:')
+        return (
         <button
           type="button"
           onClick={() => onRunIntervention(primaryIntervention.id)}
@@ -877,8 +914,17 @@ export function AtAGlance({
         >
           <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0 text-info" aria-hidden="true" />
           <span className="min-w-0 flex-1">
-            <span className={`${typography.panelHeader} text-text-header block`}>
-              {primaryIntervention.label}
+            {/* ⭐ GATED ON PROVENANCE, NOT ON SIMILARITY. A text comparison
+                between the header and the action would fire on whatever
+                happened to look alike; the id says which KIND of
+                recommendation this is, which is the actual discriminator.
+                `strengthen:phase3:` is minted in exactly one place
+                (`buildRecommendations.ts:348`). */}
+            <span
+              className={`${typography.panelHeader} text-text-header block`}
+              data-testid={`${testId}-primary-title`}
+            >
+              {isProducerFinding ? primaryIntervention.title : primaryIntervention.label}
             </span>
             {/* ⭐ THE MOST PROMINENT COACHING CARD NAMES ITS TECHNIQUE. This is
                 the one move a reader meets without opening anything, so if any
@@ -905,15 +951,44 @@ export function AtAGlance({
                 </span>
               ) : null
             })()}
-            {primaryIntervention.why ? (
-              <span className={`${typography.panelMeta} text-text-light block mt-0.5`}>
-                {primaryIntervention.why}
-              </span>
-            ) : null}
+            {/* ⭐ THE ACTION, NOT THE FINDING. This line carried
+                `Recommendation.signal` — the paragraph the Strengthen row also
+                prints — while the header above carried `action.label`. The two
+                are swapped: the header names the finding, this names what
+                pressing the card does.
+
+                ⚠ SCOPED, because the old header was not always boilerplate.
+                On the seven UI catalogue recommendations `action.label` is
+                specific copy ("Define success"). On the PHASE-3 producer
+                findings — the kind in the 6 Sep capture — it is
+                `item.actionLabel ?? 'Work through with Olumi'`, so a producer
+                sending no label bought a heading of boilerplate above a body
+                that repeated the row. Derived at the eight `recs.push` sites in
+                `buildRecommendations.ts`, 7 Sep 2026.
+
+                Still conditional. `action.label` is `item.actionLabel ?? '…'`
+                and `??` passes an empty string through, so a producer sending
+                `""` would otherwise buy a blank muted line. */}
+            {(() => {
+              // On a producer finding the header names the finding, so this
+              // names the ACTION. On a catalogue rec the header IS the action,
+              // so this carries the SENTENCE — which is that card's only
+              // information and what the unscoped version deleted.
+              const second = isProducerFinding ? primaryIntervention.label : primaryIntervention.signal
+              return second ? (
+                <span
+                  className={`${typography.panelMeta} text-text-light block mt-0.5`}
+                  data-testid={`${testId}-primary-action`}
+                >
+                  {second}
+                </span>
+              ) : null
+            })()}
           </span>
           <ChevronRight className="w-3.5 h-3.5 mt-0.5 shrink-0 text-text-light" aria-hidden="true" />
         </button>
-      ) : null}
+        )
+      })() : null}
     </section>
   )
 }

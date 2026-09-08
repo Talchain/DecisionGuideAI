@@ -385,7 +385,11 @@ describe('D7 — a WITHHELD identity keeps the science and declines to name the 
     const second = snapshotOf(raw, 2)
     const transitions = deriveTransitions([first, second])
     const line = transitions[0]?.conditionalWinner ?? ''
-    expect(line).not.toMatch(/,\s+takes over/)       // the old output
+    // ⚠ RE-BOUND 7 Sep 2026. This pinned the pre-#1173 output `", takes
+    // over"`. The sentence no longer says "takes over" at ALL (Paul's
+    // no-contest ruling), so the old pattern would pass by testing nothing —
+    // it must name the CURRENT handover phrasing to stay a real assertion.
+    expect(line).not.toMatch(/support moves to\s*$/)
     expect(line).not.toContain('undefined')
     if (line !== '') expect(line).toContain('withheld')
   })
@@ -395,6 +399,6 @@ describe('D7 — a WITHHELD identity keeps the science and declines to name the 
     const first = snapshotOf({ ...clone(PROBE_A), factor_sensitivity: [] }, 1)
     const second = snapshotOf(clone(PROBE_A), 2)
     const line = deriveTransitions([first, second])[0]?.conditionalWinner ?? ''
-    expect(line).toContain('Build capacity instead takes over')
+    expect(line).toContain('support moves to Build capacity instead')
   })
 })

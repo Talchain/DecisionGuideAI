@@ -5,7 +5,7 @@
  * enumerated leader surfaces now pass both directions, and then found what was
  * left. Two of them live here:
  *
- *   · "Behind: <reason>"                    — 30 occurrences on a WITHHELD run
+ *   · "Held back by: <reason>"                    — 30 occurrences on a WITHHELD run
  *                                             against 20 on a permitted one.
  *   · "Close call: within N percentage points"
  *
@@ -17,7 +17,7 @@
  *
  * The 30-vs-20 ratio is the diagnosis, not a detail. `isRecommended` is now
  * `verdict.hasLeadingOption && verdict.leaderId === id`, so on a withheld turn
- * NO option is the leader — and the "Behind:" line, gated only on
+ * NO option is the leader — and the "Held back by:" line, gated only on
  * `!isRecommended`, therefore rendered on EVERY option including the
  * front-runner. 3 options x 10 screens = 30; 2 non-leaders x 10 = 20. The
  * withheld run did not merely leak the claim, it made the canvas incoherent:
@@ -50,7 +50,7 @@ const BASELINE_ID = 'opt_status_quo'
 
 /**
  * The canvas graph behind the shared wire fixture. The third option is flagged
- * `is_baseline` so its "Behind:" reason ("no changes from current state")
+ * `is_baseline` so its "Held back by:" reason ("no changes from current state")
  * DIFFERS from the runner-up's ("fewer key changes") — otherwise the
  * identical-reason suppression (audit section 8 P1) hides the line on both and
  * the absence assertion would pass for the wrong reason (trap 13).
@@ -135,11 +135,11 @@ beforeEach(() => {
   vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.314))
 })
 
-describe('OptionNode — "Behind: <reason>" (ROADMAP 1.239 residual 1)', () => {
-  it('WITHHELD: the runner-up carries no "Behind:" line', () => {
+describe('OptionNode — "Held back by: <reason>" (ROADMAP 1.239 residual 1)', () => {
+  it('WITHHELD: the runner-up carries no "Held back by:" line', () => {
     withStore(WITHHELD_REPORT)
     renderNode(RUNNER_UP_ID, 'Standardise on Dell XPS')
-    expect(screen.queryByText(/Behind:/)).toBeNull()
+    expect(screen.queryByText(/Held back by:/)).toBeNull()
   })
 
   it('WITHHELD: the FRONT-RUNNER carries none either — the 30-vs-20 half of the defect', () => {
@@ -156,7 +156,7 @@ describe('OptionNode — "Behind: <reason>" (ROADMAP 1.239 residual 1)', () => {
     withStore(WITHHELD_REPORT, [OPTION_NODES[0], OPTION_NODES[2]])
     vi.mocked(useNodeDisplayMetadata).mockReturnValue(resultsMetadata(0.66))
     renderNode(LEADER_ID, 'Standardise on MacBook Pro')
-    expect(screen.queryByText(/Behind:/)).toBeNull()
+    expect(screen.queryByText(/Held back by:/)).toBeNull()
   })
 
   it('WITHHELD: the node still renders — the absence assertions are not vacuous', () => {
@@ -168,10 +168,10 @@ describe('OptionNode — "Behind: <reason>" (ROADMAP 1.239 residual 1)', () => {
     expect(screen.getByText('Standardise on Dell XPS')).toBeDefined()
   })
 
-  it('PERMITTED: the runner-up keeps its "Behind:" reason (over-suppression control)', () => {
+  it('PERMITTED: the runner-up keeps its "Held back by:" reason (over-suppression control)', () => {
     withStore(PERMITTED_REPORT)
     renderNode(RUNNER_UP_ID, 'Standardise on Dell XPS')
-    expect(screen.getByText(/Behind: fewer key changes/)).toBeDefined()
+    expect(screen.getByText(/Held back by: fewer key changes/)).toBeDefined()
   })
 })
 
@@ -220,7 +220,7 @@ describe('OptionNode — the close-call marker (was "Close call: within N percen
     // Bound to the marker that actually renders: /Close call: within/ stops
     // matching once the colon-and-number form is retired, so it would pass by
     // testing nothing.
-    expect(screen.queryByText(/Close call/i)).toBeNull()
+    expect(screen.queryByText(/Within a small margin/i)).toBeNull()
   })
 
   it('PERMITTED: the line renders (over-suppression control)', () => {
@@ -230,7 +230,7 @@ describe('OptionNode — the close-call marker (was "Close call: within N percen
     // The withheld-turn ENTITLEMENT this describe block exists to pin is
     // unchanged; only the quantity has gone. The percentage-point gap between
     // two win frequencies is retired from every user-facing surface.
-    expect(screen.getByText('Close call with the leading option')).toBeDefined()
+    expect(screen.getByText('Within a small margin of the most-supported option')).toBeDefined()
     expect(screen.queryByText(/percentage point/i)).toBeNull()
   })
 })

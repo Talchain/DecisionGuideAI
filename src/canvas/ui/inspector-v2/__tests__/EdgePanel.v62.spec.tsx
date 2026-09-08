@@ -60,7 +60,7 @@ describe('EdgePanel v6.2 — context group', () => {
     const { container } = render(<EdgePanel {...panelProps} />)
     expect(container.querySelector('[data-panel-group="context"]')).not.toBeNull()
     expect(screen.getByText('Sensitive assumption')).toBeTruthy()
-    expect(screen.getByText(/Small changes here could shift which option performs best/)).toBeTruthy()
+    expect(screen.getByText(/Small changes here could shift which option the data supports/)).toBeTruthy()
     expect(screen.getByText('65% flip risk')).toBeTruthy()
   })
 })
