@@ -77,6 +77,7 @@ import {
   type LeaderClaimWithholdingReason,
 } from '../canvas/hydrate/applyScenarioAnalysisRead'
 import { ceeAnalysisReadyContainment } from '../canvas/utils/ceeAnalysisReadyValidation'
+import { readServerStatedStrength } from '../canvas/domain/edges'
 import { logger } from '../lib/logger'
 
 /**
@@ -784,6 +785,65 @@ function applyDecisionReviewToRunMeta(
   return true
 }
 
+/** Resolve CEE's canonical endpoint pair without confusing it with a client edge ID. */
+function resolveStrengthAcknowledgementEdge(
+  target: string,
+  before: Record<string, unknown> | null,
+  after: Record<string, unknown>,
+  edges: Edge[],
+): Edge | undefined {
+  const parts = target.split('→')
+  let endpoints: { from: string; to: string } | undefined
+  if (parts.length > 1) {
+    if (parts.length !== 2 || !isNonEmptyString(parts[0]) || !isNonEmptyString(parts[1])) return
+    endpoints = { from: parts[0], to: parts[1] }
+  }
+  for (const snapshot of [before, after]) {
+    if (!snapshot || (!('from' in snapshot) && !('to' in snapshot))) continue
+    if (!isNonEmptyString(snapshot.from) || !isNonEmptyString(snapshot.to)) return
+    if (endpoints && (endpoints.from !== snapshot.from || endpoints.to !== snapshot.to)) return
+    endpoints = { from: snapshot.from, to: snapshot.to }
+  }
+  const pair = endpoints
+  const matches = pair
+    ? edges.filter(edge => edge.source === pair.from && edge.target === pair.to)
+    : edges.filter(edge => edge.id === target)
+  if (matches.length !== 1) return
+  const edge = matches[0]
+  // A snapshot must not redirect a receipt naming a different client edge.
+  if (target !== edge.id && target !== `${edge.source}→${edge.target}`) return
+  return edge
+}
+
+/** Keep displayed values and the next edit's expected tuple on the accepted server value. */
+function strengthAcknowledgementData(
+  edge: Edge,
+  after: Record<string, unknown>,
+): Record<string, unknown> | null {
+  if (!('strength' in after) && !('strength_mean' in after) && !('effect_direction' in after)) {
+    // Legacy UI-shaped patches have no signed server tuple to record. Preserve
+    // existing data: updateEdgeData inserts undefined weight/belief when omitted.
+    return { ...edge.data, ...after }
+  }
+  const serverStrength = readServerStatedStrength(after)
+  if (!serverStrength) return null
+  const strength = after.strength as Record<string, unknown> | undefined
+  if (strength !== undefined && (strength === null || typeof strength !== 'object' || Array.isArray(strength))) return null
+  const std = strength?.std !== undefined ? strength.std : after.strength_std
+  if (std !== undefined && (typeof std !== 'number' || !Number.isFinite(std) || std < 0)) return null
+  return {
+    ...edge.data,
+    weight: Math.abs(serverStrength.mean),
+    direction: serverStrength.effect_direction,
+    // Raw fields stay coherent for pre-serverStrength consumers too.
+    strength_mean: serverStrength.mean,
+    effect_direction: serverStrength.effect_direction,
+    ...(strength ? { strength: { ...strength, mean: serverStrength.mean } } : {}),
+    ...(std !== undefined ? { strengthStd: std, strength_std: std } : {}),
+    serverStrength,
+  }
+}
+
 export function applyV5State(
   response: OlumiResponse,
   store: V5ApplicatorStore,
@@ -907,15 +967,19 @@ export function applyV5State(
             deferred.push({ reason: 'adjust_edge_strength_missing_after_or_target', block })
             break
           }
-          const edge = store.edges.find((e) => e.id === target)
+          const edge = resolveStrengthAcknowledgementEdge(target, block.before, after, store.edges)
           if (!edge) {
             deferred.push({ reason: 'adjust_edge_strength_target_not_found', block, detail: target })
             break
           }
-          // CEE's adjust_edge_strength carries weight/direction in `after`.
-          store.updateEdgeData(target, after as Record<string, unknown>)
-          applied.push(`graph_patch:adjust_edge_strength:${target}`)
-          pulsedEdgeIds.push(target)
+          const data = strengthAcknowledgementData(edge, after)
+          if (!data) {
+            deferred.push({ reason: 'adjust_edge_strength_invalid_after', block, detail: target })
+            break
+          }
+          store.updateEdgeData(edge.id, data)
+          applied.push(`graph_patch:adjust_edge_strength:${edge.id}`)
+          pulsedEdgeIds.push(edge.id)
           break
         }
         case 'add_constraint': {

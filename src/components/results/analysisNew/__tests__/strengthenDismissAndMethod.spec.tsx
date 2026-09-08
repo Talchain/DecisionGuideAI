@@ -64,7 +64,7 @@ import { openAskOlumi } from '../../coaching/askOlumiStore'
 const rec = (over: Partial<Recommendation> & { id: string }): Recommendation =>
   ({
     helpType: 'challenge',
-    title: 'Pressure-test the leading option',
+    title: 'Pressure-test the option that scored highest',
     signal: 'The ranking was fragile under perturbation.',
     whyNow: 'Small changes flip which option leads.',
     tryThis: 'Imagine it failed. Write down why.',
@@ -139,7 +139,7 @@ describe('the dismissal can always act, whichever tab the reader came from', () 
     expect(dismiss).toHaveBeenCalledWith('strengthen:robustness')
     // The notice names what went, so undo is a choice rather than a guess.
     expect(screen.getByTestId('analysis-new-strengthen-dismissed-notice')).toHaveTextContent(
-      'Pressure-test the leading option',
+      'Pressure-test the option that scored highest',
     )
     expect(screen.getByTestId('analysis-new-strengthen-dismissed-undo')).toBeInTheDocument()
   })

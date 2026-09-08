@@ -6,6 +6,7 @@ import { supabase, getProfile } from '../lib/supabase';
 import type { UserProfile } from '../types/database';
 import { authLogger } from '../lib/auth/authLogger';
 import { clearAuthStates } from '../lib/auth/authUtils';
+import { observeDecisionRecordOwner } from '../components/results/modals/decisionRecordStore';
 import { isE2EEnabled } from '../flags';
 import { isGuestAuth } from '../lib/poc';
 import { hasStoredSupabaseSession } from '../lib/storedSupabaseSession';
@@ -275,6 +276,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [pendingUser, setPendingUser] = React.useState<User | null>(null);
 
   const handleAuthStateChange = useCallback((session: Session | null) => {
+    observeDecisionRecordOwner(session?.user.id ?? null);
     if (!session) {
       clearAuthStates();
       clearSentryUser();
@@ -484,6 +486,7 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
 
     const adopt = (s: Session | null) => {
       if (cancelled) return;
+      observeDecisionRecordOwner(s?.user.id ?? null);
       if (!s) {
         setSession(null);
         setPendingUser(null);
@@ -507,6 +510,7 @@ function OptionalAuthProvider({ children }: { children: React.ReactNode }) {
     //
     // Armed only when there is something to wait for, so a guest never has a
     // timer at all.
+    if (!expectingStoredSession) observeDecisionRecordOwner(null);
     if (expectingStoredSession) {
       timeout = setTimeout(() => {
         if (cancelled) return;

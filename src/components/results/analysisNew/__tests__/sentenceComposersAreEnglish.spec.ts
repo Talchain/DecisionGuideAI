@@ -6,7 +6,7 @@
  * The amber ribbon at the top of the panel — the most prominent position on the
  * surface — rendered:
  *
- *     This analysis is partial — the win share, the robustness check did not come back.
+ *     This analysis is partial — the win share, the overall robustness rating did not come back.
  *
  * `provisionalNaming` joined its parts with `', '` and nothing else, so the
  * sentence was correct at n=1 and ungrammatical at every n≥2. The panel's one
@@ -38,14 +38,14 @@ describe('the partial-result ribbon is a sentence at every arity', () => {
     // Without this, every assertion below could pass against a composer that
     // had been reduced to a constant. It also pins the arity the shipped spec
     // already covers, so a fix here cannot silently regress that one.
-    const s = COPY.status.provisionalNaming(['the robustness check'])
-    expect(s).toBe('This analysis is partial — the robustness check did not come back.')
+    const s = COPY.status.provisionalNaming(['the overall robustness rating'])
+    expect(s).toBe('This analysis is partial — the overall robustness rating did not come back.')
   })
 
   it('two results are joined by a conjunction, not a bare comma', () => {
-    const s = COPY.status.provisionalNaming(['the win share', 'the robustness check'])
+    const s = COPY.status.provisionalNaming(['the win share', 'the overall robustness rating'])
     expect(s, `the witnessed defect: "${s}"`).toBe(
-      'This analysis is partial — the win share and the robustness check did not come back.',
+      'This analysis is partial — the win share and the overall robustness rating did not come back.',
     )
   })
 
@@ -53,7 +53,7 @@ describe('the partial-result ribbon is a sentence at every arity', () => {
     const s = COPY.status.provisionalNaming([
       'the win share',
       'the sensitivity check',
-      'the robustness check',
+      'the overall robustness rating',
     ])
     // Asserted against `Intl.ListFormat` itself rather than a literal, so this
     // cannot drift from the authority it is meant to be delegating to — and it
@@ -61,11 +61,11 @@ describe('the partial-result ribbon is a sentence at every arity', () => {
     const expected = formatConjunctionList([
       'the win share',
       'the sensitivity check',
-      'the robustness check',
+      'the overall robustness rating',
     ])
     expect(s).toBe(`This analysis is partial — ${expected} did not come back.`)
     expect(s, 'a list must not end on a bare comma-joined pair').not.toMatch(
-      /,\s*the robustness check did not/,
+      /,\s*the overall robustness rating did not/,
     )
   })
 

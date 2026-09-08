@@ -395,21 +395,21 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
   // the final visible-identity pass across the merge of UI-generated and
   // phase-3 recommendations, on the widened title+body key.
   it('round 2: the FINAL pass dedupes identical visible identity across UI-generated and phase-3 recs', () => {
-    const sharedSignal = 'The current lead does not hold up strongly under stress-testing.'
+    const sharedSignal = 'This result does not hold up strongly under stress-testing.'
     const input: StrengthenInputs = {
       ...base,
       // Emits the UI-generated robustness rec, whose visible identity is
-      // ('Pressure-test the leading option', sharedSignal).
+      // ('Pressure-test the option that scored highest', sharedSignal).
       robustness: { status: 'computed', level: 'low' },
       phase3Items: [
         // Identical visible identity from the producer side (case/space variant).
-        { id: 'b1', title: 'Pressure-test the leading option', body: ' the current lead does not hold up strongly under  stress-testing. ', targetIds: [], priorityRank: 1 },
+        { id: 'b1', title: 'Pressure-test the option that scored highest', body: ' this result does not hold up strongly under  stress-testing. ', targetIds: [], priorityRank: 1 },
         // Same headline, DISTINCT body — the widened key must keep it.
-        { id: 'b2', title: 'Pressure-test the leading option', body: 'A different, distinct producer finding under the same headline.', targetIds: [], priorityRank: 2 },
+        { id: 'b2', title: 'Pressure-test the option that scored highest', body: 'A different, distinct producer finding under the same headline.', targetIds: [], priorityRank: 2 },
       ],
     }
     const recs = buildRecommendations(input)
-    const sameTitle = recs.filter((r) => r.title === 'Pressure-test the leading option')
+    const sameTitle = recs.filter((r) => r.title === 'Pressure-test the option that scored highest')
     // Widened key: the distinct-body row survives alongside — 2 rows, not 1.
     expect(sameTitle).toHaveLength(2)
     // The identical-identity pair collapsed to the higher-priority instance
