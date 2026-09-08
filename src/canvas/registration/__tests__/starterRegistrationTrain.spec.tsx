@@ -47,6 +47,7 @@ import { useCanvasStore } from '../../store'
 import {
   clearImportRegistrationMarkers,
   isGraphPendingImportRegistration,
+  markGraphServerAcknowledged,
   __readImportRegistrationMarkers,
 } from '../../store/importRegistrationMarker'
 import { buildRegistrationGraph } from '../buildRegistrationGraph'
@@ -226,9 +227,17 @@ describe('seam 3 — analysisHeldOn carries the registration conjunct', () => {
     // persistence by design — so nothing about the graph changed. What changed
     // is that the server now holds it, which is the only thing the hold was
     // ever about.
-    const held = analysisHeldOn({ nodes: STARTER_NODES, importPendingServerRegistration: false })
-    expect(held).toBeNull()
-    expect(analysisHeldNotice({ nodes: STARTER_NODES, importPendingServerRegistration: false })).toBeNull()
+    //
+    // ⚠ RELEASE IS DRIVEN BY THE ACKNOWLEDGEMENT RECORD, NOT BY THE ABSENCE OF
+    //   THE PENDING FLAG. An earlier cut asserted release by passing
+    //   `importPendingServerRegistration: false`, which is exactly the lost-
+    //   storage state — so it asserted the fail-OPEN behaviour as if it were
+    //   the capability. Recording the acknowledgement is what a real 200 does.
+    markGraphServerAcknowledged(STARTER_NODES as never, [] as never)
+    const state = { nodes: STARTER_NODES, edges: [], importPendingServerRegistration: false }
+    expect(analysisHeldOn(state as never)).toBeNull()
+    expect(analysisHeldNotice(state as never)).toBeNull()
+    clearImportRegistrationMarkers()
   })
 
   it('DISCRIMINATES: an armed hold on a CEE-drafted graph is still not held', () => {
@@ -324,60 +333,67 @@ describe('fidelity of the registered projection', () => {
 })
 
 /**
- * ⚠⚠ A KNOWN, DELIBERATELY-RECORDED GAP — READ BEFORE "FIXING" THIS TEST.
+ * ⭐ THE HOLD FAILS CLOSED — released ONLY on positive acknowledgement.
  *
- * This block asserts a WEAKNESS, not a guarantee. It exists so the weakness is
- * visible in the suite instead of living only in a module header, and so it REDs
- * the day someone changes it in either direction.
+ * THE GAP THIS REPLACES. A first cut released the hold whenever
+ * `importPendingServerRegistration` was false. Both markers live in
+ * localStorage, and `importRegistrationMarker`'s own header discloses that on
+ * private browsing, disabled storage, a corrupt record, quota exhaustion or
+ * eviction past MAX_IDENTITIES the write is silently dropped. "No pending
+ * marker" was therefore being read as "registered", so a lost record LIFTED the
+ * hold on a graph CEE had never seen — the pre-mitigation P0, reached through
+ * the mitigation itself.
  *
- * WHAT CHANGED. `analysisHeldOn` used to hold on the node STAMP alone, so a
- * starter was held permanently — safe, and permanently wrong, since the model
- * could never become analysable. It now also requires
- * `importPendingServerRegistration`, which is derived from a **localStorage**
- * marker (`olumi.import.pendingServerRegistration.v1`).
- *
- * THE TRADE, STATED HONESTLY. That is a net improvement — the hold now lifts
- * when CEE actually acknowledges the graph — but it moves the FAILURE DIRECTION.
- * `importRegistrationMarker`'s own header already discloses that on private
- * browsing, disabled storage, quota exhaustion, a corrupt record, or eviction
- * past `MAX_IDENTITIES` (50), `writeMarkers` silently drops the write and the
- * posture "fails to the PRE-MITIGATION posture, i.e. to the P0". Before this
- * change that only meant the marker was absent; now it also means the HOLD does
- * not fire, so a starter graph CEE has never seen can reach Run.
- *
- * WHY IT IS NOT FIXED HERE. The smallest correct repair is to invert the
- * carrier's polarity — hold unless there is positive, durable evidence of an
- * ACKNOWLEDGEMENT, so a lost record fails CLOSED — and the marker module's own
- * header already anticipates exactly that ("the server's own acknowledgement
- * replaces this marker. Delete the module then."). That is a design change to a
- * shared module beyond this candidate's scope, and it is raised for adjudication
- * rather than taken unilaterally.
+ * THE FIX IS A POLARITY INVERSION, not a new guard. "Not pending" and
+ * "acknowledged" are two different questions; collapsing them into one boolean
+ * is what let the release mean something it could not support. The hold now
+ * reads a separate ACKNOWLEDGEMENT record, so the two absences fail in opposite
+ * and correct directions: no acknowledgement ⇒ still held. The worst case is
+ * re-holding a graph that WAS registered — a redundant registration, never a
+ * false affirmation.
  */
-describe('KNOWN GAP — the hold rides a storage marker, so lost storage fails OPEN', () => {
+describe('the hold fails CLOSED: released only on positive acknowledgement', () => {
+  const NODES = [{ id: 'n1', data: { starterId: 'build-vs-buy' } }] as any
+  const EDGES = [] as any
+
   beforeEach(() => {
-    useCanvasStore.setState({ nodes: [] as any, importPendingServerRegistration: false } as any)
+    clearImportRegistrationMarkers()
+    useCanvasStore.setState({ nodes: NODES, edges: EDGES } as any)
+  })
+  afterEach(() => clearImportRegistrationMarkers())
+
+  it('holds a starter with no acknowledgement on record', () => {
+    expect(analysisHeldOn({ nodes: NODES, edges: EDGES } as any)).toBe('starter')
   })
 
-  it('holds a starter while the marker is present (the mitigation working)', () => {
-    const nodes = [{ id: 'n1', data: { starterId: 'build-vs-buy' } }] as any
-    expect(
-      analysisHeldOn({ nodes, importPendingServerRegistration: true } as any),
-    ).toBe('starter')
+  it('⭐ STILL holds when the pending marker is absent — the defect this closes', () => {
+    // Exactly the lost-storage state: nothing pending, nothing acknowledged.
+    // Under the old predicate this released. It must now hold.
+    expect(isGraphPendingImportRegistration(NODES, EDGES)).toBe(false)
+    expect(analysisHeldOn({ nodes: NODES, edges: EDGES } as any)).toBe('starter')
   })
 
-  it('⚠ does NOT hold the same starter once the marker is gone — the recorded gap', () => {
-    const nodes = [{ id: 'n1', data: { starterId: 'build-vs-buy' } }] as any
-    // Same nodes, same stamp, same user-visible graph. Only the storage-backed
-    // posture differs — and that alone decides whether Run is offered.
-    expect(
-      analysisHeldOn({ nodes, importPendingServerRegistration: false } as any),
-    ).toBeNull()
+  it('releases ONLY once the server acknowledgement is recorded', () => {
+    markGraphServerAcknowledged(NODES, EDGES)
+    expect(analysisHeldOn({ nodes: NODES, edges: EDGES } as any)).toBeNull()
   })
 
-  it('the stamp itself survives, so this is a HOLD gap and not a provenance loss', () => {
-    const nodes = [{ id: 'n1', data: { starterId: 'build-vs-buy' } }] as any
-    // Provenance disclosure and analysability are two questions; only the second
-    // is affected. If this ever fails, the banner has silently lost its source.
-    expect((nodes[0] as any).data.starterId).toBe('build-vs-buy')
+  it('re-holds if the acknowledgement record is lost — failing in the safe direction', () => {
+    markGraphServerAcknowledged(NODES, EDGES)
+    expect(analysisHeldOn({ nodes: NODES, edges: EDGES } as any)).toBeNull()
+    clearImportRegistrationMarkers() // storage cleared / evicted / private mode
+    expect(analysisHeldOn({ nodes: NODES, edges: EDGES } as any)).toBe('starter')
+  })
+
+  it('acknowledgement is keyed to THIS graph, not to any graph', () => {
+    markGraphServerAcknowledged(NODES, EDGES)
+    const other = [{ id: 'other', data: { starterId: 'market-entry' } }] as any
+    expect(analysisHeldOn({ nodes: other, edges: EDGES } as any)).toBe('starter')
+  })
+
+  it('the stamp survives release, so provenance and analysability stay distinct', () => {
+    markGraphServerAcknowledged(NODES, EDGES)
+    expect(analysisHeldOn({ nodes: NODES, edges: EDGES } as any)).toBeNull()
+    expect((NODES[0] as any).data.starterId).toBe('build-vs-buy')
   })
 })

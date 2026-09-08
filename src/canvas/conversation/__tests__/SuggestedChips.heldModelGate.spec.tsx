@@ -91,31 +91,12 @@ function makeChip(overrides: Partial<ActionChip> = {}): ActionChip {
   }
 }
 
-/**
- * ⚠ THE REGISTRATION POSTURE IS PART OF THE FIXTURE NOW, AND IT MUST BE SET IN
- * THE STORE — not just passed to `analysisHeldOn` directly.
- *
- * `analysisHeldOn` gained a third conjunct: a graph is held only while CEE has
- * NOT acknowledged holding it. The cases in this file that call the predicate
- * directly were updated to wrap their nodes; the cases that RENDER `<SuggestedChips>`
- * were not, and they read the posture from the store via
- * `useCanvasStore((s) => analysisHeldOn(s))`. With the flag left at its default
- * `false` those cases assert "the chip is absent" against a state where nothing
- * is held, so they failed for the right reason — the fixture no longer described
- * a held model.
- *
- * Defaulting to `true` is correct for this file specifically: every case here
- * describes a starter CEE has not acknowledged. A case that means the opposite
- * must say so explicitly, which is why this is a parameter and not a constant.
- */
-function setNodes(
-  nodes: ReturnType<typeof node>[],
-  { pendingServerRegistration = true }: { pendingServerRegistration?: boolean } = {},
-) {
-  useCanvasStore.setState({
-    nodes: nodes as any,
-    importPendingServerRegistration: pendingServerRegistration,
-  } as any)
+function setNodes(nodes: ReturnType<typeof node>[]) {
+  // The hold is now released only by a recorded server ACKNOWLEDGEMENT, so a
+  // starter-stamped graph holds by default and this fixture needs no posture
+  // flag. That is the fail-closed property, expressed as a test that does not
+  // have to remember anything.
+  useCanvasStore.setState({ nodes: nodes as any })
 }
 
 function setReady(status: string | null) {

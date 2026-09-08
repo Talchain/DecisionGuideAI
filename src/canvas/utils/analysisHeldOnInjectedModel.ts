@@ -70,6 +70,7 @@
  */
 
 import { isV5CanonicalRunPath } from '../../v5/eligibility'
+import { isGraphServerAcknowledged } from '../store/importRegistrationMarker'
 
 /**
  * Which client-side injection put this graph on the canvas.
@@ -113,6 +114,12 @@ export interface NodeLike {
  */
 export interface AnalysisHoldState {
   readonly nodes: ReadonlyArray<NodeLike>
+  /**
+   * Needed with `nodes` because the acknowledgement record is keyed on the
+   * STRUCTURAL identity of the whole graph, which includes its edges. Read from
+   * the same store snapshot, so the two cannot disagree.
+   */
+  readonly edges?: ReadonlyArray<{ source?: unknown; target?: unknown }>
   /**
    * Whether a graph the server has NOT acknowledged holding is on the canvas.
    *
@@ -191,8 +198,19 @@ export function analysisHeldOn(
   state: AnalysisHoldState,
 ): ClientInjectedProvenance | null {
   if (!isV5CanonicalRunPath()) return null
-  if (!state.importPendingServerRegistration) return null
-  return readInjectionStamp(state.nodes)
+  const stamp = readInjectionStamp(state.nodes)
+  if (stamp === null) return null
+  // ⭐ RELEASE ON POSITIVE ACKNOWLEDGEMENT, NEVER ON THE ABSENCE OF A PENDING
+  //   MARKER. Both markers live in localStorage, so both can vanish — but the
+  //   two absences mean opposite things. "No pending marker" was being read as
+  //   "registered", and on private browsing, disabled storage, a corrupt
+  //   record, quota exhaustion or eviction past MAX_IDENTITIES the pending
+  //   write is silently dropped, so the hold LIFTED on a graph CEE had never
+  //   seen — the pre-mitigation P0, reached through the mitigation.
+  //   "No acknowledgement" fails the other way: still held. The cost of a lost
+  //   record is a redundant registration, never a false affirmation.
+  if (isGraphServerAcknowledged(state.nodes, state.edges)) return null
+  return stamp
 }
 
 /**

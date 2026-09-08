@@ -44,7 +44,10 @@ import { isPersistenceSessionActive } from '../../lib/persistenceSession'
 import { logger } from '../../lib/logger'
 import { registerScenarioGraph } from '../../adapters/cee/registerScenarioGraph'
 import { useCanvasStore } from '../store'
-import { releaseImportRegistration } from '../store/importRegistrationMarker'
+import {
+  releaseImportRegistration,
+  markGraphServerAcknowledged,
+} from '../store/importRegistrationMarker'
 import { setCurrentScenarioId } from '../store/scenarios'
 import { buildRegistrationGraph } from './buildRegistrationGraph'
 
@@ -204,6 +207,11 @@ export function useImportRegistration(): void {
       // THE ACKNOWLEDGEMENT. Release the marker for the identity that was
       // registered, and re-derive the store flag from the SAME snapshot so the
       // two cannot disagree.
+      // Record the POSITIVE acknowledgement first: `analysisHeldOn` releases on
+      // this and never on the absence of the pending marker, so writing it
+      // before the removal keeps the hold correct even if the second write is
+      // dropped by storage.
+      markGraphServerAcknowledged(nodes, edges)
       const released = releaseImportRegistration(nodes, edges)
       useCanvasStore.setState({ importPendingServerRegistration: false })
       logger.info('import_registration.acknowledged', {

@@ -174,10 +174,78 @@ export function releaseImportRegistration(nodes: GraphNodes, edges: GraphEdges):
   return true
 }
 
+/**
+ * ⭐ THE ACKNOWLEDGEMENT RECORD — POSITIVE evidence, and the polarity is the point.
+ *
+ * The pending-marker above answers "did this session import a graph the server
+ * has not seen?". Absence of that marker was being read as "registered", which
+ * is FALSE for the one case that matters: this module's own header records that
+ * on private browsing, disabled storage, a corrupt record, quota exhaustion, or
+ * eviction past MAX_IDENTITIES, `writeMarkers` silently drops the write. The
+ * pending marker then never exists, and a hold derived from its absence
+ * silently LIFTS — letting a graph CEE has never seen reach Run. That is the
+ * pre-mitigation P0, reached through the mitigation.
+ *
+ * This record answers the other question — "has the server told us it holds
+ * this exact graph?" — and it is the one a hold may safely be released on,
+ * because losing it fails CLOSED: no record ⇒ no acknowledgement ⇒ still held.
+ * The worst case is re-holding a graph that WAS registered, which costs the
+ * user a redundant registration and never a false affirmation.
+ *
+ * Two records rather than one negated record, deliberately: "not pending" and
+ * "acknowledged" are DIFFERENT QUESTIONS, and collapsing them into one boolean
+ * is exactly how the release above came to mean something it could not support.
+ */
+const ACK_STORAGE_KEY = 'olumi.import.serverAcknowledged.v1'
+
+function readAcks(): string[] {
+  try {
+    const raw = globalThis.localStorage?.getItem(ACK_STORAGE_KEY)
+    if (!raw) return []
+    const parsed: unknown = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : []
+  } catch {
+    // Unreadable storage yields NO acknowledgements, so every caller keeps
+    // holding. This catch is the fail-closed direction, not a degradation.
+    return []
+  }
+}
+
+/**
+ * Record that CEE acknowledged holding this exact graph.
+ *
+ * ⚠ Same rule as `releaseImportRegistration`: call ONLY on a real server
+ *   acknowledgement. A 200 without the registration envelope, a transport
+ *   failure and an unreadable body are all NOT acknowledgements.
+ */
+export function markGraphServerAcknowledged(nodes: GraphNodes, edges: GraphEdges): void {
+  const digest = graphImportDigest(nodes, edges)
+  if (digest === null) return
+  const acks = readAcks()
+  if (acks.includes(digest)) return
+  try {
+    globalThis.localStorage?.setItem(
+      ACK_STORAGE_KEY,
+      JSON.stringify([...acks, digest].slice(-MAX_IDENTITIES)),
+    )
+  } catch {
+    // Dropping the write costs a redundant registration later; it cannot
+    // produce a false affirmation. Fail-closed by construction.
+  }
+}
+
+/** Positive evidence that the server holds this exact graph. Absence ⇒ hold. */
+export function isGraphServerAcknowledged(nodes: GraphNodes, edges: GraphEdges): boolean {
+  const digest = graphImportDigest(nodes, edges)
+  if (digest === null) return false
+  return readAcks().includes(digest)
+}
+
 /** Test/teardown helper — a real session drops the record when the tab closes. */
 export function clearImportRegistrationMarkers(): void {
   try {
     globalThis.localStorage?.removeItem(STORAGE_KEY)
+    globalThis.localStorage?.removeItem(ACK_STORAGE_KEY)
   } catch {
     /* see readMarkers */
   }
