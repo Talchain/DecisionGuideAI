@@ -13,6 +13,7 @@
  * query would pass on the wrong element (trap 19).
  */
 
+import { useState } from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ModelRowView } from '../ModelRowView'
@@ -41,6 +42,42 @@ const editing = (draft: string) => ({ phase: 'editing' as const, draft })
  * vitest — which does not typecheck — and was caught by CI. `onBeginEdit` is
  * included for the same reason: without it the derivation is false.
  */
+/**
+ * ⭐⭐ A STATEFUL HOST — AND IT IS THE WHOLE POINT OF THIS FILE'S SECOND HALF.
+ *
+ * The cases below the `handlers()` fixture mock `onDraftChange` with a spy, so
+ * `commit.draft` NEVER CHANGES and the controlled input never re-renders. That
+ * is fine for asserting what the pill CALLS. It is structurally incapable of
+ * observing anything that only exists AFTER the new value lands — which is
+ * exactly where the selection defect lived, and why an independent reviewer had
+ * to find it with a host like this one.
+ *
+ * Rule this file now carries: an assertion about the input's VALUE or its
+ * SELECTION belongs here; an assertion about which callback fired belongs
+ * above.
+ */
+function StatefulHost({
+  initial,
+  onProposeEdit,
+}: {
+  initial: string
+  onProposeEdit: (id: string) => void
+}) {
+  const [draft, setDraft] = useState(initial)
+  return (
+    <ModelRowView
+      row={edgeRow()}
+      tier="plain"
+      commit={{ phase: 'editing', draft }}
+      editConnected
+      onBeginEdit={() => {}}
+      onDraftChange={(_id, next) => setDraft(next)}
+      onProposeEdit={onProposeEdit}
+      onDiscardEdit={() => {}}
+    />
+  )
+}
+
 const handlers = () => ({
   onBeginEdit: vi.fn(),
   onDraftChange: vi.fn(),
@@ -54,6 +91,71 @@ describe('edge strength — the quick-set bands', () => {
     expect(STRENGTH_BAND_MIDPOINTS.weak).toBe(0.15)
     expect(STRENGTH_BAND_MIDPOINTS.moderate).toBe(0.4)
     expect(STRENGTH_BAND_MIDPOINTS.strong).toBe(0.7)
+  })
+
+  /*
+   * ⛔ THE REVIEWER'S THREE DISCRIMINATING CASES, reproduced here so the repair
+   * cannot regress. Their numbers, at the previous head: case 1 PASS, case 2
+   * FAIL (`selectionStart` 3, expected 0), case 3 PASS.
+   */
+  it('⛔ STATEFUL: a band click commits the new value AND leaves it selected', () => {
+    const propose = vi.fn()
+    render(<StatefulHost initial="0.5" onProposeEdit={propose} />)
+    const field = screen.getByTestId('model-row-v2-e-0-value-input') as HTMLInputElement
+    // PRECONDITION PINNED IN-TEST: a real controlled host, so the value really
+    // does change — the stateless fixture above cannot reach this state.
+    expect(field.value).toBe('0.5')
+
+    fireEvent.click(screen.getByTestId('model-row-v2-e-0-value-band-strong'))
+
+    expect(field.value).toBe('0.7')
+    expect(document.activeElement).toBe(field)
+    // The failing assertion at the previous head: selection collapsed to 3..3.
+    expect(field.selectionStart).toBe(0)
+    expect(field.selectionEnd).toBe(3)
+  })
+
+  it('⛔ STATEFUL: …and Enter then proposes the NEW value, with nothing proposed before it', () => {
+    const propose = vi.fn()
+    render(<StatefulHost initial="0.5" onProposeEdit={propose} />)
+    fireEvent.click(screen.getByTestId('model-row-v2-e-0-value-band-strong'))
+    // CONSENT IS PRESERVED: a pill sets the number, it does not apply it.
+    expect(propose).not.toHaveBeenCalled()
+
+    fireEvent.keyDown(document.activeElement!, { key: 'Enter' })
+    expect(propose).toHaveBeenCalledWith('e-0')
+    expect(
+      (screen.getByTestId('model-row-v2-e-0-value-input') as HTMLInputElement).value,
+    ).toBe('0.7')
+  })
+
+  it('⛔ STATEFUL: pressing the band the draft is ALREADY in still selects it', () => {
+    render(<StatefulHost initial="0.7" onProposeEdit={vi.fn()} />)
+    const field = screen.getByTestId('model-row-v2-e-0-value-input') as HTMLInputElement
+    fireEvent.click(screen.getByTestId('model-row-v2-e-0-value-band-strong'))
+    // No state change, so no re-render and no effect — this arm is served
+    // synchronously, and it is why the armed flag alone is not sufficient.
+    expect(field.value).toBe('0.7')
+    expect(field.selectionStart).toBe(0)
+    expect(field.selectionEnd).toBe(3)
+  })
+
+  /*
+   * ⭐ THE OPPOSITE-DIRECTION TWIN, and the reason the arming flag exists at
+   * all. Typing changes the draft too. If the selection fired on every commit,
+   * a select-all would land after each character and the field would be
+   * unusable — a worse defect than the one being fixed.
+   */
+  it('⛔ TYPING AFTER A BAND CLICK IS NOT RE-SELECTED — the flag does not linger', () => {
+    render(<StatefulHost initial="0.5" onProposeEdit={vi.fn()} />)
+    const field = screen.getByTestId('model-row-v2-e-0-value-input') as HTMLInputElement
+    fireEvent.click(screen.getByTestId('model-row-v2-e-0-value-band-strong'))
+    expect(field.selectionStart).toBe(0) // precondition: the pill armed and fired
+
+    fireEvent.change(field, { target: { value: '0.42' } })
+    expect(field.value).toBe('0.42')
+    // A caret, not a selection. `select()` would give 0/4.
+    expect(field.selectionStart).toBe(field.selectionEnd)
   })
 
   it('a relationship being edited offers all three bands', () => {
@@ -70,6 +172,69 @@ describe('edge strength — the quick-set bands', () => {
     fireEvent.click(screen.getByTestId('model-row-v2-e-0-value-band-strong'))
     expect(h.onDraftChange).toHaveBeenCalledWith('e-0', '0.7')
   })
+
+  /*
+   * ⭐ THE PILL MUST HAND THE KEYBOARD BACK — a defect measured on the DEPLOYED
+   * build `0a0a8113`, hours after this feature merged.
+   *
+   * A real mouse click on a <button> focuses it. So the pill set the draft
+   * correctly and then swallowed the keyboard: `Enter` — the only thing that
+   * proposes an edit — re-pressed the pill instead of committing. Witnessed on
+   * two rows: after the click `document.activeElement` was the pill, the draft
+   * was right, and `Enter` left the editor open with nothing proposed.
+   *
+   * ⚠⚠ AND NOTE WHY THE SUITE COULD NOT SEE IT. `fireEvent.click` (and
+   * `HTMLElement.click()`) DO NOT MOVE FOCUS. Every existing case here clicks
+   * that way, so in all of them focus never left the field and `Enter` would
+   * have worked — the suite was green about a path a real pointer cannot take.
+   * These cases therefore assert the FOCUS RESTORATION ITSELF rather than
+   * simulating the browser's focus, because the restoration is the fix and it
+   * is the only half a jsdom test can honestly observe.
+   */
+  it('⭐ a band click leaves focus ON THE FIELD, so the keyboard still reaches it', () => {
+    const h = handlers()
+    render(<ModelRowView row={edgeRow()} tier="plain" commit={editing('0.5')} editConnected {...h} />)
+    const field = screen.getByTestId('model-row-v2-e-0-value-input')
+    // PRECONDITION PINNED IN-TEST: focus is genuinely moved AWAY first, so a
+    // pass below is the pill restoring it and not focus that never left.
+    const pill = screen.getByTestId('model-row-v2-e-0-value-band-strong')
+    pill.focus()
+    expect(document.activeElement).toBe(pill)
+
+    fireEvent.click(pill)
+    expect(document.activeElement).toBe(field)
+  })
+
+  it('⭐ and Enter then proposes, which is the whole point of restoring focus', () => {
+    const h = handlers()
+    render(<ModelRowView row={edgeRow()} tier="plain" commit={editing('0.5')} editConnected {...h} />)
+    const pill = screen.getByTestId('model-row-v2-e-0-value-band-strong')
+    pill.focus()
+    fireEvent.click(pill)
+    expect(h.onDraftChange).toHaveBeenCalledWith('e-0', '0.7')
+
+    // Sent to whatever actually holds focus — which is the assertion. If the
+    // pill kept it, this reaches the pill and proposes nothing.
+    fireEvent.keyDown(document.activeElement!, { key: 'Enter' })
+    expect(h.onProposeEdit).toHaveBeenCalledWith('e-0')
+  })
+
+  /*
+   * ⛔ A STATELESS SELECTION TEST STOOD HERE AND IT WAS THE DEFECT'S HIDING
+   * PLACE. It asserted `selectionStart === 0` with `onDraftChange` mocked — so
+   * `commit.draft` never changed, the input never re-rendered, and the
+   * assertion was about the OLD value. It passed while the shipped behaviour
+   * collapsed the selection to the caret the moment the new value landed.
+   *
+   * It is DELETED rather than repaired: the property it claimed to hold is only
+   * observable once the state commits, and a host that cannot commit cannot
+   * observe it. Its replacement is `⛔ STATEFUL: a band click commits the new
+   * value AND leaves it selected` above, with a real `useState` host.
+   *
+   * The rule this leaves behind: an assertion about the input's VALUE or
+   * SELECTION needs the stateful host; the spy fixture below can only say which
+   * callback fired.
+   */
 
   /**
    * ⚠⚠ THE ONE THAT MATTERS MOST. The pills set a MAGNITUDE; the SIGN is the
