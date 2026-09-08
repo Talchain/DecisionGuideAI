@@ -58,7 +58,11 @@ import type { CeeDecisionReviewPayloadV1 } from '../types/cee'
 import type { ScenarioStage } from '../types/scenario'
 import { logV5StateStep } from './debugLog'
 import { pulseAppliedTargets } from '../canvas/utils/appliedEditPulse'
-import { requestOlumiAttention, type OlumiAttentionNote } from '../canvas/utils/olumiAttention'
+import {
+  requestOlumiAttention,
+  type OlumiAttentionCaveat,
+  type OlumiAttentionNote,
+} from '../canvas/utils/olumiAttention'
 import { focusAssistantTarget } from '../canvas/utils/assistantFocusCamera'
 import {
   useUIStore,
@@ -849,6 +853,22 @@ function strengthAcknowledgementData(
     serverStrength,
   }
 }
+/**
+ * ⭐ THE ONE SENTENCE THIS FILE AUTHORS, AND WHY IT IS ALLOWED TO.
+ *
+ * It says nothing about the model and nothing about the user's decision. It
+ * says what the MARK ON SCREEN means — the same class of statement as the
+ * attention card's staleness notice, and the opposite of composing coaching
+ * beside a producer's finding.
+ *
+ * ⚠ VOCABULARY IS RULED, NOT STYLISTIC (Paul, repeatedly, most recently 8 Sep
+ * 2026). There is no race here: no winner, no leader, no lead, no leading
+ * option. The product reports A FREQUENCY — "scored highest" — and says plainly
+ * that scoring highest is not the same as being put forward.
+ */
+const LEADER_DESIGNATION_CAVEAT =
+  'Marked because it scored highest so far — not because Olumi is putting it ' +
+  'forward. This analysis cannot yet single out an option.'
 
 export function applyV5State(
   response: OlumiResponse,
@@ -922,6 +942,7 @@ export function applyV5State(
   const attentionNodeIds: string[] = []
   const attentionEdgeIds: string[] = []
   let pendingAttentionNote: OlumiAttentionNote | null = null
+  let pendingAttentionCaveat: OlumiAttentionCaveat | null = null
   const pulsedEdgeIds: string[] = []
   // add_constraint patches are collected here and flushed to
   // setGoalConstraints ONCE after the loop: the store snapshot's
@@ -1228,8 +1249,14 @@ export function applyV5State(
 
         /*
          * ═════════════════════════════════════════════════════════════════
-         * ⛔ P0 — A DIRECTIVE MAY NOT VISUALLY DESIGNATE A LEADER THE MODEL
-         *    IS NOT ENTITLED TO NAME.
+         * ⛔ P0 — A DIRECTIVE MAY NOT MAKE A SILENT VISUAL CLAIM THE
+         *    MODEL IS NOT ENTITLED TO MAKE.
+         * ─────────────────────────────────────────────────────────────────
+         * ⭐ RULED 8 Sep 2026 (Paul): KEEP THE HIGHLIGHT, ADD A VISIBLE
+         * CAVEAT. This gate no longer suppresses the mark — it QUALIFIES it.
+         * See the caveat arm below for the reasoning; the derivation of WHO
+         * the front-runner is, and of whether the model is entitled to say
+         * so, is unchanged and is documented here.
          * ═════════════════════════════════════════════════════════════════
          * Measured on deployed staging: inside ONE HTTP 200 the assistant
          * text said "No single option can be put forward yet" (twice) while
@@ -1239,15 +1266,17 @@ export function applyV5State(
          * "Behind:", the close-call marker, the decision headline and bar.
          * The highlight was the one un-ruled hole, and it is the worst kind:
          * A SILENT VISUAL CLAIM, because nothing on screen admits that a
-         * claim is being made.
+         * claim is being made. Note the precise defect — SILENT, not
+         * VISUAL. That is why the ruled fix is to make it speak rather than
+         * to take it away.
          *
          * ─────────────────────────────────────────────────────────────────
          * WHICH QUESTION THIS GATE ANSWERS (trap 21 is live in this seam —
          * two PRs a day apart once closed this harm and reopened it because
          * each answered a different question under a similar name):
          *
-         *   ⭐ "MAY THIS TURN VISUALLY SINGLE OUT THE FRONT-RUNNING OPTION
-         *      ON THE CANVAS?"
+         *   ⭐ "MAY THIS TURN VISUALLY SINGLE OUT THE HIGHEST-SCORING OPTION
+         *      ON THE CANVAS WITHOUT QUALIFICATION?"
          *
          * That is Q1 — the MODEL'S LICENCE — applied to the IDENTITY case.
          * NOT Q2 ("did this run separate the arms?"), and NOT the panel's
@@ -1288,10 +1317,22 @@ export function applyV5State(
          * carrying a highlight but no `analysis_result` block has no
          * in-envelope leader identity, so nothing is gated.
          */
-        const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(
-          (response as { analysis_ready?: { analysis_admission?: AnalysisAdmissionV1 } })
-            .analysis_ready?.analysis_admission,
-        )
+        const envelopeAdmission = (
+          response as { analysis_ready?: { analysis_admission?: AnalysisAdmissionV1 } }
+        ).analysis_ready?.analysis_admission
+        const modelLicensesComparativeClaim =
+          licensesComparativeLeaderClaim(envelopeAdmission)
+        /*
+         * The producer's OWN sentence for why it refused, rendered verbatim
+         * beneath the caveat. `reasons` is contractually never empty on a
+         * refusal, so this is the honest WHY — and reading it here means the
+         * UI never has to invent one. `undefined` when the producer said
+         * nothing, in which case the caveat stands on its own.
+         */
+        const admissionReasonLine = envelopeAdmission?.reasons?.find(
+          (r): r is { field: string; message: string } =>
+            typeof r?.message === 'string' && r.message.trim().length > 0,
+        )?.message.trim()
         const envelopeAnalysisBlock = response.blocks.find(
           (b): b is Extract<V5Block, { type: 'analysis_result' }> =>
             b.type === 'analysis_result',
@@ -1345,11 +1386,44 @@ export function applyV5State(
               frontRunnerOptionId !== null &&
               t.id === frontRunnerOptionId
             ) {
-              deferred.push({
-                reason: 'ui_directive_leader_designation_withheld',
-                block,
-                detail: t.id,
-              })
+              /*
+               * ⭐ PAUL'S RULING, 8 Sep 2026: KEEP THE HIGHLIGHT, ADD A VISIBLE
+               * CAVEAT. The first build of this gate SUPPRESSED the mark. That
+               * closed the silent-visual-claim defect by removing the signal
+               * altogether, and lost the useful half with it — the user could
+               * no longer see which option the numbers currently favour.
+               *
+               * The harm was never the mark. It was that the mark made a claim
+               * NOTHING ON SCREEN ADMITTED TO. So the fix is to make the claim
+               * speak: the highlight stays exactly as it was (the pulse still
+               * fires, below), and the same target is ALSO held with a caveat
+               * card that says what the mark does and does not mean.
+               *
+               * ⚠ THE CAVEAT IS NOT A `note`. `note` is the producer's own
+               * coaching, rendered verbatim; a UI-authored sentence in that
+               * channel is the fabricated-coaching defect. `caveat` is a
+               * separate field for exactly this — a disclosure about the MARK,
+               * in the UI's voice, the same class as the card's existing
+               * staleness notice. The WHY beneath it is the producer's own
+               * `reasons` sentence, verbatim.
+               *
+               * ⚠ AND BOTH CHANNELS, DELIBERATELY. The node goes to held
+               * attention (so the card has an anchor and persists while the
+               * user reads it) AND to the pulse (so the highlight the producer
+               * asked for is unchanged). `olumiAttention.ts` states that a node
+               * may legitimately be in both at once; this is that case.
+               */
+              pendingAttentionCaveat = {
+                text: LEADER_DESIGNATION_CAVEAT,
+                ...(admissionReasonLine === undefined
+                  ? {}
+                  : { sourceLine: admissionReasonLine }),
+              }
+              attentionNodeIds.push(t.id)
+              if (attentionNote) pendingAttentionNote = attentionNote
+              pulsedNodeIds.push(t.id)
+              applied.push(`ui_directive:highlight:${t.id}`)
+              applied.push(`ui_directive:leader_designation_caveated:${t.id}`)
               continue
             }
             /*
@@ -1467,6 +1541,7 @@ export function applyV5State(
       nodeIds: attentionNodeIds,
       edgeIds: attentionEdgeIds,
       note: pendingAttentionNote,
+      caveat: pendingAttentionCaveat,
     })
   }
   // Flush any add_constraint patches in ONE setGoalConstraints write (see

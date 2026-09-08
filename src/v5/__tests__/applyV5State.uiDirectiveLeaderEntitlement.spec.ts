@@ -75,6 +75,23 @@ vi.mock('../../canvas/utils/assistantFocusCamera', () => ({
   focusAssistantTarget: assistantFocusMock,
 }))
 
+/*
+ * The held-attention channel is where the caveat is DELIVERED, so it has to be
+ * observable here. `importOriginal` is spread rather than a bare factory: a
+ * factory REPLACES the module, which would delete every other export the
+ * applicator imports from it — this estate's hand-maintained-mirror defect in
+ * its vitest form.
+ */
+const { attentionMock } = vi.hoisted(() => ({
+  // The parameter is typed so `mock.calls[0][0]` is `unknown` rather than an
+  // empty tuple — an untyped `vi.fn()` here makes every read a type error.
+  attentionMock: vi.fn((_next: unknown) => ({ applied: [] as string[], dropped: [] as string[] })),
+}))
+vi.mock('../../canvas/utils/olumiAttention', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  requestOlumiAttention: attentionMock,
+}))
+
 import { applyV5State, type V5ApplicatorStore } from '../applyV5State'
 
 // ── the graph under test ────────────────────────────────────────────────────
@@ -199,13 +216,30 @@ const DEFER_REASON = 'ui_directive_leader_designation_withheld'
 beforeEach(() => {
   pulseMock.mockClear()
   assistantFocusMock.mockClear()
+  attentionMock.mockClear()
 })
 
-describe('applyV5State — a ui_directive may not visually designate a leader the model may not name', () => {
+/** The caveat delivered on this run, or `null` if the channel never fired. */
+function deliveredCaveat(): { text: string; sourceLine?: string } | null {
+  if (attentionMock.mock.calls.length === 0) return null
+  const arg = attentionMock.mock.calls[0][0] as {
+    caveat?: { text: string; sourceLine?: string } | null
+    nodeIds?: string[]
+  }
+  return arg.caveat ?? null
+}
+
+/** The nodes the caveat was anchored to. */
+function caveatNodeIds(): string[] {
+  if (attentionMock.mock.calls.length === 0) return []
+  return ((attentionMock.mock.calls[0][0] as { nodeIds?: string[] }).nodeIds) ?? []
+}
+
+describe('applyV5State — a ui_directive highlight the model may not designate is CAVEATED, not suppressed', () => {
   // ══════════════════════════════════════════════════════════════════════════
   // THE P0 ITSELF
   // ══════════════════════════════════════════════════════════════════════════
-  it('⛔ P0 (quantified_provisional): a highlight of the FRONT-RUNNER is withheld, not pulsed', () => {
+  it('⛔ P0 (quantified_provisional): the highlight is KEPT and a caveat is delivered with it', () => {
     const result = applyV5State(
       envelope(
         ADMISSION_QUANTIFIED_PROVISIONAL,
@@ -219,15 +253,52 @@ describe('applyV5State — a ui_directive may not visually designate a leader th
     // that stopped reproducing the identity (trap 13b's third face).
     expect(optionComparison().some((o) => o.id === LEADER)).toBe(true)
 
-    expect(pulseMock).not.toHaveBeenCalled()
+    /*
+     * ⭐ PAUL'S RULING: KEEP THE HIGHLIGHT, ADD A VISIBLE CAVEAT. The mark is
+     * NOT removed — the defect was that it was SILENT, not that it existed.
+     */
+    expect(pulseMock).toHaveBeenCalledTimes(1)
+    expect(pulseMock.mock.calls[0][0].nodeIds).toContain(LEADER)
     // Bind by IDENTITY, never a value predicate another object could satisfy.
-    expect(result.applied).not.toContain(`ui_directive:highlight:${LEADER}`)
-    expect(
-      result.deferred.some((d) => d.reason === DEFER_REASON && d.detail === LEADER),
-    ).toBe(true)
+    expect(result.applied).toContain(`ui_directive:highlight:${LEADER}`)
+    expect(result.applied).toContain(`ui_directive:leader_designation_caveated:${LEADER}`)
+
+    // …and the caveat actually reaches a channel the user can read, anchored
+    // to the marked node. A caveat with no anchor renders nothing.
+    const caveat = deliveredCaveat()
+    expect(caveat).not.toBeNull()
+    expect(caveatNodeIds()).toContain(LEADER)
+    expect(caveat?.text).toMatch(/scored highest/i)
+    // The producer's OWN reason rides beneath it, verbatim — never composed.
+    expect(caveat?.sourceLine).toBe(ADMISSION_QUANTIFIED_PROVISIONAL.reasons[0].message)
+
+    // NOTHING is withheld any more. This is the assertion that REDs if anyone
+    // reinstates the suppression.
+    expect(result.deferred.some((d) => d.reason === DEFER_REASON)).toBe(false)
   })
 
-  it('the withholding is STATED, not silent: the deferred record names the reason and the target', () => {
+  /*
+   * ⭐ THE CAVEAT SAYS WHAT IT IS ALLOWED TO SAY.
+   * Paul's terminology ruling is a PRODUCT rule, not a style preference, and
+   * this surface is exactly where it kept leaking back in. There is no race
+   * here: no winner, no leader, no lead, no leading option.
+   */
+  it('THE CAVEAT CARRIES NO RACE FRAMING — REDs if the retired vocabulary returns', () => {
+    applyV5State(
+      envelope(
+        ADMISSION_QUANTIFIED_PROVISIONAL,
+        directive('highlight', [{ id: LEADER, label: MAC, kind: 'option' }]),
+      ),
+      makeStore(),
+    )
+    const text = deliveredCaveat()?.text ?? ''
+    // Positive control: the probe can see a PRESENCE, so a clean absence below
+    // is a real absence and not a probe pointed at an empty string.
+    expect(text).toMatch(/scored highest/i)
+    expect(text).not.toMatch(/winner|winning|leading option|the lead\b|leader/i)
+  })
+
+  it('the qualification is STATED in applied[], naming the target it qualifies', () => {
     const result = applyV5State(
       envelope(
         ADMISSION_QUANTIFIED_PROVISIONAL,
@@ -235,9 +306,13 @@ describe('applyV5State — a ui_directive may not visually designate a leader th
       ),
       makeStore(),
     )
-    const record = result.deferred.find((d) => d.reason === DEFER_REASON)
-    expect(record).toBeDefined()
-    expect(record?.detail).toBe(LEADER)
+    /*
+     * `applied[]` stays truthful about WHAT it applied: an ordinary highlight
+     * and a highlight-under-caveat are different events, so a reader of the
+     * applicator's result can tell them apart without re-deriving the gate.
+     */
+    expect(result.applied).toContain(`ui_directive:leader_designation_caveated:${LEADER}`)
+    expect(result.applied).toContain(`ui_directive:highlight:${LEADER}`)
   })
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -247,13 +322,15 @@ describe('applyV5State — a ui_directive may not visually designate a leader th
     ['none', ADMISSION_NONE],
     ['exploratory', ADMISSION_EXPLORATORY],
     ['quantified_provisional', ADMISSION_QUANTIFIED_PROVISIONAL],
-  ])('mode %s withholds the front-runner highlight', (_mode, admission) => {
+  ])('mode %s keeps the highlight AND caveats it', (_mode, admission) => {
     const result = applyV5State(
       envelope(admission, directive('highlight', [{ id: LEADER, label: MAC, kind: 'option' }])),
       makeStore(),
     )
-    expect(pulseMock).not.toHaveBeenCalled()
-    expect(result.deferred.some((d) => d.reason === DEFER_REASON)).toBe(true)
+    expect(pulseMock).toHaveBeenCalledTimes(1)
+    expect(result.applied).toContain(`ui_directive:leader_designation_caveated:${LEADER}`)
+    expect(deliveredCaveat()).not.toBeNull()
+    expect(deliveredCaveat()?.sourceLine).toBe(admission.reasons[0].message)
   })
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -268,7 +345,10 @@ describe('applyV5State — a ui_directive may not visually designate a leader th
     expect(pulseMock).toHaveBeenCalledTimes(1)
     expect(pulseMock.mock.calls[0][0].nodeIds).toContain(LEADER)
     expect(result.applied).toContain(`ui_directive:highlight:${LEADER}`)
-    expect(result.deferred.some((d) => d.reason === DEFER_REASON)).toBe(false)
+    // The OPPOSITE-DIRECTION TWIN: caveating a licensed run would be its own
+    // defect — the product hedging a claim it is entitled to make.
+    expect(result.applied).not.toContain(`ui_directive:leader_designation_caveated:${LEADER}`)
+    expect(deliveredCaveat()).toBeNull()
   })
 
   it('ABSENCE ARM PRESERVED (pre-admission CEE): no analysis_admission ⇒ pulses exactly as before', () => {
@@ -278,7 +358,7 @@ describe('applyV5State — a ui_directive may not visually designate a leader th
     )
     expect(pulseMock).toHaveBeenCalledTimes(1)
     expect(result.applied).toContain(`ui_directive:highlight:${LEADER}`)
-    expect(result.deferred.some((d) => d.reason === DEFER_REASON)).toBe(false)
+    expect(deliveredCaveat()).toBeNull()
   })
 
   it('SCOPED TO THE FRONT-RUNNER: a NON-leader option still pulses under the same refusal', () => {
@@ -292,10 +372,10 @@ describe('applyV5State — a ui_directive may not visually designate a leader th
     expect(pulseMock).toHaveBeenCalledTimes(1)
     expect(pulseMock.mock.calls[0][0].nodeIds).toContain(RIVAL)
     expect(result.applied).toContain(`ui_directive:highlight:${RIVAL}`)
-    expect(result.deferred.some((d) => d.reason === DEFER_REASON)).toBe(false)
+    expect(deliveredCaveat()).toBeNull()
   })
 
-  it('MIXED TARGETS: the front-runner is dropped, its rivals still pulse', () => {
+  it('MIXED TARGETS: every target still pulses; only the highest scorer is caveated', () => {
     const result = applyV5State(
       envelope(
         ADMISSION_QUANTIFIED_PROVISIONAL,
@@ -309,9 +389,14 @@ describe('applyV5State — a ui_directive may not visually designate a leader th
     expect(pulseMock).toHaveBeenCalledTimes(1)
     const arg = pulseMock.mock.calls[0][0]
     expect(arg.nodeIds).toContain(RIVAL)
-    expect(arg.nodeIds).not.toContain(LEADER)
+    expect(arg.nodeIds).toContain(LEADER)
     expect(result.applied).toContain(`ui_directive:highlight:${RIVAL}`)
-    expect(result.applied).not.toContain(`ui_directive:highlight:${LEADER}`)
+    expect(result.applied).toContain(`ui_directive:highlight:${LEADER}`)
+    // SCOPED: the caveat attaches to the highest scorer ONLY. Caveating the
+    // whole set would tell the user something false about its rivals.
+    expect(result.applied).toContain(`ui_directive:leader_designation_caveated:${LEADER}`)
+    expect(result.applied).not.toContain(`ui_directive:leader_designation_caveated:${RIVAL}`)
+    expect(caveatNodeIds()).toEqual([LEADER])
   })
 
   /**
@@ -344,7 +429,8 @@ describe('applyV5State — a ui_directive may not visually designate a leader th
     expect(store.edges.some((e) => e.id === LEADER)).toBe(true)
     expect(pulseMock).toHaveBeenCalledTimes(1)
     expect(pulseMock.mock.calls[0][0].edgeIds).toContain(LEADER)
-    expect(result.deferred.some((d) => d.reason === DEFER_REASON)).toBe(false)
+    expect(deliveredCaveat()).toBeNull()
+    expect(result.applied).not.toContain(`ui_directive:leader_designation_caveated:${LEADER}`)
   })
 
   it('AN EDGE is never a leader designation: an edge target is untouched under refusal', () => {
@@ -357,7 +443,8 @@ describe('applyV5State — a ui_directive may not visually designate a leader th
     )
     expect(pulseMock).toHaveBeenCalledTimes(1)
     expect(pulseMock.mock.calls[0][0].edgeIds).toContain('e1')
-    expect(result.deferred.some((d) => d.reason === DEFER_REASON)).toBe(false)
+    expect(deliveredCaveat()).toBeNull()
+    expect(result.applied).toContain(`ui_directive:highlight:e1`)
   })
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -366,7 +453,7 @@ describe('applyV5State — a ui_directive may not visually designate a leader th
   // than the 2s pulse. Gating one and not the other would leave the louder
   // half open.
   // ══════════════════════════════════════════════════════════════════════════
-  it('THE ATTENTION CHANNEL TOO: a NOTE-carrying highlight of the front-runner is withheld', () => {
+  it('BOTH CHANNELS COEXIST: a NOTE-carrying highlight keeps its note AND gains the caveat', () => {
     const result = applyV5State(
       envelope(
         ADMISSION_QUANTIFIED_PROVISIONAL,
@@ -376,8 +463,20 @@ describe('applyV5State — a ui_directive may not visually designate a leader th
       ),
       makeStore(),
     )
-    expect(result.applied).not.toContain(`ui_directive:highlight:${LEADER}`)
-    expect(result.deferred.some((d) => d.reason === DEFER_REASON)).toBe(true)
+    expect(result.applied).toContain(`ui_directive:highlight:${LEADER}`)
+    expect(result.applied).toContain(`ui_directive:leader_designation_caveated:${LEADER}`)
+    /*
+     * The producer's coaching and the UI's disclosure are DIFFERENT FIELDS and
+     * both must survive. Folding one into the other is how a UI-authored
+     * sentence ends up inside the channel whose contract is "the producer said
+     * this".
+     */
+    const arg = attentionMock.mock.calls[0][0] as {
+      note?: { title?: string } | null
+      caveat?: { text: string } | null
+    }
+    expect(arg.note?.title).toBe('Look here')
+    expect(arg.caveat?.text).toMatch(/scored highest/i)
   })
 
   it('THE ATTENTION CHANNEL, LICENSED: a NOTE-carrying highlight of the front-runner is applied', () => {
@@ -391,7 +490,7 @@ describe('applyV5State — a ui_directive may not visually designate a leader th
       makeStore(),
     )
     expect(result.applied).toContain(`ui_directive:highlight:${LEADER}`)
-    expect(result.deferred.some((d) => d.reason === DEFER_REASON)).toBe(false)
+    expect(deliveredCaveat()).toBeNull()
   })
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -412,7 +511,7 @@ describe('applyV5State — a ui_directive may not visually designate a leader th
     expect(assistantFocusMock).toHaveBeenCalledTimes(1)
     expect(assistantFocusMock.mock.calls[0][0].id).toBe(LEADER)
     expect(result.applied).toContain(`ui_directive:focus:${LEADER}`)
-    expect(result.deferred.some((d) => d.reason === DEFER_REASON)).toBe(false)
+    expect(deliveredCaveat()).toBeNull()
   })
 
   it('NAVIGATION IS NOT DESIGNATION: `open_inspector` on the front-runner still executes under refusal', () => {
@@ -426,7 +525,7 @@ describe('applyV5State — a ui_directive may not visually designate a leader th
     )
     expect(store.selectNodeWithoutHistory).toHaveBeenCalledWith(LEADER)
     expect(result.applied).toContain(`ui_directive:open_inspector:${LEADER}`)
-    expect(result.deferred.some((d) => d.reason === DEFER_REASON)).toBe(false)
+    expect(deliveredCaveat()).toBeNull()
   })
 
   it('the ungated set is EXACTLY {focus, open_inspector} — REDs if it grows OR shrinks', () => {
@@ -451,5 +550,6 @@ describe('applyV5State — a ui_directive may not visually designate a leader th
     // slices at this point in the envelope (they are written in steps 4 and 5).
     expect(pulseMock).toHaveBeenCalledTimes(1)
     expect(result.applied).toContain(`ui_directive:highlight:${LEADER}`)
+    expect(deliveredCaveat()).toBeNull()
   })
 })
