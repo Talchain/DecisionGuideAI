@@ -13,6 +13,11 @@ import {
  * make it authoritative, then make the implementation manifest agree.
  */
 const EXPECTED_MOUNTED_AUTHORITY = {
+  modelGoalMinimumTarget: {
+    authority: 'server_graph',
+    entrySurfaces: ['Model goal row with a conversation dispatcher'],
+    requiredEvidence: 'explicit absolute minimum and unit, confirmed typed add_constraint, applied receipt before target sync',
+  },
   modelFactorValue: {
     authority: 'server_graph',
     entrySurfaces: ['Model factor row'],
@@ -203,6 +208,7 @@ describe('mutation authority is exhaustive and fail-closed', () => {
       'canvasNodeAddWithServerHash',
       'canvasNodeRenameWithServerHash',
       'modelFactorValue',
+      'modelGoalMinimumTarget',
       'preAnalysisV3FactorValue',
       'preAnalysisV3StructuralAdd',
       'structuralDeleteWithServerHash',
