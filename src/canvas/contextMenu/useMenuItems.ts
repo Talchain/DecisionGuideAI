@@ -40,6 +40,8 @@ import {
   setValueBestCase,
   setValueWorstCase,
   setValueReset,
+  CHALLENGE_KINDS,
+  buildChallengeTooltip,
 } from './actions'
 import { DECISION_NODE_LABEL } from '../domain/vocabulary'
 
@@ -316,12 +318,23 @@ function buildNodeMenu(
       action: wrap(() => askAI(target, 'explain_element', showToast)),
     },
   ]
-  if (isFull || isGoal) {
+  // ⭐ CHALLENGE IS GATED ON ITS OWN SET, NOT ON `isFull || isGoal`.
+  //
+  // Until 8 Sep 2026 this read `isFull || isGoal`, which withheld "Challenge
+  // this" from decision and option — the question a team is answering and the
+  // choices on the table, the two nodes it most wants to contest. Widening
+  // `FULL_MENU_KINDS` to reach them would also have widened Explore, Set value
+  // and Mark as assumption onto kinds with no range (see `CHALLENGE_KINDS`), so
+  // the concept that was really being asked for got its own name.
+  //
+  // The tooltip comes from the same producer as the prompt, so the label on the
+  // door and what is behind it cannot be edited apart.
+  if (CHALLENGE_KINDS.has(kind as NodeType)) {
     askAIItems.push({
       id: 'ask-ai-challenge',
       label: 'Challenge this',
       icon: Zap,
-      tooltip: "Ask AI to argue against this element's current setup",
+      tooltip: buildChallengeTooltip(kind as NodeType),
       enabled: true,
       action: wrap(() => askAI(target, 'challenge_element', showToast)),
     })
