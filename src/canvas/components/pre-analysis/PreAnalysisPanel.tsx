@@ -980,6 +980,10 @@ export function PreAnalysisPanel({
   // The hold's second input — see `AnalysisHoldState`. Analysis is held on a
   // ready-made model only while CEE has NOT acknowledged holding it.
   const importPendingServerRegistration = useCanvasStore(s => s.importPendingServerRegistration)
+  // Required by the hold authority: an acknowledgement is for ONE scenario and
+  // one analytical model, so this affordance must read the same scenario the
+  // acknowledgement was recorded against.
+  const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
   const isMinimalGraph = (nodes?.length ?? 0) < 3 || (edges?.length ?? 0) < 2
 
   // Retry draft hook — for re-running CEE when blocked due to LLM omission
@@ -2486,7 +2490,12 @@ export function PreAnalysisPanel({
             blockedReason,
           },
           /* The hold authority, not a local re-test of it — see footerGate.ts. */
-          analysisHeldNotice({ nodes, importPendingServerRegistration }),
+          analysisHeldNotice({
+            nodes,
+            edges,
+            currentScenarioId,
+            importPendingServerRegistration,
+          }),
         )}
         isAnalysing={isAnalysing}
         onAnalyse={onAnalyse}

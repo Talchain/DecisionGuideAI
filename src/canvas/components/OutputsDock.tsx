@@ -1281,7 +1281,18 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     // ONE value carries both "is analysis held?" and "what do we call this
     // model?" — see `analysisHeldOn`. Two parameters here is how the panel and
     // the composer came within one review of naming the same state differently.
-    analysisHeldOn: analysisHeldOn({ nodes, importPendingServerRegistration }),
+    // ⚠ THE FULL CURRENT STATE, NOT A RECONSTRUCTION. Passing only
+    // `{ nodes, importPendingServerRegistration }` computed an empty-edge
+    // acknowledgement key, so a real receipt for an edge-bearing starter
+    // released the full-state selector but NOT this affordance.
+    analysisHeldOn: analysisHeldOn({
+      nodes,
+      edges,
+      // The panel already subscribes to this id; reuse it rather than adding a
+      // second selector that could drift from it.
+      currentScenarioId: overviewScenarioId,
+      importPendingServerRegistration,
+    }),
     draftStreamPhase,
     optionsNeedingValues,
     readinessStale,

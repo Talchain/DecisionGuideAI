@@ -47,9 +47,13 @@ import { useCanvasStore } from '../store'
 import {
   releaseImportRegistration,
   markGraphServerAcknowledged,
+  isGraphServerAcknowledged,
+  isSameAnalyticalModel,
+  markGraphImported,
 } from '../store/importRegistrationMarker'
 import { setCurrentScenarioId } from '../store/scenarios'
 import { buildRegistrationGraph } from './buildRegistrationGraph'
+import { analysisHeldOn } from '../utils/analysisHeldOnInjectedModel'
 
 /**
  * Why a registration attempt did not end in an acknowledgement.
@@ -97,6 +101,33 @@ export function useImportRegistration(): void {
    *   hold stays armed — which is forever, by design.
    */
   const attempted = useRef(new Set<string>())
+
+  const nodesNow = useCanvasStore((s) => s.nodes)
+  const edgesNow = useCanvasStore((s) => s.edges)
+
+  /**
+   * ⚠ RELOAD RECOVERY — WITHOUT THIS, "SAFE HOLDING" BECOMES A PERMANENT WALL.
+   *
+   * `hydrateGraphSlice` re-derives `importPendingServerRegistration` from the
+   * PENDING marker alone. After a normal acknowledgement that marker is gone,
+   * so if the acknowledgement record is later lost — eviction, cleared storage,
+   * private mode — a reload produces a model that is HELD (no acknowledgement)
+   * and NOT pending (no marker), and this hook returned immediately. No second
+   * registration was ever attempted: reproduced as one fetch where two were
+   * expected. Re-arming turns that dead end into the redundant registration the
+   * design always claimed it was.
+   */
+  useEffect(() => {
+    const st = useCanvasStore.getState()
+    if (st.importPendingServerRegistration) return
+    if (analysisHeldOn(st as never) === null) return
+    if (isGraphServerAcknowledged(st.currentScenarioId, st.nodes as never, st.edges as never)) return
+    markGraphImported(st.nodes as never, st.edges as never)
+    useCanvasStore.setState({ importPendingServerRegistration: true })
+    logger.info('import_registration.re_armed_after_lost_acknowledgement', {
+      scenarioId: st.currentScenarioId ?? null,
+    })
+  }, [nodesNow, edgesNow, scenarioId])
 
   useEffect(() => {
     if (!pending) return
@@ -211,7 +242,31 @@ export function useImportRegistration(): void {
       // this and never on the absence of the pending marker, so writing it
       // before the removal keeps the hold correct even if the second write is
       // dropped by storage.
-      markGraphServerAcknowledged(nodes, edges)
+      // ⚠ A LATE CALLBACK MAY NOT CONFIRM A REPLACEMENT. `nodes`/`edges` here are
+      //   the snapshot taken BEFORE the await. If the user replaced the model
+      //   while this request was in flight — same scenario, same ids, same
+      //   endpoints, different weight — then this receipt is about the graph we
+      //   SENT and says nothing about the graph now on screen. Re-read the live
+      //   store and confirm the analytical identity is unchanged before
+      //   admitting anything. Reproduced: A at weight 0.2 in flight, replaced by
+      //   B at 0.9, A's receipt resolved, and B read as acknowledged.
+      const live = useCanvasStore.getState()
+      const stillCurrent =
+        live.currentScenarioId === scenarioId &&
+        isSameAnalyticalModel(nodes, edges, live.nodes as never, live.edges as never)
+      if (!stillCurrent) {
+        logger.info('import_registration.superseded', { scenarioId })
+        // The receipt is real, so record it against WHAT WAS SENT — a later
+        // undo back to that model is then legitimately released. The current
+        // model keeps its own hold and will register on its own turn.
+        markGraphServerAcknowledged(scenarioId, nodes, edges)
+        releaseImportRegistration(nodes, edges)
+        return
+      }
+
+      // THE ACKNOWLEDGEMENT. Memory first, so a storage refusal cannot cost the
+      // release of the model on screen right now.
+      markGraphServerAcknowledged(scenarioId, nodes, edges)
       const released = releaseImportRegistration(nodes, edges)
       useCanvasStore.setState({ importPendingServerRegistration: false })
       logger.info('import_registration.acknowledged', {

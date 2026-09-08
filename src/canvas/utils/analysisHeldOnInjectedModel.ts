@@ -115,11 +115,24 @@ export interface NodeLike {
 export interface AnalysisHoldState {
   readonly nodes: ReadonlyArray<NodeLike>
   /**
-   * Needed with `nodes` because the acknowledgement record is keyed on the
-   * STRUCTURAL identity of the whole graph, which includes its edges. Read from
-   * the same store snapshot, so the two cannot disagree.
+   * ⚠ REQUIRED, NOT OPTIONAL — omission was a live defect, not a nicety.
+   *
+   * The acknowledgement is keyed on the scenario AND the analytical model,
+   * which includes edges. While this was optional, `OutputsDock` and
+   * `PreAnalysisPanel` both passed `{ nodes, importPendingServerRegistration }`
+   * and nothing complained: their lookup computed an EMPTY-edge key, could not
+   * match the graph that was actually acknowledged, and both Run affordances
+   * stayed held after a real server receipt for an edge-bearing starter. The
+   * full-state selector was correct at the same moment, so the two disagreed.
+   * Making it required is what stops a caller reconstructing that state.
    */
-  readonly edges?: ReadonlyArray<{ source?: unknown; target?: unknown }>
+  readonly edges: ReadonlyArray<{ source?: unknown; target?: unknown; data?: unknown }>
+  /**
+   * ⚠ REQUIRED. An acknowledgement is for ONE scenario. Without this, a receipt
+   * for scenario A released the same topology armed under scenario B, with no
+   * receipt of its own.
+   */
+  readonly currentScenarioId: string | null
   /**
    * Whether a graph the server has NOT acknowledged holding is on the canvas.
    *
@@ -209,7 +222,7 @@ export function analysisHeldOn(
   //   seen — the pre-mitigation P0, reached through the mitigation.
   //   "No acknowledgement" fails the other way: still held. The cost of a lost
   //   record is a redundant registration, never a false affirmation.
-  if (isGraphServerAcknowledged(state.nodes, state.edges)) return null
+  if (isGraphServerAcknowledged(state.currentScenarioId, state.nodes, state.edges)) return null
   return stamp
 }
 

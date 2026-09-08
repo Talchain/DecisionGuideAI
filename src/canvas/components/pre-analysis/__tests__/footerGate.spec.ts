@@ -107,12 +107,22 @@ describe('the panel actually uses it', () => {
     // CONTRAST CONTROL: prove the file was read before believing any absence.
     expect(src.length, 'PreAnalysisPanel.tsx read as empty').toBeGreaterThan(1000)
     expect(src).toContain('applyAnalysisHold(')
-    // ⚠ The argument is the STATE, not the nodes — `analysisHeldOn` needs the
-    //   registration posture in the SAME snapshot (see `AnalysisHoldState`), so
-    //   this guard pins the whole call including the second field. A panel that
-    //   passed only `nodes` would not compile, but one that passed a hand-built
-    //   object with a stale flag would — and that is what this text catches.
-    expect(src).toContain('analysisHeldNotice({ nodes, importPendingServerRegistration })')
+    // ⚠ The argument is the COMPLETE CURRENT STATE, not the nodes and not a
+    //   two-field subset — `analysisHeldOn` needs the scenario and the edges in
+    //   the SAME snapshot (see `AnalysisHoldState`), because an acknowledgement
+    //   is for ONE scenario and ONE analytical model.
+    //
+    //   This guard previously pinned `{ nodes, importPendingServerRegistration }`
+    //   and passed while that exact shape was the DEFECT: it computed an
+    //   empty-edge acknowledgement key, so a real server receipt for an
+    //   edge-bearing starter released the full-state selector but left this
+    //   footer held. A source-text pin is only as good as the shape it names —
+    //   it froze the wrong one, which is why the four required fields are named
+    //   individually below rather than matched as one string.
+    for (const field of ['nodes,', 'edges,', 'currentScenarioId,', 'importPendingServerRegistration,']) {
+      expect(src, `PreAnalysisPanel must pass ${field} to the hold authority`).toContain(field)
+    }
+    expect(src).toContain('analysisHeldNotice({')
     expect(src).toContain("from './footerGate'")
   })
 })

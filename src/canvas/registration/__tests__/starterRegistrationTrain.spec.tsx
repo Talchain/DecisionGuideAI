@@ -233,8 +233,13 @@ describe('seam 3 — analysisHeldOn carries the registration conjunct', () => {
     //   `importPendingServerRegistration: false`, which is exactly the lost-
     //   storage state — so it asserted the fail-OPEN behaviour as if it were
     //   the capability. Recording the acknowledgement is what a real 200 does.
-    markGraphServerAcknowledged(STARTER_NODES as never, [] as never)
-    const state = { nodes: STARTER_NODES, edges: [], importPendingServerRegistration: false }
+    markGraphServerAcknowledged('44444444-4444-4444-8444-444444444444', STARTER_NODES as never, [] as never)
+    const state = {
+      nodes: STARTER_NODES,
+      edges: [],
+      currentScenarioId: '44444444-4444-4444-8444-444444444444',
+      importPendingServerRegistration: false,
+    }
     expect(analysisHeldOn(state as never)).toBeNull()
     expect(analysisHeldNotice(state as never)).toBeNull()
     clearImportRegistrationMarkers()
@@ -355,6 +360,9 @@ describe('fidelity of the registered projection', () => {
 describe('the hold fails CLOSED: released only on positive acknowledgement', () => {
   const NODES = [{ id: 'n1', data: { starterId: 'build-vs-buy' } }] as any
   const EDGES = [] as any
+  const SC = '33333333-3333-4333-8333-333333333333'
+  const st = (nodes: unknown = NODES, edges: unknown = EDGES, scenarioId: string | null = SC) =>
+    ({ nodes, edges, currentScenarioId: scenarioId, importPendingServerRegistration: false }) as never
 
   beforeEach(() => {
     clearImportRegistrationMarkers()
@@ -363,37 +371,99 @@ describe('the hold fails CLOSED: released only on positive acknowledgement', () 
   afterEach(() => clearImportRegistrationMarkers())
 
   it('holds a starter with no acknowledgement on record', () => {
-    expect(analysisHeldOn({ nodes: NODES, edges: EDGES } as any)).toBe('starter')
+    expect(analysisHeldOn(st())).toBe('starter')
   })
 
   it('⭐ STILL holds when the pending marker is absent — the defect this closes', () => {
     // Exactly the lost-storage state: nothing pending, nothing acknowledged.
     // Under the old predicate this released. It must now hold.
     expect(isGraphPendingImportRegistration(NODES, EDGES)).toBe(false)
-    expect(analysisHeldOn({ nodes: NODES, edges: EDGES } as any)).toBe('starter')
+    expect(analysisHeldOn(st())).toBe('starter')
   })
 
   it('releases ONLY once the server acknowledgement is recorded', () => {
-    markGraphServerAcknowledged(NODES, EDGES)
-    expect(analysisHeldOn({ nodes: NODES, edges: EDGES } as any)).toBeNull()
+    markGraphServerAcknowledged(SC, NODES, EDGES)
+    expect(analysisHeldOn(st())).toBeNull()
   })
 
   it('re-holds if the acknowledgement record is lost — failing in the safe direction', () => {
-    markGraphServerAcknowledged(NODES, EDGES)
-    expect(analysisHeldOn({ nodes: NODES, edges: EDGES } as any)).toBeNull()
+    markGraphServerAcknowledged(SC, NODES, EDGES)
+    expect(analysisHeldOn(st())).toBeNull()
     clearImportRegistrationMarkers() // storage cleared / evicted / private mode
-    expect(analysisHeldOn({ nodes: NODES, edges: EDGES } as any)).toBe('starter')
+    expect(analysisHeldOn(st())).toBe('starter')
   })
 
   it('acknowledgement is keyed to THIS graph, not to any graph', () => {
-    markGraphServerAcknowledged(NODES, EDGES)
+    markGraphServerAcknowledged(SC, NODES, EDGES)
     const other = [{ id: 'other', data: { starterId: 'market-entry' } }] as any
-    expect(analysisHeldOn({ nodes: other, edges: EDGES } as any)).toBe('starter')
+    expect(analysisHeldOn(st(other))).toBe('starter')
   })
 
   it('the stamp survives release, so provenance and analysability stay distinct', () => {
-    markGraphServerAcknowledged(NODES, EDGES)
-    expect(analysisHeldOn({ nodes: NODES, edges: EDGES } as any)).toBeNull()
+    markGraphServerAcknowledged(SC, NODES, EDGES)
+    expect(analysisHeldOn(st())).toBeNull()
     expect((NODES[0] as any).data.starterId).toBe('build-vs-buy')
+  })
+})
+
+/**
+ * REPLACEMENT FOR THE REVIEWER'S F3, WHICH ASSERTS A SHAPE THIS REPAIR REMOVED.
+ *
+ * F3 passed `{ nodes, importPendingServerRegistration }` — the literal pre-fix
+ * production input at `OutputsDock:1284` / `PreAnalysisPanel:2489` — and
+ * required it to release. The finding was correct: that shape computed an
+ * empty-edge key and could not match a real acknowledgement.
+ *
+ * The repair removes the shape rather than teaching the predicate to tolerate
+ * it. Both consumers now pass the complete current state, and `edges` /
+ * `currentScenarioId` are REQUIRED, so the omission is a compile error rather
+ * than a silent wrong answer. Making F3 pass as written would need
+ * `analysisHeldOn` to read the store internally — which this module bans by
+ * name, because a selector bound to `nodes` would then never re-run when the
+ * acknowledgement lands and the claim would go stale exactly as the banner's did.
+ *
+ * So the obligation F3 encodes is discharged here against the shape production
+ * actually uses, with its opposite-direction twin.
+ */
+describe('an edge-bearing acknowledgement releases the REAL Run-consumer shape', () => {
+  const SCENARIO = '11111111-1111-4111-8111-111111111111'
+  const NODES = [
+    { id: 'a', data: { starterId: 'build-vs-buy', value: 1 } },
+    { id: 'b', data: { starterId: 'build-vs-buy' } },
+  ] as any
+  const EDGES = [{ source: 'a', target: 'b', data: { weight: 0.2, direction: 'positive' } }] as any
+
+  beforeEach(() => clearImportRegistrationMarkers())
+  afterEach(() => clearImportRegistrationMarkers())
+
+  /** The exact object both consumers now build. */
+  const consumerInput = (scenarioId: string | null, nodes: unknown, edges: unknown) => ({
+    nodes,
+    edges,
+    currentScenarioId: scenarioId,
+    importPendingServerRegistration: false,
+  })
+
+  it('releases once the edge-bearing graph is acknowledged for THIS scenario', () => {
+    markGraphServerAcknowledged(SCENARIO, NODES, EDGES)
+    expect(analysisHeldOn(consumerInput(SCENARIO, NODES, EDGES) as never)).toBeNull()
+  })
+
+  it('TWIN — an unacknowledged counterpart stays held through the same shape', () => {
+    expect(analysisHeldOn(consumerInput(SCENARIO, NODES, EDGES) as never)).toBe('starter')
+  })
+
+  it('TWIN — the same graph under a DIFFERENT scenario stays held', () => {
+    markGraphServerAcknowledged(SCENARIO, NODES, EDGES)
+    const other = '22222222-2222-4222-8222-222222222222'
+    expect(analysisHeldOn(consumerInput(other, NODES, EDGES) as never)).toBe('starter')
+  })
+
+  it('TWIN — same topology, different edge WEIGHT stays held', () => {
+    markGraphServerAcknowledged(SCENARIO, NODES, EDGES)
+    const changed = [
+      { source: 'a', target: 'b', data: { weight: 0.9, direction: 'positive' } },
+    ] as any
+    expect(analysisHeldOn(consumerInput(SCENARIO, NODES, changed) as never)).toBe('starter')
   })
 })

@@ -218,31 +218,153 @@ function readAcks(): string[] {
  *   acknowledgement. A 200 without the registration envelope, a transport
  *   failure and an unreadable body are all NOT acknowledgements.
  */
-export function markGraphServerAcknowledged(nodes: GraphNodes, edges: GraphEdges): void {
-  const digest = graphImportDigest(nodes, edges)
-  if (digest === null) return
+/**
+ * ⭐ THE ACKNOWLEDGEMENT IDENTITY — SCENARIO + ANALYTICAL MODEL, not topology.
+ *
+ * ⚠ `graphImportDigest` IS THE WRONG KEY HERE AND USING IT WAS A REAL DEFECT.
+ *   It carries only sorted node ids and edge endpoint pairs — no scenario, no
+ *   values, no direction. Two independently reproduced admissions followed:
+ *
+ *     · Graph A (edge weight 0.2) is registered. While the adapter awaits its
+ *       receipt the store is replaced by B — same scenario, same ids, same
+ *       endpoints, weight 0.9 — and B stays pending. A's receipt resolves.
+ *       One request happened, B is still 0.9, and B reads as ACKNOWLEDGED.
+ *       A late callback confirmed a model the server never saw.
+ *     · A is acknowledged normally, then the same topology is armed under a
+ *       DIFFERENT scenario. That scenario's hold is already released without
+ *       any receipt of its own.
+ *
+ *   Both are wrong-model / wrong-scenario admissions, and neither is a marker
+ *   count problem — the key simply did not identify what was acknowledged.
+ *
+ * So the key is `scenarioId` plus an ANALYTICAL digest: the values a run
+ * actually consumes (weight, direction, belief, node value), not just shape.
+ * Layout, ordering and cosmetic fields stay excluded, so a re-layout or a
+ * persistence round-trip still matches — the property the sorted digest was
+ * chosen for in the first place.
+ */
+function analyticalDigest(
+  scenarioId: string | null,
+  nodes: GraphNodes,
+  edges: GraphEdges,
+): string | null {
+  const topology = graphImportDigest(nodes, edges)
+  if (topology === null) return null
+  if (typeof scenarioId !== 'string' || scenarioId.length === 0) return null
+  const readNum = (v: unknown): string => (typeof v === 'number' ? String(v) : '~')
+  const nodeVals = (nodes ?? [])
+    .map((n) => {
+      const d = (n as { id?: unknown; data?: Record<string, unknown> }) ?? {}
+      const data = d.data ?? {}
+      return `${String(d.id)}=${readNum(data.value)}`
+    })
+    .sort()
+    .join(',')
+  const edgeVals = (edges ?? [])
+    .map((e) => {
+      const x = (e as { source?: unknown; target?: unknown; data?: Record<string, unknown> }) ?? {}
+      const data = x.data ?? {}
+      const dir = typeof data.direction === 'string' ? data.direction : '~'
+      const belief = readNum(data.beliefExists ?? data.belief ?? data.confidence)
+      return `${String(x.source)}->${String(x.target)}:w=${readNum(data.weight)}:d=${dir}:b=${belief}`
+    })
+    .sort()
+    .join(',')
+  return `s:${scenarioId}|${topology}|nv:${nodeVals}|ev:${edgeVals}`
+}
+
+/**
+ * Do these two graphs represent the SAME analytical model? Scenario-free, so a
+ * caller can ask the question about a snapshot without also asserting where it
+ * lived. Used to stop an in-flight receipt confirming a replacement.
+ */
+export function isSameAnalyticalModel(
+  aNodes: GraphNodes,
+  aEdges: GraphEdges,
+  bNodes: GraphNodes,
+  bEdges: GraphEdges,
+): boolean {
+  const a = analyticalDigest('x', aNodes, aEdges)
+  const b = analyticalDigest('x', bNodes, bEdges)
+  return a !== null && a === b
+}
+
+/**
+ * ⭐ IN-MEMORY AUTHORITY, WITH PERSISTENCE AS A CACHE — and the order matters.
+ *
+ * A prior cut recorded the acknowledgement ONLY in localStorage. Rejecting just
+ * that one `setItem` with QuotaExceededError, while the real parser accepted a
+ * genuine versioned 200, left the current model HELD after a successful server
+ * acknowledgement — the product refusing to analyse a graph CEE demonstrably
+ * holds. Persistence is an optimisation for the next page load; it is not the
+ * authority for the model on screen right now.
+ */
+const memoryAcks = new Set<string>()
+
+/**
+ * ⚠ THE SUBSET THAT COULD NOT BE PERSISTED — and the distinction is the whole
+ *   correctness argument, not bookkeeping.
+ *
+ * A plain in-memory cache is WRONG in one direction: once persistence has
+ * SUCCEEDED, storage is the authority, and a record later removed or evicted
+ * must re-hold. A cache that outlived that removal would silently keep
+ * releasing a model whose acknowledgement is gone — the fail-open this whole
+ * change exists to close, reintroduced one layer up.
+ *
+ * But memory MUST win when persistence never happened, or a quota refusal would
+ * re-hold a model the server has just acknowledged.
+ *
+ * So: trust storage when the write landed; trust memory only for the keys whose
+ * write did NOT land. Two different situations, two different answers.
+ */
+const unpersistedAcks = new Set<string>()
+
+export function markGraphServerAcknowledged(
+  scenarioId: string | null,
+  nodes: GraphNodes,
+  edges: GraphEdges,
+): void {
+  const key = analyticalDigest(scenarioId, nodes, edges)
+  if (key === null) return
+  // Memory FIRST, so a storage refusal cannot cost the current release.
+  memoryAcks.add(key)
   const acks = readAcks()
-  if (acks.includes(digest)) return
+  if (acks.includes(key)) {
+    unpersistedAcks.delete(key)
+    return
+  }
   try {
     globalThis.localStorage?.setItem(
       ACK_STORAGE_KEY,
-      JSON.stringify([...acks, digest].slice(-MAX_IDENTITIES)),
+      JSON.stringify([...acks, key].slice(-MAX_IDENTITIES)),
     )
+    // Landed: storage is now the authority for this key.
+    unpersistedAcks.delete(key)
   } catch {
-    // Dropping the write costs a redundant registration later; it cannot
-    // produce a false affirmation. Fail-closed by construction.
+    // Did NOT land. Memory is the only authority for this key, and must stay
+    // so — otherwise a quota refusal re-holds a model CEE just acknowledged.
+    unpersistedAcks.add(key)
   }
 }
 
-/** Positive evidence that the server holds this exact graph. Absence ⇒ hold. */
-export function isGraphServerAcknowledged(nodes: GraphNodes, edges: GraphEdges): boolean {
-  const digest = graphImportDigest(nodes, edges)
-  if (digest === null) return false
-  return readAcks().includes(digest)
+/** Positive evidence that the server holds THIS scenario's current model. */
+export function isGraphServerAcknowledged(
+  scenarioId: string | null,
+  nodes: GraphNodes,
+  edges: GraphEdges,
+): boolean {
+  const key = analyticalDigest(scenarioId, nodes, edges)
+  if (key === null) return false
+  // Storage is the authority whenever the write landed, so a record that is
+  // later removed or evicted correctly re-holds. Memory answers only for the
+  // keys storage refused.
+  return readAcks().includes(key) || unpersistedAcks.has(key)
 }
 
 /** Test/teardown helper — a real session drops the record when the tab closes. */
 export function clearImportRegistrationMarkers(): void {
+  memoryAcks.clear()
+  unpersistedAcks.clear()
   try {
     globalThis.localStorage?.removeItem(STORAGE_KEY)
     globalThis.localStorage?.removeItem(ACK_STORAGE_KEY)
