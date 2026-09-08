@@ -117,7 +117,7 @@ const THREE_OPTIONS_TWO_ANALYSED = [
 describe('1 · a subset run shows the share WITH its scope, and names who was left out', () => {
   it('states the scope beside the number, from the sanctioned register', () => {
     const glance = glanceOf(withOptions(THREE_OPTIONS_TWO_ANALYSED))
-    expect(glance.winShare).toBe('Scored highest against your goal in 60% of simulated futures')
+    expect(glance.winShare).toBe('Scored highest in 60% of simulated futures')
     expect(glance.comparisonScope.kind).toBe('partial')
 
     render(<AtAGlance
@@ -314,7 +314,7 @@ describe('2 · a whole-set run carries NO partial-scope qualification', () => {
     ]
     const glance = glanceOf(withOptions(all))
 
-    expect(glance.winShare).toBe('Scored highest against your goal in 60% of simulated futures')
+    expect(glance.winShare).toBe('Scored highest in 60% of simulated futures')
     expect(glance.comparisonScope.kind).toBe('whole_set')
 
     render(<AtAGlance

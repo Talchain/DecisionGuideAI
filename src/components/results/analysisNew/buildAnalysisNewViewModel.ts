@@ -1716,7 +1716,7 @@ function buildAtAGlance(
   // probability of reaching the goal. "Achieves your goal in 99%" would have
   // been a worse claim than the contest framing it replaced, so the wording
   // keeps the ranking meaning and drops the contest metaphor only.
-  const winShare = winPct ? `Scored highest against your goal in ${winPct} of simulated futures` : null
+  const winShare = winPct ? `Scored highest in ${winPct} of simulated futures` : null
   // Bar geometry only — see `winFraction`'s doc comment. Gated on exactly the
   // same condition as `winPct`, so the number and the bar can never disagree
   // about whether there is a share at all.

@@ -124,7 +124,7 @@ describe('the Reasoning tab does not frame the analysis as a contest', () => {
     expect(BANNED.test('Leading option')).toBe(true)
     expect(BANNED.test('Ahead in 99% of simulated futures')).toBe(true)
     expect(BANNED.test('Most likely to serve your goal')).toBe(false)
-    expect(BANNED.test('Scored highest against your goal in 99% of simulated futures')).toBe(false)
+    expect(BANNED.test('Scored highest in 99% of simulated futures')).toBe(false)
   })
 
   it('NO user-facing string frames the result as a contest', () => {
@@ -246,7 +246,7 @@ describe('no contest framing in ANY copy the Reasoning tab renders', () => {
     expect(RETIRED_DESIGNATIONS.test('Interview technical leads or consult partners')).toBe(false)
     expect(RETIRED_DESIGNATIONS.test('a fragile edge leads to a different outcome')).toBe(false)
     expect(RETIRED_DESIGNATIONS.test('win_probability')).toBe(false)
-    expect(RETIRED_DESIGNATIONS.test('Scored highest against your goal in 73% of runs')).toBe(false)
+    expect(RETIRED_DESIGNATIONS.test('Scored highest in 73% of runs')).toBe(false)
   })
 
   it.each(REACHED_COPY_FILES)('%s frames no result as a contest', (name, rel) => {
