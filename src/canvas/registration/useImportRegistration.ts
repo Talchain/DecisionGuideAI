@@ -54,6 +54,7 @@ import {
 import { setCurrentScenarioId } from '../store/scenarios'
 import { buildRegistrationGraph } from './buildRegistrationGraph'
 import { analysisHeldOn } from '../utils/analysisHeldOnInjectedModel'
+import { resolveStarterRegistrationBrief } from '../starters/registrationBrief'
 
 /**
  * Why a registration attempt did not end in an acknowledgement.
@@ -199,6 +200,7 @@ export function useImportRegistration(): void {
 
     const controller = new AbortController()
     let cancelled = false
+    const initialBriefText = resolveStarterRegistrationBrief(nodes)
 
     void (async () => {
       // ⚠ BOTH FIELDS COME FROM THE SAME READ, and that is the whole point.
@@ -214,6 +216,7 @@ export function useImportRegistration(): void {
         userId: identity.userId,
         accessToken: identity.accessToken,
         signal: controller.signal,
+        initialBriefText,
       })
       if (cancelled) return
 
