@@ -434,11 +434,27 @@ export function ModelStrip({
       const nodes = verifyActive
         ? row.nodes.filter((n) => n.needsCheck)
         : noValueActive
-          ? // ⚠ FACTOR ROWS ONLY. `valueText` is null for every non-factor by
-            // construction, so an unscoped filter would keep every option,
-            // risk and outcome and call them valueless.
+          ? /*
+             * ⚠ `hasValue`, NEVER `valueText === null` — THE COUNT AND THE
+             * WORKLIST MUST ASK ONE QUESTION.
+             *
+             * A review found these two apart at the previous head: the count
+             * moved to `hasValue` and this filter did not, so a factor Olumi
+             * had estimated was counted as "no value yet" AND excluded from
+             * the worklist that count opens. Pressing the button produced an
+             * EMPTY STRIP — the number promising work that the list then
+             * refused to show.
+             *
+             * `valueText` is DISPLAY TEXT; `hasValue` is the value question
+             * (`StripNode.hasValue`). Two questions under similar names, which
+             * is this estate's signature defect, and it was inside one PR.
+             *
+             * ⚠ FACTOR ROWS ONLY, still: `hasValue` is `false` for every
+             * non-factor by construction, so an unscoped filter would keep
+             * every option, risk and outcome and call them valueless.
+             */
             row.kind === 'factor'
-            ? row.nodes.filter((n) => n.valueText === null)
+            ? row.nodes.filter((n) => !n.hasValue)
             : []
           : row.nodes
       return {
@@ -479,7 +495,10 @@ export function ModelStrip({
       if (mode === 'noValue' && row.kind !== 'factor') continue
       for (const n of row.nodes) {
         if (mode === 'verify' && !n.needsCheck) continue
-        if (mode === 'noValue' && n.valueText !== null) continue
+        // `hasValue`, for the reason given at the visible-rows filter: the
+        // ring and the marks must name the same set as the count, or the
+        // canvas contradicts the panel it was opened from.
+        if (mode === 'noValue' && n.hasValue) continue
         out.push(n.id)
       }
     }

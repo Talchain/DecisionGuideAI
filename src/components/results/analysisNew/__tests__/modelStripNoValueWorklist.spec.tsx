@@ -29,8 +29,15 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 const nodes: unknown[] = []
 type MockState = { nodes: unknown; setHighlightedNodes: unknown }
+/*
+ * ⚠ ONE STABLE SPY, not a fresh `vi.fn()` per read. The store mock is called on
+ * every render, so a spy minted inside `read()` is a different object each time
+ * and records nothing observable — an assertion against it would pass by
+ * measuring an empty spy that was never the one the component called.
+ */
+const setHighlightedNodesSpy = vi.fn()
 vi.mock('../../../../canvas/store', () => {
-  const read = (): MockState => ({ nodes, setHighlightedNodes: vi.fn() })
+  const read = (): MockState => ({ nodes, setHighlightedNodes: setHighlightedNodesSpy })
   const useCanvasStore = (select: (s: MockState) => unknown) => select(read())
   ;(useCanvasStore as unknown as { getState: () => MockState }).getState = read
   return { useCanvasStore }
@@ -59,6 +66,28 @@ const withValue = (id: string, label: string) => ({
   type: 'factor',
   data: { label, observedState: { value: 0.49, raw_value: 49, unit: '£', source: 'cee_inference' } },
 })
+/**
+ * ⭐ THE DISCRIMINATING SHAPE — derived by execution, not chosen.
+ *
+ * `observed_state` in SNAKE case. `factorCarriesValue` reads snake and camel;
+ * `factorDisplayText` reads camel only. Measured at this head:
+ *
+ *   bare        hasValue=false  valueText=null
+ *   camel       hasValue=true   valueText="£49"
+ *   ⭐ snake    hasValue=true   valueText=null      ← the two disagree
+ *   topDisplay  hasValue=true   valueText="0.25 to 0.75"
+ *
+ * This is the ONLY shape of the four on which the count's question and the
+ * display text's question give different answers, which is exactly what makes
+ * it the fixture that can see them drift apart. On every other shape the two
+ * agree, so a suite built from those cannot observe the defect at all.
+ */
+const snakeValue = (id: string, label: string) => ({
+  id,
+  type: 'factor',
+  data: { label, observed_state: { value: 0.49, raw_value: 49, unit: '£', source: 'cee_inference' } },
+})
+
 /** Olumi sent display text — a DIFFERENT clause on the Model tab, not "no value yet". */
 const estimated = (id: string, label: string) => ({
   id,
@@ -73,7 +102,15 @@ const setNodes = (next: unknown[]) => {
 afterEach(() => {
   cleanup()
   ringNodes.mockClear()
+  setHighlightedNodesSpy.mockClear()
 })
+
+/** The ids the canvas was last asked to ring. */
+function highlightedIds(): string[] {
+  const calls = setHighlightedNodesSpy.mock.calls
+  if (calls.length === 0) return []
+  return [...((calls[calls.length - 1][0] as string[]) ?? [])].sort()
+}
 
 describe('the strip counts the factors that carry no value at all', () => {
   it('⭐ counts them — and this is the state `needsCheck` cannot see', () => {
@@ -141,6 +178,67 @@ describe('the worklist toggle', () => {
 
     fireEvent.click(toggle)
     expect(marks()).toEqual(expect.arrayContaining(['f_a', 'f_b', 'f_c']))
+  })
+
+  /*
+   * ⛔ THE COUNT AND THE WORKLIST ARE ONE QUESTION — pinned by IDENTITY.
+   *
+   * A review found them apart at the previous head: the count had moved to
+   * `hasValue` and the worklist filter (and the canvas ring) were still on
+   * `valueText === null`. Two questions under similar names, inside one PR —
+   * this estate's signature defect.
+   *
+   * The failure is user-visible in BOTH directions, which is why the assertion
+   * is an equality and not a bound: a worklist SHORTER than its count is a
+   * button promising work it will not show; a worklist LONGER is a factor that
+   * carries a value being listed as valueless.
+   *
+   * ⚠ AND IT NEEDS THE SNAKE-CASE FIXTURE TO SEE ANYTHING. On `bare`, `camel`
+   * and `topDisplay` the two predicates agree, so this case would pass on the
+   * defective code. That is the whole reason `snakeValue` exists.
+   */
+  it('⛔ THE COUNT AND THE WORKLIST ASK ONE QUESTION — REDs if they drift apart', () => {
+    setNodes([
+      bare('f_a', 'Competitive pressure'),
+      snakeValue('f_snake', 'Vendor licensing cost'),
+      withValue('f_c', 'Switching friction'),
+    ])
+    render(<ModelStrip isPreRun={false} />)
+    fireEvent.click(screen.getByTestId(`${TID}-toggle`))
+
+    const marks = () =>
+      screen.queryAllByTestId(`${TID}-mark`).map((el) => el.getAttribute('data-node-id'))
+    // PRECONDITION PINNED IN-TEST: all three are on screen before the filter,
+    // so what follows measures the narrowing and not an absent node.
+    expect(marks()).toEqual(expect.arrayContaining(['f_a', 'f_snake', 'f_c']))
+
+    const toggle = screen.getByTestId(`${TID}-no-value-toggle`)
+    // The count says ONE — only `f_a` carries no value at all.
+    expect(toggle).toHaveTextContent(COPY.modelStrip.noValueCount(1))
+
+    fireEvent.click(toggle)
+    // …and the worklist shows exactly that one, BY IDENTITY. On the defective
+    // predicate `f_snake` appears here too: it has a value, and no display text.
+    expect(marks()).toEqual(['f_a'])
+  })
+
+  it('⛔ THE CANVAS RING NAMES THE SAME SET AS THE MARKS', () => {
+    setNodes([bare('f_a', 'Competitive pressure'), snakeValue('f_snake', 'Vendor licensing cost')])
+    render(<ModelStrip isPreRun={false} />)
+    fireEvent.click(screen.getByTestId(`${TID}-toggle`))
+    fireEvent.click(screen.getByTestId(`${TID}-no-value-toggle`))
+
+    /*
+     * The ring is a SECOND consumer of the same question and it drifted with
+     * the first. If the panel narrows to one factor while the canvas rings two,
+     * the two halves of the product contradict each other on screen — and the
+     * marks alone cannot see it.
+     */
+    const marks = screen
+      .queryAllByTestId(`${TID}-mark`)
+      .map((el) => el.getAttribute('data-node-id'))
+    expect(marks).toEqual(['f_a'])
+    expect(highlightedIds()).toEqual(['f_a'])
   })
 
   it('⛔ IS ABSENT AT ZERO — a control that cannot change anything is furniture', () => {
