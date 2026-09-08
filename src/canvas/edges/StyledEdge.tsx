@@ -19,6 +19,8 @@ import { memo, useMemo, useState, useRef, useEffect } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useReactFlow, useStore } from '@xyflow/react'
 import { Lightbulb, AlertTriangle, Flag } from 'lucide-react'
 import { NodeChip } from '../nodes/shared'
+import { EstimateMarker, ESTIMATE_SUBJECT_TITLE } from '../nodes/shared/EstimateMarker'
+import { strengthIsHumanSettled } from '../domain/edgeStrengthSettlement'
 import { useShallow } from 'zustand/react/shallow'
 import type { EdgeData, EdgePathType } from '../domain/edges'
 import {
@@ -448,6 +450,51 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const edgeSignedStrength = useMemo(
     () => resolveEdgeSignedStrengthDisplay(edgeData as Record<string, unknown> | undefined),
     [edgeData]
+  )
+
+  /**
+   * ⭐ IS THIS SPOKEN STRENGTH ONE A PERSON STOOD BEHIND?
+   *
+   * The line already tells row 1 apart — no figure at all draws thin and grey
+   * and its label reads "Strength not set". It did NOT tell row 2 from row 3: a
+   * producer's figure nobody has confirmed drew at magnitude in a polarity
+   * colour and read "Moderate boost", BYTE-IDENTICAL to a strength the user
+   * typed. Meanwhile the risk and outcome cards, for that same edge, refuse to
+   * draw the figure and disclose it as `est.` — one edge, two verdicts, and the
+   * louder channel carried the less honest one. `CanvasLegendPopover` already
+   * describes this state in prose ("the line is drawn at its magnitude in a
+   * POLARITY colour: thick and green or rose") without anything on the canvas
+   * making it visible.
+   *
+   * ⛔ `strengthIsHumanSettled`, NOT `edgeValueSource(data,'weight')`. Two
+   * questions (CLAUDE.md trap 21) that DIVERGE on a state a live affordance
+   * produces: `ModelTabBody.handleResolveContested`'s `accepted_pass2` branch
+   * stamps `weightSource: 'cee'` deliberately — the accepted number really is
+   * the producer's — so an edge a human explicitly adjudicated reads
+   * `weightSource !== 'user'` forever. Marking it "unconfirmed" would tell the
+   * person who confirmed it that nobody had. That module is the ONE admission
+   * every "nobody has set this" claim on the canvas consumes; this is a
+   * consumer of it, not a second copy of the answer.
+   *
+   * ⛔ AND NOT A DASH, A COLOUR, A WIDTH OR AN OPACITY. Every geometric channel
+   * on this path is already claimed by a reasoned rule — polarity
+   * (`EDGE_STROKE_RULES`), existence certainty and contest
+   * (`EDGE_DASH_RULES`), magnitude (`weightMagnitudeToStrokeWidth`), lens and
+   * selection (the `opacity` note below). Two of them are fenced by a standing
+   * ruling: `EDGE_DASH_RULES` removed `pre_run_incomplete` BECAUSE a marker
+   * keyed on a predicate that is true of every edge on a fresh draft marks
+   * nothing, and `!strengthIsHumanSettled` is exactly such a predicate. A word
+   * is the one channel here with room, and it is legible without colour.
+   *
+   * ⚠ GATED ON `.show` SO ROW 1 IS NOT DOUBLE-DISCLOSED: an edge whose label
+   * already reads "Strength not set" does not also need a marker saying so.
+   * The marker therefore fires ONLY on the state that was undisclosed.
+   */
+  const strengthUnconfirmed = useMemo(
+    () =>
+      edgeSignedStrength.show &&
+      !strengthIsHumanSettled(edgeData as Record<string, unknown> | undefined),
+    [edgeSignedStrength, edgeData]
   )
   /**
    * ⭐⭐ THE LABEL'S LIKELIHOOD, FROM THE SAME OWNER THE HOVER POPOVER READS.
@@ -1597,6 +1644,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               // displaying.
               const parts = [
                 ...(showLabel ? [baseTooltip] : []),
+                // The `est.` marker's own sentence, on the container too: a
+                // `title` on a 4-character span is a small hover target and is
+                // absent on touch, so the chip that shows the marker also
+                // carries what it means. Derived from `ESTIMATE_SUBJECT_TITLE`,
+                // never re-typed — the cards say this in exactly one place.
+                ...(showLabel && strengthUnconfirmed ? [ESTIMATE_SUBJECT_TITLE.strength] : []),
                 ...(showFragileRow ? [fragileSentence] : []),
               ]
               return `${parts.join('\n')}\n\nDouble-click to inspect`
@@ -1671,6 +1724,28 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                   >
                     {desc.label}
                   </span>
+                  {/* ⭐ THE UNCONFIRMED-STRENGTH DISCLOSURE — see
+                      `strengthUnconfirmed` for the predicate and why it is not
+                      a dash, a colour or a width.
+
+                      `flexShrink: 0` is load-bearing, not tidiness: the span
+                      above ellipsises from the END under a fixed-width cap that
+                      this text counter-scales against, so a shrinkable marker
+                      would be the first thing cut — and the reader would be
+                      left with the confident half of the claim and none of the
+                      hedge. Same failure the fragility row was split to fix.
+
+                      ⚠ THIS IS `subject="strength"`'s FIRST PRODUCTION CALL
+                      SITE. The variant and its sentence were built and tested
+                      and had ZERO production readers (EstimateMarker's header
+                      says so and names itself as pinned only by tests). Nothing
+                      new is minted here — an existing, reviewed disclosure is
+                      being plugged in. */}
+                  {strengthUnconfirmed && (
+                    <span style={{ flexShrink: 0, display: 'inline-flex' }}>
+                      <EstimateMarker subject="strength" />
+                    </span>
+                  )}
                   {provenance && (
                     <span
                       style={{
