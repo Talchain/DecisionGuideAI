@@ -19,6 +19,7 @@ vi.mock('../../utils/focusHelpers', () => ({
 
 import { ModelTabV2Panel } from '../ModelTabV2Panel'
 import { useCanvasStore } from '../../store'
+import { openOutlineGroups } from './openOutlineGroups'
 
 const FACTOR_ID = 'fac_monthly_eng_cost'
 const DANGLING_FACTOR_ID = 'fac_deleted_last_week'
@@ -60,6 +61,8 @@ function renderPanel() {
   const nodes = allNodes()
   useCanvasStore.setState({ nodes, edges: [] } as never, false)
   render(<ModelTabV2Panel nodes={nodes} edges={[]} goalThreshold={null} />)
+  openOutlineGroups()
+
 }
 
 beforeEach(() => { vi.clearAllMocks() })
