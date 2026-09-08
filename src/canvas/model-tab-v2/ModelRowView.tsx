@@ -1152,16 +1152,32 @@ function ValueCell({
            `min-width:auto` atom absorbs 100% of the squeeze.
 
            ⛔ TWO FIXES ARE ALREADY EXCLUDED ON MEASUREMENT — do not re-propose
-           them. (a) WIDENING THE GRID CAP: the column is track 2 of
-           `ModelOutline.tsx:654`, and `minmax(0,5.5rem)` was tried and rejected
+           them. (a) WIDENING THE GRID CAP: the column is the FOURTH track of
+           `ModelOutline.tsx:679`
+           (`grid-cols-[auto_minmax(6rem,1fr)_fit-content(5.5rem)_fit-content(5rem)]`
+           — `fit-content(5rem)` is the 80px value column; track 2 is the LABEL's
+           `minmax(6rem,1fr)`). ⚠ This citation read "track 2 of
+           `ModelOutline.tsx:654`" and was wrong on BOTH halves — caught by an
+           independent seat. `ModelOutline.tsx` carries exactly ONE `grid-cols`
+           declaration, so the line was checkable in one grep and nobody ran it;
+           a comment that names the wrong track sends the next reader to widen
+           the label column. `minmax(0,5.5rem)` was tried and rejected
            because a zero-minimum track reserves its cap even when empty and
            cost four fully-visible option labels. (b) STACKING THE HINT ONTO A
            SECOND LINE: the `<button>` arm below records that it once did
            exactly that and the rows measured 42px, which is why
            `whitespace-nowrap` is on both idle arms.
 
-           So the trade stands — the hint is still the atom that gives — and
-           what changes here is only that giving it up no longer DESTROYS it.
+           So the trade stands — the hint is still the atom that gives. ⚠ AND
+           THE SENTENCE THAT FOLLOWED THIS ONE CLAIMED MORE THAN WAS MEASURED,
+           corrected here rather than left to be inherited: it read "giving it
+           up no longer DESTROYS it", which reads as a claim for every user.
+           What was actually measured is narrower — `title` restores the text on
+           POINTER HOVER. Sighted touch users and keyboard-only users still get
+           the three visible characters and no way to reach the rest; the
+           author's own PR comment tabulated exactly that. So: recoverable on
+           hover, unchanged otherwise, and the gap for touch and keyboard is
+           open rather than closed.
            `title` on the leaf, not on the wrapping `<button>`, because the
            button's own "Change this value" is about the affordance and would
            otherwise be the only thing a hover could ever tell you. */
