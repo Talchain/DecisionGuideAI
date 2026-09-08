@@ -33,6 +33,7 @@
  * row says so in words.
  */
 
+import { useEffect, useRef } from 'react'
 import { typography } from '../../styles/typography'
 import { EDIT_RESERVED_HEIGHT_CLASS } from './valueCellMetrics'
 import {
@@ -954,6 +955,45 @@ function ValueCell({
 }) {
   const testid = `model-row-v2-${row.id}-value`
 
+  /*
+   * ⚠⚠ THE SELECTION MUST BE APPLIED AFTER REACT COMMITS THE NEW VALUE, NOT
+   * BEFORE — found by an independent review of this PR's first cut, and my own
+   * test could not see it.
+   *
+   * The pill calls `onDraftChange`, which SCHEDULES a parent state update. A
+   * `select()` in the same handler therefore selects the OLD displayed value,
+   * and React then sets the controlled input to the new one, collapsing the
+   * selection to its end: `0.5` → Strong gives focus on the field and
+   * `selectionStart === selectionEnd === 3` instead of `0..3`. A user typing
+   * the exact replacement APPENDS to "0.7" rather than replacing it — the
+   * precise opposite of what this PR promises the advanced user.
+   *
+   * ⭐ AND WHY THE FIRST TEST WAS GREEN: it mocked `onDraftChange` with a spy,
+   * so `commit.draft` never changed and the input never re-rendered. The
+   * assertion was about the OLD value all along. **A stateless host cannot
+   * observe a defect that only exists after the state lands** — the same shape
+   * as every other miss on this PR, one layer along.
+   *
+   * The ref flag is what keeps this from selecting on every keystroke: typing
+   * changes `draft` too, and a select-all after each character would be
+   * unusable. Only a pill sets it.
+   *
+   * ⚠ HOOKS SIT ABOVE THE EARLY RETURN ON PURPOSE. `ValueCell` returns inside a
+   * `switch` below; anything declared after that point would be a conditional
+   * hook. These run on every render regardless of phase.
+   */
+  const fieldRef = useRef<HTMLInputElement | null>(null)
+  const selectAfterCommit = useRef(false)
+  const draftValue = commit && commit.phase === 'editing' ? commit.draft : null
+  useEffect(() => {
+    if (!selectAfterCommit.current) return
+    selectAfterCommit.current = false
+    const field = fieldRef.current
+    if (!field) return
+    field.focus()
+    field.select()
+  }, [draftValue])
+
   if (commit && commit.phase !== 'idle') {
     switch (commit.phase) {
       case 'editing':
@@ -967,6 +1007,7 @@ function ValueCell({
               className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} inline-flex items-center shrink-0 whitespace-nowrap`}
             >
               <input
+                ref={fieldRef}
                 data-testid={`${testid}-input`}
                 // Focus follows the click that opened this input — it replaces
                 // the value control the user just activated.
@@ -1065,6 +1106,25 @@ function ValueCell({
                         title={`Set to ${band} (${next})`}
                         onClick={e => {
                           e.stopPropagation()
+                          /*
+                           * ⚠ THE NO-CHANGE ARM IS NOT AN EDGE CASE — the
+                           * reviewer measured it PASSING and it is the reason
+                           * the flag alone is not enough. Pressing the band the
+                           * draft is ALREADY in produces no state change, so
+                           * the effect never runs and an armed flag would sit
+                           * there and fire on the NEXT keystroke, selecting the
+                           * user's half-typed number out from under them.
+                           * Handle it here, synchronously, and arm nothing.
+                           */
+                          const field = document.querySelector<HTMLInputElement>(
+                            `[data-testid="${testid}-input"]`,
+                          )
+                          if (next === commit.draft) {
+                            field?.focus()
+                            field?.select()
+                          } else {
+                            selectAfterCommit.current = true
+                          }
                           onDraftChange(row.id, next)
                           /*
                            * ⭐ AND HAND FOCUS BACK TO THE FIELD — WITNESSED ON
@@ -1105,11 +1165,13 @@ function ValueCell({
                            * (`commitByRowId` is a one-entry map), so it names
                            * exactly one element.
                            */
-                          const field = document.querySelector<HTMLInputElement>(
-                            `[data-testid="${testid}-input"]`,
-                          )
+                          /*
+                           * Focus goes back NOW so the keyboard is never
+                           * stranded on the pill even for one frame; the effect
+                           * above re-applies focus with the selection once the
+                           * new value has landed.
+                           */
                           field?.focus()
-                          field?.select()
                         }}
                         className={`${typography.buttonSmall} px-1.5 rounded border ${
                           active
