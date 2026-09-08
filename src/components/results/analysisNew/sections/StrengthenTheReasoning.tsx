@@ -66,6 +66,8 @@ import { methodForRecommendation } from '../recommendationMethod'
 import { NodeMark, markKindForTarget } from '../nodeMarks'
 import { planPreview } from '../previewComposition'
 import { useStrengthenStore, selectHistory } from '../../../../canvas/stores/strengthenStore'
+import { recordDissent, readDissent, dissentCurrency } from '../../../../canvas/stores/dissentStore'
+import { useCanvasStore } from '../../../../canvas/store'
 
 export interface StrengthenTheReasoningProps {
   interventions: Recommendation[]
@@ -210,6 +212,32 @@ export function StrengthenTheReasoning({
   const showToast = useShowToastSafe()
   const [disputingId, setDisputingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  /**
+   * ⭐ THE DURABLE DISSENT FOR THE SCENARIO ON SCREEN.
+   *
+   * ⚠ Re-read on an EPOCH rather than on every render: `readDissent()` touches
+   * localStorage, and a component that re-read it on each pass would do storage
+   * IO in the render path. The epoch bumps when this surface records one, which
+   * is the only way it changes while this component is mounted — a write from
+   * another tab is a different question, and one this build deliberately does
+   * not answer (see `dissentStore`'s header on why a `storage` listener is a
+   * freshness mechanism and not a correctness one).
+   */
+  const [dissentEpoch, setDissentEpoch] = useState(0)
+  /**
+   * ⚠⚠ THE SCENARIO ID IS A DEPENDENCY, AND LEAVING IT OUT WAS A REAL BUG.
+   *
+   * Recommendation ids carry NO scenario component — `strengthen:robustness`,
+   * `strengthen:broaden` and `strengthen:commit` are constant literals
+   * identical in every decision, and the interpolated ones are built from
+   * canvas-local ids (`factor-1`, `e-0`) that repeat across decisions. The
+   * per-scenario KEY is what keeps one decision's words off another's card; but
+   * a memo that did not re-read on a scenario change would hold the previous
+   * decision's bucket and defeat it at the last inch — showing a person their
+   * own words about a decision they never wrote them about.
+   */
+  const activeScenarioId = useCanvasStore((st) => st.currentScenarioId)
+  const durableDissent = useMemo(() => readDissent(), [dissentEpoch, activeScenarioId])
 
   /**
    * ⭐ WHERE FOCUS GOES, AND WHY THIS DIRECTORY HAD NO ANSWER.
@@ -376,6 +404,19 @@ export function StrengthenTheReasoning({
       // The store no-ops on an empty reason; closing without recording is the
       // honest outcome, not a silent empty entry.
       dispute(rec.id, draft)
+      /**
+       * ⭐ AND DURABLY, so it outlives the tab. `strengthenStore` keeps its
+       * session scope untouched — its lifecycle statuses are written from the
+       * Analysis tab, which this lane may not make permanent — while the user's
+       * own words get a home that survives.
+       *
+       * ⚠ THE RUN IS STAMPED HERE, at the moment the words are composed, from
+       * the `analysisHash` this callback already holds. The `disputed` history
+       * event carries no run identity at all, so without this a dissent shown
+       * beside a later analysis would be a claim the user never made.
+       */
+      recordDissent(rec.id, draft, analysisHash)
+      setDissentEpoch((n) => n + 1)
       closeDispute()
     },
     [dispute, seedIfAbsent, analysisHash, draft, closeDispute],
@@ -546,9 +587,20 @@ export function StrengthenTheReasoning({
              * they typed — so this scans BACKWARDS and stops at the first hit.
              */
             const record = strengthenRecords[rec.id]
-            const standingDispute = record
-              ? [...record.history].reverse().find((e) => e.event === 'disputed')?.disputeReason
-              : undefined
+            /**
+             * ⭐ DURABLE FIRST, session second. A disagreement recorded in an
+             * earlier session has no history event in this one, so reading only
+             * `record.history` is how it used to disappear. The session copy
+             * remains the fallback so nothing regresses for a board with no
+             * scenario id, which has no durable home.
+             */
+            const durable = durableDissent[rec.id]
+            const standingDispute =
+              durable?.reason ??
+              (record
+                ? [...record.history].reverse().find((e) => e.event === 'disputed')?.disputeReason
+                : undefined)
+            const disputeCurrency = dissentCurrency(durable, analysisHash)
             const strengthLabel =
               grounding?.strength && STRENGTH_LABEL[grounding.strength]
                 ? STRENGTH_LABEL[grounding.strength]
@@ -893,6 +945,14 @@ export function StrengthenTheReasoning({
                       {COPY.dissent.standing}:{' '}
                     </span>
                     {standingDispute}
+                    {disputeCurrency === 'changed' ? (
+                      <span
+                        className={`${typography.panelMeta} text-text-light ml-1`}
+                        data-testid={`${testId}-disagreement-earlier`}
+                      >
+                        {COPY.dissent.writtenEarlier}
+                      </span>
+                    ) : null}
                   </p>
                 ) : null}
 

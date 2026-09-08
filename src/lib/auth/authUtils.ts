@@ -1,6 +1,7 @@
 import { AuthError } from '@supabase/supabase-js';
 import { clearAccessValidation } from './accessValidation';
 import { authLogger } from './authLogger';
+import { clearDurableDissent } from '../../canvas/stores/dissentStore'
 
 function parseAuthError(error: AuthError | Error | unknown): string {
   if (!error) return 'An unknown error occurred';
@@ -71,6 +72,22 @@ export function clearAuthStates(): void {
     console.debug('[authUtils] clearAuthStates() called', new Error().stack);
   // Clear early access validation state
   clearAccessValidation();
+
+  /**
+   * ⭐ A SIGNED-IN USER'S DISAGREEMENTS MUST NOT SURVIVE INTO THE NEXT PERSON'S
+   * SESSION ON A SHARED MACHINE. They became durable in the same week, so they
+   * are cleared at the estate's own sign-out seam rather than by a second
+   * mechanism. It sweeps by PREFIX — the keys are per-scenario and unbounded,
+   * so an entry in the array below could not enumerate them.
+   *
+   * ⚠⚠ AND THE HONEST LIMIT, because the obvious claim would be false:
+   * `signOut` opens `if (!session) return`, so on the deployed GUEST posture —
+   * the default — this never runs. It protects a signed-in user. It does not
+   * separate two guests, and nothing in the product does: **no product-data key
+   * is cleared by any sign-out path today.** This joins an existing gap rather
+   * than closing it, and saying otherwise would overstate what shipped.
+   */
+  clearDurableDissent();
   
   try {
     // Clear all auth-related localStorage items

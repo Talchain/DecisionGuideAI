@@ -373,6 +373,23 @@ export const ANALYSIS_NEW_COPY = {
     cancel: 'Cancel',
     /** Prefix on the standing objection. The user's own words follow. */
     standing: 'You disagreed',
+    /**
+     * ⚠ SHOWN ONLY WHEN THE RUN IS KNOWN TO HAVE MOVED, NEVER FROM AN ABSENCE.
+     *
+     * A disagreement now outlives the session, so it can be read beside a LATER
+     * analysis than the one it was written against — a claim the user never
+     * made. `dissentCurrency` answers three ways, and this renders on `changed`
+     * alone: a record with no run stamp (written before stamping existed, or on
+     * a run whose hash could not be established) is `unknown`, and saying "an
+     * earlier analysis" about a record we cannot place would be inventing a fact
+     * on the surface whose whole job is not to.
+     *
+     * ⚠ NOT `COPY.status.stale`. That sentence — "The model has changed since
+     * this analysis ran." — is about the ANALYSIS being out of date. This is
+     * about WHEN THE WORDS WERE WRITTEN. Reusing it verbatim would say the
+     * wrong thing in the user's own voice.
+     */
+    writtenEarlier: 'Written against an earlier analysis.',
   },
 
   /** Progressive-disclosure affordances. */
