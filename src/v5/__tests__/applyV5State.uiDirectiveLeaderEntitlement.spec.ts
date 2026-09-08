@@ -421,7 +421,7 @@ describe('applyV5State — a ui_directive may not visually designate a leader th
     const store = makeStore()
     // The collision, constructed deliberately.
     store.edges = [{ id: LEADER, source: RIVAL, target: THIRD }] as never
-    const result = applyV5State(
+    applyV5State(
       envelope(
         ADMISSION_QUANTIFIED_PROVISIONAL,
         directive('highlight', [{ id: LEADER, label: 'Influence', kind: 'edge' }]),
@@ -440,7 +440,7 @@ describe('applyV5State — a ui_directive may not visually designate a leader th
   })
 
   it('AN EDGE is never a leader designation: an edge target is untouched under refusal', () => {
-    const result = applyV5State(
+    applyV5State(
       envelope(
         ADMISSION_QUANTIFIED_PROVISIONAL,
         directive('highlight', [{ id: 'e1', label: 'Influence', kind: 'edge' }]),
