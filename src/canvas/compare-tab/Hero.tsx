@@ -5,6 +5,7 @@ import { highlightNode, clearHighlight } from '../utils/highlightHelpers'
 import type { AnalysisSnapshot, CompareState, LeaderClaim } from './types'
 import { isNarrowFlip } from './deriveCompareState'
 import { deriveLeaderClaim, optionProbabilityIn } from './leaderClaim'
+import { COMPARATIVE_COPY } from '../../components/results/utils/goalAnchorCopy'
 
 /**
  * The estate's standing absence token, spelled the same here as in
@@ -51,8 +52,16 @@ interface HeroProps {
  * Every arm below that says "leads" is reached only through a state the state
  * machine gates on exactly that, so the non-null assertions are structural.
  */
+/**
+ * ⭐ BROUGHT ONTO THE REGISTER 8 Sep 2026. This re-typed the comparative claim
+ * inline — a SECOND AUTHORITY, and by then a third dialect: it said "of
+ * scenarios" while the card said "of simulated scenarios" and CEE said
+ * something else again. It now reads `COMPARATIVE_COPY.clause`, the
+ * mid-sentence form built for exactly this position (a claim following an
+ * option label), so this surface cannot drift from the card again.
+ */
 function leaderPhrase(claim: LeaderClaim): string {
-  return `${claim.label} — supported in ${claim.winProbability}% of scenarios`
+  return `${claim.label} — ${COMPARATIVE_COPY.clause(`${claim.winProbability}%`)}`
 }
 
 function getHeroCopy(

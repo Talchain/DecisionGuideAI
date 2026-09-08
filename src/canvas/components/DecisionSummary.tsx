@@ -35,7 +35,7 @@ import { useComparisonDetection } from '../hooks/useComparisonDetection'
 import { buildRichGraphPayload, getRecommendedOptionInterventions } from '../utils/graphPayload'
 import { type OutcomeUnits } from '../../lib/format'
 import { typography } from '../../styles/typography'
-import { GOAL_ANCHOR_COPY } from '../../components/results/utils/goalAnchorCopy'
+import { GOAL_ANCHOR_COPY, COMPARATIVE_COPY } from '../../components/results/utils/goalAnchorCopy'
 import { computeBaselineComparison } from '../utils/baselineComparison'
 // P0.2: Precision display for confidence-aware outcome formatting
 import { getPrecisionDisplay } from '../../lib/precisionDisplay'
@@ -479,7 +479,12 @@ export function DecisionSummary({
             {/* Win probability - shown as secondary context */}
             {summaryData.goalProbability.winProbability !== undefined && (
               <p className={`${typography.caption} text-ink-500`}>
-                Supported in {Math.round(summaryData.goalProbability.winProbability * 100)}% of scenarios
+                {/* ⭐ BROUGHT ONTO THE REGISTER 8 Sep 2026 — this re-typed the
+                    comparative claim inline, a second authority that had
+                    already drifted to a third dialect ("of scenarios"). */}
+                {COMPARATIVE_COPY.phrase(
+                  `${Math.round(summaryData.goalProbability.winProbability * 100)}%`,
+                )}
               </p>
             )}
           </div>

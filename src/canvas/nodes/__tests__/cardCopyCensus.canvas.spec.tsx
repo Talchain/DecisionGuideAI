@@ -439,17 +439,20 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'What could go wrong?', // CONTROL
   ],
   'option · post · standard': [
-    'Support', // CAPTION — `METRIC_NOUN.support`, beside the bar and the percentage.
-    //            ⭐ WAS 'Ahead' until 7 Sep 2026. Paul: "There's never a
-    //            winner." The sentence "Supported in 47% of simulated
-    //            scenarios" is on the `title` and in `sr-only` text, and the
-    //            card shows the bar and the figure.
+    'Highest', // CAPTION — `METRIC_NOUN.support`, beside the bar and the percentage.
+    //            ⭐ WAS 'Ahead' until 7 Sep, then 'Support' until 8 Sep 2026.
+    //            Paul: "There's never a winner." The caption now carries the
+    //            ruled sentence's own stem, because the sentence "Scored
+    //            highest against your goal in 47% of runs" renders eight pixels
+    //            away on the `title` and in `sr-only` text, and a caption that
+    //            shares no word with it reads as a second number
+    //            (`oneNounPerIdea.crossCard.spec.tsx`).
   ],
   // Sorted, because `invariantRuns` sorts — the pinned set must be read as a
   // SET, and an order that depended on render order would RED on an unrelated
   // reshuffle and teach the next session to stop reading it.
   'option · post · expert': [
-    'Support', // CAPTION
+    'Highest', // CAPTION
     'View parameters', // CONTROL
     'What this option sets:', // HEADING
     'What would make this better supported?', // CONTROL
@@ -762,7 +765,7 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     // disappearance would mean the collector had stopped reading cards.
     expect(measured['risk · pre · standard']).toContain('Strength')
     expect(measured['factor · post · standard']).toContain('Influence')
-    expect(measured['option · post · standard']).toContain('Support')
+    expect(measured['option · post · standard']).toContain('Highest')
     expect(Object.values(measured).flat().length).toBeGreaterThan(15)
   })
 

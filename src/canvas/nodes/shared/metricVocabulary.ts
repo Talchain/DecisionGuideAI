@@ -51,7 +51,13 @@ import { COMPARATIVE_COPY } from '../../../components/results/utils/goalAnchorCo
 import { INFLUENCE_EXPLANATION_GENERIC } from '../../../components/results/influenceScaleCopy'
 
 /**
- * The four nouns the canvas may caption a number with.
+ * The four words the canvas may caption a number with.
+ *
+ * ⚠ "nouns" until 8 Sep 2026, and the rename of this sentence is the honest
+ * half of that change: `support`'s value became `Highest`, an adjective. See
+ * the note on that key for why anchoring beat parts of speech. The other three
+ * are still nouns and `RETIRED_METRIC_NOUNS` keeps its name — it is a record.
+ *
  *
  * Sentence case throughout — `NodeMetricRow` records that as the
  * design-system-guarded rule (`ci:guard:ds` forbids a CSS text-transform
@@ -68,6 +74,25 @@ export const METRIC_NOUN = {
    * the KEY as `ahead` while the value read `Support` would have been the
    * estate's signature defect — one name answering a question it no longer
    * asks — so the next lane would inherit the race word as canonical.
+   *
+   * ⚠⚠ 8 Sep 2026 — THE VALUE MOVED TO `Highest` AND THIS KEY DID NOT, WHICH
+   * IS A DELIBERATE EXCEPTION TO THE PARAGRAPH DIRECTLY ABOVE. Stated so the
+   * next lane reads a decision, not a bug.
+   *
+   * The 7 Sep rename moved key and value together because the OLD key was
+   * `ahead` — a BANNED contest frame, and inheriting it as canonical was the
+   * harm. `support` is not banned and is not a race word: it is still the
+   * honest name of the QUANTITY (the register's own `unavailable` arm says
+   * "comparative support is unavailable for this run"). What changed is the
+   * CAPTION, which had to become the ruled sentence's stem so the two stop
+   * reading as different numbers.
+   *
+   * Renaming the key touches 27 sites across 15 files, three of which assert
+   * on SOURCE TEXT (`metricNounVocabulary.canvas.spec.ts`,
+   * `CanvasLegendPopover.spec.tsx`) and three of which are hot canvas
+   * components with PRs in flight. That is a bigger, collision-prone change
+   * than this lane's ruling needs, so it is named here rather than taken
+   * silently. Overrule in one line if the key should follow.
    *
    * ⭐ BY REFERENCE. See the header: this must stay `COMPARATIVE_COPY.anchor`
    * itself, never its value re-typed.
@@ -312,7 +337,7 @@ export interface MetricLegendRow {
 export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
   {
     noun: METRIC_NOUN.support,
-    gloss: 'the share of simulated runs that support this option over the alternatives',
+    gloss: 'the share of runs in which this option scored highest against your goal',
   },
   {
     noun: METRIC_NOUN.chance,

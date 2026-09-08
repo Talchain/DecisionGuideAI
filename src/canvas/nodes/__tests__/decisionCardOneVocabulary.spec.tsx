@@ -198,7 +198,14 @@ describe('the entitled decision card states one quantity in one vocabulary', () 
     // the pair agree on some third word (the sibling cross-card guard's rule).
     const { container } = renderDecision(PERMITTED_REPORT)
     const stem = METRIC_NOUN.support.toLowerCase()
-    expect(stem, 'the register moved — re-derive this test, do not loosen it').toBe('support')
+    // ⭐ RE-DERIVED 8 Sep 2026, NOT LOOSENED — which is what this tripwire
+    // asked for, and it fired exactly as intended. It read `'support'` until
+    // Paul's ruled sentence ("{X} scored highest against your goal in {N}% of
+    // runs") landed with no "support" in it. Keeping the caption at `Support`
+    // would have left the bar and the sentence sharing no word — the very
+    // defect this file pins — so the CAPTION moved to the ruled sentence's own
+    // stem and this literal moved with it.
+    expect(stem, 'the register moved — re-derive this test, do not loosen it').toBe('highest')
     const row = screen.getByTestId(METRIC_ROW)
     const sentenceOnly = ((container.textContent ?? '').replace(row.textContent ?? '', ''))
       .replace(/\s+/g, ' ')

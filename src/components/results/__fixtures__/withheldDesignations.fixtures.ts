@@ -258,7 +258,15 @@ export const HERO_CLAIM_RE =
   // "supported in {N}% …". Every retired alternative is KEPT rather than
   // swapped out: this probe screens for a claim of ANY vintage, and dropping
   // the old wording would blind it to a surface that had not been migrated.
-  /\b(highest|strongest|most likely|slightly ahead|leads|leading|winner|best|came out ahead|supported in)\b/i
+  //
+  // ⚠ WIDENED A THIRD TIME 2026-09-08. Paul's ruled wording is "scored highest
+  // against your goal in {N}% of runs". `highest` ALREADY matched it, so this
+  // probe was never blind — but that coverage was ACCIDENTAL, resting on a
+  // token the new sentence happens to share with a retired one. `scored
+  // highest` is listed explicitly so the coverage is intentional and survives
+  // any later narrowing of the bare `highest` alternative. Same append-only
+  // policy: nothing is swapped out.
+  /\b(highest|scored highest|strongest|most likely|slightly ahead|leads|leading|winner|best|came out ahead|supported in)\b/i
 
 /**
  * Every string a screen reader can reach that is NOT ordinary body text:

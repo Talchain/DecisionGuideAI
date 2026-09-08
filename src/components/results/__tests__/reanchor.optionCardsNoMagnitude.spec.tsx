@@ -77,10 +77,10 @@ describe('OptionCards — an absent comparative probability is never rendered as
     const { container } = renderCards()
     const text = container.textContent ?? ''
     // The two shapes `?? 0` produces once the resolution floor is applied.
-    expect(text).not.toContain('Supported in 0% of simulated scenarios')
-    expect(text).not.toContain('Supported in <0.1% of simulated scenarios')
+    expect(text).not.toContain('Scored highest against your goal in 0% of runs')
+    expect(text).not.toContain('Scored highest against your goal in <0.1% of runs')
     // And nothing else that reads as a measured share.
-    expect(text).not.toMatch(/Supported in [<>]?[\d.]+% of simulated scenarios/)
+    expect(text).not.toMatch(/Scored highest against your goal in [<>]?[\d.]+% of runs/)
   })
 
   it('says the claim WITHOUT a magnitude instead of dropping it', () => {
@@ -108,7 +108,7 @@ describe('OptionCards — an absent comparative probability is never rendered as
       />,
     )
     expect(container.textContent ?? '').toMatch(
-      /Supported in .+ of simulated scenarios/,
+      /Scored highest against your goal in .+ of runs/,
     )
   })
 })
@@ -136,7 +136,7 @@ describe('OptionCards — the hinge variants carry no un-anchored superlative (F
     expect(text).not.toMatch(/highest leading-option likelihood/i)
     // The re-anchored claim is present, with its magnitude, and still names
     // the hinge factor the variant exists to surface.
-    expect(text).toMatch(/supported in .+ of simulated scenarios/i)
+    expect(text).toMatch(/scored highest against your goal in .+ of runs/i)
     expect(text).toContain('Hiring rate')
   })
 })
