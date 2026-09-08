@@ -613,7 +613,9 @@ export function StrengthenTheReasoning({
                     Both moves RED in `StrengthenSeveritySignals.spec.tsx`. */}
                 <p className={`${typography.panelHeader} text-text-header m-0 flex items-baseline gap-2`}>
                   {markKind ? <NodeMark kind={markKind} className="w-3 h-3 self-center" /> : null}
-                  <span className="min-w-0">{rec.title}</span>
+                  <span className="min-w-0" data-testid={`${testId}-title`}>
+                    {rec.title}
+                  </span>
                 </p>
 
                 {rec.category || grounding || method ? (

@@ -110,18 +110,18 @@ describe('OptionsSection', () => {
     expect(screen.getByText('unchanged')).toBeInTheDocument()
   })
 
-  it('hides "Run analysis to see when each option leads and lags" copy when hasAnalysisData=true', () => {
+  it('hides "Run analysis to see when each option is best supported" copy when hasAnalysisData=true', () => {
     const factor = makeFactorNode('f1', 'Revenue', 100000, '£')
     const option = makeOptionNode('opt1', 'Grow', { f1: 120000 })
     render(<OptionsSection optionNodes={[option]} allNodes={[factor]} hasAnalysisData={true} />)
-    expect(screen.queryByText(/Run analysis to see when each option leads and lags/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Run analysis to see when each option is best supported/)).not.toBeInTheDocument()
   })
 
-  it('shows "Run analysis to see when each option leads and lags" copy when hasAnalysisData=false', () => {
+  it('shows "Run analysis to see when each option is best supported" copy when hasAnalysisData=false', () => {
     const factor = makeFactorNode('f1', 'Revenue', 100000, '£')
     const option = makeOptionNode('opt1', 'Grow', { f1: 120000 })
     render(<OptionsSection optionNodes={[option]} allNodes={[factor]} hasAnalysisData={false} />)
-    expect(screen.getByText(/Run analysis to see when each option leads and lags/)).toBeInTheDocument()
+    expect(screen.getByText(/Run analysis to see when each option is best supported/)).toBeInTheDocument()
   })
 
   it('writes the intervention through the sanctioned setter when the value is edited', () => {

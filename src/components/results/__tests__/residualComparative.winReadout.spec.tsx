@@ -63,8 +63,8 @@ const OPTIONS: OptionResult[] = [
 describe('RangeVisualization per-option probability text (ROADMAP 1.239)', () => {
   it('reads as a noun, not a leader verb', () => {
     const { container } = render(<RangeVisualization options={OPTIONS} winnerId="opt_mac" />)
-    expect(screen.getByText('Came out ahead in 66% of simulated scenarios')).toBeDefined()
-    expect(screen.getByText('Came out ahead in 31% of simulated scenarios')).toBeDefined()
+    expect(screen.getByText('Supported in 66% of simulated scenarios')).toBeDefined()
+    expect(screen.getByText('Supported in 31% of simulated scenarios')).toBeDefined()
     expect(/\bleads\b/i.test(container.textContent ?? '')).toBe(false)
   })
 

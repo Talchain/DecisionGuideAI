@@ -207,16 +207,31 @@ const KNOWN_FIXED = [
  *   canvas/components/CoachingCard.tsx  typography.nodeLabel 11px — already
  *                                       counter-scaled ✓.
  *   canvas/components/UnknownKindWarning typography.caption 12px -> 6.0px.
- *   components/Tooltip.tsx              raw `text-xs` 12px -> 6.0px. Shared
- *                                       app-wide, so its size is NOT a canvas
- *                                       decision; it renders un-portalled inside
- *                                       BaseNode and OlumiSparkle.
+ *
+ * ⚠ `components/Tooltip.tsx` WAS THE FOURTH ENTRY AND IS GONE — REMOVED BECAUSE
+ * THE DERIVATION STOPPED REACHING IT, WHICH IS THIS GUARD WORKING, NOT A
+ * RELAXATION. It was listed as "renders un-portalled inside BaseNode and
+ * OlumiSparkle". `OlumiSparkle` is deleted (it had zero JSX render sites), and
+ * it was the LAST importer of `Tooltip` anywhere under the derived scope
+ * (`nodes/` + `edges/`) — so the walk no longer crosses the boundary to it and
+ * the exact assertion RED'd, correctly.
+ *
+ * ⚠ AND THE OTHER HALF OF THAT SENTENCE WAS ALREADY FALSE BEFORE THAT:
+ * `BaseNode.tsx` imports no Tooltip at all and, on the evidence of this tip,
+ * did not render one. The pin stayed green on a reason that had already
+ * expired, because only ONE of its two named renderers had to survive for the
+ * derived entry to persist. A hand-written justification beside a derived list
+ * can rot without the list ever going red.
+ *
+ * `Tooltip` still renders in ~26 canvas files (panels, inspectors,
+ * pre-analysis). None is inside the viewport transform, which is the only
+ * scope this census governs — so its size is out of this census's remit, not
+ * unexamined.
  */
 const FOREIGN_RENDERED = [
   'src/canvas/components/CoachingCard.tsx',
   'src/canvas/components/UnknownKindWarning.tsx',
   'src/canvas/ui/shared/DataBar.tsx',
-  'src/components/Tooltip.tsx',
 ] as const
 
 const TW_NAMED = new Set(['xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl'])

@@ -1,89 +1,33 @@
 /**
- * MetricPills — influence-scale disclosure (lane C4).
+ * MetricPills — what survives after the influence pill was deleted.
  *
- * The "I: NN%" chip shares its number with the Drivers panel via the shared
- * display model (useNodeDisplayMetadata → driverDisplayModel), but rendered it
- * bare — no tooltip, no accessible name. On the fallback basis
- * ('normalised_elasticity') that number is set-relative (top driver ≡ 100% by
- * construction), so the chip must disclose the scale the same way the panel
- * does. Canvas-node idiom: native `title` + `aria-label` on the pill span
- * (same as the sibling EdgePills strength pill — audit §8 P0-4).
+ * ⚠ THIS FILE USED TO BE THE INFLUENCE-SCALE DISCLOSURE SPEC (lane C4), and
+ * four of its six tests rendered `<MetricPills influencePct={...} />` directly.
+ * Those tests were REACHABLE ONLY FROM THE SPEC: influence moved to the shared
+ * `NodeMetricRow` on 1 Sep 2026, and from then on the single `<MetricPills>`
+ * mount (FactorNode) passed `influenceProvenance` but never `influencePct`, so
+ * `hasInfluence` was false on every render in the product. The branch and its
+ * tests are deleted together.
  *
- * Fail-closed: with no provenance passed, the numeric chip is withheld.
+ * THE DISCLOSURE ITSELF IS NOT LOST — it moved with the number. The claim that
+ * a per-set-normalised figure must never read as an absolute causal share is
+ * pinned on the surviving surface by
+ * `FactorNode.spec.tsx` ("passes influence provenance ... (C4)", re-pointed to
+ * the row on 1 Sep and deliberately not relaxed) and by
+ * `components/results/__tests__/influenceIsNeverCalledAbsolute.spec.ts`.
  */
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MetricPills } from '../MetricPills'
 
-// Deliberately hard-coded (not imported from influenceScaleCopy) so a copy
-// change is a conscious, visible decision in this spec. No em dashes (DS ban,
-// review fix 3 — policed by influenceScaleCopy.copyHygiene.spec.ts).
-const RELATIVE_TITLE =
-  'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
-
-describe('MetricPills — influence-scale disclosure (lane C4)', () => {
-  // Review fix 5: aria-label on a role-less <span> is unreliably announced
-  // (generic role). The pill must use the codebase's ratified idiom for
-  // meaningful static markers — role="img" + aria-label (see
-  // ReadinessColourStrip.tsx for the rationale) — so every assertion below
-  // resolves the pill BY that role and accessible name.
-  it('relative basis: pill is a role="img" named with the relative-scale disclosure, plus a title', () => {
-    render(<MetricPills influencePct={100} influenceProvenance="normalised_elasticity" />)
-    const pill = screen.getByRole('img', {
-      name: 'Relative influence 100%, scaled against the strongest factor. The top driver always shows 100%',
-    })
-    expect(pill.textContent).toBe('Relative influence 100%')
-    expect(pill.getAttribute('title')).toBe(RELATIVE_TITLE)
-  })
-
-  it('producer basis: pill says RELATIVE, because that is what the basis is', () => {
-    /**
-     * ⚠⚠ THIS PINNED THE OPPOSITE UNTIL 5 Sep 2026 — "carries the absolute-basis
-     * wording, never the relative claim", including an explicit
-     * `not.toContain('always shows 100%')`. That design rested on
-     * `influence_score` being an absolute scale. It is not: the producer divides
-     * by `max|influence|`, so the top row is 1.0 BY CONSTRUCTION.
-     *
-     * ⚠ 6 Sep 2026 — THIS PARAGRAPH CONTINUED "and every capture in this repo
-     * carrying the field maxes at exactly 1.0 — twelve files". That is the
-     * universal, and the count, that the very spec this docblock cites below as
-     * its evidence WITHDRAWS BY NAME. What is measured, swept over `src/` at
-     * `aa504187`: 21 JSON files carry `influence_score`, not twelve; 20 of them
-     * max at exactly 1.0; the twenty-first,
-     * `seeded-2026-08-17-w2d-analysis-turn.json`, is uniformly 0. None exceeds
-     * 1.0, and none maxes strictly between 0 and 1.
-     *
-     * The disclosure the relative arm already carried is true of this arm too,
-     * and withholding it here is what let a 100%-by-construction figure read as
-     * a causal share. Changed by the panel lane; evidence in
-     * `components/results/__tests__/influenceIsNeverCalledAbsolute.spec.ts`.
-     */
-    render(<MetricPills influencePct={62} influenceProvenance="influence_score" />)
-    const pill = screen.getByRole('img', {
-      name: 'Relative influence 62%, scaled against the strongest factor. The top driver always shows 100%',
-    })
-    expect(pill.textContent).toBe('Relative influence 62%')
-    expect(pill.getAttribute('title')).toContain('always shows 100%')
-  })
-
-  it('no provenance (fail-closed): withholds the numeric claim', () => {
-    render(<MetricPills influencePct={80} />)
-    expect(screen.queryByText('Influence 80%')).not.toBeInTheDocument()
-  })
-
-  it('preserves an attested zero', () => {
-    render(<MetricPills influencePct={0} influenceProvenance="influence_score" />)
-    expect(screen.getByText('Relative influence 0%')).toBeInTheDocument()
-  })
-
-  it('unchanged behaviour: renders nothing when no metric is present', () => {
+describe('MetricPills', () => {
+  it('renders nothing when no metric is present', () => {
     const { container } = render(<MetricPills />)
     expect(container.firstChild).toBeNull()
   })
 
-  it('unchanged behaviour: confidence pill renders without an influence disclosure', () => {
+  it('renders the confidence pill', () => {
     render(<MetricPills confidencePct={45} />)
     expect(screen.getByText('Confidence 45%')).toBeDefined()
-    expect(screen.queryByText(/^I: /)).toBeNull()
   })
 })

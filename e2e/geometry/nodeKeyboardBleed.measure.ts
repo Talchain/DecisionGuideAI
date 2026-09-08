@@ -216,6 +216,8 @@ const ALL: StarterId[] = ['vendor-selection', 'market-entry', 'build-vs-buy', 'h
  * component look like two different render paths:
  *
  *   `BUTTON:Olumi estimated this`  → ScienceIcon on a FACTOR node
+ *                                    (that badge is DELETED as of staging
+ *                                     #1277 — see the merge note below)
  *   `BUTTON:Status quo bias`       → ScienceIcon on the BASELINE OPTION node
  *                                    (`useScienceIcons`, option-only,
  *                                     `is_baseline === true`)
@@ -231,6 +233,16 @@ const ALL: StarterId[] = ['vendor-selection', 'market-entry', 'build-vs-buy', 'h
  * binding that was not fixture prose), which collapsed both instances onto one
  * stable kind and made the duplication visible.
  *
+ * ⚠ MERGE NOTE (staging #1277). Everything above describes the table AS IT
+ * STOOD AT THE MERGE BASE, and is kept as the record of WHY two rows read as
+ * two paths. It is no longer a description of what renders: #1277 deleted the
+ * `olumi-estimate` ScienceIcon, so `Olumi estimated this` is not in the census
+ * any more and row 3 below names the ANCHORING badge instead. The FACTOR-node
+ * door is unchanged — only the badge chosen to represent it. The duplication
+ * this block exists to explain is UNCHANGED too: rows 3 and 5 are still two
+ * instances of the one `science-icon-trigger` render path, which is exactly
+ * why `name` is still load-bearing.
+ *
  * ⭐ SO `kind` AND `name` ANSWER DIFFERENT QUESTIONS AND BOTH ARE KEPT:
  * `kind` is the RENDER PATH (stable, from the testid); `name` picks WHICH
  * INSTANCE of it, and is the only thing that can (CLAUDE.md trap 21 — name the
@@ -241,11 +253,33 @@ const ALL: StarterId[] = ['vendor-selection', 'market-entry', 'build-vs-buy', 'h
 const DRIVEN_KINDS: Array<{ kind: string; starter: StarterId; why: string; name?: string }> = [
   { kind: 'node-action-ask', starter: 'vendor-selection', why: 'NodeQuickActions — the shared row on every node' },
   { kind: 'BUTTON:Explore more options', starter: 'vendor-selection', why: "DecisionNode's own call-to-action button" },
+  /*
+   * ⚠⚠ RE-POINTED TWICE, BY TWO PRs, FOR TWO DIFFERENT REASONS — AND BOTH
+   * CHANGES ARE KEPT. Either side taken alone REDs this row, so this is a
+   * merge of intents, not a choice between them:
+   *
+   *   #1277 (staging) changed WHICH INSTANCE. It deleted the `olumi-estimate`
+   *     ScienceIcon — that card stated "Olumi estimated this" three times —
+   *     so the instance this row used to name no longer renders at all. It
+   *     re-pointed to the ANCHORING badge: same `useScienceIcons` door, same
+   *     FACTOR node (`useScienceIcons.ts`, inside `nodeType === 'factor'`), so
+   *     path 3 stays covered instead of the drive quietly shrinking.
+   *
+   *   #1274 (this branch) changed WHICH IDENTITY. It gave `ScienceIcon` a
+   *     `data-testid`, so `kind` now comes from the stable testid branch of
+   *     `censusFocusables` rather than from three words of fixture prose.
+   *     #1277's `BUTTON:Options clustered around` is that now-dead FALLBACK
+   *     spelling and cannot match once the testid exists.
+   *
+   * So the row below takes #1277's INSTANCE (`name`) and #1274's IDENTITY
+   * (`kind`). Keeping only #1274's would name a deleted badge; keeping only
+   * #1277's would name a kind the census no longer emits.
+   */
   {
     kind: 'science-icon-trigger',
-    name: 'Olumi estimated this',
+    name: 'Options clustered around',
     starter: 'vendor-selection',
-    why: 'a science/provenance badge (useScienceIcons) on a FACTOR node',
+    why: 'a science/provenance badge (useScienceIcons) on a FACTOR node — the anchoring badge, after #1277 deleted the olumi-estimate one',
   },
   { kind: 'goal-node-no-target-chip', starter: 'vendor-selection', why: "GoalNode's own chip, outside the quick-action row" },
   {

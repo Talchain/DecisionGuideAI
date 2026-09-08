@@ -901,7 +901,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 data-testid="decision-leader-robustness"
                 title={robustnessGrade.title}
               >
-                {robustnessGrade.label}: small changes could flip which option leads.
+                {robustnessGrade.label}: small changes could flip which option the data supports.
               </div>
             )}
 
@@ -937,7 +937,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 corpus keeps biting on the copy it was written against. */}
             {showHeadline && headline && headline.winProb != null && (
               <NodeMetricRow
-                label={METRIC_NOUN.ahead}
+                label={METRIC_NOUN.support}
                 value={headline.winProb}
                 formatted={`${Math.round(headline.winProb * 100)}%`}
                 fillClass="bg-option"

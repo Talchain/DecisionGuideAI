@@ -23,7 +23,7 @@ import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { ConnRow, ConnRowsOverflow, Sep, NodeChip, ActionIcons, MetricPills, NodeMetricRow, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
+import { ConnRow, ConnRowsOverflow, Sep, NodeChip, MetricPills, NodeMetricRow, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { resolveFactorPriorRange } from './shared/factorPriorRange'
 import { useGuidanceStore } from '../stores/guidanceStore'
@@ -307,7 +307,6 @@ export const FactorNode = memo((props: NodeProps) => {
   )
 
   const isInferred = observedState?.extractionType === 'inferred'
-  const isExplicit = observedState?.extractionType === 'explicit'
 
   // ⭐ WHO PUT THIS NUMBER HERE — read from the EXISTING owners, never re-derived.
   //
@@ -452,16 +451,6 @@ export const FactorNode = memo((props: NodeProps) => {
   }, [isDetailed, isPostAnalysis, ceeAnalysisReady, props.id, observedState?.value, valueDisplay])
 
   const outboundConnections = useNodeConnections(props.id, 'outbound')
-
-  const handleConfirm = useCallback(() => {
-    if (!observedState) return
-    const store = useCanvasStore.getState()
-    const node = store.nodes.find(n => n.id === props.id)
-    if (!node) return
-    store.updateNode(props.id, {
-      data: { ...node.data, observedState: { ...observedState, extractionType: 'explicit' as const } },
-    })
-  }, [props.id, observedState])
 
   const influencePct = displayMetadata.influence != null ? Math.round(displayMetadata.influence * 100) : null
   // Already gated by the shared display policy — see useNodeDisplayMetadata.
@@ -652,46 +641,22 @@ export const FactorNode = memo((props: NodeProps) => {
       {/* The other two `inferred` populations — a value a PERSON owns, and one
           with no stamp at all — reach NEITHER arm and show no coaching line.
           That is a refusal to claim, not a hidden surface: the value, the
-          evidence badge, the chips and the connections all still render. For
-          the source-less case there is genuinely nothing true to say (claiming
-          the user authored it would invent authorship). For the user-owned
-          case there IS — but see the note on the arm below, which cannot
-          currently deliver it.
-          ⚠ FOUND WHILE FIXING THIS, NOT FIXED HERE: the arm below is
-          STRUCTURALLY DEAD. `useNodeConnections` returns `[]` unless
-          `results.status === 'complete'` (hooks/useNodeConnections.ts:35),
-          and this whole block renders only when NOT post-analysis — so
-          `outboundConnections.length > 0` can never hold here and this
-          sentence has never been able to render. Left in place and reported
-          rather than deleted or widened: deleting it is a separate
-          dead-code call, and widening it would ship a branch no test in this
-          harness can reach. */}
-      {isExplicit && isHighPriority && outboundConnections.length > 0 && (
-        <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
-          You provided this value. It strongly influences {outboundConnections[0]?.connectedNodeLabel ?? 'connected outcomes'}.
-        </p>
-      )}
+          evidence badge and the chips all still render. For the source-less
+          case there is genuinely nothing true to say (claiming the user
+          authored it would invent authorship).
+          ⚠ THE USER-OWNED ARM AND THE PRE-ANALYSIS CONNECTION LIST THAT USED
+          TO SIT HERE ARE DELETED, not merely quiet. Both gated on
+          `outboundConnections.length > 0`, and `useNodeConnections` returns
+          `[]` unless `results.status === 'complete'`
+          (hooks/useNodeConnections.ts:35) while this whole block renders only
+          when `!isPostAnalysis` — a contradiction, so neither could ever
+          render. The previous author found this, wrote it down here, and left
+          it as "a separate dead-code call". This is that call. The
+          post-analysis ConnRows list is the live one and is untouched. */}
       {nodeCategory === 'external' && outcomesAffected > 0 && (
         <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
           Uncertainty here affects {outcomesAffected} outcome{outcomesAffected !== 1 ? 's' : ''}.
         </p>
-      )}
-      {/* Connection list with strengths — max 3 whole rows, remainder
-          disclosed via "+N more in inspector" (audit §8 P0-5 containment). */}
-      {outboundConnections.length > 0 && (
-        <>
-          <Sep />
-          {outboundConnections.slice(0, 3).map(conn => (
-            <ConnRow
-              key={conn.edgeId}
-              edgeId={conn.edgeId}
-              nodeKind={conn.connectedNodeKind}
-              label={conn.connectedNodeLabel}
-              confidencePct={conn.confidencePct}
-            />
-          ))}
-          <ConnRowsOverflow total={outboundConnections.length} shown={3} />
-        </>
       )}
       {/* Coaching chips — moved out of body. They appear here in the
           high-priority Standard popover and in the Detailed inline render
@@ -830,12 +795,17 @@ export const FactorNode = memo((props: NodeProps) => {
         nodeType="factor"
         icon={metadata.icon}
         headerSlot={(() => {
-          // Graph v1.1 Task 2: low-priority factors keep their identity cues
-          // (sparkle for inferred, fileQuestion for needs-input) but lose extra
-          // science icons in Standard view. Detailed view always shows the full
-          // set. The needs-input fileQuestion icon is preserved regardless of
-          // priority because the truth table mandates it.
-          const KEEP_LOW_PRIORITY = new Set(['olumi-estimate', 'evidence-gap'])
+          // Graph v1.1 Task 2: low-priority factors keep their identity cue
+          // (fileQuestion for needs-input) but lose extra science icons in
+          // Standard view. Detailed view always shows the full set. The
+          // needs-input fileQuestion icon is preserved regardless of priority
+          // because the truth table mandates it.
+          //
+          // The set held 'olumi-estimate' too until that icon was deleted: it
+          // was the THIRD statement of "Olumi estimated this" on one factor
+          // card, 99px from `node-provenance-mark`, drawn with the SAME lucide
+          // Sparkles glyph. `node-provenance-mark` is the surviving one.
+          const KEEP_LOW_PRIORITY = new Set(['evidence-gap'])
           const visibleIcons = (!isDetailed && isLowPriority)
             ? scienceIcons.filter(si => KEEP_LOW_PRIORITY.has(si.id))
             : scienceIcons
@@ -1017,7 +987,6 @@ export const FactorNode = memo((props: NodeProps) => {
         )}
         {isPostAnalysis && !isDetailed && (
           <MetricPills
-            influenceProvenance={displayMetadata.influenceProvenance}
             confidencePct={confidencePct}
             confidenceIsDefaulted={displayMetadata.confidenceIsDefaulted}
             confidenceIsProvisional={displayMetadata.confidenceIsProvisional}
@@ -1049,18 +1018,6 @@ export const FactorNode = memo((props: NodeProps) => {
           </button>
         )}
 
-        {/* Action icons — wireframe v4 Task 5: external factors get no footer
-            actions (their data is outside the user's control). Low-priority
-            factors in Standard view drop the confirm icon entirely — "open the
-            details" now lives in the R5 quick-action layer on every node, so
-            the dead edit pencil that used to sit here is gone. */}
-        {nodeCategory !== 'external' && (
-          <ActionIcons
-            nodeId={props.id}
-            showConfirm={isInferred && valueDisplay !== null && (isDetailed || isHighPriority)}
-            onConfirm={handleConfirm}
-          />
-        )}
       </BaseNode>
 
       {/* ===== LAYER 2: Popover (Standard view) =====

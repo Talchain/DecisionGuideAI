@@ -385,7 +385,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     expect(differentiatorP).toBeUndefined()
   })
 
-  it('Standard post non-leading: shows "What would make this lead?" chip and NO differentiator', () => {
+  it('Standard post non-leading: shows "What would make this better supported?" chip and NO differentiator', () => {
     applyStore(twoOptionTopology('standard', 'post'))
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -398,7 +398,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
       isResultsMode: true,
     } as any)
     renderOption({})
-    expect(screen.getByText('What would make this lead?')).toBeDefined()
+    expect(screen.getByText('What would make this better supported?')).toBeDefined()
     // Differentiator is pre-analysis only.
     expect(screen.queryByText(/key difference/i)).toBeNull()
   })
@@ -425,7 +425,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     } as any)
     renderOption({})
     expect(screen.queryByText(/key difference/i)).toBeNull()
-    expect(screen.getByText('What would make this lead?')).toBeDefined()
+    expect(screen.getByText('What would make this better supported?')).toBeDefined()
   })
 
   // ---- Graph v2 Task 4: close-call variant ----
@@ -455,7 +455,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     report: {
       robustness: {
         recommended_option_id: 'option-2',
-        // ROADMAP 1.239: the close-call line and the "Behind:" reason now both
+        // ROADMAP 1.239: the close-call line and the "Held back by:" reason now both
         // require an ENTITLED leader, not merely an identified one. This
         // fixture has always MEANT "this run has a leader" — it just never
         // said so, and the deleted win-probability derivation was supplying
@@ -472,7 +472,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     },
   })
 
-  it('Standard post non-leader, gap 3pp: shows the qualitative close-call marker and keeps "Behind:" line', () => {
+  it('Standard post non-leader, gap 3pp: shows the qualitative close-call marker and keeps "Held back by:" line', () => {
     applyStore(closeCallTopology(3))
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -489,9 +489,9 @@ describe('Render matrix — OptionNode × view × phase', () => {
     // The tie-ness SIGNAL is valuable and stays; the percentage-point gap is
     // the banned statistic and is gone. The node already states this option's
     // own win probability directly above.
-    expect(screen.getByText('Close call with the leading option')).toBeDefined()
+    expect(screen.getByText('Within a small margin of the most-supported option')).toBeDefined()
     expect(screen.queryByText(/percentage point/i)).toBeNull()
-    expect(screen.getByText(/Behind:/)).toBeDefined()
+    expect(screen.getByText(/Held back by:/)).toBeDefined()
   })
 
   it('Standard post non-leader, gap 1pp: the marker still fires at the narrow end of the window', () => {
@@ -510,7 +510,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     // ⭐ SUPERSEDED 2026-08-10: this asserted the singular 'point' form. With
     // no number rendered there is no pluralisation left to pin — what remains
     // worth pinning is that a 1pp gap is still INSIDE the close-call window.
-    expect(screen.getByText('Close call with the leading option')).toBeDefined()
+    expect(screen.getByText('Within a small margin of the most-supported option')).toBeDefined()
     expect(screen.queryByText(/percentage point/i)).toBeNull()
   })
 
@@ -550,11 +550,11 @@ describe('Render matrix — OptionNode × view × phase', () => {
       isResultsMode: true,
     } as any)
     renderOption({})
-    expect(screen.getByText('Close call with the leading option')).toBeDefined()
+    expect(screen.getByText('Within a small margin of the most-supported option')).toBeDefined()
     expect(screen.queryByText(/percentage point/i)).toBeNull()
   })
 
-  it('Standard post close-call: "What would change this?" chip is added alongside "What would make this lead?"', () => {
+  it('Standard post close-call: "What would change this?" chip is added alongside "What would make this better supported?"', () => {
     applyStore(closeCallTopology(3))
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -568,7 +568,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     } as any)
     renderOption({})
     expect(screen.getByText('What would change this?')).toBeDefined()
-    expect(screen.getByText('What would make this lead?')).toBeDefined()
+    expect(screen.getByText('What would make this better supported?')).toBeDefined()
   })
 
   it('Standard post non-leader, gap 10pp: NO close-call line, NO "What would change this?" chip', () => {
@@ -584,13 +584,18 @@ describe('Render matrix — OptionNode × view × phase', () => {
       isResultsMode: true,
     } as any)
     renderOption({})
-    // Bound to the marker that actually renders — the old /Close call:/ pattern
+    // Bound to the marker that actually renders — the old /Within a small margin/ pattern
     // stops matching once the colon-and-number form is gone, which would make
     // this absence assertion pass by testing nothing.
-    expect(screen.queryByText(/Close call/i)).toBeNull()
+    //
+    // ⚠ RE-BOUND 7 Sep 2026, FOR THE SECOND TIME AND FOR THE SAME REASON. The
+    // marker stopped saying "Close call" at all (Paul's no-contest ruling), so
+    // /Within a small margin/i would now pass against a card that renders the marker in
+    // full. The comment above was already the warning; this is it firing.
+    expect(screen.queryByText(/Within a small margin/i)).toBeNull()
     expect(screen.queryByText('What would change this?')).toBeNull()
-    // The standard "What would make this lead?" chip is still present.
-    expect(screen.getByText('What would make this lead?')).toBeDefined()
+    // The standard "What would make this better supported?" chip is still present.
+    expect(screen.getByText('What would make this better supported?')).toBeDefined()
   })
 
   it('Standard post leader: NO close-call line on the leader itself', () => {
@@ -618,13 +623,13 @@ describe('Render matrix — OptionNode × view × phase', () => {
       isResultsMode: true,
     } as any)
     renderOption({})
-    expect(screen.queryByText(/Close call:/)).toBeNull()
+    expect(screen.queryByText(/Within a small margin/i)).toBeNull()
   })
 
   it('Pre Standard non-baseline: close-call line never renders pre-analysis', () => {
     applyStore({ ...closeCallTopology(3), phase: 'pre' })
     renderOption({})
-    expect(screen.queryByText(/Close call:/)).toBeNull()
+    expect(screen.queryByText(/Within a small margin/i)).toBeNull()
   })
 })
 

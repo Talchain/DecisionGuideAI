@@ -73,6 +73,7 @@
 import { RefreshCw } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { gateBlockedSubline } from '../pre-analysis-v3/footer/readinessDisplay'
+import { BLOCKED_REASON_COPY } from '../../utils/composeBlockedReason'
 import { useAnalysisTrust } from '../../hooks/useAnalysisTrust'
 import { useCanvasStore } from '../../store'
 
@@ -169,7 +170,43 @@ export function ReanalyseBar({
   // the same fallback the pre-analysis footer and the readiness bar use.
   // The sibling's expression, verbatim. A run in flight is not a refusal.
   const blocked = !canRun && !isAnalysing
-  const blockedSentence = blocked ? gateBlockedSubline(blockedReason) : undefined
+  const composedSentence = blocked ? gateBlockedSubline(blockedReason) : undefined
+
+  // ⚠ THE BAR AND THE SUBLINE ANSWER TWO DIFFERENT QUESTIONS, AND ONE ANSWER WAS
+  // BEING GIVEN TWICE. The headline above answers *"has the model changed?"*; this
+  // subline answers *"why can the button not run?"*. When the gate's reason is the
+  // staleness re-check, its first clause — "Your model changed since the last
+  // check" — IS the headline's claim restated, so the pair read as one sentence
+  // printed twice. Witnessed on the deployed Model tab (`135cd7fb`, 7 Sep 2026) in
+  // the visual-regression capture: FOUR lines in the bottom ~100px all saying the
+  // model changed, against ONE line plus the composer in the reference blessed on
+  // 2 Sep. The composer beneath says it a third time ("Model changed. Ask or
+  // rerun…"), which this does not touch — that placeholder is not ours.
+  //
+  // The shared composer CANNOT fix this: `composeBlockedReason` is consumed by the
+  // pre-analysis footer and the readiness bar too, and in those surfaces nothing
+  // has made the claim yet, so the full sentence is exactly right there. The
+  // knowledge that the claim is already on screen belongs to THIS bar alone.
+  //
+  // ⚠ AND SUPPRESSING THE SUBLINE OUTRIGHT WAS THE WRONG FIX, which is why it is
+  // not what happens here. The button is `disabled` in this state, and this file's
+  // header records what that costs: a control that looks pressable and cannot work,
+  // whose only explanation lives in a `title` no touch or keyboard user can reach.
+  // Deleting the subline would re-open exactly that. So the remainder is kept — the
+  // half that says something the headline does not.
+  //
+  // DERIVED FROM THE SHARED SENTENCE, never a second copy of it (trap 12: a
+  // hand-maintained mirror of copy drifts silently the first time someone edits the
+  // original). If the shared sentence is ever rewritten to a single clause the
+  // remainder is empty, and the fallback below returns TODAY'S behaviour — the full
+  // sentence, duplication and all. That is the safe direction to fail: a repeated
+  // explanation is a blemish, a missing one is the defect this bar already paid for.
+  const staleRecheckRemainder = BLOCKED_REASON_COPY.staleRecheck.split('. ').slice(1).join('. ')
+  const answersOnlyWhatTheHeadlineSaid =
+    composedSentence !== undefined &&
+    composedSentence === gateBlockedSubline(BLOCKED_REASON_COPY.staleRecheck) &&
+    staleRecheckRemainder.length > 0
+  const blockedSentence = answersOnlyWhatTheHeadlineSaid ? staleRecheckRemainder : composedSentence
 
   return (
     <div
