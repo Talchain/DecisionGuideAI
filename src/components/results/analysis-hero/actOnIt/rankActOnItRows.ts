@@ -29,6 +29,7 @@
  * from copy.
  */
 
+import { leaderDesignationPermitted } from '../../leaderDesignation'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { ActOnItRow, PriorityBand, RowAction, RowCategory } from './types'
 // Single canonical glossary matcher shared across production + test scanner.
@@ -280,7 +281,78 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): ActOnItRow | null {
   // verb — earlier forms ("If {label} changes, …") produced mid-sentence
   // repetition for labels that themselves end in "changes"/"shifts".
   const safeFromLabel = safeOrFallback(rawLabel)
-  const reason = `If the estimate changes for ${safeFromLabel}, the leading option could change.`
+  // ⭐ THE LEADER LICENCE, ON THE ARM THAT NAMES ONE.
+  //
+  // "the leading option" is a DEFINITE DESCRIPTION: it asserts a leading option
+  // exists. Witnessed on deployed `e2016182` (fresh guest journey, 7 Sep 2026)
+  // printing on a run whose hero headline was the `noLeader` arm — "Here is how
+  // your options compare." — with "Leading option not assessed", "Goal fit (not
+  // available for this run)", "Robustness unknown" and "Evidence not assessed"
+  // all on the same screen. Five surfaces reported no leader; this one asserted
+  // one three inches below them. Nothing in `actOnIt/` read the licence at all
+  // (zero non-test occurrences of `leaderDesignationPermitted` in the directory
+  // before this change), so the sentence was emitted unconditionally.
+  //
+  // ⚠ GATED ON `=== false`, NOT `=== true`, DELIBERATELY. The helper returns
+  // `true | false | undefined`, and `undefined` is not "withheld".
+  //
+  // ⚠⚠ WHAT `undefined` COVERS CHANGED UNDER THIS PR, and an earlier revision of
+  // this comment described only the older half. #1238 rewrote
+  // `leaderDesignation.ts` so Q2 alone MAY WITHHOLD AND MAY NEVER LICENSE:
+  //
+  //     rec == null                                          -> undefined
+  //     composed answer present                              -> that answer
+  //     no composed answer, hasLeadingOption === false       -> false
+  //     no composed answer, hasLeadingOption === true        -> undefined  (was `true`)
+  //
+  // So `undefined` now covers TWO shapes, not one: a caller with no verdict at
+  // all, AND a verdict asserting separation with no composed answer beside it —
+  // the licence-inferred-from-separation read that #1238 exists to abolish. The
+  // older gloss, "a legacy caller with no verdict", named only the first and is
+  // why this comment had to be rewritten rather than merely re-dated.
+  //
+  // The gate is UNAFFECTED: `!== false` maps `true` and `undefined` to the same
+  // arm, so the one cell #1238 moved cannot change what this row prints. That is
+  // the reason this is a comment repair and not a behavioural one. Gating on
+  // `=== true` would
+  // withhold on every no-authority run too, which is the over-broad gate that
+  // DELETED the producer-tie sentence in #1232: a true sentence the product had
+  // earned, swapped for silence. This gate fires only where the model has
+  // POSITIVELY withheld, so it cannot regress a run that was never withheld.
+  //
+  // The fallback is not new copy — `TriageActionCardsBody` already ships "the
+  // result could change" as the truthful noun for exactly this sentence.
+  // ⚠ TWO WITHHOLDING ROUTES, NOT ONE. Derived at the producer's declared
+  // output domain rather than inferred from a fixture:
+  //
+  //   · `leaderDesignationPermitted === false` — the model positively withheld.
+  //     On the production path this is the ONLY way withholding arrives:
+  //     `useResultsSectionData` computes it as
+  //     `licensesComparativeLeaderClaim(...) && verdict.hasLeadingOption`, and
+  //     BOTH terms are declared strictly `boolean` — the return type of
+  //     `licensesComparativeLeaderClaim` (`useAnalysisReady.ts`) and the field
+  //     `DecisionVerdict.hasLeadingOption` (`decisionVerdict.ts`) — so the
+  //     conjunction cannot widen to `undefined`. Proved at the type level: the
+  //     same expression assigned to `boolean` compiles clean, while the
+  //     identical shape over an optional field fails TS2322.
+  //
+  //   · `recommendation == null` — there is no recommendation object AT ALL,
+  //     so the helper returns `undefined` and the `=== false` test alone would
+  //     let the sentence name a leader on a run that has no comparison
+  //     whatsoever. This row is reachable in that state because it is built
+  //     from `confidence.topFragileEdge`, which does not depend on
+  //     `recommendation`. You cannot have a leading option with no
+  //     recommendation, so this is withholding too.
+  //
+  // `undefined` WITH a recommendation present stays on the naming arm: that is
+  // a legacy object that never went through this producer, and treating
+  // no-authority as withheld is the over-broad gate that deleted the
+  // producer-tie sentence in #1232.
+  const mayNameLeader =
+    data.recommendation != null && leaderDesignationPermitted(data.recommendation) !== false
+  const reason = mayNameLeader
+    ? `If the estimate changes for ${safeFromLabel}, the leading option could change.`
+    : `If the estimate changes for ${safeFromLabel}, the result could change.`
   return {
     key: `risk-${fragile.fromId}`,
     title,

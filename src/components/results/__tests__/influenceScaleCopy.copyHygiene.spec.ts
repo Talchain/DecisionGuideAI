@@ -25,6 +25,7 @@ import {
   analysisMetricPredicate,
   analysisMetricTitle,
   analysisMetricVisibleLabel,
+  ZERO_REASON_BADGE_LABELS,
 } from '../influenceScaleCopy'
 import {
   resolveAnalysisMetric,
@@ -63,6 +64,15 @@ function allStrings(): string[] {
       analysisMetricPredicate(metric),
       analysisMetricContextSentence(metric),
     ]),
+    /* ⚠ ADDED WHEN THE MAP MOVED HERE FROM `DriversSection.tsx`. This list is a
+       HAND-MAINTAINED MIRROR (CLAUDE.md trap 12) — a string not named here is
+       silently unpoliced by all three cases below — so an export arriving in
+       this module has to arrive in this array in the same commit.
+
+       `Object.values` rather than three literals: the map is TOTAL over
+       `NonNullable<ZeroReasonCode>`, so a fourth code added to the union is
+       policed here without anyone remembering to extend this line. */
+    ...Object.values(ZERO_REASON_BADGE_LABELS),
   ]
 }
 

@@ -20,6 +20,8 @@ import type {
   RepairQueue,
 } from './types'
 import { DECISION_NODE_LABEL, UNCONFIRMED_ESTIMATE_LABEL } from '../domain/vocabulary'
+import { AlertTriangle, CircleDashed, HelpCircle, Split, Target } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 /**
  * How a deferral reads on screen (design §5.3, Paul's ruling 16 Aug 2026).
@@ -140,6 +142,68 @@ export const KIND_LABEL: Record<ModelElementKind, string> = {
  * SAME predicate (design §4.2), so a count and its rows can never disagree the
  * way today's "N to verify" badge and its unreachable factors do.
  */
+/**
+ * ⭐ THE MARK FOR EACH REASON — the SHAPE that carries the meaning.
+ *
+ * Before this, all five reasons drew `⚠`. Two of them co-occur on producible
+ * rows (`contested` + `fragile` on a relationship; `no-value` +
+ * `unconfirmed-estimate` on a factor), so a row could show two identical marks
+ * and name neither. Distinct shapes make the row readable at rest, which a
+ * `title` cannot do — a tooltip is unreachable by touch and by keyboard, and
+ * asking a reader to hover three rows in turn to tell them apart is the defect,
+ * not its remedy.
+ *
+ * ⚠ DERIVED FROM THE ENUM, so adding an `AttentionReason` is a TYPE ERROR here
+ * rather than a silent fallback to somebody else's icon. That is the whole
+ * reason this is a `Record<AttentionReason, …>` and not a lookup with a
+ * default — a hand-maintained mark set that quietly reuses one shape is exactly
+ * what was being fixed.
+ */
+/**
+ * Is this row still carrying its TYPE's default name rather than one a person
+ * wrote?
+ *
+ * Witnessed on deployed `a9c2e050`: a row in the Goal group read "Question"
+ * beside what looked like an empty checkbox. Both halves are correct on their
+ * own — `Question` is `DECISION_NODE_LABEL`, whose own doc argues it "invites
+ * the user to write theirs", and the box is `'□'`, the decision kind glyph. The
+ * defect is that the invitation is drawn in exactly the treatment an authored
+ * label gets, so nothing distinguishes "not written yet" from "named Question".
+ *
+ * ⚠ COMPARED BY VALUE AGAINST THE CONSTANT, NOT BY KIND. Muting every decision
+ * row would grey out every question a user HAS written — the failure mode that
+ * makes this worse than the defect. The estate's precedent is
+ * `utils/ghostTiers.ts:302`, which refuses a label equal to the unnamed
+ * fallback for the same reason: a producer default is not a name a user typed.
+ */
+export function labelIsTypeDefault(row: { kind: ModelElementKind; label: string }): boolean {
+  return row.kind === 'decision' && row.label.trim() === DECISION_NODE_LABEL
+}
+
+/** What a placeholder name says it is, for hover and assistive tech. */
+export const UNWRITTEN_QUESTION_TITLE =
+  'Your question is not written yet — open this to write it.'
+
+export const ATTENTION_MARK: Record<AttentionReason, LucideIcon> = {
+  'no-value': CircleDashed,
+  'unconfirmed-estimate': HelpCircle,
+  contested: Split,
+  fragile: AlertTriangle,
+  'missing-intervention': Target,
+}
+
+/**
+ * Which reasons colour as a WARNING rather than as a note.
+ *
+ * ⚠ SEVERITY, NOT CATEGORY. `fragile` is the only reason that says the ANSWER
+ * could change; the others say the model is incomplete, which is worth knowing
+ * and is not an alarm. Colouring all five identically is what made the row read
+ * as five alarms and taught a reader to ignore the colour.
+ */
+export const ATTENTION_IS_SEVERE: ReadonlySet<AttentionReason> = new Set<AttentionReason>([
+  'fragile',
+])
+
 export const ATTENTION_LABEL: Record<AttentionReason, string> = {
   'no-value': 'No value set',
   // ⚠ THE STRING LIVES IN `domain/vocabulary` NOW, NOT HERE. The model strip

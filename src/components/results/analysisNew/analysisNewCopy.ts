@@ -20,6 +20,68 @@ import { GOAL_ANCHOR_COPY } from '../utils/goalAnchorCopy'
  * sentence — blank, a bare node id, or one carrying a banned glossary term.
  * `safeInterpolatedLabel` is the shared guard; this is what it falls back to.
  */
+/**
+ * The estate's one list joiner. `Intl.ListFormat` is already this repo's answer
+ * for prose lists (`OptionPreview.tsx:439`); reusing it means the en-GB comma
+ * rules have one owner rather than two, and it is correct at every arity —
+ * which a `.join(', ')` is not, as the partial-result ribbon proved on a
+ * deployed build.
+ */
+type ConjunctionListFormat = {
+  format: (items: readonly string[]) => string
+}
+
+/**
+ * ⚠ TYPED LOCALLY, AND NOT BECAUSE `Intl.ListFormat` IS EXOTIC. This repo's
+ * `lib` does not declare it, so the ambient `Intl` type has no `ListFormat` —
+ * the estate's other call site (`OptionPreview.tsx:439`) reaches for it anyway
+ * and carries the resulting error as BASELINED DEBT. Adding a third instance of
+ * that debt to close a defect would be trading one silent wrong for another,
+ * so the capability is declared once, here, with the reason attached.
+ *
+ * The runtime has had it since Node 14 / every browser we support; the gap is
+ * purely in the compiler's view of the platform.
+ */
+/**
+ * ⚠ BUILT LAZILY, NOT AT MODULE SCOPE. Constructing it on import means an
+ * environment without `Intl.ListFormat` throws during IMPORT — which no
+ * `SectionErrorBoundary` can catch, so the whole chunk goes rather than one
+ * section. The estate's other call site builds it at render, which is
+ * catchable. Support is universal in practice; the asymmetry was still worth
+ * removing, and review named it.
+ */
+let conjunctionList: ConjunctionListFormat | null = null
+function getConjunctionList(): ConjunctionListFormat {
+  conjunctionList ??= new (
+    Intl as unknown as {
+      ListFormat: new (
+        locale: string,
+        options: { style: 'long'; type: 'conjunction' },
+      ) => ConjunctionListFormat
+    }
+  ).ListFormat('en-GB', { style: 'long', type: 'conjunction' })
+  return conjunctionList
+}
+
+/**
+ * The estate's one prose-list joiner: `A`, `A and B`, `A, B and C`.
+ * Exported so a second consumer reuses it rather than minting a second parser
+ * for the en-GB comma rules — the drift this panel has already paid for once.
+ */
+export function formatConjunctionList(items: readonly string[]): string {
+  return getConjunctionList().format(items)
+}
+
+const MISSING_LIST = { format: (items: readonly string[]) => getConjunctionList().format(items) }
+
+/**
+ * The coverage warning with no names in it. Held as a const because
+ * `provisionalNaming` falls back to it: the guarantee "an empty list never
+ * emits a sentence fragment" then belongs to the STRING, not to its one
+ * call site, and survives a second caller.
+ */
+const PROVISIONAL_UNNAMED = 'This analysis is partial — some results are missing.'
+
 export const ANALYSIS_NEW_LABEL_FALLBACK = 'This option'
 
 export const ANALYSIS_NEW_COPY = {
@@ -76,6 +138,30 @@ export const ANALYSIS_NEW_COPY = {
   },
 
   /**
+   * ⭐ WHAT IS BEHIND EACH COLLAPSED DETAIL ROW.
+   *
+   * The design pack draws a subtitle on every one of its three collapsed rows,
+   * and these are its words. A title plus a count is a container name and a
+   * number; the subtitle is the part that tells a reader whether the row is
+   * worth a click.
+   *
+   * ⚠ FURNITURE, ASSERTING NOTHING. Each says what KIND of thing is inside, and
+   * stays true of a row that turns out to be empty — which these rows can be.
+   * "The findings this run leads with" would be a claim, and false on a run that
+   * produced none; "what this run could not settle" is a description of the
+   * container and holds either way.
+   *
+   * Only the three DETAIL rows get one. They sit together at the foot of the
+   * panel as the drawer a reader opens for method and receipts; the sections
+   * above are content, not a drawer, and a subtitle there would be decoration.
+   */
+  sectionSubtitles: {
+    drivers: 'What moves the outcome, and through what',
+    uncertainty: 'What this run could not settle',
+    deeper: 'Method, provenance and receipts',
+  },
+
+  /**
    * Empty states. Each one states what was NOT established, never a reassuring
    * positive. "No high-priority reasoning intervention identified yet" is a
    * fact about this run; "Your reasoning looks solid" would be a claim nobody
@@ -126,7 +212,7 @@ export const ANALYSIS_NEW_COPY = {
       'Which reading matters more is a judgement about your appetite for risk, not a result this run can settle.',
     /** The aligned state. Agreement across two different questions is evidence. */
     alignedLead: (label: string): string =>
-      `${label} leads on both readings of this run.`,
+      `${label} is most likely on both readings of this run.`,
     alignedResolve:
       'The two readings agree, so the choice does not hinge on which one you weight.',
     /**
@@ -205,7 +291,58 @@ export const ANALYSIS_NEW_COPY = {
      * that, and three reasons cannot share one summary without one of them
      * being described wrongly.
      */
-    driversAllZero: 'This run returned factor influence, and every factor came back at zero.',
+    /**
+     * ⚠⚠ REPLACES `driversAllZero`, WHICH ASSERTED A ZERO THE PRODUCER NEVER
+     * MEASURED. It read "This run returned factor influence, and every factor
+     * came back at zero." — said whenever `suppressedZeroCount > 0` and nothing
+     * survived to be ranked, i.e. for ALL THREE `zero_reason` codes.
+     *
+     * `intervention_override` is not a zero. Measured on
+     * `conditional-winners-2026-08-17-probe-A.json`, a capture already in this
+     * repo: both rows carry `zero_reason: 'intervention_override'` with
+     * `influence_score` 1 and 0.556 at ranks 1 and 2 — the two STRONGEST
+     * factors in the run — and the reader was told every factor came back at
+     * zero. The caveat one line above named the real reason ("Controlled by
+     * your options") in the same breath, so the panel contradicted itself on
+     * one screen.
+     *
+     * ⚠ HOW OFTEN THIS HAPPENS IS NOT MEASURED, AND THE TWO OBVIOUS ADJECTIVES
+     * ARE BOTH WRONG. What IS measured: **1 of 26 driver lists** carrying
+     * `zero_reason` across the capture fixtures under `src/` is all-suppressed
+     * (the other 25 are partial). ⚠ THAT IS A NUMBER ABOUT THE CORPUS, NOT A
+     * SAMPLE OF USER RUNS — the fixtures were collected for other reasons and
+     * nobody has measured how often a user meets this state.
+     *
+     * The MECHANISM, marked as mechanism rather than observation: a factor the
+     * user pins is SET rather than learned, so contributing no outcome
+     * variance is the expected consequence and not a defect. That explains
+     * both captures we hold without counting either, so it licenses no
+     * frequency claim in either direction. Calling the state "rare" or
+     * "ordinary" would swap one unmeasured frequency for another, and
+     * "ordinary" is the more dangerous, because it licenses design decisions
+     * that "rare" does not.
+     *
+     * ⚠ THIS FILE ALREADY STATED THE RULE AT THE CONSTANT THAT BROKE IT:
+     * "three reasons cannot share one summary without one of them being
+     * described wrongly". So the summary is gone and the producer's own reason
+     * labels carry the meaning — the same `ZERO_REASON_BADGE_LABELS` the
+     * exclusion clause and the Drivers panel badges already use, so there is
+     * one spelling of each reason across the surface.
+     *
+     * The distinction `driversAllZero` existed to protect SURVIVES: "returned
+     * and set aside" is still audibly different from `drivers`, which says the
+     * run did not return factor influence at all.
+     */
+    noneRanked: (n: number, reasons: readonly string[]) =>
+      `No factor is ranked in this run. ${n === 1 ? '1 factor was' : `${n} factors were`} returned and set aside: ${reasons.join('; ')}.`,
+    /**
+     * ⚠ FAIL-CLOSED SIBLING. `suppressedZeroCount` and `suppressedZeroReasons`
+     * move together by construction, but the count is not what a sentence
+     * naming reasons can be written from — a non-empty count with an empty
+     * reason list would render "... set aside: ." This states only the half
+     * that is always true. Same order of reasoning as `driversCaveat`.
+     */
+    noneRankedUnexplained: 'No factor is ranked in this run.',
     /**
      * TRUTH CONDITION: `driversStatus === 'skipped'` — the producer's own word
      * for "I did not look". Distinct from 'unavailable'/'error', which mean it
@@ -368,6 +505,50 @@ export const ANALYSIS_NEW_COPY = {
     lowers: 'Lowers the goal',
     raises: 'Raises the goal',
     /**
+     * ⚠⚠ THE SCALE, AND IT IS DELIBERATELY NOT A PERCENTAGE.
+     *
+     * The bars are scaled to the STRONGEST DRIVER IN THIS RUN
+     * (`buildAnalysisNewViewModel.ts:558/565`), never to a sum and never to 1.0
+     * — the builder's own comment states why: scaling to a sum would render
+     * each bar as a SHARE OF THE OUTCOME, "a claim neither basis licenses".
+     *
+     * So an axis reading 0%–100% would be exactly the unlicensed claim, dressed
+     * as a courtesy to the reader. What the outer edge actually means is "the
+     * strongest driver this run found", and what the centre means is "no effect
+     * on the goal". Naming those two points is the whole scale, and it is the
+     * only scale the data supports.
+     *
+     * Witnessed by Paul on deployed `a9c2e050`: the chart gave direction with no
+     * reference point, so a bar's position and length were unreadable.
+     */
+    axisCentre: 'no effect',
+    /**
+     * ⚠⚠ TWO ENDPOINTS, TWO NAMES. Both ends read `'strongest this run'` until
+     * `e15416ad` — the SAME THREE WORDS at opposite poles of a diverging scale,
+     * witnessed in the founder captures on staging `acd3db4d`. The geometry was
+     * correct and remains untouched: bars extend from the centre and the side
+     * is the direction. Only the labels could not be told apart, so the scale
+     * discriminated nothing and the reader had to infer the poles from the
+     * legend above it.
+     *
+     * ⚠ WHAT THE ENDPOINT IS CALIBRATED TO, stated here because the wording no
+     * longer says it: `buildDrivers` scales every bar to
+     * `Math.max(...live.map(magnitude))` — the strongest driver in the run
+     * REGARDLESS OF DIRECTION — so both poles sit at the same magnitude and an
+     * end is reached only by a bar of that magnitude pushing that way. "Most"
+     * is therefore the honest word for the pole and a percentage is not: see
+     * `axisCentre`'s note for why a 0-100% axis would assert a share of the
+     * outcome that neither basis licenses.
+     *
+     * ⚠ THE VERBS ARE THE LEGEND'S. `lowers` / `raises` above name the effect
+     * ON THE GOAL, and these two must keep agreeing with them — a scale whose
+     * poles contradict the legend directly above it is worse than one that
+     * repeats itself. `driversSeamSaysOneThing.spec.tsx` pins the agreement
+     * rather than trusting this note.
+     */
+    axisEdgeLowers: 'lowers most',
+    axisEdgeRaises: 'raises most',
+    /**
      * ⚠ NOT "no direction" AND NOT SILENCE. `mixed` and `unknown` are results:
      * the producer measured the factor and declined to assert one direction.
      * "Direction not established" says that; "no direction" would report an
@@ -375,10 +556,18 @@ export const ANALYSIS_NEW_COPY = {
      */
     directionNotEstablished: 'Direction not established',
     /**
-     * The section header for the chart. It names the QUESTION the chart
-     * answers, which is not the question the glance's bars answer — those rank
-     * the top three by size; this one says which way each pushes and lets you
-     * change it.
+     * The section header for the chart. It names the QUESTION the chart answers.
+     *
+     * ⚠⚠ THIS COMMENT USED TO SAY THE GLANCE'S BARS ANSWERED A DIFFERENT
+     * QUESTION — "those rank the top three by size; this one says which way each
+     * pushes". THE SECOND HALF WAS TRUE AND THE FIRST WAS TRUE OF BOTH, which is
+     * how one ranking came to be rendered twice on one scroll. Derived at
+     * `e15416ad`: `glanceDrivers` and `buildDrivers` read the same
+     * `data.drivers.drivers`, apply the same `zeroReason` filter, take the same
+     * `displayInfluence` magnitude and divide by the same within-run maximum.
+     * The glance's list was a strict subset of these rows carrying a strict
+     * subset of this information. It has been removed; this is the one
+     * rendering. A false comment is what let the duplication read as a decision.
      */
     title: 'Which way each driver pushes',
   },
@@ -631,23 +820,29 @@ export const ANALYSIS_NEW_COPY = {
      * was TRUE; the defect was the repetition, and repetition is not emphasis.
      * `freshnessSaidOnce.spec.tsx` holds the count at one.
      */
-    eyebrowLeading: 'Leading option',
+    eyebrowLeading: 'Most likely to serve your goal',
+    /**
+     * ⚠ STILL LIVE, AND ITS ONLY CONSUMER IS NOW `ModelStrip`'s per-node chip —
+     * a standalone claim that the run ranked this node among its top drivers.
+     * The glance's own driver LIST, which this used to head, was removed at
+     * `e15416ad`: it restated the drivers section's ranking from the same
+     * fields one scroll above it.
+     */
     whatMattersMost: 'What matters most',
     couldChangeIf: 'Could change if',
-    /** ⚠ Declares the glance's own cap. See `AtAGlance`'s driver overflow. */
-    moreDrivers: (n: number) => `+ ${n} more driver${n === 1 ? '' : 's'} in this run`,
     /**
-     * ⚠ THE BASIS CAPTION IS A TRUTH CLAIM, NOT A LEGEND, which is why it is
-     * visible rather than hover-only. "Relative influence" says the bars rank
-     * within THIS run; "Influence" says they sit on the producer's own scale.
-     * A reader who mistakes the first for the second reads a rank as a share.
+     * ⛔ `moreDrivers`, `basisRelative`, `basisAbsolute` and
+     * `basisRelativeExplain` DELETED with the glance's driver list — they were
+     * that list's cap disclosure and its basis caption, and nothing else read
+     * them. `basisAbsoluteExplain`'s SENTENCE survives, relocated verbatim to
+     * `coverage.structuralInfluence`, because the claim it makes is still owed
+     * to the reader; it is now a visible caveat on the drivers section rather
+     * than a `title` tooltip the touch reader could never open.
+     *
+     * The set-relative half of that caption is not lost either: the drivers
+     * section has always carried `coverage.setRelativeInfluence`, which is the
+     * same claim in the place the bars now live.
      */
-    basisRelative: 'Relative influence',
-    basisAbsolute: 'Influence',
-    basisRelativeExplain:
-      'Each bar is scaled against the strongest factor in this run, so the bars rank the factors against each other. They are not shares of the outcome.',
-    basisAbsoluteExplain:
-      "Each bar shows the producer's own structural influence score, scaled against the strongest factor in this run.",
   },
 
   markers: {
@@ -730,7 +925,7 @@ export const ANALYSIS_NEW_COPY = {
      * levels: naming them apart is what stops a later reader folding them into
      * one and making the badge speak for the run (CLAUDE.md trap 21).
      */
-    provisional: 'This analysis is partial — some results are missing.',
+    provisional: PROVISIONAL_UNNAMED,
     /**
      * ⭐⭐ THE SAME WARNING, SAYING WHICH RESULTS.
      *
@@ -747,8 +942,19 @@ export const ANALYSIS_NEW_COPY = {
      * did not make. An unrecognised key is DROPPED rather than shown raw, and
      * if nothing survives the mapping the generic sentence above stands.
      */
+    /**
+     * ⚠ JOINED WITH A CONJUNCTION, NOT A BARE COMMA. `join(', ')` produced
+     * "the win share, the robustness check did not come back" — a comma splice
+     * that reads as a truncated sentence, witnessed on the deployed build in
+     * the panel's most prominent warning. Two missing results is the common
+     * case, so this was the usual rendering rather than an edge one.
+     *
+     * British English list punctuation: no serial comma before "and".
+     */
     provisionalNaming: (missing: readonly string[]) =>
-      `This analysis is partial — ${missing.join(', ')} did not come back.`,
+      missing.length === 0
+        ? PROVISIONAL_UNNAMED
+        : `This analysis is partial — ${MISSING_LIST.format(missing as string[])} did not come back.`,
     /**
      * Field names as THIS surface says them. Furniture: naming our own fields,
      * never a statement about the run. Keys are the producer's own vocabulary.
@@ -766,8 +972,18 @@ export const ANALYSIS_NEW_COPY = {
        * producer's own words — "zero independent information". Naming it as a
        * result that "did not come back" would warn a reader about the absence of
        * something withdrawn deliberately, on every run, and imply they are
-       * missing a measurement that never existed. `deriveResultCompleteness`
-       * never adds it either; the unknown-key drop handles it silently.
+       * missing a measurement that never existed.
+       *
+       * ⚠⚠ THIS COMMENT USED TO END "`deriveResultCompleteness` never adds it
+       * either; the unknown-key drop handles it silently." THE SECOND CLAUSE IS
+       * RIGHT AND THE FIRST IS FALSE — corrected at the bytes, 5 Sep 2026.
+       * `useResultCompleteness.ts:224` DOES `missing.add('recommendation_stability')`,
+       * always paired with `robustness_level` in the same branch. So the
+       * unknown-key drop is the ONLY thing keeping this key off screen, on every
+       * run where robustness is unavailable — load-bearing, not a safety net for
+       * a case that cannot arise. Two consumers depend on it: `buildStatus`'s
+       * `missingResults`, and the "Not included in this result" row in
+       * `buildDeeper` (pinned by `missingResultsNamedInWords.spec.tsx`).
        */
       decision_review: 'the decision review',
       top_drivers: 'the drivers',
@@ -796,6 +1012,53 @@ export const ANALYSIS_NEW_COPY = {
     /** Influence figures are set-relative, not a causal share of the outcome. */
     setRelativeInfluence:
       'Influence is relative to the other factors in this run, not a share of the outcome.',
+    /**
+     * ⭐ THE OTHER BRANCH OF THE SAME QUESTION, AND IT HAD NO VISIBLE ANSWER.
+     * `setRelativeInfluence` fires when any row is `normalised_elasticity`; a
+     * run where EVERY row is `influence_score` got no basis line at all on this
+     * tab. The only place that said so was the glance's basis caption, whose
+     * explanation was a `title` tooltip — unreachable on touch — and the glance
+     * driver list has now been removed. This is that disclosure, made visible
+     * and moved to the section that still renders the bars.
+     *
+     * ⚠⚠ THE SENTENCE IS CONDITIONAL AND MUST STAY SO. It is TRUE only where
+     * `influenceIsSetRelative` is false. A brief for this work proposed stating
+     * in the section SUBTITLE that the figure is structural and that a re-run
+     * never moves it; that is false on the elasticity branch, where the figure
+     * IS a run output, and an unconditional subtitle cannot tell the two apart.
+     * `driversSeamSaysOneThing.spec.tsx` holds the pair.
+     *
+     * ⚠ NOT RESPELLED. This is `glance.basisAbsoluteExplain`'s sentence,
+     * relocated verbatim with its render; `panelCopyNamesOlumiNotTheProducer`
+     * follows it here.
+     */
+    structuralInfluence:
+      "Each bar shows Olumi's structural influence score, scaled against the strongest factor in this run.",
+    /**
+     * ⭐⭐ WHAT THE SECTION LEFT OUT, AND THE PRODUCER'S REASON FOR EACH.
+     *
+     * `buildDrivers` drops every row the producer stamped with a `zero_reason`.
+     * That filter is deliberate and stays — but it was SILENT:
+     * `suppressedZeroCount` reached the DOM only through `driversEmptyMessage`,
+     * which renders when there are NO findings, so a run with survivors dropped
+     * rows and said nothing. Measured against the canvas on staging `acd3db4d`,
+     * the dropped row can be the model's rank-1 factor: a pinned factor carries
+     * `intervention_override` while keeping the highest `influence_score`, so
+     * the canvas ranked it #1 and this panel deleted it without a word.
+     *
+     * ⚠ THE REASONS ARE NAMED, NEVER SUMMARISED — the rule this file already
+     * states at `driversAllZero`: "three reasons cannot share one summary
+     * without one of them being described wrongly". The labels come from
+     * `influenceScaleCopy.ZERO_REASON_BADGE_LABELS`, the same map the Drivers
+     * panel badges rows with.
+     *
+     * ⚠ "NOT RANKED HERE", NOT "EXCLUDED" AND NOT "HIDDEN". The producer
+     * returned these factors and scored their sensitivity at zero; they are
+     * absent from a RANKING, which is a narrower claim than being left out of
+     * the analysis, and the narrower claim is the true one.
+     */
+    notRanked: (n: number, reasons: readonly string[]) =>
+      `${n} ${n === 1 ? 'factor is' : 'factors are'} not ranked here: ${reasons.join('; ')}.`,
     referencePrefix: 'Sensitivities are measured against',
   },
 
@@ -888,14 +1151,14 @@ export const ANALYSIS_NEW_COPY = {
    * `__tests__/firstViewportCensus.spec.tsx` exists to forbid.
    */
   checks: {
-    leader_present: { label: 'Has leading option' },
+    leader_present: { label: 'Most likely option identified' },
     /**
      * The one licensed DENIAL, and it is licensed by `separation === 'tied'`
      * alone (`decisionVerdict.ts:166-168`).
      */
     leader_tied: { label: 'No clear leader' },
     leader_not_assessed: {
-      label: 'Leading option not assessed',
+      label: 'Which option is most likely — not assessed',
       /**
        * ⚠ THE SENTENCE MUST BLOCK BOTH MISREADINGS, not just one. "Not
        * assessed" can be read as "they are level" (the tie this verdict is

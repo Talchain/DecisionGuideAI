@@ -9,7 +9,7 @@
  * regardless. A local-only write that LOOKS committed and then vanishes on the
  * next reload is exactly the harm `structural_rename` was added to end.
  *
- * ⚠ AND THE FIX IS NOT TO BLOCK THE RENAME. UI #1025 was reverted for shipping a
+ * ⚠ AND THE FIX IS NOT TO BLOCK THE RENAME. UI #1025 REVERTED #1024 for shipping a
  * control that HID the loss; blocking would be its mirror — a regression of a
  * capability the product has had since before 0.50.0, bought for tidiness. The
  * rename applies, it is DEFERRED rather than dropped, the very next turn stamps

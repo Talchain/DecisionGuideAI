@@ -31,7 +31,9 @@ import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../doma
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/useAnalysisReady'
 import { openNodeInspector } from './shared/openNodeInspector'
+import { leaderRobustnessGrade } from './shared/leaderRobustnessGrade'
 import { requestAsk, canReceiveAsk } from '../ui/inspector-v2/askSemantic'
+import { useContextIntegrityStore } from '../stores/contextIntegrityStore'
 
 /**
  * EVERY static string the resting state can render or send.
@@ -62,6 +64,35 @@ export const DECISION_RESTING_COPY = {
   completedRunLine: "Hover for this node's detail",
   emptyLine: 'Nothing to show on this node',
 } as const
+
+/**
+ * ⭐ THE ANCHOR CARD'S OWN COPY — the user's brief, attributed.
+ *
+ * Paul, 5 Sep 2026, on the deployed anchor node: his brief was not surfaced.
+ * That is structurally true and NOT a fallback bug — the wire carries no brief
+ * field on the decision node at all, so no default could have supplied it. The
+ * brief arrives on a different carrier entirely (`contextIntegrityStore`,
+ * written by `serverGraphHydration` on the cold read, and by the draft turn
+ * that first lands a graph on a fresh scenario), and until now reached
+ * exactly one surface: the results panel's "What you gave me".
+ *
+ * ⚠ THE HEADING IS DELIBERATELY THE SAME WORDS THAT PANEL USES. It is the
+ * estate's owned phrase for this exact thing, and two different names for one
+ * artefact is worse than one name in two places. It is NOT imported from
+ * `WhatIWasGivenSection`: that module would pull the whole results panel into
+ * the canvas node bundle. Extracting a shared vocabulary module is the right
+ * follow-up and is deliberately not taken as a free ride here.
+ */
+export const DECISION_ANCHOR_BRIEF_COPY = {
+  heading: 'What you gave me',
+} as const
+
+/**
+ * The anchor's measure for the brief. Exported so the spec DERIVES the
+ * expected truncation instead of restating a number that would then drift
+ * (CLAUDE.md trap 12).
+ */
+export const ANCHOR_BRIEF_MAX_CHARS = 160
 
 /** Truncate text at word boundary. */
 function truncateAtWord(text: string, maxLength: number): string {
@@ -444,6 +475,17 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // not there.
   const hasPostAnalysisPopover = isPostAnalysis && !isDetailed
   const showHeadline = Boolean(headline)
+  /**
+   * AXIS 2 for the leader sentence. Same shared owner the option card reads —
+   * never re-spelled here, because two local expressions of one question is
+   * exactly how the canvas ended up with three robustness vocabularies already
+   * (this node's own `stabilityDisplay` thresholds, GoalNode's inline read, and
+   * the shared classifier). A DISCLOSURE only: `headline` above is untouched.
+   */
+  const robustnessGrade = useMemo(
+    () => (isPostAnalysis ? leaderRobustnessGrade(report) : null),
+    [isPostAnalysis, report],
+  )
   const showStabilityLine = isDetailed && Boolean(stabilityDisplay)
   // ⚠ POST-ANALYSIS CHIPS STAY DETAILED-ONLY, and that is a boundary, not an
   // oversight. "Challenge this result" deserves the same treatment as the
@@ -674,6 +716,99 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     return resting.line
   }, [headline, resting, optionCount])
 
+  // ---- The user's brief, on the node their brief is about ----
+  //
+  // ⛔ THE IDENTITY GATE — READ `contextIntegrityStore`'s HEADER BEFORE TOUCHING
+  // THIS. It is not defensive coding; it is the fix for a shipped P0. That
+  // store's cold-read writer runs ONLY when the read returns `status: 'graph'`,
+  // and a freshly-minted scenario reliably answers `absent` — so nothing is
+  // cleared at reset, and a reader without this gate renders THE PREVIOUS
+  // DECISION'S BRIEF on the new decision's anchor node. The draft turn now
+  // records the NEW decision's brief under its own id once its graph lands
+  // (`recordBriefForFreshDraft`), which is what makes the fresh case render;
+  // it does not retire this gate, because between reset-canvas and that
+  // landing — and for any draft the record does not reach — the store still
+  // holds the previous decision.
+  //
+  // ⚠ IT MUST BE A POSITIVE MATCH, NOT `!==`. A `!==` test passes when either
+  // side is null, and null is exactly the state the store sits in for a decision
+  // it was never told about — i.e. `!==` would be green on the P0 itself.
+  //
+  // The existing reader (`V7WhatIWasGivenSection`) gates identically. That is two
+  // surfaces asking the same question, which is the shape CLAUDE.md trap 21
+  // warns drifts apart — so the pinning spec asserts the STALE case renders
+  // nothing here, not merely that the fresh case renders something.
+  const recordedScenarioId = useContextIntegrityStore((s) => s.scenarioId)
+  const recordedBriefText = useContextIntegrityStore((s) => s.briefText)
+  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+
+  /**
+   * ⚠ THIS USES `truncateAtWord` EXACTLY AS IT STANDS ON `staging`, AND THAT
+   * RULE CAN CUT A SINGLE OVER-LONG TOKEN MID-WORD. Measured, not assumed: a
+   * 200-character unbroken token at measure 160 comes back as 160 characters
+   * plus an ellipsis, because the 0.6 heuristic finds no space to fall back to.
+   * The pinning spec asserts that behaviour rather than a nicer one, so this
+   * comment cannot drift away from what the function does.
+   *
+   * Changing that rule is a separate, user-visible change to two OTHER live
+   * call sites in this file (the `Top gap:` triage lines), so it is deliberately
+   * NOT made here — it is the other half of PR #1219, which this branch was
+   * split out of. What bounds the brief here is CSS, not the truncator:
+   * `line-clamp-3 break-words` on the blockquote below, with the full text on
+   * `title`.
+   */
+  const anchorBrief = useMemo(() => {
+    if (typeof recordedScenarioId !== 'string' || recordedScenarioId !== currentScenarioId) return null
+    if (typeof recordedBriefText !== 'string') return null
+    const full = recordedBriefText.trim()
+    if (full.length === 0) return null
+    return { full, shown: truncateAtWord(full, ANCHOR_BRIEF_MAX_CHARS) }
+  }, [recordedScenarioId, currentScenarioId, recordedBriefText])
+
+  /**
+   * ⚠ THE BRIEF REPLACES ONLY THE TWO CONTENT-FREE LINES, and the two that
+   * carry a CTA are left exactly as they are. `unnamedLine` and `noOptionsLine`
+   * prompt an authoring act the user can perform; putting a paragraph above them
+   * dilutes the prompt and buys nothing. `completedRunLine` and `emptyLine` are
+   * pure wayfinding — they exist because the body would otherwise be an empty
+   * box, which is the whole reason this resting state was built — and the user's
+   * own framing is strictly more informative in that slot.
+   */
+  const restingLineIsContentFree =
+    resting.line === DECISION_RESTING_COPY.completedRunLine ||
+    resting.line === DECISION_RESTING_COPY.emptyLine
+
+  /**
+   * ⚠ DELIBERATELY OUTSIDE `decision-node-resting-state`. The resting subtree
+   * is covered by an honesty guard that forbids a fixed word set (`lead`,
+   * `probab`, `question`, …) because product copy there must never describe a
+   * finding the producer did not state. THIS TEXT IS THE USER'S OWN and may
+   * legitimately contain every one of those words. Rendering it inside that
+   * subtree would have forced the guard to be weakened — blunting a real honesty
+   * check to accommodate text it was never written about.
+   *
+   * `title` carries the FULL brief. This file's own triage-line comment states
+   * the rule the ellipsis has to meet: "an ellipsis with somewhere to go is a
+   * caveat; an ellipsis with nowhere to go is hiding."
+   *
+   * `line-clamp-3` bounds the HEIGHT and `break-words` bounds the WIDTH, so an
+   * over-long token cannot make the card grow in either direction.
+   */
+  const anchorBriefBlock = anchorBrief ? (
+    <div className="mt-1" data-testid="decision-node-brief">
+      <div className={`${typography.edgeLabel} text-text-light`}>
+        {DECISION_ANCHOR_BRIEF_COPY.heading}
+      </div>
+      <blockquote
+        data-testid="decision-node-brief-text"
+        title={anchorBrief.full}
+        className={`${typography.edgeLabel} text-text-body m-0 mt-0.5 break-words line-clamp-3`}
+      >
+        {anchorBrief.shown}
+      </blockquote>
+    </div>
+  ) : null
+
   const restingState = (
     <div className="mt-1" data-testid="decision-node-resting-state">
       <div className={`${typography.edgeLabel} text-text-light`}>{resting.line}</div>
@@ -690,6 +825,15 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
       )}
     </div>
   )
+
+  /**
+   * What the body falls back to when neither branch put a child on screen: the
+   * user's own brief where we hold one for THIS decision, and the resting copy
+   * otherwise. Named ONCE and used at all three sites, so the two cannot
+   * diverge by one site being updated and another forgotten — this file already
+   * renders the fallback three times, which is exactly how that happens.
+   */
+  const bodyFallback = (anchorBriefBlock && restingLineIsContentFree) ? anchorBriefBlock : restingState
 
   // ---- Render ----
 
@@ -744,6 +888,22 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 ) : null}
               </div>
             )}
+            {/* AXIS 2, ON THE STRONGEST SENTENCE THE CANVAS SPEAKS.
+                "{X} leads in N% of scenarios" renders in Standard AND Detailed,
+                while this node's existing stability line is `isDetailed`-gated
+                (see `showStabilityLine`) — i.e. behind a hover popover in the
+                Standard view the founder was in. So the claim was always-on and
+                its caveat was not. Gated on `showHeadline && headline` so the
+                disclosure cannot appear without the sentence it qualifies. */}
+            {showHeadline && headline && robustnessGrade && (
+              <div
+                className={`${typography.edgeLabel} text-text-light mt-0.5`}
+                data-testid="decision-leader-robustness"
+                title={robustnessGrade.title}
+              >
+                {robustnessGrade.label}: small changes could flip which option the data supports.
+              </div>
+            )}
 
             {/* ⭐ THE SAME BAR EVERY OTHER CARD ALREADY HAS, ON THE NUMBER THAT
                 MATTERS MOST. Measured on deployed staging `d4ff3683`: factor,
@@ -777,7 +937,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 corpus keeps biting on the copy it was written against. */}
             {showHeadline && headline && headline.winProb != null && (
               <NodeMetricRow
-                label={METRIC_NOUN.ahead}
+                label={METRIC_NOUN.support}
                 value={headline.winProb}
                 formatted={`${Math.round(headline.winProb * 100)}%`}
                 fillClass="bg-option"
@@ -798,7 +958,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
             {showPostAnalysisChips && postAnalysisCoachingChips}
             {/* Nothing above rendered — say what is absent rather than
                 presenting an empty box. */}
-            {!bodyHasContent && restingState}
+            {!bodyHasContent && bodyFallback}
           </div>
         ) : isPreAnalysisBranch ? (
           <>
@@ -845,13 +1005,13 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 already drops "What could go wrong?" while the Run CTA is up, so
                 the card never carries three chips at once. */}
             {showPreAnalysisInvitations && preAnalysisCoachingChips}
-            {!bodyHasContent && restingState}
+            {!bodyHasContent && bodyFallback}
           </>
         ) : (
           /* Neither branch applies — most often a decision with no option
              linked, which is the shape measured on `2db13473`. This arm used
              to be a literal `null`, i.e. the empty box itself. */
-          restingState
+          bodyFallback
         )}
       </BaseNode>
 

@@ -173,6 +173,19 @@ export function AnalysisNewSection({
                 onFocusTarget={onFocusTarget}
                 onRunIntervention={onRunIntervention}
                 testIdPrefix={testId}
+                /* ⭐ ONE FINDING, ONE DOOR. The section above already opens
+                   itself on `findings.length === 1`, for a reason it states:
+                   one row cannot spend the height budget. The row then stayed
+                   SHUT, so opening the section revealed a second closed door
+                   and the reader spent two clicks on one sentence — measured
+                   on deployed staging, "Key insights 1" open with its single
+                   insight collapsed beneath it.
+
+                   The same condition governs both, so it is written once and
+                   read twice rather than restated: with two or more findings
+                   this is false and every row opens on demand, because THEN
+                   the height argument the section cites actually bites. */
+                defaultOpen={findings.length === 1}
               />
             ))}
           </div>

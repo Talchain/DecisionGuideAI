@@ -129,7 +129,7 @@ describe('Fixture 1 — Normal scenario', () => {
     expect(summary).toBe(
       'Framing confirmed: Choose the best market entry strategy. ' +
       'Graph drafted with 6 nodes, 8 edges. ' +
-      'Analysis run: Option A at 72%, robustness robust. ' +
+      'Analysis run: Option A supported at 72%, robustness robust. ' +
       '2 patches accepted, 1 dismissed. ' +
       'Brief generated.',
     )

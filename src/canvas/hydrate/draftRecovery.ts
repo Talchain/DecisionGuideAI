@@ -57,6 +57,9 @@ export interface RecoverDraftArgs {
    * release is keyed on it — identity, not coincidence.
    */
   turnClientId: string
+  signal?: AbortSignal
+  /** Additional ownership checks for a missing initial draft. */
+  canApply?: () => boolean
 }
 
 /**
@@ -71,6 +74,8 @@ export async function recoverDraftFromServer(
   const hydration = await hydrateCanvasFromServer(args.scenarioId, {
     userId: args.userId,
     accessToken: args.accessToken,
+    signal: args.signal,
+    canApply: args.canApply,
   })
   logger.debug('draft_recovery.outcome', {
     scenarioId: args.scenarioId,

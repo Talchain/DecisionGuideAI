@@ -68,7 +68,11 @@ vi.mock('../../layoutStore', () => ({
     selector({ layoutNodeWidth: null })) as unknown as (...args: never[]) => unknown),
 }))
 vi.mock('../../hooks/useNodeDisplayMetadata', () => ({ useNodeDisplayMetadata: vi.fn() }))
-vi.mock('../../ui/inspector-v2/useAnalysisResults', () => ({
+vi.mock('../../ui/inspector-v2/useAnalysisResults', async (importOriginal) => ({
+  // Spread the real module. A bare factory REPLACES it, so every export this
+  // spec does not name silently disappears -- which is how adding
+  // selectHasAnyRealProbability took this whole file red at once.
+  ...(await importOriginal<typeof import('../../ui/inspector-v2/useAnalysisResults')>()),
   useHasAnyRealProbability: vi.fn(() => true),
 }))
 vi.mock('../shared/NodePopover', () => ({
@@ -180,7 +184,7 @@ describe('one noun per idea — the decision card and the option card agree', ()
     // Bound to the authority as well as to each other — so the pair cannot be
     // "fixed" by making BOTH cards say some third word.
     expect(decision).toBe(COMPARATIVE_COPY.anchor)
-    expect(decision).toBe(METRIC_NOUN.ahead)
+    expect(decision).toBe(METRIC_NOUN.support)
   })
 
   it('neither card uses a retired synonym for the shared quantity', () => {
@@ -193,7 +197,7 @@ describe('one noun per idea — the decision card and the option card agree', ()
     // Discrimination: the board HAS text and DOES carry the live noun, so the
     // absence above is not passing on an empty container.
     expect(text.length).toBeGreaterThan(50)
-    expect(text).toContain(METRIC_NOUN.ahead)
+    expect(text).toContain(METRIC_NOUN.support)
   })
 
   it('CONTRAST: the sentence the row encodes is UNCHANGED — this was a caption change', () => {
@@ -212,7 +216,7 @@ describe('one noun per idea — the decision card and the option card agree', ()
   })
 
   it('⚠ RESIDUAL, DECIDED NOT DISCOVERED: "Leads" survives as a VERB on the option card', () => {
-    // The review found `OptionNode:1601` — "Leads via {factor}" beneath the
+    // The review found `OptionNode:1601` — "Supported by {factor}" beneath the
     // `Ahead 47%` anchor — and rightly said it should be decided explicitly
     // rather than left to be found. It is: the register retires "Leads" as a
     // CAPTION, and both survivors are verbs inside sentences.
@@ -225,8 +229,8 @@ describe('one noun per idea — the decision card and the option card agree', ()
     const src = readFileSync(resolve(__dirname, '../OptionNode.tsx'), 'utf8')
     expect(src.length, 'source read as empty — the assertion below is vacuous').toBeGreaterThan(1000)
     expect(
-      src.includes('Leads via'),
-      'the "Leads via" sentence has gone — good, but update the residual note in metricVocabulary.ts',
+      src.includes('Supported by'),
+      'the "Supported by" sentence has gone — good, but update the residual note in metricVocabulary.ts',
     ).toBe(true)
     // …and it is prose, not a caption: no `label=` binds it.
     expect(src).not.toMatch(/label=["']Leads["']/)

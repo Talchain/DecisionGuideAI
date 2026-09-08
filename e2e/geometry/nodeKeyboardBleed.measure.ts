@@ -206,7 +206,12 @@ const ALL: StarterId[] = ['vendor-selection', 'market-entry', 'build-vs-buy', 'h
 const DRIVEN_KINDS: Array<{ kind: string; starter: StarterId; why: string }> = [
   { kind: 'node-action-ask', starter: 'vendor-selection', why: 'NodeQuickActions — the shared row on every node' },
   { kind: 'BUTTON:Explore more options', starter: 'vendor-selection', why: "DecisionNode's own call-to-action button" },
-  { kind: 'BUTTON:Olumi estimated this', starter: 'vendor-selection', why: 'a science/provenance badge (useScienceIcons)' },
+  // Re-pointed from 'BUTTON:Olumi estimated this' when the olumi-estimate
+  // ScienceIcon was deleted (it was the third statement of that sentence on
+  // one card). The RENDER PATH being covered here is unchanged — anchoring is
+  // the same `useScienceIcons` badge door — so this keeps path 3 covered
+  // rather than dropping a row and quietly shrinking the drive.
+  { kind: 'BUTTON:Options clustered around', starter: 'vendor-selection', why: 'a science/provenance badge (useScienceIcons)' },
   { kind: 'goal-node-no-target-chip', starter: 'vendor-selection', why: "GoalNode's own chip, outside the quick-action row" },
   { kind: 'BUTTON:Status quo bias', starter: 'vendor-selection', why: 'NodeCoachingMarker — a coaching badge inside the card' },
 ]

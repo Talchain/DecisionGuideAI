@@ -68,6 +68,8 @@ export interface HydrateFromServerOptions {
   retryDelayMs?: number
   /** Per-attempt deadline — bounds the silent-rollback window (review A3). */
   timeoutMs?: number
+  /** Optional in-session ownership fence, checked after the read, before any write. */
+  canApply?: () => boolean
 }
 
 /**
@@ -118,6 +120,10 @@ export async function hydrateCanvasFromServer(
     retryDelayMs: opts.retryDelayMs,
     timeoutMs: opts.timeoutMs,
   })
+
+  // A response body can finish after fetch was aborted. Check at the write
+  // boundary too, including caller-specific turn/canvas ownership.
+  if (opts.signal?.aborted || opts.canApply?.() === false) return 'skipped'
 
   // ── Every non-graph answer: leave the canvas alone, say why, surface nothing.
   if (result.status !== 'graph') {
@@ -334,7 +340,8 @@ export async function hydrateCanvasFromServer(
     // operative word, not `null`. Writing `null` would replace whatever belief
     // the user's session already holds with a claim of ignorance, which is a
     // second falsehood rather than the absence of the first
-    // (`applyScenarioAnalysisRead.ts:402-405` makes the same distinction on the
+    // (`applyScenarioAnalysisRead.ts`'s "AFTER THE DIVERGENCE GUARDS" note makes
+    // the same distinction on the
     // decline side). The refusal simply does not touch this seam.
     return 'mergeRefused'
   }

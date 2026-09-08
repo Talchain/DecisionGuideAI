@@ -38,6 +38,7 @@ import type { AnalysisRefusalNotice } from './store/analysisRefusalNotice'
 import {
   captureStructuralDelete,
   mergeStructuralDeleteIntents,
+  STRUCTURAL_DELETE_STOOD_DOWN_NOTICE,
   type StructuralDeleteIntent,
 } from './mutations/structuralDelete'
 import {
@@ -2194,7 +2195,15 @@ function recordStructuralDeleteIntent(
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('topbar:show-toast', {
             detail: {
-              message: 'Sync the shared model before deleting. Nothing was removed.',
+              /*
+               * The sentence lives beside its siblings in
+               * `structuralDelete.ts` — see
+               * {@link STRUCTURAL_DELETE_STOOD_DOWN_NOTICE} for why it names a
+               * message as the way out, why it is NOT a member of
+               * `STRUCTURAL_DELETE_NOTICE`, and why it must not borrow the
+               * add/rename "I'll save it with your next message" promise.
+               */
+              message: STRUCTURAL_DELETE_STOOD_DOWN_NOTICE,
               level: 'warning',
             },
           }))
@@ -2282,7 +2291,7 @@ function recordStructuralRenameIntent(
   // the model genuinely does not hold the name — and the queue is memory-only,
   // so a reload before that turn still loses it.
   //
-  // ⚠ SAYING SO IS THE POINT. UI #1025 was reverted for shipping a control that
+  // ⚠ SAYING SO IS THE POINT. UI #1025 REVERTED #1024 for shipping a control that
   // HID this loss; blocking the rename instead would regress a capability the
   // product has had since long before 0.50.0. The third option is the honest one:
   // apply it, queue it, and tell the user exactly where it stands.
@@ -2381,7 +2390,7 @@ function planStructuralAddIntent(
  * ⭐⭐ THE DEFERRED ARM. On a restored graph there is no `graph_hash` yet, so the
  * model genuinely does not hold this node and will not until the next turn. The
  * queue is memory-only, so a reload before then loses it — and SAYING SO IS THE
- * POINT. UI #1025 was reverted for shipping a control that HID exactly this
+ * POINT. UI #1025 REVERTED #1024 for shipping a control that HID exactly this
  * loss; blocking the add instead would regress a capability the product has
  * always had. The third option is the honest one: apply it, queue it, and tell
  * the user exactly where it stands.

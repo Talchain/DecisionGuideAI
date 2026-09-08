@@ -6,8 +6,8 @@
  */
 
 import '@testing-library/jest-dom/vitest'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { AtAGlance } from '../sections/AtAGlance'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
@@ -83,6 +83,40 @@ describe('the read — no UI-generated strategic conclusion', () => {
     expect(glanceOf(data).headline).toBe('Raise price currently scores higher')
   })
 
+  /**
+   * ⭐ THE VERDICT REASON IS THE SECOND CLAUSE OF THE LABEL'S SENTENCE.
+   *
+   * The producer composes it as a continuation — "Sensitive" + "none of the
+   * factors we could test changed which option leads on its own, but…" — so it
+   * begins lowercase by construction and is meaningless without its antecedent
+   * adjacent. Witnessed on the deployed build (`b14cd478`, guest, 291px dock,
+   * completed run): it rendered as an 11px block with the win bar between it
+   * and the label, reading as a detached fragment starting mid-sentence.
+   *
+   * `AnalysisFooter` renders the same producer string directly beneath its
+   * status word with nothing between, and that arrangement is proven. This pins
+   * the same ordering here so a future edit cannot silently re-separate them.
+   */
+  it('the verdict reason renders BEFORE the win bar, adjacent to its label', () => {
+    const data = genuineDecision()
+    const g = glanceOf(data)
+    // Precondition pinned in-arm: without a reason AND a win fraction there is
+    // nothing to order, and the assertion below would pass vacuously.
+    expect(g.verdict?.reason, 'fixture must carry a producer reason').toBeTruthy()
+    expect(g.winFraction, 'fixture must carry a win fraction, or there is no bar').not.toBeNull()
+
+    render(<AtAGlance
+  isRunning={false} reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={g} />)
+    const reason = screen.getByTestId('analysis-new-glance-verdict-reason')
+    const bar = screen.getByTestId('analysis-new-glance-win-bar')
+    // DOCUMENT_POSITION_FOLLOWING === 4: the bar comes after the reason.
+    expect(
+      reason.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_FOLLOWING,
+      'the win bar separates the verdict label from the sentence it continues',
+    ).toBeTruthy()
+  })
+
   it('renders no headline for an open strategic challenge, but still has drivers to lead with', () => {
     const g = glanceOf(openStrategicChallenge())
     expect(g.headline).toBeNull()
@@ -135,13 +169,19 @@ describe('driver bars — a rank comparison, never a share of the outcome', () =
 
   it('caps at three and flags a set-relative basis from the producer token', () => {
     expect(glanceOf(highUncertainty()).influenceIsSetRelative).toBe(true)
-    expect(glanceOf(openStrategicChallenge()).influenceIsSetRelative).toBe(false)
+    // ⚠ WAS `false`, and that pin ratified the defect — see
+    // `theScaleClaimMatchesTheScale.spec.ts`. BOTH stamped bases are
+    // set-relative; the producer's is normalised against `max|influence|`, so
+    // its top row is 1.0 by construction.
+    expect(glanceOf(openStrategicChallenge()).influenceIsSetRelative).toBe(true)
     expect(glanceOf(openStrategicChallenge()).drivers.length).toBeLessThanOrEqual(3)
   })
 
   it('renders no numeric influence anywhere in the glance', () => {
     // The whole point of bars: no number appears that could be read as a share.
-    const html = render(<AtAGlance glance={glanceOf(openStrategicChallenge())} />).container.innerHTML
+    const html = render(<AtAGlance
+  isRunning={false} reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={glanceOf(openStrategicChallenge())} />).container.innerHTML
     expect(html).not.toMatch(/\d+%<\/|>\s*\d+%\s*</)
   })
 })
@@ -202,32 +242,33 @@ describe('could change if — a tipping point, gated on the honesty field', () =
   })
 })
 
-describe('fail-closed focus, and the interaction grammar', () => {
-  it('renders an unfocusable driver as text, never as a dead control', () => {
-    const data = makeData({
-      drivers: { drivers: [makeDriver({ factorKey: 'x', factorLabel: 'X', canFocus: false })] },
-    })
-    render(<AtAGlance glance={glanceOf(data)} onFocusTarget={vi.fn()} />)
-    expect(screen.getByTestId('analysis-new-glance-driver')).toBeInTheDocument()
-    expect(screen.queryByTestId('analysis-new-glance-driver-focus')).toBeNull()
-  })
-
-  it('routes a focusable driver to the Living Model by its producer target id', () => {
-    const onFocusTarget = vi.fn()
-    const data = makeData({
-      drivers: {
-        drivers: [makeDriver({ factorKey: 'x', factorLabel: 'X', matchedNodeId: 'node_x' })],
-      },
-    })
-    render(<AtAGlance glance={glanceOf(data)} onFocusTarget={onFocusTarget} />)
-    fireEvent.click(screen.getByTestId('analysis-new-glance-driver-focus'))
-    expect(onFocusTarget).toHaveBeenCalledWith('node_x')
-  })
-})
+/**
+ * ⛔ RETIRED AT `e15416ad` WITH THE GLANCE'S DRIVER LIST.
+ *
+ * These cases asserted the rendering of "What matters most" — the glance's
+ * top-three driver rows. That list restated the drivers section's ranking from
+ * the same view-model fields one scroll above it (`glanceDrivers` and
+ * `buildDrivers` read one array, one filter, one magnitude, one normalisation),
+ * so it was removed and `DriverInfluenceChart` is now the one rendering.
+ *
+ * ⚠ RECORDED, NOT SILENTLY DELETED, because two of them pinned real properties
+ * and a successor is entitled to know where those went:
+ *   · the BAR-SPREAD rule (no bars unless the values differ) has NO equivalent
+ *     on the chart, which draws a bar per row whatever the spread. Named as a
+ *     known gap at the retired `DRIVER_SPREAD_MIN` in `AtAGlance.tsx`.
+ *   · the FAIL-CLOSED FOCUS rule survives in a different shape: the chart's row
+ *     is always a button (it opens the value editor) and guards the call
+ *     instead — `if (row.targetId) onFocusTarget?.(row.targetId)`. It is pinned
+ *     against that shape in `driversSeamSaysOneThing.spec.tsx`.
+ * The view-model cases above (`glanceOf(...).drivers`) are UNAFFECTED: the field
+ * survives, because `nodeInsights.ts` still reads it for `ModelStrip`'s chip.
+ */
 
 describe('the whole region collapses honestly', () => {
   it('renders nothing at all when no producer supplied any of it', () => {
-    const { container } = render(<AtAGlance glance={glanceOf(makeData())} />)
+    const { container } = render(<AtAGlance
+  isRunning={false} reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={glanceOf(makeData())} />)
     expect(container.querySelector('[data-testid="analysis-new-glance"]')).toBeNull()
   })
 })
@@ -397,7 +438,9 @@ describe("the producer's reason is rendered whole, never clipped", () => {
   }
 
   it('gives the reason its own element, outside the single-line verdict row', () => {
-    render(<AtAGlance glance={withReason()} />)
+    render(<AtAGlance
+  isRunning={false} reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={withReason()} />)
     const reason = screen.getByTestId('analysis-new-glance-verdict-reason')
     const line = screen.getByTestId('analysis-new-glance-verdict-line')
 
@@ -408,7 +451,9 @@ describe("the producer's reason is rendered whole, never clipped", () => {
   })
 
   it('carries no truncating class on the reason or any of its ancestors', () => {
-    const { container } = render(<AtAGlance glance={withReason()} />)
+    const { container } = render(<AtAGlance
+  isRunning={false} reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={withReason()} />)
     const reason = screen.getByTestId('analysis-new-glance-verdict-reason')
 
     const clipping: string[] = []
@@ -421,48 +466,42 @@ describe("the producer's reason is rendered whole, never clipped", () => {
     expect(clipping, `producer prose sits inside a clipping container:\n${clipping.join('\n')}`).toEqual([])
   })
 
-  it('still permits a driver LABEL to truncate — the two are different objects', () => {
-    // Contrast control. Without it this rule would read as "never truncate
-    // anything", which would cost the fixed bar track its comparability.
-    const { container } = render(<AtAGlance glance={glanceOf(genuineDecision())} />)
-    expect(container.querySelector('.truncate'), 'no label truncation left to distinguish from prose').not.toBeNull()
-  })
+  /**
+   * ⛔ THE CONTRAST CONTROL MOVED OUT OF THIS FILE AT `e15416ad`, AND THE MOVE
+   * IS ITSELF A FINDING.
+   *
+   * It asserted that a driver LABEL may still truncate, so the rule above could
+   * not be read as "never truncate anything". Its object was the glance's driver
+   * row, which is gone — and `AtAGlance` now contains NO truncating element at
+   * all (`grep -n 'truncate' AtAGlance.tsx` at this head: zero hits), so there
+   * is nothing left in this component to contrast the prose rule against.
+   *
+   * ⚠ THE CONTROL IS NOT DROPPED, ONLY RELOCATED: the surviving truncating
+   * label is `DriverInfluenceChart`'s row (`block truncate`), and the contrast
+   * is pinned against it in `driversSeamSaysOneThing.spec.tsx`. A weaker
+   * binding than a same-component pair, and stated as such rather than left to
+   * look equivalent.
+   */
 })
 
 /**
- * ⭐ A BAR IS A COMPARISON. WITH ONE ROW THERE IS NOTHING TO COMPARE.
+ * ⛔ RETIRED AT `e15416ad` — the second half of the glance driver-list removal.
  *
- * `fraction` is magnitude ÷ the run's strongest magnitude, so a lone driver is
- * 1 by construction and its bar renders FULL whatever the producer measured.
- * Witnessed on a real run: a single non-zero driver at contribution 0.5 drew a
- * full-width bar, which reads as "maximum influence" and is a magnitude claim
- * the encoding cannot support.
+ * The rule it pinned, kept verbatim because the observation behind it is still
+ * true of any bar encoding: "A BAR IS A COMPARISON. WITH ONE ROW THERE IS
+ * NOTHING TO COMPARE. `fraction` is magnitude ÷ the run's strongest magnitude,
+ * so a lone driver is 1 by construction and its bar renders FULL whatever the
+ * producer measured. Witnessed on a real run: a single non-zero driver at
+ * contribution 0.5 drew a full-width bar, which reads as 'maximum influence'
+ * and is a magnitude claim the encoding cannot support."
  *
- * The pair below is the discrimination — one alone would not show the rule is
- * about COMPARABILITY rather than about hiding bars.
+ * ⚠ `DriverInfluenceChart` DOES NOT IMPLEMENT THIS RULE and now owns the only
+ * bars on the panel, so a single-row run draws one full-width bar there. It is
+ * a weaker defect — the chart's bar also carries a SIDE, so it still says
+ * something the length does not — but it is a live gap, recorded here and at
+ * the retired `DRIVER_SPREAD_MIN` in `AtAGlance.tsx` rather than fixed inside a
+ * seam whose question was duplication.
  */
-describe('the influence bar appears only when it compares something', () => {
-  const withDrivers = (n: number) => ({
-    ...glanceOf(genuineDecision()),
-    drivers: Array.from({ length: n }, (_, i) => ({
-      id: `d${i}`,
-      label: `Driver ${i}`,
-      fraction: i === 0 ? 1 : 0.4,
-      targetId: null,
-    })),
-  })
-
-  it('draws no bar for a single driver', () => {
-    render(<AtAGlance glance={withDrivers(1)} />)
-    expect(screen.getAllByTestId('analysis-new-glance-driver')).toHaveLength(1)
-    expect(screen.queryByTestId('analysis-new-glance-driver-bar')).toBeNull()
-  })
-
-  it('draws a bar for every driver once two or more can be ranked', () => {
-    render(<AtAGlance glance={withDrivers(3)} />)
-    expect(screen.getAllByTestId('analysis-new-glance-driver-bar')).toHaveLength(3)
-  })
-})
 
 /**
  * ⭐ "COULD CHANGE IF" — WHAT THE NUMBER LOOKS LIKE, not whether it is gated.
@@ -560,7 +599,9 @@ describe('a stale run may not reassure — but it must still warn', () => {
   const stablePill = () => screen.getByTestId('analysis-new-glance-verdict-line')
 
   it('drops the reassuring tick from a STALE stable verdict', () => {
-    render(<AtAGlance glance={glanceOf(genuineDecision())} isStale />)
+    render(<AtAGlance
+  isRunning={false} reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={glanceOf(genuineDecision())} isStale />)
     const pill = stablePill()
 
     expect(pill).toHaveAttribute('data-verdict-demoted', 'stale')
@@ -568,7 +609,9 @@ describe('a stale run may not reassure — but it must still warn', () => {
   })
 
   it('keeps the word, because removing information is not the same as removing the anchor', () => {
-    render(<AtAGlance glance={glanceOf(genuineDecision())} isStale />)
+    render(<AtAGlance
+  isRunning={false} reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={glanceOf(genuineDecision())} isStale />)
     // Under a ribbon that already says the model has moved (or that we cannot
     // confirm it has not), a neutral "Stable" is a record of what the last run
     // found. What goes is the claim about the model in front of you, not the
@@ -588,7 +631,9 @@ describe('a stale run may not reassure — but it must still warn', () => {
   // `sensitive` would mute a TRUE warning and make a fragile result look calmer
   // than it is — the mirror defect, and the worse one.
   it('does NOT demote a stale sensitive verdict — a stale warning is still a warning', () => {
-    render(<AtAGlance glance={glanceOf(highUncertainty())} isStale />)
+    render(<AtAGlance
+  isRunning={false} reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={glanceOf(highUncertainty())} isStale />)
     const pill = stablePill()
 
     expect(pill).not.toHaveAttribute('data-verdict-demoted')
@@ -598,7 +643,9 @@ describe('a stale run may not reassure — but it must still warn', () => {
 
   // The control: nothing about a FRESH run changes.
   it('leaves a fresh stable verdict fully reassuring', () => {
-    render(<AtAGlance glance={glanceOf(genuineDecision())} />)
+    render(<AtAGlance
+  isRunning={false} reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={glanceOf(genuineDecision())} />)
     const pill = stablePill()
 
     expect(pill).not.toHaveAttribute('data-verdict-demoted')

@@ -5,7 +5,7 @@
  * caught the product contradicting itself in ONE screenshot on staging build
  * `27d002c9`:
  *
- *   - canvas option node:  "Leading option"  (+ "72% win probability")
+ *   - canvas option node:  "Most supported"  (+ "72% win probability")
  *   - results panel:       "no clear leading option, the result is sensitive
  *                           to your estimates" / "{winner} leads slightly
  *                           more often"
@@ -218,7 +218,7 @@ function canvasAssertsLeadingOption(): boolean {
       {OPTION_NODES.map(n => <OptionNode key={n.id} {...nodeProps(n.id)} />)}
     </ReactFlowProvider>,
   )
-  return /Leading option/i.test(container.textContent ?? '')
+  return /Most supported/i.test(container.textContent ?? '')
 }
 
 /**
@@ -267,7 +267,7 @@ describe('SINGLE VERDICT — canvas and results panel must not contradict each o
   })
 
   // ── The reported defect ────────────────────────────────────────────────
-  it('the journey run (72% vs 20%, stability 0.55) does not produce both "Leading option" and "no clear leading option"', () => {
+  it('the journey run (72% vs 20%, stability 0.55) does not produce both "Most supported" and "no clear leading option"', () => {
     setStore(JOURNEY_RUN)
     const canvasClaims = canvasAssertsLeadingOption()
     document.body.innerHTML = ''
@@ -275,7 +275,7 @@ describe('SINGLE VERDICT — canvas and results panel must not contradict each o
 
     expect(
       canvasClaims && panel.denies,
-      `Contradiction: canvas badge says "Leading option" while the results panel says "no clear leading option".\nPanel text: ${panel.text.slice(0, 400)}`,
+      `Contradiction: canvas badge says "Most supported" while the results panel says "no clear leading option".\nPanel text: ${panel.text.slice(0, 400)}`,
     ).toBe(false)
   })
 
