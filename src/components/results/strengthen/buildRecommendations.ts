@@ -459,7 +459,7 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
     recs.push({
       id: `strengthen:flip:${top.edgeId}`,
       helpType: 'evaluate',
-      title: 'Test the assumption most likely to change the leader',
+      title: 'Test the assumption most likely to change which option scores highest',
       signal: alt
         ? `${pct(top.switchProbability)} chance the result flips to ${alt} if ${top.factorLabel} shifts.`
         : `${pct(top.switchProbability)} chance the result flips if ${top.factorLabel} shifts.`,
@@ -571,17 +571,17 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
     recs.push({
       id: 'strengthen:robustness',
       helpType: 'challenge',
-      title: 'Pressure-test the leading option',
-      signal: 'The current lead does not hold up strongly under stress-testing.',
-      whyNow: 'A fragile lead can flip with small changes, so it deserves a challenge before you act on it.',
-      tryThis: 'Build the strongest case AGAINST the current leader and see if it survives.',
+      title: 'Pressure-test the option that scored highest',
+      signal: 'This result does not hold up strongly under stress-testing.',
+      whyNow: 'A fragile result can shift with small changes, so it deserves a challenge before you act on it.',
+      tryThis: 'Build the strongest case AGAINST the option that scored highest and see if it survives.',
       sourceLine: 'Source: robustness analysis.',
       action: {
         kind: 'ai-dialogue',
-        label: 'Challenge the leader',
+        label: 'Challenge this result',
         actionType: 'challenge_assumption',
         parameters: { topic: 'challenge_leader' },
-        prompt: 'Build the strongest case against the current leading option.',
+        prompt: 'Build the strongest case against the option that scored highest.',
       },
       targetId: null,
       priority: PRIORITY.robustness,
@@ -596,7 +596,7 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       helpType: 'broaden',
       title: 'Find a route that works differently',
       signal: 'Your options look structurally similar.',
-      whyNow: 'Comparing near-identical routes can crown a winner without testing the real alternatives.',
+      whyNow: 'Comparing near-identical routes can settle on one without testing the real alternatives.',
       tryThis: 'Generate one materially different option before relying on this comparison.',
       sourceLine: 'Source: framing review.',
       action: {

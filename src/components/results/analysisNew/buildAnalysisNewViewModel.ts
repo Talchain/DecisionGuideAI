@@ -382,7 +382,7 @@ function buildKeyInsights(
       implication: namesBoth
         ? `Above ${splitValue}${cw.split_unit ? ` ${cw.split_unit}` : ''}, ${high} scores higher; below it, ${low} does.`
         : `The preferred direction changes around ${splitValue}${cw.split_unit ? ` ${cw.split_unit}` : ''}.`,
-      groundedIn: 'the conditional-winner split from the simulation',
+      groundedIn: 'the conditional split from the simulation',
       marker: staleMarker,
       targetId: cw.factor_id,
       inspect: rows(row('Split value', splitValue), row('Factor', cw.factor_label)),

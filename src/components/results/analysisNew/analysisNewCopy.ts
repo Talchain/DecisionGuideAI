@@ -1156,7 +1156,7 @@ export const ANALYSIS_NEW_COPY = {
      * The one licensed DENIAL, and it is licensed by `separation === 'tied'`
      * alone (`decisionVerdict.ts:166-168`).
      */
-    leader_tied: { label: 'No clear leader' },
+    leader_tied: { label: 'No option is clearly most likely' },
     leader_not_assessed: {
       label: 'Which option is most likely — not assessed',
       /**

@@ -106,3 +106,76 @@ describe('the Reasoning tab does not frame the analysis as a contest', () => {
     expect(strings.some(s => /goal/i.test(s)), 'nothing ties the answer to the goal').toBe(true)
   })
 })
+
+/**
+ * ⭐⭐ THE SCOPE FIX — THE GUARD ABOVE FAILED ON SCOPE, NOT ON RIGOUR.
+ *
+ * Measured 8 Sep 2026 by a five-angle sweep: **12 live user-facing race-framing
+ * strings reach the Reasoning tab, and the guard above caught 0 of them** — not
+ * because its matcher is weak (it was executed against all 12 and its own
+ * fabricated control fires), but because it reads ONE FILE.
+ *
+ * ⚠ THE DIRECTORY IS NOT THE SURFACE, and that is the durable lesson here.
+ * Only 2 of the 12 lived under `analysisNew/`. The other 10 sat in two files the
+ * tab RUNS but does not own:
+ *   · `strengthen/buildRecommendations.ts` — called at useAnalysisNewViewModel.ts:83
+ *   · `decision-overview/actionsCatalogue.ts` — reached via analysisNew/recommendationMethod.ts
+ * A sweep confined to the tab's own directory returns 2 findings and reads like
+ * a clean surface. That is exactly the shape of a guard that agrees with itself.
+ *
+ * ⚠ VOCABULARY: DESIGNATING FORMS, NOT BARE TOKENS. Bare `lead`/`leads` is
+ * deliberately NOT banned — it would fire on "technical leads" (a job title) and
+ * "leads to" (causation), which the ruling does not target. What is banned is a
+ * DEFINITE reference to an option's placing. Adding bare tokens would trade this
+ * guard's precision for noise and get it disabled, which is how guards die.
+ */
+const REACHED_COPY_FILES: ReadonlyArray<readonly [string, string]> = [
+  ['analysisNewCopy.ts', 'src/components/results/analysisNew/analysisNewCopy.ts'],
+  ['strengthen/buildRecommendations.ts', 'src/components/results/strengthen/buildRecommendations.ts'],
+  ['decision-overview/actionsCatalogue.ts', 'src/components/results/decision-overview/actionsCatalogue.ts'],
+]
+
+/** Designating placings the 8 Sep ruling retired, over and above BANNED. */
+const RETIRED_DESIGNATIONS =
+  /\bleaders?\b|\bleading option\b|\bthe current lead\b|\ba fragile lead\b|\bcrown a winner\b/i
+
+describe('no contest framing in ANY copy the Reasoning tab renders', () => {
+  it('PRECONDITION: every file in scope is readable and carries copy', () => {
+    for (const [name, rel] of REACHED_COPY_FILES) {
+      const strings = literals(stripComments(readFileSync(resolve(process.cwd(), rel), 'utf8')))
+        .filter(s => !NOT_COPY.test(s))
+      // A file that reads as zero literals is an unreadable path or a broken
+      // stripper — either way the sweep below would pass by testing nothing.
+      expect(strings.length, `${name} produced no literals — the sweep would be vacuous`).toBeGreaterThan(10)
+    }
+  })
+
+  it('FABRICATED CONTROL: the widened matcher fires, and does NOT fire on the false positives', () => {
+    expect(RETIRED_DESIGNATIONS.test('Pressure-test the leading option')).toBe(true)
+    expect(RETIRED_DESIGNATIONS.test('The current lead does not hold up')).toBe(true)
+    expect(RETIRED_DESIGNATIONS.test('Challenge the leader')).toBe(true)
+    // ⚠ THE CASE MY FIRST REGEX MISSED, PINNED SO IT CANNOT RE-OPEN. I wrote
+    // `\bthe (current )?leader\b`, which does not match "No clear leader" —
+    // and a mutation putting that exact string back left this guard GREEN.
+    // That is the same short-hand-maintained-list defect this file exists to
+    // catch, occurring inside the catcher. Found by mutating, not by reading.
+    expect(RETIRED_DESIGNATIONS.test('No clear leader')).toBe(true)
+    // ⚠ THE FALSE POSITIVES, PINNED. These must stay legal or the guard starts
+    // corrupting correct copy — each was measured on the live wire, 8 Sep 2026.
+    expect(RETIRED_DESIGNATIONS.test('Interview technical leads or consult partners')).toBe(false)
+    expect(RETIRED_DESIGNATIONS.test('a fragile edge leads to a different outcome')).toBe(false)
+    expect(RETIRED_DESIGNATIONS.test('win_probability')).toBe(false)
+    expect(RETIRED_DESIGNATIONS.test('Scored highest against your goal in 73% of runs')).toBe(false)
+  })
+
+  it.each(REACHED_COPY_FILES)('%s frames no result as a contest', (name, rel) => {
+    const strings = literals(stripComments(readFileSync(resolve(process.cwd(), rel), 'utf8')))
+      .filter(s => !NOT_COPY.test(s))
+    const offenders = strings.filter(s => BANNED.test(s) || RETIRED_DESIGNATIONS.test(s))
+    expect(
+      offenders,
+      `contest framing in ${name}:\n  ${offenders.join('\n  ')}\n` +
+        'Ruled 8 Sep 2026: say "scored highest in N% of runs" — never a placing.',
+    ).toEqual([])
+  })
+})
