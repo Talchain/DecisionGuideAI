@@ -209,12 +209,11 @@ const SURFACES: {
     mount: () => {
       render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
     },
-    minTargets: 4,
-    minGlyphs: 4,
+    minTargets: 3,
+    minGlyphs: 3,
     identities: [
       'node-action-ask-node-a',
       'node-action-challenge-node-a',
-      'node-action-inspect-node-a',
       'node-action-menu-node-a',
     ],
   },
@@ -481,11 +480,11 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
    * predicate a sibling could satisfy would not have caught the 1px separation
    * the deployed capture in this file's header measured.
    */
-  it('keeps ask and inspect distinguishable — the pair whose consequences differ', () => {
+  it('keeps ask and challenge distinguishable — the pair whose consequences differ', () => {
     render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
     const ask = screen.getByTestId('node-action-ask-node-a')
-    const inspect = screen.getByTestId('node-action-inspect-node-a')
-    for (const [name, el] of [['ask', ask], ['inspect', inspect]] as const) {
+    const challenge = screen.getByTestId('node-action-challenge-node-a')
+    for (const [name, el] of [['ask', ask], ['challenge', challenge]] as const) {
       const slop = slopFromClass(cls(el))
       expect(slop.px, `${name} has no hit expansion`).toBeGreaterThan(0)
       expect(slop.scaled, `${name}'s hit expansion is not counter-scaled`).toBe(true)
@@ -615,31 +614,30 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
      * could satisfy (trap 19). A fixture rendering two buttons would compute a
      * comfortable footprint and pass a test that had measured nothing.
      */
-    it('measures the FULL four-button row, named one by one', () => {
+    it('measures the FULL three-button row, named one by one', () => {
       render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
       const { buttons } = measureRow()
       expect(buttons.map(idOf).sort()).toEqual([
         'node-action-ask-node-a',
         'node-action-challenge-node-a',
-        'node-action-inspect-node-a',
         'node-action-menu-node-a',
       ])
     })
 
     /**
-     * ⚠ THE FOURTH BUTTON IS NOW ON EVERY KIND — asserted, not assumed, because
-     * the whole point of pinning the four-button row is that it is the row every
+     * ⚠ THE THIRD BUTTON IS ON EVERY KIND — asserted, not assumed, because
+     * the whole point of pinning the row is that it is the row every
      * card gets. If a kind stops reaching it this REDs and the footprint claim
      * has to be re-scoped.
      */
-    it('every node kind reaches the same four-button row', () => {
+    it('every node kind reaches the same three-button row', () => {
       for (const kind of ['factor', 'risk', 'outcome', 'goal', 'decision', 'option', 'constraint'] as const) {
         document.body.innerHTML = ''
         render(<NodeQuickActions nodeId="node-a" nodeType={kind} label="Hiring spend" />)
         expect(
           targetsIn(screen.getByTestId('node-quick-actions-node-a')).length,
-          `${kind} does not render the four-button row the footprint is pinned to`,
-        ).toBe(4)
+          `${kind} does not render the three-button row the footprint is pinned to`,
+        ).toBe(3)
       }
     })
 
@@ -647,9 +645,17 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
       render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
       const { occupied, visual } = measureRow()
 
-      // The three numbers the reviewer derived from source, now asserted.
-      expect(visual, 'the row visual width moved').toBe(196)
-      expect(occupied, 'the row footprint moved').toBe(206)
+      // ⭐ RE-DECIDED, NOT RETUNED (2026-09-09). The four-button figures below
+      // were 196 / 206 / 89.6%. #1333 REMOVED the inspector button — on the
+      // reasoning that selecting the node already opens the inspector — so the
+      // row this bound measures is now three buttons and the accepted trade is
+      // SMALLER, not retuned to fit. The historical four-button measurement is
+      // preserved in the arithmetic block above; this is the current one.
+      //   3 x 40px + 2 x 12px          = 144 CSS px  (the spec's own §556 figure)
+      //   6 (inset) + 144 + 4 (slop)   = 154 CSS px
+      //   154 / 230                    = 67.0%
+      expect(visual, 'the row visual width moved').toBe(144)
+      expect(occupied, 'the row footprint moved').toBe(154)
       expect(NODE_LAYOUT_MIN_W, 'the narrowest card moved').toBe(230)
 
       // …and the RELATIONSHIP, which is the thing that actually matters and the
@@ -658,7 +664,7 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
       expect(
         Math.round((occupied / NODE_LAYOUT_MIN_W) * 1000) / 10,
         'the row footprint as a % of the narrowest card is the accepted trade — re-decide it, do not retune it',
-      ).toBe(89.6)
+      ).toBe(67)
     })
   })
 })

@@ -114,6 +114,7 @@ export interface V5ApplicatorStore {
     constraints: CEEGoalConstraint[] | null,
     opts?: { fromProducerSync?: boolean },
   ) => void
+  setGoalThreshold?: (value: number | null, opts?: { fromCeeSync?: boolean; representation?: 'raw' | 'normalised' }) => void
   /**
    * Current goal constraints, read to UPSERT an `add_constraint` graph_patch's
    * constraint (replace by id, or append when new) without dropping the ones
@@ -1009,6 +1010,27 @@ export function applyV5State(
               detail: 'after did not resolve to node_id + operator + finite value.',
             })
             break
+          }
+          // add_constraint is already committed at this point. A goal minimum
+          // also owns CEE's success-threshold channel; mirror its RAW receipt,
+          // never the attempted input or an upper-bound constraint. This closes
+          // the gap where the list saved 120k but a prior user target still
+          // shadowed it as 100k. Ordinary node mutation retains dirty/history
+          // semantics until a new run actually arrives.
+          const goal = store.nodes.find(n => n.id === target)
+          const goalKind = goal?.data?.kind ?? goal?.type
+          if (goal && goalKind === 'goal' && constraint.node_id === target &&
+              constraint.operator === '>=' && constraint.value > 0 &&
+              typeof constraint.unit === 'string' && constraint.unit.trim() !== '') {
+            const old = goal.data
+            const userValue = old.threshold_source === 'user'
+              ? { success_threshold: constraint.value } : {}
+            if (old.goal_threshold_raw !== constraint.value || old.goal_threshold_unit !== constraint.unit ||
+                (old.threshold_source === 'user' && old.success_threshold !== constraint.value)) {
+              store.updateNode(goal.id, { data: { ...old, ...userValue,
+                goal_threshold_raw: constraint.value, goal_threshold_unit: constraint.unit } })
+            }
+            store.setGoalThreshold?.(constraint.value, { fromCeeSync: true, representation: 'raw' })
           }
           // UPSERT by identity (P1-3). CEE updates an existing goal constraint
           // in place, retaining its constraint_id (add-constraint.ts) — so a

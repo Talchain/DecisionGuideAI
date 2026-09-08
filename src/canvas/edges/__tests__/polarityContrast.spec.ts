@@ -105,6 +105,87 @@ describe('polarity edge colours — CVD separation (what #282 never measured)', 
   })
 })
 
+describe("amber-on-incomplete — the figures behind Paul's 8 Sep 2026 re-ruling", () => {
+  /**
+   * WHY THESE LIVE HERE. `DESIGN_SYSTEM.md` carried an OPEN QUESTION from
+   * 2026-07-16 about the amber "needs your judgement" border, measured against
+   * the RISK border only. Paul ruled on 8 Sep 2026: the kind hue stays and the
+   * state moves to a badge. The figures that informed that ruling were first
+   * computed by an ad-hoc script whose dichromat step nothing validated, and
+   * then written into two prose comments — which is EXACTLY the defect this
+   * file was created to end (see the header: #282 quoted ΔE figures with no
+   * tooling behind them). Re-derived through this module and pinned here, so
+   * the cells in `BaseNode.tsx` and `BaseNode.incompleteBorderVocabulary.spec`
+   * fail loud if a token moves rather than quietly becoming false.
+   *
+   * PINNED COPIES of the brand.css tokens, same convention as the polarity
+   * hexes above: --warning 255 166 86 · --goal 245 196 51 · --danger 234 123
+   * 75 · --success 103 200 158 · --option 170 167 228 · --factor 176 168 153.
+   */
+  const AMBER = '#FFA656'
+  const GOAL = '#F5C433'
+  const RISK = '#EA7B4B'
+  const OUTCOME = '#67C89E'
+  const OPTION = '#AAA7E4'
+  const FACTOR = '#B0A899'
+
+  it('the July question named the WRONG collision — goal, not risk, is the worst pairing', () => {
+    // PRECONDITION, asserted rather than assumed: risk must be a REAL collision
+    // in normal vision, or "goal is worse" would be a comparison against
+    // nothing and this case could pass while measuring the wrong thing.
+    expect(deltaE2000(AMBER, RISK, 'normal')).toBeCloseTo(13.9, 1)
+
+    const goalWorst = Math.min(
+      deltaE2000(AMBER, GOAL, 'protan'),
+      deltaE2000(AMBER, GOAL, 'deutan'),
+    )
+    const riskWorst = Math.min(
+      deltaE2000(AMBER, RISK, 'protan'),
+      deltaE2000(AMBER, RISK, 'deutan'),
+    )
+    expect(goalWorst).toBeLessThan(riskWorst)
+    // Sized, not editorialised. Measured ratio is 0.62 (5.54 / 8.91) — the
+    // first draft of this case asserted "under HALF" and this guard REDed it,
+    // which is the whole reason it is written as bounds rather than prose.
+    expect(goalWorst).toBeLessThan(6)
+    expect(riskWorst).toBeGreaterThan(8)
+  })
+
+  it('pins every amber-vs-kind-hue cell published in BaseNode.tsx', () => {
+    const cells: Array<[string, string, number, number, number]> = [
+      // [name, hex, normal, deuteranopia, protanopia]
+      ['risk/danger', RISK, 13.9, 8.9, 12.2],
+      ['GOAL', GOAL, 17.0, 5.5, 8.7],
+      ['factor', FACTOR, 22.0, 20.6, 17.5],
+      ['outcome/success', OUTCOME, 43.6, 19.8, 12.7],
+      ['option', OPTION, 42.9, 53.7, 50.5],
+    ]
+    // toBeCloseTo(_, 1) is |diff| < 0.05 — i.e. "the published 1dp cell is
+    // correct". These are deterministic pure maths, so the only things that can
+    // move them are a token change or a change to cvdContrast itself, which is
+    // exactly when this should RED.
+    for (const [, hex, normal, deutan, protan] of cells) {
+      expect(deltaE2000(AMBER, hex, 'normal')).toBeCloseTo(normal, 1)
+      expect(deltaE2000(AMBER, hex, 'deutan')).toBeCloseTo(deutan, 1)
+      expect(deltaE2000(AMBER, hex, 'protan')).toBeCloseTo(protan, 1)
+    }
+  })
+
+  it('amber vs goal falls below the module\'s own "clearly distinct" bar in BOTH deficiencies', () => {
+    // This is the measured half of the ruling. The DECISIVE ground is separate
+    // and does not depend on it: amber REPLACING the kind hue made colour the
+    // sole channel for the state, which DESIGN_SYSTEM.md's Developer Checklist
+    // forbids outright. Recorded so a future reader does not think the ruling
+    // stands or falls on these numbers.
+    expect(deltaE2000(AMBER, GOAL, 'deutan')).toBeLessThan(CLEARLY_DISTINCT)
+    expect(deltaE2000(AMBER, GOAL, 'protan')).toBeLessThan(CLEARLY_DISTINCT)
+    // Contrast: option is comfortably clear of amber for both dichromats, so
+    // the bar is discriminating rather than failing everything handed to it.
+    expect(deltaE2000(AMBER, OPTION, 'deutan')).toBeGreaterThan(CLEARLY_DISTINCT)
+    expect(deltaE2000(AMBER, OPTION, 'protan')).toBeGreaterThan(CLEARLY_DISTINCT)
+  })
+})
+
 describe('cvdContrast validator — method sanity', () => {
   it('LMS_TO_RGB is the inverse of RGB_TO_LMS (RGB→LMS→RGB round-trips)', () => {
     // The simulation is RGB → LMS → projection → RGB, so LMS_TO_RGB must be

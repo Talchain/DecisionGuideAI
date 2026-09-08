@@ -1,12 +1,12 @@
 import { memo, useCallback } from 'react'
-import { MessageSquare, PanelRight, MoreHorizontal, Zap } from 'lucide-react'
+import { MessageSquare, MoreHorizontal, Zap } from 'lucide-react'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useShowToastSafe } from '../../ToastContext'
 import { askAI, buildAskAIPrompt, CHALLENGE_KINDS } from '../../contextMenu/actions'
 import { requestAsk, canReceiveAsk } from '../../ui/inspector-v2/askSemantic'
 import type { NodeType } from '../../domain/nodes'
-import { openNodeInspector } from './openNodeInspector'
+import Tooltip from '../../../components/Tooltip'
 import {
   CANVAS_GLYPH_SIZE_CLASSES,
   CANVAS_HIT_SLOP_CLASSES,
@@ -71,11 +71,12 @@ function hasChallengePrompt(nodeType: NodeType): boolean {
  *   Touch devices (`pointer: coarse`) get them permanently visible: a touch
  *   device has no hover, so opacity-on-hover would be a tap target that never
  *   appears. So does a SELECTED node, via `alwaysVisible`.
- * - NOTHING BURIED, NOTHING DUPLICATED BADLY. Both actions route through the
- *   machinery that already exists — `askAI` (which selects the element so the
- *   turn carries `selected_elements`, reveals the Olumi surface, and toasts if
- *   the conversation never registers) and `openNodeInspector` (the node twin
- *   of `openEdgeStrengthEditor`). No new transport, no second grammar.
+ * - THREE SHORTCUTS. Ask and Challenge keep their existing conversation
+ *   routes; More opens the existing node menu. Selecting the node opens its
+ *   inspector, so a fourth inspector button would duplicate that route.
+ * - POSITIONED TOOLTIPS. Tooltip attaches to the button itself, preserving
+ *   the hit area and accessible name. usePopoverHover suppresses the node
+ *   preview while this row is hovered or focused, so the two cannot overlap.
  * - NO DEAD CONTROLS, AND NO SILENT ONES. The ask button renders only when a
  *   conversation surface has registered the SEND channel `askAI` actually
  *   needs, and the click passes `showToast` through so a channel that dies
@@ -99,26 +100,11 @@ function hasChallengePrompt(nodeType: NodeType): boolean {
  * this component's spec: change it there too, or leave it alone.
  */
 /**
- * ⭐⭐ 20px VISUAL, 24px TARGET — AND NOW IN THE px THE USER ACTUALLY GETS.
- *
- * ⚠ THIS SHIPPED AS A 12px TARGET WHILE ITS SPEC ASSERTED 24. `h-5 w-5` plus
- * `before:-inset-[2px]` is `20 + 2x2 = 24` in CSS px — but this row is node DOM
- * inside React Flow's viewport transform, and a post-draft auto-fit parks at
- * `LABEL_LEGIBLE_ZOOM` (0.50), so the user was handed **12px**. The slop was
- * scaled by the zoom exactly like the box it was expanding, which is why
- * **slop alone fails and counter-scale alone fails: the target is 24px only
- * when BOTH carry the scale.**
- *
- * ⚠ AND THE GAP HAD TO MOVE WITH THEM. This row's separation invariant is
- * `gap > 2 x slop`. Counter-scaling the slop while leaving `gap-1.5` fixed
- * would double each expansion into a still-6px gap (`2 x 4 = 8 > 6`) and make
- * two hit areas OVERLAP — reintroducing the mis-click this row's spec exists to
- * prevent, as a side effect of fixing the size. Both scale; the ratio holds at
- * every zoom.
- *
- * One constant, used by all four buttons, so a fifth cannot be added with a
- * quietly different geometry — they were four identical literals before, which
- * is three chances to drift.
+ * Shared button geometry, counter-scaled so a control keeps its AUTHORED size
+ * at any zoom (#1274). Replaces three identical inline class strings: the box
+ * (`CANVAS_GLYPH_SIZE_CLASSES[20]`) and the hit-slop (`CANVAS_HIT_SLOP_CLASSES[2]`)
+ * are the two terms the footprint bound in `canvasGlyphTargetScale.spec.tsx`
+ * reads, so a literal here would be a second, undetected authority.
  */
 const BUTTON_CLASSES =
   'nodrag relative inline-flex ' +
@@ -243,11 +229,6 @@ export const NodeQuickActions = memo(function NodeQuickActions({
     }
   }, [nodeId, nodeType, label, showToast])
 
-  const handleInspect = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    openNodeInspector(nodeId)
-  }, [nodeId])
-
   /**
    * Open this node's own menu — the SAME menu right-click opens, by the same
    * code path.
@@ -347,17 +328,18 @@ export const NodeQuickActions = memo(function NodeQuickActions({
       data-testid={`node-quick-actions-${nodeId}`}
     >
       {canAsk && (
-        <button
-          type="button"
-          onClick={handleAsk}
-          onPointerDown={stopPointer}
-          className={BUTTON_CLASSES}
-          aria-label={`Ask Olumi about ${label}`}
-          title={`Ask Olumi about ${label}`}
-          data-testid={`node-action-ask-${nodeId}`}
-        >
-          <MessageSquare size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
-        </button>
+        <Tooltip asChild delay={300} content={`Ask Olumi about ${label}`}>
+          <button
+            type="button"
+            onClick={handleAsk}
+            onPointerDown={stopPointer}
+            className={BUTTON_CLASSES}
+            aria-label={`Ask Olumi about ${label}`}
+            data-testid={`node-action-ask-${nodeId}`}
+          >
+            <MessageSquare size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
+          </button>
+        </Tooltip>
       )}
       {/* ⭐ THE GENERATIVE PEER OF THE ASK. Second, not last: it sits beside
           "Ask Olumi about this" because the two are the same kind of act — a
@@ -369,29 +351,19 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           (`useMenuItems.ts`), so the button and the menu entry it unburies read
           as the same action rather than as two features. */}
       {canChallenge && (
-        <button
-          type="button"
-          onClick={handleChallenge}
-          onPointerDown={stopPointer}
-          className={BUTTON_CLASSES}
-          aria-label={`Challenge ${label}`}
-          title={`Challenge ${label} — what could be wrong or missing?`}
-          data-testid={`node-action-challenge-${nodeId}`}
-        >
-          <Zap size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
-        </button>
+        <Tooltip asChild delay={300} content={`Challenge ${label} — what could be wrong or missing?`}>
+          <button
+            type="button"
+            onClick={handleChallenge}
+            onPointerDown={stopPointer}
+            className={BUTTON_CLASSES}
+            aria-label={`Challenge ${label}`}
+            data-testid={`node-action-challenge-${nodeId}`}
+          >
+            <Zap size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
+          </button>
+        </Tooltip>
       )}
-      <button
-        type="button"
-        onClick={handleInspect}
-        onPointerDown={stopPointer}
-        className={BUTTON_CLASSES}
-        aria-label={`Open details for ${label}`}
-        title={`Open details for ${label}`}
-        data-testid={`node-action-inspect-${nodeId}`}
-      >
-        <PanelRight size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
-      </button>
       {/* ⭐ THE DOOR TO EVERYTHING ELSE THIS NODE CAN DO.
           Deliberately LAST: the two named shortcuts above are the ruling's
           "powerful science-grounded shortcuts", and this is the overflow, not a
@@ -399,33 +371,35 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           model — it re-emits the gesture that already opens this node's menu,
           for the input classes that cannot perform it.
 
-          The title names right-click on purpose. A user who learns the gesture
+          The tooltip names right-click on purpose. A user who learns the gesture
           from it stops needing the button, which is the right direction for an
           affordance whose job is discoverability. */}
-      <button
-        type="button"
-        onClick={handleOpenMenu}
-        onPointerDown={stopPointer}
-        /* Geometry is `BUTTON_CLASSES`, shared with the three buttons above and
-           derived there — see its header for why the box, the slop AND the row
-           gap all carry the counter-scale. This comment used to spell `h-5 w-5`
-           / `before:-inset-[2px]` / `gap-1.5` here, all three of which are now
-           wrong; a class literal repeated in prose is a mirror that goes stale
-           the first time the class moves. */
-        className={BUTTON_CLASSES}
-        aria-label={`More actions for ${label}`}
-        /* Announces that a menu follows. `aria-haspopup` is used by five other
-           canvas components, so its absence here was a real gap rather than a
-           repo convention. ⛔ NO `aria-expanded`: this button dispatches an
-           event and does not own the menu's open state, so it could not keep
-           that attribute truthful — and a stale `aria-expanded` is worse than
-           none. */
-        aria-haspopup="menu"
-        title={`More actions for ${label} — the same menu as right-click`}
-        data-testid={`node-action-menu-${nodeId}`}
-      >
-        <MoreHorizontal size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
-      </button>
+      <Tooltip asChild delay={300} content={`More actions for ${label} — the same menu as right-click`}>
+        <button
+          type="button"
+          onClick={handleOpenMenu}
+          onPointerDown={stopPointer}
+          /* ⭐ 20px VISUAL, 24px TARGET — and as of this change ALL of them, not
+             just this one. `h-5 w-5` keeps the visual identical to its siblings;
+             `before:-inset-[2px]` expands the hit area to 24×24, WCAG 2.2 AA
+             2.5.8's minimum. The comment here used to end "the siblings share the
+             shortfall and are left alone" — a correctly-scoped decision then, and
+             the rowed work this change closes. See the wrapper's `gap-1.5` for
+             why the gap had to move with it. */
+          className={BUTTON_CLASSES}
+          aria-label={`More actions for ${label}`}
+          /* Announces that a menu follows. `aria-haspopup` is used by five other
+             canvas components, so its absence here was a real gap rather than a
+             repo convention. ⛔ NO `aria-expanded`: this button dispatches an
+             event and does not own the menu's open state, so it could not keep
+             that attribute truthful — and a stale `aria-expanded` is worse than
+             none. */
+          aria-haspopup="menu"
+          data-testid={`node-action-menu-${nodeId}`}
+        >
+          <MoreHorizontal size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
+        </button>
+      </Tooltip>
     </div>
   )
 })

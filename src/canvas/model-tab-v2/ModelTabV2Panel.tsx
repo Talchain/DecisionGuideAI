@@ -46,9 +46,10 @@
  *   local-only write instead would recreate F6 on the surface built to kill
  *   it.~~
  *
- * STILL DISABLED, HONESTLY: edge likelihood / direction and the goal target.
- * Unchanged, and for the unchanged reason: no wire carrier, so no authority entry
- * point, so `editConnectedIds` keeps their affordances disabled.
+ * Goal minimum-target editing now uses the existing typed add_constraint
+ * authority: explicit absolute level/unit → review → confirm → server receipt.
+ * Other disabled controls remain unchanged. No goal value is written locally
+ * before acknowledgement.
  *
  * ⭐ EDGE STRENGTH GRADUATED BECAUSE IT GAINED A CARRIER, not because the rule
  * was relaxed. `edge_strength_edit` has had a CEE writer since Train C and, since
@@ -74,6 +75,9 @@ import { focusEdgeById, focusNodeById } from '../utils/focusHelpers'
 import { resolveValueInputSeed } from '../conversation/factorValueEdit'
 import { edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
+import { resolveGoalTarget } from '../domain/goalTarget'
+import { resolveNodeTypeLiteral } from '../domain/nodes'
+import { buildManualGoalTarget } from '../conversation/manualGoalTarget'
 import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
@@ -149,6 +153,9 @@ interface ActiveEdit {
   rowId: string
   phase: 'editing' | 'proposed'
   draft: string
+  unit?: string
+  scenarioId?: string | null
+  notice?: string
   /** What the row displayed when the edit began — the `from` of the proposal. */
   from: string
 }
@@ -289,13 +296,6 @@ export function ModelTabV2Panel({
    * row and reaches no affordance; ids are set membership, and this set is only
    * ever read BY ROW ID.
    */
-  const editConnectedIds = useMemo(() => {
-    const ids = new Set<string>()
-    for (const node of nodes) if (nodeKind(node) === 'factor') ids.add(node.id)
-    for (const edge of edges) if (edgeStrengthEditIsAssertable(edge)) ids.add(edge.id)
-    return ids as ReadonlySet<string>
-  }, [nodes, edges])
-
   const selectedRow = useMemo(
     () => (selectedId === null ? null : rows.find(r => r.id === selectedId) ?? null),
     [rows, selectedId],
@@ -358,6 +358,15 @@ export function ModelTabV2Panel({
       ? (interventionEdit?.optionId ?? null)
       : (edit?.rowId ?? interventionEdit?.optionId ?? null)
   const authority = useModelEditAuthority(activeAuthorityNodeId, editingRelationshipId)
+  const editConnectedIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const node of nodes) {
+      if (nodeKind(node) === 'factor' || (resolveNodeTypeLiteral(node) === 'goal' &&
+          hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.modelGoalMinimumTarget) && authority.goalTargetDispatchAvailable)) ids.add(node.id)
+    }
+    for (const edge of edges) if (edgeStrengthEditIsAssertable(edge)) ids.add(edge.id)
+    return ids as ReadonlySet<string>
+  }, [nodes, edges, authority.goalTargetDispatchAvailable])
 
   /**
    * The confirmation authority for ONE row.
@@ -407,8 +416,10 @@ export function ModelTabV2Panel({
     if (edit === null) return undefined
     const state: EditCommitState =
       edit.phase === 'editing'
-        ? { phase: 'editing', draft: edit.draft }
-        : { phase: 'proposed', from: edit.from, to: edit.draft }
+        ? { phase: 'editing', draft: edit.draft, ...(edit.unit !== undefined ? { unit: edit.unit } : {}) }
+        : { phase: 'proposed', from: edit.from,
+            ...(edit.notice ? { notice: edit.notice } : {}),
+            to: edit.unit !== undefined ? `At least ${edit.draft} ${edit.unit} (absolute level)` : edit.draft }
     return new Map<string, EditCommitState>([[edit.rowId, state]])
   }, [edit])
 
@@ -455,6 +466,13 @@ export function ModelTabV2Panel({
 
       const node = nodes.find(n => n.id === rowId)
       if (!node) return
+      if (row.kind === 'goal') {
+        const target = resolveGoalTarget(node.data)
+        setEdit({ rowId, phase: 'editing', draft: target ? String(target.raw) : '',
+          unit: target?.unit ?? '', scenarioId: authority.captureScenarioId(),
+          from: target ? `${target.raw}${target.unit ? ` ${target.unit}` : ''}` : 'Not set' })
+        return
+      }
       // THE one seed rule (`resolveValueInputSeed`, default `raw_or_value`
       // basis): the input shows `raw_value ?? value`, exactly as the inspector
       // panel and the v1 Model-tab chips do. A second copy of that rule is how
@@ -467,16 +485,17 @@ export function ModelTabV2Panel({
         from: row.primaryValue ?? 'Not set',
       })
     },
-    [rows, nodes, edges],
+    [rows, nodes, edges, authority],
   )
 
-  const changeDraft = useCallback((rowId: string, draft: string) => {
-    setEdit(prev => (prev && prev.rowId === rowId ? { ...prev, draft } : prev))
+  const changeDraft = useCallback((rowId: string, draft: string, unit?: string) => {
+    setEdit(prev => (prev && prev.rowId === rowId ? { ...prev, draft, ...(unit !== undefined ? { unit } : {}) } : prev))
   }, [])
 
   const proposeEdit = useCallback((rowId: string) => {
     setEdit(prev => {
       if (!prev || prev.rowId !== rowId) return prev
+      if (prev.unit !== undefined && !buildManualGoalTarget(rowId, prev.draft, prev.unit)) return prev
       // Intent must parse before it can be proposed. An unparseable draft
       // stays in `editing` — nothing to confirm, nothing to send.
       const num = parseFloat(prev.draft)
@@ -492,6 +511,11 @@ export function ModelTabV2Panel({
   const confirmEdit = useCallback(
     (rowId: string) => {
       if (!edit || edit.rowId !== rowId || edit.phase !== 'proposed') return
+      if (edit.unit !== undefined) {
+        if (authority.proposeGoalTarget(edit.draft, edit.unit, edit.scenarioId ?? null) === 'dispatched') setEdit(null)
+        else setEdit({ ...edit, notice: 'Target not sent. Reopen the target in the current model; your proposed value is shown here.' })
+        return
+      }
       const num = parseFloat(edit.draft)
       if (!Number.isFinite(num)) return
 

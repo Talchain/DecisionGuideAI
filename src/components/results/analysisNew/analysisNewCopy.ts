@@ -899,6 +899,36 @@ export const ANALYSIS_NEW_COPY = {
      * and suppressed by many browsers. Rendered only while the filter is on.
      */
     toVerifyNarrowed: 'Showing only factors carrying a number nobody has confirmed.',
+    /**
+     * ⚠⚠ `noValueCount`, NOT `noValue` — AND THE NAME IS THE FIX FOR A DEFECT
+     * I SHIPPED INTO THIS FILE WHILE WRITING THE COMMENT BELOW ABOUT EXACTLY
+     * THIS TRAP. `modelStrip.noValue` ALREADY EXISTS twenty lines up as the
+     * DETAIL panel's `'No value set'` string. A duplicate literal key silently
+     * won at runtime, the detail's value line rendered a function, and three
+     * existing specs went red — `modelStripFactorValueEdit` twice and
+     * `stripDetailReflectsTheEdit` once. They were green at pristine, so the
+     * regression was mine and the baseline is what proved it.
+     * Two questions under one name (trap 21): *what does this cell say when a
+     * factor has no value?* and *how many factors have none?*
+     *
+     * ⭐ THE OTHER HALF OF THE SENTENCE DIRECTLY ABOVE. `toVerify`'s own note
+     * says it "says nothing about the factors with no number at all — those
+     * are excluded by the predicate's value guard and are a different question
+     * the Model tab names `no-value`". This is that question, and the wording
+     * is NOT invented here: `ModelOutline.unsetSummary` already renders
+     * `${nothing} with no value yet` on the Model tab, so the two surfaces name
+     * one state with one phrase rather than teaching two vocabularies.
+     *
+     * ⚠ A COUNT, NEVER A JUDGEMENT. It says N factors carry nothing; it does
+     * not say the model is incomplete, and it excludes factors Olumi has
+     * estimated — those have text and are a different clause on the Model tab.
+     */
+    noValueCount: (n: number) =>
+      n === 1 ? '1 with no value yet' : `${n} with no value yet`,
+    /** Label-in-name, exactly as `toVerifyToggleName`. */
+    noValueToggleName: (n: number) =>
+      `${n === 1 ? '1 with no value yet' : `${n} with no value yet`} — show only these factors`,
+    noValueNarrowed: 'Showing only factors that carry no value at all.',
     /** A row is a filter. Accessible name; the row's own word is the visible half. */
     onlyKind: (label: string) => `Show only ${label}`,
     /**
@@ -1096,7 +1126,32 @@ export const ANALYSIS_NEW_COPY = {
       win_probability: 'the win share',
       expected_outcome: 'the expected outcome',
       sensitivity: 'the sensitivity check',
-      robustness_level: 'the robustness check',
+      /**
+       * ⚠⚠ "the robustness check" WAS TOO BROAD, AND IT CONTRADICTED THE LINE
+       * FOUR ROWS BELOW IT. Witnessed on deployed staging `219cbe19` on a live
+       * fresh journey (guest, re-drafted example, analysis complete 03:41:29Z):
+       * the panel read *"This analysis is partial — the win share and the
+       * robustness check did not come back"* while its own confidence sentence
+       * read *"13 fragile edges, 0 robust edges"* — computed from the very
+       * check it had just said did not come back.
+       *
+       * The predicate is right and the WORD was wrong. `useResultCompleteness`
+       * adds this key when `robustness.level` and `robustness.recommendation_
+       * stability` are both absent, and that check exists for a good reason
+       * ("when both are absent, the rendered robustness state is fabricated").
+       * The payload carried `robustness.fragile_edges` 13, `robust_edges` 0,
+       * `edge_e_values` 7 — so the CHECK ran and its edge-level output is on
+       * screen; what is missing is the summarising RATING.
+       *
+       * The key was always precise (`robustness_level`). Only the label
+       * over-claimed. Naming the rating rather than the check tells the reader
+       * what is actually absent and stops the panel contradicting itself.
+       *
+       * ⛔ NOT CHANGED, and deliberately: `From the robustness check.` as a
+       * finding's `sourceLine`. That names where a finding CAME FROM, which is
+       * true and unaffected — a different question under similar words.
+       */
+      robustness_level: 'the overall robustness rating',
       /**
        * ⚠⚠ `recommendation_stability` IS DELIBERATELY ABSENT FROM THIS MAP, and
        * a CI guard exists to keep it that way (`withheldFieldReadBan.spec.ts`,
@@ -1289,7 +1344,7 @@ export const ANALYSIS_NEW_COPY = {
      * The one licensed DENIAL, and it is licensed by `separation === 'tied'`
      * alone (`decisionVerdict.ts:166-168`).
      */
-    leader_tied: { label: 'No clear leader' },
+    leader_tied: { label: 'No option is clearly most likely' },
     leader_not_assessed: {
       label: 'Which option is most likely — not assessed',
       /**
