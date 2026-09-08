@@ -524,7 +524,23 @@ export function AnalysisNewTabBody({
    * ⚠ `results.status`, NOT `isPreRun`. The two diverge on every rerun, error
    * and cancellation — see `sections/DecisionRecorded.tsx`'s `canCapture`.
    */
-  const resultsStatus = useCanvasStore((state) => state.results.status)
+  /**
+   * ⚠ `results?.` — THE OPTIONAL CHAIN IS LOAD-BEARING, NOT DEFENSIVE PADDING.
+   * `results` is typed non-nullable on the store, and the capture modal reads
+   * `s.results.status` unguarded because it only ever mounts under a real one.
+   * This panel does not have that luxury: it is rendered against store states
+   * where `results` is genuinely `null`, and an unguarded read throws during
+   * React's render phase — taking the WHOLE panel down, not just this section.
+   * Measured, not supposed: the first version of this line crashed 11 tests in
+   * `successTargetSurfacesAgree.spec.tsx` with
+   * `Cannot read properties of null (reading 'status')`.
+   *
+   * `undefined` is the honest value here and needs no special case downstream —
+   * `hasAnalysedOptions` takes `string | undefined` and anything that is not
+   * `'complete'` means the same thing: no analysed option set to record
+   * against, so no door.
+   */
+  const resultsStatus = useCanvasStore((state) => state.results?.status)
   const canCaptureDecision = hasAnalysedOptions(nodes, resultsStatus)
   /**
    * ⚠⚠ "THE STRIP IS OFFERING THE CONTROL", NOT "THE MODEL HAS A GOAL" — and

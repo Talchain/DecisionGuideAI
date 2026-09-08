@@ -272,6 +272,30 @@ describe('THE DOOR IS NOT OFFERED WHERE THE CAPTURE WOULD BE REFUSED', () => {
   })
 
   /**
+   * ⭐⭐⭐ A NULL `results` DOES NOT TAKE THE PANEL DOWN — a regression guard for
+   * a crash this very gate caused, found by CI and reproduced locally.
+   *
+   * `results` is typed non-nullable on the canvas store, so reading
+   * `state.results.status` looks safe and the capture modal does exactly that.
+   * It is not safe HERE: this panel is rendered against store states where
+   * `results` is genuinely `null`, and an unguarded read throws inside React's
+   * render phase — which does not degrade the section, it unmounts the WHOLE
+   * PANEL. The first version of the gate did this and broke 11 tests in
+   * `successTargetSurfacesAgree.spec.tsx` with
+   * `TypeError: Cannot read properties of null (reading 'status')`.
+   *
+   * ⚠ THE ASSERTION IS THAT THE PANEL SURVIVES, NOT MERELY THAT THE DOOR IS
+   * ABSENT. "No door" is exactly what a crashed panel also looks like, so an
+   * absence assertion alone would have passed on the broken build (trap 13b).
+   */
+  it('a null results does not throw — the panel survives and simply offers no door', () => {
+    useCanvasStore.setState({ results: null } as never)
+    expect(() => renderPanel(genuineDecision())).not.toThrow()
+    expect(screen.getByTestId('analysis-new-tab-body')).toBeInTheDocument()
+    expect(screen.queryByTestId(DOOR)).toBeNull()
+  })
+
+  /**
    * ⭐⭐ THE READ-BACK IS NOT GATED ON ANY OF IT, AND THIS IS THE ASSERTION
    * THAT KEEPS THE FIX FROM OVERSHOOTING. Hiding an already-captured record
    * mid-rerun would delete the user's own writing from the screen at exactly
