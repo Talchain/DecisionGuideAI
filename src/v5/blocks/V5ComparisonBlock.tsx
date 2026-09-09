@@ -4,6 +4,7 @@
 import { type ReactElement } from 'react'
 import { typography } from '../../styles/typography'
 import type { V5ComparisonBlock as V5ComparisonBlockType } from '../../canvas/conversation/types'
+import { METRIC_NOUN } from '../../canvas/nodes/shared/metricVocabulary'
 
 export interface V5ComparisonBlockProps {
   block: V5ComparisonBlockType
@@ -28,7 +29,11 @@ export function V5ComparisonBlock({ block }: V5ComparisonBlockProps): ReactEleme
         <thead>
           <tr>
             <th className={`${typography.panelMeta} text-text-light font-normal pb-1`}>Option</th>
-            <th className={`${typography.panelMeta} text-text-light font-normal pb-1`}>Win probability</th>
+            {/* ⛔ A VISIBLE COLUMN HEADER, and the second survivor both sweeps
+                missed. By reference: this table captions the same quantity the
+                option card does, so it takes the same word from the same
+                register. */}
+            <th className={`${typography.panelMeta} text-text-light font-normal pb-1`}>{METRIC_NOUN.support}</th>
           </tr>
         </thead>
         <tbody>
