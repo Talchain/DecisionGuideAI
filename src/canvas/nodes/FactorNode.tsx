@@ -390,28 +390,7 @@ export const FactorNode = memo((props: NodeProps) => {
   // and into a dedicated needsInput popover branch for low-priority cases.
   // The body never renders chips directly.
   const factorChips = useMemo(() => {
-    /**
-     * ⛔ THE PHASE GATE IS GONE. It read `if (isPostAnalysis) return null`, so
-     * EVERY factor chip was deleted the moment an analysis completed — this was
-     * the harshest phase gate on the canvas, leaving factor cards with no
-     * coaching at all after a run.
-     *
-     * All three chips stay true post-analysis, which is why the gate was wrong
-     * rather than merely unhelpful:
-     *   · `needsInput` — a factor with no value still has no value after a run
-     *   · `nodeCategory === 'external'` — externality is structural, not a phase
-     *   · `isInferred` — `extractionType === 'inferred'` is a PROVENANCE fact;
-     *     a run does not turn Olumi's inference into the user's own estimate,
-     *     so "What evidence supports this?" is if anything MORE pointed once
-     *     that inferred value has moved a result.
-     *
-     * ⚠ LOCATION IS DELIBERATELY UNCHANGED HERE, unlike the sibling nodes in
-     * this change. The popover branch below cites a written brief — "the brief
-     * is explicit that AI chips live in popovers, never in the body" — and
-     * overriding a brief on a node Paul's ruling did not name would be the
-     * "while we're here" expansion the scope rule bans. Raised for a ruling
-     * instead; this commit only stops the run from deleting the coaching.
-     */
+    if (isPostAnalysis) return null
     const chips: React.ReactNode[] = []
     if (needsInput) {
       chips.push(
