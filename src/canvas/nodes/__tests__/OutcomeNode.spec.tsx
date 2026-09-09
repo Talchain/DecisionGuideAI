@@ -9,11 +9,10 @@ import { METRIC_NOUN, METRIC_UNSET } from '../shared/metricVocabulary'
  * ⭐ THE SEEN HALF OF THE ROW, AND THE DISTINCTION IS LOAD-BEARING (3 Sep 2026).
  *
  * Where nobody set the bridge strength, the producer's assumed figure is
- * DEMOTED to the row's screen-reader phrase rather than deleted — so
- * `container.textContent` still contains "85%" while nothing on screen does.
- * A guard that read the whole subtree would refuse the demotion this change is
- * built on. `NodeMetricRow` marks every seen element `aria-hidden`, so the two
- * audiences are already separated at the DOM; this reads the seen one.
+ * disclosed as an assumption through the tooltip and accessible name. The
+ * resting row must still carry no numeric bar. This helper reads only the
+ * visible labels, which `NodeMetricRow` marks `aria-hidden` because the row's
+ * accessible name carries their meaning.
  */
 const seenText = (root: HTMLElement): string =>
   Array.from(root.querySelectorAll('[aria-hidden="true"]'))
@@ -21,6 +20,7 @@ const seenText = (root: HTMLElement): string =>
     .join(' ')
 
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OutcomeNode } from '../OutcomeNode'
 import { USER_EDGE_DEFAULTS, DEFAULT_EDGE_DATA } from '../../domain/edges'
@@ -490,10 +490,17 @@ describe('OutcomeNode — Depends on overflow disclosure (audit §8 P0-5)', () =
       expect(screen.getByText(METRIC_UNSET.standalone)).toBeInTheDocument()
     })
 
-    it('POSITIVE CONTROL: accepts CEE back-compat evidence (strength_mean)', () => {
+    it('discloses CEE back-compat strength_mean as an assumption, without a settled bar', async () => {
+      const user = userEvent.setup()
       bridgeStore({ strength_mean: 0.45, weight: 0.3 })
       renderOutcome()
-      expect(screen.getByText(/45%/)).toBeDefined()
+      const row = screen.getByTestId('outcome-strength-row')
+      expect(row).toHaveTextContent(METRIC_UNSET.standalone)
+      expect(row).not.toHaveTextContent('45%')
+      expect(row.querySelector('[style]')).toBeNull()
+      expect(row).toHaveAccessibleName(/assum.*45%/i)
+      await user.hover(row)
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(/assum.*45%/i)
     })
   })
 })

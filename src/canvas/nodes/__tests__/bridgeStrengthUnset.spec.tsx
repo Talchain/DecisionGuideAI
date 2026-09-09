@@ -32,7 +32,7 @@
  * closes a lie by opening a gap is this estate's trap 22b.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { RiskNode } from '../RiskNode'
 import { OutcomeNode } from '../OutcomeNode'
@@ -245,19 +245,17 @@ describe('⛔ the witnessed defect: a bar drawn for a strength nobody set', () =
     expect(row.textContent).toContain(METRIC_UNSET.standalone)
   })
 
-  it('and it names the way out, in words a reader can act on', () => {
+  it('and it names the way out, in words a reader can act on', async () => {
     mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'cee', 0.5)))
     const row = screen.getByTestId('risk-strength-row')
-    // Both carriers, per `NodeMetricRow`'s two-carrier rule: a `title` is
-    // unreachable by keyboard and absent on touch, so the sentence rides the
-    // screen-reader phrase independently.
-    expect(row.getAttribute('title')).toMatch(/Open the details/)
-    expect(row.textContent).toMatch(/Open the details/)
+    fireEvent.mouseEnter(row)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(/Open the details/)
+    expect(row).toHaveAccessibleName(/Open the details/)
   })
 
   it('⭐ the producer figure is DEMOTED, not deleted — it is disclosed as an assumption', () => {
     mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'cee', 0.5)))
-    const title = screen.getByTestId('risk-strength-row').getAttribute('title') ?? ''
+    const title = screen.getByTestId('risk-strength-row').getAttribute('aria-label') ?? ''
     expect(title).toContain('50%')
     expect(title).toMatch(/assum/i)
   })
@@ -292,7 +290,7 @@ describe('⭐ THE DISCRIMINATING PAIR — the row reads the PROVENANCE, not the 
     expect(barWidthIn('risk-strength-row')).toBeNull()
     // ⚠ AND IT MUST NOT CLAIM AN ASSUMPTION NOBODY MADE. Nothing supplied a
     // figure here, so the disclosure may not invent one.
-    expect(row.getAttribute('title') ?? '').not.toMatch(/\d+%/)
+    expect(row.getAttribute('aria-label') ?? '').not.toMatch(/\d+%/)
   })
 
   it('CONTRAST CONTROL — no bridge edge, no row: absence of a connection is not an unknown strength', () => {
@@ -335,7 +333,7 @@ describe('⛔ F1 — THE ROW MUST NOT DENY AN ADJUDICATION THE USER ACTUALLY MAD
     mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'adjudicated', 0.5)))
     const row = screen.getByTestId('risk-strength-row')
     expect(row.textContent ?? '').not.toMatch(/Nobody has set/i)
-    expect(row.getAttribute('title') ?? '').not.toMatch(/Nobody has set/i)
+    expect(row.getAttribute('aria-label') ?? '').not.toMatch(/Nobody has set/i)
     expect(row.textContent ?? '').not.toContain(METRIC_UNSET.standalone)
   })
 
@@ -366,7 +364,7 @@ describe('⛔ F5 — the disclosure names the figure\'s AUTHOR from the data, ne
     // Olumi with a number a template author wrote — the same fabrication class
     // this row exists to close, one clause along.
     mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'template', 0.5)))
-    const title = screen.getByTestId('risk-strength-row').getAttribute('title') ?? ''
+    const title = screen.getByTestId('risk-strength-row').getAttribute('aria-label') ?? ''
     expect(title).toContain('50%')
     expect(title).not.toMatch(/Olumi/i)
     expect(title).toMatch(/template/i)
@@ -376,7 +374,7 @@ describe('⛔ F5 — the disclosure names the figure\'s AUTHOR from the data, ne
     // Proves the assertion above discriminates by SOURCE rather than the
     // sentence having simply lost the word "Olumi" everywhere.
     mountRisk(makeStoreState(modelWithBridge('risk-1', 'risk', 'cee', 0.5)))
-    const title = screen.getByTestId('risk-strength-row').getAttribute('title') ?? ''
+    const title = screen.getByTestId('risk-strength-row').getAttribute('aria-label') ?? ''
     expect(title).toMatch(/Olumi/i)
   })
 })

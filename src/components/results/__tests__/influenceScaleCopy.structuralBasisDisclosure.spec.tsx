@@ -40,6 +40,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { afterEach } from 'vitest'
+import userEvent from '@testing-library/user-event'
 
 import {
   INFLUENCE_EXPLANATION_ABSOLUTE,
@@ -198,12 +199,10 @@ describe('the canvas influence row renders the disclosure it is given', () => {
    * DEPLOYED flags actually mount, not to the one the fix was written against).
    *
    * The PROPERTY this block exists to pin is unchanged and is not weakened: the
-   * structural note must reach BOTH channels — `title` for pointer users and an
-   * assistive-tech string for everyone else — because a note that lived on
-   * `title` alone is a disclosure a whole class of readers never receives.
-   * `NodeMetricRow`'s own docblock states the same rule ("Callers that need a
-   * basis disclosed should pass BOTH"), and `FactorNode` is the caller: it
-   * mounts exactly the shape below, `title={influenceExplanation(…)}` and
+   * structural note must reach BOTH channels — the hover/focus tooltip and an
+   * accessible name. The `title` prop now supplies positioned tooltip content,
+   * not a native browser title. `FactorNode` is the caller: it mounts exactly
+   * the shape below, `title={influenceExplanation(…)}` and
    * `phrase={influenceBarAriaLabel(…)}`, with `testId="factor-influence-row"`.
    *
    * Bound by IDENTITY: the row is found by that test id, so another metric row
@@ -226,19 +225,25 @@ describe('the canvas influence row renders the disclosure it is given', () => {
     )
   }
 
-  it('puts the structural note on BOTH the row title and its assistive-tech phrase', () => {
+  it('puts the structural note in BOTH the focus tooltip and its accessible name', async () => {
+    const user = userEvent.setup()
     renderInfluenceRow(STRUCTURAL_IMPORTANCE_BASIS)
     const row = influenceRow()
-    expect(row.getAttribute('title')).toContain(INFLUENCE_STRUCTURAL_BASIS_NOTE)
-    // The phrase is rendered inside the row as screen-reader-only text rather
-    // than as an attribute, so assert on what the row actually contains.
-    expect(row.textContent).toContain(INFLUENCE_STRUCTURAL_BASIS_NOTE)
+    expect(row).toHaveAccessibleName(/Based on the structure of your model/)
+    await user.tab()
+    expect(row).toHaveFocus()
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(INFLUENCE_STRUCTURAL_BASIS_NOTE)
   })
 
-  it('renders no structural note when the stamp is absent', () => {
+  it('renders no structural note when the stamp is absent', async () => {
+    const user = userEvent.setup()
     renderInfluenceRow(null)
     const row = influenceRow()
-    expect(row.getAttribute('title')).not.toContain(INFLUENCE_STRUCTURAL_BASIS_NOTE)
-    expect(row.textContent).not.toContain(INFLUENCE_STRUCTURAL_BASIS_NOTE)
+    expect(row).not.toHaveAccessibleName(/Based on the structure of your model/)
+    await user.tab()
+    expect(row).toHaveFocus()
+    const tooltip = await screen.findByRole('tooltip')
+    expect(tooltip).toHaveTextContent(INFLUENCE_EXPLANATION_ABSOLUTE)
+    expect(tooltip).not.toHaveTextContent(INFLUENCE_STRUCTURAL_BASIS_NOTE)
   })
 })
