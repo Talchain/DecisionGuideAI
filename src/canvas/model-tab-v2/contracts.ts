@@ -96,11 +96,17 @@ export interface EditProposalHandle {
  *       from, so the revert is buildable — it is simply not built.
  *
  *   ⚠⚠ DO NOT RE-DERIVE "`proposeEdgeStrength` HAS NO ENTRY POINT HERE" FROM
- *   THE HOOK HEADER. That sentence is still in `useModelEditAuthority.ts`, but
- *   inside a `~~struck~~` block whose own preceding line marks it "TRUE AND IS
- *   NOW FALSE" (2026-09-08), kept only so its reasoning is not re-derived from
- *   scratch. Started at the quote rather than the line above it, it reads as
- *   current — and it has already been copied into THIS file once as new text.
+ *   EITHER HEADER THAT STILL CONTAINS IT. There are TWO, and both keep the
+ *   sentence inside a `~~struck~~` block whose marker sits in the PRECEDING
+ *   paragraph rather than beside the quote:
+ *     · `useModelEditAuthority.ts` — "THE PARAGRAPH BELOW WAS TRUE AND IS NOW
+ *       FALSE" (2026-09-08), kept so its reasoning is not re-derived
+ *     · `ModelTabV2Panel.tsx` — "TRUE UNTIL 2026-09-08 AND IS NARROWED, NOT
+ *       DELETED", whose struck text still reads "edge strength ... ha[s] no
+ *       authority entry point, so `editConnectedIds` keeps their affordances
+ *       disabled"
+ *   Started at the quote rather than at the paragraph above it, both read as
+ *   current — and one has already been copied into THIS file once as new text.
  *   The code settles it. In `ModelTabV2Panel`: the authority is constructed
  *   `useModelEditAuthority(activeAuthorityNodeId, editingRelationshipId)`, so an
  *   edge is addressed by a SEPARATE parameter and trap 21 is answered rather
