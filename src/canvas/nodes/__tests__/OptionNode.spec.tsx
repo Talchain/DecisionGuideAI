@@ -2383,7 +2383,10 @@ describe('OptionNode — display coherence (audit §8)', () => {
     renderOption()
     const badge = screen.getByTestId('option-stable-number-option-1')
     expect(badge).toHaveTextContent('2')
-    expect(badge).toHaveAttribute('aria-label', 'Option 2')
+    // ⚠ WAS the bare 'Option 2'. The name now says what the number MEANS, so a
+    // screen-reader user can tell it from the factor ranking badge — see
+    // OptionNode's aria-label comment and metricVocabulary.ts:373.
+    expect(badge).toHaveAttribute('aria-label', 'Option 2 — the order the options were first laid out in, not a ranking')
   })
 
   it('renders no stable-number badge before the option is registered', () => {

@@ -1049,7 +1049,26 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             data-testid={`sensitivity-rank-${id}`}
             className={`${typography.nodeLabel} font-semibold text-text-body bg-panel-border rounded-full flex items-center justify-center shadow-sm`}
             style={{ minWidth: '20px', height: '20px', padding: '0 4px', pointerEvents: 'none' }}
-            title={`Key driver #${displayMetadata.sensitivityRank}: ranked by influence on the outcome`}
+            /* ⚠⚠ THIS WAS A `title`, AND A `title` ON THIS ELEMENT CAN NEVER
+               FIRE. `pointerEvents: 'none'` (the line above, load-bearing so the
+               badge does not swallow drags aimed at the card) means the browser
+               raises no hover on it, so the tooltip had no trigger — while
+               reading, in source and in review, exactly like an explanation
+               that was already provided. A dead affordance that looks like
+               coverage is worse than none: it stops anyone asking the question
+               again.
+
+               `aria-label` needs no pointer, so it works where the title could
+               not, and it is the half that was genuinely missing — a screen
+               reader previously got the bare string "#1".
+
+               ⚠ THE SIGHTED READER STILL HAS NO HOVER HERE, and that is stated
+               rather than quietly left: the meaning lives in the canvas legend
+               (`metricVocabulary.ts:367-368`), which mounts unconditionally.
+               Giving this badge a real tooltip means removing
+               `pointerEvents: 'none'` and re-measuring drag behaviour on the
+               card — a separate change, not a comment. */
+            aria-label={`Key driver #${displayMetadata.sensitivityRank}: one of the factors the result is most sensitive to`}
           >
             #{displayMetadata.sensitivityRank}
           </span>

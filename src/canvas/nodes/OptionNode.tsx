@@ -1609,7 +1609,18 @@ export const OptionNode = memo((props: NodeProps) => {
             {stableOptionNumber != null && (
               <span
                 data-testid={`option-stable-number-${props.id}`}
-                aria-label={`Option ${stableOptionNumber}`}
+                /* ⚠ WAS `Option N`, WHICH READS AS A RANK. Two numbering
+                   systems share this canvas — `#1/#2/#3` on factors IS an
+                   ordering (by sensitivity), and this one is NOT. A bare
+                   "Option 3" is indistinguishable from the ranking badge to
+                   anyone using a screen reader, and that is the confusion the
+                   legend exists to prevent.
+
+                   Wording DERIVED from the legend's own gloss
+                   (`metricVocabulary.ts:373`) rather than written afresh, so the
+                   two cannot drift into saying different things about the same
+                   badge. */
+                aria-label={`Option ${stableOptionNumber} — the order the options were first laid out in, not a ranking`}
                 className={`${typography.nodeLabel} inline-flex h-4 min-w-[16px] items-center justify-center rounded border border-panel-border px-1 text-text-light`}
               >
                 {stableOptionNumber}
