@@ -1220,9 +1220,8 @@ describe('FactorNode — intervention hover', () => {
   })
 
   it('renders CEE display_value verbatim on the hover chip, overriding placeholder-unit formatting', () => {
-    // Scale-unit factor would normally fall back to directional language
-    // ("Increases X"). With CEE-authored display_value present, render the
-    // string verbatim — F.6 passthrough.
+    // Authored display text takes precedence over the shared qualitative
+    // setting formatter — F.6 passthrough.
     mountWithHoveredOption({ value: 0.7, display_value: 'Top decile' }, {
       label: 'Marketing Expertise Available',
       type: 'factor',
@@ -1248,26 +1247,26 @@ describe('FactorNode — intervention hover', () => {
     expect(screen.getByText('→ no change')).toBeDefined()
   })
 
-  // Polish 4 self-assessment fix #3: scale-unit factor with no raw_value
-  // anchor used to render an empty value because formatInterventionValue
-  // returns ''. The overlay must fall back to a direction-only cue.
-  it('falls back to directional language for scale-unit factors with no raw anchor', () => {
+  // Hover, preview and inspector state the option setting through the same
+  // formatter. Placeholder units retain its qualitative tier, not an inferred
+  // change relative to the current factor value.
+  it('renders the qualitative setting for a scale-unit factor with no raw anchor', () => {
     mountWithHoveredOption(0.7, {
       label: 'Marketing Expertise Available',
       type: 'factor',
       category: 'controllable',
       observedState: { value: 0.3, unit: 'scale' },
     })
-    // No "scale", no number — directional language only.
+    // No internal unit or normalised number leaks into the setting.
     expect(screen.queryByText(/scale/i)).toBeNull()
     expect(screen.queryByText(/0\.7/)).toBeNull()
-    // intervention 0.7 > observed 0.3 + ε → "Increases <label>".
-    expect(screen.getByText(/Increases/)).toBeDefined()
+    expect(screen.getByText('→ High')).toBeDefined()
+    expect(screen.queryByText(/Increases|Decreases|Does not change/)).toBeNull()
     // Never render a bare arrow with no trailing text.
     expect(screen.queryByText(/^→\s*$/)).toBeNull()
   })
 
-  it('renders "Decreases" when intervention is below observed for scale unit', () => {
+  it('retains a "Very low" setting when it is below the current scale-unit value', () => {
     mountWithHoveredOption(0.1, {
       label: 'Marketing Expertise Available',
       type: 'factor',
@@ -1275,88 +1274,89 @@ describe('FactorNode — intervention hover', () => {
       observedState: { value: 0.5, unit: 'scale' },
     })
     expect(screen.queryByText(/scale/i)).toBeNull()
-    expect(screen.getByText(/Decreases/)).toBeDefined()
+    expect(screen.getByText('→ Very low')).toBeDefined()
+    expect(screen.queryByText(/Increases|Decreases|Does not change/)).toBeNull()
   })
 
-  // ---- Placeholder-unit directional language (extracted helper) ----
+  // ---- Placeholder-unit settings ----
 
   // Shared negative assertions for every placeholder-unit case: the teal strip
-  // must never leak unit tokens, tier labels, or a bare arrow.
+  // must never leak unit tokens, invent a baseline comparison, or show a bare arrow.
   const assertNoPlaceholderLeaks = (unitRegex: RegExp) => {
     expect(screen.queryAllByText(unitRegex)).toHaveLength(0)
-    expect(screen.queryAllByText(/\b(Very high|Very low|High|Low|Medium|Moderate)\b/)).toHaveLength(0)
+    expect(screen.queryAllByText(/Increases|Decreases|Does not change/)).toHaveLength(0)
     expect(screen.queryAllByText(/^→\s*$/)).toHaveLength(0)
   }
 
-  it('renders "Increases" for index-unit factor with intervention above baseline', () => {
+  it('renders the "Very high" setting for an index-unit factor', () => {
     mountWithHoveredOption(0.9, {
       label: 'Team morale',
       type: 'factor',
       category: 'controllable',
       observedState: { value: 0.2, unit: 'index' },
     })
-    expect(screen.getByText(/Increases/)).toBeDefined()
+    expect(screen.getByText('→ Very high')).toBeDefined()
     assertNoPlaceholderLeaks(/index/i)
   })
 
-  it('renders "Decreases" for score-unit factor with intervention below baseline', () => {
+  it('renders the "Very low" setting for a score-unit factor', () => {
     mountWithHoveredOption(0.1, {
       label: 'Churn risk',
       type: 'factor',
       category: 'controllable',
       observedState: { value: 0.8, unit: 'score' },
     })
-    expect(screen.getByText(/Decreases/)).toBeDefined()
+    expect(screen.getByText('→ Very low')).toBeDefined()
     assertNoPlaceholderLeaks(/score/i)
   })
 
-  it('says "Increases" for a small real shift (audit §8 P0-4 — no ±0.1 display epsilon)', () => {
-    // The old ±0.1 epsilon rendered "Does not change" for 0.5→0.55 (and the
-    // live 0.5→0.6 boundary case) while other surfaces showed a change.
+  it('retains the setting for a small real shift without claiming no change', () => {
+    // Both values fall in the existing Medium tier. That coarse setting must
+    // not be restated as "Does not change" when the numeric values differ.
     mountWithHoveredOption(0.55, {
       label: 'Process maturity',
       type: 'factor',
       category: 'controllable',
       observedState: { value: 0.5, unit: 'scale' },
     })
-    expect(screen.getByText(/Increases/)).toBeDefined()
+    expect(screen.getByText('→ Medium')).toBeDefined()
     expect(screen.queryByText(/Does not change/)).toBeNull()
     assertNoPlaceholderLeaks(/scale/i)
   })
 
-  it('renders "Does not change" ONLY when intervention exactly equals baseline (scale)', () => {
+  it('retains the setting when intervention exactly equals the current value', () => {
     mountWithHoveredOption(0.5, {
       label: 'Process maturity',
       type: 'factor',
       category: 'controllable',
       observedState: { value: 0.5, unit: 'scale' },
     })
-    expect(screen.getByText(/Does not change/)).toBeDefined()
+    expect(screen.getByText('→ Medium')).toBeDefined()
     assertNoPlaceholderLeaks(/scale/i)
   })
 
-  it('renders directional phrasing for norm-unit factor (full placeholder coverage)', () => {
+  it('renders the "High" setting for a norm-unit factor', () => {
     mountWithHoveredOption(0.8, {
       label: 'Product quality',
       type: 'factor',
       category: 'controllable',
       observedState: { value: 0.2, unit: 'norm' },
     })
-    expect(screen.getByText(/Increases/)).toBeDefined()
+    expect(screen.getByText('→ High')).toBeDefined()
     assertNoPlaceholderLeaks(/norm/i)
   })
 
-  it('strips scale metadata like "(0–1 scale)" from the directional label', () => {
+  it('retains the setting and strips scale metadata like "(0–1 scale)" from the factor label', () => {
     mountWithHoveredOption(0.9, {
-      // Raw label still carries the CEE normalisation artefact — it must be
-      // cleaned before being compacted into the teal strip text.
+      // Raw label still carries the CEE normalisation artefact.
       label: 'Hiring rate (0–1 scale)',
       type: 'factor',
       category: 'controllable',
       observedState: { value: 0.2, unit: 'scale' },
     })
-    expect(screen.getByText(/Increases/)).toBeDefined()
+    expect(screen.getByText('→ Very high')).toBeDefined()
     // The cleaned label ("Hiring rate") must appear; the parenthetical must not.
+    expect(screen.getByText('Hiring rate')).toBeDefined()
     expect(screen.queryByText(/0–1/)).toBeNull()
     expect(screen.queryByText(/\(.*scale.*\)/i)).toBeNull()
     assertNoPlaceholderLeaks(/\bscale\b/i)
@@ -1373,16 +1373,18 @@ describe('FactorNode — intervention hover', () => {
     expect(screen.queryByText(/Increases/)).toBeNull()
   })
 
-  it('renders nothing when baseline is null for a placeholder-unit factor', () => {
+  it('retains a known setting when baseline is null without inventing a comparison', () => {
     mountWithHoveredOption(0.7, {
       label: 'Unknown scale thing',
       type: 'factor',
       category: 'controllable',
       observedState: { value: null, unit: 'scale' },
     })
-    // No directional phrasing, no raw value, no bare arrow.
+    // The option setting is known even though the current value is not.
+    expect(screen.getByText('→ High')).toBeDefined()
     expect(screen.queryByText(/Increases|Decreases|Does not change/)).toBeNull()
-    expect(screen.queryByText(/^→/)).toBeNull()
+    expect(screen.queryByText(/0\.7/)).toBeNull()
+    expect(screen.queryByText(/^→\s*$/)).toBeNull()
   })
 
   it('renders nothing when the option does not intervene on this factor', () => {
