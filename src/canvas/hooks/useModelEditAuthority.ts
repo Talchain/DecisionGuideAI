@@ -175,15 +175,28 @@ export type LocalCommitOutcome = 'committed' | 'not_encodable'
  * no carrier and keeps the old type; the two gestures are named apart rather
  * than sharing a union that is now true of only one of them.
  *
- * - `dispatched`    — nothing was written locally; the typed event is with the
- *                     conversation dispatcher and the applied response owns the
- *                     store write. Exactly `proposeGoalTarget`'s discipline on
- *                     this same surface.
- * - `not_encodable` — nothing happened anywhere. Fail CLOSED: no ids, a
- *                     non-finite or out-of-scale value, no server-stamped base
- *                     hash to assert, or no conversation to send through.
+ * - `dispatched`       — nothing was written locally; the typed event is with
+ *                        the conversation dispatcher and the applied response
+ *                        owns the store write. Exactly `proposeGoalTarget`'s
+ *                        discipline on this same surface.
+ * - `needs_fresh_base`  — ⭐ SPLIT OUT OF `not_encodable`, and the split is the
+ *                        whole point. There is no CEE-stamped `graph_hash` this
+ *                        session, which is the ordinary state after a reload: a
+ *                        restore reads persistence with no CEE turn. It is the
+ *                        one refusal the USER CAN CLEAR — any turn refreshes the
+ *                        base — so it must be distinguishable at the caller,
+ *                        which cannot offer a recovery it cannot tell apart.
+ *                        Collapsed into `not_encodable` it reads as "your edit
+ *                        was invalid", which is both false and unactionable.
+ * - `not_encodable`    — nothing happened anywhere, and nothing the user can do
+ *                        about it changes that: no ids, a non-finite or
+ *                        out-of-scale value, or no conversation to send
+ *                        through. Fail CLOSED.
  */
-export type OptionInterventionProposalOutcome = 'dispatched' | 'not_encodable'
+export type OptionInterventionProposalOutcome =
+  | 'dispatched'
+  | 'needs_fresh_base'
+  | 'not_encodable'
 
 /**
  * How an EDGE STRENGTH proposal left this seam.
@@ -381,6 +394,15 @@ export function useModelEditAuthority(
       // otherwise; that is its check to make against its own persisted graph,
       // and duplicating it here would be a second spelling of one rule.
       if (!state.nodes.some(n => n.id === factorId)) return 'not_encodable'
+
+      // ⭐ ASKED BEFORE THE BUILD, so the answer is a RECOVERABLE state rather
+      // than a generic refusal. The builder refuses a null base too — it must,
+      // it is the last gate before the wire — but by then the reason is lost to
+      // the caller, and a caller that cannot tell "your number is wrong" from
+      // "I need one turn to re-sync" cannot offer the second one.
+      if (typeof state.lastServerGraphHash !== 'string' || state.lastServerGraphHash.length === 0) {
+        return 'needs_fresh_base'
+      }
 
       const event = buildOptionInterventionEditEvent({
         optionId: activeNodeId,

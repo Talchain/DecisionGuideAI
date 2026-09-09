@@ -237,8 +237,31 @@ export function ModelTabV2Panel({
    * refuse it (the factor is not the new option's), but the user would be
    * looking at their number in a box that no longer means what it says.
    */
+  /**
+   * ⭐ `phase` AND `notice` EXIST BECAUSE CLOSING THE ROW IS A CLAIM.
+   *
+   * This state was `{optionId, factorId, draft}` and the commit closed it
+   * unconditionally. With no wire carrier that was harmless — the local write
+   * always succeeded. Now the gesture is a turn, and closing the row on a
+   * REFUSAL tells the user their edit went through when nothing was sent; while
+   * closing it on a DISPATCH claims the model holds a number the server has not
+   * acknowledged yet. Both are the same lie in opposite directions, and both are
+   * the harm this surface's own notice exists to avoid.
+   *
+   * So the row stays open and says which of the three things happened:
+   *   · `editing` — the user is typing.
+   *   · `pending` — the turn is with the server. The value is NOT in the model
+   *     yet and the row does not pretend otherwise.
+   *   · a `notice` on `editing` — nothing was sent, and this is why.
+   */
   const [interventionEdit, setInterventionEdit] = useState<
-    { optionId: string; factorId: string; draft: string } | null
+    {
+      optionId: string
+      factorId: string
+      draft: string
+      phase: 'editing' | 'pending'
+      notice?: string
+    } | null
   >(null)
 
   const projection: ModelProjectionInput = useMemo(
@@ -588,13 +611,19 @@ export function ModelTabV2Panel({
     (factorId: string, seed: string) => {
       if (selectedId === null) return
       setEdit(null)
-      setInterventionEdit({ optionId: selectedId, factorId, draft: seed })
+      setInterventionEdit({ optionId: selectedId, factorId, draft: seed, phase: 'editing' })
     },
     [selectedId],
   )
 
   const changeInterventionDraft = useCallback((factorId: string, draft: string) => {
-    setInterventionEdit(prev => (prev && prev.factorId === factorId ? { ...prev, draft } : prev))
+    setInterventionEdit(prev => {
+      if (!prev || prev.factorId !== factorId) return prev
+      // Typing clears a stale refusal: a notice about the PREVIOUS number, left
+      // beside a new one, is a sentence about something the user cannot see.
+      const { notice: _cleared, ...rest } = prev
+      return { ...rest, draft }
+    })
   }, [])
 
   const discardInterventionEdit = useCallback(() => setInterventionEdit(null), [])
@@ -631,8 +660,38 @@ export function ModelTabV2Panel({
         return
       }
 
-      authority.proposeOptionIntervention(factorId, num)
-      setInterventionEdit(null)
+      // ⚠ THE OUTCOME IS READ, NOT DISCARDED. This line used to be
+      // `authority.propose…(); setInterventionEdit(null)` — the row closed
+      // whatever happened, so a refusal looked exactly like a success.
+      const outcome = authority.proposeOptionIntervention(factorId, num)
+      setInterventionEdit(prev => {
+        if (!prev || prev.factorId !== factorId) return prev
+        if (outcome === 'dispatched') {
+          // NOT closed. The number is with the server and is not in the model
+          // until the applied response says so; the row says exactly that.
+          return { ...prev, phase: 'pending' }
+        }
+        if (outcome === 'needs_fresh_base') {
+          // The one refusal the user can clear. The action named is the ONE that
+          // actually refreshes the base — a turn — inherited from the
+          // delete/add/rename family rather than re-reasoned: "try again"
+          // re-sends the same stale base forever, and a reload builds a fresh
+          // store with no server hash at all.
+          return {
+            ...prev,
+            phase: 'editing',
+            notice:
+              'Not sent yet — I need to re-sync with the saved model first. ' +
+              'Ask me anything about this decision, then set this value again.',
+          }
+        }
+        return {
+          ...prev,
+          phase: 'editing',
+          notice:
+            'Not sent: an effect value has to be between 0 and 1 on the model scale.',
+        }
+      })
     },
     [interventionEdit, authority, selectedDetail],
   )

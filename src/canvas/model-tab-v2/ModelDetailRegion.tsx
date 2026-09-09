@@ -108,7 +108,14 @@ export interface ModelDetailRegionProps {
    * detail region each believing they have one. `factorId` identifies the row
    * BY IDENTITY, never by position in the list (trap 19).
    */
-  interventionEdit?: { factorId: string; draft: string } | null
+  interventionEdit?: {
+    factorId: string
+    draft: string
+    /** `pending` = the turn is with the server and the model does NOT hold it yet. */
+    phase?: 'editing' | 'pending'
+    /** Why nothing was sent. Present only on `editing`. */
+    notice?: string
+  } | null
   /** Begin editing one intervention target. Absent ⇒ the list is read-only. */
   onBeginInterventionEdit?: (factorId: string, seed: string) => void
   onInterventionDraftChange?: (factorId: string, draft: string) => void
@@ -286,7 +293,10 @@ export function ModelDetailRegion({
           <h4 className={`${typography.panelHeader} text-text-header`}>What this would change</h4>
           <ul>
             {interventions.map(iv => {
-              const editing = interventionEdit?.factorId === iv.factorId
+              const active = interventionEdit?.factorId === iv.factorId
+              const pending = active && interventionEdit?.phase === 'pending'
+              const editing = active && !pending
+              const notice = active ? interventionEdit?.notice : undefined
               const editable = typeof onBeginInterventionEdit === 'function'
               return (
                 <li
@@ -303,7 +313,22 @@ export function ModelDetailRegion({
                     {iv.factorLabel}
                   </span>
 
-                  {editing ? (
+                  {pending ? (
+                    /*
+                     * ⭐ SENT, NOT SAVED — and the row must not blur the two.
+                     * The old code closed on dispatch, which showed the typed
+                     * number as though the model held it. It does not until the
+                     * applied response says so, so the row keeps the number
+                     * visible, marks it as in flight, and offers no Save (there
+                     * is nothing left to press).
+                     */
+                    <span
+                      data-testid={`model-detail-v2-intervention-${iv.factorId}-pending`}
+                      className={`${typography.panelBody} text-text-light`}
+                    >
+                      {interventionEdit?.draft} · sent, not saved yet
+                    </span>
+                  ) : editing ? (
                     <>
                       <input
                         type="number"
@@ -394,6 +419,29 @@ export function ModelDetailRegion({
                   <span data-testid={`model-detail-v2-intervention-${iv.factorId}-provenance`}>
                     <InterventionProvenanceMark source={iv.provenanceSource} />
                   </span>
+
+                  {/*
+                    ⭐ WHY NOTHING WAS SENT — beside the number it is about.
+
+                    The commit used to close this row whatever happened, so a
+                    refusal was indistinguishable from a save. This is the other
+                    half of that fix: the row stays open AND says which refusal
+                    it was. The recoverable one names the action that actually
+                    clears it — a turn — rather than "try again", which re-sends
+                    the same stale base forever.
+
+                    ⚠ Rendered only when present. An empty notice slot on every
+                    row is the wall of inert text the NOT SET WALL rule removed.
+                  */}
+                  {notice !== undefined && (
+                    <span
+                      role="status"
+                      data-testid={`model-detail-v2-intervention-${iv.factorId}-notice`}
+                      className={`${typography.panelBody} text-text-light basis-full`}
+                    >
+                      {notice}
+                    </span>
+                  )}
                 </li>
               )
             })}
