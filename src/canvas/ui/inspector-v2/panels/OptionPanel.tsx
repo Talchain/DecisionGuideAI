@@ -386,6 +386,15 @@ export const OptionPanel = memo(function OptionPanel({
                 factorLabel={iv.factorLabel}
                 baseline={iv.baseline}
                 rawBaseline={iv.rawBaseline}
+                /* ⚠ BUILT AT :172 AND, UNTIL THIS LINE, NEVER FORWARDED. The
+                   memo carried `recordedBaseline` and the call site did not pass
+                   it, so `referenceContested` was permanently false through the
+                   real chain and the row went on showing a percentage against a
+                   contested reference — the exact defect this PR exists to
+                   close, alive behind a green unit suite. Every direct-render
+                   test passed because they hand the prop in themselves; only the
+                   mounted InspectorModal test could see it, and it did. */
+                recordedBaseline={iv.recordedBaseline}
                 currentValue={iv.value}
                 displayValue={iv.displayValue}
                 unit={iv.unit}
