@@ -831,6 +831,25 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // surface invariant ("never both at once") still holds.
   const effectiveActiveTab = state.activeTab
 
+  /**
+   * ⭐⭐ ONE DERIVATION OF "THIS RUN START WILL FRONT THE ANALYSIS TAB", read by
+   * BOTH the merged auto-switch effect below and the run announcer's yield rule.
+   *
+   * It lived inside the effect until 10 Sep 2026, and the announcer could only
+   * see the CONSEQUENCE of it — `state.activeTab` — which is one commit behind
+   * at a run start because the effect that moves the tab runs in the same flush.
+   * So the announcer announced a start that the banner was about to announce
+   * again, and the predicate's two attempted fixes each closed one direction and
+   * opened the other. Hoisted rather than recomputed at the call site: a second
+   * `Boolean(showResultsPanel)` would be a hand-maintained mirror of this one
+   * (trap 12), and a mirror of the navigation decision is exactly what the yield
+   * rule must not have.
+   *
+   * Read the full four-cell domain at `runAnnouncementForTransition`'s START arm
+   * in `analysisRunStatus.ts`.
+   */
+  const navigatesToAnalysisTab = Boolean(showResultsPanel)
+
   // Track the last non-Olumi tab the user was on so the docked-Olumi
   // float-out path can return them to that context (Reasoning / Analysis /
   // Compare / Model / Journey) rather than always landing on one surface.
@@ -2006,7 +2025,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     // preference, which is maintained as "the dock was open AND Analysis was
     // fronted" (see the two `setShowResultsPanel(tab === 'results')` sites
     // below). Both are choices to honour, not defaults to override.
-    const navigatesToAnalysisTab = Boolean(showResultsPanel)
+    // Derived ONCE at component scope (see its docblock): the announcer's yield
+    // rule reads the same value, so "we will navigate" and "the tab will speak"
+    // cannot drift into disagreeing.
 
     // Debounce: prevent rapid updates within 50ms (React #185 fix)
     const now = Date.now()
@@ -2716,6 +2737,11 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
           analysisRunStatus.ts. */}
       <AnalysisRunAnnouncer
         analysisTabFronted={effectiveIsOpen && effectiveActiveTab === 'results'}
+        // ⭐ The PENDING half. `analysisTabFronted` above is one commit stale at
+        // a run start — the merged effect schedules the tab move in the same
+        // flush — so without this the announcer speaks and then the banner it
+        // just caused to mount speaks again. Same value the effect navigates on.
+        willFrontAnalysisTab={navigatesToAnalysisTab}
       />
     <aside
       ref={shellRef}

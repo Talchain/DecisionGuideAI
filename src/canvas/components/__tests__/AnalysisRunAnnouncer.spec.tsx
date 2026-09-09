@@ -242,3 +242,106 @@ describe('F9: AnalysisRunAnnouncer', () => {
     expect(announcer()).toHaveTextContent('')
   })
 })
+
+/**
+ * ⭐⭐ THE POPULATION THE COMPONENT COULD NOT SEE — added 10 Sep 2026.
+ *
+ * Every case above renders with ONE value of the variable that selects the
+ * harm: nothing is ever about to front the Analysis tab. That is why this file
+ * went green through a round that left a fresh session silent AND a round that
+ * announced twice for anyone whose run start carries a navigation.
+ *
+ * `willFrontAnalysisTab` is the dock's PENDING navigation intent, threaded
+ * from the same `Boolean(showResultsPanel)` derivation the dock's own
+ * auto-switch uses (`OutputsDock.tsx` — one derivation, not a second copy of
+ * the literal, so the two cannot drift).
+ *
+ * ⚠ Why frontedness-now cannot stand in for it: the announcer's effect runs in
+ * the SAME flush as the dock effect that moves the tab, and as a child its
+ * effect runs FIRST, so its `analysisTabFronted` prop is the pre-navigation
+ * render's value. The effect DOES re-run when the prop changes one commit
+ * later — and hits the `isRunning === wasRunningRef.current` early return
+ * (`AnalysisRunAnnouncer.tsx`), so it never re-evaluates. The stale reading is
+ * the only reading the rule ever gets.
+ */
+describe('AnalysisRunAnnouncer: the pending-navigation population', () => {
+  /**
+   * POPULATION navigation-in-flight, rendered as the real two-commit sequence
+   * rather than asserted: the run start arrives while the prop still says NOT
+   * fronted, and the navigation lands on the NEXT render.
+   *
+   * Reachable on a fresh session with empty localStorage — `ReactFlowGraph.tsx`
+   * ⌘Enter calls `setShowResultsPanel(true)` in the same gesture as
+   * `executeCanonicalRun` — so this is not a returning-user edge case.
+   */
+  it('stays silent when a run start carries a pending navigation, and does NOT speak when the tab then arrives', () => {
+    setResults({ status: 'idle' })
+    const { rerender } = render(
+      <AnalysisRunAnnouncer analysisTabFronted={false} willFrontAnalysisTab={true} />,
+    )
+    setResults({ status: 'streaming', startedAt: Date.now() })
+    // COMMIT 1 — the run-start transition, observed with the STALE prop.
+    rerender(<AnalysisRunAnnouncer analysisTabFronted={false} willFrontAnalysisTab={true} />)
+    expect(
+      announcer(),
+      'the banner mounts one commit later and speaks — announcing here is the double',
+    ).toHaveTextContent('')
+    // COMMIT 2 — the dock's navigation lands. Still silent: the transition is
+    // spent, and re-announcing on a prop change would be its own defect.
+    rerender(<AnalysisRunAnnouncer analysisTabFronted={true} willFrontAnalysisTab={true} />)
+    expect(announcer()).toHaveTextContent('')
+  })
+
+  /**
+   * ⭐ THE DISCRIMINATING TWIN, and the reason this is not "always yield".
+   * Same first run, same two commits, the ONE signal flipped: nothing is
+   * pending, and no navigation ever lands. The announcer must speak, or this
+   * is round 1's silence again.
+   */
+  it('announces when NO navigation is pending, and the tab never arrives', () => {
+    setResults({ status: 'idle' })
+    const { rerender } = render(
+      <AnalysisRunAnnouncer analysisTabFronted={false} willFrontAnalysisTab={false} />,
+    )
+    setResults({ status: 'streaming', startedAt: Date.now() })
+    rerender(<AnalysisRunAnnouncer analysisTabFronted={false} willFrontAnalysisTab={false} />)
+    expect(announcer()).toHaveTextContent('Analysis started.')
+    // PRECONDITION, PINNED IN-TEST: no navigation lands, so the announcement
+    // above is provably the only voice this run start gets.
+    rerender(<AnalysisRunAnnouncer analysisTabFronted={false} willFrontAnalysisTab={false} />)
+    expect(announcer()).toHaveTextContent('Analysis started.')
+  })
+
+  /**
+   * A RERUN with the navigation pending — the cell `|| firstRun` never
+   * covered, so the double was reachable before round 2 as well. Pinned so a
+   * future reader cannot reintroduce a first-run conjunct.
+   */
+  it('stays silent on a RERUN start that carries a pending navigation', () => {
+    setResults({ status: 'complete' })
+    const { rerender } = render(
+      <AnalysisRunAnnouncer analysisTabFronted={false} willFrontAnalysisTab={true} />,
+    )
+    setResults({ status: 'streaming', startedAt: Date.now() })
+    rerender(<AnalysisRunAnnouncer analysisTabFronted={false} willFrontAnalysisTab={true} />)
+    expect(announcer()).toHaveTextContent('')
+  })
+
+  /**
+   * ⚠ The SETTLE arm must not consume the new signal. A first-run settle is
+   * announced by nobody else, so it speaks regardless of what the navigation
+   * did at start. If a later edit threads the signal into SETTLE "for
+   * symmetry", this REDs.
+   */
+  it('still announces a FIRST-run settle while fronted, whatever the pending navigation said', () => {
+    setResults({ status: 'idle' })
+    const { rerender } = render(
+      <AnalysisRunAnnouncer analysisTabFronted={false} willFrontAnalysisTab={true} />,
+    )
+    setResults({ status: 'streaming', startedAt: Date.now() })
+    rerender(<AnalysisRunAnnouncer analysisTabFronted={true} willFrontAnalysisTab={true} />)
+    setResults({ status: 'complete' })
+    rerender(<AnalysisRunAnnouncer analysisTabFronted={true} willFrontAnalysisTab={true} />)
+    expect(announcer()).toHaveTextContent('Analysis complete.')
+  })
+})

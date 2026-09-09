@@ -1693,4 +1693,103 @@ describe('F9: dock-level run announcer (single voice for start/settle)', () => {
     expect(screen.getByTestId('analysis-running-banner')).toBeInTheDocument()
     expect(screen.getByTestId('analysis-run-announcer')).toHaveTextContent('')
   })
+
+  /**
+   * ⭐⭐ THE RUN START THAT CARRIES A NAVIGATION — the population every case in
+   * this describe block was blind to, because they all share one value of
+   * `showResultsPanel`, the variable that decides whether the dock moves the
+   * user (`navigatesToAnalysisTab` at the merged effect).
+   *
+   * Derived at the bytes 10 Sep 2026: `ReactFlowGraph.tsx:1446` — the ⌘Enter
+   * Run shortcut — calls `setShowResultsPanel(true)` in the SAME synchronous
+   * gesture as `executeCanonicalRun`. The palette's `action:results`
+   * (`usePalette.ts:269,316`), ⌘/Ctrl+3 (`ReactFlowGraph.tsx:1034`) and the
+   * template insert (`CanvasMVP.tsx:132`) do the same. So this is reachable on
+   * a COMPLETELY FRESH session with empty localStorage, and on reruns as well
+   * as first runs — which is why neither `|| firstRun` nor `analysisTabFronted`
+   * alone can serve.
+   *
+   * The harm it closes is a DOUBLE announcement: the dock navigates one commit
+   * after the run-start transition, so `analysisTabFronted` reads false when
+   * the rule evaluates, the announcer speaks, and then the banner mounts as a
+   * real live region on the Analysis tab and speaks too.
+   */
+  function runStartVoices() {
+    return Array.from(document.querySelectorAll('[aria-live]')).filter((el) => {
+      const text = (el.textContent ?? '').trim()
+      if (!text) return false
+      // The dock announcer's own line...
+      if (text.includes('Analysis started.')) return true
+      // ...or the Analysis tab's narration region, which carries role/aria-live
+      // ONLY when it mounts with `announces` (AnalysisRunningBanner). The
+      // AnalysisRunStateCover variant on every other surface passes
+      // `announces={false}` and is visual-only by ruling (UI #1198), so it is
+      // correctly not counted as a voice.
+      return el.querySelector('[data-testid="analysis-narration"]') !== null
+    })
+  }
+
+  it('announces a run start that CARRIES A NAVIGATION exactly once (the announcer yields to the banner it is about to mount)', () => {
+    seedIdle(false)
+    renderOutputsDock()
+    fireEvent.click(screen.getByRole('tab', { name: 'Model' }))
+    // PRECONDITION, PINNED IN-TEST: this population starts with NO navigation
+    // intent, so the gesture below is what introduces it. Without this the
+    // case could be measuring the already-fronted steady state.
+    expect(
+      useCanvasStore.getState().showResultsPanel,
+      'population precondition broken: the navigation intent was already raised',
+    ).toBe(false)
+
+    // THE GESTURE, reproduced: raise the intent and start the run in ONE
+    // commit, exactly as ReactFlowGraph's ⌘Enter handler does.
+    const current = useCanvasStore.getState().results
+    act(() => {
+      useCanvasStore.setState({
+        showResultsPanel: true,
+        results: { ...current, status: 'streaming', startedAt: Date.now(), report: null },
+      } as any)
+    })
+
+    // PRECONDITION, PINNED IN-TEST: the navigation really landed, so the
+    // announcer's silence below is DEFERENCE to a banner that exists — not the
+    // silence this PR's earlier round was blocked for.
+    expect(
+      screen.getByRole('tab', { name: 'Analysis' }),
+      'the navigation did not land — a silent announcer here would be a SILENCE defect, not a yield',
+    ).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId('analysis-running-banner')).toBeInTheDocument()
+
+    // ⭐ THE ASSERTION THE PREVIOUS TWO ROUNDS COULD NOT MAKE: exactly ONE live
+    // region carries this run start. Counting is the point — "announces" and
+    // "announces twice" are different outcomes.
+    expect(runStartVoices(), 'exactly one voice for one run start').toHaveLength(1)
+    expect(screen.getByTestId('analysis-run-announcer')).toHaveTextContent('')
+  })
+
+  /**
+   * ⭐ THE DISCRIMINATING TWIN of the case above, counted the same way. Same
+   * tab, same first run, the ONE signal flipped: no navigation intent, so the
+   * dock does not move and the banner never becomes a live region. The
+   * announcer must be the one voice — this is the silence defect's pin, and it
+   * is what stops the fix above from being "always yield".
+   */
+  it('announces a run start with NO navigation exactly once, from the announcer itself', () => {
+    seedIdle(false)
+    renderOutputsDock()
+    fireEvent.click(screen.getByRole('tab', { name: 'Model' }))
+    expect(useCanvasStore.getState().showResultsPanel).toBe(false)
+
+    startRun(false)
+
+    // PRECONDITION, PINNED IN-TEST: nothing navigated, so nothing else can be
+    // speaking on the announcer's behalf.
+    expect(
+      screen.getByRole('tab', { name: 'Model' }),
+      'the run start navigated — this case would be measuring the other population',
+    ).toHaveAttribute('aria-selected', 'true')
+
+    expect(runStartVoices(), 'exactly one voice for one run start').toHaveLength(1)
+    expect(screen.getByTestId('analysis-run-announcer')).toHaveTextContent('Analysis started.')
+  })
 })
