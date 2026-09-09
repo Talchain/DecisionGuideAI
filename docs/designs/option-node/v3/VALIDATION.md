@@ -10,6 +10,7 @@ The initial follow-up is released; further candidates remain open below. No loca
 | #1343, target-only inspector and option identity | `505f745dd4b76e7a7938f50a4b3d68f0515bf471` | `102319101922`, passed | `81dbddd0`, immutable deploy `6aa0c995d8603000097b7d66`, 02:52:31 UTC |
 | #1353, named reference, target recovery and retained-result currentness | `bd6d3cc60fe327270f5367c5448de17dafabf497` | `102332875003`, passed | `10d060f2`, immutable deploy `6aa0dd4c05452d0008fc14d6`, 04:16:46 UTC |
 | #1355, inspector read-only usability and correct option identity | `ff6f1e851af7b7481a9d1c7cfb9cc06fe9c2d640` | `102335546333`, passed | `78202540`, immutable deploy `6aa0deb2ea14b40008203a00`, 04:22:40 UTC |
+| #1356, comparative coaching question without a goal-attainment claim | `80e086ed62be6d4f31ebfdbaf0812730f4636ded` | `102338972742`, passed | `b61ae1fe`, immutable deploy `6aa0e2a720e324000852e92e`, 04:39:37 UTC |
 
 Receipts: [#1342/#1344 release](https://github.com/Talchain/olumi-programme-docs/pull/38#issuecomment-5594863972), [served verification](https://github.com/Talchain/olumi-programme-docs/pull/38#issuecomment-5594880926), [#1343 served verification](https://github.com/Talchain/olumi-programme-docs/pull/38#issuecomment-5595106908).
 
@@ -17,7 +18,7 @@ Receipts: [#1342/#1344 release](https://github.com/Talchain/olumi-programme-docs
 
 Earlier #1353 runs found and repaired missing Detailed previews, an observed-value reference fixture, duplicated coaching, and assertions still reading the former accessible carrier. The final candidate's actual Canvas Browser Gate ran 25/25 (job `102330351994`). This does not cover the new currentness behaviour or live AI journey. Advisory visual regression remains failed, including the unchanged-capture tolerance control and framing expectations; no image baseline or assertion was skipped or approved away.
 
-Open: #1356's comparative coaching question is independently source-clear at `80e086ed` with hosted checks in progress. #1357's shared metric disclosure and design-system contract are under review and hosted validation. The underlying quantity-role/scale repair and composed native acceptance remain separately owned; correctly naming a baseline does not certify the formatter's proportional mapping.
+Open: #1357's shared metric disclosure and design-system contract remain under review and hosted validation. Its first complete hosted suite exposed three tests reading superseded disclosure carriers; the follow-up binds them to real hover/focus tooltips and accessible names, preserves the assumed-strength/no-bar distinction, and removes a redundant confidence focus stop when no explanation exists. The underlying quantity-role/scale repair and composed native acceptance remain separately owned; correctly naming a baseline does not certify the formatter's proportional mapping.
 
 | Acceptance | Authored check | Deployed artefact |
 |---|---|---|

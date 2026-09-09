@@ -146,6 +146,8 @@ export function NodeMetricRow({
   testId,
   unsetText,
 }: NodeMetricRowProps) {
+  // Only an explained row adds a keyboard stop. Other rows retain their
+  // phrase-only structure; absent measurements remain absent.
   const disclosureProps = title ? {
     role: 'img',
     'aria-label': `${label}: ${formatted ?? unsetText ?? ''}. ${phrase || title}`,

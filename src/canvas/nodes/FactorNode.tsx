@@ -684,6 +684,35 @@ export const FactorNode = memo((props: NodeProps) => {
     </>
   ) : null
 
+  const confidenceRow = confidencePct != null && confidencePct > 0 ? (
+    <div
+      className="flex items-center gap-1.5"
+      role="group"
+      aria-label="Confidence"
+      tabIndex={confidenceDisclosure ? 0 : undefined}
+      data-node-tooltip={confidenceDisclosure ? true : undefined}
+    >
+      <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>Confidence</span>
+      <div className="flex-1 min-w-0">
+        <DataBar
+          value={confidencePct / 100}
+          label={confidenceDisclosure ? `Confidence. ${confidenceDisclosure}` : 'Confidence'}
+          colour="info"
+        />
+      </div>
+      <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{confidencePct}%</span>
+      {displayMetadata.confidenceIsDefaulted && (
+        <span
+          className={`${typography.edgeLabel} text-text-light shrink-0`}
+          aria-hidden="true"
+          data-testid="factor-node-confidence-default-estimate"
+        >
+          *
+        </span>
+      )}
+    </div>
+  ) : null
+
   const postAnalysisLayer2 = isPostAnalysis ? (
     <>
       {/* Influence & Confidence bars */}
@@ -729,38 +758,13 @@ export const FactorNode = memo((props: NodeProps) => {
               (components/results/driverConfidenceDisplayPolicy): `confidencePct`
               is null whenever the ruled policy says the figure is not fit to
               show, so this bar simply does not render. When the policy is
-              flipped the disclosure below travels WITH the number — the bar can
-              never appear bare. */}
-          {confidencePct != null && confidencePct > 0 && (
-            <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={confidenceDisclosure ?? 'Confidence'}>
-              <div
-                className="flex items-center gap-1.5"
-                role="group"
-                aria-label="Confidence"
-                tabIndex={0}
-                data-node-tooltip
-              >
-                <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>Confidence</span>
-                <div className="flex-1 min-w-0">
-                  <DataBar
-                    value={confidencePct / 100}
-                    label={confidenceDisclosure ? `Confidence. ${confidenceDisclosure}` : 'Confidence'}
-                    colour="info"
-                  />
-                </div>
-                <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{confidencePct}%</span>
-                {displayMetadata.confidenceIsDefaulted && (
-                  <span
-                    className={`${typography.edgeLabel} text-text-light shrink-0`}
-                    aria-hidden="true"
-                    data-testid="factor-node-confidence-default-estimate"
-                  >
-                    *
-                  </span>
-                )}
-              </div>
+              flipped, any default/provisional disclosure travels WITH the
+              number. No explanation means no tooltip or additional tab stop. */}
+          {confidenceRow && (confidenceDisclosure ? (
+            <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={confidenceDisclosure}>
+              {confidenceRow}
             </Tooltip>
-          )}
+          ) : confidenceRow)}
         </div>
       )}
       {/* ConnRows — max 3 whole rows in both views, remainder disclosed via

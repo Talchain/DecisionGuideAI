@@ -639,6 +639,12 @@ describe('FactorNode', () => {
     const progressbars = container.querySelectorAll('[role="progressbar"]')
     // Two bars: Influence + Confidence
     expect(progressbars.length).toBeGreaterThanOrEqual(2)
+    // A confidence without a default/provisional qualifier has no explanation
+    // to open. Retain the value, without adding a redundant keyboard stop.
+    const confidence = screen.getByRole('group', { name: 'Confidence' })
+    expect(confidence).not.toHaveAttribute('tabindex')
+    expect(confidence).not.toHaveAttribute('data-node-tooltip')
+    expect(confidence).toHaveTextContent('60%')
     // Each bar has a valid aria-valuenow between 0 and 100
     progressbars.forEach(bar => {
       const valuenow = Number(bar.getAttribute('aria-valuenow'))

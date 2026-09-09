@@ -510,7 +510,24 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
 
   const postAnalysisCoachingChips = useMemo(() => (
     <div className="flex gap-1 flex-wrap mt-1.5">
-      <NodeChip chipId="decision_challenge_result" actionType="what_would_flip" label="Challenge this result" message="What assumptions would need to change for a different option to be most likely to hit my goal?" />
+      {/* ⭐⭐ THE QUESTION IS COMPARATIVE, BECAUSE THE ACTION IS.
+          `what_would_flip` asks what would change the ORDER of the options. The
+          sentence it sent asked what would make a different option "most likely
+          to hit my goal" — which fuses a comparative ranking with target
+          attainment, and those are two different questions with two different
+          answers. A model can rank first and still be unlikely to reach the
+          goal; the goal probability can move without any option changing place.
+
+          ⚠ THIS IS THE CONFLATION PAUL HAS RULED ON REPEATEDLY, arriving through
+          a chat message rather than a badge — which is why repairing the visible
+          bar did not reach it. The typed route is unchanged and was never wrong;
+          only the natural-language question was, and it is the half that reaches
+          the model and comes back as an answer to a question nobody asked.
+
+          ⚠ NO GOAL PREMISE AT ALL, deliberately. Asking "which assumptions could
+          change the comparison" needs no goal probability to be meaningful, so it
+          cannot smuggle the attainment claim back in through its own framing. */}
+      <NodeChip chipId="decision_challenge_result" actionType="what_would_flip" label="Challenge this result" message="Which assumptions could change the comparison between these options?" />
       <NodeChip chipId="decision_compare_options" actionType="compare_options" label="Compare options" message="Compare the options side by side" />
     </div>
   ), [])
