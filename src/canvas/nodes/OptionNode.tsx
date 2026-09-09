@@ -1,6 +1,7 @@
 import { memo, useMemo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { ArrowUp, ArrowDown } from 'lucide-react'
+import Tooltip from '../../components/Tooltip'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
@@ -32,6 +33,7 @@ import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalF
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/useAnalysisReady'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
+import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 
 /** Strip known suffixes from factor labels for contextual display. */
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
@@ -1490,6 +1492,9 @@ export const OptionNode = memo((props: NodeProps) => {
       phrase: COMPARATIVE_COPY.phrase(formatted),
     }
   }, [displayMetadata.isResultsMode, displayMetadata.winRate])
+  const winReadoutDescription = winReadout
+    ? (analysisCurrencyNote ? `${analysisCurrencyNote}. Last analysis: ${winReadout.phrase}` : winReadout.phrase)
+    : ''
 
   return (
     <div
@@ -1576,7 +1581,8 @@ export const OptionNode = memo((props: NodeProps) => {
               data-testid={`leading-option-pill-${props.id}`}
               className={`shrink-0 whitespace-nowrap ${typography.edgeLabel} font-medium bg-panel border-2 border-option text-text-body rounded-full px-1.5 py-0.5`}
             >
-              Most supported
+              {analysisCurrencyNote && <span>Last run · </span>}
+              <span>Most supported</span>
             </span>
             {/* The run's robustness travels WITH the designation it qualifies —
                 same stack, same row, so the claim cannot be read without the
@@ -1615,15 +1621,6 @@ export const OptionNode = memo((props: NodeProps) => {
       >
         {/* ===== LAYER 1: Standard body (always visible) ===== */}
 
-        {displayMetadata.isResultsMode && analysisCurrencyNote && (
-          <p
-            data-testid={`option-analysis-currency-${props.id}`}
-            className={`${typography.edgeLabel} text-text-light mt-1 mb-0`}
-          >
-            {analysisCurrencyNote}
-          </p>
-        )}
-
         {/* Win probability — bar and percentage on ONE line (post-analysis, both views).
             ⭐ WHY THIS IS ONE LINE AND NOT TWO (Paul, 31 Aug 2026): "Saying the
             same copy on every node is a waste of space… It should show the bar
@@ -1635,7 +1632,7 @@ export const OptionNode = memo((props: NodeProps) => {
 
             THE SENTENCE IS NOT DROPPED, because the number alone does not say
             what it measures. It survives twice:
-              · as the row's `title`, so a pointer user gets it on hover;
+              · in the positioned tooltip on hover or keyboard focus;
               · as an out-of-flow span, because hover is not available to a
                 keyboard or screen-reader user and a bare "72%" would announce
                 as a quantity with no referent.
@@ -1647,9 +1644,14 @@ export const OptionNode = memo((props: NodeProps) => {
             `COMPARATIVE_COPY.phrase` (components/results/utils/goalAnchorCopy),
             which is the ratified wording and the one owner of it. */}
         {winReadout !== null && (
+          <Tooltip asChild content={winReadoutDescription} delay={NODE_TOOLTIP_DELAY_MS}>
           <div
-            className="mt-1.5 mb-1 flex items-center gap-1.5"
-            title={winReadout.phrase}
+            className="mt-1.5 mb-1 flex items-center gap-1.5 cursor-help"
+            role="img"
+            aria-label={winReadoutDescription}
+            tabIndex={0}
+            data-node-tooltip="true"
+            data-testid={`option-analysis-currency-${props.id}`}
           >
             {/* ⭐⭐ `max(4px, N%)` IS THE ONLY THING PREVENTING A 0px FILL HERE.
                 DO NOT REMOVE IT AS REDUNDANT — it is not.
@@ -1717,6 +1719,7 @@ export const OptionNode = memo((props: NodeProps) => {
             </span>
             <span className={typography.screenReaderOnly}>{winReadout.phrase}</span>
           </div>
+          </Tooltip>
         )}
 
         {/* ⭐ THE OPTION THE ANALYSIS RAN ON AND COULD NOT COMPUTE.
