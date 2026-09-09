@@ -118,8 +118,31 @@ export function buildDraftBiasSignalBlocks(args: {
   // signals are ungrounded, keying on the target id would let every ungrounded
   // same-bias signal through (their id fragment being identically empty). First
   // occurrence wins. Display-side equivalence judgement, never a value transform.
-  const seen = new Set<string>()
-  for (let i = 0; i < signals.length && out.length < DRAFT_BIAS_SIGNAL_CARD_CAP; i++) {
+  //
+  // ⭐⭐ AND KEEPING THE OBSERVATION ONCE MUST NOT ERASE ITS SCOPE — the
+  // blocking correction from review, and the one my first two pushes missed
+  // while I chased CI.
+  //
+  // Every unrecognised signal shares one heading, so identity carries the
+  // detail. Two signals with the SAME paragraph on DIFFERENT nodes are one
+  // observation with two affected nodes — not a duplicate to drop. The old
+  // `continue` kept the paragraph and silently discarded the second
+  // `target_ref`: the same "Evidence for this estimate is missing" note on
+  // option A and option B rendered as A alone.
+  //
+  // ⚠ SO THE LOOP NO LONGER STOPS AT THE CAP, and that is the substance of the
+  // fix rather than a tidy-up. `out.length < CAP` in the loop condition meant
+  // scanning ENDED once two cards existed, so a later duplicate carrying a
+  // third node was never read. The cap is a limit on CARDS DISPLAYED, not on
+  // signals examined; it now guards the push alone.
+  //
+  // ⛔ MERGING IS FOR UNRECOGNISED OBSERVATIONS ONLY. Recognised-code policy is
+  // deliberately unchanged here: `dedupes on canonical bias identity` and `the
+  // same bias on DIFFERENT targets dedupes to ONE card (title-only identity)`
+  // are ratified, and a repair to the unknown path has no business rewriting
+  // them.
+  const kept = new Map<string, V5CoachingBlock>()
+  for (let i = 0; i < signals.length; i++) {
     const signal = signals[i] as unknown
     if (!signal || typeof signal !== 'object') continue
     const s = signal as Record<string, unknown>
@@ -189,8 +212,19 @@ export function buildDraftBiasSignalBlocks(args: {
     // whichever arrived first. That would be a new way to lose exactly the
     // content this change exists to preserve.
     const identity = resolved ? title : `${title}::${detail}`
-    if (seen.has(identity)) continue
-    seen.add(identity)
+    const existing = kept.get(identity)
+    if (existing) {
+      // A repeat of an observation already kept. For an UNRECOGNISED one, fold
+      // in any affected node it names that the retained card does not yet
+      // carry — bound by node id, so the same node arriving twice adds nothing.
+      if (!resolved && ref && !existing.target_refs.some((r) => r.id === ref.id)) {
+        existing.target_refs.push(ref)
+      }
+      continue
+    }
+    // The cap gates the CARD, not the scan: a duplicate above may still be
+    // merging refs into an already-kept observation after this point.
+    if (out.length >= DRAFT_BIAS_SIGNAL_CARD_CAP) continue
 
     // No priority_rank / freshness: those are PRODUCER-owned Phase 3 fields
     // and the wire bias_signals carry neither — fabricating them here
@@ -198,7 +232,7 @@ export function buildDraftBiasSignalBlocks(args: {
     // passthrough. Verified zero consumers: the bridge blocks are appended
     // AFTER composePhase3BridgedBlocks' rank sort, and the only runtime
     // read was the renderer's data-freshness attribute (now simply absent).
-    out.push({
+    const block: V5CoachingBlock = {
       type: 'v5_coaching',
       block_id: `draft_bias_signal_${i}`,
       title,
@@ -206,7 +240,9 @@ export function buildDraftBiasSignalBlocks(args: {
       coaching_kind: 'bias_signal',
       source: 'draft_graph',
       target_refs: ref ? [ref] : [],
-    })
+    }
+    kept.set(identity, block)
+    out.push(block)
   }
   return out
 }

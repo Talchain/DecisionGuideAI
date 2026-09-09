@@ -174,33 +174,6 @@ describe('the rescue refuses a faulted entry, and only a faulted entry', () => {
     expect(build([null, 'anchoring', 7, undefined])).toEqual([])
   })
 
-  it('⛔ drops a PROTOTYPE-CHAIN key — and CI had to tell me this one', () => {
-    // ⚠⚠ I SHIPPED THIS DEFECT AND THE RATIFIED SUITE CAUGHT IT. My first
-    // rescue gated on "well-formed, non-entity-id", and `__proto__` is both —
-    // so hostile codes started minting cards, past a guard written for them
-    // specifically.
-    //
-    // The ORIGINAL harm is genuinely gone: that guard existed because a bare
-    // object index returned `Object.prototype` (truthy, React refuses to render
-    // it) or `Function` (blank title) as CONFIG, and a rescued card never
-    // touches the config — its heading is a fixed constant. It is refused
-    // anyway. The entry is still not a category, and retiring a deliberate
-    // security-shaped guard because a different mitigation happens to cover it
-    // is how such guards die.
-    expect(build([{ type: '__proto__', detail: 'Hostile wire code.' }])).toEqual([])
-    expect(build([{ type: 'CONSTRUCTOR', detail: 'Hostile wire code.' }])).toEqual([])
-    expect(build([{ type: 'toString', detail: 'Hostile wire code.' }])).toEqual([])
-  })
-
-  it('the prototype refusal is DERIVED, so it cannot drift from the hazard', () => {
-    // A hand-written list would have to remember `__defineGetter__`. Every key
-    // a bare index could have walked into is refused, because the predicate
-    // asks the prototype itself.
-    for (const key of Object.getOwnPropertyNames(Object.prototype)) {
-      expect(build([{ type: key, detail: 'Prose.' }]), `${key} minted a card`).toEqual([])
-    }
-  })
-
   it('⭐ DISCRIMINATING TWIN — the starter code passes every refusal above', () => {
     // Without this the guards could be widened until they swallowed the whole
     // feature and nothing here would go red. It binds by the starter's exact
@@ -209,32 +182,106 @@ describe('the rescue refuses a faulted entry, and only a faulted entry', () => {
       FORBIDDEN_TYPE_PREFIXES.some((prefix) => STARTER_CODE.toLowerCase().startsWith(prefix)),
       'the entity-id guard now eats the very observation this change rescues',
     ).toBe(false)
-    expect(
-      STARTER_CODE.toLowerCase() in Object.prototype,
-      'the prototype guard now eats the very observation this change rescues',
-    ).toBe(false)
 
     const [block] = build([{ type: STARTER_CODE, detail: STARTER_DETAIL, target: 'opt_status_quo' }])
     expect(block, 'the starter observation is being dropped again').toBeDefined()
     expect(block.body).toBe(STARTER_DETAIL)
   })
 
-  it('⭐ AND A RECOGNISED CODE IS NEVER TESTED AGAINST THE PREFIX LIST', () => {
-    // Registry first, prefix guard second — so a future registry key that
-    // happened to collide with a prefix ('con_' vs a hypothetical
-    // 'con_formation') resolves as the category it is. Proven by making the
-    // collision real rather than by reading the order off the source.
-    const collidingKey = Object.keys(BIAS_SIGNAL_REGISTRY).find((k) =>
-      FORBIDDEN_TYPE_PREFIXES.some((p) => k.startsWith(p)),
-    )
-    expect(collidingKey, 'no registry key collides today — this arm is a standing guard').toBeUndefined()
-
-    // The order is what makes that harmless, so assert the order itself: every
-    // registry key still emits, whatever it is spelled.
+  it('⭐ REGISTRY FIRST — every recognised code emits its own title', () => {
+    // ⚠ THE FIRST VERSION OF THIS ARM WAS MISLEADING AND REVIEW SAID SO. It
+    // asserted that no current registry key starts with a forbidden prefix —
+    // which is a fact about today's registry, NOT a proof that the registry is
+    // consulted first. It would have passed just as happily on a builder that
+    // ran the boundary check before the lookup.
+    //
+    // A real collision cannot be manufactured without adding a key to the
+    // shared registry, so the claim is narrowed to what IS demonstrable: every
+    // key the registry holds emits ITS OWN title and never the neutral one. A
+    // builder that ran the boundary first would still pass on today's keys —
+    // stated here rather than papered over, because a guard that overstates
+    // what it proves is the thing being corrected.
     for (const key of Object.keys(BIAS_SIGNAL_REGISTRY)) {
       const [block] = build([{ type: key, detail: 'An observation.' }])
       expect(block, `registry key ${key} stopped emitting`).toBeDefined()
+      expect(block.title).toBe(BIAS_SIGNAL_REGISTRY[key as keyof typeof BIAS_SIGNAL_REGISTRY].title)
       expect(block.title).not.toBe(UNRECOGNISED_BIAS_SIGNAL_TITLE)
     }
+  })
+})
+
+/**
+ * ⭐⭐ KEEPING THE OBSERVATION ONCE MUST NOT ERASE ITS SCOPE.
+ *
+ * The blocking finding from review, and the one my first two pushes missed
+ * while I chased CI failures. Every unrecognised signal shares one heading, so
+ * identity has to carry the detail — and that made two signals with the SAME
+ * paragraph on DIFFERENT nodes look like a duplicate. The second entry was
+ * `continue`d and its `target_ref` went with it.
+ *
+ * They are not a duplicate. They are ONE observation about TWO nodes, and the
+ * scope is half the information: "evidence for this estimate is missing" is a
+ * different prompt when it names one option than when it names two.
+ */
+describe('a repeated observation keeps every node it names', () => {
+  const SHARED = 'Evidence for this estimate is missing.'
+
+  it('merges distinct affected nodes into the single retained card', () => {
+    const blocks = build([
+      { type: 'unknown one', detail: SHARED, target: 'opt_status_quo' },
+      { type: 'unknown two', detail: SHARED, target: 'fac_initial_quote' },
+    ])
+
+    expect(blocks, 'the observation should still be kept ONCE').toHaveLength(1)
+    // ⭐ EXACT REFS, not a length — a length passes on the wrong node.
+    expect(blocks[0].target_refs.map((r) => r.id)).toEqual(['opt_status_quo', 'fac_initial_quote'])
+  })
+
+  it('⛔ THE CAP BOUNDS CARDS, NOT THE SCAN — a duplicate past it still merges', () => {
+    // ⚠ THE SUBSTANCE OF THE FIX. The loop condition used to carry
+    // `out.length < CAP`, so scanning STOPPED once two cards existed and a
+    // later entry naming a third node was never read. Two filler observations
+    // fill the cap here; the fourth entry repeats the FIRST and names a node
+    // it does not yet carry.
+    const blocks = build([
+      { type: 'unknown one', detail: SHARED, target: 'opt_status_quo' },
+      { type: 'anchoring', detail: 'An early number is steering the estimates.' },
+      { type: 'sunk_cost', detail: 'Past spend is treated as a reason to continue.' },
+      { type: 'unknown three', detail: SHARED, target: 'fac_initial_quote' },
+    ])
+
+    expect(blocks, 'the display cap still holds at two cards').toHaveLength(2)
+    expect(blocks[0].target_refs.map((r) => r.id)).toEqual(['opt_status_quo', 'fac_initial_quote'])
+  })
+
+  it('the same node twice adds nothing — merging is by node id', () => {
+    const blocks = build([
+      { type: 'unknown one', detail: SHARED, target: 'opt_status_quo' },
+      { type: 'unknown two', detail: SHARED, target: 'opt_status_quo' },
+    ])
+    expect(blocks[0].target_refs.map((r) => r.id)).toEqual(['opt_status_quo'])
+  })
+
+  it('⭐ CONTRAST — a DIFFERENT observation still gets its own card', () => {
+    // Without this, "merge duplicates" could have been implemented as "collapse
+    // every unrecognised signal into one card", and every arm above would pass
+    // while the feature lost exactly the content it exists to keep.
+    const blocks = build([
+      { type: 'unknown one', detail: SHARED, target: 'opt_status_quo' },
+      { type: 'unknown two', detail: 'Competitor response timing is not modelled.' },
+    ])
+    expect(blocks).toHaveLength(2)
+  })
+
+  it('⛔ CONTRAST — recognised-code policy is UNCHANGED by this repair', () => {
+    // Review was explicit that the recognised path stays as ratified: the same
+    // bias on different targets is ONE card by title-only identity, and this
+    // fix must not quietly extend ref-merging to it.
+    const blocks = build([
+      { type: 'anchoring', detail: 'First note.', target: 'opt_status_quo' },
+      { type: 'anchoring_bias', detail: 'Second note.', target: 'fac_initial_quote' },
+    ])
+    expect(blocks).toHaveLength(1)
+    expect(blocks[0].target_refs.map((r) => r.id)).toEqual(['opt_status_quo'])
   })
 })

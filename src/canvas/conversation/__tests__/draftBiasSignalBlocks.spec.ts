@@ -40,7 +40,11 @@ import {
   DRAFT_BIAS_SIGNAL_CARD_CAP,
   buildDraftBiasSignalBlocks,
 } from '../draftBiasSignalBlocks'
-import { BIAS_SIGNAL_REGISTRY, UNRECOGNISED_BIAS_SIGNAL_TITLE } from '../../shared/biasSignalTitles'
+import {
+  BIAS_SIGNAL_REGISTRY,
+  UNRECOGNISED_BIAS_SIGNAL_TITLE,
+  resolveBiasSignal,
+} from '../../shared/biasSignalTitles'
 import type { ConversationBlock, V5CoachingBlock } from '../types'
 
 // ─── Fixtures ────────────────────────────────────────────────────────────
@@ -349,12 +353,47 @@ describe('bias-signal titles — prototype-chain escapes (hostile wire codes)', 
   // (with more cases) by biasSignalTitles.parity.spec.ts C7. What this
   // spec uniquely owns is the INTEGRATION below: hostile codes arriving as
   // grounded signals must produce no cards.
-  it('grounded signals carrying hostile codes render no cards (case-insensitive path included)', () => {
+  // ⭐⭐ REBOUND TO THE PROPERTY, NOT TO THE OLD OUTCOME (review 5596273503).
+  // This arm read `toEqual([])`. The security property it was written for is
+  // that `__proto__`/`CONSTRUCTOR` cannot resolve to an inherited OBJECT or
+  // FUNCTION and reach React as a title — and that is preserved by the
+  // resolver's own-key guard, which is unchanged. Discarding an otherwise
+  // valid observation was never required to keep it.
+  //
+  // ⛔ I ARGUED THE OTHER WAY AND WAS WRONG ON THE SUBSTANCE: I added a second
+  // classifier to restore the `[]`, and its own comment conceded the original
+  // harm was already gone. It is withdrawn. The property is asserted directly
+  // here instead, which is stronger than the outcome it used to stand in for.
+  it('hostile codes reach copy as the fixed neutral heading — never an inherited object or function', () => {
     const blocks = build([
       { type: '__proto__', detail: 'Hostile wire code.', target: 'fac_initial_quote' },
       { type: 'CONSTRUCTOR', detail: 'Hostile wire code.', target: 'fac_initial_quote' },
     ])
-    expect(blocks).toEqual([])
+
+    // One observation, kept once — the two entries carry the same paragraph.
+    expect(blocks).toHaveLength(1)
+    const [block] = blocks
+
+    // THE PROPERTY: a STRING heading, and specifically the fixed neutral one.
+    // `typeof` is asserted because the historical escape was a truthy OBJECT
+    // (`Object.prototype`) and a FUNCTION (`Object`), both of which would pass
+    // a bare truthiness check and crash or blank the subtree.
+    expect(typeof block.title).toBe('string')
+    expect(block.title).toBe(UNRECOGNISED_BIAS_SIGNAL_TITLE)
+
+    // The raw token never becomes copy, under either casing.
+    expect(block.title).not.toMatch(/proto|constructor/i)
+
+    // The observation and its scope survive intact.
+    expect(block.body).toBe('Hostile wire code.')
+    expect(block.target_refs.map((r) => r.id)).toEqual(['fac_initial_quote'])
+
+    // AND THE GUARD THAT ACTUALLY OWNS THE PROPERTY IS STILL CLOSED — asserted
+    // here rather than assumed, because this arm now permits a card and would
+    // otherwise no longer notice the registry going open.
+    expect(resolveBiasSignal('__proto__')).toBeNull()
+    expect(resolveBiasSignal('CONSTRUCTOR')).toBeNull()
+    expect(resolveBiasSignal('constructor')).toBeNull()
   })
 })
 

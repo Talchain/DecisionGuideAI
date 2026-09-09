@@ -37,7 +37,12 @@ import {
 } from '../../mutations/mutationAuthority'
 import { normaliseRawFactorValue, withObservedStateUpdate } from '../../utils/observedStateHelpers'
 import { useCanvasStore } from '../../store'
-import { biasSignal, resolveBiasSignal, isEntityIdShapedCode } from '../../shared/biasSignalTitles'
+import {
+  biasSignal,
+  resolveBiasSignal,
+  isEntityIdShapedCode,
+  UNRECOGNISED_BIAS_SIGNAL_TITLE,
+} from '../../shared/biasSignalTitles'
 import type { KnownBiasCode } from '../../shared/biasSignalTitles'
 import { useDraftStore } from '../../stores/draftStore'
 import { useRetryDraft } from '../../hooks/useRetryDraft'
@@ -124,10 +129,25 @@ export function safeBiasTitle(token: string): string | null {
   return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
 }
 
-/** Generic fallback for unrecognised bias codes per the brief. */
+/**
+ * Generic fallback for unrecognised bias codes.
+ *
+ * ⭐⭐ WAS 'Bias detected' UNTIL NOW, AND THAT ASSERTED MORE THAN THE DATA
+ * SUPPORTS. This card is reached precisely when the code is one we cannot
+ * categorise — so the product was announcing a detected bias while admitting,
+ * in the same breath, that it did not know which. The paragraph underneath may
+ * not support a finding either; it is a producer's observation, not a
+ * validated diagnosis.
+ *
+ * ⚠ AND IT WAS A SECOND NAME FOR ONE CONCEPT. The draft bias bridge reached
+ * the same case and called it something else, which is the divergence the
+ * shared registry exists to kill (see the CONFIRMATION_BIAS Frame/Gauge note
+ * in its header). One constant now, imported — a copy of the VALUE would agree
+ * today and drift later with no red anywhere.
+ */
 const BIAS_FALLBACK: { icon: LucideIcon; title: string } = {
   icon: EyeOff,
-  title: 'Bias detected',
+  title: UNRECOGNISED_BIAS_SIGNAL_TITLE,
 }
 
 /** Truncate a long bias explanation to 80 chars; the full text remains in the title attribute. */
