@@ -319,6 +319,34 @@ export interface ModelRowDetail {
   rowId: string
   /** §4.4.1 "What this is". */
   description: string | null
+  /**
+   * ⭐⭐ THE PRODUCER LOOKED AT THIS AND DECLINED TO GUESS — `true` only when
+   * that is what happened.
+   *
+   * ⚠⚠ A DIFFERENT FACT FROM "no value yet", AND THIS TAB CONFLATES THEM. Both
+   * render as `primaryValue: null` and both are counted under one heading
+   * sentence. But they are opposite in the only way that matters to a reader
+   * deciding what to do next:
+   *
+   *   nothing here at all  — nobody has looked. YOU are the gap.
+   *   unquantified prior   — CEE READ THE BRIEF, FOUND NO NUMBER, AND REFUSED
+   *                          TO INVENT ONE. The gap is KNOWN and recorded.
+   *
+   * CEE PR #1223 stopped substituting a placeholder `0.5`; such a factor now
+   * arrives as `uniform(0,1)` carrying `prior_is_unquantified` — *"the one
+   * range over the unit interval that asserts nothing"* (`domain/nodes.ts`).
+   *
+   * ⚠ A RANGE IS NOT SELF-DESCRIBING. `{range_min: 0, range_max: 1}` from a
+   * genuine external prior and the same pair from ignorance are BYTE-IDENTICAL
+   * and mean opposite things. Only the flag separates them — never the range.
+   *
+   * ⚠ THE PREDICATE IS THE CANVAS NODE'S, NOT A SECOND ONE. `FactorNode.tsx`
+   * already answers this exact question as `isUnquantifiedPrior(prior) &&
+   * !hasAnyStatedValue(data)`: a factor that LATER GAINED a value is no longer
+   * describable this way, whatever its prior still says. Two answers to one
+   * question is the drift this estate keeps paying for (trap 12).
+   */
+  priorIsExplicitlyUnquantified: boolean
   /** §4.4.2 "Its value" — secondary values that are STILL PLAIN (baseline, direction…). */
   secondaryValues: readonly DetailField[]
   /** §4.4.3 "Where it came from" — the basis sentence, in the user's language. */

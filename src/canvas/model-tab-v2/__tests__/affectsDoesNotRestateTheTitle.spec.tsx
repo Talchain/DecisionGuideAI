@@ -41,6 +41,8 @@ const relationshipRow = (label: string): ModelRow => ({
 
 const detail = (over: Partial<ModelRowDetail> = {}): ModelRowDetail => ({
   rowId: 'e1',
+  // An edge carries no prior, so the question does not arise.
+  priorIsExplicitlyUnquantified: false,
   description: null,
   secondaryValues: [],
   basis: 'Inferred from model structure',
