@@ -528,7 +528,19 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
    * `NodePopover.tsx:129` is `if (!visible) return null`. Contrast controls in
    * the same probe: 71 `react-flow__node`, 26 `Influence`.
    */
-  const showPostAnalysisChips = true
+  // ⚠ THE BODY AND THE POPOVER MUST BE MUTUALLY EXCLUSIVE, and my first cut was
+  // not: with `true` here, a run with no stability rendered the chips in BOTH —
+  // the popover carries them as its no-stability fallback (see the popover
+  // below for why removing them outright makes `completedRunLine` or
+  // `emptyLine` false). My own coexistence test caught it with "Found multiple
+  // elements with the text: Challenge this result", which is the test doing its
+  // job on the author.
+  //
+  // So: the body shows the chips whenever the popover is NOT carrying them —
+  // i.e. in Detailed (no popover at all), and in Standard whenever stability
+  // gives the popover its own content. The two predicates are complements of
+  // one expression, so they cannot drift into overlapping or into a gap.
+  const showPostAnalysisChips = isDetailed || Boolean(stabilityDisplay)
   const showTriageLine = Boolean(triageLine)
 
   /**

@@ -586,12 +586,16 @@ describe('DecisionNode — honest resting state', () => {
     setStore({
       nodes: [decisionNode, ...optionNodes, ...factorNodes],
       edges: optionEdges,
-      results: { status: 'complete', report: WITHHELD_REPORT },
+      results: { status: 'complete', report: WITHHELD_REPORT_WITH_STABILITY },
       viewMode: 'standard',
     })
     renderDecision()
 
     // The invitations — reachable with no hover, which is the change.
+    // ⭐ EXACTLY ONE EACH. `getByText` throws on duplicates, and that is load
+    // bearing here: the popover carries these same chips as its no-stability
+    // fallback, so a body/popover predicate that overlaps renders them twice.
+    // This assertion caught precisely that in the first cut.
     expect(screen.getByText('Challenge this result')).toBeDefined()
     expect(screen.getByText('Compare options')).toBeDefined()
 
@@ -601,6 +605,34 @@ describe('DecisionNode — honest resting state', () => {
 
     // The copy still may not explain the analysis, chips or no chips.
     expect(visibleText(resting)).not.toMatch(/\byet\b/i)
+  })
+
+  /**
+   * ⭐ TWIN — the no-stability arm, which is where the two surfaces could
+   * overlap. With no stability the popover has no content of its own, so it
+   * carries the chips instead; the body must then NOT also carry them. The
+   * resting copy still renders, so Paul's ruling holds in both arms.
+   */
+  it('Standard completed run with NO stability: chips live in the popover, resting copy still renders, nothing doubled', () => {
+    const factorNodes = [
+      { id: 'f-explicit', type: 'factor', data: { type: 'factor', label: 'Salary budget', category: 'controllable', observedState: { value: 42 } } },
+      { id: 'f-missing', type: 'factor', data: { type: 'factor', label: 'Attrition', category: 'controllable' } },
+    ]
+    setStore({
+      nodes: [decisionNode, ...optionNodes, ...factorNodes],
+      edges: optionEdges,
+      results: { status: 'complete', report: WITHHELD_REPORT },
+      viewMode: 'standard',
+    })
+    renderDecision()
+
+    // Exactly one — `getByText` throws on a duplicate, which is the property.
+    const popover = screen.getByTestId('decision-node-popover')
+    expect(within(popover).getByText('Challenge this result')).toBeDefined()
+
+    // …and the resting copy is present alongside, per the ruling.
+    const resting = screen.getByTestId(RESTING)
+    expect(within(resting).getByTestId('decision-node-readiness-summary')).toBeDefined()
   })
 
   it('⭐ TWIN — in DETAILED the branch has content, so this state stays shut', () => {
