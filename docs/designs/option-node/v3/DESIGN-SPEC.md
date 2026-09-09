@@ -52,6 +52,7 @@ Preserve the full wrapping title and existing top actions. The inspector should 
 - Use one consistent representation for both ends of a comparison, the same reference as the preview and neutral directional cues. A raw-before / unexplained-normalised-after row is not the finished design.
 - Switching between two options sharing a factor must replace the displayed target immediately. A previous option's local draft must never appear as the new option's value.
 - Empty description, absent provenance, no interventions, missing result, failure and stale analysis each need honest handling. Do not consume the panel with repeated empty furniture.
+- On a completed option card, the shared analysis-trust verdict also qualifies retained results: “Model changed since this analysis” for an established change, “Analysis may be out of date” when currentness is unconfirmed. Keep the result bars; do not invent a second hash, a freshness score or a change claim from absent evidence. No note on an unanalysed draft or a confirmed current result.
 - Keep outcome probability only when its threshold, units, frame and permission support it. A target in prose is not proof it has been captured in the model.
 
 ## Design-system changes to carry with implementation
