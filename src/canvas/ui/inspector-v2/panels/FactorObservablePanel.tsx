@@ -271,7 +271,13 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
                 <p className={`${typography.panelBody} text-text-body mt-1`}>{sensitivityGuidance}</p>
               )}
             </div>
-            {voiTier !== null && (
+            {/* ⚠ BOTH CONJUNCTS, AND THE FIRST ONE IS NOT REDUNDANT. `voiTier`
+                is derived from this value, so a human reads the second as
+                implying the first — but TypeScript does not narrow through a
+                derived local, and `DataBar` takes `number`, not `number | null`.
+                Dropping either one is a type error, which is the compiler
+                making the same point. */}
+            {displayMetadata.valueOfInformation !== null && voiTier !== null && (
               <div>
                 <DataBar
                   value={displayMetadata.valueOfInformation}
