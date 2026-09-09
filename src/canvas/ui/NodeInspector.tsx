@@ -636,7 +636,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       {isOptionNode && displayMetadata.isResultsMode && displayMetadata.winRate !== null && (
         <div className="mt-3 pt-2 border-t border-panel-border">
           <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
-            <span className={`${typography.panelMeta} text-text-light`}>Win probability</span>
+            <span className={`${typography.panelMeta} text-text-light`}>Scored highest</span>
             <span className={`${typography.panelBody} text-text-body tabular-nums`}>
               {formatWinProbability(displayMetadata.winRate)}
             </span>
