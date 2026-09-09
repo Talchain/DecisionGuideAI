@@ -73,7 +73,7 @@ import {
   deriveAnalysisDisplayState,
   type AnalysisDisplayStateView,
 } from '../utils/deriveAnalysisDisplayState'
-import { selectHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
+import { selectHasRenderableAnalysisResult } from '../ui/inspector-v2/useAnalysisResults'
 import {
   deriveResultsTabFreshness,
   type ResultsTabFreshnessIndicator,
@@ -434,15 +434,15 @@ export interface ComposeAnalysisStateInput {
   /** Legacy: whether a populated report is on screen. */
   hasReport: boolean
   /**
-   * ⭐ Whether that report actually contains a renderable probability.
+   * Whether that report contains a renderable probability or outcome statistic.
    *
    * `hasReport` is a claim about the ENVELOPE; this is a claim about the
    * CONTENT, and they came apart on a real run: build `acd3db4d` displayed
    * "Analysis complete" while all 5 rendered factors reported
    * `influence_source: "unmatched"` and all 3 options
    * `win_probability_source: "unmatched"`, with no PLoT or ISL leg present.
-   * Derived from `hasAnyRealProbability`, the guard written for this and not
-   * previously consumed by the headline. Optional so an existing caller keeps
+   * Derived from `hasRenderableAnalysisResult`: intentionally withheld ranking
+   * does not erase a computed outcome. Optional so an existing caller keeps
    * its behaviour rather than degrading every run to the new state.
    */
   hasRenderableResult?: boolean
@@ -782,7 +782,7 @@ export function useAnalysisState(): ComposedAnalysisState {
   // The CONTENT check, not the envelope check — see `hasRenderableResult`.
   // Subscribed as a primitive boolean so this cannot re-render on every report
   // identity change.
-  const hasRenderableResult = useCanvasStore(selectHasAnyRealProbability)
+  const hasRenderableResult = useCanvasStore(selectHasRenderableAnalysisResult)
   const ceeAnalysisReadyStatus = useCanvasStore((s) => s.ceeAnalysisReady?.status)
   const { source } = useAnalysisStateSource()
 
