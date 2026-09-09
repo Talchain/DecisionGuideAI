@@ -196,7 +196,11 @@ const WITHHELD_REPORT = {
     'option-1': { win_probability: 0.55 },
     'option-2': { win_probability: 0.45 },
   },
-  robustness: { recommended_option_id: 'option-1', recommendation_stability: 0.62 },
+  robustness: {
+    recommended_option_id: 'option-1',
+    recommendation_stability: 0.62,
+    display_verdict: 'moderate',
+  },
 }
 
 /** The same run, plus the producer's own `near_tie` leader claim. */
@@ -506,7 +510,7 @@ describe('DecisionNode — the readiness summary on the card', () => {
     })
     renderDecision()
     // Precondition, re-pointed to content this node actually owns.
-    expect(screen.getByText(/Stability: /i)).toBeDefined()
+    expect(screen.getByText(/Robustness: moderate/i)).toBeDefined()
     expect(screen.queryByTestId(RESTING)).toBeNull()
     expect(screen.queryByTestId(SUMMARY)).toBeNull()
   })
