@@ -8,13 +8,13 @@
  *  - unresolved targets do NOT populate targetFactorId (so hover-highlight is silent)
  *  - resolved targets populate both targetFactorId AND targetFactorLabel
  *  - friendly labels resolve for all known LLM bias types (not just the neutral fallback)
- *  - safe-looking unknown types get sentence-case fallback, not generic
+ *  - unknown types keep their observation under the neutral heading
  *  - unsafe inputs fall through to the neutral fallback without echoing the raw string
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { mapDraftBiasSignalToTrigger, safeBiasTitle, buildBiasHoverHandlers, FORBIDDEN_TYPE_PREFIXES } from '../PreAnalysisPanel'
-import { UNRECOGNISED_BIAS_SIGNAL_TITLE } from '../../../shared/biasSignalTitles'
+import { mapDraftBiasSignalToTrigger, buildBiasHoverHandlers, FORBIDDEN_TYPE_PREFIXES } from '../PreAnalysisPanel'
+import { BIAS_SIGNAL_REGISTRY, UNRECOGNISED_BIAS_SIGNAL_TITLE } from '../../../shared/biasSignalTitles'
 
 const noResolve = (_id: string): string | null => null
 
@@ -41,9 +41,10 @@ describe('mapDraftBiasSignalToTrigger', () => {
     }
   })
 
-  it('falls back to sentence-case for safe unknown types', () => {
-    const t = mapDraftBiasSignalToTrigger({ type: 'novel_bias_type', detail: 'x' }, 0, noResolve)
-    expect(t?.title).toBe('Novel bias type')
+  it('keeps an unfamiliar observation without deriving a category from its code', () => {
+    const t = mapDraftBiasSignalToTrigger({ type: 'novel_bias_type', detail: 'Consider the customers absent from these interviews.' }, 0, noResolve)
+    expect(t?.title).toBe(UNRECOGNISED_BIAS_SIGNAL_TITLE)
+    expect(t?.fullExplanation).toBe('Consider the customers absent from these interviews.')
   })
 
   it('falls back to the neutral heading for unsafe inputs', () => {
@@ -94,7 +95,7 @@ describe('mapDraftBiasSignalToTrigger', () => {
 
   it('falls back to the neutral heading when type is a raw entity-ID prefix (never echoes IDs)', () => {
     // A CEE bug or contract drift could pass an entity ID as the bias type;
-    // safeBiasTitle must reject these so they fall through to BIAS_FALLBACK
+    // The unresolved code uses BIAS_FALLBACK
     // rather than rendering as "Fac price" / "Opt a" / etc.
     //
     // Covers all canonical CEE entity-ID prefixes mirrored from
@@ -117,28 +118,32 @@ describe('mapDraftBiasSignalToTrigger', () => {
   })
 })
 
-describe('safeBiasTitle', () => {
-  // One per-prefix test for each entry in FORBIDDEN_TYPE_PREFIXES — drift-proof
-  // because the test source is the same constant the production code uses.
-  describe.each(FORBIDDEN_TYPE_PREFIXES.map((p) => [p]))('rejects entity-ID prefix %s', (prefix) => {
-    it(`returns null for "${prefix}…" lowercase`, () => {
-      expect(safeBiasTitle(`${prefix}sample`)).toBeNull()
+describe('draft bias title authority', () => {
+  // Exercise the real mapper rather than a parallel title formatter.
+  describe.each(FORBIDDEN_TYPE_PREFIXES.map((p) => [p]))('does not name a category from entity-ID prefix %s', (prefix) => {
+    it(`keeps the observation neutral for "${prefix}…" lowercase`, () => {
+      const trigger = mapDraftBiasSignalToTrigger({ type: `${prefix}sample`, detail: 'Observation survives.' }, 0, noResolve)
+      expect(trigger?.title).toBe(UNRECOGNISED_BIAS_SIGNAL_TITLE)
+      expect(trigger?.fullExplanation).toBe('Observation survives.')
     })
-    it(`returns null for "${prefix}…" uppercase (case-insensitive)`, () => {
-      expect(safeBiasTitle(`${prefix.toUpperCase()}SAMPLE`)).toBeNull()
+    it(`keeps the observation neutral for "${prefix}…" uppercase`, () => {
+      const trigger = mapDraftBiasSignalToTrigger({ type: `${prefix.toUpperCase()}SAMPLE`, detail: 'Observation survives.' }, 0, noResolve)
+      expect(trigger?.title).toBe(UNRECOGNISED_BIAS_SIGNAL_TITLE)
+      expect(trigger?.fullExplanation).toBe('Observation survives.')
     })
   })
 
-  it('sentence-cases safe tokens', () => {
-    expect(safeBiasTitle('novel_bias')).toBe('Novel bias')
-    expect(safeBiasTitle('OVERCONFIDENCE')).toBe('Overconfidence')
+  it.each(Object.entries(BIAS_SIGNAL_REGISTRY))('retains the recognised %s title and icon', (code, entry) => {
+    const trigger = mapDraftBiasSignalToTrigger({ type: code.toUpperCase(), detail: 'Observation survives.' }, 0, noResolve)
+    expect(trigger?.title).toBe(entry.title)
+    expect(trigger?.icon).toBe(entry.icon)
+    expect(trigger?.fullExplanation).toBe('Observation survives.')
   })
 
-  it('returns null for unsafe characters', () => {
-    expect(safeBiasTitle('<script>')).toBeNull()
-    expect(safeBiasTitle('a b c')).toBeNull()
-    expect(safeBiasTitle('a-b-c')).toBeNull()
-    expect(safeBiasTitle('')).toBeNull()
+  it.each(['novel_bias', 'anchoring_maybe', '<script>', 'a b c', 'a-b-c', '', '__proto__'])('keeps detail with a neutral heading for unresolved code %s', type => {
+    const trigger = mapDraftBiasSignalToTrigger({ type, detail: 'Observation survives.' }, 0, noResolve)
+    expect(trigger?.title).toBe(UNRECOGNISED_BIAS_SIGNAL_TITLE)
+    expect(trigger?.fullExplanation).toBe('Observation survives.')
   })
 
   it('exposes all canonical CEE prefixes plus UI defensive prefixes', () => {

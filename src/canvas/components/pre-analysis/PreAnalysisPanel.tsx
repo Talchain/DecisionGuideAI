@@ -40,7 +40,6 @@ import { useCanvasStore } from '../../store'
 import {
   biasSignal,
   resolveBiasSignal,
-  isEntityIdShapedCode,
   UNRECOGNISED_BIAS_SIGNAL_TITLE,
 } from '../../shared/biasSignalTitles'
 import type { KnownBiasCode } from '../../shared/biasSignalTitles'
@@ -96,38 +95,8 @@ import { ICON_DENSE } from '../../conversation/panelIcons'
 /** AI source provenance labels */
 const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred', 'ai_estimate', 'engine'])
 
-/**
- * ⭐ MOVED, NOT CHANGED — the list now lives in `shared/biasSignalTitles`,
- * beside the registry and the guarded resolver, because the draft bias bridge
- * needs the same question answered and a second copy would be the
- * hand-maintained mirror this estate keeps paying for (CLAUDE.md trap 12).
- *
- * Re-exported from here verbatim so every existing importer — including the
- * per-prefix drift spec in `mapDraftBiasSignalToTrigger.spec.ts`, which
- * iterates this list — keeps resolving against the same module path and is
- * untouched by the move. The values, the lockstep contract with CEE's
- * `entity-id-pattern.ts`, and `safeBiasTitle`'s behaviour are all unchanged.
- */
+/** Retain the existing import path for the shared entity-prefix contract. */
 export { FORBIDDEN_TYPE_PREFIXES } from '../../shared/biasSignalTitles'
-
-/**
- * Convert an unknown but safe-looking bias type token into a sentence-case label.
- * Returns null for empty / unsafe inputs so callers fall through to BIAS_FALLBACK.
- * Only allows alphanumerics + underscores, and rejects known entity-ID prefixes
- * so a malformed `type: "fac_price"` never renders as "Fac price".
- */
-export function safeBiasTitle(token: string): string | null {
-  if (!token) return null
-  const safe = token.trim()
-  if (!/^[A-Za-z0-9_]{1,40}$/.test(safe)) return null
-  // One implementation of "is this an entity id?", shared with the draft
-  // bridge. The character-class test above still runs first, so this sees
-  // only [A-Za-z0-9_] tokens and the underscore-suffix forms are exhaustive.
-  if (isEntityIdShapedCode(safe)) return null
-  const lower = safe.toLowerCase()
-  const cleaned = lower.replace(/_/g, ' ')
-  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
-}
 
 /**
  * Generic fallback for unrecognised bias codes.
@@ -196,9 +165,10 @@ export function mapDraftBiasSignalToTrigger(
 ): NormalisedBiasTrigger | null {
   const explanation = signal.detail.trim()
   if (!explanation) return null
-  const matched = resolveBiasSignal(signal.type)
-  const safeTitle = matched ? null : safeBiasTitle(signal.type)
-  const config = matched ?? (safeTitle ? { icon: BIAS_FALLBACK.icon, title: safeTitle } : BIAS_FALLBACK)
+  // An unfamiliar wire identifier does not establish a human-readable risk
+  // category. Keep its observation under the existing neutral heading, just
+  // as normaliseCeeBiasFinding does; this does not filter out the signal.
+  const config = resolveBiasSignal(signal.type) ?? BIAS_FALLBACK
   const targetId = signal.target ?? null
   const targetLabel = targetId ? resolveLabel(targetId) : null
   return {
@@ -555,7 +525,13 @@ function T1BiasNudgeRow({
         {trigger.subtitle}
       </p>
       <DiscussWithAiButton
-        element={{ kind: 'bias', biasType: trigger.title, microInterventionStep: trigger.microInterventionStep }}
+        element={{
+          kind: 'bias',
+          biasType: trigger.title,
+          observation: trigger.fullExplanation,
+          targetLabel: trigger.targetFactorLabel,
+          microInterventionStep: trigger.microInterventionStep,
+        }}
       />
     </div>
   )
