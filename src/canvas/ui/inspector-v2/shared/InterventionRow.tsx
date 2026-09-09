@@ -4,7 +4,6 @@
  */
 
 import { useState, useCallback, useEffect, useRef, type KeyboardEvent } from 'react'
-import { ArrowRight } from 'lucide-react'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { typography } from '../../../../styles/typography'
 import {
@@ -84,19 +83,21 @@ const INSPECTOR_INTERVENTION_PROVENANCE_BORDER: Record<ValueProvenanceKind, stri
  * comments at each use site for which one and why.
  */
 export const INTERVENTION_ROW_STRINGS = {
-  /** What the factor's record holds. NEVER "Currently" — see the use site. */
-  referenceLabel: 'Recorded',
-  /** Names the editable number when it is not on the reference's scale. */
-  modelValueLabel: 'model value',
   /**
-   * ⚠ "vs the recorded value", not "vs baseline". The percentage is measured
-   * from `observedState.value`, and `observedState.baseline` is a DIFFERENT
-   * field that may also be present — calling the first one "baseline" put two
-   * questions under one name on the surface where the answer is read.
+   * Names the EDITABLE TARGET, which is the one quantity on this row whose role
+   * is certain: it is what this option sets the factor to. Nothing else in the
+   * ordinary row makes a claim at all.
    */
-  deltaTitle: 'change vs the recorded value',
-  /** Shown when the record holds a second, differing reference. */
-  contestedNote: 'The record holds a second reference for this factor on an unstated scale, so no change is shown against it.',
+  setsLabel: 'This option sets',
+  /**
+   * ⚠ TECHNICAL MODE ONLY. What the factor's record holds — a diagnostic for an
+   * operator, never a comparison offered to a reader. NEVER "Currently": that
+   * word asserted a present state, and `observedState.value` is not declared to
+   * be one.
+   */
+  referenceLabel: 'Recorded',
+  /** Names the raw-units figure in the technical diagnostic line. */
+  rawLabel: 'raw',
 } as const
 
 interface InterventionRowProps {
@@ -244,49 +245,42 @@ export function InterventionRow({
   }, [currentValue])
 
   /**
-   * ⭐ THE REFERENCE IS UNESTABLISHED WHENEVER THE RECORD HOLDS A SECOND
-   * QUANTITY THIS SURFACE CANNOT RELATE TO THE FIRST.
+   * ⛔⛔ THERE IS NO PERCENTAGE, AND NO REFERENCE, IN THE ORDINARY ROW. THIS IS
+   * THE THIRD VERSION OF THIS GUARD AND THE FIRST ONE THAT IS HONEST.
    *
-   * The percentage below is measured from `observedState.value`. When the factor
-   * ALSO carries `observedState.baseline`, "↓ 17%" is a confident figure about a
-   * reference the model never established.
+   * ── HOW IT GOT HERE, BECAUSE THE ROUTE IS THE LESSON ───────────────────────
+   * v1 printed `Currently: {observedState.value}` and a percentage measured from
+   * it. `value`'s role is not declared, and on the live capture it held a level
+   * ANOTHER OPTION PROPOSED — so the row announced a proposal as the status quo
+   * and measured every option's change against it.
    *
-   * ⚠⚠ AND THE FIRST VERSION OF THIS GUARD MADE THE EXACT ERROR THIS PR IS
-   * ABOUT, WHICH IS WHY IT IS QUOTED RATHER THAN QUIETLY REPLACED. It read
-   * `recordedBaseline !== baseline` — comparing a field of UNDECLARED SCALE with
-   * a normalised one. On the live capture that is `49 !== 0.59`, which is true
-   * TRIVIALLY, because the two are not on the same scale; it establishes nothing
-   * about whether the record disagrees with itself. A guard that fires on every
-   * factor carrying a baseline is not a disagreement detector, it is a
-   * both-fields-present detector wearing a comparison's clothes. Caught in
-   * review by the option-node owner.
+   * v2 withheld the percentage when a differing `observedState.baseline` was
+   * present, via `recordedBaseline !== baseline`. That comparison is between a
+   * field of UNDECLARED SCALE and a normalised one — `49 !== 0.59` is true
+   * TRIVIALLY — so it detected nothing. Caught in review.
    *
-   * PRESENCE IS THE HONEST CONDITION. Whether the two agree is UNKNOWABLE here —
-   * `ObservedStateSchema` declares `baseline` with no doc comment and no scale,
-   * so this surface can neither confirm nor refute agreement. What it can say is
-   * that a second recorded quantity exists which it cannot relate to the first,
-   * and that is sufficient reason to withhold a percentage measured from one of
-   * them. A missing number is honest; a confident one about an unestablished
-   * reference is not — the contract's own rule for the goal-probability
-   * conversion one layer down.
+   * v3 made it presence-based, and that was still wrong, in the direction that
+   * matters: it treated the ABSENCE of a second quantity as LICENCE for the
+   * percentage. Fewer facts do not make a claim more supportable. The review's
+   * counterexample settles it — `baseline 0.2 / rawBaseline 20 / currentValue
+   * 0.3 / no recordedBaseline` rendered `Recorded: £20`, `model value 0.3` and
+   * `+50%`: a raw figure and a normalised one side by side, and a ratio-scale
+   * claim over a reference whose role was never established.
+   *
+   * ── SO THE ORDINARY ROW STATES THE ONE THING THAT IS CERTAIN ───────────────
+   * What this option SETS the factor to. That is the option's own intervention,
+   * and it needs no reference to be true. Everything else — the recorded value,
+   * its raw form, the arithmetic between them — is a DIAGNOSTIC, and diagnostics
+   * live behind `techMode` where an operator can read them knowing what they
+   * are. A reader is shown no comparison, because this surface cannot establish
+   * one, and an absent number is honest where a confident one is not.
+   *
+   * ⚠ THE PERCENTAGE IS GONE ENTIRELY, NOT MOVED. A ratio needs a reference with
+   * a ROLE and a SCALE, and neither exists at any mode. Printing it to operators
+   * would be the same unlicensed claim in a smaller font.
    */
-  const referenceContested = recordedBaseline != null
+  const technicalDiagnostics = techMode
 
-  // Change delta
-  const delta = !referenceContested && baseline != null && baseline !== 0
-    ? ((currentValue - baseline) / Math.abs(baseline)) * 100
-    : null
-  const deltaSign = delta != null ? (delta > 0 ? '\u2191' : delta < 0 ? '\u2193' : '') : ''
-  /**
-   * ⛔ NEUTRAL, DELIBERATELY. This used to be
-   * `delta > 0 ? 'text-success' : delta < 0 ? 'text-danger'` — green for up, red
-   * for down, on EVERY factor. On a cost, a churn rate or a risk that is exactly
-   * backwards: the row painted a rise in churn green and told the reader it was
-   * good news. Nothing on this row knows which direction is desirable — the sign
-   * of a factor's effect lives on its EDGES, not on the factor — so the arrow
-   * states the direction and the colour states nothing.
-   */
-  const deltaColor = 'text-text-light'
 
   const formatValue = (v: number) => {
     if (unit === '\u00A3' || unit === '$' || unit === '\u20AC') {
@@ -311,28 +305,28 @@ export function InterventionRow({
         : 'N/A'
 
   /**
-   * ⭐⭐ THE TWO ENDS OF THE ARROW WERE ON DIFFERENT SCALES, AND #1339 IS WHAT
-   * PUT THEM THERE — stated plainly because it was my own change.
+   * ⚠ TECHNICAL DIAGNOSTICS ONLY — this string is never shown to a reader.
    *
-   * #1339 correctly stopped the row printing `£0.59` for a £59 price by
-   * rendering `rawBaseline` (real units) instead of `baseline` (normalised).
-   * The editable target beside it is `currentValue`, which this file's own prop
-   * doc declares is on the SAME SCALE AS `baseline` — i.e. normalised. So the
-   * repaired row read `Currently: £59 → [0.49]`: two correctly-formatted
-   * numbers, and an ARROW BETWEEN THEM THAT NOTHING LICENSES. Each value was
-   * right; the comparison was not.
-   *
-   * This is derivable rather than inferred: the scale relationship is DECLARED
-   * in the props above (`baseline` shares `currentValue`'s scale, `rawBaseline`
-   * is the other one), so `rawBaseline != null` is exactly the cross-scale case.
-   *
-   * When the scales differ the arrow is replaced by a NAMED label on the input,
-   * so the row shows two quantities the reader can tell apart instead of one
-   * comparison it cannot trust. When they agree the arrow stays and means what
-   * it says.
+   * ⚠⚠ THE COMMENT THAT STOOD HERE DESCRIBED AN ARROW THAT NO LONGER EXISTS,
+   * and it is replaced rather than left, because a comment that outlives its
+   * subject teaches the next reader to stop checking. It explained that #1339's
+   * repair had put a RAW figure and a NORMALISED one at opposite ends of one
+   * arrow — correct, and the reason the arrow went. The row no longer offers any
+   * comparison at all, so there are no ends to reconcile; the same two numbers
+   * appear here, side by side and LABELLED as what they are, for an operator who
+   * has asked for them.
    */
-  const referenceIsRawUnits = rawBaseline != null
-  const comparable = !referenceIsRawUnits
+  const technicalDiagnosticsText = [
+    `${INTERVENTION_ROW_STRINGS.referenceLabel}: ${baselineText}`,
+    rawBaseline != null && baseline != null
+      ? `${INTERVENTION_ROW_STRINGS.rawLabel} ${rawBaseline.toLocaleString()} / model ${baseline.toLocaleString()}`
+      : null,
+    recordedBaseline != null
+      ? `observed_state.baseline ${recordedBaseline.toLocaleString()}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   // F.6 passthrough: when CEE provides display_value, it IS the canonical
   // default-mode user-facing text. Raw numeric baseline/delta/editable input
@@ -356,7 +350,9 @@ export function InterventionRow({
       data-testid={`inspector-intervention-${factorId}`}
       className="bg-panel border border-panel-border rounded-lg p-2.5 mb-1.5"
     >
-      {/* Factor label + change indicator (delta hidden when displayValue is primary) */}
+      {/* Factor label. ⚠ The change indicator that lived here is GONE — see
+          the block above `technicalDiagnostics` for why a percentage cannot be
+          stated from this record. */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-1.5">
           <NodeShapeIndicator nodeKind="factor" size={14} />
@@ -369,16 +365,6 @@ export function InterventionRow({
             {factorLabel}
           </button>
         </div>
-        {delta != null && showNumericSurface && (
-          <span
-            className={`${typography.panelMeta} ${deltaColor}`}
-            data-testid={`intervention-delta-${factorId}`}
-            title={INTERVENTION_ROW_STRINGS.deltaTitle}
-            aria-label={`${Math.abs(delta).toFixed(0)}% ${INTERVENTION_ROW_STRINGS.deltaTitle}`}
-          >
-            {deltaSign} {Math.abs(delta).toFixed(0)}%
-          </span>
-        )}
       </div>
 
       {/* CEE-authored display_value — canonical default-mode text when present */}
@@ -388,42 +374,29 @@ export function InterventionRow({
         </div>
       )}
 
-      {/* Baseline → editable input (default mode when no displayValue, or always in techMode) */}
+      {/* The target this option sets, and nothing else. Default mode when there
+          is no `display_value`, or always in techMode. */}
       {showNumericSurface && (
         <div className="flex items-center gap-2 mt-2">
           <div className="flex-1">
-            {/* ⛔ NOT "Currently". That word asserted a PRESENT STATE, and the
-                field it was printing — `observedState.value` — is not declared
-                to be one. On the live capture it held a value one option had
-                PROPOSED, so the row announced a proposal as the status quo and
-                then measured every other option's change against it. "Recorded"
-                claims only what can be shown: this is what the factor's record
-                holds. */}
             <div
               className={`${typography.panelMeta} text-text-light`}
-              data-testid={`intervention-reference-${factorId}`}
+              data-testid={`intervention-sets-${factorId}`}
             >
-              {INTERVENTION_ROW_STRINGS.referenceLabel}: {baselineText}
+              {INTERVENTION_ROW_STRINGS.setsLabel}
             </div>
-            {referenceContested && (
+            {/* ⚠ OPERATOR DIAGNOSTICS, NOT A COMPARISON. Behind `techMode` so a
+                reader is never handed a recorded figure beside a normalised one
+                and left to infer a relationship between them. */}
+            {technicalDiagnostics && (
               <div
-                className={`${typography.panelMeta} text-text-light`}
-                data-testid={`intervention-reference-contested-${factorId}`}
+                className={`${typography.panelMeta} text-text-light italic`}
+                data-testid={`intervention-diagnostics-${factorId}`}
               >
-                {INTERVENTION_ROW_STRINGS.contestedNote}
+                {technicalDiagnosticsText}
               </div>
             )}
           </div>
-          {comparable ? (
-            <ArrowRight size={10} className="text-text-light flex-shrink-0" aria-hidden="true" />
-          ) : (
-            <span
-              className={`${typography.panelMeta} text-text-light flex-shrink-0`}
-              data-testid={`intervention-model-value-label-${factorId}`}
-            >
-              {INTERVENTION_ROW_STRINGS.modelValueLabel}
-            </span>
-          )}
           <input
             ref={inputRef}
             type="text"

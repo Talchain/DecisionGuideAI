@@ -332,7 +332,7 @@ describe('OptionPanel — observed-state baseline unwrap regression', () => {
     expect(container.textContent).toContain('Marketing budget')
   })
 
-  it('renders the baseline as "Recorded: ..." when the value is a primitive', () => {
+  it('renders the baseline as "Recorded: ..." in techMode when the value is a primitive', () => {
     const factor: Node = {
       id: 'factor-1',
       type: 'factor',
@@ -357,7 +357,11 @@ describe('OptionPanel — observed-state baseline unwrap regression', () => {
     const { container } = render(
       <OptionPanel
         nodeId="option-1"
-        techMode={false}
+        /* ⚠ techMode, because the recorded figure is now an OPERATOR
+           DIAGNOSTIC — the ordinary row shows only what the option sets. The
+           unwrap defence this test exists for is unchanged; only the surface
+           that prints the unwrapped value moved. */
+        techMode
         onClose={noop}
         onNavigate={noop}
       />,
@@ -369,7 +373,7 @@ describe('OptionPanel — observed-state baseline unwrap regression', () => {
     expect(container.textContent).toContain('Marketing budget')
   })
 
-  it('renders "Recorded: N/A" when target factor has no observed value at all', () => {
+  it('renders "Recorded: N/A" in techMode when the factor has no observed value at all', () => {
     const factor: Node = {
       id: 'factor-1',
       type: 'factor',
@@ -394,7 +398,11 @@ describe('OptionPanel — observed-state baseline unwrap regression', () => {
     const { container } = render(
       <OptionPanel
         nodeId="option-1"
-        techMode={false}
+        /* ⚠ techMode, because the recorded figure is now an OPERATOR
+           DIAGNOSTIC — the ordinary row shows only what the option sets. The
+           unwrap defence this test exists for is unchanged; only the surface
+           that prints the unwrapped value moved. */
+        techMode
         onClose={noop}
         onNavigate={noop}
       />,

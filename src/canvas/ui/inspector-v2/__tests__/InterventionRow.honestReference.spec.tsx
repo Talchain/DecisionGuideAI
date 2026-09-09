@@ -1,11 +1,10 @@
 /**
- * ⭐⭐ THE ROW MAY NOT CLAIM A PRESENT STATE, A COMPARISON, OR A DIRECTION IT
- * CANNOT SUPPORT.
+ * ⭐⭐ THE ORDINARY ROW STATES WHAT THIS OPTION SETS, AND MAKES NO OTHER CLAIM.
  *
  * ── THE CAPTURE THIS IS WRITTEN FROM ─────────────────────────────────────────
  * Not from my head (trap 22). Codex's joined CEE→PLoT→ISL investigation of run
- * `b0d541a9` (`output/olumi-manual-b0d541a9-20260908/MODEL-FINDINGS.md`, 8 Sep
- * 2026) read the stored model for Paul's own decision:
+ * `b0d541a9` (`output/olumi-manual-b0d541a9-20260908/MODEL-FINDINGS.md`) read the
+ * stored model for Paul's own decision:
  *
  *     price factor `6d9a37f3`   value 0.59   raw_value 59   baseline 49   unit £
  *     option "Raise price"      intervention 0.59
@@ -15,37 +14,34 @@
  *
  *     Currently: £59   →   [ 0.49 ]        ↓ 17%   (in red)
  *
- * Four separate claims, and the model licenses none of them:
+ * ── THREE VERSIONS OF THIS GUARD, AND THE ROUTE IS THE LESSON ────────────────
+ * v1 printed `observedState.value` as "Currently" and measured a percentage from
+ * it. That field's role is not declared, and on this capture it held a level
+ * ANOTHER OPTION PROPOSED — so the row announced a proposal as the status quo.
  *
- *  1. **"Currently"** asserts a present state. It prints `observedState.value`,
- *     which here holds the level ANOTHER OPTION PROPOSES. The row announced a
- *     proposal as the status quo — and then measured every option against it.
- *  2. **The arrow** spans `raw_value` (real units) and `currentValue`, which
- *     this component's own prop doc declares is on the NORMALISED scale. Both
- *     numbers were formatted correctly; the comparison between them was not
- *     licensed. #1339 is what put them at opposite ends of one arrow, and this
- *     file is the follow-up its own PR body said it needed.
- *  3. **"↓ 17%"** is measured from that same unlicensed reference, while the
- *     record separately holds `baseline: 49`. A confident figure about a
- *     reference the model never established.
- *  4. **The red** said the fall was bad. On a cost, a churn rate or a risk that
- *     is backwards, and nothing on this row knows which way is good — a factor's
- *     direction of merit lives on its EDGES.
+ * v2 withheld the percentage when a DIFFERING `observedState.baseline` was
+ * present: `recordedBaseline !== baseline`. That compares a field of UNDECLARED
+ * SCALE with a normalised one — `49 !== 0.59` is true TRIVIALLY — so it detected
+ * nothing at all.
+ *
+ * v3 made it presence-based, and was still wrong in the direction that matters:
+ * it treated the ABSENCE of a second quantity as LICENCE for the percentage.
+ * Fewer facts do not make a claim more supportable. The review's counterexample
+ * settles it — `baseline 0.2 / rawBaseline 20 / currentValue 0.3` with no
+ * recorded baseline still rendered `Recorded: £20`, `model value 0.3` and
+ * `+50%`: a raw figure beside a normalised one, and a ratio over a reference
+ * whose role was never established.
+ *
+ * ── SO THE CONTRACT THIS FILE PINS ───────────────────────────────────────────
+ * The ordinary row shows the TARGET — the option's own intervention, true
+ * without reference to anything — and a label naming it as such. No recorded
+ * value, no raw figure, no arrow, no percentage. The record's own numbers are
+ * DIAGNOSTICS and appear only under `techMode`, labelled as what they are.
  *
  * ── WHAT THIS FILE DOES NOT CLAIM ────────────────────────────────────────────
- * It does not fix the upstream misbinding that put a proposal in
- * `observedState.value`; that is TC's, and stated as theirs on programme #38.
- * It pins that the SURFACE stops asserting what the record does not say.
- * jsdom cannot prove visibility or colour rendering (CLAUDE.md trap 3) — the
- * colour assertions are about the class the element carries.
- *
- * ── HOW IT BINDS ─────────────────────────────────────────────────────────────
- * Every claim gets its OPPOSITE-DIRECTION TWIN, because each of these guards can
- * pass by simply never rendering anything (trap 22b): the contested case must
- * hide the percentage AND the uncontested case must still show it; the
- * cross-scale case must drop the arrow AND the same-scale case must keep it.
- * Rows are resolved by `factorId`, never by a value predicate a sibling row
- * could satisfy (trap 19).
+ * It does not fix the upstream misbinding that put a proposal into
+ * `observedState.value`; that is TC's and is stated as theirs on programme #38.
+ * jsdom cannot prove visibility (trap 3) — these are rendered strings.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -74,7 +70,7 @@ const OPTION_STATUS_QUO = 'opt-status-quo'
 const OBSERVED_VALUE = 0.59
 /** `observedState.raw_value` — the same quantity in real units. */
 const OBSERVED_RAW = 59
-/** `observedState.baseline` — a SECOND reference, differing, role undeclared. */
+/** `observedState.baseline` — a SECOND reference, role and scale undeclared. */
 const OBSERVED_BASELINE = 49
 
 const rowProps = {
@@ -85,36 +81,98 @@ const rowProps = {
   onChange: vi.fn(),
 }
 
-describe('the row names its reference instead of asserting the present state', () => {
-  it('says "Recorded", never "Currently"', () => {
-    render(<InterventionRow {...rowProps} baseline={OBSERVED_VALUE} rawBaseline={OBSERVED_RAW} />)
+/** Every input shape the row can receive, so the sweeps below are not vacuous. */
+const INPUT_SHAPES = [
+  {
+    name: 'the live capture',
+    props: { baseline: OBSERVED_VALUE, rawBaseline: OBSERVED_RAW, recordedBaseline: OBSERVED_BASELINE },
+  },
+  { name: 'the review counterexample', props: { baseline: 0.2, rawBaseline: 20 } },
+  { name: 'normalised only', props: { baseline: OBSERVED_VALUE } },
+  { name: 'nothing recorded at all', props: {} },
+] as const
 
-    const reference = screen.getByTestId(`intervention-reference-${FACTOR_PRICE}`)
-    expect(reference).toHaveTextContent(`${INTERVENTION_ROW_STRINGS.referenceLabel}: £59`)
-    // The word itself, because the word IS the claim.
-    expect(reference.textContent).not.toContain('Currently')
+describe('the ordinary row claims only what this option sets', () => {
+  it('names the target, on every input shape', () => {
+    for (const shape of INPUT_SHAPES) {
+      const { unmount } = render(<InterventionRow {...rowProps} {...shape.props} />)
+      expect(
+        screen.getByTestId(`intervention-sets-${FACTOR_PRICE}`),
+        `${shape.name}: no target label`,
+      ).toHaveTextContent(INTERVENTION_ROW_STRINGS.setsLabel)
+      unmount()
+    }
   })
 
-  it('NEVER renders observedState.baseline — its role and scale are undeclared', () => {
-    const { container } = render(
+  it('shows NO percentage — on any input, including with nothing recorded', () => {
+    // ⭐ THE COUNTEREXAMPLE THAT KILLED v3 IS IN THE SWEEP. `baseline 0.2 /
+    // rawBaseline 20` and no recorded baseline used to render `+50%`, because
+    // the guard read the absence of a second quantity as permission. A ratio
+    // needs a reference with a ROLE and a SCALE; this record establishes neither.
+    for (const shape of INPUT_SHAPES) {
+      const { container, unmount } = render(<InterventionRow {...rowProps} {...shape.props} />)
+      expect(container.textContent, `${shape.name}: a percentage survived`).not.toMatch(/\d\s*%/)
+      unmount()
+    }
+  })
+
+  it('shows NO recorded or raw figure in the ordinary row', () => {
+    for (const shape of INPUT_SHAPES) {
+      const { container, unmount } = render(<InterventionRow {...rowProps} {...shape.props} />)
+      const text = container.textContent ?? ''
+      expect(text, `${shape.name}: the recorded label leaked into default mode`).not.toContain(
+        INTERVENTION_ROW_STRINGS.referenceLabel,
+      )
+      // The specific harm on the live capture: a raw currency figure the reader
+      // would pair with the normalised target beside it.
+      expect(text, `${shape.name}: a raw currency figure leaked`).not.toContain('£59')
+      expect(screen.queryByTestId(`intervention-diagnostics-${FACTOR_PRICE}`)).toBeNull()
+      unmount()
+    }
+  })
+
+  it('NEVER renders observedState.baseline as a quantity, in either mode', () => {
+    // Its role AND its scale are undeclared, so formatting it with the factor's
+    // unit would repeat the `£0.59` defect in the other direction. Under
+    // techMode it appears only beside its own wire name, never as `£49`.
+    for (const techMode of [false, true]) {
+      const { container, unmount } = render(
+        <InterventionRow
+          {...rowProps}
+          baseline={OBSERVED_VALUE}
+          rawBaseline={OBSERVED_RAW}
+          recordedBaseline={OBSERVED_BASELINE}
+          techMode={techMode}
+        />,
+      )
+      expect(container.textContent, `techMode=${techMode}: a formatted £49 appeared`).not.toContain(
+        '£49',
+      )
+      unmount()
+    }
+  })
+})
+
+describe('the record is a diagnostic, and only an operator sees it', () => {
+  it('reveals the recorded figures under techMode, labelled as what they are', () => {
+    render(
       <InterventionRow
         {...rowProps}
         baseline={OBSERVED_VALUE}
         rawBaseline={OBSERVED_RAW}
         recordedBaseline={OBSERVED_BASELINE}
+        techMode
       />,
     )
 
-    // The specific harm: printing it with the factor's unit would be a
-    // confident, well-formatted number the model never claimed — the `£0.59`
-    // defect in the other direction.
-    expect(screen.queryByText('£49')).toBeNull()
-    expect(container.textContent).not.toContain('£49')
+    const diagnostics = screen.getByTestId(`intervention-diagnostics-${FACTOR_PRICE}`)
+    expect(diagnostics).toHaveTextContent(INTERVENTION_ROW_STRINGS.referenceLabel)
+    expect(diagnostics.textContent).toContain('observed_state.baseline')
   })
-})
 
-describe('a percentage needs a reference the record actually establishes', () => {
-  it('shows NO percentage when the record holds a second reference at all', () => {
+  it('CONTRAST — the same fixture in default mode shows none of it', () => {
+    // ⭐ Without the pair, the assertion above would pass just as well on a row
+    // that always rendered diagnostics, and the techMode branch would be dead.
     render(
       <InterventionRow
         {...rowProps}
@@ -123,88 +181,7 @@ describe('a percentage needs a reference the record actually establishes', () =>
         recordedBaseline={OBSERVED_BASELINE}
       />,
     )
-
-    expect(screen.queryByTestId(`intervention-delta-${FACTOR_PRICE}`)).toBeNull()
-    expect(
-      screen.getByTestId(`intervention-reference-contested-${FACTOR_PRICE}`),
-    ).toHaveTextContent(INTERVENTION_ROW_STRINGS.contestedNote)
-  })
-
-  it('STILL shows it when nothing contests the reference — the twin', () => {
-    // ⭐ Without this, the guard above would pass just as well on a change that
-    // deleted the percentage outright, which is a different defect.
-    render(<InterventionRow {...rowProps} baseline={OBSERVED_VALUE} rawBaseline={OBSERVED_RAW} />)
-
-    expect(screen.getByTestId(`intervention-delta-${FACTOR_PRICE}`)).toBeInTheDocument()
-    expect(screen.queryByTestId(`intervention-reference-contested-${FACTOR_PRICE}`)).toBeNull()
-  })
-
-  it('withholds it for ANY recorded baseline — agreement is not knowable here', () => {
-    // ⚠⚠ THIS TEST ASSERTED THE OPPOSITE UNTIL REVIEW, AND THE OLD VERSION WAS
-    // THE DEFECT. It read "shows it when a recorded baseline AGREES with the
-    // reference", passing `recordedBaseline={OBSERVED_VALUE}` and expecting the
-    // percentage back — i.e. it encoded a comparison between a field of
-    // UNDECLARED SCALE and a normalised one. On the live capture that comparison
-    // is `49 !== 0.59`: true trivially, because they are not on the same scale.
-    // "Agrees" was never a question this surface could answer.
-    //
-    // So the condition is PRESENCE, and the case that used to prove agreement
-    // now proves the opposite — which is the sharpest form of this fix, because
-    // the same fixture that passed under the wrong rule fails under it.
-    render(
-      <InterventionRow
-        {...rowProps}
-        baseline={OBSERVED_VALUE}
-        rawBaseline={OBSERVED_RAW}
-        recordedBaseline={OBSERVED_VALUE}
-      />,
-    )
-
-    expect(screen.queryByTestId(`intervention-delta-${FACTOR_PRICE}`)).toBeNull()
-  })
-
-  it('does not colour the change good or bad', () => {
-    render(<InterventionRow {...rowProps} baseline={OBSERVED_VALUE} rawBaseline={OBSERVED_RAW} />)
-
-    const delta = screen.getByTestId(`intervention-delta-${FACTOR_PRICE}`)
-    // A fall in churn and a fall in revenue would have been painted the same
-    // colour, and only one of them is good news.
-    expect(delta.className).not.toContain('text-success')
-    expect(delta.className).not.toContain('text-danger')
-  })
-
-  it('names the percentage against the RECORDED value, not "baseline"', () => {
-    // `observedState.baseline` is a different field that may also be present.
-    // Calling the first one "baseline" put two questions under one name on the
-    // surface where the answer is read (trap 21).
-    render(<InterventionRow {...rowProps} baseline={OBSERVED_VALUE} rawBaseline={OBSERVED_RAW} />)
-
-    const delta = screen.getByTestId(`intervention-delta-${FACTOR_PRICE}`)
-    expect(delta.getAttribute('title')).toBe(INTERVENTION_ROW_STRINGS.deltaTitle)
-    expect(delta.getAttribute('aria-label')).toContain(INTERVENTION_ROW_STRINGS.deltaTitle)
-  })
-})
-
-describe('an arrow may only span two values on one scale', () => {
-  it('drops the arrow when the reference is in real units and the target is not', () => {
-    render(<InterventionRow {...rowProps} baseline={OBSERVED_VALUE} rawBaseline={OBSERVED_RAW} />)
-
-    // The editable target is normalised; `rawBaseline` is not. Naming the input
-    // is honest, an arrow between them is not.
-    expect(
-      screen.getByTestId(`intervention-model-value-label-${FACTOR_PRICE}`),
-    ).toHaveTextContent(INTERVENTION_ROW_STRINGS.modelValueLabel)
-  })
-
-  it('KEEPS the arrow when both ends share the normalised scale — the twin', () => {
-    // ⭐ The pair is what proves the choice is made by SCALE and not by a
-    // constant: no `rawBaseline`, so the reference and the target agree.
-    render(<InterventionRow {...rowProps} baseline={OBSERVED_VALUE} />)
-
-    expect(screen.queryByTestId(`intervention-model-value-label-${FACTOR_PRICE}`)).toBeNull()
-    expect(screen.getByTestId(`intervention-reference-${FACTOR_PRICE}`)).toHaveTextContent(
-      `${INTERVENTION_ROW_STRINGS.referenceLabel}: 0.59`,
-    )
+    expect(screen.queryByTestId(`intervention-diagnostics-${FACTOR_PRICE}`)).toBeNull()
   })
 })
 
@@ -214,8 +191,8 @@ describe('the editable value follows the record', () => {
     const input = screen.getByRole('textbox') as HTMLInputElement
     expect(input.value).toBe('0.49')
 
-    // A chat edit, an undo, a `_dispatchAction` write — none of them come
-    // through this input, and the box used to keep showing the old number.
+    // A chat edit, an undo, a `_dispatchAction` write — none come through this
+    // input, and the box used to keep showing the old number.
     rerender(<InterventionRow {...rowProps} baseline={OBSERVED_VALUE} currentValue={0.62} />)
     expect(input.value).toBe('0.62')
   })
@@ -253,7 +230,7 @@ function optionNode(id: string, label: string, interventions: Record<string, unk
   }
 }
 
-describe('OptionPanel carries the record and keys rows by option AND factor', () => {
+describe('through the mounted inspector, on the live capture', () => {
   beforeEach(() => {
     useCanvasStore.setState({
       nodes: [
@@ -275,7 +252,7 @@ describe('OptionPanel carries the record and keys rows by option AND factor', ()
     } as never)
   })
 
-  it('reaches the row with observedState.baseline, so the row can decline to claim', () => {
+  it('offers the reader no comparison at all', () => {
     const utils = render(
       <InspectorModal nodeId={OPTION_STATUS_QUO} edgeId={null} onClose={vi.fn()} />,
     )
@@ -286,11 +263,11 @@ describe('OptionPanel carries the record and keys rows by option AND factor', ()
       'PRECONDITION: the node inspector dialog must be mounted',
     ).not.toBeNull()
 
-    // The whole point of carrying it: the percentage disappears.
-    expect(screen.queryByTestId(`intervention-delta-${FACTOR_PRICE}`)).toBeNull()
-    expect(
-      screen.getByTestId(`intervention-reference-contested-${FACTOR_PRICE}`),
-    ).toBeInTheDocument()
+    const row = screen.getByTestId(`inspector-intervention-${FACTOR_PRICE}`)
+    expect(row).toHaveTextContent(INTERVENTION_ROW_STRINGS.setsLabel)
+    expect(row.textContent).not.toContain(INTERVENTION_ROW_STRINGS.referenceLabel)
+    expect(row.textContent).not.toContain('£59')
+    expect(row.textContent).not.toMatch(/\d\s*%/)
   })
 
   it('replaces the displayed value when you switch to an option sharing the factor', () => {
@@ -307,7 +284,11 @@ describe('OptionPanel carries the record and keys rows by option AND factor', ()
     expect(container.querySelector(NODE_INSPECTOR)).not.toBeNull()
 
     const readInput = () =>
-      (screen.getByTestId(`inspector-intervention-${FACTOR_PRICE}`).querySelector('input') as HTMLInputElement).value
+      (
+        screen
+          .getByTestId(`inspector-intervention-${FACTOR_PRICE}`)
+          .querySelector('input') as HTMLInputElement
+      ).value
 
     expect(readInput()).toBe('0.59')
 

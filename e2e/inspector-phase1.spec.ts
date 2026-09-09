@@ -324,7 +324,12 @@ test.describe('Inspector Phase 1 (Track B)', () => {
     await expect(active.getByText('What this option changes')).toBeVisible()
     await expect(active.getByRole('button', { name: 'Customer satisfaction' })).toBeVisible()
     await expect(active.getByRole('button', { name: 'Market share' })).toBeVisible()
-    await expect(active.getByText('Recorded: 72 %')).toBeVisible()
+    // ⚠ The recorded figure is no longer offered to a reader at all: the row
+    // shows what the option SETS, because this surface cannot establish the
+    // role or the scale of the value it used to print beside it. The recorded
+    // number is an operator diagnostic behind technical mode.
+    await expect(active.getByText('This option sets')).toBeVisible()
+    await expect(active.getByText('Recorded: 72 %')).toHaveCount(0)
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'option-regular-inspector.png') })
 
     // Non-baseline option with NO interventions
