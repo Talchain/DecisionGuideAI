@@ -98,6 +98,14 @@ export const INTERVENTION_ROW_STRINGS = {
   referenceLabel: 'Recorded',
   /** Names the raw-units figure in the technical diagnostic line. */
   rawLabel: 'raw',
+  /**
+   * ⚠ QUALIFIES A BARE NUMBER SHOWN AS A VALUE. With no `display_value` and no
+   * unit, the target is the producer's NORMALISED 0-1 figure — and rendered as
+   * plain text with nothing beside it, `0.49` reads as a real-world quantity.
+   * The editable form never needed this because a box invites a scale question;
+   * a settled-looking value does not.
+   */
+  modelValueQualifier: 'model value',
 } as const
 
 interface InterventionRowProps {
@@ -397,18 +405,49 @@ export function InterventionRow({
               </div>
             )}
           </div>
-          <input
-            ref={inputRef}
-            type="text"
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            disabled={disabled}
-            className={`${typography.panelBody} w-[110px] px-2 py-1 border rounded-lg text-center bg-panel ${
-              disabled ? 'border-panel-border text-text-light' : 'border-info'
-            }`}
-          />
+          {/*
+            ⭐⭐ A READ-ONLY TARGET READS AS A VALUE, NOT AS A BROKEN INPUT.
+            (Option-node owner's ruling, 9 Sep 2026.)
+
+            This was a `<input disabled>` in every state — a greyed box with a
+            border and a cursor that does nothing. That shape makes a promise it
+            cannot keep: it invites a click, absorbs one, and teaches the reader
+            the product is broken rather than that this surface does not edit.
+            The number is the same number either way; only the affordance
+            changes, and an affordance that cannot act should not be drawn.
+
+            ⚠ THE DRAFT STATE IS DELIBERATELY STILL READ FROM. Rendering
+            `draft` rather than `currentValue` keeps ONE source for what this
+            row displays, so the editable and read-only forms cannot drift into
+            showing different numbers — which is exactly the class of defect
+            this PR's parent spent three attempts closing.
+          */}
+          {disabled ? (
+            <span
+              data-testid={`intervention-target-readonly-${factorId}`}
+              className={`${typography.panelBody} px-2 py-1 text-center text-text-body`}
+            >
+              {draft}
+              {/* Only when nothing anchors the number to the real world. A
+                  CEE-authored `display_value` or a unit already says what scale
+                  this is; repeating it there would be noise. */}
+              {!displayValue && !unit && (
+                <span className={`${typography.panelMeta} text-text-light ml-1`}>
+                  {INTERVENTION_ROW_STRINGS.modelValueQualifier}
+                </span>
+              )}
+            </span>
+          ) : (
+            <input
+              ref={inputRef}
+              type="text"
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              className={`${typography.panelBody} w-[110px] px-2 py-1 border rounded-lg text-center bg-panel border-info`}
+            />
+          )}
         </div>
       )}
 
