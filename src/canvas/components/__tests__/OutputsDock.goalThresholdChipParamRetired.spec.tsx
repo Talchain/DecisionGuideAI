@@ -52,13 +52,23 @@ const {
   mockIsV5CanonicalAnalysisEnabled,
   mockIsV5Eligible,
   mockShowToast,
+  mockDispatchAction,
   capturedResultsBodyProps,
 } = vi.hoisted(() => ({
   mockIsV5CanonicalAnalysisEnabled: vi.fn(() => true),
   mockIsV5Eligible: vi.fn((_input?: { flag: string | undefined }) => ({ eligible: true })),
   mockShowToast: vi.fn(),
+  mockDispatchAction: vi.fn(),
   capturedResultsBodyProps: { current: null as Record<string, unknown> | null },
 }))
+
+vi.mock('../../conversation/useConversation', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../conversation/useConversation')>()
+  return {
+    ...actual,
+    useConversation: () => ({ ...actual.useConversation(), dispatchAction: mockDispatchAction }),
+  }
+})
 
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
@@ -187,11 +197,14 @@ function seedCompletedRunWithProvableThreshold() {
 }
 
 function renderDock() {
-  return render(
+  const view = render(
     <ConversationProvider>
       <OutputsDock />
     </ConversationProvider>,
   )
+  // The host conversation owns dispatch even with no transcript registration.
+  useGuidanceStore.setState({ _dispatchAction: null })
+  return view
 }
 
 type ChipAction = { action_type?: string; parameters?: Record<string, unknown> }
@@ -226,16 +239,13 @@ describe('ROADMAP 2.109 — producer-side goal_threshold chip parameter is retir
     // value genuinely rides the wire. If this test ever goes green-by-blindness
     // (capture broken, wrong call selected, helper reading the wrong key), the
     // absence tests below would pass while proving nothing.
-    const dispatchAction = vi.fn()
-    useGuidanceStore.setState({ _dispatchAction: dispatchAction } as never)
-
     renderDock()
     const runner = getCanonicalRunner()
     await act(async () => {
       await runner!({ source: 'positive-control', parameters: { goal_threshold: 0.25 } })
     })
 
-    const chips = runAnalysisChips(dispatchAction)
+    const chips = runAnalysisChips(mockDispatchAction)
     expect(chips).toHaveLength(1)
     expect(goalThresholdParamOf(chips[0]!)).toBe(0.25)
     expect(JSON.stringify(chips[0])).toContain('goal_threshold')
@@ -245,16 +255,13 @@ describe('ROADMAP 2.109 — producer-side goal_threshold chip parameter is retir
     // Pristine behaviour: the store threshold (raw 60) normalised against the
     // saved "%" measure to 0.6 and was attached to every plain run. The block
     // that did that is deleted; the target now reaches CEE via the graph only.
-    const dispatchAction = vi.fn()
-    useGuidanceStore.setState({ _dispatchAction: dispatchAction } as never)
-
     renderDock()
     const runner = getCanonicalRunner()
     await act(async () => {
       await runner!({ source: 'freshness-strip' })
     })
 
-    const chips = runAnalysisChips(dispatchAction)
+    const chips = runAnalysisChips(mockDispatchAction)
     expect(chips).toHaveLength(1)
     expect(goalThresholdParamOf(chips[0]!)).toBeUndefined()
     expect(chips[0]!.parameters ?? {}).not.toHaveProperty('goal_threshold')
@@ -262,9 +269,6 @@ describe('ROADMAP 2.109 — producer-side goal_threshold chip parameter is retir
   })
 
   it('site 2 (handleApplyThreshold): applying an inline target dispatches NO goal_threshold parameter', async () => {
-    const dispatchAction = vi.fn()
-    useGuidanceStore.setState({ _dispatchAction: dispatchAction } as never)
-
     renderDock()
     expect(screen.getByTestId('mock-results-body')).toBeInTheDocument()
     const onApplyThreshold = capturedResultsBodyProps.current?.onApplyThreshold as
@@ -280,7 +284,7 @@ describe('ROADMAP 2.109 — producer-side goal_threshold chip parameter is retir
     // chip parameter is retired. That commit is what the graph channel carries.
     expect(useCanvasStore.getState().goalThreshold).toBe(60)
 
-    const chips = runAnalysisChips(dispatchAction)
+    const chips = runAnalysisChips(mockDispatchAction)
     expect(chips).toHaveLength(1)
     expect(goalThresholdParamOf(chips[0]!)).toBeUndefined()
     expect(chips[0]!.parameters ?? {}).not.toHaveProperty('goal_threshold')
@@ -290,16 +294,13 @@ describe('ROADMAP 2.109 — producer-side goal_threshold chip parameter is retir
   it('the generic parameters passthrough SURVIVES: chip_id provenance still rides', async () => {
     // Guards the opposite error — deleting the whole channel rather than the
     // one write-only key. Node chips ship `chip_id` provenance through it.
-    const dispatchAction = vi.fn()
-    useGuidanceStore.setState({ _dispatchAction: dispatchAction } as never)
-
     renderDock()
     const runner = getCanonicalRunner()
     await act(async () => {
       await runner!({ source: 'node-chip', parameters: { chip_id: 'goal_run_analysis' } })
     })
 
-    const chips = runAnalysisChips(dispatchAction)
+    const chips = runAnalysisChips(mockDispatchAction)
     expect(chips).toHaveLength(1)
     expect(chips[0]!.parameters).toEqual({ chip_id: 'goal_run_analysis' })
     expect(goalThresholdParamOf(chips[0]!)).toBeUndefined()
