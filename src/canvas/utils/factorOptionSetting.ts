@@ -31,7 +31,7 @@ export function factorOptionSetting(raw: unknown, observedState?: ObservedState)
   if (displayValue) return displayValue
   if (value != null) {
     return formatInterventionValue(
-      value, observedState?.unit ?? undefined, observedState?.factor_type, observedState?.cap,
+      value, observedState?.unit ?? undefined, observedState?.factor_type ?? undefined, observedState?.cap ?? undefined,
       observedState?.value, observedState?.raw_value, { preserveTierLabel: true },
     ) || null
   }
