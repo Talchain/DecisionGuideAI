@@ -32,15 +32,43 @@
  * The collapsed IA is a MEASURED design decision, not a default nobody thought
  * about: `SectionShell`'s header records the panel at 1,584px against a 769px
  * viewport before it landed. Opening this section unconditionally would spend
- * that back. The property is narrower, and every limb is tested:
+ * that back. The property is narrower, and every limb below names the test that
+ * covers it — so the completeness claim is checkable rather than asserted:
  *
  *   pre-run AND there is a finding   → open
+ *                                      ("the section is open and its region is
+ *                                      mounted")
  *   pre-run AND there is none        → closed (a forced-open empty state is
  *                                      not the fix)
- *   a run is displayed               → closed, exactly as before
- *   pre-run → run displayed          → closes (the opening is SCOPED to the
- *                                      state, never a sticky override)
+ *                                      ("pre-run with nothing to say stays
+ *                                      CLOSED")
+ *   a run is displayed               → closed, exactly as before (a FRESH
+ *                                      mount — this is the limb that keeps the
+ *                                      1,584px budget)
+ *                                      ("a displayed run leaves the section
+ *                                      CLOSED, as before" and "but a reader who
+ *                                      lands on a completed run still meets a
+ *                                      collapsed row")
+ *   pre-run → run displayed          → STAYS OPEN. The section is already
+ *                                      mounted, so `SectionShell`'s
+ *                                      `useState(defaultOpen)` is not re-read
+ *                                      and the reader keeps what they were
+ *                                      reading, composer draft included
+ *                                      ("the section the reader was reading
+ *                                      stays open across the transition" and
+ *                                      "an in-progress disagreement survives a
+ *                                      run completing")
  *   the reader closes it             → it stays closed (a default, not a lock)
+ *                                      ("the reader can close it, and it stays
+ *                                      closed")
+ *
+ * ⚠ THAT FOURTH LIMB READ "closes (the opening is SCOPED to the state, never a
+ * sticky override)" until this correction, which is the INVERSE of what the
+ * file has always asserted at "the section the reader was reading stays open
+ * across the transition" (`data-section-open` === 'true' after the rerender).
+ * It was stale text from a first cut that re-keyed the component and was
+ * measured to destroy the reader's unsaved "I disagree" text; the SCOPE claim
+ * it was trying to make lives in the fresh-mount limb above, not here.
  */
 
 import '@testing-library/jest-dom/vitest'

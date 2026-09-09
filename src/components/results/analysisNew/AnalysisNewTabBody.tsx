@@ -1104,17 +1104,31 @@ export function AnalysisNewTabBody({
             a bare count, and not one word of the finding behind it.
 
             What is behind it is the thing the reader needs most in that state.
-            Pre-run the engine can ground exactly one recommendation — the
-            success-measure one, minted from the MODEL rather than from a run
-            (`buildRecommendations.ts`, and `StrengthenTheReasoningProps.analysisHash`
-            already documents the state) — and it is the ONLY surface on this
-            tab that says what the gap COSTS: "Without a target the analysis
-            cannot say how likely each option is to succeed, only how they
-            compare with one another." `successTargetAskedOnce.spec.tsx` argues
-            exactly that when it keeps this row while removing the glance's.
-            The strip's "Set a target" control states the gap; only this says
-            why it matters. It was built, grounded, counted — and put behind a
-            click nothing gave the reader a reason to make.
+
+            ⚠ NOT "EXACTLY ONE" — that is what this comment used to claim, and
+            it is refuted twice in this repo. The pre-run list is SHORT, not
+            single-item: `strengthen:broaden` is gated on
+            `inputs.biasFindingTypes` and NOT on `analysisComplete`
+            (`buildRecommendations.ts:629`), and the producer's own coaching
+            blocks are promoted onto the same list — both fed from the
+            draft-coaching and phase-3 channels, which carry before any run
+            (`biasTypesFromGuidance.ts`). `strengthenOpensPreRun.spec.tsx`
+            measures the pre-run count at 2 with one producer block seeded.
+
+            The count is not what carries the argument; UNIQUENESS is. The
+            success-measure recommendation is the one the engine grounds from
+            the MODEL rather than from a run (`buildRecommendations.ts`, and
+            `StrengthenTheReasoningProps.analysisHash` already documents the
+            state), it is present pre-run whenever the target is unset, and it
+            is the ONLY surface on this tab that says what the gap COSTS:
+            "Without a target the analysis cannot say how likely each option is
+            to succeed, only how they compare with one another."
+            `successTargetAskedOnce.spec.tsx` argues exactly that when it keeps
+            this row while removing the glance's. The strip's "Set a target"
+            control states the gap; only this says why it matters. It was built,
+            grounded, counted — and put behind a click nothing gave the reader a
+            reason to make. Everything else the pre-run list can carry is
+            additional reason to open it, never a substitute for that row.
 
             ⚠ SCOPED THREE WAYS, because the collapsed IA is a MEASURED budget
             (`SectionShell`'s header: 1,584px against a 769px viewport) and not

@@ -110,9 +110,19 @@ export interface StrengthenTheReasoningProps {
    * the measurement gap costs. A collapsed row and a bare count is the reader
    * being told a number and asked to guess whether it is worth a click.
    *
-   * ⚠ IT IS A DEFAULT, NOT A LOCK: the toggle still owns the state afterwards.
-   * And the mount is expected to stop passing `true` once a run is displayed —
-   * see the `key` at the call site for why that is not automatic.
+   * ⚠ IT IS A DEFAULT, NOT A LOCK, AND IT IS READ EXACTLY ONCE. `SectionShell`
+   * seeds `useState(defaultOpen)`, so the open state belongs to the toggle from
+   * the first render of that instance onwards. The caller does stop passing
+   * `true` once a run is displayed, and that later `false` is NOT re-read: the
+   * section stays in whatever state the reader left it in.
+   *
+   * ⚠⚠ THAT IS THE INTENDED BEHAVIOUR — DO NOT MAKE IT AUTOMATIC. The only way
+   * to force the default to be re-read is to remount (a `key` on the call site
+   * does exactly this), and that was tried and REVERTED: `SectionShell` unmounts
+   * a closed region, this section's "I disagree" composer holds UNSAVED text,
+   * and the keyed version discarded a reader's draft when the run landed. The
+   * measurement and the two reasons are recorded at the call site in
+   * `AnalysisNewTabBody.tsx`.
    */
   defaultOpen?: boolean
   testId?: string
