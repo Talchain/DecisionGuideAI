@@ -52,6 +52,7 @@ import { usePopoverHover } from '../hooks/usePopoverHover'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
+import { goalConstraintText } from '../utils/goalConstraintText'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { formatGoalProbability } from '../../components/results/utils/displayFloors'
 
@@ -186,6 +187,7 @@ export const GoalNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.goal
   const displayMetadata = useNodeDisplayMetadata(props.id, 'goal')
 
+  const nodes = useCanvasStore(state => state.nodes)
   const report = useCanvasStore(state => state.results.report)
   const resultsStatus = useCanvasStore(state => state.results.status)
   const viewMode = useCanvasStore(state => state.viewMode)
@@ -528,11 +530,11 @@ export const GoalNode = memo((props: NodeProps) => {
     stabilityValue !== null ||
     (activeConstraints && activeConstraints.length > 0) ||
     hasConstraintDefaultWarning ||
-    (hasThreshold && isPostAnalysis)
+    hasThreshold
   )
 
-  // Popover trigger: only for goals with threshold, post-analysis
-  const showPopoverTrigger = hasThreshold && isPostAnalysis && hasLayer2
+  // Recorded constraints are useful while framing, even without a numerical target.
+  const showPopoverTrigger = hasLayer2
 
   // ----- Layer 2 content (shared between popover and Detailed inline) -----
   const layer2Content = hasLayer2 ? (
@@ -564,10 +566,11 @@ export const GoalNode = memo((props: NodeProps) => {
               : prob >= 0.7 ? 'border-success/40 text-success'
               : prob >= 0.4 ? 'border-warning/40 text-warning'
               : 'border-danger/40 text-danger'
-            const badgeAriaLabel = `Constraint: ${c.operator} ${c.label}${prob !== null ? `, ${Math.round(prob * 100)}% probability` : ''}`
+            const constraintText = goalConstraintText(c, nodes)
+            const badgeAriaLabel = `${constraintText}${prob !== null ? `, ${Math.round(prob * 100)}% probability` : ''}`
             return (
               <div key={c.id ?? i} className={`flex items-center justify-between gap-1 px-1.5 py-0.5 bg-panel border rounded-full ${colourClass}`} aria-label={badgeAriaLabel}>
-                <span className={`${typography.edgeLabel} truncate`}>{c.operator} {c.label}</span>
+                <span className={`${typography.edgeLabel} break-words`}>{constraintText}</span>
                 {prob !== null && <span className={`${typography.edgeLabel} font-mono shrink-0`}>{Math.round(prob * 100)}%</span>}
               </div>
             )
