@@ -1,6 +1,11 @@
 /**
- * B3 authority regression: the two former "rehomed local commits" are facts
- * the server never accepted. They now render as information, not controls.
+ * B3 authority regression: the former "rehomed local commits" are facts the
+ * server never accepted, and they render as information rather than controls.
+ *
+ * ⚠ ONE OF THE TWO HAS SINCE GRADUATED (2026-09-09). The option-effect edit
+ * gained a wire carrier, a server writer and a committed receipt, so it mounts a
+ * real editor now; factor confirmation still has none and is still withheld. The
+ * file keeps both, because the contrast is what makes either meaningful.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
@@ -19,6 +24,7 @@ vi.mock('../../utils/focusHelpers', () => ({
 
 import { ModelTabV2Panel } from '../ModelTabV2Panel'
 import { useCanvasStore } from '../../store'
+import { openOutlineGroups } from './openOutlineGroups'
 
 const FACTOR_ID = 'fac_monthly_eng_cost'
 const DANGLING_FACTOR_ID = 'fac_deleted_last_week'
@@ -60,6 +66,8 @@ function renderPanel() {
   const nodes = allNodes()
   useCanvasStore.setState({ nodes, edges: [] } as never, false)
   render(<ModelTabV2Panel nodes={nodes} edges={[]} goalThreshold={null} />)
+  openOutlineGroups()
+
 }
 
 beforeEach(() => { vi.clearAllMocks() })
@@ -72,15 +80,35 @@ describe('local-only Model mutations are withheld', () => {
     expect(screen.queryByTestId('model-tab-v2-chip-confirm-estimates')).not.toBeInTheDocument()
   })
 
-  it('renders an option intervention as static information, not an editor', () => {
+  /**
+   * ⭐⭐ GRADUATED, AND THE FLIP IS THE WHOLE POINT OF THE ACTIVATION.
+   *
+   * This asserted the opposite — a SPAN, no editor, nothing sent — and it was
+   * right for as long as it was true: an option's effect had no wire carrier, so
+   * a control that looked like a shared-model edit would have been a lie.
+   *
+   * It now has one. `option_intervention_edit` (schemas 0.54.0), CEE's
+   * identity-exact writer, and the canonical committed receipt the row settles
+   * against. `CANONICAL_EDIT_AUTHORITY` answers exactly one question — "may this
+   * control LOOK LIKE a shared-model edit?" — and the answer changed because the
+   * evidence changed, not because the question was relaxed.
+   *
+   * ⚠ ITS THREE NEIGHBOURS ARE UNTOUCHED. Factor confirmation is still withheld,
+   * the dangling-id drop still holds, and the factor-value editor is still the
+   * positive control. One member graduated; the family did not.
+   */
+  it('⭐ the option intervention now mounts a REAL editor — it is no longer local-only', () => {
     renderPanel()
     fireEvent.click(screen.getByTestId(`model-row-v2-${OPTION_ID}`))
     const value = screen.getByTestId(`model-detail-v2-intervention-${FACTOR_ID}-value`)
-    expect(value.tagName).toBe('SPAN')
+    expect(value.tagName).toBe('BUTTON')
     fireEvent.click(value)
     expect(
-      screen.queryByTestId(`model-detail-v2-intervention-${FACTOR_ID}-input`),
-    ).not.toBeInTheDocument()
+      screen.getByTestId(`model-detail-v2-intervention-${FACTOR_ID}-input`),
+    ).toBeInTheDocument()
+    // ⚠ AND OPENING AN EDITOR IS NOT AN EDIT. Nothing is sent and nothing is
+    // written until the user commits one — the property the old assertion was
+    // really protecting, kept rather than dropped with the posture it pinned.
     expect(sendSystemEvent).not.toHaveBeenCalled()
   })
 

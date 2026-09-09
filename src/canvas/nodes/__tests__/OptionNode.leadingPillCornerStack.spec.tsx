@@ -1,5 +1,5 @@
 /**
- * "Leading option" pill — ONE positioning authority for the top-right corner.
+ * "Most supported" pill — ONE positioning authority for the top-right corner.
  *
  * THE DEFECT. `OptionNode` hand-wrote the pill at `absolute -top-2 -right-2
  * z-10` — byte-for-byte the anchor and z-index of `node-corner-stack-{id}`
@@ -201,7 +201,7 @@ beforeEach(() => {
   useGuidanceStore.getState().clearGuidanceItems()
 })
 
-describe('OptionNode — "Leading option" pill lives in the ONE corner stack', () => {
+describe('OptionNode — "Most supported" pill lives in the ONE corner stack', () => {
   it('PRECONDITION: the pill and the ordinal both render on this card', () => {
     // Trap 13b: pin the precondition in-test. Every assertion below is about a
     // card carrying BOTH, so if the fixture ever stopped producing the pill (a
@@ -209,7 +209,7 @@ describe('OptionNode — "Leading option" pill lives in the ONE corner stack', (
     // pass by testing nothing. This is the state the sibling lane could not
     // reach on the deployed build.
     renderOption()
-    expect(screen.getByText('Leading option')).toBeInTheDocument()
+    expect(screen.getByText("Most supported")).toBeInTheDocument()
     expect(screen.getByTestId(`option-stable-number-${NODE_ID}`)).toBeInTheDocument()
   })
 
@@ -221,7 +221,11 @@ describe('OptionNode — "Leading option" pill lives in the ONE corner stack', (
     // two independently positioned boxes claiming one point. That is the whole
     // defect, and this is the assertion that goes red without the fix.
     renderOption()
-    const pill = screen.getByText('Leading option')
+    const label = screen.getByText("Most supported")
+    // The freshness qualifier shares the pill, so the wording now has its
+    // own child span. Retain the text-based fallback for the pre-migration
+    // defect, but test the positioned pill rather than that inner label.
+    const pill = label.closest<HTMLElement>(`[data-testid="leading-option-pill-${NODE_ID}"]`) ?? label
     const stack = screen.getByTestId(`node-corner-stack-${NODE_ID}`)
     expect(stack).toContainElement(pill)
     // Identity confirmation: the element the migration moved is the one the
@@ -357,7 +361,7 @@ describe('OptionNode — "Leading option" pill lives in the ONE corner stack', (
       },
     })
 
-    expect(screen.queryByText('Leading option')).toBeNull()
+    expect(screen.queryByText("Most supported")).toBeNull()
     expect(screen.queryByTestId(`leading-option-pill-${NODE_ID}`)).not.toBeInTheDocument()
 
     // Positive control: the card rendered, and the corner stack still holds the

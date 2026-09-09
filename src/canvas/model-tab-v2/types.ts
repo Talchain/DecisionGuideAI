@@ -87,12 +87,12 @@ export type EditCommitState =
   /** No edit in progress; the row shows the model's value. */
   | { phase: 'idle' }
   /** The user is typing. Nothing has been stated yet. */
-  | { phase: 'editing'; draft: string }
+  | { phase: 'editing'; draft: string; unit?: string }
   /**
    * The user has stated an intent. THE MODEL IS UNCHANGED and the previous
    * value stays visible beside the proposed one until it is confirmed.
    */
-  | { phase: 'proposed'; from: string; to: string }
+  | { phase: 'proposed'; from: string; to: string; notice?: string }
   /** Dispatched to the write authority. Not re-editable until it settles. */
   | { phase: 'inflight'; from: string; to: string }
   /**

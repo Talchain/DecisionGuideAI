@@ -43,6 +43,16 @@ const UI_WIRE_EVENT_TYPES = [
   'structural_delete',
   'structural_rename',
   'structural_add',
+  'edge_strength_edit',
+  // schemas 0.54.0. ⚠ OMITTING IT HERE WAS ONE MISSING LINE THAT CAUSED ALL
+  // THREE REDS, and the mechanism is worth recording: this array is not just an
+  // iteration source, it is the KEY UNION for the `UI_COVERAGE` Record. Leaving
+  // the member out made the coverage entry a TS2353 excess property (:263) AND
+  // made the totality assertion (:285) fail, and the same new-file diagnostic
+  // contaminated the Typecheck Self-Test. Adding the coverage entry without
+  // adding it here is exactly the half-update the `satisfies` above cannot
+  // catch — it is ONE-DIRECTIONAL and proves only that listed members are real.
+  'option_intervention_edit',
 ] as const satisfies readonly WireSystemEventType[]
 
 // The `satisfies` above is ONE-DIRECTIONAL: it proves every listed member is a
@@ -196,6 +206,79 @@ const UI_COVERAGE: Record<
       base_graph_hash: 'f3d31f75957c5cb5',
     },
   },
+  // 0.42.0, EMITTED SINCE 2026-09-07 — the value-carrying EDGE edit. Emitted
+  // from the one seam every strength editor shares,
+  // `useEdgeMutations.setStrength`, which until now performed a local
+  // `updateEdge` and told the server nothing.
+  //
+  // ⚠⚠ NOTE WHAT ADDRESSES THE EDGE: the `(from, to)` NODE-ID PAIR, which is
+  // the canonical GraphV3 edge identity. The client edge id is a local artefact
+  // CEE has never seen and is deliberately absent — unlike `edge_adjudication`,
+  // which carries an optional informative `edge_id`. Adding one here would be a
+  // `.strict()` violation, not a nicety.
+  //
+  // ⚠ AND NOTE `expected`: an OPTIMISTIC-CONCURRENCY ASSERTION about what the
+  // SERVER holds ("the exact signed mean last read from the canonical persisted
+  // edge ... not the requested value"). The builder refuses to fill it from a
+  // UI default — see `canvas/conversation/edgeStrengthEdit.ts`, which is the
+  // gate this payload-level adapter structurally cannot be.
+  //
+  // ⚠ SERVER HANDLING IS CONDITIONAL, uniquely among the mutating kinds. CEE
+  // staging `9de184f1` (the DEPLOYED build) demotes this kind to
+  // `'reader_only_refusal'` unless `config.features.graphCas.rpcEnforce` is
+  // true (`system-events/dispatch.ts:570-577`). Emitting is still right: under
+  // enforce the write lands, under shadow/off the user gets a typed refusal
+  // that NAMES this gesture. Contrast `structural_add_edge`, which is deferred
+  // below precisely because it has no writer under ANY posture.
+  edge_strength_edit: {
+    kind: 'system_event',
+    eventKind: 'edge_strength_edit',
+    payload: {
+      from: 'fac_price',
+      to: 'goal_revenue',
+      magnitude: 0.75,
+      direction_intent: 'positive',
+      expected: { mean: 0.4, effect_direction: 'positive' },
+      intent: 'set',
+    },
+  },
+  // 0.54.0 — the per-cell option→factor EFFECT value, emitted from
+  // `useModelEditAuthority.proposeOptionIntervention` via
+  // `conversation/optionInterventionEdit.ts`.
+  //
+  // ⚠ NOT `factor_value_edit`, and the distinction is a WITNESSED defect rather
+  // than a taxonomy preference: that member moves a FACTOR's own
+  // `observed_state.value`, this moves what ONE OPTION would make that factor
+  // become. On the captured journey the two were conflated and a factor
+  // BASELINE was written instead — interventions stayed 0 on all four options
+  // and the missing-value blocker survived by identity.
+  //
+  // ⚠ FOUR FIELDS AND NO MORE. No `unit`, no `raw_value`, no provenance, no
+  // actor: the canonical operation builder emits `value` alone and says why —
+  // populating the user-scale trio means choosing a conversion nothing here has
+  // a basis for. A fifth key is a `.strict()` violation, not a nicety.
+  //
+  // ⚠ AND NO `expected` TWIN, unlike the rename. `base_graph_hash` genuinely
+  // covers this one: an intervention value is INSIDE CEE's analysis-affecting
+  // hash projection (`CANONICAL_GRAPH_HASH_NESTED_PROJECTION` names
+  // `interventions` on both carriers), so a concurrent write to the same cell
+  // moves the hash the stale gate already checks.
+  //
+  // ⚠ THE AFFORDANCE IS STILL DARK — `CANONICAL_EDIT_AUTHORITY
+  // .modelOptionIntervention` is `'disabled'` and the v1 sections that once
+  // carried an editor are behind `LEGACY_DETAILED_EDITOR_MOUNTED = false`. This
+  // entry describes the EMITTER, which exists and is exercised; it does not
+  // claim a user can currently produce the event.
+  option_intervention_edit: {
+    kind: 'system_event',
+    eventKind: 'option_intervention_edit',
+    payload: {
+      option_id: 'opt_premium',
+      factor_id: 'fac_price',
+      value: 0.6,
+      base_graph_hash: 'f3d31f75957c5cb5',
+    },
+  },
 }
 
 describe('UI ↔ V5 system event parity', () => {
@@ -290,10 +373,10 @@ describe('UI ↔ V5 system event parity', () => {
       // path (debounced selection_change on canvas selection) is the R5 UI
       // half — a scheduled Experience lane; CEE consumes it already.
       'selection_change',
-      // 0.43.0 transitively exposes CEE's existing edge-strength server event.
-      // This is a reader-only adoption lane, so it must not invent a UI emitter;
-      // a separately reviewed product/transport lane owns that future decision.
-      'edge_strength_edit',
+      // ⚠ `edge_strength_edit` WAS HERE UNTIL 2026-09-07 and is now EMITTED
+      // (see its UI_COVERAGE entry above). The comment it carried — "a
+      // separately reviewed product/transport lane owns that future decision" —
+      // was correct and that lane has now run.
       // 0.50.0 added three direct-canvas verbs. `structural_rename` IS wired
       // (see above) and `structural_add` IS NOW WIRED TOO — the durable node
       // writer, which is the close of "the factor I added wasn't there when I
@@ -324,7 +407,7 @@ describe('UI ↔ V5 system event parity', () => {
     }
   })
 
-  it('locks UI emission count at 10 of 16 V5 SystemEventKind values', () => {
+  it('locks UI emission count at 12 of 17 V5 SystemEventKind values', () => {
     // Explicit canary: if someone adds a new UI emission (extending the
     // system_event branch of UI_COVERAGE) without updating this test, the
     // count will drift and flag for docs reconciliation.
@@ -345,10 +428,27 @@ describe('UI ↔ V5 system event parity', () => {
     // the durable-add lane wires `structural_add` (9 -> 10). `structural_add_edge`
     // has no CEE writer at all (still 'reader_only_refusal'), so emitting it
     // would buy the user a refusal.
+    //
+    // 2026-09-07: the edge-strength emitter lands (10 -> 11). It is the 0.43.0
+    // addition this test deferred, and the reason it is now emitted while
+    // `structural_add_edge` still is not comes down to ONE derived difference:
+    // `edge_strength_edit` HAS a CEE writer in the deployed bytes
+    // (`system-events/edge-strength-edit.ts` at staging `9de184f1`, routed from
+    // `dispatch.ts:611`), merely gated behind `rpcEnforce`, whereas
+    // `structural_add_edge` has NO writer under any posture. A gate a deploy can
+    // flip is not the same thing as an absent implementation — and under the
+    // gated posture the user gets a refusal that names THEIR gesture instead of
+    // today's silence.
+    //
+    // 2026-09-08: 0.54.0 grows the union to 17 and the emitter count to 12 with
+    // `option_intervention_edit`. This table describes EMISSION PATHS, not
+    // reachable affordances — the control is still gated by
+    // `CANONICAL_EDIT_AUTHORITY.modelOptionIntervention`, and that gate is
+    // asserted by the Model tab's own specs rather than by this count.
     const uiEmittedCount = Object.values(UI_COVERAGE).filter(
       (c) => c.kind === 'system_event',
     ).length
-    expect(uiEmittedCount).toBe(10)
-    expect(V5_EVENT_KINDS).toHaveLength(16)
+    expect(uiEmittedCount).toBe(12)
+    expect(V5_EVENT_KINDS).toHaveLength(17)
   })
 })

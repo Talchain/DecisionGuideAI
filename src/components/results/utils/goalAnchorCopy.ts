@@ -9,12 +9,15 @@
  *       `OptionResult.outcome.p50`, already labelled "Most likely outcome"
  *       across the panel; no new register needed here.
  *   (C) the COMPARATIVE quantity (`winProbability`) is NEITHER of those —
- *       it is the share of Monte-Carlo runs in which an option out-ranked
- *       the others. It keeps its place, DEMOTED below the goal number, and
- *       it must always be described by what it measures.
+ *       it is the share of Monte-Carlo runs that SUPPORT an option. It keeps
+ *       its place, DEMOTED below the goal number, and it must always be
+ *       described by what it measures. ⭐ Re-framed 7 Sep 2026: it is a
+ *       statement about where the evidence concentrates, never a placing.
+ *       See the C-register below for Paul's ruling and the words it retires.
  *
  * Un-anchored forms — bare "win probability", endorsement nouns, bare
- * superlatives — are retired. This module exists so the replacement copy
+ * superlatives — are retired, and so is every CONTEST frame ("winner",
+ * "leader", "came out ahead", "ahead", "beats", "performs best"). This module exists so the replacement copy
  * lives in ONE place rather than being re-typed at fifteen render sites.
  *
  * ─────────────────────────────────────────────────────────────────────────
@@ -173,17 +176,56 @@ export const GOAL_ANCHOR_COPY = {
 /**
  * The C-register — the comparative quantity, described by what it measures.
  *
- * Not retired, and not renamed: `OptionCards`' tooltip has shipped
- * "Came out ahead in {N}% of simulated scenarios" for months and it is the
- * most honest sentence in the estate about this number. It is promoted to
- * the house register and DEMOTED below the A number on every surface that
- * shows both (Paul's ruling).
+ * ⭐⭐ RE-FRAMED 7 Sep 2026. THERE IS NEVER A WINNER, AND "CAME OUT AHEAD" WAS
+ * STILL A RACE.
+ *
+ * Paul, of a ruling he notes he has given numerous times: *"I think it's the
+ * words 'winner' or other words similar to it. We should never really be
+ * saying 'winner' anyway. **There's never a winner.**… Terminology like
+ * 'winner' is wrong."* And the frame that governs the replacement: *"this is
+ * not simply providing causal analysis results. **This is meant to be
+ * enhancing their critical and creative thinking.**"*
+ *
+ * ⚠ THE PREVIOUS VERSION OF THIS COMMENT IS WHY THE RULING KEPT COMING BACK.
+ * It said "came out ahead" was *"the most honest sentence in the estate about
+ * this number"* and therefore *"not retired, and not renamed"*. It was honest
+ * about the ARITHMETIC and wrong about the FRAME: `came out ahead` asserts
+ * that one option got in front of the others, which is a placing. Four earlier
+ * passes at this ruling each renamed the noun — `winner` → `leader` → `leading
+ * option` — and kept the race. Renaming is what failed; the frame had to go.
+ *
+ * ⭐ WHAT THE NUMBER ACTUALLY IS, and why `Support` is the honest word for it.
+ * `win_probability` is the share of simulated runs in which an option scored
+ * highest. That is a statement about WHERE THE EVIDENCE CONCENTRATES, not
+ * about one option defeating another — nothing competes, and no run is a
+ * contest. Describing it as support says exactly what was counted and leaves
+ * the decision with the reader, which is the difference between announcing a
+ * result and helping someone think.
+ *
+ * ⚠ TWO WORDS WERE CONSIDERED AND REJECTED, recorded so they are not
+ * re-proposed:
+ *   · `Likelihood` — a synonym of `Chance`, which is the A-register's word for
+ *     a DIFFERENT quantity (goal attainment). Two quantities that sound
+ *     identical on one card is the exact defect `metricVocabulary.ts` exists
+ *     to abolish.
+ *   · `Preferred` / `Favoured` — endorsement nouns, retired by this module's
+ *     own header, and `favourite` carries the racing sense back in.
+ *
+ * ⛔ WHAT DID NOT CHANGE, AND MUST NOT. Every honest-absence arm below still
+ * WITHHOLDS. The defect was the contest framing, never the restraint: a run
+ * that cannot support a comparative claim still says so, in the same place,
+ * with the same force.
+ *
+ * ⚠ THE WIRE FIELD IS STILL `win_probability`, and that is deliberate. It is a
+ * contract across four services (UI · CEE · PLoT · ISL); renaming it needs the
+ * schema path and its own lane. Rowed, not renamed — so a reader of this file
+ * meets the mismatch here rather than being surprised by it at the adapter.
  */
 export const COMPARATIVE_COPY = {
   /** Label form — chart header / data-bar label. */
-  label: 'Came out ahead across scenarios',
-  /** Compact readout, number first, no full stop. */
-  phrase: (formatted: string): string => `Came out ahead in ${formatted} of simulated scenarios`,
+  label: 'Support across simulated scenarios',
+  /** Compact readout, no full stop. */
+  phrase: (formatted: string): string => `Supported in ${formatted} of simulated scenarios`,
   /**
    * ⭐ THE ANCHOR WORD, for a bar-and-number row where a sentence will not fit.
    *
@@ -210,19 +252,20 @@ export const COMPARATIVE_COPY = {
    * this matches the canvas's existing anchored-row pattern rather than
    * inventing a second one.
    */
-  anchor: 'Ahead',
+  anchor: 'Support',
   /**
    * The same claim with NO magnitude — for the runs that carry the
-   * comparative RANK but not a displayable probability for the leader.
+   * comparative RANK but not a displayable probability for the most-supported
+   * option.
    *
    * ⚠ This arm exists because the first draft did not have it, and the
    * builder fell back to the missing-value glyph INSIDE the sentence:
-   * "came out ahead in — of simulated scenarios". A placeholder rendered as
+   * "supported in — of simulated scenarios". A placeholder rendered as
    * though it were a quantity is worse than saying less, and the honesty bar
    * this whole change serves forbids it. Caught by an existing readout-tie
    * spec, not by a new one.
    */
-  phraseNoMagnitude: 'came out ahead most often across simulated scenarios',
+  phraseNoMagnitude: 'supported in more simulated scenarios than any other option',
   /**
    * The magnitude-free claim in SENTENCE-INITIAL position.
    *
@@ -233,15 +276,15 @@ export const COMPARATIVE_COPY = {
    * register owns casing; call sites never do it. `goalAnchorCopy.spec.ts`
    * pins this against `phraseNoMagnitude` so the two cannot drift.
    */
-  leadNoMagnitude: 'Came out ahead most often across simulated scenarios',
+  leadNoMagnitude: 'Supported in more simulated scenarios than any other option',
   /**
    * Mid-sentence form — `phrase()` with a lower-case initial, for when the
    * claim follows an option label rather than opening a line.
    *
    * ⚠ Exists because two call sites were doing
    * `phrase(x).charAt(0).toLowerCase() + phrase(x).slice(1)` inline, and one
-   * of them (`buildV7Headline`) did NOT, shipping "Option A Came out ahead in
-   * 71% of simulated scenarios" with a capital mid-sentence. String surgery
+   * of them (`buildV7Headline`) did NOT, shipping "Option A Supported in 71%
+   * of simulated scenarios" with a capital mid-sentence. String surgery
    * repeated at call sites is how one of them ends up different; the register
    * owns the casing.
    */
@@ -253,13 +296,13 @@ export const COMPARATIVE_COPY = {
     return `${phrase.charAt(0).toLowerCase()}${phrase.slice(1)}`
   },
   /** Mid-sentence honest-absence form, parallel to `clause`. */
-  unavailableClause: 'comparative ranking is unavailable for this run',
+  unavailableClause: 'comparative support is unavailable for this run',
   /** Sentence form. */
   sentence: (formatted: string): string => `${COMPARATIVE_COPY.phrase(formatted)}.`,
   /** Aria form for the distribution chart. */
-  byOptionAria: 'Share of simulated scenarios each option came out ahead in',
+  byOptionAria: 'Share of simulated scenarios supporting each option',
   /** Honest absence (deck C3). */
-  unavailable: 'Comparative ranking unavailable for this run',
+  unavailable: 'Comparative support is unavailable for this run',
 } as const
 
 /**
@@ -308,7 +351,7 @@ export const LENS_COPY = {
   unchanged: (hasGoalNumbers: boolean): string =>
     hasGoalNumbers
       ? 'The goal ranking above is unchanged.'
-      : 'The comparative ranking above is unchanged.',
+      : 'The comparison above is unchanged.',
 } as const
 
 /**

@@ -23,12 +23,14 @@ import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
-import { ConnRow, ConnRowsOverflow, Sep, NodeChip, ActionIcons, MetricPills, NodeMetricRow, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
+import { ConnRow, ConnRowsOverflow, Sep, NodeChip, MetricPills, NodeMetricRow, NodePopover, ScienceIcon, EdgePills, EstimateMarker, collapseEstimateDisplay } from './shared'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { resolveFactorPriorRange } from './shared/factorPriorRange'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
+import Tooltip from '../../components/Tooltip'
+import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
@@ -307,7 +309,6 @@ export const FactorNode = memo((props: NodeProps) => {
   )
 
   const isInferred = observedState?.extractionType === 'inferred'
-  const isExplicit = observedState?.extractionType === 'explicit'
 
   // ⭐ WHO PUT THIS NUMBER HERE — read from the EXISTING owners, never re-derived.
   //
@@ -452,16 +453,6 @@ export const FactorNode = memo((props: NodeProps) => {
   }, [isDetailed, isPostAnalysis, ceeAnalysisReady, props.id, observedState?.value, valueDisplay])
 
   const outboundConnections = useNodeConnections(props.id, 'outbound')
-
-  const handleConfirm = useCallback(() => {
-    if (!observedState) return
-    const store = useCanvasStore.getState()
-    const node = store.nodes.find(n => n.id === props.id)
-    if (!node) return
-    store.updateNode(props.id, {
-      data: { ...node.data, observedState: { ...observedState, extractionType: 'explicit' as const } },
-    })
-  }, [props.id, observedState])
 
   const influencePct = displayMetadata.influence != null ? Math.round(displayMetadata.influence * 100) : null
   // Already gated by the shared display policy — see useNodeDisplayMetadata.
@@ -620,8 +611,14 @@ export const FactorNode = memo((props: NodeProps) => {
           analysis") is deliberately NOT repeated here because THIS EXACT
           POPULATION already carries it: `showEvidenceGapBadge` above fires on
           `!hasObservedData`, the same predicate as this line, and its tooltip
-          reads "No observed data for X. Setting a value would strengthen the
-          analysis." Saying it twice costs a line and adds nothing.
+          carries it. ⚠ The sentence quoted here used to be "No observed data
+          for X. Setting a value would strengthen the analysis." — the second
+          half is now "Setting a value here would give the analysis something
+          stated to work from", because "would strengthen" asserted a
+          consequence from an uncalibrated score (see `ESCALATION_TOOLTIP`).
+          The ARGUMENT is unchanged and is why this quote is corrected rather
+          than deleted: the badge still carries the action half on this exact
+          population, so saying it twice costs a line and adds nothing.
           Shortened by REWRITING, never by truncating or eliding — an ellipsis
           with nowhere to go would be hiding, and going silent would be worse. */}
       {valueVoice === 'placeholder' && isHighPriority && (
@@ -652,46 +649,22 @@ export const FactorNode = memo((props: NodeProps) => {
       {/* The other two `inferred` populations — a value a PERSON owns, and one
           with no stamp at all — reach NEITHER arm and show no coaching line.
           That is a refusal to claim, not a hidden surface: the value, the
-          evidence badge, the chips and the connections all still render. For
-          the source-less case there is genuinely nothing true to say (claiming
-          the user authored it would invent authorship). For the user-owned
-          case there IS — but see the note on the arm below, which cannot
-          currently deliver it.
-          ⚠ FOUND WHILE FIXING THIS, NOT FIXED HERE: the arm below is
-          STRUCTURALLY DEAD. `useNodeConnections` returns `[]` unless
-          `results.status === 'complete'` (hooks/useNodeConnections.ts:35),
-          and this whole block renders only when NOT post-analysis — so
-          `outboundConnections.length > 0` can never hold here and this
-          sentence has never been able to render. Left in place and reported
-          rather than deleted or widened: deleting it is a separate
-          dead-code call, and widening it would ship a branch no test in this
-          harness can reach. */}
-      {isExplicit && isHighPriority && outboundConnections.length > 0 && (
-        <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
-          You provided this value. It strongly influences {outboundConnections[0]?.connectedNodeLabel ?? 'connected outcomes'}.
-        </p>
-      )}
+          evidence badge and the chips all still render. For the source-less
+          case there is genuinely nothing true to say (claiming the user
+          authored it would invent authorship).
+          ⚠ THE USER-OWNED ARM AND THE PRE-ANALYSIS CONNECTION LIST THAT USED
+          TO SIT HERE ARE DELETED, not merely quiet. Both gated on
+          `outboundConnections.length > 0`, and `useNodeConnections` returns
+          `[]` unless `results.status === 'complete'`
+          (hooks/useNodeConnections.ts:35) while this whole block renders only
+          when `!isPostAnalysis` — a contradiction, so neither could ever
+          render. The previous author found this, wrote it down here, and left
+          it as "a separate dead-code call". This is that call. The
+          post-analysis ConnRows list is the live one and is untouched. */}
       {nodeCategory === 'external' && outcomesAffected > 0 && (
         <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
           Uncertainty here affects {outcomesAffected} outcome{outcomesAffected !== 1 ? 's' : ''}.
         </p>
-      )}
-      {/* Connection list with strengths — max 3 whole rows, remainder
-          disclosed via "+N more in inspector" (audit §8 P0-5 containment). */}
-      {outboundConnections.length > 0 && (
-        <>
-          <Sep />
-          {outboundConnections.slice(0, 3).map(conn => (
-            <ConnRow
-              key={conn.edgeId}
-              edgeId={conn.edgeId}
-              nodeKind={conn.connectedNodeKind}
-              label={conn.connectedNodeLabel}
-              confidencePct={conn.confidencePct}
-            />
-          ))}
-          <ConnRowsOverflow total={outboundConnections.length} shown={3} />
-        </>
       )}
       {/* Coaching chips — moved out of body. They appear here in the
           high-priority Standard popover and in the Detailed inline render
@@ -711,6 +684,35 @@ export const FactorNode = memo((props: NodeProps) => {
     </>
   ) : null
 
+  const confidenceRow = confidencePct != null && confidencePct > 0 ? (
+    <div
+      className="flex items-center gap-1.5"
+      role="group"
+      aria-label="Confidence"
+      tabIndex={confidenceDisclosure ? 0 : undefined}
+      data-node-tooltip={confidenceDisclosure ? true : undefined}
+    >
+      <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>Confidence</span>
+      <div className="flex-1 min-w-0">
+        <DataBar
+          value={confidencePct / 100}
+          label={confidenceDisclosure ? `Confidence. ${confidenceDisclosure}` : 'Confidence'}
+          colour="info"
+        />
+      </div>
+      <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{confidencePct}%</span>
+      {displayMetadata.confidenceIsDefaulted && (
+        <span
+          className={`${typography.edgeLabel} text-text-light shrink-0`}
+          aria-hidden="true"
+          data-testid="factor-node-confidence-default-estimate"
+        >
+          *
+        </span>
+      )}
+    </div>
+  ) : null
+
   const postAnalysisLayer2 = isPostAnalysis ? (
     <>
       {/* Influence & Confidence bars */}
@@ -719,59 +721,50 @@ export const FactorNode = memo((props: NodeProps) => {
           {/* Review fix 4: the detailed view renders the SAME display-model
               number as the Standard-view pill one level up, so it carries the
               same misread risk — on the fallback basis the top driver shows
-              100% BY CONSTRUCTION. Disclose the basis here too: `title` for
-              pointer users, and the DataBar's accessible name (its
+              100% BY CONSTRUCTION. Disclose the basis through the shared
+              hover/focus tooltip and the DataBar's accessible name (its
               role="progressbar" announces the value via aria-valuenow, so the
               name carries the basis only). Copy from the ONE shared module, so
               this row cannot drift from the pill or the panel. Fail-closed: no
               provenance means no influence number is rendered. */}
           {influencePct != null && displayMetadata.influenceProvenance != null && (
-            <div
-              className="flex items-center gap-1.5"
-              title={influenceExplanation(displayMetadata.influenceProvenance)}
-            >
-              <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>{METRIC_NOUN.influence}</span>
-              <div className="flex-1 min-w-0">
-                <DataBar
-                  value={influencePct / 100}
-                  label={influenceBarAriaLabel(displayMetadata.influenceProvenance)}
-                  colour="info"
-                />
+            <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={influenceExplanation(
+              displayMetadata.influenceProvenance,
+              displayMetadata.influenceImportanceBasis,
+            )}>
+              <div
+                className="flex items-center gap-1.5"
+                role="group"
+                aria-label={METRIC_NOUN.influence}
+                tabIndex={0}
+                data-node-tooltip
+              >
+                <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>{METRIC_NOUN.influence}</span>
+                <div className="flex-1 min-w-0">
+                  <DataBar
+                    value={influencePct / 100}
+                    label={influenceBarAriaLabel(
+                      displayMetadata.influenceProvenance,
+                      displayMetadata.influenceImportanceBasis,
+                    )}
+                    colour="info"
+                  />
+                </div>
+                <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{influencePct}%</span>
               </div>
-              <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{influencePct}%</span>
-            </div>
+            </Tooltip>
           )}
           {/* Confidence — gated upstream by the shared display policy
               (components/results/driverConfidenceDisplayPolicy): `confidencePct`
               is null whenever the ruled policy says the figure is not fit to
               show, so this bar simply does not render. When the policy is
-              flipped the disclosure below travels WITH the number — the bar can
-              never appear bare. */}
-          {confidencePct != null && confidencePct > 0 && (
-            <div
-              className="flex items-center gap-1.5"
-              title={confidenceDisclosure ?? undefined}
-            >
-              <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>Confidence</span>
-              <div className="flex-1 min-w-0">
-                <DataBar
-                  value={confidencePct / 100}
-                  label={confidenceDisclosure ? `Confidence. ${confidenceDisclosure}` : 'Confidence'}
-                  colour="info"
-                />
-              </div>
-              <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{confidencePct}%</span>
-              {displayMetadata.confidenceIsDefaulted && (
-                <span
-                  className={`${typography.edgeLabel} text-text-light shrink-0`}
-                  aria-hidden="true"
-                  data-testid="factor-node-confidence-default-estimate"
-                >
-                  *
-                </span>
-              )}
-            </div>
-          )}
+              flipped, any default/provisional disclosure travels WITH the
+              number. No explanation means no tooltip or additional tab stop. */}
+          {confidenceRow && (confidenceDisclosure ? (
+            <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={confidenceDisclosure}>
+              {confidenceRow}
+            </Tooltip>
+          ) : confidenceRow)}
         </div>
       )}
       {/* ConnRows — max 3 whole rows in both views, remainder disclosed via
@@ -830,12 +823,17 @@ export const FactorNode = memo((props: NodeProps) => {
         nodeType="factor"
         icon={metadata.icon}
         headerSlot={(() => {
-          // Graph v1.1 Task 2: low-priority factors keep their identity cues
-          // (sparkle for inferred, fileQuestion for needs-input) but lose extra
-          // science icons in Standard view. Detailed view always shows the full
-          // set. The needs-input fileQuestion icon is preserved regardless of
-          // priority because the truth table mandates it.
-          const KEEP_LOW_PRIORITY = new Set(['olumi-estimate', 'evidence-gap'])
+          // Graph v1.1 Task 2: low-priority factors keep their identity cue
+          // (fileQuestion for needs-input) but lose extra science icons in
+          // Standard view. Detailed view always shows the full set. The
+          // needs-input fileQuestion icon is preserved regardless of priority
+          // because the truth table mandates it.
+          //
+          // The set held 'olumi-estimate' too until that icon was deleted: it
+          // was the THIRD statement of "Olumi estimated this" on one factor
+          // card, 99px from `node-provenance-mark`, drawn with the SAME lucide
+          // Sparkles glyph. `node-provenance-mark` is the surviving one.
+          const KEEP_LOW_PRIORITY = new Set(['evidence-gap'])
           const visibleIcons = (!isDetailed && isLowPriority)
             ? scienceIcons.filter(si => KEEP_LOW_PRIORITY.has(si.id))
             : scienceIcons
@@ -978,8 +976,8 @@ export const FactorNode = memo((props: NodeProps) => {
 
         {/* Post-analysis: MetricPills — the Standard-view compact influence/
             confidence summary. Lane C4: provenance passes through so the pill
-            discloses its basis (set-relative top ≡ 100% vs absolute producer
-            score). P2.9 item 4 (factor-badge de-noise): gated to Standard only —
+            discloses its set-relative basis (producer structural score or
+            normalised elasticity). P2.9 item 4 (factor-badge de-noise): gated to Standard only —
             in Detailed the Layer-2 Influence/Confidence bars below carry the same
             two numbers with more context, so the pills were a duplicate % channel
             in the densest view. No information is lost; the bars remain. */}
@@ -992,8 +990,8 @@ export const FactorNode = memo((props: NodeProps) => {
 
             ⚠ THE BASIS DISCLOSURE TRAVELS WITH IT, on both channels. On the
             fallback basis this number is per-set normalised — the top driver
-            reads 100% BY CONSTRUCTION — so `title` carries the explanation for
-            pointer users and `phrase` carries it for assistive tech, both from
+            reads 100% BY CONSTRUCTION — the positioned tooltip exposes the
+            explanation on hover/focus and `phrase` names its meaning, both from
             `influenceScaleCopy`, the one module `DriversSection` and the
             Detailed-view bars also read. Fail-closed is preserved structurally:
             `influencePct` is only passed when provenance is non-null, so no
@@ -1011,13 +1009,18 @@ export const FactorNode = memo((props: NodeProps) => {
             formatted={`${influencePct}%`}
             fillClass="bg-info"
             testId="factor-influence-row"
-            title={influenceExplanation(displayMetadata.influenceProvenance)}
-            phrase={influenceBarAriaLabel(displayMetadata.influenceProvenance)}
+            title={influenceExplanation(
+              displayMetadata.influenceProvenance,
+              displayMetadata.influenceImportanceBasis,
+            )}
+            phrase={influenceBarAriaLabel(
+              displayMetadata.influenceProvenance,
+              displayMetadata.influenceImportanceBasis,
+            )}
           />
         )}
         {isPostAnalysis && !isDetailed && (
           <MetricPills
-            influenceProvenance={displayMetadata.influenceProvenance}
             confidencePct={confidencePct}
             confidenceIsDefaulted={displayMetadata.confidenceIsDefaulted}
             confidenceIsProvisional={displayMetadata.confidenceIsProvisional}
@@ -1049,18 +1052,6 @@ export const FactorNode = memo((props: NodeProps) => {
           </button>
         )}
 
-        {/* Action icons — wireframe v4 Task 5: external factors get no footer
-            actions (their data is outside the user's control). Low-priority
-            factors in Standard view drop the confirm icon entirely — "open the
-            details" now lives in the R5 quick-action layer on every node, so
-            the dead edit pencil that used to sit here is gone. */}
-        {nodeCategory !== 'external' && (
-          <ActionIcons
-            nodeId={props.id}
-            showConfirm={isInferred && valueDisplay !== null && (isDetailed || isHighPriority)}
-            onConfirm={handleConfirm}
-          />
-        )}
       </BaseNode>
 
       {/* ===== LAYER 2: Popover (Standard view) =====

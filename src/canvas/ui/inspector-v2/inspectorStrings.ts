@@ -486,9 +486,9 @@ export function resolveEdgeLinkTemplate(
 
 // ─── Edge panel copy (v6.2) ───────────────────────────────────────
 export const EDGE_COPY = {
-  sensitiveContext: 'Small changes here could shift which option performs best.',
+  sensitiveContext: 'Small changes here could shift which option the data supports.',
   flipRiskTooltip: (pct: number) =>
-    `If this edge's strength changes significantly, there is a ${pct}% probability the leading option would change.`,
+    `If this edge's strength changes significantly, there is a ${pct}% probability the most-supported option would change.`,
   sliderMinUnlikely: 'Unlikely',
   sliderMaxVeryLikely: 'Very likely',
   sliderMinPrecise: 'Precise',

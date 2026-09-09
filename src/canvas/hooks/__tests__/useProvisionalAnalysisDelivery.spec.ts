@@ -60,6 +60,7 @@ function graphResult(analysisState: AnalysisStateV1 | null, analysisResult: unkn
     briefText: null,
     notModelled: null,
     identity: null,
+    graphHash: null,
     layoutPresent: false,
     analysisState,
     analysisResult,

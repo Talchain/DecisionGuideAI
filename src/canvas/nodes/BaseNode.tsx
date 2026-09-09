@@ -493,11 +493,16 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // Wireframes v4 hierarchy (display-only): decision/options 1px, factors 0.5px.
   // Risk/outcome/goal/constraint/action keep 2px. The isCausalLens / isIncomplete
   // width overrides in the className below still take precedence — e.g. an
-  // unset "goal gap" renders 2px SOLID amber via the isIncomplete path.
-  // ⚠ It read "2px dashed warning" until 1 Sep 2026. The dash was removed as a
-  // false claim ("outside your control") — see `borderColourClass` below for the
-  // ratified vocabulary. A width note still describing the old style would be
-  // the next reader's evidence for putting it back.
+  // unset "goal gap" renders 2px SOLID in the node's own KIND HUE via the
+  // isIncomplete path.
+  // ⚠ THIS SENTENCE HAS NOW BEEN WRONG TWICE, IN THE SAME PLACE, ABOUT THE SAME
+  // BRANCH. It read "2px dashed warning" until 1 Sep 2026, when the dash was
+  // removed as a false claim ("outside your control"); it then read "2px SOLID
+  // amber" until 8 Sep 2026, when Paul ruled the kind hue stays and the state
+  // moves to a badge. Both times the width note outlived the style it described.
+  // See `borderColourClass` below for the current vocabulary — and note the
+  // WIDTH override itself is untouched by that ruling and is flagged there as
+  // sitting awkwardly against this hierarchy.
   const borderWidth = (() => {
     if (nodeType === 'factor') return 'border-[0.5px]'
     if (nodeType === 'decision' || nodeType === 'option') return 'border'
@@ -560,46 +565,101 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const showQuickActions = !lodBodyHidden && !isCausalLens && !isEvidenceLens
 
   /**
-   * ⭐⭐ AMBER ONLY — THE DASH IS A DIFFERENT CLAIM, AND IT WAS FALSE.
+   * ⭐⭐⭐ THE KIND HUE STAYS. "NEEDS YOUR JUDGEMENT" IS A BADGE (Paul, 8 Sep 2026).
    *
-   * `DESIGN_SYSTEM.md` §"Border vocabulary (ratified, wireframe v4)" names
-   * exactly two border modifiers and says they must never be conflated:
+   * `DESIGN_SYSTEM.md` §"Border vocabulary (ratified, wireframe v4)" named
+   * exactly two border modifiers and said they must never be conflated:
    *
    *   · **DASHED = "outside your control"** (external factors)
    *   · **AMBER  = "needs your judgement"** (a controllable node missing its
    *     value; the goal missing its target)
    *
-   * This expression applied BOTH AT ONCE for `isIncomplete`, so every incomplete
-   * node also claimed to be outside the user's control. On the founder's
-   * pre-analysis screenshot four of five OPTIONS rendered that way — and an
-   * option is the most within-the-user's-control object on the canvas. The
-   * sentence the card was making is not clumsy, it is false.
+   * ⚠ THIS IS A DELIBERATE RE-RULING OF THE SECOND ONE, NOT A BUG FIX. The
+   * previous note here recorded the amber as ratified-and-untouched with an
+   * OPEN QUESTION beside it (`DESIGN_SYSTEM.md`, flagged 2026-07-16, "Paul to
+   * rule"), and said changing the hue was not that lane's call. Paul has ruled.
    *
-   * ⚠ THE AMBER IS UNTOUCHED, DELIBERATELY. Amber-on-incomplete is ratified, and
-   * `DESIGN_SYSTEM.md` carries an OPEN QUESTION about the hue itself (flagged
-   * 2026-07-16, "Paul to rule"). Changing the hue is not this lane's call;
-   * removing a modifier that means something else is, because it needs no
-   * re-ruling at all.
+   * ⭐ AND THE MEASUREMENT THAT PROMPTED THE QUESTION NAMED THE WRONG COLLISION.
+   * The July question was amber `#FFA656` against the risk border `#EA7B4B`.
+   *
+   * ⭐ RE-DERIVED 8 Sep 2026 THROUGH THE REPO'S OWN INSTRUMENT — `canvas/edges/
+   * cvdContrast.ts` (`deltaE2000`), the module PR #282's follow-up built for
+   * exactly this. The first cut of these figures came from an ad-hoc script
+   * whose dichromat step nothing validated; quoting ΔE from unbacked prose is
+   * the defect `cvdContrast` exists to end, and this table had reproduced it.
+   * The instrument reproduces its own committed pins (`polarityContrast.spec`)
+   * to three decimals — 11.739 / 13.773 / 28.295 against the pinned 11.7 /
+   * 13.8 / 28.3 — so it is the authority here, and these cells are ITS output
+   * rounded to 1dp. Five of the nine original cells were off by 0.1–0.2; the
+   * ranking, and the ruling, are unchanged.
+   *
+   *     amber vs …        normal   deuteranopia   protanopia
+   *     risk / danger      13.9         8.9          12.2
+   *     GOAL               17.0         5.5           8.7     ← worst, both
+   *     factor             22.0        20.6          17.5
+   *     outcome / success  43.6        19.8          12.7
+   *     option             42.9        53.7          50.5
+   *
+   * Now pinned by `polarityContrast.spec` so these numbers cannot drift from
+   * the tokens again — and so any future badge/confidence colour decision is
+   * measured through the same instrument rather than through fresh ad-hoc
+   * maths. `cvdContrast` refuses tritan rather than returning an invalid
+   * figure, which is the other reason to route such questions through it.
+   *
+   * The rule explicitly covers *"the goal missing its target"*, so the treatment
+   * was least distinguishable precisely on the node class it most often applies
+   * to. ⭐ And the deeper defect is not the pairing at all: amber REPLACING the
+   * kind hue made COLOUR THE SOLE CHANNEL for this state, which the design
+   * system's own Developer Checklist forbids.
+   *
+   * ── WHAT CHANGED HERE, EXACTLY ─────────────────────────────────────────────
+   * ONE TOKEN. `'border-warning'` → `colors.border`, the node's own kind hue.
+   * The state now travels on the amber `StatusPill` in the corner stack below,
+   * which already carried it for factor and goal and is now gated on
+   * `isIncomplete` alone — visible words plus an accessible name, so the state
+   * survives with no colour perception at all.
+   *
+   * ⚠ THE STYLE CHANNEL IS LEFT EXACTLY AS FOUND, and that is why this arm still
+   * exists rather than falling through. It emits a hue and NO style class, so an
+   * incomplete node renders SOLID — same as before. Falling through to the final
+   * branch would append `borderStyle`, which returns `border-dashed` for a factor
+   * whose `controllability` is `observable` or `partial`: that would re-open the
+   * false "outside your control" claim on incomplete cards, one PR after it was
+   * closed. The ruling was about the HUE; nothing here touches the dash.
    *
    * ⚠ EXTERNAL FACTORS ARE UNAFFECTED, and the reason sits UPSTREAM of this line
    * rather than inside it: `isFactorNeedsInput` returns false for
    * `category === 'external'`, so an external factor never enters this arm and
    * its dash comes from `borderStyle` in the final branch. That is what keeps
-   * "external factors NEVER get amber" true structurally.
+   * "external factors NEVER get the treatment" true structurally — and it is what
+   * carries the exemption over to the BADGE for free, since the badge reads the
+   * same `isIncomplete`.
    *
    * ⚠ PRECEDENCE IS UNCHANGED and is NOT the same question. `isIncomplete` still
    * wins over `borderClassOverride`. That is a separate, pre-existing
    * disagreement between two authorities about the goal card (trap 21);
-   * re-ordering them here would be an undeclared ruling on it. Left as found.
+   * re-ordering them here would be an undeclared ruling on it. Left as found —
+   * and note it is load-bearing in the other direction too: `GoalNode`'s
+   * override returns `border-panel-border border-dashed` for a targetless goal,
+   * so deleting this arm rather than re-pointing it would have put a grey DASH
+   * on the most important node on the canvas.
    *
-   * Pinned in BOTH directions by `BaseNode.incompleteBorderVocabulary.spec.tsx`
-   * — the incomplete node must LOSE the dash and the external factor must KEEP
-   * it, in one file, so a change that flattened the whole channel cannot pass.
+   * ⚠ THE WIDTH OVERRIDE BELOW IS ALSO LEFT AS FOUND (`isIncomplete` → 2px). It
+   * is not the colour channel Paul ruled on, and changing it would be a second
+   * undeclared ruling in the same commit. It does now sit slightly awkwardly
+   * against the width HIERARCHY this file declares a few lines up (factor 0.5px ·
+   * decision/option 1px · everything else 2px) — flagged for adjudication, not
+   * silently decided here.
+   *
+   * Pinned in THREE directions by `BaseNode.incompleteBorderVocabulary.spec.tsx`
+   * — the incomplete node must KEEP ITS KIND HUE and carry the badge, it must
+   * still LOSE the dash, and the external factor must still KEEP it, in one file,
+   * so a change that flattened any of those channels cannot pass.
    */
   const borderColourClass = isCausalLens
     ? (causalBorderClass ?? '')
     : isIncomplete
-      ? 'border-warning'
+      ? colors.border
       : borderClassOverride ?? `${colors.border} ${borderStyle}`
 
   return (
@@ -697,7 +757,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       {/* R5 contextual efficiency layer — quiet at rest, revealed on hover, on
           keyboard focus within the card, and while the node is selected. One
           home for it (here) rather than per-node-type, so every node speaks the
-          same two shortcuts: ask Olumi about this, open this node's details.
+          same three shortcuts: Ask Olumi, Challenge, and More. Details is in
+          More and also opens when the node is clicked.
           Bottom-RIGHT: the top-right corner is owned by node-corner-stack
           below, and this layer overlapped it by ~6px at a lower z until a
           review caught it. ⚠ `showQuickActions` gates THIS MOUNT ONLY. The
@@ -787,7 +848,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           ⭐⭐ THE CONTRACT IS NOW FIVE MEMBERS, AND IT IS STATED ONCE HERE
           (reconciled 2026-09-04, when the fourth and fifth arrived one PR
           apart). Two independent migrations each closed the same defect class
-          in this corner — factor/goal's "Needs input" `StatusPill` (#1177) and
+          in this corner — the "Needs input" `StatusPill` (#1177, factor/goal at
+          the time; every incomplete node type since Paul's 8 Sep badge ruling) and
           option's "Leading option" pill (#1176, via `cornerSlot`) — and each
           was written calling itself "the fourth occupant". Both cannot be, and
           a reader following either sentence literally would renumber the other
@@ -799,12 +861,23 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           not incidental — the contract is written total anyway so it stays
           correct if a gate ever changes, and each impossibility is PINNED by a
           spec that REDs on the change rather than silently overlapping:
-          • `cornerSlot` vs `StatusPill` — disjoint by NODE TYPE, structurally.
-            `cornerSlot` has exactly one caller (`OptionNode.tsx`,
-            `nodeType="option"`); the StatusPill arm below is gated
+          • `cornerSlot` vs `StatusPill` — still impossible, BY A DIFFERENT
+            MECHANISM SINCE 8 Sep 2026, and the change is recorded here because a
+            reason left in the wrong place is how a later session concludes the
+            pair can overlap and re-measures nothing. It USED to be disjoint by
+            NODE TYPE: `cornerSlot` has exactly one caller (`OptionNode.tsx`,
+            `nodeType="option"`) and the pill was gated
             `isIncomplete && (nodeType === 'factor' || nodeType === 'goal')`.
-            No node is both. Their relative order is therefore UNOBSERVABLE at
-            runtime; `cornerSlot` leads only because it is the caller's slot.
+            Paul's badge re-ruling deleted that node-type pair, so the pill now
+            reaches option cards. They are disjoint on RESULTS MODE instead, and
+            exactly: `cornerSlot`'s caller renders it under `isRecommended`,
+            which returns false unless `displayMetadata.isResultsMode`
+            (`resultsStatus === 'complete'`); the pill needs `isPreRunMode`
+            (`resultsStatus !== 'complete'`). One store field, opposite tests —
+            the same shape as the pill-vs-rank line below. Their relative order
+            is therefore still UNOBSERVABLE at runtime; `cornerSlot` leads only
+            because it is the caller's slot. Pinned, source-derived, in
+            `BaseNode.needsJudgementBadge.spec.tsx`.
           • `StatusPill` vs `rank` — disjoint on ONE store field: the rank badge
             requires `results.status === 'complete'` (`isResultsMode`, declared
             in `useNodeDisplayMetadata.ts`) and the pill requires
@@ -870,7 +943,39 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
         {/* Graph v1.1: "Needs input" StatusPill replaces the legacy "?" badge for
             factor (no value) and goal (no threshold). Wireframe v4 — FactorNeedsPre
-            / GoalNoTargetPre. Decision/option keep the warning border only.
+            / GoalNoTargetPre.
+
+            ⭐⭐⭐ IT IS NOW THE ONLY CARRIER OF THAT STATE, ON EVERY NODE TYPE
+            `isIncomplete` ADMITS (Paul's re-ruling, 8 Sep 2026). This gate read
+            `isIncomplete && (nodeType === 'factor' || nodeType === 'goal')`, and
+            the sentence beside it read *"Decision/option keep the warning border
+            only"* — which was true until that border stopped being amber. Paul
+            ruled the kind hue stays and the state becomes a badge, so the
+            hand-listed pair was DELETED rather than complemented: leaving it
+            would have left `decision` and `option` with no channel at all, and
+            adding a second, different marker for them would be two renderings of
+            one state that nothing keeps in step (CLAUDE.md trap 12).
+
+            ⚠ WHY NOT A DOT. The lane brief proposed reusing the edited-since-run
+            dot's shape. A mute coloured dot moves the defect rather than closing
+            it: for a sighted user its only channel is still a colour, and the
+            ruling exists because colour was the sole channel. The pill says the
+            words. It is also the affordance that already existed for this exact
+            state, so this adds no new amber vocabulary.
+
+            ⚠ NO NEW COPY WAS MINTED. Both strings below already shipped, and the
+            non-goal arm — `'Missing required input'` — was already the default
+            for anything that was not a goal. Extending the gate reaches it for
+            the first time on `decision` and `option`; it is true of both (an
+            option CEE assessed with no interventions, a decision with no option
+            linked). Anything more specific would be a new claim needing its own
+            derivation, and this commit is a re-ruling, not a copy change.
+
+            ⚠ EXTERNAL FACTORS STILL NEVER GET IT, and for the same structural
+            reason the border never gave it to them: `isFactorNeedsInput` returns
+            false for `category === 'external'`, so they never reach
+            `isIncomplete`. The exemption survived the move for free — asserted,
+            not assumed, in `BaseNode.needsJudgementBadge.spec.tsx`.
 
             ⭐ THE GOAL SENTENCE STATES A CONSEQUENCE, NEVER A GATE (28 Aug 2026).
             It read "Set a success threshold to enable analysis" — and NOTHING gates
@@ -924,7 +1029,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             ONE of the two surfaces offers a route, and this pill states the fact
             alone — which is the honest thing for an inert destination, and is the
             whole reason it needs no action. */}
-        {isIncomplete && (nodeType === 'factor' || nodeType === 'goal') && (
+        {isIncomplete && (
           <StatusPill
             label="Needs input"
             title={nodeType === 'goal' ? FOOTER_COPY.readySubSuccessUnset : 'Missing required input'}

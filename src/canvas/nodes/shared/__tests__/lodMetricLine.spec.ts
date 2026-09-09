@@ -102,7 +102,7 @@ describe('the other three types, which rendered nothing at any zoom before', () 
         label: 'Build',
         displayMetadata: meta({ isResultsMode: true, winRate: 0.47 }),
       }),
-    ).toBe(`${METRIC_NOUN.ahead} 47%`)
+    ).toBe(`${METRIC_NOUN.support} 47%`)
   })
 
   it('and says nothing before a run — a win share with no run behind it is a fabrication', () => {
@@ -317,7 +317,7 @@ describe('the pre-analysis arms, and the opposite-direction twin for each', () =
         displayMetadata: meta({ isResultsMode: true, winRate: 0.41 }),
         facts: { optionIsBaseline: false, optionInterventionCount: 2 },
       }),
-    ).toBe(`${METRIC_NOUN.ahead} 41%`)
+    ).toBe(`${METRIC_NOUN.support} 41%`)
   })
 
   it('a factor with a prior range reads it when it has no stated value and no influence', () => {

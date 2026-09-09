@@ -29,21 +29,6 @@ export function getEdgeLabelMode(): EdgeLabelMode {
   }
 }
 
-/**
- * Set the edge label mode in localStorage
- */
-export function setEdgeLabelMode(mode: EdgeLabelMode): void {
-  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
-    return
-  }
-
-  try {
-    localStorage.setItem(STORAGE_KEY, mode)
-  } catch {
-    // Fail silently if storage is unavailable
-  }
-}
-
 export interface EdgeDescription {
   label: string
   tooltip: string

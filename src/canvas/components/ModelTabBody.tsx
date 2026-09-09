@@ -62,6 +62,7 @@ import { resolveRawFactorConfidenceDisplay, type FactorConfidenceDisplay } from 
 // are retained UNCHANGED — the design's §7 KEEP/CUT removals await Paul's
 // verdict and are deliberately not executed in this train.
 import { ModelTabV2Panel } from '../model-tab-v2/ModelTabV2Panel'
+import { MODEL_GROUP_IDS, type ModelGroupId } from '../model-tab-v2/types'
 // THE ONE hand-off for affordances that terminate in a conversation. Built here
 // because this file is the Model tab's only live-app seam; the v2 directory
 // stays free of fronting and store concerns.
@@ -249,8 +250,26 @@ export const ModelTabBody = memo(function ModelTabBody({
   // relationships", and ContestedSection. Pinned in
   // `__tests__/ModelTabBody.v1StackCollapsed.spec.tsx`.
   const pendingSection = useUIStore(s => s.pendingModelTabSection)
+  /**
+   * The group the deep link wants OPEN — held here rather than read from
+   * `pendingSection`, which is cleared at the end of the effect below, so the
+   * outline would never see it.
+   *
+   * Since the outline began arriving closed, all five callers of this deep link
+   * landed the reader on a COLLAPSED heading: the `<section>` this scrolls to
+   * renders unconditionally, its body does not. The comment above still
+   * describes the intended behaviour — a passive-effect state update flushes
+   * before paint, so the RAF callback sees the expanded DOM — which is exactly
+   * what had stopped happening, because nothing outside `ModelOutline` could
+   * open a group.
+   */
+  const [openGroupRequest, setOpenGroupRequest] = useState<ModelGroupId | null>(null)
   useEffect(() => {
     if (!pendingSection) return
+    // Set BEFORE the RAF is scheduled, so the outline re-renders expanded and
+    // only then does the callback measure and scroll.
+    const groupId = MODEL_GROUP_IDS.find(g => g === (pendingSection as string))
+    setOpenGroupRequest((groupId as ModelGroupId | undefined) ?? null)
     requestAnimationFrame(() => {
       if (!mountedRef.current) return
       const target = MODEL_SECTION_TARGET[pendingSection] ?? 'model-tab-v2-panel'
@@ -281,6 +300,15 @@ export const ModelTabBody = memo(function ModelTabBody({
   // The v2 outline's goal row reads the store scalar (RAW user units — the
   // single-writer carrier `setGoalThresholdAndUpdateNode` maintains it).
   const goalThreshold = useCanvasStore(s => s.goalThreshold ?? null)
+  /**
+   * ⚠ READ HERE, NOT IN THE PANEL, AND THAT IS THE LANE BOUNDARY DOING ITS JOB.
+   * `modelTabV2Boundary.sourceScan` bans a store import and a foreign hook call
+   * in every `model-tab-v2` file: the mount host owns every live-app seam. These
+   * two feed the effect-edit transaction's scenario fence and its recovery of
+   * the one clearable refusal, and they arrive exactly as `nodes`/`edges` do.
+   */
+  const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
+  const lastServerGraphHash = useCanvasStore(s => s.lastServerGraphHash)
 
   // ── Scientific enrichment data from PLoT response ───────────────────────────
   // Single-pass extraction of all per-factor enrichment maps from factor_sensitivity.
@@ -910,11 +938,14 @@ export const ModelTabBody = memo(function ModelTabBody({
           canonical transaction exists. ADDITIVE: the v1 sections below are
           unchanged — §7's removals await Paul's KEEP/CUT verdict. */}
       <ModelTabV2Panel
+        openGroupRequest={openGroupRequest}
         nodes={nodes}
         edges={edges}
         goalThreshold={goalThreshold}
         fragileEdgeIds={hasRobustnessData ? fragileEdgeIds : undefined}
         onHandOffToOlumi={olumiHandOff ? handOffToOlumi : undefined}
+        currentScenarioId={currentScenarioId}
+        lastServerGraphHash={lastServerGraphHash}
       />
 
       {/* Unique scientific transparency from the legacy stack, rehomed rather

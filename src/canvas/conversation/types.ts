@@ -1058,6 +1058,61 @@ export const WIRE_SYSTEM_EVENT_TYPES = [
   // (`system-events/dispatch.ts:315`), with the writer at
   // `system-events/structural-add.ts`.
   'structural_add',
+  // schemas 0.42.0 — the value-carrying EDGE edit, and the close of "I moved the
+  // strength slider and it went back". Addressed by the canonical GraphV3
+  // identity `(from, to)`, never by the client edge id CEE has never seen.
+  //
+  // ⚠ THIS MEMBER IS **LATE**, NOT NEW. It has been in the contract since
+  // 0.42.0 and CEE has had a writer for it since Train C; what did not exist
+  // was a UI emitter. `useEdgeMutations.setStrength` performed one local
+  // `updateEdge` and stamped `weightSource: 'user'` — a provenance claim about
+  // a number the server was never told. The lie is the reason this landed.
+  //
+  // ⚠⚠ AND ITS SERVER HANDLING IS **CONDITIONAL**, WHICH NO OTHER MEMBER HERE
+  // IS. Derived at CEE staging `9de184f1` (the DEPLOYED build — `/healthz`
+  // reports `"build":"9de184f"`), `system-events/dispatch.ts:570-577`:
+  //
+  //     payload.event.kind === 'edge_strength_edit' &&
+  //     declaredHandling === 'mutating' &&
+  //     config.features.graphCas.rpcEnforce !== true
+  //       ? 'reader_only_refusal' : declaredHandling
+  //
+  // `edge_strength_edit` is the ONLY `'mutating'` kind still behind that gate —
+  // `factor_value_edit`, `structural_add`, `structural_delete` and
+  // `structural_rename` are all deliberately ungated, and dispatch.ts:1124
+  // explains why ("gating on it would ship this P0 fix DARK"). The posture is a
+  // Render-dashboard value (`CEE_V5_GRAPH_CAS_RPC`, DEFAULT-SHADOW), and CEE's
+  // own config header states it is "currently UNOBSERVABLE FROM ANY CLIENT by
+  // construction" and instructs readers to "treat any behaviour that depends on
+  // it as needing to be correct under BOTH". So:
+  //   ENFORCE    → the write reaches `scenarios.graph`.
+  //   OFF/SHADOW → a TYPED, non-retryable refusal that names THIS gesture
+  //                (`FEATURE_NOT_ENABLED`, `edge_strength_edit_reader_only`).
+  // Both are honest; today's silence is not. That is why emitting is right here
+  // and wrong for `structural_add_edge`, which has NO writer at all.
+  //
+  // ⚠ READER-FIRST is already satisfied and was DERIVED, not assumed: every
+  // SystemEventSchema member is `.strict()` inside a discriminated union, so a
+  // CEE pinned <0.42.0 would fail the DISCRIMINATOR and reject the WHOLE turn.
+  // The deployed CEE pins 0.50.0 and has parsed this kind since 0.42.0.
+  'edge_strength_edit',
+  // schemas 0.54.0 — the per-cell option→factor EFFECT value, and the close of
+  // "the Model tab shows me a control it cannot save".
+  //
+  // ⚠ A SIBLING OF `factor_value_edit`, NOT A USE OF IT, and the distinction is
+  // a witnessed defect rather than a taxonomy preference. `factor_value_edit`
+  // moves a FACTOR's own `observed_state.value` — what the factor IS. This moves
+  // what ONE OPTION would make that factor become, at
+  // `/nodes/<option>/data/interventions/<factor>`. On the captured journey a
+  // user answering an option-effect question had a factor BASELINE written
+  // instead: interventions stayed 0 on all four options and the missing-value
+  // blocker survived by identity.
+  //
+  // ⚠ READER-FIRST, same mechanical reason as every member above: `.strict()`
+  // inside a `discriminatedUnion`, so a CEE pinned ≤0.53.0 fails the
+  // DISCRIMINATOR and rejects the WHOLE turn (422). CEE's reader and its route
+  // arm must serve before this emitter ships.
+  'option_intervention_edit',
 ] as const
 
 /** Event types accepted by CEE's v3 Zod schema — safe to send over the wire. */
@@ -1067,14 +1122,20 @@ export type WireSystemEventType = (typeof WIRE_SYSTEM_EVENT_TYPES)[number]
  * The MODEL-CHANGING subset — the WIRE members CEE's `SYSTEM_EVENT_HANDLING`
  * classifies `'mutating'`, i.e. the ones that write graph state on the server.
  *
- * ⚠ "WIRE" IS LOAD-BEARING, NOT A HEDGE. CEE classifies FIVE kinds
- * `'mutating'`, not four (`olumi-assistants-service` staging `90edb1fa`,
- * `src/orchestrator-v5/system-events/dispatch.ts`): the four below plus
- * `edge_strength_edit`. That fifth is absent from `WIRE_SYSTEM_EVENT_TYPES` and
- * the UI has no emitter for it, so it cannot be deferred and cannot be missed
- * here today — but `model-tab-v2/contracts.ts` records `proposeEdgeStrength →
- * edge_strength_edit` as in-flight work, and the day that emitter lands this
- * list needs the member.
+ * ⚠ "WIRE" WAS LOAD-BEARING AS A HEDGE UNTIL 2026-09-07, AND IS NOT ANY MORE.
+ * This paragraph used to say CEE classifies FIVE kinds `'mutating'` while the
+ * UI's wire vocabulary carried four, the fifth being `edge_strength_edit` —
+ * "absent from `WIRE_SYSTEM_EVENT_TYPES` ... the day that emitter lands this
+ * list needs the member". THAT DAY IS PAST: the emitter landed, the member
+ * joined both lists, and the two vocabularies now agree at five.
+ *
+ * ⚠ THE ONE ASYMMETRY THAT SURVIVES, because deleting the sentence would hide
+ * it: CEE's classification of `edge_strength_edit` is CONDITIONAL on
+ * `config.features.graphCas.rpcEnforce` (dispatch.ts:570-577, staging
+ * `9de184f1`) — the only one of the five that is. Membership here is the right
+ * call under both postures; see the member's own note in
+ * `MODEL_CHANGING_SYSTEM_EVENT_TYPES` below for why the hold is the safe
+ * direction when the posture cannot be observed.
  *
  * ⭐ WHY THE SUBSET EXISTS, AND WHY IT IS NOT "ALL OF THEM". An undispatched
  * event holds the freshness overlay dirty
@@ -1118,6 +1179,28 @@ export const MODEL_CHANGING_SYSTEM_EVENT_TYPES = [
   'structural_add',
   'structural_delete',
   'structural_rename',
+  // Joined the wire vocabulary 2026-09-07 with its emitter. HELD, because CEE
+  // declares it `'mutating'` and an undispatched graph-changing edit means any
+  // verdict computed without it is a statement about a DIFFERENT graph.
+  //
+  // ⚠ HELD UNDER **BOTH** CEE POSTURES, AND THE REASONING IS NOT THE OBVIOUS
+  // ONE. Under `rpcEnforce !== true` CEE demotes this kind to a refusal and
+  // writes no graph, so one could argue an undispatched event changes nothing
+  // and need not hold. That argument is wrong in the direction that hurts: the
+  // hold is about events the UI has NOT YET DISPATCHED, and the UI cannot
+  // observe the posture (CEE's own header: "UNOBSERVABLE FROM ANY CLIENT by
+  // construction"). Holding on an edit the server would have refused overstates
+  // staleness — the user is told to re-run something that is in fact current.
+  // NOT holding on an edit the server DID apply understates it — the user is
+  // shown a verdict about a graph that no longer exists. Only one of those two
+  // lies is about the numbers, so the hold is the safe direction.
+  'edge_strength_edit',
+  // schemas 0.54.0. HELD for the same reason as its siblings, and the reason is
+  // sharper here than for most: an option's effect value is INSIDE CEE's
+  // analysis-affecting hash projection, so an undispatched one means any
+  // freshness verdict computed without it describes a graph the user has
+  // already changed. CEE declares this kind `'mutating'`.
+  'option_intervention_edit',
 ] as const satisfies readonly WireSystemEventType[]
 
 /** A system event whose dispatch changes the graph CEE holds. */

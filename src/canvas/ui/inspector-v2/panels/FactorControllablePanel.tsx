@@ -38,6 +38,11 @@ import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
+import {
+  investigationValueTier,
+  INVESTIGATION_VALUE_LABEL,
+  INVESTIGATION_VALUE_INVITATION,
+} from '../../../domain/investigationValue'
 import { resolveCoaching } from '../coachingConfig'
 import { FactorControllableEditor } from '../editors/FactorControllableEditor'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
@@ -89,6 +94,17 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   const mutations = useNodeMutations(nodeId ?? '')
   const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
+
+  /**
+   * ⭐ ONE LADDER, SHARED. The tier decision used to be typed out twice in this
+   * file and four more times in the two sibling factor panels — six copies of
+   * `>= 0.7` / `>= 0.4` over one field. The WORDS below stay here, because they
+   * differ by factor category on purpose; only the boundary moved.
+   */
+  const voiTier =
+    displayMetadata.valueOfInformation === null
+      ? null
+      : investigationValueTier(displayMetadata.valueOfInformation)
 
   // Shared display text with FactorNode and the debug bundle — routes through
   // formatFactorDisplayValue. See the priority order on
@@ -436,22 +452,90 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         {/* Post-analysis: ImportanceBar + VoI folded in (no separate bordered card) */}
         {isResultsMode && (displayMetadata.influence != null || displayMetadata.sensitivityRank != null) && (
           <StaleGuardBanner hasResults={isResultsMode}>
-            <div className="mt-2 space-y-2">
-              <ImportanceBar
+            {/* ⭐ GROUPING, NOT DECORATION — 4px WITHIN a pair, 16px BETWEEN.
+            Both bars in this stack put their label BELOW their own value,
+            and each group then ENDS WITH ITS OWN GUIDANCE SENTENCE.
+
+            ⚠ AN EARLIER VERSION OF THIS COMMENT SAID "`ImportanceBar` ends
+            with its label; the VoI block does the same". The first half is
+            true at the bytes; the second is FALSE - the VoI block ends with
+            a guidance `<p>`, a third `mt-1` item. That "two pairs" model is
+            exactly what made the influence sentence's placement invisible to
+            the author: a group modelled as a PAIR has no room in it for the
+            third element that was actually there. At `space-y-2` the gap BETWEEN pairs was 8px while the
+            gap WITHIN a pair was `mt-1` = 4px — only 2x — so a reader
+            scanning down met:
+
+            100%                  <- influence value
+            Influence on results  <- ITS label
+            Low                   <- the VoI value
+            Investigation value   <- ITS label
+
+            and paired "Influence on results" with the "Low" beneath it,
+            reading "influence: Low" directly under "100%".
+
+            ⚠ THE DATA WAS NEVER WRONG and this is NOT a data fix. Influence
+            and value-of-information are different quantities and both were
+            rendered correctly. But the misreading is reproducible and has
+            now caught THREE independent readers: a reviewer who nearly
+            filed it as a data-integrity defect, the author who documented
+            that near-miss at `inspectorStrings.ts:404`, and a lane that
+            re-filed it as a "100% vs Low contradiction" from a deployed
+            capture on 7 Sep 2026. A presentation that reliably produces a
+            false reading is a defect even when every number in it is right.
+
+            Adding the `Investigation value` label (the prior fix) told the
+            reader the second bar HAS a name; it could not tell them which
+            bar each name belongs to, because proximity still said
+            otherwise. 4px within a group vs 16px between them makes proximity say
+            the true thing - but ONLY once every sentence sits inside the
+            group it describes, which is the change below and is what the
+            first cut of this fix missed. */}
+            <div className="mt-2 space-y-4">
+            {/* ⚠ THE GUIDANCE SENTENCE IS PART OF THIS GROUP, AND MOVING IT HERE IS
+                THE WHOLE REPAIR. It was rendered as the container's next SIBLING at
+                `mt-2` = 8px, while the two groups inside sit `space-y-4` = 16px
+                apart — so a sentence about INFLUENCE ended up twice as close to the
+                value-of-information group as the two groups are to each other, and
+                proximity is comparative. `inspectorStrings.ts:403-419` names exactly
+                this juxtaposition: *"'influence: Low' directly above 'one of the most
+                influential'"*.
+
+                SAFE BY DERIVATION, not by inspection: `sensitivityGuidance` is
+                non-null only when `isResultsMode && sensitivityRank != null`, and the
+                container renders on `isResultsMode && (influence != null ||
+                sensitivityRank != null)`. The first implies the second, so nothing
+                can be lost by moving it inside. ⚠ THAT PROOF IS PANEL-SPECIFIC and
+                does NOT hold for `FactorExternalPanel`, whose guidance is
+                unconditional and is not always about influence — it is separated
+                there instead. The three panels look identical and are not; treating
+                them as one is what produced this defect.
+
+                Typography is deliberately UNCHANGED (`panelBody`/`text-text-body`).
+                This is a change of POSITION, not of type — sizing the sentence to
+                its neighbours is a separate question and is not smuggled in here. */}
+              <div>
+                <ImportanceBar
                 importanceScore={displayMetadata.influence}
                 sensitivityRank={displayMetadata.sensitivityRank}
-              />
-              {displayMetadata.valueOfInformation !== null && (
+                />
+                {sensitivityGuidance && (
+                  <p className={`${typography.panelBody} text-text-body mt-1`}>{sensitivityGuidance}</p>
+                )}
+              </div>
+              {/* ⚠ BOTH CONJUNCTS, AND THE FIRST ONE IS NOT REDUNDANT. `voiTier`
+                  is derived from this value, so a human reads the second as
+                  implying the first — but TypeScript does not narrow through a
+                  derived local, and `DataBar` takes `number`, not `number | null`.
+                  Dropping either one is a type error, which is the compiler
+                  making the same point. */}
+              {displayMetadata.valueOfInformation !== null && voiTier !== null && (
                 <div>
                   <DataBar
                     value={displayMetadata.valueOfInformation}
                     label={INLINE_LABELS.investigationValue}
                     colour="info"
-                    trailingLabel={
-                      displayMetadata.valueOfInformation >= 0.7 ? 'High'
-                      : displayMetadata.valueOfInformation >= 0.4 ? 'Medium'
-                      : 'Low'
-                    }
+                    trailingLabel={INVESTIGATION_VALUE_LABEL[voiTier]}
                   />
                   {/* Its own label, in the same place ImportanceBar puts its own —
                       without it, that bar's label reads as this bar's. */}
@@ -459,11 +543,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
                     {INLINE_LABELS.investigationValue}
                   </div>
                   <p className={`${typography.panelMeta} text-text-light mt-1`}>
-                    {displayMetadata.valueOfInformation >= 0.7
-                      ? 'Gathering more evidence here could significantly improve confidence.'
-                      : displayMetadata.valueOfInformation >= 0.4
-                      ? 'Additional evidence here would moderately sharpen the analysis.'
-                      : 'Further investigation here is unlikely to change the outcome.'}
+                    {INVESTIGATION_VALUE_INVITATION.evidence}
                   </p>
                 </div>
               )}
@@ -471,10 +551,6 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
           </StaleGuardBanner>
         )}
 
-        {/* Contextual guidance */}
-        {sensitivityGuidance && (
-          <p className={`${typography.panelBody} text-text-body mt-2`}>{sensitivityGuidance}</p>
-        )}
       </PanelGroup>
 
       {/* ── Your input group ──────────────────────────────────── */}

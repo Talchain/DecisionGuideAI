@@ -5,6 +5,9 @@
  * Mouse can transition from node into popover without closing.
  * Touch (hover: none): tap node to toggle popover open/closed.
  * Tap elsewhere to close on touch devices.
+ * Quick-action and card-metadata hover/focus take precedence over the node preview. This
+ * prevents its tooltip from competing with the preview; Escape dismisses
+ * the preview until the pointer leaves and re-enters the node.
  */
 import { useState, useRef, useEffect, useCallback } from 'react'
 
@@ -17,6 +20,10 @@ export function usePopoverHover() {
   const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isTouchRef = useRef(false)
   const nodeElRef = useRef<HTMLElement | null>(null)
+  const pointerWithin = useRef(false)
+  const actionHovered = useRef(false)
+  const actionFocused = useRef(false)
+  const dismissed = useRef(false)
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -54,15 +61,73 @@ export function usePopoverHover() {
     }
   }, [])
 
+  const scheduleEnter = useCallback(() => {
+    cancelEnter()
+    if (actionHovered.current || actionFocused.current || dismissed.current) return
+    enterTimerRef.current = setTimeout(() => {
+      if (!actionHovered.current && !actionFocused.current && !dismissed.current) {
+        setShowPopover(true)
+      }
+    }, ENTER_DELAY)
+  }, [cancelEnter])
+
+  useEffect(() => {
+    const node = nodeElRef.current
+    if (!node) return
+    const isAction = (target: EventTarget | null) =>
+      target instanceof Element && node.contains(target) &&
+      !!target.closest('.node-quick-actions, [data-node-tooltip]')
+    const update = () => {
+      if (actionHovered.current || actionFocused.current) {
+        cancelEnter()
+        cancelLeave()
+        setShowPopover(false)
+      } else if (pointerWithin.current && !isTouchRef.current) {
+        scheduleEnter()
+      }
+    }
+    const over = (event: MouseEvent) => { actionHovered.current = isAction(event.target); update() }
+    const out = (event: MouseEvent) => { actionHovered.current = isAction(event.relatedTarget); update() }
+    const focus = (event: FocusEvent) => { actionFocused.current = isAction(event.target); update() }
+    const blur = (event: FocusEvent) => { actionFocused.current = isAction(event.relatedTarget); update() }
+    node.addEventListener('mouseover', over)
+    node.addEventListener('mouseout', out)
+    node.addEventListener('focusin', focus)
+    node.addEventListener('focusout', blur)
+    return () => {
+      node.removeEventListener('mouseover', over)
+      node.removeEventListener('mouseout', out)
+      node.removeEventListener('focusin', focus)
+      node.removeEventListener('focusout', blur)
+    }
+  }, [cancelEnter, cancelLeave, scheduleEnter])
+
+  useEffect(() => {
+    if (!showPopover) return
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      dismissed.current = true
+      cancelEnter()
+      cancelLeave()
+      setShowPopover(false)
+    }
+    document.addEventListener('keydown', escape)
+    return () => document.removeEventListener('keydown', escape)
+  }, [showPopover, cancelEnter, cancelLeave])
+
   const nodeHandlers = {
     onMouseEnter: useCallback(() => {
       if (isTouchRef.current) return
+      pointerWithin.current = true
       cancelLeave()
-      enterTimerRef.current = setTimeout(() => setShowPopover(true), ENTER_DELAY)
-    }, [cancelLeave]),
+      scheduleEnter()
+    }, [cancelLeave, scheduleEnter]),
 
     onMouseLeave: useCallback(() => {
       if (isTouchRef.current) return
+      pointerWithin.current = false
+      actionHovered.current = false
+      dismissed.current = false
       cancelEnter()
       leaveTimerRef.current = setTimeout(() => setShowPopover(false), LEAVE_DELAY)
     }, [cancelEnter]),

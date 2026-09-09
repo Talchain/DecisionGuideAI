@@ -11,9 +11,10 @@
  * into the rendered output.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, within, fireEvent, cleanup } from '@testing-library/react'
 import { PreAnalysisPanel } from '../PreAnalysisPanel'
+import { useGuidanceStore } from '../../../stores/guidanceStore'
 import * as usePreAnalysisDataModule from '../hooks/usePreAnalysisData'
 import type { PreAnalysisData } from '../hooks/usePreAnalysisData'
 
@@ -178,6 +179,108 @@ beforeEach(() => {
   mockEdges = []
   mockCeeAnalysisReady = null
   mockDraftCoaching = null
+  useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null, _dispatchAction: null })
+})
+
+afterEach(() => {
+  cleanup()
+  useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null, _dispatchAction: null })
+})
+
+describe('reasoning observation reaches the editable discussion draft', () => {
+  it.each([
+    ['CEE finding', 'confirmation_bias', 'Confirmation bias'],
+    ['CEE finding', 'uncategorised_producer_check', null],
+    ['CEE finding', 'fac_mistaken_type', null],
+    ['draft coaching', 'confirmation_bias', 'Confirmation bias'],
+    ['draft coaching', 'uncategorised_producer_check', null],
+    ['draft coaching', 'omission / status-quo bias', null],
+    ['draft coaching', 'fac_mistaken_type', null],
+  ] as const)('preserves %s context for %s through both mounted controls', (carrier, code, expectedRiskLabel) => {
+    const observation = 'The current estimate uses only favourable interviews. '.repeat(7)
+      + 'The missing interviews concern customers who chose the alternative.'
+    const technique = 'Seek one interview that could challenge the estimate.'
+    mockNodes = [
+      { id: 'fac-velocity', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Engineering velocity' } },
+    ]
+    if (carrier === 'CEE finding') {
+      mockCeeAnalysisReady = {
+        goal_node_id: 'g1', options: [],
+        bias_findings: [{
+          id: 'context-check', code, severity: 'medium', explanation: observation,
+          target_factor_id: 'fac-velocity',
+          micro_intervention: { steps: [{ text: technique }] },
+        }],
+      }
+    } else {
+      mockDraftCoaching = {
+        summary: null, strengthenItems: [], wideningLog: [],
+        biasSignals: [{ type: code, detail: observation, target: 'fac-velocity' }],
+      }
+    }
+    mockUsePreAnalysisData.mockReturnValue(baseData())
+    const prefill = vi.fn()
+    const send = vi.fn()
+    const dispatch = vi.fn()
+    useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send, _dispatchAction: dispatch })
+    render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
+
+    // Use the real producer/normaliser, two production construction sites,
+    // DiscussWithAiButton, prompt builder and requestAsk. The receivers are
+    // spies: this proves the editable draft, not provider or browser quality.
+    for (const surface of ['t1-bias-nudge-0', 'sharpen-bias-0']) {
+      prefill.mockClear()
+      const card = screen.getByTestId(surface)
+      fireEvent.click(within(card).getByTestId('discuss-with-ai'))
+      expect(prefill).toHaveBeenCalledTimes(1)
+      const prompt = prefill.mock.calls[0][0] as string
+      expect(prompt).toContain(JSON.stringify(observation))
+      expect(prompt).toContain('Related model item: "Engineering velocity".')
+      expect(prompt).not.toContain('fac-velocity')
+      expect(prompt).not.toMatch(/I.m noticing|my thinking|I have .*bias/i)
+      if (expectedRiskLabel) expect(prompt).toContain(`Possible reasoning risk: ${expectedRiskLabel}.`)
+      else expect(prompt).not.toContain('Possible reasoning risk:')
+      expect(prompt).not.toContain('fac_mistaken_type')
+      if (carrier === 'CEE finding') expect(prompt).toContain(technique)
+      else expect(prompt).not.toContain('Suggested technique:')
+      expect(send).not.toHaveBeenCalled()
+      expect(dispatch).not.toHaveBeenCalled()
+    }
+  })
+
+  it('keeps two unfamiliar observations distinct when their headings are the same', () => {
+    const cases = [
+      { type: 'anchoring_maybe', detail: 'Check which interviews support the capacity estimate.', target: 'fac-velocity', label: 'Engineering velocity' },
+      { type: 'alternative_not_considered', detail: 'Consider the cheaper delivery route before committing.', target: 'fac-cost', label: 'Delivery cost' },
+    ]
+    mockNodes = cases.map(item => ({ id: item.target, type: 'factor', position: { x: 0, y: 0 }, data: { label: item.label } }))
+    mockDraftCoaching = {
+      summary: null, strengthenItems: [], wideningLog: [],
+      biasSignals: cases.map(({ type, detail, target }) => ({ type, detail, target })),
+    }
+    mockUsePreAnalysisData.mockReturnValue(baseData())
+    const prefill = vi.fn()
+    const send = vi.fn()
+    const dispatch = vi.fn()
+    useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send, _dispatchAction: dispatch })
+    render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
+
+    for (const [index, item] of cases.entries()) {
+      for (const surface of ['t1-bias-nudge', 'sharpen-bias']) {
+        prefill.mockClear()
+        fireEvent.click(within(screen.getByTestId(`${surface}-${index}`)).getByTestId('discuss-with-ai'))
+        expect(prefill).toHaveBeenCalledTimes(1)
+        const prompt = prefill.mock.calls[0][0] as string
+        expect(prompt).toContain(JSON.stringify(item.detail))
+        expect(prompt).toContain(JSON.stringify(item.label))
+        expect(prompt).not.toContain(cases[1 - index].detail)
+        expect(prompt).not.toContain('Possible reasoning risk:')
+        expect(prompt).not.toContain(item.type)
+      }
+    }
+    expect(send).not.toHaveBeenCalled()
+    expect(dispatch).not.toHaveBeenCalled()
+  })
 })
 
 describe('Brief 5.8A D2 — bias_signals (coaching) target filter', () => {

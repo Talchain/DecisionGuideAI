@@ -52,7 +52,7 @@ interface HeroProps {
  * machine gates on exactly that, so the non-null assertions are structural.
  */
 function leaderPhrase(claim: LeaderClaim): string {
-  return `${claim.label} leads at ${claim.winProbability}%`
+  return `${claim.label} — supported in ${claim.winProbability}% of scenarios`
 }
 
 function getHeroCopy(
@@ -113,7 +113,7 @@ function getHeroCopy(
       // to coerce.
       const [top, second] = latest.options
       return {
-        line1: `Run ${latest.runNumber} · No clear leading option (${top.label} ${top.winProbability}%, ${second.label} ${second.winProbability}%)`,
+        line1: `Run ${latest.runNumber} · Support is split (${top.label} ${top.winProbability}%, ${second.label} ${second.winProbability}%)`,
         line2: 'Model improving · Result uncertain',
         actionPrefix: 'Calibrate ',
         actionLink: latest.topCalibrationFactor,
@@ -139,8 +139,8 @@ function getHeroCopy(
       // reported. `NOT_ASSESSED` is the estate's standing absence token, used
       // verbatim on this same tab by RunPairCompare and the expert table.
       return {
-        line1: `Run ${latest.runNumber} · Leading option: ${NOT_ASSESSED}`,
-        line2: 'This run reported no leading option · The comparison below still applies',
+        line1: `Run ${latest.runNumber} · Most supported: ${NOT_ASSESSED}`,
+        line2: 'This run reported no most-supported option · The comparison below still applies',
         actionPrefix: 'Calibrate ',
         actionLink: latest.topCalibrationFactor,
         actionNodeId: latest.topCalibrationFactorId,
@@ -158,7 +158,7 @@ function getHeroCopy(
     case 'flipped': {
       const narrow = isNarrowFlip(latest)
       return {
-        line1: `Run ${latest.runNumber} · Result changed: ${claim.label} now leads at ${claim.winProbability}%`,
+        line1: `Run ${latest.runNumber} · Result changed: support has moved to ${claim.label}, at ${claim.winProbability}%`,
         // ⚠ THIS USED TO READ 'Structure changed · Review the new result'
         // (ROADMAP 2.578). The `flipped` state is `previous.winnerId !==
         // latest.winnerId` and NOTHING ELSE — a change of leading option. It is
@@ -170,7 +170,7 @@ function getHeroCopy(
         // The replacement says only what this branch actually knows: the leader
         // changed, and not narrowly.
         line2: narrow
-          ? 'New leader by a narrow margin · Review the change carefully'
+          ? 'Support moved by a narrow margin · Review the change carefully'
           : 'Result changed decisively · Review the new result',
         actionPrefix: '',
         actionLink: 'Review what caused the change',

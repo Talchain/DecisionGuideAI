@@ -229,7 +229,7 @@ describe('OptionNode leader chip — no SYSTEM VERDICT in the user\'s transcript
 
     const chip = dispatched['option_what_would_change']
     expect(chip.message).toBe(
-      `What would need to change for another option to lead instead of ${OPTION_LABEL}?`
+      `What would need to change for another option to be better supported than ${OPTION_LABEL}?`
     )
   })
 
@@ -259,7 +259,7 @@ describe('OptionNode leader chip — no SYSTEM VERDICT in the user\'s transcript
     expect(Object.keys(dispatched)).not.toContain('option_what_would_change')
     // The close-call copy was already doctrine-clean and is deliberately untouched.
     expect(dispatched['option_what_would_change_close_call'].message).toBe(
-      `What would need to change for ${OPTION_LABEL} to become the leader?`
+      `What would need to be true for ${OPTION_LABEL} to be the better choice?`
     )
   })
 })

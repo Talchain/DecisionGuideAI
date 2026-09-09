@@ -22,9 +22,20 @@ const mockGraph: { nodes: unknown[]; edges: unknown[] } = { nodes: [], edges: []
 vi.mock('../../../store', () => {
   const useCanvasStore = Object.assign(
     vi.fn((selector: (s: unknown) => unknown) => selector({ updateNode: mockUpdateNode })),
-    { getState: () => ({ ...mockGraph, updateNode: mockUpdateNode }) },
+    { getState: () => ({ ...mockGraph, updateNode: mockUpdateNode, lastServerGraphHash: 'f3d31f75957c5cb5' }) },
   )
   return { useCanvasStore }
+})
+
+const sendSystemEvent = vi.fn()
+let conversationMounted = true
+vi.mock('../../../conversation/ConversationContext', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    useOptionalConversationContext: () =>
+      conversationMounted ? { sendSystemEvent } : undefined,
+  }
 })
 
 vi.mock('../../../utils/focusHelpers', () => ({
@@ -110,24 +121,43 @@ describe('OptionsSection', () => {
     expect(screen.getByText('unchanged')).toBeInTheDocument()
   })
 
-  it('hides "Run analysis to see when each option leads and lags" copy when hasAnalysisData=true', () => {
+  it('hides "Run analysis to see when each option is best supported" copy when hasAnalysisData=true', () => {
     const factor = makeFactorNode('f1', 'Revenue', 100000, '£')
     const option = makeOptionNode('opt1', 'Grow', { f1: 120000 })
     render(<OptionsSection optionNodes={[option]} allNodes={[factor]} hasAnalysisData={true} />)
-    expect(screen.queryByText(/Run analysis to see when each option leads and lags/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Run analysis to see when each option is best supported/)).not.toBeInTheDocument()
   })
 
-  it('shows "Run analysis to see when each option leads and lags" copy when hasAnalysisData=false', () => {
+  it('shows "Run analysis to see when each option is best supported" copy when hasAnalysisData=false', () => {
     const factor = makeFactorNode('f1', 'Revenue', 100000, '£')
     const option = makeOptionNode('opt1', 'Grow', { f1: 120000 })
     render(<OptionsSection optionNodes={[option]} allNodes={[factor]} hasAnalysisData={false} />)
-    expect(screen.getByText(/Run analysis to see when each option leads and lags/)).toBeInTheDocument()
+    expect(screen.getByText(/Run analysis to see when each option is best supported/)).toBeInTheDocument()
   })
 
-  it('writes the intervention through the sanctioned setter when the value is edited', () => {
+  /**
+   * ⭐ THIS TEST'S INTENT IS INTACT; ITS EXPECTED MECHANISM CHANGED (0.54.0).
+   *
+   * It asserted an immediate local write through the sanctioned setter, because
+   * that was the only thing the gesture could do — the edit had no wire carrier.
+   * `option_intervention_edit` is that carrier, so the authority now DISPATCHES
+   * and the store is left alone until a real applied response.
+   *
+   * The intent — "editing this cell reaches the ONE authority, carrying this
+   * option, this factor and this number" — is what is asserted below. What is
+   * deliberately NOT restored is the optimistic write: putting a value on screen
+   * that the server may refuse is the harm the Model tab's own notice exists to
+   * avoid, and re-adding it to keep an old expectation green would be pinning a
+   * defect.
+   *
+   * ⚠ The value is on the MODEL scale. The 75000 the old test typed was a
+   * user-unit magnitude, which the builder REFUSES rather than clamps.
+   */
+  it('dispatches the typed event when the value is edited, and writes nothing locally', () => {
     mockUpdateNode.mockClear()
+    sendSystemEvent.mockClear()
     const factor = makeFactorNode('f1', 'Revenue', 100000)
-    const option = makeOptionNode('opt1', 'Option', { f1: 50000 })
+    const option = makeOptionNode('opt1', 'Option', { f1: 0.5 })
     mockGraph.nodes = [factor, option]
     render(<OptionsSection optionNodes={[option]} allNodes={[factor]} />)
 
@@ -135,17 +165,50 @@ describe('OptionsSection', () => {
     fireEvent.click(displayEl)
 
     const input = screen.getByTestId('intervention-opt1-f1')
-    fireEvent.change(input, { target: { value: '75000' } })
+    fireEvent.change(input, { target: { value: '0.75' } })
     fireEvent.blur(input)
 
-    expect(mockUpdateNode).toHaveBeenCalledWith(
-      'opt1',
-      expect.objectContaining({
-        data: expect.objectContaining({
-          interventions: expect.objectContaining({ f1: 75000 }),
-        }),
-      })
-    )
+    expect(sendSystemEvent).toHaveBeenCalledTimes(1)
+    expect(sendSystemEvent.mock.calls[0]?.[0]).toEqual({
+      type: 'option_intervention_edit',
+      payload: {
+        option_id: 'opt1',
+        factor_id: 'f1',
+        value: 0.75,
+        base_graph_hash: 'f3d31f75957c5cb5',
+      },
+    })
+    // The store is untouched: the applied response owns that write.
+    expect(mockUpdateNode).not.toHaveBeenCalled()
+  })
+
+  /**
+   * ⭐ THE ABSENT-CONVERSATION COUNTERPART, kept because it is the half that
+   * proves the assertion above is about the DISPATCH and not about "nothing
+   * ever writes". With no conversation there is nothing to send through — and
+   * the honest answer is that nothing happens ANYWHERE, not a quiet fallback to
+   * a local write the server never hears about.
+   */
+  it('with no conversation mounted, nothing is dispatched AND nothing is written', () => {
+    mockUpdateNode.mockClear()
+    sendSystemEvent.mockClear()
+    conversationMounted = false
+    try {
+      const factor = makeFactorNode('f1', 'Revenue', 100000)
+      const option = makeOptionNode('opt1', 'Option', { f1: 0.5 })
+      mockGraph.nodes = [factor, option]
+      render(<OptionsSection optionNodes={[option]} allNodes={[factor]} />)
+
+      fireEvent.click(screen.getByTestId('intervention-opt1-f1-display'))
+      const input = screen.getByTestId('intervention-opt1-f1')
+      fireEvent.change(input, { target: { value: '0.75' } })
+      fireEvent.blur(input)
+
+      expect(sendSystemEvent).not.toHaveBeenCalled()
+      expect(mockUpdateNode).not.toHaveBeenCalled()
+    } finally {
+      conversationMounted = true
+    }
   })
 
   it('shows count badge matching option count', () => {

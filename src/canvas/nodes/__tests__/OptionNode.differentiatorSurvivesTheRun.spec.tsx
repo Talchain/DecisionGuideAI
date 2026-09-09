@@ -9,14 +9,14 @@
  *     "Expand the Manchester Site | 2"
  *     "Status Quo — hold current capacity | 3"
  *
- * No differentiator, no "Behind:" line. A ranking with no reasons, handed to
+ * No differentiator, no "Held back by:" line. A ranking with no reasons, handed to
  * the user at the exact moment they are choosing.
  *
  * TWO GATES CAUSED IT, and both are removed:
  *   1. the `differentiator` memo opened `if (isPostAnalysis) return null`
  *   2. the render gate opened `!isPostAnalysis &&`
  *
- * ⚠ WHY THE "Behind:" LINE DOES NOT COVER THE GAP. It names the key factor
+ * ⚠ WHY THE "Held back by:" LINE DOES NOT COVER THE GAP. It names the key factor
  * ("no X added" / "X lower") but renders ONLY for a NON-RECOMMENDED option,
  * and `computeBehindReason` returns null outright when there is no
  * recommended option — exactly what a WITHHELD LEADER produces. That is the
@@ -95,9 +95,10 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
     inSensitivityAnalysis: false,
     achievementProbability: null,
     stabilityPercentage: null,
-    // Leader withheld: no win rate to show, which is the captured state.
+    // This fixture has no per-option result; draft metadata must stay in
+    // draft mode when a test changes the store's analysis lifecycle.
     winRate: null,
-    isResultsMode: true,
+    isResultsMode: useCanvasStore((state) => state.results.status) === 'complete',
     predictedOutcome: null,
     valueOfInformation: null,
     voiRank: null,
@@ -219,7 +220,7 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
   /**
    * ⚠ THE FIXTURE MUST PRODUCE A CHIP, or the suppression never fires and these
    * tests pass without exercising the branch. Measured: without an
-   * `observedState` on the factor and a baseline option present,
+   * an intervention on a declared baseline option,
    * `structuredDeltas` is EMPTY, `differentiatorDuplicatesChip` can never be
    * true, and reverting the fix leaves every test GREEN — which is exactly what
    * the first cut of this block did.
@@ -241,7 +242,7 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
   const BASELINE_OPTION = {
     id: 'option-b',
     type: 'option',
-    data: { label: 'Status quo', type: 'option', is_baseline: true },
+    data: { label: 'Status quo', type: 'option', is_baseline: true, interventions: { 'f-head': { value: 0, display_value: '0 engineers' } } },
   }
 
   const renderShared = (storeOverrides: Record<string, unknown> = {}) => {

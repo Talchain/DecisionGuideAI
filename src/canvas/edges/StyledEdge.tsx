@@ -19,6 +19,8 @@ import { memo, useMemo, useState, useRef, useEffect } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useReactFlow, useStore } from '@xyflow/react'
 import { Lightbulb, AlertTriangle, Flag } from 'lucide-react'
 import { NodeChip } from '../nodes/shared'
+import { EstimateMarker, ESTIMATE_SUBJECT_TITLE } from '../nodes/shared/EstimateMarker'
+import { strengthIsHumanSettled } from '../domain/edgeStrengthSettlement'
 import { useShallow } from 'zustand/react/shallow'
 import type { EdgeData, EdgePathType } from '../domain/edges'
 import {
@@ -31,6 +33,12 @@ import {
   readContestedState,
   resolveEdgeStroke,
   resolveEdgeDash,
+  resolveEdgeDirectionMarker,
+  edgeArrowheadMarkerId,
+  EDGE_ARROWHEAD_FLOW_LENGTH,
+  EDGE_ARROWHEAD_FLOW_WIDTH,
+  EDGE_ARROWHEAD_VIEWBOX,
+  EDGE_ARROWHEAD_POLYGON_POINTS,
   type EdgePresentationState,
 } from './edgePresentation'
 import {
@@ -457,6 +465,51 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     () => resolveEdgeSignedStrengthDisplay(edgeData as Record<string, unknown> | undefined),
     [edgeData]
   )
+
+  /**
+   * ⭐ IS THIS SPOKEN STRENGTH ONE A PERSON STOOD BEHIND?
+   *
+   * The line already tells row 1 apart — no figure at all draws thin and grey
+   * and its label reads "Strength not set". It did NOT tell row 2 from row 3: a
+   * producer's figure nobody has confirmed drew at magnitude in a polarity
+   * colour and read "Moderate boost", BYTE-IDENTICAL to a strength the user
+   * typed. Meanwhile the risk and outcome cards, for that same edge, refuse to
+   * draw the figure and disclose it as `est.` — one edge, two verdicts, and the
+   * louder channel carried the less honest one. `CanvasLegendPopover` already
+   * describes this state in prose ("the line is drawn at its magnitude in a
+   * POLARITY colour: thick and green or rose") without anything on the canvas
+   * making it visible.
+   *
+   * ⛔ `strengthIsHumanSettled`, NOT `edgeValueSource(data,'weight')`. Two
+   * questions (CLAUDE.md trap 21) that DIVERGE on a state a live affordance
+   * produces: `ModelTabBody.handleResolveContested`'s `accepted_pass2` branch
+   * stamps `weightSource: 'cee'` deliberately — the accepted number really is
+   * the producer's — so an edge a human explicitly adjudicated reads
+   * `weightSource !== 'user'` forever. Marking it "unconfirmed" would tell the
+   * person who confirmed it that nobody had. That module is the ONE admission
+   * every "nobody has set this" claim on the canvas consumes; this is a
+   * consumer of it, not a second copy of the answer.
+   *
+   * ⛔ AND NOT A DASH, A COLOUR, A WIDTH OR AN OPACITY. Every geometric channel
+   * on this path is already claimed by a reasoned rule — polarity
+   * (`EDGE_STROKE_RULES`), existence certainty and contest
+   * (`EDGE_DASH_RULES`), magnitude (`weightMagnitudeToStrokeWidth`), lens and
+   * selection (the `opacity` note below). Two of them are fenced by a standing
+   * ruling: `EDGE_DASH_RULES` removed `pre_run_incomplete` BECAUSE a marker
+   * keyed on a predicate that is true of every edge on a fresh draft marks
+   * nothing, and `!strengthIsHumanSettled` is exactly such a predicate. A word
+   * is the one channel here with room, and it is legible without colour.
+   *
+   * ⚠ GATED ON `.show` SO ROW 1 IS NOT DOUBLE-DISCLOSED: an edge whose label
+   * already reads "Strength not set" does not also need a marker saying so.
+   * The marker therefore fires ONLY on the state that was undisclosed.
+   */
+  const strengthUnconfirmed = useMemo(
+    () =>
+      edgeSignedStrength.show &&
+      !strengthIsHumanSettled(edgeData as Record<string, unknown> | undefined),
+    [edgeSignedStrength, edgeData]
+  )
   /**
    * ⭐⭐ THE LABEL'S LIKELIHOOD, FROM THE SAME OWNER THE HOVER POPOVER READS.
    *
@@ -610,7 +663,38 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     () => getEdgeLabel(edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode),
     [edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode],
   )
-  const ariaLabel = `Edge from ${srcTitle} to ${tgtTitle}${confText}, ${edgeDescription.label}`
+  /**
+   * ⛔⛔ AND THE DISCLOSURE TOO — `aria-label` REPLACES DESCENDANT TEXT, SO THE
+   * VISIBLE MARKER IS ANNOUNCED NOWHERE UNLESS THE NAME CARRIES IT.
+   *
+   * The paragraph five lines above already records this exact rule, as a thing
+   * that had been fixed. It recurred: the `est.` marker beside `desc.label`
+   * went in, and the accessible name stayed built from `edgeDescription.label`
+   * alone — so on the assistive channel a producer's unsettled strength and a
+   * strength a human typed were BYTE-IDENTICAL, "Edge from n1 to n2, Moderate
+   * boost (likelihood not set)", after the visible half of the fix had landed.
+   * The marker carries no `aria-hidden`, so it was not deliberately hidden; it
+   * was accidentally suppressed by the name on its own container.
+   *
+   * ⭐ ONE SENTENCE, ONE SOURCE, BOTH CHANNELS. This is the ratified estate
+   * pattern from `NodeMetricRow` — `RiskNode`/`OutcomeNode` pass the SAME
+   * `unconfirmedStrengthDisclosure(...)` string to `title` AND to the
+   * screen-reader `phrase`, "why `phrase` carries the meaning for assistive
+   * tech independently". The cards can use an `sr-only` span because their
+   * container sets no name; this chip DOES set one, and a name overrides
+   * descendants, so on this surface the same pattern is spelled by extending
+   * the name. `ESTIMATE_SUBJECT_TITLE.strength` is the identical constant the
+   * chip's `title` composition below consumes — IMPORTED, never re-typed, so a
+   * reword of the sentence cannot leave the two channels telling different
+   * stories (CLAUDE.md trap 12).
+   *
+   * Gated on `strengthUnconfirmed` alone rather than `showLabel && …`: this
+   * name has exactly one consumer and that consumer already requires
+   * `showLabel` (`aria-label={showLabel ? ariaLabel : fragileSentence}`).
+   */
+  const ariaLabel =
+    `Edge from ${srcTitle} to ${tgtTitle}${confText}, ${edgeDescription.label}` +
+    (strengthUnconfirmed ? `. ${ESTIMATE_SUBJECT_TITLE.strength}` : '')
 
   // Inspect the relationship without claiming a local React-Flow write is a
   // shared-model edit. Inspector v2 owns the visible read-only authority copy.
@@ -1101,6 +1185,21 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const edgeStroke = useMemo(() => resolveEdgeStroke(presentationState), [presentationState])
   const edgeDash = useMemo(() => resolveEdgeDash(presentationState), [presentationState])
 
+  // ⭐ DIRECTION OF CAUSATION. Measured on deployed staging 7 Sep 2026: 39 edges,
+  // zero arrowheads — the most basic thing a causal graph must state had no
+  // channel. The rule (structural / non-directional type / causal) and the
+  // arrowhead geometry live in `edgePresentation`, beside the stroke and dash
+  // precedences, so all three of an edge's presentation decisions are reviewable
+  // in one place and none of them is an early-return chain pasted in here.
+  const directionMarker = useMemo(
+    () => resolveEdgeDirectionMarker({
+      isStructural: isStructuralEdge,
+      edgeType: (data as Record<string, unknown> | undefined)?.edge_type,
+    }),
+    [isStructuralEdge, data],
+  )
+  const arrowheadId = useMemo(() => edgeArrowheadMarkerId(edgeIdKey), [edgeIdKey])
+
   // Causal lens: hide structural edges entirely
   if (isLensHidden) return null
 
@@ -1141,10 +1240,61 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           data-testid={`assistant-focus-edge-halo-${edgeIdKey}`}
         />
       )}
+      {/* ⭐ THE DIRECTION MARK. One `<marker>` per marked edge, and the reason is
+          COLOUR: stroke colour is decided by a seven-rule ordered precedence
+          (`EDGE_STROKE_RULES`) whose outputs include a `color-mix(…)`, two
+          `var(…)` tokens and the polarity stroke. A single shared `<defs>` entry
+          cannot know which rule won, so it would be a second copy of a decision
+          that already has an authority — the hand-maintained mirror this estate
+          keeps paying for. This reads `edgeStroke.value`: the SAME resolved
+          decision that sets `stroke` two elements below. One quantity, two
+          readers, so a new or reordered rule carries the arrow with it and no
+          edit is needed here at all.
+
+          SVG 2's `fill="context-stroke"` would do this in one shared marker.
+          Deliberately not used: this lane has no browser witness, and a feature
+          whose failure mode is a black arrowhead on every edge cannot be
+          verified with the instruments in hand. An explicit fill can be.
+
+          `markerUnits="userSpaceOnUse"` decouples the mark from stroke width.
+          Under the default (`strokeWidth`) a selected edge — width 4 rather
+          than 2 — would get a double-sized arrowhead, leaking the interaction
+          channel into the direction channel.
+
+          `refX` sits at the tip of the viewBox, so the point lands ON the path's
+          end rather than overshooting into the node card. ⚠ THE NODE CARD IS NOT
+          THE NEAREST NEIGHBOUR AT THIS END — the `+`/`−` polarity glyph is, 26
+          graph units back on very nearly the same axis, and the first version of
+          this mark abutted it at exactly 0.0px of clearance. That is why the
+          mark's LENGTH is derived from the glyph rather than chosen; the
+          derivation, the measurement and its honest limits are at
+          `EDGE_ARROWHEAD_FLOW_LENGTH` in `edges/edgePresentation.ts`. Length and
+          width are two different quantities here and the viewBox is derived from
+          both, because a viewBox with a different aspect ratio would be
+          LETTERBOXED by the default `preserveAspectRatio` rather than
+          stretched. */}
+      {directionMarker.show && (
+        <marker
+          id={arrowheadId}
+          viewBox={EDGE_ARROWHEAD_VIEWBOX}
+          markerWidth={EDGE_ARROWHEAD_FLOW_LENGTH}
+          markerHeight={EDGE_ARROWHEAD_FLOW_WIDTH}
+          refX={EDGE_ARROWHEAD_FLOW_LENGTH}
+          refY={EDGE_ARROWHEAD_FLOW_WIDTH / 2}
+          orient="auto"
+          markerUnits="userSpaceOnUse"
+        >
+          <polygon points={EDGE_ARROWHEAD_POLYGON_POINTS} fill={edgeStroke.value} />
+        </marker>
+      )}
       <BaseEdge
         id={id}
         path={edgePath}
         interactionWidth={EDGE_HIT_AREA_WIDTH}
+        // Target end only. The mark states ONE direction of causation; a
+        // marker-start as well would read as bidirectional, which is the claim
+        // the `non_directional_type` rule exists to refuse.
+        markerEnd={directionMarker.show ? `url(#${arrowheadId})` : undefined}
         style={{
           // Graph Interaction P1: Highlighted edges get thicker stroke
           strokeWidth: (() => {
@@ -1575,6 +1725,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               // displaying.
               const parts = [
                 ...(showLabel ? [baseTooltip] : []),
+                // The `est.` marker's own sentence, on the container too: a
+                // `title` on a 4-character span is a small hover target and is
+                // absent on touch, so the chip that shows the marker also
+                // carries what it means. Derived from `ESTIMATE_SUBJECT_TITLE`,
+                // never re-typed — the cards say this in exactly one place.
+                ...(showLabel && strengthUnconfirmed ? [ESTIMATE_SUBJECT_TITLE.strength] : []),
                 ...(showFragileRow ? [fragileSentence] : []),
               ]
               return `${parts.join('\n')}\n\nDouble-click to inspect`
@@ -1649,6 +1805,28 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                   >
                     {desc.label}
                   </span>
+                  {/* ⭐ THE UNCONFIRMED-STRENGTH DISCLOSURE — see
+                      `strengthUnconfirmed` for the predicate and why it is not
+                      a dash, a colour or a width.
+
+                      `flexShrink: 0` is load-bearing, not tidiness: the span
+                      above ellipsises from the END under a fixed-width cap that
+                      this text counter-scales against, so a shrinkable marker
+                      would be the first thing cut — and the reader would be
+                      left with the confident half of the claim and none of the
+                      hedge. Same failure the fragility row was split to fix.
+
+                      ⚠ THIS IS `subject="strength"`'s FIRST PRODUCTION CALL
+                      SITE. The variant and its sentence were built and tested
+                      and had ZERO production readers (EstimateMarker's header
+                      says so and names itself as pinned only by tests). Nothing
+                      new is minted here — an existing, reviewed disclosure is
+                      being plugged in. */}
+                  {strengthUnconfirmed && (
+                    <span style={{ flexShrink: 0, display: 'inline-flex' }}>
+                      <EstimateMarker subject="strength" />
+                    </span>
+                  )}
                   {provenance && (
                     <span
                       style={{

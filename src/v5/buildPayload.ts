@@ -448,6 +448,16 @@ function systemEventToPayload(args: {
       if (event === null) return null
       return { ...base, event }
     }
+    case 'edge_strength_edit': {
+      const event = adaptEdgeStrengthEdit(eventPayload)
+      if (event === null) return null
+      return { ...base, event }
+    }
+    case 'option_intervention_edit': {
+      const event = adaptOptionInterventionEdit(eventPayload)
+      if (event === null) return null
+      return { ...base, event }
+    }
     case 'feedback_submitted': {
       // F7 (feedback thumbs = wire): map the UI's optimistic thumbs event onto
       // the typed 0.22 `feedback` system event. The emitter
@@ -550,6 +560,11 @@ type PriorRangeEditWireEvent = Extract<
 type StructuralDeleteWireEvent = Extract<
   SystemEventTurnPayload['event'],
   { kind: 'structural_delete' }
+>
+/** The value-carrying EDGE edit (0.42.0) — derived, never hand-rolled, same reason. */
+type EdgeStrengthEditWireEvent = Extract<
+  SystemEventTurnPayload['event'],
+  { kind: 'edge_strength_edit' }
 >
 
 // Narrow an optional unknown field to a FINITE number, or undefined.
@@ -865,6 +880,86 @@ function adaptPriorRangeEdit(
 }
 
 /**
+ * `edge_strength_edit` (0.42.0) — the value-carrying EDGE edit.
+ *
+ * FAIL-CLOSED against the contract's own rules and its root `superRefine`
+ * (`refineEdgeStrengthEdit`), so an event CEE would 422 is never built. A 422
+ * rejects the WHOLE turn, not just this field — every SystemEventSchema member
+ * is `.strict()` inside a discriminated union — so a client-side refusal costs
+ * the user one dropped edit and a wire refusal costs them the turn.
+ *
+ * ⚠ THIS IS THE SECOND GATE, NOT THE ONLY ONE. `canvas/conversation/
+ * edgeStrengthEdit.ts` already refuses everything below AND the thing this
+ * layer structurally cannot see: whether `expected` describes a value a
+ * PRODUCER supplied or a UI default the canvas fabricated. That distinction
+ * lives in the edge's provenance stamps, which never reach this payload. Both
+ * gates are kept: this one binds the shape to the vendored schema so a drifted
+ * emitter cannot reach the network, the builder binds the MEANING.
+ */
+function adaptEdgeStrengthEdit(
+  eventPayload: Record<string, unknown> | undefined,
+): EdgeStrengthEditWireEvent | null {
+  const from = stringField(eventPayload, 'from')
+  const to = stringField(eventPayload, 'to')
+  if (!from || !to) return null
+  // `CanonicalEdgeEndpointIdSchema`: exact bytes, no surrounding whitespace, and
+  // never a delimiter-bearing composite.
+  for (const id of [from, to]) {
+    if (id !== id.trim()) return null
+    if (id.includes('\u2192') || id.includes('->')) return null
+  }
+
+  const magnitude = finiteNumberField(eventPayload, 'magnitude')
+  if (magnitude === undefined || magnitude < 0 || magnitude > 1) return null
+
+  const direction_intent = stringField(eventPayload, 'direction_intent')
+  if (
+    direction_intent !== 'preserve' &&
+    direction_intent !== 'positive' &&
+    direction_intent !== 'negative'
+  ) {
+    return null
+  }
+
+  const intent = stringField(eventPayload, 'intent')
+  if (intent !== 'set' && intent !== 'confirm_current') return null
+
+  const rawExpected = eventPayload?.['expected']
+  if (rawExpected === null || typeof rawExpected !== 'object' || Array.isArray(rawExpected)) {
+    return null
+  }
+  const expectedRecord = rawExpected as Record<string, unknown>
+  const mean = finiteNumberField(expectedRecord, 'mean')
+  if (mean === undefined || mean < -1 || mean > 1) return null
+  const effect_direction = stringField(expectedRecord, 'effect_direction')
+  if (effect_direction !== 'positive' && effect_direction !== 'negative') return null
+
+  // `refineEdgeStrengthEdit`, rule 1: a non-zero expected mean and its
+  // direction must agree. ZERO IS EXEMPT — the contract keeps
+  // `effect_direction` required there precisely because sign cannot recover
+  // direction at zero, so a zero mean is compatible with either.
+  if (mean !== 0 && (mean < 0 ? 'negative' : 'positive') !== effect_direction) return null
+
+  // `refineEdgeStrengthEdit`, rule 2: `confirm_current` is a provenance-only
+  // act — it must preserve the persisted direction and must not move the
+  // magnitude by so much as a rounding step.
+  if (intent === 'confirm_current') {
+    if (direction_intent !== 'preserve') return null
+    if (magnitude !== Math.abs(mean)) return null
+  }
+
+  return {
+    kind: 'edge_strength_edit',
+    from,
+    to,
+    magnitude,
+    direction_intent,
+    expected: { mean, effect_direction },
+    intent,
+  }
+}
+
+/**
  * `structural_delete` (0.48.0) — the durable, atomic removal.
  *
  * FAIL-CLOSED ON THE CONTRACT'S OWN RULES, checked here rather than trusted
@@ -965,6 +1060,51 @@ function adaptStructuralRename(
   if (label === expected_label) return null
 
   return { kind: 'structural_rename', node_id, label, expected_label, base_graph_hash }
+}
+
+/**
+ * `option_intervention_edit` (0.54.0) — ONE option's effect value on ONE factor.
+ *
+ * ⚠ THE ADAPTER IS NOT OPTIONAL, and its absence is exactly what CI caught: the
+ * builder's switch is per-kind, so a member with a coverage entry, a wire-list
+ * entry and a working emitter still produced `null` here — routed to
+ * `unsupported_system_event`, i.e. no turn at all. Adding the kind in three
+ * places and not the fourth is the half-update this file's own siblings exist
+ * to make loud.
+ *
+ * Fail CLOSED on every field, and REFUSE rather than repair:
+ *
+ *   · both ids through `isCanonicalEndpointId` — the CONTRACT's rule, imported
+ *     rather than restated, because a drifted copy puts a 422-shaped id on the
+ *     wire. An option addressing itself is refused: no such relationship exists
+ *     and the server would decline it as unresolved.
+ *   · the value must be finite and within the MODEL scale `[0, 1]`. NOT clamped:
+ *     a clamped 1.5 → 1 sends a number the user never stated and the server
+ *     persists it as theirs. Same ruling `adaptEdgeStrengthEdit` makes for its
+ *     magnitude.
+ *   · `base_graph_hash` is non-optional and has no default. It is the stale
+ *     gate; an empty one matches nothing, and the server would refuse it as
+ *     stale — which reads to a user as "your edit conflicted" when the client
+ *     never held a base to assert.
+ *
+ * A `null` return means no turn, which is the right outcome: an unsendable
+ * effect edit must not become a turn that claims something happened.
+ */
+function adaptOptionInterventionEdit(
+  eventPayload: Record<string, unknown> | undefined,
+): { kind: 'option_intervention_edit'; option_id: string; factor_id: string; value: number; base_graph_hash: string } | null {
+  const base_graph_hash = stringField(eventPayload, 'base_graph_hash')
+  if (!base_graph_hash) return null
+
+  const option_id = eventPayload?.option_id
+  const factor_id = eventPayload?.factor_id
+  if (!isCanonicalEndpointId(option_id) || !isCanonicalEndpointId(factor_id)) return null
+  if (option_id === factor_id) return null
+
+  const value = eventPayload?.value
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) return null
+
+  return { kind: 'option_intervention_edit', option_id, factor_id, value, base_graph_hash }
 }
 
 // ActionType is a strict enum on the wire. If the UI passes an unknown

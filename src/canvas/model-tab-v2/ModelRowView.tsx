@@ -33,13 +33,14 @@
  * row says so in words.
  */
 
+import { useEffect, useRef } from 'react'
 import { typography } from '../../styles/typography'
 import { EDIT_RESERVED_HEIGHT_CLASS } from './valueCellMetrics'
 import {
   GOAL_LABEL_FROM_BRIEF_COPY,
   GOAL_LABEL_FROM_BRIEF_TESTID,
 } from '../domain/goalLabelProvenance'
-import { SourceProvenancePill } from '../components/model-tab/SourceProvenancePill'
+import { ValueProvenanceMark } from './ValueProvenanceMark'
 import { RELATIONSHIP_LABEL_SEPARATOR } from './adapters'
 import {
   ATTENTION_IS_SEVERE,
@@ -51,7 +52,13 @@ import {
   KIND_LABEL,
   deferralLabel,
 } from './rowPresentation'
+import {
+  STRENGTH_BAND_MIDPOINTS,
+  getStrengthBand,
+} from '../components/model-tab/strengthBands'
 import type { EditCommitState, DetailTier, ModelRow } from './types'
+import { splitEffectLabel } from './effectDirection'
+import { directionToneClass } from '../components/model-tab/utils'
 
 export interface ModelRowViewProps {
   row: ModelRow
@@ -85,7 +92,7 @@ export interface ModelRowViewProps {
    */
   editConnected?: boolean
   /** Live-edit callbacks (the three-beat). Absent ⇒ the static renders below. */
-  onDraftChange?: (id: string, draft: string) => void
+  onDraftChange?: (id: string, draft: string, unit?: string) => void
   /** Commit intent: editing → proposed. */
   onProposeEdit?: (id: string) => void
   /** Abandon the edit from either the input (Escape) or the proposal chip. */
@@ -179,15 +186,60 @@ function ValueLeaf({
    */
   editable?: boolean
 }) {
+  const textClass =
+    [mayShrink ? 'truncate min-w-0' : '', editable ? 'underline decoration-dotted' : '']
+      .filter(Boolean)
+      .join(' ') || undefined
+
+  /*
+   * ⭐⭐ THE STATED DIRECTION RIDES A MARK THAT CANNOT SHRINK.
+   *
+   * MEASURED on deployed `d0f4628b`, guest board, dock 414px: eleven of eleven
+   * relationship rows rendered "Moderat…" — six negative and five positive,
+   * BYTE-IDENTICAL on screen, with no `title` anywhere to recover it from. The
+   * cell is 80px and the phrase needs 138–142px, so the cut lands five
+   * characters before the only word that carries the meaning.
+   *
+   * ⚠ THE TRADE ABOVE IS NOT REVERSED. The phrase still shrinks, so the label
+   * keeps every pixel the 6 Sep measurement bought it. What changes is that the
+   * DIRECTION leaves the shrinking text and becomes a `shrink-0` mark, so it
+   * survives at any width the dock can reach. The header above was right that a
+   * phrase may be cut; it was wrong that this one "still says what it means"
+   * once cut — that sentence was never measured against 80px.
+   *
+   * `null` for "Negligible effect" and for the producer's own
+   * "…, direction not stated": neither states a direction, and marking them
+   * would invent the claim the second one exists to withhold.
+   */
+  const split = splitEffectLabel(display)
+  if (split !== null) {
+    return (
+      <span className="flex items-center gap-1 min-w-0" title={display ?? undefined}>
+        {/* Tone comes from the ESTATE'S OWN authority, not a second green/red
+            map: `directionToneClass` already answers "what colour is a stated
+            direction?" and is what the old model tab uses. Colour is the
+            SECOND channel here — the arrow's shape carries the claim on its
+            own, so this reads correctly with no colour vision at all. */}
+        <span
+          aria-hidden="true"
+          className={`shrink-0 ${directionToneClass({ show: true, direction: split.direction, source: 'cee' })}`}
+        >
+          {split.direction === 'negative' ? '\u2193' : '\u2191'}
+        </span>
+        {/* The FULL producer string, unshortened, for assistive tech — so the
+            split is a visual arrangement and never a loss of content. The
+            visible half is hidden from the reader to stop it being announced
+            twice. */}
+        <span className="sr-only">{display}</span>
+        <span aria-hidden="true" className={textClass}>
+          {split.remainder}
+        </span>
+      </span>
+    )
+  }
+
   return (
-    <span
-      className={[
-        mayShrink ? 'truncate min-w-0' : '',
-        editable ? 'underline decoration-dotted' : '',
-      ]
-        .filter(Boolean)
-        .join(' ') || undefined}
-    >
+    <span className={textClass}>
       {display ?? ''}
     </span>
   )
@@ -628,9 +680,66 @@ export function ModelRowView({
            out of anything. The ladder is still right, but it is ordered by
            LEGIBILITY under compression, not by a containment failure that does
            not occur. Rewritten rather than deleted because the wrong reason
-           was load-bearing in four places and would have been re-derived. */
+           was load-bearing in four places and would have been re-derived.
+
+           ⚠⚠ EVERYTHING ABOVE THIS LINE IS ABOUT A WORDED PILL, AND THIS SPAN
+           NO LONGER HOLDS ONE. The wrapper is unchanged and only the CHILD was
+           swapped — `SourceProvenancePill` became the 14px `ValueProvenanceMark`
+           — so the sentences above quietly stopped being true of what renders
+           here. They are kept, not rewritten: the 3px reading and the 62px
+           merge-base reading are DATED CAPTURES of the pill, and a measurement
+           is a record of what was observed, not a field to keep current.
+
+           What changed, and it lands on the wrong side of this file's own rule:
+           a truncated text span reports as a signalled ellipsis, which the
+           doctrine above calls "a disclosed loss, not a silent one" — but a
+           CLIPPED GLYPH EMITS NO ELLIPSIS AND SIMPLY VANISHES. By this file's
+           own standard that is a SILENT loss, the thing it refuses everywhere
+           else. The sentence "an atom squeezed below the width at which it
+           renders any characters at all is not [recoverable]" therefore now
+           describes the ordinary case rather than the forbidden one, because a
+           glyph renders no characters at ANY width.
+
+           ⚠ NOT CHANGED HERE, DELIBERATELY, and this is the judgement rather
+           than an oversight. Swapping to `shrink-0` would be an unmeasured
+           layout change to a row already under review, and would move the
+           deficit onto an atom that has not been priced for it. Rowed instead:
+           re-price the yield ladder now that its last item is INDIVISIBLE.
+
+           ⚠⚠ THE TWO SENTENCES THAT USED TO CARRY THIS DEFERRAL ARE WITHDRAWN,
+           AND THE WITHDRAWAL IS WHY THE ROW MATTERS MORE, NOT LESS. They read
+           "marks relieve roughly 62px of row pressure, so it is unlikely to
+           clip in practice" and "NOBODY HAS MEASURED IT CLIPPING, in either
+           direction". **Both are refuted**, measured on deployed staging
+           `18b79ae4` in a guest session at real panel width (7 Sep 2026, an
+           independent lane — NOT reproduced by this author, and recorded here
+           as that lane's reading):
+
+             · Clipping HAS now been measured, and it is not marginal: the
+               provenance sub-line renders a 31px box for content needing 125px
+               — three readable characters of "Olumi: Moderate (0.5)" — and
+               **24 of 44 value cells** in the tab are clipped.
+             · ⛔ The 62px RELIEF FIGURE DOES NOT TRANSFER. A counterfactual
+               forcing the badge element to 14px left the sub-line at 31px and
+               the value block at 80px — **no change at all.** So the 80px value
+               column is pinned by something OTHER than this pill, and swapping
+               pill→glyph does not recover the width.
+
+           The 62px and 3px readings are kept above as DATED CAPTURES of the
+           pill; what is withdrawn is the INFERENCE drawn from them, which is a
+           different thing from the measurement. **Consequence for this file:
+           the swap below must not be read as a width or truncation fix — it is
+           a legibility and density change (glyph + legend, the candidate the
+           product owner chose), and the geometry question is OPEN with its
+           cause unidentified.** That is the row, and it is now actionable:
+           whoever takes it should start from what the counterfactual excludes.
+
+           ⚠ This disclosure was written by the change that introduced the mark
+           and was DROPPED when that change was re-applied onto a moved base —
+           the one thing the re-application lost. Restored here, because the
+           deferral is defensible and its silence was not. */
         <span data-testid={`model-row-v2-${row.id}-provenance`} className="min-w-0 truncate">
-          <SourceProvenancePill source={row.provenanceSource} showWhenAbsent={false} />
+          <ValueProvenanceMark source={row.provenanceSource} rowId={row.id} />
         </span>
       )}
 
@@ -802,6 +911,29 @@ export function ModelRowView({
  * the value REVERTED. A refusal that looks like nothing happened is the same
  * defect as a silent local write, one step later.
  */
+/**
+ * Name the band of a DRAFT, or say nothing.
+ *
+ * ⚠⚠ `parseFloat`, NOT `Number` — AND THAT WAS A REAL DEFECT, not a style choice.
+ * The commit path parses with `parseFloat` (`ModelTabV2Panel.tsx:495`). This
+ * read-back used `Number`, so the two disagreed on real input: `0x10` read
+ * "strong" here and committed `0`; `0.7abc` read "—" here and committed `0.7`.
+ * A comment in this file claimed the display and the commit were "one
+ * derivation"; they were two, and the claim is what made it invisible.
+ *
+ * ⚠ AND IT REFUSES WHAT THE EMITTER REFUSES. `buildEdgeStrengthEditEvent`
+ * rejects `magnitude > 1` rather than clamping, deliberately: a clamped 1.5 → 1
+ * sends a number the user never stated. `getStrengthBand` has no domain guard,
+ * so banding 1.5 as "strong" promised a write that silently never happened.
+ * Out of range says so instead of naming a band.
+ */
+function bandReadback(draft: string): string {
+  const n = parseFloat(draft)
+  if (!Number.isFinite(n)) return '—'
+  if (Math.abs(n) > 1) return 'out of range'
+  return getStrengthBand(n)
+}
+
 function ValueCell({
   row,
   commit,
@@ -816,12 +948,51 @@ function ValueCell({
   commit?: EditCommitState
   editorAvailable: boolean
   onBeginEdit?: (id: string) => void
-  onDraftChange?: (id: string, draft: string) => void
+  onDraftChange?: (id: string, draft: string, unit?: string) => void
   onProposeEdit?: (id: string) => void
   onDiscardEdit?: (id: string) => void
   onConfirmEdit?: (id: string) => void
 }) {
   const testid = `model-row-v2-${row.id}-value`
+
+  /*
+   * ⚠⚠ THE SELECTION MUST BE APPLIED AFTER REACT COMMITS THE NEW VALUE, NOT
+   * BEFORE — found by an independent review of this PR's first cut, and my own
+   * test could not see it.
+   *
+   * The pill calls `onDraftChange`, which SCHEDULES a parent state update. A
+   * `select()` in the same handler therefore selects the OLD displayed value,
+   * and React then sets the controlled input to the new one, collapsing the
+   * selection to its end: `0.5` → Strong gives focus on the field and
+   * `selectionStart === selectionEnd === 3` instead of `0..3`. A user typing
+   * the exact replacement APPENDS to "0.7" rather than replacing it — the
+   * precise opposite of what this PR promises the advanced user.
+   *
+   * ⭐ AND WHY THE FIRST TEST WAS GREEN: it mocked `onDraftChange` with a spy,
+   * so `commit.draft` never changed and the input never re-rendered. The
+   * assertion was about the OLD value all along. **A stateless host cannot
+   * observe a defect that only exists after the state lands** — the same shape
+   * as every other miss on this PR, one layer along.
+   *
+   * The ref flag is what keeps this from selecting on every keystroke: typing
+   * changes `draft` too, and a select-all after each character would be
+   * unusable. Only a pill sets it.
+   *
+   * ⚠ HOOKS SIT ABOVE THE EARLY RETURN ON PURPOSE. `ValueCell` returns inside a
+   * `switch` below; anything declared after that point would be a conditional
+   * hook. These run on every render regardless of phase.
+   */
+  const fieldRef = useRef<HTMLInputElement | null>(null)
+  const selectAfterCommit = useRef(false)
+  const draftValue = commit && commit.phase === 'editing' ? commit.draft : null
+  useEffect(() => {
+    if (!selectAfterCommit.current) return
+    selectAfterCommit.current = false
+    const field = fieldRef.current
+    if (!field) return
+    field.focus()
+    field.select()
+  }, [draftValue])
 
   if (commit && commit.phase !== 'idle') {
     switch (commit.phase) {
@@ -830,8 +1001,13 @@ function ValueCell({
         // renders it and reports keystrokes; it decides nothing.
         if (onDraftChange && onProposeEdit && onDiscardEdit) {
           return (
-            <span data-testid={testid} className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} inline-flex items-center shrink-0 whitespace-nowrap`}>
+            <span className="inline-flex flex-col items-start gap-1 min-w-0">
+            <span
+              data-testid={testid}
+              className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} inline-flex items-center shrink-0 whitespace-nowrap`}
+            >
               <input
+                ref={fieldRef}
                 data-testid={`${testid}-input`}
                 // Focus follows the click that opened this input — it replaces
                 // the value control the user just activated.
@@ -853,6 +1029,185 @@ function ValueCell({
                 }}
                 className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
               />
+              {/* ⭐ THE NUMBER STOPS BEING ABSTRACT. Paul's concern, 8 Sep: the
+                  raw magnitude "would not make sense" to an expert. Measured on
+                  deployed `15edd2e2`: the editor was a bare field seeded `0.5`
+                  with no scale, no band and no units anywhere near it. This names
+                  the band the CURRENT DRAFT falls in, live, so the exact field and
+                  the phrase the row displays can never silently disagree — they
+                  are one derivation (`getStrengthBand`), not two that happen to
+                  agree today.
+
+                  ⚠ It reads the DRAFT, not the row's stored value: during an edit
+                  those differ, and labelling the stored value beside a changed
+                  number is the "claim attached to a different number" defect. */}
+              {row.kind === 'relationship' && (
+                <span
+                  data-testid={`${testid}-band-readback`}
+                  className={`${typography.panelMeta} text-text-light ml-2 whitespace-nowrap`}
+                >
+                  {bandReadback(commit.draft)}
+                </span>
+              )}
+            </span>
+            {/* ⭐⭐ THE PILLS GET THEIR OWN LINE, AND THAT IS THE WHOLE POINT.
+                They were inline inside the cell above — which is contractually
+                `shrink-0 whitespace-nowrap` (`rowAtomsDoNotWrap.spec.tsx`) because
+                it hosts a text input that must not be squeezed. An independent
+                reviewer measured the consequence: the cell is 80px on a 414px
+                dock, the only flexible track floors at 96px, and three pills plus
+                the input come to roughly 330px — a spill this file has recorded
+                once before at 111.1px.
+                ⚠ AND THE GREEN BROWSER GATE WAS BLIND TO IT: `modelRowEditReflow
+                .measure.ts:159-165` takes `buttons[0]`, and four node groups
+                render before `relationships` — so it measured a row where this
+                control never appears, and asserts height only.
+                v1 solved this the same way (`ContestedEdgeCard.tsx:433`): own
+                line, `flex-wrap`. The input row keeps its no-wrap contract
+                untouched; only this second line may wrap. */}
+
+              {row.kind === 'goal' && (
+                <span className={`${typography.panelMeta} text-text-light`}>
+                  {/* Two fields need a second line, not paragraphs wrapped in
+                      the narrow value column. The review phase states the
+                      minimum/absolute-level meaning before Confirm can send. */}
+                  <label className="flex flex-col gap-0.5">
+                    Unit
+                    <input
+                      aria-label={`Target unit for ${row.label}`}
+                      value={commit.unit ?? ''}
+                      placeholder="£, %, points"
+                      onClick={e => e.stopPropagation()}
+                      onChange={e => onDraftChange(row.id, commit.draft, e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { e.preventDefault(); onProposeEdit(row.id) }
+                        if (e.key === 'Escape') { e.preventDefault(); onDiscardEdit(row.id) }
+                      }}
+                      className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
+                    />
+                  </label>
+                </span>
+              )}
+
+              {/* ⭐ QUICK-SET BANDS — RELATIONSHIPS ONLY, AND PROMOTED, NOT INVENTED.
+                  Paul, 8 Sep 2026: "a really simple, quick, and easy clickable
+                  solution AND a more detailed, exact number for advanced users."
+                  Both halves already existed on `ContestedEdgeCard` (:239 quick-set
+                  pills over STRENGTH_BAND_MIDPOINTS, plus a `customSignedMean`
+                  field); the v2 relationship rows had NEITHER, so a user could only
+                  reach the abstract number. This promotes the existing control
+                  rather than authoring a second one — a duplicate affordance for one
+                  question is this estate's signature defect.
+
+                  ⚠ SIGN IS PRESERVED, NOT SET. These pills choose a MAGNITUDE band
+                  and re-apply whatever sign the draft already carries. Direction is
+                  deliberately NOT a control here: `getDirectionalStrengthLabel` takes
+                  direction as a REQUIRED argument precisely because inferring it from
+                  a number's sign once rendered every direction-less edge as "Strong
+                  positive effect" (ROADMAP 2.263). Adding a direction toggle changes
+                  what the emitter is told the user STATED, so it is a separate,
+                  separately-reviewed change.
+
+                  ⚠ THE MAGNITUDES ARE IMPORTED, NEVER RETYPED. A second copy of the
+                  band midpoints would be a hand-maintained mirror of thresholds that
+                  `strengthBands.ts` owns and that the whole product bands against. */}
+              {row.kind === 'relationship' && (
+                <span className="flex flex-wrap items-center gap-1" data-testid={`${testid}-bands`}>
+                  {(['weak', 'moderate', 'strong'] as const).map(band => {
+                    const negative = commit.draft.trim().startsWith('-')
+                    const magnitude = STRENGTH_BAND_MIDPOINTS[band]
+                    const next = `${negative ? '-' : ''}${magnitude}`
+                    const parsed = parseFloat(commit.draft)
+                    const active =
+                      Number.isFinite(parsed) && Math.abs(parsed) <= 1 && getStrengthBand(parsed) === band
+                    return (
+                      <button
+                        key={band}
+                        type="button"
+                        data-testid={`${testid}-band-${band}`}
+                        aria-pressed={active}
+                        title={`Set to ${band} (${next})`}
+                        onClick={e => {
+                          e.stopPropagation()
+                          /*
+                           * ⚠ THE NO-CHANGE ARM IS NOT AN EDGE CASE — the
+                           * reviewer measured it PASSING and it is the reason
+                           * the flag alone is not enough. Pressing the band the
+                           * draft is ALREADY in produces no state change, so
+                           * the effect never runs and an armed flag would sit
+                           * there and fire on the NEXT keystroke, selecting the
+                           * user's half-typed number out from under them.
+                           * Handle it here, synchronously, and arm nothing.
+                           */
+                          const field = document.querySelector<HTMLInputElement>(
+                            `[data-testid="${testid}-input"]`,
+                          )
+                          if (next === commit.draft) {
+                            field?.focus()
+                            field?.select()
+                          } else {
+                            selectAfterCommit.current = true
+                          }
+                          onDraftChange(row.id, next)
+                          /*
+                           * ⭐ AND HAND FOCUS BACK TO THE FIELD — WITNESSED ON
+                           * DEPLOYED `0a0a8113`, NOT REASONED ABOUT.
+                           *
+                           * A real mouse click on a <button> focuses it. So the
+                           * pill set the draft correctly and then SWALLOWED THE
+                           * KEYBOARD: `Enter` — the obvious next keystroke, and
+                           * the only thing that proposes an edit — re-pressed
+                           * the pill instead of committing. Measured twice on
+                           * two rows: after the click `document.activeElement`
+                           * was the pill, the draft was right, and `Enter` left
+                           * the editor open with nothing proposed. The user has
+                           * to click back into the field to get anywhere.
+                           *
+                           * That defeats the whole point of the control. Paul
+                           * ruled this affordance "really simple, quick, and
+                           * easy clickable"; a quick click that then requires a
+                           * second click to mean anything is not that.
+                           *
+                           * ⚠ A PROGRAMMATIC `.click()` CANNOT SEE THIS —
+                           * `HTMLElement.click()` does not move focus, so in
+                           * jsdom (and in any probe that uses it) the input
+                           * keeps focus and `Enter` commits happily. The defect
+                           * is only reachable through a real pointer, which is
+                           * why it shipped.
+                           *
+                           * ⚠ NOT `onProposeEdit` INSTEAD. Proposing straight
+                           * from the pill would delete the review step and the
+                           * exact number with it — the two halves Paul asked to
+                           * be combined. The field keeps the number visible and
+                           * editable; this only makes the keyboard reach it.
+                           *
+                           * Queried rather than held in a ref: this component
+                           * returns early inside a switch, so a hook here would
+                           * be a conditional hook. The testid is derived from
+                           * `row.id`, and only one row edits at a time
+                           * (`commitByRowId` is a one-entry map), so it names
+                           * exactly one element.
+                           */
+                          /*
+                           * Focus goes back NOW so the keyboard is never
+                           * stranded on the pill even for one frame; the effect
+                           * above re-applies focus with the selection once the
+                           * new value has landed.
+                           */
+                          field?.focus()
+                        }}
+                        className={`${typography.buttonSmall} px-1.5 rounded border ${
+                          active
+                            ? 'border-info text-info'
+                            : 'border-panel-border text-text-light'
+                        }`}
+                      >
+                        {band.charAt(0).toUpperCase() + band.slice(1)}
+                      </button>
+                    )
+                  })}
+                </span>
+              )}
             </span>
           )
         }
@@ -884,7 +1239,7 @@ function ValueCell({
             data-testid={testid}
             className={`${typography.panelTabular} min-w-0 flex flex-wrap items-baseline`}
           >
-            <span className="shrink-0 whitespace-nowrap">
+            <span className={row.kind === 'goal' ? 'min-w-0 break-words' : 'shrink-0 whitespace-nowrap'}>
               <span data-testid={`${testid}-from`}>{commit.from}</span>
               {' → '}
               <span data-testid={`${testid}-to`}>{commit.to}</span>
@@ -907,8 +1262,8 @@ function ValueCell({
                 vocabulary is the estate's own — `HowComputedModal` renders
                 `applied ? 'Applied' : 'Not applied'` for this exact
                 distinction. */}
-            <span className={`${typography.panelBody} text-text-light ml-2 min-w-0 truncate`}>
-              Not applied yet
+            <span role={commit.notice ? 'alert' : undefined} className={`${typography.panelBody} text-text-light ml-2 min-w-0 ${commit.notice ? '' : 'truncate'}`}>
+              {commit.notice ?? 'Not applied yet'}
             </span>
             {/*
               R9 — the inline confirm CHIPS. Rendered only when the host can
@@ -1030,6 +1385,92 @@ function ValueCell({
            TIMES the label it was starving. The estimate is a hint about a value
            the user has not set; the node's name is how they find the row at
            all. So the hint truncates and the name does not. */
+        /* ⭐⭐ THE HINT TRUNCATES BY DESIGN — SO IT MUST BE RECOVERABLE, AND IT
+           WAS NOT. MEASURED on deployed `80ccf768` (guest, seeded "Customer
+           Data Platform Selection", dock 414px, Model tab): this span rendered
+           a **31px box for content needing 125px** — "Olu" of
+           "Olumi: Moderate (0.5)" — with **no `title`, no `aria-label` and no
+           `sr-only` anywhere above it**. Seven cells in the tab, and they were
+           the ONLY genuinely unrecoverable clipped text on the surface: every
+           `-label` already carries an exact-text `title`, and the relationship
+           phrase is recovered by `ValueLeaf`'s own `title` plus its `sr-only`.
+
+           The arithmetic, so nobody re-opens the layout question by mistake:
+           the cell is 80px and holds two spans SIDE BY SIDE — "Not set" at
+           40.6px with `min-width: auto` (it cannot shrink, and must not: a
+           truncated affordance is a fake one) plus this hint's `ml-2` 8px,
+           leaving 31.4px. `80 = 40.6 + 8 + 31.4`. A `min-w-0` atom beside a
+           `min-width:auto` atom absorbs 100% of the squeeze.
+
+           ⛔ TWO FIXES ARE ALREADY EXCLUDED ON MEASUREMENT — do not re-propose
+           them.
+
+           (a) WIDENING THE GRID CAP. The value column is the THIRD of four
+           tracks, `fit-content(5.5rem)`. The whole declaration, so the ordinal
+           and the length can be checked in one step:
+           `grid-cols-[auto_minmax(6rem,1fr)_fit-content(5.5rem)_fit-content(5rem)]`
+           — track 1 `auto` (the kind glyph), track 2 `minmax(6rem,1fr)`
+           (`CELL 2 · IDENTITY`), track 3 `fit-content(5.5rem)`
+           (`CELL 3 · VALUE`, this one), track 4 `fit-content(5rem)`
+           (`CELL 4 · META`). At the 16px browser default — no
+           `html { font-size }` override exists in `src/` or `index.html` —
+           **5.5rem = 88px and 5rem = 80px**, and the PR's own resolved template
+           was `23.1px 194.9px 88px 66px`. So the 80px value cell sits inside
+           the **88px** track: the third.
+
+           ⚠⚠ DO THAT ARITHMETIC BEFORE YOU "CORRECT" THIS PARAGRAPH, BECAUSE IT
+           HAS BEEN WRONG TWICE AND BOTH TIMES THE WRONG VERSION WAS ITSELF A
+           CORRECTION — first "track 2", then "the FOURTH track", each surviving
+           a review. `5rem = 80px` and the measured value cell is 80.0px, so the
+           META cap coincides numerically with a cell in a different column and
+           track 4 reads as obviously right. The 88px in the template is the
+           tell, and it is the only tell: it is a track that resolved to its
+           cap, and 5.5rem is the only cap that can produce it. A reader who
+           matches the cell width to a cap instead of matching the TEMPLATE to a
+           cap will get this wrong a third time.
+
+           THE AUTHORITY IS AN EXECUTING GUARD, NOT A NUMBER AND NOT THIS
+           COMMENT. `CAPS` in `rowAtomsAlignToOneGrid.spec.tsx` pins
+           `{ index: 2, name: 'value', length: 5.5 }` and
+           `{ index: 3, name: 'attention', length: 5 }` — zero-indexed, so value
+           is the third track — and REDs if either the ordinal or the length
+           moves. Start there.
+
+           WHERE THE DECLARATION LIVES, CITED AS A SYMBOL: `ModelOutline.tsx`
+           holds exactly one `grid-cols-[…]` class and that is the handle. No
+           line number — the one that stood here was `:679`, true at this
+           branch's head and ALREADY `:777` on `staging`, so it was rotten
+           before merge, which is the failure the `commit=` note above names
+           ("the symbol is the handle; the number was a mirror with no owner").
+           Grep the BRACKETED form, `grep -n -F 'grid-cols-['` — one hit, at
+           this branch's head and on `staging` alike. The loose `grid-cols`
+           returns three there, the other two prose in that file's own comments;
+           an earlier note cited that three to argue the grep was worthless,
+           which talked the next reader out of the one check that would have
+           caught the wrong track.
+
+           The rejected widening was `minmax(0,5.5rem)`, a replacement for that
+           same third track: a zero-minimum track reserves its cap even when
+           empty and cost four fully-visible option labels.
+
+           (b) STACKING THE HINT ONTO A SECOND LINE: the `<button>` arm below
+           records that it once did exactly that and the rows measured 42px,
+           which is why `whitespace-nowrap` is on both idle arms.
+
+           So the trade stands — the hint is still the atom that gives. ⚠ AND
+           THE SENTENCE THAT FOLLOWED THIS ONE CLAIMED MORE THAN WAS MEASURED,
+           corrected here rather than left to be inherited: it read "giving it
+           up no longer DESTROYS it", which reads as a claim for every user.
+           What was actually measured is narrower — `title` restores the text on
+           POINTER HOVER. Sighted touch users and keyboard-only users still get
+           the three visible characters and no way to reach the rest; the
+           author's own PR comment tabulated exactly that. So: recoverable on
+           hover, unchanged otherwise, and the gap for touch and keyboard is
+           open rather than closed.
+           `title` on the leaf, not on the wrapping `<button>`, because the
+           button's own "Change this value" is about the affordance and would
+           otherwise be the only thing a hover could ever tell you. */
+        title={`Olumi: ${row.estimateText}`}
         className={`${typography.panelBody} text-text-light ml-2 truncate min-w-0`}
       >
         Olumi: {row.estimateText}

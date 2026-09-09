@@ -60,11 +60,17 @@ vi.mock('../../../../canvas/stores/strengthenStore', async (orig) => ({
 }))
 
 import { openAskOlumi } from '../../coaching/askOlumiStore'
+import { useCanvasStore } from '../../../../canvas/store'
+import { clearDurableDissent } from '../../../../canvas/stores/dissentStore'
+import { recordKey } from '../../../../canvas/stores/strengthenStore'
+
+/** The decision every fixture in this file belongs to. */
+const SPEC_DECISION = 'scenario-under-test'
 
 const rec = (over: Partial<Recommendation> & { id: string }): Recommendation =>
   ({
     helpType: 'challenge',
-    title: 'Pressure-test the leading option',
+    title: 'Pressure-test the option that scored highest',
     signal: 'The ranking was fragile under perturbation.',
     whyNow: 'Small changes flip which option leads.',
     tryThis: 'Imagine it failed. Write down why.',
@@ -82,6 +88,17 @@ const renderOpen = (ui: React.ReactElement) => {
 
 beforeEach(() => {
   records = {}
+  useCanvasStore.setState({ currentScenarioId: SPEC_DECISION })
+  /*
+   * ⚠ AND THE DURABLE DISSENT WITH IT, because giving these tests a decision
+   * identity switched ON a path they had never reached. `commitDispute` writes
+   * a durable, per-decision dissent and returns early when the identity is
+   * absent — which it always was here — so the objection one test recorded had
+   * never survived into the next. It does now, and without this reset a later
+   * test reads the earlier test's words. The leak is the SPEC's, not the
+   * product's: a real reader has a decision identity throughout.
+   */
+  clearDurableDissent()
   dismiss.mockClear()
   restoreDismissed.mockClear()
   dispute.mockClear()
@@ -100,6 +117,10 @@ const retiredRecord = (
   snapshot: { id, title },
   analysisHash: null,
   isStale: false,
+  /* The decision this record was authored under — `selectHistory` claims only
+     records that match the decision on screen, so an unstamped fixture is
+     correctly nobody's history. */
+  scenarioId: SPEC_DECISION,
   history: [
     { at: 1, event: 'recommended' as const },
     { at: 2, event: status, ...(whatChanged ? { whatChanged } : {}) },
@@ -121,25 +142,26 @@ describe('the dismissal can always act, whichever tab the reader came from', () 
      * silence. Bound to the recommendation BY IDENTITY, and to the hash, so a
      * seed of the wrong row or an unstamped record fails here.
      */
-    expect(seedIfAbsent).toHaveBeenCalledWith(one, 'v5:abc')
+    // The decision is threaded at the CALL SITE now, so the seam carries it.
+    expect(seedIfAbsent).toHaveBeenCalledWith(one, 'v5:abc', SPEC_DECISION)
     expect(seedIfAbsent.mock.invocationCallOrder[0]).toBeLessThan(
       dismiss.mock.invocationCallOrder[0],
     )
-    expect(dismiss).toHaveBeenCalledWith('strengthen:success-measure')
+    expect(dismiss).toHaveBeenCalledWith(recordKey(SPEC_DECISION, 'strengthen:success-measure'))
   })
 
   it('still dismisses when the store DOES hold the record', () => {
-    records = { 'strengthen:robustness': { status: 'recommended', history: [] } }
+    records = { [recordKey(SPEC_DECISION, 'strengthen:robustness')]: { status: 'recommended', history: [] } }
     renderOpen(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:robustness' })]} />)
 
     const btn = screen.getByTestId('analysis-new-strengthen-dismiss')
     expect(btn).toBeInTheDocument()
     fireEvent.click(btn)
 
-    expect(dismiss).toHaveBeenCalledWith('strengthen:robustness')
+    expect(dismiss).toHaveBeenCalledWith(recordKey(SPEC_DECISION, 'strengthen:robustness'))
     // The notice names what went, so undo is a choice rather than a guess.
     expect(screen.getByTestId('analysis-new-strengthen-dismissed-notice')).toHaveTextContent(
-      'Pressure-test the leading option',
+      'Pressure-test the option that scored highest',
     )
     expect(screen.getByTestId('analysis-new-strengthen-dismissed-undo')).toBeInTheDocument()
   })
@@ -147,7 +169,7 @@ describe('the dismissal can always act, whichever tab the reader came from', () 
 
 describe('the technique chip', () => {
   it('names the method on a finding that IS that technique, and carries its identity', () => {
-    records = { 'strengthen:robustness': { status: 'recommended', history: [] } }
+    records = { [recordKey(SPEC_DECISION, 'strengthen:robustness')]: { status: 'recommended', history: [] } }
     renderOpen(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:robustness' })]} />)
 
     const chip = screen.getByTestId('analysis-new-strengthen-method')
@@ -243,15 +265,15 @@ describe('the preview discloses its remainder, and the remainder is reachable', 
  */
 describe('the reasoning trail', () => {
   it('is not offered at all when nothing has been retired', () => {
-    records = { 'strengthen:robustness': { status: 'recommended', history: [] } }
+    records = { [recordKey(SPEC_DECISION, 'strengthen:robustness')]: { status: 'recommended', history: [] } }
     renderOpen(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:robustness' })]} />)
     expect(screen.queryByTestId('analysis-new-strengthen-history-toggle')).toBeNull()
   })
 
   it('lists what was set aside and what was addressed, each saying which', () => {
     records = {
-      'strengthen:gone': retiredRecord('strengthen:gone', 'Define what success looks like', 'dismissed'),
-      'strengthen:done': retiredRecord('strengthen:done', 'Pressure-test the leader', 'addressed', 'added a downside case'),
+      [recordKey(SPEC_DECISION, 'strengthen:gone')]: retiredRecord('strengthen:gone', 'Define what success looks like', 'dismissed'),
+      [recordKey(SPEC_DECISION, 'strengthen:done')]: retiredRecord('strengthen:done', 'Pressure-test the leader', 'addressed', 'added a downside case'),
     }
     renderOpen(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:live' })]} />)
 
@@ -273,7 +295,7 @@ describe('the reasoning trail', () => {
 
   it('carries the objection onto the trail with the finding it contests', () => {
     records = {
-      'strengthen:gone': {
+      [recordKey(SPEC_DECISION, 'strengthen:gone')]: {
         ...retiredRecord('strengthen:gone', 'Define what success looks like', 'dismissed'),
         history: [
           { at: 1, event: 'recommended' },
@@ -299,8 +321,8 @@ describe('the reasoning trail', () => {
    */
   it('offers restore on a set-aside row, and only there', () => {
     records = {
-      'strengthen:gone': retiredRecord('strengthen:gone', 'Define what success looks like', 'dismissed'),
-      'strengthen:done': retiredRecord('strengthen:done', 'Pressure-test the leader', 'addressed', 'added a downside case'),
+      [recordKey(SPEC_DECISION, 'strengthen:gone')]: retiredRecord('strengthen:gone', 'Define what success looks like', 'dismissed'),
+      [recordKey(SPEC_DECISION, 'strengthen:done')]: retiredRecord('strengthen:done', 'Pressure-test the leader', 'addressed', 'added a downside case'),
     }
     renderOpen(<StrengthenTheReasoning interventions={[rec({ id: 'strengthen:live' })]} />)
     fireEvent.click(screen.getByTestId('analysis-new-strengthen-history-toggle'))
@@ -311,7 +333,7 @@ describe('the reasoning trail', () => {
     expect(owner?.getAttribute('data-recommendation-id')).toBe('strengthen:gone')
 
     fireEvent.click(restores[0])
-    expect(restoreDismissed).toHaveBeenCalledWith('strengthen:gone')
+    expect(restoreDismissed).toHaveBeenCalledWith(recordKey(SPEC_DECISION, 'strengthen:gone'))
   })
 })
 
@@ -335,15 +357,18 @@ describe('recording a disagreement', () => {
 
     // Same ordering obligation as the dismissal: `dispute` no-ops without a
     // record, so a seed that ran second would lose the objection silently.
-    expect(seedIfAbsent).toHaveBeenCalledWith(one[0], 'v5:abc')
+    expect(seedIfAbsent).toHaveBeenCalledWith(one[0], 'v5:abc', SPEC_DECISION)
     expect(seedIfAbsent.mock.invocationCallOrder[0]).toBeLessThan(
       dispute.mock.invocationCallOrder[0],
     )
-    expect(dispute).toHaveBeenCalledWith('strengthen:robustness', 'Wrong for our supplier.')
+    expect(dispute).toHaveBeenCalledWith(
+      recordKey(SPEC_DECISION, 'strengthen:robustness'),
+      'Wrong for our supplier.',
+    )
   })
 
   it('records the reason, and the finding STAYS — that is the whole difference', () => {
-    records = { 'strengthen:robustness': { status: 'recommended', history: [] } }
+    records = { [recordKey(SPEC_DECISION, 'strengthen:robustness')]: { status: 'recommended', history: [] } }
     renderOpen(<StrengthenTheReasoning interventions={one} />)
 
     fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree'))
@@ -353,7 +378,7 @@ describe('recording a disagreement', () => {
     fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree-save'))
 
     expect(dispute).toHaveBeenCalledWith(
-      'strengthen:robustness',
+      recordKey(SPEC_DECISION, 'strengthen:robustness'),
       'The lead time assumption is wrong for our supplier.',
     )
     /**
@@ -376,7 +401,7 @@ describe('recording a disagreement', () => {
 
   it('shows the standing objection on the card, and offers to edit rather than restate', () => {
     records = {
-      'strengthen:robustness': {
+      [recordKey(SPEC_DECISION, 'strengthen:robustness')]: {
         status: 'recommended',
         history: [
           { at: 1, event: 'recommended' },
@@ -399,7 +424,7 @@ describe('recording a disagreement', () => {
   })
 
   it('cancelling records nothing', () => {
-    records = { 'strengthen:robustness': { status: 'recommended', history: [] } }
+    records = { [recordKey(SPEC_DECISION, 'strengthen:robustness')]: { status: 'recommended', history: [] } }
     renderOpen(<StrengthenTheReasoning interventions={one} />)
     fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree'))
     fireEvent.change(screen.getByTestId('analysis-new-strengthen-disagree-input'), {

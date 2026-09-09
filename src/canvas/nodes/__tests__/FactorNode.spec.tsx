@@ -7,7 +7,7 @@
  * T6: Sensitivity/Evidence tier labels (results mode)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 
@@ -72,7 +72,7 @@ import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { useScienceIcons } from '../../hooks/useScienceIcons'
 import { isGraphBadgesEnabled } from '../../../flags'
-import { Sparkles } from 'lucide-react'
+import { FileQuestion } from 'lucide-react'
 
 const baseProps = {
   id: 'factor-1',
@@ -286,78 +286,6 @@ describe('FactorNode', () => {
     expect(screen.getByText('Help me estimate this')).toBeDefined()
   })
 
-  // T5: Provenance now handled by science icons (useScienceIcons hook)
-  // Science icons use aria-label, not title attribute
-  it('shows science icon for inferred extraction type (via aria-label)', () => {
-    vi.mocked(useScienceIcons).mockReturnValue([{
-      id: 'olumi-estimate', icon: Sparkles,
-      tooltip: 'Olumi estimated this value. May not match reality.',
-      action: 'Confirm or adjust the value for Salary', colour: 'text-text-light', priority: 3,
-    }])
-    renderFactor({
-      label: 'Salary',
-      type: 'factor',
-      observedState: { value: 0.5, extractionType: 'inferred' },
-    })
-    // Science icon: "Olumi estimated this value. May not match reality."
-    expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
-  })
-
-  it('does not show Olumi estimate icon for explicit extraction type', () => {
-    renderFactor({
-      label: 'Salary',
-      type: 'factor',
-      observedState: { value: 0.5, extractionType: 'explicit' },
-    })
-    expect(screen.queryByLabelText(/Olumi estimated/)).toBeNull()
-  })
-
-  // Provenance combinations — science icons replaced old provenance icons
-  // Combination 1: extractionType='inferred' + source='brief_extraction' → science icon still shows (based on extractionType)
-  it('shows science icon when extractionType=inferred and source=brief_extraction', () => {
-    vi.mocked(useScienceIcons).mockReturnValue([{
-      id: 'olumi-estimate', icon: Sparkles,
-      tooltip: 'Olumi estimated this value. May not match reality.',
-      action: 'Confirm or adjust the value for Salary', colour: 'text-text-light', priority: 3,
-    }])
-    renderFactor({
-      label: 'Salary',
-      type: 'factor',
-      observedState: { value: 0.5, extractionType: 'inferred', source: 'brief_extraction' },
-    })
-    expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
-  })
-
-  // Combination 2: extractionType='inferred' + no source → science icon shows
-  it('shows science icon when extractionType=inferred and no source', () => {
-    vi.mocked(useScienceIcons).mockReturnValue([{
-      id: 'olumi-estimate', icon: Sparkles,
-      tooltip: 'Olumi estimated this value. May not match reality.',
-      action: 'Confirm or adjust the value for Salary', colour: 'text-text-light', priority: 3,
-    }])
-    renderFactor({
-      label: 'Salary',
-      type: 'factor',
-      observedState: { value: 0.5, extractionType: 'inferred' },
-    })
-    expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
-  })
-
-  // Combination 3: source='cee_inference' + extractionType='inferred' → science icon shows
-  it('shows science icon when source=cee_inference and extractionType=inferred', () => {
-    vi.mocked(useScienceIcons).mockReturnValue([{
-      id: 'olumi-estimate', icon: Sparkles,
-      tooltip: 'Olumi estimated this value. May not match reality.',
-      action: 'Confirm or adjust the value for Salary', colour: 'text-text-light', priority: 3,
-    }])
-    renderFactor({
-      label: 'Salary',
-      type: 'factor',
-      observedState: { value: 0.5, extractionType: 'inferred', source: 'cee_inference' },
-    })
-    expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
-  })
-
   // T6: Influence/Confidence bars in results mode — only in Layer 2 (Detailed view)
   it('shows Influence and Confidence bars in Detailed results mode', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
@@ -378,6 +306,7 @@ describe('FactorNode', () => {
       sensitivityRank: null,
       influence: 0.8,
       influenceProvenance: 'influence_score',
+      influenceImportanceBasis: null,
       confidence: 0.45,
       confidenceIsDefaulted: false,
       confidenceIsProvisional: false,
@@ -554,6 +483,7 @@ describe('FactorNode', () => {
       sensitivityRank: null,
       influence: 0.8,
       influenceProvenance: 'influence_score',
+      influenceImportanceBasis: null,
       confidence: 0.6,
       confidenceIsDefaulted: false,
       confidenceIsProvisional: false,
@@ -576,11 +506,11 @@ describe('FactorNode', () => {
 
   // P5: Inferred factor keeps its science disclosure, but B3 withholds the
   // local-only confirmation action because it has no canonical carrier.
-  it('inferred factor keeps science and inspect affordances while confirm value is withheld (P5)', () => {
+  it('inferred factor keeps science and menu affordances while confirm value is withheld (P5)', () => {
     vi.mocked(useScienceIcons).mockReturnValue([{
-      id: 'olumi-estimate', icon: Sparkles,
-      tooltip: 'Olumi estimated this value. May not match reality.',
-      action: 'Confirm or adjust the value for Salary', colour: 'text-text-light', priority: 3,
+      id: 'evidence-gap', icon: FileQuestion,
+      tooltip: 'No evidence for this factor. Analysis will use defaults.',
+      action: 'Help me estimate Salary', colour: 'text-warning', priority: 1,
     }])
     renderFactor({
       label: 'Salary',
@@ -589,38 +519,65 @@ describe('FactorNode', () => {
       observedState: { value: 0, extractionType: 'inferred', factor_type: 'binary' },
     })
     // Science icon uses aria-label
-    expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
+    expect(screen.getByLabelText(/No evidence for this factor/)).toBeDefined()
     expect(screen.queryByTitle('Confirm value')).toBeNull()
-    // Positive control: the canonical route to inspect and act remains mounted.
-    expect(screen.getByTitle('Open details for Salary')).toBeDefined()
+    // Positive control: the menu containing the details route remains mounted.
+    expect(screen.getByLabelText('More actions for Salary')).toBeDefined()
   })
 
-  // Graph v1.1 wireframe v4: external factors NEVER get amber treatment.
-  // Dashed border = "outside your control"; amber = "needs your judgement".
-  // The two states must not be confused, even when value is missing.
-  it('uses border-factor (not amber, not goal) for external factor with no observed value', () => {
+  // Graph v1.1 wireframe v4: external factors NEVER get the "needs your
+  // judgement" treatment. Dashed border = "outside your control"; the badge =
+  // "needs your judgement". The two states must not be confused, even when the
+  // value is missing.
+  //
+  // ⚠ THESE TWO CASES CHANGED SHAPE ON 8 Sep 2026 (Paul's badge re-ruling) AND
+  // MUST NOT HAVE BEEN WEAKENED BY IT. What each one was DISCRIMINATING:
+  //   · the external case — that a missing value does NOT buy the
+  //     "needs your judgement" treatment when the factor is outside the user's
+  //     control. Its discriminating power came from `not.toContain(...)` on the
+  //     treatment token, paired with the controllable case below, which is the
+  //     same component and the same missing value with only `category` changed.
+  //   · the controllable case — that a missing value DOES earn it.
+  // The treatment token moved from the border to a badge, so both now assert on
+  // the badge, and BOTH ALSO assert the kind hue that used to be replaced. That
+  // is strictly more than either checked before, and the pairing — one node
+  // gets it, its near-twin does not — is preserved exactly.
+  //
+  // ⚠ AND THE ASSERTIONS BIND TOKEN-EXACT. `toContain` on the className string
+  // would let `hover:border-factor/80` satisfy a `'border-factor'` assertion —
+  // a predicate a different token can meet (CLAUDE.md trap 19).
+  const cardTokens = (container: HTMLElement) =>
+    container.querySelector('[role="group"]')!.className.split(/\s+/).filter(Boolean)
+
+  it('external factor with no observed value: keeps border-factor, and gets NO "needs input" badge', () => {
     const { container } = renderFactor({
       label: 'Market rate',
       type: 'factor',
       category: 'external',
-      // No observedState.value — but external factors are exempt from amber.
+      // No observedState.value — but external factors are exempt.
     })
-    const nodeEl = container.querySelector('[role="group"]')
-    expect(nodeEl?.className).not.toContain('border-goal')
-    expect(nodeEl?.className).not.toContain('border-warning')
-    expect(nodeEl?.className).toContain('border-factor')
+    const tokens = cardTokens(container)
+    expect(tokens).not.toContain('border-goal')
+    expect(tokens).not.toContain('border-warning')
+    expect(tokens).toContain('border-factor')
+    expect(screen.queryByTestId('needs-input-pill')).toBeNull()
   })
 
-  it('uses border-warning for any factor with no observed value (controllable)', () => {
+  it('controllable factor with no observed value: KEEPS border-factor (not amber) and gets the badge', () => {
     const { container } = renderFactor({
       label: 'Hiring rate',
       type: 'factor',
       category: 'controllable',
       // No observedState.value
     })
-    const nodeEl = container.querySelector('[role="group"]')
-    expect(nodeEl?.className).not.toContain('border-goal')
-    expect(nodeEl?.className).toContain('border-warning')
+    const tokens = cardTokens(container)
+    expect(tokens).not.toContain('border-goal')
+    // ⭐ THE RE-RULING. This replaces `toContain('border-warning')`: the kind hue
+    // must SURVIVE the incomplete state rather than be replaced by it.
+    expect(tokens).toContain('border-factor')
+    expect(tokens).not.toContain('border-warning')
+    // ⭐ …and the state must still be announced, or the ruling is half-done.
+    expect(screen.getByTestId('needs-input-pill')).toBeTruthy()
   })
 
   // P0 (feedback): binary factor_type + value=0 → contextual text
@@ -664,6 +621,7 @@ describe('FactorNode', () => {
       sensitivityRank: null,
       influence: 0.8,
       influenceProvenance: 'influence_score',
+      influenceImportanceBasis: null,
       confidence: 0.6,
       confidenceIsDefaulted: false,
       confidenceIsProvisional: false,
@@ -681,6 +639,12 @@ describe('FactorNode', () => {
     const progressbars = container.querySelectorAll('[role="progressbar"]')
     // Two bars: Influence + Confidence
     expect(progressbars.length).toBeGreaterThanOrEqual(2)
+    // A confidence without a default/provisional qualifier has no explanation
+    // to open. Retain the value, without adding a redundant keyboard stop.
+    const confidence = screen.getByRole('group', { name: 'Confidence' })
+    expect(confidence).not.toHaveAttribute('tabindex')
+    expect(confidence).not.toHaveAttribute('data-node-tooltip')
+    expect(confidence).toHaveTextContent('60%')
     // Each bar has a valid aria-valuenow between 0 and 100
     progressbars.forEach(bar => {
       const valuenow = Number(bar.getAttribute('aria-valuenow'))
@@ -699,7 +663,7 @@ describe('FactorNode', () => {
   // (set-relative) basis, FactorNode must pass that provenance through so the
   // pill discloses "top driver always shows 100%" instead of reading as an
   // absolute causal share.
-  it('passes influence provenance to MetricPills so the pill discloses the relative scale (C4)', () => {
+  it('discloses the relative influence scale on the Standard row (C4)', async () => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
       selector({
         hoveredOptionId: null,
@@ -718,6 +682,7 @@ describe('FactorNode', () => {
       sensitivityRank: 1,
       influence: 1,
       influenceProvenance: 'normalised_elasticity',
+      influenceImportanceBasis: null,
       confidence: null,
       confidenceIsDefaulted: false,
       confidenceIsProvisional: false,
@@ -739,10 +704,11 @@ describe('FactorNode', () => {
     // a per-set-normalised figure onto a MORE prominent surface while dropping
     // the sentence that stops it being read as an absolute. This test is the
     // thing that would have caught that, so it is re-pointed, never relaxed.
-    // Both channels stay pinned: `title` for pointer users, and the phrase for
-    // assistive tech, which the row renders screen-reader-only.
+    // Both channels stay pinned: the opened tooltip and the graphic's
+    // accessible name, now including the value as well as its scale.
     const row = screen.getByTestId('factor-influence-row')
-    expect(row.getAttribute('title')).toBe(
+    fireEvent.mouseEnter(row)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
       'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
     )
     expect(row.textContent).toContain('Influence')
@@ -754,11 +720,9 @@ describe('FactorNode', () => {
     // against…" and the other said "Influence, relative to the strongest…" for
     // one number on one card. Both still come from that one module, so neither
     // can drift; they now also agree with each other.
-    expect(
-      screen.getByText(
-        'Influence, relative to the strongest factor. The top driver always shows 100%',
-      ),
-    ).toBeDefined()
+    expect(row).toHaveAccessibleName(
+      'Influence: 100%. Influence, relative to the strongest factor. The top driver always shows 100%',
+    )
   })
 
   // -------------------------------------------------------------------------
@@ -783,6 +747,7 @@ describe('FactorNode', () => {
       )
       vi.mocked(useNodeDisplayMetadata).mockReturnValue({
         sensitivityRank: 1, influence: 0.8, influenceProvenance: 'influence_score',
+        influenceImportanceBasis: null,
         confidence: 0.45, confidenceIsDefaulted: false, confidenceIsProvisional: false,
         inSensitivityAnalysis: true,
         achievementProbability: null, achievementProbabilityIsModelledBasis: false,
@@ -828,8 +793,8 @@ describe('FactorNode', () => {
   // level up from the pill ('Influence' + DataBar + 'NN%') and had NO basis
   // disclosure at all — the identical misread class the pill fix addressed.
   // The bar's accessible name carries the basis (its role="progressbar"
-  // announces the value via aria-valuenow); `title` carries it for pointer
-  // users. Both bases pinned, plus the fail-closed no-provenance case.
+  // announces the value via aria-valuenow); the tooltip carries it for pointer
+  // and keyboard users. Both bases pinned, plus the fail-closed no-provenance case.
   // -------------------------------------------------------------------------
   describe('detailed-view Influence row discloses the basis (review fix 4)', () => {
     function renderDetailedWithProvenance(
@@ -868,7 +833,7 @@ describe('FactorNode', () => {
       return renderFactor({ label: 'Revenue', type: 'factor', observedState: { value: 0.5 } })
     }
 
-    it('fallback basis: the row discloses that the top driver always shows 100%', () => {
+    it('fallback basis: the row discloses that the top driver always shows 100%', async () => {
       renderDetailedWithProvenance('normalised_elasticity', 1)
       const bar = screen.getByRole('progressbar', {
         name: 'Influence, relative to the strongest factor. The top driver always shows 100%',
@@ -876,19 +841,23 @@ describe('FactorNode', () => {
       expect(bar.getAttribute('aria-valuenow')).toBe('100')
       // Pointer users get the same disclosure on the row.
       const row = screen.getByText('Influence').closest('div')
-      expect(row?.getAttribute('title')).toBe(
+      expect(row).not.toBeNull()
+      fireEvent.mouseEnter(row!)
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(
         'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
       )
     })
 
-    it('producer basis: the row discloses the set-relative scale, like its sibling', () => {
+    it('producer basis: the row discloses the set-relative scale, like its sibling', async () => {
       renderDetailedWithProvenance('influence_score', 0.6)
       const bar = screen.getByRole('progressbar', {
         name: 'Influence, relative to the strongest factor. The top driver always shows 100%',
       })
       expect(bar.getAttribute('aria-valuenow')).toBe('60')
       const row = screen.getByText('Influence').closest('div')
-      expect(row?.getAttribute('title')).toBe(
+      expect(row).not.toBeNull()
+      fireEvent.mouseEnter(row!)
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(
         // ⚠ THE PRODUCER ARM NAMES ITS OWN QUANTITY, and the two arms are
         // deliberately NOT one string — #1221's positive control forbids
         // collapsing them and is right: the scale is shared, the measurement
@@ -984,28 +953,19 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(screen.getByText('CHF 500')).toBeDefined()
   })
 
-  // A14: source='cee_inference' — provenance icons removed, science icons handle this
-  // The science icon triggers on extractionType='inferred', not source alone
-  it('A14: source="cee_inference" without extractionType=inferred does not render science icon', () => {
-    renderFactor({
-      label: 'Market rate',
-      type: 'factor',
-      observedState: { value: 0.5, source: 'cee_inference' },
-    })
-    // No extractionType='inferred' → no Olumi estimate science icon
-    expect(screen.queryByLabelText(/Olumi estimated/)).toBeNull()
-  })
-
-  // A15: source='brief_extraction' — old provenance icon removed, science icons based on extractionType
-  it('A15: source="brief_extraction" without extractionType=inferred does not render science icon', () => {
+  // A15: source='brief_extraction' — the old provenance icon is gone.
+  it('A15: source="brief_extraction" renders no "From your brief" provenance icon', () => {
     renderFactor({
       label: 'Revenue',
       type: 'factor',
       observedState: { value: 0.6, source: 'brief_extraction' },
     })
-    // No extractionType='inferred' → no Olumi estimate science icon
-    expect(screen.queryByLabelText(/Olumi estimated/)).toBeNull()
-    expect(screen.queryByTitle('From your brief')).toBeNull()
+    // Bound to the ACCESSIBLE NAME, not `queryByTitle`: `BriefIcon` no longer
+    // carries a native `title` — its hover moved to the shared Tooltip and its
+    // name to `role="img"` + `aria-label`. Left on `queryByTitle` this would
+    // pass VACUOUSLY, green because the attribute exists nowhere rather than
+    // because the icon is absent, and it would not catch a reintroduction.
+    expect(screen.queryByLabelText('From your brief')).toBeNull()
   })
 
   // A16: source='user' → no provenance icon
@@ -1016,16 +976,16 @@ describe('FactorNode — QA Brief A-series', () => {
       observedState: { value: 0.7, source: 'user' },
     })
     expect(screen.queryByTitle('Generated from your brief')).toBeNull()
-    expect(screen.queryByTitle('Estimated by Olumi')).toBeNull()
+    expect(screen.queryByLabelText('Estimated by Olumi')).toBeNull()
     expect(screen.queryByText('Set by you')).toBeNull()
   })
 
   // A17: Contextual value text + science icon are separate elements
   it('A17: contextual value text and science icon are separate elements', () => {
     vi.mocked(useScienceIcons).mockReturnValue([{
-      id: 'olumi-estimate', icon: Sparkles,
-      tooltip: 'Olumi estimated this value. May not match reality.',
-      action: 'Confirm or adjust the value for Item', colour: 'text-text-light', priority: 3,
+      id: 'evidence-gap', icon: FileQuestion,
+      tooltip: 'No evidence for this factor. Analysis will use defaults.',
+      action: 'Help me estimate Item', colour: 'text-warning', priority: 1,
     }])
     renderFactor({
       label: 'Item',
@@ -1035,16 +995,16 @@ describe('FactorNode — QA Brief A-series', () => {
     // Value text exists (contextual) — requires factor_type='binary' post Polish 4 review
     expect(screen.getByText('No item in place')).toBeDefined()
     // Science icon via aria-label
-    expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
+    expect(screen.getByLabelText(/No evidence for this factor/)).toBeDefined()
   })
 
   // A17b: value=0 + extractionType=inferred → contextual text + science icon;
   // B3 withholds the local-only confirmation action.
-  it('A17b: inferred zero keeps contextual science and inspect affordances without confirm value', () => {
+  it('A17b: inferred zero keeps contextual science and menu affordances without confirm value', () => {
     vi.mocked(useScienceIcons).mockReturnValue([{
-      id: 'olumi-estimate', icon: Sparkles,
-      tooltip: 'Olumi estimated this value. May not match reality.',
-      action: 'Confirm or adjust the value for Item', colour: 'text-text-light', priority: 3,
+      id: 'evidence-gap', icon: FileQuestion,
+      tooltip: 'No evidence for this factor. Analysis will use defaults.',
+      action: 'Help me estimate Item', colour: 'text-warning', priority: 1,
     }])
     renderFactor({
       label: 'Item',
@@ -1054,10 +1014,10 @@ describe('FactorNode — QA Brief A-series', () => {
     // Contextual value display — requires factor_type='binary' post Polish 4 review
     expect(screen.getByText('No item in place')).toBeDefined()
     // Science icon via aria-label
-    expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
+    expect(screen.getByLabelText(/No evidence for this factor/)).toBeDefined()
     expect(screen.queryByTitle('Confirm value')).toBeNull()
-    // Positive control: the canonical details path is still available.
-    expect(screen.getByTitle('Open details for Item')).toBeDefined()
+    // Positive control: the menu containing the details route remains available.
+    expect(screen.getByLabelText('More actions for Item')).toBeDefined()
   })
 
   // A18: Tier labels removed — non-binary values without raw_value show no display text

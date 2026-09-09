@@ -10,6 +10,8 @@
  *                       with 3PL overflow was left out. Ranks and comparative
  *                       percentages describe those 2 only."
  *   Analysis (New)     "Ahead in 60% of simulated futures."   ← and nothing else
+ *                        (that WAS the wording; the contest framing was removed 7 Sep — the
+ *                         scope defect this file pins is unchanged by the rename)
  *
  * Verified by full-text extraction of both panels, not by eye: the string
  * `Comparing 2 of your 3 options` had ZERO occurrences in the new surface.
@@ -115,7 +117,7 @@ const THREE_OPTIONS_TWO_ANALYSED = [
 describe('1 · a subset run shows the share WITH its scope, and names who was left out', () => {
   it('states the scope beside the number, from the sanctioned register', () => {
     const glance = glanceOf(withOptions(THREE_OPTIONS_TWO_ANALYSED))
-    expect(glance.winShare).toBe('Ahead in 60% of simulated futures')
+    expect(glance.winShare).toBe('Scored highest in 60% of simulated futures')
     expect(glance.comparisonScope.kind).toBe('partial')
 
     render(<AtAGlance
@@ -312,7 +314,7 @@ describe('2 · a whole-set run carries NO partial-scope qualification', () => {
     ]
     const glance = glanceOf(withOptions(all))
 
-    expect(glance.winShare).toBe('Ahead in 60% of simulated futures')
+    expect(glance.winShare).toBe('Scored highest in 60% of simulated futures')
     expect(glance.comparisonScope.kind).toBe('whole_set')
 
     render(<AtAGlance

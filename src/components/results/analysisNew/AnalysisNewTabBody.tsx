@@ -49,7 +49,7 @@ import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { openAskOlumi } from '../coaching/askOlumiStore'
 import { attentionNoteForRecommendation } from '../strengthen/recommendationAttention'
-import { openDecisionRecord } from '../modals'
+import { openDecisionRecord, useDecisionRecordForScenario, hasAnalysedOptions } from '../modals'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
@@ -67,6 +67,7 @@ import { WhatIWasGivenSection } from '../contextIntegrity/WhatIWasGivenSection'
 import { ModelStrip } from './sections/ModelStrip'
 import { AtAGlance } from './sections/AtAGlance'
 import { ModelHeldUp } from './sections/ModelHeldUp'
+import { DecisionRecorded } from './sections/DecisionRecorded'
 import { WhatWeChecked } from './sections/WhatWeChecked'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { ModelImplication } from './sections/ModelImplication'
@@ -220,8 +221,20 @@ export function selectAlsoWorthDoing<T extends { id: string }>(
    * reach its dismiss, so the focus card can never be advanced — one
    * recommendation pinned to the top of the panel for the life of the run.
    *
-   * The duplication is real and stays open. It costs a repeated paragraph to
-   * someone who OPENS the section; the exclusion cost a capability to everyone.
+   * ⚠ AMENDED 7 Sep 2026 — THE PARAGRAPH REPEAT IS CLOSED; THE ITEM REPEAT
+   * IS NOT. Superseded text: ~~It costs a repeated paragraph to someone who
+   * OPENS the section~~. `primaryIntervention` is now `{ id, label, title,
+   * signalCode? }` (`AtAGlance.tsx:129-154`) and the finding's paragraph
+   * (`signal`) is not among those fields, so the glance card cannot print it;
+   * the paragraph is left to the row, which renders
+   * `strengthenWhyLine(rec.signal, rec.whyNow)`. Guarded by
+   * `theFocusCardReferencesRatherThanReprints.spec.tsx`.
+   *
+   * What still sits in two places is the ITEM. This function keeps returning
+   * the promoted recommendation, so its `title` heads the glance card and the
+   * row below. The severity, the grounding, the source line and the
+   * disagreement controls stay row-only — the card's props carry none of them.
+   * That trade is unchanged: the exclusion cost a capability to everyone.
    * The right fix is the Focus/Also split the design pack draws, where the
    * affordances live on the focus card — which is an IA change, and is with
    * Paul.
@@ -503,6 +516,45 @@ export function AnalysisNewTabBody({
    */
   const nodes = useCanvasStore((state) => state.nodes)
   /**
+   * ⚠ THE SCENARIO ID IS SUBSCRIBED TO, NOT READ ONCE. A record captured in
+   * the modal must appear in the section below WITHOUT a tab switch, and a
+   * scenario change must swap the record with it — `useDecisionRecordForScenario`
+   * is the store's own reactive hook and both stores re-render this component.
+   * Reading `getState()` here would render a record from whichever scenario was
+   * current at mount, which is the read-back lying by one scenario.
+   */
+  const currentScenarioId = useCanvasStore((state) => state.currentScenarioId)
+  const decisionRecord = useDecisionRecordForScenario(currentScenarioId)
+  /**
+   * ⚠⚠ THE DOOR'S GATE IS THE CAPTURE MODAL'S OWN PREDICATE, DERIVED — NOT
+   * RESTATED. `hasAnalysedOptions` is the function `DecisionRecordModal`
+   * builds its option list from, so the section cannot offer a capture the
+   * modal will then refuse. Restating `results.status === 'complete' && …`
+   * here would be a hand-maintained mirror of a predicate in another file
+   * (CLAUDE.md trap 12), and the two would drift the first time either moved.
+   *
+   * ⚠ `results.status`, NOT `isPreRun`. The two diverge on every rerun, error
+   * and cancellation — see `sections/DecisionRecorded.tsx`'s `canCapture`.
+   */
+  /**
+   * ⚠ `results?.` — THE OPTIONAL CHAIN IS LOAD-BEARING, NOT DEFENSIVE PADDING.
+   * `results` is typed non-nullable on the store, and the capture modal reads
+   * `s.results.status` unguarded because it only ever mounts under a real one.
+   * This panel does not have that luxury: it is rendered against store states
+   * where `results` is genuinely `null`, and an unguarded read throws during
+   * React's render phase — taking the WHOLE panel down, not just this section.
+   * Measured, not supposed: the first version of this line crashed 11 tests in
+   * `successTargetSurfacesAgree.spec.tsx` with
+   * `Cannot read properties of null (reading 'status')`.
+   *
+   * `undefined` is the honest value here and needs no special case downstream —
+   * `hasAnalysedOptions` takes `string | undefined` and anything that is not
+   * `'complete'` means the same thing: no analysed option set to record
+   * against, so no door.
+   */
+  const resultsStatus = useCanvasStore((state) => state.results?.status)
+  const canCaptureDecision = hasAnalysedOptions(nodes, resultsStatus)
+  /**
    * ⚠⚠ "THE STRIP IS OFFERING THE CONTROL", NOT "THE MODEL HAS A GOAL" — and
    * the difference is a shipped regression, caught by independent review.
    *
@@ -729,8 +781,20 @@ export function AnalysisNewTabBody({
               ? {
                   id: glancePrimary.id,
                   label: glancePrimary.action.label,
-                  why: glancePrimary.signal,
+                  /* ⭐ `title`, NOT `signal`. The glance card used to be handed
+                     `signal` — the finding's paragraph — which the Strengthen
+                     row below also prints, because `strengthenWhyLine` begins
+                     with `signal` on every arm. The promoted card is a
+                     reference to the row, so it is handed the finding's NAME
+                     and the paragraph is left to the row that carries the
+                     severity, the grounding and the disagreement controls.
+                     Guarded by `theFocusCardReferencesRatherThanReprints`. */
+                  title: glancePrimary.title,
                   signalCode: glancePrimary.signalCode,
+                  /* ⚠ The CATALOGUE path renders this and the phase-3 path does
+                     not — see `AtAGlance`'s `signal` prop. Passed for both
+                     because the card, not the caller, owns which kind it is. */
+                  signal: glancePrimary.signal,
                 }
               : null
           }
@@ -758,12 +822,42 @@ export function AnalysisNewTabBody({
              the panel names the results that did not come back and then
              congratulates the reader on the model, in that order. */
           isProvisional={vm.status.isProvisional}
-          /* ⭐ THE REAL DECISION RECORD, not a chat prefill. `openDecisionRecord`
-             already exists and is what the Strengthen section's own succeeded
-             state commits through — routing this elsewhere would fork the one
-             act the product treats as committing. */
-          onRecord={openDecisionRecord}
+          /* ⚠⚠ `onRecord={openDecisionRecord}` STOOD HERE AND HAS MOVED DOWN.
+             The banner's predicate answers "did this model hold up?"; the act
+             answers "may I write down what we chose?" — and hanging the second
+             off the first made recording a decision reachable ONLY on a run
+             that held up, which is backwards (CLAUDE.md trap 21). The act is
+             now the section directly below, on its own gate. */
           testId="analysis-new-held-up"
+        />
+
+        {/* ── RECORD WHAT YOU DECIDED ───────────────────────────────────────
+            ⭐⭐ THE ACT, AND THE PANEL'S ONLY UNCONDITIONAL ONE. Every section
+            above reads the model. This is the one place the team writes down
+            what they will DO, and the one place a later session reads it back.
+
+            ⚠⚠ THE GATE CARRIES NOTHING ABOUT THE RUN'S QUALITY — see the
+            component header. `ModelHeldUp` above renders on almost no runs by
+            design; the read-back here renders on all of them, because the
+            quality of a result has no bearing on whether a team may record, or
+            re-read, the choice they made from it. A fragile or stale run is
+            when the reasoning is most worth keeping.
+
+            ⚠ WHAT IT DOES CARRY IS `canCapture`, AND ONLY OVER THE DOOR. The
+            first version gated on `!isPreRun` alone and offered a door onto a
+            modal that opens disabled during any rerun — see `canCapture`.
+
+            ⚠ THE RECORD IS SCENARIO-KEYED, NOT RUN-KEYED.
+            `useDecisionRecordForScenario` resolves `currentScenarioId` through
+            `resolveScenarioKey`, so it survives re-runs and returns to the same
+            scenario — which is the capability — and cannot distinguish the run
+            it was captured against. The section's copy is scoped accordingly. */}
+        <DecisionRecorded
+          isPreRun={vm.status.isPreRun}
+          canCapture={canCaptureDecision}
+          record={decisionRecord}
+          onRecord={openDecisionRecord}
+          testId="analysis-new-decision-record"
         />
 
         {/* ── WHAT WOULD CHANGE YOUR MIND ──────────────────────────────────
@@ -864,15 +958,28 @@ export function AnalysisNewTabBody({
             DUPLICATION rather than an oversight — recorded here because the
             obvious fix is wrong.
 
-            `glancePrimary` lifts one intervention into the glance card and
-            nothing removes it from this list, so the producer's `signal` — a
-            long sentence — renders TWICE in one panel, at 11px in the
-            glance and 12px here. Witnessed on the deployed build `b14cd478`
-            (guest, 291px dock, completed run, every section expanded):
-            "The ordering holds in about 68% of variations, but is exposed to
-            uncertainty around how your largest accounts would react to usage
-            pricing." — verbatim, in `analysis-new-glance-primary-intervention`
-            and again in `analysis-new-strengthen-why`.
+            ⚠ AMENDED 7 Sep 2026 — THE `signal` REPEAT IS CLOSED; THE ITEM
+            REPEAT IS NOT. Superseded text: ~~`glancePrimary` lifts one
+            intervention into the glance card and nothing removes it from this
+            list, so the producer's `signal` — a long sentence — renders TWICE
+            in one panel, at 11px in the glance and 12px here.~~ The
+            `primaryIntervention` call site above now hands the card
+            `title: glancePrimary.title`, and the card's prop type
+            (`AtAGlance.tsx:129-154`) has no `signal` field, so the card cannot
+            print the paragraph.
+
+            The capture below is kept as the record of the build it was taken
+            on — it is history from this date, not current behaviour. Witnessed
+            on the deployed build `b14cd478` (guest, 291px dock, completed run,
+            every section expanded): "The ordering holds in about 68% of
+            variations, but is exposed to uncertainty around how your largest
+            accounts would react to usage pricing." — verbatim, in
+            `analysis-new-glance-primary-intervention` and again in
+            `analysis-new-strengthen-why`.
+
+            Still true, and why this comment stays: `glancePrimary` is not
+            removed from this list, so the finding's `title` heads both the
+            glance card and a row here.
 
             ⚠⚠ FILTERING THE PROMOTED ROW OUT WAS TRIED AND REVERTED. On a run
             with exactly ONE intervention it empties this section completely —
