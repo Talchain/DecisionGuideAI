@@ -86,13 +86,13 @@ import { edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { resolveGoalTarget } from '../domain/goalTarget'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
-import { buildManualGoalTarget } from '../conversation/manualGoalTarget'
 import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
 } from '../mutations/mutationAuthority'
 import { ValueProvenanceKey } from './ValueProvenanceKey'
 import { ModelOutline } from './ModelOutline'
+import { unproposableDraftReason } from './ModelRowView'
 import { ModelDetailRegion } from './ModelDetailRegion'
 import { RepairQueueList } from './RepairQueueList'
 import { REPAIR_QUEUE } from './rowPresentation'
@@ -575,10 +575,44 @@ export function ModelTabV2Panel({
     return new Map<string, EditCommitState>([[edit.rowId, state]])
   }, [edit])
 
+  /**
+   * ⚠ SELECTING A DIFFERENT ROW ABANDONS AN OPEN INTERVENTION DRAFT. See
+   * `interventionEdit`'s declaration: a draft outliving its option is a number
+   * shown in a box that no longer addresses it.
+   */
+  const selectRow = useCallback((id: string) => {
+    setSelectedId(prev => {
+      if (prev !== id) setInterventionEdit(null)
+      return id
+    })
+  }, [])
+
   const beginEdit = useCallback(
     (rowId: string) => {
       const row = rows.find(r => r.id === rowId)
       if (!row) return
+
+      /*
+       * ⭐⭐ EDITING A ROW SELECTS IT — AND WITHOUT THIS LINE THE DETAIL REGION
+       * IS UNREACHABLE FROM THE EDITOR, WHICH IS WHERE THE ESTIMATE NOW LIVES.
+       *
+       * MEASURED, not reasoned about: the value control calls
+       * `e.stopPropagation()` (it must — the click opens an editor rather than
+       * selecting), so it never reached the row's `onClick={() => onSelect(...)}`
+       * and `model-detail-v2` stayed ABSENT FROM THE DOM while the user typed.
+       * The detail region renders on `selectedRow !== null`, so surfacing
+       * anything there for an editing user was surfacing it where they were not
+       * looking — a capability that is deployed, mounted, and not reachable.
+       *
+       * ⚠ IT ROUTES THROUGH `selectRow`, NEVER THROUGH `setSelectedId`. A second
+       * copy of "select this row" would drop the intervention-draft clearing
+       * that `selectRow` owns, and a draft outliving its option is a number in a
+       * box that no longer addresses it.
+       *
+       * ⚠ THE SAME-ROW CASE COSTS NOTHING: `selectRow` clears the intervention
+       * draft only when the selection actually MOVES.
+       */
+      selectRow(rowId)
 
       /*
        * ⚠ A RELATIONSHIP ROW SEEDS FROM ITS EDGE, NOT FROM A NODE. `rowId` is an
@@ -637,7 +671,7 @@ export function ModelTabV2Panel({
         from: row.primaryValue ?? 'Not set',
       })
     },
-    [rows, nodes, edges, authority],
+    [rows, nodes, edges, authority, selectRow],
   )
 
   const changeDraft = useCallback((rowId: string, draft: string, unit?: string) => {
@@ -647,11 +681,20 @@ export function ModelTabV2Panel({
   const proposeEdit = useCallback((rowId: string) => {
     setEdit(prev => {
       if (!prev || prev.rowId !== rowId) return prev
-      if (prev.unit !== undefined && !buildManualGoalTarget(rowId, prev.draft, prev.unit)) return prev
-      // Intent must parse before it can be proposed. An unparseable draft
-      // stays in `editing` — nothing to confirm, nothing to send.
-      const num = parseFloat(prev.draft)
-      if (!Number.isFinite(num)) return prev
+      /*
+       * Intent must parse before it can be proposed. An unparseable draft stays
+       * in `editing` — nothing to confirm, nothing to send.
+       *
+       * ⚠⚠ THE CONDITIONS ARE UNCHANGED; WHAT CHANGED IS THAT THE ROW CAN NOW
+       * READ THEM. They used to be two inline `return prev` arms here, so the
+       * refusal existed only inside this callback and the user got no signal of
+       * any kind: type something invalid, press Enter, nothing happens.
+       * `unproposableDraftReason` IS those two arms, in the same order, moved
+       * to a function both this guard and the row's message call — one
+       * derivation, so a control that offers to advance and a host that refuses
+       * to cannot disagree.
+       */
+      if (unproposableDraftReason(rowId, prev.draft, prev.unit) !== null) return prev
       return { ...prev, phase: 'proposed' }
     })
   }, [])
@@ -1014,18 +1057,6 @@ export function ModelTabV2Panel({
         : prev,
     )
   }, [interventionEdit?.awaitingFreshBase, lastServerGraphHash])
-
-  /**
-   * ⚠ SELECTING A DIFFERENT ROW ABANDONS AN OPEN INTERVENTION DRAFT. See
-   * `interventionEdit`'s declaration: a draft outliving its option is a number
-   * shown in a box that no longer addresses it.
-   */
-  const selectRow = useCallback((id: string) => {
-    setSelectedId(prev => {
-      if (prev !== id) setInterventionEdit(null)
-      return id
-    })
-  }, [])
 
   return (
     <section

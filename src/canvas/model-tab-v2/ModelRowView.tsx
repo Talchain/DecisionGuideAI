@@ -71,6 +71,8 @@ import {
   STRENGTH_BAND_MIDPOINTS,
   getStrengthBand,
 } from '../components/model-tab/strengthBands'
+import { buildManualGoalTarget } from '../conversation/manualGoalTarget'
+import { statedTargetNumber } from '../domain/goalTarget'
 import type { EditCommitState, DetailTier, ModelRow } from './types'
 import { splitEffectLabel } from './effectDirection'
 import { directionToneClass } from '../components/model-tab/utils'
@@ -949,6 +951,67 @@ function bandReadback(draft: string): string {
   return getStrengthBand(n)
 }
 
+/**
+ * ⭐⭐ WHY THIS DRAFT CANNOT BE REVIEWED YET — or `null` when it can.
+ *
+ * ⚠⚠ THIS IS THE HOST'S OWN GUARD, NOT A SECOND OPINION ABOUT IT.
+ * `ModelTabV2Panel.proposeEdit` CALLS THIS FUNCTION. Before it existed the
+ * panel's guard was inline and the row had nothing, so the whole failure was:
+ * type something unparseable, press Enter, and NOTHING WHATEVER HAPPENS — no
+ * error, no state change, no feedback of any kind. Measured on deployed
+ * `9748b336`.
+ *
+ * A row that computed its OWN idea of "invalid" would be this estate's
+ * signature defect wearing a helpful message: two derivations of one question
+ * that agree today and diverge on the first input nobody thought of. So the
+ * BLOCK/ALLOW verdict has exactly one source — the same two conditions, in the
+ * same order, that the panel used inline:
+ *
+ *     if (unit !== undefined && !buildManualGoalTarget(...)) refuse
+ *     if (!Number.isFinite(parseFloat(draft)))               refuse
+ *
+ * ⚠ AND THE MESSAGE IS CHOSEN **AFTER** THE VERDICT, NEVER INSTEAD OF IT.
+ * `statedTargetNumber` and `unit.trim()` are consulted only once
+ * `buildManualGoalTarget` has ALREADY refused, purely to say which refusal it
+ * was. They cannot change whether the edit advances, so a drift between them
+ * and the builder can at worst produce a vaguer sentence — never a control that
+ * lets through what the host will reject, which is the failure mode that
+ * matters.
+ *
+ * ⚠ THE GOAL ARM SUBSUMES THE `parseFloat` ARM RATHER THAN SKIPPING IT.
+ * `statedTargetNumber` is an ANCHORED numeric-literal test, strictly narrower
+ * than `parseFloat`, so any draft `buildManualGoalTarget` accepts is one
+ * `parseFloat` also reads as finite. Returning `null` here therefore means both
+ * of the host's conditions pass, not just the first.
+ *
+ * ⚠ NOT THE "SILENCE, NOT A DISABLED CONTROL" RULING (see this file's header).
+ * That ruling is about rows with NO WRITER, where a per-row label would rebuild
+ * the wall of identical inert strings the NOT SET rule removed. This is a
+ * different question: there IS a writer, the user is typing into it right now,
+ * and the sentence is specific to the characters they just entered. One string,
+ * on one row, about one draft.
+ */
+export function unproposableDraftReason(
+  rowId: string,
+  draft: string,
+  unit: string | undefined,
+): string | null {
+  if (unit !== undefined) {
+    if (buildManualGoalTarget(rowId, draft, unit) !== null) return null
+    const stated = statedTargetNumber(draft)
+    if (stated === null) return 'Enter a number to review this change'
+    if (stated <= 0) return 'Enter a target above zero to review this change'
+    if (unit.trim() === '') return 'Add a unit — £, % or points — to review this change'
+    // The builder refused for a reason this function cannot name. Say that,
+    // rather than inventing a cause — an invented cause is worse than a vague
+    // one, because the user acts on it.
+    return 'This target cannot be reviewed yet'
+  }
+  return Number.isFinite(parseFloat(draft))
+    ? null
+    : 'Enter a number to review this change'
+}
+
 function ValueCell({
   row,
   commit,
@@ -1015,6 +1078,14 @@ function ValueCell({
         // Live host: a real input. The draft is the HOST's state — this cell
         // renders it and reports keystrokes; it decides nothing.
         if (onDraftChange && onProposeEdit && onDiscardEdit) {
+          /*
+           * ⚠ DERIVED PER RENDER FROM THE DRAFT, HELD IN NO STATE. `EditCommitState`
+           * has no field for this and must not grow one: an error stored beside a
+           * draft can outlive the characters that caused it, which is how a row ends
+           * up asserting a refusal about a number the user has already fixed.
+           */
+          const blocked = unproposableDraftReason(row.id, commit.draft, commit.unit)
+          const blockedId = `${testid}-blocked`
           return (
             <span className="inline-flex flex-col items-start gap-1 min-w-0">
             <span
@@ -1221,6 +1292,89 @@ function ValueCell({
                       </button>
                     )
                   })}
+                </span>
+              )}
+
+              {/* ⭐⭐ THE ROUTE FORWARD, RENDERED. MEASURED ON DEPLOYED `9748b336`:
+                  with `0.4` typed into a factor row, the row's ONLY button was its
+                  own LABEL. No advance control, and nothing anywhere saying Enter
+                  was the way — visible text, `placeholder` and `title` were all
+                  checked and all absent.
+
+                  ⚠ THE EDITOR WAS NEVER BROKEN. `onKeyDown` above already maps
+                  Enter→propose and Escape→discard, and it still does: this adds a
+                  VISIBLE route to the same two callbacks and NO second key handler.
+                  A duplicated Enter handler would fire the propose twice, and the
+                  pill-focus note above records what happens when the keyboard and
+                  the pointer stop agreeing on this row.
+
+                  ⚠ VOCABULARY: `Review change` → `Confirm`. This beat REVIEWS; the
+                  `proposed` beat below CONFIRMS, keeps its existing `Confirm` /
+                  `Discard` chips and its "Not applied yet" caption, and is
+                  deliberately untouched. Nothing here may say "Saved": the model is
+                  unchanged until the authority acknowledges, and a label claiming
+                  otherwise is the silent-local-write defect one word at a time.
+
+                  ⚠ ITS OWN LINE, FOR THE REASON THE PILLS ARE ON THEIRS. The input
+                  row is contractually `shrink-0 whitespace-nowrap`
+                  (`rowAtomsDoNotWrap.spec`) because it hosts a field that must not
+                  be squeezed; two more bordered chips inline would reproduce the
+                  spill measured at 111.1px. The outer `flex-col` already exists for
+                  exactly this, and only this second line may wrap. */}
+              <span
+                className="flex flex-wrap items-center gap-1"
+                onClick={e => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  data-testid={`model-row-v2-${row.id}-review`}
+                  aria-label={`Review the new value for ${row.label}`}
+                  /* The reason is ASSOCIATED with the control, not duplicated into
+                     it: a screen reader reaching a disabled button is told why by
+                     the same sentence the sighted user is reading. */
+                  aria-describedby={blocked === null ? undefined : blockedId}
+                  disabled={blocked !== null}
+                  onClick={() => onProposeEdit(row.id)}
+                  className={`${typography.buttonSmall} border rounded px-2 py-0.5 ${
+                    blocked === null
+                      ? 'text-info border-info/50'
+                      : 'text-text-light border-panel-border'
+                  }`}
+                >
+                  Review change
+                </button>
+                <button
+                  type="button"
+                  data-testid={`model-row-v2-${row.id}-discard-edit`}
+                  aria-label={`Discard the new value for ${row.label}`}
+                  onClick={() => onDiscardEdit(row.id)}
+                  className={`${typography.buttonSmall} text-text-light border border-panel-border rounded px-2 py-0.5`}
+                >
+                  Discard
+                </button>
+              </span>
+
+              {/* ⭐⭐ AND WHY IT CANNOT GO YET — IN WORDS, ON SCREEN.
+                  `proposeEdit` returned `prev` unchanged on an unparseable draft:
+                  the user typed something invalid, pressed Enter, and the product
+                  did nothing at all. A refusal nobody can see is indistinguishable
+                  from a broken control.
+
+                  ⚠ VISIBLE TEXT, NOT A `title`. The estimate hint on this same row
+                  is the estate's own worked example of why: recoverable on POINTER
+                  HOVER is not recoverable for a keyboard or a touch user, and this
+                  sentence is needed in order to proceed at all.
+
+                  ⚠ NOT A LIVE REGION. It re-derives on every keystroke, so
+                  `role="status"` would announce a running commentary on typing.
+                  `aria-describedby` on the control puts it where it is asked for. */}
+              {blocked !== null && (
+                <span
+                  id={blockedId}
+                  data-testid={blockedId}
+                  className={`${typography.panelBody} text-text-light`}
+                >
+                  {blocked}
                 </span>
               )}
             </span>
