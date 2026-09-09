@@ -854,7 +854,41 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
       // Catching one instance of a class and announcing the class is fixed is
       // the defect; the scan that should have caught it was blind twice over
       // (see `modelTabNoRawIdFallback.sourceScan.spec.ts`).
-      basis: sourceBasis(obs?.source),
+      /**
+       * ⛔⛔ NULL FOR A NODE — THE PILL ABOVE IT ALREADY SAYS THIS, WORD FOR
+       * WORD, AND THE PANEL WAS SAYING IT TWICE.
+       *
+       * Witnessed on deployed `14276d5b` (guest, completed run, factor "Annual
+       * Platform Cost"), reading the rendered DOM:
+       *
+       *     y=693  h4    "Where it came from"
+       *     y=712  span  "User edited"            ← SourceProvenancePill
+       *     y=733  p     "Source: User edited"    ← this field, 21px below
+       *
+       * ⚠ IT IS IDENTICAL BY CONSTRUCTION, not by coincidence, so no fixture
+       * could ever show them differing. The row's `provenanceSource` is
+       * `obs?.source` (`:574`) and `sourceBasis` is
+       * `"Source: " + mapSourceToDisplay(obs?.source)` — the SAME field through
+       * the SAME classifier. They even vanish together:
+       * `mapSourceToDisplay(undefined)` returns null, so an unstamped factor
+       * renders neither.
+       *
+       * ⚠⚠ THIS IS THE RESIDUE OF THE F1 FIX, NOT A NEW DEFECT — and that is
+       * the instructive part. F1 was "the panel said BOTH, and they DISAGREED":
+       * the pill humanised the source to "AI estimate" while this line printed
+       * the wire token `Source: cee_inference`. The fix routed this line through
+       * the same classifier, which made them AGREE. Nobody then asked whether
+       * the panel should say it at all. A fix measured against "do they match?"
+       * passes; the question the reader has — "why am I reading this twice?" —
+       * was never the metric (CLAUDE.md trap 23).
+       *
+       * ⚠ THE EDGE BRANCH IS DIFFERENT AND IS DELIBERATELY UNTOUCHED. An edge's
+       * pill reads `data.weightSource` (`:650`) while its basis reads
+       * `data.provenance` — TWO different fields carrying two different facts,
+       * so there the second line earns its place. Nulling both would have been
+       * the tidy, wrong change.
+       */
+      basis: null,
       adjustments: [],
       // ⚠ The NAVIGATION id stays the edge's; the LABEL is the target element's
       // name. Rendering `e.target` here put a raw wire id in the detail region's
