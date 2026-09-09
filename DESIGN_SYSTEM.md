@@ -266,6 +266,14 @@ These controls appear on hover, focus or selection and are not persistent
 status indicators. Unknown provenance, review or contributor counts must never
 be inferred from their presence.
 
+**Metric explanations:** A node metric with a scale, provenance or unset-state
+explanation uses the same positioned tooltip and 300 ms delay. The metric row
+is keyboard-focusable, Escape dismisses its explanation, and the body preview
+yields while that row is active. Preserve the visible label, value and bar;
+the accessible name includes the value as well as its meaning. A row without
+an explanation adds no tab stop. Do not encode these explanations only in a
+native `title`, or add a separate persistent icon to expose them.
+
 **Option inspector title:** Show the full name at the existing header type
 size. Wrap words instead of truncating; place Back to results, technical detail
 and Close beside the Option type label so they do not compete with the name.
