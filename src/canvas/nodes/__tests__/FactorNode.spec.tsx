@@ -7,7 +7,7 @@
  * T6: Sensitivity/Evidence tier labels (results mode)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 
@@ -657,7 +657,7 @@ describe('FactorNode', () => {
   // (set-relative) basis, FactorNode must pass that provenance through so the
   // pill discloses "top driver always shows 100%" instead of reading as an
   // absolute causal share.
-  it('passes influence provenance to MetricPills so the pill discloses the relative scale (C4)', () => {
+  it('discloses the relative influence scale on the Standard row (C4)', async () => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
       selector({
         hoveredOptionId: null,
@@ -698,10 +698,11 @@ describe('FactorNode', () => {
     // a per-set-normalised figure onto a MORE prominent surface while dropping
     // the sentence that stops it being read as an absolute. This test is the
     // thing that would have caught that, so it is re-pointed, never relaxed.
-    // Both channels stay pinned: `title` for pointer users, and the phrase for
-    // assistive tech, which the row renders screen-reader-only.
+    // Both channels stay pinned: the opened tooltip and the graphic's
+    // accessible name, now including the value as well as its scale.
     const row = screen.getByTestId('factor-influence-row')
-    expect(row.getAttribute('title')).toBe(
+    fireEvent.mouseEnter(row)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
       'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
     )
     expect(row.textContent).toContain('Influence')
@@ -713,11 +714,9 @@ describe('FactorNode', () => {
     // against…" and the other said "Influence, relative to the strongest…" for
     // one number on one card. Both still come from that one module, so neither
     // can drift; they now also agree with each other.
-    expect(
-      screen.getByText(
-        'Influence, relative to the strongest factor. The top driver always shows 100%',
-      ),
-    ).toBeDefined()
+    expect(row).toHaveAccessibleName(
+      'Influence: 100%. Influence, relative to the strongest factor. The top driver always shows 100%',
+    )
   })
 
   // -------------------------------------------------------------------------
@@ -788,8 +787,8 @@ describe('FactorNode', () => {
   // level up from the pill ('Influence' + DataBar + 'NN%') and had NO basis
   // disclosure at all — the identical misread class the pill fix addressed.
   // The bar's accessible name carries the basis (its role="progressbar"
-  // announces the value via aria-valuenow); `title` carries it for pointer
-  // users. Both bases pinned, plus the fail-closed no-provenance case.
+  // announces the value via aria-valuenow); the tooltip carries it for pointer
+  // and keyboard users. Both bases pinned, plus the fail-closed no-provenance case.
   // -------------------------------------------------------------------------
   describe('detailed-view Influence row discloses the basis (review fix 4)', () => {
     function renderDetailedWithProvenance(
@@ -828,7 +827,7 @@ describe('FactorNode', () => {
       return renderFactor({ label: 'Revenue', type: 'factor', observedState: { value: 0.5 } })
     }
 
-    it('fallback basis: the row discloses that the top driver always shows 100%', () => {
+    it('fallback basis: the row discloses that the top driver always shows 100%', async () => {
       renderDetailedWithProvenance('normalised_elasticity', 1)
       const bar = screen.getByRole('progressbar', {
         name: 'Influence, relative to the strongest factor. The top driver always shows 100%',
@@ -836,19 +835,23 @@ describe('FactorNode', () => {
       expect(bar.getAttribute('aria-valuenow')).toBe('100')
       // Pointer users get the same disclosure on the row.
       const row = screen.getByText('Influence').closest('div')
-      expect(row?.getAttribute('title')).toBe(
+      expect(row).not.toBeNull()
+      fireEvent.mouseEnter(row!)
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(
         'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
       )
     })
 
-    it('producer basis: the row discloses the set-relative scale, like its sibling', () => {
+    it('producer basis: the row discloses the set-relative scale, like its sibling', async () => {
       renderDetailedWithProvenance('influence_score', 0.6)
       const bar = screen.getByRole('progressbar', {
         name: 'Influence, relative to the strongest factor. The top driver always shows 100%',
       })
       expect(bar.getAttribute('aria-valuenow')).toBe('60')
       const row = screen.getByText('Influence').closest('div')
-      expect(row?.getAttribute('title')).toBe(
+      expect(row).not.toBeNull()
+      fireEvent.mouseEnter(row!)
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(
         // ⚠ THE PRODUCER ARM NAMES ITS OWN QUANTITY, and the two arms are
         // deliberately NOT one string — #1221's positive control forbids
         // collapsing them and is right: the scale is shared, the measurement

@@ -1,5 +1,7 @@
-import type { ReactNode } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import { typography } from '../../../styles/typography'
+import Tooltip from '../../../components/Tooltip'
+import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 
 /**
  * ⭐ ONE METRIC ROW FOR EVERY NODE TYPE.
@@ -50,10 +52,10 @@ interface NodeMetricRowCommon {
    * glyph moved: a visual change taking an explanation away with nothing on
    * screen to notice it.
    *
-   * ⚠ A `title` IS NOT ENOUGH ON ITS OWN and is not offered as one — it is
-   * unreachable by keyboard on a non-focusable row and absent on touch, which
-   * is why `phrase` carries the meaning for assistive tech independently.
-   * Callers that need a basis disclosed should pass BOTH.
+   * This prop is explanation content, not a native title attribute. The row
+   * exposes it through the shared positioned tooltip on hover and focus;
+   * the accessible name combines the displayed value with `phrase` (or this
+   * explanation when no phrase was supplied).
    */
   title?: string
   testId?: string
@@ -144,6 +146,16 @@ export function NodeMetricRow({
   testId,
   unsetText,
 }: NodeMetricRowProps) {
+  const disclosureProps = title ? {
+    role: 'img',
+    'aria-label': `${label}: ${formatted ?? unsetText ?? ''}. ${phrase || title}`,
+    tabIndex: 0,
+    'data-node-tooltip': true,
+  } : {}
+  const disclose = (row: ReactElement) => title ? (
+    <Tooltip asChild content={title} delay={NODE_TOOLTIP_DELAY_MS}>{row}</Tooltip>
+  ) : row
+
   // Absence is not zero. A node with no measurement renders no row rather than
   // a full-width empty track, which would read as "measured, and it is nought".
   //
@@ -153,8 +165,8 @@ export function NodeMetricRow({
   // figure. See `unsetText` in the props above for why there is no empty track.
   if (value === null || !Number.isFinite(value)) {
     if (unsetText === undefined || unsetText.length === 0) return null
-    return (
-      <div className="mt-1 flex items-center gap-1.5" data-testid={testId} title={title}>
+    return disclose(
+      <div className="mt-1 flex items-center gap-1.5" data-testid={testId} {...disclosureProps}>
         <span
           className={`${typography.edgeLabel} min-w-[3.5rem] shrink-0 text-text-light`}
           aria-hidden="true"
@@ -171,15 +183,15 @@ export function NodeMetricRow({
         >
           {unsetText}
         </span>
-        {phrase ? <span className={typography.screenReaderOnly}>{phrase}</span> : null}
+        {phrase && !title ? <span className={typography.screenReaderOnly}>{phrase}</span> : null}
       </div>
     )
   }
 
   const pct = Math.max(0, Math.min(100, Math.round(value * 100)))
 
-  return (
-    <div className="mt-1 flex items-center gap-1.5" data-testid={testId} title={title}>
+  return disclose(
+    <div className="mt-1 flex items-center gap-1.5" data-testid={testId} {...disclosureProps}>
       {/* ⚠ SENTENCE CASE, AND THE DESIGN-SYSTEM GUARD WAS RIGHT TO INSIST.
           The first cut set a text-transform here and argued it carefully:
           transform in CSS rather than in the string, so `textContent` keeps the
@@ -275,7 +287,7 @@ export function NodeMetricRow({
         {formatted}
       </span>
       {trailing}
-      {phrase ? <span className={typography.screenReaderOnly}>{phrase}</span> : null}
+      {phrase && !title ? <span className={typography.screenReaderOnly}>{phrase}</span> : null}
     </div>
   )
 }

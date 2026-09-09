@@ -29,6 +29,8 @@ import { resolveFactorPriorRange } from './shared/factorPriorRange'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
+import Tooltip from '../../components/Tooltip'
+import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
@@ -690,33 +692,38 @@ export const FactorNode = memo((props: NodeProps) => {
           {/* Review fix 4: the detailed view renders the SAME display-model
               number as the Standard-view pill one level up, so it carries the
               same misread risk — on the fallback basis the top driver shows
-              100% BY CONSTRUCTION. Disclose the basis here too: `title` for
-              pointer users, and the DataBar's accessible name (its
+              100% BY CONSTRUCTION. Disclose the basis through the shared
+              hover/focus tooltip and the DataBar's accessible name (its
               role="progressbar" announces the value via aria-valuenow, so the
               name carries the basis only). Copy from the ONE shared module, so
               this row cannot drift from the pill or the panel. Fail-closed: no
               provenance means no influence number is rendered. */}
           {influencePct != null && displayMetadata.influenceProvenance != null && (
-            <div
-              className="flex items-center gap-1.5"
-              title={influenceExplanation(
-                displayMetadata.influenceProvenance,
-                displayMetadata.influenceImportanceBasis,
-              )}
-            >
-              <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>{METRIC_NOUN.influence}</span>
-              <div className="flex-1 min-w-0">
-                <DataBar
-                  value={influencePct / 100}
-                  label={influenceBarAriaLabel(
-                    displayMetadata.influenceProvenance,
-                    displayMetadata.influenceImportanceBasis,
-                  )}
-                  colour="info"
-                />
+            <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={influenceExplanation(
+              displayMetadata.influenceProvenance,
+              displayMetadata.influenceImportanceBasis,
+            )}>
+              <div
+                className="flex items-center gap-1.5"
+                role="group"
+                aria-label={METRIC_NOUN.influence}
+                tabIndex={0}
+                data-node-tooltip
+              >
+                <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>{METRIC_NOUN.influence}</span>
+                <div className="flex-1 min-w-0">
+                  <DataBar
+                    value={influencePct / 100}
+                    label={influenceBarAriaLabel(
+                      displayMetadata.influenceProvenance,
+                      displayMetadata.influenceImportanceBasis,
+                    )}
+                    colour="info"
+                  />
+                </div>
+                <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{influencePct}%</span>
               </div>
-              <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{influencePct}%</span>
-            </div>
+            </Tooltip>
           )}
           {/* Confidence — gated upstream by the shared display policy
               (components/results/driverConfidenceDisplayPolicy): `confidencePct`
@@ -725,29 +732,34 @@ export const FactorNode = memo((props: NodeProps) => {
               flipped the disclosure below travels WITH the number — the bar can
               never appear bare. */}
           {confidencePct != null && confidencePct > 0 && (
-            <div
-              className="flex items-center gap-1.5"
-              title={confidenceDisclosure ?? undefined}
-            >
-              <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>Confidence</span>
-              <div className="flex-1 min-w-0">
-                <DataBar
-                  value={confidencePct / 100}
-                  label={confidenceDisclosure ? `Confidence. ${confidenceDisclosure}` : 'Confidence'}
-                  colour="info"
-                />
+            <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={confidenceDisclosure ?? 'Confidence'}>
+              <div
+                className="flex items-center gap-1.5"
+                role="group"
+                aria-label="Confidence"
+                tabIndex={0}
+                data-node-tooltip
+              >
+                <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>Confidence</span>
+                <div className="flex-1 min-w-0">
+                  <DataBar
+                    value={confidencePct / 100}
+                    label={confidenceDisclosure ? `Confidence. ${confidenceDisclosure}` : 'Confidence'}
+                    colour="info"
+                  />
+                </div>
+                <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{confidencePct}%</span>
+                {displayMetadata.confidenceIsDefaulted && (
+                  <span
+                    className={`${typography.edgeLabel} text-text-light shrink-0`}
+                    aria-hidden="true"
+                    data-testid="factor-node-confidence-default-estimate"
+                  >
+                    *
+                  </span>
+                )}
               </div>
-              <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{confidencePct}%</span>
-              {displayMetadata.confidenceIsDefaulted && (
-                <span
-                  className={`${typography.edgeLabel} text-text-light shrink-0`}
-                  aria-hidden="true"
-                  data-testid="factor-node-confidence-default-estimate"
-                >
-                  *
-                </span>
-              )}
-            </div>
+            </Tooltip>
           )}
         </div>
       )}
@@ -960,8 +972,8 @@ export const FactorNode = memo((props: NodeProps) => {
 
         {/* Post-analysis: MetricPills — the Standard-view compact influence/
             confidence summary. Lane C4: provenance passes through so the pill
-            discloses its basis (set-relative top ≡ 100% vs absolute producer
-            score). P2.9 item 4 (factor-badge de-noise): gated to Standard only —
+            discloses its set-relative basis (producer structural score or
+            normalised elasticity). P2.9 item 4 (factor-badge de-noise): gated to Standard only —
             in Detailed the Layer-2 Influence/Confidence bars below carry the same
             two numbers with more context, so the pills were a duplicate % channel
             in the densest view. No information is lost; the bars remain. */}
@@ -974,8 +986,8 @@ export const FactorNode = memo((props: NodeProps) => {
 
             ⚠ THE BASIS DISCLOSURE TRAVELS WITH IT, on both channels. On the
             fallback basis this number is per-set normalised — the top driver
-            reads 100% BY CONSTRUCTION — so `title` carries the explanation for
-            pointer users and `phrase` carries it for assistive tech, both from
+            reads 100% BY CONSTRUCTION — the positioned tooltip exposes the
+            explanation on hover/focus and `phrase` names its meaning, both from
             `influenceScaleCopy`, the one module `DriversSection` and the
             Detailed-view bars also read. Fail-closed is preserved structurally:
             `influencePct` is only passed when provenance is non-null, so no
