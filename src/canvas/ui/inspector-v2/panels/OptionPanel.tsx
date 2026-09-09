@@ -40,11 +40,41 @@ import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProve
 import type { EdgeValueDisplay } from '../../../domain/edgeValueProvenance'
 import { resolveElementLabel, resolveFirstStatedLabel } from '../../../domain/elementLabel'
 
+/**
+ * ⭐ ONE SENTENCE, ONCE, AT THE TOP OF THE LIST — never repeated per row.
+ *
+ * A refusal printed against every factor turns a useful inventory into a wall
+ * of the same message, and the inventory is the part worth keeping: a reader who
+ * cannot edit still learns which factors this option could act on and which are
+ * already spoken for.
+ *
+ * ⚠ IT NAMES A ROUTE THAT WORKS. `INSPECTOR_READ_ONLY_REASON` already points at
+ * the Model tab for supported factor values; this is its short form for the one
+ * place a reader is looking at a list of factors and wondering why none of them
+ * responds. Copy that promises an affordance is honest only while the affordance
+ * answers — the lesson from the goal chip's withdrawn "add one".
+ */
+export const OPTION_EDIT_ROUTE_NOTE =
+  'Read-only here. Use the Model tab to change a factor value, or ask Olumi.'
+
 export const OptionPanel = memo(function OptionPanel({
   nodeId,
   techMode,
   onClose,
   onNavigate,
+  /**
+   * ⛔ A DUTY, NOT A PERMISSION — see `types.ts`. The Router has stopped
+   * wrapping this panel so navigation, disclosure and coaching can work; in
+   * exchange this panel fences EVERY control that reaches `mutations.*` behind
+   * its own disabled fieldset. It never enables a write.
+   *
+   * ⚠ THE FENCE IS WRITTEN AGAINST THE COMPONENT TREE, NOT THIS FILE. Two of
+   * the five writers live in `OptionAdvancedEditor`, mounted through
+   * `TechnicalDisclosure` at the bottom of this component — a review caught
+   * them after I enumerated only the `mutations.*` calls spelled here and
+   * called that "every control in OptionPanel". It was not.
+   */
+  readOnly = false,
 }: InspectorPanelProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
@@ -102,7 +132,36 @@ export const OptionPanel = memo(function OptionPanel({
   )
 
   // Description — EmptyDescriptionPrompt pattern
+  const descriptionRef = useRef<HTMLTextAreaElement>(null)
   const [description, setDescription] = useState(descriptionBody)
+
+  /**
+   * ⭐⭐ THE SAME WRONG-OPTION-VALUE FAMILY AS #1343, ONE LEVEL UP — AND I FIXED
+   * THE ROW WITHOUT LOOKING AT THE PANEL AROUND IT.
+   *
+   * `description` is seeded ONCE at mount and never synced, so any change to
+   * `descriptionBody` that does not come from this textarea left the buffer
+   * showing text the model no longer holds. `draftingNotes` beside it IS derived
+   * and updates, so the two came apart: one option's description under another's
+   * notes.
+   *
+   * TWO CAUSES, and they need different instruments — exactly as they did for the
+   * intervention row:
+   *  1. SWITCHING OPTIONS. An identity problem, fixed at the CALLER: the Router
+   *     now keys the panel by `nodeId`, so a different node is a different
+   *     instance rather than the same one wearing new props.
+   *  2. THE SAME option's description changing underneath us — a chat edit, an
+   *     undo, a CEE absorption note. No key change can catch that; this effect
+   *     does.
+   *
+   * GUARDED ON FOCUS, so a re-seed cannot eat what the user is mid-way through
+   * typing. `document.activeElement` is the check because it is the same question
+   * the browser is already answering.
+   */
+  useEffect(() => {
+    if (descriptionRef.current && document.activeElement === descriptionRef.current) return
+    setDescription(descriptionBody)
+  }, [descriptionBody])
   const [isEditingDescription, setIsEditingDescription] = useState(false)
 
   const commitDescription = useCallback(
@@ -314,8 +373,33 @@ export const OptionPanel = memo(function OptionPanel({
           </div>
         )}
 
-        {description || isEditingDescription ? (
+        {/* WRITER 1 of 5 — `setDescription`. */}
+        <fieldset disabled={readOnly} className="contents" data-writer-fence="description">
+        {/* ⛔ READ-ONLY READS THE RECORD, NEVER THE EDIT BUFFER. The buffer is
+            an editing artefact; showing it to a reader who cannot edit offers
+            them a value whose provenance is "whatever was last typed into a
+            control that is no longer there". `descriptionBody` is what the model
+            holds. */}
+        {readOnly ? (
+          descriptionBody ? (
+            <p
+              className={`${typography.panelBody} text-text-body whitespace-pre-wrap m-0`}
+              data-testid="option-description-readonly"
+            >
+              {descriptionBody}
+            </p>
+          ) : (
+            /* ⚠ NO `onStartEditing`, AND THE COMPONENT ALREADY KNEW HOW.
+                `EmptyDescriptionPrompt` treats the prop as optional and drops
+                `role="button"`, `tabIndex` and its click handler when it is
+                absent — it was built for exactly this case. Passing `() => {}`
+                turned it back into a button that answers nothing: a tab stop
+                announcing as an action, doing nothing when pressed. */
+            <EmptyDescriptionPrompt placeholder={DESCRIPTION_PLACEHOLDERS.option} />
+          )
+        ) : description || isEditingDescription ? (
           <textarea
+            ref={descriptionRef}
             value={description}
             onChange={e => setDescription(e.target.value)}
             onBlur={() => {
@@ -334,6 +418,7 @@ export const OptionPanel = memo(function OptionPanel({
             onStartEditing={() => setIsEditingDescription(true)}
           />
         )}
+        </fieldset>
       </PanelGroup>
 
       {/* ── Input group (what this option changes) ─────────────── */}
@@ -401,7 +486,7 @@ export const OptionPanel = memo(function OptionPanel({
                 provenanceSource={iv.provenanceSource}
                 onChange={v => mutations.setIntervention(iv.factorId, v)}
                 onNavigate={() => onNavigate(iv.factorId)}
-                disabled={false}
+                disabled={readOnly}
                 techMode={techMode}
                 /* normalisedValue intentionally omitted — raw system values
                    live in TechnicalDisclosure via OptionAdvancedEditor. */
@@ -411,16 +496,44 @@ export const OptionPanel = memo(function OptionPanel({
 
           {/* Add a change — inside PrimaryControlCard as the list footer */}
           <div className="relative mt-1" ref={dropdownRef}>
+            {/* ⭐ NOT FENCED, AND RENAMED. This toggle mutates a `useState` and
+                nothing else, so the fence has no business reaching it — and
+                under the blanket wrap it was inert, which meant the list could
+                not even be OPENED. The affordance was dead twice over: you
+                could not click an item, and you could not see what the items
+                were.
+
+                "Add a change" promised an action this route cannot perform.
+                "Explore other factors" names what it does do — and what it
+                still buys a reader who cannot edit: which factors this option
+                could act on, and which are already spoken for. That is content
+                worth keeping, which is why the list opens rather than hides. */}
             <button
               type="button"
               onClick={() => setShowDropdown(v => !v)}
               className={`${typography.panelMeta} w-full py-2 -mx-3 px-3 border-t border-dashed border-panel-border text-info hover:bg-panel-hover transition-colors`}
+              data-testid="option-explore-factors"
             >
-              + Add a change
+              Explore other factors
             </button>
 
             {showDropdown && (
               <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-panel border border-panel-border rounded-lg shadow-lg overflow-hidden max-h-48 overflow-y-auto">
+                {/* ⚠ ONE explanation of the edit route, at the top of the
+                    list — never an error repeated on every row. A message per
+                    item would turn a useful inventory into a wall of the same
+                    refusal, which is the density Paul has twice asked us to
+                    stop spending. */}
+                {readOnly && controllableFactors.length > 0 && (
+                  <p
+                    className={`${typography.panelMeta} text-text-light px-3 py-2 border-b border-panel-border m-0`}
+                    data-testid="option-explore-factors-route"
+                  >
+                    {OPTION_EDIT_ROUTE_NOTE}
+                  </p>
+                )}
+                {/* WRITERS 3 of 5 — each item calls `handleAddFactor`. */}
+                <fieldset disabled={readOnly} className="contents" data-writer-fence="add-factor">
                 {controllableFactors.length === 0 ? (
                   <div className={`${typography.panelMeta} text-text-light px-3 py-2`}>
                     No controllable factors in this model
@@ -448,6 +561,7 @@ export const OptionPanel = memo(function OptionPanel({
                     )
                   })
                 )}
+                </fieldset>
               </div>
             )}
           </div>
@@ -624,8 +738,16 @@ export const OptionPanel = memo(function OptionPanel({
       </PanelGroup>
 
       {/* ── Expert-only model detail ──────────────────────────── */}
+      {/* ⚠⚠ WRITERS 4 AND 5 OF 5, AND THE TWO A FILE-SCOPED SWEEP MISSES.
+          `OptionAdvancedEditor` calls `mutations.setIntervention` (:66) and
+          `mutations.setDescription` (:90). Neither is spelled in this file, and
+          my first audit of "every control in OptionPanel" reported them absent
+          — while the comment at the intervention call site above literally
+          names this component. Audit the tree, not the file. */}
       <TechnicalDisclosure visible={techMode}>
-        <OptionAdvancedEditor nodeId={nodeId} />
+        <fieldset disabled={readOnly} className="contents" data-writer-fence="advanced-editor">
+          <OptionAdvancedEditor nodeId={nodeId} />
+        </fieldset>
       </TechnicalDisclosure>
     </div>
   )

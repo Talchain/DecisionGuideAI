@@ -98,6 +98,20 @@ export const INTERVENTION_ROW_STRINGS = {
   referenceLabel: 'Recorded',
   /** Names the raw-units figure in the technical diagnostic line. */
   rawLabel: 'raw',
+  /**
+   * ⚠⚠ QUALIFIES EVERY NUMERIC FALLBACK — AND THE UNIT DOES NOT EXEMPT IT.
+   *
+   * This condition read `!displayValue && !unit`, which is the exact scale
+   * conflation the rest of this work removes, reintroduced in the guard against
+   * it. On the live capture the target is `0.49` and the factor's `unit` is
+   * `£` — but **that unit belongs to the recorded raw 59, not to the target**.
+   * So the one row that most needed the qualifier was the only row that did not
+   * get it, because a unit describing a different quantity suppressed it.
+   *
+   * A CEE-authored `display_value` is the only thing that exempts a number
+   * here, because it is the only thing that states its own frame.
+   */
+  modelValueQualifier: 'model value',
 } as const
 
 interface InterventionRowProps {
@@ -397,18 +411,67 @@ export function InterventionRow({
               </div>
             )}
           </div>
-          <input
-            ref={inputRef}
-            type="text"
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            disabled={disabled}
-            className={`${typography.panelBody} w-[110px] px-2 py-1 border rounded-lg text-center bg-panel ${
-              disabled ? 'border-panel-border text-text-light' : 'border-info'
-            }`}
-          />
+          {/*
+            ⭐⭐ A READ-ONLY TARGET READS AS A VALUE, NOT AS A BROKEN INPUT.
+
+            This was `<input disabled>` in every state — a greyed box with a
+            border and a cursor that does nothing. That shape makes a promise it
+            cannot keep: it invites a click, absorbs one, and teaches the reader
+            the product is broken rather than that this surface does not edit.
+
+            ⚠⚠ IT READS `currentValue`, THE RECORD — AND THE RATIONALE THAT
+            STOOD HERE ARGUED THE OPPOSITE, so it is quoted rather than dropped.
+            It said: *"THE DRAFT STATE IS DELIBERATELY STILL READ FROM.
+            Rendering `draft` rather than `currentValue` keeps ONE source for
+            what this row displays."* That reasoning is right about a row with
+            ONE surface and wrong here: `draft` is the EDIT BUFFER, and showing
+            a buffer to a reader who cannot edit offers a value whose provenance
+            is "whatever was last typed into a control that is no longer there".
+            The editable branch keeps the buffer and its focus guard; the
+            read-only branch reads the record. Same separation as the
+            description one component up.
+          */}
+          {disabled ? (
+            <span
+              data-testid={`intervention-target-readonly-${factorId}`}
+              className={`${typography.panelBody} px-2 py-1 text-center text-text-body`}
+            >
+              {/* ⚠⚠ `String`, NOT `toLocaleString`. I reached for the latter when
+                  this became text, and it defaults to THREE fractional digits:
+                  a model value of 0.00049 renders as `0` — a real non-zero
+                  quantity displayed as zero, which is the exact class of lie
+                  this whole change exists to remove, introduced by the change
+                  itself. `String(currentValue)` is also what seeds the editor's
+                  own buffer, so the two surfaces cannot disagree. */}
+              {String(currentValue)}
+              {!displayValue && (
+                <span className={`${typography.panelMeta} text-text-light ml-1`}>
+                  {INTERVENTION_ROW_STRINGS.modelValueQualifier}
+                </span>
+              )}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1">
+              <input
+                ref={inputRef}
+                type="text"
+                value={draft}
+                onChange={e => setDraft(e.target.value)}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
+                className={`${typography.panelBody} w-[110px] px-2 py-1 border rounded-lg text-center bg-panel border-info`}
+              />
+              {/* ⚠ THE BOX NEEDS THE SAME TRUTH THE VALUE DOES. Being editable
+                  never made an unlabelled number scientifically valid — an
+                  operator typing into it is entitled to know which scale they
+                  are typing on. */}
+              {!displayValue && (
+                <span className={`${typography.panelMeta} text-text-light`}>
+                  {INTERVENTION_ROW_STRINGS.modelValueQualifier}
+                </span>
+              )}
+            </span>
+          )}
         </div>
       )}
 
