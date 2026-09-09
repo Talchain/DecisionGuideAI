@@ -211,6 +211,64 @@ export const OutcomeNode = memo((props: NodeProps) => {
   ) : null
 
   // Existing coaching route, with authored context and a consequence question in both phases.
+  /**
+   * ⭐ THE FALSIFICATION QUESTION REACHES THE CARD, AND SURVIVES THE RUN.
+   *
+   * Two separate reasons it was unreachable, and this fixes both.
+   *
+   * 1. LOCATION. In Standard view (the default) every chip lived in a hover
+   *    popover, and `NodePopover.tsx:129` is `if (!visible) return null` — so
+   *    the children are ABSENT FROM THE DOM, not merely invisible. Measured on
+   *    deployed `9748b336` in the resting state: `What would falsify` **0**,
+   *    with 71 `react-flow__node` and 26 `Influence` as contrast controls in
+   *    the same probe.
+   *
+   * 2. PHASE. `outcome_what_would_falsify` was gated `!isPostAnalysis`, so
+   *    running the analysis DELETED it. That is backwards: an outcome is worth
+   *    falsifying most once the model has produced a number for it. Nothing
+   *    else claims this surface — `DecisionNode` is the one node whose
+   *    post-analysis Standard body is contested (its `restingState.spec`), and
+   *    that node is deliberately untouched here.
+   *
+   * ⚠ THE SUITE COULD NOT SEE EITHER PROBLEM. `render-matrix.spec.tsx:66-70`
+   * mocks `NodePopover` into an always-rendering div, so assertions about
+   * "Standard" chips were passing against content behind a 300ms hover.
+   *
+   * `Explore consequences` and `What affects this?` stay in the popover, so the
+   * promoted question is never rendered twice. Detailed view is unchanged.
+   */
+  const outcomeFaceChip = useMemo(() => (
+    <div className="flex gap-1 flex-wrap mt-1.5">
+      <NodeChip
+        chipId="outcome_what_would_falsify"
+        actionType={null}
+        label="What would falsify this?"
+        message={`What evidence or result would show that ${cleanedLabel || 'this outcome'} will NOT happen? What would have to be true for it to fail?${outcomeContext}`}
+      />
+    </div>
+  ), [cleanedLabel, outcomeContext])
+
+  const outcomePopoverChips = useMemo(() => (
+    <div className="flex gap-1 flex-wrap mt-1.5">
+      <NodeChip
+        chipId="outcome_explore_consequences"
+        actionType={null}
+        label="Explore consequences"
+        message={`What would ${cleanedLabel || 'this outcome'} mean for this model, including possible benefits and downsides?${outcomeContext}`}
+      />
+      {!isPostAnalysis && (
+        <NodeChip
+          chipId="outcome_what_strengthens"
+          actionType={null}
+          label="What affects this?"
+          message={`Which upstream factors affect ${cleanedLabel || 'this outcome'}, and how could we strengthen its beneficial effects or limit its downsides?${outcomeContext}`}
+        />
+      )}
+    </div>
+  ), [isPostAnalysis, cleanedLabel, outcomeContext])
+
+  // Detailed view keeps the full set inline. The falsification question is no
+  // longer phase-gated here either — same reason as above.
   const outcomeChips = useMemo(() => (
     <div className="flex gap-1 flex-wrap mt-1.5">
       <NodeChip
@@ -220,21 +278,19 @@ export const OutcomeNode = memo((props: NodeProps) => {
         message={`What would ${cleanedLabel || 'this outcome'} mean for this model, including possible benefits and downsides?${outcomeContext}`}
       />
       {!isPostAnalysis && (
-        <>
-          <NodeChip
-            chipId="outcome_what_strengthens"
-            actionType={null}
-            label="What affects this?"
-            message={`Which upstream factors affect ${cleanedLabel || 'this outcome'}, and how could we strengthen its beneficial effects or limit its downsides?${outcomeContext}`}
-          />
-          <NodeChip
-            chipId="outcome_what_would_falsify"
-            actionType={null}
-            label="What would falsify this?"
-            message={`What evidence or result would show that ${cleanedLabel || 'this outcome'} will NOT happen? What would have to be true for it to fail?${outcomeContext}`}
-          />
-        </>
+        <NodeChip
+          chipId="outcome_what_strengthens"
+          actionType={null}
+          label="What affects this?"
+          message={`Which upstream factors affect ${cleanedLabel || 'this outcome'}, and how could we strengthen its beneficial effects or limit its downsides?${outcomeContext}`}
+        />
       )}
+      <NodeChip
+        chipId="outcome_what_would_falsify"
+        actionType={null}
+        label="What would falsify this?"
+        message={`What evidence or result would show that ${cleanedLabel || 'this outcome'} will NOT happen? What would have to be true for it to fail?${outcomeContext}`}
+      />
     </div>
   ), [isPostAnalysis, cleanedLabel, outcomeContext])
 
@@ -394,9 +450,10 @@ export const OutcomeNode = memo((props: NodeProps) => {
           )
         )}
 
-        {/* Coaching chip moved to popover — see `outcomeChips` useMemo and
-            popover branches below. In Detailed view it appears inline beneath
-            the pre-analysis driver list. */}
+        {/* The falsification question rides the CARD in Standard view, in both
+            phases. The remaining chips stay in the popover; Detailed renders
+            the full set inline below. See `outcomeFaceChip`. */}
+        {!isDetailed && outcomeFaceChip}
 
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) =====
             Graph v1.1 Task 4: align with wireframe v4 OutcomePostDet —
@@ -434,7 +491,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
           anchorRef={nodeElRef}
         >
           {layer2ContentPost}
-          {outcomeChips}
+          {outcomePopoverChips}
         </NodePopover>
       )}
 
@@ -450,7 +507,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
           anchorRef={nodeElRef}
         >
           {preAnalysisPopoverContent}
-          {outcomeChips}
+          {outcomePopoverChips}
         </NodePopover>
       )}
     </div>
