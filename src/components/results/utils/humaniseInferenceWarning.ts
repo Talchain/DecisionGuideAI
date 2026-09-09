@@ -90,7 +90,13 @@ export function buildInferenceWarningLabelMap(
   const map = new Map<string, string>()
   w.affected_nodes.forEach((nodeId, i) => {
     const label = w.affected_labels?.[i]
-    if (label) map.set(nodeId, label)
+    // ⚠ AN ID USED AS ITS OWN LABEL IS NOT A LABEL. The adapter fills
+    // `affected_labels` with `nodeLabelMap.get(id) ?? id`, so an unresolved
+    // node arrives carrying its raw id in the label position. Admitting that
+    // would report `labelIsGenuine: true` and print an engine identifier at
+    // the user — the exact defect the genuine-gate exists to stop, reached
+    // through a side door rather than through `factorIdToLabel`.
+    if (label && label !== nodeId) map.set(nodeId, label)
   })
   return map.size > 0 ? map : undefined
 }
@@ -112,7 +118,18 @@ export function humaniseInferenceWarningTitle(
     // `affected_nodes` first — it is the declared carrier and wins wherever a
     // producer ever starts sending it. `field` is the fallback that is
     // ACTUALLY populated today.
-    affectedNodes: w.affected_nodes ?? (fromField ? [fromField] : undefined),
+    // ⚠⚠ `??` WAS WRONG HERE AND IT MADE THE WHOLE FEATURE DARK. The mounted
+    // adapter (`useResultsSectionData.ts`) rebuilds every warning with
+    // `affected_nodes: safeArray(...)`, i.e. an EMPTY ARRAY for the defaulting
+    // family — and `[] ?? x` yields `[]`, so the field fallback never fired and
+    // both roots kept the same anonymous sentence. Absent and empty must
+    // resolve identically; only a NON-EMPTY declared list outranks the field.
+    affectedNodes:
+      w.affected_nodes && w.affected_nodes.length > 0
+        ? w.affected_nodes
+        : fromField
+          ? [fromField]
+          : undefined,
   }
   return humaniseCritique(item, buildInferenceWarningLabelMap(w) ?? nodeLabels).title
 }
