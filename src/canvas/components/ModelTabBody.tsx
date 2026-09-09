@@ -130,14 +130,54 @@ const V1_STACK_CONTENT_ID = 'model-tab-v1-stack-content'
  */
 const LEGACY_DETAILED_EDITOR_MOUNTED = false
 
-/** Assistant/pre-analysis section names → their connected v2 receiver. */
+/**
+ * The testid wrapping the Model card, so a section request can address it.
+ *
+ * A constant rather than a literal at both use sites — the map below and the
+ * element itself must agree, and two hand-copied strings are the mirror this
+ * estate keeps paying for (the same argument `V1_STACK_CONTENT_ID` makes).
+ */
+const MODEL_CARD_REGION_ID = 'model-card-region'
+
+/**
+ * Assistant/pre-analysis section names → their connected v2 receiver.
+ *
+ * ⚠⚠ `modelcard` USED TO POINT AT `model-group-v2-evidence-review`, AN OUTLINE
+ * GROUP THAT IS EMPTY BY CONSTRUCTION. Measured at `3b2df4ce` by rendering the
+ * real panel with a drafted model (goal + option + factor + risk + edge) and
+ * opening every group: goal 5 · options 5 · factors 8 · outcomes-risks 4 ·
+ * relationships 4 · assumptions-provenance 0 · evidence-review 0 — and that
+ * group's text read, verbatim, "Evidence & review state0Nothing in this group
+ * yet".
+ *
+ * The zero is STRUCTURAL. `toModelRows` (`adapters.ts:533-676`) is the only
+ * producer of `ModelRow[]`, and every group it assigns comes from `KIND_GROUP`
+ * (`adapters.ts:233-241`, five ids) or the literal `'relationships'`. The string
+ * `evidence-review` occurs five times repo-wide and NOT ONCE in `adapters.ts`.
+ * No input can put a row there, so the link could never land anywhere useful —
+ * for any user, on any model.
+ *
+ * The Model card the caller actually asked for (`ModelHealthSection`: quality
+ * dimensions, methodology, audit trail, inference warnings) renders BELOW the
+ * outline, outside that group entirely. It now has its own addressable region.
+ *
+ * ⚠ SCOPE: no in-repo caller passes `'modelcard'` — the literal
+ * `requestModelTabSection` arguments in `src/` are `'relationships'` and
+ * `'factors'`. The reachable route is the ASSISTANT's: `applyV5State.ts:1161`
+ * narrows a server-supplied `open_section` id through `isModelTabSectionId` and
+ * forwards anything in `MODEL_TAB_SECTION_IDS`, `'modelcard'` included. A live
+ * sanctioned route with a broken destination — not a witnessed wire capture.
+ *
+ * The other five are unchanged and verified to hold rows; exactly one of six
+ * mappings was wrong.
+ */
 const MODEL_SECTION_TARGET: Readonly<Record<ModelTabSectionId, string>> = {
   goal: 'model-group-v2-goal',
   options: 'model-group-v2-options',
   factors: 'model-group-v2-factors',
   relationships: 'model-group-v2-relationships',
   risks: 'model-group-v2-outcomes-risks',
-  modelcard: 'model-group-v2-evidence-review',
+  modelcard: MODEL_CARD_REGION_ID,
 }
 
 const KIND_ORDER = ['goal', 'decision', 'option', 'factor', 'risk', 'outcome'] as const
@@ -281,6 +321,18 @@ export const ModelTabBody = memo(function ModelTabBody({
     // only then does the callback measure and scroll.
     const groupId = MODEL_GROUP_IDS.find(g => g === (pendingSection as string))
     setOpenGroupRequest((groupId as ModelGroupId | undefined) ?? null)
+    // ⭐ THE MODEL CARD IS NOT AN OUTLINE GROUP, so the line above cannot open
+    // it — it is an Accordion in the transparency block, driven by
+    // `makeSectionProps`'s controlled `openSection`. Without this a request that
+    // arrives while the user has the card COLLAPSED scrolls them to a closed
+    // heading and the content they asked for stays behind a click nobody told
+    // them to make: precisely the defect #1275 shipped for the outline groups,
+    // and the reason `setOpenGroupRequest` exists two lines up.
+    //
+    // Harmless when the card is already open (`openSection` starts at
+    // `'modelcard'`), and it does not fight the user: it fires only on an
+    // explicit request, never on render.
+    if (pendingSection === 'modelcard') setOpenSection('modelcard')
     requestAnimationFrame(() => {
       if (!mountedRef.current) return
       const target = MODEL_SECTION_TARGET[pendingSection] ?? 'model-tab-v2-panel'
@@ -971,15 +1023,22 @@ export const ModelTabBody = memo(function ModelTabBody({
             adjustments={modelAdjustments}
             repairActions={modelRepairActions}
           />
-          <ModelHealthSection
-            ceeQuality={ceeQuality}
-            auditTrail={auditTrail}
-            factorCount={grouped.factor.length}
-            edgeCount={causalEdges.length}
-            factorsToVerify={factorsToVerify}
-            onSendMessage={onSendMessage}
-            {...makeSectionProps('modelcard')}
-          />
+          {/* The Model card's addressable region. `ModelHealthSection` renders
+              no single wrapping testid of its own, and a section request needs
+              one element to scroll to — so the host that owns the layout
+              provides it, rather than the section growing a testid for a
+              concern that is not its own. */}
+          <div data-testid={MODEL_CARD_REGION_ID}>
+            <ModelHealthSection
+              ceeQuality={ceeQuality}
+              auditTrail={auditTrail}
+              factorCount={grouped.factor.length}
+              edgeCount={causalEdges.length}
+              factorsToVerify={factorsToVerify}
+              onSendMessage={onSendMessage}
+              {...makeSectionProps('modelcard')}
+            />
+          </div>
         </div>
       </DetailToggleContext.Provider>
 
