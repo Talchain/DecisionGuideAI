@@ -17,7 +17,10 @@
  * an isolating measure of this edge's own contribution.
  *
  * MAY SAY:
- *   · "if this link is weaker than we assumed, {alt} came out ahead in NN% of runs"
+ *   · "if this link is weaker than we assumed, {alt} was the stronger option in
+ *     NN% of runs" (⚠ WORDING UPDATED 9 Sep 2026 — this line prescribed
+ *     "came out ahead", which Paul's 8 Sep no-contest ruling retired. A MAY SAY
+ *     rule that contradicts a later ruling teaches the next author to reopen it.)
  *     — the conditional, which is exactly what was measured.
  *   · "your team has not confirmed this estimate" — only when existing graph
  *     provenance says the value is `ai_inferred`.
@@ -78,7 +81,19 @@ export function assumedStrengthWhy(s: AssumedStrengthSelection): string {
   const pct = Math.round(s.switchProbability * 100)
   const measured = s.alternativeWinnerLabel !== null
     ? `In the runs where that link came out weak, ${s.alternativeWinnerLabel} was the stronger option ${pct}% of the time.`
-    : `In the runs where that link came out weak, a different option came out ahead ${pct}% of the time.`
+    /*
+     * ⚠ "came out ahead" WAS RETIRED BY PAUL'S 8 SEP 2026 NO-CONTEST RULING AND
+     * SURVIVED HERE, IN THE UNNAMED BRANCH ONLY. Its twin above was reframed to
+     * "was the stronger option"; this one was not, and no guard could see it:
+     * `noWinnerVocabulary.spec.ts` swept a hand-list of four files and this is
+     * not one of them, though `buildAnalysisNewViewModel.ts:52` imports this
+     * very function. One fix, one branch — the estate's signature defect.
+     *
+     * The wording is its own twin's, so the two branches now differ only in
+     * whether they can name the alternative. The rate is unchanged and still
+     * conditional: the ruling retired the PLACING, never the measurement.
+     */
+    : `In the runs where that link came out weak, a different option was the stronger one ${pct}% of the time.`
   return `${measured} Of the unconfirmed relationship strengths you can resolve here, this had the highest such rate in this run.`
 }
 
