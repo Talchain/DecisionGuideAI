@@ -89,6 +89,6 @@ describe('option delivery states through the real store and display selector', (
     fireEvent.mouseEnter(container.firstElementChild!)
     const more = await screen.findByRole('button', { name: '+1 more in inspector' })
     fireEvent.click(more)
-    expect(useCanvasStore.getState().selectedNodeId).toBe(draft.id)
+    expect(useCanvasStore.getState().selection.nodeIds).toEqual(new Set([draft.id]))
   })
 })
