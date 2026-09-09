@@ -852,9 +852,29 @@ export function ModelTabV2Panel({
           detail={selectedDetail}
           tier={tier}
           onFocusOnCanvas={focusOnCanvas}
+          /*
+           * ⚠⚠ FORWARD THE PHASE AND THE NOTICE. This projected exactly
+           * `{factorId, draft}`, so the two fields that carry the honest
+           * outcome were dropped on the way to the only component that renders
+           * them: the row could NEVER show pending or a refusal, whatever the
+           * commit decided.
+           *
+           * ⭐ AND THE TEST THAT SHOULD HAVE CAUGHT IT COULD NOT. Injecting
+           * `interventionEdit` straight into the child asserts the child's
+           * rendering and says nothing about what the parent sends — a whole
+           * seam between two green halves. That is why the controls for this now
+           * drive the REAL panel, not the child alone.
+           */
           interventionEdit={
             OPTION_INTERVENTION_CONNECTED && interventionEdit && interventionEdit.optionId === selectedRow.id
-              ? { factorId: interventionEdit.factorId, draft: interventionEdit.draft }
+              ? {
+                  factorId: interventionEdit.factorId,
+                  draft: interventionEdit.draft,
+                  phase: interventionEdit.phase,
+                  ...(interventionEdit.notice !== undefined
+                    ? { notice: interventionEdit.notice }
+                    : {}),
+                }
               : null
           }
           onBeginInterventionEdit={OPTION_INTERVENTION_CONNECTED ? beginInterventionEdit : undefined}

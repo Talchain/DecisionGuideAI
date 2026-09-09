@@ -103,8 +103,12 @@ describe('what must never reach the wire', () => {
     // STALE, which reads to a user as "your edit conflicted" when in fact the
     // client never held a base to assert. Refuse, and let the caller disclose.
     seed(null)
+    // ⭐ `needs_fresh_base`, NOT `not_encodable`, and the distinction is the
+    // whole reason the outcome was split: this is the one refusal the user can
+    // clear — any turn refreshes the base — so the caller must be able to tell
+    // it apart from "your number is wrong" in order to offer the recovery.
     expect(authorityFor(OPTION).current.proposeOptionIntervention(FACTOR, 0.75)).toBe(
-      'not_encodable',
+      'needs_fresh_base',
     )
     expect(sendSystemEvent).not.toHaveBeenCalled()
   })
