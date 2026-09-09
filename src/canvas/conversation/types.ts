@@ -1096,6 +1096,23 @@ export const WIRE_SYSTEM_EVENT_TYPES = [
   // CEE pinned <0.42.0 would fail the DISCRIMINATOR and reject the WHOLE turn.
   // The deployed CEE pins 0.50.0 and has parsed this kind since 0.42.0.
   'edge_strength_edit',
+  // schemas 0.54.0 — the per-cell option→factor EFFECT value, and the close of
+  // "the Model tab shows me a control it cannot save".
+  //
+  // ⚠ A SIBLING OF `factor_value_edit`, NOT A USE OF IT, and the distinction is
+  // a witnessed defect rather than a taxonomy preference. `factor_value_edit`
+  // moves a FACTOR's own `observed_state.value` — what the factor IS. This moves
+  // what ONE OPTION would make that factor become, at
+  // `/nodes/<option>/data/interventions/<factor>`. On the captured journey a
+  // user answering an option-effect question had a factor BASELINE written
+  // instead: interventions stayed 0 on all four options and the missing-value
+  // blocker survived by identity.
+  //
+  // ⚠ READER-FIRST, same mechanical reason as every member above: `.strict()`
+  // inside a `discriminatedUnion`, so a CEE pinned ≤0.53.0 fails the
+  // DISCRIMINATOR and rejects the WHOLE turn (422). CEE's reader and its route
+  // arm must serve before this emitter ships.
+  'option_intervention_edit',
 ] as const
 
 /** Event types accepted by CEE's v3 Zod schema — safe to send over the wire. */
@@ -1178,6 +1195,12 @@ export const MODEL_CHANGING_SYSTEM_EVENT_TYPES = [
   // shown a verdict about a graph that no longer exists. Only one of those two
   // lies is about the numbers, so the hold is the safe direction.
   'edge_strength_edit',
+  // schemas 0.54.0. HELD for the same reason as its siblings, and the reason is
+  // sharper here than for most: an option's effect value is INSIDE CEE's
+  // analysis-affecting hash projection, so an undispatched one means any
+  // freshness verdict computed without it describes a graph the user has
+  // already changed. CEE declares this kind `'mutating'`.
+  'option_intervention_edit',
 ] as const satisfies readonly WireSystemEventType[]
 
 /** A system event whose dispatch changes the graph CEE holds. */

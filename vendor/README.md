@@ -7,7 +7,37 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.47.0.tgz` ← **THE CURRENT PIN**
+### `talchain-schemas-0.54.0.tgz` ← **THE CURRENT PIN**
+
+**Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF — not a local re-pack.**
+Downloaded from GitHub Packages at
+`https://npm.pkg.github.com/download/@talchain/schemas/0.54.0/1281c86238dc28b09877f00b919b9bbfe270f40f`
+— the tarball `npm publish` produced from `olumi-schemas` `main`
+**`cc5c9e8482f3cf638db8e99829d3a7e4a3a09840`** (tag `v0.54.0`; the registry's own
+`gitHead` binds that commit), publisher job `102259342523`, 22:21:04 UTC on
+2026-09-08. **495,147 bytes.** Verified three ways against the registry's
+published metadata, all exact:
+
+```
+npm shasum (sha1)  1281c86238dc28b09877f00b919b9bbfe270f40f
+integrity (sha512) sha512-c/2IvSiRhZS3qcOiEhQReSzGjaivbqJUs7PFsLgFXA5LLlGDILPeKbglk2xY1PyqC7ETLO+xNZMDAXtvryEEIA==
+sha256             8dffea3a966930e10818e2657e4ce0e08a4d0dcc7c5b15b5ff8c21702d24a55c
+```
+
+⚠ **A DIFFERENT PROCEDURE FROM THE ENTRIES BELOW — read this before copying one.**
+They were PACKED from a tagged source checkout; this one was DOWNLOADED. Both are
+legitimate and they prove different things: a pack proves *"our bytes derive from
+the tagged source"*, a download proves *"these ARE the published bytes"*. Do not
+describe one as the other.
+
+⚠ **AND THE HEADING BELOW WAS THREE RELEASES STALE.** It read
+"`talchain-schemas-0.47.0.tgz` ← **THE CURRENT PIN**" while `package.json` pinned
+**0.50.0** — a hand-maintained mirror of the pin, and exactly the sign-post that
+misleads whoever does the next re-vendor. `package.json` is the operative fact;
+this file is a description of it, so the description is corrected here rather
+than left to drift a fourth time.
+
+### `talchain-schemas-0.47.0.tgz` (historical — superseded by 0.50.0, then 0.54.0)
 
 **Provenance: PACKED FROM THE MERGED, TAGGED RELEASE.** Packed from
 `olumi-schemas` **`main` @ `1ab64dff1c49c9c2db07b87d7a4bb4e0215dddcb`**, tag

@@ -128,6 +128,7 @@ import { buildFactorValueEditEvent } from '../conversation/factorValueEdit'
 import { buildEdgeStrengthEditEvent } from '../conversation/edgeStrengthEdit'
 import { captureOptimisticFactorEdit } from '../conversation/optimisticFactorEdit'
 import { buildManualGoalTarget, manualGoalTargetMessage } from '../conversation/manualGoalTarget'
+import { buildOptionInterventionEditEvent } from '../conversation/optionInterventionEdit'
 
 /**
  * How a proposal left this seam.
@@ -161,6 +162,28 @@ export type FactorValueProposalOutcome = 'dispatched' | 'local_only' | 'not_enco
  *                      a silent split-brain.
  */
 export type LocalCommitOutcome = 'committed' | 'not_encodable'
+
+/**
+ * How an OPTION-INTERVENTION proposal left this seam (schemas 0.54.0).
+ *
+ * ⚠ IT IS NO LONGER `LocalCommitOutcome`, AND THE SPLIT IS THE POINT. That type
+ * deliberately has no `dispatched` member because its operations had no
+ * value-bearing wire carrier — "the type makes the honest statement the only
+ * statement available". `option_intervention_edit` now IS that carrier, so
+ * keeping this gesture on the local-commit union would force it to report
+ * `committed` for a write the server owns. `proposeFactorConfirmation` still has
+ * no carrier and keeps the old type; the two gestures are named apart rather
+ * than sharing a union that is now true of only one of them.
+ *
+ * - `dispatched`    — nothing was written locally; the typed event is with the
+ *                     conversation dispatcher and the applied response owns the
+ *                     store write. Exactly `proposeGoalTarget`'s discipline on
+ *                     this same surface.
+ * - `not_encodable` — nothing happened anywhere. Fail CLOSED: no ids, a
+ *                     non-finite or out-of-scale value, no server-stamped base
+ *                     hash to assert, or no conversation to send through.
+ */
+export type OptionInterventionProposalOutcome = 'dispatched' | 'not_encodable'
 
 /**
  * How an EDGE STRENGTH proposal left this seam.
@@ -222,7 +245,7 @@ export interface ModelEditAuthorityLive {
    * option would move. Both halves are checked — see the implementation for why
    * an unresolvable `factorId` must fail closed rather than write.
    */
-  proposeOptionIntervention: (factorId: string, value: number) => LocalCommitOutcome
+  proposeOptionIntervention: (factorId: string, value: number) => OptionInterventionProposalOutcome
   /**
    * Ratify the ACTIVE FACTOR's existing value as correct.
    *
@@ -345,22 +368,51 @@ export function useModelEditAuthority(
    * for an element that is not in the model.
    */
   const proposeOptionIntervention = useCallback(
-    (factorId: string, value: number): LocalCommitOutcome => {
+    (factorId: string, value: number): OptionInterventionProposalOutcome => {
       if (!activeNodeId) return 'not_encodable'
-      if (!Number.isFinite(value)) return 'not_encodable'
-      if (typeof factorId !== 'string' || factorId.trim() === '') return 'not_encodable'
       const state = useCanvasStore.getState()
       const option = state.nodes.find(n => n.id === activeNodeId)
       // An intervention belongs to an OPTION. Writing an `interventions` map
       // onto a factor would be a well-formed store patch that means nothing,
       // and nothing downstream would ever report it.
       if (!option || resolveNodeTypeLiteral(option) !== 'option') return 'not_encodable'
+      // The factor must be in the model — see this member's header. The SERVER
+      // additionally requires the option to be WIRED to it and refuses
+      // otherwise; that is its check to make against its own persisted graph,
+      // and duplicating it here would be a second spelling of one rule.
       if (!state.nodes.some(n => n.id === factorId)) return 'not_encodable'
 
-      mutations.setIntervention(factorId, value)
-      return 'committed'
+      const event = buildOptionInterventionEditEvent({
+        optionId: activeNodeId,
+        factorId,
+        modelValue: value,
+        // ⚠ THE ONE OWNER OF THE BASE HASH, read here rather than captured.
+        // Three intent builders already read this field; this is the fourth.
+        // It is NULL after a reload — a restore reads persistence with no CEE
+        // turn — and the builder refuses on null rather than sending a hash
+        // that matches nothing. That refusal must be DISCLOSED by the caller,
+        // never silently swallowed.
+        baseGraphHash: state.lastServerGraphHash,
+      })
+      if (!event) return 'not_encodable'
+      if (!sendSystemEvent) return 'not_encodable'
+
+      // ⭐ NO LOCAL WRITE, DELIBERATELY — `proposeGoalTarget`'s discipline on
+      // this same surface: "the goal draft never changes the store before a
+      // real applied response". The old body wrote through
+      // `mutations.setIntervention` because the value had nowhere else to go;
+      // it has somewhere now. Writing optimistically here would put a number on
+      // screen that the server may refuse, on a surface whose whole premise is
+      // that an affordance appears only where the write reaches the server.
+      void Promise.resolve(sendSystemEvent(event)).catch(() => {
+        // Swallowed deliberately: a send failure is recorded by the
+        // conversation's own failure channel, and a server REFUSAL is not a
+        // failure. Identical to `proposeFactorValue`'s catch, for the identical
+        // reason.
+      })
+      return 'dispatched'
     },
-    [activeNodeId, mutations],
+    [activeNodeId, sendSystemEvent],
   )
 
   /**
