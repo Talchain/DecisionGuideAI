@@ -702,6 +702,44 @@ export function ModelTabV2Panel({
                 notice: 'Not sent — another change is still in flight. Try again in a moment.',
               }
             }
+            // ⭐ THE OTHER WAY PENDING ENDS. The canonical settlement below
+            // covers the APPLIED half — the value lands in the store and the
+            // row clears. These two are the refused half, and without them a
+            // server answer of "no" left the row saying "sent, not saved yet"
+            // for the rest of the session: a stuck label, the same class of
+            // harm as the optimistic write this surface replaced.
+            if (settlement === 'refused') {
+              // Proven no-write. For this event the certified category is a
+              // stale base — CEE refuses before any write and hands back the
+              // current hash. The recovery is the one that actually refreshes
+              // the base, and it is the SAME action `needs_fresh_base` names,
+              // because it is the same problem arriving one moment later.
+              const { sentValue: _v, sentScenarioId: _s, ...rest } = prev
+              return {
+                ...rest,
+                phase: 'editing',
+                notice:
+                  'Not saved — the model moved on while this was in flight. ' +
+                  'Ask me anything about this decision, then set this value again.',
+              }
+            }
+            if (settlement === 'unverified') {
+              // ⚠ NEITHER SAVED NOR REFUSED, AND THE COPY MAY NOT PICK ONE. The
+              // server failed the turn and a write is not ruled out. Saying
+              // "not saved" would invite the user to re-send a number the model
+              // may already hold; saying "saved" is the lie the whole surface
+              // exists to avoid. The row keeps the number visible, says what is
+              // actually known, and names the action that SHOWS them the answer
+              // rather than guessing it.
+              const { sentValue: _v, sentScenarioId: _s, ...rest } = prev
+              return {
+                ...rest,
+                phase: 'editing',
+                notice:
+                  "Sent, but I could not confirm what the model did with it. " +
+                  'Ask me anything about this decision to see where it stands.',
+              }
+            }
             // `sent`: the turn was issued. The row stays pending until the
             // CANONICAL store carries the value — this hook does not echo its
             // own number back as a confirmation.

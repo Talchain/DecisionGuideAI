@@ -52,6 +52,7 @@ vi.mock('../../mutations/mutationAuthority', async importOriginal => {
 })
 
 import { useCanvasStore } from '../../store'
+import { SystemEventSendError } from '../../conversation/useConversation'
 import { ModelTabV2Panel } from '../ModelTabV2Panel'
 import { openOutlineGroups } from './openOutlineGroups'
 
@@ -179,15 +180,80 @@ describe('the sender settles, and two of its three answers mean nothing was sent
     expect(screen.getByTestId(`model-detail-v2-intervention-${FACTOR}-input`)).toBeInTheDocument()
   })
 
-  it('a REJECTED send is reported as blocked, never as sent', async () => {
+  it('a TRANSPORT rejection is reported as blocked, never as sent', async () => {
     // A failed POST is not a server refusal — nothing reached the server — so
-    // the row must not imply the model has heard about this number.
+    // the row must not imply the model has heard about this number. This is the
+    // FALLBACK arm: an unrecognised error shape lands here too, which is why
+    // the two cases below have to prove they do NOT.
     sendSystemEvent.mockRejectedValue(new Error('network'))
     renderPanel()
     commit('0.6')
 
     const notice = await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-notice`)
     expect(notice.textContent ?? '').toMatch(/not sent/i)
+  })
+
+  /**
+   * ⭐⭐ THE SERVER ANSWERED, AND THE ROW MAY NOT CALL THAT "NOT SENT".
+   *
+   * Every rejection used to land on `blocked`, whose copy says nothing reached
+   * the server. That is false about a turn the server received and deliberately
+   * failed — and the more dangerous half is the one where a write is not ruled
+   * out, because "not sent" invites the user to re-send a number the model may
+   * already hold.
+   */
+  it('REFUSED — a proven no-write conflict: the row says NOT SAVED and names the recovery', async () => {
+    // `stale_base_graph_hash` is CEE's option-intervention stale gate, which
+    // refuses before any write. It is in the closed proven-no-write set, so the
+    // row is entitled to state the outcome rather than hedge.
+    sendSystemEvent.mockRejectedValue(
+      new SystemEventSendError('server', { conflictCategory: 'stale_base_graph_hash' }),
+    )
+    renderPanel()
+    commit('0.6')
+
+    const notice = await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-notice`)
+    expect(notice.textContent ?? '').toMatch(/not saved/i)
+    expect(notice.textContent ?? '').toMatch(/ask me anything/i)
+    // It must NOT claim nothing was sent — the server is exactly who refused it.
+    expect(notice.textContent ?? '').not.toMatch(/not sent/i)
+    // And pending is over: a refusal that leaves the row saying "sent, not
+    // saved yet" is the stuck label this whole leg exists to end.
+    expect(
+      screen.queryByTestId(`model-detail-v2-intervention-${FACTOR}-pending`),
+    ).not.toBeInTheDocument()
+  })
+
+  it('UNVERIFIED — a server failure with no no-write guarantee claims NEITHER outcome', async () => {
+    // `INGRESS_CONTRACT_VIOLATION` is non-retryable and carries no statement
+    // about whether bytes landed — the exact trap `provenNoWriteConflict`'s
+    // header names. An unknown category takes the cannot-confirm line.
+    sendSystemEvent.mockRejectedValue(
+      new SystemEventSendError('server', { code: 'INGRESS_CONTRACT_VIOLATION' }),
+    )
+    renderPanel()
+    commit('0.6')
+
+    const notice = await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-notice`)
+    expect(notice.textContent ?? '').toMatch(/could not confirm/i)
+    expect(notice.textContent ?? '').not.toMatch(/not sent/i)
+    expect(notice.textContent ?? '').not.toMatch(/not saved/i)
+    expect(
+      screen.queryByTestId(`model-detail-v2-intervention-${FACTOR}-pending`),
+    ).not.toBeInTheDocument()
+  })
+
+  it('⚠ DISCRIMINATING TWIN: a TRANSPORT-kind SystemEventSendError still says "not sent"', async () => {
+    // Without this, the two cases above would pass on an implementation that
+    // simply reported every `SystemEventSendError` as a server answer — losing
+    // the one distinction the error class carries `kind` to make.
+    sendSystemEvent.mockRejectedValue(new SystemEventSendError('transport'))
+    renderPanel()
+    commit('0.6')
+
+    const notice = await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-notice`)
+    expect(notice.textContent ?? '').toMatch(/not sent/i)
+    expect(notice.textContent ?? '').not.toMatch(/could not confirm/i)
   })
 
   it('POSITIVE CONTROL: an ordinary send stays pending — the three above are not "everything fails"', async () => {

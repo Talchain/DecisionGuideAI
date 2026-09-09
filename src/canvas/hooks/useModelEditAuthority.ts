@@ -132,7 +132,12 @@ import {
   buildOptionInterventionEditEvent,
   type OptionInterventionEditRefusal,
 } from '../conversation/optionInterventionEdit'
-import { SEND_BLOCKED, SEND_DEFERRED } from '../conversation/useConversation'
+import {
+  SEND_BLOCKED,
+  SEND_DEFERRED,
+  SystemEventSendError,
+} from '../conversation/useConversation'
+import { isProvenNoWriteConflict } from '../../v5/provenNoWriteConflict'
 
 /**
  * How a proposal left this seam.
@@ -222,10 +227,41 @@ export type OptionInterventionProposalOutcome = 'dispatched' | OptionInterventio
  *               buffered and WILL be sent. Nothing is wrong and nothing has
  *               happened yet. The promise resolves *before the turn exists*,
  *               which is exactly why "sent" would be a lie here.
- * - `blocked` — `SEND_BLOCKED`: it was NOT queued and will not go on its own.
- *               The caller owns the retry, so the caller must be told.
+ * - `blocked` — `SEND_BLOCKED`, or a send that REJECTED with a transport
+ *               failure. Nothing reached the server; the caller owns the retry.
+ *
+ *               ⚠ THE TWO ARE DELIBERATELY ONE STATE, and the reason is the
+ *               question the caller is asking. "Never queued" and "queued,
+ *               and the POST failed" differ in mechanism and are identical in
+ *               what they let the row say and what the user can do about it.
+ *               Splitting them would mint a distinction no copy uses — the
+ *               opposite failure to the one below, where two facts genuinely
+ *               do need different sentences.
+ *
+ * - `refused`  — the server RECEIVED the turn, failed it, and its envelope
+ *                PROVES nothing was written (`isProvenNoWriteConflict`). The
+ *                model does not hold this number and never did, so the row may
+ *                say so outright.
+ *
+ * - `unverified` — the server failed the turn and a write is NOT ruled out. The
+ *                row may claim neither saved nor refused. This is the honest
+ *                floor, and it is the DEFAULT for any server failure whose
+ *                category the producer has not certified: an unknown takes the
+ *                cannot-confirm line, never the confident one.
+ *
+ * ⚠⚠ `refused` AND `unverified` WERE ONE THING — the catch reported `blocked`
+ * for every rejection — AND THAT WAS FALSE IN BOTH DIRECTIONS. `blocked`'s copy
+ * says nothing reached the server, which is a lie about a 409 the server sent
+ * back deliberately; and answering "not sent" to a failure that MAY have
+ * written is the more dangerous half, because the user re-sends a number the
+ * model might already hold.
  */
-export type OptionInterventionSendSettlement = 'sent' | 'queued' | 'blocked'
+export type OptionInterventionSendSettlement =
+  | 'sent'
+  | 'queued'
+  | 'blocked'
+  | 'refused'
+  | 'unverified'
 
 /**
  * How an EDGE STRENGTH proposal left this seam.
@@ -492,12 +528,33 @@ export function useModelEditAuthority(
           if (outcome === SEND_BLOCKED) return opts?.onSendSettled?.('blocked')
           return opts?.onSendSettled?.('sent')
         })
-        .catch(() => {
-          // A rejected send is a POST that failed. It is NOT a server refusal —
-          // that arrives as a response the central machinery resolves — so it is
-          // reported as `blocked`: nothing reached the server and the caller
-          // owns what happens next. The conversation's own failure channel still
-          // records the error; this only decides what the ROW says.
+        .catch((err: unknown) => {
+          // ⚠ THE REJECTION IS READ, NOT ASSUMED. This reported `blocked` for
+          // every rejection on the reasoning that "a rejected send is a POST
+          // that failed" — true of a transport error and FALSE of everything
+          // else that lands here. `sendSystemEvent` rejects for BOTH, and the
+          // error it rejects with already distinguishes them: `kind` separates
+          // "nothing reached the server" from "the server received the turn and
+          // failed it", and `conflictCategory` is carried precisely because
+          // 'server' is too coarse to decide what a surface may claim.
+          //
+          // ⭐ AND THE NO-WRITE QUESTION IS ASKED BY THE ONE AUTHORITY THAT OWNS
+          // IT. `isProvenNoWriteConflict` is where this estate keeps "did the
+          // producer state it wrote nothing?", derived per category from the
+          // producer's own line. Re-deriving it here — from the status code,
+          // from `retryable: false`, or from what a category name suggests —
+          // is the twins defect that module was written to end, and its header
+          // names `INGRESS_CONTRACT_VIOLATION` as the exact trap.
+          if (err instanceof SystemEventSendError && err.kind === 'server') {
+            return opts?.onSendSettled?.(
+              isProvenNoWriteConflict(err.conflictCategory) ? 'refused' : 'unverified',
+            )
+          }
+          // Transport, or an error shape this seam does not recognise. Nothing
+          // reached the server — or we cannot show that it did, which for a
+          // gesture that wrote nothing locally is the same instruction to the
+          // user. The conversation's own failure channel still records it; this
+          // only decides what the ROW says.
           opts?.onSendSettled?.('blocked')
         })
       return 'dispatched'
