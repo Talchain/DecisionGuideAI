@@ -326,6 +326,20 @@ export function resolveDisplayedFreshness(
 export type FreshnessDisplaySemantic = 'current' | 'changed' | 'cannot_confirm' | 'none' | 'never_run'
 
 /**
+ * What the FRESHNESS classifier alone can answer.
+ *
+ * ⭐ EXCLUDES `'never_run'` BY CONSTRUCTION, and that is the design rather than
+ * an omission. "Is this result current?" and "has a run ever completed?" are two
+ * different questions; this function answers only the first, and the second is
+ * composed one level up in `analysisStateSelector`. Encoding it here means a
+ * later edit cannot quietly return `'never_run'` from a function whose inputs
+ * (a freshness slice, a dirty overlay, an import hold) carry no evidence about
+ * whether a run happened — and it keeps every existing caller's narrower
+ * annotation correct, unchanged.
+ */
+export type FreshnessClassification = Exclude<FreshnessDisplaySemantic, 'never_run'>
+
+/**
  * Classify the displayed freshness for COPY decisions across the visible
  * AI-panel surfaces (composer placeholder, Results stale banner, chip relabel).
  * Single source so those surfaces can't drift from each other or from the CEE
@@ -363,7 +377,7 @@ export function classifyFreshnessForDisplay(
   // the set of call sites is complete (trap 12d). Making it required turns that
   // silent drift into a compile error.
   importHold: boolean,
-): FreshnessDisplaySemantic {
+): FreshnessClassification {
   const displayed = resolveDisplayedFreshness(state, dirty)
   if (displayed === null || displayed === 'none') return 'none'
   // ⚠ THE AFFIRMATIVE GATE, AND IT MUST STAY FIRST. Under an import hold the
