@@ -1362,7 +1362,7 @@ export const OptionNode = memo((props: NodeProps) => {
     if (totalInterventionCount === 0) return (
       <>
         <p className={`${typography.nodeLabel} text-text-body m-0`}>No interventions specified for this option.</p>
-        {optionChips}
+        {!isDetailed && optionChips}
       </>
     )
 
@@ -1411,10 +1411,12 @@ export const OptionNode = memo((props: NodeProps) => {
             +{allInterventionChips.length - interventionChips.length} more in inspector
           </button>
         )}
-        {optionChips}
+        {/* Detailed mode already has these actions on the card. Its recovery
+            preview adds target information without repeating the coaching. */}
+        {!isDetailed && optionChips}
       </>
     )
-  }, [isPostAnalysis, isBaselineOption, totalInterventionCount, interventionChips, allInterventionChips.length, handleViewParams, optionChips])
+  }, [isPostAnalysis, isDetailed, isBaselineOption, totalInterventionCount, interventionChips, allInterventionChips.length, handleViewParams, optionChips])
 
   /**
    * Completeness assessment for Detailed pre-analysis view.
