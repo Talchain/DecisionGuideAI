@@ -18,7 +18,9 @@ Receipts: [#1342/#1344 release](https://github.com/Talchain/olumi-programme-docs
 
 Earlier #1353 runs found and repaired missing Detailed previews, an observed-value reference fixture, duplicated coaching, and assertions still reading the former accessible carrier. The final candidate's actual Canvas Browser Gate ran 25/25 (job `102330351994`). This does not cover the new currentness behaviour or live AI journey. Advisory visual regression remains failed, including the unchanged-capture tolerance control and framing expectations; no image baseline or assertion was skipped or approved away.
 
-Open: #1357's shared metric disclosure and design-system contract remain under review and hosted validation. Its first complete hosted suite exposed three tests reading superseded disclosure carriers; the follow-up binds them to real hover/focus tooltips and accessible names, preserves the assumed-strength/no-bar distinction, and removes a redundant confidence focus stop when no explanation exists. The underlying quantity-role/scale repair and composed native acceptance remain separately owned; correctly naming a baseline does not certify the formatter's proportional mapping.
+#1357's shared metric disclosure and design-system contract passed independent Canvas review at `278936ee`, all four full-test shards and Staging Gate `102344897280`. Mutable staging and immutable deploy `6aa0ea944a52980008308176` both served merge `9c2923b5` at 05:13 UTC on 9 September ([serving receipt](https://github.com/Talchain/DecisionGuideAI/pull/1357#issuecomment-5596186365)). The initial three legacy-test failures were repaired with actual hover/focus and accessible-name assertions; no quantity policy changed.
+
+Open: the underlying quantity-role/scale repair and composed native acceptance remain separately owned; correctly naming a baseline does not certify the formatter's proportional mapping. #1360 names a missing support percentage without implying that computed outcome ranges are absent; final revised-head validation and serving remain pending.
 
 | Acceptance | Authored check | Deployed artefact |
 |---|---|---|

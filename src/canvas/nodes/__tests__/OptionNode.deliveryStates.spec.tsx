@@ -47,7 +47,7 @@ describe('option delivery states through the real store and display selector', (
       } } },
     } as never)
     mountOptions(options)
-    expect(screen.getByTestId('option-result-unavailable-missing')).toHaveTextContent('Ranking percentage unavailable')
+    expect(screen.getByTestId('option-result-unavailable-missing')).toHaveTextContent('Support percentage unavailable')
     expect(screen.queryByTestId('option-win-readout-missing')).toBeNull()
     expect(screen.queryByTestId('option-not-computed-missing')).toBeNull()
     expect(screen.getByTestId('option-not-computed-failed')).toBeInTheDocument()
@@ -71,7 +71,7 @@ describe('option delivery states through the real store and display selector', (
     } as never)
     mountOptions([computed])
     expect(screen.getByTestId('option-result-unavailable-outcome-only'))
-      .toHaveTextContent('Ranking percentage unavailable')
+      .toHaveTextContent('Support percentage unavailable')
     expect(screen.queryByText('Result unavailable', { exact: true })).toBeNull()
     expect(screen.queryByTestId('option-win-readout-outcome-only')).toBeNull()
     expect(screen.queryByTestId('option-not-computed-outcome-only')).toBeNull()

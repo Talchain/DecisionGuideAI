@@ -1801,7 +1801,7 @@ export const OptionNode = memo((props: NodeProps) => {
             className={`${typography.edgeLabel} text-text-light mt-1.5 mb-1`}
             data-testid={`option-result-unavailable-${props.id}`}
           >
-            Ranking percentage unavailable
+            {METRIC_NOUN.support} percentage unavailable
           </p>
         )}
 
