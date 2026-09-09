@@ -73,10 +73,34 @@ function nodes(): Node[] {
   ] as unknown as Node[]
 }
 
+/**
+ * ⚠⚠ THE HARNESS SUBSCRIBES TO THE STORE, AND THAT IS NOT A CONVENIENCE.
+ *
+ * The panel takes `nodes` as a PROP. In production the prop is a store
+ * subscription: `OutputsDock` reads `nodes: s.nodes` through
+ * `useCanvasStore(useShallow(...))` and threads it down via `ModelTabBody`, so a
+ * store write re-renders the panel with a new array — which is exactly how an
+ * applied response reaches this surface.
+ *
+ * The first version of this file rendered `<ModelTabV2Panel nodes={n} …/>` with
+ * a FIXED array and then wrote to the store. The prop never moved, so the
+ * settlement could never fire: the applied-settlement test failed on CI, and —
+ * worse — its DISCRIMINATING TWIN ("a different value does NOT settle it")
+ * passed for the wrong reason. Nothing could settle it, so that assertion held
+ * against every possible implementation. A twin that cannot fail is not a twin.
+ *
+ * Reproducing the real subscription here binds every case below to the mechanism
+ * production uses, rather than to a prop the test hands over by hand.
+ */
+function StoreBoundPanel() {
+  const storeNodes = useCanvasStore(s => s.nodes)
+  return <ModelTabV2Panel nodes={storeNodes as Node[]} edges={[]} goalThreshold={null} />
+}
+
 function renderPanel(lastServerGraphHash: string | null = HASH) {
   const n = nodes()
   useCanvasStore.setState({ nodes: n, edges: [], lastServerGraphHash, currentScenarioId: 'scn_1' } as never, false)
-  render(<ModelTabV2Panel nodes={n} edges={[]} goalThreshold={null} />)
+  render(<StoreBoundPanel />)
   openOutlineGroups()
   fireEvent.click(screen.getByTestId(`model-row-v2-${OPTION}`))
 }
