@@ -71,6 +71,63 @@ describe('edge strength — the quick-set bands', () => {
     expect(h.onDraftChange).toHaveBeenCalledWith('e-0', '0.7')
   })
 
+  /*
+   * ⭐ THE PILL MUST HAND THE KEYBOARD BACK — a defect measured on the DEPLOYED
+   * build `0a0a8113`, hours after this feature merged.
+   *
+   * A real mouse click on a <button> focuses it. So the pill set the draft
+   * correctly and then swallowed the keyboard: `Enter` — the only thing that
+   * proposes an edit — re-pressed the pill instead of committing. Witnessed on
+   * two rows: after the click `document.activeElement` was the pill, the draft
+   * was right, and `Enter` left the editor open with nothing proposed.
+   *
+   * ⚠⚠ AND NOTE WHY THE SUITE COULD NOT SEE IT. `fireEvent.click` (and
+   * `HTMLElement.click()`) DO NOT MOVE FOCUS. Every existing case here clicks
+   * that way, so in all of them focus never left the field and `Enter` would
+   * have worked — the suite was green about a path a real pointer cannot take.
+   * These cases therefore assert the FOCUS RESTORATION ITSELF rather than
+   * simulating the browser's focus, because the restoration is the fix and it
+   * is the only half a jsdom test can honestly observe.
+   */
+  it('⭐ a band click leaves focus ON THE FIELD, so the keyboard still reaches it', () => {
+    const h = handlers()
+    render(<ModelRowView row={edgeRow()} tier="plain" commit={editing('0.5')} editConnected {...h} />)
+    const field = screen.getByTestId('model-row-v2-e-0-value-input')
+    // PRECONDITION PINNED IN-TEST: focus is genuinely moved AWAY first, so a
+    // pass below is the pill restoring it and not focus that never left.
+    const pill = screen.getByTestId('model-row-v2-e-0-value-band-strong')
+    pill.focus()
+    expect(document.activeElement).toBe(pill)
+
+    fireEvent.click(pill)
+    expect(document.activeElement).toBe(field)
+  })
+
+  it('⭐ and Enter then proposes, which is the whole point of restoring focus', () => {
+    const h = handlers()
+    render(<ModelRowView row={edgeRow()} tier="plain" commit={editing('0.5')} editConnected {...h} />)
+    const pill = screen.getByTestId('model-row-v2-e-0-value-band-strong')
+    pill.focus()
+    fireEvent.click(pill)
+    expect(h.onDraftChange).toHaveBeenCalledWith('e-0', '0.7')
+
+    // Sent to whatever actually holds focus — which is the assertion. If the
+    // pill kept it, this reaches the pill and proposes nothing.
+    fireEvent.keyDown(document.activeElement!, { key: 'Enter' })
+    expect(h.onProposeEdit).toHaveBeenCalledWith('e-0')
+  })
+
+  it('the restored field is SELECTED, so typing an exact number replaces it', () => {
+    const h = handlers()
+    render(<ModelRowView row={edgeRow()} tier="plain" commit={editing('0.5')} editConnected {...h} />)
+    const field = screen.getByTestId('model-row-v2-e-0-value-input') as HTMLInputElement
+    fireEvent.click(screen.getByTestId('model-row-v2-e-0-value-band-strong'))
+    // The advanced half of Paul's ruling: the pill gets you close, the number
+    // stays immediately editable rather than needing to be cleared first.
+    expect(field.selectionStart).toBe(0)
+    expect(field.selectionEnd).toBe(field.value.length)
+  })
+
   /**
    * ⚠⚠ THE ONE THAT MATTERS MOST. The pills set a MAGNITUDE; the SIGN is the
    * user's existing statement about direction and must survive untouched.

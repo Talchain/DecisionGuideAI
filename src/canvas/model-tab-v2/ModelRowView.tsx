@@ -1066,6 +1066,50 @@ function ValueCell({
                         onClick={e => {
                           e.stopPropagation()
                           onDraftChange(row.id, next)
+                          /*
+                           * ⭐ AND HAND FOCUS BACK TO THE FIELD — WITNESSED ON
+                           * DEPLOYED `0a0a8113`, NOT REASONED ABOUT.
+                           *
+                           * A real mouse click on a <button> focuses it. So the
+                           * pill set the draft correctly and then SWALLOWED THE
+                           * KEYBOARD: `Enter` — the obvious next keystroke, and
+                           * the only thing that proposes an edit — re-pressed
+                           * the pill instead of committing. Measured twice on
+                           * two rows: after the click `document.activeElement`
+                           * was the pill, the draft was right, and `Enter` left
+                           * the editor open with nothing proposed. The user has
+                           * to click back into the field to get anywhere.
+                           *
+                           * That defeats the whole point of the control. Paul
+                           * ruled this affordance "really simple, quick, and
+                           * easy clickable"; a quick click that then requires a
+                           * second click to mean anything is not that.
+                           *
+                           * ⚠ A PROGRAMMATIC `.click()` CANNOT SEE THIS —
+                           * `HTMLElement.click()` does not move focus, so in
+                           * jsdom (and in any probe that uses it) the input
+                           * keeps focus and `Enter` commits happily. The defect
+                           * is only reachable through a real pointer, which is
+                           * why it shipped.
+                           *
+                           * ⚠ NOT `onProposeEdit` INSTEAD. Proposing straight
+                           * from the pill would delete the review step and the
+                           * exact number with it — the two halves Paul asked to
+                           * be combined. The field keeps the number visible and
+                           * editable; this only makes the keyboard reach it.
+                           *
+                           * Queried rather than held in a ref: this component
+                           * returns early inside a switch, so a hook here would
+                           * be a conditional hook. The testid is derived from
+                           * `row.id`, and only one row edits at a time
+                           * (`commitByRowId` is a one-entry map), so it names
+                           * exactly one element.
+                           */
+                          const field = document.querySelector<HTMLInputElement>(
+                            `[data-testid="${testid}-input"]`,
+                          )
+                          field?.focus()
+                          field?.select()
                         }}
                         className={`${typography.buttonSmall} px-1.5 rounded border ${
                           active
