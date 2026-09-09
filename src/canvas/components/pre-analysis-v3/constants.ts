@@ -227,9 +227,26 @@ export const SIGNAL_COPY = {
  * same banned-terms matcher this object is scanned with.
  *
  * NO RESOLVE COPY HERE, DELIBERATELY. This section is DISPLAY-ONLY: the pre-analysis panel's
- * contested resolve handler was deleted in the Brief 4 Task 6 dead-code sweep, and the only
- * live adjudication surface is the Model tab. `reviewCta` therefore promises navigation, not
- * a fix, and phrases it the way the legacy panel's own model-tab link does.
+ * contested resolve handler was deleted in the Brief 4 Task 6 dead-code sweep.
+ *
+ * ⚠⚠ AND THE SENTENCE THAT USED TO FOLLOW THAT ONE WAS FALSE, WHICH IS WHY `reviewCta`
+ * CHANGED (derived at staging `2416ac3f`). It read: *"the only live adjudication surface is
+ * the Model tab"*, and on that premise the CTA said **"Settle these in the model tab"**.
+ * There is NO live adjudication surface anywhere. `ContestedEdgeCard` — the one control that
+ * has ever offered the four verdicts — has exactly two product render sites and neither is
+ * mounted: `model-tab/RelationshipsSection.tsx`, hosted only inside
+ * `ModelTabBody`'s `{LEGACY_DETAILED_EDITOR_MOUNTED && (…)}` block with that constant `false`
+ * (esbuild folds it — not hidden, not shipped); and `pre-analysis/AllImprovements.tsx`, which
+ * the barrel exports and no product file imports. `ModelTabV2Panel` says it from the other
+ * side: its `MountedQueueId` excludes `'contested'` deliberately, "when nothing renders it".
+ *
+ * ⭐ THE ROUTE STAYS, THE CLAIM GOES. The destination is not empty — the v2 outline carries
+ * every contested relationship, marked and named "Two passes disagree", and per edge (where
+ * `edgeStrengthEditIsAssertable` holds) the strength is editable through a server-authoritative
+ * carrier. So `reviewCta` now promises NAVIGATION ONLY, phrased the way the legacy panel's own
+ * model-tab link is phrased (`PreAnalysisPanel.tsx:2381`, "See all N relationships in model
+ * tab ›"). Restoring a settlement verb requires re-mounting an adjudication host first —
+ * `contestedCtaPromiseIsHonest.spec.tsx` derives that premise and REDs on either half moving.
  */
 export const CONTESTED_COPY = {
   title: 'Where our reviews disagree',
@@ -242,7 +259,11 @@ export const CONTESTED_COPY = {
   reasonFallback: 'Our reviews did not settle on the same estimate here.',
   showDetail: 'Show detail',
   hideDetail: 'Hide detail',
-  reviewCta: 'Settle these in the model tab',
+  /**
+   * NAVIGATION ONLY — see the block comment above. The Model tab cannot settle a
+   * disagreement at this tip, so this must not say that it can.
+   */
+  reviewCta: 'See these in the model tab',
 } as const
 
 export const ATTRIBUTION_COPY = {

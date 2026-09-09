@@ -1,0 +1,275 @@
+/**
+ * THE CONTESTED CTA MAY PROMISE ONLY WHAT ITS DESTINATION CAN DO.
+ *
+ * ── THE DEFECT, DERIVED AT STAGING `2416ac3f` ──────────────────────────────
+ * `ContestedSection` ships a LIVE button — pre-analysis v3 is on in staging
+ * (`netlify.toml:179`, `VITE_FEATURE_PRE_ANALYSIS_V3 = "1"`) — reading
+ * **"Settle these in the model tab"**. The Model tab cannot settle them. The
+ * only control that has ever offered the four adjudication verdicts (accept the
+ * first look, accept the review, enter your own, dismiss) is
+ * `ContestedEdgeCard`, and NEITHER of its two product render sites is mounted:
+ *
+ *   1. `model-tab/RelationshipsSection.tsx` — hosted ONLY at
+ *      `ModelTabBody.tsx`, INSIDE `{LEGACY_DETAILED_EDITOR_MOUNTED && (…)}`,
+ *      and that constant is `false`. esbuild folds it; the stack is not merely
+ *      hidden, it is not shipped.
+ *   2. `pre-analysis/AllImprovements.tsx` — exported from the
+ *      `pre-analysis/index.ts` barrel and imported by NO product file.
+ *
+ * `ModelTabV2Panel`'s own `MountedQueueId` says the same thing from the other
+ * side: it is `Extract<RepairQueue['id'], 'confirm-estimates'>` deliberately,
+ * because typing it to the total union "would make `'contested'` look
+ * sanctioned when nothing renders it".
+ *
+ * An advertised action that terminates in nothing is the defect class this
+ * estate ships most often. This spec closes it and keeps it closed.
+ *
+ * ── WHY THE BUTTON STAYS ───────────────────────────────────────────────────
+ * The destination is not empty. The v2 outline DOES carry every contested
+ * relationship, marked with its own shape and named "Two passes disagree"
+ * (`adapters.ts` → `rowPresentation.ts`), and — per edge, where
+ * `edgeStrengthEditIsAssertable` holds — the row's strength IS editable through
+ * a server-authoritative carrier. So the honest fix is to stop claiming
+ * ADJUDICATION, not to remove the route: §2 below MEASURES that the destination
+ * shows something, which is what licenses keeping the navigation at all.
+ *
+ * ── WHAT EACH SECTION IS FOR ───────────────────────────────────────────────
+ * §1 DERIVES the premise (no adjudication host is mounted) from the source
+ *    rather than restating it, with a CONTRAST CONTROL in the same scan — a
+ *    sibling that IS mounted, and a sibling of the unmounted one that IS
+ *    imported. An absence claim whose probe has never returned a presence is
+ *    not evidence (trap 13). If somebody re-mounts an adjudication host, §1
+ *    goes RED and the copy is due a review — which is the point of deriving it.
+ * §2 MEASURES the destination surface itself (not a component in isolation —
+ *    trap 3b), with the attention mark as the positive control.
+ * §3 pins the COPY against both.
+ */
+
+import '@testing-library/jest-dom/vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { render, cleanup, screen } from '@testing-library/react'
+import { readdirSync, readFileSync } from 'node:fs'
+import { join, dirname, relative, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import type { Edge, Node } from '@xyflow/react'
+
+import { stripComments } from '../../../../../tests/helpers/stripSourceComments'
+import { CONTESTED_COPY } from '../constants'
+import { ATTENTION_LABEL } from '../../../model-tab-v2/rowPresentation'
+import { ModelTabV2Panel } from '../../../model-tab-v2/ModelTabV2Panel'
+import { makeContestedEdge, makeContestedValidation } from '../../../../__fixtures__/contestedEdge'
+import { openOutlineGroups } from '../../../model-tab-v2/__tests__/openOutlineGroups'
+
+vi.mock('../../../utils/focusHelpers', () => ({
+  focusNodeById: vi.fn(),
+  focusEdgeById: vi.fn(),
+}))
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §1 — DERIVED: no adjudication host is mounted
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SRC = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..')
+const EXCLUDED_DIRS = new Set(['node_modules', '__tests__', '__mocks__', 'test', 'tests'])
+
+/** Every PRODUCT `.ts`/`.tsx` under `src/`, comments blanked, keyed by repo path. */
+function productSources(): Map<string, string> {
+  const out = new Map<string, string>()
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        if (!EXCLUDED_DIRS.has(entry.name)) walk(full)
+        continue
+      }
+      if (!/\.tsx?$/.test(entry.name)) continue
+      if (/\.(spec|test)\.tsx?$/.test(entry.name)) continue
+      out.set(
+        relative(SRC, full).split(sep).join('/'),
+        stripComments(readFileSync(full, 'utf8'), entry.name),
+      )
+    }
+  }
+  walk(SRC)
+  return out
+}
+
+const SOURCES = productSources()
+
+/** Files whose CODE (not comments) renders the named component. */
+function renderersOf(component: string): string[] {
+  const needle = `<${component}`
+  return [...SOURCES.entries()]
+    .filter(([, text]) => text.includes(needle))
+    .map(([path]) => path)
+    .sort()
+}
+
+describe('§1 the Model tab has no mounted contested-adjudication control', () => {
+  it('CONTROL: the scan can see a product file at all, and it strips comments', () => {
+    // Without this every absence below could pass against an empty walk. The
+    // second half matters more than it looks: `ContestedEdgeCard` is named in
+    // the COMMENTS of a dozen live files, and a scan that counted those would
+    // report a mounted host that does not exist.
+    expect(SOURCES.size).toBeGreaterThan(500)
+    expect(SOURCES.has('canvas/components/ModelTabBody.tsx')).toBe(true)
+    const contestedSection = SOURCES.get(
+      'canvas/components/pre-analysis-v3/contested/ContestedSection.tsx',
+    )
+    expect(contestedSection, 'the section under discussion must be in the walk').toBeTruthy()
+    expect(
+      contestedSection!.includes('ContestedEdgeCard'),
+      'this file names the card in its HEADER only — a comment-blind scan would see it here',
+    ).toBe(false)
+  })
+
+  it('the card has exactly two product render sites, and this is the whole manifest', () => {
+    // EXACT equality in both directions. Growth is a new host (the copy may
+    // then be strengthened); shrinkage is a removal landing, and it must red
+    // too so the removing commit has to come here and say so.
+    expect(renderersOf('ContestedEdgeCard')).toEqual([
+      'canvas/components/model-tab/RelationshipsSection.tsx',
+      'canvas/components/pre-analysis/AllImprovements.tsx',
+    ])
+  })
+
+  it('host 1: RelationshipsSection is rendered ONLY inside the dead legacy block', () => {
+    const body = SOURCES.get('canvas/components/ModelTabBody.tsx')!
+
+    expect(
+      body.includes('const LEGACY_DETAILED_EDITOR_MOUNTED = false'),
+      'the guard constant must still be false — if it is true, the card is live again',
+    ).toBe(true)
+
+    const open = body.indexOf('{LEGACY_DETAILED_EDITOR_MOUNTED && (')
+    expect(open, 'the guarded block must be findable').toBeGreaterThan(-1)
+    const close = body.indexOf('\n      )}', open)
+    expect(close, 'the guarded block must close').toBeGreaterThan(open)
+
+    const inBlock = (marker: string) => {
+      const at = body.indexOf(marker)
+      expect(at, `${marker} must be present`).toBeGreaterThan(-1)
+      return at > open && at < close
+    }
+
+    // ⚠ CONTRAST CONTROL, IN THE SAME SCAN. `ModelHealthSection` is rendered by
+    // the same file and IS mounted. Without it, an extraction that had silently
+    // captured the whole file would answer "inside the block" for everything
+    // and this test could not tell a dead host from a live one.
+    expect(inBlock('<ModelHealthSection'), 'CONTRAST: a mounted sibling is OUTSIDE').toBe(false)
+    expect(inBlock('<RelationshipsSection'), 'the adjudication host is INSIDE').toBe(true)
+
+    // …and no second host resurrects it elsewhere.
+    expect(renderersOf('RelationshipsSection')).toEqual([
+      'canvas/components/ModelTabBody.tsx',
+      'canvas/components/model-tab/RelationshipsSection.tsx', // its own memo wrapper
+    ])
+  })
+
+  it('host 2: AllImprovements is exported by the barrel and imported by nothing', () => {
+    const importers = [...SOURCES.entries()]
+      .filter(([path]) => path !== 'canvas/components/pre-analysis/AllImprovements.tsx')
+      .filter(([path]) => path !== 'canvas/components/pre-analysis/index.ts')
+      .filter(([, text]) => text.includes('AllImprovements'))
+      .map(([path]) => path)
+    expect(importers).toEqual([])
+
+    // ⚠ CONTRAST CONTROL. `PreAnalysisPanel` leaves the SAME barrel and IS
+    // imported by the dock — so "nothing imports AllImprovements" is a fact
+    // about that symbol, not a probe that cannot see a barrel import.
+    const barrel = SOURCES.get('canvas/components/pre-analysis/index.ts')!
+    expect(barrel).toContain('export { AllImprovements }')
+    expect(barrel).toContain('export { PreAnalysisPanel }')
+    const dock = SOURCES.get('canvas/components/OutputsDock.tsx')!
+    expect(dock, 'CONTRAST: a sibling of the same barrel IS imported').toContain(
+      "import { PreAnalysisPanel } from './pre-analysis'",
+    )
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §2 — MEASURED: the destination shows the contested relationships
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SOURCE_ID = 'f_lead'
+const TARGET_ID = 'f_speed'
+const EDGE_ID = 'e_lead_speed'
+
+function factor(id: string, label: string): Node {
+  return { id, type: 'factor', position: { x: 0, y: 0 }, data: { kind: 'factor', label } } as Node
+}
+
+function renderDestination() {
+  render(
+    <ModelTabV2Panel
+      nodes={[factor(SOURCE_ID, 'Tech lead impact'), factor(TARGET_ID, 'Delivery speed')]}
+      edges={
+        [
+          makeContestedEdge(EDGE_ID, SOURCE_ID, TARGET_ID, makeContestedValidation()),
+        ] as Edge[]
+      }
+      goalThreshold={null}
+    />,
+  )
+  openOutlineGroups()
+}
+
+describe('§2 the destination the CTA names', () => {
+  beforeEach(() => renderDestination())
+  afterEach(() => cleanup())
+
+  it('POSITIVE CONTROL: the contested relationship is on the surface, and says so', () => {
+    // This is what licenses keeping the navigation. It is also the control for
+    // the absence assertion below: without it, "no adjudication control" could
+    // be true because the fixture never reached the surface at all.
+    const mark = screen.getByTestId(`model-row-v2-${EDGE_ID}-attention-contested`)
+    expect(mark).toBeVisible()
+    expect(mark).toHaveAccessibleName(ATTENTION_LABEL.contested)
+  })
+
+  it('offers NO verdict on the disagreement — the card is not there', () => {
+    // Bound by IDENTITY to the card's own testids (trap 19), not to a phrase
+    // another control could satisfy.
+    expect(screen.queryByTestId(`contested-card-${EDGE_ID}`)).toBeNull()
+    expect(screen.queryByTestId(`contested-actions-${EDGE_ID}`)).toBeNull()
+    expect(screen.queryByTestId(`contested-accept-pass1-${EDGE_ID}`)).toBeNull()
+    expect(screen.queryByTestId(`contested-accept-pass2-${EDGE_ID}`)).toBeNull()
+    expect(screen.queryByTestId(`contested-enter-own-${EDGE_ID}`)).toBeNull()
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §3 — the copy claims only what §1 and §2 support
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Verbs that promise the disagreement will be ENDED. Each one is a claim §1
+ * proves false. They are listed rather than derived because there is nothing to
+ * derive them FROM — the harm is a promise in English, and the estate's own
+ * precedent for this is `test/glossaryBannedTerms`.
+ */
+const SETTLEMENT_VERBS = ['settle', 'resolve', 'adjudicate', 'decide', 'choose', 'pick', 'fix']
+
+describe('§3 the contested CTA promises navigation, not a verdict', () => {
+  it('THE WITNESSED STRING: the CTA no longer says it will settle them', () => {
+    // Deployed staging shipped exactly this. Pinned as the regression it was.
+    expect(CONTESTED_COPY.reviewCta).not.toBe('Settle these in the model tab')
+  })
+
+  it('uses no verb that promises the disagreement will be ended', () => {
+    const lower = CONTESTED_COPY.reviewCta.toLowerCase()
+    const promised = SETTLEMENT_VERBS.filter(verb => lower.includes(verb))
+    expect(promised, `"${CONTESTED_COPY.reviewCta}" claims more than the Model tab can do`).toEqual(
+      [],
+    )
+  })
+
+  it('CONTROL: the verb list can fire, and the CTA still names its destination', () => {
+    // A banned-terms assertion that has never matched anything is not evidence.
+    expect(SETTLEMENT_VERBS.filter(v => 'Settle these in the model tab'.toLowerCase().includes(v)))
+      .toEqual(['settle'])
+    // And the button must still be a route: a CTA that stopped naming where it
+    // goes would pass every assertion above by saying nothing.
+    expect(CONTESTED_COPY.reviewCta.toLowerCase()).toContain('model tab')
+  })
+})
