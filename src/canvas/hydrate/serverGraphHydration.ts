@@ -100,6 +100,40 @@ function isSameServerGraph(
 }
 
 /**
+ * ⭐⭐ ADOPT THE SERVER'S WRITE PRECONDITION FOR THE GRAPH WE JUST APPLIED.
+ *
+ * A manual edit is a compare-and-set: the server refuses unless
+ * `computeAnalysisAffectingGraphHash(persistedGraph)` equals the base the client
+ * sent. That base used to reach the client ONLY through `applyV5State`, from a
+ * turn's top-level `graph_hash` — and a RELOAD runs no turn. So a restored
+ * session held no base and every FIRST edit was refused as `needs_fresh_base`:
+ * witnessed natively on 2026-09-09 with the editor open, Cancel correctly silent
+ * and Save honestly sending nothing. The refusal was right; the missing
+ * precondition was the defect, and "ask the assistant something first" is not a
+ * capability.
+ *
+ * ⚠ CALLED ONLY FROM THE ACCEPTED EXITS, which is what makes the fences hold
+ * without adding any. Everything that must not install a base already returns
+ * earlier: an invalid scenario id, an aborted or superseded read
+ * (`signal.aborted` / `canApply()`), a non-graph result, and a REFUSED merge.
+ * A base is adopted exactly when the graph it describes is the graph on screen.
+ *
+ * ⚠ IT IS THE SERVER'S VALUE, CARRIED — never computed here. The client has no
+ * authority on this hash and could not agree with the writer even by accident on
+ * a graph that had moved. Nor is it `identity`: that answers a different
+ * question over a different projection, and on an UNCHANGED graph a substitution
+ * would still match, failing only once someone edited.
+ *
+ * ⚠ ABSENT STAYS FAIL-CLOSED, and the store enforces it rather than this
+ * function promising it: `setLastServerGraphHash` early-returns on anything that
+ * is not a non-empty string, so a CEE that predates the field leaves the session
+ * exactly as it was — refusing the edit and saying so.
+ */
+function adoptServerWriteBase(graphHash: string | null): void {
+  useCanvasStore.getState().setLastServerGraphHash(graphHash)
+}
+
+/**
  * Hydrate the canvas from the server's copy of this scenario's graph.
  *
  * Never throws and never rejects — the caller is a boot effect, and an
@@ -298,6 +332,12 @@ export async function hydrateCanvasFromServer(
     // local edit made since that hydration back to the same server value the
     // user has already been shown once.
     restoreVerdict()
+    // ⭐ THE UNCHANGED CASE ADOPTS TOO, and it is the one a reload actually
+    // takes. "The server has not moved" means the canvas already holds exactly
+    // the graph this response describes — so its write base is true of what the
+    // user is looking at. Skipping here would leave the ordinary restore with no
+    // base, which is the whole defect.
+    adoptServerWriteBase(result.graphHash)
     return 'unchanged'
   }
 
@@ -370,6 +410,8 @@ export async function hydrateCanvasFromServer(
         }
       : null,
   )
+
+  adoptServerWriteBase(result.graphHash)
 
   return 'merged'
 }
