@@ -129,6 +129,7 @@ import { buildEdgeStrengthEditEvent } from '../conversation/edgeStrengthEdit'
 import { captureOptimisticFactorEdit } from '../conversation/optimisticFactorEdit'
 import { buildManualGoalTarget, manualGoalTargetMessage } from '../conversation/manualGoalTarget'
 import { buildOptionInterventionEditEvent } from '../conversation/optionInterventionEdit'
+import { SEND_BLOCKED, SEND_DEFERRED } from '../conversation/useConversation'
 
 /**
  * How a proposal left this seam.
@@ -199,6 +200,28 @@ export type OptionInterventionProposalOutcome =
   | 'not_encodable'
 
 /**
+ * What the SENDER did with a dispatched effect edit — resolved later, because
+ * the sync return above cannot know it.
+ *
+ * ⚠⚠ THE DISPATCH OUTCOME IS NOT THE SEND OUTCOME, and conflating them is the
+ * defect this type exists to prevent. `dispatched` means the event left this
+ * hook; the sender's promise resolves afterwards with one of three very
+ * different facts, and a row that showed "sent" for all three would be telling
+ * the user something false in two of them:
+ *
+ * - `sent`    — the turn was actually issued. The response settles the value,
+ *               and the canonical store is what says so; this hook does not
+ *               echo its own number back as a confirmation (contracts.ts C11).
+ * - `queued`  — `SEND_DEFERRED`: another turn holds the lock, so this one is
+ *               buffered and WILL be sent. Nothing is wrong and nothing has
+ *               happened yet. The promise resolves *before the turn exists*,
+ *               which is exactly why "sent" would be a lie here.
+ * - `blocked` — `SEND_BLOCKED`: it was NOT queued and will not go on its own.
+ *               The caller owns the retry, so the caller must be told.
+ */
+export type OptionInterventionSendSettlement = 'sent' | 'queued' | 'blocked'
+
+/**
  * How an EDGE STRENGTH proposal left this seam.
  *
  * ⭐⭐ IT EXTENDS `EdgeStrengthCommitOutcome` RATHER THAN RESTATING IT. The
@@ -258,7 +281,18 @@ export interface ModelEditAuthorityLive {
    * option would move. Both halves are checked — see the implementation for why
    * an unresolvable `factorId` must fail closed rather than write.
    */
-  proposeOptionIntervention: (factorId: string, value: number) => OptionInterventionProposalOutcome
+  proposeOptionIntervention: (
+    factorId: string,
+    value: number,
+    opts?: {
+      /**
+       * Called once when the SENDER settles. Optional so existing call sites are
+       * unchanged; a caller that renders a pending state must pass it, or that
+       * state has no way to end.
+       */
+      onSendSettled?: (settlement: OptionInterventionSendSettlement) => void
+    },
+  ) => OptionInterventionProposalOutcome
   /**
    * Ratify the ACTIVE FACTOR's existing value as correct.
    *
@@ -381,7 +415,11 @@ export function useModelEditAuthority(
    * for an element that is not in the model.
    */
   const proposeOptionIntervention = useCallback(
-    (factorId: string, value: number): OptionInterventionProposalOutcome => {
+    (
+      factorId: string,
+      value: number,
+      opts?: { onSendSettled?: (settlement: OptionInterventionSendSettlement) => void },
+    ): OptionInterventionProposalOutcome => {
       if (!activeNodeId) return 'not_encodable'
       const state = useCanvasStore.getState()
       const option = state.nodes.find(n => n.id === activeNodeId)
@@ -426,12 +464,26 @@ export function useModelEditAuthority(
       // it has somewhere now. Writing optimistically here would put a number on
       // screen that the server may refuse, on a surface whose whole premise is
       // that an affordance appears only where the write reaches the server.
-      void Promise.resolve(sendSystemEvent(event)).catch(() => {
-        // Swallowed deliberately: a send failure is recorded by the
-        // conversation's own failure channel, and a server REFUSAL is not a
-        // failure. Identical to `proposeFactorValue`'s catch, for the identical
-        // reason.
-      })
+      // ⚠ THE PROMISE IS READ NOW, NOT DISCARDED. It used to be `void
+      // Promise.resolve(...).catch(...)` — which is right for a fire-and-forget
+      // notification and wrong here, because two of the sender's three outcomes
+      // mean the turn has NOT happened. Discarding it left a row saying "sent"
+      // over an edit that was queued behind another turn, or one that was never
+      // queued at all.
+      void Promise.resolve(sendSystemEvent(event))
+        .then(outcome => {
+          if (outcome === SEND_DEFERRED) return opts?.onSendSettled?.('queued')
+          if (outcome === SEND_BLOCKED) return opts?.onSendSettled?.('blocked')
+          return opts?.onSendSettled?.('sent')
+        })
+        .catch(() => {
+          // A rejected send is a POST that failed. It is NOT a server refusal —
+          // that arrives as a response the central machinery resolves — so it is
+          // reported as `blocked`: nothing reached the server and the caller
+          // owns what happens next. The conversation's own failure channel still
+          // records the error; this only decides what the ROW says.
+          opts?.onSendSettled?.('blocked')
+        })
       return 'dispatched'
     },
     [activeNodeId, sendSystemEvent],

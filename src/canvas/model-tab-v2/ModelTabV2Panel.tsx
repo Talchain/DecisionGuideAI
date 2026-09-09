@@ -227,6 +227,9 @@ export function ModelTabV2Panel({
   const inQueue = activeQueue !== null
   const [filter, setFilter] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Subscribed, not read once: a pending effect edit must notice a scenario
+  // switch beneath it rather than settle against a different model.
+  const currentScenarioId = useCanvasStore(st => st.currentScenarioId)
   const [edit, setEdit] = useState<ActiveEdit | null>(null)
   /**
    * The one intervention target being edited, if any.
@@ -259,8 +262,12 @@ export function ModelTabV2Panel({
       optionId: string
       factorId: string
       draft: string
-      phase: 'editing' | 'pending'
+      phase: 'editing' | 'pending' | 'queued'
       notice?: string
+      /** The exact number sent, so the settlement below compares like with like. */
+      sentValue?: number
+      /** The scenario the send belongs to. A pending state must not outlive it. */
+      sentScenarioId?: string | null
     } | null
   >(null)
 
@@ -663,14 +670,50 @@ export function ModelTabV2Panel({
       // ⚠ THE OUTCOME IS READ, NOT DISCARDED. This line used to be
       // `authority.propose…(); setInterventionEdit(null)` — the row closed
       // whatever happened, so a refusal looked exactly like a success.
-      const outcome = authority.proposeOptionIntervention(factorId, num)
+      // ⚠ THE PENDING STATE IS SET BEFORE THE SEND, NOT AFTER, AND THAT ORDER IS
+      // A CORRECTNESS DETAIL RATHER THAN A STYLE ONE. The settlement callback
+      // fences on the value we sent; if the state were written after the call,
+      // a settlement resolving on the same microtask would find `sentValue`
+      // still undefined and be dropped — the row would hang on "sent" forever
+      // for exactly the fastest cases.
+      const scenarioAtSend = useCanvasStore.getState().currentScenarioId
+      setInterventionEdit(prev =>
+        prev && prev.factorId === factorId
+          ? { ...prev, phase: 'pending', sentValue: num, sentScenarioId: scenarioAtSend, notice: undefined }
+          : prev,
+      )
+
+      const outcome = authority.proposeOptionIntervention(factorId, num, {
+        // Two of the sender's three answers mean the turn has NOT happened.
+        // Without reading them the row said "sent" over an edit that was queued
+        // behind another turn, or one that was never queued at all.
+        onSendSettled: settlement => {
+          setInterventionEdit(prev => {
+            // Fenced by factor AND by the value we sent: a settlement arriving
+            // after the user has moved on must not relabel their new draft with
+            // an old send's outcome.
+            if (!prev || prev.factorId !== factorId || prev.sentValue !== num) return prev
+            if (settlement === 'queued') return { ...prev, phase: 'queued' }
+            if (settlement === 'blocked') {
+              return {
+                ...prev,
+                phase: 'editing',
+                notice: 'Not sent — another change is still in flight. Try again in a moment.',
+              }
+            }
+            // `sent`: the turn was issued. The row stays pending until the
+            // CANONICAL store carries the value — this hook does not echo its
+            // own number back as a confirmation.
+            return prev
+          })
+        },
+      })
+
+      if (outcome === 'dispatched') return
+
       setInterventionEdit(prev => {
         if (!prev || prev.factorId !== factorId) return prev
-        if (outcome === 'dispatched') {
-          // NOT closed. The number is with the server and is not in the model
-          // until the applied response says so; the row says exactly that.
-          return { ...prev, phase: 'pending' }
-        }
+        const { sentValue: _v, sentScenarioId: _s, ...rest } = prev
         if (outcome === 'needs_fresh_base') {
           // The one refusal the user can clear. The action named is the ONE that
           // actually refreshes the base — a turn — inherited from the
@@ -678,7 +721,7 @@ export function ModelTabV2Panel({
           // re-sends the same stale base forever, and a reload builds a fresh
           // store with no server hash at all.
           return {
-            ...prev,
+            ...rest,
             phase: 'editing',
             notice:
               'Not sent yet — I need to re-sync with the saved model first. ' +
@@ -686,15 +729,60 @@ export function ModelTabV2Panel({
           }
         }
         return {
-          ...prev,
+          ...rest,
           phase: 'editing',
-          notice:
-            'Not sent: an effect value has to be between 0 and 1 on the model scale.',
+          notice: 'Not sent: an effect value has to be between 0 and 1 on the model scale.',
         }
       })
     },
     [interventionEdit, authority, selectedDetail],
   )
+
+  /**
+   * ⭐⭐ THE CANONICAL SETTLEMENT — what ENDS a pending state.
+   *
+   * `pending` had no way to finish. The row said "sent, not saved yet" and then
+   * said it forever, whatever the server did, because nothing was watching for
+   * the answer. A state that can only be entered is not a state, it is a stuck
+   * label — and the harm is the same class as the optimistic write it replaced:
+   * a row telling the user something about their model that stopped being true.
+   *
+   * ⚠ THE SETTLEMENT IS THE CANONICAL STORE, NEVER AN ECHO. It clears when the
+   * projected value for THIS option and THIS factor equals the number that was
+   * sent — i.e. when the applied response has actually carried it into the
+   * model the rest of the surface reads. This hook never confirms its own send:
+   * "an authority that echoed its own typed value back as an 'applied' receipt
+   * would be an optimistic write wearing a confirmation".
+   *
+   * ⚠ AND IT IS FENCED THREE WAYS, because a pending state that survives the
+   * wrong context is worse than none: by OPTION and FACTOR (identity, never
+   * position), and by SCENARIO — switching scenario mid-flight must not let a
+   * value arriving in a different model close a row about this one.
+   */
+  useEffect(() => {
+    if (interventionEdit === null) return
+    if (interventionEdit.phase !== 'pending' && interventionEdit.phase !== 'queued') return
+    if (interventionEdit.sentValue === undefined) return
+    if (interventionEdit.sentScenarioId !== currentScenarioId) {
+      // The model changed underneath the send. Say so rather than guessing what
+      // happened to it in a scenario this row is no longer about.
+      setInterventionEdit(prev =>
+        prev && prev.phase !== 'editing'
+          ? {
+              ...prev,
+              phase: 'editing',
+              notice: 'The scenario changed while that was sending, so I can’t confirm it landed here.',
+            }
+          : prev,
+      )
+      return
+    }
+    if (interventionEdit.optionId !== selectedId) return
+    const landed = selectedDetail?.interventions?.find(
+      iv => iv.factorId === interventionEdit.factorId,
+    )
+    if (landed?.numericValue === interventionEdit.sentValue) setInterventionEdit(null)
+  }, [interventionEdit, selectedDetail, selectedId, currentScenarioId])
 
   /**
    * ⚠ SELECTING A DIFFERENT ROW ABANDONS AN OPEN INTERVENTION DRAFT. See

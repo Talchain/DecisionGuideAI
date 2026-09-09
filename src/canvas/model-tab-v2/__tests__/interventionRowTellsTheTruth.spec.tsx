@@ -24,10 +24,10 @@
  * cannot reach.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { Node } from '@xyflow/react'
 
-const sendSystemEvent = vi.fn()
+const sendSystemEvent = vi.fn().mockResolvedValue(undefined)
 vi.mock('../../conversation/ConversationContext', async importOriginal => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useOptionalConversationContext: () => ({ sendSystemEvent }),
@@ -74,7 +74,7 @@ function nodes(): Node[] {
 
 function renderPanel(lastServerGraphHash: string | null = HASH) {
   const n = nodes()
-  useCanvasStore.setState({ nodes: n, edges: [], lastServerGraphHash } as never, false)
+  useCanvasStore.setState({ nodes: n, edges: [], lastServerGraphHash, currentScenarioId: 'scn_1' } as never, false)
   render(<ModelTabV2Panel nodes={n} edges={[]} goalThreshold={null} />)
   openOutlineGroups()
   fireEvent.click(screen.getByTestId(`model-row-v2-${OPTION}`))
@@ -91,6 +91,8 @@ function commit(value: string) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  // `undefined` is the sender's "the turn was actually issued" answer.
+  sendSystemEvent.mockResolvedValue(undefined)
   authority.value = 'server_graph'
 })
 afterEach(() => cleanup())
@@ -146,6 +148,115 @@ describe('the three honest states, through the panel', () => {
     expect(
       screen.queryByTestId(`model-detail-v2-intervention-${FACTOR}-notice`),
     ).not.toBeInTheDocument()
+  })
+})
+
+describe('the sender settles, and two of its three answers mean nothing was sent', () => {
+  it('QUEUED — SEND_DEFERRED says another turn holds the lock; the row must not say "sent"', async () => {
+    // ⚠ The promise resolves BEFORE the turn exists. A row that read this as
+    // "sent" would be describing a turn that has not happened.
+    sendSystemEvent.mockResolvedValue('send_deferred')
+    renderPanel()
+    commit('0.6')
+
+    await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-queued`)
+    expect(
+      screen.getByTestId(`model-detail-v2-intervention-${FACTOR}-queued`).textContent ?? '',
+    ).toMatch(/queued behind another change/i)
+    expect(
+      screen.queryByTestId(`model-detail-v2-intervention-${FACTOR}-pending`),
+    ).not.toBeInTheDocument()
+  })
+
+  it('BLOCKED — SEND_BLOCKED was never queued, so the row reopens and says so', async () => {
+    sendSystemEvent.mockResolvedValue('send_blocked')
+    renderPanel()
+    commit('0.6')
+
+    const notice = await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-notice`)
+    expect(notice.textContent ?? '').toMatch(/not sent/i)
+    // Editable again: the caller owns the retry, so the user must be able to.
+    expect(screen.getByTestId(`model-detail-v2-intervention-${FACTOR}-input`)).toBeInTheDocument()
+  })
+
+  it('a REJECTED send is reported as blocked, never as sent', async () => {
+    // A failed POST is not a server refusal — nothing reached the server — so
+    // the row must not imply the model has heard about this number.
+    sendSystemEvent.mockRejectedValue(new Error('network'))
+    renderPanel()
+    commit('0.6')
+
+    const notice = await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-notice`)
+    expect(notice.textContent ?? '').toMatch(/not sent/i)
+  })
+
+  it('POSITIVE CONTROL: an ordinary send stays pending — the three above are not "everything fails"', async () => {
+    renderPanel()
+    commit('0.6')
+    await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-pending`)
+    expect(
+      screen.queryByTestId(`model-detail-v2-intervention-${FACTOR}-notice`),
+    ).not.toBeInTheDocument()
+  })
+})
+
+describe('the canonical settlement — what ENDS a pending state', () => {
+  it('the row clears when the CANONICAL store carries the value that was sent', async () => {
+    renderPanel()
+    commit('0.6')
+    await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-pending`)
+
+    // The applied response landing: the store now holds what was sent. Nothing
+    // echoes the hook's own number back — this is the model the rest of the
+    // surface reads.
+    const applied = nodes().map(n =>
+      n.id === OPTION
+        ? { ...n, data: { ...(n.data as object), interventions: { [FACTOR]: 0.6 } } }
+        : n,
+    )
+    await act(async () => {
+      useCanvasStore.setState({ nodes: applied } as never, false)
+    })
+
+    expect(
+      screen.queryByTestId(`model-detail-v2-intervention-${FACTOR}-pending`),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByTestId(`model-detail-v2-intervention-${FACTOR}-input`),
+    ).not.toBeInTheDocument()
+  })
+
+  it('⚠ a DIFFERENT value landing does NOT settle it — the row is about the number that was sent', async () => {
+    // The discriminating twin. Without it, "clears when the store changes"
+    // would pass on any store movement at all, including a server value the
+    // user never asked for.
+    renderPanel()
+    commit('0.6')
+    await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-pending`)
+
+    const other = nodes().map(n =>
+      n.id === OPTION
+        ? { ...n, data: { ...(n.data as object), interventions: { [FACTOR]: 0.42 } } }
+        : n,
+    )
+    await act(async () => {
+      useCanvasStore.setState({ nodes: other } as never, false)
+    })
+
+    expect(screen.getByTestId(`model-detail-v2-intervention-${FACTOR}-pending`)).toBeInTheDocument()
+  })
+
+  it('⚠ a SCENARIO SWITCH mid-flight stops the row claiming anything about this model', async () => {
+    renderPanel()
+    commit('0.6')
+    await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-pending`)
+
+    await act(async () => {
+      useCanvasStore.setState({ currentScenarioId: 'a-different-scenario' } as never, false)
+    })
+
+    const notice = await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-notice`)
+    expect(notice.textContent ?? '').toMatch(/scenario changed/i)
   })
 })
 

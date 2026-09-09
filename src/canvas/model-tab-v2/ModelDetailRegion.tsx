@@ -112,7 +112,7 @@ export interface ModelDetailRegionProps {
     factorId: string
     draft: string
     /** `pending` = the turn is with the server and the model does NOT hold it yet. */
-    phase?: 'editing' | 'pending'
+    phase?: 'editing' | 'pending' | 'queued'
     /** Why nothing was sent. Present only on `editing`. */
     notice?: string
   } | null
@@ -295,7 +295,8 @@ export function ModelDetailRegion({
             {interventions.map(iv => {
               const active = interventionEdit?.factorId === iv.factorId
               const pending = active && interventionEdit?.phase === 'pending'
-              const editing = active && !pending
+              const queued = active && interventionEdit?.phase === 'queued'
+              const editing = active && !pending && !queued
               const notice = active ? interventionEdit?.notice : undefined
               const editable = typeof onBeginInterventionEdit === 'function'
               return (
@@ -313,7 +314,7 @@ export function ModelDetailRegion({
                     {iv.factorLabel}
                   </span>
 
-                  {pending ? (
+                  {pending || queued ? (
                     /*
                      * ⭐ SENT, NOT SAVED — and the row must not blur the two.
                      * The old code closed on dispatch, which showed the typed
@@ -323,10 +324,13 @@ export function ModelDetailRegion({
                      * is nothing left to press).
                      */
                     <span
-                      data-testid={`model-detail-v2-intervention-${iv.factorId}-pending`}
+                      data-testid={`model-detail-v2-intervention-${iv.factorId}-${queued ? 'queued' : 'pending'}`}
                       className={`${typography.panelBody} text-text-light`}
                     >
-                      {interventionEdit?.draft} · sent, not saved yet
+                      {interventionEdit?.draft}
+                      {queued
+                        ? ' · queued behind another change'
+                        : ' · sent, not saved yet'}
                     </span>
                   ) : editing ? (
                     <>
