@@ -163,9 +163,12 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
      * independently by construction. Omitting it made the correction
      * conditional on some OTHER input happening to move in the same render.
      *
-     * `__tests__/viewModelHonoursEveryInput.spec.tsx` sweeps EVERY scalar input
-     * rather than pinning this one, because a list a human must remember to
-     * extend is the mirror this estate keeps paying for (CLAUDE.md trap 12).
+     * `__tests__/viewModelHonoursEveryInput.spec.tsx` exercises each scalar
+     * input rather than pinning this one. ⚠ Its `SCALAR_INPUTS` is HAND-WRITTEN
+     * and exhaustive against this interface only at this tip — it is not derived
+     * from it. Add an input here and you must add a row there, or the new input
+     * is unguarded and nothing goes red (CLAUDE.md trap 12 — that file is an
+     * instance of the mirror, not a cure for it).
      */
     [
       data,

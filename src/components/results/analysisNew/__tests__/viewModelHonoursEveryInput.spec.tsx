@@ -26,11 +26,19 @@
  * this failure mode ("a property of the DATA rather than of this adapter …
  * true on the runs that happened to be driven, and unguaranteed").
  *
- * ⭐⭐ SO THE GUARD IS A SWEEP, NOT A SINGLE CASE. A test for `staleReason`
+ * ⭐⭐ SO THE GUARD COVERS EACH INPUT, NOT ONE CASE. A test for `staleReason`
  * alone would close this one omission and see nothing when the next input is
- * dropped (CLAUDE.md trap 12 — the hand-maintained mirror). Every scalar input
- * the hook declares is exercised: change it alone, and the hook MUST hand back
- * a different object.
+ * dropped. Every scalar input the hook declares is exercised: change it alone,
+ * and the hook MUST hand back a different object.
+ *
+ * ⚠⚠ AND THE LIMIT OF THAT, STATED RATHER THAN IMPLIED — because an earlier
+ * draft of this header claimed the opposite. `SCALAR_INPUTS` below is
+ * HAND-WRITTEN. It is exhaustive against `UseAnalysisNewViewModelArgs` at this
+ * tip (the interface declares `data` plus exactly these seven scalars) and it is
+ * NOT derived from it. Add an input to the hook without adding a row here and
+ * the new input is unguarded with nothing red. This file is therefore an
+ * INSTANCE of CLAUDE.md trap 12, not a cure for it: extend the list when you
+ * extend the hook.
  *
  * ⚠ AND IT CARRIES ITS OWN DISCRIMINATION PROOF. "A new object appeared" is
  * worthless unless a rerender that changes NOTHING hands back the SAME object
