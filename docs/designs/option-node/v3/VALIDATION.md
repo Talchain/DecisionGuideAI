@@ -1,3 +1,23 @@
+# Current delivery validation — 9 September 2026
+
+Candidate branch: `codex/option-node-followups`. No local test/build/install was run under the shared resource directive. Whitespace validation only: `git diff --check` passed. Hosted CI and independent review are required before release.
+
+| Acceptance | Authored check | Deployed artefact |
+|---|---|---|
+| Missing result differs from failed result and measured zero in one graph | `OptionNode.deliveryStates.spec.tsx`, real store and display selector | Not yet witnessed |
+| Draft is not falsely called an unavailable analysis | Same suite, draft control | Not yet witnessed |
+| Baseline with values does not claim no changes | Same suite, baseline differs from observed value | Not yet witnessed |
+| Capped preview has a working inspector overflow route | Same suite, five interventions | Not yet witnessed |
+| Unavailable coaching explains an unsent prompt; registration recovers | `NodeChip.unavailable.spec.tsx`, real guidance store, no toast host | Not yet witnessed |
+| Existing dispatcher intent and legacy send remain intact | New recovery test plus existing NodeChip intent/canonical-run suites | Not yet witnessed |
+| Global influence does not claim why an option won | Existing OptionNode factor-identity fixtures with superseded causal copy | Not yet witnessed |
+
+The remaining inspector, currentness, graph and semantic-model rows retain their owners in [DESIGN-SPEC.md](DESIGN-SPEC.md). The three independently reviewed Canvas releases (#1274, #1339, #1340) are merged; this does not establish their paint/journey acceptance. Do not run local broad checks to fill these gaps while the resource directive stands.
+
+---
+
+> Delivery update, 9 September 2026: this is historical #1333 validation. The current [delivery register](DESIGN-SPEC.md#delivery-register) contains additional unresolved acceptance rows. No new source or deployed journey pass is implied. Further checks use hosted CI while the shared Mac is under a no-local-tests/builds directive.
+
 # V3 validation record
 
 Recorded on 8 September 2026 for `codex/option-node-v3-refinements`, based on

@@ -8,6 +8,7 @@ import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { useMenuItems } from '../../../contextMenu/useMenuItems'
 import { isMenuItem } from '../../../contextMenu/types'
 import { NodeQuickActions } from '../NodeQuickActions'
+import { NodeProvenanceMark } from '../NodeProvenanceMark'
 
 const option = { id: 'option-b', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Two developers' } }
 
@@ -16,6 +17,7 @@ function NodeWithPreview() {
   return (
     <div ref={nodeElRef as React.Ref<HTMLDivElement>} {...nodeHandlers} data-testid="node">
       <span data-testid="body">Two developers</span>
+      <NodeProvenanceMark nodeType="option" data={{ ...option.data, provenance: 'from_brief' }} />
       <NodeQuickActions nodeId={option.id} nodeType="option" label={option.data.label} alwaysVisible />
       {showPopover && <div data-testid="preview">What this option changes</div>}
     </div>
@@ -43,7 +45,8 @@ describe('node preview and action tooltip priority', () => {
     fireEvent.mouseEnter(action)
     await advance()
     expect(screen.queryByTestId('preview')).toBeNull()
-    expect(screen.getByRole('tooltip')).toHaveTextContent('what could be wrong or missing?')
+    // The hint names the ACTION, not the node — see NodeQuickActions.tooltipCopy.spec.tsx.
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Challenge this option')
     expect(action).toHaveAttribute('title', '')
     fireEvent.mouseLeave(action, { relatedTarget: screen.getByTestId('body') })
     fireEvent.mouseEnter(screen.getByTestId('body'))
@@ -60,6 +63,23 @@ describe('node preview and action tooltip priority', () => {
     await advance(1000)
     expect(screen.queryByTestId('preview')).toBeNull()
     expect(screen.getAllByRole('tooltip')).toHaveLength(1)
+  })
+
+  it('yields an open preview to provenance, then restores body hover', async () => {
+    render(<NodeWithPreview />)
+    fireEvent.mouseEnter(screen.getByTestId('node'))
+    await advance()
+    expect(screen.getByTestId('preview')).toBeInTheDocument()
+    const mark = screen.getByTestId('node-provenance-mark')
+    fireEvent.mouseEnter(mark)
+    await advance()
+    expect(screen.queryByTestId('preview')).toBeNull()
+    expect(screen.getByRole('tooltip')).toHaveTextContent(mark.getAttribute('aria-label')!)
+    fireEvent.mouseLeave(mark, { relatedTarget: screen.getByTestId('body') })
+    fireEvent.mouseEnter(screen.getByTestId('body'))
+    await advance()
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    expect(screen.getByTestId('preview')).toBeInTheDocument()
   })
 
   it('discloses on keyboard focus and dismisses with Escape without firing an action', async () => {

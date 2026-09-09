@@ -5,7 +5,7 @@
  * Mouse can transition from node into popover without closing.
  * Touch (hover: none): tap node to toggle popover open/closed.
  * Tap elsewhere to close on touch devices.
- * Quick-action hover/focus takes precedence over the node preview. This
+ * Quick-action and card-metadata hover/focus take precedence over the node preview. This
  * prevents its tooltip from competing with the preview; Escape dismisses
  * the preview until the pointer leaves and re-enters the node.
  */
@@ -75,7 +75,8 @@ export function usePopoverHover() {
     const node = nodeElRef.current
     if (!node) return
     const isAction = (target: EventTarget | null) =>
-      target instanceof Element && node.contains(target) && !!target.closest('.node-quick-actions')
+      target instanceof Element && node.contains(target) &&
+      !!target.closest('.node-quick-actions, [data-node-tooltip]')
     const update = () => {
       if (actionHovered.current || actionFocused.current) {
         cancelEnter()

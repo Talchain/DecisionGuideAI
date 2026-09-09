@@ -1171,20 +1171,21 @@ describe('OptionNode — is_baseline rendering', () => {
     edges: [],
   })
 
-  it('Standard pre: is_baseline=true renders "No changes to factors"', () => {
+  it('Standard pre: is_baseline=true identifies the reference without claiming no interventions', () => {
     const data = { label: 'Any Label', is_baseline: true }
     applyStore(optionOnlyTopology('standard', 'pre', data))
     renderOption(data)
     // Rendered in both the body text and the popover; both are the baseline
     // treatment path so we assert presence (length > 0), not uniqueness.
-    expect(screen.getAllByText(/No changes to factors/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Baseline option/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/No changes to factors/i)).toBeNull()
   })
 
   it('Standard pre: is_baseline=null + "Status Quo" label fires regex fallback (baseline treatment)', () => {
     const data = { label: 'Status Quo', is_baseline: null }
     applyStore(optionOnlyTopology('standard', 'pre', data))
     renderOption(data)
-    expect(screen.getAllByText(/No changes to factors/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Baseline option/i).length).toBeGreaterThan(0)
   })
 
   // Correction #7 — critical: explicit `false` must suppress the regex, even
@@ -1194,7 +1195,7 @@ describe('OptionNode — is_baseline rendering', () => {
     const data = { label: 'Status Quo', is_baseline: false }
     applyStore(optionOnlyTopology('standard', 'pre', data))
     renderOption(data)
-    expect(screen.queryByText(/No changes to factors/i)).toBeNull()
+    expect(screen.queryByText(/Baseline option/i)).toBeNull()
   })
 })
 

@@ -95,9 +95,10 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
     inSensitivityAnalysis: false,
     achievementProbability: null,
     stabilityPercentage: null,
-    // Leader withheld: no win rate to show, which is the captured state.
+    // This fixture has no per-option result; draft metadata must stay in
+    // draft mode when a test changes the store's analysis lifecycle.
     winRate: null,
-    isResultsMode: true,
+    isResultsMode: useCanvasStore((state) => state.results.status) === 'complete',
     predictedOutcome: null,
     valueOfInformation: null,
     voiRank: null,

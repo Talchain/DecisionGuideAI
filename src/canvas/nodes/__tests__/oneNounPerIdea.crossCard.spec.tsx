@@ -263,24 +263,14 @@ describe('one noun per idea — the decision card and the option card agree', ()
     expect(RETIRED_METRIC_NOUNS).toContain('Leads')
   })
 
-  it('⚠ RESIDUAL, DECIDED NOT DISCOVERED: "Leads" survives as a VERB on the option card', () => {
-    // The review found `OptionNode:1601` — "Supported by {factor}" beneath the
-    // `Ahead 47%` anchor — and rightly said it should be decided explicitly
-    // rather than left to be found. It is: the register retires "Leads" as a
-    // CAPTION, and both survivors are verbs inside sentences.
-    //
-    // This test exists so the decision is VISIBLE and REVERSIBLE. If a later
-    // session rules that a caption and a verb must agree, it REDs here and
-    // reads the reasoning in metricVocabulary.ts rather than rediscovering the
-    // whole question. Bound to the source, since the sentence needs a
-    // post-analysis recommended option this harness does not mount.
+  it('global factor importance offers examination without asserting option-specific support', () => {
+    // The factor link is navigation. Global importance does not establish
+    // why this particular option wins; the delivery-state test also mounts
+    // the link and checks that it targets the right factor.
     const src = readFileSync(resolve(__dirname, '../OptionNode.tsx'), 'utf8')
     expect(src.length, 'source read as empty — the assertion below is vacuous').toBeGreaterThan(1000)
-    expect(
-      src.includes('Supported by'),
-      'the "Supported by" sentence has gone — good, but update the residual note in metricVocabulary.ts',
-    ).toBe(true)
-    // …and it is prose, not a caption: no `label=` binds it.
+    expect(src).toContain('Factor to examine:')
+    expect(src).not.toContain('Supported by')
     expect(src).not.toMatch(/label=["']Leads["']/)
   })
 })

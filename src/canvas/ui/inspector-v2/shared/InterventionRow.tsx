@@ -80,8 +80,26 @@ const INSPECTOR_INTERVENTION_PROVENANCE_BORDER: Record<ValueProvenanceKind, stri
 interface InterventionRowProps {
   factorId: string
   factorLabel: string
-  /** Baseline value in raw units */
+  /**
+   * The value the delta is measured FROM, on the SAME SCALE as `currentValue`
+   * — in practice the factor's normalised 0-1 model value.
+   *
+   * ⚠ THIS DOC USED TO SAY "Baseline value in raw units". It was false, and the
+   * falsehood WAS the defect: `OptionPanel` passes `observedState.value`
+   * (normalised) with `unit: observedState.unit` ('£'), so the formatter
+   * rendered `£0.59` for a £59 price and `£0.2` for a perception score.
+   * Witnessed on staging `d913bd1f`. Never decorate this value with a unit —
+   * pass `rawBaseline` for display instead.
+   */
   baseline?: number
+  /**
+   * The same quantity in the factor's REAL units, for DISPLAY ONLY — never for
+   * the delta. Supplied by the producer as `observedState.raw_value`; absent on
+   * most factors (3 of 34 in the shipped starter corpus carry a unit at all).
+   * When absent the normalised value is shown with NO unit, because the
+   * normalisation factor is not on the wire and inferring it would invent one.
+   */
+  rawBaseline?: number
   /** Current intervention value */
   currentValue: number
   /** CEE-authored display_value for the intervention — rendered verbatim when
@@ -114,6 +132,7 @@ export function InterventionRow({
   factorId,
   factorLabel,
   baseline,
+  rawBaseline,
   currentValue,
   displayValue,
   unit = '',
@@ -160,6 +179,21 @@ export function InterventionRow({
     }
     return unit ? `${v.toLocaleString()} ${unit}` : v.toLocaleString()
   }
+
+  /**
+   * ⭐ A UNIT DECORATES ONLY THE VALUE IT BELONGS TO.
+   *
+   * `rawBaseline` is in the factor's real units, so it takes the unit.
+   * `baseline` is normalised, so it is shown bare — dropping the unit rather
+   * than inventing a magnitude. `formatValue` is deliberately NOT reached in
+   * the fallback: it is the function that prefixes the currency symbol.
+   */
+  const baselineText =
+    rawBaseline != null
+      ? formatValue(rawBaseline)
+      : baseline != null
+        ? baseline.toLocaleString()
+        : 'N/A'
 
   // F.6 passthrough: when CEE provides display_value, it IS the canonical
   // default-mode user-facing text. Raw numeric baseline/delta/editable input
@@ -219,7 +253,7 @@ export function InterventionRow({
         <div className="flex items-center gap-2 mt-2">
           <div className="flex-1">
             <div className={`${typography.panelMeta} text-text-light`}>
-              Currently: {baseline != null ? formatValue(baseline) : 'N/A'}
+              Currently: {baselineText}
             </div>
           </div>
           <ArrowRight size={10} className="text-text-light flex-shrink-0" aria-hidden="true" />
