@@ -481,8 +481,49 @@ export function AtAGlance({
      run consumed, and it is a qualifier: it must render only where there is
      something on this surface for it to qualify. The driver rows were such a
      thing and are no longer here. */
-  const showInputProvenance =
-    Boolean(glance.inputProvenance) && (showAnswer || Boolean(glance.verdict))
+  /**
+   * ⚠⚠ `glance.verdict` IS NOT SOMETHING THIS PHRASE CAN QUALIFY — WITNESSED ON
+   * THE DEPLOYED BUILD `2416ac3f`, 9 Sep 2026, guest, restored saved example,
+   * COMPLETED run. The live DOM carried NO headline, NO win share and NO win
+   * bar, a verdict line reading "Sensitive", and beneath it, alone:
+   *
+   *     "On inputs whose source Olumi could not establish"
+   *
+   * A bare prepositional phrase with no clause anywhere to attach to, sitting
+   * between the robustness line and the action card. All six sanctioned
+   * provenance sentences are QUALIFIERS of a READING — "Scored highest in 66%
+   * of simulated futures", or a named leading option. A tone word plus the
+   * producer's reason clause about robustness is neither.
+   *
+   * ⭐ AND GROUPING COULD NOT FIX IT. `glanceHoldsAtTheFloor.spec.tsx` already
+   * moved this line INSIDE the reading block so the section's `space-y-3` would
+   * stop spacing the qualifier away from what it qualifies. That was the right
+   * fix for that defect. It cannot help when the block holds no reading at all.
+   *
+   * ⚠ THE STATE IS ROUTINE, NOT AN EDGE CASE. `buildAnalysisNewViewModel`
+   * documents producing it above `shareOnScreen`: a leader determined by
+   * expected outcome carries a null win probability, and a run with a
+   * robustness verdict but no entitled leader lands here every time.
+   *
+   * ⚠⚠ THIS DOES NOT SUPPRESS THE HONESTY LINE, and the distinction is the
+   * argument. The module exists to stop a PROMINENT READING sitting with its
+   * basis stated nowhere — "the consequent in its largest type and the
+   * antecedent nowhere". With no reading on screen there is no share to anchor
+   * on and no option named, so that harm cannot occur. Every run that shows a
+   * reading still shows the line; the twins in
+   * `glanceQualifierNeedsAReading.spec.tsx` pin both directions.
+   *
+   * ⚠ THE SECOND DISJUNCT IS CURRENTLY SUBSUMED — `winShare` is gated upstream
+   * on `headline`, which is what `showAnswer` reads — and is written anyway.
+   * This gate then states what THIS component renders rather than depending on
+   * an upstream coupling it cannot see and nothing here pins.
+   */
+  const readingOnScreen = showAnswer || Boolean(glance.verdict && glance.winShare)
+
+  /* ⚠ THE DRIVERS DISJUNCT WENT WITH THE LIST. This line says WHOSE numbers the
+     run consumed, and it is a qualifier: it must render only where there is
+     something on this surface for it to qualify. */
+  const showInputProvenance = Boolean(glance.inputProvenance) && readingOnScreen
 
   return (
     <section className="space-y-3" data-testid={testId} aria-label={COPY.sections.atAGlance}>
