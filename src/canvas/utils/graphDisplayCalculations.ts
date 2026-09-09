@@ -123,22 +123,66 @@ export function existenceCertaintyToLineStyle(
  * Calls Math.abs internally — pass the signed mean directly.
  */
 /**
+ * The three widths a MEASURED strength can draw at. Named so the legend can be
+ * derived from them instead of restating them — `CanvasLegendPopover`'s
+ * thickness key used to carry its own `1.5 / 2 / 3` literals under a comment
+ * saying they "mirror weightMagnitudeToStrokeWidth()", which is the
+ * hand-maintained mirror CLAUDE.md trap 12 exists to abolish.
+ */
+export const EDGE_STROKE_WIDTH_BANDS = { weak: 1.5, moderate: 2, strong: 3 } as const
+
+/**
+ * The thinnest width a MEASUREMENT can produce, DERIVED from the bands above.
+ * Adding a band automatically moves this; it is never hand-listed.
+ */
+export const MEASURED_EDGE_STROKE_WIDTH_FLOOR = Math.min(
+  ...Object.values(EDGE_STROKE_WIDTH_BANDS),
+)
+
+/**
  * The width an edge draws at when NOBODY HAS SET ITS STRENGTH.
  *
- * Equal to the thinnest measured band on purpose. An edge must be drawn, so
- * some width is unavoidable; the floor is the only one that cannot be read as
- * "this influence is strong". Callers reach it via the provenance gate
- * (`resolveEdgeSignedStrengthDisplay`), never by passing a fabricated number
- * into `weightMagnitudeToStrokeWidth` below — that function takes a `number`
- * and so, by construction, cannot tell a measurement from a default.
+ * ⭐ STRICTLY BELOW EVERY MEASURED BAND — and it was not, until 8 Sep 2026.
+ *
+ * This constant was `1.5`, *"equal to the thinnest measured band on purpose"*,
+ * on the reasoning that the floor "cannot be read as 'this influence is
+ * strong'". That reasoning is sound about STRONG and silent about WEAK: at 1.5
+ * an unset strength was pixel-identical to a stated `|mean| < 0.4`. Width is
+ * the channel the canvas explicitly TEACHES as strength — there is a legend key
+ * for it — so the one question a team most needs answered at a glance, *where
+ * has nobody actually said anything?*, had no answer on that channel.
+ *
+ * `metricVocabulary.ts` had already measured the collision and declined to fix
+ * it from a lane scoped to a card row (*"⛔ DELIBERATELY NOT BUILT … a live
+ * product question with Paul"*). Cleared 8 Sep 2026; this is the answer.
+ *
+ * ⚠ WHY NOT A DASH, THE OBVIOUS CHOICE. Dash is already spent three times over
+ * on this canvas — `EDGE_DASH_RULES` (`edges/edgePresentation.ts`) carries
+ * `contested`, `existence_certainty` and `visual_props`, and ghost/suggestion
+ * edges dash too. Ambiguity is the smaller half of the problem: `resolveEdgeDash`
+ * returns the FIRST rule that matches, so a `strength_unset` rule would be
+ * INVISIBLE on exactly the edges most in question (an unset edge that is also
+ * contested, or whose `exists_probability < 0.7`, already dashes for another
+ * reason) — and placing it higher would delete a live dispute signal. There is
+ * no position in that array where the rule is both visible and safe. Opacity is
+ * explicitly refused as a data channel (`StyledEdge.tsx`, P2.9: *"two channels
+ * for one variable is exactly the encoding overload the audit flags"*), colour
+ * belongs to polarity (rule A), and the drop-shadow already carries two signals
+ * that can both apply at once. Width is where strength lives, and the defect was
+ * inside width — so it is fixed in width.
+ *
+ * Callers reach this via the provenance gate (`resolveEdgeSignedStrengthDisplay`),
+ * never by passing a fabricated number into `weightMagnitudeToStrokeWidth` below
+ * — that function takes a `number` and so, by construction, cannot tell a
+ * measurement from a default.
  */
-export const UNSET_EDGE_STROKE_WIDTH = 1.5
+export const UNSET_EDGE_STROKE_WIDTH = 1
 
 export function weightMagnitudeToStrokeWidth(signedMean: number): number {
   const magnitude = Math.abs(signedMean)
-  if (magnitude >= 0.7) return 3
-  if (magnitude >= 0.4) return 2
-  return 1.5
+  if (magnitude >= 0.7) return EDGE_STROKE_WIDTH_BANDS.strong
+  if (magnitude >= 0.4) return EDGE_STROKE_WIDTH_BANDS.moderate
+  return EDGE_STROKE_WIDTH_BANDS.weak
 }
 
 /**
