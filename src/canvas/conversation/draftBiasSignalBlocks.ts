@@ -44,7 +44,7 @@ import type { CEEDraftCoaching } from '../../adapters/cee/types'
 import type { ConversationBlock, V5CoachingBlock } from './types'
 import { DRAFT_BIAS_SIGNAL_CARD_CAP } from './types'
 import { isBiasSignalCoachingBlock } from './phase3Pacing'
-import { resolveBiasSignal } from '../shared/biasSignalTitles'
+import { resolveBiasSignal, UNRECOGNISED_BIAS_SIGNAL_TITLE } from '../shared/biasSignalTitles'
 
 // The cap's one definition lives with the other render budgets in ./types
 // (/simplify item 5) — the render layer consumes it too. Re-exported here
@@ -118,10 +118,23 @@ export function buildDraftBiasSignalBlocks(args: {
     // trim/lowercase/own-key guard lives there, shared with every other
     // surface. Unknown / non-string codes fail closed (never
     // sentence-cased), so a raw wire token can never leak into copy.
-    const title = resolveBiasSignal(s.type)?.title ?? null
-    if (!title) continue
+    // ⚠⚠ AN UNRECOGNISED CODE NO LONGER DISCARDS THE OBSERVATION.
+    //
+    // This read `?? null` then `if (!title) continue`, which dropped the WHOLE
+    // signal — `detail` included. The note above is still right that a raw wire
+    // token must never leak into copy as a bias NAME; it does not follow that
+    // the producer's paragraph should be thrown away with it. The shipped
+    // `build-vs-buy` starter carries `"type": "omission / status-quo bias"` —
+    // free text, no key — and a real observation nobody has ever seen.
+    //
+    // So the NAME still fails closed, and the CONTENT survives under a heading
+    // that names no bias at all.
+    const resolved = resolveBiasSignal(s.type)
+    const title = resolved?.title ?? UNRECOGNISED_BIAS_SIGNAL_TITLE
 
     const detail = typeof s.detail === 'string' ? s.detail.trim() : ''
+    // Still fails closed on an EMPTY observation: a heading with nothing under
+    // it is a card announcing only that something was withheld.
     if (!detail) continue
 
     // Grounding is OPTIONAL: resolve a ref when the (optional) target names a
@@ -129,7 +142,13 @@ export function buildDraftBiasSignalBlocks(args: {
     // ungrounded (target_refs: [] below).
     const ref = resolveNodeForTarget(s.target, nodesById)
 
-    const identity = title
+    // ⚠ THE DEDUP KEY MUST CARRY THE DETAIL FOR UNRECOGNISED SIGNALS. Keying on
+    // the title alone is right for RESOLVED codes — two "Anchoring" cards say
+    // the same thing — but every unrecognised signal now shares ONE heading, so
+    // a title-only key would collapse genuinely different observations into
+    // whichever arrived first. That would be a new way to lose exactly the
+    // content this change exists to preserve.
+    const identity = resolved ? title : `${title}::${detail}`
     if (seen.has(identity)) continue
     seen.add(identity)
 

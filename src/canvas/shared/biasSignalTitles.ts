@@ -35,6 +35,36 @@ export interface BiasSignalEntry {
   icon: LucideIcon
 }
 
+/**
+ * ⭐⭐ THE HEADING FOR AN OBSERVATION WHOSE CATEGORY WE DO NOT RECOGNISE.
+ *
+ * ⚠ NOT AN INVENTED TITLE, and the distinction is why it belongs here. This
+ * registry's rule is that it never invents a BIAS NAME for an unknown code.
+ * That rule is unchanged and this constant obeys it: it names NOTHING about
+ * which bias the observation concerns. It is the heading a card carries when we
+ * decline to name one.
+ *
+ * ── WHY IT EXISTS ───────────────────────────────────────────────────────────
+ * `draftBiasSignalBlocks` used to `continue` on an unresolved code, which
+ * dropped the WHOLE signal — including `detail`, the producer's actual
+ * observation. So the model naming a bias in words the UI has no key for meant
+ * the coaching never reached the reader at all. The shipped `build-vs-buy`
+ * starter carries exactly that: `"type": "omission / status-quo bias"`, free
+ * text, no key, and a real paragraph nobody has ever seen.
+ *
+ * That inverts the feature — the LESS standard the insight, the more likely it
+ * was binned — and it is Paul's ruling in miniature: no hiding, caveat instead.
+ *
+ * ⚠ AND IT IS A QUESTION, NOT A FINDING. "Reasoning check" invites the reader
+ * to examine something; it does not announce that a bias has been detected.
+ * That matters because the observation may itself be contestable — the
+ * starter's paragraph asserts a baseline with full factor connections carries
+ * "unwarranted analytical weight", which does not follow from having
+ * connections. Rescuing it from silence must not upgrade it into a validated
+ * diagnosis.
+ */
+export const UNRECOGNISED_BIAS_SIGNAL_TITLE = 'Reasoning check'
+
 export const BIAS_SIGNAL_REGISTRY = {
   framing: { title: 'Narrow framing', icon: Frame },
   framing_bias: { title: 'Narrow framing', icon: Frame },
