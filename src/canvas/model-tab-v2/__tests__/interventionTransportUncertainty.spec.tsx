@@ -109,6 +109,27 @@ function CaptureConversation() {
   return null
 }
 
+/**
+ * ⚠ THE NODES PROP IS A STORE SUBSCRIPTION, as it is in production: `OutputsDock`
+ * reads `nodes: s.nodes` and threads it down through `ModelTabBody`. A fixed
+ * array here would make the applied receipt invisible to the row — the seam this
+ * file exists to prove.
+ */
+function StoreBoundPanel() {
+  const storeNodes = useCanvasStore(s => s.nodes)
+  const scenarioId = useCanvasStore(s => s.currentScenarioId)
+  const baseHash = useCanvasStore(s => s.lastServerGraphHash)
+  return (
+    <ModelTabV2Panel
+      nodes={storeNodes as Node[]}
+      edges={[]}
+      goalThreshold={null}
+      currentScenarioId={scenarioId}
+      lastServerGraphHash={baseHash}
+    />
+  )
+}
+
 function renderMounted() {
   const n = nodes()
   useCanvasStore.setState(
@@ -118,13 +139,7 @@ function renderMounted() {
   render(
     <ConversationProvider>
       <CaptureConversation />
-      <ModelTabV2Panel
-        nodes={n}
-        edges={[]}
-        goalThreshold={null}
-        currentScenarioId={SCENARIO}
-        lastServerGraphHash={HASH}
-      />
+      <StoreBoundPanel />
     </ConversationProvider>,
   )
   openOutlineGroups()
@@ -206,5 +221,121 @@ describe('a fetch that was MADE and then rejected', () => {
     expect(fetchStub.mock.calls.length).toBe(callsBeforeEdit)
     expect(noticeText()).toMatch(/not sent/i)
     expect(interventionInStore()).toBe(0.2)
+  })
+})
+
+/**
+ * ⭐⭐⭐ THE APPLIED HALF, END TO END — a real canonical receipt settles the row.
+ *
+ * Everything else on this surface proves what happens when the turn FAILS. This
+ * proves the one that matters: CEE commits, returns the committed postimage as
+ * the canonical receipt CEE #1408 attaches, and the number the user typed stops
+ * being a claim and becomes the model.
+ *
+ * ⚠ THE VALUE ARRIVES THROUGH THE REAL RECEIVER, NOT A STORE WRITE. Real
+ * `callV5Turn` → real parser → real `routeV5Response` → `useConversation`'s
+ * applied-edit branch → `reconcileAppliedGraph` → `overlayNode` →
+ * `data.interventions` → the row's canonical settlement. Only `fetch` is mocked.
+ * Nothing here injects the value the assertion then reads back.
+ *
+ * ⚠ AND `analysis_ready.options` CARRIES THE SAME NUMBER, DELIBERATELY.
+ * `reconcileAppliedGraph` finishes by calling `backfillInterventionsOntoOptionNodes`
+ * from `ceeAnalysisReady`, so a fixture whose readiness disagreed with its own
+ * receipt would silently overwrite the committed value — and would be lying
+ * about CEE, whose arm derives both from ONE authority
+ * (`buildCanonicalAnalysisReadyFromGraph`) precisely so they cannot disagree.
+ */
+describe('a committed receipt, through the real receiver', () => {
+  /** The canonical committed receipt CEE #1408 attaches, as the wire carries it. */
+  function committedBody() {
+    const wireNodes = [
+      { id: FACTOR, kind: 'factor', label: 'Capital expenditure' },
+      { id: OPTION, kind: 'option', label: 'Open Leeds', interventions: { [FACTOR]: 0.6 } },
+    ]
+    return {
+      response_version: 2,
+      assistant_text: 'Set the effect of Open Leeds on Capital expenditure to 0.6.',
+      blocks: [],
+      suggested_actions: [],
+      insights: [],
+      stage_indicator: 'analyse',
+      graph_hash: 'committed-hash-after-edit',
+      draft_graph: {
+        nodes: wireNodes,
+        edges: [],
+        node_count: wireNodes.length,
+        edge_count: 0,
+        // The three a canonical transactional producer must own.
+        options: [
+          { id: OPTION, label: 'Open Leeds', interventions: { [FACTOR]: 0.6 }, is_baseline: false },
+        ],
+        goal_node_id: null,
+        goal_constraints: [],
+      },
+      analysis_ready: {
+        status: 'ready',
+        options: [
+          { id: OPTION, label: 'Open Leeds', interventions: { [FACTOR]: 0.6 }, is_baseline: false },
+        ],
+        goal_node_id: null,
+      },
+    }
+  }
+
+  it('⭐ the typed number becomes the model, and the row stops claiming', async () => {
+    const body = committedBody()
+    const fetchStub = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: async () => body,
+      text: async () => JSON.stringify(body),
+    } as unknown as Response))
+    vi.stubGlobal('fetch', fetchStub)
+
+    renderMounted()
+    commit('0.6')
+
+    // The value lands in the CANONICAL store — the model the rest of the
+    // surface reads — carried by the receipt, not written by this test.
+    await waitFor(() => expect(interventionInStore()).toBe(0.6))
+
+    // And the row settles: no pending claim, no notice, nothing left to press.
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId(`model-detail-v2-intervention-${FACTOR}-pending`),
+      ).not.toBeInTheDocument(),
+    )
+    expect(noticeText()).toBe('')
+    expect(
+      screen.queryByTestId(`model-detail-v2-intervention-${FACTOR}-save`),
+    ).not.toBeInTheDocument()
+  })
+
+  it('⚠ DISCRIMINATING TWIN: a receipt carrying a DIFFERENT value does not settle it', async () => {
+    // Without this, the case above would pass on a row that clears whenever any
+    // response arrives — which is the optimistic receipt wearing a server hat.
+    const body = committedBody()
+    ;(body.draft_graph.nodes[1] as { interventions: Record<string, number> }).interventions[FACTOR] = 0.9
+    ;(body.draft_graph.options[0] as { interventions: Record<string, number> }).interventions[FACTOR] = 0.9
+    ;(body.analysis_ready.options[0] as { interventions: Record<string, number> }).interventions[FACTOR] = 0.9
+    const fetchStub = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: async () => body,
+      text: async () => JSON.stringify(body),
+    } as unknown as Response))
+    vi.stubGlobal('fetch', fetchStub)
+
+    renderMounted()
+    commit('0.6')
+
+    await waitFor(() => expect(interventionInStore()).toBe(0.9))
+    // The server moved the model to something the user did not type, so the row
+    // must NOT report their number as settled.
+    expect(
+      screen.getByTestId(`model-detail-v2-intervention-${FACTOR}-pending`),
+    ).toBeInTheDocument()
   })
 })
