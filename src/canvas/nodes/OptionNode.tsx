@@ -1792,15 +1792,16 @@ export const OptionNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* Missing is distinct from both a measured zero and a reported failure.
-            Do not infer whether this option was excluded or failed. */}
+        {/* Missing win share is distinct from measured zero and a reported
+            failure. Outcome ranges may still exist: name only the missing
+            percentage, without claiming the whole result is unavailable. */}
         {displayMetadata.isResultsMode && displayMetadata.winRate === null &&
           displayMetadata.winComputationFailed !== true && (
           <p
             className={`${typography.edgeLabel} text-text-light mt-1.5 mb-1`}
             data-testid={`option-result-unavailable-${props.id}`}
           >
-            Result unavailable
+            Ranking percentage unavailable
           </p>
         )}
 

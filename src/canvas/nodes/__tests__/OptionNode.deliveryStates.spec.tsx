@@ -47,13 +47,35 @@ describe('option delivery states through the real store and display selector', (
       } } },
     } as never)
     mountOptions(options)
-    expect(screen.getByTestId('option-result-unavailable-missing')).toHaveTextContent('Result unavailable')
+    expect(screen.getByTestId('option-result-unavailable-missing')).toHaveTextContent('Ranking percentage unavailable')
     expect(screen.queryByTestId('option-win-readout-missing')).toBeNull()
     expect(screen.queryByTestId('option-not-computed-missing')).toBeNull()
     expect(screen.getByTestId('option-not-computed-failed')).toBeInTheDocument()
     expect(screen.queryByTestId('option-result-unavailable-failed')).toBeNull()
     expect(screen.getByTestId('option-win-readout-zero')).toHaveTextContent('0%')
     expect(screen.queryByTestId('option-result-unavailable-zero')).toBeNull()
+  })
+
+  it.each([0, 0.5])('does not call a computed outcome with median %s an unavailable result', median => {
+    const computed = option('outcome-only')
+    useCanvasStore.setState({
+      nodes: [computed],
+      results: { status: 'complete', report: { option_probabilities: {
+        [computed.id]: {
+          status: 'computed',
+          outcome: { p10: median - 0.2, p50: median, p90: median + 0.2 },
+          // The producer can supply a real outcome distribution without a
+          // win share. A zero median is valid data, not a failed run.
+        },
+      } } },
+    } as never)
+    mountOptions([computed])
+    expect(screen.getByTestId('option-result-unavailable-outcome-only'))
+      .toHaveTextContent('Ranking percentage unavailable')
+    expect(screen.queryByText('Result unavailable', { exact: true })).toBeNull()
+    expect(screen.queryByTestId('option-win-readout-outcome-only')).toBeNull()
+    expect(screen.queryByTestId('option-not-computed-outcome-only')).toBeNull()
+    expect(screen.queryByTestId('leading-option-pill-outcome-only')).toBeNull()
   })
 
   it('does not call an unanalysed draft a missing result', () => {

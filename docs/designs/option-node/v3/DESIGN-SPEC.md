@@ -55,6 +55,13 @@ Preserve the full wrapping title and existing top actions. The inspector should 
 - Retained results use the shared analysis-trust verdict. A non-current leader badge says “Last run · Most supported” within the badge itself. The bar's hover and accessible explanation distinguish an established model change from unconfirmed currentness. Keep the result bars; do not repeat a model-wide sentence on every card, invent a second hash or claim a change from absent evidence. Current and draft cards retain their existing treatment. A model-wide freshness explanation belongs on a shared analysis surface.
 - Keep outcome probability only when its threshold, units, frame and permission support it. A target in prose is not proof it has been captured in the model.
 
+An absent win-share percentage does not establish an absent analysis result.
+Computed outcome ranges may still be available, including a median of zero.
+The option's missing-percentage state therefore says “Ranking percentage
+unavailable”; it must not say that the whole result is unavailable or fabricate
+a percentage. This is separate from the shared result-content classifier and
+does not grant permission to name a leading option.
+
 ## Design-system changes to carry with implementation
 
 Keep the existing kind hue and top shape. Needs-judgement is a badge, not a competing kind border. Reuse the provenance and bias registries; status and action must not share an ambiguous glyph/position. Three quick actions remain the row budget. Define reserved metadata space rather than piling additional persistent icons into the header.
