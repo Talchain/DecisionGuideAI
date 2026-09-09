@@ -23,7 +23,7 @@
  * - Slow-run feedback messages (20s/40s thresholds)
  */
 
-import { useEffect, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
+import { useEffect, useLayoutEffect, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
 import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, MessageCircle, MessageSquare, CheckCircle, FlaskConical } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
@@ -542,10 +542,13 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // Analysis belongs to the existing conversation host, independently of the
   // transcript lifecycle. Keep the same reveal behaviour as registered actions.
   const dispatchCanonicalAction = useMemo(() => withOlumiReveal(dispatchAction), [dispatchAction])
-  const dispatchCanonicalActionRef = useRef(dispatchCanonicalAction)
-  // Save can yield across a host update. Read its current dispatcher after the
-  // save completes, as the previous registration lookup did.
-  dispatchCanonicalActionRef.current = dispatchCanonicalAction
+  const dispatchCanonicalActionRef = useRef<typeof dispatchCanonicalAction>(null)
+  // Save can yield across a host update or unmount. Only the committed, mounted
+  // host may dispatch its pending run; a replacement host owns a separate ref.
+  useLayoutEffect(() => {
+    dispatchCanonicalActionRef.current = dispatchCanonicalAction
+    return () => { dispatchCanonicalActionRef.current = null }
+  }, [dispatchCanonicalAction])
 
   // Tab guards: if persisted tab references a disabled flag, reset to 'results'
   useEffect(() => {

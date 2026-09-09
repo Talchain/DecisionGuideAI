@@ -437,6 +437,95 @@ describe('OutputsDock analyse convergence', () => {
       expect(mockRevealOlumi).toHaveBeenCalledTimes(1)
     })
 
+    it.each([
+      { host: 'provider', aiPanelV2: true },
+      { host: 'legacy', aiPanelV2: false },
+    ])('$host: unmounting during a save refuses the pending run without dispatch or reveal', async ({ aiPanelV2 }) => {
+      mockIsAiPanelV2Enabled.mockReturnValue(aiPanelV2)
+      let finishSave!: () => void
+      mockFlushPendingSaves.mockImplementationOnce(() => new Promise<void>((resolve) => { finishSave = resolve }))
+      const dispatchAction = vi.fn()
+      mockConversation.dispatchAction = dispatchAction
+      const mounted = renderOutputsDock()
+      const runner = getCanonicalRunner()
+      expect(runner).not.toBeNull()
+
+      const pendingRun = runner!()
+      expect(mockFlushPendingSaves).toHaveBeenCalledTimes(1)
+      expect(dispatchAction).not.toHaveBeenCalled()
+      expect(mockRevealOlumi).not.toHaveBeenCalled()
+
+      mounted.unmount()
+      expect(getCanonicalRunner()).toBeNull()
+
+      await act(async () => {
+        finishSave()
+        expect(await pendingRun).toEqual({
+          status: 'unavailable',
+          reason: RUN_DISPATCHER_UNAVAILABLE_REASON,
+        })
+      })
+      expect(getCanonicalRunner()).toBeNull()
+      expect(dispatchAction).not.toHaveBeenCalled()
+      expect(mockRevealOlumi).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      { host: 'provider', aiPanelV2: true },
+      { host: 'legacy', aiPanelV2: false },
+    ])('$host: a replacement host cannot revive an unmounted pending run but can run independently', async ({ aiPanelV2 }) => {
+      mockIsAiPanelV2Enabled.mockReturnValue(aiPanelV2)
+      let finishSave!: () => void
+      mockFlushPendingSaves.mockImplementationOnce(() => new Promise<void>((resolve) => { finishSave = resolve }))
+      const oldDispatchAction = vi.fn()
+      mockConversation.dispatchAction = oldDispatchAction
+      const mounted = renderOutputsDock()
+      const oldRunner = getCanonicalRunner()
+      expect(oldRunner).not.toBeNull()
+
+      const pendingRun = oldRunner!()
+      expect(mockFlushPendingSaves).toHaveBeenCalledTimes(1)
+      mounted.unmount()
+      expect(getCanonicalRunner()).toBeNull()
+
+      const newDispatchAction = vi.fn()
+      mockConversation.dispatchAction = newDispatchAction
+      renderOutputsDock()
+      const newRunner = getCanonicalRunner()
+      expect(newRunner).not.toBeNull()
+      expect(newRunner).not.toBe(oldRunner)
+
+      // The old continuation must remain invalid even with a live replacement.
+      await act(async () => {
+        finishSave()
+        expect(await pendingRun).toEqual({
+          status: 'unavailable',
+          reason: RUN_DISPATCHER_UNAVAILABLE_REASON,
+        })
+      })
+      expect(oldDispatchAction).not.toHaveBeenCalled()
+      expect(newDispatchAction).not.toHaveBeenCalled()
+      expect(mockRevealOlumi).not.toHaveBeenCalled()
+      expect(getCanonicalRunner()).toBe(newRunner)
+
+      // Positive control: the replacement's own runner still saves and dispatches.
+      await act(async () => {
+        expect(await newRunner!({ source: 'node-chip', parameters: { chip_id: 'decision_run_analysis' } }))
+          .toEqual({ status: 'dispatched' })
+      })
+      expect(mockFlushPendingSaves).toHaveBeenCalledTimes(2)
+      expect(oldDispatchAction).not.toHaveBeenCalled()
+      expect(newDispatchAction).toHaveBeenCalledTimes(1)
+      expect(newDispatchAction).toHaveBeenCalledWith({
+        action_type: 'run_analysis',
+        parameters: { chip_id: 'decision_run_analysis' },
+        label: 'Run analysis',
+        message: 'Run analysis',
+        source: 'chip',
+      })
+      expect(mockRevealOlumi).toHaveBeenCalledTimes(1)
+    })
+
     it('refuses a failed save without host dispatch or reveal', async () => {
       mockFlushPendingSaves.mockRejectedValue(new Error('save unavailable'))
       const dispatchAction = vi.fn()
