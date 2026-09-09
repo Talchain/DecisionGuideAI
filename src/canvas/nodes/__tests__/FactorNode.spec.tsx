@@ -951,7 +951,12 @@ describe('FactorNode — QA Brief A-series', () => {
       type: 'factor',
       observedState: { value: 0.6, source: 'brief_extraction' },
     })
-    expect(screen.queryByTitle('From your brief')).toBeNull()
+    // Bound to the ACCESSIBLE NAME, not `queryByTitle`: `BriefIcon` no longer
+    // carries a native `title` — its hover moved to the shared Tooltip and its
+    // name to `role="img"` + `aria-label`. Left on `queryByTitle` this would
+    // pass VACUOUSLY, green because the attribute exists nowhere rather than
+    // because the icon is absent, and it would not catch a reintroduction.
+    expect(screen.queryByLabelText('From your brief')).toBeNull()
   })
 
   // A16: source='user' → no provenance icon
@@ -962,7 +967,7 @@ describe('FactorNode — QA Brief A-series', () => {
       observedState: { value: 0.7, source: 'user' },
     })
     expect(screen.queryByTitle('Generated from your brief')).toBeNull()
-    expect(screen.queryByTitle('Estimated by Olumi')).toBeNull()
+    expect(screen.queryByLabelText('Estimated by Olumi')).toBeNull()
     expect(screen.queryByText('Set by you')).toBeNull()
   })
 
