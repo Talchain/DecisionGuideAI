@@ -37,6 +37,7 @@ import { ReactFlowProvider } from '@xyflow/react'
 import { OutcomeNode } from '../OutcomeNode'
 import { RiskNode } from '../RiskNode'
 import { ActionNode } from '../ActionNode'
+import { GoalNode } from '../GoalNode'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -119,6 +120,12 @@ const renderOutcome = () => render(
   </ReactFlowProvider>
 )
 
+const renderGoal = () => render(
+  <ReactFlowProvider>
+    <GoalNode {...baseProps} id="goal-1" type="goal" data={{ label: 'Grow ARR to 10m', type: 'goal' }} />
+  </ReactFlowProvider>
+)
+
 const renderAction = () => render(
   <ReactFlowProvider>
     <ActionNode {...baseProps} id="action-1" type="action" data={{ label: 'Run a pilot', type: 'action', description: 'Two-week trial' }} />
@@ -166,6 +173,30 @@ describe('Resting state — the card asks its question without a hover', () => {
       applyStore(phase)
       renderAction()
       expect(screen.getByText('What has to be true?')).toBeDefined()
+    },
+  )
+
+  /**
+   * ⭐ THE GATE WAS BACKWARDS, and this is the arm that pins the fix.
+   *
+   * `goal_is_this_the_real_goal` sat inside `{hasThreshold && …}`, and
+   * `hasThreshold = !canCaptureTarget` — so the question "is this the real
+   * goal?" became reachable ONLY AFTER the user committed a numeric target.
+   * That is the moment it is least useful: the proxy is already load-bearing
+   * and everything downstream has been optimised against it.
+   *
+   * The fixture therefore sets NO threshold — the state in which the old code
+   * rendered nothing, and the state a user is actually in while framing.
+   */
+  it.each(['pre', 'post'] as const)(
+    'goal (%s): asks "Is this the real goal?" with NO target set — the gate used to require one',
+    (phase) => {
+      applyStore(phase)
+      renderGoal()
+      expect(screen.getByText('Is this the real goal?')).toBeDefined()
+      // DISCRIMINATOR — the target-interrogating chips stay behind the hover
+      // AND behind `hasThreshold`, so they must be absent on this fixture.
+      expect(screen.queryByText('Is my target realistic?')).toBeNull()
     },
   )
 
