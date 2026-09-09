@@ -467,20 +467,25 @@ export function AtAGlance({
 
   /**
    * ⚠ HOISTED SO THE READING AND ITS QUALIFIER CAN BE ONE BLOCK. The
-   * provenance line modifies the verdict above it, but lived as a SIBLING of
+   * provenance line qualifies the READING above it, but lived as a SIBLING of
    * the verdict inside the section's `space-y-3` — 12px below the sentence it
    * qualifies and 12px above one it does not, in identical typography.
    * Nothing bound it upward, and it read as an orphaned fragment.
+   *
+   * ⚠⚠ SUPERSEDED WORDING, NAMED SO IT IS NOT REINSTATED. This paragraph read
+   * "modifies the verdict ABOVE IT" until 9 Sep 2026. It does not — see the
+   * block below, witnessed on the deployed build: `glance.verdict` is a
+   * robustness word and is NOT something this phrase can qualify. A reader who
+   * took the old sentence at face value would find apparent authorisation to
+   * put the verdict back into the gate, and the tests would then RED for a
+   * reason the comment had denied. The LAYOUT finding above is untouched by
+   * this and still holds.
    *
    * ⚠ A LOCAL MARGIN CANNOT FIX IT: `space-y-3` compiles to
    * `.space-y-3 > :not([hidden]) ~ :not([hidden])`, which out-specifies a
    * plain `.-mt-2` — measured in a browser, the override changed the file and
    * NOT the render. The gap is owned by the parent, so the fix is structural.
    */
-  /* ⚠ THE DRIVERS DISJUNCT WENT WITH THE LIST. This line says WHOSE numbers the
-     run consumed, and it is a qualifier: it must render only where there is
-     something on this surface for it to qualify. The driver rows were such a
-     thing and are no longer here. */
   /**
    * ⚠⚠ `glance.verdict` IS NOT SOMETHING THIS PHRASE CAN QUALIFY — WITNESSED ON
    * THE DEPLOYED BUILD `2416ac3f`, 9 Sep 2026, guest, restored saved example,
@@ -508,10 +513,44 @@ export function AtAGlance({
    * ⚠⚠ THIS DOES NOT SUPPRESS THE HONESTY LINE, and the distinction is the
    * argument. The module exists to stop a PROMINENT READING sitting with its
    * basis stated nowhere — "the consequent in its largest type and the
-   * antecedent nowhere". With no reading on screen there is no share to anchor
-   * on and no option named, so that harm cannot occur. Every run that shows a
+   * antecedent nowhere". With no reading on screen there is no consequent for
+   * this phrase to qualify, so that harm cannot occur. Every run that shows a
    * reading still shows the line; the twins in
    * `glanceQualifierNeedsAReading.spec.tsx` pin both directions.
+   *
+   * ⭐ WHAT "NO READING" IS DERIVED TO MEAN — this is the claim, and it is the
+   * WHOLE claim. In `buildAnalysisNewViewModel.ts`, `winShare` (:1732),
+   * `winFraction` (:1740) and `leaderLabel` (:1763) are each non-null only
+   * where `headline` is, and `headline` implies `showAnswer` implies this
+   * gate. So the share, the win bar and the NAMED LEADING OPTION can never
+   * render while this line is suppressed. That is a derivation over three
+   * fields — NOT a statement about everything this section can draw.
+   *
+   * ⚠⚠ AND IT IS NARROWER THAN IT FIRST READ. Until 9 Sep 2026 this paragraph
+   * also said "no option named", which is FALSE. Two sibling blocks below are
+   * outside the chain above and are NOT covered by it:
+   *   · SCOPE gates on `comparisonScope.kind === 'partial' &&
+   *     comparativeClaim !== 'none'`, and in the suppressed state
+   *     `buildAnalysisNewViewModel.ts:1755-1758` sets `comparativeClaim` to
+   *     `'order'`, NOT `'none'` — so on a partial scope it renders and prints
+   *     each excluded option's LABEL. Options ARE named on screen there.
+   *   · CONDITION gates on `glance.condition != null`, which `glanceCondition`
+   *     (:1586) ties to `flipThresholdsStatus` and a usable row, never to
+   *     leader entitlement — so it can print an input-derived number here.
+   * Whether either counts as a READING for this gate is OPEN. The argument
+   * that they do not — an excluded row carries the NOT-ANALYSED badge and
+   * states SCOPE rather than an outcome — is an argument, and the derivation
+   * above does not reach it. Do not cite this comment as settling it.
+   *
+   * ⚠ SCOPE OF THAT, STATED PRECISELY, AND DO NOT WIDEN IT. Component-side
+   * reachability is derived at the bytes here. It is NOT established that the
+   * producer emits a partial comparison scope, or a computed flip threshold,
+   * on a leader-withheld run — that needs a capture or a producer-side
+   * derivation, and neither exists. So this bounds the JUSTIFICATION; it is
+   * not a proven live regression, and the gate below is unchanged by it.
+   * RE-SURFACE TRIGGER: a live capture of a leader-withheld run that carries a
+   * partial comparison scope or a computed flip threshold. If one lands,
+   * re-open whether SCOPE and CONDITION count as readings for this gate.
    *
    * ⚠ THE SECOND DISJUNCT IS CURRENTLY SUBSUMED — `winShare` is gated upstream
    * on `headline`, which is what `showAnswer` reads — and is written anyway.
@@ -522,7 +561,8 @@ export function AtAGlance({
 
   /* ⚠ THE DRIVERS DISJUNCT WENT WITH THE LIST. This line says WHOSE numbers the
      run consumed, and it is a qualifier: it must render only where there is
-     something on this surface for it to qualify. */
+     something on this surface for it to qualify. The driver rows were such a
+     thing and are no longer here. */
   const showInputProvenance = Boolean(glance.inputProvenance) && readingOnScreen
 
   return (

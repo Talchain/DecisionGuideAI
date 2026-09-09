@@ -67,9 +67,21 @@
  * ⚠⚠ THIS IS NOT A SUPPRESSION OF THE HONESTY LINE, and the distinction is the
  * whole argument. The module exists to stop a PROMINENT READING sitting with
  * its basis stated nowhere — "the consequent in its largest type and the
- * antecedent nowhere". Where no reading is on screen that harm cannot occur:
- * there is no share to anchor on and no option named. The line still renders on
+ * antecedent nowhere". Where no reading is on screen there is no consequent for
+ * the phrase to qualify, so that harm cannot occur. The line still renders on
  * every run that shows one, which the opposite-direction twin below pins.
+ *
+ * ⚠⚠ NARROWED 9 Sep 2026 — the paragraph above read "there is no share to
+ * anchor on and NO OPTION NAMED", and the second half is FALSE. `AtAGlance`'s
+ * SCOPE row prints each excluded option's label on a partial comparison scope,
+ * and that gate is live in the suppressed state, because `comparativeClaim` is
+ * `'order'` there and not `'none'`. What IS derived is narrower, and is the
+ * whole claim: `winShare`, `winFraction` and `leaderLabel` are each non-null
+ * only where `headline` is, so the share, the win bar and the named leading
+ * option cannot render while this line is suppressed. The full statement, its
+ * bounded scope and its re-surface trigger are written ONCE, above
+ * `readingOnScreen` in `AtAGlance.tsx`; this note exists only so a reader of
+ * the spec alone is not left holding the false version.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -77,7 +89,11 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { AtAGlance } from '../sections/AtAGlance'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
-import { openStrategicChallenge, genuineDecision } from './analysisNewFixtures'
+import {
+  openStrategicChallenge,
+  genuineDecision,
+  decisionWithLeaderWithheld,
+} from './analysisNewFixtures'
 
 const PROVENANCE = 'analysis-new-glance-input-provenance'
 
@@ -130,6 +146,27 @@ describe('the condition line needs a reading to condition', () => {
     expect(
       screen.queryByTestId(PROVENANCE),
       'a bare prepositional phrase rendered with no clause to attach to',
+    ).not.toBeInTheDocument()
+  })
+
+  it('⭐ THE WITNESSED ROUTE: multi-option, leader WITHHELD, same suppressed state', () => {
+    // ⚠ THE FIXTURE ABOVE IS NOT THE ROUTE THE DEFECT WAS SEEN ON.
+    // `openStrategicChallenge()` carries `allOptions: []` and
+    // `isSingleOption: true`; the deployed witness was a MULTI-OPTION run whose
+    // leader the producer WITHHELD. The gate reads only
+    // `leaderLabel`/`headline`/`verdict`/`winShare`, so it is identical across
+    // the two — but a test whose fixture cannot reach the witnessed route is
+    // evidence about a route, not about the wire. This pins the real one.
+    const g = glanceOf(decisionWithLeaderWithheld())
+    expect(g.verdict, 'precondition: a robustness verdict stands').not.toBeNull()
+    expect(g.headline, 'precondition: the leader is withheld, so no headline').toBeNull()
+    expect(g.leaderLabel).toBeNull()
+    expect(g.winShare).toBeNull()
+    draw({ ...g, inputProvenance: 'undetermined' })
+    expect(screen.queryByTestId('analysis-new-glance-verdict-line')).toBeInTheDocument()
+    expect(
+      screen.queryByTestId(PROVENANCE),
+      'the qualifier must not render on the route the defect was witnessed on',
     ).not.toBeInTheDocument()
   })
 
