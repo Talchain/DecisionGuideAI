@@ -25,6 +25,7 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  recordKey,
   selectActive,
   selectHistory,
   useStrengthenStore,
@@ -59,7 +60,7 @@ describe('the reasoning trail belongs to one decision', () => {
   it('a finding set aside on one decision is NOT the next decision History', () => {
     // Decision A: two findings, one set aside.
     s().reconcile([rec('a1'), rec('a2')], 'hash-a', openDecision, 1000)
-    s().dismiss('a1', 1001)
+    s().dismiss(recordKey(DECISION_A, 'a1'), 1001)
     expect(selectHistory(s(), DECISION_A).map((r) => r.id)).toEqual(['a1'])
 
     // The reader opens a different decision. Nothing clears the store.
@@ -69,7 +70,7 @@ describe('the reasoning trail belongs to one decision', () => {
 
   it('and it is still there when they go back', () => {
     s().reconcile([rec('a1')], 'hash-a', openDecision, 1000)
-    s().dismiss('a1', 1001)
+    s().dismiss(recordKey(DECISION_A, 'a1'), 1001)
     openDecision = DECISION_B
     expect(selectHistory(s(), DECISION_B)).toEqual([])
 
@@ -79,11 +80,11 @@ describe('the reasoning trail belongs to one decision', () => {
 
   it('keeps each decision own trail when both have one', () => {
     s().reconcile([rec('a1')], 'hash-a', openDecision, 1000)
-    s().dismiss('a1', 1001)
+    s().dismiss(recordKey(DECISION_A, 'a1'), 1001)
 
     openDecision = DECISION_B
     s().reconcile([rec('b1')], 'hash-b', openDecision, 2000)
-    s().markAddressed('b1', 'gave the factor a range', 2001)
+    s().markAddressed(recordKey(DECISION_B, 'b1'), 'gave the factor a range', 2001)
 
     expect(selectHistory(s(), DECISION_B).map((r) => r.id)).toEqual(['b1'])
     expect(selectHistory(s(), DECISION_A).map((r) => r.id)).toEqual(['a1'])
@@ -96,16 +97,50 @@ describe('the reasoning trail belongs to one decision', () => {
    * records the identical distinction for its graph hash, learned there the
    * expensive way.
    */
-  it('a later write under another decision does NOT re-stamp the record', () => {
+  it('⭐ each decision holds its OWN record of the same finding id', () => {
     s().reconcile([rec('a1')], 'hash-a', openDecision, 1000)
 
     openDecision = DECISION_B
-    // A live analysis on B re-grounds the snapshot of an id that fires again.
+    // The SAME finding id fires on a different decision. Two models can both
+    // be fragile; `strengthen:robustness` is a KIND of finding, not an object.
     s().reconcile([rec('a1')], 'hash-b', openDecision, 2000)
-    s().dismiss('a1', 2001)
+    s().dismiss(recordKey(DECISION_B, 'a1'), 2001)
 
-    expect(selectHistory(s(), DECISION_B)).toEqual([])
-    expect(selectHistory(s(), DECISION_A).map((r) => r.id)).toEqual(['a1'])
+    // ⚠⚠ THIS EXPECTATION IS THE REPAIR, AND IT IS A DELIBERATE REVERSAL.
+    // It used to read `selectHistory(B) → []`, and that was not a property
+    // anyone wanted: it was a SYMPTOM of the shared key. With records keyed by
+    // finding id alone, B's reconcile could not mint its own record (the id was
+    // taken) and B's dismiss therefore mutated A's — so B's own reasoning act
+    // vanished from B and was filed against A. The old test pinned that
+    // disappearance as if it were correctness.
+    //
+    // Two independent seats reproduced it by execution before it merged. B set
+    // this finding aside; B's trail says so.
+    expect(selectHistory(s(), DECISION_B).map((r) => r.id)).toEqual(['a1'])
+
+    // ⭐ AND A IS UNTOUCHED — which is the property the old test was reaching
+    // for. A never dismissed anything, so A's trail stays empty and A's record
+    // keeps its own stamp and status.
+    expect(selectHistory(s(), DECISION_A)).toEqual([])
+    expect(s().records[recordKey(DECISION_A, 'a1')].status).toBe('recommended')
+    expect(s().records[recordKey(DECISION_A, 'a1')].scenarioId).toBe(DECISION_A)
+  })
+
+  /**
+   * ⭐ THE ORIGINAL HARM, PINNED DIRECTLY: acting on B must not reach into A.
+   * This is Core's reproduction, kept as its own case so the property survives
+   * any future rewrite of the case above.
+   */
+  it('⭐ CORE REPRO: seeding on B after A holds the id creates B own record', () => {
+    s().reconcile([rec('a1')], 'hash-a', DECISION_A, 1000)
+    s().seedIfAbsent(rec('a1'), 'hash-b', DECISION_B, 2000)
+    s().dismiss(recordKey(DECISION_B, 'a1'), 2001)
+
+    // Before the repair this returned [] — `seedIfAbsent` no-opped because the
+    // id was taken, and the dismiss landed on A.
+    expect(selectHistory(s(), DECISION_B).map((r) => r.id)).toEqual(['a1'])
+    // A's record is untouched: still recommended, still A's.
+    expect(s().records[recordKey(DECISION_A, 'a1')].status).toBe('recommended')
   })
 
   /**
@@ -115,19 +150,19 @@ describe('the reasoning trail belongs to one decision', () => {
    */
   it('CONTROL: an unknown current decision shows nothing', () => {
     s().reconcile([rec('a1')], 'hash-a', openDecision, 1000)
-    s().dismiss('a1', 1001)
+    s().dismiss(recordKey(DECISION_A, 'a1'), 1001)
     expect(selectHistory(s(), null)).toEqual([])
   })
 
   it('CONTROL: a record minted with no identity is claimed by no decision', () => {
     // Minted while the identity was unavailable — an honest unknown.
     s().reconcile([rec('x1')], 'hash-x', null, 1000)
-    s().dismiss('x1', 1001)
+    s().dismiss(recordKey(null, 'x1'), 1001)
 
     expect(selectHistory(s(), DECISION_A)).toEqual([])
     // Not deleted — still held, still recoverable, simply unattributed.
-    expect(s().records['x1']).toBeTruthy()
-    expect(s().records['x1'].scenarioId ?? null).toBeNull()
+    expect(s().records[recordKey(null, 'x1')]).toBeTruthy()
+    expect(s().records[recordKey(null, 'x1')].scenarioId ?? null).toBeNull()
   })
 
   /**

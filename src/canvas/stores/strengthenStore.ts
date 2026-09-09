@@ -71,14 +71,45 @@ export interface StrengthenState {
     scenarioId: string | null,
     now?: number,
   ) => void
-  /** The model changed since the last completed analysis — label, never evict. */
-  markAllStale: () => void
-  markInProgress: (id: string, now?: number) => void
-  markAddressed: (id: string, whatChanged?: string, now?: number) => void
-  dismiss: (id: string, now?: number) => void
+  /**
+   * The model changed since the last completed analysis — label, never evict.
+   *
+   * ⚠ SCOPED TO ONE DECISION. It labelled EVERY record in the store, so editing
+   * the graph on decision B marked decision A's findings "from your last
+   * completed analysis" — a claim about an analysis that had not moved. Same
+   * root cause as the key: one store, many decisions, no identity in the write.
+   */
+  markAllStale: (scenarioId: string | null) => void
+  /**
+   * ⭐⭐ EVERY MUTATOR NAMES THE DECISION IT ACTS UNDER, AND IT IS REQUIRED.
+   *
+   * These took a bare finding id, which does not address a record any more —
+   * two decisions can hold the same finding. Passing the decision is not
+   * defensive plumbing: it is the difference between "set THIS finding aside on
+   * THIS decision" and "set aside whatever record happens to own that id".
+   *
+   * ⚠ REQUIRED, NEVER DEFAULTED TO WHAT IS OPEN. A store-side lookup of the
+   * current decision would put the identity back where the caller cannot see
+   * it, and an act filed under the wrong decision is exactly the harm.
+   *
+   * ⚠⚠ AND IT IS A BRANDED KEY RATHER THAN TWO ARGUMENTS, BECAUSE TWO
+   * ARGUMENTS DID NOT ACTUALLY ENFORCE ANYTHING. The first version of this
+   * repair used `(scenarioId: string | null, id: string, …)`. Both are strings,
+   * so an un-migrated call site — `markAddressed('strengthen:commit',
+   * 'decision recorded')` — TYPECHECKS PERFECTLY while filing the act under a
+   * decision named after a finding. A silent, plausible, wrong write: precisely
+   * the defect class being repaired, re-entered through the repair.
+   *
+   * `RecordKey` is a nominal type that only `recordKey()` can produce, so a
+   * bare string is a compile error and every call site must NAME the decision
+   * it is acting under. The type system now enforces what the comment asks for.
+   */
+  markInProgress: (key: RecordKey, now?: number) => void
+  markAddressed: (key: RecordKey, whatChanged?: string, now?: number) => void
+  dismiss: (key: RecordKey, now?: number) => void
   /** Undo affordance for 'Not relevant': restores a dismissed record to the
    * active status it held before dismissal. No-op unless status is dismissed. */
-  restoreDismissed: (id: string, now?: number) => void
+  restoreDismissed: (key: RecordKey, now?: number) => void
   /**
    * ⭐⭐ CREATE A RECORD FOR A FINDING THE USER IS ABOUT TO ACT ON.
    *
@@ -126,12 +157,73 @@ export interface StrengthenState {
    * An empty or whitespace-only reason is a no-op. A recorded disagreement
    * with no stated ground is the same silence in a different costume.
    */
-  dispute: (id: string, reason: string, now?: number) => void
+  dispute: (key: RecordKey, reason: string, now?: number) => void
   /** Test/reset seam. */
   _reset: () => void
 }
 
 const STORAGE_KEY = 'strengthen.lifecycle.v1'
+
+/**
+ * ⭐⭐ THE STORAGE KEY IS (DECISION, FINDING) — NOT THE FINDING ALONE.
+ *
+ * ⚠⚠ THIS IS THE REPAIR FOR A REGRESSION THE FIRST VERSION OF THIS FIX SHIPPED,
+ * confirmed by execution in two independent seats before it merged.
+ *
+ * Stamping `scenarioId` on the record and filtering READS by it looked like
+ * enough. It is not, because the records were still keyed by `rec.id` ALONE,
+ * and a finding id is not unique across decisions — `strengthen:robustness`
+ * means "this model is fragile" and two different decisions can both be
+ * fragile. So:
+ *
+ *   reconcile([strengthen:robustness], 'hash-a', DECISION_A)  // A mints it
+ *   seedIfAbsent(strengthen:robustness, 'hash-b', DECISION_B) // NO-OPS: id taken
+ *   dismiss(strengthen:robustness)                            // files under A
+ *   selectHistory(DECISION_B)  →  []      ← the act B performed is invisible
+ *
+ * B's own reasoning act lands in A's trail and vanishes from B's. The
+ * status-only filter showed a FALSE trail; a reader-side scenario filter on a
+ * SHARED key removes the false attribution and the true one together. **A
+ * reader cannot isolate what the key conflated** — the record for B was never
+ * created, so there is nothing for any filter to find.
+ *
+ * The key therefore carries the identity. `JSON.stringify` of a pair is used
+ * rather than a delimiter string because a decision id is opaque: any separator
+ * character could in principle occur inside one, and a key collision here
+ * re-creates the exact defect being fixed. An array encoding cannot collide.
+ *
+ * ⚠ `null` IS A REAL BUCKET, NOT AN ERROR. A record minted when the identity
+ * was unavailable is UNATTRIBUTABLE — it keys under `null`, is never claimed by
+ * any decision's trail, and is never deleted.
+ */
+export type RecordKey = string & { readonly __recordKey: unique symbol }
+
+export function recordKey(scenarioId: string | null | undefined, recId: string): RecordKey {
+  return JSON.stringify([scenarioId ?? null, recId]) as RecordKey
+}
+
+/**
+ * The decision a storage key names, or `undefined` for a key this function
+ * cannot read.
+ *
+ * ⚠ PARSED, NOT SLICED. The first draft compared string prefixes with an offset
+ * arithmetic derived from `JSON.stringify([id, ''])`. It was correct and it was
+ * the kind of cleverness that becomes the next defect: nothing about the
+ * expression says what it means, and any change to the key encoding silently
+ * turns it into a filter that matches the wrong records rather than none.
+ *
+ * ⚠ `undefined` FOR AN UNREADABLE KEY, NEVER `null`. `null` is a REAL decision
+ * bucket here — the unattributable one — so returning it for a malformed key
+ * would file unreadable records into a bucket that legitimately renders.
+ */
+export function decisionOfKey(key: string): string | null | undefined {
+  try {
+    const parsed = JSON.parse(key)
+    return Array.isArray(parsed) && parsed.length === 2 ? (parsed[0] as string | null) : undefined
+  } catch {
+    return undefined
+  }
+}
 
 /**
  * ⭐⭐ THE DECISION IDENTITY IS PASSED IN, NOT LOOKED UP — and the first draft
@@ -164,12 +256,59 @@ function loadPersisted(): Pick<StrengthenState, 'records' | 'priorityOrder'> {
     if (!raw) return { records: {}, priorityOrder: [] }
     const parsed = JSON.parse(raw)
     if (parsed?.version !== 1) return { records: {}, priorityOrder: [] }
-    return {
-      records: parsed.records ?? {},
-      priorityOrder: parsed.priorityOrder ?? [],
-    }
+    return migrateLegacyKeys(parsed.records ?? {}, parsed.priorityOrder ?? [])
   } catch {
     return { records: {}, priorityOrder: [] }
+  }
+}
+
+/**
+ * ⭐ RECORDS WRITTEN BEFORE THE KEY CARRIED THE DECISION ARE RE-KEYED, NOT
+ * DROPPED — and re-keyed from THEIR OWN STAMP, never from what is open now.
+ *
+ * A live session upgrading mid-flight holds records under bare finding ids.
+ * Discarding them would delete a reader's own reasoning trail on a deploy; and
+ * adopting them into the current decision is the laundering this whole fix
+ * exists to refuse. So each legacy record moves to the key its own
+ * `scenarioId` names — which for a record minted before the stamp existed is
+ * `null`, i.e. the unattributable bucket. Honest, and lossless.
+ *
+ * ⚠ A LEGACY KEY IS IDENTIFIED BY SHAPE, NOT BY A VERSION BUMP. The persisted
+ * `version` stays 1 deliberately: bumping it would make every existing session
+ * fall through `loadPersisted`'s version guard and lose the trail outright,
+ * which is the harm this function exists to prevent. A composite key parses as
+ * a two-element JSON array; a legacy key does not.
+ */
+export function migrateLegacyKeys(
+  records: Record<string, RecRecord>,
+  priorityOrder: string[],
+): Pick<StrengthenState, 'records' | 'priorityOrder'> {
+  const isComposite = (k: string): boolean => {
+    try {
+      const parsed = JSON.parse(k)
+      return Array.isArray(parsed) && parsed.length === 2
+    } catch {
+      return false
+    }
+  }
+  const remap = new Map<string, string>()
+  const next: Record<string, RecRecord> = {}
+  for (const [key, record] of Object.entries(records)) {
+    if (record == null) continue
+    if (isComposite(key)) {
+      next[key] = record
+      continue
+    }
+    const moved = recordKey(record.scenarioId ?? null, record.id ?? key)
+    remap.set(key, moved)
+    // ⚠ FIRST WRITER WINS. Two legacy records cannot share a key unless they
+    // already shared a finding id AND a decision, in which case they were the
+    // same record; but a defensive check keeps the migration total.
+    if (!(moved in next)) next[moved] = record
+  }
+  return {
+    records: next,
+    priorityOrder: priorityOrder.map((k) => remap.get(k) ?? k),
   }
 }
 
@@ -189,9 +328,10 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
     const firingIds = new Set(recs.map((r) => r.id))
 
     for (const rec of recs) {
-      const existing = records[rec.id]
+      const key = recordKey(scenarioId, rec.id)
+      const existing = records[key]
       if (!existing) {
-        records[rec.id] = {
+        records[key] = {
           id: rec.id,
           status: 'recommended',
           snapshot: rec,
@@ -214,7 +354,7 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
           reopenReason: 'the signal returned after the model changed',
         })
       }
-      records[rec.id] = {
+      records[recordKey(scenarioId, rec.id)] = {
         ...existing,
         status,
         snapshot: rec, // re-grounded display copy
@@ -224,12 +364,21 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
       }
     }
 
-    // Ids that no longer fire in THIS completed analysis.
-    for (const record of Object.values(records)) {
+    /* Ids that no longer fire in THIS completed analysis.
+       ⚠⚠ SCOPED TO THIS DECISION, AND THE COMPOSITE KEY IS WHAT MADE THAT
+       VISIBLE. This swept EVERY record in the store, so completing an analysis
+       on decision B auto-addressed decision A's in-progress findings — writing
+       "resolved by a model change" into a trail about a model that had not
+       changed. It was invisible while one shared key made the store look like
+       one decision's worth of state; naming the decision in the key makes the
+       unscoped sweep obvious. A latent second harm of the same root cause, so
+       it is repaired in the same change rather than left to be found. */
+    for (const [key, record] of Object.entries(records)) {
+      if ((record.scenarioId ?? null) !== scenarioId) continue
       if (firingIds.has(record.id)) continue
       if (record.analysisHash === analysisHash) continue // already handled above
       if (record.status === 'in_progress' || record.status === 'reopened') {
-        records[record.id] = {
+        records[key] = {
           ...record,
           status: 'addressed',
           isStale: false,
@@ -243,26 +392,31 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
       // addressed/dismissed history is untouched.
     }
 
-    const priorityOrder = [...recs].sort((a, b) => a.priority - b.priority).map((r) => r.id)
+    /* ⚠ KEYS, NOT IDS — `selectActive` reads records through this list, and a
+       bare id no longer addresses a record. */
+    const priorityOrder = [...recs]
+      .sort((a, b) => a.priority - b.priority)
+      .map((r) => recordKey(scenarioId, r.id))
     persist(records, priorityOrder)
     set({ records, priorityOrder })
   },
 
-  markAllStale: () => {
+  markAllStale: (scenarioId) => {
     const records = { ...get().records }
-    for (const id of Object.keys(records)) {
-      records[id] = { ...records[id], isStale: true }
+    for (const [key, record] of Object.entries(records)) {
+      if ((record.scenarioId ?? null) !== scenarioId) continue
+      records[key] = { ...record, isStale: true }
     }
     persist(records, get().priorityOrder)
     set({ records })
   },
 
-  markInProgress: (id, now = Date.now()) => {
-    const record = get().records[id]
+  markInProgress: (key, now = Date.now()) => {
+    const record = get().records[key]
     if (!record) return
     const records = {
       ...get().records,
-      [id]: {
+      [key]: {
         ...record,
         status: 'in_progress' as RecStatus,
         history: [...record.history, { at: now, event: 'in_progress' as const }],
@@ -272,12 +426,12 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
     set({ records })
   },
 
-  markAddressed: (id, whatChanged, now = Date.now()) => {
-    const record = get().records[id]
+  markAddressed: (key, whatChanged, now = Date.now()) => {
+    const record = get().records[key]
     if (!record) return
     const records = {
       ...get().records,
-      [id]: {
+      [key]: {
         ...record,
         status: 'addressed' as RecStatus,
         history: [...record.history, { at: now, event: 'addressed' as const, whatChanged }],
@@ -287,12 +441,12 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
     set({ records })
   },
 
-  dismiss: (id, now = Date.now()) => {
-    const record = get().records[id]
+  dismiss: (key, now = Date.now()) => {
+    const record = get().records[key]
     if (!record) return
     const records = {
       ...get().records,
-      [id]: {
+      [key]: {
         ...record,
         status: 'dismissed' as RecStatus,
         history: [...record.history, { at: now, event: 'dismissed' as const }],
@@ -303,13 +457,19 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
   },
 
   seedIfAbsent: (rec, analysisHash, scenarioId, now = Date.now()) => {
-    if (get().records[rec.id]) return
+    /* ⚠⚠ THE NO-OP IS NOW SCOPED, AND THAT WAS THE WHOLE REGRESSION. Keyed by
+       the finding id alone, this returned early whenever ANY decision already
+       held that id — so a user acting on the same finding under a second
+       decision minted no record, and every act they then performed was filed
+       against the FIRST decision's record. */
+    const key = recordKey(scenarioId, rec.id)
+    if (get().records[key]) return
     const records = {
       ...get().records,
       // ⚠ SHAPED EXACTLY AS `reconcile`'s INSERT PATH. Two ways of minting the
       // same record is how the two diverge (trap 12); if that shape changes,
       // this must change with it.
-      [rec.id]: {
+      [key]: {
         id: rec.id,
         status: 'recommended' as RecStatus,
         snapshot: rec,
@@ -322,19 +482,20 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
     // Appended, never inserted: `priorityOrder` is the ENGINE's ordering and
     // this row's rank is not ours to assert. `selectActive` reads that order,
     // so a guess here would silently re-rank the other surface's panel.
-    persist(records, [...get().priorityOrder, rec.id])
-    set({ records, priorityOrder: [...get().priorityOrder, rec.id] })
+    const priorityOrder = [...get().priorityOrder, key]
+    persist(records, priorityOrder)
+    set({ records, priorityOrder })
   },
 
-  dispute: (id, reason, now = Date.now()) => {
-    const record = get().records[id]
+  dispute: (key, reason, now = Date.now()) => {
+    const record = get().records[key]
     if (!record) return
     const trimmed = reason.trim()
     if (!trimmed) return
     const records = {
       ...get().records,
       // ⚠ `status` IS UNTOUCHED, ON PURPOSE. See the note on the declaration.
-      [id]: {
+      [key]: {
         ...record,
         history: [...record.history, { at: now, event: 'disputed' as const, disputeReason: trimmed }],
       },
@@ -343,8 +504,8 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
     set({ records })
   },
 
-  restoreDismissed: (id, now = Date.now()) => {
-    const record = get().records[id]
+  restoreDismissed: (key, now = Date.now()) => {
+    const record = get().records[key]
     if (!record || record.status !== 'dismissed') return
     // Restore the ACTIVE status held before dismissal (scan history backwards
     // for the last active-status event — 'restored' markers are transparent
@@ -358,7 +519,7 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
     }
     const records = {
       ...get().records,
-      [id]: {
+      [key]: {
         ...record,
         status: previous,
         history: [...record.history, { at: now, event: 'restored' as const, whatChanged: 'dismiss undone' }],
@@ -379,7 +540,7 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
      * row's engine rank is not ours to assert.
      */
     const order = get().priorityOrder
-    const priorityOrder = order.includes(id) ? order : [...order, id]
+    const priorityOrder = order.includes(key) ? order : [...order, key]
     persist(records, priorityOrder)
     set({ records, priorityOrder })
   },
@@ -393,7 +554,10 @@ export const useStrengthenStore = create<StrengthenState>((set, get) => ({
 /** Active list: gate-passing, not yet addressed/dismissed, in priority order. */
 export function selectActive(state: Pick<StrengthenState, 'records' | 'priorityOrder'>): RecRecord[] {
   return state.priorityOrder
-    .map((id) => state.records[id])
+    // ⚠ `key`, not `id` — `priorityOrder` holds RECORD KEYS. The old parameter
+    // name outlived the thing it named, which is how a bare id gets written
+    // back in by someone reading this line for the idiom.
+    .map((key) => state.records[key])
     .filter((r): r is RecRecord => r != null && (r.status === 'recommended' || r.status === 'in_progress' || r.status === 'reopened'))
 }
 
@@ -426,7 +590,16 @@ export function selectHistory(
   scenarioId: string | null,
 ): RecRecord[] {
   if (scenarioId == null) return []
-  return Object.values(state.records)
+  /* ⚠ THE KEY ISOLATES; THE STAMP IS STILL CHECKED, AND THAT IS NOT BELT-AND-
+     BRACES. They answer different questions: the KEY says where this record is
+     filed, the STAMP says which decision the reasoning act was ABOUT. They
+     agree by construction today because `recordKey` is fed the same value that
+     is stamped — and a future write that filed a record under one decision
+     while stamping another would be a defect this filter makes visible instead
+     of serving. A record whose two answers disagree is claimed by neither. */
+  return Object.entries(state.records)
+    .filter(([key]) => decisionOfKey(key) === scenarioId)
+    .map(([, r]) => r)
     .filter((r) => r.status === 'addressed' || r.status === 'dismissed')
     .filter((r) => r.scenarioId === scenarioId)
     .sort((a, b) => (b.history[b.history.length - 1]?.at ?? 0) - (a.history[a.history.length - 1]?.at ?? 0))

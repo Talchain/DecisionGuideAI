@@ -40,6 +40,7 @@ import {
   selectHistory,
   useStrengthenStore,
   type RecRecord,
+  recordKey,
 } from '../../../canvas/stores/strengthenStore'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
 import { attentionNoteForRecommendation } from './recommendationAttention'
@@ -211,18 +212,29 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
     const prev = prevGoalThresholdRef.current
     prevGoalThresholdRef.current = inputs.goalThreshold
     if (prev != null || inputs.goalThreshold == null) return
-    const record = useStrengthenStore.getState().records['strengthen:success-measure']
+    /* ⚠⚠ A KEYED READ, NOT A BARE ID — AND THE COMPILER CANNOT SEE THIS ONE.
+       `records` is a `Record<string, …>`, so indexing it with a finding id
+       still compiles perfectly and simply returns `undefined` once the key
+       carries the decision. The credit would then stop firing silently, with no
+       red anywhere. The branded key protects the CALLS; the READS have to be
+       found by hand, and these two were. */
+    const scenarioNow = useCanvasStore.getState().currentScenarioId
+    const record = useStrengthenStore.getState().records[
+      recordKey(scenarioNow, 'strengthen:success-measure')
+    ]
     if (
       record &&
       (record.status === 'recommended' || record.status === 'in_progress' || record.status === 'reopened')
     ) {
-      useStrengthenStore.getState().markAddressed('strengthen:success-measure', 'success target set')
+      useStrengthenStore
+        .getState()
+        .markAddressed(recordKey(scenarioNow, 'strengthen:success-measure'), 'success target set')
     }
   }, [inputs.goalThreshold])
 
   // The model changed since the last completed analysis: label, never evict.
   useEffect(() => {
-    if (freshnessDirty) useStrengthenStore.getState().markAllStale()
+    if (freshnessDirty) useStrengthenStore.getState().markAllStale(currentScenarioId)
   }, [freshnessDirty])
 
   // A captured decision record credits the commit rec — same direct-credit
@@ -231,12 +243,16 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
   const decisionRecord = useDecisionRecordForScenario(currentScenarioId)
   useEffect(() => {
     if (!decisionRecord) return
-    const record = useStrengthenStore.getState().records['strengthen:commit']
+    // ⚠ Keyed read — see the success-measure effect above for why.
+    const scenarioNow = useCanvasStore.getState().currentScenarioId
+    const record = useStrengthenStore.getState().records[recordKey(scenarioNow, 'strengthen:commit')]
     if (
       record &&
       (record.status === 'recommended' || record.status === 'in_progress' || record.status === 'reopened')
     ) {
-      useStrengthenStore.getState().markAddressed('strengthen:commit', 'decision recorded')
+      useStrengthenStore
+        .getState()
+        .markAddressed(recordKey(scenarioNow, 'strengthen:commit'), 'decision recorded')
     }
   }, [decisionRecord])
 
@@ -308,7 +324,7 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
     // §8.8: close only after the action genuinely succeeds — a successful
     // dispatch marks IN PROGRESS (the user confirms addressed themselves).
     if (ok) {
-      useStrengthenStore.getState().markInProgress(record.id)
+      useStrengthenStore.getState().markInProgress(recordKey(record.scenarioId, record.id))
       return
     }
     // ⭐ L-10 FIX: the failure arm was SILENT. Every `ok === false` path here
@@ -370,15 +386,15 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
   }
 
   const onNotRelevant = (record: RecRecord) => {
-    useStrengthenStore.getState().dismiss(record.id)
+    useStrengthenStore.getState().dismiss(recordKey(record.scenarioId, record.id))
   }
 
   const onUndoDismiss = (record: RecRecord) => {
-    useStrengthenStore.getState().restoreDismissed(record.id)
+    useStrengthenStore.getState().restoreDismissed(recordKey(record.scenarioId, record.id))
   }
 
   const onMarkAddressed = (record: RecRecord) => {
-    useStrengthenStore.getState().markAddressed(record.id)
+    useStrengthenStore.getState().markAddressed(recordKey(record.scenarioId, record.id))
   }
 
   return (

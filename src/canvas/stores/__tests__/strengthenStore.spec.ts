@@ -7,6 +7,7 @@ import {
   selectActive,
   selectHistory,
   useStrengthenStore,
+  recordKey,
 } from '../strengthenStore'
 import type { Recommendation } from '../../../components/results/strengthen/strengthenTypes'
 
@@ -49,9 +50,9 @@ describe('strengthenStore — reconcile-by-id (§8.5)', () => {
 
   it('a new analysis response NEVER resets progress: status and history survive', () => {
     s().reconcile([rec('a')], 'h1', THIS_DECISION, 1000)
-    s().markInProgress('a', 1001)
+    s().markInProgress(recordKey(THIS_DECISION, 'a'), 1001)
     s().reconcile([rec('a')], 'h2', THIS_DECISION, 2000)
-    const a = s().records['a']
+    const a = s().records[recordKey(THIS_DECISION, 'a')]
     expect(a.status).toBe('in_progress')
     expect(a.analysisHash).toBe('h2') // snapshot re-grounded
     expect(a.isStale).toBe(false)
@@ -60,9 +61,9 @@ describe('strengthenStore — reconcile-by-id (§8.5)', () => {
 
   it('an addressed id whose trigger re-fires under a NEW hash reopens WITH a reason', () => {
     s().reconcile([rec('a')], 'h1', THIS_DECISION, 1000)
-    s().markAddressed('a', 'set a range', 1001)
+    s().markAddressed(recordKey(THIS_DECISION, 'a'), 'set a range', 1001)
     s().reconcile([rec('a')], 'h2', THIS_DECISION, 2000)
-    const a = s().records['a']
+    const a = s().records[recordKey(THIS_DECISION, 'a')]
     expect(a.status).toBe('reopened')
     const reopen = a.history.find((e) => e.event === 'reopened')
     expect(reopen?.reopenReason).toBeTruthy()
@@ -70,18 +71,18 @@ describe('strengthenStore — reconcile-by-id (§8.5)', () => {
 
   it('a dismissed id stays dismissed under the SAME hash, reopens only under a new one', () => {
     s().reconcile([rec('a')], 'h1', THIS_DECISION, 1000)
-    s().dismiss('a', 1001)
+    s().dismiss(recordKey(THIS_DECISION, 'a'), 1001)
     s().reconcile([rec('a')], 'h1', THIS_DECISION, 1002) // same analysis — no nagging
-    expect(s().records['a'].status).toBe('dismissed')
+    expect(s().records[recordKey(THIS_DECISION, 'a')].status).toBe('dismissed')
     s().reconcile([rec('a')], 'h2', THIS_DECISION, 2000) // the model changed
-    expect(s().records['a'].status).toBe('reopened')
+    expect(s().records[recordKey(THIS_DECISION, 'a')].status).toBe('reopened')
   })
 
   it('in_progress ids whose trigger no longer fires are auto-addressed with an explanation', () => {
     s().reconcile([rec('a')], 'h1', THIS_DECISION, 1000)
-    s().markInProgress('a', 1001)
+    s().markInProgress(recordKey(THIS_DECISION, 'a'), 1001)
     s().reconcile([], 'h2', THIS_DECISION, 2000)
-    const a = s().records['a']
+    const a = s().records[recordKey(THIS_DECISION, 'a')]
     expect(a.status).toBe('addressed')
     const evt = a.history.find((e) => e.event === 'auto_addressed')
     expect(evt?.whatChanged).toBeTruthy()
@@ -91,37 +92,37 @@ describe('strengthenStore — reconcile-by-id (§8.5)', () => {
     s().reconcile([rec('a')], 'h1', THIS_DECISION, 1000)
     s().reconcile([], 'h2', THIS_DECISION, 2000)
     expect(selectActive(s()).map((r) => r.id)).not.toContain('a')
-    expect(s().records['a']).toBeDefined() // never silently deleted
+    expect(s().records[recordKey(THIS_DECISION, 'a')]).toBeDefined() // never silently deleted
   })
 })
 
 describe('strengthenStore — visible-but-stale (plan §3)', () => {
   it('markAllStale labels active records without evicting them (stale-but-shown pin)', () => {
     s().reconcile([rec('a')], 'h1', THIS_DECISION, 1000)
-    s().markInProgress('a', 1001)
-    s().markAllStale()
+    s().markInProgress(recordKey(THIS_DECISION, 'a'), 1001)
+    s().markAllStale(THIS_DECISION)
     const active = selectActive(s())
     expect(active.map((r) => r.id)).toContain('a') // still rendered
-    expect(s().records['a'].isStale).toBe(true) // but labelled
+    expect(s().records[recordKey(THIS_DECISION, 'a')].isStale).toBe(true) // but labelled
     // The snapshot still carries the display copy even if the source is gone.
-    expect(s().records['a'].snapshot.title).toBe('Title a')
+    expect(s().records[recordKey(THIS_DECISION, 'a')].snapshot.title).toBe('Title a')
   })
 })
 
 describe('strengthenStore — history (§8.9)', () => {
   it('dismissed means not relevant: excluded from active, present in history, never deleted', () => {
     s().reconcile([rec('a'), rec('b')], 'h1', THIS_DECISION, 1000)
-    s().dismiss('a', 1001)
+    s().dismiss(recordKey(THIS_DECISION, 'a'), 1001)
     expect(selectActive(s()).map((r) => r.id)).toEqual(['b'])
     expect(selectHistory(s(), THIS_DECISION).map((r) => r.id)).toContain('a')
   })
 
   it('addressed moves to history with what changed', () => {
     s().reconcile([rec('a')], 'h1', THIS_DECISION, 1000)
-    s().markAddressed('a', 'gave the factor a range', 1001)
+    s().markAddressed(recordKey(THIS_DECISION, 'a'), 'gave the factor a range', 1001)
     const hist = selectHistory(s(), THIS_DECISION)
     expect(hist.map((r) => r.id)).toContain('a')
-    expect(s().records['a'].history.find((e) => e.event === 'addressed')?.whatChanged).toBe(
+    expect(s().records[recordKey(THIS_DECISION, 'a')].history.find((e) => e.event === 'addressed')?.whatChanged).toBe(
       'gave the factor a range',
     )
   })
@@ -130,50 +131,50 @@ describe('strengthenStore — history (§8.9)', () => {
 describe('strengthenStore — undo dismiss (restoreDismissed)', () => {
   it('restores a dismissed rec to recommended and back into the active list', () => {
     s().reconcile([rec('a')], 'h1', THIS_DECISION, 1000)
-    s().dismiss('a', 1001)
+    s().dismiss(recordKey(THIS_DECISION, 'a'), 1001)
     expect(selectActive(s()).map((r) => r.id)).not.toContain('a')
-    s().restoreDismissed('a', 1002)
-    expect(s().records['a'].status).toBe('recommended')
+    s().restoreDismissed(recordKey(THIS_DECISION, 'a'), 1002)
+    expect(s().records[recordKey(THIS_DECISION, 'a')].status).toBe('recommended')
     expect(selectActive(s()).map((r) => r.id)).toContain('a')
-    expect(s().records['a'].history.some((e) => e.event === 'restored')).toBe(true)
+    expect(s().records[recordKey(THIS_DECISION, 'a')].history.some((e) => e.event === 'restored')).toBe(true)
   })
 
   it('restores the status held BEFORE dismissal (in_progress survives the round trip)', () => {
     s().reconcile([rec('a')], 'h1', THIS_DECISION, 1000)
-    s().markInProgress('a', 1001)
-    s().dismiss('a', 1002)
-    s().restoreDismissed('a', 1003)
-    expect(s().records['a'].status).toBe('in_progress')
+    s().markInProgress(recordKey(THIS_DECISION, 'a'), 1001)
+    s().dismiss(recordKey(THIS_DECISION, 'a'), 1002)
+    s().restoreDismissed(recordKey(THIS_DECISION, 'a'), 1003)
+    expect(s().records[recordKey(THIS_DECISION, 'a')].status).toBe('in_progress')
   })
 
   it('is a no-op on non-dismissed records', () => {
     s().reconcile([rec('a')], 'h1', THIS_DECISION, 1000)
-    s().markAddressed('a', 'done', 1001)
-    s().restoreDismissed('a', 1002)
-    expect(s().records['a'].status).toBe('addressed')
-    expect(s().records['a'].history.some((e) => e.event === 'restored')).toBe(false)
+    s().markAddressed(recordKey(THIS_DECISION, 'a'), 'done', 1001)
+    s().restoreDismissed(recordKey(THIS_DECISION, 'a'), 1002)
+    expect(s().records[recordKey(THIS_DECISION, 'a')].status).toBe('addressed')
+    expect(s().records[recordKey(THIS_DECISION, 'a')].history.some((e) => e.event === 'restored')).toBe(false)
   })
 
   it('a second dismiss/restore cycle still lands on the pre-dismiss status', () => {
     s().reconcile([rec('a')], 'h1', THIS_DECISION, 1000)
-    s().markInProgress('a', 1001)
-    s().dismiss('a', 1002)
-    s().restoreDismissed('a', 1003)
-    s().dismiss('a', 1004)
-    s().restoreDismissed('a', 1005)
-    expect(s().records['a'].status).toBe('in_progress')
+    s().markInProgress(recordKey(THIS_DECISION, 'a'), 1001)
+    s().dismiss(recordKey(THIS_DECISION, 'a'), 1002)
+    s().restoreDismissed(recordKey(THIS_DECISION, 'a'), 1003)
+    s().dismiss(recordKey(THIS_DECISION, 'a'), 1004)
+    s().restoreDismissed(recordKey(THIS_DECISION, 'a'), 1005)
+    expect(s().records[recordKey(THIS_DECISION, 'a')].status).toBe('in_progress')
   })
 })
 
 describe('strengthenStore — session persistence', () => {
   it('round-trips records via sessionStorage with a version key', () => {
     s().reconcile([rec('a')], 'h1', THIS_DECISION, 1000)
-    s().markInProgress('a', 1001)
+    s().markInProgress(recordKey(THIS_DECISION, 'a'), 1001)
     const raw = sessionStorage.getItem('strengthen.lifecycle.v1')
     expect(raw).toBeTruthy()
     const parsed = JSON.parse(raw as string)
     expect(parsed.version).toBe(1)
-    expect(parsed.records['a'].status).toBe('in_progress')
+    expect(parsed.records[recordKey(THIS_DECISION, 'a')].status).toBe('in_progress')
   })
 })
 
@@ -186,9 +187,9 @@ describe('strengthenStore — session persistence', () => {
 describe('strengthenStore — dispute (a position, not a disposal)', () => {
   it('records the reason on the history and leaves the finding ACTIVE', () => {
     s().reconcile([rec('a')], 'h1', THIS_DECISION, 1000)
-    s().dispute('a', 'The lead time assumption is wrong for our supplier.', 1002)
+    s().dispute(recordKey(THIS_DECISION, 'a'), 'The lead time assumption is wrong for our supplier.', 1002)
 
-    const a = s().records['a']
+    const a = s().records[recordKey(THIS_DECISION, 'a')]
     const event = a.history.find((e) => e.event === 'disputed')
     expect(event?.disputeReason).toBe('The lead time assumption is wrong for our supplier.')
 
@@ -206,10 +207,10 @@ describe('strengthenStore — dispute (a position, not a disposal)', () => {
 
   it('can still be worked through or set aside AFTER being disputed', () => {
     s().reconcile([rec('a')], 'h1', THIS_DECISION, 1000)
-    s().dispute('a', 'Wrong for us.', 1002)
-    s().dismiss('a', 1003)
+    s().dispute(recordKey(THIS_DECISION, 'a'), 'Wrong for us.', 1002)
+    s().dismiss(recordKey(THIS_DECISION, 'a'), 1003)
 
-    const a = s().records['a']
+    const a = s().records[recordKey(THIS_DECISION, 'a')]
     expect(a.status).toBe('dismissed')
     // Both acts survive: the objection is not erased by the later disposal.
     expect(a.history.map((e) => e.event)).toEqual(['recommended', 'disputed', 'dismissed'])
@@ -218,10 +219,10 @@ describe('strengthenStore — dispute (a position, not a disposal)', () => {
 
   it('a later objection supersedes an earlier one without erasing it', () => {
     s().reconcile([rec('a')], 'h1', THIS_DECISION, 1000)
-    s().dispute('a', 'First thought.', 1002)
-    s().dispute('a', 'What I actually mean.', 1003)
+    s().dispute(recordKey(THIS_DECISION, 'a'), 'First thought.', 1002)
+    s().dispute(recordKey(THIS_DECISION, 'a'), 'What I actually mean.', 1003)
 
-    const events = s().records['a'].history.filter((e) => e.event === 'disputed')
+    const events = s().records[recordKey(THIS_DECISION, 'a')].history.filter((e) => e.event === 'disputed')
     expect(events.map((e) => e.disputeReason)).toEqual(['First thought.', 'What I actually mean.'])
   })
 
@@ -232,18 +233,18 @@ describe('strengthenStore — dispute (a position, not a disposal)', () => {
    */
   it('is a NO-OP on an empty or whitespace-only reason, and on an unknown id', () => {
     s().reconcile([rec('a')], 'h1', THIS_DECISION, 1000)
-    s().dispute('a', '   ', 1002)
-    expect(s().records['a'].history.some((e) => e.event === 'disputed')).toBe(false)
+    s().dispute(recordKey(THIS_DECISION, 'a'), '   ', 1002)
+    expect(s().records[recordKey(THIS_DECISION, 'a')].history.some((e) => e.event === 'disputed')).toBe(false)
 
-    s().dispute('never-seen', 'anything', 1003)
-    expect(s().records['never-seen']).toBeUndefined()
+    s().dispute(recordKey(THIS_DECISION, 'never-seen'), 'anything', 1003)
+    expect(s().records[recordKey(THIS_DECISION, 'never-seen')]).toBeUndefined()
   })
 
   it('survives a new analysis, like every other lifecycle fact', () => {
     s().reconcile([rec('a')], 'h1', THIS_DECISION, 1000)
-    s().dispute('a', 'Still disagree.', 1002)
+    s().dispute(recordKey(THIS_DECISION, 'a'), 'Still disagree.', 1002)
     s().reconcile([rec('a')], 'h2', THIS_DECISION, 2000)
-    expect(s().records['a'].history.find((e) => e.event === 'disputed')?.disputeReason).toBe(
+    expect(s().records[recordKey(THIS_DECISION, 'a')].history.find((e) => e.event === 'disputed')?.disputeReason).toBe(
       'Still disagree.',
     )
   })
@@ -261,7 +262,7 @@ describe('strengthenStore — dispute (a position, not a disposal)', () => {
 describe('strengthenStore — seedIfAbsent (a record for the row the user just acted on)', () => {
   it('creates a recommended record, stamped with the run it was grounded in', () => {
     s().seedIfAbsent(rec('a'), 'v5:hash', THIS_DECISION, 1000)
-    const a = s().records['a']
+    const a = s().records[recordKey(THIS_DECISION, 'a')]
     expect(a.status).toBe('recommended')
     expect(a.analysisHash).toBe('v5:hash')
     expect(a.isStale).toBe(false)
@@ -277,10 +278,10 @@ describe('strengthenStore — seedIfAbsent (a record for the row the user just a
    */
   it('is a NO-OP when a record already exists, whatever its status', () => {
     s().reconcile([rec('a')], 'h1', THIS_DECISION, 1000)
-    s().dismiss('a', 1001)
+    s().dismiss(recordKey(THIS_DECISION, 'a'), 1001)
     s().seedIfAbsent(rec('a'), 'v5:different', THIS_DECISION, 1002)
 
-    const a = s().records['a']
+    const a = s().records[recordKey(THIS_DECISION, 'a')]
     expect(a.status).toBe('dismissed')
     expect(a.analysisHash).toBe('h1')
     expect(a.history.map((e) => e.event)).toEqual(['recommended', 'dismissed'])
@@ -289,19 +290,23 @@ describe('strengthenStore — seedIfAbsent (a record for the row the user just a
   it('appends to priorityOrder rather than asserting a rank it does not know', () => {
     s().reconcile([rec('a', 1), rec('b', 2)], 'h1', THIS_DECISION, 1000)
     s().seedIfAbsent(rec('z'), 'h1', THIS_DECISION, 1001)
-    expect(s().priorityOrder).toEqual(['a', 'b', 'z'])
+    expect(s().priorityOrder).toEqual(
+      ['a', 'b', 'z'].map((id) => recordKey(THIS_DECISION, id)),
+    )
     // And seeding twice must not duplicate the entry.
     s().seedIfAbsent(rec('z'), 'h1', THIS_DECISION, 1002)
-    expect(s().priorityOrder).toEqual(['a', 'b', 'z'])
+    expect(s().priorityOrder).toEqual(
+      ['a', 'b', 'z'].map((id) => recordKey(THIS_DECISION, id)),
+    )
   })
 
   it('lets a seeded record then be disputed and dismissed like any other', () => {
     s().seedIfAbsent(rec('a'), 'v5:hash', THIS_DECISION, 1000)
-    s().dispute('a', 'Not true for us.', 1001)
-    expect(s().records['a'].history.find((e) => e.event === 'disputed')?.disputeReason).toBe(
+    s().dispute(recordKey(THIS_DECISION, 'a'), 'Not true for us.', 1001)
+    expect(s().records[recordKey(THIS_DECISION, 'a')].history.find((e) => e.event === 'disputed')?.disputeReason).toBe(
       'Not true for us.',
     )
-    expect(s().records['a'].status).toBe('recommended')
+    expect(s().records[recordKey(THIS_DECISION, 'a')].status).toBe('recommended')
   })
 })
 
@@ -318,12 +323,12 @@ describe('strengthenStore — seedIfAbsent (a record for the row the user just a
 describe('strengthenStore — restore puts the finding back where it can be seen', () => {
   it('re-enters priorityOrder when reconcile has dropped the id', () => {
     s().reconcile([rec('a'), rec('b')], 'h1', THIS_DECISION, 1000)
-    s().dismiss('a', 1001)
+    s().dismiss(recordKey(THIS_DECISION, 'a'), 1001)
     // 'a' no longer fires, so reconcile rebuilds the order without it.
     s().reconcile([rec('b')], 'h2', THIS_DECISION, 2000)
-    expect(s().priorityOrder).not.toContain('a')
+    expect(s().priorityOrder).not.toContain(recordKey(THIS_DECISION, 'a'))
 
-    s().restoreDismissed('a', 2001)
+    s().restoreDismissed(recordKey(THIS_DECISION, 'a'), 2001)
 
     // Bound to REACHABILITY, not to the array — that is the property at stake.
     expect(selectActive(s()).map((r) => r.id)).toContain('a')
@@ -332,8 +337,8 @@ describe('strengthenStore — restore puts the finding back where it can be seen
 
   it('does not duplicate the id when it is already in the order', () => {
     s().reconcile([rec('a')], 'h1', THIS_DECISION, 1000)
-    s().dismiss('a', 1001)
-    s().restoreDismissed('a', 1002)
-    expect(s().priorityOrder.filter((id) => id === 'a')).toHaveLength(1)
+    s().dismiss(recordKey(THIS_DECISION, 'a'), 1001)
+    s().restoreDismissed(recordKey(THIS_DECISION, 'a'), 1002)
+    expect(s().priorityOrder.filter((k) => k === recordKey(THIS_DECISION, 'a'))).toHaveLength(1)
   })
 })

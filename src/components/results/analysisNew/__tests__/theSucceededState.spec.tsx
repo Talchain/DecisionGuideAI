@@ -36,6 +36,7 @@ vi.mock('../nodeMarks', async (orig) => ({
 
 import { openAskOlumi } from '../../coaching/askOlumiStore'
 import { useCanvasStore } from '../../../../canvas/store'
+import { recordKey } from '../../../../canvas/stores/strengthenStore'
 
 /** Records the mocked store hands back; set per test before rendering. */
 let RECORDS: Record<string, RecRecord> = {}
@@ -89,7 +90,11 @@ const record = (id: string, status: 'addressed' | 'dismissed'): RecRecord => ({
 })
 
 const setTrail = (...recs: RecRecord[]) => {
-  RECORDS = Object.fromEntries(recs.map((r) => [r.id, r]))
+  // ⚠ KEYED BY THE RECORD'S OWN STAMP, exactly as the store keys it. Seeding
+  // by bare id would put the fixture under a key `selectHistory` cannot reach,
+  // and the trail would read empty for a reason that is the FIXTURE's, not the
+  // component's — a test failing for the wrong reason is a test nobody trusts.
+  RECORDS = Object.fromEntries(recs.map((r) => [recordKey(r.scenarioId, r.id), r]))
 }
 
 const renderOpen = () => {

@@ -65,7 +65,7 @@ import type { ScienceGrounding } from '../analysisNewTypes'
 import { methodForRecommendation } from '../recommendationMethod'
 import { NodeMark, markKindForTarget } from '../nodeMarks'
 import { planPreview } from '../previewComposition'
-import { useStrengthenStore, selectHistory } from '../../../../canvas/stores/strengthenStore'
+import { useStrengthenStore, selectHistory, recordKey } from '../../../../canvas/stores/strengthenStore'
 import { recordDissent, readDissent, dissentCurrency } from '../../../../canvas/stores/dissentStore'
 import { useCanvasStore } from '../../../../canvas/store'
 
@@ -159,7 +159,16 @@ export function StrengthenTheReasoning({
    * then fail silently (trap 12). Cheap to be correct now.
    */
   const priorityOrder = useStrengthenStore((st) => st.priorityOrder)
-  const [undoable, setUndoable] = useState<{ id: string; title: string } | null>(null)
+  /* ⚠ THE UNDO PAYLOAD CARRIES THE DECISION, not just the finding id. Undo
+     restores the record that was DISMISSED — which lives under the decision it
+     was dismissed on. Re-deriving the decision at click time would restore
+     under whatever is open when the user presses it, and the toast outlives a
+     decision switch. */
+  const [undoable, setUndoable] = useState<{
+    id: string
+    title: string
+    scenarioId: string | null
+  } | null>(null)
 
   /**
    * ⚠ THE NOTICE IS TRANSIENT, ON THE OWNER'S TIMING. An earlier draft left it up
@@ -175,7 +184,7 @@ export function StrengthenTheReasoning({
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (noticeTimer.current) clearTimeout(noticeTimer.current) }, [])
 
-  const showUndo = useCallback((next: { id: string; title: string }) => {
+  const showUndo = useCallback((next: { id: string; title: string; scenarioId: string | null }) => {
     setUndoable(next)
     if (noticeTimer.current) clearTimeout(noticeTimer.current)
     noticeTimer.current = setTimeout(() => setUndoable(null), NOTICE_MS)
@@ -415,7 +424,7 @@ export function StrengthenTheReasoning({
       seedIfAbsent(rec, context.analysisHash, activeScenarioId)
       // The store no-ops on an empty reason; closing without recording is the
       // honest outcome, not a silent empty entry.
-      dispute(rec.id, draft)
+      dispute(recordKey(activeScenarioId, rec.id), draft)
       // A board without a persisted identity can still keep a session-only
       // objection. Its standing text explicitly names that narrower scope.
       if (!context.scenarioId) { closeDispute(); return }
@@ -527,7 +536,7 @@ export function StrengthenTheReasoning({
             ref={undoButtonRef}
             type="button"
             onClick={() => {
-              restoreDismissed(undoable.id)
+              restoreDismissed(recordKey(undoable.scenarioId, undoable.id))
               clearUndo()
             }}
             className="rounded text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
@@ -618,7 +627,14 @@ export function StrengthenTheReasoning({
              * they said should see what they now think, not the first thing
              * they typed — so this scans BACKWARDS and stops at the first hit.
              */
-            const record = strengthenRecords[rec.id]
+            /* ⚠⚠ KEYED, AND THE COMPILER CANNOT SEE THIS ONE. `records` is a
+               `Record<string, …>`, so indexing it with a bare finding id
+               compiles cleanly and simply returns `undefined` — the standing
+               objection would stop rendering with no red anywhere. The branded
+               `RecordKey` protects the store's CALLS; its READS have to be
+               found by hand, and `oneRecordKeyPerRead.spec.ts` exists because
+               this was the second one found that way. */
+            const record = strengthenRecords[recordKey(activeScenarioId, rec.id)]
             /**
              * ⭐ DURABLE FIRST, session second. A disagreement recorded in an
              * earlier session has no history event in this one, so reading only
@@ -913,8 +929,8 @@ export function StrengthenTheReasoning({
                     onClick={() => {
                       // Seed first, for the same reason as the objection above.
                       seedIfAbsent(rec, analysisHash, activeScenarioId)
-                      dismiss(rec.id)
-                      showUndo({ id: rec.id, title: rec.title })
+                      dismiss(recordKey(activeScenarioId, rec.id))
+                      showUndo({ id: rec.id, title: rec.title, scenarioId: activeScenarioId })
                     }}
                     className={`${typography.panelMeta} inline-flex items-center rounded px-1 py-1 text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                     data-testid={`${testId}-dismiss`}
@@ -1104,7 +1120,7 @@ export function StrengthenTheReasoning({
                     {record.status === 'dismissed' ? (
                       <button
                         type="button"
-                        onClick={() => restoreDismissed(record.id)}
+                        onClick={() => restoreDismissed(recordKey(record.scenarioId, record.id))}
                         className={`${typography.panelMeta} flex-none text-info hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                         data-testid={`${testId}-history-restore`}
                       >
