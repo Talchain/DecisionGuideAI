@@ -17,7 +17,11 @@ let mockDirty = false
 
 vi.mock('../../../store', () => ({
   useCanvasStore: vi.fn((selector: (s: unknown) => unknown) =>
-    selector({ analysisFreshness: mockFreshness, analysisFreshnessDirty: mockDirty })
+    // ⚠ `hasCompletedFirstRun` ADDED: a `vi.mock` factory REPLACES the module,
+    // so a field the store gains later is silently ABSENT and reads `undefined`
+    // (CLAUDE.md trap 12). These cases concern a model that HAS been analysed;
+    // the never-run state is pinned by `neverRunIsNotOutOfDate.spec.tsx`.
+    selector({ analysisFreshness: mockFreshness, analysisFreshnessDirty: mockDirty, hasCompletedFirstRun: true })
   ),
 }))
 

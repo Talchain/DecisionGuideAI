@@ -83,6 +83,12 @@ vi.mock('../../../store', () => ({
       analysisFreshness: mockFreshness,
       analysisFreshnessDirty: mockDirty,
       importPendingServerRegistration: mockImportHold,
+      // ⚠ ADDED with `hasCompletedFirstRun`: a `vi.mock` factory REPLACES the
+      // module, so a field the store gains later is silently ABSENT here and
+      // reads as `undefined` (CLAUDE.md trap 12). These cases are all about a
+      // model that HAS been analysed, so the fixture must say so; the never-run
+      // state is pinned separately by `neverRunIsNotOutOfDate.spec.tsx`.
+      hasCompletedFirstRun: true,
     })
   ),
 }))

@@ -147,6 +147,25 @@ export function ReanalyseBar({
 }: ReanalyseBarProps) {
   const { semantic } = useAnalysisTrust()
   const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
+  /**
+   * ⭐⭐ A MODEL THAT HAS NEVER BEEN ANALYSED IS NOT AN OUT-OF-DATE ONE.
+   *
+   * WITNESSED on deployed `3b2df4ce`: open the saved example "Customer Data
+   * Platform Selection", touch nothing, and this bar is already on screen
+   * saying *"Model changed. Results may be out of date."* beside a button
+   * labelled *"Re-analyse"* — with `hasCompletedFirstRun: false` in the store.
+   * Three statements, all false at once: the user changed nothing, there are no
+   * results to be out of date, and nothing has been analysed to be analysed
+   * again. It is the first thing a visitor reads on this surface.
+   *
+   * The bar's own header says it is "visible only when the analysis is
+   * DEFINITELY out of date". That is the right rule; what it lacked is that
+   * `useAnalysisTrust` answers *"can these results be trusted?"* and returns
+   * `'changed'` just as readily when there are NO results — the absence and the
+   * staleness arrive under one name. So the bar is right to appear (there is
+   * genuinely nothing fresh to read) and was wrong about WHY.
+   */
+  const hasRunBefore = useCanvasStore((s) => s.hasCompletedFirstRun)
 
   // AFFORDANCE ≠ ASSERTION (interim 2.467). This bar is BOTH the "Model
   // changed" claim and the Model tab's ONLY re-analyse control — and conflating
@@ -212,14 +231,19 @@ export function ReanalyseBar({
     <div
       className="bg-panel border-t border-warning/30 px-3 py-2 flex items-center justify-between gap-2"
       data-testid="reanalyse-bar"
-      data-reason={heldUnsure ? 'import-unregistered' : 'model-changed'}
+      data-reason={!hasRunBefore ? 'never-run' : heldUnsure ? 'import-unregistered' : 'model-changed'}
       role="status"
       aria-live="polite"
     >
       <span className={`${typography.panelMeta} text-text-light flex-1 min-w-0`}>
-        {heldUnsure
-          ? "Can't confirm this analysis matches the current model."
-          : 'Model changed. Results may be out of date.'}
+        {/* ⚠ NEVER-RUN IS TESTED FIRST, and it outranks `heldUnsure` on purpose:
+            "Can't confirm this analysis matches the current model" presupposes
+            an analysis, so it is the same falsehood one clause along. */}
+        {!hasRunBefore
+          ? "This model hasn't been analysed yet."
+          : heldUnsure
+            ? "Can't confirm this analysis matches the current model."
+            : 'Model changed. Results may be out of date.'}
         {/* ⚠ TEXT, NOT ONLY A `title`. A tooltip is unreachable by touch and by
             keyboard, so a reason that exists only on hover is not a reason the
             user can reach. The `title` below is kept as well, for parity with
@@ -258,7 +282,7 @@ export function ReanalyseBar({
         {/* The sibling's ANALYSING arm, which the first cut left behind while
             taking its two expressions: a control disabled with no title, no
             subline and an unchanged label reads as broken rather than busy. */}
-        {isAnalysing ? 'Analysing…' : 'Re-analyse'}
+        {isAnalysing ? 'Analysing…' : hasRunBefore ? 'Re-analyse' : 'Analyse'}
       </button>
     </div>
   )
