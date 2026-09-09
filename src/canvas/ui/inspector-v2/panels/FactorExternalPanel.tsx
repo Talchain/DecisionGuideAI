@@ -32,7 +32,9 @@ import type { InspectorPanelProps } from '../types'
 import {
   investigationValueTier,
   INVESTIGATION_VALUE_LABEL,
-  type InvestigationValueTier,
+  INVESTIGATION_VALUE_COMPARISON,
+  INVESTIGATION_VALUE_STEM,
+  INVESTIGATION_VALUE_TOP_RANK_NOTE,
 } from '../../../domain/investigationValue'
 import { resolveCoaching } from '../coachingConfig'
 import { FactorExternalEditor } from '../editors/FactorExternalEditor'
@@ -52,18 +54,6 @@ const QUICK_SET = {
 } as const
 
 type QuickSetKey = keyof typeof QUICK_SET
-
-/**
- * What to say once the tier is known. Per-panel on purpose: you REFRESH a
- * measurement and you GATHER evidence for an estimate, so a single shared
- * sentence would be wrong on at least one surface. Keyed by the shared tier so
- * the boundary cannot drift away from the word beside the bar.
- */
-const VOI_GUIDANCE: Record<InvestigationValueTier, string> = {
-  high: 'Gathering more evidence here could significantly improve confidence.',
-  medium: 'Additional evidence here would moderately sharpen the analysis.',
-  low: 'Further investigation here is unlikely to change the outcome.',
-}
 
 export const FactorExternalPanel = memo(function FactorExternalPanel({
   nodeId,
@@ -353,7 +343,8 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
                   {INLINE_LABELS.investigationValue}
                 </div>
                 <p className={`${typography.panelMeta} text-text-light mt-1`}>
-                  {VOI_GUIDANCE[voiTier]}
+                  {INVESTIGATION_VALUE_STEM.evidence}{INVESTIGATION_VALUE_COMPARISON[voiTier]}
+                  {displayMetadata.voiRank !== null && ` ${INVESTIGATION_VALUE_TOP_RANK_NOTE}`}
                 </p>
               </div>
             )}

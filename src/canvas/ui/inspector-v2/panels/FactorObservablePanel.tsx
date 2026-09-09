@@ -39,7 +39,9 @@ import type { InspectorPanelProps } from '../types'
 import {
   investigationValueTier,
   INVESTIGATION_VALUE_LABEL,
-  type InvestigationValueTier,
+  INVESTIGATION_VALUE_COMPARISON,
+  INVESTIGATION_VALUE_STEM,
+  INVESTIGATION_VALUE_TOP_RANK_NOTE,
 } from '../../../domain/investigationValue'
 import { resolveCoaching } from '../coachingConfig'
 import { FactorObservableEditor } from '../editors/FactorObservableEditor'
@@ -48,18 +50,6 @@ import { useParticipantName } from '../../../../collab/useParticipantName'
 import { useCitedEvidence } from '../../../../collab/citedEvidenceCache'
 import { CitedEvidenceNote } from '../../../../collab/CitedEvidenceNote'
 import { resolveElementLabel } from '../../../domain/elementLabel'
-
-/**
- * What to say once the tier is known. Per-panel on purpose: you REFRESH a
- * measurement and you GATHER evidence for an estimate, so a single shared
- * sentence would be wrong on at least one surface. Keyed by the shared tier so
- * the boundary cannot drift away from the word beside the bar.
- */
-const VOI_GUIDANCE: Record<InvestigationValueTier, string> = {
-  high: 'Updating this measurement could significantly improve the analysis.',
-  medium: 'More recent data here would moderately sharpen the analysis.',
-  low: 'Further investigation here is unlikely to change the outcome.',
-}
 
 export const FactorObservablePanel = memo(function FactorObservablePanel({
   nodeId,
@@ -297,7 +287,8 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
                   {INLINE_LABELS.investigationValue}
                 </div>
                 <p className={`${typography.panelMeta} text-text-light mt-1`}>
-                  {VOI_GUIDANCE[voiTier]}
+                  {INVESTIGATION_VALUE_STEM.measurement}{INVESTIGATION_VALUE_COMPARISON[voiTier]}
+                  {displayMetadata.voiRank !== null && ` ${INVESTIGATION_VALUE_TOP_RANK_NOTE}`}
                 </p>
               </div>
             )}

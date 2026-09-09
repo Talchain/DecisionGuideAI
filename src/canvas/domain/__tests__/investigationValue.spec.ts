@@ -56,6 +56,9 @@ import {
   investigationValueTier,
   INVESTIGATION_VALUE_LABEL,
   INVESTIGATION_VALUE_BOUNDS,
+  INVESTIGATION_VALUE_COMPARISON,
+  INVESTIGATION_VALUE_STEM,
+  INVESTIGATION_VALUE_TOP_RANK_NOTE,
 } from '../investigationValue'
 
 const ROOT = path.resolve(__dirname, '../../../..')
@@ -92,6 +95,78 @@ describe('the tier is decided in one place', () => {
     // side. Unifying those two is a separate change (they describe different
     // quantities); this pins the spelling so it cannot drift while we wait.
     expect(INVESTIGATION_VALUE_LABEL.medium).toBe('Medium')
+  })
+})
+
+describe('the tier may be spoken comparatively, never as a consequence', () => {
+  /**
+   * ⚠ A CORPUS, AND IT IS NAMED AS ONE. Deriving this list is not possible — the
+   * property is "does this sentence assert a consequence in the world?", which no
+   * derivation answers. So it is a hand-written corpus of the shapes that
+   * over-claim, and its failure mode is a FALSE RED (someone writes "unlikely"
+   * legitimately and has to justify it), which is the safe direction for a guard
+   * over copy. `significantly improve` and `unlikely to change` are here because
+   * both shipped; the rest are the neighbouring shapes an author reaches for next.
+   */
+  const ABSOLUTE_CONSEQUENCE = [
+    /unlikely to change/i,
+    /won'?t change/i,
+    /not worth/i,
+    /no point/i,
+    /\bcritical\b/i,
+    /significantly improve/i,
+    /will improve/i,
+  ]
+
+  /**
+   * ⚠ SCOPE, STATED. This guards the words the three panels now RENDER, because
+   * after this change they render only these constants. It cannot see a new
+   * hand-written sentence added beside them — that is what a reviewer is for.
+   */
+  const EVERY_RENDERED_STRING = [
+    ...Object.values(INVESTIGATION_VALUE_COMPARISON),
+    ...Object.values(INVESTIGATION_VALUE_STEM),
+    INVESTIGATION_VALUE_TOP_RANK_NOTE,
+    ...Object.values(INVESTIGATION_VALUE_LABEL),
+  ]
+
+  it('asserts no consequence in the world from an uncalibrated score', () => {
+    for (const text of EVERY_RENDERED_STRING) {
+      for (const banned of ABSOLUTE_CONSEQUENCE) {
+        expect(
+          banned.test(text),
+          `"${text}" asserts a consequence (${banned}). The 0-1 score has no producer ` +
+            'contract establishing it as calibrated absolute benefit, so a tier may ' +
+            'COMPARE and attribute, and may not tell the reader what will happen.',
+        ).toBe(false)
+      }
+    }
+  })
+
+  it('CONTRAST — the corpus can see an overclaim when one is there', () => {
+    // The exact sentence this change removed. Without this the guard above would
+    // pass just as well on a corpus of patterns that match nothing.
+    const removed = 'Further investigation here is unlikely to change the outcome.'
+    expect(ABSOLUTE_CONSEQUENCE.some(p => p.test(removed))).toBe(true)
+  })
+
+  it('attributes every claim to the model rather than to the world', () => {
+    // Both stems open by naming whose estimate this is. A sentence that drops the
+    // attribution reads as a fact about the factor.
+    for (const stem of Object.values(INVESTIGATION_VALUE_STEM)) {
+      expect(stem, `"${stem}" does not attribute the estimate`).toContain("this model's own estimate")
+    }
+    expect(INVESTIGATION_VALUE_TOP_RANK_NOTE).toContain('This model')
+  })
+
+  it('finishes the sentence — a stem ends open and a comparison closes it', () => {
+    for (const stem of Object.values(INVESTIGATION_VALUE_STEM)) {
+      expect(stem.endsWith(' '), `"${stem}" must end with a space to join its comparison`).toBe(true)
+      expect(stem.trimEnd().endsWith('.'), `"${stem}" must not end the sentence itself`).toBe(false)
+    }
+    for (const tail of Object.values(INVESTIGATION_VALUE_COMPARISON)) {
+      expect(tail.endsWith('.'), `"${tail}" must close the sentence`).toBe(true)
+    }
   })
 })
 
