@@ -151,7 +151,11 @@ describe('OutcomeNode', () => {
     const { container } = renderOutcome({ description, body })
     expect(screen.getByTestId('outcome-context-preview').textContent).toBe(body)
     await userEvent.click(screen.getByRole('button', { name: 'Expand description' }))
-    expect(container.querySelector('.node-description')).toHaveTextContent('Preserve the source wording. Also retain the second paragraph.')
+    // The shared renderer preserves the authored newline as <br>, not a text space.
+    const expanded = container.querySelector('.node-description')
+    expect(expanded).toHaveTextContent('Preserve the source wording.')
+    expect(expanded).toHaveTextContent('Also retain the second paragraph.')
+    expect(container.querySelector('.node-description br')).not.toBeNull()
   })
 
   it('does not repeat matching body text in the expanded context', async () => {
