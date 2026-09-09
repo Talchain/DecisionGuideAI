@@ -39,11 +39,11 @@ function option(id: string, label: string, setting: unknown, extra = {}): Node {
 }
 function seed(nodes: Node[], extra: Record<string, unknown> = {}) {
   useCanvasStore.setState({
-    nodes, edges: [], results: { status: 'idle', report: null },
+    nodes, edges: [], results: { status: 'idle', progress: 0, report: null },
     ceeAnalysisReady: null, goalConstraints: [], goalThreshold: null,
-    hoveredOptionId: null, selectedNodeId: null, viewMode: 'standard',
-    highlightedNodes: new Set(), dimmedNodeIds: new Set(), ...extra,
-  } as Partial<ReturnType<typeof useCanvasStore.getState>>)
+    hoveredOptionId: null, selection: { nodeIds: new Set<string>(), edgeIds: new Set<string>(), anchorPosition: null }, viewMode: 'standard',
+    highlightedNodes: new Set<string>(), dimmedNodeIds: new Set<string>(), ...extra,
+  })
 }
 async function hover(title: string) {
   fireEvent.mouseEnter(screen.getByText(title))
@@ -73,7 +73,8 @@ describe('factor and goal content reaches the actual node and inspector', () => 
     render(<ReactFlowProvider><FactorNode {...props} id={FACTOR} type="factor" data={factor.data} /></ReactFlowProvider>)
     const preview = await hover('Monthly price')
     fireEvent.click(preview.getByRole('button', { name: label }))
-    expect(useCanvasStore.getState().selectedNodeId).toBe('option-long')
+    expect([...useCanvasStore.getState().selection.nodeIds]).toEqual(['option-long'])
+    expect(useCanvasStore.getState().nodes.find(node => node.id === FACTOR)?.selected).toBe(false)
   })
 
   it('overflow reveals every option and the controllable inspector includes options without drawn edges', async () => {
@@ -83,7 +84,7 @@ describe('factor and goal content reaches the actual node and inspector', () => 
     expect(preview.queryByText('Approach 5')).toBeNull()
     fireEvent.click(preview.getByRole('button', { name: 'Show 1 more' }))
     expect(preview.getByText('Approach 5')).toBeDefined()
-    expect(useCanvasStore.getState().selectedNodeId).toBeNull()
+    expect(useCanvasStore.getState().selection.nodeIds.size).toBe(0)
     card.unmount()
     render(<FactorControllablePanel nodeId={FACTOR} techMode={false} onClose={noop} onNavigate={noop} />)
     expect(screen.getByText('Approach 5')).toBeDefined()
