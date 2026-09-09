@@ -147,6 +147,36 @@ export interface ModelTabV2PanelProps {
    * refusal (`needs_fresh_base`) has actually been recovered.
    */
   lastServerGraphHash?: string | null
+  /**
+   * ⭐ THE PRODUCT'S ONE EXPERT PREFERENCE — `olumi.expertMode`, owned by
+   * `OutputsDock.tsx:1150` and persisted to localStorage.
+   *
+   * The tier control in this panel's header USED to drive a private
+   * `useState<DetailTier>('plain')`. That made the Model tab carry two
+   * independent switches for one user intention: this outline, and everything
+   * else on the tab (`ModelAdjustments` / `ModelHealthSection` via
+   * `DetailToggleContext`) plus Compare, Results and PreAnalysis. Worse, the
+   * private one was DISCARDED on every tab switch — `OutputsDock.tsx:3686`
+   * mounts `ModelTabBody` conditionally, so the panel unmounts and the user's
+   * choice silently reverted to Plain.
+   *
+   * This is the same convergence 2.581 performed for Compare, whose pill owned
+   * a separate `feature.compareExpert`. Same defect, same fix.
+   *
+   * OPTIONAL, because sixteen specs render this panel standalone. When absent
+   * the panel falls back to local state and behaves exactly as before, so no
+   * existing mount claims anything untrue. `ModelTabBody.threadsExpertMode.spec`
+   * asserts the REAL mount passes both — without it the convergence is dark.
+   */
+  expertMode?: boolean
+  /**
+   * Ask the owner to change that preference.
+   *
+   * ⚠ THE PANEL DOES NOT SET IT ITSELF. Holding a local copy alongside would
+   * reproduce the exact divergence this prop removes — the outline reading
+   * Advanced while `olumi.expertMode` stayed false.
+   */
+  onToggleExpert?: (next: boolean) => void
 }
 
 /**
@@ -193,8 +223,36 @@ export function ModelTabV2Panel({
   onHandOffToOlumi,
   currentScenarioId = null,
   lastServerGraphHash = null,
+  expertMode,
+  onToggleExpert,
 }: ModelTabV2PanelProps) {
-  const [tier, setTier] = useState<DetailTier>('plain')
+  /**
+   * ⭐ ONE SWITCH. The tier is the product's expert preference, not a second
+   * opinion about it.
+   *
+   * CONTROLLED whenever the mount host supplies a setter — which the real one
+   * always does (`ModelTabBody` → `OutputsDock`'s `setExpertMode`). The local
+   * state below survives ONLY for the sixteen specs that render this panel
+   * standalone; in the mounted product it is never read.
+   *
+   * ⚠ CONTROLLED IS KEYED ON THE SETTER, NOT ON THE VALUE. A host that threads
+   * `expertMode` and forgets `onToggleExpert` would otherwise render correctly
+   * and write nowhere — an inert control that LOOKS live, which is worse than
+   * the divergence being fixed. Keyed this way, a half-wiring falls back to the
+   * old honest behaviour instead.
+   */
+  const [localTier, setLocalTier] = useState<DetailTier>('plain')
+  const isControlled = typeof onToggleExpert === 'function'
+  const tier: DetailTier = isControlled
+    ? (expertMode ? 'advanced' : 'plain')
+    : localTier
+  const setTier = useCallback(
+    (next: DetailTier) => {
+      if (isControlled) onToggleExpert(next === 'advanced')
+      else setLocalTier(next)
+    },
+    [isControlled, onToggleExpert],
+  )
   /**
    * Which repair queue the user is standing in, if any.
    *
@@ -979,6 +1037,12 @@ export function ModelTabV2Panel({
           The tier control, IN the tab (design §4.3 rule 3). A content switch
           only: `ModelOutline`'s layout function takes no tier argument, so
           flipping this cannot reorder, open or close anything.
+
+          ⭐ WHAT IT WRITES CHANGED; WHERE IT LIVES DID NOT. It now sets the
+          product's ONE expert preference (`olumi.expertMode`) rather than a
+          private tier, so the user's choice persists across tab switches and
+          sessions and the outline can no longer disagree with the scientific
+          transparency block directly beneath it.
         */}
         {/* The key for the row marks, beside the tier control — the marks are
             useless as a code until something states what they mean. */}
