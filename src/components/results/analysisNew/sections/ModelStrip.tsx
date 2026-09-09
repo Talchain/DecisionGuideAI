@@ -851,6 +851,25 @@ export function ModelStrip({
             applies the same rule to the same number, and its reason is this
             file's own: a control that cannot change anything is furniture
             wearing an affordance. */}
+        {/* ⭐ ONE ROW, ONE GAP — NOT TWO ELEMENTS EACH REMEMBERING THEIR OWN
+            MARGIN. The chips carried `mb-1` and the second also `ml-1`, so the
+            gap between them lived on the SECOND chip. On a model where nothing
+            is confirmable — `factorIsConfirmable` REQUIRES a value, so a model
+            whose factors have none scores `needsCheckTotal === 0` — the first
+            chip does not render and the second one keeps its `ml-1`, drawing
+            itself 4px in from everything else in the strip.
+
+            That misalignment fires on exactly the models this second worklist
+            was BUILT for, which is why it survived: the case that exposes it is
+            the case nobody had when the first chip was written. Spacing between
+            siblings belongs to the container (CLAUDE.md's own rule about
+            per-element margins that collapse or double), so it moves here.
+
+            ⚠ THE WRAPPER IS CONDITIONAL. An unconditional flex row renders an
+            empty 4px-tall box on every model with no worklist at all — trading
+            a visible misalignment for an invisible one. */}
+        {strip.needsCheckTotal > 0 || strip.noValueTotal > 0 ? (
+          <div className="flex flex-wrap items-center gap-1 mb-1">
         {strip.needsCheckTotal > 0 ? (
           <button
             type="button"
@@ -860,7 +879,7 @@ export function ModelStrip({
                "3 to verify" alone announces a count and not what pressing it
                does. */
             aria-label={COPY.modelStrip.toVerifyToggleName(strip.needsCheckTotal)}
-            className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full px-2 py-0.5 mb-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+            className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
               /* ⚠ PRESSED IS A RING, NOT A HOTTER AMBER. Solid `bg-warning`
                  made amber carry TWO questions at once: "how urgent is this?"
                  and "is this filter on?" — so switching a filter ON made the
@@ -901,7 +920,7 @@ export function ModelStrip({
             onClick={toggleNoValue}
             aria-pressed={noValueActive}
             aria-label={COPY.modelStrip.noValueToggleName(strip.noValueTotal)}
-            className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full px-2 py-0.5 mb-1 ml-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+            className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
               noValueActive
                 ? 'bg-warning/20 text-warning ring-1 ring-warning'
                 : 'bg-warning/10 text-warning hover:bg-warning/20'
@@ -911,6 +930,8 @@ export function ModelStrip({
             <NoValueMark className="w-3 h-3" aria-hidden={true} />
             {COPY.modelStrip.noValueCount(strip.noValueTotal)}
           </button>
+        ) : null}
+          </div>
         ) : null}
 
         {/* ⚠ THE CRITERION, VISIBLE AND ONLY WHILE IT APPLIES. "3 to verify"
