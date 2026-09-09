@@ -63,7 +63,11 @@
  *  3. It STAYS AWAY when the whole model already fits — otherwise it is noise
  *     on every screen, and a notice that always shows says nothing.
  */
-import { test, expect } from '@playwright/test'
+// ⚠ `type Page` IS STILL USED, by `nodeVisibility(page: Page)` below. I dropped
+// this import when removing `waitForCameraSettled`, having checked that the
+// helper I deleted used it and not whether anything else did — the same
+// enumerate-one-user error, a third time in this file. CI caught it.
+import { test, expect, type Page } from '@playwright/test'
 import {
   preparePage, openCanvas, seedStarterDraft, clearNotifications,
   freezeMotion, waitForVisualQuiescence, VIEWPORTS,
