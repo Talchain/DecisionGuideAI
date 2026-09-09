@@ -63,12 +63,27 @@ interface Geom {
    */
   readonly valueBoxHeight: number
   readonly valueFontPx: number
+  /**
+   * ⭐ THE VALUE LINE'S HORIZONTAL BOX, AGAINST THE OUTLINE'S.
+   *
+   * ⚠ ADDED BECAUSE A HEIGHT-ONLY MEASURE CANNOT SEE A HORIZONTAL ESCAPE, and
+   * one was sitting here unobserved: grid track 3 is 88px and the edit input is
+   * `w-24` (96px) plus padding and border, so the editing value line is wider
+   * than its own track BY CONSTRUCTION. Whether that escapes the panel is a
+   * question nobody had asked. Reported by both arms so the answer is on the
+   * record for the factor row too, not inferred from the relationship row.
+   */
+  readonly valueLeft: number
+  readonly valueRight: number
+  readonly outlineLeft: number
+  readonly outlineRight: number
 }
 
 async function readGeometry(page: Page, rowId: string): Promise<Geom | null> {
   return page.evaluate((id) => {
     const row = document.querySelector(`[data-testid="model-row-v2-${id}"]`)
     if (!(row instanceof HTMLElement)) return null
+    const outline = document.querySelector('[data-testid="model-outline-v2"]')
     const value = document.querySelector(`[data-testid="model-row-v2-${id}-value"]`)
     // The next SIBLING row, whatever its id — the thing that would be pushed.
     let next: Element | null = row.nextElementSibling
@@ -95,6 +110,128 @@ async function readGeometry(page: Page, rowId: string): Promise<Geom | null> {
       valueFontPx: sized
         ? parseFloat(getComputedStyle(sized).fontSize)
         : -1,
+      valueLeft: value instanceof HTMLElement
+        ? Math.round(value.getBoundingClientRect().left * 100) / 100
+        : -1,
+      valueRight: value instanceof HTMLElement
+        ? Math.round(value.getBoundingClientRect().right * 100) / 100
+        : -1,
+      outlineLeft: outline instanceof HTMLElement
+        ? Math.round(outline.getBoundingClientRect().left * 100) / 100
+        : -1,
+      outlineRight: outline instanceof HTMLElement
+        ? Math.round(outline.getBoundingClientRect().right * 100) / 100
+        : -1,
+    }
+  }, rowId)
+}
+
+/**
+ * ⭐ THE QUICK-SET BAND PILLS' OWN GEOMETRY — and the one question a row height
+ * cannot answer.
+ *
+ * `distinctTops` is the number of distinct y-positions the three pills occupy.
+ * `flex-wrap` in a column too narrow for them stacks them, and THREE pills on
+ * THREE lines is the defect: Paul ruled this affordance "really simple, quick,
+ * and easy clickable", and a vertical stack of three nearly-full-width chips is
+ * not that.
+ *
+ * `textLineRects` is the count of client rects of each button's OWN text
+ * content — 1 is one line, >= 2 means the label wrapped INSIDE its own border.
+ * That is a DIFFERENT defect from the row growing, and the two must be read
+ * apart: #1401's "Review change" wrapped inside its ring at 52px while the row
+ * also grew, and a height-only assertion cannot tell which of the two it is
+ * measuring.
+ */
+async function readBands(page: Page, rowId: string) {
+  return page.evaluate((id) => {
+    const bands = document.querySelector(`[data-testid="model-row-v2-${id}-value-bands"]`)
+    if (!(bands instanceof HTMLElement)) return null
+    const outline = document.querySelector('[data-testid="model-outline-v2"]')
+    if (!(outline instanceof HTMLElement)) return null
+    const r = (n: number) => Math.round(n * 100) / 100
+    const outlineBox = outline.getBoundingClientRect()
+    const buttons = Array.from(bands.querySelectorAll('button'))
+    return {
+      containerHeight: r(bands.getBoundingClientRect().height),
+      containerWidth: r(bands.getBoundingClientRect().width),
+      /**
+       * ⭐ THE WHOLE FULL-WIDTH LINE'S HEIGHT, which is what the bound is spent
+       * on — the pills' own container is only part of it, and the readback beside
+       * them is the taller atom.
+       */
+      bandLineHeight: (() => {
+        const line = document.querySelector(`[data-testid="model-row-v2-${id}-band-line"]`)
+        return line instanceof HTMLElement ? r(line.getBoundingClientRect().height) : -1
+      })(),
+      bandLineWidth: (() => {
+        const line = document.querySelector(`[data-testid="model-row-v2-${id}-band-line"]`)
+        return line instanceof HTMLElement ? r(line.getBoundingClientRect().width) : -1
+      })(),
+      /** Distinct y-positions of the pills. 1 = one line; 3 = stacked. */
+      distinctTops: [...new Set(buttons.map((b) => Math.round(b.getBoundingClientRect().top)))].length,
+      /**
+       * ⭐ THE STRUCTURAL DISCRIMINATOR, AND THE ONE A FUTURE EDIT WOULD HAVE TO
+       * UNDO. `col-span-4` only spans the row's tracks on a DIRECT child of the
+       * row's grid container; a block nested one level deeper adopts its
+       * parent's box however many classes it carries. So the question is
+       * parentage, not class membership — which is also why the vitest
+       * companion spec can pin this and cannot pin the pixels.
+       */
+      isRowGridItem: (() => {
+        const line = document.querySelector(`[data-testid="model-row-v2-${id}-band-line"]`)
+        const rowEl = document.querySelector(`[data-testid="model-row-v2-${id}"]`)
+        // ⚠ THE LINE's parentage, not the pills' — the pills are nested INSIDE
+        // the line by design, and asking the wrong element would make this read
+        // false on a correct build and true on nothing.
+        return line !== null && rowEl !== null && line.parentElement === rowEl && line.contains(bands)
+      })(),
+      outlineLeft: r(outlineBox.left),
+      outlineRight: r(outlineBox.right),
+      /**
+       * ⚠ THE INPUT LINE'S OWN HORIZONTAL BOX. Grid track 3 is 88px; the edit
+       * input is `w-24` (96px) plus border and padding, and the band readback
+       * sits beside it with `ml-2 whitespace-nowrap`. So this line is WIDER than
+       * its own track by construction, and whether that escapes the outline is a
+       * separate question from the row's height — measured, not assumed.
+       */
+      valueLine: (() => {
+        const v = document.querySelector(`[data-testid="model-row-v2-${id}-value"]`)
+        if (!(v instanceof HTMLElement)) return null
+        const box = v.getBoundingClientRect()
+        return { left: r(box.left), right: r(box.right), width: r(box.width) }
+      })(),
+      readback: (() => {
+        const rb = document.querySelector(`[data-testid="model-row-v2-${id}-value-band-readback"]`)
+        if (!(rb instanceof HTMLElement)) return null
+        const box = rb.getBoundingClientRect()
+        return { left: r(box.left), right: r(box.right), width: r(box.width), text: (rb.textContent ?? '').trim() }
+      })(),
+      buttons: buttons.map((b) => {
+        const box = b.getBoundingClientRect()
+        const range = document.createRange()
+        range.selectNodeContents(b)
+        return {
+          testid: b.getAttribute('data-testid') ?? '',
+          label: (b.textContent ?? '').trim(),
+          width: r(box.width),
+          height: r(box.height),
+          left: r(box.left),
+          right: r(box.right),
+          /** 1 = the label holds one line inside its own ring. */
+          textLineRects: range.getClientRects().length,
+          /**
+           * ⭐⭐ THE HARM A LINE COUNT CANNOT SEE FOR A SINGLE-WORD LABEL, and the
+           * reason this field exists: "Moderate" has NO soft break opportunity, so
+           * a box too narrow for it does not wrap — it OVERFLOWS. Demonstrated:
+           * `max-w-[24px]` on every pill left `textLineRects` at 1 on all three
+           * and the arm stayed GREEN. `scrollWidth - clientWidth` is what moves.
+           */
+          overflowX: Math.max(0, b.scrollWidth - b.clientWidth),
+          lineHeightPx: parseFloat(getComputedStyle(b).lineHeight) || -1,
+          fontPx: parseFloat(getComputedStyle(b).fontSize),
+        }
+      }),
     }
   }, rowId)
 }
@@ -224,6 +361,153 @@ async function readDisclosure(page: Page, rowId: string): Promise<Disclosure> {
   }, rowId)
 }
 
+/*
+ * ⭐⭐ THE DISCLOSURE BOX, DERIVED ONCE AND SHARED BY EVERY ARM IN THIS FILE.
+ *
+ * ⚠ HOISTED TO MODULE SCOPE, NOT COPIED. These were local to the factor arm; a
+ * second arm needing the same box would have had to restate them, and a second
+ * copy of a hand-maintained constant is the defect `valueCellMetrics.ts` already
+ * records about itself (CLAUDE.md trap 12). One derivation, three readers.
+ *
+ * ⚠⚠ AND THE MEASUREMENT THAT JUSTIFIES THE NUMBER, not an estimate.
+ * #1401 first shipped these controls INSIDE grid track 3, which measures
+ * **48.5px** at a 280px dock. Run 34386746547 read the result:
+ *
+ *     +177px @280   +138px @416      <- WIDTH-DEPENDENT
+ *
+ * A DOM probe attributed it: 23px input box (correct) + 52px of buttons in
+ * which "Review change" wrapped inside its own border + **117px of refusal
+ * sentence**, 36 characters of prose in a 48.5px column. Moving that line
+ * out to a `col-span-4` grid item of the row measures:
+ *
+ *     +49.5px @280  +49.5px @416     <- IDENTICAL
+ */
+const ROW_GAP = 8 // the row's own `gap-2`, between its grid lines
+const CONTROLS = 18 // buttonSmall 12px `leading-none` + py-0.5 (4) + border (2)
+const LINE_GAP = 4 // the action line's own `gap-1`
+const REFUSAL = 19.5 // panelBody 12px x `leading-relaxed` (1.625)
+
+/**
+ * One control line and `refusalLines` sentence lines. The +1 is sub-pixel
+ * rounding headroom and nothing else.
+ *
+ * ⭐⭐ AND THE SENTENCE'S LINE COUNT IS PER WIDTH — #1410's ubuntu re-derivation,
+ * HOISTED WITH THE BOX RATHER THAN LEFT LOCAL TO ONE ARM. `49.5 at both widths`
+ * is a **darwin** reading. On `ubuntu-latest`, the platform this gate runs on,
+ * the same two arms read `+69px @280 / +49.5px @416` (job 102661748098,
+ * `heightDelta`): 69 - 49.5 = 19.5 = EXACTLY ONE MORE `REFUSAL` LINE. `Enter a
+ * number to review this change` needs 227.08px on ubuntu's system face against
+ * 210.31px on darwin's, and the row offers 220px at a 280px dock — so it takes
+ * TWO line boxes there and ONE at 416. Attributed at the bytes by
+ * `readDisclosure`, not inferred from the total.
+ *
+ * ⚠ SO THE BOX IS A FUNCTION OF WIDTH, NOT A CONSTANT — which is why this is a
+ * function. A module-scope number cannot express a quantity that differs per
+ * dock, and the relationship arm needs the SAME box the factor arm uses: a
+ * second copy of it would be the hand-maintained mirror the hoist above exists
+ * to prevent (CLAUDE.md trap 12). One derivation, three readers; each reader
+ * passes its own width's line budget in.
+ *
+ * ⚠ IF THIS GOES RED, THE BOX HAS CHANGED — RE-DERIVE IT, DO NOT RAISE IT.
+ * That is `valueCellMetrics.ts`'s standing instruction about its own
+ * hand-maintained constant and it applies here for the same reason: a
+ * tolerance raised to make a run green stops being a measurement of
+ * anything.
+ */
+const REFUSAL_LINES_MAX: Record<number, number> = { 280: 2, 416: 1 }
+function editDisclosureMaxPx(refusalLines: number): number {
+  return ROW_GAP + CONTROLS + LINE_GAP + REFUSAL * refusalLines + 1
+}
+
+/**
+ * ⭐ THE BAND PILLS' OWN LINE, derived the same way and added to the same box.
+ *
+ * The line holds the readback and the three pills, and the TALLER of the two
+ * governs it:
+ *
+ *   pill     `typography.buttonSmall` 12px `leading-none` + `px-1.5` + a 1px
+ *            border and NO vertical padding -> 12 + 1 + 1 = **14px**
+ *            (measured at both widths: `height: 14, lineHeightPx: 12`)
+ *   readback `typography.panelMeta` = `text-[11px] leading-snug`
+ *            -> 11 x 1.375 = **15.125px**
+ *
+ * ⚠ SO THE READBACK GOVERNS, NOT THE PILL, and the first draft of this constant
+ * said 14 — which would have left 0.13px of the budget unfunded and put a
+ * refusal-bearing relationship draft 0.13px over the bound. Derived from the
+ * token, not from the control that happens to look biggest. It takes one further
+ * implicit grid line, which costs the row's own `gap-2` on top.
+ *
+ * ⚠ THIS IS NOT A RAISED TOLERANCE ON THE FACTOR ARM'S BOUND. It is that bound
+ * PLUS one measured 14px line, because the relationship editor discloses one
+ * thing the factor editor does not. The factor arm's 50.5 is untouched, and a
+ * change to the shared box still moves both together.
+ */
+const BAND_LINE = 15.13
+/**
+ * ⚠ PER WIDTH, FOR THE SAME REASON THE BOX IT ADDS TO IS: the refusal allowance
+ * inside `editDisclosureMaxPx` is one line at 416 and two at 280 on ubuntu. The
+ * band line itself is the same at both.
+ */
+function relationshipDisclosureMaxPx(refusalLines: number): number {
+  return editDisclosureMaxPx(refusalLines) + ROW_GAP + BAND_LINE
+}
+
+/**
+ * Mount the Model tab with the dock pinned to `width`, every group open, and
+ * the page quiescent. Returns the dock width the browser actually resolved.
+ *
+ * ⚠ EXTRACTED, NOT COPIED, when the relationship arms were added. Forty lines
+ * of seeding restated in a second arm is a hand-maintained mirror of the
+ * harness, and the first fix to the mounting sequence would have silently
+ * reached only one of the two arms.
+ */
+async function mountModelTab(page: Page, width: number): Promise<number> {
+  await preparePage(page, VP)
+  await page.addInitScript((w) => {
+    try { localStorage.setItem('panel.results.width', String(w)) } catch { /* asserted below */ }
+  }, width)
+
+  await openCanvas(page)
+  const seeded = await seedStarterDraft(page, STARTER)
+  expect(seeded.nodeCount, 'build-vs-buy is 19 nodes; a different count means the fixture drifted').toBe(19)
+
+  await clearNotifications(page)
+  await minimiseFloatingOlumiPanel(page)
+  await freezeMotion(page)
+
+  await page.click('[data-testid="outputs-dock-tab-diagnostics"]')
+  await page.waitForSelector('[data-testid="model-outline-v2"]', { timeout: 20_000 })
+  await waitForVisualQuiescence(page)
+
+  // The dock width actually took. If it did not, every number below is about
+  // a width nobody asked for.
+  const dockW = await page.evaluate(() => {
+    const el = document.querySelector('[data-testid="outputs-dock-tablist"]')?.closest('[style*="width"], aside, section')
+    return el instanceof HTMLElement ? Math.round(el.getBoundingClientRect().width) : -1
+  })
+
+  // ⚠ NAVIGATION, NOT A RELAXED MEASURE — and it is why this gate went RED.
+  // The outline now opens CLOSED (`initiallyClosedGroups`), so NO row is
+  // mounted until a group is opened. The `rowId` precondition below then
+  // reads null and the measure asserts about nothing — which is exactly what
+  // that precondition exists to catch, and it caught it.
+  //
+  // Playwright's `click` is used rather than an in-page `el.click()`: the
+  // estate has already been caught reporting a control inert because a bare
+  // `.click()` did not drive the full pointer sequence some controls need.
+  // Iterating a fixed count, not re-querying a live `[aria-expanded="false"]`
+  // list, so this cannot spin if a toggle refuses to open.
+  const groupToggles = page.locator('[data-testid^="model-group-v2-"][data-testid$="-toggle"]')
+  const groupCount = await groupToggles.count()
+  expect(groupCount, 'no outline groups found — the model tab did not mount').toBeGreaterThan(0)
+  for (let i = 0; i < groupCount; i++) {
+    const toggle = groupToggles.nth(i)
+    if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click()
+  }
+  await waitForVisualQuiescence(page)
+  return dockW
+}
+
 test.describe('model row edit reflow', () => {
 for (const width of WIDTHS) {
   /**
@@ -243,53 +527,7 @@ for (const width of WIDTHS) {
    * closures because it makes the sentence TRUE rather than merely softening it.
    */
   test(`MODEL ROW EDIT REFLOW @dock ${width}px`, { tag: GATE_TAG }, async ({ page }) => {
-    await preparePage(page, VP)
-    await page.addInitScript((w) => {
-      try { localStorage.setItem('panel.results.width', String(w)) } catch { /* asserted below */ }
-    }, width)
-
-    await openCanvas(page)
-    const seeded = await seedStarterDraft(page, STARTER)
-    expect(seeded.nodeCount, 'build-vs-buy is 19 nodes; a different count means the fixture drifted').toBe(19)
-
-    await clearNotifications(page)
-    await minimiseFloatingOlumiPanel(page)
-    await freezeMotion(page)
-
-    await page.click('[data-testid="outputs-dock-tab-diagnostics"]')
-    await page.waitForSelector('[data-testid="model-outline-v2"]', { timeout: 20_000 })
-    await waitForVisualQuiescence(page)
-
-    // The dock width actually took. If it did not, every number below is about
-    // a width nobody asked for.
-    const dockW = await page.evaluate(() => {
-      const el = document.querySelector('[data-testid="outputs-dock-tablist"]')?.closest('[style*="width"], aside, section')
-      return el instanceof HTMLElement ? Math.round(el.getBoundingClientRect().width) : -1
-    })
-
-    // ⚠ NAVIGATION, NOT A RELAXED MEASURE — and it is why this gate went RED.
-    // The outline now opens CLOSED (`initiallyClosedGroups`), so NO row is
-    // mounted until a group is opened. The `rowId` precondition below then
-    // reads null and the measure asserts about nothing — which is exactly what
-    // that precondition exists to catch, and it caught it.
-    //
-    // This performs the click a reader now performs. Not one assertion below
-    // changes: the subject is still whether an editable row's geometry moves
-    // when its editor opens.
-    //
-    // Playwright's `click` is used rather than an in-page `el.click()`: the
-    // estate has already been caught reporting a control inert because a bare
-    // `.click()` did not drive the full pointer sequence some controls need.
-    // Iterating a fixed count, not re-querying a live `[aria-expanded="false"]`
-    // list, so this cannot spin if a toggle refuses to open.
-    const groupToggles = page.locator('[data-testid^="model-group-v2-"][data-testid$="-toggle"]')
-    const groupCount = await groupToggles.count()
-    expect(groupCount, 'no outline groups found — the model tab did not mount').toBeGreaterThan(0)
-    for (let i = 0; i < groupCount; i++) {
-      const toggle = groupToggles.nth(i)
-      if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click()
-    }
-    await waitForVisualQuiescence(page)
+    const dockW = await mountModelTab(page, width)
 
     // Keep the original one-field FACTOR no-reflow subject explicit. Goal
     // editing now has two fields; it gets its own bounded proof below rather
@@ -343,6 +581,9 @@ for (const width of WIDTHS) {
       nextRowTopBefore: b.nextRowTop, nextRowTopAfter: a.nextRowTop, pushDelta,
       valueTopBefore: b.valueTop, valueTopAfter: a.valueTop, textDelta,
       valueBoxBefore: b.valueBoxHeight, valueBoxAfter: a.valueBoxHeight,
+      valueLeftAfter: a.valueLeft, valueRightAfter: a.valueRight,
+      outlineLeft: a.outlineLeft, outlineRight: a.outlineRight,
+      valueOverflowRightPx: Math.round((a.valueRight - a.outlineRight) * 100) / 100,
     }))
     // eslint-disable-next-line no-console
     console.log(JSON.stringify({ measure: 'modelRowEditDisclosure', dockWidth: width, rowId, platform: process.platform, ...disc }))
@@ -388,12 +629,26 @@ for (const width of WIDTHS) {
      * serve both arms: a fixed disclosure costs the same at every width, and a
      * paragraph in a narrow track does not. 280px is the harsher arm, so a
      * re-wrap blows this bound there by a factor of three.
-     */
-    const rowGap = 8      // the row's own `gap-2`, between its two grid lines
-    const controls = 18   // buttonSmall 12px `leading-none` + py-0.5 (4) + border (2)
-    const lineGap = 4     // the action line's own `gap-1`
-    const refusal = 19.5  // panelBody 12px x `leading-relaxed` (1.625)
-    /**
+     *
+     * ⚠⚠ "WIDTH-INDEPENDENT THEREFORE NOT WRAPPING" WAS WRITTEN HERE AND IS
+     * REFUTED — MEASURED AT `9574b5c4` ON THE RELATIONSHIP ROW BELOW. Its three
+     * quick-set pills wrap onto THREE lines and the cost is +80.0px at 280 AND
+     * at 416 — identical, and unmistakably wrapping (`distinctTops: 3`,
+     * measured). The reason is that track 3 is `fit-content(5.5rem)`, which
+     * resolves to **88px at both widths** (templates measured:
+     * `22.875px 113.125px 88px 12px` @280, `22.875px 249.125px 88px 12px` @416
+     * — only track 2 moves). Wrapping inside a track whose width does not
+     * follow the dock costs the same at every dock.
+     *
+     * ⭐ SO WIDTH-INDEPENDENCE IS NOT EVIDENCE OF DISCLOSURE. What it separates
+     * is "wrapping against a width that moves with the dock" from everything
+     * else, and "everything else" contains a wrapping defect. The honest
+     * discriminator is to measure the WRAP DIRECTLY — which is what
+     * `readBands().distinctTops` does for the relationship arms, and why that
+     * assertion is not redundant beside their height bound. The original
+     * sentence is left refuted rather than deleted: it is the inference that
+     * would otherwise be drawn again from the factor arm's own 49.5/49.5.
+     *
      * ⭐⭐⭐ CORRECTED, AND THE CORRECTION IS THE POINT: **THE BOUND ABOVE WAS
      * DERIVED ON DARWIN AND THIS GATE RUNS ON UBUNTU.** The three paragraphs
      * above say `+49.5px @280 +49.5px @416 <- IDENTICAL: that is DISCLOSURE`.
@@ -455,11 +710,19 @@ for (const width of WIDTHS) {
      * (six line boxes) with a 52px wrapped control line: 8 + 52 + 4 + 117 = 181px
      * against a 70px bound, and the width-assertion below REDs on it first, by
      * name. A third refusal line (89.5px) also exceeds 70.
+     *
+     * ⚠ AND #1415 ADDS NOTHING TO THIS BOX. The relationship arm takes the box
+     * WHOLE and adds its own measured band line on top (`BAND_LINE`,
+     * `relationshipDisclosureMaxPx`); the factor arm's budget is whatever this
+     * derivation says at each width and nothing in the relationship lane moves
+     * it. ⚠ The sentence this replaced said "unchanged and still 49.5 at both" —
+     * true when it was written against `9574b5c4`, and FALSE once the line count
+     * was re-derived on ubuntu. A number restated in a second place went stale in
+     * one rebase; the claim is now about the DERIVATION, which cannot.
      */
-    const REFUSAL_LINES_MAX: Record<number, number> = { 280: 2, 416: 1 }
     const refusalLinesMax = REFUSAL_LINES_MAX[width]
     expect(refusalLinesMax, `no refusal line budget is derived for a ${width}px dock`).toBeGreaterThan(0)
-    const EDIT_DISCLOSURE_MAX_PX = rowGap + controls + lineGap + refusal * refusalLinesMax + 1
+    const EDIT_DISCLOSURE_MAX_PX = editDisclosureMaxPx(refusalLinesMax)
 
     /*
      * ── THE DISCLOSURE'S PRECONDITIONS, ASSERTED BEFORE ITS BUDGET ────────────
@@ -654,6 +917,236 @@ for (const width of WIDTHS) {
       rowHeightBefore: goalBefore!.rowHeight, rowHeightAfter: goalAfter!.rowHeight, formBoxes, proposalFits }))
     await page.getByTestId(`model-row-v2-${goalId}-discard`).click()
     await expect(unitInput).toHaveCount(0)
+  })
+
+  /**
+   * ⭐⭐ THE RELATIONSHIP ROW'S QUICK-SET BANDS — THE THIRD EDITOR, AND THE ONE
+   * NO ARM OF THIS GATE COULD SEE.
+   *
+   * ⚠ A SEPARATE TEST, NOT A THIRD SECTION OF THE ARM ABOVE, AND THAT IS
+   * DELIBERATE. This file already records the cost of the alternative: at
+   * `4ab92e84` the factor assertion aborted the test, so the goal breach
+   * (129.63px against 88px) sat in the same run completely invisible. Three
+   * editors under one `test()` means the first red conceals the other two. The
+   * relationship editor is its own subject and gets its own arm.
+   *
+   * ⚠⚠ AND THE BLINDNESS WAS NAMED IN THE PRODUCT SOURCE BEFORE IT WAS CLOSED
+   * HERE. `ModelRowView.tsx` says of this measure: "it takes `buttons[0]`, and
+   * four node groups render before `relationships` — so it measured a row where
+   * this control never appears, and asserts height only." That was exactly true:
+   * derived at `9574b5c4`, `relationship` appears in **0 files** under
+   * `e2e/geometry/` while the contrast control `factor` appears in 12, so the
+   * absence was real and not a blind probe.
+   *
+   * MEASURED AT `9574b5c4`, BEFORE THE FIX (row `e-4`, 19 editable
+   * relationship rows in this fixture):
+   *
+   *     +80.0px @280   +80.0px @416     distinctTops: 3   bands container 80px
+   *
+   * against the factor arm's 50.5px bound — a 29.5px breach, and 54px of the 80
+   * is three 14px pills stacked onto three lines inside an 80px-wide container
+   * because three pills at 46.3 + 70.47 + 53.83 + two 4px gaps need 178.6px.
+   * No pill's label wrapped inside its own ring (`textLineRects: 1` on all
+   * three) — that is a DIFFERENT defect from this one and is asserted apart
+   * below, because a height bound alone cannot tell them from each other.
+   */
+  test(`MODEL RELATIONSHIP BAND REFLOW @dock ${width}px`, { tag: GATE_TAG }, async ({ page }) => {
+    const dockW = await mountModelTab(page, width)
+
+    /*
+     * ⚠ THE BOUND IS DERIVED PER WIDTH, FROM THE SHARED BOX — not restated here.
+     * #1410 re-derived the refusal allowance inside that box on ubuntu (two
+     * sentence lines at a 280px dock, one at 416); this arm adds its own measured
+     * band line on top of whatever the box says at this width. A second copy of
+     * the box expression is exactly the hand-maintained mirror the module-scope
+     * hoist exists to prevent (CLAUDE.md trap 12).
+     */
+    const refusalLinesMax = REFUSAL_LINES_MAX[width]
+    expect(refusalLinesMax, `no refusal line budget is derived for a ${width}px dock`).toBeGreaterThan(0)
+    const RELATIONSHIP_DISCLOSURE_MAX_PX = relationshipDisclosureMaxPx(refusalLinesMax)
+
+    const rowId = await page.evaluate(() => {
+      const first = document.querySelector('[data-kind="relationship"] button[data-testid^="model-row-v2-"][data-testid$="-value"]')
+      if (!(first instanceof HTMLElement)) return null
+      return (first.getAttribute('data-testid') ?? '').replace(/^model-row-v2-/, '').replace(/-value$/, '')
+    })
+    expect(rowId, 'no EDITABLE relationship row found — the measure would assert about nothing').not.toBeNull()
+
+    await page.getByTestId(`model-row-v2-${rowId}-value`).scrollIntoViewIfNeeded()
+    await waitForVisualQuiescence(page)
+    const before = await readGeometry(page, rowId as string)
+    expect(before, 'row geometry unreadable before edit').not.toBeNull()
+    expect(before!.nextRowTop, 'the relationship and its neighbour must be in view before measuring movement').toBeGreaterThan(0)
+
+    await page.click(`[data-testid="model-row-v2-${rowId}-value"]`)
+
+    // ── POSITIVE CONTROL ──────────────────────────────────────────────────
+    // Prove the edit HAPPENED before asserting anything about the layout. An
+    // absence probe that never entered edit mode reports a perfectly still
+    // layout for the excellent reason that nothing changed (trap 13).
+    const input = page.locator(`[data-testid="model-row-v2-${rowId}-value-input"]`)
+    await expect(input, 'the click did not open an editor — a still layout here would prove nothing').toBeVisible({ timeout: 10_000 })
+    await waitForVisualQuiescence(page)
+
+    const after = await readGeometry(page, rowId as string)
+    expect(after, 'row geometry unreadable during edit').not.toBeNull()
+    const bands = await readBands(page, rowId as string)
+    expect(bands, 'the quick-set band block is absent — the relationship editor has lost its simple route').not.toBeNull()
+
+    const b = before as Geom, a = after as Geom
+    const heightDelta = Math.round((a.rowHeight - b.rowHeight) * 100) / 100
+    const pushDelta = b.nextRowTop < 0 || a.nextRowTop < 0 ? 0
+      : Math.round((a.nextRowTop - b.nextRowTop) * 100) / 100
+    const textDelta = b.valueTop < 0 || a.valueTop < 0 ? 0
+      : Math.round((a.valueTop - b.valueTop) * 100) / 100
+
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify({
+      measure: 'modelRelationshipBandReflow', dockWidth: width, measuredDockW: dockW, rowId,
+      idleFontPx: b.valueFontPx, editFontPx: a.valueFontPx,
+      rowHeightBefore: b.rowHeight, rowHeightAfter: a.rowHeight, heightDelta,
+      bound: RELATIONSHIP_DISCLOSURE_MAX_PX,
+      nextRowTopBefore: b.nextRowTop, nextRowTopAfter: a.nextRowTop, pushDelta,
+      valueTopBefore: b.valueTop, valueTopAfter: a.valueTop, textDelta,
+      valueBoxBefore: b.valueBoxHeight, valueBoxAfter: a.valueBoxHeight,
+      valueLeftAfter: a.valueLeft, valueRightAfter: a.valueRight,
+      outlineLeft: a.outlineLeft, outlineRight: a.outlineRight,
+      valueOverflowRightPx: Math.round((a.valueRight - a.outlineRight) * 100) / 100,
+      bands,
+    }))
+
+    // The transition actually occurred, or the arm measures a still layout that
+    // was never disturbed.
+    expect(a.valueFontPx, 'the edit input is not 14px — F1 has regressed').toBeCloseTo(14, 1)
+    expect(b.valueFontPx, 'the idle value is not 12px — the panel-scale migration has regressed').toBeCloseTo(12, 1)
+
+    // ── THE #1179 CONTRACT, ON THIS ROW TOO ──────────────────────────────────
+    // The relationship editor adds a readback span beside the input; the value
+    // atom's reserved box must still not change, and the text must not jump.
+    expect(b.valueBoxHeight, 'the idle value box is unreadable').toBeGreaterThan(0)
+    expect(
+      a.valueBoxHeight,
+      `the value atom's own box changed from ${b.valueBoxHeight}px to ${a.valueBoxHeight}px — EDIT_RESERVED_HEIGHT_CLASS has regressed on the relationship row`,
+    ).toBeCloseTo(b.valueBoxHeight, 1)
+    expect(Math.abs(textDelta), `entering edit moved the value itself by ${textDelta}px at a ${width}px dock`).toBeLessThanOrEqual(1)
+
+    /*
+     * ── THE CAPABILITY IS PRESENT, BOUND BY IDENTITY ────────────────────────
+     * ⚠ THIS IS THE FLOOR, AND IT IS WHY THE HEIGHT BOUND BELOW CANNOT BE MET
+     * BY DELETING THE PILLS. Three named testids, not "three buttons somewhere
+     * in the row" — a value predicate another object could satisfy is how a
+     * test passes on the wrong object (CLAUDE.md trap 19). The cheapest way to
+     * make any height bound green is to remove the controls, and the controls
+     * ARE the capability Paul asked for.
+     */
+    for (const band of ['weak', 'moderate', 'strong'] as const) {
+      await expect(
+        page.getByTestId(`model-row-v2-${rowId}-value-band-${band}`),
+        `the ${band} quick-set pill is gone — the relationship editor's simple route has been removed, not fixed`,
+      ).toBeVisible()
+    }
+    await expect(
+      page.getByTestId(`model-row-v2-${rowId}-value-band-readback`),
+      'the live band readback is gone — the number is abstract again',
+    ).toBeVisible()
+    expect(bands!.buttons, 'the band set is not three pills').toHaveLength(3)
+
+    /*
+     * ── THE DEFECT ITSELF, MEASURED DIRECTLY ────────────────────────────────
+     * ⭐ ONE LINE. Not "the row is short enough" — that is the consequence, and
+     * a consequence can be produced by something other than the cause. Three
+     * pills at three y-positions IS the defect, so it is asserted as itself.
+     */
+    /*
+     * ⚠ AND THE STRUCTURE THAT PRODUCES IT, asserted here as well as in vitest.
+     * `col-span-4` grants the row's full width ONLY to a direct child of the
+     * row's grid container; nested one level deeper the class is inert and the
+     * block silently returns to the 88px track. The vitest companion
+     * (`rowAtomsDoNotWrap.spec.tsx`) pins the parentage and CANNOT pin what
+     * follows from it, because jsdom performs no layout — so the two assertions
+     * are not redundant: this one would still fail if the grid mechanism changed
+     * underneath a structurally-correct tree.
+     */
+    expect(
+      bands!.isRowGridItem,
+      'the quick-set line is not a direct child of the row — `col-span-4` is inert and the pills are back in the 88px track',
+    ).toBe(true)
+    expect(
+      bands!.distinctTops,
+      `the three quick-set pills occupy ${bands!.distinctTops} lines in a ${bands!.containerWidth}px block at a ${width}px dock — they are stacked, not a quick row of chips`,
+    ).toBe(1)
+    /*
+     * ⚠ AND THE OTHER HARM, WHICH A LINE COUNT CANNOT SEE. Three pills can sit on
+     * one line while each label is mangled inside its own border — that is what
+     * #1401's "Review change" did at 52px. Two harms, two parameters
+     * (CLAUDE.md trap 22b).
+     *
+     * ⚠⚠ BUT THE TWO ASSERTIONS BELOW ARE NOT EQUALLY EXERCISED, AND SAYING SO IS
+     * THE POINT. A mutant kit measured it: `max-w-[24px]` on every pill left
+     * `textLineRects` at 1 on all three and the arm went GREEN — because
+     * "Moderate" is ONE WORD with no soft break opportunity, so a box too narrow
+     * for it OVERFLOWS rather than wrapping. `textLineRects` is therefore a guard
+     * that CANNOT FIRE against the current single-word band vocabulary; it is kept
+     * because the line's `flex-wrap` comment anticipates a longer one, and a
+     * two-word band would wrap exactly as "Review change" did. `overflowX` is the
+     * assertion that actually bites this content, and the same mutant REDs it.
+     *
+     * Recorded rather than quietly dropped: an assertion nobody has shown to fail
+     * reads as coverage, and this file already carries one such confession about
+     * `valueCellMetrics.ts`.
+     */
+    for (const pill of bands!.buttons) {
+      expect(
+        pill.textLineRects,
+        `the "${pill.label}" pill's label wraps inside its own border at a ${width}px dock (${pill.width}x${pill.height}px)`,
+      ).toBe(1)
+      expect(
+        pill.overflowX,
+        `the "${pill.label}" pill's label overflows its own border by ${pill.overflowX}px at a ${width}px dock (box ${pill.width}x${pill.height}px) — the chip is mangled, not merely small`,
+      ).toBeLessThanOrEqual(1)
+    }
+    /*
+     * ⚠ AND THE PILLS STAY INSIDE THE OUTLINE. A block moved to full width can
+     * close a height defect by escaping horizontally instead, which is the same
+     * trade one level along; the goal arm above already asserts this for its two
+     * fields and the reason is identical.
+     */
+    for (const pill of bands!.buttons) {
+      expect(pill.left, `the "${pill.label}" pill starts left of the outline`).toBeGreaterThanOrEqual(bands!.outlineLeft)
+      expect(pill.right, `the "${pill.label}" pill escapes the outline's right edge`).toBeLessThanOrEqual(bands!.outlineRight + 1)
+    }
+
+    // ── THE BOUNDED DISCLOSURE, IN BOTH DIRECTIONS ───────────────────────────
+    expect(
+      heightDelta,
+      `entering edit disclosed NOTHING at a ${width}px dock — the row's route forward is missing again`,
+    ).toBeGreaterThan(0)
+    expect(
+      heightDelta,
+      `the relationship editor changed the row's own height by ${heightDelta}px at a ${width}px dock (bound ${RELATIONSHIP_DISCLOSURE_MAX_PX}px)`,
+    ).toBeLessThanOrEqual(RELATIONSHIP_DISCLOSURE_MAX_PX)
+    /*
+     * Everything the row gains is passed to its neighbour: equal deltas mean the
+     * disclosure is laid out, not clipped inside a container that swallows it.
+     *
+     * ⚠ `toBeCloseTo(_, 1)` RATHER THAN `toBe`, AND THIS IS NOT A RAISED
+     * TOLERANCE — it is the correction of an assertion that was never sound over
+     * non-integer heights. MEASURED: the row grew 49.13px and the row below moved
+     * 49.12px, a 0.01px disagreement between two independently rounded
+     * `getBoundingClientRect()` reads of a line whose height is 15.125px. The
+     * factor arm gets away with `toBe` only because its 49.5 happens to land
+     * exactly. 0.01px is not clipping, and the bound here is 0.05px — two orders
+     * of magnitude tighter than the 1px this file already accepts for
+     * `textDelta`, so the discrimination is untouched: real clipping shows up as
+     * a pushDelta near zero, not near the growth.
+     */
+    expect(
+      pushDelta,
+      `the row grew ${heightDelta}px but moved the row below by ${pushDelta}px at a ${width}px dock — the growth is being clipped`,
+    ).toBeCloseTo(heightDelta, 1)
+
+    await input.press('Escape')
+    await expect(input).toHaveCount(0)
   })
 }
 })
