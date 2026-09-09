@@ -314,7 +314,16 @@ export function resolveDisplayedFreshness(
 }
 
 /** Copy-oriented classification of the displayed freshness. */
-export type FreshnessDisplaySemantic = 'current' | 'changed' | 'cannot_confirm' | 'none'
+/**
+ * ⭐ `'never_run'` — NO RUN HAS EVER COMPLETED, which is a different fact from
+ * every other member and was previously unrepresentable. The others all
+ * describe the standing of a result; this one says there is no result to have
+ * a standing. Measured on deployed `fa95cf65`: with no completed run, three
+ * surfaces asserted "Model changed. Results may be out of date." on the first
+ * screen a visitor reads. `'changed'` is the ONLY member that asserts a prior
+ * run, so it is the only one this fact may displace — see the composer.
+ */
+export type FreshnessDisplaySemantic = 'current' | 'changed' | 'cannot_confirm' | 'none' | 'never_run'
 
 /**
  * Classify the displayed freshness for COPY decisions across the visible

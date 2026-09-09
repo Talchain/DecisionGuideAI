@@ -446,6 +446,19 @@ export interface ComposeAnalysisStateInput {
    * its behaviour rather than degrading every run to the new state.
    */
   hasRenderableResult?: boolean
+  /**
+   * Whether a run has EVER completed for this model.
+   *
+   * ⚠ OPTIONAL, DEFAULTING TO `true`, AND THE TRADE-OFF IS STATED RATHER THAN
+   * ASSUMED. This file's sibling `importHold` is deliberately REQUIRED because
+   * a forgotten flag there silently selects the UNSAFE value. Here the default
+   * reproduces TODAY'S behaviour exactly, so a caller that omits it is no worse
+   * off than before this field existed — the same rationale `hasRenderableResult`
+   * above records. The one call site that matters is `useAnalysisState`, and a
+   * source-scan spec asserts it supplies this, so the hole a default would
+   * normally open is closed by a guard rather than by 50 fixture edits.
+   */
+  hasCompletedFirstRun?: boolean
   /** Legacy: `ceeAnalysisReady.status`, for the hero/banner copy state. */
   ceeAnalysisReadyStatus: string | undefined
   /** Legacy: whether the aiPanelV2 surface is enabled (Results-tab glyph gate). */
@@ -472,6 +485,7 @@ export function composeAnalysisState(
     aiPanelV2On,
   } = input
   const hasRenderableResult = input.hasRenderableResult ?? true
+  const hasCompletedFirstRun = input.hasCompletedFirstRun ?? true
 
   // ── The legacy answer, computed by WRAPPING the existing derivations. ──────
   // Always computed: it is the fallback, and under the wire branch it is still
@@ -597,7 +611,7 @@ export function composeAnalysisState(
   // when the GENUINE server graph is on the canvas (interim 2.467). Minting
   // `'changed'` under a hold would reopen that P0 in a new spelling, so the
   // wire branch obeys the same rule the derived branch does.
-  const semantic: FreshnessDisplaySemantic =
+  const composedSemantic: FreshnessDisplaySemantic =
     wire !== null
       ? wireCurrencySuperseded
         ? importHold
@@ -605,6 +619,29 @@ export function composeAnalysisState(
           : 'changed'
         : mapRunStateKindToSemantic(wire.run_state.kind, hasReport)
       : legacyTrust.semantic
+
+  /**
+   * ⭐ A MODEL THAT HAS NEVER BEEN ANALYSED IS NOT AN OUT-OF-DATE ONE.
+   *
+   * Applied to the COMPOSED answer, so it covers the wire branch and the derived
+   * branch with one rule rather than two that must be kept in step.
+   *
+   * ⚠ DELIBERATELY NARROW — it displaces `'changed'` ONLY. That is the single
+   * member which asserts a prior run ("the model changed" presupposes something
+   * to change FROM); `'none'`, `'current'` and `'cannot_confirm'` are left
+   * exactly as they were, so an empty canvas and a cannot-confirm both behave
+   * precisely as they did before this existed. A blanket suppression would pass
+   * the never-run test and fail its opposite-direction twin, which is why that
+   * twin is written.
+   *
+   * Neither this module nor `analysisFreshness.ts` referenced
+   * `hasCompletedFirstRun` before — zero occurrences in both, against a contrast
+   * control of 17 and 26 for `dirty`. Every branch of the freshness reasoning
+   * presupposes a prior run, so with no run the claim is not merely unproven, it
+   * is category-false.
+   */
+  const semantic: FreshnessDisplaySemantic =
+    composedSemantic === 'changed' && !hasCompletedFirstRun ? 'never_run' : composedSemantic
 
   // The trust shape every existing consumer reads, with the composed semantic
   // substituted in.
@@ -779,6 +816,7 @@ export function useAnalysisState(): ComposedAnalysisState {
   const resultsStartedAt = useCanvasStore((s) => s.results?.startedAt)
   const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
   const hasReport = useCanvasStore((s) => s.results?.report != null)
+  const hasCompletedFirstRun = useCanvasStore((s) => s.hasCompletedFirstRun)
   // The CONTENT check, not the envelope check — see `hasRenderableResult`.
   // Subscribed as a primitive boolean so this cannot re-render on every report
   // identity change.
@@ -797,6 +835,7 @@ export function useAnalysisState(): ComposedAnalysisState {
         resultsStartedAt,
         importHold,
         hasReport,
+        hasCompletedFirstRun,
         hasRenderableResult,
         ceeAnalysisReadyStatus,
         // The Results-tab glyph is the only member gated on the aiPanelV2
@@ -815,6 +854,7 @@ export function useAnalysisState(): ComposedAnalysisState {
       resultsStartedAt,
       importHold,
       hasReport,
+      hasCompletedFirstRun,
       ceeAnalysisReadyStatus,
     ],
   )
