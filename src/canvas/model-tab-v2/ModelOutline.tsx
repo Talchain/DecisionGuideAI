@@ -509,20 +509,34 @@ export function ModelOutline({
             {unset !== null && (
               <span
                 data-testid={`model-group-v2-${group.id}-unknown-summary`}
-                /* ⭐ AMBER, BECAUSE IT IS THE SAME FACT THE REASONING TAB PUTS IN
-                   AMBER. Measured on the deployed build: this rendered at 11px,
-                   weight 600, `rgb(110,107,107)` — BYTE-IDENTICAL to the total
-                   count 8px to its left. Two numbers, same size, same weight,
-                   same colour, same gap, and nothing saying one is "how many
-                   there are" and the other "how many are incomplete".
+                /* ⛔ NOT `text-warning`, AND THE REASON IS THE ONE THIS FILE
+                   EXISTS TO SERVE. An earlier head of this change painted the
+                   span amber to tell the two counts apart. Computed from the
+                   tokens themselves — `--warning-rgb: 255 166 86` -> `#FFA656`
+                   on `--bg-panel` `#FEFEFE` — by the WCAG 2.x formula, that is
+                   **1.92:1** (1.85:1 on `--bg-panel-hover`) against SC 1.4.3's
+                   **4.5:1** floor. At `typography.panelMeta` the large-text
+                   exemption cannot apply, so it is a straight failure: the count
+                   this change makes ANNOUNCEABLE would have become UNREADABLE,
+                   on the same element, in the same commit.
 
-                   `ModelStrip` on the Reasoning tab renders this exact count in
-                   `text-warning`. One fact, two tabs, two treatments — the
-                   inconsistency Paul named on the other surface, here. Amber
-                   also does the discriminating work the layout could not: a
-                   reader can now tell the two numbers apart without reading
-                   either. */
-                className={`${typography.panelMeta} text-warning ml-2`}
+                   ⚠ AND NO AMBER WOULD HAVE PASSED. Of the 18 `--*-rgb` tokens
+                   declared in `brand.css`, exactly three clear 4.5:1 on both
+                   panel grounds — `--text-header`, `--text-light` and `--info`.
+                   Every warning, danger and goal token fails, so there was no
+                   darker amber to swap in and the honest move was to drop the
+                   colour rather than weaken the bar.
+
+                   ⚠ THE THING AMBER WAS FOR IS STILL OPEN, and saying so is the
+                   point of this comment: to a SIGHTED reader these two numbers
+                   are byte-identical, which is a real finding this change does
+                   NOT close. `ModelStrip` solves it with a tinted pill
+                   (`bg-warning/10` + ring + `NoValueMark`) — the tint changes
+                   the GROUND, which is exactly why it passes where bare 11px
+                   text cannot. That is a design change with its own review; do
+                   not re-add a bare colour here. `text-light` is itself a
+                   deliberate a11y retint (see `brand.css:66-80`). */
+                className={`${typography.panelMeta} text-text-light ml-2`}
               >
                 {unset}
               </span>
