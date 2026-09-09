@@ -159,12 +159,15 @@ export function computeAnalysisTrust(input: {
    *  classifyFreshnessForDisplay's `importHold`. REQUIRED for the same reason
    *  it is required there: an optional flag is one a call site can forget. */
   importHold: boolean
+  /** Whether a run has EVER completed — see `classifyFreshnessForDisplay`. */
+  hasCompletedFirstRun?: boolean
 }): AnalysisTrust {
   const { freshness, dirty, source, resultsStatus, resultsStartedAt, importHold } = input
+  const hasCompletedFirstRun = input.hasCompletedFirstRun ?? true
   const orphaned = source === 'orphaned_plot_result'
   const { state: effective } = resolveTrustEffectiveState(freshness, orphaned)
   return {
-    semantic: classifyFreshnessForDisplay(effective, dirty, importHold),
+    semantic: classifyFreshnessForDisplay(effective, dirty, importHold, hasCompletedFirstRun),
     orphaned,
     isRunning: RUNNING_STATUSES.has(resultsStatus ?? ''),
     runStartedAt: resultsStartedAt,
@@ -446,6 +449,19 @@ export interface ComposeAnalysisStateInput {
    * its behaviour rather than degrading every run to the new state.
    */
   hasRenderableResult?: boolean
+  /**
+   * Whether a run has EVER completed for this model.
+   *
+   * ⚠ OPTIONAL, DEFAULTING TO `true`, AND THE TRADE-OFF IS STATED RATHER THAN
+   * ASSUMED. This file's sibling `importHold` is deliberately REQUIRED because
+   * a forgotten flag there silently selects the UNSAFE value. Here the default
+   * reproduces TODAY'S behaviour exactly, so a caller that omits it is no worse
+   * off than before this field existed — the same rationale `hasRenderableResult`
+   * above records. The one call site that matters is `useAnalysisState`, and a
+   * source-scan spec asserts it supplies this, so the hole a default would
+   * normally open is closed by a guard rather than by 50 fixture edits.
+   */
+  hasCompletedFirstRun?: boolean
   /** Legacy: `ceeAnalysisReady.status`, for the hero/banner copy state. */
   ceeAnalysisReadyStatus: string | undefined
   /** Legacy: whether the aiPanelV2 surface is enabled (Results-tab glyph gate). */
@@ -472,6 +488,7 @@ export function composeAnalysisState(
     aiPanelV2On,
   } = input
   const hasRenderableResult = input.hasRenderableResult ?? true
+  const hasCompletedFirstRun = input.hasCompletedFirstRun ?? true
 
   // ── The legacy answer, computed by WRAPPING the existing derivations. ──────
   // Always computed: it is the fallback, and under the wire branch it is still
@@ -483,6 +500,7 @@ export function composeAnalysisState(
     resultsStatus,
     resultsStartedAt,
     importHold,
+    hasCompletedFirstRun,
   })
 
   // ── FEATURE DETECTION. The payload selects the branch; nothing else does. ──
@@ -779,6 +797,7 @@ export function useAnalysisState(): ComposedAnalysisState {
   const resultsStartedAt = useCanvasStore((s) => s.results?.startedAt)
   const importHold = useCanvasStore((s) => s.importPendingServerRegistration)
   const hasReport = useCanvasStore((s) => s.results?.report != null)
+  const hasCompletedFirstRun = useCanvasStore((s) => s.hasCompletedFirstRun)
   // The CONTENT check, not the envelope check — see `hasRenderableResult`.
   // Subscribed as a primitive boolean so this cannot re-render on every report
   // identity change.
@@ -797,6 +816,7 @@ export function useAnalysisState(): ComposedAnalysisState {
         resultsStartedAt,
         importHold,
         hasReport,
+        hasCompletedFirstRun,
         hasRenderableResult,
         ceeAnalysisReadyStatus,
         // The Results-tab glyph is the only member gated on the aiPanelV2
@@ -815,6 +835,7 @@ export function useAnalysisState(): ComposedAnalysisState {
       resultsStartedAt,
       importHold,
       hasReport,
+      hasCompletedFirstRun,
       ceeAnalysisReadyStatus,
     ],
   )
