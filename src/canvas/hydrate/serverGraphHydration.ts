@@ -112,11 +112,29 @@ function isSameServerGraph(
  * precondition was the defect, and "ask the assistant something first" is not a
  * capability.
  *
- * ⚠ CALLED ONLY FROM THE ACCEPTED EXITS, which is what makes the fences hold
- * without adding any. Everything that must not install a base already returns
- * earlier: an invalid scenario id, an aborted or superseded read
- * (`signal.aborted` / `canApply()`), a non-graph result, and a REFUSED merge.
- * A base is adopted exactly when the graph it describes is the graph on screen.
+ * ⚠ CALLED ONLY FROM THE ACCEPTED EXITS, so the existing gates hold without
+ * adding any: an invalid scenario id, an aborted read, a non-graph result and a
+ * REFUSED merge all return earlier. A base is adopted only when the graph it
+ * describes is the graph on screen.
+ *
+ * ⚠⚠ AND THAT WAS NOT ENOUGH — a review found the schedule those gates do not
+ * cover, and my own "superseded" control could not see it because the control
+ * supplied the very predicate that made it skip. THE REAL BOOT CALLER PASSES NO
+ * `canApply`, only auth and an abort signal, and that signal tracks scenario,
+ * auth and unmount — NOT a same-scenario turn that lands while a read is in
+ * flight. So: start read A, a genuine turn installs hB through `applyV5State`,
+ * then A arrives and its hA replaces hB. The next manual edit would send the
+ * SUPERSEDED precondition and earn a stale refusal from the writer.
+ *
+ * Worse silently: a turn does not touch `serverGraphIdentity`, so with a cached
+ * identity the UNCHANGED branch keeps the displayed graph correct while
+ * downgrading only the base — nothing visible moves.
+ *
+ * So adoption is a COMPARE-AND-SET against the base as it stood when this read
+ * was ISSUED. If anything moved it since — a turn, or another read — that other
+ * authority is newer and keeps it. This is a narrow ordering rule over one
+ * field, not a sequencing framework: it needs no clock, no generation counter
+ * and no knowledge of what the other writer was.
  *
  * ⚠ IT IS THE SERVER'S VALUE, CARRIED — never computed here. The client has no
  * authority on this hash and could not agree with the writer even by accident on
@@ -129,7 +147,12 @@ function isSameServerGraph(
  * is not a non-empty string, so a CEE that predates the field leaves the session
  * exactly as it was — refusing the edit and saying so.
  */
-function adoptServerWriteBase(graphHash: string | null): void {
+function adoptServerWriteBase(graphHash: string | null, baseAtDispatch: string | null): void {
+  if (graphHash === null) return
+  // The store's setter already refuses to CLEAR, but it will happily accept any
+  // later non-empty value — including an older one. The ordering rule has to
+  // live here, at the only caller that can know when its own read was issued.
+  if (useCanvasStore.getState().lastServerGraphHash !== baseAtDispatch) return
   useCanvasStore.getState().setLastServerGraphHash(graphHash)
 }
 
@@ -147,6 +170,10 @@ export async function hydrateCanvasFromServer(
     return 'skipped'
   }
 
+  // ⭐ THE BASE AS IT STANDS NOW, READ BEFORE THE AWAIT. `adoptServerWriteBase`
+  // compares against it so a slow read cannot overwrite a newer authority —
+  // see that function for the schedule this closes.
+  const baseAtDispatch = useCanvasStore.getState().lastServerGraphHash
   const result = await fetchScenarioGraph(scenarioId, {
     userId: opts.userId,
     accessToken: opts.accessToken,
@@ -337,7 +364,7 @@ export async function hydrateCanvasFromServer(
     // the graph this response describes — so its write base is true of what the
     // user is looking at. Skipping here would leave the ordinary restore with no
     // base, which is the whole defect.
-    adoptServerWriteBase(result.graphHash)
+    adoptServerWriteBase(result.graphHash, baseAtDispatch)
     return 'unchanged'
   }
 
@@ -411,7 +438,7 @@ export async function hydrateCanvasFromServer(
       : null,
   )
 
-  adoptServerWriteBase(result.graphHash)
+  adoptServerWriteBase(result.graphHash, baseAtDispatch)
 
   return 'merged'
 }

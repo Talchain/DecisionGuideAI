@@ -10,6 +10,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useCanvasStore } from '../../store'
 import { hydrateCanvasFromServer } from '../serverGraphHydration'
+import { applyV5State } from '../../../v5/applyV5State'
 
 const SCENARIO_ID = '11111111-2222-4333-8444-555555555555'
 const OTHER_SCENARIO_ID = '99999999-8888-4777-8666-555555555555'
@@ -389,13 +390,87 @@ describe('hydrateCanvasFromServer — the server write base', () => {
     expect(base()).toBeNull()
   })
 
-  it('⚠ a SUPERSEDED read installs nothing — a late answer is not an authority', async () => {
+  /**
+   * ⚠⚠ THIS PINS THE OPTION'S CONTRACT, NOT THE BOOT PATH — stated because an
+   * earlier version of this file presented it as the superseded-read control
+   * and it is not one. The spec supplies `canApply` itself; the real boot caller
+   * passes only auth and an abort signal, so this schedule is one no production
+   * caller produces. The control that does cover the real schedule is below.
+   */
+  it('honours an explicit canApply:false — the option means what it says', async () => {
     clearBase()
     fetchSpy.mockResolvedValue(jsonResponse(200, okBody({ graph_hash: OTHER_BASE })))
     expect(
       await hydrateCanvasFromServer(SCENARIO_ID, { canApply: () => false }),
     ).toBe('skipped')
     expect(base()).toBeNull()
+  })
+
+  /**
+   * ⭐⭐⭐ THE SCHEDULE THE ABORT SIGNAL DOES NOT COVER, and the one an
+   * independent review had to find because my own control could not see it.
+   *
+   * The boot caller passes no `canApply`, and its abort signal tracks scenario,
+   * auth and unmount — NOT a same-scenario turn landing while a read is in
+   * flight. So: start read A, let a GENUINE turn install hB, then deliver A. Its
+   * hA must not replace hB, or the next manual edit sends a superseded
+   * precondition and earns a stale refusal from the writer.
+   *
+   * ⚠ Silently, too: a turn does not touch `serverGraphIdentity`, so the
+   * UNCHANGED branch keeps the displayed graph correct while downgrading only
+   * the base. Nothing visible moves.
+   *
+   * The newer base is installed by the REAL applicator, wired as
+   * `useConversation` wires it — not by poking the store, which would prove the
+   * rule against a fixture rather than against the thing that actually competes
+   * with this read.
+   */
+  it('⭐ a LATE read cannot replace a base a real turn installed while it was in flight', async () => {
+    clearBase()
+
+    let deliverA!: (r: Response) => void
+    fetchSpy.mockReturnValue(new Promise<Response>(resolve => { deliverA = resolve }))
+    const readA = hydrateCanvasFromServer(SCENARIO_ID)
+    await Promise.resolve()
+
+    // The genuine competitor: a real turn, through the real applicator.
+    const snapshot = useCanvasStore.getState()
+    applyV5State(
+      {
+        response_version: 2,
+        assistant_text: 'ok',
+        blocks: [],
+        suggested_actions: [],
+        insights: [],
+        stage_indicator: 'analyse',
+        graph_hash: OTHER_BASE,
+      } as never,
+      { ...snapshot, currentResultsHash: snapshot.results?.hash ?? null } as never,
+    )
+    expect(base()).toBe(OTHER_BASE)
+
+    // Now A arrives, carrying the base that was current when it was issued.
+    deliverA(jsonResponse(200, okBody({ graph_hash: WRITE_BASE })))
+    await readA
+
+    // The turn is newer. A late read does not get to undo it.
+    expect(base()).toBe(OTHER_BASE)
+  })
+
+  it('⭐ DISCRIMINATING TWIN: with NO turn in flight, that same late read DOES install its base', async () => {
+    // Without this the rule above would pass against an adoption that never
+    // fires — which is the defect this whole change exists to fix.
+    clearBase()
+
+    let deliverA!: (r: Response) => void
+    fetchSpy.mockReturnValue(new Promise<Response>(resolve => { deliverA = resolve }))
+    const readA = hydrateCanvasFromServer(SCENARIO_ID)
+    await Promise.resolve()
+
+    deliverA(jsonResponse(200, okBody({ graph_hash: WRITE_BASE })))
+    await readA
+
+    expect(base()).toBe(WRITE_BASE)
   })
 
   it('⚠ an ABSENT graph installs nothing — there is nothing to write against', async () => {
