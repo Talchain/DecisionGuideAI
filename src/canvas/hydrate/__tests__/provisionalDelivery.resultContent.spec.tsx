@@ -89,7 +89,10 @@ function withComparisons(comparisons: unknown[], status?: string) {
 
 function expectRetainedDistributionAndWithholding() {
   const state = useCanvasStore.getState()
-  expect(state.results.hash).toBe(capture.analysis_result.computed_against_hash)
+  // Report identity is the mapper's local digest, not the producer's graph
+  // hash. Keep the two authorities distinct; the real poll dedupes this one.
+  expect(state.results.hash).toMatch(/^v5:[0-9a-f]{16}$/)
+  expect(state.results.hash).toBe(state.results.report?.model_card.response_hash)
   expect(state.results.report).toMatchObject({
     option_comparison: capture.analysis_result.enrichment.option_comparison.map(option => ({
       option_id: option.option_id,
