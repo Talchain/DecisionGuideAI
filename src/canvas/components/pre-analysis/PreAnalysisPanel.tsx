@@ -555,7 +555,13 @@ function T1BiasNudgeRow({
         {trigger.subtitle}
       </p>
       <DiscussWithAiButton
-        element={{ kind: 'bias', biasType: trigger.title, microInterventionStep: trigger.microInterventionStep }}
+        element={{
+          kind: 'bias',
+          biasType: trigger.title,
+          observation: trigger.fullExplanation,
+          targetLabel: trigger.targetFactorLabel,
+          microInterventionStep: trigger.microInterventionStep,
+        }}
       />
     </div>
   )
