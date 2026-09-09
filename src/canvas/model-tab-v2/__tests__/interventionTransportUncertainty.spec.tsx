@@ -57,6 +57,27 @@ vi.mock('../../../services/scenarioService', () => ({
   storeAnalysis: async () => undefined,
 }))
 vi.mock('../../../lib/posthog', () => ({ trackEvent: () => undefined }))
+/**
+ * ⚠ WITHOUT THIS THERE IS NO TURN AT ALL, AND THE FIRST RUN OF THIS FILE PROVED
+ * IT: `sendSystemEvent` opens with `if (!isOrchestratorV2Enabled()) return
+ * SEND_BLOCKED`, and that flag comes from `netlify.toml`'s build environment,
+ * which vitest never reads. So every case failed on "fetch was never called" —
+ * the harness had been asserting a network that could not happen.
+ *
+ * It is the deployed posture, not a convenience: `VITE_ENABLE_ORCHESTRATOR_V2`
+ * is `"true"` in `[build.environment]`, so production and staging both take
+ * this branch. Every other flag stays REAL (`importOriginal`) — the success path
+ * reads several and a hand-listed mock would throw on the first one it omitted,
+ * which is the flags-mock trap this repo has paid for before.
+ */
+vi.mock('../../../flags', async importOriginal => {
+  const actual = await importOriginal<typeof import('../../../flags')>()
+  return {
+    ...actual,
+    isOrchestratorV2Enabled: () => true,
+    isOrchestratorStreamingEnabled: () => false,
+  }
+})
 vi.mock('../../../v5/eligibility', async importOriginal => ({
   ...(await importOriginal<Record<string, unknown>>()),
   isV5Eligible: () => ({ eligible: true }),
@@ -310,6 +331,15 @@ describe('a committed receipt, through the real receiver', () => {
     expect(
       screen.queryByTestId(`model-detail-v2-intervention-${FACTOR}-save`),
     ).not.toBeInTheDocument()
+
+    // ⭐ AND IT IS VISIBLE, which is the acceptance wording and not a synonym
+    // for the store assertion above: the row renders from the projection, so
+    // this is the last hop between a committed value and a user seeing it.
+    await waitFor(() =>
+      expect(
+        screen.getByTestId(`model-detail-v2-intervention-${FACTOR}-value`).textContent ?? '',
+      ).toContain('0.6'),
+    )
   })
 
   it('⚠ DISCRIMINATING TWIN: a receipt carrying a DIFFERENT value does not settle it', async () => {
