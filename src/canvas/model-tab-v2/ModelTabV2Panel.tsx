@@ -186,6 +186,19 @@ export interface ModelTabV2PanelProps {
    * Advanced while `olumi.expertMode` stayed false.
    */
   onToggleExpert?: (next: boolean) => void
+  /**
+   * ⭐ Rename an element from its row.
+   *
+   * Arrives as a prop for the same reason `nodes` and `currentScenarioId` do:
+   * `modelTabV2Boundary.sourceScan` forbids every file in this directory from
+   * importing a store module or invoking a foreign hook — the mount host owns
+   * each live-app seam. `ModelTabBody` builds it from `store.updateNodeLabel`,
+   * the one chokepoint every rename gesture in the product crosses.
+   *
+   * OPTIONAL, and the degradation is honest rather than silent: without it the
+   * row renders NO rename affordance at all, instead of one that writes nowhere.
+   */
+  onRenameRow?: (id: string, nextLabel: string) => void
 }
 
 /**
@@ -234,6 +247,7 @@ export function ModelTabV2Panel({
   lastServerGraphHash = null,
   expertMode,
   onToggleExpert,
+  onRenameRow,
 }: ModelTabV2PanelProps) {
   /**
    * ⭐ ONE SWITCH. The tier is the product's expert preference, not a second
@@ -1197,6 +1211,7 @@ export function ModelTabV2Panel({
         onDiscardEdit={discardEdit}
         onConfirmEdit={confirmEdit}
         onConfirmValueAsIs={FACTOR_CONFIRMATION_CONNECTED ? confirmValueAsIs : undefined}
+        onRenameRow={onRenameRow}
         onGroupAction={onHandOffToOlumi ? handleGroupAction : undefined}
         groupActionContext={groupActionContext}
       />
