@@ -55,10 +55,17 @@ const EXPECTED_MOUNTED_AUTHORITY = {
     entrySurfaces: ['canvas selection', 'canvas layout'],
     requiredEvidence: 'copy makes no shared-model or analysis claim',
   },
+  // 0.54.0 — the option's effect on a factor JOINS the receipt-bearing set, and
+  // the evidence names what was actually earned rather than what was hoped for:
+  // the `option_intervention_edit` carrier, CEE's identity-exact writer, and the
+  // CANONICAL COMMITTED RECEIPT it returns. The row settles on that receipt
+  // reaching the store — never on its own typed value — which is why "applied"
+  // appears here at all.
   modelOptionIntervention: {
-    authority: 'disabled',
+    authority: 'server_graph',
     entrySurfaces: ['Model option detail'],
-    requiredEvidence: 'no pointer or keyboard control mounts',
+    requiredEvidence:
+      'accepted option_intervention_edit plus the canonical committed receipt carrying the value',
   },
   modelFactorConfirmation: {
     authority: 'disabled',
@@ -209,11 +216,17 @@ describe('mutation authority is exhaustive and fail-closed', () => {
       'canvasNodeRenameWithServerHash',
       'modelFactorValue',
       'modelGoalMinimumTarget',
+      // 0.54.0 — the option-effect edit joins on the same terms as its
+      // siblings: a wire carrier, a server writer, and a receipt the row
+      // settles against. Sorted, so it lands here rather than beside the
+      // factor-value row it is most often confused with — and those two are
+      // exactly the pair a witnessed defect once collapsed.
+      'modelOptionIntervention',
       'preAnalysisV3FactorValue',
       'preAnalysisV3StructuralAdd',
       'structuralDeleteWithServerHash',
     ])
-    expect(CANONICAL_EDIT_AUTHORITY.modelOptionIntervention).toBe('disabled')
+    expect(CANONICAL_EDIT_AUTHORITY.modelOptionIntervention).toBe('server_graph')
     expect(CANONICAL_EDIT_AUTHORITY.modelFactorConfirmation).toBe('disabled')
     expect(CANONICAL_EDIT_AUTHORITY.postRunFactorValue).toBe('disabled')
     expect(CANONICAL_EDIT_AUTHORITY.postRunFactorConfirmation).toBe('disabled')
