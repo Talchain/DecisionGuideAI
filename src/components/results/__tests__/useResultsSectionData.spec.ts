@@ -617,9 +617,12 @@ describe('getConfidenceTier', () => {
     expect(getConfidenceTier(undefined, { readiness_score: 0 }, undefined)).toBe('needs_work')
   })
 
-  it('falls back to report.confidence.level', () => {
+  it('does NOT fall back to report.confidence.level (UI-SEM-015 retirement)', () => {
+    // Was: expected 'strong'. `confidence.level` is a UI-local re-derivation of
+    // `confidence_tier` that disagreed with the producer on 30% of runs; it is
+    // no longer an authority, so the cascade says nothing here.
     const result = getConfidenceTier(undefined, undefined, { confidence: { level: 'high' } })
-    expect(result).toBe('strong')
+    expect(result).toBe('unknown')
   })
 
   it('falls back to report.graph_quality.score', () => {
@@ -645,10 +648,11 @@ describe('getConfidenceTier', () => {
 // =============================================================================
 
 describe('deriveConfidenceTierLegacy', () => {
-  it('preserves existing cascade: readiness_level > score > confidence > quality', () => {
+  it('preserves existing cascade: readiness_level > score > quality (confidence retired)', () => {
     expect(deriveConfidenceTierLegacy({ readiness_level: 'ready' }, undefined)).toBe('strong')
     expect(deriveConfidenceTierLegacy({ readiness_score: 75 }, undefined)).toBe('strong')
-    expect(deriveConfidenceTierLegacy(undefined, { confidence: { level: 'low' } })).toBe('needs_work')
+    // `confidence.level` retired (UI-SEM-015) — was 'needs_work', now ignored.
+    expect(deriveConfidenceTierLegacy(undefined, { confidence: { level: 'low' } })).toBe('unknown')
     expect(deriveConfidenceTierLegacy(undefined, { graph_quality: { score: 50 } })).toBe('fair')
     expect(deriveConfidenceTierLegacy(undefined, undefined)).toBe('unknown')
   })
@@ -1590,5 +1594,72 @@ describe('Codex B2 — ranking doctrine: order and crown follow the DISPLAYED in
     ])
     expect(rankMap.get('a')).toBe(1)
     expect(rankMap.get('b')).toBe(2)
+  })
+})
+
+// =============================================================================
+// UI-SEM-015 RETIREMENT — `report.confidence.level` is NOT a confidence authority
+//
+// `confidence.level` is a UI-LOCAL re-derivation (a ratio over robust/fragile
+// edge-array lengths, duplicated in responseMapper.ts and mapV5AnalysisToReport.ts)
+// of a question PLoT already answers as `confidence_tier`. Measured over a
+// 33-observation capture corpus the two disagree on 30% of runs, 18% maximally
+// (derived 'low' vs producer tier 'strong').
+//
+// These pin the SPEC, not the failure mode: the producer's tier is the single
+// authority, and where it is absent the cascade must say NOTHING (`unknown`)
+// rather than substitute a local guess.
+// =============================================================================
+
+describe('confidence.level is retired as a tier authority', () => {
+  it('PRECONDITION: the retired mapping would have honoured these fixtures', () => {
+    // Guards against a neutral fixture: these values are exactly the ones the
+    // deleted cascade step would have converted into a tier. If this ever stops
+    // holding, the assertions below would pass for the wrong reason.
+    expect(mapConfidenceLevel('high')).toBe('strong')
+    expect(mapConfidenceLevel('low')).toBe('needs_work')
+  })
+
+  it('does not consult report.confidence.level when the producer tier is absent', () => {
+    expect(getConfidenceTier(undefined, undefined, { confidence: { level: 'high' } })).toBe('unknown')
+    expect(getConfidenceTier(undefined, undefined, { confidence: { level: 'low' } })).toBe('unknown')
+    expect(deriveConfidenceTierLegacy(undefined, { confidence: { level: 'low' } })).toBe('unknown')
+  })
+
+  it('the maximal-disagreement class no longer contradicts the producer', () => {
+    // 18% of the corpus: locally derived 'low' while the producer said 'strong'.
+    // The producer must win outright, and with the producer absent the UI says nothing.
+    expect(getConfidenceTier('strong', undefined, { confidence: { level: 'low' } })).toBe('strong')
+    expect(getConfidenceTier(undefined, undefined, { confidence: { level: 'low' } })).toBe('unknown')
+  })
+
+  it('the empty-robust_edges construction no longer forces a tier', () => {
+    // 30% of runs derive 'low' by construction (robust_edges empty ⇒ ratio 0).
+    // That construction must not reach the tier at all.
+    expect(getConfidenceTier(undefined, undefined, { confidence: { level: 'low' } })).toBe('unknown')
+  })
+
+  // ── The surviving cascade steps are untouched (identity binding) ──────────
+  it('CEE readiness remains the authority when the producer tier is absent', () => {
+    expect(getConfidenceTier(undefined, { readiness_level: 'ready' }, { confidence: { level: 'low' } })).toBe('strong')
+    expect(getConfidenceTier(undefined, { readiness_score: 75 }, { confidence: { level: 'low' } })).toBe('strong')
+  })
+
+  it('graph_quality.score remains the last resort', () => {
+    expect(getConfidenceTier(undefined, undefined, { graph_quality: { score: 80 } })).toBe('strong')
+    expect(getConfidenceTier(undefined, undefined, { graph_quality: { score: 50 } })).toBe('fair')
+  })
+
+  it('graph_quality wins over a contradicting confidence.level', () => {
+    // Binds the deletion to `confidence` specifically: the OTHER report-derived
+    // step must still fire, on a payload carrying both.
+    expect(
+      getConfidenceTier(undefined, undefined, { confidence: { level: 'low' }, graph_quality: { score: 80 } })
+    ).toBe('strong')
+  })
+
+  it('says nothing rather than guessing when every authority is absent', () => {
+    expect(getConfidenceTier(undefined, undefined, {})).toBe('unknown')
+    expect(getConfidenceTier(undefined, undefined, undefined)).toBe('unknown')
   })
 })
