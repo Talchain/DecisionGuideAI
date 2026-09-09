@@ -40,8 +40,9 @@ import { render, screen } from '@testing-library/react'
 import { act } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { OutputsDock } from '../OutputsDock'
+import { OutputsDock, OUTPUTS_DOCK_STORAGE_KEY } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
+import { useUIStore } from '../../../stores/uiStore'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { getCanonicalRunner } from '../../analysis/canonicalRunRegistry'
 import { ConversationProvider } from '../../conversation/ConversationContext'
@@ -227,6 +228,10 @@ describe('ROADMAP 2.109 — producer-side goal_threshold chip parameter is retir
   beforeEach(() => {
     ensureMatchMedia()
     vi.clearAllMocks()
+    // A prior run reveals Olumi and persists that tab. Each case starts on
+    // Analysis; reset both tab owners without stubbing the real reveal path.
+    sessionStorage.removeItem(OUTPUTS_DOCK_STORAGE_KEY)
+    useUIStore.getState().setActiveOutputTab('results')
     capturedResultsBodyProps.current = null
     mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
     mockIsV5Eligible.mockReturnValue({ eligible: true } as never)
