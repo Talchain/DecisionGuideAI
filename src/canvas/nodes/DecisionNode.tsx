@@ -817,7 +817,13 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         <button
           type="button"
           data-testid="decision-node-resting-cta"
-          className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan mt-0.5`}
+          // ⭐ FOCUS AND HOVER, WHICH THIS CONTROL HAD NEITHER OF. It is a real
+          // <button>, so a keyboard user tabbing to it got NO visible focus
+          // indicator at all (WCAG 2.4.7). Matches the treatment already
+          // established on `NodeQuickActions.tsx:113` rather than inventing a
+          // second one — the ring colour and offset are the canvas's, not new.
+          // `rounded` exists only so the ring has a shape to follow.
+          className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan mt-0.5 rounded hover:text-info-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
           onClick={handleRestingAsk}
           onPointerDown={(e) => e.stopPropagation()}
         >
