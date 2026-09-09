@@ -2381,42 +2381,15 @@ export class SystemEventSendError extends Error {
   readonly code?: string
   /** `details.conflict_category` — distinguishes BASE_HASH_DIVERGED from a fence. */
   readonly conflictCategory?: string
-  /**
-   * ⚠ ADDITIVE, AND `'transport'` IS TOO COARSE FOR A VALUE EDIT — the same
-   * argument `code`/`conflictCategory` already make one line up, for the other
-   * half of the class.
-   *
-   * `isUnverifiedDelivery` (ROADMAP 2.665) splits transport in two, and the two
-   * are OPPOSITE claims about whether bytes landed:
-   *   · `meta.network === true`  — the fetch threw; nothing left the client, so
-   *     NON-DELIVERY IS VERIFIED. This field is false.
-   *   · `meta.network === false` — a non-2xx arrived with no CEE signal (proxy
-   *     or edge timeout). The request REACHED CEE, which goes on to complete and
-   *     COMMIT that turn — live-witnessed at 123.1s. Delivery is UNVERIFIED.
-   *
-   * Without this, a dispatcher sees only `kind: 'transport'` and can honestly
-   * say nothing at all; the surface that guessed said "not sent", which is
-   * exactly the half that is false. Carried rather than re-derived: the verdict
-   * is already computed HERE, in scope, for `setLastSendFailure`.
-   */
-  readonly deliveryUnverified?: boolean
   constructor(
     kind: 'transport' | 'server',
-    options?: {
-      cause?: unknown
-      code?: string
-      conflictCategory?: string
-      deliveryUnverified?: boolean
-    },
+    options?: { cause?: unknown; code?: string; conflictCategory?: string },
   ) {
     super(`System event send failed (${kind})`)
     this.name = 'SystemEventSendError'
     this.kind = kind
     if (options?.code !== undefined) this.code = options.code
     if (options?.conflictCategory !== undefined) this.conflictCategory = options.conflictCategory
-    if (options?.deliveryUnverified !== undefined) {
-      this.deliveryUnverified = options.deliveryUnverified
-    }
     if (options?.cause !== undefined) {
       ;(this as Error & { cause?: unknown }).cause = options.cause
     }
@@ -5423,11 +5396,6 @@ export function useConversation(): UseConversationReturn {
                 ...(target.boundaryError
                   ? { conflictCategory: extractConflictCategory(target.boundaryError) }
                   : {}),
-                // Same reason as the two above: computed here and nowhere else.
-                // A dispatcher told only `kind: 'transport'` cannot tell the
-                // fetch that never left from the proxy timeout CEE went on to
-                // commit, and would have to guess. See the field's declaration.
-                deliveryUnverified,
               },
             )
           }

@@ -179,33 +179,23 @@ describe("a late answer belongs to ONE attempt", () => {
 })
 
 describe('what a FAILED send may claim — the three are not one sentence', () => {
-  it('⚠ an UNVERIFIED transport failure says COULD NOT CONFIRM, never "not sent"', async () => {
-    // `meta.network === false`: a non-2xx arrived carrying no CEE signal — the
-    // request reached CEE, which goes on to commit that turn.
-    sendSystemEvent.mockRejectedValueOnce(
-      new SystemEventSendError('transport', { deliveryUnverified: true }),
-    )
+  it('⚠ A TRANSPORT REJECTION SAYS COULD NOT CONFIRM — never "not sent", never "try again"', async () => {
+    // ⚠ BOTH HALVES, and that is the correction. A proxy timeout reached CEE,
+    // which goes on to commit; a fetch rejection MAY have reached it and lost
+    // the response afterwards. Neither is non-delivery, and nothing on this path
+    // can tell either from a genuine offline — `v5Adapter` catches the rejection
+    // without observing acceptance, and `responseRouter` derives `network` from
+    // a MISSING `http_status`. The guarantee is proven through the real chain in
+    // `interventionTransportUncertainty.spec.tsx`; this pins the row's wording.
+    sendSystemEvent.mockRejectedValueOnce(new SystemEventSendError('transport'))
     renderPanel()
     select(OPTION_A)
     commit('0.6')
 
     await waitFor(() => expect(noticeText()).toMatch(/could not confirm/i))
     expect(noticeText()).not.toMatch(/not sent/i)
+    expect(noticeText()).not.toMatch(/try again/i)
     expect(noticeText()).not.toMatch(/still in flight/i)
-  })
-
-  it('a VERIFIED non-delivery says it could not reach the server — and not the busy-lock story', async () => {
-    // `meta.network === true`: the fetch threw, so nothing left this machine.
-    sendSystemEvent.mockRejectedValueOnce(
-      new SystemEventSendError('transport', { deliveryUnverified: false }),
-    )
-    renderPanel()
-    select(OPTION_A)
-    commit('0.6')
-
-    await waitFor(() => expect(noticeText()).toMatch(/could not reach the server/i))
-    expect(noticeText()).not.toMatch(/still in flight/i)
-    expect(noticeText()).not.toMatch(/could not confirm/i)
   })
 
   it('⭐ CONTRAST: a genuine SEND_BLOCKED keeps the busy-lock sentence', async () => {
@@ -217,7 +207,7 @@ describe('what a FAILED send may claim — the three are not one sentence', () =
     commit('0.6')
 
     await waitFor(() => expect(noticeText()).toMatch(/still in flight/i))
-    expect(noticeText()).not.toMatch(/could not reach/i)
+    expect(noticeText()).not.toMatch(/could not confirm/i)
   })
 
   it('an UNRECOGNISED rejection shape takes the cannot-confirm line, never "not sent"', async () => {

@@ -793,17 +793,6 @@ export function ModelTabV2Panel({
                 notice: 'Not sent — another change is still in flight. Try again in a moment.',
               }
             }
-            if (settlement === 'unreachable') {
-              // Verified non-delivery: the fetch threw, so nothing left this
-              // machine. "Not sent" is exactly true here and nowhere else in
-              // the failure family.
-              const { sentValue: _v, sentScenarioId: _s, ...rest } = prev
-              return {
-                ...rest,
-                phase: 'editing',
-                notice: 'Not sent — I could not reach the server. Try again.',
-              }
-            }
             // ⭐ THE OTHER WAY PENDING ENDS. The canonical settlement below
             // covers the APPLIED half — the value lands in the store and the
             // row clears. These two are the refused half, and without them a
@@ -826,19 +815,24 @@ export function ModelTabV2Panel({
               }
             }
             if (settlement === 'unverified') {
-              // ⚠ NEITHER SAVED NOR REFUSED, AND THE COPY MAY NOT PICK ONE. The
-              // server failed the turn and a write is not ruled out. Saying
-              // "not saved" would invite the user to re-send a number the model
-              // may already hold; saying "saved" is the lie the whole surface
-              // exists to avoid. The row keeps the number visible, says what is
-              // actually known, and names the action that SHOWS them the answer
-              // rather than guessing it.
+              // ⚠⚠ NEITHER SAVED NOR REFUSED NOR UNSENT, AND THE COPY MAY NOT
+              // PICK ONE. A write is not ruled out, so "not saved" would invite
+              // the user to re-send a number the model may already hold, and
+              // "saved" is the lie this whole surface exists to avoid.
+              //
+              // ⚠ IT ALSO MAY NOT SAY "SENT". This arm now also carries every
+              // TRANSPORT rejection, where the request may or may not have
+              // reached CEE — `v5Adapter` catches a fetch rejection without
+              // observing acceptance, so a commit whose response is lost looks
+              // exactly like being offline. The row states what is actually
+              // known, offers no retry it cannot justify, and names the action
+              // that SHOWS the user the answer instead of guessing it.
               const { sentValue: _v, sentScenarioId: _s, ...rest } = prev
               return {
                 ...rest,
                 phase: 'editing',
                 notice:
-                  "Sent, but I could not confirm what the model did with it. " +
+                  'I could not confirm whether that reached the model. ' +
                   'Ask me anything about this decision to see where it stands.',
               }
             }

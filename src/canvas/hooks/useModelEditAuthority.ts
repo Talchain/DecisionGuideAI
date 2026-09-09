@@ -235,21 +235,26 @@ export type OptionInterventionProposalOutcome = 'dispatched' | OptionInterventio
  *               construction. The branch stays because deleting it would leave
  *               a future `SEND_DEFERRED` falling through to `sent`, which is
  *               the one answer that is definitely wrong.
- * - `blocked` — `SEND_BLOCKED` and NOTHING ELSE: another turn holds the lock and
- *               this one was never queued. The caller owns the retry.
+ * - `blocked` — `SEND_BLOCKED`, AND IT IS THE ONLY SETTLEMENT ENTITLED TO SAY
+ *               "NOT SENT". The sender refused the dispatch outright — another
+ *               turn holds the lock — so the request was never built and NO
+ *               FETCH WAS MADE. That is the only pre-dispatch proof available
+ *               anywhere on this path, and it is a proof about the client's own
+ *               behaviour rather than an inference about the network's.
  *
- *               ⚠⚠ IT USED TO SWALLOW EVERY TRANSPORT REJECTION TOO, AND THAT
- *               WAS TWO FALSEHOODS IN ONE LINE. I merged them on the reasoning
- *               that both mean "nothing reached the server, try again" — which
- *               is not true of half of transport (see `unverified`), and the
- *               copy this state carries names the BUSY LOCK specifically, so
- *               even the verified half was told the wrong story. Two questions
- *               under one name, in the file arguing against exactly that.
- *
- * - `unreachable` — a transport rejection whose NON-DELIVERY IS VERIFIED: the
- *               fetch threw (offline, DNS, CORS preflight), so nothing left the
- *               client. `isUnverifiedDelivery`'s `meta.network === true` half.
- *               Genuinely "not sent", and a different sentence from a busy lock.
+ *               ⚠⚠ TWO WRONG ANSWERS HAVE NOW BEEN GIVEN HERE, IN OPPOSITE
+ *               DIRECTIONS, AND BOTH CLAIMED MORE THAN THE EVIDENCE. First
+ *               every transport rejection was folded in, which told a proxy
+ *               timeout CEE went on to commit that it was never sent. Then it
+ *               was split by `isUnverifiedDelivery`'s bit — and a FALSY bit was
+ *               read as proof of non-delivery, which it is not: `v5Adapter`
+ *               catches ANY fetch rejection without observing whether the
+ *               server accepted, and `responseRouter` derives `network` purely
+ *               from a MISSING `http_status`. So CEE can commit, the connection
+ *               can die before headers reach the browser, fetch rejects
+ *               `TypeError` — and that arrives indistinguishable from offline.
+ *               ABSENT METADATA IS NOT PROOF; carrying the bit does not create
+ *               a guarantee that was never derived.
  *
  * - `refused`  — the server RECEIVED the turn, failed it, and its envelope
  *                PROVES nothing was written (`isProvenNoWriteConflict`). The
@@ -261,12 +266,12 @@ export type OptionInterventionProposalOutcome = 'dispatched' | OptionInterventio
  *                earlier cut got wrong:
  *                  · a server failure whose category the producer has not
  *                    certified as a no-write;
- *                  · a transport rejection with `meta.network === false` — a
- *                    non-2xx arrived carrying no CEE signal (proxy or edge
- *                    timeout). The request REACHED CEE, which goes on to
- *                    complete and COMMIT that turn, live-witnessed at 123.1s
- *                    (ROADMAP 2.665). Calling that "not sent" is false about
- *                    the half that matters;
+ *                  · EVERY transport rejection, both halves. The proxy-timeout
+ *                    half reached CEE, which goes on to commit (live-witnessed
+ *                    at 123.1s, ROADMAP 2.665); the fetch-threw half MAY have
+ *                    reached it and lost the response afterwards. Neither is
+ *                    non-delivery, and nothing on this path can tell them from
+ *                    a genuine offline;
  *                  · any rejection shape this seam does not recognise. An
  *                    unknown cannot prove non-delivery, so it takes the
  *                    cannot-confirm line, never the confident one.
@@ -282,7 +287,6 @@ export type OptionInterventionSendSettlement =
   | 'sent'
   | 'queued'
   | 'blocked'
-  | 'unreachable'
   | 'refused'
   | 'unverified'
 
@@ -596,14 +600,14 @@ export function useModelEditAuthority(
                 isProvenNoWriteConflict(err.conflictCategory) ? 'refused' : 'unverified',
               )
             }
-            // ⭐ TRANSPORT IS TWO OPPOSITE CLAIMS, AND THE ERROR NOW CARRIES
-            // WHICH. `isUnverifiedDelivery` decided it upstream; this reads the
-            // verdict rather than re-deriving it from a `kind` that cannot
-            // express it. `network === true` is a fetch that threw — nothing
-            // left the client, non-delivery VERIFIED. `network === false` is a
-            // proxy or edge timeout on a request that REACHED CEE, which goes
-            // on to commit it.
-            return opts?.onSendSettled?.(err.deliveryUnverified ? 'unverified' : 'unreachable')
+            // ⚠ TRANSPORT DOES NOT PROVE NON-DELIVERY, EITHER HALF. `v5Adapter`
+            // catches any fetch rejection without observing whether the server
+            // accepted, and `responseRouter` derives `network` from a MISSING
+            // `http_status` — so a commit whose response is lost before headers
+            // reach the browser is indistinguishable from being offline. The
+            // uncertainty is retained rather than resolved by the absence of a
+            // bit nobody derived.
+            return opts?.onSendSettled?.('unverified')
           }
           // A rejection shape this seam does not recognise. It cannot prove
           // non-delivery, so it must not claim it: the cannot-confirm line, not

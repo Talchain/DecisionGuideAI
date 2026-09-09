@@ -296,20 +296,24 @@ describe('the sender settles, and two of its three answers mean nothing was sent
     ).not.toBeInTheDocument()
   })
 
-  it('⚠ DISCRIMINATING TWIN: a VERIFIED non-delivery still says "not sent"', async () => {
-    // Without this, the two cases above would pass on an implementation that
-    // reported every `SystemEventSendError` as a server answer — losing the one
-    // distinction the error class carries `kind` to make. `deliveryUnverified`
-    // absent is the fetch-threw half: nothing left the client, so "not sent" is
-    // exactly true here. The transport SPLIT itself is asserted in
-    // `interventionSettlementIdentity.spec.tsx`, which supplies both halves.
+  it('⚠ A TRANSPORT REJECTION MAY NOT SAY "not sent" — it is not proof of non-delivery', async () => {
+    // ⚠⚠ THIS ASSERTED THE OPPOSITE AND THE ASSERTION WAS THE DEFECT. It read a
+    // falsy `deliveryUnverified` as proof the fetch never left. `v5Adapter`
+    // catches ANY fetch rejection without observing whether the server accepted,
+    // and `responseRouter` derives `network` from a MISSING `http_status` — so
+    // CEE can commit, the connection can die before headers reach the browser,
+    // and that arrives here indistinguishable from being offline.
+    //
+    // The guarantee — rather than this answer — is proven through the real
+    // adapter/router chain in `interventionTransportUncertainty.spec.tsx`.
     sendSystemEvent.mockRejectedValue(new SystemEventSendError('transport'))
     renderPanel()
     commit('0.6')
 
     const notice = await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-notice`)
-    expect(notice.textContent ?? '').toMatch(/not sent/i)
-    expect(notice.textContent ?? '').not.toMatch(/could not confirm/i)
+    expect(notice.textContent ?? '').toMatch(/could not confirm/i)
+    expect(notice.textContent ?? '').not.toMatch(/not sent/i)
+    expect(notice.textContent ?? '').not.toMatch(/try again/i)
   })
 
   it('POSITIVE CONTROL: an ordinary send stays pending — the three above are not "everything fails"', async () => {
