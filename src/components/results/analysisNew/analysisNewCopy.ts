@@ -1346,39 +1346,14 @@ export const ANALYSIS_NEW_COPY = {
      */
     leader_tied: { label: 'No option is clearly most likely' },
     leader_not_assessed: {
+      label: 'Which option is most likely — not assessed',
       /**
-       * ⚠⚠ "NOT ASSESSED" WAS FALSE ON A RUN THAT ASSESSED IT — WITNESSED, NOT
-       * REASONED ABOUT. Deployed `3b2df4ce`, guest, saved example, completed
-       * run. The producer returned:
-       *     option_comparison_status: 'computed'
-       *     leading_option_id:        'opt_rudderstack'
-       *     win probabilities         55.1% · 36.0% · 3.0% · 5.9%
-       * and the CANVAS was rendering those very percentages on the option nodes
-       * — while this row told the reader the comparison was "not assessed" and
-       * that "this run returned no comparison verdict".
-       *
-       * ⭐ THE MECHANISM IS RIGHT AND IS NOT CHANGED. `leader_not_assessed` is
-       * the deliberate third state (`buildAnalysisNewViewModel.ts:2410-2417`):
-       * `leaderDesignationPermitted` did not return true and `separation` was
-       * not `'tied'`, so the panel declines to name a leader. Declining is
-       * correct — we never name a leader we are not entitled to name.
-       *
-       * ⛔ WHAT WAS WRONG IS THE WORDS. WITHHELD IS NOT UNASSESSED — one name
-       * for two questions, this estate's signature defect. "Did Olumi assess
-       * it?" and "may this surface state the answer?" are different questions,
-       * and the copy answered the second by asserting a falsehood about the
-       * first. A reader who sees "no comparison verdict" beside four rendered
-       * percentages learns that the panel does not know what the engine did.
-       *
-       * ⚠ THE REPLACEMENT MUST BE TRUE IN BOTH POPULATIONS this state covers —
-       * a run that genuinely assessed nothing, AND a run that assessed and was
-       * withheld. "Not confirmed" holds for both; "not assessed" holds only for
-       * the first. Both misreadings the original sentence was written to block
-       * are still blocked: it is not a claim of a tie, and not an all-clear.
+       * ⚠ THE SENTENCE MUST BLOCK BOTH MISREADINGS, not just one. "Not
+       * assessed" can be read as "they are level" (the tie this verdict is
+       * explicitly NOT entitled to claim) or as "it is fine". It says neither.
        */
-      label: 'Which option is most likely — not confirmed',
       meaning:
-        'Olumi could not confirm which option is most likely on this run, so any ordering you see is unconfirmed — it is not a finding that the options are level.',
+        'This run returned no comparison verdict, so any ordering you see is unconfirmed — it is not a finding that the options are level.',
     },
     robustness_robust: { label: 'Robust' },
     /**

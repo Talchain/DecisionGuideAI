@@ -985,15 +985,6 @@ export interface ConditionalWinner {
 export interface InferenceWarning {
   /** Warning code (e.g. 'MISSING_ROOT_VALUE') */
   code: string
-  /**
-   * Producer field path, e.g. `nodes[c591da5e].observed_state.value`.
-   * ⚠ THE ONLY IDENTITY CARRIER THE PRODUCER ACTUALLY POPULATES for the
-   * defaulting family. ISL sets it per defaulted root; PLoT forwards the
-   * string verbatim. `affected_nodes` is empty for these codes, so dropping
-   * `field` in the adapter left the Reasoning tab unable to tell two
-   * same-code warnings apart.
-   */
-  field?: string
   /** Affected node IDs */
   affected_nodes: string[]
   /** Affected node labels (resolved from canvas) */
