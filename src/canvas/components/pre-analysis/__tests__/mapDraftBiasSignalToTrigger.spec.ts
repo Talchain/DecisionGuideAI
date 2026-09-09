@@ -110,7 +110,7 @@ describe('mapDraftBiasSignalToTrigger', () => {
     ]
     for (const id of cases) {
       const t = mapDraftBiasSignalToTrigger({ type: id, detail: 'X.' }, 0, noResolve)
-      expect(t?.title, `case: ${id}`).toBe('Bias detected')
+      expect(t?.title, `case: ${id}`).toBe(UNRECOGNISED_BIAS_SIGNAL_TITLE)
       expect(t?.title).not.toContain('_')
       expect(t?.title.toLowerCase()).not.toContain(id.split('_')[0])
     }

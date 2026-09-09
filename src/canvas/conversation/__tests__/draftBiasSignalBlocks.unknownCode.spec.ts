@@ -31,7 +31,7 @@
  * validated — hence a heading that invites a check rather than announcing a
  * detected bias.
  */
-import { describe, it, expect } from 'vitest'
+import { beforeEach, describe, it, expect } from 'vitest'
 
 import { buildDraftBiasSignalBlocks } from '../draftBiasSignalBlocks'
 import {
@@ -40,7 +40,10 @@ import {
   UNRECOGNISED_BIAS_SIGNAL_TITLE,
 } from '../../shared/biasSignalTitles'
 
-const NODES = [{ id: 'opt_status_quo', type: 'option', data: { label: 'Delay Billing Migration' } }]
+const NODES = [
+  { id: 'opt_status_quo', type: 'option', data: { label: 'Delay Billing Migration' } },
+  { id: 'fac_initial_quote', type: 'factor', data: { label: 'Initial quote' } },
+]
 
 /** The starter's own free-text code, verbatim — not a code invented for a test. */
 const STARTER_CODE = 'omission / status-quo bias'
@@ -225,6 +228,19 @@ describe('the rescue refuses a faulted entry, and only a faulted entry', () => {
  */
 describe('a repeated observation keeps every node it names', () => {
   const SHARED = 'Evidence for this estimate is missing.'
+  const expectedRefs = [
+    { id: 'opt_status_quo', label: 'Delay Billing Migration', kind: 'option' },
+    { id: 'fac_initial_quote', label: 'Initial quote', kind: 'factor' },
+  ]
+
+  beforeEach(() => {
+    // Prove that each reference resolves before testing their combination.
+    // The original fixture omitted the factor entirely.
+    for (const ref of expectedRefs) {
+      const [single] = build([{ type: 'unknown category', detail: SHARED, target: ref.id }])
+      expect(single.target_refs, `fixture must resolve ${ref.id}`).toEqual([ref])
+    }
+  })
 
   it('merges distinct affected nodes into the single retained card', () => {
     const blocks = build([
@@ -234,7 +250,7 @@ describe('a repeated observation keeps every node it names', () => {
 
     expect(blocks, 'the observation should still be kept ONCE').toHaveLength(1)
     // ⭐ EXACT REFS, not a length — a length passes on the wrong node.
-    expect(blocks[0].target_refs.map((r) => r.id)).toEqual(['opt_status_quo', 'fac_initial_quote'])
+    expect(blocks[0].target_refs).toEqual(expectedRefs)
   })
 
   it('⛔ THE CAP BOUNDS CARDS, NOT THE SCAN — a duplicate past it still merges', () => {
@@ -251,7 +267,7 @@ describe('a repeated observation keeps every node it names', () => {
     ])
 
     expect(blocks, 'the display cap still holds at two cards').toHaveLength(2)
-    expect(blocks[0].target_refs.map((r) => r.id)).toEqual(['opt_status_quo', 'fac_initial_quote'])
+    expect(blocks[0].target_refs).toEqual(expectedRefs)
   })
 
   it('the same node twice adds nothing — merging is by node id', () => {
