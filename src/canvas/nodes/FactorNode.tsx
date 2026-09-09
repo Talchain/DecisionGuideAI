@@ -28,6 +28,7 @@ import { openNodeInspector } from './shared/openNodeInspector'
 import { resolveFactorPriorRange } from './shared/factorPriorRange'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
+import { classifyValueProvenance } from '../domain/valueProvenance'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 import Tooltip from '../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
@@ -301,9 +302,11 @@ export const FactorNode = memo((props: NodeProps) => {
       .join('; ')
   }, [goalConstraints, cleanedLabel, props.id])
 
-  // Anchoring detection (Detailed, pre-analysis)
+  // A wider-range invitation needs a stated reference, never a placeholder.
   const anchoringMessage = useMemo(() => {
     if (!isDetailed || isPostAnalysis) return null
+    const referenceOrigin = classifyValueProvenance(typeof observedState?.source === 'string' ? observedState.source : null)
+    if (!referenceOrigin || referenceOrigin.kind === 'ai') return null
     const options = ceeAnalysisReady?.options
     if (!options || options.length < 3) return null
     const vals: number[] = []
@@ -313,14 +316,14 @@ export const FactorNode = memo((props: NodeProps) => {
       const { value: v } = unwrapInterventionValue((opt.interventions as Record<string, unknown> | undefined)?.[props.id])
       if (v != null) vals.push(v)
     }
-    if (vals.length < 3) return null
-    const baseline = observedState?.value ?? vals[0] ?? 0.01
-    const spread = Math.max(...vals) - Math.min(...vals)
-    if (spread / Math.max(Math.abs(baseline), 0.01) < 0.2) {
+    if (vals.length !== options.length) return null
+    const baseline = observedState?.value
+    if (typeof baseline !== 'number' || !Number.isFinite(baseline)) return null
+    if (vals.every(value => Math.abs(value - baseline) <= Math.max(Math.abs(baseline), 0.01) * 0.2)) {
       return valueDisplay ?? String(baseline)
     }
     return null
-  }, [isDetailed, isPostAnalysis, ceeAnalysisReady, props.id, observedState?.value, valueDisplay])
+  }, [isDetailed, isPostAnalysis, ceeAnalysisReady, props.id, observedState, valueDisplay])
 
   const outboundConnections = useNodeConnections(props.id, 'outbound')
 
@@ -367,8 +370,9 @@ export const FactorNode = memo((props: NodeProps) => {
 
   // Connected outcomes count for external popover text
   const outcomesAffected = useMemo(() => {
-    return edges.filter(e => e.source === props.id).length
-  }, [edges, props.id])
+    const outcomeIds = new Set(nodes.filter(node => (node.type ?? node.data?.kind) === 'outcome').map(node => node.id))
+    return new Set(edges.filter(edge => edge.source === props.id && outcomeIds.has(edge.target)).map(edge => edge.target)).size
+  }, [nodes, edges, props.id])
 
   // ----- Coaching chip cluster -----
   // Computed once, then injected into preAnalysisLayer2 (so it appears in
@@ -539,7 +543,7 @@ export const FactorNode = memo((props: NodeProps) => {
           post-analysis ConnRows list is the live one and is untouched. */}
       {nodeCategory === 'external' && outcomesAffected > 0 && (
         <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
-          Uncertainty here affects {outcomesAffected} outcome{outcomesAffected !== 1 ? 's' : ''}.
+          Linked to {outcomesAffected} outcome{outcomesAffected !== 1 ? 's' : ''}.
         </p>
       )}
       {/* Coaching chips — moved out of body. They appear here in the
@@ -871,9 +875,9 @@ export const FactorNode = memo((props: NodeProps) => {
         {anchoringMessage && (
           <CoachingCard
             severity="warning"
-            message={`All options within 20% of ${anchoringMessage}. Anchored?`}
+            message={`Option settings are close to ${anchoringMessage}. Explore a wider range?`}
             linkLabel="Explore a wider range"
-            linkMessage={`My options seem anchored around ${anchoringMessage}. What wider range should I consider for ${cleanedLabel}?`}
+            linkMessage={`What wider range of settings for ${cleanedLabel} would be worth exploring, and what constraints would rule it out?`}
           />
         )}
 

@@ -118,6 +118,35 @@ describe('factor and goal content reaches the actual node and inspector', () => 
     expect(screen.queryByText('£90')).toBeNull()
   })
 
+  it('external context counts distinct outcome links, excluding risks, goals and dangling edges', () => {
+    const external = { ...factor, data: { ...factor.data, category: 'external', prior: { range_min: 0.4, range_max: 0.8 } } }
+    const consequence = { ...goal, id: 'consequence', type: 'outcome', data: { label: 'Renewals' } }
+    const risk = { ...goal, id: 'risk', type: 'risk', data: { label: 'Cancellations' } }
+    seed([external, consequence, risk, goal], { viewMode: 'expert', edges: [
+      { id: 'out', source: FACTOR, target: consequence.id },
+      { id: 'duplicate', source: FACTOR, target: consequence.id },
+      { id: 'risk-link', source: FACTOR, target: risk.id },
+      { id: 'goal-link', source: FACTOR, target: GOAL },
+      { id: 'dangling', source: FACTOR, target: 'missing' },
+    ] })
+    render(<ReactFlowProvider><FactorNode {...props} id={FACTOR} type="factor" data={external.data} /></ReactFlowProvider>)
+    expect(screen.getByText('Linked to 1 outcome.')).toBeDefined()
+  })
+
+  it.each([
+    { source: 'user', values: [0.56, 0.59, 0.62], expected: true },
+    { source: 'cee_inference', values: [0.56, 0.59, 0.62], expected: false },
+    { source: 'unknown-source', values: [0.56, 0.59, 0.62], expected: false },
+    { source: 'user', values: [0.9, 0.91, 0.92], expected: false },
+    { source: 'user', values: [0.56, 0.59, undefined], expected: false },
+  ])('wider-range coaching uses a stated reference and complete nearby settings: $source / $values', ({ source, values, expected }) => {
+    const current = { ...factor, data: { ...factor.data, observedState: { ...(factor.data.observedState as object), source } } }
+    seed([current], { viewMode: 'expert', ceeAnalysisReady: { options: values.map((value, i) => ({ id: `option-${i}`, interventions: { [FACTOR]: value } })) } })
+    render(<ReactFlowProvider><FactorNode {...props} id={FACTOR} type="factor" data={current.data} /></ReactFlowProvider>)
+    expect(screen.queryByText('Option settings are close to £59. Explore a wider range?') !== null).toBe(expected)
+    expect(screen.queryByText(/Anchored\?/)).toBeNull()
+  })
+
   it('a goal without a target exposes the recorded constraint before analysis, matching its inspector', async () => {
     seed([factor, goal], { goalConstraints: [{
       constraint_id: 'limit-price', node_id: FACTOR, operator: '<=', value: 49, unit: '£',
