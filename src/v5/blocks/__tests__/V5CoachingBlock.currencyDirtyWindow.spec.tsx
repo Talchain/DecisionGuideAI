@@ -59,6 +59,7 @@ import {
   classifyFreshnessForDisplay,
   type AnalysisFreshnessState,
 } from '../../../canvas/store/analysisFreshness'
+import type { FreshnessDisplaySemantic } from '../../../canvas/store/analysisFreshness'
 import { generateGraphHash } from '../../../canvas/utils/graphHash'
 import { adaptTypedCoachingBlock } from '../../phase3TypedBlocks'
 import { deriveCoachingCurrency } from '../coachingCurrency'

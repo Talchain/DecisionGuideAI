@@ -58,6 +58,7 @@ import {
   classifyFreshnessForDisplay,
   type AnalysisFreshnessState,
 } from '../../../canvas/store/analysisFreshness'
+import type { FreshnessDisplaySemantic } from '../../../canvas/store/analysisFreshness'
 import {
   adaptTypedReviewCardBlock,
   adaptTypedEvidenceBlock,
