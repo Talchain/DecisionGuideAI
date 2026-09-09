@@ -147,12 +147,36 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
         nodeValueSources,
         nodeLabels,
       }),
+    /**
+     * ⚠⚠ EVERY DECLARED INPUT, AND `staleReason` WAS THE ONE MISSING.
+     *
+     * `buildAnalysisNewViewModel` derives `status.staleKind` from it, so
+     * without it here the panel kept the PREVIOUS staleness sentence when the
+     * reason flipped — measured at this hook: 'unconfirmed' → 'changed' with
+     * every other input identical returned 'unconfirmed'.
+     *
+     * That is not cosmetic. `staleReason.ts` exists because one boolean was
+     * answering two questions — 'changed' is a claim about the WORLD,
+     * 'unconfirmed' a claim about our EVIDENCE — and the dock computes the two
+     * flags from two genuinely different authorities (`displayedFreshness` for
+     * `isStale`, `composedAnalysisState.trust.semantic` for this), so they move
+     * independently by construction. Omitting it made the correction
+     * conditional on some OTHER input happening to move in the same render.
+     *
+     * `__tests__/viewModelHonoursEveryInput.spec.tsx` exercises each scalar
+     * input rather than pinning this one. ⚠ Its `SCALAR_INPUTS` is HAND-WRITTEN
+     * and exhaustive against this interface only at this tip — it is not derived
+     * from it. Add an input here and you must add a row there, or the new input
+     * is unguarded and nothing goes red (CLAUDE.md trap 12 — that file is an
+     * instance of the mirror, not a cure for it).
+     */
     [
       data,
       recommendations,
       isPreRun,
       isRunning,
       isStale,
+      staleReason,
       nSamples,
       seedUsed,
       responseHash,
