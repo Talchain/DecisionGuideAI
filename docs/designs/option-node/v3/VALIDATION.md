@@ -1,6 +1,6 @@
 # Current delivery validation — 9 September 2026
 
-The initial follow-up is released; further candidates remain open below. No local test/build/install or new native-browser run was performed under the shared resource directive. Hosted gates establish test/build evidence, not the joined user journey.
+The option track’s completed candidates through #1362 are released. Remaining native acceptance and programme repairs are explicit below and in the [restart checkpoint](../RESTART-CHECKPOINT-20260909.md). No local test/build/install or new native-browser run was performed under the shared resource directive. Hosted gates establish test/build evidence, not the joined user journey.
 
 | Release | Exact reviewed head | Hosted Staging Gate | Merge / served evidence |
 |---|---|---|---|
@@ -11,6 +11,10 @@ The initial follow-up is released; further candidates remain open below. No loca
 | #1353, named reference, target recovery and retained-result currentness | `bd6d3cc60fe327270f5367c5448de17dafabf497` | `102332875003`, passed | `10d060f2`, immutable deploy `6aa0dd4c05452d0008fc14d6`, 04:16:46 UTC |
 | #1355, inspector read-only usability and correct option identity | `ff6f1e851af7b7481a9d1c7cfb9cc06fe9c2d640` | `102335546333`, passed | `78202540`, immutable deploy `6aa0deb2ea14b40008203a00`, 04:22:40 UTC |
 | #1356, comparative coaching question without a goal-attainment claim | `80e086ed62be6d4f31ebfdbaf0812730f4636ded` | `102338972742`, passed | `b61ae1fe`, immutable deploy `6aa0e2a720e324000852e92e`, 04:39:37 UTC |
+| #1357, shared metric explanations | `278936ee00793e7d5e1bf75108a1f64872b639c8` | `102344897280`, passed | `9c2923b5`, immutable deploy `6aa0ea944a52980008308176` |
+| #1360, support percentage absent while outcome ranges may exist | `8b37f4d17b409ab8f02973fb9fa6303c8279c815` | `102355626969`, passed | `2217b187`, immutable deploy `6aa0f641f74b510008b81c9e` |
+| #1358, preserve valid unrecognised reasoning observations | `77677f3cc4819006dba359bd9b64c19b6d46233d` | `102365665723`, passed | `71520554`, immutable deploy `6aa10e59b7f2940008bae2b2` |
+| #1362, Question framing and reduced-zoom fidelity | `9bef7bdf1600c62c1d3f435e774efa9097966375` | `102385051618`, passed | `0d809b7b`, immutable deploy `6aa11818a68e6f00089b0cfe` |
 
 Receipts: [#1342/#1344 release](https://github.com/Talchain/olumi-programme-docs/pull/38#issuecomment-5594863972), [served verification](https://github.com/Talchain/olumi-programme-docs/pull/38#issuecomment-5594880926), [#1343 served verification](https://github.com/Talchain/olumi-programme-docs/pull/38#issuecomment-5595106908).
 
@@ -20,7 +24,11 @@ Earlier #1353 runs found and repaired missing Detailed previews, an observed-val
 
 #1357's shared metric disclosure and design-system contract passed independent Canvas review at `278936ee`, all four full-test shards and Staging Gate `102344897280`. Mutable staging and immutable deploy `6aa0ea944a52980008308176` both served merge `9c2923b5` at 05:13 UTC on 9 September ([serving receipt](https://github.com/Talchain/DecisionGuideAI/pull/1357#issuecomment-5596186365)). The initial three legacy-test failures were repaired with actual hover/focus and accessible-name assertions; no quantity policy changed.
 
-Open: the underlying quantity-role/scale repair and composed native acceptance remain separately owned; correctly naming a baseline does not certify the formatter's proportional mapping. #1360 names a missing support percentage without implying that computed outcome ranges are absent; final revised-head validation and serving remain pending.
+#1360 now has [serving evidence](https://github.com/Talchain/DecisionGuideAI/pull/1360#issuecomment-5596637144); its missing-percentage state does not erase computed outcome ranges or a median of zero. #1358 has an [independent release and serving receipt](https://github.com/Talchain/DecisionGuideAI/pull/1358#issuecomment-5598181530); four pre-existing generic coaching prose sites remain separate. #1362 has an [independent release and serving receipt](https://github.com/Talchain/DecisionGuideAI/pull/1362#issuecomment-5598794329). Its final reviewed head has the same complete tree as the intended author head `f1bb1e95`; the release receipt also verifies the actual current-base integration. All required checks passed; existing security/visual failures were matched to the current base, not represented as successful tests or blanket-waived.
+
+At the restart checkpoint, direct version reads show mutable staging and immutable `6aa12590c705ea00084ae07d` serving `342ab3b5` (the subsequent #1365 restore acknowledgement), retaining these option releases. The #1362 immutable endpoint still serves `0d809b7b`. Version reads do not exercise interactions.
+
+Open: the underlying quantity-role/scale repair and composed native acceptance remain separately owned; correctly naming a baseline does not certify the formatter's proportional mapping. The original restored-model save and discussion failures remain unclosed until the full served fixes are exercised. No native rerun was started for restart preparation.
 
 | Acceptance | Authored check | Deployed artefact |
 |---|---|---|
