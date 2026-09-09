@@ -27,7 +27,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useCanvasStore } from '../store'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { runAnnouncementForTransition } from './analysisRunStatus'
-import { selectHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
+import { selectHasRenderableAnalysisResult } from '../ui/inspector-v2/useAnalysisResults'
 
 export interface AnalysisRunAnnouncerProps {
   /** The Analysis tab is fronted (dock open, results tab active). */
@@ -41,9 +41,9 @@ export function AnalysisRunAnnouncer({ analysisTabFronted }: AnalysisRunAnnounce
   // the honest resultless copy, never "Analysis complete."
   // The CONTENT check, not the envelope check. `settledWithoutNewReport`
   // answers "did a new report arrive"; this answers "does it carry anything".
-  // Routed through the one selector three other surfaces already consult, so
-  // the announcement cannot come to mean something different from them.
-  const hasRenderableResult = useCanvasStore(selectHasAnyRealProbability)
+  // The same content selector as the overall display state, not a probability
+  // widget's narrower guard. Withheld ranking can still carry real outcomes.
+  const hasRenderableResult = useCanvasStore(selectHasRenderableAnalysisResult)
   const settledWithoutNewReport = useCanvasStore(
     (s) => s.results?.settledWithoutNewReport ?? false,
   )

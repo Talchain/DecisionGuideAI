@@ -94,8 +94,8 @@ export const METHOD_CATALOGUE: MethodEntry[] = [
   {
     id: 'consider_opposite',
     title: 'Consider the opposite',
-    description: 'Build the strongest case against the current leader.',
-    prompt: 'Build the strongest honest case AGAINST the currently leading option. What evidence or reasoning would change my mind?',
+    description: 'Build the strongest case against the option that scored highest.',
+    prompt: 'Build the strongest honest case AGAINST the option that scored highest. What evidence or reasoning would change my mind?',
     // "What would change my mind?" is an assumption challenge, and it is the
     // same intent the engine's own `strengthen:robustness` trigger sends.
     intent: 'challenge_assumption',

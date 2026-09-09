@@ -49,12 +49,20 @@ import { AnalysisStateV1Schema, Stage } from '@talchain/schemas/boundary'
 import type { Edge, Node } from '@xyflow/react'
 
 import type { ReportV1 } from '../adapters/plot/types'
-import type { CEEAnalysisReady, CEEGoalConstraint } from '../adapters/cee/types'
+import type {
+  AnalysisAdmissionV1,
+  CEEAnalysisReady,
+  CEEGoalConstraint,
+} from '../adapters/cee/types'
 import type { CeeDecisionReviewPayloadV1 } from '../types/cee'
 import type { ScenarioStage } from '../types/scenario'
 import { logV5StateStep } from './debugLog'
 import { pulseAppliedTargets } from '../canvas/utils/appliedEditPulse'
-import { requestOlumiAttention, type OlumiAttentionNote } from '../canvas/utils/olumiAttention'
+import {
+  requestOlumiAttention,
+  type OlumiAttentionCaveat,
+  type OlumiAttentionNote,
+} from '../canvas/utils/olumiAttention'
 import { focusAssistantTarget } from '../canvas/utils/assistantFocusCamera'
 import {
   useUIStore,
@@ -66,7 +74,9 @@ import {
   readDecisionReviewWireState,
   type DecisionReview030,
 } from './decisionReviewAdapter'
-import { mapV5AnalysisToReport } from './mapV5AnalysisToReport'
+import { mapV5AnalysisToReport, buildV5VerdictReportLike } from './mapV5AnalysisToReport'
+import { deriveDecisionVerdict } from '../lib/decisionVerdict'
+import { licensesComparativeLeaderClaim } from '../canvas/hooks/useAnalysisReady'
 import { v5StageToScenarioStage } from './stageMapper'
 import {
   deriveAnalysisRefusalNoticeUpdate,
@@ -77,6 +87,7 @@ import {
   type LeaderClaimWithholdingReason,
 } from '../canvas/hydrate/applyScenarioAnalysisRead'
 import { ceeAnalysisReadyContainment } from '../canvas/utils/ceeAnalysisReadyValidation'
+import { readServerStatedStrength } from '../canvas/domain/edges'
 import { logger } from '../lib/logger'
 
 /**
@@ -113,6 +124,7 @@ export interface V5ApplicatorStore {
     constraints: CEEGoalConstraint[] | null,
     opts?: { fromProducerSync?: boolean },
   ) => void
+  setGoalThreshold?: (value: number | null, opts?: { fromCeeSync?: boolean; representation?: 'raw' | 'normalised' }) => void
   /**
    * Current goal constraints, read to UPSERT an `add_constraint` graph_patch's
    * constraint (replace by id, or append when new) without dropping the ones
@@ -784,6 +796,81 @@ function applyDecisionReviewToRunMeta(
   return true
 }
 
+/** Resolve CEE's canonical endpoint pair without confusing it with a client edge ID. */
+function resolveStrengthAcknowledgementEdge(
+  target: string,
+  before: Record<string, unknown> | null,
+  after: Record<string, unknown>,
+  edges: Edge[],
+): Edge | undefined {
+  const parts = target.split('→')
+  let endpoints: { from: string; to: string } | undefined
+  if (parts.length > 1) {
+    if (parts.length !== 2 || !isNonEmptyString(parts[0]) || !isNonEmptyString(parts[1])) return
+    endpoints = { from: parts[0], to: parts[1] }
+  }
+  for (const snapshot of [before, after]) {
+    if (!snapshot || (!('from' in snapshot) && !('to' in snapshot))) continue
+    if (!isNonEmptyString(snapshot.from) || !isNonEmptyString(snapshot.to)) return
+    if (endpoints && (endpoints.from !== snapshot.from || endpoints.to !== snapshot.to)) return
+    endpoints = { from: snapshot.from, to: snapshot.to }
+  }
+  const pair = endpoints
+  const matches = pair
+    ? edges.filter(edge => edge.source === pair.from && edge.target === pair.to)
+    : edges.filter(edge => edge.id === target)
+  if (matches.length !== 1) return
+  const edge = matches[0]
+  // A snapshot must not redirect a receipt naming a different client edge.
+  if (target !== edge.id && target !== `${edge.source}→${edge.target}`) return
+  return edge
+}
+
+/** Keep displayed values and the next edit's expected tuple on the accepted server value. */
+function strengthAcknowledgementData(
+  edge: Edge,
+  after: Record<string, unknown>,
+): Record<string, unknown> | null {
+  if (!('strength' in after) && !('strength_mean' in after) && !('effect_direction' in after)) {
+    // Legacy UI-shaped patches have no signed server tuple to record. Preserve
+    // existing data: updateEdgeData inserts undefined weight/belief when omitted.
+    return { ...edge.data, ...after }
+  }
+  const serverStrength = readServerStatedStrength(after)
+  if (!serverStrength) return null
+  const strength = after.strength as Record<string, unknown> | undefined
+  if (strength !== undefined && (strength === null || typeof strength !== 'object' || Array.isArray(strength))) return null
+  const std = strength?.std !== undefined ? strength.std : after.strength_std
+  if (std !== undefined && (typeof std !== 'number' || !Number.isFinite(std) || std < 0)) return null
+  return {
+    ...edge.data,
+    weight: Math.abs(serverStrength.mean),
+    direction: serverStrength.effect_direction,
+    // Raw fields stay coherent for pre-serverStrength consumers too.
+    strength_mean: serverStrength.mean,
+    effect_direction: serverStrength.effect_direction,
+    ...(strength ? { strength: { ...strength, mean: serverStrength.mean } } : {}),
+    ...(std !== undefined ? { strengthStd: std, strength_std: std } : {}),
+    serverStrength,
+  }
+}
+/**
+ * ⭐ THE ONE SENTENCE THIS FILE AUTHORS, AND WHY IT IS ALLOWED TO.
+ *
+ * It says nothing about the model and nothing about the user's decision. It
+ * says what the MARK ON SCREEN means — the same class of statement as the
+ * attention card's staleness notice, and the opposite of composing coaching
+ * beside a producer's finding.
+ *
+ * ⚠ VOCABULARY IS RULED, NOT STYLISTIC (Paul, repeatedly, most recently 8 Sep
+ * 2026). There is no race here: no winner, no leader, no lead, no leading
+ * option. The product reports A FREQUENCY — "scored highest" — and says plainly
+ * that scoring highest is not the same as being put forward.
+ */
+const LEADER_DESIGNATION_CAVEAT =
+  'Marked because it scored highest so far — not because Olumi is putting it ' +
+  'forward. This analysis cannot yet single out an option.'
+
 export function applyV5State(
   response: OlumiResponse,
   store: V5ApplicatorStore,
@@ -856,6 +943,7 @@ export function applyV5State(
   const attentionNodeIds: string[] = []
   const attentionEdgeIds: string[] = []
   let pendingAttentionNote: OlumiAttentionNote | null = null
+  let pendingAttentionCaveat: OlumiAttentionCaveat | null = null
   const pulsedEdgeIds: string[] = []
   // add_constraint patches are collected here and flushed to
   // setGoalConstraints ONCE after the loop: the store snapshot's
@@ -907,15 +995,19 @@ export function applyV5State(
             deferred.push({ reason: 'adjust_edge_strength_missing_after_or_target', block })
             break
           }
-          const edge = store.edges.find((e) => e.id === target)
+          const edge = resolveStrengthAcknowledgementEdge(target, block.before, after, store.edges)
           if (!edge) {
             deferred.push({ reason: 'adjust_edge_strength_target_not_found', block, detail: target })
             break
           }
-          // CEE's adjust_edge_strength carries weight/direction in `after`.
-          store.updateEdgeData(target, after as Record<string, unknown>)
-          applied.push(`graph_patch:adjust_edge_strength:${target}`)
-          pulsedEdgeIds.push(target)
+          const data = strengthAcknowledgementData(edge, after)
+          if (!data) {
+            deferred.push({ reason: 'adjust_edge_strength_invalid_after', block, detail: target })
+            break
+          }
+          store.updateEdgeData(edge.id, data)
+          applied.push(`graph_patch:adjust_edge_strength:${edge.id}`)
+          pulsedEdgeIds.push(edge.id)
           break
         }
         case 'add_constraint': {
@@ -945,6 +1037,27 @@ export function applyV5State(
               detail: 'after did not resolve to node_id + operator + finite value.',
             })
             break
+          }
+          // add_constraint is already committed at this point. A goal minimum
+          // also owns CEE's success-threshold channel; mirror its RAW receipt,
+          // never the attempted input or an upper-bound constraint. This closes
+          // the gap where the list saved 120k but a prior user target still
+          // shadowed it as 100k. Ordinary node mutation retains dirty/history
+          // semantics until a new run actually arrives.
+          const goal = store.nodes.find(n => n.id === target)
+          const goalKind = goal?.data?.kind ?? goal?.type
+          if (goal && goalKind === 'goal' && constraint.node_id === target &&
+              constraint.operator === '>=' && constraint.value > 0 &&
+              typeof constraint.unit === 'string' && constraint.unit.trim() !== '') {
+            const old = goal.data
+            const userValue = old.threshold_source === 'user'
+              ? { success_threshold: constraint.value } : {}
+            if (old.goal_threshold_raw !== constraint.value || old.goal_threshold_unit !== constraint.unit ||
+                (old.threshold_source === 'user' && old.success_threshold !== constraint.value)) {
+              store.updateNode(goal.id, { data: { ...old, ...userValue,
+                goal_threshold_raw: constraint.value, goal_threshold_unit: constraint.unit } })
+            }
+            store.setGoalThreshold?.(constraint.value, { fromCeeSync: true, representation: 'raw' })
           }
           // UPSERT by identity (P1-3). CEE updates an existing goal constraint
           // in place, retaining its constraint_id (add-constraint.ts) — so a
@@ -1156,6 +1269,101 @@ export function applyV5State(
               })()
             : null
 
+        /*
+         * ═════════════════════════════════════════════════════════════════
+         * ⛔ P0 — A DIRECTIVE MAY NOT MAKE A SILENT VISUAL CLAIM THE
+         *    MODEL IS NOT ENTITLED TO MAKE.
+         * ─────────────────────────────────────────────────────────────────
+         * ⭐ RULED 8 Sep 2026 (Paul): KEEP THE HIGHLIGHT, ADD A VISIBLE
+         * CAVEAT. This gate no longer suppresses the mark — it QUALIFIES it.
+         * See the caveat arm below for the reasoning; the derivation of WHO
+         * the front-runner is, and of whether the model is entitled to say
+         * so, is unchanged and is documented here.
+         * ═════════════════════════════════════════════════════════════════
+         * Measured on deployed staging: inside ONE HTTP 200 the assistant
+         * text said "No single option can be put forward yet" (twice) while
+         * a `ui_directive` highlighted the leading option, and the canvas
+         * obeyed. Every TEXTUAL designation already withholds correctly —
+         * the "Leading option" pill, the robustness badge, "Leads via",
+         * "Behind:", the close-call marker, the decision headline and bar.
+         * The highlight was the one un-ruled hole, and it is the worst kind:
+         * A SILENT VISUAL CLAIM, because nothing on screen admits that a
+         * claim is being made. Note the precise defect — SILENT, not
+         * VISUAL. That is why the ruled fix is to make it speak rather than
+         * to take it away.
+         *
+         * ─────────────────────────────────────────────────────────────────
+         * WHICH QUESTION THIS GATE ANSWERS (trap 21 is live in this seam —
+         * two PRs a day apart once closed this harm and reopened it because
+         * each answered a different question under a similar name):
+         *
+         *   ⭐ "MAY THIS TURN VISUALLY SINGLE OUT THE HIGHEST-SCORING OPTION
+         *      ON THE CANVAS WITHOUT QUALIFICATION?"
+         *
+         * That is Q1 — the MODEL'S LICENCE — applied to the IDENTITY case.
+         * NOT Q2 ("did this run separate the arms?"), and NOT the panel's
+         * composition of both.
+         *
+         * ⚠ Q2 IS DELIBERATELY ABSENT FROM THE CONDITION, and that is the
+         * load-bearing decision. `decisionVerdict.ts` states the rule this
+         * follows: *"a non-null `leaderId` does NOT license the phrase
+         * 'leading option' — identity and entitlement are different
+         * questions."* So `leaderId` is consulted for IDENTITY ONLY, which
+         * is precisely its documented purpose. Conjoining
+         * `hasLeadingOption` here would REOPEN the P0 through the other
+         * door: on a run that did not separate the arms Q2 is false, the
+         * gate would not fire, and the front-runner would still be pulsed
+         * while the panel withheld every designation.
+         *
+         * ─────────────────────────────────────────────────────────────────
+         * ONE READER, IMPORTED — never re-spelled.
+         * `licensesComparativeLeaderClaim` is the codebase's single answer
+         * to Q1 and every textual surface reads it. A second local
+         * expression of the same question is how two authorities drift
+         * apart, which is the defect this estate keeps paying for.
+         *
+         * ABSENCE ARM PRESERVED: `licensesComparativeLeaderClaim(undefined)`
+         * is `true` ON PURPOSE — a pre-admission CEE has not spoken, so the
+         * UI behaves exactly as it did before and the two services stay free
+         * to deploy in either order. A missing carrier must never become a
+         * silent suppression.
+         *
+         * ─────────────────────────────────────────────────────────────────
+         * ⚠ BOTH INPUTS COME FROM THIS ENVELOPE, AND THEY MUST.
+         * This arm runs in STEP 2 (the block loop). `ceeAnalysisReady` is
+         * written in STEP 4 and `results.report` in STEP 5 — BOTH AFTER — so
+         * reading the store here would gate on the PREVIOUS turn's
+         * admission, which answers a different question again.
+         * `V5ApplicatorStore` also exposes only WRITES for those slices.
+         * KNOWN, DELIBERATE GAP (pinned by a test, not hidden): a turn
+         * carrying a highlight but no `analysis_result` block has no
+         * in-envelope leader identity, so nothing is gated.
+         */
+        const envelopeAdmission = (
+          response as { analysis_ready?: { analysis_admission?: AnalysisAdmissionV1 } }
+        ).analysis_ready?.analysis_admission
+        const modelLicensesComparativeClaim =
+          licensesComparativeLeaderClaim(envelopeAdmission)
+        /*
+         * The producer's OWN sentence for why it refused, rendered verbatim
+         * beneath the caveat. `reasons` is contractually never empty on a
+         * refusal, so this is the honest WHY — and reading it here means the
+         * UI never has to invent one. `undefined` when the producer said
+         * nothing, in which case the caveat stands on its own.
+         */
+        const admissionReasonLine = envelopeAdmission?.reasons?.find(
+          (r): r is { field: string; message: string } =>
+            typeof r?.message === 'string' && r.message.trim().length > 0,
+        )?.message.trim()
+        const envelopeAnalysisBlock = response.blocks.find(
+          (b): b is Extract<V5Block, { type: 'analysis_result' }> =>
+            b.type === 'analysis_result',
+        )
+        const frontRunnerOptionId =
+          envelopeAnalysisBlock === undefined
+            ? null
+            : deriveDecisionVerdict(buildV5VerdictReportLike(envelopeAnalysisBlock)).leaderId
+
         let singleTargetActioned = false
         for (const t of targets) {
           if (!t?.id) continue
@@ -1172,6 +1380,74 @@ export function applyV5State(
             continue
           }
           if (verb === 'highlight') {
+            /*
+             * ⛔ THE DESIGNATION GATE. Placed BEFORE the note/pulse fork so
+             * it covers BOTH highlight sub-paths: the 2s ring AND the held
+             * attention channel. The attention channel is the more prominent
+             * of the two (a persistent marker, not a fading pulse), so
+             * gating one and not the other would leave the louder half open.
+             *
+             * SCOPED PRECISELY — this is a DESIGNATION, not navigation:
+             *   · `highlight` only. `focus` and `open_inspector` take the
+             *     user somewhere; they assert no ranking. Over-gating them
+             *     would break legitimate assistant behaviour, which is a
+             *     worse defect than the one being closed.
+             *   · The FRONT-RUNNER only. Any other option, and any factor,
+             *     still highlights normally under the same refusal.
+             *   · NODES only. `!isEdge` is explicit: a leading option is an
+             *     option node, and an edge id must never be compared into
+             *     the option identity space.
+             *
+             * DEFERRED WITH A STATED REASON rather than dropped silently, so
+             * `applied[]` stays truthful and the withholding is visible to
+             * anyone reading the applicator's result.
+             */
+            if (
+              !modelLicensesComparativeClaim &&
+              !isEdge &&
+              frontRunnerOptionId !== null &&
+              t.id === frontRunnerOptionId
+            ) {
+              /*
+               * ⭐ PAUL'S RULING, 8 Sep 2026: KEEP THE HIGHLIGHT, ADD A VISIBLE
+               * CAVEAT. The first build of this gate SUPPRESSED the mark. That
+               * closed the silent-visual-claim defect by removing the signal
+               * altogether, and lost the useful half with it — the user could
+               * no longer see which option the numbers currently favour.
+               *
+               * The harm was never the mark. It was that the mark made a claim
+               * NOTHING ON SCREEN ADMITTED TO. So the fix is to make the claim
+               * speak: the highlight stays exactly as it was (the pulse still
+               * fires, below), and the same target is ALSO held with a caveat
+               * card that says what the mark does and does not mean.
+               *
+               * ⚠ THE CAVEAT IS NOT A `note`. `note` is the producer's own
+               * coaching, rendered verbatim; a UI-authored sentence in that
+               * channel is the fabricated-coaching defect. `caveat` is a
+               * separate field for exactly this — a disclosure about the MARK,
+               * in the UI's voice, the same class as the card's existing
+               * staleness notice. The WHY beneath it is the producer's own
+               * `reasons` sentence, verbatim.
+               *
+               * ⚠ AND BOTH CHANNELS, DELIBERATELY. The node goes to held
+               * attention (so the card has an anchor and persists while the
+               * user reads it) AND to the pulse (so the highlight the producer
+               * asked for is unchanged). `olumiAttention.ts` states that a node
+               * may legitimately be in both at once; this is that case.
+               */
+              pendingAttentionCaveat = {
+                text: LEADER_DESIGNATION_CAVEAT,
+                ...(admissionReasonLine === undefined
+                  ? {}
+                  : { sourceLine: admissionReasonLine }),
+              }
+              attentionNodeIds.push(t.id)
+              if (attentionNote) pendingAttentionNote = attentionNote
+              pulsedNodeIds.push(t.id)
+              applied.push(`ui_directive:highlight:${t.id}`)
+              applied.push(`ui_directive:leader_designation_caveated:${t.id}`)
+              continue
+            }
             /*
              * ⭐ A HIGHLIGHT THAT CARRIES A NOTE IS ATTENTION, NOT AN
              * ACKNOWLEDGEMENT — and the two have different lifetimes.
@@ -1287,6 +1563,7 @@ export function applyV5State(
       nodeIds: attentionNodeIds,
       edgeIds: attentionEdgeIds,
       note: pendingAttentionNote,
+      caveat: pendingAttentionCaveat,
     })
   }
   // Flush any add_constraint patches in ONE setGoalConstraints write (see

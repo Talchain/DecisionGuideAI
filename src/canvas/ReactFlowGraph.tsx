@@ -48,7 +48,6 @@ import type { ContextTarget } from './contextMenu/types'
 import type { NodeType } from './domain/nodes'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
 import { CanvasViewportControls } from '../components/layout/CanvasViewportControls'
-import { ModelExtentNotice } from './components/ModelExtentNotice'
 import { FirstModelNotice } from './components/FirstModelNotice'
 import { OlumiAttentionCard } from './components/OlumiAttentionCard'
 import { RightPanel } from '../components/layout/RightPanel'
@@ -2722,7 +2721,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       <AssistantFocusChip />
       <FocusModeChip />
       <FirstModelNotice />
-      <ModelExtentNotice />
       <CanvasViewportControls
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}

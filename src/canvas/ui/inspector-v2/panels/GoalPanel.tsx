@@ -4,6 +4,7 @@
  */
 
 import { memo, useState, useMemo, useCallback } from 'react'
+import { goalConstraintText } from '../../../utils/goalConstraintText'
 import { useCanvasStore } from '../../../store'
 import { useGoalConstraints, useConditionalProbabilities } from '../useAnalysisResults'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
@@ -495,6 +496,7 @@ export const GoalPanel = memo(function GoalPanel({
                   </p>
                 )}
                 {goalConstraints.map((c, i) => {
+                  const constraintText = goalConstraintText(c, nodes)
                   const prob = typeof c.probability === 'number' ? c.probability : null
                   const colourClass = prob === null
                     ? 'border-info/30'
@@ -502,7 +504,7 @@ export const GoalPanel = memo(function GoalPanel({
                   return (
                     <div key={c.constraint_id ?? c.id ?? i} className={`px-2.5 py-1.5 bg-panel border ${colourClass} rounded-lg`}>
                       <div className="flex items-center justify-between gap-2">
-                        <span className={`${typography.panelBody} text-text-body truncate`}>{c.label ?? `Constraint ${i + 1}`}</span>
+                        <span className={`${typography.panelBody} text-text-body break-words`}>{constraintText}</span>
                         {prob !== null && (
                           <span className={`${typography.panelMeta} shrink-0 ${
                             prob >= 0.7 ? 'text-success' : prob >= 0.4 ? 'text-warning' : 'text-danger'
@@ -520,7 +522,7 @@ export const GoalPanel = memo(function GoalPanel({
                         <div className="mt-1">
                           <DataBar
                             value={prob}
-                            label={c.label ?? `Constraint ${i + 1}`}
+                            label={constraintText}
                             size="standard"
                           />
                         </div>

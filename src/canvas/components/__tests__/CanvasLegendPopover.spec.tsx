@@ -17,6 +17,7 @@ import {
 import { DECISION_NODE_LABEL } from '../../domain/vocabulary'
 import { METRIC_NOUN, METRIC_LEGEND_ROWS, METRIC_UNSET } from '../../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../../store'
+import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH } from '../../utils/graphDisplayCalculations'
 
 /**
  * ⭐ THE PHASE IS NOW A RENDER INPUT, SO EVERY TEST IN THIS FILE HAS A PHASE —
@@ -235,23 +236,44 @@ describe('CanvasLegendPopover — colour and honest blanks (R6 / L-49)', () => {
   /**
    * The row's caption is a claim ABOUT ITS OWN SWATCH, so the text assertion
    * above cannot check it. This shipped for a review cycle with a hard-coded
-   * body-coloured stroke: at 1.5px it is the same WIDTH as "Weak effect", so
-   * colour is the only discriminator, and the two rows rendered pixel-identical
-   * while the caption said "grey". Assert the stroke, and assert the two rows
-   * DIFFER — a discriminating pair, not one reading in isolation.
+   * body-coloured stroke: the two rows rendered pixel-identical while the
+   * caption said "grey". Assert the stroke, and assert the two rows DIFFER — a
+   * discriminating pair, not one reading in isolation.
+   *
+   * ⭐ UPDATED 8 Sep 2026, AND THE WIDTH ASSERTION IS NOW INVERTED. It used to
+   * read `expect(unset...).toBe(weak...)` with the comment "Same width — which
+   * is precisely why the colour has to carry the meaning". That was a true
+   * guard on a real defect: `UNSET_EDGE_STROKE_WIDTH` equalled the weakest
+   * measured band, so the legend could only be honest via colour. The canvas
+   * now draws an unset strength strictly THINNER than any measurement, so this
+   * guard flips: the caption says "thin and grey" and BOTH halves must now be
+   * true of the swatch. Asserting sameness here would re-pin the defect.
+   *
+   * Widths are read from the imported constants, never from literals — the
+   * legend derives its swatches from the same source, so a literal here would
+   * be a mirror of a mirror.
    */
-  it('draws the unset swatch grey, and distinguishably from "Weak effect"', () => {
+  it('draws the unset swatch grey AND thinner than "Weak effect"', () => {
     open()
     const unset = document.querySelector('[data-testid="legend-thickness-unset"] line') as SVGLineElement
     const weak = document.querySelector('[data-testid="legend-thickness-weak"] line') as SVGLineElement
     expect(unset).toBeTruthy()
     expect(weak).toBeTruthy()
 
+    // GREY — the row says "thin and grey"; this is the "grey".
     expect(unset.getAttribute('stroke')).toBe('var(--edge-neutral)')
-    // Same width — which is precisely why the colour has to carry the meaning.
-    expect(unset.getAttribute('stroke-width')).toBe(weak.getAttribute('stroke-width'))
-    // …and therefore the two swatches must not be identical.
     expect(unset.getAttribute('stroke')).not.toBe(weak.getAttribute('stroke'))
+
+    // THIN — bound to the constants, and asserted as an ORDERING so it cannot
+    // pass on two arbitrary different numbers.
+    const unsetW = Number(unset.getAttribute('stroke-width'))
+    const weakW = Number(weak.getAttribute('stroke-width'))
+    expect(unsetW, 'the unset swatch does not render the canvas\'s unset width').toBe(UNSET_EDGE_STROKE_WIDTH)
+    expect(weakW, 'the weak swatch does not render the canvas\'s weak band').toBe(EDGE_STROKE_WIDTH_BANDS.weak)
+    expect(
+      unsetW,
+      'the legend draws "no strength suggested" at or above the weakest measured band — it is teaching the reader to mistake a blank for a finding',
+    ).toBeLessThan(weakW)
   })
 
   it('still teaches direction, and still says Raises / Lowers', () => {

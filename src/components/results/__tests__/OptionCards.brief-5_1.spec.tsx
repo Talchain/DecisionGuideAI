@@ -126,11 +126,12 @@ describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
       makeOption({ id: 'opt-b', label: 'Option B', isRecommended: false, rank: 2, winProbability: 0.35 }),
     ]
     // Brief 5.4 Phase 7: winner chip is tier-driven. Pass strong tier to assert the
-    // definitive "What makes this lead?" label; non-winner label is tier-invariant.
+    // definitive "What makes this the best-supported option?" label; non-winner
+    // label is tier-invariant.
     render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="strong" />)
 
     // Winner renders the strong-tier chip; non-winner always uses the forward-looking copy.
-    expect(screen.getByText('What makes this lead?')).toBeInTheDocument()
+    expect(screen.getByText('What makes this the best-supported option?')).toBeInTheDocument()
     expect(screen.getByText('What would make this better supported?')).toBeInTheDocument()
   })
 
@@ -143,7 +144,7 @@ describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
     ]
     render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="fair" recommendationStability={0.90} />)
 
-    expect(screen.getByText('What makes this lead?')).toBeInTheDocument()
+    expect(screen.getByText('What makes this the best-supported option?')).toBeInTheDocument()
     expect(screen.queryByText('What makes this best supported?')).not.toBeInTheDocument()
     expect(screen.getByText('What would make this better supported?')).toBeInTheDocument()
   })
@@ -158,7 +159,7 @@ describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
     render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="fair" recommendationStability={0.75} />)
 
     expect(screen.getByText('What makes this best supported?')).toBeInTheDocument()
-    expect(screen.queryByText('What makes this lead?')).not.toBeInTheDocument()
+    expect(screen.queryByText('What makes this the best-supported option?')).not.toBeInTheDocument()
   })
 
   it('Brief 5.4 QA P4: winner chip hedges for needs_work tier without stability (absent = weak)', () => {
@@ -170,7 +171,7 @@ describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
     render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="needs_work" />)
 
     expect(screen.getByText('What makes this best supported?')).toBeInTheDocument()
-    expect(screen.queryByText('What makes this lead?')).not.toBeInTheDocument()
+    expect(screen.queryByText('What makes this the best-supported option?')).not.toBeInTheDocument()
     expect(screen.getByText('What would make this better supported?')).toBeInTheDocument()
   })
 

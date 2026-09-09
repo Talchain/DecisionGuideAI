@@ -16,7 +16,15 @@
  */
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { EvidenceGapBadge } from '../EvidenceGapBadge'
+import { EvidenceGapBadge, ESCALATION_TOOLTIP } from '../EvidenceGapBadge'
+
+/**
+ * ⚠ THE COPY IS DERIVED, SO IT MUST BE ESCAPED BEFORE IT BECOMES A PATTERN.
+ * These sentences contain `.` and `'`; a raw `new RegExp(text)` would let a dot
+ * match any character — a matcher looser than the string it was built from, i.e.
+ * a guard that quietly stops discriminating (CLAUDE.md trap 13b).
+ */
+const escapeForRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 describe('EvidenceGapBadge — meaning reaches assistive tech and the keyboard', () => {
   it('exposes its meaning as a named graphic, not an unnamed div', () => {
@@ -43,7 +51,9 @@ describe('EvidenceGapBadge — meaning reaches assistive tech and the keyboard',
     // `title` needs a pointer. On touch and by keyboard the escalation copy was
     // unreachable, on a 20px transparent target.
     render(<EvidenceGapBadge label="Annual Platform Cost" escalation="critical" />)
-    expect(screen.getByRole('img', { name: /Critical evidence gap/ })).toHaveAttribute('tabindex', '0')
+    expect(
+      screen.getByRole('img', { name: new RegExp(escapeForRegExp(ESCALATION_TOOLTIP.critical)) }),
+    ).toHaveAttribute('tabindex', '0')
   })
 
   it('carries the ESCALATION in the name, not only in the colour', () => {
@@ -51,7 +61,7 @@ describe('EvidenceGapBadge — meaning reaches assistive tech and the keyboard',
     // Colour alone is not a channel every user has.
     render(<EvidenceGapBadge label="Runway" escalation="warning" />)
     expect(
-      screen.getByRole('img', { name: /High investigation value/ }),
+      screen.getByRole('img', { name: new RegExp(escapeForRegExp(ESCALATION_TOOLTIP.warning)) }),
     ).toBeInTheDocument()
   })
 

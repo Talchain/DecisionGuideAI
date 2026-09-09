@@ -117,14 +117,17 @@
  *      which is declared by `GoalNodeDataSchema` at all; they ride passthrough.
  *      The store scalar is the narrower, typed, single-writer carrier
  *      (`setGoalThresholdAndUpdateNode`), so it is what this projection reads —
- *      but a v2 goal row and today's goal card CAN disagree on a graph where the
- *      node keys and the scalar have drifted. Reconciling them is a question for
- *      whoever mounts this, not something to paper over here.
+ *      This historical split is closed for stated node targets: the row now
+ *      reads the same resolveGoalTarget authority as the goal card, including
+ *      its unit. The legacy scalar is only a fallback when the node has none.
  */
 
 import type { Edge, Node } from '@xyflow/react'
 import { readFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { goalLabelIsUnconfirmedBriefExtract } from '../domain/goalLabelProvenance'
+import { resolveGoalTarget } from '../domain/goalTarget'
+import { isUnquantifiedPrior } from '../domain/nodes'
+import { hasAnyStatedValue } from '../utils/observedStateHelpers'
 import type { EdgeData } from '../domain/edges'
 import type { ObservedState } from '../domain/nodes'
 // ⚠ The model-tab's NARROWER twin — see `narrowObservedState`. Both are imported
@@ -581,6 +584,10 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
     }
 
     if (kind === 'goal') {
+      const target = resolveGoalTarget(data)
+      const targetText = target
+        ? `${typeof target.raw === 'number' ? formatSmartNumber(target.raw) : target.raw}${target.unit ? ` ${target.unit}` : ''}`
+        : input.goalThreshold === null ? null : formatSmartNumber(input.goalThreshold)
       rows.push({
         id: node.id,
         kind,
@@ -588,8 +595,8 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         label,
         labelFromBrief: goalLabelIsUnconfirmedBriefExtract(data),
         // Raw user units — see `ModelProjectionInput.goalThreshold`.
-        primaryValue: input.goalThreshold === null ? null : formatSmartNumber(input.goalThreshold),
-        attention: input.goalThreshold === null ? ['no-value'] : [],
+        primaryValue: targetText,
+        attention: targetText === null ? ['no-value'] : [],
         editable: true,
       })
       continue
@@ -839,6 +846,13 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
     return {
       rowId,
       description: typeof data?.description === 'string' ? data.description : null,
+      /* ⚠ BOTH LIMBS, AND BOTH ARE THE CANVAS NODE'S OWN. The flag describes the
+         PRIOR; the sentence describes the ROW. A factor that later gained a
+         value is not "unquantified" whatever its prior says. */
+      priorIsExplicitlyUnquantified:
+        node.type === 'factor' &&
+        isUnquantifiedPrior(data?.prior) &&
+        !hasAnyStatedValue(data),
       secondaryValues: secondary,
       // ⚠⚠ F1, AND IT IS THIS COMMIT'S OWN THESIS TURNED ON ITSELF. The
       // previous commit fixed the IDENTICAL expression in the repair-queue
@@ -868,6 +882,8 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
   return {
     rowId,
     description: typeof data?.label === 'string' ? data.label : null,
+    // An edge carries no prior, so the question does not arise.
+    priorIsExplicitlyUnquantified: false,
     secondaryValues: [],
     basis: edgeProvenanceBasis(data?.provenance),
     adjustments: [],

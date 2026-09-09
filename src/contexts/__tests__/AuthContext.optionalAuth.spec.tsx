@@ -515,4 +515,44 @@ describe('AuthContext × guest posture — auth stays OPTIONAL', () => {
     })
     expect(supabaseSignOut).toHaveBeenCalledTimes(1)
   })
+
+  it('account adoption clears previous private decision notes before exposing the next user', async () => {
+    const session = (id: string) => ({ user: { id, email: `${id}@example.com`, app_metadata: {}, user_metadata: {} }, access_token: 'fixture' })
+    getSession.mockResolvedValue({ data: { session: session('account-a') } })
+    await renderGuestProvider()
+    const records = await import('../../components/results/modals/decisionRecordStore')
+    const record = {
+      optionId: 'opt-a', optionLabel: 'A', optionNumber: 1, confidence: 70,
+      rationale: 'Private A notes', assumptionToWatch: 'A assumption', revisitTrigger: 'Tomorrow',
+      analysisHash: null, savedAt: 123,
+    }
+    const capture = records.useDecisionRecordStore.getState().saveRecord('shared-scenario', record)!
+    expect(records.useDecisionRecordStore.getState().byScenario['shared-scenario'].rationale).toBe('Private A notes')
+    const callback = onAuthStateChange.mock.calls[0][0]
+    await act(async () => { callback('SIGNED_IN', session('account-b')) })
+    expect(screen.getByTestId('user-id')).toHaveTextContent('account-b')
+    expect(records.useDecisionRecordStore.getState().byScenario).toEqual({})
+    expect(Object.keys(localStorage).filter(key => key.includes(':record:'))).toEqual([])
+    expect(records.useDecisionRecordStore.getState().isCurrentCapture('shared-scenario', capture)).toBe(false)
+    expect(records.useDecisionRecordStore.getState().saveRecord('shared-scenario', { ...record, rationale: 'Private B notes' })).not.toBeNull()
+  })
+
+  it('the real sign-out action revokes both decision-record memory and disk', async () => {
+    getSession.mockResolvedValue({ data: { session: {
+      user: { id: 'account-a', email: 'a@example.com', app_metadata: {}, user_metadata: {} }, access_token: 'fixture',
+    } } })
+    supabaseSignOut.mockResolvedValue({ error: null })
+    const ctx = await renderGuestProvider()
+    const records = await import('../../components/results/modals/decisionRecordStore')
+    const capture = records.useDecisionRecordStore.getState().saveRecord('shared-scenario', {
+      optionId: 'a', optionLabel: 'A', optionNumber: 1, confidence: 70,
+      rationale: 'Private', assumptionToWatch: 'Assumption', revisitTrigger: 'Tomorrow', analysisHash: null, savedAt: 123,
+    })!
+    expect(Object.keys(localStorage).some(key => key.includes(':record:'))).toBe(true)
+    await act(async () => { await ctx.signOut!() })
+    expect(supabaseSignOut).toHaveBeenCalledTimes(1)
+    expect(records.useDecisionRecordStore.getState().byScenario).toEqual({})
+    expect(Object.keys(localStorage).some(key => key.includes(':record:'))).toBe(false)
+    expect(records.useDecisionRecordStore.getState().isCurrentCapture('shared-scenario', capture)).toBe(false)
+  })
 })

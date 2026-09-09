@@ -18,7 +18,8 @@ import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useNodeMutations } from '../useInspectorMutations'
 import { shouldShowNormalised } from '../normalisedDisplay'
-import { unwrapInterventionValue, classifyUnit } from '../../../utils/labelUtils'
+import { unwrapInterventionValue } from '../../../utils/labelUtils'
+import { getFactorOptionRows } from '../../../utils/factorOptionSetting'
 import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
 import {
   GROUP_LABELS,
@@ -38,6 +39,11 @@ import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
+import {
+  investigationValueTier,
+  INVESTIGATION_VALUE_LABEL,
+  INVESTIGATION_VALUE_INVITATION,
+} from '../../../domain/investigationValue'
 import { resolveCoaching } from '../coachingConfig'
 import { FactorControllableEditor } from '../editors/FactorControllableEditor'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
@@ -59,21 +65,6 @@ import { useCitedEvidence } from '../../../../collab/citedEvidenceCache'
 import { CitedEvidenceNote } from '../../../../collab/CitedEvidenceNote'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 
-/**
- * Extract a non-empty string intervention value, accepting either a bare
- * string or a `{ value: string }` object. Used by the connections badge
- * which renders qualitative interventions verbatim. Returns null when no
- * non-empty string is present (so the caller can fall back to "no badge").
- */
-function extractStringIntervention(raw: unknown): string | null {
-  if (typeof raw === 'string') return raw.trim() === '' ? null : raw
-  if (raw != null && typeof raw === 'object' && 'value' in raw) {
-    const v = (raw as { value: unknown }).value
-    if (typeof v === 'string') return v.trim() === '' ? null : v
-  }
-  return null
-}
-
 export const FactorControllablePanel = memo(function FactorControllablePanel({
   nodeId,
   techMode,
@@ -82,6 +73,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
 }: InspectorPanelProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
+  const ceeOptions = useCanvasStore(s => s.ceeAnalysisReady?.options)
   const resultsStatus = useCanvasStore(s => s.results?.status)
   const isResultsMode = resultsStatus === 'complete'
 
@@ -89,6 +81,17 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   const mutations = useNodeMutations(nodeId ?? '')
   const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
+
+  /**
+   * ⭐ ONE LADDER, SHARED. The tier decision used to be typed out twice in this
+   * file and four more times in the two sibling factor panels — six copies of
+   * `>= 0.7` / `>= 0.4` over one field. The WORDS below stay here, because they
+   * differ by factor category on purpose; only the boundary moved.
+   */
+  const voiTier =
+    displayMetadata.valueOfInformation === null
+      ? null
+      : investigationValueTier(displayMetadata.valueOfInformation)
 
   // Shared display text with FactorNode and the debug bundle — routes through
   // formatFactorDisplayValue. See the priority order on
@@ -327,46 +330,11 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
     [commitValue, elicitation],
   )
 
-  // Connections: options that set this + outbound influences
-  const setByOptions = useMemo(() => {
-    return edges
-      .filter(e => e.target === nodeId)
-      .map(e => {
-        const src = nodes.find(n => n.id === e.source)
-        const kind = (src?.type || src?.data?.kind || 'factor') as NodeType
-        if (kind !== 'option') return null
-        // Interventions may be stored as plain numbers (legacy/analysis_ready),
-        // as UIInterventionValue/CEEInterventionV3 objects ({ value, source,
-        // ... }), or — for qualitative factors — as plain strings or
-        // {value: string} objects. unwrapInterventionValue handles the numeric
-        // path; the string-pass-through branch below covers the rest.
-        // The connections badge is one of the few intervention display sites
-        // that can render strings verbatim — the editable / arithmetic sites
-        // (OptionPanel, OptionAdvancedEditor, FactorNode hover) require finite
-        // numbers and correctly drop string entries.
-        const ivs = (src?.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
-        const raw = ivs?.[nodeId ?? '']
-        const { value: interventionValue, displayValue: interventionDisplayValue } = unwrapInterventionValue(raw)
-        const interventionStringValue =
-          interventionValue == null ? extractStringIntervention(raw) : null
-        return {
-          nodeId: e.source,
-          label: resolveElementLabel(src?.data),
-          interventionValue,
-          interventionDisplayValue,
-          interventionStringValue,
-          unit,
-        }
-      })
-      .filter(Boolean) as Array<{
-        nodeId: string
-        label: string
-        interventionValue: number | null
-        interventionDisplayValue: string | null
-        interventionStringValue: string | null
-        unit?: string
-      }>
-  }, [edges, nodes, nodeId, unit])
+  // Full counterpart of the factor preview, including options without a setting.
+  const setByOptions = useMemo(
+    () => getFactorOptionRows(nodeId ?? '', nodes, ceeOptions, obs),
+    [nodeId, nodes, ceeOptions, obs],
+  )
 
   const influences = useMemo(() => {
     return edges
@@ -507,17 +475,19 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
                   <p className={`${typography.panelBody} text-text-body mt-1`}>{sensitivityGuidance}</p>
                 )}
               </div>
-              {displayMetadata.valueOfInformation !== null && (
+              {/* ⚠ BOTH CONJUNCTS, AND THE FIRST ONE IS NOT REDUNDANT. `voiTier`
+                  is derived from this value, so a human reads the second as
+                  implying the first — but TypeScript does not narrow through a
+                  derived local, and `DataBar` takes `number`, not `number | null`.
+                  Dropping either one is a type error, which is the compiler
+                  making the same point. */}
+              {displayMetadata.valueOfInformation !== null && voiTier !== null && (
                 <div>
                   <DataBar
                     value={displayMetadata.valueOfInformation}
                     label={INLINE_LABELS.investigationValue}
                     colour="info"
-                    trailingLabel={
-                      displayMetadata.valueOfInformation >= 0.7 ? 'High'
-                      : displayMetadata.valueOfInformation >= 0.4 ? 'Medium'
-                      : 'Low'
-                    }
+                    trailingLabel={INVESTIGATION_VALUE_LABEL[voiTier]}
                   />
                   {/* Its own label, in the same place ImportanceBar puts its own —
                       without it, that bar's label reads as this bar's. */}
@@ -525,11 +495,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
                     {INLINE_LABELS.investigationValue}
                   </div>
                   <p className={`${typography.panelMeta} text-text-light mt-1`}>
-                    {displayMetadata.valueOfInformation >= 0.7
-                      ? 'Gathering more evidence here could significantly improve confidence.'
-                      : displayMetadata.valueOfInformation >= 0.4
-                      ? 'Additional evidence here would moderately sharpen the analysis.'
-                      : 'Further investigation here is unlikely to change the outcome.'}
+                    {INVESTIGATION_VALUE_INVITATION.evidence}
                   </p>
                 </div>
               )}
@@ -664,21 +630,12 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       <PanelGroup kind="connections" label={GROUP_LABELS.connections}>
         {setByOptions.length > 0 && (
           <>
-            <div className={`${typography.panelMeta} text-text-light mb-1`}>Set by options:</div>
+            <div className={`${typography.panelMeta} text-text-light mb-1`}>Option values:</div>
             {setByOptions.map(o => {
-              // Precedence: CEE display_value (verbatim) > numeric (unit-prefixed
-              // or bare) > qualitative string fallback. F.6 passthrough: when CEE
-              // authored a label, render it without numeric re-formatting.
-              const badgeContent = o.interventionDisplayValue
-                ? o.interventionDisplayValue
-                : o.interventionValue != null
-                  ? (o.unit && classifyUnit(o.unit).kind !== 'placeholder' ? `${o.unit}${o.interventionValue.toLocaleString()}` : o.interventionValue)
-                  : o.interventionStringValue != null
-                    ? o.interventionStringValue
-                    : null
+              const badgeContent = o.displayValue
               return (
                 <ConnectionRow
-                  key={o.nodeId}
+                  key={o.id}
                   nodeKind="option"
                   label={o.label}
                   badge={badgeContent != null ? (
@@ -688,7 +645,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
                   ) : undefined}
                   fullLabel
                   techMode={techMode}
-                  onClick={() => onNavigate(o.nodeId)}
+                  onClick={() => onNavigate(o.id)}
                 />
               )
             })}

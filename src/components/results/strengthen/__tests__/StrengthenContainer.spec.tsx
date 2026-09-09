@@ -15,7 +15,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import { StrengthenContainer, adaptivePriorityFromStage } from '../StrengthenContainer'
 import { useCanvasStore } from '../../../../canvas/store'
 import { useGuidanceStore } from '../../../../canvas/stores/guidanceStore'
-import { selectActive, useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
+import { selectActive, useStrengthenStore, recordKey} from '../../../../canvas/stores/strengthenStore'
 import { useAskOlumiStore } from '../../coaching/askOlumiStore'
 import { useSuccessMeasureStore, useDecisionRecordStore } from '../../modals'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
@@ -38,13 +38,22 @@ const makeData = (over: {
     drivers: { drivers: over.drivers ?? [] },
   }) as unknown as ResultsSectionDataReturn
 
+const SPEC_DECISION = 'scenario-under-test'
+
 beforeEach(() => {
   useStrengthenStore.getState()._reset()
   try { sessionStorage.clear() } catch { /* jsdom */ }
+  // This isolated container omits AuthProvider: resolve its guest record owner.
+  useDecisionRecordStore.getState()._reset()
   useGuidanceStore.setState({ guidanceItems: [], _dispatchAction: null, _sendMessage: null } as never)
   useAskOlumiStore.setState({ isOpen: false, context: '', draft: '', label: '', targetId: null })
   useSuccessMeasureStore.setState({ isOpen: false })
   useCanvasStore.setState({
+    /* ⚠ NAMED, AND NOW LOAD-BEARING. Records are keyed by (decision, finding),
+       so the open decision decides where a credit is filed. Leaving it to
+       whatever a previous test happened to set made these assertions depend on
+       file order — they passed, for a reason nobody had chosen. */
+    currentScenarioId: SPEC_DECISION,
     currentStage: null,
     draftCoaching: null,
     results: { ...useCanvasStore.getState().results, hash: 'h-test' },
@@ -162,7 +171,7 @@ describe('StrengthenContainer — work-through prefills the Ask-Olumi drawer', (
     expect(drawer.source).toBe('chip')
     // No auto-send, no status mutation — the drawer owns dispatch.
     expect(dispatch).not.toHaveBeenCalled()
-    expect(useStrengthenStore.getState().records['strengthen:success-measure'].status).toBe(
+    expect(useStrengthenStore.getState().records[recordKey(SPEC_DECISION, 'strengthen:success-measure')].status).toBe(
       'recommended',
     )
   })
@@ -178,7 +187,7 @@ describe('StrengthenContainer — work-through prefills the Ask-Olumi drawer', (
     expect(drawer.source).toBe('chip')
     expect(useSuccessMeasureStore.getState().isOpen).toBe(false)
     expect(dispatch).not.toHaveBeenCalled()
-    expect(useStrengthenStore.getState().records['strengthen:success-measure'].status).toBe(
+    expect(useStrengthenStore.getState().records[recordKey(SPEC_DECISION, 'strengthen:success-measure')].status).toBe(
       'in_progress',
     )
   })
@@ -234,10 +243,11 @@ describe('StrengthenContainer — decision-record wiring (Round 2)', () => {
         },
       ] as never,
       'h-test',
+      'scn-1',
     )
-    expect(useStrengthenStore.getState().records['strengthen:commit'].status).toBe('recommended')
+    expect(useStrengthenStore.getState().records[recordKey('scn-1', 'strengthen:commit')].status).toBe('recommended')
     act(() => {
-      useDecisionRecordStore.getState().saveRecord('scn-1', {
+      const capture = useDecisionRecordStore.getState().saveRecord('scn-1', {
         optionId: 'opt_a',
         optionLabel: 'Option A',
         confidence: 70,
@@ -246,8 +256,9 @@ describe('StrengthenContainer — decision-record wiring (Round 2)', () => {
         revisitTrigger: 'rt',
         analysedGraphHash: null,
       } as never)
+      expect(capture).not.toBeNull()
     })
-    expect(useStrengthenStore.getState().records['strengthen:commit'].status).toBe('addressed')
+    expect(useStrengthenStore.getState().records[recordKey('scn-1', 'strengthen:commit')].status).toBe('addressed')
   })
 })
 
@@ -262,7 +273,9 @@ describe('StrengthenContainer — success target credits the rec directly', () =
     rerender(
       <StrengthenContainer data={makeData({ goalThreshold: 62, analysisStatus: 'unavailable' })} />,
     )
-    const record = useStrengthenStore.getState().records['strengthen:success-measure']
+    const record = useStrengthenStore.getState().records[
+      recordKey(SPEC_DECISION, 'strengthen:success-measure')
+    ]
     expect(record.status).toBe('addressed') // credited, not silently dropped
     expect(selectActive(useStrengthenStore.getState()).map((r) => r.id)).not.toContain(
       'strengthen:success-measure',
@@ -271,7 +284,9 @@ describe('StrengthenContainer — success target credits the rec directly', () =
 
   it('a session that STARTS with a threshold set never fakes an addressed credit', () => {
     render(<StrengthenContainer data={makeData({ goalThreshold: 62 })} />)
-    expect(useStrengthenStore.getState().records['strengthen:success-measure']).toBeUndefined()
+    expect(
+      useStrengthenStore.getState().records[recordKey(SPEC_DECISION, 'strengthen:success-measure')],
+    ).toBeUndefined()
   })
 })
 

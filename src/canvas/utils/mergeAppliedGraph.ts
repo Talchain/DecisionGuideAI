@@ -157,6 +157,8 @@ const EDGE_SOURCE_KEYS: ReadonlySet<string> = new Set(EDGE_PROVENANCED_FIELDS.ma
  * AND no other change on that edge. The edge then refuses to assert until the
  * next receipt that moves something — under-disclosure, never an over-claim,
  * which is the same direction of error the provenance markers are built on.
+ * Boot hydration is different: recording a validated server tuple enables the
+ * first edit even when display values match, so its no-op check includes it.
  */
 const EDGE_METADATA_ONLY_KEYS: ReadonlySet<string> = new Set([
   ...EDGE_SOURCE_KEYS,
@@ -442,7 +444,17 @@ export function overlayEdge(
   for (const [k, v] of Object.entries(supplied)) {
     if (!EDGE_METADATA_ONLY_KEYS.has(k)) nextDataWithoutStamps[k] = v
   }
-  if (sameValue(existing.data, nextDataWithoutStamps)) return existing
+  if (sameValue(existing.data, nextDataWithoutStamps)) {
+    // A validated readback enables the first edit, but does not restate who
+    // supplied an unchanged value. Preserve every existing field/stamp and
+    // acquire only the tuple; the receipt path stays a strict metadata no-op.
+    if (opts?.presenceFromProvenanceStamps
+      && supplied.serverStrength !== undefined
+      && !sameValue(existing.data?.serverStrength, supplied.serverStrength)) {
+      return { ...existing, data: { ...(existing.data ?? {}), serverStrength: supplied.serverStrength } }
+    }
+    return existing
+  }
 
   const nextData = { ...(existing.data ?? {}), ...supplied }
   if (sameValue(existing.data, nextData)) return existing

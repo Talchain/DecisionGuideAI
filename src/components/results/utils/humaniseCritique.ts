@@ -68,7 +68,18 @@ export const CEE_OWNED_CRITIQUE_CODES: ReadonlySet<string> = new Set([
 
 // ─── Code → template map ─────────────────────────────────────────────────────
 
-type TemplateFactory = (factorLabel: string) => Omit<HumanisedCritique, 'factorId' | 'displayText'>
+/**
+ * ⚠ `labelIsGenuine` IS NOT OPTIONAL INFORMATION — IT IS THE WHOLE GUARD.
+ * `resolveFactorLabel` returns a label in every case: a real one from the
+ * store, else `factorIdToLabel(nodeId)` — which for `c591da5e` is the string
+ * "C591da5e" — else "This factor". Only the first is safe to print. A template
+ * that interpolates `factorLabel` without checking this flag will publish an
+ * engine identifier as prose, which is the defect this module exists to stop.
+ */
+type TemplateFactory = (
+  factorLabel: string,
+  labelIsGenuine: boolean,
+) => Omit<HumanisedCritique, 'factorId' | 'displayText'>
 
 const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   MISSING_OBSERVED_STATE: (label) => ({
@@ -413,9 +424,15 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // defaulted to 0.0, so "goal-level probabilities partially rest on
   // placeholder zeros". PARTIALLY is load-bearing — the result is degraded,
   // not void.
-  GOAL_ANCESTOR_DATA_GAP: () => ({
-    title:
-      'Some starting factors feeding your goal have no value recorded, so part of your goal\'s probability rests on placeholder zeros. Add current values for those factors.',
+  // ⚠ `field` NAMES THE GOAL, NOT THE ANCESTORS. The producer's message quotes
+  // the root ancestor ids in prose; those stay unread — parsing them would be
+  // the banned route, and they are the ids of nodes this sentence is not about.
+  // What the structured field carries is the GOAL node, so that is what gets
+  // named, and the sentence keeps saying "some starting factors" for the rest.
+  GOAL_ANCESTOR_DATA_GAP: (label, genuine) => ({
+    title: genuine
+      ? `Some starting factors feeding ${label} have no value recorded, so part of its probability rests on placeholder zeros. Add current values for those factors.`
+      : 'Some starting factors feeding your goal have no value recorded, so part of your goal\'s probability rests on placeholder zeros. Add current values for those factors.',
     description:
       'The goal is still scored from its forward-propagated distribution, but some of what feeds it is a placeholder rather than a measurement.',
     suggestion: 'Add current values for the starting factors that feed your goal',
@@ -495,12 +512,22 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // A value was defaulted, or a modelling rule applied. These are info-severity
   // at the producer and surface in the Advanced list, not the top strip.
 
-  ROOT_NODE_DEFAULT_VALUE: () => ({
-    title:
-      'A starting factor has no current value recorded, so zero was assumed — anything downstream of it may be unreliable. Add its current value.',
+  // ⭐ NAMED WHEN THE STORE KNOWS THE NAME, UNCHANGED OTHERWISE.
+  // A run raises this once PER ROOT, so a model with two unset roots printed
+  // this sentence twice, word for word — the reader could see that something
+  // was wrong and not which factor, which is the one thing that would let them
+  // fix it. The id arrives on `field` (`nodes[<id>].observed_state.value`,
+  // measured DISTINCT on 6/6 captured entries); `nodeIdFromField` reads it and
+  // the store resolves the name. Unresolved, this is byte-identical to before.
+  ROOT_NODE_DEFAULT_VALUE: (label, genuine) => ({
+    title: genuine
+      ? `${label} has no current value recorded, so zero was assumed — anything downstream of it may be unreliable. Add its current value.`
+      : 'A starting factor has no current value recorded, so zero was assumed — anything downstream of it may be unreliable. Add its current value.',
     description:
       'The producer defaults an unspecified root value to 0.0 and says so rather than hiding it. Results for downstream factors inherit that assumption.',
-    suggestion: 'Add the current value for that starting factor',
+    suggestion: genuine
+      ? `Add the current value for ${label}`
+      : 'Add the current value for that starting factor',
   }),
   CONSTRAINT_NODE_DEFAULT_BASE: () => ({
     title:
@@ -637,18 +664,19 @@ function factorIdToLabel(factorId: string): string {
  */
 function resolveFactorLabel(
   item: UncertaintyItem,
-  nodeLabels?: Map<string, string>,
-): { label: string; factorId?: string } {
+  nodeLabels?: ReadonlyMap<string, string>,
+): { label: string; factorId?: string; genuine: boolean } {
   const nodeId = item.affectedNodes?.[0]
   if (nodeId && nodeLabels?.has(nodeId)) {
-    return { label: nodeLabels.get(nodeId)!, factorId: nodeId }
+    // The ONLY branch that yields a name a user wrote or recognises.
+    return { label: nodeLabels.get(nodeId)!, factorId: nodeId, genuine: true }
   }
   if (nodeId) {
     // V12.2: Derive label from ID instead of generic fallback
-    return { label: factorIdToLabel(nodeId), factorId: nodeId }
+    return { label: factorIdToLabel(nodeId), factorId: nodeId, genuine: false }
   }
 
-  return { label: FALLBACK_LABEL }
+  return { label: FALLBACK_LABEL, genuine: false }
 }
 
 // ─── Main function ───────────────────────────────────────────────────────────
@@ -662,9 +690,9 @@ function resolveFactorLabel(
  */
 export function humaniseCritique(
   item: UncertaintyItem,
-  nodeLabels?: Map<string, string>,
+  nodeLabels?: ReadonlyMap<string, string>,
 ): HumanisedCritique {
-  const { label: factorLabel, factorId } = resolveFactorLabel(item, nodeLabels)
+  const { label: factorLabel, factorId, genuine: labelIsGenuine } = resolveFactorLabel(item, nodeLabels)
 
   // Lane 3 (ROADMAP 2.358): for the codes whose display copy is OWNED by
   // CEE's critique pipeline, a clean `userMessage` wins over any UI template.
@@ -699,7 +727,7 @@ export function humaniseCritique(
   // Try mapped template
   const template = CODE_TEMPLATES[item.code]
   if (template) {
-    const result = template(factorLabel)
+    const result = template(factorLabel, labelIsGenuine)
     const displayText = INTERNAL_TOKEN_REGEX.test(result.title) ? null : result.title
     return { ...result, displayText, factorId }
   }
@@ -719,7 +747,7 @@ export function humaniseCritique(
   // net for a mis-coded one, and it now lands on the same sentence that row
   // would have got.
   if (/no derivable range/i.test(item.message)) {
-    const result = CODE_TEMPLATES.CONSTRAINT_MISSING_RANGE(factorLabel)
+    const result = CODE_TEMPLATES.CONSTRAINT_MISSING_RANGE(factorLabel, labelIsGenuine)
     const displayText = INTERNAL_TOKEN_REGEX.test(result.title) ? null : result.title
     return { ...result, displayText, factorId }
   }

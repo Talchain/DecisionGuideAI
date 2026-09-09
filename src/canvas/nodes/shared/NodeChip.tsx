@@ -68,7 +68,7 @@
  * The original report of a dead control was this artefact. Read toasts with a
  * MutationObserver, or inside 5 s.
  */
-import { useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { ActionTypeLiteral } from '@talchain/schemas/boundary'
 import type { PendingWireActionType } from '../../conversation/chipMeta'
 import { useGuidanceStore } from '../../stores/guidanceStore'
@@ -93,6 +93,11 @@ interface NodeChipProps {
 
 export function NodeChip({ label, message, chipId, actionType }: NodeChipProps) {
   const showToast = useShowToastSafe()
+  const [unavailable, setUnavailable] = useState(false)
+  const hasConversation = useGuidanceStore((s) => Boolean(s._dispatchAction || s._sendMessage))
+  useEffect(() => {
+    if (hasConversation) setUnavailable(false)
+  }, [hasConversation])
 
   /**
    * The refusal this chip would produce if clicked, or null when it would not
@@ -112,7 +117,7 @@ export function NodeChip({ label, message, chipId, actionType }: NodeChipProps) 
    * still be refused on click, which is why the click keeps answering.
    */
   const heldNotice = useCanvasStore((s) =>
-    actionType === 'run_analysis' ? analysisHeldNotice(s.nodes) : null,
+    actionType === 'run_analysis' ? analysisHeldNotice(s) : null,
   )
 
   const handleClick = useCallback((e: React.MouseEvent) => {
@@ -147,6 +152,7 @@ export function NodeChip({ label, message, chipId, actionType }: NodeChipProps) 
       return
     }
 
+    setUnavailable(false)
     const callbacks = useGuidanceStore.getState()
     if (callbacks._dispatchAction) {
       callbacks._dispatchAction({
@@ -160,10 +166,17 @@ export function NodeChip({ label, message, chipId, actionType }: NodeChipProps) 
     }
     // Legacy bridge — metadata cannot travel; the message still lands.
     const send = callbacks._sendMessage
-    if (send) send(message)
+    if (send) {
+      send(message)
+      return
+    }
+    // Keep the question available without pretending that an unregistered
+    // conversation accepted it. Inline feedback also works without a toast host.
+    setUnavailable(true)
   }, [message, label, chipId, actionType, showToast])
 
   return (
+    <>
     <button
       type="button"
       // ⭐ 24px TOUCH TARGET ON A SURFACE ARGUED FOR TOUCH (WCAG 2.2 AA, 2.5.8).
@@ -193,5 +206,14 @@ export function NodeChip({ label, message, chipId, actionType }: NodeChipProps) 
     >
       {label}
     </button>
+    <span
+      role="status"
+      className={unavailable
+        ? `${typography.edgeLabel} text-text-light block w-full`
+        : typography.screenReaderOnly}
+    >
+      {unavailable ? 'Olumi is unavailable here. Your question has not been sent.' : ''}
+    </span>
+    </>
   )
 }

@@ -144,6 +144,38 @@ const DESIGNATING_FORMS: ReadonlyArray<readonly [string, RegExp]> = [
   ['the leading option', /\bthe (current )?leading option\b/i],
   ['the current lead', /\bthe current lead\b/i],
   ['the ranking', /\bthe ranking\b/i],
+  ['the option that scored highest', /\bthe option that scored highest\b/i],
+  ['flips to <option>', /\bflips to\b/i],
+  ['topic: challenge_leader', /challenge_leader/],
+]
+
+/**
+ * ⭐ THE SUBSET THE PERMITTED CONTROL MAY ASSERT, AND WHY IT IS A SUBSET.
+ *
+ * The table above is the WITHHELD net: nothing in it may be emitted on a run
+ * that withholds. It cannot double as the PERMITTED control, because Paul's
+ * terminology ruling (8 Sep 2026) retired the race vocabulary from the copy
+ * ENTIRELY — "the leader", "the leading option", "the current lead" are gone
+ * from permitted runs too. Asserting a permitted run still emits them would be
+ * a control that CANNOT PASS.
+ *
+ * ⚠ AND THE OPPOSITE ERROR IS THE REAL HAZARD: deleting the permitted control
+ * would leave the withheld sweep unable to prove it can SEE a presence, i.e. a
+ * net that passes because it is blind. So the control is kept and RE-POINTED at
+ * the designating forms the copy now genuinely uses.
+ *
+ * The two questions are named apart on purpose: the withheld net asks *is any
+ * designating form present?*, this asks *can the sweep see one when there is
+ * one?* — they are not the same list and merging them is how one of them dies.
+ */
+const PERMITTED_DESIGNATING_FORMS: ReadonlyArray<readonly [string, RegExp]> = [
+  ['the option that scored highest', /\bthe option that scored highest\b/i],
+  // ⭐ RESTORED after an independent reviewer measured that I dropped it without
+  // needing to: `buildRecommendations.ts:467` still emits "the ranking" on a
+  // permitted run, so this arm passes and the control keeps its discriminating
+  // power. Narrowing a control further than the change requires is the quiet way
+  // a guard stops proving anything — the reviewer proved 27/27 with it present.
+  ['the ranking', /\bthe ranking\b/i],
   ['flips to <option>', /\bflips to\b/i],
   ['topic: challenge_leader', /challenge_leader/],
 ]
@@ -158,15 +190,18 @@ describe('1.243 R1 — "Challenge the leader" (strengthen:robustness)', () => {
       (r) => r.id === 'strengthen:robustness',
     )
     expect(rec).toBeDefined()
-    expect(rec!.action.label).toBe('Challenge the leader')
-    expect(rec!.action.prompt).toBe('Build the strongest case against the current leading option.')
+    expect(rec!.action.label).toBe('Challenge this result')
+    expect(rec!.action.prompt).toBe('Build the strongest case against the option that scored highest.')
     expect(rec!.action.parameters).toEqual({ topic: 'challenge_leader' })
   })
 
   it('WITHHELD: the prompt is not CONSTRUCTIBLE — no emitted string carries it', () => {
     const withheld = allStrings(everyBranch('low', false))
-    expect(withheld).not.toContain('Build the strongest case against the current leading option.')
+    expect(withheld).not.toContain('Build the strongest case against the option that scored highest.')
     expect(withheld).not.toContain('challenge_leader')
+    expect(withheld).not.toContain('Challenge this result')
+    // REGRESSION GUARD: the retired race wording must not come back either.
+    expect(withheld).not.toContain('Build the strongest case against the current leading option.')
     expect(withheld).not.toContain('Challenge the leader')
   })
 
@@ -190,7 +225,7 @@ describe('1.243 R2 — the flip rec (strengthen:flip)', () => {
     )
     expect(rec).toBeDefined()
     expect(rec!.signal).toContain(ALT_WINNER)
-    expect(rec!.title).toContain('the leader')
+    expect(rec!.title).toContain('which option scores highest')
   })
 
   it('WITHHELD: the alternative winner label appears in NO emitted string', () => {
@@ -230,7 +265,7 @@ describe('1.243 R3 — over-suppression controls: the leader-INDEPENDENT recs su
     const rec = buildRecommendations(everyBranch('low', false)).find(
       (r) => r.id === 'strengthen:broaden',
     )
-    expect(rec!.whyNow).toContain('can crown a winner')
+    expect(rec!.whyNow).toContain('can settle on one without testing the real alternatives')
   })
 })
 
@@ -242,7 +277,7 @@ describe('1.243 R4 — designating-form sweep (secondary net, with its control)'
     expect(withheld()).not.toMatch(pattern)
   })
 
-  it.each(DESIGNATING_FORMS)(
+  it.each(PERMITTED_DESIGNATING_FORMS)(
     'PERMITTED still emits "%s" (control: the sweep can SEE a presence)',
     (_name, pattern) => {
       expect(permitted()).toMatch(pattern)

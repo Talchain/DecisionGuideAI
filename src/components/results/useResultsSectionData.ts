@@ -988,10 +988,29 @@ function deriveConfidenceTierLegacy(
     return 'needs_work'
   }
 
-  // 3. Fallback: report.confidence.level
-  if (report?.confidence?.level) {
-    return mapConfidenceLevel(report.confidence.level)
-  }
+  // 3. RETIRED (UI-SEM-015): `report.confidence.level` was consulted here.
+  // It is a UI-LOCAL re-derivation — a ratio over the lengths of the
+  // robust/fragile edge arrays, duplicated in `responseMapper.ts` and
+  // `mapV5AnalysisToReport.ts` — of the question PLoT already answers as
+  // `confidence_tier`. Measured over a 33-observation capture corpus the two
+  // disagree on 30% of runs and 18% MAXIMALLY (locally derived 'low' against a
+  // producer tier of 'strong'); 30% derive 'low' purely by construction,
+  // because `robust_edges` is empty so the ratio is 0. The derivation consults
+  // no `switch_probability` or `marginal_switch_probability` — its own
+  // signature declares `fragile_edges?: string[]` while the runtime items are
+  // OBJECTS carrying those fields, so the correcting data was structurally
+  // invisible to it.
+  //
+  // It is NOT re-derived here, and deliberately not replaced by a tuned
+  // variant: applying the UI's own 0.15 fragile-edge floor was measured to
+  // halve maximal disagreement (6→3) while leaving overall disagreement
+  // UNCHANGED at 31% — a win on the symptom metric only.
+  //
+  // Where the producer's tier is absent the cascade now says NOTHING rather
+  // than substituting a local guess: it falls to CEE readiness (steps 1-2,
+  // above) or `graph_quality.score` (step 4, below), and otherwise returns
+  // 'unknown', which the surface renders as "Unknown / Unable to assess model
+  // quality" and which selects the LESS committal option-card chip.
 
   // 4. Last resort: report.graph_quality.score (0-100)
   if (typeof report?.graph_quality?.score === 'number') {
@@ -3968,6 +3987,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           const nodeIds: string[] = safeArray(w.affected_nodes ?? w.affectedNodes)
           return {
             code: String(w.code ?? ''),
+            // ⚠ CARRIED, BECAUSE FOR THE DEFAULTING FAMILY IT IS THE ONLY IDENTITY
+            // THERE IS. `affected_nodes` is `[]` for these codes, so rebuilding the
+            // warning without `field` discarded the one thing that tells two
+            // same-code rows apart — a loss invisible to unit tests that feed raw
+            // producer shapes straight past this adapter.
+            field: typeof w.field === 'string' ? w.field : undefined,
             affected_nodes: nodeIds,
             affected_labels: nodeIds.map(id => nodeLabelMap.get(id) ?? id),
             message: w.message ? String(w.message) : undefined,

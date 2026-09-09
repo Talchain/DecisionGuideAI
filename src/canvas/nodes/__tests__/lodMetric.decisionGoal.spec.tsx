@@ -1,34 +1,22 @@
 /**
- * The anchor of the model says something when it is too small to say anything else.
- *
- * ⭐ THE DEFECT, REPORTED BY PAUL THREE TIMES AND MEASURED ON DEPLOYED `7d717c13`.
- * Below the legibility floor the decision card rendered as an empty box carrying
- * only its title. Its body was not missing — `textContent` held "Segment leads in
- * 48% of scenarios, but sensitive to Operational Overhead…" — it was
- * `visibility: hidden`, with NOTHING put in its place, because `lodMetricLine.ts`
- * scoped `decision` and `goal` out on the grounds that neither has a single
- * headline quantity. True premise, wrong conclusion: every other node type got a
- * line and the one a reader looks at first got none.
- *
- * ⛔ WHAT THIS FILE IS REALLY GUARDING is not "a line appears" but "a leader is
- * named only where the card was already entitled to name one". The reduced line
- * reads `headline`, the same permission the full-zoom body consumes. A run whose
- * verdict WITHHOLDS a leader must produce no leader here either — this product
- * has already shipped a withheld verdict and a named leader two pixels apart
- * (CLAUDE.md trap 21), and a low-zoom line is the easiest place to reopen it,
- * because the body it would contradict is hidden.
+ * The Question node remains structural at reduced zoom. Tests mount the real
+ * BaseNode and read its reduced line, so a duplicate verdict cannot survive in
+ * the LOD prop while tests inspect only the normal-sized body.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
-import { DecisionNode } from '../DecisionNode'
+import { DecisionNode, DECISION_RESTING_COPY } from '../DecisionNode'
+import { deriveDecisionVerdict } from '../../../lib/decisionVerdict'
+import {
+  LEADER_ID, LEADER_LABEL, RUNNER_UP_ID, RUNNER_UP_LABEL,
+  PERMITTED_REPORT, WITHHELD_REPORT,
+} from '../../../lib/__fixtures__/ownedLeaderClaim.fixtures'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
   return { ...actual, Handle: () => null }
 })
-
-const OPTION = { id: 'opt-1', type: 'option', data: { type: 'option', label: 'Segment' } }
 
 const makeStoreState = (o: Record<string, unknown> = {}) => ({
   results: { status: 'idle', report: null },
@@ -65,11 +53,11 @@ const baseProps = {
   isConnectable: true, positionAbsoluteX: 0, positionAbsoluteY: 0, dragging: false, zIndex: 0,
 }
 
-const renderDecision = (state: Record<string, unknown>) => {
+const renderDecision = (state: Record<string, unknown>, label = 'Decision') => {
   vi.mocked(useCanvasStore).mockImplementation((sel: any) => sel(makeStoreState(state) as any))
   return render(
     <ReactFlowProvider>
-      <DecisionNode {...(baseProps as any)} data={{ label: 'Decision', type: 'decision' }} />
+      <DecisionNode {...(baseProps as any)} data={{ label, type: 'decision' }} />
     </ReactFlowProvider>,
   )
 }
@@ -97,32 +85,57 @@ describe('the decision card is never an empty box at low zoom', () => {
   })
 })
 
-describe('⛔ a leader is named only where the card may name one', () => {
+const CLAIM_OPTIONS = [
+  { id: LEADER_ID, type: 'option', data: { type: 'option', label: LEADER_LABEL } },
+  { id: RUNNER_UP_ID, type: 'option', data: { type: 'option', label: RUNNER_UP_LABEL } },
+  { id: 'opt_status_quo', type: 'option', data: { type: 'option', label: 'Keep the current laptops' } },
+]
+const CLAIM_EDGES = CLAIM_OPTIONS.map(node => ({
+  id: `dec-${node.id}`, source: 'dec-1', target: node.id,
+}))
+
+describe('a completed run does not turn the Question node into an option verdict at low zoom', () => {
   beforeEach(() => { vi.clearAllMocks() })
 
-  /*
-   * THE DISCRIMINATING PAIR. Same completed run, same option set. The only
-   * difference is whether the report entitles the card to name a leader. If the
-   * line were composed from the option list rather than from `headline`, BOTH
-   * would name Segment — which is exactly the defect this pair exists to catch.
-   */
-  it('does NOT name one when the run withheld its verdict', () => {
-    renderDecision({
-      nodes: [OPTION],
-      results: { status: 'complete', report: { option_probabilities: {} } },
-    })
-    const line = lodLine()
-    expect(line).not.toBeNull()
-    expect(line).not.toContain('Segment')
+  it('uses a genuinely permitted result as its regression control', () => {
+    const options = { visibleOptionIds: new Set(CLAIM_OPTIONS.map(node => node.id)) }
+    const permitted = deriveDecisionVerdict(PERMITTED_REPORT, options)
+    expect(permitted.hasLeadingOption).toBe(true)
+    expect(permitted.leaderId).toBe(LEADER_ID)
+    expect(deriveDecisionVerdict(WITHHELD_REPORT, options).hasLeadingOption).toBe(false)
   })
 
-  it('and says nothing about the analysis in that state — no invented verdict', () => {
+  it.each([
+    { name: 'permitted comparison', report: PERMITTED_REPORT, mode: 'comparative_leader' },
+    { name: 'model refuses comparison', report: PERMITTED_REPORT, mode: 'none' },
+    { name: 'result withholds a leader', report: WITHHELD_REPORT, mode: 'comparative_leader' },
+    { name: 'admission absent', report: PERMITTED_REPORT, mode: undefined },
+    { name: 'report absent', report: null, mode: undefined },
+  ])('$name: shows linked options, not their result', ({ report, mode }) => {
     renderDecision({
-      nodes: [OPTION],
-      results: { status: 'complete', report: { option_probabilities: {} } },
+      nodes: CLAIM_OPTIONS,
+      edges: CLAIM_EDGES,
+      ceeAnalysisReady: mode ? {
+        status: 'ready', options: [], goal_node_id: 'goal-1',
+        analysis_admission: {
+          permitted_analysis_mode: mode,
+          reasons: mode === 'none' ? [{ field: 'evidence', message: 'More evidence needed.' }] : [],
+        },
+      } : null,
+      results: { status: 'complete', report },
     })
-    const line = (lodLine() ?? '').toLowerCase()
-    expect(line).not.toMatch(/lead|ahead|close|tie|winner|too close/)
+    const line = lodLine()
+    expect(line).toBe('3 options')
+    expect(line).not.toContain(LEADER_LABEL)
+    expect(line).not.toContain('%')
+  })
+
+  it('keeps the authoring prompt when the question is unnamed', () => {
+    renderDecision({
+      nodes: CLAIM_OPTIONS, edges: CLAIM_EDGES,
+      results: { status: 'complete', report: PERMITTED_REPORT },
+    }, '')
+    expect(lodLine()).toBe(DECISION_RESTING_COPY.unnamedLine)
   })
 })
 
@@ -195,21 +208,12 @@ describe('the anchor states what it holds, not that it holds nothing', () => {
     expect(lodLine()).toBe('No options linked yet')
   })
 
-  /**
-   * ⛔ AND THE PERMISSION ARM ABOVE IT IS UNTOUCHED. A completed run that
-   * entitles the card to name a leader must still name the leader, not the
-   * count — this arm sits BELOW the `headline` branch and must stay there.
-   */
-  it('CONTRAST — a permitted leader claim still wins over the count', () => {
+  it('on a completed run the count still reflects only the linked options', () => {
     renderDecision({
-      nodes: OPTIONS_3,
-      edges: EDGES_3,
-      results: {
-        status: 'complete',
-        report: { option_probabilities: { 'opt-1': 0.62, 'opt-2': 0.25, 'opt-3': 0.13 } },
-      },
+      nodes: CLAIM_OPTIONS,
+      edges: CLAIM_EDGES.slice(0, 1),
+      results: { status: 'complete', report: PERMITTED_REPORT },
     })
-    const line = lodLine() ?? ''
-    expect(line).not.toBe('3 options')
+    expect(lodLine()).toBe('1 option')
   })
 })

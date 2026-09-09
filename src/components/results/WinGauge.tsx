@@ -491,7 +491,7 @@ export function WinGauge({
       )}
 
       <div data-testid="win-gauge-comparative-block">
-        <Tooltip content="Share of Monte Carlo simulations in which each option came out ahead">
+        <Tooltip content="Share of Monte Carlo simulations in which each option scored highest">
           {/* ROADMAP 1.223 relabelled this away from a leader VERB ("Leads
               across scenarios"); the 2026-07-31 re-anchoring finishes the job.
               "Win probability across scenarios" named the metric but anchored

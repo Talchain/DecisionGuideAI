@@ -106,6 +106,8 @@ function buildBiasCard(trigger: NormalisedBiasTrigger, index: number): SharpenCa
         element={{
           kind: 'bias',
           biasType: trigger.title,
+          observation: trigger.fullExplanation,
+          targetLabel: trigger.targetFactorLabel,
           microInterventionStep: trigger.microInterventionStep,
         }}
       />

@@ -202,6 +202,24 @@ export const EDITOR_WRITTEN_FIELDS = {
 export const INSPECTOR_READ_ONLY_REASON =
   "You can rename this — the name saves to the shared model. The other fields here are read-only for now because those changes can't yet be saved. Use the Model tab for supported factor values or ask Olumi to change structure."
 
+/**
+ * ⭐ THE SAME FACTS, FOR THE ONE PANE THAT NOW FENCES ITSELF.
+ *
+ * `INSPECTOR_READ_ONLY_REASON` above is written for a pane where the Router has
+ * disabled EVERYTHING below the header, so it has to explain a blanket. The
+ * option pane no longer has one: navigation, disclosure and coaching work, and
+ * only the writers are fenced. A notice describing a blanket that is not there
+ * would be the same trap-21 mismatch the longer string was itself narrowed to
+ * fix — a sentence and a surface disagreeing.
+ *
+ * ⚠ IT SAYS LESS BECAUSE THE PANE SAYS MORE. The Model-tab route is repeated
+ * once, in place, at the top of the factor list where a reader is actually
+ * looking for it (`OPTION_EDIT_ROUTE_NOTE`) — so this line does not have to
+ * carry the whole explanation, and the pane does not say it twice.
+ */
+export const INSPECTOR_OPTION_READ_ONLY_REASON =
+  'The name saves. Other fields here are read-only for now — links, details and coaching still work.'
+
 // ─── Node mutations ────────────────────────────────────────────────
 export function useNodeMutations(nodeId: string) {
   const updateNode = useCanvasStore(s => s.updateNode)
@@ -641,6 +659,26 @@ export function useEdgeMutations(edgeId: string) {
    * worse of the two. The outcome token is how the gap is disclosed instead, and
    * `edgeDirectionEditIsAssertable` is how a surface gates the affordance
    * PER EDGE before offering it.
+   *
+   * ⛔ CORRECTED FORWARD, 9 Sep 2026 (independent review) — DO NOT ACT ON THE
+   * PARAGRAPH BELOW AS CURRENT. It was honest when written and is now false in
+   * both limbs, and it is kept rather than deleted because it is the record of
+   * why CEE #1393 happened.
+   *
+   *   · THE POSTURE IS `enforce` ON THE DEPLOYED BUILD — measured, not read off
+   *     a config default. So the demotion described below DOES NOT FIRE, and the
+   *     "user who changed direction is told about strength" case is not
+   *     reachable on staging.
+   *   · THE COPY NO LONGER EXISTS. CEE `083e0da` replaced it, live 12:35:24Z on
+   *     9 Sep, citing this review. So the closing instruction — "THE FIX IS ONE
+   *     STRING IN THE OTHER REPO, deliberately not made here" — would now send a
+   *     reader to make a fix that is already deployed.
+   *
+   * The lesson worth keeping is the one this block now demonstrates twice: a
+   * posture inferred from a config file is not the deployed posture, and a
+   * disclosed gap goes stale exactly like any other hand-maintained claim.
+   *
+   * ─── THE ORIGINAL DISCLOSURE, HISTORIC ───
    *
    * ⚠⚠ THE ONE KNOWN IMPRECISION THIS OPENS, DISCLOSED RATHER THAN LEFT TO BE
    * DISCOVERED — and it is the first thing to attack in review. CEE demotes

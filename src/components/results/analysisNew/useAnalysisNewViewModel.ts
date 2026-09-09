@@ -20,7 +20,7 @@
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
 import { deriveGuidanceDskProvenance, useGuidanceStore } from '../../../canvas/stores/guidanceStore'
-import { useStrengthenStore } from '../../../canvas/stores/strengthenStore'
+import { useStrengthenStore, recordKey} from '../../../canvas/stores/strengthenStore'
 import { buildNodeValueSourceMap } from '../driverValueProvenance'
 import { buildRecommendations } from '../strengthen/buildRecommendations'
 import type { Recommendation } from '../strengthen/strengthenTypes'
@@ -66,9 +66,30 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
    */
   const nodes = useCanvasStore((s) => s.nodes)
   const nodeValueSources = useMemo(() => buildNodeValueSourceMap(nodes), [nodes])
+  /**
+   * ⭐ Node id → label, so a producer gap can name the factor it is about.
+   * Derived from the same `nodes` the sibling map above uses — one store read,
+   * not a second subscription. Labels only; nothing else about a node is read.
+   */
+  const nodeLabels = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const n of nodes ?? []) {
+      const label = (n?.data as { label?: unknown } | undefined)?.label
+      if (typeof label === 'string' && label.trim().length > 0) m.set(n.id, label)
+    }
+    return m
+  }, [nodes])
   const biasSignals = useCanvasStore((s) => s.draftCoaching?.biasSignals ?? null)
   const guidanceItems = useGuidanceStore((s) => s.guidanceItems)
   const strengthenRecords = useStrengthenStore((s) => s.records)
+  /* ⚠⚠ REQUIRED BY THE FILTER BELOW, AND ITS ABSENCE WAS THE WORST OF THREE
+     BARE-ID READS. Records are keyed by (decision, finding); indexing by the
+     finding alone compiles, returns `undefined` for EVERY record, and makes
+     `!record` unconditionally true — so nothing is ever filtered and findings
+     the reader had already addressed or set aside REAPPEAR in the active list.
+     A silent, user-visible regression with no red anywhere; found by the
+     derived sweep in `oneRecordKeyPerRead.spec.ts`, not by reading the code. */
+  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
 
   const recommendations: Recommendation[] = useMemo(() => {
     const inputs = buildStrengthenInputsForAnalysisNew({
@@ -81,10 +102,10 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
     // surface runs it and renders it; it never adds one of its own, and it
     // never relaxes one of the engine's gates.
     return buildRecommendations(inputs).filter((rec) => {
-      const record = strengthenRecords[rec.id]
+      const record = strengthenRecords[recordKey(currentScenarioId, rec.id)]
       return !record || !RETIRED_STATUSES.has(record.status)
     })
-  }, [data, guidanceItems, biasSignals, currentStage, strengthenRecords])
+  }, [data, guidanceItems, biasSignals, currentStage, strengthenRecords, currentScenarioId])
 
   /**
    * Re-join the producer's DSK attestation onto the engine's phase-3
@@ -124,18 +145,44 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
         responseHash,
         scienceGrounding,
         nodeValueSources,
+        nodeLabels,
       }),
+    /**
+     * ⚠⚠ EVERY DECLARED INPUT, AND `staleReason` WAS THE ONE MISSING.
+     *
+     * `buildAnalysisNewViewModel` derives `status.staleKind` from it, so
+     * without it here the panel kept the PREVIOUS staleness sentence when the
+     * reason flipped — measured at this hook: 'unconfirmed' → 'changed' with
+     * every other input identical returned 'unconfirmed'.
+     *
+     * That is not cosmetic. `staleReason.ts` exists because one boolean was
+     * answering two questions — 'changed' is a claim about the WORLD,
+     * 'unconfirmed' a claim about our EVIDENCE — and the dock computes the two
+     * flags from two genuinely different authorities (`displayedFreshness` for
+     * `isStale`, `composedAnalysisState.trust.semantic` for this), so they move
+     * independently by construction. Omitting it made the correction
+     * conditional on some OTHER input happening to move in the same render.
+     *
+     * `__tests__/viewModelHonoursEveryInput.spec.tsx` exercises each scalar
+     * input rather than pinning this one. ⚠ Its `SCALAR_INPUTS` is HAND-WRITTEN
+     * and exhaustive against this interface only at this tip — it is not derived
+     * from it. Add an input here and you must add a row there, or the new input
+     * is unguarded and nothing goes red (CLAUDE.md trap 12 — that file is an
+     * instance of the mirror, not a cure for it).
+     */
     [
       data,
       recommendations,
       isPreRun,
       isRunning,
       isStale,
+      staleReason,
       nSamples,
       seedUsed,
       responseHash,
       scienceGrounding,
       nodeValueSources,
+      nodeLabels,
     ],
   )
 }

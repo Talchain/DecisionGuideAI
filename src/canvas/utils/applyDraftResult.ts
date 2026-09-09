@@ -267,6 +267,15 @@ export function applyDraftResult(
     // analysed can affirm — that is the same posture as before this mitigation,
     // not a regression it introduces, and it is disclosed as residue.
     //
+    // ⚠ THE STARTER HALF OF THAT RESIDUE IS NOW CLOSED, AND NOT HERE.
+    // `applyStarter` re-arms the hold immediately after this function returns
+    // (`starters/loadStarter.ts::armServerRegistration`), because "is this
+    // graph one the server has seen?" is knowable at the CALLER and not in
+    // here — every other caller of this function IS a CEE draft, for which the
+    // unconditional release below is correct. Do not turn this line into a
+    // conditional: it would need a flag threaded from each call site, which is
+    // the hand-maintained mirror the derivation elsewhere exists to abolish.
+    //
     // ⚠ My FIRST justification ("the derivation here is an equivalent mutant —
     // wire-shaped edges can never match") was false at the bytes: `nodes` and
     // `edges` in scope here are the MAPPER'S CANVAS-SHAPED OUTPUT, and

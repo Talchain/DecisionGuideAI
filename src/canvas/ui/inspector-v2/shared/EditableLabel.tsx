@@ -38,6 +38,8 @@ interface EditableLabelProps {
   maxLength?: number
   className?: string
   placeholder?: string
+  /** Give the full title room in the option inspector, including long words. */
+  wrap?: boolean
   /** Mount directly in editing state (canvas double-click → rename). */
   autoEdit?: boolean
   /**
@@ -54,6 +56,7 @@ export function EditableLabel({
   maxLength = NODE_LABEL_MAX_LENGTH,
   className = '',
   placeholder = 'Untitled',
+  wrap = false,
   autoEdit = false,
   onAutoEditConsumed,
 }: EditableLabelProps) {
@@ -124,7 +127,7 @@ export function EditableLabel({
   if (!onSave) {
     // Read-only mode — no rename affordance, because there is no rename.
     return (
-      <span className={className} title={value}>
+      <span className={`${className} ${wrap ? 'min-w-0 whitespace-normal break-words' : ''}`} title={value}>
         {value || placeholder}
       </span>
     )
@@ -146,7 +149,7 @@ export function EditableLabel({
         title={`Rename — ${value || placeholder}`}
         aria-label={`Rename ${value || placeholder}`}
       >
-        <span className="truncate border-b border-dashed border-panel-border group-hover:border-info">
+        <span className={`${wrap ? 'min-w-0 whitespace-normal break-words' : 'truncate'} border-b border-dashed border-panel-border group-hover:border-info`}>
           {value || placeholder}
         </span>
         <Pencil

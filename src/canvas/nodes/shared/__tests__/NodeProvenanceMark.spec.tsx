@@ -201,11 +201,30 @@ describe('the words stay reachable, and the WIRE LITERAL does not leak', () => {
   it.each(CANVAS_LITERALS)('%s — the raw literal is NOT in user-visible text', (literal) => {
     render(<NodeProvenanceMark nodeType="option" data={option(literal)} />)
     const el = mark()!
-    expect(el.getAttribute('title')).not.toContain(literal)
     expect(el.getAttribute('aria-label')).not.toContain(literal)
-    expect(el.getAttribute('title')).toBe(el.getAttribute('aria-label'))
     // The twin: the literal is still available to a debugger, just not as prose.
     expect(el.getAttribute('data-provenance-kind')).toBe(classifyNodeProvenance(literal)!.kind)
+  })
+
+  /**
+   * ⭐ THE MOUSE CHANNEL IS A TOOLTIP, NOT `title=` (7 Sep 2026).
+   *
+   * ⚠ THIS ASSERTION REPLACES `title === aria-label`, AND THE REPLACEMENT IS NOT
+   * A WEAKENING. That line pinned "one sentence, two channels". Deleting it and
+   * asserting only `title === null` would have left the pairing unguarded — the
+   * glyph could have grown a tooltip saying something else entirely and nothing
+   * would have gone red. So the pairing moves to the channel that now carries
+   * it: `nodeIconHoverAffordance.spec.tsx` asserts the HOVER BUBBLE's text
+   * equals this `aria-label`, for this component, by identity.
+   *
+   * What stays here is the half that is local: the native attribute is GONE.
+   * Keeping it beside the styled bubble would paint both — the styled one at
+   * 300ms and OS chrome over it a moment later, saying the same sentence twice.
+   */
+  it.each(CANVAS_LITERALS)('%s — carries NO native title (the styled tooltip is the mouse channel)', (literal) => {
+    render(<NodeProvenanceMark nodeType="option" data={option(literal)} />)
+    // asChild blocks inherited native titles with an empty attribute.
+    expect(mark()).toHaveAttribute('title', '')
   })
 
   /**

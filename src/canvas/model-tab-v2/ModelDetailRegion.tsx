@@ -108,7 +108,14 @@ export interface ModelDetailRegionProps {
    * detail region each believing they have one. `factorId` identifies the row
    * BY IDENTITY, never by position in the list (trap 19).
    */
-  interventionEdit?: { factorId: string; draft: string } | null
+  interventionEdit?: {
+    factorId: string
+    draft: string
+    /** `pending` = the turn is with the server and the model does NOT hold it yet. */
+    phase?: 'editing' | 'pending' | 'queued'
+    /** Why nothing was sent. Present only on `editing`. */
+    notice?: string
+  } | null
   /** Begin editing one intervention target. Absent ⇒ the list is read-only. */
   onBeginInterventionEdit?: (factorId: string, seed: string) => void
   onInterventionDraftChange?: (factorId: string, draft: string) => void
@@ -268,6 +275,36 @@ export function ModelDetailRegion({
         <p data-testid="model-detail-v2-primary" className={`${typography.panelTabular} text-text-body`}>
           {row.primaryValue ?? 'Not set'}
         </p>
+        {/* ⭐⭐ "NOT SET" ANSWERS THE WRONG QUESTION FOR HALF THE ROWS THAT SHOW IT.
+            Two opposite situations render it, and a reader deciding what to do
+            next needs them apart:
+
+              nothing here at all — nobody has looked. THEY are the gap.
+              unquantified prior  — Olumi read the brief, found no figure, and
+                                    REFUSED TO INVENT ONE. The gap is known.
+
+            The second is a reasoning act by the producer and it is currently
+            invisible: measured on deployed `14276d5b`, four of five factors
+            carried `prior_is_unquantified` and the word appears nowhere on the
+            tab. The canvas node and the Inspector both distinguish it; the
+            surface built for READING your model did not.
+
+            ⚠ IT ADDS A LINE, IT DOES NOT REPLACE "Not set". The value really is
+            not set — that stays true and stays first. This says WHY, which is a
+            different claim and belongs in a different sentence.
+
+            ⚠ THE COPY CLAIMS ONLY WHAT THE FLAG LICENSES. `prior_is_unquantified`
+            says the producer recorded ignorance instead of a figure. It does NOT
+            license "your brief did not mention this" — that is a claim about the
+            brief, and this surface cannot see one. */}
+        {detail.priorIsExplicitlyUnquantified && (
+          <p
+            data-testid="model-detail-v2-unquantified"
+            className={`${typography.panelMeta} text-text-light`}
+          >
+            Olumi recorded this as unknown rather than assuming a figure.
+          </p>
+        )}
         <FieldList fields={detail.secondaryValues} testid="model-detail-v2-secondary" />
       </section>
 
@@ -286,7 +323,11 @@ export function ModelDetailRegion({
           <h4 className={`${typography.panelHeader} text-text-header`}>What this would change</h4>
           <ul>
             {interventions.map(iv => {
-              const editing = interventionEdit?.factorId === iv.factorId
+              const active = interventionEdit?.factorId === iv.factorId
+              const pending = active && interventionEdit?.phase === 'pending'
+              const queued = active && interventionEdit?.phase === 'queued'
+              const editing = active && !pending && !queued
+              const notice = active ? interventionEdit?.notice : undefined
               const editable = typeof onBeginInterventionEdit === 'function'
               return (
                 <li
@@ -303,7 +344,25 @@ export function ModelDetailRegion({
                     {iv.factorLabel}
                   </span>
 
-                  {editing ? (
+                  {pending || queued ? (
+                    /*
+                     * ⭐ SENT, NOT SAVED — and the row must not blur the two.
+                     * The old code closed on dispatch, which showed the typed
+                     * number as though the model held it. It does not until the
+                     * applied response says so, so the row keeps the number
+                     * visible, marks it as in flight, and offers no Save (there
+                     * is nothing left to press).
+                     */
+                    <span
+                      data-testid={`model-detail-v2-intervention-${iv.factorId}-${queued ? 'queued' : 'pending'}`}
+                      className={`${typography.panelBody} text-text-light`}
+                    >
+                      {interventionEdit?.draft}
+                      {queued
+                        ? ' · queued behind another change'
+                        : ' · sent, not saved yet'}
+                    </span>
+                  ) : editing ? (
                     <>
                       <input
                         type="number"
@@ -394,6 +453,29 @@ export function ModelDetailRegion({
                   <span data-testid={`model-detail-v2-intervention-${iv.factorId}-provenance`}>
                     <InterventionProvenanceMark source={iv.provenanceSource} />
                   </span>
+
+                  {/*
+                    ⭐ WHY NOTHING WAS SENT — beside the number it is about.
+
+                    The commit used to close this row whatever happened, so a
+                    refusal was indistinguishable from a save. This is the other
+                    half of that fix: the row stays open AND says which refusal
+                    it was. The recoverable one names the action that actually
+                    clears it — a turn — rather than "try again", which re-sends
+                    the same stale base forever.
+
+                    ⚠ Rendered only when present. An empty notice slot on every
+                    row is the wall of inert text the NOT SET WALL rule removed.
+                  */}
+                  {notice !== undefined && (
+                    <span
+                      role="status"
+                      data-testid={`model-detail-v2-intervention-${iv.factorId}-notice`}
+                      className={`${typography.panelBody} text-text-light basis-full`}
+                    >
+                      {notice}
+                    </span>
+                  )}
                 </li>
               )
             })}

@@ -314,11 +314,20 @@ describe('StyledEdge causal lens — provenance-gated params (ROADMAP 2.954, #62
       )
     })
 
-    it('STRONG: |mean| = 0.5 sits in the 2px width band — discriminating from the 1.5 unset floor', () => {
+    it('STRONG: |mean| = 0.5 sits in the 2px width band — discriminating from the unset floor', () => {
       expect((STRONG_WIRE as any).strength.mean).toBe(-0.5)
       expect((STRONG_WIRE as any).exists_probability).toBe(0.92)
       expect(weightMagnitudeToStrokeWidth(0.5)).toBe(2)
-      expect(UNSET_EDGE_STROKE_WIDTH).toBe(1.5)
+      // ⭐ WAS `expect(UNSET_EDGE_STROKE_WIDTH).toBe(1.5)` UNTIL 8 Sep 2026, when
+      // the unset floor moved strictly below every measured band (it used to
+      // EQUAL the weakest one, so "nobody has said" and "we set this to weak"
+      // drew identically). Pinning the literal would re-pin that collision the
+      // next time either number moves; the load-bearing property was always the
+      // ORDERING, so assert that instead and let it survive the change.
+      expect(
+        UNSET_EDGE_STROKE_WIDTH,
+        'the unset floor is not below the 0.5 measured band — an unset strength is being drawn as a measurement',
+      ).toBeLessThan(weightMagnitudeToStrokeWidth(0.5))
       expect(resolveEdgeDirectionDisplay(STRONG_DATA)).toEqual(
         expect.objectContaining({ show: true, direction: 'negative' }),
       )

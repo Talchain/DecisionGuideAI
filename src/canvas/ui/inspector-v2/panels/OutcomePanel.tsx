@@ -30,6 +30,8 @@ import { COACHING } from '../coachingConfig'
 import { OutcomeAdvancedEditor } from '../editors/OutcomeAdvancedEditor'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import { resolveElementLabel } from '../../../domain/elementLabel'
+import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
+import { METRIC_NOUN } from '../../../nodes/shared/metricVocabulary'
 
 // ─── Option comparison helpers ─────────────────────────────────────
 
@@ -102,9 +104,19 @@ function OptionComparisonSection({
               <span className={`${typography.panelBody} text-text-body truncate`}>
                 {opt.option_label ?? opt.option_id}
               </span>
+              {/* ⛔ READ "99% win" UNTIL NOW — a contest-frame survivor of
+                  #1281, and it survived because the only literal on the line is
+                  the two-word tail `% win`. The guard is in scope here; its ban
+                  list carries `wins` and the singular walked past, and no grep
+                  for a contest SENTENCE matches a fragment assembled across an
+                  interpolation boundary.
+
+                  ⭐ ONE NOUN PER IDEA. This is the same quantity the option
+                  card captions `Support` — by reference, so the register stays
+                  the single authority and this cannot drift back. */}
               {opt.win_probability != null && (
                 <span className={`${typography.panelMeta} shrink-0 text-option`}>
-                  {Math.round(opt.win_probability * 100)}% win
+                  {METRIC_NOUN.support} {Math.round(opt.win_probability * 100)}%
                 </span>
               )}
             </div>
@@ -121,7 +133,14 @@ function OptionComparisonSection({
             )}
             {opt.win_probability != null && (
               <div className="mt-1">
-                <DataBar value={opt.win_probability} label="Win probability" colour="info" />
+                {/* ⚠⚠ THIS STRING REACHES ONLY ASSISTIVE-TECHNOLOGY USERS.
+                    `DataBar` renders `label` EXCLUSIVELY as `aria-label` on its
+                    `role="progressbar"`; a sighted reader sees a coloured bar
+                    and no words. So the contest frame was retired from what the
+                    product SHOWS and left in what it SAYS — the ruling applied
+                    to one channel and not the other, which is the harder half
+                    to notice and the easier half to leave. */}
+                <DataBar value={opt.win_probability} label={COMPARATIVE_COPY.label} colour="info" />
               </div>
             )}
             {techMode && opt.expected_outcome != null && (
