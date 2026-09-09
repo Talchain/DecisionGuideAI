@@ -13,7 +13,7 @@
 
 import { memo, useMemo, useCallback } from 'react'
 import { useCanvasStore } from '../../../store'
-import type { NodeType, RiskImpact } from '../../../domain/nodes'
+import { RiskNodeDataSchema, type NodeType, type RiskImpact } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
 import {
@@ -62,9 +62,11 @@ export const RiskPanel = memo(function RiskPanel({
   const mutations = useNodeMutations(nodeId ?? '')
   const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
 
-  // Canonical scales (RiskNodeDataSchema): probability is 0-1, impact is the enum.
-  const probability = node?.data?.probability as number | undefined
-  const impact = node?.data?.impact as RiskImpact | undefined
+  // Match the card's existing input contract; invalid imported values are not estimates.
+  const probabilityInput = RiskNodeDataSchema.shape.probability.safeParse(node?.data?.probability)
+  const impactInput = RiskNodeDataSchema.shape.impact.safeParse(node?.data?.impact)
+  const probability = probabilityInput.success ? probabilityInput.data : undefined
+  const impact = impactInput.success ? impactInput.data : undefined
   const probabilityPct = typeof probability === 'number' ? Math.round(probability * 100) : null
   const severity = calculateRiskSeverity(probability, impact)
   const severityColors = getRiskSeverityColors(severity)
@@ -102,15 +104,19 @@ export const RiskPanel = memo(function RiskPanel({
 
   if (!nodeId || !node) return null
 
-  const description = String(node.data?.description ?? '')
+  const description = typeof node.data?.description === 'string' && node.data.description.trim() ? node.data.description : null
+  const body = typeof node.data?.body === 'string' && node.data.body.trim() ? node.data.body : null
+  const context = description && body && body.trim() !== description.trim()
+    ? `${description}\n\n${body}`
+    : description ?? body
   const showEditFeedback = lastConfirmed?.field === 'probability' || lastConfirmed?.field === 'impact'
 
   return (
     <div>
       {/* ── Context group ─────────────────────────────────────── */}
       <PanelGroup kind="context" label={GROUP_LABELS.context}>
-        {description
-          ? <p className={`${typography.panelBody} text-text-body`}>{description}</p>
+        {context
+          ? <p data-testid="risk-authored-context" className={`${typography.panelBody} text-text-body whitespace-pre-wrap break-words`}>{context}</p>
           : <EmptyDescriptionPrompt placeholder={DESCRIPTION_PLACEHOLDERS.risk} />
         }
       </PanelGroup>
@@ -118,6 +124,9 @@ export const RiskPanel = memo(function RiskPanel({
       {/* ── Your input: likelihood × impact (P1.7) ─────────────── */}
       <PanelGroup kind="input" label={GROUP_LABELS.input}>
         <PrimaryControlCard>
+          {(probability != null || impact != null) && (
+            <p className={`${typography.panelMeta} text-text-light mb-2`}>Entered estimate</p>
+          )}
           {/* Likelihood — click-to-edit percentage */}
           <div>
             <div className={`${typography.panelMeta} text-text-light mb-1`}>{INLINE_LABELS.riskLikelihood}</div>
@@ -125,7 +134,7 @@ export const RiskPanel = memo(function RiskPanel({
               readout={probabilityPct != null ? `${probabilityPct}%` : null}
               placeholder={INLINE_LABELS.riskNotSet}
               // Exact percent (unrounded) so opening + blurring a 0.376 (shown
-              // "38%") is a no-op and preserves the producer's precision (P1-4).
+              // "38%") is a no-op and preserves the entered precision (P1-4).
               value={probability != null ? probability * 100 : null}
               onSave={handleProbabilitySave}
               displayTestId="risk-probability-display"
@@ -191,7 +200,7 @@ export const RiskPanel = memo(function RiskPanel({
           )}
         </PrimaryControlCard>
 
-        <p className={`${typography.panelMeta} text-text-light mt-2`}>{INLINE_LABELS.riskExposureHint}</p>
+        <p className={`${typography.panelMeta} text-text-light mt-2`}>Severity combines the likelihood and impact entered above.</p>
       </PanelGroup>
 
       {/* ── What drives this group ────────────────────────────── */}

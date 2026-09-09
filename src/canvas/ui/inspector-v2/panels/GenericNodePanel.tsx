@@ -8,12 +8,12 @@
  * indistinguishable from a broken click.
  *
  * This panel is deliberately modest. It shows what every node has — its
- * description and its connections — and says plainly that this element type has
+ * description, longer body and connections — and says plainly that this element type has
  * no specialised editor yet. Selecting an element always produces a panel; a
  * panel that admits its own limits beats a panel that does not exist.
  */
 
-import { memo, useMemo, useState } from 'react'
+import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { useCanvasStore } from '../../../store'
 import type { NodeType } from '../../../domain/nodes'
@@ -29,6 +29,8 @@ import type { EdgeValueDisplay } from '../../../domain/edgeValueProvenance'
 import type { InspectorPanelProps } from '../types'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 
+const textContent = (value: unknown) => typeof value === 'string' ? value : ''
+
 export const GenericNodePanel = memo(function GenericNodePanel({
   nodeId,
   techMode,
@@ -39,8 +41,22 @@ export const GenericNodePanel = memo(function GenericNodePanel({
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
 
-  const [description, setDescription] = useState(String(node?.data?.description ?? ''))
+  // InspectorRouter keys the panel by nodeId, so each node gets its own draft.
+  const [description, setDescription] = useState(textContent(node?.data?.description))
   const [isEditingDescription, setIsEditingDescription] = useState(false)
+  const descriptionRef = useRef<HTMLTextAreaElement>(null)
+  const body = textContent(node?.data?.body)
+
+  useLayoutEffect(() => {
+    const field = descriptionRef.current
+    if (!field) return
+    field.style.height = 'auto'
+    // Keep the existing editor and permission boundary; let the inspector
+    // scroll the full text instead of hiding it inside a two-row field.
+    if (field.scrollHeight > 0) {
+      field.style.height = `${field.scrollHeight + field.offsetHeight - field.clientHeight}px`
+    }
+  }, [description, isEditingDescription])
 
   const connections = useMemo(() => {
     return edges
@@ -75,6 +91,8 @@ export const GenericNodePanel = memo(function GenericNodePanel({
       <PanelGroup kind="context" label={GROUP_LABELS.context}>
         {description || isEditingDescription ? (
           <textarea
+            ref={descriptionRef}
+            aria-label="Description"
             value={description}
             onChange={e => setDescription(e.target.value)}
             onBlur={() => {
@@ -92,6 +110,15 @@ export const GenericNodePanel = memo(function GenericNodePanel({
             placeholder={DESCRIPTION_PLACEHOLDERS.decision}
             onStartEditing={() => setIsEditingDescription(true)}
           />
+        )}
+
+        {body.trim() && body.trim() !== description.trim() && (
+          <div className="mt-3" data-testid="inspector-generic-body">
+            <p className={`${typography.panelMeta} text-text-light m-0 mb-1`}>Further detail</p>
+            <p className={`${typography.panelBody} text-text-body m-0 whitespace-pre-wrap break-words`}>
+              {body}
+            </p>
+          </div>
         )}
 
         <p className={`${typography.panelMeta} text-text-light mt-2`} data-testid="inspector-generic-note">

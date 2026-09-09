@@ -32,11 +32,34 @@
  * The ONE detail tier. See design §4.3.
  *
  * ⚠ THIS IS A CONTENT SWITCH, NEVER A LAYOUT SWITCH — the whole point of the
- * v2 tier. Today's `expertMode` drives both the scientific detail AND the
- * accordion mode (`ModelTabBody.tsx:116-122` vs `:761`), so a non-scientist who
- * merely wants two sections open at once has to turn on the scientist view.
- * A tier value must never decide how many groups are open, how rows are
- * ordered, or which rows are selected.
+ * v2 tier. A tier value must never decide how many groups are open, how rows
+ * are ordered, or which rows are selected.
+ *
+ * ⚠⚠ THE SECOND HALF OF THIS COMMENT WAS A STANDING ARGUMENT FOR KEEPING TWO
+ * SWITCHES, AND ITS PREMISE IS DEAD. It read:
+ *
+ *     "Today's `expertMode` drives both the scientific detail AND the accordion
+ *      mode (`ModelTabBody.tsx:116-122` vs `:761`), so a non-scientist who
+ *      merely wants two sections open at once has to turn on the scientist view."
+ *
+ * Derived at `3b2df4ce`, at the line numbers rather than from the claim:
+ * `isExpert` has exactly ONE consumer in `ModelTabBody` — `makeSectionProps`
+ * (:194-201), which switches the accordion between single-open and multi-open.
+ * That helper has six call sites (:968, :1036, :1050, :1064, :1073, :1091), and
+ * FIVE of them sit inside `{LEGACY_DETAILED_EDITOR_MOUNTED && (` — :975-:1097,
+ * with the constant hardcoded `false`. The live accordion group therefore has
+ * exactly ONE member, and over a group of one, single-open and multi-open are
+ * the same layout.
+ *
+ * So `expertMode` cannot change layout on this tab: it is already the pure
+ * content switch this type was minted to be. `DetailTier` is now DERIVED from
+ * it (`ModelTabV2Panel`'s `expertMode` prop) rather than held beside it — the
+ * type stays, because naming the two content levels is still useful; what is
+ * gone is the second piece of STATE.
+ *
+ * ⭐ The reason this paragraph is rewritten rather than deleted: a justification
+ * for a design outlives the fact that justified it, and the next reader would
+ * have re-derived the split from a sentence that stopped being true.
  */
 export type DetailTier = 'plain' | 'advanced'
 

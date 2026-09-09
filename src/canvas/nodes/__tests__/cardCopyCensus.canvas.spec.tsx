@@ -469,28 +469,34 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'Strength', // CAPTION — `METRIC_NOUN.strength`, beside its bar.
   ],
   'risk · pre · expert': [
-    'Add mitigation', // CONTROL
     'Driven by:', // HEADING
+    'Explore mitigation', // CONTROL
     'Strength', // CAPTION
     'What reduces this?', // CONTROL
+    'What would we see first?', // CONTROL
   ],
   'risk · post · standard': ['Strength'],
   'risk · post · expert': [
-    'Add mitigation', // CONTROL
     'Depends on:', // HEADING
+    'Explore mitigation', // CONTROL
     'Strength', // CAPTION
     'What reduces this?', // CONTROL
+    'What would we see first?', // CONTROL
   ],
   'outcome · pre · standard': ['Strength'],
   'outcome · pre · expert': [
     'Driven by:', // HEADING
+    'Explore consequences', // CONTROL
     'Strength', // CAPTION
-    'What strengthens this?', // CONTROL
+    'What affects this?', // CONTROL
+    'What would falsify this?', // CONTROL
   ],
   'outcome · post · standard': ['Strength'],
   'outcome · post · expert': [
     'Depends on:', // HEADING
+    'Explore consequences', // CONTROL
     'Strength', // CAPTION
+    'Validate this assumption', // CONTROL
   ],
   // ⚠⚠ EVERY LOD BUCKET IS EMPTY, AND THAT ZERO IS NEARLY GUARANTEED — DO NOT
   // READ IT AS A CLEAN BILL. At this rung the caption and its value are ONE
@@ -635,7 +641,7 @@ const ADJUDICATED_POSITIONS: Position[] = [
   { what: 'option · the not-computed badge', by: 'census', present: byTestId('-not-computed-option-1') },
   { what: 'factor · the `Confidence` readout', by: 'census', present: (_c, r) => r.some((x) => x.startsWith('Confidence')) },
   { what: 'risk · the coaching chips', by: 'census', present: (_c, r) => r.includes('What reduces this?') },
-  { what: 'outcome · the coaching chip', by: 'census', present: (_c, r) => r.includes('What strengthens this?') },
+  { what: 'outcome · the coaching chip', by: 'census', present: (_c, r) => r.includes('Explore consequences') },
   { what: 'option · the coaching chip', by: 'census', present: (_c, r) => r.includes('What could go wrong?') },
   { what: 'shared · the `Driven by:` / `Depends on:` headings', by: 'census', present: (_c, r) => r.includes('Driven by:') || r.includes('Depends on:') },
   { what: 'factor · the `Influences:` heading', by: 'census', present: (_c, r) => r.includes('Influences:') },

@@ -30,6 +30,7 @@ import { GitBranch, Target } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import type { ModelImplication as ModelImplicationModel } from '../analysisNewTypes'
+import { surface, type SurfaceTone } from '../panelSurfaces'
 
 export interface ModelImplicationProps {
   implication: ModelImplicationModel
@@ -96,13 +97,11 @@ export function ModelImplication({
    * stopping on, not because anything went wrong.
    */
   const Icon = diverged ? GitBranch : Target
-  const frame = diverged
-    ? 'border-info/30 bg-info/10'
-    : 'border-panel-border bg-panel-hover'
+  const tone: SurfaceTone = diverged ? 'info' : 'muted'
 
   return (
     <section
-      className={`rounded-md border ${frame} p-3`}
+      className={surface(tone)}
       data-testid={testId}
       data-implication-kind={implication.kind}
       aria-labelledby={`${testId}-title`}

@@ -4,9 +4,9 @@
  * Pre-analysis Standard: triage line, 2 coaching chips, popover with model
  *   readiness breakdown.
  * Pre-analysis Detailed: same as Standard (chip rules are view-agnostic).
- * Post-analysis Standard: compound winner + risk sentence, 2 coaching chips,
- *   popover with stability % + tier + progress bar.
- * Post-analysis Detailed: same as Standard PLUS stability line in body.
+ * Post-analysis Standard: model-readiness summary, with stability and coaching
+ *   in the popover. Option comparisons remain on option cards.
+ * Post-analysis Detailed: stability and coaching inline in the body.
  *
  * Resting state: when NEITHER branch would put a child on screen, the body
  *   states what is absent from this node and — where an authoring act would
@@ -26,17 +26,11 @@ import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { typography } from '../../styles/typography'
-import { METRIC_NOUN } from './shared/metricVocabulary'
-import { COMPARATIVE_COPY } from '../../components/results/utils/goalAnchorCopy'
-import { NodeChip, NodeMetricRow, NodePopover } from './shared'
+import { NodeChip, NodePopover } from './shared'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { cleanFactorLabel } from '../utils/labelUtils'
 import { biasSignal } from '../shared/biasSignalTitles'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
-import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
-import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/useAnalysisReady'
-import { openNodeInspector } from './shared/openNodeInspector'
-import { leaderRobustnessGrade } from './shared/leaderRobustnessGrade'
 import { requestAsk, canReceiveAsk } from '../ui/inspector-v2/askSemantic'
 
 /**
@@ -374,97 +368,23 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     return null
   }, [isPostAnalysis, nodes, edges, goalDefined])
 
-  // ---- Post-analysis: winner headline ----
-  //
-  // ⭐ THE SENTENCE NOW READS "{X} supported in N% of simulated scenarios"
-  // (8 Sep 2026). The two paragraphs below quote the OLD wording because they
-  // are the record of why the GATE exists, and the gate is unchanged — only
-  // the words it permits changed. See the render site for the rename.
-  //
-  // ROADMAP 1.223: "{X} leads in N% of scenarios" is a comparative leader
-  // claim, so it quotes `deriveDecisionVerdict` — the one module entitled to
-  // say a leading option exists — exactly as the sibling `OptionNode` badge
-  // already does. It previously read `robustness.recommended_option_id`
-  // directly, which answers only "WHO leads?" and never "is there a leader at
-  // all", so on a withheld turn the canvas printed this sentence four inches
-  // from CEE's own "no option can be put forward yet", and directly above an
-  // `OptionNode` that had correctly withheld its "Leading option" badge.
-  // Q1 OF TWO — THE MODEL'S LICENCE (`permitted_analysis_mode`). "{X} leads in
-  // N% of scenarios" is the most explicit comparative-leader claim on the
-  // canvas, and until now it asked only Q2. The results panel has composed both
-  // since ROADMAP 1.267; this node asked half the question, so a model CEE
-  // admitted at `exploratory` printed the sentence beside a panel withholding
-  // every designation for the same run. Imported from the one reader of Q1,
-  // never re-spelled locally.
-  const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(useAnalysisAdmission())
-
-  const headline = useMemo(() => {
-    if (!isPostAnalysis || !report) return null
-    // Absence of the admission means an older producer and is `true`, so this
-    // is exactly today's behaviour until CEE speaks. The opposite arm from Q2
-    // below, deliberately: never fold either into the other's default.
-    if (!modelLicensesComparativeClaim) return null
-    const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
-    const verdict = deriveDecisionVerdict(report as DecisionVerdictReportLike | null, {
-      visibleOptionIds: new Set(optionNodes.map(n => n.id)),
-    })
-    // No owned leader claim ⇒ no sentence. Silence, not a substitute claim:
-    // the node's stability line and triage chips keep their own voices, and
-    // the win probabilities remain readable on the option nodes themselves.
-    if (!verdict.hasLeadingOption) return null
-    const recommendedId = verdict.leaderId
-    if (!recommendedId) return null
-
-    // ⭐ NAMED FOR THE QUESTION IT ANSWERS. `winnerLabel` was a local
-    // identifier, so `noContestFraming.canvas.spec` correctly waved it through
-    // as not-copy and rowed it as the next lane's work — but it is also the
-    // vocabulary the next hand inherits as canonical, and the sentence it fed
-    // is the reason this card kept its race verb through four rulings.
-    const mostSupportedNode = nodes.find(n => n.id === recommendedId)
-    const mostSupportedLabel = (mostSupportedNode?.data?.label as string | undefined) ?? null
-    if (!mostSupportedLabel) return null
-
-    const optionProbs = (report as any)?.option_probabilities ?? {}
-    const winProb = optionProbs[recommendedId]?.win_probability as number | undefined
-
-    return { mostSupportedLabel, winProb }
-  }, [isPostAnalysis, modelLicensesComparativeClaim, report, nodes])
-
-  // Biggest risk: risk node with highest bridge edge weight to goal
-  const biggestRisk = useMemo(() => {
-    if (!isPostAnalysis) return null
-    const goalNode = nodes.find(n => n.type === 'goal' || n.data?.type === 'goal')
-    if (!goalNode) return null
-
-    const riskNodes = nodes.filter(n => n.type === 'risk' || n.data?.type === 'risk')
-    let best: { nodeId: string; label: string; weight: number } | null = null
-
-    for (const risk of riskNodes) {
-      const edge = edges.find(e => e.source === risk.id && e.target === goalNode.id)
-      if (!edge) continue
-      const weight = (edge.data as any)?.weight as number | undefined
-      if (weight != null && (best === null || weight > best.weight)) {
-        best = {
-          nodeId: risk.id,
-          label: (risk.data?.label as string) ?? '',
-          weight,
-        }
-      }
-    }
-    return best
-  }, [isPostAnalysis, nodes, edges])
-
-  const handleRiskClick = useCallback(() => {
-    if (!biggestRisk) return
-    const store = useCanvasStore.getState()
-    store.setHighlightedNodes([biggestRisk.nodeId])
-    openNodeInspector(biggestRisk.nodeId)
-    setTimeout(() => store.setHighlightedNodes([]), 3000)
-  }, [biggestRisk])
-
-  const truncatedRiskLabel = biggestRisk
-    ? (biggestRisk.label.length > 22 ? `${biggestRisk.label.slice(0, 22)}...` : biggestRisk.label)
-    : null
+  /**
+   * ⛔ `biggestRisk` LIVED HERE. DELETED, NOT REPAIRED.
+   *
+   * It chose the risk with the greatest raw `edge.data.weight` on a risk → goal
+   * edge and the headline rendered it as ", but sensitive to X". Neither half was
+   * sourced: no sensitivity feed covers risks (`report.factor_sensitivity` is
+   * factors-only — three shipped fixtures, zero risk rows), and the selector
+   * bypassed the provenance gate this file already applies eighty lines above,
+   * so an unstated default weight could win it. With every risk edge on a
+   * default they are equal, so the comparison never fired after the first
+   * iteration and THE FIRST RISK IN NODE ORDER was named.
+   *
+   * ⚠ MY FIRST ATTEMPT REBUILT IT — provenance-gated, tie-failing, honestly
+   * worded. Review refused that and was right: the clause hung off a verdict
+   * that is itself a duplicate, and a more accurate version of a sentence that
+   * should not be there is not progress.
+   */
 
   // Coaching chip clusters — live in popovers (Standard) or inline in
   // Detailed view. The body never renders coaching chips. Exception:
@@ -571,18 +491,6 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // this expression is how the copy would start pointing at a panel that is
   // not there.
   const hasPostAnalysisPopover = isPostAnalysis && !isDetailed
-  const showHeadline = Boolean(headline)
-  /**
-   * AXIS 2 for the leader sentence. Same shared owner the option card reads —
-   * never re-spelled here, because two local expressions of one question is
-   * exactly how the canvas ended up with three robustness vocabularies already
-   * (this node's own `stabilityDisplay` thresholds, GoalNode's inline read, and
-   * the shared classifier). A DISCLOSURE only: `headline` above is untouched.
-   */
-  const robustnessGrade = useMemo(
-    () => (isPostAnalysis ? leaderRobustnessGrade(report) : null),
-    [isPostAnalysis, report],
-  )
   const showStabilityLine = isDetailed && Boolean(stabilityDisplay)
   // ⚠ POST-ANALYSIS CHIPS STAY DETAILED-ONLY, and that is a boundary, not an
   // oversight. "Challenge this result" deserves the same treatment as the
@@ -638,7 +546,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   const showPreAnalysisInvitations = isPreAnalysisBranch
 
   const bodyHasContent = isPostAnalysisBranch
-    ? (showHeadline || showStabilityLine || showPostAnalysisChips)
+    ? (showStabilityLine || showPostAnalysisChips)
     : isPreAnalysisBranch
       ? (showTriageLine || showRunAnalysis || showPreAnalysisInvitations)
       : false
@@ -749,69 +657,15 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     })
   }, [restingAsk, restingAskLabel, restingNodeId])
 
-  /**
-   * ⭐ WHAT THE ANCHOR OF THE MODEL SAYS WHEN IT IS TOO SMALL TO SAY ANYTHING
-   * ELSE — and it had NOTHING, which is the defect Paul reported twice.
-   *
-   * `shared/lodMetricLine.ts` deliberately scoped `decision` out: it has no
-   * single headline QUANTITY, so a central resolver reading `data` could not
-   * find one. That reasoning was correct and the conclusion was wrong, because
-   * it left THE MOST IMPORTANT CARD ON THE CANVAS as an empty box below the
-   * legibility floor — measured on deployed `7d717c13`, where this node's body
-   * holds a perfectly good sentence ("Segment leads in 48% of scenarios…")
-   * rendered `visibility: hidden` with nothing put back in its place. Every
-   * other type got a line and the anchor got none.
-   *
-   * ⛔ IT NAMES A LEADER ONLY WHERE THE CARD IS ALREADY ENTITLED TO. This reads
-   * `headline`, which is the SAME permission the full-zoom body consumes — so
-   * a run whose verdict withholds a leader has `headline === null` here and
-   * this says nothing about the analysis at all. It does not re-derive the
-   * permission, and it must never be changed into something that does: the
-   * leader-claim seam is exactly where this product has shipped a withheld
-   * verdict and a named leader two pixels apart before (trap 21).
-   *
-   * Where no leader may be named it falls back to the RESTING line — a
-   * statement about what is absent from this node, never about the analysis.
-   *
-   * ⭐⭐ AND ONE OF THOSE RESTING LINES WAS THE SAME SENTENCE ON EVERY MODEL —
-   * measured in a real browser, all five committed starter drafts, both
-   * 1280x800 and 1440x900 (`e2e/geometry/zoomLadder.measure.ts`, 1 Sep 2026).
-   * At the zoom "Show whole model" parks at, the anchor card's one line read
-   * `Nothing to show on this node` — 10 of 10 readings, identical.
-   *
-   * That is Paul's canvas-density ruling (31 Aug) failing in its purest form:
-   * *copy identical on every card is furniture, not information*. Here it is
-   * worse than furniture. A blank card is at least ambiguous; a sentence saying
-   * the anchor of the model has nothing on it is the product volunteering that
-   * its most important card is empty — while that same card is wired to three
-   * or four options and knows it.
-   *
-   * ⛔ THE REPLACEMENT IS A COUNT THE CARD ALREADY HOLDS, NOT A NEW NUMBER.
-   * `optionCount` is the SAME memo the `noOptionsLine` arm above branches on
-   * and the same one the pre-analysis ask sentence spells at line 373 — one
-   * authority, deduped by node id, and explicitly NOT a count of edges (see its
-   * own header: two edges to one option are a modelling defect the health check
-   * reports, not two options). So this cannot state a different number from the
-   * card two pixels away, which is exactly the trap `shared/lodMetricLine.ts`
-   * refused a central `decision` arm to avoid.
-   *
-   * ⚠ IT VARIES, WHICH IS THE WHOLE POINT: 4 on `build-vs-buy`, 3 on
-   * `market-entry`. And it is reachable only where `optionCount > 0`, because
-   * `optionCount === 0` is caught by the `noOptionsLine` arm above and keeps
-   * its CTA — the count is asserted here rather than assumed, so a future
-   * reordering of those arms cannot silently produce `0 options` on a card
-   * whose job is to say "Add options".
-   */
+  // Keep the Question node structural at every zoom. A completed analysis
+  // must not replace this count with the option verdict removed from its body.
+  // Unnamed and empty nodes retain their existing authoring/wayfinding copy.
   const lodMetric = useMemo<string | null>(() => {
-    if (headline?.mostSupportedLabel) {
-      const pct = headline.winProb != null ? ` ${Math.round(headline.winProb * 100)}%` : ''
-      return `${headline.mostSupportedLabel}${pct}`
-    }
-    if (resting.line === DECISION_RESTING_COPY.emptyLine && optionCount > 0) {
+    if (!isUnnamed && optionCount > 0) {
       return `${optionCount} option${optionCount === 1 ? '' : 's'}`
     }
     return resting.line
-  }, [headline, resting, optionCount])
+  }, [isUnnamed, resting.line, optionCount])
 
   /**
    * ⚠⚠ ONE ARM, BECAUSE THE OTHER IS UNREACHABLE HERE — AND I WROTE TWO FIRST.
@@ -945,98 +799,71 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
             claim would be the over-suppression half of this same defect. */}
         {isPostAnalysisBranch ? (
           <div className="mt-1">
-            {/* The leader sentence — and ONLY this — is gated on the producer's
-                owned claim. */}
-            {showHeadline && headline && (
-              <div
-                className={`${typography.nodeLabel} text-text-body`}
-              >
-                {headline.mostSupportedLabel}{' '}
-                {headline.winProb != null
-                  ? COMPARATIVE_COPY.clause(`${Math.round(headline.winProb * 100)}%`)
-                  : COMPARATIVE_COPY.phraseNoMagnitude}{biggestRisk && biggestRisk.label ? (
-                  <>
-                    , but sensitive to{' '}
-                    <button
-                      type="button"
-                      className={`${typography.nodeLabel} text-info underline cursor-pointer nodrag nopan`}
-                      onClick={handleRiskClick}
-                      onPointerDown={(e) => e.stopPropagation()}
-                    >
-                      {truncatedRiskLabel}
-                    </button>
-                  </>
-                ) : null}
-              </div>
-            )}
-            {/* AXIS 2, ON THE STRONGEST SENTENCE THE CANVAS SPEAKS.
-                "{X} supported in N% of simulated scenarios" renders in Standard
-                AND Detailed,
-                while this node's existing stability line is `isDetailed`-gated
-                (see `showStabilityLine`) — i.e. behind a hover popover in the
-                Standard view the founder was in. So the claim was always-on and
-                its caveat was not. Gated on `showHeadline && headline` so the
-                disclosure cannot appear without the sentence it qualifies. */}
-            {showHeadline && headline && robustnessGrade && (
-              <div
-                className={`${typography.edgeLabel} text-text-light mt-0.5`}
-                data-testid="decision-leader-robustness"
-                title={robustnessGrade.title}
-              >
-                {robustnessGrade.label}: small changes could flip which option the data supports.
-              </div>
-            )}
+            {/* ⛔ THE LEADER SENTENCE IS GONE FROM THE QUESTION NODE.
 
-            {/* ⭐ THE SAME BAR EVERY OTHER CARD ALREADY HAS, ON THE NUMBER THAT
-                MATTERS MOST. Measured on deployed staging `d4ff3683`: factor,
-                risk, outcome and option cards all render `noun ▬▬▬ NN%`, and
-                this one — the anchor of the model — rendered its percentage as
-                bare prose. The most consequential figure on the canvas was the
-                least visually encoded one.
+                It read "{X} supported in N% of simulated scenarios" — the
+                option cards' own verdict, restated under a heading that asks a
+                question. The node that FRAMES the decision was answering it,
+                in the words of the cards beside it, and a reader got the same
+                claim twice with no second source behind the repetition.
 
-                ⛔ IT READS `headline`, THE SAME PERMISSION THE SENTENCE ABOVE
-                CONSUMES, AND IT MUST NEVER BE CHANGED INTO SOMETHING THAT
-                RE-DERIVES IT. `option_probabilities[leader].win_probability` is
-                present on withheld runs too — the fixture pair proves it — so a
-                bar gated on the NUMBER rather than on the CLAIM would state a
-                leader the producer refused to designate, in a channel nobody
-                was watching. That is trap 21's seam exactly: this product has
-                shipped a withheld verdict and a named leader two pixels apart
-                before.
+                ⚠ THE PERMISSION SEMANTICS ARE UNCHANGED AND STILL LIVE. This
+                does not relax the option cards' admission, refusal,
+                non-vacuity or identity controls. This Question node no longer
+                derives a comparative headline, including at reduced zoom.
 
-                ⚠ `bg-option` DELIBERATELY, not a decision hue. This is the same
-                field, for the same option, that the most-supported OptionNode
-                renders under the same `METRIC_NOUN.support` caption
-                (`OptionNode.tsx:1783`) — so the two bars are the same quantity
-                on the same scale and a reader is entitled to compare them by
-                eye. A different fill would imply a different measure.
+                Its risk clause went with it (see the selector's tombstone
+                above). What this node keeps is the authored question,
+                readiness facts, independent stability and the routes out. */}
+            {/* ⛔ AND THE RUN CAVEAT WENT WITH THE CLAIM IT QUALIFIED.
 
-                ⛔ AND AS OF 8 Sep 2026 THE SENTENCE ABOVE AGREES WITH THE
-                CAPTION. It read "{X} leads in N% of scenarios" while this row
-                read `Support` — one number, one binding, two vocabularies,
-                eight pixels apart. That is the defect the 7 Sep
-                `ahead` → `support` rename was written to close, stopping one
-                line short of the sentence. `oneNounPerIdea.crossCard.spec`
-                left the reversal point explicit; this is it.
+                It read "{grade}: small changes could flip which option the data
+                supports" and was gated on the producer's claim — a caveat
+                ABOUT the verdict sentence, existing because that sentence was
+                always-on while its qualifier was Detailed-only.
 
-                ⚠ NO `phrase`. Every span in the row is `aria-hidden`, and that
-                is correct here: the sentence directly above already states
-                "{X} supported in N% of simulated scenarios" to assistive tech.
-                A phrase would
-                make a screen reader say the same claim twice. The row is a
-                VISUAL encoding of a sentence that stays where it was — nothing
-                moved out of visible text, so the eight-surface leader-claim
-                corpus keeps biting on the copy it was written against. */}
-            {showHeadline && headline && headline.winProb != null && (
-              <NodeMetricRow
-                label={METRIC_NOUN.support}
-                value={headline.winProb}
-                formatted={`${Math.round(headline.winProb * 100)}%`}
-                fillClass="bg-option"
-                testId="decision-leader-metric-row"
-              />
-            )}
+                ⚠ Removing a claim does not require retaining its attached
+                caveat. With no comparative sentence on this card there is
+                nothing here for it to qualify, and a fragility notice floating
+                above a question would be a claim of its own.
 
+                ⭐ THE GENUINE INDEPENDENT STABILITY INFORMATION IS UNTOUCHED and
+                is a different quantity: `stabilityDisplay` still renders inline
+                in Detailed (`showStabilityLine`, below) and in the Standard
+                popover (bottom of this file). That is the axis `decisionVerdict`
+                insists is disclosed separately, and it survives on both
+                surfaces. */}
+            {/* ⛔ AND ITS BAR WENT WITH IT — `decision-leader-metric-row`.
+
+                The bar was added because this figure was the least visually
+                encoded on the canvas. True, and it is the OPTION card's job:
+                the row rendered `option_probabilities[leader]` under
+                `METRIC_NOUN.support` — the same field, same caption and same
+                scale the most-supported OptionNode already draws. A second
+                copy here is the duplication one layer below the sentence.
+
+                ⚠ The old comment's warning still stands where the bar still
+                lives: never gate it on the NUMBER rather than the CLAIM,
+                because `option_probabilities[leader].win_probability` is
+                present on withheld runs too. That argument was always an
+                argument for the option card's bar. It is untouched. */}
+            {/* ⛔ NO READINESS BLOCK HERE — AND I BUILT ONE TWICE BEFORE
+                ARRIVING AT THAT.
+
+                With the verdict, its bar and its caveat all gone, a completed
+                run in STANDARD puts nothing in this branch (stability and chips
+                are Detailed-only), so `bodyHasContent` is false and the
+                RESTING/completed-run state renders — which already carries the
+                readiness breakdown, inside the guarded subtree, with its
+                wayfinding line. Nothing needed lifting.
+
+                My first attempt rendered readiness here ungated, which made
+                `bodyHasContent` true on every completed run and SUPPRESSED that
+                resting state; my second gated it on `bodyHasContent`, which was
+                coherent but pointless once the caveat also went. The simplest
+                shape is the ruled one: remove the duplicate, let the existing
+                state supply the content, and move no copy out from under the
+                honesty corpus. */}
             {/* Post-analysis Detailed only: stability + chips inline in body
                 (Detailed has no popover). Standard surfaces both via the
                 popover below. */}

@@ -1,4 +1,4 @@
-import { memo, useMemo, useCallback } from 'react'
+import { memo, useMemo, useCallback, useState } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
 import { EvidenceGapBadge } from './EvidenceGapBadge'
@@ -12,9 +12,9 @@ import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput } from '../utils
 import { typography } from '../../styles/typography'
 import { METRIC_NOUN } from './shared/metricVocabulary'
 import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
-import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
-import { formatInterventionChange } from '../utils/interventionDisplay'
-import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
+import { cleanFactorLabel, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
+import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
+import { factorOptionSetting, getFactorOptionRows } from '../utils/factorOptionSetting'
 import { isGraphBadgesEnabled } from '../../flags'
 import { SlidersHorizontal, Eye, Cloud } from 'lucide-react'
 import { DataBar } from '../ui/shared/DataBar'
@@ -28,6 +28,8 @@ import { openNodeInspector } from './shared/openNodeInspector'
 import { resolveFactorPriorRange } from './shared/factorPriorRange'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
+import { classifyValueProvenance, VALUE_PROVENANCE_LABEL } from '../domain/valueProvenance'
+import { VALUE_PROVENANCE_ICON, PROVENANCE_ICON_SIZE_CLASSES } from '../domain/valueProvenanceIcon'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 import Tooltip from '../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
@@ -35,6 +37,8 @@ import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
   const observedState = props.data?.observedState as ObservedState | undefined
+  const currentValueOrigin = classifyValueProvenance(observedState?.source)
+  const CurrentValueOriginIcon = currentValueOrigin ? VALUE_PROVENANCE_ICON[currentValueOrigin.kind] : null
 
   const cleanedLabel = cleanFactorLabel((props.data?.label as string | undefined) ?? '')
 
@@ -48,7 +52,6 @@ export const FactorNode = memo((props: NodeProps) => {
   const edges = useCanvasStore(state => state.edges)
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
   const resultsStatus = useCanvasStore(state => state.results.status)
-  const resultsReport = useCanvasStore(state => state.results.report)
   const viewMode = useCanvasStore(state => state.viewMode)
   const isPostAnalysis = resultsStatus === 'complete'
   const isDetailed = viewMode === 'expert'
@@ -124,161 +127,39 @@ export const FactorNode = memo((props: NodeProps) => {
   const isHighPriority = priorityRank != null && priorityRank <= 3
   const isLowPriority = !isHighPriority
 
-  const interventionPayload = useMemo(() => {
+  const interventionDisplayValue = useMemo(() => {
     if (!hoveredOptionId) return null
-    const hoveredOption = nodes.find(n => n.id === hoveredOptionId)
-    if (!hoveredOption?.data?.interventions) return null
-    const interventions = hoveredOption.data.interventions as Record<string, unknown>
-    const unwrapped = unwrapInterventionValue(interventions[props.id])
-    // Highlight is visible when EITHER a numeric value or a CEE-authored
-    // displayValue is present. A `{ value: null, display_value: "..." }`
-    // record is still meaningful to the user — the factor was targeted,
-    // even if the numeric magnitude isn't known. Computation paths
-    // downstream still guard on `value != null` separately.
-    if (unwrapped.value == null && unwrapped.displayValue == null) return null
-    return unwrapped
-  }, [hoveredOptionId, nodes, props.id])
+    const option = nodes.find(n => n.id === hoveredOptionId)
+    const ceeOption = ceeAnalysisReady?.options?.find(o => o.id === hoveredOptionId)
+    const interventions = (ceeOption?.interventions ?? option?.data?.interventions) as Record<string, unknown> | undefined
+    return factorOptionSetting(interventions?.[props.id], observedState)
+  }, [hoveredOptionId, nodes, ceeAnalysisReady, props.id, observedState])
+  const isAffectedByHover = interventionDisplayValue !== null
 
-  const interventionValue = interventionPayload?.value ?? null
-  const interventionDisplayValue = interventionPayload?.displayValue ?? null
-  const isAffectedByHover = interventionPayload !== null
+  const [showAllOptionValues, setShowAllOptionValues] = useState(false)
 
-  // Graph v2 Task 3: per-option comparison table for the popover.
-  // Suppressed for external factors and rendered in both phases. Ordering:
-  //   post: leader first → win prob desc → status quo last
-  //   pre:  canvas order → status quo last
-  // Status quo detection prefers an explicit `is_baseline` flag, falling back
-  // to an epsilon delta against the factor's current value.
-  //
-  // Data source: ceeAnalysisReady.options[id].interventions is canonical
-  // (CEE-normalised). Falls back to node.data.interventions when CEE has not
-  // synthesised yet — mirrors OptionNode.interventionChips.
+  // A setting is not a ranking or a baseline claim. Preserve canvas order
+  // and show the supplied setting even when this is the reference option.
   const optionComparisonRows = useMemo(() => {
     if (nodeCategory === 'external') return null
-    const optionNodes = nodes.filter(n => (n.type === 'option') || (n.data?.type === 'option'))
-    if (optionNodes.length === 0) return null
+    const rows = getFactorOptionRows(props.id, nodes, ceeAnalysisReady?.options, observedState)
+    if (rows.length === 0) return null
+    return { rows: showAllOptionValues ? rows : rows.slice(0, 4), overflow: showAllOptionValues ? 0 : Math.max(0, rows.length - 4) }
+  }, [nodes, props.id, nodeCategory, observedState, ceeAnalysisReady, showAllOptionValues])
 
-    const recommendedId = isPostAnalysis
-      ? ((resultsReport as any)?.robustness?.recommended_option_id as string | undefined)
-      : undefined
-    const winProbs = isPostAnalysis
-      ? ((resultsReport as any)?.option_probabilities ?? {})
-      : {}
-
-    type Row = {
-      id: string
-      node: typeof optionNodes[number]
-      hasIntervention: boolean
-      value: number | null
-      displayValue?: string
-      isStatusQuo: boolean
-      winProb: number
-    }
-
-    const withMeta: Row[] = optionNodes.map(opt => {
-      // Primary: ceeAnalysisReady (canonical post-CEE source)
-      const ceeOption = ceeAnalysisReady?.options?.find(o => o.id === opt.id)
-      let interventions: Record<string, unknown> | undefined
-      if (ceeOption?.interventions && typeof ceeOption.interventions === 'object') {
-        interventions = ceeOption.interventions as Record<string, unknown>
-      } else {
-        // Fallback: option node data.interventions (pre-CEE state)
-        interventions = (opt.data as any)?.interventions as Record<string, unknown> | undefined
-      }
-      const raw = interventions?.[props.id]
-      const hasIntervention = raw !== undefined
-      const { value, displayValue } = unwrapInterventionValue(raw)
-      // Prefer explicit is_baseline; fall back to epsilon delta against factor value
-      const explicitBaseline = (opt.data as any)?.is_baseline === true
-      const epsilonStatusQuo =
-        !explicitBaseline
-        && hasIntervention
-        && value != null
-        && observedState?.value != null
-        && Math.abs(value - observedState.value) < 1e-6
-      const isStatusQuo = explicitBaseline || epsilonStatusQuo
-      const winProb = (winProbs[opt.id] as any)?.win_probability ?? -1
-      return { id: opt.id, node: opt, hasIntervention, value, displayValue, isStatusQuo, winProb }
-    })
-
-    // Sort
-    if (isPostAnalysis) {
-      withMeta.sort((a, b) => {
-        if (a.isStatusQuo && !b.isStatusQuo) return 1
-        if (!a.isStatusQuo && b.isStatusQuo) return -1
-        if (a.id === recommendedId) return -1
-        if (b.id === recommendedId) return 1
-        return b.winProb - a.winProb
-      })
-    } else {
-      // Canvas order, status quo last
-      withMeta.sort((a, b) => (a.isStatusQuo ? 1 : 0) - (b.isStatusQuo ? 1 : 0))
-    }
-
-    // Truncate: max 4 rows. If more, top 3 non-status-quo + status quo (if present).
-    const statusQuo = withMeta.find(r => r.isStatusQuo)
-    const nonSq = withMeta.filter(r => !r.isStatusQuo)
-    let visibleRows = withMeta
-    let overflow = 0
-    if (withMeta.length > 4) {
-      visibleRows = [...nonSq.slice(0, 3), ...(statusQuo ? [statusQuo] : [])]
-      overflow = withMeta.length - visibleRows.length
-    }
-
-    const rows = visibleRows.map(r => {
-      let displayValue: string
-      if (r.isStatusQuo || !r.hasIntervention) {
-        // Status quo rows always read "no change" — matches the brief example
-        // ("○ No New Hire   no change") even when an explicit intervention
-        // value is present that happens to equal the baseline.
-        displayValue = 'no change'
-      } else if (r.displayValue) {
-        // CEE-provided display_value wins — render verbatim.
-        displayValue = r.displayValue
-      } else if (r.value != null) {
-        const formatted = formatInterventionValue(
-          r.value,
-          observedState?.unit,
-          observedState?.factor_type,
-          observedState?.cap,
-          observedState?.value,
-          observedState?.raw_value,
-          { preserveTierLabel: true },
-        )
-        displayValue = formatted || 'set'
-      } else {
-        displayValue = 'set'
-      }
-      const rawLabel = ((r.node.data as any)?.label as string | undefined) ?? r.id
-      const label = rawLabel.length > 20 ? rawLabel.slice(0, 20) + '…' : rawLabel
-      return { id: r.id, label, displayValue }
-    })
-
-    return { rows, overflow }
-  }, [nodes, props.id, nodeCategory, isPostAnalysis, resultsReport, observedState, ceeAnalysisReady])
-
-  // CEE currently emits `display_value` at the top level of node.data (see
-  // golden-path fixture). ObservedStateSchema also allows it, so we check
-  // top-level first and fall back to observedState for legacy data.
-  const topLevelDisplayValue = (props.data as Record<string, unknown> | undefined)?.display_value as
-    | string
-    | null
-    | undefined
-
-  // Contextual value display via formatFactorDisplayValue
-  const valueDisplay = useMemo(() => {
-    if (!observedState) return null
-    return formatFactorDisplayValue({
+  // Retain the shared value reader and the card's existing display-only guard
+  // against internal descriptors such as "other" being shown as units.
+  const valueDisplay = useMemo(
+    () => factorDisplayText({
+      ...props.data,
       label: cleanedLabel,
-      value: observedState.value ?? null,
-      raw_value: observedState.raw_value ?? null,
-      unit: isSuppressedUnit(observedState.unit) ? null : (observedState.unit ?? null),
-      factor_type: observedState.factor_type ?? null,
-      cap: observedState.cap ?? null,
-      category: nodeCategory ?? null,
-      display_value: topLevelDisplayValue ?? observedState.display_value ?? null,
-    })
-  }, [observedState, cleanedLabel, nodeCategory, topLevelDisplayValue])
+      observedState: observedState && {
+        ...observedState,
+        unit: isSuppressedUnit(observedState.unit ?? undefined) ? undefined : observedState.unit,
+      },
+    }),
+    [props.data, cleanedLabel, observedState],
+  )
 
   // Prior range for external factors (only the range values, no "Variable"
   // prefix). Lane C3: prior.range_min/max are NORMALISED 0–1 values. Only a
@@ -431,9 +312,11 @@ export const FactorNode = memo((props: NodeProps) => {
       .join('; ')
   }, [goalConstraints, cleanedLabel, props.id])
 
-  // Anchoring detection (Detailed, pre-analysis)
+  // A wider-range invitation needs a stated reference, never a placeholder.
   const anchoringMessage = useMemo(() => {
     if (!isDetailed || isPostAnalysis) return null
+    const referenceOrigin = classifyValueProvenance(typeof observedState?.source === 'string' ? observedState.source : null)
+    if (!referenceOrigin || referenceOrigin.kind === 'ai') return null
     const options = ceeAnalysisReady?.options
     if (!options || options.length < 3) return null
     const vals: number[] = []
@@ -443,14 +326,14 @@ export const FactorNode = memo((props: NodeProps) => {
       const { value: v } = unwrapInterventionValue((opt.interventions as Record<string, unknown> | undefined)?.[props.id])
       if (v != null) vals.push(v)
     }
-    if (vals.length < 3) return null
-    const baseline = observedState?.value ?? vals[0] ?? 0.01
-    const spread = Math.max(...vals) - Math.min(...vals)
-    if (spread / Math.max(Math.abs(baseline), 0.01) < 0.2) {
+    if (vals.length !== options.length) return null
+    const baseline = observedState?.value
+    if (typeof baseline !== 'number' || !Number.isFinite(baseline)) return null
+    if (vals.every(value => Math.abs(value - baseline) <= Math.max(Math.abs(baseline), 0.01) * 0.2)) {
       return valueDisplay ?? String(baseline)
     }
     return null
-  }, [isDetailed, isPostAnalysis, ceeAnalysisReady, props.id, observedState?.value, valueDisplay])
+  }, [isDetailed, isPostAnalysis, ceeAnalysisReady, props.id, observedState, valueDisplay])
 
   const outboundConnections = useNodeConnections(props.id, 'outbound')
 
@@ -497,8 +380,9 @@ export const FactorNode = memo((props: NodeProps) => {
 
   // Connected outcomes count for external popover text
   const outcomesAffected = useMemo(() => {
-    return edges.filter(e => e.source === props.id).length
-  }, [edges, props.id])
+    const outcomeIds = new Set(nodes.filter(node => (node.type ?? node.data?.kind) === 'outcome').map(node => node.id))
+    return new Set(edges.filter(edge => edge.source === props.id && outcomeIds.has(edge.target)).map(edge => edge.target)).size
+  }, [nodes, edges, props.id])
 
   // ----- Coaching chip cluster -----
   // Computed once, then injected into preAnalysisLayer2 (so it appears in
@@ -555,25 +439,38 @@ export const FactorNode = memo((props: NodeProps) => {
     optionComparisonRows && optionComparisonRows.rows.length > 0 ? (
       <>
         {withSep && <Sep />}
+        <p className={`${typography.edgeLabel} text-text-light m-0 mb-1`}>
+          Current value: <span className="text-text-body">{valueDisplay ?? 'Not recorded'}</span>
+          {valueDisplay !== null && (
+            <span data-testid="factor-current-value-origin" className="inline-flex items-center gap-1 ml-1">
+              {CurrentValueOriginIcon && <CurrentValueOriginIcon aria-hidden="true" className={PROVENANCE_ICON_SIZE_CLASSES} />}
+              {currentValueOrigin ? VALUE_PROVENANCE_LABEL[currentValueOrigin.kind] : 'Source not recorded'}
+            </span>
+          )}
+        </p>
         <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Option values:</p>
         <div className="space-y-0.5">
           {optionComparisonRows.rows.map(row => (
-            <div key={row.id} className="flex items-center gap-1">
+            <div key={row.id} className="flex items-start gap-1">
               <div className="w-[10px] h-[10px] rounded-sm bg-option flex-shrink-0" />
-              <span className={`${typography.edgeLabel} text-text-body flex-1 truncate`}>
+              <button type="button" className={`${typography.edgeLabel} text-text-body flex-1 min-w-0 text-left break-words nodrag nopan hover:underline focus-visible:outline focus-visible:outline-info`}
+                data-node-selection-target={row.id}
+                onClick={e => { e.stopPropagation(); openNodeInspector(row.id) }}
+                onPointerDown={e => e.stopPropagation()}
+              >
                 {row.label}
-              </span>
-              <span className={`${typography.edgeLabel} font-semibold text-right ${
-                row.displayValue === 'no change' ? 'text-text-light' : 'text-text-body'
-              }`}>
+              </button>
+              <span className={`${typography.edgeLabel} font-semibold text-right max-w-[48%] break-words text-text-body`}>
                 {row.displayValue}
               </span>
             </div>
           ))}
-          <ConnRowsOverflow
-            total={optionComparisonRows.rows.length + optionComparisonRows.overflow}
-            shown={optionComparisonRows.rows.length}
-          />
+          {optionComparisonRows.overflow > 0 && (
+            <button type="button" className={`${typography.edgeLabel} text-info underline nodrag nopan`}
+              onClick={e => { e.stopPropagation(); setShowAllOptionValues(true) }}
+              onPointerDown={e => e.stopPropagation()}
+            >Show {optionComparisonRows.overflow} more</button>
+          )}
         </div>
       </>
     ) : null
@@ -663,7 +560,7 @@ export const FactorNode = memo((props: NodeProps) => {
           post-analysis ConnRows list is the live one and is untouched. */}
       {nodeCategory === 'external' && outcomesAffected > 0 && (
         <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
-          Uncertainty here affects {outcomesAffected} outcome{outcomesAffected !== 1 ? 's' : ''}.
+          Linked to {outcomesAffected} outcome{outcomesAffected !== 1 ? 's' : ''}.
         </p>
       )}
       {/* Coaching chips — moved out of body. They appear here in the
@@ -855,50 +752,11 @@ export const FactorNode = memo((props: NodeProps) => {
             "Does not change …" fires ONLY on exact baseline equality (the old
             ±0.1 epsilon produced the live 0.5→0.6 contradiction). Never
             renders a bare arrow with no trailing text. */}
-        {isAffectedByHover && (() => {
-          // F.6 passthrough: CEE-authored display_value wins over any UI
-          // formatting or directional inference. Render verbatim. This also
-          // handles the { value: null, display_value: "..." } case — numeric
-          // paths below require a finite value, so we short-circuit first.
-          if (interventionDisplayValue) {
-            return (
-              <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
-                → {interventionDisplayValue}
-              </div>
-            )
-          }
-          if (interventionValue == null) return null
-          const rawUnit = observedState?.unit
-          const effectiveUnit = rawUnit && !isSuppressedUnit(rawUnit) ? rawUnit : undefined
-          // Must pass the cleaned label — compactFactorLabel expects scale
-          // metadata like "(0–1 scale)" to have already been stripped (see
-          // its docstring). Raw props.data.label can contain those fragments
-          // and they would leak into the teal strip otherwise.
-          const compactLabel = compactFactorLabel(cleanedLabel, 22)
-          const change = formatInterventionChange({
-            baselineValue: observedState?.value,
-            targetValue: interventionValue,
-            label: compactLabel,
-            unit: effectiveUnit,
-            factorType: observedState?.factor_type,
-            cap: observedState?.cap,
-            observedValue: observedState?.value,
-            observedRawValue: observedState?.raw_value,
-          })
-          // Body selection: formatted value when available; directional
-          // sentence when only a direction is known; nothing when neither
-          // (placeholder-unit factor with unknown baseline) — never a bare
-          // arrow, never an unanchored "Changes X".
-          const body = change.changed
-            ? (change.targetText || (change.arrow ? change.text : ''))
-            : change.text
-          if (!body) return null
-          return (
-            <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
-              → {body}
-            </div>
-          )
-        })()}
+        {isAffectedByHover && (
+          <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
+            → {interventionDisplayValue}
+          </div>
+        )}
 
         {/* ===== LAYER 1: Standard body ===== */}
 
@@ -1034,9 +892,9 @@ export const FactorNode = memo((props: NodeProps) => {
         {anchoringMessage && (
           <CoachingCard
             severity="warning"
-            message={`All options within 20% of ${anchoringMessage}. Anchored?`}
+            message={`Option settings are close to ${anchoringMessage}. Explore a wider range?`}
             linkLabel="Explore a wider range"
-            linkMessage={`My options seem anchored around ${anchoringMessage}. What wider range should I consider for ${cleanedLabel}?`}
+            linkMessage={`What wider range of settings for ${cleanedLabel} would be worth exploring, and what constraints would rule it out?`}
           />
         )}
 

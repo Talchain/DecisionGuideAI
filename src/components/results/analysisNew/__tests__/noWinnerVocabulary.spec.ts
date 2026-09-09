@@ -26,8 +26,8 @@
  * falsify the history they hold (trap 14b).
  */
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { readFileSync, existsSync, statSync } from 'node:fs'
+import { resolve, dirname, join, basename } from 'node:path'
 
 // cwd-relative: `import.meta.url` is not a file: URL under this vitest config,
 // and a spec that cannot read its subject reports a clean sweep of nothing.
@@ -36,6 +36,33 @@ const COPY_FILE = resolve(process.cwd(), 'src/components/results/analysisNew/ana
 /** Blank comments so a mention in prose is never counted as copy. */
 const stripComments = (src: string): string =>
   src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/gm, '$1')
+
+/**
+ * ⭐⭐ A BAN LIST QUOTES THE BANNED WORD — IT DOES NOT USE IT.
+ *
+ * The same declaration-versus-quotation distinction `stripComments` already
+ * makes for prose, applied to code. `glossaryCheck.ts` exports
+ * `ANALYSIS_HERO_BANNED_TERMS = ['winner', 'winning', 'chance of winning', …]`
+ * — a sibling vocabulary guard, reached from this tab. Widening the scope
+ * without this made THIS guard fire on THAT guard's ban list: a false positive
+ * whose only available fix is to stop declaring banned words, which is absurd.
+ *
+ * Measured, not supposed: before this blanker the derived sweep reported
+ * `chance of winning` in `utils/glossaryCheck.ts` as user-facing copy.
+ *
+ * ⚠ SCOPED BY THE IDENTIFIER'S NAME, so it cannot swallow ordinary copy: only
+ * an array literal assigned to a name containing BANNED / RETIRED / FORBIDDEN /
+ * DISALLOWED / BLOCKLIST is blanked. A copy catalogue is not named that, and
+ * the control below proves a real violation in an ordinary array still reads.
+ */
+const banListsBlanked = (src: string): string =>
+  src.replace(
+    /[A-Za-z0-9_]*(?:BANNED|RETIRED|FORBIDDEN|DISALLOWED|BLOCKLIST)[A-Za-z0-9_]*\s*(?::[^=]*?)?=\s*\[[\s\S]*?\]/g,
+    ' ',
+  )
+
+/** Comments blanked, then sibling ban lists blanked. Both are quotation. */
+const readableCopy = (raw: string): string => banListsBlanked(stripComments(raw))
 
 /** Every string literal in the file, comments already removed. */
 function literals(src: string): string[] {
@@ -78,7 +105,7 @@ function interpolationsRemoved(s: string): string {
  * than a contest between the user's options.
  */
 const BANNED =
-  /\b(winner|winners|winning|wins|won|leading option|leads on|ahead in|came out ahead|beats|best option|top option)\b/i
+  /\b(winner|winners|winning|wins|won(?!['\u2019]t)|leading option|leads on|ahead in|came out ahead|beats|best option|top option)\b/i
 
 /** Identifiers and paths are not copy — a user never reads them. */
 /**
@@ -96,11 +123,11 @@ const BANNED =
  * capital, so none of them can match this shape. Pinned as a control below.
  */
 const NOT_COPY =
-  /^(src\/|https?:|data-|aria-|analysis-new-|model-row|insight:|strengthen:|[a-z_]+\.(ts|tsx|json)$)|^[a-z][a-z0-9_]*([:-][a-z0-9]+)*$/
+  /^(src\/|https?:|data-|aria-|analysis-new-|model-row|insight:|strengthen:|\[[a-z0-9][a-z0-9 _-]*\]\s|[a-z_]+\.(ts|tsx|json)$)|^[a-z][a-z0-9_]*([:-][a-z0-9]+)*$/
 
 describe('the Reasoning tab does not frame the analysis as a contest', () => {
   const raw = readFileSync(COPY_FILE, 'utf8')
-  const code = stripComments(raw)
+  const code = readableCopy(raw)
   const strings = literals(code).filter(s => !NOT_COPY.test(s))
 
   it('PRECONDITION: the scan reaches real copy — it is not reading an empty file', () => {
@@ -157,29 +184,159 @@ describe('the Reasoning tab does not frame the analysis as a contest', () => {
  * because its matcher is weak (it was executed against all 12 and its own
  * fabricated control fires), but because it reads ONE FILE.
  *
- * ⚠ THE DIRECTORY IS NOT THE SURFACE, and that is the durable lesson here.
- * Only 2 of the 12 lived under `analysisNew/`. The other 10 sat in two files the
- * tab RUNS but does not own:
- *   · `strengthen/buildRecommendations.ts` — called at useAnalysisNewViewModel.ts:83
- *   · `decision-overview/actionsCatalogue.ts` — reached via analysisNew/recommendationMethod.ts
- * A sweep confined to the tab's own directory returns 2 findings and reads like
- * a clean surface. That is exactly the shape of a guard that agrees with itself.
+ * ⚠ THE DIRECTORY IS NOT THE SURFACE. Only 2 of the 12 lived under
+ * `analysisNew/`; the other 10 sat in two files the tab RUNS but does not own.
  *
- * ⚠ VOCABULARY: DESIGNATING FORMS, NOT BARE TOKENS. Bare `lead`/`leads` is
- * deliberately NOT banned — it would fire on "technical leads" (a job title) and
- * "leads to" (causation), which the ruling does not target. What is banned is a
- * DEFINITE reference to an option's placing. Adding bare tokens would trade this
- * guard's precision for noise and get it disabled, which is how guards die.
+ * ⭐⭐⭐ AND THE FIX FOR THAT WAS ITSELF A HAND-MAINTAINED MIRROR — CLOSED HERE,
+ * 9 Sep 2026. The scope became a literal list of four paths, sitting inside the
+ * file whose own header calls a hand-maintained list "the estate's answer to
+ * those is a derived guard that fails loud (trap 12)". A fifth file joining the
+ * surface was covered by nobody, and its arrival produced NO RED anywhere —
+ * the drift-reads-as-green failure mode, one level up from the one it fixed.
+ *
+ * ── WHAT THE SCOPE IS NOW ──────────────────────────────────────────────────
+ * DERIVED, by walking the import graph from the tab's MOUNTED RENDER ROOT —
+ * `AnalysisNewTabBody.tsx`, mounted at `canvas/components/OutputsDock.tsx:3613`
+ * — and keeping what lands under `src/components/results/`. Measured at the
+ * time of writing: **88 files, 1,919 literals, against a hand-list of 4.**
+ * A new import from this tab into a new copy file is in scope the moment it is
+ * written, with nothing for anyone to remember.
+ *
+ * ⚠⚠ THE CLAIM TYPE, STATED PRECISELY, BECAUSE IT IS NOT WHAT THE HEADING SAYS.
+ * This is IMPORT-REACHABLE copy, which is a SUPERSET of RENDER-reachable copy.
+ * Import closure is not render reachability. The scope is deliberately the
+ * superset: excluding a file needs positive proof it never renders, which
+ * nothing here supplies, and the dangerous direction for a guard is the one
+ * that looks clean because it stopped looking.
+ *
+ * ⭐ EXCEPT THROUGH A BARREL, WHERE THE SUPERSET GETS ABSURD — measured, and
+ * this is why `namesFrom` exists. `AnalysisNewTabBody.tsx:52` imports three
+ * bindings from the `../modals` barrel; a naive walk then drags in all twelve
+ * modules that barrel re-exports, including `HowComputedModal.tsx`, which this
+ * tab never renders and whose copy would have been flagged. A barrel is
+ * followed only into the modules that export a name actually imported through
+ * it. Pinned by the contrast controls below.
  */
-const REACHED_COPY_FILES: ReadonlyArray<readonly [string, string]> = [
-  ['analysisNewCopy.ts', 'src/components/results/analysisNew/analysisNewCopy.ts'],
-  ['strengthen/buildRecommendations.ts', 'src/components/results/strengthen/buildRecommendations.ts'],
-  ['decision-overview/actionsCatalogue.ts', 'src/components/results/decision-overview/actionsCatalogue.ts'],
-  // ⭐ ADDED after a reviewer showed this file's fix was UNGUARDED: reverting
-  // `buildAnalysisNewViewModel.ts:385` left 1146 tests green. It was outside the
-  // scope while carrying one of the twelve strings this PR fixed.
-  ['analysisNew/buildAnalysisNewViewModel.ts', 'src/components/results/analysisNew/buildAnalysisNewViewModel.ts'],
-]
+const TAB_RENDER_ROOT = 'src/components/results/analysisNew/AnalysisNewTabBody.tsx'
+const COPY_SCOPE_PREFIX = 'src/components/results/'
+const MODULE_EXT = ['.ts', '.tsx', '.js', '.jsx'] as const
+
+/**
+ * `undefined` = the specifier named something this resolver could not find, and
+ * that is a HARD ERROR below rather than a silent skip. A resolver that drops
+ * what it cannot resolve shrinks the swept corpus invisibly — the exact shape
+ * of every false zero in this estate.
+ * `null` = a bare package specifier, correctly out of scope.
+ */
+function resolveSpec(spec: string, fromFile: string): string | null | undefined {
+  let base: string
+  if (spec.startsWith('@/')) base = join(process.cwd(), 'src', spec.slice(2))
+  else if (spec.startsWith('.')) base = resolve(dirname(fromFile), spec)
+  else return null
+  for (const e of MODULE_EXT) if (existsSync(base + e) && statSync(base + e).isFile()) return base + e
+  if (existsSync(base) && statSync(base).isDirectory())
+    for (const e of MODULE_EXT) {
+      const i = join(base, 'index' + e)
+      if (existsSync(i)) return i
+    }
+  if (existsSync(base) && statSync(base).isFile()) return base
+  return undefined
+}
+
+interface Edge { spec: string; names: string[] | null; wildcard: boolean }
+
+/** Every import/export edge out of a file, WITH the names it carries. */
+function edgesOf(file: string): Edge[] {
+  const src = readFileSync(file, 'utf8')
+  const re =
+    /(?:^|\n)\s*(?:import|export)\s+(?:type\s+)?(?:([\s\S]*?)\s+from\s+)?['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]\s*\)/g
+  const out: Edge[] = []
+  let m: RegExpExecArray | null
+  while ((m = re.exec(src)) !== null) {
+    const spec = m[2] ?? m[3]
+    if (!spec) continue
+    const clause = m[1] ?? ''
+    const brace = clause.match(/\{([\s\S]*?)\}/)
+    const names = brace
+      ? brace[1]
+          .split(',')
+          .map((s) => s.replace(/\btype\b/g, '').split(/\s+as\s+/)[0]!.trim())
+          .filter(Boolean)
+      : null
+    out.push({ spec, names, wildcard: /\*/.test(clause) && !brace })
+  }
+  return out
+}
+
+const isBarrel = (f: string): boolean => /^index\.(ts|tsx|js|jsx)$/.test(basename(f))
+
+/** Files whose specifiers could not be resolved — asserted EMPTY below. */
+const unresolvedSpecs: string[] = []
+
+function renderPathClosure(): Set<string> {
+  const seen = new Set<string>()
+  const queue: Array<{ file: string; names: string[] | null }> = [
+    { file: join(process.cwd(), TAB_RENDER_ROOT), names: null },
+  ]
+  while (queue.length > 0) {
+    const { file, names } = queue.pop()!
+    if (seen.has(file)) continue
+    seen.add(file)
+    const es = edgesOf(file)
+    // A barrel is a re-export table, not a surface: follow only what was asked
+    // for. `export *` defeats that, so such a barrel is walked in full.
+    const selective = isBarrel(file) && names !== null && !es.some((e) => e.wildcard)
+    for (const e of es) {
+      if (!e.spec.startsWith('.') && !e.spec.startsWith('@/')) continue
+      if (selective && (e.names === null || !e.names.some((n) => names!.includes(n)))) continue
+      const r = resolveSpec(e.spec, file)
+      if (r === undefined) {
+        unresolvedSpecs.push(`${e.spec}  <-  ${file.replace(process.cwd() + '/', '')}`)
+        continue
+      }
+      if (r !== null && !seen.has(r)) queue.push({ file: r, names: e.names })
+    }
+  }
+  return seen
+}
+
+/** The swept corpus: copy files this tab's render root can reach. */
+const REACHED_COPY_FILES: readonly string[] = [...renderPathClosure()]
+  .map((f) => f.replace(process.cwd() + '/', ''))
+  .filter(
+    (r) =>
+      r.startsWith(COPY_SCOPE_PREFIX) &&
+      !/__tests__|__fixtures__|\.spec\.|\.test\.|\.stories\./.test(r),
+  )
+  .sort()
+
+/**
+ * The four paths the hand-list carried, kept as a POSITIVE CONTROL rather than
+ * as the scope. If the derivation ever stops reaching one of them it has gone
+ * blind, and a blind walker returns a clean sweep of almost nothing.
+ */
+const HISTORICALLY_SWEPT = [
+  'src/components/results/analysisNew/analysisNewCopy.ts',
+  'src/components/results/strengthen/buildRecommendations.ts',
+  'src/components/results/decision-overview/actionsCatalogue.ts',
+  'src/components/results/analysisNew/buildAnalysisNewViewModel.ts',
+] as const
+
+/**
+ * ⭐ CONTRAST CONTROLS — absence is only evidence when something else is
+ * present. A walker that returned "every file under results/" would pass every
+ * assertion above and be worthless, so these three must be OUT:
+ *  · `ResultsBody.tsx` — the Analysis tab's root, a different surface;
+ *  · `ConditionalWinnerCards.tsx` — carries the banned word in its own NAME, so
+ *    an over-broad walker would not merely include it, it would RED on it;
+ *  · `HowComputedModal.tsx` — reachable ONLY through the modals barrel, and
+ *    never rendered by this tab. It is the barrel-transparency discriminator.
+ */
+const MUST_NOT_BE_IN_SCOPE = [
+  'src/components/results/ResultsBody.tsx',
+  'src/components/results/ConditionalWinnerCards.tsx',
+  'src/components/results/modals/HowComputedModal.tsx',
+] as const
 
 /** Designating placings the 8 Sep ruling retired, over and above BANNED. */
 const RETIRED_DESIGNATIONS =
@@ -199,13 +356,47 @@ const RETIRED_DESIGNATIONS =
  */
 
 describe('no contest framing in ANY copy the Reasoning tab renders', () => {
-  it('PRECONDITION: every file in scope is readable and carries copy', () => {
-    for (const [name, rel] of REACHED_COPY_FILES) {
-      const strings = literals(stripComments(readFileSync(resolve(process.cwd(), rel), 'utf8')))
-        .filter(s => !NOT_COPY.test(s))
-      // A file that reads as zero literals is an unreadable path or a broken
-      // stripper — either way the sweep below would pass by testing nothing.
-      expect(strings.length, `${name} produced no literals — the sweep would be vacuous`).toBeGreaterThan(10)
+  /**
+   * ⚠⚠ THE OLD PRECONDITION WAS A PER-FILE FLOOR OF TEN LITERALS, AND IT
+   * CANNOT SURVIVE A DERIVED SCOPE — measured: 54 of the 88 reached files hold
+   * ten or fewer, several hold ZERO (`voi/decisionVoi.ts`, `leaderDesignation.ts`
+   * — pure logic, no copy, correctly so). The floor only ever passed because
+   * the hand-list happened to name four unusually copy-dense files. Keeping it
+   * would have forced the scope back down to whatever satisfied the check,
+   * which is the mirror re-forming around its own guard.
+   *
+   * What replaces it guards the same failure — "the sweep read nothing" —
+   * against the DERIVATION rather than against each file.
+   */
+  it('PRECONDITION: the derivation resolved every specifier it met', () => {
+    // A resolver that silently drops what it cannot find shrinks the corpus
+    // with no symptom. This is the single most load-bearing assertion here.
+    expect(unresolvedSpecs, `unresolved specifiers:\n  ${unresolvedSpecs.join('\n  ')}`).toEqual([])
+  })
+
+  it('PRECONDITION: the scope is derived, non-trivial, and reaches known copy', () => {
+    // Floor well under the 88 measured — this catches a walker that stopped,
+    // not scope growth.
+    expect(REACHED_COPY_FILES.length).toBeGreaterThan(40)
+    // POSITIVE CONTROL: everything the hand-list named is still reached.
+    for (const known of HISTORICALLY_SWEPT) {
+      expect(REACHED_COPY_FILES, `${known} is no longer reached — the walk went blind`).toContain(known)
+    }
+    // And the corpus actually holds copy: 1,919 at the time of writing.
+    const total = REACHED_COPY_FILES.reduce(
+      (n, rel) => n + literals(readableCopy(readFileSync(resolve(process.cwd(), rel), 'utf8'))).filter(s => !NOT_COPY.test(s)).length,
+      0,
+    )
+    expect(total, 'the sweep found almost no copy — it is reading nothing').toBeGreaterThan(800)
+  })
+
+  it('CONTRAST CONTROL: the walk DISCRIMINATES — it is not "everything under results/"', () => {
+    // Without this, every assertion above is satisfied by a walker that returns
+    // the whole directory, which is the failure this file exists to prevent in
+    // the other direction. 88 reached of 186 tracked; these three are excluded
+    // for three DIFFERENT reasons, so one broken rule cannot pass all three.
+    for (const out of MUST_NOT_BE_IN_SCOPE) {
+      expect(REACHED_COPY_FILES, `${out} is not rendered by this tab and must not be swept`).not.toContain(out)
     }
   })
 
@@ -282,13 +473,67 @@ describe('no contest framing in ANY copy the Reasoning tab renders', () => {
     expect(RETIRED_DESIGNATIONS.test('Scored highest in 73% of runs')).toBe(false)
   })
 
-  it.each(REACHED_COPY_FILES)('%s frames no result as a contest', (name, rel) => {
-    const strings = literals(stripComments(readFileSync(resolve(process.cwd(), rel), 'utf8')))
+  /**
+   * ⭐⭐ THE THREE FALSE-POSITIVE CLASSES THE WIDENING EXPOSED — each MEASURED
+   * on the derived corpus, none of them visible from a hand-list of four files.
+   *
+   * A guard that reddens on correct copy gets a blanket disable, so widening
+   * the scope without these three would have destroyed the guard rather than
+   * strengthened it. They are precision fixes ONLY: no banned form was
+   * un-banned, and the rate-bearing forms the 8 Sep ruling deliberately
+   * PERMITS ("was the stronger option 31% of the time") stay permitted — pinned
+   * at the end of this test.
+   */
+  it("PRECISION: the widened sweep does not fire on correct copy", () => {
+    // ── 1. `won` fired on every "won't" in the estate. ─────────────────────
+    // Measured: three files one import-hop out (canvas/conversation,
+    // canvas/mutations, canvas/validation) carry ordinary future-negative copy
+    // and read as contest framing. `\bwon\b` matches "won" in "won't" because
+    // an apostrophe is a word boundary.
+    expect(BANNED.test("It isn't saved to the model yet — it won't be there.")).toBe(false)
+    expect(BANNED.test("The analysis won't be able to evaluate it.")).toBe(false)
+    expect(BANNED.test('this won’t resend your brief')).toBe(false) // curly apostrophe
+    // ⚠ AND THE BAN MUST SURVIVE THE FIX — a lookahead that swallowed the real
+    // form would be worse than the false positive it removed.
+    expect(BANNED.test('Adopt Segment won the comparison')).toBe(true)
+    expect(BANNED.test('the option that won')).toBe(true)
+
+    // ── 2. A bracketed diagnostic tag is not copy. ─────────────────────────
+    // `useResultsSectionData.ts:4014` is a console.warn argument. A user-facing
+    // sentence does not open with "[brief-4]".
+    expect(NOT_COPY.test('[brief-4] fragile edge dropped — no alternative winner label resolved')).toBe(true)
+    // ⚠ AND IT MUST NOT SWALLOW A SENTENCE THAT MERELY CONTAINS BRACKETS.
+    expect(NOT_COPY.test('Adopt Segment [revised] is the leading option')).toBe(false)
+
+    // ── 3. A ban list QUOTES the banned word. ──────────────────────────────
+    const siblingGuard = "export const ANALYSIS_HERO_BANNED_TERMS = [\n  'winner', 'winning', 'chance of winning',\n]"
+    expect(literals(readableCopy(siblingGuard)).filter(s => !NOT_COPY.test(s)).some(s => BANNED.test(s))).toBe(false)
+    // ⚠ AND AN ORDINARY ARRAY IS STILL READ — the blanker keys on the NAME, so
+    // a violation in a copy catalogue cannot hide by living in a list.
+    const ordinaryArray = "export const HEADINGS = [\n  'Pressure-test the leading option',\n]"
+    expect(
+      literals(readableCopy(ordinaryArray)).filter(s => !NOT_COPY.test(s)).some(s => RETIRED_DESIGNATIONS.test(s)),
+    ).toBe(true)
+
+    // ── THE RULING IS UNCHANGED, NOT WIDENED. ─────────────────────────────
+    // The permitted rate-bearing forms stay permitted; this PR widened WHERE we
+    // look, never WHAT is banned.
+    for (const permitted of [
+      'Consolidate was the stronger option 31% of the time',
+      'Scored highest in 66% of simulated futures',
+      'Most likely to serve your goal',
+    ]) {
+      expect(BANNED.test(permitted) || RETIRED_DESIGNATIONS.test(permitted), permitted).toBe(false)
+    }
+  })
+
+  it.each(REACHED_COPY_FILES)('%s frames no result as a contest', (rel) => {
+    const strings = literals(readableCopy(readFileSync(resolve(process.cwd(), rel), 'utf8')))
       .filter(s => !NOT_COPY.test(s))
     const offenders = strings.filter(s => BANNED.test(s) || RETIRED_DESIGNATIONS.test(s))
     expect(
       offenders,
-      `contest framing in ${name}:\n  ${offenders.join('\n  ')}\n` +
+      `contest framing in ${rel}:\n  ${offenders.join('\n  ')}\n` +
         'Ruled 8 Sep 2026: say "scored highest in N% of runs" — never a placing.',
     ).toEqual([])
   })

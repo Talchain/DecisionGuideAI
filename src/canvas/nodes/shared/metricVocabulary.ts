@@ -165,22 +165,28 @@ export const METRIC_NOUN = {
  * than the flattening statistics above, which describe how OFTEN the old
  * behaviour looked wrong rather than why it WAS wrong.
  *
- * ⚠ THE COARSENESS OF THE SURVIVING CHANNEL IS A KNOWN, ROWED GAP — NOT FIXED
- * HERE. Thickness still carries the magnitude and `vectorEffect:
+ * ⚠ THE COARSENESS OF THE SURVIVING CHANNEL IS A KNOWN, ROWED GAP — STILL NOT
+ * FIXED HERE. Thickness still carries the magnitude and `vectorEffect:
  * 'non-scaling-stroke'` makes it a SCREEN width, so it is one of the few
  * channels that does not degrade at low zoom (where this metric row sits at
- * ~8.8px). But `weightMagnitudeToStrokeWidth` has three bands (≥0.7→3, ≥0.4→2,
- * else 1.5) and `UNSET_EDGE_STROKE_WIDTH` is 1.5 — IDENTICAL to the weakest
- * band. Across the 24 starter magnitudes (0.18–0.65) that is exactly TWO
- * distinguishable widths, one of them ambiguous with "unset".
+ * ~8.8px). `weightMagnitudeToStrokeWidth` still has three bands (≥0.7→3,
+ * ≥0.4→2, else 1.5), so across the 24 starter magnitudes (0.18–0.65) there are
+ * still only TWO distinguishable measured widths. That half of the gap stands.
  *
- * ⛔ DELIBERATELY NOT BUILT. Whether "unset" should be visually distinct from
- * "weakest" is a live product question with Paul, and changing
- * `UNSET_EDGE_STROKE_WIDTH` or the band scheme would pre-empt it from a lane
- * scoped to a card row. Rowed, not built. (An in-repo middle exists if he wants
- * one: the canvas already uses DASH to mean uncertainty, so a visibly unsettled
- * bar — hatched or ghosted, clearly outside measurement grammar — would keep 24
- * edges comparable at a glance while still refusing the claim. Unexamined here.)
+ * ✅ THE OTHER HALF IS BUILT (8 Sep 2026). This note used to continue: *"and
+ * `UNSET_EDGE_STROKE_WIDTH` is 1.5 — IDENTICAL to the weakest band … one of
+ * them ambiguous with 'unset'. ⛔ DELIBERATELY NOT BUILT. Whether 'unset'
+ * should be visually distinct from 'weakest' is a live product question with
+ * Paul."* Paul cleared it; `UNSET_EDGE_STROKE_WIDTH` is now strictly below
+ * every measured band, so the "unset" ambiguity is gone and width reads as a
+ * total order — unset < weak < moderate < strong.
+ *
+ * ⚠ THE PARENTHETICAL THAT USED TO SIT HERE SUGGESTED DASH, AND THE BUILD LANE
+ * MEASURED IT AND REFUSED. *"The canvas already uses DASH to mean uncertainty"*
+ * is precisely the problem: `EDGE_DASH_RULES` already carries `contested`,
+ * `existence_certainty` and `visual_props`, and `resolveEdgeDash` returns the
+ * FIRST match — so a fourth rule would be invisible on exactly the edges most
+ * in question. Recorded so the dead suggestion is not re-proposed.
  *
  * ⛔ WHY A SHARED CONSTANT AND NOT A LITERAL AT EACH SITE. Three surfaces say
  * this — the risk card, the outcome card, and the reduced line both of them

@@ -85,7 +85,12 @@ export interface EditProposalHandle {
  *       SERVER holds, so an edge the server never stated a strength for has
  *       nothing truthful to put there: the builder refuses, the edit would land
  *       LOCAL-ONLY, and offering the editor anyway would be design §2 F6. Those
- *       rows keep the disabled affordance. `editConnectedIds` asks
+ *       rows render their value with NO control at all — NOT "the disabled
+ *       affordance", which this line used to claim and which does not exist:
+ *       `ModelRowView`'s no-writer arm is a bare `<span>`, by the NOT SET WALL
+ *       ruling, and the reason is carried section-level or not at all
+ *       (`aRowWithNoWriterSaysNothing.spec.tsx` measures both arms and pins the
+ *       relationships gap). `editConnectedIds` asks
  *       `edgeStrengthEditIsAssertable`, which puts the question to the builder
  *       rather than restating its rules.
  *       ⚠ NOT "with optimistic revert" — see the SERVER-AUTHORITATIVE group
@@ -94,6 +99,34 @@ export interface EditProposalHandle {
  *       signal (`FEATURE_NOT_ENABLED` / `edge_strength_edit_reader_only`)
  *       rather than the absence-based rule `factor_value_edit` has to infer
  *       from, so the revert is buildable — it is simply not built.
+ *
+ *   ⚠⚠ DO NOT RE-DERIVE "`proposeEdgeStrength` HAS NO ENTRY POINT HERE" FROM
+ *   EITHER HEADER THAT STILL CONTAINS IT. There are TWO, and both keep the
+ *   sentence inside a `~~struck~~` block whose marker sits in the PRECEDING
+ *   paragraph rather than beside the quote:
+ *     · `useModelEditAuthority.ts` — "THE PARAGRAPH BELOW WAS TRUE AND IS NOW
+ *       FALSE" (2026-09-08), kept so its reasoning is not re-derived
+ *     · `ModelTabV2Panel.tsx` — "TRUE UNTIL 2026-09-08 AND IS NARROWED, NOT
+ *       DELETED", whose struck text still reads "edge strength ... ha[s] no
+ *       authority entry point, so `editConnectedIds` keeps their affordances
+ *       disabled"
+ *   Started at the quote rather than at the paragraph above it, both read as
+ *   current — and one has already been copied into THIS file once as new text.
+ *   The code settles it. In `ModelTabV2Panel`: the authority is constructed
+ *   `useModelEditAuthority(activeAuthorityNodeId, editingRelationshipId)`, so an
+ *   edge is addressed by a SEPARATE parameter and trap 21 is answered rather
+ *   than ignored; a relationship row commits through
+ *   `authority.proposeEdgeStrength(...)`; and `editConnectedIds` adds `edge.id`
+ *   for every edge `edgeStrengthEditIsAssertable` accepts. The gate is neither
+ *   factor-only nor node-id-only.
+ *   ⚠ AND DO NOT BYPASS IT by calling `useEdgeMutations(edgeId).setStrength`
+ *   direct. That setter is sanctioned and owns the emitter — but the REFUSAL
+ *   `proposeEdgeStrength` puts in front of it is the whole implementation:
+ *   without it an edit the builder cannot assert lands LOCAL-ONLY while the row
+ *   reads as saved. Separately, and it is a DIFFERENT harm, that setter
+ *   hard-codes `weightSource: 'user'` (`useInspectorMutations.ts`), so it is
+ *   also the wrong route for a PRODUCER-stated value — `ModelTabBody.tsx`'s
+ *   `accepted_pass2` note has the reasoning.
  *
  *   LOCAL-ONLY TODAY — the gap this design depends on closing:
  *     · proposeEdgeLikelihood, proposeEdgeDirection, proposeOptionIntervention,

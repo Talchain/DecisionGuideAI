@@ -149,11 +149,6 @@ const SUPPORTED_CLAUSE_ANY_MAGNITUDE = new RegExp(
  * .recommended_option_id === 'option-1'`), named, at its own probability —
  * not a bare percentage another card could satisfy.
  */
-const RECOMMENDED_OPTION_LABEL = optionNodes[0].data.label
-const LEADER_SENTENCE_FOR_FIXTURE = new RegExp(
-  `${escapeForRegExp(RECOMMENDED_OPTION_LABEL)}\\s+${escapeForRegExp(COMPARATIVE_COPY.clause('55%'))}`,
-  'i',
-)
 
 // ── Factor fixtures, one per bucket `useModelReadiness` can put a factor in ──
 //
@@ -458,7 +453,18 @@ describe('DecisionNode — the readiness summary on the card', () => {
     expect(screen.queryByTestId(SUMMARY)).toBeNull()
   })
 
-  it('a card that already has content does not get a summary bolted underneath', () => {
+  it('⭐ NEW: a PERMITTED completed run reaches the readiness breakdown too', () => {
+    // ⚠ THIS CASE WAS UNREACHABLE BEFORE, WHICH IS WHY IT IS WORTH AN ARM.
+    //
+    // On a permitted run the leader sentence used to occupy the post-analysis
+    // body, so `bodyHasContent` was true and the resting state — the only place
+    // readiness renders — stayed shut. The breakdown was therefore visible on
+    // WITHHELD runs and invisible on permitted ones: the reader who had been
+    // given a verdict was the one denied the facts behind it.
+    //
+    // With the duplicated verdict removed, both permissions reach the same
+    // content. `PERMITTED_REPORT` is the fixture that proves it, and this arm
+    // is the reason the removal is an improvement rather than a subtraction.
     setStore({
       nodes: [decisionNode, ...optionNodes, explicitFactor('f1'), missingFactor('f2')],
       edges: optionEdges,
@@ -466,14 +472,41 @@ describe('DecisionNode — the readiness summary on the card', () => {
       viewMode: 'standard',
     })
     renderDecision()
-    // Precondition: the producer-owned leader sentence really is on screen, and
-    // it NAMES the option the producer recommended — bound by identity, so a
-    // different card carrying the same percentage cannot satisfy it.
-    expect(screen.getByText(LEADER_SENTENCE_FOR_FIXTURE)).toBeDefined()
-    // ⛔ AND THE PATTERN §4 RELIES ON IS PROVEN TO MATCH A REAL SENTENCE HERE.
-    // Without this, §4's `toBeNull()` could pass against wording that no longer
-    // renders — which is exactly how it survived the #1290 rename unnoticed.
-    expect(screen.getByText(SUPPORTED_CLAUSE_ANY_MAGNITUDE)).toBeDefined()
+    const resting = screen.getByTestId(RESTING)
+    // Containment: still INSIDE the guarded subtree, so no copy moved out from
+    // under the honesty corpus.
+    expect(resting.querySelector(`[data-testid="${SUMMARY}"]`)).not.toBeNull()
+  })
+
+  it('a card that already has content does not get a summary bolted underneath', () => {
+    // ⚠⚠ THE FIXTURE MOVED FROM STANDARD TO DETAILED, AND THE PROPERTY DID NOT.
+    //
+    // This arm needs a body that ALREADY HAS CONTENT. It used `PERMITTED_REPORT`
+    // in Standard, where the producer-owned leader sentence supplied that
+    // content — and that sentence has been removed from this node as a duplicate
+    // of the option cards' verdict. In Standard a completed run now puts nothing
+    // in the post-analysis branch, so the premise "already has content" is false
+    // there and the resting state (with its summary) correctly renders.
+    //
+    // ⭐ DETAILED IS WHERE THE PREMISE STILL HOLDS: the stability line and the
+    // coaching chips are `isDetailed`-gated, so the body genuinely carries
+    // content and the summary must not be bolted underneath it. Same property,
+    // on the only view that can still express it.
+    //
+    // ⛔ THE TWO SENTENCE PRECONDITIONS ARE DROPPED, NOT MOVED. They proved the
+    // leader sentence was on screen so that §4's `toBeNull()` could not pass
+    // against wording that no longer renders. That guard mattered while the
+    // sentence existed; with it retired on this node, §4's null assertion is
+    // structural rather than discriminating and says so at its own site.
+    setStore({
+      nodes: [decisionNode, ...optionNodes, explicitFactor('f1'), missingFactor('f2')],
+      edges: optionEdges,
+      results: { status: 'complete', report: WITHHELD_REPORT },
+      viewMode: 'expert',
+    })
+    renderDecision()
+    // Precondition, re-pointed to content this node actually owns.
+    expect(screen.getByText(/Stability: /i)).toBeDefined()
     expect(screen.queryByTestId(RESTING)).toBeNull()
     expect(screen.queryByTestId(SUMMARY)).toBeNull()
   })
@@ -523,7 +556,20 @@ describe('DecisionNode — the readiness summary on the card', () => {
     expect(screen.getByTestId(SUMMARY).textContent).toBe(
       composeReadinessSummary(readiness({ explicitCount: 1, inferredCount: 1 })),
     )
-    // …and the producer's withheld leader stays withheld, in the SAME render.
+    // ⚠ THESE TWO ASSERTIONS ARE NOW STRUCTURAL, NOT DISCRIMINATING, AND ARE
+    // KEPT DELIBERATELY RATHER THAN DELETED OR PRETENDED TO BE GATES.
+    //
+    // They read "the producer's withheld leader stays withheld, in the SAME
+    // render" — a real conjunction when this node carried a verdict sentence and
+    // a support bar. Both surfaces have since been removed as duplicates of the
+    // option cards', so on THIS fixture they can no longer fail for the reason
+    // they were written for.
+    //
+    // They stay because they still catch a reintroduction on the readiness path
+    // specifically — a future "the card should say which option leads, next to
+    // the readiness" change — which is the one place this file would notice it.
+    // The permission property itself is pinned once, across all states, in
+    // `canvasLeaderAdmission`.
     expect(screen.queryByText(SUPPORTED_CLAUSE_ANY_MAGNITUDE)).toBeNull()
     expect(screen.queryByTestId('decision-leader-metric-row')).toBeNull()
   })
@@ -578,8 +624,9 @@ describe('DecisionNode — the readiness summary on the card', () => {
    *
    * ⛔ THE LICENSED ARM IS NOT LEFT UNMEASURED — it is measured in §3 above
    * (*"a card that already has content does not get a summary bolted
-   * underneath"*), which mounts `PERMITTED_REPORT`, pins the precondition that
-   * the leader sentence really is on screen, and asserts the summary is null.
+   * underneath"*), which now mounts the stability fixture in DETAILED — the
+   * only view whose body still carries content once the duplicated verdict was
+   * removed — and asserts the summary is null there.
    * The question is answered there. It is not retired; it is moved to the
    * section that can actually ask it.
    *

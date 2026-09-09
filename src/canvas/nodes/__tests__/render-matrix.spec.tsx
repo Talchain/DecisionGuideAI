@@ -884,6 +884,22 @@ describe('Render matrix — GoalNode chip audit', () => {
     expect(screen.getAllByText('Is my target realistic?').length).toBeGreaterThanOrEqual(1)
   })
 
+  /**
+   * ⭐ Every other goal chip interrogates the NUMBER — is it realistic, why is
+   * it low. None asked whether the goal is the right one. A measurable proxy
+   * standing in for the thing actually wanted is the most expensive error
+   * available at this stage, because every option and factor downstream is
+   * then optimised against the proxy rather than the objective.
+   */
+  it('Goal with-target Standard post: asks whether the target is the REAL goal, not just a reachable one', () => {
+    applyStore(goalTopology('standard', 'post', true))
+    renderGoal({ goal_threshold_raw: 100000 })
+    expect(screen.getAllByText('Is this the real goal?').length).toBeGreaterThanOrEqual(1)
+    // Sits beside the realism question rather than replacing it: "can we hit
+    // this number" and "is this the right number" are different questions.
+    expect(screen.getAllByText('Is my target realistic?').length).toBeGreaterThanOrEqual(1)
+  })
+
   it('Goal no-target Standard post: shows the compact no-target chip', () => {
     applyStore(goalTopology('standard', 'post', false))
     renderGoal()
@@ -915,31 +931,42 @@ describe('Render matrix — OutcomeNode chip audit', () => {
     ],
   })
 
-  it('Standard pre: shows "What strengthens this?" body chip (added Polish 4)', () => {
+  it('Standard pre: shows "What affects this?" body chip (added Polish 4)', () => {
     applyStore(outcomeTopology('standard', 'pre'))
     renderOutcome()
-    expect(screen.getByText('What strengthens this?')).toBeDefined()
+    expect(screen.getByText('What affects this?')).toBeDefined()
     // Removed popover chip stays gone.
     expect(screen.queryByText('Are there other outcomes that matter?')).toBeNull()
+  })
+
+  // Retain the upstream and falsification pair in its existing pre-analysis
+  // treatment. Consequence exploration separately stays available in both phases.
+  it.each(['standard', 'expert'] as const)('%s pre: preserves falsification beside upstream exploration', (view) => {
+    applyStore(outcomeTopology(view, 'pre'))
+    renderOutcome()
+    expect(screen.getByText('What would falsify this?')).toBeDefined()
+    expect(screen.getByText('What affects this?')).toBeDefined()
   })
 
   it('Standard post: no body chip (popover handles post-analysis coaching)', () => {
     applyStore(outcomeTopology('standard', 'post'))
     renderOutcome()
     // No "What strengthens" body chip post-analysis.
-    expect(screen.queryByText('What strengthens this?')).toBeNull()
+    expect(screen.queryByText('What affects this?')).toBeNull()
+    expect(screen.getByText('Explore consequences')).toBeDefined()
   })
 
   it('Detailed pre: same chip set — view-agnostic for Outcome', () => {
     applyStore(outcomeTopology('expert', 'pre'))
     renderOutcome()
-    expect(screen.getByText('What strengthens this?')).toBeDefined()
+    expect(screen.getByText('What affects this?')).toBeDefined()
   })
 
-  it('Detailed post: no body chip', () => {
+  it('Detailed post: keeps consequence exploration available', () => {
     applyStore(outcomeTopology('expert', 'post'))
     renderOutcome()
-    expect(screen.queryByText('What strengthens this?')).toBeNull()
+    expect(screen.queryByText('What affects this?')).toBeNull()
+    expect(screen.getByText('Explore consequences')).toBeDefined()
   })
 })
 
@@ -965,11 +992,11 @@ describe('Render matrix — RiskNode chip audit', () => {
     ],
   })
 
-  it('Standard pre: shows BOTH "What reduces this?" + "Add mitigation" (Polish 4 made them both phases)', () => {
+  it('Standard pre: shows BOTH "What reduces this?" + "Explore mitigation" (Polish 4 made them both phases)', () => {
     applyStore(riskTopology('standard', 'pre'))
     renderRisk()
     expect(screen.getByText('What reduces this?')).toBeDefined()
-    expect(screen.getByText('Add mitigation')).toBeDefined()
+    expect(screen.getByText('Explore mitigation')).toBeDefined()
     // Removed popover chips stay gone.
     expect(screen.queryByText('Are there other risks?')).toBeNull()
     expect(screen.queryByText("What's the worst case?")).toBeNull()
@@ -979,21 +1006,36 @@ describe('Render matrix — RiskNode chip audit', () => {
     applyStore(riskTopology('standard', 'post'))
     renderRisk()
     expect(screen.getByText('What reduces this?')).toBeDefined()
-    expect(screen.getByText('Add mitigation')).toBeDefined()
+    expect(screen.getByText('Explore mitigation')).toBeDefined()
+  })
+
+  /**
+   * ⭐ The two existing chips both ask how to REDUCE the risk. Neither asks how
+   * you would KNOW it was happening, so a risk could reach a decision with no
+   * agreed trigger for acting on it. Asserted in BOTH phases because a leading
+   * indicator is as useful while framing as it is after a run.
+   */
+  it.each(['pre', 'post'] as const)('%s: asks what we would see first — the risk is monitorable, not just loggable', (phase) => {
+    applyStore(riskTopology('standard', phase))
+    renderRisk()
+    expect(screen.getByText('What would we see first?')).toBeDefined()
+    // The reduce/mitigate pair is not displaced by the addition.
+    expect(screen.getByText('What reduces this?')).toBeDefined()
+    expect(screen.getByText('Explore mitigation')).toBeDefined()
   })
 
   it('Detailed pre: same two chips — view-agnostic for Risk', () => {
     applyStore(riskTopology('expert', 'pre'))
     renderRisk()
     expect(screen.getByText('What reduces this?')).toBeDefined()
-    expect(screen.getByText('Add mitigation')).toBeDefined()
+    expect(screen.getByText('Explore mitigation')).toBeDefined()
   })
 
   it('Detailed post: same two chips', () => {
     applyStore(riskTopology('expert', 'post'))
     renderRisk()
     expect(screen.getByText('What reduces this?')).toBeDefined()
-    expect(screen.getByText('Add mitigation')).toBeDefined()
+    expect(screen.getByText('Explore mitigation')).toBeDefined()
   })
 })
 

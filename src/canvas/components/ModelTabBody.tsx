@@ -93,6 +93,16 @@ interface ModelTabBodyProps {
   /** CEE quality dimensions from store */
   ceeQuality?: import('../store').CeeQualityDimensions | null
   expertMode?: boolean
+  /**
+   * ⭐ Ask `OutputsDock` to flip `olumi.expertMode` — the product's ONE expert
+   * preference (`OutputsDock.tsx:1150`, localStorage-persisted).
+   *
+   * This tab does not own the preference; it forwards the setter so the tier
+   * control inside `ModelTabV2Panel` writes the same thing the `</>` toggle in
+   * the tab strip writes. Before this existed the outline held a private,
+   * unpersisted tier and the two disagreed — see that panel's `expertMode` prop.
+   */
+  onToggleExpert?: (next: boolean) => void
   onSendMessage?: (message: string, opts?: { hidden?: boolean; debugSource?: string }) => void
 }
 
@@ -151,6 +161,7 @@ export const ModelTabBody = memo(function ModelTabBody({
   factorInfluence,
   ceeQuality,
   expertMode,
+  onToggleExpert,
   onSendMessage,
 }: ModelTabBodyProps) {
   // ⚠ THE SEARCH STATE IS GONE, NOT PARKED. It was declared here, threaded to
@@ -300,6 +311,15 @@ export const ModelTabBody = memo(function ModelTabBody({
   // The v2 outline's goal row reads the store scalar (RAW user units — the
   // single-writer carrier `setGoalThresholdAndUpdateNode` maintains it).
   const goalThreshold = useCanvasStore(s => s.goalThreshold ?? null)
+  /**
+   * ⚠ READ HERE, NOT IN THE PANEL, AND THAT IS THE LANE BOUNDARY DOING ITS JOB.
+   * `modelTabV2Boundary.sourceScan` bans a store import and a foreign hook call
+   * in every `model-tab-v2` file: the mount host owns every live-app seam. These
+   * two feed the effect-edit transaction's scenario fence and its recovery of
+   * the one clearable refusal, and they arrive exactly as `nodes`/`edges` do.
+   */
+  const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
+  const lastServerGraphHash = useCanvasStore(s => s.lastServerGraphHash)
 
   // ── Scientific enrichment data from PLoT response ───────────────────────────
   // Single-pass extraction of all per-factor enrichment maps from factor_sensitivity.
@@ -935,6 +955,10 @@ export const ModelTabBody = memo(function ModelTabBody({
         goalThreshold={goalThreshold}
         fragileEdgeIds={hasRobustnessData ? fragileEdgeIds : undefined}
         onHandOffToOlumi={olumiHandOff ? handOffToOlumi : undefined}
+        currentScenarioId={currentScenarioId}
+        lastServerGraphHash={lastServerGraphHash}
+        expertMode={expertMode ?? false}
+        onToggleExpert={onToggleExpert}
       />
 
       {/* Unique scientific transparency from the legacy stack, rehomed rather
