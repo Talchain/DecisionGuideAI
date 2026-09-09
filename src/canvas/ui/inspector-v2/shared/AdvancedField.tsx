@@ -5,8 +5,9 @@
  * Validation on blur for number fields.
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { typography } from '../../../../styles/typography'
+import { admitNumericField } from './numericFieldAdmission'
 
 type FieldType = 'number' | 'text' | 'select' | 'readonly' | 'textarea'
 
@@ -77,15 +78,25 @@ export function AdvancedField({
    * ⚠ SCOPE. `parseFloat` also PREFIX-parses (`'11abc'` → `11`), which is a
    * separate question about every numeric advanced field and is deliberately
    * NOT changed here. Rowed, not folded in.
+   *
+   * ⭐ THE PREDICATE ITSELF NOW LIVES IN `numericFieldAdmission`, UNCHANGED —
+   * same order (finite → min → max), same messages. It moved because the
+   * inspector's OTHER numeric editor, `InlineNumberEditor`, declared `min`/
+   * `max` and enforced neither, so the two shared editors in this directory
+   * were answering one question two ways. `AdvancedField.finiteGuard.spec.tsx`
+   * is what pins this call as behaviour-preserving.
+   *
+   * ⭐⭐ AND THE LOCAL `validate` WRAPPER IS GONE, WHICH IS THE POINT RATHER
+   * THAN TIDYING. Its own note said the commit guard "MOVES IN STEP WITH
+   * `validate`, AND MUST" — an obligation on whoever edits next, i.e. exactly
+   * the hand-maintained mirror this estate keeps paying for. `handleBlur` now
+   * asks ONCE and commits the value that same answer carries, so there is no
+   * second parse left to drift out of step.
    */
-  const validate = useCallback((raw: string): string | null => {
-    if (type !== 'number') return null
-    const num = parseFloat(raw)
-    if (!Number.isFinite(num)) return 'Must be a finite number'
-    if (min != null && num < min) return `Min: ${min}`
-    if (max != null && num > max) return `Max: ${max}`
-    return null
-  }, [type, min, max])
+  const bounds = useMemo(
+    () => ({ ...(min != null ? { min } : {}), ...(max != null ? { max } : {}) }),
+    [min, max],
+  )
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const raw = e.target.value
@@ -102,21 +113,22 @@ export function AdvancedField({
     if (type === 'readonly' || !onChange) return
 
     if (type === 'number') {
-      const err = validate(localValue)
-      if (err) {
-        setError(err)
+      // ⚠ ONE CALL, ONE ANSWER — the strongest form of the note this replaced.
+      // It said the commit guard "MOVES IN STEP WITH `validate`, AND MUST",
+      // because leaving one on `isNaN` would make the two disagree about what a
+      // number is. Asking ONCE and using the value it returns removes the
+      // possibility rather than restating the obligation: there is no second
+      // parse to drift.
+      const admission = admitNumericField(localValue, bounds)
+      if (!admission.ok) {
+        setError(admission.reason)
         return
       }
-      // ⚠ MOVES IN STEP WITH `validate` ABOVE, AND MUST. This is the same
-      // question asked a second time; leaving it on `isNaN` would make the
-      // commit guard and the validator disagree about what a number is — one
-      // name, two predicates, which is the defect one level up.
-      const num = parseFloat(localValue)
-      if (Number.isFinite(num)) onChange(num)
+      onChange(admission.value)
     } else {
       onChange(localValue)
     }
-  }, [type, localValue, onChange, validate])
+  }, [type, localValue, onChange, bounds])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && type !== 'textarea') {

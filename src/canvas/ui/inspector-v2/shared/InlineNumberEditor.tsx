@@ -19,9 +19,38 @@
  * committed 0.38 — destroying producer precision and falsely marking the graph
  * dirty. Display formatting stays separate: `readout` may still be rounded.
  * Fractional input is permitted (step defaults to "any").
+ *
+ * ⭐⭐ `min` / `max` ARE ENFORCED ON COMMIT, AND UNTIL NOW THEY WERE NOT.
+ *
+ * They were accepted as props, painted onto the DOM element, and ignored. HTML
+ * `min`/`max` on a number input constrain the STEPPER and set `:invalid`; they
+ * do not stop a TYPED value, and nothing here called `checkValidity()`. The
+ * whole guard was `if (isNaN(parsed)) return`.
+ *
+ * So `RiskPanel`'s likelihood field — which declares `min={0} max={100}`
+ * (`panels/RiskPanel.tsx:139-140`) against a bound this repo's own field
+ * register states as the contract ("A risk's likelihood [0,1]",
+ * `canvas/domain/analyticalNodeFields.ts:184`) — accepted a typed `150`, and
+ * `setProbability` then SILENTLY CLAMPED it to `1`
+ * (`useInspectorMutations.ts:459-460`). The model held 100% while the person
+ * believed they had said 150%, and nothing on screen said otherwise.
+ *
+ * The bound is still the CALLER'S declaration, never this component's opinion:
+ * `FactorObservablePanel` declares none (`panels/FactorObservablePanel.tsx:317-326`)
+ * because no bound is known for an arbitrary observed magnitude, and it is
+ * unchanged — everything commits there, exactly as before.
+ *
+ * ⭐ AND A REFUSAL NOW SAYS WHY. Previously an unusable entry ran
+ * `setIsEditing(false)` FIRST and then returned, so the field snapped back to
+ * its old readout and the typed number vanished with no explanation. A silent
+ * discard and a silent clamp are the same defect wearing different clothes.
+ * The predicate and the copy are `AdvancedField`'s, shared through
+ * `numericFieldAdmission` rather than re-typed — the two shared editors in this
+ * directory were answering one question two ways.
  */
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { typography } from '../../../../styles/typography'
+import { admitNumericField } from './numericFieldAdmission'
 
 interface InlineNumberEditorProps {
   /** Formatted display string when a value exists; `null` renders the placeholder. */
@@ -70,18 +99,59 @@ export function InlineNumberEditor({
 }: InlineNumberEditorProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState<string>('')
+  const [refusal, setRefusal] = useState<string | null>(null)
+
+  const bounds = useMemo(
+    () => ({ ...(min != null ? { min } : {}), ...(max != null ? { max } : {}) }),
+    [min, max],
+  )
 
   const handleSave = useCallback(() => {
+    // ⚠ THE NO-OP IS ANSWERED FIRST, AND THE ORDER IS THE CONTRACT.
+    //
+    // A blur that changed nothing is not a claim about the value's
+    // admissibility — the reader merely looked at the field. Checking bounds
+    // first would put an error on a value the PRODUCER stored, which the person
+    // did not type and cannot correct from here. It must close silently, as it
+    // always has (Codex P1-4: committing the seeded value would round-trip it
+    // through the caller's scale conversion, corrupting precision and falsely
+    // dirtying the graph).
+    //
+    // `draft` is compared to the seed via the same parse used below, so a
+    // "10.0" typed over a seeded 10 is still a no-op.
+    const parsedDraft = parseFloat(draft)
+    if (value != null && parsedDraft === value) {
+      setIsEditing(false)
+      setRefusal(null)
+      return
+    }
+
+    // ⚠ AN EMPTY ENTRY IS "NO CHANGE", NOT AN ERROR — and this is deliberate
+    // rather than inherited. The element is `type="number"`, which rewrites
+    // everything it will not accept to `''`, so a cleared field and a
+    // nonsense entry are INDISTINGUISHABLE by the time this runs. Erroring
+    // would fire on someone who clicked in and clicked straight out, and no
+    // single message could be true of both cases. Closing silently is exactly
+    // today's behaviour for this input.
+    if (draft.trim() === '') {
+      setIsEditing(false)
+      setRefusal(null)
+      return
+    }
+
+    const admission = admitNumericField(draft, bounds)
+    if (!admission.ok) {
+      // STAY IN THE FIELD. The typed text is preserved and the reason is
+      // rendered beneath it — the person can correct the number they meant
+      // rather than watch it disappear.
+      setRefusal(admission.reason)
+      return
+    }
+
     setIsEditing(false)
-    const parsed = parseFloat(draft)
-    // Non-numeric entry is discarded.
-    if (isNaN(parsed)) return
-    // No-op blur (Codex P1-4): the parsed draft equals the seeded exact value, so
-    // nothing changed — do NOT call onSave (which would round-trip through the
-    // caller's scale conversion, corrupting precision and falsely dirtying).
-    if (value != null && parsed === value) return
-    onSave(parsed)
-  }, [draft, onSave, value])
+    setRefusal(null)
+    onSave(admission.value)
+  }, [draft, onSave, value, bounds])
 
   if (!isEditing) {
     return (
@@ -92,6 +162,7 @@ export function InlineNumberEditor({
         onClick={() => {
           // Seed from the EXACT value, never a rounded display string.
           setDraft(value != null ? String(value) : '')
+          setRefusal(null)
           setIsEditing(true)
         }}
         title={title}
@@ -105,19 +176,40 @@ export function InlineNumberEditor({
   }
 
   return (
-    <input
-      type="number"
-      min={min}
-      max={max}
-      step={step ?? 'any'}
-      data-testid={inputTestId}
-      value={draft}
-      autoFocus
-      aria-label={ariaLabel}
-      onChange={e => setDraft(e.target.value)}
-      onBlur={handleSave}
-      onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
-      className={`${typography.panelHeader} text-xl w-full bg-transparent border-b border-panel-border focus:border-primary outline-none py-0.5 transition-colors`}
-    />
+    <div>
+      <input
+        type="number"
+        min={min}
+        max={max}
+        step={step ?? 'any'}
+        data-testid={inputTestId}
+        value={draft}
+        autoFocus
+        aria-label={ariaLabel}
+        // Typing clears a standing refusal: it described the PREVIOUS entry, and
+        // a message that outlives its condition is the same class of untruth as
+        // one that never appears.
+        onChange={e => { setDraft(e.target.value); if (refusal) setRefusal(null) }}
+        onBlur={handleSave}
+        onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+        aria-invalid={refusal != null}
+        aria-describedby={refusal != null ? `${inputTestId}-refusal` : undefined}
+        className={`${typography.panelHeader} text-xl w-full bg-transparent border-b ${refusal ? 'border-danger' : 'border-panel-border'} focus:border-primary outline-none py-0.5 transition-colors`}
+      />
+      {refusal && (
+        // `role="alert"` because the message appears in response to the
+        // person's own commit and must reach a screen reader that has moved on
+        // from the field — the same reason `aria-describedby` alone is not
+        // enough here.
+        <p
+          id={`${inputTestId}-refusal`}
+          role="alert"
+          data-testid={`${inputTestId}-refusal`}
+          className={`${typography.panelMeta} text-danger mt-0.5`}
+        >
+          {refusal}
+        </p>
+      )}
+    </div>
   )
 }
