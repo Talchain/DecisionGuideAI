@@ -1097,11 +1097,51 @@ export function AnalysisNewTabBody({
             has to decide what the glance card owns versus what this list owns,
             which is an IA decision for the design pack
             (`2-consolidation-map.html` slot "Focus now"), not a filter. */}
+        {/* ⭐⭐ PRE-RUN THIS SECTION OPENS, AND IT IS THE ONLY ONE THAT DOES.
+            Derived at this render path on `staging` `3b2df4ce`: pre-run the
+            panel's entire text ended "…Pick a mark to show that part of the
+            model on the canvas. Strengthen the reasoning1" — a collapsed row,
+            a bare count, and not one word of the finding behind it.
+
+            What is behind it is the thing the reader needs most in that state.
+            Pre-run the engine can ground exactly one recommendation — the
+            success-measure one, minted from the MODEL rather than from a run
+            (`buildRecommendations.ts`, and `StrengthenTheReasoningProps.analysisHash`
+            already documents the state) — and it is the ONLY surface on this
+            tab that says what the gap COSTS: "Without a target the analysis
+            cannot say how likely each option is to succeed, only how they
+            compare with one another." `successTargetAskedOnce.spec.tsx` argues
+            exactly that when it keeps this row while removing the glance's.
+            The strip's "Set a target" control states the gap; only this says
+            why it matters. It was built, grounded, counted — and put behind a
+            click nothing gave the reader a reason to make.
+
+            ⚠ SCOPED THREE WAYS, because the collapsed IA is a MEASURED budget
+            (`SectionShell`'s header: 1,584px against a 769px viewport) and not
+            a default nobody thought about:
+              · pre-run only — a displayed run is unchanged;
+              · only when there is a finding — a forced-open empty state spends
+                a viewport on an absence the collapsed row already states;
+              · a DEFAULT, not a lock — the toggle owns the state afterwards.
+
+            ⭐ AND THE `key` IS LOAD-BEARING, NOT DECORATION. `SectionShell`
+            seeds `useState(defaultOpen)` and never re-reads the prop, so
+            without this a reader who lands pre-run and then runs an analysis
+            carries the open section into the post-run panel — re-introducing
+            the scroll the collapsed IA exists to remove, on the one path
+            nobody would think to test. Re-keying on the state remounts the
+            section so the default is re-read. It is done HERE rather than by
+            teaching `SectionShell` to re-sync, because that shell is also
+            `AnalysisNewSection`'s, whose `defaultOpen={findings.length === 1}`
+            moves with the data — re-syncing there would slam sections shut
+            under a reader who had opened them. */}
         <StrengthenTheReasoning
+          key={vm.status.isPreRun ? 'pre-run' : 'run-displayed'}
           interventions={alsoWorthDoing}
           scienceGrounding={vm.strengthen.scienceGrounding}
           preview={ANALYSIS_NEW_LIMITS.STRENGTHEN_PREVIEW}
           analysisHash={responseHash ?? null}
+          defaultOpen={vm.status.isPreRun && alsoWorthDoing.length > 0}
           icon={Wrench}
         />
 

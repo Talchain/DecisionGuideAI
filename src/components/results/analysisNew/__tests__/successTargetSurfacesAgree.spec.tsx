@@ -95,8 +95,26 @@ const panelAsksForATarget = () => {
   return (region?.textContent ?? '').includes(SENTENCE)
 }
 
+/**
+ * ⚠⚠ IDEMPOTENT, AND THAT IS A STRENGTHENING RATHER THAN A LOOSENING. This
+ * clicked UNCONDITIONALLY, which silently assumed the section starts CLOSED.
+ * The section now opens by default on exactly the models this file cares most
+ * about — pre-run, with a grounded success-measure finding behind the row —
+ * so the click was CLOSING it and every assertion after it read a shut
+ * accordion. `driversSeamSaysOneThing.spec.tsx:116` already names this exact
+ * shape for the sibling `defaultOpen={findings.length === 1}` rule.
+ *
+ * ⭐ WHAT THIS HELPER IS FOR IS UNCHANGED, and the file's own header states it:
+ * "Opening is therefore a precondition of every assertion here, and the
+ * expansion is asserted rather than assumed." Both assertions below still run
+ * on every call, so a renamed toggle or an unmountable region still REDs. What
+ * has gone is an assumption about the STARTING state, which was never the
+ * property under test — and which, left in place, would have turned this file
+ * back into the vacuum its own header records it escaping from.
+ */
 const openStrengthen = () => {
-  fireEvent.click(screen.getByTestId(`${STRENGTHEN}-toggle`))
+  const toggle = screen.getByTestId(`${STRENGTHEN}-toggle`)
+  if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
   expect(screen.getByTestId(`${STRENGTHEN}-toggle`)).toHaveAttribute('aria-expanded', 'true')
   expect(screen.getByTestId(`${STRENGTHEN}-region`)).toBeInTheDocument()
 }
