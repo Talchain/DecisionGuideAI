@@ -7,7 +7,7 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { focusExistingTarget } from '../utils/focusHelpers'
-import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow, hasClearInfluenceLeader } from '../../components/results/driverDisplayModel'
+import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
 import { typography } from '../../styles/typography'
 import { METRIC_NOUN } from './shared/metricVocabulary'
 import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, unwrapInterventionValue, classifyUnit, formatWinProbability, isTierLabel } from '../utils/labelUtils'
@@ -33,14 +33,6 @@ import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalF
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/useAnalysisReady'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
-
-/** Truncate text at word boundary to avoid mid-word cuts. */
-function truncateAtWord(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text
-  const truncated = text.substring(0, maxLength)
-  const lastSpace = truncated.lastIndexOf(' ')
-  return (lastSpace > maxLength * 0.6 ? truncated.substring(0, lastSpace) : truncated).trimEnd() + '...'
-}
 
 /** Strip known suffixes from factor labels for contextual display. */
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
@@ -899,7 +891,7 @@ export const OptionNode = memo((props: NodeProps) => {
     ceeAnalysisReady?.options?.some(opt => opt.id === props.id) ?? false,
   [ceeAnalysisReady, props.id])
 
-  // "Wins via" -- top-ranked sensitivity factor that this option intervenes on
+  // A factor to investigate, selected by shared influence policy among this option's inputs.
   const winsVia = useMemo(() => {
     if (!isPostAnalysis || !isRecommended || !resultsReport) return null
     const report = resultsReport as any
@@ -910,16 +902,9 @@ export const OptionNode = memo((props: NodeProps) => {
     const sensitivity = report?.factor_sensitivity ?? report?.enrichment?.sensitivity_analysis?.factors ?? []
     if (!Array.isArray(sensitivity) || sensitivity.length === 0) return null
 
-    // Lane 2 (policy + honesty): rank via the SHARED driver display policy —
-    // this previously ranked by raw |elasticity| (option-scoped) and then
-    // asserted a GLOBAL "#1 driver", crowning a factor the same screen's
-    // drivers panel ranked 4th at 17% (live 2026-07-13). Rows come from the
-    // SHARED extractor so the coverage verdict cannot skew per surface. The
-    // copy may claim "#1 driver" ONLY when the chosen lever IS the policy's
-    // global #1 (non-zero) AND that #1 is CLEAR OF ITS RUNNER-UP; otherwise it
-    // is honestly the option's biggest lever, or — when that is tied too — a
-    // stated tie. "Shared tie-break" used to mean the comparator's hidden
-    // elasticity/key fallback, which RESOLVES a tie rather than reporting one.
+    // Shared ordering keeps navigation consistent with the drivers panel.
+    // Intervening on a globally influential factor does not establish its
+    // signed contribution to this option's result, so no causal claim follows.
     const rows = sensitivity
       .map((f: unknown) => extractPolicyRow(f))
       .filter((r: ReturnType<typeof extractPolicyRow>): r is NonNullable<ReturnType<typeof extractPolicyRow>> => r != null)
@@ -939,47 +924,14 @@ export const OptionNode = memo((props: NodeProps) => {
     const interventionKeys = new Set(Object.keys(ceeOption?.interventions ?? {}))
     const nodeById = new Map(nodes.map(n => [n.id, n]))
 
-    // The levers this card could actually name: ranked order, intersected with
-    // this option's interventions and the factors present on canvas to link to.
-    // This was a break-out-of-loop; naming the SET is what makes the
-    // option-scoped claim below checkable for a tie at all.
     const optionLevers = ranked.filter(f => interventionKeys.has(f.id) && nodeById.has(f.id))
     const chosen = optionLevers[0]
     if (!chosen) return null
     const factorNode = nodeById.get(chosen.id)
 
-    // ⚠ BOTH CLAIMS ARE COMPARATIVE, SO BOTH YIELD TO A TIE — over DIFFERENT
-    // SETS, because they are different claims. "the #1 driver" ranks this
-    // factor against EVERY factor; "its biggest lever" ranks it only against
-    // the levers this option pulls. Ranking a tie is what put a crown on the
-    // alphabetically-first of five identical factors (see
-    // `hasClearInfluenceLeader`), and a factor clear of the GLOBAL runner-up is
-    // clear in any subset containing it, so `global_top` can never be reached
-    // while the option-scoped claim would itself be a tie.
-    //
-    // ⚠ AND THE TIE BRANCH SAYS SO RATHER THAN GOING QUIET. Deleting the
-    // superlative would leave the reader with no idea the ranking was
-    // meaningless; the honest surface states the tie, which is the fact the
-    // crown was concealing.
-    //
-    // ⚠ BOTH CALLS PASS IDENTITIES, NOT VALUES. `hasClearInfluenceLeader` used
-    // to take a bare number array here, and a producer row duplicated under one
-    // `factor_id` then read as a tie WITH ITSELF — suppressing a genuine 2.5x
-    // leader on the global set, and independently suppressing the option-scoped
-    // claim on `optionLevers`. See that function's header.
-    const claim: 'global_top' | 'option_top' | 'tied' =
-      chosen.value > 0
-      && chosen.id === ranked[0]?.id
-      && hasClearInfluenceLeader(ranked)
-        ? 'global_top'
-        : hasClearInfluenceLeader(optionLevers)
-          ? 'option_top'
-          : 'tied'
-
     return {
       id: chosen.id,
       label: cleanFactorLabel((factorNode?.data?.label as string) ?? '') || ((factorNode?.data?.label as string) ?? ''),
-      claim,
     }
   }, [isPostAnalysis, isRecommended, resultsReport, ceeAnalysisReady, props.id, nodes])
 
@@ -1342,8 +1294,8 @@ export const OptionNode = memo((props: NodeProps) => {
         </p>
       )}
 
-      {/* "What this option changes:" intervention list (never for baseline) */}
-      {!isBaselineOption && allInterventionChips.length > 0 && (() => {
+      {/* A baseline flag identifies the reference; it does not erase its values. */}
+      {allInterventionChips.length > 0 && (() => {
         const chipsWithMeta = allInterventionChips.map(chip => {
           const baselineNorm = baselineOptionInterventions?.[chip.factorId] ?? chip.observedValue
           // Shared no-change semantics: exact equality only (audit §8 P0-4).
@@ -1351,12 +1303,12 @@ export const OptionNode = memo((props: NodeProps) => {
           return { chip, isNoChange }
         })
         const allNoChange = chipsWithMeta.length > 0 && chipsWithMeta.every(c => c.isNoChange)
-        if (allNoChange) return <p className={`${typography.edgeLabel} text-text-light m-0`}>No changes from current state</p>
+        if (!isBaselineOption && allNoChange) return <p className={`${typography.edgeLabel} text-text-light m-0`}>No changes from current state</p>
 
         // Card containment (audit §8 P0-5): max 3 rows inline; the remainder
         // is disclosed via a plain "+N more in inspector" line — rows stay
         // whole, no CSS clipping.
-        const renderableChips = chipsWithMeta.filter(c => !c.isNoChange)
+        const renderableChips = isBaselineOption ? chipsWithMeta : chipsWithMeta.filter(c => !c.isNoChange)
         const visibleChips = renderableChips.slice(0, 3)
         // N counts only chips that WOULD render — hidden no-change chips and
         // dropped malformed entries are not "more" changes to see.
@@ -1364,7 +1316,7 @@ export const OptionNode = memo((props: NodeProps) => {
 
         return (
           <>
-            <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5 mt-1`}>What this option changes:</p>
+            <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5 mt-1`}>{isBaselineOption ? 'Baseline factor values:' : 'What this option changes:'}</p>
             <div className="flex flex-col gap-0.5">
               {visibleChips.map(({ chip }) => {
                 const targetFormatted = formatInterventionTargetText(chip)
@@ -1412,10 +1364,10 @@ export const OptionNode = memo((props: NodeProps) => {
                   : (displayVal ? stripEcho(chip.label, displayVal) : '')
                 return (
                   <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
-                    <span className="text-text-body">{truncateAtWord(chip.label, 30)}</span>
+                    <span className="text-text-body">{chip.label}</span>
                     {echoStripped && (
                       <>
-                        <span className="text-text-light"> → </span>
+                        <span className="text-text-light">{deltaDisplay ? ': ' : ' → '}</span>
                         <span className={`${typography.nodeLabel} font-semibold`}>{echoStripped}</span>
                       </>
                     )}
@@ -1432,12 +1384,12 @@ export const OptionNode = memo((props: NodeProps) => {
         )
       })()}
 
-      {/* Status quo fallback — current baseline, no interventions.
+      {/* Baseline identity, without asserting that its values are unchanged.
           Audit §8 P1: the "{X}% win rate across simulations" line duplicated
           the shared "{X}% win probability" body line with different phrasing
           for the same datum — removed; the body line is the single rendering. */}
       {isBaselineOption && (
-        <p className={`${typography.nodeLabel} text-text-body m-0`}>Current baseline. No changes to factors.</p>
+        <p className={`${typography.nodeLabel} text-text-body m-0`}>Baseline option.</p>
       )}
 
       {isOptionFromCee && !isBaselineOption && (
@@ -1460,9 +1412,9 @@ export const OptionNode = memo((props: NodeProps) => {
     // pre-analysis (the EyeOff bias icon handles coaching). The "Is this
     // option complete?" chip on the no-interventions branch was likewise
     // outside the audit. Both removed.
-    if (isBaselineOption) return (
+    if (isBaselineOption && totalInterventionCount === 0) return (
       <>
-        <p className={`${typography.nodeLabel} text-text-body m-0`}>Current baseline. No changes to factors.</p>
+        <p className={`${typography.nodeLabel} text-text-body m-0`}>Baseline option.</p>
       </>
     )
     if (totalInterventionCount === 0) return (
@@ -1475,7 +1427,7 @@ export const OptionNode = memo((props: NodeProps) => {
     return (
       <>
         <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>
-          This option changes {totalInterventionCount} factor{totalInterventionCount !== 1 ? 's' : ''}.
+          {isBaselineOption ? 'Baseline values for' : 'This option sets'} {totalInterventionCount} factor{totalInterventionCount !== 1 ? 's' : ''}.
         </p>
         {interventionChips.length > 0 && (
           <div className="flex flex-col gap-0.5">
@@ -1507,10 +1459,20 @@ export const OptionNode = memo((props: NodeProps) => {
             })}
           </div>
         )}
+        {allInterventionChips.length > interventionChips.length && (
+          <button
+            type="button"
+            className={`${typography.edgeLabel} text-info underline nodrag nopan mt-1`}
+            onClick={handleViewParams}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            +{allInterventionChips.length - interventionChips.length} more in inspector
+          </button>
+        )}
         {optionChips}
       </>
     )
-  }, [isPostAnalysis, isBaselineOption, totalInterventionCount, interventionChips, props.data, optionChips])
+  }, [isPostAnalysis, isBaselineOption, totalInterventionCount, interventionChips, allInterventionChips.length, handleViewParams, optionChips])
 
   /**
    * Completeness assessment for Detailed pre-analysis view.
@@ -1872,23 +1834,30 @@ export const OptionNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* "Supported by [factor]" link (most-supported option, post-analysis) */}
+        {/* Missing is distinct from both a measured zero and a reported failure.
+            Do not infer whether this option was excluded or failed. */}
+        {displayMetadata.isResultsMode && displayMetadata.winRate === null &&
+          displayMetadata.winComputationFailed !== true && (
+          <p
+            className={`${typography.edgeLabel} text-text-light mt-1.5 mb-1`}
+            data-testid={`option-result-unavailable-${props.id}`}
+          >
+            Result unavailable
+          </p>
+        )}
+
+        {/* Global influence identifies a factor to inspect, not why an option won. */}
         {isPostAnalysis && isRecommended && winsVia && (
           <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
-            Supported by{' '}
+            Factor to examine:{' '}
             <button
               type="button"
               className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
               onClick={handleWinsViaClick}
               onPointerDown={(e) => e.stopPropagation()}
             >
-              {winsVia.label.length > 22 ? `${winsVia.label.slice(0, 22)}...` : winsVia.label}
+              {winsVia.label}
             </button>
-            {winsVia.claim === 'global_top'
-              ? ', the #1 driver'
-              : winsVia.claim === 'option_top'
-                ? ', its biggest lever'
-                : ', tied for its top lever'}
           </p>
         )}
 
@@ -1967,9 +1936,9 @@ export const OptionNode = memo((props: NodeProps) => {
                 title={`${d.fullLabel}: ${d.fromTo}`}
               >
                 {d.direction === 'up' ? (
-                  <ArrowUp size={10} className="text-success flex-shrink-0 mt-0.5" />
+                  <ArrowUp size={10} className="text-text-light flex-shrink-0 mt-0.5" />
                 ) : (
-                  <ArrowDown size={10} className="text-danger flex-shrink-0 mt-0.5" />
+                  <ArrowDown size={10} className="text-text-light flex-shrink-0 mt-0.5" />
                 )}
                 {/* min-w-0 so the text block may shrink and WRAP rather than
                     overflow. Nothing here is `truncate`: a CSS ellipsis inside
@@ -2031,10 +2000,10 @@ export const OptionNode = memo((props: NodeProps) => {
           </p>
         )}
 
-        {/* Pre-analysis: status quo "No changes" */}
+        {/* Reference identity; values remain recoverable in preview and inspector. */}
         {!isPostAnalysis && isBaselineOption && (
           <div className={`${typography.edgeLabel} mt-1 text-text-light`}>
-            No changes to factors
+            Baseline option
           </div>
         )}
 

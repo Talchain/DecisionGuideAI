@@ -1,3 +1,5 @@
+> Delivery update, 9 September 2026: the following receipt describes the original #1333 slice. It merged as `d913bd1f`. It is not evidence that the subsequent screenshot findings are repaired. The current scope and owner register are in [DESIGN-SPEC.md](DESIGN-SPEC.md). Premium V2 remains unchanged by this delivery update.
+
 # Option node V3 — PoC refinements
 
 The reference is [DESIGN-SPEC.md](DESIGN-SPEC.md), which separates the current
