@@ -66,6 +66,19 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
    */
   const nodes = useCanvasStore((s) => s.nodes)
   const nodeValueSources = useMemo(() => buildNodeValueSourceMap(nodes), [nodes])
+  /**
+   * ⭐ Node id → label, so a producer gap can name the factor it is about.
+   * Derived from the same `nodes` the sibling map above uses — one store read,
+   * not a second subscription. Labels only; nothing else about a node is read.
+   */
+  const nodeLabels = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const n of nodes ?? []) {
+      const label = (n?.data as { label?: unknown } | undefined)?.label
+      if (typeof label === 'string' && label.trim().length > 0) m.set(n.id, label)
+    }
+    return m
+  }, [nodes])
   const biasSignals = useCanvasStore((s) => s.draftCoaching?.biasSignals ?? null)
   const guidanceItems = useGuidanceStore((s) => s.guidanceItems)
   const strengthenRecords = useStrengthenStore((s) => s.records)
@@ -132,6 +145,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
         responseHash,
         scienceGrounding,
         nodeValueSources,
+        nodeLabels,
       }),
     [
       data,
@@ -144,6 +158,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
       responseHash,
       scienceGrounding,
       nodeValueSources,
+      nodeLabels,
     ],
   )
 }

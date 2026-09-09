@@ -3968,6 +3968,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           const nodeIds: string[] = safeArray(w.affected_nodes ?? w.affectedNodes)
           return {
             code: String(w.code ?? ''),
+            // ⚠ CARRIED, BECAUSE FOR THE DEFAULTING FAMILY IT IS THE ONLY IDENTITY
+            // THERE IS. `affected_nodes` is `[]` for these codes, so rebuilding the
+            // warning without `field` discarded the one thing that tells two
+            // same-code rows apart — a loss invisible to unit tests that feed raw
+            // producer shapes straight past this adapter.
+            field: typeof w.field === 'string' ? w.field : undefined,
             affected_nodes: nodeIds,
             affected_labels: nodeIds.map(id => nodeLabelMap.get(id) ?? id),
             message: w.message ? String(w.message) : undefined,
