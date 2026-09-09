@@ -147,12 +147,33 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
         nodeValueSources,
         nodeLabels,
       }),
+    /**
+     * ⚠⚠ EVERY DECLARED INPUT, AND `staleReason` WAS THE ONE MISSING.
+     *
+     * `buildAnalysisNewViewModel` derives `status.staleKind` from it, so
+     * without it here the panel kept the PREVIOUS staleness sentence when the
+     * reason flipped — measured at this hook: 'unconfirmed' → 'changed' with
+     * every other input identical returned 'unconfirmed'.
+     *
+     * That is not cosmetic. `staleReason.ts` exists because one boolean was
+     * answering two questions — 'changed' is a claim about the WORLD,
+     * 'unconfirmed' a claim about our EVIDENCE — and the dock computes the two
+     * flags from two genuinely different authorities (`displayedFreshness` for
+     * `isStale`, `composedAnalysisState.trust.semantic` for this), so they move
+     * independently by construction. Omitting it made the correction
+     * conditional on some OTHER input happening to move in the same render.
+     *
+     * `__tests__/viewModelHonoursEveryInput.spec.tsx` sweeps EVERY scalar input
+     * rather than pinning this one, because a list a human must remember to
+     * extend is the mirror this estate keeps paying for (CLAUDE.md trap 12).
+     */
     [
       data,
       recommendations,
       isPreRun,
       isRunning,
       isStale,
+      staleReason,
       nSamples,
       seedUsed,
       responseHash,
