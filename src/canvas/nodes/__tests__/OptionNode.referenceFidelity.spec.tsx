@@ -59,6 +59,23 @@ describe('option targets and their declared reference through the real store', (
     expect(screen.queryByText(/current state/i)).toBeNull()
   })
 
+  it('identifies an equal target against the named reference without claiming the present state', () => {
+    mount([baseline({ interventions: { price: 0.8 } })])
+    expect(screen.getByText('Reference: Keep the original plan')).toBeInTheDocument()
+    expect(screen.getByText('80%')).toBeInTheDocument()
+    expect(screen.getByText('(same as reference)')).toBeInTheDocument()
+    expect(screen.queryByText(/current state/i)).toBeNull()
+  })
+
+  it('keeps a supplied target without suggesting a comparison to an unlabelled reference', () => {
+    mount([baseline()], {
+      ceeAnalysisReady: { options: [{ id: 'candidate', interventions: { price: { value: 0.8, display_value: 'Proposed level' } } }] },
+    })
+    expect(screen.getByText('Proposed level')).toBeInTheDocument()
+    expect(screen.queryByText(/Reference:/)).toBeNull()
+    expect(screen.queryByText(/same as reference/)).toBeNull()
+  })
+
   it.each([
     ['label only', { label: 'Status quo', is_baseline: undefined }],
     ['explicitly not baseline', { label: 'Status quo', is_baseline: false }],

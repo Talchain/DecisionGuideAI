@@ -761,7 +761,7 @@ export const OptionNode = memo((props: NodeProps) => {
         // Same formatter/context on both sides; do not fabricate percentages
         // when the formatter cannot express this pair. Keep target-only detail.
         if (!change.baselineText || !change.targetText) return null
-        const fromTo = `${baselineLabel ?? change.baselineText} → ${change.targetText}`
+        const fromTo = `${change.baselineText} → ${change.targetText}`
 
         return { factorId: c.factorId, label: shortLabel, fullLabel: c.label, direction, fromTo }
       })
@@ -1273,43 +1273,44 @@ export const OptionNode = memo((props: NodeProps) => {
         // equal an observed value whose current/reference role is unknown.
         const visibleChips = allInterventionChips.slice(0, 3)
         const moreInInspector = allInterventionChips.length - visibleChips.length
+        const rows = visibleChips.map(chip => {
+          const targetFormatted = formatInterventionTargetText(chip)
+          const reference = baselineOptionReference?.values[chip.factorId]
+          const baselineFormatted = reference?.value != null && Boolean(reference.displayValue) === Boolean(chip.displayValue)
+            ? formatInterventionTargetText({ ...chip, value: reference.value, displayValue: reference.displayValue ?? undefined })
+            : ''
+          // Preserve supplied text verbatim. Strip UI-generated label echoes
+          // on each end separately, before composing a reference pair.
+          const targetText = chip.displayValue ? targetFormatted : stripEcho(chip.label, targetFormatted)
+          const referenceText = reference?.displayValue ? baselineFormatted : stripEcho(chip.label, baselineFormatted)
+          const hasReference = Boolean(referenceText && targetText)
+          return {
+            chip,
+            hasReference,
+            sameAsReference: hasReference && reference?.value === chip.value,
+            text: hasReference && reference?.value !== chip.value
+              ? `${referenceText} → ${targetText}` : targetText,
+          }
+        })
 
         return (
           <>
             <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5 mt-1`}>{isBaselineOption ? 'Baseline factor values:' : 'What this option sets:'}</p>
-            {baselineOptionReference && visibleChips.some(chip => baselineOptionReference.values[chip.factorId]?.value != null) && (
+            {baselineOptionReference && rows.some(row => row.hasReference) && (
               <p className={`${typography.edgeLabel} text-text-light m-0`}>Reference: {baselineOptionReference.label}</p>
             )}
             <div className="flex flex-col gap-0.5">
-              {visibleChips.map(chip => {
-                const targetFormatted = formatInterventionTargetText(chip)
-                const reference = baselineOptionReference?.values[chip.factorId]
-                const baselineFormatted = reference?.value != null && Boolean(reference.displayValue) === Boolean(chip.displayValue)
-                  ? formatInterventionTargetText({ ...chip, value: reference.value, displayValue: reference.displayValue ?? undefined })
-                  : ''
+              {rows.map(({ chip, text, sameAsReference }) => {
                 // No relative percentage: a model-level ratio does not prove
                 // a real-world relative change (for example on an offset scale).
-                const displayVal = baselineFormatted && targetFormatted && reference?.value !== chip.value
-                  ? `${baselineFormatted} → ${targetFormatted}`
-                  : targetFormatted
-                // Polish 4 review: when the intervention value is empty
-                // (scale-unit factor with no raw_value anchor), suppress the
-                // "→" separator and show only the label so the row reads as
-                // a discovery cue rather than misleading "→ 0.1 scale".
-                // F.6 passthrough: skip echo stripping for CEE display_value so
-                // the string renders exactly as authored (e.g. "Engineers added 5"
-                // must not be rewritten to "added 5" when the factor label is
-                // "Engineers"). Echo strip only applies to UI-formatted text.
-                const echoStripped = chip.displayValue || baselineFormatted
-                  ? displayVal
-                  : (displayVal ? stripEcho(chip.label, displayVal) : '')
                 return (
                   <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
                     <span className="text-text-body">{chip.label}</span>
-                    {echoStripped && (
+                    {text && (
                       <>
                         <span className="text-text-light">: </span>
-                        <span className={`${typography.nodeLabel} font-semibold`}>{echoStripped}</span>
+                        <span className={`${typography.nodeLabel} font-semibold`}>{text}</span>
+                        {sameAsReference && <span className="text-text-light"> (same as reference)</span>}
                       </>
                     )}
                   </div>
