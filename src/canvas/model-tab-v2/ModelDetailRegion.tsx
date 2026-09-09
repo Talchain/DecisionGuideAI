@@ -35,6 +35,7 @@ import {
   type ValueProvenanceKind,
 } from '../domain/valueProvenance'
 import { KIND_LABEL } from './rowPresentation'
+import { UNCONFIRMED_ESTIMATE_LABEL } from '../domain/vocabulary'
 import type { DetailField, DetailTier, ModelRow, ModelRowDetail } from './types'
 
 /**
@@ -305,6 +306,88 @@ export function ModelDetailRegion({
             Olumi recorded this as unknown rather than assuming a figure.
           </p>
         )}
+
+        {/*
+          ⭐⭐ OLUMI'S ESTIMATE, IN FULL, WHERE A POINTER IS NOT REQUIRED TO READ IT.
+
+          ⚠⚠ THE DEFECT THIS CLOSES, MEASURED ON DEPLOYED `9748b336`: the outline's
+          `-value-estimate` hint rendered a `clientWidth` of **31px** against a
+          `scrollWidth` of 83–125px on **6 of 8** factor rows — "Olumi: Moderate
+          (0.5)" is 125px of content in a 31px box, i.e. three readable
+          characters. It carries a native `title`, so it is recoverable ON
+          POINTER HOVER and by no other means: not by keyboard, not by touch.
+          `clippedValueTextIsRecoverable.spec` pins that `title` and its own
+          header says exactly this — "recoverable on hover, unchanged otherwise,
+          and the gap for touch and keyboard is open rather than closed."
+
+          ⛔ THE ROW IS NOT WIDENED AND THE HINT STILL TRUNCATES. Both
+          alternatives are excluded ON MEASUREMENT by `ModelRowView.tsx` and must
+          not be re-proposed — widening the value track to `minmax(0,5.5rem)`
+          (tried; cost four fully-visible option labels, because a zero-minimum
+          track reserves its cap even when empty) and stacking the hint onto a
+          second line (tried; rows measured 42px, which is why
+          `whitespace-nowrap` sits on BOTH idle arms). The idle row keeps its
+          compact trade; a SELECTED row may grow, and this is that row.
+
+          ⚠ IT IS REACHABLE BECAUSE `beginEdit` NOW SELECTS. The value control
+          calls `stopPropagation`, so opening the editor used to leave this whole
+          region absent from the DOM — see that call site.
+
+          ⚠ THE SAME CONDITION AS THE ROW'S OWN HINT, DELIBERATELY. `estimateText`
+          is populated ONLY when `primaryValue === null` (`types.ts` enforces it
+          structurally, so a CEE string can never mask a value somebody supplied),
+          and this pane must not grow a second value line under a value that is
+          set.
+        */}
+        {row.primaryValue === null && row.estimateText !== undefined && (
+          <>
+            <p
+              data-testid="model-detail-v2-estimate"
+              /* ⚠ `break-words`, NEVER `truncate`. `truncate` is the exact
+                 mechanism that produced the 31px box; re-applying it here would
+                 move the defect rather than close it. The units ride inside the
+                 string ("£20,000", "0.25 to 0.75", "Moderate (0.5)") — it is
+                 CEE's own display text, rendered verbatim, never re-derived. */
+              className={`${typography.panelBody} text-text-body break-words`}
+            >
+              Olumi: {row.estimateText}
+            </p>
+            {/*
+              ⭐ AND WHETHER ANYBODY HAS RATIFIED IT — OFF THE EXISTING PREDICATE,
+              NOT A NEW CLAIM.
+
+              ⚠⚠ NOTHING HERE IS INVENTED, AND THE TEMPTING SENTENCE IS FALSE.
+              "You have not set a value here" reads as true — `primaryValue` is
+              `raw_value` and it is null — but `modelOutlineNamesTheRightAxis.spec`
+              pins a REACHABLE row that is BOTH user-owned (`provenanceSource:
+              'user'`) AND carries `estimateText`. So this renders only the answer
+              the model already computed: `attention` carries
+              `'unconfirmed-estimate'` exactly when `factorIsConfirmable` — the
+              WRITE AUTHORITY'S OWN condition — says so, and the string is the
+              one `domain/vocabulary` owns for every surface. One predicate,
+              counted once and rendered twice, which is the shape `types.ts`
+              prescribes rather than a second opinion about the same question.
+
+              ⚠ ABSENT WHEN THE PREDICATE IS SILENT. A row carrying an estimate
+              with no `observedState` is NOT marked, and says nothing here.
+              Unknown stays unknown.
+
+              ⚠ THIS IS NOT THE PROVENANCE PILL AND MUST NOT BECOME ONE.
+              "Nobody has confirmed it" is weaker and different from "Olumi wrote
+              it" — `vocabulary.ts` says so in its own words. Who authored the
+              value is section 3's question, answered there from the raw stamp.
+            */}
+            {row.attention.includes('unconfirmed-estimate') && (
+              <p
+                data-testid="model-detail-v2-estimate-status"
+                className={`${typography.panelMeta} text-text-light`}
+              >
+                {UNCONFIRMED_ESTIMATE_LABEL}
+              </p>
+            )}
+          </>
+        )}
+
         <FieldList fields={detail.secondaryValues} testid="model-detail-v2-secondary" />
       </section>
 
