@@ -609,8 +609,14 @@ export const FactorNode = memo((props: NodeProps) => {
           analysis") is deliberately NOT repeated here because THIS EXACT
           POPULATION already carries it: `showEvidenceGapBadge` above fires on
           `!hasObservedData`, the same predicate as this line, and its tooltip
-          reads "No observed data for X. Setting a value would strengthen the
-          analysis." Saying it twice costs a line and adds nothing.
+          carries it. ⚠ The sentence quoted here used to be "No observed data
+          for X. Setting a value would strengthen the analysis." — the second
+          half is now "Setting a value here would give the analysis something
+          stated to work from", because "would strengthen" asserted a
+          consequence from an uncalibrated score (see `ESCALATION_TOOLTIP`).
+          The ARGUMENT is unchanged and is why this quote is corrected rather
+          than deleted: the badge still carries the action half on this exact
+          population, so saying it twice costs a line and adds nothing.
           Shortened by REWRITING, never by truncating or eliding — an ellipsis
           with nowhere to go would be hiding, and going silent would be worse. */}
       {valueVoice === 'placeholder' && isHighPriority && (
