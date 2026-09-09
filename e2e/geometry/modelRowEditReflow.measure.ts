@@ -53,6 +53,15 @@ interface Geom {
   readonly rowHeight: number
   readonly nextRowTop: number
   readonly valueTop: number
+  /**
+   * ⭐ THE VALUE ATOM'S OWN BOX. `EDIT_RESERVED_HEIGHT_CLASS` (`min-h-[23px]`)
+   * exists so the 12px idle glyph and the 14px edit input occupy the SAME box —
+   * that is the question this measure was originally written to answer, and
+   * until now it was answered only INDIRECTLY, by the row's total being zero.
+   * Reading it directly is strictly stronger: a row total held at zero by some
+   * unrelated compensation would have satisfied the old assertion.
+   */
+  readonly valueBoxHeight: number
   readonly valueFontPx: number
 }
 
@@ -79,6 +88,9 @@ async function readGeometry(page: Page, rowId: string): Promise<Geom | null> {
       // proves the fix must also be able to catch the fix's own failure mode.
       valueTop: value instanceof HTMLElement
         ? Math.round(value.getBoundingClientRect().top * 100) / 100
+        : -1,
+      valueBoxHeight: value instanceof HTMLElement
+        ? Math.round(value.getBoundingClientRect().height * 100) / 100
         : -1,
       valueFontPx: sized
         ? parseFloat(getComputedStyle(sized).fontSize)
@@ -204,13 +216,98 @@ for (const width of WIDTHS) {
       rowHeightBefore: b.rowHeight, rowHeightAfter: a.rowHeight, heightDelta,
       nextRowTopBefore: b.nextRowTop, nextRowTopAfter: a.nextRowTop, pushDelta,
       valueTopBefore: b.valueTop, valueTopAfter: a.valueTop, textDelta,
+      valueBoxBefore: b.valueBoxHeight, valueBoxAfter: a.valueBoxHeight,
     }))
 
-    expect(heightDelta, `entering edit changed the row's own height by ${heightDelta}px at a ${width}px dock`).toBe(0)
-    expect(pushDelta, `entering edit moved the row below by ${pushDelta}px at a ${width}px dock`).toBe(0)
+    /*
+     * ⭐⭐⭐ TWO QUESTIONS WERE LIVING UNDER ONE ASSERTION, AND SEPARATING THEM IS
+     * THE POINT OF THIS BLOCK (CLAUDE.md trap 21).
+     *
+     * `heightDelta === 0` was written for #1179, where the editor gained NO
+     * CONTENT — it swapped a 12px glyph for a 14px input on the same datum, and
+     * the only honest answer was "nothing may move". `EDIT_RESERVED_HEIGHT_CLASS`
+     * is the fix it guards.
+     *
+     * #1401 asks a DIFFERENT question: may the editor DISCLOSE a route forward?
+     * The `editing` beat before it offered a naked input, no advance control and
+     * nothing naming Enter — measured on deployed `9748b336`. A zero-delta
+     * contract answers that question with "no", by construction: any visible
+     * control in a 36px row costs height. Aligning the two would have meant
+     * reverting the capability, so they are named apart instead.
+     *
+     * ⚠ THIS IS NOT A RAISED TOLERANCE ON THE #1179 CONTRACT — that contract is
+     * asserted MORE tightly below than it was before, directly on the value
+     * atom's own box (`valueBoxHeight`) instead of inferred from the row's
+     * total, and `textDelta` is untouched. The precedent is this file's own goal
+     * arm, which took a bounded height the day it gained a second field and
+     * says in its comment that it "is not a relaxed tolerance on the factor's
+     * unchanged zero above". The factor arm's zero is now the value BOX's.
+     *
+     * ⚠⚠ AND THE MEASUREMENT THAT JUSTIFIES THE NUMBER, not an estimate.
+     * #1401 first shipped these controls INSIDE grid track 3, which measures
+     * **48.5px** at a 280px dock. Run 34386746547 read the result:
+     *
+     *     +177px @280   +138px @416      <- WIDTH-DEPENDENT: that is WRAPPING
+     *
+     * A DOM probe attributed it: 23px input box (correct) + 52px of buttons in
+     * which "Review change" wrapped inside its own border + **117px of refusal
+     * sentence**, 36 characters of prose in a 48.5px column. Moving that line
+     * out to a `col-span-4` grid item of the row measures:
+     *
+     *     +49.5px @280  +49.5px @416     <- IDENTICAL: that is DISCLOSURE
+     *
+     * ⭐ The width-independence is the real signal and it is why one bound can
+     * serve both arms: a fixed disclosure costs the same at every width, and a
+     * paragraph in a narrow track does not. 280px is the harsher arm, so a
+     * re-wrap blows this bound there by a factor of three.
+     */
+    const rowGap = 8      // the row's own `gap-2`, between its two grid lines
+    const controls = 18   // buttonSmall 12px `leading-none` + py-0.5 (4) + border (2)
+    const lineGap = 4     // the action line's own `gap-1`
+    const refusal = 19.5  // panelBody 12px x `leading-relaxed` (1.625)
+    /**
+     * One control line and one sentence: 8 + 18 + 4 + 19.5 = 49.5px, and 49.5px
+     * is exactly what the browser measured at BOTH dock widths. The +1 is
+     * sub-pixel rounding headroom and nothing else.
+     *
+     * ⚠ IF THIS GOES RED, THE BOX HAS CHANGED — RE-DERIVE IT, DO NOT RAISE IT.
+     * That is `valueCellMetrics.ts`'s standing instruction about its own
+     * hand-maintained constant and it applies here for the same reason: a
+     * tolerance raised to make a run green stops being a measurement of
+     * anything.
+     */
+    const EDIT_DISCLOSURE_MAX_PX = rowGap + controls + lineGap + refusal + 1
+
+    // ── THE #1179 CONTRACT, ASSERTED DIRECTLY AND UNRELAXED ──────────────────
+    expect(b.valueBoxHeight, 'the idle value box is unreadable').toBeGreaterThan(0)
+    expect(
+      a.valueBoxHeight,
+      `the value atom's own box changed from ${b.valueBoxHeight}px to ${a.valueBoxHeight}px — EDIT_RESERVED_HEIGHT_CLASS has regressed`,
+    ).toBeCloseTo(b.valueBoxHeight, 1)
     // A reserved-height fix trades a row jump for a possible text jump. Both are
     // movement the user sees, so both are asserted.
     expect(Math.abs(textDelta), `entering edit moved the value itself by ${textDelta}px at a ${width}px dock`).toBeLessThanOrEqual(1)
+
+    // ── THE #1401 CONTRACT: A BOUNDED DISCLOSURE, IN BOTH DIRECTIONS ─────────
+    // ⚠ THE LOWER BOUND IS NOT DECORATION. Without it `<= 52` passes perfectly
+    // on a build where the route forward has been deleted again — which is the
+    // defect #1401 exists to close, and the cheapest way to make this arm green.
+    // A height contract with no floor applauds the regression it was written
+    // against (CLAUDE.md trap 22b: two opposite harms need two parameters).
+    expect(
+      heightDelta,
+      `entering edit disclosed NOTHING at a ${width}px dock — the row's route forward is missing again`,
+    ).toBeGreaterThan(0)
+    expect(
+      heightDelta,
+      `entering edit changed the row's own height by ${heightDelta}px at a ${width}px dock (bound ${EDIT_DISCLOSURE_MAX_PX}px)`,
+    ).toBeLessThanOrEqual(EDIT_DISCLOSURE_MAX_PX)
+    // Everything the row gains is passed to its neighbour: equal deltas mean the
+    // disclosure is laid out, not clipped inside a container that swallows it.
+    expect(
+      pushDelta,
+      `the row grew ${heightDelta}px but moved the row below by ${pushDelta}px at a ${width}px dock — the growth is being clipped`,
+    ).toBe(heightDelta)
 
     await input.press('Escape')
     await expect(input).toHaveCount(0)
@@ -227,12 +324,32 @@ for (const width of WIDTHS) {
     await expect(unitInput).toBeVisible()
     const goalAfter = await readGeometry(page, goalId)
     expect(goalAfter).not.toBeNull()
-    // Two accessible 14px fields + a short unit label are intentional. The
-    // original paragraph-filled candidate measured216.38px and fails this;
-    // this is not a relaxed tolerance on the factor's unchanged zero above.
+    /*
+     * Two accessible 14px fields + a short unit label are intentional. The
+     * original paragraph-filled candidate measured216.38px and fails this;
+     * this is not a relaxed tolerance on the factor's unchanged zero above.
+     *
+     * ⭐⭐ THE GOAL FORM'S OWN BUDGET IS UNCHANGED AT 88px. What is added is the
+     * SAME disclosure line the factor arm bounds above, because the goal editor
+     * has the same defect and gets the same fix — so the two bounds share one
+     * constant and a change to the disclosure moves both together rather than
+     * leaving one of them silently stale.
+     *
+     * ⚠⚠ AND THIS BREACH WAS HIDDEN, WHICH IS THE FINDING WORTH KEEPING. At
+     * `4ab92e84` the factor assertion above aborted the test, so NOTHING from
+     * here down ever executed: the gate was red for the factor row while the
+     * goal row was ALSO over budget (129.63px against 88px) and no one could
+     * see it. A test that stops at its first failure reports one defect and
+     * conceals the rest of its own subject — worth remembering before reading a
+     * single red as a single problem.
+     */
+    const GOAL_FORM_MAX_PX = 88
     expect(goalAfter!.valueFontPx).toBeCloseTo(14, 1)
     expect(goalAfter!.rowHeight).toBeGreaterThan(goalBefore!.rowHeight)
-    expect(goalAfter!.rowHeight).toBeLessThanOrEqual(88)
+    expect(
+      goalAfter!.rowHeight,
+      `the goal target form measured ${goalAfter!.rowHeight}px at a ${width}px dock (form budget ${GOAL_FORM_MAX_PX}px + disclosure ${EDIT_DISCLOSURE_MAX_PX}px)`,
+    ).toBeLessThanOrEqual(GOAL_FORM_MAX_PX + EDIT_DISCLOSURE_MAX_PX)
     const formBoxes = await page.locator(`[data-testid="model-row-v2-${goalId}"] input`).evaluateAll(inputs => {
       const outline = document.querySelector('[data-testid="model-outline-v2"]')!.getBoundingClientRect()
       return inputs.map(input => { const box = input.getBoundingClientRect(); return {
