@@ -9,7 +9,31 @@
  * mirrors that failed exactly this way — a dead search prop, a dead `isContested`
  * prop, and a hand-copied band-threshold table (design §2, F3/F12).
  *
- * NOTHING HERE IS MOUNTED. See `types.ts` for the directory-level statement.
+ * ⚠⚠ THIS FILE USED TO SAY "NOTHING HERE IS MOUNTED. See `types.ts` for the
+ * directory-level statement." BOTH HALVES WERE WRONG, and the second is the
+ * instructive one: `types.ts` — the very file it sent the reader to for
+ * authority — has said **"MOUNTED since the 16 Aug 2026 mount train"** since
+ * that train landed. A pointer to a contradicting authority reads as
+ * corroboration, because nobody follows it.
+ *
+ * ⭐ MOUNTED, AND TRACED RATHER THAN ASSERTED. `OutputsDock` renders
+ * `ModelTabBody` when `activeTab === 'diagnostics'`; `ModelTabBody:931` renders
+ * `ModelTabV2Panel`; and this module has five live importers, two of them on
+ * that path — `ModelTabV2Panel.tsx:85` (`REPAIR_QUEUE`) and `ModelOutline.tsx:40`
+ * (`GROUP_TITLE`), plus `ModelRowView`, `ModelDetailRegion` and
+ * `RepairQueueList`. Every label and glyph defined below is on a user's screen.
+ *
+ * ⚠ IT WAS A BANNER FROM BEFORE THE MOUNT TRAIN THAT NOBODY SWEPT — the same
+ * hand-maintained-mirror defect this file's own header goes on to warn about,
+ * sitting in the header that warns about it. The cost is not cosmetic: a
+ * sentence telling the next session that a live surface is dead is how a live
+ * surface stops being improved, and how its vocabulary gets "tidied away".
+ *
+ * ⚠ ONE NEIGHBOURING NOT-MOUNTED CLAIM IS TRUE AND IS NOT THIS ONE.
+ * `__tests__/inputsStayAtMinimumSize.spec.ts` excepts `InlineEdit` because ITS
+ * call sites are the V1 sections, which `ModelTabBody` renders inside
+ * `{LEGACY_DETAILED_EDITOR_MOUNTED && (` with that constant hardcoded `false`.
+ * Two directories, two different answers; do not reconcile them.
  */
 
 import type {

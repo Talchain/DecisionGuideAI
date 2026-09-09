@@ -447,7 +447,13 @@ export function ModelOutline({
 
   return (
     <div data-testid="model-outline-v2" data-tier={tier} className="flex flex-col">
-      {groups.map(group => (
+      {groups.map(group => {
+        /* ⚠ COMPUTED ONCE. It was called twice — once to decide whether to
+           render and once to render — so the heading asked the same question of
+           the same rows twice per paint, and any future impurity in it would
+           show as a heading disagreeing with itself. */
+        const unset = unsetSummary(group.rows)
+        return (
         <section
           key={group.id}
           data-testid={`model-group-v2-${group.id}`}
@@ -458,6 +464,30 @@ export function ModelOutline({
             data-testid={`model-group-v2-${group.id}-toggle`}
             aria-expanded={group.open}
             onClick={() => toggle(group.id)}
+            /* ⭐⭐ THE ACCESSIBLE NAME NEEDS THE SEPARATOR THE LAYOUT PROVIDES,
+               AND WITHOUT IT TWO COUNTS BECAME ONE NUMBER. Measured on deployed
+               `14276d5b`, guest, completed run: this control's name was
+               **"▸ Factors53 with no value yet"** — 5 elements and 3 unset, read
+               aloud as fifty-three. `Goal22`, `Outcomes & risks55` likewise.
+               There is no text node between the spans, so accessible-name
+               computation concatenates them with nothing in between.
+
+               ⚠⚠ AND THE SHARPEST PART: `Relationships13` is a GENUINE 13. A
+               listener cannot tell a real two-digit count from a fabricated one,
+               because both are spelled the same way. That is worse than a wrong
+               number — it makes every number on the surface unreliable.
+
+               ⚠ IT CONTAINS THE VISIBLE TEXT, so the control keeps label-in-name
+               (WCAG 2.5.3) and a voice user can still say "Factors". The same
+               rule `ModelStrip`'s worklist toggle follows, for the same reason.
+
+               ⚠ NOT A COPY OF THE SUMMARY SENTENCE. `unset` is the string the
+               span renders, quoted — never a second phrasing of it. That
+               sentence took four attempts to get true (see `unsetSummary`), and
+               a paraphrase here would be a fifth, unreviewed. */
+            aria-label={`${GROUP_TITLE[group.id]}, ${group.rows.length} ${
+              group.rows.length === 1 ? 'element' : 'elements'
+            }${unset === null ? '' : `, ${unset}`}`}
             className={`${typography.panelHeader} text-text-header w-full text-left px-2 py-1.5`}
           >
             {group.open ? '▾' : '▸'} {GROUP_TITLE[group.id]}
@@ -476,12 +506,25 @@ export function ModelOutline({
               would be its own wall — chrome that always renders states nothing
               about the data.
             */}
-            {unsetSummary(group.rows) !== null && (
+            {unset !== null && (
               <span
                 data-testid={`model-group-v2-${group.id}-unknown-summary`}
-                className={`${typography.panelMeta} text-text-light ml-2`}
+                /* ⭐ AMBER, BECAUSE IT IS THE SAME FACT THE REASONING TAB PUTS IN
+                   AMBER. Measured on the deployed build: this rendered at 11px,
+                   weight 600, `rgb(110,107,107)` — BYTE-IDENTICAL to the total
+                   count 8px to its left. Two numbers, same size, same weight,
+                   same colour, same gap, and nothing saying one is "how many
+                   there are" and the other "how many are incomplete".
+
+                   `ModelStrip` on the Reasoning tab renders this exact count in
+                   `text-warning`. One fact, two tabs, two treatments — the
+                   inconsistency Paul named on the other surface, here. Amber
+                   also does the discriminating work the layout could not: a
+                   reader can now tell the two numbers apart without reading
+                   either. */
+                className={`${typography.panelMeta} text-warning ml-2`}
               >
-                {unsetSummary(group.rows)}
+                {unset}
               </span>
             )}
           </button>
@@ -828,7 +871,8 @@ export function ModelOutline({
             </>
           )}
         </section>
-      ))}
+        )
+      })}
     </div>
   )
 }
