@@ -11,7 +11,9 @@ The initial follow-up is released; further candidates remain open below. No loca
 
 Receipts: [#1342/#1344 release](https://github.com/Talchain/olumi-programme-docs/pull/38#issuecomment-5594863972), [served verification](https://github.com/Talchain/olumi-programme-docs/pull/38#issuecomment-5594880926), [#1343 served verification](https://github.com/Talchain/olumi-programme-docs/pull/38#issuecomment-5595106908).
 
-Open: #1353 at `73c81864` is in replacement hosted checks. The previous run exposed three Detailed-preview failures plus two obsolete observed-as-reference assumptions; the repair retains missing-reference target recovery and updates the specific fixtures/reach set without skipping assertions. #1355 is under independent review. The `codex/option-result-currentness` branch qualifies retained results through shared freshness; it has not run hosted checks yet. None has new mounted acceptance evidence.
+Open: #1353 at `73c81864` passed shards 1, 2 and 4, build and typecheck. Its existing mounted Canvas Browser Gate ran and passed all 25 registered assertions (job `102320878630`); this does not cover the new currentness behaviour or the live AI journey. Shard 3 caught duplicated coaching after restoring the Detailed target preview; the subsequent repair keeps coaching in its existing inline location. The previous run's three Detailed-preview failures and two observed-as-reference fixture failures are resolved by the replacement run.
+
+The currentness branch's small production delta and real-store checks are now included in #1353, so the next hosted run validates their composition instead of starting a separate full queue. #1355 remains under independent review. Advisory visual regression at `73c81864` remains failed: 14 failures include the unchanged-capture tolerance control and framing expectations. No image baseline or assertion has been skipped or approved away; a matching failure count is not visual acceptance.
 
 | Acceptance | Authored check | Deployed artefact |
 |---|---|---|
