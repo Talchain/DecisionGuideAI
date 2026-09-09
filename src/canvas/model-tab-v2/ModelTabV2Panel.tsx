@@ -61,10 +61,19 @@
  * SURFACE. `expected` is an assertion about what the SERVER holds, so an edge the
  * server never stated a strength for has no assertable `expected`: the builder
  * returns null, the edit would land LOCAL-ONLY, and enabling the affordance there
- * would recreate precisely the F6 the paragraph above refuses. Those rows keep
- * their existing disabled affordance and their label. Two relationship rows in
- * one list may therefore differ, and that is the design rather than an
+ * would recreate precisely the F6 the paragraph above refuses. Two relationship
+ * rows in one list may therefore differ, and that is the design rather than an
  * inconsistency — the surface offers an editor exactly where the write lands.
+ *
+ * ⚠ WHAT THOSE ROWS KEEP IS **SILENCE**. This paragraph said they "keep their
+ * existing disabled affordance and their label"; there is neither. `ModelRowView`
+ * renders a bare `<span>` where the writer is absent, per the NOT SET WALL rule
+ * (see that file's header, corrected alongside this one), and the only sanctioned
+ * reason-surface is `SectionWriterNotice` — which today reaches `missing-intervention`
+ * and therefore OPTIONS, not relationships. So a relationship the server never
+ * stated a strength for shows a value the user cannot change and nothing says why.
+ * That gap is real, open, and pinned in `aRowWithNoWriterSaysNothing.spec.tsx`
+ * rather than left to be rediscovered.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -366,7 +375,9 @@ export function ModelTabV2Panel({
    * there. `buildEdgeStrengthEditEvent` refuses those, the edit would land
    * LOCAL-ONLY, and offering the editor anyway is design §2 F6 — the harm this
    * whole surface exists to remove. So the gate asks PER EDGE, and a
-   * non-qualifying relationship keeps the disabled affordance it has today.
+   * non-qualifying relationship renders its value with NO control at all — not
+   * "the disabled affordance it has today", which this line used to claim and
+   * which does not exist (see this file's header and `ModelRowView`'s).
    *
    * ⚠ THE PREDICATE IS THE EMITTER'S OWN, ASKED — NOT COPIED. `edgeStrengthEditIsAssertable`
    * puts the question to `buildEdgeStrengthEditEvent`, so this panel holds no

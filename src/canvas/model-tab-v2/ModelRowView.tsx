@@ -14,12 +14,27 @@
  * the two are INDISTINGUISHABLE on screen. A row that can only render `applied`
  * from a receipt cannot reproduce that, whatever it is handed.
  *
- * THE DISABLED-AFFORDANCE RULE (the lane boundary, design §8). An edit control
- * is live ONLY where the host has a CANONICAL transaction to dispatch on
- * (`editConnected` + the callbacks). Everywhere else it renders DISABLED, with
- * a label saying why. A disabled affordance with an honest label beats a fake
- * one: a stub that reported success would be the silent-local-write defect
- * re-created inside the component written to kill it.
+ * THE NO-WRITER RULE (the lane boundary, design §8). An edit control is live
+ * ONLY where the host has a CANONICAL transaction to dispatch on
+ * (`editConnected` + the callbacks). A stub that reported success would be the
+ * silent-local-write defect re-created inside the component written to kill it.
+ *
+ * ⚠⚠ AND WHAT HAPPENS "EVERYWHERE ELSE" IS **SILENCE**, NOT A DISABLED CONTROL.
+ * This paragraph used to end *"…it renders DISABLED, with a label saying why. A
+ * disabled affordance with an honest label beats a fake one"*. **It renders no
+ * such thing, and has not for some time.** `editorAvailable` false takes the
+ * idle arm at the foot of `ValueCell` — a bare `<span>` carrying the value and,
+ * where present, Olumi's estimate hint. No control. No label. Measured, both
+ * arms, in `aRowWithNoWriterSaysNothing.spec.tsx`.
+ *
+ * The CODE is right and the sentence was stale: silence here is a RULING, twice
+ * over. THE "NOT SET" WALL below — *"where nothing can be done from this cell,
+ * the cell is SILENT"* — removed twenty-odd identical inert strings from one
+ * outline; and `sectionWriterNotice.ts` rules the reason SECTION-LEVEL, NEVER
+ * PER-ROW, because *"a per-row string would rebuild the wall of identical inert
+ * text that rule removed"*. A lane reading the old sentence and "restoring" a
+ * per-row disabled label would be undoing a ruling it never saw, which is the
+ * only reason this correction is written at this length.
  *
  * ⚠ THE CONFIRM CHIP (`onConfirmValueAsIs`, 18 Aug 2026) IS NOT AN EXCEPTION TO
  * THAT RULE — it is the rule applied to a different gesture. It has an
