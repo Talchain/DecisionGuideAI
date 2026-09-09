@@ -31,7 +31,7 @@
  * validated — hence a heading that invites a check rather than announcing a
  * detected bias.
  */
-import { describe, it, expect } from 'vitest'
+import { beforeEach, describe, it, expect } from 'vitest'
 
 import { buildDraftBiasSignalBlocks } from '../draftBiasSignalBlocks'
 import {
@@ -41,16 +41,24 @@ import {
 } from '../../shared/biasSignalTitles'
 
 /**
- * ⚠ A SECOND NODE, ADDED BECAUSE MY OWN CHECK PASSED ON A FIXTURE THIS SPEC
- * DOES NOT HAVE. I validated the ref-merging arms below by executing the real
- * builder against a node list I wrote in the harness — which contained
- * `fac_initial_quote`. This spec's did not, so `resolveNodeForTarget` returned
- * null, there was no ref to merge, and both arms went red in CI having passed
- * locally. A fixture you wrote yourself is not evidence about the fixture the
- * test actually runs.
+ * ⚠ THE SECOND NODE, AND WHY IT WAS MISSING — recorded because the mechanism
+ * is reusable, not because the omission is interesting.
  *
- * Two nodes is also the minimum the merging property NEEDS: one observation
- * naming two different affected nodes cannot be expressed with one.
+ * I validated the ref-merging arms below by executing the real builder against
+ * a node list I wrote in my own harness, which contained `fac_initial_quote`.
+ * This spec's fixture held one node. So `resolveNodeForTarget` returned null,
+ * there was no second ref to merge, and both arms went red in CI having passed
+ * locally. **A fixture you wrote yourself is not evidence about the fixture the
+ * test actually runs.**
+ *
+ * Two nodes is also the minimum the property NEEDS: one observation naming two
+ * different affected nodes cannot be expressed with one node.
+ *
+ * ⭐ AND THE `beforeEach` BELOW IS THE GUARD THAT MAKES THAT UNREPEATABLE — it
+ * proves each reference resolves ON ITS OWN before any arm tests their
+ * combination, so a fixture omission reds as a fixture omission instead of
+ * looking like a merging defect. It is Codex's, kept in preference to my
+ * id-only assertions, which could not have told the two apart.
  */
 const NODES = [
   { id: 'opt_status_quo', type: 'option', data: { label: 'Delay Billing Migration' } },
@@ -240,6 +248,19 @@ describe('the rescue refuses a faulted entry, and only a faulted entry', () => {
  */
 describe('a repeated observation keeps every node it names', () => {
   const SHARED = 'Evidence for this estimate is missing.'
+  const expectedRefs = [
+    { id: 'opt_status_quo', label: 'Delay Billing Migration', kind: 'option' },
+    { id: 'fac_initial_quote', label: 'Initial quote', kind: 'factor' },
+  ]
+
+  beforeEach(() => {
+    // Prove that each reference resolves before testing their combination.
+    // The original fixture omitted the factor entirely.
+    for (const ref of expectedRefs) {
+      const [single] = build([{ type: 'unknown category', detail: SHARED, target: ref.id }])
+      expect(single.target_refs, `fixture must resolve ${ref.id}`).toEqual([ref])
+    }
+  })
 
   it('merges distinct affected nodes into the single retained card', () => {
     const blocks = build([
@@ -249,7 +270,7 @@ describe('a repeated observation keeps every node it names', () => {
 
     expect(blocks, 'the observation should still be kept ONCE').toHaveLength(1)
     // ⭐ EXACT REFS, not a length — a length passes on the wrong node.
-    expect(blocks[0].target_refs.map((r) => r.id)).toEqual(['opt_status_quo', 'fac_initial_quote'])
+    expect(blocks[0].target_refs).toEqual(expectedRefs)
   })
 
   it('⛔ THE CAP BOUNDS CARDS, NOT THE SCAN — a duplicate past it still merges', () => {
@@ -266,7 +287,7 @@ describe('a repeated observation keeps every node it names', () => {
     ])
 
     expect(blocks, 'the display cap still holds at two cards').toHaveLength(2)
-    expect(blocks[0].target_refs.map((r) => r.id)).toEqual(['opt_status_quo', 'fac_initial_quote'])
+    expect(blocks[0].target_refs).toEqual(expectedRefs)
   })
 
   it('the same node twice adds nothing — merging is by node id', () => {
