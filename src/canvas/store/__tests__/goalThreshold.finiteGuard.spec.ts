@@ -165,20 +165,28 @@ describe('setGoalThresholdAndUpdateNode — the guard does not narrow the field'
  * "two writers, one field, one bound declared" shape the first block's own
  * header names, reproduced one level up.
  *
- * ⚠ REACHABILITY, DERIVED AT THE BYTES ON THIS TIP — the branch is live and
- * the application-layer predicate feeding it does NOT protect:
- *   - `OutputsDock.tsx:1560-1561` — `if (goalNodeId) …AndUpdateNode(…) else
- *     setGoalThreshold(threshold)`. `resolveActiveGoalNodeId`
- *     (`goalThresholdResolvers.ts:71-84`) returns `null` when no CEE goal id,
- *     no surviving `outcomeNodeId` and no goal node exist, so the `else` is
- *     structurally reachable.
- *   - its producer, `SuccessTargetRow.tsx:167` — `if (!isNaN(parsed) &&
- *     onApplyThreshold) onApplyThreshold(parsed)`. `isNaN(Infinity)` is
- *     `false`: this is the EXACT predicate whose incompleteness this PR
- *     exists to fix, sitting on the sibling path.
- * What currently stops the value is the browser sanitising a `type="number"`
- * field — one measured engine, at a layer below the application. That is a
- * reason the defect is not live today, not a reason the bound is declared.
+ * ⚠ NOT A LIVE DEFECT — DEFENCE IN DEPTH, AND SAID PLAINLY.
+ * The writer set was enumerated from the store interface, not a literal grep:
+ * six non-test call sites reach `setGoalThreshold` and none can deliver a
+ * non-finite value today. Three are gated by an explicit `Number.isFinite`
+ * (`applyV5State.ts:1033` via `:611`; the CEE sync via `goalTarget.ts:137,142`;
+ * `DefineSuccessModal.tsx:205` via `:158`+`:178`). Three are unreachable by
+ * BRANCH: `GoalThresholdEditor.tsx:66` (every render site passes a truthy
+ * `nodeId`), and `PreAnalysisPanel.tsx:1105` + `OutputsDock.tsx:1561`, both
+ * behind `CANONICAL_EDIT_AUTHORITY.goalSuccessTarget`, the `as const` literal
+ * `'disabled'` (`mutationAuthority.ts:127`, pinned by its own spec at `:249`),
+ * so `ResultsBody.tsx:487` passes `onApplyTarget={undefined}`.
+ *
+ * ⚠ AN EARLIER REVISION OF THIS HEADER CALLED OutputsDock's `else` branch
+ * LIVE, citing `SuccessTargetRow.tsx:167`'s `!isNaN(parsed)`. WITHDRAWN —
+ * measured: that branch is reachable only inside a handler that cannot fire,
+ * and `<SuccessTargetRow` has ZERO non-test render sites (contrast control in
+ * the same sweep: `<AnalysisHeroContainer` → 1). Structural reachability
+ * inside a function is not reachability of the function.
+ *
+ * The bound is pinned anyway because those three sites are safe by WIRING,
+ * not by value — one prop default or one authority flip from delivering
+ * `parseFloat('1e400')` here, with `!isNaN` producers behind them.
  *
  * ⚠ FINITENESS, NOT A RANGE — derived at the CONSUMER, not assumed.
  * `normaliseGoalThresholdForRequest` (`goalThresholdResolvers.ts:37-56`)

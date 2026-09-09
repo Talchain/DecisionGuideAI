@@ -4617,22 +4617,37 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
      * `success_threshold` reached the model through a different writer.
      * Guarding one sibling and leaving the other open reproduces that.
      *
-     * ⚠ REACHABILITY, DERIVED AT THE BYTES — the branch is live and the
-     * application-layer predicate feeding it does NOT protect:
-     *   - `components/OutputsDock.tsx:1560-1561` —
-     *     `if (goalNodeId) setGoalThresholdAndUpdateNode(…) else
-     *      setGoalThreshold(threshold)`. `resolveActiveGoalNodeId`
-     *     (`hooks/goalThresholdResolvers.ts:71-84`) returns `null` when there
-     *     is no CEE `goal_node_id`, no surviving `outcomeNodeId` and no goal
-     *     node, so the `else` is structurally reachable.
-     *   - its producer, `results/SuccessTargetRow.tsx:167` —
-     *     `if (!isNaN(parsed) && onApplyThreshold) onApplyThreshold(parsed)`.
-     *     `isNaN(Infinity)` is `false`. That is the very predicate whose
-     *     incompleteness this change exists to fix, sitting on this path.
-     * What stops the value reaching here today is the browser sanitising a
-     * `type="number"` field — one measured engine, a layer below the
-     * application. That is a reason the defect is not live; it is not a
-     * reason for the model's own writer to leave the bound undeclared.
+     * ⚠ NOT A LIVE DEFECT — DEFENCE IN DEPTH, AND SAID PLAINLY.
+     * The complete writer set was enumerated from this interface, not from a
+     * literal grep: six non-test call sites reach this action, and NONE of
+     * them can deliver a non-finite value today. Three are gated by an
+     * explicit `Number.isFinite` — `v5/applyV5State.ts:1033` (via `:611`),
+     * `store.ts` CEE sync (via `domain/goalTarget.ts:137,142`) and
+     * `results/modals/DefineSuccessModal.tsx:205` (via `:158` + the `:178`
+     * early return). Three are unreachable by BRANCH rather than by value:
+     * `ui/inspector/GoalThresholdEditor.tsx:66` (every render site passes a
+     * truthy `nodeId`), `components/pre-analysis/PreAnalysisPanel.tsx:1105`
+     * and `components/OutputsDock.tsx:1561` — the last two because
+     * `CANONICAL_EDIT_AUTHORITY.goalSuccessTarget` is the `as const` literal
+     * `'disabled'` (`canvas/mutations/mutationAuthority.ts:127`, pinned by
+     * `mutationAuthority.spec.ts:249`), so `hasServerGraphAuthority` is a
+     * compile-time `false` and `results/ResultsBody.tsx:487` passes
+     * `onApplyTarget={undefined}`.
+     *
+     * ⚠ AN EARLIER REVISION OF THIS COMMENT CLAIMED OutputsDock's `else`
+     * BRANCH WAS LIVE, citing `results/SuccessTargetRow.tsx:167`'s
+     * `!isNaN(parsed)` as its producer. WITHDRAWN — measured: the `else` is
+     * reachable only WITHIN a handler that cannot fire, and
+     * `<SuccessTargetRow` has ZERO non-test render sites (contrast control in
+     * the same sweep: `<AnalysisHeroContainer` → 1). Structural reachability
+     * inside a function is not reachability of the function.
+     *
+     * The bound is declared here anyway because the three branch-unreachable
+     * sites are safe by WIRING, not by value: each is one prop default or one
+     * authority flip from delivering `parseFloat('1e400')` to this writer, and
+     * their own producers still use `!isNaN`, which admits `Infinity`. This is
+     * the "two writers, one field, one bound declared" shape recorded on the
+     * sibling below — closed at the field, not at the caller.
      *
      * ⚠ FINITENESS, NOT A RANGE — derived at the CONSUMER, not assumed.
      * `normaliseGoalThresholdForRequest` (`hooks/goalThresholdResolvers.ts:37`)
