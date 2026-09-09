@@ -376,6 +376,31 @@ export function AnalysisNewTabBody({
    */
   const reanalyseBlocked = !canRunAnalysis && !isRunning
   /**
+   * ⭐⭐ THE COMPOSED RUN AUTHORITY, RESOLVED ONCE AND READ TWICE — never two
+   * predicates that happen to agree (CLAUDE.md trap 21).
+   *
+   * `isBusy` is `composedAnalysisState.trust.isRunning` (`localRunning ||
+   * wireRunning`), the value `AnalysisRunStateCover` and `AnalysisRunAnnouncer`
+   * read; `isRunning` is the dock's LOCAL flag. This prop's own note records
+   * what happens when a reader takes the narrower one: on a wire-asserted run
+   * the user was told an analysis was running and this content was NOT marked
+   * (`cover=present`, `isRunning_prop=false`, `aria-busy=null`).
+   *
+   * `??`, NOT `||`: an explicit `isBusy={false}` is a host ANSWERING "not
+   * running", and must outrank a stale local true. The fallback is for a caller
+   * that has not been given the composed value at all — the prop's documented
+   * behaviour, unchanged.
+   *
+   * ⚠ `aria-busy` below and the pre-run sentence read THIS const, so the panel
+   * cannot end up marked busy while denying that a run has started.
+   *
+   * ⚠ IT IS DELIBERATELY NOT USED FOR `reanalyseBlocked` ABOVE. That predicate
+   * pairs the gate's verdict with the flag the GATE consumed, which is the
+   * local one; swapping it would test a different run than the one that
+   * produced the verdict. Two questions, two flags — see that comment.
+   */
+  const isBusyNow = isBusy ?? isRunning
+  /**
    * The fail-closed notice channel for canvas focus. `Safe` because this
    * surface renders inside the dock in tests without a ToastProvider, and a
    * missing provider must not throw — the same hook `OptionsComparison` uses
@@ -629,7 +654,7 @@ export function AnalysisNewTabBody({
          ⚠ `isBusy`, NOT `isRunning`: the marker answers the same question the
          cover and the announcer answer, and must read the same authority they
          read. See the prop's own note for the divergence this closes. */
-      aria-busy={(isBusy ?? isRunning) || undefined}
+      aria-busy={isBusyNow || undefined}
     >
       {/* The narrower measure (§11): wider gutters and a capped line length
           inside the unchanged 416px dock. */}
@@ -658,16 +683,55 @@ export function AnalysisNewTabBody({
             offers a route forward. Witnessed on the deployed build at
             `a9fc1564`. This says what the panel is WITHOUT asserting a run, so
             the original defect stays closed. */}
+        {/* ⚠⚠ AND A FIRST RUN IN FLIGHT IS STATED, NOT DENIED — the third
+            instance of this panel's own contradiction shape, after the intro
+            and after staleness.
+
+            `isPreRun` means "no COMPLETED analysis is being displayed", so on a
+            model's FIRST run it is true AT THE SAME TIME as the run flags.
+            Measured at this render path on `staging` `3b2df4ce`: the panel said
+            "No analysis has run yet for this model." on an element it had
+            itself marked `aria-busy="true"`, beneath the shell's in-flight
+            treatment — which pre-run is `AnalysisRunSkeleton`, because
+            `OutputsDock` passes `contentRetained={!isPreRun}`. A skeleton
+            carries no words. So the only SENTENCE on screen during a first run
+            said nothing was happening.
+
+            ⭐ THE SENTENCE FOR IT WAS ALREADY WRITTEN AND HAD NO READER.
+            `COPY.status.running` is declared and documented and had ZERO
+            production references repo-wide, while `vm.status.isRunning` was
+            computed and read by nothing on this surface. This plugs it in
+            rather than authoring a second one.
+
+            ⚠ THE ORIENTATION LINE STAYS IN BOTH STATES. It asserts no run
+            ("When one has, this panel reads it back…"), so it is true while one
+            is in flight and it is the only thing telling a first-time reader
+            what is about to appear.
+
+            ⚠ AND THE REFUSAL IS SUPPRESSED WHILE BUSY — stated honestly as
+            HARDENING, not as a witnessed fix. `canRunAnalysis` returns EARLY on
+            `isRunning` and that early return publishes NO `blockedListing`
+            (`canRunAnalysis.ts:782-787`; the comment above it says the early
+            returns deliberately publish none), so the box is already absent
+            during a run in production. This makes that a property of THIS code
+            rather than of the gate's current behaviour — the move
+            `buildAnalysisNewViewModel`'s header argues for its own pre-run
+            gates: "Gating here makes it a property of the code." A refusal has
+            no subject while the thing it refuses is happening. */}
         {vm.status.isPreRun ? (
           <div className="space-y-1" data-testid="analysis-new-status-pre-run">
-            <p className={`${typography.panelBody} text-text-body`}>{COPY.status.preRun}</p>
+            <p className={`${typography.panelBody} text-text-body`}>
+              {isBusyNow ? COPY.status.running : COPY.status.preRun}
+            </p>
             <p className={`${typography.panelMeta} text-text-light`}>{COPY.status.preRunWhatThisIs}</p>
             {/* ⭐⭐ AND WHY IT HAS NOT — the half this state was missing. The two
                 sentences above orient a reader who has not run one yet; neither
                 says anything to the reader who TRIED and was refused, which on
                 a saved model is the common case. Every line below is the run
                 gate's own; see `WhyNoAnalysisYet`. */}
-            <WhyNoAnalysisYet listing={blockedListing} onFocusTarget={focusTarget} />
+            {isBusyNow ? null : (
+              <WhyNoAnalysisYet listing={blockedListing} onFocusTarget={focusTarget} />
+            )}
           </div>
         ) : null}
         {/* ⚠⚠ AND STALENESS IS SUPPRESSED PRE-RUN — THE SAME CONTRADICTION AS
