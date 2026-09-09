@@ -170,6 +170,12 @@ export const RiskNode = memo((props: NodeProps) => {
     <div className="flex gap-1 flex-wrap mt-1.5">
       <NodeChip chipId="risk_what_reduces" actionType={null} label="What reduces this?" message={`What factors or actions could reduce ${cleanedLabel || 'this risk'}?`} />
       <NodeChip chipId="risk_add_mitigation" actionType={null} label="Add mitigation" message={`Suggest a mitigation strategy for ${cleanedLabel || 'this risk'}`} />
+      {/* ⭐ Both existing chips ask how to REDUCE the risk. Neither asks how you
+          would KNOW it was happening — so a risk could sit on the canvas all
+          the way to a decision with no agreed trigger for acting on it. A
+          leading indicator is what turns a logged risk into a monitorable one,
+          and it is the question a reviewer asks first. */}
+      <NodeChip chipId="risk_leading_indicator" actionType={null} label="What would we see first?" message={`What early signs or leading indicators would tell us ${cleanedLabel || 'this risk'} is starting to happen, and what should trigger a response?`} />
     </div>
   ), [cleanedLabel])
 

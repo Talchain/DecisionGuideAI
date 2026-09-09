@@ -884,6 +884,22 @@ describe('Render matrix — GoalNode chip audit', () => {
     expect(screen.getAllByText('Is my target realistic?').length).toBeGreaterThanOrEqual(1)
   })
 
+  /**
+   * ⭐ Every other goal chip interrogates the NUMBER — is it realistic, why is
+   * it low. None asked whether the goal is the right one. A measurable proxy
+   * standing in for the thing actually wanted is the most expensive error
+   * available at this stage, because every option and factor downstream is
+   * then optimised against the proxy rather than the objective.
+   */
+  it('Goal with-target Standard post: asks whether the target is the REAL goal, not just a reachable one', () => {
+    applyStore(goalTopology('standard', 'post', true))
+    renderGoal({ goal_threshold_raw: 100000 })
+    expect(screen.getAllByText('Is this the real goal?').length).toBeGreaterThanOrEqual(1)
+    // Sits beside the realism question rather than replacing it: "can we hit
+    // this number" and "is this the right number" are different questions.
+    expect(screen.getAllByText('Is my target realistic?').length).toBeGreaterThanOrEqual(1)
+  })
+
   it('Goal no-target Standard post: shows the compact no-target chip', () => {
     applyStore(goalTopology('standard', 'post', false))
     renderGoal()
@@ -921,6 +937,24 @@ describe('Render matrix — OutcomeNode chip audit', () => {
     expect(screen.getByText('What strengthens this?')).toBeDefined()
     // Removed popover chip stays gone.
     expect(screen.queryByText('Are there other outcomes that matter?')).toBeNull()
+  })
+
+  /**
+   * ⭐ "What strengthens this?" can only ever CONFIRM the outcome. Alone it is a
+   * card that invites agreement, which is the opposite of what this product is
+   * for, so the disconfirming twin is asserted beside it rather than on its own.
+   *
+   * ⚠ Both are pre-analysis only, because `outcomeChips` returns null post
+   * (pinned by the two "no body chip" cases below). That blackout is a known
+   * gap raised separately — it is deliberately NOT reversed here, because
+   * changing the behaviour and rewriting the tests that pin it in one change
+   * would leave no independent oracle.
+   */
+  it.each(['standard', 'expert'] as const)('%s pre: asks what would FALSIFY the outcome, beside what strengthens it', (view) => {
+    applyStore(outcomeTopology(view, 'pre'))
+    renderOutcome()
+    expect(screen.getByText('What would falsify this?')).toBeDefined()
+    expect(screen.getByText('What strengthens this?')).toBeDefined()
   })
 
   it('Standard post: no body chip (popover handles post-analysis coaching)', () => {
@@ -978,6 +1012,21 @@ describe('Render matrix — RiskNode chip audit', () => {
   it('Standard post: same two chips', () => {
     applyStore(riskTopology('standard', 'post'))
     renderRisk()
+    expect(screen.getByText('What reduces this?')).toBeDefined()
+    expect(screen.getByText('Add mitigation')).toBeDefined()
+  })
+
+  /**
+   * ⭐ The two existing chips both ask how to REDUCE the risk. Neither asks how
+   * you would KNOW it was happening, so a risk could reach a decision with no
+   * agreed trigger for acting on it. Asserted in BOTH phases because a leading
+   * indicator is as useful while framing as it is after a run.
+   */
+  it.each(['pre', 'post'] as const)('%s: asks what we would see first — the risk is monitorable, not just loggable', (phase) => {
+    applyStore(riskTopology('standard', phase))
+    renderRisk()
+    expect(screen.getByText('What would we see first?')).toBeDefined()
+    // The reduce/mitigate pair is not displaced by the addition.
     expect(screen.getByText('What reduces this?')).toBeDefined()
     expect(screen.getByText('Add mitigation')).toBeDefined()
   })

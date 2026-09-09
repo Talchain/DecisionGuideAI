@@ -592,6 +592,12 @@ export const GoalNode = memo((props: NodeProps) => {
             <NodeChip chipId="goal_why_so_low" actionType="explain_results" label="Why is this so low?" message="Why is the probability of reaching my goal target so low? What are the main drivers?" />
           )}
           <NodeChip chipId="goal_target_realistic" actionType={null} label="Is my target realistic?" message="Is my current goal target realistic given the factors in my model? What would be a more achievable target?" />
+          {/* ⭐ Every other goal chip interrogates the NUMBER — is it realistic,
+              why is it low. None asks whether the goal is the right one. A
+              measurable proxy standing in for the thing actually wanted is the
+              most expensive error available at this stage, because every option
+              and factor downstream is then optimised against the proxy. */}
+          <NodeChip chipId="goal_is_this_the_real_goal" actionType={null} label="Is this the real goal?" message="Is this goal the outcome we actually want, or a measurable proxy for it? What would we be optimising away if we treated this as the objective?" />
         </div>
       )}
     </>
