@@ -83,7 +83,36 @@ vi.mock('../../../v5/eligibility', async importOriginal => ({
   isV5Eligible: () => ({ eligible: true }),
   isV5CanonicalRunPath: () => false,
 }))
-vi.mock('../../utils/focusHelpers', () => ({ focusNodeById: vi.fn(), focusEdgeById: vi.fn() }))
+/**
+ * ⚠⚠ `importOriginal` SPREAD, AND THE PARTIAL FACTORY IS WHY THIS FILE FAILED.
+ *
+ * A `vi.mock` factory REPLACES the module. The two-export version left every
+ * other member undefined, and a SUCCESSFUL apply reaches the real
+ * `appliedEditPulse`, which calls `fitNodesOnCanvas(...)` — so the receipt tests
+ * only broke once they started working, with an uncaught `TypeError` raised from
+ * a delayed timer during teardown rather than from any assertion.
+ *
+ * That is CLAUDE.md trap 12 in its original form, and the fix is the one the
+ * trap prescribes: spread the real module and override only what this file needs
+ * to stay out of the DOM. `fitNodesOnCanvas` is deliberately left REAL — it
+ * fail-closes to a no-op when no canvas fit is registered, which is exactly the
+ * jsdom case, so the pulse runs the same code a browser would.
+ *
+ * ⏱ ON THE PULSE'S OWN TIMER, since it is the other half of the return: it
+ * schedules a `PULSE_DURATION_MS` clear that outlives the test. It is left to
+ * fire rather than cancelled, because with the module whole its callback only
+ * writes EMPTY highlight sets into a module-level store that outlives every
+ * test, and nothing here reads highlight state. Flushing 2s per case to prove
+ * that would cost more than it establishes. If a future assertion in this file
+ * ever reads highlights, that reasoning stops holding and the timer must be
+ * controlled — stated here so the next reader inherits the condition, not just
+ * the decision.
+ */
+vi.mock('../../utils/focusHelpers', async importOriginal => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  focusNodeById: vi.fn(),
+  focusEdgeById: vi.fn(),
+}))
 
 // The one declaration that decides whether this surface offers the control.
 const authority = vi.hoisted(() => ({ value: 'server_graph' as string }))
