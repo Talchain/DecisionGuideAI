@@ -1823,10 +1823,10 @@ test.describe('in-node keyboard bleed', () => {
     page: Page,
     nodeId: string,
     name: string,
-  ): Promise<{ found: boolean; focused: boolean; insideNode: boolean; insideFlow: boolean; why: string }> {
+  ): Promise<{ found: boolean; focused: boolean; insideNode: boolean; insideFlow: boolean; selectionTarget: string | null; why: string }> {
     return page.evaluate(
       ({ nodeId: nid, name: cn, selector }) => {
-        const miss = { found: false, focused: false, insideNode: false, insideFlow: false, why: '' }
+        const miss = { found: false, focused: false, insideNode: false, insideFlow: false, selectionTarget: null, why: '' }
         const node = document.querySelector<HTMLElement>(`.react-flow__node[data-id="${nid}"]`)
         if (!node) return { ...miss, why: 'node not found' }
         const pops = Array.from(document.querySelectorAll<HTMLElement>('[data-node-popover]')).filter(
@@ -1844,6 +1844,7 @@ test.describe('in-node keyboard bleed', () => {
         if (!el) return { ...miss, why: 'control not found in any open portalled popover' }
         const insideNode = node.contains(el)
         const insideFlow = !!el.closest('.react-flow')
+        const selectionTarget = el.getAttribute('data-node-selection-target')
         el.focus()
         if (document.activeElement !== el) {
           const cs = getComputedStyle(el)
@@ -1852,10 +1853,11 @@ test.describe('in-node keyboard bleed', () => {
             focused: false,
             insideNode,
             insideFlow,
+            selectionTarget,
             why: `focus() no-op: visibility=${cs.visibility} display=${cs.display} opacity=${cs.opacity}`,
           }
         }
-        return { found: true, focused: true, insideNode, insideFlow, why: '' }
+        return { found: true, focused: true, insideNode, insideFlow, selectionTarget, why: '' }
       },
       { nodeId, name, selector: FOCUSABLE_SELECTOR },
     )
@@ -2018,6 +2020,7 @@ test.describe('in-node keyboard bleed', () => {
     for (const { nodeId, name } of targets) {
       const read: Record<string, string[]> = {}
       let gated = false
+      let selectionTarget: string | null = null
 
       /*
        * ONE FRESH SEED PER KEY. Pressing Space on a popover control ACTIVATES
@@ -2055,6 +2058,16 @@ test.describe('in-node keyboard bleed', () => {
 
         const facts = await portalledControlFacts(page, nodeId, name)
         expect(facts.found, `control "${name}" not found in node ${nodeId}'s popover — ${facts.why}`).toBe(true)
+        // A linked control declares its stable graph target; its label never
+        // grants selection permission. Pin the declaration across every reseed.
+        if (key === 'FOCUS') selectionTarget = facts.selectionTarget
+        else expect(facts.selectionTarget, `selection target changed for control "${name}"`).toBe(selectionTarget)
+        if (selectionTarget !== null) {
+          const seededNodeIds = await page.evaluate(() =>
+            Array.from(document.querySelectorAll('.react-flow__node')).map((n) => n.getAttribute('data-id') ?? ''),
+          )
+          expect(seededNodeIds, `control "${name}" declares a selection target absent from the seeded graph`).toContain(selectionTarget)
+        }
 
         /*
          * ⭐ THE PRECONDITION THIS ARM EXISTS FOR, asserted on EVERY row rather
@@ -2115,45 +2128,27 @@ test.describe('in-node keyboard bleed', () => {
         }
       }
 
-      /*
-       * ⚠⚠ THE TWO HALVES OF THIS PREDICATE ARE DELIBERATELY ASYMMETRIC, AND
-       * THE ASYMMETRY IS THE CORRECTION.
-       *
-       * `keyboardSelects` was `read[' '].includes(nodeId) || read.Enter.
-       * includes(nodeId)` — membership. A bleed that selected a NEIGHBOUR'S
-       * node therefore read CLEAN: a FALSE NEGATIVE, i.e. the arm reporting the
-       * defect absent while it was live. And a portalled popover is exactly
-       * where that is plausible, because the popover is positioned under its
-       * anchor and overlaps whatever is beneath it — there is no DOM ancestry
-       * tying the press to the node it looks attached to. It is `.length > 0`:
-       * a key press at a control must not change the selection AT ALL.
-       *
-       * The two attribution controls stay MEMBERSHIP-BOUND, and must not be
-       * "tidied" to match. They EXCUSE a keyboard selection, so a loose reading
-       * of them SUPPRESSES a bleed — the same harm, arriving from the other
-       * side. `includes(nodeId)` excuses only when the control's own action
-       * selects the node it belongs to, which is the thing that genuinely is
-       * not a bleed (`openNodeInspector` selects on purpose).
-       *
-       * One predicate guarding two opposite harms needs two parameters, not one
-       * (CLAUDE.md trap 22b). Loosest where a miss hides the defect; tightest
-       * where a hit hides it.
-       */
-      const keyboardSelects = read[' '].length > 0 || read.Enter.length > 0
-      const mouseSelects = read.CLICK.includes(nodeId)
-      const focusSelects = read.FOCUS.includes(nodeId)
-      const bled = keyboardSelects && !mouseSelects && !focusSelects
+      // Exact sets, never membership: [target, neighbour] must fail. An explicit
+      // linked target must be selected by CLICK, Enter AND Space. Without one,
+      // retain the existing anchor-inspector attribution only when click selects
+      // exactly the anchor. Focus and the q contrast never grant permission.
+      const mouseSelectsAnchor = read.CLICK.length === 1 && read.CLICK[0] === nodeId
+      const expectedSelection = selectionTarget !== null ? [selectionTarget] : mouseSelectsAnchor ? [nodeId] : []
+      const matchesExpected = (ids: string[]) =>
+        ids.length === expectedSelection.length && ids.every((id, i) => id === expectedSelection[i])
+      const bled = read.FOCUS.length > 0 || ['CLICK', ' ', 'Enter'].some((key) => !matchesExpected(read[key]))
       // Record WHICH node was selected, so a neighbour-bleed is diagnosable
       // from the failure output rather than only detectable by it.
       const selectedBy = [...new Set([...read[' '], ...read.Enter])]
-      const ontoNeighbour = selectedBy.some((s) => s !== nodeId)
+      const ontoNeighbour = selectedBy.some((s) => !expectedSelection.includes(s))
       if (bled) bleeding++
-      if (mouseSelects || focusSelects) selfSelecting++
+      if (!bled && expectedSelection.length > 0) selfSelecting++
       if (read.q.length > 0) contrastSelections++
       if (!gated) ungated++
       table.push(
-        `${bled ? (ontoNeighbour ? 'BLEED→NBR ' : 'BLEED     ') : focusSelects ? 'focus-sel ' : mouseSelects ? 'self-sel  ' : 'clean     '} ` +
+        `${bled ? (ontoNeighbour ? 'BLEED→NBR ' : 'BLEED     ') : expectedSelection.length > 0 ? 'self-sel  ' : 'clean     '} ` +
           `${nodeId} "${name}"  gated=${gated ? 'Y' : 'N'}` +
+          ` expected=${JSON.stringify(expectedSelection)}` +
           `${selectedBy.length ? `  selected=${JSON.stringify(selectedBy)}` : ''}\n` +
           `        focus=${JSON.stringify(read.FOCUS)} space=${JSON.stringify(read[' '])}` +
           ` enter=${JSON.stringify(read.Enter)} q=${JSON.stringify(read.q)} click=${JSON.stringify(read.CLICK)}`,
@@ -2184,12 +2179,12 @@ test.describe('in-node keyboard bleed', () => {
     // CONTRAST CONTROL ON THE KEY: 'q' is not in `elementSelectionKeys`.
     expect(contrastSelections, "contrast control failed: 'q' selected a node — the probe is not discriminating").toBe(0)
 
-    // ── THE LOAD-BEARING CLAIM: no portalled control may select its anchor ──
+    // ── THE LOAD-BEARING CLAIM: only the exact intended selection is allowed ──
     expect(
       bleeding,
-      'a key press at a control inside a PORTALLED popover still changed the node selection — ' +
-        'the keyboard scope does not cross the portal boundary. (This counts a selection of ANY node, ' +
-        'not just the anchor: a bleed onto a neighbour is the same defect and used to read clean.)',
+      'a PORTALLED control violated its exact selection contract: focus must select nothing; click, Enter and Space ' +
+        'must select only the declared graph target (or the anchor deliberately selected by click), otherwise nothing. ' +
+        'Missing, unexpected and additional selected nodes all fail.',
     ).toBe(0)
 
     // ── AND THE MECHANISM, for controls whose own action selects the node ───
