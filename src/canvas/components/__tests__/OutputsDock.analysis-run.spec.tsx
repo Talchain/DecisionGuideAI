@@ -361,10 +361,27 @@ describe('OutputsDock analyse convergence', () => {
       )).toHaveLength(0)
     })
 
+    /**
+     * ⚠ THE TITLE USED TO SAY "without transcript registration", AND THAT HALF
+     * IS NO LONGER TRUE OF THE PROVIDER HOST. `OlumiTabBody` now registers
+     * `_dispatchAction` on the EMPTY-conversation branch, because that is the
+     * only bridge carrying `action_type` / `parameters.chip_id` / `source`
+     * — without it a coaching click on a fresh chat fell to `_sendMessage`,
+     * which drops all three while still returning something.
+     *
+     * ⭐ WHAT THIS SPEC ACTUALLY GUARDS IS UNCHANGED, AND IS THE REASON THE
+     * ASSERTION IS SPLIT RATHER THAN DELETED: the canonical run reaches the
+     * HOST dispatcher exactly once with full chip metadata, and never leaks
+     * through the guidance store or the `sendMessage`/`sendChip` fallbacks
+     * — whether or not a store dispatcher happens to be registered. Deleting
+     * the `_dispatchAction` expectation would have retired that discrimination
+     * silently; asserting the per-host value keeps it, and REDs if the fresh
+     * chat ever stops registering.
+     */
     it.each([
-      { host: 'provider', aiPanelV2: true },
-      { host: 'legacy', aiPanelV2: false },
-    ])('$host: a zero-chat graph dispatches once without transcript registration and reveals Olumi', async ({ aiPanelV2 }) => {
+      { host: 'provider', aiPanelV2: true, storeDispatcherRegistered: true },
+      { host: 'legacy', aiPanelV2: false, storeDispatcherRegistered: false },
+    ])('$host: a zero-chat graph dispatches once through the host dispatcher and reveals Olumi', async ({ aiPanelV2, storeDispatcherRegistered }) => {
       mockIsAiPanelV2Enabled.mockReturnValue(aiPanelV2)
       const dispatchAction = vi.fn()
       mockConversation.dispatchAction = dispatchAction
@@ -375,7 +392,12 @@ describe('OutputsDock analyse convergence', () => {
       expect(runner).not.toBeNull()
       expect(mockConversation.messages).toEqual([])
       expect(useCanvasStore.getState().nodes.length).toBeGreaterThan(0)
-      expect(useGuidanceStore.getState()._dispatchAction).toBeNull()
+      const expectStoreDispatcher = () => {
+        const registered = useGuidanceStore.getState()._dispatchAction
+        if (storeDispatcherRegistered) expect(typeof registered).toBe('function')
+        else expect(registered).toBeNull()
+      }
+      expectStoreDispatcher()
       expect(mockRevealOlumi).not.toHaveBeenCalled()
 
       let outcome
@@ -393,7 +415,7 @@ describe('OutputsDock analyse convergence', () => {
         message: 'Run analysis',
         source: 'chip',
       })
-      expect(useGuidanceStore.getState()._dispatchAction).toBeNull()
+      expectStoreDispatcher()
       expect(mockConversation.sendMessage).not.toHaveBeenCalled()
       expect(mockConversation.sendChip).not.toHaveBeenCalled()
       expect(mockRevealOlumi).toHaveBeenCalledTimes(1)
