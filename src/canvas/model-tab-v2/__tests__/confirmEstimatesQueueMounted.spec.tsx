@@ -14,6 +14,7 @@ vi.mock('../../utils/focusHelpers', () => ({
 
 import { ModelTabV2Panel } from '../ModelTabV2Panel'
 import { useCanvasStore } from '../../store'
+import { openOutlineGroups } from './openOutlineGroups'
 
 const UNVERIFIED = 'fac_sales_cycle_length'
 const VERIFIED = 'fac_headcount'
@@ -38,6 +39,8 @@ function renderPanel() {
   ]
   useCanvasStore.setState({ nodes, edges: [] } as never, false)
   render(<ModelTabV2Panel nodes={nodes} edges={[]} goalThreshold={null} />)
+  openOutlineGroups()
+
 }
 
 beforeEach(() => { vi.clearAllMocks() })

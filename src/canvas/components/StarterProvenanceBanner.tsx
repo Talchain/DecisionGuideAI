@@ -57,7 +57,7 @@ export function StarterProvenanceBanner() {
    * condition and the gate's own sentence, so the two cannot disagree; `null`
    * means analysis is not held and the claim is simply not made.
    */
-  const heldNotice = useCanvasStore((s) => analysisHeldNotice(s.nodes))
+  const heldNotice = useCanvasStore((s) => analysisHeldNotice(s))
 
   const handleRedraft = useCallback(async () => {
     if (!starterId) return

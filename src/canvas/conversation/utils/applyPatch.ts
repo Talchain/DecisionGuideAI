@@ -7,7 +7,7 @@
  */
 
 import { useCanvasStore } from '../../store'
-import { DEFAULT_EDGE_DATA, readValidationMetadata } from '../../domain/edges'
+import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength } from '../../domain/edges'
 import { edgeValueSourcePatch } from '../../domain/edgeValueProvenance'
 import { edgeProvenanceDisplayPatch } from '../../utils/draftIngestion'
 import { saveAutosave } from '../../store/scenarios'
@@ -161,6 +161,7 @@ function buildEdge(op: PatchOperation) {
   // spec (edgeValidationMapperMirror.spec.ts) stays as belt for the fields that
   // are still extracted twice.
   const validation = readValidationMetadata(d.validation)
+  const serverStrength = readServerStatedStrength(d as Record<string, unknown>)
 
   return {
     id: op.target_id,
@@ -179,6 +180,10 @@ function buildEdge(op: PatchOperation) {
       ...(provenanceSource !== undefined ? { provenance_source: provenanceSource } : {}),
       ...(existsProbability !== undefined ? { exists_probability: existsProbability } : {}),
       ...(validation !== undefined ? { validation } : {}),
+      // What the SERVER stated — HOP 2 OF 3. One shared reader with hop 1
+      // (`mapDraftEdgeToCanvas`) and hop 3 (`DraftChat`), so this cannot become
+      // the mirror defect the note below records for `strengthStd`.
+      ...(serverStrength !== undefined ? { serverStrength } : {}),
       // Set-vs-defaulted markers — see domain/edgeValueProvenance.ts. Omitted
       // when the patch carried no value, so an operation that supplies neither
       // leaves the edge honestly marked as unset rather than claiming a

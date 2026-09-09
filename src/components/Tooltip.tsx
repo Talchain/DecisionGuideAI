@@ -12,6 +12,8 @@ import {
   useInteractions,
   FloatingPortal,
   arrow,
+  useMergeRefs,
+  safePolygon,
 } from '@floating-ui/react';
 
 interface TooltipProps {
@@ -20,27 +22,11 @@ interface TooltipProps {
   className?: string;
   /** Hover delay in ms before showing (default: 0, DS v5 recommends 300) */
   delay?: number;
-  /**
-   * Classes for the REFERENCE wrapper (the element that hosts `children`), not
-   * the floating bubble — `className` above is the bubble's.
-   *
-   * ⚠ WHY THIS EXISTS. The wrapper is a plain `<div>`, i.e. block-level. That is
-   * invisible in the panel and drawer layouts this component grew up in, but a
-   * canvas NODE icon sits inside an `inline-flex` row of sibling glyphs, where a
-   * bare block wrapper drops `shrink-0` and the row's baseline alignment. Node
-   * adopters pass `inline-flex shrink-0` here.
-   *
-   * Defaults to `undefined`, NOT `''`, so every existing call site renders the
-   * wrapper with no `class` attribute exactly as before — this prop is additive
-   * and cannot change the 38 production files importing this component (counted
-   * by resolving every `*Tooltip` import path against this module, because the
-   * repo has a same-named twin at `canvas/components/Tooltip` with 19 importers
-   * of its own and a suffix grep cannot tell the two apart).
-   */
-  wrapperClassName?: string;
+  /** Attach positioning and accessibility to the control itself, without a layout wrapper. */
+  asChild?: boolean;
 }
 
-export default function Tooltip({ children, content, className = '', delay, wrapperClassName }: TooltipProps) {
+export default function Tooltip({ children, content, className = '', delay, asChild = false }: TooltipProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const arrowRef = React.useRef(null);
 
@@ -59,13 +45,19 @@ export default function Tooltip({ children, content, className = '', delay, wrap
     middleware: [
       offset(8),
       flip(),
-      shift(),
+      shift({ padding: 8 }),
       arrow({ element: arrowRef }),
     ],
     whileElementsMounted: autoUpdate,
   });
 
-  const hover = useHover(context, { move: false, delay: delay != null ? { open: delay } : undefined });
+  const hover = useHover(context, {
+    move: false,
+    delay: delay != null ? { open: delay } : undefined,
+    // Keep a node-action explanation readable while the pointer crosses the
+    // gap onto it. Existing wrapped tooltip consumers retain their behaviour.
+    handleClose: asChild ? safePolygon() : undefined,
+  });
   const focus = useFocus(context);
   const dismiss = useDismiss(context);
   const role = useRole(context, { role: 'tooltip' });
@@ -77,16 +69,36 @@ export default function Tooltip({ children, content, className = '', delay, wrap
     role,
   ]);
 
+  const child = asChild ? React.Children.only(children) as React.ReactElement : null;
+  const referenceRef = useMergeRefs([
+    refs.setReference,
+    (child as (React.ReactElement & { ref?: React.Ref<HTMLElement> }) | null)?.ref,
+  ]);
+
   return (
     <>
-      <div ref={refs.setReference} className={wrapperClassName} {...getReferenceProps()}>
-        {children}
-      </div>
+      {child ? React.cloneElement(child, {
+        ...getReferenceProps({
+          ...child.props,
+          onClick: (event: React.MouseEvent) => {
+            setIsOpen(false);
+            child.props.onClick?.(event);
+          },
+        }),
+        ref: referenceRef,
+        // An empty title blocks native tooltips inherited from an ancestor
+        // (for example an external factor's "Outside your control" label).
+        title: '',
+      }) : (
+        <div ref={refs.setReference} {...getReferenceProps()}>
+          {children}
+        </div>
+      )}
       <FloatingPortal>
         {isOpen && (
           <div
             ref={refs.setFloating}
-            className={`z-[9999] px-2.5 py-1.5 text-xs bg-text-header text-text-on-color rounded-md max-w-[200px] ${className}`}
+            className={`z-[9999] px-2.5 py-1.5 text-xs bg-text-header text-text-on-color rounded-md max-w-[200px] break-words ${className}`}
             style={{
               position: strategy,
               top: y ?? 0,

@@ -6,7 +6,7 @@ import {
   PROVENANCE_ICON_SIZE_CLASSES,
 } from '../../domain/valueProvenanceIcon'
 import Tooltip from '../../../components/Tooltip'
-import { NODE_TOOLTIP_DELAY_MS, NODE_TOOLTIP_WRAPPER } from './nodeTooltip'
+import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 
 /**
  * ⭐⭐ WHO PUT THIS ELEMENT HERE — on the card, at a fixed position, on every
@@ -162,9 +162,10 @@ export function NodeProvenanceMark({ nodeType, data }: NodeProvenanceMarkProps) 
   const Icon = VALUE_PROVENANCE_ICON[cls.kind]
 
   return (
-    <Tooltip content={label} delay={NODE_TOOLTIP_DELAY_MS} wrapperClassName={NODE_TOOLTIP_WRAPPER}>
+    <Tooltip asChild content={label} delay={NODE_TOOLTIP_DELAY_MS}>
       <span
         data-testid="node-provenance-mark"
+        data-node-tooltip="true"
         data-provenance-kind={cls.kind}
         data-provenance-claim={claim}
         // The claim itself, available with no hover and no focus. The tooltip

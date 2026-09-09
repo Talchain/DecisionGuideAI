@@ -13,6 +13,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { ValueProvenanceKey } from '../ValueProvenanceKey'
 import { ModelTabV2Panel } from '../ModelTabV2Panel'
 import { VALUE_PROVENANCE_LABEL, type ValueProvenanceKind } from '../../domain/valueProvenance'
+import { openOutlineGroups } from './openOutlineGroups'
 
 const ALL_KINDS = Object.keys(VALUE_PROVENANCE_LABEL) as ValueProvenanceKind[]
 
@@ -46,6 +47,7 @@ describe('the key is REACHABLE from the panel, not merely correct', () => {
 
   it('mounts in the Model tab panel, where a reader can open it', () => {
     render(<ModelTabV2Panel nodes={[goal, factor] as never} edges={[]} goalThreshold={null} />)
+    openOutlineGroups()
 
     // Positive control: the panel genuinely rendered, so the presence below is
     // about the key and not about a lucky query on a blank tree.

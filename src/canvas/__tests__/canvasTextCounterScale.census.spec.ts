@@ -181,15 +181,22 @@ const PORTALLED = ['nodes/shared/NodePopover.tsx']
  *                                   not a typography one, and out of scope here.
  */
 const KNOWN_FIXED = [
-  'nodes/EvidenceGapBadge.tsx:inline-7',
+  // ⭐ `nodes/EvidenceGapBadge.tsx:inline-7` WAS HERE AND IS NOW FIXED, in the
+  // direction this file's own header prescribed: the note said it *"needs a
+  // size ruling, not a counter-scale"* because 7px is below the DS v5 §2.4 10px
+  // canvas floor even at zoom 1. It got both — the raw inline `fontSize: '7px'`
+  // became `typography.edgeLabel` (10px, and one of the three counter-scaled
+  // canvas tokens), so the "?" goes from a rendered 3.5px to 10px. Removing the
+  // pin here is the point of asserting this set exactly.
   'nodes/shared/NodeCoachingMarker.tsx:typography.caption',
   'edges/EdgeEditPopover.tsx:typography.panelHeader',
   'edges/EdgeEditPopover.tsx:typography.panelMeta',
 ] as const
 
 /**
- * Components defined outside the derived scope but RENDERED from inside it, so
- * they are in the transform and this directory walk cannot see their sizes.
+ * Components defined outside the derived scope but RENDERED from inside it.
+ * This directory walk cannot see their sizes or whether their content portals
+ * out of the transform; the distinction is recorded for each entry below.
  * Derived per run and asserted EXACTLY — see the header. Declared sizes and
  * what they render at the 0.50 floor, so the gap is costed and not merely named:
  *
@@ -259,6 +266,16 @@ const KNOWN_FIXED = [
  * pre-analysis). Those are outside the viewport transform, which is the only
  * scope this census governs — so their size is out of this census's remit, not
  * unexamined.
+ *   components/Tooltip.tsx             NodeQuickActions now renders this with
+ *                                       asChild. The reference button remains
+ *                                       inside the transform; all tooltip text
+ *                                       renders through FloatingPortal outside
+ *                                       it. Its text-xs size must NOT receive
+ *                                       the canvas counter-scale.
+ *
+ * Tooltip previously left this inventory when OlumiSparkle, its last scoped
+ * caller, was deleted. NodeQuickActions is a new scoped caller, so the exact
+ * derivation requires the entry again; this is not an un-portalled text gap.
  */
 const FOREIGN_RENDERED = [
   'src/canvas/components/CoachingCard.tsx',

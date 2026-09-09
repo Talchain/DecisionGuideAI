@@ -19,20 +19,26 @@
  */
 import { FileText } from 'lucide-react'
 import Tooltip from '../../../components/Tooltip'
-import { NODE_TOOLTIP_DELAY_MS, NODE_TOOLTIP_WRAPPER } from './nodeTooltip'
+import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
+import { CANVAS_GLYPH_SIZE_CLASSES } from './canvasGlyphScale'
 
 export const BRIEF_ICON_LABEL = 'From your brief'
 
 export function BriefIcon() {
   return (
-    <Tooltip content={BRIEF_ICON_LABEL} delay={NODE_TOOLTIP_DELAY_MS} wrapperClassName={NODE_TOOLTIP_WRAPPER}>
+    <Tooltip asChild content={BRIEF_ICON_LABEL} delay={NODE_TOOLTIP_DELAY_MS}>
       <span
         data-testid="brief-icon"
         role="img"
         aria-label={BRIEF_ICON_LABEL}
-        className="inline-flex cursor-help"
+        className="inline-flex shrink-0 cursor-help"
       >
-        <FileText size={10} className="text-text-light" aria-hidden="true" />
+        {/* Preserve the authored glyph size through the canvas transform. */}
+        <FileText
+          size={10}
+          className={`text-text-light ${CANVAS_GLYPH_SIZE_CLASSES[10]}`}
+          aria-hidden="true"
+        />
       </span>
     </Tooltip>
   )

@@ -9,7 +9,8 @@
  *
  *   · GOAL     — `From brief` / `No target set`, and post-analysis a PROSE
  *                sentence `73% chance of reaching target`. A number, no bar.
- *   · DECISION — `{X} leads in 47% of scenarios`. The single most consequential
+ *   · DECISION — `{X} supported in 47% of simulated scenarios`. The single most
+ *     consequential
  *                figure on the canvas, and the least visually encoded one.
  *
  * ⛔ WHAT THESE TESTS EXIST TO STOP, and it is not "is there a bar".
@@ -236,12 +237,17 @@ describe('DecisionNode — the leader figure gets the shared metric row', () => 
     expect(screen.getByText('Which laptops?')).toBeDefined()
   })
 
-  it('PERMITTED: the sentence the row encodes is UNCHANGED — the row is additive', () => {
+  it('PERMITTED: the sentence the row encodes is STILL IN VISIBLE TEXT — the row is additive', () => {
     renderDecision(PERMITTED_REPORT)
     // The leader-claim corpus across eight surfaces keys on this sentence.
     // A "visual consistency" change that quietly moved it out of visible text
     // would hollow every one of those guards without a single red.
-    expect(screen.getByText(/leads in 66% of scenarios/i)).toBeDefined()
+    //
+    // ⚠ REWORDED, NOT MOVED (8 Sep 2026). This assertion read
+    // `/leads in 66% of scenarios/i` until the decision card was aligned to
+    // the noun its own bar carries. What it guards is unchanged: the claim is
+    // still a SENTENCE in visible text, above the row, not folded into it.
+    expect(screen.getByText(/supported in 66% of simulated scenarios/i)).toBeDefined()
   })
 })
 

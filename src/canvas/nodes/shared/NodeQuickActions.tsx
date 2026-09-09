@@ -1,31 +1,47 @@
 import { memo, useCallback } from 'react'
-import { MessageSquare, PanelRight, MoreHorizontal, Zap } from 'lucide-react'
+import { MessageSquare, MoreHorizontal, Zap } from 'lucide-react'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useShowToastSafe } from '../../ToastContext'
-import { askAI, buildAskAIPrompt } from '../../contextMenu/actions'
-import { FULL_MENU_KINDS } from '../../contextMenu/useMenuItems'
+import { askAI, buildAskAIPrompt, CHALLENGE_KINDS } from '../../contextMenu/actions'
 import { requestAsk, canReceiveAsk } from '../../ui/inspector-v2/askSemantic'
 import type { NodeType } from '../../domain/nodes'
-import { openNodeInspector } from './openNodeInspector'
+import Tooltip from '../../../components/Tooltip'
+import {
+  CANVAS_GLYPH_SIZE_CLASSES,
+  CANVAS_HIT_SLOP_CLASSES,
+  CANVAS_GAP_CLASSES,
+} from './canvasGlyphScale'
 
 /**
  * Does this node type have a generative prompt to offer?
  *
- * ⭐ DERIVED FROM THE MENU'S OWN SET, NEVER MIRRORED. `buildNodeMenu` gates
- * "Challenge this" on `FULL_MENU_KINDS.has(kind) || kind === 'goal'`; this
- * imports that same Set rather than re-listing `factor | risk | outcome`. A
- * hand-copied list here would drift the first time a kind joined or left the
- * menu's gate, and the drift would read as green — the hand-maintained mirror
- * this estate keeps paying for. If the menu stops offering the prompt, this
- * button stops rendering, by construction.
+ * ⭐ DERIVED, NEVER MIRRORED — the principle is unchanged and it is what made
+ * this a one-line change. A hand-copied list here would drift the first time a
+ * kind joined or left the gate, and the drift would read as green.
  *
- * The organisational kinds (`decision`, `option`, `constraint`) get NO button:
- * the menu builds no challenge prompt for them, so a control here would open
- * nothing. An affordance that opens nothing is worse than no affordance.
+ * WHAT MOVED (8 Sep 2026). This used to read
+ * `FULL_MENU_KINDS.has(nodeType) || nodeType === 'goal'`, deriving from the
+ * menu. It now derives from `CHALLENGE_KINDS` in the PRODUCER, which is one
+ * step closer to the fact it was reaching for: a kind is challengeable exactly
+ * when `buildAskAIPrompt` can build a challenge for it. The `|| 'goal'`
+ * epicycle — the one fragment that really was hand-copied into both files —
+ * disappears into the Set.
+ *
+ * ⚠ THE PARAGRAPH THAT USED TO CLOSE THIS BLOCK IS FALSE AND IS REPLACED. It
+ * read: *"The organisational kinds (`decision`, `option`, `constraint`) get NO
+ * button: the menu builds no challenge prompt for them, so a control here would
+ * open nothing. An affordance that opens nothing is worse than no affordance."*
+ * The producer now builds kind-appropriate copy for all three, so the control
+ * opens onto a real prompt, a live composer and an ordinary CEE turn carrying
+ * the node's kind in `selected_elements`. The PRINCIPLE in that last sentence
+ * stands and still governs the gate — `action` is held out on exactly it. The
+ * fact underneath it does not, and it is quoted rather than deleted because a
+ * comment that outlives its truth is what teaches the next reader to stop
+ * checking.
  */
 function hasChallengePrompt(nodeType: NodeType): boolean {
-  return FULL_MENU_KINDS.has(nodeType as string) || nodeType === 'goal'
+  return CHALLENGE_KINDS.has(nodeType)
 }
 
 /**
@@ -55,11 +71,12 @@ function hasChallengePrompt(nodeType: NodeType): boolean {
  *   Touch devices (`pointer: coarse`) get them permanently visible: a touch
  *   device has no hover, so opacity-on-hover would be a tap target that never
  *   appears. So does a SELECTED node, via `alwaysVisible`.
- * - NOTHING BURIED, NOTHING DUPLICATED BADLY. Both actions route through the
- *   machinery that already exists — `askAI` (which selects the element so the
- *   turn carries `selected_elements`, reveals the Olumi surface, and toasts if
- *   the conversation never registers) and `openNodeInspector` (the node twin
- *   of `openEdgeStrengthEditor`). No new transport, no second grammar.
+ * - THREE SHORTCUTS. Ask and Challenge keep their existing conversation
+ *   routes; More opens the existing node menu. Selecting the node opens its
+ *   inspector, so a fourth inspector button would duplicate that route.
+ * - POSITIONED TOOLTIPS. Tooltip attaches to the button itself, preserving
+ *   the hit area and accessible name. usePopoverHover suppresses the node
+ *   preview while this row is hovered or focused, so the two cannot overlap.
  * - NO DEAD CONTROLS, AND NO SILENT ONES. The ask button renders only when a
  *   conversation surface has registered the SEND channel `askAI` actually
  *   needs, and the click passes `showToast` through so a channel that dies
@@ -82,6 +99,20 @@ function hasChallengePrompt(nodeType: NodeType): boolean {
  * Confirm icon moves to bottom-LEFT, which it has. The geometry is pinned in
  * this component's spec: change it there too, or leave it alone.
  */
+/**
+ * Shared button geometry, counter-scaled so a control keeps its AUTHORED size
+ * at any zoom (#1274). Replaces three identical inline class strings: the box
+ * (`CANVAS_GLYPH_SIZE_CLASSES[20]`) and the hit-slop (`CANVAS_HIT_SLOP_CLASSES[2]`)
+ * are the two terms the footprint bound in `canvasGlyphTargetScale.spec.tsx`
+ * reads, so a literal here would be a second, undetected authority.
+ */
+const BUTTON_CLASSES =
+  'nodrag relative inline-flex ' +
+  CANVAS_GLYPH_SIZE_CLASSES[20] +
+  ' items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body ' +
+  'hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info ' +
+  CANVAS_HIT_SLOP_CLASSES[2]
+
 export interface NodeQuickActionsProps {
   nodeId: string
   nodeType: NodeType
@@ -198,11 +229,6 @@ export const NodeQuickActions = memo(function NodeQuickActions({
     }
   }, [nodeId, nodeType, label, showToast])
 
-  const handleInspect = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    openNodeInspector(nodeId)
-  }, [nodeId])
-
   /**
    * Open this node's own menu — the SAME menu right-click opens, by the same
    * code path.
@@ -222,7 +248,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
    * what a thing does teaches the next reader to stop checking.**
    *
    * WHAT THIS BUTTON ACTUALLY UNBURIES, derived rather than recalled:
-   * "Challenge this" (gated `isFull || isGoal`), "Explore ▸ Trace to goal" and
+   * "Challenge this" (gated `CHALLENGE_KINDS`), "Explore ▸ Trace to goal" and
    * "Select path to goal" (gated `isFull`), "Explain this", Copy and Delete —
    * plus two Graph Lens items, "Isolate this option's paths"
    * (`lens-isolate-option`, option nodes) and "Show sensitivity view"
@@ -296,23 +322,63 @@ export const NodeQuickActions = memo(function NodeQuickActions({
     e.stopPropagation()
   }, [])
 
+  /**
+   * ⭐⭐ TOOLTIP COPY AND ACCESSIBLE NAME ANSWER DIFFERENT QUESTIONS.
+   *
+   * All three tooltips used to carry the node's own label — "Ask Olumi about
+   * {label}", "Challenge {label} — what could be wrong or missing?", "More
+   * actions for {label} — the same menu as right-click". Each was accurate.
+   * Together they were the wrong instrument for the surface:
+   *
+   *  - THE LABEL IS UNBOUNDED. A node title clamps to two lines on the card and
+   *    is recoverable in full from the inspector; a tooltip has neither clamp.
+   *    An option named by a real team ("Raise Pro from £49 to £59 alongside the
+   *    Q3 feature release") produced a hover box wider than the node, painted
+   *    over the card the pointer is resting on — the thing you hovered to act
+   *    on. Tooltip.tsx caps at `max-w-[200px]` and wraps, so long labels bought
+   *    HEIGHT instead: a tall block, still over the node.
+   *  - THE ANSWER WAS ALREADY ON SCREEN. The label is on the card, two
+   *    centimetres away, and the pointer is inside that card. Repeating it in
+   *    the hint spends the whole box restating context the reader has and
+   *    leaves the button's own meaning to be inferred from an icon.
+   *  - IT IS NOT THE ACCESSIBLE NAME'S JOB. A screen-reader user reaching these
+   *    buttons by Tab has NO spatial context, so `aria-label` must carry the
+   *    node identity and does — unchanged, all three. The two strings are
+   *    deliberately different because the two audiences hold different context,
+   *    and collapsing them is what made the sighted hint redundant.
+   *
+   * So: the visible hint says what the BUTTON does; the accessible name says
+   * which NODE it acts on. Routing, the 300 ms delay and the counter-scaled
+   * geometry (#1274) are untouched.
+   *
+   * ⚠ ONE BRANCH, NOT A KIND→NOUN MAP. "this option" reads better than "this
+   * node" on the surface this layer was designed for, and every other
+   * challengeable kind takes the generic word. A full spelling table already has
+   * three claimants in this repo (`NODE_REGISTRY`, `getTypeLabel`, `KIND_LABEL`
+   * — see `domain/vocabulary.ts`), and a fourth partial one added here for a
+   * two-way choice would be a fourth loose literal in a file whose header exists
+   * to stop exactly that.
+   */
+  const challengeHint = nodeType === 'option' ? 'Challenge this option' : 'Challenge this node'
+
   return (
     <div
-      className={`node-quick-actions absolute bottom-1.5 right-1.5 z-[2] flex gap-1.5 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 motion-reduce:transition-none ${alwaysVisible ? 'opacity-100' : 'opacity-0'}`}
+      className={`node-quick-actions absolute bottom-1.5 right-1.5 z-[2] flex ${CANVAS_GAP_CLASSES[6]} transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 motion-reduce:transition-none ${alwaysVisible ? 'opacity-100' : 'opacity-0'}`}
       data-testid={`node-quick-actions-${nodeId}`}
     >
       {canAsk && (
-        <button
-          type="button"
-          onClick={handleAsk}
-          onPointerDown={stopPointer}
-          className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
-          aria-label={`Ask Olumi about ${label}`}
-          title={`Ask Olumi about ${label}`}
-          data-testid={`node-action-ask-${nodeId}`}
-        >
-          <MessageSquare size={11} aria-hidden="true" />
-        </button>
+        <Tooltip asChild delay={300} content="Ask Olumi">
+          <button
+            type="button"
+            onClick={handleAsk}
+            onPointerDown={stopPointer}
+            className={BUTTON_CLASSES}
+            aria-label={`Ask Olumi about ${label}`}
+            data-testid={`node-action-ask-${nodeId}`}
+          >
+            <MessageSquare size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
+          </button>
+        </Tooltip>
       )}
       {/* ⭐ THE GENERATIVE PEER OF THE ASK. Second, not last: it sits beside
           "Ask Olumi about this" because the two are the same kind of act — a
@@ -324,29 +390,19 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           (`useMenuItems.ts`), so the button and the menu entry it unburies read
           as the same action rather than as two features. */}
       {canChallenge && (
-        <button
-          type="button"
-          onClick={handleChallenge}
-          onPointerDown={stopPointer}
-          className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
-          aria-label={`Challenge ${label}`}
-          title={`Challenge ${label} — what could be wrong or missing?`}
-          data-testid={`node-action-challenge-${nodeId}`}
-        >
-          <Zap size={11} aria-hidden="true" />
-        </button>
+        <Tooltip asChild delay={300} content={challengeHint}>
+          <button
+            type="button"
+            onClick={handleChallenge}
+            onPointerDown={stopPointer}
+            className={BUTTON_CLASSES}
+            aria-label={`Challenge ${label}`}
+            data-testid={`node-action-challenge-${nodeId}`}
+          >
+            <Zap size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
+          </button>
+        </Tooltip>
       )}
-      <button
-        type="button"
-        onClick={handleInspect}
-        onPointerDown={stopPointer}
-        className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
-        aria-label={`Open details for ${label}`}
-        title={`Open details for ${label}`}
-        data-testid={`node-action-inspect-${nodeId}`}
-      >
-        <PanelRight size={11} aria-hidden="true" />
-      </button>
       {/* ⭐ THE DOOR TO EVERYTHING ELSE THIS NODE CAN DO.
           Deliberately LAST: the two named shortcuts above are the ruling's
           "powerful science-grounded shortcuts", and this is the overflow, not a
@@ -354,34 +410,42 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           model — it re-emits the gesture that already opens this node's menu,
           for the input classes that cannot perform it.
 
-          The title names right-click on purpose. A user who learns the gesture
-          from it stops needing the button, which is the right direction for an
-          affordance whose job is discoverability. */}
-      <button
-        type="button"
-        onClick={handleOpenMenu}
-        onPointerDown={stopPointer}
-        /* ⭐ 20px VISUAL, 24px TARGET — and as of this change ALL of them, not
-           just this one. `h-5 w-5` keeps the visual identical to its siblings;
-           `before:-inset-[2px]` expands the hit area to 24×24, WCAG 2.2 AA
-           2.5.8's minimum. The comment here used to end "the siblings share the
-           shortfall and are left alone" — a correctly-scoped decision then, and
-           the rowed work this change closes. See the wrapper's `gap-1.5` for
-           why the gap had to move with it. */
-        className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
-        aria-label={`More actions for ${label}`}
-        /* Announces that a menu follows. `aria-haspopup` is used by five other
-           canvas components, so its absence here was a real gap rather than a
-           repo convention. ⛔ NO `aria-expanded`: this button dispatches an
-           event and does not own the menu's open state, so it could not keep
-           that attribute truthful — and a stale `aria-expanded` is worse than
-           none. */
-        aria-haspopup="menu"
-        title={`More actions for ${label} — the same menu as right-click`}
-        data-testid={`node-action-menu-${nodeId}`}
-      >
-        <MoreHorizontal size={11} aria-hidden="true" />
-      </button>
+          ⚠ THE PARAGRAPH THAT CLOSED THIS BLOCK IS NO LONGER TRUE AND IS
+          QUOTED RATHER THAN DELETED. It read: *"The tooltip names right-click on
+          purpose. A user who learns the gesture from it stops needing the
+          button, which is the right direction for an affordance whose job is
+          discoverability."* The reasoning was sound and the sentence it
+          described is gone — the tooltip is now "More actions" (see
+          TOOLTIP COPY above). Teaching the gesture is still worth doing; a
+          hover hint that has to stay short is not where it fits, and the next
+          reader should not inherit a comment describing copy the file no longer
+          contains. */}
+      <Tooltip asChild delay={300} content="More actions">
+        <button
+          type="button"
+          onClick={handleOpenMenu}
+          onPointerDown={stopPointer}
+          /* ⭐ 20px VISUAL, 24px TARGET — and as of this change ALL of them, not
+             just this one. `h-5 w-5` keeps the visual identical to its siblings;
+             `before:-inset-[2px]` expands the hit area to 24×24, WCAG 2.2 AA
+             2.5.8's minimum. The comment here used to end "the siblings share the
+             shortfall and are left alone" — a correctly-scoped decision then, and
+             the rowed work this change closes. See the wrapper's `gap-1.5` for
+             why the gap had to move with it. */
+          className={BUTTON_CLASSES}
+          aria-label={`More actions for ${label}`}
+          /* Announces that a menu follows. `aria-haspopup` is used by five other
+             canvas components, so its absence here was a real gap rather than a
+             repo convention. ⛔ NO `aria-expanded`: this button dispatches an
+             event and does not own the menu's open state, so it could not keep
+             that attribute truthful — and a stale `aria-expanded` is worse than
+             none. */
+          aria-haspopup="menu"
+          data-testid={`node-action-menu-${nodeId}`}
+        >
+          <MoreHorizontal size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
+        </button>
+      </Tooltip>
     </div>
   )
 })

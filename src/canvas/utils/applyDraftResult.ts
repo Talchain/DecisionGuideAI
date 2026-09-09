@@ -13,7 +13,7 @@
 
 import { useCanvasStore } from '../store'
 import { captureBeforeIngest } from '../versions/autoCapture'
-import { DEFAULT_EDGE_DATA, readValidationMetadata } from '../domain/edges'
+import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength } from '../domain/edges'
 import { edgeValueSourcePatch } from '../domain/edgeValueProvenance'
 import { readCeeQualityDimensions } from './ceeQualityDimensions'
 import { saveAutosave } from '../store/scenarios'
@@ -139,6 +139,7 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
   // all lived twice. That reasoning now lives once, with the schema slot and
   // DEFAULT_EDGE_DATA it depends on, in domain/edges.ts. Read it there.
   const validation = readValidationMetadata(e.validation)
+  const serverStrength = readServerStatedStrength(e as Record<string, unknown>)
 
   return {
     id,
@@ -157,6 +158,11 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
       ...(provenanceSource !== undefined ? { provenance_source: provenanceSource } : {}),
       ...(existsProbability !== undefined ? { exists_probability: existsProbability } : {}),
       ...(validation !== undefined ? { validation } : {}),
+      // What the SERVER stated — the ONLY thing `edge_strength_edit.expected`
+      // may assert. HOP 1 OF 3; `buildEdge` (applyPatch.ts) and `DraftChat` are
+      // the twins. All three call the ONE reader, so the lockstep is structural
+      // rather than pinned, exactly as it is for `validation` above.
+      ...(serverStrength !== undefined ? { serverStrength } : {}),
       // Set-vs-defaulted markers. Derived from the resolved values themselves,
       // never from "we are in the CEE mapper so it must be CEE": when the wire
       // carried no belief at all, `beliefExists` is `undefined` here and the
@@ -260,6 +266,15 @@ export function applyDraftResult(
     // CEE draft nor a starter arrives by import. A starter that is later
     // analysed can affirm — that is the same posture as before this mitigation,
     // not a regression it introduces, and it is disclosed as residue.
+    //
+    // ⚠ THE STARTER HALF OF THAT RESIDUE IS NOW CLOSED, AND NOT HERE.
+    // `applyStarter` re-arms the hold immediately after this function returns
+    // (`starters/loadStarter.ts::armServerRegistration`), because "is this
+    // graph one the server has seen?" is knowable at the CALLER and not in
+    // here — every other caller of this function IS a CEE draft, for which the
+    // unconditional release below is correct. Do not turn this line into a
+    // conditional: it would need a flag threaded from each call site, which is
+    // the hand-maintained mirror the derivation elsewhere exists to abolish.
     //
     // ⚠ My FIRST justification ("the derivation here is an equivalent mutant —
     // wire-shaped edges can never match") was false at the bytes: `nodes` and

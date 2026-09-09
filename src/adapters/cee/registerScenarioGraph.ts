@@ -74,6 +74,10 @@ export type RegisterScenarioGraphResult =
   | { status: 'refused'; httpStatus: number }
 
 export interface RegisterScenarioGraphOptions {
+  /** Optional initial context. CEE's atomic writer seeds only an empty brief;
+   * it never replaces an existing scenario brief. Not part of the graph/hash.
+   */
+  readonly initialBriefText?: string
   readonly userId?: string | null
   /**
    * Supabase access token. Sent as `Authorization: Bearer …` so CEE DERIVES
@@ -133,6 +137,7 @@ export async function registerScenarioGraph(
   const identityUserId = sanitiseUserId(opts.userId)
 
   const body: Record<string, unknown> = { graph }
+  if (opts.initialBriefText?.trim()) body.brief_text = opts.initialBriefText
   if (identityUserId !== null) {
     body.user_id = identityUserId
   }

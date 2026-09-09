@@ -60,6 +60,7 @@ vi.mock('../GraphTextView', () => ({
 }))
 
 import { ModelTabBody } from '../ModelTabBody'
+import { openOutlineGroups } from '../../model-tab-v2/__tests__/openOutlineGroups'
 
 const FACTOR_ID = 'fac_budget'
 
@@ -103,6 +104,13 @@ describe('ModelTabBody mounts the Model Editor v2', () => {
 
   it('the mounted panel carries the model, bound by element id', () => {
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={[factorNode()]} edges={[]} />)
+    // ⚠ NAVIGATION, NOT A RELAXED ASSERTION. The outline now opens CLOSED, so a
+    // row is not on screen at mount. The subject of this test is that the panel
+    // is bound to THIS model by element id — unchanged — and the assertion below
+    // is byte-identical to what it was. This performs the click a user now
+    // performs. Loosening the assertion instead (querying for the panel, or for
+    // any row) would keep the suite green while ceasing to test the binding.
+    openOutlineGroups()
     expect(screen.getByTestId(`model-row-v2-${FACTOR_ID}`)).toBeInTheDocument()
   })
 })

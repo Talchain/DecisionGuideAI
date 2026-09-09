@@ -577,7 +577,7 @@ describe('a partial analysis carries a provisional marker on the surface', () =>
     // so rather than "some results are missing" — a caveat with no content,
     // rendered in amber above the result, is one a reader learns to skip.
     expect(screen.getByTestId('analysis-new-status-provisional')).toHaveTextContent(
-      'This analysis is partial — the robustness check did not come back.',
+      'This analysis is partial — the overall robustness rating did not come back.',
     )
   })
 

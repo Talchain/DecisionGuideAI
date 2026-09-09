@@ -10,7 +10,7 @@ import {
   Sparkles, Zap, Crosshair, SlidersHorizontal, ArrowUpToLine, ArrowDownToLine,
   RotateCcw, Pencil, Plus, Flag, Scissors, Copy, ClipboardPaste, CopyPlus,
   Trash2, MessageSquare, Layers, TrendingUp, AlertTriangle, ArrowLeftRight, Eye,
-  Undo2, Redo2, LayoutGrid,
+  Undo2, Redo2, LayoutGrid, PanelRight,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { useCanvasStore, selectResultsStatus, selectReport } from '../store'
@@ -40,8 +40,11 @@ import {
   setValueBestCase,
   setValueWorstCase,
   setValueReset,
+  CHALLENGE_KINDS,
+  buildChallengeTooltip,
 } from './actions'
 import { DECISION_NODE_LABEL } from '../domain/vocabulary'
+import { openNodeInspector } from '../nodes/shared/openNodeInspector'
 
 type ShowToastFn = (message: string, type: 'error' | 'info' | 'success' | 'warning') => void
 
@@ -305,6 +308,17 @@ function buildNodeMenu(
   const isGoal = kind === 'goal'
   const node = target.node
 
+  // The quick-action row has three slots. Details stays keyboard-reachable
+  // through More as well as the existing node-click inspector route.
+  items.push({
+    id: 'open-details',
+    label: 'Open details',
+    icon: PanelRight,
+    tooltip: 'Open the inspector for this element',
+    enabled: true,
+    action: wrap(() => { openNodeInspector(target.nodeId) }),
+  })
+
   // --- Ask AI submenu ---
   const askAIItems: MenuEntry[] = [
     {
@@ -316,12 +330,23 @@ function buildNodeMenu(
       action: wrap(() => askAI(target, 'explain_element', showToast)),
     },
   ]
-  if (isFull || isGoal) {
+  // ⭐ CHALLENGE IS GATED ON ITS OWN SET, NOT ON `isFull || isGoal`.
+  //
+  // Until 8 Sep 2026 this read `isFull || isGoal`, which withheld "Challenge
+  // this" from decision and option — the question a team is answering and the
+  // choices on the table, the two nodes it most wants to contest. Widening
+  // `FULL_MENU_KINDS` to reach them would also have widened Explore, Set value
+  // and Mark as assumption onto kinds with no range (see `CHALLENGE_KINDS`), so
+  // the concept that was really being asked for got its own name.
+  //
+  // The tooltip comes from the same producer as the prompt, so the label on the
+  // door and what is behind it cannot be edited apart.
+  if (CHALLENGE_KINDS.has(kind as NodeType)) {
     askAIItems.push({
       id: 'ask-ai-challenge',
       label: 'Challenge this',
       icon: Zap,
-      tooltip: "Ask AI to argue against this element's current setup",
+      tooltip: buildChallengeTooltip(kind as NodeType),
       enabled: true,
       action: wrap(() => askAI(target, 'challenge_element', showToast)),
     })

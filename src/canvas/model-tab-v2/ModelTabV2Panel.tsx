@@ -34,10 +34,37 @@
  * re-open design §2 F6 and for the outcome type that makes an over-claim
  * unrepresentable.
  *
- * STILL DISABLED, HONESTLY: edge strength / likelihood / direction and the goal
- * target. They have no authority entry point, so `editConnectedIds` keeps their
- * affordances disabled with a label saying so. Wiring them through a local-only
- * write instead would recreate F6 on the surface built to kill it.
+ *   · RELATIONSHIP STRENGTH — added 2026-09-08, server-backed, AND GATED PER
+ *     EDGE. See below.
+ *
+ * ⚠⚠ THE PARAGRAPH BELOW WAS TRUE UNTIL 2026-09-08 AND IS NARROWED, NOT DELETED,
+ * because its reasoning still governs the three that remain:
+ *
+ *   ~~STILL DISABLED, HONESTLY: edge strength / likelihood / direction and the
+ *   goal target. They have no authority entry point, so `editConnectedIds` keeps
+ *   their affordances disabled with a label saying so. Wiring them through a
+ *   local-only write instead would recreate F6 on the surface built to kill
+ *   it.~~
+ *
+ * Goal minimum-target editing now uses the existing typed add_constraint
+ * authority: explicit absolute level/unit → review → confirm → server receipt.
+ * Other disabled controls remain unchanged. No goal value is written locally
+ * before acknowledgement.
+ *
+ * ⭐ EDGE STRENGTH GRADUATED BECAUSE IT GAINED A CARRIER, not because the rule
+ * was relaxed. `edge_strength_edit` has had a CEE writer since Train C and, since
+ * #1287/#1295, a UI emitter at `useEdgeMutations.setStrength` with an `expected`
+ * tuple that is recorded at INGESTION rather than read off a locally-mutated
+ * field. `proposeEdgeStrength` is its entry point here.
+ *
+ * ⚠⚠ AND THE GATE IS PER EDGE, WHICH IS THE ONE THING TO GET RIGHT ON THIS
+ * SURFACE. `expected` is an assertion about what the SERVER holds, so an edge the
+ * server never stated a strength for has no assertable `expected`: the builder
+ * returns null, the edit would land LOCAL-ONLY, and enabling the affordance there
+ * would recreate precisely the F6 the paragraph above refuses. Those rows keep
+ * their existing disabled affordance and their label. Two relationship rows in
+ * one list may therefore differ, and that is the design rather than an
+ * inconsistency — the surface offers an editor exactly where the write lands.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -46,7 +73,11 @@ import { typography } from '../../styles/typography'
 import type { EdgeData } from '../domain/edges'
 import { focusEdgeById, focusNodeById } from '../utils/focusHelpers'
 import { resolveValueInputSeed } from '../conversation/factorValueEdit'
+import { edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
+import { resolveGoalTarget } from '../domain/goalTarget'
+import { resolveNodeTypeLiteral } from '../domain/nodes'
+import { buildManualGoalTarget } from '../conversation/manualGoalTarget'
 import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
@@ -62,8 +93,10 @@ import {
   toRepairQueueItems,
   toRowDetail,
   nodeKind,
+  resolveEdgeStrengthEditSeed,
   type ModelProjectionInput,
 } from './adapters'
+import { MODEL_GROUP_IDS, type ModelGroupId } from './types'
 import type { DetailTier, EditCommitState, RepairQueue } from './types'
 
 export interface ModelTabV2PanelProps {
@@ -77,6 +110,8 @@ export interface ModelTabV2PanelProps {
    * otherwise.
    */
   fragileEdgeIds?: ReadonlySet<string>
+  /** A group a deep link wants open; forwarded straight to `ModelOutline`. */
+  openGroupRequest?: ModelGroupId | null
   /**
    * Hand a turn to Olumi, having FRONTED the conversation first.
    *
@@ -118,6 +153,9 @@ interface ActiveEdit {
   rowId: string
   phase: 'editing' | 'proposed'
   draft: string
+  unit?: string
+  scenarioId?: string | null
+  notice?: string
   /** What the row displayed when the edit began — the `from` of the proposal. */
   from: string
 }
@@ -127,6 +165,7 @@ export function ModelTabV2Panel({
   edges,
   goalThreshold,
   fragileEdgeIds,
+  openGroupRequest,
   onHandOffToOlumi,
 }: ModelTabV2PanelProps) {
   const [tier, setTier] = useState<DetailTier>('plain')
@@ -227,17 +266,36 @@ export function ModelTabV2Panel({
   )
 
   /**
-   * The rows whose edit has a canonical transaction at this tip: factors.
-   * Derived from the NODES (kind), not from the row's `editable` flag — that
-   * flag states what the design intends to be editable; this set states what
-   * the frozen transaction path can actually carry today.
+   * The rows whose edit has a canonical transaction at this tip: factors, and
+   * the relationships whose strength the server has actually stated.
+   *
+   * Derived from the NODES and EDGES themselves, never from the row's `editable`
+   * flag — that flag states what the design intends to be editable; this set
+   * states what the frozen transaction path can actually carry today. The
+   * docstring is kept true by the two derivations below rather than by anybody
+   * remembering to update it.
+   *
+   * ⚠⚠ THE EDGE ARM IS PER EDGE, AND THE ASYMMETRY WITH THE FACTOR ARM IS THE
+   * POINT. A factor's value has a wire carrier for EVERY reachable value, so the
+   * factor arm can key on KIND alone. An edge's does not: `edge_strength_edit`
+   * carries an `expected` tuple asserting what the SERVER holds, and for an edge
+   * the server never stated a strength for there is nothing truthful to put
+   * there. `buildEdgeStrengthEditEvent` refuses those, the edit would land
+   * LOCAL-ONLY, and offering the editor anyway is design §2 F6 — the harm this
+   * whole surface exists to remove. So the gate asks PER EDGE, and a
+   * non-qualifying relationship keeps the disabled affordance it has today.
+   *
+   * ⚠ THE PREDICATE IS THE EMITTER'S OWN, ASKED — NOT COPIED. `edgeStrengthEditIsAssertable`
+   * puts the question to `buildEdgeStrengthEditEvent`, so this panel holds no
+   * second copy of the endpoint-id rule, the magnitude domain or the
+   * server-stated-`expected` requirement, and cannot drift out of agreement with
+   * the thing that actually builds the event (CLAUDE.md trap 12).
+   *
+   * ⚠ EDGES THAT ARE NOT RELATIONSHIP ROWS ARE INERT HERE, not a leak. `toModelRows`
+   * admits only `getCausalEdges`, so an id added for a non-causal edge matches no
+   * row and reaches no affordance; ids are set membership, and this set is only
+   * ever read BY ROW ID.
    */
-  const editConnectedIds = useMemo(() => {
-    const ids = new Set<string>()
-    for (const node of nodes) if (nodeKind(node) === 'factor') ids.add(node.id)
-    return ids as ReadonlySet<string>
-  }, [nodes])
-
   const selectedRow = useMemo(
     () => (selectedId === null ? null : rows.find(r => r.id === selectedId) ?? null),
     [rows, selectedId],
@@ -282,8 +340,33 @@ export function ModelTabV2Panel({
    * inside the fix. The precedence below is total and the two states are
    * mutually exclusive in practice: beginning either clears the other.
    */
-  const activeAuthorityNodeId = edit?.rowId ?? interventionEdit?.optionId ?? null
-  const authority = useModelEditAuthority(activeAuthorityNodeId)
+  /*
+   * ⚠ AN EDGE ROW'S id IS AN EDGE id, AND IT MUST NOT ARRIVE IN THE NODE SLOT.
+   * `edit.rowId` is a node id for a factor row and an edge id for a relationship
+   * row — one field, two identity spaces — so the row's KIND decides which
+   * parameter it fills. Passing an edge id as `activeNodeId` would key
+   * `useNodeMutations` to an element that does not exist: harmless today only by
+   * luck, and exactly the kind of wrong-kind addressing the two-parameter
+   * authority was widened to make unrepresentable.
+   */
+  const editingRelationshipId =
+    edit !== null && rows.find(r => r.id === edit.rowId)?.kind === 'relationship'
+      ? edit.rowId
+      : null
+  const activeAuthorityNodeId =
+    editingRelationshipId !== null
+      ? (interventionEdit?.optionId ?? null)
+      : (edit?.rowId ?? interventionEdit?.optionId ?? null)
+  const authority = useModelEditAuthority(activeAuthorityNodeId, editingRelationshipId)
+  const editConnectedIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const node of nodes) {
+      if (nodeKind(node) === 'factor' || (resolveNodeTypeLiteral(node) === 'goal' &&
+          hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.modelGoalMinimumTarget) && authority.goalTargetDispatchAvailable)) ids.add(node.id)
+    }
+    for (const edge of edges) if (edgeStrengthEditIsAssertable(edge)) ids.add(edge.id)
+    return ids as ReadonlySet<string>
+  }, [nodes, edges, authority.goalTargetDispatchAvailable])
 
   /**
    * The confirmation authority for ONE row.
@@ -333,8 +416,10 @@ export function ModelTabV2Panel({
     if (edit === null) return undefined
     const state: EditCommitState =
       edit.phase === 'editing'
-        ? { phase: 'editing', draft: edit.draft }
-        : { phase: 'proposed', from: edit.from, to: edit.draft }
+        ? { phase: 'editing', draft: edit.draft, ...(edit.unit !== undefined ? { unit: edit.unit } : {}) }
+        : { phase: 'proposed', from: edit.from,
+            ...(edit.notice ? { notice: edit.notice } : {}),
+            to: edit.unit !== undefined ? `At least ${edit.draft} ${edit.unit} (absolute level)` : edit.draft }
     return new Map<string, EditCommitState>([[edit.rowId, state]])
   }, [edit])
 
@@ -342,8 +427,52 @@ export function ModelTabV2Panel({
     (rowId: string) => {
       const row = rows.find(r => r.id === rowId)
       if (!row) return
+
+      /*
+       * ⚠ A RELATIONSHIP ROW SEEDS FROM ITS EDGE, NOT FROM A NODE. `rowId` is an
+       * EDGE id here, so the node lookup below would miss and the editor would
+       * never open — which is exactly why relationship rows were inert before
+       * they had a carrier, and why this branch has to exist rather than the
+       * node path being loosened.
+       *
+       * ⭐ THE SEED IS THE NUMBER THE ROW IS ALREADY SHOWING, resolved by
+       * `resolveEdgeStrengthEditSeed` — the same function `edgeValue` builds the
+       * row's own label from. The user therefore opens the editor on the value
+       * they were just reading, and the two cannot disagree, because they are one
+       * derivation and not two that happen to agree today.
+       *
+       * ⚠ IT IS **NOT** SEEDED FROM `expected`. The server-stated tuple is what
+       * the wire ASSERTS ABOUT THE PAST; the seed is what this canvas is showing
+       * now, which may legitimately differ (a local edit already made). Seeding
+       * from `expected` would put a number on screen that the row is not
+       * displaying — and `expected` keeps its own, separate derivation at the
+       * builder, where it belongs.
+       */
+      if (row.kind === 'relationship') {
+        const edge = edges.find(e => e.id === rowId)
+        const seeded = resolveEdgeStrengthEditSeed(edge?.data as Record<string, unknown> | undefined)
+        // Fail CLOSED. `editConnectedIds` should have kept this row's affordance
+        // shut, so arriving here with nothing to seed means the two derivations
+        // disagree — open nothing rather than an editor over a blank.
+        if (seeded === null) return
+        setEdit({
+          rowId,
+          phase: 'editing',
+          draft: String(seeded.seed),
+          from: row.primaryValue ?? 'Not set',
+        })
+        return
+      }
+
       const node = nodes.find(n => n.id === rowId)
       if (!node) return
+      if (row.kind === 'goal') {
+        const target = resolveGoalTarget(node.data)
+        setEdit({ rowId, phase: 'editing', draft: target ? String(target.raw) : '',
+          unit: target?.unit ?? '', scenarioId: authority.captureScenarioId(),
+          from: target ? `${target.raw}${target.unit ? ` ${target.unit}` : ''}` : 'Not set' })
+        return
+      }
       // THE one seed rule (`resolveValueInputSeed`, default `raw_or_value`
       // basis): the input shows `raw_value ?? value`, exactly as the inspector
       // panel and the v1 Model-tab chips do. A second copy of that rule is how
@@ -356,16 +485,17 @@ export function ModelTabV2Panel({
         from: row.primaryValue ?? 'Not set',
       })
     },
-    [rows, nodes],
+    [rows, nodes, edges, authority],
   )
 
-  const changeDraft = useCallback((rowId: string, draft: string) => {
-    setEdit(prev => (prev && prev.rowId === rowId ? { ...prev, draft } : prev))
+  const changeDraft = useCallback((rowId: string, draft: string, unit?: string) => {
+    setEdit(prev => (prev && prev.rowId === rowId ? { ...prev, draft, ...(unit !== undefined ? { unit } : {}) } : prev))
   }, [])
 
   const proposeEdit = useCallback((rowId: string) => {
     setEdit(prev => {
       if (!prev || prev.rowId !== rowId) return prev
+      if (prev.unit !== undefined && !buildManualGoalTarget(rowId, prev.draft, prev.unit)) return prev
       // Intent must parse before it can be proposed. An unparseable draft
       // stays in `editing` — nothing to confirm, nothing to send.
       const num = parseFloat(prev.draft)
@@ -381,8 +511,56 @@ export function ModelTabV2Panel({
   const confirmEdit = useCallback(
     (rowId: string) => {
       if (!edit || edit.rowId !== rowId || edit.phase !== 'proposed') return
+      if (edit.unit !== undefined) {
+        if (authority.proposeGoalTarget(edit.draft, edit.unit, edit.scenarioId ?? null) === 'dispatched') setEdit(null)
+        else setEdit({ ...edit, notice: 'Target not sent. Reopen the target in the current model; your proposed value is shown here.' })
+        return
+      }
       const num = parseFloat(edit.draft)
       if (!Number.isFinite(num)) return
+
+      /*
+       * ⭐ A RELATIONSHIP ROW COMMITS THROUGH `proposeEdgeStrength`, and it is a
+       * DIFFERENT OPERATION rather than the factor one pointed at an edge: the
+       * carrier is `edge_strength_edit`, the identity is the edge's `(from, to)`
+       * pair, and the outcome vocabulary has a state the factor path does not.
+       *
+       * ⚠⚠ `directionStated` IS DERIVED FROM THE EDGE, NEVER FROM THE SIGN OF
+       * WHAT THE USER TYPED. The contract's own words: *"a MAGNITUDE CANNOT
+       * CARRY A SIGN"* — reading `num < 0` as a direction claim is precisely the
+       * fabrication it forbids, and at zero it is not even ambiguous, it is
+       * unrepresentable (`-0 >= 0` is `true`).
+       *
+       * The honest source is the one the ROW ITSELF speaks from:
+       * `resolveEdgeStrengthEditSeed`, i.e. `resolveEdgeDirectionDisplay`. Where
+       * a direction is stated the row reads "… positive effect", the seed is
+       * SIGNED, and typing a signed number restates that direction. Where none
+       * is, the row reads "… effect, direction not stated", the seed is a bare
+       * MAGNITUDE, and the authority preserves the absent direction rather than
+       * minting one — the edge goes on saying "direction not stated", which is
+       * exactly the outcome the contract prescribes.
+       *
+       * ⚠ SO A MINUS TYPED INTO A MAGNITUDE-ONLY ROW SETS THE SIZE AND NOTHING
+       * ELSE, disclosed here rather than left to be discovered: this surface
+       * offers no direction control, so a sign typed into it states nothing the
+       * product may act on. Giving relationships a direction affordance needs
+       * `proposeEdgeDirection`, which has no carrier — see the file header.
+       */
+      if (editingRelationshipId === rowId) {
+        const edge = edges.find(e => e.id === rowId)
+        const seeded = resolveEdgeStrengthEditSeed(edge?.data as Record<string, unknown> | undefined)
+        if (seeded === null) {
+          setEdit(null)
+          return
+        }
+        // Fail CLOSED on anything the wire cannot carry: `proposeEdgeStrength`
+        // returns `refused_unassertable` and writes NOTHING, so the row keeps
+        // showing the unchanged model rather than a local value dressed as saved.
+        authority.proposeEdgeStrength(rowId, num, { directionStated: seeded.directionStated })
+        setEdit(null)
+        return
+      }
+
       // The canonical transaction. Whatever the outcome, the edit state
       // clears: on `dispatched`/`local_only` the store now shows the
       // optimistic value (and the dispatcher owns refusal-revert); on
@@ -391,7 +569,7 @@ export function ModelTabV2Panel({
       authority.proposeFactorValue(num)
       setEdit(null)
     },
-    [edit, authority],
+    [edit, authority, editingRelationshipId, edges],
   )
 
   /**
@@ -571,6 +749,25 @@ export function ModelTabV2Panel({
         </>
       ) : (
       <ModelOutline
+        /* ⭐ THE OUTLINE OPENS AS AN OUTLINE.
+           `initiallyClosedGroups` has existed since this component was written
+           and NOTHING has ever passed it, so all seven groups rendered open:
+           measured on deployed staging with a real analysis, 8 of 9 expanded
+           regions and 1,817px of scroll before the reader has chosen anything.
+           That is a dump, not disclosure.
+
+           Closing them costs NO information, which is the only reason this is
+           safe: the collapsed header already carries the group name, the row
+           COUNT, and `unsetSummary` — "2 with no value yet" — all derived from
+           the same fields the rows read. So the closed state IS the model at a
+           glance, and one click opens the part the reader wants.
+
+           ⚠ NOT the piecemeal pattern. Each of these seven hides a real list,
+           not a sentence; the complaint being answered is twelve small doors
+           each buying one line. Level 1 is the shape of the model, level 2 is
+           the rows. */
+        initiallyClosedGroups={MODEL_GROUP_IDS}
+        openGroupRequest={openGroupRequest}
         rows={rows}
         tier={tier}
         filter={filter}

@@ -52,13 +52,9 @@ const option = (provenance: string) => ({ label: 'Rebuild', type: 'option', prov
 /**
  * Hover the glyph `el`, wait for the bubble, and return its text.
  *
- * ⚠ IT HOVERS THE REFERENCE WRAPPER, NOT THE GLYPH, AND THAT IS NOT A CHEAT.
- * `Tooltip` puts floating-ui's `onMouseEnter` on the single `<div>` it wraps
- * `children` in, and `mouseenter` DOES NOT BUBBLE — so firing it on the inner
- * `<span>` reaches nothing, which is exactly how the first run of this spec
- * failed (portal mounted, empty). A real pointer entering the glyph enters the
- * wrapper too, so hovering the wrapper is the faithful simulation and firing on
- * the child is the artefact.
+ * Integration update (9 Sep): the earlier wrapper-based implementation needed
+ * hover on the parent. The existing asChild API now attaches the listeners to
+ * the glyph itself, which is the element these tests exercise.
  *
  * ⚠ It asserts the bubble is ABSENT before hovering. Without that, a component
  * that rendered its tooltip unconditionally — i.e. one with no hover behaviour
@@ -67,9 +63,8 @@ const option = (provenance: string) => ({ label: 'Rebuild', type: 'option', prov
  */
 async function hoverText(el: HTMLElement): Promise<string> {
   expect(screen.queryByRole('tooltip')).toBeNull()
-  const reference = el.parentElement
-  expect(reference, 'the glyph must sit inside Tooltip’s reference wrapper').not.toBeNull()
-  fireEvent.mouseEnter(reference!)
+  // Integration with #1333: asChild makes the glyph itself the reference.
+  fireEvent.mouseEnter(el)
   const tip = await screen.findByRole('tooltip', {}, OPEN)
   return tip.textContent ?? ''
 }
@@ -107,8 +102,9 @@ describe('node icons answer a hover in the page', () => {
     ['brief-icon', <BriefIcon key="b" />],
     ['node-provenance-mark', <NodeProvenanceMark key="p" nodeType="option" data={option('from_brief')} />],
   ])('%s carries NO native title alongside its tooltip', (testid, element) => {
-    render(element)
-    expect(screen.getByTestId(testid).getAttribute('title')).toBeNull()
+    render(<div title="Outside your control">{element}</div>)
+    // Empty rather than absent: blocks the ancestor's native title too.
+    expect(screen.getByTestId(testid)).toHaveAttribute('title', '')
   })
 
   /**

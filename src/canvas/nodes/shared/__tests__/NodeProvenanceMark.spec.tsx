@@ -223,7 +223,8 @@ describe('the words stay reachable, and the WIRE LITERAL does not leak', () => {
    */
   it.each(CANVAS_LITERALS)('%s — carries NO native title (the styled tooltip is the mouse channel)', (literal) => {
     render(<NodeProvenanceMark nodeType="option" data={option(literal)} />)
-    expect(mark()!.getAttribute('title')).toBeNull()
+    // asChild blocks inherited native titles with an empty attribute.
+    expect(mark()).toHaveAttribute('title', '')
   })
 
   /**

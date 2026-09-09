@@ -29,10 +29,5 @@
  */
 export const NODE_TOOLTIP_DELAY_MS = 300
 
-/**
- * Classes for the tooltip's reference wrapper on the node surface.
- *
- * Node glyphs sit in `inline-flex` rows; `src/components/Tooltip`'s wrapper is a
- * plain block `<div>`, which would drop `shrink-0` and the row's alignment.
- */
-export const NODE_TOOLTIP_WRAPPER = 'inline-flex shrink-0'
+// Glyphs use Tooltip's existing asChild support: preserve inline layout and
+// block an inherited native title without adding another focus stop.

@@ -150,8 +150,30 @@
  *     it dispatches through `openAskOlumi` with no branching of its own.
  */
 
-import { useCallback, useId, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, Crosshair, Lightbulb, ListChecks, Pencil } from 'lucide-react'
+/**
+ * ⚠⚠ THE AGREEMENT WITH THE MODEL TAB IS PINNED IN A SPEC, NOT BY AN IMPORT,
+ * AND A GUARD IS WHY.
+ *
+ * The Model tab already answers "what mark means a factor has no value?" —
+ * `ATTENTION_MARK['no-value']` in `model-tab-v2/rowPresentation.ts`. Importing
+ * it from here is the obvious way to make the two surfaces one answer, and I
+ * wrote exactly that. `modelTabV2Boundary.sourceScan.spec` REDs on it: that
+ * directory may be referenced from ONE file, `canvas/components/ModelTabBody.tsx`,
+ * and its own words are that a second path "is a deliberate decision that must
+ * be made here, in the guard, with a reason — never discovered in a diff".
+ *
+ * The guard is right and I am not weakening it for an icon. So the icon is
+ * named here and the AGREEMENT is asserted in
+ * `modelStripNoValueWorklist.spec` — which the boundary sweep excludes
+ * (`.spec.` files are skipped), so the test may import what this file may not.
+ * A divergence still REDs; the mechanism moved rather than being dropped.
+ *
+ * ⚠ I chose `CircleDashed` independently before finding that map, and it
+ * happened to agree. That is luck. The spec is what turns it into a mechanism.
+ */
+import { CircleDashed as NoValueMark } from 'lucide-react'
 
 import { useCanvasStore } from '../../../../canvas/store'
 import { UNCONFIRMED_ESTIMATE_LABEL } from '../../../../canvas/domain/vocabulary'
@@ -347,7 +369,16 @@ export function ModelStrip({
    * switch, so no third "clear" button is needed either.
    */
   const [kindFilter, setKindFilter] = useState<MarkKind | null>(null)
-  const [verifyOnly, setVerifyOnly] = useState(false)
+  /**
+   * ⭐ ONE WORKLIST AT A TIME, NOT TWO INDEPENDENT BOOLEANS.
+   * There are two review questions — "is there a value to RATIFY?" and "is
+   * there a value AT ALL?" — and they are deliberately separate predicates
+   * (trap 21). But a reader narrows the strip to ONE worklist; two booleans
+   * would admit a fourth state ("both on") that names an empty intersection,
+   * because `factorIsConfirmable` requires a value and this one requires its
+   * absence. Mutual exclusion by construction beats a guard nobody re-reads.
+   */
+  const [worklist, setWorklist] = useState<'verify' | 'noValue' | null>(null)
   const regionId = useId()
   const subjectId = useId()
   const detailId = useId()
@@ -376,13 +407,6 @@ export function ModelStrip({
    */
   const { commit: commitFactorValue } = useFactorValueCommit(editingFor)
 
-  // Nothing on the canvas: the panel's other surfaces already say so, and a
-  // strip of empty rows would be furniture claiming to be information.
-  // ⚠ ONE OWNER — `stripRendersTargetAffordance` asks this same question, and
-  // a second expression of it is how the glance came to suppress a control this
-  // component was not rendering.
-  if (!stripHasContent(strip)) return null
-
   const open = override ?? isPreRun
 
   /**
@@ -393,12 +417,39 @@ export function ModelStrip({
    * turn it off. Deriving it heals that with no effect to keep in sync — the
    * same rule `active` follows.
    */
-  const verifyActive = verifyOnly && strip.needsCheckTotal > 0
+  const verifyActive = worklist === 'verify' && strip.needsCheckTotal > 0
+  /** Same stranding guard as `verifyActive`, for the same reason. */
+  const noValueActive = worklist === 'noValue' && strip.noValueTotal > 0
 
   /** The rows as the current narrowing leaves them — see `VisibleRow`. */
   const visible: VisibleRow[] = strip.rows
     .map((row) => {
-      const nodes = verifyActive ? row.nodes.filter((n) => n.needsCheck) : row.nodes
+      const nodes = verifyActive
+        ? row.nodes.filter((n) => n.needsCheck)
+        : noValueActive
+          ? /*
+             * ⚠ `hasValue`, NEVER `valueText === null` — THE COUNT AND THE
+             * WORKLIST MUST ASK ONE QUESTION.
+             *
+             * A review found these two apart at the previous head: the count
+             * moved to `hasValue` and this filter did not, so a factor Olumi
+             * had estimated was counted as "no value yet" AND excluded from
+             * the worklist that count opens. Pressing the button produced an
+             * EMPTY STRIP — the number promising work that the list then
+             * refused to show.
+             *
+             * `valueText` is DISPLAY TEXT; `hasValue` is the value question
+             * (`StripNode.hasValue`). Two questions under similar names, which
+             * is this estate's signature defect, and it was inside one PR.
+             *
+             * ⚠ FACTOR ROWS ONLY, still: `hasValue` is `false` for every
+             * non-factor by construction, so an unscoped filter would keep
+             * every option, risk and outcome and call them valueless.
+             */
+            row.kind === 'factor'
+            ? row.nodes.filter((n) => !n.hasValue)
+            : []
+          : row.nodes
       return {
         row,
         nodes,
@@ -417,7 +468,10 @@ export function ModelStrip({
    * canvas rings, and it is derived rather than stored so it cannot drift from
    * what is on screen.
    */
-  const narrowedIds = (kind: MarkKind | null, onlyVerify: boolean): string[] => {
+  const narrowedIds = (
+    kind: MarkKind | null,
+    mode: 'verify' | 'noValue' | null,
+  ): string[] => {
     /**
      * ⚠ NO NARROWING IS NOT "EVERY NODE", AND THE FIRST DRAFT GOT IT WRONG.
      * With both controls off the loop below matches everything, so releasing a
@@ -425,12 +479,19 @@ export function ModelStrip({
      * pointing at a mark and leaving did the same. Two cases in this file
      * caught it. An empty narrowing names nothing; the caller clears.
      */
-    if (kind === null && !onlyVerify) return []
+    if (kind === null && mode === null) return []
     const out: string[] = []
     for (const row of strip.rows) {
       if (kind !== null && row.kind !== kind) continue
+      // Same factor scoping as the visible rows, for the same reason — the ring
+      // and the marks must name the same set or the canvas contradicts the panel.
+      if (mode === 'noValue' && row.kind !== 'factor') continue
       for (const n of row.nodes) {
-        if (onlyVerify && !n.needsCheck) continue
+        if (mode === 'verify' && !n.needsCheck) continue
+        // `hasValue`, for the reason given at the visible-rows filter: the
+        // ring and the marks must name the same set as the count, or the
+        // canvas contradicts the panel it was opened from.
+        if (mode === 'noValue' && n.hasValue) continue
         out.push(n.id)
       }
     }
@@ -445,29 +506,141 @@ export function ModelStrip({
    * row used to blank the selection the reader had just made. The gesture
    * returns the channel to the narrowing's state, not to empty.
    */
-  const restoreRing = () => {
-    const ids = narrowedIds(kindFilter, verifyActive)
+  /** The worklist as the stranding guards leave it — never the raw state. */
+  const activeMode: 'verify' | 'noValue' | null = verifyActive
+    ? 'verify'
+    : noValueActive
+      ? 'noValue'
+      : null
+
+  /**
+   * The ONE place this component writes the narrowing to the canvas channel,
+   * and the only place that records what it wrote.
+   *
+   * ⚠ THE RECORD IS THE POINT, not the tidying. Three call sites wrote the ring
+   * directly and none of them remembered the set, so nothing could tell a
+   * membership change from a repeat — which is why the reconcile below could
+   * not have been written without this. `null` means "we have written nothing",
+   * and is deliberately distinct from `''` (we wrote the empty set).
+   */
+  const ringedKey = useRef<string | null>(null)
+  /**
+   * True while a pointer or focus MARK owns the channel.
+   *
+   * ⚠ WITHOUT THIS THE RECONCILE WOULD ERASE THE MARK UNDER THE READER'S
+   * CURSOR — a value arriving on any node while they point at one would blank
+   * the shape they are looking at. The gesture already ends in `restoreRing`,
+   * which recomputes from `narrowedIds` at call time, so skipping here loses
+   * nothing: the reconcile is deferred to the leave, not dropped.
+   *
+   * ⭐⭐ IT HOLDS THE NODE ID, NOT A BOOLEAN, AND A TEST IS WHY. A boolean
+   * stranded the ring outright: answering the very factor you are pointing at
+   * REMOVES its mark from the narrowed rows, so `onMouseLeave` never fires on
+   * a node that is no longer in the DOM, the flag stayed set, and the canvas
+   * kept the obsolete set until the reader made another gesture — the exact
+   * defect this reconcile exists to close, reached through its own guard.
+   * Holding the id lets the effect tell "the mark is still there, its leave
+   * will reconcile" from "the mark went with the change, no leave is coming".
+   */
+  const markOwnsRing = useRef<string | null>(null)
+
+  const writeRing = (ids: readonly string[]) => {
+    ringedKey.current = ids.join('|')
     if (ids.length > 0) ringNodes(ids)
     else clearHighlight()
+  }
+
+  const restoreRing = () => {
+    markOwnsRing.current = null
+    writeRing(narrowedIds(kindFilter, activeMode))
   }
 
   const pickKind = (kind: MarkKind) => {
     const next = kindFilter === kind ? null : kind
     setKindFilter(next)
-    setVerifyOnly(false)
-    const ids = narrowedIds(next, false)
-    if (ids.length > 0) ringNodes(ids)
-    else clearHighlight()
+    setWorklist(null)
+    writeRing(narrowedIds(next, null))
   }
 
-  const toggleVerify = () => {
-    const next = !verifyActive
-    setVerifyOnly(next)
+  const pickWorklist = (mode: 'verify' | 'noValue') => {
+    const next = activeMode === mode ? null : mode
+    setWorklist(next)
     setKindFilter(null)
-    const ids = narrowedIds(null, next)
-    if (ids.length > 0) ringNodes(ids)
-    else clearHighlight()
+    writeRing(narrowedIds(null, next))
   }
+
+  /**
+   * ⭐⭐ THE NARROWING FOLLOWS THE MODEL, NOT ONLY THE GESTURE.
+   *
+   * Every ring write above hangs off a gesture, so the canvas kept naming the
+   * population the reader selected rather than the one that is true now. A
+   * reviewer measured it on this exact head: with `f_a` and `f_b` both empty
+   * and the no-value worklist open, `f_a` gaining a user value moved the count
+   * and the panel's own marks to `[f_b]` while the canvas went on ringing
+   * BOTH. The reader is then looking at two surfaces disagreeing about the
+   * work they have left — the precise contradiction this control exists to
+   * close, reintroduced by an ordinary edit.
+   *
+   * ⚠ SCOPED TO A NARROWING WE OURSELVES WROTE. At rest both controls are off,
+   * `ringedKey` is `null`, and this writes nothing — it may not ring or clear
+   * the canvas on mount, and it may not stomp the applied-edit pulse or the
+   * AI's own directives, which share this channel. It fires only to correct a
+   * set this component put there.
+   *
+   * ⚠ DERIVED, NEVER STORED. The key comes from `narrowedIds` — the same
+   * function the gestures call — so the reconcile cannot drift from what the
+   * marks show. A second copy of the membership rule is how the strip's three
+   * consumers came apart in the first place.
+   */
+  const narrowedKey =
+    kindFilter === null && activeMode === null
+      ? null
+      : narrowedIds(kindFilter, activeMode).join('|')
+
+  useEffect(() => {
+    const owner = markOwnsRing.current
+    if (owner !== null) {
+      const held = narrowedKey === null || narrowedKey === '' ? [] : narrowedKey.split('|')
+      // Still on screen: its own leave recomputes and lands the correct set.
+      if (held.includes(owner)) return
+      // Gone with the change — no leave will ever arrive. Release and reconcile.
+      markOwnsRing.current = null
+    }
+    if (narrowedKey === null) {
+      // The narrowing has gone — released by the reader, or stranded off by the
+      // guards when its population emptied. Clear only what we put there.
+      if (ringedKey.current !== null) {
+        ringedKey.current = null
+        clearHighlight()
+      }
+      return
+    }
+    if (ringedKey.current === narrowedKey) return
+    writeRing(narrowedKey === '' ? [] : narrowedKey.split('|'))
+    // `writeRing` is re-created every render and reads only refs and module
+    // functions; the key is the whole dependency.
+  }, [narrowedKey])
+
+  // Nothing on the canvas: the panel's other surfaces already say so, and a
+  // strip of empty rows would be furniture claiming to be information.
+  // ⚠ ONE OWNER — `stripRendersTargetAffordance` asks this same question, and
+  // a second expression of it is how the glance came to suppress a control this
+  // component was not rendering.
+  //
+  // ⚠⚠ IT MOVED DOWN HERE, AND THE REASON IS A RULE, NOT A PREFERENCE. This
+  // guard used to sit immediately after `useFactorValueCommit`, which put the
+  // two refs and the reconcile effect below an EARLY RETURN — so on a model
+  // with no strip content React saw three fewer hooks and the hook order
+  // changed between renders. The CI lint caught it (`React Hook "useEffect" is
+  // called conditionally`) after the local named gate passed, which is exactly
+  // the gap CLAUDE.md records: a green named gate is necessary and not
+  // sufficient. Everything between the old position and this one is pure
+  // derivation over `strip` — on an empty strip `visible`, `narrowedIds` and
+  // `narrowedKey` are all empty or null and the effect returns without writing
+  // — so the move is behaviour-preserving and the render below is unchanged.
+  if (!stripHasContent(strip)) return null
+  const toggleVerify = () => pickWorklist('verify')
+  const toggleNoValue = () => pickWorklist('noValue')
 
   /**
    * Resolved against the VISIBLE rows — see `activeNodeId`.
@@ -706,6 +879,40 @@ export function ModelStrip({
           </button>
         ) : null}
 
+        {/* ── THE SECOND WORKLIST ──────────────────────────────────────────
+            ⭐⭐ THE STRIP WAS QUIETEST ON THE MODELS WITH LEAST IN THEM.
+            `needsCheck` is `factorIsConfirmable`, which REQUIRES a value, so a
+            factor with none cannot be "to verify" and had no affordance here at
+            all. Measured on deployed `80ccf768` (guest, seeded "Customer Data
+            Platform Selection"): the Model tab's own outline heading read "2
+            with no value yet" while this strip offered nothing.
+
+            ⚠ A SECOND COUNT, NOT A WIDER PREDICATE. Widening
+            `factorIsConfirmable` would re-ship the defect its narrowing fixed —
+            "an enabled Confirm that silently did nothing" (`FactorsSection.tsx`).
+            Two questions, named apart.
+
+            Same rules as the toggle above, deliberately: renders only above
+            zero, amber keeps the hue and the ring carries pressed, and the
+            criterion is a visible sentence rather than a `title`. */}
+        {strip.noValueTotal > 0 ? (
+          <button
+            type="button"
+            onClick={toggleNoValue}
+            aria-pressed={noValueActive}
+            aria-label={COPY.modelStrip.noValueToggleName(strip.noValueTotal)}
+            className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full px-2 py-0.5 mb-1 ml-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+              noValueActive
+                ? 'bg-warning/20 text-warning ring-1 ring-warning'
+                : 'bg-warning/10 text-warning hover:bg-warning/20'
+            }`}
+            data-testid={`${testId}-no-value-toggle`}
+          >
+            <NoValueMark className="w-3 h-3" aria-hidden={true} />
+            {COPY.modelStrip.noValueCount(strip.noValueTotal)}
+          </button>
+        ) : null}
+
         {/* ⚠ THE CRITERION, VISIBLE AND ONLY WHILE IT APPLIES. "3 to verify"
             does not say what qualified them, and a `title` would put that
             explanation out of reach of touch entirely. */}
@@ -715,6 +922,15 @@ export function ModelStrip({
             data-testid={`${testId}-narrowed-note`}
           >
             {COPY.modelStrip.toVerifyNarrowed}
+          </p>
+        ) : null}
+
+        {noValueActive ? (
+          <p
+            className={`${typography.panelMeta} text-text-light m-0 mb-1`}
+            data-testid={`${testId}-no-value-narrowed-note`}
+          >
+            {COPY.modelStrip.noValueNarrowed}
           </p>
         ) : null}
 
@@ -878,6 +1094,7 @@ export function ModelStrip({
                            the applied-edit pulse and the AI's own directives
                            write to. */
                         onMouseEnter={() => {
+                          markOwnsRing.current = node.id
                           setActiveNodeId(node.id)
                           highlightNode(node.id)
                         }}
@@ -887,6 +1104,7 @@ export function ModelStrip({
                            without committing a canvas move the reader did not
                            ask for. */
                         onFocus={() => {
+                          markOwnsRing.current = node.id
                           setActiveNodeId(node.id)
                           highlightNode(node.id)
                         }}
