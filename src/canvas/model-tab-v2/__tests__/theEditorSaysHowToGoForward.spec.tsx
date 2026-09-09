@@ -318,7 +318,42 @@ describe('⭐ (b) an unproposable draft says why, VISIBLY', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('⭐⭐ the reason and the refusal are ONE derivation, driven through the real panel', () => {
-  it('⭐ an invalid draft: the button does nothing, and the row SAYS SO', () => {
+  /**
+   * ⚠⚠ THERE ARE TWO ROUTES INTO `proposeEdit`, AND ONLY ONE OF THEM IS GATED BY
+   * THE BUTTON. A MUTANT FOUND THIS, NOT INSPECTION.
+   *
+   * Deleting the HOST's guard entirely — `if (unproposableDraftReason(…) !==
+   * null) return prev` → `if (false) return prev` — left this whole file GREEN,
+   * 19/19. The reason is that jsdom (like a browser) does not dispatch a click
+   * on a DISABLED button, so the click-driven test below never reaches the host
+   * at all: it was passing on the control's `disabled` attribute and asserting
+   * nothing whatever about the panel.
+   *
+   * ⭐ ENTER IS THE UNGATED ROUTE. The input carries no `disabled`, and its
+   * `onKeyDown` calls `onProposeEdit` unconditionally — which is exactly why the
+   * host must keep its own guard rather than trusting the button's. The pair
+   * below is what pins both halves: the CLICK route proves the affordance
+   * refuses to offer an advance it cannot make, and the ENTER route proves the
+   * host refuses one it is asked to make anyway. Drop either and a mutant walks
+   * through the gap.
+   */
+  it('⭐⭐ ENTER with an invalid draft is refused BY THE HOST — the disabled button is not the guard', () => {
+    renderPanel()
+    fireEvent.click(screen.getByTestId(`model-row-v2-${FACTOR_ID}-value`))
+    const input = screen.getByTestId(`model-row-v2-${FACTOR_ID}-value-input`)
+    fireEvent.change(input, { target: { value: 'abc' } })
+    // PRECONDITION, pinned in-test: this route really is ungated, so a pass
+    // here cannot be the button's `disabled` attribute doing the work.
+    expect(input).toBeEnabled()
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(screen.getByTestId(`model-row-v2-${FACTOR_ID}-value-input`)).toBeInTheDocument()
+    expect(screen.queryByTestId(`model-row-v2-${FACTOR_ID}-confirm`)).not.toBeInTheDocument()
+    expect(observed(FACTOR_ID).raw_value).toBe(30000)
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+  })
+
+  it('⭐ the CLICK route: the control refuses to offer an advance it cannot make, and SAYS WHY', () => {
     renderPanel()
     fireEvent.click(screen.getByTestId(`model-row-v2-${FACTOR_ID}-value`))
     fireEvent.change(screen.getByTestId(`model-row-v2-${FACTOR_ID}-value-input`), {
