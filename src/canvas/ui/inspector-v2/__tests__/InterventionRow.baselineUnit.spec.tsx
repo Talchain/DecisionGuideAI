@@ -37,33 +37,52 @@ const base = {
   onChange: vi.fn(),
 }
 
+/**
+ * ⚠⚠ THESE NOW RENDER IN `techMode`, AND THAT IS A CHANGE OF SURFACE, NOT OF
+ * SUBJECT. The `£0.59` defect was a FORMATTER defect — a unit attached to a
+ * normalised value — and the formatter is unchanged and still guarded here.
+ * What moved is where its output appears: the ordinary row no longer shows the
+ * recorded figure at all, because this surface cannot establish its role or its
+ * scale, so it is an operator diagnostic. The formatter must still never invent
+ * a magnitude on the one surface that does print it.
+ */
 describe('InterventionRow — a unit decorates only the value it belongs to', () => {
   it('renders the RAW value with its unit when the producer supplied one', () => {
-    render(<InterventionRow {...base} baseline={0.59} rawBaseline={59} unit="£" />)
-    expect(screen.getByText(/Currently:/).textContent).toContain('£59')
+    render(<InterventionRow {...base} baseline={0.59} rawBaseline={59} unit="£" techMode />)
+    expect(screen.getByText(/Recorded:/).textContent).toContain('£59')
   })
 
   it('NEVER renders a currency symbol against a normalised 0-1 value', () => {
-    render(<InterventionRow {...base} baseline={0.59} rawBaseline={59} unit="£" />)
+    render(<InterventionRow {...base} baseline={0.59} rawBaseline={59} unit="£" techMode />)
     // The witnessed defect, pinned by its exact rendered string.
-    expect(screen.getByText(/Currently:/).textContent).not.toContain('£0.59')
+    expect(screen.getByText(/Recorded:/).textContent).not.toContain('£0.59')
   })
 
   it('drops the unit rather than inventing one when no raw value exists', () => {
-    render(<InterventionRow {...base} baseline={0.59} unit="£" />)
-    const txt = screen.getByText(/Currently:/).textContent ?? ''
+    render(<InterventionRow {...base} baseline={0.59} unit="£" techMode />)
+    const txt = screen.getByText(/Recorded:/).textContent ?? ''
     expect(txt).toContain('0.59')
     expect(txt, 'a unit on a normalised value is an invented figure').not.toContain('£')
   })
 
   it('a non-currency unit is not smuggled in either', () => {
-    render(<InterventionRow {...base} baseline={0.2} unit="scale" />)
-    expect(screen.getByText(/Currently:/).textContent).not.toContain('scale')
+    render(<InterventionRow {...base} baseline={0.2} unit="scale" techMode />)
+    expect(screen.getByText(/Recorded:/).textContent).not.toContain('scale')
   })
 
-  it('CONTROL — the delta still measures the normalised pair, unchanged', () => {
-    render(<InterventionRow {...base} baseline={0.59} rawBaseline={59} unit="£" />)
-    // (0.49 - 0.59) / 0.59 = -16.9% -> 17%, and the sign is a fall.
-    expect(screen.getByLabelText(/17% change vs baseline/)).toBeTruthy()
+  it('CONTROL — no percentage is offered at all, on either surface', () => {
+    // ⚠⚠ THIS ASSERTED THE OPPOSITE UNTIL REVIEW: "the delta still measures the
+    // normalised pair, unchanged", expecting `17% change vs the recorded value`.
+    // The arithmetic was right and the CLAIM was not — a ratio needs a reference
+    // whose role and scale are established, and `observedState.value` has
+    // neither declared at the contract. It is inverted rather than deleted so
+    // the suite records that the percentage went deliberately.
+    for (const techMode of [false, true]) {
+      const { container, unmount } = render(
+        <InterventionRow {...base} baseline={0.59} rawBaseline={59} unit="£" techMode={techMode} />,
+      )
+      expect(container.textContent, `techMode=${techMode}`).not.toMatch(/\d\s*%/)
+      unmount()
+    }
   })
 })

@@ -160,6 +160,16 @@ export const OptionPanel = memo(function OptionPanel({
         factorLabel: resolveElementLabel(factorNode?.data),
         baseline: unwrapInterventionValue(obs?.value).value ?? undefined,
         rawBaseline: unwrapInterventionValue(obs?.raw_value).value ?? undefined,
+        /*
+         * ⚠ CARRIED SO THE ROW CAN DECLINE TO CLAIM, NEVER SO IT CAN DISPLAY.
+         * `observed_state.baseline` is a real contract field whose ROLE AND
+         * SCALE ARE UNDECLARED (`ObservedStateSchema` gives it no doc comment
+         * while its neighbours each carry paragraphs of producer/consumer/
+         * absence rules). The row uses it only to detect that its comparison
+         * reference is contested and to stop showing a percentage against one.
+         * It is never rendered — see `recordedBaseline` in InterventionRow.
+         */
+        recordedBaseline: unwrapInterventionValue(obs?.baseline).value ?? undefined,
         unit: obs?.unit as string | undefined,
         value,
         displayValue: displayValue ?? undefined,
@@ -354,11 +364,37 @@ export const OptionPanel = memo(function OptionPanel({
           ) : (
             interventions.map(iv => (
               <InterventionRow
-                key={iv.factorId}
+                /*
+                 * ⭐⭐ THE KEY IS THE ENTITY'S IDENTITY, AND THE ENTITY IS
+                 * OPTION + FACTOR.
+                 *
+                 * Keyed by `factorId` alone, React reconciled the row for
+                 * Option A onto Option B whenever both intervened on the same
+                 * factor — same key, same instance, and `InterventionRow` seeds
+                 * its editable draft ONCE at mount. So switching options left
+                 * the input showing the previous option's number, and a blur
+                 * would have written it to the new one.
+                 *
+                 * The contract says this in terms: an intervention "is a
+                 * different entity living at `/nodes/<option>/data/interventions/
+                 * <factor>`", minted precisely because collapsing it with the
+                 * factor "puts two questions under one name" and produces a
+                 * wrong-entity write. The key now carries both halves.
+                 */
+                key={`${nodeId}:${iv.factorId}`}
                 factorId={iv.factorId}
                 factorLabel={iv.factorLabel}
                 baseline={iv.baseline}
                 rawBaseline={iv.rawBaseline}
+                /* ⚠ BUILT AT :172 AND, UNTIL THIS LINE, NEVER FORWARDED. The
+                   memo carried `recordedBaseline` and the call site did not pass
+                   it, so `referenceContested` was permanently false through the
+                   real chain and the row went on showing a percentage against a
+                   contested reference — the exact defect this PR exists to
+                   close, alive behind a green unit suite. Every direct-render
+                   test passed because they hand the prop in themselves; only the
+                   mounted InspectorModal test could see it, and it did. */
+                recordedBaseline={iv.recordedBaseline}
                 currentValue={iv.value}
                 displayValue={iv.displayValue}
                 unit={iv.unit}
