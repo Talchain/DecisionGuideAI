@@ -436,7 +436,14 @@ export function InterventionRow({
               data-testid={`intervention-target-readonly-${factorId}`}
               className={`${typography.panelBody} px-2 py-1 text-center text-text-body`}
             >
-              {currentValue.toLocaleString()}
+              {/* ⚠⚠ `String`, NOT `toLocaleString`. I reached for the latter when
+                  this became text, and it defaults to THREE fractional digits:
+                  a model value of 0.00049 renders as `0` — a real non-zero
+                  quantity displayed as zero, which is the exact class of lie
+                  this whole change exists to remove, introduced by the change
+                  itself. `String(currentValue)` is also what seeds the editor's
+                  own buffer, so the two surfaces cannot disagree. */}
+              {String(currentValue)}
               {!displayValue && (
                 <span className={`${typography.panelMeta} text-text-light ml-1`}>
                   {INTERVENTION_ROW_STRINGS.modelValueQualifier}

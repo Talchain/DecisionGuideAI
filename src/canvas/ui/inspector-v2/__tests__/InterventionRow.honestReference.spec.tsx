@@ -296,6 +296,12 @@ describe('through the mounted inspector, on the live capture', () => {
     expect(readTarget()).toContain('0.59')
 
     rerender(<InspectorModal nodeId={OPTION_STATUS_QUO} edgeId={null} onClose={vi.fn()} />)
-    expect(readTarget()).toContain('0.49')
+    const after = readTarget()
+    expect(after).toContain('0.49')
+    // ⚠ INCLUSION ALONE CANNOT SEPARATE "REPLACED" FROM "APPENDED". The
+    // qualifier forced the move from exact equality to substring inclusion, and
+    // that quietly dropped the half that mattered: showing BOTH values would
+    // have passed. The same assertion the description switch already carries.
+    expect(after, "the previous option's target survived the switch").not.toContain('0.59')
   })
 })

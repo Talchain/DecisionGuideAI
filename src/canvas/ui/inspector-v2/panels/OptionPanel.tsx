@@ -389,10 +389,13 @@ export const OptionPanel = memo(function OptionPanel({
               {descriptionBody}
             </p>
           ) : (
-            <EmptyDescriptionPrompt
-              placeholder={DESCRIPTION_PLACEHOLDERS.option}
-              onStartEditing={() => {}}
-            />
+            /* ⚠ NO `onStartEditing`, AND THE COMPONENT ALREADY KNEW HOW.
+                `EmptyDescriptionPrompt` treats the prop as optional and drops
+                `role="button"`, `tabIndex` and its click handler when it is
+                absent — it was built for exactly this case. Passing `() => {}`
+                turned it back into a button that answers nothing: a tab stop
+                announcing as an action, doing nothing when pressed. */
+            <EmptyDescriptionPrompt placeholder={DESCRIPTION_PLACEHOLDERS.option} />
           )
         ) : description || isEditingDescription ? (
           <textarea
