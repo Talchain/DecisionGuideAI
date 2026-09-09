@@ -64,6 +64,7 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
 }))
 
 import { useCanvasStore } from '../../store'
+import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 
 const baseProps = {
@@ -128,6 +129,68 @@ describe('OutcomeNode', () => {
   it('renders shape indicator (type line removed in v1.1)', () => {
     renderOutcome()
     expect(screen.getByLabelText(/outcome node/i)).toBeDefined()
+  })
+
+  it('previews the authored consequence and keeps the full description expandable', async () => {
+    const description = 'Customer support demand may grow before the extra revenue covers new staffing. '.repeat(5).trim()
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ viewMode: 'standard' }) as any))
+    const { container } = renderOutcome({ description })
+    expect(screen.getByTestId('outcome-context-preview')).toHaveTextContent(description)
+    expect(container.querySelector('.node-description')).toBeNull()
+    screen.getByRole('button', { name: 'Expand description' }).focus()
+    await userEvent.keyboard('{Enter}')
+    expect(container.querySelector('.node-description')).toHaveTextContent(description)
+  })
+
+  it('handles blank names and descriptions without inventing a consequence', () => {
+    renderOutcome({ label: '   ', description: '   ' })
+    expect(screen.getByText('Untitled outcome')).toBeDefined()
+    expect(screen.queryByTestId('outcome-context-preview')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Expand description' })).toBeNull()
+  })
+
+  it.each(['idle', 'complete'])('can explore an adverse consequence in the %s phase with its authored context', async (status) => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ results: { status, report: null } }) as any))
+    const dispatch = vi.fn()
+    vi.spyOn(useGuidanceStore, 'getState').mockReturnValue({ ...useGuidanceStore.getState(), _dispatchAction: dispatch })
+    renderOutcome({ label: 'Increased customer churn', description: 'Existing customers may leave after a price increase.' })
+    await userEvent.click(screen.getByRole('button', { name: 'Explore consequences' }))
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({
+      parameters: { chip_id: 'outcome_explore_consequences' },
+      message: 'What would Increased customer churn mean for this model, including possible benefits and downsides?\nOutcome context: Existing customers may leave after a price increase.',
+      source: 'chip',
+    }))
+  })
+
+  it('keeps long upstream names intact when validating an outcome assumption', async () => {
+    const factorLabel = 'Availability of experienced account managers during the autumn renewal period'
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({
+      results: { status: 'complete', report: null },
+      nodes: [
+        { id: 'factor-1', type: 'factor', data: { label: factorLabel, type: 'factor' } },
+        { id: 'outcome-1', type: 'outcome', data: { label: 'Revenue growth', type: 'outcome' } },
+      ],
+      edges: [{ id: 'factor-outcome', source: 'factor-1', target: 'outcome-1', data: { weight: 0.6, weightSource: 'user' } }],
+    }) as any))
+    const dispatch = vi.fn()
+    vi.spyOn(useGuidanceStore, 'getState').mockReturnValue({ ...useGuidanceStore.getState(), _dispatchAction: dispatch })
+    renderOutcome({ description: 'Retaining existing accounts supports this outcome.' })
+    expect(screen.getByText(`Test the connection from ${factorLabel}`)).toBeDefined()
+    await userEvent.click(screen.getByRole('button', { name: 'Validate this assumption' }))
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({
+      message: `How can I validate my assumption about ${factorLabel} and its effect on Revenue growth?\nOutcome context: Retaining existing accounts supports this outcome.`,
+    }))
+  })
+
+  it('keeps goal probability out of the compact Standard card', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ viewMode: 'standard' }) as any))
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null, influence: null, confidence: null, inSensitivityAnalysis: false,
+      achievementProbability: 0.68, stabilityPercentage: null, winRate: null, isResultsMode: true,
+      predictedOutcome: null, valueOfInformation: null, voiRank: null,
+    } as any)
+    renderOutcome()
+    expect(screen.queryByText('Goal chance: 68%')).toBeNull()
   })
 
   it('has displayName set', () => {
@@ -239,7 +302,7 @@ describe('OutcomeNode', () => {
       voiRank: null,
     })
     renderOutcome()
-    expect(screen.getByText(`${METRIC_NOUN.chance}: 68%`)).toBeDefined()
+    expect(screen.getByText('Goal chance: 68%')).toBeDefined()
   })
 
   // Display-honesty (ROADMAP 1.6b tail — goal-fit caveat residuals): same
@@ -283,7 +346,7 @@ describe('OutcomeNode', () => {
       voiRank: null,
     })
     renderOutcome()
-    expect(screen.getByText(`${METRIC_NOUN.chance}: 68%`)).toBeDefined()
+    expect(screen.getByText('Goal chance: 68%')).toBeDefined()
     expect(screen.queryByTestId('goal-fit-basis-caveat-outcome-node')).toBeNull()
   })
 
