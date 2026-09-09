@@ -86,3 +86,51 @@ export const UNCONFIRMED_ESTIMATE_LABEL = 'Estimate not yet confirmed'
  * reader does not add a fourth loose literal.
  */
 export const GOAL_NODE_LABEL = 'Goal'
+
+/**
+ * ⭐⭐ HOW A FACTOR'S CATEGORY READS — the ONE spelling, for the same reason
+ * this file exists.
+ *
+ * CEE stamps each factor `controllable` | `observable` | `external`. It is the
+ * distinction between *what this team can act on* and *what it must plan
+ * around*, which is the pivot from analysing a model to doing something about
+ * it — and it is one of the few producer facts that is genuinely about the
+ * THINKING rather than about the numbers.
+ *
+ * ⚠ IT WAS ALREADY SPELLED ONCE, IN AN EDITOR. `CATEGORY_OPTIONS` in
+ * `inspector-v2/editors/FactorControllableEditor.tsx` carried these three
+ * words. Adding a second copy for the Model tab is precisely the
+ * hand-maintained mirror this module was created to abolish — in a product
+ * noun, again — so the editor now derives its options from here.
+ *
+ * ⚠ THE WIRE VALUES ARE UNCHANGED and must stay so: `category` is a CEE field
+ * and a key in the inspector's mutation union. This is the DISPLAY word only.
+ */
+export const FACTOR_CATEGORY_LABEL = {
+  controllable: 'Controllable',
+  observable: 'Observable',
+  external: 'External',
+} as const
+
+export type FactorCategoryValue = keyof typeof FACTOR_CATEGORY_LABEL
+
+/**
+ * The display word for a stamp, or `null` for anything this vocabulary does not
+ * recognise — INCLUDING absence.
+ *
+ * ⚠⚠ `null`, NEVER A DEFAULT, AND THIS IS THE WHOLE POINT. The inspector editor
+ * renders `(data?.category as string) ?? 'controllable'`, so a factor CEE never
+ * classified is shown to the user as *Controllable* — a classification nobody
+ * made, on the surface that then offers to "change" it. That is an invented
+ * fact wearing an editor's clothes, and it is exactly the defect class this
+ * estate keeps paying for.
+ *
+ * A reader of the Model tab must be able to tell "CEE said this is external"
+ * from "nothing here says", so an unstamped factor gets NO line rather than a
+ * guessed one. (The editor's default is a separate, pre-existing question about
+ * a different surface; it is reported, not silently changed here.)
+ */
+export function factorCategoryLabel(category: unknown): string | null {
+  if (typeof category !== 'string') return null
+  return (FACTOR_CATEGORY_LABEL as Record<string, string>)[category] ?? null
+}

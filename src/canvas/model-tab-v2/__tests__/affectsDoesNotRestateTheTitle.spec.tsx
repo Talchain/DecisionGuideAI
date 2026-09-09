@@ -43,6 +43,9 @@ const detail = (over: Partial<ModelRowDetail> = {}): ModelRowDetail => ({
   rowId: 'e1',
   // An edge carries no prior, so the question does not arise.
   priorIsExplicitlyUnquantified: false,
+  // A relationship is never classified controllable/observable/external — that
+  // stamp belongs to a factor.
+  classification: null,
   description: null,
   secondaryValues: [],
   basis: 'Inferred from model structure',
@@ -232,6 +235,9 @@ describe('⚠ the discriminating twin — a producer-named edge KEEPS the sectio
         row={row}
         detail={detail({
           rowId: 'f1',
+    // Unclassified by default: `null` is what the producer saying nothing
+    // looks like, and it is the state most rows are in.
+    classification: null,
           affects: [TARGET, { id: 'n_rev', label: 'Revenue' }],
         })}
         tier="plain"

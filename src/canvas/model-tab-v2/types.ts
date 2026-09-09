@@ -395,6 +395,29 @@ export interface OptionInterventionField {
  */
 export interface ModelRowDetail {
   rowId: string
+  /**
+   * ⭐ HOW CEE CLASSIFIED THIS FACTOR — `Controllable` / `Observable` /
+   * `External`, or `null`.
+   *
+   * It is the distinction between what this team can ACT ON and what it must
+   * PLAN AROUND, and it reached no screen on this tab: measured on deployed
+   * `14276d5b` the words appear nowhere in the rendered DOM, while the store
+   * carried four `controllable` factors and one `external`. The INSPECTOR reads
+   * and edits it; the surface built for reading your model did not show it.
+   * One fact, two surfaces, one of them silent — the shape #1329 fixed for
+   * producer findings.
+   *
+   * ⚠⚠ `null` MEANS THE PRODUCER DID NOT SAY, AND THE SURFACE THEN SAYS
+   * NOTHING. Not "Controllable", not "Unclassified", not a dash. A factor
+   * created locally carries no category at all (`autoFix.addFactorNode` seeds
+   * none), so a default here would report a classification nobody made — on the
+   * exact field whose editor already does that (`factorCategoryLabel`'s note).
+   *
+   * ⚠ NON-FACTOR ROWS ARE ALWAYS `null`. `category` is a factor stamp; an
+   * option or a risk carrying one would be data this surface should not
+   * interpret.
+   */
+  classification: string | null
   /** §4.4.1 "What this is". */
   description: string | null
   /**

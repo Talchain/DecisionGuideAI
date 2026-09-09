@@ -29,6 +29,9 @@ function detail(over: Partial<ModelRowDetail> = {}): ModelRowDetail {
     // Most rows are not in this state: the producer either gave a figure or
     // nobody has looked. `true` is the deliberate, rarer case.
     priorIsExplicitlyUnquantified: false,
+    // Unclassified by default: `null` is what the producer saying nothing
+    // looks like, and it is the state most rows are in.
+    classification: null,
     description: 'How long a deal takes to close.',
     secondaryValues: [{ label: 'Baseline', value: '50 days' }],
     basis: 'Inferred from model structure',
