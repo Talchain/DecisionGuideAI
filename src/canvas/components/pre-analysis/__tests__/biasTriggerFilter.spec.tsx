@@ -189,11 +189,15 @@ afterEach(() => {
 
 describe('reasoning observation reaches the editable discussion draft', () => {
   it.each([
-    ['CEE finding', 'confirmation_bias', true],
-    ['CEE finding', 'uncategorised_producer_check', false],
-    ['draft coaching', 'confirmation_bias', true],
-    ['draft coaching', 'uncategorised_producer_check', false],
-  ] as const)('preserves %s context for %s through both mounted controls', (carrier, code, recognised) => {
+    ['CEE finding', 'confirmation_bias', 'Confirmation bias'],
+    ['CEE finding', 'uncategorised_producer_check', null],
+    ['CEE finding', 'fac_mistaken_type', null],
+    ['draft coaching', 'confirmation_bias', 'Confirmation bias'],
+    // Draft coaching deliberately keeps safe producer labels even when the
+    // registry does not recognise them. They remain tentative context.
+    ['draft coaching', 'uncategorised_producer_check', 'Uncategorised producer check'],
+    ['draft coaching', 'fac_mistaken_type', null],
+  ] as const)('preserves %s context for %s through both mounted controls', (carrier, code, expectedRiskLabel) => {
     const observation = 'The current estimate uses only favourable interviews. '.repeat(7)
       + 'The missing interviews concern customers who chose the alternative.'
     const technique = 'Seek one interview that could challenge the estimate.'
@@ -235,8 +239,9 @@ describe('reasoning observation reaches the editable discussion draft', () => {
       expect(prompt).toContain('Related model item: "Engineering velocity".')
       expect(prompt).not.toContain('fac-velocity')
       expect(prompt).not.toMatch(/I.m noticing|my thinking|I have .*bias/i)
-      if (recognised) expect(prompt).toContain('Possible reasoning risk: Confirmation bias.')
+      if (expectedRiskLabel) expect(prompt).toContain(`Possible reasoning risk: ${expectedRiskLabel}.`)
       else expect(prompt).not.toContain('Possible reasoning risk:')
+      expect(prompt).not.toContain('fac_mistaken_type')
       if (carrier === 'CEE finding') expect(prompt).toContain(technique)
       else expect(prompt).not.toContain('Suggested technique:')
       expect(send).not.toHaveBeenCalled()
