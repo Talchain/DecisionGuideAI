@@ -177,6 +177,23 @@ describe('the three honest states, through the panel', () => {
 })
 
 describe('the sender settles, and two of its three answers mean nothing was sent', () => {
+  it('⭐ the send OPTS OUT of the sender\'s hidden queue — `deferIfBusy: false`', () => {
+    // Bound by identity to the option, not to a behaviour that happens to look
+    // right today. With the default, a send made during an in-flight turn is
+    // buffered and the promise resolves SEND_DEFERRED *before the turn exists* —
+    // so the row's "queued" would have no way to end, and the buffered copy
+    // would carry a base hash the waited-for turn had already superseded.
+    renderPanel()
+    commit('0.6')
+    expect(sendSystemEvent).toHaveBeenCalledTimes(1)
+    expect(sendSystemEvent.mock.calls[0]?.[1]).toEqual({ deferIfBusy: false })
+  })
+
+  // ⚠ DEFENSIVE, NOT LIVE. The case above pins `deferIfBusy: false`, so the real
+  // sender returns SEND_BLOCKED rather than SEND_DEFERRED here. This asserts the
+  // branch stays correct if that option is ever dropped — deleting it would let
+  // a SEND_DEFERRED fall through to `sent`, the one answer that is definitely
+  // wrong.
   it('QUEUED — SEND_DEFERRED says another turn holds the lock; the row must not say "sent"', async () => {
     // ⚠ The promise resolves BEFORE the turn exists. A row that read this as
     // "sent" would be describing a turn that has not happened.

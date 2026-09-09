@@ -227,6 +227,14 @@ export type OptionInterventionProposalOutcome = 'dispatched' | OptionInterventio
  *               buffered and WILL be sent. Nothing is wrong and nothing has
  *               happened yet. The promise resolves *before the turn exists*,
  *               which is exactly why "sent" would be a lie here.
+ *
+ *               ⚠ UNREACHABLE BY CONSTRUCTION, AND KEPT ANYWAY. The send passes
+ *               `deferIfBusy: false`, so the sender returns `SEND_BLOCKED`
+ *               rather than buffering — see the implementation for why a
+ *               buffered copy of THIS event is both unconfirmable and stale by
+ *               construction. The branch stays because deleting it would leave
+ *               a future `SEND_DEFERRED` falling through to `sent`, which is
+ *               the one answer that is definitely wrong.
  * - `blocked` — `SEND_BLOCKED`, or a send that REJECTED with a transport
  *               failure. Nothing reached the server; the caller owns the retry.
  *
@@ -522,7 +530,29 @@ export function useModelEditAuthority(
       // mean the turn has NOT happened. Discarding it left a row saying "sent"
       // over an edit that was queued behind another turn, or one that was never
       // queued at all.
-      void Promise.resolve(sendSystemEvent(event))
+      // ⭐⭐ OPTED OUT OF THE SENDER'S HIDDEN QUEUE, AND THAT IS A HONESTY FIX,
+      // NOT A PERFORMANCE ONE.
+      //
+      // With the default, a send made while a turn is in flight is BUFFERED and
+      // the promise resolves `SEND_DEFERRED` — *before the turn exists*. There
+      // is then no channel back: the buffered turn is sent later, may be
+      // refused, and this caller's `onSendSettled` has already fired for the
+      // last time. A row that entered "queued" could never leave it, which is
+      // the same exitless state this leg exists to remove, hiding in the one
+      // path that looked benign.
+      //
+      // ⚠ AND THE BUFFERED COPY WOULD CARRY A SUPERSEDED BASE. The queue holds
+      // `SendTurnOpts` VERBATIM, so the event keeps the `base_graph_hash` read
+      // at enqueue — while the very turn it waits behind is what stamps a new
+      // one. A deferred effect edit behind a graph-changing turn is refused as
+      // stale by construction.
+      //
+      // `SEND_BLOCKED` instead: the caller keeps the draft, the row says so, and
+      // the user presses Save again against a base that is actually current.
+      // Same reasoning, same option, as `usePanelApplyDrain` — "opting out of
+      // the singleton sender's hidden queue means SEND_BLOCKED is returned while
+      // a turn is busy, so there can never be a queued copy plus a later retry".
+      void Promise.resolve(sendSystemEvent(event, { deferIfBusy: false }))
         .then(outcome => {
           if (outcome === SEND_DEFERRED) return opts?.onSendSettled?.('queued')
           if (outcome === SEND_BLOCKED) return opts?.onSendSettled?.('blocked')
