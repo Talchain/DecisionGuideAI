@@ -45,10 +45,21 @@ import { render } from '@testing-library/react'
 import { StyledEdge } from '../StyledEdge'
 import { Position } from '@xyflow/react'
 import { resolveEdgeSignedStrengthDisplay } from '../../domain/edgeValueProvenance'
+// Type-only: erased at compile time, so it does not defeat the `vi.mock` of
+// '../../store' below. It exists so a future change to the ViewMode union is a
+// compile error here rather than a silently-passing impossible value.
+import type { ViewMode } from '../../store'
 
 let mockReport: Record<string, unknown> | null = null
 let mockEdges: Array<Record<string, unknown>> = []
-let mockViewMode = 'detailed'
+// ⚠ WAS 'detailed', WHICH `ViewMode` CANNOT EMIT. The union is
+// `'standard' | 'expert'` (store.ts:7614); 'detailed' appears in src/ only as
+// a `narrative_style` value, never as a viewMode (contrast control: 'expert'
+// → 24 non-test hits). The branch under test is `viewMode !== 'standard'`,
+// which 'expert' satisfies identically — so this does not weaken the guard,
+// it makes it exercise a state the product can actually reach. Typed so a
+// future drift is a compile error rather than a silent pass.
+let mockViewMode: ViewMode = 'expert'
 let mockStatus = 'complete'
 
 vi.mock('@xyflow/react', async () => {
@@ -176,7 +187,7 @@ function graphOfFive(data: Record<string, unknown>): void {
 beforeEach(() => {
   mockReport = null
   mockEdges = []
-  mockViewMode = 'detailed'
+  mockViewMode = 'expert'
   mockStatus = 'complete'
 })
 

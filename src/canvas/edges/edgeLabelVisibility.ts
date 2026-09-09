@@ -94,13 +94,39 @@ export const PERSISTENT_LABEL_LIMIT = 3
  * (2026-09-07) — 141% of the space — while being identical in INFORMATION on
  * every such edge. It is refused here.
  *
- * ⚠ THE FACT IS NOT LOST, ONLY UNPINNED. "This strength is not set" still
- * reaches the user through the hover popover ("Not set yet — nobody has set the
- * strength of this connection…", witnessed on staging 2026-09-07), the
- * `title` tooltip ("Weight: not set"), the `aria-label`, the interaction-driven
- * label on hover/selection in Detailed view, and the `EdgePills` /
- * `PreAnalysisInboundRows` "Link strength not set" marker. Removing a label is
- * not removing a fact.
+ * ⚠ UNPINNED, AND ON TWO CHANNELS ONLY — COUNTED, NOT ASSERTED.
+ *
+ * ⛔ THIS COMMENT PREVIOUSLY NAMED FIVE CHANNELS AND FOUR OF THEM WERE FALSE.
+ * It is corrected here rather than softened, because a justification that
+ * overstates what survives is how a removal gets approved.
+ *
+ *   (1) THE INTERACTION CHIP — hover/select in Expert view (`:36-39`, which
+ *       this change does not touch) still renders "Boost, strength not set",
+ *       and carries `aria-label` + `title` ("Weight: not set"). ⚠ But those
+ *       two are ATTRIBUTES OF THAT CHIP (`StyledEdge.tsx` `{showChip && (`,
+ *       with the label and title inside it) — NOT channels of their own. When
+ *       the chip goes in standard view, they go with it. The old comment
+ *       counted them as two independent survivors; they are one.
+ *   (2) THE HOVER POPOVER, in either view — but its unset line is gated
+ *       `signedVal === null && confidencePct === null`, so it speaks only when
+ *       the LIKELIHOOD is also unset.
+ *
+ * ⛔ NOT SURVIVORS AT ALL. `EdgePills` / `PreAnalysisInboundRows` mount under
+ *    `!isPostAnalysis`, and a label requires `isResultsMode`. Both are
+ *    `resultsStatus === 'complete'` — THE SAME PREDICATE, NEGATED. They are
+ *    never on screen at the same time as the surface being changed, so they
+ *    cannot cover for it.
+ *
+ * ⛔ AND THE QUOTED POPOVER SENTENCE DOES NOT EXIST. "…nobody has set the
+ *    strength of this connection…" returns ZERO hits in `src/` outside this
+ *    comment (contrast control, same sweep: "Strength and likelihood not set"
+ *    → 11). It was quoted as witnessed copy and is not in the product.
+ *
+ * ⭐ THE RESIDUAL, STATED RATHER THAN DENIED: strength unset + likelihood SET,
+ *    standard view, no hover — NO worded strength surface at all. The stroke
+ *    still greys; the words do not appear. That is accepted here as the price
+ *    of the overflow this gate exists to stop, and it is a real cost, not a
+ *    rounding error. Removing a label IS removing a fact on that path.
  */
 export function selectPersistentStrengthIds(
   rankedEdges: readonly RankedCausalEdge[],
