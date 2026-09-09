@@ -62,7 +62,7 @@ import { resolveRawFactorConfidenceDisplay, type FactorConfidenceDisplay } from 
 // are retained UNCHANGED — the design's §7 KEEP/CUT removals await Paul's
 // verdict and are deliberately not executed in this train.
 import { ModelTabV2Panel } from '../model-tab-v2/ModelTabV2Panel'
-import { MODEL_GROUP_IDS, type ModelGroupId } from '../model-tab-v2/types'
+import { type ModelGroupId } from '../model-tab-v2/types'
 // THE ONE hand-off for affordances that terminate in a conversation. Built here
 // because this file is the Model tab's only live-app seam; the v2 directory
 // stays free of fronting and store concerns.
@@ -131,53 +131,91 @@ const V1_STACK_CONTENT_ID = 'model-tab-v1-stack-content'
 const LEGACY_DETAILED_EDITOR_MOUNTED = false
 
 /**
- * The testid wrapping the Model card, so a section request can address it.
- *
- * A constant rather than a literal at both use sites — the map below and the
- * element itself must agree, and two hand-copied strings are the mirror this
- * estate keeps paying for (the same argument `V1_STACK_CONTENT_ID` makes).
- */
-const MODEL_CARD_REGION_ID = 'model-card-region'
-
-/**
  * Assistant/pre-analysis section names → their connected v2 receiver.
  *
- * ⚠⚠ `modelcard` USED TO POINT AT `model-group-v2-evidence-review`, AN OUTLINE
- * GROUP THAT IS EMPTY BY CONSTRUCTION. Measured at `3b2df4ce` by rendering the
+ * ⭐⭐ ONE ENTRY CARRIES BOTH FACTS — WHERE TO SCROLL AND WHAT TO OPEN — AND
+ * THAT IS THE REPAIR, NOT A TIDY-UP (9 Sep 2026).
+ *
+ * This map used to hold testid strings only, and the effect below opened the
+ * target with a SEPARATE lookup:
+ *     `MODEL_GROUP_IDS.find(g => g === (pendingSection as string))`
+ * i.e. it compared a SECTION id against a GROUP id. Four of the six matched by
+ * luck of shared spelling; `risks` did not, because its group is
+ * `outcomes-risks`. So the assistant's "show me the risks" scrolled to the right
+ * heading and left it SHUT — a deep link that lands on a collapsed section is
+ * the defect `outlineDeepLinkAndSearchToggle.spec.tsx` was written to close,
+ * arriving through the one id whose two names differ.
+ *
+ * That second lookup was a hand-maintained mirror of a mapping this table
+ * already held (trap 12). Now the group IS the entry, the testid is DERIVED from
+ * it, and the two cannot drift apart again.
+ *
+ * ⭐ `modelcard` HAS NO GROUP, AND THAT IS THE HONEST ANSWER. It pointed at
+ * `model-group-v2-evidence-review` — an outline group no producer could ever
+ * fill (see `model-tab-v2/types.ts`), so the model-card deep link landed the
+ * reader on the words "Nothing in this group yet". The real Model card was
+ * mounted the whole time: `ModelHealthSection`, `testId="model-health-section"`,
+ * inside `model-scientific-transparency` and OUTSIDE the
+ * `LEGACY_DETAILED_EDITOR_MOUNTED = false` gate. It is not an outline group, so
+ * it carries an explicit `testId` and an `openSection` instead — the controlled
+ * accordion key this component already owns.
+ *
+ * ⚠⚠ THE MEASUREMENT THAT ESTABLISHED THE DEAD TARGET — RETAINED FROM #1380,
+ * whose fix for this same entry merged first as `103ac4fd` while this branch was
+ * in review. It is a dated record of what the product once rendered, so it is
+ * kept rather than rewritten (trap 14b). Measured at `3b2df4ce` by rendering the
  * real panel with a drafted model (goal + option + factor + risk + edge) and
  * opening every group: goal 5 · options 5 · factors 8 · outcomes-risks 4 ·
  * relationships 4 · assumptions-provenance 0 · evidence-review 0 — and that
  * group's text read, verbatim, "Evidence & review state0Nothing in this group
- * yet".
+ * yet". The zero is STRUCTURAL, not a state a model grows out of.
  *
- * The zero is STRUCTURAL. `toModelRows` (`adapters.ts:533-676`) is the only
- * producer of `ModelRow[]`, and every group it assigns comes from `KIND_GROUP`
- * (`adapters.ts:233-241`, five ids) or the literal `'relationships'`. The string
- * `evidence-review` occurs five times repo-wide and NOT ONCE in `adapters.ts`.
- * No input can put a row there, so the link could never land anywhere useful —
- * for any user, on any model.
+ * ⚠ SCOPE, from that same measurement: no in-repo caller passes `'modelcard'`
+ * — the literal `requestModelTabSection` arguments in `src/` are
+ * `'relationships'` and `'factors'`. The reachable route is the ASSISTANT's:
+ * `applyV5State.ts:1161` narrows a server-supplied `open_section` id through
+ * `isModelTabSectionId` and forwards anything in `MODEL_TAB_SECTION_IDS`,
+ * `'modelcard'` included. A live sanctioned route with a broken destination —
+ * not a witnessed wire capture.
  *
- * The Model card the caller actually asked for (`ModelHealthSection`: quality
- * dimensions, methodology, audit trail, inference warnings) renders BELOW the
- * outline, outside that group entirely. It now has its own addressable region.
- *
- * ⚠ SCOPE: no in-repo caller passes `'modelcard'` — the literal
- * `requestModelTabSection` arguments in `src/` are `'relationships'` and
- * `'factors'`. The reachable route is the ASSISTANT's: `applyV5State.ts:1161`
- * narrows a server-supplied `open_section` id through `isModelTabSectionId` and
- * forwards anything in `MODEL_TAB_SECTION_IDS`, `'modelcard'` included. A live
- * sanctioned route with a broken destination — not a witnessed wire capture.
- *
- * The other five are unchanged and verified to hold rows; exactly one of six
- * mappings was wrong.
+ * ⚠ WHY #1380's `model-card-region` WRAPPER IS NOT KEPT ALONGSIDE THIS.
+ * #1380 routed this entry to a wrapper `<div>` it added, on the stated premise
+ * that `ModelHealthSection` "renders no single wrapping testid of its own".
+ * That premise is false at the bytes: the MOUNTED card is
+ * `model-tab/ModelHealthSection.tsx:217`, which renders
+ * `testId="model-health-section"` — and that testid is resolved in a real
+ * `ModelTabBody` render by `ModelTabBody.modelCardOpen.spec.tsx:128`, a spec
+ * that predates both changes, so the fact is executed rather than argued. The
+ * wrapper was therefore a SECOND addressable name for one card (trap 21) with
+ * zero consumers repo-wide (`rg -a` over the whole tree: three hits, all inside
+ * this file; contrast control `model-health-section` non-zero in seven files in
+ * the same sweep). It is removed rather than left as a decoy for the next
+ * reader asking where a model-card deep link lands. ⭐ #1380's CAPABILITY is
+ * UNCHANGED and strictly better pinned: the link still lands on the card and
+ * still OPENS it, and both lanes' specs assert it — #1380's by containment
+ * (`landed.contains(model-card-methodology)`), this lane's by identity.
  */
-const MODEL_SECTION_TARGET: Readonly<Record<ModelTabSectionId, string>> = {
-  goal: 'model-group-v2-goal',
-  options: 'model-group-v2-options',
-  factors: 'model-group-v2-factors',
-  relationships: 'model-group-v2-relationships',
-  risks: 'model-group-v2-outcomes-risks',
-  modelcard: MODEL_CARD_REGION_ID,
+type ModelSectionTarget =
+  /** An outline group: `ModelOutline` owns both the testid and the opening. */
+  | { readonly group: ModelGroupId }
+  /**
+   * A surface that is not an outline group. `testId` must name a MOUNTED
+   * element; `openSection` is the controlled-accordion key that reveals it.
+   */
+  | { readonly group?: undefined; readonly testId: string; readonly openSection: ModelTabSectionId }
+
+const MODEL_SECTION_TARGET: Readonly<Record<ModelTabSectionId, ModelSectionTarget>> = {
+  goal: { group: 'goal' },
+  options: { group: 'options' },
+  factors: { group: 'factors' },
+  relationships: { group: 'relationships' },
+  risks: { group: 'outcomes-risks' },
+  modelcard: { testId: 'model-health-section', openSection: 'modelcard' },
+}
+
+/** The element a section request scrolls to. Derived — never a second literal. */
+function sectionTargetTestId(target: ModelSectionTarget): string {
+  return target.group ? `model-group-v2-${target.group}` : target.testId
 }
 
 const KIND_ORDER = ['goal', 'decision', 'option', 'factor', 'risk', 'outcome'] as const
@@ -319,24 +357,31 @@ export const ModelTabBody = memo(function ModelTabBody({
     if (!pendingSection) return
     // Set BEFORE the RAF is scheduled, so the outline re-renders expanded and
     // only then does the callback measure and scroll.
-    const groupId = MODEL_GROUP_IDS.find(g => g === (pendingSection as string))
-    setOpenGroupRequest((groupId as ModelGroupId | undefined) ?? null)
-    // ⭐ THE MODEL CARD IS NOT AN OUTLINE GROUP, so the line above cannot open
-    // it — it is an Accordion in the transparency block, driven by
-    // `makeSectionProps`'s controlled `openSection`. Without this a request that
-    // arrives while the user has the card COLLAPSED scrolls them to a closed
-    // heading and the content they asked for stays behind a click nobody told
-    // them to make: precisely the defect #1275 shipped for the outline groups,
-    // and the reason `setOpenGroupRequest` exists two lines up.
     //
-    // Harmless when the card is already open (`openSection` starts at
-    // `'modelcard'`), and it does not fight the user: it fires only on an
-    // explicit request, never on render.
-    if (pendingSection === 'modelcard') setOpenSection('modelcard')
+    // ⚠ ONE READ OF ONE TABLE decides both what opens and what is scrolled to.
+    // Two lookups is how `risks` came to scroll to a heading it left collapsed.
+    const target = MODEL_SECTION_TARGET[pendingSection]
+    if (target?.group) {
+      setOpenGroupRequest(target.group)
+    } else {
+      // ⭐ Not an outline group — reveal it through the controlled accordion.
+      // The reader may have shut the card since arrival, in which case scrolling
+      // to it without opening it lands them on a closed header: the same harm as
+      // a collapsed group, one component along. That is precisely the defect
+      // #1275 shipped for the outline groups, and the reason `setOpenGroupRequest`
+      // exists at all (rationale retained from #1380, which fixed this for
+      // `modelcard` as a special case; the table generalises it).
+      //
+      // Harmless when the card is already open (`openSection` starts at
+      // `'modelcard'`), and it does not fight the reader: it fires only on an
+      // explicit request, never on render.
+      setOpenGroupRequest(null)
+      if (target) setOpenSection(target.openSection)
+    }
     requestAnimationFrame(() => {
       if (!mountedRef.current) return
-      const target = MODEL_SECTION_TARGET[pendingSection] ?? 'model-tab-v2-panel'
-      const el = document.querySelector<HTMLElement>(`[data-testid="${target}"]`)
+      const testId = target ? sectionTargetTestId(target) : 'model-tab-v2-panel'
+      const el = document.querySelector<HTMLElement>(`[data-testid="${testId}"]`)
       el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
     useUIStore.getState().requestModelTabSection(null)
@@ -1023,22 +1068,19 @@ export const ModelTabBody = memo(function ModelTabBody({
             adjustments={modelAdjustments}
             repairActions={modelRepairActions}
           />
-          {/* The Model card's addressable region. `ModelHealthSection` renders
-              no single wrapping testid of its own, and a section request needs
-              one element to scroll to — so the host that owns the layout
-              provides it, rather than the section growing a testid for a
-              concern that is not its own. */}
-          <div data-testid={MODEL_CARD_REGION_ID}>
-            <ModelHealthSection
-              ceeQuality={ceeQuality}
-              auditTrail={auditTrail}
-              factorCount={grouped.factor.length}
-              edgeCount={causalEdges.length}
-              factorsToVerify={factorsToVerify}
-              onSendMessage={onSendMessage}
-              {...makeSectionProps('modelcard')}
-            />
-          </div>
+          {/* The Model card. Its own `testId="model-health-section"`
+              (`model-tab/ModelHealthSection.tsx:217`) is the deep-link target —
+              see `MODEL_SECTION_TARGET` above for why no extra wrapper is
+              interposed. */}
+          <ModelHealthSection
+            ceeQuality={ceeQuality}
+            auditTrail={auditTrail}
+            factorCount={grouped.factor.length}
+            edgeCount={causalEdges.length}
+            factorsToVerify={factorsToVerify}
+            onSendMessage={onSendMessage}
+            {...makeSectionProps('modelcard')}
+          />
         </div>
       </DetailToggleContext.Provider>
 

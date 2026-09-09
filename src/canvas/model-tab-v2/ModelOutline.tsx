@@ -1,5 +1,11 @@
 /**
- * Model tab v2 — THE OUTLINE. Two tiers, seven groups, one scroll (design §4.3).
+ * Model tab v2 — THE OUTLINE. Two tiers, one scroll (design §4.3).
+ *
+ * ⭐ FIVE GROUPS, NOT SEVEN, since 9 Sep 2026. `assumptions-provenance` and
+ * `evidence-review` were removed because no producer could ever put a row in
+ * either — see `types.ts`'s `MODEL_GROUP_IDS` for the derivation. The count is
+ * deliberately not restated here: this component maps over `MODEL_GROUP_IDS`,
+ * so the array is the only place the number is written down.
  *
  * MOUNTED since the 16 Aug 2026 mount train, via `ModelTabV2Panel` (hosted by
  * `ModelTabBody`). The boundary guard pins the mount path.
@@ -20,7 +26,7 @@
  * depend on the tier would have to change the function's signature to do it.
  *
  * MULTI-OPEN ALWAYS, IN BOTH TIERS, INDEPENDENTLY REMEMBERED. Opening Options
- * never closes Factors (design §2 F2). All seven groups are always PRESENT: a
+ * never closes Factors (design §2 F2). Every group is always PRESENT: a
  * filter that empties a group says so in words rather than removing the heading,
  * so the user never has to wonder whether a group disappeared or never existed.
  */
@@ -108,7 +114,7 @@ export interface ModelOutlineProps {
  * tier parameter, so "the tier cannot change the layout" is enforced by the type
  * system rather than asserted in prose.
  *
- * A row whose `group` is not one of the seven is DROPPED and reported, never
+ * A row whose `group` is not a declared group is DROPPED and reported, never
  * silently rendered into an arbitrary group.
  */
 export function outlineLayout(
@@ -155,8 +161,8 @@ export function outlineLayout(
   // incapable of failing.
   //
   // A group opens while searching only if it HAS a match: a group with nothing
-  // to show stays shut, so the result reads as a result rather than as seven
-  // headings. When the needle is empty this is exactly the previous behaviour.
+  // to show stays shut, so the result reads as a result rather than as a
+  // column of headings. When the needle is empty this is exactly the previous behaviour.
   const searching = needle !== ''
 
   return {
@@ -190,7 +196,7 @@ export function outlineLayout(
          *
          * ⚠ AND THAT SPEC WAS ALREADY PASSING FOR A WEAKER REASON THAN IT
          * READS: it renders `ModelOutline` with no `initiallyClosedGroups`, so
-         * every group is open by default — while production passes all seven
+         * every group is open by default — while production passes them all
          * as closed. It never exercised the closed-and-searching case at all.
          */
         open: searching

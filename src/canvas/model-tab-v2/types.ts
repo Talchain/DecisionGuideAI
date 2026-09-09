@@ -64,8 +64,40 @@
 export type DetailTier = 'plain' | 'advanced'
 
 /**
- * The seven groups of the outline, in render order. Total by construction:
- * a `Record<ModelGroupId, …>` cannot silently omit one.
+ * The groups of the outline, in render order. Total by construction: a
+ * `Record<ModelGroupId, …>` cannot silently omit one.
+ *
+ * ⭐⭐ WAS SEVEN. `assumptions-provenance` and `evidence-review` WERE REMOVED
+ * (9 Sep 2026) BECAUSE NO PRODUCER COULD EVER FILL THEM — measured on deployed
+ * `fa95cf65` / `9748b336`, driven as a guest: both rendered a count of `0` and
+ * "Nothing in this group yet", and would have done so forever.
+ *
+ * The mechanism, derived at the bytes rather than inferred from the empty
+ * screen: `KIND_GROUP` (`adapters.ts:233`) is `Record<ModelElementKind,
+ * ModelGroupId>` — TOTAL over all seven kinds — and its VALUE set has only FIVE
+ * members. `toModelRows` sets `group` from `KIND_GROUP[kind]` at every node site
+ * and hardcodes `'relationships'` for edges. So there was no code path, and no
+ * data state, that could put a row in either. They were not empty; they were
+ * unfillable.
+ *
+ * ⚠ AND LEAVING THEM HERE WHILE MERELY NOT RENDERING THEM WOULD HAVE BEEN
+ * WORSE THAN THE DEFECT. `outlineLayout` uses this array as the KNOWN set when
+ * deciding a row's group is rogue: an id that is known-but-unrendered lets a row
+ * be swallowed with no entry in `unknownGroupRowIds` — a silent drop in the one
+ * place built to report drops. One list, one meaning.
+ *
+ * ⚠ NOTHING WAS LOST WITH THEM. `evidence-review`'s only affordance was
+ * `DISCUSS_RELIABILITY`, whose message is BYTE-IDENTICAL to the live
+ * `modelcard-discuss` button still mounted in `ModelHealthSection` — see
+ * `groupActions.ts`. `assumptions-provenance` had none at all, and per-row
+ * provenance is rendered by `ValueProvenanceMark` in the row itself, not by a
+ * group.
+ *
+ * ⚠ DO NOT RE-ADD A GROUP HERE WITHOUT A PRODUCER. That is enforced, not
+ * requested: `__tests__/everyOutlineGroupCanBePopulated.spec.tsx` derives the
+ * fillable set by running the real `toModelRows` over a corpus covering every
+ * `ModelElementKind`, and REDs on any id in this array the projection cannot
+ * reach. Teach the producer first and the guard goes quiet on its own.
  */
 export const MODEL_GROUP_IDS = [
   'goal',
@@ -73,8 +105,6 @@ export const MODEL_GROUP_IDS = [
   'factors',
   'outcomes-risks',
   'relationships',
-  'assumptions-provenance',
-  'evidence-review',
 ] as const
 
 export type ModelGroupId = (typeof MODEL_GROUP_IDS)[number]

@@ -53,10 +53,6 @@ function formatDeferralDate(iso: string): string {
 }
 
 /**
- * The seven group headings, mapping 1:1 onto the brief's IA (design §4.1).
- * Total over `ModelGroupId` — a new group cannot render as an untitled section.
- */
-/**
  * THE FOUR REPAIR QUEUES, TOTAL BY CONSTRUCTION (design §5.3).
  *
  * ⚠ A `Record` over `RepairQueue['id']`, for the same reason as every other map
@@ -98,14 +94,22 @@ export const REPAIR_QUEUE: Record<RepairQueue['id'], RepairQueue> = {
   },
 }
 
+/**
+ * The group headings, mapping onto the brief's IA (design §4.1). Total over
+ * `ModelGroupId` — a new group cannot render as an untitled section.
+ *
+ * ⭐ 'Assumptions & provenance' AND 'Evidence & review state' WERE REMOVED
+ * (9 Sep 2026) with their group ids: no producer could ever put a row under
+ * either heading, so both were headings over a permanent "Nothing in this group
+ * yet". See `types.ts`'s `MODEL_GROUP_IDS` for the derivation and for what
+ * replaced the one affordance that lived there.
+ */
 export const GROUP_TITLE: Record<ModelGroupId, string> = {
   goal: 'Goal',
   options: 'Options',
   factors: 'Factors',
   'outcomes-risks': 'Outcomes & risks',
   relationships: 'Relationships',
-  'assumptions-provenance': 'Assumptions & provenance',
-  'evidence-review': 'Evidence & review state',
 }
 
 /**

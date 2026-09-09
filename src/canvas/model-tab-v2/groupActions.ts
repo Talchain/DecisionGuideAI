@@ -181,20 +181,45 @@ const DISCUSS_RELATIONSHIPS: GroupAction = {
   rehomedFrom: 'model-tab/RelationshipsSection.tsx:827',
 }
 
-const DISCUSS_RELIABILITY: GroupAction = {
-  id: 'evidence-discuss',
-  label: "Discuss the model's reliability with Olumi",
-  intent: 'discuss',
-  message: () => 'Help me understand the reliability and limitations of my model',
-  rehomedFrom: 'model-tab/ModelHealthSection.tsx:328',
-}
+/**
+ * ⛔ `DISCUSS_RELIABILITY` WAS REMOVED WITH THE `evidence-review` GROUP
+ * (9 Sep 2026), AND THE CAPABILITY DID NOT GO WITH IT.
+ *
+ * It read:
+ *     id: 'evidence-discuss'
+ *     label: "Discuss the model's reliability with Olumi"
+ *     message: 'Help me understand the reliability and limitations of my model'
+ *     rehomedFrom: 'model-tab/ModelHealthSection.tsx:328'
+ *
+ * ⚠ THE REHOME NEVER MOVED ANYTHING. Its named origin is STILL MOUNTED: the
+ * `modelcard-discuss` button in `ModelHealthSection.tsx:435` sends the
+ * BYTE-IDENTICAL string, inside `model-scientific-transparency`, outside the
+ * `LEGACY_DETAILED_EDITOR_MOUNTED = false` gate that unmounted the rest of the
+ * v1 stack. So this table's copy was a SECOND control for one capability —
+ * hosted, as it happened, in the one group no producer could ever fill, where
+ * it sat under a heading reading "Nothing in this group yet".
+ *
+ * That is why removal is not a loss and not a cut: the deletion checklist this
+ * file's `rehomedFrom` field exists to serve is satisfied by the original still
+ * being on screen, and the `modelcard` deep link now lands the reader on it
+ * (`ModelTabBody.tsx`'s `MODEL_SECTION_TARGET`).
+ *
+ * Recorded rather than deleted silently, for the same reason "Map interventions"
+ * is recorded below: an absence should read as a decision.
+ */
 
 /**
  * The actions each outline group offers, structural first.
  *
- * ⚠ TOTAL BY CONSTRUCTION. `assumptions-provenance` is `[]` because the v1
- * stack had NO send-to-AI control for it — an empty array is the derived answer,
- * not an omission, and the type will not let a future group be forgotten.
+ * ⚠ TOTAL BY CONSTRUCTION over `ModelGroupId`, so a new group is a type error
+ * rather than a group that silently offers nothing.
+ *
+ * ⚠ `assumptions-provenance` USED TO SIT HERE AS `[]` — the derived answer that
+ * the v1 stack had no send-to-AI control for it. The group itself is gone
+ * (`types.ts`): it had no actions AND no producer, so it rendered a heading, a
+ * count of `0` and "Nothing in this group yet", permanently. An empty array is a
+ * legitimate answer for a group that HAS rows; it was never one for a group that
+ * cannot.
  */
 export const GROUP_ACTIONS: Record<ModelGroupId, readonly GroupAction[]> = {
   goal: [DISCUSS_GOAL],
@@ -202,8 +227,6 @@ export const GROUP_ACTIONS: Record<ModelGroupId, readonly GroupAction[]> = {
   factors: [ADD_FACTOR, DISCUSS_FACTORS],
   'outcomes-risks': [ADD_RISK, DISCUSS_RISKS],
   relationships: [ADD_RELATIONSHIP, DISCUSS_RELATIONSHIPS],
-  'assumptions-provenance': [],
-  'evidence-review': [DISCUSS_RELIABILITY],
 }
 
 /** Every action across every group — the flat set, for guards and sweeps. */
