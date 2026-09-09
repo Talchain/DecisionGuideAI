@@ -49,7 +49,11 @@ import { AnalysisStateV1Schema, Stage } from '@talchain/schemas/boundary'
 import type { Edge, Node } from '@xyflow/react'
 
 import type { ReportV1 } from '../adapters/plot/types'
-import type { CEEAnalysisReady, CEEGoalConstraint } from '../adapters/cee/types'
+import type {
+  AnalysisAdmissionV1,
+  CEEAnalysisReady,
+  CEEGoalConstraint,
+} from '../adapters/cee/types'
 import type { CeeDecisionReviewPayloadV1 } from '../types/cee'
 import type { ScenarioStage } from '../types/scenario'
 import { logV5StateStep } from './debugLog'
@@ -66,7 +70,10 @@ import {
   readDecisionReviewWireState,
   type DecisionReview030,
 } from './decisionReviewAdapter'
-import { mapV5AnalysisToReport } from './mapV5AnalysisToReport'
+import { mapV5AnalysisToReport, buildV5VerdictReportLike } from './mapV5AnalysisToReport'
+import { deriveDecisionVerdict } from '../lib/decisionVerdict'
+import { licensesComparativeLeaderClaim } from '../canvas/hooks/useAnalysisReady'
+import { setDirectiveDesignationCaveat } from '../canvas/stores/directiveDesignationStore'
 import { v5StageToScenarioStage } from './stageMapper'
 import {
   deriveAnalysisRefusalNoticeUpdate,
@@ -918,6 +925,13 @@ export function applyV5State(
   const attentionEdgeIds: string[] = []
   let pendingAttentionNote: OlumiAttentionNote | null = null
   const pulsedEdgeIds: string[] = []
+  /*
+   * ⭐ THE CAVEATED DESIGNATION — the option this turn pointed at without a
+   * licence to name one. Accumulated here and flushed ONCE after the loop,
+   * exactly like the pulse accumulators above, so the store takes a single
+   * write per turn rather than one per target.
+   */
+  let caveatedDesignationOptionId: string | null = null
   // add_constraint patches are collected here and flushed to
   // setGoalConstraints ONCE after the loop: the store snapshot's
   // goalConstraints is frozen at apply time, so a per-patch read-modify-write
@@ -1242,6 +1256,101 @@ export function applyV5State(
               })()
             : null
 
+        /*
+         * ═════════════════════════════════════════════════════════════════
+         * ⛔ P0 — A DIRECTIVE MAY NOT SINGLE OUT AN OPTION THE MODEL IS NOT
+         *    ENTITLED TO NAME **WITHOUT SAYING SO**.
+         * ═════════════════════════════════════════════════════════════════
+         * Measured on deployed staging: inside ONE HTTP 200 the assistant
+         * text said "No single option can be put forward yet" (twice) while
+         * a `ui_directive` highlighted the leading option, and the canvas
+         * obeyed. Every TEXTUAL designation already withholds correctly —
+         * the "Leading option" pill, the robustness badge, "Leads via",
+         * "Behind:", the close-call marker, the decision headline and bar.
+         * The highlight was the one un-ruled hole, and it is the worst kind:
+         * A SILENT VISUAL CLAIM, because nothing on screen admits that a
+         * claim is being made.
+         *
+         * ⭐⭐ AND THE RULING ON THE REMEDY (Paul, 8 Sep 2026 — the rework of
+         * PR #1284, which suppressed the highlight):
+         *
+         *   > "Keep the highlight. Add on-screen text that admits the claim
+         *   >  is being made and states its uncertainty. The caveat must be
+         *   >  VISIBLE, not carried by the animation."
+         *
+         * WITHHOLDING IS WRONG AND SILENT HIGHLIGHTING IS ALSO WRONG. The
+         * answer is highlight + words: this gate's INPUTS are #1284's,
+         * unchanged and still load-bearing; only its CONSEQUENCE moved, from
+         * "do not point" to "say that you are". The words live on the option
+         * card — `canvas/stores/directiveDesignationStore.ts` owns both the
+         * carrier and the copy, and its header carries the wording argument.
+         *
+         * ─────────────────────────────────────────────────────────────────
+         * WHICH QUESTION THIS GATE ANSWERS (trap 21 is live in this seam —
+         * two PRs a day apart once closed this harm and reopened it because
+         * each answered a different question under a similar name):
+         *
+         *   ⭐ "MAY THIS TURN SINGLE OUT THE FRONT-RUNNING OPTION ON THE
+         *      CANVAS **WITHOUT SAYING SO**?"
+         *
+         * That is Q1 — the MODEL'S LICENCE — applied to the IDENTITY case.
+         * NOT Q2 ("did this run separate the arms?"), and NOT the panel's
+         * composition of both.
+         *
+         * ⚠ Q2 IS DELIBERATELY ABSENT FROM THE CONDITION, and that is the
+         * load-bearing decision. `decisionVerdict.ts` states the rule this
+         * follows: *"a non-null `leaderId` does NOT license the phrase
+         * 'leading option' — identity and entitlement are different
+         * questions."* So `leaderId` is consulted for IDENTITY ONLY, which
+         * is precisely its documented purpose. Conjoining
+         * `hasLeadingOption` here would REOPEN the P0 through the other
+         * door: on a run that did not separate the arms Q2 is false, the
+         * gate would not fire, and the front-runner would be pulsed with no
+         * sentence beside it while the panel withheld every designation.
+         *
+         * ─────────────────────────────────────────────────────────────────
+         * ONE READER, IMPORTED — never re-spelled.
+         * `licensesComparativeLeaderClaim` is the codebase's single answer
+         * to Q1 and every textual surface reads it. A second local
+         * expression of the same question is how two authorities drift
+         * apart, which is the defect this estate keeps paying for.
+         *
+         * ABSENCE ARM PRESERVED: `licensesComparativeLeaderClaim(undefined)`
+         * is `true` ON PURPOSE — a pre-admission CEE has not spoken, so the
+         * UI behaves exactly as it did before and the two services stay free
+         * to deploy in either order. A missing carrier must never become a
+         * silent suppression — nor, now, a caveat on a claim nobody made:
+         * both directions are pinned by tests.
+         *
+         * ─────────────────────────────────────────────────────────────────
+         * ⚠ BOTH INPUTS COME FROM THIS ENVELOPE, AND THEY MUST.
+         * This arm runs in STEP 2 (the block loop). `ceeAnalysisReady` is
+         * written in STEP 4 and `results.report` in STEP 5 — BOTH AFTER — so
+         * reading the store here would gate on the PREVIOUS turn's
+         * admission, which answers a different question again.
+         * `V5ApplicatorStore` also exposes only WRITES for those slices.
+         * KNOWN, DELIBERATE GAP (pinned by a test, not hidden): a turn
+         * carrying a highlight but no `analysis_result` block has no
+         * in-envelope leader identity, so nothing is caveated. ⚠ UNDER THE
+         * RULING THIS GAP IS ONE STEP WORSE THAN IT WAS: it used to leave a
+         * highlight ungated, and now leaves one UNEXPLAINED — the silent
+         * claim itself. The trade is still the right one (caveating turns
+         * whose leader identity is unknown would put the sentence on cards
+         * no directive designated), but it is a live hole, not a tidy one.
+         */
+        const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(
+          (response as { analysis_ready?: { analysis_admission?: AnalysisAdmissionV1 } })
+            .analysis_ready?.analysis_admission,
+        )
+        const envelopeAnalysisBlock = response.blocks.find(
+          (b): b is Extract<V5Block, { type: 'analysis_result' }> =>
+            b.type === 'analysis_result',
+        )
+        const frontRunnerOptionId =
+          envelopeAnalysisBlock === undefined
+            ? null
+            : deriveDecisionVerdict(buildV5VerdictReportLike(envelopeAnalysisBlock)).leaderId
+
         let singleTargetActioned = false
         for (const t of targets) {
           if (!t?.id) continue
@@ -1258,6 +1367,66 @@ export function applyV5State(
             continue
           }
           if (verb === 'highlight') {
+            /*
+             * ⛔ THE DESIGNATION GATE — "is this turn singling out the
+             * front-running option without a licence to name it?"
+             *
+             * Placed BEFORE the note/pulse fork so it covers BOTH highlight
+             * sub-paths: the 2s ring AND the held attention channel. The
+             * attention channel is the more prominent of the two (a persistent
+             * marker, not a fading pulse), so covering one and not the other
+             * would leave the louder half unexplained.
+             *
+             * SCOPED PRECISELY — this is a DESIGNATION, not navigation:
+             *   · `highlight` only. `focus` and `open_inspector` take the
+             *     user somewhere; they assert no ranking. Caveating them
+             *     would put a disclosure where no claim was made, which
+             *     teaches the user to ignore the sentence — the mirror harm
+             *     of the one being closed.
+             *   · The FRONT-RUNNER only. Any other option, and any factor,
+             *     highlights with nothing said, because nothing is claimed.
+             *   · NODES only. `!isEdge` is explicit: a leading option is an
+             *     option node, and an edge id must never be compared into
+             *     the option identity space.
+             */
+            if (
+              !modelLicensesComparativeClaim &&
+              !isEdge &&
+              frontRunnerOptionId !== null &&
+              t.id === frontRunnerOptionId
+            ) {
+              /*
+               * ⭐⭐ PAUL'S RULING, 8 Sep 2026 — THE CONSEQUENCE CHANGED, THE
+               *    GATE DID NOT.
+               *
+               * #1284 suppressed the highlight here. The ruling rejects that
+               * remedy while accepting its diagnosis:
+               *
+               *   > "Keep the highlight. Add on-screen text that admits the
+               *   >  claim is being made and states its uncertainty. The
+               *   >  caveat must be VISIBLE, not carried by the animation."
+               *
+               * So this branch NO LONGER `continue`s. It records the
+               * designation and falls through to the ordinary highlight
+               * paths below — the pulse and the attention channel both stay
+               * exactly as they were for every caller.
+               *
+               * ⚠ THE RECORD IS NOT THE HIGHLIGHT, and that separation is
+               * load-bearing. The pulse is a shared choke point with six
+               * feeders; a caveat hung on it would appear on every applied
+               * edit. The store this writes answers only "did THIS turn point
+               * at the front-running option without a licence to name it",
+               * and `OptionNode` renders the sentence from that alone.
+               *
+               * ⚠ `applied[]` STAYS TRUTHFUL EITHER WAY. The target is now
+               * genuinely applied, so it is pushed as applied by the code
+               * below; the withheld-designation `deferred` reason is gone
+               * because nothing is withheld any more. A `deferred` entry
+               * beside a target that DID render would be the false-label
+               * defect, one level down.
+               */
+              caveatedDesignationOptionId = t.id
+            }
             /*
              * ⭐ A HIGHLIGHT THAT CARRIES A NOTE IS ATTENTION, NOT AN
              * ACKNOWLEDGEMENT — and the two have different lifetimes.
@@ -1361,6 +1530,21 @@ export function applyV5State(
     // Other block kinds (text, error, explanation, comparison, flip_analysis)
     // are render-only — no side effects.
   }
+  /*
+   * ⭐ WRITTEN ON EVERY NON-STALE RUN, INCLUDING RUNS WITH NOTHING TO SAY.
+   *
+   * This is UNCONDITIONAL on purpose. PR #747's objection to canvas grounding
+   * was that the canvas is ONE GLOBAL SLOT: a mark left by an older turn sits
+   * beside every newer answer, and the reader attributes it to the wrong one.
+   * Clearing only when a previous designation is known to exist would be a
+   * hand-maintained mirror of the turn history (trap 12); writing `null`
+   * every time makes "the caveat belongs to the turn on screen" true by
+   * construction.
+   *
+   * It sits AFTER the stale-turn early return, which drops all writes, so a
+   * late-arriving older response cannot retire a newer turn's caveat.
+   */
+  setDirectiveDesignationCaveat(caveatedDesignationOptionId)
   if (pulsedNodeIds.length > 0 || pulsedEdgeIds.length > 0) {
     pulseAppliedTargets({ nodeIds: pulsedNodeIds, edgeIds: pulsedEdgeIds })
   }
