@@ -231,17 +231,19 @@ describe('the sender settles, and two of its three answers mean nothing was sent
     expect(screen.getByTestId(`model-detail-v2-intervention-${FACTOR}-input`)).toBeInTheDocument()
   })
 
-  it('a TRANSPORT rejection is reported as blocked, never as sent', async () => {
-    // A failed POST is not a server refusal — nothing reached the server — so
-    // the row must not imply the model has heard about this number. This is the
-    // FALLBACK arm: an unrecognised error shape lands here too, which is why
-    // the two cases below have to prove they do NOT.
+  it('an UNRECOGNISED rejection takes the cannot-confirm line, never "not sent"', async () => {
+    // ⚠ THIS ASSERTION WAS `/not sent/i` AND THAT WAS THE DEFECT, not the test.
+    // A bare `Error` proves nothing about whether bytes landed, and the fallback
+    // arm claimed non-delivery anyway. An unknown must take the cannot-confirm
+    // line — the same rule `provenNoWriteConflict` applies to an unknown
+    // conflict category, one layer out.
     sendSystemEvent.mockRejectedValue(new Error('network'))
     renderPanel()
     commit('0.6')
 
     const notice = await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-notice`)
-    expect(notice.textContent ?? '').toMatch(/not sent/i)
+    expect(notice.textContent ?? '').toMatch(/could not confirm/i)
+    expect(notice.textContent ?? '').not.toMatch(/not sent/i)
   })
 
   /**
@@ -294,10 +296,13 @@ describe('the sender settles, and two of its three answers mean nothing was sent
     ).not.toBeInTheDocument()
   })
 
-  it('⚠ DISCRIMINATING TWIN: a TRANSPORT-kind SystemEventSendError still says "not sent"', async () => {
+  it('⚠ DISCRIMINATING TWIN: a VERIFIED non-delivery still says "not sent"', async () => {
     // Without this, the two cases above would pass on an implementation that
-    // simply reported every `SystemEventSendError` as a server answer — losing
-    // the one distinction the error class carries `kind` to make.
+    // reported every `SystemEventSendError` as a server answer — losing the one
+    // distinction the error class carries `kind` to make. `deliveryUnverified`
+    // absent is the fetch-threw half: nothing left the client, so "not sent" is
+    // exactly true here. The transport SPLIT itself is asserted in
+    // `interventionSettlementIdentity.spec.tsx`, which supplies both halves.
     sendSystemEvent.mockRejectedValue(new SystemEventSendError('transport'))
     renderPanel()
     commit('0.6')

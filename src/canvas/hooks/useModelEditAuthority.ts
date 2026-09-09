@@ -235,27 +235,41 @@ export type OptionInterventionProposalOutcome = 'dispatched' | OptionInterventio
  *               construction. The branch stays because deleting it would leave
  *               a future `SEND_DEFERRED` falling through to `sent`, which is
  *               the one answer that is definitely wrong.
- * - `blocked` — `SEND_BLOCKED`, or a send that REJECTED with a transport
- *               failure. Nothing reached the server; the caller owns the retry.
+ * - `blocked` — `SEND_BLOCKED` and NOTHING ELSE: another turn holds the lock and
+ *               this one was never queued. The caller owns the retry.
  *
- *               ⚠ THE TWO ARE DELIBERATELY ONE STATE, and the reason is the
- *               question the caller is asking. "Never queued" and "queued,
- *               and the POST failed" differ in mechanism and are identical in
- *               what they let the row say and what the user can do about it.
- *               Splitting them would mint a distinction no copy uses — the
- *               opposite failure to the one below, where two facts genuinely
- *               do need different sentences.
+ *               ⚠⚠ IT USED TO SWALLOW EVERY TRANSPORT REJECTION TOO, AND THAT
+ *               WAS TWO FALSEHOODS IN ONE LINE. I merged them on the reasoning
+ *               that both mean "nothing reached the server, try again" — which
+ *               is not true of half of transport (see `unverified`), and the
+ *               copy this state carries names the BUSY LOCK specifically, so
+ *               even the verified half was told the wrong story. Two questions
+ *               under one name, in the file arguing against exactly that.
+ *
+ * - `unreachable` — a transport rejection whose NON-DELIVERY IS VERIFIED: the
+ *               fetch threw (offline, DNS, CORS preflight), so nothing left the
+ *               client. `isUnverifiedDelivery`'s `meta.network === true` half.
+ *               Genuinely "not sent", and a different sentence from a busy lock.
  *
  * - `refused`  — the server RECEIVED the turn, failed it, and its envelope
  *                PROVES nothing was written (`isProvenNoWriteConflict`). The
  *                model does not hold this number and never did, so the row may
  *                say so outright.
  *
- * - `unverified` — the server failed the turn and a write is NOT ruled out. The
- *                row may claim neither saved nor refused. This is the honest
- *                floor, and it is the DEFAULT for any server failure whose
- *                category the producer has not certified: an unknown takes the
- *                cannot-confirm line, never the confident one.
+ * - `unverified` — a write is NOT ruled out, so the row may claim neither saved
+ *                nor refused. THREE ways in, and the second is the one an
+ *                earlier cut got wrong:
+ *                  · a server failure whose category the producer has not
+ *                    certified as a no-write;
+ *                  · a transport rejection with `meta.network === false` — a
+ *                    non-2xx arrived carrying no CEE signal (proxy or edge
+ *                    timeout). The request REACHED CEE, which goes on to
+ *                    complete and COMMIT that turn, live-witnessed at 123.1s
+ *                    (ROADMAP 2.665). Calling that "not sent" is false about
+ *                    the half that matters;
+ *                  · any rejection shape this seam does not recognise. An
+ *                    unknown cannot prove non-delivery, so it takes the
+ *                    cannot-confirm line, never the confident one.
  *
  * ⚠⚠ `refused` AND `unverified` WERE ONE THING — the catch reported `blocked`
  * for every rejection — AND THAT WAS FALSE IN BOTH DIRECTIONS. `blocked`'s copy
@@ -268,6 +282,7 @@ export type OptionInterventionSendSettlement =
   | 'sent'
   | 'queued'
   | 'blocked'
+  | 'unreachable'
   | 'refused'
   | 'unverified'
 
@@ -575,17 +590,26 @@ export function useModelEditAuthority(
           // from `retryable: false`, or from what a category name suggests —
           // is the twins defect that module was written to end, and its header
           // names `INGRESS_CONTRACT_VIOLATION` as the exact trap.
-          if (err instanceof SystemEventSendError && err.kind === 'server') {
-            return opts?.onSendSettled?.(
-              isProvenNoWriteConflict(err.conflictCategory) ? 'refused' : 'unverified',
-            )
+          if (err instanceof SystemEventSendError) {
+            if (err.kind === 'server') {
+              return opts?.onSendSettled?.(
+                isProvenNoWriteConflict(err.conflictCategory) ? 'refused' : 'unverified',
+              )
+            }
+            // ⭐ TRANSPORT IS TWO OPPOSITE CLAIMS, AND THE ERROR NOW CARRIES
+            // WHICH. `isUnverifiedDelivery` decided it upstream; this reads the
+            // verdict rather than re-deriving it from a `kind` that cannot
+            // express it. `network === true` is a fetch that threw — nothing
+            // left the client, non-delivery VERIFIED. `network === false` is a
+            // proxy or edge timeout on a request that REACHED CEE, which goes
+            // on to commit it.
+            return opts?.onSendSettled?.(err.deliveryUnverified ? 'unverified' : 'unreachable')
           }
-          // Transport, or an error shape this seam does not recognise. Nothing
-          // reached the server — or we cannot show that it did, which for a
-          // gesture that wrote nothing locally is the same instruction to the
-          // user. The conversation's own failure channel still records it; this
-          // only decides what the ROW says.
-          opts?.onSendSettled?.('blocked')
+          // A rejection shape this seam does not recognise. It cannot prove
+          // non-delivery, so it must not claim it: the cannot-confirm line, not
+          // the confident one. The conversation's own failure channel still
+          // records the error; this only decides what the ROW says.
+          opts?.onSendSettled?.('unverified')
         })
       return 'dispatched'
     },

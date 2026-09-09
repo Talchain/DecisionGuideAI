@@ -67,7 +67,7 @@
  * inconsistency — the surface offers an editor exactly where the write lands.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
 import { typography } from '../../styles/typography'
 import type { EdgeData } from '../domain/edges'
@@ -280,6 +280,11 @@ export function ModelTabV2Panel({
    *     yet and the row does not pretend otherwise.
    *   · a `notice` on `editing` — nothing was sent, and this is why.
    */
+  /**
+   * Monotonic, never reused, never rendered. A ref rather than state: minting an
+   * attempt must not itself re-render, and nothing reads it except the fence.
+   */
+  const interventionAttemptRef = useRef(0)
   const [interventionEdit, setInterventionEdit] = useState<
     {
       optionId: string
@@ -287,6 +292,19 @@ export function ModelTabV2Panel({
       draft: string
       phase: 'editing' | 'pending' | 'queued'
       notice?: string
+      /**
+       * ⭐⭐ THE ATTEMPT THIS ROW IS WAITING ON — the identity a late callback is
+       * checked against.
+       *
+       * Fencing on factor and value was not enough, and the hole is reachable:
+       * A(option A, factor X, 0.6) is pending; the user moves to option B and
+       * saves B(option B, factor X, 0.6), which is BLOCKED; A's rejection then
+       * arrives and relabels B "Sent, but I could not confirm" — about a send
+       * that never happened. Same factor, same number, different edit. An
+       * attempt is minted per Save and never reused, so it is the one identity
+       * two edits cannot share.
+       */
+      attemptId?: number
       /** The exact number sent, so the settlement below compares like with like. */
       sentValue?: number
       /** The scenario the send belongs to. A pending state must not outlive it. */
@@ -716,9 +734,22 @@ export function ModelTabV2Panel({
       // capture behind. (It was `useCanvasStore.getState()`, which the lane
       // boundary bans; see the prop's declaration.)
       const scenarioAtSend = currentScenarioId
+      // The option this attempt addresses, captured with it. `interventionEdit`
+      // is non-null here (the guard at the top of this callback), and reading it
+      // once keeps the fence below about ONE frozen identity rather than about
+      // whatever the closure happens to hold later.
+      const optionAtSend = interventionEdit.optionId
+      const attempt = ++interventionAttemptRef.current
       setInterventionEdit(prev =>
         prev && prev.factorId === factorId
-          ? { ...prev, phase: 'pending', sentValue: num, sentScenarioId: scenarioAtSend, notice: undefined }
+          ? {
+              ...prev,
+              phase: 'pending',
+              attemptId: attempt,
+              sentValue: num,
+              sentScenarioId: scenarioAtSend,
+              notice: undefined,
+            }
           : prev,
       )
 
@@ -728,16 +759,49 @@ export function ModelTabV2Panel({
         // behind another turn, or one that was never queued at all.
         onSendSettled: settlement => {
           setInterventionEdit(prev => {
-            // Fenced by factor AND by the value we sent: a settlement arriving
-            // after the user has moved on must not relabel their new draft with
-            // an old send's outcome.
-            if (!prev || prev.factorId !== factorId || prev.sentValue !== num) return prev
+            if (!prev) return prev
+            // ⭐⭐ FENCED BY THE ATTEMPT, plus the option and factor it addressed.
+            //
+            // Factor-and-value was NOT enough and the hole was reachable: A
+            // (option A, factor X, 0.6) pending, the user moves to option B and
+            // saves the same factor and number, B is blocked, and A's late
+            // rejection then relabels B about a send that never happened. The
+            // attempt is minted per Save and never reused, so it is the one
+            // identity two edits cannot share; the option and factor are stated
+            // as well because this row is keyed by them and an identity check
+            // should read as one.
+            if (
+              prev.attemptId !== attempt ||
+              prev.optionId !== optionAtSend ||
+              prev.factorId !== factorId
+            ) {
+              return prev
+            }
+            // ⚠ AND ONLY WHILE THE ROW IS STILL WAITING. A scenario switch has
+            // already returned it to `editing` with its own notice; a late
+            // callback must not overwrite that with an outcome about a model
+            // this row is no longer describing.
+            if (prev.phase !== 'pending' && prev.phase !== 'queued') return prev
             if (settlement === 'queued') return { ...prev, phase: 'queued' }
             if (settlement === 'blocked') {
+              // SEND_BLOCKED ONLY — the busy lock. This sentence names that
+              // cause specifically, which is why a transport failure may not
+              // borrow it.
               return {
                 ...prev,
                 phase: 'editing',
                 notice: 'Not sent — another change is still in flight. Try again in a moment.',
+              }
+            }
+            if (settlement === 'unreachable') {
+              // Verified non-delivery: the fetch threw, so nothing left this
+              // machine. "Not sent" is exactly true here and nowhere else in
+              // the failure family.
+              const { sentValue: _v, sentScenarioId: _s, ...rest } = prev
+              return {
+                ...rest,
+                phase: 'editing',
+                notice: 'Not sent — I could not reach the server. Try again.',
               }
             }
             // ⭐ THE OTHER WAY PENDING ENDS. The canonical settlement below
