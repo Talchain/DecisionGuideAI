@@ -1,6 +1,17 @@
 # Current delivery validation — 9 September 2026
 
-Candidate branch: `codex/option-node-followups`. No local test/build/install was run under the shared resource directive. Whitespace validation only: `git diff --check` passed. Hosted CI and independent review are required before release.
+The initial follow-up is released; further candidates remain open below. No local test/build/install or new native-browser run was performed under the shared resource directive. Hosted gates establish test/build evidence, not the joined user journey.
+
+| Release | Exact reviewed head | Hosted Staging Gate | Merge / served evidence |
+|---|---|---|---|
+| #1264, positioned provenance/icon tooltips | `37e1932813f85c6bf121b9b42f08703986b92bd9` | `102300545134`, passed | `14276d5b`, immutable deploy `6aa0b4427debea0008e7a5dd` |
+| #1342, missing results, baseline honesty, full detail and coaching recovery | `542b80a19eb73eb8336cada69488e191ee367623` | All four shards, build, typecheck and Staging Gate passed | `f8f77196`, included in served `ee2b241f` |
+| #1344, evidence and measurement coaching | `a769d0dcf137a41b1254e3e44255b7ac4a07d92f` | `102302338389`, passed | `ee2b241f`, immutable deploy `6aa0c44c7398550008cc5537`, 02:30:01 UTC |
+| #1343, target-only inspector and option identity | `505f745dd4b76e7a7938f50a4b3d68f0515bf471` | `102319101922`, passed | `81dbddd0`, immutable deploy `6aa0c995d8603000097b7d66`, 02:52:31 UTC |
+
+Receipts: [#1342/#1344 release](https://github.com/Talchain/olumi-programme-docs/pull/38#issuecomment-5594863972), [served verification](https://github.com/Talchain/olumi-programme-docs/pull/38#issuecomment-5594880926), [#1343 served verification](https://github.com/Talchain/olumi-programme-docs/pull/38#issuecomment-5595106908).
+
+Open: #1353 at `73c81864` is in replacement hosted checks. The previous run exposed three Detailed-preview failures plus two obsolete observed-as-reference assumptions; the repair retains missing-reference target recovery and updates the specific fixtures/reach set without skipping assertions. #1355 is under independent review. The `codex/option-result-currentness` branch qualifies retained results through shared freshness; it has not run hosted checks yet. None has new mounted acceptance evidence.
 
 | Acceptance | Authored check | Deployed artefact |
 |---|---|---|
