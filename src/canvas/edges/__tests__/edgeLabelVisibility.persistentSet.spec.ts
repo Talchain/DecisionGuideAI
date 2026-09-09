@@ -42,6 +42,11 @@ const e = (id: string, target: string): RankedCausalEdge => ({
   id,
   target,
   strengthIsSet: true,
+  // These cases are about the CAP, not the provenance gate. A sourced strength
+  // that also claimed to state nothing would be incoherent, so this is `false`
+  // — and the field is REQUIRED precisely so a new axis cannot be added to the
+  // selector without every ranking site answering for it.
+  nothingIsStated: false,
 })
 
 describe('selectPersistentStrengthIds — one label per target, then the top N', () => {

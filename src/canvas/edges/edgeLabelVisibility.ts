@@ -62,6 +62,24 @@ export interface RankedCausalEdge {
    * is a type error rather than a silent label on the map.
    */
   strengthIsSet: boolean
+  /**
+   * Does this edge state NOTHING — no strength, no direction, no likelihood?
+   *
+   * `nothingIsStated(...)` from `domain/edgeLabels`, which is the SAME function
+   * `describeEdge` uses for its empty-state arm. It is imported rather than
+   * re-expressed here on purpose: a second spelling of "is this edge blank"
+   * would drift from the label it is supposed to describe, and the drift would
+   * read green (CLAUDE.md trap 12).
+   *
+   * ⛔ WHY THE GATE NEEDS A SECOND AXIS AT ALL. `strengthIsSet` alone cannot
+   * separate two edges that both lack a strength but say different things:
+   *   "Boost, strength not set"        direction stated → a CLAIM with a hole
+   *   "Strength and likelihood not set" nothing stated  → a DISCLOSURE of absence
+   * The first is the truncated furniture the P2 ruling removed. The second is
+   * the empty state #1318 ruled must be visible ON THE LINE, and it makes no
+   * strength claim at all — so admitting it does not reopen what P2 closed.
+   */
+  nothingIsStated: boolean
 }
 
 /** How many persistent labels the canvas may pin at once. */
@@ -147,7 +165,18 @@ export function selectPersistentStrengthIds(
     // edge claimed its target first, it would lock a sourced sibling out of the
     // one label that target is allowed, and the map would lose a legible label
     // to an illegible one. Pinned by its own case in the spec.
-    if (!edge.strengthIsSet) continue
+    // ⭐ NARROWED, NOT WEAKENED (9 Sep 2026). The rule is still "a pinned label
+    // must SPEAK A STRENGTH" — and an edge that states nothing makes no
+    // strength claim to be wrong about. It discloses that the product knows
+    // nothing, which is the one sentence it is entitled to say and which
+    // #1318 ruled belongs on the line. Refusing it did not remove a claim, it
+    // removed a disclosure, and left that class with no worded surface at all
+    // outside hover.
+    //
+    // ⛔ EVERYTHING P2 REFUSED IS STILL REFUSED: an edge with a stated
+    // direction and no strength ("Boost, strength not set" — 173.5px against a
+    // 123px cap) still fails this gate, because it is not blank.
+    if (!edge.strengthIsSet && !edge.nothingIsStated) continue
     if (claimedTargets.has(edge.target)) continue
     claimedTargets.add(edge.target)
     out.add(edge.id)

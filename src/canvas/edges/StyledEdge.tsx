@@ -59,7 +59,7 @@ import {
   type CausalLensEdgeParams,
 } from '../domain/edgeValueProvenance'
 import { useIsDark } from '../hooks/useTheme'
-import { getEdgeLabel, labelCarriesDirection } from '../domain/edgeLabels'
+import { getEdgeLabel, labelCarriesDirection, nothingIsStated } from '../domain/edgeLabels'
 import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
@@ -153,6 +153,29 @@ function compareEdgesByLabelStrength(
  * exists on every edge, so a raw number cannot tell a set strength from an
  * unset one.
  */
+/**
+ * The two provenance answers the persistent-label selector needs, resolved
+ * ONCE and in one place.
+ *
+ * ⛔ THREE CALL SITES RANK EDGES INTO THAT SELECTOR and each used to build the
+ * fields inline. Adding a second axis inline three times is how the first
+ * version of this gate ended up applied in one branch and not the other two —
+ * so the answer is computed here and the branches spread it.
+ */
+const rankedProvenance = (
+  data: Record<string, unknown> | undefined,
+): { strengthIsSet: boolean; nothingIsStated: boolean } => {
+  const strength = resolveEdgeSignedStrengthDisplay(data)
+  return {
+    strengthIsSet: strength.show,
+    nothingIsStated: nothingIsStated(
+      strength,
+      resolveEdgeValueDisplay(data, 'beliefExists'),
+      resolveEdgeDirectionDisplay(data),
+    ),
+  }
+}
+
 const toRanked = (e: {
   id: string
   target: string
@@ -160,7 +183,7 @@ const toRanked = (e: {
 }): RankedCausalEdge => ({
   id: e.id,
   target: e.target,
-  strengthIsSet: resolveEdgeSignedStrengthDisplay(e.data).show,
+  ...rankedProvenance(e.data),
 })
 
 export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data }: EdgeProps<EdgeData>) => {
@@ -838,9 +861,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           // pin "Boost, strength not set". Importance decides the ORDER;
           // provenance decides ELIGIBILITY. Two questions, two answers
           // (CLAUDE.md trap 21) — do not fold one into the other.
-          strengthIsSet: resolveEdgeSignedStrengthDisplay(
-            e.data as Record<string, unknown> | undefined,
-          ).show,
+          ...rankedProvenance(e.data as Record<string, unknown> | undefined),
         }
       })
       // Tie-break by id so a tie cannot be resolved by iteration order —
@@ -873,6 +894,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       target: string
       magnitude: EdgeValueDisplay
       strengthIsSet: boolean
+      nothingIsStated: boolean
     }> = []
     for (const e of causalEdges) {
       const display = resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined)
@@ -880,7 +902,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         id: e.id,
         target: e.target,
         magnitude: display.show ? { ...display, value: Math.abs(display.value) } : display,
-        strengthIsSet: display.show,
+        ...rankedProvenance(e.data as Record<string, unknown> | undefined),
       })
     }
     strengths.sort(

@@ -269,6 +269,30 @@ export const LABEL_HEDGE_CUT = 0.6
  *
  * British English spelling throughout
  */
+/**
+ * NOTHING IS STATED — no strength, no direction and no likelihood has any
+ * provenance on this edge.
+ *
+ * ⭐ EXPORTED, AND `describeEdge` BELOW USES THIS SAME FUNCTION for its
+ * empty-state arm, so there is exactly ONE implementation of the question
+ * rather than a copy in each caller. The persistent-label selector needs the
+ * same answer (`edgeLabelVisibility.ts`), and a second spelling of it there
+ * would be a hand-maintained mirror of this branch — CLAUDE.md trap 12, and
+ * trap 12d's corollary that deriving a guard from a list MOVES the risk unless
+ * the list itself has one owner.
+ *
+ * ⚠ THE NAME IS THE CONCEPT, NOT THE CASE THAT FORCED IT. This is not "the
+ * edge #1318 tests"; it is the state in which the product knows nothing about
+ * an edge, and the only honest thing it can say is that it knows nothing.
+ */
+export function nothingIsStated(
+  strength: EdgeValueDisplay,
+  likelihood: EdgeValueDisplay,
+  direction: EdgeDirectionDisplay,
+): boolean {
+  return !strength.show && !direction.show && !likelihood.show
+}
+
 export function describeEdge(
   strength: EdgeValueDisplay,
   likelihood: EdgeValueDisplay,
@@ -293,7 +317,7 @@ export function describeEdge(
     // names LIKELIHOOD as well, so it may only be spoken when the likelihood is
     // genuinely absent too — otherwise the label would deny a number the
     // popover is at that moment rendering.
-    if (!likelihood.show) {
+    if (nothingIsStated(strength, likelihood, direction)) {
       return {
         label: 'Strength and likelihood not set',
         tooltip: buildWeightTooltip(null, likelihood, direction),
