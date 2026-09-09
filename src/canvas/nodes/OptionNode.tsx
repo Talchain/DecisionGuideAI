@@ -1,23 +1,23 @@
 import { memo, useMemo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { ArrowUp, ArrowDown } from 'lucide-react'
+import Tooltip from '../../components/Tooltip'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
+import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { focusExistingTarget } from '../utils/focusHelpers'
 import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
 import { typography } from '../../styles/typography'
 import { METRIC_NOUN } from './shared/metricVocabulary'
-import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, unwrapInterventionValue, classifyUnit, formatWinProbability, isTierLabel } from '../utils/labelUtils'
+import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, classifyUnit, formatWinProbability, isTierLabel } from '../utils/labelUtils'
 import {
   describeInterventionDirection,
   formatInterventionChange,
   formatInterventionTargetText,
-  isInterventionNoChange,
 } from '../utils/interventionDisplay'
-import { readFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { NodeChip, BriefIcon, NodePopover, ScienceIcon } from './shared'
@@ -33,6 +33,7 @@ import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalF
 import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 import { licensesComparativeLeaderClaim, useAnalysisAdmission } from '../hooks/useAnalysisReady'
 import { resolveOptionInterventionCount } from './shared/optionInterventionCount'
+import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 
 /** Strip known suffixes from factor labels for contextual display. */
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
@@ -387,10 +388,6 @@ interface InterventionChip {
   /** CEE-provided display_value for the INTERVENTION (target) value, if present.
    * Rendered verbatim in preference to numeric formatting (see formatChipValue). */
   displayValue?: string
-  /** The FACTOR's own CEE display_value — labels its observed (baseline) state.
-   * Scope A: used as the "from" label for binary chips when both payload labels
-   * exist. Never derived/invented. */
-  baselineDisplayValue?: string
   unit?: string
   factorType?: string
   cap?: number
@@ -406,9 +403,8 @@ interface StructuredDelta {
   /** Uncompacted, for the `title` recovery affordance. Never rendered raw on
    * the card — `compactFactorLabel` owns what the card shows. */
   fullLabel: string
-  direction: 'up' | 'down'
-  /** Formatted "baseline → intervention" — real-world where the payload
-   * supports it, else normalised percentages (brief scope 7). */
+  direction: 'up' | 'down' | null
+  /** Named-reference value → target, using the shared value formatter. */
   fromTo: string
 }
 
@@ -426,11 +422,14 @@ export const OptionNode = memo((props: NodeProps) => {
   // numbering registers. undefined until analysis registers this option.
   const stableOptionNumber = useCanvasStore(state => state.optionNumbering?.[props.id])
   const isPostAnalysis = resultsStatus === 'complete'
-  // Canvas result decorations carry no freshness treatment of their own:
-  // the graph-hash stale guard that once drove a dim + "Model changed" title
-  // here was deleted on 2026-07-16 (its hash keys had zero write sites, so
-  // it could never fire). Freshness verdicts render on the panel surfaces
-  // via the composed trust semantic (useAnalysisTrust).
+  // The same composed authority as the panels, never a node-local hash.
+  // Keep the previous result visible, but distinguish changed from unknown.
+  const analysisTrust = useAnalysisTrust()
+  const analysisCurrencyNote = analysisTrust.semantic === 'changed'
+    ? 'Model changed since this analysis'
+    : analysisTrust.semantic === 'cannot_confirm'
+      ? 'Analysis may be out of date'
+      : null
 
   // SINGLE VERDICT (2026-07-25): the canvas no longer decides for itself
   // whether a leading option exists. It quotes `deriveDecisionVerdict` — the
@@ -648,15 +647,10 @@ export const OptionNode = memo((props: NodeProps) => {
           unit?: string; factor_type?: string; cap?: number; value?: number; raw_value?: string | number
         } | undefined
         const unit = (factorNode?.data?.unit as string | undefined) ?? observedState?.unit
-        // Scope A: the factor's OWN display_value labels its observed (baseline)
-        // state (e.g. "No tech lead in place"). Payload-only, via the shared
-        // readFactorDisplayValue (top-level → observedState priority).
-        const baselineDisplayValue = readFactorDisplayValue(factorNode?.data as Record<string, unknown> | undefined)
         return [{
           factorId, label: cleanedLabel, value, displayValue: displayValue ?? undefined, unit,
           factorType: observedState?.factor_type, cap: observedState?.cap,
           observedValue: observedState?.value, observedRawValue: observedState?.raw_value,
-          baselineDisplayValue,
         }]
       })
       .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
@@ -702,31 +696,29 @@ export const OptionNode = memo((props: NodeProps) => {
     return detectBaseline(label).isBaseline
   }, [props.data])
 
-  const baselineOptionInterventions = useMemo<Record<string, number> | null>(() => {
+  // A before-reference must identify an actual option. A factor's observed
+  // value may be a proposal, and a label containing "status quo" is not a
+  // reference declaration. Multiple declared baselines are ambiguous here.
+  const baselineOptionReference = useMemo(() => {
     if (isBaselineOption) return null
-    const options = ceeAnalysisReady?.options
-    if (!options) return null
-    const baselineNode = nodes.find(n => {
-      if (n.id === props.id) return false
-      if (n.type !== 'option' && n.data?.type !== 'option') return false
-      const explicit = (n.data as any)?.is_baseline as boolean | null | undefined
-      if (typeof explicit === 'boolean') return explicit
-      const lbl = (n.data?.label as string | undefined) ?? ''
-      return detectBaseline(lbl).isBaseline
-    })
-    if (!baselineNode) return null
-    const baseCeeOption = options.find(opt => opt.id === baselineNode.id)
-    if (!baseCeeOption?.interventions) return null
-    // Drop entries that fail to unwrap. Downstream lookup
-    // (`baselineOptionInterventions?.[c.factorId] ?? c.observedValue`) will
-    // fall back to the observed value, which is a more honest baseline than
-    // a Number()-coerced 0.
-    return Object.fromEntries(
-      Object.entries(baseCeeOption.interventions).flatMap(([fid, rv]) => {
-        const { value: v } = unwrapInterventionValue(rv)
-        return v != null ? [[fid, v] as const] : []
-      })
+    const candidates = nodes.filter(n =>
+      n.id !== props.id && (n.type === 'option' || n.data?.type === 'option') &&
+      n.data?.is_baseline === true,
     )
+    if (candidates.length !== 1) return null
+    const baselineNode = candidates[0]
+    const raw = ceeAnalysisReady?.options?.find(opt => opt.id === baselineNode.id)?.interventions
+      ?? baselineNode.data?.interventions
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+    const values = Object.fromEntries(Object.entries(raw).flatMap(([factorId, entry]) => {
+      const unwrapped = unwrapInterventionValue(entry)
+      return unwrapped.value == null ? [] : [[factorId, unwrapped] as const]
+    }))
+    return {
+      label: typeof baselineNode.data?.label === 'string' && baselineNode.data.label.trim()
+        ? baselineNode.data.label : 'Baseline option',
+      values,
+    }
   }, [isBaselineOption, ceeAnalysisReady, nodes, props.id])
 
   // Structured deltas per spec Section 13 — rendered as guarded "from → to" chips.
@@ -734,16 +726,16 @@ export const OptionNode = memo((props: NodeProps) => {
     if (interventionChips.length === 0) return []
     return interventionChips
       .map(c => {
-        const baseline = baselineOptionInterventions?.[c.factorId] ?? c.observedValue
+        const reference = baselineOptionReference?.values[c.factorId]
+        const baseline = reference?.value ?? undefined
         // Graph v1.1 Task 6: compaction for pre-analysis pills. Bumped from 15
         // to 22 so multi-word factor labels (e.g. "Senior technical leadership")
         // read more meaningfully before truncation. Sized against the NODE_CARD_MAX_W
         // card; revisit if the card width changes materially.
         const shortLabel = compactFactorLabel(c.label, 22)
 
-        // Brief scope 7 guard (+ A2): both the baseline and the intervention
-        // value must already exist. A missing baseline ⇒ omit the chip — never
-        // a one-sided or fabricated value, and never a throw.
+        // The compact card only shows a before/after pair for a declared
+        // reference. Target-only details remain in the preview and inspector.
         if (baseline === undefined) return null
 
         // Single-formatter no-change semantics (audit §8 P0-4): a chip is
@@ -759,41 +751,28 @@ export const OptionNode = memo((props: NodeProps) => {
           observedRawValue: c.observedRawValue,
           targetDisplayValue: c.displayValue,
         })
-        if (!change.changed) return null // no change
-        const direction: 'up' | 'down' = change.arrow ?? 'up'
+        if (!change.changed) return null
+        const direction = change.arrow
 
-        // Scope A — binary/encoded factor with payload display labels on BOTH
-        // sides. Fires ONLY when: the pair is strictly {0,1}; the intervention
-        // carries a CEE display_value (target label); AND the factor's own
-        // display_value (baseline label) is present and corresponds to the
-        // baseline value (baseline === observed value). Both labels come from
-        // the payload — none is derived or invented. When labels are absent the
-        // numeric path below is used unchanged (no "0% → 100%" → label guess).
-        // Conservative limitation: when the baseline comes from a baseline
-        // OPTION's intervention (baseline !== observed value) we do NOT use the
-        // factor's observed display_value (it labels a different value), and we
-        // do not yet read the baseline option's own intervention display_value
-        // (baselineOptionInterventions is values-only) — those cases fall to the
-        // numeric path. Tracked as a follow-up; never shows a mismatched label.
-        const isBinaryPair = (c.value === 0 || c.value === 1) && (baseline === 0 || baseline === 1)
-        const baselineLabel = baseline === c.observedValue ? c.baselineDisplayValue : undefined
-        if (isBinaryPair && c.displayValue && baselineLabel) {
+        // A supplied label belongs to the reference option's own value,
+        // never the factor's observed display string or this option's target.
+        const baselineLabel = reference?.displayValue
+        // A labelled target and an unlabelled reference may use different
+        // frames. Preserve the supplied target in details without a pair.
+        if (Boolean(c.displayValue) !== Boolean(baselineLabel)) return null
+        if (c.displayValue && baselineLabel) {
           return { factorId: c.factorId, label: shortLabel, fullLabel: c.label, direction, fromTo: `${baselineLabel} → ${c.displayValue}` }
         }
 
-        // Both sides come from the shared formatter (real-world display units
-        // where the payload supports it — same chain the post-analysis list
-        // uses). When either side can't be formatted to real-world, fall back
-        // to normalised percentages for BOTH sides — the only safe shared
-        // scale. No new denormalisation logic is introduced.
-        const fromTo = change.baselineText && change.targetText
-          ? `${change.baselineText} → ${change.targetText}`
-          : `${Math.round(baseline * 100)}% → ${Math.round(c.value * 100)}%`
+        // Same formatter/context on both sides; do not fabricate percentages
+        // when the formatter cannot express this pair. Keep target-only detail.
+        if (!change.baselineText || !change.targetText) return null
+        const fromTo = `${change.baselineText} → ${change.targetText}`
 
         return { factorId: c.factorId, label: shortLabel, fullLabel: c.label, direction, fromTo }
       })
       .filter((d): d is StructuredDelta => d !== null)
-  }, [interventionChips, baselineOptionInterventions])
+  }, [interventionChips, baselineOptionReference])
 
   /**
    * Differentiator line — a complete sentence describing what's strategically
@@ -1296,79 +1275,48 @@ export const OptionNode = memo((props: NodeProps) => {
 
       {/* A baseline flag identifies the reference; it does not erase its values. */}
       {allInterventionChips.length > 0 && (() => {
-        const chipsWithMeta = allInterventionChips.map(chip => {
-          const baselineNorm = baselineOptionInterventions?.[chip.factorId] ?? chip.observedValue
-          // Shared no-change semantics: exact equality only (audit §8 P0-4).
-          const isNoChange = isInterventionNoChange(baselineNorm, chip.value)
-          return { chip, isNoChange }
+        // Every explicit target remains inspectable, even when it happens to
+        // equal an observed value whose current/reference role is unknown.
+        const visibleChips = allInterventionChips.slice(0, 3)
+        const moreInInspector = allInterventionChips.length - visibleChips.length
+        const rows = visibleChips.map(chip => {
+          const targetFormatted = formatInterventionTargetText(chip)
+          const reference = baselineOptionReference?.values[chip.factorId]
+          const baselineFormatted = reference?.value != null && Boolean(reference.displayValue) === Boolean(chip.displayValue)
+            ? formatInterventionTargetText({ ...chip, value: reference.value, displayValue: reference.displayValue ?? undefined })
+            : ''
+          // Preserve supplied text verbatim. Strip UI-generated label echoes
+          // on each end separately, before composing a reference pair.
+          const targetText = chip.displayValue ? targetFormatted : stripEcho(chip.label, targetFormatted)
+          const referenceText = reference?.displayValue ? baselineFormatted : stripEcho(chip.label, baselineFormatted)
+          const hasReference = Boolean(referenceText && targetText)
+          return {
+            chip,
+            hasReference,
+            sameAsReference: hasReference && reference?.value === chip.value,
+            text: hasReference && reference?.value !== chip.value
+              ? `${referenceText} → ${targetText}` : targetText,
+          }
         })
-        const allNoChange = chipsWithMeta.length > 0 && chipsWithMeta.every(c => c.isNoChange)
-        if (!isBaselineOption && allNoChange) return <p className={`${typography.edgeLabel} text-text-light m-0`}>No changes from current state</p>
-
-        // Card containment (audit §8 P0-5): max 3 rows inline; the remainder
-        // is disclosed via a plain "+N more in inspector" line — rows stay
-        // whole, no CSS clipping.
-        const renderableChips = isBaselineOption ? chipsWithMeta : chipsWithMeta.filter(c => !c.isNoChange)
-        const visibleChips = renderableChips.slice(0, 3)
-        // N counts only chips that WOULD render — hidden no-change chips and
-        // dropped malformed entries are not "more" changes to see.
-        const moreInInspector = Math.max(0, renderableChips.length - visibleChips.length)
 
         return (
           <>
-            <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5 mt-1`}>{isBaselineOption ? 'Baseline factor values:' : 'What this option changes:'}</p>
+            <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5 mt-1`}>{isBaselineOption ? 'Baseline factor values:' : 'What this option sets:'}</p>
+            {baselineOptionReference && rows.some(row => row.hasReference) && (
+              <p className={`${typography.edgeLabel} text-text-light m-0`}>Reference: {baselineOptionReference.label}</p>
+            )}
             <div className="flex flex-col gap-0.5">
-              {visibleChips.map(({ chip }) => {
-                const targetFormatted = formatInterventionTargetText(chip)
-                let deltaDisplay: string | null = null
-                // Skip delta arithmetic when CEE provided a qualitative displayValue
-                // for the target — pairing "Doubled capacity" with "(+70%)" produces
-                // scale mismatch (numeric delta on a non-numeric framing). The
-                // verbatim target string already conveys the change.
-                if (!isBaselineOption && !chip.displayValue) {
-                  const baselineNorm = baselineOptionInterventions?.[chip.factorId] ?? chip.observedValue
-                  if (baselineNorm !== undefined) {
-                    const scaleBase = inferInterventionScaleBase(chip.cap, chip.observedValue, chip.observedRawValue)
-                    const hasUnit = !!chip.unit && chip.unit !== 'fraction' && chip.unit !== 'proportion'
-                    const isQualitative = !chip.factorType || ['quality', 'demand', 'other'].includes(chip.factorType.toLowerCase())
-                    if ((hasUnit || !isQualitative) && scaleBase != null) {
-                      const denormedBaseline = denormaliseInterventionValue(baselineNorm, chip.cap, chip.observedValue, chip.observedRawValue)
-                      const denormedTarget = denormaliseInterventionValue(chip.value, chip.cap, chip.observedValue, chip.observedRawValue)
-                      if (Math.abs(denormedBaseline) > 0.01) {
-                        const pct = ((denormedTarget - denormedBaseline) / Math.abs(denormedBaseline)) * 100
-                        const sign = pct >= 0 ? '+' : ''
-                        // Strip displayValue — it describes the target intervention, not the baseline.
-                        const baselineFormatted = formatInterventionTargetText({ ...chip, value: baselineNorm, displayValue: undefined })
-                        // Polish 4 review fix: only build the delta string when
-                        // both formatter calls produced meaningful output.
-                        // Otherwise we'd render " → ()" for scale-unit factors
-                        // (empty baselineFormatted + empty targetFormatted).
-                        if (baselineFormatted && targetFormatted) {
-                          deltaDisplay = `${baselineFormatted} \u2192 ${targetFormatted} (${sign}${pct.toFixed(1)}%)`
-                        }
-                      }
-                    }
-                  }
-                }
-                const displayVal = deltaDisplay ?? targetFormatted
-                // Polish 4 review: when the intervention value is empty
-                // (scale-unit factor with no raw_value anchor), suppress the
-                // "→" separator and show only the label so the row reads as
-                // a discovery cue rather than misleading "→ 0.1 scale".
-                // F.6 passthrough: skip echo stripping for CEE display_value so
-                // the string renders exactly as authored (e.g. "Engineers added 5"
-                // must not be rewritten to "added 5" when the factor label is
-                // "Engineers"). Echo strip only applies to UI-formatted text.
-                const echoStripped = chip.displayValue
-                  ? chip.displayValue
-                  : (displayVal ? stripEcho(chip.label, displayVal) : '')
+              {rows.map(({ chip, text, sameAsReference }) => {
+                // No relative percentage: a model-level ratio does not prove
+                // a real-world relative change (for example on an offset scale).
                 return (
                   <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
                     <span className="text-text-body">{chip.label}</span>
-                    {echoStripped && (
+                    {text && (
                       <>
                         <span className="text-text-light">: </span>
-                        <span className={`${typography.nodeLabel} font-semibold`}>{echoStripped}</span>
+                        <span className={`${typography.nodeLabel} font-semibold`}>{text}</span>
+                        {sameAsReference && <span className="text-text-light"> (same as reference)</span>}
                       </>
                     )}
                   </div>
@@ -1402,7 +1350,7 @@ export const OptionNode = memo((props: NodeProps) => {
           in this inline layer-2 block. Body never renders chips directly. */}
       {optionChips}
     </>
-  ), [isPostAnalysis, goalThreshold, goalProbability, goalBadgeReadout, goalFitSubstituted, goalDecision, props.id, handleGoalReviewClick, allInterventionChips, isBaselineOption, baselineOptionInterventions, isOptionFromCee, props.data, totalInterventionCount, optionChips])
+  ), [isPostAnalysis, goalThreshold, goalProbability, goalBadgeReadout, goalFitSubstituted, goalDecision, props.id, handleGoalReviewClick, allInterventionChips, isBaselineOption, baselineOptionReference, isOptionFromCee, props.data, totalInterventionCount, optionChips])
 
   // ----- Pre-analysis popover content -----
   const preAnalysisPopoverContent = useMemo(() => {
@@ -1420,7 +1368,7 @@ export const OptionNode = memo((props: NodeProps) => {
     if (totalInterventionCount === 0) return (
       <>
         <p className={`${typography.nodeLabel} text-text-body m-0`}>No interventions specified for this option.</p>
-        {optionChips}
+        {!isDetailed && optionChips}
       </>
     )
 
@@ -1469,10 +1417,12 @@ export const OptionNode = memo((props: NodeProps) => {
             +{allInterventionChips.length - interventionChips.length} more in inspector
           </button>
         )}
-        {optionChips}
+        {/* Detailed mode already has these actions on the card. Its recovery
+            preview adds target information without repeating the coaching. */}
+        {!isDetailed && optionChips}
       </>
     )
-  }, [isPostAnalysis, isBaselineOption, totalInterventionCount, interventionChips, allInterventionChips.length, handleViewParams, optionChips])
+  }, [isPostAnalysis, isDetailed, isBaselineOption, totalInterventionCount, interventionChips, allInterventionChips.length, handleViewParams, optionChips])
 
   /**
    * Completeness assessment for Detailed pre-analysis view.
@@ -1544,6 +1494,9 @@ export const OptionNode = memo((props: NodeProps) => {
       phrase: COMPARATIVE_COPY.phrase(formatted),
     }
   }, [displayMetadata.isResultsMode, displayMetadata.winRate])
+  const winReadoutDescription = winReadout
+    ? (analysisCurrencyNote ? `${analysisCurrencyNote}. Last analysis: ${winReadout.phrase}` : winReadout.phrase)
+    : ''
 
   return (
     <div
@@ -1630,7 +1583,8 @@ export const OptionNode = memo((props: NodeProps) => {
               data-testid={`leading-option-pill-${props.id}`}
               className={`shrink-0 whitespace-nowrap ${typography.edgeLabel} font-medium bg-panel border-2 border-option text-text-body rounded-full px-1.5 py-0.5`}
             >
-              Most supported
+              {analysisCurrencyNote && <span>Last run · </span>}
+              <span>Most supported</span>
             </span>
             {/* The run's robustness travels WITH the designation it qualifies —
                 same stack, same row, so the claim cannot be read without the
@@ -1680,21 +1634,25 @@ export const OptionNode = memo((props: NodeProps) => {
 
             THE SENTENCE IS NOT DROPPED, because the number alone does not say
             what it measures. It survives twice:
-              · as the row's `title`, so a pointer user gets it on hover;
-              · as an out-of-flow span, because hover is not available to a
-                keyboard or screen-reader user and a bare "72%" would announce
-                as a quantity with no referent.
-            The bar and the number are hidden from assistive technology so the
-            statistic is announced ONCE, in full, rather than as a number
-            followed by a sentence repeating it.
+              · in the positioned tooltip on hover or keyboard focus;
+              · in the row's accessible name, including any currentness caveat.
+            The bar is deliberately a focusable graphic for keyboard disclosure.
+            Its role makes descendants presentational, so aria-label is the
+            single accessible name; an additional screen-reader-only child
+            would not provide another announcement.
 
             The copy is never re-typed here: it comes from
             `COMPARATIVE_COPY.phrase` (components/results/utils/goalAnchorCopy),
             which is the ratified wording and the one owner of it. */}
         {winReadout !== null && (
+          <Tooltip asChild content={winReadoutDescription} delay={NODE_TOOLTIP_DELAY_MS}>
           <div
-            className="mt-1.5 mb-1 flex items-center gap-1.5"
-            title={winReadout.phrase}
+            className="mt-1.5 mb-1 flex items-center gap-1.5 cursor-help"
+            role="img"
+            aria-label={winReadoutDescription}
+            tabIndex={0}
+            data-node-tooltip="true"
+            data-testid={`option-analysis-currency-${props.id}`}
           >
             {/* ⭐⭐ `max(4px, N%)` IS THE ONLY THING PREVENTING A 0px FILL HERE.
                 DO NOT REMOVE IT AS REDUNDANT — it is not.
@@ -1727,8 +1685,8 @@ export const OptionNode = memo((props: NodeProps) => {
                 and the floor matters MORE here, not less. */}
             {/* ⭐ THE ANCHOR, VISIBLE — restored 31 Aug 2026.
                 The density change put `phrase()` behind a `title` and left the
-                number bare. A `title` is unreachable by KEYBOARD (this row is
-                not focusable) and absent on TOUCH (`(hover: hover)` false), so
+                number bare. At that time the row was not focusable, so its
+                `title` was unreachable by KEYBOARD and absent on TOUCH, and
                 two input classes got a number with no statement of what it
                 measures — on the only unlabelled percentage on a canvas where
                 every other one is anchored, and beside the rank badge, which is
@@ -1760,8 +1718,8 @@ export const OptionNode = memo((props: NodeProps) => {
             >
               {winReadout.formatted}
             </span>
-            <span className={typography.screenReaderOnly}>{winReadout.phrase}</span>
           </div>
+          </Tooltip>
         )}
 
         {/* ⭐ THE OPTION THE ANALYSIS RAN ON AND COULD NOT COMPUTE.
@@ -1924,6 +1882,9 @@ export const OptionNode = memo((props: NodeProps) => {
             against ~1600 showable) and no card change reaches that. */}
         {structuredDeltaChipsRender && (
           <ul className="flex flex-col gap-1 mt-1.5 m-0 p-0 list-none">
+            {baselineOptionReference && (
+              <li className={`${typography.edgeLabel} text-text-light`}>Reference: {baselineOptionReference.label}</li>
+            )}
             {structuredDeltas.map(d => (
               <li
                 key={d.factorId}
@@ -1937,9 +1898,9 @@ export const OptionNode = memo((props: NodeProps) => {
               >
                 {d.direction === 'up' ? (
                   <ArrowUp size={10} className="text-text-light flex-shrink-0 mt-0.5" />
-                ) : (
+                ) : d.direction === 'down' ? (
                   <ArrowDown size={10} className="text-text-light flex-shrink-0 mt-0.5" />
-                )}
+                ) : null}
                 {/* min-w-0 so the text block may shrink and WRAP rather than
                     overflow. Nothing here is `truncate`: a CSS ellipsis inside
                     a canvas node REDs `nodeTextClipping.visual.spec.ts`, which
@@ -2099,7 +2060,7 @@ export const OptionNode = memo((props: NodeProps) => {
                 down properly, which is the tell that the height claim was
                 doing rhetorical rather than load-bearing work. */}
             {structuredDeltas.length === 0 && hasInterventions && (() => {
-              const short = `Changes ${totalInterventionCount} factor${totalInterventionCount === 1 ? '' : 's'}`
+              const short = `${totalInterventionCount} factor target${totalInterventionCount === 1 ? '' : 's'}`
               const full = `${short}. Open the inspector to see which ones.`
               return (
                 <p
@@ -2162,8 +2123,9 @@ export const OptionNode = memo((props: NodeProps) => {
         </NodePopover>
       )}
 
-      {/* Pre-analysis popover (Standard view, hover) */}
-      {!isDetailed && !isPostAnalysis && preAnalysisPopoverContent && (
+      {/* Pre-analysis preview. Without a reference pair, Detailed mode also needs target recovery.
+          It must not lose its preview merely because no before-value is known. */}
+      {!isPostAnalysis && (!isDetailed || structuredDeltas.length === 0) && preAnalysisPopoverContent && (
         <NodePopover
           visible={showPopover}
           width={260}

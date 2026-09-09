@@ -356,9 +356,11 @@ function invariantRuns(perSibling: string[][]): string[] {
 }
 
 /**
- * ⚠ THE FACTORS WITH NO RESOLVABLE BASELINE. `structuredDeltas` omits a change
- * whose baseline is unknown, so with no `observedState` anywhere the delta rows
- * are empty and the card falls back to its change-COUNT line. That fallback is
+ * THE FACTORS WITHOUT OBSERVED VALUES. This also has no declared reference
+ * option, so the delta rows are empty and the card uses its change-COUNT line.
+ * Since the reference-identity repair, the ordinary board also has no declared
+ * reference: observedState alone no longer licenses a before/after pair.
+ * The two fixtures retain coverage with and without observed values. The fallback is
  * a REAL card state — it is what a user sees on a graph CEE drafted without
  * observed values — and it was reachable by NO bucket in the first version of
  * this file, which is how the line this PR edits came to be credited to a
@@ -400,9 +402,8 @@ const BUCKETS: Array<
   // it is where repeated copy costs the most.
   // The run that computed nothing — see NOT_COMPUTED_META.
   ['option · not-computed · standard', 'option', OPTION_IDS, 'post', 'standard', 'full', NOT_COMPUTED_META],
-  // The graph with no observed values — see NODES_NO_BASELINE. This is the only
-  // bucket that reaches the change-COUNT line, which is one of the two lines
-  // this PR edits.
+  // No observed values and no declared reference — the ordinary expert draft
+  // now also reaches the change-COUNT line, without borrowing observed values.
   ['option · no-baseline · expert', 'option', OPTION_IDS, 'pre', 'expert', 'full', {}, NODES_NO_BASELINE],
   ['option · pre · lod-line', 'option', OPTION_IDS, 'pre', 'standard', 'line'],
   ['option · post · lod-line', 'option', OPTION_IDS, 'post', 'standard', 'line'],
@@ -450,7 +451,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   'option · post · expert': [
     'Support', // CAPTION
     'View parameters', // CONTROL
-    'What this option changes:', // HEADING
+    'What this option sets:', // HEADING
     'What would make this better supported?', // CONTROL
   ],
   'factor · pre · standard': [],
@@ -638,7 +639,7 @@ const ADJUDICATED_POSITIONS: Position[] = [
   { what: 'option · the coaching chip', by: 'census', present: (_c, r) => r.includes('What could go wrong?') },
   { what: 'shared · the `Driven by:` / `Depends on:` headings', by: 'census', present: (_c, r) => r.includes('Driven by:') || r.includes('Depends on:') },
   { what: 'factor · the `Influences:` heading', by: 'census', present: (_c, r) => r.includes('Influences:') },
-  { what: 'option · the `What this option changes:` heading', by: 'census', present: (_c, r) => r.includes('What this option changes:') },
+  { what: 'option · the `What this option sets:` heading', by: 'census', present: (_c, r) => r.includes('What this option sets:') },
   { what: 'shared · the reduced line below the legibility floor', by: 'census', present: (c) => c.querySelector('[data-testid="node-lod-line"]') != null },
 
   // ── decided BY HAND: reached, but their runs can never enter an
@@ -813,7 +814,7 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     )
   })
 
-  it('…and so does the change-count line, on the only bucket that reaches it', () => {
+  it('…and so does the change-count line, with no observed values or declared reference', () => {
     // Bound to the SAME fixture the `option · no-baseline · expert` bucket
     // uses, so this case and the census cannot drift apart into two different
     // notions of "the branch that renders it".
@@ -821,8 +822,8 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     const card = mountCard('option', 'option-2', 'pre')
     twoCarrier(
       card.querySelector('[data-testid="option-change-count-option-2"]'),
-      'Changes 2 factors',
-      'Changes 2 factors. Open the inspector to see which ones.',
+      '2 factor targets',
+      '2 factor targets. Open the inspector to see which ones.',
       'change-count',
     )
   })
@@ -875,7 +876,9 @@ describe('canvas card copy census (Paul, 31 Aug 2026)', () => {
     expect(reachedIn.get('option · the change-COUNT line (compacted by this PR)'))
       .toEqual(expect.arrayContaining(['option · no-baseline · expert']))
     expect(new Set(reachedIn.get('option · the change-COUNT line (compacted by this PR)')))
-      .toEqual(new Set(['option · no-baseline · expert']))
+      // Both boards lack a declared reference; having observed values no
+      // longer suppresses this recovery affordance by inventing a pair.
+      .toEqual(new Set(['option · pre · expert', 'option · no-baseline · expert']))
   })
 
   /**

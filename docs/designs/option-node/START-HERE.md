@@ -1,5 +1,7 @@
 # Option node — current design reference
 
+**9 September delivery update:** the premium V2 sheet below is the preserved visual foundation. The current application repairs, including reference values, missing/stale results, coaching recovery and the inspector, are tracked in the [V3 delivery specification](v3/DESIGN-SPEC.md) and [validation record](v3/VALIDATION.md). The sheet's simulated states describe the earlier #1333 scope; use the delivery register for subsequent behaviour and release status. No new prototype is being introduced.
+
 Open [the premium V2, refined in place](v2/olumi-option-node-v2.html). This is the current **node and inspector component sheet**, updated at Paul's request on 8 September 2026. It replaces the earlier six-option exploration in that same file. The original project-output URL and this repository copy contain the same reference.
 
 Use **At rest, Hover preview, Quick actions and Selected**, then try the example selector for long text, missing inputs and origin, a conditional coaching cue, and unavailable AI. The 125% review size magnifies existing geometry; 100% is available. The inspector is a separate component specimen and remains visible for comparison. The More menu shows the Open details excerpt, not every production entry.
