@@ -872,19 +872,27 @@ export const OptionNode = memo((props: NodeProps) => {
   const structuredDeltaChipsRender =
     !isBaselineOption && structuredDeltas.length > 0
 
-  // Brief scope 7: drop the differentiator footer only when it repeats a value
-  // already shown in a VISIBLE from→to chip — same factor AND the same value
-  // text. A differentiator carrying a value the chip doesn't show (e.g. a CEE
-  // display_value where the chip fell back to "%") is kept, so no info is lost.
-  const differentiatorDuplicatesChip = structuredDeltaChipsRender
-    && !!differentiator
-    && differentiator.label.includes('→')
-    && structuredDeltas.some(d => {
-      if (d.factorId !== differentiator.factorId) return false
-      const diffValue = (differentiator.label.split('→')[1] ?? '').trim()
-      return diffValue.length > 0 && d.fromTo.includes(diffValue)
-    })
-
+  /**
+   * ⭐⭐ THE DIFFERENTIATOR DE-DUPLICATION IS RETIRED — Paul, 10 Sep 2026:
+   * "both stay".
+   *
+   * Brief scope 7 dropped the differentiator footer when it repeated a value
+   * already shown in a VISIBLE from-to chip. That rule was written when the
+   * chip was PRE-ANALYSIS ONLY, so it only ever fired before a run — and the
+   * moment the chip was restored post-analysis (this change) it began eating
+   * the sentence #1247 exists to guarantee.
+   *
+   * ⚠ THE RULING IS PHASE-FREE AND SO IS THIS. Suppressing post-analysis and
+   * not pre- would have left a third `isPostAnalysis` conditional on this card,
+   * which is the defect class this change removes. Both elements render in both
+   * phases: the chip states the CHANGE ("49 to 59"), the footer states the
+   * REASON it matters (which factor differentiates this option).
+   *
+   * The predicate itself is deleted rather than left unused — an unread
+   * constant is a claim nothing checks. Density is a STYLE question and Paul
+   * has it flagged for a user-experience pass; if it comes back it comes back
+   * as a rendering decision, not as a silent suppression.
+   */
   const handleMouseEnter = useMemo(() => () => {
     if (hasInterventions) setHoveredOption(props.id)
   }, [props.id, hasInterventions, setHoveredOption])
@@ -1968,7 +1976,8 @@ export const OptionNode = memo((props: NodeProps) => {
             universal quantifier was doing rhetorical work the code does not
             do. */}
         {!isBaselineOption && !isDetailed && differentiator
-          && !differentiatorDuplicatesChip
+          /* Paul's ruling 10 Sep 2026 — "both stay". Was
+             `&& !differentiatorDuplicatesChip`. See the predicate's header. */
           && !(isPostAnalysis && !isRecommended && behindReason) && (
           <p
             className={`${typography.edgeLabel} text-text-light mt-1 m-0`}
