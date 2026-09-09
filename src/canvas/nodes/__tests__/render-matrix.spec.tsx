@@ -351,9 +351,18 @@ describe('Render matrix — OptionNode × view × phase', () => {
   })
 
   it('Standard pre non-baseline: shows "What could go wrong?" chip + from→to chip (footer de-duped)', () => {
-    applyStore(twoOptionTopology('standard', 'pre'))
+    const topology = twoOptionTopology('standard', 'pre')
+    // The pair needs its own declared reference. The factor's observed value
+    // alone must not license it; the missing-reference case keeps its footer.
+    applyStore({ ...topology, nodes: [...topology.nodes, {
+      id: 'reference', type: 'option', data: {
+        label: 'Keep current hiring', type: 'option', is_baseline: true,
+        interventions: { 'factor-1': 0.3 },
+      },
+    }] })
     const { container } = renderOption({})
     expect(screen.getByText('What could go wrong?')).toBeDefined()
+    expect(screen.getByText('Reference: Keep current hiring')).toBeDefined()
     // Both options share the top factor (option-1 at 0.9 on engineers cap=10 →
     // "9 engineers"). Brief scope 7: that value shows in the from→to chip
     // ("3 engineers → 9 engineers"), so the duplicate differentiator footer <p>

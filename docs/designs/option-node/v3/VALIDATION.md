@@ -1,6 +1,23 @@
 # Current delivery validation — 9 September 2026
 
-Candidate branch: `codex/option-node-followups`. No local test/build/install was run under the shared resource directive. Whitespace validation only: `git diff --check` passed. Hosted CI and independent review are required before release.
+The initial follow-up is released; further candidates remain open below. No local test/build/install or new native-browser run was performed under the shared resource directive. Hosted gates establish test/build evidence, not the joined user journey.
+
+| Release | Exact reviewed head | Hosted Staging Gate | Merge / served evidence |
+|---|---|---|---|
+| #1264, positioned provenance/icon tooltips | `37e1932813f85c6bf121b9b42f08703986b92bd9` | `102300545134`, passed | `14276d5b`, immutable deploy `6aa0b4427debea0008e7a5dd` |
+| #1342, missing results, baseline honesty, full detail and coaching recovery | `542b80a19eb73eb8336cada69488e191ee367623` | All four shards, build, typecheck and Staging Gate passed | `f8f77196`, included in served `ee2b241f` |
+| #1344, evidence and measurement coaching | `a769d0dcf137a41b1254e3e44255b7ac4a07d92f` | `102302338389`, passed | `ee2b241f`, immutable deploy `6aa0c44c7398550008cc5537`, 02:30:01 UTC |
+| #1343, target-only inspector and option identity | `505f745dd4b76e7a7938f50a4b3d68f0515bf471` | `102319101922`, passed | `81dbddd0`, immutable deploy `6aa0c995d8603000097b7d66`, 02:52:31 UTC |
+| #1353, named reference, target recovery and retained-result currentness | `bd6d3cc60fe327270f5367c5448de17dafabf497` | `102332875003`, passed | `10d060f2`, immutable deploy `6aa0dd4c05452d0008fc14d6`, 04:16:46 UTC |
+| #1355, inspector read-only usability and correct option identity | `ff6f1e851af7b7481a9d1c7cfb9cc06fe9c2d640` | `102335546333`, passed | `78202540`, immutable deploy `6aa0deb2ea14b40008203a00`, 04:22:40 UTC |
+
+Receipts: [#1342/#1344 release](https://github.com/Talchain/olumi-programme-docs/pull/38#issuecomment-5594863972), [served verification](https://github.com/Talchain/olumi-programme-docs/pull/38#issuecomment-5594880926), [#1343 served verification](https://github.com/Talchain/olumi-programme-docs/pull/38#issuecomment-5595106908).
+
+#1353 and #1355 passed all four full-suite shards, production build, type/lint and the mounted Canvas Browser Gate before normal expected-head merges. Their mutable and immutable deployment identities were read independently. Receipts: [option release and independent review](https://github.com/Talchain/DecisionGuideAI/pull/1353#issuecomment-5595706687), [inspector release](https://github.com/Talchain/DecisionGuideAI/pull/1355#issuecomment-5595749631). These releases compose at `78202540`; no local test/build/install or new native run was added.
+
+Earlier #1353 runs found and repaired missing Detailed previews, an observed-value reference fixture, duplicated coaching, and assertions still reading the former accessible carrier. The final candidate's actual Canvas Browser Gate ran 25/25 (job `102330351994`). This does not cover the new currentness behaviour or live AI journey. Advisory visual regression remains failed, including the unchanged-capture tolerance control and framing expectations; no image baseline or assertion was skipped or approved away.
+
+Open: #1356's comparative coaching question is independently source-clear at `80e086ed` with hosted checks in progress. #1357's shared metric disclosure and design-system contract are under review and hosted validation. The underlying quantity-role/scale repair and composed native acceptance remain separately owned; correctly naming a baseline does not certify the formatter's proportional mapping.
 
 | Acceptance | Authored check | Deployed artefact |
 |---|---|---|
