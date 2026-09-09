@@ -4,7 +4,7 @@
  * T8: Intervention chips with cleaned labels and formatted values
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
 // The tie fixtures are pinned against the SHARED policy the component uses, so
@@ -351,7 +351,8 @@ describe('OptionNode', () => {
             interventions: { 'factor-1': 0.6 },
           }],
         },
-        nodes: [{
+        nodes: [
+          { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-1': 0.2 } } },{
           id: 'factor-1',
           // observedState.value provides the baseline so the from→to chip renders
           // (brief scope 7: a chip needs both a baseline and an intervention value).
@@ -375,7 +376,8 @@ describe('OptionNode', () => {
         ceeAnalysisReady: {
           options: [{ id: 'option-1', interventions: { 'factor-1': 0.804 } }],
         },
-        nodes: [{
+        nodes: [
+          { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-1': 0.3 } } },{
           id: 'factor-1',
           data: { label: 'Developer Headcount', observedState: { unit: 'developers', value: 0.3, cap: 20 } },
         }],
@@ -396,7 +398,8 @@ describe('OptionNode', () => {
         ceeAnalysisReady: {
           options: [{ id: 'option-1', interventions: { 'factor-1': 0.15 } }],
         },
-        nodes: [{
+        nodes: [
+          { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-1': 0.1 } } },{
           id: 'factor-1',
           data: { label: 'Engineering Capacity', observedState: { unit: 'FTE', value: 0.1, cap: 10 } },
         }],
@@ -419,7 +422,8 @@ describe('OptionNode', () => {
         ceeAnalysisReady: {
           options: [{ id: 'option-1', interventions: { 'factor-tl': { value: 1, display_value: 'Tech lead in place' } } }],
         },
-        nodes: [{
+        nodes: [
+          { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-tl': { value: 0, display_value: 'No tech lead in place' } } } },{
           id: 'factor-tl',
           data: {
             label: 'Tech lead in place',
@@ -445,7 +449,8 @@ describe('OptionNode', () => {
         ceeAnalysisReady: {
           options: [{ id: 'option-1', interventions: { 'factor-tl': 1 } }],
         },
-        nodes: [{
+        nodes: [
+          { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-tl': 0 } } },{
           id: 'factor-tl',
           data: { label: 'Tech lead in place', observedState: { value: 0, factor_type: 'quality' } },
         }],
@@ -477,7 +482,8 @@ describe('OptionNode', () => {
         ceeAnalysisReady: {
           options: [{ id: 'option-1', interventions: { 'factor-tl': { value: 0, display_value: 'No tech lead in place' } } }],
         },
-        nodes: [{
+        nodes: [
+          { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-tl': { value: 1, display_value: 'Tech lead in place' } } } },{
           id: 'factor-tl',
           data: {
             label: 'Tech lead in place',
@@ -491,10 +497,7 @@ describe('OptionNode', () => {
     expect(screen.getByText('Tech lead in place → No tech lead in place')).toBeDefined()
   })
 
-  // Scope A edge case (Codex review): the baseline label may live under
-  // observedState.display_value (legacy/in-flight shape) rather than top-level.
-  // readFactorDisplayValue honours both, so the chip still renders labels.
-  it('reads the baseline label from observedState.display_value when top-level is absent', () => {
+  it('does not borrow the factor observed label as an option reference', async () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         ceeAnalysisReady: {
@@ -504,14 +507,16 @@ describe('OptionNode', () => {
           id: 'factor-tl',
           data: {
             label: 'Tech lead in place',
-            // No top-level display_value — only nested in observedState.
             observedState: { value: 0, display_value: 'No tech lead in place' },
           },
         }],
       }) as any)
     )
-    renderOption()
-    expect(screen.getByText('No tech lead in place → Tech lead in place')).toBeDefined()
+    const { container } = renderOption()
+    fireEvent.mouseEnter(container.firstElementChild!)
+    const targets = await screen.findAllByText('Tech lead in place')
+    expect(targets.some(element => element.classList.contains('font-semibold'))).toBe(true)
+    expect(screen.queryByText('No tech lead in place → Tech lead in place')).toBeNull()
   })
 
   it('has displayName set', () => {
@@ -1256,7 +1261,7 @@ describe('OptionNode', () => {
           {
             id: 'option-baseline',
             type: 'option',
-            data: { label: 'Keep current pricing', type: 'option' },
+            data: { label: 'Keep current pricing', type: 'option', is_baseline: true },
           },
           {
             id: 'factor-1',
@@ -1270,12 +1275,13 @@ describe('OptionNode', () => {
     )
     // option-1 is a non-baseline option (baseProps.id = 'option-1');
     // baseline option sets factor to 0.49 → £49; target option sets to 0.59 → £59
-    // delta = (59-49)/49 ≈ +20.4%
+    // No relative percentage is inferred from the normalised values.
     renderOption({ label: 'Raise price' })
-    // The chip should show "£49 → £59 (+20.4%)"
+    // The pair is bound to the named option, not the observed factor record.
     expect(screen.getByText(/£49/)).toBeDefined()
     expect(screen.getByText(/£59/)).toBeDefined()
-    expect(screen.getByText(/\+20\.4%/)).toBeDefined()
+    expect(screen.getByText('Reference: Keep current pricing')).toBeDefined()
+    expect(screen.queryByText(/\+20\.4%/)).toBeNull()
   })
 
   // P7: Win bar uses max(8px, X%) for very low win probabilities
@@ -1873,6 +1879,7 @@ describe('OptionNode — QA Brief C-series', () => {
             ],
           },
           nodes: [
+            { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-1': 0.5 } } },
             { id: 'option-1', type: 'option', data: { label: 'Hire Tech Lead', type: 'option' } },
             { id: 'option-2', type: 'option', data: { label: 'Hire Developers', type: 'option' } },
             {
@@ -2351,6 +2358,7 @@ describe('OptionNode — display coherence (audit §8)', () => {
           options: [{ id: 'option-1', interventions: { 'factor-1': 0.8 } }],
         },
         nodes: [
+          { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-1': 0.4 } } },
           { id: 'factor-1', data: { label: 'Budget', observedState: { unit: 'fraction', value: 0.4 } } },
         ],
       }) as any)
@@ -2821,6 +2829,7 @@ describe('OptionNode — pre-analysis delta rows', () => {
         options: [{ id: 'option-1', interventions: { 'factor-long': 0.8, 'factor-short': 0.9 } }],
       },
       nodes: [
+        { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-long': 0.4, 'factor-short': 0.5 } } },
         { id: 'factor-long', data: { label: 'Enterprise Revenue Cannibalization Risk', observedState: { unit: 'fraction', value: 0.4 } } },
         { id: 'factor-short', data: { label: 'Budget', observedState: { unit: 'fraction', value: 0.5 } } },
       ],

@@ -220,7 +220,7 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
   /**
    * ⚠ THE FIXTURE MUST PRODUCE A CHIP, or the suppression never fires and these
    * tests pass without exercising the branch. Measured: without an
-   * `observedState` on the factor and a baseline option present,
+   * an intervention on a declared baseline option,
    * `structuredDeltas` is EMPTY, `differentiatorDuplicatesChip` can never be
    * true, and reverting the fix leaves every test GREEN — which is exactly what
    * the first cut of this block did.
@@ -242,7 +242,7 @@ describe('OptionNode differentiator — a SHARED top factor survives the run too
   const BASELINE_OPTION = {
     id: 'option-b',
     type: 'option',
-    data: { label: 'Status quo', type: 'option', is_baseline: true },
+    data: { label: 'Status quo', type: 'option', is_baseline: true, interventions: { 'f-head': { value: 0, display_value: '0 engineers' } } },
   }
 
   const renderShared = (storeOverrides: Record<string, unknown> = {}) => {

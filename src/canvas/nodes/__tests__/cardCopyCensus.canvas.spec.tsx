@@ -450,7 +450,7 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   'option · post · expert': [
     'Support', // CAPTION
     'View parameters', // CONTROL
-    'What this option changes:', // HEADING
+    'What this option sets:', // HEADING
     'What would make this better supported?', // CONTROL
   ],
   'factor · pre · standard': [],
@@ -638,7 +638,7 @@ const ADJUDICATED_POSITIONS: Position[] = [
   { what: 'option · the coaching chip', by: 'census', present: (_c, r) => r.includes('What could go wrong?') },
   { what: 'shared · the `Driven by:` / `Depends on:` headings', by: 'census', present: (_c, r) => r.includes('Driven by:') || r.includes('Depends on:') },
   { what: 'factor · the `Influences:` heading', by: 'census', present: (_c, r) => r.includes('Influences:') },
-  { what: 'option · the `What this option changes:` heading', by: 'census', present: (_c, r) => r.includes('What this option changes:') },
+  { what: 'option · the `What this option sets:` heading', by: 'census', present: (_c, r) => r.includes('What this option sets:') },
   { what: 'shared · the reduced line below the legibility floor', by: 'census', present: (c) => c.querySelector('[data-testid="node-lod-line"]') != null },
 
   // ── decided BY HAND: reached, but their runs can never enter an
