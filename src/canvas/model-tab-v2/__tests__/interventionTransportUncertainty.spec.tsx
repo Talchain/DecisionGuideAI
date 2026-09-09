@@ -107,6 +107,7 @@ import { openOutlineGroups } from './openOutlineGroups'
 
 const OPTION = 'opt_leeds'
 const FACTOR = 'fac_capex'
+const GOAL = 'goal_service'
 const HASH = '9f2c1b0ae4d37c5a'
 const SCENARIO = 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4'
 
@@ -119,6 +120,17 @@ function nodes(): Node[] {
     {
       id: OPTION, type: 'option', position: { x: 0, y: 0 },
       data: { label: 'Open Leeds', kind: 'option', interventions: { [FACTOR]: 0.2 } },
+    },
+    // ⚠ A GOAL IS NOT DECORATION HERE. `analysis_ready.goal_node_id` is
+    // `z.string().optional()` — NOT nullable — and `analysis_ready` is FATAL to
+    // the parse when it fails its schema ("it carries the turn's substance").
+    // The first version of the receipt fixture carried `goal_node_id: null`,
+    // borrowed from the RECEIPT's own nullable convention, so the whole response
+    // failed to parse, routed as an error, and never reached the reconcile. The
+    // value simply stayed at 0.2 and said nothing about why.
+    {
+      id: GOAL, type: 'goal', position: { x: 0, y: 0 },
+      data: { label: 'Service quality', kind: 'goal' },
     },
   ] as unknown as Node[]
 }
@@ -269,9 +281,12 @@ describe('a fetch that was MADE and then rejected', () => {
 describe('a committed receipt, through the real receiver', () => {
   /** The canonical committed receipt CEE #1408 attaches, as the wire carries it. */
   function committedBody() {
+    // ⚠ ATOMIC RECONCILE: a canvas node absent from the receipt is DELETED, so
+    // the receipt carries the whole committed graph, exactly as CEE's does.
     const wireNodes = [
       { id: FACTOR, kind: 'factor', label: 'Capital expenditure' },
       { id: OPTION, kind: 'option', label: 'Open Leeds', interventions: { [FACTOR]: 0.6 } },
+      { id: GOAL, kind: 'goal', label: 'Service quality' },
     ]
     return {
       response_version: 2,
@@ -290,7 +305,7 @@ describe('a committed receipt, through the real receiver', () => {
         options: [
           { id: OPTION, label: 'Open Leeds', interventions: { [FACTOR]: 0.6 }, is_baseline: false },
         ],
-        goal_node_id: null,
+        goal_node_id: GOAL,
         goal_constraints: [],
       },
       analysis_ready: {
@@ -298,7 +313,7 @@ describe('a committed receipt, through the real receiver', () => {
         options: [
           { id: OPTION, label: 'Open Leeds', interventions: { [FACTOR]: 0.6 }, is_baseline: false },
         ],
-        goal_node_id: null,
+        goal_node_id: GOAL,
       },
     }
   }
@@ -316,6 +331,13 @@ describe('a committed receipt, through the real receiver', () => {
 
     renderMounted()
     commit('0.6')
+
+    // ⭐ SELF-DIAGNOSING, AND IT EARNED THE LINE. When this fixture's
+    // `analysis_ready` was invalid the response failed to parse and routed as an
+    // error, and the only symptom was `expected 0.2 to be 0.6` — a value
+    // assertion reporting a parse failure. A turn that FAILED says so here.
+    await waitFor(() => expect(fetchStub).toHaveBeenCalled())
+    expect(noticeText(), 'the turn failed before the receipt could apply').toBe('')
 
     // The value lands in the CANONICAL store — the model the rest of the
     // surface reads — carried by the receipt, not written by this test.
