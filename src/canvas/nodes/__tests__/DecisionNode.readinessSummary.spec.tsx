@@ -523,7 +523,20 @@ describe('DecisionNode — the readiness summary on the card', () => {
     expect(screen.getByTestId(SUMMARY).textContent).toBe(
       composeReadinessSummary(readiness({ explicitCount: 1, inferredCount: 1 })),
     )
-    // …and the producer's withheld leader stays withheld, in the SAME render.
+    // ⚠ THESE TWO ASSERTIONS ARE NOW STRUCTURAL, NOT DISCRIMINATING, AND ARE
+    // KEPT DELIBERATELY RATHER THAN DELETED OR PRETENDED TO BE GATES.
+    //
+    // They read "the producer's withheld leader stays withheld, in the SAME
+    // render" — a real conjunction when this node carried a verdict sentence and
+    // a support bar. Both surfaces have since been removed as duplicates of the
+    // option cards', so on THIS fixture they can no longer fail for the reason
+    // they were written for.
+    //
+    // They stay because they still catch a reintroduction on the readiness path
+    // specifically — a future "the card should say which option leads, next to
+    // the readiness" change — which is the one place this file would notice it.
+    // The permission property itself is pinned once, across all states, in
+    // `canvasLeaderAdmission`.
     expect(screen.queryByText(SUPPORTED_CLAUSE_ANY_MAGNITUDE)).toBeNull()
     expect(screen.queryByTestId('decision-leader-metric-row')).toBeNull()
   })

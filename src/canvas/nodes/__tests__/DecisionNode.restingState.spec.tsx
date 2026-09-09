@@ -453,8 +453,12 @@ describe('DecisionNode — honest resting state', () => {
       viewMode: 'standard',
     })
     renderDecision()
-    // The leader sentence stays withheld — this is not a softening of it.
-    expect(screen.queryByText(/supported in \d+% of simulated scenarios/i)).toBeNull()
+    // ⚠ THE SENTENCE ASSERTION THAT USED TO SIT HERE IS GONE, NOT MOVED. It read
+    // `queryByText(/supported in .../)` → null, which passed because the claim
+    // was withheld. That sentence has since been removed from this node
+    // altogether, so the assertion would now pass on every run and prove
+    // nothing — a guard agreeing with itself. Its property is pinned once, in
+    // `canvasLeaderAdmission`, across ALL permission states.
     expect(screen.getByTestId(RESTING)).toBeDefined()
   })
 
@@ -501,16 +505,97 @@ describe('DecisionNode — honest resting state', () => {
     expect(screen.queryByTestId(RESTING)).toBeNull()
   })
 
-  it('does NOT render when the post-analysis body carries the producer-owned leader sentence', () => {
+  it('DOES render on a completed run in Standard — the verdict no longer holds it shut', () => {
+    // ⭐⭐ THE ARM THAT VERIFIES THE WHOLE CHANGE, AND ITS EXPECTATION IS
+    // REVERSED FROM WHAT IT WAS.
+    //
+    // It used to read: a PERMITTED run puts the leader sentence on screen, so
+    // the resting state must stay SHUT. The sentence, its bar and its caveat
+    // have all been removed, and stability and chips are Detailed-only — so in
+    // Standard a completed run now puts nothing in the post-analysis branch,
+    // `bodyHasContent` is false, and this state renders.
+    //
+    // That is the point of the removal rather than a side effect: the verdict
+    // was holding shut the one block that says something useful about the model
+    // behind it. Asserted under BOTH permissions, because the old behaviour
+    // differed between them and the new behaviour must not.
+    for (const report of [PERMITTED_REPORT, WITHHELD_REPORT]) {
+      setStore({
+        nodes: [decisionNode, ...optionNodes],
+        edges: optionEdges,
+        results: { status: 'complete', report },
+        viewMode: 'standard',
+      })
+      const { unmount } = renderDecision()
+      const resting = screen.getByTestId(RESTING)
+      // Readiness stays INSIDE the guarded subtree — no copy moved out from
+      // under the honesty corpus.
+      expect(resting.querySelector('[data-testid="decision-node-readiness-summary"]')).not.toBeNull()
+      // ⚠ NO CTA IS ASSERTED HERE, deliberately: the completed-run arm of
+      // `resting` carries `cta: null`, so claiming a resting CTA on this path
+      // would be false. The reachable actions on a completed run are the
+      // popover/selection controls, which their own specs cover.
+      unmount()
+    }
+  })
+
+  it('⭐ TWIN — in DETAILED the branch has content, so this state stays shut', () => {
+    // Without this, "the resting state renders on a completed run" could have
+    // been implemented as "always renders", and the arm above would still pass
+    // while the resting copy sat on top of the stability line and the chips.
     setStore({
       nodes: [decisionNode, ...optionNodes],
       edges: optionEdges,
-      results: { status: 'complete', report: PERMITTED_REPORT },
+      results: { status: 'complete', report: WITHHELD_REPORT_WITH_STABILITY },
+      viewMode: 'expert',
+    })
+    renderDecision()
+    expect(screen.getByText(/Stability: 62%/i)).toBeDefined()
+    expect(screen.queryByTestId(RESTING)).toBeNull()
+  })
+
+  // ── REHOMED FROM `ownedLeaderClaim.canvas.spec.tsx` ─────────────────────
+  //
+  // ⛔ THAT FILE IS RETIRED, NOT WEAKENED. Its whole describe was
+  // `DecisionNode — "{X} supported in N% of simulated scenarios"`, and every
+  // arm was about that sentence. With the sentence removed, its subject is
+  // gone. Two of its arms were never about the claim at all — they guard the
+  // completed-run LIFECYCLE and the INDEPENDENT stability axis — and those are
+  // the estate's real protection against the over-suppression half of this
+  // change. They live here now, where the resting/completed-run boundary is
+  // already the subject.
+
+  it('REHOMED: a completed run does NOT fall back to the pre-analysis UI', () => {
+    // "Run analysis" on a run that has already completed is a wrong-STATE
+    // regression, not a missing sentence. The original fix that prompted this
+    // arm had gated the whole post-analysis block on the leader claim and fell
+    // through to the pre-analysis branch.
+    setStore({
+      nodes: [decisionNode, ...optionNodes],
+      edges: optionEdges,
+      results: { status: 'complete', report: WITHHELD_REPORT },
       viewMode: 'standard',
     })
     renderDecision()
-    // Positive control: the headline really is on screen on this fixture.
-    expect(screen.getByText(/supported in 55% of simulated scenarios/i)).toBeDefined()
-    expect(screen.queryByTestId(RESTING)).toBeNull()
+    expect(screen.queryByText('Run analysis')).toBeNull()
+  })
+
+  it('REHOMED: the stability disclosure is the OTHER axis and survives a withheld leader', () => {
+    // `decisionVerdict`'s header is explicit that robustness is disclosed
+    // SEPARATELY from separation. Suppressing fragility alongside the leader
+    // claim would trade one honesty failure for another — and this change,
+    // which removes a comparative surface, is exactly when that mistake would
+    // be made.
+    setStore({
+      nodes: [decisionNode, ...optionNodes],
+      edges: optionEdges,
+      results: { status: 'complete', report: WITHHELD_REPORT_WITH_STABILITY },
+      viewMode: 'expert',
+    })
+    renderDecision()
+    // The fixture's own figure (`recommendation_stability: 0.62`), not a
+    // generic match — a bare /Stability: / would pass on any number, including
+    // one carried over from the wrong option.
+    expect(screen.getByText(/Stability: 62%/i)).toBeDefined()
   })
 })
