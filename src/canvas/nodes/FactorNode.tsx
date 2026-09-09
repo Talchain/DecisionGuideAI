@@ -12,7 +12,7 @@ import { hasAnyStatedValue, hasObservedData, isFactorNeedsInput } from '../utils
 import { typography } from '../../styles/typography'
 import { METRIC_NOUN } from './shared/metricVocabulary'
 import { composeCounterfactualQuestion } from './shared/counterfactualQuestion'
-import { cleanFactorLabel, unwrapInterventionValue } from '../utils/labelUtils'
+import { cleanFactorLabel, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
 import { factorDisplayText } from '../../utils/formatFactorDisplayValue'
 import { factorOptionSetting, getFactorOptionRows } from '../utils/factorOptionSetting'
 import { isGraphBadgesEnabled } from '../../flags'
@@ -147,11 +147,18 @@ export const FactorNode = memo((props: NodeProps) => {
     return { rows: showAllOptionValues ? rows : rows.slice(0, 4), overflow: showAllOptionValues ? 0 : Math.max(0, rows.length - 4) }
   }, [nodes, props.id, nodeCategory, observedState, ceeAnalysisReady, showAllOptionValues])
 
-  // The inspector and card read the same value, including legacy wrappers
-  // and meaningful text supplied without a numeric observation.
+  // Retain the shared value reader and the card's existing display-only guard
+  // against internal descriptors such as "other" being shown as units.
   const valueDisplay = useMemo(
-    () => factorDisplayText({ ...props.data, label: cleanedLabel }),
-    [props.data, cleanedLabel],
+    () => factorDisplayText({
+      ...props.data,
+      label: cleanedLabel,
+      observedState: observedState && {
+        ...observedState,
+        unit: isSuppressedUnit(observedState.unit ?? undefined) ? undefined : observedState.unit,
+      },
+    }),
+    [props.data, cleanedLabel, observedState],
   )
 
   // Prior range for external factors (only the range values, no "Variable"
@@ -447,6 +454,7 @@ export const FactorNode = memo((props: NodeProps) => {
             <div key={row.id} className="flex items-start gap-1">
               <div className="w-[10px] h-[10px] rounded-sm bg-option flex-shrink-0" />
               <button type="button" className={`${typography.edgeLabel} text-text-body flex-1 min-w-0 text-left break-words nodrag nopan hover:underline focus-visible:outline focus-visible:outline-info`}
+                data-node-selection-target={row.id}
                 onClick={e => { e.stopPropagation(); openNodeInspector(row.id) }}
                 onPointerDown={e => e.stopPropagation()}
               >
