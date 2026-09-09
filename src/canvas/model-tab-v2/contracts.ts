@@ -95,15 +95,27 @@ export interface EditProposalHandle {
  *       rather than the absence-based rule `factor_value_edit` has to infer
  *       from, so the revert is buildable — it is simply not built.
  *
- *   ⚠ AND WHY `proposeEdgeStrength` HAS NO ENTRY POINT ON THE MOUNTED PANEL
- *   EVEN THOUGH ITS CARRIER LANDED — the two are different questions and the
- *   panel's own header used to conflate them. `ModelTabV2Panel`'s edit path is
- *   parameterised by a NODE id; an edge is addressed by its `(from, to)` pair,
- *   and `useModelEditAuthority`'s header rules out putting an edge operation in
- *   a node authority (trap 21). The gate is `editConnectedIds`, derived from
- *   `nodeKind(node) === 'factor'` — NOT `row.editable`, which is already `true`
- *   for relationships. Route a relationship commit to
- *   `useEdgeMutations(edgeId).setStrength`, never through the node authority.
+ *   ⚠⚠ DO NOT RE-DERIVE "`proposeEdgeStrength` HAS NO ENTRY POINT HERE" FROM
+ *   THE HOOK HEADER. That sentence is still in `useModelEditAuthority.ts`, but
+ *   inside a `~~struck~~` block whose own preceding line marks it "TRUE AND IS
+ *   NOW FALSE" (2026-09-08), kept only so its reasoning is not re-derived from
+ *   scratch. Started at the quote rather than the line above it, it reads as
+ *   current — and it has already been copied into THIS file once as new text.
+ *   The code settles it. In `ModelTabV2Panel`: the authority is constructed
+ *   `useModelEditAuthority(activeAuthorityNodeId, editingRelationshipId)`, so an
+ *   edge is addressed by a SEPARATE parameter and trap 21 is answered rather
+ *   than ignored; a relationship row commits through
+ *   `authority.proposeEdgeStrength(...)`; and `editConnectedIds` adds `edge.id`
+ *   for every edge `edgeStrengthEditIsAssertable` accepts. The gate is neither
+ *   factor-only nor node-id-only.
+ *   ⚠ AND DO NOT BYPASS IT by calling `useEdgeMutations(edgeId).setStrength`
+ *   direct. That setter is sanctioned and owns the emitter — but the REFUSAL
+ *   `proposeEdgeStrength` puts in front of it is the whole implementation:
+ *   without it an edit the builder cannot assert lands LOCAL-ONLY while the row
+ *   reads as saved. Separately, and it is a DIFFERENT harm, that setter
+ *   hard-codes `weightSource: 'user'` (`useInspectorMutations.ts`), so it is
+ *   also the wrong route for a PRODUCER-stated value — `ModelTabBody.tsx`'s
+ *   `accepted_pass2` note has the reasoning.
  *
  *   LOCAL-ONLY TODAY — the gap this design depends on closing:
  *     · proposeEdgeLikelihood, proposeEdgeDirection, proposeOptionIntervention,
