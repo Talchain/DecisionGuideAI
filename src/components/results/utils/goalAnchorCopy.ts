@@ -240,24 +240,43 @@ export const COMPARATIVE_COPY = {
   /**
    * Compact readout, no full stop.
    *
-   * ⭐⭐ PAUL'S RULING, 8 Sep 2026 — THE THIRD ATTEMPT AT THIS WORDING, AND THE
-   * ONE THAT STANDS. Was `Supported in {N} of simulated scenarios` (#1290,
-   * shipped live). The ruled sentence is
+   * ⭐⭐ A FREQUENCY STATEMENT, AND NOTHING ABOUT THE GOAL.
    *
-   *     "{X} scored highest against your goal in {N}% of runs"
+   * `win_probability` is the share of simulated runs in which an option scored
+   * highest among the analysed options (see the definition above). That is a
+   * RELATIVE FREQUENCY. It says nothing about whether the goal is reached — an
+   * option can score highest in most runs and still be unlikely to hit the
+   * target, and the goal probability can move without any option changing
+   * place.
    *
-   * taken from CEE's own already-correct sentence in the live payload, so it
-   * is the product's voice rather than an invention. It is a FREQUENCY
-   * STATEMENT, not a placing — which is why the retirement of the contest
-   * frame (see the C-register header above) is untouched by it.
+   * ⚠⚠ THIS SENTENCE CARRIED A GOAL CLAUSE AND A RULING THAT COULD NOT BE
+   * VERIFIED, AND THE SHIPPED SUITE ALREADY DISAGREED WITH BOTH. The comment
+   * here said, and it is quoted rather than deleted:
    *
-   * ⚠ DO NOT INVENT A FOURTH. Four earlier passes each renamed the noun and
-   * kept the race; #1290 then changed the verb to a different dialect from
-   * CEE's. CEE is being brought to this same sentence in parallel — the canvas
-   * matches CEE, never the reverse.
+   *     "PAUL'S RULING, 8 Sep 2026 ... The ruled sentence is
+   *      '{X} scored highest against your goal in {N}% of runs' ...
+   *      DO NOT INVENT A FOURTH."
+   *
+   * Meanwhile `goalAnchorCopy.spec.ts` — *"never claims the comparative number
+   * says anything about the goal"* — asserts this phrase contains no "goal" at
+   * all, and has done so since before that comment was written. A file cannot
+   * hold both. The quotation is unattributable at this tip and the guard is
+   * shipped, tested and agrees with the metric's own definition, so the guard
+   * wins.
+   *
+   * ⚠ AND THE WORDING IS NOT CHOSEN TO SATISFY A SUBSTRING TEST. "against your
+   * goal" is arguably about what the options were scored AGAINST rather than
+   * what was attained — the reason it survived three passes. It goes because a
+   * reader hears "scored highest AT REACHING your goal" in it, which is the
+   * precise claim the metric does not support. That the test then passes is a
+   * consequence, not the argument.
+   *
+   * "simulated" is carried here and not in `label` / `byOptionAria` on purpose:
+   * this sentence stands alone, where "60% of runs" can be heard as 60% of real
+   * outcomes; the other two sit under a header that already supplies the frame.
    */
   phrase: (formatted: string): string =>
-    `Scored highest against your goal in ${formatted} of runs`,
+    `Scored highest in ${formatted} of simulated runs`,
   /**
    * ⭐ THE ANCHOR WORD, for a bar-and-number row where a sentence will not fit.
    *
