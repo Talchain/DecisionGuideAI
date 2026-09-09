@@ -348,6 +348,21 @@ describe('UI ↔ V5 system event parity', () => {
       //     nothing else — and worse, pairing it with `structural_add` would
       //     durably save a node while silently dropping its edge.
       'structural_add_edge',
+      // ⚠ `option_intervention_edit` (0.54.0) IS DEFERRED, AND THE REASON IS NOT
+      // "no emitter". The emitter exists and is complete
+      // (`conversation/optionInterventionEdit.ts` →
+      // `useModelEditAuthority.proposeOptionIntervention`); what does not exist
+      // is a control that calls it. `CANONICAL_EDIT_AUTHORITY
+      // .modelOptionIntervention` is still `'disabled'`, so the Model tab
+      // renders a `<span>` and a notice rather than an editor.
+      //
+      // It is classified here rather than as emitted BECAUSE THAT COUNT IS A
+      // CLAIM ABOUT THE USER, not about the source tree: nobody can currently
+      // produce this event. When the authority flips — a separate change, after
+      // CEE's route arm actually serves — this entry moves up and the count
+      // below moves with it. That is the guard doing its job, and it is why the
+      // flip cannot land silently.
+      'option_intervention_edit',
     ])
 
     for (const kind of V5_EVENT_KINDS) {
@@ -361,7 +376,7 @@ describe('UI ↔ V5 system event parity', () => {
     }
   })
 
-  it('locks UI emission count at 11 of 16 V5 SystemEventKind values', () => {
+  it('locks UI emission count at 11 of 17 V5 SystemEventKind values', () => {
     // Explicit canary: if someone adds a new UI emission (extending the
     // system_event branch of UI_COVERAGE) without updating this test, the
     // count will drift and flag for docs reconciliation.
@@ -393,10 +408,17 @@ describe('UI ↔ V5 system event parity', () => {
     // flip is not the same thing as an absent implementation — and under the
     // gated posture the user gets a refusal that names THEIR gesture instead of
     // today's silence.
+    //
+    // 2026-09-08: 0.54.0 grows the union to 17 with `option_intervention_edit`.
+    // The UI emission count does NOT move: the emitter is written and the wire
+    // member is carried, but the affordance is still gated off, so no user can
+    // produce this event. See its `knownDeferred` entry for why that is the
+    // honest side of the line — and expect this number to become 12 in the same
+    // change that flips `CANONICAL_EDIT_AUTHORITY.modelOptionIntervention`.
     const uiEmittedCount = Object.values(UI_COVERAGE).filter(
       (c) => c.kind === 'system_event',
     ).length
     expect(uiEmittedCount).toBe(11)
-    expect(V5_EVENT_KINDS).toHaveLength(16)
+    expect(V5_EVENT_KINDS).toHaveLength(17)
   })
 })

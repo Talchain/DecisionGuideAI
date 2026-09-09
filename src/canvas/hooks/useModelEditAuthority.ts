@@ -128,7 +128,6 @@ import { buildFactorValueEditEvent } from '../conversation/factorValueEdit'
 import { buildEdgeStrengthEditEvent } from '../conversation/edgeStrengthEdit'
 import { captureOptimisticFactorEdit } from '../conversation/optimisticFactorEdit'
 import { buildManualGoalTarget, manualGoalTargetMessage } from '../conversation/manualGoalTarget'
-import { buildOptionInterventionEditEvent } from '../conversation/optionInterventionEdit'
 
 /**
  * How a proposal left this seam.
@@ -183,6 +182,10 @@ export type LocalCommitOutcome = 'committed' | 'not_encodable'
  *                     non-finite or out-of-scale value, no server-stamped base
  *                     hash to assert, or no conversation to send through.
  */
+// ⚠ DECLARED AHEAD OF ITS USE, deliberately. Nothing returns this yet — see the
+// deployment-order hold on `proposeOptionIntervention` below. It is exported now
+// so the flip is a body change rather than a body change plus a type change, and
+// so the shape is reviewable while the reader is still being deployed.
 export type OptionInterventionProposalOutcome = 'dispatched' | 'not_encodable'
 
 /**
@@ -245,7 +248,7 @@ export interface ModelEditAuthorityLive {
    * option would move. Both halves are checked — see the implementation for why
    * an unresolvable `factorId` must fail closed rather than write.
    */
-  proposeOptionIntervention: (factorId: string, value: number) => OptionInterventionProposalOutcome
+  proposeOptionIntervention: (factorId: string, value: number) => LocalCommitOutcome
   /**
    * Ratify the ACTIVE FACTOR's existing value as correct.
    *
@@ -367,52 +370,62 @@ export function useModelEditAuthority(
    * product invented, and it would go on to manufacture a "set this value" ask
    * for an element that is not in the model.
    */
+  /**
+   * ⚠⚠ STILL THE LOCAL WRITE, AND THAT IS DELIBERATE — READ THIS BEFORE
+   * "FINISHING" THE EMITTER.
+   *
+   * `conversation/optionInterventionEdit.ts` exists and is complete, and this
+   * body does NOT call it yet. That looks like an unfinished wire-up. It is a
+   * deployment-order hold, and removing it would break the live product:
+   *
+   *   `ModelTabBody` mounts BOTH surfaces, with no flag — the v2 outline AND
+   *   the v1 sections beneath it ("ADDITIVE: the v1 sections below are
+   *   unchanged"). The v2 intervention editor is dark (`modelOptionIntervention`
+   *   is `'disabled'`), but **`components/model-tab/OptionsSection.tsx` renders
+   *   a LIVE intervention editor and calls this method directly**, gated by
+   *   nothing.
+   *
+   * So the moment this body dispatches, a user-reachable control emits
+   * `option_intervention_edit`. Every `SystemEventSchema` member is `.strict()`
+   * inside a `discriminatedUnion`, so a CEE that has not yet deployed the
+   * 0.54.0 reader fails the DISCRIMINATOR and rejects **the whole turn** (422) —
+   * not just this field. The user's edit would not merely fail to save; the turn
+   * would fail.
+   *
+   * ⭐ THE SWAP THEREFORE BELONGS IN THE SAME CHANGE AS THE AFFORDANCE, once
+   * CEE's route arm actually serves: flip
+   * `CANONICAL_EDIT_AUTHORITY.modelOptionIntervention` to `'server_graph'`,
+   * change this body to build and dispatch (returning
+   * `OptionInterventionProposalOutcome`), and disclose the null-base-hash case
+   * per `structural_add`'s defer-with-disclosure rather than
+   * `structural_rename`'s silent stand-down. Until then the honest state is the
+   * one the Model tab already tells the user: this value is not saved to the
+   * shared model.
+   *
+   * ⚠ AND THE GATE IS NOT `mutationAuthority`. That table answers *"may this
+   * control LOOK LIKE a shared-model edit?"* and its header explicitly withdraws
+   * a proposal to consult it from this hook — it is a PRESENTATION authority and
+   * wiring it into a writer would turn this method off entirely. The gate is
+   * deployment order, and it is enforced by this comment and by review, not by
+   * a boolean this file can read.
+   */
   const proposeOptionIntervention = useCallback(
-    (factorId: string, value: number): OptionInterventionProposalOutcome => {
+    (factorId: string, value: number): LocalCommitOutcome => {
       if (!activeNodeId) return 'not_encodable'
+      if (!Number.isFinite(value)) return 'not_encodable'
+      if (typeof factorId !== 'string' || factorId.trim() === '') return 'not_encodable'
       const state = useCanvasStore.getState()
       const option = state.nodes.find(n => n.id === activeNodeId)
       // An intervention belongs to an OPTION. Writing an `interventions` map
       // onto a factor would be a well-formed store patch that means nothing,
       // and nothing downstream would ever report it.
       if (!option || resolveNodeTypeLiteral(option) !== 'option') return 'not_encodable'
-      // The factor must be in the model — see this member's header. The SERVER
-      // additionally requires the option to be WIRED to it and refuses
-      // otherwise; that is its check to make against its own persisted graph,
-      // and duplicating it here would be a second spelling of one rule.
       if (!state.nodes.some(n => n.id === factorId)) return 'not_encodable'
 
-      const event = buildOptionInterventionEditEvent({
-        optionId: activeNodeId,
-        factorId,
-        modelValue: value,
-        // ⚠ THE ONE OWNER OF THE BASE HASH, read here rather than captured.
-        // Three intent builders already read this field; this is the fourth.
-        // It is NULL after a reload — a restore reads persistence with no CEE
-        // turn — and the builder refuses on null rather than sending a hash
-        // that matches nothing. That refusal must be DISCLOSED by the caller,
-        // never silently swallowed.
-        baseGraphHash: state.lastServerGraphHash,
-      })
-      if (!event) return 'not_encodable'
-      if (!sendSystemEvent) return 'not_encodable'
-
-      // ⭐ NO LOCAL WRITE, DELIBERATELY — `proposeGoalTarget`'s discipline on
-      // this same surface: "the goal draft never changes the store before a
-      // real applied response". The old body wrote through
-      // `mutations.setIntervention` because the value had nowhere else to go;
-      // it has somewhere now. Writing optimistically here would put a number on
-      // screen that the server may refuse, on a surface whose whole premise is
-      // that an affordance appears only where the write reaches the server.
-      void Promise.resolve(sendSystemEvent(event)).catch(() => {
-        // Swallowed deliberately: a send failure is recorded by the
-        // conversation's own failure channel, and a server REFUSAL is not a
-        // failure. Identical to `proposeFactorValue`'s catch, for the identical
-        // reason.
-      })
-      return 'dispatched'
+      mutations.setIntervention(factorId, value)
+      return 'committed'
     },
-    [activeNodeId, sendSystemEvent],
+    [activeNodeId, mutations],
   )
 
   /**
