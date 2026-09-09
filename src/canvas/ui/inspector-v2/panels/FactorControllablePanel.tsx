@@ -70,6 +70,15 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   techMode,
   onClose,
   onNavigate,
+  /**
+   * ⛔ A DUTY, NOT A PERMISSION (see `InspectorPanelProps`). The Router no
+   * longer wraps this pane, so every control that reaches a mutation WITHOUT a
+   * durable carrier must sit behind this panel's own fence. What the opt-in
+   * buys is the ability to leave the rest alive: the value control that DOES
+   * have a carrier, plus navigation, disclosure and coaching, all of which the
+   * blanket wrap was disabling for a reason that was never about them.
+   */
+  readOnly = false,
 }: InspectorPanelProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
@@ -80,6 +89,23 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
   const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
+  /**
+   * ⭐⭐ WHAT ACTUALLY HAPPENED TO THE LAST VALUE COMMIT — because `dispatched`
+   * IS NOT `saved`, and the panel used to say otherwise.
+   *
+   * `useEditConfirmation` records that a LOCAL STORE WRITE happened. On its own
+   * that rendered "Updated ✓" in success green the instant the field blurred,
+   * whether the turn had been issued, deferred behind the dispatcher's
+   * in-flight lock, or never attempted at all because no conversation provider
+   * was mounted. Three outcomes, one green tick.
+   *
+   * ⚠ `local_only` IS THE ONE THAT MATTERED. There the write reaches the store
+   * and nothing else — the next server rehydrate silently discards it — and the
+   * old copy called that "Updated". This is the exact shape of the July defect
+   * (#513) that made these edits real turns in the first place: a confident
+   * receipt over a change the server never heard about.
+   */
+  const [valueCommitOutcome, setValueCommitOutcome] = useState<'sent' | 'local_only' | null>(null)
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
 
   /**
@@ -258,11 +284,14 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       // magnitude (300000) there, which is exactly what CEE's validator refuses.
       mutations.setObservedValue(modelValue, opts.writeRawAnchor ? typedValue : rawMagnitude)
       confirmEdit('value')
+      // Provisional until the wire attempt below resolves which it is.
+      setValueCommitOutcome('local_only')
 
       // Then the wire. Before this, the chain ENDED at the store write: the edit
       // never reached CEE, its graph_hash never moved, and the rerun the
       // freshness strip invited could not possibly reflect the change.
       if (!sendSystemEvent) return
+      setValueCommitOutcome('sent')
     // Fire-and-forget: the response is ingested by the shared turn path
     // (applyV5State applies graph_patch + analysis_ready for system-event turns
     // exactly as it does for message turns). Awaiting here would block the blur
@@ -368,6 +397,18 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       {/* ── Context group ─────────────────────────────────────── */}
       <PanelGroup kind="context" label={GROUP_LABELS.context}>
         {/* Description — Pattern B (EmptyDescriptionPrompt) */}
+        {/* `mutations.setDescription` writes to the local store ONLY — there is
+            no `description` carrier, so the next server rehydrate overwrites it.
+            Fenced HERE rather than at the Router so the value control beside it,
+            which DOES have one, can stay live.
+
+            ⚠ THE FENCE WRAPS BOTH BRANCHES, INCLUDING THE EMPTY PROMPT. That
+            prompt performs no write itself — it opens the editor — so a fence
+            scoped to the textarea alone would still pass a self-fencing audit
+            while leaving a button whose whole purpose is to invite text that
+            cannot be saved. Inviting the input is the harm; the write is only
+            where it lands. */}
+        <fieldset disabled={readOnly} className="contents" data-writer-fence="description">
         {description || isEditingDescription ? (
           <textarea
             value={description}
@@ -388,6 +429,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
             onStartEditing={() => setIsEditingDescription(true)}
           />
         )}
+        </fieldset>
 
         {/* Provenance pills: factor type identity + extraction source */}
         <div className="mt-2 flex gap-1.5 flex-wrap">
@@ -612,7 +654,19 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         {/* Edit feedback */}
         {lastConfirmed?.field === 'value' && (
           <div className="flex items-center gap-2 mt-1">
-            <EditConfirmation trigger={lastConfirmed.ts} />
+            {/* ⚠ NEITHER BRANCH CLAIMS "SAVED", AND THAT IS DELIBERATE. The
+                value has a durable carrier, so `sent` is a true and useful
+                thing to say — but this panel cannot observe the server
+                APPLYING it, and a receipt derived from our own optimistic
+                write would be an optimistic write wearing a confirmation.
+                Settling `sent` against the canonical applied value is real
+                work and is rowed separately; overstating it here in the
+                meantime is exactly the defect being removed. */}
+            {valueCommitOutcome === 'local_only' ? (
+              <EditConfirmation trigger={lastConfirmed.ts} label="Saved on this device only" tone="pending" />
+            ) : (
+              <EditConfirmation trigger={lastConfirmed.ts} label="Sent to Olumi" tone="pending" />
+            )}
             <InlineRerunPrompt visible={isStaleAfterEdit} />
           </div>
         )}

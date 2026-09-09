@@ -217,6 +217,23 @@ export const INSPECTOR_READ_ONLY_REASON =
 export const INSPECTOR_OPTION_READ_ONLY_REASON =
   'The name saves. Other fields here are read-only for now — links, details and coaching still work.'
 
+/**
+ * ⭐⭐ THE FACTOR PANE, AND IT IS THE FIRST NOTICE HERE THAT ANNOUNCES A SAVE
+ * RATHER THAN EXPLAINING A REFUSAL.
+ *
+ * The controllable-factor VALUE has a durable carrier (`factor_value_edit`),
+ * so on this pane it genuinely saves. Reusing either string above would have
+ * been a lie in the expensive direction: both say the non-name fields cannot
+ * be saved, and a user who believed that would route a change they had just
+ * successfully made through the Model tab instead.
+ *
+ * ⚠ AND IT NAMES WHAT STILL DOES NOT SAVE. `setDescription` has no carrier and
+ * stays fenced. A notice that only advertised the win would leave the reader to
+ * discover the exception by losing a description to the next rehydrate.
+ */
+export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
+  'The name and the value save to the shared model. Description is read-only for now — links, details and coaching still work.'
+
 // ─── Node mutations ────────────────────────────────────────────────
 export function useNodeMutations(nodeId: string) {
   const updateNode = useCanvasStore(s => s.updateNode)
