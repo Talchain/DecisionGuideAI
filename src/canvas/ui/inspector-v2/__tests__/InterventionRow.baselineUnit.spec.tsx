@@ -40,30 +40,33 @@ const base = {
 describe('InterventionRow — a unit decorates only the value it belongs to', () => {
   it('renders the RAW value with its unit when the producer supplied one', () => {
     render(<InterventionRow {...base} baseline={0.59} rawBaseline={59} unit="£" />)
-    expect(screen.getByText(/Currently:/).textContent).toContain('£59')
+    expect(screen.getByText(/Recorded:/).textContent).toContain('£59')
   })
 
   it('NEVER renders a currency symbol against a normalised 0-1 value', () => {
     render(<InterventionRow {...base} baseline={0.59} rawBaseline={59} unit="£" />)
     // The witnessed defect, pinned by its exact rendered string.
-    expect(screen.getByText(/Currently:/).textContent).not.toContain('£0.59')
+    expect(screen.getByText(/Recorded:/).textContent).not.toContain('£0.59')
   })
 
   it('drops the unit rather than inventing one when no raw value exists', () => {
     render(<InterventionRow {...base} baseline={0.59} unit="£" />)
-    const txt = screen.getByText(/Currently:/).textContent ?? ''
+    const txt = screen.getByText(/Recorded:/).textContent ?? ''
     expect(txt).toContain('0.59')
     expect(txt, 'a unit on a normalised value is an invented figure').not.toContain('£')
   })
 
   it('a non-currency unit is not smuggled in either', () => {
     render(<InterventionRow {...base} baseline={0.2} unit="scale" />)
-    expect(screen.getByText(/Currently:/).textContent).not.toContain('scale')
+    expect(screen.getByText(/Recorded:/).textContent).not.toContain('scale')
   })
 
   it('CONTROL — the delta still measures the normalised pair, unchanged', () => {
     render(<InterventionRow {...base} baseline={0.59} rawBaseline={59} unit="£" />)
     // (0.49 - 0.59) / 0.59 = -16.9% -> 17%, and the sign is a fall.
-    expect(screen.getByLabelText(/17% change vs baseline/)).toBeTruthy()
+    // ⚠ The accessible name now says "change vs the recorded value". "baseline"
+    // named TWO different fields on one surface — this reference, and
+    // `observedState.baseline`, which may also be present and differ.
+    expect(screen.getByLabelText(/17% change vs the recorded value/)).toBeTruthy()
   })
 })

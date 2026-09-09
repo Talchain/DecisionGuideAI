@@ -324,7 +324,7 @@ test.describe('Inspector Phase 1 (Track B)', () => {
     await expect(active.getByText('What this option changes')).toBeVisible()
     await expect(active.getByRole('button', { name: 'Customer satisfaction' })).toBeVisible()
     await expect(active.getByRole('button', { name: 'Market share' })).toBeVisible()
-    await expect(active.getByText('Currently: 72 %')).toBeVisible()
+    await expect(active.getByText('Recorded: 72 %')).toBeVisible()
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'option-regular-inspector.png') })
 
     // Non-baseline option with NO interventions

@@ -3,7 +3,7 @@
  * Used in OptionPanel §6.2: "What this option changes"
  */
 
-import { useState, useCallback, useRef, type KeyboardEvent } from 'react'
+import { useState, useCallback, useEffect, useRef, type KeyboardEvent } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { typography } from '../../../../styles/typography'
@@ -77,6 +77,28 @@ const INSPECTOR_INTERVENTION_PROVENANCE_BORDER: Record<ValueProvenanceKind, stri
   panel: 'border-info/30',
 }
 
+/**
+ * ⭐ ONE PLACE FOR THIS ROW'S WORDS, so a test asserts the same string the user
+ * reads and a reviewer can see the whole claim surface at once. Each of these
+ * replaced a sentence that claimed more than the record supports — see the
+ * comments at each use site for which one and why.
+ */
+export const INTERVENTION_ROW_STRINGS = {
+  /** What the factor's record holds. NEVER "Currently" — see the use site. */
+  referenceLabel: 'Recorded',
+  /** Names the editable number when it is not on the reference's scale. */
+  modelValueLabel: 'model value',
+  /**
+   * ⚠ "vs the recorded value", not "vs baseline". The percentage is measured
+   * from `observedState.value`, and `observedState.baseline` is a DIFFERENT
+   * field that may also be present — calling the first one "baseline" put two
+   * questions under one name on the surface where the answer is read.
+   */
+  deltaTitle: 'change vs the recorded value',
+  /** Shown when the record holds a second, differing reference. */
+  contestedNote: 'The record holds a second reference for this factor; which one is current is not stated, so no change is shown.',
+} as const
+
 interface InterventionRowProps {
   factorId: string
   factorLabel: string
@@ -100,6 +122,31 @@ interface InterventionRowProps {
    * normalisation factor is not on the wire and inferring it would invent one.
    */
   rawBaseline?: number
+  /**
+   * ⭐ THE FACTOR'S OWN `observed_state.baseline`, WHEN THE RECORD CARRIES ONE.
+   *
+   * NOT a value to display, and deliberately not named `baseline` — it is here
+   * so the row can tell when its comparison reference is CONTESTED, and stop
+   * making a claim it cannot support.
+   *
+   * ⚠ ITS ROLE IS UNDECLARED AT THE CONTRACT, verified rather than assumed.
+   * `ObservedStateSchema` (`olumi-schemas` `src/graph.ts`) declares it as a bare
+   * `baseline: z.number().optional()` with NO doc comment, in an object where
+   * `source`, `declared_scale` and `elicited_from` each carry a full producer
+   * rule, consumer rule and absence semantics running to paragraphs. So the
+   * silence is not a style lapse: every other optional member of this exact
+   * object was given the treatment and this one was not. Nothing states whether
+   * it is the status-quo level, a prior period, or a reference for `std`; and
+   * nothing states its SCALE — the live capture has `value 0.59 / raw 59` beside
+   * `baseline 49`, i.e. a raw-looking baseline next to a normalised value in one
+   * object.
+   *
+   * ⛔ SO IT IS NEVER RENDERED AND NEVER ADOPTED AS "the current value". Doing
+   * either would repeat the `£0.59` defect in the other direction — a confident,
+   * well-formatted number whose role the model never claimed. Its only job is to
+   * make the row honest about not knowing.
+   */
+  recordedBaseline?: number
   /** Current intervention value */
   currentValue: number
   /** CEE-authored display_value for the intervention — rendered verbatim when
@@ -133,6 +180,7 @@ export function InterventionRow({
   factorLabel,
   baseline,
   rawBaseline,
+  recordedBaseline,
   currentValue,
   displayValue,
   unit = '',
@@ -145,6 +193,35 @@ export function InterventionRow({
 }: InterventionRowProps) {
   const [draft, setDraft] = useState(String(currentValue))
   const inputRef = useRef<HTMLInputElement>(null)
+
+  /**
+   * ⭐⭐ THE INPUT MUST SHOW THE RECORD, NOT THE LAST THING THIS INSTANCE SAW.
+   *
+   * `draft` is seeded ONCE at mount and afterwards only ever reset by blur or
+   * Escape. So any change to `currentValue` that does not come from this input
+   * left the box showing a number the model no longer holds — an editable field
+   * displaying a stale value, which is worse than a stale label because the next
+   * blur can write it back.
+   *
+   * TWO CAUSES, AND THIS CLOSES THE SECOND OF THEM:
+   *  1. SWITCHING OPTIONS that share a factor. Fixed at the CALLER, because it
+   *     is an identity defect rather than a sync one: `OptionPanel` keyed these
+   *     rows by `factorId` alone, so React reconciled Option A's row onto Option
+   *     B's and kept the instance — and with it the draft. The contract is
+   *     explicit that an intervention lives at `/nodes/<option>/data/
+   *     interventions/<factor>`, so the key now carries both halves.
+   *  2. THE SAME option's value changing underneath us — a chat edit, an undo, a
+   *     `_dispatchAction` write. No key change can catch that; this effect does.
+   *
+   * GUARDED ON FOCUS: re-seeding while the user is mid-type would eat what they
+   * are typing. `document.activeElement` is the check because it is the same
+   * question the browser is answering, and a `useState` mirror of "am I focused"
+   * would be a second authority on it.
+   */
+  useEffect(() => {
+    if (inputRef.current && document.activeElement === inputRef.current) return
+    setDraft(String(currentValue))
+  }, [currentValue])
 
   const handleBlur = useCallback(() => {
     const parsed = parseFloat(draft)
@@ -166,12 +243,34 @@ export function InterventionRow({
     }
   }, [currentValue])
 
+  /**
+   * ⭐ THE REFERENCE IS CONTESTED WHEN THE RECORD HOLDS TWO DIFFERENT NUMBERS
+   * FOR THE SAME FACTOR AND NAMES NEITHER AS THE PRESENT ONE.
+   *
+   * The percentage below is measured from `observedState.value`. On the live
+   * capture that factor ALSO carries `observedState.baseline`, differing — so
+   * "↓ 17%" is a confident figure about a reference the model never established.
+   * A missing number is honest; a confident wrong one is not, which is the
+   * contract's own rule for the goal-probability conversion one layer down.
+   */
+  const referenceContested =
+    recordedBaseline != null && baseline != null && recordedBaseline !== baseline
+
   // Change delta
-  const delta = baseline != null && baseline !== 0
+  const delta = !referenceContested && baseline != null && baseline !== 0
     ? ((currentValue - baseline) / Math.abs(baseline)) * 100
     : null
   const deltaSign = delta != null ? (delta > 0 ? '\u2191' : delta < 0 ? '\u2193' : '') : ''
-  const deltaColor = delta != null ? (delta > 0 ? 'text-success' : delta < 0 ? 'text-danger' : 'text-text-light') : ''
+  /**
+   * ⛔ NEUTRAL, DELIBERATELY. This used to be
+   * `delta > 0 ? 'text-success' : delta < 0 ? 'text-danger'` — green for up, red
+   * for down, on EVERY factor. On a cost, a churn rate or a risk that is exactly
+   * backwards: the row painted a rise in churn green and told the reader it was
+   * good news. Nothing on this row knows which direction is desirable — the sign
+   * of a factor's effect lives on its EDGES, not on the factor — so the arrow
+   * states the direction and the colour states nothing.
+   */
+  const deltaColor = 'text-text-light'
 
   const formatValue = (v: number) => {
     if (unit === '\u00A3' || unit === '$' || unit === '\u20AC') {
@@ -194,6 +293,30 @@ export function InterventionRow({
       : baseline != null
         ? baseline.toLocaleString()
         : 'N/A'
+
+  /**
+   * ⭐⭐ THE TWO ENDS OF THE ARROW WERE ON DIFFERENT SCALES, AND #1339 IS WHAT
+   * PUT THEM THERE — stated plainly because it was my own change.
+   *
+   * #1339 correctly stopped the row printing `£0.59` for a £59 price by
+   * rendering `rawBaseline` (real units) instead of `baseline` (normalised).
+   * The editable target beside it is `currentValue`, which this file's own prop
+   * doc declares is on the SAME SCALE AS `baseline` — i.e. normalised. So the
+   * repaired row read `Currently: £59 → [0.49]`: two correctly-formatted
+   * numbers, and an ARROW BETWEEN THEM THAT NOTHING LICENSES. Each value was
+   * right; the comparison was not.
+   *
+   * This is derivable rather than inferred: the scale relationship is DECLARED
+   * in the props above (`baseline` shares `currentValue`'s scale, `rawBaseline`
+   * is the other one), so `rawBaseline != null` is exactly the cross-scale case.
+   *
+   * When the scales differ the arrow is replaced by a NAMED label on the input,
+   * so the row shows two quantities the reader can tell apart instead of one
+   * comparison it cannot trust. When they agree the arrow stays and means what
+   * it says.
+   */
+  const referenceIsRawUnits = rawBaseline != null
+  const comparable = !referenceIsRawUnits
 
   // F.6 passthrough: when CEE provides display_value, it IS the canonical
   // default-mode user-facing text. Raw numeric baseline/delta/editable input
@@ -233,8 +356,9 @@ export function InterventionRow({
         {delta != null && showNumericSurface && (
           <span
             className={`${typography.panelMeta} ${deltaColor}`}
-            title="Change vs baseline"
-            aria-label={`${Math.abs(delta).toFixed(0)}% change vs baseline`}
+            data-testid={`intervention-delta-${factorId}`}
+            title={INTERVENTION_ROW_STRINGS.deltaTitle}
+            aria-label={`${Math.abs(delta).toFixed(0)}% ${INTERVENTION_ROW_STRINGS.deltaTitle}`}
           >
             {deltaSign} {Math.abs(delta).toFixed(0)}%
           </span>
@@ -252,11 +376,38 @@ export function InterventionRow({
       {showNumericSurface && (
         <div className="flex items-center gap-2 mt-2">
           <div className="flex-1">
-            <div className={`${typography.panelMeta} text-text-light`}>
-              Currently: {baselineText}
+            {/* ⛔ NOT "Currently". That word asserted a PRESENT STATE, and the
+                field it was printing — `observedState.value` — is not declared
+                to be one. On the live capture it held a value one option had
+                PROPOSED, so the row announced a proposal as the status quo and
+                then measured every other option's change against it. "Recorded"
+                claims only what can be shown: this is what the factor's record
+                holds. */}
+            <div
+              className={`${typography.panelMeta} text-text-light`}
+              data-testid={`intervention-reference-${factorId}`}
+            >
+              {INTERVENTION_ROW_STRINGS.referenceLabel}: {baselineText}
             </div>
+            {referenceContested && (
+              <div
+                className={`${typography.panelMeta} text-text-light`}
+                data-testid={`intervention-reference-contested-${factorId}`}
+              >
+                {INTERVENTION_ROW_STRINGS.contestedNote}
+              </div>
+            )}
           </div>
-          <ArrowRight size={10} className="text-text-light flex-shrink-0" aria-hidden="true" />
+          {comparable ? (
+            <ArrowRight size={10} className="text-text-light flex-shrink-0" aria-hidden="true" />
+          ) : (
+            <span
+              className={`${typography.panelMeta} text-text-light flex-shrink-0`}
+              data-testid={`intervention-model-value-label-${factorId}`}
+            >
+              {INTERVENTION_ROW_STRINGS.modelValueLabel}
+            </span>
+          )}
           <input
             ref={inputRef}
             type="text"

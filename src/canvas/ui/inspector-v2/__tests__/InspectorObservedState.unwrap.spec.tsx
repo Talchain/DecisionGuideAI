@@ -332,7 +332,7 @@ describe('OptionPanel — observed-state baseline unwrap regression', () => {
     expect(container.textContent).toContain('Marketing budget')
   })
 
-  it('renders the baseline as "Currently: ..." when the value is a primitive', () => {
+  it('renders the baseline as "Recorded: ..." when the value is a primitive', () => {
     const factor: Node = {
       id: 'factor-1',
       type: 'factor',
@@ -364,11 +364,12 @@ describe('OptionPanel — observed-state baseline unwrap regression', () => {
     )
 
     expect(container.textContent).not.toContain('[object Object]')
-    expect(container.textContent).toContain('Currently:')
+    // ⚠ the label moved from "Currently" to "Recorded" — the old word asserted a present state the record does not establish; see InterventionRow.honestReference.spec.tsx
+    expect(container.textContent).toContain('Recorded:')
     expect(container.textContent).toContain('Marketing budget')
   })
 
-  it('renders "Currently: N/A" when target factor has no observed value at all', () => {
+  it('renders "Recorded: N/A" when target factor has no observed value at all', () => {
     const factor: Node = {
       id: 'factor-1',
       type: 'factor',
