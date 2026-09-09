@@ -174,6 +174,33 @@ describe('the rescue refuses a faulted entry, and only a faulted entry', () => {
     expect(build([null, 'anchoring', 7, undefined])).toEqual([])
   })
 
+  it('⛔ drops a PROTOTYPE-CHAIN key — and CI had to tell me this one', () => {
+    // ⚠⚠ I SHIPPED THIS DEFECT AND THE RATIFIED SUITE CAUGHT IT. My first
+    // rescue gated on "well-formed, non-entity-id", and `__proto__` is both —
+    // so hostile codes started minting cards, past a guard written for them
+    // specifically.
+    //
+    // The ORIGINAL harm is genuinely gone: that guard existed because a bare
+    // object index returned `Object.prototype` (truthy, React refuses to render
+    // it) or `Function` (blank title) as CONFIG, and a rescued card never
+    // touches the config — its heading is a fixed constant. It is refused
+    // anyway. The entry is still not a category, and retiring a deliberate
+    // security-shaped guard because a different mitigation happens to cover it
+    // is how such guards die.
+    expect(build([{ type: '__proto__', detail: 'Hostile wire code.' }])).toEqual([])
+    expect(build([{ type: 'CONSTRUCTOR', detail: 'Hostile wire code.' }])).toEqual([])
+    expect(build([{ type: 'toString', detail: 'Hostile wire code.' }])).toEqual([])
+  })
+
+  it('the prototype refusal is DERIVED, so it cannot drift from the hazard', () => {
+    // A hand-written list would have to remember `__defineGetter__`. Every key
+    // a bare index could have walked into is refused, because the predicate
+    // asks the prototype itself.
+    for (const key of Object.getOwnPropertyNames(Object.prototype)) {
+      expect(build([{ type: key, detail: 'Prose.' }]), `${key} minted a card`).toEqual([])
+    }
+  })
+
   it('⭐ DISCRIMINATING TWIN — the starter code passes every refusal above', () => {
     // Without this the guards could be widened until they swallowed the whole
     // feature and nothing here would go red. It binds by the starter's exact
@@ -181,6 +208,10 @@ describe('the rescue refuses a faulted entry, and only a faulted entry', () => {
     expect(
       FORBIDDEN_TYPE_PREFIXES.some((prefix) => STARTER_CODE.toLowerCase().startsWith(prefix)),
       'the entity-id guard now eats the very observation this change rescues',
+    ).toBe(false)
+    expect(
+      STARTER_CODE.toLowerCase() in Object.prototype,
+      'the prototype guard now eats the very observation this change rescues',
     ).toBe(false)
 
     const [block] = build([{ type: STARTER_CODE, detail: STARTER_DETAIL, target: 'opt_status_quo' }])

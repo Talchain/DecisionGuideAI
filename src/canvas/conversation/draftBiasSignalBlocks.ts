@@ -52,7 +52,7 @@ import { DRAFT_BIAS_SIGNAL_CARD_CAP } from './types'
 import { isBiasSignalCoachingBlock } from './phase3Pacing'
 import {
   resolveBiasSignal,
-  isEntityIdShapedCode,
+  isRescuableBiasCode,
   UNRECOGNISED_BIAS_SIGNAL_TITLE,
 } from '../shared/biasSignalTitles'
 
@@ -164,11 +164,12 @@ export function buildDraftBiasSignalBlocks(args: {
     // exactly as it always did; an entry that is sound but uncategorised
     // keeps its observation.
     const resolved = resolveBiasSignal(s.type)
-    const wellFormedCode = typeof s.type === 'string' && s.type.trim().length > 0
-    // Ordered so the registry always wins: a code it holds is a category by
-    // definition, and no future key can be shadowed by a prefix collision.
-    const rescuable = resolved != null || (wellFormedCode && !isEntityIdShapedCode(s.type))
-    if (!rescuable) continue
+    // Ordered so the REGISTRY ALWAYS WINS: a code it holds is a category by
+    // definition, so no future key can be shadowed by a guard in the rescue
+    // path. `isRescuableBiasCode` is only consulted once the registry misses,
+    // and it owns the whole "is this a category at all?" judgement — see its
+    // note for the three fault classes and why each is refused.
+    if (resolved == null && !isRescuableBiasCode(s.type)) continue
     const title = resolved?.title ?? UNRECOGNISED_BIAS_SIGNAL_TITLE
 
     const detail = typeof s.detail === 'string' ? s.detail.trim() : ''

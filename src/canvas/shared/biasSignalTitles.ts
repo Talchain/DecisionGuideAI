@@ -126,6 +126,53 @@ export function isEntityIdShapedCode(code: unknown): boolean {
   return FORBIDDEN_TYPE_PREFIXES.some((prefix) => lower.startsWith(prefix))
 }
 
+/**
+ * ⭐⭐ THE ONE QUESTION A CALLER RESCUING AN UNRECOGNISED SIGNAL ACTUALLY ASKS:
+ * **is this string a bias CATEGORY at all?** — which is NOT the question
+ * `resolveBiasSignal` answers.
+ *
+ * That resolver answers *"is this a code I hold?"*, and a caller that reads its
+ * miss as "an unrecognised category" collapses two questions into one (the
+ * estate's signature defect). Three classes sit between them, and every one is
+ * a producer FAULT rather than an unfamiliar name:
+ *
+ *   · ABSENT / NON-STRING — `''`, `42`, a missing key. The wire schema types
+ *     `type` as a required string, so the entry violates its own contract.
+ *   · ENTITY-ID SHAPED — `fac_current_supplier`. A node reference in the
+ *     category slot; the producer populated the wrong field.
+ *   · A PROTOTYPE-CHAIN KEY — `__proto__`, `CONSTRUCTOR`, `toString`. Not a
+ *     name anything means; the marker of an attack or a serialisation
+ *     artefact.
+ *
+ * ⚠ THE PROTOTYPE CLASS IS DERIVED, NOT LISTED. `lower in Object.prototype` is
+ * true for exactly the keys a bare object index would have walked into, so it
+ * cannot drift from the hazard the registry's own-key guard was written for
+ * (trap 12 — derive, don't mirror). A hand list would have to remember
+ * `__defineGetter__`.
+ *
+ * ⛔ AND IT STAYS REFUSED EVEN THOUGH THE ORIGINAL HARM IS ALREADY GONE. That
+ * guard existed because a bare index returned `Object.prototype` (a truthy
+ * object React refuses to render) or `Function` (a blank title) as CONFIG. A
+ * rescued card never touches the config — its heading is a fixed constant — so
+ * nothing pathological could reach copy through this path today. The refusal is
+ * kept anyway, because the entry is still not a category, and weakening a
+ * deliberate security-shaped guard on the grounds that a different mitigation
+ * happens to cover it is how such guards die.
+ */
+export function isRescuableBiasCode(code: unknown): boolean {
+  if (typeof code !== 'string') return false
+  const raw = code.trim()
+  if (!raw) return false
+  // ⚠ BOTH CASINGS, AND THE FIRST CUT TESTED ONLY THE LOWERCASED ONE — which
+  // refused `__proto__` and `CONSTRUCTOR` (the two the ratified arm names) and
+  // let `toString`, `hasOwnProperty` and eight more straight through, because
+  // `'tostring' in Object.prototype` is false. The mixed-case keys are the
+  // majority of the prototype, so a guard that only sees the lowercase ones is
+  // most of a guard. None of them is a bias category under any casing.
+  if (raw in Object.prototype || raw.toLowerCase() in Object.prototype) return false
+  return !isEntityIdShapedCode(raw)
+}
+
 export const BIAS_SIGNAL_REGISTRY = {
   framing: { title: 'Narrow framing', icon: Frame },
   framing_bias: { title: 'Narrow framing', icon: Frame },
