@@ -247,6 +247,38 @@ At most **two persistent icon affordances** per node (e.g. edit + confirm).
 Everything else — AI suggestions, visibility, help — appears on hover or
 selection. Icons are Lucide only; text glyphs (✓ ✕ ⚠) are never icons.
 
+**Node quick actions (V3 refinement):** At most three shortcuts, in the order
+Ask Olumi (`MessageSquare`), Challenge (`Zap`), More (`MoreHorizontal`). Retain
+the existing availability gates. Ask sends the existing explanation request;
+Challenge opens an editable draft. More includes Open details (`PanelRight`),
+so details stays keyboard-reachable alongside the existing node-click route.
+Preserve the top-centre type shape, origin glyph, node dimensions and connectors.
+
+Quick actions use the portalled `src/components/Tooltip.tsx` with `asChild` to
+attach to the button without changing its hit area. Use a 300 ms hover delay,
+focus disclosure, Escape dismissal, wrapping and viewport repositioning. Do
+not add native tooltip copy to these controls; `asChild` applies an empty
+`title` to block inherited browser tooltips. `usePopoverHover` gives
+the action row priority over the node preview while it is hovered or focused;
+moving back to the node body restores the preview after its normal delay.
+Tooltips explain actions; actionable content belongs in the preview/inspector.
+These controls appear on hover, focus or selection and are not persistent
+status indicators. Unknown provenance, review or contributor counts must never
+be inferred from their presence.
+
+**Metric explanations:** A node metric with a scale, provenance or unset-state
+explanation uses the same positioned tooltip and 300 ms delay. The metric row
+is keyboard-focusable, Escape dismisses its explanation, and the body preview
+yields while that row is active. Preserve the visible label, value and bar;
+the accessible name includes the value as well as its meaning. A row without
+an explanation adds no tab stop. Do not encode these explanations only in a
+native `title`, or add a separate persistent icon to expose them.
+
+**Option inspector title:** Show the full name at the existing header type
+size. Wrap words instead of truncating; place Back to results, technical detail
+and Close beside the Option type label so they do not compete with the name.
+Keep the existing rename control, limit and save path.
+
 ## Patterns
 
 ```tsx

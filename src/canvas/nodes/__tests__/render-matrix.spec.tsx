@@ -351,9 +351,18 @@ describe('Render matrix — OptionNode × view × phase', () => {
   })
 
   it('Standard pre non-baseline: shows "What could go wrong?" chip + from→to chip (footer de-duped)', () => {
-    applyStore(twoOptionTopology('standard', 'pre'))
+    const topology = twoOptionTopology('standard', 'pre')
+    // The pair needs its own declared reference. The factor's observed value
+    // alone must not license it; the missing-reference case keeps its footer.
+    applyStore({ ...topology, nodes: [...topology.nodes, {
+      id: 'reference', type: 'option', data: {
+        label: 'Keep current hiring', type: 'option', is_baseline: true,
+        interventions: { 'factor-1': 0.3 },
+      },
+    }] })
     const { container } = renderOption({})
     expect(screen.getByText('What could go wrong?')).toBeDefined()
+    expect(screen.getByText('Reference: Keep current hiring')).toBeDefined()
     // Both options share the top factor (option-1 at 0.9 on engineers cap=10 →
     // "9 engineers"). Brief scope 7: that value shows in the from→to chip
     // ("3 engineers → 9 engineers"), so the duplicate differentiator footer <p>
@@ -1171,20 +1180,21 @@ describe('OptionNode — is_baseline rendering', () => {
     edges: [],
   })
 
-  it('Standard pre: is_baseline=true renders "No changes to factors"', () => {
+  it('Standard pre: is_baseline=true identifies the reference without claiming no interventions', () => {
     const data = { label: 'Any Label', is_baseline: true }
     applyStore(optionOnlyTopology('standard', 'pre', data))
     renderOption(data)
     // Rendered in both the body text and the popover; both are the baseline
     // treatment path so we assert presence (length > 0), not uniqueness.
-    expect(screen.getAllByText(/No changes to factors/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Baseline option/i).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/No changes to factors/i)).toBeNull()
   })
 
   it('Standard pre: is_baseline=null + "Status Quo" label fires regex fallback (baseline treatment)', () => {
     const data = { label: 'Status Quo', is_baseline: null }
     applyStore(optionOnlyTopology('standard', 'pre', data))
     renderOption(data)
-    expect(screen.getAllByText(/No changes to factors/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/Baseline option/i).length).toBeGreaterThan(0)
   })
 
   // Correction #7 — critical: explicit `false` must suppress the regex, even
@@ -1194,7 +1204,7 @@ describe('OptionNode — is_baseline rendering', () => {
     const data = { label: 'Status Quo', is_baseline: false }
     applyStore(optionOnlyTopology('standard', 'pre', data))
     renderOption(data)
-    expect(screen.queryByText(/No changes to factors/i)).toBeNull()
+    expect(screen.queryByText(/Baseline option/i)).toBeNull()
   })
 })
 

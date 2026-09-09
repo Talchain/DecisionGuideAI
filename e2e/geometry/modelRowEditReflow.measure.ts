@@ -154,10 +154,11 @@ for (const width of WIDTHS) {
     }
     await waitForVisualQuiescence(page)
 
-    // Find an EDITABLE row: its value cell is a <button> (the read-only arm is a
-    // <span>). Binding by the element's identity, not by "the first row".
+    // Keep the original one-field FACTOR no-reflow subject explicit. Goal
+    // editing now has two fields; it gets its own bounded proof below rather
+    // than silently replacing this test's subject as the first editable row.
     const rowId = await page.evaluate(() => {
-      const buttons = Array.from(document.querySelectorAll('button[data-testid^="model-row-v2-"][data-testid$="-value"]'))
+      const buttons = Array.from(document.querySelectorAll('[data-kind="factor"] button[data-testid^="model-row-v2-"][data-testid$="-value"]'))
       const first = buttons[0]
       if (!(first instanceof HTMLElement)) return null
       const t = first.getAttribute('data-testid') ?? ''
@@ -165,8 +166,11 @@ for (const width of WIDTHS) {
     })
     expect(rowId, 'no EDITABLE row value found — the measure would assert about nothing').not.toBeNull()
 
+    await page.getByTestId(`model-row-v2-${rowId}-value`).scrollIntoViewIfNeeded()
+    await waitForVisualQuiescence(page)
     const before = await readGeometry(page, rowId as string)
     expect(before, 'row geometry unreadable before edit').not.toBeNull()
+    expect(before!.nextRowTop, 'the factor and its neighbour must be in view before measuring movement').toBeGreaterThan(0)
 
     await page.click(`[data-testid="model-row-v2-${rowId}-value"]`)
 
@@ -207,6 +211,59 @@ for (const width of WIDTHS) {
     // A reserved-height fix trades a row jump for a possible text jump. Both are
     // movement the user sees, so both are asserted.
     expect(Math.abs(textDelta), `entering edit moved the value itself by ${textDelta}px at a ${width}px dock`).toBeLessThanOrEqual(1)
+
+    await input.press('Escape')
+    await expect(input).toHaveCount(0)
+    const goalButton = page.locator('[data-kind="goal"] button[data-testid^="model-row-v2-"][data-testid$="-value"]').first()
+    await expect(goalButton, 'goal target is not editable: the new form must actually be measured').toBeVisible()
+    const goalId = (await goalButton.getAttribute('data-testid'))!.replace(/^model-row-v2-/, '').replace(/-value$/, '')
+    const goalBefore = await readGeometry(page, goalId)
+    expect(goalBefore).not.toBeNull()
+    await goalButton.click()
+    const goalInput = page.getByTestId(`model-row-v2-${goalId}-value-input`)
+    const unitInput = page.locator(`[data-testid="model-row-v2-${goalId}"] input[aria-label^="Target unit for"]`)
+    await expect(goalInput).toBeVisible()
+    await expect(goalInput).toBeFocused()
+    await expect(unitInput).toBeVisible()
+    const goalAfter = await readGeometry(page, goalId)
+    expect(goalAfter).not.toBeNull()
+    // Two accessible 14px fields + a short unit label are intentional. The
+    // original paragraph-filled candidate measured216.38px and fails this;
+    // this is not a relaxed tolerance on the factor's unchanged zero above.
+    expect(goalAfter!.valueFontPx).toBeCloseTo(14, 1)
+    expect(goalAfter!.rowHeight).toBeGreaterThan(goalBefore!.rowHeight)
+    expect(goalAfter!.rowHeight).toBeLessThanOrEqual(88)
+    const formBoxes = await page.locator(`[data-testid="model-row-v2-${goalId}"] input`).evaluateAll(inputs => {
+      const outline = document.querySelector('[data-testid="model-outline-v2"]')!.getBoundingClientRect()
+      return inputs.map(input => { const box = input.getBoundingClientRect(); return {
+        width: box.width, left: box.left, right: box.right, outlineLeft: outline.left, outlineRight: outline.right,
+        font: parseFloat(getComputedStyle(input).fontSize),
+      } })
+    })
+    expect(formBoxes).toHaveLength(2)
+    for (const box of formBoxes) {
+      expect(box.width).toBeGreaterThanOrEqual(90)
+      expect(box.font).toBeCloseTo(14, 1)
+      expect(box.left).toBeGreaterThanOrEqual(box.outlineLeft)
+      expect(box.right).toBeLessThanOrEqual(box.outlineRight + 1)
+    }
+    await goalInput.fill('120000')
+    await unitInput.fill('£')
+    await unitInput.press('Enter')
+    const proposed = page.getByTestId(`model-row-v2-${goalId}-value-to`)
+    await expect(proposed).toHaveText('At least 120000 £ (absolute level)')
+    await expect(page.getByTestId(`model-row-v2-${goalId}-confirm`)).toBeVisible()
+    const proposalFits = await proposed.evaluate(el => {
+      const box = el.getBoundingClientRect()
+      const outline = document.querySelector('[data-testid="model-outline-v2"]')!.getBoundingClientRect()
+      return box.right <= outline.right + 1 && box.left >= outline.left
+    })
+    expect(proposalFits, 'minimum/absolute-level consent must fit before Confirm').toBe(true)
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify({ measure: 'modelGoalTargetForm', dockWidth: width, goalId,
+      rowHeightBefore: goalBefore!.rowHeight, rowHeightAfter: goalAfter!.rowHeight, formBoxes, proposalFits }))
+    await page.getByTestId(`model-row-v2-${goalId}-discard`).click()
+    await expect(unitInput).toHaveCount(0)
   })
 }
 })

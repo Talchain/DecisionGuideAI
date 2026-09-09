@@ -20,7 +20,7 @@
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
 import { deriveGuidanceDskProvenance, useGuidanceStore } from '../../../canvas/stores/guidanceStore'
-import { useStrengthenStore } from '../../../canvas/stores/strengthenStore'
+import { useStrengthenStore, recordKey} from '../../../canvas/stores/strengthenStore'
 import { buildNodeValueSourceMap } from '../driverValueProvenance'
 import { buildRecommendations } from '../strengthen/buildRecommendations'
 import type { Recommendation } from '../strengthen/strengthenTypes'
@@ -69,6 +69,14 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
   const biasSignals = useCanvasStore((s) => s.draftCoaching?.biasSignals ?? null)
   const guidanceItems = useGuidanceStore((s) => s.guidanceItems)
   const strengthenRecords = useStrengthenStore((s) => s.records)
+  /* ⚠⚠ REQUIRED BY THE FILTER BELOW, AND ITS ABSENCE WAS THE WORST OF THREE
+     BARE-ID READS. Records are keyed by (decision, finding); indexing by the
+     finding alone compiles, returns `undefined` for EVERY record, and makes
+     `!record` unconditionally true — so nothing is ever filtered and findings
+     the reader had already addressed or set aside REAPPEAR in the active list.
+     A silent, user-visible regression with no red anywhere; found by the
+     derived sweep in `oneRecordKeyPerRead.spec.ts`, not by reading the code. */
+  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
 
   const recommendations: Recommendation[] = useMemo(() => {
     const inputs = buildStrengthenInputsForAnalysisNew({
@@ -81,10 +89,10 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
     // surface runs it and renders it; it never adds one of its own, and it
     // never relaxes one of the engine's gates.
     return buildRecommendations(inputs).filter((rec) => {
-      const record = strengthenRecords[rec.id]
+      const record = strengthenRecords[recordKey(currentScenarioId, rec.id)]
       return !record || !RETIRED_STATUSES.has(record.status)
     })
-  }, [data, guidanceItems, biasSignals, currentStage, strengthenRecords])
+  }, [data, guidanceItems, biasSignals, currentStage, strengthenRecords, currentScenarioId])
 
   /**
    * Re-join the producer's DSK attestation onto the engine's phase-3

@@ -9,6 +9,7 @@
 
 import { describe, it, expect, vi } from 'vitest'
 import { normaliseCeeBiasFinding } from '../PreAnalysisPanel'
+import { UNRECOGNISED_BIAS_SIGNAL_TITLE } from '../../../shared/biasSignalTitles'
 
 const noResolver = () => null
 const resolverFor = (id: string, label: string) =>
@@ -131,10 +132,9 @@ describe('normaliseCeeBiasFinding (Brief 5.7 D5 follow-up — target propagation
       resolve,
     )
     expect(trigger).not.toBeNull()
-    // Fallback title is the canonical "Bias detected"; factor name surfaces
-    // via the targeting subtitle.
-    expect(trigger!.title).toBe('Bias detected')
-    expect(trigger!.subtitle).toMatch(/^Watch for bias detected on Customer churn\. /)
+    expect(trigger!.title).toBe(UNRECOGNISED_BIAS_SIGNAL_TITLE)
+    expect(trigger!.subtitle).toBe('Review Customer churn. Some new bias.')
     expect(trigger!.targetFactorLabel).toBe('Customer churn')
+    expect(trigger!.targetFactorId).toBe('fac-3')
   })
 })

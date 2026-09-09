@@ -20,7 +20,7 @@
  * arithmetic invariant rather than a class literal. Enlarging abutting targets
  * makes each easier to hit and does nothing for telling them APART; only
  * SEPARATION discriminates. So the fix is both: `before:-inset-[2px]` on all
- * four (24×24, WCAG 2.2 AA 2.5.8) and `gap-1.5` (6px) so two 2px expansions
+ * quick actions (24×24 before canvas zoom) and `gap-1.5` (6px) so two 2px expansions
  * leave a 2px neutral band instead of overlapping.
  *
  * The invariant, stated against the spec rather than against the failure mode:
@@ -46,16 +46,33 @@ const NODE = { id: 'node-a', type: 'factor', position: { x: 0, y: 0 }, data: { l
 /** px from the Tailwind spacing token in `h-N` / `w-N` (0.25rem = 4px steps). */
 const spacing = (n: string): number => parseFloat(n) * 4
 /** px from `gap-N`. */
+/**
+ * ⭐ READS BOTH CLASS FORMS, and it must (2026-09-09, #1274 merge).
+ * These parsers originally matched only literal Tailwind spacing —
+ * `gap-1.5`, `before:-inset-[2px]`, `h-5`. #1274 counter-scales the row so a
+ * control keeps its AUTHORED px at any zoom, which replaces those literals
+ * with `calc(Npx*var(--canvas-label-scale,1))`. A literal-only parser returns
+ * null/0 against the counter-scaled row and this suite FAILS SAYING THE GAP IS
+ * MISSING — when the gap is present and correct. That is a false red about a
+ * real property, so both forms are matched and the declared px is the answer
+ * either way, which is exactly what this suite exists to assert.
+ */
 const gapPx = (cls: string): number | null => {
+  const scaled = cls.match(/gap-\[calc\((\d+(?:\.\d+)?)px\*var\(--canvas-label-scale/)
+  if (scaled) return parseFloat(scaled[1])
   const m = cls.match(/(?:^|\s)gap-([0-9.]+)(?:\s|$)/)
   return m ? spacing(m[1]) : null
 }
 /** px of hit expansion per side from `before:-inset-[Npx]`; 0 when absent. */
 const expansionPx = (cls: string): number => {
+  const scaled = cls.match(/before:-inset-\[calc\((\d+)px\*var\(--canvas-label-scale/)
+  if (scaled) return parseInt(scaled[1], 10)
   const m = cls.match(/before:-inset-\[(\d+)px\]/)
   return m ? parseInt(m[1], 10) : 0
 }
 const visualPx = (cls: string): number | null => {
+  const scaled = cls.match(/h-\[calc\((\d+(?:\.\d+)?)px\*var\(--canvas-label-scale/)
+  if (scaled) return parseFloat(scaled[1])
   const m = cls.match(/(?:^|\s)h-([0-9.]+)(?:\s|$)/)
   return m ? spacing(m[1]) : null
 }
@@ -63,13 +80,9 @@ const visualPx = (cls: string): number | null => {
 describe('quick actions are reachable targets that do not touch', () => {
   beforeEach(() => {
     useCanvasStore.setState({ nodes: [NODE] } as never)
-    // ⚠ THE ASK BUTTON IS GATED, AND AN UNSEEDED FIXTURE HIDES IT. `canAsk`
-    // reads `canReceiveAsk` off the guidance store; with none of
-    // `_prefillChat` / `_sendMessage` / `_dispatchAction` set, only INSPECT and
-    // MENU render — measured, and it is why the precondition below asserts a
-    // button count rather than trusting the render. The deployed build shows
-    // ask/inspect/menu on a real node, so an unseeded fixture would have
-    // certified a cluster the user never sees.
+    // The send channel makes both AI shortcuts available; with no channel,
+    // only More renders. Assert the actual button count below so the spacing
+    // test cannot pass on a single isolated button.
     useGuidanceStore.setState({ _sendMessage: vi.fn() } as never)
   })
 
@@ -111,13 +124,13 @@ describe('quick actions are reachable targets that do not touch', () => {
     ).toBeGreaterThan(2 * worst)
   })
 
-  it('keeps ask and inspect distinguishable — the pair whose consequences differ', () => {
+  it('keeps ask and challenge distinguishable — the pair whose consequences differ', () => {
     render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
     // Bound by IDENTITY, never by a value predicate a sibling could satisfy:
-    // `ask` auto-sends a turn, `inspect` only opens a panel.
+    // `ask` auto-sends a turn, `challenge` only opens a draft.
     const ask = screen.getByTestId('node-action-ask-node-a')
-    const inspect = screen.getByTestId('node-action-inspect-node-a')
-    for (const [name, el] of [['ask', ask], ['inspect', inspect]] as const) {
+    const challenge = screen.getByTestId('node-action-challenge-node-a')
+    for (const [name, el] of [['ask', ask], ['challenge', challenge]] as const) {
       expect(expansionPx(el.className), `${name} has no hit expansion`).toBeGreaterThan(0)
     }
   })

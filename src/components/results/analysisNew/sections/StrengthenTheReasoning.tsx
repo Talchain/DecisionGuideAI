@@ -65,7 +65,9 @@ import type { ScienceGrounding } from '../analysisNewTypes'
 import { methodForRecommendation } from '../recommendationMethod'
 import { NodeMark, markKindForTarget } from '../nodeMarks'
 import { planPreview } from '../previewComposition'
-import { useStrengthenStore, selectHistory } from '../../../../canvas/stores/strengthenStore'
+import { useStrengthenStore, selectHistory, recordKey } from '../../../../canvas/stores/strengthenStore'
+import { recordDissent, readDissent, dissentCurrency } from '../../../../canvas/stores/dissentStore'
+import { useCanvasStore } from '../../../../canvas/store'
 
 export interface StrengthenTheReasoningProps {
   interventions: Recommendation[]
@@ -157,7 +159,16 @@ export function StrengthenTheReasoning({
    * then fail silently (trap 12). Cheap to be correct now.
    */
   const priorityOrder = useStrengthenStore((st) => st.priorityOrder)
-  const [undoable, setUndoable] = useState<{ id: string; title: string } | null>(null)
+  /* ⚠ THE UNDO PAYLOAD CARRIES THE DECISION, not just the finding id. Undo
+     restores the record that was DISMISSED — which lives under the decision it
+     was dismissed on. Re-deriving the decision at click time would restore
+     under whatever is open when the user presses it, and the toast outlives a
+     decision switch. */
+  const [undoable, setUndoable] = useState<{
+    id: string
+    title: string
+    scenarioId: string | null
+  } | null>(null)
 
   /**
    * ⚠ THE NOTICE IS TRANSIENT, ON THE OWNER'S TIMING. An earlier draft left it up
@@ -173,7 +184,7 @@ export function StrengthenTheReasoning({
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => { if (noticeTimer.current) clearTimeout(noticeTimer.current) }, [])
 
-  const showUndo = useCallback((next: { id: string; title: string }) => {
+  const showUndo = useCallback((next: { id: string; title: string; scenarioId: string | null }) => {
     setUndoable(next)
     if (noticeTimer.current) clearTimeout(noticeTimer.current)
     noticeTimer.current = setTimeout(() => setUndoable(null), NOTICE_MS)
@@ -210,6 +221,34 @@ export function StrengthenTheReasoning({
   const showToast = useShowToastSafe()
   const [disputingId, setDisputingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  const [dissentSaveError, setDissentSaveError] = useState<string | null>(null)
+  const disputeContext = useRef<{ scenarioId: string | null; analysisHash: string | null } | null>(null)
+  /**
+   * ⭐ THE DURABLE DISSENT FOR THE SCENARIO ON SCREEN.
+   *
+   * ⚠ Re-read on an EPOCH rather than on every render: `readDissent()` touches
+   * localStorage, and a component that re-read it on each pass would do storage
+   * IO in the render path. The epoch bumps when this surface records one, which
+   * is the only way it changes while this component is mounted — a write from
+   * another tab is a different question, and one this build deliberately does
+   * not answer (see `dissentStore`'s header on why a `storage` listener is a
+   * freshness mechanism and not a correctness one).
+   */
+  const [dissentEpoch, setDissentEpoch] = useState(0)
+  /**
+   * ⚠⚠ THE SCENARIO ID IS A DEPENDENCY, AND LEAVING IT OUT WAS A REAL BUG.
+   *
+   * Recommendation ids carry NO scenario component — `strengthen:robustness`,
+   * `strengthen:broaden` and `strengthen:commit` are constant literals
+   * identical in every decision, and the interpolated ones are built from
+   * canvas-local ids (`factor-1`, `e-0`) that repeat across decisions. The
+   * per-scenario KEY is what keeps one decision's words off another's card; but
+   * a memo that did not re-read on a scenario change would hold the previous
+   * decision's bucket and defeat it at the last inch — showing a person their
+   * own words about a decision they never wrote them about.
+   */
+  const activeScenarioId = useCanvasStore((st) => st.currentScenarioId)
+  const durableDissent = useMemo(() => readDissent(activeScenarioId), [dissentEpoch, activeScenarioId])
 
   /**
    * ⭐ WHERE FOCUS GOES, AND WHY THIS DIRECTORY HAD NO ANSWER.
@@ -235,10 +274,12 @@ export function StrengthenTheReasoning({
   const openDispute = useCallback(
     (id: string, existing: string, trigger: HTMLButtonElement | null) => {
       disputeTriggerRef.current = trigger
+      disputeContext.current = { scenarioId: activeScenarioId, analysisHash: analysisHash ?? null }
+      setDissentSaveError(null)
       setDisputingId(id)
       setDraft(existing)
     },
-    [],
+    [activeScenarioId, analysisHash],
   )
 
   /** Focus into the composer on open — without it, activating "I disagree"
@@ -337,6 +378,8 @@ export function StrengthenTheReasoning({
   const closeDispute = useCallback(() => {
     setDisputingId(null)
     setDraft('')
+    setDissentSaveError(null)
+    disputeContext.current = null
     // Restore BEFORE the browser settles on body. The trigger is still mounted.
     disputeTriggerRef.current?.focus()
   }, [])
@@ -368,22 +411,61 @@ export function StrengthenTheReasoning({
 
   const commitDispute = useCallback(
     (rec: Recommendation) => {
+      if (!draft.trim()) { closeDispute(); return }
+      const context = disputeContext.current
+      if (!context || context.scenarioId !== useCanvasStore.getState().currentScenarioId) {
+        setDissentSaveError(COPY.dissent.scenarioChanged)
+        return
+      }
       // ⚠ SEED FIRST. `dispute` opens with `if (!record) return`, and this
       // surface never reconciles — so without this the objection would be
       // silently discarded on any finding the OTHER tab had not already
       // recorded, which on a measured run was four of six.
-      seedIfAbsent(rec, analysisHash)
+      seedIfAbsent(rec, context.analysisHash, activeScenarioId)
       // The store no-ops on an empty reason; closing without recording is the
       // honest outcome, not a silent empty entry.
-      dispute(rec.id, draft)
+      dispute(recordKey(activeScenarioId, rec.id), draft)
+      // A board without a persisted identity can still keep a session-only
+      // objection. Its standing text explicitly names that narrower scope.
+      if (!context.scenarioId) { closeDispute(); return }
+      /**
+       * ⭐ AND DURABLY, so it outlives the tab. `strengthenStore` keeps its
+       * session scope untouched — its lifecycle statuses are written from the
+       * Analysis tab, which this lane may not make permanent — while the user's
+       * own words get a home that survives.
+       *
+       * ⚠ THE RUN IS STAMPED HERE, at the moment the words are composed, from
+       * the `analysisHash` this callback already holds. The `disputed` history
+       * event carries no run identity at all, so without this a dissent shown
+       * beside a later analysis would be a claim the user never made.
+       */
+      const saved = recordDissent(context.scenarioId, rec.id, draft, context.analysisHash)
+      setDissentEpoch((n) => n + 1)
+      if (!saved) {
+        // Do not close/clear the user's new words or let the old durable copy
+        // masquerade as the submitted revision. The same editor can retry.
+        setDissentSaveError(COPY.dissent.notSaved)
+        return
+      }
       closeDispute()
     },
-    [dispute, seedIfAbsent, analysisHash, draft, closeDispute],
+    [dispute, seedIfAbsent, draft, closeDispute, activeScenarioId],
   )
 
+  /**
+   * ⭐⭐ SCOPED TO THE DECISION ON SCREEN. This read `selectHistory` with no
+   * identity, and that selector filtered on STATUS ALONE over a store persisted
+   * under one fixed session key that nothing in product code clears — so a
+   * reader who set two findings aside on one decision and then opened another
+   * was shown those findings as the NEW decision's reasoning trail.
+   *
+   * ⚠ `activeScenarioId` IS ALREADY SUBSCRIBED IN THIS COMPONENT (`:241`) and
+   * this file already compares it against the store's own at `:407`. The
+   * identity was here the whole time; the trail simply never asked for it.
+   */
   const retired = useMemo(
-    () => selectHistory({ records: strengthenRecords, priorityOrder }),
-    [strengthenRecords, priorityOrder],
+    () => selectHistory({ records: strengthenRecords, priorityOrder }, activeScenarioId),
+    [strengthenRecords, priorityOrder, activeScenarioId],
   )
   /**
    * Counted BY STATUS, each on its own predicate — see the succeeded-state
@@ -454,7 +536,7 @@ export function StrengthenTheReasoning({
             ref={undoButtonRef}
             type="button"
             onClick={() => {
-              restoreDismissed(undoable.id)
+              restoreDismissed(recordKey(undoable.scenarioId, undoable.id))
               clearUndo()
             }}
             className="rounded text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
@@ -545,10 +627,28 @@ export function StrengthenTheReasoning({
              * they said should see what they now think, not the first thing
              * they typed — so this scans BACKWARDS and stops at the first hit.
              */
-            const record = strengthenRecords[rec.id]
-            const standingDispute = record
-              ? [...record.history].reverse().find((e) => e.event === 'disputed')?.disputeReason
-              : undefined
+            /* ⚠⚠ KEYED, AND THE COMPILER CANNOT SEE THIS ONE. `records` is a
+               `Record<string, …>`, so indexing it with a bare finding id
+               compiles cleanly and simply returns `undefined` — the standing
+               objection would stop rendering with no red anywhere. The branded
+               `RecordKey` protects the store's CALLS; its READS have to be
+               found by hand, and `oneRecordKeyPerRead.spec.ts` exists because
+               this was the second one found that way. */
+            const record = strengthenRecords[recordKey(activeScenarioId, rec.id)]
+            /**
+             * ⭐ DURABLE FIRST, session second. A disagreement recorded in an
+             * earlier session has no history event in this one, so reading only
+             * `record.history` is how it used to disappear. The session copy
+             * remains the fallback so nothing regresses for a board with no
+             * scenario id, which has no durable home.
+             */
+            const durable = durableDissent[rec.id]
+            const standingDispute =
+              durable?.reason ??
+              (record
+                ? [...record.history].reverse().find((e) => e.event === 'disputed')?.disputeReason
+                : undefined)
+            const disputeCurrency = dissentCurrency(durable, analysisHash)
             const strengthLabel =
               grounding?.strength && STRENGTH_LABEL[grounding.strength]
                 ? STRENGTH_LABEL[grounding.strength]
@@ -828,9 +928,9 @@ export function StrengthenTheReasoning({
                     type="button"
                     onClick={() => {
                       // Seed first, for the same reason as the objection above.
-                      seedIfAbsent(rec, analysisHash)
-                      dismiss(rec.id)
-                      showUndo({ id: rec.id, title: rec.title })
+                      seedIfAbsent(rec, analysisHash, activeScenarioId)
+                      dismiss(recordKey(activeScenarioId, rec.id))
+                      showUndo({ id: rec.id, title: rec.title, scenarioId: activeScenarioId })
                     }}
                     className={`${typography.panelMeta} inline-flex items-center rounded px-1 py-1 text-text-light hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                     data-testid={`${testId}-dismiss`}
@@ -864,6 +964,12 @@ export function StrengthenTheReasoning({
                       className={`${typography.panelBody} w-full rounded border border-panel-border bg-panel-hover px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                       data-testid={`${testId}-disagree-input`}
                     />
+                    {dissentSaveError ? (
+                      <p role="alert" className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+                        data-testid={`${testId}-disagree-save-error`}>
+                        {dissentSaveError}
+                      </p>
+                    ) : null}
                     <div className="mt-1 flex items-center gap-3">
                       <button
                         type="button"
@@ -893,6 +999,19 @@ export function StrengthenTheReasoning({
                       {COPY.dissent.standing}:{' '}
                     </span>
                     {standingDispute}
+                    {!activeScenarioId ? (
+                      <span className={`${typography.panelMeta} text-text-light ml-1`}>
+                        {COPY.dissent.sessionOnly}
+                      </span>
+                    ) : null}
+                    {disputeCurrency === 'changed' ? (
+                      <span
+                        className={`${typography.panelMeta} text-text-light ml-1`}
+                        data-testid={`${testId}-disagreement-earlier`}
+                      >
+                        {COPY.dissent.writtenEarlier}
+                      </span>
+                    ) : null}
                   </p>
                 ) : null}
 
@@ -1001,7 +1120,7 @@ export function StrengthenTheReasoning({
                     {record.status === 'dismissed' ? (
                       <button
                         type="button"
-                        onClick={() => restoreDismissed(record.id)}
+                        onClick={() => restoreDismissed(recordKey(record.scenarioId, record.id))}
                         className={`${typography.panelMeta} flex-none text-info hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                         data-testid={`${testId}-history-restore`}
                       >

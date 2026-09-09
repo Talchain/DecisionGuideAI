@@ -424,10 +424,11 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
  *     ONE binding, captioned twice eight pixels apart. The part-of-speech
  *     defence is sound in general and did not hold here: a verb and a noun
  *     describing the SAME quantity on the SAME card are not two ideas.
- *   · `OptionNode:1601` — "Leads via {factor}, the #1 driver". NOT PRESENT.
- *     The live line is `OptionNode:1878`, "Supported by {factor}". Swept with
- *     a contrast control: `Leads via` → 0 hits under `src/canvas`,
- *     `Supported by` → 1. The residual note outlived its own subject.
+ *   · `OptionNode` — "Leads via {factor}, the #1 driver" was already absent
+ *     in the 8 Sep sweep; "Supported by {factor}" remained at that point.
+ *     On 9 Sep the option refinement replaces that residual with "Factor to
+ *     examine": global factor importance supports navigation, not an
+ *     option-specific causal explanation. No vocabulary export changes.
  *
  * ⭐ SO "Leads" IS RETIRED AS A CAPTION *AND* HAS NO LIVE PROSE USE ON THE
  * CANVAS. The narrower ruling is kept below because it is the right rule — a

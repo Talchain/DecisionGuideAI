@@ -82,28 +82,14 @@ describe('NodeQuickActions — R5 efficiency layer', () => {
     useGuidanceStore.setState({ _sendMessage: null, _prefillChat: null } as never)
   })
 
-  it('offers exactly the two ruled actions, each with an accessible name naming the element', () => {
+  it('offers Ask, Challenge and More with accessible names naming the element', () => {
     useGuidanceStore.setState({ _sendMessage: vi.fn() } as never)
     render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
 
     expect(screen.getByRole('button', { name: 'Ask Olumi about Hiring spend' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Open details for Hiring spend' })).toBeInTheDocument()
-  })
-
-  it('opens THIS node\'s inspector, not another node\'s (discriminating pair)', () => {
-    render(
-      <>
-        <NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />
-        <NodeQuickActions nodeId="node-b" nodeType="factor" label="Team productivity" />
-      </>,
-    )
-    // node-b, not node-a: see the note above — a positional mutant passes
-    // trivially when the target is the first node in the graph.
-    fireEvent.click(screen.getByTestId('node-action-inspect-node-b'))
-
-    const selected = useCanvasStore.getState().selection.nodeIds
-    expect(selected.has('node-b')).toBe(true)
-    expect(selected.has('node-a')).toBe(false)
+    expect(screen.getByRole('button', { name: 'Challenge Hiring spend' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'More actions for Hiring spend' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button')).toHaveLength(3)
   })
 
   it('routes "ask about this" through the existing selection→conversation machinery', () => {
@@ -122,8 +108,8 @@ describe('NodeQuickActions — R5 efficiency layer', () => {
     render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
 
     expect(screen.queryByTestId('node-action-ask-node-a')).toBeNull()
-    // …but the inspector action does not depend on the conversation, so it stays.
-    expect(screen.getByTestId('node-action-inspect-node-a')).toBeInTheDocument()
+    // More stays available even without an AI channel.
+    expect(screen.getByTestId('node-action-menu-node-a')).toBeInTheDocument()
   })
 
   /**
@@ -163,7 +149,7 @@ describe('NodeQuickActions — R5 efficiency layer', () => {
     // Native buttons, no tabIndex=-1, no hidden attribute: reachable by Tab
     // even before they are visible, which is what gives the hover actions
     // their keyboard equivalent.
-    for (const id of ['node-action-ask-node-a', 'node-action-inspect-node-a']) {
+    for (const id of ['node-action-ask-node-a', 'node-action-menu-node-a']) {
       const btn = screen.getByTestId(id)
       expect(btn.tagName).toBe('BUTTON')
       expect(btn).not.toHaveAttribute('tabindex', '-1')

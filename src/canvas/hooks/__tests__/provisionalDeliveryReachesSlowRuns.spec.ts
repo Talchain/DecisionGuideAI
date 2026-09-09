@@ -107,6 +107,7 @@ function graphResult(analysisState: AnalysisStateV1 | null) {
     briefText: null,
     notModelled: null,
     identity: null,
+    graphHash: null,
     layoutPresent: false,
     analysisState,
     analysisResult: null,

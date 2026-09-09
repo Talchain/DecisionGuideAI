@@ -7,7 +7,7 @@
  * T6: Sensitivity/Evidence tier labels (results mode)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 
@@ -506,7 +506,7 @@ describe('FactorNode', () => {
 
   // P5: Inferred factor keeps its science disclosure, but B3 withholds the
   // local-only confirmation action because it has no canonical carrier.
-  it('inferred factor keeps science and inspect affordances while confirm value is withheld (P5)', () => {
+  it('inferred factor keeps science and menu affordances while confirm value is withheld (P5)', () => {
     vi.mocked(useScienceIcons).mockReturnValue([{
       id: 'evidence-gap', icon: FileQuestion,
       tooltip: 'No evidence for this factor. Analysis will use defaults.',
@@ -521,36 +521,63 @@ describe('FactorNode', () => {
     // Science icon uses aria-label
     expect(screen.getByLabelText(/No evidence for this factor/)).toBeDefined()
     expect(screen.queryByTitle('Confirm value')).toBeNull()
-    // Positive control: the canonical route to inspect and act remains mounted.
-    expect(screen.getByTitle('Open details for Salary')).toBeDefined()
+    // Positive control: the menu containing the details route remains mounted.
+    expect(screen.getByLabelText('More actions for Salary')).toBeDefined()
   })
 
-  // Graph v1.1 wireframe v4: external factors NEVER get amber treatment.
-  // Dashed border = "outside your control"; amber = "needs your judgement".
-  // The two states must not be confused, even when value is missing.
-  it('uses border-factor (not amber, not goal) for external factor with no observed value', () => {
+  // Graph v1.1 wireframe v4: external factors NEVER get the "needs your
+  // judgement" treatment. Dashed border = "outside your control"; the badge =
+  // "needs your judgement". The two states must not be confused, even when the
+  // value is missing.
+  //
+  // ⚠ THESE TWO CASES CHANGED SHAPE ON 8 Sep 2026 (Paul's badge re-ruling) AND
+  // MUST NOT HAVE BEEN WEAKENED BY IT. What each one was DISCRIMINATING:
+  //   · the external case — that a missing value does NOT buy the
+  //     "needs your judgement" treatment when the factor is outside the user's
+  //     control. Its discriminating power came from `not.toContain(...)` on the
+  //     treatment token, paired with the controllable case below, which is the
+  //     same component and the same missing value with only `category` changed.
+  //   · the controllable case — that a missing value DOES earn it.
+  // The treatment token moved from the border to a badge, so both now assert on
+  // the badge, and BOTH ALSO assert the kind hue that used to be replaced. That
+  // is strictly more than either checked before, and the pairing — one node
+  // gets it, its near-twin does not — is preserved exactly.
+  //
+  // ⚠ AND THE ASSERTIONS BIND TOKEN-EXACT. `toContain` on the className string
+  // would let `hover:border-factor/80` satisfy a `'border-factor'` assertion —
+  // a predicate a different token can meet (CLAUDE.md trap 19).
+  const cardTokens = (container: HTMLElement) =>
+    container.querySelector('[role="group"]')!.className.split(/\s+/).filter(Boolean)
+
+  it('external factor with no observed value: keeps border-factor, and gets NO "needs input" badge', () => {
     const { container } = renderFactor({
       label: 'Market rate',
       type: 'factor',
       category: 'external',
-      // No observedState.value — but external factors are exempt from amber.
+      // No observedState.value — but external factors are exempt.
     })
-    const nodeEl = container.querySelector('[role="group"]')
-    expect(nodeEl?.className).not.toContain('border-goal')
-    expect(nodeEl?.className).not.toContain('border-warning')
-    expect(nodeEl?.className).toContain('border-factor')
+    const tokens = cardTokens(container)
+    expect(tokens).not.toContain('border-goal')
+    expect(tokens).not.toContain('border-warning')
+    expect(tokens).toContain('border-factor')
+    expect(screen.queryByTestId('needs-input-pill')).toBeNull()
   })
 
-  it('uses border-warning for any factor with no observed value (controllable)', () => {
+  it('controllable factor with no observed value: KEEPS border-factor (not amber) and gets the badge', () => {
     const { container } = renderFactor({
       label: 'Hiring rate',
       type: 'factor',
       category: 'controllable',
       // No observedState.value
     })
-    const nodeEl = container.querySelector('[role="group"]')
-    expect(nodeEl?.className).not.toContain('border-goal')
-    expect(nodeEl?.className).toContain('border-warning')
+    const tokens = cardTokens(container)
+    expect(tokens).not.toContain('border-goal')
+    // ⭐ THE RE-RULING. This replaces `toContain('border-warning')`: the kind hue
+    // must SURVIVE the incomplete state rather than be replaced by it.
+    expect(tokens).toContain('border-factor')
+    expect(tokens).not.toContain('border-warning')
+    // ⭐ …and the state must still be announced, or the ruling is half-done.
+    expect(screen.getByTestId('needs-input-pill')).toBeTruthy()
   })
 
   // P0 (feedback): binary factor_type + value=0 → contextual text
@@ -612,6 +639,12 @@ describe('FactorNode', () => {
     const progressbars = container.querySelectorAll('[role="progressbar"]')
     // Two bars: Influence + Confidence
     expect(progressbars.length).toBeGreaterThanOrEqual(2)
+    // A confidence without a default/provisional qualifier has no explanation
+    // to open. Retain the value, without adding a redundant keyboard stop.
+    const confidence = screen.getByRole('group', { name: 'Confidence' })
+    expect(confidence).not.toHaveAttribute('tabindex')
+    expect(confidence).not.toHaveAttribute('data-node-tooltip')
+    expect(confidence).toHaveTextContent('60%')
     // Each bar has a valid aria-valuenow between 0 and 100
     progressbars.forEach(bar => {
       const valuenow = Number(bar.getAttribute('aria-valuenow'))
@@ -630,7 +663,7 @@ describe('FactorNode', () => {
   // (set-relative) basis, FactorNode must pass that provenance through so the
   // pill discloses "top driver always shows 100%" instead of reading as an
   // absolute causal share.
-  it('passes influence provenance to MetricPills so the pill discloses the relative scale (C4)', () => {
+  it('discloses the relative influence scale on the Standard row (C4)', async () => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
       selector({
         hoveredOptionId: null,
@@ -671,10 +704,11 @@ describe('FactorNode', () => {
     // a per-set-normalised figure onto a MORE prominent surface while dropping
     // the sentence that stops it being read as an absolute. This test is the
     // thing that would have caught that, so it is re-pointed, never relaxed.
-    // Both channels stay pinned: `title` for pointer users, and the phrase for
-    // assistive tech, which the row renders screen-reader-only.
+    // Both channels stay pinned: the opened tooltip and the graphic's
+    // accessible name, now including the value as well as its scale.
     const row = screen.getByTestId('factor-influence-row')
-    expect(row.getAttribute('title')).toBe(
+    fireEvent.mouseEnter(row)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
       'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
     )
     expect(row.textContent).toContain('Influence')
@@ -686,11 +720,9 @@ describe('FactorNode', () => {
     // against…" and the other said "Influence, relative to the strongest…" for
     // one number on one card. Both still come from that one module, so neither
     // can drift; they now also agree with each other.
-    expect(
-      screen.getByText(
-        'Influence, relative to the strongest factor. The top driver always shows 100%',
-      ),
-    ).toBeDefined()
+    expect(row).toHaveAccessibleName(
+      'Influence: 100%. Influence, relative to the strongest factor. The top driver always shows 100%',
+    )
   })
 
   // -------------------------------------------------------------------------
@@ -761,8 +793,8 @@ describe('FactorNode', () => {
   // level up from the pill ('Influence' + DataBar + 'NN%') and had NO basis
   // disclosure at all — the identical misread class the pill fix addressed.
   // The bar's accessible name carries the basis (its role="progressbar"
-  // announces the value via aria-valuenow); `title` carries it for pointer
-  // users. Both bases pinned, plus the fail-closed no-provenance case.
+  // announces the value via aria-valuenow); the tooltip carries it for pointer
+  // and keyboard users. Both bases pinned, plus the fail-closed no-provenance case.
   // -------------------------------------------------------------------------
   describe('detailed-view Influence row discloses the basis (review fix 4)', () => {
     function renderDetailedWithProvenance(
@@ -801,7 +833,7 @@ describe('FactorNode', () => {
       return renderFactor({ label: 'Revenue', type: 'factor', observedState: { value: 0.5 } })
     }
 
-    it('fallback basis: the row discloses that the top driver always shows 100%', () => {
+    it('fallback basis: the row discloses that the top driver always shows 100%', async () => {
       renderDetailedWithProvenance('normalised_elasticity', 1)
       const bar = screen.getByRole('progressbar', {
         name: 'Influence, relative to the strongest factor. The top driver always shows 100%',
@@ -809,19 +841,23 @@ describe('FactorNode', () => {
       expect(bar.getAttribute('aria-valuenow')).toBe('100')
       // Pointer users get the same disclosure on the row.
       const row = screen.getByText('Influence').closest('div')
-      expect(row?.getAttribute('title')).toBe(
+      expect(row).not.toBeNull()
+      fireEvent.mouseEnter(row!)
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(
         'Influence: how much this factor affects the outcome, relative to the strongest. The top driver always shows 100%.'
       )
     })
 
-    it('producer basis: the row discloses the set-relative scale, like its sibling', () => {
+    it('producer basis: the row discloses the set-relative scale, like its sibling', async () => {
       renderDetailedWithProvenance('influence_score', 0.6)
       const bar = screen.getByRole('progressbar', {
         name: 'Influence, relative to the strongest factor. The top driver always shows 100%',
       })
       expect(bar.getAttribute('aria-valuenow')).toBe('60')
       const row = screen.getByText('Influence').closest('div')
-      expect(row?.getAttribute('title')).toBe(
+      expect(row).not.toBeNull()
+      fireEvent.mouseEnter(row!)
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(
         // ⚠ THE PRODUCER ARM NAMES ITS OWN QUANTITY, and the two arms are
         // deliberately NOT one string — #1221's positive control forbids
         // collapsing them and is right: the scale is shared, the measurement
@@ -924,7 +960,12 @@ describe('FactorNode — QA Brief A-series', () => {
       type: 'factor',
       observedState: { value: 0.6, source: 'brief_extraction' },
     })
-    expect(screen.queryByTitle('From your brief')).toBeNull()
+    // Bound to the ACCESSIBLE NAME, not `queryByTitle`: `BriefIcon` no longer
+    // carries a native `title` — its hover moved to the shared Tooltip and its
+    // name to `role="img"` + `aria-label`. Left on `queryByTitle` this would
+    // pass VACUOUSLY, green because the attribute exists nowhere rather than
+    // because the icon is absent, and it would not catch a reintroduction.
+    expect(screen.queryByLabelText('From your brief')).toBeNull()
   })
 
   // A16: source='user' → no provenance icon
@@ -935,7 +976,7 @@ describe('FactorNode — QA Brief A-series', () => {
       observedState: { value: 0.7, source: 'user' },
     })
     expect(screen.queryByTitle('Generated from your brief')).toBeNull()
-    expect(screen.queryByTitle('Estimated by Olumi')).toBeNull()
+    expect(screen.queryByLabelText('Estimated by Olumi')).toBeNull()
     expect(screen.queryByText('Set by you')).toBeNull()
   })
 
@@ -959,7 +1000,7 @@ describe('FactorNode — QA Brief A-series', () => {
 
   // A17b: value=0 + extractionType=inferred → contextual text + science icon;
   // B3 withholds the local-only confirmation action.
-  it('A17b: inferred zero keeps contextual science and inspect affordances without confirm value', () => {
+  it('A17b: inferred zero keeps contextual science and menu affordances without confirm value', () => {
     vi.mocked(useScienceIcons).mockReturnValue([{
       id: 'evidence-gap', icon: FileQuestion,
       tooltip: 'No evidence for this factor. Analysis will use defaults.',
@@ -975,8 +1016,8 @@ describe('FactorNode — QA Brief A-series', () => {
     // Science icon via aria-label
     expect(screen.getByLabelText(/No evidence for this factor/)).toBeDefined()
     expect(screen.queryByTitle('Confirm value')).toBeNull()
-    // Positive control: the canonical details path is still available.
-    expect(screen.getByTitle('Open details for Item')).toBeDefined()
+    // Positive control: the menu containing the details route remains available.
+    expect(screen.getByLabelText('More actions for Item')).toBeDefined()
   })
 
   // A18: Tier labels removed — non-binary values without raw_value show no display text

@@ -1,85 +1,280 @@
-/**
- * decisionRecordStore — scenario-keyed sessionStorage persistence for the
- * prototype-only decision record (no backend persistence exists).
- */
-import { describe, it, expect, beforeEach } from 'vitest'
-
+/** Account-bound local retention and capture-specific acknowledgement. */
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  selectDecisionRecord,
-  useDecisionRecordStore,
-  type DecisionRecord,
+  clearDecisionRecords, observeDecisionRecordOwner, selectDecisionRecord,
+  useDecisionRecordStore, type DecisionRecord,
 } from '../decisionRecordStore'
+import { UNSCOPED_SCENARIO_KEY } from '../scenarioKey'
 
-const STORAGE_KEY = 'decisionRecord.v1'
-
+const OWNER_KEY = 'decisionRecord.v2:owner'
+const store = () => useDecisionRecordStore.getState()
+const read = (key = 'scn_a') => selectDecisionRecord(store(), key)
+const diskKeys = () => Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i)!)
+const dataKeys = () => diskKeys().filter(k => k.includes(':record:'))
+const remote = { recordId: 'dr_a', reviewDate: '2026-12-01T00:00:00.000Z', reviewDateSource: 'user_set' as const }
 function record(overrides: Partial<DecisionRecord> = {}): DecisionRecord {
   return {
-    optionId: 'opt_1',
-    optionLabel: 'Bring on technical co-founder',
-    optionNumber: 1,
-    confidence: 70,
-    rationale: 'Best current choice.',
-    assumptionToWatch: 'Hiring market stays open.',
-    revisitTrigger: 'Runway falls below 9 months',
-    analysisHash: 'hash_1',
-    savedAt: 1234,
-    ...overrides,
+    optionId: 'opt_a', optionLabel: 'Hire a technical lead', optionNumber: 1, confidence: 70,
+    rationale: 'Current reasoning', expectation: 'Faster delivery', assumptionToWatch: 'Hiring stays open',
+    revisitTrigger: '2026-12-01', analysisHash: 'hash_1', savedAt: 1234, remote: null, ...overrides,
   }
 }
-
+async function anotherTab(owner: string | null = null) {
+  vi.resetModules()
+  const tab = await import('../decisionRecordStore')
+  tab.observeDecisionRecordOwner(owner)
+  return tab
+}
 beforeEach(() => {
-  useDecisionRecordStore.getState()._reset()
+  localStorage.clear()
   sessionStorage.clear()
+  store()._reset()
+})
+afterEach(() => { vi.restoreAllMocks() })
+
+describe('local lifetime and exact scenario scope', () => {
+  it('keeps latest record per scenario without replacing a different scenario', () => {
+    store().saveRecord('scn_a', record())
+    store().saveRecord('scn_a', record({ optionId: 'opt_b' }))
+    store().saveRecord('scn_b', record({ optionId: 'opt_c' }))
+    expect(read()?.optionId).toBe('opt_b')
+    expect(read('scn_b')?.optionId).toBe('opt_c')
+    expect(read('absent')).toBeNull()
+  })
+  it('round-trips the complete record and analysis hash', () => {
+    store().saveRecord('scn_a', record())
+    useDecisionRecordStore.setState({ byScenario: {} })
+    expect(read()).toBeNull()
+    store()._rehydrateForTests()
+    expect(read()).toEqual(record())
+  })
+  it('uses separate versioned records and ignores an unknown version', () => {
+    store().saveRecord('scn_a', record(), 'capture-a')
+    const key = dataKeys()[0]
+    expect(JSON.parse(localStorage.getItem(key)!)).toMatchObject({ version: 2, scenarioKey: 'scn_a', clientCommitId: 'capture-a' })
+    localStorage.setItem(key, JSON.stringify({ version: 99, scenarioKey: 'scn_a', record: record() }))
+    store()._rehydrateForTests()
+    expect(read()).toBeNull()
+  })
+  it('ignores corrupt record payloads', () => {
+    store().saveRecord('scn_a', record())
+    localStorage.setItem(dataKeys()[0], 'not json')
+    store()._rehydrateForTests()
+    expect(read()).toBeNull()
+  })
+  it('reset clears notes from memory and storage, not unrelated application data', () => {
+    store().saveRecord('scn_a', record())
+    localStorage.setItem('unrelated', 'retain me')
+    store()._reset()
+    expect(store().byScenario).toEqual({})
+    expect(dataKeys()).toEqual([])
+    expect(localStorage.getItem('unrelated')).toBe('retain me')
+  })
+  it('survives tab-close session storage clearing, without writing there', () => {
+    store().saveRecord('scn_a', record())
+    expect(sessionStorage.length).toBe(0)
+    sessionStorage.clear()
+    useDecisionRecordStore.setState({ byScenario: {} })
+    store()._rehydrateForTests()
+    expect(read()).toEqual(record())
+  })
+  it('does not survive clearing its actual durable store (opposite control)', () => {
+    store().saveRecord('scn_a', record())
+    localStorage.clear()
+    store()._rehydrateForTests()
+    expect(read()).toBeNull()
+  })
+  it('unscoped records remain memory-only while a named scenario survives reload', () => {
+    store().saveRecord(UNSCOPED_SCENARIO_KEY, record())
+    expect(read(UNSCOPED_SCENARIO_KEY)).toEqual(record())
+    expect(dataKeys()).toHaveLength(0)
+    store().saveRecord('scn_a', record())
+    expect(dataKeys()).toHaveLength(1)
+    store()._rehydrateForTests()
+    expect(read(UNSCOPED_SCENARIO_KEY)).toBeNull()
+    expect(read()).toEqual(record())
+  })
 })
 
-describe('decisionRecordStore', () => {
-  it('saves one record per scenario, latest wins', () => {
-    const store = useDecisionRecordStore.getState()
-    store.saveRecord('scn_a', record())
-    store.saveRecord('scn_a', record({ optionId: 'opt_2', optionLabel: 'Outsource' }))
-    store.saveRecord('scn_b', record({ optionId: 'opt_3' }))
+describe('resolved identity and revocation', () => {
+  it('fresh module exposes nothing until owner resolves, then restores the same account', async () => {
+    observeDecisionRecordOwner('account-a')
+    store().saveRecord('scn_a', record())
+    vi.resetModules()
+    const fresh = await import('../decisionRecordStore')
+    expect(fresh.useDecisionRecordStore.getState().byScenario).toEqual({})
+    fresh.observeDecisionRecordOwner('account-a')
+    expect(fresh.useDecisionRecordStore.getState().byScenario.scn_a).toEqual(record())
+  })
+  it('fresh module with empty storage restores nothing (positive restore twin)', async () => {
+    localStorage.clear()
+    const fresh = await anotherTab('account-a')
+    expect(fresh.useDecisionRecordStore.getState().byScenario).toEqual({})
+  })
+  it('quarantines ownerless v1 notes without exposing or erasing them on ordinary adoption', async () => {
+    localStorage.removeItem(OWNER_KEY)
+    const legacy = JSON.stringify({ version: 1, byScenario: { scn_a: record() } })
+    localStorage.setItem('decisionRecord.v1', legacy)
+    const fresh = await anotherTab('account-a')
+    expect(fresh.useDecisionRecordStore.getState().byScenario).toEqual({})
+    expect(localStorage.getItem('decisionRecord.v1')).toBe(legacy)
+    fresh.clearDecisionRecords()
+    expect(localStorage.getItem('decisionRecord.v1')).toBeNull()
+  })
+  it('account A to B clears memory, disk and account proof even for the same scenario', () => {
+    observeDecisionRecordOwner('account-a')
+    const capture = store().saveRecord('scn_a', record())!
+    expect(store().attachRemote('scn_a', capture, remote)).toBe(true)
+    store().open()
+    observeDecisionRecordOwner('account-b')
+    expect(store().byScenario).toEqual({})
+    expect(store().isOpen).toBe(false)
+    expect(dataKeys()).toEqual([])
+    expect(store().attachRemote('scn_a', capture, remote)).toBe(false)
+    expect(store().saveRecord('scn_a', record({ rationale: 'B owns this' }))).not.toBeNull()
+    expect(read()?.rationale).toBe('B owns this')
+  })
+  it('sign-out revokes a stale tab even before its storage event arrives', async () => {
+    observeDecisionRecordOwner('account-a')
+    const capture = store().saveRecord('scn_a', record())!
+    const tab = await anotherTab('account-a')
+    tab.clearDecisionRecords()
+    tab.observeDecisionRecordOwner('account-b')
+    expect(store().attachRemote('scn_a', capture, remote)).toBe(false)
+    expect(store().saveRecord('scn_a', record())).toBeNull()
+    expect(store().byScenario).toEqual({})
+    expect(dataKeys()).toEqual([])
+  })
+  it('storage revocation clears an idle old tab without another save', async () => {
+    observeDecisionRecordOwner('account-a')
+    store().saveRecord('scn_a', record())
+    const tab = await anotherTab('account-a')
+    tab.clearDecisionRecords()
+    window.dispatchEvent(new StorageEvent('storage', { key: OWNER_KEY }))
+    expect(store().byScenario).toEqual({})
+  })
+  it('sign-out interleaved inside a write cannot repopulate revoked data', () => {
+    observeDecisionRecordOwner('account-a')
+    const original = Storage.prototype.setItem
+    let crossed = false
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
+      if (!crossed && key.includes(':record:')) {
+        crossed = true
+        clearDecisionRecords()
+      }
+      original.call(this, key, value)
+    })
+    expect(store().saveRecord('scn_a', record())).toBeNull()
+    expect(crossed).toBe(true)
+    expect(dataKeys()).toEqual([])
+    expect(store().byScenario).toEqual({})
+  })
+  it('corrupt owner metadata fails closed, not as a blocked-storage exception', () => {
+    const capture = store().saveRecord('scn_a', record())!
+    localStorage.setItem(OWNER_KEY, 'not json')
+    expect(store().attachRemote('scn_a', capture, remote)).toBe(false)
+    expect(store().saveRecord('scn_a', record())).toBeNull()
+  })
+  it('blocked storage does not claim a scoped record was kept; sign-out still clears memory', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked') })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })
+    observeDecisionRecordOwner('account-a')
+    expect(store().saveRecord('scn_a', record())).toBeNull()
+    expect(read()).toBeNull()
+    expect(store().saveRecord(UNSCOPED_SCENARIO_KEY, record())).not.toBeNull()
+    expect(read(UNSCOPED_SCENARIO_KEY)?.optionId).toBe('opt_a')
+    clearDecisionRecords()
+    expect(read()).toBeNull()
+    expect(read(UNSCOPED_SCENARIO_KEY)).toBeNull()
+  })
+})
 
-    const state = useDecisionRecordStore.getState()
-    expect(selectDecisionRecord(state, 'scn_a')?.optionId).toBe('opt_2')
-    expect(selectDecisionRecord(state, 'scn_b')?.optionId).toBe('opt_3')
-    expect(selectDecisionRecord(state, 'scn_c')).toBeNull()
+describe('cross-tab interleavings and exact acknowledgement identity', () => {
+  it.each(['initial', 'account-switch'] as const)('concurrent same-owner adoption keeps both scenarios (%s)', async (mode) => {
+    if (mode === 'initial') localStorage.clear()
+    else observeDecisionRecordOwner('previous-account')
+    vi.resetModules()
+    const tab = await import('../decisionRecordStore')
+    const original = Storage.prototype.setItem
+    let crossed = false
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
+      if (key === OWNER_KEY && !crossed) {
+        crossed = true
+        tab.observeDecisionRecordOwner('account-a')
+        expect(tab.useDecisionRecordStore.getState().saveRecord('scn_b', record({ optionId: 'opt_b' }))).not.toBeNull()
+        expect(tab.useDecisionRecordStore.getState().byScenario.scn_b?.optionId).toBe('opt_b')
+      }
+      original.call(this, key, value)
+    })
+    observeDecisionRecordOwner('account-a')
+    expect(crossed).toBe(true)
+    expect(store().saveRecord('scn_a', record())).not.toBeNull()
+    store()._rehydrateForTests()
+    expect(read()?.optionId).toBe('opt_a')
+    expect(read('scn_b')?.optionId).toBe('opt_b')
   })
 
-  it('round-trips through sessionStorage (simulated reload) including the analysis hash', () => {
-    useDecisionRecordStore.getState().saveRecord('scn_a', record())
-
-    useDecisionRecordStore.setState({ byScenario: {} })
-    expect(selectDecisionRecord(useDecisionRecordStore.getState(), 'scn_a')).toBeNull()
-
-    useDecisionRecordStore.getState()._rehydrateForTests()
-    const restored = selectDecisionRecord(useDecisionRecordStore.getState(), 'scn_a')
-    expect(restored).toEqual(record())
-    expect(restored?.analysisHash).toBe('hash_1')
+  it('overlapping writes to different scenarios both survive: A begins, B writes, A completes', async () => {
+    const tab = await anotherTab()
+    const original = Storage.prototype.setItem
+    let crossed = false
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
+      if (!crossed && key.includes(':record:')) {
+        crossed = true
+        tab.useDecisionRecordStore.getState().saveRecord('scn_b', record({ optionId: 'opt_b' }))
+      }
+      original.call(this, key, value)
+    })
+    store().saveRecord('scn_a', record())
+    expect(crossed).toBe(true)
+    expect(dataKeys()).toHaveLength(2)
+    store()._rehydrateForTests()
+    expect(read()?.optionId).toBe('opt_a')
+    expect(read('scn_b')?.optionId).toBe('opt_b')
   })
-
-  it('persists a version-keyed payload and ignores unknown versions', () => {
-    useDecisionRecordStore.getState().saveRecord('scn_a', record())
-    const raw = sessionStorage.getItem(STORAGE_KEY)
-    expect(JSON.parse(raw as string).version).toBe(1)
-
-    sessionStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ version: 2, byScenario: { scn_a: record() } }),
-    )
-    useDecisionRecordStore.getState()._rehydrateForTests()
-    expect(selectDecisionRecord(useDecisionRecordStore.getState(), 'scn_a')).toBeNull()
+  it('late A success cannot confirm newer B after B network failure', async () => {
+    const captureA = store().saveRecord('scn_a', record(), 'request-a')!
+    const tab = await anotherTab()
+    const captureB = tab.useDecisionRecordStore.getState().saveRecord('scn_a', record({ optionId: 'opt_b' }), 'request-b')!
+    expect(store().attachRemote('scn_a', captureA, remote)).toBe(false)
+    store()._rehydrateForTests()
+    expect(read()?.optionId).toBe('opt_b')
+    expect(read()?.remote).toBeNull()
+    expect(tab.useDecisionRecordStore.getState().attachRemote('scn_a', captureB, { ...remote, recordId: 'dr_b' })).toBe(true)
+    store()._rehydrateForTests()
+    expect(read()?.remote?.recordId).toBe('dr_b')
   })
-
-  it('ignores corrupt storage payloads', () => {
-    sessionStorage.setItem(STORAGE_KEY, '¬ not json')
-    useDecisionRecordStore.getState()._rehydrateForTests()
-    expect(useDecisionRecordStore.getState().byScenario).toEqual({})
+  it('B capture inside A acknowledgement write never inherits A account proof', async () => {
+    const captureA = store().saveRecord('scn_a', record(), 'request-a')!
+    const tab = await anotherTab()
+    const original = Storage.prototype.setItem
+    let crossed = false
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
+      if (!crossed && key.includes(':ack:')) {
+        crossed = true
+        tab.useDecisionRecordStore.getState().saveRecord('scn_a', record({ optionId: 'opt_b' }), 'request-b')
+      }
+      original.call(this, key, value)
+    })
+    expect(store().attachRemote('scn_a', captureA, remote)).toBe(false)
+    expect(crossed).toBe(true)
+    store()._rehydrateForTests()
+    expect(read()?.optionId).toBe('opt_b')
+    expect(read()?.remote).toBeNull()
   })
-
-  it('_reset clears memory and storage', () => {
-    useDecisionRecordStore.getState().saveRecord('scn_a', record())
-    useDecisionRecordStore.getState()._reset()
-    expect(useDecisionRecordStore.getState().byScenario).toEqual({})
-    expect(sessionStorage.getItem(STORAGE_KEY)).toBeNull()
+  it('valid acknowledgement persists while preserving another scenario and refusing a missing record', async () => {
+    const capture = store().saveRecord('scn_a', record(), 'request-a')!
+    const tab = await anotherTab()
+    tab.useDecisionRecordStore.getState().saveRecord('scn_b', record({ optionId: 'opt_b' }))
+    expect(store().attachRemote('scn_a', capture, remote)).toBe(true)
+    expect(store().attachRemote('absent', capture, remote)).toBe(false)
+    store()._rehydrateForTests()
+    expect(read()?.remote).toEqual(remote)
+    expect(read('scn_b')?.optionId).toBe('opt_b')
+  })
+  it('deleted durable capture cannot fall back to stale memory for acknowledgement', () => {
+    const capture = store().saveRecord('scn_a', record())!
+    localStorage.removeItem(dataKeys()[0])
+    expect(store().attachRemote('scn_a', capture, remote)).toBe(false)
   })
 })

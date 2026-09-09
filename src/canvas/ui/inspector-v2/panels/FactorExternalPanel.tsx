@@ -29,6 +29,11 @@ import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
+import {
+  investigationValueTier,
+  INVESTIGATION_VALUE_LABEL,
+  INVESTIGATION_VALUE_INVITATION,
+} from '../../../domain/investigationValue'
 import { resolveCoaching } from '../coachingConfig'
 import { FactorExternalEditor } from '../editors/FactorExternalEditor'
 import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
@@ -62,6 +67,17 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
+
+  /**
+   * ⭐ ONE LADDER, SHARED. The tier decision used to be typed out twice in this
+   * file and four more times in the two sibling factor panels — six copies of
+   * `>= 0.7` / `>= 0.4` over one field. The WORDS below stay here, because they
+   * differ by factor category on purpose; only the boundary moved.
+   */
+  const voiTier =
+    displayMetadata.valueOfInformation === null
+      ? null
+      : investigationValueTier(displayMetadata.valueOfInformation)
 
   // Description — conditional edit state for EmptyDescriptionPrompt pattern
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
@@ -311,17 +327,19 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
               importanceScore={displayMetadata.influence}
               sensitivityRank={displayMetadata.sensitivityRank}
             />
-            {displayMetadata.valueOfInformation !== null && (
+            {/* ⚠ BOTH CONJUNCTS, AND THE FIRST ONE IS NOT REDUNDANT. `voiTier`
+                is derived from this value, so a human reads the second as
+                implying the first — but TypeScript does not narrow through a
+                derived local, and `DataBar` takes `number`, not `number | null`.
+                Dropping either one is a type error, which is the compiler
+                making the same point. */}
+            {displayMetadata.valueOfInformation !== null && voiTier !== null && (
               <div>
                 <DataBar
                   value={displayMetadata.valueOfInformation}
                   label={INLINE_LABELS.investigationValue}
                   colour="info"
-                  trailingLabel={
-                    displayMetadata.valueOfInformation >= 0.7 ? 'High'
-                    : displayMetadata.valueOfInformation >= 0.4 ? 'Medium'
-                    : 'Low'
-                  }
+                  trailingLabel={INVESTIGATION_VALUE_LABEL[voiTier]}
                 />
                 {/* Its own label, in the same place ImportanceBar puts its own —
                     without it, that bar's label reads as this bar's. */}
@@ -329,11 +347,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
                   {INLINE_LABELS.investigationValue}
                 </div>
                 <p className={`${typography.panelMeta} text-text-light mt-1`}>
-                  {displayMetadata.valueOfInformation >= 0.7
-                    ? 'Gathering more evidence here could significantly improve confidence.'
-                    : displayMetadata.valueOfInformation >= 0.4
-                    ? 'Additional evidence here would moderately sharpen the analysis.'
-                    : 'Further investigation here is unlikely to change the outcome.'}
+                  {INVESTIGATION_VALUE_INVITATION.evidence}
                 </p>
               </div>
             )}

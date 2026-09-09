@@ -30,6 +30,22 @@ export interface InspectorPanelProps {
   onClose: () => void
   /** Navigate selection to a different node/edge */
   onNavigate: (id: string) => void
+  /**
+   * ⭐⭐ THE PANEL OWNS ITS OWN AUTHORITY BOUNDARY, AND THE ROUTER HAS NOT
+   * WRAPPED IT.
+   *
+   * Present only for panels in `InspectorRouter`'s `AUTHORITY_OWNING_PANELS`.
+   * For every other panel this prop is absent and the Router's outer
+   * `<fieldset disabled>` is unchanged.
+   *
+   * ⛔ IT IS A DUTY, NOT A PERMISSION. A panel receiving `readOnly` must place
+   * every control that reaches a mutation behind its own disabled fieldset — it
+   * may NEVER read this as licence to enable a write. What it buys is the
+   * ability to leave NON-writing controls alive: navigation, disclosure and
+   * coaching, which the blanket wrap was disabling for a reason that was never
+   * about them.
+   */
+  readOnly?: boolean
 }
 
 // ─── Drag handlers (from InspectorModal) ──────────────────────────

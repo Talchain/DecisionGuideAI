@@ -157,12 +157,35 @@ describe('⭐ the strip makes no provenance claim, and cannot grow one silently'
   it('a strip node exposes an identity, a name, the verify state, the value and its source', () => {
     const strip = buildModelStrip([node('f1', 'factor', 'Annual cost')])
     expect(Object.keys(strip.rows[0].nodes[0]).sort()).toEqual([
+      'hasValue',
       'id',
       'label',
       'needsCheck',
       'valueSource',
       'valueText',
     ])
+  })
+
+  /**
+   * ⭐ `hasValue` IS A DIFFERENT QUESTION FROM `valueText`, AND THIS PINS THAT.
+   *
+   * Added 8 Sep 2026 with the field. The guard above stops fields growing
+   * SILENTLY, which is why it fired on this addition and why the addition is
+   * deliberate rather than absorbed — but a key-set assertion cannot say the new
+   * field means anything. This one does: it fails if `hasValue` is ever quietly
+   * reduced to a synonym for "we have text", which is the exact collapse the
+   * field was introduced to undo.
+   */
+  it('hasValue and valueText disagree where the formatter suppresses a real value', () => {
+    const suppressed = {
+      id: 'f2',
+      type: 'factor',
+      position: { x: 0, y: 0 },
+      data: { label: 'Adoption', kind: 'factor', observedState: { value: 0.42, unit: 'index' } },
+    }
+    const n = buildModelStrip([suppressed as never]).rows[0].nodes[0]
+    expect(n.valueText).toBeNull()
+    expect(n.hasValue).toBe(true)
   })
 
   /**
