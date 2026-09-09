@@ -29,9 +29,10 @@ Strategic Path's [TODAY reconciliation](https://github.com/Talchain/olumi-progra
 
 Active UI assignments:
 - Codex: FactorNode/GoalNode plus FactorControllablePanel/GoalPanel, in [#1372](https://github.com/Talchain/DecisionGuideAI/pull/1372). Shared setting/boundary display helpers and component design-system note are included.
-- Codex Action author: [#1373](https://github.com/Talchain/DecisionGuideAI/pull/1373), ActionNode only, with existing expansion and inspector routes; no shared GenericNodePanel writer change.
+- Codex Action author: [#1373](https://github.com/Talchain/DecisionGuideAI/pull/1373), ActionNode with existing expansion and inspector routes. The separate inspector refinement below completes the full-context reading surface.
 - Codex Risk/Outcome author: [#1374](https://github.com/Talchain/DecisionGuideAI/pull/1374), RiskNode and OutcomeNode only; exclude Canvas's active OutcomePanel work in #1363.
-- Canvas: accepted connector/shared design-system ownership through programme38/5600995525. Manifest: edgePresentation.ts, edgeLabelCollision.ts, EdgeEditPopover.tsx, directionStroke.ts, cvdContrast.ts and DESIGN_SYSTEM reconciliation. DecisionNode is also routed to Canvas from its completed audit. StyledEdge.tsx/edgeLabelVisibility.ts remain with existing #1311/#1265 owners until completion or explicit transfer. Canvas #1370 adds goal/risk/outcome coaching questions; land it first, then rebase #1372/#1374 without losing them. The current Canvas reviewer retains the node reviews.
+- Codex inspector pair: [#1382](https://github.com/Talchain/DecisionGuideAI/pull/1382), GenericNodePanel and RiskPanel only, with two dedicated receiving specs and one component note. Full authored context, readable long descriptions, schema-valid entered estimates and exact risk-edit precision; existing permissions and mutation routes remain intact. This scope was separately declared and checked against the open PR manifests.
+- Canvas: DecisionNode and shared design-system reconciliation, plus the mounted connector candidates #1311/#1265. Core explicitly transferred those existing branches to current Canvas (receipts5601395213/5601399219); no third StyledEdge writer or replacement branch. The earlier proposed EdgeEditPopover work is withdrawn because that component is not mounted. #1219 remains with its existing owner and Core coordinates any overlap. Canvas #1370 adds goal/risk/outcome coaching questions; land it first, then rebase #1372/#1374 without losing them. The current Canvas reviewer retains the node reviews.
 
 Validation is proportionate: focused rendering, interaction, long/missing-content and meaning checks, plus required hosted checks. Existing root browser acceptance is reused; no extra broad benchmark, framework, device matrix or duplicate full local suite. Where source data is incomplete or uncertain, the UI identifies that limitation without inventing values. Useful authored content and genuine scientific results remain visible within their existing permissions.
 
@@ -68,7 +69,7 @@ Use the current BaseNode, top-of-node shapes, semantic colours, typography, prov
 ## Delivery sequence and ownership
 
 **Now: close the current capability and lock the whole content pass.**
-The existing author/reviewer finishes #1368; no new repair lane. Paul and Canvas review this matrix once for material content decisions. Resolve only disagreements that change implementation. Any unproven datum gets a named owner and an honest rendering fallback, rather than blocking the entire graph.
+#1368 is merged and served on staging. The remaining node and inspector candidates proceed through their existing authors, reviewers and release operator. Paul can steer the content decisions while implementation continues; his optional feedback does not pause independent authorised work. Any unproven datum gets a named owner and an honest rendering fallback, rather than blocking the entire graph.
 
 **Active factor/goal implementation: factors, goals and their constraint display.**
 These establish the meaning of values, assumptions and success across the graph. Inspect shared-file and semantic dependencies before fixing the batch boundary. Reuse existing formatting/currentness/provenance helpers. Core's active writer fixes continue independently; Canvas does not edit their contracts.
@@ -124,6 +125,8 @@ Source baseline for this proposal: UI staging3b2df4ce7a44c4e119065b2866bfb14c4f2
 
 ISL staging was resolved remotely to7781ca4fdee93e550a9c3cc7b7e2a0bb5141bcf1 before reading models/robustness_v2.py, services/robustness_analyzer_v2.py and api/robustness.py. The risk-binding question remains open.
 
-#1366 is reviewed, merged and served (receipt5600398596). #1368's unknown-title review is being addressed at substantive successore7ef316c; its intermediate test-only relaxation is withdrawn. Canvas approved exact e7ef316c in successor verdict5600952624. Required checks passed; the retained release operator owns merging/deployment. This document does not claim it deployed. Core's first-Save and goal-writer failures remain owned work, not resolved by this plan.
+#1366 is reviewed, merged and served (receipt5600398596). #1368's substantive successore7ef316c received Canvas approval5600952624, reissued in gate-readable form5601226826, and merged as6eb0fa363abedf159e3c7ba061256245141f917d. This task directly read staging `/version.json` at commit6eb0fa36 / deploy6aa1463254f36800084f52db. That proves the served revision, not a completed coaching journey.
+
+At the 9 September 12:06 UTC execution snapshot, #1372(d12eb24e), #1373(7d0ab3ba), #1374(c8210c4a) and #1382(cc1bafb9) were author-ready, not merged or visually accepted. #1374 had a concrete shard-4 failure assigned to its author; the other candidates' required checks were incomplete. #1370(dd24d94c) remained open and is the preserving-rebase trigger. Current states belong to the PRs and the execution receipt, rather than this dated snapshot. Core's save and goal-writer acceptance remains with its owners and is not established by this plan.
 
 Programme authority remains [PoC Strategic Path / programme38](https://github.com/Talchain/olumi-programme-docs/pull/38). The existing [option-node specification](option-node/v3/DESIGN-SPEC.md) and [premium V2](option-node/v2/olumi-option-node-v2.html) remain preserved. No prototype was edited.
