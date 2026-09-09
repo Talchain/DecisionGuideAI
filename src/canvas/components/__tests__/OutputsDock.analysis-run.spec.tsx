@@ -369,21 +369,40 @@ describe('OutputsDock analyse convergence', () => {
      * — without it a coaching click on a fresh chat fell to `_sendMessage`,
      * which drops all three while still returning something.
      *
-     * ⭐ WHAT THIS SPEC ACTUALLY GUARDS IS UNCHANGED, AND IS THE REASON THE
-     * ASSERTION IS SPLIT RATHER THAN DELETED: the canonical run reaches the
-     * HOST dispatcher exactly once with full chip metadata, and never leaks
-     * through the guidance store or the `sendMessage`/`sendChip` fallbacks
-     * — whether or not a store dispatcher happens to be registered. Deleting
-     * the `_dispatchAction` expectation would have retired that discrimination
-     * silently; asserting the per-host value keeps it, and REDs if the fresh
-     * chat ever stops registering.
+     * ⚠⚠ AND MY FIRST SPLIT OF THIS ASSERTION WAS WEAKER THAN THE LINE IT
+     * REPLACED — corrected here after review, because the docblock that stood
+     * in this place claimed the guard was UNCHANGED and it was not.
+     *
+     * The original `expect(_dispatchAction).toBeNull()` did more than record a
+     * value: **null cannot be called**, so a run routed through the store was
+     * STRUCTURALLY IMPOSSIBLE. Replacing it with `typeof === 'function'` kept
+     * the shape and dropped the impossibility — and because the registered
+     * dispatcher forwards to the SAME mock the host path uses, a genuine leak
+     * through `useGuidanceStore.getState()._dispatchAction` would have satisfied
+     * every surviving assertion, call count included.
+     *
+     * ⛔ WORSE, THE ONLY THING REDDING THAT LEAK WAS AN ACCIDENT. The host
+     * double was `vi.fn()`, which returns `undefined`, and `OlumiTabBody.tsx:120`
+     * calls `.catch` on the result — so the store route threw a TypeError. A
+     * later author "tidying" that double to an async one (the shape this PR's
+     * own new spec already uses) would have made the leak completely invisible.
+     * The double is async here now, deliberately, so the guard can no longer
+     * rest on a thrown type error.
+     *
+     * ⭐ THE DISCRIMINATION IS RESTORED BY IDENTITY, NOT BY SHAPE: the store's
+     * dispatcher is swapped for its own spy after mount, and the run must leave
+     * that spy UNCALLED. A leak now fails on the spy rather than on a
+     * coincidence, and the assertion no longer depends on what a double returns.
      */
     it.each([
       { host: 'provider', aiPanelV2: true, storeDispatcherRegistered: true },
       { host: 'legacy', aiPanelV2: false, storeDispatcherRegistered: false },
     ])('$host: a zero-chat graph dispatches once through the host dispatcher and reveals Olumi', async ({ aiPanelV2, storeDispatcherRegistered }) => {
       mockIsAiPanelV2Enabled.mockReturnValue(aiPanelV2)
-      const dispatchAction = vi.fn()
+      // ⚠ ASYNC ON PURPOSE — see the docblock. A bare `vi.fn()` returns
+      // `undefined`, and the store route calls `.catch` on it, so a leak RED'd
+      // by TypeError rather than by any assertion here.
+      const dispatchAction = vi.fn(async () => {})
       mockConversation.dispatchAction = dispatchAction
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'))
 
@@ -392,12 +411,20 @@ describe('OutputsDock analyse convergence', () => {
       expect(runner).not.toBeNull()
       expect(mockConversation.messages).toEqual([])
       expect(useCanvasStore.getState().nodes.length).toBeGreaterThan(0)
-      const expectStoreDispatcher = () => {
-        const registered = useGuidanceStore.getState()._dispatchAction
-        if (storeDispatcherRegistered) expect(typeof registered).toBe('function')
-        else expect(registered).toBeNull()
+
+      // Registration is this PR's capability: the fresh, empty chat must own a
+      // store dispatcher on the provider host and must not on legacy.
+      const registered = useGuidanceStore.getState()._dispatchAction
+      if (storeDispatcherRegistered) expect(typeof registered).toBe('function')
+      else expect(registered).toBeNull()
+
+      // Swap it for a spy of our own so the run cannot reach the host through
+      // it and look identical. Bound by identity: this spy is reachable ONLY
+      // via the store slot.
+      const storeDispatcherSpy = vi.fn(async () => {})
+      if (storeDispatcherRegistered) {
+        useGuidanceStore.setState({ _dispatchAction: storeDispatcherSpy })
       }
-      expectStoreDispatcher()
       expect(mockRevealOlumi).not.toHaveBeenCalled()
 
       let outcome
@@ -415,7 +442,9 @@ describe('OutputsDock analyse convergence', () => {
         message: 'Run analysis',
         source: 'chip',
       })
-      expectStoreDispatcher()
+      // ⭐ THE DISCRIMINATION. The run reached the HOST dispatcher; it must not
+      // have reached the store's.
+      expect(storeDispatcherSpy).not.toHaveBeenCalled()
       expect(mockConversation.sendMessage).not.toHaveBeenCalled()
       expect(mockConversation.sendChip).not.toHaveBeenCalled()
       expect(mockRevealOlumi).toHaveBeenCalledTimes(1)

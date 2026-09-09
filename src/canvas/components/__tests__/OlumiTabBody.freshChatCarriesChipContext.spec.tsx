@@ -47,11 +47,25 @@ import { OlumiTabBody } from '../OlumiTabBody'
 
 const mockReveal = revealOlumiSurface as unknown as ReturnType<typeof vi.fn>
 
+/**
+ * ⚠ DERIVED FROM A LIVE CALL SITE, NOT INVENTED — corrected after review.
+ *
+ * This fixture paired `chip_id: 'risk_what_reduces'` with
+ * `action_type: 'explore_risk'`. **That pairing exists nowhere in the product.**
+ * `explore_risk` had exactly 2 hits in `src`, both inside this file, against a
+ * contrast of 22 files for `explain_results`; and the real caller of
+ * `risk_what_reduces` (`RiskNode.tsx:182`) passes `actionType={null}`.
+ *
+ * A fixture the producer cannot emit proves the bridge carries A payload, never
+ * that it carries the payload a chip actually sends — a self-authored input is
+ * not evidence about the wire (trap 16-inverse). Re-bound to a pairing that
+ * ships: `OptionNode.tsx:1142`.
+ */
 const CHIP_OPTS = {
-  action_type: 'explore_risk',
-  parameters: { chip_id: 'risk_what_reduces' },
-  label: 'What reduces this?',
-  message: 'What factors could reduce this risk?',
+  action_type: 'explain_results',
+  parameters: { chip_id: 'option_why_win_lose' },
+  label: 'Why does this do better or worse on your goal?',
+  message: 'Why does the baseline do better or worse against my goal than the other options?',
   source: 'chip',
 }
 
@@ -86,8 +100,8 @@ describe('OlumiTabBody — the fresh-chat dispatcher carries chip context', () =
     expect(conversationState.dispatchAction).toHaveBeenCalledTimes(1)
     expect(conversationState.dispatchAction).toHaveBeenCalledWith(
       expect.objectContaining({
-        action_type: 'explore_risk',
-        parameters: { chip_id: 'risk_what_reduces' },
+        action_type: 'explain_results',
+        parameters: { chip_id: 'option_why_win_lose' },
         source: 'chip',
       }),
     )
