@@ -931,49 +931,42 @@ describe('Render matrix — OutcomeNode chip audit', () => {
     ],
   })
 
-  it('Standard pre: shows "What strengthens this?" body chip (added Polish 4)', () => {
+  it('Standard pre: shows "What affects this?" body chip (added Polish 4)', () => {
     applyStore(outcomeTopology('standard', 'pre'))
     renderOutcome()
-    expect(screen.getByText('What strengthens this?')).toBeDefined()
+    expect(screen.getByText('What affects this?')).toBeDefined()
     // Removed popover chip stays gone.
     expect(screen.queryByText('Are there other outcomes that matter?')).toBeNull()
   })
 
-  /**
-   * ⭐ "What strengthens this?" can only ever CONFIRM the outcome. Alone it is a
-   * card that invites agreement, which is the opposite of what this product is
-   * for, so the disconfirming twin is asserted beside it rather than on its own.
-   *
-   * ⚠ Both are pre-analysis only, because `outcomeChips` returns null post
-   * (pinned by the two "no body chip" cases below). That blackout is a known
-   * gap raised separately — it is deliberately NOT reversed here, because
-   * changing the behaviour and rewriting the tests that pin it in one change
-   * would leave no independent oracle.
-   */
-  it.each(['standard', 'expert'] as const)('%s pre: asks what would FALSIFY the outcome, beside what strengthens it', (view) => {
+  // Retain the upstream and falsification pair in its existing pre-analysis
+  // treatment. Consequence exploration separately stays available in both phases.
+  it.each(['standard', 'expert'] as const)('%s pre: preserves falsification beside upstream exploration', (view) => {
     applyStore(outcomeTopology(view, 'pre'))
     renderOutcome()
     expect(screen.getByText('What would falsify this?')).toBeDefined()
-    expect(screen.getByText('What strengthens this?')).toBeDefined()
+    expect(screen.getByText('What affects this?')).toBeDefined()
   })
 
   it('Standard post: no body chip (popover handles post-analysis coaching)', () => {
     applyStore(outcomeTopology('standard', 'post'))
     renderOutcome()
     // No "What strengthens" body chip post-analysis.
-    expect(screen.queryByText('What strengthens this?')).toBeNull()
+    expect(screen.queryByText('What affects this?')).toBeNull()
+    expect(screen.getByText('Explore consequences')).toBeDefined()
   })
 
   it('Detailed pre: same chip set — view-agnostic for Outcome', () => {
     applyStore(outcomeTopology('expert', 'pre'))
     renderOutcome()
-    expect(screen.getByText('What strengthens this?')).toBeDefined()
+    expect(screen.getByText('What affects this?')).toBeDefined()
   })
 
-  it('Detailed post: no body chip', () => {
+  it('Detailed post: keeps consequence exploration available', () => {
     applyStore(outcomeTopology('expert', 'post'))
     renderOutcome()
-    expect(screen.queryByText('What strengthens this?')).toBeNull()
+    expect(screen.queryByText('What affects this?')).toBeNull()
+    expect(screen.getByText('Explore consequences')).toBeDefined()
   })
 })
 
@@ -999,11 +992,11 @@ describe('Render matrix — RiskNode chip audit', () => {
     ],
   })
 
-  it('Standard pre: shows BOTH "What reduces this?" + "Add mitigation" (Polish 4 made them both phases)', () => {
+  it('Standard pre: shows BOTH "What reduces this?" + "Explore mitigation" (Polish 4 made them both phases)', () => {
     applyStore(riskTopology('standard', 'pre'))
     renderRisk()
     expect(screen.getByText('What reduces this?')).toBeDefined()
-    expect(screen.getByText('Add mitigation')).toBeDefined()
+    expect(screen.getByText('Explore mitigation')).toBeDefined()
     // Removed popover chips stay gone.
     expect(screen.queryByText('Are there other risks?')).toBeNull()
     expect(screen.queryByText("What's the worst case?")).toBeNull()
@@ -1013,7 +1006,7 @@ describe('Render matrix — RiskNode chip audit', () => {
     applyStore(riskTopology('standard', 'post'))
     renderRisk()
     expect(screen.getByText('What reduces this?')).toBeDefined()
-    expect(screen.getByText('Add mitigation')).toBeDefined()
+    expect(screen.getByText('Explore mitigation')).toBeDefined()
   })
 
   /**
@@ -1028,21 +1021,21 @@ describe('Render matrix — RiskNode chip audit', () => {
     expect(screen.getByText('What would we see first?')).toBeDefined()
     // The reduce/mitigate pair is not displaced by the addition.
     expect(screen.getByText('What reduces this?')).toBeDefined()
-    expect(screen.getByText('Add mitigation')).toBeDefined()
+    expect(screen.getByText('Explore mitigation')).toBeDefined()
   })
 
   it('Detailed pre: same two chips — view-agnostic for Risk', () => {
     applyStore(riskTopology('expert', 'pre'))
     renderRisk()
     expect(screen.getByText('What reduces this?')).toBeDefined()
-    expect(screen.getByText('Add mitigation')).toBeDefined()
+    expect(screen.getByText('Explore mitigation')).toBeDefined()
   })
 
   it('Detailed post: same two chips', () => {
     applyStore(riskTopology('expert', 'post'))
     renderRisk()
     expect(screen.getByText('What reduces this?')).toBeDefined()
-    expect(screen.getByText('Add mitigation')).toBeDefined()
+    expect(screen.getByText('Explore mitigation')).toBeDefined()
   })
 })
 

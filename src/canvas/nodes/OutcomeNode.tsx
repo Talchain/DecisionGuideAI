@@ -1,4 +1,4 @@
-import { memo, useMemo, useCallback } from 'react'
+import { memo, useMemo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
@@ -14,13 +14,24 @@ import { usePreAnalysisInbound } from '../hooks/usePreAnalysisInbound'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, ConnRowsOverflow, Sep, NodeChip, NodePopover, ScienceIcon, PreAnalysisInboundRows, PreAnalysisDrivenByLine } from './shared'
-import { useGuidanceStore } from '../stores/guidanceStore'
+import { cleanDisplayLabel } from '../utils/graphDisplayCalculations'
 import { GOAL_FIT_BASIS_CAVEAT_COPY } from '../../components/results/utils/goalFitBasisCaveatCopy'
 import { NodeMetricRow, unconfirmedStrengthDisclosure } from './shared'
 
 export const OutcomeNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.outcome
   const displayMetadata = useNodeDisplayMetadata(props.id, 'outcome')
+  const cleanedLabel = cleanDisplayLabel(typeof props.data?.label === 'string' ? props.data.label : undefined)
+  const description = typeof props.data?.description === 'string' && props.data.description.trim() ? props.data.description : null
+  const body = typeof props.data?.body === 'string' && props.data.body.trim() ? props.data.body : null
+  const summary = description ?? body
+  // Compose only the display copy: both authored fields stay available through
+  // the existing chevron, while the canonical node and Ask context stay intact.
+  const fullDescription = description && body && body.trim() !== description.trim()
+    ? `${description}\n\n${body}`
+    : summary
+  const cleanedData = { ...props.data, label: cleanedLabel || 'Untitled outcome', description: fullDescription ?? undefined }
+  const outcomeContext = fullDescription ? `\nOutcome context: ${fullDescription}` : ''
 
   const edges = useCanvasStore(state => state.edges)
   const nodes = useCanvasStore(state => state.nodes)
@@ -145,11 +156,10 @@ export const OutcomeNode = memo((props: NodeProps) => {
   // Top factor for actionable guidance
   const topFactor = inboundConnections.length > 0 ? inboundConnections[0] : null
 
-  const handleFactorLink = useCallback(() => {
-    if (!topFactor) return
-    const send = useGuidanceStore.getState()._sendMessage
-    if (send) send(`How can I validate my assumption about ${topFactor.connectedNodeLabel}?`)
-  }, [topFactor])
+  const factorLabel = topFactor?.connectedNodeLabel.trim()
+  const validateQuestion = factorLabel
+    ? `How can I validate my assumption about ${factorLabel} and its effect on ${cleanedLabel || 'this outcome'}?${outcomeContext}`
+    : null
 
   // ----- Layer 2 content: post-analysis (shared between popover and Detailed inline) -----
   const layer2ContentPost = isPostAnalysis ? (
@@ -175,20 +185,18 @@ export const OutcomeNode = memo((props: NodeProps) => {
       )}
 
       {/* Actionable guidance */}
-      {topFactor && (
+      {validateQuestion && (
         <>
           <Sep />
-          <p className={`${typography.edgeLabel} text-text-body m-0`}>
-            Strengthen this:{' '}
-            <button
-              type="button"
-              className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
-              onClick={handleFactorLink}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              validate {topFactor.connectedNodeLabel.length > 22 ? `${topFactor.connectedNodeLabel.slice(0, 22)}...` : topFactor.connectedNodeLabel}
-            </button>
+          <p className={`${typography.edgeLabel} text-text-body m-0 mb-1 break-words`}>
+            Test the connection from {factorLabel}
           </p>
+          <NodeChip
+            chipId="outcome_validate_assumption"
+            actionType={null}
+            label="Validate this assumption"
+            message={validateQuestion}
+          />
         </>
       )}
     </>
@@ -199,57 +207,44 @@ export const OutcomeNode = memo((props: NodeProps) => {
     <>
       <PreAnalysisDrivenByLine items={preAnalysisInbound} topSetItem={preAnalysisTopSet} />
       <PreAnalysisInboundRows items={preAnalysisInbound.slice(0, 5)} />
-      {/* Polish 4 review: removed the "Are there other outcomes that matter?"
-          chip — the body now carries the canonical "What strengthens this?"
-          chip and the audit table allows only one chip per outcome node. */}
     </>
   ) : null
 
-  // Coaching chip (pre-analysis only) — moved out of body. Lives in the
-  // pre-analysis popover (Standard) or inline in Detailed view.
-  const outcomeChips = useMemo(() => {
-    // ⚠ KNOWN GAP, DELIBERATELY NOT CLOSED HERE. Post-analysis this returns
-    // null, so the outcome card offers no way to interrogate itself at exactly
-    // the moment the user finally has results to interrogate. `RiskNode`
-    // carries its coaching pair in BOTH phases, so the precedent for the other
-    // choice already exists in this directory.
-    //
-    // Left alone because `render-matrix.spec.tsx` asserts the blackout by name
-    // ("No 'What strengthens' body chip post-analysis", Polish 4). Reversing a
-    // deliberate layout decision AND rewriting the tests that pin it in one
-    // change is a change with no independent oracle. Raised as a question
-    // instead; this PR is purely additive.
-    if (isPostAnalysis) return null
-    return (
-      <div className="flex gap-1 flex-wrap mt-1.5">
-        <NodeChip
-          chipId="outcome_what_strengthens"
-          actionType={null}
-          label="What strengthens this?"
-          message={`What upstream factors strengthen ${(props.data?.label as string) ?? 'this outcome'}?`}
-        />
-        {/* ⭐ "What strengthens this?" can only ever confirm the outcome. On its
-            own it is a card that invites agreement, which is the opposite of
-            what this product is for. The falsification prompt is the
-            disconfirming twin, and asking for it explicitly is the single
-            most load-bearing habit in critical thinking. */}
-        <NodeChip
-          chipId="outcome_what_would_falsify"
-          actionType={null}
-          label="What would falsify this?"
-          message={`What evidence or result would show that ${(props.data?.label as string) ?? 'this outcome'} will NOT happen? What would have to be true for it to fail?`}
-        />
-      </div>
-    )
-  }, [isPostAnalysis, props.data])
+  // Existing coaching route, with authored context and a consequence question in both phases.
+  const outcomeChips = useMemo(() => (
+    <div className="flex gap-1 flex-wrap mt-1.5">
+      <NodeChip
+        chipId="outcome_explore_consequences"
+        actionType={null}
+        label="Explore consequences"
+        message={`What would ${cleanedLabel || 'this outcome'} mean for this model, including possible benefits and downsides?${outcomeContext}`}
+      />
+      {!isPostAnalysis && (
+        <>
+          <NodeChip
+            chipId="outcome_what_strengthens"
+            actionType={null}
+            label="What affects this?"
+            message={`Which upstream factors affect ${cleanedLabel || 'this outcome'}, and how could we strengthen its beneficial effects or limit its downsides?${outcomeContext}`}
+          />
+          <NodeChip
+            chipId="outcome_what_would_falsify"
+            actionType={null}
+            label="What would falsify this?"
+            message={`What evidence or result would show that ${cleanedLabel || 'this outcome'} will NOT happen? What would have to be true for it to fail?${outcomeContext}`}
+          />
+        </>
+      )}
+    </div>
+  ), [isPostAnalysis, cleanedLabel, outcomeContext])
 
-  // Achievement metric (Detailed view) — diagnostic indicator distinct from
-  // the Layer 1 contribution percentage (which is bridge weight to goal).
+  // This existing Detailed-only field is the analysis goal probability, not an
+  // outcome-specific forecast. Preserve the shared reader eligibility and caveat.
   const detailedMetrics = displayMetadata.achievementProbability !== null ? (
     <>
       <Sep />
       <p className={`${typography.edgeLabel} text-text-body m-0`}>
-        {METRIC_NOUN.chance}: {Math.round(displayMetadata.achievementProbability * 100)}%
+        Goal chance: {Math.round(displayMetadata.achievementProbability * 100)}%
       </p>
       {/* Display-honesty (ROADMAP 1.6b tail — goal-fit caveat residuals): the
           achievement-probability number above is scored from a MODELLED
@@ -277,6 +272,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
     >
       <BaseNode
         {...props}
+        data={cleanedData}
         nodeType="outcome"
         lodMetric={lodMetric}
         icon={metadata.icon}
@@ -288,6 +284,13 @@ export const OutcomeNode = memo((props: NodeProps) => {
           </span>
         ) : undefined}
       >
+        {/* Authored consequence; the existing chevron retains its full description. */}
+        {summary && (
+          <p className={`${typography.nodeLabel} text-text-light m-0 mb-1 line-clamp-2 break-words whitespace-pre-wrap group-aria-expanded:hidden`} data-testid="outcome-context-preview">
+            {summary}
+          </p>
+        )}
+
         {/* ===== LAYER 1: Standard body (always visible) ===== */}
 
         {/* Assumed bridge-strength percentage — honest in ALL states.
@@ -431,6 +434,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
           anchorRef={nodeElRef}
         >
           {layer2ContentPost}
+          {outcomeChips}
         </NodePopover>
       )}
 

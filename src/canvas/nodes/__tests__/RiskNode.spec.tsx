@@ -62,6 +62,7 @@ vi.mock('../../hooks/useNodeDisplayMetadata', () => ({
 }))
 
 import { useCanvasStore } from '../../store'
+import { useGuidanceStore } from '../../stores/guidanceStore'
 
 const baseProps = {
   id: 'risk-1',
@@ -114,6 +115,71 @@ describe('RiskNode', () => {
     expect(screen.getByLabelText(/risk node/i)).toBeDefined()
   })
 
+  it('keeps authored context compact and recovers the full description with the keyboard', async () => {
+    const description = 'A departure could interrupt account handovers and delay renewal conversations. '.repeat(5).trim()
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ viewMode: 'standard' }) as any))
+    const body = 'Keep the wider strategic context and unresolved disagreements visible.'
+    const { container } = renderRisk({ description, body })
+    expect(screen.getByTestId('risk-context-preview')).toHaveTextContent(description)
+    expect(container.querySelector('.node-description')).toBeNull()
+    screen.getByRole('button', { name: 'Expand description' }).focus()
+    await userEvent.keyboard('{Enter}')
+    expect(container.querySelector('.node-description')).toHaveTextContent(description)
+    expect(container.querySelector('.node-description')).toHaveTextContent(body)
+    expect(screen.getByTestId('risk-context-preview')).toHaveClass('group-aria-expanded:hidden')
+    expect(screen.getByLabelText(/risk node:/i)).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it.each([undefined, '   '])('uses the authored body when description is %s', async (description) => {
+    const body = '  Preserve the source wording.\nAlso retain the second paragraph.  '
+    const { container } = renderRisk({ description, body })
+    expect(screen.getByTestId('risk-context-preview').textContent).toBe(body)
+    await userEvent.click(screen.getByRole('button', { name: 'Expand description' }))
+    // The shared renderer preserves the authored newline as <br>, not a text space.
+    const expanded = container.querySelector('.node-description')
+    expect(expanded).toHaveTextContent('Preserve the source wording.')
+    expect(expanded).toHaveTextContent('Also retain the second paragraph.')
+    expect(container.querySelector('.node-description br')).not.toBeNull()
+  })
+
+  it('does not repeat matching body text in the expanded context', async () => {
+    const { container } = renderRisk({ description: 'Review the evidence.', body: ' Review the evidence. ' })
+    await userEvent.click(screen.getByRole('button', { name: 'Expand description' }))
+    expect(container.querySelector('.node-description')?.textContent?.trim()).toBe('Review the evidence.')
+  })
+
+  it('handles blank authored content without an empty description control', () => {
+    renderRisk({ label: '   ', description: '   ' })
+    expect(screen.getByText('Untitled risk')).toBeDefined()
+    expect(screen.queryByTestId('risk-context-preview')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Expand description' })).toBeNull()
+  })
+
+  it.each([NaN, Infinity, -0.1, 1.1, '0.8'])('does not turn malformed probability %s into a risk estimate', (probability) => {
+    renderRisk({ probability, impact: 'high' })
+    expect(screen.queryByText(/% likely/)).toBeNull()
+    expect(screen.queryByText(/^(High|Medium|Low) Risk$/)).toBeNull()
+    expect(screen.getByText('Entered estimate · High impact')).toBeDefined()
+  })
+
+  it('preserves a stated zero likelihood and ignores an unknown impact', () => {
+    renderRisk({ probability: 0, impact: 'extreme' })
+    expect(screen.getByText('Entered estimate · 0% likely')).toBeDefined()
+    expect(screen.queryByText(/extreme impact/i)).toBeNull()
+  })
+
+  it('sends the complete authored risk context when exploring mitigation', async () => {
+    const dispatch = vi.fn()
+    vi.spyOn(useGuidanceStore, 'getState').mockReturnValue({ ...useGuidanceStore.getState(), _dispatchAction: dispatch })
+    renderRisk({ description: 'Only two people hold the renewal account knowledge.', body: 'No handover plan is documented.' })
+    await userEvent.click(screen.getByRole('button', { name: 'Explore mitigation' }))
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({
+      parameters: { chip_id: 'risk_add_mitigation' },
+      message: 'Suggest a mitigation strategy for Key person dependency, and explain what it would change.\nRisk context: Only two people hold the renewal account knowledge.\n\nNo handover plan is documented.',
+      source: 'chip',
+    }))
+  })
+
   it('has displayName set', () => {
     expect(RiskNode.displayName).toBe('RiskNode')
   })
@@ -150,7 +216,8 @@ describe('RiskNode', () => {
       selector(makeStoreState({ viewMode: 'standard' }) as any)
     )
     renderRisk({ probability: 0.9, impact: 'high' })
-    expect(screen.getByText('90% likely · High impact')).toBeDefined()
+    expect(screen.getByText('Entered estimate · 90% likely · High impact')).toBeDefined()
+    expect(screen.getByText('Entered estimate · 90% likely · High impact')).not.toHaveAttribute('title')
   })
 
   // P1.7 — honest absence: no fabricated pair when data is missing.
@@ -169,7 +236,7 @@ describe('RiskNode', () => {
       selector(makeStoreState({ viewMode: 'standard' }) as any)
     )
     renderRisk({ probability: 0.5 })
-    expect(screen.getByText('50% likely')).toBeDefined()
+    expect(screen.getByText('Entered estimate · 50% likely')).toBeDefined()
     expect(screen.queryByText(/impact/)).toBeNull()
   })
 
