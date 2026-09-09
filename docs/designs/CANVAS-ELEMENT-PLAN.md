@@ -1,8 +1,8 @@
 # Canvas content delivery plan
 
-9 September 2026 · Proposal for Paul, Canvas and PoC Strategic Path · implementation batches not launched
+9 September 2026 · Proposal for Paul, Canvas and PoC Strategic Path · parallel UI implementation authorised by Paul
 
-This is the single whole-graph content and delivery proposal. It extends the existing option-node specification; it does not replace the premium V2 reference or authorise a new prototype, node geometry, taxonomy or backend writer. The current option repair remains with its existing author and reviewer.
+This is the single whole-graph content and delivery proposal. It extends the existing option-node specification; it does not replace the premium V2 reference or authorise a new prototype, node geometry, taxonomy or backend writer. The current option repair remains with its existing author and reviewer. Paul subsequently authorised parallel UI refinements across every node and connector while he reviews this plan; that instruction supersedes the earlier broad-node deferral below.
 
 ## Assessment and delivery objective
 
@@ -21,15 +21,21 @@ The native first-Save refusal is an actual Core blocker. It should not become an
 
 ## Today's priority and deliberate cuts
 
-Strategic Path's [TODAY reconciliation](https://github.com/Talchain/olumi-programme-docs/pull/38#issuecomment-5600656632) governs execution. The matrix below provides the whole-graph direction; it does not start new implementation batches or make whole-graph enrichment a release dependency today.
+Strategic Path's [TODAY reconciliation](https://github.com/Talchain/olumi-programme-docs/pull/38#issuecomment-5600656632) governs execution. Paul has now explicitly authorised the node/connector implementation to proceed in parallel. It does not become a prerequisite for the separate backend repairs or restart the existing production-refresh intake.
 
 1. Finish the existing canonical-save and goal-writer repairs, then prove that the changed inputs reach analysis and survive reopening. Preserve their current owners.
 2. In parallel, finish #1368 through its current reviewer and advance existing AI/Panel context and coaching work under their owners. Diagnose selected failed conversations from actual assembled input through visible output before changing prompts. Fix Canvas contradictions in value, unit, reference and result currentness where they obstruct the same user journey. Avoid unrelated node enrichment during that repair.
 3. Agree the factor/goal content decisions from this matrix once. Implement the smallest coherent improvement that lets a tester inspect assumptions and success criteria, once shared-file ownership is reconciled.
 
-Defer additional risk/outcome/action enrichment, new sensitivity visuals, new collaboration records, geometry and decorative polish. The cost is a less complete first demonstration; the benefit is concentrating effort on a faithful, testable reasoning loop. Retain existing scientific calculations and useful observations. This is a delivery order, not a decision to remove them.
+Active UI assignments:
+- Codex: FactorNode/GoalNode plus FactorControllablePanel/GoalPanel, in [#1372](https://github.com/Talchain/DecisionGuideAI/pull/1372). Shared setting/boundary display helpers and component design-system note are included.
+- Codex Action author: ActionNode only, with existing expansion and inspector routes; no shared GenericNodePanel writer change.
+- Codex Risk/Outcome author: RiskNode and OutcomeNode only; exclude Canvas's active OutcomePanel work in #1363.
+- Canvas: connector/shared design-system work is proposed through programme38/5600943009; explicit ownership acknowledgement is still required. The current Canvas reviewer retains #1368 and the factor/goal review.
 
-Re-entry conditions: the Canvas pair takes the second content batch after the first batch is accepted and Strategic Path releases capacity from the current save/AI blockers. A sensitivity visual enters that batch only after the existing science owner verifies the complete node-to-result binding described below. New collaboration records return to Strategic Path for prioritisation after the first faithful single-user journey is witnessed. Geometry and decorative polish are closed for this pass; reopen only for an observed readability or interaction failure in user testing.
+Validation is proportionate: focused rendering, interaction, long/missing-content and meaning checks, plus required hosted checks. Existing root browser acceptance is reused; no extra broad benchmark, framework, device matrix or duplicate full local suite. Where source data is incomplete or uncertain, the UI identifies that limitation without inventing values. Useful authored content and genuine scientific results remain visible within their existing permissions.
+
+New science producers, backend writers, task-management records and prototype geometry are outside these UI assignments. Reopen a data/contract issue with the existing Core owner only when a concrete consumer cannot display it faithfully. The more complete visual graph can release with explicitly identified data limitations; known wrong-object writes, silent loss or false measurements are not acceptable caveats.
 
 ## Content matrix
 
@@ -64,20 +70,20 @@ Use the current BaseNode, top-of-node shapes, semantic colours, typography, prov
 **Now: close the current capability and lock the whole content pass.**
 The existing author/reviewer finishes #1368; no new repair lane. Paul and Canvas review this matrix once for material content decisions. Resolve only disagreements that change implementation. Any unproven datum gets a named owner and an honest rendering fallback, rather than blocking the entire graph.
 
-**First proposed implementation batch: factors, goals and their constraint display.**
+**Active factor/goal implementation: factors, goals and their constraint display.**
 These establish the meaning of values, assumptions and success across the graph. Inspect shared-file and semantic dependencies before fixing the batch boundary. Reuse existing formatting/currentness/provenance helpers. Core's active writer fixes continue independently; Canvas does not edit their contracts.
 
-**Second proposed batch: risks, outcomes, actions and remaining connection content.**
+**Parallel implementation: risks, outcomes, actions and remaining connection content.**
 Apply the same interaction and data rules. Keep distinct type-specific questions; do not flatten every node into a metric card. Finish the ordinary graph-reading and investigation experience before adding new scientific calculations or collaborative record types.
 
-Two batches are a starting proposal, not an instruction to combine unrelated changes. Split only for a genuine dependency or independently releasable capability. Do not create one PR per label/icon or one redesign per node.
+The initial sequential batch proposal is superseded by Paul’s explicit parallel UI instruction. Keep each assignment independently reviewable. Split only for a genuine dependency or independently releasable capability. Do not create one PR per label/icon or one redesign per node.
 
 Existing owners:
 - Codex option/Canvas pair: content specification, bounded frontend changes and independent implementation review, with one writer per shared file.
 - Strategic Path: programme priority, cross-service alignment, release coordination and the sole native end-to-end acceptance driver.
 - Existing Core authors: manual intervention writer #1416 and goal/context writer #1413. This plan does not divert or transfer them.
 
-Timebox content/source reconciliation to one focused pass. The next visible milestone should be a reviewable factor/goal batch, not another option-node proposal. Do not promise a completion date before the shared-file dependency check; report the next deliverable and its actual blocker instead.
+Timebox content/source reconciliation to one focused pass. The next milestones are reviewable and deployed node/connector improvements, not another option-node proposal. Do not promise a completion date before the shared-file dependency check; report the next deliverable and its actual blocker instead.
 
 ## Checks that prevent repeat work
 
