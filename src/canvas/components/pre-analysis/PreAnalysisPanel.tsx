@@ -397,7 +397,9 @@ export function normaliseCeeBiasFinding(
   // category label rather than a sentence fragment.
   const subtitleBase = truncateExplanation(fullExplanation)
   const subtitle = targetFactorLabel
-    ? `Watch for ${config.title.toLowerCase()} on ${targetFactorLabel}. ${subtitleBase}`
+    ? config === BIAS_FALLBACK
+      ? `Review ${targetFactorLabel}. ${subtitleBase}`
+      : `Watch for ${config.title.toLowerCase()} on ${targetFactorLabel}. ${subtitleBase}`
     : subtitleBase
 
   return {
