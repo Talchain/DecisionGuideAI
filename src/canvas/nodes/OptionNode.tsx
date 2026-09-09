@@ -4,6 +4,7 @@ import { ArrowUp, ArrowDown } from 'lucide-react'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
+import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { focusExistingTarget } from '../utils/focusHelpers'
@@ -419,11 +420,14 @@ export const OptionNode = memo((props: NodeProps) => {
   // numbering registers. undefined until analysis registers this option.
   const stableOptionNumber = useCanvasStore(state => state.optionNumbering?.[props.id])
   const isPostAnalysis = resultsStatus === 'complete'
-  // Canvas result decorations carry no freshness treatment of their own:
-  // the graph-hash stale guard that once drove a dim + "Model changed" title
-  // here was deleted on 2026-07-16 (its hash keys had zero write sites, so
-  // it could never fire). Freshness verdicts render on the panel surfaces
-  // via the composed trust semantic (useAnalysisTrust).
+  // The same composed authority as the panels, never a node-local hash.
+  // Keep the previous result visible, but distinguish changed from unknown.
+  const analysisTrust = useAnalysisTrust()
+  const analysisCurrencyNote = analysisTrust.semantic === 'changed'
+    ? 'Model changed since this analysis'
+    : analysisTrust.semantic === 'cannot_confirm'
+      ? 'Analysis may be out of date'
+      : null
 
   // SINGLE VERDICT (2026-07-25): the canvas no longer decides for itself
   // whether a leading option exists. It quotes `deriveDecisionVerdict` — the
@@ -1610,6 +1614,15 @@ export const OptionNode = memo((props: NodeProps) => {
         ) : undefined}
       >
         {/* ===== LAYER 1: Standard body (always visible) ===== */}
+
+        {displayMetadata.isResultsMode && analysisCurrencyNote && (
+          <p
+            data-testid={`option-analysis-currency-${props.id}`}
+            className={`${typography.edgeLabel} text-text-light mt-1 mb-0`}
+          >
+            {analysisCurrencyNote}
+          </p>
+        )}
 
         {/* Win probability — bar and percentage on ONE line (post-analysis, both views).
             ⭐ WHY THIS IS ONE LINE AND NOT TWO (Paul, 31 Aug 2026): "Saying the
