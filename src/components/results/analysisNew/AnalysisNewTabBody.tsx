@@ -1124,19 +1124,27 @@ export function AnalysisNewTabBody({
                 a viewport on an absence the collapsed row already states;
               · a DEFAULT, not a lock — the toggle owns the state afterwards.
 
-            ⭐ AND THE `key` IS LOAD-BEARING, NOT DECORATION. `SectionShell`
-            seeds `useState(defaultOpen)` and never re-reads the prop, so
-            without this a reader who lands pre-run and then runs an analysis
-            carries the open section into the post-run panel — re-introducing
-            the scroll the collapsed IA exists to remove, on the one path
-            nobody would think to test. Re-keying on the state remounts the
-            section so the default is re-read. It is done HERE rather than by
-            teaching `SectionShell` to re-sync, because that shell is also
-            `AnalysisNewSection`'s, whose `defaultOpen={findings.length === 1}`
-            moves with the data — re-syncing there would slam sections shut
-            under a reader who had opened them. */}
+            ⚠⚠ AND IT IS A DEFAULT ONLY — THE SECTION IS NOT FORCED SHUT AGAIN
+            WHEN THE RUN LANDS. An earlier cut of this change re-keyed the
+            component on `isPreRun` so `SectionShell` would re-read the default
+            and collapse. That was measured and REVERTED, because it discarded
+            the reader's work: `SectionShell` unmounts a closed region, and this
+            section's "I disagree" composer holds UNSAVED text. Driven at this
+            render path — open the composer pre-run, type, complete a run — the
+            keyed version lost the draft while pristine kept it.
+
+            It was also INCONSISTENT. A section the reader opened BY HAND
+            already survives that transition, because nothing remounts; the key
+            would have made a section opened by DEFAULT behave differently from
+            the identical section opened by the identical toggle. One control,
+            two behaviours.
+
+            So the state belongs to the toggle after mount, which is
+            `SectionShell`'s own rule, and the post-run panel is exactly what it
+            is today for a reader who opened this section themselves. The
+            collapsed IA is unchanged for everyone who lands on a completed run,
+            which is the state its 1,584px measurement was taken in. */}
         <StrengthenTheReasoning
-          key={vm.status.isPreRun ? 'pre-run' : 'run-displayed'}
           interventions={alsoWorthDoing}
           scienceGrounding={vm.strengthen.scienceGrounding}
           preview={ANALYSIS_NEW_LIMITS.STRENGTHEN_PREVIEW}

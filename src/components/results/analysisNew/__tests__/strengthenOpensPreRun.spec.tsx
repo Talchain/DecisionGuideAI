@@ -213,13 +213,62 @@ describe('the opening is SCOPED — every other limb is unchanged', () => {
   })
 
   /**
-   * ⭐⭐ THE TRANSITION, AND IT IS THE HALF A `defaultOpen` ALONE CANNOT DO.
-   * `SectionShell` seeds `useState(defaultOpen)` and never re-reads it, so a
-   * reader who lands pre-run and then runs an analysis would carry the open
-   * section into the post-run panel — quietly re-introducing the scroll the
-   * collapsed IA was built to remove, on the one path nobody would test.
+   * ⭐⭐⭐ THE TRANSITION — AND THIS ROW EXISTS BECAUSE I GOT IT WRONG FIRST.
+   *
+   * The first cut of this change re-keyed `StrengthenTheReasoning` on
+   * `isPreRun`, so `SectionShell` would remount and re-read the default,
+   * collapsing the section once the run landed. It looked like the tidy answer
+   * and it DISCARDED THE READER'S WORK.
+   *
+   * Driven at this render path: open the "I disagree" composer pre-run, type
+   * into it, complete a run. Pristine kept the draft; the keyed version lost
+   * it — `SectionShell` unmounts a closed region, and that composer holds
+   * UNSAVED text. Measured, not reasoned about.
+   *
+   * It was also INCONSISTENT. A section the reader opened BY HAND already
+   * survives that transition, because nothing remounts. The key would have made
+   * a section opened by DEFAULT behave differently from the identical section
+   * opened by the identical toggle — one control, two behaviours.
+   *
+   * So the state belongs to the toggle after mount, which is `SectionShell`'s
+   * own rule. The collapsed IA is untouched for everyone who LANDS on a
+   * completed run, which is the state its 1,584px measurement was taken in.
+   *
+   * ⚠ THIS ROW IS A REGRESSION GUARD, AND IT PASSES AT PRISTINE — stated
+   * plainly rather than dressed up as RED-first. Its evidence is the mutant:
+   * re-adding the `key` turns it red.
    */
-  it('closes again once a run is displayed', () => {
+  it('an in-progress disagreement survives a run completing', () => {
+    const { rerender } = draw(openStrategicChallenge(), true)
+    fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree'))
+    const box = document.querySelector('textarea') as HTMLTextAreaElement | null
+    // PRECONDITION PINNED IN-TEST: without a composer and a value in it, the
+    // assertion after the rerender would pass on an absence.
+    expect(box, 'no composer opened — the guard would be vacuous').not.toBeNull()
+    fireEvent.change(box!, { target: { value: 'The target should be NRR, not ARR' } })
+    expect(box!.value).toBe('The target should be NRR, not ARR')
+
+    rerender(
+      <AnalysisNewTabBody
+        resultsSectionData={genuineDecision()}
+        isPreRun={false}
+        isRunning={false}
+        isStale={false}
+        responseHash="run_abc123"
+      />,
+    )
+
+    const after = document.querySelector('textarea') as HTMLTextAreaElement | null
+    expect(after, 'the composer was destroyed by the transition').not.toBeNull()
+    expect(after!.value).toBe('The target should be NRR, not ARR')
+  })
+
+  /**
+   * ⚠ AND THE STATE THE READER LEFT IT IN IS THE STATE THEY GET BACK. The
+   * section does not slam shut under them; it is exactly what it is today for
+   * a reader who opened it themselves.
+   */
+  it('the section the reader was reading stays open across the transition', () => {
     const { rerender } = draw(openStrategicChallenge(), true)
     expect(screen.getByTestId('analysis-new-strengthen')).toHaveAttribute(
       'data-section-open',
@@ -234,6 +283,20 @@ describe('the opening is SCOPED — every other limb is unchanged', () => {
         responseHash="run_abc123"
       />,
     )
+    expect(screen.getByTestId('analysis-new-strengthen')).toHaveAttribute(
+      'data-section-open',
+      'true',
+    )
+  })
+
+  /**
+   * ⚠ THE TWIN THAT KEEPS THE ABOVE FROM WEAKENING THE IA CLAIM: a reader who
+   * LANDS on a completed run — the state the 1,584px measurement was taken in —
+   * still meets a collapsed row. Asserted by a FRESH mount, not a rerender,
+   * because that is the journey being claimed.
+   */
+  it('but a reader who lands on a completed run still meets a collapsed row', () => {
+    draw(genuineDecision(), false)
     expect(screen.getByTestId('analysis-new-strengthen')).toHaveAttribute(
       'data-section-open',
       'false',
