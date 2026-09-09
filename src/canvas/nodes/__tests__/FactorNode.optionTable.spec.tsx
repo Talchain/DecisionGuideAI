@@ -164,7 +164,7 @@ describe('FactorNode — option comparison popover (Graph v2 Task 3)', () => {
     expect(screen.queryByText('Option values:')).toBeNull()
   })
 
-  it('Post Standard, > 4 options: shows 4 rows + "Show N more options" control', () => {
+  it('Post Standard, > 4 options: shows 4 rows + "Show N more" control', () => {
     applyStore({
       viewMode: 'standard',
       phase: 'post',
@@ -201,7 +201,7 @@ describe('FactorNode — option comparison popover (Graph v2 Task 3)', () => {
     expect(within(popover).queryByText('Opt E')).toBeNull()
     // Overflow link
     // Overflow expands the complete list without depending on the inspector category.
-    expect(within(popover).getByText('Show 2 more options')).toBeDefined()
+    expect(within(popover).getByText('Show 2 more')).toBeDefined()
   })
 
   it('Post Standard: baseline row retains its recorded numeric setting', () => {

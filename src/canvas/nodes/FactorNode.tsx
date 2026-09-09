@@ -448,7 +448,7 @@ export const FactorNode = memo((props: NodeProps) => {
             <button type="button" className={`${typography.edgeLabel} text-info underline nodrag nopan`}
               onClick={e => { e.stopPropagation(); setShowAllOptionValues(true) }}
               onPointerDown={e => e.stopPropagation()}
-            >Show {optionComparisonRows.overflow} more options</button>
+            >Show {optionComparisonRows.overflow} more</button>
           )}
         </div>
       </>

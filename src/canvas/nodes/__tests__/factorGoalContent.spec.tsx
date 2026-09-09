@@ -81,7 +81,7 @@ describe('factor and goal content reaches the actual node and inspector', () => 
     const card = render(<ReactFlowProvider><FactorNode {...props} id={FACTOR} type="factor" data={factor.data} /></ReactFlowProvider>)
     const preview = await hover('Monthly price')
     expect(preview.queryByText('Approach 5')).toBeNull()
-    fireEvent.click(preview.getByRole('button', { name: 'Show 1 more options' }))
+    fireEvent.click(preview.getByRole('button', { name: 'Show 1 more' }))
     expect(preview.getByText('Approach 5')).toBeDefined()
     expect(useCanvasStore.getState().selectedNodeId).toBeNull()
     card.unmount()
