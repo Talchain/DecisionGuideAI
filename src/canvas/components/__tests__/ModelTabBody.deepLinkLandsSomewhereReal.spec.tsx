@@ -75,6 +75,7 @@ vi.mock('../GraphTextView', () => ({
 
 import { ModelTabBody } from '../ModelTabBody'
 import { useUIStore, MODEL_TAB_SECTION_IDS, type ModelTabSectionId } from '../../../stores/uiStore'
+import { MODEL_GROUP_IDS } from '../../model-tab-v2/types'
 
 /**
  * A model with one element of every kind that has an outline group, so a deep
@@ -232,4 +233,56 @@ describe('⭐ TOTAL over the declared section ids — no deep link lands nowhere
       }
     },
   )
+
+  /**
+   * ⭐⭐ "LANDS SOMEWHERE REAL" IS NOT "LANDS SOMEWHERE RIGHT" — a gap this file
+   * had, found by a SURVIVING MUTANT rather than by inspection.
+   *
+   * Re-pointing `goal` at the `factors` group left every assertion above GREEN:
+   * the target existed, it was not the panel coalesce, and it opened. So the
+   * assistant's "open the goal section" could have shown the Factors list and
+   * nothing here would have said a word — the same class of defect as the
+   * `modelcard` link this PR is fixing, merely subtler.
+   *
+   * ⚠ WHAT CAN BE DERIVED IS DERIVED; WHAT CANNOT IS NAMED. Four section ids
+   * are ALSO group ids, and for those the correct target is computable: it is
+   * the group of the same name. That half needs no list. The other two are the
+   * genuine exceptions — `risks` because its group is spelt `outcomes-risks`,
+   * `modelcard` because it is not an outline group at all — and they are pinned
+   * with their reasons, because a rule that pretended to derive them would just
+   * be a mirror wearing a loop.
+   */
+  it('a section that shares a group\'s name targets THAT group — derived, not listed', async () => {
+    renderTab()
+    const shared = MODEL_TAB_SECTION_IDS.filter(
+      s => (MODEL_GROUP_IDS as readonly string[]).includes(s),
+    )
+    // Contrast control: the derivation found something to check. An empty list
+    // would make the loop below a pass that tested nothing (trap 13).
+    expect(shared.length).toBeGreaterThan(0)
+
+    for (const section of shared) {
+      scrollContexts.length = 0
+      const landed = await deepLinkTo(section as ModelTabSectionId)
+      expect(
+        landed.getAttribute('data-testid'),
+        `the '${section}' deep link does not land on the '${section}' group`,
+      ).toBe(`model-group-v2-${section}`)
+    }
+  })
+
+  it('and the two sections whose names DIFFER land where their difference says', async () => {
+    renderTab()
+    // `risks` — the group is spelt `outcomes-risks`. This is the id whose two
+    // names differ, which is exactly how it came to scroll to a shut heading.
+    scrollContexts.length = 0
+    expect((await deepLinkTo('risks')).getAttribute('data-testid'))
+      .toBe('model-group-v2-outcomes-risks')
+
+    // `modelcard` — not an outline group at all. Its home is the mounted
+    // `ModelHealthSection`, which is why it carries an explicit testid.
+    scrollContexts.length = 0
+    expect((await deepLinkTo('modelcard')).getAttribute('data-testid'))
+      .toBe('model-health-section')
+  })
 })
