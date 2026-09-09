@@ -225,7 +225,7 @@ describe('OptionNode — "Most supported" pill lives in the ONE corner stack', (
     // The freshness qualifier shares the pill, so the wording now has its
     // own child span. Retain the text-based fallback for the pre-migration
     // defect, but test the positioned pill rather than that inner label.
-    const pill = label.closest(`[data-testid="leading-option-pill-${NODE_ID}"]`) ?? label
+    const pill = label.closest<HTMLElement>(`[data-testid="leading-option-pill-${NODE_ID}"]`) ?? label
     const stack = screen.getByTestId(`node-corner-stack-${NODE_ID}`)
     expect(stack).toContainElement(pill)
     // Identity confirmation: the element the migration moved is the one the
