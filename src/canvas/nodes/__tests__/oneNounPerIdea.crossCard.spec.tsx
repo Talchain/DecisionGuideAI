@@ -46,7 +46,7 @@
  * captions are visible side by side and nothing here claims it does; what it
  * proves is that they are the same word.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { render, screen } from '@testing-library/react'
@@ -156,7 +156,6 @@ function renderBoard() {
 }
 
 const DECISION_ROW = 'decision-leader-metric-row'
-const OPTION_ANCHOR = `option-win-anchor-${LEADER_ID}`
 
 /**
  * The decision card, as a subtree — the nearest ancestor of its metric row that
