@@ -939,18 +939,9 @@ describe('Render matrix — OutcomeNode chip audit', () => {
     expect(screen.queryByText('Are there other outcomes that matter?')).toBeNull()
   })
 
-  /**
-   * ⭐ "What strengthens this?" can only ever CONFIRM the outcome. Alone it is a
-   * card that invites agreement, which is the opposite of what this product is
-   * for, so the disconfirming twin is asserted beside it rather than on its own.
-   *
-   * ⚠ Both are pre-analysis only, because `outcomeChips` returns null post
-   * (pinned by the two "no body chip" cases below). That blackout is a known
-   * gap raised separately — it is deliberately NOT reversed here, because
-   * changing the behaviour and rewriting the tests that pin it in one change
-   * would leave no independent oracle.
-   */
-  it.each(['standard', 'expert'] as const)('%s pre: asks what would FALSIFY the outcome, beside what strengthens it', (view) => {
+  // Retain the upstream and falsification pair in its existing pre-analysis
+  // treatment. Consequence exploration separately stays available in both phases.
+  it.each(['standard', 'expert'] as const)('%s pre: preserves falsification beside upstream exploration', (view) => {
     applyStore(outcomeTopology(view, 'pre'))
     renderOutcome()
     expect(screen.getByText('What would falsify this?')).toBeDefined()
@@ -1030,7 +1021,7 @@ describe('Render matrix — RiskNode chip audit', () => {
     expect(screen.getByText('What would we see first?')).toBeDefined()
     // The reduce/mitigate pair is not displaced by the addition.
     expect(screen.getByText('What reduces this?')).toBeDefined()
-    expect(screen.getByText('Add mitigation')).toBeDefined()
+    expect(screen.getByText('Explore mitigation')).toBeDefined()
   })
 
   it('Detailed pre: same two chips — view-agnostic for Risk', () => {
