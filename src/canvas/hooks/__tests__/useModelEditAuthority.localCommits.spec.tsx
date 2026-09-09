@@ -156,6 +156,14 @@ describe('proposeFactorConfirmation — honours only what it can honour', () => 
  * conversation to send through, nothing is dispatched AND nothing is written.
  * The dispatch behaviour itself is asserted in
  * `useModelEditAuthority.optionIntervention.spec.tsx`, which supplies one.
+ *
+ * ⚠ AND THE REFUSAL HERE IS `not_encodable`, NOT `needs_fresh_base`, ALTHOUGH
+ * THIS STORE ALSO HOLDS NO SERVER BASE HASH — which is the whole point of the
+ * order the authority asks its questions in. `needs_fresh_base` promises the
+ * user an action (any turn refreshes the base) and that action exists only where
+ * there is a conversation to run it. With none, offering it would be a recovery
+ * pointing at nothing. The recoverable refusal is asserted where it is real, in
+ * the sibling spec that supplies a conversation.
  */
 describe('proposeOptionIntervention — with no conversation, nothing happens anywhere', () => {
   it('refuses rather than falling back to a local write', () => {
