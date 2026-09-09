@@ -71,7 +71,7 @@ export const CANONICAL_EDIT_AUTHORITY = {
   canvasNodeAddWithServerHash: 'server_graph',
   priorRangeJudgement: 'disabled',
   canvasSelectionAndLayout: 'local_presentation',
-  modelOptionIntervention: 'disabled',
+  modelOptionIntervention: 'server_graph',
   modelFactorConfirmation: 'disabled',
   postRunFactorValue: 'disabled',
   postRunFactorConfirmation: 'disabled',
