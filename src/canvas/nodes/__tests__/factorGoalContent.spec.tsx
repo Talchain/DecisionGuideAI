@@ -30,7 +30,7 @@ const factor: Node = {
   } },
 }
 const goal: Node = { id: GOAL, type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Retain customers' } }
-const props = { selected: false, isConnectable: true, dragging: false, zIndex: 0, positionAbsoluteX: 0, positionAbsoluteY: 0 }
+const props = { selected: false, isConnectable: true, deletable: true, selectable: true, draggable: true, dragging: false, zIndex: 0, positionAbsoluteX: 0, positionAbsoluteY: 0 }
 const noop = () => {}
 function option(id: string, label: string, setting: unknown, extra = {}): Node {
   return { id, type: 'option', position: { x: 0, y: 0 }, data: {
