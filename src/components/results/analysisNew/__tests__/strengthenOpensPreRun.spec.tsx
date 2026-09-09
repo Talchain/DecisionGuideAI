@@ -52,6 +52,7 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { useCanvasStore } from '../../../../canvas/store'
+import { useGuidanceStore } from '../../../../canvas/stores/guidanceStore'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import { SUCCESS_MEASURE_RECOMMENDATION_ID } from '../../strengthen/buildRecommendations'
 import { genuineDecision, makeData, openStrategicChallenge } from './analysisNewFixtures'
@@ -101,6 +102,7 @@ const draw = (data: ResultsSectionDataReturn, isPreRun: boolean) =>
 beforeEach(() => {
   useCanvasStore.setState({ nodes: NODES, goalThreshold: null } as never)
   useStrengthenStore.setState({ records: {} })
+  useGuidanceStore.setState({ guidanceItems: [] } as never)
 })
 
 describe('THE INSTRUMENT — the precondition, pinned in test', () => {
@@ -251,5 +253,90 @@ describe('the opening is SCOPED — every other limb is unchanged', () => {
       'false',
     )
     expect(screen.queryByTestId('analysis-new-strengthen-region')).toBeNull()
+  })
+})
+
+
+/**
+ * ⭐⭐ AND THE HALF THAT MATTERS MOST — THE PRODUCER'S OWN COACHING.
+ *
+ * The success-measure card is the finding this panel can always ground, so it
+ * is what the tests above bind to. But it is not the only thing behind that
+ * row, and the difference is the whole point of the change.
+ *
+ * `buildRecommendations`' phase-3 promotion is NOT gated on `analysisComplete`
+ * — derived at its bytes, unlike the six deterministic triggers around it
+ * (`:488`, `:518`, `:554`, `:606`, `:652`) which all are. So every coaching
+ * block CEE sends while drafting — the same channel the canvas coaches from —
+ * already reaches this list before any run. It reached a COLLAPSED row.
+ *
+ * That is the "promise, not a coach" gap in one line: the canvas says "Top gap:
+ * validate X"; this tab said "No analysis has run yet" and hid the producer's
+ * own finding behind a chevron with a number on it.
+ *
+ * ⚠ IT IS PINNED HERE RATHER THAN LEFT AS A CLAIM IN A COMMIT MESSAGE. A
+ * sentence saying "producer coaching reaches this list" is a mirror; a test
+ * that REDs when the promotion becomes analysis-gated is not (trap 12).
+ */
+describe('the producer\'s own coaching reaches the pre-run reader', () => {
+  /** A CEE draft-coaching block, in the store's own `GuidanceItem` shape. */
+  const seedProducerCoaching = () =>
+    useGuidanceStore.setState({
+      guidanceItems: [
+        {
+          item_id: 'g_narrow',
+          source: 'coaching',
+          title: 'You are comparing only two options',
+          detail: 'Narrow framing: consider a third path before committing.',
+          category: 'should_fix',
+          coaching_kind: 'bias_signal',
+          primary_action: { kind: 'ask', label: 'Explore a third option' },
+          priority_rank: 1,
+        },
+      ],
+    } as never)
+
+  /**
+   * ⚠ THE PRECONDITION IS THE COUNT MOVING, NOT THE COUNT BEING TWO. Asserting
+   * a bare "2" would pass if the engine dropped the producer block and minted
+   * some other row instead; the identity assertion below is what settles which
+   * two. Both are here because each catches what the other cannot.
+   */
+  it('the block is promoted into the pre-run list at all', () => {
+    seedProducerCoaching()
+    draw(openStrategicChallenge(), true)
+    expect(screen.getByTestId('analysis-new-strengthen-count')).toHaveTextContent('2')
+  })
+
+  it('and the reader can READ it — open, and bound to the producer\'s own id', () => {
+    seedProducerCoaching()
+    draw(openStrategicChallenge(), true)
+    expect(screen.getByTestId('analysis-new-strengthen')).toHaveAttribute(
+      'data-section-open',
+      'true',
+    )
+    const ids = screen
+      .getAllByTestId('analysis-new-strengthen-item')
+      .map((r) => r.getAttribute('data-recommendation-id'))
+    // ⚠ BY IDENTITY: `strengthen:phase3:${item_id}` is the engine's own key for
+    // a producer block, so this cannot be satisfied by a UI-authored row.
+    expect(ids).toContain('strengthen:phase3:g_narrow')
+    expect(screen.getByTestId('analysis-new-strengthen-region')).toHaveTextContent(
+      'You are comparing only two options',
+    )
+  })
+
+  /**
+   * ⚠ THE DISCRIMINATING TWIN. Without it, the two rows above could both come
+   * from a panel that renders every guidance item it can find regardless of
+   * the store — and the seed would be proving nothing.
+   */
+  it('with no producer coaching, that row is absent', () => {
+    draw(openStrategicChallenge(), true)
+    const ids = screen
+      .getAllByTestId('analysis-new-strengthen-item')
+      .map((r) => r.getAttribute('data-recommendation-id'))
+    expect(ids).not.toContain('strengthen:phase3:g_narrow')
+    expect(screen.getByTestId('analysis-new-strengthen-count')).toHaveTextContent('1')
   })
 })
