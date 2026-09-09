@@ -1753,11 +1753,24 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           // that are not factor nodes at all, which have no editor by kind.
           //
           // ⚠ NODE KIND IS CHECKED HERE, and the reason is defensive rather than
-          // borrowed. `useModelEditAuthority.ts:247` — the `'not_encodable'` guard
-          // for a non-factor — belongs to `proposeFactorConfirmation`, NOT to
-          // `proposeFactorValue` (`:146`), which performs no kind check of its own.
-          // (The earlier version of this comment cited `:247` as though it guarded
-          // the value writer; corrected in review.) So this check is not mirroring
+          // borrowed. The only `'not_encodable'` refusal for a non-factor is
+          // `useModelEditAuthority.proposeFactorConfirmation`'s
+          // `resolveNodeTypeLiteral(node) !== 'factor'` guard. It does NOT belong
+          // to `proposeFactorValue`, which performs no kind check of its own —
+          // its refusals are a missing `activeNodeId`, a node absent from the
+          // store, and a null from `buildFactorValueEditEvent`, and that builder
+          // is never handed a kind at all.
+          //
+          // ⚠ CITE THE GUARD, NOT THE LINE. This comment twice carried line
+          // numbers (`:247`, `:146`) and both were wrong before anyone noticed:
+          // a line-number citation is a hand-maintained mirror by construction
+          // (CLAUDE.md trap 12) and drifts on the next edit to a file it does not
+          // even live in. Named this way it cannot rot silently — the symbol
+          // either exists or a grep finds nothing.
+          //
+          // ⚠ AND DO NOT CONFUSE IT with `proposeOptionIntervention`'s
+          // `resolveNodeTypeLiteral(option) !== 'option'`: two kind guards, two
+          // different questions. So this check is not mirroring
           // an existing refusal — it is the only kind gate on this path, which is
           // why it stays: `resolveNodeTypeLiteral` returns null for an unrecognised
           // id, so an unknown id fails CLOSED to `'none'` and offers nothing.
