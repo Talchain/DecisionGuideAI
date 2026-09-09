@@ -325,7 +325,7 @@ export const COMPARATIVE_COPY = {
    * though it were a quantity is worse than saying less, and the honesty bar
    * this whole change serves forbids it. Caught by an existing readout-tie
    * spec, not by a new one.
-   */
+   *
    * ⭐ 8 Sep 2026 — NOT RULED, CHOSEN. Paul ruled the sentence WITH a
    * magnitude; this arm is what the card says when the magnitude is missing.
    * `"scored highest against your goal in more runs than any other option"`
