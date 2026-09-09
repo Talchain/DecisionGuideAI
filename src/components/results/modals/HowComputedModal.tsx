@@ -55,12 +55,12 @@ export const HOW_COMPUTED_COPY = {
     {
       heading: 'It answers two questions, and they are not the same question',
       body:
-        'We run the model on your canvas many times over. Each run draws a different plausible value for every input you left a range on. Two readings come out of those runs. "Chance of hitting your goal" is the share of runs in which an option reached the success target you set. "Most likely outcome" is the middle of the results an option produced — half the runs landed above it, half below. An option can be ahead on one and behind on the other, so both are shown.',
+        'We run the model on your canvas many times over. Each run draws a different plausible value for every input you left a range on. Two readings come out of those runs. "Chance of hitting your goal" is the share of runs in which an option reached the success target you set. "Most likely outcome" is the middle of the results an option produced — half the runs landed above it, half below. An option can look strong on one and weak on the other, so both are shown.',
     },
     {
-      heading: 'It also counts which option came out ahead most often',
+      heading: 'It also counts which option scored highest most often',
       body:
-        'Separately from either question above, we count the runs in which each option scored higher than the rest. That is what "came out ahead in 60% of simulated scenarios" means. It compares your options with each other; it says nothing about your goal. An option can come out ahead most often and still be unlikely to reach the target you set — which is why this figure is shown below the goal figure, not above it.',
+        'Separately from either question above, we count the runs in which each option scored higher than the rest. That is what "scored highest in 60% of simulated scenarios" means. It compares your options with each other; it says nothing about your goal. An option can score highest most often and still be unlikely to reach the target you set — which is why this figure is shown below the goal figure, not above it.',
     },
     {
       heading: 'It finds what actually moves the result',

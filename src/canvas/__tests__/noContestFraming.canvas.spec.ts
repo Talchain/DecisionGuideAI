@@ -109,9 +109,52 @@ const SCOPE_DIRS = [
   'src/v5/blocks',
 ]
 const SCOPE_FILES = [
+  // ⭐ ADDED 9 Sep 2026, and the reason is the INVERSE of #1310's. There the
+  // vocabulary was short; here it was RIGHT and the SCOPE was short: `came out
+  // ahead` is entry 6 below, and three live strings sat in these two files
+  // because nothing opened them. Named individually rather than adding
+  // `src/components/results` to SCOPE_DIRS — a directory widening would sweep
+  // files other lanes are actively holding, and this guard's job is not to
+  // arbitrate their copy mid-flight.
+  'src/components/results/modals/HowComputedModal.tsx',
+  'src/components/results/WinGauge.tsx',
   'src/components/results/utils/goalAnchorCopy.ts',
   'src/canvas/nodes/shared/metricVocabulary.ts',
   'src/components/results/utils/winnerChipCopy.ts',
+  /*
+   * ⚠⚠ WHAT THIS LIST DOES **NOT** COVER — stated because "both holes closed"
+   * will otherwise read as closing the CLASS, and it closes the INSTANCES.
+   *
+   * DERIVED 9 Sep 2026, not estimated: `src/components/results` holds **187**
+   * non-test `.ts`/`.tsx` files (`git ls-files` under that path, minus
+   * `__tests__`/`.spec.`/`.test.`). FOUR of them are named above. So roughly
+   * **183 remain unswept**, and this guard is silent about every one.
+   *
+   * ⚠ THE REASON IS SCHEDULING, NOT SAFETY. A `SCOPE_DIRS` widening would sweep
+   * files other lanes are actively holding and make this guard arbitrate their
+   * copy mid-flight. That is a fair trade today and it is NOT evidence the
+   * residual is clean — a two-file sample found no user-facing offence, which is
+   * weak evidence of safety and not proof of it.
+   *
+   * ⭐ WIDENING TRIGGER — when the lanes holding `src/components/results` land,
+   * move it from this list into `SCOPE_DIRS` and delete these four entries.
+   * Do it the way `src/v5/blocks` was done above: **enumerate the hits BEFORE
+   * adding** (that widening measured 22, all comment prose or the pinned
+   * `go-ahead` survivor, and introduced zero new offences). A widening whose
+   * hit count was not measured first is a widening that will be reverted.
+   *
+   * ⚠ AND THE TRAP THAT WIDENING WILL SPRING, so it is not re-learned: a RAW
+   * grep over an unswept file OVER-reports this class badly. `OptionCards.tsx`
+   * reads `winner` x57 and `Win probability` x6 — every one inside a comment
+   * this guard strips, or an identifier `IDENTIFIER_SHAPES` excludes. Check
+   * whether a hit is a LITERAL before believing it.
+   *
+   * ⚠ AND WHAT THIS GUARD CANNOT DO AT ALL: it BANS phrases; it does not
+   * ENFORCE the ratified positive form. `noWinnerVocabulary.spec.ts` rules
+   * "say 'scored highest in N% of runs' — never a placing", and a BARE placing
+   * ("Scored highest" alone) passes every entry below completely clean. Green
+   * here is not evidence of compliance with that ruling.
+   */
 ]
 
 /**
@@ -123,6 +166,20 @@ const CONTEST_FRAMES: ReadonlyArray<{ readonly name: string; readonly re: RegExp
   { name: 'winner', re: /\bwinners?\b/i },
   { name: 'loser', re: /\blosers?\b/i },
   { name: 'wins', re: /\bwins\b/i },
+  /*
+   * ⭐ THE NOUN PHRASE, ADDED 9 Sep 2026 — `wins` above could not see it.
+   * `NodeInspector.tsx:639` rendered `Win probability` inside a SWEPT directory
+   * with this gate green, because `/\bwins\b/i` does not match the singular
+   * `Win` and no entry named the metric.
+   *
+   * ⚠ ENUMERATED BEFORE IT WAS ADDED, not reasoned about. Across this guard's
+   * entire scope it produces EXACTLY ONE hit — the label it was written for.
+   * The SPACED form is deliberate and load-bearing: `win_probability` is a
+   * FOUR-SERVICE CONTRACT (UI · CEE · PLoT · ISL) and must not be forced. It is
+   * unreachable from here twice over — the space cannot match the underscore,
+   * and snake_case is excluded by IDENTIFIER_SHAPES regardless.
+   */
+  { name: 'win probability', re: /\bwin probabilit(?:y|ies)\b/i },
   { name: 'beats', re: /\bbeats?\b|\bbeaten\b/i },
   { name: 'came out ahead', re: /\bcame out ahead\b/i },
   // `go-ahead` is ordinary English for consent and is a live survivor.
