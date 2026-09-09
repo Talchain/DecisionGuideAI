@@ -4621,6 +4621,48 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   setGoalThresholdAndUpdateNode: (goalNodeId, value, opts) => {
+    /**
+     * ⭐⭐ FINITENESS — THE ONE BOUND THIS VALUE HAS, PREVIOUSLY DECLARED ON THE
+     * SIBLING WRITER ONLY.
+     *
+     * `AdvancedField.tsx` records the defect measured by DRIVING it (3 Sep
+     * 2026): `Infinity`, `-Infinity`, `1e400` and `9e999` all committed,
+     * because `parseFloat` returns `±Infinity` for each and `isNaN(Infinity)`
+     * is `false`. It fixed its own path with `Number.isFinite` and concluded
+     * that predicate was "the reachable source of every non-finite magnitude in
+     * the model".
+     *
+     * ⚠ THAT CONCLUSION WAS INCOMPLETE, WHICH IS WHY THIS GUARD EXISTS.
+     * `AdvancedField` guards `goal_threshold_raw`. `success_threshold` reaches
+     * the model through THIS action, which had no finiteness check — and its
+     * live caller on the Model tab validates with `!isNaN(n) && n >= 0`
+     * (`components/model-tab/GoalSection.tsx`), which admits `Infinity`. The
+     * value then rides the node-data passthrough to PLoT
+     * (`V2_NODE_BLOCKLIST`) and to CEE (`CANVAS_ONLY_NODE_KEYS`), neither of
+     * which lists it. Two writers, one field, one bound declared — the sibling
+     * pattern this estate keeps paying for.
+     *
+     * ⚠ FINITENESS, NOT A RANGE. Under `threshold_source: 'user'` this is RAW
+     * USER UNITS by design, so a `[0,1]` bound would be wrong and no range
+     * bound is declared for it anywhere. A target of 0, or a negative one
+     * ("reduce churn to -2%"), is legitimate and must still commit — the guard
+     * deliberately does NOT inherit the Model tab's `>= 0`.
+     *
+     * ⚠ REFUSE, DO NOT CLEAR. Returning early leaves any existing good target
+     * in place; writing `null` here would turn a rejected keystroke into silent
+     * data loss. `null` itself remains the honest way to clear a target.
+     *
+     * Guarded here rather than at the callers because seven product call sites
+     * across four areas funnel through this one action; a per-caller check
+     * would be a hand-maintained mirror.
+     */
+    if (value != null && !Number.isFinite(value)) {
+      console.warn(
+        '[store] setGoalThresholdAndUpdateNode: refusing a non-finite success target — the value must be a finite number; existing target left unchanged',
+        { goalNodeId, value },
+      )
+      return
+    }
     // User commit → raw user units (Lane 5).
     set({ goalThreshold: value, goalThresholdRepresentation: value == null ? null : 'raw' })
     pushToHistory(get, set)
