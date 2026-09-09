@@ -328,8 +328,28 @@ test.describe('Inspector Phase 1 (Track B)', () => {
     // shows what the option SETS, because this surface cannot establish the
     // role or the scale of the value it used to print beside it. The recorded
     // number is an operator diagnostic behind technical mode.
-    await expect(active.getByText('This option sets')).toBeVisible()
-    await expect(active.getByText('Recorded: 72 %')).toHaveCount(0)
+    //
+    // ⚠⚠ TWO ROWS HERE, SO EACH IS BOUND BY ITS OWN FACTOR. A bare
+    // `getByText('This option sets')` is a strict-mode multi-match (caught in
+    // review), and `.first()` would resolve it by passing on whichever row
+    // happens to sort first — a value predicate a sibling satisfies, which is
+    // exactly the binding this repo bans. The count is asserted too, so the
+    // per-row checks cannot pass on a pane that stopped rendering a row.
+    const interventionRowFor = (factor: string) =>
+      active
+        .locator('[data-testid^="inspector-intervention-"]')
+        .filter({ has: page.getByRole('button', { name: factor, exact: true }) })
+
+    await expect(active.getByText('This option sets')).toHaveCount(2)
+    for (const factor of ['Customer satisfaction', 'Market share']) {
+      const row = interventionRowFor(factor)
+      await expect(row, `${factor}: expected exactly one intervention row`).toHaveCount(1)
+      await expect(row.getByText('This option sets')).toBeVisible()
+      await expect(row.locator('input'), `${factor}: no editable target`).toBeVisible()
+    }
+    // Broader than the old "Recorded: 72 %": the label must not appear at all
+    // in default mode, whatever figure follows it.
+    await expect(active.getByText('Recorded:')).toHaveCount(0)
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'option-regular-inspector.png') })
 
     // Non-baseline option with NO interventions
