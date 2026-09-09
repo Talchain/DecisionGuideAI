@@ -94,7 +94,17 @@ function nodes(): Node[] {
  */
 function StoreBoundPanel() {
   const storeNodes = useCanvasStore(s => s.nodes)
-  return <ModelTabV2Panel nodes={storeNodes as Node[]} edges={[]} goalThreshold={null} />
+  const scenarioId = useCanvasStore(s => s.currentScenarioId)
+  const baseHash = useCanvasStore(s => s.lastServerGraphHash)
+  return (
+    <ModelTabV2Panel
+      nodes={storeNodes as Node[]}
+      edges={[]}
+      goalThreshold={null}
+      currentScenarioId={scenarioId}
+      lastServerGraphHash={baseHash}
+    />
+  )
 }
 
 function renderPanel(lastServerGraphHash: string | null = HASH) {
@@ -489,7 +499,15 @@ describe('the production posture', () => {
 
     const n = nodes()
     useCanvasStore.setState({ nodes: n, edges: [], lastServerGraphHash: HASH } as never, false)
-    render(<ProductionPanel nodes={n} edges={[]} goalThreshold={null} />)
+    render(
+      <ProductionPanel
+        nodes={n}
+        edges={[]}
+        goalThreshold={null}
+        currentScenarioId="scn_1"
+        lastServerGraphHash={HASH}
+      />,
+    )
     openOutlineGroups()
     fireEvent.click(screen.getByTestId(`model-row-v2-${OPTION}`))
 

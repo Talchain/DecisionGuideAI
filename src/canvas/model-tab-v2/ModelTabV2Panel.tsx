@@ -74,7 +74,6 @@ import type { EdgeData } from '../domain/edges'
 import { focusEdgeById, focusNodeById } from '../utils/focusHelpers'
 import { resolveValueInputSeed } from '../conversation/factorValueEdit'
 import { edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
-import { useCanvasStore } from '../store'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { resolveGoalTarget } from '../domain/goalTarget'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
@@ -124,6 +123,30 @@ export interface ModelTabV2PanelProps {
    * boundary guard meaningful.
    */
   onHandOffToOlumi?: (message: string, reason: string) => void
+  /**
+   * ⚠⚠ THESE TWO ARRIVE AS PROPS BECAUSE THE LANE BOUNDARY SAYS SO, AND THE
+   * BOUNDARY IS RIGHT.
+   *
+   * An earlier cut of the effect-edit transaction read them by calling
+   * `useCanvasStore` here. `modelTabV2Boundary.sourceScan` refused it, on two
+   * counts and for one reason: no v2 file may import a store module, and no v2
+   * file may INVOKE a hook from outside this namespace — "nothing here can FIRE
+   * while unmounted". The mount host owns every live-app seam, which is what
+   * keeps this directory's guard meaningful; `nodes`, `edges` and
+   * `goalThreshold` already arrive the same way and for the same reason.
+   *
+   * OPTIONAL, and the degradation is SAFE rather than silent-wrong: with neither
+   * passed, the scenario fence compares two absent values and raises no notice,
+   * and the stale-base notice simply never self-clears — the behaviour before
+   * either existed. Nothing claims anything untrue without them.
+   */
+  /** The scenario the mounted model belongs to. Fences a pending effect edit. */
+  currentScenarioId?: string | null
+  /**
+   * The last CEE-stamped `graph_hash`. Read to notice when the ONE recoverable
+   * refusal (`needs_fresh_base`) has actually been recovered.
+   */
+  lastServerGraphHash?: string | null
 }
 
 /**
@@ -168,6 +191,8 @@ export function ModelTabV2Panel({
   fragileEdgeIds,
   openGroupRequest,
   onHandOffToOlumi,
+  currentScenarioId = null,
+  lastServerGraphHash = null,
 }: ModelTabV2PanelProps) {
   const [tier, setTier] = useState<DetailTier>('plain')
   /**
@@ -228,12 +253,6 @@ export function ModelTabV2Panel({
   const inQueue = activeQueue !== null
   const [filter, setFilter] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  // Subscribed, not read once: a pending effect edit must notice a scenario
-  // switch beneath it rather than settle against a different model.
-  const currentScenarioId = useCanvasStore(st => st.currentScenarioId)
-  // Subscribed for the same reason as the scenario id: a refusal that names an
-  // action has to notice when the action has happened.
-  const lastServerGraphHash = useCanvasStore(st => st.lastServerGraphHash)
   const [edit, setEdit] = useState<ActiveEdit | null>(null)
   /**
    * The one intervention target being edited, if any.
@@ -692,7 +711,11 @@ export function ModelTabV2Panel({
       // a settlement resolving on the same microtask would find `sentValue`
       // still undefined and be dropped — the row would hang on "sent" forever
       // for exactly the fastest cases.
-      const scenarioAtSend = useCanvasStore.getState().currentScenarioId
+      // The scenario as this render knows it — `currentScenarioId` is in this
+      // callback's deps, so a switch re-creates it rather than leaving a stale
+      // capture behind. (It was `useCanvasStore.getState()`, which the lane
+      // boundary bans; see the prop's declaration.)
+      const scenarioAtSend = currentScenarioId
       setInterventionEdit(prev =>
         prev && prev.factorId === factorId
           ? { ...prev, phase: 'pending', sentValue: num, sentScenarioId: scenarioAtSend, notice: undefined }
@@ -790,7 +813,7 @@ export function ModelTabV2Panel({
         }
       })
     },
-    [interventionEdit, authority, selectedDetail],
+    [interventionEdit, authority, selectedDetail, currentScenarioId],
   )
 
   /**
