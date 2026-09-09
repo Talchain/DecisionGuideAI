@@ -96,7 +96,7 @@ describe('NodeQuickActions — the generative prompt gets a door', () => {
     useGuidanceStore.setState({ _sendMessage: null, _prefillChat: null, _dispatchAction: null } as never)
   })
 
-  it('offers a challenge action naming the element, alongside the ask and inspect actions', () => {
+  it('offers a challenge action naming the element, alongside the ask and menu actions', () => {
     useGuidanceStore.setState({ _prefillChat: vi.fn() } as never)
     render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
 
@@ -185,8 +185,8 @@ describe('NodeQuickActions — no challenge button where there is no challenge p
     render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
 
     expect(screen.queryByTestId('node-action-challenge-node-a')).toBeNull()
-    // …while the inspect action, which needs no conversation, stays.
-    expect(screen.getByTestId('node-action-inspect-node-a')).toBeInTheDocument()
+    // More needs no conversation and stays available.
+    expect(screen.getByTestId('node-action-menu-node-a')).toBeInTheDocument()
   })
 
   /**

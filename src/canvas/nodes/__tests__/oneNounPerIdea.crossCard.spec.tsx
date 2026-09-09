@@ -46,15 +46,14 @@
  * captions are visible side by side and nothing here claims it does; what it
  * proves is that they are the same word.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { DecisionNode } from '../DecisionNode'
 import { OptionNode } from '../OptionNode'
 import { METRIC_NOUN, RETIRED_METRIC_NOUNS } from '../shared/metricVocabulary'
-import { COMPARATIVE_COPY } from '../../../components/results/utils/goalAnchorCopy'
 import {
   LEADER_ID,
   LEADER_LABEL,
@@ -157,7 +156,6 @@ function renderBoard() {
 }
 
 const DECISION_ROW = 'decision-leader-metric-row'
-const OPTION_ANCHOR = `option-win-anchor-${LEADER_ID}`
 
 /**
  * The decision card, as a subtree — the nearest ancestor of its metric row that
@@ -166,121 +164,86 @@ const OPTION_ANCHOR = `option-win-anchor-${LEADER_ID}`
  * query matches twice. Scoping by IDENTITY rather than by picking `[0]`
  * (CLAUDE.md trap 19).
  */
-function decisionCard(): HTMLElement {
-  let el: HTMLElement | null = screen.getByTestId(DECISION_ROW)
-  while (el && !(el.textContent ?? '').includes('Which laptops?')) el = el.parentElement
-  if (!el) throw new Error('the decision card ancestor was not found — this probe is blind')
-  return el
-}
+// ⛔ `decisionCard()` and `decisionCaption()` are DELETED. Both existed to reach
+// into `decision-leader-metric-row` and read the caption beside it. That row is
+// gone, so a helper that walks to it is dead code asserting a surface exists.
+// The absence arm below binds by test id directly and needs neither.
 
-/** The caption is the row's FIRST child — the noun column. */
-function decisionCaption(): string {
-  const row = screen.getByTestId(DECISION_ROW)
-  return (row.firstElementChild?.textContent ?? '').trim()
-}
-
-describe('one noun per idea — the decision card and the option card agree', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('POSITIVE CONTROL: both surfaces mounted and both carry the figure', () => {
-    // Without this every comparison below could pass by comparing two absent
-    // things, or by comparing a caption to itself (trap 13).
+describe('one noun per idea — the option card speaks the register', () => {
+  it('⛔ the decision card carries neither the shared caption nor the shared sentence', () => {
+    // Pins the removal from THIS file's angle: the cross-card agreement it was
+    // written to protect is now satisfied by there being one speaker, and the
+    // way that could silently change is the decision card starting to speak
+    // again. `decisionCard()`/`decisionCaption()` are retained above for this
+    // arm binds by test id directly, which is why the two decision-card
+    // helpers above could be deleted rather than kept alive artificially.
     renderBoard()
-    expect(screen.getByTestId(DECISION_ROW)).toBeDefined()
-    expect(screen.getByTestId(OPTION_ANCHOR)).toBeDefined()
-    // …and the row is the one carrying the leader's win probability, so the
-    // caption under test is captioning the quantity we think it is.
-    expect(screen.getByTestId(DECISION_ROW).textContent)
-      .toContain(`${Math.round(WIN_LEADER * 100)}%`)
+    expect(screen.queryByTestId(DECISION_ROW), 'the duplicate bar is back').toBeNull()
+    expect(screen.queryByText(/supported in \d+% of simulated scenarios/i), 'the duplicated verdict sentence is back').toBeNull()
   })
 
-  it('⭐ THE ASSERTION: the decision caption IS the option anchor, word for word', () => {
+  /**
+   * ⛔ THREE ARMS RETIRED AND THE DESCRIBE RENAMED: this file compared the
+   * DECISION card's sentence with the OPTION card's caption, and the decision
+   * side is gone.
+   *
+   * The retired arms were "both surfaces carry the figure", "the decision
+   * caption IS the option anchor, word for word", and "the SENTENCE speaks the
+   * caption's noun too". Each was a genuine cross-card property and each needed
+   * two cards making the same claim. **The decision card no longer makes it** —
+   * its sentence restated the option cards' verdict under a heading that asks a
+   * question — so the comparison has one side.
+   *
+   * ⚠ THIS IS NOT THE DEFECT THE FILE WAS WRITTEN AGAINST BEING REOPENED. That
+   * defect was the two cards using DIFFERENT words for one quantity ("Leads" vs
+   * "Ahead" vs "Support"). Removing one of the two cannot recreate a
+   * disagreement between them; a single speaker cannot contradict itself across
+   * cards. What still can drift is the option card drifting from the REGISTER,
+   * and that is what survives below.
+   */
+  it('the option card uses no retired synonym for the shared quantity', () => {
     renderBoard()
-    const decision = decisionCaption()
-    const option = (screen.getByTestId(OPTION_ANCHOR).textContent ?? '').trim()
-
-    expect(decision, 'the decision card captions the shared quantity with its own word').toBe(option)
-    // Bound to the authority as well as to each other — so the pair cannot be
-    // "fixed" by making BOTH cards say some third word.
-    expect(decision).toBe(COMPARATIVE_COPY.anchor)
-    expect(decision).toBe(METRIC_NOUN.support)
-  })
-
-  it('neither card uses a retired synonym for the shared quantity', () => {
-    const { container } = renderBoard()
-    const text = container.textContent ?? ''
-    // `Leads` is the one that was on the decision card. Asserted on the FULL
-    // board text, so it catches the word anywhere on either card, not only in
-    // the caption slot the test above reads.
-    expect(text).not.toContain('Leads')
-    // Discrimination: the board HAS text and DOES carry the live noun, so the
-    // absence above is not passing on an empty container.
-    expect(text.length).toBeGreaterThan(50)
-    expect(text).toContain(METRIC_NOUN.support)
-  })
-
-  it('⭐ THE TENSION IS RESOLVED: the SENTENCE speaks the caption\'s noun too', () => {
-    // ⛔ THIS TEST WAS THE REVERSAL POINT, AND IT HAS BEEN TAKEN.
-    //
-    // It read 'CONTRAST: the sentence the row encodes is UNCHANGED — this was
-    // a caption change', asserted `/leads in 66% of scenarios/i`, and carried
-    // this note:
-    //
-    //   "⚠ Note the tension, deliberately left visible: the PROSE still says
-    //    'leads' while the CAPTION now says 'Ahead'. That is not a synonym
-    //    defect — a verb in a sentence and a noun in a column are different
-    //    parts of speech… Rowed in the PR body rather than silently changed."
-    //
-    // The row was right to bound its own blast radius and right to leave the
-    // question visible. The answer, 8 Sep 2026, is that on THIS card the two
-    // are not different ideas wearing different parts of speech: they are ONE
-    // number, read from ONE binding (`headline.winProb`), rendered eight
-    // pixels apart. Measured on deployed staging `80ccf768`, a real card read
-    // "Segment leads in 99% of scenarios" directly above "Support ▬▬▬ 99%".
-    // A reader has no way to know those are the same quantity.
-    //
-    // What is still guarded, unchanged: the claim is a SENTENCE in visible
-    // text, not folded into the row. The eight-surface corpus still bites.
-    renderBoard()
-    const sentence = within(decisionCard()).getByText(
-      /supported in 66% of simulated scenarios/i,
-    )
-    expect(sentence).toBeDefined()
-    // Bound to the AUTHORITY, not to the literal above — so the sentence and
-    // the caption cannot drift apart again without a red here.
-    expect((sentence.textContent ?? '').toLowerCase())
-      .toContain(METRIC_NOUN.support.toLowerCase())
-    // ⭐ AND THE CROSS-CARD POINT THIS FILE EXISTS FOR: the option card beside
-    // it speaks the SAME phrase, from the same register
-    // (`COMPARATIVE_COPY.phrase`, `OptionNode.tsx:1582`). Two cards, one
-    // quantity, one sentence — which is what made the decision card's old verb
-    // visible as a defect rather than a preference.
-    expect(screen.getAllByText(/supported in 66% of simulated scenarios/i)).toHaveLength(2)
-    // …and "Leads" stays retired as a caption, which is what the register
-    // actually ruled. That has not changed.
+    const optionRow = screen.getByTestId(`option-analysis-currency-${LEADER_ID}`)
+    const spoken = `${optionRow.getAttribute('aria-label') ?? ''} ${optionRow.textContent ?? ''}`
+    for (const retired of RETIRED_METRIC_NOUNS) {
+      expect(spoken, `the option card spoke the retired noun "${retired}"`)
+        .not.toMatch(new RegExp(`\\b${retired}\\b`, 'i'))
+    }
+    // …and it DOES speak the register's own word, so the arm cannot pass on a
+    // card that says nothing at all.
+    expect(spoken.toLowerCase()).toContain(METRIC_NOUN.support.toLowerCase())
+    // "Leads" stays retired as a caption, which is what the register ruled.
     expect(RETIRED_METRIC_NOUNS).toContain('Leads')
   })
 
-  it('⚠ RESIDUAL, DECIDED NOT DISCOVERED: "Leads" survives as a VERB on the option card', () => {
-    // The review found `OptionNode:1601` — "Supported by {factor}" beneath the
-    // `Ahead 47%` anchor — and rightly said it should be decided explicitly
-    // rather than left to be found. It is: the register retires "Leads" as a
-    // CAPTION, and both survivors are verbs inside sentences.
+  it('⭐ REHOMED A11Y: the comparative claim reaches assistive tech EXACTLY ONCE', () => {
+    // ⚠ THIS PROPERTY CAME FROM `decisionCardOneVocabulary.spec.tsx`, WHICH IS
+    // RETIRED. That file's whole subject was the decision card's sentence and
+    // bar speaking one vocabulary; both are gone. This one arm was never about
+    // the vocabulary — it guarded against a screen-reader user hearing the same
+    // comparative claim twice, which was a live risk while the decision card
+    // and the option card both announced it.
     //
-    // This test exists so the decision is VISIBLE and REVERSIBLE. If a later
-    // session rules that a caption and a verb must agree, it REDs here and
-    // reads the reasoning in metricVocabulary.ts rather than rediscovering the
-    // whole question. Bound to the source, since the sentence needs a
-    // post-analysis recommended option this harness does not mount.
+    // It is kept rather than deleted because the risk has not gone, it has
+    // moved: the option card carries the claim in an `aria-label` on a
+    // `role="img"`, and any future visible restatement beside it would double
+    // the announcement without changing a single rendered word.
+    renderBoard()
+    const optionRow = screen.getByTestId(`option-analysis-currency-${LEADER_ID}`)
+    // `getByRole` THROWS on more than one match, so this is the "exactly once"
+    // assertion — and binding the result to the row by identity is what makes
+    // it about THIS surface rather than whichever element matched first.
+    expect(screen.getByRole('img', { name: /supported in \d+% of simulated scenarios/i })).toBe(optionRow)
+  })
+
+  it('global factor importance offers examination without asserting option-specific support', () => {
+    // The factor link is navigation. Global importance does not establish
+    // why this particular option wins; the delivery-state test also mounts
+    // the link and checks that it targets the right factor.
     const src = readFileSync(resolve(__dirname, '../OptionNode.tsx'), 'utf8')
     expect(src.length, 'source read as empty — the assertion below is vacuous').toBeGreaterThan(1000)
-    expect(
-      src.includes('Supported by'),
-      'the "Supported by" sentence has gone — good, but update the residual note in metricVocabulary.ts',
-    ).toBe(true)
-    // …and it is prose, not a caption: no `label=` binds it.
+    expect(src).toContain('Factor to examine:')
+    expect(src).not.toContain('Supported by')
     expect(src).not.toMatch(/label=["']Leads["']/)
   })
 })

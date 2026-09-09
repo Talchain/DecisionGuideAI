@@ -44,7 +44,6 @@ import {
   PERMITTED_REPORT,
   RUNNER_UP_ID,
   RUNNER_UP_LABEL,
-  WIN_LEADER,
   WITHHELD_REPORT,
 } from '../../../lib/__fixtures__/ownedLeaderClaim.fixtures'
 import { DecisionNode } from '../DecisionNode'
@@ -205,50 +204,58 @@ function fillWidthWithin(testId: string): string | null {
 
 // ───────────────────────────────────────────────────────────────────────────
 
-describe('DecisionNode — the leader figure gets the shared metric row', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('PERMITTED: renders the shared row for the owned leader claim, with a bar', () => {
-    renderDecision(PERMITTED_REPORT)
-    const row = screen.getByTestId(DECISION_ROW)
-    expect(row).toBeDefined()
-    // The noun, so a bare percentage cannot read as something else (UI-SEM-089).
-    expect(row.textContent).toContain(METRIC_NOUN.support)
-    expect(row.textContent).toContain(`${Math.round(WIN_LEADER * 100)}%`)
-    // The bar is the point of the change, not an incidental div.
-    expect(fillWidthWithin(DECISION_ROW)).toContain('66%')
-  })
-
-  it('WITHHELD: no row — even though the win probability IS in the report', () => {
-    // ⭐ PRECONDITION PINNED IN-TEST. Without this the absence assertion below
-    // would pass just as happily against a fixture that carries no number at
-    // all, which is a tautology rather than a guard (trap 13b).
-    const carried = (WITHHELD_REPORT as any).option_probabilities?.[LEADER_ID]?.win_probability
-    expect(typeof carried).toBe('number')
-
-    renderDecision(WITHHELD_REPORT)
-    expect(screen.queryByTestId(DECISION_ROW)).toBeNull()
-  })
-
-  it('WITHHELD: the card still renders — the suppression assertion is not vacuous', () => {
-    renderDecision(WITHHELD_REPORT)
-    expect(screen.getByText('Which laptops?')).toBeDefined()
-  })
-
-  it('PERMITTED: the sentence the row encodes is STILL IN VISIBLE TEXT — the row is additive', () => {
-    renderDecision(PERMITTED_REPORT)
-    // The leader-claim corpus across eight surfaces keys on this sentence.
-    // A "visual consistency" change that quietly moved it out of visible text
-    // would hollow every one of those guards without a single red.
-    //
-    // ⚠ REWORDED, NOT MOVED (8 Sep 2026). This assertion read
-    // `/leads in 66% of scenarios/i` until the decision card was aligned to
-    // the noun its own bar carries. What it guards is unchanged: the claim is
-    // still a SENTENCE in visible text, above the row, not folded into it.
-    expect(screen.getByText(/supported in 66% of simulated scenarios/i)).toBeDefined()
-  })
+/**
+ * ⛔ THE `DecisionNode` DESCRIBE IS RETIRED — four arms, all about a row that no
+ * longer exists.
+ *
+ * `decision-leader-metric-row` rendered `option_probabilities[leader]` under
+ * `METRIC_NOUN.support`: the same field, caption and scale the most-supported
+ * OptionNode already draws. It was a duplicate of the option card's bar sitting
+ * under a heading that asks a question, and it is removed with the sentence
+ * above it.
+ *
+ * ⚠ ITS TWO REAL PROPERTIES ARE NOT LOST. "No row on a withheld run" and the
+ * non-vacuity control are pinned once, across ALL permission states, in
+ * `canvasLeaderAdmission`. The fourth arm — "the sentence the row encodes is
+ * STILL IN VISIBLE TEXT" — guarded against folding the claim into the bar and
+ * hollowing the leader-claim corpus; with neither surface on this node, it has
+ * no subject.
+ *
+ * ⭐ THE GoalNode DESCRIBE BELOW IS UNTOUCHED. `goal-achievement-metric-row` is
+ * this node's OWN quantity, not a copy of another card's, which is exactly the
+ * distinction that makes removing the decision row correct and keeping this one
+ * correct.
+ */
+describe('DecisionNode — the leader row is retired, not merely gated', () => {
+  /**
+   * ⛔ FOUR ARMS BECAME ONE. They pinned `decision-leader-metric-row` against
+   * the producer's comparative admission — permitted renders, withheld does
+   * not, a non-vacuity control, and "the sentence the row encodes is still in
+   * visible text". The row is gone, so three of those have no subject and the
+   * fourth guarded against folding the claim INTO the row, which cannot happen
+   * to a row that does not exist.
+   *
+   * ⭐ ONE ARM KEPT, DELIBERATELY, AND IT IS NOT A TOMBSTONE. The row was a
+   * duplicate of the option card's bar — same field, same `METRIC_NOUN.support`
+   * caption, same scale — under a heading that asks a question. The plausible
+   * regression is that a future "the decision card has no bar like the others"
+   * observation puts it back, which is exactly how it arrived. This arm makes
+   * that a red rather than a review question, in BOTH permission states so a
+   * gated reintroduction cannot slip through.
+   *
+   * The harness below is retained for the same reason: deleting it would orphan
+   * `renderDecision`, `decisionProps`, `makeDecisionState` and two fixtures,
+   * and the property is worth one live arm.
+   */
+  it.each([['permitted', PERMITTED_REPORT], ['withheld', WITHHELD_REPORT]])(
+    'no leader metric row on the decision card — %s',
+    (_label, report) => {
+      renderDecision(report)
+      expect(screen.queryByTestId(DECISION_ROW)).toBeNull()
+      // Not vacuous: the card itself is on screen.
+      expect(screen.getByText('Which laptops?')).toBeDefined()
+    },
+  )
 })
 
 describe('GoalNode — the achievement figure gets the shared metric row', () => {

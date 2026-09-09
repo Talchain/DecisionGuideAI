@@ -6,6 +6,7 @@ import {
   resolveReviewNextCoachingLine,
 } from '../sectionCoaching'
 import type { ReviewNextSignal } from '../pickStartHere'
+import { UNRECOGNISED_BIAS_SIGNAL_TITLE } from '../../../shared/biasSignalTitles'
 import type { TriageCardItem } from '../mapImprovementToTriageCard'
 import { resolveAnalysisMetric } from '@/components/results/driverDisplayModel'
 
@@ -91,6 +92,36 @@ describe('getReviewNextCoachingLine', () => {
       biasType: 'Narrow Framing',
     }
     expect(getReviewNextCoachingLine(signal)).toBe('Watch for narrow framing when reviewing the items below.')
+  })
+
+  it('⛔ an UNCATEGORISED signal gets a line that names no bias', () => {
+    // `biasType` is `trigger.title`, which is the neutral fallback whenever the
+    // registry could not resolve the producer's code. Interpolating it produced
+    // "Watch for reasoning check when reviewing the items below" — a heading
+    // that deliberately names no bias, used as though it were a bias name.
+    const signal = {
+      kind: 'bias' as const,
+      id: 'bias:uncategorised',
+      score: 0.85,
+      defaultedScore: false,
+      biasType: UNRECOGNISED_BIAS_SIGNAL_TITLE,
+    }
+    const line = getReviewNextCoachingLine(signal)
+    expect(line).toBe('Review the items below with that in mind.')
+    // The heading itself must not reappear inside the sentence, in any casing.
+    expect((line ?? '').toLowerCase()).not.toContain(UNRECOGNISED_BIAS_SIGNAL_TITLE.toLowerCase())
+    expect(line).not.toMatch(/watch for/i)
+  })
+
+  it('⭐ CONTRAST — a RECOGNISED bias still gets named, so the branch is not a blanket', () => {
+    // Without this the fix could have replaced the sentence for every signal,
+    // losing the categorisation we DO have — the opposite defect, and the arm
+    // above could not see it.
+    const signal = {
+      kind: 'bias' as const, id: 'bias:anchoring', score: 0.8,
+      defaultedScore: false, biasType: 'Anchoring',
+    }
+    expect(getReviewNextCoachingLine(signal)).toBe('Watch for anchoring when reviewing the items below.')
   })
 
   it('returns null for a null signal', () => {

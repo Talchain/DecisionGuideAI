@@ -203,17 +203,91 @@ const ALL: StarterId[] = ['vendor-selection', 'market-entry', 'build-vs-buy', 'h
  *      would most easily get wrong;
  *   6. the same for `GhostTierNode`.
  */
-const DRIVEN_KINDS: Array<{ kind: string; starter: StarterId; why: string }> = [
+/*
+ * ⚠⚠ TWO OF THESE FIVE ROWS ARE THE SAME RENDER PATH, AND THE TABLE DID NOT KNOW
+ * IT — a pre-existing mislabel, surfaced (not caused) by #1274. Read this before
+ * trusting the "five distinct paths" claim above.
+ *
+ * `kind` prefers `data-testid`, and falls back to
+ * `TAG[role]:first-three-words-of-the-accessible-name` when there is none (see
+ * `censusFocusables`). `ScienceIcon` carried no testid, so its instances
+ * censused under the FALLBACK — i.e. under three words of a FIXTURE-SUPPLIED
+ * tooltip, a different string per instance. That made two instances of ONE
+ * component look like two different render paths:
+ *
+ *   `BUTTON:Olumi estimated this`  → ScienceIcon on a FACTOR node
+ *                                    (that badge is DELETED as of staging
+ *                                     #1277 — see the merge note below)
+ *   `BUTTON:Status quo bias`       → ScienceIcon on the BASELINE OPTION node
+ *                                    (`useScienceIcons`, option-only,
+ *                                     `is_baseline === true`)
+ *
+ * The second row's `why` said "NodeCoachingMarker". That was never true:
+ * `NodeCoachingMarker` renders `data-testid="node-coaching-marker-<id>"`, so it
+ * has ALWAYS censused as `node-coaching-marker` — a kind that does not appear in
+ * `vendor-selection`'s census at all. **NodeCoachingMarker is therefore NOT
+ * driven here and never was.** That is a real gap, it is stated rather than
+ * quietly inherited, and closing it is not this repair's to make.
+ *
+ * #1274 gave `ScienceIcon` a `data-testid="science-icon-trigger"` (it needed a
+ * binding that was not fixture prose), which collapsed both instances onto one
+ * stable kind and made the duplication visible.
+ *
+ * ⚠ MERGE NOTE (staging #1277). Everything above describes the table AS IT
+ * STOOD AT THE MERGE BASE, and is kept as the record of WHY two rows read as
+ * two paths. It is no longer a description of what renders: #1277 deleted the
+ * `olumi-estimate` ScienceIcon, so `Olumi estimated this` is not in the census
+ * any more and row 3 below names the ANCHORING badge instead. The FACTOR-node
+ * door is unchanged — only the badge chosen to represent it. The duplication
+ * this block exists to explain is UNCHANGED too: rows 3 and 5 are still two
+ * instances of the one `science-icon-trigger` render path, which is exactly
+ * why `name` is still load-bearing.
+ *
+ * ⭐ SO `kind` AND `name` ANSWER DIFFERENT QUESTIONS AND BOTH ARE KEPT:
+ * `kind` is the RENDER PATH (stable, from the testid); `name` picks WHICH
+ * INSTANCE of it, and is the only thing that can (CLAUDE.md trap 21 — name the
+ * two apart rather than collapsing them). Dropping the duplicate row would have
+ * silently reduced what is driven, so the set driven here is EXACTLY the set the
+ * base commit drove.
+ */
+const DRIVEN_KINDS: Array<{ kind: string; starter: StarterId; why: string; name?: string }> = [
   { kind: 'node-action-ask', starter: 'vendor-selection', why: 'NodeQuickActions — the shared row on every node' },
   { kind: 'BUTTON:Explore more options', starter: 'vendor-selection', why: "DecisionNode's own call-to-action button" },
-  // Re-pointed from 'BUTTON:Olumi estimated this' when the olumi-estimate
-  // ScienceIcon was deleted (it was the third statement of that sentence on
-  // one card). The RENDER PATH being covered here is unchanged — anchoring is
-  // the same `useScienceIcons` badge door — so this keeps path 3 covered
-  // rather than dropping a row and quietly shrinking the drive.
-  { kind: 'BUTTON:Options clustered around', starter: 'vendor-selection', why: 'a science/provenance badge (useScienceIcons)' },
+  /*
+   * ⚠⚠ RE-POINTED TWICE, BY TWO PRs, FOR TWO DIFFERENT REASONS — AND BOTH
+   * CHANGES ARE KEPT. Either side taken alone REDs this row, so this is a
+   * merge of intents, not a choice between them:
+   *
+   *   #1277 (staging) changed WHICH INSTANCE. It deleted the `olumi-estimate`
+   *     ScienceIcon — that card stated "Olumi estimated this" three times —
+   *     so the instance this row used to name no longer renders at all. It
+   *     re-pointed to the ANCHORING badge: same `useScienceIcons` door, same
+   *     FACTOR node (`useScienceIcons.ts`, inside `nodeType === 'factor'`), so
+   *     path 3 stays covered instead of the drive quietly shrinking.
+   *
+   *   #1274 (this branch) changed WHICH IDENTITY. It gave `ScienceIcon` a
+   *     `data-testid`, so `kind` now comes from the stable testid branch of
+   *     `censusFocusables` rather than from three words of fixture prose.
+   *     #1277's `BUTTON:Options clustered around` is that now-dead FALLBACK
+   *     spelling and cannot match once the testid exists.
+   *
+   * So the row below takes #1277's INSTANCE (`name`) and #1274's IDENTITY
+   * (`kind`). Keeping only #1274's would name a deleted badge; keeping only
+   * #1277's would name a kind the census no longer emits.
+   */
+  {
+    kind: 'science-icon-trigger',
+    name: 'Options clustered around',
+    starter: 'vendor-selection',
+    why: 'a science/provenance badge (useScienceIcons) on a FACTOR node — the anchoring badge, after #1277 deleted the olumi-estimate one',
+  },
   { kind: 'goal-node-no-target-chip', starter: 'vendor-selection', why: "GoalNode's own chip, outside the quick-action row" },
-  { kind: 'BUTTON:Status quo bias', starter: 'vendor-selection', why: 'NodeCoachingMarker — a coaching badge inside the card' },
+  {
+    kind: 'science-icon-trigger',
+    name: 'Status quo bias',
+    starter: 'vendor-selection',
+    why: 'the same ScienceIcon path on the BASELINE OPTION node — NOT NodeCoachingMarker, see above',
+  },
 ]
 
 /*
@@ -969,23 +1043,43 @@ test.describe('in-node keyboard bleed', () => {
      * both directions.
      */
     const targets: Array<{ kind: string; starter: StarterId; row: FocusableCensusRow }> = []
-    for (const { kind, starter } of DRIVEN_KINDS) {
+    for (const { kind, starter, name } of DRIVEN_KINDS) {
       const hit = (censusByStarter.get(starter) ?? []).find(
-        (r) => !r.isInputLike && r.name && (r.kind === kind || r.kind.startsWith(`${kind} `)),
+        (r) =>
+          !r.isInputLike &&
+          r.name &&
+          (r.kind === kind || r.kind.startsWith(`${kind} `)) &&
+          // `name` narrows to ONE INSTANCE of a render path that has several.
+          // Without it, two rows sharing a kind both resolve to `find`'s first
+          // match — the same element driven twice, and one row silently lost.
+          (!name || r.name.startsWith(name)),
       )
       // FAIL LOUD ON A MISSING RENDER PATH. A drive that silently skips one
       // reads exactly like a drive that covered it (trap 13: an absence probe
       // must be able to see a presence).
       expect(
         hit,
-        `render path "${kind}" is not in the census for "${starter}" — coverage would silently shrink. ` +
+        `render path "${kind}"${name ? ` (instance "${name}")` : ''} is not in the census for "${starter}" — ` +
+          `coverage would silently shrink. ` +
           `Kinds present: ${[...new Set((censusByStarter.get(starter) ?? []).map((r) => r.kind))].join(' | ')}`,
       ).toBeTruthy()
-      // Recorded under the kind ACTUALLY found, so the table names the element
-      // driven rather than the pattern that selected it.
-      targets.push({ kind: hit!.kind, starter, row: hit! })
+      /*
+       * Recorded under the kind ACTUALLY found, so the table names the element
+       * driven rather than the pattern that selected it — QUALIFIED BY THE
+       * INSTANCE where one was asked for, because this label is the KEY of the
+       * `gated` map below. Two targets sharing a bare kind would share a key,
+       * and the second would overwrite the first: a genuinely ungated control
+       * could then be masked by a gated sibling and the final assertion would
+       * still read true.
+       */
+      targets.push({ kind: name ? `${hit!.kind} (${name})` : hit!.kind, starter, row: hit! })
     }
     expect(targets.length, 'no control kinds to drive').toBe(DRIVEN_KINDS.length)
+    // The labels are the `gated` map's keys, so a collision would silently
+    // hide a row. Assert they are distinct rather than trusting they are.
+    expect(new Set(targets.map((t) => t.kind)).size, 'two driven targets share a label — one would mask the other in `gated`').toBe(
+      targets.length,
+    )
 
     const table: string[] = []
     const gated: Record<string, boolean> = {}
@@ -1215,26 +1309,86 @@ test.describe('in-node keyboard bleed', () => {
     const marqueeVisible = () =>
       page.evaluate(() => !!document.querySelector('.react-flow__selection, .react-flow__nodesselection-rect'))
 
-    // Pick a node that is fully on screen — a drag whose start point is outside
-    // the viewport measures nothing (this bit the click comparator earlier).
-    const target = await page.evaluate(() => {
+    /*
+     * Pick a node that is fully on screen — a drag whose start point is outside
+     * the viewport measures nothing (this bit the click comparator earlier) —
+     * and a point on it that is genuinely BARE CARD BODY.
+     *
+     * ⭐⭐ WHY THIS SEARCHES INSTEAD OF PROBING ONE HARD-CODED POINT.
+     *
+     * It used to test exactly one pixel per node, `(centre-x, bottom - 6)`, and
+     * skip the whole node if that pixel was a control. Two things were wrong
+     * with that, and the second is the one that matters:
+     *
+     * (a) IT DID NOT DO WHAT ITS COMMENT SAID. At the base commit that pixel
+     *     resolved to `.react-flow__handle` — the bottom CONNECTION HANDLE, not
+     *     card body — on all 13 on-screen nodes (measured, 7 Sep 2026). So the
+     *     "bare card body" drag was in fact starting on a handle, and the
+     *     exclusion list never mentioned handles.
+     *
+     * (b) IT BOUND THE TEST'S PRECONDITION TO ONE ARBITRARY PIXEL INSIDE THE
+     *     QUICK-ACTION BAND. `NodeQuickActions` is pinned `bottom-1.5 right-1.5`,
+     *     so `bottom - 6` is inside its row by construction; whether the probe
+     *     landed on a button was decided by how far LEFT that row happened to
+     *     reach. Counter-scaling the row's boxes and gap to their declared px
+     *     (#1274) widened it from 49px to 98px on a 115px-wide card at the
+     *     0.50 settle zoom, the row crossed centre-x, and every node was
+     *     skipped — reporting "no bare card body" about cards that are 122-176px
+     *     tall and, measured on the same build, 9-15 of 15 grid cells bare.
+     *
+     * The property under test is the PANE's: a Shift-drag over a node starts a
+     * marquee and does not move the node. Which bare pixel it starts from is an
+     * instrument detail, so the instrument now finds one instead of assuming
+     * one. Every assertion below is unchanged.
+     *
+     * ⚠ AND IT STILL FAILS LOUD ON THE REAL REGRESSION. If controls ever do
+     * swallow a card, no cell is bare on any node and this REDs — now naming the
+     * element that covered each candidate, so the next reader gets the cause
+     * rather than a bare precondition.
+     */
+    const search = await page.evaluate(() => {
+      const CONTROLS = 'button, [role="button"], a, input, textarea, select'
+      const blockedBy: string[] = []
       for (const el of Array.from(document.querySelectorAll<HTMLElement>('.react-flow__node'))) {
         const r = el.getBoundingClientRect()
         const onScreen =
           r.width > 40 && r.height > 40 && r.x > 60 && r.y > 60 &&
           r.x + r.width < window.innerWidth - 60 && r.y + r.height < window.innerHeight - 60
-        // Start the drag on BARE CARD BODY, not on a control: a pointerdown on a
-        // control is a different gesture and would prove nothing about the pane.
         if (!onScreen) continue
-        const cx = Math.round(r.x + r.width / 2)
-        const cy = Math.round(r.y + r.height - 6)
-        const top = document.elementFromPoint(cx, cy)
-        if (!top || top.closest('button, [role="button"], a, input, textarea, select')) continue
-        return { id: el.getAttribute('data-id') ?? '', x: cx, y: cy }
+        const id = el.getAttribute('data-id') ?? ''
+        for (const fy of [0.35, 0.5, 0.2, 0.65, 0.8]) {
+          for (const fx of [0.5, 0.25, 0.75]) {
+            const x = Math.round(r.x + r.width * fx)
+            const y = Math.round(r.y + r.height * fy)
+            const top = document.elementFromPoint(x, y)
+            // The point must land on THIS node — otherwise it is over an edge,
+            // a neighbour or the pane, and proves nothing about dragging a card.
+            if (!top || !el.contains(top)) continue
+            // Start on bare body: not a control, and NOT a connection handle —
+            // a pointerdown on either is a different gesture (see (a) above).
+            const control = top.closest(CONTROLS)
+            const handle = top.closest('.react-flow__handle')
+            if (control || handle) {
+              if (blockedBy.length < 6) {
+                const what = control ?? handle!
+                blockedBy.push(
+                  `${id}@${fx}/${fy}:${what.tagName}${what.getAttribute('data-testid') ? `[${what.getAttribute('data-testid')}]` : ''}`,
+                )
+              }
+              continue
+            }
+            return { target: { id, x, y }, blockedBy }
+          }
+        }
       }
-      return null
+      return { target: null, blockedBy }
     })
-    expect(target, 'no fully-on-screen node with bare card body to start a drag on').not.toBeNull()
+    const target = search.target
+    expect(
+      target,
+      'no fully-on-screen node has ANY bare card body to start a drag on — in-node controls now cover every ' +
+        `candidate point. Blocked samples: ${search.blockedBy.join(' | ') || '(none recorded — no node passed the on-screen filter)'}`,
+    ).not.toBeNull()
 
     const before = await nodeGeom(target!.id)
     expect(before, 'the target node vanished before the drag').not.toBeNull()

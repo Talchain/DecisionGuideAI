@@ -18,10 +18,16 @@
  * Fail-closed, per entry (ratified cards-cap 2):
  *   - not a draft turn / absent coaching / empty array → []
  *   - malformed entry (non-object, blank/non-string type or detail) → skipped
- *   - unknown bias code (not on the allowlist) → skipped — the code is
- *     wire vocabulary, never visible copy, so an unmapped code has no
- *     honest rendering (mirrors, and tightens, the PreAnalysisPanel
- *     convention: no safeBiasTitle sentence-casing here)
+ *   - entity-id-shaped code (`fac_…`, `opt_…`) → skipped — a node reference
+ *     in the category slot is a producer field error, not a category
+ *   - unrecognised but well-formed code → the OBSERVATION IS KEPT under a
+ *     neutral heading that names no bias. The code itself is still never
+ *     rendered: it is wire vocabulary and has no honest sentence-cased form
+ *     (no safeBiasTitle here). This is the PreAnalysisPanel convention, which
+ *     has always fallen through to a generic heading rather than discarding
+ *     the entry — the bridge was the outlier, and dropping the producer's
+ *     paragraph with its unknown label inverted the feature: the less standard
+ *     the insight, the likelier it was binned
  *   - producer-typed bias coaching already on the turn → [] (producer wins)
  *
  * Grounding is OPTIONAL (mirrors CEE #541). The canonical deployed wire
@@ -44,7 +50,11 @@ import type { CEEDraftCoaching } from '../../adapters/cee/types'
 import type { ConversationBlock, V5CoachingBlock } from './types'
 import { DRAFT_BIAS_SIGNAL_CARD_CAP } from './types'
 import { isBiasSignalCoachingBlock } from './phase3Pacing'
-import { resolveBiasSignal } from '../shared/biasSignalTitles'
+import {
+  resolveBiasSignal,
+  isRescuableBiasCode,
+  UNRECOGNISED_BIAS_SIGNAL_TITLE,
+} from '../shared/biasSignalTitles'
 
 // The cap's one definition lives with the other render budgets in ./types
 // (/simplify item 5) — the render layer consumes it too. Re-exported here
@@ -108,8 +118,31 @@ export function buildDraftBiasSignalBlocks(args: {
   // signals are ungrounded, keying on the target id would let every ungrounded
   // same-bias signal through (their id fragment being identically empty). First
   // occurrence wins. Display-side equivalence judgement, never a value transform.
-  const seen = new Set<string>()
-  for (let i = 0; i < signals.length && out.length < DRAFT_BIAS_SIGNAL_CARD_CAP; i++) {
+  //
+  // ⭐⭐ AND KEEPING THE OBSERVATION ONCE MUST NOT ERASE ITS SCOPE — the
+  // blocking correction from review, and the one my first two pushes missed
+  // while I chased CI.
+  //
+  // Every unrecognised signal shares one heading, so identity carries the
+  // detail. Two signals with the SAME paragraph on DIFFERENT nodes are one
+  // observation with two affected nodes — not a duplicate to drop. The old
+  // `continue` kept the paragraph and silently discarded the second
+  // `target_ref`: the same "Evidence for this estimate is missing" note on
+  // option A and option B rendered as A alone.
+  //
+  // ⚠ SO THE LOOP NO LONGER STOPS AT THE CAP, and that is the substance of the
+  // fix rather than a tidy-up. `out.length < CAP` in the loop condition meant
+  // scanning ENDED once two cards existed, so a later duplicate carrying a
+  // third node was never read. The cap is a limit on CARDS DISPLAYED, not on
+  // signals examined; it now guards the push alone.
+  //
+  // ⛔ MERGING IS FOR UNRECOGNISED OBSERVATIONS ONLY. Recognised-code policy is
+  // deliberately unchanged here: `dedupes on canonical bias identity` and `the
+  // same bias on DIFFERENT targets dedupes to ONE card (title-only identity)`
+  // are ratified, and a repair to the unknown path has no business rewriting
+  // them.
+  const kept = new Map<string, V5CoachingBlock>()
+  for (let i = 0; i < signals.length; i++) {
     const signal = signals[i] as unknown
     if (!signal || typeof signal !== 'object') continue
     const s = signal as Record<string, unknown>
@@ -118,10 +151,53 @@ export function buildDraftBiasSignalBlocks(args: {
     // trim/lowercase/own-key guard lives there, shared with every other
     // surface. Unknown / non-string codes fail closed (never
     // sentence-cased), so a raw wire token can never leak into copy.
-    const title = resolveBiasSignal(s.type)?.title ?? null
-    if (!title) continue
+    // ⚠⚠ AN UNRECOGNISED CODE NO LONGER DISCARDS THE OBSERVATION.
+    //
+    // This read `?? null` then `if (!title) continue`, which dropped the WHOLE
+    // signal — `detail` included. The note above is still right that a raw wire
+    // token must never leak into copy as a bias NAME; it does not follow that
+    // the producer's paragraph should be thrown away with it. The shipped
+    // `build-vs-buy` starter carries `"type": "omission / status-quo bias"` —
+    // free text, no key — and a real observation nobody has ever seen.
+    //
+    // So the NAME still fails closed, and the CONTENT survives under a heading
+    // that names no bias at all.
+    // ⚠⚠ AND THE RESCUE IS NARROWER THAN MY FIRST VERSION MADE IT. That
+    // version treated EVERY resolver miss as "a category we have no key for"
+    // — so `type: ''`, `type: 42` and `type: 'fac_current_supplier'` all
+    // minted cards, and three ratified fail-closed guards went red. They were
+    // right and the change was wrong: the resolver answers ONE question ("is
+    // this a code I hold?") and I read its miss as the answer to a different
+    // one ("is this an unrecognised category?"). Three cases sit between them.
+    //
+    //   ABSENT / NON-STRING — `''`, `42`, a missing key. Not an unrecognised
+    //   category; no category at all. The wire schema types `type` as a
+    //   required string, so the entry violates its own contract and nothing
+    //   in it can be trusted to be a bias observation.
+    //
+    //   ENTITY-ID SHAPED — `fac_current_supplier`. A NODE REFERENCE in the
+    //   category slot: the producer populated the wrong field. Malformed in
+    //   the same way `42` is, just typed as a string. Told apart by the
+    //   producer's own id convention, not by a shape rule invented here.
+    //
+    //   FREE TEXT NAMING A CATEGORY — `'omission / status-quo bias'`. THIS,
+    //   and only this, is the case the rescue is for.
+    //
+    // Well-formedness first, then recognition. A faulted entry fails closed
+    // exactly as it always did; an entry that is sound but uncategorised
+    // keeps its observation.
+    const resolved = resolveBiasSignal(s.type)
+    // Ordered so the REGISTRY ALWAYS WINS: a code it holds is a category by
+    // definition, so no future key can be shadowed by a guard in the rescue
+    // path. `isRescuableBiasCode` is only consulted once the registry misses,
+    // and it owns the whole "is this a category at all?" judgement — see its
+    // note for the three fault classes and why each is refused.
+    if (resolved == null && !isRescuableBiasCode(s.type)) continue
+    const title = resolved?.title ?? UNRECOGNISED_BIAS_SIGNAL_TITLE
 
     const detail = typeof s.detail === 'string' ? s.detail.trim() : ''
+    // Still fails closed on an EMPTY observation: a heading with nothing under
+    // it is a card announcing only that something was withheld.
     if (!detail) continue
 
     // Grounding is OPTIONAL: resolve a ref when the (optional) target names a
@@ -129,9 +205,26 @@ export function buildDraftBiasSignalBlocks(args: {
     // ungrounded (target_refs: [] below).
     const ref = resolveNodeForTarget(s.target, nodesById)
 
-    const identity = title
-    if (seen.has(identity)) continue
-    seen.add(identity)
+    // ⚠ THE DEDUP KEY MUST CARRY THE DETAIL FOR UNRECOGNISED SIGNALS. Keying on
+    // the title alone is right for RESOLVED codes — two "Anchoring" cards say
+    // the same thing — but every unrecognised signal now shares ONE heading, so
+    // a title-only key would collapse genuinely different observations into
+    // whichever arrived first. That would be a new way to lose exactly the
+    // content this change exists to preserve.
+    const identity = resolved ? title : `${title}::${detail}`
+    const existing = kept.get(identity)
+    if (existing) {
+      // A repeat of an observation already kept. For an UNRECOGNISED one, fold
+      // in any affected node it names that the retained card does not yet
+      // carry — bound by node id, so the same node arriving twice adds nothing.
+      if (!resolved && ref && !existing.target_refs.some((r) => r.id === ref.id)) {
+        existing.target_refs.push(ref)
+      }
+      continue
+    }
+    // The cap gates the CARD, not the scan: a duplicate above may still be
+    // merging refs into an already-kept observation after this point.
+    if (out.length >= DRAFT_BIAS_SIGNAL_CARD_CAP) continue
 
     // No priority_rank / freshness: those are PRODUCER-owned Phase 3 fields
     // and the wire bias_signals carry neither — fabricating them here
@@ -139,7 +232,7 @@ export function buildDraftBiasSignalBlocks(args: {
     // passthrough. Verified zero consumers: the bridge blocks are appended
     // AFTER composePhase3BridgedBlocks' rank sort, and the only runtime
     // read was the renderer's data-freshness attribute (now simply absent).
-    out.push({
+    const block: V5CoachingBlock = {
       type: 'v5_coaching',
       block_id: `draft_bias_signal_${i}`,
       title,
@@ -147,7 +240,9 @@ export function buildDraftBiasSignalBlocks(args: {
       coaching_kind: 'bias_signal',
       source: 'draft_graph',
       target_refs: ref ? [ref] : [],
-    })
+    }
+    kept.set(identity, block)
+    out.push(block)
   }
   return out
 }

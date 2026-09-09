@@ -49,6 +49,7 @@ export type MutationAuthority =
 
 export const CANONICAL_EDIT_AUTHORITY = {
   modelFactorValue: 'server_graph',
+  modelGoalMinimumTarget: 'server_graph',
   structuralDeleteWithServerHash: 'server_graph',
   // schemas 0.50.0 — the canvas/inspector rename. `server_graph` because it has
   // exactly what that value requires and nothing weaker: a receipt-bearing
@@ -70,7 +71,7 @@ export const CANONICAL_EDIT_AUTHORITY = {
   canvasNodeAddWithServerHash: 'server_graph',
   priorRangeJudgement: 'disabled',
   canvasSelectionAndLayout: 'local_presentation',
-  modelOptionIntervention: 'disabled',
+  modelOptionIntervention: 'server_graph',
   modelFactorConfirmation: 'disabled',
   postRunFactorValue: 'disabled',
   postRunFactorConfirmation: 'disabled',

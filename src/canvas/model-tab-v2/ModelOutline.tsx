@@ -80,7 +80,7 @@ export interface ModelOutlineProps {
    */
   editConnectedIds?: ReadonlySet<string>
   onBeginEdit?: (id: string) => void
-  onDraftChange?: (id: string, draft: string) => void
+  onDraftChange?: (id: string, draft: string, unit?: string) => void
   onProposeEdit?: (id: string) => void
   onDiscardEdit?: (id: string) => void
   onConfirmEdit?: (id: string) => void

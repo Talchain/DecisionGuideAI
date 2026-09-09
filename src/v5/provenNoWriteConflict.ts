@@ -34,6 +34,24 @@
  *     and the store throws `GraphStaleWriteError`, whose message is the
  *     guarantee: *"Atomic in-transaction CAS: the whole turn rolled back,
  *     nothing clobbered."*
+ *   · `stale_base_graph_hash` — `system-events/dispatch.ts`, the
+ *     `option_intervention_edit` arm's `outcome.reason === 'stale_graph'`
+ *     branch (CEE `99b80680`, served). It returns `commitPerformed: false,
+ *     graph: null` and reads the CURRENT persisted hash purely to hand back a
+ *     followable recovery — the refusal path is taken BEFORE any write, the
+ *     same shape of guarantee as `BASE_HASH_DIVERGED`.
+ *
+ *     ⚠ IT IS A SECOND SPELLING OF `BASE_HASH_DIVERGED`, AND THAT IS A CEE
+ *     FINDING, NOT A UI ONE. Two arms of one service name one concept twice —
+ *     the differently-drifting-twins defect, one level up from the one this
+ *     module exists to prevent. Both are carried here rather than one being
+ *     silently mapped onto the other, because a consumer inventing a
+ *     translation is how a name divergence stops being visible to anyone.
+ *     Swept at CEE `origin/staging` `3ff6c8db` with a contrast control
+ *     (`BASE_HASH_DIVERGED`, 5+ files, PRESENT): `stale_base_graph_hash` has
+ *     exactly TWO occurrences, that arm and its own test — so no other writer
+ *     can receive it and this addition changes no existing consumer's
+ *     behaviour.
  *
  * Both arrive identically: `system-events/dispatch.ts:1176-1197` copies
  * `err.conflict_category` onto `graphConflict`, and `orchestrator/route-v2.ts`
@@ -57,6 +75,7 @@
 export const PROVEN_NO_WRITE_CONFLICT_CATEGORIES: ReadonlySet<string> = new Set([
   'BASE_HASH_DIVERGED',
   'rpc_cas_conflict',
+  'stale_base_graph_hash',
 ])
 
 /**

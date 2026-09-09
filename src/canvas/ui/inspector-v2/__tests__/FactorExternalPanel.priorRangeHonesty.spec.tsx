@@ -120,6 +120,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup, within, fireEvent } from '@testing-library/react'
+import { INVESTIGATION_VALUE_INVITATION } from '../../../domain/investigationValue'
 
 /*
  * This panel's first render pulls a large import graph and lands within a few
@@ -205,7 +206,17 @@ const COMPUTE_DENIAL =
  * the analysis."). The carve-out is still right to exist; the premise naming
  * which panels share it was wrong, and it named the wrong sibling.
  */
-const VOI_NOTE = 'Additional evidence here would moderately sharpen the analysis.'
+/**
+ * ⭐ DERIVED, NEVER RE-TYPED. This carve-out exists to strip the VoI sentence out
+ * of a scan; a hand-copied literal silently stops matching the moment the copy
+ * changes, and the scan re-widens with nothing going red. Composing it from the
+ * two shared constants means a rewording moves this with it.
+ *
+ * ⚠ It read `'Additional evidence here would moderately sharpen the analysis.'`
+ * until the overclaim removal — quoted rather than deleted, so the next reader
+ * can see this carve-out has already had to track one real change.
+ */
+const VOI_NOTE = INVESTIGATION_VALUE_INVITATION.evidence
 
 function stripVoiNote(text: string, expectPresent: boolean): string {
   const present = text.includes(VOI_NOTE)

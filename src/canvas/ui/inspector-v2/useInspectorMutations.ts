@@ -199,6 +199,24 @@ export const EDITOR_WRITTEN_FIELDS = {
 export const INSPECTOR_READ_ONLY_REASON =
   "You can rename this — the name saves to the shared model. The other fields here are read-only for now because those changes can't yet be saved. Use the Model tab for supported factor values or ask Olumi to change structure."
 
+/**
+ * ⭐ THE SAME FACTS, FOR THE ONE PANE THAT NOW FENCES ITSELF.
+ *
+ * `INSPECTOR_READ_ONLY_REASON` above is written for a pane where the Router has
+ * disabled EVERYTHING below the header, so it has to explain a blanket. The
+ * option pane no longer has one: navigation, disclosure and coaching work, and
+ * only the writers are fenced. A notice describing a blanket that is not there
+ * would be the same trap-21 mismatch the longer string was itself narrowed to
+ * fix — a sentence and a surface disagreeing.
+ *
+ * ⚠ IT SAYS LESS BECAUSE THE PANE SAYS MORE. The Model-tab route is repeated
+ * once, in place, at the top of the factor list where a reader is actually
+ * looking for it (`OPTION_EDIT_ROUTE_NOTE`) — so this line does not have to
+ * carry the whole explanation, and the pane does not say it twice.
+ */
+export const INSPECTOR_OPTION_READ_ONLY_REASON =
+  'The name saves. Other fields here are read-only for now — links, details and coaching still work.'
+
 // ─── Node mutations ────────────────────────────────────────────────
 export function useNodeMutations(nodeId: string) {
   const updateNode = useCanvasStore(s => s.updateNode)

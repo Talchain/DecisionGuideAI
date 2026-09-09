@@ -453,6 +453,11 @@ function systemEventToPayload(args: {
       if (event === null) return null
       return { ...base, event }
     }
+    case 'option_intervention_edit': {
+      const event = adaptOptionInterventionEdit(eventPayload)
+      if (event === null) return null
+      return { ...base, event }
+    }
     case 'feedback_submitted': {
       // F7 (feedback thumbs = wire): map the UI's optimistic thumbs event onto
       // the typed 0.22 `feedback` system event. The emitter
@@ -1055,6 +1060,51 @@ function adaptStructuralRename(
   if (label === expected_label) return null
 
   return { kind: 'structural_rename', node_id, label, expected_label, base_graph_hash }
+}
+
+/**
+ * `option_intervention_edit` (0.54.0) — ONE option's effect value on ONE factor.
+ *
+ * ⚠ THE ADAPTER IS NOT OPTIONAL, and its absence is exactly what CI caught: the
+ * builder's switch is per-kind, so a member with a coverage entry, a wire-list
+ * entry and a working emitter still produced `null` here — routed to
+ * `unsupported_system_event`, i.e. no turn at all. Adding the kind in three
+ * places and not the fourth is the half-update this file's own siblings exist
+ * to make loud.
+ *
+ * Fail CLOSED on every field, and REFUSE rather than repair:
+ *
+ *   · both ids through `isCanonicalEndpointId` — the CONTRACT's rule, imported
+ *     rather than restated, because a drifted copy puts a 422-shaped id on the
+ *     wire. An option addressing itself is refused: no such relationship exists
+ *     and the server would decline it as unresolved.
+ *   · the value must be finite and within the MODEL scale `[0, 1]`. NOT clamped:
+ *     a clamped 1.5 → 1 sends a number the user never stated and the server
+ *     persists it as theirs. Same ruling `adaptEdgeStrengthEdit` makes for its
+ *     magnitude.
+ *   · `base_graph_hash` is non-optional and has no default. It is the stale
+ *     gate; an empty one matches nothing, and the server would refuse it as
+ *     stale — which reads to a user as "your edit conflicted" when the client
+ *     never held a base to assert.
+ *
+ * A `null` return means no turn, which is the right outcome: an unsendable
+ * effect edit must not become a turn that claims something happened.
+ */
+function adaptOptionInterventionEdit(
+  eventPayload: Record<string, unknown> | undefined,
+): { kind: 'option_intervention_edit'; option_id: string; factor_id: string; value: number; base_graph_hash: string } | null {
+  const base_graph_hash = stringField(eventPayload, 'base_graph_hash')
+  if (!base_graph_hash) return null
+
+  const option_id = eventPayload?.option_id
+  const factor_id = eventPayload?.factor_id
+  if (!isCanonicalEndpointId(option_id) || !isCanonicalEndpointId(factor_id)) return null
+  if (option_id === factor_id) return null
+
+  const value = eventPayload?.value
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) return null
+
+  return { kind: 'option_intervention_edit', option_id, factor_id, value, base_graph_hash }
 }
 
 // ActionType is a strict enum on the wire. If the UI passes an unknown

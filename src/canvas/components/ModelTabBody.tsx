@@ -300,6 +300,15 @@ export const ModelTabBody = memo(function ModelTabBody({
   // The v2 outline's goal row reads the store scalar (RAW user units — the
   // single-writer carrier `setGoalThresholdAndUpdateNode` maintains it).
   const goalThreshold = useCanvasStore(s => s.goalThreshold ?? null)
+  /**
+   * ⚠ READ HERE, NOT IN THE PANEL, AND THAT IS THE LANE BOUNDARY DOING ITS JOB.
+   * `modelTabV2Boundary.sourceScan` bans a store import and a foreign hook call
+   * in every `model-tab-v2` file: the mount host owns every live-app seam. These
+   * two feed the effect-edit transaction's scenario fence and its recovery of
+   * the one clearable refusal, and they arrive exactly as `nodes`/`edges` do.
+   */
+  const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
+  const lastServerGraphHash = useCanvasStore(s => s.lastServerGraphHash)
 
   // ── Scientific enrichment data from PLoT response ───────────────────────────
   // Single-pass extraction of all per-factor enrichment maps from factor_sensitivity.
@@ -935,6 +944,8 @@ export const ModelTabBody = memo(function ModelTabBody({
         goalThreshold={goalThreshold}
         fragileEdgeIds={hasRobustnessData ? fragileEdgeIds : undefined}
         onHandOffToOlumi={olumiHandOff ? handOffToOlumi : undefined}
+        currentScenarioId={currentScenarioId}
+        lastServerGraphHash={lastServerGraphHash}
       />
 
       {/* Unique scientific transparency from the legacy stack, rehomed rather

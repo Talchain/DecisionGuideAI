@@ -7,13 +7,14 @@
  *  - target is never copied into any visible field (subtitle/title/fullExplanation)
  *  - unresolved targets do NOT populate targetFactorId (so hover-highlight is silent)
  *  - resolved targets populate both targetFactorId AND targetFactorLabel
- *  - friendly labels resolve for all known LLM bias types (not just "Bias detected")
+ *  - friendly labels resolve for all known LLM bias types (not just the neutral fallback)
  *  - safe-looking unknown types get sentence-case fallback, not generic
- *  - unsafe inputs fall through to "Bias detected" without echoing the raw string
+ *  - unsafe inputs fall through to the neutral fallback without echoing the raw string
  */
 
 import { describe, it, expect, vi } from 'vitest'
 import { mapDraftBiasSignalToTrigger, safeBiasTitle, buildBiasHoverHandlers, FORBIDDEN_TYPE_PREFIXES } from '../PreAnalysisPanel'
+import { UNRECOGNISED_BIAS_SIGNAL_TITLE } from '../../../shared/biasSignalTitles'
 
 const noResolve = (_id: string): string | null => null
 
@@ -45,9 +46,9 @@ describe('mapDraftBiasSignalToTrigger', () => {
     expect(t?.title).toBe('Novel bias type')
   })
 
-  it('falls back to "Bias detected" for unsafe inputs', () => {
+  it('falls back to the neutral heading for unsafe inputs', () => {
     const t = mapDraftBiasSignalToTrigger({ type: '<script>alert(1)</script>', detail: 'x' }, 0, noResolve)
-    expect(t?.title).toBe('Bias detected')
+    expect(t?.title).toBe(UNRECOGNISED_BIAS_SIGNAL_TITLE)
   })
 
   it('does not include target in any visible string field when resolver returns a label', () => {
@@ -91,7 +92,7 @@ describe('mapDraftBiasSignalToTrigger', () => {
     expect(trigger.subtitle.endsWith('…')).toBe(true)
   })
 
-  it('falls back to "Bias detected" when type is a raw entity-ID prefix (never echoes IDs)', () => {
+  it('falls back to the neutral heading when type is a raw entity-ID prefix (never echoes IDs)', () => {
     // A CEE bug or contract drift could pass an entity ID as the bias type;
     // safeBiasTitle must reject these so they fall through to BIAS_FALLBACK
     // rather than rendering as "Fac price" / "Opt a" / etc.
@@ -109,7 +110,7 @@ describe('mapDraftBiasSignalToTrigger', () => {
     ]
     for (const id of cases) {
       const t = mapDraftBiasSignalToTrigger({ type: id, detail: 'X.' }, 0, noResolve)
-      expect(t?.title, `case: ${id}`).toBe('Bias detected')
+      expect(t?.title, `case: ${id}`).toBe(UNRECOGNISED_BIAS_SIGNAL_TITLE)
       expect(t?.title).not.toContain('_')
       expect(t?.title.toLowerCase()).not.toContain(id.split('_')[0])
     }
