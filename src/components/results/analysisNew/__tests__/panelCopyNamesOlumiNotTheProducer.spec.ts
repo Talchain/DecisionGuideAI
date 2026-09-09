@@ -114,9 +114,25 @@ describe('the panel names Olumi, not "the producer"', () => {
     /* ⚠ FOLLOWED ITS SENTENCE. This asserted `glance.basisAbsoluteExplain`,
        which was the glance basis caption's `title` tooltip. The caption went
        with the glance's driver list at `e15416ad`; the sentence did not — it is
-       relocated verbatim to `coverage.structuralInfluence` and is now a VISIBLE
-       caveat on the drivers section instead of a tooltip a touch reader could
-       never open. Same words, same claim, same guard. */
+       relocated verbatim to `coverage.structuralInfluence`. Same words, same
+       claim, same guard.
+
+       ⚠⚠ CORRECTED 7 Sep 2026 — this ended "and is now a VISIBLE caveat on the
+       drivers section instead of a tooltip a touch reader could never open".
+       That was true when written and #1228 falsified it: the constant's arm
+       became reachable only on a run with NO driver rows, where the sentence
+       opened "Each bar shows" over an empty state, and `driversCaveat` now
+       withholds the basis line there. So this constant renders NOWHERE.
+
+       ⭐ THE ASSERTION STANDS, AND IT IS NOT VACUOUS, because the words it pins
+       are still RENDERED — by `driverFinding.groundedIn` and its `Basis` inspect
+       row, asserted positively in the next case (`.toBe("Olumi's structural
+       influence score")`, twice). This line keeps the copy constant and those
+       two rendered strings on ONE spelling; `driversSeamSaysOneThing` binds the
+       row's noun to this same constant for the same reason (trap 12). If the
+       constant is ever deleted, this class assertion has a reachable home
+       already: the two `.toBe` assertions below, which pin the rendered strings
+       directly. */
     expect(COPY.coverage.structuralInfluence).toContain("Olumi's structural influence score")
   })
 

@@ -257,21 +257,64 @@ export function selectAlsoWorthDoing<T extends { id: string }>(
  * figure is a run output and a re-run can move it. So the two branches get two
  * sentences and neither can reach the run it would lie about.
  *
- * ⚠ THE STRUCTURAL BRANCH HAD NO VISIBLE ANSWER BEFORE. It was disclosed only by
- * the glance's basis caption, through a `title` tooltip — which a touch reader
- * cannot open — and that list has been removed. This is that disclosure, made
- * visible, in the section that still renders the bars.
+ * ⚠⚠ CORRECTED 7 Sep 2026 — THE PARAGRAPH ABOVE DESCRIBES A BRANCHING THIS
+ * FUNCTION NO LONGER PERFORMS, AND THE TWO THAT USED TO STAND HERE WERE FALSE.
+ * They read "THE STRUCTURAL BRANCH HAD NO VISIBLE ANSWER BEFORE … This is that
+ * disclosure, made visible, in the section that still renders the bars" and
+ * "THE REFERENCE-OPTION LINE KEEPS ITS PRECEDENCE OVER THE STRUCTURAL ONE".
+ * Since #1228 made `influenceIsSetRelative` equal `drivers.length > 0`, neither
+ * lower arm can reach a run that renders bars — see the unreachability note on
+ * the ternary below, and `theBasisLineHasNoReferentWithoutBars`.
  *
- * ⚠ THE REFERENCE-OPTION LINE KEEPS ITS PRECEDENCE OVER THE STRUCTURAL ONE. It
- * names the option sensitivities were measured against, which is a stronger and
- * more specific qualifier than the basis noun; where the producer disclosed one,
- * that is the sentence worth the line.
+ * ⭐⭐ NO BARS, NO BASIS LINE — AND THIS IS THE DEFECT THIS GATE CLOSES.
+ * MEASURED at staging `f4966c20` and reproduced through this component at
+ * `cdd2f9d8`: with `drivers: []` the section rendered
+ *   "Each bar shows Olumi's structural influence score, scaled against the
+ *    strongest factor in this run."
+ * directly above "This run did not return factor influence.", with ZERO bars —
+ * `AnalysisNewSection` early-returns only when `findings.length === 0 &&
+ * !emptyMessage`, and `driversEmptyMessage` is non-null post-run, so the
+ * section renders and the caveat renders with it. Two more shapes did the same
+ * thing on the OTHER two arms: with a disclosed `sensitivityReference` it said
+ * "Sensitivities are measured / against <option>." over the same empty state,
+ * and on an all-suppressed run it said "Influence is relative to the other
+ * factors in this run…" over "…every factor came back at zero." All three arms,
+ * over nothing.
+ *
+ * A caveat exists to explain how to read something. With nothing on display it
+ * has no referent, and the empty message already states what happened — so the
+ * basis line is withheld entirely rather than reworded. Rewording it would
+ * leave a sentence with no job, and it would have to be true both when bars
+ * exist and when they do not, which makes it vaguer in the case that matters.
+ *
+ * ⚠ GATED ON WHAT IS ON DISPLAY, NOT ON `influenceIsSetRelative`. That flag
+ * answers the SCALE question ("is this figure a share of the outcome?"); "is
+ * there anything here to qualify?" is a different question, and using the flag
+ * as a proxy for it is the substitution `panelCopyNamesOlumiNotTheProducer`
+ * already had to correct once (CLAUDE.md trap 21). ⚠ AMENDED AT THE #1262
+ * MERGE, 8 Sep 2026: ~~the disjunction is deliberate~~ — #1260 gated on
+ * `influenceRows.length > 0 || findings.length > 0`, and the merged gate is
+ * `influenceRows` alone. The two CANNOT DISAGREE on any view model the builder
+ * can produce, derived at the bytes rather than inherited:
+ * `live = drivers.filter((d) => d.zeroReason == null)`,
+ * `findings = live.map(...)`, and `influenceRows` is `live.slice().sort()
+ * .map(...)` with NO filter, so the three lengths are equal by construction.
+ * #1262's binding argument decides it: `influenceRows` is what the chart draws
+ * and what the word "bar" refers to, so the gate binds to the thing the
+ * sentence describes rather than to a sibling that moves with it (trap 19).
  *
  * ⚠⚠ THE EXCLUSION LINE IS ADDITIVE, NEVER A REPLACEMENT. It answers a different
  * question from the basis (CLAUDE.md trap 21) — "what scale are these on" versus
  * "what is missing from them" — and a run can owe the reader both. Suppressed
  * rows reached the DOM through `driversEmptyMessage` alone, which renders only
  * when there are NO findings, so a partial suppression said nothing at all.
+ *
+ * ⚠ AND THAT SENTENCE IS EXACTLY WHY THE GATE COSTS NOTHING. Partial
+ * suppression is the state the exclusion clause was written for, and it is the
+ * state where `findings.length > 0`, so the empty message does not render and
+ * `influenceRows` is non-empty — the gate does not fire and the clause is
+ * appended as before. Where the gate DOES fire, every row was suppressed, and
+ * `empty.noneRanked` names the count and the reasons in one sentence.
  */
 function driversCaveat(vm: AnalysisNewViewModel): string | null {
   /**
@@ -286,8 +329,10 @@ function driversCaveat(vm: AnalysisNewViewModel): string | null {
    *    strongest factor in this run."
    *   "This run did not return factor influence."
    *
-   * There are no bars, and `strongest` is 0. The set-relative arm fails the
-   * same way ("relative to the other factors in this run" — there are none).
+   * There are no bars, and `strongest` is 0 — `buildDrivers` computes it as
+   * `Math.max(...live.map(magnitude), 0)`, which is 0 on an empty `live`. The
+   * set-relative arm fails the same way ("relative to the other factors in this
+   * run" — there are none).
    *
    * ⚠ THE ROOT CAUSE IS ONE NAME ANSWERING TWO QUESTIONS (CLAUDE.md trap 21).
    * `influenceIsSetRelative` is `drivers.length > 0` — "did the producer send
@@ -298,9 +343,64 @@ function driversCaveat(vm: AnalysisNewViewModel): string | null {
    * ⚠ NOT `findings.length`: `influenceRows` is what the chart draws and what
    * the word "bar" refers to, so the gate binds to the thing the sentence
    * describes rather than to a sibling that happens to move with it.
+   *
+   * ⚠⚠ TWO INDEPENDENT FIXES FOR THIS DEFECT MET AT THIS MERGE (8 Sep 2026),
+   * AND THE OTHER ONE'S EXTRA BRANCH IS WITHDRAWN ON EVIDENCE, NOT ON TASTE.
+   * #1260 gated the BASIS ALONE and let the exclusion clause through on an
+   * all-suppressed run (`return basis === null ? excluded : ...`), for a reason
+   * that was true against ITS base: the empty message there was
+   * `empty.driversAllZero` — "every factor came back at zero" — which stated
+   * the OUTCOME and never named the reasons, so without that branch the reasons
+   * reached no surface at all.
+   *
+   * ⚠ THAT PREMISE IS DEAD, KILLED BY THE OTHER HALF OF #1262 IN THIS SAME
+   * MERGE. `driversAllZero` is gone; `driversEmptyMessage` now returns
+   * `empty.noneRanked(count, reasons)` — "No factor is ranked in this run. N
+   * factors were returned and set aside: <reasons>." — which names the count
+   * AND the reason labels, from the same `ZERO_REASON_BADGE_LABELS` map
+   * `coverage.notRanked` uses. Keeping both would print one fact twice, in two
+   * adjacent paragraphs, on the tab #1243 had just stopped printing a paragraph
+   * twice on. Derived at the bytes, not inherited: `AnalysisNewSection` renders
+   * `emptyMessage` only when `findings.length === 0`, and renders the caveat
+   * directly above it (`:148` and `:160`).
+   *
+   * ⚠ NOTHING IS LOST BY WITHDRAWING IT, AND THAT IS THE LOAD-BEARING CHECK.
+   * The exclusion clause exists for PARTIAL suppression — rows survive, some
+   * were set aside, and the empty message does NOT render because
+   * `findings.length > 0`. In that state `influenceRows` is non-empty, so this
+   * gate does not fire and the clause is appended exactly as before. The gate
+   * removes the clause only where `noneRanked` has already said it.
    */
   if (vm.drivers.influenceRows.length === 0) return null
 
+  /**
+   * ⚠⚠ THE TWO LOWER ARMS ARE UNREACHABLE FROM ANY RUN THE BUILDER CAN PRODUCE,
+   * AND THEY ARE KEPT DELIBERATELY. `buildDrivers` filters `live` OUT OF
+   * `drivers`, so a non-empty `influenceRows` implies a non-empty `drivers`
+   * implies `influenceIsSetRelative` — and the gate above means the ternary is
+   * only evaluated when `influenceRows` is non-empty. So the first arm always
+   * wins. That composition is pinned, on builder-produced view models rather
+   * than fabricated ones, by `theBasisLineHasNoReferentWithoutBars`.
+   *
+   * ⭐ WHY NOT DELETE THEM. `coverage.referencePrefix` names the option the
+   * producer says sensitivities were measured against — a real disclosure that
+   * #1228 starved as a side effect, not one this fix decided to drop. Deleting
+   * the arm would ratify that loss silently and erase the evidence of the open
+   * question (should the reference line be ADDITIVE alongside the scale line,
+   * the way `notRanked` is?). `coverage.structuralInfluence` is retained for a
+   * second, independent reason: it is the single spelling of the grounding noun
+   * that `driverFinding.groundedIn` — which IS rendered, per row — is bound to
+   * in `driversSeamSaysOneThing`. Deleting it would force that assertion to
+   * retype the sentence, which is the hand-maintained mirror the same file
+   * exists to forbid (CLAUDE.md trap 12).
+   *
+   * ⚠ #1262 REACHED THE SAME "KEEP THEM" CONCLUSION BY ITS OWN ROUTE and left
+   * the decision with the basis-branch owner: whether to delete them, or to
+   * re-gate the reference line on something other than `!influenceIsSetRelative`
+   * so it can be said ALONGSIDE a ranking. That question is still open, and
+   * `records that two basis arms are now unreachable` is the case that keeps it
+   * from being closed by accident.
+   */
   const basis = vm.drivers.influenceIsSetRelative
     ? COPY.coverage.setRelativeInfluence
     : vm.drivers.referenceOptionLabel
@@ -318,6 +418,10 @@ function driversCaveat(vm: AnalysisNewViewModel): string | null {
     vm.drivers.suppressedZeroCount,
     reasons.map((code) => ZERO_REASON_BADGE_LABELS[code]),
   )
+  /* ⚠ THE EXCLUSION CLAUSE IS APPENDED, NEVER ALONE. `basis` cannot be null
+     past the gate above, and the state where it once could — every row
+     suppressed — is now carried in one sentence by `empty.noneRanked`. See the
+     withdrawal note on the gate. */
   return `${basis} ${excluded}`
 }
 

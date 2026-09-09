@@ -475,26 +475,84 @@ describe('theCaveatHasOneSourceOfTruth', () => {
     return screen.queryByTestId('analysis-new-drivers-caveat')?.textContent ?? ''
   }
 
-  it('the caveat is silent where no ranking exists, and set-relative where one does', () => {
-    /* ⚠ THE ARM TABLE, RE-DERIVED AFTER THE BASIS GATE. `driversCaveat` now
-       returns null when `influenceRows` is empty, because every arm is a claim
-       about ranked rows. That gate CHANGES WHICH ARMS ARE REACHABLE, and this
-       case states the new reachability rather than re-pointing an expectation.
-
-       The previous version of this case pinned the structural arm as reachable
-       "ONLY on a run with NO rows — where its own sentence opens 'Each bar
-       shows'", and called that wording "a live finding reported with this fix".
-       That finding is now CLOSED: the sentence no longer renders there. */
+  it('the basis line is the set-relative sentence where bars are drawn, and NOTHING where they are not', () => {
+    /**
+     * ⚠⚠ THE CONDITION CHANGED, SO THE PIN CHANGED — 7 Sep 2026. This case was
+     * named 'every basis arm is reachable, and each renders exactly its own
+     * constant' and asserted the reference arm on `noRows({sensitivityReference})`
+     * and the structural arm on `noRows()`. Both of those RENDERED A BASIS
+     * SENTENCE OVER AN EMPTY STATE, which is the defect this PR fixes; the old
+     * case's own comment reported the structural wording as "MEASURED, NOT
+     * BLESSED" and pinned the condition without endorsing it. The condition is
+     * now different, so what is pinned is different — and it is STRICTLY
+     * STRONGER, not weaker: the old copy cannot satisfy any assertion below.
+     *
+     * ⚠ NOT ALL THREE ARMS ARE REACHABLE ANY MORE, and claiming they were is
+     * what the title used to do. `driversCaveat` evaluates the ternary only when
+     * `influenceRows`/`findings` are non-empty, and `buildDrivers` derives both
+     * from a subset of `drivers` — so `influenceIsSetRelative` is necessarily
+     * true there and the first arm always wins. The unreachability of the other
+     * two is pinned by `theBasisLineHasNoReferentWithoutBars` below, on
+     * builder-produced view models rather than fabricated ones.
+     *
+     * ⚠⚠ #1262 REWROTE THIS SAME CASE ON `staging`, AND ITS ASSERTIONS ARE KEPT
+     * HERE ALONGSIDE THESE (merged 8 Sep 2026). Its note stands VERBATIM and
+     * unamended — `driversCaveat` now returns null when `influenceRows` is
+     * empty.
+     *
+     * ⭐ THIS SENTENCE WAS BRIEFLY REWRITTEN IN THE MERGE AND IS RESTORED. The
+     * resolution struck it out and replaced it with a claim that the gate
+     * "withholds the BASIS SENTENCE ... and lets the EXCLUSION line through",
+     * making the null return look fixture-dependent. That is FALSE, and an
+     * independent review of the resolution caught it. Derived at the bytes:
+     * `AnalysisNewTabBody.tsx:373` is `if (vm.drivers.influenceRows.length ===
+     * 0) return null`, the FIRST statement of `driversCaveat` — so no path
+     * exists on which `influenceRows` is empty and the exclusion clause still
+     * renders. The `toBe('')` below holds BECAUSE OF THE GATE, not because
+     * these fixtures happen to carry no suppressed rows. #1262's original text
+     * was correct; the amendment was not. The rest of #1262's note, verbatim: "That gate CHANGES WHICH ARMS
+     * ARE REACHABLE, and this case states the new reachability rather than
+     * re-pointing an expectation. The previous version of this case pinned the
+     * structural arm as reachable 'ONLY on a run with NO rows — where its own
+     * sentence opens "Each bar shows"', and called that wording 'a live finding
+     * reported with this fix'. That finding is now CLOSED: the sentence no
+     * longer renders there."
+     *
+     * ⚠ BOTH FORMS OF ASSERTION ARE KEPT, AND THEY ARE NOT REDUNDANT. `toBe('')`
+     * is the stronger claim (nothing rendered at all); the `not.toContain` pairs
+     * name WHICH sentences may not appear, binding to the copy constants by
+     * identity so a reworded constant cannot satisfy them by accident (trap 19).
+     */
     const withRows = caveatOf(openStrategicChallenge())
-    expect(withRows).toContain(COPY.coverage.setRelativeInfluence)
+    expect(withRows, 'CONTROL: the probe finds a caveat when one renders').toContain(
+      COPY.coverage.setRelativeInfluence,
+    )
     cleanup()
 
-    /* No rows ⇒ no ranking ⇒ no basis claim, on either former arm. */
-    expect(caveatOf(noRows())).toBe('')
+    /* ⚠ THE REFERENCE LINE IS NO LONGER REACHABLE, AND ITS OLD ARM RENDERED IT
+       OVER AN EMPTY STATE. Reproduced at `cdd2f9d8`: "Sensitivities are measured
+       against Hold price." directly above "This run did not return factor
+       influence.". The producer's own reference disclosure being starved by
+       #1228 is a REPORTED FINDING, not a decision taken here — see
+       `coverage.referencePrefix`'s block. */
+    const withReference = caveatOf(
+      noRows({ sensitivityReference: { optionLabel: 'Hold price' } } as Partial<ResultsSectionDataReturn>),
+    )
+    expect(withReference).not.toContain(COPY.coverage.referencePrefix)
+    expect(withReference).not.toContain('Hold price')
+    /* #1262's stronger form of the same claim: no rows ⇒ no ranking ⇒ no basis
+       claim, and nothing else in its place either. */
+    expect(withReference).toBe('')
     cleanup()
-    expect(
-      caveatOf(noRows({ sensitivityReference: { optionLabel: 'Hold price' } } as Partial<ResultsSectionDataReturn>)),
-    ).toBe('')
+
+    /* ⚠⚠ THE ARM WHOSE SENTENCE OPENS "Each bar shows", ON A RUN THAT DREW NO
+       BARS. Reproduced at `cdd2f9d8` beside "This run did not return factor
+       influence.", with the chart absent. */
+    const structuralArm = caveatOf(noRows())
+    expect(structuralArm).not.toContain(COPY.coverage.structuralInfluence)
+    expect(structuralArm).not.toContain(COPY.coverage.setRelativeInfluence)
+    /* #1262's stronger form, on the other former arm. */
+    expect(structuralArm).toBe('')
   })
 
   /**
@@ -503,16 +561,33 @@ describe('theCaveatHasOneSourceOfTruth', () => {
    *
    * The gate leaves TWO of the three basis arms with no reachable render path,
    * and it is arithmetic rather than judgement: the gate passes only when
-   * `influenceRows` is non-empty; `influenceRows` is built from the rows that
-   * survived suppression, so a non-empty `influenceRows` implies a non-empty
-   * `drivers`; and `influenceIsSetRelative` IS `drivers.length > 0`. So
-   * wherever the caveat renders at all, the set-relative arm is taken.
+   * something is on display; `influenceRows` and `findings` are both built from
+   * the rows that survived suppression, so either being non-empty implies a
+   * non-empty `drivers`; and `influenceIsSetRelative` IS `drivers.length > 0`.
+   * So wherever the BASIS renders at all, the set-relative arm is taken.
    *
    * `structuralInfluence` and `referencePrefix` are therefore dead through this
    * component. Deleting them, or re-gating the reference line on something
    * other than `!influenceIsSetRelative` so it can be said alongside a ranking,
    * is a decision for the lane that owns the basis branch. This case exists so
    * that whichever way it goes, it goes deliberately.
+   *
+   * ⚠ THIS CASE READS THE CAVEAT, WHICH IS NOT ONLY THE BASIS. The three
+   * fixtures below carry no suppressed rows, so the absence assertions are
+   * about the two basis constants specifically, never about the caveat being
+   * empty.
+   *
+   * ⭐ CORRECTED IN THE MERGE, AFTER AN INDEPENDENT REVIEW OF THE RESOLUTION.
+   * This note previously said that on an all-suppressed run "the caveat
+   * carries the EXCLUSION sentence and no basis at all", and that the twin
+   * `theBasisLineHasNoReferentWithoutBars` pinned that. BOTH HALVES WERE
+   * FALSE, and the second is the costlier kind — a false claim about what a
+   * NAMED test pins, which a later reader trusts instead of opening it.
+   * Derived at the bytes: on an all-suppressed run `influenceRows` is empty,
+   * so the gate at `AnalysisNewTabBody.tsx:373` fires and `driversCaveat`
+   * returns null — no caveat node renders at all. The twin asserts exactly
+   * that, at `:910`: `expect(caveatNode(), 'no caveat over an empty
+   * ranking').toBeNull()` — the opposite of what this note claimed.
    */
   it('records that two basis arms are now unreachable — owed to the basis-branch owner', () => {
     /* ⚠ ONE RENDER AT A TIME. `caveatOf` renders into the shared container, so
@@ -647,5 +722,261 @@ describe('the drivers section declares what it left out', () => {
     const chart = screen.getByTestId('analysis-new-driver-chart')
     expect(chart.textContent).not.toContain('Technical leadership capacity')
     expect(chart.textContent).toContain('Supplier lead time')
+  })
+})
+
+/**
+ * ⭐⭐⭐ THE BASIS LINE HAS NO REFERENT WITHOUT BARS — the defect, and the
+ * unreachability it creates, both pinned.
+ *
+ * ── THE WITNESSED DEFECT (Paul, staging `f4966c20`; reproduced through this
+ *    component at `cdd2f9d8`) ───────────────────────────────────────────────
+ * `AnalysisNewSection` early-returns only when `findings.length === 0 &&
+ * !emptyMessage`, and `driversEmptyMessage` is non-null on every post-run
+ * shape — so the Drivers section RENDERS when it has nothing to show, and the
+ * caveat rendered with it. All three basis arms did this, measured:
+ *
+ *   drivers: []                      "Each bar shows Olumi's structural influence
+ *                                     score, scaled against the strongest factor
+ *                                     in this run."
+ *                                    above "This run did not return factor
+ *                                     influence." — chart absent, 0 bars.
+ *   drivers: [] + reference option   the reference sentence — "Sensitivities
+ *                                     are measured against <option>." — above
+ *                                     the same empty message.
+ *   every row zeroReason'd           "Influence is relative to the other factors
+ *                                     in this run, not a share of the outcome."
+ *                                    above "…every factor came back at zero."
+ *
+ * ⚠ THE THIRD ROW OF THAT TABLE QUOTES A BUILD, NOT THE CURRENT COPY. "…every
+ * factor came back at zero." is `empty.driversAllZero`, which #1262 DELETED as
+ * a zero the producer never measured; its replacement is
+ * `empty.noneRanked(count, reasons)`. The line is kept verbatim because it is a
+ * dated record of what `f4966c20` actually put on screen — evidence, not a
+ * fixture to keep current.
+ *
+ * ── WHAT IS PINNED, AND IN BOTH DIRECTIONS ─────────────────────────────────
+ *  1. no basis sentence where nothing is on display (the fix);
+ *  2. the reasons SURVIVE that suppression, and are said EXACTLY ONCE (the
+ *     over-suppression twin). ⚠ AMENDED AT THE #1262 MERGE, 8 Sep 2026:
+ *     ~~the EXCLUSION sentence survives that suppression — a blanket `return
+ *     null` passes 1 and REDs here~~. #1260 kept `coverage.notRanked` in the
+ *     caveat on an all-suppressed run because its base's empty message stated
+ *     the outcome without naming reasons. `empty.noneRanked` now names the
+ *     count AND the labels, so keeping both would print one fact twice; the
+ *     blanket suppression is therefore CORRECT here and the twin pins the
+ *     property (the reasons reach the reader) rather than the carrier;
+ *  3. the basis sentence still renders where bars ARE drawn (the other
+ *     over-suppression twin);
+ *  4. UNREACHABILITY, derived rather than asserted: `buildDrivers` filters
+ *     `live` out of `drivers`, so bars imply `influenceIsSetRelative`, so the
+ *     reference and structural arms cannot be reached by any run the BUILDER
+ *     can produce. A fabricated view model can still reach them — which is why
+ *     this is asserted on builder output, never on a hand-made `vm`
+ *     (CLAUDE.md trap 16-inverse: a fixture you wrote yourself is not evidence
+ *     about what the producer can emit).
+ *
+ * ⚠ THE TWO UNREACHABLE CONSTANTS ARE KEPT ON PURPOSE, and this file is where
+ * that is enforced. `coverage.referencePrefix` is a producer disclosure #1228
+ * starved as a side effect — deleting it would ratify the loss silently.
+ * `coverage.structuralInfluence` is the single spelling of the grounding noun
+ * that `driverFinding.groundedIn` is bound to two describes above; deleting it
+ * would force that assertion to retype the sentence and rebuild the mirror
+ * `theCaveatHasOneSourceOfTruth` exists to forbid.
+ */
+describe('theBasisLineHasNoReferentWithoutBars', () => {
+  const noRows = (over: Partial<ResultsSectionDataReturn> = {}): ResultsSectionDataReturn => {
+    const base = openStrategicChallenge()
+    return { ...base, drivers: { ...base.drivers, drivers: [] }, ...over } as ResultsSectionDataReturn
+  }
+
+  const allSuppressed = (): ResultsSectionDataReturn => {
+    const base = openStrategicChallenge()
+    return {
+      ...base,
+      drivers: {
+        ...base.drivers,
+        drivers: (base.drivers.drivers ?? []).map((d) => ({
+          ...d,
+          zeroReason: 'intervention_override' as const,
+        })),
+      },
+    } as ResultsSectionDataReturn
+  }
+
+  const sectionOf = (data: ResultsSectionDataReturn) => {
+    renderBody(data)
+    openDrivers()
+    return screen.getByTestId('analysis-new-drivers')
+  }
+
+  const caveatNode = () => screen.queryByTestId('analysis-new-drivers-caveat')
+
+  const vmOf = (data: ResultsSectionDataReturn) =>
+    buildAnalysisNewViewModel({
+      data,
+      recommendations: [],
+      isPreRun: false,
+      isRunning: false,
+      isStale: false,
+    })
+
+  it('CONTROL: the probe can see a basis sentence when one renders', () => {
+    /* Without this, every absence below could mean the caveat testid moved, the
+       section failed to open, or the sentence was reworded — none of which is
+       the property (CLAUDE.md trap 13). */
+    const section = sectionOf(openStrategicChallenge())
+    expect(caveatNode(), 'no caveat node at all — the absences below would be vacuous').not.toBeNull()
+    expect(caveatNode()!.textContent).toContain(COPY.coverage.setRelativeInfluence)
+    expect(section.textContent).toContain(COPY.coverage.setRelativeInfluence)
+    expect(
+      screen.getByTestId('analysis-new-driver-chart'),
+      'the control fixture must actually draw bars',
+    ).toBeInTheDocument()
+  })
+
+  it('drivers: [] — the section renders its empty message and NO basis sentence', () => {
+    const section = sectionOf(noRows())
+
+    /* PRECONDITIONS, both required. The first is what makes the absence
+       non-vacuous: `AnalysisNewSection` does NOT early-return here, so the
+       caveat had every opportunity to render. The second is the referent — the
+       thing the sentence claims to explain — measured absent. */
+    expect(
+      section.textContent,
+      'PRECONDITION: the section must still render its empty message',
+    ).toContain(COPY.empty.drivers)
+    expect(
+      screen.queryByTestId('analysis-new-driver-chart'),
+      'PRECONDITION: no bars, or the caveat would have a referent',
+    ).toBeNull()
+    expect(vmOf(noRows()).drivers.influenceRows, 'PRECONDITION: no influence rows').toHaveLength(0)
+
+    expect(caveatNode(), 'a caveat over nothing').toBeNull()
+    expect(section.textContent).not.toContain(COPY.coverage.structuralInfluence)
+    expect(section.textContent).not.toContain(COPY.coverage.setRelativeInfluence)
+  })
+
+  it('drivers: [] with a disclosed reference option — still no basis sentence', () => {
+    const section = sectionOf(
+      noRows({ sensitivityReference: { optionLabel: 'Hold price' } } as Partial<ResultsSectionDataReturn>),
+    )
+    expect(
+      vmOf(noRows({ sensitivityReference: { optionLabel: 'Hold price' } } as Partial<ResultsSectionDataReturn>))
+        .drivers.referenceOptionLabel,
+      'PRECONDITION: the builder must actually carry the reference label, or this arm was never in play',
+    ).toBe('Hold price')
+    expect(caveatNode()).toBeNull()
+    expect(section.textContent).not.toContain(COPY.coverage.referencePrefix)
+    expect(section.textContent).not.toContain('Hold price')
+  })
+
+  it('TWIN: an all-suppressed run still owes its reader the reasons — said ONCE, by the empty message', () => {
+    /**
+     * ⭐ THE DISCRIMINATING HALF: rows exist, every one is zeroReason'd, so
+     * there are no bars AND there are reasons the reader is owed. The two
+     * empty-drivers cases above are satisfied by any suppression whatsoever;
+     * this one is about what SURVIVES it, and it is the case that decided the
+     * shape of the gate.
+     *
+     * ⚠⚠ RE-TARGETED AT THE #1262 MERGE, 8 Sep 2026, AND THE REASON MATTERS
+     * MORE THAN THE EDIT. This case was named 'an all-suppressed run keeps its
+     * EXCLUSION sentence and loses only the basis one' and asserted the caveat
+     * survived carrying `coverage.notRanked`, above
+     * ~~`COPY.empty.driversAllZero`~~. Both halves of that are gone:
+     *
+     *  · `empty.driversAllZero` was DELETED by #1262 — it asserted a zero the
+     *    producer never measured. Left as written, this assertion reads
+     *    `toContain(undefined)`, which is a harness failure wearing the clothes
+     *    of a failed claim.
+     *  · its replacement, `empty.noneRanked(count, reasons)`, NAMES THE COUNT
+     *    AND THE REASON LABELS — from the very `ZERO_REASON_BADGE_LABELS` map
+     *    `coverage.notRanked` uses. So the branch this case used to pin now
+     *    prints one fact TWICE, in two adjacent paragraphs, on the tab #1243
+     *    had just stopped printing a paragraph twice on.
+     *
+     * The PROPERTY the case was written to protect is unchanged and is what is
+     * asserted below: an all-suppressed run must not lose its reasons. What
+     * changed is which surface carries them — so the pin is now "exactly one",
+     * which REDs if the caveat clause comes back AND REDs if the empty message
+     * stops naming them. The old form could only see the second failure.
+     */
+    const section = sectionOf(allSuppressed())
+    const vm = vmOf(allSuppressed())
+    expect(vm.drivers.influenceRows, 'PRECONDITION: no bars').toHaveLength(0)
+    expect(vm.drivers.suppressedZeroCount, 'PRECONDITION: rows were suppressed').toBeGreaterThan(0)
+    expect(
+      vm.drivers.influenceIsSetRelative,
+      'PRECONDITION: the flag is TRUE here — so this case proves the gate is not the flag',
+    ).toBe(true)
+
+    /* The reasons are still owed, and still reach the reader. */
+    const label = ZERO_REASON_BADGE_LABELS.intervention_override
+    expect(
+      screen.getByTestId('analysis-new-drivers-empty').textContent,
+      'the empty message must name the producer reason',
+    ).toContain(label)
+
+    /* ⭐ SAID ONCE. Counting occurrences across the whole section is what makes
+       this a duplication pin rather than a presence check: a caveat that also
+       named the reason would push this to 2 and RED, which is exactly the
+       regression the merge could have shipped. */
+    const occurrences = (section.textContent ?? '').split(label).length - 1
+    expect(occurrences, `"${label}" must appear exactly once in the section`).toBe(1)
+
+    /* And no basis sentence, on a run that drew nothing — the gate's own claim. */
+    expect(caveatNode(), 'no caveat over an empty ranking').toBeNull()
+    expect(section.textContent).not.toContain(COPY.coverage.setRelativeInfluence)
+  })
+
+  it('UNREACHABLE BY CONSTRUCTION: bars imply the set-relative flag, so no builder run reaches the lower arms', () => {
+    /**
+     * ⚠ THE DERIVATION, EXECUTED RATHER THAN ARGUED. `buildDrivers` computes
+     * `live = drivers.filter(d => d.zeroReason == null)` and builds BOTH
+     * `findings` and `influenceRows` from it, while `influenceIsSetRelative` is
+     * `drivers.length > 0`. So `influenceRows` non-empty ⟹ `drivers` non-empty
+     * ⟹ the flag. `driversCaveat` evaluates its ternary only when something is
+     * on display, so the first arm always wins there.
+     *
+     * ⚠ ASSERTED OVER BUILDER OUTPUT, and the shapes are chosen to span the
+     * cases: bars, no rows at all, and rows that all suppressed.
+     */
+    const CASES: ReadonlyArray<readonly [string, ResultsSectionDataReturn]> = [
+      ['openStrategicChallenge', openStrategicChallenge()],
+      ['highUncertainty', highUncertainty()],
+      ['noRows', noRows()],
+      ['noRows + reference', noRows({ sensitivityReference: { optionLabel: 'Hold price' } } as Partial<ResultsSectionDataReturn>)],
+      ['allSuppressed', allSuppressed()],
+    ]
+    let withBars = 0
+    for (const [name, data] of CASES) {
+      const vm = vmOf(data)
+      /* ⚠ THE SELECTOR IS THE GATE'S OWN PREDICATE, not a paraphrase of it.
+         #1260 wrote this as `influenceRows.length > 0 || findings.length > 0`;
+         the merged gate is `influenceRows` alone (#1262's binding), and the two
+         are equal by construction — `findings` and `influenceRows` are both
+         built from `live` with no filter between them. Bound to the gate rather
+         than to the disjunction so a change to either REDs instead of drifting
+         (CLAUDE.md trap 12). */
+      const shows = vm.drivers.influenceRows.length > 0
+      if (!shows) continue
+      withBars += 1
+      expect(vm.drivers.influenceIsSetRelative, `${name}: figures on display imply the flag`).toBe(true)
+    }
+    // The sweep must have SEEN the case it generalises over (trap 13e).
+    expect(withBars, 'no case put figures on display — the implication is vacuous').toBeGreaterThan(0)
+
+    /* And the rendered consequence, over every shape: no caveat this panel can
+       produce carries either lower-arm sentence. */
+    for (const [name, data] of CASES) {
+      const section = sectionOf(data)
+      expect(section.textContent, `${name}: the structural sentence reached a screen`).not.toContain(
+        COPY.coverage.structuralInfluence,
+      )
+      expect(section.textContent, `${name}: the reference sentence reached a screen`).not.toContain(
+        COPY.coverage.referencePrefix,
+      )
+      cleanup()
+    }
   })
 })
