@@ -98,7 +98,16 @@ const ROOT = path.resolve(__dirname, '../../..')
  * touching it was that leaving the two divergent "would have put two different
  * vocabularies on one journey"; that argument is what puts it in scope here.
  */
-const SCOPE_DIRS = ['src/canvas']
+const SCOPE_DIRS = [
+  'src/canvas',
+  // ⭐ ADDED after #1310. `src/v5/blocks` renders the conversation's cards and
+  // was OUTSIDE this sweep, so a contest phrase could live there indefinitely
+  // with the canvas guard green. Measured before adding: 22 ban-list hits in
+  // the directory, ALL of them either comment prose (already skipped) or
+  // `go-ahead`, which is a pinned survivor. Adding it introduced ZERO new
+  // offences — the widening is a floor being raised, not a defect being fixed.
+  'src/v5/blocks',
+]
 const SCOPE_FILES = [
   'src/components/results/utils/goalAnchorCopy.ts',
   'src/canvas/nodes/shared/metricVocabulary.ts',
@@ -420,6 +429,18 @@ describe('the canvas never frames a decision as a contest', () => {
     'The numbers behind these are mine, not yours.',
     'This reshapes your model, so it needs your go-ahead before it is applied.',
     'text-gray-400 hover:text-gray-600 text-2xl leading-none',
+    // ⛔ Bare `highest` survives, and this is now load-bearing rather than
+    // incidental. A `scored highest` ban was proposed here and WITHDRAWN on
+    // root's ruling: the metric's own semantics are "the relative frequency of
+    // scoring highest among the simulated runs", so the phrase can describe a
+    // truthful PER-RUN event as easily as it can assert a placing, and a
+    // line-based regex cannot tell those apart (CLAUDE.md trap 22f — when a
+    // predicate over natural language cannot separate two meanings, do not
+    // guess). Absence of a phrase from today's source is not authority to
+    // suppress a legitimate future statistic. These pins keep ordinary English
+    // safe if the question is reopened.
+    'the highest-severity item sets the tone',
+    'Get next fixable issue (highest impact first)',
   ])('leaves ordinary English alone: %j', (sentence) => {
     expect(matchContest(sentence.replace(TAILWIND_LEADING, ' '))).toEqual([])
   })
@@ -462,6 +483,8 @@ describe('the canvas never frames a decision as a contest', () => {
     'Close call with the leading option',
     'Ahead',
     'Behind: fewer key changes',
+    // A caption that reaches assistive tech is copy, not an identifier.
+    'Leader by a narrow margin',
   ])('treats %j as copy, not an identifier', (run) => {
     expect(isIdentifier(run)).toBe(false)
   })
@@ -473,6 +496,9 @@ describe('the canvas never frames a decision as a contest', () => {
     // one (CLAUDE.md trap 13e).
     expect(files.length).toBeGreaterThan(300)
     expect(files.some((f) => f.endsWith('src/canvas/nodes/OptionNode.tsx'))).toBe(true)
+    // The widened scope must actually be walked — a scope entry that resolves
+    // to nothing reads exactly like a clean sweep (CLAUDE.md trap 13e).
+    expect(files.some((f) => f.includes('src/v5/blocks/'))).toBe(true)
     expect(files.some((f) => f.endsWith('src/components/results/utils/goalAnchorCopy.ts'))).toBe(
       true,
     )
