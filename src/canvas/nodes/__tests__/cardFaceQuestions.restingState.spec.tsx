@@ -98,6 +98,9 @@ function applyStore(phase: Phase, viewMode: 'standard' | 'expert' = 'standard') 
   )
 }
 
+// `NodeProps` requires the full `Required<Pick<Node, …>>` set — `deletable`,
+// `selectable` and `draggable` included. Omitting them is a TS2739, which the
+// typecheck ratchet correctly caught as three new errors in a new file.
 const baseProps = {
   position: { x: 0, y: 0 },
   selected: false,
@@ -106,6 +109,9 @@ const baseProps = {
   positionAbsoluteY: 0,
   dragging: false,
   zIndex: 0,
+  deletable: true,
+  selectable: true,
+  draggable: true,
 }
 
 const renderRisk = () => render(
