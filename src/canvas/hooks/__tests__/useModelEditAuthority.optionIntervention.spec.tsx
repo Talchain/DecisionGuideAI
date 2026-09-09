@@ -142,6 +142,33 @@ describe('what must never reach the wire', () => {
     expect(sendSystemEvent).not.toHaveBeenCalled()
   })
 
+  /**
+   * ⭐⭐ WHEN BOTH QUESTIONS FAIL, THE ANSWER IS THE ONE THE USER CANNOT FIX.
+   *
+   * The two refusals are not ranked by which check happens to run first — they
+   * are ranked by what a caller DOES with them. `needs_fresh_base` is an offer:
+   * run a turn and this clears. Offering it for a number that can never encode
+   * costs the user a turn to learn nothing, and then refuses again in different
+   * words. This pins the ranking at the authority, where the caller reads it.
+   */
+  it('⚠ an off-scale value on a RESTORED session refuses not_encodable, not needs_fresh_base', () => {
+    seed(null)
+    expect(authorityFor(OPTION).current.proposeOptionIntervention(FACTOR, 1.4)).toBe(
+      'not_encodable',
+    )
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+  })
+
+  it('DISCRIMINATING TWIN: the SAME restored session with a good value says needs_fresh_base', () => {
+    // Without this the assertion above would pass on an authority that had
+    // simply lost `needs_fresh_base` altogether.
+    seed(null)
+    expect(authorityFor(OPTION).current.proposeOptionIntervention(FACTOR, 0.4)).toBe(
+      'needs_fresh_base',
+    )
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+  })
+
   it('POSITIVE CONTROL: the refusals above are about their own cause', () => {
     // Without this, every assertion in this block would pass against a seam that
     // refuses everything.

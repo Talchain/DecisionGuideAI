@@ -128,7 +128,10 @@ import { buildFactorValueEditEvent } from '../conversation/factorValueEdit'
 import { buildEdgeStrengthEditEvent } from '../conversation/edgeStrengthEdit'
 import { captureOptimisticFactorEdit } from '../conversation/optimisticFactorEdit'
 import { buildManualGoalTarget, manualGoalTargetMessage } from '../conversation/manualGoalTarget'
-import { buildOptionInterventionEditEvent } from '../conversation/optionInterventionEdit'
+import {
+  buildOptionInterventionEditEvent,
+  type OptionInterventionEditRefusal,
+} from '../conversation/optionInterventionEdit'
 import { SEND_BLOCKED, SEND_DEFERRED } from '../conversation/useConversation'
 
 /**
@@ -193,11 +196,14 @@ export type LocalCommitOutcome = 'committed' | 'not_encodable'
  *                        about it changes that: no ids, a non-finite or
  *                        out-of-scale value, or no conversation to send
  *                        through. Fail CLOSED.
+ *
+ * ⚠ THE TWO REFUSALS ARE DERIVED FROM THE BUILDER, NOT RE-SPELLED HERE. They are
+ * decided by the builder's guards, so listing them again in this union would be
+ * a hand-maintained mirror of exactly the kind that drifts silently — a refusal
+ * added there and forgotten here would not fail to compile, it would fail to be
+ * REPORTED.
  */
-export type OptionInterventionProposalOutcome =
-  | 'dispatched'
-  | 'needs_fresh_base'
-  | 'not_encodable'
+export type OptionInterventionProposalOutcome = 'dispatched' | OptionInterventionEditRefusal
 
 /**
  * What the SENDER did with a dispatched effect edit — resolved later, because
@@ -433,16 +439,7 @@ export function useModelEditAuthority(
       // and duplicating it here would be a second spelling of one rule.
       if (!state.nodes.some(n => n.id === factorId)) return 'not_encodable'
 
-      // ⭐ ASKED BEFORE THE BUILD, so the answer is a RECOVERABLE state rather
-      // than a generic refusal. The builder refuses a null base too — it must,
-      // it is the last gate before the wire — but by then the reason is lost to
-      // the caller, and a caller that cannot tell "your number is wrong" from
-      // "I need one turn to re-sync" cannot offer the second one.
-      if (typeof state.lastServerGraphHash !== 'string' || state.lastServerGraphHash.length === 0) {
-        return 'needs_fresh_base'
-      }
-
-      const event = buildOptionInterventionEditEvent({
+      const built = buildOptionInterventionEditEvent({
         optionId: activeNodeId,
         factorId,
         modelValue: value,
@@ -454,8 +451,27 @@ export function useModelEditAuthority(
         // never silently swallowed.
         baseGraphHash: state.lastServerGraphHash,
       })
-      if (!event) return 'not_encodable'
+
+      // ⭐⭐ THE ORDER OF THE NEXT THREE LINES IS THE MEANING, NOT THE STYLE.
+      //
+      // (1) AN UNENCODABLE EDIT IS UNENCODABLE WHATEVER THE BASE IS. The builder
+      // asks its input guards before its base-hash guard, so `not_encodable`
+      // here is never a stale base wearing the wrong name. This is the half an
+      // earlier draft got backwards: it asked the base question first, so a
+      // number off the model scale on a restored session was reported as
+      // `needs_fresh_base` — sending the user to run a turn that cannot help,
+      // after which the same number is refused again with a different sentence.
+      //
+      // (2) THE CARRIER QUESTION PRECEDES THE FRESHNESS ONE. `needs_fresh_base`
+      // promises an action — any turn refreshes the base — and that action
+      // exists only where there is a conversation to run it. With none, the
+      // honest answer is that the gesture cannot be encoded here at all, and
+      // offering a recovery that has nothing to recover through would be the
+      // same lie in a friendlier voice.
+      if (!built.ok && built.refusal === 'not_encodable') return 'not_encodable'
       if (!sendSystemEvent) return 'not_encodable'
+      if (!built.ok) return built.refusal
+      const event = built.event
 
       // ⭐ NO LOCAL WRITE, DELIBERATELY — `proposeGoalTarget`'s discipline on
       // this same surface: "the goal draft never changes the store before a
