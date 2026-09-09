@@ -1635,12 +1635,11 @@ export const OptionNode = memo((props: NodeProps) => {
             THE SENTENCE IS NOT DROPPED, because the number alone does not say
             what it measures. It survives twice:
               · in the positioned tooltip on hover or keyboard focus;
-              · as an out-of-flow span, because hover is not available to a
-                keyboard or screen-reader user and a bare "72%" would announce
-                as a quantity with no referent.
-            The bar and the number are hidden from assistive technology so the
-            statistic is announced ONCE, in full, rather than as a number
-            followed by a sentence repeating it.
+              · in the row's accessible name, including any currentness caveat.
+            The bar is deliberately a focusable graphic for keyboard disclosure.
+            Its role makes descendants presentational, so aria-label is the
+            single accessible name; an additional screen-reader-only child
+            would not provide another announcement.
 
             The copy is never re-typed here: it comes from
             `COMPARATIVE_COPY.phrase` (components/results/utils/goalAnchorCopy),
@@ -1686,8 +1685,8 @@ export const OptionNode = memo((props: NodeProps) => {
                 and the floor matters MORE here, not less. */}
             {/* ⭐ THE ANCHOR, VISIBLE — restored 31 Aug 2026.
                 The density change put `phrase()` behind a `title` and left the
-                number bare. A `title` is unreachable by KEYBOARD (this row is
-                not focusable) and absent on TOUCH (`(hover: hover)` false), so
+                number bare. At that time the row was not focusable, so its
+                `title` was unreachable by KEYBOARD and absent on TOUCH, and
                 two input classes got a number with no statement of what it
                 measures — on the only unlabelled percentage on a canvas where
                 every other one is anchored, and beside the rank badge, which is
@@ -1719,7 +1718,6 @@ export const OptionNode = memo((props: NodeProps) => {
             >
               {winReadout.formatted}
             </span>
-            <span className={typography.screenReaderOnly}>{winReadout.phrase}</span>
           </div>
           </Tooltip>
         )}

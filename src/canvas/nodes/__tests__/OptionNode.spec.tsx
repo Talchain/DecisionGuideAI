@@ -182,7 +182,7 @@ describe('OptionNode', () => {
       voiRank: null,
     })
     renderOption()
-    expect(screen.getByText('Supported in 72% of simulated scenarios')).toBeDefined()
+    expect(screen.getByRole('img', { name: /Supported in 72% of simulated scenarios/ })).toBeDefined()
   })
 
   // T7: Most supported badge. Post-1.223 this is the POSITIVE CONTROL against
@@ -673,7 +673,7 @@ describe('OptionNode', () => {
     // across five option cards is the whole defect being fixed.
     expect(percentEl.textContent).toBe('72%')
     // Hidden from assistive tech so the statistic is announced once, in full,
-    // by the sentence below rather than as a number with no referent.
+    // by the row's accessible name rather than as a number with no referent.
     expect(percentEl.getAttribute('aria-hidden')).toBe('true')
   })
 
@@ -688,12 +688,11 @@ describe('OptionNode', () => {
     expect(row?.getAttribute('title')).toBe('')
     expect(row?.getAttribute('aria-label')).toContain(expected)
 
-    // (b) not-hover: the same sentence is present as text, out of flow, so a
-    // screen-reader user is not left with a bare number. Bound to the element
-    // by its class as well as its text, so moving the sentence back into the
-    // visible line would RED this.
-    const srEl = screen.getByText(expected)
-    expect(srEl.className).toContain('sr-only')
+    // The graphic has one complete accessible name even before its tooltip
+    // opens. Its presentational descendants must not carry a redundant span.
+    expect(screen.getByRole('img', { name: /Supported in 72% of simulated scenarios/ })).toBe(row)
+    expect(row?.querySelector('.sr-only')).toBeNull()
+    expect(screen.queryByText(expected)).toBeNull()
 
     act(() => (row as HTMLElement).focus())
     expect(document.activeElement).toBe(row)
@@ -715,7 +714,8 @@ describe('OptionNode', () => {
     // Not `!== ''`: an empty or null readout would make the assertion below
     // pass on a sentence the user never sees a number for.
     expect(percent).toMatch(/^[<>]?\s*[\d.]+%$/)
-    expect(screen.getByText(COMPARATIVE_COPY.phrase(percent as string))).toBeDefined()
+    const row = screen.getByTestId('option-analysis-currency-option-1')
+    expect(row.getAttribute('aria-label')).toContain(COMPARATIVE_COPY.phrase(percent as string))
   })
 
   // V3: Most supported badge uses text-text-body (WCAG AA contrast on bg-success-light)
@@ -2164,7 +2164,7 @@ describe('OptionNode — display coherence (audit §8)', () => {
       }) as any)
     )
     renderOption({ label: 'Status Quo', is_baseline: true })
-    expect(screen.getByText('Supported in 28% of simulated scenarios')).toBeDefined()
+    expect(screen.getByRole('img', { name: /Supported in 28% of simulated scenarios/ })).toBeDefined()
     expect(screen.queryByText(/win rate across simulations/i)).toBeNull()
     expect(screen.getByText('Baseline option.')).toBeDefined()
   })
