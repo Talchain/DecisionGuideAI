@@ -36,6 +36,7 @@ import { describe, it, expect } from 'vitest'
 import { buildDraftBiasSignalBlocks } from '../draftBiasSignalBlocks'
 import {
   BIAS_SIGNAL_REGISTRY,
+  FORBIDDEN_TYPE_PREFIXES,
   UNRECOGNISED_BIAS_SIGNAL_TITLE,
 } from '../../shared/biasSignalTitles'
 
@@ -124,5 +125,85 @@ describe('the dedup key does not become a second way to lose content', () => {
       { type: 'unknown b', detail: STARTER_DETAIL },
     ])
     expect(blocks).toHaveLength(1)
+  })
+})
+
+/**
+ * ⭐⭐ THE RESCUE HAS A BOUNDARY, AND THIS IS WHERE IT IS DRAWN.
+ *
+ * My first version of the fix treated EVERY registry miss as "a category we
+ * have no key for". Three ratified fail-closed arms went red and all three
+ * were right. The resolver answers ONE question — "is this a code I hold?" —
+ * and I read its miss as the answer to a different one. What sits between them
+ * is entries the producer FAULTED: a `type` that is absent, non-string, or
+ * holding a node reference. Those are not uncategorised observations; they are
+ * entries whose category field does not contain a category, and content pulled
+ * out of one has unknown provenance.
+ *
+ * ⚠ THE RISK THIS SUITE EXISTS TO CATCH IS THAT THE BOUNDARY MOVES ONE STEP
+ * TOO FAR AND EATS THE THING THE PR RESCUES. The starter's own code is free
+ * text; a guard drawn slightly wider — on "contains an underscore", say, or
+ * "no space" — would drop it and every arm above would still pass, because
+ * they are about what the rescue KEEPS and this is about what it REFUSES. So
+ * the discriminating pair is asserted here, in one place: the refusals refuse
+ * AND the starter's code survives them.
+ */
+describe('the rescue refuses a faulted entry, and only a faulted entry', () => {
+  it('drops an entity-id in the category slot — a producer field error, not a category', () => {
+    expect(build([{ type: 'fac_current_supplier', detail: 'Prose.', target: 'opt_status_quo' }])).toEqual([])
+  })
+
+  it.each(FORBIDDEN_TYPE_PREFIXES.map((prefix) => [prefix]))(
+    'drops every canonical entity-id prefix — %s',
+    (prefix) => {
+      // Derived from the list itself, so a prefix added in lockstep with CEE's
+      // pattern is covered the day it lands (trap 12 — derive, don't mirror).
+      expect(build([{ type: `${prefix}whatever`, detail: 'Prose.' }])).toEqual([])
+      expect(build([{ type: `${String(prefix).toUpperCase()}WHATEVER`, detail: 'Prose.' }])).toEqual([])
+    },
+  )
+
+  it('drops an absent or non-string code — no category at all is not an unknown one', () => {
+    expect(build([{ type: '', detail: 'Prose.' }])).toEqual([])
+    expect(build([{ type: '   ', detail: 'Prose.' }])).toEqual([])
+    expect(build([{ type: 42, detail: 'Prose.' }])).toEqual([])
+    expect(build([{ detail: 'Prose.' }])).toEqual([])
+  })
+
+  it('drops a non-object entry without crashing', () => {
+    expect(build([null, 'anchoring', 7, undefined])).toEqual([])
+  })
+
+  it('⭐ DISCRIMINATING TWIN — the starter code passes every refusal above', () => {
+    // Without this the guards could be widened until they swallowed the whole
+    // feature and nothing here would go red. It binds by the starter's exact
+    // shipped string, not by a value predicate another code could satisfy.
+    expect(
+      FORBIDDEN_TYPE_PREFIXES.some((prefix) => STARTER_CODE.toLowerCase().startsWith(prefix)),
+      'the entity-id guard now eats the very observation this change rescues',
+    ).toBe(false)
+
+    const [block] = build([{ type: STARTER_CODE, detail: STARTER_DETAIL, target: 'opt_status_quo' }])
+    expect(block, 'the starter observation is being dropped again').toBeDefined()
+    expect(block.body).toBe(STARTER_DETAIL)
+  })
+
+  it('⭐ AND A RECOGNISED CODE IS NEVER TESTED AGAINST THE PREFIX LIST', () => {
+    // Registry first, prefix guard second — so a future registry key that
+    // happened to collide with a prefix ('con_' vs a hypothetical
+    // 'con_formation') resolves as the category it is. Proven by making the
+    // collision real rather than by reading the order off the source.
+    const collidingKey = Object.keys(BIAS_SIGNAL_REGISTRY).find((k) =>
+      FORBIDDEN_TYPE_PREFIXES.some((p) => k.startsWith(p)),
+    )
+    expect(collidingKey, 'no registry key collides today — this arm is a standing guard').toBeUndefined()
+
+    // The order is what makes that harmless, so assert the order itself: every
+    // registry key still emits, whatever it is spelled.
+    for (const key of Object.keys(BIAS_SIGNAL_REGISTRY)) {
+      const [block] = build([{ type: key, detail: 'An observation.' }])
+      expect(block, `registry key ${key} stopped emitting`).toBeDefined()
+      expect(block.title).not.toBe(UNRECOGNISED_BIAS_SIGNAL_TITLE)
+    }
   })
 })

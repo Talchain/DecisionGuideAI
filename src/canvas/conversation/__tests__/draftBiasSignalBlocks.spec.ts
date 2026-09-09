@@ -40,7 +40,7 @@ import {
   DRAFT_BIAS_SIGNAL_CARD_CAP,
   buildDraftBiasSignalBlocks,
 } from '../draftBiasSignalBlocks'
-import { BIAS_SIGNAL_REGISTRY } from '../../shared/biasSignalTitles'
+import { BIAS_SIGNAL_REGISTRY, UNRECOGNISED_BIAS_SIGNAL_TITLE } from '../../shared/biasSignalTitles'
 import type { ConversationBlock, V5CoachingBlock } from '../types'
 
 // ─── Fixtures ────────────────────────────────────────────────────────────
@@ -200,13 +200,39 @@ describe('buildDraftBiasSignalBlocks — the ratified cap (≤2 cards)', () => {
   })
 
   it('the cap counts rendered cards, not raw entries — dropped entries do not consume slots', () => {
+    // ⚠ THE FIXTURE MOVED, THE PROPERTY DID NOT. This arm used to lead with
+    // `made_up_bias`, which is no longer dropped — an unrecognised category
+    // now keeps its observation. That left the arm asserting "dropped entries
+    // do not consume slots" over a fixture containing no dropped entry: the
+    // assertion would have gone on passing while testing nothing about
+    // dropping. Re-pointed at an entry that IS still dropped — an entity-id
+    // in the category slot — so the arm tests what its name says.
     const blocks = build([
-      { type: 'made_up_bias', detail: 'Unknown code → dropped.', target: 'fac_initial_quote' }, // unknown → dropped
+      { type: 'fac_current_supplier', detail: 'Node ref in the type slot → dropped.', target: 'fac_initial_quote' },
       SIGNAL_ANCHORING,
       SIGNAL_SUNK_COST,
     ])
     expect(blocks).toHaveLength(2)
     expect(blocks.map((b) => b.title)).toEqual(['Anchoring', 'Sunk cost'])
+  })
+
+  it('an unrecognised signal takes its slot in WIRE ORDER, ahead of a recognised one', () => {
+    // ⭐ THE DELIBERATE CALL, PINNED SO IT CAN BE ARGUED WITH. Once an
+    // unrecognised signal renders, it competes for the two slots. It could
+    // have been demoted behind every recognised signal — and that was
+    // rejected: categorisability is not value, and the observation this whole
+    // change exists to rescue (the build-vs-buy starter's) is the FIRST entry
+    // in its wire array. Demoting the uncategorised would restore the same
+    // inversion in slower motion: the less standard the insight, the later it
+    // appears, and the likelier the cap eats it.
+    //
+    // The producer's order is the only ordering signal we have. It stands.
+    const blocks = build([
+      { type: 'omission / status-quo bias', detail: 'The status-quo option may be over-weighted.' },
+      SIGNAL_ANCHORING,
+      SIGNAL_SUNK_COST,
+    ])
+    expect(blocks.map((b) => b.title)).toEqual([UNRECOGNISED_BIAS_SIGNAL_TITLE, 'Anchoring'])
   })
 })
 
@@ -223,13 +249,35 @@ describe('buildDraftBiasSignalBlocks — fail closed', () => {
     expect(build([])).toEqual([])
   })
 
-  it('unknown bias code → nothing for that signal; known ones still render', () => {
+  it('unknown bias code → the NAME fails closed, the OBSERVATION survives', () => {
+    // ⚠⚠ THE ONE RATIFIED EXPECTATION THIS CHANGE REVERSES, and it is a
+    // reversal of the ASSERTION, not of the reasoning underneath it.
+    //
+    // The original read `expect(blocks).toHaveLength(1)` — the unknown signal
+    // discarded outright, prose included. Its stated ground was that a raw
+    // wire token has no honest rendering as a bias NAME, which is still true
+    // and still enforced below. What did not follow is that the producer's
+    // paragraph should be thrown away with the label. The shipped
+    // `build-vs-buy` starter carries `type: "omission / status-quo bias"` and
+    // a real observation no user of that starter has ever seen.
+    //
+    // Note this is not new estate behaviour: `PreAnalysisPanel` has always
+    // fallen through to a generic heading for an unresolved code rather than
+    // dropping the card. The bridge was the outlier.
     const blocks = build([
       { type: 'made_up_bias', detail: 'Some plausible prose.', target: 'fac_initial_quote' },
       SIGNAL_ANCHORING,
     ])
-    expect(blocks).toHaveLength(1)
-    expect(blocks[0].title).toBe('Anchoring')
+    expect(blocks).toHaveLength(2)
+    expect(blocks[0].body).toBe('Some plausible prose.')
+    expect(blocks[1].title).toBe('Anchoring')
+
+    // THE HALF THAT DID NOT CHANGE — the code never becomes copy, neither raw
+    // nor sentence-cased, and never borrows a neighbouring bias's name.
+    expect(blocks[0].title).toBe(UNRECOGNISED_BIAS_SIGNAL_TITLE)
+    expect(blocks[0].title).not.toContain('made_up')
+    expect(blocks[0].title).not.toContain('Made up')
+    expect(Object.values(BIAS_SIGNAL_REGISTRY).map((e) => e.title)).not.toContain(blocks[0].title)
   })
 
   it('entity-id-shaped code → nothing for that signal (never sentence-cased into copy)', () => {

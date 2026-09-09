@@ -65,6 +65,67 @@ export interface BiasSignalEntry {
  */
 export const UNRECOGNISED_BIAS_SIGNAL_TITLE = 'Reasoning check'
 
+/**
+ * ⚠⚠ A SECOND NAME FOR THIS CONCEPT IS ALREADY SHIPPED, AND I AM NOT
+ * UNIFYING IT HERE — IT IS FLAGGED, NOT FIXED.
+ *
+ * `PreAnalysisPanel` has carried `BIAS_FALLBACK = { title: 'Bias detected' }`
+ * since the brief, for exactly this case: a code the registry does not hold
+ * still gets a card, under a generic heading. So the ruling this file's
+ * constant implements was ALREADY the estate's behaviour on the sibling
+ * surface — the draft bridge was the outlier in discarding the entry, not the
+ * innovator in keeping it.
+ *
+ * Two names for one concept is the divergence this registry exists to kill
+ * (see the CONFIRMATION_BIAS Frame/Gauge note in the header). They are not
+ * unified in this change for one reason and one only: 'Bias detected' asserts
+ * a finding, and the paragraph underneath it may not support one — so
+ * unifying means changing SHIPPED pre-analysis copy, which is a separate
+ * surface with its own review. Recorded here so the next reader finds the
+ * divergence rather than discovering it as a bug.
+ */
+
+/**
+ * Entity-ID prefixes that must NEVER be read as a bias category. Hoisted here
+ * from `PreAnalysisPanel` (which re-exports it, so its existing importers and
+ * its per-prefix drift spec are untouched) because BOTH bias surfaces need
+ * the same question answered and a second copy is the mirror defect.
+ *
+ * Lockstep replica of the canonical CEE pattern at
+ *   olumi-assistants-service:src/orchestrator/shared/entity-id-pattern.ts
+ * (also mirrored at tools/v5-journey-replay/output-safety.ts). The two repos
+ * share no package boundary; update both together when it changes.
+ *
+ * ⭐ WHY THIS MATTERS TO THE DRAFT BRIDGE, and why it is not a heuristic I
+ * invented. An unrecognised code and an entity id look alike from inside the
+ * UI — both are strings the registry does not hold — but they are different
+ * facts about the producer. `'omission / status-quo bias'` is a CATEGORY the
+ * UI has no key for. `'fac_current_supplier'` is a NODE REFERENCE sitting in
+ * the category slot: the producer populated the wrong field, and the entry is
+ * malformed in the same way `type: 42` is. Telling them apart needs the
+ * producer's own id convention, which is what this list is — not a shape rule
+ * written from the UI's imagination (CLAUDE.md trap 22).
+ */
+export const FORBIDDEN_TYPE_PREFIXES = [
+  // Canonical CEE entity-ID prefixes (lockstep with ENTITY_ID_RE)
+  'fac_', 'opt_', 'goal_', 'dec_', 'out_', 'risk_',
+  'con_', 'factor_', 'option_', 'decision_', 'outcome_', 'constraint_',
+  // UI-side defensive prefixes
+  'node_', 'edge_',
+] as const
+
+/**
+ * True when a wire code is shaped like a graph entity id rather than a bias
+ * category. Callers use it AFTER `resolveBiasSignal` misses, never before: a
+ * code the registry holds is a category by definition, so the registry always
+ * wins and no future key can be shadowed by a prefix collision.
+ */
+export function isEntityIdShapedCode(code: unknown): boolean {
+  if (typeof code !== 'string') return false
+  const lower = code.trim().toLowerCase()
+  return FORBIDDEN_TYPE_PREFIXES.some((prefix) => lower.startsWith(prefix))
+}
+
 export const BIAS_SIGNAL_REGISTRY = {
   framing: { title: 'Narrow framing', icon: Frame },
   framing_bias: { title: 'Narrow framing', icon: Frame },

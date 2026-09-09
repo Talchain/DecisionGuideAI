@@ -37,7 +37,7 @@ import {
 } from '../../mutations/mutationAuthority'
 import { normaliseRawFactorValue, withObservedStateUpdate } from '../../utils/observedStateHelpers'
 import { useCanvasStore } from '../../store'
-import { biasSignal, resolveBiasSignal } from '../../shared/biasSignalTitles'
+import { biasSignal, resolveBiasSignal, isEntityIdShapedCode } from '../../shared/biasSignalTitles'
 import type { KnownBiasCode } from '../../shared/biasSignalTitles'
 import { useDraftStore } from '../../stores/draftStore'
 import { useRetryDraft } from '../../hooks/useRetryDraft'
@@ -92,35 +92,18 @@ import { ICON_DENSE } from '../../conversation/panelIcons'
 const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred', 'ai_estimate', 'engine'])
 
 /**
- * Entity-ID prefixes that must NEVER appear in user-facing copy. If a CEE bug
- * passes a raw entity ID as a bias type token, fall through to BIAS_FALLBACK
- * rather than echoing it as a sentence-case label.
+ * ⭐ MOVED, NOT CHANGED — the list now lives in `shared/biasSignalTitles`,
+ * beside the registry and the guarded resolver, because the draft bias bridge
+ * needs the same question answered and a second copy would be the
+ * hand-maintained mirror this estate keeps paying for (CLAUDE.md trap 12).
  *
- * Replicates the canonical CEE-side ENTITY_ID_RE pattern in
- *   olumi-assistants-service:src/orchestrator/shared/entity-id-pattern.ts
- *   (also mirrored at olumi-assistants-service:tools/v5-journey-replay/output-safety.ts
- *    as `\b(?:fac|opt|goal|dec|out|risk|con|factor|option|decision|outcome|constraint)[_:-]…/i`).
- *
- * The two sources are intentionally NOT cross-imported: the UI repo and CEE
- * service repo share no package boundary, and the CEE-side mirror file already
- * documents the same lockstep-replication pattern. Update both in lockstep
- * when the canonical pattern changes.
- *
- * `safeBiasTitle` already restricts the input character set to
- * [A-Za-z0-9_], so we only need the underscore-suffix variant here — the
- * canonical pattern's `[_:-]` separator is fully covered because `:` and `-`
- * are rejected by the character-class guard before this list is consulted.
- *
- * Plus two defensive UI-side prefixes (node_, edge_) for graph entities the
- * canvas owns directly; not in the CEE canonical list but worth guarding.
+ * Re-exported from here verbatim so every existing importer — including the
+ * per-prefix drift spec in `mapDraftBiasSignalToTrigger.spec.ts`, which
+ * iterates this list — keeps resolving against the same module path and is
+ * untouched by the move. The values, the lockstep contract with CEE's
+ * `entity-id-pattern.ts`, and `safeBiasTitle`'s behaviour are all unchanged.
  */
-export const FORBIDDEN_TYPE_PREFIXES = [
-  // Canonical CEE entity-ID prefixes (lockstep with ENTITY_ID_RE)
-  'fac_', 'opt_', 'goal_', 'dec_', 'out_', 'risk_',
-  'con_', 'factor_', 'option_', 'decision_', 'outcome_', 'constraint_',
-  // UI-side defensive prefixes
-  'node_', 'edge_',
-] as const
+export { FORBIDDEN_TYPE_PREFIXES } from '../../shared/biasSignalTitles'
 
 /**
  * Convert an unknown but safe-looking bias type token into a sentence-case label.
@@ -132,10 +115,11 @@ export function safeBiasTitle(token: string): string | null {
   if (!token) return null
   const safe = token.trim()
   if (!/^[A-Za-z0-9_]{1,40}$/.test(safe)) return null
+  // One implementation of "is this an entity id?", shared with the draft
+  // bridge. The character-class test above still runs first, so this sees
+  // only [A-Za-z0-9_] tokens and the underscore-suffix forms are exhaustive.
+  if (isEntityIdShapedCode(safe)) return null
   const lower = safe.toLowerCase()
-  for (const prefix of FORBIDDEN_TYPE_PREFIXES) {
-    if (lower.startsWith(prefix)) return null
-  }
   const cleaned = lower.replace(/_/g, ' ')
   return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
 }

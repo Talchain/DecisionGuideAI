@@ -18,10 +18,16 @@
  * Fail-closed, per entry (ratified cards-cap 2):
  *   - not a draft turn / absent coaching / empty array → []
  *   - malformed entry (non-object, blank/non-string type or detail) → skipped
- *   - unknown bias code (not on the allowlist) → skipped — the code is
- *     wire vocabulary, never visible copy, so an unmapped code has no
- *     honest rendering (mirrors, and tightens, the PreAnalysisPanel
- *     convention: no safeBiasTitle sentence-casing here)
+ *   - entity-id-shaped code (`fac_…`, `opt_…`) → skipped — a node reference
+ *     in the category slot is a producer field error, not a category
+ *   - unrecognised but well-formed code → the OBSERVATION IS KEPT under a
+ *     neutral heading that names no bias. The code itself is still never
+ *     rendered: it is wire vocabulary and has no honest sentence-cased form
+ *     (no safeBiasTitle here). This is the PreAnalysisPanel convention, which
+ *     has always fallen through to a generic heading rather than discarding
+ *     the entry — the bridge was the outlier, and dropping the producer's
+ *     paragraph with its unknown label inverted the feature: the less standard
+ *     the insight, the likelier it was binned
  *   - producer-typed bias coaching already on the turn → [] (producer wins)
  *
  * Grounding is OPTIONAL (mirrors CEE #541). The canonical deployed wire
@@ -44,7 +50,11 @@ import type { CEEDraftCoaching } from '../../adapters/cee/types'
 import type { ConversationBlock, V5CoachingBlock } from './types'
 import { DRAFT_BIAS_SIGNAL_CARD_CAP } from './types'
 import { isBiasSignalCoachingBlock } from './phase3Pacing'
-import { resolveBiasSignal, UNRECOGNISED_BIAS_SIGNAL_TITLE } from '../shared/biasSignalTitles'
+import {
+  resolveBiasSignal,
+  isEntityIdShapedCode,
+  UNRECOGNISED_BIAS_SIGNAL_TITLE,
+} from '../shared/biasSignalTitles'
 
 // The cap's one definition lives with the other render budgets in ./types
 // (/simplify item 5) — the render layer consumes it too. Re-exported here
@@ -129,7 +139,36 @@ export function buildDraftBiasSignalBlocks(args: {
     //
     // So the NAME still fails closed, and the CONTENT survives under a heading
     // that names no bias at all.
+    // ⚠⚠ AND THE RESCUE IS NARROWER THAN MY FIRST VERSION MADE IT. That
+    // version treated EVERY resolver miss as "a category we have no key for"
+    // — so `type: ''`, `type: 42` and `type: 'fac_current_supplier'` all
+    // minted cards, and three ratified fail-closed guards went red. They were
+    // right and the change was wrong: the resolver answers ONE question ("is
+    // this a code I hold?") and I read its miss as the answer to a different
+    // one ("is this an unrecognised category?"). Three cases sit between them.
+    //
+    //   ABSENT / NON-STRING — `''`, `42`, a missing key. Not an unrecognised
+    //   category; no category at all. The wire schema types `type` as a
+    //   required string, so the entry violates its own contract and nothing
+    //   in it can be trusted to be a bias observation.
+    //
+    //   ENTITY-ID SHAPED — `fac_current_supplier`. A NODE REFERENCE in the
+    //   category slot: the producer populated the wrong field. Malformed in
+    //   the same way `42` is, just typed as a string. Told apart by the
+    //   producer's own id convention, not by a shape rule invented here.
+    //
+    //   FREE TEXT NAMING A CATEGORY — `'omission / status-quo bias'`. THIS,
+    //   and only this, is the case the rescue is for.
+    //
+    // Well-formedness first, then recognition. A faulted entry fails closed
+    // exactly as it always did; an entry that is sound but uncategorised
+    // keeps its observation.
     const resolved = resolveBiasSignal(s.type)
+    const wellFormedCode = typeof s.type === 'string' && s.type.trim().length > 0
+    // Ordered so the registry always wins: a code it holds is a category by
+    // definition, and no future key can be shadowed by a prefix collision.
+    const rescuable = resolved != null || (wellFormedCode && !isEntityIdShapedCode(s.type))
+    if (!rescuable) continue
     const title = resolved?.title ?? UNRECOGNISED_BIAS_SIGNAL_TITLE
 
     const detail = typeof s.detail === 'string' ? s.detail.trim() : ''
