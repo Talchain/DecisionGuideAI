@@ -465,20 +465,38 @@ describe('runAnnouncementForTransition START: one voice per POPULATION, not per 
    * information about who speaks — and the SETTLE arm's own discriminator
    * (`firstRun`) is still doing real work there. If a later edit threads the
    * new signal into SETTLE "for symmetry", this REDs.
+   *
+   * ⚠⚠ THIS CASE WAS WRITTEN WITH `analysisTabFronted: true` ONLY, AND THAT
+   * MADE IT VACUOUS — caught by its own mutant, not by inspection. The obvious
+   * contamination is `(analysisTabFronted || willFrontAnalysisTab) && !firstRun`,
+   * and under `analysisTabFronted: true` the disjunction is true either way, so
+   * the mutant SURVIVED an otherwise-complete kit. A guard whose inputs cannot
+   * reach the branch it names asserts nothing (trap 13c: an equivalent mutant
+   * must be DEMONSTRATED, never assumed).
+   *
+   * The discriminating cell is `analysisTabFronted: false` WITH the intent
+   * raised, and it is reachable: the 2.204 post-run return sets the dock tab to
+   * `olumi` BEFORE it clears `showResultsPanel` (`OutputsDock.tsx:2131` then
+   * `:2137`), so a settle can land with Analysis not fronted and the intent
+   * still true. Under the contaminating mutant a RERUN settle there goes SILENT
+   * — the completion toast does not fire on a tab the user has left.
    */
   it('SETTLE ignores willFrontAnalysisTab entirely (its discriminator is firstRun)', () => {
     for (const willFrontAnalysisTab of [true, false]) {
-      // A first-run settle never yields — nothing else announces it.
-      expect(
-        runAnnouncementForTransition!({
-          transition: 'settle',
-          settledStatus: 'complete',
-          preRunStatus: 'idle',
-          analysisTabFronted: true,
-          willFrontAnalysisTab,
-        }),
-      ).toBe('Analysis complete.')
-      // A rerun settle yields while fronted — the completion toast fires.
+      for (const analysisTabFronted of [true, false]) {
+        // A first-run settle never yields — nothing else announces it.
+        expect(
+          runAnnouncementForTransition!({
+            transition: 'settle',
+            settledStatus: 'complete',
+            preRunStatus: 'idle',
+            analysisTabFronted,
+            willFrontAnalysisTab,
+          }),
+          `first-run settle, fronted=${analysisTabFronted} willFront=${willFrontAnalysisTab}`,
+        ).toBe('Analysis complete.')
+      }
+      // A rerun settle yields while fronted — the completion toast fires there.
       expect(
         runAnnouncementForTransition!({
           transition: 'settle',
@@ -488,6 +506,20 @@ describe('runAnnouncementForTransition START: one voice per POPULATION, not per 
           willFrontAnalysisTab,
         }),
       ).toBeNull()
+      // ⭐ THE DISCRIMINATING CELL, and the one the first version of this case
+      // omitted: a rerun settle with Analysis NOT fronted must ANNOUNCE, because
+      // the completion toast is on a tab the user is not looking at. The pending
+      // navigation intent must not buy that silence.
+      expect(
+        runAnnouncementForTransition!({
+          transition: 'settle',
+          settledStatus: 'complete',
+          preRunStatus: 'complete',
+          analysisTabFronted: false,
+          willFrontAnalysisTab,
+        }),
+        `rerun settle off-tab must announce, willFront=${willFrontAnalysisTab}`,
+      ).toBe('Analysis complete.')
     }
   })
 })
