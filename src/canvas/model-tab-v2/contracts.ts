@@ -85,7 +85,12 @@ export interface EditProposalHandle {
  *       SERVER holds, so an edge the server never stated a strength for has
  *       nothing truthful to put there: the builder refuses, the edit would land
  *       LOCAL-ONLY, and offering the editor anyway would be design §2 F6. Those
- *       rows keep the disabled affordance. `editConnectedIds` asks
+ *       rows render their value with NO control at all — NOT "the disabled
+ *       affordance", which this line used to claim and which does not exist:
+ *       `ModelRowView`'s no-writer arm is a bare `<span>`, by the NOT SET WALL
+ *       ruling, and the reason is carried section-level or not at all
+ *       (`aRowWithNoWriterSaysNothing.spec.tsx` measures both arms and pins the
+ *       relationships gap). `editConnectedIds` asks
  *       `edgeStrengthEditIsAssertable`, which puts the question to the builder
  *       rather than restating its rules.
  *       ⚠ NOT "with optimistic revert" — see the SERVER-AUTHORITATIVE group
