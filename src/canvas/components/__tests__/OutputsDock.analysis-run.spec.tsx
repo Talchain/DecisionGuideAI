@@ -403,7 +403,11 @@ describe('OutputsDock analyse convergence', () => {
       // `undefined`, and the store route calls `.catch` on it, so a leak RED'd
       // by TypeError rather than by any assertion here.
       const dispatchAction = vi.fn(async () => {})
-      mockConversation.dispatchAction = dispatchAction
+      // The mock slot is typed `ReturnType<typeof vi.fn> | null`, which is
+      // `Mock<any[], unknown>`; an async zero-arg double narrows to
+      // `Mock<[], Promise<void>>` and does not assign. Cast at the seam rather
+      // than widen the double — the async return is the point (see docblock).
+      mockConversation.dispatchAction = dispatchAction as unknown as ReturnType<typeof vi.fn>
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'))
 
       renderOutputsDock()
