@@ -61,7 +61,23 @@ describe('the refusal act targets a real Model-tab section', () => {
   const sectionKeys = (): string[] => {
     const i = host.indexOf('const MODEL_SECTION_TARGET')
     expect(i, 'MODEL_SECTION_TARGET not found — renamed?').toBeGreaterThan(-1)
-    const block = host.slice(i, host.indexOf('}', i))
+    // ⚠ ENDS AT THE CLOSING BRACE AT COLUMN 0, NOT AT THE FIRST `}` (repaired
+    // 10 Sep 2026). #1402 made the map's values OBJECTS (`{ group: 'factors' }`,
+    // so one entry carries both the scroll target and the group to open), and
+    // `indexOf('}')` then stopped inside the FIRST VALUE — the derived key set
+    // collapsed to a single entry. The parse went BLIND, not wrong, and
+    // `keys.length >= 4` below is the only reason it failed loudly instead of
+    // passing on a one-key set. That is why this is a PARSER fix and not a
+    // rewritten guard. #1402 already applied this same repair to its two
+    // precedent specs: `results/__tests__/triageEditActRoutesToFactors.spec.ts:49`
+    // and `analysis-hero/__tests__/reviewValueTargetsFactorsSection.spec.ts:49`.
+    //
+    // The key regex is unchanged and still correct: it is anchored to the start
+    // of a line, so an entry's INNER field names (`group`, `testId`) are never
+    // mistaken for section keys.
+    const end = host.indexOf('\n}', i)
+    expect(end, 'MODEL_SECTION_TARGET has no closing brace at column 0').toBeGreaterThan(i)
+    const block = host.slice(i, end)
     return [...block.matchAll(/^\s*([a-zA-Z][a-zA-Z0-9_]*)\s*:/gm)].map((m) => m[1])
   }
 
