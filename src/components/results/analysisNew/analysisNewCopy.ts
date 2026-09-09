@@ -985,6 +985,18 @@ export const ANALYSIS_NEW_COPY = {
      */
     eyebrowLeading: 'Most likely to serve your goal',
     /**
+     * The label above the producer's own refusal sentence. FURNITURE ONLY —
+     * this surface naming its own slot. The claim itself is never authored
+     * here: it arrives on `analysis_admission.reasons[]` and is rendered
+     * unparaphrased, so the product cannot soften or overstate what the model
+     * actually refused.
+     *
+     * ⚠ NOT "why there is no leading option" — `noWinnerVocabulary.spec.ts`
+     * bans that phrase and is RIGHT to: the panel does not report a contest.
+     * What the admission governs is which CONCLUSIONS this run permits.
+     */
+    eyebrowWhyWithheld: 'What this run may not conclude',
+    /**
      * ⚠ STILL LIVE, AND ITS ONLY CONSUMER IS NOW `ModelStrip`'s per-node chip —
      * a standalone claim that the run ranked this node among its top drivers.
      * The glance's own driver LIST, which this used to head, was removed at

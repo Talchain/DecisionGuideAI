@@ -43,6 +43,7 @@
 
 import { truncateAtWordBoundary } from '../../../utils/text'
 import { leaderDesignationPermitted } from '../leaderDesignation'
+import { licensesComparativeLeaderClaim } from '../../../canvas/hooks/useAnalysisReady'
 import {
   ASSUMED_STRENGTH_TITLE,
   assumedStrengthAsk,
@@ -1676,6 +1677,32 @@ function buildAtAGlance(
       ? `${leader.label} currently scores higher`
       : null
 
+  // ── WHY THERE IS NO ANSWER, WHEN THE MODEL IS THE REASON ──────────────────
+  //
+  // ⚠⚠ SELECTED BY `field`, NEVER BY POSITION. `analysis_admission.reasons` is
+  // an array of conjuncts and the ORDER IS THE PRODUCER'S. On the live wire
+  // (staging `103ac4fd`, fresh guest, 2026-09-09) `reasons[0]` is
+  // `structurally_analysable` / `READY_TO_COMPARE` — "Analysis can run on this
+  // model as it stands" — and the sentence a reader needs sits at [1] and [2].
+  // `buildHeroModel.ts:952` reads `reasons?.[0]?.message` and therefore puts the
+  // AFFIRMATIVE sentence in its withheld slot. Do not copy that shape here.
+  //
+  // ⚠ AND GATED ON THE ADMISSION, NOT ON THE COMPOSED FIELD. `licensesComparativeLeaderClaim`
+  // is the SAME reader `useResultsSectionData.ts:2275` uses to build Q1 — reused,
+  // not re-expressed, so there is one predicate for one question. Its absence arm
+  // returns `true` ("the producer has not spoken"), which is exactly right here:
+  // no admission means no refusal to explain, and `invalidateAnalysisReady`
+  // (`store.ts:1893-1904`) makes that state reachable on the user's own keystroke.
+  //
+  // ⛔ NOT `leaderDesignationPermitted(rec) !== true`. That is `Q1 && Q2`, so it
+  // is also false when the ARMS did not separate — and this sentence would then
+  // assert a model refusal the producer never made.
+  const designationWithheldReason =
+    licensesComparativeLeaderClaim(rec.analysisAdmission) === false
+      ? (rec.analysisAdmission?.reasons?.find((r) => r?.field === 'permitted_analysis_mode')
+          ?.message?.trim() ?? null) || null
+      : null
+
   // ── SCOPE: what does the win share range over? ────────────────────────────
   //
   // ⚠⚠ THE DEFECT THIS CLOSES, MEASURED AT A CONTROLLED CAPTURE (ROADMAP 2.1340).
@@ -1760,6 +1787,7 @@ function buildAtAGlance(
 
   return {
     headline,
+    designationWithheldReason,
     leaderLabel: headline && leader ? leader.label : null,
     winShare,
     winFraction,
