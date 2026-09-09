@@ -5,7 +5,7 @@
  * the separate Impact / Investigation value sections.
  */
 
-import { memo, useState, useMemo, useCallback } from 'react'
+import { memo, useState, useMemo, useCallback, useRef } from 'react'
 import { Link, MessageSquare } from 'lucide-react'
 import Tooltip from '../../../../components/Tooltip'
 import { useCanvasStore } from '../../../store'
@@ -48,6 +48,7 @@ import { resolveCoaching } from '../coachingConfig'
 import { FactorControllableEditor } from '../editors/FactorControllableEditor'
 import { resolveEdgeSignedStrengthDisplay } from '../../../domain/edgeValueProvenance'
 import { useOptionalConversationContext } from '../../../conversation/ConversationContext'
+import { SEND_BLOCKED } from '../../../conversation/useConversation'
 import {
   acceptsElicitedBelief,
   buildFactorValueEditEvent,
@@ -106,6 +107,17 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
    * receipt over a change the server never heard about.
    */
   const [valueCommitOutcome, setValueCommitOutcome] = useState<'sent' | 'local_only' | null>(null)
+  /**
+   * Which commit the notice belongs to. The wire attempt is fire-and-forget,
+   * so its outcome can land after a later commit — or after the person has
+   * moved to another factor. Both make the resolution stale, and a stale
+   * resolution writing "Sent to Olumi" over a different edit is the same
+   * class of untrue receipt this state exists to prevent.
+   */
+  const valueCommitSeqRef = useRef(0)
+  /** Always the factor on screen, so a late resolution can tell it moved. */
+  const shownNodeIdRef = useRef(nodeId)
+  shownNodeIdRef.current = nodeId
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
 
   /**
@@ -291,7 +303,18 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       // never reached CEE, its graph_hash never moved, and the rerun the
       // freshness strip invited could not possibly reflect the change.
       if (!sendSystemEvent) return
-      setValueCommitOutcome('sent')
+
+      // ⚠ THE PRESENCE OF THE FUNCTION IS NOT A DISPATCH, AND AN EARLIER VERSION
+      // OF THIS COMMITTED 'sent' RIGHT HERE — i.e. because the provider existed.
+      // `sendSystemEvent` returns `SEND_BLOCKED` as a RESOLVED value on two
+      // paths that never reach the wire (`useConversation.ts:5935` when the
+      // orchestrator is off, `:5945` when the event type is not serialisable),
+      // and the `.catch` below cannot see either. So the outcome is read off
+      // what the dispatcher actually returns, and only a genuine dispatch or a
+      // deferral — which the deferral buffer WILL flush — is allowed to say
+      // "Sent to Olumi".
+      const commitSeq = ++valueCommitSeqRef.current
+      const commitNodeId = nodeId
     // Fire-and-forget: the response is ingested by the shared turn path
     // (applyV5State applies graph_patch + analysis_ready for system-event turns
     // exactly as it does for message turns). Awaiting here would block the blur
@@ -309,7 +332,16 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
     // `useConversation`'s `deferredSystemSendsRef`.
       void Promise.resolve(
         sendSystemEvent(event, undo ? { optimisticFactorEdit: undo } : undefined),
-      ).catch(() => {
+      ).then(outcome => {
+        // A later commit, or a move to another factor, owns the notice now.
+        if (commitSeq !== valueCommitSeqRef.current || commitNodeId !== shownNodeIdRef.current) return
+        setValueCommitOutcome(outcome === SEND_BLOCKED ? 'local_only' : 'sent')
+      }).catch(() => {
+        // A genuine send failure leaves the edit local. Saying so is the whole
+        // point of this state — the store write did happen, the wire one did not.
+        if (commitSeq === valueCommitSeqRef.current && commitNodeId === shownNodeIdRef.current) {
+          setValueCommitOutcome('local_only')
+        }
         // Swallowed deliberately: a genuine send failure is already recorded by
         // the conversation's own failure channel. Re-throwing from a blur handler
         // would surface as an unhandled rejection and tell the user nothing they
@@ -727,8 +759,19 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       </PanelGroup>
 
       {/* ── Expert-only model detail ──────────────────────────── */}
+      {/* ⚠⚠ WRITERS 2–15 OF 15, AND THE FOURTEEN A FILE-SCOPED SWEEP MISSES.
+          `FactorControllableEditor` holds 14 `mutations.set*` call sites, every
+          one a bare `updateNode` with NO wire carrier — including
+          `setObservedValue`, which writes the SAME field as the headline value
+          control without the `factor_value_edit` send and clears
+          `display_value` on the way. None of them is spelled in this file, and
+          a review caught them after I enumerated only the controls written
+          here. Audit the tree, not the file — the identical omission was
+          caught on the sibling pane and is recorded at `OptionPanel.tsx:71`. */}
       <TechnicalDisclosure visible={techMode}>
-        <FactorControllableEditor nodeId={nodeId} />
+        <fieldset disabled={readOnly} className="contents" data-writer-fence="advanced-editor">
+          <FactorControllableEditor nodeId={nodeId} />
+        </fieldset>
         {/* Raw model values moved here from the value card — tech-mode only */}
         {shouldShowNormalised(techMode, rawValue) && value != null && (
           <div className={`${typography.panelMeta} text-text-light mt-2`}>

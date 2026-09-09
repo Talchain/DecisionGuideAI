@@ -26,7 +26,9 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { InspectorModal } from '../../../components/InspectorModal'
+import { FactorControllablePanel } from '../panels/FactorControllablePanel'
 import { useCanvasStore } from '../../../store'
 
 // importOriginal-spread, NOT a hand-listed factory: `vi.mock` REPLACES the
@@ -97,6 +99,42 @@ function openFactor() {
  * not about the blanket over it. Every enabled-ness assertion below therefore
  * walks up for an ancestor fieldset as well.
  */
+/**
+ * Renders the panel on its own so `readOnly` can be varied. The Router hands
+ * an opted-in panel `readOnly` unconditionally, so the enabled half of the
+ * discriminating pair is unreachable through `InspectorModal`.
+ */
+function renderPanel(opts: { readOnly: boolean }) {
+  return render(
+    <FactorControllablePanel
+      nodeId={FACTOR_ID}
+      techMode
+      onClose={vi.fn()}
+      onNavigate={vi.fn()}
+      readOnly={opts.readOnly}
+    />,
+  )
+}
+
+/**
+ * The advanced editor's field label is a bare `<span>` with no `htmlFor` and no
+ * `aria-label`, so `getByLabelText` cannot reach its input — it is not a label
+ * in the accessibility sense at all. (That is a real defect in
+ * `AdvancedField.tsx:163`; it is rowed, not fixed here.) Bind through the label
+ * TEXT to the input beside it, matched exactly so a sibling field cannot
+ * satisfy it (trap 19).
+ */
+function editorField(fence: HTMLElement, label: string): HTMLInputElement {
+  const span = [...fence.querySelectorAll('span')].find(
+    el => el.textContent?.trim() === label,
+  )
+  if (!span) throw new Error(`no advanced field labelled "${label}" inside the fence`)
+  const input = span.closest('div')?.parentElement?.querySelector('input')
+    ?? span.parentElement?.parentElement?.querySelector('input')
+  if (!input) throw new Error(`field "${label}" has no input`)
+  return input as HTMLInputElement
+}
+
 function isInert(el: Element | null): boolean {
   if (el === null) return true
   if (el.hasAttribute('disabled')) return true
@@ -153,6 +191,50 @@ describe('the writer that saves is live, and the writer that does not is fenced'
         `writer fence "${f.getAttribute('data-writer-fence')}" is not disabled`,
       ).toBe(true)
     }
+  })
+
+  it('fences the ADVANCED EDITOR — 14 writers that a file-scoped sweep misses', async () => {
+    // ⚠ THIS IS THE CASE THE FIRST VERSION OF THIS PR DID NOT HAVE, AND ITS
+    // ABSENCE IS WHY THE PR SHIPPED THE DEFECT IT EXISTS TO PREVENT. Removing
+    // the Router blanket un-fenced `FactorControllableEditor`, mounted through
+    // `TechnicalDisclosure` and reachable in one click. Its 14 `mutations.set*`
+    // calls are spelled in ANOTHER FILE, so counting the writers named in this
+    // panel found none of them. `setObservedValue` among them writes the SAME
+    // field as the headline control with no `factor_value_edit` send.
+    //
+    // ⚠ RENDERED DIRECTLY, not through the Router, and deliberately: the Router
+    // passes `readOnly` UNCONDITIONALLY to an opted-in panel
+    // (`InspectorRouter.tsx:449`), so it cannot produce the contrast below.
+    // `inspectorAuthorityBinding.spec.tsx` is what pins the Router half.
+    const { container } = renderPanel({ readOnly: true })
+    await userEvent.click(screen.getByRole('button', { name: /Show model detail/i }))
+
+    const fence = container.querySelector('fieldset[data-writer-fence="advanced-editor"]')
+    expect(fence, 'the advanced editor must sit behind its own fence').not.toBeNull()
+
+    // Bound by IDENTITY to a control the EDITOR renders (trap 19), and asserted
+    // INERT rather than merely nested — the fence is worth nothing unless the
+    // browser actually refuses the write.
+    const normalised = editorField(fence as HTMLElement, 'Normalised value')
+    expect(
+      isInert(normalised),
+      'the editor control that writes the headline value WITHOUT the wire send is live',
+    ).toBe(true)
+  })
+
+  it('DISCRIMINATES — the same editor control is live when the panel is NOT read-only', async () => {
+    // ⭐ The pair. Without this, the case above also passes on a change that
+    // disabled the editor unconditionally — a fence that can never open is not
+    // a fence, it is a deletion, and it would take the expert surface with it.
+    const { container } = renderPanel({ readOnly: false })
+    await userEvent.click(screen.getByRole('button', { name: /Show model detail/i }))
+    const fence = container.querySelector('fieldset[data-writer-fence="advanced-editor"]')
+    expect(fence, 'the fence element must exist in both states').not.toBeNull()
+    const normalised = editorField(fence as HTMLElement, 'Normalised value')
+    expect(
+      isInert(normalised),
+      'the editor is inert even when nothing is read-only — the fence never opens',
+    ).toBe(false)
   })
 
   it('fences the DESCRIPTION specifically — it writes to the local store only', () => {

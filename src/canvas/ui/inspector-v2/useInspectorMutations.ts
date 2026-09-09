@@ -232,7 +232,13 @@ export const INSPECTOR_OPTION_READ_ONLY_REASON =
  * discover the exception by losing a description to the next rehydrate.
  */
 export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
-  'The name and the value save to the shared model. Description is read-only for now — links, details and coaching still work.'
+  // ⚠ DELIBERATELY NOT A CLOSED CLAIM. An earlier wording named description as
+  // THE exception; the panel also fences its advanced editor (14 writers with no
+  // carrier), so "description is the one read-only thing" was false the moment it
+  // was written. This says what saves and leaves the complement open — it stays
+  // true as carriers are added, and a reader is never told a control saves when
+  // it does not.
+  'The name and the value save to the shared model. Other edits here stay on this device for now — links, details and coaching still work.'
 
 // ─── Node mutations ────────────────────────────────────────────────
 export function useNodeMutations(nodeId: string) {
