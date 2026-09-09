@@ -43,6 +43,7 @@ import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { GLANCE_PROVENANCE_COPY } from '../glanceProvenanceCopy'
 import { methodForRecommendation } from '../recommendationMethod'
 import type { AtAGlance as AtAGlanceModel } from '../analysisNewTypes'
+import { inset, PANEL_INSET_ACTION } from '../panelSurfaces'
 
 /** Verdict tone → the accent that carries it. */
 const TONE_PILL: Record<string, string> = {
@@ -493,7 +494,7 @@ export function AtAGlance({
              to FOUR lines of two words. `flex-wrap` plus the floor below drops
              the control to its own line exactly when the sentence can no
              longer afford to share one, and keeps it inline at 420px. */
-          className="flex flex-wrap items-start gap-1.5 rounded-md border border-warning/30 bg-warning/[0.05] px-2 py-1.5"
+          className={`flex flex-wrap items-start gap-1.5 ${inset('warning')}`}
           role="status"
           data-testid={`${testId}-ribbon`}
         >
@@ -875,7 +876,7 @@ export function AtAGlance({
           )
           return (
             <div
-              className="rounded-md border border-warning/30 bg-warning/[0.04] px-2 py-1.5"
+              className={inset('warning')}
               data-testid={`${testId}-condition`}
             >
               {focusable ? (
@@ -908,7 +909,7 @@ export function AtAGlance({
         <button
           type="button"
           onClick={() => onRunIntervention(primaryIntervention.id)}
-          className="w-full flex items-start gap-2 rounded-lg bg-info/[0.06] px-2.5 py-2 text-left hover:bg-info/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+          className={`w-full flex items-start gap-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${PANEL_INSET_ACTION}`}
           data-testid={`${testId}-primary-intervention`}
           data-recommendation-id={primaryIntervention.id}
         >
