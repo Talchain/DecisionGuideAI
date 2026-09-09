@@ -740,6 +740,7 @@ function FactorsSectionInner({
       title="Factors"
       badgeCount={factorNodes.length}
       tierLabel={toVerifyCount > 0 ? `${toVerifyCount} to verify` : undefined}
+      tierTitle="Factors whose value Olumi estimated rather than reading from you. Set them to make the model yours." 
       tierVariant={toVerifyCount > 0 ? 'needs_work' : undefined}
       defaultExpanded
       isExpanded={isExpanded}

@@ -190,16 +190,49 @@ function ModelHealthSectionInner({
   // ⛔ The `"{N}% stability"` half is REMOVED (2.1273) — see the file header.
   // The summary is the quality score alone; the `.filter(Boolean).join(' · ')`
   // combiner went with it, since there is nothing left to combine.
-  const qualityLabel = ceeQuality?.overall != null
-    ? `${ceeQuality.overall.toFixed(1)} / 10`
-    : null
+  /**
+   * ⭐⭐ THE BARE NUMBER GOES BEHIND THE EXPERT TOGGLE (Paul, 9 Sep 2026:
+   * *"the bare numbers should be under easy-to-access progressive disclosure,
+   * so they don't scare the average user"*).
+   *
+   * `9.0 / 10` beside a heading called "Model card" reads as *"your model is
+   * 9 out of 10"*. It is not that. It is CEE's `quality.overall`, a STRUCTURAL
+   * assessment — measured live on deployed `3b2df4ce`:
+   *     { coverage: 10, structure: 8, safety: 8, overall: 9 }
+   * A well-formed draft scores 9 while every outcome is unset, the goal has no
+   * target and 7 of 8 factors are Olumi's estimates rather than the user's. The
+   * number is not wrong; unlabelled and alone, it answers a question the reader
+   * did not ask and silences the ones they should.
+   *
+   * ⛔ NOT REPLACED BY A WORD. Deriving "Good"/"Fair" from `overall` would be a
+   * NEW SCORE wearing plain clothes, and inventing a judgement is worse than
+   * showing none. Plain shows nothing here; the card's own content is unchanged
+   * and still open to everyone. Expert shows the three dimensions that were
+   * always present and never rendered — `overall` alone was.
+   *
+   * The toggle already exists: `OutputsDock.tsx:1150` (`olumi.expertMode`,
+   * persisted), provided at `ModelTabBody.tsx:955`. Nothing new is introduced.
+   */
+  const qualityLabel =
+    showDetail && ceeQuality?.overall != null
+      ? [
+          ceeQuality.coverage != null ? `coverage ${ceeQuality.coverage}` : null,
+          ceeQuality.structure != null ? `structure ${ceeQuality.structure}` : null,
+          ceeQuality.safety != null ? `safety ${ceeQuality.safety}` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ') || `${ceeQuality.overall.toFixed(1)} / 10`
+      : null
   const headerSummary = qualityLabel ?? undefined
 
   return (
     <Accordion
       title="Model card"
       tierLabel={headerSummary}
+      // ⚠ 'fair' was hardcoded for EVERY value — a 9 and a 3 wore the same
+      // pill. Neutral until a variant is derived from the number it describes.
       tierVariant={headerSummary ? 'fair' : undefined}
+      tierTitle="Olumi's structural read of the model: how much of the decision it covers, how well-formed it is, and how safely it can be analysed. Out of 10 each. It does not say whether the values are yours or evidenced." 
       // ⭐ OPEN ON ARRIVAL (29 Aug 2026). The card carries the seed, the
       // sample count, the VOI method and an explicit "Not reported by this
       // run" for everything the engines did not report — the product's
