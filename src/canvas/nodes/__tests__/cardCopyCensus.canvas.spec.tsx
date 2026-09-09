@@ -473,6 +473,8 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'Driven by:', // HEADING
     'Strength', // CAPTION
     'What reduces this?', // CONTROL
+    'What would we see first?', // CONTROL — new. Both existing risk chips ask
+    // how to REDUCE the risk; neither asks how you would KNOW it was happening.
   ],
   'risk · post · standard': ['Strength'],
   'risk · post · expert': [
@@ -480,12 +482,17 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'Depends on:', // HEADING
     'Strength', // CAPTION
     'What reduces this?', // CONTROL
+    'What would we see first?', // CONTROL — new, and deliberately in BOTH
+    // phases, matching the existing risk pair.
   ],
   'outcome · pre · standard': ['Strength'],
   'outcome · pre · expert': [
     'Driven by:', // HEADING
     'Strength', // CAPTION
     'What strengthens this?', // CONTROL
+    'What would falsify this?', // CONTROL — new. Its sibling can only ever
+    // CONFIRM the outcome; this is the disconfirming twin. Pre-analysis only,
+    // because `outcomeChips` still returns null post-analysis.
   ],
   'outcome · post · standard': ['Strength'],
   'outcome · post · expert': [
