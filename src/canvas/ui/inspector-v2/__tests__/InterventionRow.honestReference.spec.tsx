@@ -283,16 +283,19 @@ describe('through the mounted inspector, on the live capture', () => {
     )
     expect(container.querySelector(NODE_INSPECTOR)).not.toBeNull()
 
-    const readInput = () =>
-      (
-        screen
-          .getByTestId(`inspector-intervention-${FACTOR_PRICE}`)
-          .querySelector('input') as HTMLInputElement
-      ).value
+    // ⚠⚠ READS THE VALUE, NOT AN INPUT — and it read an input until O08 landed.
+    // The mounted inspector is read-only now, so the target renders as text and
+    // `querySelector('input')` returns null; this arm failed on the locator, not
+    // on the property. The property is unchanged: switching options must replace
+    // the displayed target.
+    const readTarget = () =>
+      screen
+        .getByTestId(`intervention-target-readonly-${FACTOR_PRICE}`)
+        .textContent?.trim() ?? ''
 
-    expect(readInput()).toBe('0.59')
+    expect(readTarget()).toContain('0.59')
 
     rerender(<InspectorModal nodeId={OPTION_STATUS_QUO} edgeId={null} onClose={vi.fn()} />)
-    expect(readInput()).toBe('0.49')
+    expect(readTarget()).toContain('0.49')
   })
 })

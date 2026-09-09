@@ -57,6 +57,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { InspectorModal } from '../../../components/InspectorModal'
+import { OptionPanel } from '../panels/OptionPanel'
 import { useCanvasStore } from '../../../store'
 
 // importOriginal-spread, NOT a hand-listed factory: `vi.mock` REPLACES the
@@ -135,6 +136,38 @@ function openInspector(nodeId: string) {
   return { ...utils, dialog: dialog as HTMLElement }
 }
 
+/**
+ * ⭐⭐ THE EXPLICITLY EDITABLE HARNESS — for round-trip properties only.
+ *
+ * ⚠ WHY IT EXISTS. O08 gave `OptionPanel` its own authority boundary: mounted
+ * through `InspectorRouter` it now receives `readOnly`, fences its writers, and
+ * renders the description as a VALUE rather than a textarea. Six arms here fire
+ * changes on that textarea, so through the mounted chain they were locating a
+ * control that is intentionally absent.
+ *
+ * ⛔ THE FIX IS NOT TO RE-ENABLE PRODUCT WRITES TO SATISFY THEM. What these arms
+ * actually guard is the producer-note ROUND TRIP — that an edit is stored back
+ * in the producer's exact format and never destroys the attribution — and that
+ * property belongs to the editable panel, not to the read-only inspector. So
+ * they render the panel directly with editing on, and the arms that assert what
+ * a READER sees keep the mounted chain.
+ *
+ * ⚠ AND THE TRADE, STATED: rendering the panel directly loses the mount-path
+ * proof that `InspectorModal` → `InspectorRouter` still reaches `OptionPanel`
+ * (trap 3b). T1, T2, T5 and T11 keep the mounted chain and carry that proof for
+ * the file.
+ */
+function openEditablePanel(nodeId: string) {
+  const utils = render(
+    <OptionPanel nodeId={nodeId} techMode={false} onClose={vi.fn()} onNavigate={vi.fn()} />,
+  )
+  expect(
+    utils.container.firstElementChild,
+    'PRECONDITION: the editable OptionPanel rendered nothing',
+  ).not.toBeNull()
+  return { ...utils, dialog: utils.container as HTMLElement }
+}
+
 /** The option description editor, bound by its exact placeholder. */
 function descriptionEditor(): HTMLTextAreaElement | null {
   return screen.queryByPlaceholderText(OPTION_PLACEHOLDER) as HTMLTextAreaElement | null
@@ -179,7 +212,7 @@ describe('ROADMAP 2.1204 — the absorption note is disclosed as a DRAFTING note
     // existing description; a `startsWith` parser is inert on every option in
     // this class, which is reachable on a first draft.
     seedStore([optionNode(`${USER_PROSE}\n\n${NOTE}`)])
-    const { dialog } = openInspector(SURVIVOR_ID)
+    const { dialog } = openEditablePanel(SURVIVOR_ID)
 
     const note = within(dialog).getByTestId('option-drafting-note')
     expect(note.textContent).toContain(NOTE)
@@ -195,7 +228,7 @@ describe('ROADMAP 2.1204 — the absorption note is disclosed as a DRAFTING note
   it('⭐⭐ T8 STACKED absorptions — every note is attributed, none left in the body', () => {
     // The producer loop runs per twin, so two absorptions append twice.
     seedStore([optionNode(`${USER_PROSE}\n\n${NOTE}\n\n${SECOND_NOTE}`)])
-    const { dialog } = openInspector(SURVIVOR_ID)
+    const { dialog } = openEditablePanel(SURVIVOR_ID)
 
     const note = within(dialog).getByTestId('option-drafting-note')
     expect(note.textContent).toContain(NOTE)
@@ -208,7 +241,7 @@ describe('ROADMAP 2.1204 — the absorption note is disclosed as a DRAFTING note
     // Not a third storage format: what we write must be what CEE would write,
     // or the next consumer parses something no producer emits.
     seedStore([optionNode(`${USER_PROSE}\n\n${NOTE}`)])
-    openInspector(SURVIVOR_ID)
+    openEditablePanel(SURVIVOR_ID)
 
     const editor = descriptionEditor()!
     fireEvent.change(editor, { target: { value: 'Two hires, starting in Q3.' } })
@@ -261,7 +294,7 @@ describe('ROADMAP 2.1204 — the absorption note is disclosed as a DRAFTING note
     // read so nothing is stranded, and rewritten to the producer's format the
     // first time the description is committed.
     seedStore([optionNode(`${NOTE}\n${USER_PROSE}`)])
-    const { dialog } = openInspector(SURVIVOR_ID)
+    const { dialog } = openEditablePanel(SURVIVOR_ID)
 
     expect(within(dialog).getByTestId('option-drafting-note').textContent).toContain(NOTE)
     const editor = descriptionEditor()!
@@ -274,7 +307,7 @@ describe('ROADMAP 2.1204 — the absorption note is disclosed as a DRAFTING note
 
   it('⭐ T4 renders NO drafting-note line when the description carries no note', () => {
     seedStore([optionNode(USER_PROSE)])
-    const { dialog } = openInspector(SURVIVOR_ID)
+    const { dialog } = openEditablePanel(SURVIVOR_ID)
 
     expect(descriptionEditor()!.value).toBe(USER_PROSE)
     expect(within(dialog).queryByTestId('option-drafting-note')).toBeNull()
@@ -291,7 +324,7 @@ describe('ROADMAP 2.1204 — the absorption note is disclosed as a DRAFTING note
 
   it('⭐ T6 editing a previously-empty description does not DESTROY the trace', () => {
     seedStore([optionNode(NOTE)])
-    openInspector(SURVIVOR_ID)
+    openEditablePanel(SURVIVOR_ID)
 
     fireEvent.click(screen.getByText(OPTION_PLACEHOLDER))
     const editor = descriptionEditor()

@@ -135,7 +135,14 @@ function openOption() {
  * it proves the advanced editor is reachable the way a user reaches it.
  */
 function showTechnicalDetail() {
+  // ⚠⚠ TWO GATES, NOT ONE, AND MY FIRST VERSION ONLY OPENED THE OUTER ONE.
+  // The shell's toggle sets `techMode`, which merely lets `TechnicalDisclosure`
+  // RENDER; the disclosure then keeps its OWN `open` state and shows nothing
+  // until its "Show model detail" button is pressed. So the advanced editor —
+  // and the two writers inside it — never mounted, and the fence sweep was
+  // measuring a subtree that was not there. Caught in review.
   fireEvent.click(screen.getByRole('button', { name: 'Show technical detail' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Show model detail' }))
 }
 
 describe('the option panel owns its authority boundary', () => {
@@ -243,7 +250,14 @@ describe('a read-only target reads as a value, not a broken input', () => {
     openOption()
     const row = screen.getByTestId(`inspector-intervention-${FACTOR_ID}`)
 
-    expect(within(row).getByTestId(`intervention-target-readonly-${FACTOR_ID}`)).toHaveTextContent('0.49')
+    const target = within(row).getByTestId(`intervention-target-readonly-${FACTOR_ID}`)
+    expect(target).toHaveTextContent('0.49')
+    // ⚠⚠ THE UNIT DOES NOT EXEMPT IT, and this fixture is the reason. The factor
+    // carries `unit: '£'` — belonging to the recorded raw 59 — while the target
+    // is the normalised 0.49. My first condition was `!displayValue && !unit`,
+    // so the one row that most needed the qualifier was the only row denied it,
+    // because a unit describing a DIFFERENT quantity suppressed it.
+    expect(target).toHaveTextContent('model value')
     // A greyed box invites a click, absorbs it, and teaches the reader the
     // product is broken rather than that this surface does not edit.
     expect(
@@ -296,5 +310,59 @@ describe('the description belongs to the option on screen', () => {
     })
 
     expect(screen.getByTestId('option-description-readonly')).toHaveTextContent(rewritten)
+  })
+})
+
+describe('the numeric fallback says which scale it is on', () => {
+  beforeEach(seed)
+
+  it('qualifies the target even when the factor carries a unit — the paired case', () => {
+    openOption()
+    const row = screen.getByTestId(`inspector-intervention-${FACTOR_ID}`)
+    // `observedState.unit` is '£' here and the target is still qualified.
+    expect(within(row).getByTestId(`intervention-target-readonly-${FACTOR_ID}`)).toHaveTextContent('model value')
+  })
+
+  it('does NOT qualify a target the producer framed itself — the twin', () => {
+    // ⭐ The pair is what proves the rule is "a CEE-authored display_value is
+    // the only exemption" rather than "always qualify", which would be noise on
+    // every row the producer had already explained.
+    useCanvasStore.setState({
+      nodes: useCanvasStore.getState().nodes.map(n =>
+        n.id === OPTION_ID
+          ? { ...n, data: { ...n.data, interventions: { [FACTOR_ID]: { value: 0.49, display_value: 'Cut to £49' } } } }
+          : n,
+      ),
+    } as never)
+    openOption()
+    const row = screen.getByTestId(`inspector-intervention-${FACTOR_ID}`)
+    expect(row).toHaveTextContent('Cut to £49')
+    expect(row.textContent, 'a producer-framed value does not need our qualifier').not.toContain('model value')
+  })
+})
+
+describe('the permitted controls are exercised, not merely enabled', () => {
+  beforeEach(seed)
+
+  it('factor navigation actually selects the factor', () => {
+    // ⚠ `disabled === false` proves a control is not inert; it does not prove
+    // it does anything. This fires it and reads the store.
+    openOption()
+    const row = screen.getByTestId(`inspector-intervention-${FACTOR_ID}`)
+    fireEvent.click(within(row).getByRole('button', { name: FACTOR_LABEL }))
+    expect([...useCanvasStore.getState().selection.nodeIds]).toContain(FACTOR_ID)
+  })
+
+  it('shows the static empty-description branch when the record has no description', () => {
+    useCanvasStore.setState({
+      nodes: useCanvasStore.getState().nodes.map(n =>
+        n.id === OPTION_ID ? { ...n, data: { ...n.data, description: '' } } : n,
+      ),
+    } as never)
+    openOption()
+    // No description and no editor: the pane must still say something rather
+    // than rendering an empty region that reads as a loading state.
+    expect(screen.queryByTestId('option-description-readonly')).toBeNull()
+    expect(screen.queryByRole('textbox'), 'a read-only pane offered an editor').toBeNull()
   })
 })
