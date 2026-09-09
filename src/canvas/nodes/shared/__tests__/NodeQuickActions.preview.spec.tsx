@@ -43,7 +43,8 @@ describe('node preview and action tooltip priority', () => {
     fireEvent.mouseEnter(action)
     await advance()
     expect(screen.queryByTestId('preview')).toBeNull()
-    expect(screen.getByRole('tooltip')).toHaveTextContent('what could be wrong or missing?')
+    // The hint names the ACTION, not the node — see NodeQuickActions.tooltipCopy.spec.tsx.
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Challenge this option')
     expect(action).toHaveAttribute('title', '')
     fireEvent.mouseLeave(action, { relatedTarget: screen.getByTestId('body') })
     fireEvent.mouseEnter(screen.getByTestId('body'))

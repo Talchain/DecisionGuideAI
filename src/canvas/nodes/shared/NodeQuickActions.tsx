@@ -322,13 +322,52 @@ export const NodeQuickActions = memo(function NodeQuickActions({
     e.stopPropagation()
   }, [])
 
+  /**
+   * ⭐⭐ TOOLTIP COPY AND ACCESSIBLE NAME ANSWER DIFFERENT QUESTIONS.
+   *
+   * All three tooltips used to carry the node's own label — "Ask Olumi about
+   * {label}", "Challenge {label} — what could be wrong or missing?", "More
+   * actions for {label} — the same menu as right-click". Each was accurate.
+   * Together they were the wrong instrument for the surface:
+   *
+   *  - THE LABEL IS UNBOUNDED. A node title clamps to two lines on the card and
+   *    is recoverable in full from the inspector; a tooltip has neither clamp.
+   *    An option named by a real team ("Raise Pro from £49 to £59 alongside the
+   *    Q3 feature release") produced a hover box wider than the node, painted
+   *    over the card the pointer is resting on — the thing you hovered to act
+   *    on. Tooltip.tsx caps at `max-w-[200px]` and wraps, so long labels bought
+   *    HEIGHT instead: a tall block, still over the node.
+   *  - THE ANSWER WAS ALREADY ON SCREEN. The label is on the card, two
+   *    centimetres away, and the pointer is inside that card. Repeating it in
+   *    the hint spends the whole box restating context the reader has and
+   *    leaves the button's own meaning to be inferred from an icon.
+   *  - IT IS NOT THE ACCESSIBLE NAME'S JOB. A screen-reader user reaching these
+   *    buttons by Tab has NO spatial context, so `aria-label` must carry the
+   *    node identity and does — unchanged, all three. The two strings are
+   *    deliberately different because the two audiences hold different context,
+   *    and collapsing them is what made the sighted hint redundant.
+   *
+   * So: the visible hint says what the BUTTON does; the accessible name says
+   * which NODE it acts on. Routing, the 300 ms delay and the counter-scaled
+   * geometry (#1274) are untouched.
+   *
+   * ⚠ ONE BRANCH, NOT A KIND→NOUN MAP. "this option" reads better than "this
+   * node" on the surface this layer was designed for, and every other
+   * challengeable kind takes the generic word. A full spelling table already has
+   * three claimants in this repo (`NODE_REGISTRY`, `getTypeLabel`, `KIND_LABEL`
+   * — see `domain/vocabulary.ts`), and a fourth partial one added here for a
+   * two-way choice would be a fourth loose literal in a file whose header exists
+   * to stop exactly that.
+   */
+  const challengeHint = nodeType === 'option' ? 'Challenge this option' : 'Challenge this node'
+
   return (
     <div
       className={`node-quick-actions absolute bottom-1.5 right-1.5 z-[2] flex ${CANVAS_GAP_CLASSES[6]} transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 motion-reduce:transition-none ${alwaysVisible ? 'opacity-100' : 'opacity-0'}`}
       data-testid={`node-quick-actions-${nodeId}`}
     >
       {canAsk && (
-        <Tooltip asChild delay={300} content={`Ask Olumi about ${label}`}>
+        <Tooltip asChild delay={300} content="Ask Olumi">
           <button
             type="button"
             onClick={handleAsk}
@@ -351,7 +390,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           (`useMenuItems.ts`), so the button and the menu entry it unburies read
           as the same action rather than as two features. */}
       {canChallenge && (
-        <Tooltip asChild delay={300} content={`Challenge ${label} — what could be wrong or missing?`}>
+        <Tooltip asChild delay={300} content={challengeHint}>
           <button
             type="button"
             onClick={handleChallenge}
@@ -371,10 +410,17 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           model — it re-emits the gesture that already opens this node's menu,
           for the input classes that cannot perform it.
 
-          The tooltip names right-click on purpose. A user who learns the gesture
-          from it stops needing the button, which is the right direction for an
-          affordance whose job is discoverability. */}
-      <Tooltip asChild delay={300} content={`More actions for ${label} — the same menu as right-click`}>
+          ⚠ THE PARAGRAPH THAT CLOSED THIS BLOCK IS NO LONGER TRUE AND IS
+          QUOTED RATHER THAN DELETED. It read: *"The tooltip names right-click on
+          purpose. A user who learns the gesture from it stops needing the
+          button, which is the right direction for an affordance whose job is
+          discoverability."* The reasoning was sound and the sentence it
+          described is gone — the tooltip is now "More actions" (see
+          TOOLTIP COPY above). Teaching the gesture is still worth doing; a
+          hover hint that has to stay short is not where it fits, and the next
+          reader should not inherit a comment describing copy the file no longer
+          contains. */}
+      <Tooltip asChild delay={300} content="More actions">
         <button
           type="button"
           onClick={handleOpenMenu}
