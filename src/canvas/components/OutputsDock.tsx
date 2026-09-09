@@ -3698,6 +3698,13 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 factorInfluence={factorInfluenceMap}
                 ceeQuality={ceeQuality}
                 expertMode={expertMode}
+                // 2.581's convergence, now applied to the Model tab. The
+                // outline's Plain/Advanced control used to drive a private
+                // `useState` that this tab's own transparency block could not
+                // see and that was discarded on every tab switch (this render is
+                // conditional, so `ModelTabBody` unmounts). It now writes the
+                // one preference, exactly as the Compare pill above does.
+                onToggleExpert={setExpertMode}
                 onSendMessage={sendMessage}
               />
             )}

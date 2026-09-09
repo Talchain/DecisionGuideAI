@@ -93,6 +93,16 @@ interface ModelTabBodyProps {
   /** CEE quality dimensions from store */
   ceeQuality?: import('../store').CeeQualityDimensions | null
   expertMode?: boolean
+  /**
+   * ⭐ Ask `OutputsDock` to flip `olumi.expertMode` — the product's ONE expert
+   * preference (`OutputsDock.tsx:1150`, localStorage-persisted).
+   *
+   * This tab does not own the preference; it forwards the setter so the tier
+   * control inside `ModelTabV2Panel` writes the same thing the `</>` toggle in
+   * the tab strip writes. Before this existed the outline held a private,
+   * unpersisted tier and the two disagreed — see that panel's `expertMode` prop.
+   */
+  onToggleExpert?: (next: boolean) => void
   onSendMessage?: (message: string, opts?: { hidden?: boolean; debugSource?: string }) => void
 }
 
@@ -151,6 +161,7 @@ export const ModelTabBody = memo(function ModelTabBody({
   factorInfluence,
   ceeQuality,
   expertMode,
+  onToggleExpert,
   onSendMessage,
 }: ModelTabBodyProps) {
   // ⚠ THE SEARCH STATE IS GONE, NOT PARKED. It was declared here, threaded to
@@ -946,6 +957,8 @@ export const ModelTabBody = memo(function ModelTabBody({
         onHandOffToOlumi={olumiHandOff ? handOffToOlumi : undefined}
         currentScenarioId={currentScenarioId}
         lastServerGraphHash={lastServerGraphHash}
+        expertMode={expertMode ?? false}
+        onToggleExpert={onToggleExpert}
       />
 
       {/* Unique scientific transparency from the legacy stack, rehomed rather
