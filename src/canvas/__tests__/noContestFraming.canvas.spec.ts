@@ -196,18 +196,6 @@ const CONTEST_FRAMES: ReadonlyArray<{ readonly name: string; readonly re: RegExp
     name: 'lead (verb)',
     re: /\bto lead\b(?!\s+(?:to|into|toward))|\bleads? over\b|\bmakes? (?:this|it) lead\b(?!\s+(?:to|into|toward))|\blead instead\b/i,
   },
-  // ⭐⭐ ADDED after #1310, which came within one merge of reversing #1281 by
-  // taking `Support` back to `Scored highest` — and would have merged GREEN,
-  // because it moved 20+ spec files in lockstep with the copy it changed. A
-  // change that edits both the wording AND the tests that check the wording
-  // has no independent oracle; this guard is that oracle.
-  //
-  // Measured in scope at `342ab3b5` before adding: ZERO live occurrences, so
-  // this entry costs nothing today and REDs the moment the phrasing returns.
-  // ⚠ Bare `highest` is deliberately NOT banned — 60 in-scope occurrences,
-  // legitimate ones like "highest-severity", "highest-priority", "highest
-  // impact first". Banning it would red on ordinary English within a week.
-  { name: 'scored highest', re: /\bscored highest\b|\bscores? highest\b/i },
   { name: 'runner-up', re: /\brunner[- ]?up\b/i },
   { name: 'front-runner', re: /\bfront[- ]?runner\b/i },
 ]
@@ -408,7 +396,6 @@ describe('the canvas never frames a decision as a contest', () => {
     // row would let one regression hide behind the other.
     ['What makes this lead?', 'lead (verb)'],
     ['What would make "Option B" lead instead? What changes would be needed?', 'lead (verb)'],
-    ['Consolidate scored highest against your goal', 'scored highest'],
     ['Close race vs the runner-up', 'runner-up'],
     ['the front-runner on this run', 'front-runner'],
   ])('detects contest framing in %j', (sentence, expectedFrame) => {
@@ -442,7 +429,16 @@ describe('the canvas never frames a decision as a contest', () => {
     'The numbers behind these are mine, not yours.',
     'This reshapes your model, so it needs your go-ahead before it is applied.',
     'text-gray-400 hover:text-gray-600 text-2xl leading-none',
-    // ⛔ Bare `highest` survives. These are live in scope and are not races.
+    // ⛔ Bare `highest` survives, and this is now load-bearing rather than
+    // incidental. A `scored highest` ban was proposed here and WITHDRAWN on
+    // root's ruling: the metric's own semantics are "the relative frequency of
+    // scoring highest among the simulated runs", so the phrase can describe a
+    // truthful PER-RUN event as easily as it can assert a placing, and a
+    // line-based regex cannot tell those apart (CLAUDE.md trap 22f — when a
+    // predicate over natural language cannot separate two meanings, do not
+    // guess). Absence of a phrase from today's source is not authority to
+    // suppress a legitimate future statistic. These pins keep ordinary English
+    // safe if the question is reopened.
     'the highest-severity item sets the tone',
     'Get next fixable issue (highest impact first)',
   ])('leaves ordinary English alone: %j', (sentence) => {
