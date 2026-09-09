@@ -3,15 +3,18 @@ import { formatStatedLimitValue, renderLimitOperator } from '../../components/re
 import { classifyUnit } from '../../utils/unitClassifier'
 import { resolveElementLabel } from '../domain/elementLabel'
 
-/** State the recorded boundary, independently of any computed probability. */
+/** State the recorded boundary and its origin, independently of probability or evidence quality. */
 export function goalConstraintText(
   constraint: CEEGoalConstraint,
   nodes: readonly { id: string; data?: unknown }[] = [],
 ): string {
   const target = constraint.node_id ? nodes.find(n => n.id === constraint.node_id) : undefined
   const label = (typeof constraint.label === 'string' ? constraint.label.trim() : '') || (target ? resolveElementLabel(target.data) : 'Constraint')
+  // Explicit constraints may come from the brief or a panel edit; neither means verified.
+  const origin = constraint.provenance === 'inferred' ? ' · Inferred limit'
+    : constraint.provenance === 'proxy' ? ' · Proxy limit' : ''
   if (typeof constraint.value !== 'number' || !Number.isFinite(constraint.value) || !constraint.operator) {
-    return `${label} · limit not captured`
+    return `${label} · limit not captured${origin}`
   }
   const { kind, canonical } = classifyUnit(constraint.unit ?? null)
   let value = formatStatedLimitValue(constraint.value, constraint.unit)
@@ -19,5 +22,5 @@ export function goalConstraintText(
   else if (kind === 'symbol') value = `${canonical}${constraint.value.toLocaleString('en-GB')}`
   else if (kind === 'percent') value = `${constraint.value}%`
   else if (kind === 'other' && canonical.toLowerCase() !== 'count') value += ` ${canonical}`
-  return `${label} ${renderLimitOperator(constraint.operator)} ${value}`
+  return `${label} ${renderLimitOperator(constraint.operator)} ${value}${origin}`
 }

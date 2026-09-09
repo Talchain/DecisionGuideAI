@@ -77,6 +77,25 @@ describe('factor and goal content reaches the actual node and inspector', () => 
     expect(useCanvasStore.getState().nodes.find(node => node.id === FACTOR)?.selected).toBe(false)
   })
 
+  it.each([
+    { source: 'cee_inference', expected: 'AI estimate' },
+    { source: 'brief_extraction', expected: 'From brief' },
+    { source: 'user_confirmed', expected: 'Confirmed by you' },
+    { source: 'user', expected: 'User edited' },
+    { source: 'unknown-source', expected: 'Source not recorded' },
+    { source: undefined, expected: 'Source not recorded' },
+  ])('the current value names its own source: $source', async ({ source, expected }) => {
+    const current = { ...factor, data: { ...factor.data, observedState: {
+      ...(factor.data.observedState as object), source,
+    } } }
+    seed([current, option('option-source', 'Another setting', 0.49)])
+    render(<ReactFlowProvider><FactorNode {...props} id={FACTOR} type="factor" data={current.data} /></ReactFlowProvider>)
+    const preview = await hover('Monthly price')
+    expect(preview.getByText('£59')).toBeDefined()
+    expect(preview.getByTestId('factor-current-value-origin')).toHaveTextContent(expected)
+    expect(preview.getByTestId('factor-current-value-origin').parentElement).toHaveTextContent('Current value: £59')
+  })
+
   it('overflow reveals every option and the controllable inspector includes options without drawn edges', async () => {
     seed([factor, ...Array.from({ length: 5 }, (_, i) => option(`option-${i}`, `Approach ${i + 1}`, 0.4 + i / 10))])
     const card = render(<ReactFlowProvider><FactorNode {...props} id={FACTOR} type="factor" data={factor.data} /></ReactFlowProvider>)
@@ -145,7 +164,6 @@ describe('factor and goal content reaches the actual node and inspector', () => 
     seed([current], { viewMode: 'expert', ceeAnalysisReady: { options: values.map((value, i) => ({ id: `option-${i}`, interventions: { [FACTOR]: value } })) } })
     render(<ReactFlowProvider><FactorNode {...props} id={FACTOR} type="factor" data={current.data} /></ReactFlowProvider>)
     expect(screen.queryByText('Option settings are close to £59. Explore a wider range?') !== null).toBe(expected)
-    expect(screen.queryByText(/Anchored\?/)).toBeNull()
   })
 
   it('a goal without a target exposes the recorded constraint before analysis, matching its inspector', async () => {

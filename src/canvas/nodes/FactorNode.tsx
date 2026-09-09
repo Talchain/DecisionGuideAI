@@ -28,7 +28,8 @@ import { openNodeInspector } from './shared/openNodeInspector'
 import { resolveFactorPriorRange } from './shared/factorPriorRange'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { aggregateEdgeSignedStrength, compareEdgeValueAggregates } from '../domain/edgeValueProvenance'
-import { classifyValueProvenance } from '../domain/valueProvenance'
+import { classifyValueProvenance, VALUE_PROVENANCE_LABEL } from '../domain/valueProvenance'
+import { VALUE_PROVENANCE_ICON, PROVENANCE_ICON_SIZE_CLASSES } from '../domain/valueProvenanceIcon'
 import { factorConfidenceDisclosure } from '../../components/results/driverConfidenceDisplayPolicy'
 import Tooltip from '../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
@@ -36,6 +37,8 @@ import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
   const observedState = props.data?.observedState as ObservedState | undefined
+  const currentValueOrigin = classifyValueProvenance(observedState?.source)
+  const CurrentValueOriginIcon = currentValueOrigin ? VALUE_PROVENANCE_ICON[currentValueOrigin.kind] : null
 
   const cleanedLabel = cleanFactorLabel((props.data?.label as string | undefined) ?? '')
 
@@ -431,6 +434,12 @@ export const FactorNode = memo((props: NodeProps) => {
         {withSep && <Sep />}
         <p className={`${typography.edgeLabel} text-text-light m-0 mb-1`}>
           Current value: <span className="text-text-body">{valueDisplay ?? 'Not recorded'}</span>
+          {valueDisplay !== null && (
+            <span data-testid="factor-current-value-origin" className="inline-flex items-center gap-1 ml-1">
+              {CurrentValueOriginIcon && <CurrentValueOriginIcon aria-hidden="true" className={PROVENANCE_ICON_SIZE_CLASSES} />}
+              {currentValueOrigin ? VALUE_PROVENANCE_LABEL[currentValueOrigin.kind] : 'Source not recorded'}
+            </span>
+          )}
         </p>
         <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Option values:</p>
         <div className="space-y-0.5">
