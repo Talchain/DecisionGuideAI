@@ -207,12 +207,15 @@ export function deriveGuidanceDskProvenance(
  * the reveal itself is best-effort: it must never turn a delivered message into
  * a thrown error, so it is caught and logged.
  *
+ * OutputsDock also wraps its host-owned analysis dispatcher here: an empty
+ * transcript does not register callbacks, but analysis must still reveal Olumi.
+ *
  * Not every callback is wrapped — see the notes at each field in
  * `registerConversationCallbacks`. Identity: the wrapper is a new function
  * object, so ownership must be compared by `_registrationToken` (which it
  * already is, deliberately, for the singleton-host reason documented there).
  */
-function withOlumiReveal<Args extends unknown[]>(
+export function withOlumiReveal<Args extends unknown[]>(
   fn: ((...args: Args) => void) | null,
 ): ((...args: Args) => void) | null {
   if (!fn) return null

@@ -23,7 +23,7 @@
  * - Slow-run feedback messages (20s/40s thresholds)
  */
 
-import { useEffect, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
+import { useEffect, useLayoutEffect, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
 import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, MessageCircle, MessageSquare, CheckCircle, FlaskConical } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
@@ -115,7 +115,7 @@ import {
 } from './pre-analysis-v3/selectors/computeInfluenceCoverage'
 // Lazy: flag-off users never pay the v3 bundle cost.
 const PreAnalysisPanelV3 = lazy(() => import('./pre-analysis-v3'))
-import { useConversation } from '../conversation/useConversation'
+import { useConversation, type UseConversationReturn } from '../conversation/useConversation'
 import {
   canRunAnalysis as canRunAnalysisUtil,
   getRunButtonTooltip,
@@ -151,7 +151,7 @@ import { ResultsBody } from '../../components/results/ResultsBody'
 import { staleReasonFromTrustSemantic } from '../../components/results/analysisNew/staleReason'
 import { AnalysisNewTabBody } from '../../components/results/analysisNew/AnalysisNewTabBody'
 import { SectionErrorBoundary } from './SectionErrorBoundary'
-import { useGuidanceStore } from '../stores/guidanceStore'
+import { useGuidanceStore, withOlumiReveal } from '../stores/guidanceStore'
 import { useDraftStore, draftStreamPhaseFor } from '../stores/draftStore'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
 import { getStrengthCorrections } from '../../adapters/plot/v2/adapter'
@@ -509,8 +509,8 @@ export function OutputsDock() {
  * FF-on).
  */
 function OutputsDockProviderHost() {
-  const { sendMessage } = useConversationContext()
-  return <OutputsDockBody sendMessage={sendMessage} />
+  const { sendMessage, dispatchAction } = useConversationContext()
+  return <OutputsDockBody sendMessage={sendMessage} dispatchAction={dispatchAction} />
 }
 
 /**
@@ -518,25 +518,37 @@ function OutputsDockProviderHost() {
  * matches origin/staging behaviour before the floating-first port).
  */
 function OutputsDockLegacyHost() {
-  const { sendMessage } = useConversation()
-  return <OutputsDockBody sendMessage={sendMessage} />
+  const { sendMessage, dispatchAction } = useConversation()
+  return <OutputsDockBody sendMessage={sendMessage} dispatchAction={dispatchAction} />
 }
 
 interface OutputsDockBodyProps {
   sendMessage: (text: string) => Promise<void> | void
+  dispatchAction: UseConversationReturn['dispatchAction']
 }
 
-function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
+function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) {
   const prefersReducedMotion = usePrefersReducedMotion()
   const [state, setState] = useDockState<OutputsDockState>(STORAGE_KEY, {
     isOpen: true,
     activeTab: 'results',
   })
-  // sendMessage comes from props so the OutputsDock function above is
+  // Conversation callbacks come from props so the OutputsDock function above is
   // the single useConversation() host; OutputsDockBody never calls it
   // directly. Under the aiPanelV2 floating-first UX, the canvas-root
   // ConversationProvider becomes the singleton instead — see
   // ReactFlowGraph.tsx.
+  // An empty thread has no ConversationPanel to register guidance callbacks.
+  // Analysis belongs to the existing conversation host, independently of the
+  // transcript lifecycle. Keep the same reveal behaviour as registered actions.
+  const dispatchCanonicalAction = useMemo(() => withOlumiReveal(dispatchAction), [dispatchAction])
+  const dispatchCanonicalActionRef = useRef<typeof dispatchCanonicalAction>(null)
+  // Save can yield across a host update or unmount. Only the committed, mounted
+  // host may dispatch its pending run; a replacement host owns a separate ref.
+  useLayoutEffect(() => {
+    dispatchCanonicalActionRef.current = dispatchCanonicalAction
+    return () => { dispatchCanonicalActionRef.current = null }
+  }, [dispatchCanonicalAction])
 
   // Tab guards: if persisted tab references a disabled flag, reset to 'results'
   useEffect(() => {
@@ -1468,10 +1480,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     // `runV2Analysis()`: a DIRECT browser->PLoT `/v2/run` call that bypassed
     // the CEE orchestration seam entirely. That seam is retired, so there is
     // no second path for a flag to choose between and the gate is gone with
-    // it. The dispatcher-missing refusal below is unchanged — it is the same
-    // honest failure #723 introduced when it deleted the silent fallback.
+    // it. The host supplies the same singleton dispatcher even before a
+    // transcript exists. A missing host callback still refuses without fallback.
     {
-      const dispatch = useGuidanceStore.getState()._dispatchAction
+      const dispatch = dispatchCanonicalActionRef.current
       if (dispatch) {
         // ROADMAP 2.109 — the `goal_threshold` CHIP PARAMETER IS RETIRED.
         // This block used to re-attach the store threshold to every plain run.
@@ -1520,10 +1532,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       // silently ran a different, unorchestrated analysis path and presented
       // the result as if it were the canonical one.
       //
-      // The dispatcher not being registered means the run genuinely cannot
+      // The host not supplying a dispatcher means the run genuinely cannot
       // proceed. Say so, and run nothing.
       console.error(
-        '[OutputsDock] canonical run dispatcher (_dispatchAction) is not registered; refusing to run.',
+        '[OutputsDock] canonical run dispatcher is unavailable from the conversation host; refusing to run.',
       )
       return { status: 'unavailable', reason: RUN_DISPATCHER_UNAVAILABLE_REASON }
     }
