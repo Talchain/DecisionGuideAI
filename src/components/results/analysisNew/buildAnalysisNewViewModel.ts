@@ -192,6 +192,12 @@ export interface AnalysisNewViewModelInputs {
    * says its basis was never established, and no claim is made either way.
    */
   nodeValueSources?: ReadonlyMap<string, string>
+  /**
+   * Node id → label, from the graph store. Lets a producer gap name the factor
+   * it is about instead of repeating one anonymous sentence per unset root.
+   * Optional by design: without it every sentence is exactly what it was.
+   */
+  nodeLabels?: ReadonlyMap<string, string>
 }
 
 // ── formatting helpers (display only — none of these decide anything) ────────
@@ -1344,7 +1350,14 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
   // now, `<dt class="sr-only">CODE</dt><dd>sentence</dd>`. Two rows were
   // indistinguishable then and are indistinguishable now, and a screen reader
   // still hears the code once per row. Nothing is over-suppressed.
-  const inferenceRows = selectHumanisedInferenceWarningsOutsideStrip(conf.inferenceWarnings)
+  // ⭐ THE LABELS ARE WHAT MAKE TWO IDENTICAL ROWS INTO TWO FINDINGS. ISL raises
+  // this family once PER NODE, so an unset root pair printed one anonymous
+  // sentence twice; the id rides on the warning's structured `field` and the
+  // store turns it into the name the user typed. Absent, the copy is unchanged.
+  const inferenceRows = selectHumanisedInferenceWarningsOutsideStrip(
+    conf.inferenceWarnings,
+    inputs.nodeLabels,
+  )
     .map((w) => ({ label: w.code, value: w.title, statement: true }))
   if (inferenceRows.length) groups.push({ title: 'Model gaps the analysis worked around', rows: inferenceRows })
 

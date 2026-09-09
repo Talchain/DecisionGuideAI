@@ -28,6 +28,39 @@ export interface HumanisableInferenceWarning {
   severity?: string
   affected_nodes?: string[]
   affected_labels?: string[]
+  /** Producer field path, e.g. `nodes[c591da5e].observed_state.value`. PLoT
+   *  forwards this for the codes that name a single node; see
+   *  `nodeIdFromField`. */
+  field?: string
+}
+
+/**
+ * ⭐ THE NODE ID, READ FROM THE STRUCTURED `field` KEY — NOT FROM `message`.
+ *
+ * `humaniseCritique.ts:281` rules that every template ignores the resolved
+ * label DELIBERATELY, because "PLoT forwards `{code, message, severity,
+ * field?, elapsed_ms?}` and NEVER `affected_nodes`", so a label would resolve
+ * to the unresolved "This factor" and printing it would be worse than saying
+ * nothing. That premise is correct and its own sentence lists the third
+ * option: **`field` carries the identity.**
+ *
+ * Measured across every capture and fixture in this repo: 27 inference-warning
+ * entries, 0 with `affected_nodes`, 0 with `affected_labels` — and
+ * `ROOT_NODE_DEFAULT_VALUE` 6/6 plus `GOAL_ANCESTOR_DATA_GAP` 3/3 carrying a
+ * `field`, every one DISTINCT. The discriminator was on the wire the whole
+ * time; it was simply not where the label map looked.
+ *
+ * ⚠ THIS DOES NOT BREACH THE GLOBAL RULE, which is "labels resolve via nodeId →
+ * graph store lookup ONLY. Never parsed from critique message strings." An id
+ * taken from a structured KEY and resolved against the store IS that route.
+ * The ids inside `message` prose — including GOAL_ANCESTOR_DATA_GAP's root
+ * ancestors — stay unread, and this returns undefined for any field that is
+ * not a node path, so an edge or a scalar field yields nothing.
+ */
+export function nodeIdFromField(field?: string): string | undefined {
+  if (!field) return undefined
+  const m = /^nodes\[([^\]]+)\]/.exec(field)
+  return m ? m[1] : undefined
 }
 
 /**
@@ -66,13 +99,22 @@ export function buildInferenceWarningLabelMap(
  *  code-keyed template path every other critique surface uses. Never echoes
  *  the raw `message`; unmapped codes fall through to humaniseCritique's safe
  *  generic copy. */
-export function humaniseInferenceWarningTitle(w: HumanisableInferenceWarning): string {
+export function humaniseInferenceWarningTitle(
+  w: HumanisableInferenceWarning,
+  /** Node id → label, from the graph store. Optional: without it the copy is
+   *  exactly what it has always been. */
+  nodeLabels?: ReadonlyMap<string, string>,
+): string {
+  const fromField = nodeIdFromField(w.field)
   const item: UncertaintyItem = {
     code: w.code,
     message: w.message ?? '',
-    affectedNodes: w.affected_nodes,
+    // `affected_nodes` first — it is the declared carrier and wins wherever a
+    // producer ever starts sending it. `field` is the fallback that is
+    // ACTUALLY populated today.
+    affectedNodes: w.affected_nodes ?? (fromField ? [fromField] : undefined),
   }
-  return humaniseCritique(item, buildInferenceWarningLabelMap(w)).title
+  return humaniseCritique(item, buildInferenceWarningLabelMap(w) ?? nodeLabels).title
 }
 
 // `selectHumanisedInferenceWarnings` — the UNFILTERED selector — was DELETED on
@@ -95,9 +137,13 @@ export function humaniseInferenceWarningTitle(w: HumanisableInferenceWarning): s
  */
 export function selectHumanisedInferenceWarningsOutsideStrip(
   warnings: HumanisableInferenceWarning[] | undefined,
+  /** Node id → label, from the graph store. Omitted, every sentence is
+   *  byte-identical to before — the two same-code rows stay indistinguishable,
+   *  which is the pre-existing contract and the fallback this relies on. */
+  nodeLabels?: ReadonlyMap<string, string>,
 ): Array<{ code: string; title: string }> {
   return (warnings ?? [])
     .filter((w) => typeof w.message === 'string' && w.message.trim().length > 0)
     .filter((w) => !isStripEntry(w))
-    .map((w) => ({ code: w.code, title: humaniseInferenceWarningTitle(w) }))
+    .map((w) => ({ code: w.code, title: humaniseInferenceWarningTitle(w, nodeLabels) }))
 }

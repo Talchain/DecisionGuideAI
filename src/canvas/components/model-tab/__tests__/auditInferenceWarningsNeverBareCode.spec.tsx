@@ -321,25 +321,36 @@ describe('Model card audit trail — the property, over a CAPTURED corpus and be
       // token, which is what this matches.
       expect(rendered, code).not.toMatch(/^[A-Z0-9_]+$/)
 
-      // Ask the OWNER whether this code's copy depends on a factor label, by
-      // resolving it under two different labels — derived, so no placeholder
-      // string is mirrored here.
-      const underA = humaniseCritique(
+      // ⚠⚠ THIS PROBE ASKED THE WRONG QUESTION ONCE A TEMPLATE COULD ANSWER
+      // "ONLY WHEN I KNOW THE NAME". Resolving under two RESOLVED labels asks
+      // *could this copy ever use a label?*; the property this test is named
+      // for is *does the sentence this surface renders name a factor it cannot
+      // identify?* Those were the same question only while every template
+      // interpolated unconditionally. `ROOT_NODE_DEFAULT_VALUE` and
+      // `GOAL_ANCESTOR_DATA_GAP` are now gated on `labelIsGenuine`, so with no
+      // label they return the byte-identical label-free sentence they always
+      // did — the old form classified them label-dependent and demanded the
+      // GENERIC copy, which would have been a real regression on this surface
+      // caused by an improvement on another.
+      //
+      // ⭐ AND THIS WAS A SECOND SPELLING OF THE MODULE'S PREDICATE — the exact
+      // hand-maintained mirror `auditInferenceWarnings.ts` says it avoided by
+      // deriving. It is now the same question the module asks: resolve the way
+      // this surface actually renders (no label available) against a node whose
+      // label is equally unresolvable. Still derived; still no placeholder
+      // string mirrored here.
+      const unlabelled = humaniseCritique({ code, message: '' }).title
+      const unresolvable = humaniseCritique(
         { code, message: '', affectedNodes: ['__probe__'] },
-        new Map([['__probe__', 'PROBE_ALPHA']]),
       ).title
-      const underB = humaniseCritique(
-        { code, message: '', affectedNodes: ['__probe__'] },
-        new Map([['__probe__', 'PROBE_BETA']]),
-      ).title
-
-      if (underA !== underB) {
+      if (unlabelled !== unresolvable) {
         // Label-dependent: the audit row has no factor context, so it must
         // withhold the specific sentence rather than render a placeholder.
         expect(rendered, `${code} is label-dependent`).toBe(GENERIC)
       } else {
-        // Label-free: the specific sentence is safe and must be used.
-        expect(rendered, `${code} is label-free`).toBe(underA)
+        // Safe here: the sentence this surface renders names no factor it
+        // cannot identify, so the specific copy must be used.
+        expect(rendered, `${code} names no unidentified factor`).toBe(unlabelled)
       }
       expect(rendered, code).not.toContain('PROBE_ALPHA')
       expect(rendered, code).not.toContain('PROBE_BETA')
