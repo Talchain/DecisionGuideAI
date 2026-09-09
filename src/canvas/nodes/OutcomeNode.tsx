@@ -208,6 +208,17 @@ export const OutcomeNode = memo((props: NodeProps) => {
   // Coaching chip (pre-analysis only) — moved out of body. Lives in the
   // pre-analysis popover (Standard) or inline in Detailed view.
   const outcomeChips = useMemo(() => {
+    // ⚠ KNOWN GAP, DELIBERATELY NOT CLOSED HERE. Post-analysis this returns
+    // null, so the outcome card offers no way to interrogate itself at exactly
+    // the moment the user finally has results to interrogate. `RiskNode`
+    // carries its coaching pair in BOTH phases, so the precedent for the other
+    // choice already exists in this directory.
+    //
+    // Left alone because `render-matrix.spec.tsx` asserts the blackout by name
+    // ("No 'What strengthens' body chip post-analysis", Polish 4). Reversing a
+    // deliberate layout decision AND rewriting the tests that pin it in one
+    // change is a change with no independent oracle. Raised as a question
+    // instead; this PR is purely additive.
     if (isPostAnalysis) return null
     return (
       <div className="flex gap-1 flex-wrap mt-1.5">
@@ -216,6 +227,17 @@ export const OutcomeNode = memo((props: NodeProps) => {
           actionType={null}
           label="What strengthens this?"
           message={`What upstream factors strengthen ${(props.data?.label as string) ?? 'this outcome'}?`}
+        />
+        {/* ⭐ "What strengthens this?" can only ever confirm the outcome. On its
+            own it is a card that invites agreement, which is the opposite of
+            what this product is for. The falsification prompt is the
+            disconfirming twin, and asking for it explicitly is the single
+            most load-bearing habit in critical thinking. */}
+        <NodeChip
+          chipId="outcome_what_would_falsify"
+          actionType={null}
+          label="What would falsify this?"
+          message={`What evidence or result would show that ${(props.data?.label as string) ?? 'this outcome'} will NOT happen? What would have to be true for it to fail?`}
         />
       </div>
     )
