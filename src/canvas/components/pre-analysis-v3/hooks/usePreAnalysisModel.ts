@@ -32,6 +32,7 @@ import {
 } from '../selectors/projectAuthoredEntities'
 import { computeLadder } from '../selectors/computeLadder'
 import { computeStructuralAbsence } from '../selectors/computeStructuralAbsence'
+import { computeOptionDifferentiation } from '../selectors/computeOptionDifferentiation'
 import { computeSuccessState, type SuccessState } from '../selectors/computeSuccessState'
 import { buildEstimateRows, topUncalibrated } from '../selectors/buildEstimateRows'
 import { deriveSignalViews } from '../signals/deriveSignalViews'
@@ -355,6 +356,19 @@ export function usePreAnalysisModel(): PreAnalysisModel {
     [nodes, edges],
   )
 
+  /**
+   * Option value differentiation — what the options SAY about the factors they
+   * have in common.
+   *
+   * Keyed on `analysisReady`, the producer's own resolved values, because that
+   * is what the analyser will actually compare. Deriving it from canvas nodes
+   * instead would let the panel describe a set of options the run never sees.
+   */
+  const optionDifferentiation = useMemo(
+    () => computeOptionDifferentiation(analysisReady as { options?: unknown } | null),
+    [analysisReady],
+  )
+
   const derived = useMemo(
     () =>
       deriveSignalViews(
@@ -370,10 +384,11 @@ export function usePreAnalysisModel(): PreAnalysisModel {
           narrowFramingDetail,
           biasFindingExplanation,
           structuralAbsence,
+          optionDifferentiation,
         },
         seen,
       ),
-    [facts, success.isSet, provenance.aiEstimatedCount, top, isSavedExample, narrowFramingDetail, biasFindingExplanation, structuralAbsence, seen],
+    [facts, success.isSet, provenance.aiEstimatedCount, top, isSavedExample, narrowFramingDetail, biasFindingExplanation, structuralAbsence, optionDifferentiation, seen],
   )
 
   useEffect(() => {
