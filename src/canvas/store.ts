@@ -4605,6 +4605,59 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   setGoalThreshold: (threshold, opts) => {
+    /**
+     * ⭐⭐ THE SAME BOUND AS THE SIBLING WRITER — because it is the same field.
+     *
+     * `setGoalThresholdAndUpdateNode` (below) declares finiteness on
+     * `goalThreshold`. This action writes THE SAME SCALAR, and declaring the
+     * bound on only one of two writers is the exact defect this PR's own
+     * header describes one level down: `AdvancedField.tsx` guarded
+     * `goal_threshold_raw` and concluded it had covered "every reachable
+     * source of a non-finite magnitude in the model", while
+     * `success_threshold` reached the model through a different writer.
+     * Guarding one sibling and leaving the other open reproduces that.
+     *
+     * ⚠ REACHABILITY, DERIVED AT THE BYTES — the branch is live and the
+     * application-layer predicate feeding it does NOT protect:
+     *   - `components/OutputsDock.tsx:1560-1561` —
+     *     `if (goalNodeId) setGoalThresholdAndUpdateNode(…) else
+     *      setGoalThreshold(threshold)`. `resolveActiveGoalNodeId`
+     *     (`hooks/goalThresholdResolvers.ts:71-84`) returns `null` when there
+     *     is no CEE `goal_node_id`, no surviving `outcomeNodeId` and no goal
+     *     node, so the `else` is structurally reachable.
+     *   - its producer, `results/SuccessTargetRow.tsx:167` —
+     *     `if (!isNaN(parsed) && onApplyThreshold) onApplyThreshold(parsed)`.
+     *     `isNaN(Infinity)` is `false`. That is the very predicate whose
+     *     incompleteness this change exists to fix, sitting on this path.
+     * What stops the value reaching here today is the browser sanitising a
+     * `type="number"` field — one measured engine, a layer below the
+     * application. That is a reason the defect is not live; it is not a
+     * reason for the model's own writer to leave the bound undeclared.
+     *
+     * ⚠ FINITENESS, NOT A RANGE — derived at the CONSUMER, not assumed.
+     * `normaliseGoalThresholdForRequest` (`hooks/goalThresholdResolvers.ts:37`)
+     * tests `Number.isFinite` against the RAW scalar, and applies its
+     * `normalised < 0 || normalised > 1` test only AFTER dividing by the cap.
+     * The `[0,1]` bound therefore governs a DIFFERENT quantity — the
+     * post-normalisation wire value — and imposing it here would refuse an
+     * ordinary 60% target (cap 100 → 0.6) or an 800000 currency target. The
+     * spec-shaped invariant for this field is finiteness alone, and it is
+     * sign-symmetric by construction: `Number.isFinite` refuses `+Infinity`
+     * and `-Infinity` alike while accepting zero and negatives, matching the
+     * unit contract on the field's own declaration.
+     *
+     * ⚠ REFUSE, DO NOT CLEAR, AND REFUSE BEFORE THE WRITE. The early return
+     * leaves any existing good target in place and — because it precedes both
+     * the `set` and `markAnalysisFreshnessDirty` — does not mark the analysis
+     * stale for a value the model never accepted.
+     */
+    if (threshold != null && !Number.isFinite(threshold)) {
+      console.warn(
+        '[store] setGoalThreshold: refusing a non-finite success target — the value must be a finite number; existing target left unchanged',
+        { threshold },
+      )
+      return
+    }
     // The goal threshold is sent to PLoT, so a user change is analysis-affecting
     // → dirty the freshness overlay on a real change. The CEE-sync caller inside
     // setCeeAnalysisReady passes { fromCeeSync: true } so an ingestion write does

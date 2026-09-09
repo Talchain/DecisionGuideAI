@@ -154,3 +154,179 @@ describe('setGoalThresholdAndUpdateNode — the guard does not narrow the field'
     expect(useCanvasStore.getState().goalThreshold).toBe(1e308)
   })
 })
+
+/**
+ * ⭐⭐ THE SIBLING WRITER — THE SAME FIELD, THE SAME BOUND.
+ *
+ * The block above pins `setGoalThresholdAndUpdateNode`. `setGoalThreshold`
+ * (`store.ts`) is a SECOND writer of the same `goalThreshold` scalar — the one
+ * its own comment says "is sent to PLoT" — and it had no finiteness check.
+ * Guarding one writer and leaving its sibling open is precisely the
+ * "two writers, one field, one bound declared" shape the first block's own
+ * header names, reproduced one level up.
+ *
+ * ⚠ REACHABILITY, DERIVED AT THE BYTES ON THIS TIP — the branch is live and
+ * the application-layer predicate feeding it does NOT protect:
+ *   - `OutputsDock.tsx:1560-1561` — `if (goalNodeId) …AndUpdateNode(…) else
+ *     setGoalThreshold(threshold)`. `resolveActiveGoalNodeId`
+ *     (`goalThresholdResolvers.ts:71-84`) returns `null` when no CEE goal id,
+ *     no surviving `outcomeNodeId` and no goal node exist, so the `else` is
+ *     structurally reachable.
+ *   - its producer, `SuccessTargetRow.tsx:167` — `if (!isNaN(parsed) &&
+ *     onApplyThreshold) onApplyThreshold(parsed)`. `isNaN(Infinity)` is
+ *     `false`: this is the EXACT predicate whose incompleteness this PR
+ *     exists to fix, sitting on the sibling path.
+ * What currently stops the value is the browser sanitising a `type="number"`
+ * field — one measured engine, at a layer below the application. That is a
+ * reason the defect is not live today, not a reason the bound is declared.
+ *
+ * ⚠ FINITENESS, NOT A RANGE — derived at the CONSUMER, not assumed.
+ * `normaliseGoalThresholdForRequest` (`goalThresholdResolvers.ts:37-56`)
+ * applies `Number.isFinite` to the RAW stored scalar, and applies its
+ * `normalised < 0 || normalised > 1` test only AFTER dividing by the cap.
+ * The `[0,1]` bound therefore belongs to a DIFFERENT quantity — the
+ * post-normalisation wire value. Imposing it on this writer would refuse an
+ * ordinary target of 60 (cap 100 → 0.6), so the spec-shaped invariant for the
+ * stored scalar is finiteness alone, sign-symmetric: `Number.isFinite` refuses
+ * `+Infinity` and `-Infinity` alike while accepting zero and negatives.
+ */
+describe('setGoalThreshold — the sibling writer declares the same bound', () => {
+  beforeEach(() => {
+    useCanvasStore.getState().reset()
+    seed()
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  const nonFiniteSibling: Array<[string, number]> = [
+    ['Infinity', Infinity],
+    ['-Infinity', -Infinity],
+    ["parseFloat('1e400') — the fat-finger path", parseFloat('1e400')],
+    ['NaN', Number.NaN],
+  ]
+
+  for (const [label, value] of nonFiniteSibling) {
+    it(`refuses ${label} rather than writing it to the scalar sent to PLoT`, () => {
+      useCanvasStore.getState().setGoalThreshold(value)
+      expect(useCanvasStore.getState().goalThreshold).toBeNull()
+    })
+
+    it(`leaves the representation tag unset after refusing ${label}`, () => {
+      // A refusal that still stamps 'raw' would leave the request boundary
+      // describing a value that was never written.
+      useCanvasStore.getState().setGoalThreshold(value)
+      expect(useCanvasStore.getState().goalThresholdRepresentation).toBeNull()
+    })
+  }
+
+  it('leaves an EXISTING good target untouched when a non-finite value arrives', () => {
+    // Refuse, do not clear: a rejected keystroke must not become data loss.
+    useCanvasStore.getState().setGoalThreshold(60)
+    expect(useCanvasStore.getState().goalThreshold).toBe(60)
+
+    useCanvasStore.getState().setGoalThreshold(Infinity)
+    expect(useCanvasStore.getState().goalThreshold).toBe(60)
+    expect(useCanvasStore.getState().goalThresholdRepresentation).toBe('raw')
+  })
+
+  it('does not dirty analysis freshness on a refused write', () => {
+    // Binds the guard's POSITION, not merely its existence: a check placed
+    // after the `set` would still have marked the run stale for a value the
+    // model never accepted.
+    useCanvasStore.setState({ analysisFreshnessDirty: false } as never)
+    useCanvasStore.getState().setGoalThreshold(Infinity)
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(false)
+  })
+
+  it('says why it refused, rather than failing silently', () => {
+    useCanvasStore.getState().setGoalThreshold(Infinity)
+    expect(console.warn).toHaveBeenCalled()
+    const said = (console.warn as unknown as { mock: { calls: unknown[][] } }).mock.calls
+      .flat()
+      .filter(a => typeof a === 'string')
+      .join(' ')
+    expect(said).toContain('finite')
+  })
+})
+
+describe('setGoalThreshold — the guard does not narrow the field', () => {
+  beforeEach(() => {
+    useCanvasStore.getState().reset()
+    seed()
+  })
+
+  it('still accepts an ordinary raw target', () => {
+    useCanvasStore.getState().setGoalThreshold(60)
+    expect(useCanvasStore.getState().goalThreshold).toBe(60)
+    expect(useCanvasStore.getState().goalThresholdRepresentation).toBe('raw')
+  })
+
+  it('still accepts null, which CLEARS the target', () => {
+    useCanvasStore.getState().setGoalThreshold(60)
+    useCanvasStore.getState().setGoalThreshold(null)
+    expect(useCanvasStore.getState().goalThreshold).toBeNull()
+    expect(useCanvasStore.getState().goalThresholdRepresentation).toBeNull()
+  })
+
+  it('still accepts zero, and a negative raw target', () => {
+    // Sign-symmetry, stated as a requirement rather than inherited: the
+    // consumer's `[0,1]` test is applied to the NORMALISED value, never to
+    // this raw one, so a target of 0 or -2 must still commit.
+    useCanvasStore.getState().setGoalThreshold(0)
+    expect(useCanvasStore.getState().goalThreshold).toBe(0)
+    useCanvasStore.getState().setGoalThreshold(-2)
+    expect(useCanvasStore.getState().goalThreshold).toBe(-2)
+  })
+
+  it('still accepts a value ABOVE 1, which is the ordinary case for raw units', () => {
+    // Pins the decision NOT to import the consumer's post-normalisation
+    // `> 1` test onto the raw scalar. A percentage target of 60, or a
+    // currency target of 800000, are the product's normal inputs.
+    useCanvasStore.getState().setGoalThreshold(800000)
+    expect(useCanvasStore.getState().goalThreshold).toBe(800000)
+  })
+
+  it('still accepts a normalised value carrying its representation tag', () => {
+    // The CEE bare-sync path (store.ts) writes an already-0-1 value tagged
+    // 'normalised'; the guard must not disturb that contract.
+    useCanvasStore.getState().setGoalThreshold(0.6, { fromCeeSync: true, representation: 'normalised' })
+    expect(useCanvasStore.getState().goalThreshold).toBe(0.6)
+    expect(useCanvasStore.getState().goalThresholdRepresentation).toBe('normalised')
+  })
+
+  it('still accepts a very large but finite target', () => {
+    useCanvasStore.getState().setGoalThreshold(1e308)
+    expect(useCanvasStore.getState().goalThreshold).toBe(1e308)
+  })
+})
+
+/**
+ * ⭐ THE ANTI-DRIFT PIN — the bound belongs to the FIELD, not to a writer.
+ *
+ * This estate's recurring defect is a bound declared on one of two writers of
+ * one field (`AdvancedField` → `goal_threshold_raw`, then this file's first
+ * block → `success_threshold`, then this one). Asserting the pair together
+ * means a future third writer, or the removal of either guard, REDs here
+ * rather than reopening the same class silently.
+ */
+describe('goalThreshold — every writer of the scalar declares finiteness', () => {
+  beforeEach(() => {
+    useCanvasStore.getState().reset()
+    seed()
+  })
+
+  it('refuses a non-finite value through BOTH writers of the same field', () => {
+    const s = () => useCanvasStore.getState()
+
+    s().setGoalThreshold(60)
+    expect(s().goalThreshold).toBe(60)
+
+    s().setGoalThreshold(parseFloat('1e400'))
+    expect(s().goalThreshold).toBe(60)
+
+    s().setGoalThresholdAndUpdateNode('goal_1', parseFloat('1e400'))
+    expect(s().goalThreshold).toBe(60)
+  })
+})
