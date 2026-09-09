@@ -275,6 +275,36 @@ export function ModelDetailRegion({
         <p data-testid="model-detail-v2-primary" className={`${typography.panelTabular} text-text-body`}>
           {row.primaryValue ?? 'Not set'}
         </p>
+        {/* ⭐⭐ "NOT SET" ANSWERS THE WRONG QUESTION FOR HALF THE ROWS THAT SHOW IT.
+            Two opposite situations render it, and a reader deciding what to do
+            next needs them apart:
+
+              nothing here at all — nobody has looked. THEY are the gap.
+              unquantified prior  — Olumi read the brief, found no figure, and
+                                    REFUSED TO INVENT ONE. The gap is known.
+
+            The second is a reasoning act by the producer and it is currently
+            invisible: measured on deployed `14276d5b`, four of five factors
+            carried `prior_is_unquantified` and the word appears nowhere on the
+            tab. The canvas node and the Inspector both distinguish it; the
+            surface built for READING your model did not.
+
+            ⚠ IT ADDS A LINE, IT DOES NOT REPLACE "Not set". The value really is
+            not set — that stays true and stays first. This says WHY, which is a
+            different claim and belongs in a different sentence.
+
+            ⚠ THE COPY CLAIMS ONLY WHAT THE FLAG LICENSES. `prior_is_unquantified`
+            says the producer recorded ignorance instead of a figure. It does NOT
+            license "your brief did not mention this" — that is a claim about the
+            brief, and this surface cannot see one. */}
+        {detail.priorIsExplicitlyUnquantified && (
+          <p
+            data-testid="model-detail-v2-unquantified"
+            className={`${typography.panelMeta} text-text-light`}
+          >
+            Olumi recorded this as unknown rather than assuming a figure.
+          </p>
+        )}
         <FieldList fields={detail.secondaryValues} testid="model-detail-v2-secondary" />
       </section>
 

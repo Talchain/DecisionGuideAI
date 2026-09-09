@@ -126,6 +126,8 @@ import type { Edge, Node } from '@xyflow/react'
 import { readFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { goalLabelIsUnconfirmedBriefExtract } from '../domain/goalLabelProvenance'
 import { resolveGoalTarget } from '../domain/goalTarget'
+import { isUnquantifiedPrior } from '../domain/nodes'
+import { hasAnyStatedValue } from '../utils/observedStateHelpers'
 import type { EdgeData } from '../domain/edges'
 import type { ObservedState } from '../domain/nodes'
 // ⚠ The model-tab's NARROWER twin — see `narrowObservedState`. Both are imported
@@ -844,6 +846,13 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
     return {
       rowId,
       description: typeof data?.description === 'string' ? data.description : null,
+      /* ⚠ BOTH LIMBS, AND BOTH ARE THE CANVAS NODE'S OWN. The flag describes the
+         PRIOR; the sentence describes the ROW. A factor that later gained a
+         value is not "unquantified" whatever its prior says. */
+      priorIsExplicitlyUnquantified:
+        node.type === 'factor' &&
+        isUnquantifiedPrior(data?.prior) &&
+        !hasAnyStatedValue(data),
       secondaryValues: secondary,
       // ⚠⚠ F1, AND IT IS THIS COMMIT'S OWN THESIS TURNED ON ITSELF. The
       // previous commit fixed the IDENTICAL expression in the repair-queue
@@ -873,6 +882,8 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
   return {
     rowId,
     description: typeof data?.label === 'string' ? data.label : null,
+    // An edge carries no prior, so the question does not arise.
+    priorIsExplicitlyUnquantified: false,
     secondaryValues: [],
     basis: edgeProvenanceBasis(data?.provenance),
     adjustments: [],
