@@ -842,8 +842,35 @@ export const OptionNode = memo((props: NodeProps) => {
    * same error as gating on a re-derived condition instead of the real render
    * one — which is precisely what the Behind-line gate below gets right.
    */
+  /**
+   * ⭐⭐ THE RUN NO LONGER DELETES WHAT EACH OPTION CHANGES.
+   *
+   * This read `!isPostAnalysis && …`, so the moment results arrived the
+   * "£49 → £54" / "Low → High" chips vanished from the card. **Measured on a
+   * real user's model** (served `fdbaa4e4`): pre-analysis the option cards
+   * carried their interventions and their baseline reference; post-analysis
+   * they carried "Support percentage unavailable" and nothing else.
+   *
+   * ⚠ THE DATA WAS NEVER LOST — ONLY THE RENDER. The same session's debug
+   * bundle still holds every one of them post-analysis
+   * (`cee_options[].intervention_details[].display_value` = `"£54"`,
+   * `"High (0.75)"`), and `full_graph.options[].interventions[]` carries a
+   * RICHER form than the card ever showed, with per-intervention provenance.
+   * So this deletes a suppression; it adds no new claim and needs no new data.
+   *
+   * ⭐ AND THE FILE ALREADY ARGUES IT, twenty lines above, for the neighbouring
+   * differentiator line: *"derived from … the MODEL, not the result. A run does
+   * not change which factor differentiates an option."* An intervention is the
+   * same kind of fact — it is what the user asked the analysis to consider, not
+   * something the analysis produced. It is also what makes the result legible:
+   * "ranked #3" says little; "£49 → £54, against Status Quo, ranked #3" is a
+   * reasoning artefact.
+   *
+   * `!isBaselineOption` stays: the baseline states no delta because it IS the
+   * reference, which the line below now says on the card in both phases.
+   */
   const structuredDeltaChipsRender =
-    !isPostAnalysis && !isBaselineOption && structuredDeltas.length > 0
+    !isBaselineOption && structuredDeltas.length > 0
 
   // Brief scope 7: drop the differentiator footer only when it repeats a value
   // already shown in a VISIBLE from→to chip — same factor AND the same value
@@ -1962,8 +1989,14 @@ export const OptionNode = memo((props: NodeProps) => {
           </p>
         )}
 
-        {/* Reference identity; values remain recoverable in preview and inspector. */}
-        {!isPostAnalysis && isBaselineOption && (
+        {/* Reference identity; values remain recoverable in preview and inspector.
+            ⚠ WAS `!isPostAnalysis && …`. Which option is the comparison basis is
+            a property of the MODEL, not of the result — the run does not choose
+            it and cannot change it. Hiding it once results arrive removed the
+            one label that makes every other option's delta mean anything, at
+            exactly the moment a reader starts comparing them. `is_baseline` is
+            still true in the post-analysis payload. */}
+        {isBaselineOption && (
           <div className={`${typography.edgeLabel} mt-1 text-text-light`}>
             Baseline option
           </div>
