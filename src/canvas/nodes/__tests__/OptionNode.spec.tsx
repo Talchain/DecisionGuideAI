@@ -4,7 +4,7 @@
  * T8: Intervention chips with cleaned labels and formatted values
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
 // The tie fixtures are pinned against the SHARED policy the component uses, so
@@ -695,9 +695,11 @@ describe('OptionNode', () => {
     const srEl = screen.getByText(expected)
     expect(srEl.className).toContain('sr-only')
 
-    fireEvent.focus(row!)
+    act(() => (row as HTMLElement).focus())
+    expect(document.activeElement).toBe(row)
     expect(await screen.findByRole('tooltip')).toHaveTextContent(expected)
     fireEvent.keyDown(row!, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull())
 
     // Positive control (trap 13): the copy comes from the ratified register,
     // and this test would be vacuous if that register were empty.
