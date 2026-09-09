@@ -519,18 +519,31 @@ describe('DecisionNode — honest resting state', () => {
     // was holding shut the one block that says something useful about the model
     // behind it. Asserted under BOTH permissions, because the old behaviour
     // differed between them and the new behaviour must not.
+    // ⚠ FACTORS SUPPLIED DELIBERATELY, AND MY FIRST VERSION OMITTED THEM.
+    // `composeReadinessSummary` reads FACTOR nodes; with a decision and options
+    // alone no summary can compose however correct the code is, and the arm
+    // failed on its own fixture rather than on the product. This file's other
+    // readiness case supplies factors inline, so this one follows its idiom.
+    const factorNodes = [
+      { id: 'f-explicit', type: 'factor', data: { type: 'factor', label: 'Salary budget', category: 'controllable', observedState: { value: 42 } } },
+      { id: 'f-missing', type: 'factor', data: { type: 'factor', label: 'Attrition', category: 'controllable' } },
+    ]
     for (const report of [PERMITTED_REPORT, WITHHELD_REPORT]) {
       setStore({
-        nodes: [decisionNode, ...optionNodes],
+        nodes: [decisionNode, ...optionNodes, ...factorNodes],
         edges: optionEdges,
         results: { status: 'complete', report },
         viewMode: 'standard',
       })
       const { unmount } = renderDecision()
       const resting = screen.getByTestId(RESTING)
-      // Readiness stays INSIDE the guarded subtree — no copy moved out from
-      // under the honesty corpus.
-      expect(resting.querySelector('[data-testid="decision-node-readiness-summary"]')).not.toBeNull()
+      // The wayfinding line proves the state rendered for the COMPLETED-RUN
+      // reason rather than by accident…
+      expect(within(resting).getByText(DECISION_RESTING_COPY.completedRunLine)).toBeDefined()
+      // …and readiness stays INSIDE the guarded subtree, so no copy moved out
+      // from under the honesty corpus. Both permissions, which is the property:
+      // before this change the summary was reachable on WITHHELD runs only.
+      expect(within(resting).getByTestId('decision-node-readiness-summary')).toBeDefined()
       // ⚠ NO CTA IS ASSERTED HERE, deliberately: the completed-run arm of
       // `resting` carries `cta: null`, so claiming a resting CTA on this path
       // would be false. The reachable actions on a completed run are the
