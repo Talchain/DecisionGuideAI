@@ -204,6 +204,31 @@ export interface AtAGlanceProps {
    */
   onReanalyse?: () => void
   /**
+   * ⭐⭐ THE ACT THAT ANSWERS THE REFUSAL. Takes the reader to where an estimate
+   * this comparison rests on can be reviewed or replaced with their own.
+   *
+   * The producer's withheld-designation sentence names its own remedy in words
+   * — "until you have set at least one of them" — and then leaves the reader
+   * nowhere to go. That is the complaint `honestSentenceHasAMove.spec.tsx`
+   * makes about the staleness ribbon, one slot further down this panel: the
+   * surface was optimised for truthfulness and never for usefulness.
+   *
+   * ⚠ ABSENT = NO CONTROL, exactly as `onReanalyse` above. A refusal with a
+   * dead button beside it is worse than the refusal alone, and this component
+   * is mounted by hosts that cannot route anywhere (every render test in the
+   * tree among them), so the fail-closed branch is a legitimate state rather
+   * than a defect to detect.
+   *
+   * ⚠ NOT A STORE READ, DELIBERATELY. `useUIStore` is imported NOWHERE under
+   * `components/results/analysisNew/`, and the destination — the outputs
+   * dock's active tab — is the DOCK's own state. `OutputsDock` owns this
+   * handler beside `onReanalyse`, `onFocusNode` and `onSendMessage`, all of
+   * which reach this surface the same way; adding a store subscription to a
+   * presentational section to avoid one prop would put the tab's navigation in
+   * the one file that cannot see the tab.
+   */
+  onReviewEstimates?: () => void
+  /**
    * ⭐⭐ DERIVED FROM THE RUN GATE'S VERDICT IN ONE PLACE — NOT A SECOND
    * PREDICATE HERE. `AnalysisNewTabBody` passes `!canRunAnalysis && !isRunning`
    * over `OutputsDock`'s single `runGateResult`; this component renders that
@@ -320,6 +345,7 @@ export function AtAGlance({
   staleKind = 'unconfirmed',
   isProvisional = false,
   onReanalyse,
+  onReviewEstimates,
   reanalyseBlocked,
   reanalyseBlockedReason,
   isRunning,
@@ -629,6 +655,50 @@ export function AtAGlance({
           >
             {glance.designationWithheldReason}
           </p>
+          {/* ⭐⭐ THE MOVE THAT ANSWERS THE SENTENCE — the staleness ribbon's
+              argument, applied to the refusal. The producer names its own
+              remedy ("until you have set at least one of them") and the reader
+              has no way to reach it from here: the estimates live on the Model
+              tab, which is a different surface in a dock this panel does not
+              control. The sentence was legible and inert.
+
+              ⛔⛔ WHAT THIS CONTROL DOES NOT SAY, AND WHY IT IS A MEASUREMENT.
+              One user-stated value out of twenty flips CEE from
+              `quantified_provisional` to `comparative_leader` while nineteen
+              estimates stay Olumi's own — so a caption promising a more
+              confident answer would describe a real transition and still lie
+              about it. What the transition licenses is the CLAIM, because a
+              human entered the loop; not a better result. It equally may not
+              offer to CONFIRM the figures as they stand, which would launder a
+              machine estimate into a user-stated one and satisfy the gate
+              while meaning nothing. `COPY.glance.reviewEstimates` carries both
+              ceilings and `withheldReasonHasAMove.spec.tsx` holds them.
+
+              ⚠ NO FACTOR IS NAMED, AND THE ROUTE REFLECTS THAT. Measured on
+              the live wire, `missing_important_inputs` is EMPTY on this
+              refusal and the sentence says "at least ONE of them" — there is
+              no particular estimate to point at, so the destination is the
+              factors SECTION. The dock's handler passes no target id for the
+              same reason; inventing one would be a deep link to an arbitrary
+              row dressed as the answer.
+
+              ⚠ FAIL-CLOSED. No handler, no button — the same pre-gate the
+              ribbon control above uses, and for the same stated reason. */}
+          {onReviewEstimates ? (
+            <button
+              type="button"
+              onClick={onReviewEstimates}
+              /* ⚠ INFO IS THE ACTION COLOUR ON THIS PANEL and this is a real
+                 `<button>`, so `actionColourMeansPressable.spec.ts` licenses
+                 it by ancestry. Underline plus `text-info` is what says
+                 PRESSABLE here — the sentence above is `panelBody
+                 text-text-body`, so the two cannot be confused at rest. */
+              className={`${typography.panelMeta} mt-1.5 inline-block rounded text-info underline underline-offset-2 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              data-testid={`${testId}-withheld-review-estimates`}
+            >
+              {COPY.glance.reviewEstimates}
+            </button>
+          ) : null}
         </div>
       ) : null}
 
