@@ -72,11 +72,22 @@ describe('setGoalThresholdAndUpdateNode — finiteness guard', () => {
     vi.restoreAllMocks()
   })
 
-  // The values driven and measured as committing on the sibling path.
+  /**
+   * The values driven and measured as committing on the sibling path.
+   *
+   * ⚠ `1e400` GOES THROUGH `parseFloat`, NOT A LITERAL — and that is the more
+   * faithful test, not merely a lint workaround. A bare `1e400` literal trips
+   * `no-loss-of-precision` (correctly: it IS `Infinity`), but more importantly
+   * the production path never sees a literal. Every writer reaching this action
+   * parses a typed string, and `parseFloat('1e400') === Infinity` is exactly
+   * the mechanism `AdvancedField.tsx` recorded when it drove the defect:
+   * `isNaN(Infinity)` is `false`, so the value sailed through. Building the
+   * case the way the product builds it keeps the fixture honest about the wire.
+   */
   const nonFinite: Array<[string, number]> = [
     ['Infinity', Infinity],
     ['-Infinity', -Infinity],
-    ['1e400 (parses to Infinity)', 1e400],
+    ["parseFloat('1e400') — the fat-finger path", parseFloat('1e400')],
     ['NaN', Number.NaN],
   ]
 
