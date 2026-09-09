@@ -128,6 +128,26 @@ describe('computeOptionDifferentiation — the finding', () => {
     })
   })
 
+  /**
+   * ⚠ THREE OPTIONS, DELIBERATELY. The two-option case above cannot tell
+   * `every` from `some`: with one option in the tail the two quantifiers are
+   * the same function, and a mutant swapping them survives it. Here `ops` is
+   * stated by two of the three options, so only `every` excludes it — the
+   * assertion below is the one that makes the quantifier load-bearing.
+   */
+  it('excludes a factor that only SOME of three options state', () => {
+    const r = ready([
+      option('a', { cost: 100, ops: 5 }),
+      option('b', { cost: 100, ops: 5 }),
+      option('c', { cost: 100 }),
+    ])
+    expect(computeOptionDifferentiation(r)).toEqual({
+      optionCount: 3,
+      sharedCount: 1,
+      identicalCount: 1,
+    })
+  })
+
   it('treats float noise below nine decimal places as the same value', () => {
     const r = ready([
       option('a', { cost: 0.1 + 0.2 }),
