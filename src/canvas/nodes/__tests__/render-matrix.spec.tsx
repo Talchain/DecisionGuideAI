@@ -733,6 +733,7 @@ describe('Render matrix — DecisionNode chip audit', () => {
       robustness: {
         recommended_option_id: 'option-1',
         recommendation_stability: stability ?? 0.93,
+        display_verdict: 'robust',
         // option-1 is the win argmax, so the producer's claim applies to it.
         near_tie: { is_tie: false, top_option_id: 'option-1' },
       },

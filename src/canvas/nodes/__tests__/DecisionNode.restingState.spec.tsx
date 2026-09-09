@@ -137,7 +137,17 @@ const WITHHELD_REPORT = {
  */
 const WITHHELD_REPORT_WITH_STABILITY = {
   ...WITHHELD_REPORT,
-  robustness: { recommended_option_id: 'option-1', recommendation_stability: 0.62 },
+  // `display_verdict` is the producer's DISPLAY-SAFE robustness token and the
+  // only field licensed to make a robustness claim on screen. It is present in
+  // 12 live captures under `src/v5/__tests__/fixtures/`. `recommendation_stability`
+  // is retained beside it deliberately: it is what the producer also sends, and
+  // this card must be shown NOT to read it.
+  robustness: {
+    recommended_option_id: 'option-1',
+    recommendation_stability: 0.62,
+    display_verdict: 'moderate',
+    display_verdict_reason: 'Two factors carry most of the difference between options.',
+  },
 }
 
 /** The same run, plus the producer's own `near_tie` leader claim. */
@@ -646,7 +656,10 @@ describe('DecisionNode — honest resting state', () => {
       viewMode: 'expert',
     })
     renderDecision()
-    expect(screen.getByText(/Stability: 62%/i)).toBeDefined()
+    expect(screen.getByText(/Robustness: moderate/i)).toBeDefined()
+    // ⛔ And the withdrawn figure must NOT return: 62% was the leading option's
+    // win probability relabelled, and the fixture still supplies it.
+    expect(screen.queryByText(/62%/)).toBeNull()
     expect(screen.queryByTestId(RESTING)).toBeNull()
   })
 
@@ -692,6 +705,9 @@ describe('DecisionNode — honest resting state', () => {
     // The fixture's own figure (`recommendation_stability: 0.62`), not a
     // generic match — a bare /Stability: / would pass on any number, including
     // one carried over from the wrong option.
-    expect(screen.getByText(/Stability: 62%/i)).toBeDefined()
+    expect(screen.getByText(/Robustness: moderate/i)).toBeDefined()
+    // ⛔ And the withdrawn figure must NOT return: 62% was the leading option's
+    // win probability relabelled, and the fixture still supplies it.
+    expect(screen.queryByText(/62%/)).toBeNull()
   })
 })

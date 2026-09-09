@@ -455,18 +455,48 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // Stability for post-analysis Detailed body and Standard popover.
   // Returns the underlying fraction (0-1) so the popover progress bar can use
   // it directly without re-parsing the formatted string.
-  const stabilityDisplay = useMemo(() => {
+  /**
+   * ⛔⛔ THIS CARD USED TO DRAW THE LEADING OPTION'S WIN PROBABILITY AND CALL IT
+   * ROBUSTNESS. It read `robustness.recommendation_stability`, rendered it as
+   * `Stability: 62% (moderate)` and drew a progress bar at that width.
+   *
+   * `recommendation_stability` is not a robustness measurement. PLoT WITHHOLDS
+   * it deliberately, and `compare-tab/TrajectorySection.tsx:28-45` states why
+   * at the bytes: *"ISL derives it as `option_wins[winner] / n_samples` — the
+   * leading option's `win_probability` relabelled, carrying zero independent
+   * information."* That tab DELETED its `Stability %` column for this reason.
+   * This card kept it, one screen away, with an authored four-tier scale
+   * (0.85/0.70/0.40) that exists nowhere in the producer.
+   *
+   * So the card asserted a second, independent-looking confirmation of exactly
+   * the claim the option cards already make — the reader saw two numbers and
+   * had no way to know they were one number twice.
+   *
+   * ⭐ `display_verdict` is the ONLY field licensed to make a robustness claim
+   * on screen (`hooks/useAnalysisMetadata.ts:14-22`, the single-source rule).
+   * This is the same repair `useAnalysisMetadata` already made for the TopBar
+   * chip, which had consumed the raw `is_robust` and produced *"one screen
+   * state carried a green `Stable` chip above an analysis panel saying
+   * 'fragile' four times"*. Same defect class, one card later.
+   *
+   * FAIL-CLOSED, exactly as every other consumer does it: only the four
+   * display-safe tokens count, and `not_assessed` / absent / unrecognised
+   * yields null — which renders NOTHING. Silence, never a cheerful default.
+   *
+   * ⚠ AND NO PERCENTAGE. There is no licensed robustness percentage, so none
+   * is shown; inventing one is what got us here. The producer's own
+   * `display_verdict_reason` is rendered VERBATIM where present, the same way
+   * `components/utils/postAnalysisFooter.ts:86` already treats it.
+   */
+  const robustnessVerdict = useMemo(() => {
     if (!isPostAnalysis || !report) return null
     const robustness = (report as any)?.robustness
-    const stability = robustness?.recommendation_stability as number | undefined
-    if (stability == null) return null
-    const fraction = Math.max(0, Math.min(1, stability))
-    const pct = Math.round(fraction * 100)
-    const tier = fraction >= 0.85 ? 'robust'
-      : fraction >= 0.70 ? 'moderate'
-      : fraction >= 0.40 ? 'sensitive'
-      : 'highly sensitive'
-    return { pct, tier, fraction }
+    const raw = robustness?.display_verdict
+    const verdict = raw === 'robust' || raw === 'moderate' || raw === 'fragile' ? raw : null
+    if (!verdict) return null
+    const rawReason = robustness?.display_verdict_reason
+    const reason = typeof rawReason === 'string' && rawReason.trim() ? rawReason.trim() : null
+    return { verdict, reason }
   }, [isPostAnalysis, report])
 
   // Chip actions via _sendMessage
@@ -491,7 +521,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // this expression is how the copy would start pointing at a panel that is
   // not there.
   const hasPostAnalysisPopover = isPostAnalysis && !isDetailed
-  const showStabilityLine = isDetailed && Boolean(stabilityDisplay)
+  const showStabilityLine = isDetailed && Boolean(robustnessVerdict)
   /**
    * ⭐⭐ PAUL'S RULING, 9 Sep 2026: "Do the DecisionNode chips, keep the resting
    * state copy too." BOTH, on one surface. What stood here recorded the
@@ -540,7 +570,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // i.e. in Detailed (no popover at all), and in Standard whenever stability
   // gives the popover its own content. The two predicates are complements of
   // one expression, so they cannot drift into overlapping or into a gap.
-  const showPostAnalysisChips = isDetailed || Boolean(stabilityDisplay)
+  const showPostAnalysisChips = isDetailed || Boolean(robustnessVerdict)
   const showTriageLine = Boolean(triageLine)
 
   /**
@@ -871,7 +901,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 above a question would be a claim of its own.
 
                 ⭐ THE GENUINE INDEPENDENT STABILITY INFORMATION IS UNTOUCHED and
-                is a different quantity: `stabilityDisplay` still renders inline
+                is a different quantity: `robustnessVerdict` still renders inline
                 in Detailed (`showStabilityLine`, below) and in the Standard
                 popover (bottom of this file). That is the axis `decisionVerdict`
                 insists is disclosed separately, and it survives on both
@@ -910,11 +940,12 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
             {/* Post-analysis Detailed only: stability + chips inline in body
                 (Detailed has no popover). Standard surfaces both via the
                 popover below. */}
-            {showStabilityLine && stabilityDisplay && (
+            {showStabilityLine && robustnessVerdict && (
               <div
                 className={`${typography.edgeLabel} text-text-light mt-1`}
+                data-testid="decision-robustness-verdict"
               >
-                Stability: {stabilityDisplay.pct}% ({stabilityDisplay.tier})
+                Robustness: {robustnessVerdict.verdict}
               </div>
             )}
             {showPostAnalysisChips && postAnalysisCoachingChips}
@@ -1029,19 +1060,21 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
           onMouseLeave={popoverHandlers.onMouseLeave}
           anchorRef={nodeElRef}
         >
-          {stabilityDisplay && (
+          {/* ⛔ THE BAR IS GONE, AND ITS ABSENCE IS THE POINT. Its width was
+              `recommendation_stability` — the leading option's win probability
+              — drawn in a robustness panel, so the reader compared a bar
+              against the option cards' support bar without being told they
+              were the same number. There is no licensed robustness
+              percentage, so there is no bar and no figure. */}
+          {robustnessVerdict && (
             <div className={`${typography.edgeLabel} text-text-body space-y-1.5`}>
-              <div className="font-medium text-text-heading">Stability</div>
-              <div className="flex items-center gap-1.5">
-                <div className="flex-1 h-1 bg-panel-border rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-info"
-                    style={{ width: `${Math.max(4, stabilityDisplay.pct)}%` }}
-                  />
-                </div>
-                <span className="w-7 text-right shrink-0 text-text-light">{stabilityDisplay.pct}%</span>
+              <div className="font-medium text-text-heading">Robustness</div>
+              <div className="text-text-light" data-testid="decision-robustness-popover-verdict">
+                {robustnessVerdict.verdict}
               </div>
-              <div className="text-text-light">{stabilityDisplay.tier}</div>
+              {robustnessVerdict.reason && (
+                <div className="text-text-light">{robustnessVerdict.reason}</div>
+              )}
             </div>
           )}
           {/* ⭐ CHIPS ARE THE POPOVER'S FALLBACK ONLY, now that the body shows
@@ -1057,7 +1090,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               show on this node") while the chips are plainly showing — false on a
               reachable path either way. Keeping them as the no-stability fallback
               is what holds both statements honest. */}
-          {!stabilityDisplay && postAnalysisCoachingChips}
+          {!robustnessVerdict && postAnalysisCoachingChips}
         </NodePopover>
       )}
     </div>
