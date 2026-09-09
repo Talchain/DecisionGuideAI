@@ -2044,7 +2044,7 @@ export const OptionNode = memo((props: NodeProps) => {
                 down properly, which is the tell that the height claim was
                 doing rhetorical rather than load-bearing work. */}
             {structuredDeltas.length === 0 && hasInterventions && (() => {
-              const short = `Changes ${totalInterventionCount} factor${totalInterventionCount === 1 ? '' : 's'}`
+              const short = `${totalInterventionCount} factor target${totalInterventionCount === 1 ? '' : 's'}`
               const full = `${short}. Open the inspector to see which ones.`
               return (
                 <p
@@ -2107,8 +2107,9 @@ export const OptionNode = memo((props: NodeProps) => {
         </NodePopover>
       )}
 
-      {/* Pre-analysis popover (Standard view, hover) */}
-      {!isDetailed && !isPostAnalysis && preAnalysisPopoverContent && (
+      {/* Pre-analysis preview. Without a reference pair, Detailed mode also needs target recovery.
+          It must not lose its preview merely because no before-value is known. */}
+      {!isPostAnalysis && (!isDetailed || structuredDeltas.length === 0) && preAnalysisPopoverContent && (
         <NodePopover
           visible={showPopover}
           width={260}

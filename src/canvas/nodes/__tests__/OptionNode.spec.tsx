@@ -1732,26 +1732,26 @@ describe('OptionNode — QA Brief C-series', () => {
       ...overrides,
     })
 
-    it('option pre-analysis pill omits the scale value and the "scale" suffix', () => {
-      vi.mocked(useCanvasStore).mockImplementation((selector) => selector(buildState() as any))
-      renderOption({ label: 'Aggressive plan' })
-      // No "0.7", no "scale", no "70%" should appear in the pill area.
+    it('an unframed draft recovers its target in the preview without inventing units', async () => {
+      vi.mocked(useCanvasStore).mockImplementation((selector) => selector(buildState({ viewMode: 'standard' }) as any))
+      const { container } = renderOption({ label: 'Aggressive plan' })
+      fireEvent.mouseEnter(container.firstElementChild!)
+      expect((await screen.findAllByText(/marketing expertise/i)).length).toBeGreaterThan(0)
+      // The preview must not invent a real-world value for this unframed target.
       expect(screen.queryByText(/scale/i)).toBeNull()
       expect(screen.queryByText(/0\.7/)).toBeNull()
-      // The factor's compact label is still rendered (one or more occurrences
-      // depending on whether the popover/Detailed list also instantiates).
-      expect(screen.getAllByText(/marketing expertise/i).length).toBeGreaterThan(0)
+      expect(screen.queryByText(/70%/)).toBeNull()
     })
 
-    it('option Detailed list shows label only with no "→" arrow when value is empty', () => {
+    it('Detailed mode retains target recovery when no reference pair can be shown', async () => {
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector({ ...buildState(), viewMode: 'expert' } as any),
       )
-      renderOption({ label: 'Aggressive plan' })
-      // The intervention list row exists for the factor but has no arrow,
-      // because formatChipValue returned empty string for scale-no-raw.
-      expect(screen.getAllByText(/marketing expertise/i).length).toBeGreaterThan(0)
+      const { container } = renderOption({ label: 'Aggressive plan' })
+      fireEvent.mouseEnter(container.firstElementChild!)
+      expect((await screen.findAllByText(/marketing expertise/i)).length).toBeGreaterThan(0)
       expect(screen.queryByText(/scale/i)).toBeNull()
+      expect(screen.queryByText(/→/)).toBeNull()
     })
 
     // Self-assessment fix #4: scale-unit factor with cap (so the deltaDisplay
