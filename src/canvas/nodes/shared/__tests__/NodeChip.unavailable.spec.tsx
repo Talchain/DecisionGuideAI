@@ -17,7 +17,7 @@ afterEach(() => {
 describe('coaching when Olumi is unavailable', () => {
   it('explains the unsent question visibly, including without a toast provider', () => {
     render(chip)
-    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
     fireEvent.click(screen.getByRole('button', { name: 'What could be missing?' }))
     expect(screen.getByRole('status').textContent).toBe(
       'Olumi is unavailable here. Your question has not been sent.',
@@ -29,10 +29,14 @@ describe('coaching when Olumi is unavailable', () => {
     render(chip)
     const button = screen.getByRole('button', { name: 'What could be missing?' })
     fireEvent.click(button)
-    expect(screen.getByRole('status')).toBeInTheDocument()
+    expect(screen.getByRole('status')).not.toBeEmptyDOMElement()
     const dispatch = vi.fn()
     act(() => useGuidanceStore.setState({ _dispatchAction: dispatch }))
-    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    // Registration must clear the failed-attempt state, not merely mask it.
+    act(() => useGuidanceStore.setState({ _dispatchAction: null }))
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    act(() => useGuidanceStore.setState({ _dispatchAction: dispatch }))
     fireEvent.click(button)
     expect(dispatch).toHaveBeenCalledTimes(1)
     expect(dispatch).toHaveBeenCalledWith({
@@ -43,7 +47,7 @@ describe('coaching when Olumi is unavailable', () => {
     })
     // Losing the channel later must not revive the earlier unsent claim.
     act(() => useGuidanceStore.setState({ _dispatchAction: null }))
-    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
   })
 
   it('keeps the legacy send route working without an unavailable warning', () => {
@@ -53,6 +57,6 @@ describe('coaching when Olumi is unavailable', () => {
     fireEvent.click(screen.getByRole('button', { name: 'What could be missing?' }))
     expect(send).toHaveBeenCalledOnce()
     expect(send).toHaveBeenCalledWith('What assumptions might we have missed?')
-    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
   })
 })

@@ -1367,7 +1367,7 @@ export const OptionNode = memo((props: NodeProps) => {
                     <span className="text-text-body">{chip.label}</span>
                     {echoStripped && (
                       <>
-                        <span className="text-text-light">{deltaDisplay ? ': ' : ' → '}</span>
+                        <span className="text-text-light">: </span>
                         <span className={`${typography.nodeLabel} font-semibold`}>{echoStripped}</span>
                       </>
                     )}
@@ -1450,7 +1450,7 @@ export const OptionNode = memo((props: NodeProps) => {
                   <span className="text-text-body">{chip.label}</span>
                   {echoStripped && (
                     <>
-                      <span className="text-text-light"> → </span>
+                      <span className="text-text-light">: </span>
                       <span className={`${typography.nodeLabel} font-semibold`}>{echoStripped}</span>
                     </>
                   )}

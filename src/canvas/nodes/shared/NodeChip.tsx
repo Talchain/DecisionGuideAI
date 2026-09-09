@@ -68,7 +68,7 @@
  * The original report of a dead control was this artefact. Read toasts with a
  * MutationObserver, or inside 5 s.
  */
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { ActionTypeLiteral } from '@talchain/schemas/boundary'
 import type { PendingWireActionType } from '../../conversation/chipMeta'
 import { useGuidanceStore } from '../../stores/guidanceStore'
@@ -95,6 +95,9 @@ export function NodeChip({ label, message, chipId, actionType }: NodeChipProps) 
   const showToast = useShowToastSafe()
   const [unavailable, setUnavailable] = useState(false)
   const hasConversation = useGuidanceStore((s) => Boolean(s._dispatchAction || s._sendMessage))
+  useEffect(() => {
+    if (hasConversation) setUnavailable(false)
+  }, [hasConversation])
 
   /**
    * The refusal this chip would produce if clicked, or null when it would not
@@ -203,11 +206,14 @@ export function NodeChip({ label, message, chipId, actionType }: NodeChipProps) 
     >
       {label}
     </button>
-    {unavailable && !hasConversation && (
-      <span role="status" className={`${typography.edgeLabel} text-text-light basis-full`}>
-        Olumi is unavailable here. Your question has not been sent.
-      </span>
-    )}
+    <span
+      role="status"
+      className={unavailable
+        ? `${typography.edgeLabel} text-text-light block w-full`
+        : typography.screenReaderOnly}
+    >
+      {unavailable ? 'Olumi is unavailable here. Your question has not been sent.' : ''}
+    </span>
     </>
   )
 }
