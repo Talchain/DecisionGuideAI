@@ -33,12 +33,12 @@
  *     voi > 0.05                      →  'warning'
  *     otherwise                       →  'none'
  *
- * So a factor at `voi = 0.25` is badged **critical** on the canvas while the
- * inspector one double-click away calls it **Low**. Until this commit the
- * inspector also said *"Further investigation here is unlikely to change the
- * outcome"* — two surfaces, one number, opposite instructions. That half is
- * removed here (see `INVESTIGATION_VALUE_COMPARISON` below); the node's
- * `critical` is the half still outstanding.
+ * A factor at `voi = 0.25` was badged **critical** on the canvas while the
+ * inspector one double-click away called it **Low** and said *"Further
+ * investigation here is unlikely to change the outcome"* — two surfaces, one
+ * number, opposite instructions. BOTH halves are repaired now, and neither by
+ * touching a cut-off: see `INVESTIGATION_VALUE_INVITATION` below and
+ * `EvidenceGapBadge`'s tooltips.
  *
  * ⛔ IT IS DELIBERATELY NOT REPAIRED BY ALIGNING THE NUMBERS, because the
  * two are not obviously the same question: the node's flag is RELATIVE (it takes
@@ -105,66 +105,49 @@ export const INVESTIGATION_VALUE_LABEL: Record<InvestigationValueTier, string> =
 }
 
 /**
- * ⭐⭐ HOW THE TIER MAY BE SPOKEN — COMPARATIVE AND ATTRIBUTED, NEVER ABSOLUTE.
+ * ⭐⭐ WHAT THE SCORE MAY PROMPT — AN INVITATION, NOT A CLAIM.
  *
- * ── THE OVERCLAIM THIS REPLACES ──────────────────────────────────────────────
- * The bottom band used to end the sentence *"Further investigation here is
- * unlikely to change the outcome."* That is a claim about the WORLD, made from a
- * 0-1 score that **no contract establishes as a calibrated absolute benefit**.
- * Nothing on the wire says that 0.39 means "little would change"; it says this
- * factor scored 0.39 on the producer's own index. The sentence turned an
- * arbitrary cut-off into an instruction to stop looking — which is the most
- * expensive thing a thinking tool can get wrong, because the reader cannot see
- * what they were told not to examine.
+ * ── TWO OVERCLAIMS REMOVED, AND THE SECOND WAS MY OWN REPAIR ────────────────
  *
- * The ruling this implements (option-node owner, programme docs #38): *"neither
- * arbitrary tier nor ordinal position licences 'unlikely to change the outcome'
- * or 'critical' … do not claim the 0-1 score is calibrated absolute benefit
- * without a producer contract."*
+ * FIRST, the shipped prose asserted CONSEQUENCE: *"Further investigation here is
+ * unlikely to change the outcome"* and *"could significantly improve
+ * confidence"*, both from a 0-1 score that no contract establishes as calibrated
+ * absolute benefit. An arbitrary cut-off became an instruction to stop looking —
+ * the most expensive thing a thinking tool can get wrong, because the reader
+ * cannot see what they were told not to examine.
  *
- * ── WHAT IS LEFT SAYABLE, AND WHY EACH PART IS ───────────────────────────────
- * A tier IS a legitimate COMPARATIVE statement: this factor scored higher than
- * most on the producer's index. That claim needs no calibration, because it is a
- * claim about the ORDERING, which the producer does supply. So the tails below
- * compare, attribute, and stop:
+ * SECOND — and this is the one worth recording — the repair for it asserted a
+ * COMPARISON the band cannot support: *"more than for most factors"* / *"less
+ * than for most factors"*. **A FIXED 0.4/0.7 BAND SAYS NOTHING ABOUT THE
+ * DISTRIBUTION.** Counterexample from the option-node owner's review, and it is
+ * decisive: if every factor in a model scores 0.25, every one of them lands in
+ * the bottom band and every one is told it matters *less than for most factors*
+ * — which is false for all of them, because they are identical. One overclaim
+ * was traded for its inverse, which is this estate's signature failure and is
+ * why both are written down here rather than one being quietly replaced.
  *
- *   high    "more than for most factors"
- *   medium  "about as much as for a typical factor"
- *   low     "less than for most factors"          ← not "not worth looking at"
+ * THE ORDINAL IS GONE TOO, for the same reason and it was mine as well. I read
+ * `voiRank` as "the producer's own top three". It is not: `useNodeDisplayMetadata`
+ * COMPUTES it locally and TIES FOLLOW SOURCE ORDER, so "among this model's top
+ * few factors" attributed to the producer an ordering the UI made up, with
+ * arbitrary tie-breaking underneath it.
  *
- * ⚠ THE STEM IS A SEPARATE RECORD, NOT A SHARED SENTENCE. "better evidence here"
- * is wrong for an observable factor, which needs "a more recent measurement
- * here" — you refresh a measurement and you gather evidence for an estimate. The
- * two are named apart and keyed by the ACT, so a panel picks its own voice and a
- * fourth panel cannot quietly invent a third one.
+ * ── WHAT SURVIVES ───────────────────────────────────────────────────────────
+ * The NUMBER and its BAND stay, as a readout beside the bar — a figure the
+ * producer supplies, presented as a figure. What replaces the prose is an
+ * INVITATION, which asserts nothing about magnitude, distribution or outcome and
+ * is the same whatever the band says:
+ *
+ *   evidence     "Check what supports this value and what evidence could change it."
+ *   measurement  "Check the source and age of this measurement."
+ *
+ * ⚠ TIER-INDEPENDENT ON PURPOSE. If the score licenses no claim about how much
+ * would change, it licenses no VARIATION in what we invite either. A sentence
+ * that changed with the band would smuggle the comparison back in through its
+ * tone. The two entries differ by the ACT a factor of that category needs — you
+ * refresh a measurement and you gather evidence for an estimate — not by degree.
  */
-/**
- * The half of the sentence that names the ACT, keyed by what a factor of that
- * category actually needs. Ends with a space; `INVESTIGATION_VALUE_COMPARISON`
- * finishes the sentence.
- */
-export const INVESTIGATION_VALUE_STEM: Record<'evidence' | 'measurement', string> = {
-  evidence: "On this model's own estimate, better evidence here would sharpen its analysis ",
-  measurement:
-    "On this model's own estimate, a more recent measurement here would sharpen its analysis ",
+export const INVESTIGATION_VALUE_INVITATION: Record<'evidence' | 'measurement', string> = {
+  evidence: 'Check what supports this value and what evidence could change it.',
+  measurement: 'Check the source and age of this measurement.',
 }
-
-export const INVESTIGATION_VALUE_COMPARISON: Record<InvestigationValueTier, string> = {
-  high: 'more than for most factors.',
-  medium: 'about as much as for a typical factor.',
-  low: 'less than for most factors.',
-}
-
-/**
- * The one ACTIONABLE thing the producer genuinely supports.
- *
- * ⚠ THIS IS ORDINAL, NOT A LEVEL, and that is exactly why it may be said out
- * loud. `useNodeDisplayMetadata` sets `voiRank` only when the factor's position
- * is 1-3 (`voiPos > 0 && voiPos <= 3`), so a non-null rank IS the producer's own
- * ordering, not our reading of a magnitude. It licenses "among this model's top
- * few to look into" and nothing stronger — not "critical", which asserts
- * consequence, and not a claim about how much difference it would make.
- */
-export const INVESTIGATION_VALUE_TOP_RANK_NOTE =
-  "This model puts it among its top few factors to look into."
-

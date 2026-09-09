@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
-import { EvidenceGapBadge } from '../EvidenceGapBadge'
+import { EvidenceGapBadge, ESCALATION_TOOLTIP } from '../EvidenceGapBadge'
 
 describe('EvidenceGapBadge', () => {
   it('renders with data-testid="evidence-gap-badge"', () => {
@@ -76,25 +76,41 @@ describe('EvidenceGapBadge', () => {
       expect(badge?.className).not.toContain('evidence-gap-pulse')
     })
 
-    it('applies pulse class when escalation is "warning"', () => {
-      const { container } = render(<EvidenceGapBadge label="X" escalation="warning" />)
-      const badge = container.querySelector('[data-testid="evidence-gap-badge"]')
-      expect(badge?.className).toContain('evidence-gap-pulse')
+    /**
+     * ⚠⚠ THESE THREE ASSERTED THE OPPOSITE, AND THE OLD VERSIONS WERE THE
+     * DEFECT. They read "applies pulse class when escalation is warning",
+     * "... is critical", and "uses danger colour classes for critical
+     * escalation". A pulse is an alarm and red is an alarm, and both were
+     * derived from `valueOfInformation` — a 0-1 score no contract establishes
+     * as calibrated absolute benefit. They said in colour and motion exactly
+     * what the copy was made to stop saying in words.
+     *
+     * They are inverted rather than deleted, so the suite records that the
+     * behaviour changed deliberately instead of quietly losing the coverage.
+     */
+    it('NEVER pulses, at any escalation — a pulse is a consequence claim', () => {
+      for (const escalation of ['none', 'warning', 'critical'] as const) {
+        const { container, unmount } = render(
+          <EvidenceGapBadge label="X" escalation={escalation} />,
+        )
+        const badge = container.querySelector('[data-testid="evidence-gap-badge"]')
+        expect(badge?.className, `escalation="${escalation}" still pulses`).not.toContain(
+          'evidence-gap-pulse',
+        )
+        unmount()
+      }
     })
 
-    it('applies pulse class when escalation is "critical"', () => {
+    it('uses the static needs-judgement treatment for critical, never danger', () => {
       const { container } = render(<EvidenceGapBadge label="X" escalation="critical" />)
       const badge = container.querySelector('[data-testid="evidence-gap-badge"]')
-      expect(badge?.className).toContain('evidence-gap-pulse')
-    })
-
-    it('uses danger colour classes for critical escalation', () => {
-      const { container } = render(<EvidenceGapBadge label="X" escalation="critical" />)
-      const badge = container.querySelector('[data-testid="evidence-gap-badge"]')
-      expect(badge?.className).toContain('border-danger')
-      expect(badge?.className).toContain('bg-danger-light')
+      // The ruled pattern this reuses (`mapImprovementToTriageCard.ts`): a
+      // warning-tinted border and nothing louder. Not a new hue — a settled one.
+      expect(badge?.className).toContain('border-warning')
+      expect(badge?.className).not.toContain('border-danger')
+      expect(badge?.className).not.toContain('bg-danger-light')
       const questionMark = badge?.querySelector('span')
-      expect(questionMark?.className).toContain('text-danger')
+      expect(questionMark?.className).not.toContain('text-danger')
     })
 
     it('uses warning colour classes for warning escalation', () => {
@@ -107,13 +123,13 @@ describe('EvidenceGapBadge', () => {
     it('includes escalation-specific tooltip text for warning', () => {
       const { container } = render(<EvidenceGapBadge label="Revenue" escalation="warning" />)
       const hover = container.querySelector('[data-testid="evidence-gap-badge-hover"]')
-      expect(hover?.getAttribute('title')).toContain('High investigation value')
+      expect(hover?.getAttribute('title')).toContain(ESCALATION_TOOLTIP.warning)
     })
 
     it('includes escalation-specific tooltip text for critical', () => {
       const { container } = render(<EvidenceGapBadge label="Revenue" escalation="critical" />)
       const hover = container.querySelector('[data-testid="evidence-gap-badge-hover"]')
-      expect(hover?.getAttribute('title')).toContain('Critical evidence gap')
+      expect(hover?.getAttribute('title')).toContain(ESCALATION_TOOLTIP.critical)
     })
   })
 })

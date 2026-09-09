@@ -56,9 +56,7 @@ import {
   investigationValueTier,
   INVESTIGATION_VALUE_LABEL,
   INVESTIGATION_VALUE_BOUNDS,
-  INVESTIGATION_VALUE_COMPARISON,
-  INVESTIGATION_VALUE_STEM,
-  INVESTIGATION_VALUE_TOP_RANK_NOTE,
+  INVESTIGATION_VALUE_INVITATION,
 } from '../investigationValue'
 
 const ROOT = path.resolve(__dirname, '../../../..')
@@ -98,17 +96,27 @@ describe('the tier is decided in one place', () => {
   })
 })
 
-describe('the tier may be spoken comparatively, never as a consequence', () => {
+describe('the score may invite, and may not claim', () => {
   /**
-   * ⚠ A CORPUS, AND IT IS NAMED AS ONE. Deriving this list is not possible — the
-   * property is "does this sentence assert a consequence in the world?", which no
-   * derivation answers. So it is a hand-written corpus of the shapes that
-   * over-claim, and its failure mode is a FALSE RED (someone writes "unlikely"
-   * legitimately and has to justify it), which is the safe direction for a guard
-   * over copy. `significantly improve` and `unlikely to change` are here because
-   * both shipped; the rest are the neighbouring shapes an author reaches for next.
+   * ⚠ A CORPUS, AND IT IS NAMED AS ONE. "Does this sentence claim something the
+   * score cannot support?" is not derivable, so this is a hand-written list of
+   * the shapes that over-claim. Its failure mode is a FALSE RED — someone writes
+   * "unlikely" legitimately and has to justify it — which is the safe direction
+   * for a guard over copy.
+   *
+   * ⭐ IT COVERS TWO GENERATIONS OF OVERCLAIM, because this file shipped both.
+   *  · CONSEQUENCE — "unlikely to change the outcome", "significantly improve".
+   *    A claim about the world from a score with no calibration contract.
+   *  · COMPARISON — "more than for most factors", "less than for most factors".
+   *    The repair for the first, and wrong in its own way: A FIXED 0.4/0.7 BAND
+   *    SAYS NOTHING ABOUT THE DISTRIBUTION. If every factor scores 0.25 they all
+   *    land in the bottom band and every one is told it matters less than most,
+   *    which is false for all of them because they are identical.
+   *  · ORDINAL — "top few factors". `voiRank` is computed locally with ties
+   *    following source order, so it is the UI's ordering, not the producer's.
    */
-  const ABSOLUTE_CONSEQUENCE = [
+  const UNSUPPORTED_CLAIM = [
+    // consequence
     /unlikely to change/i,
     /won'?t change/i,
     /not worth/i,
@@ -116,56 +124,72 @@ describe('the tier may be spoken comparatively, never as a consequence', () => {
     /\bcritical\b/i,
     /significantly improve/i,
     /will improve/i,
+    // comparison a fixed band cannot support
+    /than (for )?most/i,
+    /typical factor/i,
+    /above average/i,
+    // ordinal the producer does not state
+    /top (few|three|3)/i,
+    /\branks?\b/i,
   ]
 
-  /**
-   * ⚠ SCOPE, STATED. This guards the words the three panels now RENDER, because
-   * after this change they render only these constants. It cannot see a new
-   * hand-written sentence added beside them — that is what a reviewer is for.
-   */
   const EVERY_RENDERED_STRING = [
-    ...Object.values(INVESTIGATION_VALUE_COMPARISON),
-    ...Object.values(INVESTIGATION_VALUE_STEM),
-    INVESTIGATION_VALUE_TOP_RANK_NOTE,
+    ...Object.values(INVESTIGATION_VALUE_INVITATION),
     ...Object.values(INVESTIGATION_VALUE_LABEL),
   ]
 
-  it('asserts no consequence in the world from an uncalibrated score', () => {
+  it('never claims magnitude, distribution, ordering or outcome', () => {
     for (const text of EVERY_RENDERED_STRING) {
-      for (const banned of ABSOLUTE_CONSEQUENCE) {
+      for (const banned of UNSUPPORTED_CLAIM) {
         expect(
           banned.test(text),
-          `"${text}" asserts a consequence (${banned}). The 0-1 score has no producer ` +
-            'contract establishing it as calibrated absolute benefit, so a tier may ' +
-            'COMPARE and attribute, and may not tell the reader what will happen.',
+          `"${text}" matches ${banned}. The 0-1 score has no producer contract ` +
+            'establishing calibrated absolute benefit, and a fixed band says nothing ' +
+            'about the distribution, so the copy may INVITE and may not CLAIM.',
         ).toBe(false)
       }
     }
   })
 
-  it('CONTRAST — the corpus can see an overclaim when one is there', () => {
-    // The exact sentence this change removed. Without this the guard above would
-    // pass just as well on a corpus of patterns that match nothing.
-    const removed = 'Further investigation here is unlikely to change the outcome.'
-    expect(ABSOLUTE_CONSEQUENCE.some(p => p.test(removed))).toBe(true)
+  it('CONTRAST — the corpus catches both generations of overclaim', () => {
+    // Without this the guard above passes just as well on patterns matching
+    // nothing, which is the shape of every false zero in this estate.
+    for (const removed of [
+      'Further investigation here is unlikely to change the outcome.',
+      'Gathering more evidence here could significantly improve confidence.',
+      "On this model's own estimate, better evidence here would sharpen its analysis less than for most factors.",
+      'This model puts it among its top few factors to look into.',
+    ]) {
+      expect(
+        UNSUPPORTED_CLAIM.some(p => p.test(removed)),
+        `the corpus does not catch "${removed}"`,
+      ).toBe(true)
+    }
   })
 
-  it('attributes every claim to the model rather than to the world', () => {
-    // Both stems open by naming whose estimate this is. A sentence that drops the
-    // attribution reads as a fact about the factor.
-    for (const stem of Object.values(INVESTIGATION_VALUE_STEM)) {
-      expect(stem, `"${stem}" does not attribute the estimate`).toContain("this model's own estimate")
-    }
-    expect(INVESTIGATION_VALUE_TOP_RANK_NOTE).toContain('This model')
+  it('invites an actual check, and names the act the factor needs', () => {
+    // The invitation has to be actionable or it is just a removal.
+    expect(INVESTIGATION_VALUE_INVITATION.evidence).toMatch(/^Check /)
+    expect(INVESTIGATION_VALUE_INVITATION.measurement).toMatch(/^Check /)
+    // You refresh a MEASUREMENT and you gather EVIDENCE for an estimate — the
+    // two entries differ by act, never by degree.
+    expect(INVESTIGATION_VALUE_INVITATION.measurement).toContain('measurement')
+    expect(INVESTIGATION_VALUE_INVITATION.evidence).toContain('evidence')
   })
 
-  it('finishes the sentence — a stem ends open and a comparison closes it', () => {
-    for (const stem of Object.values(INVESTIGATION_VALUE_STEM)) {
-      expect(stem.endsWith(' '), `"${stem}" must end with a space to join its comparison`).toBe(true)
-      expect(stem.trimEnd().endsWith('.'), `"${stem}" must not end the sentence itself`).toBe(false)
-    }
-    for (const tail of Object.values(INVESTIGATION_VALUE_COMPARISON)) {
-      expect(tail.endsWith('.'), `"${tail}" must close the sentence`).toBe(true)
+  it('says the SAME thing whatever the band — no smuggled comparison', () => {
+    // ⭐ The invitation is deliberately tier-INDEPENDENT. If the score licenses
+    // no claim about how much would change, it licenses no variation in what we
+    // invite either; a sentence that shifted with the band would carry the
+    // comparison back in through its tone. This asserts the shape that makes
+    // that impossible: the invitation is not keyed by tier at all.
+    const keys = Object.keys(INVESTIGATION_VALUE_INVITATION).sort()
+    expect(keys).toEqual(['evidence', 'measurement'])
+    for (const [tier] of INVESTIGATION_VALUE_BOUNDS) {
+      expect(
+        Object.prototype.hasOwnProperty.call(INVESTIGATION_VALUE_INVITATION, tier),
+        `the invitation is keyed by tier '${tier}' — it must be keyed by ACT only`,
+      ).toBe(false)
     }
   })
 })

@@ -32,9 +32,7 @@ import type { InspectorPanelProps } from '../types'
 import {
   investigationValueTier,
   INVESTIGATION_VALUE_LABEL,
-  INVESTIGATION_VALUE_COMPARISON,
-  INVESTIGATION_VALUE_STEM,
-  INVESTIGATION_VALUE_TOP_RANK_NOTE,
+  INVESTIGATION_VALUE_INVITATION,
 } from '../../../domain/investigationValue'
 import { resolveCoaching } from '../coachingConfig'
 import { FactorExternalEditor } from '../editors/FactorExternalEditor'
@@ -343,8 +341,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
                   {INLINE_LABELS.investigationValue}
                 </div>
                 <p className={`${typography.panelMeta} text-text-light mt-1`}>
-                  {INVESTIGATION_VALUE_STEM.evidence}{INVESTIGATION_VALUE_COMPARISON[voiTier]}
-                  {displayMetadata.voiRank !== null && ` ${INVESTIGATION_VALUE_TOP_RANK_NOTE}`}
+                  {INVESTIGATION_VALUE_INVITATION.evidence}
                 </p>
               </div>
             )}

@@ -120,10 +120,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup, within, fireEvent } from '@testing-library/react'
-import {
-  INVESTIGATION_VALUE_STEM,
-  INVESTIGATION_VALUE_COMPARISON,
-} from '../../../domain/investigationValue'
+import { INVESTIGATION_VALUE_INVITATION } from '../../../domain/investigationValue'
 
 /*
  * This panel's first render pulls a large import graph and lands within a few
@@ -219,7 +216,7 @@ const COMPUTE_DENIAL =
  * until the overclaim removal — quoted rather than deleted, so the next reader
  * can see this carve-out has already had to track one real change.
  */
-const VOI_NOTE = INVESTIGATION_VALUE_STEM.evidence + INVESTIGATION_VALUE_COMPARISON.medium
+const VOI_NOTE = INVESTIGATION_VALUE_INVITATION.evidence
 
 function stripVoiNote(text: string, expectPresent: boolean): string {
   const present = text.includes(VOI_NOTE)
