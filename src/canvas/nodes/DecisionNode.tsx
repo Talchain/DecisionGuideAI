@@ -4,9 +4,9 @@
  * Pre-analysis Standard: triage line, 2 coaching chips, popover with model
  *   readiness breakdown.
  * Pre-analysis Detailed: same as Standard (chip rules are view-agnostic).
- * Post-analysis Standard: model-readiness summary, with stability and coaching
- *   in the popover. Option comparisons remain on option cards.
- * Post-analysis Detailed: stability and coaching inline in the body.
+ * Post-analysis Standard: compound winner + risk sentence, 2 coaching chips,
+ *   popover with stability % + tier + progress bar.
+ * Post-analysis Detailed: same as Standard PLUS stability line in body.
  *
  * Resting state: when NEITHER branch would put a child on screen, the body
  *   states what is absent from this node and — where an authoring act would
@@ -369,6 +369,24 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   }, [isPostAnalysis, nodes, edges, goalDefined])
 
   /**
+   * ⛔ `headline` LIVED HERE AND IS DELETED — the last consumer of the
+   * producer's comparative claim ON THIS NODE.
+   *
+   * It derived `{ mostSupportedLabel, winProb }` through `deriveDecisionVerdict`
+   * and fed THREE surfaces: the verdict sentence, the support bar, and the
+   * reduced-zoom `lodMetric`. All three restated the option cards' own verdict
+   * under a heading that asks a question, and all three are now gone.
+   *
+   * ⚠ THE PERMISSION SEMANTICS ARE NOT RELAXED — THEY MOVED, ENTIRELY. Q1/Q2
+   * (`modelLicensesComparativeClaim`, `verdict.hasLeadingOption`) still gate
+   * every comparative claim the product makes; they are simply consulted where
+   * the claim is made, on the OPTION cards, whose admission, refusal,
+   * non-vacuity and identity controls are untouched. A gate with nothing left
+   * to gate on this node is not a weaker gate; it is one fewer surface able to
+   * speak out of turn.
+   */
+
+  /**
    * ⛔ `biggestRisk` LIVED HERE. DELETED, NOT REPAIRED.
    *
    * It chose the risk with the greatest raw `edge.data.weight` on a risk → goal
@@ -491,6 +509,13 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // this expression is how the copy would start pointing at a panel that is
   // not there.
   const hasPostAnalysisPopover = isPostAnalysis && !isDetailed
+  /**
+   * AXIS 2 for the leader sentence. Same shared owner the option card reads —
+   * never re-spelled here, because two local expressions of one question is
+   * exactly how the canvas ended up with three robustness vocabularies already
+   * (this node's own `stabilityDisplay` thresholds, GoalNode's inline read, and
+   * the shared classifier). A DISCLOSURE only: `headline` above is untouched.
+   */
   const showStabilityLine = isDetailed && Boolean(stabilityDisplay)
   // ⚠ POST-ANALYSIS CHIPS STAY DETAILED-ONLY, and that is a boundary, not an
   // oversight. "Challenge this result" deserves the same treatment as the
@@ -657,15 +682,95 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     })
   }, [restingAsk, restingAskLabel, restingNodeId])
 
-  // Keep the Question node structural at every zoom. A completed analysis
-  // must not replace this count with the option verdict removed from its body.
-  // Unnamed and empty nodes retain their existing authoring/wayfinding copy.
+  /**
+   * ⭐ WHAT THE ANCHOR OF THE MODEL SAYS WHEN IT IS TOO SMALL TO SAY ANYTHING
+   * ELSE — and it had NOTHING, which is the defect Paul reported twice.
+   *
+   * `shared/lodMetricLine.ts` deliberately scoped `decision` out: it has no
+   * single headline QUANTITY, so a central resolver reading `data` could not
+   * find one. That reasoning was correct and the conclusion was wrong, because
+   * it left THE MOST IMPORTANT CARD ON THE CANVAS as an empty box below the
+   * legibility floor — measured on deployed `7d717c13`, where this node's body
+   * holds a perfectly good sentence ("Segment leads in 48% of scenarios…")
+   * rendered `visibility: hidden` with nothing put back in its place. Every
+   * other type got a line and the anchor got none.
+   *
+   * ⛔ IT NAMES A LEADER ONLY WHERE THE CARD IS ALREADY ENTITLED TO. This reads
+   * `headline`, which is the SAME permission the full-zoom body consumes — so
+   * a run whose verdict withholds a leader has `headline === null` here and
+   * this says nothing about the analysis at all. It does not re-derive the
+   * permission, and it must never be changed into something that does: the
+   * leader-claim seam is exactly where this product has shipped a withheld
+   * verdict and a named leader two pixels apart before (trap 21).
+   *
+   * Where no leader may be named it falls back to the RESTING line — a
+   * statement about what is absent from this node, never about the analysis.
+   *
+   * ⭐⭐ AND ONE OF THOSE RESTING LINES WAS THE SAME SENTENCE ON EVERY MODEL —
+   * measured in a real browser, all five committed starter drafts, both
+   * 1280x800 and 1440x900 (`e2e/geometry/zoomLadder.measure.ts`, 1 Sep 2026).
+   * At the zoom "Show whole model" parks at, the anchor card's one line read
+   * `Nothing to show on this node` — 10 of 10 readings, identical.
+   *
+   * That is Paul's canvas-density ruling (31 Aug) failing in its purest form:
+   * *copy identical on every card is furniture, not information*. Here it is
+   * worse than furniture. A blank card is at least ambiguous; a sentence saying
+   * the anchor of the model has nothing on it is the product volunteering that
+   * its most important card is empty — while that same card is wired to three
+   * or four options and knows it.
+   *
+   * ⛔ THE REPLACEMENT IS A COUNT THE CARD ALREADY HOLDS, NOT A NEW NUMBER.
+   * `optionCount` is the SAME memo the `noOptionsLine` arm above branches on
+   * and the same one the pre-analysis ask sentence spells at line 373 — one
+   * authority, deduped by node id, and explicitly NOT a count of edges (see its
+   * own header: two edges to one option are a modelling defect the health check
+   * reports, not two options). So this cannot state a different number from the
+   * card two pixels away, which is exactly the trap `shared/lodMetricLine.ts`
+   * refused a central `decision` arm to avoid.
+   *
+   * ⚠ IT VARIES, WHICH IS THE WHOLE POINT: 4 on `build-vs-buy`, 3 on
+   * `market-entry`. And it is reachable only where `optionCount > 0`, because
+   * `optionCount === 0` is caught by the `noOptionsLine` arm above and keeps
+   * its CTA — the count is asserted here rather than assumed, so a future
+   * reordering of those arms cannot silently produce `0 options` on a card
+   * whose job is to say "Add options".
+   */
   const lodMetric = useMemo<string | null>(() => {
-    if (!isUnnamed && optionCount > 0) {
+    /**
+     * ⛔ THE COMPARATIVE ARM IS GONE — AND IT WAS THE THIRD CARRIER OF ONE
+     * CLAIM, WHICH IS WHY REMOVING THE OTHER TWO WAS NOT ENOUGH.
+     *
+     * It returned `${headline.mostSupportedLabel}${pct}` — the named option and
+     * its percentage — and `BaseNode` renders `lodMetric` in place of the body
+     * at reduced zoom. So the Question node went on ANSWERING ITSELF in exactly
+     * the view where the reader has least context to judge it, after the
+     * sentence and the bar had both been removed above.
+     *
+     * ⚠ THE DELETED SENTENCE AND BAR TESTS COULD NOT SEE THIS. They bound to
+     * visible body text and a test id; this carrier is a STRING PROP handed to
+     * another component. Enumerating "the surfaces that state the verdict" by
+     * what the old tests touched found two of three.
+     *
+     * ⭐ THE REPLACEMENT INVENTS NOTHING: `optionCount` is the count this card
+     * already holds, the same memo the `noOptionsLine` arm branches on. The
+     * completed-run case now falls to it rather than to the hover hint, because
+     * a count of the options under discussion is structural content and
+     * "Hover for this node's detail" says nothing about the model.
+     *
+     * `optionCount > 0` is retained from the original gate for the reason its
+     * own note gives: `optionCount === 0` belongs to the `noOptionsLine` arm,
+     * which keeps its CTA, so this can never render "0 options" on a card whose
+     * job is to say "Add options".
+     */
+    if (
+      optionCount > 0 &&
+      (resting.line === DECISION_RESTING_COPY.emptyLine ||
+        resting.line === DECISION_RESTING_COPY.completedRunLine)
+    ) {
       return `${optionCount} option${optionCount === 1 ? '' : 's'}`
     }
     return resting.line
-  }, [isUnnamed, resting.line, optionCount])
+  }, [resting, optionCount])
 
   /**
    * ⚠⚠ ONE ARM, BECAUSE THE OTHER IS UNREACHABLE HERE — AND I WROTE TWO FIRST.
@@ -808,13 +913,16 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 claim twice with no second source behind the repetition.
 
                 ⚠ THE PERMISSION SEMANTICS ARE UNCHANGED AND STILL LIVE. This
-                does not relax the option cards' admission, refusal,
-                non-vacuity or identity controls. This Question node no longer
-                derives a comparative headline, including at reduced zoom.
+                is not a relaxation of the leader-claim gate: `headline` still
+                carries the producer's owned claim and still decides whether
+                this node says anything comparative at all. What is removed is
+                a DUPLICATE, not a guard. The option cards remain the single
+                place the claim is made, with their admission, refusal,
+                non-vacuity and identity controls untouched.
 
                 Its risk clause went with it (see the selector's tombstone
-                above). What this node keeps is the authored question,
-                readiness facts, independent stability and the routes out. */}
+                above). What this node keeps is the authored question, the
+                readiness facts, the run's caveat, and the routes out. */}
             {/* ⛔ AND THE RUN CAVEAT WENT WITH THE CLAIM IT QUALIFIED.
 
                 It read "{grade}: small changes could flip which option the data
