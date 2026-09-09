@@ -358,6 +358,7 @@ export const OptionPanel = memo(function OptionPanel({
                 factorId={iv.factorId}
                 factorLabel={iv.factorLabel}
                 baseline={iv.baseline}
+                rawBaseline={iv.rawBaseline}
                 currentValue={iv.value}
                 displayValue={iv.displayValue}
                 unit={iv.unit}
