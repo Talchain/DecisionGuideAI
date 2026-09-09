@@ -43,6 +43,7 @@ import { getScenario } from '../store/scenarios'
 // child surface may never set; read that file before changing width, tabs,
 // scroll regions, the footer region or the type/spacing/radius scales here.
 import {
+  DEFAULT_WORKSPACE_SURFACE,
   SHELL_CONTAINER_NAME,
   SHELL_RADIUS_PX,
   presentedSurfaces,
@@ -230,9 +231,18 @@ const STORAGE_KEY = OUTPUTS_DOCK_STORAGE_KEY
  * before the E1 sync effect copies the persisted state into useUIStore.
  *
  * Without this, OutputsDock can restore `state.activeTab='olumi'` from
- * sessionStorage while `useUIStore.activeOutputTab` is still the default
+ * sessionStorage while `useUIStore.activeOutputTab` is still its own initial
  * 'results', and both surfaces would paint for one frame before the post-
  * paint effect reconciles them.
+ *
+ * ⚠ THE TWO DEFAULTS ARE DELIBERATELY DIFFERENT AND THIS IS NOT A BUG TO FIX.
+ * Since 9 Sep 2026 the dock's own default is `DEFAULT_WORKSPACE_SURFACE`
+ * ('analysisNew'); `useUIStore`'s stays 'results' because it is a GLOBAL with
+ * consumers outside this dock. On a fresh session (nothing persisted) this
+ * returns `null` and the yield gate falls back to the global — which is safe
+ * because that gate asks only "is the effective tab `olumi`?", and both
+ * candidates answer no. Derive before adding a consumer that needs to tell
+ * `results` and `analysisNew` apart.
  *
  * Returns `null` when sessionStorage is unavailable or the persisted
  * payload is missing/invalid (consumer falls back to useUIStore).
@@ -529,9 +539,14 @@ interface OutputsDockBodyProps {
 
 function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) {
   const prefersReducedMotion = usePrefersReducedMotion()
+  // ⭐ THE DEFAULT TAB, AND THE ONLY SITE THAT DECIDES WHERE A FRESH SESSION
+  // LANDS. `useDockState` reaches for this default ONLY when sessionStorage
+  // holds nothing valid for this key — a restored session wins outright — so
+  // this is exactly "the tab when nobody has chosen". Ruling and the three
+  // things it is not: `DEFAULT_WORKSPACE_SURFACE` in the shell contract.
   const [state, setState] = useDockState<OutputsDockState>(STORAGE_KEY, {
     isOpen: true,
-    activeTab: 'results',
+    activeTab: DEFAULT_WORKSPACE_SURFACE,
   })
   // Conversation callbacks come from props so the OutputsDock function above is
   // the single useConversation() host; OutputsDockBody never calls it
@@ -550,16 +565,21 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     return () => { dispatchCanonicalActionRef.current = null }
   }, [dispatchCanonicalAction])
 
-  // Tab guards: if persisted tab references a disabled flag, reset to 'results'
+  // Tab guards: a persisted tab whose flag is off cannot be honoured, so the
+  // choice is void and the session falls back to the DEFAULT. Not an override —
+  // there is nothing left to override, because the surface the user chose does
+  // not exist under this flag posture. `DEFAULT_WORKSPACE_SURFACE` is always a
+  // safe landing: `analysisNew` is unflagged by ruling (see its row in
+  // `shellContract.ts`), so this fallback can never itself be flagged off.
   useEffect(() => {
     if (state.activeTab === 'journey' && !isJourneyTabEnabled()) {
-      setState(prev => ({ ...prev, activeTab: 'results' }))
+      setState(prev => ({ ...prev, activeTab: DEFAULT_WORKSPACE_SURFACE }))
     }
     if (state.activeTab === 'compare' && !isCompareTabEnabled()) {
-      setState(prev => ({ ...prev, activeTab: 'results' }))
+      setState(prev => ({ ...prev, activeTab: DEFAULT_WORKSPACE_SURFACE }))
     }
     if (state.activeTab === 'olumi' && !isAiPanelV2Enabled()) {
-      setState(prev => ({ ...prev, activeTab: 'results' }))
+      setState(prev => ({ ...prev, activeTab: DEFAULT_WORKSPACE_SURFACE }))
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- one-time init guard
 
@@ -615,11 +635,19 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     if (versionChanged) {
       useUIStore.getState().openRightPanel('results')
     }
-    // Validate the requested tab is enabled before navigating
+    // Validate the requested tab is enabled before navigating.
+    //
+    // ⚠ THE FALLBACK MOVED; THE PASS-THROUGH DID NOT. An explicit request for
+    // `'results'` still resolves to `'results'` — this branch only fires when
+    // the requested surface is FLAGGED OFF and there is nothing to honour, so
+    // it is a default, not an override. That distinction is load-bearing: the
+    // 0.32.0 panel verbs (`open_panel` / `open_section`) ride this path via
+    // `forceActivateOutputTab`, and remapping a live request here would make
+    // the assistant open a surface it did not name.
     const resolvedTab = (externalTab === 'compare' && !isCompareTabEnabled())
       || (externalTab === 'journey' && !isJourneyTabEnabled())
       || (externalTab === 'olumi' && !isAiPanelV2Enabled())
-      ? 'results'
+      ? DEFAULT_WORKSPACE_SURFACE
       : externalTab
     // A forced activation OF THE OLUMI TAB must also clear the FIRST-USE RAIL,
     // for the same reason `versionChanged` clears an overlay panel above. Since
@@ -641,6 +669,16 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     // clamped 843px this lane exists to fix — the class-8 change silently
     // undoing the coexistence change, on the one journey both were written for.
     // Caught only by re-running the browser measurement on the final tip.
+    //
+    // ⚠⚠ AND THAT `forceActivateOutputTab('results')` IS THE ONE SITE THE 9 Sep
+    // 2026 DEFAULT-TAB RULING DOES NOT REACH FROM THIS FILE. It lives in
+    // `FirstUseComposer.tsx:219`, outside this lane's ownership, and it fires on
+    // the 0→N draft transition — so a fresh individual who types a brief is
+    // still put on Analysis by it, whatever `DEFAULT_WORKSPACE_SURFACE` says.
+    // It is deliberately NOT worked around here: remapping a live, explicit
+    // request inside this sync effect would also remap the assistant's
+    // `open_panel` verb, which is the defect above in a new coat. The smallest
+    // enabling change is that one literal in its own file, by its own owner.
     //
     // The two are different questions (trap 21): "reveal the Olumi thread"
     // legitimately claims the dock; "the draft landed, front Analysis" does not.
@@ -794,10 +832,15 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const effectiveActiveTab = state.activeTab
 
   // Track the last non-Olumi tab the user was on so the docked-Olumi
-  // float-out path can return them to that context (Analysis / Compare /
-  // Model / Journey) rather than always defaulting to Analysis.
+  // float-out path can return them to that context (Reasoning / Analysis /
+  // Compare / Model / Journey) rather than always landing on one surface.
+  //
+  // The `DEFAULT_WORKSPACE_SURFACE` arm is reached only when the session
+  // RESTORED straight into the Olumi tab, so no non-Olumi tab was ever
+  // recorded: there is no choice to honour and this is the default, not an
+  // override of one.
   const lastNonOlumiTabRef = useRef<OutputsDockTab>(
-    state.activeTab !== 'olumi' ? state.activeTab : 'results',
+    state.activeTab !== 'olumi' ? state.activeTab : DEFAULT_WORKSPACE_SURFACE,
   )
   useEffect(() => {
     if (state.activeTab !== 'olumi') lastNonOlumiTabRef.current = state.activeTab
@@ -1919,11 +1962,51 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
       resultsStatus === 'complete' ||
       resultsStatus === 'error'
 
-    // Auto-switch to Results tab only when:
+    // Reveal the dock when:
     // 1. Status transitions from idle/cancelled → active (user started a run)
     // 2. showResultsPanel flag is explicitly set (external trigger)
     const statusTransitioned = wasInactive && isNowActive
     if (!statusTransitioned && !showResultsPanel) return
+
+    // ⭐⭐ TWO QUESTIONS UNDER ONE EFFECT, NOW NAMED APART (trap 21).
+    //
+    // This effect used to answer both with one line — `activeTab: 'results'` —
+    // and that made a RUN START a navigation command. Under the 9 Sep 2026
+    // ruling (`DEFAULT_WORKSPACE_SURFACE`) that is exactly wrong on the journey
+    // the ruling is about: a fresh user lands on Reasoning, presses Run, and is
+    // yanked to the Analysis tab the ruling put them somewhere else to avoid.
+    //
+    //   REVEAL  — "outputs are coming, make the dock visible". Fires for BOTH
+    //             triggers, unchanged: rail lock dropped, overlay panels closed,
+    //             `isOpen: true`, `outputs-dock-opened` dispatched.
+    //   NAVIGATE — "front the Analysis tab". Fires ONLY for trigger 2.
+    //
+    // WHY A RUN START MAKES NO TAB CLAIM AT ALL, rather than being re-pointed at
+    // the new default:
+    //   (a) Re-pointing it at `analysisNew` would yank a user who explicitly
+    //       chose Analysis. Default ≠ override, in both directions.
+    //   (b) A RE-RUN already makes no claim — `wasInactive` is false from
+    //       'complete', so the product has behaved this way for every run after
+    //       the first, and UI #1198's suite pins it. Dropping the claim makes
+    //       the first run behave like every other run instead of being the one
+    //       exception.
+    //   (c) It is not a claim anyone needs. Every dock surface shows a run in
+    //       flight: Analysis has its own banner, and Reasoning, Model, Compare
+    //       and the coaching panel all mount `AnalysisRunStateCover` (#1198).
+    //       Moving the user was buying visibility that already exists.
+    //   (d) A rule with no condition cannot drift. The alternative — "navigate
+    //       unless the user has chosen" — needs a second record of what counts
+    //       as choosing, kept in step with the tab-click path, the `?tab=` path
+    //       and the restore path. That is a hand-maintained mirror (trap 12).
+    //
+    // Trigger 2 KEEPS its claim, and keeps `'results'` deliberately: it is
+    // raised by affordances that name Analysis — the palette's `action:results`,
+    // ⌘/Ctrl+3 "ensure Results are visible", a `?run=` share link, template
+    // insert — and by the REHYDRATION of the persisted `ui.showResultsPanel`
+    // preference, which is maintained as "the dock was open AND Analysis was
+    // fronted" (see the two `setShowResultsPanel(tab === 'results')` sites
+    // below). Both are choices to honour, not defaults to override.
+    const navigatesToAnalysisTab = Boolean(showResultsPanel)
 
     // Debounce: prevent rapid updates within 50ms (React #185 fix)
     const now = Date.now()
@@ -1946,9 +2029,18 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     // because `resultsSettle` lands a reportless run on 'idle'
     // (store.ts:3359-3365), which makes the next run's `wasInactive` true.
     // Assigning both ways means the record always describes THIS run.
+    //
+    // ⚠ DERIVED FROM THE NAVIGATION THIS EFFECT WILL PERFORM, not from a second
+    // copy of the target literal. It was `activeTabRef.current !== 'results'`,
+    // which was a mirror of the (then unconditional) switch below; now that the
+    // switch is conditional, that mirror would claim a move on every run start
+    // and 2.204 would return a user who was never taken anywhere. The record
+    // says "we moved them" only when both halves are true: a navigation
+    // happened, AND it landed somewhere they were not already.
     if (statusTransitioned) {
       userInteractedSinceRunRef.current = false
-      runAutoSwitchedToAnalysisRef.current = activeTabRef.current !== 'results'
+      runAutoSwitchedToAnalysisRef.current =
+        navigatesToAnalysisTab && activeTabRef.current !== 'results'
     }
 
     // Drop the first-use rail lock. Since 16 Aug the rail persists until an
@@ -1962,19 +2054,23 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     // chevron-expand and the collapsed-response signal already use.
     userExplicitlyOpenedRailRef.current = true
 
-    // Task F: Auto-open results — close overlay panels so OutputsDock becomes visible
+    // Task F: Auto-open results — close overlay panels so OutputsDock becomes
+    // visible. ⚠ `'results'` here is a `RightPanelMode` (`uiStore.ts:39`), NOT a
+    // dock tab id — that union has no `analysisNew` member. It means "the dock
+    // owns the right slot", and is untouched by the default-tab ruling.
     useUIStore.getState().openRightPanel('results')
 
     setState(prev => {
+      const nextTab = navigatesToAnalysisTab ? 'results' : prev.activeTab
       // Guard: only update if state actually needs to change
-      if (prev.isOpen && prev.activeTab === 'results') {
+      if (prev.isOpen && prev.activeTab === nextTab) {
         return prev // No change needed
       }
       // Mutual exclusion: close inspector when dock auto-opens
       if (!prev.isOpen) {
         window.dispatchEvent(new Event('outputs-dock-opened'))
       }
-      return { ...prev, isOpen: true, activeTab: 'results' }
+      return { ...prev, isOpen: true, activeTab: nextTab }
     })
     // We intentionally depend on both triggers. setState from useDockState is stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2021,8 +2117,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     // It was briefly a second predicate that widened the tab clause to admit
     // `dockTab === 'olumi'`. That widening was withdrawn: derived at the bytes,
     // the we-moved-them record has exactly ONE raise (the merged auto-switch
-    // effect above, which in the same breath schedules `activeTab: 'results'`),
-    // and every other write clears or spends it. So "record true AND tab already
+    // effect above, which raises it only when it is in the same breath
+    // scheduling `activeTab: 'results'` — since 9 Sep 2026 the two are derived
+    // from one `navigatesToAnalysisTab`, so they cannot disagree), and every
+    // other write clears or spends it. So "record true AND tab already
     // Olumi" is reachable only through a stale render closure — the batched
     // flush pinned by this file's ADV-3 spec — where it is harmful, not
     // beneficial. There is no shape in which the widened clause helps, so there
@@ -2424,10 +2522,21 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
       trackCompareOpened()
     }
 
+    // `?tab=` names the surface WHEN IT IS NOT THE DEFAULT; the default needs no
+    // param. So the deleted-param case follows `DEFAULT_WORKSPACE_SURFACE`
+    // rather than staying pinned to `'results'`.
+    //
+    // ⚠ THIS IS A CORRECTION, NOT TIDINESS, AND ITS ABSENCE WOULD BE A SILENT
+    // LOSS OF INTENT. The reader above returns `null` for a bare URL and leaves
+    // the tab alone, so absence resolves to whatever the session defaults to.
+    // Leaving the delete on `'results'` would therefore make a link copied from
+    // the Analysis tab open on REASONING for the recipient — the sender's
+    // explicit choice discarded by the address bar. With this, Analysis is
+    // carried as `?tab=results` and reproduces itself.
     if (typeof window !== 'undefined') {
       try {
         const url = new URL(window.location.href)
-        if (tab === 'results') {
+        if (tab === DEFAULT_WORKSPACE_SURFACE) {
           url.searchParams.delete('tab')
         } else {
           url.searchParams.set('tab', tab)

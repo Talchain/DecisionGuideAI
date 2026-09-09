@@ -128,6 +128,30 @@ function renderDock() {
 }
 
 /**
+ * ⚠ FRONT THE ANALYSIS TAB, BECAUSE IT IS NO LONGER WHAT THE DOCK OPENS ON.
+ *
+ * Until 9 Sep 2026 the dock's default WAS `results`, so every "the Analysis
+ * surface is unchanged" case below got it for free. The default-tab ruling
+ * moved it to Reasoning (`DEFAULT_WORKSPACE_SURFACE`), which does not weaken
+ * any claim in section A — those cases are about what the Analysis surface
+ * RENDERS — but it does mean the surface must now be fronted deliberately.
+ *
+ * This is a HARNESS repair, not a relaxation: section A's positive control
+ * (`RESULTS_TESTID_FLOOR`) is exactly what would have caught the difference,
+ * and it still asserts the captured surface is substantial. Fronting by CLICK
+ * and asserting the POSTCONDITION binds the object by identity, so a case can
+ * never quietly end up measuring the other Analysis surface.
+ */
+function frontAnalysisTab() {
+  const tab = screen.getByTestId(OLD_TAB)
+  if (tab.getAttribute('aria-selected') !== 'true') fireEvent.click(tab)
+  expect(
+    screen.getByTestId(OLD_TAB).getAttribute('aria-selected'),
+    'the Analysis tab is not fronted — this case would measure the wrong surface',
+  ).toBe('true')
+}
+
+/**
  * ⚠⚠ SECTION C ASSERTS A COMPLETED-RUN STRUCTURE, SO IT MUST MOUNT A COMPLETED
  * RUN. It did not, and that is why these three cases had to change.
  *
@@ -201,6 +225,15 @@ beforeEach(() => {
   // and passes for the wrong reason. Reset it, so each case states its own
   // precondition.
   useCanvasStore.setState({ hasCompletedFirstRun: false } as never)
+  // ⚠ THE SAME LEAK CLASS AGAIN, AND IT ONLY BECAME VISIBLE ON 9 Sep 2026.
+  // `handleTabClick('results')` calls `setShowResultsPanel(true)`, and that flag
+  // is store state with no per-test reset — so one case fronting Analysis left
+  // every LATER mount tripping the dock's external show-results trigger, which
+  // legitimately fronts Analysis. While `results` was also the default that was
+  // invisible: the leak and the default agreed. Now they do not, so it must be
+  // reset like the two above, or a default-tab case passes or fails on which
+  // test ran before it.
+  useCanvasStore.setState({ showResultsPanel: false } as never)
   useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 } as never)
   useFloatingPanelState.setState({ isOpen: false, isMinimised: false, source: 'user' } as never)
 })
@@ -257,6 +290,7 @@ describe('A · THE EXISTING ANALYSIS TAB IS UNCHANGED', () => {
 
   it('survives a full round trip through Analysis (New) with an identical render tree, ordering and copy', () => {
     renderDock()
+    frontAnalysisTab()
 
     const before = captureBody()
     // POSITIVE CONTROL — without this, two empty captures would "match" and
@@ -281,6 +315,7 @@ describe('A · THE EXISTING ANALYSIS TAB IS UNCHANGED', () => {
 
   it('does not render any Analysis (New) element while Analysis is fronted', () => {
     renderDock()
+    frontAnalysisTab()
     // Binds to the new surface's own root testid — a leak of the experimental
     // IA into the old tab is exactly what §8 forbids.
     expect(screen.queryByTestId('analysis-new-tab-body')).toBeNull()
@@ -291,7 +326,26 @@ describe('A · THE EXISTING ANALYSIS TAB IS UNCHANGED', () => {
 
 // ═══════════════════════════════════════════════════════════════════════════
 
-describe('B · THE NEW TAB IS MOUNTED, AND IS NOT THE DEFAULT', () => {
+/**
+ * ⚠⚠ THIS SECTION'S RULE WAS REVERSED, AND THE REVERSAL IS RECORDED RATHER
+ * THAN OVERWRITTEN.
+ *
+ * It read `B · THE NEW TAB IS MOUNTED, AND IS NOT THE DEFAULT`, and its case
+ * asserted *"Analysis, not Analysis (New), is what the dock opens on"*. That
+ * was correct for the 27 Aug 2026 experiment, which was explicitly additive.
+ *
+ * Paul ruled on 9 Sep 2026 that a fresh, UNCHOSEN session lands on Reasoning —
+ * he had measured `outputs-dock-tab-results` carrying `aria-selected="true"`
+ * for a fresh individual, on a surface ruled out of scope. So this is a RULING
+ * REVERSAL, not a broken test: the case is rewritten to pin the NEW rule, and
+ * the old rule is quoted above so a reader who remembers it can see it moved,
+ * when, and on whose authority.
+ *
+ * The default's own boundaries — restore, click, deep link, run start, and the
+ * inverse of each — live in `OutputsDock.defaultTab.spec.tsx`. This section
+ * keeps only the claim it was always making: which surface the dock opens on.
+ */
+describe('B · THE NEW TAB IS MOUNTED, AND IS NOW THE DEFAULT (ruling reversed 9 Sep 2026)', () => {
   it('appears in the strip under its exact label', () => {
     renderDock()
     const tab = screen.getByTestId(NEW_TAB)
@@ -299,10 +353,21 @@ describe('B · THE NEW TAB IS MOUNTED, AND IS NOT THE DEFAULT', () => {
     expect(tab).toHaveTextContent('Reasoning')
   })
 
-  it('Analysis, not Analysis (New), is what the dock opens on', () => {
+  it('Reasoning, not Analysis, is what the dock opens on', () => {
     renderDock()
     expect(screen.getByTestId(BODY)).toBeInTheDocument()
-    expect(screen.queryByTestId('analysis-new-tab-body')).toBeNull()
+    // Bound by identity on BOTH tabs, so a strip that lost its selection
+    // entirely — or fronted both — cannot satisfy this.
+    expect(screen.getByTestId(NEW_TAB)).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId(OLD_TAB)).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByTestId('analysis-new-tab-body')).toBeInTheDocument()
+    // ⚠ AND THE GLOBAL DELIBERATELY DISAGREES ON A FRESH MOUNT. The dock's
+    // default is its own; `useUIStore.activeOutputTab` keeps its initial
+    // 'results' because it is a global with consumers outside this dock, and
+    // nothing syncs dock→store until the user acts. Asserted rather than
+    // ignored, so a later change that starts pushing the default into the
+    // store REDs here and gets read against `FloatingOlumiPanel`'s yield gate
+    // rather than landing silently.
     expect(useUIStore.getState().activeOutputTab).toBe('results')
   })
 

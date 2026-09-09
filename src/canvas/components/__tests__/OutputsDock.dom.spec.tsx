@@ -116,6 +116,24 @@ function resetDockEnvironment() {
   ensureMatchMedia()
   try {
     sessionStorage.removeItem(STORAGE_KEY)
+    // ⚠⚠ THE FIXTURE NOW STATES THE TAB IT ALWAYS ASSUMED (9 Sep 2026).
+    //
+    // Most cases in this file assert Analysis-surface furniture — the error
+    // banner, the identifiability badge, the stale-results banner, the
+    // edit-model button, the run-status region. They never fronted that tab,
+    // because until the default-tab ruling the dock OPENED on it and they got
+    // it for free. The ruling moved the default to Reasoning, so the implicit
+    // precondition became false and twelve cases failed on missing elements.
+    //
+    // This is the same class of repair the `nodes` and `hasCompletedFirstRun`
+    // notes below record, and for the same reason: the fixture was wrong, not
+    // the assertions — every one of which is untouched. Seeding the dock's OWN
+    // persisted state is the product's real "the user is on Analysis" path.
+    //
+    // ⭐ AND THE CASES THAT ARE ABOUT THE DEFAULT ITSELF MUST OPT OUT — they
+    // clear this key for themselves and say why. A fixture that decides the tab
+    // cannot also be the evidence for which tab is the default.
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ isOpen: true, activeTab: 'results' }))
   } catch {}
   try {
     window.history.replaceState({}, '', '/canvas')
@@ -156,6 +174,12 @@ function resetDockEnvironment() {
       // itself set `hasCompletedFirstRun: false` explicitly for themselves, and
       // still do.
       hasCompletedFirstRun: true,
+      // Store state with no per-test reset, and `handleTabClick('results')`
+      // raises it. It is one of the dock's two reveal triggers, so a leak from
+      // an earlier case silently re-fronts Analysis on a later mount. Harmless
+      // while Analysis was also the default; a source of order-dependent passes
+      // now that it is not.
+      showResultsPanel: false,
     } as any)
   useGuidanceStore.setState({
     guidanceItems: [],
@@ -355,6 +379,16 @@ describe('OutputsDock DOM', () => {
     expect(headerLabel).toBeInTheDocument()
   })
 
+  /**
+   * ⚠ THE OMITTED TAB IS THE DEFAULT, AND THE DEFAULT MOVED (9 Sep 2026).
+   *
+   * The rule here has always been "`?tab=` names the surface when it is not the
+   * one a session opens on"; it was written when that surface was Analysis, so
+   * the case asserted a bare URL after clicking Analysis. Leaving it that way
+   * would have been an actual defect rather than a stale assertion: the reader
+   * treats an absent param as "no opinion", so a link copied from Analysis
+   * would have opened on Reasoning for whoever received it.
+   */
   it('updates ?tab= query parameter when tabs are clicked', () => {
     renderOutputsDock()
 
@@ -365,10 +399,17 @@ describe('OutputsDock DOM', () => {
     let params = new URLSearchParams(window.location.search)
     expect(params.get('tab')).toBe('diagnostics')
 
-    // Switch back to Results tab, which should clear the tab parameter
+    // Analysis is no longer the default, so it is CARRIED rather than cleared.
     const resultsTab = screen.getByRole('tab', { name: 'Analysis' })
     fireEvent.click(resultsTab)
 
+    params = new URLSearchParams(window.location.search)
+    expect(params.get('tab')).toBe('results')
+
+    // ...and the DEFAULT surface is the one that clears it. Asserted here so
+    // the "omit the default" half of the rule has a guard of its own, rather
+    // than being inferred from the half above.
+    fireEvent.click(screen.getByRole('tab', { name: 'Reasoning' }))
     params = new URLSearchParams(window.location.search)
     expect(params.get('tab')).toBeNull()
   })
@@ -409,7 +450,21 @@ describe('OutputsDock DOM', () => {
     expect(__getTelemetryCounters()['sandbox.compare.opened']).toBe(1)
   })
 
-  it('auto-switches back to Results tab when results become active', () => {
+  /**
+   * ⚠⚠ RULING REVERSAL (Paul, 9 Sep 2026) — READ THE OLD RULE BEFORE THE NEW.
+   *
+   * This case read `auto-switches back to Results tab when results become
+   * active` and asserted the Analysis header appeared after a status change.
+   * A run start no longer makes a tab claim: it REVEALS the dock and leaves the
+   * user where they are, so that assertion is inverted here rather than
+   * deleted, and it now guards the same seam from the other side.
+   *
+   * ⭐ THE CASE IS STRONGER THIS WAY, not weaker. Asserting the user STAYS on
+   * Model is the assertion that would have caught the defect the ruling names —
+   * a user pulled off the tab they chose — and it keeps the neighbour-side-effect
+   * precondition below, which is the reason this case exists in its current form.
+   */
+  it('a run going active does not pull the user off the tab they chose', () => {
     // ⚠ PIN THE PRECONDITION IN-TEST (trap 13b). This case was passing on a
     // NEIGHBOUR'S SIDE EFFECT, and de-tabbing Compare exposed it — measured,
     // not guessed:
@@ -459,10 +514,16 @@ describe('OutputsDock DOM', () => {
       } as any)
     })
 
-    const resultsHeader = screen.getByText('Analysis', {
-      selector: 'span[aria-live="polite"]',
-    })
-    expect(resultsHeader).toBeInTheDocument()
+    // The user chose Model. A run going active is not a reason to overrule that.
+    expect(
+      screen.getByText('Model', { selector: 'span[aria-live="polite"]' }),
+      'the run start navigated — it may reveal the dock, it may not choose a tab',
+    ).toBeInTheDocument()
+    // Bound as the ABSENCE of the tab it used to be pulled to, so a partial
+    // revert (both headers rendered, or the switch restored) REDs here.
+    expect(
+      screen.queryByText('Analysis', { selector: 'span[aria-live="polite"]' }),
+    ).toBeNull()
   })
 
   it('does not render VerdictCard when decision readiness has blockers', () => {
@@ -895,7 +956,18 @@ describe('I.1: Model tab auto-switch guard', () => {
     expect(structureHeaderAfter).toBeInTheDocument()
   })
 
-  it('auto-switches to Results tab on idle → preparing transition', () => {
+  /**
+   * ⚠⚠ RULING REVERSAL (Paul, 9 Sep 2026). This read `auto-switches to Results
+   * tab on idle → preparing transition` and asserted the Analysis header.
+   *
+   * That transition — idle → preparing — is the ONE shape that ever tripped the
+   * switch, so this case was the guard's sharpest instance and it is inverted
+   * rather than deleted. Note what its NEIGHBOUR above already asserted: a
+   * status change that is NOT a transition must not move the user. The two now
+   * say the same thing for the same reason, which is the point of the ruling:
+   * the first run stops being the one run that overrules the user.
+   */
+  it('does NOT auto-switch away from Model tab on an idle → preparing transition', () => {
     const baseResults = useCanvasStore.getState().results
 
     useCanvasStore.setState({
@@ -931,10 +1003,13 @@ describe('I.1: Model tab auto-switch guard', () => {
       } as any)
     })
 
-    // Should auto-switch to Results tab
-    expect(screen.getByText('Analysis', {
+    // Should stay on Model. The dock may open; it may not navigate.
+    expect(screen.getByText('Model', {
       selector: 'span[aria-live="polite"]',
     })).toBeInTheDocument()
+    expect(
+      screen.queryByText('Analysis', { selector: 'span[aria-live="polite"]' }),
+    ).toBeNull()
   })
 })
 
@@ -1095,7 +1170,14 @@ describe('I.2a: Secondary action button interaction', () => {
     expect(screen.queryByTestId('outputs-error-banner')).not.toBeInTheDocument()
   })
 
-  it('falls back to Results when persisted activeTab is journey but flag is OFF (regression)', () => {
+  /**
+   * ⚠ THE FALLBACK MOVED WITH THE DEFAULT (9 Sep 2026). It read "falls back to
+   * Results"; the guard's SUBJECT is unchanged — a persisted tab whose flag is
+   * off must not strand the user on a surface the strip does not present — but
+   * the surface it falls back TO is now `DEFAULT_WORKSPACE_SURFACE`, because a
+   * choice that cannot be honoured is void and a void choice takes the default.
+   */
+  it('falls back to the default surface when persisted activeTab is journey but flag is OFF (regression)', () => {
     // Seed sessionStorage with journey tab persisted
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ isOpen: true, activeTab: 'journey' }))
 
@@ -1104,8 +1186,8 @@ describe('I.2a: Secondary action button interaction', () => {
     // Journey tab should NOT appear in the tab bar
     expect(screen.queryByRole('tab', { name: 'Journey' })).not.toBeInTheDocument()
 
-    // Should fall back to Results
-    const headerLabel = screen.getByText('Analysis', {
+    // Should fall back to the declared default — Reasoning.
+    const headerLabel = screen.getByText('Reasoning', {
       selector: 'span[aria-live="polite"]',
     })
     expect(headerLabel).toBeInTheDocument()
@@ -1505,19 +1587,71 @@ describe('F9: dock-level run announcer (single voice for start/settle)', () => {
     )
   })
 
-  it('stays silent on a FIRST run: the auto-switch fronts the Analysis tab, whose furniture speaks', () => {
+  /**
+   * ⚠⚠⚠ A KNOWN GAP, PINNED DELIBERATELY — DO NOT READ THIS CASE AS A DESIGN.
+   *
+   * It read `stays silent on a FIRST run: the auto-switch fronts the Analysis
+   * tab, whose furniture speaks`, and asserted the results skeleton appeared
+   * (proving the yank) and the announcer stayed empty (proving the yield).
+   *
+   * ── WHAT THE DEFAULT-TAB RULING (9 Sep 2026) DID TO IT ─────────────────────
+   * A run start no longer navigates, so the yank is gone and the skeleton half
+   * of the old assertion is now false. The SILENCE half survives — and for a
+   * reason that is now WRONG. Derived at the producer rather than inferred
+   * (`analysisRunStatus.ts`, `runAnnouncementForTransition`):
+   *
+   *     yieldsToTabFurniture =
+   *       transition === 'start' ? analysisTabFronted || firstRun : …
+   *
+   * The `|| firstRun` disjunct yields EVERY first-run start regardless of tab,
+   * and its own comment states the premise out loud: *"the dock's auto-switch is
+   * about to front the Analysis tab, whose own furniture speaks"*. That premise
+   * is exactly what this change removed. So a first run started from a
+   * non-Analysis tab is now announced by NOBODY: the dock announcer yields on a
+   * stale belief, and `AnalysisRunStateCover` on Reasoning / Model / Compare is
+   * visual-only by ruling (`announces={false}`, UI #1198). Sighted users see the
+   * cover; assistive tech hears nothing until the SETTLE, which does not yield.
+   *
+   * ── WHY IT IS PINNED HERE RATHER THAN FIXED ────────────────────────────────
+   * `analysisRunStatus.ts` is outside this lane's ownership. The smallest
+   * enabling change is one line — drop `|| firstRun` from the START arm, so the
+   * start yields on `analysisTabFronted` alone, symmetrical with the SETTLE arm
+   * that already reads `analysisTabFronted && !firstRun`. That belongs to that
+   * file's owner, with its own RED-first.
+   *
+   * ⭐ SO THIS CASE ASSERTS THE GAP EXACTLY, AND IS NAMED FOR IT. The suite
+   * stays green for the RIGHT reason, and REDs when the gap is closed — at which
+   * point this case should be inverted to
+   * `announces a FIRST run started from a non-Analysis tab`, not deleted.
+   */
+  it('KNOWN GAP: a FIRST run from a non-Analysis tab is announced by nobody (fix belongs to analysisRunStatus.ts)', () => {
     seedIdle(false)
     renderOutputsDock()
     // Was the Compare tab until 18 Aug 2026 (hidden by contract). Any fronted
-    // tab that is NOT Analysis exercises the auto-switch this case is about.
+    // tab that is NOT Analysis exercises the rule this case is about.
     fireEvent.click(screen.getByRole('tab', { name: 'Model' }))
 
     startRun(false)
-    // The I.1 auto-switch yanked the dock to the Analysis tab, where the
-    // results skeleton is the visible run furniture...
-    expect(screen.getByTestId('headline-skeleton')).toBeInTheDocument()
-    // ...so the announcer yields the start rather than double-announcing.
+    // PRECONDITION, PINNED IN-TEST: the user is still on Model. Without it, an
+    // empty announcer would be fully explained by the OLD behaviour (yanked to
+    // Analysis, yielding correctly) and this case would certify the wrong thing.
+    expect(
+      screen.getByText('Model', { selector: 'span[aria-live="polite"]' }),
+      'the run start navigated — this case would be measuring the pre-ruling behaviour',
+    ).toBeInTheDocument()
+    // The Analysis surface's furniture is NOT on screen, so nothing there is
+    // speaking on the announcer's behalf. This is the half that makes the
+    // silence below a GAP rather than a correct yield.
+    expect(screen.queryByTestId('headline-skeleton')).toBeNull()
+    // The gap itself.
     expect(screen.getByTestId('analysis-run-announcer')).toHaveTextContent('')
+    // ...and its BOUND. The settle arm does not carry the `firstRun` disjunct,
+    // so completion is still announced. Asserted so the gap is recorded at its
+    // true size and cannot be quoted as "first runs are silent".
+    settleRun('complete')
+    expect(screen.getByTestId('analysis-run-announcer')).toHaveTextContent(
+      'Analysis complete.',
+    )
   })
 
   it('yields while the Analysis tab is fronted: the narration banner speaks, the announcer stays silent', () => {
