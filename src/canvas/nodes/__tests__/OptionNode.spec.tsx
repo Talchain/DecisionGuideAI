@@ -677,17 +677,16 @@ describe('OptionNode', () => {
     expect(percentEl.getAttribute('aria-hidden')).toBe('true')
   })
 
-  it('density: the ratified sentence survives as the hover title AND as text for assistive tech', () => {
+  it('density: the ratified sentence survives in the positioned tooltip and accessible text', async () => {
     mockWinRate72()
     renderOption()
     const expected = COMPARATIVE_COPY.phrase('72%')
 
-    // (a) hover: the row carrying the readout is the element with the title.
-    // Reached FROM the readout rather than by a bare `[title]` sweep, so it
-    // cannot pass on some other titled element elsewhere in the node.
-    const row = screen.getByTestId('option-win-readout-option-1').closest('[title]')
+    // The explanation belongs to this row, and it cannot spawn a native title.
+    const row = screen.getByTestId('option-win-readout-option-1').closest('[data-node-tooltip]')
     expect(row).not.toBeNull()
-    expect(row?.getAttribute('title')).toBe(expected)
+    expect(row?.getAttribute('title')).toBe('')
+    expect(row?.getAttribute('aria-label')).toContain(expected)
 
     // (b) not-hover: the same sentence is present as text, out of flow, so a
     // screen-reader user is not left with a bare number. Bound to the element
@@ -695,6 +694,10 @@ describe('OptionNode', () => {
     // visible line would RED this.
     const srEl = screen.getByText(expected)
     expect(srEl.className).toContain('sr-only')
+
+    fireEvent.focus(row!)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(expected)
+    fireEvent.keyDown(row!, { key: 'Escape' })
 
     // Positive control (trap 13): the copy comes from the ratified register,
     // and this test would be vacuous if that register were empty.
