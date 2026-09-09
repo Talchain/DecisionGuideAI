@@ -38,11 +38,23 @@ const goalNode = (id: string, extra: Record<string, unknown> = {}) => ({
   data: { label: id, ...extra },
 })
 
+/**
+ * ⚠ `goalThreshold: null` IS EXPLICIT ON PURPOSE — `reset()` DOES NOT CLEAR IT.
+ *
+ * Measured at this tip: set a target of 60, call `reset()`, and the scalar is
+ * still 60. Without this line each test inherits the previous one's value, and
+ * the leak is invisible while the guard works (every write is refused, so the
+ * scalar never moves) and only appears under mutation — which is exactly the
+ * shape of an isolation defect that survives review. Found while explaining an
+ * unaccounted-for failure count in the mutant kit.
+ */
 const seed = () =>
   useCanvasStore.setState({
     nodes: [goalNode('goal_1')],
     edges: [],
     outcomeNodeId: 'goal_1',
+    goalThreshold: null,
+    goalThresholdRepresentation: null,
   } as never)
 
 const nodeThreshold = () =>
