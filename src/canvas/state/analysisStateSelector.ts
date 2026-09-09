@@ -159,12 +159,15 @@ export function computeAnalysisTrust(input: {
    *  classifyFreshnessForDisplay's `importHold`. REQUIRED for the same reason
    *  it is required there: an optional flag is one a call site can forget. */
   importHold: boolean
+  /** Whether a run has EVER completed — see `classifyFreshnessForDisplay`. */
+  hasCompletedFirstRun?: boolean
 }): AnalysisTrust {
   const { freshness, dirty, source, resultsStatus, resultsStartedAt, importHold } = input
+  const hasCompletedFirstRun = input.hasCompletedFirstRun ?? true
   const orphaned = source === 'orphaned_plot_result'
   const { state: effective } = resolveTrustEffectiveState(freshness, orphaned)
   return {
-    semantic: classifyFreshnessForDisplay(effective, dirty, importHold),
+    semantic: classifyFreshnessForDisplay(effective, dirty, importHold, hasCompletedFirstRun),
     orphaned,
     isRunning: RUNNING_STATUSES.has(resultsStatus ?? ''),
     runStartedAt: resultsStartedAt,
@@ -497,6 +500,7 @@ export function composeAnalysisState(
     resultsStatus,
     resultsStartedAt,
     importHold,
+    hasCompletedFirstRun,
   })
 
   // ── FEATURE DETECTION. The payload selects the branch; nothing else does. ──
@@ -611,7 +615,7 @@ export function composeAnalysisState(
   // when the GENUINE server graph is on the canvas (interim 2.467). Minting
   // `'changed'` under a hold would reopen that P0 in a new spelling, so the
   // wire branch obeys the same rule the derived branch does.
-  const composedSemantic: FreshnessDisplaySemantic =
+  const semantic: FreshnessDisplaySemantic =
     wire !== null
       ? wireCurrencySuperseded
         ? importHold
@@ -619,29 +623,6 @@ export function composeAnalysisState(
           : 'changed'
         : mapRunStateKindToSemantic(wire.run_state.kind, hasReport)
       : legacyTrust.semantic
-
-  /**
-   * ⭐ A MODEL THAT HAS NEVER BEEN ANALYSED IS NOT AN OUT-OF-DATE ONE.
-   *
-   * Applied to the COMPOSED answer, so it covers the wire branch and the derived
-   * branch with one rule rather than two that must be kept in step.
-   *
-   * ⚠ DELIBERATELY NARROW — it displaces `'changed'` ONLY. That is the single
-   * member which asserts a prior run ("the model changed" presupposes something
-   * to change FROM); `'none'`, `'current'` and `'cannot_confirm'` are left
-   * exactly as they were, so an empty canvas and a cannot-confirm both behave
-   * precisely as they did before this existed. A blanket suppression would pass
-   * the never-run test and fail its opposite-direction twin, which is why that
-   * twin is written.
-   *
-   * Neither this module nor `analysisFreshness.ts` referenced
-   * `hasCompletedFirstRun` before — zero occurrences in both, against a contrast
-   * control of 17 and 26 for `dirty`. Every branch of the freshness reasoning
-   * presupposes a prior run, so with no run the claim is not merely unproven, it
-   * is category-false.
-   */
-  const semantic: FreshnessDisplaySemantic =
-    composedSemantic === 'changed' && !hasCompletedFirstRun ? 'never_run' : composedSemantic
 
   // The trust shape every existing consumer reads, with the composed semantic
   // substituted in.

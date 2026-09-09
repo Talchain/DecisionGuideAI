@@ -65,19 +65,47 @@ describe('a never-run model is not an out-of-date one', () => {
   })
 
   /**
-   * ⭐ THE NARROWNESS IS A CLAIM, SO IT IS TESTED RATHER THAN ASSERTED. The
-   * override displaces `'changed'` ONLY. A blanket
-   * `!hasCompletedFirstRun ? 'never_run' : …` would satisfy both tests above and
-   * silently clobber every other member — including `'none'`, which is what an
-   * empty canvas reads and which decides whether this bar appears there at all.
+   * ⭐⭐ THE ONE CLAIM THIS OVERRIDE MAY NOT DISPLACE — and the suite taught me
+   * this, expensively.
+   *
+   * My first implementation applied the override to the COMPOSED semantic, one
+   * level up, so a single rule would cover the wire and derived branches. From
+   * up there the two kinds of `'changed'` are indistinguishable, so it silently
+   * displaced CEE's OWN first-hand statement and broke twelve tests across five
+   * files — including `importCanvas.analysisInvalidation.spec.tsx`, the
+   * cross-surface guard that pins "a CEE-STATED stale OUTRANKS the hold".
+   *
+   * A server statement that the model changed outranks every client belief,
+   * including this one. These are the cases that must survive the override.
    */
-  it('leaves a NON-changed semantic alone on a never-run model', () => {
-    const cannotConfirm = composeAnalysisState({
+  it('CEE-STATED stale still outranks it — the claim it may never displace', () => {
+    const stated = composeAnalysisState({
+      ...base,
+      freshness: { freshness: 'stale' as const, freshnessReason: 'graph_changed' },
+      hasCompletedFirstRun: false,
+    })
+    expect(stated.semantic).toBe('changed')
+  })
+
+  it('leaves CANNOT-CONFIRM alone — an honest "we cannot tell" is not a change claim', () => {
+    // This arm broke 7 tests when the gate sat above it, including "THE OVER-HOLD
+    // MUST NOT LIE: a held import renders cannot-confirm, never 'Model changed'".
+    const held = composeAnalysisState({
       ...base,
       freshness: { freshness: 'unknown' as const, freshnessReason: 'hydrated_without_capture' },
       hasCompletedFirstRun: false,
     })
-    expect(cannotConfirm.semantic).toBe('cannot_confirm')
+    expect(held.semantic).toBe('cannot_confirm')
+  })
+
+  it('leaves fresh and none alone on a never-run model', () => {
+    const current = composeAnalysisState({
+      ...base,
+      freshness: { freshness: 'fresh' as const, freshnessReason: 'graph_hash_match' },
+      dirty: false,
+      hasCompletedFirstRun: false,
+    })
+    expect(current.semantic).toBe('current')
 
     const none = composeAnalysisState({
       ...base,

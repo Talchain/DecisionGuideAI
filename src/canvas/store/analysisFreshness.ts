@@ -326,20 +326,6 @@ export function resolveDisplayedFreshness(
 export type FreshnessDisplaySemantic = 'current' | 'changed' | 'cannot_confirm' | 'none' | 'never_run'
 
 /**
- * What the FRESHNESS classifier alone can answer.
- *
- * ⭐ EXCLUDES `'never_run'` BY CONSTRUCTION, and that is the design rather than
- * an omission. "Is this result current?" and "has a run ever completed?" are two
- * different questions; this function answers only the first, and the second is
- * composed one level up in `analysisStateSelector`. Encoding it here means a
- * later edit cannot quietly return `'never_run'` from a function whose inputs
- * (a freshness slice, a dirty overlay, an import hold) carry no evidence about
- * whether a run happened — and it keeps every existing caller's narrower
- * annotation correct, unchanged.
- */
-export type FreshnessClassification = Exclude<FreshnessDisplaySemantic, 'never_run'>
-
-/**
  * Classify the displayed freshness for COPY decisions across the visible
  * AI-panel surfaces (composer placeholder, Results stale banner, chip relabel).
  * Single source so those surfaces can't drift from each other or from the CEE
@@ -377,7 +363,15 @@ export function classifyFreshnessForDisplay(
   // the set of call sites is complete (trap 12d). Making it required turns that
   // silent drift into a compile error.
   importHold: boolean,
-): FreshnessClassification {
+  /**
+   * Whether a run has EVER completed for this model.
+   *
+   * ⚠ PLACEMENT IS THE WHOLE DESIGN — see the gate below. Defaults to `true` so
+   * that every existing fixture keeps its behaviour exactly; the one production
+   * path is threaded from the store and pinned by a source-scan spec.
+   */
+  hasCompletedFirstRun: boolean = true,
+): FreshnessDisplaySemantic {
   const displayed = resolveDisplayedFreshness(state, dirty)
   if (displayed === null || displayed === 'none') return 'none'
   // ⚠ THE AFFIRMATIVE GATE, AND IT MUST STAY FIRST. Under an import hold the
@@ -433,7 +427,36 @@ export function classifyFreshnessForDisplay(
   // affordance renders for a held cannot-confirm too (ReanalyseBar): the
   // ASSERTION is withheld, the AFFORDANCE is not.
   if (dirty && (state?.freshness === 'fresh' || state?.freshnessReason === VERDICT_ABSENT_FROM_PAYLOAD)) {
-    return 'changed'
+    /**
+     * ⭐ A MODEL THAT HAS NEVER BEEN ANALYSED IS NOT AN OUT-OF-DATE ONE — and
+     * this line's POSITION is the whole design, arrived at by being wrong twice.
+     *
+     * It displaces exactly ONE value: the INFERRED `'changed'`. That claim rests
+     * on the reasoning stated directly above — "the user has edited since CEE
+     * last spoke" — and with no run there is no "since", so it is not merely
+     * unproven but category-false. Every other answer this function gives is
+     * untouched.
+     *
+     * ⚠ TWO PLACEMENTS THAT LOOKED RIGHT AND WERE NOT, both caught by the suite
+     * rather than by review:
+     *
+     *   · ON THE COMPOSED SEMANTIC, one level up, so one rule would cover the
+     *     wire and derived branches together. From there the two kinds of
+     *     `'changed'` are indistinguishable, so it displaced CEE's own first-hand
+     *     statement. Broke 12 tests across 5 files, including the cross-surface
+     *     guard pinning "a CEE-STATED stale OUTRANKS the hold".
+     *
+     *   · ABOVE THE `cannot_confirm` ARMS, which reads as narrow and is not:
+     *     cannot-confirm is an honest "we cannot tell", not an assertion about a
+     *     prior run, and displacing it broke 7 further tests — including "THE
+     *     OVER-HOLD MUST NOT LIE: a held import renders cannot-confirm, never
+     *     'Model changed'".
+     *
+     * The lesson worth keeping: "narrow" is a claim about WHICH VALUES a guard
+     * can displace, and the only way to know is to enumerate them and let the
+     * suite check. Each move was one line; each changed a different set.
+     */
+    return hasCompletedFirstRun ? 'changed' : 'never_run'
   }
   return 'cannot_confirm'
 }

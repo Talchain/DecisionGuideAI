@@ -58,6 +58,10 @@ function setAnalysisState(state: 'none' | 'current' | 'stale' | 'cannot-confirm'
     return
   }
   useCanvasStore.setState({
+    // A completed run sets BOTH in production (`stores/resultsStore.ts:168`,
+    // `store.ts:4791/5250/5321`). Writing the slice directly reproduced only
+    // half of it, so this fixture named a completed run without being one.
+    hasCompletedFirstRun: true,
     results: { status: 'complete', graphHash: 'abc123' } as any,
     analysisFreshness: null,
     analysisFreshnessDirty: false,

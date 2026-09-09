@@ -119,7 +119,7 @@ function theCard(): HTMLElement {
 function installFreshness(
   state: AnalysisFreshnessState | null,
   opts: { dirty: boolean; importHold?: boolean } = { dirty: false },
-): 'current' | 'changed' | 'cannot_confirm' | 'none' {
+): FreshnessDisplaySemantic {
   const importHold = opts.importHold === true
   useCanvasStore.setState({
     analysisFreshness: state,

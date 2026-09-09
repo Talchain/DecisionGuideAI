@@ -35,6 +35,10 @@ describe('option results follow the composed freshness authority', () => {
       v5AnalysisFact: {
         scenarioId: 'currency-scenario', analysisHash: 'last-run', hasRunAnalysisFact: true,
       },
+      // A completed run sets BOTH in production (`stores/resultsStore.ts:168`,
+      // `store.ts:4791/5250/5321`). Writing the slice directly reproduced only
+      // half of it, so this fixture named a completed run without being one.
+      hasCompletedFirstRun: true,
       results: { status: 'complete', hash: 'last-run', report: {
         option_probabilities: {
           candidate: { status: 'computed', win_probability: 0.72 },
