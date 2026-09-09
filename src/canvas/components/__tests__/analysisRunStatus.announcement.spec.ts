@@ -69,23 +69,96 @@ describe('F9: runAnnouncementForTransition (one voice per transition)', () => {
     ).toBeNull()
   })
 
-  it('yields a FIRST-run start unconditionally: the dock auto-switch fronts the Analysis tab in the same breath', () => {
-    // I.1 auto-switch: idle/cancelled -> active fronts the Analysis tab,
-    // whose skeleton/banner furniture speaks. The announcer observes the
-    // transition one commit before the switch, so frontedness is stale;
-    // the rule encodes the contract instead of racing the commit.
+  /**
+   * ⚠⚠ INVERTED 9 Sep 2026 (UI #1403 blocking review) — DO NOT READ THE OLD
+   * ASSERTION BACK IN.
+   *
+   * This case read `yields a FIRST-run start unconditionally: the dock
+   * auto-switch fronts the Analysis tab in the same breath`, and asserted
+   * `null` for both idle and cancelled at `analysisTabFronted: false`. It was
+   * TRUE, and correct, for as long as its premise held.
+   *
+   * The premise was the dock's I.1 run-start auto-switch. The default-tab
+   * ruling removed it — `navigatesToAnalysisTab = Boolean(showResultsPanel)`
+   * (`OutputsDock.tsx`), so a fresh, unchosen session's run start fronts
+   * nothing and leaves the user where they are. With the premise gone, the
+   * `|| firstRun` disjunct in the START arm was yielding to furniture that
+   * never arrives, and a first run started from Reasoning / Model / Compare
+   * was announced by NOBODY: `AnalysisRunStateCover` is visual-only by ruling
+   * (`AnalysisRunningBanner` with `announces={false}`, or an `aria-hidden`
+   * skeleton — UI #1198), and the tab-name live region does not change
+   * because the tab does not change. Sighted users saw the cover; assistive
+   * technology heard silence until the SETTLE, 20–40s later.
+   *
+   * The START arm now yields on `analysisTabFronted` alone, symmetrical with
+   * the SETTLE arm's `analysisTabFronted && !firstRun`. `firstRun` remains a
+   * real discriminator — on SETTLE only, where it still earns its keep.
+   */
+  it('announces a FIRST-run start when the Analysis tab is NOT fronted (nothing fronts it any more)', () => {
     expect(
       runAnnouncementForTransition!({
         transition: 'start',
         preRunStatus: 'idle',
         analysisTabFronted: false,
       }),
-    ).toBeNull()
+    ).toBe('Analysis started.')
     expect(
       runAnnouncementForTransition!({
         transition: 'start',
         preRunStatus: 'cancelled',
         analysisTabFronted: false,
+      }),
+    ).toBe('Analysis started.')
+  })
+
+  /**
+   * ⭐ THE JOURNEY THE DEFAULT-TAB RULING MAKES DEFAULT, pinned by name.
+   *
+   * The case above states the rule; this one states the USER PATH the rule
+   * exists for, so a later reader cannot price the population as "a minority
+   * path". Fresh session, nothing chosen, `showResultsPanel` false → the dock
+   * fronts `analysisNew`. The user presses Run. This is now the ORDINARY first
+   * run, not an edge case, and it must be audible.
+   */
+  it('announces the fresh-session first run started from the Reasoning tab (the default surface, not an edge case)', () => {
+    expect(
+      runAnnouncementForTransition!({
+        transition: 'start',
+        // A fresh session has never run: the store sits at 'idle'.
+        preRunStatus: 'idle',
+        // The dock fronts `analysisNew`, so the Analysis tab is NOT fronted.
+        analysisTabFronted: false,
+      }),
+    ).toBe('Analysis started.')
+  })
+
+  /**
+   * ⭐ THE OPPOSITE-DIRECTION TWIN — the fix must not trade a silence for a
+   * DOUBLE announcement.
+   *
+   * Where the Analysis tab IS fronted, its running banner mounts as a real
+   * live region (`AnalysisRunningBanner` with `announces` defaulting true —
+   * see `AnalysisRunStateCover`'s `contentRetained` path and the Analysis
+   * tab's own mount). A dock announcement on top of it would be heard twice.
+   * The START arm keeps yielding there, first run or not.
+   *
+   * Paired with the case above this is a DISCRIMINATING pair: the fix changes
+   * the answer for `analysisTabFronted: false` and must leave
+   * `analysisTabFronted: true` exactly as it was.
+   */
+  it('still yields a FIRST-run start while the Analysis tab IS fronted (its banner is the voice there)', () => {
+    expect(
+      runAnnouncementForTransition!({
+        transition: 'start',
+        preRunStatus: 'idle',
+        analysisTabFronted: true,
+      }),
+    ).toBeNull()
+    expect(
+      runAnnouncementForTransition!({
+        transition: 'start',
+        preRunStatus: 'cancelled',
+        analysisTabFronted: true,
       }),
     ).toBeNull()
   })

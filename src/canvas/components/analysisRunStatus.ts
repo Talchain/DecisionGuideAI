@@ -89,17 +89,17 @@ export function runStatusRegion({ isRunning }: RunStatusInput): RunStatusRegion 
  * "exactly one announcement per transition" is structural, not per-consumer
  * discipline.
  *
- * FIRST runs are a special case with an ASYMMETRY between the two
- * transitions (review-folds C6):
+ * FIRST runs USED TO BE a special case on BOTH transitions. They are one on
+ * the SETTLE transition only (review-folds C6, narrowed 9 Sep 2026):
  *
- *  - START: the dock's I.1 auto-switch fronts the Analysis tab whenever
- *    status transitions from idle/cancelled into an active state, so on a
- *    FIRST run the user lands on the Analysis tab (and its furniture) in
- *    the same breath as the start — but the announcer's effect observes
- *    the transition BEFORE the dock's auto-switch effect re-renders, so
- *    its `analysisTabFronted` input is one commit stale. Rather than race
- *    that commit, the rule encodes the auto-switch contract: a start from
- *    idle/cancelled yields unconditionally.
+ *  - START: frontedness alone decides, first run or not. ⚠ This arm used to
+ *    carry `|| firstRun`, on the premise that the dock's I.1 auto-switch
+ *    fronted the Analysis tab in the same breath as a start from
+ *    idle/cancelled, so the rule encoded that contract rather than racing the
+ *    commit that would have shown it. THE DEFAULT-TAB RULING DELETED THE
+ *    AUTO-SWITCH (`navigatesToAnalysisTab = Boolean(showResultsPanel)`), and
+ *    a yield whose premise has been deleted is silence, not deference — see
+ *    the note at the predicate itself.
  *  - SETTLE: a FIRST-run settle does NOT yield, even while fronted —
  *    NOTHING else announces it. The completion toast
  *    (AnalysisFreshnessNotice) mounts post-settle with
@@ -107,9 +107,10 @@ export function runStatusRegion({ isRunning }: RunStatusInput): RunStatusRegion 
  *    start; the first run's settle was fully silent before this rule.
  *    Rerun settles keep the yield (the toast genuinely fires there).
  *
- * RERUNS (from complete/error) do not auto-switch — that is exactly the
- * case F9 exists for (rerun dispatched while Compare/Model is fronted
- * stayed silent and frozen) — so there the current frontedness decides.
+ * So on START the current frontedness decides for EVERY run — which is also
+ * the case F9 exists for (a rerun dispatched while Compare/Model is fronted
+ * stayed silent and frozen); first runs simply stopped being an exception to
+ * it once nothing moved the user on their behalf.
  *
  * Settle copy never fabricates an outcome: only statuses the store actually
  * settles into ('complete' | 'error' | 'cancelled') get a line; anything
@@ -151,8 +152,9 @@ export interface RunAnnouncementInput {
   settledStatus?: string | null
   /**
    * The results status held BEFORE the run started. idle/cancelled marks a
-   * FIRST run: its start yields to the auto-switch furniture, but its
-   * settle must NOT yield (see the asymmetry above).
+   * FIRST run, which now matters on the SETTLE transition ONLY: a first-run
+   * settle must NOT yield, because nothing else announces it. It is
+   * deliberately NOT consulted on START any more — see the asymmetry above.
    */
   preRunStatus?: string | null
   /** The Analysis tab is fronted (dock open, results tab active). */
@@ -187,16 +189,34 @@ export function runAnnouncementForTransition({
   hasRenderableResult = true,
 }: RunAnnouncementInput): string | null {
   const firstRun = preRunStatus === 'idle' || preRunStatus === 'cancelled'
-  // The C6 asymmetry as ONE expression (/simplify item 8), so the two
-  // transitions' yield rules sit side by side and cannot drift:
-  //  - START yields when the tab is fronted OR the run is a first run (the
-  //    dock's auto-switch is about to front the Analysis tab, whose own
-  //    furniture speaks — announcing here would double up).
-  //  - SETTLE yields only when fronted AND it is NOT a first run: nothing
-  //    else announces a first-run settle (the completion toast mounts
-  //    post-settle with wasRunningRef = false).
+  // ⚠⚠ THE START ARM LOST ITS `|| firstRun` DISJUNCT ON 9 Sep 2026, BECAUSE
+  // THE PREMISE THAT JUSTIFIED IT WAS DELETED. Do not restore it.
+  //
+  // It read `analysisTabFronted || firstRun`, and this comment stated the
+  // premise aloud: *"the dock's auto-switch is about to front the Analysis
+  // tab, whose own furniture speaks"*. The default-tab ruling removed that
+  // auto-switch — `navigatesToAnalysisTab = Boolean(showResultsPanel)`
+  // (`OutputsDock.tsx`) — so a fresh, unchosen session's run start fronts
+  // nothing and leaves the user on `analysisNew`.
+  //
+  // From then on the disjunct yielded to furniture that never arrives, and it
+  // did so on the journey that ruling makes DEFAULT. Nothing else covered it:
+  // `AnalysisRunStateCover` is visual-only by ruling — `AnalysisRunningBanner`
+  // with `announces={false}` omits role/aria-live, and the alternative is an
+  // `aria-hidden` skeleton (UI #1198) — and the dock's tab-name live region
+  // does not change because the tab does not change. A first run was silent to
+  // assistive technology until SETTLE, 20-40s later by this file's own slow-run
+  // thresholds, while sighted users watched the cover.
+  //
+  // The two arms are now symmetrical on frontedness, and `firstRun` survives on
+  // the arm where it is still TRUE — the SETTLE arm:
+  //  - START yields when the Analysis tab is fronted. Its banner mounts as a
+  //    real live region there, so announcing on top would be heard twice.
+  //  - SETTLE yields only when fronted AND it is NOT a first run: nothing else
+  //    announces a first-run settle (the completion toast mounts post-settle
+  //    with wasRunningRef = false).
   const yieldsToTabFurniture =
-    transition === 'start' ? analysisTabFronted || firstRun : analysisTabFronted && !firstRun
+    transition === 'start' ? analysisTabFronted : analysisTabFronted && !firstRun
   if (yieldsToTabFurniture) return null
   if (transition === 'start') return 'Analysis started.'
   // settledStatus is a raw store string — keep the switch. An object lookup

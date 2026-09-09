@@ -89,12 +89,47 @@ describe('F9: AnalysisRunAnnouncer', () => {
     expect(announcer()).toHaveTextContent('Analysis started.')
   })
 
-  it('stays silent at a FIRST-run start (the dock auto-switch fronts the Analysis tab in the same breath)', () => {
-    // Pre-run status idle: the I.1 auto-switch is about to front the
-    // Analysis tab, whose furniture speaks. The announcer must not race it.
+  /**
+   * ⚠⚠ INVERTED 9 Sep 2026 — THE THIRD RECORD OF ONE GAP, AND THE REASON THE
+   * FIX HAD TO SWEEP EVERY READER OF THE PREDICATE RATHER THAN ONE CALL SITE.
+   *
+   * This case read `stays silent at a FIRST-run start (the dock auto-switch
+   * fronts the Analysis tab in the same breath)`, and its comment said *"the
+   * I.1 auto-switch is about to front the Analysis tab, whose furniture
+   * speaks. The announcer must not race it."* Both were true when written.
+   *
+   * The default-tab ruling deleted the auto-switch
+   * (`navigatesToAnalysisTab = Boolean(showResultsPanel)` in `OutputsDock.tsx`),
+   * so on a fresh unchosen session nothing fronts the Analysis tab and nothing
+   * speaks: `AnalysisRunStateCover` is visual-only by ruling (UI #1198) and the
+   * tab-name live region does not change. The silence this case pinned became
+   * a first run that assistive technology never hears until SETTLE.
+   *
+   * `runAnnouncementForTransition`'s START arm now yields on
+   * `analysisTabFronted` alone. The rerun-while-fronted case directly below is
+   * unchanged and is the discriminating twin: frontedness still silences the
+   * announcer, so this is a narrowing of the yield, not its removal.
+   */
+  it('announces a FIRST-run start when the Analysis tab is NOT fronted (nothing fronts it any more)', () => {
+    // Pre-run status idle marks the first run, and the tab is not fronted —
+    // exactly the fresh-session journey the default-tab ruling makes ordinary.
     const { rerender } = render(<AnalysisRunAnnouncer analysisTabFronted={false} />)
     setResults({ status: 'streaming', startedAt: Date.now() })
     rerender(<AnalysisRunAnnouncer analysisTabFronted={false} />)
+    expect(announcer()).toHaveTextContent('Analysis started.')
+  })
+
+  /**
+   * ⭐ THE OPPOSITE-DIRECTION TWIN, added with the inversion above: a FIRST run
+   * started while the Analysis tab IS fronted must stay silent, because its
+   * running banner is a real live region there. Without this, "announce a first
+   * run" could be satisfied by an unconditional START arm, which would speak
+   * the same start twice.
+   */
+  it('stays silent at a FIRST-run start while the Analysis tab IS fronted (its banner announces there)', () => {
+    const { rerender } = render(<AnalysisRunAnnouncer analysisTabFronted={true} />)
+    setResults({ status: 'streaming', startedAt: Date.now() })
+    rerender(<AnalysisRunAnnouncer analysisTabFronted={true} />)
     expect(announcer()).toHaveTextContent('')
   })
 
@@ -187,7 +222,10 @@ describe('F9: AnalysisRunAnnouncer', () => {
     const { rerender } = render(<AnalysisRunAnnouncer analysisTabFronted={true} />)
     setResults({ status: 'streaming', startedAt: Date.now() })
     rerender(<AnalysisRunAnnouncer analysisTabFronted={true} />)
-    // Start yields (the auto-switch furniture speaks) — no announcement yet.
+    // Start yields because the tab is FRONTED and its running banner speaks
+    // there. (This read "the auto-switch furniture speaks" until 9 Sep 2026;
+    // the auto-switch is gone, the yield here is not — it never depended on
+    // it, because `analysisTabFronted` is true on this path.)
     expect(announcer()).toHaveTextContent('')
     setResults({ status: 'complete' })
     rerender(<AnalysisRunAnnouncer analysisTabFronted={true} />)

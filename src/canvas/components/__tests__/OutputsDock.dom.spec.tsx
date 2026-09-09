@@ -1588,43 +1588,40 @@ describe('F9: dock-level run announcer (single voice for start/settle)', () => {
   })
 
   /**
-   * ⚠⚠⚠ A KNOWN GAP, PINNED DELIBERATELY — DO NOT READ THIS CASE AS A DESIGN.
+   * ⭐⭐ THE INVERSION OF A KNOWN GAP — AND THE RECORD OF IT, KEPT.
    *
-   * It read `stays silent on a FIRST run: the auto-switch fronts the Analysis
-   * tab, whose furniture speaks`, and asserted the results skeleton appeared
-   * (proving the yank) and the announcer stayed empty (proving the yield).
+   * THIS CASE USED TO ASSERT THE OPPOSITE, DELIBERATELY, AND IT WAS RIGHT TO.
+   * It was named `KNOWN GAP: a FIRST run from a non-Analysis tab is announced
+   * by nobody (fix belongs to analysisRunStatus.ts)` and it asserted the
+   * announcer stayed EMPTY. Its own header set the condition for this rewrite:
+   * *"REDs when the gap is closed — at which point this case should be inverted
+   * to `announces a FIRST run started from a non-Analysis tab`, not deleted."*
+   * The gap is closed; this is that inversion, performed to the letter.
    *
-   * ── WHAT THE DEFAULT-TAB RULING (9 Sep 2026) DID TO IT ─────────────────────
-   * A run start no longer navigates, so the yank is gone and the skeleton half
-   * of the old assertion is now false. The SILENCE half survives — and for a
-   * reason that is now WRONG. Derived at the producer rather than inferred
-   * (`analysisRunStatus.ts`, `runAnnouncementForTransition`):
+   * ── WHAT THE GAP WAS ───────────────────────────────────────────────
+   * `runAnnouncementForTransition`'s START arm read
+   * `analysisTabFronted || firstRun`. The `|| firstRun` disjunct existed for
+   * the dock's I.1 run-start auto-switch — its comment said so aloud: *"the
+   * dock's auto-switch is about to front the Analysis tab, whose own furniture
+   * speaks"*. The default-tab ruling (9 Sep 2026) removed that auto-switch
+   * (`navigatesToAnalysisTab = Boolean(showResultsPanel)`), so the disjunct
+   * was yielding to furniture that never arrives. A first run started from
+   * Reasoning / Model / Compare reached NO live region: `AnalysisRunStateCover`
+   * is visual-only by ruling (`announces={false}`, or an `aria-hidden`
+   * skeleton — UI #1198), and the tab-name region does not change because the
+   * tab does not change. Silence until SETTLE, 20–40s later.
    *
-   *     yieldsToTabFurniture =
-   *       transition === 'start' ? analysisTabFronted || firstRun : …
-   *
-   * The `|| firstRun` disjunct yields EVERY first-run start regardless of tab,
-   * and its own comment states the premise out loud: *"the dock's auto-switch is
-   * about to front the Analysis tab, whose own furniture speaks"*. That premise
-   * is exactly what this change removed. So a first run started from a
-   * non-Analysis tab is now announced by NOBODY: the dock announcer yields on a
-   * stale belief, and `AnalysisRunStateCover` on Reasoning / Model / Compare is
-   * visual-only by ruling (`announces={false}`, UI #1198). Sighted users see the
-   * cover; assistive tech hears nothing until the SETTLE, which does not yield.
-   *
-   * ── WHY IT IS PINNED HERE RATHER THAN FIXED ────────────────────────────────
-   * `analysisRunStatus.ts` is outside this lane's ownership. The smallest
-   * enabling change is one line — drop `|| firstRun` from the START arm, so the
-   * start yields on `analysisTabFronted` alone, symmetrical with the SETTLE arm
-   * that already reads `analysisTabFronted && !firstRun`. That belongs to that
-   * file's owner, with its own RED-first.
-   *
-   * ⭐ SO THIS CASE ASSERTS THE GAP EXACTLY, AND IS NAMED FOR IT. The suite
-   * stays green for the RIGHT reason, and REDs when the gap is closed — at which
-   * point this case should be inverted to
-   * `announces a FIRST run started from a non-Analysis tab`, not deleted.
+   * ── WHY THIS IS NOT MERELY A RELAXED ASSERTION ────────────────────────
+   * Both preconditions the gap case pinned are KEPT verbatim, because they are
+   * what bind this case to the branch it names: the user must still be on
+   * Model (no navigation), and the Analysis surface's furniture must NOT be on
+   * screen. Without them an announcement here would be fully explained by the
+   * pre-ruling behaviour — yanked to Analysis, spoken by the banner — and this
+   * case would certify the wrong thing. The single-voice count is added for the
+   * opposite direction: the fix must not trade a silence for a double
+   * announcement.
    */
-  it('KNOWN GAP: a FIRST run from a non-Analysis tab is announced by nobody (fix belongs to analysisRunStatus.ts)', () => {
+  it('announces a FIRST run started from a non-Analysis tab (the inverted KNOWN GAP)', () => {
     seedIdle(false)
     renderOutputsDock()
     // Was the Compare tab until 18 Aug 2026 (hidden by contract). Any fronted
@@ -1632,26 +1629,59 @@ describe('F9: dock-level run announcer (single voice for start/settle)', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Model' }))
 
     startRun(false)
-    // PRECONDITION, PINNED IN-TEST: the user is still on Model. Without it, an
-    // empty announcer would be fully explained by the OLD behaviour (yanked to
-    // Analysis, yielding correctly) and this case would certify the wrong thing.
+    // PRECONDITION, PINNED IN-TEST (kept from the gap case): the user is still
+    // on Model. Without it, an announcement would be fully explained by the OLD
+    // behaviour (yanked to Analysis, the banner speaking) and this case would
+    // certify the wrong thing.
     expect(
       screen.getByText('Model', { selector: 'span[aria-live="polite"]' }),
       'the run start navigated — this case would be measuring the pre-ruling behaviour',
     ).toBeInTheDocument()
-    // The Analysis surface's furniture is NOT on screen, so nothing there is
-    // speaking on the announcer's behalf. This is the half that makes the
-    // silence below a GAP rather than a correct yield.
+    // PRECONDITION, PINNED IN-TEST (kept from the gap case): the Analysis
+    // surface's furniture is NOT on screen, so the announcement below is
+    // provably the dock announcer's and not something speaking on its behalf.
     expect(screen.queryByTestId('headline-skeleton')).toBeNull()
-    // The gap itself.
-    expect(screen.getByTestId('analysis-run-announcer')).toHaveTextContent('')
-    // ...and its BOUND. The settle arm does not carry the `firstRun` disjunct,
-    // so completion is still announced. Asserted so the gap is recorded at its
-    // true size and cannot be quoted as "first runs are silent".
+    // ⭐ THE INVERSION ITSELF. This is the assertion that RED'd the gap open.
+    expect(screen.getByTestId('analysis-run-announcer')).toHaveTextContent(
+      'Analysis started.',
+    )
+    // ⭐ THE OPPOSITE DIRECTION: exactly ONE live region carries it. The gap's
+    // fix must not buy audibility with a double announcement.
+    expect(
+      Array.from(document.querySelectorAll('[aria-live]')).filter((el) =>
+        (el.textContent ?? '').includes('Analysis started.'),
+      ),
+    ).toHaveLength(1)
+    // ...and the settle arm is UNCHANGED by the fix — kept from the gap case,
+    // where it recorded the gap's bound. Here it is the regression pin for the
+    // arm the one-line change did not touch.
     settleRun('complete')
     expect(screen.getByTestId('analysis-run-announcer')).toHaveTextContent(
       'Analysis complete.',
     )
+  })
+
+  /**
+   * ⭐ THE DISCRIMINATING TWIN of the case above, and the reason the fix is
+   * `analysisTabFronted` ALONE rather than "always announce".
+   *
+   * Same first run, same store, the ONE input flipped: the Analysis tab is
+   * fronted. Its running banner mounts as a real live region there, so the
+   * announcer must stay silent or the start is heard twice. If a future change
+   * makes the START arm unconditional, THIS case REDs while the one above
+   * stays green — which is what makes the pair a binding, not a direction.
+   */
+  it('a FIRST run started while the Analysis tab is fronted is spoken by the banner, not the announcer', () => {
+    seedIdle(false)
+    renderOutputsDock()
+    fireEvent.click(screen.getByRole('tab', { name: 'Analysis' }))
+
+    startRun(false)
+    // PRECONDITION: the Analysis tab really is fronted and its narration
+    // furniture really is mounted — otherwise an empty announcer would be the
+    // GAP this file just closed, wearing the wrong name.
+    expect(screen.getByTestId('analysis-running-banner')).toBeInTheDocument()
+    expect(screen.getByTestId('analysis-run-announcer')).toHaveTextContent('')
   })
 
   it('yields while the Analysis tab is fronted: the narration banner speaks, the announcer stays silent', () => {
