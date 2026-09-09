@@ -604,6 +604,32 @@ export function AtAGlance({
             {glance.leaderLabel ?? glance.headline}
           </p>
         </div>
+      ) : glance.designationWithheldReason ? (
+        /* ── WHY THERE IS NO ANSWER ────────────────────────────────────────
+           ⭐⭐ SILENCE IS NOT A DENIAL. Until this slot existed, a run whose
+           model REFUSED to license a comparative claim rendered exactly what an
+           ordinary run with no leading candidate rendered: nothing. The reader
+           could not tell "the model declined to conclude this" from "there was
+           nothing to conclude". `heroTypes.ts:411-412` names that hazard for the
+           hero; this is its Reasoning-tab twin.
+
+           The sentence is the PRODUCER'S, rendered unparaphrased and
+           untruncated. It is not composed here and it is not templated: the
+           panel may not soften, sharpen or summarise what the model refused,
+           because the refusal is the model's claim to make and ours to carry.
+
+           ⚠ `role="status"` — this is a statement about the run, in the slot
+           where the answer would otherwise be, so it must reach a screen reader
+           the way the ribbon above does rather than as unannounced prose. */
+        <div role="status">
+          <Eyebrow>{COPY.glance.eyebrowWhyWithheld}</Eyebrow>
+          <p
+            className={`${typography.panelBody} mt-1 mb-0 text-text-body text-pretty`}
+            data-testid={`${testId}-withheld-reason`}
+          >
+            {glance.designationWithheldReason}
+          </p>
+        </div>
       ) : null}
 
       {/* ── HOW MUCH TO RELY ON IT ─────────────────────────────────────────
