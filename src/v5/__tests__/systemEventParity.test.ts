@@ -44,6 +44,15 @@ const UI_WIRE_EVENT_TYPES = [
   'structural_rename',
   'structural_add',
   'edge_strength_edit',
+  // schemas 0.54.0. ⚠ OMITTING IT HERE WAS ONE MISSING LINE THAT CAUSED ALL
+  // THREE REDS, and the mechanism is worth recording: this array is not just an
+  // iteration source, it is the KEY UNION for the `UI_COVERAGE` Record. Leaving
+  // the member out made the coverage entry a TS2353 excess property (:263) AND
+  // made the totality assertion (:285) fail, and the same new-file diagnostic
+  // contaminated the Typecheck Self-Test. Adding the coverage entry without
+  // adding it here is exactly the half-update the `satisfies` above cannot
+  // catch — it is ONE-DIRECTIONAL and proves only that listed members are real.
+  'option_intervention_edit',
 ] as const satisfies readonly WireSystemEventType[]
 
 // The `satisfies` above is ONE-DIRECTIONAL: it proves every listed member is a
