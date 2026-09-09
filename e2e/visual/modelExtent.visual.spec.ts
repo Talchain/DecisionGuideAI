@@ -63,36 +63,28 @@
  *  3. It STAYS AWAY when the whole model already fits — otherwise it is noise
  *     on every screen, and a notice that always shows says nothing.
  */
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect } from '@playwright/test'
 import {
   preparePage, openCanvas, seedStarterDraft, clearNotifications,
   freezeMotion, waitForVisualQuiescence, VIEWPORTS,
 } from './harness'
 import { GHOST_ID_PREFIX } from '../../src/canvas/utils/fitTargets'
 
-/**
- * Wait until the camera transform stops changing.
+/*
+ * ⛔ `waitForCameraSettled` WAS REMOVED HERE with the arm that needed it.
  *
- * `waitForVisualQuiescence` watches the LAYOUT store, which is silent about the
- * camera — so it returns while a 400ms fit animation is still in flight, and a
- * measurement taken then reports nodes outside the pane that are on their way
- * in. That is a false RED that looks exactly like a dead control.
+ * It waited for the camera transform to hold still for five frames after
+ * clicking "Show whole model" — necessary because `waitForVisualQuiescence`
+ * watches the LAYOUT store, which is silent about the camera, so a measurement
+ * taken too early reports nodes outside the pane that are on their way in. That
+ * is a false RED that looks exactly like a dead control.
+ *
+ * The button is gone and the surviving arm measures the FIRST view without
+ * moving the camera, so nothing here waits on a fit any more. The reasoning is
+ * kept because the trap is not: any future arm that clicks a fit control and
+ * then measures needs this helper back, and `showWholeModelFit.visual.spec.ts`
+ * still carries its own copy for exactly that reason.
  */
-async function waitForCameraSettled(page: Page, timeoutMs = 5000): Promise<void> {
-  await page.waitForFunction(
-    () => {
-      const vp = document.querySelector('.react-flow__viewport') as HTMLElement | null
-      if (!vp) return false
-      const w = window as unknown as { __lastTf?: string; __tfStableFrames?: number }
-      const tf = getComputedStyle(vp).transform
-      if (w.__lastTf === tf) { w.__tfStableFrames = (w.__tfStableFrames ?? 0) + 1 }
-      else { w.__lastTf = tf; w.__tfStableFrames = 0 }
-      return (w.__tfStableFrames ?? 0) >= 5
-    },
-    undefined,
-    { timeout: timeoutMs, polling: 50 },
-  )
-}
 
 /**
  * Nodes wholly inside the pane, and the total, read from the live DOM.
