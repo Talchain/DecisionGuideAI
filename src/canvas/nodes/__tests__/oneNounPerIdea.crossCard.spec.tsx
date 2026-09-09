@@ -254,10 +254,15 @@ describe('one noun per idea — the decision card and the option card agree', ()
       .toContain(METRIC_NOUN.support.toLowerCase())
     // ⭐ AND THE CROSS-CARD POINT THIS FILE EXISTS FOR: the option card beside
     // it speaks the SAME phrase, from the same register
-    // (`COMPARATIVE_COPY.phrase`, `OptionNode.tsx:1582`). Two cards, one
+    // (`COMPARATIVE_COPY.phrase`). Two cards, one
     // quantity, one sentence — which is what made the decision card's old verb
     // visible as a defect rather than a preference.
-    expect(screen.getAllByText(/supported in 66% of simulated scenarios/i)).toHaveLength(2)
+    // The option now names its graphic through aria-label; requiring a second
+    // text node would reinstate an inert child under role="img". Assert both
+    // real carriers, retaining the same shared-phrase requirement.
+    const optionRow = screen.getByTestId(`option-analysis-currency-${LEADER_ID}`)
+    expect(optionRow.getAttribute('aria-label')).toContain(COMPARATIVE_COPY.phrase('66%'))
+    expect(screen.getByRole('img', { name: /supported in 66% of simulated scenarios/i })).toBe(optionRow)
     // …and "Leads" stays retired as a caption, which is what the register
     // actually ruled. That has not changed.
     expect(RETIRED_METRIC_NOUNS).toContain('Leads')
