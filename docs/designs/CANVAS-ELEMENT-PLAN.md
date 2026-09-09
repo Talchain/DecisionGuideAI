@@ -12,18 +12,19 @@ The recurring failure is fragmented delivery: a local symptom becomes a new mini
 
 Change the unit of work to a complete user capability. Agree the content of all existing element types together, reuse the current components, and deliver coherent batches with one consolidated independent review. Preserve scientifically useful information; correct its meaning and source rather than systematically removing it.
 
-Shareability has two concurrent requirements:
+Shareability has three concurrent requirements:
 1. Core: ordinary edit → canonical save → analysis consumes the changed inputs → faithful explanation → reopen retains the work.
-2. Canvas: every displayed element communicates its purpose, the relevant known or missing information, and a useful working next action.
+2. AI and Panel: useful contextual reasoning before and after numerical analysis, grounded in the person's actual situation and observation. This work does not wait for all editing repairs.
+3. Canvas: every displayed element communicates its purpose, the relevant known or missing information, and a useful working next action.
 
 The native first-Save refusal is an actual Core blocker. It should not become an excuse to leave the remaining Canvas content undesigned; nor should Canvas changes obscure that the joined journey still fails.
 
 ## Today's priority and deliberate cuts
 
-Strategic Path is reconciling a programme-wide reset for today. The matrix below provides the whole-graph direction; it does not start new implementation batches ahead of that reset.
+Strategic Path's [TODAY reconciliation](https://github.com/Talchain/olumi-programme-docs/pull/38#issuecomment-5600656632) governs execution. The matrix below provides the whole-graph direction; it does not start new implementation batches or make whole-graph enrichment a release dependency today.
 
 1. Finish the existing canonical-save and goal-writer repairs, then prove that the changed inputs reach analysis and survive reopening. Preserve their current owners.
-2. Finish #1368 through its current reviewer. Fix contradictions in value, unit, reference and result currentness where they obstruct the same user journey. Avoid unrelated node enrichment during that repair.
+2. In parallel, finish #1368 through its current reviewer and advance existing AI/Panel context and coaching work under their owners. Diagnose selected failed conversations from actual assembled input through visible output before changing prompts. Fix Canvas contradictions in value, unit, reference and result currentness where they obstruct the same user journey. Avoid unrelated node enrichment during that repair.
 3. Agree the factor/goal content decisions from this matrix once. Implement the smallest coherent improvement that lets a tester inspect assumptions and success criteria, once shared-file ownership is reconciled.
 
 Defer additional risk/outcome/action enrichment, new sensitivity visuals, new collaboration records, geometry and decorative polish. The cost is a less complete first demonstration; the benefit is concentrating effort on a faithful, testable reasoning loop. Retain existing scientific calculations and useful observations. This is a delivery order, not a decision to remove them.
