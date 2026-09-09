@@ -231,6 +231,9 @@ export function ModelTabV2Panel({
   // Subscribed, not read once: a pending effect edit must notice a scenario
   // switch beneath it rather than settle against a different model.
   const currentScenarioId = useCanvasStore(st => st.currentScenarioId)
+  // Subscribed for the same reason as the scenario id: a refusal that names an
+  // action has to notice when the action has happened.
+  const lastServerGraphHash = useCanvasStore(st => st.lastServerGraphHash)
   const [edit, setEdit] = useState<ActiveEdit | null>(null)
   /**
    * The one intervention target being edited, if any.
@@ -269,6 +272,18 @@ export function ModelTabV2Panel({
       sentValue?: number
       /** The scenario the send belongs to. A pending state must not outlive it. */
       sentScenarioId?: string | null
+      /**
+       * ⭐ SET ONLY BY THE `needs_fresh_base` REFUSAL, and it is what makes that
+       * notice CURRENT rather than merely true-when-written.
+       *
+       * The notice names an action — a turn refreshes the base — so the moment
+       * the base actually arrives it is stale, and a stale instruction is worse
+       * than none: the user has already done the thing and the row still tells
+       * them to do it. Flagged rather than matched on the copy, because
+       * recognising a state by the sentence it renders is how a copy edit
+       * silently unwires behaviour.
+       */
+      awaitingFreshBase?: boolean
     } | null
   >(null)
 
@@ -762,6 +777,7 @@ export function ModelTabV2Panel({
           return {
             ...rest,
             phase: 'editing',
+            awaitingFreshBase: true,
             notice:
               'Not sent yet — I need to re-sync with the saved model first. ' +
               'Ask me anything about this decision, then set this value again.',
@@ -822,6 +838,32 @@ export function ModelTabV2Panel({
     )
     if (landed?.numericValue === interventionEdit.sentValue) setInterventionEdit(null)
   }, [interventionEdit, selectedDetail, selectedId, currentScenarioId])
+
+  /**
+   * ⭐ THE RECOVERY ACTUALLY COMPLETING — the other end of `needs_fresh_base`.
+   *
+   * That refusal is an instruction: run a turn and this clears. Nothing was
+   * watching for the turn, so the instruction stayed on screen after the user
+   * had followed it — the row telling them to do something they had just done,
+   * beside a number that would now send perfectly well. Truthful when written
+   * and false a second later is the same defect class as a pending state with
+   * no exit, and this surface has now had both.
+   *
+   * ⚠ IT CLEARS THE NOTICE, NOT THE DRAFT. The number the user typed stays in
+   * the box, because it is still what they meant; only the reason it could not
+   * go is gone. Re-sending it for them would be a decision the user did not
+   * make — the base is fresh now, but the model it describes has moved, which
+   * is exactly why the base was stale.
+   */
+  useEffect(() => {
+    if (!interventionEdit?.awaitingFreshBase) return
+    if (typeof lastServerGraphHash !== 'string' || lastServerGraphHash.length === 0) return
+    setInterventionEdit(prev =>
+      prev?.awaitingFreshBase
+        ? { ...prev, awaitingFreshBase: false, notice: undefined }
+        : prev,
+    )
+  }, [interventionEdit?.awaitingFreshBase, lastServerGraphHash])
 
   /**
    * ⚠ SELECTING A DIFFERENT ROW ABANDONS AN OPEN INTERVENTION DRAFT. See

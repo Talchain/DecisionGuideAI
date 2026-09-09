@@ -290,6 +290,111 @@ describe('the sender settles, and two of its three answers mean nothing was sent
   })
 })
 
+/**
+ * ⭐⭐ THE RECOVERY LOOP, END TO END — a reload, the refusal, the turn, the send.
+ *
+ * `needs_fresh_base` is the one refusal that names an action, and until now
+ * nothing proved the action WORKS. A refusal whose recovery is untested is a
+ * promise, and this surface has already shipped one state that could only be
+ * entered.
+ */
+describe('reload → refusal → a turn arrives → the same edit now goes', () => {
+  it('the notice clears when the base actually arrives, and the number stays put', async () => {
+    renderPanel(null)
+    commit('0.6')
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+    expect(
+      (await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-notice`)).textContent ?? '',
+    ).toMatch(/re-sync/i)
+
+    // A turn lands. `applyV5State` stamps the hash from the response's
+    // top-level `graph_hash`; this is that write, and nothing else about it.
+    await act(async () => {
+      useCanvasStore.setState({ lastServerGraphHash: HASH } as never, false)
+    })
+
+    expect(
+      screen.queryByTestId(`model-detail-v2-intervention-${FACTOR}-notice`),
+    ).not.toBeInTheDocument()
+    // ⚠ THE DRAFT SURVIVES. Clearing the reason is not the same as discarding
+    // what the user typed.
+    expect(
+      (screen.getByTestId(`model-detail-v2-intervention-${FACTOR}-input`) as HTMLInputElement).value,
+    ).toBe('0.6')
+    // ⚠ AND NOTHING WAS SENT FOR THEM. A recovered base does not authorise a
+    // send the user did not press.
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+  })
+
+  it('and pressing Save again DISPATCHES, with the recovered hash on the wire', async () => {
+    renderPanel(null)
+    commit('0.6')
+    await act(async () => {
+      useCanvasStore.setState({ lastServerGraphHash: HASH } as never, false)
+    })
+
+    fireEvent.click(screen.getByTestId(`model-detail-v2-intervention-${FACTOR}-save`))
+
+    expect(sendSystemEvent).toHaveBeenCalledTimes(1)
+    expect(sendSystemEvent.mock.calls[0]?.[0]?.payload?.base_graph_hash).toBe(HASH)
+    expect(sendSystemEvent.mock.calls[0]?.[0]?.payload?.value).toBe(0.6)
+    await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-pending`)
+  })
+
+  /**
+   * ⭐ THE BASE IS READ AT SEND TIME, NOT CAPTURED — and that claim was untested.
+   *
+   * `useModelEditAuthority` says of `lastServerGraphHash`: "THE ONE OWNER OF THE
+   * BASE HASH, read here rather than captured". Captured — at mount, at row
+   * selection, at the first send — the SECOND send of a session would carry a
+   * hash the server had already superseded, CEE would refuse it as stale, and
+   * the user would be told to re-sync after every single edit on a surface whose
+   * whole point is that an edit reaches the server.
+   *
+   * The case above already proves it across a mount that began with NO hash.
+   * This proves the harder half: a second send from the SAME mount, after the
+   * base has moved underneath it. The row is reopened by a `SEND_BLOCKED`
+   * settlement — a real, reachable way back to a Save without unmounting
+   * anything, and the only one available while the applied receipt is missing
+   * (see `interventionAppliedCarrierGap.spec.ts`).
+   */
+  it('⭐ a SECOND send from the same mount carries the MOVED hash, not the first one', async () => {
+    const HASH_B = '11223344aabbccdd'
+    sendSystemEvent.mockResolvedValue('send_blocked')
+    renderPanel()
+    commit('0.6')
+    expect(sendSystemEvent.mock.calls[0]?.[0]?.payload?.base_graph_hash).toBe(HASH)
+
+    // The blocked settlement reopens the row with the draft intact.
+    await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-notice`)
+
+    // A turn lands and moves the base — exactly what the committed arm's
+    // response does: `applyV5State` stamps the top-level `graph_hash`.
+    await act(async () => {
+      useCanvasStore.setState({ lastServerGraphHash: HASH_B } as never, false)
+    })
+
+    fireEvent.click(screen.getByTestId(`model-detail-v2-intervention-${FACTOR}-save`))
+
+    expect(sendSystemEvent).toHaveBeenCalledTimes(2)
+    expect(sendSystemEvent.mock.calls[1]?.[0]?.payload?.base_graph_hash).toBe(HASH_B)
+    expect(sendSystemEvent.mock.calls[1]?.[0]?.payload?.value).toBe(0.6)
+  })
+
+  it('⚠ DISCRIMINATING CONTROL: with NO base arriving, the second Save refuses again', async () => {
+    // Without this, the case above would pass on a surface where any second
+    // attempt succeeds — which is what a dropped guard looks like from outside.
+    renderPanel(null)
+    commit('0.6')
+    fireEvent.click(screen.getByTestId(`model-detail-v2-intervention-${FACTOR}-save`))
+
+    expect(sendSystemEvent).not.toHaveBeenCalled()
+    expect(
+      (await screen.findByTestId(`model-detail-v2-intervention-${FACTOR}-notice`)).textContent ?? '',
+    ).toMatch(/re-sync/i)
+  })
+})
+
 describe('the canonical settlement — what ENDS a pending state', () => {
   it('the row clears when the CANONICAL store carries the value that was sent', async () => {
     renderPanel()
