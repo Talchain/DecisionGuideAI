@@ -76,13 +76,14 @@ describe('factor and goal content reaches the actual node and inspector', () => 
     expect(useCanvasStore.getState().selectedNodeId).toBe('option-long')
   })
 
-  it('overflow opens the factor inspector and the omitted option is present there even without an edge', async () => {
+  it('overflow reveals every option and the controllable inspector includes options without drawn edges', async () => {
     seed([factor, ...Array.from({ length: 5 }, (_, i) => option(`option-${i}`, `Approach ${i + 1}`, 0.4 + i / 10))])
     const card = render(<ReactFlowProvider><FactorNode {...props} id={FACTOR} type="factor" data={factor.data} /></ReactFlowProvider>)
     const preview = await hover('Monthly price')
     expect(preview.queryByText('Approach 5')).toBeNull()
-    fireEvent.click(preview.getByRole('button', { name: '+1 more in inspector' }))
-    expect(useCanvasStore.getState().selectedNodeId).toBe(FACTOR)
+    fireEvent.click(preview.getByRole('button', { name: 'Show 1 more options' }))
+    expect(preview.getByText('Approach 5')).toBeDefined()
+    expect(useCanvasStore.getState().selectedNodeId).toBeNull()
     card.unmount()
     render(<FactorControllablePanel nodeId={FACTOR} techMode={false} onClose={noop} onNavigate={noop} />)
     expect(screen.getByText('Approach 5')).toBeDefined()

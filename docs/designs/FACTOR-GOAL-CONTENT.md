@@ -4,7 +4,7 @@
 
 ## What the user can do
 
-The factor preview distinguishes the current value from the settings recorded for each option. Full option names remain readable and open that option's inspector. Four options are shown in stable canvas order, with an explicit link to the factor inspector for the remainder. The inspector shows the complete same set, including options without drawn edges to the factor.
+The factor preview distinguishes the current value from the settings recorded for each option. Full option names remain readable and open that option's inspector. Four options are shown in stable canvas order, with an explicit control to expand the remainder in the same preview. The controllable-factor inspector shows the complete same set, including options without drawn edges to the factor.
 
 The goal preview exposes recorded constraints while the model is being framed, with or without a numerical goal target. The preview and inspector state the same constraint name, operator, bound and supplied unit. An unlabelled constraint uses its referenced node's name; a missing bound is disclosed. Existing source quotes, goal results and coaching remain available.
 
@@ -14,7 +14,7 @@ The goal preview exposes recorded constraints while the model is being framed, w
 |---|---|---|
 | Current factor value | Existing factor formatter, reused by card and inspector; explicitly captioned in the preview. | No new units, before-values or quantities are inferred by this change. |
 | Option setting | Shared setting projection in preview and inspector. Retain authored display text and qualitative settings; numeric values use the existing intervention scale formatter. | A baseline flag or equal factor value does not erase an option's setting. Missing setting and explicitly unspecified value remain distinct. |
-| Option name and overflow | Full wrapping name, clickable through the existing inspector route. First four in canvas order, with visible remaining count. | This table describes settings; its order does not convey a simulation ranking. |
+| Option name and overflow | Full wrapping name, clickable through the existing inspector route. First four in canvas order, with a visible remaining count and inline expansion. | This table describes settings; its order does not convey a simulation ranking. |
 | Constraint | Full wrapping name, operator, recorded magnitude and its supplied unit. Reuse existing operator, unit-classification and number-formatting primitives. | A stated boundary is separate from the computed probability of satisfying it. Missing data does not become a zero or another factor's label. |
 | Coaching and evidence | Existing actions and source quotes remain. Goal coaching is accessible while framing a stated target. | No new diagnosis, score, calculation or auto-applied edit is introduced. |
 

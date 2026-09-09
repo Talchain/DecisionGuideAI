@@ -164,7 +164,7 @@ describe('FactorNode — option comparison popover (Graph v2 Task 3)', () => {
     expect(screen.queryByText('Option values:')).toBeNull()
   })
 
-  it('Post Standard, > 4 options: shows 4 rows + "N more in inspector" link', () => {
+  it('Post Standard, > 4 options: shows 4 rows + "Show N more options" control', () => {
     applyStore({
       viewMode: 'standard',
       phase: 'post',
@@ -191,7 +191,7 @@ describe('FactorNode — option comparison popover (Graph v2 Task 3)', () => {
     })
     renderFactor(baseFactorData)
     const popover = screen.getByTestId('factor-node-popover')
-    // First four in canvas order; all remaining options are in the inspector.
+    // First four in canvas order; the rest can be expanded in the preview.
     expect(within(popover).getByText('Opt A')).toBeDefined()
     expect(within(popover).getByText('Opt B')).toBeDefined()
     expect(within(popover).getByText('Opt C')).toBeDefined()
@@ -200,8 +200,8 @@ describe('FactorNode — option comparison popover (Graph v2 Task 3)', () => {
     expect(within(popover).queryByText('Opt SQ')).toBeNull()
     expect(within(popover).queryByText('Opt E')).toBeNull()
     // Overflow link
-    // Overflow copy now comes from the shared ConnRowsOverflow component
-    expect(within(popover).getByText('+2 more in inspector')).toBeDefined()
+    // Overflow expands the complete list without depending on the inspector category.
+    expect(within(popover).getByText('Show 2 more options')).toBeDefined()
   })
 
   it('Post Standard: baseline row retains its recorded numeric setting', () => {

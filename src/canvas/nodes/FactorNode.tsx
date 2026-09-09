@@ -1,4 +1,4 @@
-import { memo, useMemo, useCallback } from 'react'
+import { memo, useMemo, useCallback, useState } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
 import { EvidenceGapBadge } from './EvidenceGapBadge'
@@ -132,14 +132,16 @@ export const FactorNode = memo((props: NodeProps) => {
   }, [hoveredOptionId, nodes, ceeAnalysisReady, props.id, observedState])
   const isAffectedByHover = interventionDisplayValue !== null
 
+  const [showAllOptionValues, setShowAllOptionValues] = useState(false)
+
   // A setting is not a ranking or a baseline claim. Preserve canvas order
   // and show the supplied setting even when this is the reference option.
   const optionComparisonRows = useMemo(() => {
     if (nodeCategory === 'external') return null
     const rows = getFactorOptionRows(props.id, nodes, ceeAnalysisReady?.options, observedState)
     if (rows.length === 0) return null
-    return { rows: rows.slice(0, 4), overflow: Math.max(0, rows.length - 4) }
-  }, [nodes, props.id, nodeCategory, observedState, ceeAnalysisReady])
+    return { rows: showAllOptionValues ? rows : rows.slice(0, 4), overflow: showAllOptionValues ? 0 : Math.max(0, rows.length - 4) }
+  }, [nodes, props.id, nodeCategory, observedState, ceeAnalysisReady, showAllOptionValues])
 
   // The inspector and card read the same value, including legacy wrappers
   // and meaningful text supplied without a numeric observation.
@@ -444,8 +446,9 @@ export const FactorNode = memo((props: NodeProps) => {
           ))}
           {optionComparisonRows.overflow > 0 && (
             <button type="button" className={`${typography.edgeLabel} text-info underline nodrag nopan`}
-              onClick={handleViewParams} onPointerDown={e => e.stopPropagation()}
-            >+{optionComparisonRows.overflow} more in inspector</button>
+              onClick={e => { e.stopPropagation(); setShowAllOptionValues(true) }}
+              onPointerDown={e => e.stopPropagation()}
+            >Show {optionComparisonRows.overflow} more options</button>
           )}
         </div>
       </>
