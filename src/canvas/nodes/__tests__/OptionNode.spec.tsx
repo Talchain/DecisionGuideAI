@@ -1528,8 +1528,8 @@ describe('OptionNode — QA Brief C-series', () => {
       selector({ layoutNodeWidth: null })) as never)
   })
 
-  // C2: Baseline option shows "No changes from current state" (all interventions match baseline)
-  it('C2: baseline option (is_baseline=true) shows no-changes message', () => {
+  // C2: Baseline identity is independent of whether its recorded values change.
+  it('C2: baseline option (is_baseline=true) identifies the reference', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         ceeAnalysisReady: {
@@ -1545,8 +1545,8 @@ describe('OptionNode — QA Brief C-series', () => {
       }) as any)
     )
     renderOption({ label: 'Keep current price', is_baseline: true })
-    // Baseline option shows "No changes to factors" in body (pre-analysis)
-    expect(screen.getByText('No changes to factors')).toBeDefined()
+    // The resting label does not infer a no-change claim from the baseline flag.
+    expect(screen.getByText('Baseline option')).toBeDefined()
     // No delta arrow
     expect(screen.queryByText(/→/)).toBeNull()
   })
@@ -2154,7 +2154,7 @@ describe('OptionNode — display coherence (audit §8)', () => {
     renderOption({ label: 'Status Quo', is_baseline: true })
     expect(screen.getByText('Supported in 28% of simulated scenarios')).toBeDefined()
     expect(screen.queryByText(/win rate across simulations/i)).toBeNull()
-    expect(screen.getByText('Current baseline. No changes to factors.')).toBeDefined()
+    expect(screen.getByText('Baseline option.')).toBeDefined()
   })
 
   // Item 3c: identical "Held back by:" reasons on multiple non-leading options are
@@ -2466,13 +2466,13 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
         interventions: { fac_scope: 0 },
       }),
     )
-    expect(screen.getByText(/Supported by/)).toBeInTheDocument()
+    expect(screen.getByText(/Factor to examine:/)).toBeInTheDocument()
     expect(screen.getByText('Design Change Scope')).toBeInTheDocument()
     expect(screen.queryByText(/the #1 driver/)).toBeNull()
-    expect(screen.getByText(/its biggest lever/)).toBeInTheDocument()
+    expect(screen.queryByText(/its biggest lever/)).toBeNull()
   })
 
-  it('claims "#1 driver" only when the lever IS the policy #1', () => {
+  it('keeps the policy-selected factor without asserting why the option won', () => {
     mountLeader(
       winsViaState({
         factors: [
@@ -2483,7 +2483,7 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
       }),
     )
     expect(screen.getByText('Pricing Page Clarity')).toBeInTheDocument()
-    expect(screen.getByText(/the #1 driver/)).toBeInTheDocument()
+    expect(screen.queryByText(/the #1 driver/)).toBeNull()
   })
 
   it('ranks candidate levers by the POLICY value, not raw elasticity', () => {
@@ -2572,7 +2572,7 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
      * so is absent from the matcher's input but present in `textContent`.
      */
     const winsViaSentence = () =>
-      screen.getByText(/Supported by/).textContent?.replace(/\s+/g, ' ').trim()
+      screen.getByText(/Factor to examine:/).textContent?.replace(/\s+/g, ' ').trim()
 
     // ⚠ PIN THE PRECONDITION IN-TEST. Without this, every absence assertion
     // below could be passing because the fixture failed to produce a crownable
@@ -2605,7 +2605,7 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
       // Paul's standing ruling: NO HIDING, CAVEAT INSTEAD. The factor is still
       // named — the reader loses a false claim and gains a true one.
       expect(winsViaSentence()).toBe(
-        'Supported by Migration investment, tied for its top lever',
+        'Factor to examine: Migration investment',
       )
     })
 
@@ -2619,7 +2619,7 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
       mountTied({ fac_a_migration: 1 })
 
       expect(winsViaSentence()).toBe(
-        'Supported by Migration investment, its biggest lever',
+        'Factor to examine: Migration investment',
       )
     })
 
@@ -2640,7 +2640,7 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
       )
       // Only one lever, so the option-scoped claim stands; the global one cannot.
       expect(winsViaSentence()).toBe(
-        'Supported by Migration investment, its biggest lever',
+        'Factor to examine: Migration investment',
       )
     })
 
@@ -2656,7 +2656,7 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
         }),
       )
       expect(winsViaSentence()).toBe(
-        'Supported by Migration investment, the #1 driver',
+        'Factor to examine: Migration investment',
       )
     })
   })
@@ -2688,6 +2688,9 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
   // predicate — binds by IDENTITY, never by a value another object could
   // satisfy (trap 19).
   // -------------------------------------------------------------------------
+  // Delivery refinement: the historical claim regressions below now check
+  // the selected factor identity. Global/tied influence never by itself
+  // establishes a causal contribution to this option's outcome.
   describe('winsVia: a duplicated producer row is not a tie with itself', () => {
     const DUP_FACTOR_NODES = [
       { id: 'fac_a_migration', type: 'factor', data: { label: 'Migration investment', type: 'factor' } },
@@ -2698,7 +2701,7 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
     ]
 
     const winsViaSentence = () =>
-      screen.getByText(/Supported by/).textContent?.replace(/\s+/g, ' ').trim()
+      screen.getByText(/Factor to examine:/).textContent?.replace(/\s+/g, ' ').trim()
 
     // ⚠ PIN THE PRECONDITION IN-TEST. Every assertion below is worthless if the
     // duplicate silently collapses upstream — the fixture would then be an
@@ -2738,7 +2741,7 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
         }),
       )
       expect(winsViaSentence()).toBe(
-        'Supported by Migration investment, the #1 driver',
+        'Factor to examine: Migration investment',
       )
     })
 
@@ -2761,7 +2764,7 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
         }),
       )
       expect(winsViaSentence()).toBe(
-        'Supported by Migration investment, its biggest lever',
+        'Factor to examine: Migration investment',
       )
     })
 
@@ -2787,7 +2790,7 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
       // Both levers are pulled and both are genuinely at the top, so the
       // option-scoped claim is a tie too — and the copy says so.
       expect(winsViaSentence()).toBe(
-        'Supported by Migration investment, tied for its top lever',
+        'Factor to examine: Migration investment',
       )
     })
   })
