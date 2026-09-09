@@ -96,7 +96,7 @@ export const INTERVENTION_ROW_STRINGS = {
    */
   deltaTitle: 'change vs the recorded value',
   /** Shown when the record holds a second, differing reference. */
-  contestedNote: 'The record holds a second reference for this factor; which one is current is not stated, so no change is shown.',
+  contestedNote: 'The record holds a second reference for this factor on an unstated scale, so no change is shown against it.',
 } as const
 
 interface InterventionRowProps {
@@ -244,17 +244,33 @@ export function InterventionRow({
   }, [currentValue])
 
   /**
-   * ⭐ THE REFERENCE IS CONTESTED WHEN THE RECORD HOLDS TWO DIFFERENT NUMBERS
-   * FOR THE SAME FACTOR AND NAMES NEITHER AS THE PRESENT ONE.
+   * ⭐ THE REFERENCE IS UNESTABLISHED WHENEVER THE RECORD HOLDS A SECOND
+   * QUANTITY THIS SURFACE CANNOT RELATE TO THE FIRST.
    *
-   * The percentage below is measured from `observedState.value`. On the live
-   * capture that factor ALSO carries `observedState.baseline`, differing — so
-   * "↓ 17%" is a confident figure about a reference the model never established.
-   * A missing number is honest; a confident wrong one is not, which is the
-   * contract's own rule for the goal-probability conversion one layer down.
+   * The percentage below is measured from `observedState.value`. When the factor
+   * ALSO carries `observedState.baseline`, "↓ 17%" is a confident figure about a
+   * reference the model never established.
+   *
+   * ⚠⚠ AND THE FIRST VERSION OF THIS GUARD MADE THE EXACT ERROR THIS PR IS
+   * ABOUT, WHICH IS WHY IT IS QUOTED RATHER THAN QUIETLY REPLACED. It read
+   * `recordedBaseline !== baseline` — comparing a field of UNDECLARED SCALE with
+   * a normalised one. On the live capture that is `49 !== 0.59`, which is true
+   * TRIVIALLY, because the two are not on the same scale; it establishes nothing
+   * about whether the record disagrees with itself. A guard that fires on every
+   * factor carrying a baseline is not a disagreement detector, it is a
+   * both-fields-present detector wearing a comparison's clothes. Caught in
+   * review by the option-node owner.
+   *
+   * PRESENCE IS THE HONEST CONDITION. Whether the two agree is UNKNOWABLE here —
+   * `ObservedStateSchema` declares `baseline` with no doc comment and no scale,
+   * so this surface can neither confirm nor refute agreement. What it can say is
+   * that a second recorded quantity exists which it cannot relate to the first,
+   * and that is sufficient reason to withhold a percentage measured from one of
+   * them. A missing number is honest; a confident one about an unestablished
+   * reference is not — the contract's own rule for the goal-probability
+   * conversion one layer down.
    */
-  const referenceContested =
-    recordedBaseline != null && baseline != null && recordedBaseline !== baseline
+  const referenceContested = recordedBaseline != null
 
   // Change delta
   const delta = !referenceContested && baseline != null && baseline !== 0

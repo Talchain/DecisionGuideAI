@@ -114,7 +114,7 @@ describe('the row names its reference instead of asserting the present state', (
 })
 
 describe('a percentage needs a reference the record actually establishes', () => {
-  it('shows NO percentage when the record holds a second, differing reference', () => {
+  it('shows NO percentage when the record holds a second reference at all', () => {
     render(
       <InterventionRow
         {...rowProps}
@@ -139,9 +139,18 @@ describe('a percentage needs a reference the record actually establishes', () =>
     expect(screen.queryByTestId(`intervention-reference-contested-${FACTOR_PRICE}`)).toBeNull()
   })
 
-  it('shows it when a recorded baseline AGREES with the reference', () => {
-    // A second reference is only a problem when it DISAGREES. Same-valued means
-    // the record is consistent and the percentage is as good as it ever was.
+  it('withholds it for ANY recorded baseline — agreement is not knowable here', () => {
+    // ⚠⚠ THIS TEST ASSERTED THE OPPOSITE UNTIL REVIEW, AND THE OLD VERSION WAS
+    // THE DEFECT. It read "shows it when a recorded baseline AGREES with the
+    // reference", passing `recordedBaseline={OBSERVED_VALUE}` and expecting the
+    // percentage back — i.e. it encoded a comparison between a field of
+    // UNDECLARED SCALE and a normalised one. On the live capture that comparison
+    // is `49 !== 0.59`: true trivially, because they are not on the same scale.
+    // "Agrees" was never a question this surface could answer.
+    //
+    // So the condition is PRESENCE, and the case that used to prove agreement
+    // now proves the opposite — which is the sharpest form of this fix, because
+    // the same fixture that passed under the wrong rule fails under it.
     render(
       <InterventionRow
         {...rowProps}
@@ -151,7 +160,7 @@ describe('a percentage needs a reference the record actually establishes', () =>
       />,
     )
 
-    expect(screen.getByTestId(`intervention-delta-${FACTOR_PRICE}`)).toBeInTheDocument()
+    expect(screen.queryByTestId(`intervention-delta-${FACTOR_PRICE}`)).toBeNull()
   })
 
   it('does not colour the change good or bad', () => {
