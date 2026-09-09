@@ -4605,6 +4605,74 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   setGoalThreshold: (threshold, opts) => {
+    /**
+     * ⭐⭐ THE SAME BOUND AS THE SIBLING WRITER — because it is the same field.
+     *
+     * `setGoalThresholdAndUpdateNode` (below) declares finiteness on
+     * `goalThreshold`. This action writes THE SAME SCALAR, and declaring the
+     * bound on only one of two writers is the exact defect this PR's own
+     * header describes one level down: `AdvancedField.tsx` guarded
+     * `goal_threshold_raw` and concluded it had covered "every reachable
+     * source of a non-finite magnitude in the model", while
+     * `success_threshold` reached the model through a different writer.
+     * Guarding one sibling and leaving the other open reproduces that.
+     *
+     * ⚠ NOT A LIVE DEFECT — DEFENCE IN DEPTH, AND SAID PLAINLY.
+     * The complete writer set was enumerated from this interface, not from a
+     * literal grep: six non-test call sites reach this action, and NONE of
+     * them can deliver a non-finite value today. Three are gated by an
+     * explicit `Number.isFinite` — `v5/applyV5State.ts:1033` (via `:611`),
+     * `store.ts` CEE sync (via `domain/goalTarget.ts:137,142`) and
+     * `results/modals/DefineSuccessModal.tsx:205` (via `:158` + the `:178`
+     * early return). Three are unreachable by BRANCH rather than by value:
+     * `ui/inspector/GoalThresholdEditor.tsx:66` (every render site passes a
+     * truthy `nodeId`), `components/pre-analysis/PreAnalysisPanel.tsx:1105`
+     * and `components/OutputsDock.tsx:1561` — the last two because
+     * `CANONICAL_EDIT_AUTHORITY.goalSuccessTarget` is the `as const` literal
+     * `'disabled'` (`canvas/mutations/mutationAuthority.ts:127`, pinned by
+     * `mutationAuthority.spec.ts:249`), so `hasServerGraphAuthority` is a
+     * compile-time `false` and `results/ResultsBody.tsx:487` passes
+     * `onApplyTarget={undefined}`.
+     *
+     * ⚠ AN EARLIER REVISION OF THIS COMMENT CLAIMED OutputsDock's `else`
+     * BRANCH WAS LIVE, citing `results/SuccessTargetRow.tsx:167`'s
+     * `!isNaN(parsed)` as its producer. WITHDRAWN — measured: the `else` is
+     * reachable only WITHIN a handler that cannot fire, and
+     * `<SuccessTargetRow` has ZERO non-test render sites (contrast control in
+     * the same sweep: `<AnalysisHeroContainer` → 1). Structural reachability
+     * inside a function is not reachability of the function.
+     *
+     * The bound is declared here anyway because the three branch-unreachable
+     * sites are safe by WIRING, not by value: each is one prop default or one
+     * authority flip from delivering `parseFloat('1e400')` to this writer, and
+     * their own producers still use `!isNaN`, which admits `Infinity`. This is
+     * the "two writers, one field, one bound declared" shape recorded on the
+     * sibling below — closed at the field, not at the caller.
+     *
+     * ⚠ FINITENESS, NOT A RANGE — derived at the CONSUMER, not assumed.
+     * `normaliseGoalThresholdForRequest` (`hooks/goalThresholdResolvers.ts:37`)
+     * tests `Number.isFinite` against the RAW scalar, and applies its
+     * `normalised < 0 || normalised > 1` test only AFTER dividing by the cap.
+     * The `[0,1]` bound therefore governs a DIFFERENT quantity — the
+     * post-normalisation wire value — and imposing it here would refuse an
+     * ordinary 60% target (cap 100 → 0.6) or an 800000 currency target. The
+     * spec-shaped invariant for this field is finiteness alone, and it is
+     * sign-symmetric by construction: `Number.isFinite` refuses `+Infinity`
+     * and `-Infinity` alike while accepting zero and negatives, matching the
+     * unit contract on the field's own declaration.
+     *
+     * ⚠ REFUSE, DO NOT CLEAR, AND REFUSE BEFORE THE WRITE. The early return
+     * leaves any existing good target in place and — because it precedes both
+     * the `set` and `markAnalysisFreshnessDirty` — does not mark the analysis
+     * stale for a value the model never accepted.
+     */
+    if (threshold != null && !Number.isFinite(threshold)) {
+      console.warn(
+        '[store] setGoalThreshold: refusing a non-finite success target — the value must be a finite number; existing target left unchanged',
+        { threshold },
+      )
+      return
+    }
     // The goal threshold is sent to PLoT, so a user change is analysis-affecting
     // → dirty the freshness overlay on a real change. The CEE-sync caller inside
     // setCeeAnalysisReady passes { fromCeeSync: true } so an ingestion write does
@@ -4621,6 +4689,48 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   setGoalThresholdAndUpdateNode: (goalNodeId, value, opts) => {
+    /**
+     * ⭐⭐ FINITENESS — THE ONE BOUND THIS VALUE HAS, PREVIOUSLY DECLARED ON THE
+     * SIBLING WRITER ONLY.
+     *
+     * `AdvancedField.tsx` records the defect measured by DRIVING it (3 Sep
+     * 2026): `Infinity`, `-Infinity`, `1e400` and `9e999` all committed,
+     * because `parseFloat` returns `±Infinity` for each and `isNaN(Infinity)`
+     * is `false`. It fixed its own path with `Number.isFinite` and concluded
+     * that predicate was "the reachable source of every non-finite magnitude in
+     * the model".
+     *
+     * ⚠ THAT CONCLUSION WAS INCOMPLETE, WHICH IS WHY THIS GUARD EXISTS.
+     * `AdvancedField` guards `goal_threshold_raw`. `success_threshold` reaches
+     * the model through THIS action, which had no finiteness check — and its
+     * live caller on the Model tab validates with `!isNaN(n) && n >= 0`
+     * (`components/model-tab/GoalSection.tsx`), which admits `Infinity`. The
+     * value then rides the node-data passthrough to PLoT
+     * (`V2_NODE_BLOCKLIST`) and to CEE (`CANVAS_ONLY_NODE_KEYS`), neither of
+     * which lists it. Two writers, one field, one bound declared — the sibling
+     * pattern this estate keeps paying for.
+     *
+     * ⚠ FINITENESS, NOT A RANGE. Under `threshold_source: 'user'` this is RAW
+     * USER UNITS by design, so a `[0,1]` bound would be wrong and no range
+     * bound is declared for it anywhere. A target of 0, or a negative one
+     * ("reduce churn to -2%"), is legitimate and must still commit — the guard
+     * deliberately does NOT inherit the Model tab's `>= 0`.
+     *
+     * ⚠ REFUSE, DO NOT CLEAR. Returning early leaves any existing good target
+     * in place; writing `null` here would turn a rejected keystroke into silent
+     * data loss. `null` itself remains the honest way to clear a target.
+     *
+     * Guarded here rather than at the callers because seven product call sites
+     * across four areas funnel through this one action; a per-caller check
+     * would be a hand-maintained mirror.
+     */
+    if (value != null && !Number.isFinite(value)) {
+      console.warn(
+        '[store] setGoalThresholdAndUpdateNode: refusing a non-finite success target — the value must be a finite number; existing target left unchanged',
+        { goalNodeId, value },
+      )
+      return
+    }
     // User commit → raw user units (Lane 5).
     set({ goalThreshold: value, goalThresholdRepresentation: value == null ? null : 'raw' })
     pushToHistory(get, set)
