@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
-import { EvidenceGapBadge } from '../EvidenceGapBadge'
+import { EvidenceGapBadge, ESCALATION_TOOLTIP } from '../EvidenceGapBadge'
 
 describe('EvidenceGapBadge', () => {
   it('renders with data-testid="evidence-gap-badge"', () => {
@@ -107,13 +107,13 @@ describe('EvidenceGapBadge', () => {
     it('includes escalation-specific tooltip text for warning', () => {
       const { container } = render(<EvidenceGapBadge label="Revenue" escalation="warning" />)
       const hover = container.querySelector('[data-testid="evidence-gap-badge-hover"]')
-      expect(hover?.getAttribute('title')).toContain('High investigation value')
+      expect(hover?.getAttribute('title')).toContain(ESCALATION_TOOLTIP.warning)
     })
 
     it('includes escalation-specific tooltip text for critical', () => {
       const { container } = render(<EvidenceGapBadge label="Revenue" escalation="critical" />)
       const hover = container.querySelector('[data-testid="evidence-gap-badge-hover"]')
-      expect(hover?.getAttribute('title')).toContain('Critical evidence gap')
+      expect(hover?.getAttribute('title')).toContain(ESCALATION_TOOLTIP.critical)
     })
   })
 })
