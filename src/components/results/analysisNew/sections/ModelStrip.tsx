@@ -150,7 +150,7 @@
  *     it dispatches through `openAskOlumi` with no branching of its own.
  */
 
-import { useCallback, useId, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, Crosshair, Lightbulb, ListChecks, Pencil } from 'lucide-react'
 /**
  * ⚠⚠ THE AGREEMENT WITH THE MODEL TAB IS PINNED IN A SPEC, NOT BY AN IMPORT,
@@ -520,29 +520,98 @@ export function ModelStrip({
       ? 'noValue'
       : null
 
-  const restoreRing = () => {
-    const ids = narrowedIds(kindFilter, activeMode)
+  /**
+   * The ONE place this component writes the narrowing to the canvas channel,
+   * and the only place that records what it wrote.
+   *
+   * ⚠ THE RECORD IS THE POINT, not the tidying. Three call sites wrote the ring
+   * directly and none of them remembered the set, so nothing could tell a
+   * membership change from a repeat — which is why the reconcile below could
+   * not have been written without this. `null` means "we have written nothing",
+   * and is deliberately distinct from `''` (we wrote the empty set).
+   */
+  const ringedKey = useRef<string | null>(null)
+  /**
+   * True while a pointer or focus MARK owns the channel.
+   *
+   * ⚠ WITHOUT THIS THE RECONCILE WOULD ERASE THE MARK UNDER THE READER'S
+   * CURSOR — a value arriving on any node while they point at one would blank
+   * the shape they are looking at. The gesture already ends in `restoreRing`,
+   * which recomputes from `narrowedIds` at call time, so skipping here loses
+   * nothing: the reconcile is deferred to the leave, not dropped.
+   */
+  const markOwnsRing = useRef(false)
+
+  const writeRing = (ids: readonly string[]) => {
+    ringedKey.current = ids.join('|')
     if (ids.length > 0) ringNodes(ids)
     else clearHighlight()
+  }
+
+  const restoreRing = () => {
+    markOwnsRing.current = false
+    writeRing(narrowedIds(kindFilter, activeMode))
   }
 
   const pickKind = (kind: MarkKind) => {
     const next = kindFilter === kind ? null : kind
     setKindFilter(next)
     setWorklist(null)
-    const ids = narrowedIds(next, null)
-    if (ids.length > 0) ringNodes(ids)
-    else clearHighlight()
+    writeRing(narrowedIds(next, null))
   }
 
   const pickWorklist = (mode: 'verify' | 'noValue') => {
     const next = activeMode === mode ? null : mode
     setWorklist(next)
     setKindFilter(null)
-    const ids = narrowedIds(null, next)
-    if (ids.length > 0) ringNodes(ids)
-    else clearHighlight()
+    writeRing(narrowedIds(null, next))
   }
+
+  /**
+   * ⭐⭐ THE NARROWING FOLLOWS THE MODEL, NOT ONLY THE GESTURE.
+   *
+   * Every ring write above hangs off a gesture, so the canvas kept naming the
+   * population the reader selected rather than the one that is true now. A
+   * reviewer measured it on this exact head: with `f_a` and `f_b` both empty
+   * and the no-value worklist open, `f_a` gaining a user value moved the count
+   * and the panel's own marks to `[f_b]` while the canvas went on ringing
+   * BOTH. The reader is then looking at two surfaces disagreeing about the
+   * work they have left — the precise contradiction this control exists to
+   * close, reintroduced by an ordinary edit.
+   *
+   * ⚠ SCOPED TO A NARROWING WE OURSELVES WROTE. At rest both controls are off,
+   * `ringedKey` is `null`, and this writes nothing — it may not ring or clear
+   * the canvas on mount, and it may not stomp the applied-edit pulse or the
+   * AI's own directives, which share this channel. It fires only to correct a
+   * set this component put there.
+   *
+   * ⚠ DERIVED, NEVER STORED. The key comes from `narrowedIds` — the same
+   * function the gestures call — so the reconcile cannot drift from what the
+   * marks show. A second copy of the membership rule is how the strip's three
+   * consumers came apart in the first place.
+   */
+  const narrowedKey =
+    kindFilter === null && activeMode === null
+      ? null
+      : narrowedIds(kindFilter, activeMode).join('|')
+
+  useEffect(() => {
+    if (markOwnsRing.current) return
+    if (narrowedKey === null) {
+      // The narrowing has gone — released by the reader, or stranded off by the
+      // guards when its population emptied. Clear only what we put there.
+      if (ringedKey.current !== null) {
+        ringedKey.current = null
+        clearHighlight()
+      }
+      return
+    }
+    if (ringedKey.current === narrowedKey) return
+    writeRing(narrowedKey === '' ? [] : narrowedKey.split('|'))
+    // `writeRing` is re-created every render and reads only refs and module
+    // functions; the key is the whole dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [narrowedKey])
   const toggleVerify = () => pickWorklist('verify')
   const toggleNoValue = () => pickWorklist('noValue')
 
@@ -998,6 +1067,7 @@ export function ModelStrip({
                            the applied-edit pulse and the AI's own directives
                            write to. */
                         onMouseEnter={() => {
+                          markOwnsRing.current = true
                           setActiveNodeId(node.id)
                           highlightNode(node.id)
                         }}
@@ -1007,6 +1077,7 @@ export function ModelStrip({
                            without committing a canvas move the reader did not
                            ask for. */
                         onFocus={() => {
+                          markOwnsRing.current = true
                           setActiveNodeId(node.id)
                           highlightNode(node.id)
                         }}

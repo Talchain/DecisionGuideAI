@@ -315,10 +315,36 @@ export function stripNodeValueSignature(node: { data?: unknown } | undefined): s
     n?.observed_state ??
     inner?.observedState ??
     inner?.observed_state) as Record<string, unknown> | undefined
-  if (!obs) return ''
+  /**
+   * ⭐⭐ READ FIRST, AND UNCONDITIONALLY. The `if (!obs) return ''` that stood
+   * here was the defect, and it is the exact shape of the one this change was
+   * opened to fix — one level down.
+   *
+   * `factorCarriesValue` was taught to see a TOP-LEVEL `data.display_value`
+   * (how an Olumi estimate arrives: `'0.25 to 0.75'` with no observed state at
+   * all). This signature was not. So the pure builder returned the new count
+   * and the MOUNTED strip kept the old one: `display_value` arriving on a
+   * factor that has no observed state changed nothing in the signature, the
+   * memo never recomputed, and the toggle went on offering a population that
+   * had already been answered. A reviewer measured it — pure 1, mounted 2.
+   *
+   * ⚠ THE PREDICATE AND THE SIGNATURE ANSWER DIFFERENT QUESTIONS AND STILL
+   * MUST SHARE THIS READ. `factorCarriesValue` asks "is there a value"; this
+   * asks "did anything the strip renders change". They legitimately diverge on
+   * `unit`/`cap`/`source` (those DESCRIBE a value rather than being one). They
+   * may never diverge on WHERE a value can live — a field the predicate reads
+   * and the signature does not is a mounted surface that cannot see its own
+   * answer change. Both now go through `readFactorDisplayValue`, the estate's
+   * one entry point for the top-level→observedState precedence, so the
+   * locations cannot drift apart again (CLAUDE.md trap 12).
+   *
+   * Cheap enough for the hot path: two field reads and a `typeof`, no
+   * formatting — the same constraint the rest of this function is written to.
+   */
+  const parts: unknown[] = [readFactorDisplayValue(inner)]
   // `display_value` is included because `factorDisplayText` prefers it, so a
   // producer changing only that would otherwise be invisible here.
-  const parts = [obs.value, obs.raw_value, obs.unit, obs.cap, obs.source, obs.display_value]
+  if (obs) parts.push(obs.value, obs.raw_value, obs.unit, obs.cap, obs.source, obs.display_value)
   return parts.map((v) => (v === undefined || v === null ? '' : String(v))).join(',')
 }
 
