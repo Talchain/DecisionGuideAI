@@ -978,3 +978,64 @@ describe('Success-target nudge (V3)', () => {
     )
   })
 })
+
+/**
+ * ⭐ THE MOUNTED PROOF FOR `sig_option_differentiation`.
+ *
+ * The registry and selector suites prove the signal DETECTS. Neither proves it
+ * REACHES A USER: a row can be correct in the registry and never render,
+ * which is exactly the state this signal was written to fix (the pre-run
+ * validator's `IDENTICAL_OPTIONS_SUSPECTED` is computed and has no consumer on
+ * any live surface). So this asserts the sentence in the DOM of the real
+ * panel, seeded through the real store — not a detection object.
+ */
+describe('option differentiation reaches the mounted panel', () => {
+  const readyOption = (id: string, label: string, values: Record<string, number>) => ({
+    id,
+    label,
+    status: 'ready' as const,
+    interventions: Object.fromEntries(
+      Object.entries(values).map(([k, v]) => [k, { value: v, source: 'brief_extraction' }]),
+    ),
+  })
+
+  /** The shape measured on deployed staging: identical on all but one axis. */
+  const seedUndifferentiatedOptions = () =>
+    useCanvasStore.setState({
+      ceeAnalysisReady: {
+        options: [
+          readyOption('o1', 'Hire a tech lead', { f1: 30, f2: 60, f3: 10, f4: 1 }),
+          readyOption('o2', 'Hire two developers', { f1: 30, f2: 60, f3: 10, f4: 2 }),
+          readyOption('o3', 'Hire a contractor', { f1: 30, f2: 60, f3: 10, f4: 3 }),
+          readyOption('o4', 'Do nothing new', { f1: 30, f2: 60, f3: 10, f4: 4 }),
+        ],
+      },
+    } as never)
+
+  it('renders the finding, naming how many factors carry one value', () => {
+    seedUndifferentiatedOptions()
+    renderPanel()
+    fireEvent.click(screen.getByTestId('pre-analysis-v3-sharpen-reveal'))
+    expect(screen.getByTestId('pre-analysis-v3-sharpen')).toHaveTextContent(
+      'All 4 options set the same value for 3 of the 4 factors they share.',
+    )
+  })
+
+  it('renders nothing about differentiation when the options genuinely differ', () => {
+    // The negative twin. Without it the assertion above could pass on a row
+    // that renders unconditionally.
+    useCanvasStore.setState({
+      ceeAnalysisReady: {
+        options: [
+          readyOption('o1', 'Hire a tech lead', { f1: 30, f2: 60 }),
+          readyOption('o2', 'Hire two developers', { f1: 55, f2: 20 }),
+        ],
+      },
+    } as never)
+    renderPanel()
+    fireEvent.click(screen.getByTestId('pre-analysis-v3-sharpen-reveal'))
+    expect(screen.getByTestId('pre-analysis-v3-sharpen')).not.toHaveTextContent(
+      'set the same value for',
+    )
+  })
+})
