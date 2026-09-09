@@ -161,22 +161,36 @@ describe('a section request lands on the content it names', () => {
     expect(landed.contains(modelCardContent!)).toBe(true)
   })
 
-  it('⚠ and NOT on the outline group that is empty by construction', async () => {
+  it('⚠ and NOT on an outline group — the empty-by-construction one no longer renders at all', async () => {
     renderTab()
     act(() => { useUIStore.getState().requestModelTabSection('modelcard') })
     await waitFor(() => expect(scrollContexts).toHaveLength(1))
 
-    const emptyGroup = screen.getByTestId('model-group-v2-evidence-review')
+    // ⭐⭐ RE-AIMED DURING A REBASE, NOT DELETED (9 Sep 2026).
+    //
+    // This case was written while `model-group-v2-evidence-review` still
+    // rendered, and it asserted the link did not land ON it, with an in-test
+    // precondition that the group was row-less. That group has since been
+    // REMOVED outright — no producer could ever fill it (see
+    // `everyOutlineGroupCanBePopulated.spec.tsx`, which asserts the relation
+    // rather than a list). So `getByTestId` for it would now THROW, and this
+    // case would fail for a reason that has nothing to do with what it guards.
+    //
+    // Resolving that by deleting the case would have been a silent loss of a
+    // real guard. The original assertion is instead preserved as the STRONGER
+    // fact it has become: you cannot land on a group that is not rendered. If
+    // the group is ever reinstated, this fails loudly and a human re-decides —
+    // which is exactly the property the original precondition was protecting.
+    expect(screen.queryByTestId('model-group-v2-evidence-review')).toBeNull()
 
-    // PRECONDITION, PINNED IN-TEST (trap 13b: a guard whose discrimination
-    // depends on an unstated fact is decorative). Assert the group really is
-    // row-less HERE, so this case cannot quietly stop discriminating if the
-    // group ever gains rows — at which point this assertion fails loudly and a
-    // human re-decides where the link should go, rather than the suite staying
-    // green over a stale premise.
-    expect(emptyGroup.querySelectorAll('[data-testid^="model-row-v2-"]')).toHaveLength(0)
-
-    expect(scrollContexts[0]).not.toBe(emptyGroup)
+    // And the discrimination this case actually exists for survives intact: the
+    // model-card link must not land on an OUTLINE GROUP at all. That is what the
+    // original defect was, and a future re-point could recreate it against any
+    // of the five SURVIVING groups — which the assertion above could not see.
+    const landedTestId = scrollContexts[0].getAttribute('data-testid') ?? ''
+    expect(landedTestId, 'the model-card link landed on an outline group')
+      .not.toMatch(/^model-group-v2-/)
+    expect(landedTestId).toBe('model-health-section')
   })
 
   it('CONTRAST CONTROL: the five row-bearing targets are unchanged', async () => {
