@@ -118,12 +118,30 @@ describe('RiskNode', () => {
   it('keeps authored context compact and recovers the full description with the keyboard', async () => {
     const description = 'A departure could interrupt account handovers and delay renewal conversations. '.repeat(5).trim()
     vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ viewMode: 'standard' }) as any))
-    const { container } = renderRisk({ description })
+    const body = 'Keep the wider strategic context and unresolved disagreements visible.'
+    const { container } = renderRisk({ description, body })
     expect(screen.getByTestId('risk-context-preview')).toHaveTextContent(description)
     expect(container.querySelector('.node-description')).toBeNull()
     screen.getByRole('button', { name: 'Expand description' }).focus()
     await userEvent.keyboard('{Enter}')
     expect(container.querySelector('.node-description')).toHaveTextContent(description)
+    expect(container.querySelector('.node-description')).toHaveTextContent(body)
+    expect(screen.getByTestId('risk-context-preview')).toHaveClass('group-aria-expanded:hidden')
+    expect(screen.getByLabelText(/risk node:/i)).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it.each([undefined, '   '])('uses the authored body when description is %s', async (description) => {
+    const body = '  Preserve the source wording.\nAlso retain the second paragraph.  '
+    const { container } = renderRisk({ description, body })
+    expect(screen.getByTestId('risk-context-preview').textContent).toBe(body)
+    await userEvent.click(screen.getByRole('button', { name: 'Expand description' }))
+    expect(container.querySelector('.node-description')).toHaveTextContent('Preserve the source wording. Also retain the second paragraph.')
+  })
+
+  it('does not repeat matching body text in the expanded context', async () => {
+    const { container } = renderRisk({ description: 'Review the evidence.', body: ' Review the evidence. ' })
+    await userEvent.click(screen.getByRole('button', { name: 'Expand description' }))
+    expect(container.querySelector('.node-description')?.textContent?.trim()).toBe('Review the evidence.')
   })
 
   it('handles blank authored content without an empty description control', () => {
@@ -149,11 +167,11 @@ describe('RiskNode', () => {
   it('sends the complete authored risk context when exploring mitigation', async () => {
     const dispatch = vi.fn()
     vi.spyOn(useGuidanceStore, 'getState').mockReturnValue({ ...useGuidanceStore.getState(), _dispatchAction: dispatch })
-    renderRisk({ description: 'Only two people hold the renewal account knowledge.' })
+    renderRisk({ description: 'Only two people hold the renewal account knowledge.', body: 'No handover plan is documented.' })
     await userEvent.click(screen.getByRole('button', { name: 'Explore mitigation' }))
     expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({
       parameters: { chip_id: 'risk_add_mitigation' },
-      message: 'Suggest a mitigation strategy for Key person dependency, and explain what it would change.\nRisk context: Only two people hold the renewal account knowledge.',
+      message: 'Suggest a mitigation strategy for Key person dependency, and explain what it would change.\nRisk context: Only two people hold the renewal account knowledge.\n\nNo handover plan is documented.',
       source: 'chip',
     }))
   })
@@ -195,6 +213,7 @@ describe('RiskNode', () => {
     )
     renderRisk({ probability: 0.9, impact: 'high' })
     expect(screen.getByText('Entered estimate · 90% likely · High impact')).toBeDefined()
+    expect(screen.getByText('Entered estimate · 90% likely · High impact')).not.toHaveAttribute('title')
   })
 
   // P1.7 — honest absence: no fabricated pair when data is missing.

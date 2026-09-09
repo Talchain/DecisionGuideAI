@@ -22,9 +22,16 @@ export const OutcomeNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.outcome
   const displayMetadata = useNodeDisplayMetadata(props.id, 'outcome')
   const cleanedLabel = cleanDisplayLabel(typeof props.data?.label === 'string' ? props.data.label : undefined)
-  const description = typeof props.data?.description === 'string' ? props.data.description.trim() : ''
-  const cleanedData = { ...props.data, label: cleanedLabel || 'Untitled outcome', description: description || undefined }
-  const outcomeContext = description ? `\nOutcome context: ${description}` : ''
+  const description = typeof props.data?.description === 'string' && props.data.description.trim() ? props.data.description : null
+  const body = typeof props.data?.body === 'string' && props.data.body.trim() ? props.data.body : null
+  const summary = description ?? body
+  // Compose only the display copy: both authored fields stay available through
+  // the existing chevron, while the canonical node and Ask context stay intact.
+  const fullDescription = description && body && body.trim() !== description.trim()
+    ? `${description}\n\n${body}`
+    : summary
+  const cleanedData = { ...props.data, label: cleanedLabel || 'Untitled outcome', description: fullDescription ?? undefined }
+  const outcomeContext = fullDescription ? `\nOutcome context: ${fullDescription}` : ''
 
   const edges = useCanvasStore(state => state.edges)
   const nodes = useCanvasStore(state => state.nodes)
@@ -278,9 +285,9 @@ export const OutcomeNode = memo((props: NodeProps) => {
         ) : undefined}
       >
         {/* Authored consequence; the existing chevron retains its full description. */}
-        {description && (
-          <p className={`${typography.nodeLabel} text-text-light m-0 mb-1 line-clamp-2 break-words`} data-testid="outcome-context-preview">
-            {description}
+        {summary && (
+          <p className={`${typography.nodeLabel} text-text-light m-0 mb-1 line-clamp-2 break-words whitespace-pre-wrap group-aria-expanded:hidden`} data-testid="outcome-context-preview">
+            {summary}
           </p>
         )}
 

@@ -134,12 +134,30 @@ describe('OutcomeNode', () => {
   it('previews the authored consequence and keeps the full description expandable', async () => {
     const description = 'Customer support demand may grow before the extra revenue covers new staffing. '.repeat(5).trim()
     vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ viewMode: 'standard' }) as any))
-    const { container } = renderOutcome({ description })
+    const body = 'Keep the wider strategic context and unresolved disagreements visible.'
+    const { container } = renderOutcome({ description, body })
     expect(screen.getByTestId('outcome-context-preview')).toHaveTextContent(description)
     expect(container.querySelector('.node-description')).toBeNull()
     screen.getByRole('button', { name: 'Expand description' }).focus()
     await userEvent.keyboard('{Enter}')
     expect(container.querySelector('.node-description')).toHaveTextContent(description)
+    expect(container.querySelector('.node-description')).toHaveTextContent(body)
+    expect(screen.getByTestId('outcome-context-preview')).toHaveClass('group-aria-expanded:hidden')
+    expect(screen.getByLabelText(/outcome node:/i)).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it.each([undefined, '   '])('uses the authored body when description is %s', async (description) => {
+    const body = '  Preserve the source wording.\nAlso retain the second paragraph.  '
+    const { container } = renderOutcome({ description, body })
+    expect(screen.getByTestId('outcome-context-preview').textContent).toBe(body)
+    await userEvent.click(screen.getByRole('button', { name: 'Expand description' }))
+    expect(container.querySelector('.node-description')).toHaveTextContent('Preserve the source wording. Also retain the second paragraph.')
+  })
+
+  it('does not repeat matching body text in the expanded context', async () => {
+    const { container } = renderOutcome({ description: 'Review the evidence.', body: ' Review the evidence. ' })
+    await userEvent.click(screen.getByRole('button', { name: 'Expand description' }))
+    expect(container.querySelector('.node-description')?.textContent?.trim()).toBe('Review the evidence.')
   })
 
   it('handles blank names and descriptions without inventing a consequence', () => {
@@ -153,11 +171,11 @@ describe('OutcomeNode', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState({ results: { status, report: null } }) as any))
     const dispatch = vi.fn()
     vi.spyOn(useGuidanceStore, 'getState').mockReturnValue({ ...useGuidanceStore.getState(), _dispatchAction: dispatch })
-    renderOutcome({ label: 'Increased customer churn', description: 'Existing customers may leave after a price increase.' })
+    renderOutcome({ label: 'Increased customer churn', description: 'Existing customers may leave after a price increase.', body: 'The wider effect on referrals is unresolved.' })
     await userEvent.click(screen.getByRole('button', { name: 'Explore consequences' }))
     expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({
       parameters: { chip_id: 'outcome_explore_consequences' },
-      message: 'What would Increased customer churn mean for this model, including possible benefits and downsides?\nOutcome context: Existing customers may leave after a price increase.',
+      message: 'What would Increased customer churn mean for this model, including possible benefits and downsides?\nOutcome context: Existing customers may leave after a price increase.\n\nThe wider effect on referrals is unresolved.',
       source: 'chip',
     }))
   })

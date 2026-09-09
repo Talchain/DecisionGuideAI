@@ -30,9 +30,16 @@ export const RiskNode = memo((props: NodeProps) => {
   const severityColors = getRiskSeverityColors(severity)
 
   const cleanedLabel = cleanDisplayLabel(typeof props.data?.label === 'string' ? props.data.label : undefined)
-  const description = typeof props.data?.description === 'string' ? props.data.description.trim() : ''
-  const cleanedData = { ...props.data, label: cleanedLabel || 'Untitled risk', description: description || undefined }
-  const riskContext = description ? `\nRisk context: ${description}` : ''
+  const description = typeof props.data?.description === 'string' && props.data.description.trim() ? props.data.description : null
+  const body = typeof props.data?.body === 'string' && props.data.body.trim() ? props.data.body : null
+  const summary = description ?? body
+  // Compose only the display copy: both authored fields stay available through
+  // the existing chevron, while the canonical node and Ask context stay intact.
+  const fullDescription = description && body && body.trim() !== description.trim()
+    ? `${description}\n\n${body}`
+    : summary
+  const cleanedData = { ...props.data, label: cleanedLabel || 'Untitled risk', description: fullDescription ?? undefined }
+  const riskContext = fullDescription ? `\nRisk context: ${fullDescription}` : ''
 
   const edges = useCanvasStore(state => state.edges)
   const nodes = useCanvasStore(state => state.nodes)
@@ -203,7 +210,7 @@ export const RiskNode = memo((props: NodeProps) => {
     impact ? `${impact.charAt(0).toUpperCase()}${impact.slice(1)} impact` : null,
   ].filter(Boolean).join(' · ')
   const riskExposureLine = exposureReadout ? (
-    <div className={`${typography.edgeLabel} text-text-light mt-1`} title="Likelihood and impact entered in the model">Entered estimate · {exposureReadout}</div>
+    <div className={`${typography.edgeLabel} text-text-light mt-1`}>Entered estimate · {exposureReadout}</div>
   ) : null
 
   // ----- Layer 2 content: post-analysis (shared between popover and Detailed inline) -----
@@ -294,9 +301,9 @@ export const RiskNode = memo((props: NodeProps) => {
         ) : undefined}
       >
         {/* Authored context stays compact; BaseNode's chevron retains the full description. */}
-        {description && (
-          <p className={`${typography.nodeLabel} text-text-light m-0 mb-1 line-clamp-2 break-words`} data-testid="risk-context-preview">
-            {description}
+        {summary && (
+          <p className={`${typography.nodeLabel} text-text-light m-0 mb-1 line-clamp-2 break-words whitespace-pre-wrap group-aria-expanded:hidden`} data-testid="risk-context-preview">
+            {summary}
           </p>
         )}
 
