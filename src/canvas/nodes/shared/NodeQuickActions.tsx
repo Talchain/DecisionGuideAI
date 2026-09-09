@@ -7,6 +7,11 @@ import { askAI, buildAskAIPrompt, CHALLENGE_KINDS } from '../../contextMenu/acti
 import { requestAsk, canReceiveAsk } from '../../ui/inspector-v2/askSemantic'
 import type { NodeType } from '../../domain/nodes'
 import Tooltip from '../../../components/Tooltip'
+import {
+  CANVAS_GLYPH_SIZE_CLASSES,
+  CANVAS_HIT_SLOP_CLASSES,
+  CANVAS_GAP_CLASSES,
+} from './canvasGlyphScale'
 
 /**
  * Does this node type have a generative prompt to offer?
@@ -94,6 +99,20 @@ function hasChallengePrompt(nodeType: NodeType): boolean {
  * Confirm icon moves to bottom-LEFT, which it has. The geometry is pinned in
  * this component's spec: change it there too, or leave it alone.
  */
+/**
+ * Shared button geometry, counter-scaled so a control keeps its AUTHORED size
+ * at any zoom (#1274). Replaces three identical inline class strings: the box
+ * (`CANVAS_GLYPH_SIZE_CLASSES[20]`) and the hit-slop (`CANVAS_HIT_SLOP_CLASSES[2]`)
+ * are the two terms the footprint bound in `canvasGlyphTargetScale.spec.tsx`
+ * reads, so a literal here would be a second, undetected authority.
+ */
+const BUTTON_CLASSES =
+  'nodrag relative inline-flex ' +
+  CANVAS_GLYPH_SIZE_CLASSES[20] +
+  ' items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body ' +
+  'hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info ' +
+  CANVAS_HIT_SLOP_CLASSES[2]
+
 export interface NodeQuickActionsProps {
   nodeId: string
   nodeType: NodeType
@@ -305,7 +324,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
 
   return (
     <div
-      className={`node-quick-actions absolute bottom-1.5 right-1.5 z-[2] flex gap-1.5 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 motion-reduce:transition-none ${alwaysVisible ? 'opacity-100' : 'opacity-0'}`}
+      className={`node-quick-actions absolute bottom-1.5 right-1.5 z-[2] flex ${CANVAS_GAP_CLASSES[6]} transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 motion-reduce:transition-none ${alwaysVisible ? 'opacity-100' : 'opacity-0'}`}
       data-testid={`node-quick-actions-${nodeId}`}
     >
       {canAsk && (
@@ -314,11 +333,11 @@ export const NodeQuickActions = memo(function NodeQuickActions({
             type="button"
             onClick={handleAsk}
             onPointerDown={stopPointer}
-            className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
+            className={BUTTON_CLASSES}
             aria-label={`Ask Olumi about ${label}`}
             data-testid={`node-action-ask-${nodeId}`}
           >
-            <MessageSquare size={11} aria-hidden="true" />
+            <MessageSquare size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
           </button>
         </Tooltip>
       )}
@@ -337,11 +356,11 @@ export const NodeQuickActions = memo(function NodeQuickActions({
             type="button"
             onClick={handleChallenge}
             onPointerDown={stopPointer}
-            className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
+            className={BUTTON_CLASSES}
             aria-label={`Challenge ${label}`}
             data-testid={`node-action-challenge-${nodeId}`}
           >
-            <Zap size={11} aria-hidden="true" />
+            <Zap size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
           </button>
         </Tooltip>
       )}
@@ -367,7 +386,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
              shortfall and are left alone" — a correctly-scoped decision then, and
              the rowed work this change closes. See the wrapper's `gap-1.5` for
              why the gap had to move with it. */
-          className="nodrag relative inline-flex h-5 w-5 items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info before:absolute before:-inset-[2px] before:content-['']"
+          className={BUTTON_CLASSES}
           aria-label={`More actions for ${label}`}
           /* Announces that a menu follows. `aria-haspopup` is used by five other
              canvas components, so its absence here was a real gap rather than a
@@ -378,7 +397,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           aria-haspopup="menu"
           data-testid={`node-action-menu-${nodeId}`}
         >
-          <MoreHorizontal size={11} aria-hidden="true" />
+          <MoreHorizontal size={11} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[11]} />
         </button>
       </Tooltip>
     </div>
