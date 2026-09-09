@@ -116,6 +116,19 @@ const ESTIMATE_TEXT = 'Moderate (0.5)'
  */
 const ESTIMATE_NO_STATUS_ID = 'fac_no_observed_state'
 
+/**
+ * ⭐⭐⭐ THE CROSS-LANE ROW: an estimate AND an unquantified prior, together.
+ *
+ * The `prior_is_unquantified` line landed on `staging` (`385d96ca`) while this
+ * branch was in flight, at the SAME anchor in `ModelDetailRegion`. Derived
+ * through `toModelRows` + `toRowDetail` over four node shapes, exactly ONE makes
+ * both lines render at once — this one: a TOP-LEVEL `display_value`, an
+ * unquantified prior, and no `observedState`. Unresolved, the pane reads
+ * "Olumi recorded this as unknown rather than assuming a figure." immediately
+ * above "Olumi: Moderate (0.5)".
+ */
+const BOTH_LINES_ID = 'fac_unquantified_with_display_text'
+
 function factorNode(): Node {
   return {
     id: FACTOR_ID,
@@ -153,6 +166,23 @@ function estimateNodeWithoutStatus(): Node {
   } as unknown as Node
 }
 
+function bothLinesNode(): Node {
+  return {
+    id: BOTH_LINES_ID,
+    type: 'factor',
+    position: { x: 0, y: 0 },
+    data: {
+      label: 'Partner Channel Uplift',
+      kind: 'factor',
+      // TOP-LEVEL, not nested. `hasAnyStatedValue` reads only the NESTED
+      // `observedState.display_value`, so it does not see this one — which is
+      // exactly why the other lane's line fires here against its own intent.
+      display_value: ESTIMATE_TEXT,
+      prior: { prior_is_unquantified: true },
+    },
+  } as unknown as Node
+}
+
 function goalNode(): Node {
   return {
     id: GOAL_ID,
@@ -167,6 +197,7 @@ const allNodes = (): Node[] => [
   factorNode(),
   estimateNode(),
   estimateNodeWithoutStatus(),
+  bothLinesNode(),
 ]
 const allEdges = (): Edge[] => []
 
@@ -440,6 +471,45 @@ describe('⭐ (c) the full estimate is readable in the detail region', () => {
     renderPanel()
     fireEvent.click(screen.getByTestId(`model-row-v2-${FACTOR_ID}`))
     expect(screen.queryByTestId('model-detail-v2-estimate')).not.toBeInTheDocument()
+  })
+
+  /**
+   * ⭐⭐⭐ THE TWO LANES MAY NOT DENY EACH OTHER ON ONE ROW.
+   *
+   * `prior_is_unquantified` landed on `staging` (`385d96ca`) mid-flight, at the
+   * SAME anchor. Both lines then render together on a reachable row and read as
+   * a flat contradiction. Suppressed, not inverted: theirs is the more specific
+   * claim and the one already shipped, and the estimate is still on the row's
+   * own hint — whereas overriding theirs would assert a figure exists where the
+   * producer recorded that it does not.
+   *
+   * ⚠ THE ROOT CAUSE IS NOT FIXED HERE AND IS NOT MINE TO FIX. Their predicate
+   * is `isUnquantifiedPrior(prior) && !hasAnyStatedValue(data)`, and
+   * `hasAnyStatedValue` reads only the NESTED `observedState.display_value`
+   * while `readFactorDisplayValue` also reads the TOP-LEVEL one — so on this row
+   * their own stated intent ("no value in ANY carrier") is not met and the line
+   * fires anyway. That repair is in `observedStateHelpers.ts` / `adapters.ts`,
+   * another lane's files. Reported, not touched.
+   */
+  it('⭐⭐⭐ CROSS-LANE — the estimate stands down where the unquantified-prior line speaks', () => {
+    renderPanel()
+    fireEvent.click(screen.getByTestId(`model-row-v2-${BOTH_LINES_ID}`))
+    // PRECONDITION, pinned in-test: the OTHER lane's line really is rendering
+    // here. Without this the suppression could pass on a row where nothing was
+    // ever in conflict — a guard agreeing with itself.
+    expect(screen.getByTestId('model-detail-v2-unquantified')).toBeInTheDocument()
+    // …and mine stands down, so the pane cannot deny itself.
+    expect(screen.queryByTestId('model-detail-v2-estimate')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('model-detail-v2-estimate-status')).not.toBeInTheDocument()
+  })
+
+  it('⛔ DISCRIMINATING TWIN — with no unquantified prior the estimate still renders', () => {
+    // The suppression must be NARROW. If it fired generally, the whole of (c)
+    // would be dead on arrival and the test above would still be green.
+    renderPanel()
+    fireEvent.click(screen.getByTestId(`model-row-v2-${ESTIMATE_ID}`))
+    expect(screen.queryByTestId('model-detail-v2-unquantified')).not.toBeInTheDocument()
+    expect(screen.getByTestId('model-detail-v2-estimate')).toBeInTheDocument()
   })
 
   it('⭐⭐ REACHABILITY — beginning an edit OPENS the detail region for that row', () => {

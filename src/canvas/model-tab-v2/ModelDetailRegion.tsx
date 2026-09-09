@@ -338,8 +338,47 @@ export function ModelDetailRegion({
           structurally, so a CEE string can never mask a value somebody supplied),
           and this pane must not grow a second value line under a value that is
           set.
+
+          ⚠⚠⚠ AND IT STANDS DOWN WHERE THE LINE ABOVE IS SPEAKING — A CONTRADICTION
+          THIS PR WOULD OTHERWISE HAVE CREATED, MEASURED AT THE ADAPTER, NOT
+          REASONED ABOUT.
+
+          The `prior_is_unquantified` line landed on `staging` (`385d96ca`) while
+          this branch was in flight, at THIS EXACT ANCHOR. Both lines then render
+          together on one reachable row, and they deny each other:
+
+              Not set
+              Olumi recorded this as unknown rather than assuming a figure.
+              Olumi: Moderate (0.5)                       ← flatly contradicts it
+
+          DERIVED THROUGH `toModelRows` + `toRowDetail` over four node shapes.
+          Exactly one produces both: a factor with a **TOP-LEVEL** `display_value`,
+          an unquantified prior, and no `observedState`. The other three are
+          clean — `observedState.display_value` (mine only), a bare unquantified
+          prior (theirs only), and `display_value` + `observedState.value`
+          (mine only).
+
+          ⚠ THE ROOT CAUSE IS NOT IN THIS FILE AND IS NOT FIXED HERE. Their
+          predicate is `isUnquantifiedPrior(prior) && !hasAnyStatedValue(data)`,
+          and `hasAnyStatedValue` reads `getObservedState(data).display_value`
+          — the NESTED field only — while `readFactorDisplayValue`, which feeds
+          `estimateText`, also reads the TOP-LEVEL one. Two readers of "does
+          Olumi have display text for this factor?" disagreeing about where it
+          lives, which is this estate's signature defect. So on that row their
+          own stated intent ("no value in ANY carrier") is not met, and the line
+          fires anyway. Repairing that means `observedStateHelpers.ts` /
+          `adapters.ts`, which belong to another lane — REPORTED, NOT TOUCHED.
+
+          ⚠ SUPPRESS, NEVER INVERT. This drops MY line in the overlap rather than
+          silencing theirs: theirs is the more specific claim and the one already
+          shipped, and a suppression can only cost a disclosure the row's own
+          hint still carries, whereas overriding theirs would assert a figure
+          exists where the producer recorded that it does not. The narrow case is
+          the only one affected — the three shapes above are untouched.
         */}
-        {row.primaryValue === null && row.estimateText !== undefined && (
+        {row.primaryValue === null &&
+          row.estimateText !== undefined &&
+          !detail.priorIsExplicitlyUnquantified && (
           <>
             <p
               data-testid="model-detail-v2-estimate"
