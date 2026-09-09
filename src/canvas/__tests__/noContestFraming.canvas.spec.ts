@@ -121,6 +121,40 @@ const SCOPE_FILES = [
   'src/components/results/utils/goalAnchorCopy.ts',
   'src/canvas/nodes/shared/metricVocabulary.ts',
   'src/components/results/utils/winnerChipCopy.ts',
+  /*
+   * ⚠⚠ WHAT THIS LIST DOES **NOT** COVER — stated because "both holes closed"
+   * will otherwise read as closing the CLASS, and it closes the INSTANCES.
+   *
+   * DERIVED 9 Sep 2026, not estimated: `src/components/results` holds **187**
+   * non-test `.ts`/`.tsx` files (`git ls-files` under that path, minus
+   * `__tests__`/`.spec.`/`.test.`). FOUR of them are named above. So roughly
+   * **183 remain unswept**, and this guard is silent about every one.
+   *
+   * ⚠ THE REASON IS SCHEDULING, NOT SAFETY. A `SCOPE_DIRS` widening would sweep
+   * files other lanes are actively holding and make this guard arbitrate their
+   * copy mid-flight. That is a fair trade today and it is NOT evidence the
+   * residual is clean — a two-file sample found no user-facing offence, which is
+   * weak evidence of safety and not proof of it.
+   *
+   * ⭐ WIDENING TRIGGER — when the lanes holding `src/components/results` land,
+   * move it from this list into `SCOPE_DIRS` and delete these four entries.
+   * Do it the way `src/v5/blocks` was done above: **enumerate the hits BEFORE
+   * adding** (that widening measured 22, all comment prose or the pinned
+   * `go-ahead` survivor, and introduced zero new offences). A widening whose
+   * hit count was not measured first is a widening that will be reverted.
+   *
+   * ⚠ AND THE TRAP THAT WIDENING WILL SPRING, so it is not re-learned: a RAW
+   * grep over an unswept file OVER-reports this class badly. `OptionCards.tsx`
+   * reads `winner` x57 and `Win probability` x6 — every one inside a comment
+   * this guard strips, or an identifier `IDENTIFIER_SHAPES` excludes. Check
+   * whether a hit is a LITERAL before believing it.
+   *
+   * ⚠ AND WHAT THIS GUARD CANNOT DO AT ALL: it BANS phrases; it does not
+   * ENFORCE the ratified positive form. `noWinnerVocabulary.spec.ts` rules
+   * "say 'scored highest in N% of runs' — never a placing", and a BARE placing
+   * ("Scored highest" alone) passes every entry below completely clean. Green
+   * here is not evidence of compliance with that ruling.
+   */
 ]
 
 /**

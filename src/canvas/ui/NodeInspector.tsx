@@ -636,7 +636,25 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       {isOptionNode && displayMetadata.isResultsMode && displayMetadata.winRate !== null && (
         <div className="mt-3 pt-2 border-t border-panel-border">
           <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
-            <span className={`${typography.panelMeta} text-text-light`}>Scored highest</span>
+            {/*
+             * ⚠ THE LABEL CARRIES THE FREQUENCY, BECAUSE THE VALUE CANNOT.
+             * `formatWinProbability` returns a BARE percentage — derived at the
+             * function, not from a comment about it: `labelUtils.ts` delegates to
+             * `formatProbabilityWithResolution(raw, undefined)`, which has FOUR
+             * output shapes — `63%` · `< 1%` (the shared floor, ROADMAP 2.236) ·
+             * `0%` · `—` (non-finite). A label that composes a sentence across
+             * the gap ("Scored highest in") therefore renders "Scored highest in
+             * —" on the fourth, which is worse than saying nothing.
+             * ⚠⚠ AND A BARE SUPERLATIVE HERE IS A PLACING. The 8 Sep ruling
+             * (`noWinnerVocabulary.spec.ts`) ratifies the COMPLETE phrase
+             * "scored highest in N% of runs" — every passing example carries the
+             * frequency clause. Naming the SHARE keeps the number the quantity of
+             * a named thing under all four outputs, including `—`.
+             * ⚠ THE GUARD CANNOT HOLD THIS FOR YOU: `noContestFraming.canvas.spec.ts`
+             * BANS phrases, it does not ENFORCE the ratified one. A bare
+             * "Scored highest" passes it completely clean — measured, not assumed.
+             */}
+            <span className={`${typography.panelMeta} text-text-light`}>Share of runs scoring highest</span>
             <span className={`${typography.panelBody} text-text-body tabular-nums`}>
               {formatWinProbability(displayMetadata.winRate)}
             </span>
