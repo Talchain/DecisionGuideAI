@@ -48,6 +48,7 @@ import { StrengthBandButtons } from '../shared/StrengthBandButtons'
 import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
 import { EdgeReviewDisagreement } from '../shared/EdgeReviewDisagreement'
 import { resolveElementLabel } from '../../../domain/elementLabel'
+import { edgeStrengthEditIsAssertable } from '../../../conversation/edgeStrengthEdit'
 
 // ─── Slider component for confidence and uncertainty ───────────────
 function InspectorSlider({
@@ -323,6 +324,21 @@ export const EdgePanel = memo(function EdgePanel({
     mutations.setStd(v)
   }, [mutations])
 
+  /**
+   * ⭐ MAY THIS EDGE'S STRENGTH REACH THE MODEL AT ALL?
+   *
+   * Asked of the emitter, never re-derived here — `edgeStrengthEditIsAssertable`
+   * calls `buildEdgeStrengthEditEvent` and reports whether it would build. An
+   * edge whose weight came from `DEFAULT_EDGE_DATA` has no assertable `expected`
+   * tuple, so the event cannot be built and `setStrength` would return
+   * `not_wire_encodable` before anything left the browser.
+   *
+   * ⛔ IT FAILS CLOSED, and that direction is the point: an editable edge that
+   * renders disabled is a disclosure, while an editor whose write cannot land is
+   * the lie this panel is being unfenced to stop.
+   */
+  const strengthReachesTheModel = edgeStrengthEditIsAssertable(edge)
+
   if (!edgeId || !edge) return null
 
   // ─── Render ──────────────────────────────────────────────────────
@@ -380,7 +396,30 @@ export const EdgePanel = memo(function EdgePanel({
 
           {/* ── Your input group ──────────────────────────────── */}
           <PanelGroup kind="input" label={GROUP_LABELS.input}>
-            {/* Strength — primary editing surface */}
+            {/* Strength — primary editing surface. THE ONE CONTROL IN THIS PANEL
+                WITH A WIRE CARRIER (`edge_strength_edit`), so it is the one that
+                may present itself as a shared-model edit. The fieldset is the
+                same mechanism `InspectorRouter` used to apply to the whole
+                panel — kept, but pointed at the question that actually decides
+                it: can THIS edge's strength be asserted? */}
+            {/* ⚠ MARKED `no-strength-basis`, NOT `disabled`, AND THE NAME IS THE
+                POINT. Two fences now live in this panel and they answer
+                DIFFERENT questions (CLAUDE.md trap 21): the one below asks
+                "does this control have a wire carrier at all?", this one asks
+                "does THIS edge have a strength the server stated, to assert
+                against?". Marking both `data-authority="disabled"` gave the
+                estate's escape guard two regions where it resolves exactly one
+                — it read the FIRST and reported the existence slider, which is
+                genuinely fenced, as an escapee. Named apart, each guard keeps
+                measuring the region it was written for. */}
+            <fieldset
+              disabled={!strengthReachesTheModel}
+              data-testid="edge-strength-controls"
+              className="contents"
+              {...(strengthReachesTheModel
+                ? {}
+                : { 'data-authority': 'no-strength-basis', 'aria-describedby': 'inspector-authority-notice' })}
+            >
             <PrimaryControlCard>
               <p className={`${typography.panelBody} text-text-body mb-1.5`}>
                 {INLINE_LABELS.strengthQuestion}
@@ -427,6 +466,20 @@ export const EdgePanel = memo(function EdgePanel({
                 </div>
               </details>
             </PrimaryControlCard>
+            </fieldset>
+
+            {/* ⛔ EVERYTHING BELOW WRITES NOTHING TO THE SHARED MODEL.
+                `setExistsProbability` and `setStd` each perform ONE local
+                `updateEdge` and emit no wire event, so a control that looked
+                saveable here would be destroyed by the next server rehydrate.
+                Unfencing this panel was a DUTY to fence these, not a licence to
+                let them through with the strength control. */}
+            <fieldset
+              disabled
+              aria-describedby="inspector-authority-notice"
+              data-authority="disabled"
+              className="contents"
+            >
 
             {/* Existence slider — secondary control, outside card */}
             <div className="mt-3">
@@ -490,6 +543,7 @@ export const EdgePanel = memo(function EdgePanel({
                 </div>
               </div>
             )}
+            </fieldset>
 
             {/* Coaching */}
             <InspectorCoaching

@@ -10,7 +10,7 @@ import { InspectorShell } from './InspectorShell'
 import { ConfidenceBadge } from './shared/ConfidenceBadge'
 import { TechnicalDisclosure } from './shared/TechnicalDisclosure'
 import { useTechToggle } from './useTechToggle'
-import { INSPECTOR_READ_ONLY_REASON, INSPECTOR_OPTION_READ_ONLY_REASON, INSPECTOR_FACTOR_CONTROLLABLE_REASON, INSPECTOR_FACTOR_EXTERNAL_REASON } from './useInspectorMutations'
+import { INSPECTOR_EDGE_REASON, INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON, INSPECTOR_READ_ONLY_REASON, INSPECTOR_OPTION_READ_ONLY_REASON, INSPECTOR_FACTOR_CONTROLLABLE_REASON, INSPECTOR_FACTOR_EXTERNAL_REASON } from './useInspectorMutations'
 import { getTypeLabel, EDGE_TYPE_LABEL } from './inspectorStrings'
 import { resolveEdgeValueDisplay } from '../../domain/edgeValueProvenance'
 import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
@@ -29,6 +29,7 @@ import { RiskPanel } from './panels/RiskPanel'
 import { GenericNodePanel } from './panels/GenericNodePanel'
 import { InspectorQuickActions } from './shared/InspectorQuickActions'
 import { resolveElementLabel } from '../../domain/elementLabel'
+import { edgeStrengthEditIsAssertable } from '../../conversation/edgeStrengthEdit'
 import { typography } from '../../../styles/typography'
 
 // Entity colour map — used as fallback for inspector header entity colour
@@ -210,6 +211,15 @@ export const InspectorRouter = memo(function InspectorRouter({
     // Top bar inherits source node type colour
     const sourceKind = (sourceNode?.type || sourceNode?.data?.kind || 'factor') as NodeType
 
+    /**
+     * ⭐ THE PANEL NOW OWNS ITS OWN AUTHORITY, so the notice must say what is
+     * true of THIS edge rather than of the whole surface. Asked of the emitter
+     * (`edgeStrengthEditIsAssertable` → `buildEdgeStrengthEditEvent`), which is
+     * the same question `EdgePanel` asks to decide whether to fence the control
+     * — one derivation with two readers, not two rules kept in step by hand.
+     */
+    const edgeStrengthReaches = edgeStrengthEditIsAssertable(edge)
+
     return (
       <InspectorShell
         topBarColor={TOP_BAR_COLORS[sourceKind] ?? TOP_BAR_COLORS.factor}
@@ -241,7 +251,7 @@ export const InspectorRouter = memo(function InspectorRouter({
           data-testid="inspector-authority-notice"
           className={`rounded border border-panel-border bg-panel-hover px-3 py-2 ${typography.panelBody} text-text-body`}
         >
-          {INSPECTOR_READ_ONLY_REASON}
+          {edgeStrengthReaches ? INSPECTOR_EDGE_REASON : INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON}
         </div>
         {/* ⭐ OUTSIDE THE FENCE, DELIBERATELY, AND THE PLACEMENT IS THE FIX.
             This toggle first shipped INSIDE `EdgePanel`, whose only mount is the
@@ -266,19 +276,27 @@ export const InspectorRouter = memo(function InspectorRouter({
         <div className="mb-2">
           <EdgeLabelModeToggle />
         </div>
-        <fieldset
-          disabled
-          aria-describedby="inspector-authority-notice"
-          data-authority="disabled"
-          className="contents"
-        >
+        {/* ⭐⭐ NO BLANKET FENCE HERE ANY MORE, AND THAT IS THE CHANGE.
+            This branch used to wrap the whole panel in `<fieldset disabled>`,
+            which natively inerts every form-associated descendant — so the
+            strength slider rendered, and `setStrength` was uncallable for every
+            user. The whole chain behind it was already built and connected:
+            `buildEdgeStrengthEditEvent` → `sendSystemEvent` →
+            `buildPayload.ts` `adaptEdgeStrengthEdit` → CEE's
+            `dispatchEdgeStrengthEdit`. The only thing missing was a user able
+            to touch it.
+
+            ⚠ OPTING OUT IS A DUTY, NOT A RELEASE. `EdgePanel` now fences its
+            OWN carrier-less writers — existence probability, uncertainty — and
+            fences the strength control too on any edge whose strength cannot be
+            asserted. The boundary did not disappear; it moved to the question
+            that decides it. */}
           <EdgePanel
             edgeId={edgeId}
             techMode={techMode}
             onClose={onClose}
             onNavigate={handleNavigate}
           />
-        </fieldset>
       </InspectorShell>
     )
   }

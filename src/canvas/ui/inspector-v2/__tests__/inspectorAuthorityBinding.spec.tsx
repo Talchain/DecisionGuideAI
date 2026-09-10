@@ -99,7 +99,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 
 import { InspectorRouter } from '../InspectorRouter'
-import { INSPECTOR_READ_ONLY_REASON } from '../useInspectorMutations'
+import { INSPECTOR_READ_ONLY_REASON, INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON } from '../useInspectorMutations'
 import { useCanvasStore } from '../../../store'
 
 vi.mock('@xyflow/react', () => ({
@@ -254,10 +254,10 @@ describe('Inspector read-only policy — enforced form, edge region', () => {
     expect(controls.length).toBeGreaterThan(0)
   })
 
-  it('explains the boundary with INSPECTOR_READ_ONLY_REASON — the constant, not a copy', () => {
+  it('explains the boundary with the EDGE constant, not a copy and not the node one', () => {
     render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
     expect(screen.getByTestId('inspector-authority-notice')).toHaveTextContent(
-      INSPECTOR_READ_ONLY_REASON,
+      INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON,
     )
   })
 
@@ -269,7 +269,7 @@ describe('Inspector read-only policy — enforced form, edge region', () => {
 
     const explanation = document.getElementById(describedBy as string)
     expect(explanation).not.toBeNull()
-    expect(explanation).toHaveTextContent(INSPECTOR_READ_ONLY_REASON)
+    expect(explanation).toHaveTextContent(INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON)
     expect(explanation).toBe(screen.getByTestId('inspector-authority-notice'))
   })
 
@@ -395,6 +395,16 @@ const DELIBERATELY_OUTSIDE: ReadonlyArray<{
     // EDGE ONLY, and deliberately: the control is mounted in the Router's edge
     // branch. It first shipped INSIDE `EdgePanel` and was therefore inert under
     // the fieldset below, which is the defect this entry's placement records.
+    panels: ['edge'],
+  },
+  {
+    selector: '[data-testid="edge-strength-controls"] button, [data-testid="edge-strength-controls"] input',
+    why: 'the link STRENGTH — the one editing control on an edge with a receipt-bearing carrier (`edge_strength_edit`, consumed by CEE since schemas 0.42.0 and routed through `adjust_edge_strength`). Same class as the node panel\'s rename below: it is outside because it CAN be saved, not because it is exempt. The block fences ITSELF on any edge whose strength the server has not stated, via `edgeStrengthEditIsAssertable` — that fence is marked `data-authority="no-strength-basis"` so it cannot be confused with the carrier boundary.',
+    panels: ['edge'],
+  },
+  {
+    selector: '[aria-label="Dismiss suggestion"]',
+    why: 'coaching dismissal — writes no model value. The edge notice says in terms that coaching still works; until the panel was unfenced this button sat inside the boundary and was inert, so the sentence was false.',
     panels: ['edge'],
   },
   { selector: '[aria-label="Close inspector"]', why: 'dismissal' },

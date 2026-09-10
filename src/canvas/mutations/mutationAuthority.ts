@@ -107,10 +107,21 @@ export const CANONICAL_EDIT_AUTHORITY = {
   //     Flipping this key would license the label to present ITSELF as a saved
   //     shared-model edit, which the lane did not make true (trap 21: write down
   //     the question each authority answers before reconciling them).
-  //  2. THE PANEL IS INERT ANYWAY. `InspectorRouter` wraps every panel,
-  //     `EdgePanel` included, in an UNCONDITIONAL `<fieldset disabled>`. The
-  //     user-reachable strength editor today is the Model tab's weight chip
-  //     (`model-tab/RelationshipsSection.tsx`), not the inspector's slider.
+  //  2. ⚠⚠ THIS REASON HAS EXPIRED — KEPT, STRUCK, AND NOT QUIETLY DELETED.
+  //     It read: "THE PANEL IS INERT ANYWAY. `InspectorRouter` wraps every
+  //     panel, `EdgePanel` included, in an UNCONDITIONAL `<fieldset disabled>`.
+  //     The user-reachable strength editor today is the Model tab's weight chip
+  //     (`model-tab/RelationshipsSection.tsx`), not the inspector's slider."
+  //     That was true when written and is FALSE now: the edge branch hands the
+  //     panel its own authority, and the inspector's strength control is
+  //     operable on any edge whose strength the server has stated. A reason
+  //     that has stopped holding is struck where the next reader will see it,
+  //     because a deleted one leaves a conclusion standing on evidence nobody
+  //     can check.
+  //     ⭐ THE CONCLUSION IS UNCHANGED, and that is the point of writing three
+  //     reasons rather than one: 1 and 3 are untouched, and either alone is
+  //     sufficient. This key names the canvas edge LABEL, which still writes
+  //     nothing, and no code reads this key.
   //  3. THIS TABLE HAS NO CODE CONSUMER FOR THIS KEY. Swept 2026-09-07: outside
   //     its own definition, `canvasEdgeStrength` appears only in
   //     `__tests__/mutationAuthority.spec.ts` (contrast control:
