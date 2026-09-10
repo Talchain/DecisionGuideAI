@@ -21,8 +21,12 @@
  * the body the low-zoom line would disagree with is HIDDEN, so nothing on
  * screen could ever show the disagreement.
  *
- * Behaviour is byte-for-byte what `FactorNode` shipped; only the location
- * changed. The dedupe arm still takes the caller's own `valueDisplay`, because
+ * The extraction was byte-for-byte what `FactorNode` shipped. ⚠ ONE behaviour
+ * change has landed since, and it is the only one: the dedupe arm now also
+ * declines when the caller's value line CONTRADICTS the scale the normalised
+ * range would print on (see `displayedValueIsOffTheNormalisedScale`, and the
+ * journey witness quoted there). The dedupe arm still takes the caller's own
+ * `valueDisplay`, because
  * the two callers legitimately resolve that string by different entry points
  * (the card via `formatFactorDisplayValue`, the reduced line via
  * `factorDisplayText`) and neither may be assumed for the other.
@@ -69,6 +73,97 @@ function bareNumericRangeMatchesPrior(
     return true
   }
   return false
+}
+
+/**
+ * Every numeric token in a display string. Comma-thousands are one token
+ * ("40,000"), a decimal point does not split ("0.28").
+ */
+const NUMERIC_TOKEN = /-?\d[\d,]*(?:\.\d+)?/g
+
+/**
+ * The magnitude of a display string that shows EXACTLY ONE number — the
+ * observed point, however it is dressed ("18 month", "£40,000", "CHF 500",
+ * "26,000", "0.5"). Returns null for everything else, and the exclusions are
+ * the guard, not an oversight:
+ *   · no number at all ("Moderate", "No dedicated supplier") — nothing to
+ *     compare scales with;
+ *   · two or more numbers ("3 to 5", "0.2 to 0.8") — that describes a prior,
+ *     not an observed point, and judging it would need a vocabulary over
+ *     natural language.
+ * Deliberately narrow: everything it declines to parse keeps today's
+ * behaviour byte-for-byte.
+ */
+function parseSingleDisplayedMagnitude(text: string): number | null {
+  const tokens = text.match(NUMERIC_TOKEN)
+  if (tokens == null || tokens.length !== 1) return null
+  const n = Number(tokens[0].replace(/,/g, ''))
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * ⭐⭐ THE VALUE LINE CONTRADICTS THE SCALE THIS RANGE WOULD PRINT ON.
+ *
+ * Journey-witnessed on the deployed product, one card, together and unflagged:
+ *
+ *     Sales Payback Period        18 month
+ *     Range: 0.08 to 0.28
+ *
+ * A value SIXTY TIMES outside its own displayed range — and the editor then
+ * rejects `0.2` as "a proportion rather than a value in month", so the node's
+ * displayed range is a set of values its own editor refuses.
+ *
+ * ⭐ THE REFUSAL TO CALIBRATE ABOVE IS CORRECT AND STAYS. `month` is a real
+ * unit, a capless deterministic draft cannot be denormalised, and inventing a
+ * cap would fake a measurement. The defect is that having declined to put the
+ * range on the shown scale, this path printed the range anyway.
+ *
+ * ⛔ SO THIS DECLINES, IT NEVER COMPUTES. It answers only "can I POSITIVELY
+ * establish that the value on screen is NOT on the normalised scale this range
+ * would print on?" — never "does this range look right?". A normalised prior
+ * prints on 0–1, so a single displayed magnitude ABOVE that bound cannot be
+ * reading the same scale.
+ *
+ * ⚠ KNOWN LIMIT, stated rather than hidden: a real-scale value that happens to
+ * sit at or below the bound ("0.5 month", "£0.5k") is indistinguishable from a
+ * normalised one here, so it is not contradicted and the range still renders.
+ * That fails in the safe direction — it keeps information rather than removing
+ * it — and the cap is what would settle it, which is upstream and out of scope.
+ */
+function displayedValueIsOffTheNormalisedScale(
+  text: string,
+  rangeMin: number,
+  rangeMax: number,
+): boolean {
+  const shown = parseSingleDisplayedMagnitude(text)
+  if (shown == null) return false
+  // The normalised prior prints on 0–1; derive the bound from the endpoints
+  // rather than hardcoding 1, so a prior that ever exceeds the contract is
+  // judged against what is actually on screen.
+  const bound = Math.max(1, Math.abs(rangeMin), Math.abs(rangeMax))
+  const magnitude = Math.abs(shown)
+  return magnitude > bound && !nearlyEqual(magnitude, bound)
+}
+
+/**
+ * The one suppression decision for the uncalibrated range line, with its two
+ * arms named: the value line already SHOWS this range (dedupe, lane C3), or the
+ * value line CONTRADICTS the scale this range would print on (the witness
+ * above). Extended rather than duplicated on purpose — two suppression
+ * mechanisms a caller must remember to consult in the right order is this
+ * estate's dominant defect, and both arms answer one question at one call site:
+ * is there anything true left for this line to say?
+ */
+function normalisedRangeHasNothingTrueToSayBeside(
+  text: string,
+  rangeMin: number,
+  rangeMax: number,
+  cap: number | null | undefined,
+): boolean {
+  return (
+    bareNumericRangeMatchesPrior(text, rangeMin, rangeMax, cap)
+    || displayedValueIsOffTheNormalisedScale(text, rangeMin, rangeMax)
+  )
 }
 
 /** Normalised (0–1) range end for unitless display: ≤2 dp, trailing zeros trimmed. */
@@ -162,7 +257,19 @@ export function resolveFactorPriorRange({
     // A real unit WITHOUT a usable cap lands here too: prefixing a
     // normalised 0–1 endpoint with "£" fakes calibration exactly like a
     // placeholder unit would (and Math.round would grind it to "£0 to £1").
-    if (valueDisplay != null && bareNumericRangeMatchesPrior(valueDisplay, rangeMin, rangeMax, cap)) {
+    // ⛔ AND IT IS SUPPRESSED, NEVER SUBSTITUTED. Silence is the honest
+    // outcome here and a replacement sentence would be a new claim: a range IS
+    // recorded, so "no range recorded" would be false, and what is actually
+    // missing is the cap that would put it on the shown scale — which is
+    // upstream, not this surface's to state. Nor does silence leave a gap: this
+    // arm is only reachable when `valueDisplay` is non-null, so the card keeps
+    // its figure, and the reduced low-zoom line passes `valueDisplay: null` and
+    // is therefore untouched (the blank-box regression this module exists to
+    // prevent cannot recur through here).
+    if (
+      valueDisplay != null
+      && normalisedRangeHasNothingTrueToSayBeside(valueDisplay, rangeMin, rangeMax, cap)
+    ) {
       return null
     }
     return `Range: ${formatNormalisedRangeEnd(rangeMin)} to ${formatNormalisedRangeEnd(rangeMax)}`
