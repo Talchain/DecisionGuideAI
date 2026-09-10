@@ -434,10 +434,31 @@ export function getEdgeLabel(
   const actualMode = mode ?? getEdgeLabelMode()
 
   if (actualMode === 'numeric') {
-    const numericLabel = formatNumericLabel(strength, likelihood, direction)
+    /**
+     * ⭐ THE TOOLTIP EXPLAINS THE LABEL; IT MUST NOT REPEAT IT.
+     *
+     * This arm returned `tooltip: numericLabel` — byte-identical to the label
+     * it decorates — so hovering `w 0.60 • b 85%` said `w 0.60 • b 85%` back.
+     * `w` and `b` are expanded NOWHERE else in the product, so the two letters
+     * had no anchor on any surface a user can reach.
+     *
+     * ⚠ THE SAME BUILDER THE HUMAN ARM USES, DELIBERATELY. Both modes describe
+     * ONE datum; giving the numeric arm its own sentence would be two
+     * vocabularies for one thing (CLAUDE.md trap 21) and would drift the first
+     * time either is edited. `buildWeightTooltip` already owns the "not set"
+     * vocabulary and the sign-is-a-direction-claim rule, so this inherits both
+     * rather than restating them.
+     *
+     * The LABEL is untouched: this changes what hovering explains, not what any
+     * surface asserts, and no figure moves.
+     */
     return {
-      label: numericLabel,
-      tooltip: numericLabel
+      label: formatNumericLabel(strength, likelihood, direction),
+      tooltip: buildWeightTooltip(
+        strength.show ? Math.abs(strength.value) : null,
+        likelihood,
+        direction,
+      ),
     }
   }
 
