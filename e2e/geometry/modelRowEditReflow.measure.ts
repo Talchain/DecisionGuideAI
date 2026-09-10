@@ -420,36 +420,59 @@ function editDisclosureMaxPx(refusalLines: number): number {
 }
 
 /**
- * ⭐ THE BAND PILLS' OWN LINE, derived the same way and added to the same box.
+ * ⭐ THE BAND LINE'S OWN HEIGHT, derived the same way and added to the same box.
  *
- * The line holds the readback and the three pills, and the TALLER of the two
- * governs it:
+ * The line holds the readback and the three pills:
  *
  *   pill     `typography.buttonSmall` 12px `leading-none` + `px-1.5` + a 1px
  *            border and NO vertical padding -> 12 + 1 + 1 = **14px**
- *            (measured at both widths: `height: 14, lineHeightPx: 12`)
+ *            (measured at every width, on darwin AND ubuntu)
  *   readback `typography.panelMeta` = `text-[11px] leading-snug`
  *            -> 11 x 1.375 = **15.125px**
  *
- * ⚠ SO THE READBACK GOVERNS, NOT THE PILL, and the first draft of this constant
- * said 14 — which would have left 0.13px of the budget unfunded and put a
- * refusal-bearing relationship draft 0.13px over the bound. Derived from the
- * token, not from the control that happens to look biggest. It takes one further
- * implicit grid line, which costs the row's own `gap-2` on top.
+ * ⚠⚠ AND IT IS **TWO LINES AT THE DOCK FLOOR ON ubuntu**, which the first version
+ * of this constant got wrong: it assumed ONE line of 15.13px, and the arm PASSED
+ * FOR THE WRONG REASON — the unspent refusal allowance in the shared box above
+ * happened to cover the extra line, so a relationship draft that DID refuse would
+ * have gone ~21px over. MEASURED, darwin vs ubuntu, same commit:
  *
- * ⚠ THIS IS NOT A RAISED TOLERANCE ON THE FACTOR ARM'S BOUND. It is that bound
- * PLUS one measured 14px line, because the relationship editor discloses one
- * thing the factor editor does not. The factor arm's 50.5 is untouched, and a
- * change to the shared box still moves both together.
+ *            bandLineHeight @280   bandLineHeight @416
+ *   darwin           15.13                15.13
+ *   ubuntu         **37.13**              15.13
+ *
+ * ubuntu's font metrics are wider (pills 51.03/78.81/59.69 against darwin's
+ * 46.3/70.47/53.83), so readback 28.88 + `gap-2` 8 + pills 197.53 = **234.41px**
+ * against the 220px the line gets at a 280px dock, and `flex-wrap` puts the
+ * readback on its own line: 15.13 + 8 + 14 = **37.13px**, exactly as measured.
+ *
+ * ⭐ THAT WRAP IS GRACEFUL AND IS NOT THE DEFECT. The defect was three pills
+ * stacked THREE deep inside an 80px column with the readback rendering off-panel.
+ * The pills still share ONE line on ubuntu at both widths (`distinctTops: 1`,
+ * measured) and nothing escapes the outline. One line for the whole block is not
+ * reachable at 280px without shrinking the controls — the deficit is 14.41px and
+ * the only ways to find it are smaller padding or a smaller chip — and shrinking
+ * the controls is the one repair this lane is forbidden.
+ *
+ * ⚠ SO THE BUDGET IS DERIVED FROM THE TWO-LINE CASE, AND THE CONSEQUENCE IS
+ * STATED RATHER THAN HIDDEN: at 95.63px this ceiling NO LONGER DISCRIMINATES the
+ * original +80px defect. `distinctTops === 1` does, and so does the band line's
+ * own height, asserted tightly at the site. A ceiling wide enough to fund the
+ * honest worst case is not the load-bearing guard here, and saying otherwise is
+ * how a bound that passes for the wrong reason survives a second time.
+ *
+ * ⚠ THE FACTOR ARM'S 50.5 IS UNTOUCHED. It is the shared box; this adds to it.
  */
-const BAND_LINE = 15.13
+const READBACK_LINE = 15.13 // panelMeta 11px x leading-snug 1.375
+const BAND_CHIP = 14 // buttonSmall 12px leading-none + 1px border x2
+/** The honest worst case: the readback wrapped above one row of pills. */
+const BAND_LINE_MAX = READBACK_LINE + ROW_GAP + BAND_CHIP
 /**
  * ⚠ PER WIDTH, FOR THE SAME REASON THE BOX IT ADDS TO IS: the refusal allowance
- * inside `editDisclosureMaxPx` is one line at 416 and two at 280 on ubuntu. The
- * band line itself is the same at both.
+ * inside `editDisclosureMaxPx` is ONE line at 416 and TWO at 280 on ubuntu
+ * (#1410's re-derivation). The band line's own worst case is the same at both.
  */
 function relationshipDisclosureMaxPx(refusalLines: number): number {
-  return editDisclosureMaxPx(refusalLines) + ROW_GAP + BAND_LINE
+  return editDisclosureMaxPx(refusalLines) + ROW_GAP + BAND_LINE_MAX
 }
 
 /**
@@ -712,7 +735,7 @@ for (const width of WIDTHS) {
      * name. A third refusal line (89.5px) also exceeds 70.
      *
      * ⚠ AND #1415 ADDS NOTHING TO THIS BOX. The relationship arm takes the box
-     * WHOLE and adds its own measured band line on top (`BAND_LINE`,
+     * WHOLE and adds its own measured band line on top (`BAND_LINE_MAX`,
      * `relationshipDisclosureMaxPx`); the factor arm's budget is whatever this
      * derivation says at each width and nothing in the relationship lane moves
      * it. ⚠ The sentence this replaced said "unchanged and still 49.5 at both" —
@@ -1067,6 +1090,23 @@ for (const width of WIDTHS) {
      * are not redundant: this one would still fail if the grid mechanism changed
      * underneath a structurally-correct tree.
      */
+    /*
+     * ⭐⭐ THE BAND LINE'S OWN HEIGHT, BOUNDED TIGHTLY — and this is the guard the
+     * row-total ceiling above can no longer be. 37.13px is the measured honest
+     * worst case (the readback wrapped above the pills at a 280px dock on ubuntu's
+     * wider metrics); anything beyond it means something has begun stacking again,
+     * and that REDs here even on a build whose row total happens to fit because
+     * something else shrank. A row's total and the atom that moved it are two
+     * different questions (CLAUDE.md trap 21).
+     */
+    expect(
+      bands!.bandLineHeight,
+      'the quick-set line has no height — it is not rendering',
+    ).toBeGreaterThan(0)
+    expect(
+      bands!.bandLineHeight,
+      `the quick-set line measured ${bands!.bandLineHeight}px at a ${width}px dock (honest worst case ${BAND_LINE_MAX}px — the readback wrapped above ONE row of pills) — something is stacking`,
+    ).toBeLessThanOrEqual(BAND_LINE_MAX + 1)
     expect(
       bands!.isRowGridItem,
       'the quick-set line is not a direct child of the row — `col-span-4` is inert and the pills are back in the 88px track',
