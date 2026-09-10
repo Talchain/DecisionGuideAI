@@ -1373,14 +1373,47 @@ export function applyV5State(
           licensesComparativeLeaderClaim(envelopeAdmission)
         /*
          * The producer's OWN sentence for why it refused, rendered verbatim
-         * beneath the caveat. `reasons` is contractually never empty on a
-         * refusal, so this is the honest WHY — and reading it here means the
-         * UI never has to invent one. `undefined` when the producer said
-         * nothing, in which case the caveat stands on its own.
+         * beneath the caveat — and reading it here means the UI never has to
+         * invent one.
+         *
+         * ⚠⚠ SELECTED BY `field`, NEVER BY POSITION, AND "THE FIRST NON-EMPTY
+         * MESSAGE" IS A POSITIONAL READ WEARING A PREDICATE. Every entry in
+         * `reasons` carries a non-empty message, so that find matched
+         * `reasons[0]` on every live payload — and on the wire `reasons[0]` is
+         * the AFFIRMATIVE `structurally_analysable` conjunct. A slot whose only
+         * job is to say why we withheld was rendering "Analysis can run on this
+         * model as it stands." Panel witnessed exactly that on the served build
+         * through the sibling hero slot, which shares this selector's shape.
+         *
+         * ⚠ `field` is a CLOSED UNION of four values, derived at the producer
+         * (`orchestrator-v5/admission/analysis-admission.ts:411`):
+         * `structurally_analysable` · `missing_important_inputs` ·
+         * `semantic_quality_sufficient` · `permitted_analysis_mode`. Only the
+         * last answers "may this run name a leader", which is the question the
+         * caveat above is apologising for.
+         *
+         * ⚠ AND NOT BY MESSAGE TEXT EITHER: on the captured payload
+         * `reasons[1]` and `reasons[2]` carry the IDENTICAL string, so a
+         * message-based assertion passes on the wrong object (trap 19).
+         *
+         * `undefined` when the producer named no mode reason — and the fallback
+         * is deliberately silence, never another reason. The caveat standing on
+         * its own is honest; the caveat contradicted by an affirmative
+         * underneath it is the defect being removed.
+         *
+         * ⚠ THE OLD COMMENT CLAIMED `reasons` "is contractually never empty on
+         * a refusal". That came from `types.ts:456`, a CONSUMER-side doc
+         * comment reading "which conjunct refused". The producer's own wording
+         * is weaker — "which field of the result a reason EXPLAINS" — and
+         * explaining a field is not refusing it. I refuted this brief from that
+         * comment once and was wrong; the two docs disagree about one field and
+         * `types.ts` is the one that needs correcting.
          */
         const admissionReasonLine = envelopeAdmission?.reasons?.find(
           (r): r is { field: string; message: string } =>
-            typeof r?.message === 'string' && r.message.trim().length > 0,
+            r?.field === 'permitted_analysis_mode' &&
+            typeof r?.message === 'string' &&
+            r.message.trim().length > 0,
         )?.message.trim()
         const envelopeAnalysisBlock = response.blocks.find(
           (b): b is Extract<V5Block, { type: 'analysis_result' }> =>
