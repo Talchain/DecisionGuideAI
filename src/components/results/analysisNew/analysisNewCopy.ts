@@ -997,6 +997,32 @@ export const ANALYSIS_NEW_COPY = {
      */
     eyebrowWhyWithheld: 'What this run may not conclude',
     /**
+     * ⭐⭐ THE ACT BESIDE THE REFUSAL — FURNITURE, AND NAVIGATIONAL ONLY.
+     *
+     * The producer's sentence in the slot above ends "…until you have set at
+     * least one of them". It names the move; this names the DESTINATION, which
+     * is the Model tab's staged value editor — the one UI path in the product
+     * that ends in a saved change. The factor is appended by the caller from the
+     * canvas label policy, so the control says which value it will take you to.
+     *
+     * ⛔⛔ IT PROMISES NO OUTCOME, AND THAT IS A RULING, NOT A STYLE CHOICE.
+     * "A user-entered value is not automatically reliable evidence." The
+     * materiality floor means a user value can move
+     * `confidence_parameters_user_stated` while `permitted_analysis_mode` stays
+     * exactly where it is. So this must never read "to enable a leader",
+     * "to lift this", "to improve confidence" or any other forecast of what the
+     * edit will achieve — the control may offer to take the reader to the value
+     * and may not claim what happens next. The sanctioned precedent is the
+     * Analysis tab's own act label ("Review this value" /
+     * `HeroEvidenceDisclosure.tsx`), which is navigational for the same reason.
+     *
+     * ⛔ AND IT DOES NOT RESTATE THE REFUSAL. The slot above says it once; this
+     * tab pins "said once" (`freshnessSaidOnce.spec.tsx`,
+     * `driversSeamSaysOneThing.spec.tsx`) and a second sentence of one fact is a
+     * regression here, not emphasis.
+     */
+    reviewWithheldValue: 'Review the value for',
+    /**
      * ⚠ STILL LIVE, AND ITS ONLY CONSUMER IS NOW `ModelStrip`'s per-node chip —
      * a standalone claim that the run ranked this node among its top drivers.
      * The glance's own driver LIST, which this used to head, was removed at

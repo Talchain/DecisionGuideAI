@@ -58,6 +58,8 @@ import { useAnalysisNewViewModel } from './useAnalysisNewViewModel'
 import { buildNodeInsights } from './nodeInsights'
 import { buildModelStrip, stripRendersTargetAffordance } from './buildModelStrip'
 import { useCanvasStore } from '../../../canvas/store'
+import { useUIStore } from '../../../stores/uiStore'
+import { resolveWithheldValueTarget } from './resolveWithheldValueTarget'
 import { SUCCESS_MEASURE_RECOMMENDATION_ID } from '../strengthen/buildRecommendations'
 import { WhyNoAnalysisYet } from './sections/WhyNoAnalysisYet'
 import type { GateBlockedListing } from '../../../canvas/utils/canRunAnalysis'
@@ -687,6 +689,56 @@ export function AnalysisNewTabBody({
     [vm.strengthen.interventions, glancePrimary],
   )
 
+  /**
+   * ⭐⭐ THE FACTOR THE WITHHELD-REASON SLOT MAY TAKE THE READER TO.
+   *
+   * Derived from `glancePrimary` — the ENGINE'S OWN intervention hint, the same
+   * `Recommendation` that populates the glance's primary-intervention card. This
+   * surface chooses no factor: see `resolveWithheldValueTarget` for why doing so
+   * would mint a second authority for a question CEE already answers, and for
+   * why `targetId` needs a `nodeKind` guard before it can be treated as a
+   * factor at all (the engine also puts EDGE ids there).
+   *
+   * ⚠ `nodes` IS THE SAME COLLECTION `focusTarget`/`focusModelTarget` RESOLVE
+   * AGAINST, so the guard cannot pass on something the click would then miss.
+   */
+  const withheldValueTarget = useMemo(
+    () => resolveWithheldValueTarget(glancePrimary, nodes),
+    [glancePrimary, nodes],
+  )
+
+  /**
+   * ⭐ THE ACT — take the reader to where this factor's value can be replaced
+   * with their own judgement.
+   *
+   * ⚠ NOT `focusTarget`. That is the CAMERA move; it opens no editor, and a
+   * control on it that implies an edit is the false promise
+   * `utils/focusOnCanvasCopy.ts` bans. The destination that actually edits is
+   * the Model tab, whose staged editor reaches
+   * `useModelEditAuthority.proposeFactorValue` → `factor_value_edit`.
+   *
+   * ⚠⚠ THE ROUTE IS THE SHIPPED ONE, COPIED DELIBERATELY RATHER THAN INVENTED —
+   * `TriageActionCardsBody.tsx`'s `openValueEditor` and
+   * `AnalysisHeroContainer.tsx`'s `onReviewValue` are the two live precedents,
+   * and both carry the same two hard-won notes:
+   *
+   *   1. THE TAB SWITCH MUST COME FIRST, so the node resolves on the surface the
+   *      user is about to be looking at.
+   *   2. ⛔ PASS THE SECTION KEY, NOT ITS TESTID. `MODEL_SECTION_TARGET`
+   *      (`canvas/components/ModelTabBody.tsx`) maps section NAMES to testids and
+   *      its consumer does `MODEL_SECTION_TARGET[pending] ?? 'model-tab-v2-panel'`.
+   *      A testid misses the lookup and the `??` SILENTLY lands the reader at the
+   *      panel top with nothing selected — verbatim the failure this call exists
+   *      to avoid. Both precedents shipped that bug first and are pinned against
+   *      it; this one is pinned the same way, by asserting membership of the
+   *      derived key set rather than equality with a string.
+   */
+  const reviewWithheldValue = (nodeId: string) => {
+    useUIStore.getState().setActiveOutputTab('diagnostics')
+    useUIStore.getState().requestModelTabSection('factors')
+    focusModelTarget(nodeId)
+  }
+
   const runIntervention = (recommendationId: string) => {
     const rec = vm.strengthen.interventions.find((r) => r.id === recommendationId)
     if (!rec) return
@@ -851,6 +903,12 @@ export function AnalysisNewTabBody({
         <AtAGlance
           glance={vm.atAGlance}
           onFocusTarget={focusTarget}
+          /* ⭐ THE MISSING RUNG OF THIS TAB'S CORE LOOP — the withheld-reason
+             slot tells the reader to set a value, and now points at the editor
+             that does it. Both halves fail closed independently; see the props'
+             own notes on `AtAGlance` and `resolveWithheldValueTarget`. */
+          withheldValueTarget={withheldValueTarget}
+          onReviewWithheldValue={reviewWithheldValue}
           isStale={vm.status.isStale && !vm.status.isPreRun}
           staleKind={vm.status.staleKind}
           isProvisional={vm.status.isProvisional}

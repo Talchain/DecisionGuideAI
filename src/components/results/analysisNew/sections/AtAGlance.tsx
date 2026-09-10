@@ -187,6 +187,34 @@ export interface AtAGlanceProps {
     signal?: string
   } | null
   onRunIntervention?: (recommendationId: string) => void
+  /**
+   * ⭐⭐ THE FACTOR THE WITHHELD-REASON SLOT CAN TAKE THE READER TO — or null.
+   *
+   * ⚠ ALREADY GUARDED WHEN IT ARRIVES, AND THIS COMPONENT RE-CHECKS NOTHING.
+   * `resolveWithheldValueTarget` fails closed on every conjunct: the producer's
+   * intervention must carry a `targetId`, that id must be a node ON the live
+   * canvas, `nodeKind` must call it a `factor` (only factor rows get a value
+   * editor), and the canvas label policy must yield an honest name. A non-null
+   * value therefore means "a value editor exists at the other end of this", and
+   * the only thing left to decide here is whether to draw it.
+   *
+   * ⛔ THE UI DID NOT CHOOSE THIS FACTOR. It is the producer's own intervention
+   * target — the same `Recommendation` behind `primaryIntervention` above. See
+   * `resolveWithheldValueTarget` for why picking one here would mint a second
+   * authority for a question CEE already answers.
+   */
+  withheldValueTarget?: { nodeId: string; label: string } | null
+  /**
+   * Take the reader to that factor's staged value editor on the Model tab.
+   *
+   * ⚠ NOT `onFocusTarget`. That handler moves the CAMERA and flashes the node;
+   * it opens no editor, and a control on it labelled as an edit is the false
+   * promise `utils/focusOnCanvasCopy.ts` exists to ban. The destination here is
+   * the Model tab, reached by the shipped three-call route
+   * (`TriageActionCardsBody.tsx`'s `openValueEditor`,
+   * `AnalysisHeroContainer.tsx`'s `onReviewValue`).
+   */
+  onReviewWithheldValue?: (nodeId: string) => void
   /** The displayed run predates the current model. Reframes the answer. */
   isStale?: boolean
   /**
@@ -315,6 +343,8 @@ export function AtAGlance({
   glance,
   onFocusTarget,
   primaryIntervention,
+  withheldValueTarget,
+  onReviewWithheldValue,
   onRunIntervention,
   isStale = false,
   staleKind = 'unconfirmed',
@@ -629,6 +659,52 @@ export function AtAGlance({
           >
             {glance.designationWithheldReason}
           </p>
+          {/* ── AND THE WAY TO ACT ON IT ───────────────────────────────────
+              ⭐⭐ THE RUNG THIS SLOT WAS MISSING. The sentence above tells the
+              reader what to do — on the live capture it ends "…until you have
+              set at least one of them" — and until this control existed the only
+              adjacent affordance opened a CHAT DRAFT with a Send button. A
+              compose surface is not an editable control, and the editor that
+              sets a value has been shipped and working one tab away the whole
+              time (`model-row-v2-<id>-value` → "Review change" → Confirm).
+              This is a LINK, not a feature.
+
+              ⚠ A SIBLING, NOT A SECOND SENTENCE. It carries no prose of its own
+              beyond its own label: the refusal is stated ONCE, in the paragraph
+              directly above, and this tab pins that ("three statements of one
+              fact is noise"). The control names the destination and the factor,
+              and says nothing about the run.
+
+              ⛔⛔ IT PROMISES NO OUTCOME. A user-entered value is not
+              automatically reliable evidence, and the materiality floor means
+              one can move the counter while `permitted_analysis_mode` stays put.
+              So there is no "to enable a leader" here and there must never be —
+              see `COPY.glance.reviewWithheldValue`.
+
+              ⚠ RENDERED ONLY WHEN BOTH HALVES ARE PRESENT, like every other
+              act on this surface: a target with no handler would be a dead
+              button, and a handler with no resolved factor has nowhere to go.
+              `withheldValueTarget` is already fail-closed — see its prop. */}
+          {withheldValueTarget && onReviewWithheldValue ? (
+            <button
+              type="button"
+              onClick={() => onReviewWithheldValue(withheldValueTarget.nodeId)}
+              className={`${typography.panelMeta} mt-1.5 inline-flex items-center gap-1 rounded text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              data-testid={`${testId}-withheld-review-value`}
+              /* ⭐ THE IDENTITY, ON THE ELEMENT. Tests bind to the factor by
+                 this attribute rather than by the label text: several admission
+                 reasons carry IDENTICAL message strings on the live wire, and a
+                 text-based assertion can pass on the wrong object (trap 19).
+                 A mutant that targets a different node changes this and nothing
+                 else visible. */
+              data-target-node-id={withheldValueTarget.nodeId}
+            >
+              <span>
+                {COPY.glance.reviewWithheldValue} {withheldValueTarget.label}
+              </span>
+              <ChevronRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            </button>
+          ) : null}
         </div>
       ) : null}
 
