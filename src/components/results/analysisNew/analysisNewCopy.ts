@@ -1502,10 +1502,23 @@ export const ANALYSIS_NEW_COPY = {
      * exactly as the old tab does; the degree is the glance's to state.
      */
     robustness_sensitive: { label: 'Sensitive to assumptions' },
+    /**
+     * ⚠ "the result" CAME OUT OF BOTH MEANINGS (10 Sep 2026). Paul's ruling:
+     * the analysis is a THINKING TOOL, NOT AN ORACLE, so copy conditions on the
+     * data available rather than naming a verdict to accept. The human is the
+     * author and the decision-maker.
+     *
+     * ⚠⚠ AND THE HONESTY IS THE POINT OF THESE TWO ROWS, so the referent was
+     * swapped and NOTHING ELSE. Both still say the run did not establish
+     * robustness, and both still refuse to read as an all-clear: "did not test"
+     * and "nothing here" are load-bearing and may not be dropped to shorten
+     * them. Pinned by `noWinnerVocabulary.spec.ts`, which also guards the
+     * referent against coming back.
+     */
     robustness_not_assessed: {
       label: 'Robustness not assessed',
       meaning:
-        'This run did not test how the result behaves when the assumptions change, so nothing here says it would hold.',
+        'This run did not test how these numbers behave when the assumptions change, so nothing here says they would hold.',
     },
     /**
      * ⚠ A DIFFERENT STATE FROM THE ONE ABOVE, AND THE OLD TAB IS RIGHT TO
@@ -1517,7 +1530,7 @@ export const ANALYSIS_NEW_COPY = {
     robustness_unknown: {
       label: 'Robustness unknown',
       meaning:
-        'No robustness verdict came back with this run, so the result has not been shown to survive a change in the assumptions.',
+        'No robustness verdict came back with this run, so nothing here has been shown to survive a change in the assumptions.',
     },
     evidence_all_addressed: { label: 'Evidence covered' },
     evidence_gaps: { label: 'Evidence gaps' },
