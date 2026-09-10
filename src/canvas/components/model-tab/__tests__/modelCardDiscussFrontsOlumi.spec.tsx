@@ -170,14 +170,30 @@ describe('⭐ modelcard-discuss — an icon-only control carries a real name', (
     expect(button).toHaveAttribute('aria-label', EXPECTED_NAME)
   })
 
-  it('⚠ is reachable BY THAT NAME — not merely carrying the attribute', () => {
+  /**
+   * ⚠⚠ THIS TEST'S COMMENT WAS CORRECTED BY ITS OWN MUTANT, AND THE CORRECTION IS
+   * THE POINT. It used to claim it proved "the property a screen-reader or touch
+   * user actually depends on". Measured: with `aria-label` DELETED this test still
+   * PASSED, because testing-library's accessible-name computation falls back to
+   * `title` — the exact situation the defect was about. A name that resolves only
+   * through `title` IS the pointer-only name, and this query cannot tell the two
+   * apart on its own.
+   *
+   * So the query is kept for what it does prove (the name resolves, and is not
+   * overridden by the element's content) and a SECOND step is added that does
+   * discriminate: strip `title` at runtime and require the name to survive. Only
+   * an `aria-label` can carry it then.
+   */
+  it('⚠ is reachable BY THAT NAME, and the name SURVIVES losing `title`', () => {
     renderCard()
 
-    // Bound by ACCESSIBLE NAME rather than by testid: this is the property a
-    // screen-reader or touch user actually depends on, and it fails if the
-    // label is present but overridden by the element's own content.
     const byName = screen.getByRole('button', { name: EXPECTED_NAME })
     expect(byName).toBe(screen.getByTestId('modelcard-discuss'))
+
+    // The discriminating half. With only a `title`, removing it leaves the button
+    // nameless and this query throws — which is what the original defect was.
+    byName.removeAttribute('title')
+    expect(screen.getByRole('button', { name: EXPECTED_NAME })).toBe(byName)
   })
 
   it('⚠ does not rely on `title` as its only name — the pointer-only route', () => {

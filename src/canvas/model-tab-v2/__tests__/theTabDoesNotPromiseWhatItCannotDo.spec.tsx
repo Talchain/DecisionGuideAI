@@ -85,8 +85,12 @@ describe('⭐ DEFECT 2 — the goal row states provenance and stops there', () =
     render(<ModelRowView row={row({ id: 'g1', kind: 'goal', group: 'goal', labelFromBrief: true })} tier="plain" />)
 
     const title = screen.getByTestId(GOAL_LABEL_FROM_BRIEF_TESTID).getAttribute('title') ?? ''
-    expect(title).not.toContain('Edit it')
-    expect(title).not.toMatch(/\bEdit\b/)
+    // ⚠ CASE-INSENSITIVE, AND NOT PEDANTRY. The sibling assertion in the D3 block
+    // used a case-SENSITIVE `not.toContain` and a mutant that restored the
+    // imperative with different capitalisation walked straight past it — the
+    // estate's own mint-check lesson, reproduced inside a guard written to stop it.
+    expect(title).not.toMatch(/edit it/i)
+    expect(title).not.toMatch(/\bedit\b/i)
   })
 
   /**
@@ -143,8 +147,14 @@ describe('⭐ DEFECT 3 — the placeholder question names what the click does', 
     render(<ModelRowView row={unwritten()} tier="plain" />)
 
     const title = screen.getByTestId('model-row-v2-q1-label').getAttribute('title') ?? ''
-    expect(title).not.toContain('open this to write it')
-    expect(title).not.toContain('open this')
+    // ⚠ CASE-INSENSITIVE — PROVEN NECESSARY BY MEASUREMENT. As
+    // `not.toContain('open this')` this assertion PASSED against a mutant reading
+    // "Open this to write it.", because the revert capitalised the sentence. Only
+    // the exact-string test above caught it, so this one was decorative until
+    // measured.
+    expect(title).not.toMatch(/open this to write it/i)
+    expect(title).not.toMatch(/open this/i)
+    expect(title).not.toMatch(/to write it/i)
   })
 
   /**
@@ -244,7 +254,9 @@ describe('⭐ DEFECT 4 — the legend describes the marks actually drawn', () =>
     const key = openKey()
 
     const text = (key.textContent ?? '').replace(/\s+/g, ' ').trim()
-    expect(text).not.toContain('marks a value that still needs checking')
+    // Case-insensitive for the same reason as the two above.
+    expect(text).not.toMatch(/marks a value that still needs checking/i)
+    expect(text).not.toMatch(/needs checking/i)
   })
 
   /**
