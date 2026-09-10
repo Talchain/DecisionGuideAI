@@ -482,7 +482,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // Reasons: request_budget_exhausted | e_value_budget_exceeded.
   E_VALUES_UNAVAILABLE: () => ({
     title:
-      'The check on how wrong your assumptions could be before the recommendation changes didn\'t run — the analysis hit its time limit. Your results stand; re-run to add it.',
+      'The check on how wrong your assumptions could be before the recommendation changes didn\'t run. The analysis hit its time limit. Your results stand; re-run to add it.',
     description:
       'E-value analysis was skipped for time. It does not affect the recommendation, the probabilities, or anything else already shown.',
   }),
@@ -493,7 +493,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // unavailable" is still a budget story, never a model one.
   STABILITY_BANDS_UNAVAILABLE: () => ({
     title:
-      'The confidence bands around the tipping points didn\'t run — the analysis hit its time limit. Your results stand; re-run to add them.',
+      'The confidence bands around the tipping points didn\'t run. The analysis hit its time limit. Your results stand; re-run to add them.',
     description:
       'Flip-stability bands ride on the E-value sweep, which the request budget could not fund. Nothing else shown is affected.',
   }),
@@ -502,7 +502,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // All-or-nothing at the producer, so this is never a partial set.
   FACTOR_FLIPS_UNAVAILABLE: () => ({
     title:
-      'How far each factor would have to move to change the recommendation wasn\'t computed — the analysis hit its time limit. Your results stand; re-run to add it.',
+      'How far each factor would have to move to change the recommendation wasn\'t computed. The analysis hit its time limit. Your results stand; re-run to add it.',
     description:
       'Factor-flip analysis was omitted whole rather than part-computed. Nothing else shown is affected.',
   }),
@@ -510,7 +510,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // Reasons: request_budget_exhausted | path_decomposition_budget_exceeded.
   PATH_DECOMPOSITION_UNAVAILABLE: () => ({
     title:
-      'The breakdown of which causal pathways drive the result didn\'t run — the analysis hit its time limit. Your results stand; re-run to add it.',
+      'The breakdown of which causal pathways drive the result didn\'t run. The analysis hit its time limit. Your results stand; re-run to add it.',
     description:
       'Path decomposition was omitted whole rather than part-computed. Nothing else shown is affected.',
   }),
@@ -529,7 +529,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     title:
       'Which unknowns most affect each option\'s chance of hitting your goal wasn\'t computed. Your results stand; re-run, and if it repeats check each success target says whether it\'s a level or a change.',
     description:
-      'Win-probability sensitivity was skipped — either the request budget ran out, or a goal constraint could not be resolved into its target\'s frame. The rest of the analysis is unaffected.',
+      'Win-probability sensitivity was skipped. Either the request budget ran out, or a goal constraint could not be resolved into its target\'s frame. The rest of the analysis is unaffected.',
   }),
 
   // Reason: estimator_error. NOT a budget case — re-running an identical model
@@ -537,7 +537,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // will work.
   FACTOR_EVPPI_UNAVAILABLE: () => ({
     title:
-      'Olumi couldn\'t rank what\'s most worth learning next for this run. Your results stand; re-run — if it repeats, this ranking can\'t be produced for this model.',
+      'Olumi couldn\'t rank what\'s most worth learning next for this run. Your results stand; re-run. If it repeats, this ranking can\'t be produced for this model.',
     description:
       'The per-factor value-of-information estimator failed and the ranking was omitted rather than shown with unreliable ordering.',
   }),
@@ -556,7 +556,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // Reason: compute_error. Same posture as FACTOR_EVPPI_UNAVAILABLE.
   FACTOR_EVPC_UNAVAILABLE: () => ({
     title:
-      'How much it would be worth being able to control each factor wasn\'t computed. Your results stand; re-run — if it repeats, this model can\'t produce it.',
+      'How much it would be worth being able to control each factor wasn\'t computed. Your results stand; re-run. If it repeats, this model can\'t produce it.',
     description:
       'Value-of-control estimation failed and was omitted rather than shown as an unreliable number.',
   }),
@@ -574,7 +574,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     title:
       'One of your success targets couldn\'t be compared with where its factor stands today, so its goal-fit was withheld rather than guessed. State that factor\'s current level.',
     description:
-      'The target could not be resolved into its factor\'s measurement frame — for example when no current level is recorded for it.',
+      'The target could not be resolved into its factor\'s measurement frame, for example when no current level is recorded for it.',
     suggestion: 'State the current level for that factor',
   }),
   CONSTRAINT_FRAME_UNSPECIFIED: () => ({
@@ -624,41 +624,41 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
 
   RANGE_OPEN_ENDED: () => ({
     title:
-      'A range you stated has only one end, which doesn\'t pin down a distribution — the value is still used as you confirmed it. State both ends.',
+      'A range you stated has only one end, which doesn\'t pin down a distribution. The value is still used as you confirmed it. State both ends.',
     description:
       'Open-ended statements ("at least X" / "no more than X") plus a coverage do not determine a distribution, so no distribution was fitted.',
     suggestion: 'State both ends of the range',
   }),
   RANGE_INVALID_ORDER: () => ({
     title:
-      'A range you stated runs from high to low, so it wasn\'t used — the value is still used as you confirmed it. Restate it lowest first.',
+      'A range you stated runs from high to low, so it wasn\'t used. The value is still used as you confirmed it. Restate it lowest first.',
     description:
       'The bounds are never silently swapped: order is part of what was said, and an inverted range is more likely a slip worth seeing than a convention to normalise.',
     suggestion: 'Restate the range with the lower bound first',
   }),
   RANGE_ZERO_WIDTH: () => ({
     title:
-      'A range you stated has the same number at both ends, so there\'s no uncertainty to fit — the value is still used as you confirmed it. Give it some width, or leave it as a single value.',
+      'A range you stated has the same number at both ends, so there\'s no uncertainty to fit. The value is still used as you confirmed it. Give it some width, or leave it as a single value.',
     description:
       'A zero-width range asserts a certainty this method cannot represent; a single confirmed value is the way to express that.',
     suggestion: 'Give the range some width, or leave the value as confirmed',
   }),
   RANGE_NON_FINITE: () => ({
     title:
-      'A range you stated isn\'t a pair of finite numbers, so it wasn\'t used — the value is still used as you confirmed it. Restate it with two numbers.',
+      'A range you stated isn\'t a pair of finite numbers, so it wasn\'t used. The value is still used as you confirmed it. Restate it with two numbers.',
     description: 'Range bounds must both be finite numbers; they are never silently skipped.',
     suggestion: 'Restate the range with two finite numbers',
   }),
   RANGE_OUT_OF_DOMAIN: () => ({
     title:
-      'A range you stated falls outside what that quantity can be, so it wasn\'t used — the value is still used as you confirmed it. Restate it within the factor\'s range.',
+      'A range you stated falls outside what that quantity can be, so it wasn\'t used. The value is still used as you confirmed it. Restate it within the factor\'s range.',
     description:
       'The stated bounds lie outside the quantity\'s declared domain. They are never clamped, because clamping would invent a different range from the one you stated.',
     suggestion: 'Restate the range within the quantity\'s domain',
   }),
   RANGE_AT_DOMAIN_EDGE: () => ({
     title:
-      'A range you stated sits exactly on the edge of what that quantity can be, which no distribution can fit — the value is still used as you confirmed it. Move the bound just inside.',
+      'A range you stated sits exactly on the edge of what that quantity can be, which no distribution can fit. The value is still used as you confirmed it. Move the bound just inside.',
     description:
       'No distribution in this family can place a quartile exactly at the edge of its support. Bounds very close to the edge are legitimate and are fitted normally.',
     suggestion: 'Move the bound just inside the edge',
@@ -667,7 +667,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // user stated, so the route is about the range, not about re-running.
   RANGE_FIT_NONCONVERGENT: () => ({
     title:
-      'Olumi couldn\'t fit a distribution to one of the ranges you stated — the value is still used as you confirmed it. Try slightly wider bounds.',
+      'Olumi couldn\'t fit a distribution to one of the ranges you stated. The value is still used as you confirmed it. Try slightly wider bounds.',
     description:
       'The fit did not converge for this range. No fallback distribution is invented, because a minted distribution wearing real provenance would be worse than none.',
     suggestion: 'Try slightly wider bounds',
@@ -686,8 +686,8 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // the store resolves the name. Unresolved, this is byte-identical to before.
   ROOT_NODE_DEFAULT_VALUE: (label, genuine) => ({
     title: genuine
-      ? `${label} has no current value recorded, so zero was assumed — anything downstream of it may be unreliable. Add its current value.`
-      : 'A starting factor has no current value recorded, so zero was assumed — anything downstream of it may be unreliable. Add its current value.',
+      ? `${label} has no current value recorded, so zero was assumed. Anything downstream of it may be unreliable. Add its current value.`
+      : 'A starting factor has no current value recorded, so zero was assumed. Anything downstream of it may be unreliable. Add its current value.',
     description:
       'The producer defaults an unspecified root value to 0.0 and says so rather than hiding it. Results for downstream factors inherit that assumption.',
     suggestion: genuine
@@ -705,7 +705,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // still a route: it tells the reader what to do with what they are seeing.
   CONSTRAINT_SAMPLES_UNNOISED: () => ({
     title:
-      'Some success-target factors didn\'t get the extra real-world variation applied to your goal, so their probabilities reflect model variation only — read them as more confident than they are.',
+      'Some success-target factors didn\'t get the extra real-world variation applied to your goal, so their probabilities reflect model variation only. Read them as more confident than they are.',
     description:
       'Auto-scaled noise was applied to the goal samples but not to these constraint samples, so the two are not on the same footing.',
   }),
@@ -720,7 +720,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // reader to stop looking for something to fix.
   GOAL_PU_BASE_ADDITIVE: () => ({
     title:
-      'Your goal\'s own uncertainty is added on top of what the factors feeding it contribute, rather than replacing it — this is how its range is built, and no action is needed.',
+      'Your goal\'s own uncertainty is added on top of what the factors feeding it contribute, rather than replacing it. This is how its range is built, and no action is needed.',
     description:
       'Each sample draws a base from the goal\'s own distribution and adds the parents\' propagated contribution. The goal is shifted by that base, not pinned to it.',
   }),
@@ -970,7 +970,7 @@ export function humaniseCritique(
   return {
     title: 'Part of this analysis was limited',
     description:
-      'Olumi\'s engine reported a condition this version has no wording for yet. Nothing has been hidden — the raw code is listed in the run\'s audit details.',
+      'Olumi\'s engine reported a condition this version has no wording for yet. Nothing has been hidden. The raw code is listed in the run\'s audit details.',
     displayText: null,
     factorId,
   }
