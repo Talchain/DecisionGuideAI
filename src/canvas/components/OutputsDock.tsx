@@ -634,18 +634,32 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     // ⚠ SCOPED TO 'olumi' DELIBERATELY, and the wider version cost a measured
     // regression. Clearing the rail on ANY forced activation looks equivalent —
     // both are "programmatic navigation that has decided to front the dock" —
-    // but `FirstUseComposer` calls `forceActivateOutputTab('results')` on the
-    // 0→N draft transition, which bumps the same counter. The rail was
-    // therefore cleared by the draft itself, the dock re-claimed its full width
-    // with no analysis in it, and the post-draft fit went straight back to the
-    // clamped 843px this lane exists to fix — the class-8 change silently
-    // undoing the coexistence change, on the one journey both were written for.
-    // Caught only by re-running the browser measurement on the final tip.
+    // but a forced 'results' activation on the 0→N draft transition bumps the
+    // same counter. The rail would therefore be cleared by the draft itself, the
+    // dock would re-claim its full width with no analysis in it, and the
+    // post-draft fit went straight back to the clamped 843px that lane existed
+    // to fix — the class-8 change silently undoing the coexistence change, on
+    // the one journey both were written for. Caught only by re-running the
+    // browser measurement on the final tip.
     //
     // The two are different questions (trap 21): "reveal the Olumi thread"
     // legitimately claims the dock; "the draft landed, front Analysis" does not.
     // A run start clears the rail through its own effect, so nothing else needs
     // this.
+    //
+    // ⚠⚠ THE EXAMPLE ABOVE IS NOW HISTORICAL — UPDATED 10 Sep 2026, IN THE SAME
+    // COMMIT THAT CHANGED IT. This comment used to assert, in the present tense,
+    // that "`FirstUseComposer` calls `forceActivateOutputTab('results')` on the
+    // 0→N draft transition". IT NO LONGER DOES: per Paul ("on initial model
+    // generation, the AI chat panel should be displayed first") that transition
+    // now forces **'olumi'**, so it takes the rail-ending branch below BY
+    // DESIGN — it is the "reveal the Olumi thread" case, not the "front
+    // Analysis" case. The scoping rule and its reasoning are UNCHANGED and
+    // still load-bearing; only the cited caller moved. Left in place rather
+    // than deleted because the 843px regression is real and the next lane
+    // widening this predicate needs to know why it is narrow — but a comment
+    // left asserting the old call site in the present tense is exactly how that
+    // call site gets re-introduced.
     if (forcedActivationEndsRail(versionChanged, resolvedTab)) {
       userExplicitlyOpenedRailRef.current = true
     }

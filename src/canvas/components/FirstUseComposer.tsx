@@ -200,10 +200,38 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
   }, [nodeCount, openFloating])
 
   // Auto-reposition on 0 → N+ transition (the legitimate first graph being
-  // drafted from the user's brief). Replaces the previous auto-close: per
-  // the brief, AI must remain visible alongside Analysis. The floating
-  // panel slides to a bottom-right anchor; the right-hand dock activates
-  // its Analysis tab; the "Model drafted. Review readiness." receipt fires.
+  // drafted from the user's brief). The floating panel slides to a bottom-right
+  // anchor and minimises; the right-hand dock activates its OLUMI tab, which is
+  // what puts the chat in front of the user.
+  //
+  // ⭐⭐ THE DOCK ACTIVATES 'olumi', NOT 'results' (Paul, 10 Sep 2026: "on
+  // initial model generation, the AI chat panel should be displayed first").
+  //
+  // This comment used to read "per the brief, AI must remain visible alongside
+  // Analysis" — an ASPIRATION that the deployed product did not meet. Measured
+  // on served build `65ef96d0`, fresh guest, 1440x900, sampled across the
+  // 0 → 18-node transition:
+  //
+  //   - dock 416x872 at (1012, 12) with ANALYSIS active;
+  //   - the Olumi tab NEVER selected at any sample;
+  //   - the only AI surface on screen `floating-olumi-panel-pill`
+  //     ("Restore Olumi"), 68x25 px — 0.13% of the viewport;
+  //   - `chat-thread` + `chat-message-*` PRESENT with CORRECT CONTENT, all 0x0.
+  //
+  // The 0x0 is the mechanism, and it is why this is a one-line fix rather than
+  // new UI. `olumi-tab-wrapper` is mounted unconditionally under `aiPanelV2On`
+  // and carries `hidden` + `aria-hidden` while another tab is active. The chat
+  // was never absent and never merely "in a corner": it was a fully-populated
+  // transcript held at zero height by an active-tab mismatch. Activating the
+  // tab the transcript already lives in un-hides nodes that are ALREADY THERE.
+  //
+  // ⚠ AND IT DOES NOT COST THE GRAPH ANY WIDTH. The dock is already open at
+  // 416px at this transition (measured above) because `shouldRenderFirstUseRail`
+  // is false once graph content exists — so this changes WHICH TAB renders
+  // inside an already-open dock, not whether the dock takes space. The R3
+  // legibility ruling (16 Aug) that motivated the minimise below is about the
+  // FLOATING panel, which OVERLAYS the canvas; the dock INSETS it. Those are
+  // different harms and this only touches the second surface's tab.
   useEffect(() => {
     const prev = repositionPrevNodeCountRef.current
     repositionPrevNodeCountRef.current = nodeCount
@@ -213,13 +241,55 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
     if (!userSentFromFirstUseRef.current) return // hydration/import guard
 
     const performReposition = () => {
-      // Activate Analysis tab so the user sees readiness guidance next to
-      // the floating AI panel. forceActivateOutputTab bumps the version
-      // counter so the dock syncs even when global tab was already 'results'.
-      useUIStore.getState().forceActivateOutputTab('results')
+      // Claim the dock for the CHAT. `forceActivateOutputTab` does more than
+      // switch a tab (see its use in `revealOlumi.ts`): the version counter is
+      // what opens a collapsed dock, and `forcedActivationEndsRail` — scoped to
+      // 'olumi' deliberately in `OutputsDock` — is what ends the first-use rail
+      // so the dock opens to its full width rather than leaving the tab
+      // "selected" behind a 40px rail. That is what makes the chat DISPLAYED
+      // rather than merely selected.
+      //
+      // ⚠⚠ WHY NOT `revealOlumiSurface()`, THE CANONICAL REVEAL PRIMITIVE.
+      // I tried to route this through it and it is NOT reusable here — stating
+      // that explicitly because "use the canonical path" is the right default
+      // and the exception needs its reason on the record.
+      //
+      // `revealOlumiSurface()` opens with `if (focusFloating()) return true`,
+      // and `focusFloating()` reads a MODULE-LEVEL registration singleton
+      // (`useFloatingFocus.ts`) that surfaces add and remove in React EFFECTS.
+      // At this instant `FloatingOlumiPanel` is still mounted, still open and
+      // NOT yet minimised, so it is still registered — `revealWouldImposeFloating`
+      // cannot have deregistered it yet, because that requires a re-render.
+      // So the helper would take its FLOATING branch, front the 400x550 window
+      // OVER the freshly-drafted graph, and never touch the dock: the exact
+      // occlusion harm R3 (16 Aug) and UX gate 7a were written to stop.
+      // Ordering `minimise()` first does not fix it — the deregistration is
+      // still a frame away, so the helper would still read the stale
+      // registration inside this same synchronous block.
+      //
+      // The two calls answer DIFFERENT QUESTIONS (platform trap 21, and naming
+      // them apart is the sanctioned move, not reconciling them):
+      // `revealOlumiSurface()` asks "where has the user left Olumi — reveal
+      // THAT"; this transition asks "the first model just landed, put the chat
+      // in front". This composer is DECIDING the surface, not discovering it.
+      // So it uses the same DOCK-PATH VERB the helper's own dock branch uses
+      // (`forceActivateOutputTab('olumi')`, revealOlumi.ts:122) and reaches the
+      // identical end state deliberately, instead of defeating the helper's
+      // guard with a timing hack. This is not a second copy of the reveal RULE;
+      // `ReactFlowGraph`'s Dock-back action calls the same verb the same way.
+      useUIStore.getState().forceActivateOutputTab('olumi')
 
-      // 3-second "Model drafted. Review readiness." banner at the top of
-      // the Analysis tab. Self-clears via the store's internal timer.
+      // 3-second "Model drafted." receipt. Self-clears via the store's timer.
+      //
+      // ⚠ SCOPE OF ITS VISIBILITY HAS NARROWED AND IS DELIBERATELY NOT WIDENED
+      // HERE. The receipt renders only under `effectiveActiveTab === 'results'`
+      // in `OutputsDock`, so on this path the user now sees it only if they
+      // visit Analysis inside the 3s window. It is left firing rather than
+      // removed because on the new landing surface the TRANSCRIPT ITSELF is the
+      // "your model was drafted" signal — the assistant's reply is on screen,
+      // which is strictly more informative than the banner — and because adding
+      // a second render site would mean editing OutputsDock's tab bodies, which
+      // PR #1403 is concurrently changing. Named here rather than left silent.
       useTransitionReceipt.getState().show('model-drafted', 3000)
 
       // Compute the bottom-right anchor near the Analysis dock. Anchor is
@@ -270,6 +340,22 @@ export const FirstUseComposer = memo(function FirstUseComposer({ showStarters = 
       // this PANEL anchor and landing mid-canvas) is fixed at the pill itself,
       // which now docks to the bottom-right corner derived from live geometry.
       // See computePillDockPosition in FloatingOlumiPanel.
+      //
+      // ⭐ RETAINED, AND ITS JOB HAS CHANGED (10 Sep 2026). With the dock now
+      // activating 'olumi' above, `dockHostsOlumi` becomes true on the next
+      // render and `OutputsDock`'s own close-effect calls `close()` on this
+      // panel — so on the live flag posture the pill does not survive at all
+      // (measured end state in `useFloatingPanelState`'s header:
+      // `pillPresent=false, panelPresent=false`). The chat ends up in the dock,
+      // full height, and there is exactly ONE composer — which is the whole
+      // point of the change.
+      //
+      // It stays because it is the FLAG-OFF FALLBACK, and that posture must not
+      // regress. With `aiPanelV2` off, `OutputsDock`'s E1 sync resolves an
+      // 'olumi' request back to 'results', nothing hosts the docked chat, and
+      // without this call the floating panel would stay OPEN at 400x550 over
+      // the new graph — a regression on the rollback path, invisible on the
+      // live one. Keeping it makes flag-off behaviour byte-identical to today.
       useFloatingPanelState.getState().minimise()
     }
     if (prefersReducedMotion) {
