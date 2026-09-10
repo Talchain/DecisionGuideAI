@@ -108,15 +108,30 @@ describe('the provenance key', () => {
   })
 
   /**
-   * ⚠ THE ⚠ IS NOT A PROVENANCE CLAIM. `vocabulary.ts` is explicit that a
-   * surface rendering it as a whose-value-is-this badge is reading it wrong, so
-   * the key must say what it IS and must not list it among the kinds.
+   * ⚠ THE ATTENTION MARK IS NOT A PROVENANCE CLAIM. `vocabulary.ts` is explicit
+   * that a surface rendering it as a whose-value-is-this badge is reading it
+   * wrong, so the key must say what it IS and must not list it among the kinds.
+   *
+   * ⚠ THE FIRST ASSERTION'S PROXY CHANGED ON 10 Sep 2026, AND THE GUARANTEE DID
+   * NOT. It used to be `toHaveTextContent('still needs checking')` — a phrase from
+   * a sentence that was itself false: it described a bare `⚠` the rows had stopped
+   * drawing (they render lucide components from `ATTENTION_MARK`), and it named the
+   * wrong meaning for the one mark that resembles it (`fragile` = 'Could flip the
+   * result', not "needs checking"). The legend now describes the marks actually
+   * drawn, so the proxy binds to the clause that carries THIS test's point — the
+   * attention/provenance distinction — rather than to the part that was wrong.
+   * The sentence itself is pinned exactly in
+   * `theTabDoesNotPromiseWhatItCannotDo.spec.tsx`.
+   *
+   * The second assertion is the structural half and is unchanged: whatever the
+   * key says about attention, it must not add it to the kind register.
    */
-  it('keeps the ⚠ out of the provenance vocabulary', () => {
+  it('keeps the attention mark out of the provenance vocabulary', () => {
     render(<ValueProvenanceKey />)
     fireEvent.click(screen.getByTestId('model-tab-v2-provenance-key-toggle'))
     const key = screen.getByTestId('model-tab-v2-provenance-key')
-    expect(key).toHaveTextContent('still needs checking')
+    expect(key).toHaveTextContent('a separate question from where its value came from')
+    // And it is not smuggled in as an eighth kind.
     expect(key.querySelectorAll('[data-provenance-kind]').length).toBe(ALL_KINDS.length)
   })
 })
