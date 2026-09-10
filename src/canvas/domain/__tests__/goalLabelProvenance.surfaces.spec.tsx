@@ -2,11 +2,22 @@
  * The OTHER two surfaces that print the goal label: the canvas goal node and
  * the Model outline row.
  *
- * Both consume the SAME predicate and the SAME copy as the Analysis Goal field
- * (`domain/goalLabelProvenance`). This file exists to stop them drifting into
- * three different claims about one node, and every assertion binds by node ID
- * or by the shared testid — never by the label string, which is the thing under
- * change.
+ * The third is the pre-analysis hero's Goal field, pinned separately by
+ * `components/pre-analysis-v3/__tests__/theGoalFieldCanHonourItsOwnImperative`.
+ * ⚠ THAT SURFACE IS THE HERO, NOT THE ANALYSIS TAB, whatever it is called
+ * nearby: `goalLabelProvenance.honesty.spec.tsx:84` still heads its block "the
+ * mounted Analysis Goal field" while mounting `HeroSection`. No Analysis-tab
+ * surface consumes this claim at all. `src/components` holds zero references to
+ * `GOAL_LABEL_FROM_BRIEF_*`; every consumer sits under `src/canvas`.
+ *
+ * All three consume the SAME predicate and the SAME testid
+ * (`domain/goalLabelProvenance`). They do NOT share one sentence. The copy is
+ * split three ways, `canvasNodeNotice` / `heroNotice` / `modelRowNotice`, one
+ * per surface, because each names the writer it answers for. This file exists
+ * to stop them drifting into three different CLAIMS about one node, which is a
+ * different thing from three wordings of one claim. Every assertion binds by
+ * node ID or by the shared testid, never by the label string, which is the
+ * thing under change.
  *
  * Scope limit (trap 3): jsdom pins presence/absence only. Nothing here claims
  * anything about layout or visibility.

@@ -28,10 +28,25 @@
  * So `goalLabelIsUnconfirmedBriefExtract` goes false and the marker retires —
  * precisely what the notice promises. The imperative is TRUE here.
  *
- * ⚠ THIS FILE PINS THE CANVAS ALONE. The hero renders the same member today and
- * SHOULD NOT -- its goal field is a read-only span (`goalSuccessTarget:
- * 'disabled'`, a hardcoded constant, so posture-independent). Do not add an arm
- * asserting the two surfaces agree: it would RED on the hero's correct fix.
+ * ⚠ THIS FILE PINS THE CANVAS ALONE. The hero does not render this member.
+ * It binds `heroNotice`, this node binds `canvasNodeNotice`, and the Model tab
+ * row binds `modelRowNotice`: three distinct sentences, one per surface, each
+ * naming the writer that surface answers for. Do not add an arm asserting the
+ * two surfaces agree. They are meant to differ, so such an arm would RED on
+ * correct copy.
+ *
+ * ⚠⚠ AND THE HERO'S GOAL FIELD IS NOT A READ-ONLY SPAN. It is gated on
+ * `GOAL_LABEL_EDIT_CONNECTED` (`pre-analysis-v3/hero/HeroSection.tsx:87`), the
+ * conjunction of `CANONICAL_EDIT_AUTHORITY.canvasNodeRenameWithServerHash` and
+ * `.preAnalysisV3StructuralAdd`. Both operands read `'server_graph'`
+ * (`mutations/mutationAuthority.ts:62` and `:91`), so the field mounts a real
+ * writer and its own imperative is honest.
+ *
+ * ⛔ `goalSuccessTarget: 'disabled'` IS UNCHANGED (`mutationAuthority.ts:127`)
+ * AND IT NEVER GOVERNED THE GOAL LABEL. It governs the SUCCESS TARGET, the
+ * field BELOW the goal field, and it is correct about it. Two seats read it as
+ * the goal field's gate and each concluded the hero's imperative was dead. Read
+ * which operation a key names before inheriting its value.
  *
  * ⚠ WHY A SOURCE-READING ARM EXISTS BELOW. A value assertion cannot prove a
  * REFERENCE: it passes on a byte-identical copy of the sentence. If a later
