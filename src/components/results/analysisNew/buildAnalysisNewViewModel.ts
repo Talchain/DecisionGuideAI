@@ -42,7 +42,7 @@
  */
 
 import { truncateAtWordBoundary } from '../../../utils/text'
-import { leaderDesignationPermitted } from '../leaderDesignation'
+import { leaderDesignationPermitted, rankingWasWithheld } from '../leaderDesignation'
 import { licensesComparativeLeaderClaim } from '../../../canvas/hooks/useAnalysisReady'
 import {
   ASSUMED_STRENGTH_TITLE,
@@ -1869,8 +1869,66 @@ function buildAtAGlance(
     winPct && typeof winRaw === 'number' && Number.isFinite(winRaw)
       ? Math.max(0, Math.min(1, winRaw > 1 ? winRaw / 100 : winRaw))
       : null
+  /**
+   * ⭐⭐ THE REASON IS GATED ON THE LEADER ENTITLEMENT; THE GRADE IS NOT.
+   *
+   * ⚠ MEASURED ON THE DEPLOYED BUILD `73825428`, driving a real guest session.
+   * The producer's own authority said the claim was withheld —
+   * `producer_leader_permission: { permitted: false, withheld_reason:
+   * "leader_claim_withheld" }` — and the panel rendered, in the glance:
+   *
+   *   "none of the factors we could test changed WHICH OPTION LEADS on its own,
+   *    and this result mostly held up under the other changes we tested"
+   *
+   * while three sections below, on the same screen, "What we checked" correctly
+   * said *"Which option is most likely — not assessed"* and *"This run returned
+   * no comparison verdict, so any ordering you see is unconfirmed"*.
+   *
+   * One surface, one run, two answers — and the producer told us which one is
+   * right. This is the estate's most-repeated harm (a withheld leader
+   * reconstructed by a neighbouring sentence) reached through the one field on
+   * this block nobody had gated.
+   *
+   * ⚠⚠ THE GATE IS THE PERMISSION, NEVER THE WORDS. A predicate that suppressed
+   * sentences containing "leads" would be a vocabulary over natural language
+   * drawn from one author's head — the class this estate keeps getting wrong
+   * (trap 22), and it would break the moment CEE rephrases. `robustness_caveat`,
+   * this sentence's sibling, is ALREADY treated as a leader-ranking member and
+   * gated exactly this way on the parked tab. The asymmetry between the two was
+   * the defect, not the wording of either.
+   *
+   * ⚠ THE GRADE SURVIVES, DELIBERATELY. `tone` and `label` are a RUN-LEVEL
+   * robustness verdict, not a claim about any option, and #494 kept
+   * "Analysis complete (robust)" for that reason. Only the sentence that
+   * explains the verdict by reference to a ranking is withheld.
+   *
+   * ⚠ AND NOTHING LICENSED IS LOST FROM THE SCREEN. `checks.leaderMeaning`
+   * already states the honest version of this, is already licensed, and is
+   * already on the surface — which is also why a CAVEAT here would be a third
+   * restatement rather than a repair (`ModelHeldUp` records shipping exactly
+   * that mistake with this same field).
+   *
+   * Same call as the headline twenty lines up: `=== true`, because the
+   * predicate is three-valued and an `undefined` that coerces to "permitted" is
+   * the fail-OPEN default this seam has been burned by before.
+   */
+  /**
+   * ⚠ CORRECTED AFTER REVIEW: this was `leaderDesignationPermitted(rec) === true`,
+   * which is TOO WIDE. It withheld on an open strategic challenge — no options,
+   * no arms to separate, never a ranking to withhold — deleting the producer's
+   * licensed FACTOR-SENSITIVITY sentence ("Small changes in supplier lead time
+   * change which direction looks better."). Two harms cannot share one
+   * parameter; `rankingWasWithheld` asks whether a ranking EXISTED first.
+   */
+  const mayExplainByRanking = !rankingWasWithheld(rec)
   const verdictBlock = word
-    ? { tone: word.tone, label: word.label, ...(rec.robustnessVerdictReason ? { reason: rec.robustnessVerdictReason } : {}) }
+    ? {
+        tone: word.tone,
+        label: word.label,
+        ...(mayExplainByRanking && rec.robustnessVerdictReason
+          ? { reason: rec.robustnessVerdictReason }
+          : {}),
+      }
     : null
 
   // ⚠⚠ WHAT THE SURFACE ACTUALLY PUTS ON SCREEN, computed from the SAME fields

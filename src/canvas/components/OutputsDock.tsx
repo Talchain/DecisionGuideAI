@@ -178,6 +178,7 @@ import {
   derivePostFooterMeta,
   deriveRerunActionLabel,
 } from './utils/postAnalysisFooter'
+import { rankingWasWithheld } from '../../components/results/leaderDesignation'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
 import {
   selectAnalysisReadinessAuthority,
@@ -1879,9 +1880,27 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     // whose number was the leader's win probability rather than a robustness
     // verdict) is preserved in `./utils/postAnalysisFooter.ts`'s header.
     robustnessVerdict: resultsSectionData.recommendation.robustnessVerdict,
-    // Producer-owned reason phrase, rendered verbatim as the leading meta
-    // segment (never authored in the UI).
-    robustnessVerdictReason: resultsSectionData.recommendation.robustnessVerdictReason,
+    /**
+     * Producer-owned reason phrase, rendered verbatim as the leading meta
+     * segment (never authored in the UI).
+     *
+     * ⚠⚠ WITHHELD WHEN THE RUN WITHHELD ITS RANKING — the SECOND of three render
+     * sites for this sentence, and the reason the panel fix alone did not close
+     * the defect. Measured on deployed `73825428`: the producer said
+     * `producer_leader_permission: { permitted: false }` and this footer still
+     * read "…changed WHICH OPTION LEADS on its own", three sections below a
+     * panel that correctly said the leader was not assessed.
+     *
+     * ⚠ ONE PREDICATE, IMPORTED — never a second expression of it here. The
+     * glance gates on the same `rankingWasWithheld`, so the two cannot drift
+     * (the #709/#737 shape: two surfaces, one harm, a day apart).
+     *
+     * The third site is `TriageActionCardsBody.tsx:763`, on the PARKED Analysis
+     * tab, and is deliberately NOT changed here — reported rather than fixed.
+     */
+    robustnessVerdictReason: rankingWasWithheld(resultsSectionData.recommendation)
+      ? null
+      : resultsSectionData.recommendation.robustnessVerdictReason,
     reviewCards: resultsSectionData.confidence.topEvidenceGaps ?? resultsSectionData.confidence.evidenceGaps ?? [],
     // Only while the footer's Rerun is actually unpressable. While a run is in
     // flight the control is disabled for an obvious reason the label already

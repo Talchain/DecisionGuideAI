@@ -79,3 +79,93 @@ export function leaderDesignationPermitted(rec: {
   // conjuncts, so it may only ever WITHHOLD here — never license.
   return rec.verdict?.hasLeadingOption === false ? false : undefined
 }
+
+/**
+ * ⭐⭐ WAS A RANKING WITHHELD? — which is NOT the same question as "may a leader
+ * be named", and conflating them deleted a licensed sentence.
+ *
+ * ⚠ THIS EXISTS BECAUSE THE OBVIOUS PREDICATE IS TOO WIDE, and a reviewer caught
+ * it. Gating a surface on `leaderDesignationPermitted(rec) !== true` withholds on
+ * BOTH of these, which are different runs:
+ *
+ *   · a ranking existed and the producer refused to license it — WITHHELD, and
+ *     nothing may explain a verdict by reference to it;
+ *   · there was never a ranking at all (an open strategic challenge: no options,
+ *     no arms to separate) — in which case the producer's sentence is about
+ *     FACTOR SENSITIVITY, is fully licensed, and deleting it is a second harm.
+ *
+ * Measured: `openStrategicChallenge()` carries `allOptions: []`, no verdict, and
+ * the sentence *"Small changes in supplier lead time change which direction looks
+ * better."* A permission-only gate deletes it.
+ *
+ * ⚠⚠ TWO HARMS CANNOT SHARE ONE PARAMETER (CLAUDE.md trap 22b). A false positive
+ * that DROPS a licensed sentence and one that INVENTS a leader claim point in
+ * opposite directions; this predicate answers only the second, and asks about the
+ * EXISTENCE of a ranking first.
+ *
+ * ⚠ "A ranking existed" is TWO independent signals, either sufficient, because a
+ * payload may carry one without the other: two or more arms to separate, or an
+ * identified leader. `decisionVerdict.ts` states at the field that identity and
+ * entitlement are different questions — `leaderId` is the identity half, and it
+ * is exactly what a withheld run still carries (measured on deployed `73825428`:
+ * `leading_option_id` present beside `permitted: false`).
+ *
+ * Fail-closed is preserved where it matters: on a run that HAS a ranking, an
+ * authority that cannot answer (`undefined`) still withholds.
+ */
+export function rankingWasWithheld(
+  rec:
+    | {
+        leaderDesignationPermitted?: boolean
+        verdict?: { hasLeadingOption?: boolean; leaderId?: string | null }
+        allOptions?: unknown[]
+        rankedComparisonPopulation?: number
+      }
+    | null
+    | undefined,
+): boolean {
+  if (rec == null) return false
+  /**
+   * ⭐⭐ THE REPORT'S OWN POPULATION IS THE FIRST AND LOAD-BEARING SIGNAL, and it
+   * was missing. Review's schedule, reproduced at the bytes:
+   *
+   *   1. A completed TWO-option report is retained, carrying its ranking
+   *      explanation and an explicit `producer_leader_permission:{permitted:false}`.
+   *   2. The user deletes one option. `deleteNodeById` updates nodes and edges and
+   *      invalidates readiness — it does NOT erase the completed report.
+   *   3. `useResultsSectionData` rebuilds `allOptions` from the CURRENT option
+   *      nodes, and calls `deriveDecisionVerdict` with the visible ids.
+   *   4. `decisionVerdict.ts` filters by those ids and returns the NO-CLAIM verdict
+   *      at `comparable.length < 2` — BEFORE it ever reads the producer's
+   *      permission. So `leaderId` is null and `hasLeadingOption` is false.
+   *   5. Both original signals therefore say "no ranking existed", the function
+   *      returns false, and the retained report's ranking explanation RENDERS.
+   *
+   * An explicitly withheld ranking became speakable because a node disappeared —
+   * reachable after an ordinary graph edit, not an invented fixture.
+   *
+   * ⚠⚠ A PROJECTION CANNOT ANSWER A QUESTION ABOUT THE PAST. `allOptions` and
+   * `verdict` are rebuilt every render from the live graph, which is correct for
+   * "is there a leading option ON SCREEN?" and wrong for "did the RUN THAT WROTE
+   * THIS SENTENCE rank anything?". The second is a fact about the report, settled
+   * when the run completed, and no later edit may revise it.
+   *
+   * ⚠ THE TWO PROJECTION SIGNALS ARE KEPT, not replaced. They are additional
+   * SUFFICIENT conditions, so adding the report term only ever widens "a ranking
+   * existed" — i.e. only ever widens WITHHOLDING, the fail-closed direction. An
+   * open strategic challenge has no report population, no arms and no leader, so
+   * it still answers `false` and its licensed factor-sensitivity sentence still
+   * renders. Blocker 1's repair is preserved, which was the explicit instruction.
+   *
+   * ⚠ ABSENCE IS NOT ZERO. `rankedComparisonPopulation` is optional; a legacy
+   * fixture that omits it must fall through to the projection signals rather than
+   * be read as "this run was unranked", so the test is `>= 2` on a number and
+   * never `!== undefined`.
+   */
+  const reportRanked =
+    typeof rec.rankedComparisonPopulation === 'number' && rec.rankedComparisonPopulation >= 2
+  const arms = Array.isArray(rec.allOptions) ? rec.allOptions.length : 0
+  const aRankingExisted = reportRanked || arms >= 2 || rec.verdict?.leaderId != null
+  if (!aRankingExisted) return false
+  return leaderDesignationPermitted(rec) !== true
+}
