@@ -742,6 +742,23 @@ function RelationshipsSectionInner({
       icon={sectionIcon}
       badgeCount={causalEdges.length}
       tierLabel={tierLabel}
+      // ⚠⚠ THIS PILL LOST ITS TOOLTIP SILENTLY AND REVIEW CAUGHT IT. `Accordion`
+      // used to hardcode ONE sentence ("Based on the confidence levels of your
+      // key factors…") for whatever `tierLabel` any caller passed; that sentence
+      // was false here, so replacing it with a caller-supplied `tierTitle` was
+      // right. But only two of the three tier callers were given one, and this
+      // was the third — so a figure that HAD an explanation, wrong though it
+      // was, ended up with none and no reason recorded. Complete manifest, swept
+      // at this head: `tierLabel` + `tierVariant` are passed by exactly three
+      // callers (FactorsSection, ModelHealthSection, this one) and `tierTitle`
+      // by two.
+      //
+      // Worded from this file's OWN vocabulary rather than invented: `fragile`
+      // reuses the per-edge pill's "sensitive to assumption changes", and
+      // `contested` is `validation.status === 'contested' && user_action ===
+      // 'pending'` — two validation passes disagreed and it is waiting on the
+      // user. The label is built from those two counts and nothing else.
+      tierTitle="Relationships needing a look: contested means two validation passes disagreed and it is waiting on you; fragile means it is sensitive to assumption changes."
       tierVariant={fragileEdgeIds.size > 0 ? 'needs_work' : pendingCount > 0 ? 'fair' : undefined}
       defaultExpanded={false}
       isExpanded={isExpanded}

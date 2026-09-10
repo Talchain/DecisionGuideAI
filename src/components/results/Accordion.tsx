@@ -35,6 +35,20 @@ export interface AccordionProps {
   tierLabel?: string
   /** v7.10 T6: Tier variant for pill colour */
   tierVariant?: 'strong' | 'fair' | 'needs_work'
+  /**
+   * ⚠ THE EXPLANATION MUST COME FROM THE CALLER, BECAUSE THE PILL DOES NOT MEAN
+   * ONE THING. This component had a single hardcoded tooltip — *"Based on the
+   * confidence levels of your key factors"* — attached to WHATEVER `tierLabel`
+   * any caller passed. Three callers pass three different quantities:
+   * `FactorsSection` "N to verify", `RelationshipsSection` "X · Y",
+   * `ModelHealthSection` CEE's `quality.overall`. All three got the confidence
+   * sentence, so two of the three explained the number by something it is not —
+   * and on the model measured here every factor's `confidence` is `null`, so it
+   * explained it by a field that is empty everywhere.
+   *
+   * A shared component may not author the meaning of a caller's number.
+   */
+  tierTitle?: string
   /** Whether section starts expanded (uncontrolled mode) */
   defaultExpanded?: boolean
   /** Controlled expansion state - when provided, component becomes controlled */
@@ -76,6 +90,7 @@ export function Accordion({
   badgeVariant = 'default',
   tierLabel,
   tierVariant,
+  tierTitle,
   defaultExpanded = false,
   isExpanded: controlledExpanded,
   onExpandChange,
@@ -180,7 +195,7 @@ export function Accordion({
               {tierLabel && tierVariant && (
                 <span
                   className={`${typography.panelMeta} ml-auto px-2 py-0.5 rounded-full ${tierVariants[tierVariant]}`}
-                  title="Based on the confidence levels of your key factors. Improve by gathering data on low-confidence drivers."
+                  title={tierTitle}
                 >
                   {tierLabel}
                 </span>

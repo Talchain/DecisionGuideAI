@@ -218,14 +218,24 @@ describe('StatusBar — the "{N}% stability" segment cannot render', () => {
 // ───────────────────────────────────────────────────────────────────────────
 describe('ModelHealthSection — neither header nor audit row can render a stability %', () => {
   it('header summary carries the quality score and NO stability percentage, with the field injected', () => {
+    // ⚠ EXPERT TIER: the header figures moved behind the expert toggle (Paul,
+    // 9 Sep 2026), so plain renders no pill and this injection test needs the
+    // tier that has one. What it proves is unchanged — with the legacy field
+    // INJECTED, the header still cannot render a percentage.
     render(
-      <ModelHealthSection
-        auditTrail={withRemoved(BASE_AUDIT, { recommendationStability: LEGACY_STABILITY })}
-        ceeQuality={{ overall: 7.2, structure: 8, causality: 6.5, coverage: 7, safety: 7.5 }}
-      />,
+      <DetailToggleContext.Provider value={{ showDetail: true }}>
+        <ModelHealthSection
+          auditTrail={withRemoved(BASE_AUDIT, { recommendationStability: LEGACY_STABILITY })}
+          ceeQuality={{ overall: 7.2, structure: 8, causality: 6.5, coverage: 7, safety: 7.5 }}
+        />
+      </DetailToggleContext.Provider>,
     )
     const tierLabel = screen.getByTestId('accordion-tier-label')
-    // POSITIVE CONTROL: the header summary exists and still says something.
+    // POSITIVE CONTROL: the header pill exists and still says something.
+    // ⚠ Back on `overall` — see the sibling note in `ModelHealthSection.spec.tsx`.
+    // This briefly read `'coverage 7'` to match a header that had replaced
+    // `overall` with its three dimensions; that was a control following a
+    // regression rather than catching it.
     expect(tierLabel).toHaveTextContent('7.2 / 10')
     expect(tierLabel.textContent ?? '').not.toMatch(PCT_STABILITY)
     expect(tierLabel.textContent ?? '').not.toContain(`${LEGACY_PCT}%`)
