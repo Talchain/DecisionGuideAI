@@ -288,6 +288,49 @@ export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
 export const INSPECTOR_FACTOR_EXTERNAL_REASON =
   'The name and the range save to the shared model. Other edits here are not sent yet. Links, details and coaching still work.'
 
+/**
+ * ⭐⭐ THE EDGE PANEL, once the blanket fence came off it.
+ *
+ * What saves here: the LINK STRENGTH. `setStrength` emits `edge_strength_edit`,
+ * the contract member CEE has consumed since schemas 0.42.0, dispatched at
+ * `system-events/dispatch.ts` and routed through the canonical
+ * `adjust_edge_strength` handler. The direction rides with it when the user
+ * drags the SIGNED slider, because stating a sign IS stating a direction.
+ *
+ * ⚠ IT NAMES THE STRENGTH AND NOTHING ELSE, DELIBERATELY. `setExistsProbability`
+ * and `setStd` perform a local `updateEdge` and emit nothing at all, and
+ * `setLabel` likewise — all three stay fenced inside the panel. Naming them as
+ * THE exceptions would be false the moment a fourth is added, which is the same
+ * reasoning the external-factor string above records.
+ *
+ * ⚠ AND IT PROMISES NO PER-RUN OUTCOME. Whether CEE's `graphCas.rpcEnforce`
+ * posture lets the write land in `scenarios.graph` or answers a typed
+ * `edge_strength_edit_reader_only` refusal is, in CEE's own words, "UNOBSERVABLE
+ * FROM ANY CLIENT by construction". Under BOTH postures this sentence is true:
+ * the edit is sent, and a refusal arrives as a message the user can read rather
+ * than as silence. What was false before was the control moving with nothing
+ * leaving the browser at all.
+ */
+export const INSPECTOR_EDGE_REASON =
+  'The link strength saves to the shared model. Other edits here are not sent yet. Labels, details and coaching still work.'
+
+/**
+ * ⛔ THE SAME PANEL, FOR AN EDGE WHOSE STRENGTH CANNOT BE ASSERTED.
+ *
+ * `buildEdgeStrengthEditEvent` refuses to build an event for an edge with no
+ * strength anybody set: the wire event carries an `expected` tuple, and there is
+ * nothing truthful to put in it. `edgeStrengthEditIsAssertable` asks the builder
+ * that question rather than re-deriving it, and it FAILS CLOSED.
+ *
+ * On those edges the strength control stays fenced and this sentence explains
+ * why, rather than the panel offering a slider whose write returns
+ * `not_wire_encodable` and stops before the wire — which is the silent lie this
+ * whole change exists to end, and it would be worse for having a fresh coat of
+ * paint on it.
+ */
+export const INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON =
+  'This connection has no strength on record for the model to check a change against, so edits here are not sent yet. Ask Olumi to set its strength. Labels, details and coaching still work.'
+
 // ─── Node mutations ────────────────────────────────────────────────
 export function useNodeMutations(nodeId: string) {
   const updateNode = useCanvasStore(s => s.updateNode)
