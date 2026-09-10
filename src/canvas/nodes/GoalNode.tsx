@@ -670,8 +670,36 @@ export const GoalNode = memo((props: NodeProps) => {
             CEE's objective derivation refused, so the canvas is showing a
             stated FACT where a goal belongs. A MARKER, not a second
             affordance: per L-47 the canvas signals and the detail lives one
-            hover away, and the single place to act is the Analysis tab's Goal
-            field. Editing there stamps `user_set` and this disappears. */}
+            hover away.
+
+            ⚠⚠ CORRECTED 10 Sep 2026, BY DERIVATION. This comment used to say
+            "the single place to act is the Analysis tab's Goal field". That is
+            FALSE, and it was the reason the notice's imperative was twice
+            suspected of being a dead instruction on this surface. The goal
+            label is editable FROM THIS NODE, and by the shortest path in the
+            product:
+
+              GoalNode click        → ReactFlowGraph `handleNodeClick` (:1343)
+                                      → setShowFullInspector(true)
+              GoalNode double-click → `handleNodeDoubleClick` → requestNodeRename
+                                      → the shell opens WITH THE TITLE IN EDIT
+              InspectorShell header → `EditableLabel onSave={onLabelChange}`
+              InspectorRouter       → `store.updateNodeLabel` (NOT `setLabel`)
+              store.ts:3137         → `provenanceAfterHumanAuthoredLabel(kind)`
+                                      returns 'user_set' when kind === 'goal'
+
+            So `goalLabelIsUnconfirmedBriefExtract` goes false and this marker
+            retires — which is exactly what the notice promises. The imperative
+            is TRUE here, so this surface keeps the full `notice` sentence.
+            `provenanceAfterHumanAuthoredLabel` stamps for the goal kind ALONE;
+            it exists for this case.
+
+            ⚠ Do not move this surface to a no-writer variant of the copy on the
+            strength of a sweep of `model-tab-v2/` or of this directory. The
+            writer is not in this file and never was — it is in the inspector,
+            one store call away, and a sweep scoped to the rendering directory
+            returns the same clean zero as a sweep that looked and found
+            nothing. */}
         {goalLabelIsUnconfirmedBriefExtract(
           props.data as { provenance?: unknown } | undefined,
         ) && (
