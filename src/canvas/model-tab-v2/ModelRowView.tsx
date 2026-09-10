@@ -535,13 +535,22 @@ export function ModelRowView({
       </button>
 
       {/* The label is the user's own sentence lifted from the brief, not an
-          objective. Same claim, same copy and same predicate as the canvas
-          node and the Analysis Goal field — the outline states it, and the one
-          place to act stays the Analysis tab. */}
+          objective. Same claim and same PREDICATE as the canvas node and the
+          pre-analysis hero.
+
+          ⚠ NOT the same COPY any more, and the divergence is deliberate. This
+          comment said "the one place to act stays the Analysis tab"; that
+          surface's goal field is read-only by a hardcoded ruling, and this
+          surface has no goal-LABEL writer either — `ModelTabV2Panel`'s
+          `editConnectedIds` admits the goal node for its minimum TARGET only
+          (`modelGoalMinimumTarget`). The one place that writes a goal label is
+          the CANVAS GOAL NODE, and `modelRowNotice` names it. A shared sentence
+          across surfaces with different writers is a promise that is false
+          somewhere, and it was false here. */}
       {row.labelFromBrief === true && (
         <span
           data-testid={GOAL_LABEL_FROM_BRIEF_TESTID}
-          title={GOAL_LABEL_FROM_BRIEF_COPY.notice}
+          title={GOAL_LABEL_FROM_BRIEF_COPY.modelRowNotice}
           className={`${typography.panelMeta} text-text-light whitespace-nowrap shrink-0`}
         >
           {GOAL_LABEL_FROM_BRIEF_COPY.pill}

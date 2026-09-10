@@ -690,9 +690,21 @@ export const GoalNode = memo((props: NodeProps) => {
 
             So `goalLabelIsUnconfirmedBriefExtract` goes false and this marker
             retires — which is exactly what the notice promises. The imperative
-            is TRUE here, so this surface keeps the full `notice` sentence.
+            is TRUE here, so this surface carries an imperative-BEARING sentence:
+            `canvasNodeNotice`, which names the double-click that does it.
             `provenanceAfterHumanAuthoredLabel` stamps for the goal kind ALONE;
             it exists for this case.
+
+            ⚠ THE SINGLE `notice` MEMBER IS GONE, AND ITS REPLACEMENT IS NOT A
+            RESPELLING. Three surfaces render this claim and they no longer
+            share one sentence, because they no longer share one writer: this
+            node double-clicks, the pre-analysis hero edits its own Goal field
+            in place (its writer landed separately, keyed on
+            `canvasNodeRenameWithServerHash` + `preAnalysisV3StructuralAdd`),
+            and the Model tab row hosts no goal-LABEL writer at all. Each binds
+            the member named for it. Do NOT collapse them, and do NOT write a
+            test pinning two surfaces to AGREEMENT — such a test REDs on
+            whichever surface is corrected first.
 
             ⚠ Do not move this surface to a no-writer variant of the copy on the
             strength of a sweep of `model-tab-v2/` or of this directory. The
@@ -705,7 +717,7 @@ export const GoalNode = memo((props: NodeProps) => {
         ) && (
           <span
             data-testid={GOAL_LABEL_FROM_BRIEF_TESTID}
-            title={GOAL_LABEL_FROM_BRIEF_COPY.notice}
+            title={GOAL_LABEL_FROM_BRIEF_COPY.canvasNodeNotice}
             className={`mt-1 inline-flex items-center rounded-full border border-info/40 bg-info/10 px-1.5 py-0.5 ${typography.edgeLabel} text-text-light`}
           >
             {GOAL_LABEL_FROM_BRIEF_COPY.pill}

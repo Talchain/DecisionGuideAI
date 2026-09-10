@@ -59,9 +59,19 @@ vi.mock('../../../../v5/v5Adapter', async importOriginal => ({
   callV5Turn: vi.fn(() => new Promise(() => {})),
 }))
 
-/** The exact sentence the notice must render, as a literal. */
+/**
+ * The exact sentence the notice must render, as a literal.
+ *
+ * ⚠ REPOINTED. This was the single `GOAL_LABEL_FROM_BRIEF_COPY.notice` member,
+ * which served three surfaces at once. It is now `heroNotice`, the member this
+ * surface owns, and its imperative NAMES THE FIELD rather than saying a bare
+ * "Edit it" — which is what this spec's own subject made possible. Held as a
+ * literal ON PURPOSE: asserting through the constant under test would pass on
+ * any future copy change, including one that removed the imperative again.
+ * (The em dash also went, per the standing no-em-dash ruling.)
+ */
 const NOTICE =
-  'Taken from your brief — not yet confirmed as your goal. Edit it to say what you want to achieve.'
+  'Taken from your brief. You have not confirmed it as your goal yet. Edit the Goal field above to say what you want to achieve.'
 
 /** The exact sentence the success field's authority note must render. */
 const SUCCESS_NOTE =

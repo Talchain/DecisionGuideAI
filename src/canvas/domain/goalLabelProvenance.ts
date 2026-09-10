@@ -73,18 +73,60 @@ import { classifyNodeProvenance } from './valueProvenance'
 export const GOAL_LABEL_FROM_BRIEF_TESTID = 'pre-analysis-v3-goal-from-brief'
 
 /**
- * The one sentence. Held here rather than in a per-surface copy file so the
- * three surfaces that render it cannot drift into three different claims.
+ * The claim, and the act that answers it, PER SURFACE.
  *
- * It states the PROVENANCE and hands over the pen. It does not guess what the
- * user meant, does not rank the goal, and does not apologise — the extract may
- * well be right, and the product simply has not been told that it is.
+ * It states the PROVENANCE and hands the pen back to the user. It does not
+ * guess what they meant, does not rank the goal, and does not apologise. The
+ * extract may well be right; the product has simply not been told that it is.
+ *
+ * ⭐⭐ THERE IS NO SINGLE `notice` MEMBER, AND THAT IS THE POINT. One member used
+ * to serve all three surfaces, and it ended `"Edit it to say what you want to
+ * achieve."` — an imperative that was TRUE ON EXACTLY ONE OF THEM when this
+ * split was written. TWO of the three host a writer today, and they are
+ * DIFFERENT ACTS, so they are still two different sentences:
+ *
+ *   · CANVAS GOAL NODE (`nodes/GoalNode.tsx`) — HOSTS THE WRITER. Double-click
+ *     runs `handleNodeDoubleClick` → `requestNodeRename` → the inspector shell's
+ *     `EditableLabel`, which is OUTSIDE `InspectorRouter`'s `<fieldset disabled>`
+ *     and ungated on node kind, and saves through `store.updateNodeLabel` →
+ *     `provenanceAfterHumanAuthoredLabel('goal')` → `'user_set'`. A DOUBLE-CLICK
+ *     on a node, which is not the gesture the hero's field asks for.
+ *   · PRE-ANALYSIS HERO (`pre-analysis-v3/hero/HeroSection.tsx`) — HOSTS ITS
+ *     OWN WRITER, AND THIS IS THE SURFACE THAT MOVED. Its Goal field was gated
+ *     on `CANONICAL_EDIT_AUTHORITY.goalSuccessTarget: 'disabled'` and rendered
+ *     a read-only `<span>`, directly ABOVE this notice — so the hero printed
+ *     the imperative a user actually read and could not act on. That gate read
+ *     the WRONG KEY, not the wrong value: `goalSuccessTarget` governs the
+ *     success THRESHOLD, still reads `'disabled'`, and the presentation ruling
+ *     in `mutations/mutationAuthority.ts` is untouched. The field is now gated
+ *     on `GOAL_LABEL_EDIT_CONNECTED` — `canvasNodeRenameWithServerHash` AND
+ *     `preAnalysisV3StructuralAdd`, both `'server_graph'` — and `commitGoal`
+ *     writes through the SAME `store.updateNodeLabel` the canvas uses. So the
+ *     hero's imperative names the field in front of the user.
+ *   · MODEL TAB ROW (`model-tab-v2/ModelRowView.tsx`) — NO GOAL-LABEL WRITER.
+ *     `ModelTabV2Panel`'s `editConnectedIds` admits the goal node for its
+ *     minimum TARGET only (`modelGoalMinimumTarget`); nothing on that surface
+ *     writes the goal's LABEL.
+ *
+ * ⚠ SO THE MEMBERS ARE DISTINCT BY CONSTRUCTION, EACH BOUND BY THE SURFACE THAT
+ * ANSWERS FOR ITS OWN WRITER. Do NOT collapse them back into one, and do NOT
+ * write a test that pins two surfaces to AGREEMENT — such a test REDs on
+ * whichever surface is corrected first, which is exactly backwards. The shared
+ * thing here is the PREDICATE (`goalLabelIsUnconfirmedBriefExtract`) and the
+ * TESTID; the sentence is the surface's own, because the act it names is.
  */
 export const GOAL_LABEL_FROM_BRIEF_COPY = {
   /** The chip/pill. Short enough to sit beside the label on a canvas node. */
   pill: 'From your brief',
-  /** The full claim, wherever there is room for a line of it. */
-  notice: 'Taken from your brief — not yet confirmed as your goal. Edit it to say what you want to achieve.',
+  /** CANVAS GOAL NODE. The one surface that hosts the act it names. */
+  canvasNodeNotice:
+    'Taken from your brief. You have not confirmed it as your goal yet. Double-click the node to write it in your own words.',
+  /** PRE-ANALYSIS HERO. Writes in place, so it names the field above it. */
+  heroNotice:
+    'Taken from your brief. You have not confirmed it as your goal yet. Edit the Goal field above to say what you want to achieve.',
+  /** MODEL TAB ROW. No goal-label writer here, so it names one that has it. */
+  modelRowNotice:
+    'Taken from your brief. You have not confirmed it as your goal yet. The goal on the canvas is where you write it in your own words.',
 } as const
 
 /**
