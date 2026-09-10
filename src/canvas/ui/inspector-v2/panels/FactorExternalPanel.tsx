@@ -58,6 +58,24 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
   techMode,
   onClose,
   onNavigate,
+  /**
+   * ⛔ A DUTY, NOT A PERMISSION — the same contract `FactorControllablePanel`
+   * takes on. The Router no longer wraps this pane, so every control reaching a
+   * mutation WITHOUT a durable carrier must sit behind this panel's own fence.
+   *
+   * What the opt-in buys is the prior-range editor, which DOES have one and
+   * which no user could operate until now: `setPriorRange` writes
+   * `data.prior` through `updateNode` (the autosave round-trip is pinned in
+   * `useAutosave.analysisFieldPersist.spec.ts` — hash flips, save fires, load
+   * rehydrates) AND emits `prior_range_edit` to CEE. It was mounted, wired and
+   * tested, and inert, because the blanket `<fieldset disabled>` could not tell
+   * a control that saves from one that does not.
+   *
+   * ⛔ `setDescription` is the one writer here with NO carrier, so it stays
+   * fenced below. The test of a control is whether it reaches a carrier that
+   * survives the next server rehydrate — never whether it sits beside one.
+   */
+  readOnly = false,
 }: InspectorPanelProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
@@ -209,11 +227,18 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
    * factor's declared TYPE (`category === 'external'`) — the entitlement
    * standard coachingConfig's own header sets.
    *
-   * ⚠ AND NONE OF THEM MAY BE AN INSTRUCTION. `InspectorRouter` wraps every
-   * panel in an unconditional `<fieldset disabled>` beneath
-   * INSPECTOR_READ_ONLY_REASON (`InspectorRouter.tsx:334-340`, pinned by
-   * `InspectorRouter.spec.tsx` "semantic controls fail closed without GraphV3
-   * authority"). On the deployed build this control is mounted and INERT.
+   * ⛔ CORRECTED — THE PREMISE UNDER THIS PARAGRAPH HAS CHANGED. It read: "AND
+   * NONE OF THEM MAY BE AN INSTRUCTION … On the deployed build this control is
+   * mounted and INERT." That was true while `InspectorRouter` wrapped this pane
+   * in its blanket `<fieldset disabled>`. It no longer does: `factor-external`
+   * is an authority-owning panel and the quick-set range affordance is
+   * operable, so the reason an instruction was banned here is gone.
+   *
+   * ⚠ THE COPY IS NOT RE-WIDENED HERE, DELIBERATELY. It was narrowed for cause
+   * and re-widening it is a copy decision with its own review, not a side
+   * effect of making the control reachable. What is corrected is the FACT this
+   * paragraph asserts, because a later lane reading "this control is INERT"
+   * would reason from something the product no longer does.
    *
    * ⚠ THIS ALSO CITED `NODE_SETTER_AUTHORITY.setPriorRange` AS A SECOND
    * AUTHORITY. That manifest was DELETED on 27 Aug 2026 (PR #886) because it
@@ -233,7 +258,20 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
     <div>
       {/* ── Context group ─────────────────────────────────────── */}
       <PanelGroup kind="context" label={GROUP_LABELS.context}>
-        {/* Description — textarea when editing or content exists, EmptyDescriptionPrompt when empty */}
+        {/* Description — textarea when editing or content exists, EmptyDescriptionPrompt when empty.
+
+            `mutations.setDescription` writes to the local store ONLY — there is no
+            `description` carrier, so the next server rehydrate overwrites it. Fenced
+            HERE rather than at the Router so the prior-range editor below, which DOES
+            have one, can stay live.
+
+            ⚠ THE FENCE WRAPS BOTH BRANCHES, INCLUDING THE EMPTY PROMPT — the same
+            reasoning `FactorControllablePanel` records. The prompt performs no write
+            itself, it opens the editor, so a fence scoped to the textarea alone would
+            pass a self-fencing audit while leaving a button whose whole purpose is to
+            invite text that cannot be saved. Inviting the input is the harm; the write
+            is only where it lands. */}
+        <fieldset disabled={readOnly} className="contents" data-writer-fence="description">
         {description || isEditingDescription ? (
           <textarea
             value={description}
@@ -254,6 +292,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
             onStartEditing={() => setIsEditingDescription(true)}
           />
         )}
+        </fieldset>
 
         {/* Provenance pills: category identity + data source */}
         <div className="mt-2 flex gap-1.5 flex-wrap">
@@ -514,11 +553,17 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
             12 — a mirror of PLoT's precedence would invert the day PLoT
             changes it).
 
-            Q2 is a fact about this SURFACE, and it is why the sentence is not
-            simply "It affects analysis." The inspector is read-only:
-            `InspectorRouter` wraps every panel in an unconditional `<fieldset
-            disabled>` (InspectorRouter.tsx:334-340). No affordance on
-            this panel can write the field.
+            Q2 is a fact about this SURFACE. ⛔ CORRECTED: it used to read "The
+            inspector is read-only … No affordance on this panel can write the
+            field." Both halves are now false HERE — this panel owns its own
+            fence and the quick-set range affordance writes through
+            `setPriorRange`.
+
+            Q2's honest answer is no longer "you cannot", it is "not
+            necessarily": PLoT's prior pass is gated four ways and the first
+            gate is silent (an `observed_state.value` present skips the prior
+            with no warning), so the sentence still refuses to promise a per-run
+            effect. The two questions stay named apart; only Q2's answer moved.
 
             ⚠ A second clause here cited "this repo's own authority manifest"
             (`NODE_SETTER_AUTHORITY.setPriorRange: 'disabled'`). It was deleted
@@ -556,7 +601,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
             className={`${typography.panelMeta} text-text-light mt-2`}
             data-testid="factor-external-range-role"
           >
-            This range is an analysis input, not a label: it is what the model treats as the factor&rsquo;s plausible level. You cannot change it here yet, because this inspector is read-only.
+            This range is an analysis input, not a label: it is what the model treats as the factor&rsquo;s plausible level. You can set it here.
           </p>
         </PrimaryControlCard>
 
