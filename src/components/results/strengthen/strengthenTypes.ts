@@ -259,6 +259,41 @@ export interface StrengthenInputs {
    */
   hasLeadingOption?: boolean
   /**
+   * ⭐⭐ THE NAME OF THE OPTION THIS RUN DESIGNATES — A DIFFERENT QUESTION FROM
+   * {@link StrengthenInputs.hasLeadingOption}, WHICH IS WHY IT IS A SECOND FIELD.
+   *
+   * `hasLeadingOption` answers *may this surface designate a leader at all?*
+   * (ROADMAP 1.243, PERMISSION). This answers *what is that option called?*
+   * (IDENTITY). Permission was already threaded and identity was not, so every
+   * trigger that had permission wrote its subject as a RANK POSITION — "the
+   * option that scored highest" — a definite description the reader has to
+   * resolve, true of rank 0 and false of every other option, naming none.
+   *
+   * ⚠ NO VOCABULARY GUARD CAN SEE THAT, which is the whole reason this field
+   * exists. The sentence contains no banned word; the race frame is in the
+   * REFERENT. `ownedLeaderClaim.strengthen.spec.tsx`'s designating-form net
+   * catches leader NOUNS and was fully green while the rank description shipped.
+   *
+   * ⚠ `data.recommendation.recommendedOption?.label`, and DELIBERATELY THE SAME
+   * SOURCE the glance headline already names. `buildAnalysisNewViewModel.ts`
+   * renders `` `${leader.label} currently scores higher` `` from
+   * `rec.recommendedOption` under the same `leaderDesignationPermitted` gate, so
+   * this tab already puts that option's name on screen. Reading a different
+   * authority here — `verdict.leaderId`, which prefers
+   * `robustness.recommended_option_id` and falls back to the win-probability
+   * argmax while `determineWinnerSelection` also admits
+   * `recommendation.option_id` — would let one panel pressure-test an option a
+   * sentence above it never designated. One surface, one designated option, one
+   * name.
+   *
+   * ⚠ `null` IS A REAL STATE AND MUST NOT DEGRADE TO THE RANK DESCRIPTION. When
+   * permission is granted but no label resolves, the copy addresses THE RESULT
+   * rather than an option; it never falls back to "the option that scored
+   * highest". Absent (`undefined`) reads the same as `null` — a legacy or
+   * fixture caller supplying no identity is not an identity.
+   */
+  leadingOptionLabel?: string | null
+  /**
    * The producer's flip-threshold ROWS, uninterpreted. Handed to
    * `attestsNoFactorFlip()`, which delegates to `classifyFlipEvidence` — this
    * module derives nothing. REQUIRED, not optional-defaulting-absent: an opt-in

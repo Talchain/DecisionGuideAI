@@ -71,6 +71,17 @@ export function buildStrengthenInputsForAnalysisNew({
     // documents, reached through a mirror that was faithful about every key
     // except this one.
     hasLeadingOption: leaderDesignationPermitted(data.recommendation),
+    // ⭐ IDENTITY, BESIDE THE PERMISSION ABOVE — two questions, two fields. The
+    // line above says the panel MAY designate; this says what the designated
+    // option is CALLED, so a permitted trigger can name it instead of writing
+    // its subject as a rank position ("the option that scored highest").
+    //
+    // ⚠ THE SAME OPTION THE GLANCE ALREADY NAMES. `buildAtAGlance` renders
+    // `` `${leader.label} currently scores higher` `` from
+    // `rec.recommendedOption` under this same gate, so the two sentences on
+    // this tab cannot end up pressure-testing and designating different
+    // options. The engine trims and treats empty as absent.
+    leadingOptionLabel: data.recommendation.recommendedOption?.label ?? null,
     flipThresholds: data.recommendation.flipThresholds ?? null,
     fragileEdges: fragile
       .filter((fe) => typeof fe.switch_probability === 'number')

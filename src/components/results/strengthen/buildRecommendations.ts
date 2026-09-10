@@ -298,6 +298,32 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   // once (CLAUDE.md trap 12).
   const leaderClaimWithheld = inputs.hasLeadingOption === false
 
+  // ── THE SUBJECT OF A PERMITTED CLAIM: A NAME, NOT A RANK POSITION ─────────
+  //
+  // ⭐⭐ PERMISSION AND IDENTITY ARE TWO QUESTIONS AND THIS ENGINE ONLY HELD ONE
+  // OF THEM (CLAUDE.md trap 21). `leaderClaimWithheld` above answers *may this
+  // panel designate a leader?* — it is entitlement, and it says nothing about
+  // what the option is CALLED. So the two triggers it permits wrote their
+  // subject as the only referent they had: "the option that scored highest",
+  // which is TRUE of rank 0, FALSE of every other option, and NAMES NONE. The
+  // reader is handed a placing and left to resolve it, on a claim the system
+  // chose and the user never asked for.
+  //
+  // ⚠ AND NO VOCABULARY GUARD CAN SEE IT — the sentence contains no banned
+  // word. `ownedLeaderClaim.strengthen.spec.tsx`'s designating-form net catches
+  // leader NOUNS ("the leader", "the leading option") and was green throughout.
+  // The race frame lives in the REFERENT, so the repair is a referent change:
+  // where the gate already permits naming an option, SAY THE NAME. That is also
+  // the weaker claim of the two, because it drops the ranking assertion instead
+  // of restating it.
+  //
+  // ⚠ TRIMMED, AND EMPTY IS ABSENT. A producer label of `''` or `'   '` would
+  // otherwise render "Pressure-test " with nothing after it.
+  const permittedLeadingOptionName =
+    !leaderClaimWithheld && typeof inputs.leadingOptionLabel === 'string'
+      ? inputs.leadingOptionLabel.trim() || null
+      : null
+
   /**
    * ── Clarify: define a measurable success (deterministic) ──────────────────
    *
@@ -544,7 +570,17 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
     recs.push({
       id: `strengthen:flip:${top.edgeId}`,
       helpType: 'evaluate',
-      title: 'Test the assumption most likely to change which option scores highest',
+      // ⭐ THE SAME REFERENT REPAIR, ON THE OTHER PERMITTED TRIGGER. This read
+      // "Test the assumption most likely to change which option scores
+      // highest" — an argmax description of the ASSUMPTION wrapped around a
+      // ranking assertion about the OPTIONS, naming neither. The assumption has
+      // a name and the engine is already holding it, so the title says it.
+      //
+      // ⚠ NOTHING IS LOST. The reason this assumption rather than another is
+      // the `signal` directly beneath ("NN% chance the result flips to {alt} if
+      // {factor} shifts"), and `whyNow` carries the urgency. The title was
+      // restating the selection rule; now it states the subject.
+      title: `Test the assumption about ${top.factorLabel}`,
       signal: alt
         ? `${pct(top.switchProbability)} chance the result flips to ${alt} if ${top.factorLabel} shifts.`
         : `${pct(top.switchProbability)} chance the result flips if ${top.factorLabel} shifts.`,
@@ -653,20 +689,34 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   // own it (#494 kept "Analysis complete (robust)" for the same reason).
   const level = inputs.robustness.level?.toLowerCase() ?? null
   if (!leaderClaimWithheld && inputs.analysisComplete && (level === 'low' || level === 'very_low')) {
+    // ⭐ THE SUBJECT IS THE NAMED OPTION WHENEVER ONE RESOLVES. See
+    // `permittedLeadingOptionName` above for why a rank description is not an
+    // acceptable subject even on a run entitled to designate.
+    //
+    // ⚠ AND THE UNNAMED ARM ADDRESSES THE RESULT, NEVER THE RANKING. Permission
+    // without an identity is a degenerate path (production resolves a label
+    // wherever it resolves a leader), and the two truthful answers there are
+    // "say nothing" or "talk about the run". Silence would delete a real
+    // producer finding — the run's own robustness grade — to remove a claim the
+    // sentence need never have made, so the copy drops to the RUN, which is
+    // what `signal`, `whyNow` and the button already talk about. What it must
+    // NOT do is fall back to "the option that scored highest": that is the
+    // defect, not the fallback.
+    const subject = permittedLeadingOptionName ?? 'this result'
     recs.push({
       id: 'strengthen:robustness',
       helpType: 'challenge',
-      title: 'Pressure-test the option that scored highest',
+      title: `Pressure-test ${subject}`,
       signal: 'This result does not hold up strongly under stress-testing.',
       whyNow: 'A fragile result can shift with small changes, so it deserves a challenge before you act on it.',
-      tryThis: 'Build the strongest case AGAINST the option that scored highest and see if it survives.',
+      tryThis: `Build the strongest case against ${subject} and see what survives.`,
       sourceLine: 'Source: robustness analysis.',
       action: {
         kind: 'ai-dialogue',
         label: 'Challenge this result',
         actionType: 'challenge_assumption',
         parameters: { topic: 'challenge_leader' },
-        prompt: 'Build the strongest case against the option that scored highest.',
+        prompt: `Build the strongest case against ${subject}.`,
       },
       targetId: null,
       priority: PRIORITY.robustness,

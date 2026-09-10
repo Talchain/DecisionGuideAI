@@ -129,6 +129,18 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
       // Undefined when a legacy caller supplies no verdict; the engine's read
       // is strict (`=== false`), so only an explicit withheld claim suppresses.
       hasLeadingOption: leaderDesignationPermitted(data.recommendation),
+      // ⭐ IDENTITY, BESIDE THE PERMISSION ABOVE — two questions, two fields.
+      // The line above says a leader MAY be designated on this run; this says
+      // what that option is CALLED, so a permitted trigger names it rather than
+      // writing its subject as a rank position ("the option that scored
+      // highest"), which is true of one option, false of the rest, and names
+      // none. See `buildRecommendations.ts`'s `permittedLeadingOptionName`.
+      //
+      // ⚠ MIRRORED IN `analysisNew/buildStrengthenInputsForAnalysisNew.ts` AND
+      // PINNED BY `strengthenInputsMirror.drift.spec.tsx`, which deep-equals
+      // the two objects. Adding this key to one builder only goes RED there and
+      // names the diverging key; do not "fix" that by loosening the spec.
+      leadingOptionLabel: data.recommendation.recommendedOption?.label ?? null,
       // Presence branch (schemas 0.30.0; UI half of plot-lite-service#294):
       // only a MEASURED switch_probability may feed the engine's rendered
       // "% chance the result flips" claim and the switch_probability wire
