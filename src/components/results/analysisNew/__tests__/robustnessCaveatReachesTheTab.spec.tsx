@@ -139,10 +139,19 @@ describe('the producer caveat on the Reasoning tab', () => {
    * model-element id, so the reachable failure is the user reading
    * `Tested against: factor_price_elasticity`.
    */
-  it('⛔ an id-shaped BASIS is rejected, not rendered as "Tested against: factor_…"', () => {
+  /**
+   * ⚠ THE BLAST RADIUS CHANGED, AND THE ASSERTION MOVED WITH IT. This asserted
+   * the WHOLE section was absent, because an unusable basis used to null the
+   * whole caveat. It now costs the LABEL only: the leak is still refused, and
+   * the sentence telling the user how far to trust the ranking survives, which
+   * is the half that was being thrown away. See `decisionBriefViewModel.ts`.
+   */
+  it('⛔ an id-shaped BASIS is refused, and the sentence is kept', () => {
     setBrief(briefWithCaveat(PRODUCER_TEXT, 'factor_price_elasticity'))
     render(<RobustnessCaveat leaderClaimPermitted verdictReason={null} />)
-    expect(screen.queryByTestId(TID)).toBeNull()
+    expect(screen.queryByTestId(`${TID}-basis`)).toBeNull()
+    expect(screen.queryByText(/factor_price_elasticity/)).toBeNull()
+    expect(screen.getByTestId(`${TID}-text`)).toHaveTextContent(PRODUCER_TEXT)
   })
 
   /**

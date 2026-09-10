@@ -39,7 +39,17 @@ export interface DecisionBriefDefaultedView {
  */
 export interface DecisionBriefRobustnessCaveatView {
   text: string
-  basis: string
+  /**
+   * The producer's stated basis, or `null` when it is not DISPLAY TEXT.
+   *
+   * `null` means "the producer attested a basis and it cannot be shown to a
+   * user" — the label line is omitted and {@link DecisionBriefRobustnessCaveatView.text}
+   * still renders. It never means "no basis was sent": an ABSENT basis still
+   * withholds the whole caveat, which is a different question (see
+   * {@link readRobustnessCaveat}). Callers must render the label only when this
+   * is non-null, and must never fall back to the raw value.
+   */
+  basis: string | null
 }
 
 export interface DecisionBriefViewModel {
@@ -102,6 +112,99 @@ function isValidIsoInstant(value: string): boolean {
  */
 export function containsRawIdentifier(value: string): boolean {
   return RAW_ID_PATTERN.test(value) || SUPPLEMENTAL_RAW_IDENTIFIER_RE.test(value)
+}
+
+/** A written phrase contains at least one letter. A bare token need not. */
+const HAS_LETTER_RE = /\p{L}/u
+
+/**
+ * Characters that serialisation formats use and written English does not.
+ *
+ * `_` is the load-bearing one: it is the whole `snake_case` / `SCREAMING_SNAKE`
+ * family in a single character, and no phrase written to be read contains it.
+ * The rest are bracket, pipe and escape syntax that only ever arrives from a
+ * machine.
+ */
+const MACHINE_PUNCTUATION_RE = /[_<>{}[\]|\\\x60~^]/
+
+/**
+ * A control character is never display text.
+ *
+ * ⚠ CHECKED BY CODE POINT, NOT IN THE PATTERN ABOVE. Putting `\u0000-\u001F`
+ * in a character class trips `no-control-regex`, and silencing a lint rule to
+ * keep a range readable is the wrong trade — the rule exists because control
+ * characters in a regex are usually a mistake. Scanning code points states the
+ * intent plainly and catches DEL (0x7F) as well, which the range did not.
+ */
+function hasControlCharacter(value: string): boolean {
+  for (const character of value) {
+    const code = character.codePointAt(0) ?? 0
+    if (code < 0x20 || code === 0x7f) return true
+  }
+  return false
+}
+
+/**
+ * ⭐⭐ IS THIS STRING HUMAN DISPLAY TEXT — something written to be READ?
+ *
+ * ## Why this is asked in the positive, and what it replaces
+ *
+ * The screen it replaces asked the opposite question: "does this look like one
+ * of the id shapes we know about?" That is a BLOCKLIST, and it failed exactly
+ * the way a blocklist fails. {@link RAW_ID_PATTERN} is a hand-maintained
+ * alternation of NODE-ID PREFIXES (`opt_ fac_ goal_ dec_ …`); the token that
+ * actually reached a user was `is_robust`, a WIRE ENUM. `is_` was in no list, so
+ * the guard returned a clean pass and the Reasoning tab printed
+ * `Tested against: is_robust` on the served build `475ee1c7`.
+ *
+ * Adding `is_` to the alternation would have fixed that one token and left the
+ * next enum to leak identically. This is trap 12, the hand-maintained mirror:
+ * the defect is not which entries the list has, it is that a list must be
+ * remembered. So the question is inverted. A blocklist must enumerate every way
+ * a string can be machine output, which is unbounded and grows on the producer's
+ * schedule. DISPLAY TEXT is a bounded, stable property of the writing system,
+ * and everything that is not display text fails CLOSED — including categories
+ * nobody has thought of yet.
+ *
+ * ## Not a lookup table, deliberately
+ *
+ * It does not map `is_robust` to English. `friendlyOperation.ts` already ruled
+ * on that for this exact class: "a lookup table here would be a hand-maintained
+ * mirror of a producer enum, trap 12, and every entry would be a guess at the
+ * producer's semantics." Rendering nothing is honest; rendering a guess at what
+ * the producer meant is a fabrication wearing display text's clothes.
+ *
+ * ## The clauses, and what each one costs
+ *
+ * A phrase must contain a letter, contain no machine punctuation, contain no
+ * id-shaped run (so the pre-existing rejection is strictly preserved), and
+ * SEPARATE ITS WORDS WITH SPACES.
+ *
+ * ⚠ THE MULTI-WORD CLAUSE IS THE STRICT ONE AND IT IS A DELIBERATE TRADE. It
+ * rejects a legitimate one-word basis such as `Sensitivity`, which no producer
+ * has been observed to send. It is safe to be strict here ONLY because the
+ * caveat SENTENCE no longer depends on it: a false rejection now costs a label
+ * line, not the sentence telling the user how far to trust the ranking. If that
+ * ever stops being true, this clause must be revisited with it. What it buys is
+ * that a single unbroken token — `isRobust`, `ROBUST`, any future camelCase or
+ * bare enum — cannot reach a user as a phrase, and those are the shapes a
+ * character-level screen alone would pass.
+ *
+ * ⚠ IT SCREENS THE `basis` LABEL, NOT THE `text` SENTENCE. A label is a short
+ * phrase naming what was tested and is where an enum leaks; a sentence is prose
+ * carrying commas, percentages and dashes, and holding it to a phrase predicate
+ * would start suppressing legitimate producer copy. `text` keeps the screen it
+ * already had. Two fields, two questions (trap 21).
+ */
+export function isHumanDisplayText(value: string): boolean {
+  const trimmed = value.trim()
+  if (trimmed.length === 0) return false
+  if (!HAS_LETTER_RE.test(trimmed)) return false
+  if (MACHINE_PUNCTUATION_RE.test(trimmed)) return false
+  if (hasControlCharacter(trimmed)) return false
+  if (containsRawIdentifier(trimmed)) return false
+  if (!/\s/.test(trimmed)) return false
+  return true
 }
 
 function readStringList(
@@ -350,8 +453,14 @@ function readDefaultedAssumptions(value: unknown): DecisionBriefDefaultedView[] 
  * word at all — a caveat suppressed because the analysis used an ordinary word is a
  * silent loss of the one sentence telling the user how far to trust the ranking.
  *
- * What answers the real question is what remains: raw-identifier, length, blank/NUL,
- * and the `basis` token.
+ * What answers the real question is what remains: length, blank/NUL, the presence of
+ * a `basis` at all, a raw-identifier screen on the SENTENCE, and a display-text screen
+ * on the LABEL.
+ *
+ * ⚠ THE TWO BASIS QUESTIONS ARE NOT ONE. "Was a basis stated?" withholds the whole
+ * caveat when the answer is no, per the ruling above. "Can the stated basis be shown
+ * to a human?" withholds only the label line when the answer is no, because the
+ * sentence is the load-bearing half. See {@link isHumanDisplayText}.
  */
 function readRobustnessCaveat(value: unknown): DecisionBriefRobustnessCaveatView | null {
   if (!isRecord(value)) return null
@@ -359,26 +468,67 @@ function readRobustnessCaveat(value: unknown): DecisionBriefRobustnessCaveatView
   const basis = readNonBlankString(value.basis, MAX_LABEL_LENGTH)
   if (text === null || basis === null) return null
   /**
-   * ⚠⚠ BOTH FIELDS, NOT JUST `text`. This screened `text` alone until review
-   * caught it, and the omission was reachable the moment a second surface
-   * rendered `basis`: the parked tab shows only `.text`, so `basis` had never
-   * been user-visible and the gap had never mattered. `RobustnessCaveat` on the
-   * reasoning tab is the first surface to display it, which is what turned a
-   * latent asymmetry into a leak — `Tested against: node_<uuid>`.
+   * ⚠⚠ BOTH FIELDS ARE SCREENED, BUT NO LONGER BY THE SAME PREDICATE — and the
+   * history of this comment is why the file says so at length.
    *
-   * ⭐ THE DOCSTRING ABOVE ALREADY CLAIMED THIS GUARD. It says what remains is
-   * "raw-identifier, length, blank/NUL, and the `basis` token" — so the comment
-   * promised identifier screening while one of the two rendered fields escaped
-   * it. A guard described in prose and absent in code is worse than no guard:
-   * the prose is what the next reader checks.
+   * It screened `text` alone until review caught it; the omission was reachable
+   * the moment a second surface rendered `basis`, because the parked tab shows
+   * `.text` only. `RobustnessCaveat` on the Reasoning tab is the first surface
+   * to display `basis`, which is what turned a latent asymmetry into a leak.
+   * That repair pointed `containsRawIdentifier` at both fields and closed
+   * `Tested against: node_<uuid>`.
+   *
+   * ⭐ IT DID NOT CLOSE THE CLASS, AND THE SERVED BUILD PROVED IT. Six weeks
+   * later `Tested against: is_robust` was visible on `475ee1c7`.
+   * `containsRawIdentifier` is a blocklist of NODE-ID PREFIXES and the leaked
+   * token is a WIRE ENUM — a category the predicate was never given. The repair
+   * was correct about WHICH FIELDS to screen and wrong to assume the existing
+   * predicate was the right question for a label. `text` keeps that screen;
+   * `basis` is now screened positively by {@link isHumanDisplayText}.
+   *
+   * ⭐ AND THE DOCSTRING ABOVE HAS TWICE DESCRIBED A GUARD THE CODE DID NOT
+   * HAVE. A guard described in prose and absent in code is worse than no guard,
+   * because the prose is what the next reader checks. It is updated with this
+   * change rather than after it.
    *
    * `basis` is read at `MAX_LABEL_LENGTH`, the same bound as the label fields
    * screened at :151 and :295 — it is a LABEL, and PLoT's documented fallback
-   * when a display label is absent is the model-element id. An id-shaped member
-   * must fail its category closed, exactly as those siblings do.
+   * when a display label is absent is the model-element id.
    */
-  if (containsRawIdentifier(text) || containsRawIdentifier(basis)) return null
-  return { text, basis }
+  if (containsRawIdentifier(text)) return null
+
+  /**
+   * ⭐⭐ THE BASIS IS SCREENED AS DISPLAY TEXT, AND FAILING IT COSTS THE LABEL,
+   * NOT THE CAVEAT.
+   *
+   * The screen used to be `containsRawIdentifier(basis)`, and a failure returned
+   * `null` for the WHOLE caveat. Both halves of that were wrong, in opposite
+   * directions:
+   *
+   * 1. TOO NARROW. `containsRawIdentifier` is a blocklist of node-id prefixes.
+   *    The served build rendered `Tested against: is_robust` because `is_` is
+   *    not a node-id prefix. See {@link isHumanDisplayText} for why the question
+   *    is now asked in the positive rather than the list extended.
+   *
+   * 2. TOO BLUNT. Dropping the whole caveat over an unusable LABEL discards the
+   *    sentence, and the sentence is the load-bearing content — it is the one
+   *    line telling the user how far to trust the ranking. This file already
+   *    makes that argument for the glossary case a few lines above: "a caveat
+   *    suppressed because the analysis used an ordinary word is a silent loss of
+   *    the one sentence telling the user how far to trust the ranking." The same
+   *    reasoning applies with more force here, because the label is the part the
+   *    user can most afford to lose.
+   *
+   * ⚠ AN ABSENT BASIS AND AN UNRENDERABLE BASIS ARE DIFFERENT QUESTIONS, and
+   * this is the trap-21 line in this function. ABSENT means the producer
+   * attested nothing, and the existing ruling stands unchanged above: a caveat
+   * with no stated basis is an unattested claim about the user's ranking and the
+   * whole thing is withheld. PRESENT BUT NOT DISPLAY TEXT means the producer DID
+   * attest and the token is not for human eyes. Only the second degrades to a
+   * null label. Aligning the two would have been the wrong fix in whichever
+   * direction it was aligned.
+   */
+  return { text, basis: isHumanDisplayText(basis) ? basis : null }
 }
 
 /**
