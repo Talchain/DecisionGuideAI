@@ -916,7 +916,171 @@ export function ModelRowView({
         </span>
       )}
       </span>
+
+      {/* ── EDITOR ACTION LINE · THE ROUTE FORWARD, ON A LINE THAT IS NOT 48px WIDE.
+          ⭐⭐ MEASURED IN A REAL BROWSER, and this element's POSITION is the whole
+          fix. These controls first shipped INSIDE the value cell — i.e. inside
+          grid track 3. At a 280px dock that track measured **48.5px**, and the
+          Canvas Browser Gate read the result:
+
+            row 36px -> 213px, heightDelta +177px @280, +138px @416
+            (`modelRowEditReflow.measure.ts`, run 34386746547)
+
+          Attributed at the bytes with a DOM probe rather than reasoned about —
+          the value cell was 48.5px wide and 200px tall, made of:
+            input box        23px   <- the reserved box, correct, untouched
+            Review/Discard   52px   <- "Review change" wrapped INSIDE its own button
+            refusal sentence 117px  <- 36 characters of prose in a 48.5px column
+          200 + 12 (py-1.5) + 1 (border) = 213. Exactly the measured row.
+
+          ⚠⚠ SO THE DEFECT WAS NEVER THE CONTROLS — IT WAS THE COLUMN. Prose and
+          bordered chips cannot live in track 3: it is `fit-content(5.5rem)` at
+          its widest and it collapses further because the value wrapper carries
+          `min-w-0` while the label track is `minmax(6rem,1fr)`. Anything with a
+          max-content wider than ~48px becomes a paragraph there, and the row
+          grows to fit it. THE GROWTH WAS WIDTH-DEPENDENT (+177 vs +138), which
+          is the signature of wrapping rather than of disclosure.
+
+          ⚠ `col-span-4` IS LOAD-BEARING AND IS THE THING A GUARD MUST HOLD. The
+          row is `grid grid-cols-subgrid col-span-4`, so a child spanning all
+          four tracks takes a full-width implicit SECOND grid row. Drop that
+          class and this lands back in a single track — which is the defect, in
+          one word. `theEditorSaysHowToGoForward.spec` pins it, and
+          `rowAtomsDoNotWrap.spec` pins that these controls are NOT descendants
+          of the value cell, because that containment is what the browser
+          measurement was actually about.
+
+          ⚠ THE CONTROLS ARE NOT HIDDEN AND MUST NOT BE. Making the row compact
+          again by removing the visible route forward would reinstate the defect
+          this PR exists to close: an editor whose only advance affordance was a
+          key nothing named. They move DOWN, not away — below the first line, so
+          the input the user is typing into does not move (`textDelta` stays 0).
+
+          ⚠ SAME CONDITION AS THE LIVE EDITOR ARM IN `ValueCell`, deliberately.
+          If the three callbacks are absent the cell renders a static draft with
+          no editor, and an advance control for an editor that is not there
+          would be an affordance that does nothing. One condition, two readers. */}
+      {commit?.phase === 'editing' && onDraftChange && onProposeEdit && onDiscardEdit && (
+        <EditorActionLine
+          row={row}
+          commit={commit}
+          onProposeEdit={onProposeEdit}
+          onDiscardEdit={onDiscardEdit}
+        />
+      )}
     </li>
+  )
+}
+
+/**
+ * ⭐ THE `editing` BEAT'S VISIBLE ROUTE FORWARD AND ITS REFUSAL, as ONE
+ * full-width grid item.
+ *
+ * ⚠ IT IS A SEPARATE COMPONENT ONLY SO THAT IT IS A SINGLE GRID ITEM. Grid
+ * auto-placement reads the row's DIRECT children; a fragment emitting two
+ * elements here would put the second one into track 4 and silently break the
+ * meta cell's alignment. One element, one implicit row.
+ *
+ * ⚠ THE VERDICT IS STILL THE HOST'S. `unproposableDraftReason` is the SAME
+ * function `ModelTabV2Panel.proposeEdit` calls, so the control's disabled state
+ * and the host's refusal cannot drift; this component derives nothing of its
+ * own about whether the draft may advance.
+ *
+ * ⚠ DERIVED PER RENDER FROM THE DRAFT, HELD IN NO STATE. `EditCommitState` has
+ * no field for this and must not grow one: an error stored beside a draft can
+ * outlive the characters that caused it, which is how a row ends up asserting a
+ * refusal about a number the user has already fixed.
+ */
+function EditorActionLine({
+  row,
+  commit,
+  onProposeEdit,
+  onDiscardEdit,
+}: {
+  row: ModelRow
+  commit: { phase: 'editing'; draft: string; unit?: string }
+  onProposeEdit: (id: string) => void
+  onDiscardEdit: (id: string) => void
+}) {
+  const blocked = unproposableDraftReason(row.id, commit.draft, commit.unit)
+  const blockedId = `model-row-v2-${row.id}-value-blocked`
+  return (
+    <span
+      data-testid={`model-row-v2-${row.id}-edit-actions`}
+      /* ⚠ `col-span-4` — see the call site. `min-w-0` so the sentence wraps
+         against the ROW's width rather than establishing a max-content floor
+         that would push the outline into horizontal scroll. */
+      className="col-span-4 flex flex-col items-start gap-1 min-w-0"
+      onClick={e => e.stopPropagation()}
+    >
+      {/* ⭐⭐ THE ROUTE FORWARD, RENDERED. MEASURED ON DEPLOYED `9748b336`: with
+          `0.4` typed into a factor row, the row's ONLY button was its own LABEL.
+          No advance control, and nothing anywhere saying Enter was the way —
+          visible text, `placeholder` and `title` were all checked and all absent.
+
+          ⚠ THE EDITOR WAS NEVER BROKEN. The input's `onKeyDown` already maps
+          Enter→propose and Escape→discard, and it still does: this is a VISIBLE
+          route to the same two callbacks and NO second key handler. A duplicated
+          Enter handler would fire the propose twice.
+
+          ⚠ VOCABULARY: `Review change` → `Confirm`. This beat REVIEWS; the
+          `proposed` beat CONFIRMS and is deliberately untouched. Nothing here
+          may say "Saved": the model is unchanged until the authority
+          acknowledges, and a label claiming otherwise is the silent-local-write
+          defect one word at a time. */}
+      <span className="flex flex-wrap items-center gap-1">
+        <button
+          type="button"
+          data-testid={`model-row-v2-${row.id}-review`}
+          aria-label={`Review the new value for ${row.label}`}
+          /* The reason is ASSOCIATED with the control, not duplicated into it: a
+             screen reader reaching a disabled button is told why by the same
+             sentence the sighted user is reading. */
+          aria-describedby={blocked === null ? undefined : blockedId}
+          disabled={blocked !== null}
+          onClick={() => onProposeEdit(row.id)}
+          className={`${typography.buttonSmall} border rounded px-2 py-0.5 whitespace-nowrap ${
+            blocked === null
+              ? 'text-info border-info/50'
+              : 'text-text-light border-panel-border'
+          }`}
+        >
+          Review change
+        </button>
+        <button
+          type="button"
+          data-testid={`model-row-v2-${row.id}-discard-edit`}
+          aria-label={`Discard the new value for ${row.label}`}
+          onClick={() => onDiscardEdit(row.id)}
+          className={`${typography.buttonSmall} text-text-light border border-panel-border rounded px-2 py-0.5 whitespace-nowrap`}
+        >
+          Discard
+        </button>
+      </span>
+
+      {/* ⭐⭐ AND WHY IT CANNOT GO YET — IN WORDS, ON SCREEN. `proposeEdit`
+          returned `prev` unchanged on an unparseable draft: the user typed
+          something invalid, pressed Enter, and the product did nothing at all. A
+          refusal nobody can see is indistinguishable from a broken control.
+
+          ⚠ VISIBLE TEXT, NOT A `title`. The estimate hint on this same row is
+          the estate's own worked example of why: recoverable on POINTER HOVER is
+          not recoverable for a keyboard or a touch user, and this sentence is
+          needed in order to proceed at all.
+
+          ⚠ NOT A LIVE REGION. It re-derives on every keystroke, so
+          `role="status"` would announce a running commentary on typing.
+          `aria-describedby` on the control puts it where it is asked for. */}
+      {blocked !== null && (
+        <span
+          id={blockedId}
+          data-testid={blockedId}
+          className={`${typography.panelBody} text-text-light`}
+        >
+          {blocked}
+        </span>
+      )}
+    </span>
   )
 }
 
@@ -1078,14 +1242,6 @@ function ValueCell({
         // Live host: a real input. The draft is the HOST's state — this cell
         // renders it and reports keystrokes; it decides nothing.
         if (onDraftChange && onProposeEdit && onDiscardEdit) {
-          /*
-           * ⚠ DERIVED PER RENDER FROM THE DRAFT, HELD IN NO STATE. `EditCommitState`
-           * has no field for this and must not grow one: an error stored beside a
-           * draft can outlive the characters that caused it, which is how a row ends
-           * up asserting a refusal about a number the user has already fixed.
-           */
-          const blocked = unproposableDraftReason(row.id, commit.draft, commit.unit)
-          const blockedId = `${testid}-blocked`
           return (
             <span className="inline-flex flex-col items-start gap-1 min-w-0">
             <span
@@ -1292,89 +1448,6 @@ function ValueCell({
                       </button>
                     )
                   })}
-                </span>
-              )}
-
-              {/* ⭐⭐ THE ROUTE FORWARD, RENDERED. MEASURED ON DEPLOYED `9748b336`:
-                  with `0.4` typed into a factor row, the row's ONLY button was its
-                  own LABEL. No advance control, and nothing anywhere saying Enter
-                  was the way — visible text, `placeholder` and `title` were all
-                  checked and all absent.
-
-                  ⚠ THE EDITOR WAS NEVER BROKEN. `onKeyDown` above already maps
-                  Enter→propose and Escape→discard, and it still does: this adds a
-                  VISIBLE route to the same two callbacks and NO second key handler.
-                  A duplicated Enter handler would fire the propose twice, and the
-                  pill-focus note above records what happens when the keyboard and
-                  the pointer stop agreeing on this row.
-
-                  ⚠ VOCABULARY: `Review change` → `Confirm`. This beat REVIEWS; the
-                  `proposed` beat below CONFIRMS, keeps its existing `Confirm` /
-                  `Discard` chips and its "Not applied yet" caption, and is
-                  deliberately untouched. Nothing here may say "Saved": the model is
-                  unchanged until the authority acknowledges, and a label claiming
-                  otherwise is the silent-local-write defect one word at a time.
-
-                  ⚠ ITS OWN LINE, FOR THE REASON THE PILLS ARE ON THEIRS. The input
-                  row is contractually `shrink-0 whitespace-nowrap`
-                  (`rowAtomsDoNotWrap.spec`) because it hosts a field that must not
-                  be squeezed; two more bordered chips inline would reproduce the
-                  spill measured at 111.1px. The outer `flex-col` already exists for
-                  exactly this, and only this second line may wrap. */}
-              <span
-                className="flex flex-wrap items-center gap-1"
-                onClick={e => e.stopPropagation()}
-              >
-                <button
-                  type="button"
-                  data-testid={`model-row-v2-${row.id}-review`}
-                  aria-label={`Review the new value for ${row.label}`}
-                  /* The reason is ASSOCIATED with the control, not duplicated into
-                     it: a screen reader reaching a disabled button is told why by
-                     the same sentence the sighted user is reading. */
-                  aria-describedby={blocked === null ? undefined : blockedId}
-                  disabled={blocked !== null}
-                  onClick={() => onProposeEdit(row.id)}
-                  className={`${typography.buttonSmall} border rounded px-2 py-0.5 ${
-                    blocked === null
-                      ? 'text-info border-info/50'
-                      : 'text-text-light border-panel-border'
-                  }`}
-                >
-                  Review change
-                </button>
-                <button
-                  type="button"
-                  data-testid={`model-row-v2-${row.id}-discard-edit`}
-                  aria-label={`Discard the new value for ${row.label}`}
-                  onClick={() => onDiscardEdit(row.id)}
-                  className={`${typography.buttonSmall} text-text-light border border-panel-border rounded px-2 py-0.5`}
-                >
-                  Discard
-                </button>
-              </span>
-
-              {/* ⭐⭐ AND WHY IT CANNOT GO YET — IN WORDS, ON SCREEN.
-                  `proposeEdit` returned `prev` unchanged on an unparseable draft:
-                  the user typed something invalid, pressed Enter, and the product
-                  did nothing at all. A refusal nobody can see is indistinguishable
-                  from a broken control.
-
-                  ⚠ VISIBLE TEXT, NOT A `title`. The estimate hint on this same row
-                  is the estate's own worked example of why: recoverable on POINTER
-                  HOVER is not recoverable for a keyboard or a touch user, and this
-                  sentence is needed in order to proceed at all.
-
-                  ⚠ NOT A LIVE REGION. It re-derives on every keystroke, so
-                  `role="status"` would announce a running commentary on typing.
-                  `aria-describedby` on the control puts it where it is asked for. */}
-              {blocked !== null && (
-                <span
-                  id={blockedId}
-                  data-testid={blockedId}
-                  className={`${typography.panelBody} text-text-light`}
-                >
-                  {blocked}
                 </span>
               )}
             </span>

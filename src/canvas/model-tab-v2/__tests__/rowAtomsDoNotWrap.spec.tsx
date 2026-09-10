@@ -398,3 +398,214 @@ describe('the `editing` arm — LIVE, and until now rendered by no test in this 
     expect(hasClass('model-row-v2-f1-value', 'whitespace-nowrap')).toBe(true)
   })
 })
+
+/**
+ * ⭐⭐⭐ THE EDITOR'S ROUTE FORWARD LIVES OUTSIDE THE VALUE TRACK — the contract
+ * that holds a MEASURED +177px browser regression closed.
+ *
+ * ⚠⚠ WHAT WENT WRONG, IN A REAL BROWSER, NOT IN THEORY. The `Review change` /
+ * `Discard` pair and the refusal sentence first shipped INSIDE the value cell,
+ * i.e. inside grid track 3. `Canvas Browser Gate` run 34386746547 on
+ * `4ab92e84` measured the result and named it:
+ *
+ *     entering edit changed the row's own height by 177px at a 280px dock
+ *     entering edit changed the row's own height by 138px at a 416px dock
+ *     (`e2e/geometry/modelRowEditReflow.measure.ts`, both arms RED)
+ *
+ * A DOM probe attributed it rather than inferring it: the value cell measured
+ * **48.5px wide and 200px tall** — a 23px input box (correct, and reserved by
+ * `EDIT_RESERVED_HEIGHT_CLASS`), a 52px button row in which "Review change"
+ * wrapped INSIDE its own button, and **117px of refusal sentence**: 36
+ * characters of prose in a 48.5px column. 200 + 12 (`py-1.5`) + 1 (border) =
+ * 213px, which is exactly the row the browser measured.
+ *
+ * ⚠ SO THE DEFECT WAS THE COLUMN, NOT THE CONTROLS — and that is why the fix is
+ * a CONTAINMENT contract and not a pixel. Track 3 is `fit-content(5.5rem)` at
+ * its widest and collapses further (the value wrapper carries `min-w-0` while
+ * the label track is `minmax(6rem,1fr)`), so anything whose max-content exceeds
+ * ~48px becomes a paragraph there. THE TELL WAS WIDTH-DEPENDENCE: +177 at 280px
+ * against +138 at 416px is wrapping, not disclosure.
+ *
+ * ⚠⚠ AND HERE IS WHY THIS FILE HAD TO GAIN A TEST. With the controls moved out,
+ * `theEditorSaysHowToGoForward.spec` stayed **22/22 GREEN** and this file stayed
+ * **15/15 GREEN** — because every assertion in both binds the controls BY
+ * TESTID, and a testid is found by `screen` wherever in the tree it sits. The
+ * whole suite is structurally incapable of observing WHICH CELL a control is in,
+ * so moving it back would turn nothing red (CLAUDE.md trap 11). These
+ * assertions are about nothing else.
+ *
+ * ⚠ NO PIXEL IS CLAIMED HERE AND NONE COULD BE — jsdom performs no layout, so a
+ * height assertion in this file would be a guard that cannot fail (this file's
+ * own header says so). The browser number is held by the geometry gate; what is
+ * held HERE is the DOM relationship that a future edit would have to undo in
+ * order to bring the browser number back.
+ */
+describe('the editor action line — OUTSIDE the value track, which is the whole fix', () => {
+  const editing = { phase: 'editing', draft: '' } as const
+
+  const renderEditing = () =>
+    render(
+      <ModelRowView
+        row={row({ id: 'f1' })}
+        tier="plain"
+        commit={editing}
+        onDraftChange={() => {}}
+        onProposeEdit={() => {}}
+        onDiscardEdit={() => {}}
+      />,
+    )
+
+  /**
+   * ⭐⭐ THE LOAD-BEARING ASSERTION — AND ITS FIRST DRAFT WAS WRONG IN A WAY ONLY
+   * RED-FIRST COULD SHOW, so the mistake is recorded rather than tidied away.
+   *
+   * It asserted `getByTestId('…-value')` does not CONTAIN the review button —
+   * and that **PASSED AT PRISTINE**, with the defect fully live. `…-value` is
+   * the INPUT's own box; the element that occupies grid track 3 is its PARENT,
+   * the unnamed `inline-flex flex-col … min-w-0` wrapper, and at pristine the
+   * controls were the wrapper's children and the value span's SIBLINGS. The
+   * assertion was true and irrelevant: CLAUDE.md trap 19, bound to the wrong
+   * object, in the guard written to hold a browser measurement closed.
+   *
+   * So the subject is now the GRID ITEM — the row's own direct child, which is
+   * what a track actually contains — derived by walking up to the row rather
+   * than named by a testid that does not exist at pristine.
+   *
+   * ⚠ THE DISCRIMINATING CONTROL IS IN THE SAME TEST. `cellOf` is shown
+   * returning TWO DIFFERENT answers on one row, and the value's cell is shown
+   * containing the input. Without that, "these are in different cells" would be
+   * satisfied by a broken walker that returned a fresh answer every call.
+   */
+  it('the route forward and its refusal sit in a DIFFERENT grid cell from the input', () => {
+    renderEditing()
+    const rowEl = screen.getByTestId('model-row-v2-f1')
+
+    /** The row's direct child that this element sits under — i.e. its grid item. */
+    const cellOf = (el: HTMLElement): HTMLElement => {
+      let n: HTMLElement = el
+      while (n.parentElement !== null && n.parentElement !== rowEl) n = n.parentElement
+      expect(n.parentElement).toBe(rowEl) // the walk reached the row, not the document
+      return n
+    }
+
+    // Preconditions, pinned in-test: this is the live editing arm and the
+    // refusal is really rendering — an empty draft cannot be proposed. Without
+    // these the cell comparison could pass on a beat that renders neither.
+    const input = screen.getByTestId('model-row-v2-f1-value-input')
+    expect(input).toHaveValue('')
+    expect(screen.getByTestId('model-row-v2-f1-value-blocked')).toHaveTextContent(
+      'Enter a number to review this change',
+    )
+
+    const valueCell = cellOf(input)
+    // The control proving the walker answers about a REAL cell: the input's cell
+    // is the one holding the value span, and it is a single-track item.
+    expect(valueCell).toContainElement(screen.getByTestId('model-row-v2-f1-value'))
+    expect(valueCell.className.split(/\s+/)).not.toContain('col-span-4')
+
+    // THE CLAIM: prose and bordered chips are not in the narrow value track.
+    // At pristine all three of these are the SAME cell as the input, and each
+    // line REDs.
+    expect(cellOf(screen.getByTestId('model-row-v2-f1-review'))).not.toBe(valueCell)
+    expect(cellOf(screen.getByTestId('model-row-v2-f1-discard-edit'))).not.toBe(valueCell)
+    expect(cellOf(screen.getByTestId('model-row-v2-f1-value-blocked'))).not.toBe(valueCell)
+  })
+
+  /**
+   * Where they live instead, and why it is the ROW's direct child: the row is
+   * `grid grid-cols-subgrid col-span-4`, so only a DIRECT child can claim grid
+   * tracks. Nest this line inside any other element and `col-span-4` stops
+   * applying to a grid item of the row — the full width silently goes away and
+   * the paragraph comes back with it.
+   */
+  it('they share one full-width line that is a direct child of the row and spans all four tracks', () => {
+    renderEditing()
+    const actions = screen.getByTestId('model-row-v2-f1-edit-actions')
+
+    expect(actions.parentElement).toBe(screen.getByTestId('model-row-v2-f1'))
+    expect(hasClass('model-row-v2-f1-edit-actions', 'col-span-4')).toBe(true)
+
+    // Both controls and the sentence are in THIS element — one line, not three
+    // places. Bound by identity, so a second copy elsewhere would not satisfy it.
+    expect(actions).toContainElement(screen.getByTestId('model-row-v2-f1-review'))
+    expect(actions).toContainElement(screen.getByTestId('model-row-v2-f1-discard-edit'))
+    expect(actions).toContainElement(screen.getByTestId('model-row-v2-f1-value-blocked'))
+  })
+
+  /**
+   * ⚠ THE OPPOSITE-DIRECTION TWIN (trap 22b): the cheapest way to make the row
+   * compact again is to stop rendering the controls, which is the DEFECT #1401
+   * exists to close — an editor whose only advance affordance was a key nothing
+   * named. A height contract alone would applaud that. So the route forward is
+   * asserted PRESENT and ENABLED on a draft the host accepts, in the same file
+   * that asserts it is out of the narrow column.
+   */
+  it('a proposable draft still renders an ENABLED route forward — the defect this must not re-open', () => {
+    render(
+      <ModelRowView
+        row={row({ id: 'f2' })}
+        tier="plain"
+        commit={{ phase: 'editing', draft: '0.4' } as const}
+        onDraftChange={() => {}}
+        onProposeEdit={() => {}}
+        onDiscardEdit={() => {}}
+      />,
+    )
+    expect(screen.getByTestId('model-row-v2-f2-review')).toBeEnabled()
+    // …and nothing is claiming a refusal about a draft that parses.
+    expect(screen.queryByTestId('model-row-v2-f2-value-blocked')).toBeNull()
+  })
+
+  /**
+   * The buttons themselves must not wrap INSIDE their own border. "Review
+   * change" wrapping to two lines inside a 63px chip was 52px of the measured
+   * 200px, and it is the visible half of the defect — a two-line button reads as
+   * broken regardless of what the row's total height is.
+   */
+  it('neither control wraps inside its own border', () => {
+    renderEditing()
+    expect(hasClass('model-row-v2-f1-review', 'whitespace-nowrap')).toBe(true)
+    expect(hasClass('model-row-v2-f1-discard-edit', 'whitespace-nowrap')).toBe(true)
+  })
+
+  /**
+   * And the value cell's OWN contract is unchanged by the move — the reserved
+   * box is what keeps the input's 14px glyph from moving the first line, and it
+   * is a different guarantee from anything above.
+   */
+  it('the value cell keeps its reserved box and its no-shrink, no-wrap contract', () => {
+    renderEditing()
+    expect(hasClass('model-row-v2-f1-value', 'min-h-[23px]')).toBe(true)
+    expect(hasClass('model-row-v2-f1-value', 'shrink-0')).toBe(true)
+    expect(hasClass('model-row-v2-f1-value', 'whitespace-nowrap')).toBe(true)
+  })
+
+  /**
+   * The discriminating twin: an idle row has no action line at all.
+   *
+   * ⚠⚠ THE THREE CALLBACKS ARE PASSED ON PURPOSE, AND A SURVIVING MUTANT IS WHY.
+   * This first rendered an idle row with `onBeginEdit` ALONE — and deleting the
+   * `commit?.phase === 'editing'` guard from the render condition left the suite
+   * fully GREEN, because with the live-edit callbacks absent the remaining
+   * conjunction was false anyway. The test was passing on the wrong conjunct: it
+   * proved "no callbacks ⇒ no action line", which nobody doubted, while the
+   * PHASE gate — the thing that actually keeps every idle row in a 24-row
+   * outline compact — was unguarded. Supplying all three leaves the phase as the
+   * only conjunct that can be false, so the mutant now bites.
+   */
+  it('is absent when no edit is in flight, with the live-edit callbacks all present', () => {
+    render(
+      <ModelRowView
+        row={row({ id: 'f1' })}
+        tier="plain"
+        onBeginEdit={() => {}}
+        onDraftChange={() => {}}
+        onProposeEdit={() => {}}
+        onDiscardEdit={() => {}}
+      />,
+    )
+    // Precondition: this really is an idle row — the editor is not mounted.
+    expect(screen.queryByTestId('model-row-v2-f1-value-input')).toBeNull()
+    expect(screen.queryByTestId('model-row-v2-f1-edit-actions')).toBeNull()
+  })
+})
