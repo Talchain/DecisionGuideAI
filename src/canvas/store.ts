@@ -17,6 +17,7 @@ import {
   type NodeData,
 } from './domain/nodes'
 import { hasAnalyticalNodeChange, hasAnalyticalEdgeChange } from './domain/analyticalChange'
+import { countOptionNodes } from './domain/optionCount'
 import { applyLayout, applyLayoutWithPolicy } from './layout'
 import { mergePolicy } from './layout/policy'
 import { policyToPreset, policyToSpacing } from './layout/adapters'
@@ -634,6 +635,70 @@ interface CanvasState {
    * previous decision's admission would govern the next one's edits.
    */
   retainedAnalysisAdmission: AnalysisAdmissionV1 | null
+  /**
+   * THE PRODUCER'S LAST COACHING, RETAINED ACROSS INVALIDATION — THE SAME
+   * MECHANISM AS `retainedAnalysisAdmission` ABOVE, ONE FIELD ALONG.
+   *
+   * `draftCoaching` is a member of `READINESS_CLEAR_FIELDS`, so every analytical
+   * edit nulls it. The user-facing consequence is the inverse of a stale claim:
+   * the moment the user ACTS ON the coaching, the coaching that asked for the act
+   * disappears, and does not return until the next server turn.
+   *
+   * ⚠ WHY ONLY THIS ONE OF THE TEN CLEARED FIELDS. The other nine are either a
+   * NUMERIC CLAIM ABOUT THE GRAPH THAT JUST CHANGED (`ceeQuality`,
+   * `preAnalysisSensitivity`, `ceeModelQualityFactors`), a STRUCTURAL verdict the
+   * triggering edit can invalidate directly (`ceeGoalConnectivity`,
+   * `ceeExtendedWarnings`), or an INPUT TO A RUN REQUEST rather than a display
+   * (`ceeAnalysisReady` incl. its resolved `options[].interventions`,
+   * `goalConstraints`, `ceeAnalysisReadyNodeIds`), or PRODUCER METADATA KEYED BY
+   * NODE ID (`ceeInterventionHints`) — the one member that is brief-derived and
+   * so reads closest in character to this field, and the reason it is still
+   * refused is that its KEYS are node ids and its only consumer
+   * (`detectSameLever`, `hooks/usePreAnalysisData.ts`) joins it against the LIVE
+   * `nodes`: a retained hint map would pair pre-edit hints with a post-edit graph
+   * and answer about nodes that no longer exist. Retaining any of those would
+   * either present a figure about a superseded graph or change what goes on the
+   * wire. Coaching is the one member that is PROSE THE PRODUCER AUTHORED — and
+   * prose about the brief and the framing, not a measurement of the graph.
+   *
+   * ⚠⚠ DOWNGRADE-ONLY, AND STRUCTURALLY SO — THE RETAINED TEXT CANNOT SUMMON A
+   * ROW. Its one wired consumer is `sig_option_breadth`'s `ceeOverride`
+   * (`pre-analysis-v3/signals/registry.ts`), and that signal's FIRING CONDITION is
+   * re-derived live from the graph (`input.optionCount >= 3` returns null). So the
+   * retained value can only ever change the WORDING of a row the live graph has
+   * independently decided to show; widen the options and the row goes, whatever is
+   * retained. Exactly as with the admission, the only value it can hold is a value
+   * the producer itself sent, and a live payload always wins.
+   *
+   * ⚠ DELIBERATELY NOT WIRED TO THE HERO COACHING SLOT. That slot
+   * (`usePreAnalysisModel`'s `coaching`, rendered by `hero/CoachingSlot.tsx`) is
+   * UNGATED — it renders whenever text exists — so a retained summary could assert
+   * a framing problem the user's edit has just fixed, unmarked, beside live
+   * numbers. Retaining it honestly needs a visible pre-edit mark on the slot; that
+   * is a copy change, not this one.
+   *
+   * Captured at the CLEAR sites (`readinessClearFields`) and cleared by
+   * `DECISION_CONTEXT_CLEAR`, for the same two reasons given for the admission.
+   * Session-local, never persisted — the same rule `draftCoaching` already keeps.
+   */
+  retainedDraftCoaching: CEEDraftCoaching | null
+  /**
+   * THE OPTION COUNT `retainedDraftCoaching` WAS AUTHORED AGAINST — the second
+   * parameter of a predicate that was guarding two opposite harms with one
+   * threshold (review ground, 2026-09-10).
+   *
+   * `sig_option_breadth`'s live gate (`optionCount >= 3`) removes the row when the
+   * user WIDENS. Narrowing is the other direction and the gate is silent there:
+   * coached at two options, delete one, and the retained sentence asserts a
+   * two-option frame over a one-option graph while REPLACING `optionBreadthOne`,
+   * which is the accurate line. Harvested in lockstep with the coaching itself and
+   * compared by `resolveEffectiveDraftCoaching`; any mismatch refuses the retained
+   * value and the deterministic copy returns.
+   *
+   * Session-local and cleared exactly where the coaching is, so the two can never
+   * describe different graphs.
+   */
+  retainedDraftCoachingOptionCount: number | null
   // Analysis freshness verdict from CEE analysis_ready.freshness — retained
   // across turns; sourced independently of ceeAnalysisReady / v5AnalysisFact.
   analysisFreshness: AnalysisFreshnessState | null
@@ -1983,6 +2048,16 @@ function readinessClearFields(get: () => CanvasState) {
     ...READINESS_CLEAR_FIELDS,
     retainedAnalysisAdmission:
       get().ceeAnalysisReady?.analysis_admission ?? get().retainedAnalysisAdmission,
+    // Same harvest, same reason, one field along: read out of live state at the
+    // moment of clearing, so it is correct however the coaching arrived and there
+    // is no list of producers to keep in sync.
+    retainedDraftCoaching: get().draftCoaching ?? get().retainedDraftCoaching,
+    // Harvested from the SAME branch, so the count always describes the graph the
+    // retained prose was authored against. A `??` on the count alone would drift:
+    // it would keep an older count beside a newer sentence.
+    retainedDraftCoachingOptionCount: get().draftCoaching
+      ? countOptionNodes(get().nodes)
+      : get().retainedDraftCoachingOptionCount,
   }
 }
 
@@ -2006,6 +2081,12 @@ const DECISION_CONTEXT_CLEAR = {
   // must not govern edits made to this one — the same hazard as the stale
   // goalThreshold two lines above.
   retainedAnalysisAdmission: null,
+  // The retained coaching is scoped to ONE decision for the same reason: it is
+  // prose CEE authored about THIS brief and THIS framing, so carrying it into the
+  // next decision would re-word that decision's signals with the previous one's
+  // guidance.
+  retainedDraftCoaching: null,
+  retainedDraftCoachingOptionCount: null,
   ceeAnalysisReadyNodeIds: null,
   outcomeNodeId: null,
   // B3 (Codex deep review, 2026-07-18): goalConstraints was the ONE member of
@@ -2855,6 +2936,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   v5AnalysisFact: null,
   // CEE coaching payload (session-local; never persisted)
   draftCoaching: null,
+  // No producer has coached at cold start, so there is nothing to retain and the
+  // live-absent branch stays absent.
+  retainedDraftCoaching: null,
+  retainedDraftCoachingOptionCount: null,
   // CEE goal constraints from draft-graph response root
   goalConstraints: null,
   // B2: no authoritative graph seen yet — reconciler removes nothing.
@@ -6078,6 +6163,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       edges: draftChatPreDraftSnapshot.edges,
       draftChatPreDraftSnapshot: null,
       // Clear full readiness bundle + pipeline trace on draft undo
+      // ⚠ STATED DECISION, NOT AN ACCIDENT (review note). This harvest also
+      // retains the coaching of the draft the user has just reverted, and that
+      // retained sentence then survives to re-word the option-breadth row on the
+      // PRE-DRAFT graph. It is allowed because the retained detail is producer
+      // prose ABOUT THE BRIEF (all four starter captures quote the brief's own
+      // words) and the brief is unchanged by an undo, and because the row it can
+      // re-word re-derives its own firing condition from the live graph. If a
+      // retained field is ever added that measures the GRAPH, this call site is
+      // the one to exclude first.
       ...readinessClearFields(get),
       // Lane 5 (review fold): undo reverts to the pre-draft graph — the
       // drafted decision's target must not survive onto it. Clear the

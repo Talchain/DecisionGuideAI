@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useMemo } from 'react'
+import { resolveEffectiveDraftCoaching } from '../../../domain/effectiveDraftCoaching'
 import { goalLabelIsUnconfirmedBriefExtract } from '../../../domain/goalLabelProvenance'
 import { useCanvasStore } from '../../../store'
 import { useGraphReadiness } from '../../../hooks/useGraphReadiness'
@@ -165,6 +166,15 @@ export function usePreAnalysisModel(): PreAnalysisModel {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const draftCoaching = useCanvasStore(s => s.draftCoaching)
+  // Retained across readiness invalidation — see `retainedDraftCoaching` in the
+  // store. Read SEPARATELY from the live field on purpose: only the live-gated
+  // consumer below (`narrowFramingDetail`) may resolve through it. The hero
+  // `coaching` memo keeps reading `draftCoaching` alone, because that slot is
+  // ungated and a retained summary there would be unmarked stale prose.
+  const retainedDraftCoaching = useCanvasStore(s => s.retainedDraftCoaching)
+  // The option count that retained value was authored against. Read beside it so
+  // the resolver can refuse prose about a graph the user has since narrowed.
+  const retainedDraftCoachingOptionCount = useCanvasStore(s => s.retainedDraftCoachingOptionCount)
   const analysisReady = useCanvasStore(s => s.ceeAnalysisReady)
   // Stored goal constraints (CEE response root, ingested verbatim by
   // DraftChat/applyDraftResult) — the provenance carrier for the
@@ -318,11 +328,23 @@ export function usePreAnalysisModel(): PreAnalysisModel {
   )
 
   const narrowFramingDetail = useMemo(() => {
-    const signal = draftCoaching?.biasSignals?.find(b => b.type === 'narrow_framing')
+    // Live wins; the retained copy answers only when an analytical edit nulled the
+    // live one. Safe HERE and only here because `sig_option_breadth` re-derives its
+    // own firing condition from the live graph, so this can re-word a row but never
+    // summon one — see `domain/effectiveDraftCoaching.ts`.
+    // The live gate below bounds WIDENING only. Narrowing is refused here, by
+    // comparing the harvested option count with the live one.
+    const effective = resolveEffectiveDraftCoaching(
+      draftCoaching,
+      retainedDraftCoaching,
+      retainedDraftCoachingOptionCount,
+      facts.optionCount,
+    )
+    const signal = effective?.biasSignals?.find(b => b.type === 'narrow_framing')
     const detail = signal?.detail && signal.detail.trim().length > 0 ? signal.detail : null
     // Glossary guard: an unsafe swap degrades to the deterministic copy.
     return guardCeeTextOrNull(detail)
-  }, [draftCoaching])
+  }, [draftCoaching, retainedDraftCoaching, retainedDraftCoachingOptionCount, facts.optionCount])
 
   const biasFindingExplanation = useMemo(() => {
     const findings = (analysisReady as { bias_findings?: Array<{ explanation?: string }> } | null)
