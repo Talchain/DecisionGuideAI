@@ -134,6 +134,25 @@ export interface AnalysisNewTabBodyProps {
    */
   onReanalyse?: () => void
   /**
+   * ⭐⭐ THE DOCK'S ROUTE TO THE ESTIMATES — the act that answers a withheld
+   * leader designation. `AtAGlance` renders the producer's refusal sentence,
+   * which names its remedy in words and can reach it from nowhere; this is the
+   * move that goes there.
+   *
+   * ⚠ THE DOCK OWNS IT, NOT THIS FILE, AND THAT IS THE POINT. The destination
+   * is the outputs dock's own active tab plus the Model tab's pending section —
+   * both `useUIStore` state that `OutputsDock` already holds and already writes
+   * for its sibling handlers. `useUIStore` is imported NOWHERE under
+   * `components/results/analysisNew/`; threading the handler keeps it that way,
+   * so the tab that renders the sentence does not also become an authority on
+   * where the dock is pointing. Same shape as `onReanalyse` and `onSendMessage`
+   * directly above and below.
+   *
+   * Absent = `AtAGlance` renders the refusal sentence with no control, which is
+   * the honest render — never a dead button.
+   */
+  onReviewEstimates?: () => void
+  /**
    * ⭐⭐ THE DOCK'S RUN GATE — `runGateResult.allowed`, which `OutputsDock`
    * binds as `canRunAnalysis` and passes unchanged to `AnalysisReadinessBar`'s
    * `canRun`, to `PreAnalysisPanelV3`'s `canRun`, and to this prop. (It has
@@ -460,6 +479,7 @@ export function AnalysisNewTabBody({
   responseHash,
   onFocusNode,
   onReanalyse,
+  onReviewEstimates,
   canRunAnalysis = null,
   runBlockedReason = null,
   onSendMessage,
@@ -851,6 +871,12 @@ export function AnalysisNewTabBody({
         <AtAGlance
           glance={vm.atAGlance}
           onFocusTarget={focusTarget}
+          /* ⭐ THE DOCK'S ROUTE TO THE ESTIMATES, PASSED THROUGH UNCHANGED.
+             `AtAGlance` is fail-closed on it, so a host with nowhere to send
+             the user renders the refusal sentence alone. Not composed here and
+             not defaulted: this surface is not an authority on where the dock
+             is pointing. */
+          onReviewEstimates={onReviewEstimates}
           isStale={vm.status.isStale && !vm.status.isPreRun}
           staleKind={vm.status.staleKind}
           isProvisional={vm.status.isProvisional}
