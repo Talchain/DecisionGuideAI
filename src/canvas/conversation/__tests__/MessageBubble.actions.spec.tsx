@@ -11,7 +11,7 @@
  *  - never on user messages;
  *  - never on streaming/thinking turns;
  *  - never on synthetic messages;
- *  - accessible aria-label + title;
+ *  - a real accessible name (aria-label), containing the visible label;
  *  - route through the existing conversation send path;
  *  - single-flight guard so a double-click sends one follow-up.
  */
@@ -122,8 +122,21 @@ describe('FollowUpActions — accessibility', () => {
       />,
     )
     const btn = screen.getByTestId('message-action-explain-more')
-    expect(btn.getAttribute('aria-label')).toBe('Explain in more detail')
-    expect(btn.getAttribute('title')).toBe('Explain more')
+    /*
+      ⚠ PIN UPDATED, NOT WEAKENED (WCAG SC 2.5.3). This asserted
+      aria-label 'Explain in more detail' + title 'Explain more'.
+      Once the button gained a VISIBLE label reading "Explain more", that
+      aria-label became a name that does NOT contain its own visible text — a
+      Level A Label-in-Name failure, because `aria-label` outranks contents. The
+      name is now a SUPERSET of the visible label, and `title` is gone: with a
+      name present it was no longer a fallback tooltip but the accessible
+      DESCRIPTION, read back after the name at common screen-reader verbosity.
+      The claim here is unchanged — this button has a real accessible name —
+      and the containment PROPERTY is guarded in
+      MessageBubble.followUpLegible.spec.tsx, which is where it belongs.
+    */
+    expect(btn.getAttribute('aria-label')).toBe('Explain more about this response')
+    expect(btn.getAttribute('title')).toBeNull()
   })
 
   it('Summarise has an accessible label and tooltip', () => {
@@ -135,8 +148,10 @@ describe('FollowUpActions — accessibility', () => {
       />,
     )
     const btn = screen.getByTestId('message-action-summarise')
+    // Unchanged name — 'Summarise this response' already contained the visible
+    // 'Summarise', so SC 2.5.3 was satisfied here. Only the title is gone.
     expect(btn.getAttribute('aria-label')).toBe('Summarise this response')
-    expect(btn.getAttribute('title')).toBe('Summarise')
+    expect(btn.getAttribute('title')).toBeNull()
   })
 
   it('action row has an accessible group label', () => {
