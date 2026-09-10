@@ -31,9 +31,27 @@
  * seeds no category).
  *
  * This tab does the OPPOSITE and must keep doing it: no default, no
- * "Unclassified", no dash. A reader has to be able to tell *"CEE said this is
+ * "Unclassified", no dash. A reader has to be able to tell *"this model says
  * external"* from *"nothing here says"*, and a guessed classification is worse
  * than a missing one because it is indistinguishable from a real one.
+ *
+ * ── ⚠⚠ AND ABSENCE WAS NOT THE ONLY UNSTATED CASE ─────────────────────────
+ * The first version of this file proved `factorNode()` with no `category`
+ * yields `null` — true of `toRowDetail` in isolation, and NOT true of any
+ * factor that has travelled the CEE adapter. `adapters/cee/client.ts`
+ * `inferMissingCategories` fills an omitted `category` from edge shape on every
+ * ingestion path, so the field is POPULATED for factors nobody classified, and
+ * a reader checking only absence printed the UI's own guess in the model's
+ * voice. Every fixture here was hand-built and fed straight to `toRowDetail`,
+ * bypassing that adapter — and a fixture you wrote yourself is not evidence
+ * about the wire, which is exactly why an otherwise green honesty corpus sat
+ * over a live fabrication.
+ *
+ * The `THE REAL INGESTION PATH` block below therefore drives
+ * `adaptDraftResponse` → `mapDraftNodeToCanvas` → `toRowDetail` → render, on
+ * the payload shape the estate's own `adaptDraftResponse.spec.ts` uses to pin
+ * the inference. It is the only block in this file whose input is not
+ * self-authored, and it is the one that can see this defect class.
  */
 import '@testing-library/jest-dom/vitest'
 import { describe, expect, it } from 'vitest'
@@ -41,7 +59,14 @@ import { render, screen } from '@testing-library/react'
 
 import { ModelDetailRegion } from '../ModelDetailRegion'
 import { toRowDetail } from '../adapters'
-import { factorCategoryLabel, FACTOR_CATEGORY_LABEL } from '../../domain/vocabulary'
+import {
+  factorCategoryLabel,
+  statedFactorCategoryLabel,
+  FACTOR_CATEGORY_LABEL,
+} from '../../domain/vocabulary'
+import { FactorCategoryEnum } from '../../domain/nodes'
+import { adaptDraftResponse } from '../../../adapters/cee/client'
+import { mapDraftNodeToCanvas } from '../../utils/applyDraftResult'
 import type { ModelRow } from '../types'
 
 const factorNode = (category?: unknown) => ({
@@ -77,12 +102,21 @@ describe('THE VOCABULARY IS SHARED, NOT RE-TYPED', () => {
    * hand-maintained mirror `domain/vocabulary.ts` was created to abolish —
    * after a bare `'Decision'` literal had to be renamed in NINE places.
    */
-  it('covers exactly the three stamps CEE emits', () => {
-    expect(Object.keys(FACTOR_CATEGORY_LABEL).sort()).toEqual([
-      'controllable',
-      'external',
-      'observable',
-    ])
+  /**
+   * ⚠ DERIVED FROM THE PRODUCER'S ENUM, NOT RE-TYPED. This assertion compared
+   * `Object.keys(...)` against a HAND-TYPED literal array — both sides written
+   * by hand, nothing binding either to the producer, which is the mirror the
+   * module under test exists to abolish. It matters more than it looks:
+   * `FactorControllableEditor` now DERIVES its writable options from this same
+   * map, so a short map silently shortens the EDITOR's option set too. If
+   * schemas gained a fourth member and CEE stamped it, the tab would show
+   * nothing for those factors, the inspector could no longer select it, and a
+   * hand-typed pair would stay green on both sides.
+   */
+  it('covers exactly the stamps the producer enum declares', () => {
+    expect(Object.keys(FACTOR_CATEGORY_LABEL).sort()).toEqual(
+      [...FactorCategoryEnum.options].sort(),
+    )
   })
 
   it('maps each stamp to its display word', () => {
@@ -155,6 +189,195 @@ describe('a classified factor says so, on the tab built for reading the model', 
     const kind = screen.getByTestId('model-detail-v2-kind').textContent ?? ''
     expect(kind).toContain('External')
     expect(kind.length).toBeLessThan(60)
+  })
+})
+
+describe('⛔ THE REAL INGESTION PATH — a UI guess is not the model speaking', () => {
+  /**
+   * ⭐⭐⭐ THE ONE BLOCK HERE WHOSE INPUT IS NOT SELF-AUTHORED.
+   *
+   * It drives the actual chain a drafted factor travels:
+   *   CEE payload → `adaptDraftResponse` (runs `inferMissingCategories`)
+   *                → `mapDraftNodeToCanvas` (spreads `...rest` into `data`)
+   *                → `toRowDetail` → `ModelDetailRegion`
+   *
+   * The payload shape is lifted from `adapters/cee/__tests__/adaptDraftResponse
+   * .spec.ts`, which pins the inference itself — so the input class comes from
+   * the estate's record of what CEE does, not from this author's model of it.
+   *
+   * ⚠ IT IS A DISCRIMINATING TRIO, and that is the whole design. `f1` and `f2`
+   * are unclassified by CEE and take the inferencer's two different guesses;
+   * `f3` carries a real stamp. If the marker stopped being written, or the
+   * reader stopped consulting it, `f1`/`f2` would render and this REDs. If the
+   * gate were widened into a blanket suppression, `f3` would go silent and this
+   * REDs on a DIFFERENT assertion. One of those alone proves nothing.
+   */
+  const CEE_PAYLOAD = {
+    graph: {
+      nodes: [
+        { id: 'opt1', label: 'Option A', kind: 'option' },
+        // CEE stamped NEITHER of these two. The inferencer will guess
+        // `controllable` for f1 (targeted by an option edge) and `observable`
+        // for f2 (not targeted).
+        { id: 'f1', label: 'Price', kind: 'factor' },
+        { id: 'f2', label: 'EU regulatory timetable', kind: 'factor' },
+        // CEE DID stamp this one. The inferencer never emits `external`, so a
+        // value here can only be the producer's.
+        { id: 'f3', label: 'Commodity index', kind: 'factor', category: 'external' },
+        { id: 'g1', label: 'Revenue', kind: 'goal' },
+      ],
+      edges: [
+        { from: 'opt1', to: 'f1', weight: 0.5 },
+        { from: 'f1', to: 'g1', weight: 0.8 },
+        { from: 'f2', to: 'g1', weight: 0.3 },
+        { from: 'f3', to: 'g1', weight: 0.2 },
+      ],
+    },
+  }
+
+  const ingest = () => {
+    const adapted = adaptDraftResponse(CEE_PAYLOAD)
+    return { nodes: adapted.nodes.map(mapDraftNodeToCanvas), edges: [] }
+  }
+
+  it('PRECONDITION: the inferencer really does populate the field on this payload', () => {
+    // ⚠ PINS ITS OWN PRECONDITION. Without this, every assertion below would
+    // also pass if the inferencer simply stopped running — a guard agreeing
+    // with itself. The whole point is that `category` IS present and IS a
+    // guess; the marker is what separates it from f3's stamp.
+    const graph = ingest()
+    const byId = (id: string) => graph.nodes.find((n: { id: string }) => n.id === id)
+    expect(byId('f1').data.category).toBe('controllable')
+    expect(byId('f2').data.category).toBe('observable')
+    expect(byId('f1').data.categoryInferredByUi).toBe(true)
+    expect(byId('f2').data.categoryInferredByUi).toBe(true)
+    // The producer's own stamp is untouched and unmarked.
+    expect(byId('f3').data.category).toBe('external')
+    expect(byId('f3').data.categoryInferredByUi).toBeUndefined()
+  })
+
+  it('⭐ a factor the UI classified for itself gets NO classification on the tab', () => {
+    const graph = ingest()
+    expect(toRowDetail(graph as never, 'f1')?.classification).toBeNull()
+    expect(toRowDetail(graph as never, 'f2')?.classification).toBeNull()
+  })
+
+  it('⭐ the discriminating twin: the factor CEE DID stamp still says so', () => {
+    const graph = ingest()
+    expect(toRowDetail(graph as never, 'f3')?.classification).toBe('External')
+  })
+
+  it('⭐ renders nothing for the inferred factor, and the stamp for the stated one', () => {
+    const graph = ingest()
+
+    const inferredRow: ModelRow = { ...row, id: 'f2', label: 'EU regulatory timetable' }
+    const inferred = toRowDetail(graph as never, 'f2')
+    if (inferred === null) throw new Error('projection returned null — fixture is not in the model')
+    const first = render(<ModelDetailRegion row={inferredRow} detail={inferred} tier="plain" />)
+    expect(screen.queryByTestId('model-detail-v2-classification')).toBeNull()
+    // The absence is of the qualifier only — the row still says what it is.
+    expect(screen.getByTestId('model-detail-v2-kind')).toBeInTheDocument()
+    // ⛔ and the guess itself never reaches the document in any form.
+    expect(first.container.textContent ?? '').not.toContain('Observable')
+    first.unmount()
+
+    const statedRow: ModelRow = { ...row, id: 'f3', label: 'Commodity index' }
+    const stated = toRowDetail(graph as never, 'f3')
+    if (stated === null) throw new Error('projection returned null — fixture is not in the model')
+    render(<ModelDetailRegion row={statedRow} detail={stated} tier="plain" />)
+    expect(screen.getByTestId('model-detail-v2-classification')).toHaveTextContent('External')
+  })
+})
+
+describe('⛔ THE MARKER IS THE ONLY THING THAT WITHHOLDS', () => {
+  /**
+   * ⚠ NAMED APART FROM THE LABEL LOOKUP. `factorCategoryLabel` answers *how
+   * does this value read?*; `statedFactorCategoryLabel` answers *may a surface
+   * present this as the model's classification?*. Two questions under one name
+   * is how a fail-open and a fail-closed default end up side by side looking
+   * like an inconsistency to reconcile.
+   */
+  it('withholds ONLY on an explicit true', () => {
+    expect(statedFactorCategoryLabel('external', true)).toBeNull()
+    expect(statedFactorCategoryLabel('external', false)).toBe('External')
+    expect(statedFactorCategoryLabel('external', undefined)).toBe('External')
+  })
+
+  it('a human stating the category clears the withholding', () => {
+    // `useInspectorMutations.setCategory` writes `categoryInferredByUi: false`
+    // in the same update as the value. Humans are the authors of this model: a
+    // classification a person chose is stated, and withholding it would be the
+    // mirror-image lie of printing a guess.
+    expect(statedFactorCategoryLabel('observable', false)).toBe('Observable')
+  })
+
+  it('a truthy-but-not-true marker does not withhold, and a missing category still does', () => {
+    // Bound to the literal `true` the writers emit, so a stray truthy value
+    // cannot silently start suppressing real stamps.
+    expect(statedFactorCategoryLabel('external', 'yes')).toBe('External')
+    expect(statedFactorCategoryLabel(undefined, false)).toBeNull()
+  })
+})
+
+describe('⛔ THE READER IS NOT STRICTER THAN ITS WRITERS', () => {
+  /**
+   * ⚠ THIS CORPUS IS NOT FROM THIS AUTHOR'S HEAD EITHER. Every value below is
+   * named verbatim in a SHIPPED P1 hotfix comment at
+   * `canvas/utils/graphDisplayCalculations.ts` — *"Normalize category to handle
+   * LLM output inconsistencies (e.g., \"External\", \"external \",
+   * \"CONTROLLABLE\")"*. That is the estate's own record of what arrives on
+   * the wire, and it is the strongest evidence available about the real input
+   * domain.
+   *
+   * ⚠ THE FAILURE DIRECTION IS THE ONE THIS FILE EXISTS TO PREVENT, INVERTED.
+   * An un-normalised reader returns `null` for `"External"` — and `null` here
+   * MEANS nobody stated one. So the canvas would draw the node with its
+   * outside-your-control border while the tab said nothing, and the silence
+   * would be indistinguishable from a genuinely unclassified factor.
+   */
+  it.each([
+    ['External', 'External'],
+    ['external ', 'External'],
+    [' external', 'External'],
+    ['CONTROLLABLE', 'Controllable'],
+    ['Observable', 'Observable'],
+  ])('reads %j as %j', (wire, expected) => {
+    expect(factorCategoryLabel(wire)).toBe(expected)
+    expect(statedFactorCategoryLabel(wire, undefined)).toBe(expected)
+  })
+
+  it('normalisation does not admit anything the vocabulary does not know', () => {
+    // Contrast control for the block above: whitespace and case are forgiven,
+    // membership is not. If this went green for an unknown token, the cases
+    // above would be proving permissiveness rather than normalisation.
+    expect(factorCategoryLabel(' Partially_Controllable ')).toBeNull()
+    expect(factorCategoryLabel('   ')).toBeNull()
+  })
+})
+
+describe('⛔ NO PROTOTYPE KEY REACHES THE SCREEN', () => {
+  /**
+   * ⚠ THE SIGNATURE IS `(category: unknown)` AND THE DOC PROMISES `null` FOR
+   * ANYTHING UNRECOGNISED. An unguarded index into an object literal reaches
+   * the prototype chain, and `??` falls back on null/undefined only — so
+   * `"toString"` returned a FUNCTION, `detail.classification !== null` was
+   * true, and the detail region rendered native-code source text as a
+   * classification.
+   *
+   * ⚠ NO CLAIM IS MADE THAT CEE EMITS THESE. This is a shared primitive whose
+   * input domain widens as other surfaces adopt it, and the guarantee is the
+   * only reason to adopt it.
+   */
+  it.each(['toString', 'constructor', '__proto__', 'valueOf', 'hasOwnProperty'])(
+    'inherited key %j yields null, not a function or an object',
+    (key) => {
+      expect(factorCategoryLabel(key)).toBeNull()
+    },
+  )
+
+  it('⭐ renders no classification element for an inherited key', () => {
+    renderFor(factorNode('toString'))
+    expect(screen.queryByTestId('model-detail-v2-classification')).toBeNull()
   })
 })
 

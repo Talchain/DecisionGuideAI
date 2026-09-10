@@ -146,6 +146,28 @@ function asRec(value: unknown): Record<string, unknown> | undefined {
  *
  * This handles the LLM omission pattern where GPT-4o non-deterministically
  * drops the `category` field on factor nodes.
+ *
+ * ⭐⭐ IT MARKS ITS OWN WORK. Every value this function writes is the UI's
+ * guess from edge shape, not something the producer said, and once it lands in
+ * `category` it is byte-identical to a real stamp. So it writes
+ * `categoryInferredByUi: true` alongside, in the SAME iteration, and a reading
+ * surface that presents the category as the model's own stated classification
+ * consults that marker first (`domain/vocabulary.ts`,
+ * `statedFactorCategoryLabel`).
+ *
+ * ⚠ THE MARKER IS WRITTEN ONLY WHERE THE GUESS IS MADE, so its ABSENCE is
+ * the narrow claim *this function did not invent this value* — never a positive
+ * attestation that CEE stamped it. A surface needing that stronger claim must
+ * establish it at the producer, not here.
+ *
+ * ⚠ A HUMAN SETTING THE CATEGORY CLEARS IT. `useInspectorMutations.setCategory`
+ * writes `categoryInferredByUi: false` in the same update as the value, on the
+ * `*Source` ride-along pattern, so the marker can never outlive the guess it
+ * describes.
+ *
+ * ⚠ THE CANVAS IS UNCHANGED. `BaseNode`, `DecisionNode` and
+ * `deriveControllability` read `category` exactly as before; nothing here
+ * removes the inference or alters what it writes.
  */
 function inferMissingCategories(nodes: Record<string, unknown>[], edges: Record<string, unknown>[]): void {
   if (!Array.isArray(nodes) || !Array.isArray(edges)) return
@@ -176,6 +198,9 @@ function inferMissingCategories(nodes: Record<string, unknown>[], edges: Record<
     if (node.category) continue // already has category — don't overwrite
 
     node.category = optionTargets.has(node.id) ? 'controllable' : 'observable'
+    // Rides with the value it describes, in the same iteration, so the guess
+    // and the admission that it IS a guess can never come apart.
+    node.categoryInferredByUi = true
   }
 }
 

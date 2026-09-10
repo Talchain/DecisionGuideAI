@@ -63,7 +63,13 @@ export const NODE_SETTER_FIELDS = {
   setObservedBaseline: ['observedState'],
   setObservedStd: ['observedState'],
   setObservedSource: ['observedState'],
-  setCategory: ['category'],
+  // `categoryInferredByUi` rides with the value on the same `*Source` pattern
+  // as the edge markers above: a human picking a category is the one thing
+  // that turns the ingestion adapter's edge-shape guess into a stated fact, so
+  // the admission is cleared in the SAME update as the value and can never lag
+  // behind it. Absent it, the Model tab would keep withholding a
+  // classification the user had just authored.
+  setCategory: ['category', 'categoryInferredByUi'],
   setExtractionType: ['extractionType'],
   setFactorType: ['factor_type'],
   setStateSpaceRange: ['state_space'],
@@ -437,7 +443,9 @@ export function useNodeMutations(nodeId: string) {
   const setCategory = useCallback((category: 'controllable' | 'observable' | 'external') => {
     const node = getNode()
     if (!node) return
-    updateNode(nodeId, { data: { ...node.data, category } })
+    // `false`, not a delete: the user stated this, and an explicit denial is
+    // readable by a surface that only ever asks `=== true`.
+    updateNode(nodeId, { data: { ...node.data, category, categoryInferredByUi: false } })
   }, [nodeId, updateNode, getNode])
 
   const setExtractionType = useCallback((extractionType: 'explicit' | 'inferred') => {

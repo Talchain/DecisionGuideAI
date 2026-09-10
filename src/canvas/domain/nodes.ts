@@ -328,6 +328,27 @@ export const FactorNodeDataSchema = NodeDataSchema.extend({
   controllability: ControllabilityEnum.optional(),
   /** CEE V12.4: Explicit category from CEE analysis (takes precedence over derived controllability) */
   category: FactorCategoryEnum.optional(),
+  /**
+   * ⭐⭐ `true` WHEN THIS UI INVENTED THE `category` BESIDE IT, never when the
+   * producer stated it. `adapters/cee/client.ts` `inferMissingCategories` fills
+   * an omitted `category` from edge shape on every ingestion path, into the same
+   * key, so the guess is byte-identical to a stamp; this marker is the only
+   * thing that tells them apart. `model-tab-v2` reads it through
+   * `statedFactorCategoryLabel` and says nothing rather than presenting a guess
+   * as the model's own classification.
+   *
+   * ⚠ DECLARED HERE BECAUSE `AnyNodeDataSchema` STRIPS UNDECLARED KEYS. An
+   * undeclared marker would be dropped on export/import while the invented
+   * `category` — which IS declared — survived, so a round trip would silently
+   * launder the guess into a stated fact. That is the failure direction this
+   * whole marker exists to prevent, and it is pinned in
+   * `importFieldSurvival.2590.spec.ts`.
+   *
+   * ⚠ ABSENCE IS THE NARROW CLAIM *the ingestion inference did not write this*,
+   * NOT a positive attestation that CEE did. `false` is written explicitly by
+   * `useInspectorMutations.setCategory` when a human picks the value.
+   */
+  categoryInferredByUi: z.boolean().optional(),
   observedState: ObservedStateSchema.nullable().optional(),
   /** CEE wire-shape top-level display text (mirrored in ObservedStateSchema for legacy reads). */
   display_value: z.string().nullable().optional(),

@@ -235,9 +235,10 @@ describe('⚠ the discriminating twin — a producer-named edge KEEPS the sectio
         row={row}
         detail={detail({
           rowId: 'f1',
-    // Unclassified by default: `null` is what the producer saying nothing
-    // looks like, and it is the state most rows are in.
-    classification: null,
+          // Restates the `detail()` default so this call reads whole: `null` is
+          // what "nobody stated a classification" looks like, and it is the
+          // state most rows are in.
+          classification: null,
           affects: [TARGET, { id: 'n_rev', label: 'Revenue' }],
         })}
         tier="plain"
