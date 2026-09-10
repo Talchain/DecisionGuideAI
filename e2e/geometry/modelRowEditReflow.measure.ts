@@ -811,7 +811,7 @@ for (const width of WIDTHS) {
     expect(
       disc.controlsHeight,
       `the control line measured ${disc.controlsHeight}px at a ${width}px dock — a button is wrapping inside its own border`,
-    ).toBeLessThanOrEqual(controls + 1)
+    ).toBeLessThanOrEqual(CONTROLS + 1)
 
     // And the line count the budget above is built from — asserted against the
     // STATED per-width maximum, never read and accepted. Two independent
@@ -983,6 +983,23 @@ for (const width of WIDTHS) {
      * band line on top of whatever the box says at this width. A second copy of
      * the box expression is exactly the hand-maintained mirror the module-scope
      * hoist exists to prevent (CLAUDE.md trap 12).
+     *
+     * ⚠⚠ AND THE CONSEQUENCE, STATED RATHER THAN LEFT TO BE DISCOVERED: taking the
+     * box per width WIDENS this ceiling at the dock floor.
+     *
+     *            @280      @416
+     *   before   95.63     95.63     (one refusal line, derived on darwin)
+     *   now     115.13     95.63     (#1410's ubuntu count: two lines at 280)
+     *
+     * That is the RIGHT allowance, not a relaxation: if a relationship draft ever
+     * does refuse it refuses with the SAME sentence, which takes two line boxes at
+     * a 280px dock on ubuntu's metrics — so the one-line version would have gone
+     * over for the very case the allowance exists to fund. But it is a ceiling
+     * moving upward, and this file has already recorded once that this ceiling is
+     * NOT the load-bearing guard for this lane. The guards that bite the original
+     * +80px defect are `distinctTops === 1` and the band line's own height against
+     * `BAND_LINE_MAX + 1` (38.13px) — both asserted below, both unchanged by this,
+     * and neither of them funded by a refusal allowance.
      */
     const refusalLinesMax = REFUSAL_LINES_MAX[width]
     expect(refusalLinesMax, `no refusal line budget is derived for a ${width}px dock`).toBeGreaterThan(0)
