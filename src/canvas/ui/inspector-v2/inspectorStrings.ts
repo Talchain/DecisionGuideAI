@@ -540,7 +540,19 @@ export const ASK_TEMPLATES: Record<string, string> = {
   'factor-observable':   'What would happen if {label} changed?',
   'factor-external':     'How sensitive are the results to {label}?',
   edge:                  'Explain the relationship between {sourceLabel} and {targetLabel}',
-  option:                'How does {label} compare to the other options?',
+  /**
+   * ⛔ NOT "how does this compare to the other options?", which is what shipped
+   * until now. That sentence asks the product to rank one option against the
+   * rest — the race framing Paul has ruled out repeatedly, and a conclusion the
+   * product is not entitled to state. The user clicked ONE option; the three
+   * questions we ARE entitled to answer about it are the expected outcome, the
+   * width of the uncertainty, and what would have to change for that to move.
+   *
+   * The closing clause is deliberate: the ask ends by handing judgement back to
+   * the user rather than substituting for it. Humans remain the authors.
+   */
+  option:
+    'For {label}, what outcome does this model currently expect, how wide is the uncertainty, and what would have to change for that expectation to move? Say which of those assumptions are mine to judge.',
   outcome:               'What drives {label} the most?',
   risk:                  'How can we reduce {label}?',
   decision:              'What are the key trade-offs in {label}?',
