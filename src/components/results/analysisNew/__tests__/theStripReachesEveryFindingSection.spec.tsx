@@ -40,6 +40,7 @@ vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
 import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
+import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { useCanvasStore } from '../../../../canvas/store'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
@@ -190,6 +191,38 @@ describe('THE PRECONDITION — this fixture really does reach the defective clas
     expect(rows).toHaveLength(4)
     expect(rows.filter((r) => (r.textContent ?? '').includes(RANK_4_LABEL))).toHaveLength(1)
   })
+
+  /**
+   * ⭐⭐ THE PREMISE THE STRIP'S DRIVERS SUPPRESSION RESTS ON, PINNED AT THE
+   * REAL VIEW MODEL RATHER THAN ASSUMED IN A COMMENT.
+   *
+   * `ModelStrip` renders a Drivers pointer as the section name ALONE, because a
+   * Drivers row's headline is the NODE'S OWN NAME rather than a sentence about
+   * it — so the payload could only restate the `detail-title` directly above.
+   * That is a fact about `driverFinding` (`headline: d.factorLabel`), and a
+   * suppression resting on an unpinned fact is exactly the guard that decays
+   * silently (CLAUDE.md trap 13b).
+   *
+   * ⚠ IT IS NOT A COMPARISON OF TWO CONSTANTS. The headline comes from the
+   * PRODUCER fixture through `buildAnalysisNewViewModel`; the label comes from
+   * the CANVAS store fixture. If `driverFinding` ever composed a sentence
+   * — "Regulatory reporting load moves the outcome" — the two would part and
+   * this REDs, which is the signal to give the pointer its payload back.
+   */
+  it('a Drivers headline IS the node\'s own name, not a sentence about it', () => {
+    const vm = buildAnalysisNewViewModel({
+      data: fourDrivers(),
+      recommendations: [],
+      isPreRun: false,
+      isRunning: false,
+      isStale: false,
+    })
+    const row = vm.drivers.findings.find((f) => f.targetId === RANK_4)
+    expect(row, 'no Drivers finding targets the rank-4 node — the pin would be vacuous').toBeTruthy()
+
+    const nodeLabel = NODES.find((n) => n.id === RANK_4)?.data.label
+    expect(row?.headline).toBe(nodeLabel)
+  })
 })
 
 describe('⛔ THE REACHABLE FAILURE — the strip may not deny the Drivers section', () => {
@@ -208,9 +241,26 @@ describe('⛔ THE REACHABLE FAILURE — the strip may not deny the Drivers secti
     expect(mentionsOn()).toEqual([
       expect.objectContaining({ id: `driver:${RANK_4}`, section: 'drivers' }),
     ])
-    expect(mentionsOn()[0].text).toBe(
-      COPY.modelStrip.mention(COPY.sections.drivers, RANK_4_LABEL),
-    )
+    /*
+     * ⛔⛔ THE POINTER NAMES THE SECTION AND STOPS THERE, AND THIS ASSERTION
+     * USED TO BLESS THE OPPOSITE.
+     *
+     * It read `toBe(COPY.modelStrip.mention(COPY.sections.drivers,
+     * RANK_4_LABEL))` — the same call on the same inputs the component makes,
+     * so both sides moved together and it could not fail for ANY
+     * implementation of `mention()` (CLAUDE.md trap 13b, a guard agreeing with
+     * itself). What it was quietly certifying was the line
+     *
+     *     Also in Drivers and dynamics: Regulatory reporting load
+     *
+     * rendered directly beneath a `detail-title` carrying "Regulatory
+     * reporting load" — the pointer handing back the name the reader is
+     * looking at. The heading still comes from `COPY.sections`; the frame
+     * around it is now spelled out, and the payload's ABSENCE is asserted by
+     * name rather than inherited from a helper.
+     */
+    expect(mentionsOn()[0].text).toBe(`Also in ${COPY.sections.drivers}`)
+    expect(mentionsOn()[0].text).not.toContain(RANK_4_LABEL)
   })
 
   /**

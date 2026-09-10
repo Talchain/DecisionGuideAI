@@ -1520,7 +1520,47 @@ export function ModelStrip({
                         in `implication` so it does not say itself twice) and
                         the line must then read as a section name rather than a
                         label with nothing after its colon. */}
-                    {COPY.modelStrip.mention(COPY.sections[m.section], m.headline)}
+                    {/* ⛔ A POINTER MAY NOT RESTATE THE MARK'S OWN NAME,
+                        AND THE DRIVERS SECTION IS THE ONE PLACE IT WOULD.
+                        `driverFinding` sets a Drivers row's `headline` to
+                        `d.factorLabel` — the NODE'S OWN LABEL, by
+                        construction, never a sentence. So the composed line
+                        read "Also in Drivers and dynamics: Supplier lead time"
+                        directly beneath a `detail-title` carrying "Supplier
+                        lead time", and on any node the glance ALSO named, a
+                        `detail-driver` chip sat between the two. One name,
+                        three renderings, on the commonest node on the panel.
+
+                        ⚠⚠ THIS IS THE DEFECT PAUL MEASURED ON DEPLOYED
+                        `19fe87`, RECORDED IN THIS FILE'S OWN HEADER: on the
+                        richest case available, "Two of those three lines
+                        restate what the mark already carries: the name is the
+                        mark's own label". This line would have made it a
+                        fourth. It also contradicted this seam's own stated
+                        rule, written in four places, that a mention is a
+                        POINTER and never a second rendering.
+
+                        ⭐ THE SECTION NAME ALONE IS A TRUE AND COMPLETE
+                        POINTER, and it is the shape `mention()` ALREADY
+                        renders for an empty headline — reused, not invented.
+                        The reader already has the node's name directly above;
+                        what they lack is WHERE to go, and that is the section.
+
+                        ⛔ SCOPED TO `drivers` DELIBERATELY, AND THE PREMISE
+                        IS PINNED RATHER THAN ASSUMED. The other three
+                        finding-bearing sections carry producer SENTENCES about
+                        the node, which the title cannot restate, so dropping
+                        their payload would delete real information.
+                        `theStripReachesEveryFindingSection.spec.tsx` asserts
+                        that a Drivers headline IS the node's own label at the
+                        real view model, so this suppression REDs if
+                        `driverFinding` ever starts composing a sentence
+                        (CLAUDE.md trap 13b — a guard whose discrimination
+                        depends on something nothing pins). */}
+                    {COPY.modelStrip.mention(
+                      COPY.sections[m.section],
+                      m.section === 'drivers' ? '' : m.headline,
+                    )}
                   </li>
                 ))}
               </ul>
