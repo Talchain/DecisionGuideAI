@@ -656,9 +656,35 @@ export function useEdgeMutations(edgeId: string) {
    * An edge with no server-stated `expected` tuple has nothing truthful to
    * assert, so failing closed would make the control do NOTHING for a whole
    * class of edges: a disclosed gap traded for a silently dead affordance, the
-   * worse of the two. The outcome token is how the gap is disclosed instead, and
-   * `edgeDirectionEditIsAssertable` is how a surface gates the affordance
-   * PER EDGE before offering it.
+   * worse of the two.
+   *
+   * ⛔ CORRECTED FORWARD, 10 Sep 2026 (independent review) — THE TWO CLAIMS THAT
+   * USED TO CLOSE THIS PARAGRAPH EACH ASSERTED A BEHAVIOUR NOTHING PERFORMS.
+   * They are corrected rather than deleted so they are not re-derived.
+   *
+   *   · IT READ *"The outcome token is how the gap is disclosed instead"*.
+   *     NOTHING IS DISCLOSED TO A USER TODAY. Both `setDirection` call sites
+   *     DISCARD the return — `EdgeAdvancedEditor.tsx:127` and
+   *     `RelationshipsSection.tsx:284`, neither assigns it — and the token's own
+   *     note at `:516` above says so in terms: "NO CALLER READS THIS TOKEN YET,
+   *     and that is recorded rather than hidden." Citing that honest disclosure
+   *     and then stating its opposite is the defect, not a wording slip. What
+   *     the token actually does is make the states NAMEABLE and testable AT THE
+   *     SEAM. On an edge with no server-stated tuple the user still gets a local
+   *     write, no event and no message of any kind, and the edit still vanishes
+   *     on reload, silently. That is a gap this lane does not close and does not
+   *     regress; giving each outcome a user-visible sentence is a copy change a
+   *     sibling lane owns.
+   *   · IT READ *"`edgeDirectionEditIsAssertable` is how a surface gates the
+   *     affordance PER EDGE before offering it"*. IT HAS ZERO PRODUCT
+   *     CONSUMERS: one definition (`edgeStrengthEdit.ts:373`), six spec
+   *     references and four comments, and no import anywhere outside its own
+   *     module. Contrast control from the same sweep, so this is a real absence
+   *     and not a blind probe: `edgeStrengthEditIsAssertable` IS consumed —
+   *     imported at `ModelTabV2Panel.tsx:85`, used at `:519`. The gate is real,
+   *     correct and tested; it is what a surface WOULD ask per edge before
+   *     offering the affordance. Restore the present tense when a caller asks
+   *     it.
    *
    * ⛔ CORRECTED FORWARD, 9 Sep 2026 (independent review) — DO NOT ACT ON THE
    * PARAGRAPH BELOW AS CURRENT. It was honest when written and is now false in

@@ -150,7 +150,9 @@ export interface BuildEdgeStrengthEditArgs {
    * signed number: `-0` reads as `'positive'` and the user's `negative` is
    * silently inverted on the wire. `magnitude` and `direction_intent` are
    * separate fields in the contract for exactly this reason
-   * (`@talchain/schemas` 0.50.0: *"Direction is carried separately so a strength
+   * (`@talchain/schemas` 0.54.0 — the version both repos pin; this cited 0.50.0
+   * until 10 Sep 2026 and the describe string is unchanged across the two:
+   * *"Direction is carried separately so a strength
    * change cannot reverse an edge accidentally"*), and this parameter is how a
    * caller reaches the second one without lying through the first.
    */
@@ -288,8 +290,13 @@ export function edgeStrengthEditIsAssertable(edge: Edge | undefined | null): boo
  * hurts" — leaving the strength the server holds exactly as it is.
  *
  * ⭐⭐ THE CARRIER ALREADY EXISTED; WHAT DID NOT WAS A WAY TO REACH IT. Derived
- * at `@talchain/schemas` 0.50.0 (the version BOTH repos pin — CEE
- * `package.json:97`, UI `package.json:116`): `edge_strength_edit` carries
+ * at `@talchain/schemas` 0.54.0 (the version BOTH repos pin — CEE
+ * `package.json:97`, UI `package.json:116`. This read 0.50.0 until 10 Sep 2026,
+ * a pin the staging merge in this very head had already moved; re-derived at the
+ * vendored 0.54.0 tarball, `EdgeStrengthDirectionIntent` is still
+ * `['preserve','positive','negative']` and `EdgeStrengthEditIntent` still
+ * `['set','confirm_current']`, so the conclusion HOLDS and only the number was
+ * stale): `edge_strength_edit` carries
  * `direction_intent: 'preserve' | 'positive' | 'negative'` as a FIELD OF ITS
  * OWN, and CEE has a `'mutating'` writer for the kind
  * (`SYSTEM_EVENT_HANDLING`, `system-events/dispatch.ts`) whose

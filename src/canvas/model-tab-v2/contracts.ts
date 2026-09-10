@@ -139,13 +139,30 @@ export interface EditProposalHandle {
  *     · setDirection            → `edge_strength_edit` (`direction_intent`)
  *       ⚠ NAMED CORRECTLY, 9 Sep (review): the writer that reaches the wire is
  *       `useInspectorMutations.setDirection`. `proposeEdgeDirection` is a
- *       CONTRACT method on this interface with no such carrier and it stays in
- *       the local-only list — naming it here claimed a wire for the wrong
- *       symbol, which is the two-names-one-concept defect this file exists to
- *       prevent.
+ *       CONTRACT method on this interface with no such carrier — naming it here
+ *       claimed a wire for the wrong symbol, which is the two-names-one-concept
+ *       defect this file exists to prevent.
+ *       ⛔ THAT 9 Sep CORRECTION ALSO SAID "AND IT STAYS IN THE LOCAL-ONLY
+ *       LIST". CORRECTED 10 Sep 2026 (independent review): IT IS NOT IN THAT
+ *       LIST — the list below names four members and `proposeEdgeDirection` is
+ *       not one of them, having been removed by the very diff that wrote the
+ *       sentence. One file, three answers about one symbol, is exactly the
+ *       failure this section guards against.
+ *       ⛔⛔ AND IT IS NOT LOCAL-ONLY EITHER: IT HAS NO IMPLEMENTATION AT ALL.
+ *       Repo-wide, `proposeEdgeDirection` has THREE occurrences and not one is
+ *       a body — this comment, `ModelTabV2Panel.tsx:702`, and the bare
+ *       declaration below. Contrast control from the same sweep, so this is a
+ *       real absence rather than a blind probe: `proposeEdgeStrength` returns
+ *       an implementation (`useModelEditAuthority.ts:710`), an export (`:743`)
+ *       and a live call site (`ModelTabV2Panel.tsx:725`). It typechecks only
+ *       because `useModelEditAuthority` returns `ModelEditAuthorityLive`, so TS
+ *       never checks this interface against anything. CALLING IT DOES NOTHING.
  *       ⚠⚠ IT NEEDED NO NEW EVENT KIND, AND THE LIST ABOVE SAID OTHERWISE FOR
- *       LONGER THAN IT SHOULD HAVE. Derived at `@talchain/schemas` 0.50.0 — the
- *       version BOTH repos pin — `edge_strength_edit` carries
+ *       LONGER THAN IT SHOULD HAVE. Derived at `@talchain/schemas` 0.54.0 — the
+ *       version BOTH repos pin (UI `package.json:116`, CEE `package.json:97`;
+ *       this said 0.50.0 until 10 Sep 2026, a pin the staging merge in this very
+ *       head had already moved — the conclusion was re-derived at 0.54.0 and
+ *       HOLDS, only the number was stale) — `edge_strength_edit` carries
  *       `direction_intent: 'preserve' | 'positive' | 'negative'` as a field of
  *       its own ("Direction is carried separately so a strength change cannot
  *       reverse an edge accidentally"), and CEE's `resolveEdgeStrengthTarget`
@@ -161,16 +178,54 @@ export interface EditProposalHandle {
  *       ⚠ Reader-first was ALREADY SATISFIED rather than newly incurred: no new
  *       union member, so no `.strict()` discriminator an older CEE could reject.
  *
- *   LOCAL-ONLY TODAY — the gap this design depends on closing:
- *     · proposeEdgeLikelihood, proposeOptionIntervention,
- *       proposeGoalTarget, proposeFactorConfirmation
- *     These currently terminate in the client store and reach CEE only as the
- *     debounced, VALUE-LESS `direct_graph_edit` ping. Queue A depends on
- *     `proposeOptionIntervention`; Queue B depends on `proposeFactorConfirmation`.
- *     ⚠ UNLIKE DIRECTION ABOVE, EACH OF THESE GENUINELY NEEDS A NEW EVENT KIND —
- *     an olumi-schemas release, a CEE re-vendor and a sequenced two-service
- *     deploy. Checked at 0.50.0's `SystemEventKind`, whose sixteen members carry
- *     no field any of the four could ride.
+ *   NOT ALL LOCAL-ONLY — DERIVED PER MEMBER, 10 Sep 2026:
+ *
+ *   ⛔ THE FOUR-MEMBER "LOCAL-ONLY TODAY" LIST THAT STOOD HERE WAS WRONG ON
+ *   THREE OF ITS FOUR MEMBERS, and the sentence under it was wrong about all
+ *   three. Kept rather than deleted so it is not re-derived. It read:
+ *   *"LOCAL-ONLY TODAY — the gap this design depends on closing: ·
+ *   proposeEdgeLikelihood, proposeOptionIntervention, proposeGoalTarget,
+ *   proposeFactorConfirmation — These currently terminate in the client store
+ *   and reach CEE only as the debounced, VALUE-LESS `direct_graph_edit` ping.
+ *   ⚠ UNLIKE DIRECTION ABOVE, EACH OF THESE GENUINELY NEEDS A NEW EVENT KIND —
+ *   an olumi-schemas release, a CEE re-vendor and a sequenced two-service
+ *   deploy. Checked at 0.50.0's `SystemEventKind`, whose sixteen members carry
+ *   no field any of the four could ride."*
+ *
+ *   ⚠ THAT IS TRUE OF EXACTLY ONE OF THE FOUR. Re-derived member by member from
+ *   THIS INTERFACE (enumerated from the type, never from a grep) against each
+ *   body in `useModelEditAuthority.ts`, and against the vendored
+ *   `@talchain/schemas` 0.54.0 — the version BOTH repos pin now (UI
+ *   `package.json:116`, CEE `package.json:97`):
+ *
+ *     · proposeFactorConfirmation — LOCAL-ONLY, AND IT DOES STILL NEED A
+ *       CARRIER. `useModelEditAuthority.ts:647-709`: it calls
+ *       `mutations.setObservedSource('user_confirmed')` and returns
+ *       `'committed'`, with no dispatch. Queue B depends on it. THE ORIGINAL
+ *       SENTENCE IS TRUE OF THIS MEMBER AND ONLY THIS MEMBER.
+ *     · proposeOptionIntervention — NOT LOCAL-ONLY. It DISPATCHES the typed
+ *       `option_intervention_edit`, and that IS a `SystemEventKind` member at
+ *       0.54.0. Implementation `useModelEditAuthority.ts:486-646`, builder
+ *       `canvas/conversation/optionInterventionEdit.ts`, payload arm
+ *       `v5/buildPayload.ts:456`, live call site `ModelTabV2Panel.tsx:839`
+ *       which reads the outcome. It writes NOTHING locally, deliberately. So
+ *       Queue A's wire dependency is SATISFIED, not outstanding.
+ *     · proposeGoalTarget — NOT LOCAL-ONLY, AND IT NEEDED NO NEW EVENT KIND.
+ *       `useModelEditAuthority.ts:413-429` dispatches a typed `add_constraint`
+ *       through CEE's existing validated proposal/commit path and returns
+ *       `'dispatched'`, deliberately without echoing the draft into the store.
+ *     · proposeEdgeLikelihood — NOT LOCAL-ONLY EITHER: IT HAS NO
+ *       IMPLEMENTATION. Two occurrences repo-wide — this comment and the bare
+ *       declaration below. It is the SAME empty-declaration shape as
+ *       `proposeEdgeDirection` above, and it carries the same trap: calling it
+ *       does nothing, and TS will not say so.
+ *
+ *   ⚠⚠ AND THE COUNT WAS WRONG, WHICH IS HOW THE CONCLUSION SURVIVED:
+ *   `SystemEventKind` has SEVENTEEN members at the pinned 0.54.0, not sixteen,
+ *   and the seventeenth is `option_intervention_edit` — i.e. precisely the kind
+ *   the old sentence said did not exist. A member count copied forward from a
+ *   superseded pin is the hand-maintained mirror this file exists to prevent:
+ *   re-derive it from the vendored tarball, never from this paragraph.
  */
 export interface ModelEditAuthority {
   /** Existing. Scale is decided from the node's own cap/unit, not by the row. */
@@ -204,10 +259,27 @@ export interface ModelEditAuthority {
     opts: { directionStated: boolean },
   ): Promise<EditProposalHandle>
 
-  /** NEW — local-only today (`setExistsProbability`). `p` in [0,1]. */
+  /**
+   * ⛔ DECLARED ONLY — THERE IS NO IMPLEMENTATION. `p` in [0,1].
+   * The label here read "NEW — local-only today (`setExistsProbability`)" until
+   * 10 Sep 2026; that named a setter and implied a body this interface does not
+   * have. `useModelEditAuthority` exposes no `proposeEdgeLikelihood`, so this
+   * typechecks against nothing and CALLING IT DOES NOTHING. Implement it (or
+   * route through the setter) before any surface asks for it.
+   */
   proposeEdgeLikelihood(edgeId: string, p: number): Promise<EditProposalHandle>
 
-  /** NEW — local-only today (`setDirection`). */
+  /**
+   * ⛔ DECLARED ONLY — THERE IS NO IMPLEMENTATION, AND IT IS NOT THE DIRECTION
+   * WRITER. The label here read "NEW — local-only today (`setDirection`)" until
+   * 10 Sep 2026. Both halves misled: `setDirection` is NO LONGER local-only —
+   * it is the writer that reaches the wire, via `edge_strength_edit`'s
+   * `direction_intent` (§1 above) — and this method has no body of its own.
+   * `useModelEditAuthority` exposes no `proposeEdgeDirection`; it typechecks
+   * only because that hook returns `ModelEditAuthorityLive`, so TS never checks
+   * this interface against anything. CALLING IT DOES NOTHING. A surface that
+   * wants direction today goes through `useInspectorMutations.setDirection`.
+   */
   proposeEdgeDirection(edgeId: string, direction: 'positive' | 'negative'): Promise<EditProposalHandle>
 
   /** NEW — local-only today (`setIntervention`). Queue A depends on this. */

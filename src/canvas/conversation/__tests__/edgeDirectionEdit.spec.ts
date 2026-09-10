@@ -148,7 +148,13 @@ describe('edgeDirectionEditIsAssertable', () => {
     expect(edgeDirectionEditIsAssertable(producerEdge())).toBe(true)
   })
 
-  it('is FALSE for a defaulted edge — the affordance must render disabled (design §2 F6)', () => {
+  // The title used to end "— the affordance must render disabled (design §2 F6)".
+  // The ASSERTION was and is correct; the TITLE asserted a rendering nothing
+  // performs, because this predicate has no product consumer yet (see
+  // `contracts.ts` §1). Corrected 10 Sep 2026 to describe the predicate, which
+  // is what the case actually pins. Restore the rendering clause when a surface
+  // asks this gate.
+  it('is FALSE for a defaulted edge — no server-stated tuple to assert (design §2 F6)', () => {
     const edge = {
       id: 'e1',
       source: 'fac_price',
