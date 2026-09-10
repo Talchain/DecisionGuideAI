@@ -401,7 +401,15 @@ describe('DecisionNode — the readiness summary on the card', () => {
     // does hold stability detail, which the control below proves.
     expect(within(resting).getByText(DECISION_RESTING_COPY.completedRunLine)).toBeDefined()
     const popover = screen.getByTestId('decision-node-popover')
-    expect(within(popover).getByText(/62%/)).toBeDefined()
+    // ⛔ RE-POINTED, NOT NARROWED. This was `/62%/` — the leading option's win
+    // probability relabelled, which this card no longer renders. The pointer's
+    // property is unchanged and still discharged in full: the popover must
+    // really hold something. Bound BY IDENTITY, expectation DERIVED from the
+    // fixture, plus the negative twin — the fixture still supplies
+    // `recommendation_stability: 0.62`, so that twin can actually fail.
+    const verdictEl = within(popover).getByTestId('decision-robustness-popover-verdict')
+    expect(verdictEl.textContent).toBe(WITHHELD_REPORT.robustness.display_verdict)
+    expect(within(popover).queryByText(/62%/)).toBeNull()
   })
 
   it('the total counts factors the breakdown can actually account for, not factor NODES', () => {

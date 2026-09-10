@@ -487,8 +487,27 @@ describe('DecisionNode — honest resting state', () => {
     // node, in the same render. Without this the pointer is an unfalsifiable
     // claim about a surface no test opened.
     const popover = screen.getByTestId('decision-node-popover')
-    expect(within(popover).getByText(/62%/)).toBeDefined()
-    expect(within(popover).getByText(/sensitive/i)).toBeDefined()
+    // ⛔ RE-POINTED, NOT NARROWED. This used to be `/62%/` + `/sensitive/i` —
+    // the leading option's win probability relabelled, plus a band from an
+    // authored scale. The popover no longer carries either, so keeping them
+    // would have pinned the very fabrication this change removes.
+    //
+    // The assertion binds BY IDENTITY (the verdict's own testid) and its
+    // expectation is DERIVED FROM THE FIXTURE, so a fixture rename moves both
+    // together and no other element can satisfy it.
+    const verdictEl = within(popover).getByTestId('decision-robustness-popover-verdict')
+    expect(verdictEl.textContent).toBe(
+      WITHHELD_REPORT_WITH_STABILITY.robustness.display_verdict,
+    )
+    expect(
+      within(popover).getByText(
+        WITHHELD_REPORT_WITH_STABILITY.robustness.display_verdict_reason,
+      ),
+    ).toBeDefined()
+    // ⛔ AND THE WITHDRAWN FIGURE MUST NOT COME BACK. The fixture still supplies
+    // `recommendation_stability: 0.62`, so this is a live discrimination, not a
+    // tautology: it fails the moment the card reads that field again.
+    expect(within(popover).queryByText(/62%/)).toBeNull()
     // ⭐ UPDATED for Paul's ruling of 9 Sep 2026 ("do the DecisionNode chips,
     // keep the resting state copy too"). This asserted `Challenge this result`
     // INSIDE the popover; the chips now render on the CARD, and the popover
