@@ -10,7 +10,7 @@ import { InspectorShell } from './InspectorShell'
 import { ConfidenceBadge } from './shared/ConfidenceBadge'
 import { TechnicalDisclosure } from './shared/TechnicalDisclosure'
 import { useTechToggle } from './useTechToggle'
-import { INSPECTOR_READ_ONLY_REASON, INSPECTOR_OPTION_READ_ONLY_REASON } from './useInspectorMutations'
+import { INSPECTOR_READ_ONLY_REASON, INSPECTOR_OPTION_READ_ONLY_REASON, INSPECTOR_FACTOR_CONTROLLABLE_REASON } from './useInspectorMutations'
 import { getTypeLabel, EDGE_TYPE_LABEL } from './inspectorStrings'
 import { resolveEdgeValueDisplay } from '../../domain/edgeValueProvenance'
 import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
@@ -321,6 +321,20 @@ export const InspectorRouter = memo(function InspectorRouter({
    * wire carrier to earn its exemption; navigation and coaching need nothing,
    * because a control that performs no write cannot perform an unsavable one.
    *
+   * ⭐ SECOND PANEL, AND THE REASON IS A CARRIER, NOT A PREFERENCE.
+   * `factor-controllable` opts in because the factor VALUE has a durable
+   * server-authoritative carrier — `factor_value_edit`, built and merged in
+   * July (#513) and still the panel's commit path today. It has been
+   * unreachable ever since, not because the write was unsafe but because the
+   * blanket wrap below could not tell a control that saves from one that does
+   * not. Nothing about the write changed here; only the fence moved to the
+   * place that can see the difference.
+   *
+   * ⛔ AND IT DOES NOT ADMIT THE REST OF THE PANEL. `setDescription` has no
+   * carrier and stays fenced INSIDE the panel. The test of a control is
+   * whether it reaches a carrier that survives the next server rehydrate —
+   * never whether it sits next to one that does.
+   *
    * ⚠ OPT-IN, ONE PANEL, DELIBERATELY. Every other panel keeps the wrap below
    * byte-for-byte. The question "does this control reach a mutation?" is
    * answerable only inside the panel — in `OptionPanel` two buttons eighteen
@@ -333,7 +347,7 @@ export const InspectorRouter = memo(function InspectorRouter({
    * asserts as a discriminating pair — every writer disabled AND every
    * non-writer enabled — so it cannot pass by fencing everything or nothing.
    */
-  const AUTHORITY_OWNING_PANELS = new Set<string>(['option'])
+  const AUTHORITY_OWNING_PANELS = new Set<string>(['option', 'factor-controllable'])
   const panelOwnsAuthority = panelType != null && AUTHORITY_OWNING_PANELS.has(panelType)
 
   // Typed as a TOTAL map over every NODE panel type (edge is handled by the
@@ -405,7 +419,17 @@ export const InspectorRouter = memo(function InspectorRouter({
         data-testid="inspector-authority-notice"
         className={`rounded border border-panel-border bg-panel-hover px-3 py-2 ${typography.panelBody} text-text-body`}
       >
-        {panelOwnsAuthority ? INSPECTOR_OPTION_READ_ONLY_REASON : INSPECTOR_READ_ONLY_REASON}
+        {/* ⚠ A BOOLEAN CANNOT PICK THIS ANY MORE. With one opting-in panel the
+            notice was "self-fenced or not"; with two it is "WHAT saves here",
+            and the two panes answer differently — the option pane saves the
+            name, the factor pane also saves the value. Keyed by panel type so
+            adding a third cannot silently inherit a sentence written about
+            another surface. */}
+        {!panelOwnsAuthority
+          ? INSPECTOR_READ_ONLY_REASON
+          : panelType === 'factor-controllable'
+            ? INSPECTOR_FACTOR_CONTROLLABLE_REASON
+            : INSPECTOR_OPTION_READ_ONLY_REASON}
       </div>
       {/* ⭐⭐ KEYED BY NODE IDENTITY, AND IT IS A DEFECT FIX RATHER THAN A
           STYLE CHOICE. Without a key React reconciles the panel for node A onto

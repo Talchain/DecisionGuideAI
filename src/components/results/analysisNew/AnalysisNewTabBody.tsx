@@ -1056,7 +1056,11 @@ export function AnalysisNewTabBody({
             it under the strip would have pushed the answer below the fold, and
             the reading order this panel restored is WHAT HAPPENED → WHAT TO DO
             ABOUT IT → THE DETAIL. */}
-        <WhatIWasGivenSection onSendMessage={onSendMessage} />
+        {/* ⭐ THE GRAMMAR IS OPT-IN AND ONLY THIS TAB OPTS IN. `ResultsBody` on
+            the PARKED Analysis tab mounts the same component and keeps its
+            existing rendering — see the prop's declaration for why the default
+            may not move. */}
+        <WhatIWasGivenSection onSendMessage={onSendMessage} useSurfaceGrammar={true} />
 
         {/* ⚠ THE PROMOTED RECOMMENDATION IS NOT EXCLUDED, AND THAT IS A KNOWN
             DUPLICATION rather than an oversight — recorded here because the

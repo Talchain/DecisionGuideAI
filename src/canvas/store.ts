@@ -94,6 +94,7 @@ import type {
   CEEInterventionHint,
   PreAnalysisSensitivity,
   CEEDraftCoaching,
+  AnalysisAdmissionV1,
 } from '../adapters/cee/types'
 import type { LimitsV1 } from '../adapters/plot/types'
 import type { ScenarioStage, ScenarioEvent } from '../types/scenario'
@@ -589,6 +590,49 @@ interface CanvasState {
   // CEE V3: analysis_ready payload from last draft
   // Used by useV2Run to build requests with resolved interventions
   ceeAnalysisReady: CEEAnalysisReady | null
+  /**
+   * THE PRODUCER'S LAST ADMISSION, RETAINED ACROSS INVALIDATION AS UNCONFIRMED.
+   *
+   * ⭐⭐ WHY THIS FIELD EXISTS, and it is one question, not two.
+   * `analysis_admission` lives only inside `ceeAnalysisReady`, which
+   * `invalidateAnalysisReady` nulls on every analytical edit. Its consumer
+   * (`licensesComparativeLeaderClaim`) reads absence as `true` — correct, and
+   * deliberately so, for "THE PRODUCER NEVER SPOKE" (an older CEE). But after a
+   * local edit the absence is OUR OWN doing, and reading it as a licence makes
+   * the product assert exactly the claim the producer refused.
+   *
+   * MEASURED on staging build 9eb30b54 (2026-09-10): a `quantified_provisional`
+   * run rendered "What this run may not conclude" and, 59ms after one factor
+   * value was edited, rendered "Most likely to serve your goal / Double Down on
+   * SMB" in the same slot — the refusal's own remedy half-satisfied and the
+   * designation made anyway.
+   *
+   * So this field separates two questions that shared one name:
+   *   never spoken  -> stays `null` -> absence still means "no authority"  (unchanged)
+   *   spoke, then self-nulled -> holds what was said -> the refusal survives the edit
+   *
+   * ⚠ IT IS DOWNGRADE-ONLY BY CONSTRUCTION, not by a rule someone must remember:
+   * the only value it can ever hold is a value the producer itself sent, so it
+   * cannot license anything CEE did not license. A live admission always wins
+   * over it (`resolveEffectiveAdmission`), so a genuinely new verdict — in either
+   * direction — replaces it immediately.
+   *
+   * ⚠⚠ AND THE FALLBACK KEYS ON THE ABSENT **ADMISSION**, NOT ON AN ABSENT
+   * PAYLOAD. An earlier draft of this field said it would be consulted only when
+   * `ceeAnalysisReady` is null; that was wrong, and wrong in the permissive
+   * direction. `reselectGoalNode` CONSTRUCTS a readiness stub
+   * (`{ status: undefined, goal_node_id, options: [] }`, store.ts — the `else`
+   * arm) that carries no admission and is not an older producer. Keying on the
+   * payload would let that stub re-license the claim after an edit had already
+   * invalidated it, which is this very defect reached by a second route.
+   *
+   * Captured at the CLEAR sites (`readinessClearFields`) rather than at the
+   * arrival sites, deliberately: it reads `get().ceeAnalysisReady` at the moment
+   * of clearing, so it is correct however readiness arrived, and there is no list
+   * of producers to keep in sync. Cleared by `DECISION_CONTEXT_CLEAR`, or a
+   * previous decision's admission would govern the next one's edits.
+   */
+  retainedAnalysisAdmission: AnalysisAdmissionV1 | null
   // Analysis freshness verdict from CEE analysis_ready.freshness — retained
   // across turns; sourced independently of ceeAnalysisReady / v5AnalysisFact.
   analysisFreshness: AnalysisFreshnessState | null
@@ -1904,6 +1948,29 @@ const READINESS_CLEAR_FIELDS = {
 } as const
 
 /**
+ * THE READINESS CLEAR, PLUS THE PRODUCER'S ADMISSION RETAINED AS UNCONFIRMED.
+ *
+ * ⚠ A FUNCTION, NOT A SECOND CONSTANT, AND THAT IS THE POINT. The retained value
+ * has to be read out of live state at the moment of clearing, so it cannot live
+ * in a frozen object — and making every clear site pass `get` means a site that
+ * forgets does not compile. The alternative (recording the admission at each
+ * ARRIVAL site) is a hand-maintained list of producers: three exist today, and
+ * the next one to be added would silently reopen this defect.
+ *
+ * `?? get().retainedAnalysisAdmission` keeps the last thing the producer actually
+ * said when the payload being cleared carried no admission of its own. Once CEE
+ * has spoken for this decision, a later absence is never again "an older
+ * producer" — and only `DECISION_CONTEXT_CLEAR` resets that.
+ */
+function readinessClearFields(get: () => CanvasState) {
+  return {
+    ...READINESS_CLEAR_FIELDS,
+    retainedAnalysisAdmission:
+      get().ceeAnalysisReady?.analysis_admission ?? get().retainedAnalysisAdmission,
+  }
+}
+
+/**
  * Lane 5 (Codex P0-2): the per-decision "goal context" — target, its
  * representation, the CEE readiness payload, and the outcome-node selection.
  * ANY full-context replacement (new scenario load, canvas import, reset)
@@ -1918,6 +1985,11 @@ const DECISION_CONTEXT_CLEAR = {
   goalThreshold: null,
   goalThresholdRepresentation: null,
   ceeAnalysisReady: null,
+  // The retained admission is scoped to ONE decision. A full-context replacement
+  // brings a different graph, so the previous decision's licence (or refusal)
+  // must not govern edits made to this one — the same hazard as the stale
+  // goalThreshold two lines above.
+  retainedAnalysisAdmission: null,
   ceeAnalysisReadyNodeIds: null,
   outcomeNodeId: null,
   // B3 (Codex deep review, 2026-07-18): goalConstraints was the ONE member of
@@ -2446,7 +2518,7 @@ function invalidateAnalysisReady(
       console.trace('[Canvas] invalidateAnalysisReady call stack')
     }
     logConstraintClearIfPresent(get, `invalidateAnalysisReady:${reason ?? 'unspecified'}`)
-    set(() => ({ ...READINESS_CLEAR_FIELDS }))
+    set(() => ({ ...readinessClearFields(get) }))
   }
 }
 
@@ -2746,6 +2818,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
   // CEE V3: analysis_ready payload
   ceeAnalysisReady: null,
+  // No producer has spoken at cold start, so absence genuinely means "no
+  // authority" and `licensesComparativeLeaderClaim` keeps its `true` arm.
+  retainedAnalysisAdmission: null,
   // Freshness verdict — null until CEE emits analysis_ready (UI shows nothing).
   analysisFreshness: null,
   // Local dirty overlay — false at cold start (no edits to invalidate a verdict).
@@ -3556,7 +3631,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // whenever nothing has been proven deleted, which is the common case.
     const guarded = withholdDurableDeletions(prev, get().durablyDeletedElements, { nodes, edges })
     const notice = buildDurableDeletionNotice('withheld', guarded, prev, nextDurableNoticeSeq())
-    set({ nodes: guarded.nodes, edges: guarded.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, ...deriveGoalThresholdFromNode(guarded.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: createDefaultLensState(), durableDeletionNotice: notice })
+    set({ nodes: guarded.nodes, edges: guarded.edges, history: { past, future }, ...readinessClearFields(get), ...deriveGoalThresholdFromNode(guarded.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: createDefaultLensState(), durableDeletionNotice: notice })
     // Reset hash after undo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -3581,7 +3656,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // defect on the other side.
     const guarded = withholdDurableDeletions(next, get().durablyDeletedElements, { nodes, edges })
     const notice = buildDurableDeletionNotice('withheld', guarded, next, nextDurableNoticeSeq())
-    set({ nodes: guarded.nodes, edges: guarded.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, ...deriveGoalThresholdFromNode(guarded.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: createDefaultLensState(), durableDeletionNotice: notice })
+    set({ nodes: guarded.nodes, edges: guarded.edges, history: { past, future }, ...readinessClearFields(get), ...deriveGoalThresholdFromNode(guarded.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: createDefaultLensState(), durableDeletionNotice: notice })
     // Reset hash after redo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -5967,7 +6042,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       edges: draftChatPreDraftSnapshot.edges,
       draftChatPreDraftSnapshot: null,
       // Clear full readiness bundle + pipeline trace on draft undo
-      ...READINESS_CLEAR_FIELDS,
+      ...readinessClearFields(get),
       // Lane 5 (review fold): undo reverts to the pre-draft graph — the
       // drafted decision's target must not survive onto it. Clear the
       // threshold pair (consistent with clearing readiness above) and
@@ -6162,7 +6237,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       } catch {}
     } else {
       logConstraintClearIfPresent(get, 'setCeeAnalysisReady(null)')
-      set(READINESS_CLEAR_FIELDS)
+      set(readinessClearFields(get))
       try {
         sessionStorage.removeItem('olumi-cee-analysis-ready')
         sessionStorage.removeItem('olumi-cee-analysis-ready-node-ids')
