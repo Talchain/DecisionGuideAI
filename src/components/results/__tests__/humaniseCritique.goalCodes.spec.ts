@@ -47,7 +47,7 @@ function item(code: string): UncertaintyItem {
 }
 
 describe('humaniseCritique — goal-threshold refusals are goal-scoped, never factor-framed', () => {
-  it('GOAL_THRESHOLD_NOT_CONVERTIBLE: goal-scoped title, honest withhold description, actionable current-level remedy', () => {
+  it('GOAL_THRESHOLD_NOT_CONVERTIBLE: goal-scoped title, honest withhold description, and NO unreachable remedy', () => {
     const result = humaniseCritique(item('GOAL_THRESHOLD_NOT_CONVERTIBLE'))
     // Not the generic factor-framed fallback.
     expect(result.title).not.toBe('Part of this analysis was limited')
@@ -55,8 +55,18 @@ describe('humaniseCritique — goal-threshold refusals are goal-scoped, never fa
     expect(result.title.toLowerCase()).not.toContain('factor')
     // The honest substance: withheld, not guessed.
     expect(result.description).toMatch(/withheld|left out/i)
-    // The actionable remedy the walk's tester needed.
-    expect(result.suggestion?.toLowerCase()).toContain('current level')
+    // ⚠⚠ THIS ASSERTION IS INVERTED FROM WHAT 2.300 SHIPPED, DELIBERATELY. It
+    // read `expect(result.suggestion?.toLowerCase()).toContain('current level')`
+    // — "the actionable remedy the walk's tester needed". The remedy was NOT
+    // actionable: nothing in the UI writes the goal node's
+    // `observed_state.baseline` (ROADMAP 2.281), and the goal editors hold zero
+    // `observed_state` references against a live `target` contrast control. The
+    // paragraph above and the header's producer notes are left exactly as said,
+    // because they record why the instruction was added; only the claim that it
+    // could be followed is withdrawn. Full derivation and the guard that REDs
+    // when the instruction becomes legitimate again:
+    // `goalThresholdNoUnreachableInstruction.spec.ts`.
+    expect(result.suggestion).toBeUndefined()
     // Banner-eligible: goal-scoped copy carries no internal tokens.
     expect(result.displayText).toBe(result.title)
   })
