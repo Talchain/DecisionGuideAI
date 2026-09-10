@@ -119,6 +119,11 @@ describe('THE INSTRUMENT — the idle pre-run sentence is unchanged', () => {
     draw()
     expect(block()).toHaveTextContent(COPY.status.preRun)
     expect(block()).not.toHaveTextContent(COPY.status.running)
+    // ⭐ THE LITERAL, BESIDE THE DERIVATION — see the note above the running
+    // case. The constant assertion proves component and register agree; only
+    // the literal notices the register itself changing.
+    expect(block()).toHaveTextContent('No analysis has run yet for this model.')
+    expect(block()).not.toHaveTextContent('Analysis is running.')
     expect(busyAttr()).toBeNull()
   })
 
@@ -133,9 +138,31 @@ describe('THE INSTRUMENT — the idle pre-run sentence is unchanged', () => {
 })
 
 describe('a first run in flight is stated, not denied', () => {
+  /**
+   * ⭐⭐ THE CONSTANT AND THE LITERAL, BOTH — and they answer different
+   * questions, so neither supersedes the other (CLAUDE.md trap 12d).
+   *
+   * `toHaveTextContent(COPY.status.running)` asks *does the panel render the
+   * register value?* — a derivation, and the right pin for a rename or a
+   * refactor that moves the sentence off this element. It is structurally
+   * incapable of asking the second question, because BOTH sides of it read
+   * the same export: change `COPY.status.running` to 'No analysis is
+   * running.' and the rendered text moves with the expectation, so the
+   * comparison stays true and the panel ships the exact inverse of its own
+   * claim under a green suite. That was measured on this file at review.
+   *
+   * The literal asks *does the panel say the thing this PR exists to make it
+   * say?* — the corpus half, and the only assertion here that can observe the
+   * register being edited. Substring matching is case-sensitive, so the
+   * inversion above does not contain 'Analysis is running.' and REDs.
+   *
+   * The convention is this file's own: the orientation line below is already
+   * literal-pinned in both states.
+   */
   it('the panel says the analysis is running', () => {
     draw({ isRunning: true })
     expect(block()).toHaveTextContent(COPY.status.running)
+    expect(block()).toHaveTextContent('Analysis is running.')
   })
 
   /**
@@ -147,6 +174,9 @@ describe('a first run in flight is stated, not denied', () => {
   it('and stops saying that none has run', () => {
     draw({ isRunning: true })
     expect(block()).not.toHaveTextContent(COPY.status.preRun)
+    // The literal twin: a denial re-worded in the register is still a denial,
+    // and the constant form alone would move with it.
+    expect(block()).not.toHaveTextContent('No analysis has run yet for this model.')
   })
 })
 
