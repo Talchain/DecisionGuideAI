@@ -40,10 +40,18 @@ import type { V5ReviewCardBlock as V5ReviewCardBlockType } from '../../canvas/co
 export type ReviewSeverity = V5ReviewCardBlockType['severity']
 
 /**
- * Border tint. Exported as a record because the card applies it inside a
- * longer className expression; the line does not draw a border at all.
+ * Border tint. Module-private, like its tint twin below: every consumer reaches
+ * it through `reviewSeverityVisual`, and nothing outside this file may pick one
+ * channel out of the three and apply it on its own — that is how the two
+ * surfaces drifted apart in the first place.
+ *
+ * ⛔ IT WAS BRIEFLY EXPORTED, WITH A COMMENT SAYING "the card applies it inside
+ * a longer className expression". THAT WAS FALSE WHEN IT WAS WRITTEN: the card
+ * destructures `borderClass` off the resolver. A file whose whole purpose is to
+ * stop two surfaces disagreeing carried a sentence that disagreed with the
+ * surface it described. Recorded rather than quietly deleted.
  */
-export const REVIEW_SEVERITY_BORDER: Record<ReviewSeverity, string> = {
+const REVIEW_SEVERITY_BORDER: Record<ReviewSeverity, string> = {
   info: 'border-info/30',
   warning: 'border-warning/30',
   critical: 'border-danger/30',
