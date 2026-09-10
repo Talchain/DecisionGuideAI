@@ -112,7 +112,21 @@ describe('manual goal target uses the existing canonical typed action', () => {
   it('renders the node’s stated target and unit rather than a different global scalar', () => {
     render(<ModelTabV2Panel nodes={[goal, factor]} edges={[]} goalThreshold={0.8} />)
     openOutlineGroups()
-    expect(screen.getByTestId('model-row-v2-goal-revenue-value')).toHaveTextContent('100,000 £')
+    // ⚠ WAS `'100,000 £'`. A prefix currency now renders in front of the number
+    // — the defect witnessed on staging 10 Sep 2026 (deploy
+    // `6aa1fdec0d71200008252154`, UI `9eb30b54`), where the canvas card said
+    // `Target: £250,000` and this row said `250,000 £` for one figure. See
+    // `theModelTabPutsTheCurrencyInFront.spec.ts`.
+    //
+    // ⭐ THE STRING IS INCIDENTAL TO WHAT THIS TEST IS FOR, AND THE
+    // DISCRIMINATION IS UNCHANGED. Its question is WHICH VALUE the row reads —
+    // the node's `goal_threshold_raw` (100000) or the global scalar passed as
+    // `goalThreshold={0.8}` — not where the symbol sits. `£100,000` is no more
+    // producible from `0.8` than `100,000 £` was, so this remains a real
+    // discriminator rather than a restated expectation. It is NOT a dated
+    // capture corpus (CLAUDE.md trap 14b): nothing here records a sentence a
+    // build once emitted, so updating it falsifies no evidence.
+    expect(screen.getByTestId('model-row-v2-goal-revenue-value')).toHaveTextContent('£100,000')
   })
   it('carries the confirmed action through the real payload and HTTP adapter, with no text routing', async () => {
     mount()
