@@ -634,6 +634,47 @@ interface CanvasState {
    * previous decision's admission would govern the next one's edits.
    */
   retainedAnalysisAdmission: AnalysisAdmissionV1 | null
+  /**
+   * THE PRODUCER'S LAST COACHING, RETAINED ACROSS INVALIDATION — THE SAME
+   * MECHANISM AS `retainedAnalysisAdmission` ABOVE, ONE FIELD ALONG.
+   *
+   * `draftCoaching` is a member of `READINESS_CLEAR_FIELDS`, so every analytical
+   * edit nulls it. The user-facing consequence is the inverse of a stale claim:
+   * the moment the user ACTS ON the coaching, the coaching that asked for the act
+   * disappears, and does not return until the next server turn.
+   *
+   * ⚠ WHY ONLY THIS ONE OF THE TEN CLEARED FIELDS. The other nine are either a
+   * NUMERIC CLAIM ABOUT THE GRAPH THAT JUST CHANGED (`ceeQuality`,
+   * `preAnalysisSensitivity`, `ceeModelQualityFactors`), a STRUCTURAL verdict the
+   * triggering edit can invalidate directly (`ceeGoalConnectivity`,
+   * `ceeExtendedWarnings`), or an INPUT TO A RUN REQUEST rather than a display
+   * (`ceeAnalysisReady` incl. its resolved `options[].interventions`,
+   * `goalConstraints`, `ceeAnalysisReadyNodeIds`). Retaining any of those would
+   * either present a figure about a superseded graph or change what goes on the
+   * wire. Coaching is the one member that is PROSE THE PRODUCER AUTHORED — and
+   * prose about the brief and the framing, not a measurement of the graph.
+   *
+   * ⚠⚠ DOWNGRADE-ONLY, AND STRUCTURALLY SO — THE RETAINED TEXT CANNOT SUMMON A
+   * ROW. Its one wired consumer is `sig_option_breadth`'s `ceeOverride`
+   * (`pre-analysis-v3/signals/registry.ts`), and that signal's FIRING CONDITION is
+   * re-derived live from the graph (`input.optionCount >= 3` returns null). So the
+   * retained value can only ever change the WORDING of a row the live graph has
+   * independently decided to show; widen the options and the row goes, whatever is
+   * retained. Exactly as with the admission, the only value it can hold is a value
+   * the producer itself sent, and a live payload always wins.
+   *
+   * ⚠ DELIBERATELY NOT WIRED TO THE HERO COACHING SLOT. That slot
+   * (`usePreAnalysisModel`'s `coaching`, rendered by `hero/CoachingSlot.tsx`) is
+   * UNGATED — it renders whenever text exists — so a retained summary could assert
+   * a framing problem the user's edit has just fixed, unmarked, beside live
+   * numbers. Retaining it honestly needs a visible pre-edit mark on the slot; that
+   * is a copy change, not this one.
+   *
+   * Captured at the CLEAR sites (`readinessClearFields`) and cleared by
+   * `DECISION_CONTEXT_CLEAR`, for the same two reasons given for the admission.
+   * Session-local, never persisted — the same rule `draftCoaching` already keeps.
+   */
+  retainedDraftCoaching: CEEDraftCoaching | null
   // Analysis freshness verdict from CEE analysis_ready.freshness — retained
   // across turns; sourced independently of ceeAnalysisReady / v5AnalysisFact.
   analysisFreshness: AnalysisFreshnessState | null
@@ -1983,6 +2024,10 @@ function readinessClearFields(get: () => CanvasState) {
     ...READINESS_CLEAR_FIELDS,
     retainedAnalysisAdmission:
       get().ceeAnalysisReady?.analysis_admission ?? get().retainedAnalysisAdmission,
+    // Same harvest, same reason, one field along: read out of live state at the
+    // moment of clearing, so it is correct however the coaching arrived and there
+    // is no list of producers to keep in sync.
+    retainedDraftCoaching: get().draftCoaching ?? get().retainedDraftCoaching,
   }
 }
 
@@ -2006,6 +2051,11 @@ const DECISION_CONTEXT_CLEAR = {
   // must not govern edits made to this one — the same hazard as the stale
   // goalThreshold two lines above.
   retainedAnalysisAdmission: null,
+  // The retained coaching is scoped to ONE decision for the same reason: it is
+  // prose CEE authored about THIS brief and THIS framing, so carrying it into the
+  // next decision would re-word that decision's signals with the previous one's
+  // guidance.
+  retainedDraftCoaching: null,
   ceeAnalysisReadyNodeIds: null,
   outcomeNodeId: null,
   // B3 (Codex deep review, 2026-07-18): goalConstraints was the ONE member of
@@ -2855,6 +2905,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   v5AnalysisFact: null,
   // CEE coaching payload (session-local; never persisted)
   draftCoaching: null,
+  // No producer has coached at cold start, so there is nothing to retain and the
+  // live-absent branch stays absent.
+  retainedDraftCoaching: null,
   // CEE goal constraints from draft-graph response root
   goalConstraints: null,
   // B2: no authoritative graph seen yet — reconciler removes nothing.
