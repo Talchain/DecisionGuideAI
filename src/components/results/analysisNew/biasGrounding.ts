@@ -138,17 +138,16 @@ export function buildBiasGrounding(
         ? (finding.micro_intervention as Record<string, unknown>)
         : null
 
-    const steps = Array.isArray(intervention?.steps)
-      ? (intervention.steps as unknown[])
-          .map(readStep)
-          .filter((s): s is string => s !== null)
+    const rawSteps = intervention ? intervention.steps : null
+    const steps: string[] = Array.isArray(rawSteps)
+      ? (rawSteps as unknown[]).map(readStep).filter((step): step is string => step !== null)
       : []
 
     // ⚠ A COSTED TECHNIQUE OR NO COST AT ALL. `estimated_minutes` is printed to
     // the reader as a commitment of their time, so a zero, a negative or a
     // non-number is dropped rather than coerced: "About 0 minutes." is worse
     // than silence, and `Number('soon')` is NaN, not an error.
-    const rawMinutes = intervention?.estimated_minutes
+    const rawMinutes = intervention ? intervention.estimated_minutes : null
     const estimatedMinutes =
       typeof rawMinutes === 'number' && Number.isFinite(rawMinutes) && rawMinutes > 0
         ? rawMinutes
