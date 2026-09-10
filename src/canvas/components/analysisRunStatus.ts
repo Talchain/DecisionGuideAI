@@ -89,17 +89,19 @@ export function runStatusRegion({ isRunning }: RunStatusInput): RunStatusRegion 
  * "exactly one announcement per transition" is structural, not per-consumer
  * discipline.
  *
- * FIRST runs are a special case with an ASYMMETRY between the two
- * transitions (review-folds C6):
+ * FIRST runs USED TO BE a special case on BOTH transitions. They are one on
+ * the SETTLE transition only (review-folds C6, narrowed 9 Sep 2026):
  *
- *  - START: the dock's I.1 auto-switch fronts the Analysis tab whenever
- *    status transitions from idle/cancelled into an active state, so on a
- *    FIRST run the user lands on the Analysis tab (and its furniture) in
- *    the same breath as the start — but the announcer's effect observes
- *    the transition BEFORE the dock's auto-switch effect re-renders, so
- *    its `analysisTabFronted` input is one commit stale. Rather than race
- *    that commit, the rule encodes the auto-switch contract: a start from
- *    idle/cancelled yields unconditionally.
+ *  - START: frontedness NOW, or a navigation that is about to produce it.
+ *    ⚠ This arm used to carry `|| firstRun`, on the premise that the dock's
+ *    I.1 auto-switch fronted the Analysis tab in the same breath as a start
+ *    from idle/cancelled. ⚠⚠ THE DEFAULT-TAB RULING DID NOT DELETE THAT
+ *    AUTO-SWITCH — IT GATED IT (`navigatesToAnalysisTab =
+ *    Boolean(showResultsPanel)`). A sentence claiming the deletion stood here
+ *    for one day and cost a round: `firstRun` was the wrong PROXY for the
+ *    premise, not a dead one, so removing it without replacing the premise
+ *    traded a silence for a double announcement. The gate is now consumed
+ *    directly — see the note at the predicate itself.
  *  - SETTLE: a FIRST-run settle does NOT yield, even while fronted —
  *    NOTHING else announces it. The completion toast
  *    (AnalysisFreshnessNotice) mounts post-settle with
@@ -107,9 +109,11 @@ export function runStatusRegion({ isRunning }: RunStatusInput): RunStatusRegion 
  *    start; the first run's settle was fully silent before this rule.
  *    Rerun settles keep the yield (the toast genuinely fires there).
  *
- * RERUNS (from complete/error) do not auto-switch — that is exactly the
- * case F9 exists for (rerun dispatched while Compare/Model is fronted
- * stayed silent and frozen) — so there the current frontedness decides.
+ * So on START the question is "will this tab be speaking?" for EVERY run —
+ * which is also the case F9 exists for (a rerun dispatched while Compare/Model
+ * is fronted stayed silent and frozen); first runs stopped being an exception
+ * to it once the real discriminator was named, because the thing that moves the
+ * user is a per-affordance fact and never a property of the run's ordinality.
  *
  * Settle copy never fabricates an outcome: only statuses the store actually
  * settles into ('complete' | 'error' | 'cancelled') get a line; anything
@@ -151,12 +155,35 @@ export interface RunAnnouncementInput {
   settledStatus?: string | null
   /**
    * The results status held BEFORE the run started. idle/cancelled marks a
-   * FIRST run: its start yields to the auto-switch furniture, but its
-   * settle must NOT yield (see the asymmetry above).
+   * FIRST run, which now matters on the SETTLE transition ONLY: a first-run
+   * settle must NOT yield, because nothing else announces it. It is
+   * deliberately NOT consulted on START any more — see the asymmetry above.
    */
   preRunStatus?: string | null
   /** The Analysis tab is fronted (dock open, results tab active). */
   analysisTabFronted: boolean
+  /**
+   * ⭐ THE DOCK'S PENDING NAVIGATION INTENT — "will the Analysis tab be fronted
+   * AS A RESULT OF this run start?". START transitions only.
+   *
+   * ⚠ NOT a restatement of `analysisTabFronted`, and the difference is the
+   * whole reason this field exists. That one is read from committed React
+   * state, so at a run START it is one commit stale by construction: the dock
+   * schedules the tab move inside the very effect flush the announcer's own
+   * effect runs in (and as a child, the announcer's runs FIRST). A run start
+   * that is about to front the Analysis tab therefore reads
+   * `analysisTabFronted: false`, and a rule that trusts that reading announces
+   * on top of the banner it is about to mount.
+   *
+   * Derived by the dock from the SAME `Boolean(showResultsPanel)` expression
+   * that decides the navigation, passed down rather than recomputed, so the two
+   * cannot drift (trap 12 — a second copy of the literal is a mirror).
+   *
+   * Optional, and DEFAULTS FALSE. The direction is deliberate: a caller that
+   * does not know must fall back to SPEAKING. An extra announcement is a
+   * nuisance; an unannounced run is inaccessible.
+   */
+  willFrontAnalysisTab?: boolean
   /**
    * Does the settled report carry ANY value the product can render?
    *
@@ -183,20 +210,82 @@ export function runAnnouncementForTransition({
   settledStatus,
   preRunStatus,
   analysisTabFronted,
+  willFrontAnalysisTab = false,
   settledWithoutNewReport,
   hasRenderableResult = true,
 }: RunAnnouncementInput): string | null {
   const firstRun = preRunStatus === 'idle' || preRunStatus === 'cancelled'
-  // The C6 asymmetry as ONE expression (/simplify item 8), so the two
-  // transitions' yield rules sit side by side and cannot drift:
-  //  - START yields when the tab is fronted OR the run is a first run (the
-  //    dock's auto-switch is about to front the Analysis tab, whose own
-  //    furniture speaks — announcing here would double up).
-  //  - SETTLE yields only when fronted AND it is NOT a first run: nothing
-  //    else announces a first-run settle (the completion toast mounts
-  //    post-settle with wasRunningRef = false).
+  // ⭐⭐ THE START ARM ASKS "WILL THIS TAB BE SPEAKING?", NOT "IS IT FRONTED?"
+  //
+  // This one predicate has been wrong in BOTH directions, a day apart, and each
+  // round was correct about the population it named and blind to the other.
+  // Both rounds reasoned from the cases in hand; the fix is to enumerate the
+  // domain, which is the cross-product of two signals and has four cells.
+  //
+  //   round 1  `analysisTabFronted || firstRun`
+  //            → SILENCE for a fresh session pressing the dock's Run control:
+  //              it yielded to furniture that never arrived, and nothing else
+  //              covers it (`AnalysisRunStateCover` is visual-only by ruling —
+  //              `AnalysisRunningBanner` with `announces={false}` omits
+  //              role/aria-live, the alternative is an `aria-hidden` skeleton,
+  //              UI #1198 — and the dock's tab-name live region does not change
+  //              because the tab does not change). 20–40s of nothing.
+  //   round 2  `analysisTabFronted`
+  //            → DOUBLE ANNOUNCEMENT whenever the run start carries a
+  //              navigation: the announcer speaks on the stale reading, then the
+  //              banner mounts on Analysis as a real live region and speaks too.
+  //              Measured at the rendered DOM, not reasoned — two live regions
+  //              carrying one run start, pinned in `OutputsDock.dom.spec.tsx`.
+  //
+  // ⚠⚠ AND THE PREMISE WRITTEN HERE DURING ROUND 2 WAS FALSE. It said the
+  // default-tab ruling DELETED the dock's auto-switch. It GATED it:
+  // `navigatesToAnalysisTab = Boolean(showResultsPanel)` (`OutputsDock.tsx`).
+  // `firstRun` was the wrong PROXY for a premise that still holds, not a
+  // disjunct whose premise had gone — so dropping it without replacing the
+  // premise moved the harm rather than closing it.
+  //
+  // ⚠ AND THE POPULATION LABELS BOTH ROUNDS USED WERE THE WRONG AXIS. The
+  // framing was fresh-vs-returning, via localStorage `ui.showResultsPanel`
+  // (`uiPreferences.ts`, spread at `store.ts`; `clearUIPreferences` has zero
+  // production callers, so a raised intent outlives the browser session while
+  // the dock tab comes from sessionStorage — different scopes, so they
+  // genuinely diverge). That is ONE instance. Derived at the bytes 10 Sep 2026:
+  // `ReactFlowGraph.tsx:1446`, the ⌘Enter Run shortcut, calls
+  // `setShowResultsPanel(true)` in the SAME synchronous gesture as
+  // `executeCanonicalRun`; so do the palette's `action:results`
+  // (`usePalette.ts:269,316`), ⌘/Ctrl+3 (`ReactFlowGraph.tsx:1034`) and the
+  // template insert (`CanvasMVP.tsx:132`). The double is therefore reachable on
+  // a COMPLETELY FRESH session with empty localStorage, and on RERUNS — a cell
+  // `|| firstRun` never covered either. The axis is not who the user is; it is
+  // whether this run start carries a navigation.
+  //
+  // The four cells, and the one voice each must get:
+  //   fronted | willFront | who                                  | speaker
+  //   --------+-----------+--------------------------------------+--------------
+  //   false   | false     | fresh/unchosen, dock Run control     | announcer
+  //   false   | true      | ⌘Enter / palette / ⌘3 / template /    | banner, one
+  //           |           | new-session rehydration              | commit later
+  //   true    | true      | steady state on Analysis             | banner
+  //   true    | false     | on Analysis, intent cleared          | banner
+  //           |           | (`OutputsDock.tsx:2417`, and the
+  //           |           |  2.204 return at `:2131`)
+  //
+  // A disjunction is therefore exactly right, and it cannot buy the silence
+  // back: `willFront` true with no navigation landing is unreachable — the
+  // dock's 50ms debounce only skips a pass that a pass <50ms earlier already
+  // performed; its `prev.activeTab === nextTab` guard returns early only when
+  // the tab is ALREADY Analysis; and the two sites that clear the intent run on
+  // an explicit floating-Olumi request and on result ARRIVAL, never at a start.
+  //
+  // SETTLE is untouched and deliberately does NOT consume the new signal: by
+  // then the navigation has committed, so it carries no information about who
+  // speaks, and `firstRun` is still the real discriminator there (nothing else
+  // announces a first-run settle — the completion toast mounts post-settle with
+  // wasRunningRef = false).
   const yieldsToTabFurniture =
-    transition === 'start' ? analysisTabFronted || firstRun : analysisTabFronted && !firstRun
+    transition === 'start'
+      ? analysisTabFronted || willFrontAnalysisTab
+      : analysisTabFronted && !firstRun
   if (yieldsToTabFurniture) return null
   if (transition === 'start') return 'Analysis started.'
   // settledStatus is a raw store string — keep the switch. An object lookup

@@ -24,6 +24,31 @@
  * The fix's whole risk is over-firing: moving a user who chose where to be is a
  * worse defect than the one being fixed. Cases 2-5 are the load-bearing half —
  * a fix that passed only case 1 would be a fix that yanks everybody.
+ *
+ * ## ⚠⚠ AMENDED 9 Sep 2026 — THE DEPARTURE MOVED; THE CAPABILITY DID NOT
+ *
+ * Paul's default-tab ruling split the dock's merged effect in two: a run start
+ * now REVEALS the dock and makes no tab claim. So the sentence at the top of
+ * this file — *"Clicking Run analysis switches the dock to the Analysis tab"* —
+ * is no longer true OF THE DOCK'S OWN RUN CONTROL, and the first case below
+ * pins that: the user stays on Olumi and the output is never stranded. The
+ * defect is prevented at source rather than repaired after the fact.
+ *
+ * The departure itself has NOT gone. `showResultsPanel` keeps its tab claim
+ * because it is raised by affordances that NAME Analysis — most importantly the
+ * ⌘/Ctrl+Enter run (`ReactFlowGraph.tsx:1446`). Every case that needs a user to
+ * be taken away therefore drives `startRunFromKeyboardShortcut()`, a real
+ * primary run affordance, and every assertion below is otherwise untouched.
+ *
+ * ⚠ AND THE POPULATION THIS LANE COULD NOT SPEAK FOR, stated plainly rather
+ * than buried: a user who starts a run from **Model, Compare or Reasoning** now
+ * stays there, so the we-moved-them record is false and no return fires. They
+ * must click Olumi to see the decision-review card. Before the ruling they were
+ * moved twice (to Analysis, then to Olumi). Which of those two is right is a
+ * product question — 2.204's own doctrine is *"only a run that actually
+ * switched earns a return"*, and moving a user who chose their tab is the very
+ * override the ruling forbids — so this file records the behaviour and does not
+ * decide it.
  */
 
 import '@testing-library/jest-dom/vitest'
@@ -242,6 +267,48 @@ function startRun() {
   })
 }
 
+/**
+ * ⭐⭐ THE RUN THAT STILL MOVES THE USER — and why this file needs it as of
+ * 9 Sep 2026.
+ *
+ * `startRun()` above is the DOCK's own Run: `resultsAnalysing()` and nothing
+ * else. Until the default-tab ruling, that alone moved the user to the Analysis
+ * tab, because the dock's merged effect answered two questions with one line —
+ * reveal the dock, AND front Analysis. The ruling split them: a run start now
+ * REVEALS and makes no tab claim, so a user who presses Run on the Olumi tab
+ * STAYS on the Olumi tab.
+ *
+ * ── WHY THAT DOES NOT RETIRE THIS FILE ─────────────────────────────────────
+ * 2.204 is a repair for a departure. Remove the departure from the dock's Run
+ * and the repair is simply not needed there — the output lands on the tab the
+ * user is already reading, which is strictly better than being taken away and
+ * brought back. The new case at the top of the sibling describe pins exactly
+ * that.
+ *
+ * But the departure has NOT gone. `showResultsPanel` is the dock's second
+ * reveal trigger and it KEEPS its tab claim, because it is raised by
+ * affordances that NAME Analysis. This helper reproduces the most important of
+ * them verbatim: `ReactFlowGraph.tsx:1446`, the ⌘/Ctrl+Enter run — *"Open
+ * Results panel before running"*, `setShowResultsPanel(true)` immediately
+ * before `executeCanonicalRun`. A primary, user-driven run affordance, not a
+ * contrivance invented to keep a test alive.
+ *
+ * ⚠ BOTH UPDATES LAND IN ONE `act` DELIBERATELY, and the order is load-bearing.
+ * The dock's effect depends on `[resultsStatus, showResultsPanel]` and debounces
+ * re-entry within 50 ms. Raised in two separate acts, the flag alone would
+ * navigate first (arming nothing, since the we-moved-them record is written
+ * only on a status TRANSITION), and the status change would then either be
+ * swallowed by the debounce or find the user already on Analysis — recording
+ * "we moved nobody". Batched, the effect sees a transition AND a tab claim at
+ * once, which is what the real ⌘Enter path produces.
+ */
+function startRunFromKeyboardShortcut() {
+  act(() => {
+    useCanvasStore.getState().setShowResultsPanel(true)
+    useCanvasStore.getState().resultsAnalysing()
+  })
+}
+
 /** The turn RETURNS: the analysis block lands in the conversation and the
  *  results store completes off the same turn (applyV5State.ts:1058-1064). */
 function landAnalysisTurn(rerender: (ui: React.ReactElement) => void, id = 'm-analysis') {
@@ -284,7 +351,63 @@ describe('ROADMAP 2.204 — the run returns the user to the surface it produced'
     // these cases exercise.
     useCanvasStore.getState().addNode(undefined, 'decision')
     useCanvasStore.setState({ results: { status: 'idle', progress: 0 }, hasCompletedFirstRun: true } as any)
+    // ⚠⚠ THE URL IS A FILE-LEVEL SINGLETON IN jsdom, AND THIS FILE ACQUIRED A
+    // LEAK ON 9 Sep 2026 THAT IT NEVER HAD BEFORE. Derived, not guessed: a probe
+    // on the return effect showed the dock arriving on `results` at MOUNT with
+    // the we-moved-them record still FALSE — i.e. something other than a run had
+    // already navigated, before the case had done anything.
+    //
+    // `handleTabClick` writes `?tab=` to `window.location`, and the rule is
+    // "name the surface WHEN IT IS NOT THE DEFAULT". While Analysis WAS the
+    // default, a case that clicked Analysis DELETED the param and left the URL
+    // clean for its neighbours. Analysis is no longer the default, so that click
+    // now leaves `?tab=results` behind — and the dock's one-time `?tab=` init
+    // effect reads it back on every later mount, fronting Analysis and silently
+    // consuming the departure these cases are trying to produce themselves.
+    //
+    // Five failures, one cause. Resetting the URL is the fixture repair; no
+    // assertion changes. (`sessionStorage`/`localStorage` were already cleared
+    // above — the URL was the one channel nothing reset.)
+    try { window.history.replaceState({}, '', '/') } catch { /* jsdom */ }
     useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
+  })
+
+  /**
+   * ⭐⭐ THE DEFECT IS NOW PREVENTED AT SOURCE ON THE DOCK'S OWN RUN — and this
+   * case is the one that says so, added with the default-tab ruling (9 Sep 2026).
+   *
+   * 2.204 is a two-step repair: the dock took the user away, then brought them
+   * back when the output arrived. The ruling removed step one for the dock's own
+   * Run control, so on this journey there is nothing to repair — the output
+   * lands on the tab the user is already reading, and the wrapper never carries
+   * `hidden` at all. Strictly better than being moved twice.
+   *
+   * ⚠ IT IS PLACED FIRST DELIBERATELY. Every case below now drives
+   * `startRunFromKeyboardShortcut()`, the surviving departure. Without this case
+   * a reader would conclude the dock's Run still departs, which is exactly the
+   * belief the ruling falsified.
+   */
+  it('THE RULING: the dock\'s own Run leaves the user on Olumi, so nothing is stranded', () => {
+    seedDockOnOlumi()
+    const { rerender } = render(
+      <Wrapper>
+        <OutputsDock />
+      </Wrapper>,
+    )
+    expect(olumiTabIsFronted()).toBe(true)
+
+    // The DOCK's Run — `resultsAnalysing()` alone, no show-results claim.
+    startRun()
+    expect(
+      olumiTabIsFronted(),
+      'the dock Run navigated. It may reveal the dock; it may not choose a tab.',
+    ).toBe(true)
+    expect(screen.getByTestId('olumi-tab-wrapper')).not.toHaveClass('hidden')
+
+    // The output arrives on the surface they never left.
+    landAnalysisTurn(rerender)
+    expect(olumiTabIsFronted()).toBe(true)
+    expect(screen.getByTestId('olumi-tab-wrapper')).not.toHaveClass('hidden')
   })
 
   it('THE DEFECT: Run navigates away from Olumi, and the completed analysis brings the user back', () => {
@@ -300,7 +423,7 @@ describe('ROADMAP 2.204 — the run returns the user to the surface it produced'
 
     // Half one of the defect, pinned so the fix cannot be mistaken for a
     // removal of the auto-switch: pressing Run DOES move them to Analysis.
-    startRun()
+    startRunFromKeyboardShortcut()
     expect(olumiTabIsFronted()).toBe(false)
     expect(screen.getByTestId('olumi-tab-wrapper')).toHaveClass('hidden')
 
@@ -321,7 +444,7 @@ describe('ROADMAP 2.204 — the run returns the user to the surface it produced'
         <OutputsDock />
       </Wrapper>,
     )
-    startRun()
+    startRunFromKeyboardShortcut()
 
     // The user makes their own choice mid-run: they click the Analysis tab.
     act(() => {
@@ -358,7 +481,7 @@ describe('ROADMAP 2.204 — the run returns the user to the surface it produced'
         <OutputsDock />
       </Wrapper>,
     )
-    startRun()
+    startRunFromKeyboardShortcut()
     expect(olumiTabIsFronted()).toBe(false)
 
     // Deliberate engagement anywhere inside the dock while the run is in
@@ -391,7 +514,7 @@ describe('ROADMAP 2.204 — the run returns the user to the surface it produced'
         <OutputsDock />
       </Wrapper>,
     )
-    startRun()
+    startRunFromKeyboardShortcut()
     expect(olumiTabIsFronted()).toBe(false)
 
     // Fired on the dock BODY, not the root: the scrollable region the user
@@ -427,7 +550,7 @@ describe('ROADMAP 2.204 — the run returns the user to the surface it produced'
 
     // Run 1 — moves them to Analysis (record armed), then settles with no
     // report: the failure/cancel shape.
-    startRun()
+    startRunFromKeyboardShortcut()
     expect(olumiTabIsFronted()).toBe(false)
     act(() => {
       useCanvasStore.getState().resultsSettle()
@@ -445,7 +568,7 @@ describe('ROADMAP 2.204 — the run returns the user to the surface it produced'
     // Run 2 — dispatched while they are ALREADY on Analysis (e.g. the canvas
     // toolbar / palette, outside the dock, so no interaction event fires).
     // This run switches nothing, so it must NOT earn a return.
-    startRun()
+    startRunFromKeyboardShortcut()
     landAnalysisTurn(rerender)
 
     expect(olumiTabIsFronted()).toBe(false)
@@ -473,7 +596,7 @@ describe('ROADMAP 2.204 — the run returns the user to the surface it produced'
 
     // Rerun pressed: the dock moves to Analysis, and the previous run's block
     // is still sitting in the transcript.
-    startRun()
+    startRunFromKeyboardShortcut()
     expect(olumiTabIsFronted()).toBe(false)
 
     // Mid-run re-render with NOTHING new: the user must stay on the numbers
@@ -565,6 +688,24 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
     // rail ends on an analysis RESULT, not on graph content, so the node alone
     // leaves the dock at 40px with no Olumi tab to scroll within.
     useCanvasStore.setState({ results: { status: 'idle', progress: 0 }, hasCompletedFirstRun: true } as any)
+    // ⚠⚠ THE URL IS A FILE-LEVEL SINGLETON IN jsdom, AND THIS FILE ACQUIRED A
+    // LEAK ON 9 Sep 2026 THAT IT NEVER HAD BEFORE. Derived, not guessed: a probe
+    // on the return effect showed the dock arriving on `results` at MOUNT with
+    // the we-moved-them record still FALSE — i.e. something other than a run had
+    // already navigated, before the case had done anything.
+    //
+    // `handleTabClick` writes `?tab=` to `window.location`, and the rule is
+    // "name the surface WHEN IT IS NOT THE DEFAULT". While Analysis WAS the
+    // default, a case that clicked Analysis DELETED the param and left the URL
+    // clean for its neighbours. Analysis is no longer the default, so that click
+    // now leaves `?tab=results` behind — and the dock's one-time `?tab=` init
+    // effect reads it back on every later mount, fronting Analysis and silently
+    // consuming the departure these cases are trying to produce themselves.
+    //
+    // Five failures, one cause. Resetting the URL is the fixture repair; no
+    // assertion changes. (`sessionStorage`/`localStorage` were already cleared
+    // above — the URL was the one channel nothing reset.)
+    try { window.history.replaceState({}, '', '/') } catch { /* jsdom */ }
     useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
   })
 
@@ -578,7 +719,7 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
         <OutputsDock />
       </Wrapper>,
     )
-    startRun()
+    startRunFromKeyboardShortcut()
 
     const probe = recordScrollIntoView()
     try {
@@ -622,7 +763,7 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
         <OutputsDock />
       </Wrapper>,
     )
-    startRun()
+    startRunFromKeyboardShortcut()
     expect(olumiTabIsFronted()).toBe(false)
 
     const probe = recordScrollIntoView()
@@ -658,7 +799,7 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
         <OutputsDock />
       </Wrapper>,
     )
-    startRun()
+    startRunFromKeyboardShortcut()
     act(() => {
       fireEvent.wheel(screen.getByTestId('outputs-dock-body'))
     })
@@ -690,7 +831,7 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
         <OutputsDock />
       </Wrapper>,
     )
-    startRun()
+    startRunFromKeyboardShortcut()
     landAnalysisTurn(rerender)
     expect(olumiTabIsFronted()).toBe(true)
 
@@ -735,6 +876,19 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
     id = 'm-batched',
   ) {
     act(() => {
+      // ⚠ THE DEPARTURE, RAISED IN THE SAME FLUSH — added 9 Sep 2026 and it is
+      // the PRECONDITION these two cases rest on, not decoration.
+      //
+      // Both are about a scroll request raised against a STALE TAB VALUE while
+      // the auto-switch wins the same flush. That needs an auto-switch to win.
+      // Until the default-tab ruling, `resultsComplete` from 'idle' was itself a
+      // status transition and the dock's merged effect fronted Analysis off the
+      // back of it. A run start no longer makes any tab claim, so without this
+      // the user simply stays on Olumi, nothing is stale, and both cases would
+      // pass while measuring a race that can no longer happen — a guard agreeing
+      // with itself (trap 13b). `showResultsPanel` is the surviving claim, and
+      // raising it here models the ⌘Enter run these cases always implied.
+      useCanvasStore.getState().setShowResultsPanel(true)
       convState.messages = [...convState.messages, analysisTurnMessage(id)]
       useCanvasStore.getState().resultsComplete({
         report: minimalReport(),
@@ -839,7 +993,7 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
     // The previous run's card is SEEDED into the transcript rather than produced
     // by a second live run: `resultsComplete` leaves the store on 'complete', so
     // the merged auto-switch effect's `wasInactive` gate never re-arms within one
-    // test and a second `startRun()` would switch nothing. Same construction, for
+    // test and a second `startRunFromKeyboardShortcut()` would switch nothing. Same construction, for
     // the same reason, as the 2.204 RERUN case above.
     convState.messages = [analysisTurnMessage('m-previous-run')]
     seedDockOnOlumi()
@@ -850,7 +1004,7 @@ describe('ROADMAP 2.204-R3 — the return lands on the arriving card', () => {
     )
     expect(olumiTabIsFronted()).toBe(true)
 
-    startRun()
+    startRunFromKeyboardShortcut()
     expect(olumiTabIsFronted()).toBe(false)
 
     const probe = recordScrollIntoView()
