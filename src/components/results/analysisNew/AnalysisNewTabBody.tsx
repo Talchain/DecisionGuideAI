@@ -921,6 +921,9 @@ export function AnalysisNewTabBody({
                      Guarded by `theFocusCardReferencesRatherThanReprints`. */
                   title: glancePrimary.title,
                   signalCode: glancePrimary.signalCode,
+                  /* The producer's own bias on a bias-signal finding, so this
+                     card names the SAME technique as the row it promotes. */
+                  biasCode: glancePrimary.biasCode,
                   /* ⚠ The CATALOGUE path renders this and the phase-3 path does
                      not — see `AtAGlance`'s `signal` prop. Passed for both
                      because the card, not the caller, owns which kind it is. */

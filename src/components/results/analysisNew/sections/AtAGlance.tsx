@@ -170,6 +170,18 @@ export interface AtAGlanceProps {
      * producer's code names one — see `recommendationMethod.ts`. */
     signalCode?: string
     /**
+     * The canonical bias the producer named on a bias-signal finding; absent
+     * otherwise.
+     *
+     * ⚠ CARRIED BECAUSE OMITTING IT WOULD MAKE TWO SURFACES DISAGREE ABOUT ONE
+     * FINDING. This card is a promoted reference to a Strengthen row, and that
+     * row resolves its method with the bias code. Without it the promoted card
+     * would name "Review a possible bias" while the row beneath it named "Apply
+     * the outside view" — the same producer fact, two answers, which is the
+     * defect class CLAUDE.md trap 21 is about. Never rendered as user copy.
+     */
+    biasCode?: string
+    /**
      * ⚠ RESTORED, AND ONLY THE CATALOGUE PATH MAY RENDER IT. Removing this
      * outright made the card strictly LESS informative on the catalogue
      * recommendations, measured on the top-priority one:
@@ -1143,6 +1155,7 @@ export function AtAGlance({
               const method = methodForRecommendation(
                 primaryIntervention.id,
                 primaryIntervention.signalCode,
+                primaryIntervention.biasCode,
               )
               return method ? (
                 <span

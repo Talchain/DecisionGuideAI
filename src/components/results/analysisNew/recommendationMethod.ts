@@ -38,6 +38,11 @@
  */
 
 import { METHOD_CATALOGUE, type MethodEntry } from '../decision-overview/actionsCatalogue'
+import {
+  biasSignal,
+  resolveBiasSignal,
+  type KnownBiasCode,
+} from '../../../canvas/shared/biasSignalTitles'
 
 /**
  * Recommendation-id prefix → method id, with the justification for each.
@@ -107,20 +112,167 @@ const METHOD_BY_SIGNAL_CODE: ReadonlyArray<readonly [string, string]> = [
 ]
 
 /**
+ * Canonical BIAS CODE → method id: the corrective for the bias the producer
+ * actually named on THIS card.
+ *
+ * ⭐⭐ WHY THIS MAP EXISTS WHEN `COGNITIVE_BIAS → review_bias` ALREADY SHIPS.
+ * Because that row answers a coarser question, and answering the coarse one
+ * made the finer one invisible. A bias card's `signal_code` is `COGNITIVE_BIAS`
+ * for every bias the registry names, so the generic technique — "Review a
+ * possible bias", whose own description is "Use only biases grounded in this
+ * brief or model" — was the best the surface could offer on a run where the
+ * producer had ALREADY done that review and named the result. The product knew
+ * it was looking at an anchor and still offered to go looking for a bias.
+ *
+ * The bias identity was on the wire the whole time, in the card's title, and
+ * `biasFindingTypes` already inverts the registry to recover it — but it had
+ * exactly ONE reader (`buildRecommendations.ts`'s narrow-framing gate) whose
+ * `NARROW_TYPES` covers three of the sixteen codes. So thirteen named biases,
+ * anchoring and overconfidence among them, gated nothing anywhere.
+ *
+ * ⚠⚠ THE SAME RESTRAINT RULE AS BOTH MAPS ABOVE, AND IT IS DOING MOST OF THE
+ * WORK HERE. Two rows, not sixteen. A row earns its place only where the
+ * technique IS the literature's corrective for that bias AND the catalogue's own
+ * `description` says so — not where the two are merely both about thinking
+ * harder. Every unwired bias keeps the generic `review_bias` chip it gets today,
+ * which is a true and useful thing to offer; none loses anything.
+ *
+ * ⚠ WHY EACH ROW, AND WHY THE NEAR MISSES ARE OUT:
+ *
+ *   ANCHORING → `outside_view`. An anchor is an inside-view number exerting pull
+ *     from where the estimate STARTED. The catalogue's description is "compare
+ *     with a relevant reference class", and replacing a self-generated starting
+ *     point with a reference class is not a way of mitigating an anchor — it is
+ *     the move itself. It is also reference-class forecasting's stated purpose
+ *     in the planning literature that named this bias. This is the technique's
+ *     FIRST trigger of any kind: `outside_view` shipped in the catalogue
+ *     reachable only from a menu the user had to already know they wanted.
+ *
+ *   OVERCONFIDENCE → `pre_mortem`. Overconfidence is under-weighted failure
+ *     modes; the catalogue's description is "imagine failure and capture
+ *     plausible causes". The premortem was devised as the corrective for exactly
+ *     this, and prospective hindsight is the mechanism. `pre_mortem` already has
+ *     two triggers (`strengthen:robustness` and the producer's `PRE_MORTEM`
+ *     code); a third route to a technique is not a new claim, it is the same
+ *     claim reached from another finding.
+ *
+ *   ⛔ CONFIRMATION BIAS → `consider_opposite` is REJECTED, though the
+ *     debiasing literature points straight at it. THIS catalogue's
+ *     `consider_opposite` is not the literature's generic move: its description
+ *     is "build the strongest case against the option that SCORED HIGHEST", so
+ *     invoking it asserts that something is currently ahead. That is a leader
+ *     claim, and leader claims are permissioned here — `strengthen:robustness`
+ *     is gated on `leaderClaimWithheld` for precisely this reason, and a bias
+ *     card carries no such gate and may arrive before any ranking exists.
+ *     Wiring it would smuggle an unpermissioned leader designation in behind a
+ *     science label (CLAUDE.md trap 21). Both rows above are leader-free.
+ *
+ *   ⛔ OPTIMISM BIAS is REJECTED as a separate title with a genuinely contested
+ *     corrective — the planning-fallacy literature prescribes a reference class,
+ *     the failure-generation literature a premortem. It took a paragraph to
+ *     argue, so per the rule above the answer is no.
+ *
+ * ⭐⭐⭐ AND THE REASON TWO ROWS IS NOT MERELY RESTRAINT BUT THE WHOLE REACHABLE
+ * SET — derived at the producer, which is the only place this question can be
+ * answered (CLAUDE.md trap 16-inverse: a branch can be live while the data
+ * cannot reach it; a sweep of THIS repo would have said "sixteen biases, wire
+ * two of them, leave fourteen on the table").
+ *
+ * `olumi-schemas` `main` @ `cc5c9e84` (0.54.0, the version CEE pins — no skew):
+ *   `BiasType = z.enum(['anchoring', 'narrow_framing', 'status_quo_bias', 'overconfidence'])`
+ * and CEE ENFORCES it by DROPPING a non-conforming signal rather than asserting
+ * a different bias about the user (`coaching-contract-conformance.ts:234-262`,
+ * on the always-on unified pipeline). CEE's own title registry holds ten names
+ * that are character-exact with `BIAS_SIGNAL_REGISTRY`'s
+ * (`draft-bias-signal-blocks.ts:92-108`) — but six of them are unreachable,
+ * because the contract cannot emit their codes.
+ *
+ * So FOUR bias titles can reach a user today, and after this change all four are
+ * accounted for:
+ *   Narrow framing  → `strengthen:broaden` / `different_option`  (already shipped)
+ *   Anchoring       → `outside_view`                             (this map)
+ *   Overconfidence  → `pre_mortem`                               (this map)
+ *   Status quo bias → the generic `review_bias`                  (no corrective argued)
+ *
+ * Wiring `sunk_cost`, `confirmation_bias`, `optimism_bias`, `availability_bias`,
+ * `authority_bias` or `blind_spots` would therefore ship DARK. Widening the set
+ * is a SCHEMAS change to `BiasType`, not a UI one — do that first, and only then
+ * argue a corrective for what it admits.
+ *
+ * ⚠ ALSO DERIVED, AND IT CLOSES AN OBVIOUS NEXT IDEA: the producer does NOT name
+ * a corrective per bias on this block. `CoachingBlockSchema` is `.strict()` with
+ * no bias or technique field, and `bias_signal` blocks emit no
+ * `action_intent`/`action_label` at all. Per-bias interventions with citations DO
+ * exist in CEE (`src/cee/bias/library.ts`, `typical_interventions`) but on a
+ * different route (`/assist/v1/bias-check`) whose key space does not align with
+ * the coaching registry's. Selecting the method here is the UI's job today.
+ *
+ * ⚠ KEYED ON A `KnownBiasCode`, SO A REGISTRY RENAME IS A COMPILE ERROR rather
+ * than a silent no-op — the failure mode this module's guard spec exists for
+ * (trap 12). Matching goes THROUGH the registry's title equivalence, never by
+ * string-comparing codes: several codes share one title by design, and the
+ * resolver hands us whichever the registry happens to list first. 'Overconfidence'
+ * resolves to `confidence`, NOT `overconfidence` — so a hand-picked spelling
+ * would have missed the very row it was written for, and listing both aliases
+ * here would be the hand-maintained mirror. One code per bias; the registry
+ * supplies the rest.
+ */
+const METHOD_BY_BIAS_CODE: ReadonlyArray<readonly [KnownBiasCode, string]> = [
+  ['anchoring', 'outside_view'],
+  ['overconfidence', 'pre_mortem'],
+]
+
+/** Registry title of a mapped code, normalised — the comparison key. */
+const biasTitleKey = (code: KnownBiasCode): string =>
+  biasSignal(code).title.trim().toLowerCase()
+
+/**
+ * The method a producer-named bias warrants, or `undefined`.
+ *
+ * Resolves the incoming code through `resolveBiasSignal` — the registry's one
+ * guarded wire-input lookup, which carries the trim/lowercase and own-key
+ * guards — then compares TITLES, so every alias of a mapped bias resolves
+ * identically and an unrecognised code yields nothing.
+ */
+function methodIdForBiasCode(biasCode: string | undefined): string | undefined {
+  if (!biasCode) return undefined
+  const title = resolveBiasSignal(biasCode)?.title
+  if (!title) return undefined
+  const key = title.trim().toLowerCase()
+  return METHOD_BY_BIAS_CODE.find(([code]) => biasTitleKey(code) === key)?.[1]
+}
+
+/**
  * The method this finding warrants, or `null` when none genuinely does.
  *
  * `null` is the common case by design — see the header. Callers must render
  * nothing at all for it, never a placeholder or a default technique.
  *
- * `signalCode` is the producer's code on a phase-3 row (absent on the UI's own
- * triggers). The id is tried first so a UI trigger's mapping always wins; a
- * producer code is consulted only when the id matches nothing, which keeps this
- * change strictly additive — no finding that names a technique today can stop
- * naming one, or start naming a different one.
+ * `signalCode` is the producer's code on a phase-3 row and `biasCode` the
+ * canonical bias its title named (both absent on the UI's own triggers).
+ *
+ * ⭐⭐ PRECEDENCE IS id → biasCode → signalCode, AND THE MIDDLE TERM'S POSITION
+ * IS THE WHOLE CHANGE. A bias card carries BOTH a `biasCode` and
+ * `signalCode: 'COGNITIVE_BIAS'`, so the two maps both answer and the order
+ * decides which wins. The specific corrective must outrank the generic one: a
+ * producer that has already reviewed the reasoning and named an anchor should
+ * offer the reference class, not an offer to go looking for a bias. Put the
+ * other way round, `METHOD_BY_BIAS_CODE` would be unreachable on every card
+ * that could use it — dark on arrival.
+ *
+ * ⚠ SO THIS IS NOT STRICTLY ADDITIVE, UNLIKE THE `signalCode` CHANGE BEFORE IT,
+ * AND THAT IS DELIBERATE RATHER THAN OVERLOOKED. Two findings DO change the
+ * technique they name: a producer Anchoring card moves `review_bias` →
+ * `outside_view`, and an Overconfidence card `review_bias` → `pre_mortem`. Every
+ * other bias, and every non-bias finding, is untouched — the id map still wins
+ * outright, so no UI trigger can change, and a bias with no row keeps the
+ * generic chip. The two deliberate changes are pinned by name in
+ * `biasMethodReachesTheProducersBias.spec.ts`, so neither can drift silently.
  */
 export function methodForRecommendation(
   recommendationId: string,
   signalCode?: string,
+  biasCode?: string,
 ): MethodEntry | null {
   if (!recommendationId) return null
   const byPrefix = METHOD_BY_RECOMMENDATION_PREFIX.find(([prefix]) =>
@@ -128,6 +280,7 @@ export function methodForRecommendation(
   )
   const methodId =
     byPrefix?.[1] ??
+    methodIdForBiasCode(biasCode) ??
     (signalCode
       ? METHOD_BY_SIGNAL_CODE.find(([code]) => code === signalCode)?.[1]
       : undefined)
@@ -149,7 +302,21 @@ export const MAPPED_METHOD_IDS: readonly string[] = [
   // `actionsCatalogue.ts` would silently reduce every producer finding to no
   // chip, with nothing red.
   ...METHOD_BY_SIGNAL_CODE.map(([, methodId]) => methodId),
+  // And the bias map, for the same reason and with an extra one: `outside_view`
+  // has no other trigger anywhere in the product, so a rename would take the
+  // technique's ONLY route with it and leave nothing red.
+  ...METHOD_BY_BIAS_CODE.map(([, methodId]) => methodId),
 ]
+
+/**
+ * Exposed for the guard: the canonical bias codes this module claims to answer.
+ * Typed as `KnownBiasCode` at the map, so a registry rename is already a compile
+ * error; this lets a spec pin that the map is non-empty and that every row
+ * actually resolves — the hollowed-out-map failure the header describes.
+ */
+export const MAPPED_BIAS_CODES: readonly KnownBiasCode[] = METHOD_BY_BIAS_CODE.map(
+  ([code]) => code,
+)
 
 /** Exposed for the same guard: the producer codes this module claims to know. */
 export const MAPPED_SIGNAL_CODES: readonly string[] = METHOD_BY_SIGNAL_CODE.map(

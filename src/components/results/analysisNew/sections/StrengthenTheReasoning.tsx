@@ -641,7 +641,11 @@ export function StrengthenTheReasoning({
             const grounding = scienceGrounding[rec.id]
             // `null` for most findings, and that is correct — see
             // `recommendationMethod.ts`. No placeholder, no default technique.
-            const method = methodForRecommendation(rec.id, rec.signalCode)
+            // `rec.biasCode` is the producer's OWN bias, named on this card
+            // and nowhere else on the wire; it selects the corrective for THAT
+            // bias rather than the one generic "review a possible bias" every
+            // one of the sixteen shared. Absent on every non-bias finding.
+            const method = methodForRecommendation(rec.id, rec.signalCode, rec.biasCode)
             /**
              * ⭐ THE MARK MOVES WORK OUT OF THE SENTENCE AND INTO THE FORM.
              * A card about a Risk now carries the risk shape, in the risk
