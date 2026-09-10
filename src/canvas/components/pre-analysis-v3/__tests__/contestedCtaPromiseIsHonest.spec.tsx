@@ -25,13 +25,35 @@
  * estate ships most often. This spec closes it and keeps it closed.
  *
  * ── WHY THE BUTTON STAYS ───────────────────────────────────────────────────
- * The destination is not empty. The v2 outline DOES carry every contested
+ * The destination is not empty. The v2 outline carries every CAUSAL contested
  * relationship, marked with its own shape and named "Two passes disagree"
  * (`adapters.ts` → `rowPresentation.ts`), and — per edge, where
  * `edgeStrengthEditIsAssertable` holds — the row's strength IS editable through
  * a server-authoritative carrier. So the honest fix is to stop claiming
  * ADJUDICATION, not to remove the route: §2 below MEASURES that the destination
  * shows something, which is what licenses keeping the navigation at all.
+ *
+ * ⚠⚠ "CAUSAL" IS LOAD-BEARING AND WAS MISSING FROM THIS COMMENT — THE TWO
+ * SURFACES DO NOT SHARE A TOPOLOGY FILTER. The destination applies
+ * `getCausalEdges` (`adapters.ts:136`), which drops every edge whose source OR
+ * target is a `decision` or `option` node (`domain/edgeUtils.ts:77-90`,
+ * sign-symmetric on both endpoints). The pre-analysis rows CANNOT apply it:
+ * `selectSurfacedContestedEdges` takes `edges` only — no node parameter — and
+ * `computeContestedRows.ts:62` calls it that way, using `nodes` for labels
+ * alone. The exclusion is therefore structurally impossible on that side.
+ *
+ * So an option-sourced or decision-touching contested edge is listed here and
+ * is ABSENT at the destination the CTA names. §2b pins exactly that, in both
+ * directions, so the gap cannot widen or silently close unobserved.
+ *
+ * ⭐ WHAT IS NOT SETTLED, WRITTEN DOWN RATHER THAN LEFT IMPLIED: whether CEE
+ * ever attaches two-pass contested validation to a decision- or option-touching
+ * edge. This repo cannot answer it — the shape is admitted by the type either
+ * way. If the answer is "never", the gap is unreachable and this is a
+ * documentation nicety; if it is "sometimes", the CTA routes a user to a
+ * surface that will not show the row they clicked from. **The claim in this
+ * comment must not depend on which it turns out to be**, which is why it is
+ * qualified rather than defended.
  *
  * ── WHAT EACH SECTION IS FOR ───────────────────────────────────────────────
  * §1 DERIVES the premise (no adjudication host is mounted) from the source
@@ -59,6 +81,8 @@ import { ATTENTION_LABEL } from '../../../model-tab-v2/rowPresentation'
 import { ModelTabV2Panel } from '../../../model-tab-v2/ModelTabV2Panel'
 import { makeContestedEdge, makeContestedValidation } from '../../../../__fixtures__/contestedEdge'
 import { openOutlineGroups } from '../../../model-tab-v2/__tests__/openOutlineGroups'
+import { computeContestedRows } from '../selectors/computeContestedRows'
+import { getCausalEdges } from '../../../domain/edgeUtils'
 
 vi.mock('../../../utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
@@ -235,6 +259,65 @@ describe('§2 the destination the CTA names', () => {
     expect(screen.queryByTestId(`contested-accept-pass1-${EDGE_ID}`)).toBeNull()
     expect(screen.queryByTestId(`contested-accept-pass2-${EDGE_ID}`)).toBeNull()
     expect(screen.queryByTestId(`contested-enter-own-${EDGE_ID}`)).toBeNull()
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §2b — THE KNOWN GAP, PINNED: the two surfaces do not share a topology filter
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * §2's fixture is factor-to-factor, so it CANNOT observe the class the
+ * destination excludes — what a corpus leaves out is the thing to check, not
+ * what it covers. These cases supply the missing class and bind the divergence
+ * in BOTH directions, so the suite REDs if the gap widens OR closes.
+ */
+
+const OPTION_ID = 'o_ship_now'
+const OPTION_EDGE_ID = 'e_opt_speed'
+
+function option(id: string, label: string): Node {
+  return { id, type: 'option', position: { x: 0, y: 0 }, data: { kind: 'option', label } } as Node
+}
+
+describe('§2b KNOWN GAP — an option-sourced contested edge reaches ONE surface, not both', () => {
+  const gapNodes = [option(OPTION_ID, 'Ship now'), factor(TARGET_ID, 'Delivery speed')]
+  const gapEdges = [
+    makeContestedEdge(OPTION_EDGE_ID, OPTION_ID, TARGET_ID, makeContestedValidation()),
+  ] as Edge[]
+
+  afterEach(() => cleanup())
+
+  it('the PRE-ANALYSIS surface DOES list it — no node-kind filter exists on that side', () => {
+    // Bound by edge IDENTITY, never by count: another row could satisfy a length
+    // assertion (trap 19).
+    const rows = computeContestedRows(gapNodes, gapEdges)
+    expect(rows.map((r) => r.edgeId)).toContain(OPTION_EDGE_ID)
+  })
+
+  it('the MODEL-TAB destination DOES NOT — `getCausalEdges` drops it at both endpoints', () => {
+    expect(getCausalEdges(gapNodes, gapEdges)).toEqual([])
+
+    render(<ModelTabV2Panel nodes={gapNodes} edges={gapEdges} goalThreshold={null} />)
+    openOutlineGroups()
+    expect(
+      screen.queryByTestId(`model-row-v2-${OPTION_EDGE_ID}-attention-contested`),
+    ).toBeNull()
+  })
+
+  it('CONTROL: the SAME edge between two factors DOES reach the destination', () => {
+    // Without this, the absence above could hold because the fixture never
+    // reached the surface at all — an absence probe that has never returned a
+    // presence is not evidence (trap 13). The ONLY difference between this case
+    // and the one above is the source node's kind.
+    const factorNodes = [factor(OPTION_ID, 'Ship now'), factor(TARGET_ID, 'Delivery speed')]
+    expect(getCausalEdges(factorNodes, gapEdges)).toHaveLength(1)
+
+    render(<ModelTabV2Panel nodes={factorNodes} edges={gapEdges} goalThreshold={null} />)
+    openOutlineGroups()
+    expect(
+      screen.getByTestId(`model-row-v2-${OPTION_EDGE_ID}-attention-contested`),
+    ).toBeVisible()
   })
 })
 

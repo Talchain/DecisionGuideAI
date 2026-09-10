@@ -24,10 +24,17 @@
  * a mount MUST name the guard, not just the call site.**
  *
  * On that false premise the CTA said "Settle these in the model tab". It now claims navigation
- * only. The ROUTE is unchanged and deliberately so: the destination does show these
- * relationships, marked "Two passes disagree", and their strength is editable per edge — so
- * removing the button would take away a real ability to act. `contestedCtaPromiseIsHonest.spec.tsx`
- * derives both halves and REDs if either moves.
+ * only. The ROUTE is unchanged and deliberately so: the destination shows the CAUSAL ones among
+ * these relationships, marked "Two passes disagree", and their strength is editable per edge —
+ * so removing the button would take away a real ability to act.
+ * `contestedCtaPromiseIsHonest.spec.tsx` derives both halves and REDs if either moves.
+ *
+ * ⚠ "CAUSAL" IS NOT HEDGING — the destination applies `getCausalEdges` (`adapters.ts:136`) and
+ * drops any edge touching a `decision` or `option` node; this section cannot apply that filter,
+ * because `selectSurfacedContestedEdges` takes edges without nodes. So a row listed here may be
+ * absent at the destination the button names. That divergence is pinned in both directions by
+ * §2b of the spec above, and the question this repo cannot settle — whether CEE ever contests
+ * such an edge — is recorded there rather than resolved by a comment.
  *
  * EMPTY MEANS ABSENT. Nothing renders when no connection is contested — no header, no "0",
  * no reassurance row. Same rule as SharpenSection.

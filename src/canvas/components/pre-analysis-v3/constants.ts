@@ -241,9 +241,21 @@ export const SIGNAL_COPY = {
  * side: its `MountedQueueId` excludes `'contested'` deliberately, "when nothing renders it".
  *
  * ⭐ THE ROUTE STAYS, THE CLAIM GOES. The destination is not empty — the v2 outline carries
- * every contested relationship, marked and named "Two passes disagree", and per edge (where
- * `edgeStrengthEditIsAssertable` holds) the strength is editable through a server-authoritative
- * carrier. So `reviewCta` now promises NAVIGATION ONLY, phrased the way the legacy panel's own
+ * every CAUSAL contested relationship, marked and named "Two passes disagree", and per edge
+ * (where `edgeStrengthEditIsAssertable` holds) the strength is editable through a
+ * server-authoritative carrier.
+ *
+ * ⚠ "CAUSAL", NOT "EVERY" — the two surfaces do not share a topology filter, and an earlier
+ * draft of this comment said "every", which is false about the code. The destination applies
+ * `getCausalEdges` (`adapters.ts:136` → `domain/edgeUtils.ts:77-90`), dropping any edge whose
+ * source OR target is a `decision` or `option` node. These rows cannot apply it:
+ * `selectSurfacedContestedEdges` receives `edges` only, so the filter is structurally out of
+ * scope on this side (`computeContestedRows.ts:62`). An option- or decision-touching contested
+ * edge is therefore listed HERE and absent THERE. Pinned in both directions by
+ * `contestedCtaPromiseIsHonest.spec.tsx` §2b, with the open CEE-side question written down
+ * there rather than assumed away.
+ *
+ * So `reviewCta` now promises NAVIGATION ONLY, phrased the way the legacy panel's own
  * model-tab link is phrased (`PreAnalysisPanel.tsx:2381`, "See all N relationships in model
  * tab ›"). Restoring a settlement verb requires re-mounting an adjudication host first —
  * `contestedCtaPromiseIsHonest.spec.tsx` derives that premise and REDs on either half moving.
