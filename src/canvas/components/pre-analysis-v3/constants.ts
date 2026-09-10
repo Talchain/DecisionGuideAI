@@ -207,6 +207,69 @@ export const SIGNAL_COPY = {
     lead: 'Nothing outside your control is modelled.',
     emphasis: 'Naming what you do not control shows which outcomes you can actually move.',
   },
+  /**
+   * Option differentiation — what the options SAY about the parts they share.
+   *
+   * ⚠ A DIFFERENT QUESTION FROM `structuralSharedMechanism`, not a second
+   * answer to it. That one fires when the options act on the same parts of the
+   * model; this one fires when, whatever parts they act on, they state the same
+   * NUMBER for the ones they have in common. The registry suppresses this row
+   * while the structural row is live, so the user is never told both at once —
+   * but the two counts are genuinely different findings and must stay named
+   * apart (see `selectors/computeOptionDifferentiation.ts`).
+   *
+   * ⚠⚠ PARTITIVE, NOT TOTAL — "N of your options", NEVER "All N options".
+   * THE TWO ROWS COUNT DIFFERENT SETS, AND ONLY ONE OF THEM MAY SAY "ALL".
+   * `structuralSharedMechanism` above counts canvas option NODES
+   * (`computeStructuralAbsence` pushes `node.id`), which is the same set as
+   * `facts.optionCount` behind "You are comparing N options" and the
+   * "N options included" bar. Its "All N" is therefore true of what is on
+   * screen. THIS row's count is `comparable.length` — a filtered SUBSET that
+   * drops the baseline arm, every option not yet `ready`, and every option
+   * with no stated value. On the measured captures that subset is routinely
+   * smaller than the option set the user is looking at (vendor-selection: 4
+   * option nodes, 3 comparable; market-entry: 3 and 2), so "All 3 options"
+   * would sit in the same panel as "You are comparing 4 options" and assert a
+   * totality that was never measured. The partitive is true in both cases and
+   * cannot contradict the breadth row. Do not "align" the two counts: they
+   * answer different questions and reconciling them would delete a real
+   * finding.
+   */
+  optionDifferentiation: (
+    identicalCount: number,
+    sharedCount: number,
+    optionCount: number,
+  ) => {
+    // Sentence-initial, so the count is spelled out at the small sizes that
+    // actually occur; factor counts stay as digits mid-sentence. Typed as
+    // possibly-undefined so the numeric fallback is a real branch rather than
+    // one `noUnnecessaryCondition` would strip.
+    const SPELLED: Record<number, string | undefined> = {
+      2: 'Two',
+      3: 'Three',
+      4: 'Four',
+      5: 'Five',
+      6: 'Six',
+      7: 'Seven',
+      8: 'Eight',
+      9: 'Nine',
+    }
+    const options = SPELLED[optionCount] ?? String(optionCount)
+    if (identicalCount >= sharedCount) {
+      return {
+        lead: `${options} of your options set the same value for every factor they share.`,
+        emphasis:
+          'Nothing that they have in common can tell them apart, so the analysis has only their differences to work from.',
+      }
+    }
+    const differing = sharedCount - identicalCount
+    return {
+      lead: `${options} of your options set the same value for ${identicalCount} of the ${sharedCount} factors they share.`,
+      emphasis: `Only the ${differing === 1 ? 'one that differs' : `${differing} that differ`} can separate them, so it is worth checking the others really are the same.`,
+    }
+  },
+  optionDifferentiationRationale:
+    'Value differentiation: a factor set to the same number on every option cannot move the comparison, because there is nothing for it to trade off. When most shared factors carry one value, the decision quietly rests on the few that vary, which is worth knowing before the run rather than after it.',
   structuralNoDownsideRationale:
     'Downside paths: an option connected only to benefits cannot lose. Linking each option to the harms it risks lets the analysis trade one against the other instead of ranking upside alone.',
   structuralSharedMechanismRationale:

@@ -978,3 +978,93 @@ describe('Success-target nudge (V3)', () => {
     )
   })
 })
+
+/**
+ * ⭐ THE MOUNTED PROOF FOR `sig_option_differentiation`.
+ *
+ * The registry and selector suites prove the signal DETECTS. Neither proves it
+ * REACHES A USER: a row can be correct in the registry and never render,
+ * which is exactly the state this signal was written to fix (the pre-run
+ * validator's `IDENTICAL_OPTIONS_SUSPECTED` is computed and has no consumer on
+ * any live surface). So this asserts the sentence in the DOM of the real
+ * panel, seeded through the real store — not a detection object.
+ */
+describe('option differentiation reaches the mounted panel', () => {
+  /**
+   * ⚠⚠ SEEDED IN THE **FLAT** WIRE SHAPE, DELIBERATELY. THIS TEST ONCE SEEDED
+   * THE NESTED ONE AND THEREFORE COULD NOT SEE THE DEFECT IT WAS WRITTEN TO
+   * CATCH.
+   *
+   * `analysis_ready.options[].interventions` reaches this store as
+   * `Record<nodeId, number>` on every real CEE turn:
+   * `normaliseV5AnalysisReady` (`v5/applyV5State.ts:268-274`) maps `option_id`
+   * to `id` and passes `interventions` through UNCHANGED, unwrapping nothing.
+   * Measured 6/6 on the option-carrying live captures in
+   * `lib/coherence/__tests__/fixtures/captures/` and 7/7 in
+   * `v5/__tests__/fixtures/`. The nested `{ value }` form is real too, but it
+   * is the SAVED STARTER shape (5/5 in `docs/evidence/starters/raw/`).
+   *
+   * Seeding nested here meant the mounted proof exercised the starter path
+   * only, so the signal could be, and was, dark for every live user while this
+   * test stayed green. The flat arm below is the one that binds to the wire;
+   * the nested arm keeps the starter path pinned.
+   */
+  const flatOption = (id: string, label: string, values: Record<string, number>) => ({
+    id,
+    label,
+    status: 'ready' as const,
+    interventions: { ...values },
+  })
+
+  const nestedOption = (id: string, label: string, values: Record<string, number>) => ({
+    id,
+    label,
+    status: 'ready' as const,
+    interventions: Object.fromEntries(
+      Object.entries(values).map(([k, v]) => [k, { value: v, source: 'brief_extraction' }]),
+    ),
+  })
+
+  /** The shape measured on deployed staging: identical on all but one axis. */
+  const undifferentiated = (
+    make: (id: string, label: string, values: Record<string, number>) => unknown,
+  ) => [
+    make('o1', 'Hire a tech lead', { f1: 30, f2: 60, f3: 10, f4: 1 }),
+    make('o2', 'Hire two developers', { f1: 30, f2: 60, f3: 10, f4: 2 }),
+    make('o3', 'Hire a contractor', { f1: 30, f2: 60, f3: 10, f4: 3 }),
+    make('o4', 'Do nothing new', { f1: 30, f2: 60, f3: 10, f4: 4 }),
+  ]
+
+  const seed = (options: unknown[]) =>
+    useCanvasStore.setState({ ceeAnalysisReady: { options } } as never)
+
+  const SHAPE_ARMS: ReadonlyArray<
+    [string, (id: string, label: string, values: Record<string, number>) => unknown]
+  > = [
+    ['FLAT Record<nodeId, number> (live CEE turn)', flatOption],
+    ['NESTED Record<nodeId, {value}> (saved starter)', nestedOption],
+  ]
+
+  it.each(SHAPE_ARMS)('renders the finding on the %s payload, naming how many factors carry one value', (_name, make) => {
+    seed(undifferentiated(make))
+    renderPanel()
+    fireEvent.click(screen.getByTestId('pre-analysis-v3-sharpen-reveal'))
+    expect(screen.getByTestId('pre-analysis-v3-sharpen')).toHaveTextContent(
+      'Four of your options set the same value for 3 of the 4 factors they share.',
+    )
+  })
+
+  it('renders nothing about differentiation when the options genuinely differ', () => {
+    // The negative twin. Without it the assertion above could pass on a row
+    // that renders unconditionally. Flat shape, same as the live wire.
+    seed([
+      flatOption('o1', 'Hire a tech lead', { f1: 30, f2: 60 }),
+      flatOption('o2', 'Hire two developers', { f1: 55, f2: 20 }),
+    ])
+    renderPanel()
+    fireEvent.click(screen.getByTestId('pre-analysis-v3-sharpen-reveal'))
+    expect(screen.getByTestId('pre-analysis-v3-sharpen')).not.toHaveTextContent(
+      'set the same value for',
+    )
+  })
+})
