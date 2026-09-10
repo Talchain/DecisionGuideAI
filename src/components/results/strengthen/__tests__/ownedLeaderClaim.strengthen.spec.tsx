@@ -45,6 +45,12 @@ import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
  *  distinctive string so its presence/absence is unambiguous evidence. */
 const ALT_WINNER = 'Rebuild in-house'
 
+/** The label of the option this run DESIGNATES — the identity a permitted
+ *  trigger must use as its subject instead of a rank position. Distinctive for
+ *  the same reason `ALT_WINNER` is, and deliberately a DIFFERENT string, so a
+ *  sweep cannot confuse "names the leader" with "names the alternative". */
+const LEADER_LABEL = 'Adopt Segment'
+
 /**
  * A fixture that reaches EVERY branch of the engine at once (TESTING-DISCIPLINE
  * #1: name the branch each fixture must reach). `level` selects between the two
@@ -59,6 +65,10 @@ function everyBranch(
   return {
     goalThreshold: null, // -> strengthen:success-measure
     analysisComplete: true,
+    // IDENTITY, threaded on every arm. Permission varies below; the NAME does
+    // not, so a rec that goes silent on the withheld arm does so because the
+    // gate fired and never because the fixture withheld the label too.
+    leadingOptionLabel: LEADER_LABEL,
     flipThresholds: null,
     fragileEdges: [
       {
@@ -145,6 +155,12 @@ const DESIGNATING_FORMS: ReadonlyArray<readonly [string, RegExp]> = [
   ['the current lead', /\bthe current lead\b/i],
   ['the ranking', /\bthe ranking\b/i],
   ['the option that scored highest', /\bthe option that scored highest\b/i],
+  // ⭐ THE REFERENT ROW, AND IT IS THE ONE A VOCABULARY NET CANNOT PROVIDE.
+  // Every other entry here is a FORM OF WORDS; this is an IDENTITY. A permitted
+  // trigger now names the designated option, so the withheld arm has to prove
+  // that name does not reach any channel — the same argument the `ALT_WINNER`
+  // pair makes one describe over.
+  ['the designated option BY NAME', new RegExp(`\\b${LEADER_LABEL}\\b`)],
   ['flips to <option>', /\bflips to\b/i],
   ['topic: challenge_leader', /challenge_leader/],
 ]
@@ -169,7 +185,15 @@ const DESIGNATING_FORMS: ReadonlyArray<readonly [string, RegExp]> = [
  * one?* — they are not the same list and merging them is how one of them dies.
  */
 const PERMITTED_DESIGNATING_FORMS: ReadonlyArray<readonly [string, RegExp]> = [
-  ['the option that scored highest', /\bthe option that scored highest\b/i],
+  // ⚠⚠ `'the option that scored highest'` HAS LEFT THIS TABLE BECAUSE THE
+  // PRODUCT NO LONGER EMITS IT, not because the control was narrowed. That
+  // phrase WAS the defect: a rank description as the subject of a sentence, true
+  // of one option, false of the rest, naming none — and invisible to every
+  // vocabulary net in this file, since it contains no banned word. A permitted
+  // run now says the option's NAME, so the row below replaces it with a
+  // strictly stronger discriminator: an identity the sweep can bind to.
+  // The withheld net above KEEPS the retired phrase, so its return is still red.
+  ['the designated option BY NAME', new RegExp(`\\b${LEADER_LABEL}\\b`)],
   // ⭐ RESTORED after an independent reviewer measured that I dropped it without
   // needing to: `buildRecommendations.ts:467` still emits "the ranking" on a
   // permitted run, so this arm passes and the control keeps its discriminating
@@ -191,18 +215,59 @@ describe('1.243 R1 — "Challenge the leader" (strengthen:robustness)', () => {
     )
     expect(rec).toBeDefined()
     expect(rec!.action.label).toBe('Challenge this result')
-    expect(rec!.action.prompt).toBe('Build the strongest case against the option that scored highest.')
+    // ⭐ THE SUBJECT IS THE OPTION'S NAME, NOT ITS PLACING. Asserted as an exact
+    // string so a silent return to a rank description cannot pass by substring.
+    expect(rec!.title).toBe(`Pressure-test ${LEADER_LABEL}`)
+    expect(rec!.action.prompt).toBe(`Build the strongest case against ${LEADER_LABEL}.`)
     expect(rec!.action.parameters).toEqual({ topic: 'challenge_leader' })
+  })
+
+  it('PERMITTED but NO label resolves: the copy addresses the RUN, never the ranking', () => {
+    // The degenerate arm. Production resolves a label wherever it resolves a
+    // leader, so this is a fixture/legacy path — but the wrong answer here is
+    // the whole defect coming back through a fallback, which is why it is
+    // pinned rather than left to judgement.
+    const rec = buildRecommendations({
+      ...everyBranch('low', true),
+      leadingOptionLabel: null,
+    }).find((r) => r.id === 'strengthen:robustness')
+    expect(rec, 'a real producer finding must not be deleted for want of a name').toBeDefined()
+    expect(rec!.title).toBe('Pressure-test this result')
+    expect(rec!.action.prompt).toBe('Build the strongest case against this result.')
+    for (const s of assistantBoundStrings(rec!)) {
+      expect(s, `rank description in: ${s}`).not.toMatch(/\bscored? highest\b/i)
+      expect(s, `rank description in: ${s}`).not.toMatch(/\bscores highest\b/i)
+    }
+    // ⚠ AND AN EMPTY / WHITESPACE LABEL IS ABSENT, NOT A NAME — otherwise the
+    // title renders "Pressure-test " with nothing after it.
+    const blank = buildRecommendations({
+      ...everyBranch('low', true),
+      leadingOptionLabel: '   ',
+    }).find((r) => r.id === 'strengthen:robustness')
+    expect(blank!.title).toBe('Pressure-test this result')
   })
 
   it('WITHHELD: the prompt is not CONSTRUCTIBLE — no emitted string carries it', () => {
     const withheld = allStrings(everyBranch('low', false))
-    expect(withheld).not.toContain('Build the strongest case against the option that scored highest.')
+    expect(withheld).not.toContain(`Build the strongest case against ${LEADER_LABEL}.`)
     expect(withheld).not.toContain('challenge_leader')
     expect(withheld).not.toContain('Challenge this result')
     // REGRESSION GUARD: the retired race wording must not come back either.
+    expect(withheld).not.toContain('Build the strongest case against the option that scored highest.')
     expect(withheld).not.toContain('Build the strongest case against the current leading option.')
     expect(withheld).not.toContain('Challenge the leader')
+  })
+
+  it('the retired RANK DESCRIPTION is emitted on NEITHER run (the referent defect)', () => {
+    // ⭐ THE GUARD THE VOCABULARY NETS COULD NOT BE. "the option that scored
+    // highest" carries no banned word, so `DESIGNATING_FORMS` above passed it on
+    // the permitted arm by design — the frame was in the REFERENT. Both arms are
+    // swept here, and the permitted arm is the one that used to be green.
+    for (const has of [true, false, undefined] as const) {
+      const strings = allStrings(everyBranch('low', has))
+      expect(strings, `hasLeadingOption=${has}`).not.toMatch(/\bthe option that scored highest\b/i)
+      expect(strings, `hasLeadingOption=${has}`).not.toMatch(/\bwhich option scores highest\b/i)
+    }
   })
 
   it('LEGACY: an absent hasLeadingOption leaves the chip untouched (no drift to silence)', () => {
@@ -225,7 +290,11 @@ describe('1.243 R2 — the flip rec (strengthen:flip)', () => {
     )
     expect(rec).toBeDefined()
     expect(rec!.signal).toContain(ALT_WINNER)
-    expect(rec!.title).toContain('which option scores highest')
+    // ⭐ THE TITLE NAMES THE ASSUMPTION IT IS ABOUT. It used to be an argmax
+    // description wrapped around a ranking assertion ("the assumption most
+    // likely to change which option scores highest"), which named neither the
+    // assumption nor an option. The selection rule survives in `signal`.
+    expect(rec!.title).toBe('Test the assumption about Churn rate')
   })
 
   it('WITHHELD: the alternative winner label appears in NO emitted string', () => {

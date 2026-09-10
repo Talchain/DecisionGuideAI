@@ -53,9 +53,12 @@ import {
  * the answer is no.
  */
 const METHOD_BY_RECOMMENDATION_PREFIX: ReadonlyArray<readonly [string, string]> = [
-  // "Pressure-test the leading option" IS a pre-mortem: the catalogue's own
+  // "Pressure-test {the designated option}" IS a pre-mortem: the catalogue's own
   // description is "imagine failure and capture plausible causes", which is
-  // what pressure-testing a leader means.
+  // what pressure-testing an option means. ⚠ The title now NAMES that option
+  // rather than describing it by rank ("the option that scored highest"), which
+  // strengthens this row rather than weakening it: the technique arrives
+  // pointed at a named subject instead of at a placing.
   ['strengthen:robustness', 'pre_mortem'],
 
   // "Find a route that works differently" and "generate an option that works
@@ -63,10 +66,20 @@ const METHOD_BY_RECOMMENDATION_PREFIX: ReadonlyArray<readonly [string, string]> 
   // catalogue's wording is very nearly the recommendation's own.
   ['strengthen:broaden', 'different_option'],
 
-  // "Test the assumption most likely to change the leader" against "build the
-  // strongest honest case AGAINST the currently leading option — what evidence
-  // or reasoning would change my mind?". Both ask what would overturn the
-  // current answer; the finding names the specific assumption to start from.
+  // "Test the assumption about {factor}" against "build the strongest honest
+  // case AGAINST the option that scored highest — what evidence or reasoning
+  // would change my mind?". Both ask what would overturn the current answer;
+  // the finding names the specific assumption to start from.
+  //
+  // ⚠ THE CATALOGUE ENTRY STILL WRITES ITS SUBJECT AS A RANK POSITION, and that
+  // is a KNOWN, UNFIXED instance of the referent defect the engine's own copy
+  // has just left. It is not repairable here: `METHOD_CATALOGUE` is STATIC,
+  // dispatches from `ActionsMenu` with no run and no `leaderClaimWithheld`
+  // gate, and therefore has no option to name. Rewording it to be leader-free
+  // would also flip the premise of the ⛔ CONFIRMATION BIAS rejection below,
+  // which turns on this description asserting that something is ahead. That is
+  // a product decision about the technique, not a copy edit, and is out of this
+  // change's scope.
   ['strengthen:flip', 'consider_opposite'],
 ]
 
