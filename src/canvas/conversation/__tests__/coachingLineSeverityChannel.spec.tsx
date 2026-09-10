@@ -27,7 +27,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { CoachingLine } from '../CoachingLine'
 import { adaptTypedReviewCardBlock } from '../../../v5/phase3TypedBlocks'
-import { reviewSeverityVisual } from '../../../v5/blocks/reviewCardSeverity'
+import { reviewSeverityVisual } from '../../../v5/blocks/severityChannel'
 import type { ConversationBlock } from '../types'
 import capture from '../../../v5/__tests__/fixtures/live-analysis-turn-walkA-2026-08-04.json'
 

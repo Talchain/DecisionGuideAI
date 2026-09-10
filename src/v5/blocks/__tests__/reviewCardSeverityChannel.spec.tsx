@@ -56,6 +56,29 @@ function cardAt(severity: keyof typeof EXPECTED): V5ReviewCardBlockType {
   return { ...adapted, severity }
 }
 
+/**
+ * ⚠⚠ SCOPE, CORRECTED AFTER REVIEW — READ THIS BEFORE CITING THIS FILE.
+ *
+ * The describe below is named "the card draws...", and a later session could
+ * read that as a witness that the DEPLOYED card header draws these classes.
+ * IT IS NOT, and the difference is the default flag posture:
+ * `compactCoachingLines` defaults true and is absent from `netlify.toml`, so
+ * every titled review card renders as a COLLAPSED LINE and the card's own
+ * header glyph and tint are SUPPRESSED (`suppressHeader`). The LINE draws them,
+ * from the same resolver.
+ *
+ * So the three assertions do not divide evenly:
+ *   · BORDER — an attribute the deployed card genuinely draws in both postures.
+ *   · GLYPH and TINT — the resolver's literal output observed THROUGH the card
+ *     header, a surface state the default posture does not render for a titled
+ *     review card. The strings pinned are still exactly the ones the deployed
+ *     LINE draws, so the guard is sound; it is the witness that is narrower
+ *     than the name suggests.
+ *
+ * That is a division of labour with `coachingLineSeverityChannel.spec.tsx`, not
+ * a gap: that file pins CONSUMPTION (both surfaces read one resolver), this one
+ * pins the resolver's LITERAL VALUES. Neither alone closes the pair.
+ */
 describe('the card draws the severity the design system specifies', () => {
   /**
    * PRECONDITION, pinned in-test: the capture really yields an adaptable card,

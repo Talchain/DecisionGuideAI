@@ -31,7 +31,7 @@ import { typography } from '../../styles/typography'
 import { TargetRefPill } from '../../canvas/conversation/components/TargetRefPill'
 import { resolveFreshnessNotice } from './coachingCurrency'
 import { useCoachingCurrency } from './useCoachingCurrency'
-import { reviewSeverityVisual } from './reviewCardSeverity'
+import { reviewSeverityVisual } from './severityChannel'
 import type { V5ReviewCardBlock as V5ReviewCardBlockType } from '../../canvas/conversation/types'
 
 export interface V5ReviewCardBlockProps {
@@ -40,7 +40,7 @@ export interface V5ReviewCardBlockProps {
   suppressHeader?: boolean
 }
 
-// The severity→glyph/tint/border mapping moved to `./reviewCardSeverity` when
+// The severity→glyph/tint/border mapping moved to `./severityChannel` when
 // the collapsed coaching line became a SECOND surface that draws a review card
 // (#1450 shipped without it and flattened every severity to info). Copying the
 // two consts across would have been a hand-maintained mirror; this card now

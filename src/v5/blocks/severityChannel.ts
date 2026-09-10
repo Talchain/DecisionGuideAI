@@ -1,6 +1,12 @@
 /**
- * reviewCardSeverity — THE single authority on how a `v5_review_card`'s
- * `severity` becomes a visual channel.
+ * severityChannel — THE single authority on how a typed block's `severity`
+ * becomes a COLOUR channel, and on the review card's glyph.
+ *
+ * ⚠ RENAMED FROM `reviewCardSeverity` when `V5EvidenceBlock` became the second
+ * consumer. The mapping was never review-card-specific: it is the design
+ * system's severity→colour mapping, and a file called `reviewCardSeverity`
+ * holding it would have been a name that discouraged the next surface from
+ * reaching for it — which is how the third mirror came to exist.
  *
  * ## Why this is its own module
  *
@@ -63,12 +69,34 @@ const REVIEW_SEVERITY_TINT: Record<ReviewSeverity, string> = {
   critical: 'text-danger',
 }
 
-export interface ReviewSeverityVisual {
-  Icon: LucideIcon
+/** The COLOUR channel alone — no glyph. */
+export interface SeverityChannel {
   /** Text-colour utility for the glyph. */
   tintClass: string
   /** Border-colour utility, for surfaces that draw one. */
   borderClass: string
+}
+
+export interface ReviewSeverityVisual extends SeverityChannel {
+  Icon: LucideIcon
+}
+
+/**
+ * Tint and border for a severity, WITHOUT a glyph.
+ *
+ * ⚠⚠ THE SPLIT EXISTS BECAUSE THE GLYPH IS NOT SHARED AND MUST NOT BE. Review
+ * cards draw `Lightbulb` for `info`; `V5EvidenceBlock` draws `Search`, because
+ * an evidence gap is a thing to go and look at, not an idea. A caller that
+ * took `reviewSeverityVisual` wholesale to get the colours would silently
+ * swap the magnifying glass for a lightbulb — a behaviour change wearing a
+ * refactor's clothes. So the colour channel is reachable on its own, and the
+ * evidence block keeps deciding its own glyph.
+ */
+export function severityChannel(severity: ReviewSeverity): SeverityChannel {
+  return {
+    tintClass: REVIEW_SEVERITY_TINT[severity],
+    borderClass: REVIEW_SEVERITY_BORDER[severity],
+  }
 }
 
 /**
@@ -83,7 +111,6 @@ export interface ReviewSeverityVisual {
 export function reviewSeverityVisual(severity: ReviewSeverity): ReviewSeverityVisual {
   return {
     Icon: severity === 'info' ? Lightbulb : AlertTriangle,
-    tintClass: REVIEW_SEVERITY_TINT[severity],
-    borderClass: REVIEW_SEVERITY_BORDER[severity],
+    ...severityChannel(severity),
   }
 }

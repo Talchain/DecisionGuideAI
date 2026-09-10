@@ -92,7 +92,7 @@ import { guidanceCategoryIcon } from '../stores/guidanceStore'
 import { STRENGTHEN_COPY } from '../../components/results/strengthen/strengthenCopy'
 import { isPinnedBlock, isPointCandidate } from './messageComposition'
 import { ICON_STATUS } from './panelIcons'
-import { reviewSeverityVisual, type ReviewSeverity } from '../../v5/blocks/reviewCardSeverity'
+import { reviewSeverityVisual, type ReviewSeverity } from '../../v5/blocks/severityChannel'
 import type { ConversationBlock } from './types'
 import styles from './Conversation.module.css'
 
