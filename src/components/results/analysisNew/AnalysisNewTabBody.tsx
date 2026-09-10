@@ -1097,11 +1097,73 @@ export function AnalysisNewTabBody({
             has to decide what the glance card owns versus what this list owns,
             which is an IA decision for the design pack
             (`2-consolidation-map.html` slot "Focus now"), not a filter. */}
+        {/* ⭐⭐ PRE-RUN THIS SECTION OPENS, AND IT IS THE ONLY ONE THAT DOES.
+            Derived at this render path on `staging` `3b2df4ce`: pre-run the
+            panel's entire text ended "…Pick a mark to show that part of the
+            model on the canvas. Strengthen the reasoning1" — a collapsed row,
+            a bare count, and not one word of the finding behind it.
+
+            What is behind it is the thing the reader needs most in that state.
+
+            ⚠ NOT "EXACTLY ONE" — that is what this comment used to claim, and
+            it is refuted twice in this repo. The pre-run list is SHORT, not
+            single-item: `strengthen:broaden` is gated on
+            `inputs.biasFindingTypes` and NOT on `analysisComplete`
+            (`buildRecommendations.ts:629`), and the producer's own coaching
+            blocks are promoted onto the same list — both fed from the
+            draft-coaching and phase-3 channels, which carry before any run
+            (`biasTypesFromGuidance.ts`). `strengthenOpensPreRun.spec.tsx`
+            measures the pre-run count at 2 with one producer block seeded.
+
+            The count is not what carries the argument; UNIQUENESS is. The
+            success-measure recommendation is the one the engine grounds from
+            the MODEL rather than from a run (`buildRecommendations.ts`, and
+            `StrengthenTheReasoningProps.analysisHash` already documents the
+            state), it is present pre-run whenever the target is unset, and it
+            is the ONLY surface on this tab that says what the gap COSTS:
+            "Without a target the analysis cannot say how likely each option is
+            to succeed, only how they compare with one another."
+            `successTargetAskedOnce.spec.tsx` argues exactly that when it keeps
+            this row while removing the glance's. The strip's "Set a target"
+            control states the gap; only this says why it matters. It was built,
+            grounded, counted — and put behind a click nothing gave the reader a
+            reason to make. Everything else the pre-run list can carry is
+            additional reason to open it, never a substitute for that row.
+
+            ⚠ SCOPED THREE WAYS, because the collapsed IA is a MEASURED budget
+            (`SectionShell`'s header: 1,584px against a 769px viewport) and not
+            a default nobody thought about:
+              · pre-run only — a displayed run is unchanged;
+              · only when there is a finding — a forced-open empty state spends
+                a viewport on an absence the collapsed row already states;
+              · a DEFAULT, not a lock — the toggle owns the state afterwards.
+
+            ⚠⚠ AND IT IS A DEFAULT ONLY — THE SECTION IS NOT FORCED SHUT AGAIN
+            WHEN THE RUN LANDS. An earlier cut of this change re-keyed the
+            component on `isPreRun` so `SectionShell` would re-read the default
+            and collapse. That was measured and REVERTED, because it discarded
+            the reader's work: `SectionShell` unmounts a closed region, and this
+            section's "I disagree" composer holds UNSAVED text. Driven at this
+            render path — open the composer pre-run, type, complete a run — the
+            keyed version lost the draft while pristine kept it.
+
+            It was also INCONSISTENT. A section the reader opened BY HAND
+            already survives that transition, because nothing remounts; the key
+            would have made a section opened by DEFAULT behave differently from
+            the identical section opened by the identical toggle. One control,
+            two behaviours.
+
+            So the state belongs to the toggle after mount, which is
+            `SectionShell`'s own rule, and the post-run panel is exactly what it
+            is today for a reader who opened this section themselves. The
+            collapsed IA is unchanged for everyone who lands on a completed run,
+            which is the state its 1,584px measurement was taken in. */}
         <StrengthenTheReasoning
           interventions={alsoWorthDoing}
           scienceGrounding={vm.strengthen.scienceGrounding}
           preview={ANALYSIS_NEW_LIMITS.STRENGTHEN_PREVIEW}
           analysisHash={responseHash ?? null}
+          defaultOpen={vm.status.isPreRun && alsoWorthDoing.length > 0}
           icon={Wrench}
         />
 

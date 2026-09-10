@@ -95,6 +95,36 @@ export interface StrengthenTheReasoningProps {
   analysisHash?: string | null
   /** Row icon. Furniture — it never encodes a value. */
   icon?: LucideIcon
+  /**
+   * ⭐ OPEN ON MOUNT, AND THE ONLY CALLER THAT SETS IT IS THE PRE-RUN PANEL.
+   *
+   * `SectionShell`'s default is CLOSED and that is the collapsed IA the design
+   * asks for — its header measured the panel at 1,584px against a 769px
+   * viewport before the rows landed, so this is a budget, not a preference.
+   * Its own doc states the one licence: "A section may open by default only
+   * when something above it depends on the content being visible."
+   *
+   * Pre-run, nothing above it renders at all. Every run-derived section is
+   * gated off in `buildAnalysisNewViewModel`, so this row IS the panel's
+   * content — and behind it sits the only sentence on the tab that says what
+   * the measurement gap costs. A collapsed row and a bare count is the reader
+   * being told a number and asked to guess whether it is worth a click.
+   *
+   * ⚠ IT IS A DEFAULT, NOT A LOCK, AND IT IS READ EXACTLY ONCE. `SectionShell`
+   * seeds `useState(defaultOpen)`, so the open state belongs to the toggle from
+   * the first render of that instance onwards. The caller does stop passing
+   * `true` once a run is displayed, and that later `false` is NOT re-read: the
+   * section stays in whatever state the reader left it in.
+   *
+   * ⚠⚠ THAT IS THE INTENDED BEHAVIOUR — DO NOT MAKE IT AUTOMATIC. The only way
+   * to force the default to be re-read is to remount (a `key` on the call site
+   * does exactly this), and that was tried and REVERTED: `SectionShell` unmounts
+   * a closed region, this section's "I disagree" composer holds UNSAVED text,
+   * and the keyed version discarded a reader's draft when the run landed. The
+   * measurement and the two reasons are recorded at the call site in
+   * `AnalysisNewTabBody.tsx`.
+   */
+  defaultOpen?: boolean
   testId?: string
 }
 
@@ -118,6 +148,7 @@ export function StrengthenTheReasoning({
   preview,
   analysisHash = null,
   icon,
+  defaultOpen = false,
   testId = 'analysis-new-strengthen',
 }: StrengthenTheReasoningProps) {
   /**
@@ -516,6 +547,7 @@ export function StrengthenTheReasoning({
       title={COPY.sections.strengthen}
       icon={icon}
       count={interventions.length > 0 ? interventions.length : null}
+      defaultOpen={defaultOpen}
       testId={testId}
     >
       {/* ⚠ THE UNDO IS NOT OPTIONAL FURNITURE. Dismissing removes the card on
