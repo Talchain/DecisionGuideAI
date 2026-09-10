@@ -180,6 +180,14 @@ const ADMISSION_QUANTIFIED_PROVISIONAL: AnalysisAdmissionV1 = {
     // positional read selects THIS — which is the defect the reader was fixed
     // for, so it belongs in the fixture rather than being tidied away.
     { field: 'structurally_analysable', message: 'Analysis can run on this model as it stands.' },
+    // ⚠ THREE ENTRIES, NOT TWO, AND THE MIDDLE ONE IS LOAD-BEARING. With only
+    // two, reversing the array lands `permitted_analysis_mode` at slot 0 — the
+    // ONE position where the old positional reader returns the same string — so
+    // the REORDER case below passed identically before and after the fix. Three
+    // entries put a NON-target first under reversal, which is what makes that
+    // case able to fail. This mirrors the live capture, where the mode conjunct
+    // is last of three.
+    { field: 'semantic_quality_sufficient', message: 'Every estimate here is Olumi’s, not yours.' },
     { field: 'permitted_analysis_mode', message: 'No single option can be put forward yet.' },
   ],
 } as AnalysisAdmissionV1
@@ -370,15 +378,39 @@ describe('applyV5State — a ui_directive highlight the model may not designate 
   it('REORDER — the mode reason is found wherever it sits in the array', () => {
     // ⭐ Half one. If the reader were still positional, moving the affirmative
     // OFF slot 0 would change the rendered line. It must not.
+    /*
+     * ⚠ A ROTATION, NOT A REVERSAL — AND THAT IS THE WHOLE POINT.
+     * `reverse()` on a list whose target sits LAST always lands it FIRST, which
+     * is exactly the position a positional reader gets right. Reversing felt
+     * like the strongest possible shuffle and was in fact the one permutation
+     * guaranteed to defeat the test. This rotation puts a NON-target first.
+     */
+    const [first, ...rest] = ADMISSION_QUANTIFIED_PROVISIONAL.reasons
     const reordered = {
       ...ADMISSION_QUANTIFIED_PROVISIONAL,
-      reasons: [...ADMISSION_QUANTIFIED_PROVISIONAL.reasons].reverse(),
+      reasons: [...rest, first],
     } as typeof ADMISSION_QUANTIFIED_PROVISIONAL
 
-    // PRECONDITION, PINNED IN-TEST: the reorder actually MOVED the mode reason,
-    // so a green result is the binding's doing and not a no-op shuffle.
+    /*
+     * ⚠⚠ PRECONDITION REWRITTEN AFTER AN INDEPENDENT REVIEW FOUND THIS CASE
+     * VACUOUS — AND THE OLD PRECONDITION IS WHAT MADE IT SO.
+     *
+     * It asserted `reordered.reasons[0].field === 'permitted_analysis_mode'`,
+     * i.e. it PINNED THE TARGET TO SLOT 0 after the reversal. Slot 0 is the one
+     * position where the old positional reader returns the same string, so this
+     * case passed identically before and after the fix. The assertion looked
+     * like proof the shuffle had worked; it was proof the shuffle had defeated
+     * the test.
+     *
+     * The property that actually discriminates is the opposite one: after
+     * reordering the target must NOT be first, so a positional reader is forced
+     * to return something else.
+     */
     expect(ADMISSION_QUANTIFIED_PROVISIONAL.reasons[0].field).toBe('structurally_analysable')
-    expect(reordered.reasons[0].field).toBe('permitted_analysis_mode')
+    expect(reordered.reasons[0].field).not.toBe('permitted_analysis_mode')
+    expect(reordered.reasons.findIndex(r => r.field === 'permitted_analysis_mode')).not.toBe(
+      ADMISSION_QUANTIFIED_PROVISIONAL.reasons.findIndex(r => r.field === 'permitted_analysis_mode'),
+    )
 
     const result = applyV5State(
       baseResponse(
