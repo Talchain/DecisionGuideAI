@@ -17,6 +17,7 @@ import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
 
 // Panel imports — lazy would be premature, these are small
 import { EdgePanel } from './panels/EdgePanel'
+import { EdgeLabelModeToggle } from './shared/EdgeLabelModeToggle'
 import { OptionPanel } from './panels/OptionPanel'
 import { GoalPanel } from './panels/GoalPanel'
 import { FactorControllablePanel } from './panels/FactorControllablePanel'
@@ -241,6 +242,29 @@ export const InspectorRouter = memo(function InspectorRouter({
           className={`rounded border border-panel-border bg-panel-hover px-3 py-2 ${typography.panelBody} text-text-body`}
         >
           {INSPECTOR_READ_ONLY_REASON}
+        </div>
+        {/* ⭐ OUTSIDE THE FENCE, DELIBERATELY, AND THE PLACEMENT IS THE FIX.
+            This toggle first shipped INSIDE `EdgePanel`, whose only mount is the
+            `<fieldset disabled>` below. A disabled fieldset natively inerts every
+            form-associated descendant, `<button>` included, so the control
+            rendered and `setMode` was uncallable — the reachability zero it was
+            written to close stayed open, and the panel's own spec could not see
+            it because that spec renders `EdgePanel` directly and never crosses
+            this boundary.
+
+            It belongs out here on the same grounds as `Show technical detail`,
+            which the authority guard's register already lists as a presentation
+            toggle: it writes NO model value, it only changes how the canvas
+            draws labels it already has. The notice above says the fields inside
+            "are read-only for now"; a display preference does not sit under that
+            sentence.
+
+            ⚠ Registered in `DELIBERATELY_OUTSIDE` so this is a defended
+            exception rather than an escape — that guard requires the entry to
+            match a real element AND to resolve outside the boundary, so it REDs
+            if the control is renamed, removed, or moved back inside. */}
+        <div className="mb-2">
+          <EdgeLabelModeToggle />
         </div>
         <fieldset
           disabled

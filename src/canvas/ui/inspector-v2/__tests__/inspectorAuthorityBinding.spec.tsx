@@ -389,6 +389,14 @@ const DELIBERATELY_OUTSIDE: ReadonlyArray<{
 }> = [
   { selector: '[data-testid="inspector-back-to-results"]', why: 'navigation' },
   { selector: '[aria-label="Show technical detail"]', why: 'presentation toggle' },
+  {
+    selector: '[data-testid="edge-label-mode-toggle"]',
+    why: 'presentation toggle — sets whether the BOARD draws connection labels as phrases or numbers; writes no model value, so it is the same class as "Show technical detail" above',
+    // EDGE ONLY, and deliberately: the control is mounted in the Router's edge
+    // branch. It first shipped INSIDE `EdgePanel` and was therefore inert under
+    // the fieldset below, which is the defect this entry's placement records.
+    panels: ['edge'],
+  },
   { selector: '[aria-label="Close inspector"]', why: 'dismissal' },
   { selector: '[data-testid="inspector-quick-analysis"]', why: 'navigation' },
   {

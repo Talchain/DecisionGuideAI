@@ -220,6 +220,13 @@ export const EdgePanel = memo(function EdgePanel({
   const [localBelief, setLocalBelief] = useState(beliefExists)
   const [localStd, setLocalStd] = useState(strengthStd)
 
+  // Canvas-wide edge label mode. The numeric form was fully built — the store
+  // below, its localStorage persistence, `formatNumericLabel`, and StyledEdge's
+  // monospace treatment — and NOTHING in the product called `setMode`, so no
+  // user could ever see an edge's number. This panel is where a person is
+  // already looking at that number, so the control lives here. It is a display
+  // preference only: it changes no model value and sends nothing.
+
   // Existence band for the colour + track-fill channels. Provenance comes from
   // the STORE (the only thing that knows whether anyone set this); the value
   // comes from the live slider, so the colour bands the number on screen rather
@@ -448,6 +455,15 @@ export const EdgePanel = memo(function EdgePanel({
               </div>
               <ExpertAnnotation techMode={techMode} editable value={localBelief} onChange={handleBeliefChange} suffix="P(exists) =" step={0.01} min={0} max={1} />
             </div>
+
+            {/* ⛔ THE LABEL-MODE TOGGLE USED TO SIT HERE AND WAS INERT.
+                `EdgePanel`'s only mount is inside `InspectorRouter`'s
+                unconditional `<fieldset disabled>`, which natively inerts every
+                form-associated descendant, so `setMode` was never reachable from
+                a real render. It now mounts OUTSIDE that boundary as
+                `<EdgeLabelModeToggle />` — it writes no model value, so it is a
+                presentation control and does not belong under a notice saying
+                these fields cannot be saved. Do not move it back. */}
 
             {/* Uncertainty — expert mode only */}
             {techMode && (
