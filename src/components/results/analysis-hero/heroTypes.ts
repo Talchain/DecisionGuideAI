@@ -397,8 +397,19 @@ export interface HeroChartModel {
    * WHY no leader was named — CEE's own sentence.
    *
    * Non-null ONLY on a withheld run (`designationsWithheld`), and only when
-   * the producer supplied one: `analysisAdmission.reasons[0].message`, typed
-   * on `AnalysisAdmissionReason` as a user-facing sentence. The hero neither
+   * the producer supplied one: the `message` of the `analysisAdmission.reasons`
+   * entry whose `field` is `permitted_analysis_mode`, typed
+   * on `AnalysisAdmissionReason` as a user-facing sentence.
+   *
+   * ⚠⚠ SELECTED BY `field`, NEVER BY POSITION, and `null` when that conjunct is
+   * absent — never another reason. This docstring used to say
+   * `reasons[0].message`, and `buildHeroModel` used to read exactly that: on the
+   * live wire `reasons[0]` is the AFFIRMATIVE `READY_TO_COMPARE` conjunct, so
+   * this slot rendered "Analysis can run on this model as it stands" as the
+   * reason no leader was named — the opposite of the truth. See the note at the
+   * selector in `buildHeroModel.ts`.
+   *
+   * The hero neither
    * authors, paraphrases, truncates nor templates it — which is why it is
    * carried as a whole string and not as an id the UI maps to copy.
    *
