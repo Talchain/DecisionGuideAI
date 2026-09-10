@@ -247,7 +247,15 @@ const DERIVED_LABEL_READS: readonly string[] = [
   'src/canvas/adapters/modelCardAdapter.ts::recommendation_stability',
   'src/canvas/hooks/useNodeDisplayMetadata.ts::recommendationStability',
   'src/canvas/hooks/useNodeDisplayMetadata.ts::recommendation_stability',
-  'src/canvas/nodes/DecisionNode.tsx::recommendation_stability',
+  // ⭐ `DecisionNode.tsx` IS GONE FROM THIS LIST BECAUSE THE DEBT IS
+  // DISCHARGED BY REMOVAL, not by toleration — the same way `ConfidenceSection`
+  // and `ResultsFooter` left it. The card read `recommendation_stability`,
+  // banded it on an authored four-tier scale (0.85/0.70/0.40) that exists
+  // nowhere in the producer, and rendered `Stability: 62% (moderate)` plus a
+  // progress bar at that width. It now reads `robustness.display_verdict` — the
+  // only field licensed to make a robustness claim on screen — and shows no
+  // percentage and no bar. The scan is the authority: if a read comes back,
+  // this equality assertion REDs on a GROWN set, which is the point of pinning.
   'src/canvas/nodes/GoalNode.tsx::recommendationStability',
   'src/canvas/nodes/GoalNode.tsx::recommendation_stability',
   // ⚠ MOVED HERE FROM CLASS (a) — it was filed as toleration and it is not.

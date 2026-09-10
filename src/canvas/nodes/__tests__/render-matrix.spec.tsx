@@ -17,7 +17,7 @@
  *     ranks options, it does not change which factor differentiates them)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { FactorNode } from '../FactorNode'
 import { OptionNode } from '../OptionNode'
@@ -734,6 +734,7 @@ describe('Render matrix — DecisionNode chip audit', () => {
       robustness: {
         recommended_option_id: 'option-1',
         recommendation_stability: stability ?? 0.93,
+        display_verdict: 'robust',
         // option-1 is the win argmax, so the producer's claim applies to it.
         near_tie: { is_tie: false, top_option_id: 'option-1' },
       },
@@ -797,39 +798,50 @@ describe('Render matrix — DecisionNode chip audit', () => {
     expect(screen.queryByText(/\d+ bias/i)).toBeNull()
   })
 
-  it('Standard post: no "Stability:" text in body — moved to popover', () => {
+  // ⛔ THE THREE TESTS BELOW WERE RE-POINTED, NOT NARROWED. They used to police
+  // a `Stability: 93% (robust)` line, whose figure was `recommendation_stability`
+  // — the leading option's win probability relabelled — banded on an authored
+  // four-tier scale that exists nowhere in the producer. The card now reads
+  // `robustness.display_verdict`, the only field licensed to make a robustness
+  // claim on screen, and renders no percentage and no bar.
+  //
+  // The PROPERTY each test was written for is untouched: the body/popover split
+  // in Standard, the body line in Detailed, and the popover carrying the claim.
+  // Only the content the split carries has changed. Each assertion now binds BY
+  // IDENTITY (the element's own testid) rather than by a text predicate another
+  // element could satisfy, and each carries the negative twin — the fixture
+  // still supplies `recommendation_stability: 0.93`, so a percentage assertion
+  // can genuinely fail if the withdrawn read ever returns.
+
+  it('Standard post: the robustness verdict is in the popover, not the body', () => {
     applyStore(decisionTopology('standard', 'post', 0.93))
     renderDecision()
-    // The body must not contain "Stability:" — that lives in the Detailed
-    // body and the Standard popover. The popover is rendered (via the
-    // NodePopover mock) but it appears under data-testid="node-popover".
-    const popovers = screen.queryAllByTestId('node-popover')
-    // Filter out the popover content and assert no stand-alone "Stability:"
-    // sentence outside it.
-    const bodyHasStabilityLine = screen.queryAllByText(/Stability:/).length
-    // If a "Stability:" line exists at all, it must be inside the popover.
-    if (bodyHasStabilityLine > 0) {
-      const popoverHtml = popovers.map(p => p.innerHTML).join('')
-      expect(popoverHtml).toMatch(/Stability/)
-    }
-    // The Detailed-style "Stability: 93% (robust)" line never renders in
-    // Standard post — assert directly.
-    expect(screen.queryByText(/Stability: 93%/)).toBeNull()
+    // The Detailed body line must not render in Standard.
+    expect(screen.queryByTestId('decision-robustness-verdict')).toBeNull()
+    const popover = screen.getByTestId('node-popover')
+    expect(
+      within(popover).getByTestId('decision-robustness-popover-verdict'),
+    ).toBeDefined()
+    // No percentage anywhere on this surface — the fixture still supplies one.
+    expect(screen.queryByText(/93%/)).toBeNull()
   })
 
-  it('Detailed post: stability line renders in body', () => {
+  it('Detailed post: the robustness verdict line renders in body', () => {
     applyStore(decisionTopology('expert', 'post', 0.93))
     renderDecision()
-    expect(screen.getByText(/Stability: 93% \(robust\)/)).toBeDefined()
+    const line = screen.getByTestId('decision-robustness-verdict')
+    expect(line.textContent).toBe('Robustness: robust')
+    expect(screen.queryByText(/93%/)).toBeNull()
   })
 
-  it('Standard post: popover contains stability label and percentage', () => {
+  it('Standard post: popover carries the licensed verdict and no percentage', () => {
     applyStore(decisionTopology('standard', 'post', 0.93))
     renderDecision()
     const popover = screen.getByTestId('node-popover')
-    expect(popover.textContent).toContain('Stability')
-    expect(popover.textContent).toContain('93%')
-    expect(popover.textContent).toContain('robust')
+    const verdictEl = within(popover).getByTestId('decision-robustness-popover-verdict')
+    expect(verdictEl.textContent).toBe('robust')
+    expect(popover.textContent).not.toContain('93%')
+    expect(popover.textContent).not.toContain('Stability')
   })
 
   it('Standard pre: no science icon header wrapper renders', () => {
