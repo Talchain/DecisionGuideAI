@@ -99,6 +99,128 @@ async function readGeometry(page: Page, rowId: string): Promise<Geom | null> {
   }, rowId)
 }
 
+/**
+ * ⭐⭐ THE DISCLOSURE'S OWN PARTS, READ SEPARATELY — because the row's TOTAL
+ * cannot tell the two defects apart, and they need opposite repairs.
+ *
+ * #1401 shipped the route forward INSIDE grid track 3 (`fit-content(5.5rem)`,
+ * measured at 48.5px at the dock floor). 36 characters of prose in a 48.5px
+ * column became six line boxes and a 213px row. #1410 moved it to a
+ * `col-span-4` full-width line.
+ *
+ * A wrap in a 48px track and a wrap at the end of a 220px line are BOTH
+ * "heightDelta went up", and the row total says which only by how much. These
+ * are the numbers that say which:
+ *
+ *   refusalWidth ≈ 48px    -> the sentence is still in a narrow track: LAYOUT
+ *   refusalWidth ≈ rowWidth -> the sentence has the row: ordinary TEXT REFLOW
+ *
+ * and `refusalMaxContentWidth` vs `actionsWidth` says whether reflow was
+ * inevitable at this width on this platform's metrics, rather than leaving that
+ * to be inferred from a line count.
+ *
+ * ⚠ LINE COUNT IS `height / lineHeight`, NOT `getClientRects().length`. The
+ * refusal is a flex item, so it is BLOCKIFIED and its own `getClientRects()`
+ * returns ONE rect for the whole box however many lines it holds — a line-count
+ * probe built on it reads 1 forever and would certify any wrap. A `Range` over
+ * the text content is captured too, as a second reading that must agree.
+ */
+interface Disclosure {
+  readonly actionsPresent: boolean
+  readonly actionsWidth: number
+  readonly actionsHeight: number
+  /** The control line's own box — a button that wraps inside its border shows up here, not in the total. */
+  readonly controlsHeight: number
+  readonly controlsWidth: number
+  readonly refusalPresent: boolean
+  readonly refusalText: string
+  readonly refusalHeight: number
+  readonly refusalWidth: number
+  readonly refusalLineHeightPx: number
+  readonly refusalLines: number
+  readonly refusalRangeRects: number
+  /** The sentence's single-line width on THIS platform's metrics. */
+  readonly refusalMaxContentWidth: number
+  /** Break opportunities in the rendered string. Zero means it can only OVERFLOW, never wrap. */
+  readonly refusalBreakOpportunities: number
+  /** px past the outline's right edge. > 0 is overflow, which is a different defect from a wrap. */
+  readonly refusalOverflowRightPx: number
+  readonly refusalInsideValueCell: boolean
+  readonly rowContentWidth: number
+  readonly fontFamily: string
+}
+
+async function readDisclosure(page: Page, rowId: string): Promise<Disclosure> {
+  return page.evaluate((id) => {
+    const row = document.querySelector(`[data-testid="model-row-v2-${id}"]`)
+    const actions = document.querySelector(`[data-testid="model-row-v2-${id}-edit-actions"]`)
+    const refusal = document.querySelector(`[data-testid="model-row-v2-${id}-value-blocked"]`)
+    const review = document.querySelector(`[data-testid="model-row-v2-${id}-review"]`)
+    const valueCell = document.querySelector(`[data-testid="model-row-v2-${id}-value"]`)
+    const outline = document.querySelector('[data-testid="model-outline-v2"]')
+    const r2 = (n: number) => Math.round(n * 100) / 100
+
+    // The control LINE is the review button's flex parent, not the button.
+    const controls = review instanceof HTMLElement ? review.parentElement : null
+
+    let maxContent = -1
+    let rangeRects = -1
+    let lineHeight = -1
+    if (refusal instanceof HTMLElement) {
+      lineHeight = parseFloat(getComputedStyle(refusal).lineHeight)
+      const probe = refusal.cloneNode(true) as HTMLElement
+      probe.style.position = 'absolute'
+      probe.style.left = '-99999px'
+      probe.style.top = '0'
+      probe.style.width = 'max-content'
+      probe.style.maxWidth = 'none'
+      probe.style.whiteSpace = 'nowrap'
+      probe.style.visibility = 'hidden'
+      refusal.parentElement?.appendChild(probe)
+      maxContent = r2(probe.getBoundingClientRect().width)
+      probe.remove()
+      const range = document.createRange()
+      range.selectNodeContents(refusal)
+      rangeRects = range.getClientRects().length
+    }
+
+    const refusalText = refusal instanceof HTMLElement ? (refusal.textContent ?? '') : ''
+    const refusalBox = refusal instanceof HTMLElement ? refusal.getBoundingClientRect() : null
+    const outlineBox = outline instanceof HTMLElement ? outline.getBoundingClientRect() : null
+
+    return {
+      actionsPresent: actions instanceof HTMLElement,
+      actionsWidth: actions instanceof HTMLElement ? r2(actions.getBoundingClientRect().width) : -1,
+      actionsHeight: actions instanceof HTMLElement ? r2(actions.getBoundingClientRect().height) : -1,
+      controlsHeight: controls instanceof HTMLElement ? r2(controls.getBoundingClientRect().height) : -1,
+      controlsWidth: controls instanceof HTMLElement ? r2(controls.getBoundingClientRect().width) : -1,
+      refusalPresent: refusal instanceof HTMLElement,
+      refusalText,
+      refusalHeight: refusalBox ? r2(refusalBox.height) : -1,
+      refusalWidth: refusalBox ? r2(refusalBox.width) : -1,
+      refusalLineHeightPx: lineHeight,
+      refusalLines: refusalBox && lineHeight > 0 ? Math.round(refusalBox.height / lineHeight) : -1,
+      refusalRangeRects: rangeRects,
+      refusalMaxContentWidth: maxContent,
+      // The product's own string, not a fixture's: count the places it may break.
+      refusalBreakOpportunities: (refusalText.match(/[-\s]/g) ?? []).length,
+      refusalOverflowRightPx:
+        refusalBox && outlineBox ? r2(refusalBox.right - outlineBox.right) : -1,
+      refusalInsideValueCell:
+        valueCell instanceof HTMLElement && refusal instanceof HTMLElement
+          ? valueCell.contains(refusal)
+          : false,
+      rowContentWidth:
+        row instanceof HTMLElement
+          ? r2(row.clientWidth -
+              parseFloat(getComputedStyle(row).paddingLeft) -
+              parseFloat(getComputedStyle(row).paddingRight))
+          : -1,
+      fontFamily: refusal instanceof HTMLElement ? getComputedStyle(refusal).fontFamily : '',
+    }
+  }, rowId)
+}
+
 test.describe('model row edit reflow', () => {
 for (const width of WIDTHS) {
   /**
@@ -193,6 +315,7 @@ for (const width of WIDTHS) {
 
     const after = await readGeometry(page, rowId as string)
     expect(after, 'row geometry unreadable during edit').not.toBeNull()
+    const disc = await readDisclosure(page, rowId as string)
 
     const b = before as Geom, a = after as Geom
 
@@ -218,6 +341,8 @@ for (const width of WIDTHS) {
       valueTopBefore: b.valueTop, valueTopAfter: a.valueTop, textDelta,
       valueBoxBefore: b.valueBoxHeight, valueBoxAfter: a.valueBoxHeight,
     }))
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify({ measure: 'modelRowEditDisclosure', dockWidth: width, rowId, platform: process.platform, ...disc }))
 
     /*
      * ⭐⭐⭐ TWO QUESTIONS WERE LIVING UNDER ONE ASSERTION, AND SEPARATING THEM IS
@@ -266,17 +391,139 @@ for (const width of WIDTHS) {
     const lineGap = 4     // the action line's own `gap-1`
     const refusal = 19.5  // panelBody 12px x `leading-relaxed` (1.625)
     /**
-     * One control line and one sentence: 8 + 18 + 4 + 19.5 = 49.5px, and 49.5px
-     * is exactly what the browser measured at BOTH dock widths. The +1 is
-     * sub-pixel rounding headroom and nothing else.
+     * ⭐⭐⭐ CORRECTED, AND THE CORRECTION IS THE POINT: **THE BOUND ABOVE WAS
+     * DERIVED ON DARWIN AND THIS GATE RUNS ON UBUNTU.** The three paragraphs
+     * above say `+49.5px @280 +49.5px @416 <- IDENTICAL: that is DISCLOSURE`.
+     * That pair of numbers is a **darwin** reading. On `ubuntu-latest`, at this
+     * PR's own head `9574b5c4`, the same two arms read:
      *
-     * ⚠ IF THIS GOES RED, THE BOX HAS CHANGED — RE-DERIVE IT, DO NOT RAISE IT.
-     * That is `valueCellMetrics.ts`'s standing instruction about its own
-     * hand-maintained constant and it applies here for the same reason: a
-     * tolerance raised to make a run green stops being a measurement of
-     * anything.
+     *     +69px @280    +49.5px @416     (job 102661748098, `heightDelta`)
+     *
+     * 69 - 49.5 = 19.5 = EXACTLY ONE MORE `refusal` LINE, and the @416 arm is
+     * identical to darwin's to the decimal. So ubuntu's metrics change nothing
+     * about the disclosure's COST; they change only whether the refusal SENTENCE
+     * fits on one line at the 280px dock floor. Attributed at the bytes by
+     * `readDisclosure` rather than inferred from the total.
+     *
+     * ⚠⚠ SO THE `width-independence` SENTENCE ABOVE IS TRUE OF THE CONTROL LINE
+     * AND FALSE OF THE SENTENCE. A fixed disclosure does cost the same at every
+     * width — but `Enter a number to review this change` is 36 characters of
+     * PROSE, and prose reflows when the line runs out. The #1410 fix gave it the
+     * whole row; it did not, and could not, make it unwrappable.
+     *
+     * ⭐ THE TWO DEFECTS ARE NAMED APART HERE, because they need opposite repairs
+     * (CLAUDE.md trap 21):
+     *
+     *   the sentence is crushed into grid track 3 (48.5px)  -> LAYOUT defect
+     *   the sentence fills the row and runs to a 2nd line   -> ordinary REFLOW
+     *
+     * `heightDelta` alone cannot tell them apart — both read "bigger". The
+     * structural assertions below can, and they are what keeps this bound from
+     * being a raised tolerance: the track-3 defect is now caught BY NAME, on the
+     * refusal element's own WIDTH, at every dock width and on every platform,
+     * instead of being inferred from a pixel total that a font change can move.
+     *
+     * ⚠ THIS IS NOT "RAISE IT UNTIL IT IS GREEN" — `valueCellMetrics.ts`'s
+     * instruction is RE-DERIVE, and the re-derivation is per width because the
+     * quantity being bounded is per width: one control line plus however many
+     * line boxes a sentence of this length takes in the room that dock leaves.
+     * Derived on ubuntu, the platform that decides this check:
+     *
+     *     @280  room ~220px, sentence needs ~234px  -> 2 lines  -> 8+18+4+39+1 = 70
+     *     @416  room ~356px, sentence needs ~234px  -> 1 line   -> 8+18+4+19.5+1 = 50.5
+     *
+     * darwin fits it on ONE line at both widths, so both bounds hold there too —
+     * a bound that admits the wider platform is not loosened for the narrower
+     * one. @416 is UNCHANGED at 50.5.
+     *
+     * ⚠ AND IT STILL BITES. The #1401 regression was 117px of refusal in track 3
+     * (six line boxes) with a 52px wrapped control line: 8 + 52 + 4 + 117 = 181px
+     * against a 70px bound, and the width-assertion below REDs on it first, by
+     * name. A third refusal line (89.5px) also exceeds 70.
      */
-    const EDIT_DISCLOSURE_MAX_PX = rowGap + controls + lineGap + refusal + 1
+    const REFUSAL_LINES_MAX: Record<number, number> = { 280: 2, 416: 1 }
+    const refusalLinesMax = REFUSAL_LINES_MAX[width]
+    expect(refusalLinesMax, `no refusal line budget is derived for a ${width}px dock`).toBeGreaterThan(0)
+    const EDIT_DISCLOSURE_MAX_PX = rowGap + controls + lineGap + refusal * refusalLinesMax + 1
+
+    /*
+     * ── THE DISCLOSURE'S PRECONDITIONS, ASSERTED BEFORE ITS BUDGET ────────────
+     *
+     * ⚠⚠ A HEIGHT BOUND ON A DISCLOSURE THAT RENDERED NO REFUSAL PASSES FOR THE
+     * WRONG REASON, and a sibling lane has already been caught by exactly that:
+     * its arm went green because the draft it measured had no refusal at all, so
+     * the sentence whose line count the bound is about was not on screen. The
+     * factor row seeds its draft from `resolveValueInputSeed`, which is
+     * `undefined` for this fixture's factors — `draft: ''`, `parseFloat('')` is
+     * NaN, so `unproposableDraftReason` returns a sentence. That is the case this
+     * arm measures, and it is asserted, not assumed.
+     */
+    expect(disc.actionsPresent, 'the edit action line did not render — there is no disclosure to bound').toBe(true)
+    expect(disc.refusalPresent, 'no refusal rendered: this arm would bound a one-line disclosure and call it two').toBe(true)
+    expect(disc.refusalText.trim().length, 'the refusal element is empty — its line count is about nothing').toBeGreaterThan(0)
+    /*
+     * ⚠ AN ASSERTION ABOUT WRAPPING IS WORTHLESS AGAINST A STRING THAT CANNOT
+     * WRAP. A sibling lane measured `max-w-[24px]` on a single-word label and
+     * read ONE line: "Moderate" has no break opportunity, so it OVERFLOWS rather
+     * than wrapping. Check the product's real string can do the thing being
+     * bounded.
+     */
+    expect(
+      disc.refusalBreakOpportunities,
+      `the refusal "${disc.refusalText}" has no break opportunity — it can only overflow, so a line-count bound on it proves nothing`,
+    ).toBeGreaterThan(0)
+
+    /*
+     * ── THE #1410 CONTRACT: THE SENTENCE HAS THE ROW, NOT A 48px TRACK ────────
+     *
+     * ⭐ THIS, NOT THE PIXEL TOTAL, IS THE GUARD ON #1410's ACTUAL SUBJECT. The
+     * refusal must be given every pixel the row could give it: its own
+     * max-content width if that fits, or the row's whole content width if it
+     * does not. In track 3 it measured 48.5px while the row offered ~220px, so
+     * this REDs on the original defect at any width and on any platform.
+     *
+     * ⚠ THE COMPARISON IS AGAINST THE **ROW's** CONTENT WIDTH, NOT THE ACTION
+     * LINE's. The action line is the thing that was in the narrow track, so its
+     * own width shrank with it — a bound against it would have agreed with the
+     * defect (CLAUDE.md trap 13b: a guard whose reference moves with the thing it
+     * is guarding).
+     */
+    expect(disc.rowContentWidth, 'the row content width is unreadable').toBeGreaterThan(0)
+    expect(disc.refusalMaxContentWidth, "the refusal's single-line width is unreadable").toBeGreaterThan(0)
+    expect(disc.refusalInsideValueCell, 'the refusal is back inside the value cell — grid track 3 is ~48px wide').toBe(false)
+    const roomTheRowCouldGive = Math.min(disc.refusalMaxContentWidth, disc.rowContentWidth)
+    expect(
+      disc.refusalWidth,
+      `the refusal got ${disc.refusalWidth}px while the row could give it ${roomTheRowCouldGive}px ` +
+        `(sentence needs ${disc.refusalMaxContentWidth}px, row content ${disc.rowContentWidth}px) — it is in a narrow column again`,
+    ).toBeGreaterThanOrEqual(roomTheRowCouldGive - 1)
+    // A wrap and an OVERFLOW are different defects; `min-w-0` is what makes this
+    // one a wrap, and without this assertion its removal would read as fine.
+    expect(
+      disc.refusalOverflowRightPx,
+      `the refusal runs ${disc.refusalOverflowRightPx}px past the outline's right edge at a ${width}px dock`,
+    ).toBeLessThanOrEqual(1)
+
+    // The control line is ONE line. #1401's 52px came from "Review change"
+    // wrapping INSIDE its own border; `whitespace-nowrap` is what stops it, and
+    // a total-only bound would absorb its return silently.
+    expect(
+      disc.controlsHeight,
+      `the control line measured ${disc.controlsHeight}px at a ${width}px dock — a button is wrapping inside its own border`,
+    ).toBeLessThanOrEqual(controls + 1)
+
+    // And the line count the budget above is built from — asserted against the
+    // STATED per-width maximum, never read and accepted. Two independent
+    // readings: the box's own height, and a Range over its text.
+    expect(
+      disc.refusalLines,
+      `the refusal took ${disc.refusalLines} line(s) at a ${width}px dock (budget ${refusalLinesMax}); ` +
+        `it needs ${disc.refusalMaxContentWidth}px and the row offers ${disc.rowContentWidth}px`,
+    ).toBeLessThanOrEqual(refusalLinesMax)
+    expect(
+      disc.refusalRangeRects,
+      `the refusal's text occupied ${disc.refusalRangeRects} line box(es) at a ${width}px dock (budget ${refusalLinesMax})`,
+    ).toBeLessThanOrEqual(refusalLinesMax)
 
     // ── THE #1179 CONTRACT, ASSERTED DIRECTLY AND UNRELAXED ──────────────────
     expect(b.valueBoxHeight, 'the idle value box is unreadable').toBeGreaterThan(0)
@@ -324,6 +571,17 @@ for (const width of WIDTHS) {
     await expect(unitInput).toBeVisible()
     const goalAfter = await readGeometry(page, goalId)
     expect(goalAfter).not.toBeNull()
+    /*
+     * ⚠ THE GOAL ARM HAS NEVER RUN AT A 280px DOCK ON UBUNTU. The factor
+     * assertion above aborted the test at `4ab92e84` and again at `9574b5c4`, so
+     * everything from here down executed at 416px only — the concealment this
+     * file's own comment below records. Its disclosure is logged for the same
+     * attribution reason as the factor's: if this arm reds, the numbers that say
+     * WHY are already in the log rather than a cycle away.
+     */
+    const goalDisc = await readDisclosure(page, goalId)
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify({ measure: 'modelGoalEditDisclosure', dockWidth: width, goalId, ...goalDisc }))
     /*
      * Two accessible 14px fields + a short unit label are intentional. The
      * original paragraph-filled candidate measured216.38px and fails this;
