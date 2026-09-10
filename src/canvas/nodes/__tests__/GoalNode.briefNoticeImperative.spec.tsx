@@ -22,6 +22,11 @@
  * So `goalLabelIsUnconfirmedBriefExtract` goes false and the marker retires —
  * precisely what the notice promises. The imperative is TRUE here.
  *
+ * ⚠ THIS FILE PINS THE CANVAS ALONE. The hero renders the same member today and
+ * SHOULD NOT -- its goal field is a read-only span (`goalSuccessTarget:
+ * 'disabled'`, a hardcoded constant, so posture-independent). Do not add an arm
+ * asserting the two surfaces agree: it would RED on the hero's correct fix.
+ *
  * ⚠ WHY A SOURCE-READING ARM EXISTS BELOW. A value assertion cannot prove a
  * REFERENCE: it passes on a byte-identical copy of the sentence. If a later
  * change introduces a second, imperative-free member of this constant and
@@ -143,10 +148,6 @@ const IMPERATIVE = 'Edit it to say what you want to achieve.'
    spec, so it is known to resolve under this vitest config. */
 const HERE = dirname(fileURLToPath(import.meta.url))
 const GOAL_NODE_SRC = readFileSync(join(HERE, '..', 'GoalNode.tsx'), 'utf-8')
-const HERO_SRC = readFileSync(
-  join(HERE, '..', '..', 'components', 'pre-analysis-v3', 'hero', 'HeroSection.tsx'),
-  'utf-8',
-)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -156,12 +157,10 @@ describe("⛔ the goal notice's imperative is honest on the canvas", () => {
   /* ⚠ THE INSTRUMENT CONTROL, FIRST. Both source arms below assert an ABSENCE
      (`not.toContain`), and an absence assertion over an EMPTY string passes by
      testing nothing. A path that silently resolves wrong reads as a clean pass.
-     So prove the reads can SEE a presence before trusting either absence. */
-  it('both source reads are non-empty and contain a known marker', () => {
+     So prove the read can SEE a presence before trusting the absence. */
+  it('the source read is non-empty and contains a known marker', () => {
     expect(GOAL_NODE_SRC.length).toBeGreaterThan(1000)
-    expect(HERO_SRC.length).toBeGreaterThan(1000)
     expect(GOAL_NODE_SRC).toContain('GOAL_LABEL_FROM_BRIEF_TESTID')
-    expect(HERO_SRC).toContain('GOAL_LABEL_FROM_BRIEF_TESTID')
   })
 
   it('the canvas marker carries the FULL notice, imperative included', () => {
@@ -194,17 +193,6 @@ describe("⛔ the goal notice's imperative is honest on the canvas", () => {
     expect(GOAL_NODE_SRC).toContain('GOAL_LABEL_FROM_BRIEF_COPY.notice')
     // And the sentence is not inlined anywhere in this file.
     expect(GOAL_NODE_SRC).not.toContain(IMPERATIVE)
-  })
-
-  /**
-   * ⛔ THE OPPOSITE-DIRECTION TWIN. `HeroSection` renders the same member as
-   * VISIBLE text beneath a field that really writes the label. A later tidy
-   * that collapses the two sentences, or that moves one surface to a variant
-   * without moving the other, must RED on exactly one of these two arms.
-   */
-  it('the hero binds the SAME member, so the two cannot silently diverge', () => {
-    expect(HERO_SRC).toContain('GOAL_LABEL_FROM_BRIEF_COPY.notice')
-    expect(HERO_SRC).not.toContain(IMPERATIVE)
   })
 
   it('the constant itself still carries the imperative', () => {
