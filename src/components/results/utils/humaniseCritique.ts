@@ -193,7 +193,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // the withheld number itself.
   CONSTRAINT_TARGET_UNRELIABLE: (label) => ({
     title: `${label}'s success target can't be evaluated reliably`,
-    description: 'The value needed to assess this target is missing or unscaled, so goal-fit results were withheld for this run rather than shown as a meaningless number.',
+    description: 'The value needed to assess this target is missing or unscaled, so the probability of reaching it was withheld for this run rather than shown as a meaningless number.',
     suggestion: `Set a value or range for ${label}`,
   }),
   // 1.52 follow-up — producer WARNING-severity codes (PLoT constraint
@@ -385,16 +385,55 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // A remedy pointing at a control whose effect evaporates on reopen is worse
   // than none, because the user believes it worked.
   // ══════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
+  // ⭐⭐ WHY THIS NAMES A QUANTITY AND NOT "goal-fit results" (trap 21).
+  // WITNESSED on served `475ee1c7`, Reasoning tab, one screen: this template's
+  // title rendered "…so goal-fit results were withheld rather than guessed"
+  // directly above "Most likely to serve your goal / Extend Shift Hours at the
+  // Existing Site / Scored highest in 48% of simulated futures". The same
+  // turn's `analysis_result` carried `leading_option_id` and `win_probabilities`
+  // with `permitted_analysis_mode: comparative_leader`.
+  //
+  // BOTH STATEMENTS WERE TRUE. They answer different questions: the absolute
+  // probability of REACHING THE TARGET (genuinely withheld here) and the
+  // COMPARATIVE RANKING (genuinely produced, licensed by a separate gate).
+  // "goal-fit results" is broad enough to cover the second, so the sentence
+  // over-claimed the scope of its own withhold and the panel read as
+  // self-contradicting on its primary surface.
+  //
+  // ⛔ THE FIX IS THE NAME, NOT THE GATE. Nothing here suppresses the ranking
+  // and nothing deletes the notice; "rather than guessed" stays because the
+  // sentence's job is to say the silence is DELIBERATE.
+  //
+  // ⚠ "probability" ALONE WOULD NOT HAVE SEPARATED THEM — "Scored highest in
+  // 48% of simulated futures" is also a probability. The discriminator is what
+  // it is a probability OF, so the copy names the target.
+  //
+  // ⭐ THE ESTATE ALREADY RATIFIED THIS NAMING ON THE CANVAS: ROADMAP 2.275
+  // closed the identical shape on `GoalNode` (`GoalNode.tsx:744-761`), where a
+  // node denied a goal probability while per-option goal-fit figures rendered
+  // from the same report. Same resolution, reused rather than re-minted.
+  //
+  // DERIVED, NOT ASSUMED: `licensesComparativeLeaderClaim`
+  // (`canvas/hooks/useAnalysisReady.ts:170-174`) reads ONLY
+  // `admission.permitted_analysis_mode` and never `inference_warnings`, so a
+  // goal-threshold refusal cannot withdraw the comparative claim. The
+  // co-render is reachable BY CONSTRUCTION, not a one-off capture, and it is
+  // true of ALL of this code's reachable refusal reasons (enumerated above):
+  // every one of them fails to resolve the threshold into the samples' frame,
+  // and not one of them touches the ranking.
+  // `analysisNew/__tests__/goalWithholdNamesTheQuantity.spec.tsx` pins it.
+  // ══════════════════════════════════════════════════════════════════════════
   GOAL_THRESHOLD_NOT_CONVERTIBLE: () => ({
     title:
-      "Your goal's target was recorded, but it couldn't be compared with where the goal stands today, so goal-fit results were withheld rather than guessed.",
+      "Your goal's target was recorded, but it couldn't be compared with where the goal stands today, so the probability of reaching it was withheld rather than guessed.",
     description:
-      "Your target was captured. What this run couldn't do is compare it with where the goal stands today — for example when no current level is recorded for the goal — so goal-fit results were withheld rather than guessed.",
+      "Your target was captured. What this run couldn't do is compare it with where the goal stands today, for example when no current level is recorded for the goal. The probability of reaching your target was withheld rather than guessed.",
     // No suggestion: there is no action the user can take until ROADMAP 2.281.
   }),
   GOAL_THRESHOLD_FRAME_UNSPECIFIED: () => ({
     title: "Your goal's target could mean a level or a change. Restate the target as a level to reach or a change from your current level.",
-    description: "The target doesn't say whether it's a level to reach or a change from today, so goal-fit results were withheld for this run rather than guessed.",
+    description: "The target doesn't say whether it's a level to reach or a change from today, so the probability of reaching it was withheld for this run rather than guessed.",
     suggestion: 'Restate the target as a level to reach or a change from your current level',
   }),
 
