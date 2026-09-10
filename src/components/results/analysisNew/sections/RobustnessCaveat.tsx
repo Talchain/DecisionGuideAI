@@ -50,6 +50,7 @@ import { ShieldQuestion } from 'lucide-react'
 import { useCanvasStore } from '../../../../canvas/store'
 import { readDecisionBriefViewModel } from '../../decision-brief/decisionBriefViewModel'
 import { typography } from '../../../../styles/typography'
+import { surface } from '../panelSurfaces'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 
 export interface RobustnessCaveatProps {
@@ -111,7 +112,34 @@ export function RobustnessCaveat({
 
   return (
     <section
-      className="rounded-lg border border-panel-border bg-panel px-3 py-2"
+      /**
+       * ⚠⚠ COMPOSED, NOT HAND-WRITTEN — and CI is what told me. This read
+       * `"rounded-lg border border-panel-border bg-panel px-3 py-2"`, which
+       * `oneContainerGrammar.spec.ts` bans outside `panelSurfaces.ts`.
+       *
+       * ⭐ THE FAILURE WAS NOT CAUSED BY ANY EDIT OF MINE, AND THAT IS THE
+       * INTERESTING PART. That guard landed on STAGING in #1346 on 9 Sep and is
+       * absent from this branch's own tree and from its merge base. CI computes
+       * the suite on the MERGE REF, so the guard was in scope for the check while
+       * being invisible to the branch — and the two `Staging Gate: success`
+       * readings this PR carries were computed against a base that predates it. A
+       * green check ages: the base moved underneath, and the first run after it
+       * moved is the one that found this.
+       *
+       * `surface('neutral')` is the mapping `DecisionRecorded` uses for the same
+       * shape — a top-level section box that groups without judging. It is NOT
+       * `warning`, even though the grammar describes that tone as "a caveat the
+       * reader must carry into the reading": tinting this box is a design decision
+       * about emphasis, not a guard repair, and making one while fixing the other
+       * is how two changes end up inseparable.
+       *
+       * ⚠ THE GEOMETRY DELTA IS DELIBERATE, not collateral: `rounded-md` not
+       * `rounded-lg`, `py-2.5` not `py-2`, and no `bg-panel`. That is the whole
+       * point of the grammar — one radius and one padding for every box at this
+       * level — and `surface('neutral')` carries no fill because the section sits
+       * directly on the panel, which the module's own spec records.
+       */
+      className={surface('neutral')}
       data-testid={testId}
       aria-label={COPY.robustnessCaveat.title}
     >
