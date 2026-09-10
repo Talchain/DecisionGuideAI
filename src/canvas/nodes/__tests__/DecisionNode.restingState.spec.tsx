@@ -479,7 +479,19 @@ describe('DecisionNode — honest resting state', () => {
     const popover = screen.getByTestId('decision-node-popover')
     expect(within(popover).getByText(/62%/)).toBeDefined()
     expect(within(popover).getByText(/sensitive/i)).toBeDefined()
-    expect(within(popover).getByText('Challenge this result')).toBeDefined()
+    // ⭐ UPDATED for Paul's ruling of 9 Sep 2026 ("do the DecisionNode chips,
+    // keep the resting state copy too"). This asserted `Challenge this result`
+    // INSIDE the popover; the chips now render on the CARD, and the popover
+    // keeps them only as its no-stability fallback (this fixture HAS stability,
+    // so they are correctly absent from it here).
+    //
+    // The assertion's PURPOSE is untouched and is the reason it was written —
+    // "the copy points at the popover, so the popover must actually hold
+    // something". The two assertions above still discharge that in full. What
+    // is added is the other half of the ruling: the chip is now reachable
+    // WITHOUT a hover, on the same render.
+    expect(within(popover).queryByText('Challenge this result')).toBeNull()
+    expect(screen.getByText('Challenge this result')).toBeDefined()
 
     expect(within(resting).getByText(DECISION_RESTING_COPY.completedRunLine)).toBeDefined()
     // "yet" would assert that nothing has happened. A run had.
@@ -550,6 +562,77 @@ describe('DecisionNode — honest resting state', () => {
       // popover/selection controls, which their own specs cover.
       unmount()
     }
+  })
+
+  /**
+   * ⭐⭐ PAUL'S RULING, 9 Sep 2026, pinned: "Do the DecisionNode chips, keep the
+   * resting state copy too."
+   *
+   * This is the arm that would have caught the deadlock being resolved. Before
+   * it, the two designs shared `bodyHasContent`, so each ONE could only be
+   * present when the other was absent — and either lane's suite could be fully
+   * green while the surface carried only its own half. Nothing asserted that
+   * they COEXIST, which is exactly why it read as a choice between two lanes
+   * rather than as one predicate answering two questions (trap 21).
+   *
+   * The discriminator is that BOTH are asserted in ONE render. Split across two
+   * cases this would pass against either half alone.
+   */
+  it('Standard completed run: the chips AND the resting copy are BOTH on the card', () => {
+    const factorNodes = [
+      { id: 'f-explicit', type: 'factor', data: { type: 'factor', label: 'Salary budget', category: 'controllable', observedState: { value: 42 } } },
+      { id: 'f-missing', type: 'factor', data: { type: 'factor', label: 'Attrition', category: 'controllable' } },
+    ]
+    setStore({
+      nodes: [decisionNode, ...optionNodes, ...factorNodes],
+      edges: optionEdges,
+      results: { status: 'complete', report: WITHHELD_REPORT_WITH_STABILITY },
+      viewMode: 'standard',
+    })
+    renderDecision()
+
+    // The invitations — reachable with no hover, which is the change.
+    // ⭐ EXACTLY ONE EACH. `getByText` throws on duplicates, and that is load
+    // bearing here: the popover carries these same chips as its no-stability
+    // fallback, so a body/popover predicate that overlaps renders them twice.
+    // This assertion caught precisely that in the first cut.
+    expect(screen.getByText('Challenge this result')).toBeDefined()
+    expect(screen.getByText('Compare options')).toBeDefined()
+
+    // …and the honest resting copy is NOT suppressed by them.
+    const resting = screen.getByTestId(RESTING)
+    expect(within(resting).getByTestId('decision-node-readiness-summary')).toBeDefined()
+
+    // The copy still may not explain the analysis, chips or no chips.
+    expect(visibleText(resting)).not.toMatch(/\byet\b/i)
+  })
+
+  /**
+   * ⭐ TWIN — the no-stability arm, which is where the two surfaces could
+   * overlap. With no stability the popover has no content of its own, so it
+   * carries the chips instead; the body must then NOT also carry them. The
+   * resting copy still renders, so Paul's ruling holds in both arms.
+   */
+  it('Standard completed run with NO stability: chips live in the popover, resting copy still renders, nothing doubled', () => {
+    const factorNodes = [
+      { id: 'f-explicit', type: 'factor', data: { type: 'factor', label: 'Salary budget', category: 'controllable', observedState: { value: 42 } } },
+      { id: 'f-missing', type: 'factor', data: { type: 'factor', label: 'Attrition', category: 'controllable' } },
+    ]
+    setStore({
+      nodes: [decisionNode, ...optionNodes, ...factorNodes],
+      edges: optionEdges,
+      results: { status: 'complete', report: WITHHELD_REPORT },
+      viewMode: 'standard',
+    })
+    renderDecision()
+
+    // Exactly one — `getByText` throws on a duplicate, which is the property.
+    const popover = screen.getByTestId('decision-node-popover')
+    expect(within(popover).getByText('Challenge this result')).toBeDefined()
+
+    // …and the resting copy is present alongside, per the ruling.
+    const resting = screen.getByTestId(RESTING)
+    expect(within(resting).getByTestId('decision-node-readiness-summary')).toBeDefined()
   })
 
   it('⭐ TWIN — in DETAILED the branch has content, so this state stays shut', () => {

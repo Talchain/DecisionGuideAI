@@ -453,7 +453,13 @@ export function ModelOutline({
 
   return (
     <div data-testid="model-outline-v2" data-tier={tier} className="flex flex-col">
-      {groups.map(group => (
+      {groups.map(group => {
+        /* ⚠ COMPUTED ONCE. It was called twice — once to decide whether to
+           render and once to render — so the heading asked the same question of
+           the same rows twice per paint, and any future impurity in it would
+           show as a heading disagreeing with itself. */
+        const unset = unsetSummary(group.rows)
+        return (
         <section
           key={group.id}
           data-testid={`model-group-v2-${group.id}`}
@@ -464,6 +470,30 @@ export function ModelOutline({
             data-testid={`model-group-v2-${group.id}-toggle`}
             aria-expanded={group.open}
             onClick={() => toggle(group.id)}
+            /* ⭐⭐ THE ACCESSIBLE NAME NEEDS THE SEPARATOR THE LAYOUT PROVIDES,
+               AND WITHOUT IT TWO COUNTS BECAME ONE NUMBER. Measured on deployed
+               `14276d5b`, guest, completed run: this control's name was
+               **"▸ Factors53 with no value yet"** — 5 elements and 3 unset, read
+               aloud as fifty-three. `Goal22`, `Outcomes & risks55` likewise.
+               There is no text node between the spans, so accessible-name
+               computation concatenates them with nothing in between.
+
+               ⚠⚠ AND THE SHARPEST PART: `Relationships13` is a GENUINE 13. A
+               listener cannot tell a real two-digit count from a fabricated one,
+               because both are spelled the same way. That is worse than a wrong
+               number — it makes every number on the surface unreliable.
+
+               ⚠ IT CONTAINS THE VISIBLE TEXT, so the control keeps label-in-name
+               (WCAG 2.5.3) and a voice user can still say "Factors". The same
+               rule `ModelStrip`'s worklist toggle follows, for the same reason.
+
+               ⚠ NOT A COPY OF THE SUMMARY SENTENCE. `unset` is the string the
+               span renders, quoted — never a second phrasing of it. That
+               sentence took four attempts to get true (see `unsetSummary`), and
+               a paraphrase here would be a fifth, unreviewed. */
+            aria-label={`${GROUP_TITLE[group.id]}, ${group.rows.length} ${
+              group.rows.length === 1 ? 'element' : 'elements'
+            }${unset === null ? '' : `, ${unset}`}`}
             className={`${typography.panelHeader} text-text-header w-full text-left px-2 py-1.5`}
           >
             {group.open ? '▾' : '▸'} {GROUP_TITLE[group.id]}
@@ -482,12 +512,39 @@ export function ModelOutline({
               would be its own wall — chrome that always renders states nothing
               about the data.
             */}
-            {unsetSummary(group.rows) !== null && (
+            {unset !== null && (
               <span
                 data-testid={`model-group-v2-${group.id}-unknown-summary`}
+                /* ⛔ NOT `text-warning`, AND THE REASON IS THE ONE THIS FILE
+                   EXISTS TO SERVE. An earlier head of this change painted the
+                   span amber to tell the two counts apart. Computed from the
+                   tokens themselves — `--warning-rgb: 255 166 86` -> `#FFA656`
+                   on `--bg-panel` `#FEFEFE` — by the WCAG 2.x formula, that is
+                   **1.92:1** (1.85:1 on `--bg-panel-hover`) against SC 1.4.3's
+                   **4.5:1** floor. At `typography.panelMeta` the large-text
+                   exemption cannot apply, so it is a straight failure: the count
+                   this change makes ANNOUNCEABLE would have become UNREADABLE,
+                   on the same element, in the same commit.
+
+                   ⚠ AND NO AMBER WOULD HAVE PASSED. Of the 18 `--*-rgb` tokens
+                   declared in `brand.css`, exactly three clear 4.5:1 on both
+                   panel grounds — `--text-header`, `--text-light` and `--info`.
+                   Every warning, danger and goal token fails, so there was no
+                   darker amber to swap in and the honest move was to drop the
+                   colour rather than weaken the bar.
+
+                   ⚠ THE THING AMBER WAS FOR IS STILL OPEN, and saying so is the
+                   point of this comment: to a SIGHTED reader these two numbers
+                   are byte-identical, which is a real finding this change does
+                   NOT close. `ModelStrip` solves it with a tinted pill
+                   (`bg-warning/10` + ring + `NoValueMark`) — the tint changes
+                   the GROUND, which is exactly why it passes where bare 11px
+                   text cannot. That is a design change with its own review; do
+                   not re-add a bare colour here. `text-light` is itself a
+                   deliberate a11y retint (see `brand.css:66-80`). */
                 className={`${typography.panelMeta} text-text-light ml-2`}
               >
-                {unsetSummary(group.rows)}
+                {unset}
               </span>
             )}
           </button>
@@ -834,7 +891,8 @@ export function ModelOutline({
             </>
           )}
         </section>
-      ))}
+        )
+      })}
     </div>
   )
 }

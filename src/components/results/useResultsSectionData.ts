@@ -15,7 +15,7 @@
 import { useEffect, useMemo } from 'react'
 import { safeArray } from '../../lib/array-utils'
 import { useCanvasStore } from '../../canvas/store'
-import { licensesComparativeLeaderClaim } from '../../canvas/hooks/useAnalysisReady'
+import { licensesComparativeLeaderClaim, resolveEffectiveAdmission } from '../../canvas/hooks/useAnalysisReady'
 import { THRESHOLDS, LIMITS } from '../../lib/mappers/constants'
 import { useShallow } from 'zustand/react/shallow'
 import { findNodeMatches, type Driver } from '../../canvas/utils/driverMatching'
@@ -1311,6 +1311,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     m1ReviewAssumptions,
     goalThreshold,
     ceeAnalysisReady,
+    retainedAnalysisAdmission,
     rawV2FlipThresholds,
     rawAutoNoiseProvenance,
     rawFlipThresholdsStatus,
@@ -1333,6 +1334,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       m1ReviewAssumptions: s.runMeta?.m1ReviewAssumptions ?? null,
       goalThreshold: s.goalThreshold,
       ceeAnalysisReady: s.ceeAnalysisReady,
+      retainedAnalysisAdmission: s.retainedAnalysisAdmission,
       // Extract only flip_thresholds from raw V2 response to avoid subscribing to entire object.
       // Used as fallback in flip_thresholds defensive adaptor when mapped report doesn't carry them.
       // Display-honesty: PLoT v2/run emits flip_thresholds at the top level
@@ -2272,8 +2274,23 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // ABSENCE => OLDER PRODUCER => EXACTLY TODAY'S BEHAVIOUR. This `true` arm is
     // what makes the consumer safe to land before the CEE half merges. It is not
     // a convenience default and it carries its own test (ARM A).
+    //
+    // ⚠⚠ AND IT READS THE **EFFECTIVE** ADMISSION, NOT THE LIVE FIELD ALONE.
+    // `ceeAnalysisReady` is the admission's only carrier and
+    // `invalidateAnalysisReady` nulls it on every analytical edit, so reading the
+    // live field alone made ONE KEYSTROKE turn a recorded refusal into a licence:
+    // Q1 flipped to `true`, `report` survived (a different slice), so Q2 stayed
+    // `true`, and the composed answer below licensed the designation CEE had
+    // declined. WITNESSED on staging 9eb30b54, 2026-09-10 — the refusal slot was
+    // replaced by "Most likely to serve your goal / Double Down on SMB" 59ms after
+    // one factor value was edited.
+    //
+    // `resolveEffectiveAdmission` separates THE PRODUCER NEVER SPOKE (still
+    // `undefined`, so the `true` arm and ARM A are untouched) from WE NULLED IT
+    // OURSELVES (the last thing CEE said still governs). It can only ever
+    // withhold: the retained value is one the producer sent.
     const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(
-      ceeAnalysisReady?.analysis_admission,
+      resolveEffectiveAdmission(ceeAnalysisReady?.analysis_admission, retainedAnalysisAdmission),
     )
 
     // Q2 - THIS RESULT'S SEPARATION. "Did THIS run separate the arms?" A property
@@ -2576,7 +2593,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       leaderDesignationPermitted,
       // Raw, for `reasons[]` (the "what would change it" copy) and
       // `missing_important_inputs[]`. Undefined => pre-admission CEE.
-      analysisAdmission: ceeAnalysisReady?.analysis_admission,
+      // THE SAME EFFECTIVE ANSWER THE GATE ABOVE USED. Handing consumers the raw
+      // live field while gating on the effective one would put two answers to one
+      // question in one object — and `buildAnalysisNewViewModel` reads this field
+      // to compose the refusal's REASON, so a disagreement here renders a withheld
+      // designation with no explanation beside it.
+      analysisAdmission: resolveEffectiveAdmission(
+        ceeAnalysisReady?.analysis_admission,
+        retainedAnalysisAdmission,
+      ),
       // Task 6: Flip thresholds for tipping points visualisation
       flipThresholds: flipThresholds.length > 0 ? flipThresholds : undefined,
       // Display-honesty: PLoT-side classification of flip_thresholds[].
@@ -2723,7 +2748,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // (Measured: at pristine this memo's exhaustive-deps warning named only
     // `reviewStatus`; without this entry the lane would have added `edges` to
     // it.)
-  }, [hasCompletedFirstRun, report, nodes, edges, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason])
+  }, [hasCompletedFirstRun, report, nodes, edges, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason, retainedAnalysisAdmission])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)

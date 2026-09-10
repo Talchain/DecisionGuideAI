@@ -341,7 +341,10 @@ describe('OptionNode — "Most supported" pill lives in the ONE corner stack', (
     // the corner stack the two claims would share an owner and this pin would
     // stop meaning what it says.
     expect(stack).not.toContainElement(ordinal)
-    expect(ordinal).toHaveAccessibleName('Option 3')
+    // ⚠ WAS 'Option 3'. A bare ordinal is indistinguishable from the factor
+    // ranking badge to a screen-reader user, and the two mean opposite things.
+    // The name now carries the legend's own gloss (metricVocabulary.ts:373).
+    expect(ordinal).toHaveAccessibleName(/^Option 3 — the order the options were first laid out in, not a ranking$/)
   })
 
   it('DISCRIMINATION: a non-leading option gets no pill, and the stack loses exactly that child', () => {

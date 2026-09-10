@@ -200,4 +200,47 @@ describe('a withheld leader designation says why', () => {
     renderGlance(data)
     expect(screen.queryByTestId('analysis-new-glance-withheld-reason')).not.toBeInTheDocument()
   })
+
+  it('NAMES the leader when there is no admission and the arms DID separate', () => {
+    /**
+     * ⭐⭐⭐ THE MISSING CELL. Every `undefined`-admission case above this one uses
+     * `decisionWithLeaderWithheld()` — NON-SEPARATING arms, composed `false`. Over
+     * that shape a `!== true` gate and a `=== false` gate AGREE, so the absence
+     * cases were all measured on the one input class that cannot tell them apart.
+     *
+     * THE SEPARATING × ABSENT CELL IS WHERE THE LIVE DEFECT LIVED, and until this
+     * case existed this file could not see it: the corpus tested one direction, so
+     * the suite stayed green while the deployed product replaced CEE's refusal with
+     * "Most likely to serve your goal / Double Down on SMB" 59ms after a factor
+     * edit (staging 9eb30b54, 2026-09-10).
+     *
+     * ⚠ AND THIS CASE MUST STAY GREEN. Read it as the OLD-PRODUCER half of the
+     * pair: nothing was ever retained, so the absence genuinely means "no
+     * authority", the leader stands, and no refusal is asserted. The repair lives
+     * upstream in `resolveEffectiveAdmission`, which distinguishes this from the
+     * absence the consumer inflicted on itself — so a future change that closes the
+     * defect by inverting the absence arm INSTEAD of distinguishing the two cases
+     * goes RED here, which is exactly what this cell is for.
+     *
+     * Both directions are asserted. The withheld slot's absence alone would also
+     * hold on a build that renders nothing at all — the gap my inventory found in
+     * the licensed-admission case above.
+     */
+    const data = withAdmission(genuineDecision(), undefined)
+
+    // Preconditions pinned in-test, so the assertions below are the code's doing.
+    expect(
+      data.recommendation?.verdict?.hasLeadingOption,
+      'precondition: this cell is about SEPARATING arms — the other absence cases cover the rest',
+    ).toBe(true)
+    expect(
+      data.recommendation?.analysisAdmission,
+      'precondition: no admission at all, or this is not the absence cell',
+    ).toBeUndefined()
+    expect(glanceOf(data).headline, 'precondition: the glance must have an answer to give').not.toBeNull()
+
+    renderGlance(data)
+    expect(screen.queryByTestId('analysis-new-glance-withheld-reason')).not.toBeInTheDocument()
+    expect(screen.getByTestId('analysis-new-glance-headline')).toBeInTheDocument()
+  })
 })

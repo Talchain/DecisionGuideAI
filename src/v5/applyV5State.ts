@@ -201,15 +201,42 @@ export interface V5ApplicatorStore {
    *
    * The real canvas store's resultsComplete accepts a wider params shape
    * (drivers, cee*, rawV2Response); the V5 path only uses the narrow
-   * subset declared here. TypeScript's structural subtyping accepts the
-   * wider real implementation in this slot.
+   * subset declared here.
+   *
+   * ⚠ `enrichment` AND `rawV2Response` ARE TYPED `null`, NOT `unknown`, AND
+   * THAT IS LOAD-BEARING — do not "widen" them back.
+   *
+   * The comment above used to say structural subtyping accepts the wider real
+   * implementation in this slot. It does not, and had not for as long as the
+   * typecheck baseline goes back. A setter slot is a PROPERTY, so under
+   * `strictFunctionTypes` its parameters are CONTRAVARIANT: for the real store
+   * to be assignable here, THIS declaration's params must be assignable to the
+   * store's. The store declares `enrichment?: PLoTEnrichment | null` and
+   * `rawV2Response?: V2RunResponse | null`; `unknown` is assignable to neither,
+   * so `useCanvasStore.getState()` failed to satisfy `V5ApplicatorStore` at
+   * useConversation.ts:4774 (TS2345) — a long-standing entry in
+   * scripts/ci/typecheck-baseline-identities.txt.
+   *
+   * `null` is the honest type, not a workaround: the single production call
+   * site passes literal `null` for both, on purpose, to CLEAR the store's
+   * V2-shaped slots (see the comment at that call). Nothing has ever passed
+   * anything else. Widening them again re-opens the diagnostic, and because its
+   * rendered message embeds an elided "… N more …" property count over the
+   * whole canvas store, any later PR that adds a store member then moves that
+   * text and trips `Typecheck Gate Self-Test` scenario 1 for reasons that have
+   * nothing to do with that PR. (That is exactly how PR #1424 went red: it adds
+   * one store member, 282 → 283.) If a future V5 path genuinely needs to write
+   * a real enrichment here, import the store's own types and declare them —
+   * do not reach for `unknown`.
    */
   resultsComplete?: (params: {
     report: ReportV1
     hash: string
     resultsSource?: 'direct' | 'conversation'
-    enrichment?: unknown
-    rawV2Response?: unknown
+    /** Always `null` on this path — see the ⚠ note above. */
+    enrichment?: null
+    /** Always `null` on this path — see the ⚠ note above. */
+    rawV2Response?: null
     /** ROADMAP 2.350: the analysis_result block's own enrichment, for the
      *  Compare tab's in-session snapshot capture. NOT the V2-shaped
      *  `enrichment` slot above, which this path clears. */

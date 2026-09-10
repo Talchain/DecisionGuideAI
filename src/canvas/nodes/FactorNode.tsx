@@ -388,7 +388,28 @@ export const FactorNode = memo((props: NodeProps) => {
   // Computed once, then injected into preAnalysisLayer2 (so it appears in
   // both the high-priority Standard popover and the Detailed inline render),
   // and into a dedicated needsInput popover branch for low-priority cases.
-  // The body never renders chips directly.
+  //
+  // ⚠ NARROWED, 9 Sep 2026 (Core ruling). This read "The body never renders
+  // chips directly", and elsewhere in this file that sentence is cited as a
+  // written brief — "AI chips live in popovers, never in the body". As an
+  // estate-wide or even file-wide rule it is FALSE, and was already false when
+  // written: **this same body renders coaching directly** at the
+  // `synthesisedCoaching` paragraph and at the `counterfactualQuestion`
+  // affordance below, the latter a `<button>` in the body.
+  //
+  // What is true is narrow: **THIS pre-analysis chip cluster** is not rendered
+  // by the body. It binds nothing else — not the other node kinds, not this
+  // file's own post-analysis coaching.
+  //
+  // It is narrowed rather than deleted because the next lane reads a sentence
+  // like the old one, believes it, and reverts work that was deliberate:
+  // `DecisionNode` broke it on purpose and said why ("THE INVITATIONS BELONG ON
+  // THE CARD, NOT BEHIND A HOVER"), and this change puts one question on the
+  // face of the Risk, Outcome, Action and Goal cards for the same reason —
+  // measured on deployed `9748b336`, where every coaching chip on the canvas
+  // read ZERO in the resting state because a closed `NodePopover` returns null.
+  // A rule two nodes obey and four break is the hand-maintained mirror (trap
+  // 12), and the mirror is what does the damage, not the rule.
   const factorChips = useMemo(() => {
     if (isPostAnalysis) return null
     const chips: React.ReactNode[] = []
