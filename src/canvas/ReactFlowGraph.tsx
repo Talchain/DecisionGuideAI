@@ -49,6 +49,7 @@ import type { NodeType } from './domain/nodes'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
 import { CanvasViewportControls } from '../components/layout/CanvasViewportControls'
 import { FirstModelNotice } from './components/FirstModelNotice'
+import { ModelExtentNotice } from './components/ModelExtentNotice'
 import { OlumiAttentionCard } from './components/OlumiAttentionCard'
 import { RightPanel } from '../components/layout/RightPanel'
 import { AlignmentGuides } from './components/AlignmentGuides'
@@ -2721,6 +2722,22 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       <AssistantFocusChip />
       <FocusModeChip />
       <FirstModelNotice />
+      {/* ⛔ THIS MOUNT WAS MISSING, AND EVERY COMMENT AROUND IT ASSUMED IT WAS
+          NOT. The band migration moved four components here and left
+          `ModelExtentNotice` behind; the vacated-top-centre note below still
+          reasons FROM its presence ("because `ModelExtentNotice` owns that
+          position"), and the note above cites it as the precedent for mounting
+          `CanvasLodNotice` at this level. So the only surface that tells a
+          person PART OF THEIR MODEL IS OFF-SCREEN has not rendered since.
+
+          `overlayOwner.sourceScan.spec.ts` could not see it: its claim scan
+          reads `useOverlayCell` CALL SITES, and `ModelExtentNotice.tsx:234`
+          has one. A component that is never mounted never runs that call, so
+          the table and the call sites agreed perfectly about a component no
+          user could see — a derived guard proving agreement and structurally
+          blind to completeness. The mount-completeness assertion added to that
+          spec is the half that was missing. */}
+      <ModelExtentNotice />
       <CanvasViewportControls
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
