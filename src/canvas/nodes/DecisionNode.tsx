@@ -613,8 +613,17 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
    */
   const showSupportShareAbsent = isPostAnalysisBranch && supportShareRunWideAbsent
 
+  // ⛔ `showSupportShareAbsent` IS DELIBERATELY NOT A CONJUNCT HERE, AND IT WAS
+  // ONCE. `bodyHasContent` gates `{!bodyHasContent && bodyFallback}` and
+  // `bodyFallback` IS the resting state, so adding it displaced that block in
+  // Standard post-analysis — in exactly the case the sentence exists to
+  // improve, and the tombstone above warns about this mechanism already. The
+  // sentence and the resting block are SIBLING JSX nodes, each independently
+  // conditional, so the sentence never needed the rider to render: it was not a
+  // trade-off between them. Pinned both ways in
+  // `DecisionNode.restingState.spec.tsx`.
   const bodyHasContent = isPostAnalysisBranch
-    ? (showStabilityLine || showSupportShareAbsent)
+    ? showStabilityLine
     : isPreAnalysisBranch
       ? (showTriageLine || showRunAnalysis || showPreAnalysisInvitations)
       : false
