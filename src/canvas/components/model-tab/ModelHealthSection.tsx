@@ -224,16 +224,88 @@ function ModelHealthSectionInner({
   // ⛔ The `"{N}% stability"` half is REMOVED (2.1273) — see the file header.
   // The summary is the quality score alone; the `.filter(Boolean).join(' · ')`
   // combiner went with it, since there is nothing left to combine.
-  const qualityLabel = ceeQuality?.overall != null
-    ? `${ceeQuality.overall.toFixed(1)} / 10`
-    : null
+  /**
+   * ⭐⭐ THE BARE NUMBER GOES BEHIND THE EXPERT TOGGLE (Paul, 9 Sep 2026:
+   * *"the bare numbers should be under easy-to-access progressive disclosure,
+   * so they don't scare the average user"*).
+   *
+   * `9.0 / 10` beside a heading called "Model card" reads as *"your model is
+   * 9 out of 10"*. It is not that. It is CEE's `quality.overall`, a STRUCTURAL
+   * assessment — measured live on deployed `3b2df4ce`:
+   *     { coverage: 10, structure: 8, safety: 8, overall: 9 }
+   * A well-formed draft scores 9 while every outcome is unset, the goal has no
+   * target and 7 of 8 factors are Olumi's estimates rather than the user's. The
+   * number is not wrong; unlabelled and alone, it answers a question the reader
+   * did not ask and silences the ones they should.
+   *
+   * ⛔ NOT REPLACED BY A WORD. Deriving "Good"/"Fair" from `overall` would be a
+   * NEW SCORE wearing plain clothes, and inventing a judgement is worse than
+   * showing none. Plain shows nothing here; the card's own content is unchanged
+   * and still open to everyone. Expert shows the three dimensions that were
+   * always present and never rendered — `overall` alone was.
+   *
+   * The toggle already exists: `OutputsDock.tsx:1150` (`olumi.expertMode`,
+   * persisted), provided at `ModelTabBody.tsx:955`. Nothing new is introduced.
+   *
+   * ⛔⛔ AND THE FIRST VERSION OF THIS DID NOT MOVE `overall` BEHIND THE TOGGLE —
+   * IT DELETED IT FOR EVERYONE. Caught in review, and the correction is why this
+   * is a plain one-line expression again.
+   *
+   * It replaced `overall` with `coverage · structure · safety`, on the stated
+   * rationale that those three "were always present and never rendered". **That
+   * rationale is contradicted by this very file**: the sub-scores block below
+   * already renders Structure / Causality / Coverage / Safety under the SAME
+   * `showDetail` gate, and its own comment reads "(full detail — Overall is in
+   * the header)". So the result was:
+   *
+   *   · Plain   — nothing. Correct, and the whole point of the change.
+   *   · Expert  — the three dimensions TWICE, once in the pill and once below.
+   *   · Nobody  — `overall`. The `|| \`${overall} / 10\`` fallback fires only
+   *               when ALL THREE optionals are absent, so on a normal payload
+   *               it never rendered at all.
+   *
+   * `ceeQualityDimensions.ts` calls `overall` "the only score CEE always sends",
+   * and it was the one figure the card lost. Hiding a number from everyone is
+   * not progressive disclosure; it is deletion with a toggle-shaped alibi — and
+   * it made the sub-score block's own comment false into the bargain.
+   *
+   * So: the gate stays (that IS Paul's ruling), and what sits behind it is the
+   * figure that was there before. Expert sees `overall` in the header and the
+   * four dimensions below — each said exactly once.
+   */
+  const qualityLabel =
+    showDetail && ceeQuality?.overall != null
+      ? `${ceeQuality.overall.toFixed(1)} / 10`
+      : null
   const headerSummary = qualityLabel ?? undefined
 
   return (
     <Accordion
       title="Model card"
       tierLabel={headerSummary}
+      // ⚠⚠ THIS COMMENT PROMISED A FIX THAT CANNOT EXIST, and review was right
+      // to flag it — it said "Neutral until a variant is derived from the number
+      // it describes" while the line below still hardcodes `'fair'`. Describing
+      // an intention the code does not implement is the defect.
+      //
+      // Derived at the bytes, and the reason is stronger than "not done yet":
+      // `Accordion.tsx`'s three variants are BYTE-IDENTICAL —
+      //     strong: 'bg-panel text-text-header'
+      //     fair:   'bg-panel text-text-header'
+      //     needs_work: 'bg-panel text-text-header'
+      // so `tierVariant` carries NO visual consequence whatever. It is a RENDER
+      // GATE: the pill shows only when `tierLabel && tierVariant` are both
+      // truthy. There is no neutral variant to derive TO, and deriving one would
+      // change nothing on screen while minting exactly the second score this
+      // file's header bans.
+      //
+      // `'fair'` therefore means "render it", not "this model is fair". Left as
+      // it is rather than adding a `neutral` variant to a shared component for
+      // no visual difference.
       tierVariant={headerSummary ? 'fair' : undefined}
+      // ⚠ "Out of 10 EACH" was written for the three-dimension pill and is wrong
+      // now the pill carries the single `overall` again. One number, out of 10.
+      tierTitle="Olumi's structural read of the model, out of 10: how much of the decision it covers, how well-formed it is, and how safely it can be analysed. It does not say whether the values are yours or evidenced. The dimensions behind it are listed below."
       // ⭐ OPEN ON ARRIVAL (29 Aug 2026). The card carries the seed, the
       // sample count, the VOI method and an explicit "Not reported by this
       // run" for everything the engines did not report — the product's

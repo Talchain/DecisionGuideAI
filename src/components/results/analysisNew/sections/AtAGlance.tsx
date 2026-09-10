@@ -170,6 +170,18 @@ export interface AtAGlanceProps {
      * producer's code names one — see `recommendationMethod.ts`. */
     signalCode?: string
     /**
+     * The canonical bias the producer named on a bias-signal finding; absent
+     * otherwise.
+     *
+     * ⚠ CARRIED BECAUSE OMITTING IT WOULD MAKE TWO SURFACES DISAGREE ABOUT ONE
+     * FINDING. This card is a promoted reference to a Strengthen row, and that
+     * row resolves its method with the bias code. Without it the promoted card
+     * would name "Review a possible bias" while the row beneath it named "Apply
+     * the outside view" — the same producer fact, two answers, which is the
+     * defect class CLAUDE.md trap 21 is about. Never rendered as user copy.
+     */
+    biasCode?: string
+    /**
      * ⚠ RESTORED, AND ONLY THE CATALOGUE PATH MAY RENDER IT. Removing this
      * outright made the card strictly LESS informative on the catalogue
      * recommendations, measured on the top-priority one:
@@ -203,6 +215,31 @@ export interface AtAGlanceProps {
    * alone.
    */
   onReanalyse?: () => void
+  /**
+   * ⭐⭐ THE ACT THAT ANSWERS THE REFUSAL. Takes the reader to where an estimate
+   * this comparison rests on can be reviewed or replaced with their own.
+   *
+   * The producer's withheld-designation sentence names its own remedy in words
+   * — "until you have set at least one of them" — and then leaves the reader
+   * nowhere to go. That is the complaint `honestSentenceHasAMove.spec.tsx`
+   * makes about the staleness ribbon, one slot further down this panel: the
+   * surface was optimised for truthfulness and never for usefulness.
+   *
+   * ⚠ ABSENT = NO CONTROL, exactly as `onReanalyse` above. A refusal with a
+   * dead button beside it is worse than the refusal alone, and this component
+   * is mounted by hosts that cannot route anywhere (every render test in the
+   * tree among them), so the fail-closed branch is a legitimate state rather
+   * than a defect to detect.
+   *
+   * ⚠ NOT A STORE READ, DELIBERATELY. `useUIStore` is imported NOWHERE under
+   * `components/results/analysisNew/`, and the destination — the outputs
+   * dock's active tab — is the DOCK's own state. `OutputsDock` owns this
+   * handler beside `onReanalyse`, `onFocusNode` and `onSendMessage`, all of
+   * which reach this surface the same way; adding a store subscription to a
+   * presentational section to avoid one prop would put the tab's navigation in
+   * the one file that cannot see the tab.
+   */
+  onReviewEstimates?: () => void
   /**
    * ⭐⭐ DERIVED FROM THE RUN GATE'S VERDICT IN ONE PLACE — NOT A SECOND
    * PREDICATE HERE. `AnalysisNewTabBody` passes `!canRunAnalysis && !isRunning`
@@ -320,6 +357,7 @@ export function AtAGlance({
   staleKind = 'unconfirmed',
   isProvisional = false,
   onReanalyse,
+  onReviewEstimates,
   reanalyseBlocked,
   reanalyseBlockedReason,
   isRunning,
@@ -467,22 +505,103 @@ export function AtAGlance({
 
   /**
    * ⚠ HOISTED SO THE READING AND ITS QUALIFIER CAN BE ONE BLOCK. The
-   * provenance line modifies the verdict above it, but lived as a SIBLING of
+   * provenance line qualifies the READING above it, but lived as a SIBLING of
    * the verdict inside the section's `space-y-3` — 12px below the sentence it
    * qualifies and 12px above one it does not, in identical typography.
    * Nothing bound it upward, and it read as an orphaned fragment.
+   *
+   * ⚠⚠ SUPERSEDED WORDING, NAMED SO IT IS NOT REINSTATED. This paragraph read
+   * "modifies the verdict ABOVE IT" until 9 Sep 2026. It does not — see the
+   * block below, witnessed on the deployed build: `glance.verdict` is a
+   * robustness word and is NOT something this phrase can qualify. A reader who
+   * took the old sentence at face value would find apparent authorisation to
+   * put the verdict back into the gate, and the tests would then RED for a
+   * reason the comment had denied. The LAYOUT finding above is untouched by
+   * this and still holds.
    *
    * ⚠ A LOCAL MARGIN CANNOT FIX IT: `space-y-3` compiles to
    * `.space-y-3 > :not([hidden]) ~ :not([hidden])`, which out-specifies a
    * plain `.-mt-2` — measured in a browser, the override changed the file and
    * NOT the render. The gap is owned by the parent, so the fix is structural.
    */
+  /**
+   * ⚠⚠ `glance.verdict` IS NOT SOMETHING THIS PHRASE CAN QUALIFY — WITNESSED ON
+   * THE DEPLOYED BUILD `2416ac3f`, 9 Sep 2026, guest, restored saved example,
+   * COMPLETED run. The live DOM carried NO headline, NO win share and NO win
+   * bar, a verdict line reading "Sensitive", and beneath it, alone:
+   *
+   *     "On inputs whose source Olumi could not establish"
+   *
+   * A bare prepositional phrase with no clause anywhere to attach to, sitting
+   * between the robustness line and the action card. All six sanctioned
+   * provenance sentences are QUALIFIERS of a READING — "Scored highest in 66%
+   * of simulated futures", or a named leading option. A tone word plus the
+   * producer's reason clause about robustness is neither.
+   *
+   * ⭐ AND GROUPING COULD NOT FIX IT. `glanceHoldsAtTheFloor.spec.tsx` already
+   * moved this line INSIDE the reading block so the section's `space-y-3` would
+   * stop spacing the qualifier away from what it qualifies. That was the right
+   * fix for that defect. It cannot help when the block holds no reading at all.
+   *
+   * ⚠ THE STATE IS ROUTINE, NOT AN EDGE CASE. `buildAnalysisNewViewModel`
+   * documents producing it above `shareOnScreen`: a leader determined by
+   * expected outcome carries a null win probability, and a run with a
+   * robustness verdict but no entitled leader lands here every time.
+   *
+   * ⚠⚠ THIS DOES NOT SUPPRESS THE HONESTY LINE, and the distinction is the
+   * argument. The module exists to stop a PROMINENT READING sitting with its
+   * basis stated nowhere — "the consequent in its largest type and the
+   * antecedent nowhere". With no reading on screen there is no consequent for
+   * this phrase to qualify, so that harm cannot occur. Every run that shows a
+   * reading still shows the line; the twins in
+   * `glanceQualifierNeedsAReading.spec.tsx` pin both directions.
+   *
+   * ⭐ WHAT "NO READING" IS DERIVED TO MEAN — this is the claim, and it is the
+   * WHOLE claim. In `buildAnalysisNewViewModel.ts`, `winShare` (:1732),
+   * `winFraction` (:1740) and `leaderLabel` (:1763) are each non-null only
+   * where `headline` is, and `headline` implies `showAnswer` implies this
+   * gate. So the share, the win bar and the NAMED LEADING OPTION can never
+   * render while this line is suppressed. That is a derivation over three
+   * fields — NOT a statement about everything this section can draw.
+   *
+   * ⚠⚠ AND IT IS NARROWER THAN IT FIRST READ. Until 9 Sep 2026 this paragraph
+   * also said "no option named", which is FALSE. Two sibling blocks below are
+   * outside the chain above and are NOT covered by it:
+   *   · SCOPE gates on `comparisonScope.kind === 'partial' &&
+   *     comparativeClaim !== 'none'`, and in the suppressed state
+   *     `buildAnalysisNewViewModel.ts:1755-1758` sets `comparativeClaim` to
+   *     `'order'`, NOT `'none'` — so on a partial scope it renders and prints
+   *     each excluded option's LABEL. Options ARE named on screen there.
+   *   · CONDITION gates on `glance.condition != null`, which `glanceCondition`
+   *     (:1586) ties to `flipThresholdsStatus` and a usable row, never to
+   *     leader entitlement — so it can print an input-derived number here.
+   * Whether either counts as a READING for this gate is OPEN. The argument
+   * that they do not — an excluded row carries the NOT-ANALYSED badge and
+   * states SCOPE rather than an outcome — is an argument, and the derivation
+   * above does not reach it. Do not cite this comment as settling it.
+   *
+   * ⚠ SCOPE OF THAT, STATED PRECISELY, AND DO NOT WIDEN IT. Component-side
+   * reachability is derived at the bytes here. It is NOT established that the
+   * producer emits a partial comparison scope, or a computed flip threshold,
+   * on a leader-withheld run — that needs a capture or a producer-side
+   * derivation, and neither exists. So this bounds the JUSTIFICATION; it is
+   * not a proven live regression, and the gate below is unchanged by it.
+   * RE-SURFACE TRIGGER: a live capture of a leader-withheld run that carries a
+   * partial comparison scope or a computed flip threshold. If one lands,
+   * re-open whether SCOPE and CONDITION count as readings for this gate.
+   *
+   * ⚠ THE SECOND DISJUNCT IS CURRENTLY SUBSUMED — `winShare` is gated upstream
+   * on `headline`, which is what `showAnswer` reads — and is written anyway.
+   * This gate then states what THIS component renders rather than depending on
+   * an upstream coupling it cannot see and nothing here pins.
+   */
+  const readingOnScreen = showAnswer || Boolean(glance.verdict && glance.winShare)
+
   /* ⚠ THE DRIVERS DISJUNCT WENT WITH THE LIST. This line says WHOSE numbers the
      run consumed, and it is a qualifier: it must render only where there is
      something on this surface for it to qualify. The driver rows were such a
      thing and are no longer here. */
-  const showInputProvenance =
-    Boolean(glance.inputProvenance) && (showAnswer || Boolean(glance.verdict))
+  const showInputProvenance = Boolean(glance.inputProvenance) && readingOnScreen
 
   return (
     <section className="space-y-3" data-testid={testId} aria-label={COPY.sections.atAGlance}>
@@ -629,6 +748,71 @@ export function AtAGlance({
           >
             {glance.designationWithheldReason}
           </p>
+          {/* ⭐⭐ THE MOVE THAT ANSWERS THE SENTENCE — the staleness ribbon's
+              argument, applied to the refusal. The producer names its own
+              remedy ("until you have set at least one of them") and the reader
+              has no way to reach it from here: the estimates live on the Model
+              tab, which is a different surface in a dock this panel does not
+              control. The sentence was legible and inert.
+
+              ⛔⛔ WHAT THIS CONTROL DOES NOT SAY, AND WHY IT IS A MEASUREMENT.
+              One user-stated value out of twenty flips CEE from
+              `quantified_provisional` to `comparative_leader` while nineteen
+              estimates stay Olumi's own — so a caption promising a more
+              confident answer would describe a real transition and still lie
+              about it. What the transition licenses is the CLAIM, because a
+              human entered the loop; not a better result. It equally may not
+              offer to CONFIRM the figures as they stand, which would launder a
+              machine estimate into a user-stated one and satisfy the gate
+              while meaning nothing. `COPY.glance.reviewEstimates` carries both
+              ceilings and `withheldReasonHasAMove.spec.tsx` holds them.
+
+              ⚠ NO FACTOR IS NAMED, AND THE ROUTE REFLECTS THAT. Measured on
+              the live wire, `missing_important_inputs` is EMPTY on this
+              refusal and the sentence says "at least ONE of them" — there is
+              no particular estimate to point at, so the destination is the
+              factors SECTION. The dock's handler passes no target id for the
+              same reason; inventing one would be a deep link to an arbitrary
+              row dressed as the answer.
+
+              ⛔⛔ AND IT IS GATED ON THE CAUSE, NOT JUST ON THE HANDLER —
+              THIS IS THE HALF THAT MAKES THE ACT TRUE. Every mode other than
+              `comparative_leader` withholds the designation, so the sentence
+              above is one of SEVERAL producer refusals, and only two of them
+              name an estimate. The others say "Name at least two different
+              options you are weighing", or "This model cannot be analysed
+              yet". Offering "review or set an estimate" under those takes the
+              reader to Factors to do something that cannot lift the refusal —
+              a futile instruction under a true sentence, which is worse than
+              the sentence alone, because it spends trust the refusal just
+              earned. `glance.designationWithheldRemedy` is `'estimate'` only
+              for the two causes whose own words ask for one, fail-closed on
+              every other and on an unrecognised one. Its corpus, including the
+              opposite-direction twins, is in
+              `withheldReasonHasAMove.spec.tsx`.
+
+              ⚠ FAIL-CLOSED TWICE OVER, AND THE TWO HALVES ANSWER DIFFERENT
+              QUESTIONS — do not fold them. The handler asks "can this host
+              route anywhere?"; the remedy asks "does the sentence above ask
+              for an estimate?". A host with nowhere to send the user and a
+              refusal that names an option are both reasons to render the
+              sentence alone, but they are not the same reason, and collapsing
+              them would put one predicate where two belong. */}
+          {onReviewEstimates && glance.designationWithheldRemedy === 'estimate' ? (
+            <button
+              type="button"
+              onClick={onReviewEstimates}
+              /* ⚠ INFO IS THE ACTION COLOUR ON THIS PANEL and this is a real
+                 `<button>`, so `actionColourMeansPressable.spec.ts` licenses
+                 it by ancestry. Underline plus `text-info` is what says
+                 PRESSABLE here — the sentence above is `panelBody
+                 text-text-body`, so the two cannot be confused at rest. */
+              className={`${typography.panelMeta} mt-1.5 inline-block rounded text-info underline underline-offset-2 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              data-testid={`${testId}-withheld-review-estimates`}
+            >
+              {COPY.glance.reviewEstimates}
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -971,6 +1155,7 @@ export function AtAGlance({
               const method = methodForRecommendation(
                 primaryIntervention.id,
                 primaryIntervention.signalCode,
+                primaryIntervention.biasCode,
               )
               return method ? (
                 <span

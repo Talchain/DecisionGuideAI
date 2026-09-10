@@ -14,9 +14,15 @@
  * else.
  *
  * ⚠ THE MAP IS DELIBERATELY SHORT. A technique is mapped only where an accepted
- * intent names the SAME move. Three of seven qualify. Mapping by rough
- * resemblance would ask CEE to run the wrong protocol under a science label,
- * which is the fabrication this catalogue exists to refuse.
+ * intent names the SAME move. Mapping by rough resemblance would ask CEE to run
+ * the wrong protocol under a science label, which is the fabrication this
+ * catalogue exists to refuse.
+ *
+ * ⚠ NO COUNT IS QUOTED HERE, DELIBERATELY, AND ONE USED TO BE. This line read
+ * "Three of seven qualify" and went stale the moment a fourth technique was
+ * mapped — a hand-maintained mirror inside the file whose own drift guard exists
+ * to abolish them (CLAUDE.md trap 12). The membership is derived below from
+ * `METHOD_CATALOGUE` itself; read that, never a number in this comment.
  */
 import { describe, expect, it } from 'vitest'
 import { METHOD_CATALOGUE } from '../actionsCatalogue'
@@ -39,6 +45,39 @@ describe('a technique carries the CEE intent that names the same move', () => {
 
   it('considering the opposite IS challenging an assumption', () => {
     expect(byId('consider_opposite').intent).toBe('challenge_assumption')
+  })
+
+  /**
+   * ⭐⭐ THE REASONING TAB ALREADY ATTACHES THIS TECHNIQUE TO TWO TRIGGERS, AND
+   * THAT IS WHAT SETTLES THE QUESTION THE TWIN BELOW LEFT OPEN.
+   *
+   * The twin's comment held `pre_mortem` unmapped on the grounds that these are
+   * "DECISION-OVERVIEW techniques — a different surface from the pre-analysis
+   * sparks", and that whether a click here means the same move "has not been
+   * adjudicated". That reasoning was sound for the surface it was written about
+   * and INCOMPLETE about this catalogue, because `METHOD_CATALOGUE` has a SECOND
+   * consumer the comment does not account for: `recommendationMethod.ts`, on the
+   * Reasoning tab (`WORKSPACE_SURFACES.analysisNew.label === 'Reasoning'`).
+   *
+   * That consumer does not merely list the technique — it ATTACHES it to two
+   * findings, each with its own written justification:
+   *   · `recommendationMethod.ts:54`  `['strengthen:robustness', 'pre_mortem']`
+   *   · `recommendationMethod.ts:97`  `['PRE_MORTEM', 'pre_mortem']` — the
+   *     producer's OWN signal code, i.e. upstream already named this move.
+   *
+   * So the adjudication the twin was waiting for has in effect already happened,
+   * in the module whose header says a row is "a PRODUCT CLAIM, not a
+   * convenience". This is not rough resemblance: the catalogue's description
+   * ("imagine failure and capture plausible causes") and the producer's
+   * `PRE_MORTEM` card are the same move under the same name.
+   *
+   * `StrengthenTheReasoning.tsx:799` already forwards `method.intent` verbatim,
+   * so the whole dispatch chain was wired and waiting on this one field. Without
+   * it the chip reading "Run a pre-mortem" named the technique, prefilled its
+   * prompt, carried `method_id` — and asked CEE for ordinary chat.
+   */
+  it('running a pre-mortem IS the pre_mortem intent', () => {
+    expect(byId('pre_mortem').intent).toBe('pre_mortem')
   })
 })
 
@@ -79,20 +118,27 @@ describe('every mapped intent is one CEE actually routes', () => {
     expect(byId('review_bias').intent).toBeUndefined()
     expect(byId('explore_tradeoffs').intent).toBeUndefined()
 
-    // ⚠ THESE TWO ARE UNMAPPED FOR A DIFFERENT REASON AND THE TWO MUST NOT BE
-    // COLLAPSED. The comment here used to read "withheld by CEE today" — that
-    // was true when written and is now FALSE: `pre_mortem` and `outside_view`
-    // ARE routed by CEE (#1321) and ARE in `CEE_ACCEPTED_INTENTS`, which is why
-    // the guard above passes for the pre-analysis sparks that carry them.
+    // ⚠ `outside_view` IS UNMAPPED FOR A DIFFERENT REASON AND THE TWO MUST NOT
+    // BE COLLAPSED. It is NOT "withheld by CEE": `outside_view` IS routed
+    // (`ROUTED_COACHING_INTENTS`, CEE `8449e54e`) and IS in
+    // `CEE_ACCEPTED_INTENTS`, which is why the guard above would pass for it.
     //
-    // These are DECISION-OVERVIEW techniques — a different surface from the
-    // pre-analysis sparks, fired post-analysis rather than pre-analysis. Whether
-    // clicking a technique here means the same move as clicking the spark there
-    // has not been adjudicated, and mapping them on the strength of a matching
-    // NAME would be exactly the rough-resemblance pattern-matching the
-    // restraint rule forbids. Unmapped is a held SCOPE BOUNDARY, not a finding
-    // that no intent applies. Wiring them is separate, deliberate work.
-    expect(byId('pre_mortem').intent).toBeUndefined()
+    // It stays unmapped on a MEASURED scope ground. This catalogue feeds two
+    // surfaces, and `outside_view` reaches only ONE of them: it has zero
+    // consumers under `analysisNew/` (the Reasoning tab) — measured with a
+    // `pre_mortem` contrast control in the same sweep, 0 hits against 8, so the
+    // absence is real and not instrument blindness. Its only surface is
+    // `ActionsMenu` on the Analysis tab, which is out of scope under Paul's
+    // standing Reasoning+Model ruling. Whether a menu click there means the same
+    // move as a pre-analysis spark is still unadjudicated, and mapping it on the
+    // strength of a matching NAME would be the rough-resemblance pattern the
+    // restraint rule forbids.
+    //
+    // ⭐ `pre_mortem` is deliberately ABSENT from this list now, and the
+    // assertion above replaces it: the Reasoning tab ATTACHES that technique to
+    // two triggers, so the surface-equivalence question the boundary was holding
+    // does not arise there. Do not re-add it here without first checking
+    // `recommendationMethod.ts` for a trigger.
     expect(byId('outside_view').intent).toBeUndefined()
 
     const unmapped = METHOD_CATALOGUE.filter((m) => !m.intent)

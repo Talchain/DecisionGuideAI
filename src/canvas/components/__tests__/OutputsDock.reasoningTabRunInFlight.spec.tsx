@@ -11,11 +11,19 @@
  * situation the cover was built for, on the one surface that skipped it.
  *
  * ⚠ AND THE REACHABLE PATH IS THE TAB'S OWN PRIMARY CONTROL, not an edge case.
- * The dock auto-switches to `results` on run start ONLY when the previous
+ * The dock auto-switched to `results` on run start ONLY when the previous
  * status was idle/cancelled (`OutputsDock` auto-switch effect: `wasInactive`).
- * A RE-RUN from a completed state does not qualify — so a user who presses this
+ * A RE-RUN from a completed state did not qualify — so a user who presses this
  * tab's own "Re-analyse" stays here, and watched a full past-tense report sit
  * still for the whole run.
+ *
+ * ⚠⚠ UPDATED 9 Sep 2026 — THE EXCEPTION BECAME THE RULE, WHICH WIDENS THIS
+ * FILE'S SUBJECT RATHER THAN NARROWING IT. Under the default-tab ruling a run
+ * start REVEALS the dock and makes no tab claim at all, so the first run now
+ * behaves like every re-run: a user who starts a run from this tab stays on it.
+ * That makes the silence this file was written about reachable on the FIRST run
+ * too, not only on a re-run — so every case here matters more, and the
+ * precondition case below is rewritten to pin the new rule.
  *
  * ⚠ IT WAS NOT SILENT FOR EVERYONE, AND THAT IS THE SHARP PART. The dock-level
  * `AnalysisRunAnnouncer` yields only when the *Analysis* tab is fronted, so on
@@ -328,14 +336,21 @@ describe('the Reasoning tab shows a run in flight (#1198)', () => {
   })
 
   /**
-   * ⚠ THE FIRST-RUN PATH IS DIFFERENT, AND THE FIRST CUT OF THIS TEST GOT IT
-   * WRONG — usefully. It seeded a never-run state, fronted this tab, started a
-   * run and looked for the skeleton. It RED'd because a FIRST run DOES trip the
-   * auto-switch (`wasInactive` is true from `idle`), so the assertion was being
-   * made against the `results` branch. The reachable way to be here with nothing
-   * retained is to come BACK mid-run, which is what this now drives — and the
-   * auto-switch is asserted on the way through rather than assumed, so if that
-   * rule ever changes this test says so instead of quietly moving.
+   * ⚠ THE FIRST-RUN PATH USED TO BE DIFFERENT. IT IS NOT ANY MORE, AND THIS
+   * TEST IS UPDATED DELIBERATELY — IT DID EXACTLY THE JOB IT WAS WRITTEN FOR.
+   *
+   * Its own note said: *"the auto-switch is asserted on the way through rather
+   * than assumed, so if that rule ever changes this test says so instead of
+   * quietly moving."* The rule changed on 9 Sep 2026 — a run start now REVEALS
+   * the dock and makes no tab claim, so it moves nobody — and this case RED'd
+   * on precisely that precondition. It is rewritten to pin the new rule, not
+   * relaxed to tolerate either.
+   *
+   * The case gets SIMPLER and STRONGER as a result: the reachable way to be on
+   * this tab with nothing retained is no longer "leave, then come back", it is
+   * simply "start a run from here", which is the journey #1198 is about. The
+   * old two-step is kept as an assertion — the user is still HERE — so the
+   * skeleton below is provably this tab's and not the one we were sent to.
    */
   it('with no completed run to retain, the Reasoning tab shows the skeleton, not the banner', () => {
     seedNeverRun()
@@ -343,14 +358,14 @@ describe('the Reasoning tab shows a run in flight (#1198)', () => {
     renderDock()
     frontAndAssert('analysisNew')
     startRun()
-    // PRECONDITION: a FIRST run does move the user — unlike the re-run above.
+    // PRECONDITION: a first run no longer moves the user, so the skeleton
+    // asserted below is on THIS tab. If this REDs, the run-start navigation is
+    // back and every assertion after it is about the other branch.
     expect(
       frontedTab(),
-      'A first run should auto-switch to `results` (wasInactive from idle). If ' +
-        'this RED, the return-to-this-tab step below is measuring nothing.',
-    ).toBe('results')
-    act(() => { screen.getByTestId('outputs-dock-tab-analysisNew').click() })
-    expect(frontedTab()).toBe('analysisNew')
+      'A first run must not move the user (default-tab ruling, 9 Sep 2026). If ' +
+        'this RED, the skeleton assertion below is measuring the wrong branch.',
+    ).toBe('analysisNew')
     expect(screen.getByTestId('analysis-run-skeleton')).toBeInTheDocument()
     expect(
       screen.queryByTestId('analysis-running-banner'),

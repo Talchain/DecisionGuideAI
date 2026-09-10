@@ -16,6 +16,7 @@ function input(overrides: Partial<SignalDetectionInput> = {}): SignalDetectionIn
     narrowFramingDetail: null,
     biasFindingExplanation: null,
     structuralAbsence: null,
+    optionDifferentiation: null,
     ...overrides,
   }
 }

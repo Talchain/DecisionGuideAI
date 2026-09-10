@@ -139,6 +139,10 @@ import { getCausalEdges } from '../domain/edgeUtils'
 import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../domain/edgeValueProvenance'
 import { getDirectionalStrengthLabel } from '../components/model-tab/strengthBands'
 import { getPrimaryValue, formatSmartNumber } from '../components/model-tab/utils'
+// THE ONE value+unit composer this tab already owns. Imported, never
+// re-expressed — see the goal branch below for why a fourth copy of "which
+// currencies go in front" is the defect and not the fix.
+import { formatValueWithUnit, isCurrencyUnit } from '../components/model-tab/utils'
 // THE ONE raw-source → human-label policy, the same one `SourceProvenancePill`
 // renders. Imported, never re-expressed: a second copy is how the pill and the
 // outline start disagreeing about what `cee_inference` is called.
@@ -159,6 +163,7 @@ import { resolveNodeTypeLiteral } from '../domain/nodes'
 import { factorIsConfirmable } from '../domain/valueProvenance'
 import { interventionTargetValue } from '../domain/interventions'
 import { unwrapInterventionValue } from '../utils/labelUtils'
+import { resolveFactorValueAdmission } from '../conversation/factorValueEdit'
 import type {
   AttentionReason,
   ModelElementKind,
@@ -578,6 +583,22 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         // still reads `value` (i.e. `raw_value`). A row with an estimate and no
         // supplied value must still ask for one.
         attention: attentionForFactor(data, value),
+        /*
+         * ⭐⭐ THE ROW CARRIES THE BOUND THE NODE DECLARES — resolved by the ONE
+         * function that owns the scale contract, never re-derived here.
+         *
+         * ⚠ THE RANGE SOURCE IS THE NODE'S `prior`, THE ONLY PLACE IT LIVES.
+         * `resolveFactorValueAdmission` reads it and returns `null` for every
+         * shape that is not a usable range, so a factor that declares no bound
+         * carries no field and gains no refusal. Spread conditionally rather
+         * than assigned `undefined`: a present-but-undefined key reads as
+         * PRESENT to `in` and `Object.keys`, and this contract's absences are
+         * load-bearing.
+         */
+        ...(() => {
+          const admission = resolveFactorValueAdmission(data)
+          return admission === null ? {} : { valueAdmission: admission }
+        })(),
         editable: true,
       })
       continue
@@ -585,8 +606,49 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
 
     if (kind === 'goal') {
       const target = resolveGoalTarget(data)
+      /**
+       * ⭐ A PREFIX CURRENCY GOES IN FRONT OF THE NUMBER.
+       *
+       * ⚠ WITNESSED ON A REAL USER'S SCREEN, 10 Sep 2026 02:03–02:05Z, staging
+       * deploy `6aa1fdec0d71200008252154` (UI `9eb30b54`). One turn carrying
+       * `goal_threshold_raw: 250000`, `goal_threshold_unit: "£"` produced TWO
+       * strings for ONE figure: the canvas goal card said `Target: £250,000`
+       * and this row said `250,000 £`. The expression below suffixed EVERY
+       * unit with a space, whatever its class.
+       *
+       * ⭐⭐ THE THIRD SURFACE TO SHIP THIS, WHICH DECIDES HOW IT IS FIXED.
+       * `GoalNode` carried the correct mapping inline; Inspector v2's
+       * `GoalPanel` carried none and printed "800000 £" (ROADMAP 2.315(c),
+       * closed by extracting `formatGoalTarget`); this outline is the surface
+       * that extraction did not reach. So the currency knowledge is NOT
+       * restated here. `formatValueWithUnit` is the model-tab suite's own
+       * composer — this file already imports three helpers from that module —
+       * and it reads `CURRENCY_SYMBOLS` / `ISO_CURRENCY_CODES` from
+       * `utils/unitClassifier`, the single classifier, so which currencies
+       * prefix is decided in exactly one place for the whole estate. Symbols
+       * prefix with no space (`£250,000`); ISO codes prefix with one
+       * (`USD 1,200`).
+       *
+       * ⛔ AND IT IS GATED BY `isCurrencyUnit` RATHER THAN APPLIED WHOLESALE.
+       * `formatValueWithUnit` also DROPS the suffix for the `placeholder`
+       * class, so an ungated swap would silently turn "8 scale" into "8" —
+       * a second unit class moved by a change that was only ever about
+       * currency. Every class is pinned in
+       * `theModelTabPutsTheCurrencyInFront.spec.ts`, whose coverage of the
+       * classes is derived from the `UnitClass` union in source, so a seventh
+       * class cannot arrive unnoticed.
+       *
+       * ⚠ `formatValueWithUnit` takes a NUMBER. `ResolvedGoalTarget.raw` is
+       * `string | number`, so a string raw stays on the pre-existing path.
+       * Every writer measured at the bytes sends a number (`store.ts` guards
+       * `success_threshold` for finiteness; CEE's capture sent `250000`), so
+       * that arm is defensive rather than user-visible — and it is pinned too,
+       * to keep this change's blast radius provable.
+       */
       const targetText = target
-        ? `${typeof target.raw === 'number' ? formatSmartNumber(target.raw) : target.raw}${target.unit ? ` ${target.unit}` : ''}`
+        ? typeof target.raw === 'number' && target.unit && isCurrencyUnit(target.unit)
+          ? formatValueWithUnit(target.raw, target.unit)
+          : `${typeof target.raw === 'number' ? formatSmartNumber(target.raw) : target.raw}${target.unit ? ` ${target.unit}` : ''}`
         : input.goalThreshold === null ? null : formatSmartNumber(input.goalThreshold)
       rows.push({
         id: node.id,
@@ -859,11 +921,92 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
       // producer and left this one raw — so the detail pane printed
       // `Source: cee_inference` under "Where it came from", DIRECTLY BENEATH
       // the `SourceProvenancePill` that humanises the same field to "AI
-      // estimate" (`ModelDetailRegion.tsx:250-263`). The panel said both.
+      // estimate". The panel said both.
+      //
+      // ⚠ The citation here read `ModelDetailRegion.tsx:250-263`, which is
+      // section 1, "What this is" — the wrong section entirely. No number
+      // replaces it: the anchor is the `model-detail-v2-provenance` section,
+      // which is where `SourceProvenancePill` and the `model-detail-v2-basis`
+      // paragraph are siblings. That is grep-derivable and does not go stale
+      // the next time something above it grows.
       // Catching one instance of a class and announcing the class is fixed is
       // the defect; the scan that should have caught it was blind twice over
       // (see `modelTabNoRawIdFallback.sourceScan.spec.ts`).
-      basis: sourceBasis(obs?.source),
+      /**
+       * ⛔⛔ NULL FOR A NODE — THE PILL ABOVE IT ALREADY SAYS THIS, WORD FOR
+       * WORD, AND THE PANEL WAS SAYING IT TWICE.
+       *
+       * Witnessed on deployed `14276d5b` (guest, completed run, factor "Annual
+       * Platform Cost"), reading the rendered DOM:
+       *
+       *     y=693  h4    "Where it came from"
+       *     y=712  span  "User edited"            ← SourceProvenancePill
+       *     y=733  p     "Source: User edited"    ← this field, 21px below
+       *
+       * ⚠ IT IS IDENTICAL BY CONSTRUCTION, not by coincidence, so no fixture
+       * could ever show them differing. The row's `provenanceSource` is
+       * `obs?.source` (`:574`) and `sourceBasis` is
+       * `"Source: " + mapSourceToDisplay(obs?.source)` — the SAME field through
+       * the SAME classifier. They even vanish together:
+       * `mapSourceToDisplay(undefined)` returns null, so an unstamped factor
+       * renders neither.
+       *
+       * ⚠⚠ THIS IS THE RESIDUE OF THE F1 FIX, NOT A NEW DEFECT — and that is
+       * the instructive part. F1 was "the panel said BOTH, and they DISAGREED":
+       * the pill humanised the source to "AI estimate" while this line printed
+       * the wire token `Source: cee_inference`. The fix routed this line through
+       * the same classifier, which made them AGREE. Nobody then asked whether
+       * the panel should say it at all. A fix measured against "do they match?"
+       * passes; the question the reader has — "why am I reading this twice?" —
+       * was never the metric (CLAUDE.md trap 23).
+       *
+       * ⚠ THE EDGE BRANCH IS DIFFERENT AND IS DELIBERATELY UNTOUCHED. An edge's
+       * pill reads `data.weightSource` (`:650`) while its basis reads
+       * `data.provenance` — TWO different fields carrying two different facts,
+       * so there the second line earns its place. Nulling both would have been
+       * the tidy, wrong change.
+       *
+       * ⛔⛔ AND THE SAME MISTAKE ONE LEVEL UP — THIS WAS A BARE `null` AND THIS
+       * BRANCH IS KIND-AGNOSTIC. Caught in review, and the correction is the
+       * whole reason this ternary exists.
+       *
+       * The duplication argument above is TRUE OF FACTORS AND ONLY FACTORS.
+       * `toModelRows` sets `provenanceSource` inside `if (kind === 'factor')`
+       * (`:574`) and, separately, for EDGES (`:650`). The goal, decision, risk
+       * and outcome rows get NONE. So for those kinds the pill never renders
+       * (`ModelDetailRegion.tsx:424` requires `provenanceSource !== undefined`),
+       * and with `basis: null` and `adjustments: []` `hasProvenanceContent`
+       * returns false — which deletes the "Where it came from" HEADING TOO. A
+       * bare null removed the ONLY provenance statement those rows had.
+       *
+       * ⚠ AND IT IS LIVE ON COMMITTED DATA, not a hypothetical. Census of every
+       * tracked JSON carrying `observed_state.source`: 92 carriers, 84 `factor`
+       * and **8 `risk`** — `risk_time`/`brief_extraction` in
+       * `golden-path-staging-2026-04-05.json`, and `risk_budget_overrun` /
+       * `risk_deadline_miss` across three `draft-graph.success.*` fixtures plus
+       * the `v5-turn.draft-graph.staging-smoke` capture. Both literals classify
+       * non-null (`brief_extraction -> 'From brief'`, `cee_inference -> 'AI
+       * estimate'`), `KIND_GROUP.risk` files them under `outcomes-risks` so the
+       * row renders, and `DraftChat` copies `observed_state` for every node
+       * ungated. A user selecting that risk read "Source: AI estimate" before
+       * this PR and would have read nothing after it.
+       *
+       * ⭐ THE SHAPE, because it is the one this estate keeps shipping: a DOM
+       * witness pointed at one FACTOR row was generalised into a claim about the
+       * whole NODE branch. The comment's own boast — "IT IS IDENTICAL BY
+       * CONSTRUCTION, so no fixture could ever show them differing" — is true of
+       * factors and false of the branch the code changes. The witness was real;
+       * the scope it was carried into was not (trap 20).
+       *
+       * So the null is gated on the condition that actually makes it a
+       * duplicate: does the pill speak for this row? Today that is exactly
+       * factor-ness, because the factor branch is the only NODE branch that sets
+       * `provenanceSource`. `provenanceKeyIsTotal` and the derived
+       * every-kind invariant in `adaptersStopSpeakingInWireTokens.spec.ts` pin
+       * the two in agreement, so if a future change gives another kind a pill,
+       * that test REDs rather than the panel quietly saying it twice again.
+       */
+      basis: nodeKind(node) === 'factor' ? null : sourceBasis(obs?.source),
       adjustments: [],
       // ⚠ The NAVIGATION id stays the edge's; the LABEL is the target element's
       // name. Rendering `e.target` here put a raw wire id in the detail region's

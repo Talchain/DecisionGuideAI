@@ -251,6 +251,9 @@ const glanceModel = (
   // `AtAGlance` so that a construction site which forgets it is a TS error at
   // the site, not a silent `undefined` reaching the renderer.
   designationWithheldReason: null,
+  // Same run, same reason: nothing was withheld here, so no remedy is prescribed
+  // and no act may be offered. `null` is the fail-closed value, not "unknown".
+  designationWithheldRemedy: null,
   leaderLabel: 'Raise price',
   winShare: 'Ahead in 68% of simulated futures',
   winFraction: 0.68,

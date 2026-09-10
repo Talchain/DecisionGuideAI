@@ -152,6 +152,31 @@ export const GATED_TESTS: readonly GatedTest[] = [
       + '⭐ AND IT IS IN THE GATE BECAUSE ITS SOURCE COMMENT CLAIMED IT WAS — the file ran in zero '
       + 'CI jobs while `valueCellMetrics.ts` told the next lane a browser test had them covered.',
   },
+  ...([280, 416] as const).map((width) => ({
+    file: 'modelRowEditReflow.measure.ts',
+    suite: 'model row edit reflow',
+    title: `MODEL RELATIONSHIP BAND REFLOW @dock ${width}px`,
+    catches:
+      'THE THIRD EDITOR, WHICH THE TWO ARMS ABOVE WERE STRUCTURALLY BLIND TO — and the product '
+      + 'source said so before this was closed. They take `buttons[0]` under `[data-kind="factor"]`, '
+      + 'and four node groups render before `relationships`, so the relationship editor\'s quick-set '
+      + 'strength pills were measured by NOTHING: derived at `9574b5c4`, `relationship` appears in '
+      + '0 files under `e2e/geometry/` while the contrast control `factor` appears in 12. '
+      + 'MEASURED BEFORE THE FIX: entering edit grew the row +80.0px at 280 AND at 416, against the '
+      + 'factor arm\'s 50.5px bound — 54px of it three 14px pills stacked onto THREE lines '
+      + '(`distinctTops: 3`) inside an 80px block, because three pills need 178.6px and grid track 3 '
+      + 'is `fit-content(5.5rem)` = 88px. '
+      + '⭐⭐ AND IT REFUTES THE INFERENCE THE FACTOR ARM\'S COMMENT INVITED. That comment read '
+      + 'width-independence as proof of disclosure rather than wrapping; this defect is WRAPPING and '
+      + 'its cost is identical at both widths, because track 3\'s width does not follow the dock '
+      + '(measured templates differ only in track 2). So the wrap is asserted DIRECTLY — '
+      + '`distinctTops === 1`, plus a per-pill client-rect count, because three pills on one line '
+      + 'whose labels wrap inside their own borders is a SECOND harm a height bound cannot '
+      + 'distinguish (trap 22b). '
+      + '⚠ AND IT HAS A FLOOR BOUND BY IDENTITY: each pill is asserted visible by its own testid, '
+      + 'because the cheapest way to make any height bound green is to delete the controls — and '
+      + 'the controls are the capability Paul ruled "really simple, quick, and easy clickable".',
+  })),
   {
     file: 'nodeKeyboardBleed.measure.ts',
     suite: 'in-node keyboard bleed',
@@ -622,6 +647,22 @@ export const DELIBERATE_EXCLUSIONS: readonly DeliberateExclusion[] = [
    * ⚠ ubuntu RUNS ~1.9x DARWIN ON THIS SUITE, derived from the three arms
    * measured on both (41.2 -> 78s, 6.2 -> 9.3s, 6.9 -> 8.7s) and applied at the
    * WORST of those ratios. Do not convert darwin numbers with a friendlier one.
+   *
+   * ⭐ 25 -> 27 ARMS: the two `MODEL RELATIONSHIP BAND REFLOW` arms measured
+   * **5.4s and 5.5s darwin** in a clean run (6.7s / 10.7s in a contended one), so
+   * ~21s darwin at the worst reading and **~40s ubuntu** at the 1.9x multiplier.
+   * Against the ~441s the 25-arm job implies (back-derived from this section's own
+   * "admitting draftFitCameraOwnership takes the job to ~544s" with its 103s), the
+   * job lands near **481s against the 600s budget**, ~119s of headroom. The named
+   * next admission is unaffected: 481 + 103 = 584s still fits, barely, and the
+   * warning about runner variance still applies to it.
+   *
+   * ⚠ AND WHAT IS *NOT* A MEASUREMENT HERE, because this section is exactly where
+   * such a number would be inherited: a whole-gate run on this lane read **5.5m
+   * darwin for 27 arms**, but a typecheck gate was running concurrently on the same
+   * machine. That reading is CONTENDED and is NOT evidence about the job's cost. It
+   * is recorded only so nobody re-derives 5.5m x 1.9 = 627s and concludes the
+   * budget is blown. The per-arm figures above are from uncontended runs.
    */
   {
     what: 'draftFitCameraOwnership.measure.ts (5 arms, 54.4s darwin ≈ 103s ubuntu) — green at the base, genuinely assertive',

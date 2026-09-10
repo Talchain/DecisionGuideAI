@@ -101,7 +101,7 @@ describe('⭐ DEFECT 2 — the goal row states provenance and stops there', () =
    * notice is VISIBLE TEXT sitting directly beneath a goal field that really
    * writes the label"* — and it pinned `notice`'s exact wording on that basis.
    * The premise is REFUTED at the bytes: `HeroSection.tsx:215-216` passes
-   * `readOnly={!GOAL_SUCCESS_EDIT_CONNECTED}` and `onCommit=undefined`, and
+   * `readOnly={!GOAL_LABEL_EDIT_CONNECTED}` and `onCommit=undefined`, and
    * `:44` resolves that from `mutationAuthority.ts:127`
    * `goalSuccessTarget: 'disabled'` — a hardcoded constant, so the finding is
    * posture-independent. The hero field is a `<span aria-readonly="true">`.

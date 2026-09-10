@@ -330,6 +330,85 @@ describe('edge strength — the quick-set bands', () => {
   })
 
   /**
+   * ⭐⭐ OUT OF THE VALUE CELL WAS NOT OUT OF THE 88px TRACK — and the test above
+   * could not tell the difference.
+   *
+   * It asserted the pills are not a DESCENDANT of the no-wrap value span, and
+   * that was true while they still sat in the same full-height wrapper inside
+   * **grid track 3**, which is `fit-content(5.5rem)` = 88px at every dock width.
+   * MEASURED IN A REAL BROWSER at `9574b5c4` on relationship row `e-4`: the
+   * pills' block rendered 80px wide, `flex-wrap` stacked the three of them onto
+   * THREE lines, and entering edit grew the row from 36px to 116px — +80.0px at
+   * a 280px dock AND at a 416px one — against the factor row's 50.5px bound.
+   * The live readback went further and rendered ENTIRELY OUTSIDE the panel
+   * (1254->1280.89 against an outline right edge of 1246).
+   *
+   * ⚠⚠ WHAT THIS TEST CAN AND CANNOT HOLD. jsdom performs no layout, so NOTHING
+   * here is evidence about a pixel: it cannot see 80px, it cannot see three
+   * lines, and a className assertion about `col-span-4` proves only that a string
+   * is present. What it CAN pin is the DOM RELATIONSHIP a future edit would have
+   * to undo to reinstate the defect — the line being a DIRECT CHILD of the row,
+   * which is the only position where `col-span-4` grants the row's full width.
+   * The pixels are asserted in `e2e/geometry/modelRowEditReflow.measure.ts`
+   * ("MODEL RELATIONSHIP BAND REFLOW"), which is gated, and the two are not
+   * redundant: this one fails on a re-nesting that still happens to measure
+   * small, and that one fails if the grid mechanism changes under a
+   * structurally-correct tree.
+   */
+  it('the quick-set line is a DIRECT CHILD of the row and spans all four tracks', () => {
+    const h = handlers()
+    render(<ModelRowView row={edgeRow()} tier="plain" commit={editing('0.5')} editConnected {...h} />)
+    const line = screen.getByTestId('model-row-v2-e-0-band-line')
+
+    // The position, which is the load-bearing fact. Nested one level deeper,
+    // `col-span-4` applies to a non-grid-item and the full width silently goes.
+    expect(line.parentElement).toBe(screen.getByTestId('model-row-v2-e-0'))
+    expect(line.className.split(/\s+/)).toContain('col-span-4')
+
+    // Both relocated atoms are on THIS line, bound by identity — so a second
+    // copy left behind in the value cell would not satisfy this.
+    expect(line).toContainElement(screen.getByTestId('model-row-v2-e-0-value-bands'))
+    expect(line).toContainElement(screen.getByTestId('model-row-v2-e-0-value-band-readback'))
+
+    // ...and the readback is no longer inside the narrow value span either. It
+    // was 100% of the measured horizontal escape, so it moving is the fix.
+    expect(screen.getByTestId('model-row-v2-e-0-value').contains(
+      screen.getByTestId('model-row-v2-e-0-value-band-readback'),
+    )).toBe(false)
+
+    /*
+     * CONTROL — the value cell still holds the INPUT. The cheapest way to pass
+     * every assertion above is to move the whole editor out of track 3, which
+     * would destroy the column alignment the Model tab v2 exists for. The input
+     * stays where the column is.
+     */
+    expect(screen.getByTestId('model-row-v2-e-0-value')).toContainElement(
+      screen.getByTestId('model-row-v2-e-0-value-input'),
+    )
+  })
+
+  /**
+   * ⭐ THE DISCRIMINATING TWIN. The assertion above would be equally satisfied by
+   * a build that rendered a band line on EVERY edited row; this pins it to
+   * `kind === 'relationship'`, with the editing-phase control that proves the
+   * absence is the kind check rather than a row with no editor.
+   */
+  it('a NON-relationship row being edited gets no band line at all', () => {
+    const h = handlers()
+    render(
+      <ModelRowView
+        row={edgeRow({ id: 'f1', kind: 'factor', group: 'factors', label: 'Lead time', primaryValue: '45 days' })}
+        tier="plain"
+        commit={editing('45')}
+        editConnected
+        {...h}
+      />,
+    )
+    expect(screen.queryByTestId('model-row-v2-f1-band-line')).toBeNull()
+    expect(screen.getByTestId('model-row-v2-f1-value-input')).toBeDefined()
+  })
+
+  /**
    * ⭐ THE DISCRIMINATING CASE. Everything above proves the control APPEARS;
    * this proves it is bound to `kind === 'relationship'` and not merely to
    * "a row is being edited". Without it, a mutant that dropped the kind check

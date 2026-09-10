@@ -41,17 +41,24 @@ function input(overrides: Partial<SignalDetectionInput> = {}): SignalDetectionIn
     narrowFramingDetail: null,
     biasFindingExplanation: null,
     structuralAbsence: null,
+    optionDifferentiation: null,
     ...overrides,
   }
 }
 
 describe('signal registry — exact id set (banned signals cannot exist)', () => {
-  it('contains exactly the seven audited signals', () => {
+  it('contains exactly the eight audited signals', () => {
     expect(SIGNAL_REGISTRY.map(d => d.signal_id).sort()).toEqual([
       'sig_cee_bias',
       'sig_estimates',
       'sig_goal_missing',
       'sig_option_breadth',
+      // Option VALUE differentiation — what the options say about the factors
+      // they share, as opposed to which parts they act on. Added 2026-09-09;
+      // its own guards live in
+      // `signals/__tests__/optionDifferentiationSignal.spec.ts` and
+      // `selectors/__tests__/computeOptionDifferentiation.spec.ts`.
+      'sig_option_differentiation',
       'sig_risk_count',
       // Causal-structure absence — what the model's SHAPE does not contain.
       // Added 2026-08-24; its own guards live in
@@ -192,6 +199,12 @@ describe('glossary — every copy string passes the banned-terms scan', () => {
   push('SIGNAL_COPY', {
     ...SIGNAL_COPY,
     optionBreadth: SIGNAL_COPY.optionBreadth(2),
+    // Both branches of the differentiation copy are scanned: the partial and
+    // the total forms are different sentences, and a scan that saw only one
+    // would be a guard watching one door.
+    optionDifferentiationPartial: SIGNAL_COPY.optionDifferentiation(3, 4, 4),
+    optionDifferentiationOneDiffering: SIGNAL_COPY.optionDifferentiation(3, 4, 2),
+    optionDifferentiationTotal: SIGNAL_COPY.optionDifferentiation(2, 2, 2),
     riskCount: SIGNAL_COPY.riskCount(2, true),
     // Both attributions are scanned: the saved-example wording is user-facing
     // copy too, and a glossary scan that saw only one branch would be a guard

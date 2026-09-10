@@ -98,11 +98,29 @@ describe('ModelHealthSection', () => {
       autoNoiseProvenance: null,
       stabilityPenaltyFactor: null,
     }
-    render(<ModelHealthSection auditTrail={auditTrail} ceeQuality={{ overall: 7.2, structure: 8, causality: 6.5, coverage: 7, safety: 7.5 }} />)
+    // ⚠ NOW RENDERED IN EXPERT TIER. The property this test guards — the header
+    // reports QUALITY and never a stability percentage — is unchanged; the bare
+    // figures simply moved behind the expert toggle (Paul, 9 Sep 2026), so plain
+    // has no header pill at all and this assertion needs the tier that has one.
+    // Pinned from the other side by `qualityNumbersBehindExpert.spec.tsx`, which
+    // asserts plain shows nothing.
+    render(
+      <DetailToggleContext.Provider value={{ showDetail: true }}>
+        <ModelHealthSection auditTrail={auditTrail} ceeQuality={{ overall: 7.2, structure: 8, causality: 6.5, coverage: 7, safety: 7.5 }} />
+      </DetailToggleContext.Provider>,
+    )
     const tierLabel = screen.getByTestId('accordion-tier-label')
     // POSITIVE CONTROL: the header summary still renders, so the absence
     // assertion below is about the stability half specifically and not about a
     // header that failed to appear at all.
+    //
+    // ⚠⚠ THIS READ `toHaveTextContent('coverage 7')` FOR ONE COMMIT AND THAT WAS
+    // A POSITIVE CONTROL RE-POINTED AT A REGRESSION. The header briefly carried
+    // `coverage · structure · safety` instead of `overall`, which duplicated the
+    // sub-score block below and left `overall` rendering for nobody. Re-pointing
+    // the control made this spec agree with that; the control is back on the
+    // figure the header is supposed to carry. Only the expert-tier wrapper is
+    // new, and it is needed because the pill is now expert-only.
     expect(tierLabel).toHaveTextContent('7.2 / 10')
     // ROADMAP 2.1273: the "{N}% stability" half is gone. This spec no longer
     // supplies the field, so the load-bearing proof — which INJECTS it and

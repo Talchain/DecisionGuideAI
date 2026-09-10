@@ -997,6 +997,31 @@ export const ANALYSIS_NEW_COPY = {
      */
     eyebrowWhyWithheld: 'What this run may not conclude',
     /**
+     * The MOVE that answers the refusal sentence above it. FURNITURE ONLY — it
+     * names a destination, and it makes no claim about the run.
+     *
+     * ⛔⛔ IT MAY NOT PROMISE A BETTER ANSWER, AND THAT IS A MEASUREMENT, NOT
+     * TASTE. Measured on the live wire: ONE user-stated value out of twenty
+     * flips CEE from `quantified_provisional` to `comparative_leader` while the
+     * other nineteen estimates remain Olumi's own. So "set a value for a more
+     * confident answer" would describe a real transition and still lie about
+     * what it means — the model licenses the CLAIM because a human has entered
+     * the loop, not because the evidence got stronger. The producer's own
+     * sentence is careful about exactly this ("no option CAN BE CALLED the
+     * leader … until you have set at least one of them"), and a caption that
+     * oversold it would undo the honesty the slot exists to carry.
+     *
+     * ⛔ AND IT MAY NOT COACH A RUBBER-STAMP. "Confirm these figures", on a
+     * panel whose whole complaint is that the figures are Olumi's own, is an
+     * instruction to launder a machine estimate into a user-stated one — which
+     * would satisfy the gate and mean nothing. Hence REVIEW OR SET: the two
+     * things the destination actually does, and neither of them an outcome.
+     *
+     * `withheldReasonHasAMove.spec.tsx` holds both ceilings, with a positive
+     * control proving each can fail on the sentence it forbids.
+     */
+    reviewEstimates: 'Review or set an estimate',
+    /**
      * ⚠ STILL LIVE, AND ITS ONLY CONSUMER IS NOW `ModelStrip`'s per-node chip —
      * a standalone claim that the run ranked this node among its top drivers.
      * The glance's own driver LIST, which this used to head, was removed at

@@ -32,7 +32,6 @@ import type { LadderStep, SparkPrompt } from '../types'
 import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
-  SHARED_MODEL_AUTHORITY_COPY,
 } from '../../../mutations/mutationAuthority'
 
 /** Identity hook for the decision hexagon — it must be assertable by name. */
@@ -41,7 +40,55 @@ export const HERO_DECISION_SHAPE_TESTID = 'pre-analysis-v3-hero-decision-shape'
 export const GOAL_INPUT_ID = 'pre-analysis-v3-goal'
 export const SUCCESS_INPUT_ID = 'pre-analysis-v3-success'
 
-const GOAL_SUCCESS_EDIT_CONNECTED = hasServerGraphAuthority(
+/**
+ * ⭐⭐ TWO FIELDS, TWO OPERATIONS, TWO AUTHORITY KEYS. ONE CONSTANT GATED BOTH,
+ * AND THE ONE IT READ NAMES NEITHER OF THE GOAL FIELD'S WRITES.
+ *
+ * `GOAL_SUCCESS_EDIT_CONNECTED = hasServerGraphAuthority(goalSuccessTarget)`
+ * used to gate both `InlineField`s. `goalSuccessTarget` is `'disabled'`, so the
+ * goal field shipped `readOnly` — while the notice directly beneath it said
+ * *"Edit it to say what you want to achieve."* An imperative pointing at a
+ * `<span role="textbox" aria-readonly="true">`.
+ *
+ * ⚠ THE KEY WAS THE WRONG ONE, NOT THE VALUE. `goalSuccessTarget`'s own frozen
+ * contract (`mutations/__tests__/mutationAuthority.spec.ts`) reads
+ * *"no local threshold editor or local Define-success modal action mounts"* —
+ * it is about the SUCCESS THRESHOLD, and it is correct about it. The goal field
+ * performs neither operation. It performs, per `commitGoal` below:
+ *
+ *   · a RENAME, when a goal exists → `store.updateNodeLabel`, whose own header
+ *     names "the pre-analysis hero" as one of the gestures it is the chokepoint
+ *     for. It captures a durable `structural_rename` intent against the
+ *     PRE-rename node, queues it in `pendingStructuralRenames`, and discloses
+ *     deferral rather than hiding it. Its key is
+ *     `canvasNodeRenameWithServerHash`, whose frozen contract lists
+ *     `'pre-analysis hero'` in `entrySurfaces` — the manifest already said this
+ *     surface should be a rename entry point.
+ *   · a NAMED ADD, when there is no goal yet → `store.addNode`, the same
+ *     `structural_add` carrier `YourDecisionSection` was lit up on. Its key is
+ *     `preAnalysisV3StructuralAdd`.
+ *
+ * Both are `'server_graph'`. Both are LIVE, not theoretical: the Inspector
+ * title's `EditableLabel` reaches `updateNodeLabel` today, deliberately outside
+ * `InspectorRouter`'s `<fieldset disabled>` (`InspectorRouter.tsx:385-400`).
+ *
+ * ⚠⚠ A CONJUNCTION, DELIBERATELY, AND FAIL-CLOSED. The field cannot know which
+ * of its two writes the next keystroke will be, so it may only offer to write
+ * while BOTH carriers hold. Either key regressing to `'disabled'` shuts the
+ * field rather than leaving one branch making a promise it cannot keep.
+ *
+ * ⚠ AND `goalSuccessTarget` IS NOT FLIPPED. Trap 21's remedy is to name the
+ * concepts apart and pick which one each surface consumes, never to align the
+ * defaults. `commitSuccess` below is a LOCAL store write plus a FREE-TEXT
+ * `add_constraint`; it has neither the typed parameters nor the applied receipt
+ * `modelGoalMinimumTarget` requires, so the success field stays read-only and
+ * says where the target is set instead.
+ */
+const GOAL_LABEL_EDIT_CONNECTED =
+  hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeRenameWithServerHash) &&
+  hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.preAnalysisV3StructuralAdd)
+
+const SUCCESS_TARGET_EDIT_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.goalSuccessTarget,
 )
 
@@ -212,8 +259,8 @@ export const HeroSection = memo(function HeroSection({
           value={hero.goal?.label ?? ''}
           placeholder={HERO_COPY.goalPlaceholder}
           attention={!hero.goal}
-          onCommit={GOAL_SUCCESS_EDIT_CONNECTED ? commitGoal : undefined}
-          readOnly={!GOAL_SUCCESS_EDIT_CONNECTED}
+          onCommit={GOAL_LABEL_EDIT_CONNECTED ? commitGoal : undefined}
+          readOnly={!GOAL_LABEL_EDIT_CONNECTED}
           trailing={
             <Tooltip content={HERO_COPY.pressureTestGoal} delay={300}>
               <PanelIconButton
@@ -236,36 +283,39 @@ export const HeroSection = memo(function HeroSection({
           ⚠⚠ WHICH SENTENCE IS DERIVED, NOT CHOSEN, AND THAT IS THE REPAIR.
           This read `.notice` unconditionally, under a comment claiming the
           sentence "points at the field directly above, which is already the
-          affordance". Derived at the bytes, that was false at this head:
+          affordance". At the head this repair was first written against that was
+          false: the goal field was gated by
+          `hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.goalSuccessTarget)`,
+          `mutations/mutationAuthority.ts` has `goalSuccessTarget: 'disabled'` as
+          a HARDCODED CONSTANT rather than a flag, so no `netlify.toml` or Render
+          dashboard value could make it true. The field therefore took `readOnly`
+          and `onCommit=undefined`, `InlineField`'s read-only branch rendered a
+          `<span role="textbox" aria-readonly="true">`, and the imperative was
+          visible text telling the reader to edit a field this screen could not
+          edit.
 
-            · `:44` `GOAL_SUCCESS_EDIT_CONNECTED =
-              hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.goalSuccessTarget)`
-            · `mutations/mutationAuthority.ts:127` `goalSuccessTarget: 'disabled'`
-              — a hardcoded constant, NOT a flag, so no `netlify.toml` or Render
-              dashboard value can change it
-            · `hasServerGraphAuthority` returns `authority === 'server_graph'`,
-              so this resolves FALSE
-            · the field above therefore takes `readOnly` and `onCommit=undefined`,
-              and `InlineField`'s read-only branch renders a
-              `<span role="textbox" aria-readonly="true">`. `commitGoal` — the
-              only `store.updateNodeLabel` call in this file — is unreachable.
+          ⭐ #1443 THEN SPLIT THAT CONSTANT, AND THE SPLIT DECIDES WHERE THIS
+          BINDS. `goalSuccessTarget` answers a question about the SUCCESS
+          THRESHOLD, and it is correct about it; it names neither of the goal
+          field's writes. The goal field now reads `GOAL_LABEL_EDIT_CONNECTED`
+          (`:87`), the conjunction of `canvasNodeRenameWithServerHash` and
+          `preAnalysisV3StructuralAdd`, which are the two writes `commitGoal`
+          actually performs. Both are `'server_graph'` at this head, so the field
+          is editable and the imperative-bearing member is the honest one. A
+          mechanical rename onto `SUCCESS_TARGET_EDIT_CONNECTED` would have bound
+          this sentence to the wrong authority (trap 21).
 
-          So the imperative was visible text telling the reader to edit a field
-          this screen cannot edit, roughly twenty-five lines above
-          `SHARED_MODEL_AUTHORITY_COPY` redirecting them to the Model tab, which
-          hosts no goal-label writer either.
-
-          The binding is now DERIVED FROM THE SAME CONSTANT THAT GATES THE FIELD,
-          so the two cannot drift: connect `goalSuccessTarget` and the imperative
-          returns on its own, with no copy edit and no test to remember. A
-          hardcoded member here is what produced the defect.
+          The binding is DERIVED FROM THE SAME CONSTANT THAT GATES THE FIELD
+          (`:262-263` above), so the two cannot drift: if either carrier regresses
+          to `'disabled'` the sentence stops instructing, with no copy edit and no
+          test to remember. A hardcoded member here is what produced the defect.
         */}
         {hero.goal?.fromBrief === true && (
           <p
             data-testid={GOAL_LABEL_FROM_BRIEF_TESTID}
             className={`${typography.panelMeta} -mt-1 text-text-light`}
           >
-            {GOAL_SUCCESS_EDIT_CONNECTED
+            {GOAL_LABEL_EDIT_CONNECTED
               ? GOAL_LABEL_FROM_BRIEF_COPY.notice
               : GOAL_LABEL_FROM_BRIEF_COPY.noticeNoEditHere}
           </p>
@@ -277,8 +327,8 @@ export const HeroSection = memo(function HeroSection({
           value={hero.success.displayText ?? ''}
           placeholder={HERO_COPY.successPlaceholder}
           attention={hero.goal != null && !hero.success.isSet}
-          onCommit={GOAL_SUCCESS_EDIT_CONNECTED ? commitSuccess : undefined}
-          readOnly={!GOAL_SUCCESS_EDIT_CONNECTED}
+          onCommit={SUCCESS_TARGET_EDIT_CONNECTED ? commitSuccess : undefined}
+          readOnly={!SUCCESS_TARGET_EDIT_CONNECTED}
           trailing={
             <>
               {successAttribution}
@@ -294,12 +344,18 @@ export const HeroSection = memo(function HeroSection({
             </>
           }
         />
-        {!GOAL_SUCCESS_EDIT_CONNECTED && (
+        {/*
+          Scoped to the SUCCESS field, which is the only field on this surface
+          that cannot be written here. It named no subject while both fields
+          were read-only; with the goal field writing, an unqualified "Change
+          this" would newly claim the goal is set somewhere else.
+        */}
+        {!SUCCESS_TARGET_EDIT_CONNECTED && (
           <p
             className={`${typography.panelMeta} ml-16 text-text-light`}
             data-testid="pre-analysis-v3-authority-note"
           >
-            {SHARED_MODEL_AUTHORITY_COPY}
+            {HERO_COPY.successAuthorityNote}
           </p>
         )}
       </div>

@@ -62,13 +62,20 @@ const GOAL_ID = 'goal-under-test'
 const OTHER_ID = 'factor-not-under-test'
 
 /**
- * The SAME derivation `HeroSection.tsx:44` uses, read from the real module.
- * It selects which arm of the honesty biconditional below applies, so the test
- * follows the shipped posture instead of mandating the present one.
+ * The SAME derivation `HeroSection.GOAL_LABEL_EDIT_CONNECTED` uses, read from
+ * the REAL module rather than restated as a literal, so this follows the shipped
+ * posture instead of mandating the present one. It selects which arm of the
+ * honesty biconditional below applies.
+ *
+ * ⚠ NOT `goalSuccessTarget`. #1443 split that constant apart: it governs the
+ * SUCCESS THRESHOLD and names neither of the goal field's writes. `commitGoal`
+ * performs a rename (`canvasNodeRenameWithServerHash`) or a named add
+ * (`preAnalysisV3StructuralAdd`), so those are the carriers the goal field's
+ * honesty depends on, and both must hold before it may offer to write.
  */
-const GOAL_SUCCESS_EDIT_CONNECTED = hasServerGraphAuthority(
-  CANONICAL_EDIT_AUTHORITY.goalSuccessTarget,
-)
+const GOAL_LABEL_EDIT_CONNECTED =
+  hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeRenameWithServerHash) &&
+  hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.preAnalysisV3StructuralAdd)
 
 describe('goalLabelIsUnconfirmedBriefExtract — the one predicate', () => {
   it('fires on from_brief, and on nothing else in the vocabulary', () => {
@@ -138,10 +145,12 @@ describe('the mounted Analysis Goal field tells the truth', () => {
    * unconditionally — "Edit it to say what you want to achieve." — as VISIBLE
    * TEXT beneath the goal field, under a comment asserting the field "really
    * writes the label". Derived at the bytes, the field is inert:
-   * `HeroSection.tsx:215-216` passes `readOnly={!GOAL_SUCCESS_EDIT_CONNECTED}`
-   * and `onCommit=undefined`; `:44` resolves that from `mutationAuthority.ts:127`
-   * `goalSuccessTarget: 'disabled'`, a HARDCODED CONSTANT rather than a flag, so
-   * no deployed posture can make the instruction true.
+   * the hero's goal `InlineField` passed `readOnly` and `onCommit=undefined`,
+   * resolved from `mutationAuthority.ts` `goalSuccessTarget: 'disabled'`, a
+   * HARDCODED CONSTANT rather than a flag, so no deployed posture could make the
+   * instruction true. #1443 has since split that constant apart and the goal
+   * field now reads `GOAL_LABEL_EDIT_CONNECTED`, so the connected arm below is
+   * the live one. The property is unchanged; only the authority it reads is.
    *
    * ⚠ WHY THIS IS A BICONDITIONAL AND NOT A CONJUNCTION. The property is an
    * IMPLICATION: no instruction WHILE the field renders read-only. Asserting
@@ -184,7 +193,7 @@ describe('the mounted Analysis Goal field tells the truth', () => {
     expect(notice.length).toBeGreaterThan(20)
     expect(notice).toMatch(/taken from your brief/i)
 
-    if (GOAL_SUCCESS_EDIT_CONNECTED) {
+    if (GOAL_LABEL_EDIT_CONNECTED) {
       // Connected: the editable `<input>` arm mounts and carries no
       // `aria-readonly`, and the imperative-bearing member is then honest.
       expect(field).not.toHaveAttribute('aria-readonly')
@@ -209,11 +218,14 @@ describe('the mounted Analysis Goal field tells the truth', () => {
    * passes in both postures, and the copy follows on its own, because
    * `HeroSection` derives its member from the same constant.
    */
-  it('⚠ measured posture: the hero goal-label writer is not connected at this head', () => {
+  it('⚠ measured posture: the hero goal-label writer IS connected at this head', () => {
+    expect(CANONICAL_EDIT_AUTHORITY.canvasNodeRenameWithServerHash).toBe('server_graph')
+    expect(CANONICAL_EDIT_AUTHORITY.preAnalysisV3StructuralAdd).toBe('server_graph')
+    expect(GOAL_LABEL_EDIT_CONNECTED).toBe(true)
+    // CONTRAST CONTROL: the predicate is not simply always true, and the split is
+    // real. The SUCCESS THRESHOLD is a DIFFERENT question and is still disabled.
     expect(CANONICAL_EDIT_AUTHORITY.goalSuccessTarget).toBe('disabled')
     expect(hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.goalSuccessTarget)).toBe(false)
-    // CONTRAST CONTROL: the predicate is not simply always false.
-    expect(hasServerGraphAuthority('server_graph')).toBe(true)
     // And the two sentences it selects between really are two.
     expect(GOAL_LABEL_FROM_BRIEF_COPY.notice).not.toBe(GOAL_LABEL_FROM_BRIEF_COPY.noticeNoEditHere)
   })

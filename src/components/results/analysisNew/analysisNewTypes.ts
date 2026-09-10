@@ -922,6 +922,19 @@ export type GlanceComparisonScope =
   /** The candidate set cannot be established. The share is WITHHELD, not qualified. */
   | { kind: 'unresolved' }
 
+/**
+ * The object a withheld-designation sentence asks the reader to go and fix, when
+ * the producer's cause names one this build understands.
+ *
+ * ⚠ A UNION OF ONE IS DELIBERATE, NOT A BOOLEAN WAITING TO GROW. Naming the
+ * remedy keeps the meaning at the call site — `=== 'estimate'` reads as "this
+ * sentence asks for an estimate", where a boolean would read as "the button is
+ * on" and invite a second predicate beside it. The other reachable causes name an
+ * option or name no act; neither has a control to offer yet, and inventing copy
+ * for them here would be speculation rather than a product decision.
+ */
+export type GlanceWithheldRemedy = 'estimate'
+
 export interface AtAGlance {
   /** The current read. Absent when no producer licenses a synthesis. */
   headline: string | null
@@ -951,6 +964,32 @@ export interface AtAGlance {
    *    remaining gap, named rather than papered over.
    */
   designationWithheldReason: string | null
+  /**
+   * ⭐⭐ WHAT THE SENTENCE ABOVE ASKS THE USER TO GO AND DO — the field that
+   * decides whether an ACT may be offered beside it, and which one.
+   *
+   * `designationWithheldReason` being non-null says only that the model refused.
+   * It does NOT say why, and the causes that can fill that one slot prescribe
+   * DIFFERENT remedies: two of them name an estimate, one names an option, two
+   * name nothing at all. A surface that offers one fixed act under all of them
+   * tells some users to fix something that is not wrong — which is the precise
+   * harm CEE's cause split exists to prevent, and strictly worse than offering
+   * no act, because a futile instruction spends the reader's trust.
+   *
+   * `'estimate'` — and ONLY `'estimate'` — licenses the review-estimates control.
+   *
+   * ⛔ `null` IS THE FAIL-CLOSED DEFAULT AND MEANS "DO NOT OFFER AN ACT". It
+   * covers three different situations on purpose: the cause names some other
+   * object, the cause is one this build does not recognise, and the producer sent
+   * no `code` at all. None of them may inherit another cause's affordance. Do not
+   * read `null` as "no refusal" — that question is `designationWithheldReason`.
+   *
+   * Derived in `buildAnalysisNewViewModel`, off the SAME reason object the
+   * sentence comes from, so the act and the sentence cannot describe different
+   * conjuncts. Corpus and opposite-direction twins in
+   * `withheldReasonHasAMove.spec.tsx`.
+   */
+  designationWithheldRemedy: GlanceWithheldRemedy | null
   /**
    * The leading option's LABEL alone, so the surface can typeset the name as
    * the answer and choose its own framing verb. Same source as `headline`

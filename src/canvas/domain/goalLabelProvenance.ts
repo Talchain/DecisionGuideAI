@@ -108,8 +108,8 @@ export const GOAL_LABEL_FROM_BRIEF_TESTID = 'pre-analysis-v3-goal-from-brief'
  *     the hero goal field. ⚠⚠ THIS FILE ASSERTED THAT THE FIELD "really does
  *     write the label" AND RULED "KEEP THE IMPERATIVE" THERE. THAT WAS FALSE,
  *     AND THE SENTENCE IS WITHDRAWN — derived at the bytes:
- *     `HeroSection.tsx:215-216` passes `readOnly={!GOAL_SUCCESS_EDIT_CONNECTED}`
- *     and `onCommit={GOAL_SUCCESS_EDIT_CONNECTED ? commitGoal : undefined}`;
+ *     the hero's goal `InlineField` passes `readOnly={!GOAL_LABEL_EDIT_CONNECTED}`
+ *     and `onCommit={GOAL_LABEL_EDIT_CONNECTED ? commitGoal : undefined}`;
  *     `:44` resolves that from `mutations/mutationAuthority.ts:127`
  *     `goalSuccessTarget: 'disabled'`, a HARDCODED CONSTANT and not a flag, so
  *     `hasServerGraphAuthority` is false and the finding is posture-independent.

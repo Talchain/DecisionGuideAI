@@ -28,6 +28,7 @@
 import { guidanceCategoryRank, type GuidanceItem } from '../../../canvas/stores/guidanceStore'
 import type { HelpType, Recommendation, StrengthenInputs, StrengthenPhase3Item } from './strengthenTypes'
 import { attestsNoFactorFlip } from '../utils/fragileEdgeCopy'
+import { biasCodeFromPhase3Item } from './biasTypesFromGuidance'
 
 /**
  * The deterministic "define a success measure" recommendation's id.
@@ -411,6 +412,7 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
     .slice(0, MAX_PHASE3_PROMOTED)
   let promotedIndex = 0
   for (const item of promotedPhase3) {
+    const biasCode = biasCodeFromPhase3Item(item)
     recs.push({
       id: `strengthen:phase3:${item.id}`,
       // Stage 3: the producer's own `signal_code`, where it names a move we can
@@ -479,6 +481,22 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       // Stage 3: carried so the surface can attach a named technique to a
       // PRODUCER finding, not only to the UI's own triggers.
       ...(item.signalCode ? { signalCode: item.signalCode } : {}),
+      /**
+       * ⭐⭐ WHICH bias, not merely THAT a bias was found — the fact that
+       * decides whether the card can offer the corrective for the bias in hand
+       * or only the generic "review a possible bias".
+       *
+       * `signalCode` above is `COGNITIVE_BIAS` for every one of them, so the
+       * identity was arriving and dying here: the producer names the bias in the
+       * card's TITLE, the registry is the estate's one authority on what those
+       * titles mean, and nothing was reading the two together on a per-card
+       * basis. `biasCodeFromPhase3Item` requires BOTH producer facts
+       * (`coaching_kind === 'bias_signal'` AND a registry-recognised title) and
+       * returns `null` otherwise — so this is absent on every non-bias card and
+       * on any bias this estate has no code for. Nothing is inferred from the
+       * model or the brief.
+       */
+      ...(biasCode ? { biasCode } : {}),
     })
   }
 
