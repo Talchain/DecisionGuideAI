@@ -30,19 +30,13 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { EdgePanel } from '../panels/EdgePanel'
+import { EdgeLabelModeToggle } from '../shared/EdgeLabelModeToggle'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
 import { useEdgeLabelMode } from '../../../store/edgeLabelMode'
 import { getEdgeLabel } from '../../../domain/edgeLabels'
 import type { EdgeValueDisplay, EdgeDirectionDisplay } from '../../../domain/edgeValueProvenance'
 
-const panelProps = {
-  edgeId: 'e1',
-  techMode: false,
-  onClose: vi.fn(),
-  onNavigate: vi.fn(),
-}
 
 const NODES = [
   { id: 'fac1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Marketing budget' } },
@@ -97,9 +91,18 @@ describe('EdgePanel — a person can reach the numeric edge label', () => {
     expect(numeric).toMatch(/[0-9]/)
   })
 
+  /**
+   * ⛔ RENDERS THE CONTROL, NOT `EdgePanel`. These two cases assert the
+   * control's own BEHAVIOUR (it flips the store, it is reversible, it reports
+   * state to assistive tech), which is a property of the control wherever it
+   * sits. Its PLACEMENT — outside the authority fieldset, on the only mount
+   * path a user has — is a different question and is asserted through
+   * `InspectorRouter` in the block at the foot of this file. Keeping the two
+   * apart is what stopped this file passing about an inert toggle.
+   */
   it('the control flips the store the edge renderer reads', () => {
     seedEdge()
-    render(<EdgePanel {...panelProps} />)
+    render(<EdgeLabelModeToggle />)
 
     expect(useEdgeLabelMode.getState().mode).toBe('human')
     const before = boardLabel(useEdgeLabelMode.getState().mode)
@@ -115,7 +118,7 @@ describe('EdgePanel — a person can reach the numeric edge label', () => {
 
   it('the control is reversible and reports its state to assistive tech', () => {
     seedEdge()
-    render(<EdgePanel {...panelProps} />)
+    render(<EdgeLabelModeToggle />)
 
     expect(toggle()).toHaveAttribute('aria-checked', 'false')
     fireEvent.click(toggle())
@@ -129,11 +132,12 @@ describe('EdgePanel — a person can reach the numeric edge label', () => {
 /**
  * ⭐⭐ THE BLOCK THAT WAS MISSING, AND ITS ABSENCE IS WHY THIS SHIPPED INERT.
  *
- * Every case above renders `EdgePanel` DIRECTLY, which never crosses
- * `InspectorRouter`'s `<fieldset disabled data-authority="disabled">` — the
- * only mount path a real user gets. So the suite could be fully green about a
- * toggle no user could press: platform trap 3b, bound to a surface the real
- * render does not produce.
+ * The cases above render the CONTROL directly, which asserts its behaviour and
+ * says nothing about where it sits. Before the repair they rendered `EdgePanel`
+ * instead — which never crosses `InspectorRouter`'s
+ * `<fieldset disabled data-authority="disabled">`, the only mount path a real
+ * user gets — so the suite was fully green about a toggle no user could press:
+ * platform trap 3b, bound to a surface the real render does not produce.
  *
  * Found by an independent reviewer, not by this file. The remedy is asserted
  * HERE, at the seam, rather than trusted to the authority spec in another file:
