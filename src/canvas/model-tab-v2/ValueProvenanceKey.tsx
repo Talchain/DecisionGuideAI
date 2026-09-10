@@ -103,12 +103,41 @@ export function ValueProvenanceKey() {
               })}
             </div>
           ))}
-          {/* ⚠ The ⚠ is NOT a provenance claim and must not be keyed as one —
-              `vocabulary.ts` is explicit that a surface rendering it as a
-              whose-value-is-this badge is reading it wrong. */}
+          {/* ⚠⚠ THIS LINE DESCRIBED A MARK THE PRODUCT NO LONGER DRAWS, AND
+              NAMED THE WRONG MEANING FOR THE ONE IT RESEMBLES.
+
+              It read "⚠ marks a value that still needs checking — a separate
+              question from where it came from." Measured at `bdf4fb89`: that `⚠`
+              was the ONLY renderable warning-sign glyph in this whole directory
+              (1 occurrence with comments stripped; contrast control fires), and
+              the rows do not draw it. They draw lucide COMPONENTS from
+              `ATTENTION_MARK` — `CircleDashed`, `HelpCircle`, `Split`,
+              `AlertTriangle`, `Target` — each already naming itself via
+              `aria-label`/`title` from `ATTENTION_LABEL`. `ModelRowView.tsx`
+              records why: the bare `⚠` was the deployed-`a9c2e050` defect, one
+              glyph for all five reasons, and DS §9.9 names `'⚠'` explicitly as
+              banned. So this legend was the last surviving render of the thing
+              that change removed.
+
+              It also named the wrong meaning. The only triangle drawn is
+              `fragile`, whose label is 'Could flip the result' — a claim about
+              the ANSWER changing, which is not "a value that still needs
+              checking" (that is `unconfirmed-estimate`, drawn as `HelpCircle`).
+
+              ⚠ THE DISTINCTION THE OLD LINE EXISTED TO MAKE IS KEPT: attention
+              and provenance are different questions, and this key answers only
+              the second. `vocabulary.ts` is explicit that a surface rendering an
+              attention mark as a whose-value-is-this badge is reading it wrong.
+
+              ⚠ "ON HOVER" AND NOT "ON FOCUS". The marks are `<span>`s with no
+              `tabIndex`, so the pointer and assistive tech reach the name and a
+              keyboard does not — `ModelRowView.tsx:876-879` states that
+              limitation about `title` in this estate. Claiming focus here would
+              replace one false promise with another. */}
           <p className={`${typography.panelMeta} text-text-light m-0 pt-1 border-t border-panel-border`}>
-            ⚠ marks a value that still needs checking — a separate question from
-            where it came from.
+            The marks beside a row say what still needs attention — a separate
+            question from where its value came from. Each one names itself on
+            hover.
           </p>
         </div>
       )}

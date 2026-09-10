@@ -206,6 +206,15 @@ const DISCUSS_RELATIONSHIPS: GroupAction = {
  *
  * Recorded rather than deleted silently, for the same reason "Map interventions"
  * is recorded below: an absence should read as a decision.
+ *
+ * ⚠ AND THE SURVIVOR HAD INHERITED NONE OF THE v2 FIXES (10 Sep 2026). Because
+ * it was never actually rehomed, `modelcard-discuss` kept calling `onSendMessage`
+ * DIRECTLY — into an Olumi tab that is `hidden` + `aria-hidden` while Model is
+ * active — and kept a `title` as its only accessible name. Both are now closed at
+ * the original: it routes through `createOlumiHandOff` and carries
+ * `MODELCARD_DISCUSS_LABEL`. The removal above remains justified; what this note
+ * adds is that "the original is still on screen" was not the same as "the
+ * original is still correct".
  */
 
 /**

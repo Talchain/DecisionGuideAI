@@ -27,6 +27,7 @@ import { useContext, useMemo } from 'react'
 import { AlertTriangle, MessageCircle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { SectionErrorBoundary } from '../GraphTextView'
+import type { HandOffToOlumi } from '../../conversation/olumiHandOff'
 import { Accordion } from '../../../components/results/Accordion'
 import type { CeeQualityDimensions } from '../../store'
 import { DetailToggleContext } from './DetailToggleContext'
@@ -52,6 +53,17 @@ export interface AuditTrailData {
   stabilityPenaltyFactor: number | null
 }
 
+/**
+ * The accessible name of the model-card discuss control.
+ *
+ * ⚠ NOT A NEW STRING. It is `DISCUSS_RELIABILITY.label` as
+ * `groupActions.ts:186-207` records it — the outline action written to replace
+ * this button, removed when its group turned out to be unfillable. The capability
+ * stayed here, so the NAME it was given comes here with it rather than being
+ * re-invented one file over (trap 12: one string, one owner).
+ */
+export const MODELCARD_DISCUSS_LABEL = "Discuss the model's reliability with Olumi"
+
 interface ModelHealthSectionProps {
   ceeQuality?: CeeQualityDimensions | null
   /** Audit trail from PLoT response metadata */
@@ -66,7 +78,29 @@ interface ModelHealthSectionProps {
   isExpanded?: boolean
   /** Callback when expansion state changes */
   onExpandChange?: (expanded: boolean) => void
-  onSendMessage?: (message: string) => void
+  /**
+   * The ONE hand-off, never a bare sender.
+   *
+   * ⚠ THIS PROP WAS `onSendMessage?: (message: string) => void` AND THAT WAS THE
+   * DEFECT. `olumiHandOff.ts`'s own header names six "Discuss this with the AI"
+   * buttons that called the sender DIRECTLY, with no fronting, and closed them —
+   * but it closed them on the v2 outline. THIS host survived the sweep because
+   * it mounts OUTSIDE `ModelTabBody`'s `LEGACY_DETAILED_EDITOR_MOUNTED = false`
+   * gate, in `model-scientific-transparency`, while the five sibling v1 discuss
+   * buttons it was grouped with went dark inside it. So the one that was still
+   * clickable is the one the fix missed — `groupActions.ts:186-207` records the
+   * survival in as many words and draws the opposite conclusion from it.
+   *
+   * The turn it sends is real, and the Olumi tab wrapper is `hidden` +
+   * `aria-hidden` whenever Model is the active tab (`OutputsDock.tsx:3735-3737`),
+   * so the user clicked, a turn posted, and the screen did not change.
+   *
+   * `HandOffToOlumi` is `null` rather than a no-op when no conversation can
+   * receive the turn, and the `{onHandOffToOlumi && …}` guard below is the v1
+   * `{onSendMessage && …}` guard preserved: an affordance whose turn cannot be
+   * delivered must not be on screen at all.
+   */
+  onHandOffToOlumi?: HandOffToOlumi
 }
 
 // ── Quality score row ──────────────────────────────────────────────────────────
@@ -130,7 +164,7 @@ function ModelHealthSectionInner({
   factorsToVerify,
   isExpanded,
   onExpandChange,
-  onSendMessage,
+  onHandOffToOlumi,
 }: ModelHealthSectionProps) {
   const { showDetail } = useContext(DetailToggleContext)
 
@@ -425,16 +459,38 @@ function ModelHealthSectionInner({
             )}
           </div>
         )}
-        {onSendMessage && (
+        {onHandOffToOlumi && (
           <div className="flex justify-end mt-2">
+            {/* ⚠ FRONT FIRST, THEN SEND — and the hand-off owns both halves.
+                This called `onSendMessage(...)` directly, so the turn landed in a
+                panel that is `hidden` + `aria-hidden` while Model is the active
+                tab (`OutputsDock.tsx:3735-3737`). `createOlumiHandOff` reveals
+                the Olumi surface and only then sends, which is the rule
+                `olumiHandOff.ts` states and the v2 outline already obeys.
+
+                ⚠ AND THE ACCESSIBLE NAME IS NOT OPTIONAL HERE. The control is a
+                14px icon whose only name was a `title`, which is the one route a
+                keyboard or touch user cannot take — `ModelRowView.tsx:876-879`
+                states that limitation about a `title` in this very estate, and
+                `ModelGroupActions.tsx:10-19` cites THIS button by line as one of
+                the icon-only originals it moved away from. The label is the house
+                string for this capability, taken verbatim from the action written
+                to replace it (`groupActions.ts`'s recorded `DISCUSS_RELIABILITY`
+                label), so the name is a reuse rather than an invention. */}
             <button
               type="button"
-              onClick={() => onSendMessage('Help me understand the reliability and limitations of my model')}
+              onClick={() =>
+                onHandOffToOlumi({
+                  message: 'Help me understand the reliability and limitations of my model',
+                  reason: 'modelcard-discuss',
+                })
+              }
               className="text-text-light hover:text-info cursor-pointer transition-colors"
-              title="Discuss this with the AI"
+              aria-label={MODELCARD_DISCUSS_LABEL}
+              title={MODELCARD_DISCUSS_LABEL}
               data-testid="modelcard-discuss"
             >
-              <MessageCircle className="w-3.5 h-3.5" />
+              <MessageCircle className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
           </div>
         )}

@@ -147,15 +147,33 @@ describe('rehome completeness — every v1 send-to-AI capability has a successor
    * `modelcard-discuss` is ever unmounted, renamed, or has its turn text edited,
    * this REDs and the removal above stops being justified.
    */
+  /**
+   * ⚠ THE CALL SHAPE CHANGED HERE ON 10 Sep 2026, AND THE TURN TEXT DID NOT.
+   * This rendered with `onSendMessage` and asserted a bare `send(message)`. That
+   * prop is gone: the button was posting a real turn into an Olumi tab that is
+   * `hidden` + `aria-hidden` while Model is active, so it now takes the ONE
+   * hand-off (`createOlumiHandOff`) and fronts the surface before sending.
+   *
+   * What this test guards is unchanged — the tenth v1 capability still sends the
+   * byte-identical string from the still-mounted original, which is what keeps
+   * `DISCUSS_RELIABILITY`'s removal justified. The manifest above is a HISTORIC
+   * RECORD and is not touched (trap 14b); only the carrier's signature is. The
+   * fronting property itself is pinned separately, in
+   * `components/model-tab/__tests__/modelCardDiscussFrontsOlumi.spec.tsx`.
+   */
   it('the tenth v1 capability is served by the STILL-MOUNTED original, byte for byte', () => {
-    const onSendMessage = vi.fn()
-    render(<ModelHealthSection ceeQuality={{ overall: 7.2 }} onSendMessage={onSendMessage} />)
+    // Params declared so `.mock.calls[0][0].message` is typed — a bare
+    // `vi.fn(() => …)` has zero declared arity and the access would not compile.
+    const onHandOffToOlumi = vi.fn(
+      (_opts: { message: string; reason?: string }) => 'fronted' as const,
+    )
+    render(<ModelHealthSection ceeQuality={{ overall: 7.2 }} onHandOffToOlumi={onHandOffToOlumi} />)
 
     const discuss = screen.getByTestId('modelcard-discuss')
     fireEvent.click(discuss)
 
-    expect(onSendMessage).toHaveBeenCalledTimes(1)
-    expect(onSendMessage).toHaveBeenCalledWith(V1_MESSAGE_SERVED_BY_THE_LIVE_ORIGINAL)
+    expect(onHandOffToOlumi).toHaveBeenCalledTimes(1)
+    expect(onHandOffToOlumi.mock.calls[0]![0].message).toBe(V1_MESSAGE_SERVED_BY_THE_LIVE_ORIGINAL)
 
     // Contrast control: no rehomed outline action duplicates it any more, so the
     // product offers this turn from exactly one place.

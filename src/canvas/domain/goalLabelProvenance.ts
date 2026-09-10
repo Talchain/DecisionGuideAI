@@ -73,18 +73,53 @@ import { classifyNodeProvenance } from './valueProvenance'
 export const GOAL_LABEL_FROM_BRIEF_TESTID = 'pre-analysis-v3-goal-from-brief'
 
 /**
- * The one sentence. Held here rather than in a per-surface copy file so the
- * three surfaces that render it cannot drift into three different claims.
+ * The sentences. Held here rather than in a per-surface copy file so the
+ * surfaces that render them cannot drift into different claims.
  *
- * It states the PROVENANCE and hands over the pen. It does not guess what the
- * user meant, does not rank the goal, and does not apologise — the extract may
- * well be right, and the product simply has not been told that it is.
+ * They state the PROVENANCE and hand over the pen. They do not guess what the
+ * user meant, do not rank the goal, and do not apologise — the extract may well
+ * be right, and the product simply has not been told that it is.
+ *
+ * ⚠⚠ TWO SENTENCES, NOT ONE, AND THE SPLIT IS THE POINT (10 Sep 2026). This was
+ * a single `notice` ending "Edit it to say what you want to achieve." — and that
+ * imperative is TRUE on one surface and FALSE on another, which is why aligning
+ * them is the wrong fix:
+ *
+ *   · `pre-analysis-v3/hero/HeroSection.tsx:237-244` renders it as VISIBLE TEXT
+ *     directly beneath a goal field that really does write the label
+ *     (`InlineField` → `store.updateNodeLabel`). There the sentence points at the
+ *     affordance immediately above it, and editing there stamps `user_set` and
+ *     retires the notice. KEEP THE IMPERATIVE.
+ *   · `model-tab-v2/ModelRowView.tsx` renders it as a `title` on a pill in the
+ *     Model outline, where there is NO label writer at all — measured at
+ *     `bdf4fb89`: `EditableLabel|onRename|structuralRename|contentEditable|
+ *     renameNode` is ZERO across all 17 non-test files of `model-tab-v2/`,
+ *     against 34 files app-wide. `ModelDetailRegion.tsx` renders the label as a
+ *     read-only `<h3>`. DROP THE IMPERATIVE.
+ *
+ * So the predicate that chooses between them is NOT the surface's name: it is
+ * **does a goal-label writer exist on this screen**. A caller that cannot answer
+ * yes must use `noticeNoEditHere`. Telling someone to edit something this screen
+ * cannot edit is a false promise, and the estate's standing ruling is that a gap
+ * is acceptable where a lie is not — so the instruction is what gives way.
+ *
+ * ⛔ DO NOT "TIDY" THESE BACK INTO ONE. Two surfaces answering two different
+ * questions under one string is exactly the trap that produced this defect; the
+ * fix is to name them apart, not to reconcile them.
  */
 export const GOAL_LABEL_FROM_BRIEF_COPY = {
   /** The chip/pill. Short enough to sit beside the label on a canvas node. */
   pill: 'From your brief',
-  /** The full claim, wherever there is room for a line of it. */
+  /**
+   * The full claim for a surface that HOSTS a goal-label writer. The imperative
+   * is load-bearing there: it points at the field beside it.
+   */
   notice: 'Taken from your brief — not yet confirmed as your goal. Edit it to say what you want to achieve.',
+  /**
+   * The full claim for a surface with NO goal-label writer on it. Same
+   * provenance, same honesty, no instruction the screen cannot carry out.
+   */
+  noticeNoEditHere: 'Taken from your brief — not yet confirmed as your goal.',
 } as const
 
 /**
