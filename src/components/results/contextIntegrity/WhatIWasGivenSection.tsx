@@ -56,6 +56,7 @@ import { useContextIntegrityStore } from '../../../canvas/stores/contextIntegrit
 import type { NotModelledItem } from '../../../adapters/cee/notModelled'
 import { ClampToggle } from '../ClampToggle'
 import { figureTallySubtitle } from './figureTallySubtitle'
+import { surface } from '../analysisNew/panelSurfaces'
 
 /** Rows shown per group before "show all". Keeps the open state scannable. */
 const VISIBLE_ROWS = 6
@@ -381,9 +382,40 @@ export interface WhatIWasGivenSectionProps {
   /** Starts the conversation to add an unmodelled figure. When absent, no
    *  action is offered — we never render a button that does nothing. */
   onSendMessage?: (text: string) => void
+  /**
+   * ⭐⭐ OPT IN TO THE ANALYSIS (NEW) CONTAINER GRAMMAR. **Default `false`, and
+   * the default is the whole design of this prop.**
+   *
+   * This component has TWO consumers: `AnalysisNewTabBody` (the Reasoning tab)
+   * and `ResultsBody` (the **PARKED** Analysis tab). Paul's scope ruling puts
+   * the Analysis tab out of bounds, so this may not change how that surface
+   * renders — not "probably won't", *may not*. An unflagged change here would
+   * be a change to a parked surface wearing a Reasoning-tab commit message.
+   *
+   * ── WHY IT IS WORTH A PROP AT ALL ──────────────────────────────────────
+   * Seen on the deployed Reasoning tab, this section is the single most jarring
+   * instance of the inconsistency Paul named. Three sections sit at the same
+   * level and one of them wears a box:
+   *
+   *     What would change your mind        3  ›     ← borderless row
+   *     ┌────────────────────────────────────┐
+   *     │ What you gave me, and what I did … │      ← BOXED
+   *     └────────────────────────────────────┘
+   *     Strengthen the reasoning           1  ›     ← borderless row
+   *
+   * A measurement said it was a fourth container treatment (14px radius,
+   * `6px 12px` padding, against the boxes' 14px/`10px 12px` and the ribbon's
+   * 12px/`6px 8px`). LOOKING said it was the worst one — because its two
+   * NEIGHBOURS are the thing it disagrees with, and neighbours are what a
+   * reader compares.
+   */
+  useSurfaceGrammar?: boolean
 }
 
-export function WhatIWasGivenSection({ onSendMessage }: WhatIWasGivenSectionProps = {}) {
+export function WhatIWasGivenSection({
+  onSendMessage,
+  useSurfaceGrammar = false,
+}: WhatIWasGivenSectionProps = {}) {
   const [open, setOpen] = useState(false)
   const recordedScenarioId = useContextIntegrityStore((s) => s.scenarioId)
   const briefText = useContextIntegrityStore((s) => s.briefText)
@@ -460,7 +492,15 @@ export function WhatIWasGivenSection({ onSendMessage }: WhatIWasGivenSectionProp
   return (
     <section
       data-testid="what-i-was-given-section"
-      className="rounded-lg border border-panel-border bg-panel px-3 py-1.5"
+      /* ⚠ THE FILL IS KEPT IN BOTH MODES. `surface('neutral')` carries no fill,
+         and this section sits directly on the panel — without `bg-panel` the
+         open state shows the page through it. The grammar governs GEOMETRY;
+         the fill is this section's own and is unaffected by the choice. */
+      className={
+        useSurfaceGrammar
+          ? `${surface('neutral')} bg-panel`
+          : 'rounded-lg border border-panel-border bg-panel px-3 py-1.5'
+      }
     >
       <button
         type="button"
