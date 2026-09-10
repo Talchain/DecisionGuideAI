@@ -83,6 +83,7 @@ import { makeContestedEdge, makeContestedValidation } from '../../../../__fixtur
 import { openOutlineGroups } from '../../../model-tab-v2/__tests__/openOutlineGroups'
 import { computeContestedRows } from '../selectors/computeContestedRows'
 import { getCausalEdges } from '../../../domain/edgeUtils'
+import type { EdgeData } from '../../../domain/edges'
 
 vi.mock('../../../utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
@@ -286,6 +287,23 @@ describe('§2b KNOWN GAP — an option-sourced contested edge reaches ONE surfac
     makeContestedEdge(OPTION_EDGE_ID, OPTION_ID, TARGET_ID, makeContestedValidation()),
   ] as Edge[]
 
+  /**
+   * `getCausalEdges` declares `Edge<EdgeData>[]`, while the shared fixture
+   * (`src/__fixtures__/contestedEdge.ts`) returns a bare `Edge` whose `data` is
+   * already the EdgeData shape (weight, direction, beliefExists, provenance,
+   * validation). So the narrowing is truthful about the value, not a cover for
+   * a mismatched fixture.
+   *
+   * Narrowed ONCE here, by the SAME assertion the production caller makes at
+   * `ModelTabV2Panel.tsx:330` (`edges as Edge<EdgeData>[]`), so this spec meets
+   * the seam on the terms the surface it reasons about already uses.
+   *
+   * `gapEdges` deliberately stays bare `Edge[]`: that is what the panel's own
+   * `edges` prop and `computeContestedRows` declare, and re-typing it would
+   * change what those two calls are exercising.
+   */
+  const gapCausalEdges = gapEdges as Edge<EdgeData>[]
+
   afterEach(() => cleanup())
 
   it('the PRE-ANALYSIS surface DOES list it — no node-kind filter exists on that side', () => {
@@ -296,7 +314,7 @@ describe('§2b KNOWN GAP — an option-sourced contested edge reaches ONE surfac
   })
 
   it('the MODEL-TAB destination DOES NOT — `getCausalEdges` drops it at both endpoints', () => {
-    expect(getCausalEdges(gapNodes, gapEdges)).toEqual([])
+    expect(getCausalEdges(gapNodes, gapCausalEdges)).toEqual([])
 
     render(<ModelTabV2Panel nodes={gapNodes} edges={gapEdges} goalThreshold={null} />)
     openOutlineGroups()
@@ -311,7 +329,7 @@ describe('§2b KNOWN GAP — an option-sourced contested edge reaches ONE surfac
     // presence is not evidence (trap 13). The ONLY difference between this case
     // and the one above is the source node's kind.
     const factorNodes = [factor(OPTION_ID, 'Ship now'), factor(TARGET_ID, 'Delivery speed')]
-    expect(getCausalEdges(factorNodes, gapEdges)).toHaveLength(1)
+    expect(getCausalEdges(factorNodes, gapCausalEdges)).toHaveLength(1)
 
     render(<ModelTabV2Panel nodes={factorNodes} edges={gapEdges} goalThreshold={null} />)
     openOutlineGroups()
