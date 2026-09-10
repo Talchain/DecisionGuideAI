@@ -125,3 +125,64 @@ describe('EdgePanel — a person can reach the numeric edge label', () => {
     expect(useEdgeLabelMode.getState().mode).toBe('human')
   })
 })
+
+/**
+ * ⭐⭐ THE BLOCK THAT WAS MISSING, AND ITS ABSENCE IS WHY THIS SHIPPED INERT.
+ *
+ * Every case above renders `EdgePanel` DIRECTLY, which never crosses
+ * `InspectorRouter`'s `<fieldset disabled data-authority="disabled">` — the
+ * only mount path a real user gets. So the suite could be fully green about a
+ * toggle no user could press: platform trap 3b, bound to a surface the real
+ * render does not produce.
+ *
+ * Found by an independent reviewer, not by this file. The remedy is asserted
+ * HERE, at the seam, rather than trusted to the authority spec in another file:
+ * a premise this control's whole thesis rests on, pinned only in someone else's
+ * suite, fails silently here the day that file changes.
+ *
+ * ⚠ BOTH DIRECTIONS. Asserting only "the toggle is enabled" would pass if the
+ * fieldset were deleted outright, which would silently un-fence every genuinely
+ * unsavable control on the edge panel. So the twin asserts the boundary is still
+ * THERE and still disabling what it should.
+ */
+describe('routed live, the toggle is reachable — and the fence it escaped is intact', () => {
+  beforeEach(seedEdge)
+
+  async function renderThroughRouter() {
+    const { InspectorRouter } = await import('../InspectorRouter')
+    return render(<InspectorRouter nodeId={null} edgeId="e1" onClose={vi.fn()} />)
+  }
+
+  it('the toggle is NOT inert on the only mount path a user has', async () => {
+    const { container } = await renderThroughRouter()
+    const btn = container.querySelector<HTMLElement>('[data-testid="edge-label-mode-toggle"]')
+    expect(btn, 'the toggle is not rendered on the routed path at all').not.toBeNull()
+    // `fieldset[disabled]` inerts descendants WITHOUT setting `disabled` on
+    // them, so asking the button alone answers about the button and not about
+    // the blanket over it. Walk up as well.
+    expect(
+      btn!.closest('fieldset[disabled]'),
+      'the toggle is inside a disabled fieldset — setMode is still uncallable',
+    ).toBeNull()
+    expect(btn).not.toBeDisabled()
+  })
+
+  it('⛔ THE TWIN — the authority boundary still exists and still disables the panel body', async () => {
+    const { container } = await renderThroughRouter()
+    const fence = container.querySelector<HTMLFieldSetElement>('fieldset[data-authority="disabled"]')
+    expect(
+      fence,
+      'the authority boundary is gone — the toggle passing above proves nothing',
+    ).not.toBeNull()
+    expect(fence).toBeDisabled()
+  })
+
+  it('and pressing it on the routed path actually changes the mode', async () => {
+    const { container } = await renderThroughRouter()
+    const before = useEdgeLabelMode.getState().mode
+    const btn = container.querySelector<HTMLElement>('[data-testid="edge-label-mode-toggle"]')!
+    fireEvent.click(btn)
+    const after = useEdgeLabelMode.getState().mode
+    expect(after, 'the store did not change — the control is rendered but dead').not.toBe(before)
+  })
+})
