@@ -37,6 +37,8 @@ import {
   MAX_GLOSS_LENGTH,
   sensitivityRankBadgeAccessibleName,
   optionOrdinalBadgeAccessibleName,
+  SENSITIVITY_RANK_CLAUSE,
+  ORDINAL_MINT_CLAUSE,
 } from '../metricVocabulary'
 import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { INFLUENCE_EXPLANATION_GENERIC } from '../../../../components/results/influenceScaleCopy'
@@ -284,6 +286,75 @@ describe('METRIC_LEGEND_ROWS', () => {
     //     discrimination case above exists to rule out.
     expect(sensitivityRankBadgeAccessibleName(1)).not.toContain(ordinalSharedClause)
     expect(optionOrdinalBadgeAccessibleName(1)).not.toContain(rankRow.gloss)
+  })
+
+  /**
+   * ⭐⭐ THE THIRD GUARD, AND THE ONLY ONE THAT CAN SEE THE DEFECT AS IT
+   * ACTUALLY SHIPPED — A COPY THAT IS BYTE-IDENTICAL TODAY.
+   *
+   * ⚠ MEASURED, NOT ASSUMED, AND IT IS THE SAME LESSON THIS FILE ALREADY
+   * CARRIES ABOUT `support`: a VALUE assertion cannot distinguish a reference
+   * from a copy. Re-inline the exact sentence at the call site and the render
+   * specs' `toHaveAccessibleName(builder(n))` stays GREEN — the rendered string
+   * and the builder's string are equal, because the copy was correct on the day
+   * it was typed. That is precisely how `#1414` shipped: a literal that agreed
+   * with the legend, and a comment claiming it was derived.
+   *
+   * The drift is latent, not present, so no value assertion anywhere can fire.
+   * The only instrument that can see it is one that reads the SOURCE, which is
+   * what this does.
+   *
+   * ⚠ SCOPE, STATED NARROWLY. This proves the two call sites CALL the builder
+   * and do not re-type its clauses. It says nothing about whether the sentences
+   * are right (the render specs' literals are the corpus for that), and nothing
+   * about a third component that might grow its own copy — it names the two
+   * files it reads, because an absence claim is only about what was searched.
+   */
+  it('⭐⭐ the badge call sites CALL the builders — a byte-identical copy REDs here', () => {
+    const sites = [
+      { file: '../../OptionNode.tsx', builder: 'optionOrdinalBadgeAccessibleName', clause: ORDINAL_MINT_CLAUSE },
+      { file: '../../BaseNode.tsx', builder: 'sensitivityRankBadgeAccessibleName', clause: SENSITIVITY_RANK_CLAUSE },
+    ] as const
+
+    for (const site of sites) {
+      const src = readFileSync(resolve(__dirname, site.file), 'utf8')
+
+      // POSITIVE CONTROL: the file was actually read. An unreadable or empty
+      // source satisfies every `not.toContain` below for the wrong reason
+      // (trap 13), and this whole test is an absence claim.
+      expect(src.length, `${site.file} read as empty`).toBeGreaterThan(5000)
+      expect(src, `${site.file} is not the component it claims to be`).toContain('aria-label')
+
+      // (a) the builder is imported…
+      expect(
+        new RegExp(`import \\{[^}]*${site.builder}[^}]*\\} from`).test(src),
+        `${site.file} no longer imports ${site.builder}`,
+      ).toBe(true)
+      // (b) …and it is CALLED, not merely imported. An unused import would
+      //     satisfy (a) while the label went back to a literal.
+      expect(src, `${site.file} imports ${site.builder} without calling it`)
+        .toContain(`aria-label={${site.builder}(`)
+
+      // (c) THE ASSERTION A COPY REDS ON. The clause appears nowhere as a
+      //     re-typed literal in the component's CODE. Comments are stripped
+      //     first — this file's rule is that the historic record in a comment
+      //     is evidence and stays (CLAUDE.md trap 14b), so it must not be what
+      //     this predicate reads.
+      const codeOnly = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+      expect(
+        codeOnly.includes(site.clause),
+        `${site.file} re-types the legend's clause as a literal — the mirror is back`,
+      ).toBe(false)
+
+      // (d) DISCRIMINATION: the predicate in (c) can fire. Without this, a
+      //     stripper that ate the whole file would satisfy (c) forever.
+      expect(
+        `${codeOnly} ${site.clause}`.includes(site.clause),
+        'the (c) predicate cannot detect a present clause — it is vacuous',
+      ).toBe(true)
+      // …and the stripper did not eat the code it was pointed at.
+      expect(codeOnly, `${site.file}: comment-stripping removed the code too`).toContain(site.builder)
+    }
   })
 
   it('⭐ the goal gloss is basis-NEUTRAL — a legend cannot earn the possessive', () => {
