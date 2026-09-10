@@ -817,6 +817,34 @@ export const ANALYSIS_NEW_COPY = {
     change: 'Change',
     inputLabel: 'Success target for this goal',
     /**
+     * ⭐⭐⭐ WHICH WAY THE TARGET IS READ — THE THING THIS CONTROL RECORDED AND
+     * NEVER SAID.
+     *
+     * ⚠⚠ MEASURED ON SERVED `475ee1c7` (10 Sep 2026). A guest opened a goal
+     * reading *"95% Next-Day Delivery Within 12 Months"*, strip
+     * *"Target: 12 months"*, pressed Change, typed `9`, saved. The wire carried
+     * `constraint_type: "at_least"` and the message *"This goal must be at
+     * least 9 months."* The goal is a DEADLINE. The reader meant sooner. The
+     * model recorded a floor, which is close to the opposite.
+     *
+     * ⚠⚠⚠ THE WRITER WAS NOT BUGGY AND THE DEFAULT DOES NOT MOVE. Recovering a
+     * direction from the words of a goal label is CLAUDE.md trap 22f's
+     * unwinnable predicate; and readers have already set targets under the
+     * shipped behaviour, so silently re-reading those as ceilings would be a
+     * worse harm than the gap. `at_least` stays the default. What changes is
+     * that the direction is now VISIBLE and CHANGEABLE, which is trap 22f's own
+     * sanctioned exit: where direction cannot be derived, ask.
+     *
+     * ⚠ PLAIN WORDS, NOT THE WIRE'S TOKENS. The reader picks from these; CEE
+     * reads its own grammar in `manualGoalTarget.ts`. They coincide today and
+     * they answer different questions, so they are named apart rather than
+     * shared (trap 21). The direction-pair test is what binds them, by driving
+     * this selector and asserting the dispatch it produces.
+     */
+    directionLabel: 'How this target should be read',
+    directionAtLeast: 'at least',
+    directionAtMost: 'at most',
+    /**
      * ⭐⭐⭐ THREE OUTCOMES, THREE SENTENCES. THE ONE THAT USED TO BE HERE WAS
      * FALSE, AND IT WAS THE ONLY FALSE OUTCOME SENTENCE ON THIS PANEL.
      *

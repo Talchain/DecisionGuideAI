@@ -766,7 +766,16 @@ export function ModelTabV2Panel({
     (rowId: string) => {
       if (!edit || edit.rowId !== rowId || edit.phase !== 'proposed') return
       if (edit.unit !== undefined) {
-        if (authority.proposeGoalTarget(edit.draft, edit.unit, edit.scenarioId ?? null) === 'dispatched') setEdit(null)
+        /*
+         * ⚠ `'at_least'` IS STATED, NOT INHERITED — and it is deliberately
+         * UNCHANGED behaviour for this surface. The Model tab's review line
+         * reads "At least {draft} {unit} (absolute level)" (`:629`), so a
+         * floor is what this tab shows and a floor is what it must record.
+         * Offering the choice here is the same capability one surface over and
+         * is NOT in this change's scope; the parameter is required precisely so
+         * that this call site has to say which bound it means.
+         */
+        if (authority.proposeGoalTarget(edit.draft, edit.unit, edit.scenarioId ?? null, 'at_least') === 'dispatched') setEdit(null)
         else setEdit({ ...edit, notice: 'Target not sent. Reopen the target in the current model; your proposed value is shown here.' })
         return
       }

@@ -73,7 +73,7 @@
  * accepted. The local write SURVIVES on the `local_only` path only, where there
  * is no dispatcher to own it and the copy says so plainly.
  */
-import { useState } from 'react'
+import { useState, type KeyboardEvent } from 'react'
 import { Target } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -86,6 +86,7 @@ import {
 } from '../../../../canvas/domain/goalTarget'
 import { formatGoalTarget } from '../../utils/formatGoalTarget'
 import { useModelEditAuthority } from '../../../../canvas/hooks/useModelEditAuthority'
+import type { ConstraintType } from '../../../../v5/chipParameters'
 import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
@@ -96,6 +97,25 @@ import {
  * `ModelTabV2Panel.tsx:558` reads it for the same write. A module constant
  * because it is a frozen policy value, not state.
  */
+/**
+ * ⭐⭐⭐ THE DIRECTION A FRESH EDIT STARTS FROM — ONE CONSTANT, BECAUSE IT WAS
+ * BRIEFLY TWO AND A MUTANT PROVED ONLY ONE OF THEM WAS LIVE.
+ *
+ * ⚠⚠ HOW THIS WAS CAUGHT, AND WHY IT MATTERS. The default was written twice:
+ * as `useState`'s initial value AND as the value seeded when the editor opens.
+ * A mutant flipping the `useState` initial to `at_most` left every case GREEN —
+ * correctly, because the selector only exists WHILE editing and opening always
+ * re-seeds, so that initial value is unobservable. Two spellings of one policy,
+ * one of them dead: the hand-maintained mirror CLAUDE.md trap 12 is about, and
+ * the dead one is exactly what a later author would "helpfully" keep in sync
+ * while the live one drifted.
+ *
+ * ⚠ `at_least` IS NOT A STYLE CHOICE. It is what this control has recorded
+ * since it shipped, and readers hold targets set under it. Changing this
+ * constant silently re-reads their models, so a mutant flipping it REDs.
+ */
+const DEFAULT_TARGET_DIRECTION: ConstraintType = 'at_least'
+
 const GOAL_TARGET_DISPATCH_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.modelGoalMinimumTarget,
 )
@@ -157,6 +177,23 @@ export function SuccessTargetLine({
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   /**
+   * ⭐⭐⭐ WHICH WAY THE NUMBER IS READ — STATE, BESIDE THE NUMBER IT QUALIFIES,
+   * BECAUSE IT IS HALF OF WHAT THE READER IS SAYING.
+   *
+   * ⚠⚠ THE DEFAULT IS `at_least` AND IT MUST STAY `at_least`. This control has
+   * been recording floors since it shipped; readers hold targets set under that
+   * behaviour, and re-reading those as ceilings would be a worse harm than the
+   * gap being closed. Nothing about an UNTOUCHED interaction changes.
+   *
+   * ⚠⚠⚠ AND NOTHING HERE INFERS THE DIRECTION FROM THE GOAL. Reading "Within 12
+   * Months" as a deadline is the natural-language predicate CLAUDE.md trap 22f
+   * records as unwinnable after four rounds that each fixed one direction and
+   * reopened the other. Trap 22f's exit is this one: make the ambiguity the
+   * product and ASK. A default the reader can SEE and OVERRIDE is an ask; a
+   * hardcode nobody is shown is what shipped.
+   */
+  const [direction, setDirection] = useState<ConstraintType>(DEFAULT_TARGET_DIRECTION)
+  /**
    * ⭐ THE SCENARIO THE READER OPENED THE EDITOR IN, captured at OPEN and
    * checked at COMMIT - `ModelTabV2Panel.beginEdit` (`:699`) does exactly this
    * and `proposeGoalTarget` enforces it (`state.currentScenarioId !== scenarioId`
@@ -210,6 +247,31 @@ export function SuccessTargetLine({
    */
   const canDispatch = GOAL_TARGET_DISPATCH_CONNECTED && authority.goalTargetDispatchAvailable
 
+  /**
+   * ⭐⭐ ONE KEYBOARD CONTRACT FOR THE WHOLE EDITOR, NOT ONE PER FIELD.
+   *
+   * ⚠ THIS IS A REGRESSION THE DIRECTION SELECTOR WOULD OTHERWISE HAVE
+   * INTRODUCED, and a test caught it rather than a review. Escape was handled
+   * on the INPUT, which was fine while the input was the only focusable thing
+   * in the row: wherever focus was, Escape reached it. Adding a second control
+   * silently created a place to stand where Escape does nothing and the reader
+   * is trapped in an editor with no visible way out.
+   *
+   * Handing both fields the SAME handler is the fix rather than copying the
+   * arms onto the select, because a copy is a hand-maintained mirror and would
+   * drift the first time either behaviour changed (CLAUDE.md trap 12).
+   */
+  const onEditorKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      commit()
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      setEditing(false)
+    }
+  }
+
   const commit = () => {
     const typed = draft.trim()
     /**
@@ -234,7 +296,7 @@ export function SuccessTargetLine({
        * the reader's side one state, nothing written anywhere, so the editor
        * STAYS OPEN exactly as the factor editor does.
        */
-      const outcome = authority.proposeGoalTarget(typed, unit, editScenarioId)
+      const outcome = authority.proposeGoalTarget(typed, unit, editScenarioId, direction)
       onCommitOutcome(outcome)
       if (outcome === 'not_encodable') return
       setEditing(false)
@@ -278,22 +340,38 @@ export function SuccessTargetLine({
 
       {editing ? (
         <span className="flex items-center gap-1.5 min-w-0 flex-1">
+          {/*
+            ⭐⭐ THE DIRECTION, IN WORDS, BEFORE THE NUMBER — so the row reads as
+            the sentence it sends: "Target · at least · 12". It sits FIRST
+            because that is the order of the message CEE receives and of the
+            claim the reader is making, and it renders in its default state
+            without any interaction, which is the whole point: a reader who
+            never opens this menu has still been TOLD which way their number is
+            about to be recorded. That is what the shipped control never did.
+
+            ⚠ ONLY IN THE EDITOR, DELIBERATELY. The read-only row shows a target
+            that came from the brief, through a path that recorded no direction
+            at all. Painting a bound onto it would be fabricating provenance for
+            a claim nobody made. The direction is stated where it is RECORDED.
+          */}
+          <select
+            value={direction}
+            onChange={(e) => setDirection(e.target.value as ConstraintType)}
+            onKeyDown={onEditorKeyDown}
+            aria-label={COPY.successTarget.directionLabel}
+            className={`${typography.panelMeta} shrink-0 rounded border border-panel-border bg-surface px-1 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            data-testid={`${testId}-direction`}
+          >
+            <option value="at_least">{COPY.successTarget.directionAtLeast}</option>
+            <option value="at_most">{COPY.successTarget.directionAtMost}</option>
+          </select>
           <input
             type="text"
             inputMode="decimal"
             autoFocus
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                commit()
-              }
-              if (e.key === 'Escape') {
-                e.preventDefault()
-                setEditing(false)
-              }
-            }}
+            onKeyDown={onEditorKeyDown}
             aria-label={COPY.successTarget.inputLabel}
             className={`${typography.panelMeta} min-w-0 flex-1 rounded border border-panel-border bg-surface px-1.5 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
             data-testid={`${testId}-input`}
@@ -352,6 +430,17 @@ export function SuccessTargetLine({
             onClick={() => {
               setEditing(true)
               setDraft(fromNode != null ? String(fromNode.raw) : fromStore != null ? String(fromStore) : '')
+              /**
+               * ⚠ SEEDED ON OPEN, BESIDE THE DRAFT, AND FOR THE SAME REASON.
+               * Resetting it after a successful commit would have left it
+               * sticky on the two paths that do not reach that line: Escape,
+               * and the local write with no dispatcher. A ceiling stated once
+               * would then be pre-selected on the next edit of a different
+               * goal. Seeding both here is ONE place a fresh edit starts from,
+               * so the paths cannot disagree (CLAUDE.md trap 12: one
+               * derivation, not two that agree today).
+               */
+              setDirection(DEFAULT_TARGET_DIRECTION)
               // Captured at OPEN, checked at COMMIT — see `editScenarioId`.
               setEditScenarioId(authority.captureScenarioId())
             }}

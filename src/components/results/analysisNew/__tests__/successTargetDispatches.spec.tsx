@@ -128,7 +128,15 @@ describe('the target the reader typed is actually sent', () => {
    */
   it('dispatches the typed value, the unit on the goal, and the captured scenario', () => {
     typeTarget('125')
-    expect(proposeGoalTarget).toHaveBeenCalledWith('125', '%', 'scenario-7')
+    /**
+     * ⚠ FOUR ARGUMENTS NOW, AND THE FOURTH IS THE DEFAULT THIS FILE MUST PIN.
+     * `at_least` is what an untouched interaction has always recorded, and
+     * readers hold targets set under it — so an unstated direction reaching the
+     * authority as anything else is a silent re-reading of their model, not a
+     * refinement. The direction the reader CHOOSES is the direction-pair file's
+     * question (`successTargetDirection.spec.tsx`); this is the default's.
+     */
+    expect(proposeGoalTarget).toHaveBeenCalledWith('125', '%', 'scenario-7', 'at_least')
   })
 
   /**
