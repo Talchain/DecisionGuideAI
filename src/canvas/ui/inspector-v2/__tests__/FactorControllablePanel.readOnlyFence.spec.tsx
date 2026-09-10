@@ -117,21 +117,39 @@ function renderPanel(opts: { readOnly: boolean }) {
 }
 
 /**
- * The advanced editor's field label is a bare `<span>` with no `htmlFor` and no
- * `aria-label`, so `getByLabelText` cannot reach its input — it is not a label
- * in the accessibility sense at all. (That is a real defect in
- * `AdvancedField.tsx:163`; it is rowed, not fixed here.) Bind through the label
- * TEXT to the input beside it, matched exactly so a sibling field cannot
- * satisfy it (trap 19).
+ * ⭐ THE DEFECT THIS HELPER WAS WRITTEN AROUND IS NOW FIXED, SO THE HELPER USES
+ * THE ASSOCIATION INSTEAD OF GUESSING AT THE DOM.
+ *
+ * ⚠ What stood here, and why it is being replaced rather than kept:
+ *
+ *     "The advanced editor's field label is a bare `<span>` with no `htmlFor`
+ *      and no `aria-label`, so `getByLabelText` cannot reach its input — it is
+ *      not a label in the accessibility sense at all. (That is a real defect in
+ *      `AdvancedField.tsx:163`; it is rowed, not fixed here.)"
+ *
+ * That note was exactly right, and it is the reason the old body walked
+ * `querySelectorAll('span')` and then groped upwards through `.closest('div')
+ * ?.parentElement` for an input. `AdvancedField` now renders a real
+ * `<label htmlFor>` bound to the control's `id`, so the workaround no longer
+ * finds anything — and leaving the comment in place would turn an honest
+ * confession into a false label about current code, which is the trap-14
+ * failure mode this estate keeps paying for. Quoted above rather than deleted,
+ * because it is *why* the helper looked the way it did.
+ *
+ * ⭐ THE BINDING GETS STRICTLY STRONGER, WHICH IS THE POINT OF THE SWAP. The
+ * original intent — bind to the input beside the EXACTLY-matching label text so
+ * a sibling field cannot satisfy it (trap 19) — is preserved and improved on
+ * three counts: the link is the programmatic `htmlFor`/`id` association rather
+ * than an inferred DOM ancestry; `getByLabelText` REQUIRES exactly one match
+ * and throws on two, where the old `.find()` silently took the first; and the
+ * `within(fence)` scope still confines the search to the fenced subtree, so a
+ * same-named field outside the fence cannot answer for one inside it.
  */
 function editorField(fence: HTMLElement, label: string): HTMLInputElement {
-  const span = [...fence.querySelectorAll('span')].find(
-    el => el.textContent?.trim() === label,
-  )
-  if (!span) throw new Error(`no advanced field labelled "${label}" inside the fence`)
-  const input = span.closest('div')?.parentElement?.querySelector('input')
-    ?? span.parentElement?.parentElement?.querySelector('input')
-  if (!input) throw new Error(`field "${label}" has no input`)
+  const input = within(fence).getByLabelText(label, { exact: true })
+  if (input.tagName !== 'INPUT') {
+    throw new Error(`field "${label}" is a <${input.tagName.toLowerCase()}>, not an input`)
+  }
   return input as HTMLInputElement
 }
 

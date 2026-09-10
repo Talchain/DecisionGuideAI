@@ -5,7 +5,7 @@
  * Validation on blur for number fields.
  */
 
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect, useId } from 'react'
 import { typography } from '../../../../styles/typography'
 import { admitNumericField } from './numericFieldAdmission'
 
@@ -46,6 +46,35 @@ export function AdvancedField({
   const [localValue, setLocalValue] = useState(String(value ?? ''))
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(null)
+
+  /**
+   * ⭐⭐ THE VISIBLE LABEL NOW NAMES THE CONTROL. IT DID NOT BEFORE.
+   *
+   * The label below used to be a bare `<span>` beside the input: visually a
+   * label, programmatically unrelated to anything. Every editable advanced
+   * field in the inspector was therefore a nameless control — a screen reader
+   * announced its ROLE and stopped, so a person walking the technical detail
+   * editor heard "edit text" once per field with no way to tell which field.
+   *
+   * ⚠ `useId` RATHER THAN A COUNTER OR THE LABEL TEXT. The id must be stable
+   * across renders, unique across every instance on the panel (several editors
+   * render a dozen), and identical on server and client. Deriving it from the
+   * label would collide the moment two panels showed the same field name, and
+   * a module-level counter is not render-safe.
+   *
+   * ⚠ A REAL `<label htmlFor>`, DELIBERATELY NOT `aria-label`. There is already
+   * a visible string here; an `aria-label` would duplicate it, and the copy
+   * would drift from the visible text the first time the wording changed —
+   * the hand-maintained mirror this estate keeps paying for, in miniature.
+   * `AdvancedField.labelAssociation.spec.tsx` pins that there is exactly ONE
+   * source of the name.
+   *
+   * ⚠ SCOPE. Association only. The `readonly` branch is untouched because it
+   * renders two spans and no form control, so there is nothing to name. The
+   * error and helper paragraphs below are still unassociated (`aria-describedby`
+   * is absent) — a real and separate defect, deliberately left to its own change.
+   */
+  const fieldId = useId()
 
   // Sync local state when prop changes externally
   useEffect(() => {
@@ -158,15 +187,16 @@ export function AdvancedField({
 
   return (
     <div>
-      {/* Label */}
+      {/* Label — associated with the control below by `htmlFor`/`id`. */}
       <div className="mb-1">
-        <span className={`${typography.panelMeta} text-text-light`}>{label}</span>
+        <label htmlFor={fieldId} className={`${typography.panelMeta} text-text-light`}>{label}</label>
       </div>
 
       {/* Input — full width */}
       <div>
         {type === 'select' ? (
           <select
+            id={fieldId}
             ref={inputRef as React.RefObject<HTMLSelectElement>}
             value={localValue}
             onChange={handleChange}
@@ -179,6 +209,7 @@ export function AdvancedField({
           </select>
         ) : type === 'textarea' ? (
           <textarea
+            id={fieldId}
             ref={inputRef as React.RefObject<HTMLTextAreaElement>}
             value={localValue}
             onChange={handleChange}
@@ -193,6 +224,7 @@ export function AdvancedField({
           />
         ) : (
           <input
+            id={fieldId}
             ref={inputRef as React.RefObject<HTMLInputElement>}
             type={type === 'number' ? 'text' : 'text'}
             inputMode={type === 'number' ? 'decimal' : 'text'}
