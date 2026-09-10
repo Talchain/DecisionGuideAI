@@ -694,8 +694,15 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
                 Settling `sent` against the canonical applied value is real
                 work and is rowed separately; overstating it here in the
                 meantime is exactly the defect being removed. */}
+            {/* ⚠ "Saved on this device only" until `guestStorageClaims.spec.ts`
+                refused the same claim one file over. It is FALSE — a guest's
+                graph also exists server-side — and it evaded that guard only
+                because its regex is verb-specific ("stays on", not "saved on").
+                Reported to the guard's owner rather than left as a near-miss.
+                The label now states what this app did, which is the part we
+                can actually vouch for. */}
             {valueCommitOutcome === 'local_only' ? (
-              <EditConfirmation trigger={lastConfirmed.ts} label="Saved on this device only" tone="pending" />
+              <EditConfirmation trigger={lastConfirmed.ts} label="Not sent to Olumi" tone="pending" />
             ) : (
               <EditConfirmation trigger={lastConfirmed.ts} label="Sent to Olumi" tone="pending" />
             )}

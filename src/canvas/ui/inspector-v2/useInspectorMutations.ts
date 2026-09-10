@@ -232,13 +232,22 @@ export const INSPECTOR_OPTION_READ_ONLY_REASON =
  * discover the exception by losing a description to the next rehydrate.
  */
 export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
-  // ⚠ DELIBERATELY NOT A CLOSED CLAIM. An earlier wording named description as
+  // ⚠ TWO CORRECTIONS LIVE IN THIS ONE SENTENCE.
+  //
+  // (1) DELIBERATELY NOT A CLOSED CLAIM. An earlier wording named description as
   // THE exception; the panel also fences its advanced editor (14 writers with no
   // carrier), so "description is the one read-only thing" was false the moment it
   // was written. This says what saves and leaves the complement open — it stays
   // true as carriers are added, and a reader is never told a control saves when
   // it does not.
-  'The name and the value save to the shared model. Other edits here stay on this device for now — links, details and coaching still work.'
+  //
+  // (2) IT STATES THE ACTION, NEVER THE STORAGE. My first rewrite said the other
+  // edits "stay on this device" — caught by `guestStorageClaims.spec.ts`, and
+  // caught correctly: A GUEST'S GRAPH ALSO EXISTS SERVER-SIDE, so any "only on
+  // this device" claim is simply false, however reassuring it sounds. What is
+  // true is that these edits are not SENT, which is a claim about this app's
+  // behaviour rather than about where bytes live.
+  'The name and the value save to the shared model. Other edits here are not sent yet — links, details and coaching still work.'
 
 // ─── Node mutations ────────────────────────────────────────────────
 export function useNodeMutations(nodeId: string) {
