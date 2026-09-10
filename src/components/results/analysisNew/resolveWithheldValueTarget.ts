@@ -52,14 +52,37 @@
  * open — a control that advertises a destination it does not reach. That is
  * verbatim the false promise `utils/focusOnCanvasCopy.ts` was written to ban.
  *
- * The guard is therefore `nodeKind(node) === 'factor'`, imported from
- * `model-tab-v2/adapters.ts` — **the Model tab's OWN kind resolver**, not a
- * re-expression of it. That matters: `KIND_GROUP.factor === 'factors'` and only
+ * The guard is therefore `resolveNodeTypeLiteral(node) === 'factor'`, and only
  * `kind === 'factor'` rows are built with `editable: true` in the factors group
- * (`adapters.ts`'s `toModelRows`). A hand-written "is this a factor?" predicate
+ * (the Model tab's `toModelRows`). A hand-written "is this a factor?" predicate
  * here would be the hand-maintained mirror CLAUDE.md trap 12 is about — it would
  * drift the first time the projection changed, and the drift would read as a
  * working button.
+ *
+ * ## ⚠⚠ WHY `resolveNodeTypeLiteral` AND NOT THE MODEL TAB'S `nodeKind`
+ *
+ * The first cut of this file imported `nodeKind` from `model-tab-v2/adapters.ts`
+ * — the outline's own resolver — on the reasoning that borrowing the consumer's
+ * predicate cannot drift from the consumer. **CI refused it, and was right:**
+ * `modelTabV2Boundary.sourceScan.spec.ts` holds `model-tab-v2` to being
+ * referenced from EXACTLY ONE file outside itself (`canvas/components/ModelTabBody.tsx`),
+ * by exact equality in both directions, because the directory is an editor that
+ * must be MOUNTED ONCE. My import made a second reference, and widening
+ * `ALLOWED_MOUNT_SITES` to admit it would have recorded this module as a mount
+ * site — which it is not — and weakened a guard protecting a different property.
+ *
+ * ⭐ AND THE BOUNDARY POINTS AT THE BETTER ANSWER. `adapters.ts` says of its own
+ * `nodeKind`: *"THE FALLBACK CHAIN IS NOT RE-DERIVED HERE. `resolveNodeTypeLiteral`
+ * (canvas/domain/nodes.ts) owns it, because 'where is the kind stored?' is a fact
+ * about the data that every surface must answer identically. This function answers
+ * a DIFFERENT question — 'does this outline render it?'"* **The question here is
+ * the FIRST one**, so the owner is the right import and `nodeKind` was the
+ * borrowed one. This is not a re-expression: `nodeKind` returns its input
+ * verbatim for `factor` (a pass-through arm of its switch), so the two predicates
+ * are equal by construction on this kind — pinned in-spec by an equivalence test
+ * that asserts agreement across a corpus, rather than asserted in this comment.
+ * Test files are excluded from that boundary sweep by design, so the spec may
+ * import the outline's resolver where this module may not.
  *
  * ## ⚠ THE LABEL IS PART OF THE GUARD, NOT DECORATION
  *
@@ -70,7 +93,7 @@
  * is why the caller can render on a non-null result without re-checking
  * anything.
  */
-import { nodeKind } from '../../../canvas/model-tab-v2/adapters'
+import { resolveNodeTypeLiteral } from '../../../canvas/domain/nodes'
 import { buildCanvasLabelMap, resolveCanvasLabel } from '../../../canvas/domain/canvasLabels'
 
 /** A factor the Model tab will give a value editor to, with a name to print. */
@@ -113,7 +136,7 @@ export function resolveWithheldValueTarget(
 
   // ⛔ THE EDGE REJECTION. See the header — `targetId` is a node OR edge id, and
   // only a factor node has a value editor to arrive at.
-  if (nodeKind(node) !== 'factor') return null
+  if (resolveNodeTypeLiteral(node) !== 'factor') return null
 
   const label = resolveCanvasLabel(targetId, buildCanvasLabelMap(nodes))
   if (label === null) return null

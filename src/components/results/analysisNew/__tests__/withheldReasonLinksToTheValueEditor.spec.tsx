@@ -40,6 +40,8 @@ import { execFileSync } from 'node:child_process'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { AtAGlance } from '../sections/AtAGlance'
 import { resolveWithheldValueTarget } from '../resolveWithheldValueTarget'
+// ⚠ Legal in a SPEC only — see the coupling guard below for why.
+import { nodeKind } from '../../../../canvas/model-tab-v2/adapters'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { decisionWithLeaderWithheld } from './analysisNewFixtures'
@@ -182,6 +184,48 @@ describe('the target is the PRODUCER’S factor, and only when it is editable', 
       nodeId: DECOY_FACTOR_ID,
       label: 'Headcount',
     })
+  })
+
+  /**
+   * ⭐⭐ THE COUPLING GUARD — the claim the whole design rests on, pinned rather
+   * than argued in a comment.
+   *
+   * The resolver asks `resolveNodeTypeLiteral(node) === 'factor'`. The Model tab's
+   * outline decides which rows exist with its OWN `nodeKind`, and only its
+   * `factor` rows get a value editor. Those are two predicates, and the design is
+   * only sound while they agree — `nodeKind` returns its input verbatim on the
+   * `factor` arm of its switch, so they are equal by construction **today**. If
+   * anyone narrows that arm, this module would start routing readers to rows the
+   * outline no longer renders, and nothing else in the suite would notice.
+   *
+   * ⚠ WHY THIS IMPORT IS LEGITIMATE HERE AND ILLEGAL IN THE MODULE.
+   * `modelTabV2Boundary.sourceScan.spec.ts` holds `model-tab-v2` to ONE outside
+   * reference, and CI correctly rejected the module importing `nodeKind`. Its
+   * `sourceFilesIn` walker excludes `__tests__` directories and every
+   * `*.spec.ts(x)` file, so a SPEC may read the outline's resolver to prove
+   * agreement while production code may not depend on it. That exclusion is what
+   * lets the coupling be verified without creating a second mount path.
+   *
+   * ⚠ ASSERTED OVER A CORPUS SPANNING EVERY KIND ON THE GRAPH, not just the happy
+   * one: a test that only checked the factor would pass while the two predicates
+   * diverged on everything else.
+   */
+  it('agrees with the Model tab’s own kind resolver on every node kind', () => {
+    for (const node of NODES) {
+      const outlineSaysFactor = nodeKind(node) === 'factor'
+      const resolverAccepts = resolveWithheldValueTarget({ targetId: node.id }, NODES) !== null
+      // The resolver also demands an honest label, so it can only be NARROWER.
+      // Equality holds on this corpus because every node here is honestly named —
+      // pinned below so a fixture edit cannot quietly turn this into a weaker claim.
+      expect(
+        resolverAccepts,
+        `disagreement on ${node.id}: outline factor=${outlineSaysFactor}, resolver=${resolverAccepts}`,
+      ).toBe(outlineSaysFactor)
+    }
+    // ⚠ PRECONDITION: the corpus must actually contain both answers, or the loop
+    // above is satisfied by a predicate that always returns the same thing.
+    expect(NODES.filter(n => nodeKind(n) === 'factor').length).toBe(2)
+    expect(NODES.filter(n => nodeKind(n) !== 'factor').length).toBe(2)
   })
 })
 
