@@ -2,11 +2,17 @@
  * ⭐⭐ THE GOAL NOTICE'S IMPERATIVE IS TRUE ON THE CANVAS — SETTLED BY DERIVATION,
  * 10 Sep 2026, AND PINNED HERE SO IT STOPS BEING RE-OPENED.
  *
- * `GOAL_LABEL_FROM_BRIEF_COPY.notice` ends with "Edit it to say what you want to
- * achieve." That imperative is only honest on a surface from which the goal
- * label can actually be edited. It was twice suspected of being a dead
- * instruction on the canvas, because `GoalNode.tsx` hosts no writer and a sweep
- * of the rendering directory returns a clean zero.
+ * `GOAL_LABEL_FROM_BRIEF_COPY.canvasNodeNotice` ends with "Double-click the node
+ * to write it in your own words." That imperative is only honest on a surface
+ * from which the goal label can actually be edited. It was twice suspected of
+ * being a dead instruction on the canvas, because `GoalNode.tsx` hosts no
+ * writer and a sweep of the rendering directory returns a clean zero.
+ *
+ * ⚠ THE MEMBER WAS RENAMED FROM `notice`, AND THE RENAME IS NOT COSMETIC. One
+ * member served three surfaces; each now binds the one named for it, because
+ * each answers for its own writer (this node double-clicks; the pre-analysis
+ * hero edits its Goal field in place; the Model tab row hosts no goal-LABEL
+ * writer at all). The arms below pin THIS surface and no other.
  *
  * THE WRITER IS NOT IN THE RENDERING FILE. It is one store call away:
  *
@@ -142,7 +148,17 @@ function renderNode(
 }
 
 
-const IMPERATIVE = 'Edit it to say what you want to achieve.'
+/*
+ * ⚠ REPOINTED, NOT RELAXED. This was `'Edit it to say what you want to
+ * achieve.'`, the imperative of the single `notice` member that used to serve
+ * three surfaces. That member is gone: the surfaces no longer share one
+ * sentence, because they no longer share one writer. The canvas's own act is a
+ * DOUBLE-CLICK on this node, and `canvasNodeNotice` is the member that names
+ * it — so this constant is the clause whose presence keeps THIS surface's
+ * promise, and the arms below still RED if the sentence is repointed at an
+ * imperative-free variant.
+ */
+const IMPERATIVE = 'Double-click the node to write it in your own words.'
 /* `fileURLToPath(import.meta.url)`, not `__dirname` — the pattern this repo's
    own `inspector-v2/__tests__/inspectorNoRawIds.spec.tsx:227` uses in a `.tsx`
    spec, so it is known to resolve under this vitest config. */
@@ -172,7 +188,7 @@ describe("⛔ the goal notice's imperative is honest on the canvas", () => {
     // Bound by the surface's OWN testid, never by a text predicate another
     // element on the card could also satisfy.
     const own = screen.getByTestId(GOAL_LABEL_FROM_BRIEF_TESTID)
-    expect(own.getAttribute('title')).toBe(GOAL_LABEL_FROM_BRIEF_COPY.notice)
+    expect(own.getAttribute('title')).toBe(GOAL_LABEL_FROM_BRIEF_COPY.canvasNodeNotice)
   })
 
   it('and the imperative clause is PRESENT, not merely the prefix', () => {
@@ -190,7 +206,7 @@ describe("⛔ the goal notice's imperative is honest on the canvas", () => {
 
   it('GoalNode binds the notice BY REFERENCE, not by a copied string', () => {
     // Source-reading, because a value assertion passes on a duplicate literal.
-    expect(GOAL_NODE_SRC).toContain('GOAL_LABEL_FROM_BRIEF_COPY.notice')
+    expect(GOAL_NODE_SRC).toContain('GOAL_LABEL_FROM_BRIEF_COPY.canvasNodeNotice')
     // And the sentence is not inlined anywhere in this file.
     expect(GOAL_NODE_SRC).not.toContain(IMPERATIVE)
   })
@@ -198,6 +214,6 @@ describe("⛔ the goal notice's imperative is honest on the canvas", () => {
   it('the constant itself still carries the imperative', () => {
     // The precondition for all four arms above, pinned in-test: without it they
     // would be satisfied by a change that simply deleted the promise.
-    expect(GOAL_LABEL_FROM_BRIEF_COPY.notice).toContain(IMPERATIVE)
+    expect(GOAL_LABEL_FROM_BRIEF_COPY.canvasNodeNotice).toContain(IMPERATIVE)
   })
 })

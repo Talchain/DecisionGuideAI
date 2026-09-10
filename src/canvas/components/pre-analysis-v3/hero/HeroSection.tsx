@@ -277,16 +277,40 @@ export const HeroSection = memo(function HeroSection({
           ⭐ THE GOAL IS A BRIEF EXTRACT, AND THE PRODUCT SAYS SO.
           Rendered only when CEE stamped `provenance: 'from_brief'` — i.e. its
           own objective derivation REFUSED and the user's raw sentence stayed as
-          the label. It states the provenance and points at the field directly
-          above, which is already the affordance: editing it stamps `user_set`
-          and this notice stops. No goal is inferred, suggested or ranked.
+          the label. No goal is inferred, suggested or ranked.
+
+          ⚠⚠ THE IMPERATIVE IS TRUE ON THIS SURFACE, AND IT BECAME TRUE ONLY
+          RECENTLY. This notice sits DIRECTLY BENEATH the Goal field, and that
+          field shipped as a read-only `<span>` for as long as it was gated on
+          `CANONICAL_EDIT_AUTHORITY.goalSuccessTarget: 'disabled'` — so the
+          product printed an instruction the screen could not honour.
+
+          That gate was reading the WRONG KEY, not the wrong value.
+          `goalSuccessTarget` governs the success THRESHOLD and still reads
+          `'disabled'`; nobody flipped it, and `mutationAuthority.ts`'s
+          presentation ruling is untouched. The Goal field is now gated on the
+          keys naming the operations it actually performs —
+          `GOAL_LABEL_EDIT_CONNECTED`, the conjunction of
+          `canvasNodeRenameWithServerHash` and `preAnalysisV3StructuralAdd` —
+          and `commitGoal` above writes through `store.updateNodeLabel`, the
+          same call the canvas inspector uses, which stamps
+          `provenanceAfterHumanAuthoredLabel('goal')` → `'user_set'`.
+
+          ⭐ SO `heroNotice` POINTS AT THE FIELD ABOVE, NOT AT THE CANVAS. Each
+          of the three surfaces that render this claim binds the member named
+          for it, because each answers for its OWN writer: this hero edits in
+          place, the canvas goal node double-clicks, and the Model tab row
+          hosts no goal-LABEL writer and so names a surface that does. Do NOT
+          collapse them into one sentence, and do NOT pin two of them to
+          agreement in a test — that REDs on whichever surface is corrected
+          first, which is exactly backwards.
         */}
         {hero.goal?.fromBrief === true && (
           <p
             data-testid={GOAL_LABEL_FROM_BRIEF_TESTID}
             className={`${typography.panelMeta} -mt-1 text-text-light`}
           >
-            {GOAL_LABEL_FROM_BRIEF_COPY.notice}
+            {GOAL_LABEL_FROM_BRIEF_COPY.heroNotice}
           </p>
         )}
         <InlineField
