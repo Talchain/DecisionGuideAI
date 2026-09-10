@@ -115,9 +115,12 @@ async function readGeometry(page: Page, rowId: string): Promise<Geom | null> {
  *   refusalWidth ≈ 48px    -> the sentence is still in a narrow track: LAYOUT
  *   refusalWidth ≈ rowWidth -> the sentence has the row: ordinary TEXT REFLOW
  *
- * and `refusalMaxContentWidth` vs `actionsWidth` says whether reflow was
+ * and `refusalMaxContentWidth` vs `rowContentWidth` says whether reflow was
  * inevitable at this width on this platform's metrics, rather than leaving that
- * to be inferred from a line count.
+ * to be inferred from a line count. ⚠ THE REFERENCE IS THE **ROW's** WIDTH, NOT
+ * THE ACTION LINE's — the action line is the thing that was in the narrow track,
+ * so its own width shrank with the defect and a comparison against it would have
+ * agreed with what it was supposed to catch.
  *
  * ⚠ LINE COUNT IS `height / lineHeight`, NOT `getClientRects().length`. The
  * refusal is a flex item, so it is BLOCKIFIED and its own `getClientRects()`
@@ -429,12 +432,24 @@ for (const width of WIDTHS) {
      * line boxes a sentence of this length takes in the room that dock leaves.
      * Derived on ubuntu, the platform that decides this check:
      *
-     *     @280  room ~220px, sentence needs ~234px  -> 2 lines  -> 8+18+4+39+1 = 70
-     *     @416  room ~356px, sentence needs ~234px  -> 1 line   -> 8+18+4+19.5+1 = 50.5
+     *     @280  room 220px, sentence needs 227.08px -> 2 lines -> 8+18+4+39+1 = 70
+     *     @416  room 356px, sentence needs 227.08px -> 1 line  -> 8+18+4+19.5+1 = 50.5
      *
-     * darwin fits it on ONE line at both widths, so both bounds hold there too —
-     * a bound that admits the wider platform is not loosened for the narrower
-     * one. @416 is UNCHANGED at 50.5.
+     * ⭐ THE WHOLE DIVERGENCE IS THOSE TWO NUMBERS, and it is 7.08px wide. Measured
+     * at `readDisclosure` on both platforms, same commit, same fixture, same row:
+     *
+     *                          darwin      ubuntu-latest
+     *   sentence max-content   210.31px    227.08px      <- 8% wider face
+     *   room at a 280px dock   220px       220px
+     *   line boxes @280        1           2
+     *   line boxes @416        1           1
+     *
+     * Inter is declared first in both stacks and is installed on NEITHER runner's
+     * Chromium here, so each falls through to its own system face. darwin's fits
+     * 220px with 9.69px to spare; ubuntu's misses it by 7.08px. A bound derived on
+     * the Mac therefore passes locally and REDs in CI, which is exactly what
+     * happened — and why both bounds below admit the WIDER platform. @416 is
+     * UNCHANGED at 50.5.
      *
      * ⚠ AND IT STILL BITES. The #1401 regression was 117px of refusal in track 3
      * (six line boxes) with a 52px wrapped control line: 8 + 52 + 4 + 117 = 181px
