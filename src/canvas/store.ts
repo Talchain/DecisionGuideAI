@@ -6131,6 +6131,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       edges: draftChatPreDraftSnapshot.edges,
       draftChatPreDraftSnapshot: null,
       // Clear full readiness bundle + pipeline trace on draft undo
+      // ⚠ STATED DECISION, NOT AN ACCIDENT (review note). This harvest also
+      // retains the coaching of the draft the user has just reverted, and that
+      // retained sentence then survives to re-word the option-breadth row on the
+      // PRE-DRAFT graph. It is allowed because the retained detail is producer
+      // prose ABOUT THE BRIEF (all four starter captures quote the brief's own
+      // words) and the brief is unchanged by an undo, and because the row it can
+      // re-word re-derives its own firing condition from the live graph. If a
+      // retained field is ever added that measures the GRAPH, this call site is
+      // the one to exclude first.
       ...readinessClearFields(get),
       // Lane 5 (review fold): undo reverts to the pre-draft graph — the
       // drafted decision's target must not survive onto it. Clear the

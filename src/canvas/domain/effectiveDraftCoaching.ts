@@ -31,6 +31,14 @@
  *      the WORDING of a row the live graph has already decided to show — widen the
  *      options and the row goes, whatever is retained.
  *
+ * ⚠ THE TWO REASONS ARE NOT EQUAL, AND THE NEXT LANE WILL INHERIT THE ANALOGY
+ * RATHER THAN THE MEASUREMENT (review note). `retainedAnalysisAdmission` is safe
+ * because a retained RESTRICTION is monotone: it can only ever withhold. Retained
+ * PROSE asserts. So reason 1 carries almost no weight here and reason 2 carries
+ * all of it. Do not reason from "the admission does it, so this is fine"; the
+ * live gate is the whole of the argument, and a consumer without one is a
+ * different question with a different answer.
+ *
  * ⚠ A CONSUMER THAT IS NOT LIVE-GATED MUST NOT BE WIRED TO THIS. The hero coaching
  * slot (`usePreAnalysisModel`'s `coaching`, rendered by `hero/CoachingSlot.tsx`)
  * renders whenever text exists, beside bars and a ladder that DO update live. A

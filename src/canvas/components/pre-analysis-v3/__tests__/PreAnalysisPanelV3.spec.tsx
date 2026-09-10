@@ -92,6 +92,10 @@ function seedGraph(opts: { successSet?: boolean; reviewedAll?: boolean } = {}) {
     preAnalysisSensitivity: SENSITIVITY,
     ceeAnalysisReady: null,
     draftCoaching: null,
+    // Reset with its live twin: without this a retained value set by one arm
+    // rides into every later test in the file and the failure looks like the
+    // panel's, not the seed's.
+    retainedDraftCoaching: null,
     currentBriefText: null,
     goalThreshold: null,
     goalConstraints: null,
@@ -357,6 +361,100 @@ describe('render-if-live coaching', () => {
     const row = screen.getByTestId('pre-analysis-v3-signal-sig_option_breadth')
     expect(row).toHaveTextContent('Olumi noticed')
     expect(row).toHaveTextContent('Both options are hiring routes.')
+  })
+})
+
+/**
+ * ⭐⭐ THE RETENTION IS BOUND AT THE CALL SITE, NOT AT THE PURE FUNCTION.
+ *
+ * `usePreAnalysisModel.ts` reaches the user through exactly one line:
+ *
+ *   resolveEffectiveDraftCoaching(draftCoaching, retainedDraftCoaching)
+ *
+ * The review measured two mutants there that survived the whole kit, lint and
+ * typecheck, because every existing arm sets `draftCoaching` live with the
+ * retained field null - and `live ?? null` and `null ?? live` return the same
+ * object, so no fixture could tell them apart:
+ *
+ *   M1  resolveEffectiveDraftCoaching(draftCoaching, null)
+ *       The retained value has no reachable reader. The store holds it, every
+ *       test is green, and the change ships DARK.
+ *   M2  resolveEffectiveDraftCoaching(retainedDraftCoaching, draftCoaching)
+ *       Arguments swapped. Retained prose then outranks a live turn, so the row
+ *       is pinned to the first narrow-framing sentence CEE ever sent for this
+ *       decision. `domain/effectiveDraftCoaching.ts` says that inversion "must
+ *       fail on its own signature"; at the call site it failed nowhere.
+ *
+ * The two arms below are on the RENDERED row, so they bind the wiring rather
+ * than the pure function's parameter order, and they fail on DIFFERENT
+ * assertions: M1 reds the first (nothing to show), M2 reds the second (the
+ * wrong sentence shown). Each pins its own precondition, so neither can pass by
+ * the fixture quietly failing to reach the signal.
+ *
+ * The third arm is the safety property the whole retention rests on: retained
+ * text may RE-WORD a row the live graph has decided to show, never SUMMON one.
+ */
+describe('retained coaching across readiness invalidation', () => {
+  const RETAINED_DETAIL = 'The brief frames this as tech lead against two developers only.'
+  const LIVE_DETAIL = 'Both options keep the work in-house.'
+
+  function coaching(detail: string) {
+    return {
+      summary: null,
+      strengthenItems: [],
+      wideningLog: [],
+      biasSignals: [{ type: 'narrow_framing', detail }],
+    }
+  }
+
+  it('kills M1: the RETAINED detail reaches the row once an analytical edit has nulled the live one', () => {
+    // Precondition, bound by identity: the two strings must be distinguishable,
+    // or "shows the retained one" is not an observation.
+    expect(RETAINED_DETAIL).not.toEqual(LIVE_DETAIL)
+
+    useCanvasStore.setState({
+      draftCoaching: null,
+      retainedDraftCoaching: coaching(RETAINED_DETAIL) as never,
+    })
+    renderPanel()
+
+    const row = screen.getByTestId('pre-analysis-v3-signal-sig_option_breadth')
+    expect(row).toHaveTextContent('Olumi noticed')
+    expect(row).toHaveTextContent(RETAINED_DETAIL)
+  })
+
+  it('kills M2: a LIVE detail outranks the retained one, so retained prose cannot pin the row', () => {
+    useCanvasStore.setState({
+      draftCoaching: coaching(LIVE_DETAIL) as never,
+      retainedDraftCoaching: coaching(RETAINED_DETAIL) as never,
+    })
+    renderPanel()
+
+    const row = screen.getByTestId('pre-analysis-v3-signal-sig_option_breadth')
+    // Precondition: the row is the CEE-overridden one, not the deterministic
+    // copy. Without this the assertions below would also hold on a row that
+    // never read either coaching value.
+    expect(row).toHaveTextContent('Olumi noticed')
+    expect(row).toHaveTextContent(LIVE_DETAIL)
+    expect(row).not.toHaveTextContent(RETAINED_DETAIL)
+  })
+
+  it('retained text can re-word a row, never summon one: three options and the row is gone', () => {
+    useCanvasStore.setState({
+      nodes: [
+        ...useCanvasStore.getState().nodes,
+        node('o3', 'option', 'Hire a contract team'),
+      ],
+      draftCoaching: null,
+      retainedDraftCoaching: coaching(RETAINED_DETAIL) as never,
+    })
+    renderPanel()
+
+    // The signal re-derives its own firing condition from the live graph, so
+    // widening the options removes the row whatever is retained. This is the
+    // property that makes retention honest here and nowhere else.
+    expect(screen.queryByTestId('pre-analysis-v3-signal-sig_option_breadth')).not.toBeInTheDocument()
+    expect(screen.queryByText(RETAINED_DETAIL)).not.toBeInTheDocument()
   })
 })
 

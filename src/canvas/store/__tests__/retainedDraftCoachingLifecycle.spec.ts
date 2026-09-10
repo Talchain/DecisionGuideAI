@@ -25,10 +25,47 @@
  * set did not quietly grow.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { readdirSync, readFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import { useCanvasStore } from '../../store'
 import type { CEEDraftCoaching } from '../../../adapters/cee/types'
+
+/**
+ * ⭐ EVERY `.ts`/`.tsx` UNDER `src/`, NOT ONE FILE.
+ *
+ * Review B1: the earlier form of the honesty guard counted matches inside
+ * `usePreAnalysisModel.ts` alone, and the reviewer MEASURED the hole - it
+ * appended a resolver read to `hero/HeroSection.tsx` and the guard stayed
+ * green at exit 0. The hazard the PR names is wiring the UNGATED hero slot,
+ * and that is reachable from `HeroSection.tsx` or `CoachingSlot.tsx`, neither
+ * of which the old pattern could see. The directory is not the surface.
+ */
+function sourceFilesUnderSrc(): string[] {
+  const out: string[] = []
+  const stack = [resolve(process.cwd(), 'src')]
+  while (stack.length > 0) {
+    const dir = stack.pop() as string
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        if (entry.name === 'node_modules' || entry.name === '__snapshots__') continue
+        stack.push(full)
+      } else if (/\.tsx?$/.test(entry.name)) {
+        out.push(full)
+      }
+    }
+  }
+  return out
+}
+
+/** Specs may name the resolver freely; only PRODUCT code is constrained. */
+function isSpecFile(path: string): boolean {
+  return path.includes('/__tests__/') || /\.(spec|test)\.tsx?$/.test(path)
+}
+
+const RESOLVER_DEFINITION = 'src/canvas/domain/effectiveDraftCoaching.ts'
+const LIVE_GATED_CONSUMER =
+  'src/canvas/components/pre-analysis-v3/hooks/usePreAnalysisModel.ts'
 
 const COACHING: CEEDraftCoaching = {
   summary: 'Two options is a narrow frame for a decision this size.',
@@ -153,34 +190,94 @@ describe('retainedDraftCoaching lifecycle', () => {
    * pattern has stopped matching, agrees with every build — so the file's size, the
    * resolver's presence, and the hero memo's live-only read are asserted first.
    */
-  it('the retention reaches the live-gated consumer ONLY (derived from source)', () => {
-    const hookPath = 'src/canvas/components/pre-analysis-v3/hooks/usePreAnalysisModel.ts'
-    const src = readFileSync(resolve(process.cwd(), hookPath), 'utf8')
+  it('the retention reaches the live-gated consumer ONLY (derived across ALL of src/)', () => {
+    const files = sourceFilesUnderSrc()
 
-    // Precondition 1: we really read the hook, not an empty or wrong file.
-    expect(src.length, `the guard did not read ${hookPath} — it would agree with anything`)
-      .toBeGreaterThan(5_000)
-    // Precondition 2: the resolver is actually wired here, under this name.
-    expect(
-      src,
-      'zero mentions means the resolver was renamed and this guard has stopped discriminating',
-    ).toContain('resolveEffectiveDraftCoaching')
+    // ── Preconditions on the INSTRUMENT, before any absence is claimed ──────
+    // A sweep that reached nothing returns the same clean output as a sweep
+    // that looked and found nothing (CLAUDE.md trap 13).
+    expect(files.length, 'the walk reached almost nothing - it is not seeing src/').toBeGreaterThan(
+      2_000,
+    )
+    const product = files.filter(f => !isSpecFile(f))
+    expect(product.length, 'no product files found - the spec filter has eaten the tree').toBeGreaterThan(
+      800,
+    )
 
-    // The claim: exactly ONE resolved read, and it is the live-gated one.
-    const resolvedReads = src.match(/resolveEffectiveDraftCoaching\(/g) ?? []
+    let contrastHits = 0
+    const callSites: Array<{ file: string; count: number }> = []
+    const importers: string[] = []
+    for (const file of product) {
+      const src = readFileSync(file, 'utf8')
+      // Contrast control in the SAME sweep: a symbol we expect PRESENT and
+      // widespread. Absence is proven only when the target reads its expected
+      // number AND the contrast reads a plausible one.
+      if (src.includes('useCanvasStore')) contrastHits += 1
+      const rel = file.slice(resolve(process.cwd()).length + 1)
+      const count = (src.match(/resolveEffectiveDraftCoaching\(/g) ?? []).length
+      if (count > 0) callSites.push({ file: rel, count })
+      if (/from ['"][^'"]*effectiveDraftCoaching['"]/.test(src)) importers.push(rel)
+    }
     expect(
-      resolvedReads.length,
-      `found ${resolvedReads.length} resolved reads; exactly one is permitted. The hero coaching ` +
-        `slot is UNGATED — it renders whenever text exists — so resolving there would show a ` +
-        `retained summary, unmarked, beside live numbers. That needs a visible pre-edit mark first.`,
-    ).toBe(1)
+      contrastHits,
+      'contrast control: `useCanvasStore` must be widespread, or this sweep is blind',
+    ).toBeGreaterThan(100)
+
+    // ── Precondition 2: the resolver exists, under this name, where we think ─
+    const definition = callSites.find(c => c.file === RESOLVER_DEFINITION)
+    expect(
+      definition,
+      'the resolver definition was not found - it was renamed or moved and this guard has ' +
+        'stopped discriminating',
+    ).toBeDefined()
+
+    // ── THE CLAIM: exactly ONE call site in the whole of src/, and it is the
+    //    live-gated one. Not "one inside one file".
+    const consumers = callSites.filter(c => c.file !== RESOLVER_DEFINITION)
+    expect(
+      consumers,
+      `resolved reads found at ${JSON.stringify(consumers)}; exactly one is permitted, in ` +
+        `${LIVE_GATED_CONSUMER}. The hero coaching slot is UNGATED - it renders whenever text ` +
+        `exists - so resolving there would show a retained summary, unmarked, beside live ` +
+        `numbers. That needs a visible pre-edit mark first.`,
+    ).toEqual([{ file: LIVE_GATED_CONSUMER, count: 1 }])
+
+    // ── And the IMPORTER SET, which is the other way in. A module that imports
+    //    the resolver can hand it to anything.
+    expect(
+      importers,
+      'exactly one product module may import the resolver',
+    ).toEqual([LIVE_GATED_CONSUMER])
 
     // And the hero memo still reads the LIVE field alone. Bound to the fallback
     // expression that is unique to that memo, not to a line number.
+    const hookSrc = readFileSync(resolve(process.cwd(), LIVE_GATED_CONSUMER), 'utf8')
     expect(
-      src,
+      hookSrc,
       'the hero coaching memo must keep reading draftCoaching directly',
     ).toContain('draftCoaching?.summary?.trim()')
+  })
+
+  it('the repo-wide sweep can SEE a resolver read outside the hook (positive control)', () => {
+    // The reviewer's own mutant, run as a control rather than described: the
+    // guard above claims an absence across src/, so it must be shown capable of
+    // reporting a PRESENCE. This runs the same detection over the hero files'
+    // real contents with one line appended in memory - nothing is written to
+    // disk, so no tree is mutated.
+    const heroPath = resolve(
+      process.cwd(),
+      'src/canvas/components/pre-analysis-v3/hero/HeroSection.tsx',
+    )
+    const heroSrc = readFileSync(heroPath, 'utf8')
+    expect(
+      (heroSrc.match(/resolveEffectiveDraftCoaching\(/g) ?? []).length,
+      'HeroSection must be clean today, or the control below proves nothing',
+    ).toBe(0)
+    const mutated = `${heroSrc}\nconst x = resolveEffectiveDraftCoaching(a, b)\n`
+    expect(
+      (mutated.match(/resolveEffectiveDraftCoaching\(/g) ?? []).length,
+      'the detection used by the guard above must fire on a hero-side read',
+    ).toBe(1)
   })
 
   /**
@@ -202,14 +299,70 @@ describe('retainedDraftCoaching lifecycle', () => {
     expect(helper, 'readinessClearFields was renamed or reshaped — this guard cannot see it').not.toBeNull()
     const body = helper![0]
 
-    const retainedKeys = (body.match(/^\s{4}(retained[A-Za-z]+):/gm) ?? [])
-      .map(m => m.trim().replace(':', ''))
+    // ⭐ REVIEW B2, REPAIRED. This used to read
+    //     body.match(/^\s{4}(retained[A-Za-z]+):/gm)
+    // and the reviewer MEASURED two evasions: adding
+    // `retainedV2Quality: get().ceeQuality ?? null` left it GREEN (a digit is
+    // not `[A-Za-z]`), and so did any indentation that is not exactly four
+    // spaces. "The retention set cannot quietly grow" was not what it asserted.
+    // It now collects EVERY key in the returned literal, whatever it is called
+    // and however it is indented, plus the spreads - so a growth of any shape
+    // reds. The `retained` prefix is no longer load-bearing.
+    const returned = body.match(/return \{([\s\S]*?)\n {2}\}/)
+    expect(
+      returned,
+      'the returned literal could not be located - this guard cannot see the harvest',
+    ).not.toBeNull()
+    const literal = returned![1]
+      .split('\n')
+      .filter(line => !line.trim().startsWith('//'))
+      .join('\n')
+
+    const spreads = [...literal.matchAll(/^\s*\.\.\.([A-Za-z_$][A-Za-z0-9_$]*)/gm)].map(m => m[1]).sort()
+    expect(
+      spreads,
+      'the harvest must spread the canonical clear set and nothing else',
+    ).toEqual(['READINESS_CLEAR_FIELDS'])
+
+    const harvestedKeys = [...literal.matchAll(/^\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*:/gm)]
+      .map(m => m[1])
       .sort()
     expect(
-      retainedKeys,
+      harvestedKeys,
       'only the admission and the coaching may be retained across invalidation; every other ' +
         'member of READINESS_CLEAR_FIELDS is either a figure about a superseded graph or an ' +
-        'input to a run request',
+        'input to a run request. This now counts EVERY key in the literal, so a name with a ' +
+        'digit in it, or a different indentation, reds here too.',
     ).toEqual(['retainedAnalysisAdmission', 'retainedDraftCoaching'])
+  })
+
+  /**
+   * ⭐ THE DENOMINATOR IS DERIVED, NOT STATED.
+   *
+   * The change is described as "1 of 10 retained". A prose ratio is a
+   * hand-maintained mirror; this reads the canonical set and REDs if a member
+   * is added or removed, which is the moment the ratio in the title, the file
+   * headers and the review record all go stale at once.
+   */
+  it('READINESS_CLEAR_FIELDS has exactly ten members (derived from source)', () => {
+    const src = readFileSync(resolve(process.cwd(), 'src/canvas/store.ts'), 'utf8')
+    const block = src.match(/const READINESS_CLEAR_FIELDS = \{([\s\S]*?)\n\} as const/)
+    expect(block, 'READINESS_CLEAR_FIELDS was renamed or reshaped').not.toBeNull()
+    const members = [
+      ...block![1]
+        .split('\n')
+        .filter(line => !line.trim().startsWith('//'))
+        .join('\n')
+        .matchAll(/^\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*:/gm),
+    ].map(m => m[1])
+    // Positive control: a parse that found nothing would satisfy any count.
+    expect(members, 'the parse found no members - it is not reading the literal').toContain(
+      'draftCoaching',
+    )
+    expect(
+      members.length,
+      'the retention is described as "1 of 10"; that ratio is now derived, and this red means ' +
+        'the clear set changed and every statement of the ratio needs re-deriving',
+    ).toBe(10)
   })
 })
