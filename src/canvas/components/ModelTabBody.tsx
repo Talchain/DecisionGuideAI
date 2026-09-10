@@ -33,6 +33,14 @@ import { SectionErrorBoundary } from './GraphTextView'
 import type { MappedRobustness } from '../../lib/mappers/types'
 import { trackGuidance } from '../../telemetry/guidanceEvents'
 import { GoalSection } from './model-tab/GoalSection'
+/**
+ * The constraints list — mounted OUTSIDE the `LEGACY_DETAILED_EDITOR_MOUNTED`
+ * gate below, deliberately. Every other section imported from `model-tab/` on
+ * the next few lines is dead code (that flag is `false`); this one is live, and
+ * putting it inside the v1 stack would have shipped it dark, which is the
+ * failure mode this estate keeps repeating.
+ */
+import { GoalConstraintsSection } from './model-tab/GoalConstraintsSection'
 import { buildGoalFitRows } from './model-tab/buildGoalFitRows'
 import { OptionsSection } from './model-tab/OptionsSection'
 import { FactorsSection } from './model-tab/FactorsSection'
@@ -417,6 +425,16 @@ export const ModelTabBody = memo(function ModelTabBody({
    */
   const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
   const lastServerGraphHash = useCanvasStore(s => s.lastServerGraphHash)
+  /**
+   * The model's stated constraints, for the read-only list rendered beside the
+   * outline. Read HERE for the same reason every selector above is: the mount
+   * host owns the store seams.
+   *
+   * ⚠ THE SLICE IS camelCase `goalConstraints`. A snake_case `goal_constraints`
+   * sweep under-reports this feature badly — `GoalPanel`, the richest existing
+   * consumer, contains no literal `goal_constraints` at all.
+   */
+  const goalConstraints = useCanvasStore(s => s.goalConstraints)
 
   // ── Scientific enrichment data from PLoT response ───────────────────────────
   // Single-pass extraction of all per-factor enrichment maps from factor_sensitivity.
@@ -1057,6 +1075,14 @@ export const ModelTabBody = memo(function ModelTabBody({
         expertMode={expertMode ?? false}
         onToggleExpert={onToggleExpert}
       />
+
+      {/* ── The model's constraints, READ-ONLY ───────────────────────────────
+          Answers "where can the user view the constraints?" with a surface that
+          STAYS OPEN. The two other live constraint displays are the goal node's
+          transient hover pills and the Inspector's GoalPanel — and the Inspector
+          is mutually exclusive with this dock, so opening this tab closes it.
+          Renders nothing when the model has no constraints. */}
+      <GoalConstraintsSection constraints={goalConstraints} nodes={nodes} />
 
       {/* Unique scientific transparency from the legacy stack, rehomed rather
           than discarded. These are disclosures/audit facts, not a second
