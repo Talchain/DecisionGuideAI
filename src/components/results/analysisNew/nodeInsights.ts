@@ -37,7 +37,7 @@
 
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import type { MethodEntry } from '../decision-overview/actionsCatalogue'
-import type { GlanceDriver } from './analysisNewTypes'
+import type { AnalysisNewFindingSectionKey, GlanceDriver } from './analysisNewTypes'
 import { methodForRecommendation } from './recommendationMethod'
 
 /**
@@ -100,6 +100,16 @@ export interface NodeInsight {
    * most important finding was *"this node is the hinge"*, and the card denied
    * that anything mentioned it at all.
    *
+   * ⚠⚠ AND THE FIRST FIX FOR IT WAS ITSELF SHORT — TWO OF THE FOUR SECTIONS,
+   * under a comment claiming it covered "every other section". `drivers` and
+   * `uncertainty` were omitted, and the drivers omission is reachable on an
+   * ordinary run: `GLANCE_DRIVER_COUNT` caps the glance's driver list at three
+   * while the Drivers section renders every live driver, so a run with four or
+   * more drivers left the rank-4 node denied by the strip and named by the
+   * section. The section list is now DERIVED from the view model's type
+   * (`AnalysisNewFindingSectionKey`) and handed over as an exhaustive `Record`,
+   * so a short list is a compile error rather than a comment.
+   *
    * ⚠ HEADLINES ONLY, VERBATIM. This is a POINTER to a section that is already
    * on screen saying its own thing — not a second rendering of that finding,
    * and nothing here composes a sentence.
@@ -121,11 +131,46 @@ export interface NodeInsight {
 export interface NodeMention {
   /** The finding's own id — the join a test binds to, never its text. */
   id: string
-  /** Which section is speaking. Used to label the pointer. */
-  section: 'keyInsights' | 'sensitivity'
+  /**
+   * Which section is speaking. Used to label the pointer.
+   *
+   * ⚠ DERIVED FROM THE VIEW MODEL'S TYPE, NOT SPELLED OUT HERE. It read
+   * `'keyInsights' | 'sensitivity'` and that hand-written pair was the defect:
+   * two of the panel's four finding-bearing sections. See
+   * `AnalysisNewFindingSectionKey`.
+   */
+  section: AnalysisNewFindingSectionKey
   /** The finding's headline, verbatim. */
   headline: string
 }
+
+/**
+ * The only three fields a mention needs off a finding.
+ *
+ * ⚠ NARROWER THAN `AnalysisNewFinding` ON PURPOSE. A mention is a POINTER to a
+ * card already on screen, so it may read the identity, the headline and the
+ * join — and nothing else. Taking the whole finding here would let a later
+ * change render a second copy of a row the panel is already showing, which is
+ * the restatement defect this panel has shipped three times.
+ */
+export interface MentionCandidate {
+  id: string
+  headline: string
+  targetId?: string
+}
+
+/**
+ * Every finding-bearing section's rows, keyed by the section they came from.
+ *
+ * ⭐⭐ A `Record` OVER THE DERIVED UNION, AND THAT IS THE WHOLE GUARD. Omitting a
+ * section is a COMPILE ERROR naming the missing key, and a new finding-bearing
+ * section on the view model widens the union and REDs every caller until it is
+ * covered. The predicate cannot silently reach fewer sections than the panel
+ * renders, which is precisely what it did.
+ */
+export type MentionSectionRows = Readonly<
+  Record<AnalysisNewFindingSectionKey, ReadonlyArray<MentionCandidate>>
+>
 
 export type NodeInsightIndex = ReadonlyMap<string, NodeInsight>
 
@@ -135,13 +180,18 @@ export interface BuildNodeInsightsInput {
   /** `vm.atAGlance.drivers` — the glance's CAPPED driver list. */
   drivers: ReadonlyArray<GlanceDriver>
   /**
-   * ⭐ THE REST OF THE PANEL. Every other section whose rows carry a
-   * `targetId`, so the strip's *"nothing else refers to this node"* is a claim
-   * about the panel rather than about two of its sections.
+   * ⭐ THE REST OF THE PANEL, in the order a reader meets it.
+   *
+   * ⚠⚠ THE CLAIM THIS FEEDS IS ABOUT THE WHOLE PANEL, SO THE SCOPE IS THE
+   * HONESTY. Build it with `mentionSectionsFrom`, which takes an exhaustive
+   * `Record` and therefore cannot be handed a short list. Passing a
+   * hand-written array here still compiles — the shape is an array so the
+   * ORDER is explicit and testable — but the array is the thing that shipped
+   * short, and `mentionSectionsFrom` is why the mount can no longer do it.
    *
    * Optional so an existing caller keeps compiling; a caller that omits it gets
-   * the OLD, NARROWER answer, which is why the mount passes both and a test
-   * pins that it does.
+   * the OLD, NARROWER answer, which is why the mount passes all four sections
+   * and a test pins that it does.
    *
    * ⚠ SCOPE STATED RATHER THAN LEFT IMPLICIT: "How the options compare" is NOT
    * here. Its section carries `rows: ComparisonOption[]`, a different shape
@@ -152,8 +202,30 @@ export interface BuildNodeInsightsInput {
    */
   mentionSections?: ReadonlyArray<{
     section: NodeMention['section']
-    findings: ReadonlyArray<{ id: string; headline: string; targetId?: string }>
+    findings: ReadonlyArray<MentionCandidate>
   }>
+}
+
+/**
+ * ⭐⭐ TURN THE PANEL'S FINDING-BEARING SECTIONS INTO MENTION SECTIONS, WITH THE
+ * COMPILER ENFORCING THAT NONE IS MISSING.
+ *
+ * The caller writes one `Record` literal keyed by the view model's own section
+ * names; TypeScript rejects a literal that omits a key or invents one. The
+ * ORDER of the returned array is the literal's key order, so the caller decides
+ * the reader's reading order and a test can pin it.
+ *
+ * ⚠ THIS FUNCTION IS NOT WHERE COMPLETENESS IS DECIDED — the TYPE is. The
+ * function exists so the mount has somewhere to state the mapping once, and so
+ * a `Record` (which is checkable) replaces an array literal (which is not).
+ */
+export function mentionSectionsFrom(
+  bySection: MentionSectionRows,
+): ReadonlyArray<{ section: AnalysisNewFindingSectionKey; findings: ReadonlyArray<MentionCandidate> }> {
+  return (Object.keys(bySection) as AnalysisNewFindingSectionKey[]).map((section) => ({
+    section,
+    findings: bySection[section],
+  }))
 }
 
 /**

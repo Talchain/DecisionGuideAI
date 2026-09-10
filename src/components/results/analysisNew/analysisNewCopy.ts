@@ -936,28 +936,56 @@ export const ANALYSIS_NEW_COPY = {
     valueLocalOnly: 'Changed here only. Olumi has not been told, so the shared model still has the old value.',
     valueNotEncodable: 'That value could not be applied, so nothing changed.',
     /**
-     * ⚠ SCOPED TO THIS PANEL, AND THE SCOPE IS THE HONESTY. The index behind
-     * the detail is built from exactly two lists — the glance's drivers and the
-     * engine's interventions — so "this panel" is the largest true subject.
-     * "No finding names this node" would be a claim about the RUN, and the run
-     * holds findings this panel has already filtered (dismissed ones) and
-     * capped.
+     * ⚠ SCOPED TO THIS PANEL, AND THE SCOPE IS THE HONESTY. "No finding names
+     * this node" would be a claim about the RUN, and the run holds findings
+     * this panel has already filtered (dismissed ones) and capped.
+     *
+     * ⚠⚠ THIS COMMENT SAID THE INDEX WAS "built from exactly two lists — the
+     * glance's drivers and the engine's interventions", AND THAT IS WHY THE
+     * SENTENCE WAS FALSE ON SCREEN. Two lists cannot answer a question about
+     * the whole panel, and the panel was visibly naming nodes the index had
+     * never heard of. The index now also reads every section that renders
+     * `AnalysisNewFinding[]` — all four of them, enumerated by the compiler
+     * rather than by this comment (`AnalysisNewFindingSectionKey`). Do not
+     * restate the source list here: a hand-maintained count of the index's
+     * inputs is what made this sentence a lie, twice.
      */
     noInsight: 'Nothing else on this panel refers to this node.',
     /*
      * ⭐ NAMES THE SECTION, SO THE POINTER IS ACTIONABLE.
      *
-     * "Also in: Key insights — Platform Capability Fit is the hinge" tells the
+     * "Also in Key insights: Platform Capability Fit is the hinge" tells the
      * reader WHERE to look. A bare headline would make the reader hunt for a
      * sentence they have just been shown out of context.
      *
      * ⚠ THE HEADLINE ITSELF IS NEVER AUTHORED HERE — it is the finding's own,
-     * verbatim. This function supplies only the label of the section.
+     * verbatim. This function supplies only the frame around the section name.
+     *
+     * ⚠⚠ IT TAKES THE TITLE, NOT THE SECTION KEY, AND THAT IS THE FIX TO A
+     * MIRROR. It used to branch on the key and RETYPE the headings — 'Also in
+     * Key insights:' beside `sections.keyInsights`, two copies of one string
+     * (CLAUDE.md trap 12). A heading edit would have moved the section and left
+     * the pointer naming a heading that no longer exists, silently. The caller
+     * now indexes `ANALYSIS_NEW_COPY.sections` by the section key, so the
+     * pointer names the heading the reader will actually be looking for, and a
+     * finding-bearing section with no title is a compile error at the call site
+     * rather than a wrong sentence on screen.
+     *
+     * ⚠⚠ THE EMPTY HEADLINE IS A REAL PRODUCER STATE, NOT A DEFENSIVE BRANCH.
+     * `buildAnalysisNewViewModel` sets `headline: ''` on a LONG non-threshold
+     * uncertainty or sensitivity row and carries the sentence in `implication`
+     * instead, deliberately, so the row does not say itself twice. A pointer
+     * built from `headline` alone therefore renders on those rows as a label
+     * with a dangling colon and nothing after it. The section name ALONE is
+     * still a true and useful pointer, so that is what it renders.
+     *
+     * ⛔ AND IT MUST NOT FALL BACK TO `implication`. That field is the finding's
+     * whole sentence, and reprinting it here would make this a SECOND RENDERING
+     * of a card already on screen — the restatement defect this panel has
+     * shipped three times, and the one thing this pointer was built not to be.
      */
-    mentionPrefix: (section: 'keyInsights' | 'sensitivity'): string =>
-      section === 'keyInsights'
-        ? 'Also in Key insights:'
-        : 'Also in What would change your mind:',
+    mention: (sectionTitle: string, headline: string): string =>
+      headline ? `Also in ${sectionTitle}: ${headline}` : `Also in ${sectionTitle}`,
     /**
      * ⚠⚠ THE SAME ABSENCE, WITH THE REASON THE READER ACTUALLY NEEDS. Before a
      * run `noInsight` above is TRUE and still tells the wrong story: it reads

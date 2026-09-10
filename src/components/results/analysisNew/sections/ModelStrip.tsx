@@ -1508,7 +1508,19 @@ export function ModelStrip({
                     data-mention-id={m.id}
                     data-mention-section={m.section}
                   >
-                    {COPY.modelStrip.mentionPrefix(m.section)} {m.headline}
+                    {/* ⚠ THE SECTION'S OWN HEADING, INDEXED — never a second
+                        spelling of it. The pointer must name the heading the
+                        reader will scroll to, and `m.section` is the view
+                        model's own key, so a section with no title cannot
+                        compile.
+
+                        ⚠ THE WHOLE LINE IS COMPOSED IN THE COPY MODULE, because
+                        a finding may legitimately carry an EMPTY headline (a
+                        long uncertainty or sensitivity row keeps its sentence
+                        in `implication` so it does not say itself twice) and
+                        the line must then read as a section name rather than a
+                        label with nothing after its colon. */}
+                    {COPY.modelStrip.mention(COPY.sections[m.section], m.headline)}
                   </li>
                 ))}
               </ul>

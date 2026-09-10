@@ -55,7 +55,7 @@ import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
 import type { AnalysisNewViewModel } from './analysisNewTypes'
 import { useAnalysisNewViewModel } from './useAnalysisNewViewModel'
-import { buildNodeInsights } from './nodeInsights'
+import { buildNodeInsights, mentionSectionsFrom } from './nodeInsights'
 import { buildModelStrip, stripRendersTargetAffordance } from './buildModelStrip'
 import { useCanvasStore } from '../../../canvas/store'
 import { SUCCESS_MEASURE_RECOMMENDATION_ID } from '../strengthen/buildRecommendations'
@@ -634,24 +634,47 @@ export function AnalysisNewTabBody({
          * deployed `d82e81f0`: "Platform Capability Fit is the hinge" was on
          * screen while the card said nothing referred to it.
          *
-         * Every section here renders `AnalysisNewFinding[]`, which carries the
-         * same `targetId` join the two lists above use. If a section gains
-         * findings later, it belongs in this list — and the empty state stays
-         * true only for as long as that stays true.
+         * ⚠⚠ AND THE FIRST FIX WAS SHORT IN THE SAME WAY, UNDER A COMMENT HERE
+         * CLAIMING IT COVERED "every other section". It listed `keyInsights`
+         * and `sensitivity`; the panel renders FOUR sections of
+         * `AnalysisNewFinding[]`, and `drivers`/`uncertainty` both carry real
+         * node `targetId`s. The drivers omission is reachable on an ordinary
+         * run: `GLANCE_DRIVER_COUNT` caps `vm.atAGlance.drivers` at three while
+         * the Drivers section renders every live driver, so on any run with four
+         * or more drivers the rank-4 node had a null `driverLabel`, no
+         * intervention, no mention — and was told nothing referred to it while
+         * the Drivers section named it on screen.
+         *
+         * ⭐ SO THE LIST IS NO LONGER WRITTEN HERE. `mentionSectionsFrom` takes
+         * an exhaustive `Record` keyed by `AnalysisNewFindingSectionKey`, which
+         * is DERIVED from the view model's type: omitting a section is a
+         * compile error, and a new finding-bearing section REDs this call until
+         * it is covered. A comment promising completeness is what shipped the
+         * gap twice; the compiler is what closes it.
+         *
+         * ⚠ KEY ORDER IS THE READER'S READING ORDER, top to bottom down the
+         * panel: "What would change your mind" mounts above "Key insights",
+         * which mounts above "Drivers and dynamics" and "Uncertainty and gaps".
+         * A pointer list in DOM order is walkable; an arbitrary one is not.
          */
-        mentionSections: [
-          { section: 'keyInsights', findings: vm.keyInsights.insights },
-          { section: 'sensitivity', findings: vm.sensitivity.findings },
-          // "How the options compare" is deliberately absent — `rows:
-          // ComparisonOption[]` is a different shape with no finding join.
+        mentionSections: mentionSectionsFrom({
+          sensitivity: vm.sensitivity.findings,
+          keyInsights: vm.keyInsights.insights,
+          drivers: vm.drivers.findings,
+          uncertainty: vm.uncertainty.findings,
+          // "How the options compare" cannot appear in this Record at all —
+          // `rows: ComparisonOption[]` is a different shape with no
+          // `AnalysisNewFinding` join, so it is outside the derived union.
           // See `BuildNodeInsightsInput.mentionSections`.
-        ],
+        }),
       }),
     [
       vm.strengthen.interventions,
       vm.atAGlance.drivers,
-      vm.keyInsights.insights,
       vm.sensitivity.findings,
+      vm.keyInsights.insights,
+      vm.drivers.findings,
+      vm.uncertainty.findings,
     ],
   )
 
