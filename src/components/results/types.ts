@@ -463,6 +463,29 @@ export interface DecisionResultData {
    */
   leaderDesignationPermitted?: boolean
   /**
+   * ⭐⭐ HOW MANY OPTIONS THE RUN ITSELF COMPARED — a fact about the REPORT, not
+   * about the canvas now.
+   *
+   * ⚠⚠ IT EXISTS BECAUSE `allOptions` AND `verdict` CANNOT ANSWER IT. Both are
+   * rebuilt from the CURRENT option nodes on every render, and
+   * `deriveDecisionVerdict` filters the report's probabilities by the visible ids
+   * and returns the no-claim verdict below two — BEFORE it reads the producer's
+   * leader permission. So deleting one option from a completed two-option run
+   * makes `allOptions.length === 1` and `verdict.leaderId === null` while the
+   * retained report still carries its ranking and its explicit
+   * `producer_leader_permission: { permitted: false }`. A consumer asking "did
+   * this run rank anything?" of the projection gets "no", and an explicitly
+   * withheld ranking becomes speakable because a node disappeared.
+   *
+   * Derived through `comparableOptions(report)` with NO visibility filter — the
+   * same single definition of "comparable" that `deriveDecisionVerdict` applies
+   * WITH one, so the two cannot drift (trap 12).
+   *
+   * `undefined` ⇒ the hook did not supply it (a legacy fixture), never "zero".
+   * Consumers must treat absence as "unknown", not as "this run was unranked".
+   */
+  rankedComparisonPopulation?: number
+  /**
    * CEE's raw admission for this turn — the source of the "what would change it"
    * copy (`reasons[]`) and of `missing_important_inputs[]`.
    * `undefined` ⇒ a pre-admission CEE, never a refusal.

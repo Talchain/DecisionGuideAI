@@ -351,6 +351,42 @@ const BAND_TO_SEPARATION: Record<HeadlineBanded['band'], LeaderSeparation> = {
 }
 
 /**
+ * ⭐⭐ THE OPTIONS A REPORT ACTUALLY COMPARED — one implementation, two questions.
+ *
+ * Pass `visibleOptionIds` and you get "what can be compared ON THE CANVAS NOW",
+ * which is what `deriveDecisionVerdict` needs. Omit it and you get the RUN'S OWN
+ * comparison population: every option this report scored, whatever has since been
+ * added or deleted.
+ *
+ * ⚠⚠ EXTRACTED RATHER THAN COPIED, AND THAT IS THE WHOLE POINT. A consumer that
+ * needed the unfiltered population was about to hand-write this loop a second
+ * time, and the copy that drifts is the one that decides whether a withheld
+ * ranking can be spoken about (trap 12: derive, never mirror). `option_probabilities`
+ * keyed by option id, with a FINITE `win_probability`, is the single definition of
+ * "comparable", and it now lives here once.
+ *
+ * ⚠ THE TWO ANSWERS ARE DIFFERENT QUESTIONS, NOT AN INCONSISTENCY TO RECONCILE
+ * (trap 21). "Is there a leading option on screen?" is about the current graph and
+ * must follow deletions. "Did this RUN rank anything?" is a fact about the report
+ * and CANNOT change because a node was removed — a report does not un-rank itself
+ * when the user tidies the canvas.
+ */
+export function comparableOptions(
+  report: DecisionVerdictReportLike | null | undefined,
+  visibleOptionIds?: ReadonlySet<string>,
+): Array<{ id: string; win: number }> {
+  if (!report) return []
+  const probs = report.option_probabilities ?? {}
+  const comparable: Array<{ id: string; win: number }> = []
+  for (const [id, entry] of Object.entries(probs)) {
+    if (visibleOptionIds && !visibleOptionIds.has(id)) continue
+    const win = entry?.win_probability
+    if (typeof win === 'number' && Number.isFinite(win)) comparable.push({ id, win })
+  }
+  return comparable
+}
+
+/**
  * Derive the one verdict every surface quotes.
  *
  * Pure and total: any malformed / absent input yields the `unknown` verdict,
@@ -363,16 +399,7 @@ export function deriveDecisionVerdict(
   if (!report) return UNKNOWN_VERDICT
 
   const { visibleOptionIds, rawHeadlineBanded } = options
-  const probs = report.option_probabilities ?? {}
-
-  // Comparable options: those with a finite win probability that are still on
-  // the canvas (when a visibility set is supplied).
-  const comparable: Array<{ id: string; win: number }> = []
-  for (const [id, entry] of Object.entries(probs)) {
-    if (visibleOptionIds && !visibleOptionIds.has(id)) continue
-    const win = entry?.win_probability
-    if (typeof win === 'number' && Number.isFinite(win)) comparable.push({ id, win })
-  }
+  const comparable = comparableOptions(report, visibleOptionIds)
 
   // Fewer than two comparable options: "leading" has no meaning. This is a
   // REACHABLE state, not a defensive branch — single-option runs exist (the

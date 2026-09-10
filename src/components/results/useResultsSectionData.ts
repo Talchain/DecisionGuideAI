@@ -59,7 +59,7 @@ import {
   polarityToFactorDirection,
   type FactorDirection,
 } from '../../lib/factorDirection'
-import { deriveDecisionVerdict, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
+import { deriveDecisionVerdict, comparableOptions, type DecisionVerdictReportLike } from '../../lib/decisionVerdict'
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
 import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
@@ -2255,6 +2255,23 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       },
     )
 
+    /**
+     * ⭐⭐ THE RUN'S OWN COMPARISON POPULATION — unfiltered by what is on the
+     * canvas now, and that is the entire point.
+     *
+     * `leaderVerdict` above is deliberately filtered by `visibleOptionIds`,
+     * because "is there a leading option ON SCREEN?" must follow a deletion. But
+     * "did this RUN rank anything?" is a fact about the report, and a report does
+     * not un-rank itself when the user tidies the canvas.
+     *
+     * ⚠ Same `comparableOptions` the verdict uses, called WITHOUT the visibility
+     * set — one definition of "comparable", two questions (trap 21), and no
+     * second hand-written loop to drift (trap 12).
+     */
+    const rankedComparisonPopulation = comparableOptions(
+      report as DecisionVerdictReportLike | null | undefined,
+    ).length
+
     // ROADMAP 1.267 — THE ORDER DESIGNATION IS AUTHORED HERE.
     //
     // This line is where the CANONICAL order dies. `unsortedOptions` is
@@ -2593,6 +2610,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // meaning exactly "did the result separate the arms" (Q2). These two are
       // the NEW question — "may this panel DESIGNATE?" — and its raw evidence.
       leaderDesignationPermitted,
+      // ⭐ AND THE RUN'S OWN RANKED-NESS, which neither `verdict` nor `allOptions`
+      // can report: both are rebuilt from the CURRENT option nodes, so a deletion
+      // makes them say "this run ranked nothing" about a report that ranked two.
+      rankedComparisonPopulation,
       // Raw, for `reasons[]` (the "what would change it" copy) and
       // `missing_important_inputs[]`. Undefined => pre-admission CEE.
       // THE SAME EFFECTIVE ANSWER THE GATE ABOVE USED. Handing consumers the raw

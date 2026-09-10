@@ -29,6 +29,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { makeData, makeOption, openStrategicChallenge } from './analysisNewFixtures'
+import { comparableOptions, deriveDecisionVerdict } from '../../../../lib/decisionVerdict'
 import type { DecisionResultData } from '../../types'
 
 /**
@@ -187,5 +188,157 @@ describe('the glance may not explain the verdict by a ranking the run withheld',
       isStale: false,
     } as never).atAGlance.verdict
     expect(noArms?.reason).toBeTruthy()
+  })
+})
+
+// ── THE RETAINED REPORT SURVIVES A GRAPH EDIT; ITS RANKING STAYS WITHHELD ─────
+
+/**
+ * ⛔⛔ AN EXPLICITLY WITHHELD RANKING BECAME SPEAKABLE BECAUSE AN OPTION WAS
+ * DELETED. Review's schedule, reproduced here through the REAL producers at every
+ * hop rather than asserted on a boolean leaf.
+ *
+ *   1. A completed TWO-option report is retained, carrying its ranking
+ *      explanation and `producer_leader_permission: { permitted: false }`.
+ *   2. The user deletes one option. `deleteNodeById` updates nodes and edges and
+ *      invalidates readiness — it does NOT erase the completed report.
+ *   3. `useResultsSectionData` rebuilds `allOptions` from the CURRENT option
+ *      nodes and calls `deriveDecisionVerdict` with the visible ids.
+ *   4. `decisionVerdict.ts` filters by those ids and returns the NO-CLAIM verdict
+ *      at `comparable.length < 2` — BEFORE it reads the producer's permission. So
+ *      `leaderId` is null and `hasLeadingOption` is false.
+ *   5. The first version of `rankingWasWithheld` read ONLY those two projected
+ *      signals, concluded "there was never a ranking", and let the retained
+ *      report's ranking explanation render.
+ *
+ * ⚠⚠ WHY THIS IS NOT A BOOLEAN-LEAF TEST. `deriveDecisionVerdict` and
+ * `comparableOptions` are the real imports and the report is a real payload shape,
+ * so steps 3 and 4 EXECUTE here. A fixture that hand-set `verdict` and
+ * `allOptions` to the post-deletion values would encode my model of the
+ * projection rather than the projection, and would keep passing if
+ * `decisionVerdict`'s early return ever moved relative to the permission read —
+ * which is the exact ordering the defect depends on.
+ *
+ * ⚠ WHAT IT STILL DOES NOT COVER, stated rather than implied: the React hook
+ * itself. `licensesComparativeLeaderClaim(undefined)` is `true` (no admission =>
+ * the producer has not spoken), so the hook's `Q1 && Q2` reduces to `Q2`, which is
+ * what `leaderDesignationPermitted` is set from below. That composition is
+ * reproduced, not executed.
+ */
+const RETAINED_TWO_OPTION_REPORT = {
+  option_probabilities: {
+    opt_segment: { win_probability: 0.62 },
+    opt_defer: { win_probability: 0.38 },
+  },
+  producer_leader_permission: { permitted: false, withheld_reason: 'leader_claim_withheld' },
+  robustness: { recommended_option_id: 'opt_segment' },
+}
+
+/** A run that only ever scored ONE option — the contrast control's report. */
+const RETAINED_ONE_OPTION_REPORT = {
+  option_probabilities: { opt_segment: { win_probability: 0.62 } },
+  robustness: { recommended_option_id: 'opt_segment' },
+}
+
+/** The recommendation the hook would publish for a given canvas visibility. */
+const recAfterEdit = (
+  report: unknown,
+  visibleOptionIds: readonly string[],
+): Partial<DecisionResultData> => {
+  const visible = new Set(visibleOptionIds)
+  const verdict = deriveDecisionVerdict(report as never, { visibleOptionIds: visible })
+  return {
+    robustnessVerdict: 'moderate',
+    robustnessVerdictReason: PRODUCER_REASON,
+    allOptions: TWO_ARMS.filter(o => visible.has(o.id)),
+    // Q1 is absent (no admission => `true`), so the composed field reduces to Q2.
+    leaderDesignationPermitted: verdict.hasLeadingOption,
+    verdict,
+    rankedComparisonPopulation: comparableOptions(report as never).length,
+  }
+}
+
+const reasonAfterEdit = (report: unknown, visibleOptionIds: readonly string[]) =>
+  buildAnalysisNewViewModel({
+    data: makeData({ recommendation: recAfterEdit(report, visibleOptionIds) }),
+    recommendations: [],
+    isPreRun: false,
+    isRunning: false,
+    isStale: false,
+  } as never).atAGlance.verdict?.reason
+
+describe('a retained withheld ranking stays withheld after the graph changes', () => {
+  /**
+   * ⚠ THE PRECONDITION, PINNED IN-TEST. The three cases below are only about the
+   * REPORT-side signal if the PROJECTED signals genuinely collapse — otherwise
+   * each would pass for the old reason and observe nothing.
+   */
+  it('PRECONDITION: deleting an option really does collapse both projected signals', () => {
+    const both = recAfterEdit(RETAINED_TWO_OPTION_REPORT, ['opt_segment', 'opt_defer'])
+    const one = recAfterEdit(RETAINED_TWO_OPTION_REPORT, ['opt_segment'])
+
+    // With two visible the verdict reaches the permission read and withholds there.
+    expect(both.allOptions).toHaveLength(2)
+    expect(both.verdict?.leaderId).toBe('opt_segment')
+
+    // With one visible it returns the NO-CLAIM verdict BEFORE reading permission,
+    // so both signals the old predicate relied on now say "no ranking existed".
+    expect(one.allOptions).toHaveLength(1)
+    expect(one.verdict?.leaderId).toBeNull()
+    expect(one.verdict?.hasLeadingOption).toBe(false)
+  })
+
+  /**
+   * ⭐⭐ THE REPORT-SIDE SIGNAL DOES NOT FOLLOW THE CANVAS — the invariant the fix
+   * rests on. A report does not un-rank itself when the user tidies the graph.
+   */
+  it('⭐⭐ the run’s own comparison population is 2 at EVERY visibility', () => {
+    for (const visible of [['opt_segment', 'opt_defer'], ['opt_segment'], []]) {
+      expect(
+        recAfterEdit(RETAINED_TWO_OPTION_REPORT, visible).rankedComparisonPopulation,
+        `visibility ${JSON.stringify(visible)}`,
+      ).toBe(2)
+    }
+  })
+
+  it('withholds with BOTH options still visible', () => {
+    expect(reasonAfterEdit(RETAINED_TWO_OPTION_REPORT, ['opt_segment', 'opt_defer'])).toBeUndefined()
+  })
+
+  /**
+   * ⭐⭐ THE CASE THE DEFECT LIVED IN. Without the report-side signal this RENDERS
+   * the retained ranking explanation, and it is reachable on an ordinary graph
+   * edit rather than an invented fixture.
+   */
+  it('⭐⭐ STILL withholds after ONE option is deleted', () => {
+    expect(reasonAfterEdit(RETAINED_TWO_OPTION_REPORT, ['opt_segment'])).toBeUndefined()
+  })
+
+  it('⭐ STILL withholds when every option is gone', () => {
+    expect(reasonAfterEdit(RETAINED_TWO_OPTION_REPORT, [])).toBeUndefined()
+  })
+
+  /**
+   * ⭐⭐ THE CONTRAST CONTROL, AND IT IS WHAT STOPS THE FIX BECOMING "ALWAYS
+   * WITHHOLD". A run whose report only ever scored ONE option never had a ranking,
+   * so its robustness sentence is not a claim about an ordering and must still
+   * render. If this ever goes silent, the report-side term has widened into the
+   * permission-only gate that deleted a licensed sentence in the first place.
+   */
+  it('⭐⭐ CONTROL: a run that only ever scored ONE option still renders its reason', () => {
+    const rec = recAfterEdit(RETAINED_ONE_OPTION_REPORT, ['opt_segment'])
+    expect(rec.rankedComparisonPopulation).toBe(1)
+    expect(reasonAfterEdit(RETAINED_ONE_OPTION_REPORT, ['opt_segment'])).toBe(PRODUCER_REASON)
+  })
+
+  /**
+   * ⚠ AND ABSENCE IS NOT ZERO. A legacy fixture omitting the field must fall
+   * through to the projection signals, not be read as "this run was unranked" —
+   * which would silently re-open the original defect for every older consumer.
+   * The `exactOptionalPropertyTypes` rule is why the key is OMITTED rather than
+   * set to `undefined`.
+   */
+  it('CONTROL: with the field ABSENT, the projection signals still withhold on two arms', () => {
+    expect(verdictOf(false)?.reason).toBeUndefined()
   })
 })
