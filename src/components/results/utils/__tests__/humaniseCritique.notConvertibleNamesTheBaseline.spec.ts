@@ -232,6 +232,17 @@ describe('the guard itself discriminates (positive control)', () => {
     expect(
       "The target could not be resolved into its factor's measurement frame — for example when no current level is recorded for it.",
     ).not.toMatch(TARGET_BLAMED_AS_MISSING)
+    // ⭐ APPENDED 10 Sep 2026, not edited. The line above is the sentence that
+    // refuted this guard's first draft, quoted verbatim in the header; it is a
+    // record and stays (CLAUDE.md trap 14b). The em dash was removed from the
+    // product copy on the same day, so the sentence a user now reads is the one
+    // below — and the discrimination has to hold for THAT one, which is a
+    // stronger test: its full stop closes the `[^.]*` span the first draft
+    // relied on staying open, so a future guard could pass here for the wrong
+    // reason. Both are asserted; neither replaces the other.
+    expect(
+      "The target could not be resolved into its factor's measurement frame, for example when no current level is recorded for it.",
+    ).not.toMatch(TARGET_BLAMED_AS_MISSING)
   })
 
   it('does NOT match a true sentence about comparison or conversion failing', () => {
