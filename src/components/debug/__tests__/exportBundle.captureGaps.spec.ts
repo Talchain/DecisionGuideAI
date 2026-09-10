@@ -404,6 +404,79 @@ describe('GAP 3 — assistant_text is not truncated at 1000 chars', () => {
     )
     expect(bundle.meta.redaction.never_truncate_keys).toContain('assistant_text')
   })
+
+  it('derives meta.redaction.never_truncate_key_max_length from the policy constant too', () => {
+    const bundle = buildDebugBundle(makeDebugData()) as unknown as {
+      meta: { redaction: { never_truncate_key_max_length?: Record<string, number> } }
+    }
+    // Same rule as the list above, for the same reason. Once a key can carry
+    // its OWN cap, a bundle reporting only the shared ceiling MISDESCRIBES
+    // its own redaction: a reader would price `system_prompt` at 8000 and
+    // read a 61k field as impossible.
+    expect(bundle.meta.redaction.never_truncate_key_max_length).toEqual(
+      DEBUG_BUNDLE_REDACTION_OPTIONS.neverTruncateKeyMaxLength,
+    )
+  })
+
+  /**
+   * ⭐ THE END STATE, at the artefact the user actually opens.
+   *
+   * Everything else in this lane tests a hop. This walks the last one: a
+   * redacted trace body -> `buildDebugBundle` -> `JSON.stringify`, and reads
+   * the prompt back out of the serialised bundle at the documented path.
+   * Three green hop tests and an export that still clips is a failure.
+   */
+  it('⭐ the exported bundle carries the COMPLETE 61,199-char system prompt at payloads.cee_response.__additive__._prompt_capture', () => {
+    const MEASURED = 61_199
+    const systemPrompt = 'S'.repeat(MEASURED)
+    // What the trace store holds: the recorder's promoted-sidecar body, put
+    // through the store's OWN redaction options.
+    const storedBody = redactPayload(
+      {
+        response_version: '5.0',
+        assistant_text: 'Here is a first draft.',
+        __additive__: {
+          _prompt_capture: [
+            {
+              system_prompt: systemPrompt,
+              system_prompt_chars: MEASURED,
+              system_prompt_sha256: 'f'.repeat(64),
+              prompt_version: 'v21',
+              resolved_model: 'claude-sonnet-4-5',
+              user_content_chars: 412,
+              user_content_sha256: 'b'.repeat(64),
+            },
+          ],
+        },
+      },
+      DEBUG_BUNDLE_REDACTION_OPTIONS,
+    )
+
+    const data = makeDebugData()
+    const bundle = buildDebugBundle({
+      ...data,
+      payloads: { ...(data.payloads ?? {}), cee_response: storedBody },
+    } as DebugData)
+
+    // Read it back out of the SERIALISED artefact, not the object graph —
+    // that is the file the product owner opens.
+    const serialised = JSON.parse(JSON.stringify(bundle)) as {
+      payloads: { cee_response: { __additive__: { _prompt_capture: Array<Record<string, unknown>> } } }
+    }
+    const capture = serialised.payloads.cee_response.__additive__._prompt_capture[0]
+    const captured = capture.system_prompt as string
+
+    // Exact length. A presence assertion passes on a clipped string.
+    expect(captured.length).toBe(MEASURED)
+    expect(captured).toBe(systemPrompt)
+    expect(captured).not.toContain('truncated_by')
+    // Provenance and the shape-only detection surface ride with it.
+    expect(capture.prompt_version).toBe('v21')
+    expect(capture.resolved_model).toBe('claude-sonnet-4-5')
+    expect(capture.system_prompt_sha256).toBe('f'.repeat(64))
+    expect(capture.system_prompt_chars).toBe(MEASURED)
+    expect(capture.user_content_chars).toBe(412)
+  })
 })
 
 // ===========================================================================
