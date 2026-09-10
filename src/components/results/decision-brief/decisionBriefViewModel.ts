@@ -200,10 +200,37 @@ export const DECISION_BRIEF_CONSUMED_AS_IDENTITY = [
   'version',
 ] as const
 
+/**
+ * ⚠⚠ THE RATIONALE VALUES IN THIS MAP AND IN `DECISION_BRIEF_DECLARED_DARK` ARE
+ * SWEPT BY THE REASONING TAB'S NO-CONTEST GUARD, AND THEY ARE WRITTEN TO PASS IT.
+ *
+ * `noWinnerVocabulary.spec.ts` derives its scope by walking the import graph
+ * from `AnalysisNewTabBody.tsx` (778449d1, #1393), so a module joins the swept
+ * corpus the moment the tab first reaches it, with nothing for anyone to
+ * remember. This PR's `sections/RobustnessCaveat.tsx` imports
+ * `readDecisionBriefViewModel`, which is the first such edge into this file:
+ * the two entries below had sat here unswept, and the derivation did exactly
+ * what it was built to do by finding them.
+ *
+ * The guard reads every string literal, so a rationale that NAMES the retired
+ * designation reads as a use of it. Both entries are therefore worded in the
+ * ruled vocabulary (8 Sep 2026: say what is most likely and how confident we
+ * are, never a placing). Nothing is lost: the classification, the reason and
+ * the consumer named are unchanged, and describing a key by what it DESIGNATES
+ * is if anything more precise than describing it by the word it happens to use.
+ *
+ * ⭐ WHY NOT TEACH THE GUARD TO SKIP THESE. It already blanks two quotation
+ * classes (comments, and sibling ban lists scoped by identifier NAME), so a
+ * third would not be unprecedented. But an exception keyed on this map's name
+ * is a hand-maintained mirror in the guard, and the precedent it would break is
+ * the one 778449d1 set when its own widening found a live violation: it fixed
+ * the source and left the guard alone.
+ */
+
 /** Reaches the user, but through a different consumer — must not render twice. */
 export const DECISION_BRIEF_OWNED_ELSEWHERE = {
   options: 'id-to-label fallback in mapV5AnalysisToReport; the brief must not restate it',
-  headline_banded: 'leader-entitlement band consumed by decisionVerdict/useResultsSectionData',
+  headline_banded: 'naming-entitlement band consumed by decisionVerdict/useResultsSectionData',
 } as const
 
 /**
@@ -214,7 +241,7 @@ export const DECISION_BRIEF_DECLARED_DARK = {
   key_assumptions:
     'a SUBSET of top_drivers on every capture measured, so it can only restate the '
     + 'neighbouring column; 0 of 1,620 captured briefs carry it while top_drivers is empty',
-  headline: 'leader-designating prose; this surface never restores a leader',
+  headline: 'option-designating prose; this surface never restores a placing',
   robustness: 'a producer verdict this surface has no licence to re-state as its own',
   warnings: 'the canonical inference-warning strip above the brief is sole owner',
   warning_codes: 'machine codes; the human-readable strip above owns this surface',
