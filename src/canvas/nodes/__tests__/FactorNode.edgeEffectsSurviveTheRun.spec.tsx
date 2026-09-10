@@ -54,9 +54,7 @@ import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 
 /** The sentence under repair. Asserted as ABSENT for every non-brief provenance. */
-const BRIEF_CLAIM = /from your brief/i
 /** The honest replacement — asserted present only where there is genuinely no evidence. */
-const PLACEHOLDER_LINE = /placeholder/i
 /** The pre-existing user-owned sentence. Reused, never re-authored. */
 
 // `deletable`/`selectable`/`draggable` are REQUIRED by `NodeProps` and are the
@@ -90,7 +88,7 @@ const FACTOR_ID = 'factor-1'
 const TARGET_LABEL = 'Monthly Recurring Revenue'
 
 /** `status: 'complete'` is what `FactorNode` reads as post-analysis. */
-function topology(resultsStatus: 'idle' | 'complete') {
+function topology(resultsStatus: 'idle' | 'complete', weight = 0.5) {
   return {
     nodes: [
       { id: FACTOR_ID, type: 'factor', data: { type: 'factor', label: 'Pro Plan Monthly Price', category: 'controllable' } },
@@ -99,7 +97,7 @@ function topology(resultsStatus: 'idle' | 'complete') {
     edges: [
       // A CEE-authored weight and direction — not `USER_EDGE_DEFAULTS`, which
       // `EdgePills` deliberately refuses to announce.
-      { id: 'e1', source: FACTOR_ID, target: 'outcome-1', data: { weight: 0.5, direction: 'positive', weightSource: 'cee' } },
+      { id: 'e1', source: FACTOR_ID, target: 'outcome-1', data: { weight, direction: weight >= 0 ? 'positive' : 'negative', weightSource: 'cee' } },
     ],
     ceeAnalysisReady: null,
     results: { status: resultsStatus, report: null },
@@ -114,9 +112,9 @@ function topology(resultsStatus: 'idle' | 'complete') {
   }
 }
 
-function renderAt(resultsStatus: 'idle' | 'complete') {
+function renderAt(resultsStatus: 'idle' | 'complete', weight = 0.5) {
   vi.mocked(useCanvasStore).mockImplementation((selector: never) =>
-    (selector as unknown as (s: unknown) => unknown)(topology(resultsStatus)),
+    (selector as unknown as (s: unknown) => unknown)(topology(resultsStatus, weight)),
   )
   return render(
     <ReactFlowProvider>
@@ -171,6 +169,42 @@ describe('a factor keeps saying what it DOES after the run', () => {
       container.textContent,
       'the factor stopped naming what it affects once a result arrived',
     ).toContain(TARGET_LABEL)
+  })
+
+  /**
+   * ⛔ THE ASSERTION THIS FILE WAS MISSING, and it was found by a reviewer, not
+   * by me. Every case above binds to `TARGET_LABEL` — the name of the connected
+   * node. `EdgePills` renders that name AND the polarity, and the label alone
+   * survives the deletion of both direction spans. So this spec could have
+   * stayed green while the pill stopped saying whether the factor RAISES or
+   * LOWERS its target — which is the entire reason the pill is the only
+   * card-face surface carrying edge direction, and the entire reason gating it
+   * post-analysis was worth guarding.
+   *
+   * A single-polarity assertion would not be enough either: asserting "Raises"
+   * on a positive edge passes for a component that hardcodes the word. The
+   * DISCRIMINATING PAIR is what binds it — the same render path must produce
+   * the OPPOSITE word on the opposite sign, and must not produce both.
+   *
+   * Direction is announced in an `sr-only` span, so it is in `textContent`
+   * while the glyphs beside it are `aria-hidden`. That is deliberate in the
+   * component and it is what makes this assertable at all.
+   */
+  it('POST-ANALYSIS — the pill still says WHICH WAY, and discriminates on sign', () => {
+    const positive = renderAt('complete', 0.5)
+    // Precondition: we are reading the pill, not a ConnRow list that also
+    // carries the target label — the same guard the case above establishes.
+    expect(
+      positive.container.textContent,
+      'ConnRow list present — this assertion cannot discriminate',
+    ).not.toContain('Influences:')
+    expect(positive.container.textContent).toContain('Raises')
+    expect(positive.container.textContent).not.toContain('Lowers')
+    positive.unmount()
+
+    const negative = renderAt('complete', -0.5)
+    expect(negative.container.textContent).toContain('Lowers')
+    expect(negative.container.textContent).not.toContain('Raises')
   })
 
   it('CONTRAST — the pill is bound to a REAL edge, not rendered unconditionally', () => {
