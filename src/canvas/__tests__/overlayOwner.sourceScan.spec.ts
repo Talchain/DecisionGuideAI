@@ -252,7 +252,7 @@ describe('overlay ownership — derived from the migrated components’ bytes', 
       const name = file.replace(/\.tsx$/, '')
       const ownPath = resolve(COMPONENTS, file)
       const mountRe = new RegExp(`<${name}[\\s/>]`)
-      const sites = files.filter(f => f !== ownPath && mountRe.test(readFileSync(f, 'utf8')))
+      const sites = files.filter(f => f !== ownPath && mountRe.test(stripComments(readFileSync(f, 'utf8'))))
       mountCounts[name] = sites.length
       if (sites.length === 0) unmounted.push(name)
     }
@@ -271,6 +271,42 @@ describe('overlay ownership — derived from the migrated components’ bytes', 
       unmounted,
       `declared band occupant(s) with no JSX mount — they claim a cell that never renders: ${unmounted.join(', ')}`,
     ).toEqual([])
+
+    /*
+     * ⛔ THE STRIPPER IS LOAD-BEARING HERE, AND THIS IS THE PAIR THAT PROVES IT.
+     *
+     * This scan originally read RAW BYTES while every other scan in this file
+     * strips first — and the file's own header already says stripping is
+     * "load-bearing rather than tidiness", because these components quote JSX
+     * in their prose. Found by an independent seat, not by me.
+     *
+     * Commenting a mount out in place is the ORDINARY way a developer disables
+     * one, and it is ONE KEYSTROKE from the defect this whole assertion exists
+     * to catch: wrapping the mount in a JSX block comment left the assertion
+     * GREEN. (The literal sequence is built in code below rather than quoted
+     * here, because writing it in prose would close this very comment.) It
+     * matters more than usual because this is the only NON-ADVISORY guard on
+     * the property — the e2e arm that asserts the notice is visible runs in
+     * `Visual Regression (advisory)` under `continue-on-error`, which is why it
+     * never caught the original unmount. And this assertion is slated for
+     * copying across the estate, so the hole would have propagated with it.
+     *
+     * A synthetic source is used rather than poisoning the real file, so the
+     * case cannot silently stop discriminating if `ReactFlowGraph.tsx` is
+     * reformatted. Both directions are asserted: raw bytes MUST match (proving
+     * the hole was real and this case is not vacuous) and the stripped form
+     * MUST NOT (proving it is closed).
+     */
+    const mountedInAComment = 'const X = () => (<div>{/* <ModelExtentNotice /> *' + '/}</div>)'
+    const extentRe = new RegExp('<ModelExtentNotice[\\s/>]')
+    expect(
+      extentRe.test(mountedInAComment),
+      'the raw-byte scan no longer sees a commented mount — this case has stopped discriminating',
+    ).toBe(true)
+    expect(
+      extentRe.test(stripComments(mountedInAComment)),
+      'a commented-out mount still counts as a mount — the scan is reading raw bytes',
+    ).toBe(false)
   })
 
   it('no migrated component positions itself any more', () => {
