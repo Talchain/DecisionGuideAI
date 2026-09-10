@@ -7,7 +7,7 @@ import { defineConfig, devices } from '@playwright/test'
  *
  * This config used to hardcode 5189. On 1 Sep 2026 several runs measured ANOTHER
  * LANE'S CHECKOUT while reporting about their own — green, exit 0, with well-formed
- * measurement JSON. `e2e/geometry/globalSetup.ts` carries the full mechanism; the
+ * measurement JSON. `e2e/support/servingTree.ts` carries the full mechanism; the
  * short version is that `strictPort` + `reuseExistingServer: false` IS loud when the
  * port is already listening, and is silent when a sibling lane binds it inside our
  * own boot window: our vite dies, and Playwright's wait-for-the-port is satisfied by
