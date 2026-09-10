@@ -259,7 +259,29 @@ export function ModelDetailRegion({
       {/* 1 — What this is */}
       <section data-testid="model-detail-v2-what">
         <h3 className={`${typography.panelHeader} text-text-header`}>{row.label}</h3>
-        <p className={`${typography.panelBody} text-text-light`}>{KIND_LABEL[row.kind]}</p>
+        {/* ⭐ THE KIND, AND — FOR A FACTOR CEE CLASSIFIED — WHAT KIND OF THING
+            IT IS TO THE TEAM. "Controllable" vs "External" is the distinction
+            between what you can act on and what you must plan around; it is the
+            pivot from reading a model to doing something about it, and it
+            reached no screen on this tab. Measured on deployed `14276d5b`:
+            four factors stamped `controllable`, one `external`, and none of
+            those words anywhere in the rendered DOM.
+
+            ⚠ ONE LINE, NOT A SECOND ROW. It joins the kind it qualifies rather
+            than opening a new labelled field — a classification is part of
+            "what this is", and a row of its own would make the reader look up
+            what the label meant.
+
+            ⚠ WITHHELD ENTIRELY WHEN THE PRODUCER DID NOT CLASSIFY IT. See
+            `factorCategoryLabel`: no default, no "Unclassified", no dash. */}
+        <p className={`${typography.panelBody} text-text-light`} data-testid="model-detail-v2-kind">
+          {KIND_LABEL[row.kind]}
+          {detail.classification !== null && (
+            <span data-testid="model-detail-v2-classification">
+              {` · ${detail.classification}`}
+            </span>
+          )}
+        </p>
         {detail.description !== null && (
           <p
             data-testid="model-detail-v2-description"

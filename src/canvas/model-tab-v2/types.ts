@@ -395,6 +395,46 @@ export interface OptionInterventionField {
  */
 export interface ModelRowDetail {
   rowId: string
+  /**
+   * ⭐ THE FACTOR'S STATED CLASSIFICATION — `Controllable` / `Observable` /
+   * `External`, or `null`.
+   *
+   * It is the distinction between what this team can ACT ON and what it must
+   * PLAN AROUND, and it reached no screen on this tab: measured on deployed
+   * `14276d5b` the words appear nowhere in the rendered DOM, while the store
+   * carried four `controllable` factors and one `external`. The INSPECTOR reads
+   * and edits it; the surface built for reading your model did not show it.
+   * One fact, two surfaces, one of them silent — the shape #1329 fixed for
+   * producer findings.
+   *
+   * ⚠⚠ `null` MEANS NOBODY STATED ONE, AND THE SURFACE THEN SAYS NOTHING. Not
+   * "Controllable", not "Unclassified", not a dash. A factor created locally
+   * carries no category at all (`autoFix.addFactorNode` seeds none), so a
+   * default here would report a classification nobody made — on the exact field
+   * whose editor already does that (`factorCategoryLabel`'s note).
+   *
+   * ⚠⚠ AND ABSENCE IS NOT THE ONLY UNSTATED CASE — THIS HEADER SAID
+   * *"HOW CEE CLASSIFIED THIS FACTOR"* AND *"`null` MEANS THE PRODUCER DID NOT
+   * SAY"*, AND BOTH WERE FALSE. `adapters/cee/client.ts`
+   * `inferMissingCategories` runs on every draft/graph ingestion path: when CEE
+   * omits `category` it writes `controllable` or `observable` from edge shape,
+   * into the SAME key. So a factor the producer never classified arrives with
+   * the field populated, and a reader checking only for absence printed the
+   * UI's own guess in the producer's voice. `statedFactorCategoryLabel` reads
+   * the `categoryInferredByUi` marker that inference now writes beside its
+   * guess, and returns `null` for it.
+   *
+   * ⚠ WHAT THIS FIELD DOES **NOT** CLAIM. A non-null value means *nothing in
+   * this UI invented it* — not that CEE stamped it. A category a human set in
+   * the inspector renders here, and should: humans are the authors of this
+   * model, and a stated classification is stated whoever stated it. The line
+   * carries no provenance text on screen, so it asserts no source.
+   *
+   * ⚠ NON-FACTOR ROWS ARE ALWAYS `null`. `category` is a factor stamp; an
+   * option or a risk carrying one would be data this surface should not
+   * interpret.
+   */
+  classification: string | null
   /** §4.4.1 "What this is". */
   description: string | null
   /**

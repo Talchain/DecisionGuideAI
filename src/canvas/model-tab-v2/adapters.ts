@@ -128,6 +128,7 @@ import { goalLabelIsUnconfirmedBriefExtract } from '../domain/goalLabelProvenanc
 import { resolveGoalTarget } from '../domain/goalTarget'
 import { isUnquantifiedPrior } from '../domain/nodes'
 import { hasAnyStatedValue } from '../utils/observedStateHelpers'
+import { statedFactorCategoryLabel } from '../domain/vocabulary'
 import type { EdgeData } from '../domain/edges'
 import type { ObservedState } from '../domain/nodes'
 // ⚠ The model-tab's NARROWER twin — see `narrowObservedState`. Both are imported
@@ -915,6 +916,22 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
         node.type === 'factor' &&
         isUnquantifiedPrior(data?.prior) &&
         !hasAnyStatedValue(data),
+      /* ⚠ SCOPED TO FACTORS AND READ THROUGH THE ONE VOCABULARY. `category` is
+         a factor stamp; `statedFactorCategoryLabel` returns null for an
+         unrecognised value AND for absence, so an unclassified factor gets no
+         line rather than a guessed one.
+         ⚠⚠ AND IT RETURNS NULL WHEN THIS UI INVENTED THE VALUE. Absence was
+         never the only unstated case: `adapters/cee/client.ts`
+         `inferMissingCategories` writes `controllable`/`observable` from edge
+         shape on every ingestion path when CEE omits the field, into the same
+         key, so by the time this line runs the field is present and the guess
+         is byte-identical to a stamp. Checking absence alone printed the UI's
+         own inference as the model's classification. The marker
+         `categoryInferredByUi` rides with that guess and is what this reads. */
+      classification:
+        node.type === 'factor'
+          ? statedFactorCategoryLabel(data?.category, data?.categoryInferredByUi)
+          : null,
       secondaryValues: secondary,
       // ⚠⚠ F1, AND IT IS THIS COMMIT'S OWN THESIS TURNED ON ITSELF. The
       // previous commit fixed the IDENTICAL expression in the repair-queue
@@ -1027,6 +1044,9 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
     description: typeof data?.label === 'string' ? data.label : null,
     // An edge carries no prior, so the question does not arise.
     priorIsExplicitlyUnquantified: false,
+    // A relationship is not classified controllable/observable/external — that
+    // stamp is a FACTOR's. Explicit rather than omitted so the union stays total.
+    classification: null,
     secondaryValues: [],
     basis: edgeProvenanceBasis(data?.provenance),
     adjustments: [],
