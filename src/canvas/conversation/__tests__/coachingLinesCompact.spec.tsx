@@ -10,15 +10,23 @@
  * chip and a disclosure — roughly two of which fill a tall narrow panel. The
  * fourth sits behind "Show 1 more".
  *
- * That is today's DRAFT turn. `messageComposition.ts` records the ANALYSIS
- * figure: 8–14 point candidates per turn, of which `MAX_POINTS = 3` are
- * top-level and 5–11 are demoted. So opening the disclosure on a real analysis
- * turn replaces one wall with a bigger one.
+ * That is today's DRAFT turn. Analysis turns carry more: `phase3Pacing.ts`
+ * records the phase-3 card counts on ONE walk's analysis turns as
+ * `8, 8, 8, 11, 13, 14`. Of those, `MAX_POINTS = 3` are top-level and the rest
+ * are demoted, so opening the disclosure on a real analysis turn replaces one
+ * wall with a bigger one.
+ *
+ * ⚠ THAT IS n=6 — ONE CAPTURE, ONE PIPELINE VERSION. It is the only primary
+ * record of the figure in this repo (`messageComposition.ts` quotes the same
+ * six numbers; it is not a second measurement), it claims no distribution and
+ * no upper bound, and a turn outside 8–14 contradicts nothing. It is cited
+ * here only to justify building the twelve-card arm below — nothing in the
+ * mechanism or in these assertions is tuned to the number.
  *
  * ⛔ An earlier revision of this header also cited "9 of 13 measured live turns"
  * for a CEE-lane gate on non-`ready` turns. WITHDRAWN — retracted by its own
- * author the same day as having no committed artefact. The 8-14 figure this
- * file is built against is `messageComposition.ts`'s own, and is unaffected.
+ * author the same day as having no committed artefact. The counts above are a
+ * separate, committed observation and are unaffected by that withdrawal.
  *
  * ⭐ THIS FILE IS THEREFORE WRITTEN AGAINST THE HIGH COUNT, NOT THE SCREENSHOT.
  * The twelve-card arm below is the design case; the three-card arm is the
@@ -294,7 +302,7 @@ describe('a consent affordance is never collapsed', () => {
 
 describe('the design case — a real analysis turn’s card count', () => {
   /**
-   * ⭐⭐ TWELVE CARDS, WHICH IS THE MIDDLE OF THE MEASURED 8–14 RANGE.
+   * ⭐⭐ TWELVE CARDS, WHICH SITS INSIDE THE OBSERVED 8–14 SPREAD (n=6).
    *
    * `MAX_POINTS = 3` stay top-level and nine are demoted behind the existing
    * "Show N more". The point of this arm is that opening that disclosure now

@@ -8,19 +8,27 @@
  * a bordered panel carrying a category chip, a title, a body paragraph, entity
  * chips and a disclosure; roughly two fill a tall narrow panel. That is
  * tolerable at the DRAFT turn's three or four cards and it is not what the
- * product actually produces: `messageComposition.ts` records 8-14 point
- * candidates per ANALYSIS turn, of which `MAX_POINTS = 3` stay top-level and
- * 5-11 sit behind "Show N more". Opening that disclosure replaced one wall with
- * a larger one.
+ * product actually produces: analysis turns carry roughly 8-14 point
+ * candidates, of which `MAX_POINTS = 3` stay top-level and the rest sit behind
+ * "Show N more". Opening that disclosure replaced one wall with a larger one.
  *
  * So the card stack becomes a LIST: the user scans what the coaching is about,
  * and opens the one they want.
  *
- * ⚠ SIZED FOR THE HIGH COUNT DELIBERATELY, NOT FOR TODAY'S SCREENSHOT. The
- * 8-14 range above is this repo's OWN committed measurement, recorded in
- * `messageComposition.ts`, and it is the whole basis for sizing this to a list
- * rather than to the three or four cards a draft turn shows. Three cards is the
- * regression case.
+ * ⚠ SIZED FOR THE HIGH COUNT DELIBERATELY, NOT FOR TODAY'S SCREENSHOT — AND
+ * THE HIGH COUNT IS AN OBSERVATION, NOT A LAW. Its only primary record in this
+ * repo is `phase3Pacing.ts`, which reports the phase-3 card counts on ONE
+ * walk's analysis turns as `8, 8, 8, 11, 13, 14` — n=6, one capture, one
+ * pipeline version, no distribution and no upper bound claimed.
+ * `messageComposition.ts` quotes those same six numbers; it is not a second
+ * measurement. So "8-14" is the range those six observations spanned, and a
+ * turn outside it is not a contradiction of anything.
+ *
+ * That scope is deliberately weak and it is still sufficient, because nothing
+ * here is tuned to the number. The mechanism collapses whatever the producer
+ * sends, at any count — the figure only justifies designing for a LIST instead
+ * of for the three or four cards a draft turn shows. Three cards is the
+ * regression case, and the twelve-card arm in the spec is the design case.
  *
  * ⛔ AN EARLIER REVISION OF THIS BLOCK ALSO CITED "9 of 13 measured live turns"
  * for a CEE-lane gate that discards freeform coaching on turns whose analysis is
