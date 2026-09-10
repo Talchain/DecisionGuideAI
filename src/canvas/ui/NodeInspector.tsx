@@ -7,7 +7,7 @@
 import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { AlertTriangle, Check, Pencil } from 'lucide-react'
 import { useCanvasStore } from '../store'
-import { NODE_REGISTRY, isUnquantifiedPrior } from '../domain/nodes'
+import { NODE_REGISTRY, isUnquantifiedPrior, priorEndpointsAreNormalised } from '../domain/nodes'
 import type { NodeType } from '../domain/nodes'
 import { renderIcon } from '../helpers/renderIcon'
 import { Tooltip } from '../components/Tooltip'
@@ -132,9 +132,11 @@ function describePrior(prior: unknown): PriorDisplay | null {
         // `setPriorRange(parsed, rangeMax ?? parsed)` unclamped, so a user
         // whose max is 1 typing 30 into min produces the first row verbatim.
         // Four limbs, because each endpoint needs both bounds.
-        normalised:
-          range_min >= 0 && range_min <= 1 &&
-          range_max >= 0 && range_max <= 1,
+        // ⭐ THE FOUR LIMBS NOW LIVE IN `domain/nodes`, because the factor
+        // card asks this same question and answered it differently — it
+        // derived a bound from the endpoints, which turned "is this off the
+        // scale?" into "is this above the range?". One owner, both surfaces.
+        normalised: priorEndpointsAreNormalised(range_min, range_max),
       }
     }
   }

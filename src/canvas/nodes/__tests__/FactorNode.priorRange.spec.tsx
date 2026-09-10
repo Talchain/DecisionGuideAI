@@ -455,3 +455,265 @@ describe('FactorNode prior range (lane C3)', () => {
     expect(container.textContent ?? '').not.toContain('Range:')
   })
 })
+
+/**
+ * A NORMALISED RANGE BESIDE A REAL-SCALE VALUE (journey-witnessed, 2026-09-10).
+ *
+ * Measured on the deployed product, on one factor card, together and unflagged:
+ *
+ *     Sales Payback Period        18 month
+ *     Range: 0.08 to 0.28
+ *
+ * A value SIXTY TIMES outside its own displayed range. The editor compounds it:
+ * it rejects `0.2` as "a proportion rather than a value in month", so the node's
+ * own displayed range is a set of values its own editor refuses.
+ *
+ * ⭐ THE UI WAS BEHAVING HONESTLY AND THAT IS THE POINT. `month` is a real unit,
+ * the deterministic draft carries no cap, so `canCalibrate` is false and the
+ * owner correctly declines to cap-denormalise — its own words, "would fake a
+ * measurement". The defect is not the refusal to calibrate. It is that having
+ * declined to put the range on the shown scale, it printed the range anyway,
+ * beside a value on a different scale.
+ *
+ * ⛔ THE FIX IS TO DECLINE, NEVER TO COMPUTE. No multiplying, no invented cap,
+ * no denormalising. The suppression extends the owner's EXISTING dedupe arm
+ * from "the value line already MATCHES this range" to "the value line
+ * CONTRADICTS the scale this range would print on" — one decision, two arms,
+ * at the one call site.
+ *
+ * ⭐ THE LARGER BLAST RADIUS IS OVER-SUPPRESSION, so the three pins below are
+ * load-bearing: percent, unitless-normalised and capped factors must ALL still
+ * render their ranges. Removing real information from every correctly-behaving
+ * card on the board would be a worse defect than the one being fixed.
+ */
+describe('FactorNode prior range: a normalised range beside a real-scale value', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('WITNESSED CASE — 18 month, no cap, prior 0.08 to 0.28: the contradicting Range line cannot render', () => {
+    const { container } = renderFactor({
+      label: 'Sales Payback Period',
+      type: 'factor',
+      category: 'external',
+      prior: { range_min: 0.08, range_max: 0.28 },
+      observedState: { raw_value: 18, value: 0.3, unit: 'month', factor_type: 'external' },
+    })
+    const text = container.textContent ?? ''
+    // Bind by identity: this is the exact pair the witness captured.
+    expect(countOccurrences(container, '18 month')).toBe(1)
+    expect(text).not.toContain('Range: 0.08 to 0.28')
+    expect(text).not.toContain('Range:')
+  })
+
+  it('WITNESSED CASE — the value line SURVIVES the suppression: the card never goes blank', () => {
+    // ⭐ THE PRECONDITION THIS WHOLE DECISION RESTS ON, pinned in-test rather
+    // than assumed. Suppression is only reachable when a value line is already
+    // rendering, so silence removes a false line and never empties the card.
+    // This is what makes silence the right answer instead of a replacement
+    // sentence: the card still carries its figure.
+    const { container } = renderFactor({
+      label: 'Sales Payback Period',
+      type: 'factor',
+      category: 'external',
+      prior: { range_min: 0.08, range_max: 0.28 },
+      observedState: { raw_value: 18, value: 0.3, unit: 'month', factor_type: 'external' },
+    })
+    expect(screen.getByText('18 month')).toBeDefined()
+    // The exact before/after of this card, pinned. BEFORE (measured at
+    // pristine, and the string the journey witnessed):
+    //   "Sales Payback Period18 monthRange: 0.08 to 0.28"
+    // AFTER: the contradicting line is gone and the figure remains.
+    expect(container.textContent ?? '').toContain('Sales Payback Period18 month')
+  })
+
+  it('OVER-SUPPRESSION PIN 1 of 3 — a PERCENT factor still renders its range', () => {
+    // Percent is the calibrated path and it is correct: a 0–1 ratio converts to
+    // percentage points with no cap at all. It must never reach the suppression.
+    const { container } = renderFactor({
+      label: 'Conversion rate',
+      type: 'factor',
+      category: 'external',
+      prior: { range_min: 0.08, range_max: 0.28 },
+      observedState: { raw_value: 0.4, value: 0.4, unit: '%', factor_type: 'external' },
+    })
+    expect(countOccurrences(container, 'Range: 8% to 28%')).toBe(1)
+  })
+
+  it('OVER-SUPPRESSION PIN 2 of 3 — a UNITLESS/NORMALISED factor still renders its range', () => {
+    // The value and the range are on the SAME normalised scale, so nothing is
+    // contradicted and the range is real information. This is the pin that
+    // fails first if the suppression is keyed on "a value is displayed"
+    // rather than on "the displayed value is off this scale".
+    const { container } = renderFactor({
+      label: 'Market volatility',
+      type: 'factor',
+      category: 'external',
+      prior: { range_min: 0.08, range_max: 0.28 },
+      observedState: { raw_value: 0.5, value: 0.5, factor_type: 'external' },
+    })
+    const text = container.textContent ?? ''
+    expect(text).toContain('0.5')
+    expect(countOccurrences(container, 'Range: 0.08 to 0.28')).toBe(1)
+  })
+
+  it('OVER-SUPPRESSION PIN 3 of 3 — a factor with a REAL CAP still calibrates', () => {
+    const { container } = renderFactor({
+      label: 'Competitor Ad Spend',
+      type: 'factor',
+      category: 'external',
+      prior: { range_min: 0.2, range_max: 0.8 },
+      observedState: { raw_value: 26000, value: 0.26, unit: '£', cap: 100000, factor_type: 'external' },
+    })
+    expect(countOccurrences(container, '£26,000')).toBe(1)
+    expect(countOccurrences(container, 'Range: £20,000 to £80,000')).toBe(1)
+  })
+
+  it('a QUALITATIVE value line establishes no contradiction: the range still renders', () => {
+    // No number in the value line, so no scale disagreement can be POSITIVELY
+    // established. Anything the guard cannot judge keeps today's behaviour.
+    const { container } = renderFactor({
+      label: 'Supplier posture',
+      type: 'factor',
+      category: 'external',
+      prior: { range_min: 0.08, range_max: 0.28 },
+      display_value: 'No dedicated supplier',
+      observedState: { value: 0.2, factor_type: 'external' },
+    })
+    const text = container.textContent ?? ''
+    expect(text).toContain('No dedicated supplier')
+    expect(countOccurrences(container, 'Range: 0.08 to 0.28')).toBe(1)
+  })
+
+  it('a range-shaped value line is not a single value: two numbers establish no contradiction', () => {
+    // "3 to 5" describes a prior, not an observed point. Judging it would need
+    // a vocabulary over natural language, which is the class of predicate this
+    // estate keeps getting wrong. It stays out of scope, explicitly.
+    const { container } = renderFactor({
+      label: 'Lead time',
+      type: 'factor',
+      category: 'external',
+      prior: { range_min: 0.08, range_max: 0.28 },
+      display_value: '3 to 5',
+      observedState: { value: 0.2, factor_type: 'external' },
+    })
+    expect(countOccurrences(container, 'Range: 0.08 to 0.28')).toBe(1)
+  })
+})
+
+/**
+ * ⭐⭐ SYMMETRY: THE PREDICATE MUST TEST SCALE, NOT MAGNITUDE.
+ *
+ * The suppression above shipped with its bound derived from the endpoints —
+ * `Math.max(1, |rangeMin|, |rangeMax|)`. Against an out-of-scale prior that
+ * silently changed the question from "is this value on a different SCALE?" to
+ * "is this value ABOVE the range?", and the tell was an asymmetry:
+ *
+ *     £31 against a prior of 10 to 30  ->  LOST its range line
+ *     £9  against the same prior       ->  KEPT its range line
+ *
+ * ⛔ NOTHING ABOUT SCALE IS ASYMMETRIC. A predicate that answers differently
+ * for a value below its range and a value above it is not measuring scale,
+ * whatever its name says — and it removed information exactly when the
+ * observation had exceeded expectation, which is the case a reader most needs
+ * to see. It also put this surface in contradiction with `NodeInspector`, whose
+ * ruling on out-of-scale endpoints is "caveat, never hide" and which cites this
+ * very function as its precedent.
+ *
+ * ⚠ THE PRIOR SHAPE IS WITNESSED, NOT INVENTED. `PriorDistributionSchema`
+ * bounds only the numeric branch; the object branch is a `.passthrough()`.
+ * `fac_price {distribution: 'uniform', range_min: 10, range_max: 30}` is in the
+ * evidence corpus, and out-of-scale endpoints are reachable with no CEE at all
+ * because `FactorExternalPanel`'s blur handlers write through `setPriorRange`
+ * unclamped.
+ *
+ * ⭐ BOTH DIRECTIONS ARE PINNED, DELIBERATELY. A fix that only handles "above"
+ * reproduces the defect, and the pair is what binds the property: one of these
+ * two tests alone would pass under the defective predicate.
+ */
+describe('FactorNode prior range: scale, not magnitude — the symmetry pair', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  const outOfScalePriorFactor = (rawValue: number) => ({
+    label: 'Unit price',
+    type: 'factor',
+    category: 'external',
+    // The witnessed out-of-scale prior. Real-scale endpoints, no cap, so the
+    // range prints unitless and is NOT a claim about the 0–1 scale.
+    prior: { range_min: 10, range_max: 30 },
+    observedState: { raw_value: rawValue, value: 0.6, unit: '£', factor_type: 'external' },
+  })
+
+  it('SYMMETRY 1 of 2 — a value ABOVE an out-of-scale range keeps its range line', () => {
+    const { container } = renderFactor(outOfScalePriorFactor(31))
+    expect(countOccurrences(container, 'Range: 10 to 30')).toBe(1)
+  })
+
+  it('SYMMETRY 2 of 2 — a value BELOW the same out-of-scale range keeps its range line', () => {
+    const { container } = renderFactor(outOfScalePriorFactor(9))
+    expect(countOccurrences(container, 'Range: 10 to 30')).toBe(1)
+  })
+
+  const normalisedPriorFactor = (value: number) => ({
+    label: 'Market volatility',
+    type: 'factor',
+    category: 'external',
+    prior: { range_min: 0.08, range_max: 0.28 },
+    observedState: { raw_value: value, value, factor_type: 'external' },
+  })
+
+  it('SYMMETRY 3 of 4 — on a normalised prior, a value above the range but ON the 0–1 scale keeps its range line', () => {
+    const { container } = renderFactor(normalisedPriorFactor(0.5))
+    expect(countOccurrences(container, 'Range: 0.08 to 0.28')).toBe(1)
+  })
+
+  it('SYMMETRY 4 of 4 — on a normalised prior, a value below the range and ON the 0–1 scale keeps its range line', () => {
+    const { container } = renderFactor(normalisedPriorFactor(0.05))
+    expect(countOccurrences(container, 'Range: 0.08 to 0.28')).toBe(1)
+  })
+
+  it('the ONE asymmetry left is the SCALE CEILING, and it is not a range endpoint', () => {
+    // ⭐ 2 is off the 0–1 scale entirely, so the contradiction IS positively
+    // established — while 0.05, which sits further from the range than 2 does
+    // in ratio terms, is a perfectly ordinary member of that scale and keeps
+    // its line (pinned directly above). The discriminator is membership of
+    // 0–1, never distance from the data.
+    const { container } = renderFactor(normalisedPriorFactor(2))
+    expect(container.textContent ?? '').not.toContain('Range: 0.08 to 0.28')
+  })
+
+  it('an out-of-scale prior is not judged against the 0–1 ceiling either: a sub-1 value keeps the line', () => {
+    // The gate is checked BEFORE the ceiling, so a prior that never claimed the
+    // 0–1 scale is never measured against it in either direction.
+    const { container } = renderFactor(outOfScalePriorFactor(0.5))
+    expect(countOccurrences(container, 'Range: 10 to 30')).toBe(1)
+  })
+
+  it('a MIN ABOVE 1 fails the four-limb gate, so the range renders', () => {
+    // {30, 1} is the shape that made NodeInspector render "30 to 1 on 0–1
+    // scale", and it is reachable with no CEE at all: a user whose max is 1
+    // typing 30 into min produces it verbatim through FactorExternalPanel.
+    // A one-sided gate (`range_min >= 0 && range_max <= 1`) admits it as
+    // normalised and would suppress this line. Four limbs, one owner.
+    const { container } = renderFactor({
+      label: 'Mistyped bound',
+      type: 'factor',
+      category: 'external',
+      prior: { range_min: 30, range_max: 1 },
+      observedState: { raw_value: 18, value: 0.3, unit: 'month', factor_type: 'external' },
+    })
+    expect(countOccurrences(container, 'Range: 30 to 1')).toBe(1)
+  })
+
+  it('a NEGATIVE endpoint fails the four-limb gate, so the range renders', () => {
+    // {0.5, -2} is exactly the malformed shape that made NodeInspector render
+    // "0.5 to -2 on 0–1 scale". Each endpoint needs BOTH bounds; a one-sided
+    // bound would let this through as normalised.
+    const { container } = renderFactor({
+      label: 'Drift',
+      type: 'factor',
+      category: 'external',
+      prior: { range_min: -2, range_max: 0.5 },
+      observedState: { raw_value: 18, value: 0.3, unit: 'month', factor_type: 'external' },
+    })
+    expect(countOccurrences(container, 'Range: -2 to 0.5')).toBe(1)
+  })
+})
