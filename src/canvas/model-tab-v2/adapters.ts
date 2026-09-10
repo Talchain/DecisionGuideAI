@@ -161,6 +161,10 @@ import {
   UNNAMED_ELEMENT_LABEL,
 } from '../domain/canvasLabels'
 import { resolveNodeTypeLiteral } from '../domain/nodes'
+// The ONE reader of `prior.{range_min,range_max}` for this question. Imported
+// rather than reimplemented: a second presence test here would be the estate's
+// dominant defect (trap 12) on a field a user-facing sentence depends on.
+import { factorDeclaresNoRange } from '../conversation/factorValueEdit'
 import { factorIsConfirmable } from '../domain/valueProvenance'
 import { interventionTargetValue } from '../domain/interventions'
 import { unwrapInterventionValue } from '../utils/labelUtils'
@@ -579,6 +583,18 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
               return text === undefined ? {} : { estimateText: text }
             })()
           : {}),
+        /*
+         * ⭐⭐ THE ROW CARRIES WHETHER THE NODE RECORDS A RANGE — see
+         * `ModelRow.declaresNoRange`. Read off the NODE's own `prior`, which is
+         * the only place a range lives; nothing is inferred from the value, the
+         * unit or the cap.
+         *
+         * ⚠ SPREAD CONDITIONALLY, NEVER ASSIGNED `false`. A row that declares a
+         * range carries no key at all, so the absence of the fact and the
+         * absence of a claim are the same shape. `attention` and `editable` are
+         * untouched: this adds no affordance and removes none.
+         */
+        ...(factorDeclaresNoRange(data) ? { declaresNoRange: true } : {}),
         provenanceSource: typeof obs?.source === 'string' ? obs.source : undefined,
         // ⚠ UNCHANGED, DELIBERATELY. `attention` is the AFFORDANCE axis and it
         // still reads `value` (i.e. `raw_value`). A row with an estimate and no
