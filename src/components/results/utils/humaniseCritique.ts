@@ -319,9 +319,77 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   //   an `observed_state` writer — that red is the signal to restore it, not a
   //   regression. No flag, no second code path, and the withhold gate itself is
   //   untouched.
+  //
+  // ══════════════════════════════════════════════════════════════════════════
+  // ⚠⚠ AND THE SENTENCE ALSO BLAMED THE TARGET, ON THE SAME SCREEN THAT WAS
+  // DISPLAYING IT. Second measurement, independent of the one above: Netlify
+  // deploy `6aa1fdec0d71200008252154` (UI `9eb30b54`) at 2026-09-10T02:05:56Z,
+  // fresh guest, Reasoning tab rendered within three lines of each other:
+  //
+  //   "Your goal's target couldn't be measured for this run. State the
+  //    current level for your goal."          <- this template's old title
+  //   grow monthly recurring revenue to at least £250k by March
+  //   Options 3 · Factors 3 · Risks 1 · Outcomes 1
+  //   "Target £250,000 · From brief · Change"  <- the same tab, same screen
+  //
+  // The same turn's wire carried `goal_threshold_raw: 250000`,
+  // `goal_threshold_unit: "£"` and `goal_target_stated: true`. A reader
+  // scanning this concluded their number had not been captured, while the tab
+  // displayed it. So there were TWO harms in one string: a false ATTRIBUTION
+  // and a false PRESCRIPTION. They are closed together here.
+  //
+  // ⭐ WHY THE FALSE ATTRIBUTION IS FALSE ON THE WHOLE DOMAIN, NOT JUST ON
+  // THAT RUN. Derived at ISL `staging` 7781ca4f (2026-09-01),
+  // `robustness_analyzer_v2.py`: the nine `refuse()` sites of the shared
+  // engine `_resolve_threshold_in_sample_frame` (:3818) are the complete
+  // range - `missing_goal_baseline` (:3970, the common one, and the one the
+  // capture above witnessed), `goal_pinned_by_intervention` (:3932),
+  // `root_goal` (:3944), `goal_parameter_uncertainty_shifts_base` (:3956),
+  // `goal_values_outside_normalised_domain` (:4027),
+  // `epsilon_breaks_status_quo_reference` (:4076),
+  // `auto_scaled_noise_breaks_status_quo_reference` (:2218, flag-off), plus
+  // `goal_node_missing` (:3922) and `non_finite_conversion_input` (:3995),
+  // both API-unreachable by the producer's own validators.
+  // NOT ONE OF THEM MEANS THE TARGET WAS NOT CAPTURED, and the producer makes
+  // that structural: `if threshold is None: return None, None` (:3745-3749),
+  // so a missing target discloses NOTHING (pinned producer-side by
+  // `test_no_threshold_requested_is_silent`). Every refusal fires with the
+  // user's number in hand and echoes it in `detail["goal_threshold"]`.
+  //
+  // ⭐ SO THERE IS NOTHING TO NAME APART HERE (trap 21). "Can this also fire
+  // when there genuinely is no target?" is answered NO by construction, so the
+  // copy may presuppose a target: that presupposition holds on every path.
+  // The separate `Target not captured` chip (`GoalNode.GOAL_NO_TARGET_STATE`)
+  // owns the genuinely-absent case and is a different surface with a different
+  // trigger; it did not render on this run because a target existed.
+  //
+  // ⭐ WHY THE TITLE NOW NAMES THE COMPARISON AND NOT MERELY "fit". The eight
+  // reachable reasons are indistinguishable on this side of the wire - the
+  // UI's `InferenceWarning` (`types.ts:985-1000`) carries no `detail`, so no
+  // `reason` - so one sentence has to be true of all eight. What all eight
+  // share is that the number arrived and could not be placed against where the
+  // goal stands today. "couldn't measure fit against it" is true but names no
+  // missing quantity, which leaves the reader nothing to understand; naming
+  // the comparison is the most the wire supports without inventing a cause.
+  // `CONSTRAINT_NOT_CONVERTIBLE`'s title (:409) already said exactly this for
+  // the per-constraint twin, on the SAME producer rules, so this mints no new
+  // vocabulary: the two family members now read as one.
+  //
+  // ⛔ AND THE INSTRUCTION STAYS OUT, on the evidence in the block above. A
+  // separate check of the Reasoning tab's model strip found a goal editor that
+  // does exist - `SuccessTargetLine.tsx` writes `success_threshold` through
+  // `setGoalThresholdAndUpdateNode` - but that writes the TARGET, not the
+  // current level, and `clientCanWriteReadableGraph()` returns a hardcoded
+  // `false` (`src/lib/clientGraphWritePolicy.ts:55`) so the edit does not
+  // survive a reload. Neither fact makes "state the current level" reachable.
+  // A remedy pointing at a control whose effect evaporates on reopen is worse
+  // than none, because the user believes it worked.
+  // ══════════════════════════════════════════════════════════════════════════
   GOAL_THRESHOLD_NOT_CONVERTIBLE: () => ({
-    title: "Your goal's target was recorded, but this run couldn't measure fit against it, so goal-fit results were withheld rather than guessed.",
-    description: "Your target was captured. What this run couldn't do is compare it with where the goal stands today — for example when no current level is recorded for the goal — so goal-fit results were withheld rather than guessed.",
+    title:
+      "Your goal's target was recorded, but it couldn't be compared with where the goal stands today, so goal-fit results were withheld rather than guessed.",
+    description:
+      "Your target was captured. What this run couldn't do is compare it with where the goal stands today — for example when no current level is recorded for the goal — so goal-fit results were withheld rather than guessed.",
     // No suggestion: there is no action the user can take until ROADMAP 2.281.
   }),
   GOAL_THRESHOLD_FRAME_UNSPECIFIED: () => ({
