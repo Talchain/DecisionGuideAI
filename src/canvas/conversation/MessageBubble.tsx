@@ -585,6 +585,28 @@ export const MessageBubble = memo(function MessageBubble({
  * FeedbackRow directly beneath this one — the row this was built to match in
  * weight — already uses ICON_STANDALONE/ICON_STROKE, and two adjacent icon
  * rows at different sizes is the drift panelIcons.ts exists to end.
+ *
+ * ⚠⚠ THE ACCESSIBLE NAME MUST CONTAIN THE VISIBLE LABEL — WCAG 2.1 SC 2.5.3
+ * (Label in Name, Level A), and adding the visible label is what made the rule
+ * APPLY here. `aria-label` outranks contents in the accessible-name
+ * computation, so a button reading "Explain more" whose name is "Explain in
+ * more detail" has a name that does not contain its own visible text. A
+ * speech-input user (Voice Control, Dragon, Voice Access) says "click Explain
+ * more", the matcher resolves against the ACCESSIBLE NAME, and the command
+ * misses a control they can plainly see.
+ *
+ * Before the visible label existed, 2.5.3 did not apply to these buttons at
+ * all — so the first draft of this change introduced a Level A failure in the
+ * very PR that exists to make them legible. Caught in review, not by me.
+ * `aria-label` is now a SUPERSET of the visible text on both, which is what
+ * keeps the extra context without breaking the containment rule.
+ *
+ * ⚠ AND `title` IS GONE, DELIBERATELY. With `aria-label` supplying the name, a
+ * `title` is no longer a tooltip of last resort — it becomes the accessible
+ * DESCRIPTION, which NVDA and JAWS announce at common verbosity settings. The
+ * Explain control announced as "Explain more about this response, button.
+ * Explain more." — the visible label read back after the name. FeedbackRow,
+ * the row this one matches, carries no `title` for the same reason.
  */
 /**
  * One recipe for both buttons, so they cannot drift apart. Quiet by default and
@@ -616,8 +638,7 @@ function FollowUpActions({ onSendFollowUp }: { onSendFollowUp: (text: string) =>
         type="button"
         onClick={() => dispatch('Please explain that in more detail.')}
         className={FOLLOW_UP_BUTTON_CLASS}
-        aria-label="Explain in more detail"
-        title="Explain more"
+        aria-label="Explain more about this response"
         data-testid="message-action-explain-more"
       >
         <ListPlus size={ICON_STANDALONE} strokeWidth={ICON_STROKE} className="flex-none" aria-hidden="true" />
@@ -628,7 +649,6 @@ function FollowUpActions({ onSendFollowUp }: { onSendFollowUp: (text: string) =>
         onClick={() => dispatch('Please summarise that as concise bullets.')}
         className={FOLLOW_UP_BUTTON_CLASS}
         aria-label="Summarise this response"
-        title="Summarise"
         data-testid="message-action-summarise"
       >
         <AlignLeft size={ICON_STANDALONE} strokeWidth={ICON_STROKE} className="flex-none" aria-hidden="true" />

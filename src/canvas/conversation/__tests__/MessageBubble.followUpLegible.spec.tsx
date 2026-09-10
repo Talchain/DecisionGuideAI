@@ -34,6 +34,23 @@
  * So each button gains a visible text label beside its icon. The accessible
  * name is unchanged.
  *
+ * ## ⚠⚠ AND THE PROPERTY THIS FILE ORIGINALLY FAILED TO GUARD
+ *
+ * The first draft asserted the two halves INDEPENDENTLY — the `aria-label`
+ * attribute in one arm, the visible `textContent` in another — and never
+ * compared them. So it pinned a WCAG 2.1 SC 2.5.3 (Label in Name, Level A)
+ * failure in place while staying green: the Explain button read "Explain more"
+ * and was NAMED "Explain in more detail", a name that does not contain its own
+ * visible text. An independent review caught it; this file did not.
+ *
+ * Asserting an attribute is a different claim from asserting the COMPUTED
+ * accessible name, which is what assistive technology actually resolves — and
+ * `aria-label` outranks contents, so the two can disagree silently. Every name
+ * assertion below now goes through `getByRole('button', { name })`, which
+ * computes the name the same way AT does, and the containment property is
+ * asserted MECHANICALLY from the DOM rather than restated per button — so it
+ * also catches the next label edit.
+ *
  * ## And the icon size
  *
  * `panelIcons.ts` gives standalone controls `ICON_STANDALONE = 16` at
@@ -94,8 +111,12 @@ describe('precondition — the properties the report got wrong are already true'
    */
   it('both buttons already have accessible names, and keep them', () => {
     renderBubble()
-    expect(screen.getByTestId(EXPLAIN)).toHaveAttribute('aria-label', 'Explain in more detail')
-    expect(screen.getByTestId(SUMMARISE)).toHaveAttribute('aria-label', 'Summarise this response')
+    // Bound to the COMPUTED name via getByRole — an `aria-label` attribute
+    // assertion would pass on a name no AT ever resolves this way.
+    expect(screen.getByRole('button', { name: 'Explain more about this response' }))
+      .toBe(screen.getByTestId(EXPLAIN))
+    expect(screen.getByRole('button', { name: 'Summarise this response' }))
+      .toBe(screen.getByTestId(SUMMARISE))
   })
 
   it('both are native buttons — so both have a keyboard route already', () => {
@@ -142,6 +163,61 @@ describe('the buttons say what they do, on screen', () => {
       const labelEl = [...btn.children].find((c) => (c.textContent ?? '').trim().length > 0)
       expect(labelEl, `${id} renders no text element at all`).toBeTruthy()
       expect(labelEl).toBeVisible()
+    }
+  })
+})
+
+describe('WCAG 2.1 SC 2.5.3 — the accessible name contains the visible label', () => {
+  /**
+   * ⭐⭐ THE ARM THE FIRST DRAFT WAS MISSING, and the one that reds on the
+   * defect review found. Derived from the DOM rather than restated per button:
+   * take each button's own visible text, then require the control to still be
+   * findable BY ROLE under a name containing it. `getByRole` computes the
+   * accessible name with the same algorithm assistive technology uses, so a
+   * name that does not contain the visible label simply does not match and the
+   * query throws.
+   *
+   * The harm this pins is concrete, not a conformance technicality: a
+   * speech-input user says "click Explain more", the matcher resolves against
+   * the ACCESSIBLE NAME, and the command misses a control they can see.
+   *
+   * ⚠ It is written over EVERY button in the row, so a third action added later
+   * is covered without anyone remembering to extend this file.
+   */
+  it('every follow-up button is reachable by its own visible text', () => {
+    renderBubble()
+    const row = screen.getByTestId('message-follow-up-actions')
+    const buttons = [...row.querySelectorAll('button')]
+    // Floor: an empty row would satisfy every assertion in the loop vacuously.
+    expect(buttons.length, 'the follow-up row rendered no buttons').toBe(2)
+
+    for (const btn of buttons) {
+      // The glyphs are aria-hidden <svg> and contribute no text, so the
+      // button's own textContent IS its visible label.
+      const visible = (btn.textContent ?? '').trim()
+      expect(visible.length, 'a button with no visible text cannot be checked').toBeGreaterThan(0)
+
+      const escaped = visible.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const byName = screen.getByRole('button', { name: new RegExp(escaped, 'i') })
+      expect(
+        byName,
+        `"${visible}" is not contained in this button's accessible name — ` +
+          'a speech-input user saying it would miss the control (SC 2.5.3)',
+      ).toBe(btn)
+    }
+  })
+
+  /**
+   * ⚠ NO `title` ON EITHER BUTTON. With `aria-label` supplying the name, a
+   * `title` is not a fallback tooltip — it becomes the accessible DESCRIPTION,
+   * announced after the name at common NVDA/JAWS verbosity, so the visible
+   * label got read back at the user. `FeedbackRow`, the row this one matches in
+   * weight, carries none for the same reason.
+   */
+  it('neither button carries a title that would double as a description', () => {
+    renderBubble()
+    for (const id of [EXPLAIN, SUMMARISE]) {
+      expect(screen.getByTestId(id)).not.toHaveAttribute('title')
     }
   })
 })
