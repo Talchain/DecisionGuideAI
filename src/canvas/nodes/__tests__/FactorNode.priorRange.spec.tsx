@@ -598,3 +598,122 @@ describe('FactorNode prior range: a normalised range beside a real-scale value',
     expect(countOccurrences(container, 'Range: 0.08 to 0.28')).toBe(1)
   })
 })
+
+/**
+ * ⭐⭐ SYMMETRY: THE PREDICATE MUST TEST SCALE, NOT MAGNITUDE.
+ *
+ * The suppression above shipped with its bound derived from the endpoints —
+ * `Math.max(1, |rangeMin|, |rangeMax|)`. Against an out-of-scale prior that
+ * silently changed the question from "is this value on a different SCALE?" to
+ * "is this value ABOVE the range?", and the tell was an asymmetry:
+ *
+ *     £31 against a prior of 10 to 30  ->  LOST its range line
+ *     £9  against the same prior       ->  KEPT its range line
+ *
+ * ⛔ NOTHING ABOUT SCALE IS ASYMMETRIC. A predicate that answers differently
+ * for a value below its range and a value above it is not measuring scale,
+ * whatever its name says — and it removed information exactly when the
+ * observation had exceeded expectation, which is the case a reader most needs
+ * to see. It also put this surface in contradiction with `NodeInspector`, whose
+ * ruling on out-of-scale endpoints is "caveat, never hide" and which cites this
+ * very function as its precedent.
+ *
+ * ⚠ THE PRIOR SHAPE IS WITNESSED, NOT INVENTED. `PriorDistributionSchema`
+ * bounds only the numeric branch; the object branch is a `.passthrough()`.
+ * `fac_price {distribution: 'uniform', range_min: 10, range_max: 30}` is in the
+ * evidence corpus, and out-of-scale endpoints are reachable with no CEE at all
+ * because `FactorExternalPanel`'s blur handlers write through `setPriorRange`
+ * unclamped.
+ *
+ * ⭐ BOTH DIRECTIONS ARE PINNED, DELIBERATELY. A fix that only handles "above"
+ * reproduces the defect, and the pair is what binds the property: one of these
+ * two tests alone would pass under the defective predicate.
+ */
+describe('FactorNode prior range: scale, not magnitude — the symmetry pair', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  const outOfScalePriorFactor = (rawValue: number) => ({
+    label: 'Unit price',
+    type: 'factor',
+    category: 'external',
+    // The witnessed out-of-scale prior. Real-scale endpoints, no cap, so the
+    // range prints unitless and is NOT a claim about the 0–1 scale.
+    prior: { range_min: 10, range_max: 30 },
+    observedState: { raw_value: rawValue, value: 0.6, unit: '£', factor_type: 'external' },
+  })
+
+  it('SYMMETRY 1 of 2 — a value ABOVE an out-of-scale range keeps its range line', () => {
+    const { container } = renderFactor(outOfScalePriorFactor(31))
+    expect(countOccurrences(container, 'Range: 10 to 30')).toBe(1)
+  })
+
+  it('SYMMETRY 2 of 2 — a value BELOW the same out-of-scale range keeps its range line', () => {
+    const { container } = renderFactor(outOfScalePriorFactor(9))
+    expect(countOccurrences(container, 'Range: 10 to 30')).toBe(1)
+  })
+
+  const normalisedPriorFactor = (value: number) => ({
+    label: 'Market volatility',
+    type: 'factor',
+    category: 'external',
+    prior: { range_min: 0.08, range_max: 0.28 },
+    observedState: { raw_value: value, value, factor_type: 'external' },
+  })
+
+  it('SYMMETRY 3 of 4 — on a normalised prior, a value above the range but ON the 0–1 scale keeps its range line', () => {
+    const { container } = renderFactor(normalisedPriorFactor(0.5))
+    expect(countOccurrences(container, 'Range: 0.08 to 0.28')).toBe(1)
+  })
+
+  it('SYMMETRY 4 of 4 — on a normalised prior, a value below the range and ON the 0–1 scale keeps its range line', () => {
+    const { container } = renderFactor(normalisedPriorFactor(0.05))
+    expect(countOccurrences(container, 'Range: 0.08 to 0.28')).toBe(1)
+  })
+
+  it('the ONE asymmetry left is the SCALE CEILING, and it is not a range endpoint', () => {
+    // ⭐ 2 is off the 0–1 scale entirely, so the contradiction IS positively
+    // established — while 0.05, which sits further from the range than 2 does
+    // in ratio terms, is a perfectly ordinary member of that scale and keeps
+    // its line (pinned directly above). The discriminator is membership of
+    // 0–1, never distance from the data.
+    const { container } = renderFactor(normalisedPriorFactor(2))
+    expect(container.textContent ?? '').not.toContain('Range: 0.08 to 0.28')
+  })
+
+  it('an out-of-scale prior is not judged against the 0–1 ceiling either: a sub-1 value keeps the line', () => {
+    // The gate is checked BEFORE the ceiling, so a prior that never claimed the
+    // 0–1 scale is never measured against it in either direction.
+    const { container } = renderFactor(outOfScalePriorFactor(0.5))
+    expect(countOccurrences(container, 'Range: 10 to 30')).toBe(1)
+  })
+
+  it('a MIN ABOVE 1 fails the four-limb gate, so the range renders', () => {
+    // {30, 1} is the shape that made NodeInspector render "30 to 1 on 0–1
+    // scale", and it is reachable with no CEE at all: a user whose max is 1
+    // typing 30 into min produces it verbatim through FactorExternalPanel.
+    // A one-sided gate (`range_min >= 0 && range_max <= 1`) admits it as
+    // normalised and would suppress this line. Four limbs, one owner.
+    const { container } = renderFactor({
+      label: 'Mistyped bound',
+      type: 'factor',
+      category: 'external',
+      prior: { range_min: 30, range_max: 1 },
+      observedState: { raw_value: 18, value: 0.3, unit: 'month', factor_type: 'external' },
+    })
+    expect(countOccurrences(container, 'Range: 30 to 1')).toBe(1)
+  })
+
+  it('a NEGATIVE endpoint fails the four-limb gate, so the range renders', () => {
+    // {0.5, -2} is exactly the malformed shape that made NodeInspector render
+    // "0.5 to -2 on 0–1 scale". Each endpoint needs BOTH bounds; a one-sided
+    // bound would let this through as normalised.
+    const { container } = renderFactor({
+      label: 'Drift',
+      type: 'factor',
+      category: 'external',
+      prior: { range_min: -2, range_max: 0.5 },
+      observedState: { raw_value: 18, value: 0.3, unit: 'month', factor_type: 'external' },
+    })
+    expect(countOccurrences(container, 'Range: -2 to 0.5')).toBe(1)
+  })
+})

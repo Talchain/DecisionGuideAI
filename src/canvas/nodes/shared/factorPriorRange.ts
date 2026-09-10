@@ -31,7 +31,7 @@
  * (the card via `formatFactorDisplayValue`, the reduced line via
  * `factorDisplayText`) and neither may be assumed for the other.
  */
-import { isUnquantifiedPrior } from '../../domain/nodes'
+import { isUnquantifiedPrior, priorEndpointsAreNormalised } from '../../domain/nodes'
 import { classifyUnit, formatRawValueWithUnit, isSuppressedUnit } from '../../utils/labelUtils'
 
 /**
@@ -101,8 +101,12 @@ function parseSingleDisplayedMagnitude(text: string): number | null {
   return Number.isFinite(n) ? n : null
 }
 
+/** The ceiling of the normalised scale. It is a property of the SCALE, and it
+ *  is never derived from the data — see the correction in the header below. */
+const NORMALISED_SCALE_CEILING = 1
+
 /**
- * ⭐⭐ THE VALUE LINE CONTRADICTS THE SCALE THIS RANGE WOULD PRINT ON.
+ * ⭐⭐ THE VALUE LINE IS NOT ON THE SCALE THIS RANGE WOULD PRINT ON.
  *
  * Journey-witnessed on the deployed product, one card, together and unflagged:
  *
@@ -120,29 +124,77 @@ function parseSingleDisplayedMagnitude(text: string): number | null {
  *
  * ⛔ SO THIS DECLINES, IT NEVER COMPUTES. It answers only "can I POSITIVELY
  * establish that the value on screen is NOT on the normalised scale this range
- * would print on?" — never "does this range look right?". A normalised prior
- * prints on 0–1, so a single displayed magnitude ABOVE that bound cannot be
- * reading the same scale.
+ * would print on?" — never "does this range look right?".
+ *
+ * ⛔⛔ AND IT IS A MEMBERSHIP TEST, NOT A COMPARISON WITH THE DATA. THIS IS THE
+ * CORRECTION, and it is the whole point of the function.
+ *
+ * The first version derived its bound from the endpoints —
+ * `Math.max(1, |rangeMin|, |rangeMax|)` — reasoning that a prior which exceeds
+ * the contract should be "judged against what is actually on screen". Deriving
+ * it is what broke it. Once the endpoints are themselves on a real scale,
+ * `magnitude > bound` stops asking *"is this value on a different scale?"* and
+ * starts asking *"is this value above the range?"* — which is an ordinary, and
+ * highly decision-relevant, thing for an observation to be.
+ *
+ * ⭐ THE ASYMMETRY WAS THE PROOF. Driven through the real entry point against
+ * a witnessed out-of-scale prior (`fac_price {range_min: 10, range_max: 30}`):
+ *
+ *     £31  (one ABOVE the range)  ->  the range line was REMOVED
+ *     £9   (BELOW the same range) ->  the range line was KEPT
+ *
+ * Nothing about SCALE is asymmetric. A predicate that answers differently for a
+ * value below its range and a value above it is not testing scale, whatever its
+ * name says. It removed information exactly when the observation had exceeded
+ * expectation, which is the case a reader most needs to see. (CLAUDE.md trap
+ * 13d: the invariant had inherited the asymmetry of the failure mode in hand,
+ * because the witnessed value happened to sit far above its range.)
+ *
+ * ⭐ SO THE GATE COMES FIRST, AND IT IS THE SIBLING SURFACE'S OWN PREDICATE.
+ * The unitless line this function guards prints a claim on the 0–1 scale ONLY
+ * when both endpoints sit inside 0–1. `priorEndpointsAreNormalised` answers
+ * that, and `NodeInspector.describePrior` — which renders the same prior and
+ * whose ruling on out-of-scale endpoints is "caveat, never hide" — now reads
+ * the same function rather than its own copy. Two surfaces, one answer.
+ *
+ * With the gate in place the bound is the SCALE's ceiling, fixed at 1 and never
+ * touched by the data, so "above the bound" means "not a member of 0–1" and
+ * nothing else.
  *
  * ⚠ KNOWN LIMIT, stated rather than hidden: a real-scale value that happens to
- * sit at or below the bound ("0.5 month", "£0.5k") is indistinguishable from a
+ * sit at or below 1 ("0.5 month", "£0.5k") is indistinguishable from a
  * normalised one here, so it is not contradicted and the range still renders.
  * That fails in the safe direction — it keeps information rather than removing
  * it — and the cap is what would settle it, which is upstream and out of scope.
+ *
+ * ⚠ A WIDER PREDICATE WAS CONSIDERED AND DECLINED, so nobody re-proposes it as
+ * an obvious improvement. Inside this arm a REAL unit always means
+ * `canCalibrate === false`, so one could suppress on the unit alone — "a real
+ * unit beside a unitless normalised range is a scale mismatch by construction",
+ * which is direction-free and would also close the known limit above. It is
+ * declined because it cannot see its own counterexample: a prior authored on a
+ * REAL scale whose endpoints happen to land inside 0–1 (a defect rate of 0.08
+ * to 0.28 per unit) is byte-identical to a normalised one, and suppressing it
+ * would REMOVE a true line. Trading a false line that is kept for a true line
+ * that is hidden is the wrong direction, and it is the same "a range is not
+ * self-describing" principle `isUnquantifiedPrior` is built on.
  */
 function displayedValueIsOffTheNormalisedScale(
   text: string,
   rangeMin: number,
   rangeMax: number,
 ): boolean {
+  // ⛔ THE GATE. If the endpoints are not inside 0–1 then this line is not
+  // printing a normalised claim, there is no normalised scale to be off, and
+  // no comparison with the displayed value can establish a contradiction.
+  if (!priorEndpointsAreNormalised(rangeMin, rangeMax)) return false
   const shown = parseSingleDisplayedMagnitude(text)
   if (shown == null) return false
-  // The normalised prior prints on 0–1; derive the bound from the endpoints
-  // rather than hardcoding 1, so a prior that ever exceeds the contract is
-  // judged against what is actually on screen.
-  const bound = Math.max(1, Math.abs(rangeMin), Math.abs(rangeMax))
   const magnitude = Math.abs(shown)
-  return magnitude > bound && !nearlyEqual(magnitude, bound)
+  return (
+    magnitude > NORMALISED_SCALE_CEILING
+    && !nearlyEqual(magnitude, NORMALISED_SCALE_CEILING)
+  )
 }
 
 /**
