@@ -39,6 +39,8 @@ import {
 } from '../../mutations/mutationAuthority'
 import { HERO_COPY } from '../../components/pre-analysis-v3/constants'
 import { GOAL_INPUT_ID } from '../../components/pre-analysis-v3/hero/HeroSection'
+import { ModelOutline } from '../../model-tab-v2/ModelOutline'
+import type { ModelRow } from '../../model-tab-v2/types'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -124,6 +126,36 @@ function renderGoalNode(provenance: string) {
   )
 }
 
+/**
+ * The Model tab's goal row. Rendered through `ModelOutline` rather than asserted
+ * on the constant alone, because the binding is what a reword can break: a
+ * member that no rendered surface asserts is guarded only by its own spelling.
+ */
+function renderModelGoalRow(labelFromBrief: boolean) {
+  storeState = makeStoreState()
+  const goalRow: ModelRow = {
+    id: GOAL_ID,
+    kind: 'goal',
+    group: 'goal',
+    label: CAPTURED_FRAGMENT,
+    primaryValue: null,
+    attention: [],
+    editable: false,
+    labelFromBrief,
+  }
+  return render(
+    <ModelOutline
+      rows={[goalRow]}
+      tier="plain"
+      filter=""
+      selectedId={null}
+      onSelect={() => {}}
+      onBeginEdit={() => {}}
+      onGroupAction={() => {}}
+    />,
+  )
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
 })
@@ -144,6 +176,12 @@ describe('positive controls — the probes can see a presence', () => {
 
   it('the canvas goal node mounts the marker with a non-empty title', () => {
     renderGoalNode('from_brief')
+    const marker = screen.getByTestId(GOAL_LABEL_FROM_BRIEF_TESTID)
+    expect((marker.getAttribute('title') ?? '').trim().length).toBeGreaterThan(20)
+  })
+
+  it('the Model tab goal row mounts the marker with a non-empty title', () => {
+    renderModelGoalRow(true)
     const marker = screen.getByTestId(GOAL_LABEL_FROM_BRIEF_TESTID)
     expect((marker.getAttribute('title') ?? '').trim().length).toBeGreaterThan(20)
   })
@@ -184,6 +222,13 @@ describe('each surface renders the member NAMED for it', () => {
     renderGoalNode('from_brief')
     expect(screen.getByTestId(GOAL_LABEL_FROM_BRIEF_TESTID).getAttribute('title')).toBe(
       GOAL_LABEL_FROM_BRIEF_COPY.canvasNodeNotice,
+    )
+  })
+
+  it('the Model tab goal row renders `modelRowNotice`, exactly', () => {
+    renderModelGoalRow(true)
+    expect(screen.getByTestId(GOAL_LABEL_FROM_BRIEF_TESTID).getAttribute('title')).toBe(
+      GOAL_LABEL_FROM_BRIEF_COPY.modelRowNotice,
     )
   })
 
@@ -293,6 +338,8 @@ describe('the predicate is unchanged by the split', () => {
     renderHero('ai_inferred')
     expect(screen.queryByTestId(GOAL_LABEL_FROM_BRIEF_TESTID)).not.toBeInTheDocument()
     renderGoalNode('ai_inferred')
+    expect(screen.queryByTestId(GOAL_LABEL_FROM_BRIEF_TESTID)).not.toBeInTheDocument()
+    renderModelGoalRow(false)
     expect(screen.queryByTestId(GOAL_LABEL_FROM_BRIEF_TESTID)).not.toBeInTheDocument()
   })
 })
