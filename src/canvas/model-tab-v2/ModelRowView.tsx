@@ -72,6 +72,7 @@ import {
   getStrengthBand,
 } from '../components/model-tab/strengthBands'
 import { buildManualGoalTarget } from '../conversation/manualGoalTarget'
+import { factorValueAdmissionRefusal } from '../conversation/factorValueEdit'
 import { statedTargetNumber } from '../domain/goalTarget'
 import type { EditCommitState, DetailTier, ModelRow } from './types'
 import { splitEffectLabel } from './effectDirection'
@@ -1065,7 +1066,19 @@ function EditorActionLine({
   onProposeEdit: (id: string) => void
   onDiscardEdit: (id: string) => void
 }) {
-  const blocked = unproposableDraftReason(row.id, commit.draft, commit.unit)
+  // ⚠ THE BOUND TRAVELS ON THE ROW, so the control and the host judge one
+  // row against one prior. Passing anything else here would let the
+  // affordance offer an advance the host will refuse.
+  //
+  // ⚠⚠ AND THIS ARGUMENT IS THE WHOLE WIRING. #1410 moved these controls out of
+  // the value cell (a 48.5px grid track) into this full-width line, which meant
+  // deleting the call site #1428 had originally amended. Rebasing #1428 onto it
+  // WITHOUT re-attaching `row.valueAdmission` here would leave
+  // `unproposableDraftReason` with a fourth parameter nothing ever passes: the
+  // range guard would fail open on every render, the suite would stay green,
+  // and the measured `+250` ranking reversal would be live again. The guard is
+  // reachable from the UI only through this line.
+  const blocked = unproposableDraftReason(row.id, commit.draft, commit.unit, row.valueAdmission)
   const blockedId = `model-row-v2-${row.id}-value-blocked`
   return (
     <span
@@ -1222,6 +1235,7 @@ export function unproposableDraftReason(
   rowId: string,
   draft: string,
   unit: string | undefined,
+  admission?: ModelRow['valueAdmission'],
 ): string | null {
   if (unit !== undefined) {
     if (buildManualGoalTarget(rowId, draft, unit) !== null) return null
@@ -1234,9 +1248,34 @@ export function unproposableDraftReason(
     // one, because the user acts on it.
     return 'This target cannot be reviewed yet'
   }
-  return Number.isFinite(parseFloat(draft))
-    ? null
-    : 'Enter a number to review this change'
+  if (!Number.isFinite(parseFloat(draft))) return 'Enter a number to review this change'
+  /*
+   * ⭐⭐ AND THE FACTOR'S OWN DECLARED RANGE, LAST — after the parse, never
+   * instead of it. Measured on staging `67b04e5b` (10 Sep 2026): every factor
+   * in a drafted model carries `prior: {range_min: 0, range_max: 1}`, and
+   * typing `40` into a cap-10 factor was accepted at input, review AND confirm,
+   * storing `value: 4`. The analysis then RAN on it — the in-range twin (`10` →
+   * `value: 1`, exactly `range_max`) and the out-of-range run returned
+   * DIFFERENT results, so nothing downstream was bounding it, and `+250`
+   * reversed the ranking outright.
+   *
+   * ⚠ THE ORDER IS LOAD-BEARING. `abc` must keep saying "Enter a number";
+   * a range guard that answered first would replace an accurate refusal with a
+   * vaguer one and give the user a bound to satisfy when their problem is that
+   * they typed no number at all.
+   *
+   * ⚠ IT REFUSES; IT DOES NOT CLAMP. A silently corrected value is the same
+   * class of defect as a silently corrupted one — the user must know. This is
+   * the same shape as `bandReadback`'s "out of range" and as
+   * `buildEdgeStrengthEditEvent` refusing `magnitude > 1` rather than clamping.
+   *
+   * ⚠ ONE DERIVATION, SAME AS THE ARMS ABOVE. The verdict, the scale transform
+   * and the sentence all live in `factorValueAdmissionRefusal`; this function
+   * chooses WHEN to ask, never what the answer is. A row that computed its own
+   * idea of "out of range" would be the twin-derivation defect this whole
+   * function exists to prevent.
+   */
+  return factorValueAdmissionRefusal(admission, draft)
 }
 
 /**
