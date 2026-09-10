@@ -94,7 +94,31 @@ function topology(resultsStatus: 'idle' | 'complete', weight = 0.5) {
     edges: [
       // A CEE-authored weight and direction — not `USER_EDGE_DEFAULTS`, which
       // `EdgePills` deliberately refuses to announce.
-      { id: 'e1', source: FACTOR_ID, target: 'outcome-1', data: { weight, direction: weight >= 0 ? 'positive' : 'negative', weightSource: 'cee' } },
+      {
+        id: 'e1',
+        source: FACTOR_ID,
+        target: 'outcome-1',
+        /**
+         * ⛔ `weight` IS AN UNSIGNED MAGNITUDE. THE SIGN LIVES IN `direction`.
+         *
+         * This fixture originally passed the raw (possibly negative) `weight`
+         * straight through beside `direction: 'negative'`, and the two CANCELLED:
+         * `computeSignedMean` (canvas/domain/edges.ts) reads
+         * `sign = direction === 'negative' ? -1 : 1` and returns
+         * `sign * magnitude`, so `-1 * -0.5` is `+0.5` and the negative case
+         * rendered "Raises". The discriminating pair below looked sound and was
+         * measuring one direction twice.
+         *
+         * A self-authored fixture encodes the author's model of the wire rather
+         * than the wire (CLAUDE.md trap 16-inverse). `Math.abs` here keeps the
+         * two channels doing what the producer says they do.
+         */
+        data: {
+          weight: Math.abs(weight),
+          direction: weight >= 0 ? 'positive' : 'negative',
+          weightSource: 'cee',
+        },
+      },
     ],
     ceeAnalysisReady: null,
     results: { status: resultsStatus, report: null },
