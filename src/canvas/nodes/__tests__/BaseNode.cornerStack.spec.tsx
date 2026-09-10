@@ -142,6 +142,22 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
     expect(stack).toContainElement(rank)
     expect(stack).toContainElement(coaching)
 
+    /**
+     * ⭐⭐ THE RANK BADGE MUST CARRY ITS OWN MEANING, AND NOT VIA `title`.
+     *
+     * It had `title="Key driver #N: ranked by influence…"` sitting on the SAME
+     * element as `pointerEvents: 'none'`. A `title` needs a hover the browser
+     * never raises there, so the tooltip could not fire — while reading, in
+     * source and in review, exactly like an explanation already provided. A
+     * screen reader got the bare string "#1".
+     *
+     * ⛔ ASSERTED BOTH WAYS ON PURPOSE. Only checking the accessible name would
+     * stay green if someone re-added the dead `title` beside it, and the point
+     * is that a title on this element is NOT a way to explain the badge.
+     */
+    expect(rank).toHaveAccessibleName(/^Key driver #\d+: one of the factors the result is most sensitive to$/)
+    expect(rank).not.toHaveAttribute('title')
+
     // Deterministic order: rank FIRST, coaching beside it.
     const kids = Array.from(stack.children)
     expect(kids[0]).toBe(rank)
