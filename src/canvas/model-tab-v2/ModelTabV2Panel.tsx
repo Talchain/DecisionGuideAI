@@ -25,14 +25,55 @@
  * a confirmation (contracts.ts §1 C11). When the receipt-bearing transaction
  * API lands, the three-beat's tail states plug in at `useModelEditAuthority`.
  *
- * EDIT COVERAGE AT THIS TIP (widened 18 Aug 2026, the REHOME → DELETE lane):
+ * EDIT COVERAGE AT THIS TIP:
  *   · FACTOR VALUES — the reference canonical transaction, server-backed.
  *   · OPTION INTERVENTION TARGETS — in the detail region of the selected option.
- *   · FACTOR CONFIRMATION — the row's Confirm chip, stamping `user_confirmed`.
- * The last two are LOCAL COMMITS with no wire carrier, dispatched through the
- * same authority; see `useModelEditAuthority`'s header for why that does not
- * re-open design §2 F6 and for the outcome type that makes an over-claim
- * unrepresentable.
+ *     SERVER-BACKED (`option_intervention_edit`), base-hash gated, and it
+ *     REFUSES rather than writing locally when the hash is absent.
+ *   · FACTOR CONFIRMATION — ⛔ NOT MOUNTED. See below.
+ *
+ * ⚠⚠ TWO SENTENCES HERE WERE MEASURABLY FALSE AND ARE CORRECTED, NOT TRIMMED,
+ * because both drifted the same way and the next reader needs the mechanism.
+ * They read:
+ *
+ *   ~~"· FACTOR CONFIRMATION — the row's Confirm chip, stamping `user_confirmed`."~~
+ *   ~~"The last two are LOCAL COMMITS with no wire carrier."~~
+ *
+ * (1) FACTOR CONFIRMATION IS COMPILED OUT.
+ *     `CANONICAL_EDIT_AUTHORITY.modelFactorConfirmation` is `'disabled'`, so
+ *     `FACTOR_CONFIRMATION_CONNECTED` is `false` and the row Confirm chip
+ *     (`onConfirmValueAsIs`), the "N to verify" attention chip and the entire
+ *     `RepairQueueList` branch never render. `proposeFactorConfirmation` and its
+ *     dispatcher are live code and UNREACHABLE. A header advertising a
+ *     compiled-out capability is the worst place in the file for a stale claim:
+ *     it is what a new lane reads first to learn what this surface can do, and
+ *     it did mislead one.
+ * (2) OPTION INTERVENTIONS ARE NOT LOCAL COMMITS. `modelOptionIntervention`
+ *     flipped to `'server_graph'`; the edit builds a real wire event and refuses
+ *     rather than writing locally. Lumping it with factor confirmation as "the
+ *     last two" could not express a state where the two keys DISAGREE — which is
+ *     exactly the state they are in (trap 21: two questions under one name).
+ *
+ * ⭐ AND THE MECHANISM, WITH ITS LIMIT STATED — because the first version of
+ * this paragraph overclaimed, which is the very failure it was describing:
+ * `__tests__/affordancesFollowTheAuthorityTable.spec.tsx` binds the AFFORDANCES
+ * to the table two ways. It DERIVES each expectation from the imported table at
+ * run time, so the surface cannot drift from the table; and it PINS what the
+ * table says today in a literal, so the table cannot move without reddening
+ * that file. It needs both. Derivation alone was measured NOT to red on a key
+ * flip, because the expectation and the surface's own gate were the same
+ * function over the same key and moved together.
+ *
+ * ⚠ WHAT IT DOES NOT DO IS HOLD THIS PROSE. These corrected sentences are a
+ * file-level JSDoc block, and the directory's source scanners strip comments by
+ * design, so nothing binds this header to the table. The earlier claim here
+ * that the mechanism meant this "cannot rot a third time" was not true, and
+ * asserting a guarantee no guard supplies is how the two sentences above rotted
+ * in the first place. Treat this block as prose that must be RE-READ whenever a
+ * key in `mutationAuthority.ts` changes; the spec's literal pin is what forces
+ * someone to that moment. See `useModelEditAuthority`'s header for why a
+ * genuinely local commit would not re-open design §2 F6, and for the outcome
+ * type that makes an over-claim unrepresentable.
  *
  *   · RELATIONSHIP STRENGTH — added 2026-09-08, server-backed, AND GATED PER
  *     EDGE. See below.
