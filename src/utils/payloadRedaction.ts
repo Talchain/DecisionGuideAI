@@ -81,9 +81,82 @@ export const DEBUG_BUNDLE_REDACTION_OPTIONS: RedactionOptions = {
   maxDepth: 8,
   maxArrayItems: 100,
   maxStringLength: 1000,
-  neverTruncateKeys: ['text', 'output_preview', 'output', 'content'],
+  // `assistant_text` added 2026-09-05. It is the ROOT field of the V5
+  // OlumiResponse envelope carrying the model's reply, and it was the one
+  // LLM-authored surface in the bundle NOT on this list — so every reply
+  // over 1000 chars arrived cut mid-sentence. Measured in
+  // `olumi-debug-1679eb88-20260905.json`: two turns truncated, and a
+  // reviewer read the fragments as the whole answer.
+  //
+  // Anything added here MUST also be safe to carry at full length: the
+  // `neverTruncateMaxLength` safety cap below is the only remaining bound.
+  neverTruncateKeys: ['text', 'output_preview', 'output', 'content', 'assistant_text'],
   neverTruncateMaxLength: DEBUG_LLM_RAW_MAX_CHARS,
   neverRedactKeys: ['constraint_analysis', 'observed_state', 'goal_constraints'],
+}
+
+/**
+ * Remove SECRET-SHAPED substrings from a free-form string.
+ *
+ * ⚠ THIS IS A SECRETS SCRUBBER, NOT A PII SCRUBBER. Read the second list
+ * below before relying on it for anything.
+ *
+ * `redactPayload` operates on object KEYS. A free-form VALUE — an
+ * `Error.cause` snippet, a plain-text response body, a message the user
+ * typed — bypasses the structural pass entirely and would carry a bearer
+ * token or JWT through verbatim. This is the substring-level pass that
+ * runs before such a value lands in a diagnostic bundle.
+ *
+ * WHAT IT REMOVES (verified by execution against the implementation
+ * below; each has a case in `__tests__/payloadRedaction.scrubber.spec.ts`,
+ * which also pins the non-removals below so this comment cannot drift
+ * back into overstating the function):
+ *   - a JWT-shape three-segment base64 run (`eyJ…`) → `[REDACTED:JWT]`
+ *   - `bearer <token>` (case-insensitive, up to whitespace)
+ *     → `bearer [REDACTED]`
+ *   - `<sensitive-key><separator><value>`, where `<sensitive-key>` is one
+ *     of `api_key` / `api-key` / `apikey` / `token` / `secret` /
+ *     `password` / `authorization` and `<separator>` is a `:` or `=` with
+ *     optional surrounding whitespace → `<sensitive-key>=[REDACTED]`
+ *
+ * ⚠ WHAT IT DOES NOT REMOVE — measured on realistic prose, 2026-09-05:
+ *   - the SAME sensitive words in ordinary prose with NO `:` or `=`
+ *     separator. `"My password is hunter2"` passes through VERBATIM: the
+ *     separator is REQUIRED, not optional. (This comment previously
+ *     documented the third pattern as `[\s=:]+`, i.e. whitespace alone
+ *     would separate — that was FALSE of the code beside it, and false in
+ *     the permissive direction, which is the worst way for a comment on a
+ *     security predicate to be wrong.)
+ *   - personal data of every kind: names, email addresses, phone numbers,
+ *     postal addresses, monetary figures and card numbers all pass
+ *     through verbatim. `4111 1111 1111 1111` is not touched.
+ *
+ * The replacements are NOT one fixed token: only the JWT branch emits the
+ * `[REDACTED:<reason>]` form; the other two emit `bearer [REDACTED]` and
+ * `<key>=[REDACTED]`. All three are visible to a reader as a redaction,
+ * which is the property that matters — but do not write a consumer that
+ * greps for a single literal.
+ *
+ * ⚠ Promoted here from `payload-trace-store.ts` on 2026-09-05, which is
+ * what that module's own note invited once a second consumer appeared
+ * ("any future caller should consider promoting this to a shared util").
+ * The second consumer is `exportBundle.ts`, which now captures the user's
+ * typed message text and must scrub it by VALUE — there is no key to
+ * match on. Keep the store and the bundle on this one copy: two scrubbers
+ * would drift, and the weaker one would be the one that shipped.
+ */
+export function scrubSecretsInString(input: string): string {
+  let out = input
+  // JWT — three base64-segment shape.
+  out = out.replace(/eyJ[\w-]+\.[\w-]+\.[\w-]+/g, '[REDACTED:JWT]')
+  // Bearer + opaque token.
+  out = out.replace(/\bbearer\s+\S+/gi, 'bearer [REDACTED]')
+  // Sensitive-key=value / sensitive-key: value pairs.
+  out = out.replace(
+    /\b(api[_-]?key|token|secret|password|authorization)\s*[:=]\s*\S+/gi,
+    '$1=[REDACTED]',
+  )
+  return out
 }
 
 /** Maximum size for raw error data storage (50KB) */
@@ -104,6 +177,155 @@ export function shouldCaptureDetailedPayload(): boolean {
     import.meta.env?.VITE_APP_ENV === 'staging'
   )
 }
+
+/**
+ * THE SINGLE ADMISSION for verbatim user prose in a debug bundle.
+ *
+ * Every field whose PURPOSE is verbatim user prose — `user_actions[].detail
+ * .user_text` and `recent_conversation_turns[].user_message` — reads THIS
+ * predicate and no other. Those are its only two non-test consumers
+ * repo-wide (`exportBundle.ts:2598`, `recentConversationTurns.ts:285`).
+ *
+ * ⚠ IT IS NOT TRUE THAT NO OTHER FIELD CAN CARRY THE USER'S WORDS, and the
+ * sentence above must not be read as a whole-artefact claim. Two other
+ * carriers hold user prose under DIFFERENT gates, and both are named further
+ * down this same comment:
+ *
+ *   - `payloads.cee_request` — the CEE request body, whose root `message` is
+ *     the identical string `readUserMessage` reads
+ *     (`useDebugData.ts:4333` → `buildPayload.ts:486` ←
+ *     `recentConversationTurns.ts:221`). Gated by the trace-store gate, a
+ *     strict SUBSET of this predicate — which is exactly what the union
+ *     argument below turns on; see "In all three states".
+ *   - `full_graph` node `label` / `description` (`exportBundle.ts:2161,2164`)
+ *     — user-authored prose, gated by the default-OFF `includeFullGraph`
+ *     checkbox (`DebugPanelV2.tsx:63`), not by this predicate. See the
+ *     ⚠ SCOPE OF THE OMISSION MARKER block below.
+ *
+ * Taken as a whole-artefact claim the opening sentence would say that driving
+ * this predicate false strips every trace of user prose from the bundle. It
+ * does not. That the omission marker is nonetheless honest rests on the
+ * SEPARATE subset argument below — not on this sentence, which an earlier
+ * revision wrote as "every field that CAN carry the user's own words" and
+ * which this comment then refuted twice in its own body.
+ *
+ * It exists because those two fields were shipped
+ * behind two DIFFERENT gates, which is this estate's signature defect (one
+ * data class, two answers), and it produced a bundle that could assert an
+ * omission it had not made.
+ *
+ * ## Why it is a UNION rather than the narrower `shouldCaptureDetailedPayload`
+ *
+ * The two gates diverge in BOTH directions, so neither one alone can be
+ * "the" gate:
+ *
+ *   `shouldCaptureDetailedPayload()`   DEV | MODE=staging | VITE_APP_ENV=staging
+ *   payload-trace-store's gate         DEV | VITE_ENABLE_PAYLOAD_INSPECTION=true
+ *                                          | VITE_APP_ENV=development
+ *                                          | VITE_APP_ENV=staging
+ *
+ * ## Where the narrow gate would actually lie — MEASURED, not reasoned
+ *
+ * A bundle only exists where `shouldShowDebugPanel()` is true
+ * (`debugPanelVisibility.ts:18-22`): `exportDebugBundleAsync` has exactly
+ * ONE non-test caller, `DebugPanelV2.tsx:88`, inside that panel. So the
+ * question is not where the two gates diverge, but where they diverge AND
+ * an artefact can exist for the marker to lie in.
+ *
+ * Executed over all 20 combinations of `DEV` × `VITE_APP_ENV` ∈ {unset,
+ * development, staging, production, qa-sandbox} × opt-in ∈ {unset, true},
+ * running the real `shouldShowDebugPanel`, the real trace-store gate and
+ * both predicates. `panel && storeEnabled && !narrow` — a bundle exists, it
+ * holds the user's prose, and the narrow gate would deny holding it — is
+ * true in exactly THREE states, every one of them a production-MODE build:
+ *
+ *   VITE_APP_ENV unset         + VITE_ENABLE_PAYLOAD_INSPECTION=true
+ *   VITE_APP_ENV='development'   (NO opt-in required)
+ *   VITE_APP_ENV='development' + opt-in
+ *
+ * ⚠ `VITE_APP_ENV='production'` + opt-in is NOT one of them, and an earlier
+ * version of this comment named exactly that as the defect's state. There
+ * the store does capture, but `shouldShowDebugPanel` returns false, so no
+ * artefact exists. Pinning it would have been a guard that cannot fire —
+ * and someone hardening later would have blocked the opt-in in production,
+ * closed nothing, and left all three reachable states open.
+ *
+ * The production-relevant posture is `VITE_APP_ENV` UNSET, not
+ * `'production'`: `netlify.toml:90` sets `VITE_APP_ENV = "staging"` only
+ * under `[context.staging.environment]`, and `:60-62` states the production
+ * context inherits only from `[build.environment]`, which does not set it.
+ * (A claim about repo config only — Netlify dashboard vars are invisible
+ * from here and could falsify it in either direction.)
+ *
+ * In all three states the trace store is ALREADY enabled, so the bundle
+ * already carries that prose under `payloads.cee_request` at minimum, which
+ * predates any of this. Gating the user-text fields on the narrower
+ * predicate there would have the bundle emit an omission marker while
+ * HOLDING the very thing it says it omitted.
+ *
+ * Taking the union makes the marker true of the artefact as a whole:
+ *
+ *   union TRUE   → the user-text fields are populated; nothing claims an
+ *                  omission. Honest.
+ *   union FALSE  → the trace-store gate is necessarily false too (it is a
+ *                  strict subset of this disjunction), so the store captured
+ *                  nothing and every store-fed carrier is null. Measured
+ *                  over the same 20 states: states where the union admits
+ *                  prose the narrow gate would have withheld AND the store
+ *                  is disabled = 0, with a contrast control showing 5 states
+ *                  where the union genuinely widens, so the zero is not
+ *                  vacuous. The union's marginal disclosure is bounded to
+ *                  MORE INSTANCES OF A CLASS ALREADY PRESENT in the same
+ *                  artefact.
+ *
+ * ⚠ SCOPE OF THE OMISSION MARKER, stated because the sentence that stood
+ * here claimed more than anything bounds. It is true of every `payloads.*`
+ * carrier and every `recent_conversation_turns` record. It is NOT a
+ * whole-artefact claim: `full_graph` carries user-authored node `label` /
+ * `description` (`exportBundle.ts:2154-2156`) and is not gated by this
+ * predicate — it rides a separate, default-OFF checkbox
+ * (`DebugPanelV2.tsx:63`). The previous wording, "there is no user prose
+ * anywhere in the bundle", was false of `full_graph`.
+ *
+ * ## Why the union, and not "narrow the gate and null the carriers"
+ *
+ * Because `payloads.cee_request` is not the only store-fed prose carrier:
+ * `plot_request`, `isl_request`, `m2_request` and `cee_downstream_request`
+ * are all `?.request?.body` off the same store (`useDebugData.ts:4333-4341`),
+ * as are the per-turn records. A marker scoped that way is true only while a
+ * hand-maintained list of prose-bearing carriers stays complete, and a
+ * carrier added later would silently reinstate this exact lie with no red
+ * anywhere. The union needs no list.
+ *
+ * ## Keeping it derived
+ *
+ * The subset relation above is the load-bearing claim, and it is a claim
+ * about ANOTHER module's gate — exactly the hand-maintained mirror this
+ * estate keeps paying for. It is therefore asserted by execution, not by
+ * this comment: `userAuthoredTextAdmission.spec.ts` walks the env matrix,
+ * loads the real `getPayloadInspectionStatus()` under each entry, and REDs
+ * if any state exists where trace capture is enabled and this predicate is
+ * false. Widen the trace-store gate and that spec goes red here.
+ */
+export function shouldCaptureUserAuthoredText(): boolean {
+  return (
+    shouldCaptureDetailedPayload() ||
+    import.meta.env?.VITE_ENABLE_PAYLOAD_INSPECTION === 'true' ||
+    import.meta.env?.VITE_APP_ENV === 'development'
+  )
+}
+
+/**
+ * The reason emitted in place of user prose when
+ * `shouldCaptureUserAuthoredText()` is false. One constant, so the two
+ * emission sites cannot describe the same policy differently.
+ *
+ * Named for the DATA CLASS it governs, not for an environment-wide policy:
+ * the previous string (`detailed_capture_disabled_in_this_environment`)
+ * claimed more than the gate decides.
+ */
+export const USER_AUTHORED_TEXT_OMITTED_REASON =
+  'user_authored_text_capture_disabled_in_this_environment'
 
 // =============================================================================
 // Redaction Functions

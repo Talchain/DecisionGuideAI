@@ -467,6 +467,13 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
   ],
   'risk · pre · standard': [
     'Strength', // CAPTION — `METRIC_NOUN.strength`, beside its bar.
+    // ⭐ ADJUDICATED 9 Sep 2026 — CONTROL, promoted from the hover popover to
+    // the card face. It is byte-identical across every risk card BY DESIGN:
+    // this file's own rule is that "an affordance that read differently on
+    // each card would be a different affordance". It is here because the
+    // chips were previously invisible at rest — `NodePopover` returns null
+    // when closed, so nothing on a Standard risk card asked anything.
+    'What would we see first?', // CONTROL
   ],
   'risk · pre · expert': [
     'Driven by:', // HEADING
@@ -475,7 +482,10 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'What reduces this?', // CONTROL
     'What would we see first?', // CONTROL
   ],
-  'risk · post · standard': ['Strength'],
+  'risk · post · standard': [
+    'Strength', // CAPTION
+    'What would we see first?', // CONTROL — promoted; see the pre bucket above.
+  ],
   'risk · post · expert': [
     'Depends on:', // HEADING
     'Explore mitigation', // CONTROL
@@ -483,7 +493,12 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'What reduces this?', // CONTROL
     'What would we see first?', // CONTROL
   ],
-  'outcome · pre · standard': ['Strength'],
+  'outcome · pre · standard': [
+    'Strength', // CAPTION
+    // ⭐ ADJUDICATED 9 Sep 2026 — CONTROL, promoted to the card face for the
+    // same reason as the risk chip above.
+    'What would falsify this?', // CONTROL
+  ],
   'outcome · pre · expert': [
     'Driven by:', // HEADING
     'Explore consequences', // CONTROL
@@ -491,12 +506,21 @@ const EXPECTED_CENSUS: Record<string, string[]> = {
     'What affects this?', // CONTROL
     'What would falsify this?', // CONTROL
   ],
-  'outcome · post · standard': ['Strength'],
+  'outcome · post · standard': [
+    'Strength', // CAPTION
+    'What would falsify this?', // CONTROL — promoted, and no longer deleted by
+    // the run: the falsification question was `!isPostAnalysis`-gated, so it
+    // vanished exactly when the outcome had a number worth falsifying.
+  ],
   'outcome · post · expert': [
     'Depends on:', // HEADING
     'Explore consequences', // CONTROL
     'Strength', // CAPTION
     'Validate this assumption', // CONTROL
+    // ⭐ ADJUDICATED 9 Sep 2026 — the phase gate that deleted this question on a
+    // completed run is gone, so Detailed post now carries it as Detailed pre
+    // always did.
+    'What would falsify this?', // CONTROL
   ],
   // ⚠⚠ EVERY LOD BUCKET IS EMPTY, AND THAT ZERO IS NEARLY GUARANTEED — DO NOT
   // READ IT AS A CLEAN BILL. At this rung the caption and its value are ONE

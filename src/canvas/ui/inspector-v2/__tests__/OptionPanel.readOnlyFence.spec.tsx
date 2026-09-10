@@ -62,6 +62,7 @@ const FACTOR_ID = 'fac_price'
 const FACTOR_LABEL = 'Pro plan price'
 const SPARE_FACTOR_ID = 'fac_headcount'
 const SPARE_FACTOR_LABEL = 'Engineering headcount'
+const RISK_ID = 'risk_churn'
 const OPTION_ID = 'opt-raise'
 const OPTION_B_ID = 'opt-hold'
 const DESC_A = 'Raise the Pro price and ship the billing feature together.'
@@ -86,6 +87,17 @@ function seed() {
     nodes: [
       factorNode(FACTOR_ID, FACTOR_LABEL),
       factorNode(SPARE_FACTOR_ID, SPARE_FACTOR_LABEL),
+      // ⚠ THE CONTRAST BELOW USED A CONTROLLABLE FACTOR AND CAN NO LONGER.
+      // `factor-controllable` joined AUTHORITY_OWNING_PANELS (its value has a
+      // durable carrier), so that node stopped being an example of a panel the
+      // Router still wraps — the contrast would have inverted into a second
+      // assertion of the same fact. A risk panel owns no fence of its own.
+      {
+        id: RISK_ID,
+        type: 'risk',
+        position: { x: 0, y: 0 },
+        data: { kind: 'risk', label: 'Churn spikes after the rise' },
+      },
       {
         id: OPTION_ID,
         type: 'option',
@@ -165,7 +177,7 @@ describe('the option panel owns its authority boundary', () => {
     // blanket everywhere — which would silently un-fence four other panels that
     // have taken on no duty at all.
     const { container } = render(
-      <InspectorModal nodeId={FACTOR_ID} edgeId={null} onClose={vi.fn()} />,
+      <InspectorModal nodeId={RISK_ID} edgeId={null} onClose={vi.fn()} />,
     )
     expect(container.querySelector(NODE_INSPECTOR)).not.toBeNull()
     expect(

@@ -207,11 +207,21 @@ export default async function handler(request: Request, _context: Context) {
   // app's own health check. Rejecting it buys no security either: CORS governs
   // cross-origin READS, and any non-browser client can set any Origin it likes.
   //
-  // NOTE — `isl-proxy.ts` and `orchestrator-proxy.ts` DO reject a missing
-  // origin, which is why `GET /bff/isl/health` answers 403 to the app's own
-  // same-origin health check. That is a pre-existing defect in those two
-  // functions, out of scope here and flagged for separate repair; this
-  // function deliberately does not copy it.
+  // NOTE — `orchestrator-proxy.ts` DOES still reject a missing origin
+  // (`:127` takes `getCorsHeaders(origin)`, which returns null for a null
+  // origin, and `:130` answers 403 on that null). That remains a pre-existing
+  // defect there, out of scope here and still flagged for separate repair;
+  // this function deliberately does not copy it.
+  //
+  // ⚠ `isl-proxy.ts` carried the same defect and it was REPAIRED on
+  // 2026-09-05, in the change that added this paragraph. `isl-proxy.ts:160`
+  // now reads `origin !== null && !isOriginAllowed(origin)`, so
+  // `GET /bff/isl/health` no longer answers 403 to the app's own same-origin
+  // health check — `src/lib/service-health.ts`'s build probe depends on that.
+  // Until then this note named isl-proxy alongside orchestrator-proxy and
+  // cited the ISL 403 as the illustration; both clauses became false of the
+  // tree at that commit, so the note is narrowed to the one function the
+  // defect still lives in.
   if (origin !== null && !isOriginAllowed(origin)) {
     console.warn('[CEE Proxy] Rejected request from unknown origin:', origin)
     return new Response(

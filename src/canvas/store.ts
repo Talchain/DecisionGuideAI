@@ -94,6 +94,7 @@ import type {
   CEEInterventionHint,
   PreAnalysisSensitivity,
   CEEDraftCoaching,
+  AnalysisAdmissionV1,
 } from '../adapters/cee/types'
 import type { LimitsV1 } from '../adapters/plot/types'
 import type { ScenarioStage, ScenarioEvent } from '../types/scenario'
@@ -589,6 +590,49 @@ interface CanvasState {
   // CEE V3: analysis_ready payload from last draft
   // Used by useV2Run to build requests with resolved interventions
   ceeAnalysisReady: CEEAnalysisReady | null
+  /**
+   * THE PRODUCER'S LAST ADMISSION, RETAINED ACROSS INVALIDATION AS UNCONFIRMED.
+   *
+   * ⭐⭐ WHY THIS FIELD EXISTS, and it is one question, not two.
+   * `analysis_admission` lives only inside `ceeAnalysisReady`, which
+   * `invalidateAnalysisReady` nulls on every analytical edit. Its consumer
+   * (`licensesComparativeLeaderClaim`) reads absence as `true` — correct, and
+   * deliberately so, for "THE PRODUCER NEVER SPOKE" (an older CEE). But after a
+   * local edit the absence is OUR OWN doing, and reading it as a licence makes
+   * the product assert exactly the claim the producer refused.
+   *
+   * MEASURED on staging build 9eb30b54 (2026-09-10): a `quantified_provisional`
+   * run rendered "What this run may not conclude" and, 59ms after one factor
+   * value was edited, rendered "Most likely to serve your goal / Double Down on
+   * SMB" in the same slot — the refusal's own remedy half-satisfied and the
+   * designation made anyway.
+   *
+   * So this field separates two questions that shared one name:
+   *   never spoken  -> stays `null` -> absence still means "no authority"  (unchanged)
+   *   spoke, then self-nulled -> holds what was said -> the refusal survives the edit
+   *
+   * ⚠ IT IS DOWNGRADE-ONLY BY CONSTRUCTION, not by a rule someone must remember:
+   * the only value it can ever hold is a value the producer itself sent, so it
+   * cannot license anything CEE did not license. A live admission always wins
+   * over it (`resolveEffectiveAdmission`), so a genuinely new verdict — in either
+   * direction — replaces it immediately.
+   *
+   * ⚠⚠ AND THE FALLBACK KEYS ON THE ABSENT **ADMISSION**, NOT ON AN ABSENT
+   * PAYLOAD. An earlier draft of this field said it would be consulted only when
+   * `ceeAnalysisReady` is null; that was wrong, and wrong in the permissive
+   * direction. `reselectGoalNode` CONSTRUCTS a readiness stub
+   * (`{ status: undefined, goal_node_id, options: [] }`, store.ts — the `else`
+   * arm) that carries no admission and is not an older producer. Keying on the
+   * payload would let that stub re-license the claim after an edit had already
+   * invalidated it, which is this very defect reached by a second route.
+   *
+   * Captured at the CLEAR sites (`readinessClearFields`) rather than at the
+   * arrival sites, deliberately: it reads `get().ceeAnalysisReady` at the moment
+   * of clearing, so it is correct however readiness arrived, and there is no list
+   * of producers to keep in sync. Cleared by `DECISION_CONTEXT_CLEAR`, or a
+   * previous decision's admission would govern the next one's edits.
+   */
+  retainedAnalysisAdmission: AnalysisAdmissionV1 | null
   // Analysis freshness verdict from CEE analysis_ready.freshness — retained
   // across turns; sourced independently of ceeAnalysisReady / v5AnalysisFact.
   analysisFreshness: AnalysisFreshnessState | null
@@ -1904,6 +1948,29 @@ const READINESS_CLEAR_FIELDS = {
 } as const
 
 /**
+ * THE READINESS CLEAR, PLUS THE PRODUCER'S ADMISSION RETAINED AS UNCONFIRMED.
+ *
+ * ⚠ A FUNCTION, NOT A SECOND CONSTANT, AND THAT IS THE POINT. The retained value
+ * has to be read out of live state at the moment of clearing, so it cannot live
+ * in a frozen object — and making every clear site pass `get` means a site that
+ * forgets does not compile. The alternative (recording the admission at each
+ * ARRIVAL site) is a hand-maintained list of producers: three exist today, and
+ * the next one to be added would silently reopen this defect.
+ *
+ * `?? get().retainedAnalysisAdmission` keeps the last thing the producer actually
+ * said when the payload being cleared carried no admission of its own. Once CEE
+ * has spoken for this decision, a later absence is never again "an older
+ * producer" — and only `DECISION_CONTEXT_CLEAR` resets that.
+ */
+function readinessClearFields(get: () => CanvasState) {
+  return {
+    ...READINESS_CLEAR_FIELDS,
+    retainedAnalysisAdmission:
+      get().ceeAnalysisReady?.analysis_admission ?? get().retainedAnalysisAdmission,
+  }
+}
+
+/**
  * Lane 5 (Codex P0-2): the per-decision "goal context" — target, its
  * representation, the CEE readiness payload, and the outcome-node selection.
  * ANY full-context replacement (new scenario load, canvas import, reset)
@@ -1918,6 +1985,11 @@ const DECISION_CONTEXT_CLEAR = {
   goalThreshold: null,
   goalThresholdRepresentation: null,
   ceeAnalysisReady: null,
+  // The retained admission is scoped to ONE decision. A full-context replacement
+  // brings a different graph, so the previous decision's licence (or refusal)
+  // must not govern edits made to this one — the same hazard as the stale
+  // goalThreshold two lines above.
+  retainedAnalysisAdmission: null,
   ceeAnalysisReadyNodeIds: null,
   outcomeNodeId: null,
   // B3 (Codex deep review, 2026-07-18): goalConstraints was the ONE member of
@@ -2446,7 +2518,7 @@ function invalidateAnalysisReady(
       console.trace('[Canvas] invalidateAnalysisReady call stack')
     }
     logConstraintClearIfPresent(get, `invalidateAnalysisReady:${reason ?? 'unspecified'}`)
-    set(() => ({ ...READINESS_CLEAR_FIELDS }))
+    set(() => ({ ...readinessClearFields(get) }))
   }
 }
 
@@ -2746,6 +2818,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
   // CEE V3: analysis_ready payload
   ceeAnalysisReady: null,
+  // No producer has spoken at cold start, so absence genuinely means "no
+  // authority" and `licensesComparativeLeaderClaim` keeps its `true` arm.
+  retainedAnalysisAdmission: null,
   // Freshness verdict — null until CEE emits analysis_ready (UI shows nothing).
   analysisFreshness: null,
   // Local dirty overlay — false at cold start (no edits to invalidate a verdict).
@@ -3556,7 +3631,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // whenever nothing has been proven deleted, which is the common case.
     const guarded = withholdDurableDeletions(prev, get().durablyDeletedElements, { nodes, edges })
     const notice = buildDurableDeletionNotice('withheld', guarded, prev, nextDurableNoticeSeq())
-    set({ nodes: guarded.nodes, edges: guarded.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, ...deriveGoalThresholdFromNode(guarded.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: createDefaultLensState(), durableDeletionNotice: notice })
+    set({ nodes: guarded.nodes, edges: guarded.edges, history: { past, future }, ...readinessClearFields(get), ...deriveGoalThresholdFromNode(guarded.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: createDefaultLensState(), durableDeletionNotice: notice })
     // Reset hash after undo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -3581,7 +3656,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // defect on the other side.
     const guarded = withholdDurableDeletions(next, get().durablyDeletedElements, { nodes, edges })
     const notice = buildDurableDeletionNotice('withheld', guarded, next, nextDurableNoticeSeq())
-    set({ nodes: guarded.nodes, edges: guarded.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, ...deriveGoalThresholdFromNode(guarded.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: createDefaultLensState(), durableDeletionNotice: notice })
+    set({ nodes: guarded.nodes, edges: guarded.edges, history: { past, future }, ...readinessClearFields(get), ...deriveGoalThresholdFromNode(guarded.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: createDefaultLensState(), durableDeletionNotice: notice })
     // Reset hash after redo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -4605,6 +4680,74 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   setGoalThreshold: (threshold, opts) => {
+    /**
+     * ⭐⭐ THE SAME BOUND AS THE SIBLING WRITER — because it is the same field.
+     *
+     * `setGoalThresholdAndUpdateNode` (below) declares finiteness on
+     * `goalThreshold`. This action writes THE SAME SCALAR, and declaring the
+     * bound on only one of two writers is the exact defect this PR's own
+     * header describes one level down: `AdvancedField.tsx` guarded
+     * `goal_threshold_raw` and concluded it had covered "every reachable
+     * source of a non-finite magnitude in the model", while
+     * `success_threshold` reached the model through a different writer.
+     * Guarding one sibling and leaving the other open reproduces that.
+     *
+     * ⚠ NOT A LIVE DEFECT — DEFENCE IN DEPTH, AND SAID PLAINLY.
+     * The complete writer set was enumerated from this interface, not from a
+     * literal grep: six non-test call sites reach this action, and NONE of
+     * them can deliver a non-finite value today. Three are gated by an
+     * explicit `Number.isFinite` — `v5/applyV5State.ts:1033` (via `:611`),
+     * `store.ts` CEE sync (via `domain/goalTarget.ts:137,142`) and
+     * `results/modals/DefineSuccessModal.tsx:205` (via `:158` + the `:178`
+     * early return). Three are unreachable by BRANCH rather than by value:
+     * `ui/inspector/GoalThresholdEditor.tsx:66` (every render site passes a
+     * truthy `nodeId`), `components/pre-analysis/PreAnalysisPanel.tsx:1105`
+     * and `components/OutputsDock.tsx:1561` — the last two because
+     * `CANONICAL_EDIT_AUTHORITY.goalSuccessTarget` is the `as const` literal
+     * `'disabled'` (`canvas/mutations/mutationAuthority.ts:127`, pinned by
+     * `mutationAuthority.spec.ts:249`), so `hasServerGraphAuthority` is a
+     * compile-time `false` and `results/ResultsBody.tsx:487` passes
+     * `onApplyTarget={undefined}`.
+     *
+     * ⚠ AN EARLIER REVISION OF THIS COMMENT CLAIMED OutputsDock's `else`
+     * BRANCH WAS LIVE, citing `results/SuccessTargetRow.tsx:167`'s
+     * `!isNaN(parsed)` as its producer. WITHDRAWN — measured: the `else` is
+     * reachable only WITHIN a handler that cannot fire, and
+     * `<SuccessTargetRow` has ZERO non-test render sites (contrast control in
+     * the same sweep: `<AnalysisHeroContainer` → 1). Structural reachability
+     * inside a function is not reachability of the function.
+     *
+     * The bound is declared here anyway because the three branch-unreachable
+     * sites are safe by WIRING, not by value: each is one prop default or one
+     * authority flip from delivering `parseFloat('1e400')` to this writer, and
+     * their own producers still use `!isNaN`, which admits `Infinity`. This is
+     * the "two writers, one field, one bound declared" shape recorded on the
+     * sibling below — closed at the field, not at the caller.
+     *
+     * ⚠ FINITENESS, NOT A RANGE — derived at the CONSUMER, not assumed.
+     * `normaliseGoalThresholdForRequest` (`hooks/goalThresholdResolvers.ts:37`)
+     * tests `Number.isFinite` against the RAW scalar, and applies its
+     * `normalised < 0 || normalised > 1` test only AFTER dividing by the cap.
+     * The `[0,1]` bound therefore governs a DIFFERENT quantity — the
+     * post-normalisation wire value — and imposing it here would refuse an
+     * ordinary 60% target (cap 100 → 0.6) or an 800000 currency target. The
+     * spec-shaped invariant for this field is finiteness alone, and it is
+     * sign-symmetric by construction: `Number.isFinite` refuses `+Infinity`
+     * and `-Infinity` alike while accepting zero and negatives, matching the
+     * unit contract on the field's own declaration.
+     *
+     * ⚠ REFUSE, DO NOT CLEAR, AND REFUSE BEFORE THE WRITE. The early return
+     * leaves any existing good target in place and — because it precedes both
+     * the `set` and `markAnalysisFreshnessDirty` — does not mark the analysis
+     * stale for a value the model never accepted.
+     */
+    if (threshold != null && !Number.isFinite(threshold)) {
+      console.warn(
+        '[store] setGoalThreshold: refusing a non-finite success target — the value must be a finite number; existing target left unchanged',
+        { threshold },
+      )
+      return
+    }
     // The goal threshold is sent to PLoT, so a user change is analysis-affecting
     // → dirty the freshness overlay on a real change. The CEE-sync caller inside
     // setCeeAnalysisReady passes { fromCeeSync: true } so an ingestion write does
@@ -4621,6 +4764,48 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   setGoalThresholdAndUpdateNode: (goalNodeId, value, opts) => {
+    /**
+     * ⭐⭐ FINITENESS — THE ONE BOUND THIS VALUE HAS, PREVIOUSLY DECLARED ON THE
+     * SIBLING WRITER ONLY.
+     *
+     * `AdvancedField.tsx` records the defect measured by DRIVING it (3 Sep
+     * 2026): `Infinity`, `-Infinity`, `1e400` and `9e999` all committed,
+     * because `parseFloat` returns `±Infinity` for each and `isNaN(Infinity)`
+     * is `false`. It fixed its own path with `Number.isFinite` and concluded
+     * that predicate was "the reachable source of every non-finite magnitude in
+     * the model".
+     *
+     * ⚠ THAT CONCLUSION WAS INCOMPLETE, WHICH IS WHY THIS GUARD EXISTS.
+     * `AdvancedField` guards `goal_threshold_raw`. `success_threshold` reaches
+     * the model through THIS action, which had no finiteness check — and its
+     * live caller on the Model tab validates with `!isNaN(n) && n >= 0`
+     * (`components/model-tab/GoalSection.tsx`), which admits `Infinity`. The
+     * value then rides the node-data passthrough to PLoT
+     * (`V2_NODE_BLOCKLIST`) and to CEE (`CANVAS_ONLY_NODE_KEYS`), neither of
+     * which lists it. Two writers, one field, one bound declared — the sibling
+     * pattern this estate keeps paying for.
+     *
+     * ⚠ FINITENESS, NOT A RANGE. Under `threshold_source: 'user'` this is RAW
+     * USER UNITS by design, so a `[0,1]` bound would be wrong and no range
+     * bound is declared for it anywhere. A target of 0, or a negative one
+     * ("reduce churn to -2%"), is legitimate and must still commit — the guard
+     * deliberately does NOT inherit the Model tab's `>= 0`.
+     *
+     * ⚠ REFUSE, DO NOT CLEAR. Returning early leaves any existing good target
+     * in place; writing `null` here would turn a rejected keystroke into silent
+     * data loss. `null` itself remains the honest way to clear a target.
+     *
+     * Guarded here rather than at the callers because seven product call sites
+     * across four areas funnel through this one action; a per-caller check
+     * would be a hand-maintained mirror.
+     */
+    if (value != null && !Number.isFinite(value)) {
+      console.warn(
+        '[store] setGoalThresholdAndUpdateNode: refusing a non-finite success target — the value must be a finite number; existing target left unchanged',
+        { goalNodeId, value },
+      )
+      return
+    }
     // User commit → raw user units (Lane 5).
     set({ goalThreshold: value, goalThresholdRepresentation: value == null ? null : 'raw' })
     pushToHistory(get, set)
@@ -5857,7 +6042,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       edges: draftChatPreDraftSnapshot.edges,
       draftChatPreDraftSnapshot: null,
       // Clear full readiness bundle + pipeline trace on draft undo
-      ...READINESS_CLEAR_FIELDS,
+      ...readinessClearFields(get),
       // Lane 5 (review fold): undo reverts to the pre-draft graph — the
       // drafted decision's target must not survive onto it. Clear the
       // threshold pair (consistent with clearing readiness above) and
@@ -6052,7 +6237,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       } catch {}
     } else {
       logConstraintClearIfPresent(get, 'setCeeAnalysisReady(null)')
-      set(READINESS_CLEAR_FIELDS)
+      set(readinessClearFields(get))
       try {
         sessionStorage.removeItem('olumi-cee-analysis-ready')
         sessionStorage.removeItem('olumi-cee-analysis-ready-node-ids')

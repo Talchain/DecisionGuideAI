@@ -132,10 +132,36 @@ function isTraversal(rawPathname: string, targetPath: string): boolean {
 
 export default async function handler(request: Request, context: Context) {
   const origin = request.headers.get('origin')
-  const corsHeaders = getCorsHeaders(origin)
 
-  // SECURITY: Reject unknown origins explicitly
-  if (!corsHeaders) {
+  // SECURITY: an origin that is PRESENT and off the allow-list is a
+  // cross-origin caller we do not serve — reject it.
+  //
+  // A MISSING origin is a DIFFERENT case and must not be rejected.
+  //
+  // ⚠ FIXED 2026-09-05. This function previously rejected both. Before this
+  // repair `cee-proxy.ts` documented the consequence in its own comments,
+  // quoted here as it stood then:
+  // "which is why `GET /bff/isl/health` answers 403 to the app's own
+  // same-origin health check … a pre-existing defect in those two
+  // functions, flagged for separate repair". That note has since been
+  // narrowed to `orchestrator-proxy.ts` alone, because this repair made its
+  // isl-proxy half false — so do not expect to find the quoted wording
+  // there now. This is that repair, made
+  // because the debug bundle's build capture needs ISL's build and the
+  // 403 was the only thing in the way.
+  //
+  // Per the Fetch spec the browser omits `Origin` on same-origin GET/HEAD,
+  // and this seam is same-origin by construction (`/bff/isl/*` on the
+  // app's own host). Measured on deployed staging the same day:
+  // `GET /bff/isl/health` with no Origin → 403 "Origin not allowed";
+  // the identical request WITH the app's own Origin → 200 and ISL's build.
+  // The check was rejecting exactly the shape a real browser sends.
+  //
+  // Rejecting a missing origin buys no security either: CORS governs
+  // cross-origin READS, and any non-browser client can set any Origin it
+  // likes. The controls that actually bound this seam — the method set and
+  // the traversal/target checks below — are untouched.
+  if (origin !== null && !isOriginAllowed(origin)) {
     console.warn('[ISL Proxy] Rejected request from unknown origin:', origin)
     return new Response(
       JSON.stringify({ error: 'Origin not allowed' }),
@@ -146,9 +172,12 @@ export default async function handler(request: Request, context: Context) {
     )
   }
 
+  // CORS headers are only meaningful when an origin was supplied.
+  const corsHeaders = origin === null ? null : getCorsHeaders(origin)
+
   // Handle preflight OPTIONS requests
   if (request.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders })
+    return new Response(null, { status: 204, headers: corsHeaders ?? {} })
   }
 
   // SECURITY (item 13, D2): refuse any verb outside the advertised set BEFORE the
@@ -159,7 +188,7 @@ export default async function handler(request: Request, context: Context) {
       {
         status: 405,
         headers: {
-          ...corsHeaders,
+          ...(corsHeaders ?? {}),
           'Content-Type': 'application/json',
           Allow: ALLOWED_METHODS.join(', '),
         },
@@ -180,7 +209,7 @@ export default async function handler(request: Request, context: Context) {
       JSON.stringify({ error: 'Not found' }),
       {
         status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...(corsHeaders ?? {}), 'Content-Type': 'application/json' },
       },
     )
   }
@@ -226,7 +255,7 @@ export default async function handler(request: Request, context: Context) {
 
     // Return response with validated CORS headers
     const responseHeaders = new Headers(response.headers)
-    Object.entries(corsHeaders).forEach(([key, value]) => {
+    Object.entries(corsHeaders ?? {}).forEach(([key, value]) => {
       responseHeaders.set(key, value)
     })
 
@@ -241,7 +270,7 @@ export default async function handler(request: Request, context: Context) {
       JSON.stringify({ error: 'ISL service unavailable', message: (error as Error).message }),
       {
         status: 502,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...(corsHeaders ?? {}), 'Content-Type': 'application/json' },
       }
     )
   }

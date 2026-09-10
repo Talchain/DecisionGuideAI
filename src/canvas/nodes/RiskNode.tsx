@@ -175,8 +175,56 @@ export const RiskNode = memo((props: NodeProps) => {
   // degenerate question.
   const counterfactualQuestion = composeCounterfactualQuestion(topFactor?.connectedNodeLabel)
 
-  // Coaching questions stay available in both phases. Body never renders chips
-  // directly; they live in popovers (Standard) or inline in Detailed view.
+  /**
+   * ⭐ ONE QUESTION REACHES THE CARD FACE. The rest stay in the popover.
+   *
+   * The line this replaces read "Body never renders chips directly; they live
+   * in popovers (Standard) or inline in Detailed view" — accurate, and the
+   * reason a real user in the DEFAULT view sees no coaching at all.
+   *
+   * MEASURED on deployed `9748b336`, Standard view, post-analysis, in the
+   * resting state (no hover): `What reduces this` **0**, `Explore mitigation`
+   * **0**, `What would we see first` **0**. Contrast controls in the same
+   * probe: 71 `react-flow__node` and 26 `Influence` — the probe could read the
+   * page. `NodePopover.tsx:129` is `if (!visible) return null`, so a hidden
+   * popover's children are ABSENT FROM THE DOM, not merely invisible.
+   *
+   * ⚠ AND THE SUITE CANNOT SEE THIS. `render-matrix.spec.tsx:66-70` MOCKS
+   * `NodePopover` into a plain always-rendering div — deliberately, so the
+   * content is readable without a 300ms hover delay. So "Standard post: same
+   * two chips" passes against content no user can reach without hovering.
+   * jsdom cannot prove visibility (CLAUDE.md trap 3); here the mock removes
+   * the very gate that hides the chips, so the test is green *because* of the
+   * thing that makes the defect invisible.
+   *
+   * The precedent is in this estate and this is the same move: `DecisionNode`
+   * put its pre-analysis pair on the card with the note "THE INVITATIONS
+   * BELONG ON THE CARD, NOT BEHIND A HOVER".
+   *
+   * WHY THE LEADING INDICATOR IS THE ONE PROMOTED: the other two both ask how
+   * to REDUCE the risk; only this one asks how you would KNOW it was
+   * happening, so without it a risk can reach a decision with no agreed
+   * trigger for acting on it. Promoted in BOTH phases — a leading indicator is
+   * as useful while framing as it is after a run.
+   *
+   * It is promoted, NOT duplicated: it leaves `riskPopoverChips` so hovering
+   * never shows the same question twice. Detailed view still renders all three
+   * inline and is unchanged.
+   */
+  const riskFaceChip = useMemo(() => (
+    <div className="flex gap-1 flex-wrap mt-1.5">
+      <NodeChip chipId="risk_leading_indicator" actionType={null} label="What would we see first?" message={`What early signs or leading indicators would tell us ${cleanedLabel || 'this risk'} is starting to happen, and what should trigger a response?${riskContext}`} />
+    </div>
+  ), [cleanedLabel, riskContext])
+
+  const riskPopoverChips = useMemo(() => (
+    <div className="flex gap-1 flex-wrap mt-1.5">
+      <NodeChip chipId="risk_what_reduces" actionType={null} label="What reduces this?" message={`What factors or actions could reduce ${cleanedLabel || 'this risk'}?${riskContext}`} />
+      <NodeChip chipId="risk_add_mitigation" actionType={null} label="Explore mitigation" message={`Suggest a mitigation strategy for ${cleanedLabel || 'this risk'}, and explain what it would change.${riskContext}`} />
+    </div>
+  ), [cleanedLabel, riskContext])
+
+  // Detailed view keeps all three inline, exactly as before.
   const riskChips = useMemo(() => (
     <div className="flex gap-1 flex-wrap mt-1.5">
       <NodeChip chipId="risk_what_reduces" actionType={null} label="What reduces this?" message={`What factors or actions could reduce ${cleanedLabel || 'this risk'}?${riskContext}`} />
@@ -399,9 +447,10 @@ export const RiskNode = memo((props: NodeProps) => {
         {detailedMetrics && <div className="mt-1">{detailedMetrics}</div>}
         {riskExposureLine}
 
-        {/* Coaching chips moved to popovers — see `riskChips` useMemo above
-            and the popover branches at the bottom of this file. In Detailed
-            view they appear inline beneath layer-2 content. */}
+        {/* The leading-indicator question rides the CARD in Standard view; the
+            reduce/mitigate pair stays in the popover. Detailed renders all
+            three inline below. See `riskFaceChip` for the measurement. */}
+        {!isDetailed && riskFaceChip}
 
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) =====
             Graph v1.1 Task 4: align with wireframe v4. The severity badge now
@@ -436,7 +485,7 @@ export const RiskNode = memo((props: NodeProps) => {
           {/* Severity badge lives in Layer 1 (Standard-visible, P1.7) — the popover
               carries only the post-analysis detail + coaching chips. */}
           {layer2ContentPost}
-          {riskChips}
+          {riskPopoverChips}
         </NodePopover>
       )}
 
@@ -452,7 +501,7 @@ export const RiskNode = memo((props: NodeProps) => {
           anchorRef={nodeElRef}
         >
           {preAnalysisPopoverContent}
-          {riskChips}
+          {riskPopoverChips}
         </NodePopover>
       )}
     </div>

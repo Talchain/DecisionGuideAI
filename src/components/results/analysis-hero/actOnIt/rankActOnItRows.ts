@@ -29,7 +29,6 @@
  * from copy.
  */
 
-import { leaderDesignationPermitted } from '../../leaderDesignation'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { ActOnItRow, PriorityBand, RowAction, RowCategory } from './types'
 // Single canonical glossary matcher shared across production + test scanner.
@@ -40,6 +39,15 @@ import {
   containsBannedTerm as rowContainsBannedTerm,
   safeInterpolatedLabel as safeRowLabel,
 } from '../../utils/glossaryCheck'
+// MAY THIS ROW NAME A LEADER? The shared three-answer claim policy — the one
+// reader for the lattice. Row copy asks `leaderClaimWithheld`; it never reads
+// `verdict.hasLeadingOption` (one conjunct) or the mode (the other) on its own,
+// and it never imports `leaderDesignationPermitted` directly — a second copy of
+// that predicate is a second chance to drift.
+// ⚠ THE POLICY IS NOT THE WHOLE GATE. It deliberately answers "no authority"
+// (not withheld) for a null run, so the `recommendation == null` withholding
+// route is a conjunct at the call site below, not a change to the shared answer.
+import { leaderClaimWithheld } from '../../analysisClaimPolicy'
 
 /**
  * READY-TO-BRIEF PREDICATE.
@@ -284,21 +292,46 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): ActOnItRow | null {
   // ⭐ THE LEADER LICENCE, ON THE ARM THAT NAMES ONE.
   //
   // "the leading option" is a DEFINITE DESCRIPTION: it asserts a leading option
-  // exists. Witnessed on deployed `e2016182` (fresh guest journey, 7 Sep 2026)
-  // printing on a run whose hero headline was the `noLeader` arm — "Here is how
-  // your options compare." — with "Leading option not assessed", "Goal fit (not
-  // available for this run)", "Robustness unknown" and "Evidence not assessed"
-  // all on the same screen. Five surfaces reported no leader; this one asserted
-  // one three inches below them. Nothing in `actOnIt/` read the licence at all
-  // (zero non-test occurrences of `leaderDesignationPermitted` in the directory
-  // before this change), so the sentence was emitted unconditionally.
+  // exists. TWO INDEPENDENT WITNESSES, BOTH KEPT — they are dated records of
+  // what the product printed, not fixtures, and neither supersedes the other:
   //
-  // ⚠ GATED ON `=== false`, NOT `=== true`, DELIBERATELY. The helper returns
-  // `true | false | undefined`, and `undefined` is not "withheld".
+  //   · deployed staging, 4 Sep 2026 — this sentence rendered VERBATIM, "If the
+  //     estimate changes for Technical Leadership Capacity, the leading option
+  //     could change.", a few lines above the same panel's checks footer saying
+  //     "Leading option not assessed".
+  //   · deployed `e2016182`, 7 Sep 2026 (fresh guest journey) — printed on a run
+  //     whose hero headline was the `noLeader` arm, "Here is how your options
+  //     compare.", with "Leading option not assessed", "Goal fit (not available
+  //     for this run)", "Robustness unknown" and "Evidence not assessed" all on
+  //     the same screen. Five surfaces reported no leader; this one asserted one
+  //     three inches below them.
   //
-  // ⚠⚠ WHAT `undefined` COVERS CHANGED UNDER THIS PR, and an earlier revision of
-  // this comment described only the older half. #1238 rewrote
-  // `leaderDesignation.ts` so Q2 alone MAY WITHHOLD AND MAY NEVER LICENSE:
+  // The row consulted the leader authority ZERO times — measured before this
+  // change as zero non-test occurrences of `leaderDesignationPermitted` anywhere
+  // in `actOnIt/` — so the sentence was emitted unconditionally.
+  //
+  // The CLAIM goes, the FINDING stays: the factor is still named, the row is
+  // still built, and its priority, actions and target are untouched. "the
+  // result" is not new copy — the sibling nudge in `TriageActionCardsBody`
+  // already ships it as the truthful noun for exactly this sentence. One
+  // vocabulary, not a new one.
+  //
+  // ── ASKED THROUGH THE SHARED CLAIM POLICY, NOT RE-DERIVED HERE ─────────────
+  // `leaderClaimWithheld` is `analysisClaimPolicy`'s Q-LEADER answer tested
+  // `=== false`, and that answer is `leaderDesignationPermitted` QUOTED, not
+  // re-implemented. So this row never reads `verdict.hasLeadingOption` (one
+  // conjunct) or the admission mode (the other) on its own, and the first
+  // conjunct below is behaviourally identical to spelling
+  // `leaderDesignationPermitted(...) !== false` at this call site — the same
+  // predicate, reached through the one module entitled to answer it.
+  //
+  // ⚠ THE WITHHOLDING TEST IS `=== false`, NOT `!== true`, DELIBERATELY — which
+  // is exactly what `leaderClaimWithheld` is. The answer is
+  // `true | false | undefined`, and `undefined` is NO AUTHORITY, not withheld.
+  //
+  // ⚠⚠ WHAT `undefined` COVERS CHANGED, and an earlier revision of this comment
+  // described only the older half. #1238 rewrote `leaderDesignation.ts` so Q2
+  // alone MAY WITHHOLD AND MAY NEVER LICENSE:
   //
   //     rec == null                                          -> undefined
   //     composed answer present                              -> that answer
@@ -311,23 +344,21 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): ActOnItRow | null {
   // older gloss, "a legacy caller with no verdict", named only the first and is
   // why this comment had to be rewritten rather than merely re-dated.
   //
-  // The gate is UNAFFECTED: `!== false` maps `true` and `undefined` to the same
-  // arm, so the one cell #1238 moved cannot change what this row prints. That is
-  // the reason this is a comment repair and not a behavioural one. Gating on
-  // `=== true` would
-  // withhold on every no-authority run too, which is the over-broad gate that
-  // DELETED the producer-tie sentence in #1232: a true sentence the product had
-  // earned, swapped for silence. This gate fires only where the model has
-  // POSITIVELY withheld, so it cannot regress a run that was never withheld.
+  // The gate is UNAFFECTED by that one moved cell: testing `=== false` maps
+  // `true` and `undefined` onto the same naming arm, so it cannot change what
+  // this row prints. Withholding on `!== true` instead would withhold on every
+  // no-authority run too — the over-broad gate that DELETED the producer-tie
+  // sentence in #1232, swapping a true sentence the product had earned for
+  // silence. This gate fires only where the model has POSITIVELY withheld, so it
+  // cannot regress a run that was never withheld.
   //
-  // The fallback is not new copy — `TriageActionCardsBody` already ships "the
-  // result could change" as the truthful noun for exactly this sentence.
-  // ⚠ TWO WITHHOLDING ROUTES, NOT ONE. Derived at the producer's declared
-  // output domain rather than inferred from a fixture:
+  // ⚠ TWO WITHHOLDING ROUTES, NOT ONE — AND THE SECOND CANNOT BE DELEGATED TO
+  // THE POLICY. Derived at the producer's declared output domain rather than
+  // inferred from a fixture:
   //
-  //   · `leaderDesignationPermitted === false` — the model positively withheld.
+  //   · `leaderClaimWithheld(recommendation)` — the model positively withheld.
   //     On the production path this is the ONLY way withholding arrives:
-  //     `useResultsSectionData` computes it as
+  //     `useResultsSectionData` composes `leaderDesignationPermitted` as
   //     `licensesComparativeLeaderClaim(...) && verdict.hasLeadingOption`, and
   //     BOTH terms are declared strictly `boolean` — the return type of
   //     `licensesComparativeLeaderClaim` (`useAnalysisReady.ts`) and the field
@@ -336,20 +367,31 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): ActOnItRow | null {
   //     same expression assigned to `boolean` compiles clean, while the
   //     identical shape over an optional field fails TS2322.
   //
-  //   · `recommendation == null` — there is no recommendation object AT ALL,
-  //     so the helper returns `undefined` and the `=== false` test alone would
-  //     let the sentence name a leader on a run that has no comparison
-  //     whatsoever. This row is reachable in that state because it is built
-  //     from `confidence.topFragileEdge`, which does not depend on
+  //   · `data.recommendation == null` — there is no recommendation object AT
+  //     ALL, so the licence reads `undefined` and the withholding test alone
+  //     would let this sentence name a leading option on a run carrying no
+  //     comparison whatsoever. The row is reachable in that state because it is
+  //     built from `confidence.topFragileEdge`, which does not depend on
   //     `recommendation`. You cannot have a leading option with no
   //     recommendation, so this is withholding too.
+  //
+  //     ⚠ IT STAYS AT THIS CALL SITE ON PURPOSE. The shared policy answers
+  //     `undefined` for a null run BY DESIGN, and `leaderClaimWithheld(null)`
+  //     is `false` — pinned as such in
+  //     `results/__tests__/analysisClaimPolicy.leaderContradiction.spec.tsx`,
+  //     because absence of authority must keep today's copy for every legacy
+  //     caller of the shared answer. That is right for the shared answer and
+  //     wrong for THIS sentence, so the null route is a local conjunct with its
+  //     own arm in `__tests__/rankActOnItRows.spec.ts` — pushing it down into
+  //     the policy would blank prose on every legacy caller, which is #1232
+  //     again one level up.
   //
   // `undefined` WITH a recommendation present stays on the naming arm: that is
   // a legacy object that never went through this producer, and treating
   // no-authority as withheld is the over-broad gate that deleted the
   // producer-tie sentence in #1232.
   const mayNameLeader =
-    data.recommendation != null && leaderDesignationPermitted(data.recommendation) !== false
+    data.recommendation != null && !leaderClaimWithheld(data.recommendation)
   const reason = mayNameLeader
     ? `If the estimate changes for ${safeFromLabel}, the leading option could change.`
     : `If the estimate changes for ${safeFromLabel}, the result could change.`

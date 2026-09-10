@@ -68,9 +68,16 @@ function isOriginAllowed(origin: string): boolean {
  * A same-origin fetch sends no `Origin` header at all, and every seam this function
  * serves is same-origin by construction — so `null` origin is the NORMAL case and
  * must be allowed (returning `{}`, i.e. no CORS headers, which same-origin does not
- * need). Only a PRESENT-but-unrecognised origin is a rejection. isl-proxy rejects a
- * missing origin because its callers are cross-origin; copying that here would have
- * 403'd every ordinary request.
+ * need). Only a PRESENT-but-unrecognised origin is a rejection.
+ *
+ * ⚠ This note used to read "isl-proxy rejects a missing origin because its
+ * callers are cross-origin", offered as the deliberate contrast with the
+ * behaviour here. That stopped being true on 2026-09-05: `isl-proxy.ts:160`
+ * was repaired to `origin !== null && !isOriginAllowed(origin)` for the same
+ * reason that governs here — a browser omits `Origin` on same-origin GET/HEAD,
+ * so rejecting a missing one 403s the app's own health check. The contrast is
+ * gone and the two functions now agree. `orchestrator-proxy.ts:127-130` is the
+ * one that still rejects a missing origin.
  */
 function getCorsHeaders(requestOrigin: string | null): Record<string, string> | null {
   if (requestOrigin === null) return {}

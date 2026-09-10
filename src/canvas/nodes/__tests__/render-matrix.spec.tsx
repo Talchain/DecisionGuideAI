@@ -350,7 +350,7 @@ describe('Render matrix — OptionNode × view × phase', () => {
     },
   })
 
-  it('Standard pre non-baseline: shows "What could go wrong?" chip + from→to chip (footer de-duped)', () => {
+  it('Standard pre non-baseline: shows "What could go wrong?" chip + from→to chip + differentiator footer', () => {
     const topology = twoOptionTopology('standard', 'pre')
     // The pair needs its own declared reference. The factor's observed value
     // alone must not license it; the missing-reference case keeps its footer.
@@ -364,14 +364,15 @@ describe('Render matrix — OptionNode × view × phase', () => {
     expect(screen.getByText('What could go wrong?')).toBeDefined()
     expect(screen.getByText('Reference: Keep current hiring')).toBeDefined()
     // Both options share the top factor (option-1 at 0.9 on engineers cap=10 →
-    // "9 engineers"). Brief scope 7: that value shows in the from→to chip
-    // ("3 engineers → 9 engineers"), so the duplicate differentiator footer <p>
-    // is dropped.
-    const chip = screen.getByText((t: string) => t.includes('9 engineers') && t.includes('→'))
-    expect(chip).toBeDefined()
+    // "9 engineers"), so the chip reads "3 engineers → 9 engineers".
+    // ⚠ WAS `expect(differentiatorP).toBeUndefined()` — brief scope 7 dropped
+    // the footer as a duplicate. Paul's ruling 10 Sep 2026 — "both stay": the chip states the CHANGE, the footer states WHICH FACTOR differentiates. The dedup that dropped the footer is retired.
+    // getAllByText: BOTH STAY, so the chip and the footer both match.
+    const chips = screen.getAllByText((t: string) => t.includes('9 engineers') && t.includes('→'))
+    expect(chips.length).toBeGreaterThan(0)
     const allPs = container.querySelectorAll('p')
     const differentiatorP = Array.from(allPs).find(p => p.textContent?.includes('→'))
-    expect(differentiatorP).toBeUndefined()
+    expect(differentiatorP).toBeDefined()
   })
 
   it('Standard pre: identical shared-factor values suppress differentiator on both options', () => {
