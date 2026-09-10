@@ -133,11 +133,17 @@ export function ValueProvenanceKey() {
               `tabIndex`, so the pointer and assistive tech reach the name and a
               keyboard does not — `ModelRowView.tsx:876-879` states that
               limitation about `title` in this estate. Claiming focus here would
-              replace one false promise with another. */}
+              replace one false promise with another.
+
+              ⚠ NO EM DASH, AND THE CLAUSE IS CUT RATHER THAN SPLIT. Paul's
+              standing ruling on product content (10 Sep 2026): an em dash is
+              where a hedge gets bolted on. Three short sentences read choppy in
+              a popover this size, so "a separate question from where its value
+              came from" becomes the tighter "not where its value came from" —
+              same distinction, fewer words. Pinned by a test. */}
           <p className={`${typography.panelMeta} text-text-light m-0 pt-1 border-t border-panel-border`}>
-            The marks beside a row say what still needs attention — a separate
-            question from where its value came from. Each one names itself on
-            hover.
+            The marks beside a row say what still needs attention, not where
+            its value came from. Each one names itself on hover.
           </p>
         </div>
       )}

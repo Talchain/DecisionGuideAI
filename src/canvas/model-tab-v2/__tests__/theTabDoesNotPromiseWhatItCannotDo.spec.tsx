@@ -29,7 +29,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ModelRowView } from '../ModelRowView'
 import { ValueProvenanceKey } from '../ValueProvenanceKey'
-import { ATTENTION_MARK, ATTENTION_LABEL } from '../rowPresentation'
+import { ATTENTION_MARK, ATTENTION_LABEL, UNWRITTEN_QUESTION_TITLE } from '../rowPresentation'
 import type { ModelRow } from '../types'
 import {
   GOAL_LABEL_FROM_BRIEF_TESTID,
@@ -61,7 +61,7 @@ function row(over: Partial<ModelRow> & Pick<ModelRow, 'id'>): ModelRow {
  * Paul has ruled out of scope, so the sentence was pointing off the product.
  */
 describe('⭐ DEFECT 2 — the goal row states provenance and stops there', () => {
-  const EXPECTED = 'Taken from your brief — not yet confirmed as your goal.'
+  const EXPECTED = 'Taken from your brief. Not yet confirmed as your goal.'
 
   it('renders the no-editor notice, asserted as the exact string', () => {
     render(
@@ -127,7 +127,7 @@ describe('⭐ DEFECT 2 — the goal row states provenance and stops there', () =
  * as a read-only `<h3>` with no writer in it.
  */
 describe('⭐ DEFECT 3 — the placeholder question names what the click does', () => {
-  const EXPECTED = 'Your question is not written yet — this highlights it on the canvas.'
+  const EXPECTED = 'Your question is not written yet. This highlights it on the canvas.'
 
   /** A decision row still carrying the type default is the placeholder case. */
   const unwritten = () =>
@@ -213,8 +213,8 @@ describe('⭐ DEFECT 3 — the placeholder question names what the click does', 
  */
 describe('⭐ DEFECT 4 — the legend describes the marks actually drawn', () => {
   const EXPECTED =
-    'The marks beside a row say what still needs attention — a separate question ' +
-    'from where its value came from. Each one names itself on hover.'
+    'The marks beside a row say what still needs attention, not where its value ' +
+    'came from. Each one names itself on hover.'
 
   function openKey() {
     render(<ValueProvenanceKey />)
@@ -289,5 +289,59 @@ describe('⭐ DEFECT 4 — the legend describes the marks actually drawn', () =>
 
     const unconfirmed = screen.getByTestId('model-row-v2-f9-attention-unconfirmed-estimate')
     expect(unconfirmed).toHaveAttribute('title', ATTENTION_LABEL['unconfirmed-estimate'])
+  })
+})
+
+// ── THE HOUSE STYLE, ENFORCED RATHER THAN REMEMBERED ─────────────────────────
+
+/**
+ * ⭐ NO EM DASH IN PRODUCT COPY — Paul's standing ruling, 10 Sep 2026: an em dash
+ * is where a hedge gets bolted on; split into sentences or cut, and keep the copy
+ * tight.
+ *
+ * ⚠ THIS EXISTS BECAUSE THE FIRST DRAFT OF ALL THREE SENTENCES BROKE IT. The
+ * strings this PR authored each carried one, inherited from the originals they
+ * replaced, and nothing in the repo would have caught it. A style ruling that
+ * lives only in someone's memory is re-broken by the next author, so it is
+ * asserted over the ACTUAL EXPORTED STRINGS here rather than left as prose.
+ *
+ * ⚠ EN DASH IS BANNED TOO. It is the substitution a careful author reaches for
+ * when told not to use an em dash, and it reads the same way on screen.
+ *
+ * ⛔ SCOPE, STATED SO THE GAP IS NOT MISTAKEN FOR COVERAGE. This covers the
+ * strings THIS change authored. It is deliberately NOT a sweep of every product
+ * string in the estate — `GOAL_LABEL_FROM_BRIEF_COPY.notice` still carries an em
+ * dash and is asserted as unchanged above, because it belongs to the
+ * pre-analysis hero rather than to this surface. A repo-wide guard is a separate
+ * piece of work and would need its own allowlist discussion.
+ */
+describe('⭐ the copy this change authored carries no em or en dash', () => {
+  const DASHES = /[—–]/
+
+  it.each([
+    ['goal notice (no writer on this surface)', GOAL_LABEL_FROM_BRIEF_COPY.noticeNoEditHere],
+    ['unwritten-question title', UNWRITTEN_QUESTION_TITLE],
+  ])('%s', (_name, copy) => {
+    expect(copy).not.toMatch(DASHES)
+    // And it is still a real sentence, not an empty string passing by default.
+    expect(copy.length).toBeGreaterThan(20)
+  })
+
+  it('the provenance key legend', () => {
+    render(<ValueProvenanceKey />)
+    fireEvent.click(screen.getByTestId('model-tab-v2-provenance-key-toggle'))
+    const legend = screen.getByTestId('model-tab-v2-provenance-key').textContent ?? ''
+    expect(legend).not.toMatch(DASHES)
+    expect(legend.length).toBeGreaterThan(20)
+  })
+
+  /**
+   * ⚠ THE CONTROL. Without it the regex could be wrong — or the strings empty —
+   * and every assertion above would pass by testing nothing. The hero's sentence
+   * is the one string this change deliberately left carrying an em dash, so it
+   * is the honest positive control: the probe must SEE a dash where one exists.
+   */
+  it('⚠ POSITIVE CONTROL: the probe detects a dash that really is there', () => {
+    expect(GOAL_LABEL_FROM_BRIEF_COPY.notice).toMatch(DASHES)
   })
 })

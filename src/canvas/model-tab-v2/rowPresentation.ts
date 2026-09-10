@@ -229,9 +229,12 @@ export function labelIsTypeDefault(row: { kind: ModelElementKind; label: string 
  * names the one thing the click genuinely does. Where to write the question is
  * a real gap and is deliberately left as one: per the standing ruling a gap is
  * acceptable where a lie is not.
+ *
+ * ⚠ TWO SENTENCES, NO EM DASH — Paul's standing ruling on product content
+ * (10 Sep 2026). Pinned by a test.
  */
 export const UNWRITTEN_QUESTION_TITLE =
-  'Your question is not written yet — this highlights it on the canvas.'
+  'Your question is not written yet. This highlights it on the canvas.'
 
 export const ATTENTION_MARK: Record<AttentionReason, LucideIcon> = {
   'no-value': CircleDashed,

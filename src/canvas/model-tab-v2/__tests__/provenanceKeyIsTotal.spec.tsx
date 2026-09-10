@@ -130,7 +130,7 @@ describe('the provenance key', () => {
     render(<ValueProvenanceKey />)
     fireEvent.click(screen.getByTestId('model-tab-v2-provenance-key-toggle'))
     const key = screen.getByTestId('model-tab-v2-provenance-key')
-    expect(key).toHaveTextContent('a separate question from where its value came from')
+    expect(key).toHaveTextContent('not where its value came from')
     // And it is not smuggled in as an eighth kind.
     expect(key.querySelectorAll('[data-provenance-kind]').length).toBe(ALL_KINDS.length)
   })

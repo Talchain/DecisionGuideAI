@@ -118,8 +118,18 @@ export const GOAL_LABEL_FROM_BRIEF_COPY = {
   /**
    * The full claim for a surface with NO goal-label writer on it. Same
    * provenance, same honesty, no instruction the screen cannot carry out.
+   *
+   * ⚠ TWO SENTENCES, NO EM DASH. Paul's standing ruling on product content
+   * (10 Sep 2026): an em dash is where a hedge gets bolted on — split into
+   * sentences or cut, and keep the copy tight. Pinned by a test, so the rule is
+   * enforced rather than remembered.
+   *
+   * ⚠ `notice` ABOVE STILL CARRIES ONE and is deliberately NOT changed here: it
+   * is rendered by the pre-analysis hero, a surface outside this change's lane.
+   * Flagged rather than silently widened. This member is the house style for it
+   * to follow.
    */
-  noticeNoEditHere: 'Taken from your brief — not yet confirmed as your goal.',
+  noticeNoEditHere: 'Taken from your brief. Not yet confirmed as your goal.',
 } as const
 
 /**
