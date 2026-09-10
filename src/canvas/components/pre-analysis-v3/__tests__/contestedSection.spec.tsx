@@ -241,15 +241,20 @@ describe('pre-analysis v3 — contested section empty state', () => {
   })
 })
 
-describe('pre-analysis v3 — contested section routes to the ONE adjudication surface', () => {
+describe('pre-analysis v3 — contested section routes to the Model tab, and mutates nothing', () => {
   /**
    * DISPLAY-ONLY BY RULING. The legacy pre-analysis panel's contested resolve handler was
    * deleted in the Brief 4 Task 6 dead-code sweep (`PreAnalysisPanel.tsx:76,1106`), so there
-   * is no pre-analysis write path to reuse; the only live adjudication surface is the Model
-   * tab (`ModelTabBody::handleResolveContested` → `RelationshipsSection` →
-   * `ContestedEdgeCard`). This slice does NOT invent a second one. It reuses the EXISTING,
-   * non-mutating cross-panel handoff the legacy panel already uses for the same destination
-   * (`PreAnalysisPanel.tsx:2304`).
+   * is no pre-analysis write path to reuse. This slice does NOT invent one. It reuses the
+   * EXISTING, non-mutating cross-panel handoff the legacy panel already uses for the same
+   * destination (`PreAnalysisPanel.tsx:2304`).
+   *
+   * ⚠⚠ WITHDRAWN: this comment and this describe's title both used to say the Model tab was
+   * "the ONE adjudication surface" (`ModelTabBody::handleResolveContested` →
+   * `RelationshipsSection` → `ContestedEdgeCard`). THERE IS NO LIVE ADJUDICATION SURFACE —
+   * that chain sits inside `{LEGACY_DETAILED_EDITOR_MOUNTED && (…)}` with the constant
+   * `false`. Derived, with contrast controls, in `contestedCtaPromiseIsHonest.spec.tsx`,
+   * which also pins the CTA copy that the false claim had licensed.
    */
   it('the review affordance navigates to the Model tab relationships section and mutates no graph data', () => {
     const edges = [makeContestedEdge('e_open', 'f_lead', 'f_speed', makeContestedValidation())]
