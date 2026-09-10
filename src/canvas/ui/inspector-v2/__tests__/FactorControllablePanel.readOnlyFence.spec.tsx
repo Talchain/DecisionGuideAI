@@ -117,22 +117,31 @@ function renderPanel(opts: { readOnly: boolean }) {
 }
 
 /**
- * The advanced editor's field label is a bare `<span>` with no `htmlFor` and no
- * `aria-label`, so `getByLabelText` cannot reach its input — it is not a label
- * in the accessibility sense at all. (That is a real defect in
- * `AdvancedField.tsx:163`; it is rowed, not fixed here.) Bind through the label
- * TEXT to the input beside it, matched exactly so a sibling field cannot
- * satisfy it (trap 19).
+ * ⭐⭐ THIS HELPER USED TO WALK `querySelectorAll('span')`, AND THAT IS WHY
+ * STAGING WENT RED — BY ITS OWN FIX.
+ *
+ * It existed only because the advanced editor's label WAS a bare `<span>` with
+ * no `htmlFor`: `getByLabelText` could not reach the input, so this walked the
+ * DOM instead. Its own comment said the real defect was in `AdvancedField.tsx`
+ * and was "rowed, not fixed here". #1418 then fixed it — turning that `<span>`
+ * into a real `<label htmlFor>` — and the walker, looking for a span that is
+ * now a label, stopped finding anything.
+ *
+ * ⚠ THE GATE COULD NOT SEE THIS. #1418's branch predates this spec file
+ * (merge-base `d68f5acd`), so its green run never executed the spec its change
+ * breaks. `strict: false` on `staging` means a PR is never re-gated against
+ * current staging before merge — so a green computed on a tree that no longer
+ * exists is what merged. Neither change was wrong; the pair was never measured.
+ *
+ * ⭐ THE REPAIR IS TO DELETE THE WORKAROUND, NOT TO WIDEN IT. Teaching the
+ * walker to accept `label` as well as `span` would keep a DOM-walking helper
+ * alive for a control that is now properly labelled — and would go on passing
+ * if the association were ever lost again. `getByLabelText` asks the
+ * accessibility tree, so it fails the moment the label stops naming the field,
+ * which is the property actually worth guarding.
  */
 function editorField(fence: HTMLElement, label: string): HTMLInputElement {
-  const span = [...fence.querySelectorAll('span')].find(
-    el => el.textContent?.trim() === label,
-  )
-  if (!span) throw new Error(`no advanced field labelled "${label}" inside the fence`)
-  const input = span.closest('div')?.parentElement?.querySelector('input')
-    ?? span.parentElement?.parentElement?.querySelector('input')
-  if (!input) throw new Error(`field "${label}" has no input`)
-  return input as HTMLInputElement
+  return within(fence).getByLabelText(label) as HTMLInputElement
 }
 
 function isInert(el: Element | null): boolean {
