@@ -50,8 +50,10 @@ import {
   goalLabelIsUnconfirmedBriefExtract,
   provenanceAfterHumanAuthoredLabel,
   GOAL_LABEL_FROM_BRIEF_TESTID,
+  GOAL_LABEL_FROM_BRIEF_COPY,
 } from '../goalLabelProvenance'
-import { HeroSection } from '../../components/pre-analysis-v3/hero/HeroSection'
+import { HeroSection, GOAL_INPUT_ID } from '../../components/pre-analysis-v3/hero/HeroSection'
+import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../../mutations/mutationAuthority'
 import { useCanvasStore } from '../../store'
 
 /** The goal node identity every surface assertion binds to. */
@@ -117,6 +119,69 @@ describe('the mounted Analysis Goal field tells the truth', () => {
       />,
     )
     expect(screen.queryByTestId(GOAL_LABEL_FROM_BRIEF_TESTID)).not.toBeInTheDocument()
+  })
+
+  /**
+   * ⛔⛔ THE PROPERTY THIS SURFACE GOT WRONG: IT TOLD THE READER TO EDIT A FIELD
+   * IT RENDERS AS READ-ONLY.
+   *
+   * Until 10 Sep 2026 this component rendered `GOAL_LABEL_FROM_BRIEF_COPY.notice`
+   * unconditionally — "Edit it to say what you want to achieve." — as VISIBLE
+   * TEXT beneath the goal field, under a comment asserting the field "really
+   * writes the label". Derived at the bytes, the field is inert:
+   * `HeroSection.tsx:215-216` passes `readOnly={!GOAL_SUCCESS_EDIT_CONNECTED}`
+   * and `onCommit=undefined`; `:44` resolves that from `mutationAuthority.ts:127`
+   * `goalSuccessTarget: 'disabled'`, a HARDCODED CONSTANT rather than a flag, so
+   * no deployed posture can make the instruction true.
+   *
+   * ⚠ WHAT IS ASSERTED HERE, AND WHAT DELIBERATELY IS NOT. The assertion is the
+   * PROPERTY — no instruction on a field this screen renders read-only — bound to
+   * the rendered DOM (`aria-readonly`), not to either sentence's wording and not
+   * to a hardcoded expectation of which member ships. It therefore stays true if
+   * `goalSuccessTarget` is ever connected: the field becomes a real `<input>`,
+   * the read-only precondition stops holding, and the component's own derived
+   * binding restores the imperative. A test that pinned "the hero shows
+   * `noticeNoEditHere`" would have RED-ed that repair, which is the exact defect
+   * this replaces.
+   */
+  it('⛔ gives NO instruction while the goal field is read-only, bound by the rendered DOM', () => {
+    render(
+      <HeroSection
+        hero={heroWith('from_brief') as never}
+        ladder={'draft' as never}
+        onSendPrompt={() => {}}
+        onLadderAct={() => {}}
+      />,
+    )
+
+    const field = document.getElementById(GOAL_INPUT_ID)
+    // ⚠ PRECONDITION PINNED IN-TEST, so the assertion below is provably about a
+    // read-only field and not about a field that failed to render at all.
+    expect(field).not.toBeNull()
+    expect(field).toHaveAttribute('aria-readonly', 'true')
+
+    const notice = screen.getByTestId(GOAL_LABEL_FROM_BRIEF_TESTID).textContent ?? ''
+    expect(notice.length).toBeGreaterThan(20)
+    // Case-insensitive: a mutant restoring the imperative with different
+    // capitalisation walks past a case-sensitive arm.
+    expect(notice).not.toMatch(/\bedit\b/i)
+    // And it still states the provenance, so this cannot pass by rendering nothing.
+    expect(notice).toMatch(/taken from your brief/i)
+  })
+
+  /**
+   * ⚠ THE MEASUREMENT, RECORDED RATHER THAN ASSUMED. This is what makes the
+   * precondition above hold at this head. It is a pin on a CONSTANT, so a lane
+   * that connects the writer changes this one line — and the copy follows on its
+   * own, because `HeroSection` derives its member from the same constant.
+   */
+  it('⚠ measured posture: the hero goal-label writer is not connected at this head', () => {
+    expect(CANONICAL_EDIT_AUTHORITY.goalSuccessTarget).toBe('disabled')
+    expect(hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.goalSuccessTarget)).toBe(false)
+    // CONTRAST CONTROL: the predicate is not simply always false.
+    expect(hasServerGraphAuthority('server_graph')).toBe(true)
+    // And the two sentences it selects between really are two.
+    expect(GOAL_LABEL_FROM_BRIEF_COPY.notice).not.toBe(GOAL_LABEL_FROM_BRIEF_COPY.noticeNoEditHere)
   })
 })
 

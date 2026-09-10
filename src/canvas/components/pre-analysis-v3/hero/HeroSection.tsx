@@ -230,16 +230,44 @@ export const HeroSection = memo(function HeroSection({
           ⭐ THE GOAL IS A BRIEF EXTRACT, AND THE PRODUCT SAYS SO.
           Rendered only when CEE stamped `provenance: 'from_brief'` — i.e. its
           own objective derivation REFUSED and the user's raw sentence stayed as
-          the label. It states the provenance and points at the field directly
-          above, which is already the affordance: editing it stamps `user_set`
-          and this notice stops. No goal is inferred, suggested or ranked.
+          the label. It states the provenance and hands over the pen. No goal is
+          inferred, suggested or ranked.
+
+          ⚠⚠ WHICH SENTENCE IS DERIVED, NOT CHOSEN, AND THAT IS THE REPAIR.
+          This read `.notice` unconditionally, under a comment claiming the
+          sentence "points at the field directly above, which is already the
+          affordance". Derived at the bytes, that was false at this head:
+
+            · `:44` `GOAL_SUCCESS_EDIT_CONNECTED =
+              hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.goalSuccessTarget)`
+            · `mutations/mutationAuthority.ts:127` `goalSuccessTarget: 'disabled'`
+              — a hardcoded constant, NOT a flag, so no `netlify.toml` or Render
+              dashboard value can change it
+            · `hasServerGraphAuthority` returns `authority === 'server_graph'`,
+              so this resolves FALSE
+            · the field above therefore takes `readOnly` and `onCommit=undefined`,
+              and `InlineField`'s read-only branch renders a
+              `<span role="textbox" aria-readonly="true">`. `commitGoal` — the
+              only `store.updateNodeLabel` call in this file — is unreachable.
+
+          So the imperative was visible text telling the reader to edit a field
+          this screen cannot edit, roughly twenty-five lines above
+          `SHARED_MODEL_AUTHORITY_COPY` redirecting them to the Model tab, which
+          hosts no goal-label writer either.
+
+          The binding is now DERIVED FROM THE SAME CONSTANT THAT GATES THE FIELD,
+          so the two cannot drift: connect `goalSuccessTarget` and the imperative
+          returns on its own, with no copy edit and no test to remember. A
+          hardcoded member here is what produced the defect.
         */}
         {hero.goal?.fromBrief === true && (
           <p
             data-testid={GOAL_LABEL_FROM_BRIEF_TESTID}
             className={`${typography.panelMeta} -mt-1 text-text-light`}
           >
-            {GOAL_LABEL_FROM_BRIEF_COPY.notice}
+            {GOAL_SUCCESS_EDIT_CONNECTED
+              ? GOAL_LABEL_FROM_BRIEF_COPY.notice
+              : GOAL_LABEL_FROM_BRIEF_COPY.noticeNoEditHere}
           </p>
         )}
         <InlineField

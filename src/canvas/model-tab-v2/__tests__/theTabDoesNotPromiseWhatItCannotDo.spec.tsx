@@ -94,26 +94,55 @@ describe('⭐ DEFECT 2 — the goal row states provenance and stops there', () =
   })
 
   /**
-   * ⚠⚠ THE OPPOSITE-DIRECTION TWIN, AND IT IS THE ASSERTION THAT STOPS THIS FIX
-   * BECOMING THE NEXT DEFECT.
+   * ⚠⚠ THE OPPOSITE-DIRECTION TWIN — REWRITTEN, BECAUSE THE FIRST VERSION
+   * GUARDED A LIE.
    *
-   * The imperative is TRUE on `pre-analysis-v3/hero/HeroSection.tsx:237-244`,
-   * where the notice is VISIBLE TEXT sitting directly beneath a goal field that
-   * really writes the label (`InlineField` → `store.updateNodeLabel`). Deleting
-   * it from the shared constant would have removed a true, useful instruction
-   * from that surface in order to fix a false one here.
+   * It read: *"The imperative is TRUE on `HeroSection.tsx:237-244`, where the
+   * notice is VISIBLE TEXT sitting directly beneath a goal field that really
+   * writes the label"* — and it pinned `notice`'s exact wording on that basis.
+   * The premise is REFUTED at the bytes: `HeroSection.tsx:215-216` passes
+   * `readOnly={!GOAL_SUCCESS_EDIT_CONNECTED}` and `onCommit=undefined`, and
+   * `:44` resolves that from `mutationAuthority.ts:127`
+   * `goalSuccessTarget: 'disabled'` — a hardcoded constant, so the finding is
+   * posture-independent. The hero field is a `<span aria-readonly="true">`.
    *
-   * So the two sentences must BOTH continue to exist, distinctly. A later
-   * "tidy-up" that collapses them in either direction REDs here:
-   *   · folding `noticeNoEditHere` back into `notice` → first assertion fails;
-   *   · stripping the imperative from `notice` too → second fails.
+   * ⛔ AND THE ASSERTION ITSELF WAS THE WORSE HALF. Pinning `notice` verbatim,
+   * under a comment naming a read-only surface as its justification, would have
+   * RED-ed the next session that corrected the hero. That is a guard agreeing
+   * with a claim the code refutes, and it is more durable than the copy defect.
+   * It has been removed rather than weakened.
+   *
+   * WHAT IS PINNED NOW IS THE PROPERTY, NOT THE WORDING: two members, DISTINCT,
+   * one carrying an instruction and one carrying none. That survives a copy
+   * edit to either sentence — including the em-dash repair `notice` still owes —
+   * and still REDs a tidy-up that collapses them:
+   *   · folding `noticeNoEditHere` back into `notice` → the distinctness fails;
+   *   · stripping the instruction from `notice` too → the imperative arm fails;
+   *   · adding one to `noticeNoEditHere` → the no-instruction arm fails.
+   *
+   * The surface BINDINGS are pinned where they can be rendered rather than
+   * asserted about: this row's own binding in the two cases above, the hero's in
+   * `domain/__tests__/goalLabelProvenance.honesty.spec.tsx`, and the canvas
+   * node's in `domain/__tests__/goalLabelProvenance.surfaces.spec.tsx`.
    */
-  it('⚠ the editable-surface sentence KEEPS its imperative — two claims, not one', () => {
-    expect(GOAL_LABEL_FROM_BRIEF_COPY.notice).toBe(
-      'Taken from your brief — not yet confirmed as your goal. Edit it to say what you want to achieve.',
-    )
-    expect(GOAL_LABEL_FROM_BRIEF_COPY.noticeNoEditHere).toBe(EXPECTED)
-    expect(GOAL_LABEL_FROM_BRIEF_COPY.notice).not.toBe(GOAL_LABEL_FROM_BRIEF_COPY.noticeNoEditHere)
+  it('⚠ two claims, not one: distinct members, and only one gives an instruction', () => {
+    const { notice, noticeNoEditHere } = GOAL_LABEL_FROM_BRIEF_COPY
+
+    expect(noticeNoEditHere).toBe(EXPECTED)
+    expect(notice).not.toBe(noticeNoEditHere)
+
+    // The writer-hosting sentence hands over the pen. Bound to the instruction,
+    // not to the sentence, so the copy stays editable.
+    expect(notice).toMatch(/\bedit\b/i)
+    // ⚠ CASE-INSENSITIVE on both arms. A mutant restoring the imperative with
+    // different capitalisation walked past a case-SENSITIVE sibling assertion in
+    // this same file, which is the estate's own mint-check lesson reproduced
+    // inside a guard written to stop it.
+    expect(noticeNoEditHere).not.toMatch(/\bedit\b/i)
+
+    // Both are still real sentences, so neither arm can pass on an empty string.
+    expect(notice.length).toBeGreaterThan(20)
+    expect(noticeNoEditHere.length).toBeGreaterThan(20)
   })
 })
 
@@ -323,9 +352,11 @@ describe('⭐ DEFECT 4 — the legend describes the marks actually drawn', () =>
  * ⛔ SCOPE, STATED SO THE GAP IS NOT MISTAKEN FOR COVERAGE. This covers the
  * strings THIS change authored. It is deliberately NOT a sweep of every product
  * string in the estate — `GOAL_LABEL_FROM_BRIEF_COPY.notice` still carries an em
- * dash and is asserted as unchanged above, because it belongs to the
- * pre-analysis hero rather than to this surface. A repo-wide guard is a separate
- * piece of work and would need its own allowlist discussion.
+ * dash. It is recorded as an OPEN GAP and is deliberately NOT asserted anywhere,
+ * because its live caller is the canvas goal node and editing canvas copy is
+ * another lane's file. Nothing here forbids the next author from splitting it.
+ * A repo-wide guard is a separate piece of work and would need its own allowlist
+ * discussion.
  */
 describe('⭐ the copy this change authored carries no em or en dash', () => {
   const DASHES = /[—–]/
@@ -349,11 +380,21 @@ describe('⭐ the copy this change authored carries no em or en dash', () => {
 
   /**
    * ⚠ THE CONTROL. Without it the regex could be wrong — or the strings empty —
-   * and every assertion above would pass by testing nothing. The hero's sentence
-   * is the one string this change deliberately left carrying an em dash, so it
-   * is the honest positive control: the probe must SEE a dash where one exists.
+   * and every assertion above would pass by testing nothing.
+   *
+   * ⚠ IT USED TO READ `expect(GOAL_LABEL_FROM_BRIEF_COPY.notice).toMatch(DASHES)`,
+   * i.e. a control that REQUIRED a live product string to keep its em dash. That
+   * is the estate's decaying-control trap pointed the wrong way: repairing the
+   * dash in `notice` — the very thing the scope note above declares still owed —
+   * would have RED-ed the guard written to enforce the rule. The control is now a
+   * LOCAL FIXTURE, so it proves the probe can see a dash without holding any
+   * shipped sentence hostage.
    */
   it('⚠ POSITIVE CONTROL: the probe detects a dash that really is there', () => {
-    expect(GOAL_LABEL_FROM_BRIEF_COPY.notice).toMatch(DASHES)
+    expect('a sentence — with an em dash').toMatch(DASHES)
+    expect('a sentence – with an en dash').toMatch(DASHES)
+    // The negative arm of the control: a clean sentence must NOT match, or the
+    // regex could be matching everything and every assertion above is vacuous.
+    expect('a sentence with neither. Two clauses, no dash.').not.toMatch(DASHES)
   })
 })
