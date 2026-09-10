@@ -217,7 +217,7 @@ const NO_SUBJECT_LABEL = 'Your model so far'
 const NO_INSIGHTS: NodeInsightIndex = new Map()
 
 /** What a node's detail has to say when the run named it nowhere. */
-const EMPTY_INSIGHT: NodeInsight = { driverLabel: null, findings: [], withheldFindings: 0 }
+const EMPTY_INSIGHT: NodeInsight = { mentions: [], driverLabel: null, findings: [], withheldFindings: 0 }
 
 /**
  * Ring several nodes at once on the canvas.
@@ -719,7 +719,12 @@ export function ModelStrip({
   }
   const activeInsight = (active && insights.get(active.id)) || EMPTY_INSIGHT
   const activeHasNothing =
-    activeInsight.driverLabel === null && activeInsight.findings.length === 0
+    activeInsight.driverLabel === null &&
+    activeInsight.findings.length === 0 &&
+    // ⚠ AND NOTHING ELSE ON THE PANEL NAMES IT. Without this conjunct the
+    // sentence below claims the whole panel is silent while the panel is
+    // visibly talking about the node — witnessed on deployed `d82e81f0`.
+    activeInsight.mentions.length === 0
 
   return (
     /* ⚠ A LABELLED LANDMARK, NAMED BY ITS OWN SUBJECT. A `section` is a
@@ -1486,6 +1491,81 @@ export function ModelStrip({
             {/* ⚠ THE ABSENCE IS THE RESULT, AND IT IS RENDERED. Silence here
                 would be indistinguishable from a broken control, and a
                 reassurance would be a claim nothing measured. */}
+            {/* ⭐ POINTERS, NOT A SECOND RENDERING. Each line names a section
+                that is already on screen saying its own thing, so the reader
+                can get there — and so the empty state below can only appear
+                when the panel really is silent about this node. */}
+            {activeInsight.mentions.length > 0 ? (
+              <ul
+                className="list-none p-0 m-0 space-y-0.5"
+                data-testid={`${testId}-detail-mentions`}
+              >
+                {activeInsight.mentions.map(m => (
+                  <li
+                    key={m.id}
+                    className={`${typography.panelMeta} text-text-light m-0`}
+                    data-testid={`${testId}-detail-mention`}
+                    data-mention-id={m.id}
+                    data-mention-section={m.section}
+                  >
+                    {/* ⚠ THE SECTION'S OWN HEADING, INDEXED — never a second
+                        spelling of it. The pointer must name the heading the
+                        reader will scroll to, and `m.section` is the view
+                        model's own key, so a section with no title cannot
+                        compile.
+
+                        ⚠ THE WHOLE LINE IS COMPOSED IN THE COPY MODULE, because
+                        a finding may legitimately carry an EMPTY headline (a
+                        long uncertainty or sensitivity row keeps its sentence
+                        in `implication` so it does not say itself twice) and
+                        the line must then read as a section name rather than a
+                        label with nothing after its colon. */}
+                    {/* ⛔ A POINTER MAY NOT RESTATE THE MARK'S OWN NAME,
+                        AND THE DRIVERS SECTION IS THE ONE PLACE IT WOULD.
+                        `driverFinding` sets a Drivers row's `headline` to
+                        `d.factorLabel` — the NODE'S OWN LABEL, by
+                        construction, never a sentence. So the composed line
+                        read "Also in Drivers and dynamics: Supplier lead time"
+                        directly beneath a `detail-title` carrying "Supplier
+                        lead time", and on any node the glance ALSO named, a
+                        `detail-driver` chip sat between the two. One name,
+                        three renderings, on the commonest node on the panel.
+
+                        ⚠⚠ THIS IS THE DEFECT PAUL MEASURED ON DEPLOYED
+                        `19fe87`, RECORDED IN THIS FILE'S OWN HEADER: on the
+                        richest case available, "Two of those three lines
+                        restate what the mark already carries: the name is the
+                        mark's own label". This line would have made it a
+                        fourth. It also contradicted this seam's own stated
+                        rule, written in four places, that a mention is a
+                        POINTER and never a second rendering.
+
+                        ⭐ THE SECTION NAME ALONE IS A TRUE AND COMPLETE
+                        POINTER, and it is the shape `mention()` ALREADY
+                        renders for an empty headline — reused, not invented.
+                        The reader already has the node's name directly above;
+                        what they lack is WHERE to go, and that is the section.
+
+                        ⛔ SCOPED TO `drivers` DELIBERATELY, AND THE PREMISE
+                        IS PINNED RATHER THAN ASSUMED. The other three
+                        finding-bearing sections carry producer SENTENCES about
+                        the node, which the title cannot restate, so dropping
+                        their payload would delete real information.
+                        `theStripReachesEveryFindingSection.spec.tsx` asserts
+                        that a Drivers headline IS the node's own label at the
+                        real view model, so this suppression REDs if
+                        `driverFinding` ever starts composing a sentence
+                        (CLAUDE.md trap 13b — a guard whose discrimination
+                        depends on something nothing pins). */}
+                    {COPY.modelStrip.mention(
+                      COPY.sections[m.section],
+                      m.section === 'drivers' ? '' : m.headline,
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
             {activeHasNothing ? (
               <p
                 className={`${typography.panelMeta} text-text-light m-0`}

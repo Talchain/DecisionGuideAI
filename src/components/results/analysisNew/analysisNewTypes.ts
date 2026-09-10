@@ -730,6 +730,42 @@ export interface AnalysisNewViewModel {
   checks: ChecksSection
 }
 
+/**
+ * ⭐⭐ EVERY SECTION OF THIS PANEL THAT RENDERS `AnalysisNewFinding[]`, DERIVED
+ * FROM THE VIEW MODEL'S OWN TYPE RATHER THAN LISTED BY HAND.
+ *
+ * ⚠⚠ IT EXISTS BECAUSE A HAND-WRITTEN LIST OF EXACTLY THESE SECTIONS SHIPPED
+ * SHORT, AND THE SHORTFALL READ GREEN. The model strip's *"Nothing else on this
+ * panel refers to this node"* is a claim about the WHOLE panel; the list
+ * answering it named TWO of the FOUR. `GLANCE_DRIVER_COUNT` caps the glance's
+ * driver list at three while the Drivers section is uncapped, so on any run with
+ * four or more drivers the rank-4 node was told nothing referred to it while the
+ * Drivers section was naming it on screen. That is CLAUDE.md trap 12 exactly: a
+ * list a human must remember to sync WILL drift, and the drift always reads
+ * green.
+ *
+ * Resolves to `'keyInsights' | 'drivers' | 'uncertainty' | 'sensitivity'` at
+ * this head, and NOTHING NEEDS UPDATING WHEN THAT CHANGES. A new
+ * finding-bearing section widens this union automatically, and every
+ * `Record<AnalysisNewFindingSectionKey, …>` in the tree then FAILS TO COMPILE
+ * until it is covered. A comment promising completeness is what shipped the
+ * defect; a compiler error is the fail-loud mechanism that replaces it.
+ *
+ * ⚠ WHAT IT DOES NOT REACH, STATED RATHER THAN LEFT IMPLICIT. Sections whose
+ * rows are a DIFFERENT SHAPE are invisible to this by construction, and each
+ * would need its own derivation rather than this one: `optionsComparison`
+ * (`rows: ComparisonOption[]`), `strengthen` (`interventions: Recommendation[]`,
+ * already joined separately), `deeper` (`groups`/`critiques`/`caveats`) and
+ * `checks` (`items: ChecksItem[]`). None carries an `AnalysisNewFinding` join.
+ */
+export type AnalysisNewFindingSectionKey = {
+  [K in keyof AnalysisNewViewModel]-?: AnalysisNewViewModel[K] extends
+    | { findings: AnalysisNewFinding[] }
+    | { insights: AnalysisNewFinding[] }
+    ? K
+    : never
+}[keyof AnalysisNewViewModel]
+
 // ═══════════════════════════════════════════════════════════════════════════
 // WHAT WE CHECKED — the trust readout, and the only surface that speaks for
 // the checks the run DID NOT make
