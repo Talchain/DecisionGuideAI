@@ -315,6 +315,58 @@ export interface MetricLegendRow {
   gloss: string
 }
 
+/**
+ * ⭐⭐ THE TWO CLAUSES THE LEGEND AND THE BADGES BOTH SPEAK — ONE AUTHORITY.
+ *
+ * ⚠ THIS EXISTS BECAUSE A COMMENT CLAIMED IT ALREADY DID. `#1414` gave the two
+ * canvas badges accessible names and wrote, at both call sites, that the
+ * wording was "DERIVED from the legend's own gloss … so the two cannot drift
+ * into saying different things about the same badge". **There was no import.**
+ * Both `aria-label`s were template literals that happened to repeat the
+ * legend's words — a hand-maintained mirror (CLAUDE.md trap 12) whose comment
+ * asserted the derivation that would have made it safe. The comments are
+ * preserved and corrected forward at those sites rather than deleted; what
+ * they say is now true because of these two constants, not because of them.
+ *
+ * ⛔ THE DRIFT IS SILENT AND IT LANDS ON ONE READER ONLY. Nothing tested the
+ * badge against the legend: `ORDINAL_ROW_MUST_STATE_MINT` is only ever applied
+ * to `row.gloss`. So a legend rewrite kept the mint guard green, left the
+ * badges on the old wording, and told a screen-reader user something different
+ * from what a sighted user reads in the popover — the two surfaces disagreeing
+ * about the same badge, with no red anywhere.
+ *
+ * ⚠ SCOPE, STATED NARROWLY. These constants couple the legend row and the
+ * badge name for the SAME badge. They are not a general copy register — that
+ * is `METRIC_NOUN` — and they do not make the sentences correct, only
+ * identical. The clauses' truth is guarded separately: the ordinal's mint
+ * qualifier by `ORDINAL_ROW_MUST_STATE_MINT`, and the residual O1 limit is
+ * still open in the ⚠⚠ block above.
+ *
+ * The rows below are built from these, so the register reads exactly as it
+ * did — the change is where the words live, never what they say.
+ */
+export const SENSITIVITY_RANK_CLAUSE = 'the factors the result is most sensitive to'
+export const ORDINAL_MINT_CLAUSE = 'the order the options were first laid out in'
+
+/**
+ * The rank badge's accessible name. `BaseNode` renders `#N` and nothing else,
+ * so without this a screen reader gets the bare string "#1" — and "#1" on a
+ * factor means the OPPOSITE of "1" on an option card, which is the confusion
+ * the legend exists to prevent.
+ */
+export const sensitivityRankBadgeAccessibleName = (rank: number): string =>
+  `Key driver #${rank}: one of ${SENSITIVITY_RANK_CLAUSE}`
+
+/**
+ * The option ordinal badge's accessible name. Deliberately NOT a bare
+ * "Option N", which reads as a rank; the trailing clause is what distinguishes
+ * it from `sensitivityRankBadgeAccessibleName` above.
+ *
+ * ⚠ The separator is an EM DASH (—), matching what ships today.
+ */
+export const optionOrdinalBadgeAccessibleName = (optionNumber: number): string =>
+  `Option ${optionNumber} — ${ORDINAL_MINT_CLAUSE}, not a ranking`
+
 export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
   {
     noun: METRIC_NOUN.support,
@@ -365,12 +417,19 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
   },
   {
     noun: '#1, #2, #3',
-    gloss: 'the factors the result is most sensitive to',
+    // ⭐ SHARED WITH THE BADGE'S OWN ACCESSIBLE NAME, by import rather than by
+    // repetition — see SENSITIVITY_RANK_CLAUSE above. Byte-identical to the
+    // literal it replaced.
+    gloss: SENSITIVITY_RANK_CLAUSE,
   },
   {
     noun: '1, 2, 3 on an option',
     // ⚠ THE QUALIFIER IS LOAD-BEARING — see ORDINAL_ROW_MUST_STATE_MINT below.
-    gloss: 'the order the options were first laid out in. Not a ranking, and it stays with a card when you move it.',
+    // ⭐ The first clause is shared with the badge's accessible name
+    // (ORDINAL_MINT_CLAUSE above). The two sentences below it are the legend's
+    // alone: a badge name has no room for them. Byte-identical to the literal
+    // it replaced.
+    gloss: `${ORDINAL_MINT_CLAUSE}. Not a ranking, and it stays with a card when you move it.`,
   },
   {
     noun: METRIC_UNSET.standalone,

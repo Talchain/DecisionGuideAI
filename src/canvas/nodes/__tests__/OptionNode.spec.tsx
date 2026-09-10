@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { optionOrdinalBadgeAccessibleName } from '../shared/metricVocabulary'
 // The tie fixtures are pinned against the SHARED policy the component uses, so
 // the precondition cannot silently stop reproducing the condition under test.
 import {
@@ -2393,6 +2394,18 @@ describe('OptionNode — display coherence (audit §8)', () => {
     // screen-reader user can tell it from the factor ranking badge — see
     // OptionNode's aria-label comment and metricVocabulary.ts:373.
     expect(badge).toHaveAttribute('aria-label', 'Option 2 — the order the options were first laid out in, not a ranking')
+
+    /**
+     * ⭐⭐ THE OTHER HALF OF THE COUPLING, AND NOT REDUNDANT WITH THE LITERAL
+     * ABOVE. `metricVocabulary.spec.ts` proves the builder AGREES with the
+     * legend row; it cannot see this component dropping the builder and
+     * re-typing the sentence, which is how the defect arrived (a comment
+     * claiming a derivation with no import behind it). This binds the RENDERED
+     * name to the builder's output for THIS number, so a re-inlined literal
+     * REDs here while the register guard stays green. The literal stays — it is
+     * the corpus that notices a wrong sentence (CLAUDE.md trap 12d).
+     */
+    expect(badge).toHaveAccessibleName(optionOrdinalBadgeAccessibleName(2))
   })
 
   it('renders no stable-number badge before the option is registered', () => {
