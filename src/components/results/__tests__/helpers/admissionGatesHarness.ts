@@ -111,5 +111,41 @@ export function render() {
 }
 
 export function resetStore() {
-  useCanvasStore.setState({ results: null, nodes: [], edges: [], ceeAnalysisReady: null } as never)
+  // ⚠ `retainedAnalysisAdmission` IS IN THIS RESET, and leaving it out would have
+  // made the arms ORDER-DEPENDENT: a refusal retained by one arm's local edit
+  // would still be in the store when the next arm asserted the absence case, so
+  // ARM A would pass or fail according to which arm ran before it. A fixture that
+  // leaks the very state under test is the instrument defect, not the subject.
+  useCanvasStore.setState({
+    results: null, nodes: [], edges: [], ceeAnalysisReady: null,
+    retainedAnalysisAdmission: null,
+  } as never)
+}
+
+/**
+ * INVALIDATE THE WAY A USER DOES — through the real chokepoint, not by writing
+ * the store fields this is meant to test.
+ *
+ * `updateNode` with a changed `observedState` is an ANALYTICAL node change
+ * (`analyticalChange.ts`), so it reaches `invalidateAnalysisReady`, which nulls
+ * `ceeAnalysisReady` — the admission's only carrier. That is the exact path
+ * witnessed on staging 9eb30b54 (2026-09-10) when one factor value was edited.
+ *
+ * Driving the real mutation rather than setting `retainedAnalysisAdmission` by
+ * hand is what makes the arm evidence about the PRODUCT: a hand-set field would
+ * still pass if the store stopped retaining anything.
+ *
+ * It asserts only its PRECONDITION — that readiness really was nulled — which is
+ * true both before and after the fix, so the arm's own assertion is what goes red
+ * at pristine, and it goes red on the user-visible claim rather than on a helper.
+ */
+export function invalidateByLocalEdit() {
+  useCanvasStore.getState().updateNode('goal_1', {
+    data: { observedState: { value: 0.41 } },
+  } as never)
+  expect(
+    useCanvasStore.getState().ceeAnalysisReady,
+    'harness precondition: the local edit must have nulled ceeAnalysisReady, or this arm is not ' +
+    'about a self-inflicted absence at all',
+  ).toBeNull()
 }
