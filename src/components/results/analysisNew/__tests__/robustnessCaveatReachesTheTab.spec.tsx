@@ -18,10 +18,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 
 vi.mock('../../../../canvas/ToastContext', () => ({ useShowToastSafe: () => vi.fn() }))
+vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
+vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.fn() }))
 
 import { RobustnessCaveat } from '../sections/RobustnessCaveat'
+import { AnalysisNewTabBody } from '../AnalysisNewTabBody'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { useCanvasStore } from '../../../../canvas/store'
+import { genuineDecision, decisionWithLeaderWithheld } from './analysisNewFixtures'
+import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 
 const TID = 'analysis-new-robustness-caveat'
 
@@ -121,6 +126,141 @@ describe('the producer caveat on the Reasoning tab', () => {
       robustness_caveat: { text: PRODUCER_TEXT },
     })
     render(<RobustnessCaveat leaderClaimPermitted verdictReason={null} />)
+    expect(screen.queryByTestId(TID)).toBeNull()
+  })
+
+  /**
+   * ⭐⭐ THIS SURFACE IS THE FIRST TO DISPLAY `basis` AT ALL, and the shared
+   * parser screened only `text` until review caught it. The parked tab renders
+   * `.text` alone, so an id-shaped `basis` had never been user-visible and the
+   * asymmetry had never cost anything — mounting it here is what made it a leak.
+   *
+   * PLoT's documented fallback when a display label is absent is the
+   * model-element id, so the reachable failure is the user reading
+   * `Tested against: factor_price_elasticity`.
+   */
+  it('⛔ an id-shaped BASIS is rejected, not rendered as "Tested against: factor_…"', () => {
+    setBrief(briefWithCaveat(PRODUCER_TEXT, 'factor_price_elasticity'))
+    render(<RobustnessCaveat leaderClaimPermitted verdictReason={null} />)
+    expect(screen.queryByTestId(TID)).toBeNull()
+  })
+
+  /**
+   * The other half of the pair. `text` was already screened — this case is here
+   * so that if someone later drops the screen from the WRONG field, exactly one
+   * of these two REDs and names which one went.
+   */
+  it('⛔ an id-shaped TEXT is rejected too (the pre-existing half of the screen)', () => {
+    setBrief(briefWithCaveat('The ordering held except for risk_budget_overrun.', PRODUCER_BASIS))
+    render(<RobustnessCaveat leaderClaimPermitted verdictReason={null} />)
+    expect(screen.queryByTestId(TID)).toBeNull()
+  })
+
+  /**
+   * ⚠ AND THE SCREEN IS NOT JUST ALWAYS-ON. Without this, both cases above would
+   * pass on a guard that rejects every caveat ever sent.
+   */
+  it('CONTROL: the legitimate basis is NOT id-shaped and still renders', () => {
+    setBrief(briefWithCaveat())
+    render(<RobustnessCaveat leaderClaimPermitted verdictReason={null} />)
+    expect(screen.getByTestId(`${TID}-basis`)).toHaveTextContent(
+      `${COPY.robustnessCaveat.basisPrefix}${PRODUCER_BASIS}`,
+    )
+  })
+})
+
+/**
+ * ⭐⭐⭐ AND IT REACHES THE TAB — WHICH IS WHAT THIS FILE IS NAMED AFTER.
+ *
+ * ⚠⚠ EVERY CASE ABOVE RENDERS `<RobustnessCaveat/>` DIRECTLY, so not one of them
+ * says a word about whether `AnalysisNewTabBody` mounts it. Review measured the
+ * consequence with a mutation kit: deleting the `<RobustnessCaveat/>` line from
+ * the tab left 389 files / 6190 tests IDENTICAL to baseline, and hardcoding the
+ * `leaderClaimPermitted` prop to `true` did the same. The section could go dark,
+ * or go fail-OPEN, under a fully green suite.
+ *
+ * That is trap 3b, and it is the exact failure class this PR exists to close —
+ * `robustness_caveat` was computed and unreachable because its only consumer
+ * mounted on the parked tab. Reproducing it one level up, in the spec whose NAME
+ * is "reaches the tab", is the defect the name denies.
+ *
+ * ⚠ THE PRECONDITION IS PINNED BY THE FIRST CASE, deliberately. It asserts the
+ * section is PRESENT with the producer's sentence through the real tab body — so
+ * the brief parses, the mount exists, and the testid is reachable from here.
+ * Only then is an absence in the two withheld cases attributable to THE GATE
+ * rather than to a fixture that quietly rendered nothing (trap 13b: a "not
+ * mounted" result is otherwise indistinguishable from a correct refusal). Both
+ * withheld cases additionally assert the TAB ITSELF rendered, so "absent" can
+ * never silently mean "the whole surface threw".
+ */
+const drawTab = (data: ResultsSectionDataReturn) =>
+  render(
+    <AnalysisNewTabBody
+      resultsSectionData={data}
+      isPreRun={false}
+      isRunning={false}
+      isStale={false}
+      responseHash="run_abc123"
+    />,
+  )
+
+/**
+ * The authority could not answer AT ALL — neither conjunct present.
+ *
+ * ⚠ THIS IS THE CELL THE OTHER TWO FIXTURES CANNOT REACH, and it is the one that
+ * matters. `decisionWithLeaderWithheld()` sets the composed field to an explicit
+ * `false`, so it cannot discriminate `=== true` from `!== false`: `false !==
+ * false` is false, and the section stays hidden either way. Dropping the field
+ * entirely — while leaving `verdict.hasLeadingOption: true`, so the Q2-only
+ * withholding arm does not fire instead — makes `leaderDesignationPermitted()`
+ * return `undefined`, which is where the two idioms finally disagree:
+ *
+ *   `undefined === true`  -> false -> withheld  (what the code does)
+ *   `undefined !== false` -> true  -> SPOKEN    (the fail-OPEN relaxation)
+ */
+const authorityCouldNotAnswer = (): ResultsSectionDataReturn => {
+  const data = genuineDecision()
+  const recommendation = { ...data.recommendation }
+  // `delete`, not `= undefined`. The reader's first branch is
+  // `rec.leaderDesignationPermitted != null`, which an explicit `undefined`
+  // also fails — but ABSENT is the shape the hook emits when its producer never
+  // ran, and a fixture should be the shape rather than a value that happens to
+  // behave like it. The field is optional on the type, so this is legal.
+  delete recommendation.leaderDesignationPermitted
+  return { ...data, recommendation }
+}
+
+describe('the producer caveat is MOUNTED on the tab, with the real authority', () => {
+  beforeEach(() => setBrief(briefWithCaveat()))
+
+  /**
+   * ⭐ THE MOUNT. Delete the `<RobustnessCaveat/>` line from
+   * `AnalysisNewTabBody` and this is the case that REDs.
+   */
+  it('is mounted, and renders the producer sentence through the tab', () => {
+    drawTab(genuineDecision())
+    expect(screen.getByTestId(`${TID}-text`)).toHaveTextContent(PRODUCER_TEXT)
+  })
+
+  /**
+   * ⭐ THE AUTHORITY PASS-THROUGH, WITHHELD ARM. Hardcode the prop at the mount
+   * site to `true`, or hardcode `leaderClaimPermitted` in the view model, and
+   * this REDs — the harm the component's own header warns about.
+   */
+  it('says nothing when the producer withheld the ranking — through the mount, not the prop', () => {
+    drawTab(decisionWithLeaderWithheld())
+    expect(screen.getByTestId('analysis-new-tab-body')).toBeInTheDocument()
+    expect(screen.queryByTestId(TID)).toBeNull()
+  })
+
+  /**
+   * ⭐⭐ THE FAIL-OPEN DIRECTION, and the only case that can see it. Relax the
+   * view model's `=== true` to `!== false` and this REDs while its twin above
+   * stays green — sensitivity to the NAMED cell, not to the predicate at large.
+   */
+  it('says nothing when the authority could not answer at all', () => {
+    drawTab(authorityCouldNotAnswer())
+    expect(screen.getByTestId('analysis-new-tab-body')).toBeInTheDocument()
     expect(screen.queryByTestId(TID)).toBeNull()
   })
 })

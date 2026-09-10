@@ -24,12 +24,25 @@
  * `AtAGlance`. Treating the two as one is this estate's trap 21, and it is the
  * mistake `ModelHeldUp` records having made: quoting the verdict reason a
  * second time put "the ordering held across the simulated range" on one surface
- * twice. `duplicatesVerdictReason` below exists so this section can never
- * repeat it either — the producer may legitimately word both alike on some run,
- * and a reader does not care which field it came from.
+ * twice. `duplicatesVerdictReason` below exists so this section does not repeat
+ * it either — the producer may legitimately word both alike on some run, and a
+ * reader does not care which field it came from.
  *
- * ⚠ VERBATIM, NEVER COMPOSED. Both `text` and `basis` are the producer's; this
- * file authors the heading and nothing else.
+ * ⚠ "NEVER" WOULD BE AN OVERCLAIM, AND THIS COMMENT MADE IT. The guard is an
+ * EXACT comparison after trim and case-fold, so a near-duplicate — one extra
+ * clause, a differing full stop, a paraphrase — renders both sentences. That is
+ * deliberate: the alternative is a similarity score, which would start
+ * suppressing the producer's caveat on runs where it says something genuinely
+ * additional, and a dropped caveat is the worse of the two harms. So the narrow
+ * true statement is: it catches a VERBATIM restatement, which is the shape
+ * `ModelHeldUp` actually shipped.
+ *
+ * ⚠ VERBATIM, NEVER COMPOSED. Both `text` and `basis` are the producer's, and
+ * neither is trimmed, re-worded or summarised. This file authors TWO strings and
+ * no more: the heading, and the `Tested against: ` prefix that labels the basis.
+ * (This comment said "the heading and nothing else" until review counted the
+ * second one — an understatement of what the file does is still a wrong
+ * inventory of it.)
  */
 import { useMemo } from 'react'
 import { ShieldQuestion } from 'lucide-react'
@@ -68,8 +81,17 @@ export function RobustnessCaveat({
    * ⚠ A BARE SLICE OUT OF THE STORE, PARSED IN A MEMO — the same shape
    * `DecisionBriefSectionContainer` uses, and for its reason: returning a
    * derived object from inside a zustand selector builds a new reference on
-   * every store event and re-renders forever (the React 185 class the repo's
-   * `ci:guard:zustand` check exists to catch).
+   * every store event and re-renders forever. That is the React-185 class.
+   *
+   * ⚠⚠ AND NO GUARD IS WATCHING THIS FILE, so the shape is the only protection.
+   * This comment credited `ci:guard:zustand` with catching the class here; it
+   * does not. Derived at the bytes: `tools/ci-guards/check-zustand-selectors.mjs`
+   * walks `path.join(root, 'src', 'canvas')` and nothing else, and its single
+   * mention of `components` is a whitelist for `src/canvas/components/
+   * OutputsDock.tsx`. This file is `src/components/results/...`, outside that
+   * root entirely. The code is correct either way — but a comment naming a guard
+   * that is not running is worse than no comment, because it tells the next
+   * reader the mistake would be caught.
    */
   const rawBrief = useCanvasStore((state) => (
     /*

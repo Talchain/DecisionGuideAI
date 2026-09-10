@@ -331,7 +331,26 @@ function readRobustnessCaveat(value: unknown): DecisionBriefRobustnessCaveatView
   const text = readNonBlankString(value.text, MAX_NOTE_LENGTH)
   const basis = readNonBlankString(value.basis, MAX_LABEL_LENGTH)
   if (text === null || basis === null) return null
-  if (containsRawIdentifier(text)) return null
+  /**
+   * ⚠⚠ BOTH FIELDS, NOT JUST `text`. This screened `text` alone until review
+   * caught it, and the omission was reachable the moment a second surface
+   * rendered `basis`: the parked tab shows only `.text`, so `basis` had never
+   * been user-visible and the gap had never mattered. `RobustnessCaveat` on the
+   * reasoning tab is the first surface to display it, which is what turned a
+   * latent asymmetry into a leak — `Tested against: node_<uuid>`.
+   *
+   * ⭐ THE DOCSTRING ABOVE ALREADY CLAIMED THIS GUARD. It says what remains is
+   * "raw-identifier, length, blank/NUL, and the `basis` token" — so the comment
+   * promised identifier screening while one of the two rendered fields escaped
+   * it. A guard described in prose and absent in code is worse than no guard:
+   * the prose is what the next reader checks.
+   *
+   * `basis` is read at `MAX_LABEL_LENGTH`, the same bound as the label fields
+   * screened at :151 and :295 — it is a LABEL, and PLoT's documented fallback
+   * when a display label is absent is the model-element id. An id-shaped member
+   * must fail its category closed, exactly as those siblings do.
+   */
+  if (containsRawIdentifier(text) || containsRawIdentifier(basis)) return null
   return { text, basis }
 }
 

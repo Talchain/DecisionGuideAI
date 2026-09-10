@@ -788,8 +788,14 @@ export const ANALYSIS_NEW_COPY = {
     notEncodable: 'That target could not be applied, so nothing changed.',
   },
   /**
-   * ⭐ UI-AUTHORED HEADING ONLY. The sentence and its basis are the producer's
-   * and are rendered verbatim; nothing here summarises or qualifies them.
+   * ⭐ TWO UI-AUTHORED STRINGS, AND BOTH ARE HERE — a heading, and the label that
+   * introduces the producer's basis. The caveat sentence and the basis VALUE are
+   * the producer's and are rendered verbatim; nothing here summarises, truncates
+   * or qualifies them.
+   *
+   * ⚠ This said "UI-AUTHORED HEADING ONLY" until review counted the second
+   * string. An inventory of authored copy that is short by one is the same defect
+   * as a stale one, and this block exists precisely to be that inventory.
    */
   robustnessCaveat: {
     title: 'How far this held',
