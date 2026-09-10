@@ -10,7 +10,7 @@
 # this file and phase 2.
 #
 # Format: <error-count><TAB><path>, sorted by path.
-# count=2152
+# count=2096
 1	e2e/_helpers.ts
 1	e2e/a11y.spec.ts
 9	e2e/canvas-inspector.spec.ts
@@ -164,8 +164,7 @@
 1	src/canvas/components/pre-analysis/DecisionQualityChecks.tsx
 2	src/canvas/components/pre-analysis/GoalBaselineInput.tsx
 2	src/canvas/components/pre-analysis/OptionPreview.tsx
-4	src/canvas/components/pre-analysis/PreAnalysisPanel.tsx
-1	src/canvas/components/pre-analysis/SharpenYourThinking.tsx
+3	src/canvas/components/pre-analysis/PreAnalysisPanel.tsx
 1	src/canvas/components/pre-analysis/__tests__/BlockersSection.spec.tsx
 1	src/canvas/components/pre-analysis/__tests__/D0PreAnalysisPolish.spec.tsx
 1	src/canvas/components/pre-analysis/__tests__/DecisionQualityChecks.spec.tsx
@@ -188,7 +187,6 @@
 1	src/canvas/contextMenu/__tests__/actions.spec.ts
 3	src/canvas/contextMenu/__tests__/useMenuItems.spec.ts
 12	src/canvas/contextMenu/actions.ts
-40	src/canvas/contextMenu/useMenuItems.ts
 1	src/canvas/conversation/ActionStrip.tsx
 4	src/canvas/conversation/ConversationPanel.tsx
 3	src/canvas/conversation/InlineBlocks.tsx
@@ -241,15 +239,13 @@
 6	src/canvas/hooks/usePreRunValidation.ts
 8	src/canvas/hooks/useRiskProfile.ts
 3	src/canvas/hooks/useRiskToleranceSuggestion.ts
-9	src/canvas/hooks/useScienceIcons.ts
+8	src/canvas/hooks/useScienceIcons.ts
 20	src/canvas/hooks/useUnifiedActions.ts
 6	src/canvas/hooks/useUtilityWeights.ts
-2	src/canvas/nodes/ActionNode.tsx
 6	src/canvas/nodes/DecisionNode.tsx
-4	src/canvas/nodes/FactorNode.tsx
+1	src/canvas/nodes/FactorNode.tsx
 1	src/canvas/nodes/GoalNode.tsx
 1	src/canvas/nodes/NodeShapeIndicator.tsx
-1	src/canvas/nodes/__tests__/ActionNode.spec.tsx
 1	src/canvas/nodes/__tests__/BaseNode.cornerStack.spec.tsx
 5	src/canvas/nodes/__tests__/BaseNode.maxWidth.spec.tsx
 2	src/canvas/nodes/__tests__/BaseNode.projection.spec.tsx
@@ -257,13 +253,12 @@
 4	src/canvas/nodes/__tests__/FactorNode.baseline.regression.spec.ts
 1	src/canvas/nodes/__tests__/FactorNode.optionTable.spec.tsx
 1	src/canvas/nodes/__tests__/FactorNode.priorRange.spec.tsx
-11	src/canvas/nodes/__tests__/FactorNode.spec.tsx
+7	src/canvas/nodes/__tests__/FactorNode.spec.tsx
 13	src/canvas/nodes/__tests__/GoalNode.spec.tsx
 29	src/canvas/nodes/__tests__/OptionNode.spec.tsx
 4	src/canvas/nodes/__tests__/OutcomeNode.spec.tsx
 6	src/canvas/nodes/__tests__/render-matrix.spec.tsx
 1	src/canvas/nodes/registry.ts
-1	src/canvas/nodes/shared/NodePopover.tsx
 1	src/canvas/nodes/shared/__tests__/ScienceIcon.spec.tsx
 4	src/canvas/panels/AIClarifierChat.tsx
 4	src/canvas/panels/AdapterStatusBanner.tsx
@@ -385,7 +380,6 @@
 1	src/components/results/__tests__/Accordion.spec.tsx
 1	src/components/results/__tests__/DriversSection.columnAlignment.spec.tsx
 1	src/components/results/__tests__/DriversSection.influenceOnlyGuard.spec.tsx
-2	src/components/results/__tests__/DriversSection.influenceScaleDisclosure.spec.tsx
 1	src/components/results/__tests__/RangeVisualization.spec.tsx
 2	src/components/results/__tests__/ResultsBody.singleMkpD4.spec.tsx
 1	src/components/results/__tests__/StressTestSection.factorSensitivityIntegration.spec.tsx

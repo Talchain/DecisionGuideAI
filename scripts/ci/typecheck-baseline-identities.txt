@@ -13,7 +13,7 @@
 # Messages here are canonicalised (union members sorted) for that reason.
 #
 # Format: <count><TAB><path><TAB><TS-code><TAB><canonicalised message>.
-# count=2152
+# count=2096
 1	e2e/_helpers.ts	TS6133	'expect' is declared but its value is never read.
 1	e2e/a11y.spec.ts	TS6133	'resultsPanel' is declared but its value is never read.
 9	e2e/canvas-inspector.spec.ts	TS6133	'page' is declared but its value is never read.
@@ -369,11 +369,9 @@
 1	src/canvas/components/pre-analysis/GoalBaselineInput.tsx	TS6133	'goalLabel' is declared but its value is never read.
 1	src/canvas/components/pre-analysis/OptionPreview.tsx	TS2339	Property 'ListFormat' does not exist on type 'typeof Intl'.
 1	src/canvas/components/pre-analysis/OptionPreview.tsx	TS6133	'direction' is declared but its value is never read.
-1	src/canvas/components/pre-analysis/PreAnalysisPanel.tsx	TS2322	Type 'null | string' is not assignable to type 'string | undefined'.
 1	src/canvas/components/pre-analysis/PreAnalysisPanel.tsx	TS2339	Property 'goal_constraints' does not exist on type 'CEEAnalysisReady'.
 1	src/canvas/components/pre-analysis/PreAnalysisPanel.tsx	TS2352	Conversion of type 'CEEBiasFinding[]' to type 'RawBiasFinding[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
 1	src/canvas/components/pre-analysis/PreAnalysisPanel.tsx	TS6133	'hasGoalTarget' is declared but its value is never read.
-1	src/canvas/components/pre-analysis/SharpenYourThinking.tsx	TS2322	Type 'null | string' is not assignable to type 'string | undefined'.
 1	src/canvas/components/pre-analysis/__tests__/BlockersSection.spec.tsx	TS2741	Property 'suggestedActions' is missing in type '{ title: string; description: string; severity: "critical" | "warning"; supportsRetry: boolean; }' but required in type 'BlockerDisplayMeta'.
 1	src/canvas/components/pre-analysis/__tests__/D0PreAnalysisPolish.spec.tsx	TS2322	Type '{ improvementsByCategory: Record<usePreAnalysisDataModule.ImprovementCategory, usePreAnalysisDataModule.ImprovementItem[]>; ... 35 more ...; assumptionsLedger: Array<{ severity: "high" | "low" | "medium"; message: string; }> | null; }' is not assignable to type 'PreAnalysisData'.
 1	src/canvas/components/pre-analysis/__tests__/DecisionQualityChecks.spec.tsx	TS2322	Type '{ id: string; message: string; detail?: string | undefined; cta: string; ctaAction: string; pill: "bias" | "framing" | "verify"; category?: "bias" | "structure" | "validity" | undefined; }' is not assignable to type 'QualityCheck'.
@@ -414,7 +412,6 @@
 1	src/canvas/contextMenu/actions.ts	TS6133	'flowPos' is declared but its value is never read.
 1	src/canvas/contextMenu/actions.ts	TS6196	'EdgeTarget' is declared but never used.
 1	src/canvas/contextMenu/actions.ts	TS6196	'MultiTarget' is declared but never used.
-40	src/canvas/contextMenu/useMenuItems.ts	TS2322	Type 'LucideIcon' is not assignable to type 'ComponentType<{ className?: string | undefined; size?: number | undefined; }> | undefined'.
 1	src/canvas/conversation/ActionStrip.tsx	TS6133	'GraphPatchBlock' is declared but its value is never read.
 1	src/canvas/conversation/ConversationPanel.tsx	TS2345	Argument of type '(opts: DispatchActionOpts) => Promise<void>' is not assignable to parameter of type '(opts: { action_type?: string | undefined; parameters?: Record<string, unknown> | undefined; label: string; message: string; hidden?: boolean | undefined; source: string; }) => void'.
 1	src/canvas/conversation/ConversationPanel.tsx	TS6133	'logger' is declared but its value is never read.
@@ -447,7 +444,7 @@
 1	src/canvas/conversation/__tests__/useConversation.hook.spec.ts	TS2345	Argument of type 'null | string' is not assignable to parameter of type 'string'.
 1	src/canvas/conversation/__tests__/useSmartScroll.spec.ts	TS6133	'mockScrollIntoView' is declared but its value is never read.
 1	src/canvas/conversation/__tests__/validateResponse.spec.ts	TS2352	Conversion of type 'ConversationBlock' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
-1	src/canvas/conversation/useConversation.ts	TS2345	Argument of type '{ currentResultsHash: null | string; backfillGoalThreshold: (analysisReady: { goal_node_id?: string; goal_threshold_raw?: null | number; goal_threshold_unit?: null | string; goal_threshold_cap?: null | number; } | null) => void; ... 282 more ...; clearClarifierPreview: () => void; }' is not assignable to parameter of type 'V5ApplicatorStore'.
+1	src/canvas/conversation/useConversation.ts	TS2345	Argument of type '{ currentResultsHash: null | string; backfillGoalThreshold: (analysisReady: { goal_node_id?: string; goal_threshold_raw?: null | number; goal_threshold_unit?: null | string; goal_threshold_cap?: null | number; } | null) => void; ... 283 more ...; clearClarifierPreview: () => void; }' is not assignable to parameter of type 'V5ApplicatorStore'.
 1	src/canvas/conversation/useGraphEditEvents.ts	TS6133	'op' is declared but its value is never read.
 1	src/canvas/conversation/useGraphEditEvents.ts	TS6133	'ops' is declared but its value is never read.
 6	src/canvas/conversation/utils/__tests__/applyPatch.v3Fields.spec.ts	TS2353	Object literal may only specify known properties, and 'block_type' does not exist in type 'GraphPatchBlock'.
@@ -510,7 +507,7 @@
 1	src/canvas/hooks/useRiskToleranceSuggestion.ts	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfile'.
 1	src/canvas/hooks/useRiskToleranceSuggestion.ts	TS2305	Module '"../../adapters/plot/types"' has no exported member 'RiskProfilePreset'.
 1	src/canvas/hooks/useRiskToleranceSuggestion.ts	TS2339	Property 'getRiskProfileFromPreset' does not exist on type '{ templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; limits(): Promise<LimitsFetch>; health(): Promise<...>; }'.
-8	src/canvas/hooks/useScienceIcons.ts	TS2322	Type 'LucideIcon' is not assignable to type 'ComponentType<{ size?: number | undefined; className?: string | undefined; }>'.
+7	src/canvas/hooks/useScienceIcons.ts	TS2322	Type 'LucideIcon' is not assignable to type 'ComponentType<{ size?: number | undefined; className?: string | undefined; }>'.
 1	src/canvas/hooks/useScienceIcons.ts	TS6133	'category' is declared but its value is never read.
 1	src/canvas/hooks/useUnifiedActions.ts	TS2339	Property 'bias_findings' does not exist on type 'CeeDecisionReviewPayload'.
 4	src/canvas/hooks/useUnifiedActions.ts	TS2339	Property 'code' does not exist on type 'ValidationIssue'.
@@ -526,20 +523,15 @@
 1	src/canvas/hooks/useUtilityWeights.ts	TS2339	Property 'suggestUtilityWeights' does not exist on type '{ templates(): Promise<TemplateListV1>; template(id: string): Promise<TemplateDetail>; limits(): Promise<LimitsFetch>; health(): Promise<...>; }'.
 1	src/canvas/hooks/useUtilityWeights.ts	TS6196	'UtilityWeightSuggestion' is declared but never used.
 1	src/canvas/hooks/useUtilityWeights.ts	TS7006	Parameter 's' implicitly has an 'any' type.
-1	src/canvas/nodes/ActionNode.tsx	TS2322	Type 'unknown' is not assignable to type 'ReactNode'.
-1	src/canvas/nodes/ActionNode.tsx	TS2322	Type '{}' is not assignable to type 'ReactNode'.
 1	src/canvas/nodes/DecisionNode.tsx	TS2322	Type 'unknown' is not assignable to type 'Record<string, unknown>'.
 1	src/canvas/nodes/DecisionNode.tsx	TS2322	Type 'unknown' is not assignable to type 'boolean'.
 1	src/canvas/nodes/DecisionNode.tsx	TS2322	Type 'unknown' is not assignable to type 'string'.
 1	src/canvas/nodes/DecisionNode.tsx	TS2344	Type '{ type: "decision"; label: string; body?: string | undefined; provenance?: "ai_inferred" | "from_brief" | "user_set" | undefined; description?: string | undefined; kind?: "factor" | "option" | ... 6 more ... | undefined; prior?: ... | number 1 more ... | undefined; utility?: number | undefined; }' does not satisfy the constraint 'Node<Record<string, unknown>, string | undefined>'.
 1	src/canvas/nodes/DecisionNode.tsx	TS2345	Argument of type 'unknown' is not assignable to parameter of type 'string'.
 1	src/canvas/nodes/DecisionNode.tsx	TS6133	'handleChip' is declared but its value is never read.
-1	src/canvas/nodes/FactorNode.tsx	TS2322	Type '{ id: string; node: Node; hasIntervention: boolean; value: null | number; displayValue: null | string; isStatusQuo: boolean; winProb: any; }[]' is not assignable to type 'Row[]'.
-2	src/canvas/nodes/FactorNode.tsx	TS2345	Argument of type 'null | string | undefined' is not assignable to parameter of type 'string | undefined'.
 1	src/canvas/nodes/FactorNode.tsx	TS6192	All imports in import declaration are unused.
 1	src/canvas/nodes/GoalNode.tsx	TS2322	Type 'CEEGoalConstraint[] | null' is not assignable to type '(CEEGoalConstraint & { probability?: number | undefined; })[] | null'.
 1	src/canvas/nodes/NodeShapeIndicator.tsx	TS6133	'half' is declared but its value is never read.
-1	src/canvas/nodes/__tests__/ActionNode.spec.tsx	TS2739	Type '{ id: string; data: { label: string; type: string; }; type: string; position: { x: number; y: number; }; selected: boolean; isConnectable: boolean; positionAbsoluteX: number; positionAbsoluteY: number; dragging: boolean; zIndex: number; }' is missing the following properties from type 'Required<Pick<Node<Record<string, unknown>, string | undefined>, "deletable" | "draggable" | "dragging" | "selectable" | "selected" | "type" | "zIndex">>': deletable, selectable, draggable
 1	src/canvas/nodes/__tests__/BaseNode.cornerStack.spec.tsx	TS2698	Spread types may only be created from object types.
 1	src/canvas/nodes/__tests__/BaseNode.maxWidth.spec.tsx	TS2739	Type '{ data: { label: string; }; nodeType: "decision"; icon: LucideIcon; maxWidth: number; id: string; selected: boolean; dragging: boolean; zIndex: number; isConnectable: boolean; positionAbsoluteX: number; positionAbsoluteY: number; type: string; xPos: number; yPos: number; }' is missing the following properties from type 'BaseNodeProps': deletable, selectable, draggable
 1	src/canvas/nodes/__tests__/BaseNode.maxWidth.spec.tsx	TS2739	Type '{ nodeType: "factor"; icon: LucideIcon; id: string; selected: boolean; dragging: boolean; zIndex: number; isConnectable: boolean; positionAbsoluteX: number; positionAbsoluteY: number; type: string; data: { ...; }; xPos: number; yPos: number; }' is missing the following properties from type 'BaseNodeProps': deletable, selectable, draggable
@@ -554,7 +546,7 @@
 1	src/canvas/nodes/__tests__/FactorNode.baseline.regression.spec.ts	TS2559	Type '{ source: string; }' has no properties in common with type '{ value?: number | undefined; raw_value?: number | string | undefined; unit?: string | undefined; cap?: number | undefined; factor_type?: string | undefined; }'.
 1	src/canvas/nodes/__tests__/FactorNode.optionTable.spec.tsx	TS2739	Type '{ id: string; data: Record<string, unknown>; type: string; position: { x: number; y: number; }; selected: boolean; isConnectable: boolean; positionAbsoluteX: number; positionAbsoluteY: number; dragging: boolean; zIndex: number; }' is missing the following properties from type 'Required<Pick<Node<Record<string, unknown>, string | undefined>, "deletable" | "draggable" | "dragging" | "selectable" | "selected" | "type" | "zIndex">>': deletable, selectable, draggable
 1	src/canvas/nodes/__tests__/FactorNode.priorRange.spec.tsx	TS2739	Type '{ data: Record<string, unknown>; id: string; type: string; position: { x: number; y: number; }; selected: boolean; isConnectable: boolean; positionAbsoluteX: number; positionAbsoluteY: number; dragging: boolean; zIndex: number; }' is missing the following properties from type 'Required<Pick<Node<Record<string, unknown>, string | undefined>, "deletable" | "draggable" | "dragging" | "selectable" | "selected" | "type" | "zIndex">>': deletable, selectable, draggable
-7	src/canvas/nodes/__tests__/FactorNode.spec.tsx	TS2322	Type 'LucideIcon' is not assignable to type 'ComponentType<{ size?: number | undefined; className?: string | undefined; }>'.
+3	src/canvas/nodes/__tests__/FactorNode.spec.tsx	TS2322	Type 'LucideIcon' is not assignable to type 'ComponentType<{ size?: number | undefined; className?: string | undefined; }>'.
 1	src/canvas/nodes/__tests__/FactorNode.spec.tsx	TS2345	Argument of type '{ sensitivityRank: null; influence: null; confidence: null; inSensitivityAnalysis: false; achievementProbability: null; stabilityPercentage: null; winRate: null; isResultsMode: true; predictedOutcome: null; valueOfInformation: null; voiRank: null; }' is not assignable to parameter of type 'NodeDisplayMetadata'.
 1	src/canvas/nodes/__tests__/FactorNode.spec.tsx	TS2345	Argument of type '{ sensitivityRank: null; influence: number; confidence: null; inSensitivityAnalysis: false; achievementProbability: null; stabilityPercentage: null; winRate: null; isResultsMode: true; predictedOutcome: null; valueOfInformation: null; voiRank: null; }' is not assignable to parameter of type 'NodeDisplayMetadata'.
 1	src/canvas/nodes/__tests__/FactorNode.spec.tsx	TS2345	Argument of type '{ sensitivityRank: number; influence: null; confidence: null; inSensitivityAnalysis: false; achievementProbability: null; stabilityPercentage: null; winRate: null; isResultsMode: false; predictedOutcome: null; valueOfInformation: null; voiRank: null; }' is not assignable to parameter of type 'NodeDisplayMetadata'.
@@ -581,7 +573,6 @@
 4	src/canvas/nodes/__tests__/render-matrix.spec.tsx	TS2739	Type '{ data: { label: string; type: string; }; id: string; type: string; position: { x: number; y: number; }; selected: boolean; isConnectable: boolean; positionAbsoluteX: number; positionAbsoluteY: number; dragging: boolean; zIndex: number; }' is missing the following properties from type 'Required<Pick<Node<Record<string, unknown>, string | undefined>, "deletable" | "draggable" | "dragging" | "selectable" | "selected" | "type" | "zIndex">>': deletable, selectable, draggable
 1	src/canvas/nodes/__tests__/render-matrix.spec.tsx	TS2740	Type '{ data: { label: string; type: string; }; id: string; type: string; position: { x: number; y: number; }; selected: boolean; isConnectable: boolean; positionAbsoluteX: number; positionAbsoluteY: number; dragging: boolean; zIndex: number; }' is missing the following properties from type 'Pick<{ type: "decision"; label: string; body?: string | undefined; provenance?: "ai_inferred" | "from_brief" | "user_set" | undefined; description?: string | undefined; kind?: "option" | ... 7 more ... | undefined; prior?: ... | number 1 more ... | undefined; utility?: number | undefined; }, "data" | ... 6 more ... ...': width, height, sourcePosition, targetPosition, and 2 more.
 1	src/canvas/nodes/registry.ts	TS2322	Type 'MemoExoticComponent<({ id, data, selected }: NodeProps<{ type: "decision"; label: string; body?: string | undefined; provenance?: "ai_inferred" | "from_brief" | "user_set" | undefined; description?: string | undefined; kind?: "option" | ... 7 more ... | undefined; prior?: ... | number 1 more ... | undefined; utility...' is not assignable to type 'ComponentType<Pick<Node<Record<string, unknown>, string | undefined>, "data" | "dragHandle" | "height" | "id" | "parentId" | "sourcePosition" | "targetPosition" | "width"> & Required<...> & { ...; } & { ...; }>'.
-1	src/canvas/nodes/shared/NodePopover.tsx	TS6133	'useRef' is declared but its value is never read.
 1	src/canvas/nodes/shared/__tests__/ScienceIcon.spec.tsx	TS2322	Type 'LucideIcon' is not assignable to type 'ComponentType<{ size?: number | undefined; className?: string | undefined; }>'.
 1	src/canvas/panels/AIClarifierChat.tsx	TS6133	'currentQuestions' is declared but its value is never read.
 1	src/canvas/panels/AIClarifierChat.tsx	TS6133	'handleApply' is declared but its value is never read.
@@ -925,7 +916,6 @@
 1	src/components/results/__tests__/Accordion.spec.tsx	TS6133	'vi' is declared but its value is never read.
 1	src/components/results/__tests__/DriversSection.columnAlignment.spec.tsx	TS2322	Type '"major"' is not assignable to type 'DriverSemanticLabel'.
 1	src/components/results/__tests__/DriversSection.influenceOnlyGuard.spec.tsx	TS2352	Conversion of type '{ factorKey: string; semanticLabel: "biggest"; influenceScore: number; flipRiskCategory: "isolated"; fragileEdgeInfo: { switchProbability: number; alternativeWinnerLabel: string; }; enrichment: { ...; }; }' to type 'DriverItem' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
-2	src/components/results/__tests__/DriversSection.influenceScaleDisclosure.spec.tsx	TS2322	Type '"weak"' is not assignable to type 'DriverSemanticLabel | undefined'.
 1	src/components/results/__tests__/RangeVisualization.spec.tsx	TS6133	'container' is declared but its value is never read.
 2	src/components/results/__tests__/ResultsBody.singleMkpD4.spec.tsx	TS2352	Conversion of type '{ id: string; label: string; expectedValue: number; p10: number; p90: number; winProbability: number; goalProbability: number; }' to type 'OptionResult' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
 1	src/components/results/__tests__/StressTestSection.factorSensitivityIntegration.spec.tsx	TS2307	Cannot find module 'reactflow' or its corresponding type declarations.
