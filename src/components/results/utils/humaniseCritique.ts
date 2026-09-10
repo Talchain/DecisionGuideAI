@@ -261,8 +261,64 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // The fix is deliberately the smallest one that closes it — the ratified
   // title and the ratified suggestion, both VERBATIM, joined so the remedy is
   // on the surface that renders. No approved wording is rewritten here.
+  // ⚠⚠ THE TITLE BLAMED THE TARGET, AND THE TAB DISPLAYED THAT TARGET THREE
+  // LINES BELOW IT. Measured on Netlify deploy `6aa1fdec0d71200008252154`
+  // (UI `9eb30b54`) at 2026-09-10T02:05:56Z, fresh guest, Reasoning tab:
+  //
+  //   "Your goal's target couldn't be measured for this run. State the
+  //    current level for your goal."          ← this template's old title
+  //   grow monthly recurring revenue to at least £250k by March
+  //   Options 3 · Factors 3 · Risks 1 · Outcomes 1
+  //   "Target £250,000 · From brief · Change"  ← the same tab, same screen
+  //
+  // The same turn's wire carried `goal_threshold_raw: 250000`,
+  // `goal_threshold_unit: "£"` and `goal_target_stated: true`. The ASK was
+  // right; the CAUSE was invented. A reader scanning this concluded their
+  // number had not been captured, while the tab displayed it.
+  //
+  // ⭐ WHY IT IS FALSE ON THE WHOLE DOMAIN, NOT JUST ON THAT RUN. Derived at
+  // ISL `staging` 7781ca4f (2026-09-01), `robustness_analyzer_v2.py`: the nine
+  // `refuse()` sites of the shared engine `_resolve_threshold_in_sample_frame`
+  // (:3818) are the complete range — `missing_goal_baseline` (:3970, the
+  // common one), `goal_pinned_by_intervention` (:3932), `root_goal` (:3944),
+  // `goal_parameter_uncertainty_shifts_base` (:3956),
+  // `goal_values_outside_normalised_domain` (:4027),
+  // `epsilon_breaks_status_quo_reference` (:4076),
+  // `auto_scaled_noise_breaks_status_quo_reference` (:2218, flag-off), plus
+  // `goal_node_missing` (:3922) and `non_finite_conversion_input` (:3995),
+  // both API-unreachable by the producer's own validators.
+  // NOT ONE OF THEM MEANS THE TARGET WAS NOT CAPTURED — and the producer makes
+  // that structural: `if threshold is None: return None, None` (:3745-3749),
+  // so a missing target discloses NOTHING (pinned producer-side by
+  // `test_no_threshold_requested_is_silent`). Every refusal fires with the
+  // user's number in hand and echoes it in `detail["goal_threshold"]`.
+  //
+  // ⭐ SO THERE IS NOTHING TO NAME APART HERE (trap 21). "Can this also fire
+  // when there genuinely is no target?" is answered NO by construction, so the
+  // copy may presuppose a target — that presupposition holds on every path.
+  // The separate `Target not captured` chip (`GoalNode.GOAL_NO_TARGET_STATE`)
+  // owns the genuinely-absent case and is a different surface with a different
+  // trigger; it did not render on this run because a target existed.
+  //
+  // ⭐ THE REPLACEMENT MINTS NO NEW VOCABULARY. Its claim was already written
+  // twice in this file and correct both times: in this template's OWN
+  // `description` below, and in `CONSTRAINT_NOT_CONVERTIBLE`'s title (:409),
+  // whose header records that it runs on the SAME producer rules. The goal
+  // title was the one outlier of the three. Structure, subject and cadence are
+  // now the constraint twin's, so the two members of the family read as one
+  // vocabulary rather than as two accounts of one condition.
+  //
+  // ⚠ WHAT IS DELIBERATELY UNCHANGED: `suggestion`. The 2.300 ruling is that
+  // the remedy names the user-actionable route WITHOUT claiming it is the only
+  // cause, and only `missing_goal_baseline` is literally repaired by stating a
+  // current level. Telling the eight reachable reasons apart is impossible on
+  // this side of the wire — the UI's `InferenceWarning` (`types.ts:985-1000`)
+  // carries no `detail`, so no `reason`. The smallest enabling change is
+  // PLoT forwarding `detail.reason`; that is a producer-side change and is
+  // not attempted here.
   GOAL_THRESHOLD_NOT_CONVERTIBLE: () => ({
-    title: "Your goal's target couldn't be measured for this run. State the current level for your goal.",
+    title:
+      'Your goal\'s target couldn\'t be compared with where the goal stands today, so goal-fit results were withheld rather than guessed. State the current level for your goal.',
     description: 'The target couldn\'t be compared with where the goal stands today — for example when no current level is recorded for it — so goal-fit results were withheld rather than guessed.',
     suggestion: 'State the current level for your goal',
   }),
