@@ -11,7 +11,7 @@ import { useCanvasStore } from '../store'
 import { focusExistingTarget } from '../utils/focusHelpers'
 import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
 import { typography } from '../../styles/typography'
-import { METRIC_NOUN } from './shared/metricVocabulary'
+import { METRIC_NOUN, optionOrdinalBadgeAccessibleName } from './shared/metricVocabulary'
 import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, classifyUnit, formatWinProbability, isTierLabel } from '../utils/labelUtils'
 import {
   describeInterventionDirection,
@@ -1619,8 +1619,33 @@ export const OptionNode = memo((props: NodeProps) => {
                    Wording DERIVED from the legend's own gloss
                    (`metricVocabulary.ts:373`) rather than written afresh, so the
                    two cannot drift into saying different things about the same
-                   badge. */
-                aria-label={`Option ${stableOptionNumber} — the order the options were first laid out in, not a ranking`}
+                   badge.
+
+                   ⚠⚠ THE SENTENCE ABOVE WAS FALSE WHEN IT WAS WRITTEN, AND IS
+                   KEPT RATHER THAN OVERWRITTEN BECAUSE IT IS THE RECORD OF HOW
+                   THIS SHIPPED. There was no import: the `aria-label` was a
+                   template literal that merely REPEATED the legend's wording,
+                   and this comment asserted the derivation that would have made
+                   that safe. A claim in a comment is not a coupling — it is the
+                   hand-maintained mirror this estate keeps paying for
+                   (CLAUDE.md trap 12), wearing the language of the fix.
+
+                   Nothing could have caught it: `ORDINAL_ROW_MUST_STATE_MINT`
+                   is applied only to `row.gloss`, so a legend rewrite would
+                   keep the mint guard green, leave this badge on the old
+                   words, and tell a screen-reader user something different
+                   from what a sighted reader sees in the popover.
+
+                   ⭐ IT IS TRUE NOW, AND BY IMPORT: the name comes from
+                   `optionOrdinalBadgeAccessibleName`, which is built from
+                   `ORDINAL_MINT_CLAUSE` — the same constant the legend row is
+                   built from. Two guards hold it, and they are not redundant:
+                   `metricVocabulary.spec.ts` asserts the builder's output
+                   carries the legend row's own clause (agreement), and the
+                   render specs assert THIS element's accessible name equals
+                   the builder's output (so re-inlining a literal here REDs).
+                   The rendered string is unchanged. */
+                aria-label={optionOrdinalBadgeAccessibleName(stableOptionNumber)}
                 className={`${typography.nodeLabel} inline-flex h-4 min-w-[16px] items-center justify-center rounded border border-panel-border px-1 text-text-light`}
               >
                 {stableOptionNumber}

@@ -35,6 +35,8 @@ import {
   RETIRED_METRIC_NOUNS,
   ORDINAL_ROW_MUST_STATE_MINT,
   MAX_GLOSS_LENGTH,
+  sensitivityRankBadgeAccessibleName,
+  optionOrdinalBadgeAccessibleName,
 } from '../metricVocabulary'
 import { COMPARATIVE_COPY } from '../../../../components/results/utils/goalAnchorCopy'
 import { INFLUENCE_EXPLANATION_GENERIC } from '../../../../components/results/influenceScaleCopy'
@@ -215,6 +217,73 @@ describe('METRIC_LEGEND_ROWS', () => {
     // (d) DISCRIMINATION: the qualifier predicate can fail. Without this, a
     //     regex that matches everything would satisfy (a) forever.
     expect(ORDINAL_ROW_MUST_STATE_MINT.test('its place on the board, left to right')).toBe(false)
+  })
+
+  /**
+   * ⭐⭐ THE BADGES AND THE LEGEND SPEAK ONE CLAUSE — AND A COMMENT ONCE
+   * CLAIMED THIS WITHOUT AN IMPORT BEHIND IT.
+   *
+   * `#1414` gave the two canvas badges accessible names and wrote at both call
+   * sites that the wording was "DERIVED from the legend’s own gloss … so the
+   * two cannot drift into saying different things about the same badge".
+   * **There was no import.** Both were template literals repeating the
+   * legend’s words, and nothing tested a badge against a row:
+   * `ORDINAL_ROW_MUST_STATE_MINT` is only ever applied to `row.gloss`. So a
+   * legend rewrite kept every guard green, left the badges on the old wording,
+   * and told a screen-reader user something a sighted reader is not told.
+   *
+   * ⚠ WHAT THIS PAIR OF TESTS CAN AND CANNOT DO, STATED NARROWLY. This one
+   * proves AGREEMENT between the register and the builders, derived from
+   * `METRIC_LEGEND_ROWS` so there is no second copy of the expectation. It is
+   * structurally blind to a component that stops calling the builder — which
+   * is exactly how the defect arrived. The render specs
+   * (`OptionNode.leadingPillCornerStack`, `OptionNode`, `BaseNode.cornerStack`)
+   * carry the other half: they bind the RENDERED accessible name to the
+   * builder’s output, so re-inlining a literal REDs there while this file stays
+   * green. Neither guard subsumes the other; dropping either leaves a defect
+   * class unobserved (CLAUDE.md trap 12d).
+   *
+   * And the literal assertions already in those render specs stay: a derived
+   * guard proves the copies agree, never that the wording is right. The
+   * literals are the corpus that notices a wrong sentence.
+   */
+  it('⭐⭐ the badge accessible names are BUILT FROM the legend rows, not repeated', () => {
+    // (a) THE RANK BADGE. Expected value derived from the register — find the
+    //     row by its noun, never by writing the clause out again here.
+    const rankRow = METRIC_LEGEND_ROWS.find((r) => r.noun === '#1, #2, #3')!
+    expect(rankRow, 'the sensitivity-rank row is gone — if deliberate, delete this test too').toBeDefined()
+    expect(
+      sensitivityRankBadgeAccessibleName(1),
+      'the rank badge no longer speaks the legend’s own gloss',
+    ).toContain(rankRow.gloss)
+    // ...and it still says which badge it is, so the name is not the gloss alone.
+    expect(sensitivityRankBadgeAccessibleName(2)).toContain('#2')
+
+    // (b) THE ORDINAL BADGE. The legend row carries two extra sentences the
+    //     badge has no room for, so the shared unit is the row’s FIRST clause
+    //     — still derived from the row, still not retyped.
+    const ordinalRow = METRIC_LEGEND_ROWS.find((r) => r.noun.includes('on an option'))!
+    expect(ordinalRow, 'the ordinal row is gone — if deliberate, delete this test too').toBeDefined()
+    const ordinalSharedClause = ordinalRow.gloss.split('. ')[0]
+    expect(
+      optionOrdinalBadgeAccessibleName(3),
+      'the ordinal badge no longer speaks the legend’s own gloss',
+    ).toContain(ordinalSharedClause)
+    expect(optionOrdinalBadgeAccessibleName(3)).toContain('Option 3')
+
+    // (c) THE TWO NAMES MUST STAY DISTINGUISHABLE. They are the confusion the
+    //     legend exists to prevent: "#1" on a factor is a ranking, "1" on an
+    //     option is not. A refactor that collapsed them would satisfy (a) and
+    //     (b) individually.
+    expect(sensitivityRankBadgeAccessibleName(1)).not.toBe(optionOrdinalBadgeAccessibleName(1))
+    expect(optionOrdinalBadgeAccessibleName(1)).toMatch(/not a ranking/)
+
+    // (d) DISCRIMINATION: `toContain` can fail. Without this, a builder that
+    //     returned the whole file, or a clause that matched everything, would
+    //     satisfy (a) and (b) forever — the same vacuity the mint guard’s own
+    //     discrimination case above exists to rule out.
+    expect(sensitivityRankBadgeAccessibleName(1)).not.toContain(ordinalSharedClause)
+    expect(optionOrdinalBadgeAccessibleName(1)).not.toContain(rankRow.gloss)
   })
 
   it('⭐ the goal gloss is basis-NEUTRAL — a legend cannot earn the possessive', () => {

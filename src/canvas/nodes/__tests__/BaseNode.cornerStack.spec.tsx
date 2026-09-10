@@ -31,6 +31,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { DecisionNode } from '../DecisionNode'
+import { sensitivityRankBadgeAccessibleName } from '../shared/metricVocabulary'
 import { useGuidanceStore, type GuidanceItem } from '../../stores/guidanceStore'
 
 vi.mock('@xyflow/react', async () => {
@@ -157,6 +158,20 @@ describe('BaseNode — top-right corner stack (rank + coaching)', () => {
      */
     expect(rank).toHaveAccessibleName(/^Key driver #\d+: one of the factors the result is most sensitive to$/)
     expect(rank).not.toHaveAttribute('title')
+
+    /**
+     * ⭐⭐ THE OTHER HALF OF THE COUPLING, AND NOT REDUNDANT WITH THE LITERAL
+     * ABOVE. `metricVocabulary.spec.ts` proves the builder AGREES with the
+     * legend row; it cannot see this component dropping the builder and
+     * re-typing the sentence, which is how the defect arrived (a comment
+     * claiming a derivation with no import behind it). This binds the RENDERED
+     * name to the builder's output for THIS number, so a re-inlined literal
+     * REDs here while the register guard stays green. The literal stays — it is
+     * the corpus that notices a wrong sentence (CLAUDE.md trap 12d).
+     */
+    // `sensitivityRank` is 1 in this test's fixture — bound by identity, not by
+    // a pattern another rank could satisfy.
+    expect(rank).toHaveAccessibleName(sensitivityRankBadgeAccessibleName(1))
 
     // Deterministic order: rank FIRST, coaching beside it.
     const kids = Array.from(stack.children)

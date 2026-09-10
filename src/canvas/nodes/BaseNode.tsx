@@ -44,6 +44,7 @@ import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { StatusPill } from './shared/StatusPill'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeProvenanceMark } from './shared/NodeProvenanceMark'
+import { sensitivityRankBadgeAccessibleName } from './shared/metricVocabulary'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 
 const NODE_TYPE_DESCRIPTIONS: Record<string, string> = {
@@ -1067,8 +1068,26 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
                (`metricVocabulary.ts:367-368`), which mounts unconditionally.
                Giving this badge a real tooltip means removing
                `pointerEvents: 'none'` and re-measuring drag behaviour on the
-               card — a separate change, not a comment. */
-            aria-label={`Key driver #${displayMetadata.sensitivityRank}: one of the factors the result is most sensitive to`}
+               card — a separate change, not a comment.
+
+               ⚠⚠ AND THE CITATION ABOVE USED TO BE THE WHOLE COUPLING, WHICH IS
+               TO SAY THERE WAS NONE. This file imported nothing from
+               `metricVocabulary`; the `aria-label` was a template literal that
+               happened to repeat the legend's gloss, with a line number in a
+               comment standing in for an import. That is the shape this estate
+               calls a hand-maintained mirror (CLAUDE.md trap 12) — and the
+               drift it admits is invisible, because the legend's only guard
+               (`ORDINAL_ROW_MUST_STATE_MINT`) reads `row.gloss` and never the
+               badge. A legend rewrite would have left a screen-reader user
+               being told something a sighted reader is not.
+
+               The record is kept rather than tidied away; what changes is that
+               it is now TRUE BY IMPORT.
+               `sensitivityRankBadgeAccessibleName` is built from
+               `SENSITIVITY_RANK_CLAUSE`, the same constant the legend row is
+               built from, so the two cannot say different things about this
+               badge. The rendered string is unchanged. */
+            aria-label={sensitivityRankBadgeAccessibleName(displayMetadata.sensitivityRank)}
           >
             #{displayMetadata.sensitivityRank}
           </span>
