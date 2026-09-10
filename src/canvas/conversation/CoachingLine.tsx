@@ -92,6 +92,7 @@ import { guidanceCategoryIcon } from '../stores/guidanceStore'
 import { STRENGTHEN_COPY } from '../../components/results/strengthen/strengthenCopy'
 import { isPinnedBlock, isPointCandidate } from './messageComposition'
 import { ICON_STATUS } from './panelIcons'
+import { reviewSeverityVisual, type ReviewSeverity } from '../../v5/blocks/reviewCardSeverity'
 import type { ConversationBlock } from './types'
 import styles from './Conversation.module.css'
 
@@ -127,6 +128,24 @@ function blockCategory(block: ConversationBlock): CoachingCategory | null {
 }
 
 /**
+ * The producer's review SEVERITY, where this block type carries one at all.
+ *
+ * ⚠ A REVIEW CARD HAS NO `category` AND A COACHING BLOCK HAS NO `severity` —
+ * they are different taxonomies from different producers, and `blockCategory`
+ * above returns null for every review card. #1450 read only the category, so
+ * every review card collapsed to the same `Lightbulb`/`text-info` and the
+ * turn's `warning` card was flattened into the `info`s around it. Read the
+ * channel the block actually carries.
+ */
+function blockReviewSeverity(block: ConversationBlock): ReviewSeverity | null {
+  if ((block as { type?: unknown }).type !== 'v5_review_card') return null
+  const severity = (block as { severity?: unknown }).severity
+  return severity === 'info' || severity === 'warning' || severity === 'critical'
+    ? severity
+    : null
+}
+
+/**
  * May this block render as a line?
  *
  * Three producer facts, all of which must hold: it is NOT pinned (consent and
@@ -149,9 +168,15 @@ export interface CoachingLineProps {
 export function CoachingLine({ block, children }: CoachingLineProps) {
   const title = collapsibleTitle(block)
   const category = blockCategory(block)
-  // `guidanceCategoryIcon` is the estate's single authority on which glyph a
-  // severity carries; re-deriving one here would be a second mirror to keep.
-  const { Icon, tintClass } = guidanceCategoryIcon(category ?? undefined)
+  const severity = blockReviewSeverity(block)
+  // TWO producer channels, one per block family, each resolved by ITS OWN
+  // single authority — `guidanceCategoryIcon` for a coaching block's category,
+  // `reviewSeverityVisual` for a review card's severity. Re-deriving either
+  // here would be a second mirror to keep; reading only one of them is the
+  // #1450 defect this replaces.
+  const { Icon, tintClass } = severity
+    ? reviewSeverityVisual(severity)
+    : guidanceCategoryIcon(category ?? undefined)
 
   // Fail closed: no usable producer title, no line. The caller renders the
   // block's own full card instead.

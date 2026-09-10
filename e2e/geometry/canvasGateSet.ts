@@ -485,6 +485,24 @@ export const DELIBERATE_EXCLUSIONS: readonly DeliberateExclusion[] = [
       '(CLAUDE.md trap 13c). Rowed in the PR.',
   },
   {
+    what: 'coachingLineDensity.measure.ts (3 cells, ~43s) — the compact coaching line (#1450)',
+    why:
+      'Same claim-type test: `grep -c \'expect(\' ` returns 0. It emits two `COACHJSON {...}` ' +
+      'lines and two photographs and asserts nothing about them, so gating it would add an arm ' +
+      'that cannot go red for a product reason. ⭐ ITS FINDINGS ARE GATED ELSEWHERE, WHICH IS WHY ' +
+      'EXCLUDING IT COSTS NOTHING: the defect it caught — a `v5_review_card` collapsing to the ' +
+      'same `Lightbulb`/`text-info` as every other severity, because the line read `category` ' +
+      'and a review card carries `severity` — is pinned by ' +
+      '`coachingLineSeverityChannel.spec.tsx` in the main suite, built from the same dated ' +
+      'capture through the same shipped adapter. What only this file can do is the part jsdom ' +
+      'cannot: report that three top-level points cost 476px as cards and 101px as lines, that ' +
+      'no title clips at the real 416px dock width, and — by PHOTOGRAPH — that no disclosure ' +
+      'triangle is drawn. That last one is why the photo exists: ' +
+      '`getComputedStyle(summary, \'::-webkit-details-marker\')` reported a marker on all three ' +
+      'lines, and it is a legacy pseudo this engine does not implement, so the query answered ' +
+      'about the element. A reading no assertion should ever be built on.',
+  },
+  {
     what: 'canonicalGeometry.measure.ts (15 cells, 44.8s), overlapSequence.measure.ts, threadAutoScroll.measure.ts, nodeMarkCensus.measure.ts (31.7s)',
     why:
       'Same claim-type test. Each says so in its own header — "a MEASUREMENT instrument, not a ' +

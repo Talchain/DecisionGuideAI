@@ -27,11 +27,11 @@
  *     (next round), not invented here.
  */
 import { type ReactElement } from 'react'
-import { AlertTriangle, Lightbulb } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { TargetRefPill } from '../../canvas/conversation/components/TargetRefPill'
 import { resolveFreshnessNotice } from './coachingCurrency'
 import { useCoachingCurrency } from './useCoachingCurrency'
+import { reviewSeverityVisual } from './reviewCardSeverity'
 import type { V5ReviewCardBlock as V5ReviewCardBlockType } from '../../canvas/conversation/types'
 
 export interface V5ReviewCardBlockProps {
@@ -40,20 +40,14 @@ export interface V5ReviewCardBlockProps {
   suppressHeader?: boolean
 }
 
-const SEVERITY_BORDER: Record<V5ReviewCardBlockType['severity'], string> = {
-  info: 'border-info/30',
-  warning: 'border-warning/30',
-  critical: 'border-danger/30',
-}
-
-const SEVERITY_ICON_COLOUR: Record<V5ReviewCardBlockType['severity'], string> = {
-  info: 'text-info',
-  warning: 'text-warning',
-  critical: 'text-danger',
-}
+// The severity→glyph/tint/border mapping moved to `./reviewCardSeverity` when
+// the collapsed coaching line became a SECOND surface that draws a review card
+// (#1450 shipped without it and flattened every severity to info). Copying the
+// two consts across would have been a hand-maintained mirror; this card now
+// consumes the same resolver the line does.
 
 export function V5ReviewCardBlock({ block, suppressHeader = false }: V5ReviewCardBlockProps): ReactElement {
-  const Icon = block.severity === 'info' ? Lightbulb : AlertTriangle
+  const { Icon, tintClass, borderClass } = reviewSeverityVisual(block.severity)
   /*
     THE UNCERTAINTY CHANNEL — #670's mechanism, consumed through the shared
     seam (`useCoachingCurrency` → `deriveCoachingCurrency`; see those modules
@@ -70,13 +64,13 @@ export function V5ReviewCardBlock({ block, suppressHeader = false }: V5ReviewCar
       data-severity={block.severity}
       data-freshness={block.freshness}
       data-currency={currency}
-      className={`rounded-md border ${SEVERITY_BORDER[block.severity]} bg-panel p-4 space-y-2`}
+      className={`rounded-md border ${borderClass} bg-panel p-4 space-y-2`}
     >
       {!suppressHeader && (
         <div className="flex items-start gap-2">
           <Icon
             size={16}
-            className={`flex-none mt-0.5 ${SEVERITY_ICON_COLOUR[block.severity]}`}
+            className={`flex-none mt-0.5 ${tintClass}`}
             aria-hidden="true"
           />
           <h3 className={typography.panelHeader} data-testid="v5-review-card-title">
