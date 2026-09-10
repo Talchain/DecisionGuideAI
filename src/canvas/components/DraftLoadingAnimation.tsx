@@ -8,7 +8,7 @@
  * Stages:
  *   0–20 s  "Drafting your decision model…"
  *  20–45 s  "Still drafting your decision model…"
- *  45 s+    "Still drafting — complex decisions can take a while…"
+ *  45 s+    "Still drafting. Complex decisions can take a while…"
  *
  * ── ROADMAP 1.204 M1-L2: this table used to be a wall-clock fiction ───────
  * It previously claimed internal pipeline phases off a timer ("Mapping
@@ -81,7 +81,7 @@ import { typography } from '../../styles/typography'
 export const PROGRESSIVE_STAGES = [
   { afterSeconds: 0,  message: 'Drafting your decision model…' },
   { afterSeconds: 20, message: 'Still drafting your decision model…' },
-  { afterSeconds: 45, message: 'Still drafting — complex decisions can take a while…' },
+  { afterSeconds: 45, message: 'Still drafting. Complex decisions can take a while…' },
 ] as const
 
 /**
