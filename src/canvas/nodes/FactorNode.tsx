@@ -799,10 +799,31 @@ export const FactorNode = memo((props: NodeProps) => {
           <div className={`${typography.edgeLabel} mt-0.5 text-text-light`}>{priorRangeDisplay}</div>
         )}
 
-        {/* Pre-analysis: edge pills (entity shape + strength %) — shown for both
-            high- and low-priority factors per wireframe v4 FactorLowPre. They are
-            the structural cue that conveys relative influence pre-analysis. */}
-        {!isPostAnalysis && !needsInput && (
+        {/* ⭐⭐ EDGE PILLS — DIRECTION + STRENGTH + TARGET, AND THEY NO LONGER
+            VANISH WHEN THE RESULT ARRIVES.
+            This was `!isPostAnalysis && !needsInput`. So the moment an analysis
+            completed, the card stopped saying that Pro Plan Price LOWERS churn
+            and RAISES revenue — the only place the causal direction of an edge
+            is visible on the card face. Layer 2 swaps to influence/confidence
+            bars, and its `ConnRow` list is post-analysis, capped at 3, and
+            reached only in the detailed view. So the standard-view card lost
+            direction entirely.
+            ⚠ THE TWO ARE NOT SUBSTITUTES AND THAT IS THE WHOLE POINT. A pill
+            says what this factor DOES to a named target; an influence bar says
+            how much it MATTERS. Trading one for the other at exactly the moment
+            the user has most reason to read the model as a causal story is the
+            same phase-swap defect as the option cards (#1413), one node kind
+            over.
+            ⚠ AND `!isDetailed` POST-ANALYSIS: the expert view's "Influences:"
+            ConnRow list already carries these targets with more detail, so
+            un-gating naively duplicated them — measured, it broke the
+            containment case in `FactorNode.spec.tsx`. The repair is scoped to
+            the STANDARD view, the one that had no substitute.
+            ⚠ `!needsInput` IS DELIBERATELY KEPT. A factor with no value has no
+            honest strength to announce — `EdgePills` already refuses to render
+            a pill whose edge carries only `USER_EDGE_DEFAULTS`, and this gate is
+            the same refusal one level up. Removing it would invent numbers. */}
+        {!needsInput && (!isPostAnalysis || !isDetailed) && (
           <EdgePills nodeId={props.id} />
         )}
 
