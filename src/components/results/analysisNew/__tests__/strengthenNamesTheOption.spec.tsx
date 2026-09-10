@@ -46,7 +46,7 @@
 
 import '@testing-library/jest-dom/vitest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup, within } from '@testing-library/react'
 import { StrengthenTheReasoning } from '../sections/StrengthenTheReasoning'
 import { buildStrengthenInputsForAnalysisNew } from '../buildStrengthenInputsForAnalysisNew'
 import { buildRecommendations } from '../../strengthen/buildRecommendations'
@@ -114,6 +114,25 @@ const challengeRec = (data: ResultsSectionDataReturn): Recommendation[] =>
     }),
   ).filter((r) => r.id === 'strengthen:robustness')
 
+/**
+ * ⚠ THE SECTION HEADER SHARES THE ROW'S `data-testid`. The collapsible header
+ * renders "Strengthen the reasoning" under `analysis-new-strengthen-title` and
+ * every row renders its own title under the SAME id, so an unscoped
+ * `getByTestId` matches two elements and throws before one assertion runs.
+ * Scope to the ROW, selected by its register id — the identity binding this
+ * file already uses to pick the recommendation, and the pattern
+ * `theFocusCardReferencesRatherThanReprints.spec.tsx` established. Nothing is
+ * relaxed by this: both the presence and the absence assertions below still
+ * read the same rendered strings, now provably from the challenge row.
+ */
+const challengeRow = (): HTMLElement => {
+  const row = screen
+    .getAllByTestId('analysis-new-strengthen-item')
+    .find((r) => r.getAttribute('data-recommendation-id') === 'strengthen:robustness')
+  expect(row, 'the challenge row did not render — every assertion below is vacuous').toBeTruthy()
+  return row as HTMLElement
+}
+
 /** Open the collapsed section, exactly as the sibling specs do. */
 const renderOpen = (interventions: Recommendation[]) => {
   render(<StrengthenTheReasoning interventions={interventions} />)
@@ -137,18 +156,19 @@ describe('the challenge recommendation names the designated option', () => {
     // vacuous — an absent card contains no wrong sentence either.
     expect(recs, 'the challenge trigger did not fire on this fixture').toHaveLength(1)
     renderOpen(recs)
+    const row = challengeRow()
 
-    expect(screen.getByTestId('analysis-new-strengthen-title')).toHaveTextContent(
+    expect(within(row).getByTestId('analysis-new-strengthen-title')).toHaveTextContent(
       'Pressure-test Extend the current contract',
     )
-    expect(screen.getByTestId('analysis-new-strengthen-try')).toHaveTextContent(
+    expect(within(row).getByTestId('analysis-new-strengthen-try')).toHaveTextContent(
       'Build the strongest case against Extend the current contract and see what survives.',
     )
     // THE DISCRIMINATION: the option that was NOT designated is not the subject.
-    expect(screen.getByTestId('analysis-new-strengthen-title')).not.toHaveTextContent(
+    expect(within(row).getByTestId('analysis-new-strengthen-title')).not.toHaveTextContent(
       'Modernise the platform',
     )
-    expect(screen.getByTestId('analysis-new-strengthen-try')).not.toHaveTextContent(
+    expect(within(row).getByTestId('analysis-new-strengthen-try')).not.toHaveTextContent(
       'Modernise the platform',
     )
   })
@@ -157,17 +177,18 @@ describe('the challenge recommendation names the designated option', () => {
     const recs = challengeRec(runDesignating(OPTION_B))
     expect(recs, 'the challenge trigger did not fire on this fixture').toHaveLength(1)
     renderOpen(recs)
+    const row = challengeRow()
 
-    expect(screen.getByTestId('analysis-new-strengthen-title')).toHaveTextContent(
+    expect(within(row).getByTestId('analysis-new-strengthen-title')).toHaveTextContent(
       'Pressure-test Modernise the platform',
     )
-    expect(screen.getByTestId('analysis-new-strengthen-try')).toHaveTextContent(
+    expect(within(row).getByTestId('analysis-new-strengthen-try')).toHaveTextContent(
       'Build the strongest case against Modernise the platform and see what survives.',
     )
-    expect(screen.getByTestId('analysis-new-strengthen-title')).not.toHaveTextContent(
+    expect(within(row).getByTestId('analysis-new-strengthen-title')).not.toHaveTextContent(
       'Extend the current contract',
     )
-    expect(screen.getByTestId('analysis-new-strengthen-try')).not.toHaveTextContent(
+    expect(within(row).getByTestId('analysis-new-strengthen-try')).not.toHaveTextContent(
       'Extend the current contract',
     )
   })
