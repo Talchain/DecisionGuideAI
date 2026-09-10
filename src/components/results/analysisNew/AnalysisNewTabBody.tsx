@@ -67,6 +67,7 @@ import { WhatIWasGivenSection } from '../contextIntegrity/WhatIWasGivenSection'
 import { ModelStrip } from './sections/ModelStrip'
 import { AtAGlance } from './sections/AtAGlance'
 import { ModelHeldUp } from './sections/ModelHeldUp'
+import { RobustnessCaveat } from './sections/RobustnessCaveat'
 import { DecisionRecorded } from './sections/DecisionRecorded'
 import { WhatWeChecked } from './sections/WhatWeChecked'
 import { OptionsComparison } from './sections/OptionsComparison'
@@ -996,6 +997,25 @@ export function AnalysisNewTabBody({
               : null
           }
           onRunIntervention={runIntervention}
+        />
+        {/* ⭐⭐ THE PRODUCER'S OWN SENTENCE ABOUT HOW FAR THE RANKING HELD —
+            reachable on this tab for the first time. `robustness_caveat` rides
+            `results.report.decision_brief`, which the browser already holds; it
+            had exactly one consumer estate-wide and that consumer mounts only on
+            the parked tab.
+
+            ⚠⚠ GATED ON THE LEADER AUTHORITY, REQUIRED AND NEVER DEFAULTED. It is
+            a LEADER-RANKING member: CEE strips it on a withheld turn, so its
+            presence must never be read as licence to speak about a ranking. The
+            value is quoted from the view model's single call, not re-derived.
+
+            ⚠ AND HANDED THE VERDICT SENTENCE ALREADY ON SCREEN, so it cannot say
+            the same thing twice — the defect `ModelHeldUp` records having shipped
+            when it quoted `display_verdict_reason` beside a glance that already
+            did. Different wire fields, but the reader sees only the words. */}
+        <RobustnessCaveat
+          leaderClaimPermitted={vm.leaderClaimPermitted}
+          verdictReason={vm.atAGlance.verdict?.reason ?? null}
         />
 
         {/* ── THE MODEL HELD UP ─────────────────────────────────────────────

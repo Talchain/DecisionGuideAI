@@ -2694,6 +2694,16 @@ export function buildAnalysisNewViewModel(
 
   return {
     status: buildStatus(inputs),
+    /**
+     * ⭐ ONE CALL, QUOTED — never re-derived by a consumer. `=== true` because
+     * the predicate is three-valued: `undefined` means the authority could not
+     * answer, and an `undefined` that coerces to "permitted" is exactly the
+     * fail-OPEN default this seam has been burned by before.
+     *
+     * ⚠ PRE-RUN IS `false`, and that is not a special case: before a run there
+     * is no ranking to speak about, so nothing gated on this may render.
+     */
+    leaderClaimPermitted: preRun ? false : leaderDesignationPermitted(data.recommendation) === true,
     atAGlance: preRun
       ? { headline: null, designationWithheldReason: null, designationWithheldRemedy: null, leaderLabel: null, winShare: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, inputProvenance: null }
       : glance,
