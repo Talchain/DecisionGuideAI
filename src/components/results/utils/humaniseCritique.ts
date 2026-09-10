@@ -261,10 +261,44 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // The fix is deliberately the smallest one that closes it — the ratified
   // title and the ratified suggestion, both VERBATIM, joined so the remedy is
   // on the surface that renders. No approved wording is rewritten here.
+  //
+  // ⚠⚠ AND THAT REMEDY WAS A FALSE PRESCRIPTION — INSTRUCTION REMOVED, and the
+  // two paragraphs above are left as said because they record why it was put
+  // there. "State the current level for your goal" told the user to do
+  // something the product gives them NO WAY TO DO. Measured at UI `staging`
+  // 67b04e5b: `GoalPanel.tsx` (881 lines) holds ZERO `observed_state`
+  // references — contrast control in the same sweep, 31 hits for `target`, so
+  // the zero is real absence and not a blind instrument — and
+  // `GoalThresholdEditor.tsx` (105 lines) holds zero too, contrast 6: it is a
+  // TARGET editor only. The canvas projection's one `observed_state` writer
+  // (`readinessStore.ts:379`) is gated `nodeKind === 'factor'` and emits
+  // `value`/`raw_value`, never `baseline` and never for the goal. Worse, the
+  // starter drafts' own `fix_hint` points at the goal node's
+  // `observed_state.value` — precisely the field ISL refuses, on the stated
+  // grounds that repurposing "the current observed value" would be a second
+  // unattested frame assumption.
+  //
+  // ⭐ THE TWO FACTS STAY; THE INSTRUCTION GOES. The old wording also invited
+  // the WRONG reading — "we could not find your target" — when ISL's resolver
+  // is fail-closed (`if threshold is None: return None, None`), so NO threshold
+  // means SILENCE, not this warning. This warning firing is positive evidence
+  // the target DID arrive. So the copy now states the capture as a fact and the
+  // withhold as a fact, and prescribes nothing: an instruction that cannot be
+  // followed is worse than no instruction, and inventing a different one would
+  // just move the lie.
+  //
+  // → ROADMAP 2.281 is the missing producer: nothing writes the goal node's
+  //   `observed_state.baseline`. WHEN 2.281 LANDS AND A GOAL CURRENT-LEVEL
+  //   EDITOR EXISTS, THE INSTRUCTION BECOMES LEGITIMATE AND SHOULD COME BACK.
+  //   `goalThresholdNoUnreachableInstruction.spec.ts` pins the absence TO ITS
+  //   REASON rather than to a literal, so it REDs the day a goal editor gains
+  //   an `observed_state` writer — that red is the signal to restore it, not a
+  //   regression. No flag, no second code path, and the withhold gate itself is
+  //   untouched.
   GOAL_THRESHOLD_NOT_CONVERTIBLE: () => ({
-    title: "Your goal's target couldn't be measured for this run. State the current level for your goal.",
-    description: 'The target couldn\'t be compared with where the goal stands today — for example when no current level is recorded for it — so goal-fit results were withheld rather than guessed.',
-    suggestion: 'State the current level for your goal',
+    title: "Your goal's target was recorded, but this run couldn't measure fit against it, so goal-fit results were withheld rather than guessed.",
+    description: "Your target was captured. What this run couldn't do is compare it with where the goal stands today — for example when no current level is recorded for the goal — so goal-fit results were withheld rather than guessed.",
+    // No suggestion: there is no action the user can take until ROADMAP 2.281.
   }),
   GOAL_THRESHOLD_FRAME_UNSPECIFIED: () => ({
     title: "Your goal's target could mean a level or a change. Restate the target as a level to reach or a change from your current level.",
