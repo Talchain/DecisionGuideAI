@@ -111,11 +111,37 @@ import type {
   ModelImplication,
   ChecksCode,
   ChecksState,
+  GlanceWithheldRemedy,
 } from './analysisNewTypes'
 // ⚠ THE OWNER'S EXPORTED PREDICATE, NOT A LOCAL `gaps.every(...)`. Its contract
 // is explicit that an empty list returns `false` on purpose, because "no gaps"
 // is a different question — see `buildChecks`.
 import { everyEvidenceGapAddressed } from '../utils/evidenceGapConfidenceDisplay'
+
+/**
+ * ⭐⭐ THE ADMISSION CAUSES WHOSE SENTENCE NAMES AN ESTIMATE AS THE REMEDY.
+ *
+ * The `permitted_analysis_mode` reason `code`s for which "review or set an
+ * estimate" is the act the producer's own sentence asks for. Every other cause
+ * that can occupy that slot names a different object, names no act at all, or is
+ * not a refusal — see the long note at the single use site below for the full
+ * six-way derivation, the measured (field, code) hazard, and why this is an
+ * allowlist rather than a prefix test.
+ *
+ * ⛔ NOT A DENYLIST AND NOT A PREFIX. `USER_STATED_PARAMETERS_NOT_MATERIAL`
+ * carries no `CONFIDENCE_PARAMETERS_` prefix and IS an estimate refusal, while
+ * `CONFIDENCE_PARAMETERS_PARTLY_USER_STATED` carries the prefix and is a
+ * LICENCE. A prefix test gets both of those backwards.
+ *
+ * Derived at CEE `staging` `8449e54e`; NOT importable — `analysis_admission` is
+ * absent from `@talchain/schemas` 0.54.0 and CEE types `code` as `z.string()`.
+ * Adding a member here is a claim about a producer sentence in another repo, so
+ * read that sentence first and pin it in `withheldReasonHasAMove.spec.tsx`.
+ */
+const ESTIMATE_REMEDY_ADMISSION_CAUSES: ReadonlySet<string> = new Set([
+  'CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED',
+  'USER_STATED_PARAMETERS_NOT_MATERIAL',
+])
 
 /**
  * §2 of the brief: "a very small number of high-value insights".
@@ -1697,10 +1723,88 @@ function buildAtAGlance(
   // ⛔ NOT `leaderDesignationPermitted(rec) !== true`. That is `Q1 && Q2`, so it
   // is also false when the ARMS did not separate — and this sentence would then
   // assert a model refusal the producer never made.
-  const designationWithheldReason =
+  //
+  // ⚠ THE CONJUNCT OBJECT IS FOUND ONCE, AND BOTH FIELDS BELOW COME OFF IT.
+  // `designationWithheldReason` is the sentence shown; `designationWithheldRemedy`
+  // says what that SAME sentence prescribes. Finding the reason twice would be
+  // two readers of one question, which is how a surface ends up offering an act
+  // that answers a different sentence than the one above it (trap 21).
+  const designationWithheldConjunct =
     licensesComparativeLeaderClaim(rec.analysisAdmission) === false
-      ? (rec.analysisAdmission?.reasons?.find((r) => r?.field === 'permitted_analysis_mode')
-          ?.message?.trim() ?? null) || null
+      ? (rec.analysisAdmission?.reasons?.find((r) => r?.field === 'permitted_analysis_mode') ??
+        null)
+      : null
+
+  const designationWithheldReason = (designationWithheldConjunct?.message?.trim() ?? null) || null
+
+  // ── WHAT THE REFUSAL ABOVE ACTUALLY ASKS THE USER TO GO AND DO ─────────────
+  //
+  // ⭐⭐ THE MODE IS NOT THE REMEDY, AND NEITHER IS `field`. Every mode other than
+  // `comparative_leader` withholds the designation, so ONE sentence slot carries
+  // several distinct producer refusals — and only some of them name an ESTIMATE as
+  // the thing to go and fix. Offering "review or set an estimate" under the others
+  // prescribes a futile act: setting a factor estimate cannot invent a second
+  // option or clear a structural blocker. CEE built this split for exactly that
+  // reason (`analysis-admission.ts:833-836`): "a refusal that misnames its own
+  // cause is worse than a silent one: it tells the user to fix something that is
+  // not wrong." A UI that offers one fixed act under all causes collapses the
+  // split back to one.
+  //
+  // Derived at CEE `staging` `8449e54e`, `analysis-admission.ts` (`SEMANTIC_REASON`
+  // :945-968 x `MODE_REASON` :979-995, pushed at :1131-1134), TWICE and
+  // independently — a static read of both tables, and a runtime probe over 29
+  // graph members (8 purpose-built topologies, 5 synthetic, 16 real captures).
+  // Six codes are type-reachable in this slot:
+  //
+  //   ESTIMATE   CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED   "…until you have set
+  //              at least one of them"                         → the act applies
+  //   ESTIMATE   USER_STATED_PARAMETERS_NOT_MATERIAL          "…until you have set a
+  //              value on a factor one of the options changes" → the act applies
+  //   OPTION     NOTHING_TO_COMPARE        "Name at least two different options…"
+  //   NO ACT     MODEL_HAS_BLOCKERS        "This model cannot be analysed yet."
+  //   NO ACT     NO_COMPARISON_SUBSTRATE   "Nothing in this model connects the
+  //              options to your goal" — a diagnosis, naming no imperative.
+  //              ⚠ TYPE-reachable, MEASURED-ABSENT: 8 topologies built to force it
+  //              all collapsed to `none`. Handled anyway; never assumed dead.
+  //   LICENCE    CONFIDENCE_PARAMETERS_PARTLY_USER_STATED — NOT a refusal at all.
+  //              ⚠ THE SLOT IS PUSHED ON EVERY VERDICT, not only refusals, so this
+  //              code occupies it whenever the mode IS `comparative_leader`. It is
+  //              excluded here by `licensesComparativeLeaderClaim` above, which is
+  //              why that gate must stay in front of this one.
+  //
+  // ⛔⛔ MATCH ON (field, code) — NEVER ON CODE ALONE, AND THIS IS MEASURED, NOT
+  // THEORETICAL. The two ESTIMATE codes ALSO ride the `semantic_quality_sufficient`
+  // reason, which CEE pushes unconditionally (`:1124-1128`). A graph measured in the
+  // probe carries `NOTHING_TO_COMPARE` in THIS slot while its
+  // `semantic_quality_sufficient` reason carries ALL_MACHINE_AUTHORED — so a search
+  // across `reasons[]` for an estimate code would offer "set an estimate" to a user
+  // whose actual next move is "name two different options". The `find` above binds
+  // by `field` FIRST and this reads `code` off THAT SAME object, so the two cannot
+  // come from different conjuncts.
+  //
+  // ⛔ A POSITIVE ALLOWLIST, FAIL-CLOSED, AND THAT DIRECTION IS THE WHOLE POINT. An
+  // unrecognised or absent `code` yields `null`, so the surface renders the
+  // producer's sentence ALONE. A cause CEE adds later loses the button until someone
+  // reads its sentence and decides which remedy it names — a gap, which is honest
+  // and visible. A denylist, a `CONFIDENCE_PARAMETERS_` PREFIX test, or defaulting
+  // to `'estimate'` would each hand a future cause an act chosen for a different
+  // one, which is the lie. ⚠ The prefix is especially tempting and especially wrong:
+  // it admits the LICENCE code and misses `USER_STATED_PARAMETERS_NOT_MATERIAL`,
+  // which carries no such prefix and IS an estimate refusal.
+  //
+  // ⚠ NOT DERIVABLE FROM THE CONTRACT. `analysis_admission` is absent from
+  // `@talchain/schemas` 0.54.0 altogether (derived: 0 hits in its `dist` against 8
+  // for `analysis_ready`), and CEE types `code` as a bare `z.string()`, so there is
+  // no enum to import and no schema-level guarantee. This list is a hand-written
+  // mirror of a producer in another repo, and trap 12d applies in full: it cannot
+  // prove its own completeness. `withheldReasonHasAMove.spec.tsx` therefore carries
+  // a CORPUS of the other reachable causes as opposite-direction twins. If CEE
+  // renames a cause the button goes quiet rather than wrong, and that spec says so.
+  const designationWithheldRemedy: GlanceWithheldRemedy | null =
+    designationWithheldReason !== null &&
+    designationWithheldConjunct?.code !== undefined &&
+    ESTIMATE_REMEDY_ADMISSION_CAUSES.has(designationWithheldConjunct.code)
+      ? 'estimate'
       : null
 
   // ── SCOPE: what does the win share range over? ────────────────────────────
@@ -1788,6 +1892,7 @@ function buildAtAGlance(
   return {
     headline,
     designationWithheldReason,
+    designationWithheldRemedy,
     leaderLabel: headline && leader ? leader.label : null,
     winShare,
     winFraction,
@@ -2590,7 +2695,7 @@ export function buildAnalysisNewViewModel(
   return {
     status: buildStatus(inputs),
     atAGlance: preRun
-      ? { headline: null, designationWithheldReason: null, leaderLabel: null, winShare: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, inputProvenance: null }
+      ? { headline: null, designationWithheldReason: null, designationWithheldRemedy: null, leaderLabel: null, winShare: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, inputProvenance: null }
       : glance,
     // ⚠ GATED PRE-RUN LIKE EVERY OTHER RUN-DERIVED SECTION. The option NODES
     // exist before any analysis, but "how the options compare" is a reading OF

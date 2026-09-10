@@ -682,9 +682,30 @@ export function AtAGlance({
               same reason; inventing one would be a deep link to an arbitrary
               row dressed as the answer.
 
-              ⚠ FAIL-CLOSED. No handler, no button — the same pre-gate the
-              ribbon control above uses, and for the same stated reason. */}
-          {onReviewEstimates ? (
+              ⛔⛔ AND IT IS GATED ON THE CAUSE, NOT JUST ON THE HANDLER —
+              THIS IS THE HALF THAT MAKES THE ACT TRUE. Every mode other than
+              `comparative_leader` withholds the designation, so the sentence
+              above is one of SEVERAL producer refusals, and only two of them
+              name an estimate. The others say "Name at least two different
+              options you are weighing", or "This model cannot be analysed
+              yet". Offering "review or set an estimate" under those takes the
+              reader to Factors to do something that cannot lift the refusal —
+              a futile instruction under a true sentence, which is worse than
+              the sentence alone, because it spends trust the refusal just
+              earned. `glance.designationWithheldRemedy` is `'estimate'` only
+              for the two causes whose own words ask for one, fail-closed on
+              every other and on an unrecognised one. Its corpus, including the
+              opposite-direction twins, is in
+              `withheldReasonHasAMove.spec.tsx`.
+
+              ⚠ FAIL-CLOSED TWICE OVER, AND THE TWO HALVES ANSWER DIFFERENT
+              QUESTIONS — do not fold them. The handler asks "can this host
+              route anywhere?"; the remedy asks "does the sentence above ask
+              for an estimate?". A host with nowhere to send the user and a
+              refusal that names an option are both reasons to render the
+              sentence alone, but they are not the same reason, and collapsing
+              them would put one predicate where two belong. */}
+          {onReviewEstimates && glance.designationWithheldRemedy === 'estimate' ? (
             <button
               type="button"
               onClick={onReviewEstimates}

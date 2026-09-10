@@ -82,6 +82,148 @@ const CAPTURED_REFUSAL = {
   ],
 }
 
+/**
+ * ⭐⭐⭐ THE OTHER CAUSES THAT REACH THE SAME SENTENCE SLOT — the corpus, and the
+ * reason this file is no longer a guard agreeing with itself.
+ *
+ * `CAPTURED_REFUSAL` above is ONE cell. The slot it fills is the
+ * `permitted_analysis_mode` reason, and CEE pushes that reason on EVERY verdict,
+ * so six distinct codes can occupy it — of which only TWO name an estimate as the
+ * remedy. A corpus containing only the cell the act was written for would pass
+ * while the act was wrong for four of the others: trap 22, the corpus omitting a
+ * class the contract admits.
+ *
+ * ── PROVENANCE, AND ITS HONEST SCOPE ──────────────────────────────────────────
+ * These are the producer's own strings, read at CEE `staging` `8449e54e`,
+ * `src/orchestrator-v5/admission/analysis-admission.ts` — `SEMANTIC_REASON`
+ * (:945-968) and `MODE_REASON` (:979-995), pushed at :1131-1134. Derived twice and
+ * independently: a static read of both tables, and a runtime probe over 29 graph
+ * members (8 purpose-built topologies, 5 synthetic, 16 real captures) which
+ * witnessed five of the six live.
+ *
+ * ⚠ WHAT THAT IS AND IS NOT. It is a derivation from the PRODUCER, which is the
+ * standard these sentences must be held to — a stand-in written here would encode
+ * this author's model of CEE rather than CEE (trap 16-inverse: a fixture you wrote
+ * yourself is not evidence about the wire). It is NOT a live wire capture of each
+ * cell on `staging--olumi.netlify.app`; only `ALL_MACHINE_AUTHORED` has one, in
+ * `cee-normal-start-graphless-fallback-wire-20260907.json`. So these pin THE UI'S
+ * TREATMENT of each producer cause, not that every cause has been seen on the wire.
+ *
+ * ⚠ `Olumi’s` IS U+2019, NOT AN ASCII APOSTROPHE, in the producer's user-facing
+ * strings (verified at the bytes). These are copied, not retyped.
+ */
+const ADMISSION_BASE = {
+  structurally_analysable: true,
+  missing_important_inputs: [],
+  semantic_quality_sufficient: false,
+} as const
+
+/** Builds the slot under test, plus the affirmative conjunct the live wire sends. */
+const admissionWithModeReason = (
+  mode: string,
+  reason: { code?: string; message: string },
+  extraReasons: ReadonlyArray<{ field: string; code?: string; message: string }> = [],
+) => ({
+  ...ADMISSION_BASE,
+  permitted_analysis_mode: mode,
+  reasons: [
+    {
+      field: 'structurally_analysable',
+      code: 'READY_TO_COMPARE',
+      message: 'Analysis can run on this model as it stands.',
+    },
+    ...extraReasons,
+    { field: 'permitted_analysis_mode', ...reason },
+  ],
+})
+
+/**
+ * ⭐ THE SECOND ESTIMATE CAUSE — and the one a `CONFIDENCE_PARAMETERS_` PREFIX
+ * TEST SILENTLY LOSES. It carries no such prefix and it is unambiguously an
+ * estimate refusal ("until you have set a value on a factor…"), so the gate must
+ * be an explicit allowlist. This case is what discriminates the allowlist from the
+ * prefix shortcut; without it, the prefix version passes everything here.
+ */
+const REFUSAL_USER_STATED_NOT_MATERIAL = admissionWithModeReason(
+  'quantified_provisional',
+  {
+    code: 'USER_STATED_PARAMETERS_NOT_MATERIAL',
+    message:
+      'The values you have set sit outside what this comparison turns on, so every estimate behind it is still Olumi’s. Figures can be shown as provisional, but no option can be called the leader until you have set a value on a factor one of the options changes, or somewhere on the chain from there to your goal.',
+  },
+)
+
+/** ⛔ NAMES AN OPTION, NOT AN ESTIMATE. Factors cannot invent a second option. */
+const REFUSAL_NOTHING_TO_COMPARE = admissionWithModeReason('exploratory', {
+  code: 'NOTHING_TO_COMPARE',
+  message:
+    'There is nothing to compare yet, so no figures can be produced. Name at least two different options you are weighing.',
+})
+
+/** ⛔ NAMES NO ACT AT ALL — a pure diagnosis. An estimate cannot clear a blocker. */
+const REFUSAL_MODEL_HAS_BLOCKERS = admissionWithModeReason('none', {
+  code: 'MODEL_HAS_BLOCKERS',
+  message: 'This model cannot be analysed yet.',
+})
+
+/**
+ * ⛔ NAMES NO ACT; the missing object is a RELATIONSHIP, which Factors cannot add.
+ * ⚠ TYPE-REACHABLE BUT MEASURED-ABSENT in this slot: 8 topologies built to force
+ * it all collapsed to `none`. Pinned anyway — "we could not reach it" is not
+ * "it cannot happen", and the fail-closed branch must hold if it ever arrives.
+ */
+const REFUSAL_NO_COMPARISON_SUBSTRATE = admissionWithModeReason('quantified_provisional', {
+  code: 'NO_COMPARISON_SUBSTRATE',
+  message:
+    'Nothing in this model connects the options to your goal, so there is no comparison to draw a leader from.',
+})
+
+/**
+ * ⭐⭐⭐ THE MEASURED (field, code) TRAP, AND THE SHARPEST CASE IN THIS FILE.
+ *
+ * The two ESTIMATE codes ALSO ride the `semantic_quality_sufficient` reason, which
+ * CEE pushes unconditionally (`:1124-1128`). This payload is the shape the runtime
+ * probe actually measured: the mode slot says "name two different options" while a
+ * SIBLING conjunct carries `CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED`.
+ *
+ * A gate that searched `reasons[]` for an estimate code — rather than reading the
+ * code off the `permitted_analysis_mode` conjunct it is rendering — would offer
+ * "review or set an estimate" to a user whose actual next move is to name a second
+ * option. Every other test in this file passes under that defect. This one does not.
+ */
+const REFUSAL_OPTION_CAUSE_WITH_ESTIMATE_SIBLING = admissionWithModeReason(
+  'exploratory',
+  {
+    code: 'NOTHING_TO_COMPARE',
+    message:
+      'There is nothing to compare yet, so no figures can be produced. Name at least two different options you are weighing.',
+  },
+  [
+    {
+      field: 'semantic_quality_sufficient',
+      code: 'CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED',
+      message:
+        'Every estimate this comparison rests on is Olumi’s, not yours. Figures can be shown as provisional, but no option can be called the leader and no result can be called stable or robust until you have set at least one of them.',
+    },
+  ],
+)
+
+/**
+ * ⛔ A CAUSE THIS BUILD DOES NOT KNOW, and the absence arm. CEE types `code` as a
+ * bare `z.string()` with no published enum, so a renamed or newly-minted cause is
+ * a real deploy state rather than a hypothetical — and a pre-`code` producer is
+ * the reason the field is optional. Both must lose the act, not inherit one.
+ */
+const REFUSAL_UNRECOGNISED_CODE = admissionWithModeReason('quantified_provisional', {
+  code: 'SOME_CAUSE_MINTED_AFTER_THIS_BUILD',
+  message: 'A sentence this build has never seen, refusing for a reason it cannot classify.',
+})
+
+const REFUSAL_NO_CODE_AT_ALL = admissionWithModeReason('quantified_provisional', {
+  message:
+    'Every estimate this comparison rests on is Olumi’s, not yours. Figures can be shown as provisional, but no option can be called the leader and no result can be called stable or robust until you have set at least one of them.',
+})
+
 const withAdmission = (
   data: ResultsSectionDataReturn,
   admission: unknown,
@@ -177,6 +319,174 @@ describe('the withheld-designation sentence carries the act that answers it', ()
     renderGlance(data, { onReviewEstimates: vi.fn() })
     expect(screen.queryByTestId(SENTENCE)).not.toBeInTheDocument()
     expect(screen.queryByTestId(CONTROL)).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * ⭐⭐⭐ THE ACT MUST ANSWER THE SENTENCE IT SITS UNDER — the breadth of the render
+ * predicate, which is the half a single-cell corpus cannot see.
+ *
+ * The tests above establish that the control appears, is contained in the refusal
+ * block, fires its handler, and is absent without one. ALL OF THEM PASS while the
+ * control is offered under a refusal that asks for something else entirely,
+ * because all of them use one cell: `quantified_provisional` +
+ * `ALL_MACHINE_AUTHORED`. What would make every test pass while the property
+ * fails? Precisely that. So here is the rest of the slot's domain.
+ *
+ * ⛔ THE PROPERTY, STATED ONCE: the sentence is ALWAYS rendered — the refusal stays
+ * legible under every cause, which is the first half of this lane and must not
+ * regress — and the ACT is rendered ONLY where the producer's own words ask for an
+ * estimate. A cause that names an option, names no act, is unrecognised, or arrives
+ * without a code gets the sentence ALONE.
+ */
+describe('the act is offered only where the refusal asks for an estimate', () => {
+  /**
+   * Each row names the cause, the payload, and whether the act applies. The
+   * `expectAct` column is derived from the PRODUCER'S SENTENCE, not from the
+   * implementation — which is the whole point, since a mutant kit measures whether
+   * a test can detect a change and never whether the expectation is right
+   * (trap 13c). Read the `message` in each payload above and ask: can setting a
+   * factor estimate do what this sentence asks?
+   */
+  const CAUSES: ReadonlyArray<{
+    name: string
+    admission: unknown
+    expectAct: boolean
+    why: string
+  }> = [
+    {
+      name: 'CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED',
+      admission: CAPTURED_REFUSAL,
+      expectAct: true,
+      why: '"until you have set at least one of them" — an estimate is exactly the ask',
+    },
+    {
+      name: 'USER_STATED_PARAMETERS_NOT_MATERIAL',
+      admission: REFUSAL_USER_STATED_NOT_MATERIAL,
+      expectAct: true,
+      why: '"until you have set a value on a factor one of the options changes" — an estimate',
+    },
+    {
+      name: 'NOTHING_TO_COMPARE',
+      admission: REFUSAL_NOTHING_TO_COMPARE,
+      expectAct: false,
+      why: '"Name at least two different options" — Factors cannot invent an option',
+    },
+    {
+      name: 'MODEL_HAS_BLOCKERS',
+      admission: REFUSAL_MODEL_HAS_BLOCKERS,
+      expectAct: false,
+      why: '"This model cannot be analysed yet" — names no act an estimate could be',
+    },
+    {
+      name: 'NO_COMPARISON_SUBSTRATE',
+      admission: REFUSAL_NO_COMPARISON_SUBSTRATE,
+      expectAct: false,
+      why: 'the missing object is a relationship to the goal, not an estimate',
+    },
+    {
+      name: 'NOTHING_TO_COMPARE with an ESTIMATE code on a sibling conjunct',
+      admission: REFUSAL_OPTION_CAUSE_WITH_ESTIMATE_SIBLING,
+      expectAct: false,
+      why: 'the act must follow the rendered conjunct, never any estimate code in reasons[]',
+    },
+    {
+      name: 'a cause minted after this build',
+      admission: REFUSAL_UNRECOGNISED_CODE,
+      expectAct: false,
+      why: 'fail-closed: an unknown cause must not inherit another cause’s act',
+    },
+    {
+      name: 'no code at all (pre-code producer)',
+      admission: REFUSAL_NO_CODE_AT_ALL,
+      expectAct: false,
+      why: 'fail-closed on absence, even though this message IS the estimate sentence',
+    },
+  ]
+
+  /**
+   * ⭐ THE CORPUS MUST CONTAIN BOTH DIRECTIONS, AND THIS ASSERTS IT (trap 22b). A
+   * table that had drifted to all-negative would make every "no act" case below
+   * pass while proving nothing about the act ever appearing — and all-positive
+   * would be the original defect restored. A guard over a table needs the table
+   * pinned, or it is a guard over whatever the table happens to say today.
+   */
+  it('the corpus covers both directions, and spans the producer’s causes', () => {
+    expect(CAUSES.filter((c) => c.expectAct).length).toBeGreaterThanOrEqual(2)
+    expect(CAUSES.filter((c) => !c.expectAct).length).toBeGreaterThanOrEqual(5)
+    // The five codes measured live in the slot are all represented by name.
+    const named = CAUSES.map((c) => c.name).join(' ')
+    for (const code of [
+      'CONFIDENCE_PARAMETERS_ALL_MACHINE_AUTHORED',
+      'USER_STATED_PARAMETERS_NOT_MATERIAL',
+      'NOTHING_TO_COMPARE',
+      'MODEL_HAS_BLOCKERS',
+      'NO_COMPARISON_SUBSTRATE',
+    ]) {
+      expect(named, `the corpus lost its ${code} case`).toContain(code)
+    }
+  })
+
+  for (const { name, admission, expectAct, why } of CAUSES) {
+    it(`${name}: sentence always, act ${expectAct ? 'OFFERED' : 'WITHHELD'} — ${why}`, () => {
+      const data = withAdmission(decisionWithLeaderWithheld(), admission)
+
+      // ⚠ PRECONDITION PINNED IN-TEST. Every cause here must actually reach the
+      // refusal block; a payload that stopped withholding would make the
+      // control's absence below true for the wrong reason, and the case would
+      // pass by testing nothing (trap 13b).
+      const glance = glanceOf(data)
+      expect(glance.headline, `${name} stopped withholding the headline`).toBeNull()
+      expect(
+        glance.designationWithheldReason,
+        `${name} produced no refusal sentence, so this case proves nothing`,
+      ).toBeTruthy()
+
+      renderGlance(data, { onReviewEstimates: vi.fn() })
+
+      // The refusal stays LEGIBLE under every cause — the first half of this lane.
+      expect(screen.getByTestId(SENTENCE)).toBeInTheDocument()
+
+      if (expectAct) {
+        expect(glance.designationWithheldRemedy).toBe('estimate')
+        expect(screen.getByTestId(CONTROL)).toBeInTheDocument()
+      } else {
+        expect(glance.designationWithheldRemedy).toBeNull()
+        expect(
+          screen.queryByTestId(CONTROL),
+          `"Review or set an estimate" was offered under a refusal that asks for ` +
+            `something else (${name}). Setting an estimate cannot answer it, so the ` +
+            `act is futile under a true sentence — the harm CEE's cause split exists ` +
+            `to prevent.`,
+        ).not.toBeInTheDocument()
+      }
+    })
+  }
+
+  /**
+   * ⭐ THE OVER-SUPPRESSION TWIN, THROUGH THE TAB BODY. The gate added here could
+   * be satisfied by never rendering the act at all, and every negative case above
+   * would applaud. This is the positive direction end-to-end, so a fix that
+   * silenced the control entirely REDs rather than passing as a clean sweep.
+   */
+  it('still renders the act through the tab body on the second estimate cause', async () => {
+    render(
+      <AnalysisNewTabBody
+        resultsSectionData={withAdmission(
+          decisionWithLeaderWithheld(),
+          REFUSAL_USER_STATED_NOT_MATERIAL,
+        )}
+        isPreRun={false}
+        isRunning={false}
+        isStale={false}
+        responseHash="run_abc123"
+        canRunAnalysis
+        runBlockedReason={null}
+        onReviewEstimates={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId(SENTENCE)).toBeInTheDocument()
+    expect(screen.getByTestId(CONTROL)).toBeInTheDocument()
   })
 })
 
