@@ -258,6 +258,36 @@ export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
   // behaviour rather than about where bytes live.
   'The name and the value save to the shared model. Other edits here are not sent yet — links, details and coaching still work.'
 
+/**
+ * ⭐ THE EXTERNAL-FACTOR PANE, AND IT EXISTS SO THE THIRD PANEL CANNOT INHERIT
+ * THE SECOND'S SENTENCE.
+ *
+ * `InspectorRouter`'s own comment demanded this: the notice is keyed by panel
+ * type "so adding a third cannot silently inherit a sentence written about
+ * another surface", and the ternary there fell through to the OPTION string for
+ * any authority-owning pane that was not `factor-controllable`. A third panel
+ * added without this constant would have told the reader "the name saves" while
+ * the range saved too.
+ *
+ * What saves here: the name, and the prior RANGE. `setPriorRange` writes
+ * `data.prior` through `updateNode` (round trip pinned in
+ * `useAutosave.analysisFieldPersist.spec.ts`) and emits `prior_range_edit`.
+ *
+ * ⚠ IT CLAIMS NO EFFECT ON RESULTS, DELIBERATELY. PLoT's prior pass is gated
+ * four ways and one gate is silent: an `observed_state.value` present skips the
+ * prior with no warning, as do a non-external category, a non-uniform
+ * distribution and a degenerate range. "Your results will change" would be a
+ * third false sentence in a slot that has already shipped two, failing in
+ * opposite directions. This states the ROLE and the SAVE, never a per-run
+ * outcome.
+ *
+ * ⚠ AND IT LEAVES THE COMPLEMENT OPEN, for the same reason the controllable
+ * string does: `setDescription` has no carrier and stays fenced, and naming it
+ * as THE exception would be false the moment another fence is added.
+ */
+export const INSPECTOR_FACTOR_EXTERNAL_REASON =
+  'The name and the range save to the shared model. Other edits here are not sent yet. Links, details and coaching still work.'
+
 // ─── Node mutations ────────────────────────────────────────────────
 export function useNodeMutations(nodeId: string) {
   const updateNode = useCanvasStore(s => s.updateNode)

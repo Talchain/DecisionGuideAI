@@ -10,7 +10,7 @@ import { InspectorShell } from './InspectorShell'
 import { ConfidenceBadge } from './shared/ConfidenceBadge'
 import { TechnicalDisclosure } from './shared/TechnicalDisclosure'
 import { useTechToggle } from './useTechToggle'
-import { INSPECTOR_READ_ONLY_REASON, INSPECTOR_OPTION_READ_ONLY_REASON, INSPECTOR_FACTOR_CONTROLLABLE_REASON } from './useInspectorMutations'
+import { INSPECTOR_READ_ONLY_REASON, INSPECTOR_OPTION_READ_ONLY_REASON, INSPECTOR_FACTOR_CONTROLLABLE_REASON, INSPECTOR_FACTOR_EXTERNAL_REASON } from './useInspectorMutations'
 import { getTypeLabel, EDGE_TYPE_LABEL } from './inspectorStrings'
 import { resolveEdgeValueDisplay } from '../../domain/edgeValueProvenance'
 import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
@@ -335,19 +335,39 @@ export const InspectorRouter = memo(function InspectorRouter({
    * whether it reaches a carrier that survives the next server rehydrate —
    * never whether it sits next to one that does.
    *
-   * ⚠ OPT-IN, ONE PANEL, DELIBERATELY. Every other panel keeps the wrap below
-   * byte-for-byte. The question "does this control reach a mutation?" is
-   * answerable only inside the panel — in `OptionPanel` two buttons eighteen
-   * lines apart differ on it — so a Router-side allow-list would be a mirror of
-   * knowledge that lives elsewhere, which is this estate's most expensive
-   * defect class.
+   * ⭐ THIRD PANEL — `factor-external`, and again the reason is a CARRIER.
+   * `setPriorRange` writes `data.prior` through `updateNode` and the round trip
+   * is pinned in `useAutosave.analysisFieldPersist.spec.ts` (hash flips, the
+   * autosave fires, a real save→load rehydrates the value); it ALSO emits
+   * `prior_range_edit` to CEE. Built, wired, tested — and no user could operate
+   * it, because the blanket wrap below inerted the whole pane.
+   *
+   * ⛔ THIS IS NOT COSMETIC. `analyticalNodeFields.ts` records the consequence
+   * in terms: a factor's prior range is analysis-affecting, riding the V2
+   * adapter's passthrough to PLoT, and was "NOT user-editable today". The
+   * deployed product refuses an analysis when a factor is "recorded as a bare
+   * amount with no range", and then offered no control to supply one. A refusal
+   * that names a remedy the UI does not provide is a dead end wearing an
+   * explanation.
+   *
+   * ⚠ THIS COMMENT SAID "OPT-IN, ONE PANEL, DELIBERATELY" while the set below
+   * already held TWO. Corrected rather than extended: the rule was never a
+   * COUNT, it is a TEST — does this panel own a control that reaches a durable
+   * carrier, and will it fence the rest itself? Stating it as a number is how a
+   * doctrine comment drifts from the code beside it.
+   *
+   * Every panel NOT in the set keeps the wrap below byte-for-byte. The question
+   * "does this control reach a mutation?" is answerable only inside the panel —
+   * in `OptionPanel` two buttons eighteen lines apart differ on it — so a
+   * Router-side allow-list would be a mirror of knowledge that lives elsewhere,
+   * which is this estate's most expensive defect class.
    *
    * ⛔ AND THE PANEL DOES NOT GAIN AUTHORITY BY OPTING IN. It takes on the duty
    * of fencing its own writers, which `OptionPanel.readOnlyFence.spec.tsx`
    * asserts as a discriminating pair — every writer disabled AND every
    * non-writer enabled — so it cannot pass by fencing everything or nothing.
    */
-  const AUTHORITY_OWNING_PANELS = new Set<string>(['option', 'factor-controllable'])
+  const AUTHORITY_OWNING_PANELS = new Set<string>(['option', 'factor-controllable', 'factor-external'])
   const panelOwnsAuthority = panelType != null && AUTHORITY_OWNING_PANELS.has(panelType)
 
   // Typed as a TOTAL map over every NODE panel type (edge is handled by the
@@ -429,7 +449,9 @@ export const InspectorRouter = memo(function InspectorRouter({
           ? INSPECTOR_READ_ONLY_REASON
           : panelType === 'factor-controllable'
             ? INSPECTOR_FACTOR_CONTROLLABLE_REASON
-            : INSPECTOR_OPTION_READ_ONLY_REASON}
+            : panelType === 'factor-external'
+              ? INSPECTOR_FACTOR_EXTERNAL_REASON
+              : INSPECTOR_OPTION_READ_ONLY_REASON}
       </div>
       {/* ⭐⭐ KEYED BY NODE IDENTITY, AND IT IS A DEFECT FIX RATHER THAN A
           STYLE CHOICE. Without a key React reconciles the panel for node A onto

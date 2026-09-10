@@ -337,7 +337,7 @@ describe('FactorExternalPanel — the range control states its actual role', () 
 
     // … and NEITHER fires on the honest copy, which is the whole discrimination.
     const HONEST =
-      'This range is an analysis input, not a label: it is what the model treats as the factor’s plausible level. You cannot change it here yet, because this inspector is read-only.'
+      'This range is an analysis input, not a label: it is what the model treats as the factor’s plausible level. You can set it here.'
     expect(HONEST).not.toMatch(COMPUTE_PROMISE)
     expect(HONEST).not.toMatch(COMPUTE_DENIAL)
 
@@ -368,8 +368,15 @@ describe('FactorExternalPanel — the range control states its actual role', () 
       // distribution, degenerate range), so it must not appear here either.
       expect(noteText).not.toMatch(/will change your results|changes your results/i)
 
-      // Q2 — and it cannot be set on this surface.
-      expect(noteText).toMatch(/cannot change it here|read-only/i)
+      // Q2 — and it says the surface can now SET it, which is the half that
+      // changed when `factor-external` became an authority-owning panel. The
+      // note used to say "you cannot change it here yet"; that was true only
+      // while the Router's blanket inerted the control, and it went false the
+      // moment the panel started fencing itself. ⚠ Note what is still NOT
+      // claimed: that setting it changes results. PLoT's prior pass is gated
+      // four ways, so the per-run promise stays banned by the case above.
+      expect(noteText).toMatch(/you can set it here/i)
+      expect(noteText).not.toMatch(/cannot change it here|inspector is read-only/i)
 
       // Neither question may be answered with the OTHER's falsehood.
       expect(noteText).not.toMatch(COMPUTE_PROMISE)
@@ -655,20 +662,29 @@ describe('FactorExternalPanel — the coaching action is labelled for what it do
   })
 })
 
-describe('FactorExternalPanel — the read-only premise its copy leans on', () => {
+describe('FactorExternalPanel — the panel now owns its own fence', () => {
   /**
-   * ⚠ THIS BLOCK EXISTS BECAUSE THE CLAIM WAS ASSERTED AND NOT PINNED.
+   * ⛔ THIS BLOCK IS INVERTED FROM WHAT IT ASSERTED, AND THAT IS THE POINT.
    *
-   * The PR that introduced the denial wrote "A test pins this" about the
-   * read-only fieldset. Its spec rendered `FactorExternalPanel` directly and
-   * never touched a fieldset, so nothing in it could have observed the fieldset
-   * moving. The claim was true — `InspectorRouter.spec.tsx` pins it under
-   * "semantic controls fail closed without GraphV3 authority" — but a premise
-   * load-bearing for THIS panel's copy, pinned only in another file's suite,
-   * fails silently here the day that file changes.
+   * It previously pinned "routed live, the range control is INSIDE the disabled
+   * fieldset", because the panel's copy said "You cannot change it here yet".
+   * Both were true together and they have changed together: `factor-external`
+   * is now an AUTHORITY-OWNING panel, the blanket is gone, the quick-set range
+   * affordance is operable, and the sentence that denied it has been removed.
    *
-   * The copy below says "you cannot change it here yet". That sentence is only
-   * true while the fieldset is disabled. So it is asserted where the copy is.
+   * ⚠ WHY THE INVERSION IS NOT A WEAKENING. The old block's job was to stop the
+   * copy and the fieldset drifting apart. That job is unchanged; only the state
+   * they must agree ON moved. So this asserts BOTH directions again — the
+   * carrier-backed control LIVE and the carrier-less writer FENCED — because a
+   * panel that opted out of the blanket can now fail in a new way the old block
+   * could not see: fencing nothing at all.
+   *
+   * ⚠ AND IT STILL CLAIMS NO PER-RUN EFFECT. PLoT's prior pass is gated four
+   * ways (observed value present, non-external category, non-uniform
+   * distribution, degenerate range) and the first gate is silent, so "changing
+   * this changes your results" remains a sentence this file will not sanction.
+   * Q1 (does the FIELD affect analysis? yes) and Q2 (will changing it here
+   * change my results? not necessarily) stay named apart.
    */
   const onClose = () => {}
 
@@ -687,42 +703,55 @@ describe('FactorExternalPanel — the read-only premise its copy leans on', () =
     return render(<InspectorRouter nodeId={NODE_ID} edgeId={null} onClose={onClose} />)
   }
 
-  it('⭐⭐ routed live, the range control is INSIDE the disabled fieldset', async () => {
-    await renderThroughRouter()
+  it('⭐⭐ routed live, the range control is NOT inside a disabled blanket', async () => {
+    const { container } = await renderThroughRouter()
 
     // The router really mounted THIS panel, not a fall-through to
     // factor-controllable (which is what a missing `category` would produce).
     const role = screen.getByTestId('factor-external-range-role')
 
-    const boundary = role.closest('fieldset[data-authority="disabled"]')
-    expect(boundary, 'the range control is not inside the read-only boundary').not.toBeNull()
-    expect(boundary as HTMLFieldSetElement).toBeDisabled()
+    expect(
+      role.closest('fieldset[data-authority="disabled"]'),
+      'the Router still wraps this panel; the range control is inert again',
+    ).toBeNull()
+    expect(container.querySelector('[data-authority="disabled"]')).toBeNull()
+  })
 
-    // And the affordances the copy is about are the ones inside it, DISABLED.
+  it('⭐ the quick-set affordance is OPERABLE — this is the capability', async () => {
+    await renderThroughRouter()
+    const role = screen.getByTestId('factor-external-range-role')
     // Asserted on the quick-set buttons, not the min/max inputs: the router
-    // mounts the panel with `techMode` OFF by default, so the numeric inputs
-    // (`{techMode && …}`) do not render on this path — the quick-set buttons
-    // are the always-visible affordance the note has to be true of. Getting
-    // this wrong is how a router-level assertion silently measures a different
-    // surface from the direct-render one.
+    // mounts the panel with `techMode` OFF, so the numeric inputs do not render
+    // on this path. Getting this wrong is how a router-level assertion silently
+    // measures a different surface from the direct-render one.
     const card = role.closest('[data-testid="primary-control-card"]') as HTMLElement
     expect(card).not.toBeNull()
     const quickSets = within(card).getAllByRole('button')
-    expect(quickSets.length, 'the card holds no quick-set affordance to disable').toBeGreaterThan(0)
-    for (const b of quickSets) expect(b).toBeDisabled()
-    expect(within(card).getByRole('button', { name: 'Uncertain' })).toBeDisabled()
+    expect(quickSets.length, 'the card holds no quick-set affordance').toBeGreaterThan(0)
+    for (const b of quickSets) expect(b).not.toBeDisabled()
+    expect(within(card).getByRole('button', { name: 'Uncertain' })).not.toBeDisabled()
+  })
 
-    // The notice the copy's "read-only" defers to is on screen above it.
-    // ⚠ ASSERTED IN BOTH DIRECTIONS since schemas 0.50.0, because the notice
-    // now makes TWO claims and a single fragment could not tell them apart:
-    // the NAME saves, and the rest of the panel does not. A test that only
-    // checked the read-only half would stay green if the copy silently went
-    // back to claiming the name cannot be saved either.
-    expect(screen.getByTestId('inspector-authority-notice')).toHaveTextContent(
-      "can't yet be saved",
-    )
-    expect(screen.getByTestId('inspector-authority-notice')).toHaveTextContent(
-      'You can rename this',
-    )
+  it('⛔ THE TWIN — the writer with no carrier is still fenced', async () => {
+    const { container } = await renderThroughRouter()
+    const fences = [...container.querySelectorAll('fieldset[data-writer-fence]')]
+    // Opting out of the blanket is a DUTY. Without this the block above would
+    // pass on a change that simply un-fenced everything.
+    expect(
+      fences.length,
+      'the panel declared NO writer fence — opting out of the blanket is not a licence',
+    ).toBeGreaterThan(0)
+    for (const f of fences) expect(f).toBeDisabled()
+  })
+
+  it('the authority notice describes THIS pane, not the option pane', async () => {
+    await renderThroughRouter()
+    const notice = screen.getByTestId('inspector-authority-notice')
+    // ⚠ The Router's ternary fell through to the OPTION sentence for any
+    // authority-owning pane that was not `factor-controllable`. A third panel
+    // added without its own arm would have inherited a sentence written about a
+    // different surface — which the Router's own comment forbids in terms.
+    expect(notice).toHaveTextContent('the range save')
+    expect(notice).not.toHaveTextContent("can't yet be saved")
   })
 })

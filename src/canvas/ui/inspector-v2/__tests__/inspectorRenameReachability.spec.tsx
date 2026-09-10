@@ -51,13 +51,32 @@ function seedCanvas() {
         id: NODE_ID,
         type: 'factor',
         position: { x: 0, y: 0 },
-        data: { label: SHARED_LABEL, kind: 'factor', category: 'external' },
+        /**
+         * ⚠ THE CATEGORY IS LOAD-BEARING NOW, AND IT WAS NOT WHEN THIS WAS
+         * WRITTEN. This fixture used `category: 'external'`, which was
+         * incidental — nothing in this file's subject is external-specific; it
+         * is about the rename trigger sitting OUTSIDE the fieldset while the
+         * panel body stays inert.
+         *
+         * `factor-external` has since become an AUTHORITY-OWNING panel (its
+         * prior-range editor reaches a durable carrier, so it fences its own
+         * writers instead of taking the Router's blanket). The TWIN below asserts
+         * that blanket EXISTS, so on an external factor it now legitimately
+         * finds none and fails — while the property it is really about is
+         * untouched.
+         *
+         * `observable` keeps the blanket, so the twin demonstrates exactly what
+         * it always demonstrated. Changed the fixture rather than weakening the
+         * assertion: the assertion is right, it was pointed at a panel that
+         * moved out from under it.
+         */
+        data: { label: SHARED_LABEL, kind: 'factor', category: 'observable' },
       },
       {
         id: SIBLING_ID,
         type: 'factor',
         position: { x: 200, y: 0 },
-        data: { label: SHARED_LABEL, kind: 'factor', category: 'external' },
+        data: { label: SHARED_LABEL, kind: 'factor', category: 'observable' },
       },
     ] as never,
     edges: [] as never,
