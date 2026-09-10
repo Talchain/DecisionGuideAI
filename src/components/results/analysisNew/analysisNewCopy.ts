@@ -817,14 +817,44 @@ export const ANALYSIS_NEW_COPY = {
     change: 'Change',
     inputLabel: 'Success target for this goal',
     /**
-     * ⚠⚠ `local_only` IS THE ONLY OUTCOME THIS CONTROL CAN REPORT, and the copy
-     * says what that means rather than implying a save. There is no server
-     * carrier for a goal threshold — `CANONICAL_EDIT_AUTHORITY.goalSuccessTarget`
-     * is `'disabled'`, and the four that exist are `factor_value_edit`,
-     * `prior_range_edit`, `edge_adjudication`, `structural_delete`. Borrowing
-     * the strip editor's "sent" sentence would claim an acceptance nothing gave.
+     * ⭐⭐⭐ THREE OUTCOMES, THREE SENTENCES. THE ONE THAT USED TO BE HERE WAS
+     * FALSE, AND IT WAS THE ONLY FALSE OUTCOME SENTENCE ON THIS PANEL.
+     *
+     * ⚠⚠ WHAT SHIPPED, AND WHY IT LIED. This block said `local_only` was the
+     * only outcome the control could report, on the premise that
+     * `CANONICAL_EDIT_AUTHORITY.goalSuccessTarget` is `'disabled'` and no
+     * server carrier for a goal threshold exists. The KEY was wrong, not the
+     * value: `goalSuccessTarget` is about a local threshold editor and a local
+     * Define-success modal; the typed `add_constraint` carrier this control now
+     * uses answers to `modelGoalMinimumTarget`, which is `'server_graph'` and
+     * live on the Model tab. See `SuccessTargetLine.tsx`'s header for the full
+     * derivation and for the identical misread `HeroSection.tsx` already fixed.
+     *
+     * Off that false premise the surface then rendered:
+     *
+     *   ~~'Target set on your model. It will be used the next time you analyse.'~~
+     *
+     * Measured on the served build (10 Sep 2026): both halves false. The write
+     * was store-only, so a reload reverted the target to its brief value and
+     * the provenance label from "Set by you" back to "From brief"; and
+     * `success_threshold`/`goalThreshold` reach `src/v5/buildPayload.ts` ZERO
+     * times, so no analysis was ever going to see it.
      */
-    savedLocally: 'Target set on your model. It will be used the next time you analyse.',
+    /**
+     * ⚠ `dispatched` DOES NOT SAY "SAVED", for the reason
+     * `modelStrip.valueDispatched` does not: the turn has been sent and the
+     * authority answers asynchronously. What is true at the moment this renders
+     * is that Olumi has been asked.
+     */
+    dispatched: 'Sent to Olumi. The shared model updates when it answers.',
+    /**
+     * ⚠ THE KEY IS NO LONGER CALLED `savedLocally`. "Saved" was half the claim
+     * that was wrong, and a key name is read by every later author as a
+     * statement about what the sentence may assert. This path is reached only
+     * when no dispatcher is mounted, and it now says exactly that.
+     */
+    changedLocally:
+      'Changed on this screen only. Olumi has not been told, so this target is not part of the shared model.',
     notEncodable: 'That target could not be applied, so nothing changed.',
   },
   /**

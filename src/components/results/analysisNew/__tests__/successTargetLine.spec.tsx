@@ -14,8 +14,28 @@ import userEvent from '@testing-library/user-event'
 
 const setGoalThresholdAndUpdateNode = vi.fn()
 let state: Record<string, unknown> = {}
-vi.mock('../../../../canvas/store', () => ({
-  useCanvasStore: (select: (s: Record<string, unknown>) => unknown) => select(state),
+vi.mock('../../../../canvas/store', () => {
+  const useCanvasStore = (select: (s: Record<string, unknown>) => unknown) => select(state)
+  ;(useCanvasStore as unknown as { getState: () => unknown }).getState = () => state
+  return { useCanvasStore }
+})
+
+/**
+ * ⭐ THE AUTHORITY IS MOCKED AT ITS OWN SEAM, and `goalTargetDispatchAvailable`
+ * DEFAULTS TO `false` here so every case in this file keeps measuring the LOCAL
+ * path it was written for. The dispatch path has its own file
+ * (`successTargetDispatches.spec.tsx`), because the two paths are two different
+ * claims and a shared default would let one file's fixture decide the other's
+ * verdict.
+ */
+const proposeGoalTarget = vi.fn(() => 'dispatched' as const)
+let goalTargetDispatchAvailable = false
+vi.mock('../../../../canvas/hooks/useModelEditAuthority', () => ({
+  useModelEditAuthority: () => ({
+    goalTargetDispatchAvailable,
+    captureScenarioId: () => 'scenario-1',
+    proposeGoalTarget,
+  }),
 }))
 
 import { SuccessTargetLine } from '../sections/SuccessTargetLine'
@@ -26,6 +46,8 @@ const TID = 'target'
 
 beforeEach(() => {
   setGoalThresholdAndUpdateNode.mockReset()
+  proposeGoalTarget.mockClear()
+  goalTargetDispatchAvailable = false
   state = {
     nodes: [{ id: 'g1', type: 'goal', data: {} }],
     goalThreshold: null,
@@ -207,7 +229,18 @@ describe('it refuses to print a number it cannot express', () => {
   })
 })
 
-describe('the write is local, and says so', () => {
+describe('with NO dispatcher mounted the write is local, and says so', () => {
+  /**
+   * ⚠⚠ THE PRECONDITION IS PINNED IN-TEST, NOT ASSUMED. Every case below is
+   * about the `local_only` path, which exists only while
+   * `goalTargetDispatchAvailable` is false. Asserting it here means a fixture
+   * change that silently arms the dispatcher REDs, instead of turning these
+   * cases into tautologies about a path they are no longer on (trap 13b).
+   */
+  it('the fixture really is the no-dispatcher one', () => {
+    expect(goalTargetDispatchAvailable).toBe(false)
+  })
+
   it('writes to the GOAL node it was given', async () => {
     const user = userEvent.setup()
     draw(vi.fn(), 'goal-42')
@@ -218,11 +251,12 @@ describe('the write is local, and says so', () => {
   })
 
   /**
-   * ⚠⚠ NEVER `dispatched`. `CANONICAL_EDIT_AUTHORITY.goalSuccessTarget` is
-   * `'disabled'` and no server carrier exists, so a "sent" sentence here would
-   * claim an acceptance nothing gave.
+   * ⚠⚠ `local_only` IS STILL A REAL OUTCOME, and it is the honest one HERE:
+   * with no dispatcher mounted there is no send to report. What changed is that
+   * it is no longer the ONLY outcome, and it no longer carries a sentence
+   * promising the next analysis will use the value.
    */
-  it('reports local_only, never a dispatch', async () => {
+  it('reports local_only when there is no dispatcher to ask', async () => {
     const user = userEvent.setup()
     const onCommitOutcome = draw()
     await user.click(screen.getByTestId(`${TID}-edit`))
