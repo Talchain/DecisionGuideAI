@@ -287,6 +287,30 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // followed is worse than no instruction, and inventing a different one would
   // just move the lie.
   //
+  // ⭐ WIRE-WITNESSED on staging--olumi.netlify.app at 67b04e5b (fresh guest,
+  // 8 keys cleared from /version.json; draft 200 in 54.9s, deliberate rerun 200
+  // in 12.1s; two independent captures carried byte-identical arrays). The run
+  // emitted, verbatim:
+  //   code:    GOAL_THRESHOLD_NOT_CONVERTIBLE
+  //   field:   nodes[b4014d90].observed_state.baseline
+  //   message: "A 'level' frame requires goal node 'b4014d90' to carry
+  //             observed_state.baseline to convert the level into the samples'
+  //             frame, but it carries no observed_state at all."
+  // So the reason IS the missing goal baseline, and the engine is blunter than
+  // the old copy was: the goal node carries NO observed_state AT ALL, while the
+  // copy asked only for "the current level". The same run also confirms the
+  // target arrived — the goal node read "Target: 12 months / Target set."
+  //
+  // ⚠ SCOPE OF ONE ABSENCE, STATED NARROWLY (trap 20). The token
+  // `missing_goal_baseline` named in the paragraph above does NOT appear in any
+  // of the 13 captured payloads — the warning object's keys are exactly
+  // {code, message, severity, field}, with no reason/enum field — while two
+  // contrast controls in the same sweep (`GOAL_THRESHOLD_NOT_CONVERTIBLE`,
+  // `observed_state.baseline`) both fired, so that zero is real absence and not
+  // a blind probe. That refutes only the claim that the token reaches the WIRE.
+  // It says nothing about ISL's internal `refuse()` reason names, which is what
+  // the paragraph was describing and which this capture was not pointed at.
+  //
   // → ROADMAP 2.281 is the missing producer: nothing writes the goal node's
   //   `observed_state.baseline`. WHEN 2.281 LANDS AND A GOAL CURRENT-LEVEL
   //   EDITOR EXISTS, THE INSTRUCTION BECOMES LEGITIMATE AND SHOULD COME BACK.

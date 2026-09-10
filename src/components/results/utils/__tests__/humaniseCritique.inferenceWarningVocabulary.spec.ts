@@ -127,7 +127,56 @@ describe('ISL inference-warning vocabulary — honesty by kind', () => {
     },
   )
 
-  it.each(codesOfKind('model_shape'))(
+  /**
+   * ⚠⚠ ONE `model_shape` CODE HAS NO ROUTE, AND THAT IS A MEASURED FACT, NOT A
+   * WORDING PREFERENCE.
+   *
+   * `GOAL_THRESHOLD_NOT_CONVERTIBLE`'s title used to end "State the current
+   * level for your goal." — and nothing in the UI lets a user state it.
+   * Measured at UI `staging` 67b04e5b with contrast controls in the same sweep:
+   * `GoalPanel.tsx` 0 `observed_state` references against 31 for `target`;
+   * `GoalThresholdEditor.tsx` 0 against 6, and it edits the TARGET only; the
+   * canvas projection's one `observed_state` writer (`readinessStore.ts:379`)
+   * is gated `nodeKind === 'factor'` and never writes `baseline`. The starter
+   * drafts' own `fix_hint` points at the goal node's `observed_state.value`,
+   * which ISL explicitly refuses. ROADMAP 2.281 is the missing producer.
+   *
+   * ⭐ WHY THE EXCEPTION AND NOT A REWORDED TITLE. THE ASSERTION ABOVE IS A
+   * VERB-PRESENCE PREDICATE: it proves an imperative is PRESENT, never that the
+   * route EXISTS. That is precisely how the false prescription passed this guard
+   * for its whole life. Satisfying it by smuggling one of its verbs into the new
+   * copy would keep the suite green by restoring the lie — routing wording
+   * around a guard, which is banned. So the gap is pinned EXPLICITLY instead, in
+   * the shape this estate ratified for known gaps: an exact set, asserted to be
+   * EXACTLY itself, so the suite stays green for the RIGHT REASON and REDs if
+   * the set GROWS (someone else's copy quietly loses its route) or SHRINKS
+   * (2.281 landed and the instruction is legitimate again — remove this block).
+   */
+  const NO_ROUTE_EXISTS = ['GOAL_THRESHOLD_NOT_CONVERTIBLE'] as const
+
+  it('the no-route exception set is EXACTLY the one code whose remedy has no writer', () => {
+    // Grows  -> a second code lost its route and is hiding behind this licence.
+    // Shrinks -> the exception is obsolete; delete it rather than carry it.
+    expect([...NO_ROUTE_EXISTS]).toEqual(['GOAL_THRESHOLD_NOT_CONVERTIBLE'])
+    // It must be a real member of the kind it is excepted from, or the
+    // exception is silently excepting nothing.
+    expect(codesOfKind('model_shape')).toContain('GOAL_THRESHOLD_NOT_CONVERTIBLE')
+  })
+
+  it.each(NO_ROUTE_EXISTS)(
+    '%s (model shape, no writer) prescribes NOTHING — asserted, not merely permitted',
+    (code) => {
+      // The positive half of the exception. Without this the licence above
+      // would let the instruction creep back and nothing would notice.
+      const { title } = humaniseCode(code)
+      expect(title).not.toMatch(/\b(state|restate|add|connect|give|record|move|try)\b/i)
+      // ...and the two facts are still on the rendered surface.
+      expect(title).toMatch(/\b(was|were)\s+(recorded|captured|received|saved)\b/i)
+      expect(title).toMatch(/withheld|left out/i)
+    },
+  )
+
+  it.each(codesOfKind('model_shape').filter((c) => !(NO_ROUTE_EXISTS as readonly string[]).includes(c)))(
     '%s (model shape) carries a route the user can actually take',
     (code) => {
       const { title } = humaniseCode(code)
