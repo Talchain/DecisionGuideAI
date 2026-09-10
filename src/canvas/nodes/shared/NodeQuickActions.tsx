@@ -149,7 +149,11 @@ export const NodeQuickActions = memo(function NodeQuickActions({
   // gate of `_sendMessage || _prefillChat` would show the button on a surface
   // that registered only the prefill channel, i.e. exactly the dead control
   // this gate exists to prevent (trap 21: two predicates, one name).
-  const canAsk = useGuidanceStore(s => s._sendMessage !== null)
+  // ⚠ WIDENED IN THE SAME COMMIT AS `askAI`'s SWITCH, OR THIS BUTTON GOES DARK.
+  // It gated on `_sendMessage` because that was the channel `askAI` needed.
+  // `askAI` now stages through `requestAsk`, whose channel is `_prefillChat` —
+  // so the old gate would hide a control that works.
+  const canAsk = useGuidanceStore(s => canReceiveAsk(s))
   // …and if the channel dies between the render and the click, the user is told
   // rather than left with a button that did nothing. `Safe` because nodes also
   // render in headless hosts, where a missing ToastProvider must not throw.
