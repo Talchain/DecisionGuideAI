@@ -61,6 +61,15 @@ const GOAL_ID = 'goal-under-test'
 /** A DIFFERENT node, present in every fixture, to catch a predicate that fires on anything. */
 const OTHER_ID = 'factor-not-under-test'
 
+/**
+ * The SAME derivation `HeroSection.tsx:44` uses, read from the real module.
+ * It selects which arm of the honesty biconditional below applies, so the test
+ * follows the shipped posture instead of mandating the present one.
+ */
+const GOAL_SUCCESS_EDIT_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.goalSuccessTarget,
+)
+
 describe('goalLabelIsUnconfirmedBriefExtract — the one predicate', () => {
   it('fires on from_brief, and on nothing else in the vocabulary', () => {
     expect(goalLabelIsUnconfirmedBriefExtract({ provenance: 'from_brief' })).toBe(true)
@@ -134,17 +143,28 @@ describe('the mounted Analysis Goal field tells the truth', () => {
    * `goalSuccessTarget: 'disabled'`, a HARDCODED CONSTANT rather than a flag, so
    * no deployed posture can make the instruction true.
    *
-   * ⚠ WHAT IS ASSERTED HERE, AND WHAT DELIBERATELY IS NOT. The assertion is the
-   * PROPERTY — no instruction on a field this screen renders read-only — bound to
-   * the rendered DOM (`aria-readonly`), not to either sentence's wording and not
-   * to a hardcoded expectation of which member ships. It therefore stays true if
-   * `goalSuccessTarget` is ever connected: the field becomes a real `<input>`,
-   * the read-only precondition stops holding, and the component's own derived
-   * binding restores the imperative. A test that pinned "the hero shows
-   * `noticeNoEditHere`" would have RED-ed that repair, which is the exact defect
-   * this replaces.
+   * ⚠ WHY THIS IS A BICONDITIONAL AND NOT A CONJUNCTION. The property is an
+   * IMPLICATION: no instruction WHILE the field renders read-only. Asserting
+   * instead that the field IS read-only AND carries no instruction would make
+   * the present, defective posture MANDATORY. Connecting `goalSuccessTarget`
+   * would turn this test RED for the repair. That is the same shape as the
+   * defect this file replaces, one level up, and an earlier draft of this very
+   * test had it. Both arms are therefore selected by the SAME derivation the
+   * component uses, so connecting the authority later turns this GREEN.
+   *
+   * ⚠ NO `vi.mock` ANYWHERE IN THIS FILE, DELIBERATELY. The real constant is
+   * read, so the arm taken is decided by the shipped posture. Mocking it would
+   * hide the very coupling this test exists to prove.
+   *
+   * Both arms bind to the rendered DOM, which is what makes the attribute a
+   * witness of which arm mounted rather than a restatement of the input:
+   * `InlineField.tsx:159-163` renders the read-only arm as
+   * `<span role="textbox" aria-readonly="true">`, and `:177-180` renders the
+   * editable arm as an `<input>` carrying NO `aria-readonly`. Neither arm binds
+   * to a sentence's wording: the copy is bound by CONSTANT, so a rewording
+   * flows through and only a wrong-member swap REDs.
    */
-  it('⛔ gives NO instruction while the goal field is read-only, bound by the rendered DOM', () => {
+  it('⛔ instruction and editability agree: no imperative unless the field is really editable', () => {
     render(
       <HeroSection
         hero={heroWith('from_brief') as never}
@@ -155,25 +175,39 @@ describe('the mounted Analysis Goal field tells the truth', () => {
     )
 
     const field = document.getElementById(GOAL_INPUT_ID)
-    // ⚠ PRECONDITION PINNED IN-TEST, so the assertion below is provably about a
-    // read-only field and not about a field that failed to render at all.
+    // ⚠ PRECONDITION PINNED IN-TEST, so each arm below is provably about a
+    // rendered field and not about a field that failed to render at all.
     expect(field).not.toBeNull()
-    expect(field).toHaveAttribute('aria-readonly', 'true')
 
-    const notice = screen.getByTestId(GOAL_LABEL_FROM_BRIEF_TESTID).textContent ?? ''
+    const notice = (screen.getByTestId(GOAL_LABEL_FROM_BRIEF_TESTID).textContent ?? '').trim()
+    // True in EITHER arm, so neither can pass by rendering nothing.
     expect(notice.length).toBeGreaterThan(20)
-    // Case-insensitive: a mutant restoring the imperative with different
-    // capitalisation walks past a case-sensitive arm.
-    expect(notice).not.toMatch(/\bedit\b/i)
-    // And it still states the provenance, so this cannot pass by rendering nothing.
     expect(notice).toMatch(/taken from your brief/i)
+
+    if (GOAL_SUCCESS_EDIT_CONNECTED) {
+      // Connected: the editable `<input>` arm mounts and carries no
+      // `aria-readonly`, and the imperative-bearing member is then honest.
+      expect(field).not.toHaveAttribute('aria-readonly')
+      expect(notice).toBe(GOAL_LABEL_FROM_BRIEF_COPY.notice)
+    } else {
+      // Not connected: the read-only `<span>` arm mounts, and no instruction may
+      // point at an affordance that is not there.
+      expect(field).toHaveAttribute('aria-readonly', 'true')
+      // Case-insensitive: a mutant restoring the imperative with different
+      // capitalisation walks past a case-sensitive arm.
+      expect(notice).not.toMatch(/\bedit\b/i)
+      expect(notice).toBe(GOAL_LABEL_FROM_BRIEF_COPY.noticeNoEditHere)
+    }
   })
 
   /**
-   * ⚠ THE MEASUREMENT, RECORDED RATHER THAN ASSUMED. This is what makes the
-   * precondition above hold at this head. It is a pin on a CONSTANT, so a lane
-   * that connects the writer changes this one line — and the copy follows on its
-   * own, because `HeroSection` derives its member from the same constant.
+   * ⚠ THE MEASUREMENT, RECORDED RATHER THAN ASSUMED. It records WHICH ARM of
+   * the biconditional above this head takes. It is a DELIBERATE LOUD TRIPWIRE
+   * and not a second copy of the defect: its declared job is to RED the moment
+   * the posture moves, so a lane connecting the writer is told to come and look
+   * here. The honesty property itself does not depend on it. That test now
+   * passes in both postures, and the copy follows on its own, because
+   * `HeroSection` derives its member from the same constant.
    */
   it('⚠ measured posture: the hero goal-label writer is not connected at this head', () => {
     expect(CANONICAL_EDIT_AUTHORITY.goalSuccessTarget).toBe('disabled')
