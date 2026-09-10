@@ -116,6 +116,16 @@ import type { V5CoachingBlock as V5CoachingBlockType } from '../../canvas/conver
 export interface V5CoachingBlockProps {
   block: V5CoachingBlockType
   variant?: 'default' | 'bias_signal'
+  /**
+   * Omit the category chip and the icon+title row.
+   *
+   * Set ONLY by `CoachingLine`, whose own `<summary>` already renders exactly
+   * those two rows from the same producer fields — so an open line would
+   * otherwise show the title twice. Nothing is lost: the chip and title are on
+   * screen, one element higher, and they are the affordance the user clicked.
+   * Default `false`, so every other mount is byte-identical to before.
+   */
+  suppressHeader?: boolean
 }
 
 type Tone = 'danger' | 'info'
@@ -238,7 +248,7 @@ const SOURCE_SENTENCE: Partial<Record<string, string>> = {
   deterministic_signal: 'Raised by an automatic check',
 }
 
-export function V5CoachingBlock({ block, variant = 'default' }: V5CoachingBlockProps): ReactElement {
+export function V5CoachingBlock({ block, variant = 'default', suppressHeader = false }: V5CoachingBlockProps): ReactElement {
   const testIdPrefix = variant === 'bias_signal' ? 'bias-signal-card' : 'v5-coaching'
 
   // The IMPORTANCE channel, derived from the shared authority so this card,
@@ -315,7 +325,7 @@ export function V5CoachingBlock({ block, variant = 'default' }: V5CoachingBlockP
         class in the SHARED vocabulary; absent category renders nothing at all
         rather than a fabricated tier.
       */}
-      {block.category && (
+      {block.category && !suppressHeader && (
         <div className="flex">
           <span
             data-testid={`${testIdPrefix}-category`}
@@ -331,12 +341,14 @@ export function V5CoachingBlock({ block, variant = 'default' }: V5CoachingBlockP
         </div>
       )}
 
-      <div className="flex items-start gap-2">
-        <Icon size={16} className={`flex-none mt-0.5 ${tintClass}`} aria-hidden="true" />
-        <h3 className={typography.panelHeader} data-testid={`${testIdPrefix}-title`}>
-          {block.title}
-        </h3>
-      </div>
+      {!suppressHeader && (
+        <div className="flex items-start gap-2">
+          <Icon size={16} className={`flex-none mt-0.5 ${tintClass}`} aria-hidden="true" />
+          <h3 className={typography.panelHeader} data-testid={`${testIdPrefix}-title`}>
+            {block.title}
+          </h3>
+        </div>
+      )}
 
       <p className={typography.panelBody} data-testid={`${testIdPrefix}-body`}>
         {block.body}
