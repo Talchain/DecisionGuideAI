@@ -915,12 +915,24 @@ export function askAI(
    * wait for a callback this path no longer needs, and time out on a surface
    * that was ready.
    */
+  const askTargetId = (t: ContextTarget): string | undefined =>
+    t.kind === 'node' ? t.nodeId : t.kind === 'edge' ? t.edgeId : undefined
+
   const prompt = buildAskAIPrompt(target, intent)
   let attempts = 0
   const MAX_ATTEMPTS = 20 // ~1s max wait (50ms × 20)
   const tryToSend = () => {
     if (canReceiveAsk(useGuidanceStore.getState())) {
-      requestAsk({ text: prompt, targetId: target.id, source: 'context-menu' })
+      requestAsk({
+        // `ContextTarget` is a discriminated union and only two of its four
+        // members carry an id. `targetId` is what enables the drawer's "Focus
+        // on canvas", so a pane or multi-select ask correctly offers no focus
+        // target rather than a fabricated one.
+        text: prompt,
+        label: 'Ask about this',
+        targetId: askTargetId(target),
+        source: 'context-menu',
+      })
       return
     }
     attempts++
