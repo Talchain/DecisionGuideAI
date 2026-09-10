@@ -457,6 +457,22 @@ export const ModelTabBody = memo(function ModelTabBody({
   const selectionNodeIds = useCanvasStore(s => s.selection?.nodeIds ?? EMPTY_NODE_IDS)
   const selectionEdgeIds = useCanvasStore(s => s.selection?.edgeIds ?? EMPTY_EDGE_IDS)
   const updateEdge = useCanvasStore(s => s.updateEdge)
+  /**
+   * ⭐ THE RENAME WRITE, read HERE because this file is the Model tab's only
+   * live-app seam — `modelTabV2Boundary.sourceScan` forbids the v2 directory
+   * from importing a store module at all.
+   *
+   * `updateNodeLabel` is not a plain setter and must not be replaced with one.
+   * Its own header calls it "THE ONE CHOKEPOINT EVERY RENAME GESTURE CROSSES"
+   * (`store.ts:3035`): it records the `structural_rename` intent BEFORE the
+   * local write — so `expected_label` asserts the label the user was LOOKING AT
+   * rather than the one just written, which is what keeps the concurrency gate
+   * from being a tautology — then pushes history and supersedes a goal's
+   * `from_brief` provenance. The inspector title, the canvas double-click and
+   * both pre-analysis editors already land here; the Model tab is the fourth
+   * gesture and inherits every one of those properties for free.
+   */
+  const updateNodeLabel = useCanvasStore(s => s.updateNodeLabel)
   const rawV2Response = useCanvasStore(s => s.rawV2Response)
   // The v2 outline's goal row reads the store scalar (RAW user units — the
   // single-writer carrier `setGoalThresholdAndUpdateNode` maintains it).
@@ -1119,6 +1135,7 @@ export const ModelTabBody = memo(function ModelTabBody({
         lastServerGraphHash={lastServerGraphHash}
         expertMode={expertMode ?? false}
         onToggleExpert={onToggleExpert}
+        onRenameRow={updateNodeLabel}
       />
 
       {/* ── The model's constraints, READ-ONLY ───────────────────────────────

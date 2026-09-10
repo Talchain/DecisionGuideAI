@@ -48,7 +48,7 @@
  * row says so in words.
  */
 
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { typography } from '../../styles/typography'
 import { EDIT_RESERVED_HEIGHT_CLASS } from './valueCellMetrics'
 import {
@@ -135,6 +135,17 @@ export interface ModelRowViewProps {
    * cannot honour it.
    */
   onConfirmValueAsIs?: (id: string) => void
+  /**
+   * ⭐ Rename this element. ABSENT MEANS NO AFFORDANCE — see `renameAvailable`.
+   *
+   * The write lands on `store.updateNodeLabel`, which its own header calls "THE
+   * ONE CHOKEPOINT EVERY RENAME GESTURE CROSSES": it records the
+   * `structural_rename` intent BEFORE the local write (so `expected_label` is a
+   * real concurrency assertion, not a tautology), pushes history, and supersedes
+   * a goal's `from_brief` provenance. This directory may not reach the store, so
+   * the host threads it in — exactly as `nodes` and `edges` arrive.
+   */
+  onRenameRow?: (id: string, nextLabel: string) => void
 }
 
 /**
@@ -294,9 +305,111 @@ export function ModelRowView({
   onDiscardEdit,
   onConfirmEdit,
   onConfirmValueAsIs,
+  onRenameRow,
 }: ModelRowViewProps) {
   const phase = commit?.phase ?? 'idle'
   const editorAvailable = row.editable && editConnected && typeof onBeginEdit === 'function'
+
+  /**
+   * ⭐ RENAME — the most basic authoring act, and it was absent from this
+   * surface entirely (not disabled: absent).
+   *
+   * ⚠ NODES ONLY. `store.updateNodeLabel` behind this is a NODE action, and a
+   * relationship row's label is a DERIVED endpoint pair (`row.labelEndpoints`,
+   * built by `relationshipIdentity`) rather than a stored string — writing it
+   * back would invent a field nobody holds. Gating on the kind rather than on
+   * `labelEndpoints` is deliberate: an edge carrying its own authored label has
+   * no endpoints, and it must not become renameable by that accident.
+   *
+   * ⚠ AND ABSENT-PROP MEANS NO AFFORDANCE, never an inert one. The lane
+   * boundary (`modelTabV2Boundary.sourceScan`) forbids this directory from
+   * touching the store, so the write can only arrive as a prop; a control that
+   * rendered without one would swallow the rename silently — the local-write
+   * dishonesty (design §2 F6) that the rest of this surface refuses.
+   */
+  const renameAvailable = typeof onRenameRow === 'function' && row.kind !== 'relationship'
+  const [renaming, setRenaming] = useState(false)
+  const [draft, setDraft] = useState('')
+  /** Set by Escape, cleared by `beginRename`. See `cancelRename` below for why
+   *  a ref rather than state, and why resetting the draft alone is not enough. */
+  const cancelledRef = useRef(false)
+
+  const beginRename = useCallback(() => {
+    // ⚠ CLEARED HERE, so the abandon flag can never outlive the edit it
+    // abandoned and suppress a genuine commit on the next one.
+    cancelledRef.current = false
+    setDraft(row.label)
+    setRenaming(true)
+  }, [row.label])
+
+  /**
+   * ⛔⛔ ESCAPE MUST WRITE NOTHING **BY CONSTRUCTION**, NOT BY LUCK.
+   *
+   * This read `setRenaming(false)` and nothing else, while the input carries
+   * `onBlur={commitRename}` (below). Escape therefore cleared `renaming` with
+   * `draft` still holding the abandoned text, and any focusout that reached the
+   * handler would pass both refusals — non-blank, changed — and write. The write
+   * is not benign: `store.updateNodeLabel` records a `structural_rename` intent,
+   * pushes history, and on a GOAL supersedes the `from_brief` stamp, retiring a
+   * provenance pill that is still true. An edit the user cancelled would silently
+   * do the one thing this file's own comments say must not happen.
+   *
+   * ⚠ WHETHER A BROWSER DISPATCHES FOCUSOUT WHEN A FOCUSED INPUT IS REMOVED IS
+   * CONTESTED, AND THAT IS EXACTLY WHY THIS IS NOT LEFT TO IT. Two reviews on
+   * this PR reached opposite answers. Neither reading changes what the code
+   * should do: the property is cheap to guarantee and expensive to reason about,
+   * so it is guaranteed here and the browser question is retired.
+   *
+   * ── TWO PARTS, AND THE SECOND IS THE ONE THAT ACTUALLY BINDS ──────────────
+   *
+   * 1. `setDraft(row.label)` mirrors the named precedent, `EditableLabel.revert`
+   *    (`ui/inspector-v2/shared/EditableLabel.tsx:110-113`), which resets the
+   *    draft first so its own `onBlur={save}` becomes a no-op against the
+   *    unchanged-value refusal. It also means a reopened editor cannot inherit
+   *    an abandoned draft.
+   *
+   * 2. ⭐ A SYNCHRONOUS REF, BECAUSE PART 1 ALONE DOES NOT CLOSE THE WINDOW.
+   *    `commitRename` is a `useCallback` closed over `draft`. A focusout
+   *    dispatched from the SAME render — before React has flushed the state
+   *    updates Escape queued — runs the handler that captured the PRE-RESET
+   *    draft, so the unchanged-value refusal never sees the reset and the write
+   *    still lands. `useRef` returns a stable object and mutates synchronously,
+   *    so a check against it is correct under every ordering and every closure.
+   *    Transplanting the precedent literally would have looked like a fix and
+   *    left the hole, because `EditableLabel` blurs its input explicitly while
+   *    this editor is REMOVED instead.
+   *
+   * The flag is cleared by `beginRename` (above), so it can never suppress a
+   * later, genuine commit. `beginRename` is the SOLE entry point to the editor —
+   * both the double-click and the keyboard route call it — so there is no way in
+   * that skips the reset.
+   */
+  const cancelRename = useCallback(() => {
+    cancelledRef.current = true
+    setDraft(row.label)
+    setRenaming(false)
+  }, [row.label])
+
+  const commitRename = useCallback(() => {
+    // ⛔ THE ABANDON GUARD. Escape sets this synchronously, so a blur arriving
+    // from the same render — with a stale `draft` in this closure — cannot write.
+    // Read BEFORE the refusals, because the refusals inspect exactly the value
+    // that is stale.
+    if (cancelledRef.current) {
+      setRenaming(false)
+      return
+    }
+    setRenaming(false)
+    const next = draft.trim()
+    // ⚠ TWO REFUSALS, AND NEITHER IS COSMETIC. A BLANK commit would push an
+    // empty string through the chokepoint and leave the row identifying nothing.
+    // An UNCHANGED commit is not harmless either: `updateNodeLabel` pushes
+    // history, records a `structural_rename` intent, and — on a goal —
+    // supersedes the `from_brief` provenance stamp, retiring a pill that is
+    // still true. A no-op edit must stay a no-op.
+    if (next === '' || next === row.label) return
+    onRenameRow?.(row.id, next)
+  }, [draft, row.label, row.id, onRenameRow])
 
   /*
    * ⚠ THE AFFORDANCE IS BOUND TO THE ATTENTION REASON, NOT TO A RE-DERIVED
@@ -379,6 +492,54 @@ export function ModelRowView({
           the button's automatic minimum keeps the column from ever shrinking,
           which is the defect this file already fixed once at the atom level. */}
       <span className="flex items-center gap-1.5 min-w-0">
+      {renaming ? (
+        /*
+          ⭐ THE RENAME EDITOR. It REPLACES the label rather than sitting beside
+          it: two representations of one identity on screen at once is the defect
+          the whole v2 consolidation exists to remove, and a row is the smallest
+          place it could recur.
+
+          ⚠ THE SIZING MIRRORS THE BUTTON IT REPLACES — `flex-1 min-w-[6rem]`,
+          the same pair, for the same two reasons recorded at length below:
+          `flex-1` makes identity absorb the row's deficit so short values stop
+          wrapping, and the 6rem floor stops the cell being crushed past
+          legibility. An input sized any other way would move every other cell in
+          the subgrid the moment a user began typing.
+        */
+        <input
+          type="text"
+          data-testid={`model-row-v2-${row.id}-rename`}
+          aria-label={`Rename ${row.label}`}
+          value={draft}
+          autoFocus
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') { e.preventDefault(); commitRename() }
+            else if (e.key === 'Escape') { e.preventDefault(); cancelRename() }
+          }}
+          /* ⚠ BLUR COMMITS, matching the inspector's `EditableLabel` and the
+             canvas rename. A blur that DISCARDED would lose a rename the user
+             believes they made simply because they clicked away — and
+             `commitRename` already refuses a blank or unchanged value, so the
+             quiet path stays a no-op rather than a write. */
+          onBlur={commitRename}
+          /* The row is `role="option"` with its own `onClick`; without this a
+             click inside the editor selects the row and a keystroke could
+             bubble into the outline's keyboard handling. */
+          onClick={e => e.stopPropagation()}
+          onDoubleClick={e => e.stopPropagation()}
+          /* ⚠ `bodySmall` (14px), NOT `panelBody` (12px) — and NOT a style choice.
+             DS v5 §2.1 makes 14px the minimum for a TEXT-ENTRY control and §2.2
+             does not list inputs among the panel-context overrides; a 12px field
+             is a usability regression at the 280px dock floor.
+             `inputsStayAtMinimumSize.spec.ts` caught this exact line at 12px on
+             its first write and names the remedy: "tabular for numeric fields,
+             bodySmall otherwise". A rename is text, so bodySmall. It is
+             deliberately 2px larger than the label button it replaces — the
+             button is not a text-entry control and the rule does not reach it. */
+          className={`${typography.bodySmall} text-text-body bg-panel-hover border border-panel-border rounded px-1 py-0 flex-1 min-w-[6rem]`}
+        />
+      ) : (
       <button
         type="button"
         data-testid={`model-row-v2-${row.id}-label`}
@@ -482,6 +643,12 @@ export function ModelRowView({
           e.stopPropagation()
           onFocusOnCanvas?.(row.id)
         }}
+        /* ⭐ THE RENAME GESTURE, and it is the one this product already has:
+           `ReactFlowGraph.tsx:1390-1394` binds node double-click to
+           `requestNodeRename`. Single click keeps its existing meaning ("show
+           me this on the canvas"), so nothing is displaced — a rename bound to
+           the single click would have taken that away. */
+        onDoubleClick={renameAvailable ? beginRename : undefined}
       >
         {/* ⭐⭐ A DIRECTED RELATIONSHIP TRUNCATES FROM BOTH ENDS, NEVER FROM ONE.
             Witnessed on deployed `a9c2e050`: three consecutive rows all read
@@ -534,6 +701,7 @@ export function ModelRowView({
           row.label
         )}
       </button>
+      )}
 
       {/* The label is the user's own sentence lifted from the brief, not an
           objective. Same claim and same predicate as the canvas node and the
@@ -558,7 +726,15 @@ export function ModelRowView({
           constant rather than an edit to the first.
 
           ⛔ AND NO WRITER IS ADDED HERE. A label editor on this surface is a
-          separate capability, deliberately not smuggled into a copy fix. */}
+          separate capability, deliberately not smuggled into a copy fix.
+
+          ⭐ REBASE NOTE (PR #1386 onto #1436): this row now DOES carry a
+          rename (double-click, see `beginRename`/`commitRename` below), so the
+          "no writer on this surface" premise above no longer holds in full.
+          The rendered constant deliberately stays `noticeNoEditHere` anyway:
+          `__tests__/theTabDoesNotPromiseWhatItCannotDo.spec.tsx:365` pins this
+          surface to it, and re-scoping the copy is a copy decision with its own
+          guard, not something a rebase may smuggle in. Rowed as follow-up. */}
       {row.labelFromBrief === true && (
         <span
           data-testid={GOAL_LABEL_FROM_BRIEF_TESTID}
@@ -567,6 +743,65 @@ export function ModelRowView({
         >
           {GOAL_LABEL_FROM_BRIEF_COPY.pill}
         </span>
+      )}
+
+      {/*
+        ⛔⛔ THE KEYBOARD ROUTE, AND THE INCONSISTENCY IS WHAT NAMED IT.
+
+        The gesture on the label button above is `onDoubleClick`. Enter and
+        Space on a focused element dispatch `click`, NEVER `dblclick` — so
+        double-click is a POINTER-ONLY gesture and, with it as the sole trigger,
+        a keyboard user could not rename at all. Not slowly, not awkwardly: not
+        at all.
+
+        ⚠ AND THE TELL WAS IN THIS FILE. The VALUE cell (`ValueCell`, testid
+        `model-row-v2-<id>-value`) begins its edit from a `<button>`'s own
+        `onClick`, which Enter and Space DO reach. So on one surface, in one
+        row, editing a value was keyboard-reachable and renaming was not. That
+        asymmetry is the defect; the repair is to stop having two answers to one
+        question (trap 21), not to invent a third interaction.
+
+        So this control MATCHES the sibling rather than inventing anything: a
+        real `<button type="button">` whose `onClick` begins the rename, styled
+        and named exactly as `-confirm-as-is` is, with an `aria-label` quoting
+        the row the way its two siblings already do (`Confirm … is correct`,
+        `Change …`). Nothing here is a new gesture — it is the gesture the file
+        already used for its other two in-row actions.
+
+        ⚠ THE DOUBLE-CLICK STAYS. It is the rename gesture this product already
+        has (`ReactFlowGraph.tsx:1390-1394` binds node double-click to
+        `requestNodeRename`), and removing it would take a shortcut away from
+        pointer users to buy nothing. Two routes to one act is not the
+        two-answers defect above — they call the same `beginRename`.
+
+        ⚠ `!renaming` BECAUSE THE EDITOR REPLACES THE IDENTITY, and a "Rename"
+        control sitting beside an open rename editor would be the second
+        representation of one state that this whole surface exists to remove.
+
+        ⚠⚠ WHAT THE SPEC PROVES AND WHAT IT DOES NOT. `renameIsKeyboardReachable
+        .spec.tsx` drives this by keyboard through `user-event`, so it proves the
+        control is FOCUSABLE and that Enter and Space open the editor. jsdom
+        performs no layout, so it proves NOTHING about whether this control is
+        visible, hit-testable or reachable in tab order at any real width. That
+        is a browser question and it is not answered here.
+      */}
+      {renameAvailable && !renaming && (
+        <button
+          type="button"
+          data-testid={`model-row-v2-${row.id}-rename-start`}
+          title="Rename this element"
+          aria-label={`Rename ${row.label}`}
+          className={`${typography.buttonSmall} text-info underline decoration-dotted shrink-0 whitespace-nowrap`}
+          onClick={e => {
+            /* The row is `role="option"` with its own `onClick`; without this,
+               starting a rename would also select the row. Same reason, same
+               line, as the editor and the two sibling action buttons. */
+            e.stopPropagation()
+            beginRename()
+          }}
+        >
+          Rename
+        </button>
       )}
 
       </span>

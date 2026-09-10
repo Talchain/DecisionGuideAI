@@ -93,6 +93,11 @@ export interface ModelOutlineProps {
   /** Ratify an AI estimate as correct — passed straight through to the row. */
   onConfirmValueAsIs?: (id: string) => void
   /**
+   * Rename an element — passed straight through to the row, which owns the
+   * gesture and the two refusals (blank, unchanged). Absent means no affordance.
+   */
+  onRenameRow?: (id: string, nextLabel: string) => void
+  /**
    * The group-level affordances rehomed from the v1 stack (add a factor, add a
    * relationship, explore other strategies, identify risks, discuss each group).
    *
@@ -376,6 +381,7 @@ export function ModelOutline({
   onDiscardEdit,
   onConfirmEdit,
   onConfirmValueAsIs,
+  onRenameRow,
   onGroupAction,
   groupActionContext,
 }: ModelOutlineProps) {
@@ -857,6 +863,7 @@ export function ModelOutline({
                       onDiscardEdit={onDiscardEdit}
                       onConfirmEdit={onConfirmEdit}
                       onConfirmValueAsIs={onConfirmValueAsIs}
+                      onRenameRow={onRenameRow}
                     />
                   ))}
                 </ul>
