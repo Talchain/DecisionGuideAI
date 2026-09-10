@@ -192,6 +192,140 @@ export function acceptsElicitedBelief(nodeData: unknown): boolean {
   return unit.length === 0
 }
 
+/**
+ * ⭐⭐ WHAT THIS FACTOR'S OWN PRIOR ADMITS — everything an editor needs to judge a
+ * typed number, and nothing it needs to RENDER one.
+ *
+ * ⚠⚠ `priorMin`/`priorMax` ARE MODEL SCALE, and that is the whole point.
+ * `nodes/shared/factorPriorRange.ts` states the contract: *"prior.range_min/max
+ * are NORMALISED 0–1 values"*. The number a user TYPES may be in user units, so
+ * the two are not comparable until the SAME forward transform this module
+ * already owns (`normaliseRawFactorValue`) has been applied to the typed number.
+ * `cap` and `inUserUnits` are carried so that transform can be run at the
+ * editor; they are not a second scale rule, they are the inputs to the existing
+ * one.
+ *
+ * ⛔ NO BOUND IS EVER INVERTED TO REACH A VERDICT. Comparing the value the
+ * commit WOULD STORE against the prior's own untouched numbers means the guard
+ * admits exactly what the model can hold, by construction. The inverse
+ * (`bound × cap`) appears once, in the SENTENCE, chosen AFTER the verdict —
+ * the discipline `unproposableDraftReason` already follows on the goal arm.
+ */
+export interface FactorValueAdmission {
+  /** The prior's declared lower bound, MODEL scale, untransformed. */
+  priorMin: number
+  /** The prior's declared upper bound, MODEL scale, untransformed. */
+  priorMax: number
+  /** The factor's cap, for the forward transform. `null` when it declares none. */
+  cap: number | null
+  /** Whether the editor's input is showing a USER-UNIT magnitude. */
+  inUserUnits: boolean
+}
+
+/**
+ * ⭐⭐ THE FACTOR'S DECLARED SUPPORT, or `null` when it declares none.
+ *
+ * ⚠⚠ ABSENCE IS THE DEFAULT AND IT FAILS OPEN. A factor that declares no usable
+ * range gains NO refusal from this — a guard that invents a bound is a worse
+ * defect than the one it closes, because it locks a user out of a row they can
+ * still fix. Every arm below therefore returns `null` rather than a fallback.
+ *
+ * ⚠ THE SHAPES ARE ENUMERATED FROM THE TYPE, NOT FROM A GREP OF LIVE PAYLOADS.
+ * `PriorSchema = z.union([z.number().min(0).max(1), PriorDistributionSchema])`
+ * (`domain/nodes.ts`), and BOTH range ends are `.optional()` on the object arm.
+ * So: absent · a bare probability · an object with neither end · an object with
+ * ONE end · an object with both. Only the last is a range, and it is a range
+ * only when both ends are finite and ordered.
+ *
+ * ⚠⚠ A MAGNITUDE-SCALED FACTOR IS EXCLUDED, and this is not a special case — it
+ * is the same fact `isMagnitudeScaledFactor` was minted for. When a factor
+ * declares a unit and NO cap, CEE stores `value` and `raw_value` IDENTICALLY
+ * (witnessed shape `{value: 40000, unit: '£', raw_value: 40000}`), so a 0–1
+ * prior is NOT the support of `value` there and comparing against it would
+ * refuse a perfectly legitimate £40,000. The prior's numbers are only the
+ * support of `value` where `value` is genuinely a normalised quantity.
+ *
+ * ⚠ AN IGNORANCE PRIOR IS STILL A SUPPORT, AND THAT IS A DELIBERATE RULING
+ * (CLAUDE.md trap 21 — name the question each authority answers).
+ * `isUnquantifiedPrior` answers *"may a surface PRESENT this as an estimate?"*
+ * and is consumed by display code, which suppresses the printed "Range:" line.
+ * This function answers a DIFFERENT question — *"does the prior's support admit
+ * this number?"* — and `uniform(0,1)` supports [0,1] however it came to exist.
+ * Aligning the two would make this guard dark on exactly the factors the
+ * measured defect was found on, every one of which carries `{0, 1}`. So
+ * `isUnquantifiedPrior` is deliberately NOT called here.
+ */
+export function resolveFactorValueAdmission(nodeData: unknown): FactorValueAdmission | null {
+  const data = nodeData as { prior?: unknown } | undefined
+  const prior = data?.prior
+  // The bare-probability arm of the union, and every non-object, carry no range.
+  if (typeof prior !== 'object' || prior === null) return null
+  const { range_min: min, range_max: max } = prior as {
+    range_min?: unknown
+    range_max?: unknown
+  }
+  if (typeof min !== 'number' || !Number.isFinite(min)) return null
+  if (typeof max !== 'number' || !Number.isFinite(max)) return null
+  // An inverted declaration is degenerate: refuse nothing rather than everything.
+  if (min > max) return null
+  // See the header — the prior's numbers are not the support of a magnitude-scaled
+  // `value`, so this factor declares no bound THIS GUARD CAN USE.
+  if (isMagnitudeScaledFactor(nodeData)) return null
+
+  const obs = getObservedState(nodeData)
+  const cap = readNumber(obs.cap)
+  const { inUserUnits } = resolveValueInputSeed(nodeData)
+  return { priorMin: min, priorMax: max, cap: cap ?? null, inUserUnits }
+}
+
+/**
+ * The bound as the user would TYPE it. Display only — see `FactorValueAdmission`.
+ *
+ * `toPrecision` trims the float noise a multiplication leaves (`0.3 × 7` reads
+ * `2.0999999999999996`) so the sentence names a number a person can enter. It
+ * cannot affect a verdict: no caller compares against this.
+ */
+function boundAsTyped(bound: number, { cap, inUserUnits }: FactorValueAdmission): string {
+  const shown = inUserUnits && cap !== null && cap > 0 ? bound * cap : bound
+  return String(Number(shown.toPrecision(12)))
+}
+
+/**
+ * ⭐⭐ WHY THIS DRAFT IS OUTSIDE THE FACTOR'S OWN DECLARED RANGE — or `null`.
+ *
+ * ⚠ THE INVARIANT IS THE SPEC, NOT THE SYMPTOM: *the value the commit would
+ * store lies within `[range_min, range_max]`*. It is deliberately NOT "the typed
+ * number is at most 1", which is the shape of the measured failure and which
+ * would refuse the legitimate `10` on a cap-10 factor.
+ *
+ * ⚠ SIGN-SYMMETRIC, DELIBERATELY. A `> max` test passes every case the defect
+ * was found through and leaves the entire lower half open — the asymmetry that
+ * has cost this estate a shipped inverse before (CLAUDE.md trap 13d).
+ *
+ * ⚠ `parseFloat`, NOT `Number` — the commit path parses with `parseFloat`
+ * (`ModelTabV2Panel.confirmEdit`), and a guard that read the draft differently
+ * from the committer would judge a number nobody is about to store.
+ *
+ * An unparseable draft returns `null` here on purpose: it is already refused,
+ * by name, one arm earlier. Two vocabularies for one question is the drift.
+ */
+export function factorValueAdmissionRefusal(
+  admission: FactorValueAdmission | null | undefined,
+  draft: string,
+): string | null {
+  if (!admission) return null
+  const typed = parseFloat(draft)
+  if (!Number.isFinite(typed)) return null
+  // The SAME forward transform the emitter runs, so the number judged here is
+  // the number the model would hold. Called, never re-typed.
+  const value = admission.inUserUnits
+    ? normaliseRawFactorValue(typed, admission.cap)
+    : typed
+  if (!Number.isFinite(value)) return null
+  if (value >= admission.priorMin && value <= admission.priorMax) return null
+  return `Enter a value between ${boundAsTyped(admission.priorMin, admission)} and ${boundAsTyped(admission.priorMax, admission)} to review this change`
+}
+
 export interface FactorValueEditInput {
   /** The factor node's id. ID-ADDRESSED — a label would retarget on a rename. */
   nodeId: string

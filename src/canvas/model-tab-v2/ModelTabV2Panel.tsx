@@ -679,6 +679,10 @@ export function ModelTabV2Panel({
   }, [])
 
   const proposeEdit = useCallback((rowId: string) => {
+    // ⚠ THE ROW'S OWN DECLARED BOUND, resolved by the projection that built the
+    // row, so the host judges the SAME prior the control showed the user. Read
+    // outside the updater: `setEdit`'s callback must stay pure.
+    const admission = rows.find(r => r.id === rowId)?.valueAdmission
     setEdit(prev => {
       if (!prev || prev.rowId !== rowId) return prev
       /*
@@ -694,10 +698,10 @@ export function ModelTabV2Panel({
        * derivation, so a control that offers to advance and a host that refuses
        * to cannot disagree.
        */
-      if (unproposableDraftReason(rowId, prev.draft, prev.unit) !== null) return prev
+      if (unproposableDraftReason(rowId, prev.draft, prev.unit, admission) !== null) return prev
       return { ...prev, phase: 'proposed' }
     })
-  }, [])
+  }, [rows])
 
   const discardEdit = useCallback((rowId: string) => {
     setEdit(prev => (prev && prev.rowId === rowId ? null : prev))
