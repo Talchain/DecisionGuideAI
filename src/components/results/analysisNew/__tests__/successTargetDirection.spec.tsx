@@ -255,6 +255,34 @@ describe('the reader states which way a goal target is read, and the wire agrees
   })
 
   /**
+   * ⭐⭐ A STATED CEILING DOES NOT SURVIVE INTO THE NEXT EDIT.
+   *
+   * ⚠ THE ARM EXISTS BECAUSE THE FIRST IMPLEMENTATION RESET THE DIRECTION AFTER
+   * A SUCCESSFUL DISPATCH, which is the one path that does NOT need it. Escape
+   * and the no-dispatcher local write both skip that line, so a ceiling stated
+   * once would be pre-selected the next time the editor opened, on a different
+   * goal, as a default nobody chose. The direction is now seeded on OPEN beside
+   * the draft, so every edit starts from the same stated default.
+   *
+   * ⚠ ESCAPE IS THE PATH CHOSEN DELIBERATELY: it reaches neither commit branch,
+   * so it is the case a reset placed on either branch cannot cover.
+   */
+  it('opens the next edit at the default, after a ceiling was stated and abandoned', async () => {
+    draw()
+    const user = userEvent.setup()
+    await user.click(screen.getByTestId(`${TID}-edit`))
+    const select = screen.getByTestId(`${TID}-direction`)
+    await user.selectOptions(select, within(select).getByRole('option', { name: 'at most' }))
+    expect(screen.getByTestId(`${TID}-direction`)).toHaveValue('at_most')
+
+    await user.keyboard('{Escape}')
+    await user.click(screen.getByTestId(`${TID}-edit`))
+
+    expect(screen.getByTestId(`${TID}-direction`)).toHaveValue('at_least')
+    expect(dispatchAction).not.toHaveBeenCalled()
+  })
+
+  /**
    * ⚠ A DIRECTION IS NOT A LICENCE TO SEND. The builder's existing refusals are
    * unchanged by this change, and a stated direction must not smuggle an
    * unbuildable draft past them.

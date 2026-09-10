@@ -73,7 +73,7 @@
  * accepted. The local write SURVIVES on the `local_only` path only, where there
  * is no dispatcher to own it and the copy says so plainly.
  */
-import { useState } from 'react'
+import { useState, type KeyboardEvent } from 'react'
 import { Target } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -228,6 +228,31 @@ export function SuccessTargetLine({
    */
   const canDispatch = GOAL_TARGET_DISPATCH_CONNECTED && authority.goalTargetDispatchAvailable
 
+  /**
+   * ⭐⭐ ONE KEYBOARD CONTRACT FOR THE WHOLE EDITOR, NOT ONE PER FIELD.
+   *
+   * ⚠ THIS IS A REGRESSION THE DIRECTION SELECTOR WOULD OTHERWISE HAVE
+   * INTRODUCED, and a test caught it rather than a review. Escape was handled
+   * on the INPUT, which was fine while the input was the only focusable thing
+   * in the row: wherever focus was, Escape reached it. Adding a second control
+   * silently created a place to stand where Escape does nothing and the reader
+   * is trapped in an editor with no visible way out.
+   *
+   * Handing both fields the SAME handler is the fix rather than copying the
+   * arms onto the select, because a copy is a hand-maintained mirror and would
+   * drift the first time either behaviour changed (CLAUDE.md trap 12).
+   */
+  const onEditorKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      commit()
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      setEditing(false)
+    }
+  }
+
   const commit = () => {
     const typed = draft.trim()
     /**
@@ -257,9 +282,6 @@ export function SuccessTargetLine({
       if (outcome === 'not_encodable') return
       setEditing(false)
       setDraft('')
-      // The direction belongs to the draft, so it is cleared with it. A stated
-      // ceiling must not survive into the NEXT edit as an invisible default.
-      setDirection('at_least')
       return
     }
 
@@ -316,6 +338,7 @@ export function SuccessTargetLine({
           <select
             value={direction}
             onChange={(e) => setDirection(e.target.value as ConstraintType)}
+            onKeyDown={onEditorKeyDown}
             aria-label={COPY.successTarget.directionLabel}
             className={`${typography.panelMeta} shrink-0 rounded border border-panel-border bg-surface px-1 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
             data-testid={`${testId}-direction`}
@@ -329,16 +352,7 @@ export function SuccessTargetLine({
             autoFocus
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                commit()
-              }
-              if (e.key === 'Escape') {
-                e.preventDefault()
-                setEditing(false)
-              }
-            }}
+            onKeyDown={onEditorKeyDown}
             aria-label={COPY.successTarget.inputLabel}
             className={`${typography.panelMeta} min-w-0 flex-1 rounded border border-panel-border bg-surface px-1.5 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
             data-testid={`${testId}-input`}
@@ -397,6 +411,17 @@ export function SuccessTargetLine({
             onClick={() => {
               setEditing(true)
               setDraft(fromNode != null ? String(fromNode.raw) : fromStore != null ? String(fromStore) : '')
+              /**
+               * ⚠ SEEDED ON OPEN, BESIDE THE DRAFT, AND FOR THE SAME REASON.
+               * Resetting it after a successful commit would have left it
+               * sticky on the two paths that do not reach that line: Escape,
+               * and the local write with no dispatcher. A ceiling stated once
+               * would then be pre-selected on the next edit of a different
+               * goal. Seeding both here is ONE place a fresh edit starts from,
+               * so the paths cannot disagree (CLAUDE.md trap 12: one
+               * derivation, not two that agree today).
+               */
+              setDirection('at_least')
               // Captured at OPEN, checked at COMMIT — see `editScenarioId`.
               setEditScenarioId(authority.captureScenarioId())
             }}
