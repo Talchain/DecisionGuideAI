@@ -42,6 +42,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { OutputsDock } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
 import { derivePostFooterStatus } from '../utils/postAnalysisFooter'
+import { seedDockOnAnalysisTab } from './helpers/dockTabFixture'
 
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
@@ -184,6 +185,15 @@ beforeEach(() => {
   ensureMatchMedia()
   try {
     sessionStorage.clear()
+    // ⚠ THE TAB THIS SPEC MEASURES, NOW STATED (default-tab ruling, 9 Sep
+    // 2026). `results-analysis-footer` is an ANALYSIS-surface testid, and this
+    // file was authored while the dock still opened on Analysis, so the premise
+    // went unwritten. A fresh unchosen session now lands on Reasoning
+    // (`DEFAULT_WORKSPACE_SURFACE`), which is why all three cases failed on the
+    // MOUNT and not on a disagreement about behaviour. Fixture only — no
+    // assertion below is relaxed, and the gate this file pins is untouched.
+    // Must follow the clear above. Same helper the other 16 dock specs use.
+    seedDockOnAnalysisTab()
   } catch {
     /* jsdom quirk */
   }
