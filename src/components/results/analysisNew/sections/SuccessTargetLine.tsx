@@ -86,6 +86,7 @@ import {
 } from '../../../../canvas/domain/goalTarget'
 import { formatGoalTarget } from '../../utils/formatGoalTarget'
 import { useModelEditAuthority } from '../../../../canvas/hooks/useModelEditAuthority'
+import type { ConstraintType } from '../../../../v5/chipParameters'
 import {
   CANONICAL_EDIT_AUTHORITY,
   hasServerGraphAuthority,
@@ -156,6 +157,23 @@ export function SuccessTargetLine({
 
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
+  /**
+   * ⭐⭐⭐ WHICH WAY THE NUMBER IS READ — STATE, BESIDE THE NUMBER IT QUALIFIES,
+   * BECAUSE IT IS HALF OF WHAT THE READER IS SAYING.
+   *
+   * ⚠⚠ THE DEFAULT IS `at_least` AND IT MUST STAY `at_least`. This control has
+   * been recording floors since it shipped; readers hold targets set under that
+   * behaviour, and re-reading those as ceilings would be a worse harm than the
+   * gap being closed. Nothing about an UNTOUCHED interaction changes.
+   *
+   * ⚠⚠⚠ AND NOTHING HERE INFERS THE DIRECTION FROM THE GOAL. Reading "Within 12
+   * Months" as a deadline is the natural-language predicate CLAUDE.md trap 22f
+   * records as unwinnable after four rounds that each fixed one direction and
+   * reopened the other. Trap 22f's exit is this one: make the ambiguity the
+   * product and ASK. A default the reader can SEE and OVERRIDE is an ask; a
+   * hardcode nobody is shown is what shipped.
+   */
+  const [direction, setDirection] = useState<ConstraintType>('at_least')
   /**
    * ⭐ THE SCENARIO THE READER OPENED THE EDITOR IN, captured at OPEN and
    * checked at COMMIT - `ModelTabV2Panel.beginEdit` (`:699`) does exactly this
@@ -234,11 +252,14 @@ export function SuccessTargetLine({
        * the reader's side one state, nothing written anywhere, so the editor
        * STAYS OPEN exactly as the factor editor does.
        */
-      const outcome = authority.proposeGoalTarget(typed, unit, editScenarioId)
+      const outcome = authority.proposeGoalTarget(typed, unit, editScenarioId, direction)
       onCommitOutcome(outcome)
       if (outcome === 'not_encodable') return
       setEditing(false)
       setDraft('')
+      // The direction belongs to the draft, so it is cleared with it. A stated
+      // ceiling must not survive into the NEXT edit as an invisible default.
+      setDirection('at_least')
       return
     }
 
@@ -278,6 +299,30 @@ export function SuccessTargetLine({
 
       {editing ? (
         <span className="flex items-center gap-1.5 min-w-0 flex-1">
+          {/*
+            ⭐⭐ THE DIRECTION, IN WORDS, BEFORE THE NUMBER — so the row reads as
+            the sentence it sends: "Target · at least · 12". It sits FIRST
+            because that is the order of the message CEE receives and of the
+            claim the reader is making, and it renders in its default state
+            without any interaction, which is the whole point: a reader who
+            never opens this menu has still been TOLD which way their number is
+            about to be recorded. That is what the shipped control never did.
+
+            ⚠ ONLY IN THE EDITOR, DELIBERATELY. The read-only row shows a target
+            that came from the brief, through a path that recorded no direction
+            at all. Painting a bound onto it would be fabricating provenance for
+            a claim nobody made. The direction is stated where it is RECORDED.
+          */}
+          <select
+            value={direction}
+            onChange={(e) => setDirection(e.target.value as ConstraintType)}
+            aria-label={COPY.successTarget.directionLabel}
+            className={`${typography.panelMeta} shrink-0 rounded border border-panel-border bg-surface px-1 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            data-testid={`${testId}-direction`}
+          >
+            <option value="at_least">{COPY.successTarget.directionAtLeast}</option>
+            <option value="at_most">{COPY.successTarget.directionAtMost}</option>
+          </select>
           <input
             type="text"
             inputMode="decimal"

@@ -127,7 +127,12 @@ import {
 import { buildFactorValueEditEvent } from '../conversation/factorValueEdit'
 import { buildEdgeStrengthEditEvent } from '../conversation/edgeStrengthEdit'
 import { captureOptimisticFactorEdit } from '../conversation/optimisticFactorEdit'
-import { buildManualGoalTarget, manualGoalTargetMessage } from '../conversation/manualGoalTarget'
+import {
+  buildManualGoalTarget,
+  goalTargetBoundPhrase,
+  manualGoalTargetMessage,
+} from '../conversation/manualGoalTarget'
+import type { ConstraintType } from '../../v5/chipParameters'
 import {
   buildOptionInterventionEditEvent,
   type OptionInterventionEditRefusal,
@@ -341,7 +346,19 @@ export interface ModelEditAuthorityLive {
   /** The host captures identity without gaining a separate store access path. */
   captureScenarioId: () => string | null
   /** Dispatch only: the central typed-action receipt owns the eventual write. */
-  proposeGoalTarget: (draft: string, unit: string, scenarioId: string | null) => 'dispatched' | 'not_encodable'
+  /**
+   * ⚠⚠ `direction` IS REQUIRED AND HAS NO DEFAULT. Which way a target is read
+   * is part of WHAT IS RECORDED, and a defaulted parameter would let a surface
+   * record a floor over a deadline-shaped goal without ever saying so — the
+   * defect measured on served `475ee1c7`. Every caller states its direction in
+   * its own source, where a reviewer can see it.
+   */
+  proposeGoalTarget: (
+    draft: string,
+    unit: string,
+    scenarioId: string | null,
+    direction: ConstraintType,
+  ) => 'dispatched' | 'not_encodable'
   proposeFactorValue: (typedValue: number) => FactorValueProposalOutcome
   /**
    * Set the ACTIVE OPTION's target value for one factor.
@@ -410,20 +427,29 @@ export function useModelEditAuthority(
   const sendSystemEvent = conversation?.sendSystemEvent
   const dispatchAction = conversation?.dispatchAction
 
-  const proposeGoalTarget = useCallback((draft: string, unit: string, scenarioId: string | null) => {
+  const proposeGoalTarget = useCallback((
+    draft: string, unit: string, scenarioId: string | null, direction: ConstraintType,
+  ) => {
     const state = useCanvasStore.getState()
     const node = state.nodes.find(n => n.id === activeNodeId)
     if (!node || resolveNodeTypeLiteral(node) !== 'goal' || !dispatchAction ||
         !scenarioId || state.currentScenarioId !== scenarioId) return 'not_encodable' as const
-    const parameters = buildManualGoalTarget(node.id, draft, unit)
+    const parameters = buildManualGoalTarget(node.id, draft, unit, direction)
     if (!parameters) return 'not_encodable' as const
     // Do not echo the draft into the store or claim saved on promise resolution.
     // Typed add_constraint uses CEE's existing validated proposal/commit path;
     // central response application owns both acceptance and refusal.
+    //
+    // ⚠⚠ THE LABEL SAID "minimum" WHILE THE DIRECTION WAS A PARAMETER NOBODY
+    // COULD SEE. It read `Set minimum target: …` unconditionally — the ONE
+    // place the word appeared outside the authority key's own name, and it is
+    // an action label, so it never reached a screen at all. It now names the
+    // bound it is actually recording, from the same `direction` the parameters
+    // and the message are built from: three expressions, one fact.
     void Promise.resolve(dispatchAction({
       action_type: 'add_constraint', parameters, source: 'inspector',
-      label: `Set minimum target: ${parameters.value} ${parameters.unit}`,
-      message: manualGoalTargetMessage(parameters.value, parameters.unit),
+      label: `Set target: ${goalTargetBoundPhrase(direction)} ${parameters.value} ${parameters.unit}`,
+      message: manualGoalTargetMessage(parameters.value, parameters.unit, direction),
     })).catch(() => { /* The conversation's existing failure channel owns this. */ })
     return 'dispatched' as const
   }, [activeNodeId, dispatchAction])

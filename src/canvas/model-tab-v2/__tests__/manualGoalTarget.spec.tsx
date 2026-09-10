@@ -142,7 +142,17 @@ describe('manual goal target uses the existing canonical typed action', () => {
       { status: 200, headers: { 'Content-Type': 'application/json' } }))
     await callV5Turn(built.payload, { fetchImpl })
     const body = JSON.parse(fetchImpl.mock.calls[0][1].body)
-    expect(body.message).toBe(manualGoalTargetMessage(120000, '£'))
+    /**
+     * ⚠ A LITERAL, NOT THE PRODUCER. This read
+     * `toBe(manualGoalTargetMessage(120000, '£'))`, which puts the function
+     * under test on BOTH sides: any change to the sentence moves the
+     * expectation with it and the assertion cannot RED in either direction
+     * (CLAUDE.md trap 13b, a guard agreeing with itself). Spelled out, it now
+     * pins what actually crossed the wire — including the BOUND, which is the
+     * half that was never stated to the reader who set it.
+     */
+    expect(body.message).toBe(
+      'This goal must be at least £120000. This is an absolute level, not a change from the current level.')
     expect(body.source).toBe('chip_click')
     expect(body.chip).toMatchObject({ action_type: 'add_constraint', parameters: {
       target_id: 'goal-revenue', constraint_type: 'at_least', value: 120000, unit: '£' } })
@@ -150,7 +160,16 @@ describe('manual goal target uses the existing canonical typed action', () => {
   it.each([[120000, '£', '£120000'], [80, '%', '80%'], [12.5, 'points', '12.5 points'],
     [1e21, '$', '$1000000000000000000000'], [1e-7, 'points', '0.0000001 points']] as const)(
     'states the exact %s %s amount without scientific notation or unit reassignment', (value, unit, amount) => {
-      expect(manualGoalTargetMessage(value, unit)).toBe(
+      expect(manualGoalTargetMessage(value, unit, 'at_least')).toBe(
         `This goal must be at least ${amount}. This is an absolute level, not a change from the current level.`)
+      /**
+       * ⭐ THE OPPOSITE-DIRECTION TWIN, on the SAME amount. The amount
+       * formatting is direction-independent and must stay so: a bound that
+       * changed how a figure is rendered would be a second defect hiding
+       * behind the first. Every case here gets both doors watched
+       * (CLAUDE.md trap 22b).
+       */
+      expect(manualGoalTargetMessage(value, unit, 'at_most')).toBe(
+        `This goal must be at most ${amount}. This is an absolute level, not a change from the current level.`)
     })
 })

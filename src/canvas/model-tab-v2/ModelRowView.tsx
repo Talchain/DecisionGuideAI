@@ -1575,7 +1575,16 @@ export function unproposableDraftReason(
   admission?: ModelRow['valueAdmission'],
 ): string | null {
   if (unit !== undefined) {
-    if (buildManualGoalTarget(rowId, draft, unit) !== null) return null
+    /*
+     * ⚠ THE DIRECTION IS IRRELEVANT TO THIS QUESTION, AND IS STILL STATED.
+     * Every refusal the builder can make — an unparseable draft, a value at or
+     * below zero, an empty unit — is direction-independent, so this probe reads
+     * the same verdict either way. It passes `'at_least'` because that is what
+     * this tab's own commit sends (`ModelTabV2Panel.tsx:769`): the guard and
+     * the host must ask the builder the SAME question, which is the property
+     * this function exists for.
+     */
+    if (buildManualGoalTarget(rowId, draft, unit, 'at_least') !== null) return null
     const stated = statedTargetNumber(draft)
     if (stated === null) return 'Enter a number to review this change'
     if (stated <= 0) return 'Enter a target above zero to review this change'
