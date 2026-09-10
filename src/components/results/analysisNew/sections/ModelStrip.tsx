@@ -826,15 +826,22 @@ export function ModelStrip({
           hidden behind a disclosure is a target nobody sets. */}
       <SuccessTargetLine
         goalNodeId={strip.goalNodeId}
-        /* ⚠⚠ TWO OUTCOMES, NOT THREE, AND NEVER "sent". There is no server
-           carrier for a goal threshold, so this control cannot dispatch. The
-           factor editor above answers to a real authority and says so; this one
-           must not borrow its sentence. */
+        /* ⚠⚠ THREE OUTCOMES, AND THE SENTENCE IS THE ONE THE AUTHORITY EARNED.
+           This read TWO, on the premise that no server carrier for a goal
+           threshold exists, and told every reader "It will be used the next time
+           you analyse" over a store-only write that reverted on reload. The
+           typed `add_constraint` carrier is live (`modelGoalMinimumTarget`), so
+           the control can now dispatch and must report which of the three
+           things happened - exactly as the factor editor twenty lines above
+           already does. Collapsing any two of these is the estate's signature
+           defect, an affordance reporting an outcome it never observed. */
         onCommitOutcome={(outcome) =>
           showToast(
-            outcome === 'local_only'
-              ? COPY.successTarget.savedLocally
-              : COPY.successTarget.notEncodable,
+            outcome === 'dispatched'
+              ? COPY.successTarget.dispatched
+              : outcome === 'local_only'
+                ? COPY.successTarget.changedLocally
+                : COPY.successTarget.notEncodable,
           )
         }
         testId={`${testId}-target`}
