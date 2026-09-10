@@ -1058,6 +1058,17 @@ export const WIRE_SYSTEM_EVENT_TYPES = [
   // (`system-events/dispatch.ts:315`), with the writer at
   // `system-events/structural-add.ts`.
   'structural_add',
+  // 0.50.0 — the edge half of the canvas's structural vocabulary, and the member
+  // that makes four gestures durable rather than one: draw-a-link, the five
+  // "Add connected …" affordances, duplicate and paste. `structural_add` covers
+  // the NODES those gestures create; without this the EDGES were dropped, so a
+  // duplicated subgraph came back on the next reload having lost its structure.
+  //
+  // ⚠ READER-FIRST IS SATISFIED: CEE's writer landed before this member joined
+  // the UI's vocabulary (PR #1443), so no build can receive a kind it cannot
+  // handle. Every `SystemEventSchema` member is `.strict()` and the union is
+  // discriminated on `kind`, so the reverse order rejects the whole turn.
+  'structural_add_edge',
   // schemas 0.42.0 — the value-carrying EDGE edit, and the close of "I moved the
   // strength slider and it went back". Addressed by the canonical GraphV3
   // identity `(from, to)`, never by the client edge id CEE has never seen.
@@ -1177,6 +1188,15 @@ export type WireSystemEventType = (typeof WIRE_SYSTEM_EVENT_TYPES)[number]
 export const MODEL_CHANGING_SYSTEM_EVENT_TYPES = [
   'factor_value_edit',
   'structural_add',
+  // 0.50.0 member, writer landed 2026-09-11 (CEE PR #1443). MODEL-CHANGING
+  // because it writes `scenarios.graph`: CEE declares it `'mutating'` and its
+  // writer commits the graph plus an `edit_graph` fact atomically.
+  //
+  // ⚠ UNLIKE `edge_strength_edit` THIS ONE IS UNCONDITIONAL. That member's
+  // classification is gated on `graphCas.rpcEnforce`; `structural_add_edge` is
+  // declared `'mutating'` outright, on the same footing as `structural_add`
+  // above, so no posture caveat applies to it.
+  'structural_add_edge',
   'structural_delete',
   'structural_rename',
   // Joined the wire vocabulary 2026-09-07 with its emitter. HELD, because CEE
