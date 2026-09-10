@@ -97,6 +97,25 @@ import {
  * `ModelTabV2Panel.tsx:558` reads it for the same write. A module constant
  * because it is a frozen policy value, not state.
  */
+/**
+ * ⭐⭐⭐ THE DIRECTION A FRESH EDIT STARTS FROM — ONE CONSTANT, BECAUSE IT WAS
+ * BRIEFLY TWO AND A MUTANT PROVED ONLY ONE OF THEM WAS LIVE.
+ *
+ * ⚠⚠ HOW THIS WAS CAUGHT, AND WHY IT MATTERS. The default was written twice:
+ * as `useState`'s initial value AND as the value seeded when the editor opens.
+ * A mutant flipping the `useState` initial to `at_most` left every case GREEN —
+ * correctly, because the selector only exists WHILE editing and opening always
+ * re-seeds, so that initial value is unobservable. Two spellings of one policy,
+ * one of them dead: the hand-maintained mirror CLAUDE.md trap 12 is about, and
+ * the dead one is exactly what a later author would "helpfully" keep in sync
+ * while the live one drifted.
+ *
+ * ⚠ `at_least` IS NOT A STYLE CHOICE. It is what this control has recorded
+ * since it shipped, and readers hold targets set under it. Changing this
+ * constant silently re-reads their models, so a mutant flipping it REDs.
+ */
+const DEFAULT_TARGET_DIRECTION: ConstraintType = 'at_least'
+
 const GOAL_TARGET_DISPATCH_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.modelGoalMinimumTarget,
 )
@@ -173,7 +192,7 @@ export function SuccessTargetLine({
    * product and ASK. A default the reader can SEE and OVERRIDE is an ask; a
    * hardcode nobody is shown is what shipped.
    */
-  const [direction, setDirection] = useState<ConstraintType>('at_least')
+  const [direction, setDirection] = useState<ConstraintType>(DEFAULT_TARGET_DIRECTION)
   /**
    * ⭐ THE SCENARIO THE READER OPENED THE EDITOR IN, captured at OPEN and
    * checked at COMMIT - `ModelTabV2Panel.beginEdit` (`:699`) does exactly this
@@ -421,7 +440,7 @@ export function SuccessTargetLine({
                * so the paths cannot disagree (CLAUDE.md trap 12: one
                * derivation, not two that agree today).
                */
-              setDirection('at_least')
+              setDirection(DEFAULT_TARGET_DIRECTION)
               // Captured at OPEN, checked at COMMIT — see `editScenarioId`.
               setEditScenarioId(authority.captureScenarioId())
             }}
