@@ -257,7 +257,7 @@ describe('StressTestSection — the UI-authored thinking patterns', () => {
 // probe that has forgotten the old vocabulary cannot see it come back. Union;
 // never replace.
 const FRAGILE_CLAIM_RE =
-  /flip the result to|result could flip to|which option is most likely to hit your goal|the recommendation/i
+  /flip the result to|result could flip to|flip the answer to|the answer could flip to|which option is most likely to hit your goal|the recommendation/i
 
 const FRAGILE_FROM = 'Team capacity'
 const FRAGILE_FROM_2 = 'Delivery risk'
@@ -309,7 +309,7 @@ describe('StressTestSection fragile factors — STRING 1: the grouped header', (
 
   it('ANTI-VACUITY: the PERMITTED header carries the claim the matcher hunts', () => {
     const text = fragileText(false, twoEdges)
-    expect(text).toContain('2 relationships could flip the result to')
+    expect(text).toContain('2 relationships could flip the answer to')
     expect(text).toMatch(FRAGILE_CLAIM_RE)
     expect(screen.getByTestId('fragile-alt-winner').textContent).toBe(HIGH_LABEL)
   })
@@ -341,7 +341,7 @@ describe('StressTestSection fragile factors — STRING 1: the grouped header', (
   it('PERMITTED: the header keeps the flip verb (noun corrected to relationships)', () => {
     expect(
       fragileEdgeGroupHeader({ altWinnerLabel: HIGH_LABEL, edgeCount: 2, hasEValue: false, designationsWithheld: false, flipEvidenceAttestsNoFlip: false }),
-    ).toEqual({ kind: 'altWinner', lead: '2 relationships could flip the result to ', altWinnerLabel: HIGH_LABEL })
+    ).toEqual({ kind: 'altWinner', lead: '2 relationships could flip the answer to ', altWinnerLabel: HIGH_LABEL })
   })
 
   it('WITHHELD: the header keeps the altWinner SHAPE — only the lead changes', () => {
@@ -356,7 +356,7 @@ describe('StressTestSection fragile factors — STRING 1: the grouped header', (
 describe('StressTestSection fragile factors — STRING 2: the singleton header', () => {
   it('ANTI-VACUITY: the PERMITTED singleton header carries the claim', () => {
     const text = fragileText(false, [fragileEdge()])
-    expect(text).toContain('Result could flip to')
+    expect(text).toContain('The answer could flip to')
     expect(text).toMatch(FRAGILE_CLAIM_RE)
   })
 
@@ -367,10 +367,10 @@ describe('StressTestSection fragile factors — STRING 2: the singleton header',
     expect(screen.getByTestId('fragile-alt-winner').textContent).toBe(HIGH_LABEL)
   })
 
-  it('PERMITTED: the singleton header is byte-identical to today', () => {
+  it('PERMITTED: the singleton header keeps the flip verb and names the alternative', () => {
     expect(
       fragileEdgeGroupHeader({ altWinnerLabel: HIGH_LABEL, edgeCount: 1, hasEValue: false, designationsWithheld: false, flipEvidenceAttestsNoFlip: false }),
-    ).toEqual({ kind: 'altWinner', lead: 'Result could flip to ', altWinnerLabel: HIGH_LABEL })
+    ).toEqual({ kind: 'altWinner', lead: 'The answer could flip to ', altWinnerLabel: HIGH_LABEL })
   })
 
   it('WITHHELD: the singleton header keeps the altWinner shape', () => {
@@ -468,7 +468,7 @@ describe('StressTestSection fragile factors — STRING 5: the Ask-Olumi draft', 
 
   it('ANTI-VACUITY: the PERMITTED grouped draft names the flip target', () => {
     const draft = fragileDiscussDraft({ ...base, altWinnerLabel: HIGH_LABEL, designationsWithheld: false, flipEvidenceAttestsNoFlip: false })
-    expect(draft).toBe(`Are these 2 relationships that could flip the result to ${HIGH_LABEL} reliable?`)
+    expect(draft).toBe(`Are these 2 relationships that could flip the answer to ${HIGH_LABEL} reliable?`)
     expect(draft).toMatch(FRAGILE_CLAIM_RE)
   })
 
@@ -509,7 +509,7 @@ describe('StressTestSection fragile factors — STRING 5: the Ask-Olumi draft', 
 
   it('ANTI-VACUITY: the PERMITTED sparkle prefills the flip-target draft', () => {
     const draft = draftFromCta(false)
-    expect(draft).toBe(`Are these 2 relationships that could flip the result to ${HIGH_LABEL} reliable?`)
+    expect(draft).toBe(`Are these 2 relationships that could flip the answer to ${HIGH_LABEL} reliable?`)
     expect(draft).toMatch(FRAGILE_CLAIM_RE)
   })
 

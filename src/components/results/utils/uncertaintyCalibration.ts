@@ -49,7 +49,7 @@ export interface UncertaintyCopy {
 
 const CONFIDENT_TEXT = 'This result looks fairly confident.'
 const MODERATE_TEXT =
-  "It appears the result holds, though there's meaningful uncertainty in the estimate."
+  "This result appears to hold, though there's meaningful uncertainty in the estimate."
 const TENTATIVE_TEXT = 'This result is tentative. The uncertainty is substantial.'
 
 type RobustnessBand = 'high' | 'moderate' | 'low'

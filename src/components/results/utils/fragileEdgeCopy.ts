@@ -257,8 +257,8 @@ export function fragileEdgeGroupHeader({
   return {
     kind: 'altWinner',
     lead: multiple
-      ? `${relationshipCount(edgeCount)} could flip the result to `
-      : 'Result could flip to ',
+      ? `${relationshipCount(edgeCount)} could flip the answer to `
+      : 'The answer could flip to ',
     altWinnerLabel,
   }
 }
@@ -315,7 +315,7 @@ export function fragileDiscussDraft({
 
   if (altWinnerLabel && multiple) {
     return flipVerbPermitted(verdict)
-      ? `Are these ${edgeCount} relationships that could flip the result to ${altWinnerLabel} reliable?`
+      ? `Are these ${edgeCount} relationships that could flip the answer to ${altWinnerLabel} reliable?`
       : `Are these ${edgeCount} relationships that could shift ${FRAGILE_NEUTRAL_OBJECT} towards ${altWinnerLabel} reliable?`
   }
 

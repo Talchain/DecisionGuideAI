@@ -300,7 +300,7 @@ describe('⭐ DEFECT 4 — the legend describes the marks actually drawn', () =>
       .filter(reason => ATTENTION_MARK[reason] === ATTENTION_MARK.fragile)
     expect(triangles).toEqual(['fragile'])
 
-    expect(ATTENTION_LABEL.fragile).toBe('Could flip the result')
+    expect(ATTENTION_LABEL.fragile).toBe('Could flip the answer')
     // The state the old sentence actually described belongs to a DIFFERENT mark.
     expect(ATTENTION_LABEL['unconfirmed-estimate']).toBe(UNCONFIRMED_ESTIMATE_LABEL)
     expect(ATTENTION_MARK['unconfirmed-estimate']).not.toBe(ATTENTION_MARK.fragile)
