@@ -36,6 +36,8 @@ import type { V5ReviewCardBlock as V5ReviewCardBlockType } from '../../canvas/co
 
 export interface V5ReviewCardBlockProps {
   block: V5ReviewCardBlockType
+  /** See `V5CoachingBlockProps.suppressHeader` — same rule, same single caller. */
+  suppressHeader?: boolean
 }
 
 const SEVERITY_BORDER: Record<V5ReviewCardBlockType['severity'], string> = {
@@ -50,7 +52,7 @@ const SEVERITY_ICON_COLOUR: Record<V5ReviewCardBlockType['severity'], string> = 
   critical: 'text-danger',
 }
 
-export function V5ReviewCardBlock({ block }: V5ReviewCardBlockProps): ReactElement {
+export function V5ReviewCardBlock({ block, suppressHeader = false }: V5ReviewCardBlockProps): ReactElement {
   const Icon = block.severity === 'info' ? Lightbulb : AlertTriangle
   /*
     THE UNCERTAINTY CHANNEL — #670's mechanism, consumed through the shared
@@ -70,16 +72,18 @@ export function V5ReviewCardBlock({ block }: V5ReviewCardBlockProps): ReactEleme
       data-currency={currency}
       className={`rounded-md border ${SEVERITY_BORDER[block.severity]} bg-panel p-4 space-y-2`}
     >
-      <div className="flex items-start gap-2">
-        <Icon
-          size={16}
-          className={`flex-none mt-0.5 ${SEVERITY_ICON_COLOUR[block.severity]}`}
-          aria-hidden="true"
-        />
-        <h3 className={typography.panelHeader} data-testid="v5-review-card-title">
-          {block.title}
-        </h3>
-      </div>
+      {!suppressHeader && (
+        <div className="flex items-start gap-2">
+          <Icon
+            size={16}
+            className={`flex-none mt-0.5 ${SEVERITY_ICON_COLOUR[block.severity]}`}
+            aria-hidden="true"
+          />
+          <h3 className={typography.panelHeader} data-testid="v5-review-card-title">
+            {block.title}
+          </h3>
+        </div>
+      )}
       <p className={typography.panelBody} data-testid="v5-review-card-body">
         {block.body}
       </p>
