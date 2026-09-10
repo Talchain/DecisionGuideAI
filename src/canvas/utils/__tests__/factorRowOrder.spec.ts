@@ -25,7 +25,30 @@ import {
   seatNodesIntoRankedSlots,
   type RankableFactor,
 } from '../factorRowOrder'
-import { MAX_BADGED_RANK } from '../../../components/results/driverDisplayModel'
+import {
+  MAX_BADGED_RANK,
+  compareByDisplayModel,
+  determinedRankDepth,
+} from '../../../components/results/driverDisplayModel'
+
+/**
+ * ⭐ THE BADGE'S OWN EXPRESSION, RE-STATED HERE ON PURPOSE.
+ *
+ * `useNodeDisplayMetadata` decides a card's printed numeral exactly this way.
+ * The tests below assert the two authorities AGREE, so this helper must stay a
+ * faithful copy of that expression rather than of the module under test — if it
+ * drifts toward `factorRowOrder`'s counting, the binding assertions become a
+ * guard agreeing with itself, which is the defect they were written to close.
+ */
+function badgeRankOf(key: string, factors: readonly RankableFactor[]): number | null {
+  const ranked = [...factors].sort(compareByDisplayModel)
+  const rank = ranked.findIndex((x) => x.key === key) + 1
+  const depth = determinedRankDepth(
+    ranked.map((x) => ({ id: x.key, value: x.value })),
+    MAX_BADGED_RANK,
+  )
+  return rank > 0 && rank <= depth ? rank : null
+}
 
 type TestNode = { id: string; position: { x: number; y: number }; data?: unknown }
 
@@ -77,12 +100,47 @@ describe('deriveDeterminedFactorOrder — it claims exactly as far as the badge 
     expect(order).toEqual([])
   })
 
-  it('counts a duplicated id ONCE — one factor does not consume two slots', () => {
+  /**
+   * ⛔ THIS ASSERTION WAS REVERSED, AND THE OLD ONE WAS A GUARD AGREEING WITH
+   * ITSELF. It expected `['fac_a','fac_b','fac_c']`, which pinned this module's
+   * own de-duplication convention and never asked what the BADGE prints for the
+   * same rows. It passed on precisely the input that produced the wrong screen.
+   */
+  it('a duplicated id inside the badged depth yields NO order at all', () => {
     const order = deriveDeterminedFactorOrder(
       [f('fac_a', 1.0), f('fac_a', 1.0), f('fac_b', 0.6), f('fac_c', 0.2)],
       MAX_BADGED_RANK,
     )
-    expect(order).toEqual(['fac_a', 'fac_b', 'fac_c'])
+    expect(order).toEqual([])
+  })
+})
+
+describe('⭐ BINDING — the seat index and the printed #N are ONE claim', () => {
+  it('every seated card sits at the index its own badge numeral claims', () => {
+    const factors = [f('fac_a', 0.9), f('fac_b', 0.5), f('fac_c', 0.2)]
+    const order = deriveDeterminedFactorOrder(factors, MAX_BADGED_RANK)
+    // Precondition pinned IN-TEST: a fixture that produced no order would make
+    // the loop below vacuous and this test would pass while asserting nothing.
+    expect(order.length).toBeGreaterThan(0)
+    order.forEach((key, i) => {
+      expect(badgeRankOf(key, factors)).toBe(i + 1)
+    })
+  })
+
+  /**
+   * THE TWIN, and it is what makes the refusal provably the CODE's doing rather
+   * than the fixture failing to trigger anything: it pins what the badge itself
+   * prints on the duplicate rows, THEN asserts the module refuses.
+   */
+  it('on the duplicate fixture the badge is not a clean 1..N, so refusing is the only honest answer', () => {
+    const factors = [f('fac_a', 1.0), f('fac_a', 1.0), f('fac_b', 0.6), f('fac_c', 0.2)]
+    expect(badgeRankOf('fac_a', factors)).toBe(1)
+    // #3, NOT #2 — the positional index still counts the duplicate.
+    expect(badgeRankOf('fac_b', factors)).toBe(3)
+    // Past the badged depth, so the product deliberately withholds this ordinal.
+    expect(badgeRankOf('fac_c', factors)).toBeNull()
+    // Seating all three would assert an ordinal in geometry that no numeral backs.
+    expect(deriveDeterminedFactorOrder(factors, MAX_BADGED_RANK)).toEqual([])
   })
 })
 

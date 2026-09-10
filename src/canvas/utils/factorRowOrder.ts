@@ -106,18 +106,33 @@ export function deriveDeterminedFactorOrder(
   )
   if (depth < 2) return []
 
-  // De-duplicate by identity, first occurrence wins: a factor arriving twice is
-  // ONE factor and must not consume two slots. `determinedRankDepth` collapses
-  // duplicates the same way, so the depth and this list count the same things.
-  const out: string[] = []
-  const seen = new Set<string>()
-  for (const f of ranked) {
-    if (seen.has(f.key)) continue
-    seen.add(f.key)
-    out.push(f.key)
-    if (out.length === depth) break
-  }
-  return out
+  // ⭐ THE ORDER IS READ OFF THE BADGE'S OWN EXPRESSION, NOT A PARALLEL ONE.
+  //
+  // This previously de-duplicated first and took the first `depth` DISTINCT
+  // keys. That is a second, independent way of counting, and on a reachable
+  // input the two disagreed — which is the whole property this module exists to
+  // assert. `useNodeDisplayMetadata` computes a card's numeral as
+  // `ranked.findIndex(f => f.key === nodeId) + 1`, a POSITIONAL index into the
+  // array that still contains the duplicate, then badges it only while
+  // `rank <= determinedDepth`.
+  //
+  // Worked example, all three cards on screen left to right:
+  // `[fac_a 0.9, fac_a 0.9, fac_b 0.5, fac_c 0.2]` with `depth = 3` badged
+  // `#1`, `#3`, and NOTHING (fac_c's positional rank is 4, past the depth), while
+  // the de-duplicated list seated all three. The row then read `#1, #3, unbadged`
+  // — the exact claim the title makes false, and it seated a card whose ordinal
+  // the product had deliberately WITHHELD, through the position channel, which
+  // this file's own header calls "a stronger channel than the numeral, and one
+  // with no tooltip to qualify it".
+  //
+  // So: take the positional prefix, and REFUSE if that prefix repeats a key. A
+  // duplicated key inside the badged depth means the ordinals are not a clean
+  // 1..N, so there is no determined order to claim and the honest answer is to
+  // move nothing. Refusing is safe by construction — an empty result seats no
+  // card — whereas guessing asserts an ordinal in geometry that no numeral backs.
+  const prefix = ranked.slice(0, depth).map((f) => f.key)
+  if (new Set(prefix).size !== prefix.length) return []
+  return prefix
 }
 
 /** The shape this module reads off a canvas node. */
