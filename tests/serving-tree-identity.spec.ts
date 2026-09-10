@@ -34,9 +34,10 @@
 
 import { describe, it, expect, afterEach } from 'vitest'
 import { createServer, type Server } from 'node:http'
-import { mkdtempSync, mkdirSync, writeFileSync, realpathSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, realpathSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { assertServingTree, PROBE_MODULE } from '../e2e/support/servingTree'
 
 /**
@@ -60,11 +61,40 @@ function makeCheckout(): { root: string; configFile: string; probeFile: string }
   return { root, configFile, probeFile }
 }
 
+/**
+ * ⛔ THE TRAILER KEY IS ASSEMBLED AT RUNTIME, AND THIS IS NOT STYLE.
+ *
+ * This spec used to contain the literal trailer in its OWN source text. When any
+ * test in this file failed, vite-node's `prepareStackTrace` ran
+ * `extractSourceMap` over the transformed source, matched THAT string
+ * (non-globally, so the first hit wins), and `JSON.parse`d the un-substituted
+ * `${b64}` — throwing a SyntaxError from inside the failure reporter.
+ *
+ * The cost was not cosmetic. Measured on the submitted spec:
+ *
+ *     as submitted   Tests  1 failed | 4 passed (13)   8 tests NEVER RAN,
+ *                    and the "Failed Tests" section printed NOTHING
+ *     defused        Tests  4 failed | 9 passed (13)   all 13 ran, 4 kills named
+ *
+ * So the truncation hid 3 of the 4 tests that detect the sentinel mutation and
+ * suppressed the failing assertion's message — this file could not report its
+ * own mutation evidence, which its header says is the whole reason it exists.
+ *
+ * ⚠ JOINED FROM AN ARRAY, NOT `source${""}MappingURL` AND NOT `'a' + 'b'`.
+ * Both of those are constant-foldable, and a bundler that folds one puts the
+ * literal straight back into the transformed source with nothing failing. An
+ * array `.join('')` survives folding in every transform this repo runs.
+ *
+ * ⭐ PINNED BELOW, because a future edit that "tidies" this back to a literal
+ * would reintroduce a defect whose only symptom is a QUIETER test report.
+ */
+const SOURCEMAP_TRAILER_KEY = ['source', 'MappingURL'].join('')
+
 /** A Vite-shaped dev-transform response: module text plus an inline sourcemap. */
 function moduleBodyServedBy(file: string | null, extra: Record<string, unknown> = {}): string {
   const map = JSON.stringify({ version: 3, sources: ['main.tsx'], ...(file === null ? {} : { file }), ...extra })
   const b64 = Buffer.from(map, 'utf8').toString('base64')
-  return `export default 1\n//# sourceMappingURL=data:application/json;charset=utf-8;base64,${b64}\n`
+  return `export default 1\n//# ${SOURCEMAP_TRAILER_KEY}=data:application/json;charset=utf-8;base64,${b64}\n`
 }
 
 const servers: Server[] = []
@@ -270,5 +300,48 @@ describe('assertServingTree — refuses to measure a foreign checkout', () => {
     const err = await assertServingTree(cfg(mine.configFile, undefined), { label: 'test' }).catch((e: Error) => e)
 
     expect((err as Error).message).toContain('CANNOT NAME THE SERVER UNDER TEST')
+  })
+})
+
+/**
+ * ⭐⭐ THE PIN. Without it, a later edit that "tidies" the assembled key back
+ * into a literal reintroduces a defect whose ONLY symptom is a quieter failure
+ * report — the suite still goes green, and the loss shows up as tests that
+ * silently stop running when something else in this file breaks.
+ *
+ * ⚠ THE NEEDLE IS ASSEMBLED FOR THE SAME REASON THE PRODUCTION VALUE IS. A
+ * guard that spelled the trailer key out in order to search for it would put
+ * that key into this file's source and BE the defect it is checking for —
+ * self-defeating in the most literal way available. The same applies to prose:
+ * this comment deliberately does not spell it either, which is why it keeps
+ * saying "the trailer key" instead of naming it.
+ *
+ * ⚠ AND IT READS THIS FILE FROM DISK, not a fixture. The property is about what
+ * the transform receives, and the transform receives this file. A fixture would
+ * be a different string that nothing serves.
+ */
+describe('this spec must not carry a literal sourcemap trailer in its own source', () => {
+  it('the on-disk source is free of the trailer key that breaks the failure reporter', () => {
+    const selfPath = fileURLToPath(import.meta.url)
+    const selfSource = readFileSync(selfPath, 'utf8')
+
+    // PRECONDITION, pinned in-test: we really did read THIS spec. Without it a
+    // path that silently resolved elsewhere would read as a clean pass, which
+    // is the vacuity this whole file exists to guard against.
+    expect(
+      selfSource,
+      'the self-read did not return this spec — the assertion below would be vacuous',
+    ).toContain('serving-tree-identity')
+    expect(selfSource.length).toBeGreaterThan(2000)
+
+    const needle = ['source', 'MappingURL', '='].join('')
+    expect(
+      selfSource.includes(needle),
+      `this spec's source carries the literal trailer key again. vite-node's extractSourceMap will match it on any failure in this file and JSON.parse an un-substituted template, truncating the run. Assemble it (see SOURCEMAP_TRAILER_KEY) instead of writing it out.`,
+    ).toBe(false)
+
+    // TWIN: the assembled constant still produces the real key, so defusing the
+    // literal cannot have been achieved by breaking what the stub actually serves.
+    expect(SOURCEMAP_TRAILER_KEY).toBe(needle.slice(0, -1))
   })
 })
