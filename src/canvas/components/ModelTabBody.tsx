@@ -201,9 +201,23 @@ export const ModelTabBody = memo(function ModelTabBody({
   //                                 which is ITSELF unmounted — only a barrel
   //                                 re-export and specs reference it.
   //   CEE structural repairs        ✅ `RepairQueueList`, in `ModelTabV2Panel`.
-  //   model card / audit trail      ✅ `ModelHealthSection` at :950, OUTSIDE the
-  //                                 dead block. (Witnessed on deployed
-  //                                 `14276d5b` as "Model card".)
+  //   model card / audit trail      ✅ `ModelHealthSection`, rendered ABOVE the
+  //                                 `LEGACY_DETAILED_EDITOR_MOUNTED &&` block —
+  //                                 i.e. outside it, so it survives. (There is a
+  //                                 SECOND `<ModelHealthSection>` further down
+  //                                 that IS inside the dead block; the live one
+  //                                 is the earlier of the two.) Witnessed on
+  //                                 deployed `14276d5b` as "Model card".
+  //                                 ⚠ NO LINE NUMBER HERE, DELIBERATELY. This
+  //                                 row said ":950" when first written and was
+  //                                 FALSE BY THE TIME THE PATCH APPLIED — this
+  //                                 comment's own +31 lines had moved the mount
+  //                                 to :981. A line number in a comment is the
+  //                                 hand-maintained mirror this very paragraph
+  //                                 exists to warn about, and it drifted inside
+  //                                 the edit that added the warning. The
+  //                                 structural anchor above is grep-derivable
+  //                                 and cannot go stale that way.
   //   goal-target editing           ✅ but on ANOTHER SURFACE — the Reasoning
   //                                 tab's `SuccessTargetLine`. Not here.
   //   edge strength / direction /   ◐ STRENGTH ✅ via `proposeEdgeStrength`
