@@ -145,7 +145,7 @@ export function buildNodeInsights({
       title: rec.title,
       tryThis: rec.tryThis,
       context: rec.whyNow || rec.signal,
-      method: methodForRecommendation(rec.id, rec.signalCode),
+      method: methodForRecommendation(rec.id, rec.signalCode, rec.biasCode),
     })
   }
 

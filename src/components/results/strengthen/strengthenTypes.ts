@@ -88,6 +88,27 @@ export interface Recommendation {
    * named, while "Run a pre-mortem" sits two clicks away in a menu.
    */
   signalCode?: string
+  /**
+   * The canonical bias code the producer's OWN bias-signal card names — set
+   * only on phase-3 recs whose `coaching_kind` is `bias_signal` and whose title
+   * the registry recognises. Derived by `biasCodeFromPhase3Item`; absent
+   * everywhere else, including on every UI-minted trigger.
+   *
+   * ⭐⭐ WHY IT IS SEPARATE FROM `signalCode`, WHICH ALREADY IDENTIFIES A BIAS
+   * CARD. `signal_code` on these cards is `COGNITIVE_BIAS` — one value for all
+   * sixteen biases the registry names — so it can only ever select the generic
+   * "Review a possible bias". WHICH bias was found lives in the card's title and
+   * nowhere else on the wire. Two fields because they answer two questions: "is
+   * this a bias finding" and "which bias", and collapsing them would mean a
+   * detected anchor and a detected overconfidence getting the same corrective
+   * (CLAUDE.md trap 21 — name the concepts apart).
+   *
+   * ⚠ NEVER RENDERED AS USER COPY. The bias is named to the user only by the
+   * producer's own card title; this field selects a METHOD, and the method's
+   * copy is the catalogue's. "You are anchoring" is a diagnosis about a person
+   * and this estate does not make one — see `ANALYSIS_HERO_BANNED_TERMS` §18.
+   */
+  biasCode?: string
 }
 
 // ── Engine inputs (narrow, fixture-friendly) ─────────────────────────────────

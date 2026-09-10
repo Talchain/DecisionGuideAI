@@ -109,3 +109,37 @@ export function mergeBiasFindingTypes(
     ]),
   ]
 }
+
+/**
+ * The canonical bias code ONE producer item names, or `null`.
+ *
+ * ⭐⭐ WHY A PER-ITEM RESOLVER WHEN `biasTypesFromPhase3Items` ALREADY EXISTS.
+ * That function answers "which biases did the producer name ANYWHERE in this
+ * run", which is the right question for a run-level gate like
+ * `strengthen:broaden`. It cannot answer "which bias is THIS card about",
+ * because it unions every item's codes and discards the attribution. A method
+ * chip hangs off one card and must name the corrective for THAT card's bias —
+ * so a run carrying both Anchoring and Overconfidence gives each row its own
+ * method rather than both rows the same one.
+ *
+ * ⚠⚠ THE SAME TWO PRODUCER FACTS, AND NOTHING ELSE. `coachingKind ===
+ * 'bias_signal'` plus the producer's own `title`, matched against the registry.
+ * Nothing is inferred from the brief, the model or the card's body: a bias this
+ * estate has no code for returns `null`, and so does a non-bias card however it
+ * is titled. This never mints a bias the producer did not send.
+ *
+ * ⚠ WHICH ALIAS IT RETURNS IS ARBITRARY AND MUST NOT BE RELIED ON. Several
+ * codes share one title by design, and the registry's own insertion order
+ * decides the first — 'Overconfidence' yields `confidence`, not
+ * `overconfidence`, which is exactly the sort of thing a consumer keyed on a
+ * hand-picked spelling would get wrong. Consumers must compare through the
+ * registry's title equivalence (`recommendationMethod.ts` does), never by
+ * string-matching a code they chose themselves.
+ */
+export function biasCodeFromPhase3Item(
+  item: Pick<StrengthenPhase3Item, 'coachingKind' | 'title'>,
+): string | null {
+  if (item.coachingKind !== BIAS_COACHING_KIND) return null
+  const codes = CODES_BY_TITLE.get(item.title.trim().toLowerCase())
+  return codes?.[0] ?? null
+}
