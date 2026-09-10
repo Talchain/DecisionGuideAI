@@ -685,6 +685,65 @@ export function ModelRowView({
         </span>
       )}
 
+      {/*
+        ⛔⛔ THE KEYBOARD ROUTE, AND THE INCONSISTENCY IS WHAT NAMED IT.
+
+        The gesture on the label button above is `onDoubleClick`. Enter and
+        Space on a focused element dispatch `click`, NEVER `dblclick` — so
+        double-click is a POINTER-ONLY gesture and, with it as the sole trigger,
+        a keyboard user could not rename at all. Not slowly, not awkwardly: not
+        at all.
+
+        ⚠ AND THE TELL WAS IN THIS FILE. The VALUE cell (`ValueCell`, testid
+        `model-row-v2-<id>-value`) begins its edit from a `<button>`'s own
+        `onClick`, which Enter and Space DO reach. So on one surface, in one
+        row, editing a value was keyboard-reachable and renaming was not. That
+        asymmetry is the defect; the repair is to stop having two answers to one
+        question (trap 21), not to invent a third interaction.
+
+        So this control MATCHES the sibling rather than inventing anything: a
+        real `<button type="button">` whose `onClick` begins the rename, styled
+        and named exactly as `-confirm-as-is` is, with an `aria-label` quoting
+        the row the way its two siblings already do (`Confirm … is correct`,
+        `Change …`). Nothing here is a new gesture — it is the gesture the file
+        already used for its other two in-row actions.
+
+        ⚠ THE DOUBLE-CLICK STAYS. It is the rename gesture this product already
+        has (`ReactFlowGraph.tsx:1390-1394` binds node double-click to
+        `requestNodeRename`), and removing it would take a shortcut away from
+        pointer users to buy nothing. Two routes to one act is not the
+        two-answers defect above — they call the same `beginRename`.
+
+        ⚠ `!renaming` BECAUSE THE EDITOR REPLACES THE IDENTITY, and a "Rename"
+        control sitting beside an open rename editor would be the second
+        representation of one state that this whole surface exists to remove.
+
+        ⚠⚠ WHAT THE SPEC PROVES AND WHAT IT DOES NOT. `renameIsKeyboardReachable
+        .spec.tsx` drives this by keyboard through `user-event`, so it proves the
+        control is FOCUSABLE and that Enter and Space open the editor. jsdom
+        performs no layout, so it proves NOTHING about whether this control is
+        visible, hit-testable or reachable in tab order at any real width. That
+        is a browser question and it is not answered here.
+      */}
+      {renameAvailable && !renaming && (
+        <button
+          type="button"
+          data-testid={`model-row-v2-${row.id}-rename-start`}
+          title="Rename this element"
+          aria-label={`Rename ${row.label}`}
+          className={`${typography.buttonSmall} text-info underline decoration-dotted shrink-0 whitespace-nowrap`}
+          onClick={e => {
+            /* The row is `role="option"` with its own `onClick`; without this,
+               starting a rename would also select the row. Same reason, same
+               line, as the editor and the two sibling action buttons. */
+            e.stopPropagation()
+            beginRename()
+          }}
+        >
+          Rename
+        </button>
+      )}
+
       </span>
       {/* ── CELL 3 · VALUE — the column this whole change exists to create.
 
