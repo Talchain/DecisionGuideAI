@@ -75,12 +75,25 @@ export function formatConjunctionList(items: readonly string[]): string {
 const MISSING_LIST = { format: (items: readonly string[]) => getConjunctionList().format(items) }
 
 /**
+ * Capitalises a leading letter so a list can OPEN a sentence.
+ *
+ * `missingResultLabels` are written lowercase because they were composed
+ * mid-sentence, behind a dash. Splitting the ribbon into two sentences (no em
+ * dashes in product content, Paul, 10 Sep 2026) moves them to the front of the
+ * second one. Only the first character is touched, so `missingResultLabels`
+ * stays the single owner of what each result is CALLED and no label is
+ * duplicated here in a different case.
+ */
+const sentenceCase = (s: string): string =>
+  s === '' ? s : `${s.charAt(0).toUpperCase()}${s.slice(1)}`
+
+/**
  * The coverage warning with no names in it. Held as a const because
  * `provisionalNaming` falls back to it: the guarantee "an empty list never
  * emits a sentence fragment" then belongs to the STRING, not to its one
  * call site, and survives a second caller.
  */
-const PROVISIONAL_UNNAMED = 'This analysis is partial — some results are missing.'
+const PROVISIONAL_UNNAMED = 'This analysis is partial. Some results are missing.'
 
 export const ANALYSIS_NEW_LABEL_FALLBACK = 'This option'
 
@@ -258,7 +271,7 @@ export const ANALYSIS_NEW_COPY = {
      */
     needsTargetLead: 'Only one reading of this run is available.',
     needsTargetUnlock:
-      'Set a success target and the same run also answers which option is most likely to hit it — a second reading that can disagree with this one.',
+      'Set a success target and the same run also answers which option is most likely to hit it. That second reading can disagree with this one.',
 
     /**
      * READING ONE — the highest expected outcome.
@@ -396,7 +409,7 @@ export const ANALYSIS_NEW_COPY = {
     edit: 'Edit what you said',
     /** Placed on the textarea. States what happens, so saving is not a guess. */
     prompt: 'Why? This stays on the card in this browser.',
-    notSaved: 'Not saved for next time. Your words are still here — retry, or copy them before leaving.',
+    notSaved: 'Not saved for next time. Your words are still here. Retry, or copy them before leaving.',
     sessionOnly: 'Kept in this tab only.',
     scenarioChanged: 'The model on screen changed. Your words have not been saved to it. Copy them or return to the original model before retrying.',
     save: 'Record this',
@@ -889,7 +902,7 @@ export const ANALYSIS_NEW_COPY = {
      * it refuses. "Sent to Olumi" is what is true at the moment the sentence
      * is rendered.
      */
-    valueDispatched: 'Sent to Olumi — the shared model updates when it answers.',
+    valueDispatched: 'Sent to Olumi. The shared model updates when it answers.',
     valueLocalOnly: 'Changed here only. Olumi has not been told, so the shared model still has the old value.',
     valueNotEncodable: 'That value could not be applied, so nothing changed.',
     /**
@@ -933,7 +946,7 @@ export const ANALYSIS_NEW_COPY = {
      * screen-reader user the count and not what pressing it does.
      */
     toVerifyToggleName: (n: number) =>
-      `${n === 1 ? '1 to verify' : `${n} to verify`} — show only these factors`,
+      `${n === 1 ? '1 to verify' : `${n} to verify`}. Show only these factors`,
     /**
      * ⚠ A VISIBLE EXPLANATION, NOT A `title`. The criterion behind the filter
      * is not self-evident from a count, and a tooltip is unreachable on touch
@@ -968,7 +981,7 @@ export const ANALYSIS_NEW_COPY = {
       n === 1 ? '1 with no value yet' : `${n} with no value yet`,
     /** Label-in-name, exactly as `toVerifyToggleName`. */
     noValueToggleName: (n: number) =>
-      `${n === 1 ? '1 with no value yet' : `${n} with no value yet`} — show only these factors`,
+      `${n === 1 ? '1 with no value yet' : `${n} with no value yet`}. Show only these factors`,
     noValueNarrowed: 'Showing only factors that carry no value at all.',
     /** A row is a filter. Accessible name; the row's own word is the visible half. */
     onlyKind: (label: string) => `Show only ${label}`,
@@ -1200,7 +1213,7 @@ export const ANALYSIS_NEW_COPY = {
     provisionalNaming: (missing: readonly string[]) =>
       missing.length === 0
         ? PROVISIONAL_UNNAMED
-        : `This analysis is partial — ${MISSING_LIST.format(missing as string[])} did not come back.`,
+        : `This analysis is partial. ${sentenceCase(MISSING_LIST.format(missing as string[]))} did not come back.`,
     /**
      * Field names as THIS surface says them. Furniture: naming our own fields,
      * never a statement about the run. Keys are the producer's own vocabulary.
@@ -1492,10 +1505,21 @@ export const ANALYSIS_NEW_COPY = {
        * withheld. "Not confirmed" holds for both; "not assessed" holds only for
        * the first. Both misreadings the original sentence was written to block
        * are still blocked: it is not a claim of a tie, and not an all-clear.
+       *
+       * ⚠ THE EM DASH CAME OUT AND THE LABEL BECAME A NOUN PHRASE (10 Sep 2026,
+       * witnessed on the served build). The ruling is no em dashes in product
+       * content. A label is not a sentence, so the fix was not to split it: it
+       * now takes the shape every sibling in this map already has
+       * (`Robustness not assessed`, `Evidence not assessed`), and in particular
+       * the shape of its OWN positive twin, `leader_present: 'Most likely
+       * option identified'`. Same claim, and the pair now reads as a pair.
+       *
+       * ⚠ "not confirmed" IS THE LOAD-BEARING HALF and may not be dropped to
+       * shorten this. Without it the row reads as an all-clear.
        */
-      label: 'Which option is most likely — not confirmed',
+      label: 'Most likely option not confirmed',
       meaning:
-        'Olumi could not confirm which option is most likely on this run, so any ordering you see is unconfirmed — it is not a finding that the options are level.',
+        'Olumi could not confirm which option is most likely on this run, so any ordering you see is unconfirmed. It is not a finding that the options are level.',
     },
     robustness_robust: { label: 'Robust' },
     /**
@@ -1505,10 +1529,23 @@ export const ANALYSIS_NEW_COPY = {
      * exactly as the old tab does; the degree is the glance's to state.
      */
     robustness_sensitive: { label: 'Sensitive to assumptions' },
+    /**
+     * ⚠ "the result" CAME OUT OF BOTH MEANINGS (10 Sep 2026). Paul's ruling:
+     * the analysis is a THINKING TOOL, NOT AN ORACLE, so copy conditions on the
+     * data available rather than naming a verdict to accept. The human is the
+     * author and the decision-maker.
+     *
+     * ⚠⚠ AND THE HONESTY IS THE POINT OF THESE TWO ROWS, so the referent was
+     * swapped and NOTHING ELSE. Both still say the run did not establish
+     * robustness, and both still refuse to read as an all-clear: "did not test"
+     * and "nothing here" are load-bearing and may not be dropped to shorten
+     * them. Pinned by `noWinnerVocabulary.spec.ts`, which also guards the
+     * referent against coming back.
+     */
     robustness_not_assessed: {
       label: 'Robustness not assessed',
       meaning:
-        'This run did not test how the result behaves when the assumptions change, so nothing here says it would hold.',
+        'This run did not test how these numbers behave when the assumptions change, so nothing here says they would hold.',
     },
     /**
      * ⚠ A DIFFERENT STATE FROM THE ONE ABOVE, AND THE OLD TAB IS RIGHT TO
@@ -1520,7 +1557,7 @@ export const ANALYSIS_NEW_COPY = {
     robustness_unknown: {
       label: 'Robustness unknown',
       meaning:
-        'No robustness verdict came back with this run, so the result has not been shown to survive a change in the assumptions.',
+        'No robustness verdict came back with this run, so nothing here has been shown to survive a change in the assumptions.',
     },
     evidence_all_addressed: { label: 'Evidence covered' },
     evidence_gaps: { label: 'Evidence gaps' },

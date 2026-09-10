@@ -30,6 +30,19 @@
 import { describe, expect, it } from 'vitest'
 import { ANALYSIS_NEW_COPY as COPY, formatConjunctionList } from '../analysisNewCopy'
 
+/**
+ * ⚠ THE SPEC CAPITALISES INDEPENDENTLY, IT DOES NOT IMPORT THE SUBJECT'S HELPER.
+ *
+ * The ribbon is now two sentences (no em dashes in product content, Paul,
+ * 10 Sep 2026), so the list OPENS the second one and its first letter is
+ * capitalised. Importing `sentenceCase` from the copy module would make this a
+ * guard agreeing with itself (CLAUDE.md trap 13b): whatever that helper did,
+ * including nothing, the assertion would follow it. Restated here so the
+ * property is asserted rather than mirrored. The `Intl.ListFormat` delegation
+ * below is unchanged and still comes from the authority.
+ */
+const cap = (s: string): string => `${s.charAt(0).toUpperCase()}${s.slice(1)}`
+
 const NAME = (n: number) =>
   Object.values(COPY.status.missingResultLabels).slice(0, n)
 
@@ -39,13 +52,13 @@ describe('the partial-result ribbon is a sentence at every arity', () => {
     // had been reduced to a constant. It also pins the arity the shipped spec
     // already covers, so a fix here cannot silently regress that one.
     const s = COPY.status.provisionalNaming(['the overall robustness rating'])
-    expect(s).toBe('This analysis is partial — the overall robustness rating did not come back.')
+    expect(s).toBe('This analysis is partial. The overall robustness rating did not come back.')
   })
 
   it('two results are joined by a conjunction, not a bare comma', () => {
     const s = COPY.status.provisionalNaming(['the win share', 'the overall robustness rating'])
     expect(s, `the witnessed defect: "${s}"`).toBe(
-      'This analysis is partial — the win share and the overall robustness rating did not come back.',
+      'This analysis is partial. The win share and the overall robustness rating did not come back.',
     )
   })
 
@@ -63,7 +76,7 @@ describe('the partial-result ribbon is a sentence at every arity', () => {
       'the sensitivity check',
       'the overall robustness rating',
     ])
-    expect(s).toBe(`This analysis is partial — ${expected} did not come back.`)
+    expect(s).toBe(`This analysis is partial. ${cap(expected)} did not come back.`)
     expect(s, 'a list must not end on a bare comma-joined pair').not.toMatch(
       /,\s*the overall robustness rating did not/,
     )
@@ -79,7 +92,7 @@ describe('the partial-result ribbon is a sentence at every arity', () => {
       const labels = NAME(n)
       const s = COPY.status.provisionalNaming(labels)
       expect(s, `n=${n} produced: "${s}"`).toMatch(
-        /^This analysis is partial — \S.* did not come back\.$/,
+        /^This analysis is partial\. [A-Z]\S*.* did not come back\.$/,
       )
       // ⚠ THE PROPERTY IS "THE FINAL ITEM IS INTRODUCED BY A CONJUNCTION", NOT
       // "there are no commas". My first cut banned any comma before the closing
@@ -89,7 +102,7 @@ describe('the partial-result ribbon is a sentence at every arity', () => {
       // English requires and nothing more.
       const last = labels[labels.length - 1]!
       expect(s, `n=${n} must introduce its last item with a conjunction: "${s}"`).toContain(
-        n > 1 ? `and ${last} did not come back.` : `${last} did not come back.`,
+        n > 1 ? `and ${last} did not come back.` : `${cap(last)} did not come back.`,
       )
       expect(s, `n=${n} must not join the last two items with a bare comma: "${s}"`).not.toContain(
         `, ${last} did not come back.`,

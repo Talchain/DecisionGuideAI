@@ -28,6 +28,10 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, existsSync, statSync } from 'node:fs'
 import { resolve, dirname, join, basename } from 'node:path'
+// ⚠ A REAL IMPORT, not another text read. The honesty assertions below bind
+// to the two check codes BY IDENTITY (trap 19); a value predicate over the
+// extracted literals could be satisfied by a different string in the file.
+import { ANALYSIS_NEW_COPY } from '../analysisNewCopy'
 
 // cwd-relative: `import.meta.url` is not a file: URL under this vitest config,
 // and a spec that cannot read its subject reports a clean sweep of nothing.
@@ -535,6 +539,137 @@ describe('no contest framing in ANY copy the Reasoning tab renders', () => {
       offenders,
       `contest framing in ${rel}:\n  ${offenders.join('\n  ')}\n` +
         'Ruled 8 Sep 2026: say "scored highest in N% of runs" — never a placing.',
+    ).toEqual([])
+  })
+})
+
+/**
+ * ⭐⭐ AND IT DOES NOT SPEAK AS AN ORACLE EITHER.
+ *
+ * Paul, 10 Sep 2026: the analysis is a THINKING TOOL, NOT AN ORACLE. Copy
+ * conditions on the data available, in the register "on the data so far". The
+ * human is the author and the decision-maker.
+ *
+ * "the result" is the specific referent ruled out, because it speaks as though
+ * the run produced a verdict the reader should accept. It is a DIFFERENT harm
+ * from the contest framing above and it lives in its own describe for that
+ * reason (trap 21): the sweep above answers "does this copy award a placing?"
+ * and this one answers "does it speak as though it had the answer?". Collapsing
+ * them under one name would leave two questions sharing one predicate, which is
+ * the shape this estate keeps paying for.
+ *
+ * ── THE IRONY THAT CONSTRAINED THE FIX ─────────────────────────────────────
+ * Both witnessed strings are HONESTY copy: they exist to say robustness was NOT
+ * assessed, and that the silence is not an all-clear. The fix was therefore not
+ * to soften them. It swapped the oracle referent and left every other clause
+ * standing, so "did not test" and "nothing here says it would hold" both
+ * survive. A guard that pushed an author to weaken these would be worse than no
+ * guard at all.
+ *
+ * ── SCOPE, STATED, AND IT IS NARROWER THAN THE SWEEP ABOVE ─────────────────
+ * ONE FILE: `analysisNewCopy.ts`. Not the derived 91-file closure the previous
+ * describe walks, and the difference is MEASURED rather than assumed: that
+ * corpus carries 14 occurrences of `the result`, and only 2 of them live here.
+ * The other 12 sit in five files this lane was not briefed to touch
+ * (`buildAnalysisNewViewModel.ts`, `strengthen/buildRecommendations.ts`,
+ * `useResultsSectionData.ts`, `utils/evidenceGapConfidenceDisplay.ts`,
+ * `utils/fragileEdgeCopy.ts`), and several are a different construction
+ * ("chance the result flips", "could tip the result") that needs a judgement
+ * about the copy rather than a substitution.
+ *
+ * ⚠⚠ SO READ THIS GUARD AS WHAT IT IS: it pins ONE FILE, and it is NOT an
+ * all-clear for the tab. Widening it is a measured piece of work with 12 known
+ * strings in it, and widening it WITHOUT doing that work would simply red the
+ * build. Recorded here rather than in a note nobody greps, because a scope a
+ * reader has to infer is the one that gets over-read.
+ */
+const ORACLE_FRAMING = /\bthe results?\b/i
+
+describe('the Reasoning tab does not speak as an oracle', () => {
+  const raw = readFileSync(COPY_FILE, 'utf8')
+  const strings = literals(readableCopy(raw)).filter(s => !NOT_COPY.test(s))
+
+  it('PRECONDITION: the scan reaches real copy, it is not reading an empty file', () => {
+    // Without this, a stripper that blanked the file reports a clean sweep of
+    // nothing and this spec passes forever (trap 13).
+    expect(strings.length, 'the scan found no string literals at all').toBeGreaterThan(100)
+    expect(strings.some(s => /analysis/i.test(s)), 'the scan found no copy at all').toBe(true)
+  })
+
+  it('POSITIVE CONTROL: the pipeline flags the two strings this ruling actually removed', () => {
+    // ⭐ THE LOAD-BEARING CONTROL, and it is fed the REAL sentences rather than
+    // a fabricated one. The verdict below is an ABSENCE claim, worth nothing
+    // until the probe has been shown detecting a PRESENCE, and the presence it
+    // must detect is the one that shipped. Both go through the whole pipeline
+    // (strip -> ban-lists -> extract -> NOT_COPY -> match), so a break anywhere
+    // reds here instead of quietly manufacturing a clean sweep.
+    const WITHDRAWN = [
+      'This run did not test how the result behaves when the assumptions change, so nothing here says it would hold.',
+      'No robustness verdict came back with this run, so the result has not been shown to survive a change in the assumptions.',
+    ] as const
+    for (const sentence of WITHDRAWN) {
+      const seen = literals(readableCopy(`const a = '${sentence}'`)).filter(s => !NOT_COPY.test(s))
+      expect(seen, `the extractor lost this sentence: ${sentence}`).toContain(sentence)
+      expect(
+        seen.some(s => ORACLE_FRAMING.test(s)),
+        `the guard cannot see the oracle framing it was written to catch: ${sentence}`,
+      ).toBe(true)
+    }
+  })
+
+  it('PRECISION: it does not fire on words that merely contain the token', () => {
+    // ⚠ Measured, not supposed: this file's own prose carries "the resulting
+    // error" and `missingResultLabels`. A matcher that fired on those would
+    // push an author to rename correct copy, which is how a guard earns a
+    // blanket disable.
+    expect(ORACLE_FRAMING.test('carries the resulting error as BASELINED DEBT')).toBe(false)
+    expect(ORACLE_FRAMING.test('missingResultLabels')).toBe(false)
+    // ⚠ AND IT MUST NOT SWALLOW THE REAL FORM WHILE DOING SO.
+    expect(ORACLE_FRAMING.test('so the result has not been shown')).toBe(true)
+    expect(ORACLE_FRAMING.test('The results are in')).toBe(true)
+    // The replacements themselves must be legal, or the fix cannot land.
+    expect(
+      ORACLE_FRAMING.test(
+        'This run did not test how these numbers behave when the assumptions change, so nothing here says they would hold.',
+      ),
+    ).toBe(false)
+    expect(
+      ORACLE_FRAMING.test(
+        'No robustness verdict came back with this run, so nothing here has been shown to survive a change in the assumptions.',
+      ),
+    ).toBe(false)
+  })
+
+  it('and the reframe kept the HONESTY: these rows still refuse to read as an all-clear', () => {
+    // ⭐ THE HALF A DASH-OR-VOCABULARY HUNT CAN DESTROY. Both sentences exist to
+    // say robustness was NOT assessed. A future edit could satisfy the sweep
+    // above by deleting the clause instead of rewording the referent, and
+    // nothing else here would notice. Bound by IDENTITY to the two keys (trap
+    // 19), never by a value predicate another string could satisfy.
+    const notAssessed = ANALYSIS_NEW_COPY.checks.robustness_not_assessed.meaning
+    const unknown = ANALYSIS_NEW_COPY.checks.robustness_unknown.meaning
+    expect(notAssessed, 'the row stopped saying the run did not test it').toMatch(/did not test/i)
+    expect(notAssessed, 'the row stopped refusing to vouch for what is on screen').toMatch(/nothing here/i)
+    expect(unknown, 'the row stopped saying no verdict came back').toMatch(/no robustness verdict came back/i)
+    // ⚠ THE NEGATION IS CARRIED BY "nothing here", NOT BY A "not" ON THE VERB.
+    // Pinned as written rather than as assumed: my first attempt asserted
+    // /has not been shown/ and this test went RED on correct copy. The row
+    // says nothing on screen has been shown to survive, which is the same
+    // refusal in the register the sibling rows already use.
+    expect(unknown, 'the row stopped refusing to vouch for what is on screen').toMatch(
+      /nothing here has been shown/i,
+    )
+    // And neither may quietly reacquire the referent.
+    expect(ORACLE_FRAMING.test(notAssessed)).toBe(false)
+    expect(ORACLE_FRAMING.test(unknown)).toBe(false)
+  })
+
+  it('NO user-facing string in this file speaks as an oracle', () => {
+    const offenders = strings.filter(s => ORACLE_FRAMING.test(s))
+    expect(
+      offenders,
+      `oracle framing in user-facing copy:\n  ${offenders.join('\n  ')}\n` +
+        'Condition on the data and on what this run did. Do not add an exemption.',
     ).toEqual([])
   })
 })

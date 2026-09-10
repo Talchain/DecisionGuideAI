@@ -703,7 +703,7 @@ describe('§7 the checks footer denies a leader only when licensed to', () => {
  *
  * ⚠ WHY NOT `robustness_not_assessed` OR `robustness_unknown`. Both are FALSE
  * here, and that is the whole argument for a fourth state. The run DID test
- * ("did not test how the result behaves" — false) and a verdict DID come back
+ * ("did not test how these numbers behave" — false) and a verdict DID come back
  * ("no robustness verdict came back" — false). What is missing is the
  * AUTHORSHIP that entitles this panel to state it, so the label names what is
  * unestablished rather than something that failed to happen.

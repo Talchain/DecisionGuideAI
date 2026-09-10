@@ -44,12 +44,12 @@ describe('a missing result is named as the thing that is missing', () => {
 
   it('⛔ AND THE SENTENCE READS CORRECTLY IN BOTH ARITIES', () => {
     expect(COPY.status.provisionalNaming(['the overall robustness rating'])).toBe(
-      'This analysis is partial — the overall robustness rating did not come back.',
+      'This analysis is partial. The overall robustness rating did not come back.',
     )
     expect(
       COPY.status.provisionalNaming(['the win share', 'the overall robustness rating']),
     ).toBe(
-      'This analysis is partial — the win share and the overall robustness rating did not come back.',
+      'This analysis is partial. The win share and the overall robustness rating did not come back.',
     )
   })
 
