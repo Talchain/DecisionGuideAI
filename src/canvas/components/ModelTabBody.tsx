@@ -282,11 +282,56 @@ export const ModelTabBody = memo(function ModelTabBody({
   // 1440×900, before and after analysis. The lower block addressed NO entity
   // the outline did not already address.
   //
-  // COLLAPSED BY DEFAULT, NOT DELETED AND NOT GATED AWAY. Six capabilities have
-  // no v2 equivalent and must stay reachable: contested-edge adjudication, CEE
-  // structural repairs, the model card / audit trail, goal-target editing, edge
-  // strength/direction/likelihood editing, and factor prior-range + baseline
-  // editing. This is a default, not a removal.
+  // ⚠⚠ THIS PARAGRAPH USED TO SAY "COLLAPSED BY DEFAULT, NOT DELETED AND NOT
+  // GATED AWAY … This is a default, not a removal." **IT IS GATED AWAY.**
+  // `LEGACY_DETAILED_EDITOR_MOUNTED` (line ~121) is hardcoded `false`, so every
+  // v1 section below — and the whole `v1Expanded` disclosure that used to reveal
+  // them — renders nothing at all. The disclosure state is still computed; the
+  // control that reads it is inside the dead branch.
+  //
+  // The old text named SIX capabilities that "must stay reachable". Derived at
+  // this tip, with a contrast control proving the sweep can see a live mount:
+  //
+  //   contested-edge adjudication   ⛔ UNREACHABLE. `ContestedEdgeCard` has two
+  //                                 hosts: `RelationshipsSection` (inside the
+  //                                 dead block) and `pre-analysis/AllImprovements`,
+  //                                 which is ITSELF unmounted — only a barrel
+  //                                 re-export and specs reference it.
+  //   CEE structural repairs        ✅ `RepairQueueList`, in `ModelTabV2Panel`.
+  //   model card / audit trail      ✅ `ModelHealthSection`, rendered ABOVE the
+  //                                 `LEGACY_DETAILED_EDITOR_MOUNTED &&` block —
+  //                                 i.e. outside it, so it survives. (There is a
+  //                                 SECOND `<ModelHealthSection>` further down
+  //                                 that IS inside the dead block; the live one
+  //                                 is the earlier of the two.) Witnessed on
+  //                                 deployed `14276d5b` as "Model card".
+  //                                 ⚠ NO LINE NUMBER HERE, DELIBERATELY. This
+  //                                 row said ":950" when first written and was
+  //                                 FALSE BY THE TIME THE PATCH APPLIED — this
+  //                                 comment's own +31 lines had moved the mount
+  //                                 to :981. A line number in a comment is the
+  //                                 hand-maintained mirror this very paragraph
+  //                                 exists to warn about, and it drifted inside
+  //                                 the edit that added the warning. The
+  //                                 structural anchor above is grep-derivable
+  //                                 and cannot go stale that way.
+  //   goal-target editing           ✅ but on ANOTHER SURFACE — the Reasoning
+  //                                 tab's `SuccessTargetLine`. Not here.
+  //   edge strength / direction /   ◐ STRENGTH ✅ via `proposeEdgeStrength`
+  //   likelihood                    (it gained a wire carrier in #1287/#1295).
+  //                                 Direction and likelihood remain disabled,
+  //                                 honestly and deliberately — no carrier.
+  //   factor prior-range + baseline ✅ but on ANOTHER SURFACE — the Inspector's
+  //                                 `useInspectorMutations.setPriorRange`.
+  //
+  // So: FIVE of six survive, four of them somewhere the old sentence did not
+  // say, and ONE IS GONE. That is worth knowing before anyone deletes the dead
+  // block for tidiness — deleting it is fine, but it is not free, and the thing
+  // it would finally cost is contested-edge adjudication.
+  //
+  // ⚠ THE POINT IS NOT THE STALENESS, IT IS THE DIRECTION OF IT. A comment that
+  // says "nothing was removed" is exactly the comment nobody re-checks, and it
+  // sat above a constant that removes everything below it.
   const [v1Expanded, setV1Expanded] = useState(false)
   const isExpert = expertMode ?? false
   const makeSectionProps = useCallback((sectionId: string) => {
