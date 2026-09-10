@@ -120,10 +120,34 @@ describe('NodeQuickActions — R5 efficiency layer', () => {
    * that renders and cannot do its job, which is what the gate exists to
    * prevent. Trap 21: two predicates wearing one name.
    */
-  it('gates on the SEND channel askAI needs, not on prefill', () => {
+  /*
+   * ⚠⚠ INVERTED DELIBERATELY, AND THE OLD TITLE IS THE RECORD OF WHY.
+   * It read "gates on the SEND channel askAI needs, not on prefill" and was
+   * exactly right while `askAI` auto-dispatched: a button gated on
+   * `_prefillChat` would have rendered on a surface that could not send, i.e. a
+   * control that renders and cannot do its job.
+   *
+   * `askAI` now STAGES through `requestAsk`, whose channel IS `_prefillChat`.
+   * So the same predicate that prevented a dead button now creates one — it
+   * would hide a control that works. The guard has to move WITH the behaviour
+   * it guards; leaving it would have shipped this button dark on every surface
+   * that registers prefill only.
+   */
+  it('gates on the channel askAI actually uses — prefill, not send', () => {
     useGuidanceStore.setState({ _sendMessage: null, _prefillChat: vi.fn() } as never)
     render(<NodeQuickActions nodeId="node-a" nodeType="factor" label="Hiring spend" />)
-    expect(screen.queryByTestId('node-action-ask-node-a')).toBeNull()
+    expect(
+      screen.queryByTestId('node-action-ask-node-a'),
+      'Ask is hidden on a surface that CAN stage an ask — the gate outlived its reason',
+    ).not.toBeNull()
+  })
+
+  it('CONTRAST — still hidden when NEITHER channel exists', () => {
+    // ⭐ Without this, the case above passes on a change that removed the gate
+    // altogether, rendering the button on a surface with nowhere to put the ask.
+    useGuidanceStore.setState({ _sendMessage: null, _prefillChat: null } as never)
+    render(<NodeQuickActions nodeId="node-b" nodeType="factor" label="Hiring spend" />)
+    expect(screen.queryByTestId('node-action-ask-node-b')).toBeNull()
   })
 
   it('is quiet at rest and revealed by hover, focus-within and selection', () => {

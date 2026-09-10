@@ -109,5 +109,21 @@ export function canReceiveAsk(state: {
   _sendMessage: unknown
   _dispatchAction: unknown
 }): boolean {
-  return state._prefillChat !== null || state._sendMessage !== null || state._dispatchAction !== null
+  /*
+   * ⚠⚠ TRUTHINESS, NOT `!== null` — AND THE DIFFERENCE IS `undefined`.
+   *
+   * This read `x !== null`, which is TRUE for `undefined`. So a store where a
+   * channel key is ABSENT — not yet registered, or a partial state — reported
+   * "yes, an ask can land here", and the ask would be staged into nothing.
+   *
+   * Absent and null are the same fact about the world (there is no channel) and
+   * were being answered differently. It surfaced the moment this predicate
+   * became load-bearing: `askAI`'s poll now waits on it, and a partial state in
+   * `actions.spec.ts` made the poll exit immediately and never raise its
+   * failure toast — a control that reports success into a void.
+   *
+   * Kin to the absence-shaped pairs this estate keeps finding: absent vs null,
+   * defaulting toward ACTING.
+   */
+  return Boolean(state._prefillChat) || Boolean(state._sendMessage) || Boolean(state._dispatchAction)
 }
