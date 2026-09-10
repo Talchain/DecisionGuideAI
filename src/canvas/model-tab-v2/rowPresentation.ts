@@ -208,9 +208,33 @@ export function labelIsTypeDefault(row: { kind: ModelElementKind; label: string 
   return row.kind === 'decision' && row.label.trim() === DECISION_NODE_LABEL
 }
 
-/** What a placeholder name says it is, for hover and assistive tech. */
+/**
+ * What a placeholder name says it is, for hover and assistive tech.
+ *
+ * ⚠⚠ IT SAYS WHAT THE CLICK DOES, AND IT USED TO SAY SOMETHING ELSE. This read
+ * "Your question is not written yet — open this to write it." and was wrong
+ * twice over, measured at `bdf4fb89`:
+ *
+ *   · Clicking THAT VERY LABEL opens nothing. `ModelRowView.tsx`'s label button
+ *     does `e.stopPropagation(); onFocusOnCanvas?.(row.id)` — which reaches
+ *     `ModelTabV2Panel`'s `focusOnCanvas` → `focusNodeById` → `useFocusCamera`'s
+ *     `handleFocusNode`, i.e. `selectNodeWithoutHistory` + `setFocusDim` + a
+ *     conditional camera fit. It SELECTS AND HIGHLIGHTS THE NODE ON THE CANVAS.
+ *   · The detail region that a ROW click does open renders the label as a
+ *     read-only `<h3>` (`ModelDetailRegion.tsx:261`) with no writer in it — and
+ *     there is no label writer anywhere in this directory (zero across 17
+ *     non-test files, contrast control 34 app-wide).
+ *
+ * So the sentence promised a writer twice and the product has neither. It now
+ * names the one thing the click genuinely does. Where to write the question is
+ * a real gap and is deliberately left as one: per the standing ruling a gap is
+ * acceptable where a lie is not.
+ *
+ * ⚠ TWO SENTENCES, NO EM DASH — Paul's standing ruling on product content
+ * (10 Sep 2026). Pinned by a test.
+ */
 export const UNWRITTEN_QUESTION_TITLE =
-  'Your question is not written yet — open this to write it.'
+  'Your question is not written yet. This highlights it on the canvas.'
 
 export const ATTENTION_MARK: Record<AttentionReason, LucideIcon> = {
   'no-value': CircleDashed,

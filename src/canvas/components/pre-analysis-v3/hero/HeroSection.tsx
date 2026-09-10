@@ -277,16 +277,47 @@ export const HeroSection = memo(function HeroSection({
           ⭐ THE GOAL IS A BRIEF EXTRACT, AND THE PRODUCT SAYS SO.
           Rendered only when CEE stamped `provenance: 'from_brief'` — i.e. its
           own objective derivation REFUSED and the user's raw sentence stayed as
-          the label. It states the provenance and points at the field directly
-          above, which is already the affordance: editing it stamps `user_set`
-          and this notice stops. No goal is inferred, suggested or ranked.
+          the label. It states the provenance and hands over the pen. No goal is
+          inferred, suggested or ranked.
+
+          ⚠⚠ WHICH SENTENCE IS DERIVED, NOT CHOSEN, AND THAT IS THE REPAIR.
+          This read `.notice` unconditionally, under a comment claiming the
+          sentence "points at the field directly above, which is already the
+          affordance". At the head this repair was first written against that was
+          false: the goal field was gated by
+          `hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.goalSuccessTarget)`,
+          `mutations/mutationAuthority.ts` has `goalSuccessTarget: 'disabled'` as
+          a HARDCODED CONSTANT rather than a flag, so no `netlify.toml` or Render
+          dashboard value could make it true. The field therefore took `readOnly`
+          and `onCommit=undefined`, `InlineField`'s read-only branch rendered a
+          `<span role="textbox" aria-readonly="true">`, and the imperative was
+          visible text telling the reader to edit a field this screen could not
+          edit.
+
+          ⭐ #1443 THEN SPLIT THAT CONSTANT, AND THE SPLIT DECIDES WHERE THIS
+          BINDS. `goalSuccessTarget` answers a question about the SUCCESS
+          THRESHOLD, and it is correct about it; it names neither of the goal
+          field's writes. The goal field now reads `GOAL_LABEL_EDIT_CONNECTED`
+          (`:87`), the conjunction of `canvasNodeRenameWithServerHash` and
+          `preAnalysisV3StructuralAdd`, which are the two writes `commitGoal`
+          actually performs. Both are `'server_graph'` at this head, so the field
+          is editable and the imperative-bearing member is the honest one. A
+          mechanical rename onto `SUCCESS_TARGET_EDIT_CONNECTED` would have bound
+          this sentence to the wrong authority (trap 21).
+
+          The binding is DERIVED FROM THE SAME CONSTANT THAT GATES THE FIELD
+          (`:262-263` above), so the two cannot drift: if either carrier regresses
+          to `'disabled'` the sentence stops instructing, with no copy edit and no
+          test to remember. A hardcoded member here is what produced the defect.
         */}
         {hero.goal?.fromBrief === true && (
           <p
             data-testid={GOAL_LABEL_FROM_BRIEF_TESTID}
             className={`${typography.panelMeta} -mt-1 text-text-light`}
           >
-            {GOAL_LABEL_FROM_BRIEF_COPY.notice}
+            {GOAL_LABEL_EDIT_CONNECTED
+              ? GOAL_LABEL_FROM_BRIEF_COPY.notice
+              : GOAL_LABEL_FROM_BRIEF_COPY.noticeNoEditHere}
           </p>
         )}
         <InlineField

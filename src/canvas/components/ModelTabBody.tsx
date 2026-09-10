@@ -1143,13 +1143,25 @@ export const ModelTabBody = memo(function ModelTabBody({
               (`model-tab/ModelHealthSection.tsx:217`) is the deep-link target —
               see `MODEL_SECTION_TARGET` above for why no extra wrapper is
               interposed. */}
+          {/* ⚠ THE HAND-OFF, NOT THE BARE SENDER. This passed `onSendMessage`, so
+              the card's one clickable affordance posted a real turn into a tab that
+              is `hidden` + `aria-hidden` whenever Model is active
+              (`OutputsDock.tsx:3735-3737`): the user clicked and the screen did not
+              change. It is the defect `olumiHandOff.ts`'s header closed on the v2
+              outline and MISSED here, because this mount sits OUTSIDE the
+              `LEGACY_DETAILED_EDITOR_MOUNTED` gate below while the five sibling v1
+              discuss buttons sit inside it — `groupActions.ts:186-207` records that
+              survival and draws the opposite conclusion from it.
+              `olumiHandOff` is null when no conversation can receive the turn, which
+              is what keeps the button off screen in that case rather than dropping
+              the send. */}
           <ModelHealthSection
             ceeQuality={ceeQuality}
             auditTrail={auditTrail}
             factorCount={grouped.factor.length}
             edgeCount={causalEdges.length}
             factorsToVerify={factorsToVerify}
-            onSendMessage={onSendMessage}
+            onHandOffToOlumi={olumiHandOff ?? undefined}
             {...makeSectionProps('modelcard')}
           />
         </div>
@@ -1272,7 +1284,7 @@ export const ModelTabBody = memo(function ModelTabBody({
             factorCount={grouped.factor.length}
             edgeCount={causalEdges.length}
             factorsToVerify={factorsToVerify}
-            onSendMessage={onSendMessage}
+            onHandOffToOlumi={olumiHandOff ?? undefined}
             {...makeSectionProps('modelcard')}
           />
         </div>

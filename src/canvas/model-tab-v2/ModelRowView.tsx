@@ -536,13 +536,33 @@ export function ModelRowView({
       </button>
 
       {/* The label is the user's own sentence lifted from the brief, not an
-          objective. Same claim, same copy and same predicate as the canvas
-          node and the Analysis Goal field — the outline states it, and the one
-          place to act stays the Analysis tab. */}
+          objective. Same claim and same predicate as the canvas node and the
+          Analysis Goal field — the outline states it, and the one place to act
+          stays the Analysis tab.
+
+          ⚠⚠ `noticeNoEditHere`, NOT `notice`, AND THAT IS THE WHOLE FIX.
+          The shared sentence used to end "Edit it to say what you want to
+          achieve." — an instruction THIS SURFACE CANNOT CARRY OUT. Measured at
+          `bdf4fb89`: `EditableLabel|onRename|structuralRename|contentEditable|
+          renameNode` is ZERO across all 17 non-test files of this directory
+          (contrast control: 34 files app-wide), and `ModelDetailRegion.tsx:261`
+          renders the label as a read-only `<h3>`. The comment above already
+          conceded the point — "the one place to act stays the Analysis tab" —
+          so the row was reading out an imperative its own notes said it could
+          not honour.
+
+          ⚠ THE IMPERATIVE IS NOT DELETED, IT IS SCOPED. It stays on
+          `HeroSection`, where the notice sits directly beneath a field that
+          really writes the label. Dropping it there would have removed a true
+          instruction to fix a false one — which is why this is a second
+          constant rather than an edit to the first.
+
+          ⛔ AND NO WRITER IS ADDED HERE. A label editor on this surface is a
+          separate capability, deliberately not smuggled into a copy fix. */}
       {row.labelFromBrief === true && (
         <span
           data-testid={GOAL_LABEL_FROM_BRIEF_TESTID}
-          title={GOAL_LABEL_FROM_BRIEF_COPY.notice}
+          title={GOAL_LABEL_FROM_BRIEF_COPY.noticeNoEditHere}
           className={`${typography.panelMeta} text-text-light whitespace-nowrap shrink-0`}
         >
           {GOAL_LABEL_FROM_BRIEF_COPY.pill}
@@ -797,8 +817,14 @@ export function ModelRowView({
 
         Three things changed, and each answers a separate rule:
           · SHAPE carries the meaning (`ATTENTION_MARK`), so the row is legible
-            without a legend — which matters because the estate's one legend
-            component sits inside the unmounted legacy block.
+            without a legend.
+            ⚠ THE REASON GIVEN HERE WAS STALE AND IS WITHDRAWN (10 Sep 2026). It
+            read "which matters because the estate's one legend component sits
+            inside the unmounted legacy block". `ValueProvenanceKey` is MOUNTED,
+            at `ModelTabV2Panel.tsx:1091`, beside the tier control. The property
+            above still holds on its own merits — a row should not need a legend —
+            but it is not propped up by the legend being dark, and the legend's
+            own trailing line was describing a `⚠` these marks stopped drawing.
           · COLOUR carries SEVERITY, not category: `fragile` is the only reason
             that says the ANSWER could change, so it alone keeps `text-warning`
             and the rest are `text-text-light`. That is DS §1's three-channel

@@ -73,18 +73,99 @@ import { classifyNodeProvenance } from './valueProvenance'
 export const GOAL_LABEL_FROM_BRIEF_TESTID = 'pre-analysis-v3-goal-from-brief'
 
 /**
- * The one sentence. Held here rather than in a per-surface copy file so the
- * three surfaces that render it cannot drift into three different claims.
+ * The sentences. Held here rather than in a per-surface copy file so the
+ * surfaces that render them cannot drift into different claims.
  *
- * It states the PROVENANCE and hands over the pen. It does not guess what the
- * user meant, does not rank the goal, and does not apologise — the extract may
- * well be right, and the product simply has not been told that it is.
+ * They state the PROVENANCE and hand over the pen. They do not guess what the
+ * user meant, do not rank the goal, and do not apologise — the extract may well
+ * be right, and the product simply has not been told that it is.
+ *
+ * ⚠⚠ TWO SENTENCES, NOT ONE, AND THE SPLIT IS THE POINT (10 Sep 2026). This was
+ * a single `notice` ending "Edit it to say what you want to achieve." — and that
+ * imperative is TRUE on one surface and FALSE on another, which is why aligning
+ * them is the wrong fix:
+ *
+ *   · `nodes/GoalNode.tsx:680` renders it as a `title` on the canvas goal
+ *     node's pill. That screen DOES host a goal-label writer, derived end to
+ *     end rather than inherited: `ReactFlowGraph.tsx:2600` binds
+ *     `onNodeDoubleClick` → `:1390 handleNodeDoubleClick` → `requestNodeRename`
+ *     plus `setShowFullInspector(true)`, so the inspector opens with the title
+ *     already in edit state; `InspectorShell.tsx:133-137` renders
+ *     `EditableLabel onSave={onLabelChange}`, ungated on node kind and — per
+ *     `InspectorRouter.tsx:387` — deliberately OUTSIDE the blanket
+ *     `<fieldset disabled>`; `InspectorRouter.tsx:401` → `:173` calls
+ *     `store.updateNodeLabel`, which at `store.ts:3138` stamps
+ *     `provenanceAfterHumanAuthoredLabel('goal') === 'user_set'`. The predicate
+ *     then goes false and the notice retires, which is exactly what the
+ *     sentence promises. KEEP THE IMPERATIVE.
+ *   · `model-tab-v2/ModelRowView.tsx` renders it as a `title` on a pill in the
+ *     Model outline, where there is NO label writer at all — measured at
+ *     `bdf4fb89`: `EditableLabel|onRename|structuralRename|contentEditable|
+ *     renameNode` is ZERO across all 17 non-test files of `model-tab-v2/`,
+ *     against 34 files app-wide. `ModelDetailRegion.tsx` renders the label as a
+ *     read-only `<h3>`. DROP THE IMPERATIVE.
+ *   · `pre-analysis-v3/hero/HeroSection.tsx` renders it as VISIBLE TEXT beneath
+ *     the hero goal field. ⚠⚠ THIS FILE ASSERTED THAT THE FIELD "really does
+ *     write the label" AND RULED "KEEP THE IMPERATIVE" THERE. THAT WAS FALSE,
+ *     AND THE SENTENCE IS WITHDRAWN — derived at the bytes:
+ *     the hero's goal `InlineField` passes `readOnly={!GOAL_LABEL_EDIT_CONNECTED}`
+ *     and `onCommit={GOAL_LABEL_EDIT_CONNECTED ? commitGoal : undefined}`;
+ *     `:44` resolves that from `mutations/mutationAuthority.ts:127`
+ *     `goalSuccessTarget: 'disabled'`, a HARDCODED CONSTANT and not a flag, so
+ *     `hasServerGraphAuthority` is false and the finding is posture-independent.
+ *     `InlineField.tsx:115` then takes the read-only branch and renders a
+ *     `<span role="textbox" aria-readonly="true">`, so `commitGoal` (the only
+ *     `store.updateNodeLabel` call in that file) is unreachable. The hero was
+ *     printing "Edit it to say what you want to achieve" on a field nobody can
+ *     type into.
+ *
+ * So the predicate that chooses between them is NOT the surface's name: it is
+ * **does a goal-label writer exist on this screen**. A caller that cannot answer
+ * yes must use `noticeNoEditHere`. Telling someone to edit something this screen
+ * cannot edit is a false promise, and the estate's standing ruling is that a gap
+ * is acceptable where a lie is not — so the instruction is what gives way.
+ *
+ * ⭐ AND WHERE THE ANSWER IS DECIDED BY A CONSTANT, DERIVE IT RATHER THAN PICK
+ * IT. `HeroSection` now selects its member from the SAME
+ * `CANONICAL_EDIT_AUTHORITY.goalSuccessTarget` that gates its field, so the copy
+ * and the affordance cannot drift apart: connecting that authority restores the
+ * imperative with no copy edit and nothing for anyone to remember. A hardcoded
+ * member on a surface whose writer is switched by a constant is what produced
+ * this defect, and a comment ordering the next author to keep it would have made
+ * the defect permanent.
+ *
+ * ⛔ DO NOT "TIDY" THESE BACK INTO ONE. Two surfaces answering two different
+ * questions under one string is exactly the trap that produced this defect; the
+ * fix is to name them apart, not to reconcile them.
  */
 export const GOAL_LABEL_FROM_BRIEF_COPY = {
   /** The chip/pill. Short enough to sit beside the label on a canvas node. */
   pill: 'From your brief',
-  /** The full claim, wherever there is room for a line of it. */
+  /**
+   * The full claim for a surface that HOSTS a goal-label writer. The imperative
+   * is load-bearing there: it points at the affordance beside it.
+   *
+   * Live caller at this head: the canvas goal node, whose double-click opens the
+   * inspector's `EditableLabel` (chain derived in the header). `HeroSection`
+   * reaches this member only if `goalSuccessTarget` is ever connected.
+   *
+   * ⚠ IT CARRIES AN EM DASH, AGAINST THE STANDING CONTENT RULING, AND THAT IS
+   * NOT FIXED HERE. Changing it edits canvas copy, which is another lane's file
+   * and is in flight. Recorded as an open gap rather than guarded as correct: no
+   * test in this repo asserts this wording, so the next author is free to split
+   * it into two sentences without RED-ing anything.
+   */
   notice: 'Taken from your brief — not yet confirmed as your goal. Edit it to say what you want to achieve.',
+  /**
+   * The full claim for a surface with NO goal-label writer on it. Same
+   * provenance, same honesty, no instruction the screen cannot carry out.
+   *
+   * ⚠ TWO SENTENCES, NO EM DASH. Paul's standing ruling on product content
+   * (10 Sep 2026): an em dash is where a hedge gets bolted on — split into
+   * sentences or cut, and keep the copy tight. Pinned by a test, so the rule is
+   * enforced rather than remembered.
+   */
+  noticeNoEditHere: 'Taken from your brief. Not yet confirmed as your goal.',
 } as const
 
 /**
