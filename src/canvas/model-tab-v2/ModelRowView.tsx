@@ -1298,6 +1298,25 @@ export function ModelRowView({
 }
 
 /**
+ * The sentence a factor with no recorded range carries beside its editor.
+ *
+ * ⚠ A SINGLE STRING LITERAL, NOT MULTI-LINE JSX TEXT. JSX collapses an interior
+ * newline plus indentation into one space, which is a rendering detail a test
+ * would then have to encode. One literal means the DOM text is exactly these
+ * bytes and an assertion can say so.
+ *
+ * ⚠ DELIBERATELY NOT EXPORTED. A spec that imported this would be comparing the
+ * component's render against the component's own constant and would pass on any
+ * wording, including wording that breaks the copy rules. The spec spells the
+ * sentence out.
+ *
+ * ⚠ NO EM DASHES, and no promise that anything improves: two plain sentences of
+ * fact about what the node records and what the wire can express.
+ */
+const NO_RANGE_NOTICE =
+  'This factor records no range. An amount entered here has nothing to measure it against, and once applied it cannot be removed.'
+
+/**
  * ⭐ THE `editing` BEAT'S VISIBLE ROUTE FORWARD AND ITS REFUSAL, as ONE
  * full-width grid item.
  *
@@ -1350,6 +1369,63 @@ function EditorActionLine({
       className="col-span-4 flex flex-col items-start gap-1 min-w-0"
       onClick={e => e.stopPropagation()}
     >
+      {/* ⭐⭐⭐ THE FACT ABOUT THE FACTOR, STATED BEFORE THE USER COMMITS.
+          WITNESSED END TO END ON THE SERVED BUILD, 10 Sep 2026, on a drafted
+          factor that declares no prior range:
+
+            1. this editor accepted a bare `70` with NO warning at any beat;
+            2. propose then Confirm reported `Applied`, `observedState =
+               {raw_value: 70, source: 'user', value: 70}`;
+            3. Analyse then refused, every time and correctly: "recorded as a
+               bare amount with no range for me to measure it against";
+            4. no range editor is reachable anywhere in the product (all four
+               `prior_range_edit` mount paths are dead, and
+               `model-tab-v2/contracts.ts:143` declares `proposePriorRange` with
+               zero implementations);
+            5. the applied value CANNOT BE CLEARED. Emptying the input disables
+               `Review change`, and there is no unset affordance because there is
+               nothing for one to send: derived by EXECUTION against the vendored
+               `@talchain/schemas@0.54.0`, `factor_value_edit.value` is
+               `z.number().finite()` and REQUIRED inside a `.strict()` object, so
+               `null`, omission, `NaN` and an extra `clear` key are all refused at
+               parse. The member's own contract says it outright: "an edit with no
+               value is a `direct_graph_edit` notification, not this event".
+
+          So the model becomes permanently unanalysable through this tab's most
+          prominent affordance, and the ONLY beat at which a user can still avoid
+          it is this one, before they commit.
+
+          ⛔⛔ THIS STATES A FACT. IT DOES NOT REFUSE, AND IT INVENTS NO BOUND.
+          `Review change` is untouched, `disabled` still reads only the host's own
+          `unproposableDraftReason`, and no range is synthesised anywhere. The
+          principle is #1428's own and is binding here: "ABSENCE IS THE DEFAULT
+          AND IT FAILS OPEN ... a guard that invents a bound is a worse defect."
+          A refusal here would be strictly worse than the trap, because the repair
+          route it would demand does not exist in the product.
+
+          ⚠ NOT CEE'S SENTENCE, AND DELIBERATELY NOT A COPY OF IT. That refusal is
+          CEE-owned, it is good, and it is untouched. This is the client saying
+          what it can see about the node in front of it, at a beat CEE never
+          reaches.
+
+          ⚠ NOT A LIVE REGION, for the same reason as the refusal below: this
+          element re-renders on every keystroke, and `role="status"` would
+          announce a running commentary on typing. It is plain text in the
+          reading order immediately above the controls it qualifies.
+
+          ⚠ RENDERED FIRST, so it is read BEFORE the route forward rather than
+          after it. It cannot move the input: this whole element already sits on
+          its own full-width implicit grid row BELOW the input line, which is the
+          measured property `theEditorSaysHowToGoForward.spec` pins. */}
+      {row.declaresNoRange === true && (
+        <span
+          data-testid={`model-row-v2-${row.id}-no-range`}
+          className={`${typography.panelBody} text-text-light`}
+        >
+          {NO_RANGE_NOTICE}
+        </span>
+      )}
+
       {/* ⭐⭐ THE ROUTE FORWARD, RENDERED. MEASURED ON DEPLOYED `9748b336`: with
           `0.4` typed into a factor row, the row's ONLY button was its own LABEL.
           No advance control, and nothing anywhere saying Enter was the way —

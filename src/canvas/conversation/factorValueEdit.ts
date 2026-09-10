@@ -460,3 +460,63 @@ export function buildFactorValueEditEvent(
 
   return { type: 'factor_value_edit', payload }
 }
+
+/**
+ * ⭐⭐ DOES THIS FACTOR DECLARE A RANGE AT ALL? `true` when it declares NONE.
+ *
+ * ⚠⚠ THIS IS NOT `resolveFactorValueAdmission` WITH THE SIGN FLIPPED, AND THE
+ * TWO MUST NEVER BE COLLAPSED (CLAUDE.md trap 21 — name the question each
+ * authority answers, do not reconcile the defaults).
+ *
+ *   `resolveFactorValueAdmission` (#1428) answers *"does this prior's support
+ *   admit the number being typed?"* and returns `null` on THREE different
+ *   grounds: no range declared · an inverted declaration · a magnitude-scaled
+ *   factor whose prior is not the support of `value`. All three mean "refuse
+ *   nothing", which is the right answer to ITS question.
+ *
+ *   This function answers *"has anyone recorded a range for this factor?"* A
+ *   factor with an inverted declaration, and a magnitude-scaled factor carrying
+ *   `{range_min, range_max}`, both HAVE a recorded range. Reading the other
+ *   function's `null` as this function's `true` would state a falsehood on both
+ *   of them, on screen, to the user.
+ *
+ * ⛔ NO RANGE IS INVENTED, INFERRED OR DEFAULTED HERE, and nothing downstream
+ * may refuse on this. It returns a FACT about what the node records, and the one
+ * consumer prints that fact. A guard that synthesised a bound would be a worse
+ * defect than the one this closes: it would lock a user out of a row whose only
+ * repair route is already unreachable.
+ *
+ * ⚠ IT FAILS OPEN, IN THE DIRECTION OF SILENCE. Every shape this cannot read
+ * returns `false` — say nothing rather than assert an absence that may not be
+ * one. The claim is only made when BOTH ends are readable and BOTH are missing.
+ *
+ * ⚠ THE FIELD IS `data.prior.{range_min, range_max}` AND THAT IS THE ONLY PLACE
+ * A RANGE LIVES. Swept at `staging` 08a3724d across `src/` with `grep -a` and a
+ * contrast control (`raw_value`, 287 non-test hits): every non-test reader of a
+ * factor range in the tree reads that one path (`NodeInspector.tsx:116`,
+ * `useInspectorMutations.ts:381`, `FactorExternalEditor.tsx:50`,
+ * `FactorExternalPanel.tsx:113`, `DecisionNode.tsx:199`,
+ * `nodes/shared/factorPriorRange.ts:111`). No second carrier exists to miss.
+ *
+ * ⚠ PRESENCE ONLY. No ordering test, no cap, no scale, no unit rule — so this is
+ * not a second range PARSER and cannot drift from the one that owns those
+ * questions. It reads the two ends and asks whether either is a finite number.
+ */
+export function factorDeclaresNoRange(nodeData: unknown): boolean {
+  const data = nodeData as { prior?: unknown } | undefined
+  const prior = data?.prior
+  // A bare probability (`PriorSchema`'s number arm) and every non-object carry
+  // no range ends to read. `undefined` is the witnessed shape of the factor this
+  // was found on; `null` is grouped with it because `typeof null === 'object'`.
+  if (prior === undefined || prior === null) return true
+  if (typeof prior === 'number') return true
+  if (typeof prior !== 'object') return false
+  const { range_min: min, range_max: max } = prior as {
+    range_min?: unknown
+    range_max?: unknown
+  }
+  const hasMin = typeof min === 'number' && Number.isFinite(min)
+  const hasMax = typeof max === 'number' && Number.isFinite(max)
+  // ONE end recorded is still a record. Only the empty case is claimed.
+  return !hasMin && !hasMax
+}

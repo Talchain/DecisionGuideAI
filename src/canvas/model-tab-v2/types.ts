@@ -270,6 +270,26 @@ export interface ModelRow {
    */
   attention: readonly AttentionReason[]
   /**
+   * ⭐⭐ TRUE WHEN THIS FACTOR RECORDS NO RANGE AT ALL. A FACT ABOUT THE NODE,
+   * NEVER A VERDICT ABOUT AN EDIT.
+   *
+   * ⚠⚠ NOTHING MAY REFUSE ON THIS, AND NO BOUND MAY BE SYNTHESISED FROM IT. Its
+   * only consumer prints one sentence beside the editor. The producer
+   * (`factorDeclaresNoRange`) fails OPEN into silence, so `false`/absent means
+   * "no claim", never "a range exists".
+   *
+   * ⚠ IT IS THE SIBLING OF `valueAdmission`, NOT ITS NEGATION (trap 21). That
+   * field answers *"does this prior's support admit the typed number?"*; this one
+   * answers *"has anyone recorded a range?"* An inverted declaration and a
+   * magnitude-scaled factor carrying both ends are `true` for one question and
+   * `false` for the other, so the two must stay separately named even once both
+   * are on this contract. Folding them would print a falsehood on those rows.
+   *
+   * ⚠ A BOOLEAN, DELIBERATELY. It carries no numbers because there are none to
+   * carry: the whole content of the fact is that the node records nothing.
+   */
+  declaresNoRange?: boolean
+  /**
    * Present when a human has explicitly chosen to leave this row unresolved.
    *
    * ⚠ THIS SITS BESIDE `attention`, IT NEVER CLEARS IT. The two answer different
