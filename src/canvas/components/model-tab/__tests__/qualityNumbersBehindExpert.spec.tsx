@@ -55,17 +55,61 @@ describe('⭐ the bare number is expert-only', () => {
     expect(screen.queryByTestId('tier-label')).toBeNull()
   })
 
-  it('⭐ EXPERT shows the dimensions that were always present and never rendered', () => {
+  /**
+   * ⭐⭐ EXPERT STILL SEES `overall` — "behind the toggle", not "gone".
+   *
+   * ⚠⚠ THIS CASE REPLACES ONE THAT PINNED THE WRONG BEHAVIOUR. It asserted the
+   * pill showed `coverage 10 · structure 8 · safety 8`, and review showed that
+   * shipped two defects: experts saw those three dimensions TWICE (the
+   * sub-scores block below renders Structure / Causality / Coverage / Safety
+   * under the same `showDetail`), and `overall` — which
+   * `ceeQualityDimensions.ts` calls "the only score CEE always sends" —
+   * rendered for NOBODY, because its `||` fallback fires only when all three
+   * optionals are absent.
+   *
+   * Neuter the header expression and this REDs. It is the assertion that stops
+   * "move it behind the toggle" quietly becoming "delete it".
+   */
+  it('⭐⭐ EXPERT sees the overall score — moved behind the toggle, not deleted', () => {
     at(true)
-    const pill = screen.getByTestId('tier-label')
-    expect(pill).toHaveTextContent('coverage 10')
-    expect(pill).toHaveTextContent('structure 8')
-    expect(pill).toHaveTextContent('safety 8')
+    expect(screen.getByTestId('tier-label')).toHaveTextContent('9.0 / 10')
   })
 
-  it('⛔ EXPERT does not reduce them to one bare "/ 10" verdict', () => {
+  /**
+   * ⭐ AND SEES IT ONCE. The previous version of this case read
+   * `not.toMatch(/^9 \/ 10$/)` against a fixture supplying ALL THREE optionals —
+   * so the `/ 10` branch it named was UNREACHABLE from that fixture and the
+   * assertion could not fail for the stated reason (trap 13: a test that cannot
+   * fail). It is now a positive pair that bites in both directions.
+   */
+  it('⛔ EXPERT does not see the sub-scores TWICE — the pill is not a second copy', () => {
     at(true)
-    expect(screen.getByTestId('tier-label').textContent ?? '').not.toMatch(/^\s*9(\.0)?\s*\/\s*10\s*$/)
+    const pill = screen.getByTestId('tier-label').textContent ?? ''
+    expect(pill.toLowerCase()).not.toContain('coverage')
+    expect(pill.toLowerCase()).not.toContain('structure')
+    expect(pill.toLowerCase()).not.toContain('safety')
+
+    /*
+     * ⚠ THE PRECONDITION, PINNED IN-TEST. Three absences are only about
+     * DUPLICATION if the dimensions are genuinely rendered somewhere — otherwise
+     * this case would pass just as happily on a build that had deleted the
+     * sub-score block, which is the opposite of what is wanted.
+     */
+    expect(screen.getByTestId('quality-row-coverage')).toHaveTextContent('Coverage')
+    expect(screen.getByTestId('quality-row-structure')).toHaveTextContent('Structure')
+    expect(screen.getByTestId('quality-row-safety')).toHaveTextContent('Safety')
+  })
+
+  /**
+   * ⚠ AND THE SUB-SCORES ARE EXPERT-ONLY TOO, so Plain is not merely missing the
+   * pill while showing the same digits ten lines lower — which would make the
+   * whole change cosmetic.
+   */
+  it('⛔ PLAIN sees no sub-score rows either', () => {
+    at(false)
+    expect(screen.queryByTestId('quality-row-coverage')).toBeNull()
+    expect(screen.queryByTestId('quality-row-structure')).toBeNull()
+    expect(screen.queryByTestId('quality-row-safety')).toBeNull()
   })
 
   it('CONTROL: the card itself is still there for everyone', () => {

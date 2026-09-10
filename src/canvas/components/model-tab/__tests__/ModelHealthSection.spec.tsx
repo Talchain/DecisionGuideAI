@@ -110,11 +110,18 @@ describe('ModelHealthSection', () => {
       </DetailToggleContext.Provider>,
     )
     const tierLabel = screen.getByTestId('accordion-tier-label')
-    // POSITIVE CONTROL, restated: the header pill renders and says something.
-    // ⚠ It is no longer the bare `overall` — the figures moved behind the expert
-    // toggle and the pill now carries CEE's three dimensions. The property this
-    // test guards (no stability percentage) is untouched.
-    expect(tierLabel).toHaveTextContent('coverage 7')
+    // POSITIVE CONTROL: the header summary still renders, so the absence
+    // assertion below is about the stability half specifically and not about a
+    // header that failed to appear at all.
+    //
+    // ⚠⚠ THIS READ `toHaveTextContent('coverage 7')` FOR ONE COMMIT AND THAT WAS
+    // A POSITIVE CONTROL RE-POINTED AT A REGRESSION. The header briefly carried
+    // `coverage · structure · safety` instead of `overall`, which duplicated the
+    // sub-score block below and left `overall` rendering for nobody. Re-pointing
+    // the control made this spec agree with that; the control is back on the
+    // figure the header is supposed to carry. Only the expert-tier wrapper is
+    // new, and it is needed because the pill is now expert-only.
+    expect(tierLabel).toHaveTextContent('7.2 / 10')
     // ROADMAP 2.1273: the "{N}% stability" half is gone. This spec no longer
     // supplies the field, so the load-bearing proof — which INJECTS it and
     // shows the header still cannot render a percentage — lives in

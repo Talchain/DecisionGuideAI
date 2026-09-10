@@ -740,7 +740,35 @@ function FactorsSectionInner({
       title="Factors"
       badgeCount={factorNodes.length}
       tierLabel={toVerifyCount > 0 ? `${toVerifyCount} to verify` : undefined}
-      tierTitle="Factors whose value Olumi estimated rather than reading from you. Set them to make the model yours." 
+      // ⚠⚠ WORDED TO THE PREDICATE, NOT TO THE HALF OF IT I HAD IN MIND.
+      //
+      // This read "Factors whose value Olumi estimated rather than reading from
+      // you" — a claim about AUTHORSHIP, and false for one of the two
+      // populations the badge counts. The predicate behind `toVerifyCount` is
+      // `factorIsConfirmable` = `factorNeedsVerification` AND has a ratifiable
+      // value, and `factorNeedsVerification` (`domain/valueProvenance.ts`) is:
+      //
+      //     return !obs?.source || obs?.source === 'cee_inference'
+      //
+      // `cee_inference` IS "Olumi estimated it". `!obs?.source` is provenance
+      // UNRECORDED — nobody knows where that value came from, and a value the
+      // USER set before provenance stamping existed lands in exactly that
+      // branch. Telling that user Olumi estimated their own number is a false
+      // claim about authorship, and authorship is the one thing this product
+      // cannot afford to get wrong. That module's own header says the same
+      // thing from the other side: "ANY SOURCE OTHER THAN ABSENT-OR-
+      // `cee_inference` CLEARS IT".
+      //
+      // ⛔ THE PREDICATE IS NOT WIDENED TO MATCH THE SENTENCE. Narrowing it to
+      // `source === 'cee_inference'` would silently drop every unstamped factor
+      // out of the count — a real gap — in order to make a tooltip true. The
+      // copy moves to the code, never the reverse.
+      //
+      // ⚠ AND IT CONTRADICTED THIS PR'S OWN THESIS. `Accordion.tsx` now argues
+      // that a shared component may not author the meaning of a caller's
+      // number. Correct — and then the caller authored a meaning its number
+      // does not carry, one level up.
+      tierTitle="Factors with a value you have not confirmed — either Olumi estimated it, or nothing recorded where it came from. Confirm or change them to make the model yours."
       tierVariant={toVerifyCount > 0 ? 'needs_work' : undefined}
       defaultExpanded
       isExpanded={isExpanded}

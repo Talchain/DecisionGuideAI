@@ -232,7 +232,11 @@ describe('ModelHealthSection — neither header nor audit row can render a stabi
     )
     const tierLabel = screen.getByTestId('accordion-tier-label')
     // POSITIVE CONTROL: the header pill exists and still says something.
-    expect(tierLabel).toHaveTextContent('coverage 7')
+    // ⚠ Back on `overall` — see the sibling note in `ModelHealthSection.spec.tsx`.
+    // This briefly read `'coverage 7'` to match a header that had replaced
+    // `overall` with its three dimensions; that was a control following a
+    // regression rather than catching it.
+    expect(tierLabel).toHaveTextContent('7.2 / 10')
     expect(tierLabel.textContent ?? '').not.toMatch(PCT_STABILITY)
     expect(tierLabel.textContent ?? '').not.toContain(`${LEGACY_PCT}%`)
   })
