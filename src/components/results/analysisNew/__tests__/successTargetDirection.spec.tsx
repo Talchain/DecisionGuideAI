@@ -53,7 +53,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Node } from '@xyflow/react'
 
@@ -103,12 +103,31 @@ function draw() {
   )
 }
 
-/** Open the editor, optionally state a direction, type an amount, save. */
-async function statTarget(amount: string, direction?: 'at_least' | 'at_most') {
+/**
+ * Open the editor, optionally state a direction, type an amount, save.
+ *
+ * ⭐⭐⭐ THE DIRECTION IS CHOSEN BY THE WORD ON SCREEN, NEVER BY THE OPTION'S
+ * UNDERLYING VALUE — and that distinction caught a live hole in this very file.
+ *
+ * ⚠⚠ MEASURED, NOT REASONED. These arms first selected by value
+ * (`selectOptions(select, 'at_most')`). A mutant that SWAPS THE TWO VISIBLE
+ * WORDS against their values — so the option reading "at most" carries
+ * `at_least` — left all five cases GREEN. That mutant is the shipped defect in
+ * miniature: the reader is shown one direction and the model records the other,
+ * which is precisely what this file exists to prevent. A test bound to the
+ * value cannot see it, because the value is the half the reader never touches.
+ *
+ * Selecting by ACCESSIBLE NAME binds the WORD A HUMAN READS to the PAYLOAD THAT
+ * RESULTS, which is the property, and the swap mutant now REDs. This is
+ * CLAUDE.md trap 19 read the right way round: bind to the object the claim is
+ * about, not to a handle that merely sits near it.
+ */
+async function statTarget(amount: string, directionWord?: 'at least' | 'at most') {
   const user = userEvent.setup()
   await user.click(screen.getByTestId(`${TID}-edit`))
-  if (direction !== undefined) {
-    await user.selectOptions(screen.getByTestId(`${TID}-direction`), direction)
+  if (directionWord !== undefined) {
+    const select = screen.getByTestId(`${TID}-direction`)
+    await user.selectOptions(select, within(select).getByRole('option', { name: directionWord }))
   }
   const input = screen.getByTestId(`${TID}-input`)
   await user.clear(input)
@@ -133,7 +152,7 @@ describe('the reader states which way a goal target is read, and the wire agrees
    */
   it('records at most, and says at most, when the reader states at most', async () => {
     draw()
-    await statTarget('9', 'at_most')
+    await statTarget('9', 'at most')
 
     const sent = onlyDispatch()
     expect(sent.action_type).toBe('add_constraint')
@@ -187,8 +206,9 @@ describe('the reader states which way a goal target is read, and the wire agrees
     const user = userEvent.setup()
     await user.click(screen.getByTestId(`${TID}-edit`))
     const select = screen.getByTestId(`${TID}-direction`)
-    await user.selectOptions(select, 'at_most')
-    await user.selectOptions(select, 'at_least')
+    // By the words, in both moves — see `statTarget`.
+    await user.selectOptions(select, within(select).getByRole('option', { name: 'at most' }))
+    await user.selectOptions(select, within(select).getByRole('option', { name: 'at least' }))
     const input = screen.getByTestId(`${TID}-input`)
     await user.clear(input)
     await user.type(input, '9')
@@ -220,8 +240,15 @@ describe('the reader states which way a goal target is read, and the wire agrees
     const select = screen.getByTestId(`${TID}-direction`)
     expect(select).toBeInTheDocument()
     expect(select).toHaveValue('at_least')
-    expect(select).toHaveTextContent('at least')
-    expect(select).toHaveTextContent('at most')
+    /**
+     * ⚠⚠ EACH WORD PINNED TO THE VALUE IT SENDS, not merely present in the
+     * control. `toHaveTextContent('at least')` passes just as happily when the
+     * two words are swapped onto each other's values — the mutant that did
+     * exactly that survived an earlier version of this file. The pairing IS
+     * the claim: what the reader reads is what the wire carries.
+     */
+    expect(within(select).getByRole('option', { name: 'at least' })).toHaveValue('at_least')
+    expect(within(select).getByRole('option', { name: 'at most' })).toHaveValue('at_most')
     // The selector carries its own accessible name, so the direction is
     // announced rather than inferred from position.
     expect(select).toHaveAccessibleName('How this target should be read')
@@ -234,7 +261,7 @@ describe('the reader states which way a goal target is read, and the wire agrees
    */
   it('refuses an unparseable draft in either direction, and sends nothing', async () => {
     draw()
-    await statTarget('abc', 'at_most')
+    await statTarget('abc', 'at most')
     expect(dispatchAction).not.toHaveBeenCalled()
   })
 })
