@@ -25,6 +25,8 @@ import type { DecisionNodeData } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
+import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbsent'
+import { METRIC_NOUN } from './shared/metricVocabulary'
 import { typography } from '../../styles/typography'
 import { NodeChip, NodePopover } from './shared'
 import { isGoalDefined } from '../../utils/isGoalDefined'
@@ -251,6 +253,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
 
   const isPostAnalysis = resultsStatus === 'complete'
   const isDetailed = viewMode === 'expert'
+  const supportShareRunWideAbsent = useSupportShareRunWideAbsent()
 
   const readiness = useModelReadiness(id)
   const { showPopover, nodeHandlers, popoverHandlers, nodeElRef } = usePopoverHover()
@@ -588,8 +591,30 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // ⭐ POST ARM IS THE PRESENCE OF A FINDING, NOT OF ANY CHILD. See
   // `showPostAnalysisChips` above: chips are invitations and must not be
   // counted as content that silences the resting copy.
+  /**
+   * ⭐ ONE FACT ABOUT THE RUN, STATED ONCE, ON THE NODE THAT FRAMES THE
+   * COMPARISON. When NO option resolved a support percentage, the option cards
+   * yield that position (`OptionNode`, `supportShareRunWideAbsent`) instead of
+   * repeating one absence per card. Something has to say it, or the cards'
+   * silence reads as a rendering gap — the argument the `n_valid === 0` block
+   * in `OptionNode` already makes for its own copy.
+   *
+   * ⚠ THIS IS A READINESS-CLASS FACT ABOUT THE RUN, NOT A COMPARATIVE CLAIM,
+   * and that is why it may sit here at all. The tombstones above record that
+   * the leader sentence, its bar and its caveat were all removed from this node
+   * because it was answering the question it exists to ask, in the option
+   * cards' own words. This states what the run PRODUCED. It names no option,
+   * ranks nothing, and cannot become a designation: it renders only when there
+   * is no share anywhere to designate from.
+   *
+   * Standard AND Detailed, unlike `showStabilityLine`. A reader who cannot see
+   * why the comparison is missing is not helped by the explanation being
+   * expert-only.
+   */
+  const showSupportShareAbsent = isPostAnalysisBranch && supportShareRunWideAbsent
+
   const bodyHasContent = isPostAnalysisBranch
-    ? showStabilityLine
+    ? (showStabilityLine || showSupportShareAbsent)
     : isPreAnalysisBranch
       ? (showTriageLine || showRunAnalysis || showPreAnalysisInvitations)
       : false
@@ -910,6 +935,15 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
             {/* Post-analysis Detailed only: stability + chips inline in body
                 (Detailed has no popover). Standard surfaces both via the
                 popover below. */}
+            {showSupportShareAbsent && (
+              <div
+                className={`${typography.edgeLabel} text-text-body mt-1`}
+                data-testid="decision-support-share-absent"
+              >
+                On the data so far, this run produced no {METRIC_NOUN.support.toLowerCase()} percentages
+                for the options. Compare them on what each one changes.
+              </div>
+            )}
             {showStabilityLine && stabilityDisplay && (
               <div
                 className={`${typography.edgeLabel} text-text-light mt-1`}

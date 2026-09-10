@@ -47,7 +47,11 @@ describe('option delivery states through the real store and display selector', (
       } } },
     } as never)
     mountOptions(options)
-    expect(screen.getByTestId('option-result-unavailable-missing')).toHaveTextContent('Support percentage unavailable')
+    // Copy re-ruled: the card conditions on the data instead of opening with
+    // the missing quantity's name. `zero` resolves a share, so this graph is
+    // the PARTIAL case and `missing` still earns its per-card notice.
+    expect(screen.getByTestId('option-result-unavailable-missing'))
+      .toHaveTextContent('On the data so far, no support percentage for this option')
     expect(screen.queryByTestId('option-win-readout-missing')).toBeNull()
     expect(screen.queryByTestId('option-not-computed-missing')).toBeNull()
     expect(screen.getByTestId('option-not-computed-failed')).toBeInTheDocument()
@@ -58,8 +62,17 @@ describe('option delivery states through the real store and display selector', (
 
   it.each([0, 0.5])('does not call a computed outcome with median %s an unavailable result', median => {
     const computed = option('outcome-only')
+    // ⭐ A SIBLING THAT DID RESOLVE A SHARE KEEPS THIS IN THE PARTIAL CASE, and
+    // that is the point of the test rather than an accommodation to it. When NO
+    // option resolves a share the absence is a fact about the RUN, the cards
+    // yield the position and the Question node states it once — so mounting
+    // `outcome-only` alone would be asserting the run-wide branch while
+    // claiming to test the per-option one. See
+    // `OptionNode.supportShareRunWideAbsence.spec.tsx`.
+    const sibling = option('has-share')
+    const options = [computed, sibling]
     useCanvasStore.setState({
-      nodes: [computed],
+      nodes: options,
       results: { status: 'complete', report: { option_probabilities: {
         [computed.id]: {
           status: 'computed',
@@ -67,11 +80,12 @@ describe('option delivery states through the real store and display selector', (
           // The producer can supply a real outcome distribution without a
           // win share. A zero median is valid data, not a failed run.
         },
+        [sibling.id]: { status: 'computed', win_probability: 0.4 },
       } } },
     } as never)
-    mountOptions([computed])
+    mountOptions(options)
     expect(screen.getByTestId('option-result-unavailable-outcome-only'))
-      .toHaveTextContent('Support percentage unavailable')
+      .toHaveTextContent('On the data so far, no support percentage for this option')
     expect(screen.queryByText('Result unavailable', { exact: true })).toBeNull()
     expect(screen.queryByTestId('option-win-readout-outcome-only')).toBeNull()
     expect(screen.queryByTestId('option-not-computed-outcome-only')).toBeNull()
