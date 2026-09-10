@@ -17,8 +17,15 @@
  * afford to share one — and stays inline at 420px, where it can.
  *
  * ── 2. THE QUALIFIER WAS ORPHANED FROM WHAT IT QUALIFIES ──────────────────
- * "On inputs whose source Olumi could not establish" modifies the verdict
- * above it. It rendered as a SIBLING of the verdict inside the section's
+ * "On inputs whose source Olumi could not establish" qualifies the READING
+ * above it.
+ *
+ * ⚠ SUPERSEDED WORDING, NAMED SO IT IS NOT REINSTATED: this read "modifies the
+ * VERDICT above it" until 9 Sep 2026. It does not — a verdict is a robustness
+ * word, and `AtAGlance.tsx` now gates the qualifier on a reading being on
+ * screen. The LAYOUT finding below is a historic measurement and is unaffected.
+ *
+ * It rendered as a SIBLING of the verdict inside the section's
  * `space-y-3`, so it sat 12px below the sentence it qualifies and 12px above
  * one it does not — equidistant, in identical typography, with nothing binding
  * it either way. Paul reported it from a manual test as an orphaned fragment,
