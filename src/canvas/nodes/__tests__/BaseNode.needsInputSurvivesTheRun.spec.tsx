@@ -37,9 +37,14 @@
  * so `isGoalDefined` can read true on a target the user never set, and the
  * option arm turns on `ceeAnalysisReady` licence semantics that this change did
  * not derive. Deferred to a lane that derives them — not judged unnecessary.
- * `decision` is un-gated in the same change (its predicate is structural, an
- * edge count) but is left to its own component spec rather than asserted from
- * a factor harness.
+ * ⛔ `decision` WAS un-gated in the first version of this change and has been
+ * narrowed back, by CI rather than by reading. Its predicate (`!hasOptions`) is
+ * structural and so looked phase-independent, but a decision with no options
+ * after a COMPLETED analysis is not a reachable product state — the readiness
+ * gate will not admit a run without options. Un-gating it therefore bought no
+ * user-facing truth and broke `BaseNode.cornerStack.spec.tsx`, whose fixture
+ * pairs `results.status: 'complete'` with `edges: []`. Structural symmetry is
+ * not evidence; the witness for this change is about factors.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'

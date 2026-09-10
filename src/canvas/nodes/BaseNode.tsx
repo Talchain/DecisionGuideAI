@@ -379,6 +379,23 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       return !isGoalDefined(goalThreshold, goalConstraints)
     }
     if (nodeType === 'decision') {
+      // ⛔ NARROWED BACK TO PHASE-GATED, AND CI IS WHY. This arm was un-gated in
+      // the first version of this change on the reasoning that `!hasOptions` is
+      // structural and therefore phase-independent. That reasoning is sound and
+      // the conclusion was still wrong, for a reason no amount of reading the
+      // predicate would surface: a decision with NO options after a COMPLETED
+      // analysis is not a reachable product state, because the readiness gate
+      // will not admit a run without options. So un-gating bought no user-facing
+      // truth, and it fired in `BaseNode.cornerStack.spec.tsx`, whose fixture
+      // pairs `results.status: 'complete'` with `edges: []` — adding a fourth
+      // child to a corner stack pinned at three.
+      //
+      // The evidence for this whole change is about FACTORS: a measured staging
+      // witness, and this file's own confession ~650 lines below. Extending it
+      // to a node type on structural symmetry alone was scope I could not
+      // evidence. If a reachable optionless-post-run decision is ever
+      // demonstrated, un-gate it THEN, with that case as the fixture.
+      if (!isPreRunMode) return false
       const hasOptions = edges.some(e => e.source === id)
       return !hasOptions
     }
