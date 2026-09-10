@@ -53,9 +53,6 @@ vi.mock('../shared/NodePopover', () => ({
 import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 
-/** The sentence under repair. Asserted as ABSENT for every non-brief provenance. */
-/** The honest replacement — asserted present only where there is genuinely no evidence. */
-/** The pre-existing user-owned sentence. Reused, never re-authored. */
 
 // `deletable`/`selectable`/`draggable` are REQUIRED by `NodeProps` and are the
 // reason the neighbouring render-matrix suite carries TS2739 in the typecheck
@@ -113,8 +110,8 @@ function topology(resultsStatus: 'idle' | 'complete', weight = 0.5) {
 }
 
 function renderAt(resultsStatus: 'idle' | 'complete', weight = 0.5) {
-  vi.mocked(useCanvasStore).mockImplementation((selector: never) =>
-    (selector as unknown as (s: unknown) => unknown)(topology(resultsStatus, weight)),
+  vi.mocked(useCanvasStore).mockImplementation((selector) =>
+    selector(topology(resultsStatus, weight) as never),
   )
   return render(
     <ReactFlowProvider>
@@ -211,9 +208,9 @@ describe('a factor keeps saying what it DOES after the run', () => {
     // ⭐ Without this, both cases above pass on a change that renders the target
     // label from somewhere else entirely — the node list, say — and the pills
     // could be gone while the assertions stay green.
-    vi.mocked(useCanvasStore).mockImplementation((selector: never) => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) => {
       const t = topology('complete')
-      return (selector as unknown as (s: unknown) => unknown)({ ...t, edges: [] })
+      return selector({ ...t, edges: [] } as never)
     })
     const { container } = render(
       <ReactFlowProvider>
