@@ -54,12 +54,37 @@
  * stale prose outrank a current turn. That inversion is a separate mutant in
  * `__tests__/effectiveDraftCoaching.spec.ts`, and it must fail on its own
  * signature.
+ *
+ * ⚠⚠ THE LIVE GATE BOUNDS ONE DIRECTION ONLY, AND THE OTHER DIRECTION IS A
+ * SEPARATE PARAMETER (review ground, 2026-09-10). `input.optionCount >= 3`
+ * removes the row when the user WIDENS. It does nothing when the user NARROWS,
+ * and the retained sentence describes exactly the quantity the row re-derives:
+ * coached at two options, delete one, and the row still fires while the frozen
+ * prose asserts a two-option frame over a one-option graph — and, because
+ * `ceeOverride` REPLACES `copy.lead`/`copy.emphasis` rather than annotating them
+ * (`SignalRow.tsx`), it also suppresses `optionBreadthOne`, which is the accurate
+ * line. One `>= 3` threshold cannot guard both harms (dropping guidance and
+ * keeping stale guidance), so the retained value now carries the option count it
+ * was authored against and answers ONLY while that count still holds.
+ *
+ * ⚠ EXACT MATCH, NOT A RANGE, AND NOT ONLY THE NARROWING CASE. A count that has
+ * moved in either direction is a graph the prose was not written about; refusing
+ * both is the fail-closed reading and needs no second threshold to keep in sync.
+ * An unknown count (`null`) is refused for the same reason: it is the absence of
+ * evidence that the prose still applies, not evidence that it does.
  */
 import type { CEEDraftCoaching } from '../../adapters/cee/types'
 
 export function resolveEffectiveDraftCoaching(
   liveCoaching: CEEDraftCoaching | undefined | null,
   retained: CEEDraftCoaching | undefined | null,
+  retainedOptionCount: number | null | undefined,
+  liveOptionCount: number | null | undefined,
 ): CEEDraftCoaching | null {
-  return liveCoaching ?? retained ?? null
+  // A live payload is never gated: it was authored about the graph as it is.
+  if (liveCoaching) return liveCoaching
+  if (!retained) return null
+  if (typeof retainedOptionCount !== 'number' || typeof liveOptionCount !== 'number') return null
+  if (retainedOptionCount !== liveOptionCount) return null
+  return retained
 }

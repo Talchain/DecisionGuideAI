@@ -96,6 +96,7 @@ function seedGraph(opts: { successSet?: boolean; reviewedAll?: boolean } = {}) {
     // rides into every later test in the file and the failure looks like the
     // panel's, not the seed's.
     retainedDraftCoaching: null,
+    retainedDraftCoachingOptionCount: null,
     currentBriefText: null,
     goalThreshold: null,
     goalConstraints: null,
@@ -415,6 +416,9 @@ describe('retained coaching across readiness invalidation', () => {
     useCanvasStore.setState({
       draftCoaching: null,
       retainedDraftCoaching: coaching(RETAINED_DETAIL) as never,
+      // The seed graph has two options and the coaching was authored against two,
+      // so the freshness gate admits it. That is the arm's precondition.
+      retainedDraftCoachingOptionCount: 2,
     })
     renderPanel()
 
@@ -427,6 +431,7 @@ describe('retained coaching across readiness invalidation', () => {
     useCanvasStore.setState({
       draftCoaching: coaching(LIVE_DETAIL) as never,
       retainedDraftCoaching: coaching(RETAINED_DETAIL) as never,
+      retainedDraftCoachingOptionCount: 2,
     })
     renderPanel()
 
@@ -447,6 +452,10 @@ describe('retained coaching across readiness invalidation', () => {
       ],
       draftCoaching: null,
       retainedDraftCoaching: coaching(RETAINED_DETAIL) as never,
+      // Matched to the WIDENED count on purpose: the freshness gate admits the
+      // retained value here, so the row's absence is attributable to the live gate
+      // alone rather than to retention having been refused upstream of it.
+      retainedDraftCoachingOptionCount: 3,
     })
     renderPanel()
 
@@ -455,6 +464,45 @@ describe('retained coaching across readiness invalidation', () => {
     // property that makes retention honest here and nowhere else.
     expect(screen.queryByTestId('pre-analysis-v3-signal-sig_option_breadth')).not.toBeInTheDocument()
     expect(screen.queryByText(RETAINED_DETAIL)).not.toBeInTheDocument()
+  })
+
+  /**
+   * ⭐⭐ THE NARROWING TWIN — the direction the live gate does not bound.
+   *
+   * `optionCount >= 3` removes the row when the user WIDENS. Delete an option
+   * instead and the row still fires, at a count the retained sentence is now wrong
+   * about; and because `ceeOverride` REPLACES `copy.lead`/`copy.emphasis` rather
+   * than annotating them (`SignalRow.tsx`), the stale sentence would also suppress
+   * `optionBreadthOne`, which is the accurate line. This is the arm the widening
+   * twin above could not observe.
+   */
+  it('the retained sentence is refused once the user narrows, and the accurate live copy returns', () => {
+    useCanvasStore.setState({
+      nodes: useCanvasStore.getState().nodes.filter(n => n.id !== 'o2'),
+      draftCoaching: null,
+      retainedDraftCoaching: coaching(RETAINED_DETAIL) as never,
+      // Authored against TWO options; the graph now holds one.
+      retainedDraftCoachingOptionCount: 2,
+    })
+    // Preconditions, in-test: the graph really did narrow, and the two counts
+    // really do differ. Without these the arm would also pass on a graph that
+    // never changed, or on a fixture that failed to reach the panel at all.
+    expect(useCanvasStore.getState().nodes.filter(n => n.type === 'option')).toHaveLength(1)
+    expect(useCanvasStore.getState().retainedDraftCoachingOptionCount).toBe(2)
+    renderPanel()
+
+    const row = screen.getByTestId('pre-analysis-v3-signal-sig_option_breadth')
+    expect(
+      row,
+      'the frozen sentence asserts a two-option frame over a one-option graph',
+    ).not.toHaveTextContent(RETAINED_DETAIL)
+    expect(row, 'no CEE attribution, because no CEE text is being shown').not.toHaveTextContent(
+      'Olumi noticed',
+    )
+    expect(
+      row,
+      'the deterministic one-option copy is the accurate line and must not be suppressed',
+    ).toHaveTextContent('Only one option so far.')
   })
 })
 

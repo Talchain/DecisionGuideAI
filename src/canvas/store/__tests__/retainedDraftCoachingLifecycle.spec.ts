@@ -329,11 +329,16 @@ describe('retainedDraftCoaching lifecycle', () => {
       .sort()
     expect(
       harvestedKeys,
-      'only the admission and the coaching may be retained across invalidation; every other ' +
+      'only the admission, the coaching and the option count that coaching was authored '  +
+        'against may be retained across invalidation; every other ' +
         'member of READINESS_CLEAR_FIELDS is either a figure about a superseded graph or an ' +
         'input to a run request. This now counts EVERY key in the literal, so a name with a ' +
         'digit in it, or a different indentation, reds here too.',
-    ).toEqual(['retainedAnalysisAdmission', 'retainedDraftCoaching'])
+    ).toEqual([
+      'retainedAnalysisAdmission',
+      'retainedDraftCoaching',
+      'retainedDraftCoachingOptionCount',
+    ])
   })
 
   /**

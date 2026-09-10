@@ -172,6 +172,9 @@ export function usePreAnalysisModel(): PreAnalysisModel {
   // `coaching` memo keeps reading `draftCoaching` alone, because that slot is
   // ungated and a retained summary there would be unmarked stale prose.
   const retainedDraftCoaching = useCanvasStore(s => s.retainedDraftCoaching)
+  // The option count that retained value was authored against. Read beside it so
+  // the resolver can refuse prose about a graph the user has since narrowed.
+  const retainedDraftCoachingOptionCount = useCanvasStore(s => s.retainedDraftCoachingOptionCount)
   const analysisReady = useCanvasStore(s => s.ceeAnalysisReady)
   // Stored goal constraints (CEE response root, ingested verbatim by
   // DraftChat/applyDraftResult) — the provenance carrier for the
@@ -329,12 +332,19 @@ export function usePreAnalysisModel(): PreAnalysisModel {
     // live one. Safe HERE and only here because `sig_option_breadth` re-derives its
     // own firing condition from the live graph, so this can re-word a row but never
     // summon one — see `domain/effectiveDraftCoaching.ts`.
-    const effective = resolveEffectiveDraftCoaching(draftCoaching, retainedDraftCoaching)
+    // The live gate below bounds WIDENING only. Narrowing is refused here, by
+    // comparing the harvested option count with the live one.
+    const effective = resolveEffectiveDraftCoaching(
+      draftCoaching,
+      retainedDraftCoaching,
+      retainedDraftCoachingOptionCount,
+      facts.optionCount,
+    )
     const signal = effective?.biasSignals?.find(b => b.type === 'narrow_framing')
     const detail = signal?.detail && signal.detail.trim().length > 0 ? signal.detail : null
     // Glossary guard: an unsafe swap degrades to the deterministic copy.
     return guardCeeTextOrNull(detail)
-  }, [draftCoaching, retainedDraftCoaching])
+  }, [draftCoaching, retainedDraftCoaching, retainedDraftCoachingOptionCount, facts.optionCount])
 
   const biasFindingExplanation = useMemo(() => {
     const findings = (analysisReady as { bias_findings?: Array<{ explanation?: string }> } | null)

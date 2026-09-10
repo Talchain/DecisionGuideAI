@@ -17,6 +17,7 @@ import {
   type NodeData,
 } from './domain/nodes'
 import { hasAnalyticalNodeChange, hasAnalyticalEdgeChange } from './domain/analyticalChange'
+import { countOptionNodes } from './domain/optionCount'
 import { applyLayout, applyLayoutWithPolicy } from './layout'
 import { mergePolicy } from './layout/policy'
 import { policyToPreset, policyToSpacing } from './layout/adapters'
@@ -649,7 +650,13 @@ interface CanvasState {
    * triggering edit can invalidate directly (`ceeGoalConnectivity`,
    * `ceeExtendedWarnings`), or an INPUT TO A RUN REQUEST rather than a display
    * (`ceeAnalysisReady` incl. its resolved `options[].interventions`,
-   * `goalConstraints`, `ceeAnalysisReadyNodeIds`). Retaining any of those would
+   * `goalConstraints`, `ceeAnalysisReadyNodeIds`), or PRODUCER METADATA KEYED BY
+   * NODE ID (`ceeInterventionHints`) — the one member that is brief-derived and
+   * so reads closest in character to this field, and the reason it is still
+   * refused is that its KEYS are node ids and its only consumer
+   * (`detectSameLever`, `hooks/usePreAnalysisData.ts`) joins it against the LIVE
+   * `nodes`: a retained hint map would pair pre-edit hints with a post-edit graph
+   * and answer about nodes that no longer exist. Retaining any of those would
    * either present a figure about a superseded graph or change what goes on the
    * wire. Coaching is the one member that is PROSE THE PRODUCER AUTHORED — and
    * prose about the brief and the framing, not a measurement of the graph.
@@ -675,6 +682,23 @@ interface CanvasState {
    * Session-local, never persisted — the same rule `draftCoaching` already keeps.
    */
   retainedDraftCoaching: CEEDraftCoaching | null
+  /**
+   * THE OPTION COUNT `retainedDraftCoaching` WAS AUTHORED AGAINST — the second
+   * parameter of a predicate that was guarding two opposite harms with one
+   * threshold (review ground, 2026-09-10).
+   *
+   * `sig_option_breadth`'s live gate (`optionCount >= 3`) removes the row when the
+   * user WIDENS. Narrowing is the other direction and the gate is silent there:
+   * coached at two options, delete one, and the retained sentence asserts a
+   * two-option frame over a one-option graph while REPLACING `optionBreadthOne`,
+   * which is the accurate line. Harvested in lockstep with the coaching itself and
+   * compared by `resolveEffectiveDraftCoaching`; any mismatch refuses the retained
+   * value and the deterministic copy returns.
+   *
+   * Session-local and cleared exactly where the coaching is, so the two can never
+   * describe different graphs.
+   */
+  retainedDraftCoachingOptionCount: number | null
   // Analysis freshness verdict from CEE analysis_ready.freshness — retained
   // across turns; sourced independently of ceeAnalysisReady / v5AnalysisFact.
   analysisFreshness: AnalysisFreshnessState | null
@@ -2028,6 +2052,12 @@ function readinessClearFields(get: () => CanvasState) {
     // moment of clearing, so it is correct however the coaching arrived and there
     // is no list of producers to keep in sync.
     retainedDraftCoaching: get().draftCoaching ?? get().retainedDraftCoaching,
+    // Harvested from the SAME branch, so the count always describes the graph the
+    // retained prose was authored against. A `??` on the count alone would drift:
+    // it would keep an older count beside a newer sentence.
+    retainedDraftCoachingOptionCount: get().draftCoaching
+      ? countOptionNodes(get().nodes)
+      : get().retainedDraftCoachingOptionCount,
   }
 }
 
@@ -2056,6 +2086,7 @@ const DECISION_CONTEXT_CLEAR = {
   // next decision would re-word that decision's signals with the previous one's
   // guidance.
   retainedDraftCoaching: null,
+  retainedDraftCoachingOptionCount: null,
   ceeAnalysisReadyNodeIds: null,
   outcomeNodeId: null,
   // B3 (Codex deep review, 2026-07-18): goalConstraints was the ONE member of
@@ -2908,6 +2939,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // No producer has coached at cold start, so there is nothing to retain and the
   // live-absent branch stays absent.
   retainedDraftCoaching: null,
+  retainedDraftCoachingOptionCount: null,
   // CEE goal constraints from draft-graph response root
   goalConstraints: null,
   // B2: no authoritative graph seen yet — reconciler removes nothing.

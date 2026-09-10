@@ -32,9 +32,9 @@ const RETAINED = coaching('retained-pre-edit')
 
 describe('resolveEffectiveDraftCoaching — which absence is this?', () => {
   it('no producer has ever coached -> null, and absence stays absence', () => {
-    expect(resolveEffectiveDraftCoaching(null, null)).toBeNull()
-    expect(resolveEffectiveDraftCoaching(undefined, undefined)).toBeNull()
-    expect(resolveEffectiveDraftCoaching(undefined, null)).toBeNull()
+    expect(resolveEffectiveDraftCoaching(null, null, 2, 2)).toBeNull()
+    expect(resolveEffectiveDraftCoaching(undefined, undefined, 2, 2)).toBeNull()
+    expect(resolveEffectiveDraftCoaching(undefined, null, 2, 2)).toBeNull()
   })
 
   /**
@@ -43,7 +43,7 @@ describe('resolveEffectiveDraftCoaching — which absence is this?', () => {
    * catches the resolver simply ignoring its second argument.
    */
   it('the live payload is absent and something is retained -> the retained copy answers', () => {
-    const out = resolveEffectiveDraftCoaching(null, RETAINED)
+    const out = resolveEffectiveDraftCoaching(null, RETAINED, 2, 2)
     expect(out, 'the retained object itself must come back, by identity').toBe(RETAINED)
     expect(out?.biasSignals[0]?.detail).toBe('detail::retained-pre-edit')
   })
@@ -60,13 +60,53 @@ describe('resolveEffectiveDraftCoaching — which absence is this?', () => {
    * arms exist.
    */
   it('a live payload ALWAYS supersedes the retained copy — the fallback is downgrade-only', () => {
-    const out = resolveEffectiveDraftCoaching(LIVE, RETAINED)
+    const out = resolveEffectiveDraftCoaching(LIVE, RETAINED, 2, 1)
     expect(out, 'live must win by identity, not merely return "some" coaching').toBe(LIVE)
     expect(
       out?.biasSignals[0]?.detail,
       'a retained copy outranking a live turn would pin the panel to the first thing CEE said',
     ).toBe('detail::live-turn')
     expect(out?.summary).not.toBe('summary::retained-pre-edit')
+  })
+
+  /**
+   * ⭐⭐ FRESHNESS — THE OTHER DIRECTION OF THE PREDICATE, AND THE MUTANT THAT MUST
+   * LAND HERE AND NOWHERE ELSE.
+   *
+   * The consumer's live gate (`optionCount >= 3`) bounds WIDENING only. Narrowing
+   * is the direction the harm lives in: coached at two options, delete one, and
+   * the retained sentence asserts a two-option frame over a one-option graph while
+   * REPLACING the accurate `optionBreadthOne` line. Delete the count comparison
+   * from the resolver and this arm reds; the RETENTION and DIRECTION arms above
+   * both stay green under that mutant, which is why this arm is separate.
+   */
+  it('the retained copy is refused once the option count it was authored against has moved', () => {
+    // Precondition, in-test: the counts being compared are genuinely different,
+    // or "refused because it moved" is not an observation.
+    expect(2).not.toBe(1)
+    expect(
+      resolveEffectiveDraftCoaching(null, RETAINED, 2, 1),
+      'narrowed 2 -> 1: the retained sentence describes a graph that no longer exists',
+    ).toBeNull()
+    expect(
+      resolveEffectiveDraftCoaching(null, RETAINED, 2, 3),
+      'widened 2 -> 3: refused for the same reason, without a second threshold to keep in sync',
+    ).toBeNull()
+    // And it still answers where the count is unchanged, so the arm above is a
+    // discrimination rather than the resolver simply having stopped retaining.
+    expect(resolveEffectiveDraftCoaching(null, RETAINED, 2, 2)).toBe(RETAINED)
+  })
+
+  /**
+   * An unknown count is the ABSENCE of evidence that the prose still applies, not
+   * evidence that it does. Fail closed.
+   */
+  it('an unknown option count refuses the retained copy', () => {
+    expect(resolveEffectiveDraftCoaching(null, RETAINED, null, 2)).toBeNull()
+    expect(resolveEffectiveDraftCoaching(null, RETAINED, 2, null)).toBeNull()
+    expect(resolveEffectiveDraftCoaching(null, RETAINED, undefined, undefined)).toBeNull()
+    // Contrast in the same arm: with both counts known and equal it answers.
+    expect(resolveEffectiveDraftCoaching(null, RETAINED, 0, 0)).toBe(RETAINED)
   })
 
   /**
