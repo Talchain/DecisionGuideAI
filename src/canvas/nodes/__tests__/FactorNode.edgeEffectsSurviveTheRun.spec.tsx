@@ -58,7 +58,6 @@ const BRIEF_CLAIM = /from your brief/i
 /** The honest replacement — asserted present only where there is genuinely no evidence. */
 const PLACEHOLDER_LINE = /placeholder/i
 /** The pre-existing user-owned sentence. Reused, never re-authored. */
-const USER_OWNED_LINE = /You provided this value/i
 
 // `deletable`/`selectable`/`draggable` are REQUIRED by `NodeProps` and are the
 // reason the neighbouring render-matrix suite carries TS2739 in the typecheck
