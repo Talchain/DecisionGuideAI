@@ -106,7 +106,26 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
    * (#513) that made these edits real turns in the first place: a confident
    * receipt over a change the server never heard about.
    */
-  const [valueCommitOutcome, setValueCommitOutcome] = useState<'sent' | 'local_only' | null>(null)
+  /**
+   * ⚠⚠ THREE STATES, NOT TWO — MEASURED ON THE DEPLOYED BUILD AND THE TWO-STATE
+   * VERSION WAS WRONG IN THE OTHER DIRECTION.
+   *
+   * The first version set `local_only` provisionally and upgraded to `sent`
+   * when the dispatcher resolved. Driving staging as a guest, the turn takes
+   * ~1.8s (measured: 1756ms / 1801ms / 2019ms) — so for nearly two seconds the
+   * panel told the user **"Not sent to Olumi"** about an edit that was in
+   * flight and about to land. It then flipped to "Sent" and faded.
+   *
+   * The brief was "show save failures without claiming success". A pessimistic
+   * provisional obeys the letter and breaks the spirit: it claims FAILURE
+   * without knowing, which is the same defect mirrored — and it is the more
+   * alarming half, because the user is told their work was lost while it is
+   * being saved.
+   *
+   * `sending` is the honest state while the promise is open. It is not a
+   * success claim: no tick, no success tone.
+   */
+  const [valueCommitOutcome, setValueCommitOutcome] = useState<'sending' | 'sent' | 'local_only' | null>(null)
   /**
    * Which commit the notice belongs to. The wire attempt is fire-and-forget,
    * so its outcome can land after a later commit — or after the person has
@@ -296,7 +315,9 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       // magnitude (300000) there, which is exactly what CEE's validator refuses.
       mutations.setObservedValue(modelValue, opts.writeRawAnchor ? typedValue : rawMagnitude)
       confirmEdit('value')
-      // Provisional until the wire attempt below resolves which it is.
+      // ⚠ Provisional = `local_only` ONLY where there is no dispatcher at all,
+      // because then nothing further will resolve and the edit really is local.
+      // Where a dispatcher exists the state below moves to `sending` and waits.
       setValueCommitOutcome('local_only')
 
       // Then the wire. Before this, the chain ENDED at the store write: the edit
@@ -315,6 +336,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       // "Sent to Olumi".
       const commitSeq = ++valueCommitSeqRef.current
       const commitNodeId = nodeId
+      setValueCommitOutcome('sending')
     // Fire-and-forget: the response is ingested by the shared turn path
     // (applyV5State applies graph_patch + analysis_ready for system-event turns
     // exactly as it does for message turns). Awaiting here would block the blur
@@ -701,7 +723,9 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
                 Reported to the guard's owner rather than left as a near-miss.
                 The label now states what this app did, which is the part we
                 can actually vouch for. */}
-            {valueCommitOutcome === 'local_only' ? (
+            {valueCommitOutcome === 'sending' ? (
+              <EditConfirmation trigger={lastConfirmed.ts} label="Sending to Olumi…" tone="pending" hold />
+            ) : valueCommitOutcome === 'local_only' ? (
               <EditConfirmation trigger={lastConfirmed.ts} label="Not sent to Olumi" tone="pending" />
             ) : (
               <EditConfirmation trigger={lastConfirmed.ts} label="Sent to Olumi" tone="pending" />

@@ -30,17 +30,35 @@ interface EditConfirmationProps {
    * that has been sent but not confirmed.
    */
   tone?: 'success' | 'pending'
+  /**
+   * ⚠⚠ HOLD THE NOTICE OPEN WHILE THE ANSWER IS STILL COMING.
+   *
+   * Measured on the deployed build: this component hid after 1500ms while a
+   * `factor_value_edit` round trip takes ~1800ms (1756 / 1801 / 2019ms as a
+   * guest on staging). So the outcome state added for the factor-value edit
+   * was STRUCTURALLY UNOBSERVABLE — the notice always faded before the
+   * dispatcher resolved, and the user never once saw "Sent to Olumi".
+   *
+   * A confirmation whose lifetime is shorter than the thing it confirms is not
+   * a confirmation. While `hold` is true the timer does not run; when it clears
+   * the terminal label gets its own full window.
+   */
+  hold?: boolean
 }
 
-export function EditConfirmation({ trigger, label = 'Updated', tone = 'success' }: EditConfirmationProps) {
+export function EditConfirmation({ trigger, label = 'Updated', tone = 'success', hold = false }: EditConfirmationProps) {
   const [visible, setVisible] = useState(false)
 
+  // ⚠ `label` IS A DEPENDENCY DELIBERATELY. A commit that changes state
+  // (sending → sent) must restart the window, or the terminal answer inherits
+  // whatever is left of the previous one and can flash for a few milliseconds.
   useEffect(() => {
     if (!trigger) return
     setVisible(true)
+    if (hold) return
     const timer = setTimeout(() => setVisible(false), 1500)
     return () => clearTimeout(timer)
-  }, [trigger])
+  }, [trigger, label, hold])
 
   if (!visible) return null
 
