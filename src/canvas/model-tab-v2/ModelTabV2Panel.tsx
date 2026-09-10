@@ -779,8 +779,54 @@ export function ModelTabV2Panel({
        * ⚠ SO A MINUS TYPED INTO A MAGNITUDE-ONLY ROW SETS THE SIZE AND NOTHING
        * ELSE, disclosed here rather than left to be discovered: this surface
        * offers no direction control, so a sign typed into it states nothing the
-       * product may act on. Giving relationships a direction affordance needs
-       * `proposeEdgeDirection`, which has no carrier — see the file header.
+       * product may act on.
+       *
+       * ⚠⚠ THE REASON GIVEN HERE UNTIL 2026-09-08 WAS FALSE, and it is corrected
+       * rather than deleted so it is not re-derived. It read: *"Giving
+       * relationships a direction affordance needs `proposeEdgeDirection`, which
+       * has no carrier"*. The carrier EXISTS and is deployed —
+       * `edge_strength_edit.direction_intent`, in the schemas version this repo
+       * pins, with a CEE writer that resolves it. The seam is now built
+       * (`useInspectorMutations.setDirection` emits; see `contracts.ts` §1) and
+       * the per-edge gate is `edgeDirectionEditIsAssertable` — which has no
+       * product consumer yet; see `contracts.ts` §1 and the correction below.
+       *
+       * WHAT REMAINS IS A SURFACE DECISION, NOT A TRANSPORT GAP: adding a
+       * direction control to THIS row is a design change with its own review,
+       * deliberately not made in the lane that built the carrier.
+       *
+       * ⛔ CORRECTED FORWARD, 10 Sep 2026 (independent review) — DO NOT ACT ON
+       * THE SENTENCE THAT CLOSED THIS PARAGRAPH. It read: *"The two other
+       * direction controls (`EdgeAdvancedEditor`, `RelationshipsSection`) reach
+       * the server today"*. IT IS FALSE IN BOTH HALVES, for different reasons.
+       * The honest statement is that THE CARRIER IS BUILT AND HAS NO OPERABLE
+       * CONSUMER YET: `setDirection` has exactly two call sites and a user can
+       * operate neither.
+       *
+       *   · `RelationshipsSection.tsx:284` IS NOT MOUNTED.
+       *     `ModelTabBody.tsx:131` hardcodes `LEGACY_DETAILED_EDITOR_MOUNTED =
+       *     false` — no flag. Derived by brace balance rather than by eye, the
+       *     gate `{LEGACY_DETAILED_EDITOR_MOUNTED && (` spans `:988`–`:1110`
+       *     and `<RelationshipsSection` sits at `:1066`, inside it. That
+       *     constant's own header: "no visual, pointer or accessibility route
+       *     can reach it."
+       *   · `EdgeAdvancedEditor.tsx:127` IS MOUNTED BUT INERT.
+       *     `InspectorRouter.tsx:245-250` renders `<EdgePanel>` inside an
+       *     UNCONDITIONAL `<fieldset disabled>` (no branch), under the visible
+       *     `INSPECTOR_READ_ONLY_REASON` notice. The direction control is
+       *     `AdvancedField type="select"`, i.e. a native `<select>`
+       *     (`AdvancedField.tsx:157`), which a disabled fieldset inerts per the
+       *     HTML spec — as this repo's own boundary guard says in terms:
+       *     `inspectorAuthorityBinding.spec.tsx:330-331`, *"The four element
+       *     types `<fieldset disabled>` actually inerts, per the HTML spec"*,
+       *     `NATIVELY_DISABLEABLE = 'button, input, select, textarea'`.
+       *
+       * SO ON THE DEPLOYED PRODUCT, CHOOSING HELPS/HURTS STILL REACHES NOTHING,
+       * and this row offers no direction control at all (see four lines above).
+       * DO NOT READ THIS LANE AS CLOSING THE USER-FACING DEFECT — it builds the
+       * carrier that the surface work will need, and that surface work is
+       * unscheduled. Scope of the claim, deliberately narrow: derived from
+       * source at this head plus that guard, not from driving the product.
        */
       if (editingRelationshipId === rowId) {
         const edge = edges.find(e => e.id === rowId)

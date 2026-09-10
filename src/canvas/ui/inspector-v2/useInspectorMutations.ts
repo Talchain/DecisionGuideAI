@@ -9,7 +9,10 @@ import { useCallback } from 'react'
 import { useCanvasStore } from '../../store'
 import type { RiskImpact } from '../../domain/nodes'
 import { useOptionalConversationContext } from '../../conversation/ConversationContext'
-import { buildEdgeStrengthEditEvent } from '../../conversation/edgeStrengthEdit'
+import {
+  buildEdgeStrengthEditEvent,
+  buildEdgeDirectionEditEvent,
+} from '../../conversation/edgeStrengthEdit'
 
 // ─── Editor-written-field manifest (single source of truth) ────────────
 //
@@ -672,13 +675,114 @@ export function useEdgeMutations(edgeId: string) {
     updateEdge(edgeId, { data: { ...edge.data, label: value || undefined } })
   }, [edgeId, updateEdge, getEdge])
 
-  const setDirection = useCallback((direction: 'positive' | 'negative') => {
+  /**
+   * ⭐ THE DEFECT THIS CLOSES, as the user experiences it: picking "helps" or
+   * "hurts" changed the line, stamped `directionSource: 'user'` — and told the
+   * server nothing. The claim survived until the next reload and then silently
+   * vanished, which is the harm CEE's own dispatch table names in terms ("a lie
+   * told by omission"). Direction is the most load-bearing fact in a causal
+   * model, so an analysis re-run after the fix silently used the OLD sign.
+   *
+   * ⚠ THE LOCAL WRITE IS UNCONDITIONAL, AND IT IS THE SAME DECISION `setStrength`
+   * MAKES AND DOCUMENTS ABOVE — read that note rather than re-deriving this one.
+   * An edge with no server-stated `expected` tuple has nothing truthful to
+   * assert, so failing closed would make the control do NOTHING for a whole
+   * class of edges: a disclosed gap traded for a silently dead affordance, the
+   * worse of the two.
+   *
+   * ⛔ CORRECTED FORWARD, 10 Sep 2026 (independent review) — THE TWO CLAIMS THAT
+   * USED TO CLOSE THIS PARAGRAPH EACH ASSERTED A BEHAVIOUR NOTHING PERFORMS.
+   * They are corrected rather than deleted so they are not re-derived.
+   *
+   *   · IT READ *"The outcome token is how the gap is disclosed instead"*.
+   *     NOTHING IS DISCLOSED TO A USER TODAY. Both `setDirection` call sites
+   *     DISCARD the return — `EdgeAdvancedEditor.tsx:127` and
+   *     `RelationshipsSection.tsx:284`, neither assigns it — and the token's own
+   *     note at `:516` above says so in terms: "NO CALLER READS THIS TOKEN YET,
+   *     and that is recorded rather than hidden." Citing that honest disclosure
+   *     and then stating its opposite is the defect, not a wording slip. What
+   *     the token actually does is make the states NAMEABLE and testable AT THE
+   *     SEAM. On an edge with no server-stated tuple the user still gets a local
+   *     write, no event and no message of any kind, and the edit still vanishes
+   *     on reload, silently. That is a gap this lane does not close and does not
+   *     regress; giving each outcome a user-visible sentence is a copy change a
+   *     sibling lane owns.
+   *   · IT READ *"`edgeDirectionEditIsAssertable` is how a surface gates the
+   *     affordance PER EDGE before offering it"*. IT HAS ZERO PRODUCT
+   *     CONSUMERS: one definition (`edgeStrengthEdit.ts:373`), six spec
+   *     references and four comments, and no import anywhere outside its own
+   *     module. Contrast control from the same sweep, so this is a real absence
+   *     and not a blind probe: `edgeStrengthEditIsAssertable` IS consumed —
+   *     imported at `ModelTabV2Panel.tsx:85`, used at `:519`. The gate is real,
+   *     correct and tested; it is what a surface WOULD ask per edge before
+   *     offering the affordance. Restore the present tense when a caller asks
+   *     it.
+   *
+   * ⛔ CORRECTED FORWARD, 9 Sep 2026 (independent review) — DO NOT ACT ON THE
+   * PARAGRAPH BELOW AS CURRENT. It was honest when written and is now false in
+   * both limbs, and it is kept rather than deleted because it is the record of
+   * why CEE #1393 happened.
+   *
+   *   · THE POSTURE IS `enforce` ON THE DEPLOYED BUILD — measured, not read off
+   *     a config default. So the demotion described below DOES NOT FIRE, and the
+   *     "user who changed direction is told about strength" case is not
+   *     reachable on staging.
+   *   · THE COPY NO LONGER EXISTS. CEE `083e0da` replaced it, live 12:35:24Z on
+   *     9 Sep, citing this review. So the closing instruction — "THE FIX IS ONE
+   *     STRING IN THE OTHER REPO, deliberately not made here" — would now send a
+   *     reader to make a fix that is already deployed.
+   *
+   * The lesson worth keeping is the one this block now demonstrates twice: a
+   * posture inferred from a config file is not the deployed posture, and a
+   * disclosed gap goes stale exactly like any other hand-maintained claim.
+   *
+   * ─── THE ORIGINAL DISCLOSURE, HISTORIC ───
+   *
+   * ⚠⚠ THE ONE KNOWN IMPRECISION THIS OPENS, DISCLOSED RATHER THAN LEFT TO BE
+   * DISCOVERED — and it is the first thing to attack in review. CEE demotes
+   * `edge_strength_edit` to a typed refusal while `config.features.graphCas
+   * .rpcEnforce !== true`, which is the DEFAULT-SHADOW posture, and its
+   * per-kind refusal copy reads *"I can't apply this link-strength change in
+   * this version"*. A user who changed DIRECTION is then told about STRENGTH.
+   * CEE's own dispatch table states the standard this falls short of, in terms:
+   * *"a refusal that names the wrong gesture is worse than a generic one,
+   * because it tells the user something false about their own action"*
+   * (`system-events/dispatch.ts`, above `READER_ONLY_REFUSAL_COPY`).
+   *
+   * WHY IT IS SHIPPED ANYWAY, stated so the trade is reviewable rather than
+   * assumed: before this change the same gesture produced SILENCE and an edit
+   * that vanished on reload, which is strictly worse than an imprecise but
+   * non-fabricated refusal. Under `ENFORCE` the write lands and no refusal is
+   * emitted at all.
+   *
+   * THE FIX IS ONE STRING IN THE OTHER REPO, deliberately not made here: that
+   * copy is CEE-owned and its entry now serves two gestures, so it should read
+   * neutrally about which half changed (the table's own header notes an
+   * unlisted kind falls back to *"I can't apply this change"*, which "can never
+   * produce a FALSE sentence"). Scope-expansion rule: named at the boundary,
+   * not crossed.
+   */
+  const setDirection = useCallback((
+    direction: 'positive' | 'negative',
+  ): EdgeStrengthCommitOutcome => {
     const edge = getEdge()
-    if (!edge) return
+    if (!edge) return 'not_encodable'
+    // Built from the edge as it was BEFORE the local write — `expected` is an
+    // assertion about the PAST, and the same read feeds both halves so the wire
+    // event and the store update can never describe different edges.
+    const event = buildEdgeDirectionEditEvent({ edge, direction })
     // The user picking +/− is the ONLY thing that turns the defaulted
     // `direction: 'positive'` into a stated one (ROADMAP 2.263).
     updateEdge(edgeId, { data: { ...edge.data, direction, directionSource: 'user' } })
-  }, [edgeId, updateEdge, getEdge])
+    if (!event) return 'not_wire_encodable'
+    if (!sendSystemEvent) return 'local_only'
+    void Promise.resolve(sendSystemEvent(event)).catch(() => {
+      // Swallowed deliberately, exactly as `setStrength` does: a genuine send
+      // failure is recorded by the conversation's own failure channel, and a
+      // server REFUSAL is not a failure — the promise resolves normally.
+    })
+    return 'dispatched'
+  }, [edgeId, updateEdge, getEdge, sendSystemEvent])
 
   return { setStrength, setStd, setExistsProbability, setLabel, setDirection }
 }
