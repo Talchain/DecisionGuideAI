@@ -480,6 +480,33 @@ export const HERO_COPY = {
   pressureTestDecision: 'Ask Olumi: is this the right question, and does it fit your wider goals?',
   pressureTestGoal: 'Olumi can help reframe this as the outcome you want, so every option is comparable',
   defineSuccess: 'Olumi can help define a measurable success target',
+  /**
+   * ⭐ NAMES ITS SUBJECT, AND THAT IS THE WHOLE CHANGE FROM
+   * `SHARED_MODEL_AUTHORITY_COPY`, WHICH THIS REPLACES ON THIS SURFACE.
+   *
+   * The shared sentence opens "Change this". That was unambiguous while BOTH
+   * hero fields were read-only. The goal field now writes (see
+   * `HeroSection.GOAL_LABEL_EDIT_CONNECTED`), so an unqualified "this" sitting
+   * under two fields would newly claim the goal is set elsewhere — a false
+   * sentence bought by fixing a different one.
+   *
+   * It does NOT reuse `SHARED_MODEL_AUTHORITY_COPY` with a prefix, for the
+   * reason `model-tab-v2/sectionWriterNotice.ts` already records for its own
+   * case: a sentence that must be true of ONE named control cannot borrow one
+   * written to be true of every control.
+   *
+   * ⚠ BOTH ROUTES IT NAMES ARE DERIVED, NOT ASSUMED (2026-09-10):
+   *  · Model tab — `CANONICAL_EDIT_AUTHORITY.modelGoalMinimumTarget` is
+   *    `'server_graph'` and `ModelTabV2Panel.tsx:517` opens the goal row's
+   *    editor on it; `confirmEdit` (`:710`) calls `proposeGoalTarget`
+   *    (`useModelEditAuthority.ts:410`), which dispatches a TYPED
+   *    `add_constraint` through CEE's validated proposal path.
+   *    `ModelTabV2Panel` mounts at `ModelTabBody.tsx:1066`, OUTSIDE the
+   *    `LEGACY_DETAILED_EDITOR_MOUNTED = false` gate.
+   *  · Ask Olumi — the "Define success with Olumi" spark beside this field.
+   */
+  successAuthorityNote:
+    'Set the success measure through the Model tab, or ask Olumi, so the shared model stays in sync.',
 } as const
 
 /**

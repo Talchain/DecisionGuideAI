@@ -150,8 +150,18 @@ describe('setup state', () => {
   it('renders the decision title, goal and the four bars', () => {
     renderPanel()
     expect(screen.getByText('Hire a tech lead or two developers?')).toBeInTheDocument()
-    expect(screen.getByLabelText('Goal')).toHaveTextContent('Increase delivery output')
-    expect(screen.getByLabelText('Goal')).toHaveAttribute('aria-readonly', 'true')
+    /*
+     * ⚠ THIS ASSERTED `aria-readonly="true"` ON THE GOAL FIELD UNTIL 2026-09-10,
+     * AND IT WAS PINNING A DEFECT. The notice rendered directly beneath this
+     * field says "Edit it to say what you want to achieve", so a read-only goal
+     * was the product issuing an imperative it could not honour. The field now
+     * reads the authority for the operation it actually performs — the rename
+     * and named-add keys, both `'server_graph'` — rather than
+     * `goalSuccessTarget`, which governs the success threshold.
+     * `theGoalFieldCanHonourItsOwnImperative.spec.tsx` owns the property; this
+     * line stays only as the basics-render check it was always part of.
+     */
+    expect(screen.getByLabelText('Goal')).toHaveValue('Increase delivery output')
     for (const key of ['frame', 'options', 'risks', 'estimates']) {
       expect(screen.getByTestId(`pre-analysis-v3-bar-${key}`)).toBeInTheDocument()
     }
@@ -513,8 +523,14 @@ describe('no silent failures (diagnose-and-fix pass)', () => {
   it('shows one visible shared-model authority explanation instead of a dead Save affordance', () => {
     renderPanel()
     expect(screen.getAllByTestId('pre-analysis-v3-authority-note')).toHaveLength(1)
+    /*
+     * The sentence names its subject as of 2026-09-10. It was
+     * `SHARED_MODEL_AUTHORITY_COPY`, which opens "Change this" — unambiguous
+     * while both hero fields were read-only, and newly false about the goal
+     * field once that field writes.
+     */
     expect(screen.getByTestId('pre-analysis-v3-authority-note')).toHaveTextContent(
-      'Change this through the Model tab or ask Olumi so the shared model stays in sync.',
+      'Set the success measure through the Model tab, or ask Olumi, so the shared model stays in sync.',
     )
     expect(screen.queryByRole('button', { name: 'Save success' })).not.toBeInTheDocument()
   })
