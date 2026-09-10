@@ -348,13 +348,34 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   }, [lodBodyHidden, lodMetric, nodeType, data, label, displayMetadata, lodFacts])
 
   const isIncomplete = (() => {
-    if (!isPreRunMode) return false
+    /* ⭐ GATED ON THE GAP, NOT THE PHASE — for the two node types whose predicate
+       is phase-independent BY CONSTRUCTION.
+
+       WHAT THIS FIXES, and this file already confessed it ~650 lines below: a run
+       completing used to clear `isPreRunMode` and this pill "vanishes with nothing
+       set — the product silently retracted its own claim rather than ever being
+       contradicted." An analysis does not resolve an unknown; it proceeds despite
+       one. Hiding the marker on completion tells the user the gap closed.
+
+       ⛔ SCOPE, DELIBERATELY NARROW — `goal` and `option` KEEP the phase gate.
+       Their predicates are NOT phase-independent and un-gating them blind would
+       ship a false claim:
+         · `goal` — the producer synthesises `auto_goal_threshold` on a run, so
+           `isGoalDefined` may read TRUE afterwards on a target the user never set.
+           GoalNode already carries an honest post-run channel of its own, gated on
+           `canCaptureTarget` (`GoalNode.tsx:690`/`:695`), so a second surface here
+           risks two answers to one question (trap 21) rather than one more truth.
+         · `option` — its arm turns on `ceeAnalysisReady`, whose licence semantics
+           are argued at length in this file. Not derived here, so not changed here.
+       Both are deferred to a follow-up that derives them, NOT judged unnecessary. */
     if (nodeType === 'factor') {
       // Single source of truth shared with FactorNode's in-body chip — see
       // isFactorNeedsInput in observedStateHelpers.ts.
       return isFactorNeedsInput(data)
     }
     if (nodeType === 'goal') {
+      // Still phase-gated — see the scope note above.
+      if (!isPreRunMode) return false
       return !isGoalDefined(goalThreshold, goalConstraints)
     }
     if (nodeType === 'decision') {
@@ -362,6 +383,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       return !hasOptions
     }
     if (nodeType === 'option') {
+      // Still phase-gated — see the scope note above.
+      if (!isPreRunMode) return false
       // Only mark incomplete if analysisReady exists AND contains this option with empty interventions.
       // When analysisReady is null (cleared as stale), don't flag options as incomplete.
       if (!ceeAnalysisReady) return false
