@@ -8,6 +8,7 @@
 
 import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
+import { requestAsk, canReceiveAsk } from '../ui/inspector-v2/askSemantic'
 import { useConfirmDialogStore } from '../stores/confirmDialogStore'
 import { commitValidatedMutation } from '../mutations/commitValidatedMutation'
 import { USER_EDGE_DEFAULTS } from '../domain/edges'
@@ -882,22 +883,53 @@ export function askAI(
   // 2. Open conversation panel
   store.setShowDraftChat(true)
 
-  // 3. Send message once ConversationPanel has mounted and registered _sendMessage.
-  //    The panel needs multiple frames to render + run effects, so poll with a timeout.
+  /*
+   * 3. STAGE the question in the composer once a channel exists — the user
+   *    presses Send.
+   *
+   * ⭐⭐ THIS USED TO AUTO-DISPATCH, AND THAT MADE TWO ADJACENT CONTROLS ON ONE
+   * NODE CONFIRM DIFFERENTLY. `NodeQuickActions` puts "Ask Olumi" (this
+   * helper, which sent) next to "Challenge" (`requestAsk`, which stages) in the
+   * SAME three-button row. Right-clicking the same node and choosing
+   * "Challenge this" built the SAME string from `buildAskAIPrompt` and sent it.
+   * One sentence, one node, two behaviours — decided only by which door the
+   * user came through. Paul reported it as "sometimes directly, sometimes
+   * pasted into the chat box".
+   *
+   * ⭐ PREFILL-AND-CONFIRM IS THE RATIFIED SEMANTIC, not a preference:
+   * `ASK_SEMANTIC = 'prefill-and-confirm'` (`askSemantic.ts:52`), pinned by
+   * `inspectorCompletion.askSemantic.spec.tsx` — "an ask affordance NEVER
+   * dispatches". It closed ledger L-18, the same trap-21 pair one layer up
+   * (InspectorCoaching auto-sent while DiscussWithAiButton prefilled), and
+   * `askSemantic.ts:15` records WHY auto-send is the half that goes: it "lands
+   * in a surface the user may not be looking at, so the control reads as dead".
+   *
+   * ⚠ `NodeQuickActions.tsx:186` NAMED this fix and declined to make it:
+   * "the smallest enabling change is to route `askAI`'s step 3 through
+   * `requestAsk`… it is reported, not smuggled into this PR." This is that
+   * change, made deliberately rather than smuggled.
+   *
+   * ⚠ THE POLL IS KEPT AND ITS PREDICATE MOVED. The panel needs several frames
+   * to mount, so the wait is real — but it now waits for `canReceiveAsk`, which
+   * is the channel `requestAsk` actually uses. Polling `_sendMessage` would
+   * wait for a callback this path no longer needs, and time out on a surface
+   * that was ready.
+   */
   const prompt = buildAskAIPrompt(target, intent)
   let attempts = 0
   const MAX_ATTEMPTS = 20 // ~1s max wait (50ms × 20)
   const tryToSend = () => {
-    const sendMessage = useGuidanceStore.getState()._sendMessage
-    if (sendMessage) {
-      sendMessage(prompt)
+    if (canReceiveAsk(useGuidanceStore.getState())) {
+      requestAsk({ text: prompt, targetId: target.id, source: 'context-menu' })
       return
     }
     attempts++
     if (attempts < MAX_ATTEMPTS) {
       setTimeout(tryToSend, 50)
     } else {
-      showToast?.('Could not send message — try typing your question directly.', 'warning')
+      // ⚠ The copy changes with the behaviour. "Could not send" would now be
+      // describing an action this path no longer takes.
+      showToast?.('Could not open a draft — try typing your question directly.', 'warning')
     }
   }
   // Start after first frame to give React a chance to commit
