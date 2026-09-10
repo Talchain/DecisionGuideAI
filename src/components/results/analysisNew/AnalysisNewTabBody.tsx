@@ -70,9 +70,11 @@ import { ModelHeldUp } from './sections/ModelHeldUp'
 import { RobustnessCaveat } from './sections/RobustnessCaveat'
 import { DecisionRecorded } from './sections/DecisionRecorded'
 import { WhatWeChecked } from './sections/WhatWeChecked'
+import { BiasGrounding } from './sections/BiasGrounding'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { ModelImplication } from './sections/ModelImplication'
 import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
+import { buildBiasGrounding } from './biasGrounding'
 import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
 import { CritiqueWarningStrip } from '../CritiqueWarningStrip'
 import { InferenceWarningStrip } from '../InferenceWarningStrip'
@@ -675,6 +677,25 @@ export function AnalysisNewTabBody({
    */
   const currentScenarioId = useCanvasStore((state) => state.currentScenarioId)
   const decisionRecord = useDecisionRecordForScenario(currentScenarioId)
+  /**
+   * ⭐ THE PRODUCER'S BIAS FINDINGS, READ STRAIGHT OFF THE STORE — the ONLY new
+   * data this section needs, and a read like every other read on this tab.
+   *
+   * ⚠ NOT ROUTED THROUGH `useAnalysisNewViewModel`. That hook's load-bearing
+   * property is that it is READ-ONLY over the analysis instance `OutputsDock`
+   * hands both tabs; `ceeAnalysisReady` is not part of that instance, it is
+   * canvas-store state with its own lifecycle (`setCeeAnalysisReady`,
+   * `invalidateAnalysisReady`). Threading it through the view model would put
+   * a second, differently-invalidated source inside a structure whose whole
+   * point is that both tabs read one. Subscribed rather than read once, so a
+   * fresh run's findings appear without a tab switch.
+   *
+   * ⚠ THE SELECTOR TAKES THE ARRAY, NOT THE OBJECT. `ceeAnalysisReady` is
+   * replaced wholesale on every readiness write, so subscribing to the object
+   * re-renders this tab on changes to fields it does not read.
+   */
+  const biasFindings = useCanvasStore((state) => state.ceeAnalysisReady?.bias_findings)
+  const biasGroundingItems = useMemo(() => buildBiasGrounding(biasFindings), [biasFindings])
   /**
    * ⚠⚠ THE DOOR'S GATE IS THE CAPTURE MODAL'S OWN PREDICATE, DERIVED — NOT
    * RESTATED. `hasAnalysedOptions` is the function `DecisionRecordModal`
@@ -1298,6 +1319,32 @@ export function AnalysisNewTabBody({
             (`vm.checks` is `{ items: [] }`, which the component returns null
             for) — so a heading never appears without something under it. */}
         <WhatWeChecked checks={vm.checks} />
+
+        {/* ── WHERE THESE CHECKS COME FROM ─────────────────────────────────
+            ⭐⭐ THE MOST SCIENCE-GROUNDED PAYLOAD THE PRODUCER SENDS, AND IT HAD
+            NO RENDERER ANYWHERE. `analysis_ready.bias_findings[]` carries a
+            `mechanism`, a `citation` and a costed `micro_intervention`; derived
+            at `08a3724d` with contrast controls, `mechanism` had zero product
+            renderers, `citation` had zero readers of any kind, and
+            `estimated_minutes` had none either. The transport drops nothing:
+            `client.ts:302` assigns `analysis_ready` wholesale with no zod and
+            no key allowlist, `bias_findings` is absent from the pinned contract
+            entirely, and `store.ts:6095` stores the object as it arrived.
+
+            ⚠ IT SITS DIRECTLY UNDER "WHAT WE CHECKED" BECAUSE IT ANSWERS THE
+            NEXT QUESTION. That section says what the run looked at; this says
+            what the looking rests on, and the pairing is the reason a reader
+            can check the science instead of trusting it.
+
+            ⛔ IT NEVER NAMES A BIAS. The producer's `code` is read for nothing:
+            the mechanism, the technique and the paper are the product, and a
+            classification handed back to the reader is a diagnosis of them
+            (#1438's register, which this matches).
+
+            Renders NOTHING when the producer sent no grounding — pre-run,
+            on a run with no findings, and on findings that carried none of the
+            three fields. Absence produces silence, never a placeholder. */}
+        <BiasGrounding items={biasGroundingItems} />
 
         {/* ── HOW THE OPTIONS COMPARE ──────────────────────────────────────
             ⭐ THE GLANCE'S OWN MISSING HALF. On a real completed run with four
