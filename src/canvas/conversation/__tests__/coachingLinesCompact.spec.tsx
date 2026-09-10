@@ -13,10 +13,12 @@
  * That is today's DRAFT turn. `messageComposition.ts` records the ANALYSIS
  * figure: 8–14 point candidates per turn, of which `MAX_POINTS = 3` are
  * top-level and 5–11 are demoted. So opening the disclosure on a real analysis
- * turn replaces one wall with a bigger one. A CEE lane is currently opening a
- * gate (`post-draft-narrative.ts`) that discards freeform coaching before it
- * reaches the panel on the 9-of-13 turns that are not `ready`, so the count on
- * NON-analysis turns is expected to rise toward the analysis figure too.
+ * turn replaces one wall with a bigger one.
+ *
+ * ⛔ An earlier revision of this header also cited "9 of 13 measured live turns"
+ * for a CEE-lane gate on non-`ready` turns. WITHDRAWN — retracted by its own
+ * author the same day as having no committed artefact. The 8-14 figure this
+ * file is built against is `messageComposition.ts`'s own, and is unaffected.
  *
  * ⭐ THIS FILE IS THEREFORE WRITTEN AGAINST THE HIGH COUNT, NOT THE SCREENSHOT.
  * The twelve-card arm below is the design case; the three-card arm is the

@@ -16,12 +16,24 @@
  * So the card stack becomes a LIST: the user scans what the coaching is about,
  * and opens the one they want.
  *
- * ⚠ SIZED FOR THE HIGH COUNT DELIBERATELY, NOT FOR TODAY'S SCREENSHOT. A CEE
- * lane is currently opening a gate (`post-draft-narrative.ts`) that discards
- * freeform coaching before it reaches the panel on turns whose analysis is not
- * `ready` — 9 of 13 measured live turns. When that lands, the counts on
- * non-analysis turns move toward the analysis figure. The 8-14 range is the
- * design case; three cards is the regression case.
+ * ⚠ SIZED FOR THE HIGH COUNT DELIBERATELY, NOT FOR TODAY'S SCREENSHOT. The
+ * 8-14 range above is this repo's OWN committed measurement, recorded in
+ * `messageComposition.ts`, and it is the whole basis for sizing this to a list
+ * rather than to the three or four cards a draft turn shows. Three cards is the
+ * regression case.
+ *
+ * ⛔ AN EARLIER REVISION OF THIS BLOCK ALSO CITED "9 of 13 measured live turns"
+ * for a CEE-lane gate that discards freeform coaching on turns whose analysis is
+ * not `ready`. THAT FIGURE IS WITHDRAWN HERE: the seat that produced it
+ * retracted it the same day as having NO COMMITTED ARTEFACT, and it survived
+ * only as prose in source comments — this file having been one of them. It is
+ * removed rather than re-attributed, because a number that cannot be re-derived
+ * should not be load-bearing rhetoric for a design decision.
+ *
+ * The gate itself may well be real and is another lane's to evidence; nothing
+ * here depends on it. If it lands and coaching volume rises on non-analysis
+ * turns, this change gets MORE useful, not less — which is an argument that
+ * needs no measurement of mine.
  *
  * ## ⚠⚠ THE LINE IS PRODUCER COPY, VERBATIM, OR THERE IS NO LINE
  *
