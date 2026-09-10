@@ -52,6 +52,38 @@ export function goalTargetBoundPhrase(direction: ConstraintType): string {
  * site inherit a floor without saying so, which is the defect this change
  * exists to close, one layer down. Every caller states its direction in its own
  * source.
+ *
+ * ── WHAT CEE DOES WITH EACH DIRECTION, DERIVED BY EXECUTION ────────────────
+ * Measured against the real `add_constraint` handler at CEE `staging`
+ * `dcebc360` (10 Sep 2026), by routing a chip bag through it:
+ *
+ *   · BOTH are first-class. `AddConstraintTypeSchema` is
+ *     `z.enum(['at_least','at_most'])` and the operator comes from a MAP
+ *     (`at_least → '>='`, `at_most → '<='`), not a ternary with an else-branch,
+ *     so an unknown value is `PARAMETER_INVALID` rather than silently coerced
+ *     to a floor. `constraint_type: 'exactly'` was refused as a negative
+ *     control; both real values routed.
+ *   · The MESSAGE cannot override the parameter. CEE derives a constraint frame
+ *     from the prose but filters it on `operator === operator`, so the sentence
+ *     can only ATTEST the structured direction or abstain. It cannot flip it.
+ *     Our `at_most` sentence was witnessed yielding `value_frame: 'level'`.
+ *
+ * ⚠⚠ AND THE ASYMMETRY THAT IS NOT A DEFECT AND MUST NOT BE "FIXED" HERE.
+ * `at_most` on a goal DELIBERATELY does not stamp the goal's success threshold:
+ * `isSuccessTargetTurn` is `kind === 'goal' && operator === '>='`, because ISL
+ * computes `P(samples >= threshold)`. So `at_least` returns *"Success target
+ * set"* and writes `goal_threshold`; `at_most` returns *"Added constraint"* and
+ * lands a constraint row with no threshold. Both are recorded in the shared
+ * model, which is exactly what this control's outcome sentence claims and no
+ * more — it says the turn was SENT, never that a target was set. A reader
+ * choosing a ceiling gets a real constraint, not a silent no-op. Whether a
+ * time-horizon ceiling should ALSO become a success threshold is a question
+ * about ISL's minimisation doctrine, not about this control.
+ *
+ * ⚠ `unit` IS MANDATORY, AND THIS FUNCTION ALREADY ENFORCES IT. CEE refuses a
+ * unit-less value outside [0,1] on a probability-domain kind rather than
+ * guessing. The empty-unit refusal below predates that finding and satisfies
+ * it; it is symmetric across both directions.
  */
 export function buildManualGoalTarget(
   targetId: string,
