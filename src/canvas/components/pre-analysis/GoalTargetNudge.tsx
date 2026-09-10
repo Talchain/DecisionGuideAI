@@ -21,13 +21,33 @@
  * the inspector Goal panel's `GoalThresholdEditor`) — it builds no second
  * editor of its own.
  *
- * Copy aligns with the product's canonical gate line ("Set a success target to
- * unlock Goal fit." — `v7LensCopy` / `heroCopy`). DS: complete `border`, semantic
- * tokens, `bg-panel`, sentence case, Lucide icon, no emoji.
+ * ⭐ THE COPY NAMES THE QUESTION, NOT THE FEATURE — and it is CONSUMED, not
+ * re-spelled. It previously read "Unlock Goal fit … Optional; analysis runs
+ * without one", which named an internal lens and then reassured the user that
+ * skipping it cost nothing. Measured on deployed staging: a model ran with the
+ * goal reading "Target: None set", and only AFTERWARDS did the panel report
+ * that the most-likely question had not been answered. Five pre-run
+ * affordances already pointed at the missing target; none said what it costs.
+ *
+ * The sentence connecting the two already existed and rendered only AFTER a
+ * run — `GOAL_ANCHOR_COPY.noTarget`, the house register for this question
+ * under Paul's 2026-07-31 ruling. This component now consumes that register
+ * directly, so the pre-run and post-run surfaces cannot drift into describing
+ * the same gate differently (the old header claim that copy merely "aligns
+ * with" the canonical line was a hand-maintained mirror).
+ *
+ * ⚠ IT STILL NEVER BLOCKS. The register's own ruling is "It NEVER blocks. This
+ * is an invitation with a route, not a wall", and not every strategic
+ * conversation carries a quantified target — so the optional clause stays, and
+ * a test pins it. Informing the user what a choice costs is not gating it.
+ *
+ * DS: complete `border`, semantic tokens, `bg-panel`, sentence case, Lucide
+ * icon, no emoji.
  */
 
 import { Target } from 'lucide-react'
 import { typography } from '@/styles/typography'
+import { GOAL_ANCHOR_COPY } from '@/components/results/utils/goalAnchorCopy'
 
 interface GoalTargetNudgeProps {
   /** True when a goal node exists in the drafted graph (something to target). */
@@ -58,7 +78,8 @@ export function GoalTargetNudge({
       <div className="flex flex-col gap-1 min-w-0">
         <p className={`${typography.panelHeader} text-text-header`}>Set a success target</p>
         <p className={`${typography.panelBody} text-text-light`}>
-          Unlock Goal fit — see each option's probability of reaching your target. Optional; analysis runs without one.
+          {GOAL_ANCHOR_COPY.noTarget} Without one, that question comes back
+          unanswered. Optional; analysis runs without one.
         </p>
         <button
           type="button"
