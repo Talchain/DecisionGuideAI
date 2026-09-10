@@ -54,14 +54,26 @@
  *     last two" could not express a state where the two keys DISAGREE — which is
  *     exactly the state they are in (trap 21: two questions under one name).
  *
- * ⭐ AND THE MECHANISM, so this cannot rot a third time:
- * `__tests__/affordancesFollowTheAuthorityTable.spec.tsx` DERIVES its
- * expectations from the imported table at run time — no literal to go stale — so
- * it REDs in BOTH directions: a key flipped on without the surface wired, and a
- * surface wired without its key. Prose could never do that, which is why prose
- * drifted. See `useModelEditAuthority`'s header for why a genuinely local commit
- * would not re-open design §2 F6, and for the outcome type that makes an
- * over-claim unrepresentable.
+ * ⭐ AND THE MECHANISM, WITH ITS LIMIT STATED — because the first version of
+ * this paragraph overclaimed, which is the very failure it was describing:
+ * `__tests__/affordancesFollowTheAuthorityTable.spec.tsx` binds the AFFORDANCES
+ * to the table two ways. It DERIVES each expectation from the imported table at
+ * run time, so the surface cannot drift from the table; and it PINS what the
+ * table says today in a literal, so the table cannot move without reddening
+ * that file. It needs both. Derivation alone was measured NOT to red on a key
+ * flip, because the expectation and the surface's own gate were the same
+ * function over the same key and moved together.
+ *
+ * ⚠ WHAT IT DOES NOT DO IS HOLD THIS PROSE. These corrected sentences are a
+ * file-level JSDoc block, and the directory's source scanners strip comments by
+ * design, so nothing binds this header to the table. The earlier claim here
+ * that the mechanism meant this "cannot rot a third time" was not true, and
+ * asserting a guarantee no guard supplies is how the two sentences above rotted
+ * in the first place. Treat this block as prose that must be RE-READ whenever a
+ * key in `mutationAuthority.ts` changes; the spec's literal pin is what forces
+ * someone to that moment. See `useModelEditAuthority`'s header for why a
+ * genuinely local commit would not re-open design §2 F6, and for the outcome
+ * type that makes an over-claim unrepresentable.
  *
  *   · RELATIONSHIP STRENGTH — added 2026-09-08, server-backed, AND GATED PER
  *     EDGE. See below.
