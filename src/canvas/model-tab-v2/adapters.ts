@@ -163,6 +163,7 @@ import { resolveNodeTypeLiteral } from '../domain/nodes'
 import { factorIsConfirmable } from '../domain/valueProvenance'
 import { interventionTargetValue } from '../domain/interventions'
 import { unwrapInterventionValue } from '../utils/labelUtils'
+import { resolveFactorValueAdmission } from '../conversation/factorValueEdit'
 import type {
   AttentionReason,
   ModelElementKind,
@@ -582,6 +583,22 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         // still reads `value` (i.e. `raw_value`). A row with an estimate and no
         // supplied value must still ask for one.
         attention: attentionForFactor(data, value),
+        /*
+         * ⭐⭐ THE ROW CARRIES THE BOUND THE NODE DECLARES — resolved by the ONE
+         * function that owns the scale contract, never re-derived here.
+         *
+         * ⚠ THE RANGE SOURCE IS THE NODE'S `prior`, THE ONLY PLACE IT LIVES.
+         * `resolveFactorValueAdmission` reads it and returns `null` for every
+         * shape that is not a usable range, so a factor that declares no bound
+         * carries no field and gains no refusal. Spread conditionally rather
+         * than assigned `undefined`: a present-but-undefined key reads as
+         * PRESENT to `in` and `Object.keys`, and this contract's absences are
+         * load-bearing.
+         */
+        ...(() => {
+          const admission = resolveFactorValueAdmission(data)
+          return admission === null ? {} : { valueAdmission: admission }
+        })(),
         editable: true,
       })
       continue

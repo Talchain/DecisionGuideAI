@@ -278,6 +278,31 @@ export interface ModelRow {
    * hiding it, which is the dismiss button this design cut.
    */
   deferred?: DeferralRecord
+  /**
+   * ⭐⭐ WHAT THIS ROW'S OWN PRIOR ADMITS — present only on a factor that declares
+   * a usable range, absent on every other row and on every factor that does not.
+   *
+   * ⚠ ABSENT MEANS "NO DECLARED BOUND", AND THAT MUST NEVER BECOME A REFUSAL. A
+   * row with no admission is judged exactly as it was before this field existed.
+   * The producer (`resolveFactorValueAdmission`) fails OPEN on every shape it
+   * cannot read, so absence is the default rather than an error state.
+   *
+   * ⚠⚠ THE NUMBERS INSIDE ARE MODEL SCALE AND ARE NOT DISPLAY-READY — which is
+   * why this is the ONE field on this contract that is not already resolved for
+   * rendering. Nothing may print them: the only consumer is
+   * `factorValueAdmissionRefusal`, which owns both the comparison and the
+   * sentence. Structurally identical to `FactorValueAdmission`
+   * (`conversation/factorValueEdit.ts`) and declared rather than imported,
+   * because this module deliberately imports nothing (see the file header); the
+   * assignment site in `adapters.ts` is where TypeScript fails loud if the two
+   * ever diverge.
+   */
+  valueAdmission?: {
+    priorMin: number
+    priorMax: number
+    cap: number | null
+    inUserUnits: boolean
+  }
   /** False for rows that are genuinely read-only (e.g. an audit figure). */
   editable: boolean
 }
