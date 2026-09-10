@@ -104,6 +104,15 @@ const SCALAR_PRIOR_ID = 'fac_scalar_prior'
 const HALF_PRIOR_ID = 'fac_half_prior'
 
 /**
+ * ⭐ A DISTRIBUTION OBJECT WITH NEITHER END. Added because a mutant SURVIVED
+ * without it: inventing a default bound on the missing-`range_min` arm changed
+ * nothing, since no fixture reached that arm — the object-prior rows all
+ * declared a `range_min`. A corpus that omits a shape the type admits cannot
+ * certify the code over that shape (CLAUDE.md trap 13d).
+ */
+const EMPTY_PRIOR_ID = 'fac_empty_prior'
+
+/**
  * ⭐⭐ THE FACTOR WHOSE MODEL SCALE *IS* A REAL-WORLD MAGNITUDE — a declared unit
  * and NO cap. `isMagnitudeScaledFactor`'s own header records the measured shape
  * (`{value: 40000, unit: '£', raw_value: 40000}`): CEE stores raw and model
@@ -144,6 +153,10 @@ const allNodes = (): Node[] => [
   }),
   factor(HALF_PRIOR_ID, {
     prior: { distribution: 'uniform', range_min: 0 },
+    observedState: { value: 0.5, raw_value: 5, cap: 10, source: 'cee_inference' },
+  }),
+  factor(EMPTY_PRIOR_ID, {
+    prior: { distribution: 'uniform' },
     observedState: { value: 0.5, raw_value: 5, cap: 10, source: 'cee_inference' },
   }),
   factor(MAGNITUDE_ID, {
@@ -333,6 +346,14 @@ describe('⛔ a factor with NO declared range gains no refusal whatsoever', () =
     renderPanel()
     typeInto(HALF_PRIOR_ID, '400')
     expect(blockedText(HALF_PRIOR_ID)).toBeNull()
+  })
+
+  it('a distribution object with NEITHER end declared is not a range — no refusal', () => {
+    // The shape a surviving mutant proved the corpus was missing.
+    renderPanel()
+    typeInto(EMPTY_PRIOR_ID, '400')
+    expect(blockedText(EMPTY_PRIOR_ID)).toBeNull()
+    expect(screen.getByTestId(`model-row-v2-${EMPTY_PRIOR_ID}-review`)).toBeEnabled()
   })
 
   it('an INVERTED range refuses NOTHING rather than everything', () => {
