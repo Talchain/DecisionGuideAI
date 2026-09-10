@@ -38,7 +38,9 @@ import type { PermittedAnalysisMode } from '../../../adapters/cee/types'
 import { licensesComparativeLeaderClaim } from '../../../canvas/hooks/useAnalysisReady'
 import { buildAnalysisNewViewModel } from '../analysisNew/buildAnalysisNewViewModel'
 
-import { admission, setStore, render, resetStore } from './helpers/admissionGatesHarness'
+import {
+  admission, setStore, render, resetStore, invalidateByLocalEdit,
+} from './helpers/admissionGatesHarness'
 
 describe('permitted_analysis_mode gates leader designation — the two questions, composed', () => {
   beforeEach(resetStore)
@@ -51,6 +53,85 @@ describe('permitted_analysis_mode gates leader designation — the two questions
     expect(rec?.verdict?.hasLeadingOption, 'Q2 must be TRUE, or arms B and D prove nothing').toBe(true)
     expect(rec?.leaderDesignationPermitted).toBe(true)
     expect(rec?.analysisAdmission, 'absence must stay undefined, never coerced to a refusal').toBeUndefined()
+  })
+
+  /**
+   * ⭐⭐⭐ ARM A2 — ARM A'S DISCRIMINATING PARTNER, AND THE REASON ARM A MUST NOT
+   * SIMPLY BE INVERTED.
+   *
+   * ARM A and this arm present the consumer with the SAME INPUT: a separating
+   * result and NO admission. They must come out OPPOSITE, because the absences
+   * are not the same absence:
+   *
+   *   ARM A   the producer never spoke (an older CEE)      -> the leader stands
+   *   ARM A2  the producer spoke, and WE nulled it         -> the refusal stands
+   *
+   * That is why the fix is a second fact and not a flipped default. Inverting ARM
+   * A would strip the leader from every legacy payload — the exact harm ARM A's
+   * rationale was written to prevent, and that guarantee is still live here.
+   *
+   * WITNESSED on staging 9eb30b54, 2026-09-10, as a fresh guest: a
+   * `quantified_provisional` run rendered "What this run may not conclude" with
+   * CEE's refusal; 59ms after ONE factor value was edited the same slot rendered
+   * "Most likely to serve your goal / Double Down on SMB", and it stayed for
+   * ~1.5s. The refusal's own words are "no option can be called the leader …
+   * until you have set at least one of them" — so the product waited for the user
+   * to do exactly what it asked and then made the claim it had refused.
+   *
+   * ⚠ THE ARM DRIVES THE REAL CHOKEPOINT (`invalidateByLocalEdit` → `updateNode`
+   * → `invalidateAnalysisReady`). Setting the retained field by hand would leave
+   * this green if the store stopped retaining anything at all.
+   */
+  it('ARM A2 — admission nulled by OUR OWN edit, result still separating: the refusal SURVIVES', () => {
+    setStore({ separated: true, admission: admission('quantified_provisional') })
+    // Precondition, in-test: the refusal is in force BEFORE the edit. Without
+    // this the arm could pass on a build where the gate never licensed anything.
+    expect(
+      render()?.leaderDesignationPermitted,
+      'precondition: the producer’s refusal must be in force before the edit',
+    ).toBe(false)
+
+    invalidateByLocalEdit()
+
+    const rec = render()
+    // Q2 is UNTOUCHED by the edit — `report` lives in a different store slice and
+    // invalidation does not clear it. That is what made the conjunction flip: one
+    // conjunct became `true` by absence while the other stayed `true` on merit.
+    expect(
+      rec?.verdict?.hasLeadingOption,
+      'Q2 must still be TRUE, or this arm is the non-separating case the suite already covers',
+    ).toBe(true)
+    // ⭐ THE RED. Absence that WE caused is not permission.
+    expect(
+      rec?.leaderDesignationPermitted,
+      'a local edit must not license the designation the producer declined',
+    ).toBe(false)
+    // And the reason travels with it, or the surface withholds with no explanation.
+    expect(rec?.analysisAdmission?.permitted_analysis_mode).toBe('quantified_provisional')
+  })
+
+  /**
+   * ARM A3 — THE OTHER HALF OF THE PAIR, AND IT MUST STAY GREEN.
+   *
+   * A licensed leader that goes stale on an edit KEEPS its designation, hedged by
+   * the staleness ribbon (`AtAGlance.tsx`). Suppressing those would be a product
+   * decision about stale runs, not this fix — so the retained admission must be
+   * able to carry a LICENCE through invalidation as readily as a refusal, and this
+   * arm fails if the fix were implemented as "withhold whenever stale".
+   */
+  it('ARM A3 — a LICENSED admission nulled by our own edit still licenses the designation', () => {
+    setStore({ separated: true, admission: admission('comparative_leader') })
+    expect(render()?.leaderDesignationPermitted).toBe(true)
+
+    invalidateByLocalEdit()
+
+    const rec = render()
+    expect(rec?.verdict?.hasLeadingOption).toBe(true)
+    expect(
+      rec?.leaderDesignationPermitted,
+      'the fix must not suppress a leader the producer DID license — that is a staleness ' +
+      'question, and the ribbon answers it',
+    ).toBe(true)
   })
 
   it('ARM B — the MODEL refuses (mode below comparative_leader) while the RESULT separates', () => {
