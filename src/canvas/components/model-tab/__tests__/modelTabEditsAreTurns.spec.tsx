@@ -210,6 +210,10 @@ function seed() {
       goalThreshold: null,
       goalThresholdRepresentation: null,
       results: { status: 'idle', report: null },
+      // The CEE-stamped base hash the option-effect emitter asserts. Null is the
+      // post-restore state and the builder refuses on it deliberately, so a
+      // fixture without this would test the refusal, not the turn.
+      lastServerGraphHash: 'f3d31f75957c5cb5',
     } as never,
     false,
   )
@@ -350,7 +354,20 @@ describe('Model-tab edits are real turns (ROADMAP 2.121 slice 1)', () => {
 
   // ── 4. OPTIONS ──────────────────────────────────────────────────────────
 
-  it('an intervention-target commit lands on the option through the sanctioned setter', () => {
+  /**
+   * ⭐ THE INTENT IS UNCHANGED AND THE MECHANISM MOVED (0.54.0). This file is
+   * "Model-tab edits are real turns", and until now this gesture was the one
+   * exception: it landed a local write and told the server nothing. It now IS a
+   * real turn, which is the point of the file — so the assertion follows the
+   * gesture to the wire instead of being deleted or pinned to the old store
+   * write.
+   *
+   * ⚠ The optimistic write is deliberately NOT restored. It would put a number
+   * on screen the server may refuse, and re-adding it to keep an old
+   * expectation green would pin the defect this carrier removes.
+   */
+  it('an intervention-target commit becomes a real turn, with no local write', () => {
+    sendSystemEvent.mockClear()
     render(
       <OptionsSection
         optionNodes={[optionNode()]}
@@ -360,8 +377,16 @@ describe('Model-tab edits are real turns (ROADMAP 2.121 slice 1)', () => {
     )
     commitInline(`intervention-${OPTION_ID}-${FACTOR_ID}`, '0.9')
 
-    const interventions = nodeData(OPTION_ID).interventions as Record<string, unknown>
-    expect(interventions[FACTOR_ID]).toBe(0.9)
+    expect(sendSystemEvent).toHaveBeenCalledTimes(1)
+    expect(sendSystemEvent.mock.calls[0][0].type).toBe('option_intervention_edit')
+    expect(sendSystemEvent.mock.calls[0][0].payload).toMatchObject({
+      option_id: OPTION_ID,
+      factor_id: FACTOR_ID,
+      value: 0.9,
+    })
+    // The pre-ack store is untouched — the applied response owns the write.
+    const interventions = (nodeData(OPTION_ID).interventions ?? {}) as Record<string, unknown>
+    expect(interventions[FACTOR_ID]).not.toBe(0.9)
   })
 
   // ── 5. RELATIONSHIPS ────────────────────────────────────────────────────

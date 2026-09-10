@@ -134,6 +134,11 @@ function serverGraphResult(): ScenarioGraphResult {
     briefText: null,
     notModelled: null,
     identity: { value: 'srv-hash-1', projectionVersion: 'p1' },
+    // The write precondition for these bytes. `null` is the honest fixture:
+    // this suite is about GRAPH recovery on stream loss and asserts nothing
+    // about editability. Present rather than optional so a consumer cannot
+    // silently forget it — the parser always supplies it.
+    graphHash: null,
     layoutPresent: false,
     // ROADMAP 2.1271 — the recovery read carries the same analysis keys as
     // every other scenario-graph read. `null` on both is the honest fixture

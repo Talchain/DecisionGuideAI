@@ -68,7 +68,18 @@ export const CEE_OWNED_CRITIQUE_CODES: ReadonlySet<string> = new Set([
 
 // ─── Code → template map ─────────────────────────────────────────────────────
 
-type TemplateFactory = (factorLabel: string) => Omit<HumanisedCritique, 'factorId' | 'displayText'>
+/**
+ * ⚠ `labelIsGenuine` IS NOT OPTIONAL INFORMATION — IT IS THE WHOLE GUARD.
+ * `resolveFactorLabel` returns a label in every case: a real one from the
+ * store, else `factorIdToLabel(nodeId)` — which for `c591da5e` is the string
+ * "C591da5e" — else "This factor". Only the first is safe to print. A template
+ * that interpolates `factorLabel` without checking this flag will publish an
+ * engine identifier as prose, which is the defect this module exists to stop.
+ */
+type TemplateFactory = (
+  factorLabel: string,
+  labelIsGenuine: boolean,
+) => Omit<HumanisedCritique, 'factorId' | 'displayText'>
 
 const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   MISSING_OBSERVED_STATE: (label) => ({
@@ -250,10 +261,68 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // The fix is deliberately the smallest one that closes it — the ratified
   // title and the ratified suggestion, both VERBATIM, joined so the remedy is
   // on the surface that renders. No approved wording is rewritten here.
+  //
+  // ⚠⚠ AND THAT REMEDY WAS A FALSE PRESCRIPTION — INSTRUCTION REMOVED, and the
+  // two paragraphs above are left as said because they record why it was put
+  // there. "State the current level for your goal" told the user to do
+  // something the product gives them NO WAY TO DO. Measured at UI `staging`
+  // 67b04e5b: `GoalPanel.tsx` (881 lines) holds ZERO `observed_state`
+  // references — contrast control in the same sweep, 31 hits for `target`, so
+  // the zero is real absence and not a blind instrument — and
+  // `GoalThresholdEditor.tsx` (105 lines) holds zero too, contrast 6: it is a
+  // TARGET editor only. The canvas projection's one `observed_state` writer
+  // (`readinessStore.ts:379`) is gated `nodeKind === 'factor'` and emits
+  // `value`/`raw_value`, never `baseline` and never for the goal. Worse, the
+  // starter drafts' own `fix_hint` points at the goal node's
+  // `observed_state.value` — precisely the field ISL refuses, on the stated
+  // grounds that repurposing "the current observed value" would be a second
+  // unattested frame assumption.
+  //
+  // ⭐ THE TWO FACTS STAY; THE INSTRUCTION GOES. The old wording also invited
+  // the WRONG reading — "we could not find your target" — when ISL's resolver
+  // is fail-closed (`if threshold is None: return None, None`), so NO threshold
+  // means SILENCE, not this warning. This warning firing is positive evidence
+  // the target DID arrive. So the copy now states the capture as a fact and the
+  // withhold as a fact, and prescribes nothing: an instruction that cannot be
+  // followed is worse than no instruction, and inventing a different one would
+  // just move the lie.
+  //
+  // ⭐ WIRE-WITNESSED on staging--olumi.netlify.app at 67b04e5b (fresh guest,
+  // 8 keys cleared from /version.json; draft 200 in 54.9s, deliberate rerun 200
+  // in 12.1s; two independent captures carried byte-identical arrays). The run
+  // emitted, verbatim:
+  //   code:    GOAL_THRESHOLD_NOT_CONVERTIBLE
+  //   field:   nodes[b4014d90].observed_state.baseline
+  //   message: "A 'level' frame requires goal node 'b4014d90' to carry
+  //             observed_state.baseline to convert the level into the samples'
+  //             frame, but it carries no observed_state at all."
+  // So the reason IS the missing goal baseline, and the engine is blunter than
+  // the old copy was: the goal node carries NO observed_state AT ALL, while the
+  // copy asked only for "the current level". The same run also confirms the
+  // target arrived — the goal node read "Target: 12 months / Target set."
+  //
+  // ⚠ SCOPE OF ONE ABSENCE, STATED NARROWLY (trap 20). The token
+  // `missing_goal_baseline` named in the paragraph above does NOT appear in any
+  // of the 13 captured payloads — the warning object's keys are exactly
+  // {code, message, severity, field}, with no reason/enum field — while two
+  // contrast controls in the same sweep (`GOAL_THRESHOLD_NOT_CONVERTIBLE`,
+  // `observed_state.baseline`) both fired, so that zero is real absence and not
+  // a blind probe. That refutes only the claim that the token reaches the WIRE.
+  // It says nothing about ISL's internal `refuse()` reason names, which is what
+  // the paragraph was describing and which this capture was not pointed at.
+  //
+  // → ROADMAP 2.281 is the missing producer: nothing writes the goal node's
+  //   `observed_state.baseline`. WHEN 2.281 LANDS AND A GOAL CURRENT-LEVEL
+  //   EDITOR EXISTS, THE INSTRUCTION BECOMES LEGITIMATE AND SHOULD COME BACK.
+  //   `goalThresholdNoUnreachableInstruction.spec.ts` pins the absence TO ITS
+  //   REASON rather than to a literal, so it REDs the day a goal editor gains
+  //   an `observed_state` writer — that red is the signal to restore it, not a
+  //   regression. No flag, no second code path, and the withhold gate itself is
+  //   untouched.
   GOAL_THRESHOLD_NOT_CONVERTIBLE: () => ({
-    title: "Your goal's target couldn't be measured for this run. State the current level for your goal.",
-    description: 'The target couldn\'t be compared with where the goal stands today — for example when no current level is recorded for it — so goal-fit results were withheld rather than guessed.',
-    suggestion: 'State the current level for your goal',
+    title: "Your goal's target was recorded, but this run couldn't measure fit against it, so goal-fit results were withheld rather than guessed.",
+    description: "Your target was captured. What this run couldn't do is compare it with where the goal stands today — for example when no current level is recorded for the goal — so goal-fit results were withheld rather than guessed.",
+    // No suggestion: there is no action the user can take until ROADMAP 2.281.
   }),
   GOAL_THRESHOLD_FRAME_UNSPECIFIED: () => ({
     title: "Your goal's target could mean a level or a change. Restate the target as a level to reach or a change from your current level.",
@@ -413,9 +482,15 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // defaulted to 0.0, so "goal-level probabilities partially rest on
   // placeholder zeros". PARTIALLY is load-bearing — the result is degraded,
   // not void.
-  GOAL_ANCESTOR_DATA_GAP: () => ({
-    title:
-      'Some starting factors feeding your goal have no value recorded, so part of your goal\'s probability rests on placeholder zeros. Add current values for those factors.',
+  // ⚠ `field` NAMES THE GOAL, NOT THE ANCESTORS. The producer's message quotes
+  // the root ancestor ids in prose; those stay unread — parsing them would be
+  // the banned route, and they are the ids of nodes this sentence is not about.
+  // What the structured field carries is the GOAL node, so that is what gets
+  // named, and the sentence keeps saying "some starting factors" for the rest.
+  GOAL_ANCESTOR_DATA_GAP: (label, genuine) => ({
+    title: genuine
+      ? `Some starting factors feeding ${label} have no value recorded, so part of its probability rests on placeholder zeros. Add current values for those factors.`
+      : 'Some starting factors feeding your goal have no value recorded, so part of your goal\'s probability rests on placeholder zeros. Add current values for those factors.',
     description:
       'The goal is still scored from its forward-propagated distribution, but some of what feeds it is a placeholder rather than a measurement.',
     suggestion: 'Add current values for the starting factors that feed your goal',
@@ -495,12 +570,22 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // A value was defaulted, or a modelling rule applied. These are info-severity
   // at the producer and surface in the Advanced list, not the top strip.
 
-  ROOT_NODE_DEFAULT_VALUE: () => ({
-    title:
-      'A starting factor has no current value recorded, so zero was assumed — anything downstream of it may be unreliable. Add its current value.',
+  // ⭐ NAMED WHEN THE STORE KNOWS THE NAME, UNCHANGED OTHERWISE.
+  // A run raises this once PER ROOT, so a model with two unset roots printed
+  // this sentence twice, word for word — the reader could see that something
+  // was wrong and not which factor, which is the one thing that would let them
+  // fix it. The id arrives on `field` (`nodes[<id>].observed_state.value`,
+  // measured DISTINCT on 6/6 captured entries); `nodeIdFromField` reads it and
+  // the store resolves the name. Unresolved, this is byte-identical to before.
+  ROOT_NODE_DEFAULT_VALUE: (label, genuine) => ({
+    title: genuine
+      ? `${label} has no current value recorded, so zero was assumed — anything downstream of it may be unreliable. Add its current value.`
+      : 'A starting factor has no current value recorded, so zero was assumed — anything downstream of it may be unreliable. Add its current value.',
     description:
       'The producer defaults an unspecified root value to 0.0 and says so rather than hiding it. Results for downstream factors inherit that assumption.',
-    suggestion: 'Add the current value for that starting factor',
+    suggestion: genuine
+      ? `Add the current value for ${label}`
+      : 'Add the current value for that starting factor',
   }),
   CONSTRAINT_NODE_DEFAULT_BASE: () => ({
     title:
@@ -637,18 +722,19 @@ function factorIdToLabel(factorId: string): string {
  */
 function resolveFactorLabel(
   item: UncertaintyItem,
-  nodeLabels?: Map<string, string>,
-): { label: string; factorId?: string } {
+  nodeLabels?: ReadonlyMap<string, string>,
+): { label: string; factorId?: string; genuine: boolean } {
   const nodeId = item.affectedNodes?.[0]
   if (nodeId && nodeLabels?.has(nodeId)) {
-    return { label: nodeLabels.get(nodeId)!, factorId: nodeId }
+    // The ONLY branch that yields a name a user wrote or recognises.
+    return { label: nodeLabels.get(nodeId)!, factorId: nodeId, genuine: true }
   }
   if (nodeId) {
     // V12.2: Derive label from ID instead of generic fallback
-    return { label: factorIdToLabel(nodeId), factorId: nodeId }
+    return { label: factorIdToLabel(nodeId), factorId: nodeId, genuine: false }
   }
 
-  return { label: FALLBACK_LABEL }
+  return { label: FALLBACK_LABEL, genuine: false }
 }
 
 // ─── Main function ───────────────────────────────────────────────────────────
@@ -662,9 +748,9 @@ function resolveFactorLabel(
  */
 export function humaniseCritique(
   item: UncertaintyItem,
-  nodeLabels?: Map<string, string>,
+  nodeLabels?: ReadonlyMap<string, string>,
 ): HumanisedCritique {
-  const { label: factorLabel, factorId } = resolveFactorLabel(item, nodeLabels)
+  const { label: factorLabel, factorId, genuine: labelIsGenuine } = resolveFactorLabel(item, nodeLabels)
 
   // Lane 3 (ROADMAP 2.358): for the codes whose display copy is OWNED by
   // CEE's critique pipeline, a clean `userMessage` wins over any UI template.
@@ -699,7 +785,7 @@ export function humaniseCritique(
   // Try mapped template
   const template = CODE_TEMPLATES[item.code]
   if (template) {
-    const result = template(factorLabel)
+    const result = template(factorLabel, labelIsGenuine)
     const displayText = INTERNAL_TOKEN_REGEX.test(result.title) ? null : result.title
     return { ...result, displayText, factorId }
   }
@@ -719,7 +805,7 @@ export function humaniseCritique(
   // net for a mis-coded one, and it now lands on the same sentence that row
   // would have got.
   if (/no derivable range/i.test(item.message)) {
-    const result = CODE_TEMPLATES.CONSTRAINT_MISSING_RANGE(factorLabel)
+    const result = CODE_TEMPLATES.CONSTRAINT_MISSING_RANGE(factorLabel, labelIsGenuine)
     const displayText = INTERNAL_TOKEN_REGEX.test(result.title) ? null : result.title
     return { ...result, displayText, factorId }
   }

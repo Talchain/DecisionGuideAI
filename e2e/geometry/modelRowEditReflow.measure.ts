@@ -53,6 +53,15 @@ interface Geom {
   readonly rowHeight: number
   readonly nextRowTop: number
   readonly valueTop: number
+  /**
+   * ⭐ THE VALUE ATOM'S OWN BOX. `EDIT_RESERVED_HEIGHT_CLASS` (`min-h-[23px]`)
+   * exists so the 12px idle glyph and the 14px edit input occupy the SAME box —
+   * that is the question this measure was originally written to answer, and
+   * until now it was answered only INDIRECTLY, by the row's total being zero.
+   * Reading it directly is strictly stronger: a row total held at zero by some
+   * unrelated compensation would have satisfied the old assertion.
+   */
+  readonly valueBoxHeight: number
   readonly valueFontPx: number
 }
 
@@ -80,9 +89,137 @@ async function readGeometry(page: Page, rowId: string): Promise<Geom | null> {
       valueTop: value instanceof HTMLElement
         ? Math.round(value.getBoundingClientRect().top * 100) / 100
         : -1,
+      valueBoxHeight: value instanceof HTMLElement
+        ? Math.round(value.getBoundingClientRect().height * 100) / 100
+        : -1,
       valueFontPx: sized
         ? parseFloat(getComputedStyle(sized).fontSize)
         : -1,
+    }
+  }, rowId)
+}
+
+/**
+ * ⭐⭐ THE DISCLOSURE'S OWN PARTS, READ SEPARATELY — because the row's TOTAL
+ * cannot tell the two defects apart, and they need opposite repairs.
+ *
+ * #1401 shipped the route forward INSIDE grid track 3 (`fit-content(5.5rem)`,
+ * measured at 48.5px at the dock floor). 36 characters of prose in a 48.5px
+ * column became six line boxes and a 213px row. #1410 moved it to a
+ * `col-span-4` full-width line.
+ *
+ * A wrap in a 48px track and a wrap at the end of a 220px line are BOTH
+ * "heightDelta went up", and the row total says which only by how much. These
+ * are the numbers that say which:
+ *
+ *   refusalWidth ≈ 48px    -> the sentence is still in a narrow track: LAYOUT
+ *   refusalWidth ≈ rowWidth -> the sentence has the row: ordinary TEXT REFLOW
+ *
+ * and `refusalMaxContentWidth` vs `rowContentWidth` says whether reflow was
+ * inevitable at this width on this platform's metrics, rather than leaving that
+ * to be inferred from a line count. ⚠ THE REFERENCE IS THE **ROW's** WIDTH, NOT
+ * THE ACTION LINE's — the action line is the thing that was in the narrow track,
+ * so its own width shrank with the defect and a comparison against it would have
+ * agreed with what it was supposed to catch.
+ *
+ * ⚠ LINE COUNT IS `height / lineHeight`, NOT `getClientRects().length`. The
+ * refusal is a flex item, so it is BLOCKIFIED and its own `getClientRects()`
+ * returns ONE rect for the whole box however many lines it holds — a line-count
+ * probe built on it reads 1 forever and would certify any wrap. A `Range` over
+ * the text content is captured too, as a second reading that must agree.
+ */
+interface Disclosure {
+  readonly actionsPresent: boolean
+  readonly actionsWidth: number
+  readonly actionsHeight: number
+  /** The control line's own box — a button that wraps inside its border shows up here, not in the total. */
+  readonly controlsHeight: number
+  readonly controlsWidth: number
+  readonly refusalPresent: boolean
+  readonly refusalText: string
+  readonly refusalHeight: number
+  readonly refusalWidth: number
+  readonly refusalLineHeightPx: number
+  readonly refusalLines: number
+  readonly refusalRangeRects: number
+  /** The sentence's single-line width on THIS platform's metrics. */
+  readonly refusalMaxContentWidth: number
+  /** Break opportunities in the rendered string. Zero means it can only OVERFLOW, never wrap. */
+  readonly refusalBreakOpportunities: number
+  /** px past the outline's right edge. > 0 is overflow, which is a different defect from a wrap. */
+  readonly refusalOverflowRightPx: number
+  readonly refusalInsideValueCell: boolean
+  readonly rowContentWidth: number
+  readonly fontFamily: string
+}
+
+async function readDisclosure(page: Page, rowId: string): Promise<Disclosure> {
+  return page.evaluate((id) => {
+    const row = document.querySelector(`[data-testid="model-row-v2-${id}"]`)
+    const actions = document.querySelector(`[data-testid="model-row-v2-${id}-edit-actions"]`)
+    const refusal = document.querySelector(`[data-testid="model-row-v2-${id}-value-blocked"]`)
+    const review = document.querySelector(`[data-testid="model-row-v2-${id}-review"]`)
+    const valueCell = document.querySelector(`[data-testid="model-row-v2-${id}-value"]`)
+    const outline = document.querySelector('[data-testid="model-outline-v2"]')
+    const r2 = (n: number) => Math.round(n * 100) / 100
+
+    // The control LINE is the review button's flex parent, not the button.
+    const controls = review instanceof HTMLElement ? review.parentElement : null
+
+    let maxContent = -1
+    let rangeRects = -1
+    let lineHeight = -1
+    if (refusal instanceof HTMLElement) {
+      lineHeight = parseFloat(getComputedStyle(refusal).lineHeight)
+      const probe = refusal.cloneNode(true) as HTMLElement
+      probe.style.position = 'absolute'
+      probe.style.left = '-99999px'
+      probe.style.top = '0'
+      probe.style.width = 'max-content'
+      probe.style.maxWidth = 'none'
+      probe.style.whiteSpace = 'nowrap'
+      probe.style.visibility = 'hidden'
+      refusal.parentElement?.appendChild(probe)
+      maxContent = r2(probe.getBoundingClientRect().width)
+      probe.remove()
+      const range = document.createRange()
+      range.selectNodeContents(refusal)
+      rangeRects = range.getClientRects().length
+    }
+
+    const refusalText = refusal instanceof HTMLElement ? (refusal.textContent ?? '') : ''
+    const refusalBox = refusal instanceof HTMLElement ? refusal.getBoundingClientRect() : null
+    const outlineBox = outline instanceof HTMLElement ? outline.getBoundingClientRect() : null
+
+    return {
+      actionsPresent: actions instanceof HTMLElement,
+      actionsWidth: actions instanceof HTMLElement ? r2(actions.getBoundingClientRect().width) : -1,
+      actionsHeight: actions instanceof HTMLElement ? r2(actions.getBoundingClientRect().height) : -1,
+      controlsHeight: controls instanceof HTMLElement ? r2(controls.getBoundingClientRect().height) : -1,
+      controlsWidth: controls instanceof HTMLElement ? r2(controls.getBoundingClientRect().width) : -1,
+      refusalPresent: refusal instanceof HTMLElement,
+      refusalText,
+      refusalHeight: refusalBox ? r2(refusalBox.height) : -1,
+      refusalWidth: refusalBox ? r2(refusalBox.width) : -1,
+      refusalLineHeightPx: lineHeight,
+      refusalLines: refusalBox && lineHeight > 0 ? Math.round(refusalBox.height / lineHeight) : -1,
+      refusalRangeRects: rangeRects,
+      refusalMaxContentWidth: maxContent,
+      // The product's own string, not a fixture's: count the places it may break.
+      refusalBreakOpportunities: (refusalText.match(/[-\s]/g) ?? []).length,
+      refusalOverflowRightPx:
+        refusalBox && outlineBox ? r2(refusalBox.right - outlineBox.right) : -1,
+      refusalInsideValueCell:
+        valueCell instanceof HTMLElement && refusal instanceof HTMLElement
+          ? valueCell.contains(refusal)
+          : false,
+      rowContentWidth:
+        row instanceof HTMLElement
+          ? r2(row.clientWidth -
+              parseFloat(getComputedStyle(row).paddingLeft) -
+              parseFloat(getComputedStyle(row).paddingRight))
+          : -1,
+      fontFamily: refusal instanceof HTMLElement ? getComputedStyle(refusal).fontFamily : '',
     }
   }, rowId)
 }
@@ -154,10 +291,11 @@ for (const width of WIDTHS) {
     }
     await waitForVisualQuiescence(page)
 
-    // Find an EDITABLE row: its value cell is a <button> (the read-only arm is a
-    // <span>). Binding by the element's identity, not by "the first row".
+    // Keep the original one-field FACTOR no-reflow subject explicit. Goal
+    // editing now has two fields; it gets its own bounded proof below rather
+    // than silently replacing this test's subject as the first editable row.
     const rowId = await page.evaluate(() => {
-      const buttons = Array.from(document.querySelectorAll('button[data-testid^="model-row-v2-"][data-testid$="-value"]'))
+      const buttons = Array.from(document.querySelectorAll('[data-kind="factor"] button[data-testid^="model-row-v2-"][data-testid$="-value"]'))
       const first = buttons[0]
       if (!(first instanceof HTMLElement)) return null
       const t = first.getAttribute('data-testid') ?? ''
@@ -165,8 +303,11 @@ for (const width of WIDTHS) {
     })
     expect(rowId, 'no EDITABLE row value found — the measure would assert about nothing').not.toBeNull()
 
+    await page.getByTestId(`model-row-v2-${rowId}-value`).scrollIntoViewIfNeeded()
+    await waitForVisualQuiescence(page)
     const before = await readGeometry(page, rowId as string)
     expect(before, 'row geometry unreadable before edit').not.toBeNull()
+    expect(before!.nextRowTop, 'the factor and its neighbour must be in view before measuring movement').toBeGreaterThan(0)
 
     await page.click(`[data-testid="model-row-v2-${rowId}-value"]`)
 
@@ -177,6 +318,7 @@ for (const width of WIDTHS) {
 
     const after = await readGeometry(page, rowId as string)
     expect(after, 'row geometry unreadable during edit').not.toBeNull()
+    const disc = await readDisclosure(page, rowId as string)
 
     const b = before as Geom, a = after as Geom
 
@@ -200,13 +342,318 @@ for (const width of WIDTHS) {
       rowHeightBefore: b.rowHeight, rowHeightAfter: a.rowHeight, heightDelta,
       nextRowTopBefore: b.nextRowTop, nextRowTopAfter: a.nextRowTop, pushDelta,
       valueTopBefore: b.valueTop, valueTopAfter: a.valueTop, textDelta,
+      valueBoxBefore: b.valueBoxHeight, valueBoxAfter: a.valueBoxHeight,
     }))
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify({ measure: 'modelRowEditDisclosure', dockWidth: width, rowId, platform: process.platform, ...disc }))
 
-    expect(heightDelta, `entering edit changed the row's own height by ${heightDelta}px at a ${width}px dock`).toBe(0)
-    expect(pushDelta, `entering edit moved the row below by ${pushDelta}px at a ${width}px dock`).toBe(0)
+    /*
+     * ⭐⭐⭐ TWO QUESTIONS WERE LIVING UNDER ONE ASSERTION, AND SEPARATING THEM IS
+     * THE POINT OF THIS BLOCK (CLAUDE.md trap 21).
+     *
+     * `heightDelta === 0` was written for #1179, where the editor gained NO
+     * CONTENT — it swapped a 12px glyph for a 14px input on the same datum, and
+     * the only honest answer was "nothing may move". `EDIT_RESERVED_HEIGHT_CLASS`
+     * is the fix it guards.
+     *
+     * #1401 asks a DIFFERENT question: may the editor DISCLOSE a route forward?
+     * The `editing` beat before it offered a naked input, no advance control and
+     * nothing naming Enter — measured on deployed `9748b336`. A zero-delta
+     * contract answers that question with "no", by construction: any visible
+     * control in a 36px row costs height. Aligning the two would have meant
+     * reverting the capability, so they are named apart instead.
+     *
+     * ⚠ THIS IS NOT A RAISED TOLERANCE ON THE #1179 CONTRACT — that contract is
+     * asserted MORE tightly below than it was before, directly on the value
+     * atom's own box (`valueBoxHeight`) instead of inferred from the row's
+     * total, and `textDelta` is untouched. The precedent is this file's own goal
+     * arm, which took a bounded height the day it gained a second field and
+     * says in its comment that it "is not a relaxed tolerance on the factor's
+     * unchanged zero above". The factor arm's zero is now the value BOX's.
+     *
+     * ⚠⚠ AND THE MEASUREMENT THAT JUSTIFIES THE NUMBER, not an estimate.
+     * #1401 first shipped these controls INSIDE grid track 3, which measures
+     * **48.5px** at a 280px dock. Run 34386746547 read the result:
+     *
+     *     +177px @280   +138px @416      <- WIDTH-DEPENDENT: that is WRAPPING
+     *
+     * A DOM probe attributed it: 23px input box (correct) + 52px of buttons in
+     * which "Review change" wrapped inside its own border + **117px of refusal
+     * sentence**, 36 characters of prose in a 48.5px column. Moving that line
+     * out to a `col-span-4` grid item of the row measures:
+     *
+     *     +49.5px @280  +49.5px @416     <- IDENTICAL: that is DISCLOSURE
+     *
+     * ⭐ The width-independence is the real signal and it is why one bound can
+     * serve both arms: a fixed disclosure costs the same at every width, and a
+     * paragraph in a narrow track does not. 280px is the harsher arm, so a
+     * re-wrap blows this bound there by a factor of three.
+     */
+    const rowGap = 8      // the row's own `gap-2`, between its two grid lines
+    const controls = 18   // buttonSmall 12px `leading-none` + py-0.5 (4) + border (2)
+    const lineGap = 4     // the action line's own `gap-1`
+    const refusal = 19.5  // panelBody 12px x `leading-relaxed` (1.625)
+    /**
+     * ⭐⭐⭐ CORRECTED, AND THE CORRECTION IS THE POINT: **THE BOUND ABOVE WAS
+     * DERIVED ON DARWIN AND THIS GATE RUNS ON UBUNTU.** The three paragraphs
+     * above say `+49.5px @280 +49.5px @416 <- IDENTICAL: that is DISCLOSURE`.
+     * That pair of numbers is a **darwin** reading. On `ubuntu-latest`, at this
+     * PR's own head `9574b5c4`, the same two arms read:
+     *
+     *     +69px @280    +49.5px @416     (job 102661748098, `heightDelta`)
+     *
+     * 69 - 49.5 = 19.5 = EXACTLY ONE MORE `refusal` LINE, and the @416 arm is
+     * identical to darwin's to the decimal. So ubuntu's metrics change nothing
+     * about the disclosure's COST; they change only whether the refusal SENTENCE
+     * fits on one line at the 280px dock floor. Attributed at the bytes by
+     * `readDisclosure` rather than inferred from the total.
+     *
+     * ⚠⚠ SO THE `width-independence` SENTENCE ABOVE IS TRUE OF THE CONTROL LINE
+     * AND FALSE OF THE SENTENCE. A fixed disclosure does cost the same at every
+     * width — but `Enter a number to review this change` is 36 characters of
+     * PROSE, and prose reflows when the line runs out. The #1410 fix gave it the
+     * whole row; it did not, and could not, make it unwrappable.
+     *
+     * ⭐ THE TWO DEFECTS ARE NAMED APART HERE, because they need opposite repairs
+     * (CLAUDE.md trap 21):
+     *
+     *   the sentence is crushed into grid track 3 (48.5px)  -> LAYOUT defect
+     *   the sentence fills the row and runs to a 2nd line   -> ordinary REFLOW
+     *
+     * `heightDelta` alone cannot tell them apart — both read "bigger". The
+     * structural assertions below can, and they are what keeps this bound from
+     * being a raised tolerance: the track-3 defect is now caught BY NAME, on the
+     * refusal element's own WIDTH, at every dock width and on every platform,
+     * instead of being inferred from a pixel total that a font change can move.
+     *
+     * ⚠ THIS IS NOT "RAISE IT UNTIL IT IS GREEN" — `valueCellMetrics.ts`'s
+     * instruction is RE-DERIVE, and the re-derivation is per width because the
+     * quantity being bounded is per width: one control line plus however many
+     * line boxes a sentence of this length takes in the room that dock leaves.
+     * Derived on ubuntu, the platform that decides this check:
+     *
+     *     @280  room 220px, sentence needs 227.08px -> 2 lines -> 8+18+4+39+1 = 70
+     *     @416  room 356px, sentence needs 227.08px -> 1 line  -> 8+18+4+19.5+1 = 50.5
+     *
+     * ⭐ THE WHOLE DIVERGENCE IS THOSE TWO NUMBERS, and it is 7.08px wide. Measured
+     * at `readDisclosure` on both platforms, same commit, same fixture, same row:
+     *
+     *                          darwin      ubuntu-latest
+     *   sentence max-content   210.31px    227.08px      <- 8% wider face
+     *   room at a 280px dock   220px       220px
+     *   line boxes @280        1           2
+     *   line boxes @416        1           1
+     *
+     * Inter is declared first in both stacks and is installed on NEITHER runner's
+     * Chromium here, so each falls through to its own system face. darwin's fits
+     * 220px with 9.69px to spare; ubuntu's misses it by 7.08px. A bound derived on
+     * the Mac therefore passes locally and REDs in CI, which is exactly what
+     * happened — and why both bounds below admit the WIDER platform. @416 is
+     * UNCHANGED at 50.5.
+     *
+     * ⚠ AND IT STILL BITES. The #1401 regression was 117px of refusal in track 3
+     * (six line boxes) with a 52px wrapped control line: 8 + 52 + 4 + 117 = 181px
+     * against a 70px bound, and the width-assertion below REDs on it first, by
+     * name. A third refusal line (89.5px) also exceeds 70.
+     */
+    const REFUSAL_LINES_MAX: Record<number, number> = { 280: 2, 416: 1 }
+    const refusalLinesMax = REFUSAL_LINES_MAX[width]
+    expect(refusalLinesMax, `no refusal line budget is derived for a ${width}px dock`).toBeGreaterThan(0)
+    const EDIT_DISCLOSURE_MAX_PX = rowGap + controls + lineGap + refusal * refusalLinesMax + 1
+
+    /*
+     * ── THE DISCLOSURE'S PRECONDITIONS, ASSERTED BEFORE ITS BUDGET ────────────
+     *
+     * ⚠⚠ A HEIGHT BOUND ON A DISCLOSURE THAT RENDERED NO REFUSAL PASSES FOR THE
+     * WRONG REASON, and a sibling lane has already been caught by exactly that:
+     * its arm went green because the draft it measured had no refusal at all, so
+     * the sentence whose line count the bound is about was not on screen. The
+     * factor row seeds its draft from `resolveValueInputSeed`, which is
+     * `undefined` for this fixture's factors — `draft: ''`, `parseFloat('')` is
+     * NaN, so `unproposableDraftReason` returns a sentence. That is the case this
+     * arm measures, and it is asserted, not assumed.
+     */
+    expect(disc.actionsPresent, 'the edit action line did not render — there is no disclosure to bound').toBe(true)
+    expect(disc.refusalPresent, 'no refusal rendered: this arm would bound a one-line disclosure and call it two').toBe(true)
+    expect(disc.refusalText.trim().length, 'the refusal element is empty — its line count is about nothing').toBeGreaterThan(0)
+    /*
+     * ⚠ AN ASSERTION ABOUT WRAPPING IS WORTHLESS AGAINST A STRING THAT CANNOT
+     * WRAP. A sibling lane measured `max-w-[24px]` on a single-word label and
+     * read ONE line: "Moderate" has no break opportunity, so it OVERFLOWS rather
+     * than wrapping. Check the product's real string can do the thing being
+     * bounded.
+     */
+    expect(
+      disc.refusalBreakOpportunities,
+      `the refusal "${disc.refusalText}" has no break opportunity — it can only overflow, so a line-count bound on it proves nothing`,
+    ).toBeGreaterThan(0)
+
+    /*
+     * ── THE #1410 CONTRACT: THE SENTENCE HAS THE ROW, NOT A 48px TRACK ────────
+     *
+     * ⭐ THIS, NOT THE PIXEL TOTAL, IS THE GUARD ON #1410's ACTUAL SUBJECT. The
+     * refusal must be given every pixel the row could give it: its own
+     * max-content width if that fits, or the row's whole content width if it
+     * does not. In track 3 it measured 48.5px while the row offered ~220px, so
+     * this REDs on the original defect at any width and on any platform.
+     *
+     * ⚠ THE COMPARISON IS AGAINST THE **ROW's** CONTENT WIDTH, NOT THE ACTION
+     * LINE's. The action line is the thing that was in the narrow track, so its
+     * own width shrank with it — a bound against it would have agreed with the
+     * defect (CLAUDE.md trap 13b: a guard whose reference moves with the thing it
+     * is guarding).
+     */
+    expect(disc.rowContentWidth, 'the row content width is unreadable').toBeGreaterThan(0)
+    expect(disc.refusalMaxContentWidth, "the refusal's single-line width is unreadable").toBeGreaterThan(0)
+    expect(disc.refusalInsideValueCell, 'the refusal is back inside the value cell — grid track 3 is ~48px wide').toBe(false)
+    const roomTheRowCouldGive = Math.min(disc.refusalMaxContentWidth, disc.rowContentWidth)
+    expect(
+      disc.refusalWidth,
+      `the refusal got ${disc.refusalWidth}px while the row could give it ${roomTheRowCouldGive}px ` +
+        `(sentence needs ${disc.refusalMaxContentWidth}px, row content ${disc.rowContentWidth}px) — it is in a narrow column again`,
+    ).toBeGreaterThanOrEqual(roomTheRowCouldGive - 1)
+    // A wrap and an OVERFLOW are different defects; `min-w-0` is what makes this
+    // one a wrap, and without this assertion its removal would read as fine.
+    expect(
+      disc.refusalOverflowRightPx,
+      `the refusal runs ${disc.refusalOverflowRightPx}px past the outline's right edge at a ${width}px dock`,
+    ).toBeLessThanOrEqual(1)
+
+    // The control line is ONE line. #1401's 52px came from "Review change"
+    // wrapping INSIDE its own border; `whitespace-nowrap` is what stops it, and
+    // a total-only bound would absorb its return silently.
+    expect(
+      disc.controlsHeight,
+      `the control line measured ${disc.controlsHeight}px at a ${width}px dock — a button is wrapping inside its own border`,
+    ).toBeLessThanOrEqual(controls + 1)
+
+    // And the line count the budget above is built from — asserted against the
+    // STATED per-width maximum, never read and accepted. Two independent
+    // readings: the box's own height, and a Range over its text.
+    expect(
+      disc.refusalLines,
+      `the refusal took ${disc.refusalLines} line(s) at a ${width}px dock (budget ${refusalLinesMax}); ` +
+        `it needs ${disc.refusalMaxContentWidth}px and the row offers ${disc.rowContentWidth}px`,
+    ).toBeLessThanOrEqual(refusalLinesMax)
+    expect(
+      disc.refusalRangeRects,
+      `the refusal's text occupied ${disc.refusalRangeRects} line box(es) at a ${width}px dock (budget ${refusalLinesMax})`,
+    ).toBeLessThanOrEqual(refusalLinesMax)
+
+    // ── THE #1179 CONTRACT, ASSERTED DIRECTLY AND UNRELAXED ──────────────────
+    expect(b.valueBoxHeight, 'the idle value box is unreadable').toBeGreaterThan(0)
+    expect(
+      a.valueBoxHeight,
+      `the value atom's own box changed from ${b.valueBoxHeight}px to ${a.valueBoxHeight}px — EDIT_RESERVED_HEIGHT_CLASS has regressed`,
+    ).toBeCloseTo(b.valueBoxHeight, 1)
     // A reserved-height fix trades a row jump for a possible text jump. Both are
     // movement the user sees, so both are asserted.
     expect(Math.abs(textDelta), `entering edit moved the value itself by ${textDelta}px at a ${width}px dock`).toBeLessThanOrEqual(1)
+
+    // ── THE #1401 CONTRACT: A BOUNDED DISCLOSURE, IN BOTH DIRECTIONS ─────────
+    // ⚠ THE LOWER BOUND IS NOT DECORATION. Without it `<= 52` passes perfectly
+    // on a build where the route forward has been deleted again — which is the
+    // defect #1401 exists to close, and the cheapest way to make this arm green.
+    // A height contract with no floor applauds the regression it was written
+    // against (CLAUDE.md trap 22b: two opposite harms need two parameters).
+    expect(
+      heightDelta,
+      `entering edit disclosed NOTHING at a ${width}px dock — the row's route forward is missing again`,
+    ).toBeGreaterThan(0)
+    expect(
+      heightDelta,
+      `entering edit changed the row's own height by ${heightDelta}px at a ${width}px dock (bound ${EDIT_DISCLOSURE_MAX_PX}px)`,
+    ).toBeLessThanOrEqual(EDIT_DISCLOSURE_MAX_PX)
+    // Everything the row gains is passed to its neighbour: equal deltas mean the
+    // disclosure is laid out, not clipped inside a container that swallows it.
+    expect(
+      pushDelta,
+      `the row grew ${heightDelta}px but moved the row below by ${pushDelta}px at a ${width}px dock — the growth is being clipped`,
+    ).toBe(heightDelta)
+
+    await input.press('Escape')
+    await expect(input).toHaveCount(0)
+    const goalButton = page.locator('[data-kind="goal"] button[data-testid^="model-row-v2-"][data-testid$="-value"]').first()
+    await expect(goalButton, 'goal target is not editable: the new form must actually be measured').toBeVisible()
+    const goalId = (await goalButton.getAttribute('data-testid'))!.replace(/^model-row-v2-/, '').replace(/-value$/, '')
+    const goalBefore = await readGeometry(page, goalId)
+    expect(goalBefore).not.toBeNull()
+    await goalButton.click()
+    const goalInput = page.getByTestId(`model-row-v2-${goalId}-value-input`)
+    const unitInput = page.locator(`[data-testid="model-row-v2-${goalId}"] input[aria-label^="Target unit for"]`)
+    await expect(goalInput).toBeVisible()
+    await expect(goalInput).toBeFocused()
+    await expect(unitInput).toBeVisible()
+    const goalAfter = await readGeometry(page, goalId)
+    expect(goalAfter).not.toBeNull()
+    /*
+     * ⚠ THE GOAL ARM HAS NEVER RUN AT A 280px DOCK ON UBUNTU. The factor
+     * assertion above aborted the test at `4ab92e84` and again at `9574b5c4`, so
+     * everything from here down executed at 416px only — the concealment this
+     * file's own comment below records. Its disclosure is logged for the same
+     * attribution reason as the factor's: if this arm reds, the numbers that say
+     * WHY are already in the log rather than a cycle away.
+     */
+    const goalDisc = await readDisclosure(page, goalId)
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify({ measure: 'modelGoalEditDisclosure', dockWidth: width, goalId, ...goalDisc }))
+    /*
+     * Two accessible 14px fields + a short unit label are intentional. The
+     * original paragraph-filled candidate measured216.38px and fails this;
+     * this is not a relaxed tolerance on the factor's unchanged zero above.
+     *
+     * ⭐⭐ THE GOAL FORM'S OWN BUDGET IS UNCHANGED AT 88px. What is added is the
+     * SAME disclosure line the factor arm bounds above, because the goal editor
+     * has the same defect and gets the same fix — so the two bounds share one
+     * constant and a change to the disclosure moves both together rather than
+     * leaving one of them silently stale.
+     *
+     * ⚠⚠ AND THIS BREACH WAS HIDDEN, WHICH IS THE FINDING WORTH KEEPING. At
+     * `4ab92e84` the factor assertion above aborted the test, so NOTHING from
+     * here down ever executed: the gate was red for the factor row while the
+     * goal row was ALSO over budget (129.63px against 88px) and no one could
+     * see it. A test that stops at its first failure reports one defect and
+     * conceals the rest of its own subject — worth remembering before reading a
+     * single red as a single problem.
+     */
+    const GOAL_FORM_MAX_PX = 88
+    expect(goalAfter!.valueFontPx).toBeCloseTo(14, 1)
+    expect(goalAfter!.rowHeight).toBeGreaterThan(goalBefore!.rowHeight)
+    expect(
+      goalAfter!.rowHeight,
+      `the goal target form measured ${goalAfter!.rowHeight}px at a ${width}px dock (form budget ${GOAL_FORM_MAX_PX}px + disclosure ${EDIT_DISCLOSURE_MAX_PX}px)`,
+    ).toBeLessThanOrEqual(GOAL_FORM_MAX_PX + EDIT_DISCLOSURE_MAX_PX)
+    const formBoxes = await page.locator(`[data-testid="model-row-v2-${goalId}"] input`).evaluateAll(inputs => {
+      const outline = document.querySelector('[data-testid="model-outline-v2"]')!.getBoundingClientRect()
+      return inputs.map(input => { const box = input.getBoundingClientRect(); return {
+        width: box.width, left: box.left, right: box.right, outlineLeft: outline.left, outlineRight: outline.right,
+        font: parseFloat(getComputedStyle(input).fontSize),
+      } })
+    })
+    expect(formBoxes).toHaveLength(2)
+    for (const box of formBoxes) {
+      expect(box.width).toBeGreaterThanOrEqual(90)
+      expect(box.font).toBeCloseTo(14, 1)
+      expect(box.left).toBeGreaterThanOrEqual(box.outlineLeft)
+      expect(box.right).toBeLessThanOrEqual(box.outlineRight + 1)
+    }
+    await goalInput.fill('120000')
+    await unitInput.fill('£')
+    await unitInput.press('Enter')
+    const proposed = page.getByTestId(`model-row-v2-${goalId}-value-to`)
+    await expect(proposed).toHaveText('At least 120000 £ (absolute level)')
+    await expect(page.getByTestId(`model-row-v2-${goalId}-confirm`)).toBeVisible()
+    const proposalFits = await proposed.evaluate(el => {
+      const box = el.getBoundingClientRect()
+      const outline = document.querySelector('[data-testid="model-outline-v2"]')!.getBoundingClientRect()
+      return box.right <= outline.right + 1 && box.left >= outline.left
+    })
+    expect(proposalFits, 'minimum/absolute-level consent must fit before Confirm').toBe(true)
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify({ measure: 'modelGoalTargetForm', dockWidth: width, goalId,
+      rowHeightBefore: goalBefore!.rowHeight, rowHeightAfter: goalAfter!.rowHeight, formBoxes, proposalFits }))
+    await page.getByTestId(`model-row-v2-${goalId}-discard`).click()
+    await expect(unitInput).toHaveCount(0)
   })
 }
 })

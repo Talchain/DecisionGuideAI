@@ -10,7 +10,7 @@ import { InspectorShell } from './InspectorShell'
 import { ConfidenceBadge } from './shared/ConfidenceBadge'
 import { TechnicalDisclosure } from './shared/TechnicalDisclosure'
 import { useTechToggle } from './useTechToggle'
-import { INSPECTOR_READ_ONLY_REASON } from './useInspectorMutations'
+import { INSPECTOR_READ_ONLY_REASON, INSPECTOR_OPTION_READ_ONLY_REASON, INSPECTOR_FACTOR_CONTROLLABLE_REASON } from './useInspectorMutations'
 import { getTypeLabel, EDGE_TYPE_LABEL } from './inspectorStrings'
 import { resolveEdgeValueDisplay } from '../../domain/edgeValueProvenance'
 import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
@@ -306,6 +306,50 @@ export const InspectorRouter = memo(function InspectorRouter({
     onNavigate: handleNavigate,
   }
 
+  /**
+   * ⭐⭐ WHY ONE PANEL IS ALLOWED OUT OF THE BLANKET WRAP.
+   *
+   * `<fieldset disabled>` inerts EVERY form-associated descendant, so the wrap
+   * below was disabling three controls in `OptionPanel` that write nothing at
+   * all: the factor-navigation button on each intervention row, each connection
+   * row, and the coaching card. A reader who opened a node to understand it
+   * could not follow the model from the panel built to explain it.
+   *
+   * This repo already made this argument once, at the header rename above: a
+   * blanket "these changes cannot be saved" over a control that does not save
+   * is trap 21 — two questions under one sentence. The rename needed a durable
+   * wire carrier to earn its exemption; navigation and coaching need nothing,
+   * because a control that performs no write cannot perform an unsavable one.
+   *
+   * ⭐ SECOND PANEL, AND THE REASON IS A CARRIER, NOT A PREFERENCE.
+   * `factor-controllable` opts in because the factor VALUE has a durable
+   * server-authoritative carrier — `factor_value_edit`, built and merged in
+   * July (#513) and still the panel's commit path today. It has been
+   * unreachable ever since, not because the write was unsafe but because the
+   * blanket wrap below could not tell a control that saves from one that does
+   * not. Nothing about the write changed here; only the fence moved to the
+   * place that can see the difference.
+   *
+   * ⛔ AND IT DOES NOT ADMIT THE REST OF THE PANEL. `setDescription` has no
+   * carrier and stays fenced INSIDE the panel. The test of a control is
+   * whether it reaches a carrier that survives the next server rehydrate —
+   * never whether it sits next to one that does.
+   *
+   * ⚠ OPT-IN, ONE PANEL, DELIBERATELY. Every other panel keeps the wrap below
+   * byte-for-byte. The question "does this control reach a mutation?" is
+   * answerable only inside the panel — in `OptionPanel` two buttons eighteen
+   * lines apart differ on it — so a Router-side allow-list would be a mirror of
+   * knowledge that lives elsewhere, which is this estate's most expensive
+   * defect class.
+   *
+   * ⛔ AND THE PANEL DOES NOT GAIN AUTHORITY BY OPTING IN. It takes on the duty
+   * of fencing its own writers, which `OptionPanel.readOnlyFence.spec.tsx`
+   * asserts as a discriminating pair — every writer disabled AND every
+   * non-writer enabled — so it cannot pass by fencing everything or nothing.
+   */
+  const AUTHORITY_OWNING_PANELS = new Set<string>(['option', 'factor-controllable'])
+  const panelOwnsAuthority = panelType != null && AUTHORITY_OWNING_PANELS.has(panelType)
+
   // Typed as a TOTAL map over every NODE panel type (edge is handled by the
   // early return above, null by the guard at the top). Before this it was an
   // untyped object literal indexed by the full union, so `panelType` could be
@@ -375,16 +419,44 @@ export const InspectorRouter = memo(function InspectorRouter({
         data-testid="inspector-authority-notice"
         className={`rounded border border-panel-border bg-panel-hover px-3 py-2 ${typography.panelBody} text-text-body`}
       >
-        {INSPECTOR_READ_ONLY_REASON}
+        {/* ⚠ A BOOLEAN CANNOT PICK THIS ANY MORE. With one opting-in panel the
+            notice was "self-fenced or not"; with two it is "WHAT saves here",
+            and the two panes answer differently — the option pane saves the
+            name, the factor pane also saves the value. Keyed by panel type so
+            adding a third cannot silently inherit a sentence written about
+            another surface. */}
+        {!panelOwnsAuthority
+          ? INSPECTOR_READ_ONLY_REASON
+          : panelType === 'factor-controllable'
+            ? INSPECTOR_FACTOR_CONTROLLABLE_REASON
+            : INSPECTOR_OPTION_READ_ONLY_REASON}
       </div>
-      <fieldset
-        disabled
-        aria-describedby="inspector-authority-notice"
-        data-authority="disabled"
-        className="contents"
-      >
-        <PanelComponent {...panelProps} />
-      </fieldset>
+      {/* ⭐⭐ KEYED BY NODE IDENTITY, AND IT IS A DEFECT FIX RATHER THAN A
+          STYLE CHOICE. Without a key React reconciles the panel for node A onto
+          node B and keeps the instance — so any state a panel seeds ONCE at
+          mount survives the switch and is displayed against the wrong node.
+          `OptionPanel` seeds its description buffer that way, and the drafting
+          notes beside it are derived, so the two came apart: A's description
+          under B's notes.
+
+          ⚠ THE KEY IS `nodeId` ALONE, DELIBERATELY. It must fire when the
+          IDENTITY changes and stay quiet when the same node's CONTENT changes —
+          a key on the content would remount mid-edit and discard what the user
+          was typing. That is the same split #1343 made one level down, where an
+          intervention row is keyed `${optionId}:${factorId}` and a focus-guarded
+          effect covers same-option writes the key cannot see. */}
+      {panelOwnsAuthority ? (
+        <PanelComponent key={nodeId} {...panelProps} readOnly />
+      ) : (
+        <fieldset
+          disabled
+          aria-describedby="inspector-authority-notice"
+          data-authority="disabled"
+          className="contents"
+        >
+          <PanelComponent key={nodeId} {...panelProps} />
+        </fieldset>
+      )}
     </InspectorShell>
   )
 })

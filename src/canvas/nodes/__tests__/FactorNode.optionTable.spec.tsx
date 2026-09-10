@@ -3,7 +3,7 @@
  *
  * Verifies that the popover (Standard view, high-priority controllable
  * factors, both phases) renders an "Option values:" table with one row per
- * option, ordered correctly, value-formatted with the fallback chain, capped
+ * option, in stable canvas order, value-formatted with the fallback chain, capped
  * at 4 rows, and suppressed for external factors.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -119,7 +119,7 @@ describe('FactorNode — option comparison popover (Graph v2 Task 3)', () => {
     } as any)
   })
 
-  it('Post Standard: renders "Option values:" header with rows ordered leader-first → win prob desc → status quo last', () => {
+  it('Post Standard: renders "Option values:" header with rows in stable canvas order despite result rankings', () => {
     applyStore({
       viewMode: 'standard',
       phase: 'post',
@@ -142,8 +142,8 @@ describe('FactorNode — option comparison popover (Graph v2 Task 3)', () => {
     const popover = screen.getByTestId('factor-node-popover')
     expect(within(popover).getByText('Option values:')).toBeDefined()
     const rowLabels = within(popover).getAllByText(/Hire 3|Hire 1|No hire/)
-    expect(rowLabels[0].textContent).toBe('Hire 1')   // leader
-    expect(rowLabels[1].textContent).toBe('Hire 3')   // next best
+    expect(rowLabels[0].textContent).toBe('Hire 3')   // canvas order
+    expect(rowLabels[1].textContent).toBe('Hire 1')
     expect(rowLabels[2].textContent).toBe('No hire')  // status quo last
   })
 
@@ -164,7 +164,7 @@ describe('FactorNode — option comparison popover (Graph v2 Task 3)', () => {
     expect(screen.queryByText('Option values:')).toBeNull()
   })
 
-  it('Post Standard, > 4 options: shows 4 rows + "N more in inspector" link', () => {
+  it('Post Standard, > 4 options: shows 4 rows + "Show N more" control', () => {
     applyStore({
       viewMode: 'standard',
       phase: 'post',
@@ -191,29 +191,28 @@ describe('FactorNode — option comparison popover (Graph v2 Task 3)', () => {
     })
     renderFactor(baseFactorData)
     const popover = screen.getByTestId('factor-node-popover')
-    // 4 rows: top 3 non-status-quo + status quo
+    // First four in canvas order; the rest can be expanded in the preview.
     expect(within(popover).getByText('Opt A')).toBeDefined()
     expect(within(popover).getByText('Opt B')).toBeDefined()
     expect(within(popover).getByText('Opt C')).toBeDefined()
-    expect(within(popover).getByText('Opt SQ')).toBeDefined()
-    // Opt D and Opt E are overflow (2 more)
-    expect(within(popover).queryByText('Opt D')).toBeNull()
+    expect(within(popover).getByText('Opt D')).toBeDefined()
+    // Opt E and Opt SQ are overflow (2 more)
+    expect(within(popover).queryByText('Opt SQ')).toBeNull()
     expect(within(popover).queryByText('Opt E')).toBeNull()
     // Overflow link
-    // Overflow copy now comes from the shared ConnRowsOverflow component
-    expect(within(popover).getByText('+2 more in inspector')).toBeDefined()
+    // Overflow expands the complete list without depending on the inspector category.
+    expect(within(popover).getByText('Show 2 more')).toBeDefined()
   })
 
-  it('Post Standard: status quo (is_baseline) row reads "no change" even when its intervention equals the baseline value', () => {
+  it('Post Standard: baseline row retains its recorded numeric setting', () => {
     applyStore({
       viewMode: 'standard',
       phase: 'post',
       nodes: [
         { id: 'factor-1', type: 'factor', data: baseFactorData },
         { id: 'option-1', type: 'option', data: { type: 'option', label: 'Hire', interventions: { 'factor-1': 60000 } } },
-        // Baseline option carries an explicit intervention that equals the
-        // factor's current value (50000). Brief specifies the row reads "no
-        // change" — the value is semantically identical to no intervention.
+        // The reference option still records a setting; retain its value even
+        // when it happens to equal the current factor value.
         { id: 'option-sq', type: 'option', data: { type: 'option', label: 'Stay', is_baseline: true, interventions: { 'factor-1': 50000 } } },
       ],
       report: {
@@ -227,10 +226,10 @@ describe('FactorNode — option comparison popover (Graph v2 Task 3)', () => {
     renderFactor(baseFactorData)
     const popover = screen.getByTestId('factor-node-popover')
     const stayRow = within(popover).getByText('Stay').parentElement!
-    expect(stayRow.lastElementChild?.textContent).toBe('no change')
+    expect(stayRow.lastElementChild?.textContent).toBe('£50,000')
   })
 
-  it('Post Standard: option that does not intervene on this factor shows "no change"', () => {
+  it('Post Standard: option without a recorded setting names the missing setting', () => {
     applyStore({
       viewMode: 'standard',
       phase: 'post',
@@ -250,7 +249,7 @@ describe('FactorNode — option comparison popover (Graph v2 Task 3)', () => {
     renderFactor(baseFactorData)
     const popover = screen.getByTestId('factor-node-popover')
     expect(within(popover).getByText('Wait')).toBeDefined()
-    expect(within(popover).getByText('no change')).toBeDefined()
+    expect(within(popover).getByText('No setting recorded')).toBeDefined()
   })
 
   it('Post Standard: scale-no-raw factor falls back to qualitative tier label via preserveTierLabel', () => {
@@ -512,7 +511,7 @@ describe('FactorNode — option comparison popover (Graph v2 Task 3)', () => {
     const popover = screen.getByTestId('factor-node-popover')
     expect(within(popover).getByText('Option values:')).toBeDefined()
     const rowLabels = within(popover).getAllByText(/Hire 3|Hire 1|No hire/)
-    // Pre-analysis: canvas order, status quo last
+    // Pre-analysis: the same canvas order as the post-analysis view
     expect(rowLabels[0].textContent).toBe('Hire 3')
     expect(rowLabels[1].textContent).toBe('Hire 1')
     expect(rowLabels[2].textContent).toBe('No hire')

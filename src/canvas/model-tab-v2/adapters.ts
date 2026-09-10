@@ -117,14 +117,17 @@
  *      which is declared by `GoalNodeDataSchema` at all; they ride passthrough.
  *      The store scalar is the narrower, typed, single-writer carrier
  *      (`setGoalThresholdAndUpdateNode`), so it is what this projection reads —
- *      but a v2 goal row and today's goal card CAN disagree on a graph where the
- *      node keys and the scalar have drifted. Reconciling them is a question for
- *      whoever mounts this, not something to paper over here.
+ *      This historical split is closed for stated node targets: the row now
+ *      reads the same resolveGoalTarget authority as the goal card, including
+ *      its unit. The legacy scalar is only a fallback when the node has none.
  */
 
 import type { Edge, Node } from '@xyflow/react'
 import { readFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { goalLabelIsUnconfirmedBriefExtract } from '../domain/goalLabelProvenance'
+import { resolveGoalTarget } from '../domain/goalTarget'
+import { isUnquantifiedPrior } from '../domain/nodes'
+import { hasAnyStatedValue } from '../utils/observedStateHelpers'
 import type { EdgeData } from '../domain/edges'
 import type { ObservedState } from '../domain/nodes'
 // ⚠ The model-tab's NARROWER twin — see `narrowObservedState`. Both are imported
@@ -136,6 +139,10 @@ import { getCausalEdges } from '../domain/edgeUtils'
 import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../domain/edgeValueProvenance'
 import { getDirectionalStrengthLabel } from '../components/model-tab/strengthBands'
 import { getPrimaryValue, formatSmartNumber } from '../components/model-tab/utils'
+// THE ONE value+unit composer this tab already owns. Imported, never
+// re-expressed — see the goal branch below for why a fourth copy of "which
+// currencies go in front" is the defect and not the fix.
+import { formatValueWithUnit, isCurrencyUnit } from '../components/model-tab/utils'
 // THE ONE raw-source → human-label policy, the same one `SourceProvenancePill`
 // renders. Imported, never re-expressed: a second copy is how the pill and the
 // outline start disagreeing about what `cee_inference` is called.
@@ -581,6 +588,51 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
     }
 
     if (kind === 'goal') {
+      const target = resolveGoalTarget(data)
+      /**
+       * ⭐ A PREFIX CURRENCY GOES IN FRONT OF THE NUMBER.
+       *
+       * ⚠ WITNESSED ON A REAL USER'S SCREEN, 10 Sep 2026 02:03–02:05Z, staging
+       * deploy `6aa1fdec0d71200008252154` (UI `9eb30b54`). One turn carrying
+       * `goal_threshold_raw: 250000`, `goal_threshold_unit: "£"` produced TWO
+       * strings for ONE figure: the canvas goal card said `Target: £250,000`
+       * and this row said `250,000 £`. The expression below suffixed EVERY
+       * unit with a space, whatever its class.
+       *
+       * ⭐⭐ THE THIRD SURFACE TO SHIP THIS, WHICH DECIDES HOW IT IS FIXED.
+       * `GoalNode` carried the correct mapping inline; Inspector v2's
+       * `GoalPanel` carried none and printed "800000 £" (ROADMAP 2.315(c),
+       * closed by extracting `formatGoalTarget`); this outline is the surface
+       * that extraction did not reach. So the currency knowledge is NOT
+       * restated here. `formatValueWithUnit` is the model-tab suite's own
+       * composer — this file already imports three helpers from that module —
+       * and it reads `CURRENCY_SYMBOLS` / `ISO_CURRENCY_CODES` from
+       * `utils/unitClassifier`, the single classifier, so which currencies
+       * prefix is decided in exactly one place for the whole estate. Symbols
+       * prefix with no space (`£250,000`); ISO codes prefix with one
+       * (`USD 1,200`).
+       *
+       * ⛔ AND IT IS GATED BY `isCurrencyUnit` RATHER THAN APPLIED WHOLESALE.
+       * `formatValueWithUnit` also DROPS the suffix for the `placeholder`
+       * class, so an ungated swap would silently turn "8 scale" into "8" —
+       * a second unit class moved by a change that was only ever about
+       * currency. Every class is pinned in
+       * `theModelTabPutsTheCurrencyInFront.spec.ts`, whose coverage of the
+       * classes is derived from the `UnitClass` union in source, so a seventh
+       * class cannot arrive unnoticed.
+       *
+       * ⚠ `formatValueWithUnit` takes a NUMBER. `ResolvedGoalTarget.raw` is
+       * `string | number`, so a string raw stays on the pre-existing path.
+       * Every writer measured at the bytes sends a number (`store.ts` guards
+       * `success_threshold` for finiteness; CEE's capture sent `250000`), so
+       * that arm is defensive rather than user-visible — and it is pinned too,
+       * to keep this change's blast radius provable.
+       */
+      const targetText = target
+        ? typeof target.raw === 'number' && target.unit && isCurrencyUnit(target.unit)
+          ? formatValueWithUnit(target.raw, target.unit)
+          : `${typeof target.raw === 'number' ? formatSmartNumber(target.raw) : target.raw}${target.unit ? ` ${target.unit}` : ''}`
+        : input.goalThreshold === null ? null : formatSmartNumber(input.goalThreshold)
       rows.push({
         id: node.id,
         kind,
@@ -588,8 +640,8 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
         label,
         labelFromBrief: goalLabelIsUnconfirmedBriefExtract(data),
         // Raw user units — see `ModelProjectionInput.goalThreshold`.
-        primaryValue: input.goalThreshold === null ? null : formatSmartNumber(input.goalThreshold),
-        attention: input.goalThreshold === null ? ['no-value'] : [],
+        primaryValue: targetText,
+        attention: targetText === null ? ['no-value'] : [],
         editable: true,
       })
       continue
@@ -839,6 +891,13 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
     return {
       rowId,
       description: typeof data?.description === 'string' ? data.description : null,
+      /* ⚠ BOTH LIMBS, AND BOTH ARE THE CANVAS NODE'S OWN. The flag describes the
+         PRIOR; the sentence describes the ROW. A factor that later gained a
+         value is not "unquantified" whatever its prior says. */
+      priorIsExplicitlyUnquantified:
+        node.type === 'factor' &&
+        isUnquantifiedPrior(data?.prior) &&
+        !hasAnyStatedValue(data),
       secondaryValues: secondary,
       // ⚠⚠ F1, AND IT IS THIS COMMIT'S OWN THESIS TURNED ON ITSELF. The
       // previous commit fixed the IDENTICAL expression in the repair-queue
@@ -868,6 +927,8 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
   return {
     rowId,
     description: typeof data?.label === 'string' ? data.label : null,
+    // An edge carries no prior, so the question does not arise.
+    priorIsExplicitlyUnquantified: false,
     secondaryValues: [],
     basis: edgeProvenanceBasis(data?.provenance),
     adjustments: [],

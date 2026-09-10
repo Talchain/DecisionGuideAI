@@ -43,6 +43,7 @@ import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { GLANCE_PROVENANCE_COPY } from '../glanceProvenanceCopy'
 import { methodForRecommendation } from '../recommendationMethod'
 import type { AtAGlance as AtAGlanceModel } from '../analysisNewTypes'
+import { inset, PANEL_INSET_ACTION } from '../panelSurfaces'
 
 /** Verdict tone → the accent that carries it. */
 const TONE_PILL: Record<string, string> = {
@@ -466,22 +467,103 @@ export function AtAGlance({
 
   /**
    * ⚠ HOISTED SO THE READING AND ITS QUALIFIER CAN BE ONE BLOCK. The
-   * provenance line modifies the verdict above it, but lived as a SIBLING of
+   * provenance line qualifies the READING above it, but lived as a SIBLING of
    * the verdict inside the section's `space-y-3` — 12px below the sentence it
    * qualifies and 12px above one it does not, in identical typography.
    * Nothing bound it upward, and it read as an orphaned fragment.
+   *
+   * ⚠⚠ SUPERSEDED WORDING, NAMED SO IT IS NOT REINSTATED. This paragraph read
+   * "modifies the verdict ABOVE IT" until 9 Sep 2026. It does not — see the
+   * block below, witnessed on the deployed build: `glance.verdict` is a
+   * robustness word and is NOT something this phrase can qualify. A reader who
+   * took the old sentence at face value would find apparent authorisation to
+   * put the verdict back into the gate, and the tests would then RED for a
+   * reason the comment had denied. The LAYOUT finding above is untouched by
+   * this and still holds.
    *
    * ⚠ A LOCAL MARGIN CANNOT FIX IT: `space-y-3` compiles to
    * `.space-y-3 > :not([hidden]) ~ :not([hidden])`, which out-specifies a
    * plain `.-mt-2` — measured in a browser, the override changed the file and
    * NOT the render. The gap is owned by the parent, so the fix is structural.
    */
+  /**
+   * ⚠⚠ `glance.verdict` IS NOT SOMETHING THIS PHRASE CAN QUALIFY — WITNESSED ON
+   * THE DEPLOYED BUILD `2416ac3f`, 9 Sep 2026, guest, restored saved example,
+   * COMPLETED run. The live DOM carried NO headline, NO win share and NO win
+   * bar, a verdict line reading "Sensitive", and beneath it, alone:
+   *
+   *     "On inputs whose source Olumi could not establish"
+   *
+   * A bare prepositional phrase with no clause anywhere to attach to, sitting
+   * between the robustness line and the action card. All six sanctioned
+   * provenance sentences are QUALIFIERS of a READING — "Scored highest in 66%
+   * of simulated futures", or a named leading option. A tone word plus the
+   * producer's reason clause about robustness is neither.
+   *
+   * ⭐ AND GROUPING COULD NOT FIX IT. `glanceHoldsAtTheFloor.spec.tsx` already
+   * moved this line INSIDE the reading block so the section's `space-y-3` would
+   * stop spacing the qualifier away from what it qualifies. That was the right
+   * fix for that defect. It cannot help when the block holds no reading at all.
+   *
+   * ⚠ THE STATE IS ROUTINE, NOT AN EDGE CASE. `buildAnalysisNewViewModel`
+   * documents producing it above `shareOnScreen`: a leader determined by
+   * expected outcome carries a null win probability, and a run with a
+   * robustness verdict but no entitled leader lands here every time.
+   *
+   * ⚠⚠ THIS DOES NOT SUPPRESS THE HONESTY LINE, and the distinction is the
+   * argument. The module exists to stop a PROMINENT READING sitting with its
+   * basis stated nowhere — "the consequent in its largest type and the
+   * antecedent nowhere". With no reading on screen there is no consequent for
+   * this phrase to qualify, so that harm cannot occur. Every run that shows a
+   * reading still shows the line; the twins in
+   * `glanceQualifierNeedsAReading.spec.tsx` pin both directions.
+   *
+   * ⭐ WHAT "NO READING" IS DERIVED TO MEAN — this is the claim, and it is the
+   * WHOLE claim. In `buildAnalysisNewViewModel.ts`, `winShare` (:1732),
+   * `winFraction` (:1740) and `leaderLabel` (:1763) are each non-null only
+   * where `headline` is, and `headline` implies `showAnswer` implies this
+   * gate. So the share, the win bar and the NAMED LEADING OPTION can never
+   * render while this line is suppressed. That is a derivation over three
+   * fields — NOT a statement about everything this section can draw.
+   *
+   * ⚠⚠ AND IT IS NARROWER THAN IT FIRST READ. Until 9 Sep 2026 this paragraph
+   * also said "no option named", which is FALSE. Two sibling blocks below are
+   * outside the chain above and are NOT covered by it:
+   *   · SCOPE gates on `comparisonScope.kind === 'partial' &&
+   *     comparativeClaim !== 'none'`, and in the suppressed state
+   *     `buildAnalysisNewViewModel.ts:1755-1758` sets `comparativeClaim` to
+   *     `'order'`, NOT `'none'` — so on a partial scope it renders and prints
+   *     each excluded option's LABEL. Options ARE named on screen there.
+   *   · CONDITION gates on `glance.condition != null`, which `glanceCondition`
+   *     (:1586) ties to `flipThresholdsStatus` and a usable row, never to
+   *     leader entitlement — so it can print an input-derived number here.
+   * Whether either counts as a READING for this gate is OPEN. The argument
+   * that they do not — an excluded row carries the NOT-ANALYSED badge and
+   * states SCOPE rather than an outcome — is an argument, and the derivation
+   * above does not reach it. Do not cite this comment as settling it.
+   *
+   * ⚠ SCOPE OF THAT, STATED PRECISELY, AND DO NOT WIDEN IT. Component-side
+   * reachability is derived at the bytes here. It is NOT established that the
+   * producer emits a partial comparison scope, or a computed flip threshold,
+   * on a leader-withheld run — that needs a capture or a producer-side
+   * derivation, and neither exists. So this bounds the JUSTIFICATION; it is
+   * not a proven live regression, and the gate below is unchanged by it.
+   * RE-SURFACE TRIGGER: a live capture of a leader-withheld run that carries a
+   * partial comparison scope or a computed flip threshold. If one lands,
+   * re-open whether SCOPE and CONDITION count as readings for this gate.
+   *
+   * ⚠ THE SECOND DISJUNCT IS CURRENTLY SUBSUMED — `winShare` is gated upstream
+   * on `headline`, which is what `showAnswer` reads — and is written anyway.
+   * This gate then states what THIS component renders rather than depending on
+   * an upstream coupling it cannot see and nothing here pins.
+   */
+  const readingOnScreen = showAnswer || Boolean(glance.verdict && glance.winShare)
+
   /* ⚠ THE DRIVERS DISJUNCT WENT WITH THE LIST. This line says WHOSE numbers the
      run consumed, and it is a qualifier: it must render only where there is
      something on this surface for it to qualify. The driver rows were such a
      thing and are no longer here. */
-  const showInputProvenance =
-    Boolean(glance.inputProvenance) && (showAnswer || Boolean(glance.verdict))
+  const showInputProvenance = Boolean(glance.inputProvenance) && readingOnScreen
 
   return (
     <section className="space-y-3" data-testid={testId} aria-label={COPY.sections.atAGlance}>
@@ -493,7 +575,7 @@ export function AtAGlance({
              to FOUR lines of two words. `flex-wrap` plus the floor below drops
              the control to its own line exactly when the sentence can no
              longer afford to share one, and keeps it inline at 420px. */
-          className="flex flex-wrap items-start gap-1.5 rounded-md border border-warning/30 bg-warning/[0.05] px-2 py-1.5"
+          className={`flex flex-wrap items-start gap-1.5 ${inset('warning')}`}
           role="status"
           data-testid={`${testId}-ribbon`}
         >
@@ -601,6 +683,32 @@ export function AtAGlance({
             data-testid={`${testId}-headline`}
           >
             {glance.leaderLabel ?? glance.headline}
+          </p>
+        </div>
+      ) : glance.designationWithheldReason ? (
+        /* ── WHY THERE IS NO ANSWER ────────────────────────────────────────
+           ⭐⭐ SILENCE IS NOT A DENIAL. Until this slot existed, a run whose
+           model REFUSED to license a comparative claim rendered exactly what an
+           ordinary run with no leading candidate rendered: nothing. The reader
+           could not tell "the model declined to conclude this" from "there was
+           nothing to conclude". `heroTypes.ts:411-412` names that hazard for the
+           hero; this is its Reasoning-tab twin.
+
+           The sentence is the PRODUCER'S, rendered unparaphrased and
+           untruncated. It is not composed here and it is not templated: the
+           panel may not soften, sharpen or summarise what the model refused,
+           because the refusal is the model's claim to make and ours to carry.
+
+           ⚠ `role="status"` — this is a statement about the run, in the slot
+           where the answer would otherwise be, so it must reach a screen reader
+           the way the ribbon above does rather than as unannounced prose. */
+        <div role="status">
+          <Eyebrow>{COPY.glance.eyebrowWhyWithheld}</Eyebrow>
+          <p
+            className={`${typography.panelBody} mt-1 mb-0 text-text-body text-pretty`}
+            data-testid={`${testId}-withheld-reason`}
+          >
+            {glance.designationWithheldReason}
           </p>
         </div>
       ) : null}
@@ -843,9 +951,13 @@ export function AtAGlance({
           ⚠ WHAT WENT WITH IT, AND WHERE IT WENT. The basis caption
           ("Influence" / "Relative influence") disclosed which scale the bars
           were on through a `title` tooltip, which a touch reader cannot open;
-          the drivers section now carries both branches of that disclosure as a
-          VISIBLE caveat (`coverage.structuralInfluence` /
-          `coverage.setRelativeInfluence`). The "+N more drivers" line declared
+          the drivers section carries that disclosure as a VISIBLE caveat.
+          ⚠ CORRECTED 7 Sep 2026 — this said "both branches … (`coverage.
+          structuralInfluence` / `coverage.setRelativeInfluence`)". Since #1228
+          only `coverage.setRelativeInfluence` reaches a screen; the structural
+          branch was reachable only on a run with no bars, where its own
+          sentence opens "Each bar", and the basis line is now withheld there.
+          The "+N more drivers" line declared
           this list’s cap of three; the section states the true count on its
           collapsed row and the chart renders every row, so there is no cap
           left to declare.
@@ -875,7 +987,7 @@ export function AtAGlance({
           )
           return (
             <div
-              className="rounded-md border border-warning/30 bg-warning/[0.04] px-2 py-1.5"
+              className={inset('warning')}
               data-testid={`${testId}-condition`}
             >
               {focusable ? (
@@ -908,7 +1020,7 @@ export function AtAGlance({
         <button
           type="button"
           onClick={() => onRunIntervention(primaryIntervention.id)}
-          className="w-full flex items-start gap-2 rounded-lg bg-info/[0.06] px-2.5 py-2 text-left hover:bg-info/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+          className={`w-full flex items-start gap-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${PANEL_INSET_ACTION}`}
           data-testid={`${testId}-primary-intervention`}
           data-recommendation-id={primaryIntervention.id}
         >

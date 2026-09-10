@@ -37,7 +37,11 @@ import {
 } from '../../mutations/mutationAuthority'
 import { normaliseRawFactorValue, withObservedStateUpdate } from '../../utils/observedStateHelpers'
 import { useCanvasStore } from '../../store'
-import { biasSignal, resolveBiasSignal } from '../../shared/biasSignalTitles'
+import {
+  biasSignal,
+  resolveBiasSignal,
+  UNRECOGNISED_BIAS_SIGNAL_TITLE,
+} from '../../shared/biasSignalTitles'
 import type { KnownBiasCode } from '../../shared/biasSignalTitles'
 import { useDraftStore } from '../../stores/draftStore'
 import { useRetryDraft } from '../../hooks/useRetryDraft'
@@ -91,59 +95,28 @@ import { ICON_DENSE } from '../../conversation/panelIcons'
 /** AI source provenance labels */
 const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred', 'ai_estimate', 'engine'])
 
-/**
- * Entity-ID prefixes that must NEVER appear in user-facing copy. If a CEE bug
- * passes a raw entity ID as a bias type token, fall through to BIAS_FALLBACK
- * rather than echoing it as a sentence-case label.
- *
- * Replicates the canonical CEE-side ENTITY_ID_RE pattern in
- *   olumi-assistants-service:src/orchestrator/shared/entity-id-pattern.ts
- *   (also mirrored at olumi-assistants-service:tools/v5-journey-replay/output-safety.ts
- *    as `\b(?:fac|opt|goal|dec|out|risk|con|factor|option|decision|outcome|constraint)[_:-]…/i`).
- *
- * The two sources are intentionally NOT cross-imported: the UI repo and CEE
- * service repo share no package boundary, and the CEE-side mirror file already
- * documents the same lockstep-replication pattern. Update both in lockstep
- * when the canonical pattern changes.
- *
- * `safeBiasTitle` already restricts the input character set to
- * [A-Za-z0-9_], so we only need the underscore-suffix variant here — the
- * canonical pattern's `[_:-]` separator is fully covered because `:` and `-`
- * are rejected by the character-class guard before this list is consulted.
- *
- * Plus two defensive UI-side prefixes (node_, edge_) for graph entities the
- * canvas owns directly; not in the CEE canonical list but worth guarding.
- */
-export const FORBIDDEN_TYPE_PREFIXES = [
-  // Canonical CEE entity-ID prefixes (lockstep with ENTITY_ID_RE)
-  'fac_', 'opt_', 'goal_', 'dec_', 'out_', 'risk_',
-  'con_', 'factor_', 'option_', 'decision_', 'outcome_', 'constraint_',
-  // UI-side defensive prefixes
-  'node_', 'edge_',
-] as const
+/** Retain the existing import path for the shared entity-prefix contract. */
+export { FORBIDDEN_TYPE_PREFIXES } from '../../shared/biasSignalTitles'
 
 /**
- * Convert an unknown but safe-looking bias type token into a sentence-case label.
- * Returns null for empty / unsafe inputs so callers fall through to BIAS_FALLBACK.
- * Only allows alphanumerics + underscores, and rejects known entity-ID prefixes
- * so a malformed `type: "fac_price"` never renders as "Fac price".
+ * Generic fallback for unrecognised bias codes.
+ *
+ * ⭐⭐ WAS 'Bias detected' UNTIL NOW, AND THAT ASSERTED MORE THAN THE DATA
+ * SUPPORTS. This card is reached precisely when the code is one we cannot
+ * categorise — so the product was announcing a detected bias while admitting,
+ * in the same breath, that it did not know which. The paragraph underneath may
+ * not support a finding either; it is a producer's observation, not a
+ * validated diagnosis.
+ *
+ * ⚠ AND IT WAS A SECOND NAME FOR ONE CONCEPT. The draft bias bridge reached
+ * the same case and called it something else, which is the divergence the
+ * shared registry exists to kill (see the CONFIRMATION_BIAS Frame/Gauge note
+ * in its header). One constant now, imported — a copy of the VALUE would agree
+ * today and drift later with no red anywhere.
  */
-export function safeBiasTitle(token: string): string | null {
-  if (!token) return null
-  const safe = token.trim()
-  if (!/^[A-Za-z0-9_]{1,40}$/.test(safe)) return null
-  const lower = safe.toLowerCase()
-  for (const prefix of FORBIDDEN_TYPE_PREFIXES) {
-    if (lower.startsWith(prefix)) return null
-  }
-  const cleaned = lower.replace(/_/g, ' ')
-  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
-}
-
-/** Generic fallback for unrecognised bias codes per the brief. */
 const BIAS_FALLBACK: { icon: LucideIcon; title: string } = {
   icon: EyeOff,
-  title: 'Bias detected',
+  title: UNRECOGNISED_BIAS_SIGNAL_TITLE,
 }
 
 /** Truncate a long bias explanation to 80 chars; the full text remains in the title attribute. */
@@ -192,9 +165,10 @@ export function mapDraftBiasSignalToTrigger(
 ): NormalisedBiasTrigger | null {
   const explanation = signal.detail.trim()
   if (!explanation) return null
-  const matched = resolveBiasSignal(signal.type)
-  const safeTitle = matched ? null : safeBiasTitle(signal.type)
-  const config = matched ?? (safeTitle ? { icon: BIAS_FALLBACK.icon, title: safeTitle } : BIAS_FALLBACK)
+  // An unfamiliar wire identifier does not establish a human-readable risk
+  // category. Keep its observation under the existing neutral heading, just
+  // as normaliseCeeBiasFinding does; this does not filter out the signal.
+  const config = resolveBiasSignal(signal.type) ?? BIAS_FALLBACK
   const targetId = signal.target ?? null
   const targetLabel = targetId ? resolveLabel(targetId) : null
   return {
@@ -393,7 +367,9 @@ export function normaliseCeeBiasFinding(
   // category label rather than a sentence fragment.
   const subtitleBase = truncateExplanation(fullExplanation)
   const subtitle = targetFactorLabel
-    ? `Watch for ${config.title.toLowerCase()} on ${targetFactorLabel}. ${subtitleBase}`
+    ? config === BIAS_FALLBACK
+      ? `Review ${targetFactorLabel}. ${subtitleBase}`
+      : `Watch for ${config.title.toLowerCase()} on ${targetFactorLabel}. ${subtitleBase}`
     : subtitleBase
 
   return {
@@ -549,7 +525,13 @@ function T1BiasNudgeRow({
         {trigger.subtitle}
       </p>
       <DiscussWithAiButton
-        element={{ kind: 'bias', biasType: trigger.title, microInterventionStep: trigger.microInterventionStep }}
+        element={{
+          kind: 'bias',
+          biasType: trigger.title,
+          observation: trigger.fullExplanation,
+          targetLabel: trigger.targetFactorLabel,
+          microInterventionStep: trigger.microInterventionStep,
+        }}
       />
     </div>
   )

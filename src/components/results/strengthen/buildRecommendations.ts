@@ -71,7 +71,43 @@ export function toStrengthenPhase3Item(item: GuidanceItem): StrengthenPhase3Item
     // assumption check and minted `clarify` for both.
     ...(item.signal_code ? { signalCode: item.signal_code } : {}),
     ...(item.coaching_kind ? { coachingKind: item.coaching_kind } : {}),
-    targetIds: item.target_object?.id ? [item.target_object.id] : [],
+    /**
+     * ⭐⭐ `target_object` FIRST, THEN `related_elements` — AND THE SECOND HALF
+     * WAS SIMPLY NOT READ, WHICH LEFT A DEAD AFFORDANCE ON THIS PANEL.
+     *
+     * `GuidanceItem.related_elements` is the producer's own list of the other
+     * elements a finding is about — its declared job, in the field's own words,
+     * is that *"Inspectors match `id` against the currently selected element in
+     * addition to `target_object.id`"*, and `InspectorCoaching.tsx:58-66` does
+     * exactly that, with `target_object` taking precedence.
+     *
+     * This mapper read only `target_object`. So a finding the producer named
+     * ONLY through `related_elements` — a WEAKLY_CONNECTED_NODE signal about a
+     * node and its isolated neighbours is the documented example — arrived here
+     * with `targetIds: []`, became `targetId: null` at `:397`, and
+     * `StrengthenPanel.tsx:239` gates "Show me on the canvas" on exactly that.
+     * **The Inspector could take you to the element and this panel could not**,
+     * on the same producer fact. Two surfaces, one payload, different answers —
+     * and the panel's silence looked like the producer had said nothing.
+     *
+     * ⚠ PRECEDENCE IS COPIED FROM THE INSPECTOR, NOT INVENTED. `target_object`
+     * stays first, so `targetIds[0]` is UNCHANGED for every item that has one:
+     * this can only add a route where there was none. A second ordering rule
+     * for one producer field is how two readers of one fact drift apart.
+     *
+     * ⚠ AND NOTHING IS FILTERED BY `type` OR CHECKED AGAINST THE CANVAS HERE.
+     * This mapper is pure and has no store; `focusModelTarget` is fail-CLOSED
+     * and already resolves nodes AND edges, and its callers degrade with
+     * `STRENGTHEN_COPY.focusFailedNotice` when an id names nothing — the same
+     * contract `target_object.id` has always had. Adding a resolution test here
+     * would put a second, store-bound answer beside the one that exists.
+     */
+    targetIds: [
+      ...(item.target_object?.id ? [item.target_object.id] : []),
+      ...(item.related_elements ?? [])
+        .map((r) => r.id)
+        .filter((id): id is string => typeof id === 'string' && id !== ''),
+    ].filter((id, i, all) => all.indexOf(id) === i),
     ...(typeof item.priorityRank === 'number' ? { priorityRank: item.priorityRank } : {}),
   }
 }
@@ -228,6 +264,37 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
   // one is a legacy/fixture caller and keeps the previous behaviour. Read ONCE,
   // here, so a trigger added later cannot quietly reintroduce the conflation by
   // reaching for `analysisComplete` again.
+  //
+  // ⚠ SAME NAME AS THE EXPORT IN `analysisClaimPolicy.ts`, AND — SINCE #1190 —
+  // THE SAME ANSWER. This local is NOT a second question. Both production
+  // callers thread the COMPOSED answer into `inputs.hasLeadingOption`:
+  //
+  //   `strengthen/StrengthenContainer.tsx`                  → leaderDesignationPermitted(data.recommendation)
+  //   `analysisNew/buildStrengthenInputsForAnalysisNew.ts`  → leaderDesignationPermitted(data.recommendation)
+  //
+  // so on every live path `inputs.hasLeadingOption` already carries the CEE
+  // lattice AND this result's separation, and this local means exactly what
+  // the export means. Importing the export here would change no trigger.
+  //
+  // ⚠⚠ AN EARLIER VERSION OF THIS COMMENT SAID THE OPPOSITE — that the local
+  // "answers Q2 ALONE, because `inputs` carries no admission and this module
+  // is not on that seam", and that importing the export "would silently change
+  // which triggers fire". Both sentences were false at the tip that shipped
+  // them: `StrengthenContainer` already threaded the composed answer, so the
+  // divergence was never local-vs-export but CALLER-vs-CALLER, and #1190 then
+  // closed the one caller that did read Q2 alone. A false comment describing
+  // successor work is worse than no comment — it tells the next reader the
+  // question is settled in the wrong direction — which is why the correction
+  // is recorded here rather than the old text simply being deleted.
+  //
+  // THE REAL, REMAINING HAZARD IS THE INTERFACE, NOT THE NAME. This module
+  // DERIVES nothing: it reads whatever its caller threaded. A third caller
+  // that threads `verdict.hasLeadingOption` instead would silently re-open the
+  // divergence on `quantified_provisional`, here, with no red. That is pinned
+  // by `__tests__/strengthenInputsCallersThreadComposed.spec.ts`, which
+  // enumerates the production call sites rather than trusting this paragraph —
+  // a comment is a hand-maintained mirror, and this one has already drifted
+  // once (CLAUDE.md trap 12).
   const leaderClaimWithheld = inputs.hasLeadingOption === false
 
   /**

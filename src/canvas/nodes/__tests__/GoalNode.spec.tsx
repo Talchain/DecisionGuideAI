@@ -410,7 +410,7 @@ describe('GoalNode', () => {
 
   it('does not show provenance icon for user source', () => {
     renderGoal({ observedState: { source: 'user' } })
-    expect(screen.queryByTitle('From your brief')).toBeNull()
+    expect(screen.queryByLabelText('From your brief')).toBeNull()
   })
 
   it('does not show provenance icon when observedState is absent', () => {
@@ -571,7 +571,7 @@ describe('GoalNode', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         goalConstraints: [
-          { id: 'c1', label: '4 months', operator: '≤', confidence: null },
+          { id: 'c1', label: 'Trial duration', operator: '<=', value: 4, unit: 'months', confidence: null },
         ],
       }) as any)
     )
@@ -664,7 +664,7 @@ describe('GoalNode', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         goalConstraints: [
-          { id: 'c1', label: '4 months', operator: '≤', confidence: null },
+          { id: 'c1', label: 'Trial duration', operator: '<=', value: 4, unit: 'months', confidence: null },
         ],
       }) as any)
     )

@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { OutputsDock } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
@@ -16,11 +16,11 @@ import { ConversationProvider } from '../../conversation/ConversationContext'
 import { useSuccessMeasureStore } from '../../../components/results/modals/successMeasureStore'
 
 function renderOutputsDock() {
-  return render(
+  return render(mockIsAiPanelV2Enabled() ? (
     <ConversationProvider>
       <OutputsDock />
-    </ConversationProvider>,
-  )
+    </ConversationProvider>
+  ) : <OutputsDock />)
 }
 
 /**
@@ -71,6 +71,10 @@ const {
   mockIsV5Eligible,
   mockShowToast,
   mockUsePreAnalysisData,
+  mockIsAiPanelV2Enabled,
+  mockConversation,
+  mockFlushPendingSaves,
+  mockRevealOlumi,
 } = vi.hoisted(() => ({
   mockIsOrchestratorV2Enabled: vi.fn(() => true),
   mockIsLegacyDirectRunEnabled: vi.fn(() => false),
@@ -78,6 +82,47 @@ const {
   mockIsV5Eligible: vi.fn((_input?: { flag: string | undefined }) => ({ eligible: false, reason: 'flag_off' })),
   mockShowToast: vi.fn(),
   mockUsePreAnalysisData: vi.fn(() => ({})),
+  mockIsAiPanelV2Enabled: vi.fn(() => true),
+  mockConversation: {
+    messages: [],
+    isThinking: false,
+    longRunningHint: null,
+    sendMessage: vi.fn(),
+    sendSystemEvent: vi.fn(),
+    sendChip: vi.fn(),
+    dispatchAction: vi.fn() as ReturnType<typeof vi.fn> | null,
+    retryLast: vi.fn(),
+    patchBlockStates: new Map(),
+    setPatchBlockState: vi.fn(),
+    patchRejections: new Map(),
+    setPatchRejection: vi.fn(),
+  },
+  mockFlushPendingSaves: vi.fn<[], Promise<void>>(() => Promise.resolve()),
+  mockRevealOlumi: vi.fn(),
+}))
+
+// Keep the real provider and both dock hosts. Only their conversation owner
+// is stubbed; no transcript registration is needed to obtain its dispatcher.
+vi.mock('../../conversation/useConversation', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../conversation/useConversation')>()),
+  useConversation: () => ({ ...mockConversation }),
+}))
+
+vi.mock('../../../hooks/useScenario', () => ({
+  useScenario: () => ({
+    setAnalysisRunning: vi.fn(),
+    resetAnalysisStatus: vi.fn(),
+    persistAnalysisSuccess: vi.fn(),
+    persistAnalysisFailure: vi.fn(),
+    isPersistenceActive: false,
+    flushPendingSaves: mockFlushPendingSaves,
+  }),
+}))
+
+// The real withOlumiReveal wrapper must invoke the existing reveal primitive.
+// This spies on that boundary; it does not claim browser visibility or focus.
+vi.mock('../../conversation/revealOlumi', () => ({
+  revealOlumiSurface: mockRevealOlumi,
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -97,6 +142,7 @@ vi.mock('../../../flags', async (importOriginal) => {
     isOrchestratorV2Enabled: mockIsOrchestratorV2Enabled,
     isLegacyDirectRunEnabled: mockIsLegacyDirectRunEnabled,
     isJourneyTabEnabled: vi.fn(() => false),
+    isAiPanelV2Enabled: mockIsAiPanelV2Enabled,
     isV5CanonicalAnalysisEnabled: mockIsV5CanonicalAnalysisEnabled,
   }
 })
@@ -185,6 +231,9 @@ describe('OutputsDock analyse convergence', () => {
     mockIsV5CanonicalAnalysisEnabled.mockReturnValue(false)
     mockIsV5Eligible.mockReturnValue({ eligible: false, reason: 'flag_off' } as any)
     mockUsePreAnalysisData.mockReturnValue({})
+    mockIsAiPanelV2Enabled.mockReturnValue(true)
+    mockConversation.dispatchAction = vi.fn()
+    mockFlushPendingSaves.mockReset().mockResolvedValue(undefined)
 
     useCanvasStore.setState({
       currentScenarioFraming: null,
@@ -209,6 +258,9 @@ describe('OutputsDock analyse convergence', () => {
       _runAnalysis: null,
       _sendChip: null,
       _scrollToPatch: null,
+      _dispatchAction: null,
+      _prefillChat: null,
+      _registrationToken: null,
     })
   })
 
@@ -240,7 +292,7 @@ describe('OutputsDock analyse convergence', () => {
       mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
       mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
 
-      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+      mockConversation.dispatchAction = dispatchAction
 
       renderOutputsDock()
       fireEvent.click(expandDockFromRail())
@@ -263,7 +315,7 @@ describe('OutputsDock analyse convergence', () => {
     // fallback fired; with the fallback deleted there is nothing to fall back to,
     // and the surviving test above pins the only path that exists.
 
-        it('REFUSES to run when the canonical flag is on but no _dispatchAction is registered', async () => {
+    it('REFUSES without fallback when the conversation host has no dispatcher', async () => {
       // INVERTED DELIBERATELY. This test used to assert the opposite — that the
       // dock "falls back to direct V2" — and that fallback was the defect: a
       // DIRECT browser->PLoT /v2/run bypassing the CEE orchestration seam,
@@ -271,16 +323,14 @@ describe('OutputsDock analyse convergence', () => {
       // product silently ran a different, unorchestrated analysis and presented
       // it as the canonical one.
       //
-      // Canonical-on is the deployed posture, so reaching here means the
-      // dispatcher genuinely is not ready. Running nothing and saying so is the
-      // honest outcome.
-      const runV2Analysis = vi.fn()
+      // This is a missing HOST callback, not merely an unmounted transcript.
+      // Keep the refusal for a broken host seam while the zero-chat controls
+      // below prove a valid host can run without transcript registration.
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'))
       mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
       mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
 
-      // Note: _dispatchAction NOT set — simulates ConversationPanel not yet
-      // mounted or registered.
-      useGuidanceStore.setState({ _dispatchAction: null } as any)
+      mockConversation.dispatchAction = null
 
       renderOutputsDock()
       const runner = getCanonicalRunner()
@@ -304,7 +354,248 @@ describe('OutputsDock analyse convergence', () => {
         status: 'unavailable',
         reason: RUN_DISPATCHER_UNAVAILABLE_REASON,
       })
-      expect(runV2Analysis).not.toHaveBeenCalled()
+      expect(mockConversation.sendMessage).not.toHaveBeenCalled()
+      expect(mockRevealOlumi).not.toHaveBeenCalled()
+      expect(fetchSpy.mock.calls.filter(([input]) =>
+        String(input instanceof Request ? input.url : input).includes('/v2/run'),
+      )).toHaveLength(0)
+    })
+
+    /**
+     * ⚠ THE TITLE USED TO SAY "without transcript registration", AND THAT HALF
+     * IS NO LONGER TRUE OF THE PROVIDER HOST. `OlumiTabBody` now registers
+     * `_dispatchAction` on the EMPTY-conversation branch, because that is the
+     * only bridge carrying `action_type` / `parameters.chip_id` / `source`
+     * — without it a coaching click on a fresh chat fell to `_sendMessage`,
+     * which drops all three while still returning something.
+     *
+     * ⚠⚠ AND MY FIRST SPLIT OF THIS ASSERTION WAS WEAKER THAN THE LINE IT
+     * REPLACED — corrected here after review, because the docblock that stood
+     * in this place claimed the guard was UNCHANGED and it was not.
+     *
+     * The original `expect(_dispatchAction).toBeNull()` did more than record a
+     * value: **null cannot be called**, so a run routed through the store was
+     * STRUCTURALLY IMPOSSIBLE. Replacing it with `typeof === 'function'` kept
+     * the shape and dropped the impossibility — and because the registered
+     * dispatcher forwards to the SAME mock the host path uses, a genuine leak
+     * through `useGuidanceStore.getState()._dispatchAction` would have satisfied
+     * every surviving assertion, call count included.
+     *
+     * ⛔ WORSE, THE ONLY THING REDDING THAT LEAK WAS AN ACCIDENT. The host
+     * double was `vi.fn()`, which returns `undefined`, and `OlumiTabBody.tsx:120`
+     * calls `.catch` on the result — so the store route threw a TypeError. A
+     * later author "tidying" that double to an async one (the shape this PR's
+     * own new spec already uses) would have made the leak completely invisible.
+     * The double is async here now, deliberately, so the guard can no longer
+     * rest on a thrown type error.
+     *
+     * ⭐ THE DISCRIMINATION IS RESTORED BY IDENTITY, NOT BY SHAPE: the store's
+     * dispatcher is swapped for its own spy after mount, and the run must leave
+     * that spy UNCALLED. A leak now fails on the spy rather than on a
+     * coincidence, and the assertion no longer depends on what a double returns.
+     */
+    it.each([
+      { host: 'provider', aiPanelV2: true, storeDispatcherRegistered: true },
+      { host: 'legacy', aiPanelV2: false, storeDispatcherRegistered: false },
+    ])('$host: a zero-chat graph dispatches once through the host dispatcher and reveals Olumi', async ({ aiPanelV2, storeDispatcherRegistered }) => {
+      mockIsAiPanelV2Enabled.mockReturnValue(aiPanelV2)
+      // ⚠ ASYNC ON PURPOSE — see the docblock. A bare `vi.fn()` returns
+      // `undefined`, and the store route calls `.catch` on it, so a leak RED'd
+      // by TypeError rather than by any assertion here.
+      const dispatchAction = vi.fn(async () => {})
+      // The mock slot is typed `ReturnType<typeof vi.fn> | null`, which is
+      // `Mock<any[], unknown>`; an async zero-arg double narrows to
+      // `Mock<[], Promise<void>>` and does not assign. Cast at the seam rather
+      // than widen the double — the async return is the point (see docblock).
+      mockConversation.dispatchAction = dispatchAction as unknown as ReturnType<typeof vi.fn>
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'))
+
+      renderOutputsDock()
+      const runner = getCanonicalRunner()
+      expect(runner).not.toBeNull()
+      expect(mockConversation.messages).toEqual([])
+      expect(useCanvasStore.getState().nodes.length).toBeGreaterThan(0)
+
+      // Registration is this PR's capability: the fresh, empty chat must own a
+      // store dispatcher on the provider host and must not on legacy.
+      const registered = useGuidanceStore.getState()._dispatchAction
+      if (storeDispatcherRegistered) expect(typeof registered).toBe('function')
+      else expect(registered).toBeNull()
+
+      // Swap it for a spy of our own so the run cannot reach the host through
+      // it and look identical. Bound by identity: this spy is reachable ONLY
+      // via the store slot.
+      const storeDispatcherSpy = vi.fn(async () => {})
+      if (storeDispatcherRegistered) {
+        useGuidanceStore.setState({ _dispatchAction: storeDispatcherSpy })
+      }
+      expect(mockRevealOlumi).not.toHaveBeenCalled()
+
+      let outcome
+      await act(async () => {
+        outcome = await runner!({ source: 'node-chip', parameters: { chip_id: 'decision_run_analysis' } })
+      })
+
+      expect(outcome).toEqual({ status: 'dispatched' })
+      expect(mockFlushPendingSaves).toHaveBeenCalledTimes(1)
+      expect(dispatchAction).toHaveBeenCalledTimes(1)
+      expect(dispatchAction).toHaveBeenCalledWith({
+        action_type: 'run_analysis',
+        parameters: { chip_id: 'decision_run_analysis' },
+        label: 'Run analysis',
+        message: 'Run analysis',
+        source: 'chip',
+      })
+      // ⭐ THE DISCRIMINATION. The run reached the HOST dispatcher; it must not
+      // have reached the store's.
+      expect(storeDispatcherSpy).not.toHaveBeenCalled()
+      expect(mockConversation.sendMessage).not.toHaveBeenCalled()
+      expect(mockConversation.sendChip).not.toHaveBeenCalled()
+      expect(mockRevealOlumi).toHaveBeenCalledTimes(1)
+      expect(dispatchAction.mock.invocationCallOrder[0]).toBeLessThan(mockRevealOlumi.mock.invocationCallOrder[0])
+      expect(fetchSpy.mock.calls.filter(([input]) =>
+        String(input instanceof Request ? input.url : input).includes('/v2/run'),
+      )).toHaveLength(0)
+    })
+
+    it('waits for the save barrier and then uses the latest host dispatcher', async () => {
+      let finishSave!: () => void
+      mockFlushPendingSaves.mockImplementation(() => new Promise<void>((resolve) => { finishSave = resolve }))
+      const dispatchAction = vi.fn()
+      mockConversation.dispatchAction = dispatchAction
+      const mounted = renderOutputsDock()
+      const runner = getCanonicalRunner()
+      expect(runner).not.toBeNull()
+
+      const pendingRun = runner!()
+      expect(mockFlushPendingSaves).toHaveBeenCalledTimes(1)
+      expect(dispatchAction).not.toHaveBeenCalled()
+      expect(mockRevealOlumi).not.toHaveBeenCalled()
+
+      // A host update during the save must reach the already-started runner.
+      // Reusing its render-time callback would dispatch into the old owner.
+      const latestDispatchAction = vi.fn()
+      mockConversation.dispatchAction = latestDispatchAction
+      mounted.rerender(
+        <ConversationProvider>
+          <OutputsDock />
+        </ConversationProvider>,
+      )
+      expect(latestDispatchAction).not.toHaveBeenCalled()
+
+      await act(async () => {
+        finishSave()
+        expect(await pendingRun).toEqual({ status: 'dispatched' })
+      })
+      expect(dispatchAction).not.toHaveBeenCalled()
+      expect(latestDispatchAction).toHaveBeenCalledTimes(1)
+      expect(mockRevealOlumi).toHaveBeenCalledTimes(1)
+    })
+
+    it.each([
+      { host: 'provider', aiPanelV2: true },
+      { host: 'legacy', aiPanelV2: false },
+    ])('$host: unmounting during a save refuses the pending run without dispatch or reveal', async ({ aiPanelV2 }) => {
+      mockIsAiPanelV2Enabled.mockReturnValue(aiPanelV2)
+      let finishSave!: () => void
+      mockFlushPendingSaves.mockImplementationOnce(() => new Promise<void>((resolve) => { finishSave = resolve }))
+      const dispatchAction = vi.fn()
+      mockConversation.dispatchAction = dispatchAction
+      const mounted = renderOutputsDock()
+      const runner = getCanonicalRunner()
+      expect(runner).not.toBeNull()
+
+      const pendingRun = runner!()
+      expect(mockFlushPendingSaves).toHaveBeenCalledTimes(1)
+      expect(dispatchAction).not.toHaveBeenCalled()
+      expect(mockRevealOlumi).not.toHaveBeenCalled()
+
+      mounted.unmount()
+      expect(getCanonicalRunner()).toBeNull()
+
+      await act(async () => {
+        finishSave()
+        expect(await pendingRun).toEqual({
+          status: 'unavailable',
+          reason: RUN_DISPATCHER_UNAVAILABLE_REASON,
+        })
+      })
+      expect(getCanonicalRunner()).toBeNull()
+      expect(dispatchAction).not.toHaveBeenCalled()
+      expect(mockRevealOlumi).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      { host: 'provider', aiPanelV2: true },
+      { host: 'legacy', aiPanelV2: false },
+    ])('$host: a replacement host cannot revive an unmounted pending run but can run independently', async ({ aiPanelV2 }) => {
+      mockIsAiPanelV2Enabled.mockReturnValue(aiPanelV2)
+      let finishSave!: () => void
+      mockFlushPendingSaves.mockImplementationOnce(() => new Promise<void>((resolve) => { finishSave = resolve }))
+      const oldDispatchAction = vi.fn()
+      mockConversation.dispatchAction = oldDispatchAction
+      const mounted = renderOutputsDock()
+      const oldRunner = getCanonicalRunner()
+      expect(oldRunner).not.toBeNull()
+
+      const pendingRun = oldRunner!()
+      expect(mockFlushPendingSaves).toHaveBeenCalledTimes(1)
+      mounted.unmount()
+      expect(getCanonicalRunner()).toBeNull()
+
+      const newDispatchAction = vi.fn()
+      mockConversation.dispatchAction = newDispatchAction
+      renderOutputsDock()
+      const newRunner = getCanonicalRunner()
+      expect(newRunner).not.toBeNull()
+      expect(newRunner).not.toBe(oldRunner)
+
+      // The old continuation must remain invalid even with a live replacement.
+      await act(async () => {
+        finishSave()
+        expect(await pendingRun).toEqual({
+          status: 'unavailable',
+          reason: RUN_DISPATCHER_UNAVAILABLE_REASON,
+        })
+      })
+      expect(oldDispatchAction).not.toHaveBeenCalled()
+      expect(newDispatchAction).not.toHaveBeenCalled()
+      expect(mockRevealOlumi).not.toHaveBeenCalled()
+      expect(getCanonicalRunner()).toBe(newRunner)
+
+      // Positive control: the replacement's own runner still saves and dispatches.
+      await act(async () => {
+        expect(await newRunner!({ source: 'node-chip', parameters: { chip_id: 'decision_run_analysis' } }))
+          .toEqual({ status: 'dispatched' })
+      })
+      expect(mockFlushPendingSaves).toHaveBeenCalledTimes(2)
+      expect(oldDispatchAction).not.toHaveBeenCalled()
+      expect(newDispatchAction).toHaveBeenCalledTimes(1)
+      expect(newDispatchAction).toHaveBeenCalledWith({
+        action_type: 'run_analysis',
+        parameters: { chip_id: 'decision_run_analysis' },
+        label: 'Run analysis',
+        message: 'Run analysis',
+        source: 'chip',
+      })
+      expect(mockRevealOlumi).toHaveBeenCalledTimes(1)
+    })
+
+    it('refuses a failed save without host dispatch or reveal', async () => {
+      mockFlushPendingSaves.mockRejectedValue(new Error('save unavailable'))
+      const dispatchAction = vi.fn()
+      mockConversation.dispatchAction = dispatchAction
+      renderOutputsDock()
+      const runner = getCanonicalRunner()
+      expect(runner).not.toBeNull()
+
+      expect(await runner!()).toEqual({
+        status: 'blocked',
+        reason: 'Could not save your latest changes. Check your connection and try again.',
+      })
+      expect(mockFlushPendingSaves).toHaveBeenCalledTimes(1)
+      expect(dispatchAction).not.toHaveBeenCalled()
+      expect(mockRevealOlumi).not.toHaveBeenCalled()
     })
   })
 
@@ -415,7 +706,7 @@ describe('OutputsDock analyse convergence', () => {
       const dispatchAction = vi.fn()
       mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
       mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
-      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+      mockConversation.dispatchAction = dispatchAction
 
       renderOutputsDock()
       const runner = getCanonicalRunner()
@@ -446,7 +737,7 @@ describe('OutputsDock analyse convergence', () => {
       const dispatchAction = vi.fn()
       mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
       mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
-      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+      mockConversation.dispatchAction = dispatchAction
       useCanvasStore.setState({ goalThreshold: 60 } as any)
 
       renderOutputsDock()
@@ -467,7 +758,7 @@ describe('OutputsDock analyse convergence', () => {
       const dispatchAction = vi.fn()
       mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
       mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
-      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+      mockConversation.dispatchAction = dispatchAction
       useSuccessMeasureStore.getState()._reset()
       useCanvasStore.setState({ goalThreshold: 60, ceeAnalysisReady: null } as any)
 
@@ -511,7 +802,7 @@ describe('OutputsDock analyse convergence', () => {
       const runV2Analysis = vi.fn()
       mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
       mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
-      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+      mockConversation.dispatchAction = dispatchAction
       seedPreparingWithReport()
 
       renderOutputsDock()

@@ -52,6 +52,7 @@ import { usePopoverHover } from '../hooks/usePopoverHover'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
+import { goalConstraintText } from '../utils/goalConstraintText'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 import { formatGoalProbability } from '../../components/results/utils/displayFloors'
 
@@ -186,6 +187,7 @@ export const GoalNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.goal
   const displayMetadata = useNodeDisplayMetadata(props.id, 'goal')
 
+  const nodes = useCanvasStore(state => state.nodes)
   const report = useCanvasStore(state => state.results.report)
   const resultsStatus = useCanvasStore(state => state.results.status)
   const viewMode = useCanvasStore(state => state.viewMode)
@@ -528,11 +530,11 @@ export const GoalNode = memo((props: NodeProps) => {
     stabilityValue !== null ||
     (activeConstraints && activeConstraints.length > 0) ||
     hasConstraintDefaultWarning ||
-    (hasThreshold && isPostAnalysis)
+    hasThreshold
   )
 
-  // Popover trigger: only for goals with threshold, post-analysis
-  const showPopoverTrigger = hasThreshold && isPostAnalysis && hasLayer2
+  // Recorded constraints are useful while framing, even without a numerical target.
+  const showPopoverTrigger = hasLayer2
 
   // ----- Layer 2 content (shared between popover and Detailed inline) -----
   const layer2Content = hasLayer2 ? (
@@ -564,10 +566,11 @@ export const GoalNode = memo((props: NodeProps) => {
               : prob >= 0.7 ? 'border-success/40 text-success'
               : prob >= 0.4 ? 'border-warning/40 text-warning'
               : 'border-danger/40 text-danger'
-            const badgeAriaLabel = `Constraint: ${c.operator} ${c.label}${prob !== null ? `, ${Math.round(prob * 100)}% probability` : ''}`
+            const constraintText = goalConstraintText(c, nodes)
+            const badgeAriaLabel = `${constraintText}${prob !== null ? `, ${Math.round(prob * 100)}% probability` : ''}`
             return (
               <div key={c.id ?? i} className={`flex items-center justify-between gap-1 px-1.5 py-0.5 bg-panel border rounded-full ${colourClass}`} aria-label={badgeAriaLabel}>
-                <span className={`${typography.edgeLabel} truncate`}>{c.operator} {c.label}</span>
+                <span className={`${typography.edgeLabel} break-words`}>{constraintText}</span>
                 {prob !== null && <span className={`${typography.edgeLabel} font-mono shrink-0`}>{Math.round(prob * 100)}%</span>}
               </div>
             )
@@ -592,6 +595,10 @@ export const GoalNode = memo((props: NodeProps) => {
             <NodeChip chipId="goal_why_so_low" actionType="explain_results" label="Why is this so low?" message="Why is the probability of reaching my goal target so low? What are the main drivers?" />
           )}
           <NodeChip chipId="goal_target_realistic" actionType={null} label="Is my target realistic?" message="Is my current goal target realistic given the factors in my model? What would be a more achievable target?" />
+          {/* ⛔ "Is this the real goal?" HAS MOVED TO THE CARD BODY and out of
+              this gate. It is the only chip here that does not interrogate the
+              NUMBER, so `hasThreshold` was the wrong home for it — see the body
+              render for the measurement. */}
         </div>
       )}
     </>
@@ -860,6 +867,42 @@ export const GoalNode = memo((props: NodeProps) => {
             <NodeChip chipId="goal_run_analysis" actionType="run_analysis" label="Run analysis" message="Run the analysis now" />
           </div>
         )}
+
+        {/* ⭐⭐ "IS THIS THE REAL GOAL?" ON THE CARD, AND NO LONGER GATED ON A TARGET.
+
+            TWO defects, and the second is the expensive one.
+
+            1. LOCATION. It sat in `layer2Content`, which reaches the screen only
+               via `isDetailed` inline or a hover `NodePopover` — and
+               `NodePopover.tsx:129` is `if (!visible) return null`, so at rest its
+               children are ABSENT FROM THE DOM. Measured on deployed `9748b336`,
+               Standard view: `Is this the real goal` **0**, with 71
+               `react-flow__node` and 26 `Influence` as contrast controls.
+
+            2. ⭐ THE GATE WAS BACKWARDS. It lived inside `{hasThreshold && …}`,
+               and `hasThreshold = !canCaptureTarget` — so the question became
+               reachable ONLY ONCE A NUMERIC TARGET WAS COMMITTED. Asking whether
+               the goal is the real goal is worth most BEFORE the user commits to
+               a measure for it; after that the proxy is already load-bearing and
+               every option and factor downstream has been optimised against it.
+               The gate made the question available exactly when it was least
+               useful. Witnessed live: a goal reading "Target not captured" —
+               i.e. the ideal moment to ask — offered nothing.
+
+            THE PRECEDENT IS DIRECTLY ABOVE. `goal_run_analysis` is already on
+            this card face, for the reason its comment gives: "moving it to a
+            hover popover would make it nearly undiscoverable for first-time
+            users." That argument is not weaker for the question that decides
+            whether the whole model is aimed at the right thing.
+
+            ⚠ NO CONFLICT WITH `noTargetStatusChip`, checked rather than assumed.
+            That chip renders on `canCaptureTarget`, which is `!hasThreshold` —
+            so it holds this card face precisely when the old gate suppressed
+            this question. The two are complementary, and together they read as
+            one thought: no target set yet, and is this even the right goal. */}
+        <div className="mt-1.5 flex gap-1 flex-wrap">
+          <NodeChip chipId="goal_is_this_the_real_goal" actionType={null} label="Is this the real goal?" message="Is this goal the outcome we actually want, or a measurable proxy for it? What would we be optimising away if we treated this as the objective?" />
+        </div>
 
         {/* Coaching chip "Is my target realistic?" moved to popover (Standard)
             / Detailed inline layer-2. See `layer2Content` above. */}

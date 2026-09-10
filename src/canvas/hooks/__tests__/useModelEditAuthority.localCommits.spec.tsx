@@ -141,10 +141,39 @@ describe('proposeFactorConfirmation — honours only what it can honour', () => 
   })
 })
 
-describe('proposeOptionIntervention — honours only what it can honour', () => {
-  it('POSITIVE CONTROL: it does commit on the case it is FOR', () => {
-    expect(authorityFor(OPTION).current.proposeOptionIntervention(FACTOR, 0.75)).toBe('committed')
-    expect(interventionsOf(OPTION)[FACTOR]).toBe(0.75)
+/**
+ * ⭐ THIS BLOCK CHANGED SHAPE WITH schemas 0.54.0, AND THE OLD ASSERTIONS WERE
+ * RIGHT WHEN WRITTEN.
+ *
+ * It used to assert `'committed'` and a local `interventions` write, because the
+ * gesture had no wire carrier and a local write was the only honest thing it
+ * could do. `option_intervention_edit` is that carrier, so the gesture now
+ * DISPATCHES and writes nothing locally — the applied response owns the store,
+ * exactly as `proposeGoalTarget` does on this same surface.
+ *
+ * This file mocks the conversation away (`useOptionalConversationContext:
+ * () => undefined`), so what it can still prove is the FLOOR: with no
+ * conversation to send through, nothing is dispatched AND nothing is written.
+ * The dispatch behaviour itself is asserted in
+ * `useModelEditAuthority.optionIntervention.spec.tsx`, which supplies one.
+ *
+ * ⚠ AND THE REFUSAL HERE IS `not_encodable`, NOT `needs_fresh_base`, ALTHOUGH
+ * THIS STORE ALSO HOLDS NO SERVER BASE HASH — which is the whole point of the
+ * order the authority asks its questions in. `needs_fresh_base` promises the
+ * user an action (any turn refreshes the base) and that action exists only where
+ * there is a conversation to run it. With none, offering it would be a recovery
+ * pointing at nothing. The recoverable refusal is asserted where it is real, in
+ * the sibling spec that supplies a conversation.
+ */
+describe('proposeOptionIntervention — with no conversation, nothing happens anywhere', () => {
+  it('refuses rather than falling back to a local write', () => {
+    // The old behaviour is the failure mode now: a local write with no dispatch
+    // is a number on screen the server never heard about, behind a control that
+    // looks like it saved.
+    expect(authorityFor(OPTION).current.proposeOptionIntervention(FACTOR, 0.75)).toBe(
+      'not_encodable',
+    )
+    expect(interventionsOf(OPTION)[FACTOR]).toBe(0.2)
   })
 
   it('refuses a factor that is NOT IN THE MODEL — the entry would surface as a raw id', () => {
@@ -152,7 +181,6 @@ describe('proposeOptionIntervention — honours only what it can honour', () => 
       'not_encodable',
     )
     expect(Object.keys(interventionsOf(OPTION))).not.toContain('fac_deleted')
-    // The pre-existing entry is untouched — the refusal is a no-op, not a reset.
     expect(interventionsOf(OPTION)[FACTOR]).toBe(0.2)
   })
 

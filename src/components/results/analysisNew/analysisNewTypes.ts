@@ -944,6 +944,32 @@ export interface AtAGlance {
   /** The current read. Absent when no producer licenses a synthesis. */
   headline: string | null
   /**
+   * ⭐ WHY THE HEADLINE IS ABSENT, IN THE PRODUCER'S OWN WORDS — the slot that
+   * makes a refusal legible. `heroTypes.ts:411-412` states the hazard this
+   * closes: "The withheld headline … is SILENCE, not a denial, and silence is
+   * indistinguishable from an ordinary run."
+   *
+   * Non-null ONLY when the model itself refused to license a comparative leader
+   * claim AND published the conjunct saying so. Three narrower statements, each
+   * load-bearing:
+   *
+   * 1. It is the `permitted_analysis_mode` conjunct, SELECTED BY `field` — never
+   *    `reasons[0]`, which on the live wire is the AFFIRMATIVE `READY_TO_COMPARE`
+   *    ("Analysis can run on this model as it stands"). `buildHeroModel.ts:952`
+   *    reads position and therefore renders the affirmative sentence into its
+   *    withheld slot; measured on staging `103ac4fd`, 2026-09-09.
+   * 2. It is `null` when the admission is ABSENT. Absence is not a refusal —
+   *    `invalidateAnalysisReady` nulls `ceeAnalysisReady` on every analytical
+   *    edit (`store.ts:1893-1904`), so this state is reached on the user's own
+   *    keystroke, measured live at +300ms after a factor edit.
+   * 3. It is `null` when the headline is absent for a DIFFERENT reason — arms
+   *    that did not separate. `leaderDesignationPermitted` is
+   *    `modelLicensesComparativeClaim && resultSeparatesArms`, so its falsity has
+   *    two causes and this field explains only the first. The second is a real
+   *    remaining gap, named rather than papered over.
+   */
+  designationWithheldReason: string | null
+  /**
    * The leading option's LABEL alone, so the surface can typeset the name as
    * the answer and choose its own framing verb. Same source as `headline`
    * (`recommendation.recommendedOption.label`) under the same entitlement — it

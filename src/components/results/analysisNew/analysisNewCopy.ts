@@ -913,6 +913,36 @@ export const ANALYSIS_NEW_COPY = {
      * and suppressed by many browsers. Rendered only while the filter is on.
      */
     toVerifyNarrowed: 'Showing only factors carrying a number nobody has confirmed.',
+    /**
+     * ⚠⚠ `noValueCount`, NOT `noValue` — AND THE NAME IS THE FIX FOR A DEFECT
+     * I SHIPPED INTO THIS FILE WHILE WRITING THE COMMENT BELOW ABOUT EXACTLY
+     * THIS TRAP. `modelStrip.noValue` ALREADY EXISTS twenty lines up as the
+     * DETAIL panel's `'No value set'` string. A duplicate literal key silently
+     * won at runtime, the detail's value line rendered a function, and three
+     * existing specs went red — `modelStripFactorValueEdit` twice and
+     * `stripDetailReflectsTheEdit` once. They were green at pristine, so the
+     * regression was mine and the baseline is what proved it.
+     * Two questions under one name (trap 21): *what does this cell say when a
+     * factor has no value?* and *how many factors have none?*
+     *
+     * ⭐ THE OTHER HALF OF THE SENTENCE DIRECTLY ABOVE. `toVerify`'s own note
+     * says it "says nothing about the factors with no number at all — those
+     * are excluded by the predicate's value guard and are a different question
+     * the Model tab names `no-value`". This is that question, and the wording
+     * is NOT invented here: `ModelOutline.unsetSummary` already renders
+     * `${nothing} with no value yet` on the Model tab, so the two surfaces name
+     * one state with one phrase rather than teaching two vocabularies.
+     *
+     * ⚠ A COUNT, NEVER A JUDGEMENT. It says N factors carry nothing; it does
+     * not say the model is incomplete, and it excludes factors Olumi has
+     * estimated — those have text and are a different clause on the Model tab.
+     */
+    noValueCount: (n: number) =>
+      n === 1 ? '1 with no value yet' : `${n} with no value yet`,
+    /** Label-in-name, exactly as `toVerifyToggleName`. */
+    noValueToggleName: (n: number) =>
+      `${n === 1 ? '1 with no value yet' : `${n} with no value yet`} — show only these factors`,
+    noValueNarrowed: 'Showing only factors that carry no value at all.',
     /** A row is a filter. Accessible name; the row's own word is the visible half. */
     onlyKind: (label: string) => `Show only ${label}`,
     /**
@@ -969,6 +999,18 @@ export const ANALYSIS_NEW_COPY = {
      */
     eyebrowLeading: 'Most likely to serve your goal',
     /**
+     * The label above the producer's own refusal sentence. FURNITURE ONLY —
+     * this surface naming its own slot. The claim itself is never authored
+     * here: it arrives on `analysis_admission.reasons[]` and is rendered
+     * unparaphrased, so the product cannot soften or overstate what the model
+     * actually refused.
+     *
+     * ⚠ NOT "why there is no leading option" — `noWinnerVocabulary.spec.ts`
+     * bans that phrase and is RIGHT to: the panel does not report a contest.
+     * What the admission governs is which CONCLUSIONS this run permits.
+     */
+    eyebrowWhyWithheld: 'What this run may not conclude',
+    /**
      * ⚠ STILL LIVE, AND ITS ONLY CONSUMER IS NOW `ModelStrip`'s per-node chip —
      * a standalone claim that the run ranked this node among its top drivers.
      * The glance's own driver LIST, which this used to head, was removed at
@@ -982,13 +1024,18 @@ export const ANALYSIS_NEW_COPY = {
      * `basisRelativeExplain` DELETED with the glance's driver list — they were
      * that list's cap disclosure and its basis caption, and nothing else read
      * them. `basisAbsoluteExplain`'s SENTENCE survives, relocated verbatim to
-     * `coverage.structuralInfluence`, because the claim it makes is still owed
-     * to the reader; it is now a visible caveat on the drivers section rather
-     * than a `title` tooltip the touch reader could never open.
+     * `coverage.structuralInfluence`. ⚠⚠ THIS USED TO END "because the claim it
+     * makes is still owed to the reader; it is now a visible caveat on the
+     * drivers section rather than a `title` tooltip the touch reader could
+     * never open" — FALSE since #1228 and corrected 7 Sep 2026. The relocated
+     * sentence reached only runs with no bars, and `driversCaveat` now withholds
+     * the basis line there; see that constant's own block for where the claim
+     * IS still made (per row, on `driverFinding.groundedIn`).
      *
-     * The set-relative half of that caption is not lost either: the drivers
-     * section has always carried `coverage.setRelativeInfluence`, which is the
-     * same claim in the place the bars now live.
+     * The set-relative half of that caption is not lost: the drivers section
+     * carries `coverage.setRelativeInfluence` wherever bars are drawn, which is
+     * the same claim in the place the bars now live. Since #1228 it is the ONLY
+     * basis sentence this panel renders.
      */
   },
 
@@ -1185,24 +1232,38 @@ export const ANALYSIS_NEW_COPY = {
     setRelativeInfluence:
       'Influence is relative to the other factors in this run, not a share of the outcome.',
     /**
-     * ⭐ THE OTHER BRANCH OF THE SAME QUESTION, AND IT HAD NO VISIBLE ANSWER.
-     * `setRelativeInfluence` fires when any row is `normalised_elasticity`; a
-     * run where EVERY row is `influence_score` got no basis line at all on this
-     * tab. The only place that said so was the glance's basis caption, whose
-     * explanation was a `title` tooltip — unreachable on touch — and the glance
-     * driver list has now been removed. This is that disclosure, made visible
-     * and moved to the section that still renders the bars.
+     * ⛔⛔ THIS SENTENCE REACHES NO SCREEN, DELIBERATELY, AND THE SUITE PINS
+     * THAT — `theBasisLineHasNoReferentWithoutBars` in
+     * `driversSeamSaysOneThing.spec.tsx` REDs the day it renders again.
      *
-     * ⚠⚠ THE SENTENCE IS CONDITIONAL AND MUST STAY SO. It is TRUE only where
-     * `influenceIsSetRelative` is false. A brief for this work proposed stating
-     * in the section SUBTITLE that the figure is structural and that a re-run
-     * never moves it; that is false on the elasticity branch, where the figure
-     * IS a run output, and an unconditional subtitle cannot tell the two apart.
-     * `driversSeamSaysOneThing.spec.tsx` holds the pair.
+     * ⚠⚠ THE DOCBLOCK THAT STOOD HERE WAS FALSE, AND IT IS THE REASON THE
+     * SENTENCE SHIPPED OVER AN EMPTY STATE. It opened "`setRelativeInfluence`
+     * fires when any row is `normalised_elasticity`; a run where EVERY row is
+     * `influence_score` got no basis line at all on this tab." That was true
+     * until #1228, which measured that `influence_score` is the producer's
+     * normalisation against `max|influence|` and made `influenceIsSetRelative`
+     * equal `drivers.length > 0`. From that commit on, this arm was reachable
+     * ONLY on a run with ZERO driver rows — where its own first two words,
+     * "Each bar", refer to bars that were never drawn.
      *
-     * ⚠ NOT RESPELLED. This is `glance.basisAbsoluteExplain`'s sentence,
-     * relocated verbatim with its render; `panelCopyNamesOlumiNotTheProducer`
-     * follows it here.
+     * MEASURED at `cdd2f9d8`, rendering `AnalysisNewTabBody` with `drivers: []`:
+     * this sentence rendered directly above "This run did not return factor
+     * influence.", with no chart. `driversCaveat` now withholds the whole basis
+     * line when nothing is on display, which is what makes this arm unreachable.
+     *
+     * ⭐ RETAINED ON PURPOSE, NOT LEFT BEHIND. The noun it carries — "Olumi's
+     * structural influence score" — IS rendered, per row, by
+     * `driverFinding.groundedIn` and its `Basis` inspect row, and
+     * `driversSeamSaysOneThing` binds that row's noun to THIS constant so the
+     * two cannot drift into two spellings of one quantity (CLAUDE.md trap 12).
+     * `panelCopyNamesOlumiNotTheProducer` pins the same words here. Deleting the
+     * constant would force both to retype the sentence and rebuild the mirror.
+     *
+     * ⚠ IF YOU MAKE IT REACHABLE AGAIN, REWRITE IT FIRST. As a section caveat
+     * it answers the QUANTITY question, which this surface must not answer —
+     * `driversSeamSaysOneThing` asserts the caveat names neither quantity, on
+     * either basis, because a caveat that names one is false for the run
+     * stamped the other.
      */
     structuralInfluence:
       "Each bar shows Olumi's structural influence score, scaled against the strongest factor in this run.",
@@ -1231,6 +1292,26 @@ export const ANALYSIS_NEW_COPY = {
      */
     notRanked: (n: number, reasons: readonly string[]) =>
       `${n} ${n === 1 ? 'factor is' : 'factors are'} not ranked here: ${reasons.join('; ')}.`,
+    /**
+     * ⛔ UNREACHABLE SINCE #1228, AND THAT IS A REPORTED FINDING RATHER THAN A
+     * DECISION THIS FIX MADE. `driversCaveat` reaches this arm only when
+     * `influenceIsSetRelative` is false, i.e. only on a run with no driver rows
+     * — and the basis line is now withheld entirely on such a run, because
+     * this sentence followed by an option label, sitting over "This run did not
+     * return factor influence.", was the same defect as the structural arm's
+     * (both reproduced at `cdd2f9d8`).
+     *
+     * ⚠ THE DISCLOSURE IS REAL AND IS NOW OWED NOWHERE. `data.sensitivityReference
+     * .optionLabel` is the producer naming the option sensitivities were measured
+     * against; it was designed to take PRECEDENCE over the structural basis noun,
+     * which stopped meaning anything when the scale sentence became unconditional.
+     * Whether it should instead be ADDITIVE alongside the scale line — the way
+     * `notRanked` is, since it answers a different question (trap 21) — is a
+     * product decision, deliberately NOT taken here.
+     *
+     * Kept, with `theBasisLineHasNoReferentWithoutBars` asserting the
+     * unreachability, so restoring it is a conscious act rather than a silent one.
+     */
     referencePrefix: 'Sensitivities are measured against',
   },
 
@@ -1330,14 +1411,39 @@ export const ANALYSIS_NEW_COPY = {
      */
     leader_tied: { label: 'No option is clearly most likely' },
     leader_not_assessed: {
-      label: 'Which option is most likely — not assessed',
       /**
-       * ⚠ THE SENTENCE MUST BLOCK BOTH MISREADINGS, not just one. "Not
-       * assessed" can be read as "they are level" (the tie this verdict is
-       * explicitly NOT entitled to claim) or as "it is fine". It says neither.
+       * ⚠⚠ "NOT ASSESSED" WAS FALSE ON A RUN THAT ASSESSED IT — WITNESSED, NOT
+       * REASONED ABOUT. Deployed `3b2df4ce`, guest, saved example, completed
+       * run. The producer returned:
+       *     option_comparison_status: 'computed'
+       *     leading_option_id:        'opt_rudderstack'
+       *     win probabilities         55.1% · 36.0% · 3.0% · 5.9%
+       * and the CANVAS was rendering those very percentages on the option nodes
+       * — while this row told the reader the comparison was "not assessed" and
+       * that "this run returned no comparison verdict".
+       *
+       * ⭐ THE MECHANISM IS RIGHT AND IS NOT CHANGED. `leader_not_assessed` is
+       * the deliberate third state (`buildAnalysisNewViewModel.ts:2410-2417`):
+       * `leaderDesignationPermitted` did not return true and `separation` was
+       * not `'tied'`, so the panel declines to name a leader. Declining is
+       * correct — we never name a leader we are not entitled to name.
+       *
+       * ⛔ WHAT WAS WRONG IS THE WORDS. WITHHELD IS NOT UNASSESSED — one name
+       * for two questions, this estate's signature defect. "Did Olumi assess
+       * it?" and "may this surface state the answer?" are different questions,
+       * and the copy answered the second by asserting a falsehood about the
+       * first. A reader who sees "no comparison verdict" beside four rendered
+       * percentages learns that the panel does not know what the engine did.
+       *
+       * ⚠ THE REPLACEMENT MUST BE TRUE IN BOTH POPULATIONS this state covers —
+       * a run that genuinely assessed nothing, AND a run that assessed and was
+       * withheld. "Not confirmed" holds for both; "not assessed" holds only for
+       * the first. Both misreadings the original sentence was written to block
+       * are still blocked: it is not a claim of a tie, and not an all-clear.
        */
+      label: 'Which option is most likely — not confirmed',
       meaning:
-        'This run returned no comparison verdict, so any ordering you see is unconfirmed — it is not a finding that the options are level.',
+        'Olumi could not confirm which option is most likely on this run, so any ordering you see is unconfirmed — it is not a finding that the options are level.',
     },
     robustness_robust: { label: 'Robust' },
     /**

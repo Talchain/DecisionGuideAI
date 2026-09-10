@@ -1,8 +1,7 @@
 import { memo, useMemo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
-import { NODE_REGISTRY } from '../domain/nodes'
-import type { RiskImpact } from '../domain/nodes'
+import { NODE_REGISTRY, RiskNodeDataSchema } from '../domain/nodes'
 import { calculateRiskSeverity, getRiskSeverityColors, cleanDisplayLabel } from '../utils/graphDisplayCalculations'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
@@ -22,13 +21,25 @@ import { NodeMetricRow, unconfirmedStrengthDisclosure } from './shared'
 export const RiskNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.risk
 
-  const probability = props.data?.probability as number | undefined
-  const impact = props.data?.impact as RiskImpact | undefined
+  // Read the existing input contract; malformed imports must not become a risk estimate.
+  const probabilityInput = RiskNodeDataSchema.shape.probability.safeParse(props.data?.probability)
+  const impactInput = RiskNodeDataSchema.shape.impact.safeParse(props.data?.impact)
+  const probability = probabilityInput.success ? probabilityInput.data : undefined
+  const impact = impactInput.success ? impactInput.data : undefined
   const severity = calculateRiskSeverity(probability, impact)
   const severityColors = getRiskSeverityColors(severity)
 
-  const cleanedLabel = cleanDisplayLabel(props.data?.label as string | undefined)
-  const cleanedData = { ...props.data, label: cleanedLabel || props.data?.label }
+  const cleanedLabel = cleanDisplayLabel(typeof props.data?.label === 'string' ? props.data.label : undefined)
+  const description = typeof props.data?.description === 'string' && props.data.description.trim() ? props.data.description : null
+  const body = typeof props.data?.body === 'string' && props.data.body.trim() ? props.data.body : null
+  const summary = description ?? body
+  // Compose only the display copy: both authored fields stay available through
+  // the existing chevron, while the canonical node and Ask context stay intact.
+  const fullDescription = description && body && body.trim() !== description.trim()
+    ? `${description}\n\n${body}`
+    : summary
+  const cleanedData = { ...props.data, label: cleanedLabel || 'Untitled risk', description: fullDescription ?? undefined }
+  const riskContext = fullDescription ? `\nRisk context: ${fullDescription}` : ''
 
   const edges = useCanvasStore(state => state.edges)
   const nodes = useCanvasStore(state => state.nodes)
@@ -164,14 +175,63 @@ export const RiskNode = memo((props: NodeProps) => {
   // degenerate question.
   const counterfactualQuestion = composeCounterfactualQuestion(topFactor?.connectedNodeLabel)
 
-  // Coaching chips — same pair in both phases. Body never renders chips
-  // directly; they live in popovers (Standard) or inline in Detailed view.
+  /**
+   * ⭐ ONE QUESTION REACHES THE CARD FACE. The rest stay in the popover.
+   *
+   * The line this replaces read "Body never renders chips directly; they live
+   * in popovers (Standard) or inline in Detailed view" — accurate, and the
+   * reason a real user in the DEFAULT view sees no coaching at all.
+   *
+   * MEASURED on deployed `9748b336`, Standard view, post-analysis, in the
+   * resting state (no hover): `What reduces this` **0**, `Explore mitigation`
+   * **0**, `What would we see first` **0**. Contrast controls in the same
+   * probe: 71 `react-flow__node` and 26 `Influence` — the probe could read the
+   * page. `NodePopover.tsx:129` is `if (!visible) return null`, so a hidden
+   * popover's children are ABSENT FROM THE DOM, not merely invisible.
+   *
+   * ⚠ AND THE SUITE CANNOT SEE THIS. `render-matrix.spec.tsx:66-70` MOCKS
+   * `NodePopover` into a plain always-rendering div — deliberately, so the
+   * content is readable without a 300ms hover delay. So "Standard post: same
+   * two chips" passes against content no user can reach without hovering.
+   * jsdom cannot prove visibility (CLAUDE.md trap 3); here the mock removes
+   * the very gate that hides the chips, so the test is green *because* of the
+   * thing that makes the defect invisible.
+   *
+   * The precedent is in this estate and this is the same move: `DecisionNode`
+   * put its pre-analysis pair on the card with the note "THE INVITATIONS
+   * BELONG ON THE CARD, NOT BEHIND A HOVER".
+   *
+   * WHY THE LEADING INDICATOR IS THE ONE PROMOTED: the other two both ask how
+   * to REDUCE the risk; only this one asks how you would KNOW it was
+   * happening, so without it a risk can reach a decision with no agreed
+   * trigger for acting on it. Promoted in BOTH phases — a leading indicator is
+   * as useful while framing as it is after a run.
+   *
+   * It is promoted, NOT duplicated: it leaves `riskPopoverChips` so hovering
+   * never shows the same question twice. Detailed view still renders all three
+   * inline and is unchanged.
+   */
+  const riskFaceChip = useMemo(() => (
+    <div className="flex gap-1 flex-wrap mt-1.5">
+      <NodeChip chipId="risk_leading_indicator" actionType={null} label="What would we see first?" message={`What early signs or leading indicators would tell us ${cleanedLabel || 'this risk'} is starting to happen, and what should trigger a response?${riskContext}`} />
+    </div>
+  ), [cleanedLabel, riskContext])
+
+  const riskPopoverChips = useMemo(() => (
+    <div className="flex gap-1 flex-wrap mt-1.5">
+      <NodeChip chipId="risk_what_reduces" actionType={null} label="What reduces this?" message={`What factors or actions could reduce ${cleanedLabel || 'this risk'}?${riskContext}`} />
+      <NodeChip chipId="risk_add_mitigation" actionType={null} label="Explore mitigation" message={`Suggest a mitigation strategy for ${cleanedLabel || 'this risk'}, and explain what it would change.${riskContext}`} />
+    </div>
+  ), [cleanedLabel, riskContext])
+
+  // Detailed view keeps all three inline, exactly as before.
   const riskChips = useMemo(() => (
     <div className="flex gap-1 flex-wrap mt-1.5">
-      <NodeChip chipId="risk_what_reduces" actionType={null} label="What reduces this?" message={`What factors or actions could reduce ${cleanedLabel || 'this risk'}?`} />
-      <NodeChip chipId="risk_add_mitigation" actionType={null} label="Add mitigation" message={`Suggest a mitigation strategy for ${cleanedLabel || 'this risk'}`} />
+      <NodeChip chipId="risk_what_reduces" actionType={null} label="What reduces this?" message={`What factors or actions could reduce ${cleanedLabel || 'this risk'}?${riskContext}`} />
+      <NodeChip chipId="risk_add_mitigation" actionType={null} label="Explore mitigation" message={`Suggest a mitigation strategy for ${cleanedLabel || 'this risk'}, and explain what it would change.${riskContext}`} />
+      <NodeChip chipId="risk_leading_indicator" actionType={null} label="What would we see first?" message={`What early signs or leading indicators would tell us ${cleanedLabel || 'this risk'} is starting to happen, and what should trigger a response?${riskContext}`} />
     </div>
-  ), [cleanedLabel])
+  ), [cleanedLabel, riskContext])
 
   // Severity badge — derived from node probability × impact via calculateRiskSeverity
   // (the existing probability×impact derivation, reused not re-added). P1.7: now
@@ -198,7 +258,7 @@ export const RiskNode = memo((props: NodeProps) => {
     impact ? `${impact.charAt(0).toUpperCase()}${impact.slice(1)} impact` : null,
   ].filter(Boolean).join(' · ')
   const riskExposureLine = exposureReadout ? (
-    <div className={`${typography.edgeLabel} text-text-light mt-1`}>{exposureReadout}</div>
+    <div className={`${typography.edgeLabel} text-text-light mt-1`}>Entered estimate · {exposureReadout}</div>
   ) : null
 
   // ----- Layer 2 content: post-analysis (shared between popover and Detailed inline) -----
@@ -288,6 +348,13 @@ export const RiskNode = memo((props: NodeProps) => {
           </span>
         ) : undefined}
       >
+        {/* Authored context stays compact; BaseNode's chevron retains the full description. */}
+        {summary && (
+          <p className={`${typography.nodeLabel} text-text-light m-0 mb-1 line-clamp-2 break-words whitespace-pre-wrap group-aria-expanded:hidden`} data-testid="risk-context-preview">
+            {summary}
+          </p>
+        )}
+
         {/* ===== LAYER 1: Standard body (always visible) ===== */}
 
         {/* Assumed bridge-strength percentage — honest in ALL states.
@@ -380,9 +447,10 @@ export const RiskNode = memo((props: NodeProps) => {
         {detailedMetrics && <div className="mt-1">{detailedMetrics}</div>}
         {riskExposureLine}
 
-        {/* Coaching chips moved to popovers — see `riskChips` useMemo above
-            and the popover branches at the bottom of this file. In Detailed
-            view they appear inline beneath layer-2 content. */}
+        {/* The leading-indicator question rides the CARD in Standard view; the
+            reduce/mitigate pair stays in the popover. Detailed renders all
+            three inline below. See `riskFaceChip` for the measurement. */}
+        {!isDetailed && riskFaceChip}
 
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) =====
             Graph v1.1 Task 4: align with wireframe v4. The severity badge now
@@ -403,12 +471,6 @@ export const RiskNode = memo((props: NodeProps) => {
         {/* Detailed view: coaching chips inline (Standard renders them in
             the popovers below). */}
         {isDetailed && riskChips}
-
-        {typeof props.data?.description === 'string' && props.data.description && (
-          <div className={`${typography.nodeLabel} opacity-70 mt-1`}>
-            {props.data.description}
-          </div>
-        )}
       </BaseNode>
 
       {/* ===== LAYER 2: Popover (Standard view, post-analysis, desktop hover) ===== */}
@@ -423,7 +485,7 @@ export const RiskNode = memo((props: NodeProps) => {
           {/* Severity badge lives in Layer 1 (Standard-visible, P1.7) — the popover
               carries only the post-analysis detail + coaching chips. */}
           {layer2ContentPost}
-          {riskChips}
+          {riskPopoverChips}
         </NodePopover>
       )}
 
@@ -439,7 +501,7 @@ export const RiskNode = memo((props: NodeProps) => {
           anchorRef={nodeElRef}
         >
           {preAnalysisPopoverContent}
-          {riskChips}
+          {riskPopoverChips}
         </NodePopover>
       )}
     </div>

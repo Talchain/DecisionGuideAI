@@ -35,6 +35,7 @@ import {
   type ValueProvenanceKind,
 } from '../domain/valueProvenance'
 import { KIND_LABEL } from './rowPresentation'
+import { UNCONFIRMED_ESTIMATE_LABEL } from '../domain/vocabulary'
 import type { DetailField, DetailTier, ModelRow, ModelRowDetail } from './types'
 
 /**
@@ -108,7 +109,14 @@ export interface ModelDetailRegionProps {
    * detail region each believing they have one. `factorId` identifies the row
    * BY IDENTITY, never by position in the list (trap 19).
    */
-  interventionEdit?: { factorId: string; draft: string } | null
+  interventionEdit?: {
+    factorId: string
+    draft: string
+    /** `pending` = the turn is with the server and the model does NOT hold it yet. */
+    phase?: 'editing' | 'pending' | 'queued'
+    /** Why nothing was sent. Present only on `editing`. */
+    notice?: string
+  } | null
   /** Begin editing one intervention target. Absent ⇒ the list is read-only. */
   onBeginInterventionEdit?: (factorId: string, seed: string) => void
   onInterventionDraftChange?: (factorId: string, draft: string) => void
@@ -268,6 +276,157 @@ export function ModelDetailRegion({
         <p data-testid="model-detail-v2-primary" className={`${typography.panelTabular} text-text-body`}>
           {row.primaryValue ?? 'Not set'}
         </p>
+        {/* ⭐⭐ "NOT SET" ANSWERS THE WRONG QUESTION FOR HALF THE ROWS THAT SHOW IT.
+            Two opposite situations render it, and a reader deciding what to do
+            next needs them apart:
+
+              nothing here at all — nobody has looked. THEY are the gap.
+              unquantified prior  — Olumi read the brief, found no figure, and
+                                    REFUSED TO INVENT ONE. The gap is known.
+
+            The second is a reasoning act by the producer and it is currently
+            invisible: measured on deployed `14276d5b`, four of five factors
+            carried `prior_is_unquantified` and the word appears nowhere on the
+            tab. The canvas node and the Inspector both distinguish it; the
+            surface built for READING your model did not.
+
+            ⚠ IT ADDS A LINE, IT DOES NOT REPLACE "Not set". The value really is
+            not set — that stays true and stays first. This says WHY, which is a
+            different claim and belongs in a different sentence.
+
+            ⚠ THE COPY CLAIMS ONLY WHAT THE FLAG LICENSES. `prior_is_unquantified`
+            says the producer recorded ignorance instead of a figure. It does NOT
+            license "your brief did not mention this" — that is a claim about the
+            brief, and this surface cannot see one. */}
+        {detail.priorIsExplicitlyUnquantified && (
+          <p
+            data-testid="model-detail-v2-unquantified"
+            className={`${typography.panelMeta} text-text-light`}
+          >
+            Olumi recorded this as unknown rather than assuming a figure.
+          </p>
+        )}
+
+        {/*
+          ⭐⭐ OLUMI'S ESTIMATE, IN FULL, WHERE A POINTER IS NOT REQUIRED TO READ IT.
+
+          ⚠⚠ THE DEFECT THIS CLOSES, MEASURED ON DEPLOYED `9748b336`: the outline's
+          `-value-estimate` hint rendered a `clientWidth` of **31px** against a
+          `scrollWidth` of 83–125px on **6 of 8** factor rows — "Olumi: Moderate
+          (0.5)" is 125px of content in a 31px box, i.e. three readable
+          characters. It carries a native `title`, so it is recoverable ON
+          POINTER HOVER and by no other means: not by keyboard, not by touch.
+          `clippedValueTextIsRecoverable.spec` pins that `title` and its own
+          header says exactly this — "recoverable on hover, unchanged otherwise,
+          and the gap for touch and keyboard is open rather than closed."
+
+          ⛔ THE ROW IS NOT WIDENED AND THE HINT STILL TRUNCATES. Both
+          alternatives are excluded ON MEASUREMENT by `ModelRowView.tsx` and must
+          not be re-proposed — widening the value track to `minmax(0,5.5rem)`
+          (tried; cost four fully-visible option labels, because a zero-minimum
+          track reserves its cap even when empty) and stacking the hint onto a
+          second line (tried; rows measured 42px, which is why
+          `whitespace-nowrap` sits on BOTH idle arms). The idle row keeps its
+          compact trade; a SELECTED row may grow, and this is that row.
+
+          ⚠ IT IS REACHABLE BECAUSE `beginEdit` NOW SELECTS. The value control
+          calls `stopPropagation`, so opening the editor used to leave this whole
+          region absent from the DOM — see that call site.
+
+          ⚠ THE SAME CONDITION AS THE ROW'S OWN HINT, DELIBERATELY. `estimateText`
+          is populated ONLY when `primaryValue === null` (`types.ts` enforces it
+          structurally, so a CEE string can never mask a value somebody supplied),
+          and this pane must not grow a second value line under a value that is
+          set.
+
+          ⚠⚠⚠ AND IT STANDS DOWN WHERE THE LINE ABOVE IS SPEAKING — A CONTRADICTION
+          THIS PR WOULD OTHERWISE HAVE CREATED, MEASURED AT THE ADAPTER, NOT
+          REASONED ABOUT.
+
+          The `prior_is_unquantified` line landed on `staging` (`385d96ca`) while
+          this branch was in flight, at THIS EXACT ANCHOR. Both lines then render
+          together on one reachable row, and they deny each other:
+
+              Not set
+              Olumi recorded this as unknown rather than assuming a figure.
+              Olumi: Moderate (0.5)                       ← flatly contradicts it
+
+          DERIVED THROUGH `toModelRows` + `toRowDetail` over four node shapes.
+          Exactly one produces both: a factor with a **TOP-LEVEL** `display_value`,
+          an unquantified prior, and no `observedState`. The other three are
+          clean — `observedState.display_value` (mine only), a bare unquantified
+          prior (theirs only), and `display_value` + `observedState.value`
+          (mine only).
+
+          ⚠ THE ROOT CAUSE IS NOT IN THIS FILE AND IS NOT FIXED HERE. Their
+          predicate is `isUnquantifiedPrior(prior) && !hasAnyStatedValue(data)`,
+          and `hasAnyStatedValue` reads `getObservedState(data).display_value`
+          — the NESTED field only — while `readFactorDisplayValue`, which feeds
+          `estimateText`, also reads the TOP-LEVEL one. Two readers of "does
+          Olumi have display text for this factor?" disagreeing about where it
+          lives, which is this estate's signature defect. So on that row their
+          own stated intent ("no value in ANY carrier") is not met, and the line
+          fires anyway. Repairing that means `observedStateHelpers.ts` /
+          `adapters.ts`, which belong to another lane — REPORTED, NOT TOUCHED.
+
+          ⚠ SUPPRESS, NEVER INVERT. This drops MY line in the overlap rather than
+          silencing theirs: theirs is the more specific claim and the one already
+          shipped, and a suppression can only cost a disclosure the row's own
+          hint still carries, whereas overriding theirs would assert a figure
+          exists where the producer recorded that it does not. The narrow case is
+          the only one affected — the three shapes above are untouched.
+        */}
+        {row.primaryValue === null &&
+          row.estimateText !== undefined &&
+          !detail.priorIsExplicitlyUnquantified && (
+          <>
+            <p
+              data-testid="model-detail-v2-estimate"
+              /* ⚠ `break-words`, NEVER `truncate`. `truncate` is the exact
+                 mechanism that produced the 31px box; re-applying it here would
+                 move the defect rather than close it. The units ride inside the
+                 string ("£20,000", "0.25 to 0.75", "Moderate (0.5)") — it is
+                 CEE's own display text, rendered verbatim, never re-derived. */
+              className={`${typography.panelBody} text-text-body break-words`}
+            >
+              Olumi: {row.estimateText}
+            </p>
+            {/*
+              ⭐ AND WHETHER ANYBODY HAS RATIFIED IT — OFF THE EXISTING PREDICATE,
+              NOT A NEW CLAIM.
+
+              ⚠⚠ NOTHING HERE IS INVENTED, AND THE TEMPTING SENTENCE IS FALSE.
+              "You have not set a value here" reads as true — `primaryValue` is
+              `raw_value` and it is null — but `modelOutlineNamesTheRightAxis.spec`
+              pins a REACHABLE row that is BOTH user-owned (`provenanceSource:
+              'user'`) AND carries `estimateText`. So this renders only the answer
+              the model already computed: `attention` carries
+              `'unconfirmed-estimate'` exactly when `factorIsConfirmable` — the
+              WRITE AUTHORITY'S OWN condition — says so, and the string is the
+              one `domain/vocabulary` owns for every surface. One predicate,
+              counted once and rendered twice, which is the shape `types.ts`
+              prescribes rather than a second opinion about the same question.
+
+              ⚠ ABSENT WHEN THE PREDICATE IS SILENT. A row carrying an estimate
+              with no `observedState` is NOT marked, and says nothing here.
+              Unknown stays unknown.
+
+              ⚠ THIS IS NOT THE PROVENANCE PILL AND MUST NOT BECOME ONE.
+              "Nobody has confirmed it" is weaker and different from "Olumi wrote
+              it" — `vocabulary.ts` says so in its own words. Who authored the
+              value is section 3's question, answered there from the raw stamp.
+            */}
+            {row.attention.includes('unconfirmed-estimate') && (
+              <p
+                data-testid="model-detail-v2-estimate-status"
+                className={`${typography.panelMeta} text-text-light`}
+              >
+                {UNCONFIRMED_ESTIMATE_LABEL}
+              </p>
+            )}
+          </>
+        )}
+
         <FieldList fields={detail.secondaryValues} testid="model-detail-v2-secondary" />
       </section>
 
@@ -286,7 +445,11 @@ export function ModelDetailRegion({
           <h4 className={`${typography.panelHeader} text-text-header`}>What this would change</h4>
           <ul>
             {interventions.map(iv => {
-              const editing = interventionEdit?.factorId === iv.factorId
+              const active = interventionEdit?.factorId === iv.factorId
+              const pending = active && interventionEdit?.phase === 'pending'
+              const queued = active && interventionEdit?.phase === 'queued'
+              const editing = active && !pending && !queued
+              const notice = active ? interventionEdit?.notice : undefined
               const editable = typeof onBeginInterventionEdit === 'function'
               return (
                 <li
@@ -303,7 +466,25 @@ export function ModelDetailRegion({
                     {iv.factorLabel}
                   </span>
 
-                  {editing ? (
+                  {pending || queued ? (
+                    /*
+                     * ⭐ SENT, NOT SAVED — and the row must not blur the two.
+                     * The old code closed on dispatch, which showed the typed
+                     * number as though the model held it. It does not until the
+                     * applied response says so, so the row keeps the number
+                     * visible, marks it as in flight, and offers no Save (there
+                     * is nothing left to press).
+                     */
+                    <span
+                      data-testid={`model-detail-v2-intervention-${iv.factorId}-${queued ? 'queued' : 'pending'}`}
+                      className={`${typography.panelBody} text-text-light`}
+                    >
+                      {interventionEdit?.draft}
+                      {queued
+                        ? ' · queued behind another change'
+                        : ' · sent, not saved yet'}
+                    </span>
+                  ) : editing ? (
                     <>
                       <input
                         type="number"
@@ -394,6 +575,29 @@ export function ModelDetailRegion({
                   <span data-testid={`model-detail-v2-intervention-${iv.factorId}-provenance`}>
                     <InterventionProvenanceMark source={iv.provenanceSource} />
                   </span>
+
+                  {/*
+                    ⭐ WHY NOTHING WAS SENT — beside the number it is about.
+
+                    The commit used to close this row whatever happened, so a
+                    refusal was indistinguishable from a save. This is the other
+                    half of that fix: the row stays open AND says which refusal
+                    it was. The recoverable one names the action that actually
+                    clears it — a turn — rather than "try again", which re-sends
+                    the same stale base forever.
+
+                    ⚠ Rendered only when present. An empty notice slot on every
+                    row is the wall of inert text the NOT SET WALL rule removed.
+                  */}
+                  {notice !== undefined && (
+                    <span
+                      role="status"
+                      data-testid={`model-detail-v2-intervention-${iv.factorId}-notice`}
+                      className={`${typography.panelBody} text-text-light basis-full`}
+                    >
+                      {notice}
+                    </span>
+                  )}
                 </li>
               )
             })}

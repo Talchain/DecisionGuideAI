@@ -199,6 +199,56 @@ export const EDITOR_WRITTEN_FIELDS = {
 export const INSPECTOR_READ_ONLY_REASON =
   "You can rename this — the name saves to the shared model. The other fields here are read-only for now because those changes can't yet be saved. Use the Model tab for supported factor values or ask Olumi to change structure."
 
+/**
+ * ⭐ THE SAME FACTS, FOR THE ONE PANE THAT NOW FENCES ITSELF.
+ *
+ * `INSPECTOR_READ_ONLY_REASON` above is written for a pane where the Router has
+ * disabled EVERYTHING below the header, so it has to explain a blanket. The
+ * option pane no longer has one: navigation, disclosure and coaching work, and
+ * only the writers are fenced. A notice describing a blanket that is not there
+ * would be the same trap-21 mismatch the longer string was itself narrowed to
+ * fix — a sentence and a surface disagreeing.
+ *
+ * ⚠ IT SAYS LESS BECAUSE THE PANE SAYS MORE. The Model-tab route is repeated
+ * once, in place, at the top of the factor list where a reader is actually
+ * looking for it (`OPTION_EDIT_ROUTE_NOTE`) — so this line does not have to
+ * carry the whole explanation, and the pane does not say it twice.
+ */
+export const INSPECTOR_OPTION_READ_ONLY_REASON =
+  'The name saves. Other fields here are read-only for now — links, details and coaching still work.'
+
+/**
+ * ⭐⭐ THE FACTOR PANE, AND IT IS THE FIRST NOTICE HERE THAT ANNOUNCES A SAVE
+ * RATHER THAN EXPLAINING A REFUSAL.
+ *
+ * The controllable-factor VALUE has a durable carrier (`factor_value_edit`),
+ * so on this pane it genuinely saves. Reusing either string above would have
+ * been a lie in the expensive direction: both say the non-name fields cannot
+ * be saved, and a user who believed that would route a change they had just
+ * successfully made through the Model tab instead.
+ *
+ * ⚠ AND IT NAMES WHAT STILL DOES NOT SAVE. `setDescription` has no carrier and
+ * stays fenced. A notice that only advertised the win would leave the reader to
+ * discover the exception by losing a description to the next rehydrate.
+ */
+export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
+  // ⚠ TWO CORRECTIONS LIVE IN THIS ONE SENTENCE.
+  //
+  // (1) DELIBERATELY NOT A CLOSED CLAIM. An earlier wording named description as
+  // THE exception; the panel also fences its advanced editor (14 writers with no
+  // carrier), so "description is the one read-only thing" was false the moment it
+  // was written. This says what saves and leaves the complement open — it stays
+  // true as carriers are added, and a reader is never told a control saves when
+  // it does not.
+  //
+  // (2) IT STATES THE ACTION, NEVER THE STORAGE. My first rewrite said the other
+  // edits "stay on this device" — caught by `guestStorageClaims.spec.ts`, and
+  // caught correctly: A GUEST'S GRAPH ALSO EXISTS SERVER-SIDE, so any "only on
+  // this device" claim is simply false, however reassuring it sounds. What is
+  // true is that these edits are not SENT, which is a claim about this app's
+  // behaviour rather than about where bytes live.
+  'The name and the value save to the shared model. Other edits here are not sent yet — links, details and coaching still work.'
+
 // ─── Node mutations ────────────────────────────────────────────────
 export function useNodeMutations(nodeId: string) {
   const updateNode = useCanvasStore(s => s.updateNode)

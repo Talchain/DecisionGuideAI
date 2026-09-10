@@ -246,6 +246,11 @@ const glanceModel = (
   overrides: Partial<AtAGlanceModel> = {},
 ): AtAGlanceModel => ({
   headline: 'Raise price currently scores higher',
+  // This factory models a run that DID license a designation, so there is no
+  // refusal to explain. Explicit rather than optional: the field is required on
+  // `AtAGlance` so that a construction site which forgets it is a TS error at
+  // the site, not a silent `undefined` reaching the renderer.
+  designationWithheldReason: null,
   leaderLabel: 'Raise price',
   winShare: 'Ahead in 68% of simulated futures',
   winFraction: 0.68,

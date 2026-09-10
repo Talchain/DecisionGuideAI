@@ -76,11 +76,11 @@
  * reading this would have concluded the carrier had to be designed. It only ever
  * lacked a UI EMITTER, and that landed at `useEdgeMutations.setStrength`.
  *
- * Edge LIKELIHOOD, edge DIRECTION and the GOAL TARGET still have no canonical
- * carrier and no entry point here, and for those three the original sentence
- * stands: the v2 surface keeps rendering their affordances DISABLED with an
- * honest label rather than routing them through a local-only write that would
- * look identical to a server-backed one (design §2 F6).
+ * Goal targets now use the existing typed add_constraint route, not a new
+ * system event. The earlier no-carrier claim counted only system-event kinds.
+ * The Model control explicitly requests an absolute minimum with stated units;
+ * only the server's committed response updates it. Other disabled controls are
+ * unchanged; no local-only goal write is disguised as a saved target.
  *
  * ⚠⚠ CORRECTED 2026-09-08 — THE PARAGRAPH BELOW WAS TRUE AND IS NOW FALSE, and
  * it is left standing so its reasoning is not re-derived from scratch:
@@ -127,6 +127,17 @@ import {
 import { buildFactorValueEditEvent } from '../conversation/factorValueEdit'
 import { buildEdgeStrengthEditEvent } from '../conversation/edgeStrengthEdit'
 import { captureOptimisticFactorEdit } from '../conversation/optimisticFactorEdit'
+import { buildManualGoalTarget, manualGoalTargetMessage } from '../conversation/manualGoalTarget'
+import {
+  buildOptionInterventionEditEvent,
+  type OptionInterventionEditRefusal,
+} from '../conversation/optionInterventionEdit'
+import {
+  SEND_BLOCKED,
+  SEND_DEFERRED,
+  SystemEventSendError,
+} from '../conversation/useConversation'
+import { isProvenNoWriteConflict } from '../../v5/provenNoWriteConflict'
 
 /**
  * How a proposal left this seam.
@@ -160,6 +171,124 @@ export type FactorValueProposalOutcome = 'dispatched' | 'local_only' | 'not_enco
  *                      a silent split-brain.
  */
 export type LocalCommitOutcome = 'committed' | 'not_encodable'
+
+/**
+ * How an OPTION-INTERVENTION proposal left this seam (schemas 0.54.0).
+ *
+ * ⚠ IT IS NO LONGER `LocalCommitOutcome`, AND THE SPLIT IS THE POINT. That type
+ * deliberately has no `dispatched` member because its operations had no
+ * value-bearing wire carrier — "the type makes the honest statement the only
+ * statement available". `option_intervention_edit` now IS that carrier, so
+ * keeping this gesture on the local-commit union would force it to report
+ * `committed` for a write the server owns. `proposeFactorConfirmation` still has
+ * no carrier and keeps the old type; the two gestures are named apart rather
+ * than sharing a union that is now true of only one of them.
+ *
+ * - `dispatched`       — nothing was written locally; the typed event is with
+ *                        the conversation dispatcher and the applied response
+ *                        owns the store write. Exactly `proposeGoalTarget`'s
+ *                        discipline on this same surface.
+ * - `needs_fresh_base`  — ⭐ SPLIT OUT OF `not_encodable`, and the split is the
+ *                        whole point. There is no CEE-stamped `graph_hash` this
+ *                        session, which is the ordinary state after a reload: a
+ *                        restore reads persistence with no CEE turn. It is the
+ *                        one refusal the USER CAN CLEAR — any turn refreshes the
+ *                        base — so it must be distinguishable at the caller,
+ *                        which cannot offer a recovery it cannot tell apart.
+ *                        Collapsed into `not_encodable` it reads as "your edit
+ *                        was invalid", which is both false and unactionable.
+ * - `not_encodable`    — nothing happened anywhere, and nothing the user can do
+ *                        about it changes that: no ids, a non-finite or
+ *                        out-of-scale value, or no conversation to send
+ *                        through. Fail CLOSED.
+ *
+ * ⚠ THE TWO REFUSALS ARE DERIVED FROM THE BUILDER, NOT RE-SPELLED HERE. They are
+ * decided by the builder's guards, so listing them again in this union would be
+ * a hand-maintained mirror of exactly the kind that drifts silently — a refusal
+ * added there and forgotten here would not fail to compile, it would fail to be
+ * REPORTED.
+ */
+export type OptionInterventionProposalOutcome = 'dispatched' | OptionInterventionEditRefusal
+
+/**
+ * What the SENDER did with a dispatched effect edit — resolved later, because
+ * the sync return above cannot know it.
+ *
+ * ⚠⚠ THE DISPATCH OUTCOME IS NOT THE SEND OUTCOME, and conflating them is the
+ * defect this type exists to prevent. `dispatched` means the event left this
+ * hook; the sender's promise resolves afterwards with one of three very
+ * different facts, and a row that showed "sent" for all three would be telling
+ * the user something false in two of them:
+ *
+ * - `sent`    — the turn was actually issued. The response settles the value,
+ *               and the canonical store is what says so; this hook does not
+ *               echo its own number back as a confirmation (contracts.ts C11).
+ * - `queued`  — `SEND_DEFERRED`: another turn holds the lock, so this one is
+ *               buffered and WILL be sent. Nothing is wrong and nothing has
+ *               happened yet. The promise resolves *before the turn exists*,
+ *               which is exactly why "sent" would be a lie here.
+ *
+ *               ⚠ UNREACHABLE BY CONSTRUCTION, AND KEPT ANYWAY. The send passes
+ *               `deferIfBusy: false`, so the sender returns `SEND_BLOCKED`
+ *               rather than buffering — see the implementation for why a
+ *               buffered copy of THIS event is both unconfirmable and stale by
+ *               construction. The branch stays because deleting it would leave
+ *               a future `SEND_DEFERRED` falling through to `sent`, which is
+ *               the one answer that is definitely wrong.
+ * - `blocked` — `SEND_BLOCKED`, AND IT IS THE ONLY SETTLEMENT ENTITLED TO SAY
+ *               "NOT SENT". The sender refused the dispatch outright — another
+ *               turn holds the lock — so the request was never built and NO
+ *               FETCH WAS MADE. That is the only pre-dispatch proof available
+ *               anywhere on this path, and it is a proof about the client's own
+ *               behaviour rather than an inference about the network's.
+ *
+ *               ⚠⚠ TWO WRONG ANSWERS HAVE NOW BEEN GIVEN HERE, IN OPPOSITE
+ *               DIRECTIONS, AND BOTH CLAIMED MORE THAN THE EVIDENCE. First
+ *               every transport rejection was folded in, which told a proxy
+ *               timeout CEE went on to commit that it was never sent. Then it
+ *               was split by `isUnverifiedDelivery`'s bit — and a FALSY bit was
+ *               read as proof of non-delivery, which it is not: `v5Adapter`
+ *               catches ANY fetch rejection without observing whether the
+ *               server accepted, and `responseRouter` derives `network` purely
+ *               from a MISSING `http_status`. So CEE can commit, the connection
+ *               can die before headers reach the browser, fetch rejects
+ *               `TypeError` — and that arrives indistinguishable from offline.
+ *               ABSENT METADATA IS NOT PROOF; carrying the bit does not create
+ *               a guarantee that was never derived.
+ *
+ * - `refused`  — the server RECEIVED the turn, failed it, and its envelope
+ *                PROVES nothing was written (`isProvenNoWriteConflict`). The
+ *                model does not hold this number and never did, so the row may
+ *                say so outright.
+ *
+ * - `unverified` — a write is NOT ruled out, so the row may claim neither saved
+ *                nor refused. THREE ways in, and the second is the one an
+ *                earlier cut got wrong:
+ *                  · a server failure whose category the producer has not
+ *                    certified as a no-write;
+ *                  · EVERY transport rejection, both halves. The proxy-timeout
+ *                    half reached CEE, which goes on to commit (live-witnessed
+ *                    at 123.1s, ROADMAP 2.665); the fetch-threw half MAY have
+ *                    reached it and lost the response afterwards. Neither is
+ *                    non-delivery, and nothing on this path can tell them from
+ *                    a genuine offline;
+ *                  · any rejection shape this seam does not recognise. An
+ *                    unknown cannot prove non-delivery, so it takes the
+ *                    cannot-confirm line, never the confident one.
+ *
+ * ⚠⚠ `refused` AND `unverified` WERE ONE THING — the catch reported `blocked`
+ * for every rejection — AND THAT WAS FALSE IN BOTH DIRECTIONS. `blocked`'s copy
+ * says nothing reached the server, which is a lie about a 409 the server sent
+ * back deliberately; and answering "not sent" to a failure that MAY have
+ * written is the more dangerous half, because the user re-sends a number the
+ * model might already hold.
+ */
+export type OptionInterventionSendSettlement =
+  | 'sent'
+  | 'queued'
+  | 'blocked'
+  | 'refused'
+  | 'unverified'
 
 /**
  * How an EDGE STRENGTH proposal left this seam.
@@ -208,6 +337,11 @@ export type LocalCommitOutcome = 'committed' | 'not_encodable'
 export type EdgeStrengthProposalOutcome = EdgeStrengthCommitOutcome | 'refused_unassertable'
 
 export interface ModelEditAuthorityLive {
+  goalTargetDispatchAvailable: boolean
+  /** The host captures identity without gaining a separate store access path. */
+  captureScenarioId: () => string | null
+  /** Dispatch only: the central typed-action receipt owns the eventual write. */
+  proposeGoalTarget: (draft: string, unit: string, scenarioId: string | null) => 'dispatched' | 'not_encodable'
   proposeFactorValue: (typedValue: number) => FactorValueProposalOutcome
   /**
    * Set the ACTIVE OPTION's target value for one factor.
@@ -216,7 +350,18 @@ export interface ModelEditAuthorityLive {
    * option would move. Both halves are checked — see the implementation for why
    * an unresolvable `factorId` must fail closed rather than write.
    */
-  proposeOptionIntervention: (factorId: string, value: number) => LocalCommitOutcome
+  proposeOptionIntervention: (
+    factorId: string,
+    value: number,
+    opts?: {
+      /**
+       * Called once when the SENDER settles. Optional so existing call sites are
+       * unchanged; a caller that renders a pending state must pass it, or that
+       * state has no way to end.
+       */
+      onSendSettled?: (settlement: OptionInterventionSendSettlement) => void
+    },
+  ) => OptionInterventionProposalOutcome
   /**
    * Ratify the ACTIVE FACTOR's existing value as correct.
    *
@@ -261,7 +406,27 @@ export function useModelEditAuthority(
 ): ModelEditAuthorityLive {
   const mutations = useNodeMutations(activeNodeId ?? '')
   const edgeMutations = useEdgeMutations(activeEdgeId ?? '')
-  const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
+  const conversation = useOptionalConversationContext()
+  const sendSystemEvent = conversation?.sendSystemEvent
+  const dispatchAction = conversation?.dispatchAction
+
+  const proposeGoalTarget = useCallback((draft: string, unit: string, scenarioId: string | null) => {
+    const state = useCanvasStore.getState()
+    const node = state.nodes.find(n => n.id === activeNodeId)
+    if (!node || resolveNodeTypeLiteral(node) !== 'goal' || !dispatchAction ||
+        !scenarioId || state.currentScenarioId !== scenarioId) return 'not_encodable' as const
+    const parameters = buildManualGoalTarget(node.id, draft, unit)
+    if (!parameters) return 'not_encodable' as const
+    // Do not echo the draft into the store or claim saved on promise resolution.
+    // Typed add_constraint uses CEE's existing validated proposal/commit path;
+    // central response application owns both acceptance and refusal.
+    void Promise.resolve(dispatchAction({
+      action_type: 'add_constraint', parameters, source: 'inspector',
+      label: `Set minimum target: ${parameters.value} ${parameters.unit}`,
+      message: manualGoalTargetMessage(parameters.value, parameters.unit),
+    })).catch(() => { /* The conversation's existing failure channel owns this. */ })
+    return 'dispatched' as const
+  }, [activeNodeId, dispatchAction])
 
   const proposeFactorValue = useCallback(
     (typedValue: number): FactorValueProposalOutcome => {
@@ -319,22 +484,140 @@ export function useModelEditAuthority(
    * for an element that is not in the model.
    */
   const proposeOptionIntervention = useCallback(
-    (factorId: string, value: number): LocalCommitOutcome => {
+    (
+      factorId: string,
+      value: number,
+      opts?: { onSendSettled?: (settlement: OptionInterventionSendSettlement) => void },
+    ): OptionInterventionProposalOutcome => {
       if (!activeNodeId) return 'not_encodable'
-      if (!Number.isFinite(value)) return 'not_encodable'
-      if (typeof factorId !== 'string' || factorId.trim() === '') return 'not_encodable'
       const state = useCanvasStore.getState()
       const option = state.nodes.find(n => n.id === activeNodeId)
       // An intervention belongs to an OPTION. Writing an `interventions` map
       // onto a factor would be a well-formed store patch that means nothing,
       // and nothing downstream would ever report it.
       if (!option || resolveNodeTypeLiteral(option) !== 'option') return 'not_encodable'
+      // The factor must be in the model — see this member's header. The SERVER
+      // additionally requires the option to be WIRED to it and refuses
+      // otherwise; that is its check to make against its own persisted graph,
+      // and duplicating it here would be a second spelling of one rule.
       if (!state.nodes.some(n => n.id === factorId)) return 'not_encodable'
 
-      mutations.setIntervention(factorId, value)
-      return 'committed'
+      const built = buildOptionInterventionEditEvent({
+        optionId: activeNodeId,
+        factorId,
+        modelValue: value,
+        // ⚠ THE ONE OWNER OF THE BASE HASH, read here rather than captured.
+        // Three intent builders already read this field; this is the fourth.
+        // It is NULL after a reload — a restore reads persistence with no CEE
+        // turn — and the builder refuses on null rather than sending a hash
+        // that matches nothing. That refusal must be DISCLOSED by the caller,
+        // never silently swallowed.
+        baseGraphHash: state.lastServerGraphHash,
+      })
+
+      // ⭐⭐ THE ORDER OF THE NEXT THREE LINES IS THE MEANING, NOT THE STYLE.
+      //
+      // (1) AN UNENCODABLE EDIT IS UNENCODABLE WHATEVER THE BASE IS. The builder
+      // asks its input guards before its base-hash guard, so `not_encodable`
+      // here is never a stale base wearing the wrong name. This is the half an
+      // earlier draft got backwards: it asked the base question first, so a
+      // number off the model scale on a restored session was reported as
+      // `needs_fresh_base` — sending the user to run a turn that cannot help,
+      // after which the same number is refused again with a different sentence.
+      //
+      // (2) THE CARRIER QUESTION PRECEDES THE FRESHNESS ONE. `needs_fresh_base`
+      // promises an action — any turn refreshes the base — and that action
+      // exists only where there is a conversation to run it. With none, the
+      // honest answer is that the gesture cannot be encoded here at all, and
+      // offering a recovery that has nothing to recover through would be the
+      // same lie in a friendlier voice.
+      if (!built.ok && built.refusal === 'not_encodable') return 'not_encodable'
+      if (!sendSystemEvent) return 'not_encodable'
+      if (!built.ok) return built.refusal
+      const event = built.event
+
+      // ⭐ NO LOCAL WRITE, DELIBERATELY — `proposeGoalTarget`'s discipline on
+      // this same surface: "the goal draft never changes the store before a
+      // real applied response". The old body wrote through
+      // `mutations.setIntervention` because the value had nowhere else to go;
+      // it has somewhere now. Writing optimistically here would put a number on
+      // screen that the server may refuse, on a surface whose whole premise is
+      // that an affordance appears only where the write reaches the server.
+      // ⚠ THE PROMISE IS READ NOW, NOT DISCARDED. It used to be `void
+      // Promise.resolve(...).catch(...)` — which is right for a fire-and-forget
+      // notification and wrong here, because two of the sender's three outcomes
+      // mean the turn has NOT happened. Discarding it left a row saying "sent"
+      // over an edit that was queued behind another turn, or one that was never
+      // queued at all.
+      // ⭐⭐ OPTED OUT OF THE SENDER'S HIDDEN QUEUE, AND THAT IS A HONESTY FIX,
+      // NOT A PERFORMANCE ONE.
+      //
+      // With the default, a send made while a turn is in flight is BUFFERED and
+      // the promise resolves `SEND_DEFERRED` — *before the turn exists*. There
+      // is then no channel back: the buffered turn is sent later, may be
+      // refused, and this caller's `onSendSettled` has already fired for the
+      // last time. A row that entered "queued" could never leave it, which is
+      // the same exitless state this leg exists to remove, hiding in the one
+      // path that looked benign.
+      //
+      // ⚠ AND THE BUFFERED COPY WOULD CARRY A SUPERSEDED BASE. The queue holds
+      // `SendTurnOpts` VERBATIM, so the event keeps the `base_graph_hash` read
+      // at enqueue — while the very turn it waits behind is what stamps a new
+      // one. A deferred effect edit behind a graph-changing turn is refused as
+      // stale by construction.
+      //
+      // `SEND_BLOCKED` instead: the caller keeps the draft, the row says so, and
+      // the user presses Save again against a base that is actually current.
+      // Same reasoning, same option, as `usePanelApplyDrain` — "opting out of
+      // the singleton sender's hidden queue means SEND_BLOCKED is returned while
+      // a turn is busy, so there can never be a queued copy plus a later retry".
+      void Promise.resolve(sendSystemEvent(event, { deferIfBusy: false }))
+        .then(outcome => {
+          if (outcome === SEND_DEFERRED) return opts?.onSendSettled?.('queued')
+          if (outcome === SEND_BLOCKED) return opts?.onSendSettled?.('blocked')
+          return opts?.onSendSettled?.('sent')
+        })
+        .catch((err: unknown) => {
+          // ⚠ THE REJECTION IS READ, NOT ASSUMED. This reported `blocked` for
+          // every rejection on the reasoning that "a rejected send is a POST
+          // that failed" — true of a transport error and FALSE of everything
+          // else that lands here. `sendSystemEvent` rejects for BOTH, and the
+          // error it rejects with already distinguishes them: `kind` separates
+          // "nothing reached the server" from "the server received the turn and
+          // failed it", and `conflictCategory` is carried precisely because
+          // 'server' is too coarse to decide what a surface may claim.
+          //
+          // ⭐ AND THE NO-WRITE QUESTION IS ASKED BY THE ONE AUTHORITY THAT OWNS
+          // IT. `isProvenNoWriteConflict` is where this estate keeps "did the
+          // producer state it wrote nothing?", derived per category from the
+          // producer's own line. Re-deriving it here — from the status code,
+          // from `retryable: false`, or from what a category name suggests —
+          // is the twins defect that module was written to end, and its header
+          // names `INGRESS_CONTRACT_VIOLATION` as the exact trap.
+          if (err instanceof SystemEventSendError) {
+            if (err.kind === 'server') {
+              return opts?.onSendSettled?.(
+                isProvenNoWriteConflict(err.conflictCategory) ? 'refused' : 'unverified',
+              )
+            }
+            // ⚠ TRANSPORT DOES NOT PROVE NON-DELIVERY, EITHER HALF. `v5Adapter`
+            // catches any fetch rejection without observing whether the server
+            // accepted, and `responseRouter` derives `network` from a MISSING
+            // `http_status` — so a commit whose response is lost before headers
+            // reach the browser is indistinguishable from being offline. The
+            // uncertainty is retained rather than resolved by the absence of a
+            // bit nobody derived.
+            return opts?.onSendSettled?.('unverified')
+          }
+          // A rejection shape this seam does not recognise. It cannot prove
+          // non-delivery, so it must not claim it: the cannot-confirm line, not
+          // the confident one. The conversation's own failure channel still
+          // records the error; this only decides what the ROW says.
+          opts?.onSendSettled?.('unverified')
+        })
+      return 'dispatched'
     },
-    [activeNodeId, mutations],
+    [activeNodeId, sendSystemEvent],
   )
 
   /**
@@ -451,6 +734,9 @@ export function useModelEditAuthority(
   )
 
   return {
+    goalTargetDispatchAvailable: typeof dispatchAction === 'function',
+    captureScenarioId: () => useCanvasStore.getState().currentScenarioId ?? null,
+    proposeGoalTarget,
     proposeFactorValue,
     proposeOptionIntervention,
     proposeFactorConfirmation,

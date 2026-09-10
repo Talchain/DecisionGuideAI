@@ -209,13 +209,25 @@ export interface StrengthenInputs {
   /** Whether a completed analysis exists (most triggers need one). */
   analysisComplete: boolean
   /**
-   * ROADMAP 1.243 — `DecisionVerdict.hasLeadingOption` VERBATIM: the ONE
-   * boolean any surface must hold before asserting OR presupposing a leading
-   * option. Threaded by `StrengthenContainer` from
-   * `data.recommendation.verdict`, the same instance the canvas reads. Never
-   * re-derived here, and never inferred from `analysisComplete`: a completed
-   * analysis is not an entitlement to name a leader, which is precisely the
-   * conflation that let "Challenge the leader" render on withheld runs.
+   * ROADMAP 1.243 — the ONE boolean any surface must hold before asserting OR
+   * presupposing a leading option. Never re-derived in `buildRecommendations`,
+   * and never inferred from `analysisComplete`: a completed analysis is not an
+   * entitlement to name a leader, which is precisely the conflation that let
+   * "Challenge the leader" render on withheld runs.
+   *
+   * ⚠ THE COMPOSED ANSWER, NOT `verdict.hasLeadingOption`. This doc said
+   * "`DecisionVerdict.hasLeadingOption` VERBATIM … threaded by
+   * `StrengthenContainer` from `data.recommendation.verdict`" and that was
+   * false: the container threads `leaderDesignationPermitted(data.recommendation)`,
+   * which folds the CEE admission in as well, and since #1190 so does
+   * `analysisNew/buildStrengthenInputsForAnalysisNew.ts`. The two differ
+   * exactly on `permitted_analysis_mode: 'quantified_provisional'` — a run
+   * whose arms separated but whose model licenses no comparative claim — so a
+   * caller that believed this sentence and threaded the raw verdict would
+   * re-open "Challenge the leader" on precisely the runs the gate exists for.
+   * This interface's own contract doc is the likeliest thing a future caller
+   * reads, which is why the correction lives here and is pinned by
+   * `__tests__/strengthenInputsCallersThreadComposed.spec.ts`.
    *
    * Strict read (`=== false` suppresses). `undefined` means no verdict was
    * supplied and leaves the legacy behaviour untouched — the same concession

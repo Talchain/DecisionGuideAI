@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'
 import { OutcomePanel } from '../panels/OutcomePanel'
 import { useCanvasStore } from '../../../store'
+import { METRIC_NOUN } from '../../../nodes/shared/metricVocabulary'
 
 function setStoreState(overrides: Record<string, unknown>) {
   const state = useCanvasStore.getState()
@@ -45,7 +46,12 @@ describe('OutcomePanel — option comparison section', () => {
     expect(section).not.toBeNull()
     expect(section?.textContent).toContain('Option A')
     expect(section?.textContent).toContain('Option B')
-    expect(section?.textContent).toContain('65% win')
+    // ⚠ READ `'65% win'` UNTIL NOW — a contest-frame survivor of #1281 that
+    // reached this assertion because the only literal in the source was the
+    // two-word tail `% win`, after an interpolation. Bound to the REGISTER
+    // rather than to the replacement literal, so the caption and this guard
+    // cannot drift apart the way the sentence and the bar once did.
+    expect(section?.textContent).toContain(`${METRIC_NOUN.support} 65%`)
   })
 
   it('hides entire predicted-range block when status is failed', () => {

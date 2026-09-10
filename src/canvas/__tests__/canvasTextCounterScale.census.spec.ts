@@ -181,15 +181,22 @@ const PORTALLED = ['nodes/shared/NodePopover.tsx']
  *                                   not a typography one, and out of scope here.
  */
 const KNOWN_FIXED = [
-  'nodes/EvidenceGapBadge.tsx:inline-7',
+  // ⭐ `nodes/EvidenceGapBadge.tsx:inline-7` WAS HERE AND IS NOW FIXED, in the
+  // direction this file's own header prescribed: the note said it *"needs a
+  // size ruling, not a counter-scale"* because 7px is below the DS v5 §2.4 10px
+  // canvas floor even at zoom 1. It got both — the raw inline `fontSize: '7px'`
+  // became `typography.edgeLabel` (10px, and one of the three counter-scaled
+  // canvas tokens), so the "?" goes from a rendered 3.5px to 10px. Removing the
+  // pin here is the point of asserting this set exactly.
   'nodes/shared/NodeCoachingMarker.tsx:typography.caption',
   'edges/EdgeEditPopover.tsx:typography.panelHeader',
   'edges/EdgeEditPopover.tsx:typography.panelMeta',
 ] as const
 
 /**
- * Components defined outside the derived scope but RENDERED from inside it, so
- * they are in the transform and this directory walk cannot see their sizes.
+ * Components defined outside the derived scope but RENDERED from inside it.
+ * This directory walk cannot see their sizes or whether their content portals
+ * out of the transform; the distinction is recorded for each entry below.
  * Derived per run and asserted EXACTLY — see the header. Declared sizes and
  * what they render at the 0.50 floor, so the gap is costed and not merely named:
  *
@@ -202,30 +209,79 @@ const KNOWN_FIXED = [
  *                                       counter-scaled ✓.
  *   canvas/components/UnknownKindWarning typography.caption 12px -> 6.0px.
  *
- * ⚠ `components/Tooltip.tsx` WAS THE FOURTH ENTRY AND IS GONE — REMOVED BECAUSE
- * THE DERIVATION STOPPED REACHING IT, WHICH IS THIS GUARD WORKING, NOT A
- * RELAXATION. It was listed as "renders un-portalled inside BaseNode and
- * OlumiSparkle". `OlumiSparkle` is deleted (it had zero JSX render sites), and
- * it was the LAST importer of `Tooltip` anywhere under the derived scope
- * (`nodes/` + `edges/`) — so the walk no longer crosses the boundary to it and
- * the exact assertion RED'd, correctly.
+ *   components/Tooltip.tsx            declares `text-xs` 12px on its BUBBLE —
+ *                                       which is inside `<FloatingPortal>`, so
+ *                                       it renders at a true 12px and is NOT
+ *                                       scaled to 6.0px. Only the reference
+ *                                       wrapper `<div>` stays in the transform,
+ *                                       and it declares no size. Shared
+ *                                       app-wide, so its size is not a canvas
+ *                                       decision either way.
  *
- * ⚠ AND THE OTHER HALF OF THAT SENTENCE WAS ALREADY FALSE BEFORE THAT:
- * `BaseNode.tsx` imports no Tooltip at all and, on the evidence of this tip,
- * did not render one. The pin stayed green on a reason that had already
- * expired, because only ONE of its two named renderers had to survive for the
- * derived entry to persist. A hand-written justification beside a derived list
- * can rot without the list ever going red.
+ * ⚠ THE `Tooltip` ENTRY'S HISTORY, KEPT IN FULL BECAUSE BOTH HALVES OF ITS
+ * ORIGINAL JUSTIFICATION TURNED OUT TO BE FALSE, IN SEPARATE ROUNDS.
  *
- * `Tooltip` still renders in ~26 canvas files (panels, inspectors,
- * pre-analysis). None is inside the viewport transform, which is the only
- * scope this census governs — so its size is out of this census's remit, not
+ * Round 1 (staging #1277, 7 Sep 2026), recorded as measured at that tip:
+ *   "`components/Tooltip.tsx` WAS THE FOURTH ENTRY AND IS GONE — REMOVED
+ *   BECAUSE THE DERIVATION STOPPED REACHING IT, WHICH IS THIS GUARD WORKING,
+ *   NOT A RELAXATION. It was listed as 'renders un-portalled inside BaseNode
+ *   and OlumiSparkle'. `OlumiSparkle` is deleted (it had zero JSX render
+ *   sites), and it was the LAST importer of `Tooltip` anywhere under the
+ *   derived scope (`nodes/` + `edges/`) — so the walk no longer crosses the
+ *   boundary to it and the exact assertion RED'd, correctly."
+ *   And: "`BaseNode.tsx` imports no Tooltip at all ... the pin stayed green on
+ *   a reason that had already expired, because only ONE of its two named
+ *   renderers had to survive for the derived entry to persist. A hand-written
+ *   justification beside a derived list can rot without the list ever going
+ *   red."
+ * That measurement stands for that tip and is not edited.
+ *
+ * Round 2 (this merge, PR #1264, 8 Sep 2026) — THE ENTRY IS RESTORED, because
+ * the crossing genuinely exists again. `nodes/shared/BriefIcon.tsx:21` and
+ * `nodes/shared/NodeProvenanceMark.tsx:8` now both carry
+ * `import Tooltip from '../../../components/Tooltip'` and render `<Tooltip ...>`
+ * — the same import path and JSX shape `OlumiSparkle` had, in the same
+ * directory. That is TWO importers where round 1 measured zero, so the derived
+ * set legitimately grows back to four. This is the guard working in the other
+ * direction, not a relaxation, and restoring the pin is a forced consequence of
+ * the merge rather than a judgement about it.
+ *
+ * ⚠ AND THE SECOND HALF OF THE ORIGINAL JUSTIFICATION IS FALSE TOO, which
+ * round 1 had no reason to check once the entry was leaving. "Un-portalled" was
+ * wrong: `src/components/Tooltip.tsx` wraps its bubble in `<FloatingPortal>`
+ * (line 85), so the sized element was never inside the transform — the costed
+ * "12px -> 6.0px" it carried for its whole life was measuring a scaling that
+ * does not happen. Portalling is precisely why PR #1264 chose this primitive
+ * over the same-named `canvas/components/Tooltip`. So the entry is restored on
+ * the STRUCTURAL ground the derivation actually tests (an out-of-scope
+ * component appearing as JSX inside the scope), and its size annotation now
+ * says what is true instead of inheriting the figure.
+ *
+ * ℹ REPORTED, NOT TAKEN: the derivation is import+JSX structural and models no
+ * portalling, so a portalled component must be pinned here to keep the exact
+ * assertion green even though its size is out of the transform. Making the
+ * census portal-aware is a redesign of the guard and a separate call.
+ *
+ * `Tooltip` also renders in ~26 other canvas files (panels, inspectors,
+ * pre-analysis). Those are outside the viewport transform, which is the only
+ * scope this census governs — so their size is out of this census's remit, not
  * unexamined.
+ *   components/Tooltip.tsx             NodeQuickActions now renders this with
+ *                                       asChild. The reference button remains
+ *                                       inside the transform; all tooltip text
+ *                                       renders through FloatingPortal outside
+ *                                       it. Its text-xs size must NOT receive
+ *                                       the canvas counter-scale.
+ *
+ * Tooltip previously left this inventory when OlumiSparkle, its last scoped
+ * caller, was deleted. NodeQuickActions is a new scoped caller, so the exact
+ * derivation requires the entry again; this is not an un-portalled text gap.
  */
 const FOREIGN_RENDERED = [
   'src/canvas/components/CoachingCard.tsx',
   'src/canvas/components/UnknownKindWarning.tsx',
   'src/canvas/ui/shared/DataBar.tsx',
+  'src/components/Tooltip.tsx',
 ] as const
 
 const TW_NAMED = new Set(['xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl'])

@@ -4,9 +4,10 @@
  * T8: Intervention chips with cleaned labels and formatted values
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { optionOrdinalBadgeAccessibleName } from '../shared/metricVocabulary'
 // The tie fixtures are pinned against the SHARED policy the component uses, so
 // the precondition cannot silently stop reproducing the condition under test.
 import {
@@ -182,7 +183,7 @@ describe('OptionNode', () => {
       voiRank: null,
     })
     renderOption()
-    expect(screen.getByText('Supported in 72% of simulated scenarios')).toBeDefined()
+    expect(screen.getByRole('img', { name: /Supported in 72% of simulated scenarios/ })).toBeDefined()
   })
 
   // T7: Most supported badge. Post-1.223 this is the POSITIVE CONTROL against
@@ -351,7 +352,8 @@ describe('OptionNode', () => {
             interventions: { 'factor-1': 0.6 },
           }],
         },
-        nodes: [{
+        nodes: [
+          { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-1': 0.2 } } },{
           id: 'factor-1',
           // observedState.value provides the baseline so the from→to chip renders
           // (brief scope 7: a chip needs both a baseline and an intervention value).
@@ -375,7 +377,8 @@ describe('OptionNode', () => {
         ceeAnalysisReady: {
           options: [{ id: 'option-1', interventions: { 'factor-1': 0.804 } }],
         },
-        nodes: [{
+        nodes: [
+          { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-1': 0.3 } } },{
           id: 'factor-1',
           data: { label: 'Developer Headcount', observedState: { unit: 'developers', value: 0.3, cap: 20 } },
         }],
@@ -396,7 +399,8 @@ describe('OptionNode', () => {
         ceeAnalysisReady: {
           options: [{ id: 'option-1', interventions: { 'factor-1': 0.15 } }],
         },
-        nodes: [{
+        nodes: [
+          { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-1': 0.1 } } },{
           id: 'factor-1',
           data: { label: 'Engineering Capacity', observedState: { unit: 'FTE', value: 0.1, cap: 10 } },
         }],
@@ -419,7 +423,8 @@ describe('OptionNode', () => {
         ceeAnalysisReady: {
           options: [{ id: 'option-1', interventions: { 'factor-tl': { value: 1, display_value: 'Tech lead in place' } } }],
         },
-        nodes: [{
+        nodes: [
+          { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-tl': { value: 0, display_value: 'No tech lead in place' } } } },{
           id: 'factor-tl',
           data: {
             label: 'Tech lead in place',
@@ -445,7 +450,8 @@ describe('OptionNode', () => {
         ceeAnalysisReady: {
           options: [{ id: 'option-1', interventions: { 'factor-tl': 1 } }],
         },
-        nodes: [{
+        nodes: [
+          { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-tl': 0 } } },{
           id: 'factor-tl',
           data: { label: 'Tech lead in place', observedState: { value: 0, factor_type: 'quality' } },
         }],
@@ -477,7 +483,8 @@ describe('OptionNode', () => {
         ceeAnalysisReady: {
           options: [{ id: 'option-1', interventions: { 'factor-tl': { value: 0, display_value: 'No tech lead in place' } } }],
         },
-        nodes: [{
+        nodes: [
+          { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-tl': { value: 1, display_value: 'Tech lead in place' } } } },{
           id: 'factor-tl',
           data: {
             label: 'Tech lead in place',
@@ -491,10 +498,7 @@ describe('OptionNode', () => {
     expect(screen.getByText('Tech lead in place → No tech lead in place')).toBeDefined()
   })
 
-  // Scope A edge case (Codex review): the baseline label may live under
-  // observedState.display_value (legacy/in-flight shape) rather than top-level.
-  // readFactorDisplayValue honours both, so the chip still renders labels.
-  it('reads the baseline label from observedState.display_value when top-level is absent', () => {
+  it('does not borrow the factor observed label as an option reference', async () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         ceeAnalysisReady: {
@@ -504,14 +508,16 @@ describe('OptionNode', () => {
           id: 'factor-tl',
           data: {
             label: 'Tech lead in place',
-            // No top-level display_value — only nested in observedState.
             observedState: { value: 0, display_value: 'No tech lead in place' },
           },
         }],
       }) as any)
     )
-    renderOption()
-    expect(screen.getByText('No tech lead in place → Tech lead in place')).toBeDefined()
+    const { container } = renderOption()
+    fireEvent.mouseEnter(container.firstElementChild!)
+    const targets = await screen.findAllByText('Tech lead in place')
+    expect(targets.some(element => element.classList.contains('font-semibold'))).toBe(true)
+    expect(screen.queryByText('No tech lead in place → Tech lead in place')).toBeNull()
   })
 
   it('has displayName set', () => {
@@ -668,28 +674,32 @@ describe('OptionNode', () => {
     // across five option cards is the whole defect being fixed.
     expect(percentEl.textContent).toBe('72%')
     // Hidden from assistive tech so the statistic is announced once, in full,
-    // by the sentence below rather than as a number with no referent.
+    // by the row's accessible name rather than as a number with no referent.
     expect(percentEl.getAttribute('aria-hidden')).toBe('true')
   })
 
-  it('density: the ratified sentence survives as the hover title AND as text for assistive tech', () => {
+  it('density: the ratified sentence survives in the positioned tooltip and accessible text', async () => {
     mockWinRate72()
     renderOption()
     const expected = COMPARATIVE_COPY.phrase('72%')
 
-    // (a) hover: the row carrying the readout is the element with the title.
-    // Reached FROM the readout rather than by a bare `[title]` sweep, so it
-    // cannot pass on some other titled element elsewhere in the node.
-    const row = screen.getByTestId('option-win-readout-option-1').closest('[title]')
+    // The explanation belongs to this row, and it cannot spawn a native title.
+    const row = screen.getByTestId('option-win-readout-option-1').closest('[data-node-tooltip]')
     expect(row).not.toBeNull()
-    expect(row?.getAttribute('title')).toBe(expected)
+    expect(row?.getAttribute('title')).toBe('')
+    expect(row?.getAttribute('aria-label')).toContain(expected)
 
-    // (b) not-hover: the same sentence is present as text, out of flow, so a
-    // screen-reader user is not left with a bare number. Bound to the element
-    // by its class as well as its text, so moving the sentence back into the
-    // visible line would RED this.
-    const srEl = screen.getByText(expected)
-    expect(srEl.className).toContain('sr-only')
+    // The graphic has one complete accessible name even before its tooltip
+    // opens. Its presentational descendants must not carry a redundant span.
+    expect(screen.getByRole('img', { name: /Supported in 72% of simulated scenarios/ })).toBe(row)
+    expect(row?.querySelector('.sr-only')).toBeNull()
+    expect(screen.queryByText(expected)).toBeNull()
+
+    act(() => (row as HTMLElement).focus())
+    expect(document.activeElement).toBe(row)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(expected)
+    fireEvent.keyDown(row!, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull())
 
     // Positive control (trap 13): the copy comes from the ratified register,
     // and this test would be vacuous if that register were empty.
@@ -705,7 +715,8 @@ describe('OptionNode', () => {
     // Not `!== ''`: an empty or null readout would make the assertion below
     // pass on a sentence the user never sees a number for.
     expect(percent).toMatch(/^[<>]?\s*[\d.]+%$/)
-    expect(screen.getByText(COMPARATIVE_COPY.phrase(percent as string))).toBeDefined()
+    const row = screen.getByTestId('option-analysis-currency-option-1')
+    expect(row.getAttribute('aria-label')).toContain(COMPARATIVE_COPY.phrase(percent as string))
   })
 
   // V3: Most supported badge uses text-text-body (WCAG AA contrast on bg-success-light)
@@ -752,7 +763,8 @@ describe('OptionNode', () => {
       }) as any)
     )
     renderOption()
-    const badge = screen.getByText('Most supported')
+    const badge = screen.getByTestId('leading-option-pill-option-1')
+    expect(badge).toContainElement(screen.getByText('Most supported'))
     expect(badge.className).toContain('text-text-body')
     expect(badge.className).not.toContain('text-success')
   })
@@ -1256,7 +1268,7 @@ describe('OptionNode', () => {
           {
             id: 'option-baseline',
             type: 'option',
-            data: { label: 'Keep current pricing', type: 'option' },
+            data: { label: 'Keep current pricing', type: 'option', is_baseline: true },
           },
           {
             id: 'factor-1',
@@ -1270,12 +1282,16 @@ describe('OptionNode', () => {
     )
     // option-1 is a non-baseline option (baseProps.id = 'option-1');
     // baseline option sets factor to 0.49 → £49; target option sets to 0.59 → £59
-    // delta = (59-49)/49 ≈ +20.4%
+    // No relative percentage is inferred from the normalised values.
     renderOption({ label: 'Raise price' })
-    // The chip should show "£49 → £59 (+20.4%)"
-    expect(screen.getByText(/£49/)).toBeDefined()
-    expect(screen.getByText(/£59/)).toBeDefined()
-    expect(screen.getByText(/\+20\.4%/)).toBeDefined()
+    // The pair is bound to the named option, not the observed factor record.
+    // ⚠ getAllByText, not getByText. RULING 10 Sep 2026 (Paul): BOTH STAY — the
+    // values now appear in the chip AND the differentiator footer, so a
+    // single-match query throws on the duplicate.
+    expect(screen.getAllByText(/£49/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/£59/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Reference: Keep current pricing').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/\+20\.4%/)).toBeNull()
   })
 
   // P7: Win bar uses max(8px, X%) for very low win probabilities
@@ -1528,8 +1544,8 @@ describe('OptionNode — QA Brief C-series', () => {
       selector({ layoutNodeWidth: null })) as never)
   })
 
-  // C2: Baseline option shows "No changes from current state" (all interventions match baseline)
-  it('C2: baseline option (is_baseline=true) shows no-changes message', () => {
+  // C2: Baseline identity is independent of whether its recorded values change.
+  it('C2: baseline option (is_baseline=true) identifies the reference', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         ceeAnalysisReady: {
@@ -1545,8 +1561,8 @@ describe('OptionNode — QA Brief C-series', () => {
       }) as any)
     )
     renderOption({ label: 'Keep current price', is_baseline: true })
-    // Baseline option shows "No changes to factors" in body (pre-analysis)
-    expect(screen.getByText('No changes to factors')).toBeDefined()
+    // The resting label does not infer a no-change claim from the baseline flag.
+    expect(screen.getByText('Baseline option')).toBeDefined()
     // No delta arrow
     expect(screen.queryByText(/→/)).toBeNull()
   })
@@ -1726,26 +1742,26 @@ describe('OptionNode — QA Brief C-series', () => {
       ...overrides,
     })
 
-    it('option pre-analysis pill omits the scale value and the "scale" suffix', () => {
-      vi.mocked(useCanvasStore).mockImplementation((selector) => selector(buildState() as any))
-      renderOption({ label: 'Aggressive plan' })
-      // No "0.7", no "scale", no "70%" should appear in the pill area.
+    it('an unframed draft recovers its target in the preview without inventing units', async () => {
+      vi.mocked(useCanvasStore).mockImplementation((selector) => selector(buildState({ viewMode: 'standard' }) as any))
+      const { container } = renderOption({ label: 'Aggressive plan' })
+      fireEvent.mouseEnter(container.firstElementChild!)
+      expect((await screen.findAllByText(/marketing expertise/i)).length).toBeGreaterThan(0)
+      // The preview must not invent a real-world value for this unframed target.
       expect(screen.queryByText(/scale/i)).toBeNull()
       expect(screen.queryByText(/0\.7/)).toBeNull()
-      // The factor's compact label is still rendered (one or more occurrences
-      // depending on whether the popover/Detailed list also instantiates).
-      expect(screen.getAllByText(/marketing expertise/i).length).toBeGreaterThan(0)
+      expect(screen.queryByText(/70%/)).toBeNull()
     })
 
-    it('option Detailed list shows label only with no "→" arrow when value is empty', () => {
+    it('Detailed mode retains target recovery when no reference pair can be shown', async () => {
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector({ ...buildState(), viewMode: 'expert' } as any),
       )
-      renderOption({ label: 'Aggressive plan' })
-      // The intervention list row exists for the factor but has no arrow,
-      // because formatChipValue returned empty string for scale-no-raw.
-      expect(screen.getAllByText(/marketing expertise/i).length).toBeGreaterThan(0)
+      const { container } = renderOption({ label: 'Aggressive plan' })
+      fireEvent.mouseEnter(container.firstElementChild!)
+      expect((await screen.findAllByText(/marketing expertise/i)).length).toBeGreaterThan(0)
       expect(screen.queryByText(/scale/i)).toBeNull()
+      expect(screen.queryByText(/→/)).toBeNull()
     })
 
     // Self-assessment fix #4: scale-unit factor with cap (so the deltaDisplay
@@ -1873,6 +1889,7 @@ describe('OptionNode — QA Brief C-series', () => {
             ],
           },
           nodes: [
+            { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-1': 0.5 } } },
             { id: 'option-1', type: 'option', data: { label: 'Hire Tech Lead', type: 'option' } },
             { id: 'option-2', type: 'option', data: { label: 'Hire Developers', type: 'option' } },
             {
@@ -1892,11 +1909,14 @@ describe('OptionNode — QA Brief C-series', () => {
       // the from→to chip already shows that value (e.g. "50% → 90%"), so the
       // duplicate differentiator footer is dropped — the disambiguating value
       // lives in the chip, not a repeated <p>.
-      const valueChip = screen.getByText((t: string) => t.includes('90%') && t.includes('→'))
-      expect(valueChip).toBeDefined()
-      // No separate differentiator <p> repeating the same value.
+      // getAllByText: BOTH STAY, so the chip ("50% → 90%") and the footer
+      // ("Tech Lead Hired → 90%") both match this predicate.
+      const valueChips = screen.getAllByText((t: string) => t.includes('90%') && t.includes('→'))
+      expect(valueChips.length).toBeGreaterThan(1)
+      // ⚠ WAS toBeUndefined(). RULING 10 Sep 2026 (Paul): BOTH STAY — the
+      // footer is no longer dropped when the chip carries the same value.
       const matches = screen.getAllByText(/tech lead hired/i)
-      expect(matches.find(el => el.tagName === 'P')).toBeUndefined()
+      expect(matches.find(el => el.tagName === 'P')).toBeDefined()
     })
 
     it('suppresses differentiator when two options share same factor with identical values', () => {
@@ -2152,9 +2172,9 @@ describe('OptionNode — display coherence (audit §8)', () => {
       }) as any)
     )
     renderOption({ label: 'Status Quo', is_baseline: true })
-    expect(screen.getByText('Supported in 28% of simulated scenarios')).toBeDefined()
+    expect(screen.getByRole('img', { name: /Supported in 28% of simulated scenarios/ })).toBeDefined()
     expect(screen.queryByText(/win rate across simulations/i)).toBeNull()
-    expect(screen.getByText('Current baseline. No changes to factors.')).toBeDefined()
+    expect(screen.getByText('Baseline option.')).toBeDefined()
   })
 
   // Item 3c: identical "Held back by:" reasons on multiple non-leading options are
@@ -2351,6 +2371,7 @@ describe('OptionNode — display coherence (audit §8)', () => {
           options: [{ id: 'option-1', interventions: { 'factor-1': 0.8 } }],
         },
         nodes: [
+          { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-1': 0.4 } } },
           { id: 'factor-1', data: { label: 'Budget', observedState: { unit: 'fraction', value: 0.4 } } },
         ],
       }) as any)
@@ -2369,7 +2390,22 @@ describe('OptionNode — display coherence (audit §8)', () => {
     renderOption()
     const badge = screen.getByTestId('option-stable-number-option-1')
     expect(badge).toHaveTextContent('2')
-    expect(badge).toHaveAttribute('aria-label', 'Option 2')
+    // ⚠ WAS the bare 'Option 2'. The name now says what the number MEANS, so a
+    // screen-reader user can tell it from the factor ranking badge — see
+    // OptionNode's aria-label comment and metricVocabulary.ts:373.
+    expect(badge).toHaveAttribute('aria-label', 'Option 2 — the order the options were first laid out in, not a ranking')
+
+    /**
+     * ⭐⭐ THE OTHER HALF OF THE COUPLING, AND NOT REDUNDANT WITH THE LITERAL
+     * ABOVE. `metricVocabulary.spec.ts` proves the builder AGREES with the
+     * legend row; it cannot see this component dropping the builder and
+     * re-typing the sentence, which is how the defect arrived (a comment
+     * claiming a derivation with no import behind it). This binds the RENDERED
+     * name to the builder's output for THIS number, so a re-inlined literal
+     * REDs here while the register guard stays green. The literal stays — it is
+     * the corpus that notices a wrong sentence (CLAUDE.md trap 12d).
+     */
+    expect(badge).toHaveAccessibleName(optionOrdinalBadgeAccessibleName(2))
   })
 
   it('renders no stable-number badge before the option is registered', () => {
@@ -2466,13 +2502,13 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
         interventions: { fac_scope: 0 },
       }),
     )
-    expect(screen.getByText(/Supported by/)).toBeInTheDocument()
+    expect(screen.getByText(/Factor to examine:/)).toBeInTheDocument()
     expect(screen.getByText('Design Change Scope')).toBeInTheDocument()
     expect(screen.queryByText(/the #1 driver/)).toBeNull()
-    expect(screen.getByText(/its biggest lever/)).toBeInTheDocument()
+    expect(screen.queryByText(/its biggest lever/)).toBeNull()
   })
 
-  it('claims "#1 driver" only when the lever IS the policy #1', () => {
+  it('keeps the policy-selected factor without asserting why the option won', () => {
     mountLeader(
       winsViaState({
         factors: [
@@ -2483,7 +2519,7 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
       }),
     )
     expect(screen.getByText('Pricing Page Clarity')).toBeInTheDocument()
-    expect(screen.getByText(/the #1 driver/)).toBeInTheDocument()
+    expect(screen.queryByText(/the #1 driver/)).toBeNull()
   })
 
   it('ranks candidate levers by the POLICY value, not raw elasticity', () => {
@@ -2572,7 +2608,7 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
      * so is absent from the matcher's input but present in `textContent`.
      */
     const winsViaSentence = () =>
-      screen.getByText(/Supported by/).textContent?.replace(/\s+/g, ' ').trim()
+      screen.getByText(/Factor to examine:/).textContent?.replace(/\s+/g, ' ').trim()
 
     // ⚠ PIN THE PRECONDITION IN-TEST. Without this, every absence assertion
     // below could be passing because the fixture failed to produce a crownable
@@ -2605,7 +2641,7 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
       // Paul's standing ruling: NO HIDING, CAVEAT INSTEAD. The factor is still
       // named — the reader loses a false claim and gains a true one.
       expect(winsViaSentence()).toBe(
-        'Supported by Migration investment, tied for its top lever',
+        'Factor to examine: Migration investment',
       )
     })
 
@@ -2619,7 +2655,7 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
       mountTied({ fac_a_migration: 1 })
 
       expect(winsViaSentence()).toBe(
-        'Supported by Migration investment, its biggest lever',
+        'Factor to examine: Migration investment',
       )
     })
 
@@ -2640,7 +2676,7 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
       )
       // Only one lever, so the option-scoped claim stands; the global one cannot.
       expect(winsViaSentence()).toBe(
-        'Supported by Migration investment, its biggest lever',
+        'Factor to examine: Migration investment',
       )
     })
 
@@ -2656,7 +2692,7 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
         }),
       )
       expect(winsViaSentence()).toBe(
-        'Supported by Migration investment, the #1 driver',
+        'Factor to examine: Migration investment',
       )
     })
   })
@@ -2688,6 +2724,9 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
   // predicate — binds by IDENTITY, never by a value another object could
   // satisfy (trap 19).
   // -------------------------------------------------------------------------
+  // Delivery refinement: the historical claim regressions below now check
+  // the selected factor identity. Global/tied influence never by itself
+  // establishes a causal contribution to this option's outcome.
   describe('winsVia: a duplicated producer row is not a tie with itself', () => {
     const DUP_FACTOR_NODES = [
       { id: 'fac_a_migration', type: 'factor', data: { label: 'Migration investment', type: 'factor' } },
@@ -2698,7 +2737,7 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
     ]
 
     const winsViaSentence = () =>
-      screen.getByText(/Supported by/).textContent?.replace(/\s+/g, ' ').trim()
+      screen.getByText(/Factor to examine:/).textContent?.replace(/\s+/g, ' ').trim()
 
     // ⚠ PIN THE PRECONDITION IN-TEST. Every assertion below is worthless if the
     // duplicate silently collapses upstream — the fixture would then be an
@@ -2738,7 +2777,7 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
         }),
       )
       expect(winsViaSentence()).toBe(
-        'Supported by Migration investment, the #1 driver',
+        'Factor to examine: Migration investment',
       )
     })
 
@@ -2761,7 +2800,7 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
         }),
       )
       expect(winsViaSentence()).toBe(
-        'Supported by Migration investment, its biggest lever',
+        'Factor to examine: Migration investment',
       )
     })
 
@@ -2787,7 +2826,7 @@ describe('OptionNode — winsVia ranks via the display policy and never overclai
       // Both levers are pulled and both are genuinely at the top, so the
       // option-scoped claim is a tie too — and the copy says so.
       expect(winsViaSentence()).toBe(
-        'Supported by Migration investment, tied for its top lever',
+        'Factor to examine: Migration investment',
       )
     })
   })
@@ -2818,6 +2857,7 @@ describe('OptionNode — pre-analysis delta rows', () => {
         options: [{ id: 'option-1', interventions: { 'factor-long': 0.8, 'factor-short': 0.9 } }],
       },
       nodes: [
+        { id: 'option-reference', type: 'option', data: { label: 'Reference plan', is_baseline: true, interventions: { 'factor-long': 0.4, 'factor-short': 0.5 } } },
         { id: 'factor-long', data: { label: 'Enterprise Revenue Cannibalization Risk', observedState: { unit: 'fraction', value: 0.4 } } },
         { id: 'factor-short', data: { label: 'Budget', observedState: { unit: 'fraction', value: 0.5 } } },
       ],

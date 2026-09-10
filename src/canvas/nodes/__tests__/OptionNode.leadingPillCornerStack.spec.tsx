@@ -78,6 +78,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { optionOrdinalBadgeAccessibleName } from '../shared/metricVocabulary'
 import { useGuidanceStore, type GuidanceItem } from '../../stores/guidanceStore'
 
 vi.mock('@xyflow/react', async () => {
@@ -221,7 +222,11 @@ describe('OptionNode — "Most supported" pill lives in the ONE corner stack', (
     // two independently positioned boxes claiming one point. That is the whole
     // defect, and this is the assertion that goes red without the fix.
     renderOption()
-    const pill = screen.getByText("Most supported")
+    const label = screen.getByText("Most supported")
+    // The freshness qualifier shares the pill, so the wording now has its
+    // own child span. Retain the text-based fallback for the pre-migration
+    // defect, but test the positioned pill rather than that inner label.
+    const pill = label.closest<HTMLElement>(`[data-testid="leading-option-pill-${NODE_ID}"]`) ?? label
     const stack = screen.getByTestId(`node-corner-stack-${NODE_ID}`)
     expect(stack).toContainElement(pill)
     // Identity confirmation: the element the migration moved is the one the
@@ -337,7 +342,28 @@ describe('OptionNode — "Most supported" pill lives in the ONE corner stack', (
     // the corner stack the two claims would share an owner and this pin would
     // stop meaning what it says.
     expect(stack).not.toContainElement(ordinal)
-    expect(ordinal).toHaveAccessibleName('Option 3')
+    // ⚠ WAS 'Option 3'. A bare ordinal is indistinguishable from the factor
+    // ranking badge to a screen-reader user, and the two mean opposite things.
+    // The name now carries the legend's own gloss (metricVocabulary.ts:373).
+    expect(ordinal).toHaveAccessibleName(/^Option 3 — the order the options were first laid out in, not a ranking$/)
+
+    /**
+     * ⭐⭐ THE OTHER HALF OF THE COUPLING — AND IT IS NOT REDUNDANT WITH THE
+     * LITERAL ABOVE, NOR WITH THE REGISTER-SIDE GUARD.
+     *
+     * `metricVocabulary.spec.ts` proves the builder AGREES with the legend row.
+     * It is structurally blind to this component dropping the builder and
+     * re-typing the sentence — which is precisely how the defect arrived: a
+     * comment here claimed the wording was "DERIVED from the legend's own
+     * gloss" while no import existed. This assertion binds THIS element's
+     * rendered accessible name to the builder's output for THIS number, so a
+     * re-inlined literal REDs here while the register guard stays green.
+     *
+     * The literal assertion above stays. A derived guard proves the copies
+     * agree, never that the wording is right; the literal is the corpus that
+     * notices a wrong sentence (CLAUDE.md trap 12d).
+     */
+    expect(ordinal).toHaveAccessibleName(optionOrdinalBadgeAccessibleName(3))
   })
 
   it('DISCRIMINATION: a non-leading option gets no pill, and the stack loses exactly that child', () => {

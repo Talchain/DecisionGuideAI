@@ -128,7 +128,22 @@ export function SuccessTargetLine({
   }
 
   return (
-    <div className="flex items-baseline gap-1.5 mt-0.5" data-testid={testId}>
+    /* ⭐ A PEER ROW OF THE STRIP, NOT A FRAGMENT TRAILING ITS HEADER.
+       It rendered at `mt-0.5` — two pixels under a row of tallies, in the same
+       size, weight and colour as those tallies. So the one CONTROL on the top
+       panel looked exactly like the counts beside it, and "what does success
+       look like" — the question a strategist answers first — was the quietest
+       thing on the surface.
+
+       The rule is the SAME hairline `SectionShell` uses between sections, which
+       is the point: the row joins the surface's existing grammar rather than
+       inventing a device of its own. Rendered only when there is a goal node to
+       attach a target to (the component returns null above), so the rule can
+       never appear over nothing. */
+    <div
+      className="flex items-baseline gap-1.5 border-t border-panel-border pt-2 mt-2"
+      data-testid={testId}
+    >
       <Target className="w-3 h-3 self-center shrink-0 text-text-light" aria-hidden="true" />
       <span className={`${typography.panelMeta} text-text-light shrink-0`}>
         {COPY.successTarget.label}
@@ -211,7 +226,13 @@ export function SuccessTargetLine({
               setEditing(true)
               setDraft(fromNode != null ? String(fromNode.raw) : fromStore != null ? String(fromStore) : '')
             }}
-            className={`${typography.panelMeta} text-info underline underline-offset-2 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded`}
+            /* ⚠ `ml-auto` IS THE INTEGRATION, not decoration. Left-packed, the
+               control sat immediately after the value and read as a third
+               fragment of the same sentence — "Target · None set · Set a
+               target". Pushed to the row's right edge it reads as the row's
+               control, which is the shape every other row on this surface
+               already has. */
+            className={`${typography.panelMeta} ml-auto shrink-0 text-info underline underline-offset-2 hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-info rounded`}
             data-testid={`${testId}-edit`}
           >
             {shownText !== null ? COPY.successTarget.change : COPY.successTarget.set}

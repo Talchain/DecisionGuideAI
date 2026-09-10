@@ -44,6 +44,7 @@ import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { StatusPill } from './shared/StatusPill'
 import { NodeQuickActions } from './shared/NodeQuickActions'
 import { NodeProvenanceMark } from './shared/NodeProvenanceMark'
+import { sensitivityRankBadgeAccessibleName } from './shared/metricVocabulary'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 
 const NODE_TYPE_DESCRIPTIONS: Record<string, string> = {
@@ -95,8 +96,10 @@ interface BaseNodeProps extends NodeProps {
    * badges below at exactly the distance from the corner they already have, and
    * leaves the interactive coaching marker rightmost — which is the reason the
    * stack's contract puts it last. Against the `StatusPill` immediately below
-   * it the order is UNOBSERVABLE (disjoint by node type); against the edited
-   * dot and the coaching marker it is widest-first and load-bearing.
+   * it the order is UNOBSERVABLE (disjoint on RESULTS MODE — this said "by node
+   * type" until 8 Sep 2026, and that gate no longer exists; the mechanism is
+   * derived once, on the stack's contract below); against the edited dot and
+   * the coaching marker it is widest-first and load-bearing.
    */
   cornerSlot?: ReactNode
   /** Override border colour + style classes (e.g. 'border-info border-dashed'). Replaces entity colour. */
@@ -757,7 +760,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       {/* R5 contextual efficiency layer — quiet at rest, revealed on hover, on
           keyboard focus within the card, and while the node is selected. One
           home for it (here) rather than per-node-type, so every node speaks the
-          same two shortcuts: ask Olumi about this, open this node's details.
+          same three shortcuts: Ask Olumi, Challenge, and More. Details is in
+          More and also opens when the node is clicked.
           Bottom-RIGHT: the top-right corner is owned by node-corner-stack
           below, and this layer overlapped it by ~6px at a lower z until a
           review caught it. ⚠ `showQuickActions` gates THIS MOUNT ONLY. The
@@ -931,10 +935,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             as a separate box outside it. It enters here so the corner keeps
             exactly ONE positioning authority.
 
-            ⚠ Its position relative to the `StatusPill` below is UNOBSERVABLE:
-            `cornerSlot`'s only caller passes `nodeType="option"` and the
-            StatusPill arm is gated to `factor`/`goal`, so no node renders both
-            (see the five-member contract above). Widest-first governs each of
+            ⚠ Its position relative to the `StatusPill` below is UNOBSERVABLE
+            — but NOT for the reason this comment carried until 8 Sep 2026. It
+            said the pill was gated to `factor`/`goal`; Paul's badge re-ruling
+            DELETED that node-type pair, so the pill reaches option cards too and
+            that reason is now false. They are disjoint on RESULTS MODE instead:
+            `cornerSlot`'s caller renders under `isRecommended`, which needs
+            `isResultsMode`; the pill needs `isPreRunMode`. One store field,
+            opposite tests — derived in full in the five-member contract above and
+            pinned by `BaseNode.needsJudgementBadge.spec.tsx`. Widest-first governs each of
             them against the three badges that follow, which is what keeps those
             at their existing distance from the corner and the coaching marker
             rightmost. See the `cornerSlot` prop. */}
@@ -1041,7 +1050,44 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             data-testid={`sensitivity-rank-${id}`}
             className={`${typography.nodeLabel} font-semibold text-text-body bg-panel-border rounded-full flex items-center justify-center shadow-sm`}
             style={{ minWidth: '20px', height: '20px', padding: '0 4px', pointerEvents: 'none' }}
-            title={`Key driver #${displayMetadata.sensitivityRank}: ranked by influence on the outcome`}
+            /* ⚠⚠ THIS WAS A `title`, AND A `title` ON THIS ELEMENT CAN NEVER
+               FIRE. `pointerEvents: 'none'` (the line above, load-bearing so the
+               badge does not swallow drags aimed at the card) means the browser
+               raises no hover on it, so the tooltip had no trigger — while
+               reading, in source and in review, exactly like an explanation
+               that was already provided. A dead affordance that looks like
+               coverage is worse than none: it stops anyone asking the question
+               again.
+
+               `aria-label` needs no pointer, so it works where the title could
+               not, and it is the half that was genuinely missing — a screen
+               reader previously got the bare string "#1".
+
+               ⚠ THE SIGHTED READER STILL HAS NO HOVER HERE, and that is stated
+               rather than quietly left: the meaning lives in the canvas legend
+               (`metricVocabulary.ts:367-368`), which mounts unconditionally.
+               Giving this badge a real tooltip means removing
+               `pointerEvents: 'none'` and re-measuring drag behaviour on the
+               card — a separate change, not a comment.
+
+               ⚠⚠ AND THE CITATION ABOVE USED TO BE THE WHOLE COUPLING, WHICH IS
+               TO SAY THERE WAS NONE. This file imported nothing from
+               `metricVocabulary`; the `aria-label` was a template literal that
+               happened to repeat the legend's gloss, with a line number in a
+               comment standing in for an import. That is the shape this estate
+               calls a hand-maintained mirror (CLAUDE.md trap 12) — and the
+               drift it admits is invisible, because the legend's only guard
+               (`ORDINAL_ROW_MUST_STATE_MINT`) reads `row.gloss` and never the
+               badge. A legend rewrite would have left a screen-reader user
+               being told something a sighted reader is not.
+
+               The record is kept rather than tidied away; what changes is that
+               it is now TRUE BY IMPORT.
+               `sensitivityRankBadgeAccessibleName` is built from
+               `SENSITIVITY_RANK_CLAUSE`, the same constant the legend row is
+               built from, so the two cannot say different things about this
+               badge. The rendered string is unchanged. */
+            aria-label={sensitivityRankBadgeAccessibleName(displayMetadata.sensitivityRank)}
           >
             #{displayMetadata.sensitivityRank}
           </span>

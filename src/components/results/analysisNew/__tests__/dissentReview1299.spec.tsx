@@ -5,7 +5,7 @@ import { StrengthenTheReasoning } from '../sections/StrengthenTheReasoning'
 import { useCanvasStore } from '../../../../canvas/store'
 import { setCurrentScenarioId } from '../../../../canvas/store/scenarios'
 import { recordDissent, readDissent, clearDurableDissent } from '../../../../canvas/stores/dissentStore'
-import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
+import { useStrengthenStore, recordKey} from '../../../../canvas/stores/strengthenStore'
 import { clearAuthStates } from '../../../../lib/auth/authUtils'
 import { useDecisionRecordStore } from '../../modals/decisionRecordStore'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
@@ -78,7 +78,7 @@ describe('independent PR 1299 acceptance counterexamples', () => {
       return original.call(this, key, value)
     })
     enterAndSave('Revised words')
-    const history = useStrengthenStore.getState().records[ID].history
+    const history = useStrengthenStore.getState().records[recordKey(A, ID)].history
     expect(history[history.length - 1].disputeReason).toBe('Revised words')
     expect(screen.getByTestId('analysis-new-strengthen-disagree-input')).toHaveValue('Revised words')
     expect(screen.getByRole('alert')).toHaveTextContent('Not saved for next time')
@@ -200,14 +200,57 @@ describe('independent PR 1299 acceptance counterexamples', () => {
     expect(localStorage.getItem('unrelated-model')).toBe('keep me')
   })
 
-  it('LIMIT CONTROL: another scenario with no durable record still sees the unscoped session fallback', () => {
+  /**
+   * ⭐⭐ THIS CASE USED TO PIN THE LEAK AS A LIMITATION, AND THE LEAK IS NOW
+   * CLOSED. It read:
+   *
+   *   'LIMIT CONTROL: another scenario with no durable record still sees the
+   *    unscoped session fallback'
+   *
+   * …and asserted that opening the same finding on decision B displayed
+   * **"Only about scenario A"** as B's own standing objection. The DURABLE
+   * dissent was correctly scoped — `readDissent(B)` was already `{}` — but the
+   * SESSION fallback reads the record's `history`, and records were keyed by
+   * finding id ALONE. So B and A shared one record, and A's words were shown
+   * on B's card as something B had said.
+   *
+   * It was known, it was named, and it was left. Keying records by
+   * (decision, finding) closes it as a side-effect: B has no record of its own,
+   * so there is nothing to fall back TO. Same harm as the trail defect this
+   * change was written for — one decision's reasoning shown as another's — and
+   * the same root cause, so it is repaired by the same key rather than by a
+   * second, separate rule.
+   */
+  it('⭐ another decision does NOT inherit this one session objection', () => {
     const first = openCard()
     enterAndSave('Only about scenario A')
     first.unmount()
     act(() => useCanvasStore.setState({ currentScenarioId: B }))
     setCurrentScenarioId(B)
     openCard()
+
     expect(readDissent(B)).toEqual({})
-    expect(screen.getByTestId('analysis-new-strengthen-disagreement')).toHaveTextContent('Only about scenario A')
+    // B said nothing about this finding, so B's card claims nothing.
+    expect(screen.queryByTestId('analysis-new-strengthen-disagreement')).toBeNull()
+  })
+
+  it('…and A still has it when the reader goes back — the twin', () => {
+    // ⚠ THE OPPOSITE CONTROL. A fix that simply stopped rendering the session
+    // fallback everywhere would pass the case above and lose A's objection too;
+    // this is the case that can tell the two apart.
+    const first = openCard()
+    enterAndSave('Only about scenario A')
+    first.unmount()
+
+    act(() => useCanvasStore.setState({ currentScenarioId: B }))
+    setCurrentScenarioId(B)
+    openCard().unmount()
+
+    act(() => useCanvasStore.setState({ currentScenarioId: A }))
+    setCurrentScenarioId(A)
+    openCard()
+    expect(screen.getByTestId('analysis-new-strengthen-disagreement')).toHaveTextContent(
+      'Only about scenario A',
+    )
   })
 })

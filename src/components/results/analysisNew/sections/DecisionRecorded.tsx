@@ -70,6 +70,7 @@ import { ClipboardCheck } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import type { DecisionRecord } from '../../modals'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
+import { surface } from '../panelSurfaces'
 
 export interface DecisionRecordedProps {
   /** Pre-run there is no decision to record — the options are not analysed. */
@@ -221,7 +222,7 @@ export function DecisionRecorded({
 
   return (
     <section
-      className="rounded-lg border border-panel-border px-3 py-2.5"
+      className={surface('neutral')}
       data-testid={testId}
       aria-label={record ? COPY.decisionRecord.recorded : COPY.decisionRecord.open}
     >

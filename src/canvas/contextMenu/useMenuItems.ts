@@ -10,7 +10,7 @@ import {
   Sparkles, Zap, Crosshair, SlidersHorizontal, ArrowUpToLine, ArrowDownToLine,
   RotateCcw, Pencil, Plus, Flag, Scissors, Copy, ClipboardPaste, CopyPlus,
   Trash2, MessageSquare, Layers, TrendingUp, AlertTriangle, ArrowLeftRight, Eye,
-  Undo2, Redo2, LayoutGrid,
+  Undo2, Redo2, LayoutGrid, PanelRight,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { useCanvasStore, selectResultsStatus, selectReport } from '../store'
@@ -44,6 +44,7 @@ import {
   buildChallengeTooltip,
 } from './actions'
 import { DECISION_NODE_LABEL } from '../domain/vocabulary'
+import { openNodeInspector } from '../nodes/shared/openNodeInspector'
 
 type ShowToastFn = (message: string, type: 'error' | 'info' | 'success' | 'warning') => void
 
@@ -306,6 +307,17 @@ function buildNodeMenu(
   const isFull = FULL_MENU_KINDS.has(kind)
   const isGoal = kind === 'goal'
   const node = target.node
+
+  // The quick-action row has three slots. Details stays keyboard-reachable
+  // through More as well as the existing node-click inspector route.
+  items.push({
+    id: 'open-details',
+    label: 'Open details',
+    icon: PanelRight,
+    tooltip: 'Open the inspector for this element',
+    enabled: true,
+    action: wrap(() => { openNodeInspector(target.nodeId) }),
+  })
 
   // --- Ask AI submenu ---
   const askAIItems: MenuEntry[] = [

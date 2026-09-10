@@ -15,7 +15,7 @@
 import { useEffect, useMemo } from 'react'
 import { safeArray } from '../../lib/array-utils'
 import { useCanvasStore } from '../../canvas/store'
-import { licensesComparativeLeaderClaim } from '../../canvas/hooks/useAnalysisReady'
+import { licensesComparativeLeaderClaim, resolveEffectiveAdmission } from '../../canvas/hooks/useAnalysisReady'
 import { THRESHOLDS, LIMITS } from '../../lib/mappers/constants'
 import { useShallow } from 'zustand/react/shallow'
 import { findNodeMatches, type Driver } from '../../canvas/utils/driverMatching'
@@ -988,10 +988,29 @@ function deriveConfidenceTierLegacy(
     return 'needs_work'
   }
 
-  // 3. Fallback: report.confidence.level
-  if (report?.confidence?.level) {
-    return mapConfidenceLevel(report.confidence.level)
-  }
+  // 3. RETIRED (UI-SEM-015): `report.confidence.level` was consulted here.
+  // It is a UI-LOCAL re-derivation — a ratio over the lengths of the
+  // robust/fragile edge arrays, duplicated in `responseMapper.ts` and
+  // `mapV5AnalysisToReport.ts` — of the question PLoT already answers as
+  // `confidence_tier`. Measured over a 33-observation capture corpus the two
+  // disagree on 30% of runs and 18% MAXIMALLY (locally derived 'low' against a
+  // producer tier of 'strong'); 30% derive 'low' purely by construction,
+  // because `robust_edges` is empty so the ratio is 0. The derivation consults
+  // no `switch_probability` or `marginal_switch_probability` — its own
+  // signature declares `fragile_edges?: string[]` while the runtime items are
+  // OBJECTS carrying those fields, so the correcting data was structurally
+  // invisible to it.
+  //
+  // It is NOT re-derived here, and deliberately not replaced by a tuned
+  // variant: applying the UI's own 0.15 fragile-edge floor was measured to
+  // halve maximal disagreement (6→3) while leaving overall disagreement
+  // UNCHANGED at 31% — a win on the symptom metric only.
+  //
+  // Where the producer's tier is absent the cascade now says NOTHING rather
+  // than substituting a local guess: it falls to CEE readiness (steps 1-2,
+  // above) or `graph_quality.score` (step 4, below), and otherwise returns
+  // 'unknown', which the surface renders as "Unknown / Unable to assess model
+  // quality" and which selects the LESS committal option-card chip.
 
   // 4. Last resort: report.graph_quality.score (0-100)
   if (typeof report?.graph_quality?.score === 'number') {
@@ -1292,6 +1311,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     m1ReviewAssumptions,
     goalThreshold,
     ceeAnalysisReady,
+    retainedAnalysisAdmission,
     rawV2FlipThresholds,
     rawAutoNoiseProvenance,
     rawFlipThresholdsStatus,
@@ -1314,6 +1334,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       m1ReviewAssumptions: s.runMeta?.m1ReviewAssumptions ?? null,
       goalThreshold: s.goalThreshold,
       ceeAnalysisReady: s.ceeAnalysisReady,
+      retainedAnalysisAdmission: s.retainedAnalysisAdmission,
       // Extract only flip_thresholds from raw V2 response to avoid subscribing to entire object.
       // Used as fallback in flip_thresholds defensive adaptor when mapped report doesn't carry them.
       // Display-honesty: PLoT v2/run emits flip_thresholds at the top level
@@ -1734,11 +1755,24 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           // that are not factor nodes at all, which have no editor by kind.
           //
           // ⚠ NODE KIND IS CHECKED HERE, and the reason is defensive rather than
-          // borrowed. `useModelEditAuthority.ts:247` — the `'not_encodable'` guard
-          // for a non-factor — belongs to `proposeFactorConfirmation`, NOT to
-          // `proposeFactorValue` (`:146`), which performs no kind check of its own.
-          // (The earlier version of this comment cited `:247` as though it guarded
-          // the value writer; corrected in review.) So this check is not mirroring
+          // borrowed. The only `'not_encodable'` refusal for a non-factor is
+          // `useModelEditAuthority.proposeFactorConfirmation`'s
+          // `resolveNodeTypeLiteral(node) !== 'factor'` guard. It does NOT belong
+          // to `proposeFactorValue`, which performs no kind check of its own —
+          // its refusals are a missing `activeNodeId`, a node absent from the
+          // store, and a null from `buildFactorValueEditEvent`, and that builder
+          // is never handed a kind at all.
+          //
+          // ⚠ CITE THE GUARD, NOT THE LINE. This comment twice carried line
+          // numbers (`:247`, `:146`) and both were wrong before anyone noticed:
+          // a line-number citation is a hand-maintained mirror by construction
+          // (CLAUDE.md trap 12) and drifts on the next edit to a file it does not
+          // even live in. Named this way it cannot rot silently — the symbol
+          // either exists or a grep finds nothing.
+          //
+          // ⚠ AND DO NOT CONFUSE IT with `proposeOptionIntervention`'s
+          // `resolveNodeTypeLiteral(option) !== 'option'`: two kind guards, two
+          // different questions. So this check is not mirroring
           // an existing refusal — it is the only kind gate on this path, which is
           // why it stays: `resolveNodeTypeLiteral` returns null for an unrecognised
           // id, so an unknown id fails CLOSED to `'none'` and offers nothing.
@@ -2240,8 +2274,23 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // ABSENCE => OLDER PRODUCER => EXACTLY TODAY'S BEHAVIOUR. This `true` arm is
     // what makes the consumer safe to land before the CEE half merges. It is not
     // a convenience default and it carries its own test (ARM A).
+    //
+    // ⚠⚠ AND IT READS THE **EFFECTIVE** ADMISSION, NOT THE LIVE FIELD ALONE.
+    // `ceeAnalysisReady` is the admission's only carrier and
+    // `invalidateAnalysisReady` nulls it on every analytical edit, so reading the
+    // live field alone made ONE KEYSTROKE turn a recorded refusal into a licence:
+    // Q1 flipped to `true`, `report` survived (a different slice), so Q2 stayed
+    // `true`, and the composed answer below licensed the designation CEE had
+    // declined. WITNESSED on staging 9eb30b54, 2026-09-10 — the refusal slot was
+    // replaced by "Most likely to serve your goal / Double Down on SMB" 59ms after
+    // one factor value was edited.
+    //
+    // `resolveEffectiveAdmission` separates THE PRODUCER NEVER SPOKE (still
+    // `undefined`, so the `true` arm and ARM A are untouched) from WE NULLED IT
+    // OURSELVES (the last thing CEE said still governs). It can only ever
+    // withhold: the retained value is one the producer sent.
     const modelLicensesComparativeClaim = licensesComparativeLeaderClaim(
-      ceeAnalysisReady?.analysis_admission,
+      resolveEffectiveAdmission(ceeAnalysisReady?.analysis_admission, retainedAnalysisAdmission),
     )
 
     // Q2 - THIS RESULT'S SEPARATION. "Did THIS run separate the arms?" A property
@@ -2255,8 +2304,40 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     //     Q2 absent => false  (no result, so no claim may be authored)
     // Aligning them — `??`-ing one through the other, or giving them a shared
     // default — would put two questions under one name, which is the defect this
-    // estate has paid for twice. Neither term is folded into the other, and
-    // neither is ever read alone at a render site.
+    // estate has paid for twice. Neither term is folded into the other.
+    //
+    // ⚠ THIS COMMENT USED TO END "…and neither is ever read alone at a render
+    // site." THAT WAS FALSE AT THE TIP THAT SHIPPED IT, and a false sentence
+    // describing verification is worse than no sentence: it tells the next
+    // reader the sweep has already been done.
+    //
+    // ⚠⚠ THE PARAGRAPH THAT STOOD HERE IS WITHDRAWN. It described a LIVE hero
+    // gap that is CLOSED at this head, and it did so in the one register this
+    // comment itself warns against two lines above — asserting a measurement.
+    // It was caught by an independent review of a merge resolution, and all
+    // three of its claims were checked at the bytes rather than inferred:
+    //
+    //   (a) IT QUOTED AN EXPRESSION THAT IS IN NO VERSION OF THE FILE. It
+    //       attributed `verdict != null && !verdict.hasLeadingOption` to
+    //       `buildHeroModel.ts:279`. The actual line is `:326` —
+    //       `const designationsWithheld = recommendation.verdict != null &&
+    //       leaderDesignationPermitted(recommendation) !== true` — under a
+    //       docblock at `:281` reading, in as many words, "READS THE COMPOSED
+    //       ANSWER, NOT ONE CONJUNCT". That is the exact opposite of the claim.
+    //   (b) THE GAP IS CLOSED. Because the hero reads the composed answer
+    //       through the same `leaderDesignationPermitted` this module computes,
+    //       the "Q2 true, Q1 false" divergence it described cannot arise.
+    //   (c) THE PIN IT NAMED NEVER EXISTED.
+    //       `analysis-hero/__tests__/heroReadsQ2Alone.knownGap.spec.ts` is
+    //       absent — contrast control in the same check: 41 sibling `.spec.`
+    //       files ARE present in that directory, so the probe discriminates.
+    //
+    // A comment naming a pin spec is the strongest "already audited" signal
+    // this codebase has, which is why a false one costs more than silence.
+    // Nothing replaces it: there is no gap here to record.
+    //
+    // The narrow true statement, which is all this comment may now assert:
+    // neither term is read alone at a render site IN THIS MODULE.
     const leaderDesignationPermitted = modelLicensesComparativeClaim && resultSeparatesArms
 
     const designationsWithheld = !leaderDesignationPermitted
@@ -2512,7 +2593,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       leaderDesignationPermitted,
       // Raw, for `reasons[]` (the "what would change it" copy) and
       // `missing_important_inputs[]`. Undefined => pre-admission CEE.
-      analysisAdmission: ceeAnalysisReady?.analysis_admission,
+      // THE SAME EFFECTIVE ANSWER THE GATE ABOVE USED. Handing consumers the raw
+      // live field while gating on the effective one would put two answers to one
+      // question in one object — and `buildAnalysisNewViewModel` reads this field
+      // to compose the refusal's REASON, so a disagreement here renders a withheld
+      // designation with no explanation beside it.
+      analysisAdmission: resolveEffectiveAdmission(
+        ceeAnalysisReady?.analysis_admission,
+        retainedAnalysisAdmission,
+      ),
       // Task 6: Flip thresholds for tipping points visualisation
       flipThresholds: flipThresholds.length > 0 ? flipThresholds : undefined,
       // Display-honesty: PLoT-side classification of flip_thresholds[].
@@ -2659,7 +2748,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // (Measured: at pristine this memo's exhaustive-deps warning named only
     // `reviewStatus`; without this entry the lane would have added `edges` to
     // it.)
-  }, [hasCompletedFirstRun, report, nodes, edges, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason])
+  }, [hasCompletedFirstRun, report, nodes, edges, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason, retainedAnalysisAdmission])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)
@@ -3968,6 +4057,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           const nodeIds: string[] = safeArray(w.affected_nodes ?? w.affectedNodes)
           return {
             code: String(w.code ?? ''),
+            // ⚠ CARRIED, BECAUSE FOR THE DEFAULTING FAMILY IT IS THE ONLY IDENTITY
+            // THERE IS. `affected_nodes` is `[]` for these codes, so rebuilding the
+            // warning without `field` discarded the one thing that tells two
+            // same-code rows apart — a loss invisible to unit tests that feed raw
+            // producer shapes straight past this adapter.
+            field: typeof w.field === 'string' ? w.field : undefined,
             affected_nodes: nodeIds,
             affected_labels: nodeIds.map(id => nodeLabelMap.get(id) ?? id),
             message: w.message ? String(w.message) : undefined,

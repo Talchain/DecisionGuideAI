@@ -165,22 +165,28 @@ export const METRIC_NOUN = {
  * than the flattening statistics above, which describe how OFTEN the old
  * behaviour looked wrong rather than why it WAS wrong.
  *
- * ⚠ THE COARSENESS OF THE SURVIVING CHANNEL IS A KNOWN, ROWED GAP — NOT FIXED
- * HERE. Thickness still carries the magnitude and `vectorEffect:
+ * ⚠ THE COARSENESS OF THE SURVIVING CHANNEL IS A KNOWN, ROWED GAP — STILL NOT
+ * FIXED HERE. Thickness still carries the magnitude and `vectorEffect:
  * 'non-scaling-stroke'` makes it a SCREEN width, so it is one of the few
  * channels that does not degrade at low zoom (where this metric row sits at
- * ~8.8px). But `weightMagnitudeToStrokeWidth` has three bands (≥0.7→3, ≥0.4→2,
- * else 1.5) and `UNSET_EDGE_STROKE_WIDTH` is 1.5 — IDENTICAL to the weakest
- * band. Across the 24 starter magnitudes (0.18–0.65) that is exactly TWO
- * distinguishable widths, one of them ambiguous with "unset".
+ * ~8.8px). `weightMagnitudeToStrokeWidth` still has three bands (≥0.7→3,
+ * ≥0.4→2, else 1.5), so across the 24 starter magnitudes (0.18–0.65) there are
+ * still only TWO distinguishable measured widths. That half of the gap stands.
  *
- * ⛔ DELIBERATELY NOT BUILT. Whether "unset" should be visually distinct from
- * "weakest" is a live product question with Paul, and changing
- * `UNSET_EDGE_STROKE_WIDTH` or the band scheme would pre-empt it from a lane
- * scoped to a card row. Rowed, not built. (An in-repo middle exists if he wants
- * one: the canvas already uses DASH to mean uncertainty, so a visibly unsettled
- * bar — hatched or ghosted, clearly outside measurement grammar — would keep 24
- * edges comparable at a glance while still refusing the claim. Unexamined here.)
+ * ✅ THE OTHER HALF IS BUILT (8 Sep 2026). This note used to continue: *"and
+ * `UNSET_EDGE_STROKE_WIDTH` is 1.5 — IDENTICAL to the weakest band … one of
+ * them ambiguous with 'unset'. ⛔ DELIBERATELY NOT BUILT. Whether 'unset'
+ * should be visually distinct from 'weakest' is a live product question with
+ * Paul."* Paul cleared it; `UNSET_EDGE_STROKE_WIDTH` is now strictly below
+ * every measured band, so the "unset" ambiguity is gone and width reads as a
+ * total order — unset < weak < moderate < strong.
+ *
+ * ⚠ THE PARENTHETICAL THAT USED TO SIT HERE SUGGESTED DASH, AND THE BUILD LANE
+ * MEASURED IT AND REFUSED. *"The canvas already uses DASH to mean uncertainty"*
+ * is precisely the problem: `EDGE_DASH_RULES` already carries `contested`,
+ * `existence_certainty` and `visual_props`, and `resolveEdgeDash` returns the
+ * FIRST match — so a fourth rule would be invisible on exactly the edges most
+ * in question. Recorded so the dead suggestion is not re-proposed.
  *
  * ⛔ WHY A SHARED CONSTANT AND NOT A LITERAL AT EACH SITE. Three surfaces say
  * this — the risk card, the outcome card, and the reduced line both of them
@@ -309,6 +315,58 @@ export interface MetricLegendRow {
   gloss: string
 }
 
+/**
+ * ⭐⭐ THE TWO CLAUSES THE LEGEND AND THE BADGES BOTH SPEAK — ONE AUTHORITY.
+ *
+ * ⚠ THIS EXISTS BECAUSE A COMMENT CLAIMED IT ALREADY DID. `#1414` gave the two
+ * canvas badges accessible names and wrote, at both call sites, that the
+ * wording was "DERIVED from the legend's own gloss … so the two cannot drift
+ * into saying different things about the same badge". **There was no import.**
+ * Both `aria-label`s were template literals that happened to repeat the
+ * legend's words — a hand-maintained mirror (CLAUDE.md trap 12) whose comment
+ * asserted the derivation that would have made it safe. The comments are
+ * preserved and corrected forward at those sites rather than deleted; what
+ * they say is now true because of these two constants, not because of them.
+ *
+ * ⛔ THE DRIFT IS SILENT AND IT LANDS ON ONE READER ONLY. Nothing tested the
+ * badge against the legend: `ORDINAL_ROW_MUST_STATE_MINT` is only ever applied
+ * to `row.gloss`. So a legend rewrite kept the mint guard green, left the
+ * badges on the old wording, and told a screen-reader user something different
+ * from what a sighted user reads in the popover — the two surfaces disagreeing
+ * about the same badge, with no red anywhere.
+ *
+ * ⚠ SCOPE, STATED NARROWLY. These constants couple the legend row and the
+ * badge name for the SAME badge. They are not a general copy register — that
+ * is `METRIC_NOUN` — and they do not make the sentences correct, only
+ * identical. The clauses' truth is guarded separately: the ordinal's mint
+ * qualifier by `ORDINAL_ROW_MUST_STATE_MINT`, and the residual O1 limit is
+ * still open in the ⚠⚠ block above.
+ *
+ * The rows below are built from these, so the register reads exactly as it
+ * did — the change is where the words live, never what they say.
+ */
+export const SENSITIVITY_RANK_CLAUSE = 'the factors the result is most sensitive to'
+export const ORDINAL_MINT_CLAUSE = 'the order the options were first laid out in'
+
+/**
+ * The rank badge's accessible name. `BaseNode` renders `#N` and nothing else,
+ * so without this a screen reader gets the bare string "#1" — and "#1" on a
+ * factor means the OPPOSITE of "1" on an option card, which is the confusion
+ * the legend exists to prevent.
+ */
+export const sensitivityRankBadgeAccessibleName = (rank: number): string =>
+  `Key driver #${rank}: one of ${SENSITIVITY_RANK_CLAUSE}`
+
+/**
+ * The option ordinal badge's accessible name. Deliberately NOT a bare
+ * "Option N", which reads as a rank; the trailing clause is what distinguishes
+ * it from `sensitivityRankBadgeAccessibleName` above.
+ *
+ * ⚠ The separator is an EM DASH (—), matching what ships today.
+ */
+export const optionOrdinalBadgeAccessibleName = (optionNumber: number): string =>
+  `Option ${optionNumber} — ${ORDINAL_MINT_CLAUSE}, not a ranking`
+
 export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
   {
     noun: METRIC_NOUN.support,
@@ -359,12 +417,19 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
   },
   {
     noun: '#1, #2, #3',
-    gloss: 'the factors the result is most sensitive to',
+    // ⭐ SHARED WITH THE BADGE'S OWN ACCESSIBLE NAME, by import rather than by
+    // repetition — see SENSITIVITY_RANK_CLAUSE above. Byte-identical to the
+    // literal it replaced.
+    gloss: SENSITIVITY_RANK_CLAUSE,
   },
   {
     noun: '1, 2, 3 on an option',
     // ⚠ THE QUALIFIER IS LOAD-BEARING — see ORDINAL_ROW_MUST_STATE_MINT below.
-    gloss: 'the order the options were first laid out in. Not a ranking, and it stays with a card when you move it.',
+    // ⭐ The first clause is shared with the badge's accessible name
+    // (ORDINAL_MINT_CLAUSE above). The two sentences below it are the legend's
+    // alone: a badge name has no room for them. Byte-identical to the literal
+    // it replaced.
+    gloss: `${ORDINAL_MINT_CLAUSE}. Not a ranking, and it stays with a card when you move it.`,
   },
   {
     noun: METRIC_UNSET.standalone,
@@ -418,10 +483,11 @@ export const METRIC_LEGEND_ROWS: readonly MetricLegendRow[] = [
  *     ONE binding, captioned twice eight pixels apart. The part-of-speech
  *     defence is sound in general and did not hold here: a verb and a noun
  *     describing the SAME quantity on the SAME card are not two ideas.
- *   · `OptionNode:1601` — "Leads via {factor}, the #1 driver". NOT PRESENT.
- *     The live line is `OptionNode:1878`, "Supported by {factor}". Swept with
- *     a contrast control: `Leads via` → 0 hits under `src/canvas`,
- *     `Supported by` → 1. The residual note outlived its own subject.
+ *   · `OptionNode` — "Leads via {factor}, the #1 driver" was already absent
+ *     in the 8 Sep sweep; "Supported by {factor}" remained at that point.
+ *     On 9 Sep the option refinement replaces that residual with "Factor to
+ *     examine": global factor importance supports navigation, not an
+ *     option-specific causal explanation. No vocabulary export changes.
  *
  * ⭐ SO "Leads" IS RETIRED AS A CAPTION *AND* HAS NO LIVE PROSE USE ON THE
  * CANVAS. The narrower ruling is kept below because it is the right rule — a
