@@ -26,6 +26,30 @@
  * re-derivation — the panel and the analyser must not disagree about what the
  * options say.
  *
+ * ⚠⚠ TWO WIRE SHAPES, BOTH LIVE. THIS SELECTOR SHIPPED DARK READING ONLY ONE.
+ * `interventions` arrives in either of two forms, and the store hands this
+ * selector whichever one CEE sent: `normaliseV5AnalysisReady`
+ * (`v5/applyV5State.ts:268-274`) maps `option_id` to `id` and then passes
+ * `interventions` through UNCHANGED, with no value unwrapping anywhere on the
+ * path. So the raw producer shape reaches this code verbatim.
+ *
+ *   FLAT   `Record<nodeId, number>`        e.g. `{ "1ed89ca0": 0.5 }`
+ *   NESTED `Record<nodeId, { value, … }>`  e.g. `{ "fac_dev_time": { value: 0.85 } }`
+ *
+ * MEASURED, not assumed, across the repo's two capture corpora:
+ *   FLAT   — 6/6 live turn captures carrying options in
+ *            `lib/coherence/__tests__/fixtures/captures/`, and 7/7 in
+ *            `v5/__tests__/fixtures/`. This is the real CEE wire.
+ *   NESTED — 5/5 saved starter examples in `docs/evidence/starters/raw/`.
+ *
+ * This selector originally read `intervention?.value` alone, which is
+ * `undefined` on a bare number. Every comparable option therefore fell out at
+ * `statedValues`, `comparable` was always empty, and the finding could never
+ * fire on a real CEE turn — while the starter path kept it green. The spec's
+ * own fixture builder emitted the nested shape only, so nothing in the suite
+ * could see it: a fixture you wrote yourself is not evidence about the wire.
+ * Read BOTH shapes; neither is a legacy form.
+ *
  * ⚠ NEVER INVENT AN ABSENCE. Every precondition below returns `null` rather than
  * a zeroed finding, so "we could not look" is never rendered as "we looked and
  * found nothing".
@@ -35,12 +59,14 @@
 interface InterventionLike {
   value?: unknown
 }
+/** Either live wire form. See the two-shapes note in the file header. */
+type InterventionLikeValue = number | InterventionLike | null | undefined
 interface OptionLike {
   id?: unknown
   label?: unknown
   status?: unknown
   is_baseline?: unknown
-  interventions?: Record<string, InterventionLike> | null
+  interventions?: Record<string, InterventionLikeValue> | null
 }
 
 export interface OptionDifferentiation {
@@ -64,13 +90,34 @@ function key(value: number): string {
   return value.toFixed(9)
 }
 
+/**
+ * Resolve one intervention to its stated number, whichever wire shape it is in.
+ *
+ * Returns `null` for anything that is not a finite number, so a non-finite or
+ * absent value is EXCLUDED from the comparison rather than coerced into one.
+ * `NaN`/`Infinity` must not become a shared factor: they would compare unequal
+ * to themselves through `key`, which silently suppresses the finding.
+ */
+function readInterventionValue(intervention: InterventionLikeValue): number | null {
+  // FLAT — the live CEE turn shape, `Record<nodeId, number>`.
+  if (typeof intervention === 'number') {
+    return Number.isFinite(intervention) ? intervention : null
+  }
+  // NESTED — `CEEInterventionV3 { value, source, … }`, the saved-example shape.
+  if (intervention && typeof intervention === 'object') {
+    const value = intervention.value
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+  }
+  return null
+}
+
 function statedValues(option: OptionLike): Map<string, number> | null {
   const raw = option.interventions
   if (!raw || typeof raw !== 'object') return null
   const out = new Map<string, number>()
   for (const [nodeId, intervention] of Object.entries(raw)) {
-    const value = intervention?.value
-    if (typeof value === 'number' && Number.isFinite(value)) out.set(nodeId, value)
+    const value = readInterventionValue(intervention)
+    if (value !== null) out.set(nodeId, value)
   }
   return out.size > 0 ? out : null
 }

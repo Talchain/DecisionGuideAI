@@ -68,7 +68,7 @@ describe('sig_option_differentiation — detection', () => {
     expect(detection).not.toBeNull()
     expect(detection.signal_id).toBe('sig_option_differentiation')
     expect(detection.copy.lead).toBe(
-      'All 4 options set the same value for 3 of the 4 factors they share.',
+      'Four of your options set the same value for 3 of the 4 factors they share.',
     )
     // The user is told what CAN still separate the options — the actionable half.
     expect(detection.copy.emphasis).toContain('one that differs')
@@ -79,7 +79,7 @@ describe('sig_option_differentiation — detection', () => {
       input({ optionDifferentiation: { optionCount: 3, sharedCount: 5, identicalCount: 3 } }),
     )!
     expect(detection.copy.lead).toBe(
-      'All 3 options set the same value for 3 of the 5 factors they share.',
+      'Three of your options set the same value for 3 of the 5 factors they share.',
     )
     expect(detection.copy.emphasis).toContain('2 that differ')
   })
@@ -89,8 +89,40 @@ describe('sig_option_differentiation — detection', () => {
       input({ optionDifferentiation: { optionCount: 2, sharedCount: 2, identicalCount: 2 } }),
     )!
     expect(detection.copy.lead).toBe(
-      'All two options set the same value for every factor they share.',
+      'Two of your options set the same value for every factor they share.',
     )
+  })
+
+  /**
+   * ⚠⚠ REGRESSION GUARD — THIS ROW MAY NOT CLAIM TOTALITY OVER THE USER'S OPTIONS.
+   *
+   * `optionDifferentiation.optionCount` is `comparable.length`: a FILTERED
+   * SUBSET that drops the baseline arm, every option not yet `ready`, and every
+   * option with no stated value. The panel's own option count
+   * (`facts.optionCount`, behind "You are comparing N options" and the
+   * "N options included" bar) counts canvas option NODES and is routinely
+   * larger. Measured on the starter captures: vendor-selection has 4 option
+   * nodes and 3 comparable; market-entry has 3 and 2.
+   *
+   * So "All 3 options set the same value…" would sit in the same panel as
+   * "You are comparing 4 options" and assert a totality nothing measured. The
+   * partitive is true under every filter. The sibling `structuralSharedMechanism`
+   * row MAY say "All N" because its count IS the canvas option nodes; this one
+   * may not, and the two must not be "aligned" into one wording.
+   */
+  it('never claims totality over the user\'s options, on either branch', () => {
+    const leads = [
+      def.detect(input({ optionDifferentiation: { optionCount: 2, sharedCount: 2, identicalCount: 2 } }))!.copy.lead,
+      def.detect(input({ optionDifferentiation: { optionCount: 3, sharedCount: 5, identicalCount: 3 } }))!.copy.lead,
+      def.detect(input({ optionDifferentiation: { optionCount: 4, sharedCount: 4, identicalCount: 3 } }))!.copy.lead,
+    ]
+    // Positive control: the fixtures really did produce copy to inspect.
+    expect(leads).toHaveLength(3)
+    for (const lead of leads) {
+      expect(lead.length).toBeGreaterThan(0)
+      expect(lead).not.toMatch(/\bAll\b/)
+      expect(lead).toMatch(/of your options\b/)
+    }
   })
 
   it('carries an actionable spark rather than a dead end', () => {
