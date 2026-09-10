@@ -34,6 +34,21 @@ export interface RedactionOptions {
   neverTruncateKeys?: string[]
   /** Safety cap for neverTruncateKeys strings (default: 200_000 chars ~200KB). Prevents memory blowout. */
   neverTruncateMaxLength?: number
+  /**
+   * PER-KEY override of `neverTruncateMaxLength`, for the one case where a
+   * single key's honest size is far above what the SHARED ceiling should be.
+   *
+   * ⚠ THIS IS A REDACTION LAYER. Raising the shared ceiling to fit one field
+   * raises it for every field on `neverTruncateKeys` — including
+   * `assistant_text`, `text` and `content`, which are LLM-authored surfaces
+   * that DO carry user content. That is a privacy widening wearing a
+   * feature. This map raises the cap for a NAMED key and nothing else.
+   *
+   * A key listed here must ALSO be in `neverTruncateKeys`: this map only
+   * moves the safety cap, it does not itself exempt a key from
+   * `maxStringLength`.
+   */
+  neverTruncateKeyMaxLength?: Record<string, number>
   /** Keys whose subtrees bypass max-depth redaction.
    *  When a key matches, depth resets so the subtree gets maxDepth more levels.
    *  Sensitive-key masking, string truncation, and array capping still apply. */
@@ -59,6 +74,7 @@ const DEFAULT_OPTIONS: Required<RedactionOptions> = {
   },
   neverTruncateKeys: [],
   neverTruncateMaxLength: 200_000,
+  neverTruncateKeyMaxLength: {},
   neverRedactKeys: [],
 }
 
@@ -90,8 +106,34 @@ export const DEBUG_BUNDLE_REDACTION_OPTIONS: RedactionOptions = {
   //
   // Anything added here MUST also be safe to carry at full length: the
   // `neverTruncateMaxLength` safety cap below is the only remaining bound.
-  neverTruncateKeys: ['text', 'output_preview', 'output', 'content', 'assistant_text'],
+  //
+  // `system_prompt` added 2026-09-10. CEE returns `_prompt_capture` as a
+  // top-level key on a cold draft turn, carrying the VERBATIM SERVED SYSTEM
+  // PROMPT — measured at the wire that day: 61,199 bytes. It reached the
+  // bundle cut to 1000 characters, which is not a shortened prompt, it is a
+  // different prompt.
+  //
+  // ⚠ WHY IT IS SAFE TO EXPORT AT FULL LENGTH — derived at the wire, not
+  // asserted: the seam resolves the prompt with NO VARIABLES, so the bytes
+  // are the RESOLVED TEMPLATE and not an interpolated brief; no
+  // `{{placeholder}}` tokens remain; eight distinctive phrases from the
+  // user's message returned zero hits; and no 40-character window of the
+  // user's message appears anywhere in the 61,199 bytes. The user's half of
+  // the capture is a COUNT PLUS DIGEST ONLY (`user_content_chars`,
+  // `user_content_sha256`). If that ever stops being true — if the seam
+  // starts interpolating the brief into the served prompt — this key must
+  // come straight back off this list.
+  neverTruncateKeys: ['text', 'output_preview', 'output', 'content', 'assistant_text', 'system_prompt'],
   neverTruncateMaxLength: DEBUG_LLM_RAW_MAX_CHARS,
+  // ⭐ THE NARROW HALF. Allowlisting `system_prompt` alone would still have
+  // clipped it, at 8000 (`DEBUG_LLM_RAW_MAX_CHARS`) instead of 1000 — a
+  // second, quieter clip, stamped with a DIFFERENT marker. The fix is NOT to
+  // raise `neverTruncateMaxLength`: that ceiling also governs
+  // `assistant_text` / `text` / `content`, which carry user content. Only
+  // this key moves, and it moves to the same 200_000 memory-blowout guard
+  // `DEFAULT_OPTIONS` already uses — bounded, with ~3x headroom over the
+  // measured 61,199.
+  neverTruncateKeyMaxLength: { system_prompt: 200_000 },
   neverRedactKeys: ['constraint_analysis', 'observed_state', 'goal_constraints'],
 }
 
@@ -399,9 +441,15 @@ function redactValue(
   if (typeof value === 'string') {
     const isExempt = currentKey != null && opts.neverTruncateKeys.includes(currentKey)
     if (isExempt) {
-      // Exempt keys bypass maxStringLength but still have a safety cap
-      if (value.length > opts.neverTruncateMaxLength) {
-        return `${value.slice(0, opts.neverTruncateMaxLength)}... [truncated_by: bundle_redaction_safety_cap, ${value.length} chars total]`
+      // Exempt keys bypass maxStringLength but still have a safety cap.
+      // A key may carry its OWN cap (`neverTruncateKeyMaxLength`) — see the
+      // option's doc comment for why this is per-key rather than a raised
+      // shared ceiling. Absent an entry, the shared cap applies unchanged.
+      const perKeyCap = opts.neverTruncateKeyMaxLength[currentKey]
+      const cap =
+        typeof perKeyCap === 'number' ? perKeyCap : opts.neverTruncateMaxLength
+      if (value.length > cap) {
+        return `${value.slice(0, cap)}... [truncated_by: bundle_redaction_safety_cap, ${value.length} chars total]`
       }
       return value
     }

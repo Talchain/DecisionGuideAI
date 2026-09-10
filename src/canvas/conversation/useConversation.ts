@@ -28,7 +28,11 @@ import { buildTransportFailureCopy, isTransportFailure, isUnverifiedDelivery } f
 import { WAIT_EXPIRY_UNKNOWN_COPY } from './deliveryUnknown'
 import { callV5Turn, getV5Endpoint, type V5CallResult } from '../../v5/v5Adapter'
 import { parseV5Response } from '../../v5/responseParser'
-import { openV5TurnStream, __streamInternals as streamTransport } from '../../v5/streamedTurnTransport'
+import {
+  openV5TurnStream,
+  recordStreamedTerminalIngest,
+  __streamInternals as streamTransport,
+} from '../../v5/streamedTurnTransport'
 import { streamStageFrames } from '../../v5/streamedDraftFrames'
 import {
   responseBelongsToDispatchingScenario,
@@ -653,6 +657,9 @@ async function runStreamedDraftTurn(args: {
   }
 
   let res: Response
+  // Anchors the terminal-ingest record's duration. Taken BEFORE the open, so
+  // it measures the turn the user waited for, not the frame parse.
+  const streamStartedAt = Date.now()
   try {
     res = await openV5TurnStream(payload, { headers, signal })
   } catch (e) {
@@ -848,6 +855,28 @@ async function runStreamedDraftTurn(args: {
   const result = await parseV5Response(
     streamTransport.terminalPayloadToResponse(outcome.terminalPayload, outcome.statusCode),
   )
+
+  // Settle the turn in the diagnostic trace store.
+  //
+  // Until now the streamed path recorded the SSE OPEN and nothing else, so a
+  // streamed cold draft that SUCCEEDED left `payloads.cee_response` in the
+  // debug bundle pointing at the open MARKER — and every top-level key the
+  // turn returned was absent from the export. That includes
+  // `_prompt_capture`, the verbatim served system prompt, which CEE returns
+  // ONLY on a cold draft: the one turn shape that takes this route. See
+  // `recordStreamedTerminalIngest` for why the record is filed under the
+  // buffered endpoint and how the transport truth is disclosed.
+  //
+  // Placed AFTER the parse and OUTSIDE any try: a throw from a diagnostic
+  // write must never be readable as a turn failure, which is the scoping
+  // rule `streamedTurnTransport` states for its own records.
+  recordStreamedTerminalIngest({
+    payload,
+    parsed: result,
+    statusCode: outcome.statusCode,
+    durationMs: Date.now() - streamStartedAt,
+    headers,
+  })
 
   // ═══ ADVERSARIAL REVIEW F4 ══════════════════════════════════════════════
   // A 200 terminal frame that carries NO extractable `draft_graph` while a

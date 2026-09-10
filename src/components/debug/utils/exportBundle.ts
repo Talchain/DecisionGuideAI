@@ -1169,6 +1169,10 @@ interface DebugBundle {
       max_depth: number
       never_truncate_keys?: string[]
       never_truncate_max_length?: number
+      /** Per-key overrides of `never_truncate_max_length`. A bundle that
+       *  reported only the shared ceiling would misdescribe its own
+       *  redaction once a key can carry its own cap. */
+      never_truncate_key_max_length?: Record<string, number>
     }
     /** Whether any arrays were truncated during capture */
     truncation_applied?: boolean
@@ -3587,6 +3591,14 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
         // than one that omits the description, because a reader trusts it.
         never_truncate_keys: [...(DEBUG_BUNDLE_REDACTION_OPTIONS.neverTruncateKeys ?? [])],
         never_truncate_max_length: DEBUG_LLM_RAW_MAX_CHARS,
+        // Same rule as the list above, for the same reason. Once a key can
+        // carry its OWN cap, a bundle reporting only the shared ceiling
+        // MISDESCRIBES its own redaction — a reader would price
+        // `system_prompt` at 8000 and read a 61k field as impossible.
+        // DERIVED from the constant the redactor consumes.
+        never_truncate_key_max_length: {
+          ...(DEBUG_BUNDLE_REDACTION_OPTIONS.neverTruncateKeyMaxLength ?? {}),
+        },
       },
       ...(truncationApplied && {
         truncation_applied: true,
