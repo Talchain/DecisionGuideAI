@@ -5,7 +5,7 @@
  * Validation on blur for number fields.
  */
 
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect, useId } from 'react'
 import { typography } from '../../../../styles/typography'
 import { admitNumericField } from './numericFieldAdmission'
 
@@ -46,6 +46,20 @@ export function AdvancedField({
   const [localValue, setLocalValue] = useState(String(value ?? ''))
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(null)
+  /**
+   * ⚠⚠ THE LABEL WAS A BARE `<span>`. No `htmlFor`, no `aria-label`, no
+   * association of any kind — so EVERY advanced field in the inspector was an
+   * unlabelled control to a screen reader, announced as nothing but its value.
+   * There are 14 of them on the controllable-factor pane alone.
+   *
+   * It was found by accident: a spec tried `getByLabelText(/Normalised value/i)`
+   * and could not reach a single field. Testing-library asks the accessibility
+   * tree the same question a screen reader does, which is exactly why it could
+   * not find what was plainly on screen — the text was there, the LABEL was not.
+   */
+  const reactId = useId()
+  const fieldId = `advanced-field-${reactId}`
+  const messageId = `${fieldId}-message`
 
   // Sync local state when prop changes externally
   useEffect(() => {
@@ -160,13 +174,16 @@ export function AdvancedField({
     <div>
       {/* Label */}
       <div className="mb-1">
-        <span className={`${typography.panelMeta} text-text-light`}>{label}</span>
+        <label htmlFor={fieldId} className={`${typography.panelMeta} text-text-light`}>{label}</label>
       </div>
 
       {/* Input — full width */}
       <div>
         {type === 'select' ? (
           <select
+            id={fieldId}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error || helperText ? messageId : undefined}
             ref={inputRef as React.RefObject<HTMLSelectElement>}
             value={localValue}
             onChange={handleChange}
@@ -179,6 +196,9 @@ export function AdvancedField({
           </select>
         ) : type === 'textarea' ? (
           <textarea
+            id={fieldId}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error || helperText ? messageId : undefined}
             ref={inputRef as React.RefObject<HTMLTextAreaElement>}
             value={localValue}
             onChange={handleChange}
@@ -193,6 +213,9 @@ export function AdvancedField({
           />
         ) : (
           <input
+            id={fieldId}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error || helperText ? messageId : undefined}
             ref={inputRef as React.RefObject<HTMLInputElement>}
             type={type === 'number' ? 'text' : 'text'}
             inputMode={type === 'number' ? 'decimal' : 'text'}
@@ -207,10 +230,16 @@ export function AdvancedField({
           />
         )}
         {/* Error / helper text */}
+        {/* ⚠ The message is ANNOUNCED, not merely displayed. Without the
+            `aria-describedby` above, a refusal ("Must be a finite number") is
+            visible to a sighted user and silent to everyone else — the control
+            simply refuses the value and never says why. `role="alert"` is
+            deliberately NOT used: it would interrupt on every keystroke that
+            fails to parse. */}
         {error ? (
-          <p className={`${typography.panelMeta} text-danger mt-0.5`}>{error}</p>
+          <p id={messageId} className={`${typography.panelMeta} text-danger mt-0.5`}>{error}</p>
         ) : helperText ? (
-          <p className={`${typography.panelMeta} text-text-light mt-0.5`}>{helperText}</p>
+          <p id={messageId} className={`${typography.panelMeta} text-text-light mt-0.5`}>{helperText}</p>
         ) : null}
       </div>
     </div>
