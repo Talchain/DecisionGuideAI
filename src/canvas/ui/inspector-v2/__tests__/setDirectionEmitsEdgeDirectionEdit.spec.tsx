@@ -1,7 +1,8 @@
 /**
- * `useEdgeMutations.setDirection` — THE HELPS/HURTS CONTROL REACHES THE SERVER.
+ * `useEdgeMutations.setDirection` — THE CARRIER IS BUILT, WITH NO OPERABLE
+ * CONSUMER YET.
  *
- * ⭐ THE DEFECT, as a user meets it: choosing "positive" or "negative" changed
+ * ⭐ THE DEFECT AT THE SEAM: choosing "positive" or "negative" changed
  * the line, stamped `directionSource: 'user'`, and told the server nothing.
  * `setDirection` performed ONE local `updateEdge` and emitted no turn, so the
  * claim survived until the next reload and then vanished — and any analysis
@@ -9,11 +10,14 @@
  * load-bearing fact in a causal model; this is the control that states it.
  *
  * ⚠ THIS FILE TESTS THE SEAM, NOT A SURFACE, AND THAT IS THE POINT — the same
- * argument `setStrengthEmitsEdgeStrengthEdit.spec.tsx` makes. Two call sites
- * drive `setDirection` today (`EdgeAdvancedEditor`'s direction select and the
- * Model tab's `RelationshipsSection.handleDirectionToggle`); a surface test pins
- * what ONE of them does, the seam is what makes the claim true for both and for
- * the third that arrives later.
+ * argument `setStrengthEmitsEdgeStrengthEdit.spec.tsx` makes. `setDirection` has
+ * exactly two call sites and ⛔ A USER CAN OPERATE NEITHER: `RelationshipsSection`
+ * is not mounted (`ModelTabBody.tsx:131` hardcodes `LEGACY_DETAILED_EDITOR_MOUNTED
+ * = false`, no flag), and `EdgeAdvancedEditor`'s native `<select>` is inerted by
+ * the unconditional `<fieldset disabled>` at `InspectorRouter.tsx:245-250`. So
+ * this file pins the CARRIER, and the surface work that would make it operable
+ * is unscheduled. DO NOT READ A GREEN RUN HERE AS THE USER-FACING DEFECT BEING
+ * CLOSED — that claim belongs to a surface test that does not yet exist.
  *
  * ⚠ EVERY ASSERTION BINDS BY IDENTITY (CLAUDE.md trap 19). The dispatched event
  * is compared field for field against an exact literal, and the local write is
