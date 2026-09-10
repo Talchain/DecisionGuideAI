@@ -43,6 +43,13 @@
  * (This comment said "the heading and nothing else" until review counted the
  * second one — an understatement of what the file does is still a wrong
  * inventory of it.)
+ *
+ * ⭐ THE COUNT IS STILL TWO. The basis line became CONDITIONAL when the shared
+ * parser began returning `basis: null` for a value that is not display text, and
+ * a conditional render changes WHEN a string is authored, never HOW MANY. No
+ * substitute, placeholder or fallback wording was added for the suppressed case:
+ * the line is simply absent, because inventing a phrase to stand in for the
+ * producer's token is the fabrication this surface exists to avoid.
  */
 import { useMemo } from 'react'
 import { ShieldQuestion } from 'lucide-react'
@@ -154,10 +161,33 @@ export function RobustnessCaveat({
           <p className={`${typography.panelBody} text-text-body mt-1 mb-0`} data-testid={`${testId}-text`}>
             {caveat.text}
           </p>
-          {/* And what it was measured against, also the producer's. */}
-          <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-testid={`${testId}-basis`}>
-            {COPY.robustnessCaveat.basisPrefix}{caveat.basis}
-          </p>
+          {/*
+            And what it was measured against, also the producer's — WHEN it is
+            display text at all.
+
+            ⚠⚠ THIS LINE SHIPPED A WIRE ENUM TO A USER. On the served build
+            `475ee1c7` it rendered `Tested against: is_robust`, because the
+            shared parser screened `basis` with a blocklist of node-id prefixes
+            and `is_` is not one. The parser now answers the positive question
+            and hands back `basis: null` for anything that is not display text,
+            so the judgement stays in the one place both surfaces inherit it
+            from and this file only decides whether to draw the line.
+
+            ⚠ THE SENTENCE ABOVE IS NOT CONDITIONAL ON THIS. Suppressing the
+            whole caveat because its label is unusable would discard the one
+            line telling the user how far to trust the ranking, which is the
+            worse of the two harms and the argument `decisionBriefViewModel.ts`
+            already makes for the glossary case.
+
+            ⚠ `!== null`, NOT A TRUTHINESS TEST. The parser guarantees a
+            non-blank string or null, and a `?? caveat.basis` here would
+            reinstate the exact leak this guard exists to remove.
+          */}
+          {caveat.basis !== null && (
+            <p className={`${typography.panelMeta} text-text-light mt-1 mb-0`} data-testid={`${testId}-basis`}>
+              {COPY.robustnessCaveat.basisPrefix}{caveat.basis}
+            </p>
+          )}
         </div>
       </div>
     </section>
