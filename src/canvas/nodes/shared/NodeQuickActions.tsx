@@ -11,6 +11,10 @@ import {
   CANVAS_GLYPH_SIZE_CLASSES,
   CANVAS_HIT_SLOP_CLASSES,
   CANVAS_GAP_CLASSES,
+  CANVAS_CORNER_INSET_CLASSES,
+  CANVAS_QUICK_ACTION_BOX_PX,
+  CANVAS_QUICK_ACTION_INSET_PX,
+  CANVAS_QUICK_ACTION_SLOP_PX,
 } from './canvasGlyphScale'
 
 /**
@@ -106,12 +110,23 @@ function hasChallengePrompt(nodeType: NodeType): boolean {
  * are the two terms the footprint bound in `canvasGlyphTargetScale.spec.tsx`
  * reads, so a literal here would be a second, undetected authority.
  */
+/**
+ * ⭐ THE PX ARE NOW CONSTANTS, AND THE CARD READS THEM.
+ *
+ * `20` and `2` were literals at these two indices. They are the same two numbers
+ * `NODE_QUICK_ACTION_BAND_PX` uses to size the bottom band `BaseNode` reserves
+ * for this row — and while they lived only here, that band was a hand-copy that
+ * had already drifted (24 against a required 26) and then drifted 26px further
+ * when #1274 scaled the box and the slop. Indexing the maps by the shared
+ * constant means the row and its reservation cannot disagree: change the box
+ * size and the card makes room for the new one.
+ */
 const BUTTON_CLASSES =
   'nodrag relative inline-flex ' +
-  CANVAS_GLYPH_SIZE_CLASSES[20] +
+  CANVAS_GLYPH_SIZE_CLASSES[CANVAS_QUICK_ACTION_BOX_PX] +
   ' items-center justify-center rounded bg-panel/90 text-text-light hover:text-text-body ' +
   'hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info ' +
-  CANVAS_HIT_SLOP_CLASSES[2]
+  CANVAS_HIT_SLOP_CLASSES[CANVAS_QUICK_ACTION_SLOP_PX]
 
 export interface NodeQuickActionsProps {
   nodeId: string
@@ -363,7 +378,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
 
   return (
     <div
-      className={`node-quick-actions absolute bottom-1.5 right-1.5 z-[2] flex ${CANVAS_GAP_CLASSES[6]} transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 motion-reduce:transition-none ${alwaysVisible ? 'opacity-100' : 'opacity-0'}`}
+      className={`node-quick-actions absolute ${CANVAS_CORNER_INSET_CLASSES[CANVAS_QUICK_ACTION_INSET_PX]} z-[2] flex ${CANVAS_GAP_CLASSES[6]} transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100 motion-reduce:transition-none ${alwaysVisible ? 'opacity-100' : 'opacity-0'}`}
       data-testid={`node-quick-actions-${nodeId}`}
     >
       {canAsk && (

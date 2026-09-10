@@ -43,6 +43,7 @@ import { isGraphLensEnabled } from '../../flags'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { StatusPill } from './shared/StatusPill'
 import { NodeQuickActions } from './shared/NodeQuickActions'
+import { NODE_QUICK_ACTION_BAND_PX } from './shared/canvasGlyphScale'
 import { NodeProvenanceMark } from './shared/NodeProvenanceMark'
 import { sensitivityRankBadgeAccessibleName } from './shared/metricVocabulary'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
@@ -737,9 +738,33 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         // NOT changed here (4 Sep 2026, rowed): which way it should resolve —
         // drop the reservation below the floor, or keep one uniform card box —
         // is a design ruling, not a defect with a single obvious repair.
-        padding: showQuickActions || ((nodeType === 'factor' || nodeType === 'option') && !isCausalLens && !isEvidenceLens)
-          ? '12px 12px 24px 12px'
-          : '12px',
+        //
+        // ⭐⭐ THE BAND IS NOW DERIVED FROM THE ROW IT RESERVES FOR, ON THE ARM
+        // THAT ACTUALLY HAS A ROW. The literal `24` was a hand-copy of
+        // `NodeQuickActions`' `bottom-1.5 + h-5` (6 + 20 = 26, so 2px short from
+        // the day it was written), and #1274 counter-scaled the box and the slop
+        // without it: at the settle zoom the row occupied 50px against a
+        // reservation of 24, and every one of 19 cards had its own controls
+        // sitting over its own text (measured, `vendor-selection` @1440x900,
+        // zoom 0.5000: 40 overlaps, 11,392.5px^2). `NODE_QUICK_ACTION_BAND_PX`
+        // is that sum, computed from the row's own constants at
+        // `MAX_LABEL_COUNTER_SCALE`; see its header for why it is a CONSTANT and
+        // not a `calc(... * var(--canvas-label-scale))`.
+        //
+        // ⚠ THE LEGACY ARM KEEPS ITS 24px, DELIBERATELY AND UNCHANGED. The
+        // divergence documented above — `factor`/`option` reserving a band below
+        // the legibility floor where this layer is UNMOUNTED — is rowed, and how
+        // it should resolve is called a design ruling rather than a defect. That
+        // ruling is not this lane's to make. Feeding the new, larger band into
+        // that arm would have made its dead space 50px instead of 24px on a card
+        // carrying no row at all: a silent worsening of a known open question,
+        // smuggled in as a side effect of fixing a different one. So the two arms
+        // are named apart and only the one with a row to reserve for moves.
+        padding: showQuickActions
+          ? `12px 12px ${NODE_QUICK_ACTION_BAND_PX}px 12px`
+          : (nodeType === 'factor' || nodeType === 'option') && !isCausalLens && !isEvidenceLens
+            ? '12px 12px 24px 12px'
+            : '12px',
         // The card's own floor is the LAYOUT floor, imported rather than
         // restated: this was a hardcoded `'140px'` that happened to equal
         // `NODE_LAYOUT_MIN_W`, i.e. two copies of one number with nothing to
