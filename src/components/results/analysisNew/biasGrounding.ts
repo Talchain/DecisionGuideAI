@@ -85,8 +85,85 @@ export interface BiasGroundingItem {
   estimatedMinutes: number | null
 }
 
+/** A step is either a plain string (both captures) or `{ text }` (declared). */
+function readStep(raw: unknown): string | null {
+  if (typeof raw === 'string') return raw.trim() || null
+  if (raw && typeof raw === 'object' && 'text' in raw) {
+    const text = (raw as { text?: unknown }).text
+    if (typeof text === 'string') return text.trim() || null
+  }
+  return null
+}
+
+/** A trimmed non-empty string, or null. Never an empty string downstream. */
+function readText(raw: unknown): string | null {
+  return typeof raw === 'string' && raw.trim() ? raw.trim() : null
+}
+
+/**
+ * Normalise the producer's findings into what this tab can honestly render.
+ *
+ * ⛔ FAIL CLOSED. A finding contributes an item ONLY when the producer sent at
+ * least one of mechanism, citation or a readable step. A card built from a
+ * finding that carried none of them would be furniture asserting that grounding
+ * exists, which is fabrication; the honest render is no render.
+ *
+ * ⚠ THE ADMISSION QUESTION IS "IS THERE GROUNDING TO SHOW?", NOT "IS THIS AN
+ * ACTIONABLE TRIGGER?" — named apart deliberately (CLAUDE.md trap 21). The
+ * pre-analysis panel asks the second question and answers it with
+ * `shouldSuppressBiasFinding`, which drops an untargeted AUTHORITY_BIAS because
+ * it is meta-commentary rather than something to act on. That is the right
+ * answer to its question and the wrong one to this: an untargeted finding still
+ * carries a real mechanism and a real citation, and this readout makes no
+ * claim that the reader must do anything. Reconciling the two would delete the
+ * captured `authority_high_degree_node` payload from the only surface that can
+ * show where it comes from.
+ */
 export function buildBiasGrounding(
-  _findings: readonly unknown[] | null | undefined,
+  findings: readonly unknown[] | null | undefined,
 ): BiasGroundingItem[] {
-  return []
+  if (!Array.isArray(findings)) return []
+
+  const items: BiasGroundingItem[] = []
+
+  findings.forEach((raw, index) => {
+    if (!raw || typeof raw !== 'object') return
+    const finding = raw as Record<string, unknown>
+
+    const mechanism = readText(finding.mechanism)
+    const citation = readText(finding.citation)
+
+    const intervention =
+      finding.micro_intervention && typeof finding.micro_intervention === 'object'
+        ? (finding.micro_intervention as Record<string, unknown>)
+        : null
+
+    const steps = Array.isArray(intervention?.steps)
+      ? (intervention.steps as unknown[])
+          .map(readStep)
+          .filter((s): s is string => s !== null)
+      : []
+
+    // ⚠ A COSTED TECHNIQUE OR NO COST AT ALL. `estimated_minutes` is printed to
+    // the reader as a commitment of their time, so a zero, a negative or a
+    // non-number is dropped rather than coerced: "About 0 minutes." is worse
+    // than silence, and `Number('soon')` is NaN, not an error.
+    const rawMinutes = intervention?.estimated_minutes
+    const estimatedMinutes =
+      typeof rawMinutes === 'number' && Number.isFinite(rawMinutes) && rawMinutes > 0
+        ? rawMinutes
+        : null
+
+    if (!mechanism && !citation && steps.length === 0) return
+
+    items.push({
+      id: readText(finding.id) ?? String(index),
+      mechanism,
+      citation,
+      steps,
+      estimatedMinutes,
+    })
+  })
+
+  return items
 }

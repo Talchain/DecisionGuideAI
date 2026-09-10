@@ -135,6 +135,33 @@ export const ANALYSIS_NEW_COPY = {
      * mean different things by it.
      */
     checks: 'What we checked',
+    /**
+     * ⭐ NAMES THE PROVENANCE, MAKES NO CLAIM ABOUT THE READER. "Where these
+     * checks come from" answers the question a sceptic asks of a bias check
+     * ("says who?") and answers it with the producer's own literature. It
+     * deliberately does NOT name a bias, promise an improvement, or imply the
+     * reader exhibits anything: the section under it renders the mechanism, the
+     * technique and the citation, and never the classification.
+     *
+     * ⚠ SIBLING TO `checks`, AND THE PAIRING IS THE POINT. "What we checked"
+     * says what was looked at; this says what the looking rests on. Two
+     * questions, named apart (CLAUDE.md trap 21) — collapsing them into one
+     * heading would lose the only part a reader can independently verify.
+     */
+    biasGrounding: 'Where these checks come from',
+  },
+
+  /**
+   * Labels for the bias-grounding readout. Furniture only: every claim-bearing
+   * string on that surface is the producer's, rendered verbatim.
+   *
+   * ⚠ `tryThis` IS AN OFFER, NOT A PRESCRIPTION, AND NOT A PROMISE. "Try this"
+   * says here is a technique; it does not say it will improve the decision,
+   * because nothing here licenses that. The human is the author.
+   */
+  biasGrounding: {
+    tryThis: 'Try this',
+    sourcePrefix: 'Source: ',
   },
 
   /**
