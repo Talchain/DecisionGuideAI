@@ -18,6 +18,7 @@ import { SignedStrengthSlider } from '../../inspector/SignedStrengthSlider'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
 import { useEdgeMutations } from '../useInspectorMutations'
+import { useEdgeLabelMode } from '../../../store/edgeLabelMode'
 import {
   GROUP_LABELS,
   INLINE_LABELS,
@@ -219,6 +220,15 @@ export const EdgePanel = memo(function EdgePanel({
   const [localStrength, setLocalStrength] = useState(signedValue)
   const [localBelief, setLocalBelief] = useState(beliefExists)
   const [localStd, setLocalStd] = useState(strengthStd)
+
+  // Canvas-wide edge label mode. The numeric form was fully built — the store
+  // below, its localStorage persistence, `formatNumericLabel`, and StyledEdge's
+  // monospace treatment — and NOTHING in the product called `setMode`, so no
+  // user could ever see an edge's number. This panel is where a person is
+  // already looking at that number, so the control lives here. It is a display
+  // preference only: it changes no model value and sends nothing.
+  const edgeLabelMode = useEdgeLabelMode(state => state.mode)
+  const setEdgeLabelMode = useEdgeLabelMode(state => state.setMode)
 
   // Existence band for the colour + track-fill channels. Provenance comes from
   // the STORE (the only thing that knows whether anyone set this); the value
@@ -447,6 +457,28 @@ export const EdgePanel = memo(function EdgePanel({
                 </span>
               </div>
               <ExpertAnnotation techMode={techMode} editable value={localBelief} onChange={handleBeliefChange} suffix="P(exists) =" step={0.01} min={0} max={1} />
+            </div>
+
+            {/* Connection labels on the board: phrase or number. */}
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <span className={`${typography.panelMeta} text-text-light`}>
+                Connection labels on the board
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={edgeLabelMode === 'numeric'}
+                aria-label="Show numbers on connection labels"
+                data-testid="edge-label-mode-toggle"
+                onClick={() => setEdgeLabelMode(edgeLabelMode === 'numeric' ? 'human' : 'numeric')}
+                className={`${typography.panelMeta} px-2 py-0.5 rounded border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+                  edgeLabelMode === 'numeric'
+                    ? 'border-info text-info'
+                    : 'border-border text-text-light hover:bg-panel-hover'
+                }`}
+              >
+                {edgeLabelMode === 'numeric' ? 'Numbers' : 'Phrases'}
+              </button>
             </div>
 
             {/* Uncertainty — expert mode only */}
