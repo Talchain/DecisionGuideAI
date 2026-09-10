@@ -134,19 +134,68 @@ function analysisResultBlock(): unknown {
   }
 }
 
+/**
+ * ⛔ NEVER `reasons[0]`. Both assertions in this file used to read the message
+ * positionally — the SAME defect as the reader they were checking, so they
+ * agreed with it by construction and could never have caught it. On the live
+ * wire `reasons[0]` is the AFFIRMATIVE `structurally_analysable` conjunct.
+ *
+ * ⚠ And never by message text: on the captured payload the
+ * `semantic_quality_sufficient` and `permitted_analysis_mode` entries carry
+ * IDENTICAL strings, so a text match passes on the wrong object (trap 19).
+ */
+function modeReason(a: { reasons: ReadonlyArray<{ field: string; message: string }> }): string {
+  const hit = a.reasons.find(r => r.field === 'permitted_analysis_mode')
+  if (!hit) throw new Error('fixture has no permitted_analysis_mode reason — it cannot discriminate')
+  return hit.message
+}
+
 // ── admissions ──────────────────────────────────────────────────────────────
+/**
+ * ⚠⚠ THESE FIXTURES USED `field: 'estimates'` AND `field: 'evidence'`, WHICH THE
+ * PRODUCER CANNOT EMIT — SO THIS SUITE WAS GREEN AGAINST PAYLOADS THAT CANNOT
+ * EXIST. `AdmissionField` is a CLOSED UNION of four values, derived at CEE
+ * (`orchestrator-v5/admission/analysis-admission.ts:411`):
+ *
+ *   structurally_analysable · missing_important_inputs ·
+ *   semantic_quality_sufficient · permitted_analysis_mode
+ *
+ * That mattered more than a tidy-up: when the reader below was corrected to
+ * select by `field` instead of by position, these four cases went RED — and the
+ * RED looked like the FIX being wrong rather than the FIXTURES being fiction. A
+ * self-authored fixture standing in for the wire does not just fail to catch a
+ * defect; it argues against the repair. (`as AnalysisAdmissionV1` is what let
+ * them through the compiler — the cast is why the union never bit.)
+ *
+ * Every reason here names `permitted_analysis_mode` because that is the
+ * conjunct these cases are ABOUT: whether this run may name a leading option.
+ * The shape is taken from the live capture embedded in
+ * `analysisNew/__tests__/refusalIsLegible.spec.tsx` (#1404, serving).
+ */
 /** ⭐ THE EXACT VALUE LIVE IN THE MEASURED P0. */
 const ADMISSION_QUANTIFIED_PROVISIONAL: AnalysisAdmissionV1 = {
   permitted_analysis_mode: 'quantified_provisional',
-  reasons: [{ field: 'estimates', message: 'No single option can be put forward yet.' }],
+  reasons: [
+    // The affirmative conjunct sits FIRST on the wire, exactly as captured. A
+    // positional read selects THIS — which is the defect the reader was fixed
+    // for, so it belongs in the fixture rather than being tidied away.
+    { field: 'structurally_analysable', message: 'Analysis can run on this model as it stands.' },
+    { field: 'permitted_analysis_mode', message: 'No single option can be put forward yet.' },
+  ],
 } as AnalysisAdmissionV1
 const ADMISSION_NONE: AnalysisAdmissionV1 = {
   permitted_analysis_mode: 'none',
-  reasons: [{ field: 'estimates', message: 'Every estimate here is machine-invented.' }],
+  reasons: [
+    { field: 'structurally_analysable', message: 'Analysis can run on this model as it stands.' },
+    { field: 'permitted_analysis_mode', message: 'Every estimate here is machine-invented.' },
+  ],
 } as AnalysisAdmissionV1
 const ADMISSION_EXPLORATORY: AnalysisAdmissionV1 = {
   permitted_analysis_mode: 'exploratory',
-  reasons: [{ field: 'evidence', message: 'Not enough evidence to rank these.' }],
+  reasons: [
+    { field: 'structurally_analysable', message: 'Analysis can run on this model as it stands.' },
+    { field: 'permitted_analysis_mode', message: 'Not enough evidence to rank these.' },
+  ],
 } as AnalysisAdmissionV1
 const ADMISSION_PERMITTED: AnalysisAdmissionV1 = {
   permitted_analysis_mode: 'comparative_leader',
@@ -270,7 +319,7 @@ describe('applyV5State — a ui_directive highlight the model may not designate 
     expect(caveatNodeIds()).toContain(LEADER)
     expect(caveat?.text).toMatch(/scored highest/i)
     // The producer's OWN reason rides beneath it, verbatim — never composed.
-    expect(caveat?.sourceLine).toBe(ADMISSION_QUANTIFIED_PROVISIONAL.reasons[0].message)
+    expect(caveat?.sourceLine).toBe(modeReason(ADMISSION_QUANTIFIED_PROVISIONAL))
 
     // NOTHING is withheld any more. This is the assertion that REDs if anyone
     // reinstates the suppression.
@@ -316,6 +365,67 @@ describe('applyV5State — a ui_directive highlight the model may not designate 
   })
 
   // ══════════════════════════════════════════════════════════════════════════
+  // THE REASON LINE IS SELECTED BY FIELD, NOT BY SLOT — the discriminating pair
+  // ══════════════════════════════════════════════════════════════════════════
+  it('REORDER — the mode reason is found wherever it sits in the array', () => {
+    // ⭐ Half one. If the reader were still positional, moving the affirmative
+    // OFF slot 0 would change the rendered line. It must not.
+    const reordered = {
+      ...ADMISSION_QUANTIFIED_PROVISIONAL,
+      reasons: [...ADMISSION_QUANTIFIED_PROVISIONAL.reasons].reverse(),
+    } as typeof ADMISSION_QUANTIFIED_PROVISIONAL
+
+    // PRECONDITION, PINNED IN-TEST: the reorder actually MOVED the mode reason,
+    // so a green result is the binding's doing and not a no-op shuffle.
+    expect(ADMISSION_QUANTIFIED_PROVISIONAL.reasons[0].field).toBe('structurally_analysable')
+    expect(reordered.reasons[0].field).toBe('permitted_analysis_mode')
+
+    const result = applyV5State(
+      baseResponse(
+        envelope(
+          reordered,
+          directive('highlight', [{ id: LEADER, label: MAC, kind: 'option' }]),
+        ),
+      ),
+      makeStore(),
+    )
+    expect(result.applied).toContain(`ui_directive:leader_designation_caveated:${LEADER}`)
+    expect(deliveredCaveat()?.sourceLine).toBe(modeReason(ADMISSION_QUANTIFIED_PROVISIONAL))
+  })
+
+  it('REMOVED — with no mode reason the caveat stands alone, and never borrows another', () => {
+    // ⭐ Half two, and the one that matters most. Silence is the correct
+    // fallback: the old reader would happily render the AFFIRMATIVE
+    // `structurally_analysable` sentence under a refusal caveat — the product
+    // saying "Analysis can run on this model as it stands" as its reason for
+    // withholding. Anything other than `undefined` here is that defect back.
+    const noModeReason = {
+      ...ADMISSION_QUANTIFIED_PROVISIONAL,
+      reasons: ADMISSION_QUANTIFIED_PROVISIONAL.reasons.filter(
+        r => r.field !== 'permitted_analysis_mode',
+      ),
+    } as typeof ADMISSION_QUANTIFIED_PROVISIONAL
+
+    // PRECONDITION: a non-empty remainder. An empty array would pass this test
+    // for the wrong reason — there would be nothing to borrow in the first place.
+    expect(noModeReason.reasons.length).toBeGreaterThan(0)
+    expect(noModeReason.reasons.every(r => r.message.trim().length > 0)).toBe(true)
+
+    const result = applyV5State(
+      baseResponse(
+        envelope(
+          noModeReason,
+          directive('highlight', [{ id: LEADER, label: MAC, kind: 'option' }]),
+        ),
+      ),
+      makeStore(),
+    )
+    // The caveat itself still fires — losing the reason must not lose the warning.
+    expect(result.applied).toContain(`ui_directive:leader_designation_caveated:${LEADER}`)
+    expect(deliveredCaveat()?.sourceLine).toBeUndefined()
+  })
+
+  // ══════════════════════════════════════════════════════════════════════════
   // THE OTHER REFUSING MODES — `!== 'none'` would leak both of these
   // ══════════════════════════════════════════════════════════════════════════
   it.each([
@@ -330,7 +440,7 @@ describe('applyV5State — a ui_directive highlight the model may not designate 
     expect(pulseMock).toHaveBeenCalledTimes(1)
     expect(result.applied).toContain(`ui_directive:leader_designation_caveated:${LEADER}`)
     expect(deliveredCaveat()).not.toBeNull()
-    expect(deliveredCaveat()?.sourceLine).toBe(admission.reasons[0].message)
+    expect(deliveredCaveat()?.sourceLine).toBe(modeReason(admission))
   })
 
   // ══════════════════════════════════════════════════════════════════════════
