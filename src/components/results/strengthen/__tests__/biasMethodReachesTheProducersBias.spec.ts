@@ -444,6 +444,14 @@ describe('the panel’s display budget is untouched', () => {
    * method chip an already-promoted row displays. Pinned rather than asserted in
    * prose, because "my change cannot affect the cap" is exactly the sort of claim
    * that goes stale.
+   *
+   * ⚠⚠ AND THE SECOND CASE EXISTS BECAUSE THE FIRST ONE DOES NOT ACTUALLY
+   * PRESSURE THE CAP. It feeds ONE card and asserts the count rose by one —
+   * true, and silent about the budget, since a run one card long can never
+   * reach a budget of four. A claim about a cap that never spends it is the
+   * docblock agreeing with itself. The case below goes two cards OVER budget,
+   * so the slice is genuinely load-bearing: a bias code that minted a row of
+   * its own, or lifted one past the budget, shows up there and nowhere else.
    */
   it('a bias card adds no recommendation — the count is unchanged', () => {
     const withoutBias = buildRecommendations({ ...baseInputs, phase3Items: [] })
@@ -453,5 +461,48 @@ describe('the panel’s display budget is untouched', () => {
     // that already existed rather than minting a second one.
     expect(withBias.length).toBe(withoutBias.length + 1)
     expect(withBias.filter((r) => r.biasCode === 'anchoring')).toHaveLength(1)
+  })
+
+  it('six bias cards still promote exactly four — the budget is spent, never lifted', () => {
+    const titles = [
+      'Anchoring',
+      'Overconfidence',
+      'Status quo bias',
+      'Narrow framing',
+      'Sunk cost',
+      'Confirmation bias',
+    ]
+    const items = toItems(titles.map(biasBlock))
+    /*
+     * ⚠ PINS ITS OWN PRECONDITION. If extraction ever dropped cards, the cap
+     * assertion below would pass while testing nothing — four out of four is
+     * not a budget being spent. This fails first, and says why.
+     */
+    expect(items, 'all six producer cards must survive extraction').toHaveLength(6)
+
+    const recs = buildRecommendations({ ...baseInputs, phase3Items: items })
+    const promoted = recs.filter((r) => r.id.startsWith('strengthen:phase3:'))
+
+    /*
+     * BY IDENTITY, never by length alone (trap 19): "four rows" and "the RIGHT
+     * four rows" are separate claims, and a cap spent on the wrong cards would
+     * satisfy the first. The six share a category and a rank, so the producer's
+     * arrival order stands and the budget falls on the first four.
+     */
+    expect(promoted.map((r) => r.id)).toEqual([
+      'strengthen:phase3:blk-anchoring',
+      'strengthen:phase3:blk-overconfidence',
+      'strengthen:phase3:blk-status-quo-bias',
+      'strengthen:phase3:blk-narrow-framing',
+    ])
+    /*
+     * And the codes ride rows that already existed rather than minting their
+     * own. Bound to the two rows this change wires, by id — a `filter` on
+     * "carries any code" would pass on rows that were never in question, since
+     * status-quo and narrow-framing resolve to codes too and always have.
+     */
+    const promotedById = (id: string) => promoted.find((r) => r.id === id)
+    expect(promotedById('strengthen:phase3:blk-anchoring')?.biasCode).toBe('anchoring')
+    expect(promotedById('strengthen:phase3:blk-overconfidence')?.biasCode).toBe('confidence')
   })
 })
