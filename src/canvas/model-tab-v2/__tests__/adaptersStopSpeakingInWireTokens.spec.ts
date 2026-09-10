@@ -40,6 +40,7 @@ import { describe, it, expect } from 'vitest'
 import type { Edge, Node } from '@xyflow/react'
 import { toModelRows, toRepairQueueItems, toRowDetail, type ModelProjectionInput } from '../adapters'
 import { UNNAMED_ELEMENT_LABEL } from '../../domain/canvasLabels'
+import type { ModelElementKind } from '../types'
 
 // ── Fixtures, shaped like the producer ───────────────────────────────────────
 
@@ -152,38 +153,93 @@ describe('provenance reaches the user as a label, never as the wire token', () =
     expect(basis).not.toContain('cee_inference')
   })
 
-  it('⭐ F1 — the NODE DETAIL pane reads the label too, not just the queue', () => {
+  it('⭐ F1 — the NODE DETAIL pane states provenance ONCE, and never as a token', () => {
     /*
-     * The instance the previous commit MISSED while announcing the class fixed.
-     * `toRowDetail`'s node branch carried the identical expression 82 lines
-     * below the one that was repaired, and it renders at
-     * `ModelDetailRegion.tsx:250-263` under "Where it came from" — DIRECTLY
-     * BENEATH the `SourceProvenancePill` humanising the same field. The panel
-     * said both.
+     * ⚠⚠ THIS ASSERTION WAS REVERSED ON 9 Sep, AND THE OLD COMMENT IS WHY.
+     * It read `expect(detail!.basis).toBe('Source: AI estimate')`, under a
+     * comment whose own words were:
+     *
+     *   "…it renders under 'Where it came from' — DIRECTLY BENEATH the
+     *    `SourceProvenancePill` humanising the same field. **The panel said
+     *    both.**"
+     *
+     * The author saw the duplication, NAMED it as the defect, and then fixed
+     * only the half where the two DISAGREED — the pill said "AI estimate" while
+     * this line printed the wire token. Routing it through the same classifier
+     * made them agree, and the assertion pinned that agreement. Nobody asked
+     * whether the panel should say it twice.
+     *
+     * Witnessed on deployed `14276d5b`, factor "Annual Platform Cost":
+     *   y=712  span  "User edited"            ← the pill
+     *   y=733  p     "Source: User edited"    ← this field, 21px below
+     *
+     * ⭐ THE HARM F1 EXISTS TO PREVENT IS "a wire token rendered as body copy",
+     * and a null basis closes it STRICTLY MORE than a classified one: there is
+     * no string on that line to leak. So this now binds to the HARM rather than
+     * to the remedy — writing the invariant against the spec, not against the
+     * failure mode that happened to be in hand (trap 13d).
+     *
+     * ⚠ IDENTICAL BY CONSTRUCTION, so no fixture could ever have caught this.
+     * The row's `provenanceSource` is `obs?.source` and `sourceBasis` is
+     * `"Source: " + mapSourceToDisplay(obs?.source)` — one field, one
+     * classifier. Only reading the rendered page could show it.
      */
     const node = factorNode(RAW_ID, 'UK ARR retention', { value: 0.4, raw_value: 40, source: 'cee_inference' })
     const detail = toRowDetail(project([node]), RAW_ID)
     expect(detail, 'no detail projected — the fixture is wrong, not the code').not.toBeNull()
-    expect(detail!.basis).toBe('Source: AI estimate')
-    expect(detail!.basis).not.toContain('cee_inference')
+
+    // Said ONCE: the pill's field carries it; the body line does not repeat it.
+    expect(detail!.basis).toBeNull()
+
+    // ⚠ THE CONTRAST CONTROL, so the null above cannot pass by projecting
+    // nothing: the row STILL carries the raw stamp for the pill to classify.
+    const row = toModelRows(project([node])).find(r => r.id === RAW_ID)
+    expect(row?.provenanceSource).toBe('cee_inference')
   })
 
-  it('⭐ the detail pane and the queue agree — the same node, the same words', () => {
+  it('⭐ the QUEUE still states it, because there it is the ONLY statement', () => {
     /*
-     * The contrast control that makes the pin above about the CLASS rather than
-     * one call site. Two independent producers, one node, one sentence: if a
-     * future change repairs one and not the other, this fails where a
-     * single-path assertion would not.
+     * ⚠ THE ASYMMETRY IS THE POINT, and it is why the detail's null above is a
+     * narrowing rather than a deletion of the class.
+     *
+     *   detail region — renders `SourceProvenancePill` AND `basis`. Two
+     *                   statements of one fact; the second is redundant.
+     *   repair queue  — renders `basis` and NO pill (`RepairQueueList.tsx:205`).
+     *                   Removing it there would leave provenance unstated.
+     *
+     * A change that nulled both would look tidier and would silently drop a
+     * fact from the queue. This case is what makes that fail.
      */
     const node = factorNode(RAW_ID, 'UK ARR retention', { value: 0.4, raw_value: 40, source: 'cee_inference' })
     const input = project([node])
-    const fromDetail = toRowDetail(input, RAW_ID)!.basis
+
     const fromQueue = toRepairQueueItems(input, 'confirm-estimates').find(
       i => i.rowId === RAW_ID,
     )!.basis
-    expect(fromDetail).toBe(fromQueue)
-    // …and non-null, so the equality above cannot be satisfied by two nulls.
-    expect(fromDetail).toBe('Source: AI estimate')
+    expect(fromQueue).toBe('Source: AI estimate')
+    expect(fromQueue).not.toContain('cee_inference')
+
+    // The detail says it once, through the pill's field — not twice.
+    expect(toRowDetail(input, RAW_ID)!.basis).toBeNull()
+  })
+
+  it('⛔ AN EDGE KEEPS ITS BASIS — two different fields, not one said twice', () => {
+    /*
+     * ⚠ THE CASE THAT STOPS THE TIDY, WRONG GENERALISATION. An edge's pill reads
+     * `data.weightSource` and its basis reads `data.provenance` — DIFFERENT
+     * fields carrying different facts, so the second line earns its place there.
+     * Nulling every basis "for consistency" would delete an edge's evidence
+     * provenance, and this is the assertion that would go red.
+     */
+    const a = factorNode('fac_a', 'A', { value: 0.4, raw_value: 40, source: 'user' })
+    const b = factorNode('fac_b', 'B', { value: 0.4, raw_value: 40, source: 'user' })
+    const input = project([a, b], [
+      { id: 'e_1', source: 'fac_a', target: 'fac_b', data: { weightSource: 'user', provenance: 'Q3 board pack' } },
+    ] as unknown as Edge[])
+
+    const detail = toRowDetail(input, 'e_1')
+    expect(detail, 'no edge detail projected — the fixture is wrong').not.toBeNull()
+    expect(detail!.basis).toBe('Source: Q3 board pack')
   })
 })
 
@@ -308,5 +364,153 @@ describe('the advanced edge parameters never launder a default', () => {
     // Guards the four absences above against a projection that returns no
     // parameters at all, which would satisfy every one of them.
     expect(advanced({ strengthStd: 0.15 }).get('Edge ID')).toBe('e1')
+  })
+})
+
+// ── 6. Provenance is stated EXACTLY ONCE, on every kind ──────────────────────
+
+/**
+ * ⛔⛔ THE NULL BASIS WAS CORRECT FOR FACTORS AND WRONG FOR EVERY OTHER NODE KIND.
+ *
+ * `toRowDetail`'s node branch is entered for ANY node found by id. The
+ * duplication argument that justified nulling `basis` holds only where the pill
+ * also speaks — and `toModelRows` sets `provenanceSource` in the factor branch
+ * and the EDGE branch only. Goal, decision, risk and outcome rows get none, so
+ * for them `hasProvenanceContent` went false and the whole "Where it came from"
+ * section disappeared, heading included. A true statement was deleted, not a
+ * duplicate one.
+ *
+ * ⚠ AND THE CORPUS COULD NOT SEE IT. Every `toRowDetail` case in this file and
+ * in `adapters.spec.ts` used `factorNode(...)` or an edge; `model-tab-v2/
+ * __tests__/` had ZERO non-factor node coverage. The corpus shared the code's
+ * blind spot, which is exactly why a green suite was consistent with the defect
+ * (trap 22). These cases are the non-factor coverage.
+ *
+ * ⚠ IT IS LIVE ON COMMITTED DATA. Census of every tracked JSON carrying
+ * `observed_state.source`: 92 carriers — 84 `factor`, **8 `risk`**. Named:
+ * `risk_time`/`brief_extraction` in `golden-path-staging-2026-04-05.json`, and
+ * `risk_budget_overrun` / `risk_deadline_miss` across three
+ * `draft-graph.success.*` fixtures and the `v5-turn.draft-graph.staging-smoke`
+ * capture.
+ */
+function nodeOfKind(
+  id: string,
+  kind: Exclude<ModelElementKind, 'relationship'>,
+  observedState?: Record<string, unknown>,
+): Node {
+  return {
+    id,
+    type: kind,
+    position: { x: 0, y: 0 },
+    data: { label: `A ${kind}`, type: kind, observedState },
+  } as unknown as Node
+}
+
+/**
+ * ⚠ A TOTAL RECORD, NOT AN ARRAY — so adding a node kind to
+ * `ModelElementKind` is a TYPE ERROR here rather than a silently unexercised
+ * case. A hand-listed array is the mirror this repo's own
+ * `KIND_LABELS`/`provenanceKeyIsTotal` pattern exists to abolish, and the thing
+ * it would hide is precisely a new kind that loses its provenance line.
+ */
+const EVERY_NODE_KIND: Record<Exclude<ModelElementKind, 'relationship'>, true> = {
+  goal: true,
+  decision: true,
+  option: true,
+  factor: true,
+  risk: true,
+  outcome: true,
+}
+
+describe('the detail pane states provenance exactly once, whatever the kind', () => {
+  /**
+   * ⭐ THE CASE THE BARE NULL BROKE. Revert `basis` to a bare `null` and this
+   * REDs; it is green both before this PR and after the repair, which is what
+   * makes it a regression pin rather than a restatement of the new behaviour.
+   */
+  it('⛔ a RISK keeps its basis — nothing else on that row states provenance', () => {
+    const input = project([
+      nodeOfKind('risk_budget_overrun', 'risk', { value: 0.3, source: 'cee_inference' }),
+    ])
+    const detail = toRowDetail(input, 'risk_budget_overrun')
+
+    // The statement survives, humanised — never the wire token.
+    expect(detail!.basis).toBe('Source: AI estimate')
+    expect(detail!.basis).not.toContain('cee_inference')
+
+    /*
+     * ⚠ THE PRECONDITION, PINNED IN-TEST. The assertion above is only about the
+     * DUPLICATION question if nothing else on this row speaks. It does not:
+     * `toModelRows` never sets `provenanceSource` for a risk, so the pill cannot
+     * render and `basis` is the row's sole provenance statement. Without this,
+     * the case above would pass just as happily on a row that says it twice.
+     */
+    const row = toModelRows(input).find(r => r.id === 'risk_budget_overrun')
+    expect(row?.provenanceSource).toBeUndefined()
+  })
+
+  it('⭐ a FACTOR still says it ONCE, through the pill — the PR’s own fix, unchanged', () => {
+    const input = project([nodeOfKind('fac_arr', 'factor', { value: 0.4, source: 'cee_inference' })])
+    expect(toRowDetail(input, 'fac_arr')!.basis).toBeNull()
+    expect(toModelRows(input).find(r => r.id === 'fac_arr')?.provenanceSource).toBe('cee_inference')
+  })
+
+  /**
+   * ⭐⭐ THE INVARIANT, DERIVED OVER EVERY KIND RATHER THAN LISTED.
+   *
+   * The property is not "factors are null and risks are not" — that is the
+   * remedy, and writing the invariant against the remedy is how the first
+   * version of this change shipped a hole (trap 13d: write it against the
+   * SPEC). The spec is: **the pane makes exactly one statement of where a value
+   * came from.** Never two (the duplication this PR removes), never zero (the
+   * deletion it nearly introduced).
+   *
+   * Because it iterates the kind Record, a new kind that sets neither — or both
+   * — REDs here without anyone remembering to add a case.
+   */
+  it('⭐⭐ EVERY node kind with a stamped source makes exactly ONE provenance statement', () => {
+    const kinds = Object.keys(EVERY_NODE_KIND) as Exclude<ModelElementKind, 'relationship'>[]
+    expect(kinds.length).toBe(6)
+
+    for (const kind of kinds) {
+      const id = `n_${kind}`
+      const input = project([nodeOfKind(id, kind, { value: 0.4, source: 'cee_inference' })])
+      const row = toModelRows(input).find(r => r.id === id)
+      expect(row, `no row projected for kind=${kind} — the fixture is wrong, not the code`).toBeDefined()
+      const detail = toRowDetail(input, id)
+
+      const pillSpeaks = typeof row!.provenanceSource === 'string' && row!.provenanceSource !== ''
+      const basisSpeaks = detail!.basis !== null
+
+      // NEVER TWICE — the defect this PR was opened to fix.
+      expect(
+        pillSpeaks && basisSpeaks,
+        `kind=${kind} states provenance TWICE (pill and basis)`,
+      ).toBe(false)
+
+      // AND NEVER ZERO — the defect the first version of the fix introduced.
+      expect(
+        pillSpeaks || basisSpeaks,
+        `kind=${kind} states provenance NOT AT ALL — "Where it came from" would not render`,
+      ).toBe(true)
+    }
+  })
+
+  /**
+   * ⚠ THE CONTRAST CONTROL FOR THE INVARIANT ABOVE. Without it, "exactly one"
+   * would pass on an implementation that states provenance unconditionally,
+   * including for a row whose producer stamped nothing — which would be an
+   * invented claim. An unstamped node must state it ZERO times, and the section
+   * must not render at all.
+   */
+  it('CONTROL: an UNSTAMPED node of any kind states provenance zero times', () => {
+    for (const kind of Object.keys(EVERY_NODE_KIND) as Exclude<ModelElementKind, 'relationship'>[]) {
+      const id = `u_${kind}`
+      const input = project([nodeOfKind(id, kind, { value: 0.4 })])
+      const row = toModelRows(input).find(r => r.id === id)
+      const detail = toRowDetail(input, id)
+      expect(row!.provenanceSource, `kind=${kind}`).toBeUndefined()
+      expect(detail!.basis, `kind=${kind}`).toBeNull()
+    }
   })
 })

@@ -904,11 +904,92 @@ export function toRowDetail(input: ModelProjectionInput, rowId: string): ModelRo
       // producer and left this one raw — so the detail pane printed
       // `Source: cee_inference` under "Where it came from", DIRECTLY BENEATH
       // the `SourceProvenancePill` that humanises the same field to "AI
-      // estimate" (`ModelDetailRegion.tsx:250-263`). The panel said both.
+      // estimate". The panel said both.
+      //
+      // ⚠ The citation here read `ModelDetailRegion.tsx:250-263`, which is
+      // section 1, "What this is" — the wrong section entirely. No number
+      // replaces it: the anchor is the `model-detail-v2-provenance` section,
+      // which is where `SourceProvenancePill` and the `model-detail-v2-basis`
+      // paragraph are siblings. That is grep-derivable and does not go stale
+      // the next time something above it grows.
       // Catching one instance of a class and announcing the class is fixed is
       // the defect; the scan that should have caught it was blind twice over
       // (see `modelTabNoRawIdFallback.sourceScan.spec.ts`).
-      basis: sourceBasis(obs?.source),
+      /**
+       * ⛔⛔ NULL FOR A NODE — THE PILL ABOVE IT ALREADY SAYS THIS, WORD FOR
+       * WORD, AND THE PANEL WAS SAYING IT TWICE.
+       *
+       * Witnessed on deployed `14276d5b` (guest, completed run, factor "Annual
+       * Platform Cost"), reading the rendered DOM:
+       *
+       *     y=693  h4    "Where it came from"
+       *     y=712  span  "User edited"            ← SourceProvenancePill
+       *     y=733  p     "Source: User edited"    ← this field, 21px below
+       *
+       * ⚠ IT IS IDENTICAL BY CONSTRUCTION, not by coincidence, so no fixture
+       * could ever show them differing. The row's `provenanceSource` is
+       * `obs?.source` (`:574`) and `sourceBasis` is
+       * `"Source: " + mapSourceToDisplay(obs?.source)` — the SAME field through
+       * the SAME classifier. They even vanish together:
+       * `mapSourceToDisplay(undefined)` returns null, so an unstamped factor
+       * renders neither.
+       *
+       * ⚠⚠ THIS IS THE RESIDUE OF THE F1 FIX, NOT A NEW DEFECT — and that is
+       * the instructive part. F1 was "the panel said BOTH, and they DISAGREED":
+       * the pill humanised the source to "AI estimate" while this line printed
+       * the wire token `Source: cee_inference`. The fix routed this line through
+       * the same classifier, which made them AGREE. Nobody then asked whether
+       * the panel should say it at all. A fix measured against "do they match?"
+       * passes; the question the reader has — "why am I reading this twice?" —
+       * was never the metric (CLAUDE.md trap 23).
+       *
+       * ⚠ THE EDGE BRANCH IS DIFFERENT AND IS DELIBERATELY UNTOUCHED. An edge's
+       * pill reads `data.weightSource` (`:650`) while its basis reads
+       * `data.provenance` — TWO different fields carrying two different facts,
+       * so there the second line earns its place. Nulling both would have been
+       * the tidy, wrong change.
+       *
+       * ⛔⛔ AND THE SAME MISTAKE ONE LEVEL UP — THIS WAS A BARE `null` AND THIS
+       * BRANCH IS KIND-AGNOSTIC. Caught in review, and the correction is the
+       * whole reason this ternary exists.
+       *
+       * The duplication argument above is TRUE OF FACTORS AND ONLY FACTORS.
+       * `toModelRows` sets `provenanceSource` inside `if (kind === 'factor')`
+       * (`:574`) and, separately, for EDGES (`:650`). The goal, decision, risk
+       * and outcome rows get NONE. So for those kinds the pill never renders
+       * (`ModelDetailRegion.tsx:424` requires `provenanceSource !== undefined`),
+       * and with `basis: null` and `adjustments: []` `hasProvenanceContent`
+       * returns false — which deletes the "Where it came from" HEADING TOO. A
+       * bare null removed the ONLY provenance statement those rows had.
+       *
+       * ⚠ AND IT IS LIVE ON COMMITTED DATA, not a hypothetical. Census of every
+       * tracked JSON carrying `observed_state.source`: 92 carriers, 84 `factor`
+       * and **8 `risk`** — `risk_time`/`brief_extraction` in
+       * `golden-path-staging-2026-04-05.json`, and `risk_budget_overrun` /
+       * `risk_deadline_miss` across three `draft-graph.success.*` fixtures plus
+       * the `v5-turn.draft-graph.staging-smoke` capture. Both literals classify
+       * non-null (`brief_extraction -> 'From brief'`, `cee_inference -> 'AI
+       * estimate'`), `KIND_GROUP.risk` files them under `outcomes-risks` so the
+       * row renders, and `DraftChat` copies `observed_state` for every node
+       * ungated. A user selecting that risk read "Source: AI estimate" before
+       * this PR and would have read nothing after it.
+       *
+       * ⭐ THE SHAPE, because it is the one this estate keeps shipping: a DOM
+       * witness pointed at one FACTOR row was generalised into a claim about the
+       * whole NODE branch. The comment's own boast — "IT IS IDENTICAL BY
+       * CONSTRUCTION, so no fixture could ever show them differing" — is true of
+       * factors and false of the branch the code changes. The witness was real;
+       * the scope it was carried into was not (trap 20).
+       *
+       * So the null is gated on the condition that actually makes it a
+       * duplicate: does the pill speak for this row? Today that is exactly
+       * factor-ness, because the factor branch is the only NODE branch that sets
+       * `provenanceSource`. `provenanceKeyIsTotal` and the derived
+       * every-kind invariant in `adaptersStopSpeakingInWireTokens.spec.ts` pin
+       * the two in agreement, so if a future change gives another kind a pill,
+       * that test REDs rather than the panel quietly saying it twice again.
+       */
+      basis: nodeKind(node) === 'factor' ? null : sourceBasis(obs?.source),
       adjustments: [],
       // ⚠ The NAVIGATION id stays the edge's; the LABEL is the target element's
       // name. Rendering `e.target` here put a raw wire id in the detail region's
