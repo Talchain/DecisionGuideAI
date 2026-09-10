@@ -45,7 +45,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { act, render, screen, fireEvent, cleanup } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import type { Node, Edge } from '@xyflow/react'
 
@@ -55,6 +55,7 @@ vi.mock('../../utils/focusHelpers', () => ({
 }))
 
 import { ModelTabV2Panel } from '../ModelTabV2Panel'
+import { focusNodeById } from '../../utils/focusHelpers'
 import { openOutlineGroups } from './openOutlineGroups'
 
 const GOAL_ID = 'goal_margin'
@@ -223,19 +224,110 @@ describe('renaming an element from its row', () => {
   it('CONTRAST CONTROL: a single click still means "show me this on the canvas"', () => {
     // The new gesture must not displace the existing one. Without this, binding
     // rename to a single click would pass every case above.
-    const onFocusOnCanvas = vi.fn()
-    render(
-      <ModelTabV2Panel
-        nodes={NODES}
-        edges={EDGES}
-        goalThreshold={null}
-        onRenameRow={vi.fn()}
-      />,
-    )
-    openOutlineGroups()
+    //
+    // ⚠ THE NAME USED TO PROMISE MORE THAN THE BODY CHECKED. It declared an
+    // `onFocusOnCanvas` spy, never passed it, and discarded it with
+    // `void onFocusOnCanvas` — so the half that matters, "the existing gesture
+    // still HAPPENS", was unpinned and only "no editor opened" was tested.
+    // `ModelTabV2Panel` takes no such prop: it derives `focusOnCanvas` itself
+    // (`ModelTabV2Panel.tsx:573-576`) and calls `focusNodeById`, which this file
+    // already mocks. So the behaviour is observed at the real seam.
+    renderPanel(vi.fn())
 
     fireEvent.click(labelButton(FACTOR_ID))
+
+    // The gesture still does its old job, addressed BY ID.
+    expect(vi.mocked(focusNodeById)).toHaveBeenCalledWith(FACTOR_ID)
+    // And it did NOT acquire a second meaning.
     expect(renameInput(FACTOR_ID)).toBeNull()
-    void onFocusOnCanvas
+  })
+})
+
+/**
+ * ⛔⛔ THE BLOCKING FINDING THIS SUITE COULD NOT SEE: ESCAPE, THEN BLUR.
+ *
+ * `cancelRename` used to be `setRenaming(false)` and nothing else, while the
+ * editor carries `onBlur={commitRename}`. Escape therefore left the abandoned
+ * `draft` live, and a focusout reaching the handler would pass both refusals and
+ * WRITE — pushing history, recording a `structural_rename` intent and, on a goal,
+ * superseding a `from_brief` stamp that is still true.
+ *
+ * ⚠ THE EXISTING "Escape abandons it, and writes nothing" CASE AGREES WITH ITS
+ * ENVIRONMENT RATHER THAN WITH THE PROPERTY. `fireEvent.keyDown(..., Escape)`
+ * flushes React inside its own `act`, the editor unmounts, and no blur is ever
+ * dispatched — so it can only ever observe the keystroke in isolation. It passes
+ * identically with the defect present.
+ *
+ * ⭐ HOW THIS ONE DRIVES THE REAL ORDER. Both events are dispatched RAW inside a
+ * SINGLE `act`, so React queues the state updates Escape schedules rather than
+ * flushing between them. The editor is therefore still mounted when focusout
+ * arrives, which is exactly the interleaving a browser produces when a focused
+ * input is removed — and exactly what the wrapped `fireEvent` helpers hide.
+ *
+ * ⚠ THE PRECONDITION IS PINNED IN-TEST, not assumed. Connectivity at the moment
+ * of the blur is captured and asserted. If a future React or jsdom flushes
+ * earlier, this REDs on that assertion and says so, instead of passing quietly
+ * while observing nothing — which is the failure mode that let the defect ship.
+ */
+describe('⛔ an ABANDONED rename cannot write through the blur commit', () => {
+  it('⚠ POSITIVE CONTROL: this harness really does reach the blur commit', () => {
+    // Without this the absence below could be a dispatch that never arrived, and
+    // every assertion in the next case would pass by testing nothing (trap 13).
+    const onRenameRow = vi.fn()
+    renderPanel(onRenameRow)
+
+    fireEvent.doubleClick(labelButton(FACTOR_ID))
+    const input = renameInput(FACTOR_ID)!
+    fireEvent.change(input, { target: { value: 'Churn pressure, monthly' } })
+
+    act(() => {
+      input.dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+    })
+
+    expect(onRenameRow).toHaveBeenCalledWith(FACTOR_ID, 'Churn pressure, monthly')
+  })
+
+  it('⛔ Escape and THEN blur, in that order, writes nothing', () => {
+    const onRenameRow = vi.fn()
+    renderPanel(onRenameRow)
+
+    fireEvent.doubleClick(labelButton(FACTOR_ID))
+    const input = renameInput(FACTOR_ID)!
+    fireEvent.change(input, { target: { value: 'something else entirely' } })
+
+    let connectedWhenBlurred = false
+    act(() => {
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      connectedWhenBlurred = input.isConnected
+      input.dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+    })
+
+    // PRECONDITION: the blur really did land on a mounted editor. A false here
+    // means the environment cannot host this ordering, NOT that the property holds.
+    expect(connectedWhenBlurred).toBe(true)
+
+    expect(onRenameRow).not.toHaveBeenCalled()
+    expect(renameInput(FACTOR_ID)).toBeNull()
+    expect(labelButton(FACTOR_ID)).toHaveTextContent('Churn pressure')
+  })
+
+  it('⚠ and the abandon does not poison the NEXT rename', () => {
+    // The guard is a ref, so it must be cleared on the way in. Without the reset
+    // in `beginRename`, one Escape would silently disable renaming for the rest
+    // of the row's life — a fix that trades a rare wrong write for a permanent
+    // dead control.
+    const onRenameRow = vi.fn()
+    renderPanel(onRenameRow)
+
+    fireEvent.doubleClick(labelButton(FACTOR_ID))
+    fireEvent.change(renameInput(FACTOR_ID)!, { target: { value: 'abandoned' } })
+    fireEvent.keyDown(renameInput(FACTOR_ID)!, { key: 'Escape' })
+    expect(onRenameRow).not.toHaveBeenCalled()
+
+    fireEvent.doubleClick(labelButton(FACTOR_ID))
+    fireEvent.change(renameInput(FACTOR_ID)!, { target: { value: 'Churn pressure, monthly' } })
+    fireEvent.keyDown(renameInput(FACTOR_ID)!, { key: 'Enter' })
+
+    expect(onRenameRow).toHaveBeenCalledWith(FACTOR_ID, 'Churn pressure, monthly')
   })
 })

@@ -330,15 +330,75 @@ export function ModelRowView({
   const renameAvailable = typeof onRenameRow === 'function' && row.kind !== 'relationship'
   const [renaming, setRenaming] = useState(false)
   const [draft, setDraft] = useState('')
+  /** Set by Escape, cleared by `beginRename`. See `cancelRename` below for why
+   *  a ref rather than state, and why resetting the draft alone is not enough. */
+  const cancelledRef = useRef(false)
 
   const beginRename = useCallback(() => {
+    // ⚠ CLEARED HERE, so the abandon flag can never outlive the edit it
+    // abandoned and suppress a genuine commit on the next one.
+    cancelledRef.current = false
     setDraft(row.label)
     setRenaming(true)
   }, [row.label])
 
-  const cancelRename = useCallback(() => setRenaming(false), [])
+  /**
+   * ⛔⛔ ESCAPE MUST WRITE NOTHING **BY CONSTRUCTION**, NOT BY LUCK.
+   *
+   * This read `setRenaming(false)` and nothing else, while the input carries
+   * `onBlur={commitRename}` (below). Escape therefore cleared `renaming` with
+   * `draft` still holding the abandoned text, and any focusout that reached the
+   * handler would pass both refusals — non-blank, changed — and write. The write
+   * is not benign: `store.updateNodeLabel` records a `structural_rename` intent,
+   * pushes history, and on a GOAL supersedes the `from_brief` stamp, retiring a
+   * provenance pill that is still true. An edit the user cancelled would silently
+   * do the one thing this file's own comments say must not happen.
+   *
+   * ⚠ WHETHER A BROWSER DISPATCHES FOCUSOUT WHEN A FOCUSED INPUT IS REMOVED IS
+   * CONTESTED, AND THAT IS EXACTLY WHY THIS IS NOT LEFT TO IT. Two reviews on
+   * this PR reached opposite answers. Neither reading changes what the code
+   * should do: the property is cheap to guarantee and expensive to reason about,
+   * so it is guaranteed here and the browser question is retired.
+   *
+   * ── TWO PARTS, AND THE SECOND IS THE ONE THAT ACTUALLY BINDS ──────────────
+   *
+   * 1. `setDraft(row.label)` mirrors the named precedent, `EditableLabel.revert`
+   *    (`ui/inspector-v2/shared/EditableLabel.tsx:110-113`), which resets the
+   *    draft first so its own `onBlur={save}` becomes a no-op against the
+   *    unchanged-value refusal. It also means a reopened editor cannot inherit
+   *    an abandoned draft.
+   *
+   * 2. ⭐ A SYNCHRONOUS REF, BECAUSE PART 1 ALONE DOES NOT CLOSE THE WINDOW.
+   *    `commitRename` is a `useCallback` closed over `draft`. A focusout
+   *    dispatched from the SAME render — before React has flushed the state
+   *    updates Escape queued — runs the handler that captured the PRE-RESET
+   *    draft, so the unchanged-value refusal never sees the reset and the write
+   *    still lands. `useRef` returns a stable object and mutates synchronously,
+   *    so a check against it is correct under every ordering and every closure.
+   *    Transplanting the precedent literally would have looked like a fix and
+   *    left the hole, because `EditableLabel` blurs its input explicitly while
+   *    this editor is REMOVED instead.
+   *
+   * The flag is cleared by `beginRename` (above), so it can never suppress a
+   * later, genuine commit. `beginRename` is the SOLE entry point to the editor —
+   * both the double-click and the keyboard route call it — so there is no way in
+   * that skips the reset.
+   */
+  const cancelRename = useCallback(() => {
+    cancelledRef.current = true
+    setDraft(row.label)
+    setRenaming(false)
+  }, [row.label])
 
   const commitRename = useCallback(() => {
+    // ⛔ THE ABANDON GUARD. Escape sets this synchronously, so a blur arriving
+    // from the same render — with a stale `draft` in this closure — cannot write.
+    // Read BEFORE the refusals, because the refusals inspect exactly the value
+    // that is stale.
+    if (cancelledRef.current) {
+      setRenaming(false)
+      return
+    }
     setRenaming(false)
     const next = draft.trim()
     // ⚠ TWO REFUSALS, AND NEITHER IS COSMETIC. A BLANK commit would push an
