@@ -47,6 +47,44 @@ describe('GoalTargetNudge', () => {
     )
   })
 
+  /**
+   * ⭐ THE CORPUS HALF — deliberately a LITERAL, not a constant.
+   *
+   * The test above binds the register half by identity, which proves the
+   * component and `GOAL_ANCHOR_COPY` agree. It cannot notice a sentence that
+   * was never declared in the register at all, and the consequence clause is
+   * exactly that: authored in the component, present in no register. Measured
+   * at this file before this pin existed, the three rendered-text assertions
+   * were `getByText('Set a success target')`, `toHaveTextContent(
+   * GOAL_ANCHOR_COPY.noTarget)` and `toHaveTextContent(/Optional/)` — delete
+   * the consequence sentence outright and all three still pass.
+   *
+   * ⚠ The literal is the POINT, and moving it into the register would defeat
+   * this test rather than strengthen it: an expectation reading the same
+   * export the component renders moves with it, so inverting the sentence
+   * would stay green. Trap 12d — derivation proves the copies agree, a
+   * hand-written corpus is the only thing that notices the list is short.
+   * Both are needed; neither supersedes the other.
+   *
+   * Regex, not `getByText`: the sentence is line-wrapped across two lines in
+   * the JSX, so it is one rendered text run but two source lines, and a
+   * contiguous raw-string match is brittle across that wrap.
+   *
+   * Discrimination is structural: neither sibling string in this card carries
+   * this phrase. `GOAL_ANCHOR_COPY.noTarget` is "Set a success target to see
+   * which option is most likely to reach it."; the retained clause is
+   * "Optional; analysis runs without one." — lower-case "without one", no
+   * "that question comes back unanswered". So this phrase has exactly one
+   * source in the rendered output, and deleting or inverting it REDs here and
+   * nowhere else.
+   */
+  it('states what a missing target COSTS, not only what setting one buys', () => {
+    render(<GoalTargetNudge hasGoalNode hasSuccessTarget={false} onSetTarget={vi.fn()} />)
+    expect(screen.getByTestId('goal-target-nudge')).toHaveTextContent(
+      /Without one, that question comes back unanswered\./,
+    )
+  })
+
   it('still says the target is optional — it informs, it never blocks', () => {
     render(<GoalTargetNudge hasGoalNode hasSuccessTarget={false} onSetTarget={vi.fn()} />)
     // Paul's ruling on this register: "It NEVER blocks. This is an invitation
