@@ -72,6 +72,12 @@ export type PanelSignalId =
   | 'sig_cee_bias'
   /** Causal-structure absence — see `selectors/computeStructuralAbsence.ts`. */
   | 'sig_structural_absence'
+  /**
+   * Option value differentiation — see `selectors/computeOptionDifferentiation.ts`.
+   * The MAGNITUDE question about options; `sig_structural_absence` owns the
+   * structural one, and the two are deliberately not merged.
+   */
+  | 'sig_option_differentiation'
 
 export type BarKey = 'frame' | 'options' | 'risks' | 'estimates'
 

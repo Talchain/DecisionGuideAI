@@ -9,11 +9,32 @@
  *
  * ⚠ DISPLAY-ONLY, AND THE COPY SAYS SO. There is no pre-analysis write path to reuse: the
  * legacy panel's contested resolve handler was deleted in the Brief 4 Task 6 dead-code sweep
- * (`PreAnalysisPanel.tsx:76,1106`), and the only live adjudication surface is the Model tab
- * (`ModelTabBody::handleResolveContested` → `RelationshipsSection` → `ContestedEdgeCard`).
- * This slice does NOT invent a second write path. The one affordance here is the EXISTING,
- * non-mutating cross-panel handoff the legacy panel already uses for exactly this destination
+ * (`PreAnalysisPanel.tsx:76,1106`). The one affordance here is the EXISTING, non-mutating
+ * cross-panel handoff the legacy panel already uses for exactly this destination
  * (`PreAnalysisPanel.tsx:2304`) — two ui-store calls, no graph mutation.
+ *
+ * ⚠⚠ AND THE CLAUSE THAT USED TO SIT IN THAT PARAGRAPH WAS FALSE, WHICH IS THE ONLY REASON
+ * THIS BUTTON SHIPPED A PROMISE IT COULD NOT KEEP (derived at staging `2416ac3f`). It read:
+ * *"the only live adjudication surface is the Model tab (`ModelTabBody::handleResolveContested`
+ * → `RelationshipsSection` → `ContestedEdgeCard`)"*. That chain is REAL AND UNMOUNTED:
+ * `<RelationshipsSection` sits inside `ModelTabBody`'s `{LEGACY_DETAILED_EDITOR_MOUNTED && (…)}`
+ * block and the constant is `false`, so esbuild folds the whole stack away. Reading the call
+ * site without its enclosing guard produces exactly the sentence above — the same way the
+ * identical mistake was made and corrected in `ModelTabV2Panel.tsx`. **A comment that describes
+ * a mount MUST name the guard, not just the call site.**
+ *
+ * On that false premise the CTA said "Settle these in the model tab". It now claims navigation
+ * only. The ROUTE is unchanged and deliberately so: the destination shows the CAUSAL ones among
+ * these relationships, marked "Two passes disagree", and their strength is editable per edge —
+ * so removing the button would take away a real ability to act.
+ * `contestedCtaPromiseIsHonest.spec.tsx` derives both halves and REDs if either moves.
+ *
+ * ⚠ "CAUSAL" IS NOT HEDGING — the destination applies `getCausalEdges` (`adapters.ts:136`) and
+ * drops any edge touching a `decision` or `option` node; this section cannot apply that filter,
+ * because `selectSurfacedContestedEdges` takes edges without nodes. So a row listed here may be
+ * absent at the destination the button names. That divergence is pinned in both directions by
+ * §2b of the spec above, and the question this repo cannot settle — whether CEE ever contests
+ * such an edge — is recorded there rather than resolved by a comment.
  *
  * EMPTY MEANS ABSENT. Nothing renders when no connection is contested — no header, no "0",
  * no reassurance row. Same rule as SharpenSection.

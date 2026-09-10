@@ -207,6 +207,69 @@ export const SIGNAL_COPY = {
     lead: 'Nothing outside your control is modelled.',
     emphasis: 'Naming what you do not control shows which outcomes you can actually move.',
   },
+  /**
+   * Option differentiation — what the options SAY about the parts they share.
+   *
+   * ⚠ A DIFFERENT QUESTION FROM `structuralSharedMechanism`, not a second
+   * answer to it. That one fires when the options act on the same parts of the
+   * model; this one fires when, whatever parts they act on, they state the same
+   * NUMBER for the ones they have in common. The registry suppresses this row
+   * while the structural row is live, so the user is never told both at once —
+   * but the two counts are genuinely different findings and must stay named
+   * apart (see `selectors/computeOptionDifferentiation.ts`).
+   *
+   * ⚠⚠ PARTITIVE, NOT TOTAL — "N of your options", NEVER "All N options".
+   * THE TWO ROWS COUNT DIFFERENT SETS, AND ONLY ONE OF THEM MAY SAY "ALL".
+   * `structuralSharedMechanism` above counts canvas option NODES
+   * (`computeStructuralAbsence` pushes `node.id`), which is the same set as
+   * `facts.optionCount` behind "You are comparing N options" and the
+   * "N options included" bar. Its "All N" is therefore true of what is on
+   * screen. THIS row's count is `comparable.length` — a filtered SUBSET that
+   * drops the baseline arm, every option not yet `ready`, and every option
+   * with no stated value. On the measured captures that subset is routinely
+   * smaller than the option set the user is looking at (vendor-selection: 4
+   * option nodes, 3 comparable; market-entry: 3 and 2), so "All 3 options"
+   * would sit in the same panel as "You are comparing 4 options" and assert a
+   * totality that was never measured. The partitive is true in both cases and
+   * cannot contradict the breadth row. Do not "align" the two counts: they
+   * answer different questions and reconciling them would delete a real
+   * finding.
+   */
+  optionDifferentiation: (
+    identicalCount: number,
+    sharedCount: number,
+    optionCount: number,
+  ) => {
+    // Sentence-initial, so the count is spelled out at the small sizes that
+    // actually occur; factor counts stay as digits mid-sentence. Typed as
+    // possibly-undefined so the numeric fallback is a real branch rather than
+    // one `noUnnecessaryCondition` would strip.
+    const SPELLED: Record<number, string | undefined> = {
+      2: 'Two',
+      3: 'Three',
+      4: 'Four',
+      5: 'Five',
+      6: 'Six',
+      7: 'Seven',
+      8: 'Eight',
+      9: 'Nine',
+    }
+    const options = SPELLED[optionCount] ?? String(optionCount)
+    if (identicalCount >= sharedCount) {
+      return {
+        lead: `${options} of your options set the same value for every factor they share.`,
+        emphasis:
+          'Nothing that they have in common can tell them apart, so the analysis has only their differences to work from.',
+      }
+    }
+    const differing = sharedCount - identicalCount
+    return {
+      lead: `${options} of your options set the same value for ${identicalCount} of the ${sharedCount} factors they share.`,
+      emphasis: `Only the ${differing === 1 ? 'one that differs' : `${differing} that differ`} can separate them, so it is worth checking the others really are the same.`,
+    }
+  },
+  optionDifferentiationRationale:
+    'Value differentiation: a factor set to the same number on every option cannot move the comparison, because there is nothing for it to trade off. When most shared factors carry one value, the decision quietly rests on the few that vary, which is worth knowing before the run rather than after it.',
   structuralNoDownsideRationale:
     'Downside paths: an option connected only to benefits cannot lose. Linking each option to the harms it risks lets the analysis trade one against the other instead of ranking upside alone.',
   structuralSharedMechanismRationale:
@@ -227,9 +290,38 @@ export const SIGNAL_COPY = {
  * same banned-terms matcher this object is scanned with.
  *
  * NO RESOLVE COPY HERE, DELIBERATELY. This section is DISPLAY-ONLY: the pre-analysis panel's
- * contested resolve handler was deleted in the Brief 4 Task 6 dead-code sweep, and the only
- * live adjudication surface is the Model tab. `reviewCta` therefore promises navigation, not
- * a fix, and phrases it the way the legacy panel's own model-tab link does.
+ * contested resolve handler was deleted in the Brief 4 Task 6 dead-code sweep.
+ *
+ * ⚠⚠ AND THE SENTENCE THAT USED TO FOLLOW THAT ONE WAS FALSE, WHICH IS WHY `reviewCta`
+ * CHANGED (derived at staging `2416ac3f`). It read: *"the only live adjudication surface is
+ * the Model tab"*, and on that premise the CTA said **"Settle these in the model tab"**.
+ * There is NO live adjudication surface anywhere. `ContestedEdgeCard` — the one control that
+ * has ever offered the four verdicts — has exactly two product render sites and neither is
+ * mounted: `model-tab/RelationshipsSection.tsx`, hosted only inside
+ * `ModelTabBody`'s `{LEGACY_DETAILED_EDITOR_MOUNTED && (…)}` block with that constant `false`
+ * (esbuild folds it — not hidden, not shipped); and `pre-analysis/AllImprovements.tsx`, which
+ * the barrel exports and no product file imports. `ModelTabV2Panel` says it from the other
+ * side: its `MountedQueueId` excludes `'contested'` deliberately, "when nothing renders it".
+ *
+ * ⭐ THE ROUTE STAYS, THE CLAIM GOES. The destination is not empty — the v2 outline carries
+ * every CAUSAL contested relationship, marked and named "Two passes disagree", and per edge
+ * (where `edgeStrengthEditIsAssertable` holds) the strength is editable through a
+ * server-authoritative carrier.
+ *
+ * ⚠ "CAUSAL", NOT "EVERY" — the two surfaces do not share a topology filter, and an earlier
+ * draft of this comment said "every", which is false about the code. The destination applies
+ * `getCausalEdges` (`adapters.ts:136` → `domain/edgeUtils.ts:77-90`), dropping any edge whose
+ * source OR target is a `decision` or `option` node. These rows cannot apply it:
+ * `selectSurfacedContestedEdges` receives `edges` only, so the filter is structurally out of
+ * scope on this side (`computeContestedRows.ts:62`). An option- or decision-touching contested
+ * edge is therefore listed HERE and absent THERE. Pinned in both directions by
+ * `contestedCtaPromiseIsHonest.spec.tsx` §2b, with the open CEE-side question written down
+ * there rather than assumed away.
+ *
+ * So `reviewCta` now promises NAVIGATION ONLY, phrased the way the legacy panel's own
+ * model-tab link is phrased (`PreAnalysisPanel.tsx:2381`, "See all N relationships in model
+ * tab ›"). Restoring a settlement verb requires re-mounting an adjudication host first —
+ * `contestedCtaPromiseIsHonest.spec.tsx` derives that premise and REDs on either half moving.
  */
 export const CONTESTED_COPY = {
   title: 'Where our reviews disagree',
@@ -242,7 +334,11 @@ export const CONTESTED_COPY = {
   reasonFallback: 'Our reviews did not settle on the same estimate here.',
   showDetail: 'Show detail',
   hideDetail: 'Hide detail',
-  reviewCta: 'Settle these in the model tab',
+  /**
+   * NAVIGATION ONLY — see the block comment above. The Model tab cannot settle a
+   * disagreement at this tip, so this must not say that it can.
+   */
+  reviewCta: 'See these in the model tab',
 } as const
 
 export const ATTRIBUTION_COPY = {
@@ -480,6 +576,33 @@ export const HERO_COPY = {
   pressureTestDecision: 'Ask Olumi: is this the right question, and does it fit your wider goals?',
   pressureTestGoal: 'Olumi can help reframe this as the outcome you want, so every option is comparable',
   defineSuccess: 'Olumi can help define a measurable success target',
+  /**
+   * ⭐ NAMES ITS SUBJECT, AND THAT IS THE WHOLE CHANGE FROM
+   * `SHARED_MODEL_AUTHORITY_COPY`, WHICH THIS REPLACES ON THIS SURFACE.
+   *
+   * The shared sentence opens "Change this". That was unambiguous while BOTH
+   * hero fields were read-only. The goal field now writes (see
+   * `HeroSection.GOAL_LABEL_EDIT_CONNECTED`), so an unqualified "this" sitting
+   * under two fields would newly claim the goal is set elsewhere — a false
+   * sentence bought by fixing a different one.
+   *
+   * It does NOT reuse `SHARED_MODEL_AUTHORITY_COPY` with a prefix, for the
+   * reason `model-tab-v2/sectionWriterNotice.ts` already records for its own
+   * case: a sentence that must be true of ONE named control cannot borrow one
+   * written to be true of every control.
+   *
+   * ⚠ BOTH ROUTES IT NAMES ARE DERIVED, NOT ASSUMED (2026-09-10):
+   *  · Model tab — `CANONICAL_EDIT_AUTHORITY.modelGoalMinimumTarget` is
+   *    `'server_graph'` and `ModelTabV2Panel.tsx:517` opens the goal row's
+   *    editor on it; `confirmEdit` (`:710`) calls `proposeGoalTarget`
+   *    (`useModelEditAuthority.ts:410`), which dispatches a TYPED
+   *    `add_constraint` through CEE's validated proposal path.
+   *    `ModelTabV2Panel` mounts at `ModelTabBody.tsx:1066`, OUTSIDE the
+   *    `LEGACY_DETAILED_EDITOR_MOUNTED = false` gate.
+   *  · Ask Olumi — the "Define success with Olumi" spark beside this field.
+   */
+  successAuthorityNote:
+    'Set the success measure through the Model tab, or ask Olumi, so the shared model stays in sync.',
 } as const
 
 /**

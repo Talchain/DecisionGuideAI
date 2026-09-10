@@ -25,14 +25,55 @@
  * a confirmation (contracts.ts §1 C11). When the receipt-bearing transaction
  * API lands, the three-beat's tail states plug in at `useModelEditAuthority`.
  *
- * EDIT COVERAGE AT THIS TIP (widened 18 Aug 2026, the REHOME → DELETE lane):
+ * EDIT COVERAGE AT THIS TIP:
  *   · FACTOR VALUES — the reference canonical transaction, server-backed.
  *   · OPTION INTERVENTION TARGETS — in the detail region of the selected option.
- *   · FACTOR CONFIRMATION — the row's Confirm chip, stamping `user_confirmed`.
- * The last two are LOCAL COMMITS with no wire carrier, dispatched through the
- * same authority; see `useModelEditAuthority`'s header for why that does not
- * re-open design §2 F6 and for the outcome type that makes an over-claim
- * unrepresentable.
+ *     SERVER-BACKED (`option_intervention_edit`), base-hash gated, and it
+ *     REFUSES rather than writing locally when the hash is absent.
+ *   · FACTOR CONFIRMATION — ⛔ NOT MOUNTED. See below.
+ *
+ * ⚠⚠ TWO SENTENCES HERE WERE MEASURABLY FALSE AND ARE CORRECTED, NOT TRIMMED,
+ * because both drifted the same way and the next reader needs the mechanism.
+ * They read:
+ *
+ *   ~~"· FACTOR CONFIRMATION — the row's Confirm chip, stamping `user_confirmed`."~~
+ *   ~~"The last two are LOCAL COMMITS with no wire carrier."~~
+ *
+ * (1) FACTOR CONFIRMATION IS COMPILED OUT.
+ *     `CANONICAL_EDIT_AUTHORITY.modelFactorConfirmation` is `'disabled'`, so
+ *     `FACTOR_CONFIRMATION_CONNECTED` is `false` and the row Confirm chip
+ *     (`onConfirmValueAsIs`), the "N to verify" attention chip and the entire
+ *     `RepairQueueList` branch never render. `proposeFactorConfirmation` and its
+ *     dispatcher are live code and UNREACHABLE. A header advertising a
+ *     compiled-out capability is the worst place in the file for a stale claim:
+ *     it is what a new lane reads first to learn what this surface can do, and
+ *     it did mislead one.
+ * (2) OPTION INTERVENTIONS ARE NOT LOCAL COMMITS. `modelOptionIntervention`
+ *     flipped to `'server_graph'`; the edit builds a real wire event and refuses
+ *     rather than writing locally. Lumping it with factor confirmation as "the
+ *     last two" could not express a state where the two keys DISAGREE — which is
+ *     exactly the state they are in (trap 21: two questions under one name).
+ *
+ * ⭐ AND THE MECHANISM, WITH ITS LIMIT STATED — because the first version of
+ * this paragraph overclaimed, which is the very failure it was describing:
+ * `__tests__/affordancesFollowTheAuthorityTable.spec.tsx` binds the AFFORDANCES
+ * to the table two ways. It DERIVES each expectation from the imported table at
+ * run time, so the surface cannot drift from the table; and it PINS what the
+ * table says today in a literal, so the table cannot move without reddening
+ * that file. It needs both. Derivation alone was measured NOT to red on a key
+ * flip, because the expectation and the surface's own gate were the same
+ * function over the same key and moved together.
+ *
+ * ⚠ WHAT IT DOES NOT DO IS HOLD THIS PROSE. These corrected sentences are a
+ * file-level JSDoc block, and the directory's source scanners strip comments by
+ * design, so nothing binds this header to the table. The earlier claim here
+ * that the mechanism meant this "cannot rot a third time" was not true, and
+ * asserting a guarantee no guard supplies is how the two sentences above rotted
+ * in the first place. Treat this block as prose that must be RE-READ whenever a
+ * key in `mutationAuthority.ts` changes; the spec's literal pin is what forces
+ * someone to that moment. See `useModelEditAuthority`'s header for why a
+ * genuinely local commit would not re-open design §2 F6, and for the outcome
+ * type that makes an over-claim unrepresentable.
  *
  *   · RELATIONSHIP STRENGTH — added 2026-09-08, server-backed, AND GATED PER
  *     EDGE. See below.
@@ -679,6 +720,10 @@ export function ModelTabV2Panel({
   }, [])
 
   const proposeEdit = useCallback((rowId: string) => {
+    // ⚠ THE ROW'S OWN DECLARED BOUND, resolved by the projection that built the
+    // row, so the host judges the SAME prior the control showed the user. Read
+    // outside the updater: `setEdit`'s callback must stay pure.
+    const admission = rows.find(r => r.id === rowId)?.valueAdmission
     setEdit(prev => {
       if (!prev || prev.rowId !== rowId) return prev
       /*
@@ -694,10 +739,10 @@ export function ModelTabV2Panel({
        * derivation, so a control that offers to advance and a host that refuses
        * to cannot disagree.
        */
-      if (unproposableDraftReason(rowId, prev.draft, prev.unit) !== null) return prev
+      if (unproposableDraftReason(rowId, prev.draft, prev.unit, admission) !== null) return prev
       return { ...prev, phase: 'proposed' }
     })
-  }, [])
+  }, [rows])
 
   const discardEdit = useCallback((rowId: string) => {
     setEdit(prev => (prev && prev.rowId === rowId ? null : prev))
@@ -738,8 +783,54 @@ export function ModelTabV2Panel({
        * ⚠ SO A MINUS TYPED INTO A MAGNITUDE-ONLY ROW SETS THE SIZE AND NOTHING
        * ELSE, disclosed here rather than left to be discovered: this surface
        * offers no direction control, so a sign typed into it states nothing the
-       * product may act on. Giving relationships a direction affordance needs
-       * `proposeEdgeDirection`, which has no carrier — see the file header.
+       * product may act on.
+       *
+       * ⚠⚠ THE REASON GIVEN HERE UNTIL 2026-09-08 WAS FALSE, and it is corrected
+       * rather than deleted so it is not re-derived. It read: *"Giving
+       * relationships a direction affordance needs `proposeEdgeDirection`, which
+       * has no carrier"*. The carrier EXISTS and is deployed —
+       * `edge_strength_edit.direction_intent`, in the schemas version this repo
+       * pins, with a CEE writer that resolves it. The seam is now built
+       * (`useInspectorMutations.setDirection` emits; see `contracts.ts` §1) and
+       * the per-edge gate is `edgeDirectionEditIsAssertable` — which has no
+       * product consumer yet; see `contracts.ts` §1 and the correction below.
+       *
+       * WHAT REMAINS IS A SURFACE DECISION, NOT A TRANSPORT GAP: adding a
+       * direction control to THIS row is a design change with its own review,
+       * deliberately not made in the lane that built the carrier.
+       *
+       * ⛔ CORRECTED FORWARD, 10 Sep 2026 (independent review) — DO NOT ACT ON
+       * THE SENTENCE THAT CLOSED THIS PARAGRAPH. It read: *"The two other
+       * direction controls (`EdgeAdvancedEditor`, `RelationshipsSection`) reach
+       * the server today"*. IT IS FALSE IN BOTH HALVES, for different reasons.
+       * The honest statement is that THE CARRIER IS BUILT AND HAS NO OPERABLE
+       * CONSUMER YET: `setDirection` has exactly two call sites and a user can
+       * operate neither.
+       *
+       *   · `RelationshipsSection.tsx:284` IS NOT MOUNTED.
+       *     `ModelTabBody.tsx:131` hardcodes `LEGACY_DETAILED_EDITOR_MOUNTED =
+       *     false` — no flag. Derived by brace balance rather than by eye, the
+       *     gate `{LEGACY_DETAILED_EDITOR_MOUNTED && (` spans `:988`–`:1110`
+       *     and `<RelationshipsSection` sits at `:1066`, inside it. That
+       *     constant's own header: "no visual, pointer or accessibility route
+       *     can reach it."
+       *   · `EdgeAdvancedEditor.tsx:127` IS MOUNTED BUT INERT.
+       *     `InspectorRouter.tsx:245-250` renders `<EdgePanel>` inside an
+       *     UNCONDITIONAL `<fieldset disabled>` (no branch), under the visible
+       *     `INSPECTOR_READ_ONLY_REASON` notice. The direction control is
+       *     `AdvancedField type="select"`, i.e. a native `<select>`
+       *     (`AdvancedField.tsx:157`), which a disabled fieldset inerts per the
+       *     HTML spec — as this repo's own boundary guard says in terms:
+       *     `inspectorAuthorityBinding.spec.tsx:330-331`, *"The four element
+       *     types `<fieldset disabled>` actually inerts, per the HTML spec"*,
+       *     `NATIVELY_DISABLEABLE = 'button, input, select, textarea'`.
+       *
+       * SO ON THE DEPLOYED PRODUCT, CHOOSING HELPS/HURTS STILL REACHES NOTHING,
+       * and this row offers no direction control at all (see four lines above).
+       * DO NOT READ THIS LANE AS CLOSING THE USER-FACING DEFECT — it builds the
+       * carrier that the surface work will need, and that surface work is
+       * unscheduled. Scope of the claim, deliberately narrow: derived from
+       * source at this head plus that guard, not from driving the product.
        */
       if (editingRelationshipId === rowId) {
         const edge = edges.find(e => e.id === rowId)

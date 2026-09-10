@@ -1685,6 +1685,50 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     setHighlightedNodes([nodeId])
     setTimeout(() => setHighlightedNodes([]), 3000)
   }, [setHighlightedNodes])
+  /**
+   * ⭐⭐ THE ACT BESIDE THE REASONING TAB'S REFUSAL SENTENCE.
+   *
+   * When CEE withholds a leader designation it says why, and the reason names
+   * its own remedy: "no option can be called the leader … until you have set at
+   * least one of them". `AtAGlance` renders that sentence unparaphrased and,
+   * until now, the reader could reach the estimates from nowhere on that panel.
+   * This is the move that goes there.
+   *
+   * ⚠ THE ROUTE IS THE SHIPPED ONE, NOT A NEW ONE. Two precedents already deep-
+   * link results surfaces into Model tab v2 — `TriageActionCardsBody.tsx`'s
+   * `openValueEditor` and `AnalysisHeroContainer.tsx`'s `onReviewValue` — and
+   * both carry the same two confessions in their own comments. Reused verbatim.
+   *
+   * ⚠ PASS THE KEY, NOT THE TESTID. `MODEL_SECTION_TARGET`
+   * (`ModelTabBody.tsx`) maps section NAMES to testids and its consumer does
+   * `MODEL_SECTION_TARGET[pending] ?? 'model-tab-v2-panel'`, so a testid misses
+   * the lookup and the `??` SILENTLY lands the user at the panel top with
+   * nothing selected — the exact failure the call exists to fix, shipped that
+   * way twice before. `reviewEstimatesRoutesToFactors.spec.ts` asserts the
+   * argument is a member of the DERIVED key set rather than equal to a string,
+   * because a rename would satisfy equality while pointing nowhere.
+   *
+   * ⚠ THE TAB SWITCH COMES FIRST. The user is looking at Reasoning when they
+   * press this; setting a pending section without switching points a surface
+   * nobody is on. Both precedents order it this way and say so.
+   *
+   * ⛔ AND THERE IS NO THIRD CALL, DELIBERATELY — this is where this handler
+   * DIFFERS from its two precedents and the difference is load-bearing. Both of
+   * them end in `focusModelTarget(<id>)` because both are acting on ONE named
+   * factor: a triage row, a resolve-next row. This act has no such subject.
+   * Measured on the live wire, the refusal carries `missing_important_inputs:
+   * []` and its sentence says "at least ONE of them" — the model names no
+   * particular estimate, and there is no per-row targeting mechanism in the
+   * product to name one with (`requestModelTabSection` has 17 callers;
+   * `requestModelTabRow` / `selectModelRow` / `focusModelRow` have none). So the
+   * destination is the factors SECTION, and passing an id chosen here would be
+   * a deep link to an arbitrary row dressed as the model's answer.
+   */
+  const handleReviewEstimates = useCallback(() => {
+    useUIStore.getState().setActiveOutputTab('diagnostics')
+    useUIStore.getState().requestModelTabSection('factors')
+  }, [])
+
   const strengthCorrectionsForRun = useMemo(() => getStrengthCorrections(), [report])
 
   // Handle auto-fix for validation issues
@@ -3790,6 +3834,18 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                   isStale={analysisNotConfirmedFresh}
                   staleReason={analysisStaleReason}
                   onReanalyse={handleRunAnalysis}
+                  /* ⭐⭐ THE MOVE BESIDE THE REFUSAL SENTENCE. `AtAGlance`
+                     renders CEE's withheld-designation reason, which names its
+                     own remedy and could reach it from nowhere; this routes to
+                     the Model tab's factors section, where an estimate can be
+                     reviewed or set. Fail-closed all the way down — the tab
+                     body threads it, `AtAGlance` renders the sentence alone
+                     without it, so an unmounted prop is silent rather than a
+                     dead button. Which is exactly why
+                     `reviewEstimatesRoutesToFactors.spec.ts` pins THIS binding
+                     at THIS mount rather than trusting this comment: nothing
+                     else in the tree would RED if it went missing. */
+                  onReviewEstimates={handleReviewEstimates}
                   /* ⭐⭐ THE GATE'S OWN TWO EXPRESSIONS, THREADED. These are
                      the identifiers `canRunAnalysis` and `runBlockedTooltip`
                      bound above off the one `runGateResult` — the same two

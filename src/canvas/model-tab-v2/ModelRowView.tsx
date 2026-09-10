@@ -72,6 +72,7 @@ import {
   getStrengthBand,
 } from '../components/model-tab/strengthBands'
 import { buildManualGoalTarget } from '../conversation/manualGoalTarget'
+import { factorValueAdmissionRefusal } from '../conversation/factorValueEdit'
 import { statedTargetNumber } from '../domain/goalTarget'
 import type { EditCommitState, DetailTier, ModelRow } from './types'
 import { splitEffectLabel } from './effectDirection'
@@ -917,6 +918,69 @@ export function ModelRowView({
       )}
       </span>
 
+      {/* ── QUICK-SET BAND LINE · THE SAME FIX, FOR THE CONTROL #1410 DID NOT REACH.
+          ⭐⭐ MEASURED IN A REAL BROWSER AT `9574b5c4`, on relationship row `e-4`.
+          The pills and the live band readback were BOTH inside grid track 3 —
+          `fit-content(5.5rem)`, which resolves to **88px at every dock width**,
+          so the value wrapper rendered 80px wide. Two defects came out of it,
+          and they are different defects:
+
+            VERTICAL   three 14px pills at 46.3 + 70.47 + 53.83px need 178.6px
+                       in an 80px block, so `flex-wrap` STACKED them onto three
+                       lines (`distinctTops: 3`). Row 36px -> 116px,
+                       heightDelta **+80.0px at 280 AND at 416**, against the
+                       factor arm's 50.5px bound.
+            HORIZONTAL the input line measured 130.89px in its 88px track and
+                       escaped the outline's RIGHT EDGE by **34.89px** at a
+                       280px dock (line 1150->1280.89, outline right 1246). The
+                       readback — 26.89px plus its 8px `ml-2`, i.e. 34.89px
+                       exactly — was the WHOLE excess, and it rendered entirely
+                       outside the panel (1254->1280.89). The word naming what
+                       the user's number MEANS was off-screen.
+
+          ⚠ THE HORIZONTAL HALF IS RELATIONSHIP-SPECIFIC, not a `w-24` problem
+          this surface has everywhere — measured in the same run, the FACTOR
+          row's editing line sits 16.89px INSIDE the same edge (1133.11->1229.11).
+          Moving the readback out is what buys that slack back.
+
+          ⚠ `col-span-4` IS LOAD-BEARING, exactly as on the action line below: a
+          subgrid row only grants tracks to a DIRECT child, so this must stay a
+          child of the `<li>`. `rowAtomsDoNotWrap.spec` pins the parentage.
+
+          ⚠ THE CONTROLS ARE NOT HIDDEN, TRUNCATED OR REMOVED. Paul ruled this
+          affordance "really simple, quick, and easy clickable"; all three pills
+          and the readback still render, at full size, with their own testids.
+          They move DOWN out of a 88px track into the row's full width — the
+          input the user is typing into does not move (`textDelta` stays 0).
+
+          ⚠ SAME THREE-CALLBACK CONDITION AS THE LIVE EDITOR ARM IN `ValueCell`
+          and as the action line below. Quick-set pills for an editor that is not
+          mounted would be an affordance that does nothing. One condition, three
+          readers.
+
+          ⭐⭐ AND THE HISTORY, BECAUSE THE FIRST FIX WAS RIGHT AND INSUFFICIENT —
+          kept rather than deleted, since it is the reason a second pass was
+          needed and a reader who does not know it will propose the first one
+          again. The pills originally rendered INLINE beside the input; an
+          independent reviewer measured the consequence (the cell is 80px on a
+          414px dock, the only flexible track floors at 96px, and three pills
+          plus the input come to roughly 330px — a spill this file had recorded
+          once before at 111.1px) and they were moved to their OWN LINE, the way
+          v1 solved it (`ContestedEdgeCard.tsx:433`): own line, `flex-wrap`.
+
+          ⚠⚠ "THEIR OWN LINE" WAS NOT "OUT OF THE 88px TRACK", and that is the
+          whole gap. The new line was still a child of the value cell's wrapper,
+          i.e. still inside track 3, so `flex-wrap` had 80px to work with and
+          stacked the three pills vertically instead of spilling horizontally.
+          The spec written to pin that fix (`edgeStrengthQuickSet.spec.tsx`,
+          "the pills sit OUTSIDE the value cell") was TRUE the whole time and
+          structurally unable to see it — jsdom performs no layout, so "not a
+          descendant of the no-wrap span" was the most it could ever assert.
+          Only `col-span-4` on a DIRECT child of the row leaves the track. */}
+      {row.kind === 'relationship' && commit?.phase === 'editing' && onDraftChange && onProposeEdit && onDiscardEdit && (
+        <RelationshipBandLine row={row} commit={commit} onDraftChange={onDraftChange} />
+      )}
+
       {/* ── EDITOR ACTION LINE · THE ROUTE FORWARD, ON A LINE THAT IS NOT 48px WIDE.
           ⭐⭐ MEASURED IN A REAL BROWSER, and this element's POSITION is the whole
           fix. These controls first shipped INSIDE the value cell — i.e. inside
@@ -1002,7 +1066,19 @@ function EditorActionLine({
   onProposeEdit: (id: string) => void
   onDiscardEdit: (id: string) => void
 }) {
-  const blocked = unproposableDraftReason(row.id, commit.draft, commit.unit)
+  // ⚠ THE BOUND TRAVELS ON THE ROW, so the control and the host judge one
+  // row against one prior. Passing anything else here would let the
+  // affordance offer an advance the host will refuse.
+  //
+  // ⚠⚠ AND THIS ARGUMENT IS THE WHOLE WIRING. #1410 moved these controls out of
+  // the value cell (a 48.5px grid track) into this full-width line, which meant
+  // deleting the call site #1428 had originally amended. Rebasing #1428 onto it
+  // WITHOUT re-attaching `row.valueAdmission` here would leave
+  // `unproposableDraftReason` with a fourth parameter nothing ever passes: the
+  // range guard would fail open on every render, the suite would stay green,
+  // and the measured `+250` ranking reversal would be live again. The guard is
+  // reachable from the UI only through this line.
+  const blocked = unproposableDraftReason(row.id, commit.draft, commit.unit, row.valueAdmission)
   const blockedId = `model-row-v2-${row.id}-value-blocked`
   return (
     <span
@@ -1159,6 +1235,7 @@ export function unproposableDraftReason(
   rowId: string,
   draft: string,
   unit: string | undefined,
+  admission?: ModelRow['valueAdmission'],
 ): string | null {
   if (unit !== undefined) {
     if (buildManualGoalTarget(rowId, draft, unit) !== null) return null
@@ -1171,9 +1248,254 @@ export function unproposableDraftReason(
     // one, because the user acts on it.
     return 'This target cannot be reviewed yet'
   }
-  return Number.isFinite(parseFloat(draft))
-    ? null
-    : 'Enter a number to review this change'
+  if (!Number.isFinite(parseFloat(draft))) return 'Enter a number to review this change'
+  /*
+   * ⭐⭐ AND THE FACTOR'S OWN DECLARED RANGE, LAST — after the parse, never
+   * instead of it. Measured on staging `67b04e5b` (10 Sep 2026): every factor
+   * in a drafted model carries `prior: {range_min: 0, range_max: 1}`, and
+   * typing `40` into a cap-10 factor was accepted at input, review AND confirm,
+   * storing `value: 4`. The analysis then RAN on it — the in-range twin (`10` →
+   * `value: 1`, exactly `range_max`) and the out-of-range run returned
+   * DIFFERENT results, so nothing downstream was bounding it, and `+250`
+   * reversed the ranking outright.
+   *
+   * ⚠ THE ORDER IS LOAD-BEARING. `abc` must keep saying "Enter a number";
+   * a range guard that answered first would replace an accurate refusal with a
+   * vaguer one and give the user a bound to satisfy when their problem is that
+   * they typed no number at all.
+   *
+   * ⚠ IT REFUSES; IT DOES NOT CLAMP. A silently corrected value is the same
+   * class of defect as a silently corrupted one — the user must know. This is
+   * the same shape as `bandReadback`'s "out of range" and as
+   * `buildEdgeStrengthEditEvent` refusing `magnitude > 1` rather than clamping.
+   *
+   * ⚠ ONE DERIVATION, SAME AS THE ARMS ABOVE. The verdict, the scale transform
+   * and the sentence all live in `factorValueAdmissionRefusal`; this function
+   * chooses WHEN to ask, never what the answer is. A row that computed its own
+   * idea of "out of range" would be the twin-derivation defect this whole
+   * function exists to prevent.
+   */
+  return factorValueAdmissionRefusal(admission, draft)
+}
+
+/**
+ * ⭐⭐ THE RELATIONSHIP EDITOR'S QUICK-SET LINE — readback + pills, as ONE
+ * full-width grid item.
+ *
+ * ⚠ IT IS A SEPARATE COMPONENT FOR THE SAME REASON `EditorActionLine` IS: grid
+ * auto-placement reads the row's DIRECT children, so one element is one implicit
+ * row. A fragment emitting the readback and the pills separately would drop the
+ * second into track 4 and break the meta cell's alignment.
+ *
+ * ⚠ THE SELECT-AFTER-COMMIT MACHINERY MOVED WITH THE PILLS, because it only ever
+ * served them. It used to sit in `ValueCell` with a `fieldRef` on the input; the
+ * input now lives in a SIBLING component, so the field is reached the way this
+ * code already reached it for the immediate focus — by its testid. That was
+ * already the established pattern here and its justification (no conditional
+ * hooks; exactly one row edits at a time, `commitByRowId` is a one-entry map) is
+ * unchanged. Nothing else read `fieldRef`, so it is gone rather than orphaned.
+ *
+ * ⚠ DOM ORDER IS PRESERVED: readback before pills, as it was when the readback
+ * sat beside the input and the pills below. That order is what a screen reader
+ * follows, and there was no reason to reverse it while moving the line.
+ */
+function RelationshipBandLine({
+  row,
+  commit,
+  onDraftChange,
+}: {
+  row: ModelRow
+  commit: { phase: 'editing'; draft: string; unit?: string }
+  onDraftChange: (id: string, draft: string, unit?: string) => void
+}) {
+  const testid = `model-row-v2-${row.id}-value`
+
+  /*
+   * ⚠⚠ THE SELECTION MUST BE APPLIED AFTER REACT COMMITS THE NEW VALUE, NOT
+   * BEFORE — found by an independent review of this PR's first cut, and the
+   * author's own test could not see it.
+   *
+   * The pill calls `onDraftChange`, which SCHEDULES a parent state update. A
+   * `select()` in the same handler therefore selects the OLD displayed value,
+   * and React then sets the controlled input to the new one, collapsing the
+   * selection to its end: `0.5` -> Strong gives focus on the field and
+   * `selectionStart === selectionEnd === 3` instead of `0..3`. A user typing
+   * the exact replacement APPENDS to "0.7" rather than replacing it — the
+   * precise opposite of what this control promises the advanced user.
+   *
+   * ⭐ AND WHY THE FIRST TEST WAS GREEN: it mocked `onDraftChange` with a spy,
+   * so `commit.draft` never changed and the input never re-rendered. The
+   * assertion was about the OLD value all along. A stateless host cannot
+   * observe a defect that only exists after the state lands.
+   *
+   * The ref flag is what keeps this from selecting on every keystroke: typing
+   * changes `draft` too, and a select-all after each character would be
+   * unusable. Only a pill sets it.
+   */
+  const selectAfterCommit = useRef(false)
+  useEffect(() => {
+    if (!selectAfterCommit.current) return
+    selectAfterCommit.current = false
+    const field = document.querySelector<HTMLInputElement>(`[data-testid="${testid}-input"]`)
+    if (!field) return
+    field.focus()
+    field.select()
+  }, [commit.draft, testid])
+
+  return (
+    <span
+      data-testid={`model-row-v2-${row.id}-band-line`}
+      /* ⚠ `col-span-4` — see the call site. `flex-wrap` is kept as a FLOOR, not
+         as the layout: at the 280px dock the three pills and the readback
+         measure well inside the row's width, and the browser gate asserts they
+         sit on ONE line. It is here so a future longer band vocabulary wraps
+         rather than escaping the panel. */
+      className="col-span-4 flex flex-wrap items-center gap-2 min-w-0"
+      onClick={e => e.stopPropagation()}
+    >
+      {/* ⭐ THE NUMBER STOPS BEING ABSTRACT. Paul's concern, 8 Sep: the
+          raw magnitude "would not make sense" to an expert. Measured on
+          deployed `15edd2e2`: the editor was a bare field seeded `0.5`
+          with no scale, no band and no units anywhere near it. This names
+          the band the CURRENT DRAFT falls in, live, so the exact field and
+          the phrase the row displays can never silently disagree — they
+          are one derivation (`getStrengthBand`), not two that happen to
+          agree today.
+
+          ⚠ It reads the DRAFT, not the row's stored value: during an edit
+          those differ, and labelling the stored value beside a changed
+          number is the "claim attached to a different number" defect.
+
+          ⚠ RELOCATED, NOT REWRITTEN. This sat beside the input with `ml-2`
+          until the measurement below showed it was the whole 34.89px by which
+          the editing line escaped the panel at a 280px dock. The `ml-2` is
+          gone because the line's own `gap-2` is the same 8px; every word above
+          is the original justification and still holds. */}
+      <span
+        data-testid={`${testid}-band-readback`}
+        className={`${typography.panelMeta} text-text-light whitespace-nowrap`}
+      >
+        {bandReadback(commit.draft)}
+      </span>
+      {/* ⭐ QUICK-SET BANDS — RELATIONSHIPS ONLY, AND PROMOTED, NOT INVENTED.
+          Paul, 8 Sep 2026: "a really simple, quick, and easy clickable
+          solution AND a more detailed, exact number for advanced users."
+          Both halves already existed on `ContestedEdgeCard` (:239 quick-set
+          pills over STRENGTH_BAND_MIDPOINTS, plus a `customSignedMean`
+          field); the v2 relationship rows had NEITHER, so a user could only
+          reach the abstract number. This promotes the existing control
+          rather than authoring a second one — a duplicate affordance for one
+          question is this estate's signature defect.
+
+          ⚠ SIGN IS PRESERVED, NOT SET. These pills choose a MAGNITUDE band
+          and re-apply whatever sign the draft already carries. Direction is
+          deliberately NOT a control here: `getDirectionalStrengthLabel` takes
+          direction as a REQUIRED argument precisely because inferring it from
+          a number's sign once rendered every direction-less edge as "Strong
+          positive effect" (ROADMAP 2.263). Adding a direction toggle changes
+          what the emitter is told the user STATED, so it is a separate,
+          separately-reviewed change.
+
+          ⚠ THE MAGNITUDES ARE IMPORTED, NEVER RETYPED. A second copy of the
+          band midpoints would be a hand-maintained mirror of thresholds that
+          `strengthBands.ts` owns and that the whole product bands against. */}
+      <span className="flex flex-wrap items-center gap-1" data-testid={`${testid}-bands`}>
+        {(['weak', 'moderate', 'strong'] as const).map(band => {
+          const negative = commit.draft.trim().startsWith('-')
+          const magnitude = STRENGTH_BAND_MIDPOINTS[band]
+          const next = `${negative ? '-' : ''}${magnitude}`
+          const parsed = parseFloat(commit.draft)
+          const active =
+            Number.isFinite(parsed) && Math.abs(parsed) <= 1 && getStrengthBand(parsed) === band
+          return (
+            <button
+              key={band}
+              type="button"
+              data-testid={`${testid}-band-${band}`}
+              aria-pressed={active}
+              title={`Set to ${band} (${next})`}
+              onClick={e => {
+                e.stopPropagation()
+                /*
+                 * ⚠ THE NO-CHANGE ARM IS NOT AN EDGE CASE — the
+                 * reviewer measured it PASSING and it is the reason
+                 * the flag alone is not enough. Pressing the band the
+                 * draft is ALREADY in produces no state change, so
+                 * the effect never runs and an armed flag would sit
+                 * there and fire on the NEXT keystroke, selecting the
+                 * user's half-typed number out from under them.
+                 * Handle it here, synchronously, and arm nothing.
+                 */
+                const field = document.querySelector<HTMLInputElement>(
+                  `[data-testid="${testid}-input"]`,
+                )
+                if (next === commit.draft) {
+                  field?.focus()
+                  field?.select()
+                } else {
+                  selectAfterCommit.current = true
+                }
+                onDraftChange(row.id, next)
+                /*
+                 * ⭐ AND HAND FOCUS BACK TO THE FIELD — WITNESSED ON
+                 * DEPLOYED `0a0a8113`, NOT REASONED ABOUT.
+                 *
+                 * A real mouse click on a <button> focuses it. So the
+                 * pill set the draft correctly and then SWALLOWED THE
+                 * KEYBOARD: `Enter` — the obvious next keystroke, and
+                 * the only thing that proposes an edit — re-pressed
+                 * the pill instead of committing. Measured twice on
+                 * two rows: after the click `document.activeElement`
+                 * was the pill, the draft was right, and `Enter` left
+                 * the editor open with nothing proposed. The user has
+                 * to click back into the field to get anywhere.
+                 *
+                 * That defeats the whole point of the control. Paul
+                 * ruled this affordance "really simple, quick, and
+                 * easy clickable"; a quick click that then requires a
+                 * second click to mean anything is not that.
+                 *
+                 * ⚠ A PROGRAMMATIC `.click()` CANNOT SEE THIS —
+                 * `HTMLElement.click()` does not move focus, so in
+                 * jsdom (and in any probe that uses it) the input
+                 * keeps focus and `Enter` commits happily. The defect
+                 * is only reachable through a real pointer, which is
+                 * why it shipped.
+                 *
+                 * ⚠ NOT `onProposeEdit` INSTEAD. Proposing straight
+                 * from the pill would delete the review step and the
+                 * exact number with it — the two halves Paul asked to
+                 * be combined. The field keeps the number visible and
+                 * editable; this only makes the keyboard reach it.
+                 *
+                 * Queried rather than held in a ref: this component
+                 * returns early inside a switch, so a hook here would
+                 * be a conditional hook. The testid is derived from
+                 * `row.id`, and only one row edits at a time
+                 * (`commitByRowId` is a one-entry map), so it names
+                 * exactly one element.
+                 */
+                /*
+                 * Focus goes back NOW so the keyboard is never
+                 * stranded on the pill even for one frame; the effect
+                 * above re-applies focus with the selection once the
+                 * new value has landed.
+                 */
+                field?.focus()
+              }}
+              className={`${typography.buttonSmall} px-1.5 rounded border ${
+                active
+                  ? 'border-info text-info'
+                  : 'border-panel-border text-text-light'
+              }`}
+            >
+              {band.charAt(0).toUpperCase() + band.slice(1)}
+            </button>
+          )
+        })}
+      </span>
+    </span>
+  )
 }
 
 function ValueCell({
@@ -1198,44 +1520,19 @@ function ValueCell({
   const testid = `model-row-v2-${row.id}-value`
 
   /*
-   * ⚠⚠ THE SELECTION MUST BE APPLIED AFTER REACT COMMITS THE NEW VALUE, NOT
-   * BEFORE — found by an independent review of this PR's first cut, and my own
-   * test could not see it.
+   * ⚠ THIS CELL NOW HOLDS NO HOOKS, AND THAT IS A CHANGE WORTH NAMING. It used
+   * to carry a `fieldRef` and a select-after-commit effect, both of which existed
+   * ONLY for the relationship quick-set pills. The pills moved to
+   * `RelationshipBandLine` (a full-width grid item — the 88px track was stacking
+   * them three deep), and the machinery moved with them rather than being left
+   * here reaching across a component boundary. The effect's full reasoning lives
+   * at its new site; nothing else ever read `fieldRef`, so it is gone rather than
+   * orphaned.
    *
-   * The pill calls `onDraftChange`, which SCHEDULES a parent state update. A
-   * `select()` in the same handler therefore selects the OLD displayed value,
-   * and React then sets the controlled input to the new one, collapsing the
-   * selection to its end: `0.5` → Strong gives focus on the field and
-   * `selectionStart === selectionEnd === 3` instead of `0..3`. A user typing
-   * the exact replacement APPENDS to "0.7" rather than replacing it — the
-   * precise opposite of what this PR promises the advanced user.
-   *
-   * ⭐ AND WHY THE FIRST TEST WAS GREEN: it mocked `onDraftChange` with a spy,
-   * so `commit.draft` never changed and the input never re-rendered. The
-   * assertion was about the OLD value all along. **A stateless host cannot
-   * observe a defect that only exists after the state lands** — the same shape
-   * as every other miss on this PR, one layer along.
-   *
-   * The ref flag is what keeps this from selecting on every keystroke: typing
-   * changes `draft` too, and a select-all after each character would be
-   * unusable. Only a pill sets it.
-   *
-   * ⚠ HOOKS SIT ABOVE THE EARLY RETURN ON PURPOSE. `ValueCell` returns inside a
-   * `switch` below; anything declared after that point would be a conditional
-   * hook. These run on every render regardless of phase.
+   * ⚠ IF A HOOK IS EVER ADDED BACK, IT SITS ABOVE THE EARLY RETURN. `ValueCell`
+   * returns inside a `switch` below, so anything declared after that point would
+   * be a conditional hook.
    */
-  const fieldRef = useRef<HTMLInputElement | null>(null)
-  const selectAfterCommit = useRef(false)
-  const draftValue = commit && commit.phase === 'editing' ? commit.draft : null
-  useEffect(() => {
-    if (!selectAfterCommit.current) return
-    selectAfterCommit.current = false
-    const field = fieldRef.current
-    if (!field) return
-    field.focus()
-    field.select()
-  }, [draftValue])
-
   if (commit && commit.phase !== 'idle') {
     switch (commit.phase) {
       case 'editing':
@@ -1249,7 +1546,6 @@ function ValueCell({
               className={`${typography.panelTabular} ${EDIT_RESERVED_HEIGHT_CLASS} inline-flex items-center shrink-0 whitespace-nowrap`}
             >
               <input
-                ref={fieldRef}
                 data-testid={`${testid}-input`}
                 // Focus follows the click that opened this input — it replaces
                 // the value control the user just activated.
@@ -1271,43 +1567,7 @@ function ValueCell({
                 }}
                 className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
               />
-              {/* ⭐ THE NUMBER STOPS BEING ABSTRACT. Paul's concern, 8 Sep: the
-                  raw magnitude "would not make sense" to an expert. Measured on
-                  deployed `15edd2e2`: the editor was a bare field seeded `0.5`
-                  with no scale, no band and no units anywhere near it. This names
-                  the band the CURRENT DRAFT falls in, live, so the exact field and
-                  the phrase the row displays can never silently disagree — they
-                  are one derivation (`getStrengthBand`), not two that happen to
-                  agree today.
-
-                  ⚠ It reads the DRAFT, not the row's stored value: during an edit
-                  those differ, and labelling the stored value beside a changed
-                  number is the "claim attached to a different number" defect. */}
-              {row.kind === 'relationship' && (
-                <span
-                  data-testid={`${testid}-band-readback`}
-                  className={`${typography.panelMeta} text-text-light ml-2 whitespace-nowrap`}
-                >
-                  {bandReadback(commit.draft)}
-                </span>
-              )}
             </span>
-            {/* ⭐⭐ THE PILLS GET THEIR OWN LINE, AND THAT IS THE WHOLE POINT.
-                They were inline inside the cell above — which is contractually
-                `shrink-0 whitespace-nowrap` (`rowAtomsDoNotWrap.spec.tsx`) because
-                it hosts a text input that must not be squeezed. An independent
-                reviewer measured the consequence: the cell is 80px on a 414px
-                dock, the only flexible track floors at 96px, and three pills plus
-                the input come to roughly 330px — a spill this file has recorded
-                once before at 111.1px.
-                ⚠ AND THE GREEN BROWSER GATE WAS BLIND TO IT: `modelRowEditReflow
-                .measure.ts:159-165` takes `buttons[0]`, and four node groups
-                render before `relationships` — so it measured a row where this
-                control never appears, and asserts height only.
-                v1 solved this the same way (`ContestedEdgeCard.tsx:433`): own
-                line, `flex-wrap`. The input row keeps its no-wrap contract
-                untouched; only this second line may wrap. */}
-
               {row.kind === 'goal' && (
                 <span className={`${typography.panelMeta} text-text-light`}>
                   {/* Two fields need a second line, not paragraphs wrapped in
@@ -1331,125 +1591,6 @@ function ValueCell({
                 </span>
               )}
 
-              {/* ⭐ QUICK-SET BANDS — RELATIONSHIPS ONLY, AND PROMOTED, NOT INVENTED.
-                  Paul, 8 Sep 2026: "a really simple, quick, and easy clickable
-                  solution AND a more detailed, exact number for advanced users."
-                  Both halves already existed on `ContestedEdgeCard` (:239 quick-set
-                  pills over STRENGTH_BAND_MIDPOINTS, plus a `customSignedMean`
-                  field); the v2 relationship rows had NEITHER, so a user could only
-                  reach the abstract number. This promotes the existing control
-                  rather than authoring a second one — a duplicate affordance for one
-                  question is this estate's signature defect.
-
-                  ⚠ SIGN IS PRESERVED, NOT SET. These pills choose a MAGNITUDE band
-                  and re-apply whatever sign the draft already carries. Direction is
-                  deliberately NOT a control here: `getDirectionalStrengthLabel` takes
-                  direction as a REQUIRED argument precisely because inferring it from
-                  a number's sign once rendered every direction-less edge as "Strong
-                  positive effect" (ROADMAP 2.263). Adding a direction toggle changes
-                  what the emitter is told the user STATED, so it is a separate,
-                  separately-reviewed change.
-
-                  ⚠ THE MAGNITUDES ARE IMPORTED, NEVER RETYPED. A second copy of the
-                  band midpoints would be a hand-maintained mirror of thresholds that
-                  `strengthBands.ts` owns and that the whole product bands against. */}
-              {row.kind === 'relationship' && (
-                <span className="flex flex-wrap items-center gap-1" data-testid={`${testid}-bands`}>
-                  {(['weak', 'moderate', 'strong'] as const).map(band => {
-                    const negative = commit.draft.trim().startsWith('-')
-                    const magnitude = STRENGTH_BAND_MIDPOINTS[band]
-                    const next = `${negative ? '-' : ''}${magnitude}`
-                    const parsed = parseFloat(commit.draft)
-                    const active =
-                      Number.isFinite(parsed) && Math.abs(parsed) <= 1 && getStrengthBand(parsed) === band
-                    return (
-                      <button
-                        key={band}
-                        type="button"
-                        data-testid={`${testid}-band-${band}`}
-                        aria-pressed={active}
-                        title={`Set to ${band} (${next})`}
-                        onClick={e => {
-                          e.stopPropagation()
-                          /*
-                           * ⚠ THE NO-CHANGE ARM IS NOT AN EDGE CASE — the
-                           * reviewer measured it PASSING and it is the reason
-                           * the flag alone is not enough. Pressing the band the
-                           * draft is ALREADY in produces no state change, so
-                           * the effect never runs and an armed flag would sit
-                           * there and fire on the NEXT keystroke, selecting the
-                           * user's half-typed number out from under them.
-                           * Handle it here, synchronously, and arm nothing.
-                           */
-                          const field = document.querySelector<HTMLInputElement>(
-                            `[data-testid="${testid}-input"]`,
-                          )
-                          if (next === commit.draft) {
-                            field?.focus()
-                            field?.select()
-                          } else {
-                            selectAfterCommit.current = true
-                          }
-                          onDraftChange(row.id, next)
-                          /*
-                           * ⭐ AND HAND FOCUS BACK TO THE FIELD — WITNESSED ON
-                           * DEPLOYED `0a0a8113`, NOT REASONED ABOUT.
-                           *
-                           * A real mouse click on a <button> focuses it. So the
-                           * pill set the draft correctly and then SWALLOWED THE
-                           * KEYBOARD: `Enter` — the obvious next keystroke, and
-                           * the only thing that proposes an edit — re-pressed
-                           * the pill instead of committing. Measured twice on
-                           * two rows: after the click `document.activeElement`
-                           * was the pill, the draft was right, and `Enter` left
-                           * the editor open with nothing proposed. The user has
-                           * to click back into the field to get anywhere.
-                           *
-                           * That defeats the whole point of the control. Paul
-                           * ruled this affordance "really simple, quick, and
-                           * easy clickable"; a quick click that then requires a
-                           * second click to mean anything is not that.
-                           *
-                           * ⚠ A PROGRAMMATIC `.click()` CANNOT SEE THIS —
-                           * `HTMLElement.click()` does not move focus, so in
-                           * jsdom (and in any probe that uses it) the input
-                           * keeps focus and `Enter` commits happily. The defect
-                           * is only reachable through a real pointer, which is
-                           * why it shipped.
-                           *
-                           * ⚠ NOT `onProposeEdit` INSTEAD. Proposing straight
-                           * from the pill would delete the review step and the
-                           * exact number with it — the two halves Paul asked to
-                           * be combined. The field keeps the number visible and
-                           * editable; this only makes the keyboard reach it.
-                           *
-                           * Queried rather than held in a ref: this component
-                           * returns early inside a switch, so a hook here would
-                           * be a conditional hook. The testid is derived from
-                           * `row.id`, and only one row edits at a time
-                           * (`commitByRowId` is a one-entry map), so it names
-                           * exactly one element.
-                           */
-                          /*
-                           * Focus goes back NOW so the keyboard is never
-                           * stranded on the pill even for one frame; the effect
-                           * above re-applies focus with the selection once the
-                           * new value has landed.
-                           */
-                          field?.focus()
-                        }}
-                        className={`${typography.buttonSmall} px-1.5 rounded border ${
-                          active
-                            ? 'border-info text-info'
-                            : 'border-panel-border text-text-light'
-                        }`}
-                      >
-                        {band.charAt(0).toUpperCase() + band.slice(1)}
-                      </button>
-                    )
-                  })}
-                </span>
-              )}
             </span>
           )
         }
