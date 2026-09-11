@@ -36,6 +36,8 @@ import type { V5EvidenceBlock as V5EvidenceBlockType } from '../../canvas/conver
 
 export interface V5EvidenceBlockProps {
   block: V5EvidenceBlockType
+  /** See `V5CoachingBlockProps.suppressHeader` — same rule, same single caller. */
+  suppressHeader?: boolean
 }
 
 // ⚠ THIS BLOCK HELD ITS OWN COPIES OF THE SEVERITY→COLOUR MAPS, byte-identical
@@ -51,12 +53,24 @@ export interface V5EvidenceBlockProps {
 // place, and `v5_evidence` is already a point candidate. See
 // `evidenceSeverityVisual`.
 
-export function V5EvidenceBlock({ block }: V5EvidenceBlockProps): ReactElement {
-  const { Icon, tintClass, borderClass } = evidenceSeverityVisual(block.severity)
-  // §1.3: the primary factor entry in target_refs is canonical; the
-  // top-level factor_label is a backward-compatibility convenience.
+/**
+ * The evidence block's title, per contract §1.3.
+ *
+ * ⚠ EXPORTED BECAUSE THE COLLAPSED LINE NEEDS THE SAME ANSWER. `factor_label`
+ * is a BACKWARD-COMPATIBILITY convenience; the canonical title is the primary
+ * `target_refs` factor entry, and the two differ on conflict. A line that
+ * titled itself from `factor_label` while this card titled itself from the
+ * ref would put two different names on one block — the defect class this
+ * estate keeps paying for. One function, both surfaces.
+ */
+export function evidenceBlockTitle(block: V5EvidenceBlockType): string {
   const primaryFactor = block.target_refs.find((ref) => ref.kind === 'factor')
-  const title = primaryFactor?.label ?? block.factor_label
+  return primaryFactor?.label ?? block.factor_label
+}
+
+export function V5EvidenceBlock({ block, suppressHeader = false }: V5EvidenceBlockProps): ReactElement {
+  const { Icon, tintClass, borderClass } = evidenceSeverityVisual(block.severity)
+  const title = evidenceBlockTitle(block)
   /*
     THE UNCERTAINTY CHANNEL — #670's mechanism, consumed through the shared
     seam (`useCoachingCurrency` → `deriveCoachingCurrency`). Render-time, so
@@ -74,16 +88,18 @@ export function V5EvidenceBlock({ block }: V5EvidenceBlockProps): ReactElement {
       data-currency={currency}
       className={`rounded-md border ${borderClass} bg-panel p-4 space-y-2`}
     >
-      <div className="flex items-start gap-2">
-        <Icon
-          size={16}
-          className={`flex-none mt-0.5 ${tintClass}`}
-          aria-hidden="true"
-        />
-        <h3 className={typography.panelHeader} data-testid="v5-evidence-title">
-          {title}
-        </h3>
-      </div>
+      {!suppressHeader && (
+        <div className="flex items-start gap-2">
+          <Icon
+            size={16}
+            className={`flex-none mt-0.5 ${tintClass}`}
+            aria-hidden="true"
+          />
+          <h3 className={typography.panelHeader} data-testid="v5-evidence-title">
+            {title}
+          </h3>
+        </div>
+      )}
       <p className={typography.panelBody} data-testid="v5-evidence-gap">
         {block.evidence_gap}
       </p>

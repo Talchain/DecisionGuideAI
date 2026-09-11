@@ -769,7 +769,7 @@ function BlockRenderer({
     // Track C slice 2 (Lane UI-W4 C): 0.13.1-typed evidence + exercise.
     // Same doctrine — producer copy verbatim, enum tokens data-* only.
     case 'v5_evidence':
-      return <V5EvidenceBlock block={block} />
+      return <V5EvidenceBlock block={block} suppressHeader={suppressHeader} />
 
     case 'v5_exercise':
       return <V5ExerciseBlock block={block} />
