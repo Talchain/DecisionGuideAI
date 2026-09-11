@@ -11,6 +11,12 @@
 
 import { memo, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react'
 import { optionsWereAssessed } from '../domain/optionAssessment'
+import {
+  labelNeedsName,
+  labelNeedsNameExplanation,
+  LABEL_NEEDS_NAME_MARKER,
+  LABEL_NEEDS_NAME_TESTID,
+} from '../domain/labelNeedsName'
 import { Handle, Position, type NodeProps, useUpdateNodeInternals } from '@xyflow/react'
 import type { NodeType, Controllability } from '../domain/nodes'
 import { ChevronDown, ChevronUp, Flag as FlagIcon, ArrowUp, ArrowDown, Minus, type LucideIcon } from 'lucide-react'
@@ -135,6 +141,16 @@ interface BaseNodeProps extends NodeProps {
 export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, lodKeepLabel = false, lodMetric }: BaseNodeProps) => {
   const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
   const description = typeof data?.description === 'string' ? data.description : undefined
+
+  /**
+   * ⭐ IS THIS LABEL A SENTENCE WEARING A NAME'S CLOTHES?
+   *
+   * When it is, the card says so and shows the sentence as a QUOTATION rather
+   * than as the entity's name. It does NOT shorten, title-case or invent one —
+   * see `domain/labelNeedsName`'s header for why authoring here is forbidden
+   * and disclosure is not.
+   */
+  const needsName = labelNeedsName(data)
 
   // Phase 3: Get node colours from new system
   const colors = nodeColors[nodeType as keyof typeof nodeColors] || nodeColors.factor
@@ -1333,9 +1349,31 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
               The direction that lane's argument rests on is unchanged and the
               margin is larger. The layout itself does not re-run in this band —
               it keys on `layoutVersion`, not on zoom. */}
+          {/* ⭐⭐ THE LABEL IS A SENTENCE, SO THE CARD SAYS SO — it does not
+              quietly present it as the entity's name.
+
+              The marker sits ABOVE the title rather than inside it so that
+              `node-title`'s text content stays exactly the label: every
+              measure, clamp and LOD spec in this directory reads that node,
+              and a marker folded into it would change what they measure.
+
+              The sentence itself is rendered UNCHANGED and in quotation marks
+              — the one honest transformation available to a render layer,
+              because it reports the string's status without editing it. */}
+          {needsName && !lodHideTitle && (
+            <div
+              data-testid={LABEL_NEEDS_NAME_TESTID}
+              data-needs-name-signal={needsName}
+              title={labelNeedsNameExplanation(data)}
+              aria-label={labelNeedsNameExplanation(data)}
+              className="mb-0.5 inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-1 py-px text-[10px] font-medium leading-none text-amber-800"
+            >
+              {LABEL_NEEDS_NAME_MARKER}
+            </div>
+          )}
           <div
             data-testid="node-title"
-            title={label}
+            title={needsName ? `${labelNeedsNameExplanation(data)}\n\n${label}` : label}
             className={
               lodBoostTitle
                 ? `${typography.nodeTitle} font-semibold text-text-header break-words line-clamp-2`
@@ -1343,7 +1381,13 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
             }
             style={lodHideTitle ? { visibility: 'hidden' } : undefined}
           >
-            {label}
+            {needsName ? (
+              <span data-testid="node-title-quoted" className="italic font-normal">
+                &ldquo;{label}&rdquo;
+              </span>
+            ) : (
+              label
+            )}
           </div>
         </div>
 
