@@ -162,6 +162,70 @@ export interface FactorValueControlProps {
   enabled?: boolean
 }
 
+/**
+ * ⭐⭐ THE ONE RULE FOR "WOULD THIS CONTROL OFFER AN ACT FOR THIS NODE?", stated
+ * once and applied twice — by the control itself, and by
+ * `useAnyFactorValueControlOffered` for a surface that needs to know whether
+ * ANY of a set of nodes would get one.
+ *
+ * ⚠⚠ WHY A SECOND CALLER EXISTS AT ALL — 11 Sep 2026. `AtAGlance` renders CEE's
+ * withheld-designation refusal, and the act beside it routed the reader to the
+ * MODEL TAB because on 10 Sep the estimates could be reached from nowhere else.
+ * That stopped being true the next morning, when this control reached "what I
+ * estimated" on the Reasoning tab itself. `AnalysisNewTabBody` now asks whether
+ * the register holds an act before deciding to send anyone away, and the
+ * question it asks has to be THIS question — a second spelling of it would let
+ * the refusal promise an edit on a build where this control renders nothing,
+ * which is how one act becomes two (trap 12).
+ *
+ * Every conjunct is load-bearing and none is defensive decoration: the caller's
+ * own opt-in; the canvas must hold the node (the manifest that names these
+ * factors is a COLD-READ SNAPSHOT and can describe nodes the canvas no longer
+ * has); there must be a carrier, or the commit could only write locally; and
+ * there must be a name to put on the editor's label.
+ */
+export function factorValueControlOffers(
+  nodes: unknown,
+  nodeId: string,
+  name: string | undefined,
+  canReachOlumi: boolean,
+  enabled: boolean,
+): boolean {
+  if (!enabled || !canReachOlumi || name === undefined) return false
+  // A POSITIVE match, per the note on `nodeId`.
+  return Array.isArray(nodes) && nodes.some((n) => (n as { id?: unknown } | null)?.id === nodeId)
+}
+
+/**
+ * ⭐ Would ANY of these nodes get a control right now?
+ *
+ * ⚠ THE SELECTOR RETURNS THE BOOLEAN, not the node array — subscribing to
+ * `nodes` here would re-render the whole calling surface on every unrelated
+ * canvas change, the same reason the control selects primitives below.
+ *
+ * ⚠ THE NAME IS TAKEN FROM THE CALLER'S OWN LABELS, because every surface that
+ * needs this question already holds them (CEE supplies the label beside the
+ * `node_id`). A caller with no label for a row should not pass one, and the
+ * rule will answer `false` for it — which UNDER-answers the control rather than
+ * matching it (⚠ AMENDED 11 Sep 2026: this said "the same answer the control
+ * would give", which is backwards). `FactorValueControl` falls back to the
+ * canvas node's own label — `name = label ?? storeLabel` — so a row with no
+ * caller label but a named node would get a control while this hook reports
+ * none. Unreachable from today's only caller, whose `InferredFactor.label` is a
+ * non-optional `string`, and it errs toward the fallback route, which is the
+ * safe direction; it is an asymmetry to close at the call site if a caller ever
+ * omits a label, never by re-spelling the rule here.
+ */
+export function useAnyFactorValueControlOffered(
+  rows: ReadonlyArray<{ nodeId: string; label?: string }>,
+  enabled: boolean,
+): boolean {
+  const canReachOlumi = useOptionalConversationContext()?.sendSystemEvent !== undefined
+  return useCanvasStore((s) =>
+    rows.some((r) => factorValueControlOffers(s.nodes, r.nodeId, r.label, canReachOlumi, enabled)),
+  )
+}
+
 export function FactorValueControl({
   nodeId,
   label,
@@ -173,11 +237,6 @@ export function FactorValueControl({
   const inputId = useId()
   const showToast = useShowToastSafe()
 
-  // A POSITIVE match, per the note on `nodeId`. Selecting the boolean rather
-  // than the array keeps this control out of every unrelated node update.
-  const isInGraph = useCanvasStore((s) =>
-    Array.isArray(s.nodes) ? s.nodes.some((n) => n.id === nodeId) : false,
-  )
   /**
    * ⚠ A SEPARATE PRIMITIVE SELECTOR, NOT ONE SELECTOR RETURNING THE NODE. A
    * selector that returns an object allocates a new reference every store
@@ -219,7 +278,18 @@ export function FactorValueControl({
    * precisely the claim these surfaces exist not to make.
    */
   const canReachOlumi = useOptionalConversationContext()?.sendSystemEvent !== undefined
-  const offer = enabled && isInGraph && canReachOlumi && name !== undefined
+  /**
+   * ⚠ THROUGH `factorValueControlOffers`, NOT A CONJUNCTION WRITTEN AGAIN HERE.
+   * `useAnyFactorValueControlOffered` answers the same question for a SET of
+   * rows, and the two must be one rule: a surface that believed an act was
+   * available while this control declined to render it would advertise a move
+   * the product does not make. The node-presence selector that used to sit
+   * above fed only this line, so it went with it — the selector still returns a
+   * BOOLEAN, which is what kept this control out of unrelated node updates.
+   */
+  const offer = useCanvasStore((s) =>
+    factorValueControlOffers(s.nodes, nodeId, name, canReachOlumi, enabled),
+  )
 
   /**
    * ⚠ CALLED UNCONDITIONALLY AND PARAMETERISED BY THE ID — the hook's own

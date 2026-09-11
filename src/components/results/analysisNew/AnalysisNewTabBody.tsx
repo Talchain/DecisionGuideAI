@@ -42,7 +42,7 @@
  * elements per screen. The outer panel is unchanged.
  */
 
-import { useMemo } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import { AlertTriangle, Wrench, Star, TrendingUp, GitBranch } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
@@ -63,7 +63,11 @@ import { WhyNoAnalysisYet } from './sections/WhyNoAnalysisYet'
 import type { GateBlockedListing } from '../../../canvas/utils/canRunAnalysis'
 import { AnalysisNewSection } from './sections/AnalysisNewSection'
 import { DriverInfluenceChart } from './sections/DriverInfluenceChart'
-import { WhatIWasGivenSection } from '../contextIntegrity/WhatIWasGivenSection'
+import {
+  WhatIWasGivenSection,
+  useEstimatedValueActIsAvailable,
+} from '../contextIntegrity/WhatIWasGivenSection'
+import type { WhatIWasGivenSectionHandle } from '../contextIntegrity/WhatIWasGivenSection'
 import { ModelStrip } from './sections/ModelStrip'
 import { AtAGlance } from './sections/AtAGlance'
 import { ModelHeldUp } from './sections/ModelHeldUp'
@@ -79,6 +83,22 @@ import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
 import { CritiqueWarningStrip } from '../CritiqueWarningStrip'
 import { InferenceWarningStrip } from '../InferenceWarningStrip'
 import { DeeperAnalysis } from './sections/DeeperAnalysis'
+
+/**
+ * ⭐ THIS TAB OPTS IN TO CORRECTING AN ESTIMATE WHERE IT IS STATED, and says so
+ * ONCE. Two surfaces read it: the `WhatIWasGivenSection` mount, which turns the
+ * per-row control on, and `useEstimatedValueActIsAvailable`, which tells the
+ * withheld-designation act whether there is anything here to reveal. A second
+ * literal would let those two disagree, and the disagreement would present as a
+ * control that routes nowhere.
+ *
+ * ⚠ IT IS NOT A FLAG AND MUST NOT BECOME ONE. `offerEstimatedValueControl`
+ * defaults to `false` so the PARKED Analysis tab (`ResultsBody`) does not
+ * acquire a writer; this constant is the Reasoning tab's answer to that
+ * default, pinned by `WhatIWasGivenSection.estimatedValueControl.spec.tsx`
+ * at the mount.
+ */
+const REASONING_TAB_EDITS_ESTIMATES = true
 
 export interface AnalysisNewTabBodyProps {
   /**
@@ -137,22 +157,51 @@ export interface AnalysisNewTabBodyProps {
    */
   onReanalyse?: () => void
   /**
-   * ⭐⭐ THE DOCK'S ROUTE TO THE ESTIMATES — the act that answers a withheld
-   * leader designation. `AtAGlance` renders the producer's refusal sentence,
-   * which names its remedy in words and can reach it from nowhere; this is the
-   * move that goes there.
+   * ⭐⭐ THE DOCK'S ROUTE TO THE ESTIMATES — the FALLBACK half of the act that
+   * answers a withheld leader designation. `AtAGlance` renders the producer's
+   * refusal sentence, whose words name their own remedy ("until you have set at
+   * least one of them"); this prop is where a reader goes when they cannot set
+   * one where they already are.
    *
-   * ⚠ THE DOCK OWNS IT, NOT THIS FILE, AND THAT IS THE POINT. The destination
-   * is the outputs dock's own active tab plus the Model tab's pending section —
-   * both `useUIStore` state that `OutputsDock` already holds and already writes
-   * for its sibling handlers. `useUIStore` is imported NOWHERE under
-   * `components/results/analysisNew/`; threading the handler keeps it that way,
-   * so the tab that renders the sentence does not also become an authority on
-   * where the dock is pointing. Same shape as `onReanalyse` and `onSendMessage`
-   * directly above and below.
+   * ⚠⚠ AMENDED 11 Sep 2026 — THIS SAID the sentence "names its remedy in words
+   * and can reach it from nowhere; this is the move that goes there", i.e. that
+   * this prop was the ONLY way to reach an estimate. True the day it was written
+   * and false the next morning: the value control on "what I estimated" shipped
+   * onto THIS tab, about two sections below that button, so the remedy is now
+   * reachable in page. `reviewEstimates` in the body composes the two and tries
+   * the in-page act FIRST — its derivation is there, beside the composition.
+   * Left standing, this rationale would have taught the next reader the exact
+   * mental model that produced the defect this change exists to close
+   * (CLAUDE.md trap 21).
    *
-   * Absent = `AtAGlance` renders the refusal sentence with no control, which is
-   * the honest render — never a dead button.
+   * ⚠ THE DOCK OWNS IT, NOT THIS FILE, AND THAT IS THE POINT — UNMOVED BY THE
+   * AMENDMENT ABOVE. The destination is the outputs dock's own active tab plus
+   * the Model tab's pending section — both `useUIStore` state that `OutputsDock`
+   * already holds and already writes for its sibling handlers. `useUIStore` is
+   * imported NOWHERE under `components/results/analysisNew/`; threading the
+   * handler keeps it that way, so the tab that renders the sentence does not
+   * also become an authority on where the dock is pointing. Same shape as
+   * `onReanalyse` and `onSendMessage` directly above and below.
+   *
+   * ⚠ AMENDED 11 Sep 2026 — THIS SAID "Absent = `AtAGlance` renders the refusal
+   * sentence with no control", AND THAT IS NO LONGER WHAT ABSENCE MEANS. This
+   * prop's absence now decides nothing on its own: the body hands `AtAGlance`
+   * its own `reviewEstimatesHere` whenever this tab holds an act, so with this
+   * prop absent and `estimatedActIsAvailable` true the control RENDERS and the
+   * press is served in page. That is the case `refusalActStaysOnTheTab.spec.tsx`
+   * pins as `offers the act even where the host has no route at all`.
+   *
+   * The sentence renders alone only where there is NEITHER an in-page act NOR
+   * this prop. The in-page act is absent in three separately-pinned states: the
+   * canvas no longer holds the node the manifest names; the manifest was never
+   * written (it is a cold-read snapshot — `serverGraphHydration` reaches
+   * `setContextIntegrity` only on `status === 'graph'` — so a freshly-drafted
+   * decision lists no estimated factors at all); or there is no conversation to
+   * carry the edit. The neither-state is pinned beside them as `renders the
+   * sentence alone when there is neither an act here nor a route`. Note that
+   * `AtAGlance` also renders no control unless `designationWithheldRemedy ===
+   * 'estimate'` — that is its gate on the CAUSE, not this prop's. Still
+   * fail-closed, still never a dead button.
    */
   onReviewEstimates?: () => void
   /**
@@ -608,6 +657,63 @@ export function AnalysisNewTabBody({
   }
 
   /**
+   * ⭐⭐ THE REFUSAL'S ACT, SERVED IN PAGE WHERE THIS TAB HOLDS ONE — 11 Sep 2026.
+   *
+   * ⚠⚠ WHY THIS IS COMPOSED HERE AND NO LONGER PASSED THROUGH. `AtAGlance`
+   * renders CEE's withheld-designation refusal, whose sentence names its own
+   * remedy ("until you have set at least one of them"), and the act beside it
+   * routed to the MODEL TAB. On 10 Sep that was the only place an estimate
+   * could be set. The next morning the value control on "what I estimated"
+   * shipped — the SAME act, on THIS tab, about two sections below that button —
+   * and the product began sending a reader to another surface to do something
+   * available where they already were. Neither change was wrong and neither
+   * change's tests could see it: each is correct in isolation, and the
+   * rationale went stale underneath a control that still looked right
+   * (CLAUDE.md trap 21).
+   *
+   * ⚠ THIS FILE IS THE ONLY ONE THAT CAN SEE BOTH HALVES, which is why the
+   * composition belongs here and nowhere else. `AtAGlance` is presentational
+   * and must not learn where the dock points; `OutputsDock` owns the Model-tab
+   * route and cannot see this tab's own sections. The question this body
+   * answers is a third one — *"is there an act on THIS tab?"* — and it is the
+   * only surface that mounts both the refusal and the register.
+   *
+   * ⚠ THE MODEL-TAB ROUTE IS NOT REPLACED, IT IS THE FALLBACK, and it is
+   * genuinely reachable rather than defensive. The manifest that feeds "what I
+   * estimated" is written ONLY on the cold read
+   * (`serverGraphHydration` → `setContextIntegrity`, reached only on
+   * `status === 'graph'`); a freshly-drafted decision records its brief with
+   * `manifest: null`, so the register renders and lists NO estimated factors at
+   * all. The in-page act also goes when the canvas no longer holds the node the
+   * manifest names, and when there is no conversation to carry the edit. In
+   * every one of those states the Model tab remains the honest destination.
+   *
+   * ⚠ TWO ANSWERS, ON PURPOSE — do not fold them. `estimatedActIsAvailable` is
+   * read at RENDER and answers *"is there an act to offer at all?"*, which is
+   * what decides whether a control appears when the dock supplied no route.
+   * `revealEstimatedValueAct()` answers at the PRESS, and reports whether the
+   * panel actually revealed one — the section can unmount or gate itself out in
+   * between. Disagreement resolves toward the fallback, never toward a control
+   * that does nothing.
+   */
+  const whatIWasGivenRef = useRef<WhatIWasGivenSectionHandle>(null)
+  const estimatedActIsAvailable = useEstimatedValueActIsAvailable(REASONING_TAB_EDITS_ESTIMATES)
+  const reviewEstimatesHere = useCallback(() => {
+    if (whatIWasGivenRef.current?.revealEstimatedValueAct()) return
+    onReviewEstimates?.()
+  }, [onReviewEstimates])
+  /**
+   * ⚠ FAIL-CLOSED, UNCHANGED. `AtAGlance` renders the refusal sentence alone
+   * when this is `undefined`, and a refusal with a dead control beside it is
+   * worse than the refusal alone. It stays `undefined` when there is NEITHER an
+   * in-page act NOR a route — which is exactly the state
+   * `withheldReasonHasAMove.spec.tsx`'s "renders the sentence alone through the
+   * tab body when no handler is given" pins.
+   */
+  const reviewEstimates =
+    estimatedActIsAvailable || onReviewEstimates ? reviewEstimatesHere : undefined
+
+  /**
    * A contextual intervention runs through the SAME non-mutating route as the
    * Strengthen section's primary CTA — the Ask-Olumi drawer, prefilled and
    * never auto-sent. The recommendation is found by id, so the drawer is
@@ -1004,12 +1110,19 @@ export function AnalysisNewTabBody({
         <AtAGlance
           glance={vm.atAGlance}
           onFocusTarget={focusTarget}
-          /* ⭐ THE DOCK'S ROUTE TO THE ESTIMATES, PASSED THROUGH UNCHANGED.
-             `AtAGlance` is fail-closed on it, so a host with nowhere to send
-             the user renders the refusal sentence alone. Not composed here and
-             not defaulted: this surface is not an authority on where the dock
-             is pointing. */
-          onReviewEstimates={onReviewEstimates}
+          /* ⭐⭐ THE ACT THAT ANSWERS THE REFUSAL — IN PAGE FIRST, THE DOCK'S
+             ROUTE AS THE FALLBACK. ⚠ AMENDED 11 Sep 2026: this read
+             `onReviewEstimates={onReviewEstimates}`, a straight pass-through,
+             on the stated rationale that "the estimates live on the Model tab".
+             That was true when it was written and false the next morning — see
+             `reviewEstimates` above for the derivation and for why this body,
+             and only this body, can compose the two.
+
+             `AtAGlance` is still fail-closed and still not told where anything
+             lives: it receives one handler or `undefined`, exactly as before,
+             and `reviewEstimates` is `undefined` when there is neither an
+             in-page act nor a route. */
+          onReviewEstimates={reviewEstimates}
           isStale={vm.status.isStale && !vm.status.isPreRun}
           staleKind={vm.status.staleKind}
           isProvisional={vm.status.isProvisional}
@@ -1250,9 +1363,14 @@ export function AnalysisNewTabBody({
             itself supplies. It is opt-in so the PARKED Analysis tab does not
             acquire a writer — see the prop's declaration. */}
         <WhatIWasGivenSection
+          ref={whatIWasGivenRef}
           onSendMessage={onSendMessage}
           useSurfaceGrammar={true}
-          offerEstimatedValueControl={true}
+          /* ⚠ THE SAME CONSTANT THE AVAILABILITY READ ABOVE USES, not a second
+             `true`. Two literals for one opt-in would let the refusal's act
+             believe this register offers an edit on a build where it does not
+             (CLAUDE.md trap 12). */
+          offerEstimatedValueControl={REASONING_TAB_EDITS_ESTIMATES}
         />
 
         {/* ⚠ THE PROMOTED RECOMMENDATION IS NOT EXCLUDED, AND THAT IS A KNOWN

@@ -1687,13 +1687,31 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     setTimeout(() => setHighlightedNodes([]), 3000)
   }, [setHighlightedNodes])
   /**
-   * ⭐⭐ THE ACT BESIDE THE REASONING TAB'S REFUSAL SENTENCE.
+   * ⭐⭐ THE ROUTE TO THE ESTIMATES FOR A READER WHO CANNOT SET ONE WHERE THEY
+   * ARE — the FALLBACK half of the act beside the Reasoning tab's refusal.
    *
    * When CEE withholds a leader designation it says why, and the reason names
    * its own remedy: "no option can be called the leader … until you have set at
-   * least one of them". `AtAGlance` renders that sentence unparaphrased and,
-   * until now, the reader could reach the estimates from nowhere on that panel.
-   * This is the move that goes there.
+   * least one of them". `AtAGlance` renders that sentence unparaphrased.
+   *
+   * ⚠⚠ AMENDED 11 Sep 2026 — THIS WAS THE ONLY DESTINATION AND IS NOW THE
+   * SECOND ONE. It was written on 10 Sep with the rationale that "the reader
+   * could reach the estimates from nowhere on that panel", which was true that
+   * day. The next morning the value control on "what I estimated" shipped: the
+   * SAME act, on the Reasoning tab itself, about two sections below that
+   * button. For as long as both stood, the product sent a reader to another
+   * tab to do something available where they already were — neither change
+   * wrong, neither change's tests able to see it (CLAUDE.md trap 21).
+   * `AnalysisNewTabBody` now tries the in-page act first and calls this when
+   * there is none.
+   *
+   * ⚠ AND THERE GENUINELY IS NONE, OFTEN. The manifest behind "what I
+   * estimated" is written only on the COLD READ (`serverGraphHydration` reaches
+   * `setContextIntegrity` only on `status === 'graph'`), so a freshly-drafted
+   * decision lists no estimated factors at all; the in-page act also goes when
+   * the canvas no longer holds the node the manifest names, or when there is no
+   * conversation to carry the edit. This route is the honest destination in
+   * every one of those states, which is why it stays.
    *
    * ⚠ THE ROUTE IS THE SHIPPED ONE, NOT A NEW ONE. Two precedents already deep-
    * link results surfaces into Model tab v2 — `TriageActionCardsBody.tsx`'s
@@ -3853,17 +3871,27 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                   isStale={analysisNotConfirmedFresh}
                   staleReason={analysisStaleReason}
                   onReanalyse={handleRunAnalysis}
-                  /* ⭐⭐ THE MOVE BESIDE THE REFUSAL SENTENCE. `AtAGlance`
+                  /* ⭐⭐ THE FALLBACK BESIDE THE REFUSAL SENTENCE. `AtAGlance`
                      renders CEE's withheld-designation reason, which names its
-                     own remedy and could reach it from nowhere; this routes to
-                     the Model tab's factors section, where an estimate can be
-                     reviewed or set. Fail-closed all the way down — the tab
-                     body threads it, `AtAGlance` renders the sentence alone
-                     without it, so an unmounted prop is silent rather than a
-                     dead button. Which is exactly why
-                     `reviewEstimatesRoutesToFactors.spec.ts` pins THIS binding
-                     at THIS mount rather than trusting this comment: nothing
-                     else in the tree would RED if it went missing. */
+                     own remedy; this routes to the Model tab's factors section,
+                     where an estimate can be reviewed or set.
+
+                     ⚠ AMENDED 11 Sep 2026 — IT IS NO LONGER THE FIRST CHOICE.
+                     The tab body now serves the act IN PAGE when its own "what
+                     I estimated" register offers one, and calls this when it
+                     does not; see `handleReviewEstimates` above for why the
+                     rationale this comment used to carry went stale, and
+                     `AnalysisNewTabBody`'s `reviewEstimates` for the
+                     composition. The dock is still the only authority on where
+                     the DOCK points — that has not moved.
+
+                     Fail-closed all the way down — the tab body threads it,
+                     `AtAGlance` renders the sentence alone without it, so an
+                     unmounted prop is silent rather than a dead button. Which
+                     is exactly why `reviewEstimatesRoutesToFactors.spec.ts`
+                     pins THIS binding at THIS mount rather than trusting this
+                     comment: nothing else in the tree would RED if it went
+                     missing. */
                   onReviewEstimates={handleReviewEstimates}
                   /* ⭐⭐ THE GATE'S OWN TWO EXPRESSIONS, THREADED. These are
                      the identifiers `canRunAnalysis` and `runBlockedTooltip`

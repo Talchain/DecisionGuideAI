@@ -1326,7 +1326,17 @@ export const ANALYSIS_NEW_COPY = {
     eyebrowWhyWithheld: 'What this run may not conclude',
     /**
      * The MOVE that answers the refusal sentence above it. FURNITURE ONLY — it
-     * names a destination, and it makes no claim about the run.
+     * names an ACT, and it makes no claim about the run.
+     *
+     * ⚠ AMENDED 11 Sep 2026 — THIS SAID "it names a destination", AND THE
+     * WORDS ARE WHY NOTHING HERE HAD TO CHANGE WHEN THE DESTINATION DID. On
+     * 10 Sep the only place to set an estimate was the Model tab; the next
+     * morning the value control on "what I estimated" put the same act on the
+     * Reasoning tab itself, and `AnalysisNewTabBody` now serves it in page
+     * where it exists and routes to the Model tab where it does not. "Review
+     * or set an estimate" is true of BOTH, because it names the two things the
+     * reader may do and not the surface they land on — a label that had said
+     * "on the Model tab" would have become a lie overnight. Keep it that way.
      *
      * ⛔⛔ IT MAY NOT PROMISE A BETTER ANSWER, AND THAT IS A MEASUREMENT, NOT
      * TASTE. Measured on the live wire: ONE user-stated value out of twenty
