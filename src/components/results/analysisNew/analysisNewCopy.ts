@@ -1409,8 +1409,29 @@ export const ANALYSIS_NEW_COPY = {
      * understatement they cannot question — the same defect this estate closed
      * on the producer side of the evidence gaps. The CONSUMER may cap, because
      * the consumer can say so; the producer may not, because it cannot.
+     *
+     * ⛔ NO LEADING "and", AND THAT IS NOT A STYLE CHOICE. This phrase occupies
+     * the FINAL SLOT of `formatConjunctionList`, which is `Intl.ListFormat`
+     * with `type: 'conjunction'` and therefore supplies the "and" itself. It
+     * read `and ${n} more` until 2026-09-12 and rendered, on a refusal
+     * witnessed on deployed staging with eight parameters:
+     *
+     *   *"… Customer and Staff Engagement **and and** 4 more"*
+     *
+     * — a grammatical stumble inside the sentence that tells a collaborator
+     * which estimates are still Olumi's rather than theirs, which is the one
+     * place in this panel that can least afford one.
+     *
+     * ⚠ THE CALL SITE AGREES BY CONSTRUCTION, and the agreement is the thing to
+     * preserve: the list the joiner receives is the capped LABELS plus this
+     * phrase, so restoring the "and" here without also lifting the phrase out
+     * of that array puts the defect straight back. `AtAGlance.tsx` carries the
+     * other half of this note; `withheldParametersReadAsOneSentence.spec.tsx`
+     * pins the rendered English in BOTH branches by exact equality, and is
+     * written out literally rather than recomposed from this constant, so it
+     * can actually see a change to it.
      */
-    withheldParametersMore: (n: number): string => `and ${n} more`,
+    withheldParametersMore: (n: number): string => `${n} more`,
     /**
      * ⚠ STILL LIVE, AND ITS ONLY CONSUMER IS NOW `ModelStrip`'s per-node chip —
      * a standalone claim that the run ranked this node among its top drivers.

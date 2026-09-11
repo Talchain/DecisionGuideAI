@@ -815,7 +815,29 @@ export function AtAGlance({
               ⚠ THE CAP IS THE CONSUMER'S AND IT DISCLOSES ITSELF. Four names
               plus "and N more" — a reader can see the list is cut. The
               PRODUCER may not cap for exactly the inverse reason: a truncated
-              wire list is an understatement nothing downstream can detect. */}
+              wire list is an understatement nothing downstream can detect.
+
+              ⛔ AND THE DISCLOSURE IS THE LIST'S FINAL MEMBER, NOT A SUFFIX
+              BOLTED ON AFTER IT. That is what makes the sentence above come
+              out as written: `formatConjunctionList` is `Intl.ListFormat`
+              with `type: 'conjunction'`, so handing it five items yields
+              "four names, comma-separated, AND the fifth" — which is exactly
+              "Four names plus 'and N more'". The joiner owns every comma and
+              the single "and", which is also why the en-GB punctuation rules
+              live in one place rather than being re-derived here.
+
+              ⚠⚠ SO `COPY.glance.withheldParametersMore` MUST NOT OPEN WITH
+              "and", AND IT DID UNTIL 2026-09-12. The joiner inserted its own
+              before this member and the line rendered "… Customer and Staff
+              Engagement AND AND 4 more" on a refusal witnessed on deployed
+              staging. Two ways to put that back: restore the "and" to the
+              constant, or lift this member out of the array and append it as
+              a suffix — the second reads "… Disruption and Customer and Staff
+              Engagement and 4 more", which is the same clumsiness one comma
+              further along, and it needs a second joiner for the labels. The
+              constant carries the other half of this note.
+              `withheldParametersReadAsOneSentence.spec.tsx` pins the rendered
+              English in BOTH branches by exact equality. */}
           {glance.designationWithheldParameters.length > 0 ? (
             <p
               className={`${typography.panelMeta} mt-1 text-text-light`}
