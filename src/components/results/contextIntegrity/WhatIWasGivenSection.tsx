@@ -47,16 +47,35 @@
  * binding it to the arm the deployed flags switch off (CLAUDE.md trap 3b).
  */
 
-import { useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { useId, useState } from 'react'
+import { ChevronDown, Pencil } from 'lucide-react'
 
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../../canvas/store'
 import { useContextIntegrityStore } from '../../../canvas/stores/contextIntegrityStore'
-import type { NotModelledItem } from '../../../adapters/cee/notModelled'
+import { useOptionalConversationContext } from '../../../canvas/conversation/ConversationContext'
+import { useShowToastSafe } from '../../../canvas/ToastContext'
+import type { InferredFactor, NotModelledItem } from '../../../adapters/cee/notModelled'
 import { ClampToggle } from '../ClampToggle'
 import { figureTallySubtitle } from './figureTallySubtitle'
 import { surface } from '../analysisNew/panelSurfaces'
+/**
+ * ⭐⭐ THE ONE WRITE PATH, IMPORTED — NOT A SECOND ONE WRITTEN HERE.
+ * `useFactorValueCommit` is what the Reasoning tab's model strip and the driver
+ * influence chart already commit through; it owns the parse rule, the
+ * three-outcome mapping and the stays-open-on-refusal rule, and it delegates to
+ * `useModelEditAuthority.proposeFactorValue`, which owns the SCALE contract, the
+ * optimistic local write and the undo. This surface supplies a number and an
+ * identity and decides nothing else. A parallel writer here is how two
+ * authorities under one name get created (CLAUDE.md trap 12/21).
+ */
+import { useFactorValueCommit } from '../analysisNew/useFactorValueCommit'
+/**
+ * The control's words are the model strip's words, imported rather than
+ * re-typed. One act, one vocabulary: a second set of strings for "change this
+ * value" would drift from the first the day either is adjusted.
+ */
+import { ANALYSIS_NEW_COPY } from '../analysisNew/analysisNewCopy'
 
 /** Rows shown per group before "show all". Keeps the open state scannable. */
 const VISIBLE_ROWS = 6
@@ -297,9 +316,27 @@ interface TextRow {
 }
 
 /**
- * The unclamped text list — "what I estimated" and "I also considered these".
- * The two were byte-identical apart from their key, their testid and one
- * `data-` attribute, so they are one component parameterised by exactly those.
+ * The unclamped text list.
+ *
+ * ⚠⚠ IT USED TO SERVE BOTH "what I estimated" AND "I also considered these",
+ * AND THE TWO HAVE NOW DIVERGED ON PURPOSE. Superseded text: ~~The two were
+ * byte-identical apart from their key, their testid and one `data-` attribute,
+ * so they are one component parameterised by exactly those.~~
+ *
+ * "What I estimated" has its own component below because it carries an ACTION
+ * and this list must never acquire one. That is not a styling preference; it is
+ * the add ruling recorded in `COPY.addAction` — 15 arms over 5 rounds in which
+ * every add phrasing was refused by the live router. A "considered" item is one
+ * of the drafting model's OWN SENTENCES about what it set aside, not a node: it
+ * has no identity to bind an edit to and no value to set, so a control here
+ * would be the product inventing causality on the user's behalf.
+ *
+ * ⭐ SO THE DIVERGENCE IS THE SAFER SHAPE, not a duplication to be folded back.
+ * Keeping one parameterised component would have put an `onEdit?` prop on the
+ * list that renders the considered items — one flag away from the exact harm
+ * the ruling exists to prevent. Two components cannot be switched into each
+ * other's job by a truthy prop. A spec pins the inertness so this cannot drift
+ * back silently.
  *
  * `<ul>`/`<li>` rather than `<div>`: each block is a list of discrete facts and
  * that is what lets assistive tech announce how many there are. The
@@ -314,6 +351,188 @@ function TextRowList({ rows, testId }: { rows: readonly TextRow[]; testId: strin
         <li key={row.key} data-testid={`${testId}-row`} {...row.attrs} className={TEXT_ROW_CLASS}>
           {row.label}
         </li>
+      ))}
+    </ul>
+  )
+}
+
+/** Every control in the estimated list is addressed by this prefix + node id. */
+const ESTIMATED_TEST_ID = 'what-i-was-given-estimated'
+
+/**
+ * One "what I estimated" row: the factor's name, and — where it would actually
+ * do something — a control that sets its value.
+ *
+ * ── WHY THIS IS AN EDIT AND NOT THE REFUSED ADD ────────────────────────────
+ * `COPY.addAction` records that every ADD phrasing was refused by the live
+ * router, and that the CONTROL which applied was *"the estate's proven edit
+ * grammar ('Change X to Y.', target derived from THIS run's graph by
+ * identity)"*. An estimated factor is already a node: CEE sends its `node_id`
+ * in the manifest, so the target is derived by identity and nothing is guessed.
+ * This is that control, not that refusal.
+ *
+ * ── ⚠ WHY PRESENCE IN THE GRAPH IS CHECKED AND NOT ASSUMED ─────────────────
+ * The manifest is a COLD-READ SNAPSHOT. `serverGraphHydration` writes it BEFORE
+ * it merges the server graph onto the canvas, and the hydration "attempts ONCE
+ * PER SCENARIO ID, so it never self-corrects". Three reachable schedules leave
+ * it describing nodes the canvas does not hold — a REFUSED merge (`zeroOverlap`
+ * proves the two id sets disjoint), a structural delete (every `deleteNodeById`
+ * filters `nodes` and touches no manifest), and the `unchanged` short-circuit
+ * after a local edit. All three sit INSIDE one scenario, so the section's
+ * scenario-identity gate passes straight through them: matching the decision
+ * does not imply matching the node.
+ *
+ * ⭐ THE ID IS STILL SAFE TO BIND BY, and the reason is the SHAPE of the lookup
+ * rather than the reliability of the id: `proposeFactorValue` resolves with an
+ * EXACT `nodes.find(n => n.id === activeNodeId)` and answers `not_encodable` on
+ * a miss. There is no fuzzy match, so a divergent id cannot address a DIFFERENT
+ * factor — the failure mode is "nothing happens", never "the wrong number was
+ * overwritten". What it would leave behind is a button that does nothing, and
+ * this component's rule is that we never render one. Hence a POSITIVE
+ * resolution, the same shape as the section's own identity gate.
+ *
+ * The ROW still renders when the node is missing. The estimate was genuinely
+ * made and the reader is entitled to see it; only the action goes.
+ */
+function EstimatedFactorRow({ factor }: { factor: InferredFactor }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const inputId = useId()
+  const showToast = useShowToastSafe()
+
+  // A POSITIVE match, per the note above. Selecting the boolean rather than the
+  // array keeps this row out of every unrelated node update.
+  const isInGraph = useCanvasStore((s) =>
+    Array.isArray(s.nodes) ? s.nodes.some((n) => n.id === factor.nodeId) : false,
+  )
+  /**
+   * ⚠ NO CARRIER, NO CONTROL — and NOT a disabled one. A disabled button still
+   * advertises the action, which is this lane's own defect inverted. Without a
+   * conversation the commit could only write locally, and a local-only change
+   * to a number the panel has just called "mine, not yours" is precisely the
+   * claim this surface exists not to make.
+   */
+  const canReachOlumi = useOptionalConversationContext()?.sendSystemEvent !== undefined
+  const offerControl = isInGraph && canReachOlumi
+
+  /**
+   * ⚠ CALLED UNCONDITIONALLY AND PARAMETERISED BY THE ID — the hook's own
+   * documented contract ("pass `null` when no edit is active"). Passing `null`
+   * when we are not offering the control means a proposal could only ever
+   * answer `not_encodable`, which is the honest answer.
+   */
+  const { commit } = useFactorValueCommit(offerControl ? factor.nodeId : null)
+
+  /**
+   * ⚠ THE OUTCOME IS NEVER FLATTENED TO "SAVED". `proposeFactorValue` answers
+   * `dispatched | local_only | not_encodable` precisely so a caller cannot claim
+   * a server acceptance it did not observe; the three sentences are three
+   * different truths. On `not_encodable` the editor STAYS OPEN — nothing was
+   * written anywhere, so closing it would look like a success.
+   */
+  const commitValue = () => {
+    const outcome = commit(draft)
+    showToast(
+      outcome === 'dispatched'
+        ? ANALYSIS_NEW_COPY.modelStrip.valueDispatched
+        : outcome === 'local_only'
+          ? ANALYSIS_NEW_COPY.modelStrip.valueLocalOnly
+          : ANALYSIS_NEW_COPY.modelStrip.valueNotEncodable,
+    )
+    if (outcome !== 'not_encodable') setEditing(false)
+  }
+
+  return (
+    <li
+      data-testid={`${ESTIMATED_TEST_ID}-row`}
+      data-node-id={factor.nodeId}
+      className={ACTION_ROW_CLASS}
+    >
+      <span className={`${typography.panelBody} text-text-body`}>{factor.label}</span>
+      {offerControl &&
+        (editing ? (
+          <span className="flex flex-none flex-wrap items-center gap-1">
+            <label className="sr-only" htmlFor={inputId}>
+              {ANALYSIS_NEW_COPY.modelStrip.valueInputLabel(factor.label)}
+            </label>
+            <input
+              id={inputId}
+              type="number"
+              inputMode="decimal"
+              value={draft}
+              autoFocus={true}
+              data-testid={`${ESTIMATED_TEST_ID}-value-input`}
+              data-node-id={factor.nodeId}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  commitValue()
+                } else if (e.key === 'Escape') {
+                  e.preventDefault()
+                  setEditing(false)
+                }
+              }}
+              className={`${typography.panelBody} w-20 min-w-0 rounded border border-panel-border bg-panel px-1.5 py-0.5 text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            />
+            <button
+              type="button"
+              onClick={commitValue}
+              data-testid={`${ESTIMATED_TEST_ID}-value-save`}
+              data-node-id={factor.nodeId}
+              className={`${typography.panelMeta} inline-flex items-center rounded-full bg-info/10 px-2 py-0.5 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            >
+              {ANALYSIS_NEW_COPY.modelStrip.saveValue}
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              data-testid={`${ESTIMATED_TEST_ID}-value-cancel`}
+              data-node-id={factor.nodeId}
+              className={`${typography.panelMeta} inline-flex items-center rounded-full px-2 py-0.5 text-text-light hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            >
+              {ANALYSIS_NEW_COPY.modelStrip.cancelValue}
+            </button>
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              /* ⚠ THE FIELD OPENS EMPTY, NEVER SEEDED FROM THE ESTIMATE. This
+                 list deliberately renders the factor's NAME and not its number
+                 (`InferredFactor` carries no value — CEE's own `display_value`
+                 reads like "0.31 to 0.93" and means nothing to a reader), so
+                 there is no displayed figure whose scale a seed could inherit.
+                 Seeding from the stored value would also invite the reader to
+                 nudge OUR number rather than state THEIRS, which is the whole
+                 point of the invitation above. */
+              setDraft('')
+              setEditing(true)
+            }}
+            data-testid={`${ESTIMATED_TEST_ID}-value-edit`}
+            data-node-id={factor.nodeId}
+            className={`${typography.panelMeta} inline-flex flex-none items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+          >
+            <Pencil className="h-3 w-3" aria-hidden={true} />
+            {ANALYSIS_NEW_COPY.modelStrip.changeValue}
+          </button>
+        ))}
+    </li>
+  )
+}
+
+/**
+ * "What I estimated" — the one list on this panel that carries an action.
+ *
+ * Keyed by `nodeId`: CEE's own identity for the factor, never the label. Two
+ * factors can share a label; they cannot share a node id, and the id is what
+ * the edit is addressed to.
+ */
+function EstimatedFactorList({ items }: { items: readonly InferredFactor[] }) {
+  return (
+    <ul className={LIST_CLASS} data-testid={ESTIMATED_TEST_ID}>
+      {items.map((factor) => (
+        <EstimatedFactorRow key={factor.nodeId} factor={factor} />
       ))}
     </ul>
   )
@@ -416,11 +635,38 @@ export interface WhatIWasGivenSectionProps {
    * reader compares.
    */
   useSurfaceGrammar?: boolean
+  /**
+   * ⭐⭐ OFFER THE INLINE VALUE CONTROL ON "what I estimated". **Default
+   * `false`, and the default is deliberate, for the same reason
+   * `useSurfaceGrammar`'s is.**
+   *
+   * This component has TWO consumers: `AnalysisNewTabBody` (the Reasoning tab)
+   * and `ResultsBody` (the **PARKED** Analysis tab). Paul's scope ruling is
+   * Reasoning and Model ONLY, so an unflagged change here would put a new
+   * writer on a parked surface wearing a Reasoning-tab commit message.
+   *
+   * ⚠ IT IS A SEPARATE PROP FROM `useSurfaceGrammar` ON PURPOSE. That one
+   * answers *"which container grammar does this section wear?"*; this one
+   * answers *"may this surface offer a shared-model edit?"*. Two questions
+   * under one name is this estate's signature defect (CLAUDE.md trap 21), and
+   * folding the second into the first would mean a future grammar change
+   * silently switched a writer on.
+   *
+   * ── WHY AN ACTION IS HONEST HERE AT ALL ────────────────────────────────
+   * The header above says none is offered in "what I estimated", and for an
+   * ADD that ruling stands — `COPY.addAction` records 15 refused arms. This is
+   * not an add. These factors are already nodes, CEE sends their `node_id`, and
+   * a value edit on an identified node is the ruling's own working CONTROL. The
+   * row-level component states the full derivation, including the premise that
+   * did NOT hold and what is checked instead.
+   */
+  offerEstimatedValueControl?: boolean
 }
 
 export function WhatIWasGivenSection({
   onSendMessage,
   useSurfaceGrammar = false,
+  offerEstimatedValueControl = false,
 }: WhatIWasGivenSectionProps = {}) {
   const [open, setOpen] = useState(false)
   const recordedScenarioId = useContextIntegrityStore((s) => s.scenarioId)
@@ -591,14 +837,22 @@ export function WhatIWasGivenSection({
                 {COPY.estimatedHeading}
               </h4>
               <p className={`${typography.panelMeta} text-text-light`}>{COPY.estimatedLead}</p>
-              <TextRowList
-                testId="what-i-was-given-estimated"
-                rows={estimated.map((f) => ({
-                  key: f.nodeId,
-                  label: f.label,
-                  attrs: { 'data-node-id': f.nodeId },
-                }))}
-              />
+              {/* ⭐ THE ACTION IS OPT-IN AND ONLY THE REASONING TAB OPTS IN —
+                  see the prop's declaration. `ResultsBody` (the PARKED Analysis
+                  tab) mounts the same component and keeps the inert list it
+                  has. */}
+              {offerEstimatedValueControl ? (
+                <EstimatedFactorList items={estimated} />
+              ) : (
+                <TextRowList
+                  testId={ESTIMATED_TEST_ID}
+                  rows={estimated.map((f) => ({
+                    key: f.nodeId,
+                    label: f.label,
+                    attrs: { 'data-node-id': f.nodeId },
+                  }))}
+                />
+              )}
             </div>
           )}
 
