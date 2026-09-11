@@ -60,6 +60,7 @@ import { fileURLToPath } from 'node:url'
 import { typography } from '../../../styles/typography'
 import {
   scanSource, textEntryControls, judgeControls, openingTagSpan, MINIMUM_PX,
+  jsxSourceFilesIn,
 } from '../../../../tests/helpers/jsxTextEntryScan'
 
 const V2_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -244,13 +245,26 @@ describe('Model tab text-entry controls hold the 14px minimum', () => {
   it('B1b the v1 directory contributes ZERO controls — pinned, not assumed', () => {
     const v1Controls = controls.filter(c => rel(c.file).startsWith('src/canvas/components/model-tab/'))
 
-    // Precondition, in-test: the walk really does cover the v1 directory. Without
-    // this, a walk that stopped visiting it would satisfy the assertion below by
-    // never looking — a guard agreeing with itself.
+    // Precondition 1, in-test: the v1 directory is still in the scanned set, so
+    // `controls` is answerable about it at all.
     expect(
       MODEL_TAB_DIRS.some(d => d === V1_DIR),
       'the v1 directory left MODEL_TAB_DIRS — this case now asserts nothing',
     ).toBe(true)
+
+    // Precondition 2 — THE IDENTITY ANCHOR, and the half membership cannot supply.
+    // Being in MODEL_TAB_DIRS says the directory is in scope; it does not say the
+    // walk can SEE anything in it. Measured on this branch: blinding
+    // `jsxSourceFilesIn` for `components/model-tab` left this file 14/14 GREEN,
+    // because B1's three anchors are all model-tab-v2 files — so nothing caught a
+    // v1-blind walk and the ZERO below was an artefact of the instrument. Name a
+    // surviving v1 file, through the SAME walk `textEntryControls` uses, so a
+    // blinded walk REDs here and not only in B1.
+    expect(
+      jsxSourceFilesIn(V1_DIR).map(rel),
+      '\nThe v1 walk did not return ModelHealthSection.tsx, so the scan is blind to\n' +
+        'that tree and the ZERO below proves nothing about the code.\n',
+    ).toContain('src/canvas/components/model-tab/ModelHealthSection.tsx')
 
     expect(
       v1Controls.map(c => `${rel(c.file)}:${c.line}`),

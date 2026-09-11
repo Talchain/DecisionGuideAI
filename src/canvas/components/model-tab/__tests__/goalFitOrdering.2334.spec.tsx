@@ -129,17 +129,41 @@ describe('buildGoalFitRows — carries the wire sample count (ROADMAP 2.334)', (
  * `ModelTabBody`'s `LEGACY_DETAILED_EDITOR_MOUNTED = false` gate and had no other
  * production importer.
  *
- * ⭐ THE BUILDER HALF ABOVE IS UNCHANGED AND IS THE HALF THAT STILL GUARDS A LIVE
- * PATH. `buildGoalFitRows.ts` survives — `ModelTabBody` imports it and feeds the
- * v2 outline — so the wire-count carriage this file was written to pin (ROADMAP
- * 2.334) is still pinned, on the producer rather than on a deleted renderer.
+ * ⭐ THE BUILDER HALF ABOVE IS UNCHANGED AND STILL PASSES — BUT IT DOES NOT GUARD A
+ * LIVE PATH, AND SAYING THAT IT DOES WOULD DEFEAT THE TRIGGER THIS COMMIT ADDS.
+ * `buildGoalFitRows.ts` survives the deletion PRODUCTION-ORPHANED. Measured at this
+ * head, repo-wide, with a contrast control in each sweep:
+ *   · its only non-spec mention anywhere is the doctrine COMMENT at
+ *     `ModelTabBody.tsx:27` — a `//` line, not an import (same file: 26 real
+ *     `import` statements, and `buildCanvasLabelMap` imported AND called, so the
+ *     sweep can plainly tell a call site from a mention);
+ *   · no `import()`, `require()` or `vi.mock()` form reaches it either;
+ *   · `src/canvas/model-tab-v2/` contains ZERO references to it — so it does not
+ *     feed the v2 outline. (v2 does import `strengthBands`, `utils` and
+ *     `ModelHealthSection` from this directory. It has never imported this module.)
+ * Its only executable callers are three specs: this file,
+ * `l62GoalFitWithheld.surfaces` and `notAnalysedQuantifiers`. The module's own
+ * header says the same thing — keep the two in agreement rather than reconciling
+ * them in the optimistic direction.
+ *
+ * ⭐ SO WHAT THIS FILE IS FOR NOW. It pins the builder's BEHAVIOUR — the ROADMAP
+ * 2.334 wire-count carriage — so the module cannot rot silently while it is parked.
+ * That is worth keeping. It is NOT evidence that the module is wanted, and its
+ * greenness is not a reason to keep the file. THE THING TO ACT ON IS THE RE-SURFACE
+ * TRIGGER on `buildGoalFitRows.ts`: (a) any file under `src/canvas/model-tab-v2/`
+ * growing a per-option goal-probability or goal-fit surface, or (b) 2026-12-11 —
+ * whichever comes first. Limb (a) had NOT fired when this was written (zero
+ * `goalProbability` / `probability_of_goal` / `goal_probability` /
+ * `probability_of_joint_goal` under that directory, against 17 live `probability`
+ * matches in the same sweep). When it fires, the module is wired or deleted — and
+ * these four cases go with it if it is deleted.
  *
  * ⚠ WHAT IS GENUINELY NO LONGER COVERED, NAMED RATHER THAN IMPLIED CLOSED: that
- * the five distinct percentages are legible ON SCREEN. The builder cases prove
- * the numbers reach the rows; nothing here now proves a renderer prints them
- * distinctly. If the v2 outline's goal rows regress to a floor-only formatter,
- * this file will not see it. That is a real coverage gap in `model-tab-v2`, not
- * a v1 one, and it belongs to whoever owns those rows.
+ * the five distinct percentages are legible ON SCREEN. The builder cases prove the
+ * numbers reach the rows; nothing here now proves a renderer prints them distinctly.
+ * At this head no renderer consumes these rows at all, so there is nothing to cover
+ * yet — the gap becomes real the moment trigger limb (a) fires, and it belongs to
+ * whoever builds that v2 surface.
  *
  * ⚠ AND A METHOD NOTE WORTH KEEPING. This importer was invisible to a
  * `from '...'` regex sweep because it is a DYNAMIC `await import()`. It was caught
