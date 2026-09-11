@@ -1,4 +1,12 @@
-/** PreAnalysisPanel — controls without a GraphV3 carrier do not mount. */
+/**
+ * PreAnalysisPanel — controls without a GraphV3 carrier do not mount.
+ *
+ * ⚠ AND NAVIGATION IS NOT SUCH A CONTROL. A handler that only opens another
+ * surface writes no model value, so it is not governed by
+ * `CANONICAL_EDIT_AUTHORITY` — the rule `TriageActionCardsBody.tsx` records for
+ * the post-run sibling ("Navigation is not a mutation..."). See the retargeted
+ * case below for why one assertion here moved and the other did not.
+ */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within, cleanup } from '@testing-library/react'
@@ -248,11 +256,39 @@ describe('PreAnalysisPanel — local-only semantic actions fail closed', () => {
     cleanup()
   })
 
-  it('keeps the factor card visible but withholds its dead edit pencil', () => {
+  /**
+   * ⚠⚠ RETARGETED, NOT WEAKENED — and the reason is that this test's PREMISE
+   * EXPIRED rather than that it was wrong.
+   *
+   * It read: "keeps the factor card visible but withholds its dead edit
+   * pencil", and asserted the pencil absent. That was correct when written:
+   * `handleSetValueForGap` opens the node inspector, and `InspectorRouter`
+   * wrapped EVERY panel in an unconditional `<fieldset disabled>`, so the
+   * pencil led to a surface that could save nothing. A pencil to a dead end is
+   * worse than no pencil.
+   *
+   * The factor panels have since joined `AUTHORITY_OWNING_PANELS`
+   * (`factor-controllable`, `factor-external`) and now own their own authority.
+   * The destination's own notice, witnessed on the deployed build, reads *"The
+   * name and the value save to the shared model."* So the pencil is no longer
+   * dead, and withholding it now hides the one affordance a user staring at an
+   * unfilled factor actually needs.
+   *
+   * ⛔ THE HALF THAT DOES NOT CHANGE, AND IT IS THE LOAD-BEARING HALF. The
+   * INLINE editor stays absent. `handleInlineEditValue` performs one local
+   * `updateNode` and emits nothing, so it has no carrier and `spinbutton` must
+   * still not mount. That assertion is kept verbatim below — the file's title
+   * ("controls without a GraphV3 carrier do not mount") is still true, and this
+   * card is now the case that distinguishes NAVIGATION from MUTATION rather
+   * than lumping them together.
+   */
+  it('offers the edit pencil — it navigates — while still withholding the carrier-less inline editor', () => {
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
     const card = cardFor(FACTOR_B_LABEL)
     expect(card).toBeInTheDocument()
-    expect(within(card).queryByRole('button', { name: 'Edit value' })).not.toBeInTheDocument()
+    // Navigation: mounts, because its destination can save.
+    expect(within(card).getByRole('button', { name: 'Edit value' })).toBeInTheDocument()
+    // Mutation with no carrier: still does not mount. UNCHANGED.
     expect(within(card).queryByRole('spinbutton')).not.toBeInTheDocument()
   })
 
