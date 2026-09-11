@@ -26,6 +26,10 @@ import { render } from '@testing-library/react'
 import { V5EvidenceBlock } from '../V5EvidenceBlock'
 import { severityChannel } from '../severityChannel'
 import type { V5EvidenceBlock as V5EvidenceBlockType } from '../../../canvas/conversation/types'
+// The estate's existing evidence factory — cast-free and already the shape the
+// block requires. Hand-rolling a second one here would have been a fixture
+// mirror in a file about mirrors.
+import { evidence } from '../../../canvas/conversation/__tests__/fixtures/phase3PacingShapes'
 
 const SEVERITIES = ['info', 'warning', 'critical'] as const
 
@@ -41,19 +45,7 @@ const EXPECTED_COLOUR = {
 } as const
 
 function evidenceBlock(severity: (typeof SEVERITIES)[number]): V5EvidenceBlockType {
-  return {
-    type: 'v5_evidence',
-    block_id: `ev-${severity}`,
-    factor_label: 'Churn Trend',
-    target_refs: [],
-    current_confidence: 'low',
-    evidence_gap: 'No recent cohort data',
-    suggested_technique: 'Pull the last two quarters',
-    impact_if_gathered: 'Would settle the ordering',
-    priority_rank: 1,
-    severity,
-    freshness: 'fresh',
-  } as V5EvidenceBlockType
+  return { ...evidence(1), severity }
 }
 
 const iconOf = (c: HTMLElement) => c.querySelector('svg')
@@ -68,11 +60,25 @@ describe('the evidence block keeps its own glyph', () => {
    */
   it('info draws Search, and never the review card’s Lightbulb', () => {
     const { container } = render(<V5EvidenceBlock block={evidenceBlock('info')} />)
-    const cls = iconOf(container)?.getAttribute('class') ?? ''
-    expect(cls, 'the magnifying glass is the evidence block’s own glyph').toContain('lucide-search')
-    expect(cls, 'taking the whole review-card resolver would land Lightbulb here').not.toContain(
-      'lucide-lightbulb',
-    )
+    expect(
+      iconOf(container)?.getAttribute('class') ?? '',
+      'the magnifying glass is the evidence block’s own glyph',
+    ).toContain('lucide-search')
+
+    /*
+      ⚠ ACROSS EVERY GLYPH, NOT JUST THE FIRST. An earlier revision asserted
+      `.not.toContain('lucide-lightbulb')` on `iconOf`, which is
+      `querySelector('svg')` — the FIRST svg only. Its comment claimed to catch
+      a refactor that rendered BOTH glyphs; it could not. If Search came first
+      the assertion passed and the lightbulb went unseen, and if Lightbulb came
+      first the positive assertion above had already failed. A guard that can
+      only fire when another guard has already fired is not a guard.
+    */
+    const everyGlyph = [...container.querySelectorAll('svg')]
+      .map((svg) => svg.getAttribute('class') ?? '')
+      .join(' ')
+    expect(everyGlyph, 'taking the whole review-card resolver would land Lightbulb here')
+      .not.toContain('lucide-lightbulb')
   })
 
   it('non-info severities draw AlertTriangle, as they did before the mirror was removed', () => {
@@ -92,20 +98,19 @@ describe('the evidence block takes its colours from the shared authority', () =>
       const cls = iconOf(container)?.getAttribute('class') ?? ''
       expect(cls, 'tint').toContain(EXPECTED_COLOUR[severity].tint)
       expect(root?.getAttribute('class') ?? '', 'border').toContain(EXPECTED_COLOUR[severity].border)
+
+      /*
+        And the module itself returns those same literals, so "the block
+        renders the DS colours" plus this gives "the block renders the MODULE's
+        colours" — i.e. it is not a fourth copy that merely agrees today. This
+        is a claim about a pure function, so it needs no second render; an
+        earlier revision spent three extra mounts asserting it through the DOM.
+      */
+      expect(severityChannel(severity)).toEqual({
+        tintClass: EXPECTED_COLOUR[severity].tint,
+        borderClass: EXPECTED_COLOUR[severity].border,
+      })
     })
   }
 
-  /**
-   * And it is genuinely the SHARED authority, not a fourth copy that happens to
-   * agree today. If `severityChannel` stops returning what this block renders,
-   * the block has re-grown a mirror.
-   */
-  it('renders exactly what `severityChannel` returns — no fourth copy', () => {
-    for (const severity of SEVERITIES) {
-      const { tintClass, borderClass } = severityChannel(severity)
-      const { container } = render(<V5EvidenceBlock block={evidenceBlock(severity)} />)
-      expect(iconOf(container)?.getAttribute('class') ?? '').toContain(tintClass)
-      expect(container.firstElementChild?.getAttribute('class') ?? '').toContain(borderClass)
-    }
-  })
 })

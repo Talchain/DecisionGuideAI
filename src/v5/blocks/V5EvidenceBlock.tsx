@@ -27,8 +27,7 @@
  *     follow-up from slice 1.
  */
 import { type ReactElement } from 'react'
-import { AlertTriangle, Search } from 'lucide-react'
-import { severityChannel } from './severityChannel'
+import { evidenceSeverityVisual } from './severityChannel'
 import { typography } from '../../styles/typography'
 import { TargetRefPill } from '../../canvas/conversation/components/TargetRefPill'
 import { resolveFreshnessNotice } from './coachingCurrency'
@@ -45,17 +44,15 @@ export interface V5EvidenceBlockProps {
 // pair had already drifted once (a collapsed review card drew the same
 // `text-info` for every severity, flattening a warning into routine).
 //
-// ⛔ THE GLYPH IS NOT TAKEN FROM THAT MODULE, DELIBERATELY. `reviewSeverityVisual`
-// would hand back `Lightbulb` for `info`; this block draws `Search`, because an
-// evidence gap is something to go and look at rather than an idea to consider.
-// Consuming the whole resolver to get the colours would have swapped the
-// magnifying glass for a lightbulb — a behaviour change wearing a refactor's
-// clothes. `severityChannel` returns the colours WITHOUT a glyph for exactly
-// this caller.
+// ⛔ AND THE GLYPH RULE MOVED WITH THEM, rather than staying a ternary here.
+// `reviewSeverityVisual` hands back `Lightbulb` for `info` where this family
+// draws `Search`, so the two families need separate descriptors — but a rule
+// living inside ONE component is the altitude that produced #1450 in the first
+// place, and `v5_evidence` is already a point candidate. See
+// `evidenceSeverityVisual`.
 
 export function V5EvidenceBlock({ block }: V5EvidenceBlockProps): ReactElement {
-  const Icon = block.severity === 'info' ? Search : AlertTriangle
-  const { tintClass, borderClass } = severityChannel(block.severity)
+  const { Icon, tintClass, borderClass } = evidenceSeverityVisual(block.severity)
   // §1.3: the primary factor entry in target_refs is canonical; the
   // top-level factor_label is a backward-compatibility convenience.
   const primaryFactor = block.target_refs.find((ref) => ref.kind === 'factor')

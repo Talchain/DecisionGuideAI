@@ -1,6 +1,15 @@
 /**
  * severityChannel — THE single authority on how a typed block's `severity`
- * becomes a COLOUR channel, and on the review card's glyph.
+ * becomes the BORDER-AND-TINT colour channel, plus one glyph descriptor per
+ * block family.
+ *
+ * ⚠ SCOPED DELIBERATELY, because "the authority on severity colour" would be
+ * an overclaim: `resolveBlockBadgeDotClass` (`conversation/InlineBlocks.tsx`)
+ * maps every non-`info` severity to the DANGER dot, warning included, and that
+ * is a real constraint rather than drift — `Conversation.module.css` has no
+ * warning dot to reach for. Border and tint are this module's; the badge dot
+ * is not. Saying so here is cheaper than the next reader finding the mismatch
+ * and assuming one of the two is a bug.
  *
  * ⚠ RENAMED FROM `reviewCardSeverity` when `V5EvidenceBlock` became the second
  * consumer. The mapping was never review-card-specific: it is the design
@@ -39,31 +48,38 @@
  * shows no CATEGORY chip either, because a review card genuinely sends no
  * category and inventing one would be a UI fabrication.
  */
-import { AlertTriangle, Lightbulb } from 'lucide-react'
+import { AlertTriangle, Lightbulb, Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { V5ReviewCardBlock as V5ReviewCardBlockType } from '../../canvas/conversation/types'
 
-export type ReviewSeverity = V5ReviewCardBlockType['severity']
+export type Severity = V5ReviewCardBlockType['severity']
 
 /**
- * Border tint. Module-private, like its tint twin below: every consumer reaches
- * it through `reviewSeverityVisual`, and nothing outside this file may pick one
- * channel out of the three and apply it on its own — that is how the two
- * surfaces drifted apart in the first place.
+ * Border tint. Module-private, like its tint twin below: no surface outside
+ * this file may re-declare a channel of its own. Reach it through
+ * `severityChannel` (the colours alone) or through a family descriptor —
+ * `reviewSeverityVisual` / `evidenceSeverityVisual` (colours plus that
+ * family's glyph).
  *
- * ⛔ IT WAS BRIEFLY EXPORTED, WITH A COMMENT SAYING "the card applies it inside
- * a longer className expression". THAT WAS FALSE WHEN IT WAS WRITTEN: the card
- * destructures `borderClass` off the resolver. A file whose whole purpose is to
- * stop two surfaces disagreeing carried a sentence that disagreed with the
- * surface it described. Recorded rather than quietly deleted.
+ * ⛔ TWO FALSE SENTENCES HAVE STOOD HERE, AND THE SECOND WAS WRITTEN INTO THE
+ * PARAGRAPH RECORDING THE FIRST. It was briefly exported under a comment
+ * saying "the card applies it inside a longer className expression" — false
+ * when written; the card destructures `borderClass` off the resolver. The
+ * correction then said "every consumer reaches it through
+ * `reviewSeverityVisual`, and nothing outside this file may pick one channel
+ * out of the three" — falsified in the very change that added
+ * `severityChannel` below, whose whole purpose is to hand out exactly two of
+ * the three. A file that exists to stop surfaces disagreeing has now twice
+ * carried a sentence disagreeing with the code beside it. Recorded rather than
+ * quietly deleted, because the pattern is the lesson.
  */
-const REVIEW_SEVERITY_BORDER: Record<ReviewSeverity, string> = {
+const SEVERITY_BORDER: Record<Severity, string> = {
   info: 'border-info/30',
   warning: 'border-warning/30',
   critical: 'border-danger/30',
 }
 
-const REVIEW_SEVERITY_TINT: Record<ReviewSeverity, string> = {
+const SEVERITY_TINT: Record<Severity, string> = {
   info: 'text-info',
   warning: 'text-warning',
   critical: 'text-danger',
@@ -77,7 +93,8 @@ export interface SeverityChannel {
   borderClass: string
 }
 
-export interface ReviewSeverityVisual extends SeverityChannel {
+/** A block family's full visual: the shared colours plus that family's glyph. */
+export interface SeverityVisual extends SeverityChannel {
   Icon: LucideIcon
 }
 
@@ -92,10 +109,10 @@ export interface ReviewSeverityVisual extends SeverityChannel {
  * refactor's clothes. So the colour channel is reachable on its own, and the
  * evidence block keeps deciding its own glyph.
  */
-export function severityChannel(severity: ReviewSeverity): SeverityChannel {
+export function severityChannel(severity: Severity): SeverityChannel {
   return {
-    tintClass: REVIEW_SEVERITY_TINT[severity],
-    borderClass: REVIEW_SEVERITY_BORDER[severity],
+    tintClass: SEVERITY_TINT[severity],
+    borderClass: SEVERITY_BORDER[severity],
   }
 }
 
@@ -108,7 +125,31 @@ export function severityChannel(severity: ReviewSeverity): SeverityChannel {
  * than redesigned — this module changes WHERE the mapping lives, never what it
  * says.
  */
-export function reviewSeverityVisual(severity: ReviewSeverity): ReviewSeverityVisual {
+/**
+ * The glyph/tint pair for an EVIDENCE block's severity.
+ *
+ * ⚠⚠ IT EXISTS SO THE GLYPH RULE IS NOT COMPONENT-LOCAL, which is the exact
+ * altitude that produced #1450 and #1463. `v5_evidence` is ALREADY in
+ * `POINT_CANDIDATE_TYPES`; the only thing keeping it out of the collapsed line
+ * is that `collapsibleTitle` reads `title` while an evidence block carries
+ * `factor_label`. The day one fallback closes that gap a second surface needs
+ * this glyph — and if the rule is still a ternary inside the component, that
+ * surface will guess, exactly as the collapsed review card once guessed
+ * `Lightbulb`/`text-info` for every severity.
+ *
+ * `Search` for `info`, because an evidence gap is something to go and look at
+ * rather than an idea to consider; the caution glyph otherwise. Moved here
+ * verbatim from the component — this changes WHERE the rule lives, never what
+ * it says.
+ */
+export function evidenceSeverityVisual(severity: Severity): SeverityVisual {
+  return {
+    Icon: severity === 'info' ? Search : AlertTriangle,
+    ...severityChannel(severity),
+  }
+}
+
+export function reviewSeverityVisual(severity: Severity): SeverityVisual {
   return {
     Icon: severity === 'info' ? Lightbulb : AlertTriangle,
     ...severityChannel(severity),

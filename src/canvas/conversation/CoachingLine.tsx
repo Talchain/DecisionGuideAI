@@ -92,7 +92,7 @@ import { guidanceCategoryIcon } from '../stores/guidanceStore'
 import { STRENGTHEN_COPY } from '../../components/results/strengthen/strengthenCopy'
 import { isPinnedBlock, isPointCandidate } from './messageComposition'
 import { ICON_STATUS } from './panelIcons'
-import { reviewSeverityVisual, type ReviewSeverity } from '../../v5/blocks/severityChannel'
+import { reviewSeverityVisual, type Severity } from '../../v5/blocks/severityChannel'
 import type { ConversationBlock } from './types'
 import styles from './Conversation.module.css'
 
@@ -137,7 +137,7 @@ function blockCategory(block: ConversationBlock): CoachingCategory | null {
  * turn's `warning` card was flattened into the `info`s around it. Read the
  * channel the block actually carries.
  */
-function blockReviewSeverity(block: ConversationBlock): ReviewSeverity | null {
+function blockReviewSeverity(block: ConversationBlock): Severity | null {
   if ((block as { type?: unknown }).type !== 'v5_review_card') return null
   const severity = (block as { severity?: unknown }).severity
   return severity === 'info' || severity === 'warning' || severity === 'critical'
