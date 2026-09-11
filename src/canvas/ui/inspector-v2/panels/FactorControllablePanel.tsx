@@ -732,13 +732,89 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
               panel cannot see. It states what is true of this one number, and
               routes to the writer that can actually change it — the
               conversational path, which persists, rather than a local control
-              that would be destroyed by the next rehydrate. */}
+              that would be destroyed by the next rehydrate.
+
+              ⛔⛔ THE REMEDY NAMED HERE WAS THE ONE THAT DOES NOT WORK, AND IT
+              WAS CHANGED TO THE ONE THAT DOES (2026-09-11). This line used to
+              read "Ask Olumi to set the range it can move between". A journey
+              witness asked exactly that, twice, in natural language, and the
+              deployed assistant declined both times — "I can't currently store
+              a movable range". It is not a model failing: no range editor is
+              reachable anywhere in the product, and `model-tab-v2/contracts.ts`
+              declares `proposePriorRange` with ZERO implementations. The
+              sibling surface for this same defect class
+              (`model-tab-v2/ModelRowView.tsx`'s `NO_RANGE_NOTICE`) had already
+              reached that conclusion and WITHHOLDS a remedy on exactly this
+              ground, its spec banning the literals 'add a range' and 'set a
+              range'. This panel was the unsupported side of that disagreement.
+
+              ⭐ WHY A STATED UNIT, AND WHY "PERCENTAGE" SPECIFICALLY. Derived
+              in CEE at `staging` d9b06ea8, not guessed. The analysis gate is
+              `findScaleIncoherentBaselineFactorIds`
+              (`orchestrator-v5/tools/plot-intervention-scale.ts:813`) and it
+              exempts on four grounds; a stated unit reaches the second. The
+              chain: the router is told to send `{ value, unit, cap? }` and is
+              given the worked example "set churn to 5%"
+              (`routing/tool-schema.ts:231-239`), so the form is one the
+              assistant already recognises → `parseProposalValue` sets
+              `inputHasUnit` (`handlers/set-factor-value.ts:199-215`) →
+              `normaliseFactorValue`'s unit limb calls `unitPinnedScaleFrame`
+              (`d1-shared/normalise-factor-value.ts:293-300`) → percent pins
+              frame 100 (`cee/draft/records/unit-scale-class.ts:363`), so "12%"
+              is written `{raw_value: 12, value: 0.12}` → the gate exempts at
+              `plot-intervention-scale.ts:839` (`baseline ∈ [0,1]`) and the run
+              proceeds. CEE pins that whole walk end to end in
+              `handlers/__tests__/stated-unit-scale-survives-to-analysis.test.ts`.
+
+              ⛔ AND WHY THE COPY DOES NOT SAY "TELL OLUMI WHAT IT IS MEASURED
+              IN". `unitPinnedScaleFrame` pins a frame for PERCENT and BASIS
+              POINTS AND NOTHING ELSE (`unit-scale-class.ts:363-364`); a
+              currency or a count classes `unknown`, is written raw, and the
+              gate STILL refuses — the same spec pins that as its
+              opposite-direction twin. A general "state the unit" instruction
+              would be a NEW false remedy, and a worse one than the old: a unit
+              of any kind makes `factorValueHasNoUsableScale` return false, so
+              the disclosure below would VANISH while the analysis went on
+              refusing. Naming the one family that resolves it keeps the
+              warning and the remedy honest together.
+
+              ⛔ AND WHY IT NAMES A BOUND (0 TO 100) RATHER THAN JUST "A
+              PERCENTAGE". The first draft said "If it is a percentage, tell
+              Olumi the value with its unit", and an independent re-review
+              showed that unbounded form prescribes a route into the SILENT
+              dead end this very comment rejects one paragraph above. Derived
+              again at CEE `staging` 7aa49ec8: `unitPinnedScaleFrame` pins
+              frame 100 for percent ONLY while `magnitude <= 100`, and returns
+              undefined for `magnitude < 0` (`unit-scale-class.ts:363`); with
+              no frame pinned the write falls back to RAW
+              (`normalise-factor-value.ts:303`); and the stated unit is
+              persisted ANYWAY (`set-factor-value.ts:580-590`). A recorded unit
+              is NOT among the run gate's four exemptions - a cap,
+              `baseline ∈ [0,1]`, a recoverable pair frame, and user-authored
+              self-framing interventions (`plot-intervention-scale.ts:836-882`).
+              So "set it to 150%" writes `{raw_value: 150, value: 150, unit:
+              '%'}`, the disclosure below VANISHES (any unit,
+              `factorValueEdit.ts:436`) and the analysis STILL refuses.
+              Negatives behave the same. The set that actually works is exactly
+              percent in [0, 100] - 0 and 0.5 clear on the `[0,1]` limb, 1 to
+              100 on the pinned frame - so the sentence names that set and no
+              more, and the advice and the population it works for are the same
+              set. CASE 4 of the spec is the guard.
+
+              ⛔ NO EM DASH IN THIS SENTENCE. `Brief3Panels.spec.tsx`
+              ("Em-dash enforcement") forbids U+2014 in rendered panel output
+              and `FactorExternalPanel.tsx` records that it caught the first
+              draft of a sibling sentence. It caught nothing here: that suite
+              keeps a HAND-LIST of three panels and this one is not on it (trap
+              12, inside the guard written to enforce the rule). Widening the
+              list is separate, measured work and is rowed, not folded into a
+              copy PR; CASE 5 pins this sentence in the meantime. */}
           {factorValueHasNoUsableScale(node?.data) && (
             <p
               className={`${typography.panelMeta} text-text-light mt-1.5`}
               data-testid="factor-value-no-scale"
             >
-              This value has no scale recorded, so nothing states what it is measured against. Ask Olumi to set the range it can move between.
+              This value has no scale recorded, so nothing states what it is measured against. If it is a percentage between 0 and 100, tell Olumi the value with its unit. For example, set it to 12%.
             </p>
           )}
         </PrimaryControlCard>
