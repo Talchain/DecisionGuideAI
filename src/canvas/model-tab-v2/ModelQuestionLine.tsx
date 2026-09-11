@@ -63,8 +63,17 @@ export function ModelQuestionLine({ nodes }: ModelQuestionLineProps) {
       data-state={question.state}
       className={`${typography.panelBody} text-text-light`}
     >
-      {/* The product's ONE spelling for this node, never a re-typed literal. */}
-      <span className="font-medium">{DECISION_NODE_LABEL}:</span>{' '}
+      {/*
+        The product's ONE spelling for this node, never a re-typed literal.
+
+        DS v5 §2.4: `<strong>` carries the emphasis semantically instead of a
+        raw weight utility, matching the inline-emphasis pattern already used
+        inside panel text (TriageActionCardsBody's "Dominant factor:" prefix,
+        and the same citation in HeroEvidenceDisclosure). The panel scale binds
+        weight to size, so there is no 12px medium token to reach for: the
+        emphasis is the ELEMENT's, not a utility's.
+      */}
+      <strong>{DECISION_NODE_LABEL}:</strong>{' '}
       <span
         className={
           stated ? `${typography.panelHeader} text-text-header` : 'italic text-text-light'
