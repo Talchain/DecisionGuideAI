@@ -76,9 +76,11 @@ import { MessageBubble } from '../MessageBubble'
 import type { ConversationMessage } from '../types'
 import {
   describeModelBuildingNoticeKind,
+  modelBuildingNoticeAttribution,
   modelBuildingNoticeOutcome,
   toModelBuildingNoticesView,
 } from '../modelBuildingNotices'
+import { PRODUCER_CORPUS } from './producerNoticeReasons'
 
 const noop = async () => {}
 
@@ -197,6 +199,45 @@ const unanimouslyUserStated = (kind: ModelBuildingNoticeKind): boolean => {
   expect(rows.length, `corpus covers no reason for kind ${kind}`).toBeGreaterThan(0)
   return rows.every((r) => r.statedByUser === true)
 }
+
+describe('model-building notices — ⭐⭐ two hand corpora check each other', () => {
+  it('covers exactly the same 21 producer reasons as the sibling suite', () => {
+    // Neither list can notice that IT is short. Two independently written lists
+    // asking different questions of the same map CAN (trap 12d).
+    const mine = PRODUCER_ATTRIBUTION.map((r) => r.reason).sort()
+    const theirs = PRODUCER_CORPUS.map((r) => r.reason).sort()
+    expect(new Set(mine).size, 'a reason is listed twice here').toBe(mine.length)
+    expect(mine).toEqual(theirs)
+  })
+
+  it('agrees with the sibling suite on which KIND each reason belongs to', () => {
+    const kindOf = new Map(PRODUCER_CORPUS.map((r) => [r.reason, r.kind]))
+    for (const row of PRODUCER_ATTRIBUTION) {
+      expect(row.kind, `the two corpora disagree on ${row.reason}`).toBe(kindOf.get(row.reason))
+    }
+  })
+
+  it('the module map agrees with this corpus for EVERY enum member', () => {
+    // Derived from the corpus, so the expectation cannot be edited to match the
+    // code: `user_stated` iff unanimous, `olumi_authored` iff unanimously not,
+    // `mixed` otherwise.
+    for (const kind of ModelBuildingNoticeKindSchema.options) {
+      const rows = PRODUCER_ATTRIBUTION.filter((r) => r.kind === kind)
+      expect(rows.length).toBeGreaterThan(0)
+      const expected = rows.every((r) => r.statedByUser === true)
+        ? 'user_stated'
+        : rows.every((r) => r.statedByUser === false)
+          ? 'olumi_authored'
+          : 'mixed'
+      expect(modelBuildingNoticeAttribution(kind), `kind ${kind}`).toBe(expected)
+    }
+  })
+
+  it('an unknown kind is MIXED — fail-closed, never told to a user as their own', () => {
+    expect(modelBuildingNoticeAttribution('a_seventh_kind_from_a_future_schema')).toBe('mixed')
+    expect(modelBuildingNoticeAttribution('constructor')).toBe('mixed')
+  })
+})
 
 describe('model-building notices — ⭐⭐ the attribution probe discriminates (trap 13 control)', () => {
   it('CONTROL: the probe SEES the historical defect strings — it is not blind', () => {

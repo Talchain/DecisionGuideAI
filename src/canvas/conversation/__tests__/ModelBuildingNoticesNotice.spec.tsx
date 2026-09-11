@@ -137,7 +137,13 @@ describe('ModelBuildingNoticesNotice — ⭐ identity binding (DISCRIMINATING PA
     const root = screen.getByTestId('model-building-notices')
     expect(root.getAttribute('data-total-count')).toBe('3')
     expect(root.getAttribute('data-row-count')).toBe('2')
-    expect(screen.getByTestId('model-building-notices-toggle').textContent).toContain('3 things')
+    // ⚠ WHOLE-STRING, NOT `toContain('3 things')` — that passes on "13 things"
+    // (trap 19: bind by identity, never by a predicate another value satisfies).
+    expect(
+      (screen.getByTestId('model-building-notices-toggle').textContent ?? '')
+        .replace(/\s+/g, ' ')
+        .trim(),
+    ).toBe('Olumi left 3 things out of this model')
   })
 
   it('singular copy at exactly one omission', () => {
@@ -155,7 +161,11 @@ describe('ModelBuildingNoticesNotice — ⭐ identity binding (DISCRIMINATING PA
       <MessageBubble message={makeMsg({ modelBuildingNotices: one })} onChipClick={noop} />,
     )
     const toggle = screen.getByTestId('model-building-notices-toggle')
-    expect(toggle.textContent).toContain('1 thing from your brief')
+    // ⚠ NO LONGER "1 thing from your brief": every kind the headline counts is
+    // `olumi_authored` or `mixed` at the producer — see `KIND_ATTRIBUTION`.
+    expect((toggle.textContent ?? '').replace(/\s+/g, ' ').trim()).toBe(
+      'Olumi left 1 thing out of this model',
+    )
     expect(toggle.textContent).not.toContain('1 things')
   })
 })
@@ -257,9 +267,11 @@ describe('ModelBuildingNoticesNotice — ⭐ row copy reads correctly at EVERY c
       details_redacted: true,
     })
     const rows = await expandRows(one)
-    expect(screen.getByTestId('model-building-notices-toggle').textContent).toContain(
-      '1 thing from your brief',
-    )
+    expect(
+      (screen.getByTestId('model-building-notices-toggle').textContent ?? '')
+        .replace(/\s+/g, ' ')
+        .trim(),
+    ).toBe('Olumi left 1 thing out of this model')
     expect(rows).toHaveLength(1)
     expect((rows[0].textContent ?? '').trim()).not.toMatch(/^1\s/)
   })
