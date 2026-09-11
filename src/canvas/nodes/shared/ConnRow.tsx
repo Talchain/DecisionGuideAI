@@ -9,6 +9,38 @@
  * format, silently switching meaning between pre- and post-analysis. The
  * visible "conf." qualifier (+ title/aria) makes this number
  * self-identifying next to the strength pills.
+ *
+ * ⭐ AN UNKNOWN IS DISCLOSED, NOT OMITTED
+ * --------------------------------------
+ * `confidencePct` is `null` only when `useNodeConnections`' provenance gate
+ * found nothing that PROVES a confidence was stated (`isEdgeValueSet`). This
+ * row used to render the cell not at all in that case, so the state read as a
+ * bare name — visually identical to a row whose figure simply had not loaded,
+ * and indistinguishable at a glance from a low number.
+ *
+ * WHO IS ACTUALLY IN IT, derived rather than assumed: a CEE-drafted edge
+ * carries the raw wire `exists_probability`, which `edgeValueSource:154` honours
+ * as back-compat evidence, so it renders a figure. `USER_EDGE_DEFAULTS`
+ * (`domain/edges.ts:534`) sets `beliefExists: 0.8` with NO source stamp and no
+ * raw key, exactly as its own comment demands. So the silent row was
+ * **the connection the user drew by hand**, sitting beside drafted ones that all
+ * showed "80% conf." — the user's own link looked like the empty one.
+ *
+ * ⛔ IT DISCLOSES; IT DOES NOT INVITE — and that asymmetry with the
+ * pre-analysis lane is deliberate, not an oversight. `PreAnalysisInboundRows`
+ * says "Link strength not set — open this connection to estimate it", and it is
+ * entitled to: link strength became genuinely settable when the presets went
+ * live (#1473). The quantity HERE is existence confidence, whose inspector
+ * control is still fenced because it has no wire carrier. Copying that wording
+ * across would advertise an action the product cannot perform — the precise
+ * defect #1473 removed. So this states the gap and stops.
+ *
+ * ⛔ AND IT MUST NOT BORROW THE STRENGTH WORDING FOR A SECOND REASON: these are
+ * two number families (P0-4 above). "Link strength not set" on a confidence cell
+ * would re-conflate them in the one state where no figure is present to
+ * disambiguate. The P0-4 assertions still hold over this branch unchanged — no
+ * "%" and no "conf." text renders — which is what proves this fills the silence
+ * rather than reopening the conflation.
  */
 import { useCallback } from 'react'
 import { NodeShapeIndicator } from '../NodeShapeIndicator'
@@ -45,13 +77,22 @@ export function ConnRow({ edgeId, nodeKind, label, confidencePct }: ConnRowProps
       <span className={`${typography.edgeLabel} text-info underline flex-1 truncate`} title={label}>
         {truncated}
       </span>
-      {confidencePct != null && (
+      {confidencePct != null ? (
         <span
           className={`${typography.edgeLabel} text-text-light text-right shrink-0 whitespace-nowrap`}
           title="Confidence the link exists"
           aria-label={`${confidencePct}% confidence the link exists`}
         >
           {confidencePct}% conf.
+        </span>
+      ) : (
+        <span
+          className={`${typography.edgeLabel} text-text-light text-right shrink-0 whitespace-nowrap italic`}
+          title="Nobody has stated how confident they are that this link exists"
+          aria-label="Confidence the link exists is not set"
+          data-testid={`conn-row-confidence-unset-${edgeId}`}
+        >
+          Not set
         </span>
       )}
     </div>
