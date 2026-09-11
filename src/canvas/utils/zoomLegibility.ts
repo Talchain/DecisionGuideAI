@@ -106,8 +106,82 @@ export type FitInitiator = 'user' | 'product'
  * and `AUTO_FIT_MAX_ZOOM`, because a degenerate bounding box otherwise magnifies
  * to the instance ceiling (a witnessed canvas sat at 328%).
  */
-export function fitBoundsFor(initiator: FitInitiator): { minZoom?: number; maxZoom?: number } {
-  return initiator === 'product' ? { minZoom: LABEL_LEGIBLE_ZOOM, maxZoom: AUTO_FIT_MAX_ZOOM } : {}
+/**
+ * ⭐⭐ IS THE CONTENT BOX DEGENERATE? — the discrimination `AUTO_FIT_MAX_ZOOM`
+ * was standing in for (12 Sep 2026).
+ *
+ * ⚠ DEFINED POSITIONALLY, FROM THE ACTUAL MECHANISM, not from a size threshold.
+ * `applyDraftResult.ts:50` returns `position: { x: 0, y: 0 }` UNCONDITIONALLY for
+ * every drafted node — it is the only position reference in that file — so at the
+ * instant React Flow's element-level fit first runs, every node is stacked at the
+ * origin. The box is then degenerate **by position even when measurement has
+ * completed**, which is why a measurement-based test (`nodesInitialized`, node
+ * dimensions) does not discriminate it and a positional one does.
+ *
+ * So: a box is degenerate when its occupants do not occupy at least two DISTINCT
+ * positions. That needs no length constant, which also keeps this module free of
+ * `nodeLayoutConstants` — which imports `MAX_LABEL_COUNTER_SCALE` from here, so
+ * the reverse import would be a cycle.
+ *
+ * ⚠ FEWER THAN TWO NODES IS DEGENERATE TOO, deliberately. A single card carries
+ * no extent to fit against, and magnifying it to fill a pane is the same defect
+ * with a smaller cast.
+ */
+export function layoutBoxIsDegenerate(
+  nodes: ReadonlyArray<{ position?: { x?: number; y?: number } | null }>,
+): boolean {
+  const seen = new Set<string>()
+  for (const node of nodes) {
+    const x = node?.position?.x
+    const y = node?.position?.y
+    if (typeof x !== 'number' || typeof y !== 'number') continue
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue
+    seen.add(`${x},${y}`)
+    if (seen.size > 1) return false
+  }
+  return true
+}
+
+/**
+ * ⭐⭐ THE CEILING NOW ANSWERS ONE QUESTION, NOT TWO (12 Sep 2026).
+ *
+ * `AUTO_FIT_MAX_ZOOM` was a blanket cap on every product fit, and it was doing
+ * two jobs under one name — CLAUDE.md trap 21:
+ *
+ *   1. *"do not magnify a DEGENERATE box"* — correct, load-bearing, and the
+ *      reason a witnessed canvas sat at 328%. It stays, unchanged, for exactly
+ *      that case.
+ *   2. *"do not scale a VALID box up to a wide pane"* — wrong, and it was the
+ *      measured cause of the graph occupying ~61% of a 1730px screen. Founder
+ *      Ruling R1 makes the CAMERA the answer to viewport width ("responsive
+ *      behaviour happens through camera/focus/disclosure, not persisted
+ *      re-layout") — and then this cap forbade the camera from doing it.
+ *
+ * ⛔ THE FIX IS NOT TO DELETE THE CEILING. Copying the user fit's unbounded
+ * `{}` here would reopen the 328% defect; that was proposed during the 11 Sep
+ * zoom investigation and caught by reading the two call sites.
+ *
+ * ⚠ `boxIsDegenerate` DEFAULTS TO `true` — FAIL-CLOSED. A caller that does not
+ * yet answer the question gets today's behaviour byte for byte, so this cannot
+ * silently widen to a fit that has not been considered.
+ *
+ * ⭐ THE VALID-BOX CEILING IS `MAX_LABEL_COUNTER_SCALE`, DERIVED RATHER THAN
+ * PICKED. That constant is already the product's statement of how far rendered
+ * text may deviate from its declared size — it is what the counter-scale is
+ * allowed to reach at the legibility floor. Using it above 1 makes the bound
+ * symmetric: text may be magnified as far up as the ladder magnifies it down.
+ * It introduces no third zoom literal, which `zoomLegibilitySingleSource.spec.ts`
+ * forbids outright.
+ */
+export function fitBoundsFor(
+  initiator: FitInitiator,
+  boxIsDegenerate: boolean = true,
+): { minZoom?: number; maxZoom?: number } {
+  if (initiator !== 'product') return {}
+  return {
+    minZoom: LABEL_LEGIBLE_ZOOM,
+    maxZoom: boxIsDegenerate ? AUTO_FIT_MAX_ZOOM : MAX_LABEL_COUNTER_SCALE,
+  }
 }
 
 /** True when node labels are rendered at this zoom. */

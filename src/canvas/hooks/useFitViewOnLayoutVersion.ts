@@ -209,6 +209,41 @@ export function useFitViewOnLayoutVersion(): void {
       // USER-invoked fits set `minZoom` to this same constant by hand, against
       // the doctrine in the module that owns it, and nothing could tell the two
       // classes apart (#1051). Naming the class is what makes them different.
+      //
+      // ⛔⛔ DELIBERATELY STILL THE BLANKET CAP. `fitBoundsFor` can now
+      // discriminate — a VALID box may fill the pane, a DEGENERATE one stays
+      // clamped (see its header) — and passing `layoutBoxIsDegenerate(nodes)`
+      // here is a one-line change. It is NOT made, and the reason is that
+      // NOTHING TRUSTWORTHY IS KNOWN ABOUT ITS EFFECT YET.
+      //
+      // ⚠⚠ AN EARLIER VERSION OF THIS COMMENT CITED A THREE-ARM BROWSER
+      // MEASUREMENT (staging 100% / grid-only 100% / grid+fit 313%) AND THAT
+      // MEASUREMENT IS VOID. Every arm was a single reading taken in a pane
+      // whose render loop was never asserted; the same tab later measured
+      // **0 rAF frames per second**, which is the condition
+      // `e2e/geometry/draftFitCameraOwnership.measure.ts` documents: xyflow
+      // drives camera moves through a d3 transition on rAF, so a starved loop
+      // freezes the transition part-way at a zoom the product is forbidden to
+      // choose. A frozen value looks perfectly stable when sampled.
+      //
+      // So the honest position is not "raising the ceiling caused a regression"
+      // — it is that a camera change CANNOT be verified from this instrument at
+      // all, and an unverified camera change must not ship. `assertRenderLoopAlive`
+      // in the geometry harness is the only thing that qualifies, and it needs a
+      // real display.
+      //
+      // ⭐ WHAT IS STILL WORTH CARRYING, because it is derived rather than
+      // measured: `AUTO_FIT_MAX_ZOOM = 1` is doing TWO jobs. As well as bounding
+      // THIS fit it is the only thing standing between the user and the
+      // ReactFlow ELEMENT's own bare `fitView` prop, which carries
+      // `maxZoom={4}` and fires while the box is still degenerate. Raising the
+      // ceiling here therefore removes a net as well as a cap, and the element
+      // fit must be fixed FIRST. Rowed.
+      //
+      // The mechanism lands dormant and provably inert: the second parameter is
+      // fail-closed, so this call is byte-identical to the old one, and
+      // `fitDegeneracyDiscrimination.spec.ts` pins that equality so it cannot
+      // turn itself on unnoticed.
       ...fitBoundsFor('product'),
       duration,
     })
