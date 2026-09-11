@@ -29,6 +29,7 @@ import { guidanceCategoryRank, type GuidanceItem } from '../../../canvas/stores/
 import type { HelpType, Recommendation, StrengthenInputs, StrengthenPhase3Item } from './strengthenTypes'
 import { attestsNoFactorFlip } from '../utils/fragileEdgeCopy'
 import { biasCodeFromPhase3Item } from './biasTypesFromGuidance'
+import { SUCCESS_TARGET_PROMPT } from './successTargetPrompt'
 
 /**
  * The deterministic "define a success measure" recommendation's id.
@@ -377,7 +378,18 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
         kind: 'open-modal',
         modal: 'define-success',
         label: 'Define success',
-        prompt: 'Help me define what success looks like for this decision.',
+        /**
+         * ⭐⭐ THE PROMPT IS THE HAND-OFF, AND ON THE LIVE POSTURE IT IS THE ONLY
+         * ROUTE THIS CARD HAS. `CANONICAL_EDIT_AUTHORITY.goalSuccessTarget` is
+         * `'disabled'` in a `const satisfies` object, so `hasServerGraphAuthority`
+         * is a compile-time `false` and BOTH Strengthen surfaces fall through to
+         * the Ask-Olumi drawer rather than the modal. Whatever this string says
+         * is what the user sends — so it is shared with the canvas coaching
+         * panel's own Define-success row rather than spelled twice. See
+         * `successTargetPrompt.ts` for the staging witness it replaces and why
+         * each of its clauses exists.
+         */
+        prompt: SUCCESS_TARGET_PROMPT,
       },
       targetId: null,
       priority: PRIORITY.successMeasure,

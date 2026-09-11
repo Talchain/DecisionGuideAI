@@ -301,9 +301,27 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
           // Keep the coaching action useful without opening the local-only
           // success editor: hand the user into an editable Olumi draft. No
           // graph claim or mutation happens until they explicitly send it.
+          //
+          // ⭐ THE CARD'S OWN PROMPT, NOT THE GENERIC WORK-THROUGH DRAFT. This
+          // arm sent `workThroughDraft(rec.title)` — "Help me work through:
+          // Define what success looks like" — which asks for a CONVERSATION
+          // about setting a target rather than for the target itself. Measured
+          // on staging 2026-09-11: following it cost four turns and ended in
+          // "I could not apply that constraint…", with the goal node still
+          // reading "Target not captured". The recommendation already carries
+          // an apply-able instruction in `action.prompt` (see
+          // `buildRecommendations.ts`, which documents why each of its clauses
+          // exists), and the analysisNew surface
+          // (`sections/StrengthenTheReasoning.tsx`) already prefers it — so the
+          // two surfaces now read ONE string from ONE authority instead of
+          // disagreeing about what this CTA asks for.
+          //
+          // `??` keeps every other `open-modal` route on exactly its previous
+          // behaviour: `prompt` is optional, and a card without one still gets
+          // the generic draft.
           openAskOlumi({
             context: rec.whyNow,
-            draft: COPY.workThroughDraft(rec.title),
+            draft: rec.action.prompt ?? COPY.workThroughDraft(rec.title),
             label: rec.title,
             targetId: rec.targetId ?? undefined,
             parameters: rec.action.parameters,

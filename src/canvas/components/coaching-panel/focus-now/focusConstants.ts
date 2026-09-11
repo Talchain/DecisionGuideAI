@@ -13,6 +13,7 @@
  * question, …) is server-owned and is NOT here.
  */
 import type { FocusRow } from './focusTypes'
+import { SUCCESS_TARGET_PROMPT } from '../../../../components/results/strengthen/successTargetPrompt'
 
 /** Rows shown before the "show all / fewer" reveal. Display chunking, not selection. */
 export const FOCUS_DEFAULT_VISIBLE = 6
@@ -71,7 +72,14 @@ export const STATIC_HYGIENE_ROWS: readonly FocusRow[] = [
     whyItMatters: 'A clear goal gives everything else something to aim at.',
     tryThis: 'Write a one-line goal you would be happy to be judged on.',
     iconKey: 'target',
-    action: { kind: 'prefill', label: 'Define success', prefillText: 'Help me define what success looks like for this decision.' },
+    /* ⭐ THE PREFILL IS SHARED WITH THE STRENGTHEN PANEL'S OWN Define-success
+       CTA (`components/results/strengthen/successTargetPrompt.ts`), which
+       carries the staging witness and the reason for each of its clauses. It
+       asked to "work through" defining success — a request for a conversation,
+       not for a target — and following it on 2026-09-11 cost four turns and
+       ended in "I could not apply that constraint…". Two CTAs for one job now
+       read one string from one authority (trap 12). */
+    action: { kind: 'prefill', label: 'Define success', prefillText: SUCCESS_TARGET_PROMPT },
   },
   {
     id: 'static:set-time-horizon',
