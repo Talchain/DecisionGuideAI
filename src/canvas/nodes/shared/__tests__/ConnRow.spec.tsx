@@ -64,8 +64,13 @@ describe('ConnRow — an unknown confidence is disclosed, not omitted', () => {
     // string several surfaces use, and a row for a different edge would satisfy
     // a text query while proving nothing about this one.
     const cell = screen.getByTestId('conn-row-confidence-unset-e_user_drawn')
-    expect(cell.textContent).toBe('Not set')
     expect(cell.getAttribute('aria-label')).toBe('Confidence the link exists is not set')
+    // ⛔ A MARK, NOT WORDS. `cardCopyCensus.canvas.spec.tsx` REDs on copy that is
+    // byte-identical across sibling cards (Paul, 31 Aug) — and "Not set" on every
+    // unset row is exactly that. The census reads `textContent`, so this asserts
+    // the cell contributes NO text run at all while still announcing itself.
+    expect(cell.textContent).toBe('')
+    expect(cell.querySelector('svg')).not.toBeNull()
   })
 
   it('does NOT borrow the link-strength wording (P0-4 holds where no figure disambiguates)', () => {
@@ -106,6 +111,5 @@ describe('ConnRow — an unknown confidence is disclosed, not omitted', () => {
     // this, a component that rendered the affordance unconditionally would
     // satisfy every case above.
     expect(screen.queryByTestId('conn-row-confidence-unset-e1')).toBeNull()
-    expect(screen.queryByText('Not set')).toBeNull()
   })
 })

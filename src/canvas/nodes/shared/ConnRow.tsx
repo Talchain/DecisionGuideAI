@@ -87,12 +87,24 @@ export function ConnRow({ edgeId, nodeKind, label, confidencePct }: ConnRowProps
         </span>
       ) : (
         <span
-          className={`${typography.edgeLabel} text-text-light text-right shrink-0 whitespace-nowrap italic`}
+          className="shrink-0 inline-flex items-center"
+          role="img"
           title="Nobody has stated how confident they are that this link exists"
           aria-label="Confidence the link exists is not set"
           data-testid={`conn-row-confidence-unset-${edgeId}`}
         >
-          Not set
+          {/* ⛔ A GLYPH, NOT WORDS — and the census is why, not taste. The first
+              cut of this rendered the string "Not set", which put IDENTICAL copy
+              on every sibling card and RED `cardCopyCensus.canvas.spec.tsx`:
+              Paul's 31 Aug ruling is that byte-identical card copy "is a waste of
+              space… should be a hover-over". A mark costs one glyph of the
+              narrowest column on the screen; the sentence lives in `title` and
+              `aria-label`, where a census that reads `textContent` cannot be
+              fooled into thinking the row says nothing. */}
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" focusable="false">
+            <line x1="1" y1="5" x2="9" y2="5" stroke="currentColor" strokeWidth="1.5"
+                  strokeLinecap="round" className="text-text-light" opacity="0.55" />
+          </svg>
         </span>
       )}
     </div>
