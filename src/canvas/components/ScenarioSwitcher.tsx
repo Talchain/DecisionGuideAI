@@ -16,6 +16,9 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { Save, Copy, Edit2, Trash2, ChevronDown, Folder, AlertCircle, Download, Upload } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { loadScenarios, getScenario, type Scenario, importScenarioFromFile } from '../store/scenarios'
+import { useAuth } from '../../contexts/AuthContext'
+import { isPersistenceActive } from '../../lib/persistenceActive'
+import * as scenarioService from '../../services/scenarioService'
 import { markGraphImported } from '../store/importRegistrationMarker'
 import { SaveStatusPill } from './SaveStatusPill'
 import { exportScenario } from '../export/exportScenario'
@@ -106,6 +109,7 @@ export function ScenarioSwitcher({
   const deleteScenario = useCanvasStore(s => s.deleteScenario)
   // React #185 PERF: nodes/edges only needed in import callback, use getState() to avoid re-renders
 
+  const { user, authenticated } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [scenarios, setScenarios] = useState<Scenario[]>([])
   const [showSaveDialog, setShowSaveDialog] = useState(false)
@@ -178,10 +182,59 @@ export function ScenarioSwitcher({
     return () => window.removeEventListener(SCENARIO_RENAME_REQUEST_EVENT, handler)
   }, [isNameAuthority, startRename])
 
+  /**
+   * ⭐ THE LIST SURVIVES A NEW BROWSER — it used to read `localStorage` only.
+   *
+   * `loadScenarios()` is `localStorage.getItem(STORAGE_KEY)` and returns `[]`
+   * when absent. Zero Supabase. So a SIGNED-IN user on a second machine — or
+   * one whose browser storage was cleared — opened this dropdown and read
+   * "No saved scenarios yet" while their models sat intact on the server.
+   * Paul hit exactly that on 11 Sep 2026: "No graph is being displayed at all."
+   *
+   * The server-backed list already existed (`scenarioService.listScenarios`,
+   * behind `#/scenarios`), so nothing on the canvas pointed at it. This is a
+   * wiring job, not a new capability.
+   *
+   * ⛔ LOCAL WINS ON ID COLLISION, deliberately. A local record carries the
+   * graph; the server row carries only list metadata. Preferring the server
+   * copy would replace a loadable record with a lighter one for no gain. The
+   * server list therefore only ADDS models this browser has never seen.
+   *
+   * ⛔ IT FAILS SOFT. A rejected list leaves the local list exactly as it was —
+   * never an empty dropdown and never a thrown render. A guest is untouched:
+   * `isPersistenceActive` is the canonical predicate, shared with
+   * `useScenario`, not a second reading of "am I signed in".
+   */
+  const mergeServerScenarios = useCallback(async (local: Scenario[]) => {
+    if (!isPersistenceActive(authenticated, user) || !user?.id) return
+    let rows: Awaited<ReturnType<typeof scenarioService.listScenarios>>
+    try {
+      rows = await scenarioService.listScenarios(user.id)
+    } catch {
+      // Fail soft — the local list already rendered and stays.
+      return
+    }
+    const known = new Set(local.map(sc => sc.id))
+    const additions: Scenario[] = rows
+      .filter(row => !known.has(row.id) && !row.is_archived)
+      .map(row => ({
+        id: row.id,
+        name: (row.title ?? '').trim() || UNTITLED_MODEL,
+        createdAt: row.created_at ? Date.parse(row.created_at) : 0,
+        updatedAt: row.updated_at ? Date.parse(row.updated_at) : 0,
+      } as Scenario))
+    if (additions.length === 0) return
+    setScenarios([...local, ...additions].sort((a, b) => b.updatedAt - a.updatedAt))
+  }, [authenticated, user])
+
   // Refresh scenarios when dropdown opens
   const refreshScenarios = useCallback(() => {
-    setScenarios(loadScenarios())
-  }, [])
+    const local = loadScenarios()
+    // Render the local list FIRST so the dropdown is never empty while the
+    // network answers, then add anything only the server knows about.
+    setScenarios(local)
+    void mergeServerScenarios(local)
+  }, [mergeServerScenarios])
 
   useEffect(() => {
     if (isOpen) {
