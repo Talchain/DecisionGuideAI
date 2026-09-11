@@ -35,13 +35,37 @@ import { typography } from '../../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { SCIENCE_LIMITATIONS_DISCLOSURE } from '../../analysisMethodCopy'
 import type { DeeperAnalysisSection } from '../analysisNewTypes'
+/**
+ * ⭐ #1491'S CONTROL, IMPORTED — NOT A SECOND ONE. Three rows in this group end
+ * with the literal sentence "Add its current value." and, until now, gave the
+ * reader nothing to press. The act they name already exists: it is the one
+ * "What I estimated" offers, and it is the one thing that moves
+ * `semanticQualitySufficient` (`material_parameters_user_stated > 0`), which is
+ * what decides whether the analysis will name a leading option at all. So this
+ * is the same component, not a second spelling of it.
+ */
+import { FactorValueControl } from '../FactorValueControl'
 
 export interface DeeperAnalysisProps {
   deeper: DeeperAnalysisSection
   testId?: string
+  /**
+   * Offer the value control on rows that name a writable factor.
+   *
+   * ⚠ DEFAULT `false`, matching the sibling register's opt-in: this component
+   * is a pure renderer and a surface that has not deliberately opted in must
+   * not acquire a write affordance by accident. `AnalysisNewTabBody` passes
+   * `true`; the mount case in `deeperGapValueControl.spec.tsx` pins that it
+   * really does, and the default case pins that nothing else gets it for free.
+   */
+  offerFactorValueControl?: boolean
 }
 
-export function DeeperAnalysis({ deeper, testId = 'analysis-new-deeper' }: DeeperAnalysisProps) {
+export function DeeperAnalysis({
+  deeper,
+  testId = 'analysis-new-deeper',
+  offerFactorValueControl = false,
+}: DeeperAnalysisProps) {
   const [open, setOpen] = useState(false)
 
   const hasGroups = deeper.groups.length > 0
@@ -162,10 +186,28 @@ export function DeeperAnalysis({ deeper, testId = 'analysis-new-deeper' }: Deepe
                           <>
                             <dt className="sr-only">{r.label}</dt>
                             <dd
-                              className={`${typography.panelMeta} text-text-body break-words min-w-0 col-span-2`}
+                              className={`${typography.panelMeta} text-text-body break-words min-w-0 col-span-2 flex flex-wrap items-baseline gap-x-2 gap-y-1`}
                               data-gap-code={r.label || undefined}
                             >
-                              {r.value}
+                              <span className="min-w-0 break-words">{r.value}</span>
+                              {/* ⚠ THE CONTROL SITS INSIDE THE ROW IT ACTS ON,
+                                  and is bound to it by `nodeId` — never by the
+                                  label, which is the producer's CODE and is
+                                  repeated whenever the same condition is raised
+                                  about two different nodes. A row carrying no
+                                  `nodeId` renders NOTHING here: not a disabled
+                                  button, which would advertise an act the
+                                  product cannot perform. That covers the
+                                  goal-ancestor row, whose sentence names
+                                  several starting factors and whose producer
+                                  field names only the goal — see
+                                  `valueNodeIdFromWarning`. */}
+                              {offerFactorValueControl && r.nodeId ? (
+                                <FactorValueControl
+                                  nodeId={r.nodeId}
+                                  testIdPrefix={testId}
+                                />
+                              ) : null}
                             </dd>
                           </>
                         ) : (

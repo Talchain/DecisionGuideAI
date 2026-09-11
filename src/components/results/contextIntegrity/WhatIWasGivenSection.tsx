@@ -47,35 +47,36 @@
  * binding it to the arm the deployed flags switch off (CLAUDE.md trap 3b).
  */
 
-import { useId, useState } from 'react'
-import { ChevronDown, Pencil } from 'lucide-react'
+import { useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../../canvas/store'
 import { useContextIntegrityStore } from '../../../canvas/stores/contextIntegrityStore'
-import { useOptionalConversationContext } from '../../../canvas/conversation/ConversationContext'
-import { useShowToastSafe } from '../../../canvas/ToastContext'
 import type { InferredFactor, NotModelledItem } from '../../../adapters/cee/notModelled'
 import { ClampToggle } from '../ClampToggle'
 import { figureTallySubtitle } from './figureTallySubtitle'
 import { surface } from '../analysisNew/panelSurfaces'
 /**
- * ⭐⭐ THE ONE WRITE PATH, IMPORTED — NOT A SECOND ONE WRITTEN HERE.
- * `useFactorValueCommit` is what the Reasoning tab's model strip and the driver
- * influence chart already commit through; it owns the parse rule, the
- * three-outcome mapping and the stays-open-on-refusal rule, and it delegates to
- * `useModelEditAuthority.proposeFactorValue`, which owns the SCALE contract, the
- * optimistic local write and the undo. This surface supplies a number and an
- * identity and decides nothing else. A parallel writer here is how two
- * authorities under one name get created (CLAUDE.md trap 12/21).
+ * ⭐⭐ THE ONE CONTROL FOR THIS ACT, IMPORTED — NOT A SECOND ONE WRITTEN HERE.
+ *
+ * This control was authored inline in this file. It moved to
+ * `FactorValueControl` the moment a SECOND surface needed the same act (the
+ * Reasoning tab's "Model gaps the analysis worked around" rows, whose sentences
+ * end "Add its current value." and offered nothing to press). Nothing about its
+ * behaviour changed in the move: the positive node resolution, the
+ * no-carrier-no-control rule, the three-outcome mapping and the
+ * stays-open-on-refusal rule all travelled with it.
+ *
+ * Underneath, it still commits through `useFactorValueCommit` — the same hook
+ * the model strip and the driver influence chart use — which owns the parse
+ * rule and delegates to `useModelEditAuthority.proposeFactorValue`, which owns
+ * the SCALE contract, the optimistic local write and the undo. This surface
+ * supplies an identity and decides nothing else. A parallel writer, or a second
+ * copy of the control, is how two authorities under one name get created
+ * (CLAUDE.md trap 12/21).
  */
-import { useFactorValueCommit } from '../analysisNew/useFactorValueCommit'
-/**
- * The control's words are the model strip's words, imported rather than
- * re-typed. One act, one vocabulary: a second set of strings for "change this
- * value" would drift from the first the day either is adjusted.
- */
-import { ANALYSIS_NEW_COPY } from '../analysisNew/analysisNewCopy'
+import { FactorValueControl } from '../analysisNew/FactorValueControl'
 
 /** Rows shown per group before "show all". Keeps the open state scannable. */
 const VISIBLE_ROWS = 6
@@ -395,53 +396,6 @@ const ESTIMATED_TEST_ID = 'what-i-was-given-estimated'
  * made and the reader is entitled to see it; only the action goes.
  */
 function EstimatedFactorRow({ factor }: { factor: InferredFactor }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState('')
-  const inputId = useId()
-  const showToast = useShowToastSafe()
-
-  // A POSITIVE match, per the note above. Selecting the boolean rather than the
-  // array keeps this row out of every unrelated node update.
-  const isInGraph = useCanvasStore((s) =>
-    Array.isArray(s.nodes) ? s.nodes.some((n) => n.id === factor.nodeId) : false,
-  )
-  /**
-   * ⚠ NO CARRIER, NO CONTROL — and NOT a disabled one. A disabled button still
-   * advertises the action, which is this lane's own defect inverted. Without a
-   * conversation the commit could only write locally, and a local-only change
-   * to a number the panel has just called "mine, not yours" is precisely the
-   * claim this surface exists not to make.
-   */
-  const canReachOlumi = useOptionalConversationContext()?.sendSystemEvent !== undefined
-  const offerControl = isInGraph && canReachOlumi
-
-  /**
-   * ⚠ CALLED UNCONDITIONALLY AND PARAMETERISED BY THE ID — the hook's own
-   * documented contract ("pass `null` when no edit is active"). Passing `null`
-   * when we are not offering the control means a proposal could only ever
-   * answer `not_encodable`, which is the honest answer.
-   */
-  const { commit } = useFactorValueCommit(offerControl ? factor.nodeId : null)
-
-  /**
-   * ⚠ THE OUTCOME IS NEVER FLATTENED TO "SAVED". `proposeFactorValue` answers
-   * `dispatched | local_only | not_encodable` precisely so a caller cannot claim
-   * a server acceptance it did not observe; the three sentences are three
-   * different truths. On `not_encodable` the editor STAYS OPEN — nothing was
-   * written anywhere, so closing it would look like a success.
-   */
-  const commitValue = () => {
-    const outcome = commit(draft)
-    showToast(
-      outcome === 'dispatched'
-        ? ANALYSIS_NEW_COPY.modelStrip.valueDispatched
-        : outcome === 'local_only'
-          ? ANALYSIS_NEW_COPY.modelStrip.valueLocalOnly
-          : ANALYSIS_NEW_COPY.modelStrip.valueNotEncodable,
-    )
-    if (outcome !== 'not_encodable') setEditing(false)
-  }
-
   return (
     <li
       data-testid={`${ESTIMATED_TEST_ID}-row`}
@@ -449,74 +403,17 @@ function EstimatedFactorRow({ factor }: { factor: InferredFactor }) {
       className={ACTION_ROW_CLASS}
     >
       <span className={`${typography.panelBody} text-text-body`}>{factor.label}</span>
-      {offerControl &&
-        (editing ? (
-          <span className="flex flex-none flex-wrap items-center gap-1">
-            <label className="sr-only" htmlFor={inputId}>
-              {ANALYSIS_NEW_COPY.modelStrip.valueInputLabel(factor.label)}
-            </label>
-            <input
-              id={inputId}
-              type="number"
-              inputMode="decimal"
-              value={draft}
-              autoFocus={true}
-              data-testid={`${ESTIMATED_TEST_ID}-value-input`}
-              data-node-id={factor.nodeId}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  commitValue()
-                } else if (e.key === 'Escape') {
-                  e.preventDefault()
-                  setEditing(false)
-                }
-              }}
-              className={`${typography.panelBody} w-20 min-w-0 rounded border border-panel-border bg-panel px-1.5 py-0.5 text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-            />
-            <button
-              type="button"
-              onClick={commitValue}
-              data-testid={`${ESTIMATED_TEST_ID}-value-save`}
-              data-node-id={factor.nodeId}
-              className={`${typography.panelMeta} inline-flex items-center rounded-full bg-info/10 px-2 py-0.5 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-            >
-              {ANALYSIS_NEW_COPY.modelStrip.saveValue}
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditing(false)}
-              data-testid={`${ESTIMATED_TEST_ID}-value-cancel`}
-              data-node-id={factor.nodeId}
-              className={`${typography.panelMeta} inline-flex items-center rounded-full px-2 py-0.5 text-text-light hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-            >
-              {ANALYSIS_NEW_COPY.modelStrip.cancelValue}
-            </button>
-          </span>
-        ) : (
-          <button
-            type="button"
-            onClick={() => {
-              /* ⚠ THE FIELD OPENS EMPTY, NEVER SEEDED FROM THE ESTIMATE. This
-                 list deliberately renders the factor's NAME and not its number
-                 (`InferredFactor` carries no value — CEE's own `display_value`
-                 reads like "0.31 to 0.93" and means nothing to a reader), so
-                 there is no displayed figure whose scale a seed could inherit.
-                 Seeding from the stored value would also invite the reader to
-                 nudge OUR number rather than state THEIRS, which is the whole
-                 point of the invitation above. */
-              setDraft('')
-              setEditing(true)
-            }}
-            data-testid={`${ESTIMATED_TEST_ID}-value-edit`}
-            data-node-id={factor.nodeId}
-            className={`${typography.panelMeta} inline-flex flex-none items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-          >
-            <Pencil className="h-3 w-3" aria-hidden={true} />
-            {ANALYSIS_NEW_COPY.modelStrip.changeValue}
-          </button>
-        ))}
+      {/* ⭐ THE CONTROL MOVED OUT AND NOTHING ABOUT IT CHANGED. It is the same
+          component the Reasoning tab's gap rows now use — the node resolution,
+          the conversation gate, the three-outcome mapping and the
+          stays-open-on-refusal rule all travelled with it. Keeping a second
+          copy here once a second surface needed the same act is how one act
+          becomes two spellings (trap 12). */}
+      <FactorValueControl
+        nodeId={factor.nodeId}
+        label={factor.label}
+        testIdPrefix={ESTIMATED_TEST_ID}
+      />
     </li>
   )
 }

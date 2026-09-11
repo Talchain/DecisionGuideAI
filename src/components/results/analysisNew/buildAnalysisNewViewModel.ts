@@ -1385,7 +1385,12 @@ function buildDeeper(inputs: AnalysisNewViewModelInputs): AnalysisNewViewModel['
     conf.inferenceWarnings,
     inputs.nodeLabels,
   )
-    .map((w) => ({ label: w.code, value: w.title, statement: true }))
+    // ⭐ `nodeId` IS WHAT TURNS "Add its current value." FROM AN INSTRUCTION INTO
+  //   AN ACT. It is the VALUE-SLOT id, not merely the warning's node: the
+  //   selector refuses `GOAL_ANCESTOR_DATA_GAP`'s id, which names the GOAL
+  //   while the sentence asks for its ancestors. Rows without one render as
+  //   prose, exactly as they do today.
+  .map((w) => ({ label: w.code, value: w.title, statement: true, nodeId: w.valueNodeId }))
   if (inferenceRows.length) groups.push({ title: 'Model gaps the analysis worked around', rows: inferenceRows })
 
   // ⚠ READINESS SIGNALS, RENDERED AS THE PRODUCER'S OWN NUMBERS. `m1_coaching
