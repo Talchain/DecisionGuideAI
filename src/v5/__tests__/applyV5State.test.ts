@@ -57,6 +57,39 @@ function makeStore(
   }
 }
 
+/**
+ * ⚠ BIND THE ONCE-NESS TO ITS OBJECT, NOT TO THE WHOLE SPY.
+ *
+ * These cases assert that the decision-review PAIR is written in a SINGLE
+ * `setRunMeta` merge, so neither field can go stale behind the other — that is
+ * the guarantee, and it is worth keeping exactly.
+ *
+ * `toHaveBeenCalledOnce()` expressed it as a count over EVERY `setRunMeta` call,
+ * which is a different and weaker claim: `setRunMeta` is a PARTIAL merge, so any
+ * unrelated sibling write on the same turn breaks the assertion without touching
+ * the property. That is binding by a predicate a sibling can satisfy
+ * (CLAUDE.md trap 19), and it fired the first time another field was written on
+ * an analysis turn.
+ *
+ * This filters to the calls that carry BOTH halves of the pair. The guarantee is
+ * now stated about the thing it is about, and it survives siblings.
+ */
+function decisionReviewWrites(spy: { mock: { calls: unknown[][] } }): Array<Record<string, unknown>> {
+  return spy.mock.calls
+    .map((c) => c[0] as Record<string, unknown>)
+    // ⚠ BOTH KEYS, NOT EITHER. Filtering on `ceeReviewV1` alone would let a
+    // regression that SPLIT the pair across two merges pass here — which is
+    // precisely the staleness the once-ness was protecting against. Requiring
+    // both means a split produces two calls carrying one key each, zero carrying
+    // the pair, and the length check reds.
+    .filter(
+      (m) =>
+        m != null &&
+        Object.prototype.hasOwnProperty.call(m, 'ceeReviewV1') &&
+        Object.prototype.hasOwnProperty.call(m, 'decisionReview030'),
+    )
+}
+
 describe('applyV5State — stage tracking', () => {
   it('maps stage_indicator=analyse → ScenarioStage=evaluate and calls setCurrentStage', () => {
     const { store, setCurrentStage } = makeStore()
@@ -226,7 +259,7 @@ describe('applyV5State — analysis_result: decision_review wiring', () => {
       }),
       store,
     )
-    expect(setRunMeta).toHaveBeenCalledOnce()
+    expect(decisionReviewWrites(setRunMeta)).toHaveLength(1)
     expect(setRunMeta).toHaveBeenCalledWith(
       expect.objectContaining({ ceeReviewV1: expect.objectContaining({ intent: 'selection' }) }),
     )
@@ -258,7 +291,7 @@ describe('applyV5State — analysis_result: decision_review wiring', () => {
     // ROADMAP 2.154 — BOTH review fields are cleared, not just ceeReviewV1:
     // two different payloads share the `decision_review` key and land in two
     // different runMeta fields, so clearing one would leave the other stale.
-    expect(setRunMeta).toHaveBeenCalledOnce()
+    expect(decisionReviewWrites(setRunMeta)).toHaveLength(1)
     expect(setRunMeta).toHaveBeenCalledWith({ ceeReviewV1: null, decisionReview030: null })
     expect(result.deferred[0]?.reason).toBe('analysis_result_no_decision_review_in_block')
   })
@@ -279,7 +312,7 @@ describe('applyV5State — analysis_result: decision_review wiring', () => {
       }),
       store,
     )
-    expect(setRunMeta).toHaveBeenCalledOnce()
+    expect(decisionReviewWrites(setRunMeta)).toHaveLength(1)
     expect(setRunMeta).toHaveBeenCalledWith(
       expect.objectContaining({ ceeReviewV1: expect.objectContaining({ intent: 'selection' }) }),
     )
@@ -314,8 +347,10 @@ describe('applyV5State — analysis_result: decision_review wiring', () => {
     expect(result.deferred.map((d) => d.reason)).not.toContain(
       'analysis_result_no_decision_review_in_block',
     )
-    expect(setRunMeta).toHaveBeenCalledOnce()
-    const written = setRunMeta.mock.calls[0]![0] as {
+    expect(decisionReviewWrites(setRunMeta)).toHaveLength(1)
+    // ⚠ The PAIR's write, not `calls[0]` — positional indexing into a partial
+    // merge spy binds to whichever sibling happened to write first.
+    const written = decisionReviewWrites(setRunMeta)[0]! as unknown as {
       ceeReviewV1: unknown
       decisionReview030: { narrative_summary: string | null; hasProse: boolean } | null
     }

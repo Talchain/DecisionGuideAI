@@ -45,6 +45,7 @@
  * mutations are property assignments keyed by target_id.
  */
 import type { OlumiResponse, StageType, AnalysisStateV1 } from '@talchain/schemas/boundary'
+import { readEvidenceAssessment, type EvidenceAssessment } from './evidenceAssessment'
 import { AnalysisStateV1Schema, Stage } from '@talchain/schemas/boundary'
 import type { Edge, Node } from '@xyflow/react'
 
@@ -106,9 +107,16 @@ export interface V5ApplicatorStore {
   currentScenarioId?: string | null
   /** Partial merge into runMeta — only provided fields are updated. */
   setRunMeta: (meta: {
-    ceeReviewV1: CeeDecisionReviewPayloadV1 | null
+    ceeReviewV1?: CeeDecisionReviewPayloadV1 | null
     /** ROADMAP 2.154 — the 0.30 review view-model, or null to evict. */
-    decisionReview030: DecisionReview030 | null
+    decisionReview030?: DecisionReview030 | null
+    /**
+     * The evidence assessment read off this turn, or null to evict a previous
+     * run's. Optional like its siblings because this is a PARTIAL merge: a
+     * caller writing one field must not be forced to restate the others, which
+     * is how a write site ends up clearing something it never meant to touch.
+     */
+    evidenceAssessment?: EvidenceAssessment | null
   }) => void
   /** Write (or clear) the CEE analysis_ready payload that gates the run. */
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
@@ -1592,6 +1600,21 @@ export function applyV5State(
       // response carries no valid decision_review. The top-level fallback
       // below may still overwrite null if top-level enrichment is present.
       const blockEnrichment = block.enrichment
+      /**
+       * ⭐ THE EVIDENCE ASSESSMENT, WRITTEN ON EVERY ANALYSIS TURN.
+       *
+       * Value or null, never left stale — the same discipline the decision
+       * review below follows, and for the same reason: a stale assessment from
+       * a previous run would answer a question about THIS run.
+       *
+       * ⚠ THIS IS THE WRITE THAT WAS MISSING. `runMeta.m1Coaching` — the only
+       * thing that ever answered the evidence check — is written solely by
+       * `hydrateAnalysis`, the restore-from-Supabase path. Nothing wrote it on
+       * a live turn, so the check rendered "Evidence not assessed" on every
+       * real journey. Reading a narrow projected block here is what makes the
+       * question answerable at all.
+       */
+      store.setRunMeta({ evidenceAssessment: readEvidenceAssessment(blockEnrichment) })
       const appliedFromBlock = applyDecisionReviewToRunMeta(blockEnrichment, store, 'block')
       if (appliedFromBlock) {
         applied.push('analysis_result:decision_review:block')

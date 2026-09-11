@@ -52,6 +52,7 @@ import type {
   ConfidenceProvenance,
   ConditionalWinner,
   ConditionalWinnerBucket,
+  EvidenceGapItem,
 } from './types'
 import { normalizeAutoNoiseProvenance, normalizeHeadlineBanded } from './types'
 import {
@@ -1309,6 +1310,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     hasCompletedFirstRun,
     currentScenarioFraming,
     m1Coaching,
+    evidenceAssessment,
     reviewStatus,
     m1ReviewAssumptions,
     goalThreshold,
@@ -1332,6 +1334,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       hasCompletedFirstRun: s.hasCompletedFirstRun,
       currentScenarioFraming: s.currentScenarioFraming,
       m1Coaching: s.runMeta?.m1Coaching ?? null,
+      evidenceAssessment: s.runMeta?.evidenceAssessment ?? null,
       reviewStatus: s.runMeta?.reviewStatus,
       m1ReviewAssumptions: s.runMeta?.m1ReviewAssumptions ?? null,
       goalThreshold: s.goalThreshold,
@@ -2771,7 +2774,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // (Measured: at pristine this memo's exhaustive-deps warning named only
     // `reviewStatus`; without this entry the lane would have added `edges` to
     // it.)
-  }, [hasCompletedFirstRun, report, nodes, edges, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason, retainedAnalysisAdmission])
+  }, [hasCompletedFirstRun, report, nodes, edges, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, evidenceAssessment, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples, rawHeadlineBanded, rawRobustnessDisplayVerdict, rawRobustnessDisplayVerdictReason, retainedAnalysisAdmission])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)
@@ -3711,9 +3714,59 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // is deliberately the NARROW test (`Array.isArray`), not `m1Coaching !=
       // null`: it is true only when the producer actually sent the array, so
       // silence can never be read as an assessment.
-      evidenceGapsAssessed: Array.isArray(m1Coaching?.evidence_gaps),
+      /**
+       * ⭐ TWO ROUTES, ONE QUESTION, AND THE LIVE ONE WINS.
+       *
+       * `evidenceAssessment` is written by `applyV5State` on every V5 analysis
+       * turn; `m1Coaching` is written only by the restore-from-Supabase path
+       * (`hydrateAnalysis`) — re-derived; an earlier version of this note also
+       * named a direct `/v2/run` writer and no such writer exists. On a live journey the second is absent, which
+       * is why this check rendered "Evidence not assessed" on every run.
+       *
+       * The live block is preferred when present and the legacy read is kept as
+       * the fallback rather than deleted — the restore path still produces it,
+       * and deleting a working producer to make room for a new one is how a
+       * surface loses an answer it already had.
+       *
+       * ⚠ STILL THE NARROW TEST. `evidenceAssessment` is non-null only when the
+       * producer said it looked AND every gap parsed, so silence still cannot be
+       * read as an assessment.
+       */
+      evidenceGapsAssessed: evidenceAssessment != null || Array.isArray(m1Coaching?.evidence_gaps),
       // Task 4 (M1 Coaching): Evidence gaps - sorted by VOI descending, deduped by factor_id
       ...(() => {
+        if (evidenceAssessment != null) {
+          /**
+           * ⚠ `confidence: null` IS THE HONEST VALUE, NOT A PLACEHOLDER. The
+           * projected block carries no confidence — the Tier-3 ban keeps the
+           * quantities behind it — and `everyEvidenceGapAddressed` needs one to
+           * return true. So a run read through this route can render "Evidence
+           * gaps" and never "Evidence covered", which is correct: the producer
+           * told us a gap exists, not that anyone has closed it. A `?? 0` here
+           * would assert 0% confidence, which is the defect the nullable type
+           * was introduced to prevent.
+           */
+          const gaps: EvidenceGapItem[] = evidenceAssessment.gaps.map(
+            (g: { factorId: string; factorLabel: string }) => ({
+              factorId: g.factorId,
+              factorLabel: g.factorLabel,
+              /**
+               * ⚠ EVERY FIELD THE PROJECTION DOES NOT CARRY IS STATED AS ABSENT,
+               * NEVER AS A VALUE. `confidence` and `voi` are nullable precisely
+               * so "we were not told" cannot be rendered as a zero — that defect
+               * has shipped here before ("This factor has 0% confidence"), and a
+               * `?? 0` is what caused it. `suggestion` has no nullable form, so
+               * it takes the empty string the sibling path already uses for the
+               * same state (`gap.suggestion ?? ''`), and consumers already read
+               * empty as absent (`gap.suggestion || undefined`).
+               */
+              confidence: null,
+              voi: null,
+              suggestion: '',
+            }),
+          )
+          return { evidenceGaps: gaps, topEvidenceGaps: gaps.slice(0, 3) }
+        }
         const rawGaps = safeArray(m1Coaching?.evidence_gaps)
         if (rawGaps.length === 0) return {}
 
