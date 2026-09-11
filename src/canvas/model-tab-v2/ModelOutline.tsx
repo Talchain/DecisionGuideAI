@@ -223,7 +223,45 @@ export function outlineLayout(
         bucketFilter.group !== id ||
         unsetBucketOf(r) === bucketFilter.bucket
       const headingRows = rows.filter(r => r.group === id && matches(r))
-      const groupRows = headingRows.filter(inPressedBucket)
+      const narrowed = headingRows.filter(inPressedBucket)
+      /**
+       * ⭐⭐ A LENS THAT NAMES NOTHING IS NOT APPLIED — THE FILTER SUSPENDS
+       * ITSELF THE MOMENT ITS BUCKET EMPTIES.
+       *
+       * ⚠ THE CONDITION IS EXACTLY "THE PRESSED CLAUSE IS NO LONGER ON SCREEN",
+       * and that equivalence is the whole argument rather than a coincidence.
+       * `unsetClauses` emits a clause only where `unsetBucketOf` puts at least
+       * one of `headingRows` in that bucket; `narrowed` is those same rows read
+       * through the same function. So `narrowed.length === 0` for the pressed
+       * group holds if and only if the clause is not rendered — one predicate,
+       * asked twice, never two spellings of it (trap 12).
+       *
+       * ⚠ WITHOUT THIS THE FEATURE'S OWN SUCCESS PATH ENDS IN A TRAP. The reader
+       * presses `1 with no value yet`, supplies the value — which is precisely
+       * what the clause invited — and the bucket empties. The clause stops being
+       * emitted, so the control that lifts the filter disappears while the filter
+       * stays: heading `Factors, 3 elements, 2 estimated by Olumi` over a body
+       * reading `Nothing in this group yet`, 0 rows, `aria-expanded` still true.
+       * A reader may reasonably read that as their own edit having removed the
+       * rows. Recovery took two chevron presses and nothing on screen said so.
+       * This file's own rule — *a filter with no way back is a trap, and the
+       * pressed control is the way back* — was true at render time and false over
+       * time, and the defect sat exactly where the confidence was.
+       *
+       * ⚠ SCOPED TO THE PRESSED GROUP BY CONSTRUCTION, AND THAT MATTERS. For
+       * every other group `inPressedBucket` is already total, so `narrowed` IS
+       * `headingRows` and this line changes nothing — a group the search
+       * genuinely emptied still renders `No matches in this group` rather than
+       * having its rows dumped back. The repair is "release a lens that selects
+       * nothing", never "never show an empty group".
+       *
+       * ⚠ SUSPENDED, NOT DISCARDED. `pressedClause` is untouched, so a needle
+       * that hides the bucket and is then cleared returns the reader to the
+       * narrowing they asked for — with its clause back on screen. The state is
+       * never applied while the control that lifts it is absent, which is the
+       * invariant, stated as a property rather than as the failure mode.
+       */
+      const groupRows = narrowed.length === 0 ? headingRows : narrowed
       return {
         id,
         /**
@@ -608,15 +646,30 @@ export function ModelOutline({
             header container that keeps the identity assertion honest: the
             summary still belongs to THIS group's heading, by containment.
 
-            ⚠ THE PADDING MOVED FROM THE BUTTON TO THE CONTAINER, so the rendered
-            text sits exactly where it sat. What genuinely changed: the toggle's
-            hit area is its own text rather than the full panel width. That is a
-            real, small loss and it is stated rather than glossed — the empty
-            space to the right of the summary no longer toggles the group.
+            ⚠ THE PADDING IS SPLIT, AND THE VERTICAL HALF STAYS ON THE CONTROLS.
+            `px-2` is the ROW's inset and belongs to the container; `py-1.5` is
+            what gives each control its height and belongs to the control. An
+            earlier head of this change moved BOTH to the container, and measured
+            in real Chrome against this repo's own compiled stylesheet that took
+            the toggle's own border box from **31.25px to 19.25px** — under the
+            **24px** of WCAG 2.2 AA 2.5.8, the bar this estate already holds on
+            the canvas (`MIN_TARGET_RENDERED_PX`, `canvasGlyphScale.ts`). With
+            `items-baseline` the baseline sits the same distance from the row's
+            top either way, so the split restores the target without moving a
+            single glyph: measured 31.25 -> 19.25 -> 31.25, row height 31.25
+            throughout. `theCountIsTheWayIn.spec`'s `(g)` block REDs on a
+            regression.
+
+            ⚠ WHAT GENUINELY CHANGED, and the PR body understated it in two ways
+            before a review corrected them. The loss is HORIZONTAL only: the
+            toggle's hit area is its own text rather than the full panel width.
+            And those pixels were not empty — the summary span was INSIDE the
+            toggle at base, so they have not been vacated, they have changed
+            MEANING, from open-the-group to filter-the-group.
           */}
           <div
             data-testid={`model-group-heading-v2-${group.id}`}
-            className="flex w-full items-baseline px-2 py-1.5"
+            className="flex w-full items-baseline px-2"
           >
           <button
             type="button"
@@ -652,7 +705,12 @@ export function ModelOutline({
             aria-label={`${GROUP_TITLE[group.id]}, ${group.headingRows.length} ${
               group.headingRows.length === 1 ? 'element' : 'elements'
             }${unset === null ? '' : `, ${unset}`}`}
-            className={`${typography.panelHeader} text-text-header text-left`}
+            /* ⚠ `py-1.5` IS THE TARGET, NOT DECORATION. A button's hit area is
+               its own border box, so this 6px each side is what takes the
+               control from a 19.25px line box to 31.25px — over 2.5.8's 24px.
+               It used to sit on this element as part of `w-full px-2 py-1.5`
+               and must not drift back to the container. */
+            className={`${typography.panelHeader} text-text-header text-left py-1.5`}
           >
             {group.open ? '▾' : '▸'} {GROUP_TITLE[group.id]}
             <span className={`${typography.panelMeta} text-text-light ml-2`}>
@@ -749,7 +807,15 @@ export function ModelOutline({
                          the pressed state is a ring — neither touches the
                          ground, and `text-text-light` stays at its measured
                          5.23:1 on `--bg-panel` / 5.04:1 on `--bg-panel-hover`. */
-                      className={`${typography.panelMeta} text-text-light underline underline-offset-2 rounded-sm${
+                      /* ⚠ `py-1.5` FOR THE SAME REASON AS THE TOGGLE, and taken
+                         rather than argued. These clauses sit in a sentence, so
+                         they could plausibly claim 2.5.8's INLINE exception —
+                         but the exception is a defence, not a target, and 11px
+                         text gives a 15.125px box. 6px each side makes it
+                         27.125px and the question does not arise. The padding is
+                         on an inline-block, so it extends the box above and
+                         below the baseline without moving the text. */
+                      className={`${typography.panelMeta} text-text-light underline underline-offset-2 rounded-sm py-1.5${
                         pressedClause !== null &&
                         pressedClause.group === group.id &&
                         pressedClause.bucket === clause.bucket
