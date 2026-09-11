@@ -955,10 +955,41 @@ async function fetchReadiness(): Promise<void> {
           // `improvements` key at all; guarded because a producer that starts
           // sending an empty one would silently reinstate the defect.
           const fromImprovements = Array.isArray(data.improvements) && data.improvements.length > 0
+          /**
+           * ⛔ A QUALITY FACTOR WITH NO REMEDY IS DROPPED, NOT FABRICATED OVER.
+           *
+           * The per-item mapper below turns an entry carrying neither `action`
+           * nor `recommendation` into `IMPROVEMENT_ACTION_PLACEHOLDER` so the
+           * improvements LIST still renders a row — deliberate, and pinned by
+           * `readinessStore.improvementFabrication.spec.ts`. `composeBlockedReason`
+           * REFUSES that value, so on the path that fabrication was written for
+           * it is caught downstream.
+           *
+           * ⚠ BUT THIS CHANGE SWITCHES ON TWO CONSUMERS THAT HAVE NEVER RECEIVED
+           * ANYTHING, and only one of the three readers filters the placeholder:
+           * `composeBlockedReason.ts:430` does; `PreAnalysisHealth.tsx:169-176`
+           * and `useUnifiedActions.ts:176-177` do not. Making a previously-empty
+           * list non-empty therefore makes an unfiltered "Review this area"
+           * reachable AS IF IT WERE the producer's coaching. Raised by review of
+           * this PR; latent today because all six captured factors carry a
+           * `recommendation`.
+           *
+           * Filtering HERE rather than at the two readers keeps the fabrication
+           * exactly where it was written for — the `improvements` path is
+           * untouched, so its pin still holds — while ensuring nothing this arm
+           * introduces can be spoken as a remedy. A quality factor with no
+           * recommendation has no coaching to give; a row saying "Review this
+           * area" is worse than no row.
+           */
+          const usableQualityFactors = Array.isArray(data.quality_factors)
+            ? data.quality_factors.filter(
+                (q: any) => typeof q?.recommendation === 'string' && q.recommendation.trim().length > 0,
+              )
+            : null
           const raw: unknown = fromImprovements
             ? data.improvements
-            : Array.isArray(data.quality_factors)
-              ? data.quality_factors
+            : usableQualityFactors && usableQualityFactors.length > 0
+              ? usableQualityFactors
               : null
           return Array.isArray(raw)
           ? raw.map((imp: any): GraphImprovement => ({

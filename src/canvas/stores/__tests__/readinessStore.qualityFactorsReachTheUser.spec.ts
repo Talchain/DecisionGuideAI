@@ -176,6 +176,25 @@ describe("the producer's quality factors reach the user", () => {
     expect(improvements).toHaveLength(3)
   })
 
+  it('drops a quality factor with no remedy rather than fabricating one over it', async () => {
+    // Raised by review of this PR. The per-item mapper turns an entry with
+    // neither `action` nor `recommendation` into IMPROVEMENT_ACTION_PLACEHOLDER
+    // ("Review this area") so the LIST still renders a row — and only one of the
+    // three readers filters that value. Switching on two previously-empty
+    // consumers would have made it reachable as if it were producer coaching.
+    const improvements = await drive({
+      quality_factors: [
+        ...WIRE_QUALITY_FACTORS,
+        { factor: 'mystery_factor', impact: 'high', current_score: 10 },
+      ],
+    })
+
+    // The remedy-less entry is gone; the three real ones survive.
+    expect(improvements).toHaveLength(3)
+    expect(improvements.map(i => i.category)).not.toContain('mystery_factor')
+    expect(improvements.every(i => i.action !== IMPROVEMENT_ACTION_PLACEHOLDER)).toBe(true)
+  })
+
   it('CONTROL — neither field present still publishes an empty list', async () => {
     // Anti-vacuity: the fetch DID settle (the store holds a verdict), and only
     // then is the empty list meaningful rather than a sign nothing ran.
