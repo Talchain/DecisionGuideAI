@@ -106,13 +106,88 @@ export interface ModelBuildingNoticesView {
  * would fabricate detail the wire explicitly redacted (`details_redacted`).
  */
 const KIND_DESCRIPTIONS: Record<ModelBuildingNoticeKind, string> = {
-  detail_not_connected: "Details you mentioned that nothing connected to your goal",
-  relationship_not_used: "Relationships you described that the model doesn't use",
+  detail_not_connected: 'Details that nothing connected to your goal',
+  relationship_not_used: "Connections Olumi proposed but couldn't place in the model",
   alternative_consolidated: 'Overlapping alternatives folded into one option',
   conflict_resolved_conservatively:
-    "Points Olumi couldn't settle from your brief, so it took the cautious reading",
+    "Points Olumi couldn't settle, so it took the cautious reading",
   target_not_modelled_as_threshold: "Targets you set that the model doesn't test against",
   other: 'Other choices Olumi made while building the model',
+}
+
+/**
+ * ⭐⭐ WHOSE THE MISSING THING WAS — THE FIX FOR COPY THAT ATTRIBUTED OLUMI'S
+ * OWN INVENTIONS TO THE USER.
+ *
+ * The deployed headline read *"Olumi left 14 things FROM YOUR BRIEF out of this
+ * model"* and the modal row read *"Details YOU MENTIONED ..."*. Derived at the
+ * producer (`olumi-assistants-service` staging `7aa49ec8`), neither claim is
+ * one this wire can support:
+ *
+ *   relationship_not_used  ALL EIGHT reasons dispose of an EDGE, and an edge is
+ *                          never the user's. `ProjectedEdge.origin` is typed
+ *                          `"ai" | "default"` (`projector.ts:759`), so a
+ *                          user-authored edge IS NOT REPRESENTABLE; the only
+ *                          claim-derived mint is `origin: "ai",
+ *                          provenance_source: "inferred",
+ *                          provenance_class: "ai_inferred"` UNCONDITIONALLY
+ *                          (`:3029-3053`); and `DroppedRecordRef` is declared
+ *                          *"A reference THE MODEL EMITTED"* (`:351`).
+ *   detail_not_connected   MIXED, and undiscoverable here. The connectivity
+ *                          prune is `(n.kind === "factor" || n.kind ===
+ *                          "constraint") && !reachesGoal.has(n.id)`
+ *                          (`:3131-3133`) — NO provenance filter — and records
+ *                          `claim_kind: provenance_class === "stated"
+ *                          ? "stated_item" : "claim"` (`:3142`). Both.
+ *
+ * ⚠ AND `claim_kind` NEVER REACHES THIS WIRE. At the branch's own pinned
+ * contract (`vendor/talchain-schemas-0.55.0.tgz`, read at the tarball rather
+ * than `node_modules`, which is 46 minor versions stale here),
+ * `ModelBuildingNoticesSchema` carries `{ total_count, groups: [{ kind, count }],
+ * details_redacted: true }` and nothing else. So where a kind is mixed, the
+ * product does not know, and the copy must claim NEITHER.
+ *
+ * ⭐ THIS IS THE STANDARD THIS FILE ALREADY SET, APPLIED CONSISTENTLY. The
+ * demotion of `alternative_consolidated` above rests on exactly this argument.
+ *
+ * ⚠⚠ HONEST IN BOTH DIRECTIONS — DELETING EVERY ATTRIBUTION WOULD BE ITS OWN
+ * DEFECT. `target_not_modelled_as_threshold` is UNANIMOUSLY the user's: both
+ * reasons emit `claim_kind: "stated_item"` with the user's verbatim quote
+ * (`projector.ts:2618-2626`). "Targets YOU SET" is earned and is KEPT. A blanket
+ * ban on the second person would under-attribute a real loss of the user's own
+ * words, and would leave the guard unable to discriminate at all.
+ *
+ * ⚠ COMPLETENESS IS COMPILE-TIME (trap 12), as with `KIND_OUTCOME`: a seventh
+ * enum member FAILS TYPECHECK here rather than silently defaulting into
+ * `user_stated`, which is the direction that would hurt.
+ */
+export type ModelBuildingNoticeAttribution = 'user_stated' | 'olumi_authored' | 'mixed'
+
+const KIND_ATTRIBUTION: Record<ModelBuildingNoticeKind, ModelBuildingNoticeAttribution> = {
+  // The prune has no provenance filter; `claim_kind` is `stated_item` OR `claim`.
+  detail_not_connected: 'mixed',
+  // Every reason disposes of an edge, and no edge is user-authored.
+  relationship_not_used: 'olumi_authored',
+  // All three dispose of MODEL-emitted options.
+  alternative_consolidated: 'olumi_authored',
+  // `constraint_direction_unstated` is `stated_item`; the two parallel-conflict
+  // reasons are the model's own claims colliding. Mixed — claim neither.
+  conflict_resolved_conservatively: 'mixed',
+  // Both reasons emit `claim_kind: "stated_item"` with the user's own quote.
+  target_not_modelled_as_threshold: 'user_stated',
+  // `claim_label_not_a_name` is gated on `ai_inferred`; a STATED option is never
+  // dropped for budget; the merged factor is the model's restatement.
+  other: 'olumi_authored',
+}
+
+/**
+ * The ONLY kind -> attribution path. Unknown kinds are `mixed`, which is
+ * FAIL-CLOSED: an unrecognised kind may never be told to the user as their own.
+ */
+export function modelBuildingNoticeAttribution(kind: string): ModelBuildingNoticeAttribution {
+  return Object.prototype.hasOwnProperty.call(KIND_ATTRIBUTION, kind)
+    ? KIND_ATTRIBUTION[kind as ModelBuildingNoticeKind]
+    : 'mixed'
 }
 
 /**
@@ -120,8 +195,9 @@ const KIND_DESCRIPTIONS: Record<ModelBuildingNoticeKind, string> = {
  * THINGS STILL IN THE MODEL.
  *
  * Deployed on 11 Sep 2026, on a ~60-word brief: *"Olumi left 14 things from
- * your brief out of this model"*. Derived at the producer, NINE of the twenty
- * reasons CEE maps onto these six kinds describe content that IS IN THE GRAPH,
+ * your brief out of this model"*. Derived at the producer, NINE of the
+ * TWENTY-ONE reasons CEE maps onto these six kinds describe content that IS IN
+ * THE GRAPH,
  * and two whole kinds are unanimous about it. In the producer's own words:
  *
  *   constraint_direction_unstated  "The node keeps the user's words; the
@@ -248,12 +324,29 @@ export function describeModelBuildingNoticeKind(kind: string): string | null {
  * remains the producer's and is still rendered in full in the breakdown; what
  * changes is that the OMISSION CLAIM is scoped to the rows that support it.
  *
+ * ⭐⭐ AND IT SAYS NOTHING ABOUT WHOSE THE MISSING THINGS WERE. The deployed
+ * sentence was *"Olumi left 14 things FROM YOUR BRIEF out of this model"*, and
+ * `absentCountOf` counts exactly the two kinds for which that clause is false or
+ * unknowable — see `KIND_ATTRIBUTION`. Every kind in the `absent` bucket is
+ * `olumi_authored` or `mixed`, so the headline states the loss and stops. The
+ * row copy, which knows the KIND, carries what attribution the producer earns.
+ *
  * ⚠ THE ZERO-ABSENT ARM IS NOT A REASSURANCE, AND MUST NEVER BECOME ONE. When
  * nothing is unanimously missing the line says what Olumi DID, not that the
  * brief survived intact — a completeness claim here would be built on kinds
  * that are MIXED, i.e. on items that may well be missing. It also may not mint
  * "left 0 things out": the file's two standing fabrication bans apply to this
  * arm exactly as they apply to an absent payload.
+ *
+ * ⚠⚠ AND IT IS ASSERTED POSITIVELY, WHICH IT WAS NOT. A post-merge audit
+ * replaced this whole arm with `return ''` and ALL 44 tests across the three
+ * notices specs stayed GREEN — every assertion touching it was a NEGATIVE
+ * (`not.toMatch(/left \d+/)`), and a negative passes on the empty string. The
+ * arm fires on `total_count: 1`, the most likely draft of all, and an emptied
+ * one renders a toggle with NO ACCESSIBLE NAME. Pinned as whole-string
+ * equalities and by accessible name in
+ * `modelBuildingNotices.attributionIsEarned.spec.tsx` (trap 13: an absence
+ * proved with no positive control proves nothing).
  *
  * Mirrors the established receipt phrasing ("Olumi made N adjustments to keep
  * the model valid") so the two disclosures read as one voice.
@@ -263,8 +356,8 @@ export function modelBuildingNoticesSummary(view: ModelBuildingNoticesView): str
 
   if (absent > 0) {
     return absent === 1
-      ? 'Olumi left 1 thing from your brief out of this model'
-      : `Olumi left ${absent} things from your brief out of this model`
+      ? 'Olumi left 1 thing out of this model'
+      : `Olumi left ${absent} things out of this model`
   }
 
   return view.totalCount === 1

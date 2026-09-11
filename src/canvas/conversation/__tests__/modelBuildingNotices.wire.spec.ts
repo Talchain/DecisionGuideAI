@@ -163,9 +163,10 @@ describe('modelBuildingNotices copy — ⭐ user-facing strings stay human', () 
         groups: [{ kind: 'relationship_not_used', count }],
         details_redacted: true,
       })
-    expect(modelBuildingNoticesSummary(absent(1))).toContain('1 thing from your brief')
+    // ⚠ WHOLE-STRING both ways: `toContain('4 things')` passes on "14 things".
+    expect(modelBuildingNoticesSummary(absent(1))).toBe('Olumi left 1 thing out of this model')
     expect(modelBuildingNoticesSummary(absent(1))).not.toContain('1 things')
-    expect(modelBuildingNoticesSummary(absent(4))).toContain('4 things')
+    expect(modelBuildingNoticesSummary(absent(4))).toBe('Olumi left 4 things out of this model')
   })
 
   it('the pointer names a conversational action, not a control this notice renders', () => {
