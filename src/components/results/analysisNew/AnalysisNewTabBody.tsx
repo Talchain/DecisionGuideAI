@@ -157,22 +157,51 @@ export interface AnalysisNewTabBodyProps {
    */
   onReanalyse?: () => void
   /**
-   * ⭐⭐ THE DOCK'S ROUTE TO THE ESTIMATES — the act that answers a withheld
-   * leader designation. `AtAGlance` renders the producer's refusal sentence,
-   * which names its remedy in words and can reach it from nowhere; this is the
-   * move that goes there.
+   * ⭐⭐ THE DOCK'S ROUTE TO THE ESTIMATES — the FALLBACK half of the act that
+   * answers a withheld leader designation. `AtAGlance` renders the producer's
+   * refusal sentence, whose words name their own remedy ("until you have set at
+   * least one of them"); this prop is where a reader goes when they cannot set
+   * one where they already are.
    *
-   * ⚠ THE DOCK OWNS IT, NOT THIS FILE, AND THAT IS THE POINT. The destination
-   * is the outputs dock's own active tab plus the Model tab's pending section —
-   * both `useUIStore` state that `OutputsDock` already holds and already writes
-   * for its sibling handlers. `useUIStore` is imported NOWHERE under
-   * `components/results/analysisNew/`; threading the handler keeps it that way,
-   * so the tab that renders the sentence does not also become an authority on
-   * where the dock is pointing. Same shape as `onReanalyse` and `onSendMessage`
-   * directly above and below.
+   * ⚠⚠ AMENDED 11 Sep 2026 — THIS SAID the sentence "names its remedy in words
+   * and can reach it from nowhere; this is the move that goes there", i.e. that
+   * this prop was the ONLY way to reach an estimate. True the day it was written
+   * and false the next morning: the value control on "what I estimated" shipped
+   * onto THIS tab, about two sections below that button, so the remedy is now
+   * reachable in page. `reviewEstimates` in the body composes the two and tries
+   * the in-page act FIRST — its derivation is there, beside the composition.
+   * Left standing, this rationale would have taught the next reader the exact
+   * mental model that produced the defect this change exists to close
+   * (CLAUDE.md trap 21).
    *
-   * Absent = `AtAGlance` renders the refusal sentence with no control, which is
-   * the honest render — never a dead button.
+   * ⚠ THE DOCK OWNS IT, NOT THIS FILE, AND THAT IS THE POINT — UNMOVED BY THE
+   * AMENDMENT ABOVE. The destination is the outputs dock's own active tab plus
+   * the Model tab's pending section — both `useUIStore` state that `OutputsDock`
+   * already holds and already writes for its sibling handlers. `useUIStore` is
+   * imported NOWHERE under `components/results/analysisNew/`; threading the
+   * handler keeps it that way, so the tab that renders the sentence does not
+   * also become an authority on where the dock is pointing. Same shape as
+   * `onReanalyse` and `onSendMessage` directly above and below.
+   *
+   * ⚠ AMENDED 11 Sep 2026 — THIS SAID "Absent = `AtAGlance` renders the refusal
+   * sentence with no control", AND THAT IS NO LONGER WHAT ABSENCE MEANS. This
+   * prop's absence now decides nothing on its own: the body hands `AtAGlance`
+   * its own `reviewEstimatesHere` whenever this tab holds an act, so with this
+   * prop absent and `estimatedActIsAvailable` true the control RENDERS and the
+   * press is served in page. That is the case `refusalActStaysOnTheTab.spec.tsx`
+   * pins as `offers the act even where the host has no route at all`.
+   *
+   * The sentence renders alone only where there is NEITHER an in-page act NOR
+   * this prop. The in-page act is absent in three separately-pinned states: the
+   * canvas no longer holds the node the manifest names; the manifest was never
+   * written (it is a cold-read snapshot — `serverGraphHydration` reaches
+   * `setContextIntegrity` only on `status === 'graph'` — so a freshly-drafted
+   * decision lists no estimated factors at all); or there is no conversation to
+   * carry the edit. The neither-state is pinned beside them as `renders the
+   * sentence alone when there is neither an act here nor a route`. Note that
+   * `AtAGlance` also renders no control unless `designationWithheldRemedy ===
+   * 'estimate'` — that is its gate on the CAUSE, not this prop's. Still
+   * fail-closed, still never a dead button.
    */
   onReviewEstimates?: () => void
   /**

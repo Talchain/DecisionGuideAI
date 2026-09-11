@@ -149,7 +149,15 @@ export function factorValueControlOffers(
  * ⚠ THE NAME IS TAKEN FROM THE CALLER'S OWN LABELS, because every surface that
  * needs this question already holds them (CEE supplies the label beside the
  * `node_id`). A caller with no label for a row should not pass one, and the
- * rule will answer `false` for it — the same answer the control would give.
+ * rule will answer `false` for it — which UNDER-answers the control rather than
+ * matching it (⚠ AMENDED 11 Sep 2026: this said "the same answer the control
+ * would give", which is backwards). `FactorValueControl` falls back to the
+ * canvas node's own label — `name = label ?? storeLabel` — so a row with no
+ * caller label but a named node would get a control while this hook reports
+ * none. Unreachable from today's only caller, whose `InferredFactor.label` is a
+ * non-optional `string`, and it errs toward the fallback route, which is the
+ * safe direction; it is an asymmetry to close at the call site if a caller ever
+ * omits a label, never by re-spelling the rule here.
  */
 export function useAnyFactorValueControlOffered(
   rows: ReadonlyArray<{ nodeId: string; label?: string }>,
