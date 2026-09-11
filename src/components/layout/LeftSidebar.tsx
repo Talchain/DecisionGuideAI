@@ -11,6 +11,7 @@ import Tooltip from '../Tooltip'
 import styles from './CanvasFloatingToolbar.module.css'
 import { LensDropdown } from '../../canvas/components/LensDropdown'
 import { LENS_TOGGLE_EVENT } from '../../canvas/hooks/useCanvasKeyboardShortcuts'
+import { showCanvasUndoUnavailableNotice } from '../../canvas/useKeyboardShortcuts'
 import { useCanvasStore } from '../../canvas/store'
 import { useComparisonStore } from '../../canvas/stores/comparisonStore'
 import { isGraphLensEnabled } from '../../flags'
@@ -29,6 +30,17 @@ interface LeftSidebarProps {
   // Disabled states
   canUndo?: boolean
   canRedo?: boolean
+  /**
+   * ⚠ TWO DIFFERENT QUESTIONS, NAMED APART ON PURPOSE — collapsing them is
+   * the bug. `canUndo` answers *"would clicking perform an undo right now?"*
+   * and is false for an empty history, which is an ordinary, temporary state
+   * that a greyed button describes perfectly well. These answer *"does this
+   * canvas have an undo capability at all?"* — a standing fact about the
+   * build, not about the session. Only the second warrants explaining itself,
+   * and only the second may make the button reachable.
+   */
+  undoUnavailable?: boolean
+  redoUnavailable?: boolean
 }
 
 export function LeftSidebar({
@@ -39,6 +51,8 @@ export function LeftSidebar({
   onRedoClick,
   canUndo = true,
   canRedo = true,
+  undoUnavailable = false,
+  redoUnavailable = false,
 }: LeftSidebarProps) {
   const [lensOpen, setLensOpen] = useState(false)
   const viewBtnRef = useRef<HTMLButtonElement | null>(null)
@@ -108,36 +122,86 @@ export function LeftSidebar({
         </Tooltip>
 
         {/* ⚠ NO KEYBOARD SHORTCUT IS NAMED HERE, AND THAT IS THE POINT.
-            These tooltips read "Undo (⌘Z)" / "Redo (⌘⇧Z)" while both buttons
-            are PERMANENTLY disabled and both shortcuts are dead:
-            `ReactFlowGraph` passes `canUndo={CANVAS_SEMANTIC_MUTATIONS_CONNECTED
-            && canUndo()}` and `useKeyboardShortcuts` gates its undo and redo
-            branches on the same constant — `hasServerGraphAuthority(
-            CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations)`, an authority
-            fixed at `'disabled'`. The tooltip is still reachable on a disabled
-            button because `Tooltip` attaches its hover reference to a WRAPPER
-            div, so this was a live promise of a key that does nothing.
-            Do not re-add a shortcut here until the shortcut works. */}
+            These tooltips once read "Undo (⌘Z)" / "Redo (⌘⇧Z)" while both
+            shortcuts were dead: `useKeyboardShortcuts` gates its undo and redo
+            branches on `hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY
+            .canvasSemanticMutations)`, an authority fixed at `'disabled'`. The
+            tooltip is reachable even on a disabled button, because `Tooltip`
+            attaches its hover reference to a WRAPPER div, so that was a live
+            promise of a key that does nothing.
+            Do not re-add a shortcut here until the shortcut works.
+
+            ⭐ WHAT CHANGED, AND WHY THE BUTTONS ARE NO LONGER GREY.
+            The tooltip repair left the second half of the same false promise
+            standing: `ReactFlowGraph` passes `canUndo={
+            CANVAS_SEMANTIC_MUTATIONS_CONNECTED && canUndo()}`, which folds to
+            `false`, so the owner saw a permanently greyed control and read it
+            — correctly — as "there is nothing to undo yet". There is no undo
+            at all, which is a different sentence, and the button was the last
+            surface still declining to say it.
+
+            The keyboard already answers this gesture rather than swallowing
+            it (`useKeyboardShortcuts`, the `!canMutateSharedModel` branch), so
+            these buttons now answer it the SAME way, through the SAME
+            function — no new copy, no second branch to keep in step.
+
+            ⚠ TWO IN-TREE PRECEDENTS POINT OPPOSITE WAYS AND THE CHOICE IS
+            DELIBERATE — do not "tidy" this back to a disabled button. The
+            context menu DELETES its undo/redo entries outright; the keyboard
+            ANSWERS the gesture. The distinction is discoverability: a menu
+            entry is only ever seen by someone who opened the menu, so
+            removing it removes the promise with it. A sidebar button is
+            standing chrome — it has already been seen, and has already set
+            the expectation that undo exists here. Deleting it would answer
+            the owner's question by hiding it; greying it answers by implying
+            an emptiness that is not the reason. Answering is right here.
+
+            ⚠ `undoUnavailable`, NOT `!canUndo`, DECIDES THIS. An empty
+            history keeps the ordinary greyed button — see the props above.
+            And the day `canvasSemanticMutations` becomes `'server_graph'`,
+            the call site's flag folds the other way, this branch stops firing
+            on its own and real undo takes over. There is no second place to
+            remember to update. */}
         <Tooltip content="Undo">
           <button
             type="button"
             className={styles.iconButton}
             aria-label="Undo"
-            onClick={onUndoClick}
-            disabled={!canUndo}
+            onClick={undoUnavailable ? showCanvasUndoUnavailableNotice : onUndoClick}
+            /* Reachable, so the sentence can be got at by click AND by
+               keyboard — but never advertised as operable. `aria-disabled`
+               carries that to assistive tech while leaving the control in the
+               tab order, the same idiom `ApplyAndRerunButton` uses in
+               `TornadoChart` for a control that is present and not operable.
+               Native `disabled` cannot be used: it removes the button from
+               the tab order and `pointer-events: none` would swallow the very
+               click that explains the limitation. */
+            aria-disabled={undoUnavailable ? true : undefined}
+            disabled={undoUnavailable ? false : !canUndo}
           >
             <Undo2 className={styles.icon} aria-hidden="true" />
           </button>
         </Tooltip>
 
-        {/* Same reasoning as the Undo tooltip above. */}
+        {/* Same reasoning as the Undo tooltip above — including the notice.
+            ⚠ THIS IS NOT NEW COPY, IT IS THE SAME SENTENCE, and that is a
+            derived result rather than a convenience: `isUndoRedoGesture`
+            returns true for ⌘Y and ⌘⇧Z as well as ⌘Z, so the keyboard already
+            answers BOTH halves of this gesture with
+            `canvasUndoUnavailableNotice()`. There is no separate redo notice
+            because the product has never needed one — the sentence names the
+            capability that is absent and points at Version history, and both
+            buttons are absent for exactly the same reason. Inventing a redo
+            variant would be writing copy to fill a symmetry nothing asked
+            for. */}
         <Tooltip content="Redo">
           <button
             type="button"
             className={styles.iconButton}
             aria-label="Redo"
-            onClick={onRedoClick}
-            disabled={!canRedo}
+            onClick={redoUnavailable ? showCanvasUndoUnavailableNotice : onRedoClick}
+            aria-disabled={redoUnavailable ? true : undefined}
+            disabled={redoUnavailable ? false : !canRedo}
           >
             <Redo2 className={styles.icon} aria-hidden="true" />
           </button>
