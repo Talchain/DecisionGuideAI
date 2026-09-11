@@ -210,6 +210,29 @@ export function signedScalarText(
  *
  * Absence semantics preserved: never derived, never defaulted — a factor
  * row with NO finite metric at all is simply absent from the map.
+ *
+ * ⏳ PRODUCTION-ORPHANED, KEPT ON PURPOSE — WITH A RE-SURFACE TRIGGER.
+ *
+ * As of the v1 Model-tab removal (2026-09-11) this function has NO production
+ * caller; its consumers went with that stack. It is kept on fitness-for-v2
+ * grounds (§7.5 KEEP `utils.ts`) as a pure, tested helper the v2 outline may
+ * consume — a judgement, not a pin, so it gets a trigger rather than an
+ * open-ended reprieve.
+ *
+ * RE-SURFACE TRIGGER — whichever comes first:
+ *   (a) DEPENDENCY — the v2 outline (`src/canvas/model-tab-v2/`) orders, ranks
+ *       or badges factors by influence. That is the moment this policy either
+ *       becomes the implementation or is contradicted by a second one, and two
+ *       influence policies under one product is the defect this module's own
+ *       "ONE policy" note above exists to prevent.
+ *   (b) DATE — 2026-12-11 (three months), after which the fitness-for-v2
+ *       premise has not held and is no longer a reason to keep it.
+ *
+ * ACTION WHEN IT FIRES: wire it, or delete it with `deriveFactorInfluenceMap.spec.ts`.
+ *
+ * ⚠ `OutputsDock.tsx:1979-1993` and `analysisNew/analysisNewTypes.ts:304` mention
+ * this function in COMMENTS only — they are doctrine cross-references, not call
+ * sites, and must not be mistaken for live consumers.
  */
 export function deriveFactorInfluenceMap(report: unknown): Map<string, number> | undefined {
   if (report == null || typeof report !== 'object') return undefined

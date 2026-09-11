@@ -171,8 +171,23 @@ describe('no EVPI figure reaches a display module', () => {
   it('POSITIVE CONTROL: the scanner sees files and the matcher fires on the removed code', () => {
     const files = trackedDisplaySources()
     expect(files.length).toBeGreaterThan(500)
+    // TWO anchors, one per DISPLAY TREE. `isExempt()` is a hand-maintained
+    // prefix list, and the failure it can produce is an over-broad prefix that
+    // silently drops a whole tree from the scan — after which the absence
+    // assertion below passes by reading nothing. One anchor per tree is what
+    // makes that visible.
     expect(files).toContain('src/components/results/useResultsSectionData.ts')
-    expect(files).toContain('src/canvas/components/model-tab/FactorsSection.tsx')
+    // ⚠ RE-POINTED BY THE v1 MODEL-TAB REMOVAL, and the scope change is stated
+    // rather than slipped in. This anchor was `model-tab/FactorsSection.tsx`,
+    // which is DELETED with the v1 stack. Deleting the line outright would have
+    // been the WRONG repair: it is this guard's only proof that the CANVAS
+    // display tree is scanned at all, so dropping it would leave the absence
+    // assertion below unable to distinguish "no EVPI in canvas" from "canvas
+    // never scanned" — the exact vacuity class this file's header is about.
+    // Re-pointed at `ModelHealthSection.tsx`: same directory, same tree, a live
+    // display component with 14 importers, and EVPI-clean, so it tests the
+    // scanner's REACH without weakening what is forbidden.
+    expect(files).toContain('src/canvas/components/model-tab/ModelHealthSection.tsx')
 
     // Verbatim lines deleted by this change. If the matcher cannot see these,
     // the suite below proves nothing.
