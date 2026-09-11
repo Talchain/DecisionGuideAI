@@ -90,6 +90,12 @@ beforeEach(() => {
   // field. Leaving it to the reset would let one case's report reach the next
   // and make the no-report case pass for the wrong reason.
   useCanvasStore.setState({ results: { status: 'idle', progress: 0 } as never })
+  // ⚠ AND `reset()` DOES NOT CLEAR `analysisFreshnessDirty` EITHER — the SAME
+  // trap as `results.report` above, found the same way: the three tests that
+  // expect a clear began failing the moment a case set the flag, because it
+  // survived into them. A local-edit window leaking across cases would make
+  // every later "it clears" read as a guard failure.
+  useCanvasStore.setState({ analysisFreshnessDirty: false })
 })
 
 describe('a readable permitting verdict restores what an unreadable one withdrew', () => {
@@ -145,6 +151,57 @@ describe('the restore reaches the PERSISTED record — the blocking finding on t
     restoreAnalysisFromAutosave(loadAutosave(), useCanvasStore.getState().resultsLoadHistorical)
 
     expect(permissionNow()).toBeNull()
+  })
+})
+
+describe('the local-edit window — a permission about a graph CEE has not seen', () => {
+  /**
+   * ⛔⛔ BLOCKING 2 FROM REVIEW. The scenario, in full, because the guard is
+   * meaningless without it:
+   *
+   *   CEE withholds; the stamp is applied. The user edits a factor value, so
+   *   `analysisFreshnessDirty` goes true and CEE has NOT ingested it. The user
+   *   asks an ordinary follow-up. CEE composes `analysis_state` from ITS OWN
+   *   PRE-EDIT GRAPH, reads the separation fine, and LEGITIMATELY sends
+   *   `permitted: true, requires_rerun: false, blocked_unusable: false`. All
+   *   three of the other guards pass honestly, the stamp clears, and a leader is
+   *   crowned on numbers the user has since changed — while the freshness strip
+   *   on the SAME SCREEN reports the run as stale.
+   *
+   * ⚠ `requires_rerun` DOES NOT COVER IT. That is the producer's statement about
+   * its own graph. This is the client's knowledge of an edit the producer has
+   * not seen, and a producer cannot report staleness it is unaware of.
+   *
+   * ⭐ THE PRECONDITION IS WITNESSED, NOT ASSUMED. On deployed `c5b5e86a`,
+   * setting ONE factor value through Review-change → Confirm left
+   * `analysisFreshnessDirty: true` — the single act the product's own refusal
+   * copy instructs the user to perform.
+   */
+  it('refuses to clear while the client holds an edit CEE has not ingested', () => {
+    seedHeldReportWithWithholding()
+    useCanvasStore.setState({ analysisFreshnessDirty: true })
+
+    useCanvasStore.getState().resultsRestoreLeaderClaim(settled() as never)
+
+    expect(permissionNow()).toEqual({ permitted: false, withheld_reason: 'leader_claim_withheld' })
+  })
+
+  it('CONTRAST CONTROL: the SAME verdict clears once the window is closed', () => {
+    // ⚠ Without this the test above passes for any reason at all — a fixture
+    // that never permitted, a guard that rejects everything. The discrimination
+    // is that ONE field differs between the two cases and the outcome flips.
+    seedHeldReportWithWithholding()
+    useCanvasStore.setState({ analysisFreshnessDirty: false })
+
+    useCanvasStore.getState().resultsRestoreLeaderClaim(settled() as never)
+
+    expect(permissionNow()).toBeNull()
+  })
+
+  it('PRECONDITION PIN: the flag is really set, so the refusal above is the guard and not the fixture', () => {
+    seedHeldReportWithWithholding()
+    useCanvasStore.setState({ analysisFreshnessDirty: true })
+    expect(useCanvasStore.getState().analysisFreshnessDirty).toBe(true)
   })
 })
 

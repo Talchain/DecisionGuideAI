@@ -56,9 +56,22 @@ export const LEADER_CLAIMABLE_RUN_STATE_KINDS = ['complete_current', 'complete_s
  * above is the only predicate — it exists so "every kind is classified" is a
  * checkable claim rather than an assumption.
  *
- * `complete_stale` sits in the CLAIMABLE set rather than here because staleness
- * is already answered one seam earlier, by the `requires_rerun` conjunct: a
- * permission about a moved model is rejected before this gate is reached.
+ * ⚠ `complete_stale` SITS IN THE CLAIMABLE SET, AND THE REASON FIRST WRITTEN HERE
+ * WAS WRONG. It said staleness "is already answered one seam earlier, by the
+ * `requires_rerun` conjunct". **That premise does not hold**, and a review
+ * challenged exactly it: `requires_rerun` is the PRODUCER's statement about its
+ * OWN persisted graph. `AnalysisStateV1` carries no graph hashes
+ * (`applyScenarioAnalysisRead.ts:570-578`), and the canvas is a merge containing
+ * local-only content the client cannot prove equal — so, in
+ * `analysisStateSelector.ts:564-570`'s words, an edit the producer has not been
+ * told about is "THE ONE THING THE PRODUCER CANNOT KNOW… a producer cannot
+ * contradict it, because it has not been shown it."
+ *
+ * So staleness is answered by TWO separate facts, not one: `requires_rerun` for
+ * the graph the producer knows it moved, and `analysisFreshnessDirty` for the
+ * edit it has never seen. The second is enforced in `resultsRestoreLeaderClaim`
+ * as a fourth conjunct; `complete_stale` is admissible here only because BOTH
+ * are checked before this set is consulted.
  */
 export const LEADER_UNCLAIMABLE_RUN_STATE_KINDS = [
   'never_run',
@@ -5533,6 +5546,39 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const runStateKind = (v as { run_state?: { kind?: unknown } }).run_state?.kind
     if (typeof runStateKind !== 'string') return false
     if (!(LEADER_CLAIMABLE_RUN_STATE_KINDS as readonly string[]).includes(runStateKind)) return false
+
+    // ⛔⛔ THE LOCAL-EDIT WINDOW — BLOCKING 2 FROM REVIEW, AND THE PRECONDITION IS
+    // WITNESSED ON THE DEPLOYED BUILD, NOT MERELY DERIVED.
+    //
+    // THE FAILURE IT CLOSES: CEE withholds; the stamp is applied. The user edits
+    // a factor value, so `analysisFreshnessDirty` goes true and CEE has NOT
+    // ingested it. The user asks an ordinary follow-up. CEE composes
+    // `analysis_state` from ITS OWN PRE-EDIT GRAPH, reads the separation fine,
+    // and legitimately sends `permitted: true, requires_rerun: false,
+    // blocked_unusable: false` — all three guards above pass, honestly. Step 5c
+    // would clear the stamp and `OptionNode` would crown a leader computed on
+    // numbers the user has since changed, WHILE THE FRESHNESS STRIP ON THE SAME
+    // SCREEN REPORTS THE RUN AS STALE. Two surfaces, one screen, opposite claims.
+    //
+    // ⭐ THE PRECONDITION IS NOT HYPOTHETICAL. Measured on deployed `c5b5e86a`:
+    // setting ONE factor value through the Model tab's Review-change → Confirm
+    // flow left `analysisFreshnessDirty: true`. That is the single act the
+    // product's own refusal copy instructs the user to perform ("no option can
+    // be called the leader until you have set at least one of them"), so the
+    // dirty window sits directly on the path this whole change exists to serve.
+    //
+    // ⚠ `requires_rerun` DOES NOT COVER THIS. That is the PRODUCER's statement
+    // about its own graph; this is the CLIENT's knowledge of an edit the
+    // producer has not seen. A producer cannot report staleness it is unaware
+    // of — which is precisely why the client half is the one that must gate.
+    //
+    // ⚠ READ, NEVER RE-DERIVED. `analysisFreshnessDirty` is the store's own
+    // overlay and the shared authority; `v5/blocks/coachingCurrency.ts` takes
+    // the same field as data for this same question and its header forbids
+    // recomputing it. Read here through `get()` rather than from the applicator's
+    // spread snapshot, so the value is the one live AT THE MOMENT OF THE
+    // DECISION, and so every caller of this action is gated — not only step 5c.
+    if (get().analysisFreshnessDirty === true) return false
 
     const held = get().results.report
     if (!held) return false
