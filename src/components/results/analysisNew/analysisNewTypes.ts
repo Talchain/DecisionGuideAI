@@ -23,6 +23,7 @@ import type { DriversSectionData, InferenceWarning, ZeroReasonCode } from '../ty
 import type { CritiqueWarningEntry } from '../CritiqueWarningStrip'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import type { ComparisonScope } from '../utils/goalAnchorCopy'
+import type { NamedMaterialParameter } from './materialParametersAwaitingUser'
 
 /**
  * How confident the SURFACE is entitled to sound — never an "AI confidence".
@@ -1127,6 +1128,22 @@ export interface AtAGlance {
    * `withheldReasonHasAMove.spec.tsx`.
    */
   designationWithheldRemedy: GlanceWithheldRemedy | null
+  /**
+   * WHICH parameters the refusal above is about, named — empty when the
+   * producer does not publish them, when the set is empty, or when anything
+   * about it is unreadable.
+   *
+   * ⛔ THE WHOLE SET OR NOTHING. The producer publishes these in GRAPH ORDER
+   * and ranks nothing, so a surface may render them as a set and may NEVER
+   * present a member as the one to do first. See
+   * `materialParametersAwaitingUser.ts` for why that is the binding constraint
+   * rather than a style preference.
+   *
+   * ⚠ ONLY POPULATED WHEN `designationWithheldRemedy === 'estimate'`. The other
+   * refusals do not ask for an estimate, and naming factors under them would
+   * prescribe a futile act — the same defect the remedy split exists to close.
+   */
+  designationWithheldParameters: readonly NamedMaterialParameter[]
   /**
    * The leading option's LABEL alone, so the surface can typeset the name as
    * the answer and choose its own framing verb. Same source as `headline`

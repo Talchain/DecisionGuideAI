@@ -39,11 +39,18 @@ import { typography } from '../../../../styles/typography'
 import { ComparisonScopeNote } from '../../ComparisonScopeNote'
 import { EXCLUDED_LABEL_NAME_CAP } from '../../utils/goalAnchorCopy'
 import { NOT_ANALYSED_BADGE } from '../../utils/notAnalysedCopy'
-import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
+import { ANALYSIS_NEW_COPY as COPY, formatConjunctionList } from '../analysisNewCopy'
 import { GLANCE_PROVENANCE_COPY } from '../glanceProvenanceCopy'
 import { methodForRecommendation } from '../recommendationMethod'
 import type { AtAGlance as AtAGlanceModel } from '../analysisNewTypes'
 import { inset, PANEL_INSET_ACTION } from '../panelSurfaces'
+
+/**
+ * How many parameter names fit before the line stops being readable. Four is a
+ * layout judgement, not a claim about the set — the remainder is disclosed,
+ * never dropped.
+ */
+const WITHHELD_PARAMETER_CAP = 4
 
 /** Verdict tone → the accent that carries it. */
 const TONE_PILL: Record<string, string> = {
@@ -798,6 +805,39 @@ export function AtAGlance({
               refusal that names an option are both reasons to render the
               sentence alone, but they are not the same reason, and collapsing
               them would put one predicate where two belong. */}
+          {/* ── WHICH PARAMETERS, NAMED ─────────────────────────────────
+              ⛔ THE WHOLE SET, NEVER A MEMBER. CEE publishes these in GRAPH
+              ORDER and computes no priority over them, so rendering one as
+              "the place to start" would be the arbitrary row dressed as the
+              answer that the block above forbids. The builder returns the set
+              or nothing; this renders the set or nothing.
+
+              ⚠ THE CAP IS THE CONSUMER'S AND IT DISCLOSES ITSELF. Four names
+              plus "and N more" — a reader can see the list is cut. The
+              PRODUCER may not cap for exactly the inverse reason: a truncated
+              wire list is an understatement nothing downstream can detect. */}
+          {glance.designationWithheldParameters.length > 0 ? (
+            <p
+              className={`${typography.panelMeta} mt-1 text-text-light`}
+              data-testid={`${testId}-withheld-parameters`}
+            >
+              {COPY.glance.withheldParametersLeadIn}{' '}
+              <span className="text-text-body">
+                {formatConjunctionList([
+                  ...glance.designationWithheldParameters
+                    .slice(0, WITHHELD_PARAMETER_CAP)
+                    .map((p) => p.label),
+                  ...(glance.designationWithheldParameters.length > WITHHELD_PARAMETER_CAP
+                    ? [
+                        COPY.glance.withheldParametersMore(
+                          glance.designationWithheldParameters.length - WITHHELD_PARAMETER_CAP,
+                        ),
+                      ]
+                    : []),
+                ])}
+              </span>
+            </p>
+          ) : null}
           {onReviewEstimates && glance.designationWithheldRemedy === 'estimate' ? (
             <button
               type="button"
