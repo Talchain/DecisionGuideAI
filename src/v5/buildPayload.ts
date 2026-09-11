@@ -34,6 +34,11 @@ import type {
 import { ActionType, Intent } from '@talchain/schemas/boundary'
 
 import type { SystemEvent } from '../canvas/conversation/types'
+import {
+  isSendableAnalysisId,
+  isSendableFindingId,
+  isSendableStatement,
+} from '../canvas/conversation/findingDissent'
 // The endpoint-id rules are the CONTRACT's, defined once beside the capture
 // that produces them — restating them here would be a mirror, and a drifted
 // copy would put a 422-shaped id on the wire.
@@ -471,6 +476,35 @@ function systemEventToPayload(args: {
       const event = adaptOptionInterventionEdit(eventPayload)
       if (event === null) return null
       return { ...base, event }
+    }
+    case 'finding_dissent': {
+      // schemas 0.55.0. The user's stated reason for disagreeing with a
+      // finding, carried VERBATIM.
+      //
+      // ⚠ FAIL-CLOSED, AND THE `null` IS LOAD-BEARING. It routes to
+      // `unsupported_system_event`, i.e. NO TURN AT ALL — which is the correct
+      // outcome for every refusal here, because each one means the event would
+      // have been rejected by CEE's `.strict()` member and taken the whole turn
+      // (422) with it. The surface has already kept the user's words locally by
+      // the time this runs, so a refusal costs a send and nothing else.
+      //
+      // ⚠ THE PREDICATES ARE IMPORTED, NOT RESPELLED. `commitDispute` asks the
+      // same three questions to decide whether it may show the stronger copy.
+      // Two hand-kept copies of one predicate is how a surface ends up
+      // promising something the wire refused — see `findingDissent.ts`.
+      const finding_id = stringField(eventPayload, 'finding_id')
+      const analysis_id = stringField(eventPayload, 'analysis_id')
+      const statement = stringField(eventPayload, 'statement')
+      if (!isSendableFindingId(finding_id)) return null
+      // ⚠ `''` before a run and the literal `'error'` on a failed one are both
+      // real values of the hash this id is taken from. Neither is an analysis
+      // id, and a placeholder here would commit a dangling reference to a
+      // long-lived fact row.
+      if (!isSendableAnalysisId(analysis_id)) return null
+      // ⚠ NOT TRIMMED. The words are the record; the predicate asks its
+      // question of a trimmed copy and this sends the original.
+      if (!isSendableStatement(statement)) return null
+      return { ...base, event: { kind: 'finding_dissent', finding_id, analysis_id, statement } }
     }
     case 'feedback_submitted': {
       // F7 (feedback thumbs = wire): map the UI's optimistic thumbs event onto

@@ -7,7 +7,53 @@ identically from a normal clone, a CI checkout, and any worktree.
 
 ## Current contents
 
-### `talchain-schemas-0.54.0.tgz` ← **THE CURRENT PIN**
+### `talchain-schemas-0.55.0.tgz` ← **THE CURRENT PIN**
+
+**Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF — not a local re-pack.**
+Downloaded from GitHub Packages at
+`https://npm.pkg.github.com/download/@talchain/schemas/0.55.0/06d04f693ae47d12660d3b98d8ca73da8e757466`
+— the tarball `npm publish` produced from `olumi-schemas` `main`
+**`a016076f10f1845df2d6367e3cfa848f6c60d1c2`** (tag `v0.55.0`; the registry's own
+`gitHead` binds that commit). **508,334 bytes.** Verified three ways against the
+registry's published metadata, all exact:
+
+```
+npm shasum (sha1)  06d04f693ae47d12660d3b98d8ca73da8e757466
+integrity (sha512) sha512-pCfgES4b58MqILdMD8KIkdZ1uzeRz0FHGZuvENDfNyfHzPDBR+SE6fPg8cbywe3XwrDvn2geA0tpZ9PavGY7oQ==
+sha256             ea61d924a44722e327963455682aeb84a29d80a05848b7215e590ca2b72fad00
+```
+
+Same DOWNLOAD procedure as 0.54.0 below, not the PACK procedure used for 0.47.0
+— these prove different things and must not be described as one another.
+
+**WHY THE PIN MOVED, and it was not optional.** 0.55.0 adds
+`SystemEventSchema#finding_dissent`, the first wire shape for a human's STATED
+REASON, and `HandlerFactSchema#finding_dissent`, its persistence half. The UI's
+`v5/buildPayload` takes its wire type from `SystemEventTurnPayload['event']` in
+THIS PACKAGE, so at 0.54.0 the emitter could not be expressed at all: the
+typecheck gate rejected `kind: 'finding_dissent'` as not assignable to the
+0.54.0 union (`buildPayload.ts(493,34)`, TS2322). A cast would have been a type
+lie at exactly the seam where the contract is the authority, so the pin moved.
+
+**Blast radius, derived rather than assumed.** The 0.55.0 changelog states the
+release is **additive**: two union members appended last, and "no existing
+member's shape, field set, bounds or union ORDER changes". Both new members are
+`.strict()` and the unions are discriminated on `kind`/`fact_type`, so no
+existing consumer's parse can change behaviour — a member nothing emits is
+unreachable. The two members ride ONE version bump deliberately: CEE
+contract-validates every judgement fact against `HandlerFactSchema` BEFORE
+committing and that check is **fail-closed**, so a wire member published without
+its fact member would refuse the whole commit as a typed 500.
+
+⚠⚠ **READER-FIRST. This pin does not make the emitter safe to deploy.** Every
+member of `SystemEventSchema` is `.strict()` inside a `discriminatedUnion` on
+`kind`, so a CEE pinned ≤ 0.54.0 that receives `finding_dissent` fails the
+DISCRIMINATOR and rejects the **WHOLE TURN** (422) — not just this field. The
+contract states the order in terms: publish 0.55.0 → CEE re-vendors and deploys
+a reader → only then the UI emitter ships. CEE's reader is
+`olumi-assistants-service` **#1445**, OPEN at the time of writing.
+
+### `talchain-schemas-0.54.0.tgz` (historical — superseded by 0.55.0)
 
 **Provenance: THE PUBLISHED REGISTRY ARTEFACT ITSELF — not a local re-pack.**
 Downloaded from GitHub Packages at
@@ -37,7 +83,7 @@ misleads whoever does the next re-vendor. `package.json` is the operative fact;
 this file is a description of it, so the description is corrected here rather
 than left to drift a fourth time.
 
-### `talchain-schemas-0.47.0.tgz` (historical — superseded by 0.50.0, then 0.54.0)
+### `talchain-schemas-0.47.0.tgz` (historical — superseded by 0.50.0, then 0.54.0, then 0.55.0)
 
 **Provenance: PACKED FROM THE MERGED, TAGGED RELEASE.** Packed from
 `olumi-schemas` **`main` @ `1ab64dff1c49c9c2db07b87d7a4bb4e0215dddcb`**, tag

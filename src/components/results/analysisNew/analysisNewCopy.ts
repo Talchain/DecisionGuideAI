@@ -407,13 +407,110 @@ export const ANALYSIS_NEW_COPY = {
   dissent: {
     open: 'I disagree',
     edit: 'Edit what you said',
-    /** Placed on the textarea. States what happens, so saving is not a guess. */
+    /**
+     * Placed on the textarea. States what happens, so saving is not a guess.
+     *
+     * ⚠⚠ APPENDED, NOT REWRITTEN: THIS IS NOW HALF OF A PAIR, AND FOR A WHOLE
+     * SESSION IT WAS THE ONLY HALF. The sentence above is the original and it
+     * is still exactly right — for the state where nothing is sent. What made
+     * it a privacy falsehood was shipping `finding_dissent` beneath it: the
+     * user composed their words under an explicit promise of locality and the
+     * words then went to the server, with the only sentence saying so rendering
+     * AFTER the send. Consent that arrives after the fact is not consent, and a
+     * deliberate widening the user is not told about at the moment of decision
+     * is indistinguishable, from their side, from a leak.
+     *
+     * ⚠ SO THIS ONE IS NOW SCOPED RATHER THAN CHANGED. It renders when the send
+     * will NOT happen, where it remains true and must stay: no dispatcher
+     * mounted (the intermediate deploy state, and any route without a
+     * `ConversationProvider`), no run identity yet, or a failed run whose hash
+     * is the literal 'error'.
+     */
     prompt: 'Why? This stays on the card in this browser.',
+    /**
+     * ⭐⭐ THE SAME PROMPT, FOR THE STATE WHERE THE WORDS WILL TRAVEL. It is the
+     * disclosure, and it is the ONLY one the user gets before they type.
+     *
+     * ⚠⚠ WHICH OF THE TWO RENDERS IS DECIDED BY `isSendableAddress` — THE SEND'S
+     * OWN PREDICATE, IMPORTED, NOT A COPY OF IT. A second predicate written
+     * beside the first is how this sentence would quietly become false again:
+     * it would agree on the day it was written and drift. `findingDissent.ts`
+     * owns the question and `buildFindingDissentEvent` consumes the same call.
+     *
+     * ⚠ IT STATES THE ACTION, NOT THE STORAGE, which is `guestStorageClaims.ts`'s
+     * own standing rule and not a house style: every positive claim about where
+     * a user's work lives has eventually been found false in this estate. "Sent
+     * to Olumi" is what the product does and is observable; "no longer only in
+     * this browser" is a claim about storage the client cannot check.
+     *
+     * ⚠ AND IT PROMISES NOTHING FURTHER — not that the team can read it, not
+     * that it changes the finding, not that anything improves. The register is
+     * `targetOutcome.dispatched` and `modelStrip.valueDispatched`, whose shared
+     * first sentence is exactly 'Sent to Olumi.'; their SECOND sentence is not
+     * borrowed, because "the shared model updates when it answers" is a promise
+     * this surface has not measured.
+     *
+     * ⚠ IT IS ALLOWED TO OVER-WARN AND IT CANNOT UNDER-WARN, by construction:
+     * the address is a strictly WIDER condition than the send (see
+     * `isSendableAddress`). A blank or over-long statement, a board with no
+     * persisted identity, or a decision switched mid-compose all leave the words
+     * local after this sentence has warned they would travel. That direction is
+     * the safe one and is pinned in `dissentReachesTheModel.spec.tsx`.
+     */
+    promptSendsToOlumi: 'Why? This stays on the card and is sent to Olumi.',
     notSaved: 'Not saved for next time. Your words are still here. Retry, or copy them before leaving.',
     sessionOnly: 'Kept in this tab only.',
     scenarioChanged: 'The model on screen changed. Your words have not been saved to it. Copy them or return to the original model before retrying.',
     save: 'Record this',
     cancel: 'Cancel',
+    /**
+     * ⭐⭐ THE ONLY SENTENCE ON THIS SURFACE THAT MAY CLAIM THE WORDS LEFT THE
+     * BROWSER, AND IT RENDERS ONLY AFTER A SEND HAS ACTUALLY RESOLVED.
+     *
+     * ⚠⚠ THE TWO HALVES DEPLOY INDEPENDENTLY, so this copy has to be true at
+     * every intermediate state — including UI-live-but-CEE-not-yet, where the
+     * `finding_dissent` reader does not exist and no send can succeed. That is
+     * why the claim is bound to the OUTCOME rather than to the attempt: no
+     * dispatcher mounted, no real analysis id, a refused build, a rejected
+     * turn, or a reload all leave `sessionOnly` standing. A UI asserting a
+     * server capability that is dark is the defect class this estate keeps
+     * shipping, and the fix is not a better sentence, it is a later one.
+     *
+     * ⚠ IT DOES NOT SAY "SAVED", following `targetOutcome.dispatched` and
+     * `modelStrip.valueDispatched` verbatim in register, and for the reason
+     * their own comments give: "Saved" reports an outcome the client did not
+     * observe. What IS observed at the moment this renders is narrower and
+     * exactly stated — the turn was sent and Olumi answered without refusing
+     * it, so these words are no longer only in this browser.
+     *
+     * ⚠ AND IT PROMISES NOTHING FURTHER. Not that the team can see it yet, not
+     * that it changes the finding, not that anything improves. The dissent is
+     * a record of what a human said; claiming more would be inventing a fact on
+     * the one surface whose whole job is not to.
+     *
+     * ⚠⚠ THE SECOND CLAUSE IS GONE, AND THE RECORD OF WHAT IT SAID STAYS ABOVE.
+     * As first shipped this read 'Sent to Olumi, so this is no longer only in
+     * this browser.' and it turned `Full Test Suite (shard 4/4)` RED at
+     * 374a40ff: `guestStorageClaims.spec.ts` sweeps every tracked non-test file
+     * under `src/` and bans the phrase outright, so the offender was this file.
+     *
+     * ⚠ AND THE BAN IS RIGHT HERE EVEN THOUGH THE CLAUSE WAS NOT FALSE. The
+     * pattern is direction-blind — it cannot tell a locality claim from its
+     * negation — but the remedy is the one that guard's own header prescribes,
+     * "state the action, not the storage", and NOT an entry in
+     * `GUEST_STORAGE_CLAIM_ADJUDICATED`: adjudicating would exempt this entire
+     * 1,600-line copy table from the estate's only locality guard to protect one
+     * sentence, so every future false claim on this tab would pass unseen. The
+     * clause was also the weaker half of the sentence: 'Sent to Olumi' is an
+     * observed action, and 'no longer only in this browser' is a claim about
+     * server-side storage this client never checked.
+     *
+     * ⚠ NOTHING IS LOST BY DROPPING IT, because the disclosure moved to where it
+     * belongs. `promptSendsToOlumi` now tells the user the words will travel
+     * BEFORE they type them, which is the moment that decides anything; this
+     * sentence only has to report the outcome.
+     */
+    sentToOlumi: 'Sent to Olumi.',
     /** Prefix on the standing objection. The user's own words follow. */
     standing: 'You disagreed',
     /**
