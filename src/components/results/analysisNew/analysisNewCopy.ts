@@ -414,6 +414,32 @@ export const ANALYSIS_NEW_COPY = {
     scenarioChanged: 'The model on screen changed. Your words have not been saved to it. Copy them or return to the original model before retrying.',
     save: 'Record this',
     cancel: 'Cancel',
+    /**
+     * ⭐⭐ THE ONLY SENTENCE ON THIS SURFACE THAT MAY CLAIM THE WORDS LEFT THE
+     * BROWSER, AND IT RENDERS ONLY AFTER A SEND HAS ACTUALLY RESOLVED.
+     *
+     * ⚠⚠ THE TWO HALVES DEPLOY INDEPENDENTLY, so this copy has to be true at
+     * every intermediate state — including UI-live-but-CEE-not-yet, where the
+     * `finding_dissent` reader does not exist and no send can succeed. That is
+     * why the claim is bound to the OUTCOME rather than to the attempt: no
+     * dispatcher mounted, no real analysis id, a refused build, a rejected
+     * turn, or a reload all leave `sessionOnly` standing. A UI asserting a
+     * server capability that is dark is the defect class this estate keeps
+     * shipping, and the fix is not a better sentence, it is a later one.
+     *
+     * ⚠ IT DOES NOT SAY "SAVED", following `targetOutcome.dispatched` and
+     * `modelStrip.valueDispatched` verbatim in register, and for the reason
+     * their own comments give: "Saved" reports an outcome the client did not
+     * observe. What IS observed at the moment this renders is narrower and
+     * exactly stated — the turn was sent and Olumi answered without refusing
+     * it, so these words are no longer only in this browser.
+     *
+     * ⚠ AND IT PROMISES NOTHING FURTHER. Not that the team can see it yet, not
+     * that it changes the finding, not that anything improves. The dissent is
+     * a record of what a human said; claiming more would be inventing a fact on
+     * the one surface whose whole job is not to.
+     */
+    sentToOlumi: 'Sent to Olumi, so this is no longer only in this browser.',
     /** Prefix on the standing objection. The user's own words follow. */
     standing: 'You disagreed',
     /**

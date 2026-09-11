@@ -68,6 +68,8 @@ import { NodeMark, markKindForTarget } from '../nodeMarks'
 import { planPreview } from '../previewComposition'
 import { useStrengthenStore, selectHistory, recordKey } from '../../../../canvas/stores/strengthenStore'
 import { recordDissent, readDissent, dissentCurrency } from '../../../../canvas/stores/dissentStore'
+import { useOptionalConversationContext } from '../../../../canvas/conversation/ConversationContext'
+import { buildFindingDissentEvent } from '../../../../canvas/conversation/findingDissent'
 import { useCanvasStore } from '../../../../canvas/store'
 
 export interface StrengthenTheReasoningProps {
@@ -288,6 +290,36 @@ export function StrengthenTheReasoning({
    */
   const [dissentEpoch, setDissentEpoch] = useState(0)
   /**
+   * ⭐⭐ THE SEND, AND WHY THE SURFACE HOLDS ITS OUTCOME RATHER THAN ASSUMING IT.
+   *
+   * `sendSystemEvent` is taken through the OPTIONAL context on purpose: this
+   * component renders inside `OutputsDock`, which is not guaranteed to sit
+   * under a `ConversationProvider` on every route. An absent dispatcher is a
+   * legitimate state, not an error — it means the dissent is browser-local on
+   * this surface today, and the copy must go on saying exactly that.
+   */
+  const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
+  /**
+   * ⭐⭐ THE SET OF FINDINGS WHOSE DISSENT THIS SESSION ACTUALLY GOT ONTO THE
+   * WIRE — the ONLY thing that licenses the stronger sentence.
+   *
+   * ⚠⚠ IT IS KEYED BY RECOMMENDATION ID AND IT IS DELIBERATELY NOT PERSISTED,
+   * AND BOTH HALVES ARE THE HONESTY.
+   *
+   *   · KEYED BY ID, because a boolean would let a successful send on one
+   *     finding label a DIFFERENT finding's local-only dissent as sent. Binding
+   *     by identity is the rule this estate has paid to learn; a value predicate
+   *     another object could satisfy is how a test — and a sentence — ends up
+   *     true of the wrong thing.
+   *   · NOT PERSISTED, because on the next mount we know only that a local
+   *     record exists; we do NOT know that any server still holds it, and there
+   *     is no read-back to ask. Re-asserting "sent" from a remembered flag would
+   *     be claiming a server state observed in a previous session and never
+   *     since. After a reload the honest sentence is the local one, so that is
+   *     what renders.
+   */
+  const [sentFindingIds, setSentFindingIds] = useState<ReadonlySet<string>>(() => new Set())
+  /**
    * ⚠⚠ THE SCENARIO ID IS A DEPENDENCY, AND LEAVING IT OUT WAS A REAL BUG.
    *
    * Recommendation ids carry NO scenario component — `strengthen:robustness`,
@@ -499,9 +531,89 @@ export function StrengthenTheReasoning({
         setDissentSaveError(COPY.dissent.notSaved)
         return
       }
+      /**
+       * ⭐⭐ AND TO THE SHARED MODEL, so the words reach the user's team rather
+       * than dying in this browser. schemas 0.55.0 `finding_dissent`.
+       *
+       * ⚠⚠ THE LOCAL RECORD IS ALREADY WRITTEN BY THE TIME THIS RUNS, AND THE
+       * ORDER IS THE POINT. Losing what someone typed because a POST failed is
+       * the worst outcome available on this surface, so the send is strictly
+       * ADDITIVE: every failure path below leaves the durable record intact and
+       * the user's words on screen, and changes only which sentence sits beside
+       * them. Nothing here can subtract.
+       *
+       * ⚠ THE ADDRESS IS BOTH IDS, BOUND BY IDENTITY. `rec.id` is the finding's
+       * own id — never its label and never the rendered sentence, both of which
+       * this panel truncates. `context.analysisHash` is the run it was rendered
+       * from, taken from the SAME snapshot the local record was stamped with, so
+       * the two records cannot disagree about which analysis was on screen.
+       *
+       * ⚠⚠ AND IT IS GUARDED, NOT ASSUMED. `buildFindingDissentEvent` returns
+       * null when the run identity is not real — `''` before a run and the
+       * literal `'error'` on a failed one are both live values of that hash —
+       * or when the statement is blank or over the contract's bound. A null is
+       * not an error to report at the user: the dissent is recorded locally,
+       * exactly as it was before this lane, and the copy stays local. A
+       * placeholder id would commit a claim the user never made to a fact row
+       * that outlives every session able to correct it.
+       */
+      const event = buildFindingDissentEvent({
+        findingId: rec.id,
+        analysisId: context.analysisHash,
+        // ⚠ THE UNTRIMMED DRAFT. The words are the record; the builder asks its
+        // non-blank question of a trimmed copy and sends this one.
+        statement: draft,
+      })
+      if (sendSystemEvent && event) {
+        const findingId = rec.id
+        void Promise.resolve(sendSystemEvent(event))
+          .then((outcome) => {
+            /**
+             * ⚠⚠ A RESOLUTION IS NOT A SEND, AND THE PREDICATE IS THE
+             * PRODUCER'S OWN RATHER THAN MY READING OF IT.
+             *
+             * `SendTurnOutcome` is declared `SEND_DEFERRED | SEND_BLOCKED |
+             * undefined`, and its own comment states the rule in terms:
+             * "`undefined` is the only accepted/dispatched outcome". So the
+             * test is written against THAT, not against the failure mode I
+             * happened to have in mind.
+             *
+             * ⚠ AN EARLIER CUT OF THIS LINE EXCLUDED ONLY `SEND_BLOCKED`, AND
+             * IT WAS WRONG IN THE DIRECTION THAT LIES. `SEND_DEFERRED` means
+             * the event was QUEUED behind an in-flight turn and has reached no
+             * server either — it resolves without rejecting, so the card would
+             * have announced "sent to Olumi" about an event still sitting in a
+             * client-side queue. Excluding one named failure admits every
+             * failure nobody named; asserting the success value admits none.
+             */
+            if (outcome !== undefined) return
+            setSentFindingIds((prev) => {
+              const next = new Set(prev)
+              next.add(findingId)
+              return next
+            })
+          })
+          .catch(() => {
+            /**
+             * ⚠ SWALLOWED ON PURPOSE, AND IT IS NOT SILENCE.
+             *
+             * The user's words are already durable and already on screen; the
+             * only thing this rejection changes is that the stronger sentence
+             * does not appear, so the card goes on saying the local truth. That
+             * IS the report — it is visible, it is accurate, and it costs the
+             * user nothing.
+             *
+             * ⚠⚠ AND NOTHING IS LOGGED HERE. The rejection carries the turn,
+             * and the turn carries the statement, which may contain PII;
+             * schemas 0.55.0 licenses persisting those words as authored user
+             * content but explicitly not "re-emitting the text into telemetry
+             * or logs". A `console.error(err)` on this line would be the leak.
+             */
+          })
+      }
       closeDispute()
     },
-    [dispute, seedIfAbsent, draft, closeDispute, activeScenarioId],
+    [dispute, seedIfAbsent, draft, closeDispute, activeScenarioId, sendSystemEvent],
   )
 
   /**
@@ -1066,7 +1178,30 @@ export function StrengthenTheReasoning({
                       {COPY.dissent.standing}:{' '}
                     </span>
                     {standingDispute}
-                    {!activeScenarioId ? (
+                    {/* ⭐⭐ ONE SENTENCE ABOUT WHERE THESE WORDS LIVE, AND THE
+                        STRONGER ONE IS EARNED RATHER THAN ASSUMED.
+
+                        `sentFindingIds` holds only findings whose send this
+                        session actually resolved as dispatched, keyed by the
+                        finding's own id. So the stronger sentence cannot appear
+                        because a SIBLING card's send succeeded, because a
+                        dispatcher happens to be mounted, or because the attempt
+                        was made — only because this finding's dissent reached
+                        Olumi and Olumi did not refuse it.
+
+                        ⚠ THE TWO HALVES DEPLOY INDEPENDENTLY. Until CEE's
+                        `finding_dissent` reader is live no send can succeed, so
+                        every card here keeps the local wording — which is what
+                        makes this copy true at the intermediate deploy state as
+                        well as the final one. */}
+                    {sentFindingIds.has(rec.id) ? (
+                      <span
+                        className={`${typography.panelMeta} text-text-light ml-1`}
+                        data-testid={`${testId}-disagreement-sent`}
+                      >
+                        {COPY.dissent.sentToOlumi}
+                      </span>
+                    ) : !activeScenarioId ? (
                       <span className={`${typography.panelMeta} text-text-light ml-1`}>
                         {COPY.dissent.sessionOnly}
                       </span>

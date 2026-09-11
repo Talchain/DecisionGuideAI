@@ -1,0 +1,167 @@
+/**
+ * findingDissent — the ONE definition of when a user's stated disagreement is
+ * sendable, and the shape it takes on the wire.
+ *
+ * ⭐ WHY THIS IS A MODULE AND NOT TWO PREDICATES AT TWO CALL SITES. The
+ * sendability question is asked twice by construction: once at the surface
+ * (`StrengthenTheReasoning.commitDispute`, which must decide whether it may
+ * show the stronger copy) and once at the wire (`v5/buildPayload`, which is
+ * fail-closed and must never hand CEE a member it will reject). Two hand-kept
+ * copies of one predicate is this estate's chronic defect — the same concept
+ * under two keys, drifting apart until a consumer states something false. They
+ * import the SAME predicates from here, so they cannot disagree.
+ *
+ * ── ⚠⚠ WHAT THE STATEMENT IS, AND WHAT MAY BE DONE TO IT ──────────────────
+ * `statement` is the user's reason VERBATIM. It is the field Paul's ruling of
+ * 2026-09-11 authorises persisting, and the words themselves are the record.
+ *
+ *   · It is NEVER trimmed, collapsed, case-folded or otherwise normalised on
+ *     its way to the wire. `isSendableStatement` asks its question of a TRIMMED
+ *     COPY and `buildFindingDissentEvent` sends the ORIGINAL. A blank-looking
+ *     statement is REFUSED, not tidied: the contract's `.min(1)` alone would
+ *     admit `" "`, so the non-blank test is taken here as well as there.
+ *   · It MAY CONTAIN PII. The schemas 0.55.0 changelog is explicit that the
+ *     widening "licenses persistence as authored user content; it does not
+ *     license re-emitting the text into telemetry or logs, which is the half of
+ *     R-004 that still stands." So it must not reach telemetry, analytics,
+ *     Sentry or any `console.*`. Nothing in this module logs it, and the one
+ *     debug path the send touches redacts it — see the `finding_dissent` arm of
+ *     `recordCrossSurfaceEvent` in `useConversation.sendSystemEvent`.
+ *
+ * ── ⚠ WHY THE LENGTH BOUND IS ENFORCED HERE AND NOT ONLY AT CEE ───────────
+ * The contract bounds `statement` at 2000 characters and the textarea that
+ * produces it has no `maxLength`. Every member of `SystemEventSchema` is
+ * `.strict()` inside a `discriminatedUnion`, so an over-long statement does not
+ * fail as one bad field — CEE rejects the WHOLE TURN (422). Refusing to send is
+ * strictly better than a rejected turn, because the local record survives
+ * either way and only one of the two costs the user a turn.
+ *
+ * ⚠ THE BOUND IS A MIRROR OF THE CONTRACT'S `MAX_STATED_REASON` AND CANNOT BE
+ * DERIVED FROM IT AT THIS PIN. The UI vendors `@talchain/schemas` 0.54.0, which
+ * predates this member; the constant is exported from 0.55.0's
+ * `boundary/turn-payload.ts` and binds the persistence side by construction
+ * there. Until the UI re-vendors 0.55.0 this literal is a hand-maintained
+ * mirror, which is a defect class this estate pays for, so it is declared as
+ * one rather than left to look derived. `findingDissent.contract.spec.ts` pins
+ * the value with the reason, and the re-vendor should replace this with the
+ * import.
+ */
+
+import type { WireSystemEvent } from './types'
+
+/** schemas 0.55.0 `MAX_STATED_REASON`. Mirrored, not derived — see the header. */
+export const MAX_DISSENT_STATEMENT = 2000
+
+/**
+ * Values `results.hash` takes that are NOT an analysis id.
+ *
+ * ⚠ `'error'` IS A REAL VALUE ON THE REAL PATH, not a defensive invention.
+ * `createErrorReport` (`adapters/plot/v2/responseMapper.ts`) sets
+ * `model_card.response_hash: 'error'`, `applyV5State` reads exactly that field
+ * into `resultsComplete({ hash })`, and the Reasoning tab is handed it as
+ * `analysisHash`. So a user who disagrees with a finding after a FAILED run
+ * would address their dissent to the literal string `error` — a dangling
+ * reference CEE could never resolve, committed as a long-lived fact.
+ *
+ * ⚠ AND THE EMPTY STRING, which reaches the same place by a different door:
+ * absent and blank are both "no run identity established". The contract's
+ * `.min(1)` catches `''` at CEE, but only after the turn has been spent.
+ */
+const PLACEHOLDER_ANALYSIS_IDS: ReadonlySet<string> = new Set(['error'])
+
+/**
+ * Is this value a real analysis id, i.e. one a dissent may be addressed to?
+ *
+ * Fail-CLOSED: anything that is not a non-blank, non-placeholder string is NOT
+ * sendable. A dissent with no run to hang on is recorded locally and says so;
+ * inventing a placeholder would put a claim the user never made into a fact row
+ * that outlives every session that could correct it.
+ */
+export function isSendableAnalysisId(value: string | null | undefined): value is string {
+  if (typeof value !== 'string') return false
+  const trimmed = value.trim()
+  if (trimmed.length === 0) return false
+  return !PLACEHOLDER_ANALYSIS_IDS.has(trimmed)
+}
+
+/** A finding id is sendable when it is a non-blank string. ID-addressed only. */
+export function isSendableFindingId(value: string | null | undefined): value is string {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+/**
+ * Is the statement sendable?
+ *
+ * ⚠ ASKED OF A TRIMMED COPY, ANSWERED ABOUT THE ORIGINAL. The trim exists to
+ * reject whitespace-only text; it never reaches the wire. The length bound is
+ * measured on the ORIGINAL, because the original is what CEE receives and
+ * therefore what its `.max()` will measure.
+ */
+export function isSendableStatement(value: string | null | undefined): value is string {
+  if (typeof value !== 'string') return false
+  if (value.trim().length === 0) return false
+  return value.length <= MAX_DISSENT_STATEMENT
+}
+
+/**
+ * Drop a stated reason from anything on its way into DEBUG STATE, keeping a
+ * presence marker in its place.
+ *
+ * ⭐ THE `*_present` SHAPE IS R-004'S OWN, REUSED RATHER THAN REINVENTED. CEE's
+ * standing privacy rule reads: "the fact records `comment_present`, NEVER the
+ * comment text — the user's free text may contain PII and a fact row is
+ * long-lived and widely read." schemas 0.55.0 widened that rule for the WIRE
+ * and for PERSISTENCE, and its changelog is explicit about what the widening
+ * does NOT cover: "it does not license re-emitting the text into telemetry or
+ * logs, which is the half of R-004 that still stands." This is that half.
+ *
+ * ⚠ IT REDACTS THE KEY UNCONDITIONALLY, NOT ONLY FOR `finding_dissent`, AND
+ * THE ASYMMETRY IS DELIBERATE. Keying the redaction on the event type would
+ * mean a future member carrying a `statement` leaks by default until someone
+ * remembers to extend a list — the hand-maintained mirror this estate pays for,
+ * placed on the one field where the cost of drift is a user's private words.
+ * The two errors are not equal: over-redacting debug state loses a field nobody
+ * reads, and under-redacting it puts PII somewhere long-lived. No other member
+ * of `WIRE_SYSTEM_EVENT_TYPES` carries a `statement`, so the cost today is nil.
+ *
+ * Returns the payload UNCHANGED (same reference) when there is no `statement`,
+ * so no other event's debug record is disturbed.
+ */
+export function redactStatedReason(
+  payload: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!payload || !('statement' in payload)) return payload
+  const { statement, ...rest } = payload
+  return { ...rest, statement_present: typeof statement === 'string' && statement.length > 0 }
+}
+
+export interface FindingDissentInput {
+  findingId: string | null | undefined
+  analysisId: string | null | undefined
+  /** The user's words. Passed through VERBATIM when sendable. */
+  statement: string | null | undefined
+}
+
+/**
+ * Build the `finding_dissent` system event, or `null` when any half of the
+ * address or the statement itself is not sendable.
+ *
+ * A `null` return is the instruction "record locally and leave the copy at its
+ * local wording". It is never an error to report at the user, and it must never
+ * be routed around by substituting a placeholder.
+ */
+export function buildFindingDissentEvent(input: FindingDissentInput): WireSystemEvent | null {
+  const { findingId, analysisId, statement } = input
+  if (!isSendableFindingId(findingId)) return null
+  if (!isSendableAnalysisId(analysisId)) return null
+  if (!isSendableStatement(statement)) return null
+  return {
+    type: 'finding_dissent',
+    payload: {
+      finding_id: findingId,
+      analysis_id: analysisId,
+      // ⚠ THE ORIGINAL, NOT THE TRIMMED COPY. The words are the record.
+      statement,
+    },
+  }
+}

@@ -331,6 +331,24 @@ describe('what actually pins the model-changing set', () => {
       'direct_graph_edit',
       'edge_adjudication',
       'feedback_submitted',
+      // ⭐ THE GUARD FIRED AGAIN (2026-09-11, schemas 0.55.0) AND THIS IS THE
+      // ADJUDICATION IT DEMANDED: HELD-OUT, and pinned positively here so a
+      // later regression to held fails rather than passing quietly.
+      //
+      // A `finding_dissent` is a record of WHAT A HUMAN SAID. It writes no
+      // graph — the contract member carries no `base_graph_hash` at all, and
+      // its own comment gives the reason: five members carry that field as a
+      // STALE GATE whose rule is "CEE MUST refuse on divergence", and applying
+      // it to a dissent would refuse a true statement of what a person said
+      // because the graph had moved underneath it.
+      //
+      // ⚠ SO HOLDING WOULD BE THE LIE HERE, not the safe direction. The hold
+      // exists because a verdict computed without a pending GRAPH CHANGE is a
+      // statement about a different graph. Nothing about a dissent changes the
+      // graph, so holding on one would fabricate "Model changed since this
+      // analysis" over a run that genuinely is current — the same lie the
+      // hold exists to prevent, pointing the other way.
+      'finding_dissent',
       'patch_accepted',
       'patch_dismissed',
       'prior_range_edit',

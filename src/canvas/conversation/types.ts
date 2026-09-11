@@ -1124,6 +1124,29 @@ export const WIRE_SYSTEM_EVENT_TYPES = [
   // DISCRIMINATOR and rejects the WHOLE turn (422). CEE's reader and its route
   // arm must serve before this emitter ships.
   'option_intervention_edit',
+  // schemas 0.55.0 — the FIRST wire shape for a human's STATED REASON, and the
+  // close of "I told the system it was wrong and my words died in my browser".
+  // A dissent typed on the Reasoning tab terminates at `localStorage.setItem`
+  // today: invisible to the team, lost on a browser clear, and absent from the
+  // model the team is supposed to be reasoning over together.
+  //
+  // ⚠ IT IS NOT A GRAPH MUTATION, and the omission of `base_graph_hash` from
+  // the contract member is the point rather than an oversight. Five members
+  // carry that field as a STALE GATE whose rule is "CEE MUST refuse on
+  // divergence"; applying it here would refuse a TRUE STATEMENT OF WHAT A HUMAN
+  // SAID because the graph had moved underneath it. So this member is HELD-OUT
+  // of `MODEL_CHANGING_SYSTEM_EVENT_TYPES` below — it writes no graph, and
+  // holding the freshness overlay on it would fabricate "Model changed since
+  // this analysis" over a run that genuinely is current.
+  //
+  // ⚠⚠ READER-FIRST IS MANDATORY HERE AND IT IS NOT A PREFERENCE. Every member
+  // of this union is `.strict()` inside a `discriminatedUnion` on `kind`, so a
+  // CEE pinned ≤0.54.0 that receives this member fails the DISCRIMINATOR and
+  // rejects the WHOLE TURN (422) — not just this field. The contract states the
+  // order in terms: publish 0.55.0 → CEE re-vendors and deploys a reader → only
+  // then the UI emitter ships. CEE's reader is `olumi-assistants-service` #1445,
+  // OPEN at the time of writing. **This PR must not merge before it deploys.**
+  'finding_dissent',
 ] as const
 
 /** Event types accepted by CEE's v3 Zod schema — safe to send over the wire. */
