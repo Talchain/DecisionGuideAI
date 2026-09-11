@@ -46,8 +46,11 @@
  * ## The line is an INDEX ENTRY, and is weighted as one
  *
  * ⚠ IT SHIPPED AT THE PANEL'S LARGEST WEIGHT, WHICH IS WHY IT READ AS A WALL
- * OF ITS OWN. The title used `typography.panelHeader` — 14px SEMIBOLD, the
- * token documented for "section titles, winner name, key emphasis" — and the
+ * OF ITS OWN. The title used `typography.panelHeader` — 14px SEMIBOLD, a
+ * token whose docstring reserves it for section titles and key emphasis (that
+ * docstring also names a race-framing term this estate has ruled out; quoting
+ * it verbatim here only spread it, so it is paraphrased — the CONSTANT is what
+ * wants renaming, and that is reported, not done from this lane) — and the
  * icon used `ICON_STATUS` (14). A row whose whole job is to let someone scan
  * past it is none of those things, and at 14px semibold a real producer title
  * ("Include new subscriber acquisition as a pathway to MRR", 52 chars) wraps
@@ -129,8 +132,14 @@ type CoachingCategory = keyof typeof STRENGTHEN_COPY.severityLabel
 
 /**
  * Outlined chip recipe, matching `V5CoachingBlock`'s own category badge.
- * DS v5: pills are outlined only — never filled, and the text is always
- * `text-text-body` rather than the tone colour.
+ * DS v5: pills are outlined only — never filled, and the text is never the
+ * tone colour.
+ *
+ * ⚠ ON THE LINE THE TEXT IS `text-text-light`, NOT `text-text-body` — this
+ * comment claimed "always text-text-body" while the element below it set
+ * `text-text-light`. The lighter tone is deliberate: the chip is secondary to
+ * the producer's title on a row built to be scanned past. Contrast is not the
+ * trade — `#6E6B6B` on `--bg-panel` measures 5.23:1, above the 4.5:1 floor.
  */
 const CHIP_CLASS: Record<CoachingCategory, string> = {
   must_fix: 'border-danger/60',
