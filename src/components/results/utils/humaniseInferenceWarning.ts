@@ -64,6 +64,53 @@ export function nodeIdFromField(field?: string): string | undefined {
 }
 
 /**
+ * ⭐⭐ THE NODE WHOSE VALUE THE WARNING IS ASKING FOR — A NARROWER QUESTION THAN
+ * `nodeIdFromField`, AND THE DIFFERENCE IS A WRONG-FACTOR DEFECT.
+ *
+ * `nodeIdFromField` answers *"which node is this warning ABOUT?"*, which is the
+ * right question for naming a factor in a sentence. A control that WRITES a
+ * value needs a different one: *"which node's value does this warning say is
+ * missing?"* — and for one live code the two answers differ.
+ *
+ * Complete census at `a62d2ffa` (109 JSON files under `src/`, 151 entries
+ * carrying both `code` and `field`; contrast control: 203 entries carrying
+ * `code` + `message`, so the probe was not blind):
+ *
+ *   ROOT_NODE_DEFAULT_VALUE   `nodes[ID].observed_state.value`   6/6
+ *   GOAL_ANCESTOR_DATA_GAP    `nodes[ID]`                        3/3
+ *   category_reclassified     `nodes[ID].category`              26
+ *
+ * ⛔ `GOAL_ANCESTOR_DATA_GAP`'s field names **the goal**, while its sentence
+ * asks the reader to supply values for the goal's ROOT ANCESTORS — whose ids
+ * appear only inside the message prose, which this file is forbidden to parse.
+ * So `nodeIdFromField` on that row returns a real, resolvable id that is the
+ * WRONG target: a control driven by it would sit under "Add current values for
+ * those factors" and write the reader's number to the goal. `category` is the
+ * same mistake in a quieter key — a node id whose field addresses something
+ * that is not a value at all.
+ *
+ * ⭐ SO THE ADMISSION IS THE VALUE SLOT, NOT THE NODE. This returns an id only
+ * where the producer's own path addresses `observed_state.value` — the exact
+ * slot `proposeFactorValue` writes. That is self-describing rather than a code
+ * allowlist: a new code addressing the same slot is admitted on the producer's
+ * terms, and one that does not is refused, with no list for anyone to keep in
+ * sync (trap 12).
+ *
+ * ⚠ `affected_nodes` IS DELIBERATELY NOT A CARRIER HERE, even though
+ * `humaniseInferenceWarningTitle` above ranks it first for NAMING. `types.ts`
+ * records it as empty for this family, and its per-code semantics is underived:
+ * nothing establishes whether a `GOAL_ANCESTOR_DATA_GAP` that carried one would
+ * name the goal or the ancestors. Naming the wrong factor prints a wrong word;
+ * writing to the wrong factor changes the user's model. The two carriers are
+ * ranked differently because the two acts have different costs.
+ */
+export function valueNodeIdFromWarning(w: HumanisableInferenceWarning): string | undefined {
+  if (!w.field) return undefined
+  const m = /^nodes\[([^\]]+)\]\.observed_state\.value$/.exec(w.field)
+  return m ? m[1] : undefined
+}
+
+/**
  * THE STRIP'S ADMISSION PREDICATE — one definition, two consumers.
  *
  * `InferenceWarningStrip` shows warning-severity entries with a real producer
@@ -158,9 +205,17 @@ export function selectHumanisedInferenceWarningsOutsideStrip(
    *  byte-identical to before — the two same-code rows stay indistinguishable,
    *  which is the pre-existing contract and the fallback this relies on. */
   nodeLabels?: ReadonlyMap<string, string>,
-): Array<{ code: string; title: string }> {
+): Array<{ code: string; title: string; valueNodeId?: string }> {
   return (warnings ?? [])
     .filter((w) => typeof w.message === 'string' && w.message.trim().length > 0)
     .filter((w) => !isStripEntry(w))
-    .map((w) => ({ code: w.code, title: humaniseInferenceWarningTitle(w, nodeLabels) }))
+    .map((w) => ({
+      code: w.code,
+      title: humaniseInferenceWarningTitle(w, nodeLabels),
+      // ⚠ THE PROJECTION USED TO END AT `{code, title}`, and that is what made
+      // "Add its current value." an instruction with nothing to press. It
+      // carries the VALUE-SLOT id only — see `valueNodeIdFromWarning` for why
+      // the broader `nodeIdFromField` would be a wrong-factor write.
+      valueNodeId: valueNodeIdFromWarning(w),
+    }))
 }

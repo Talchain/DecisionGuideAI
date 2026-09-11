@@ -1598,7 +1598,7 @@ export function AnalysisNewTabBody({
         ) : null}
 
         {/* ── LEVEL 3 ─────────────────────────────────────────────────────── */}
-        <DeeperAnalysis deeper={vm.deeper} />
+        <DeeperAnalysis deeper={vm.deeper} offerFactorValueControl={true} />
       </div>
     </div>
   )

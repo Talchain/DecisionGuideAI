@@ -72,6 +72,16 @@ export interface InspectRow {
    * this content, under a green suite.
    */
   statement?: boolean
+  /**
+   * THE FACTOR THIS ROW'S SENTENCE ASKS THE READER TO SUPPLY A VALUE FOR.
+   *
+   * Present only where the producer's `field` addresses that node's
+   * `observed_state.value` — see `valueNodeIdFromWarning`, which refuses the
+   * ids that name a goal or a category. Absent means "this row names no
+   * single factor a value can be written to", and the renderer's rule is that
+   * such a row gets NO control rather than a disabled one.
+   */
+  nodeId?: string
 }
 
 /**
