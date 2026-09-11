@@ -1,5 +1,6 @@
 // Hardened store with timer cleanup, ID reseeding, edge debouncing
 import { create } from 'zustand'
+import type { EvidenceAssessment } from '../v5/evidenceAssessment'
 import { provenanceAfterHumanAuthoredLabel } from './domain/goalLabelProvenance'
 import { statedTargetNumber } from './domain/goalTarget'
 import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from '@xyflow/react'
@@ -450,6 +451,25 @@ export type RunMetaState = {
   m1Review?: M1Review | null
   // M1 Coaching - deterministic coaching fields from /v2/run (not LLM-generated)
   m1Coaching?: M1Coaching | null
+  /**
+   * The evidence assessment, projected past CEE's Tier-3 transport ban and
+   * read off the LIVE analysis turn.
+   *
+   * ⚠ NAMED APART FROM `m1Coaching`, DELIBERATELY. They answer the same
+   * question from two different routes: `m1Coaching` is written only by
+   * `hydrateAnalysis`, the restore-from-Supabase path, while this is written by
+   * `applyV5State` on every V5 analysis turn.
+   *
+   * ⚠ An earlier version of this note also named "the direct `/v2/run` path" as
+   * a writer. Re-derived: no such writer exists. Corrected rather than deleted
+   * so the next reader knows the claim was checked.
+   * Folding them into one field would put two producers behind one name and
+   * make it impossible to tell a restored answer from a live one.
+   *
+   * Written on every analysis turn — value or null, never left stale, the
+   * same discipline as `decisionReview030` above.
+   */
+  evidenceAssessment?: EvidenceAssessment | null
   // V12: PLoT review_status — gates M2 progressive enrichment ('complete' enables M2 data)
   reviewStatus?: string
   // M1 Review assumptions + pre-mortem from PLoT /v2/run (V12: widened for M2 fields)
