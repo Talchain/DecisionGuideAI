@@ -220,6 +220,38 @@ function ModelHealthSectionInner({
   const hasQualitySignal = ceeQuality != null && ceeQuality.overall != null
   const isPreAnalysis = !hasAuditSignal && !hasQualitySignal
 
+  /**
+   * ⛔ AN EXPANDED CARD MUST NEVER RENDER AN EMPTY BODY.
+   *
+   * Witnessed on deployed `b93904c9`: `aria-expanded="true"` and an `innerText`
+   * of the single word `Model card`, on a real analysed 15-element model.
+   *
+   * ⚠ NOT A DATA GAP — the field-name check came back negative. No producer key
+   * sits unread. On the V5-canonical path (baked ON for staging)
+   * `applyV5State.ts:2171` passes `rawV2Response: null`, and every audit field
+   * below is read from `rawV2Response.*` in `ModelTabBody.tsx:634-666`. The
+   * values genuinely are not there: `mapV5AnalysisToReport.ts:870-875` records
+   * that the V5 contract carries NO seed field and that defaulting one would be
+   * "a provenance lie", and that path's only hash is a LOCAL fnv1a-64 digest
+   * labelled `response_hash_source: 'local'` precisely so the UI never shows it
+   * as an engine identity. Wiring those through would BE the fabrication.
+   *
+   * The mechanism is a GATING ASYMMETRY between two predicates answering
+   * different questions. `isPreAnalysis` is computed from DATA PRESENCE, while
+   * every render of that data except the `nSamples` one-liner and the root-node
+   * warning is gated on `showDetail`. And `ceeQuality` arrives at DRAFT time
+   * (`DraftChat.tsx:813` reads `draftData.quality`), not at analysis time — so a
+   * plain-mode user's own draft quality SUPPRESSES the pre-analysis copy while
+   * rendering nothing in its place.
+   *
+   * This mirrors the render gates below exactly, so it fails loud if one moves.
+   */
+  const hasRenderableBody =
+    isPreAnalysis ||
+    auditTrail?.nSamples != null ||
+    rootNodeWarningCount > 0 ||
+    (showDetail && (ceeQuality != null || hasAuditSignal))
+
   // Collapsed summary visible in accordion header via tierLabel.
   // ⛔ The `"{N}% stability"` half is REMOVED (2.1273) — see the file header.
   // The summary is the quality score alone; the `.filter(Boolean).join(' · ')`
@@ -323,6 +355,25 @@ function ModelHealthSectionInner({
       testId="model-health-section"
     >
       <div className="space-y-1.5">
+
+        {/* ⛔ SAYS WHERE THE DETAIL IS; SHOWS NONE OF IT.
+            Paul ruled (9 Sep 2026) that the bare scores sit behind expert mode,
+            and this file's header records an earlier attempt that deleted
+            `overall` for everyone under a "progressive disclosure" alibi. So this
+            names the control and stops. It states no score and promises no
+            improvement: the numbers are one toggle away, not forthcoming.
+            The control is named by its ON-SCREEN name:
+            `WorkspaceShellTabStrip.tsx:380-382` renders "Enable expert mode" /
+            "Toggle expert mode". ("Show full detail" survives only in stale
+            comments in this directory and is NOT a label any user can see.) */}
+        {!hasRenderableBody && (
+          <p
+            className={`${typography.panelBody} text-text-body`}
+            data-testid="model-card-detail-hidden"
+          >
+            This card&apos;s details are shown in expert mode.
+          </p>
+        )}
 
         {/* Pre-analysis content */}
         {isPreAnalysis && (
