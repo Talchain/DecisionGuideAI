@@ -43,10 +43,16 @@
  * below compare against the producer string in full, so a truncation of any
  * kind fails here.
  *
- * ⚠ FAIL CLOSED. A block with no `title`, or a blank one, renders EXPANDED
- * exactly as today. `v5_evidence` and `v5_exercise` carry no `title` field at
- * all (types.ts), so they are the live instance of this rule, not a
- * hypothetical.
+ * ⚠ FAIL CLOSED. A block with no usable label, or a blank one, renders
+ * EXPANDED exactly as today. `v5_exercise` is the live instance: it carries no
+ * `title` field and no other label, so it cannot be reduced to a line.
+ *
+ * ⛔ `v5_evidence` IS NOT AN INSTANCE OF THIS RULE ANY MORE, and this header
+ * said it was. It carries no `title` either, but it resolves through
+ * `evidenceBlockTitle` — the card's own contract-§1.3 answer — so it collapses
+ * like everything else. The arm below was corrected when that shipped; this
+ * paragraph was not, and a header that contradicts its own arms is how the
+ * next reader learns the wrong rule.
  *
  * ⛔ PINNED BLOCKS NEVER COLLAPSE. `PINNED_BLOCK_TYPES` is graph patches,
  * proposals, held proposals, the analysis result and commentary. The first
@@ -394,4 +400,65 @@ describe('a review card is a line too — the mechanism is not coaching-only', (
     expect(lineFor('rc_1')).toHaveTextContent('Review card 1')
     expect(screen.getByText('Review body 1')).not.toBeVisible()
   })
+})
+
+/**
+ * ⚠ THIS BLOCK EXISTS BECAUSE A REVIEWER PROVED IT WAS MISSING, and the PR body
+ * had claimed the opposite. The claim was "the glyph ... is pinned by a test".
+ * It was pinned on the CARD — `evidenceSeverityGlyph.spec.tsx` asserts 13 glyph
+ * classes, every one of them through `render(<V5EvidenceBlock …>)`. Nothing
+ * asserted the glyph the collapsed LINE draws, so deleting the `isEvidence ?`
+ * ternary at `CoachingLine.tsx` would have silently given every evidence line
+ * the review card's `Lightbulb` — #1450 returning by a different door — with a
+ * green suite.
+ *
+ * ⭐ THE DISCRIMINATOR IS SAME-SEVERITY, DIFFERENT-FAMILY, not a literal glyph
+ * name. Both fixtures below are `severity: 'info'`, so the ONLY thing that can
+ * make their glyphs differ is the block-type branch. An assertion that merely
+ * checked "evidence draws Search" would still pass if the branch were replaced
+ * by something that happened to return Search for everything; the paired
+ * negative on each side is what makes the mutation observable.
+ *
+ * ⛔ ALL svgs in the summary are collected, not `querySelector('svg')`. That
+ * returns the FIRST svg only, so a negative assertion written against it can
+ * only fire after the positive one already has — a mistake made once in this
+ * lane already (`evidenceSeverityGlyph.spec.tsx`, corrected there).
+ */
+const glyphClassesIn = (blockId: string): string =>
+  Array.from(
+    screen.getByTestId(`coaching-line-summary-${blockId}`).querySelectorAll('svg'),
+  )
+    .map((svg) => svg.getAttribute('class') ?? '')
+    .join(' ')
+
+describe('the collapsed LINE draws its own family’s glyph, not the other family’s', () => {
+  it('an info evidence line draws Search — the magnifying glass, never the review card’s Lightbulb', () => {
+    renderBlocks([evidence(1)])
+    const classes = glyphClassesIn('ev_1')
+    expect(classes, 'evidence is something to go and look at').toContain('lucide-search')
+    expect(classes, 'a Lightbulb here is #1450 returning on the line').not.toContain(
+      'lucide-lightbulb',
+    )
+  })
+
+  it('an info review-card line draws Lightbulb — the contrast control at the SAME severity', () => {
+    renderBlocks([reviewCard(1)])
+    const classes = glyphClassesIn('rc_1')
+    expect(classes, 'a review card at info is an idea to consider').toContain('lucide-lightbulb')
+    expect(classes, 'the magnifying glass belongs to the evidence family').not.toContain(
+      'lucide-search',
+    )
+  })
+
+  it.each(['warning', 'critical'] as const)(
+    'a %s evidence line escalates to AlertTriangle, as the card does',
+    (severity) => {
+      renderBlocks([evidence(9, { block_id: `ev_${severity}`, severity })])
+      const classes = glyphClassesIn(`ev_${severity}`)
+      expect(classes).toContain('lucide-alert-triangle')
+      expect(classes, 'escalation must not fall back to the info glyph').not.toContain(
+        'lucide-search',
+      )
+    },
+  )
 })
