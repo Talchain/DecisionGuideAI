@@ -147,12 +147,39 @@ export interface OptionsComparisonProps {
    * rather than minting a second one with its own validation and policy.
    */
   onSendMessage?: (message: string) => void
+  /**
+   * ⭐⭐ OPEN ON MOUNT — AND THE CALLER DECIDES, BECAUSE THE CALLER IS THE ONLY
+   * ONE WHO CAN SEE THE QUESTION.
+   *
+   * `SectionShell`'s rule is that a section may open by default only when
+   * something ABOVE it depends on the content being visible. Whether that
+   * holds is a fact about the GLANCE and this section together, and this
+   * component is handed only the second — so deriving it here would mean
+   * re-deriving the glance from the rows, which is the re-derivation this
+   * directory keeps paying for. `AnalysisNewTabBody.tsx` holds both and states
+   * the condition there, exactly as it already does for
+   * `StrengthenTheReasoning`.
+   *
+   * ⚠ A DEFAULT, NOT A LOCK, AND READ EXACTLY ONCE. `SectionShell` seeds
+   * `useState(defaultOpen)`, so from the first render of this instance the
+   * open state belongs to the toggle. A later `false` is not re-read and the
+   * section stays where the reader left it — the same semantics, and the same
+   * deliberate choice, recorded at `StrengthenTheReasoning.tsx:114`.
+   *
+   * ⛔ IT MOVES NOTHING BUT VISIBILITY. Every entitlement rule in this file's
+   * header is evaluated the same way open or closed: no ordinal is printed,
+   * no leader is marked, and `mayDrawMagnitude` reads `comparativeClaim`,
+   * which is computed upstream in the view model and cannot be influenced by a
+   * disclosure state that does not exist until render.
+   */
+  defaultOpen?: boolean
   testId?: string
 }
 
 export function OptionsComparison({
   options,
   onSendMessage,
+  defaultOpen = false,
   testId = 'analysis-new-options',
 }: OptionsComparisonProps) {
   const showToast = useShowToastSafe()
@@ -285,6 +312,7 @@ export function OptionsComparison({
       // of them — named rows plus the unnamed disclosure. A collapsed row is a
       // promise about what is behind it.
       count={options.totalCount}
+      defaultOpen={defaultOpen}
       testId={testId}
     >
       {/* ⚠ THE SENTENCE IS `checks.leaderMeaning`, NOT A NEW ONE. It already
