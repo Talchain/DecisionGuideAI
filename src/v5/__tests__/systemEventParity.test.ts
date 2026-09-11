@@ -53,6 +53,7 @@ const UI_WIRE_EVENT_TYPES = [
   // adding it here is exactly the half-update the `satisfies` above cannot
   // catch — it is ONE-DIRECTIONAL and proves only that listed members are real.
   'option_intervention_edit',
+  'structural_add_edge',
 ] as const satisfies readonly WireSystemEventType[]
 
 // The `satisfies` above is ONE-DIRECTIONAL: it proves every listed member is a
@@ -203,6 +204,32 @@ const UI_COVERAGE: Record<
       node_id: 'fac_supplier_risk',
       node_kind: 'factor',
       label: 'Supplier concentration risk',
+      base_graph_hash: 'f3d31f75957c5cb5',
+    },
+  },
+  // 0.50.0, EMITTED SINCE 2026-09-11 — the edge half of the structural
+  // vocabulary, and the member that makes FOUR gestures durable rather than one:
+  // draw-a-link, the five "Add connected …" affordances, duplicate and paste.
+  // `structural_add` above covers the NODES those gestures create; without this
+  // the EDGES were dropped, so a duplicated subgraph returned on the next reload
+  // having lost its causal structure.
+  //
+  // ⚠ NOTE WHAT ADDRESSES THE EDGE, and how it differs from the member above:
+  // the `(from, to)` NODE-ID PAIR against the OPEN endpoint schema, because both
+  // endpoints must ALREADY EXIST — not the narrow minted-id pattern
+  // `structural_add` validates against. `EdgeV3Schema` declares no `id` at all.
+  //
+  // ⚠ AND WHAT IS ABSENT: `std` and `exists_probability`, by contract — "the
+  // server owns them". A payload carrying either would assert a confidence
+  // nobody expressed.
+  structural_add_edge: {
+    kind: 'system_event',
+    eventKind: 'structural_add_edge',
+    payload: {
+      from: 'fac_supplier_risk',
+      to: 'goal_margin',
+      magnitude: 0.6,
+      effect_direction: 'negative',
       base_graph_hash: 'f3d31f75957c5cb5',
     },
   },
@@ -407,7 +434,7 @@ describe('UI ↔ V5 system event parity', () => {
     }
   })
 
-  it('locks UI emission count at 12 of 17 V5 SystemEventKind values', () => {
+  it('locks UI emission count at 13 of 17 V5 SystemEventKind values', () => {
     // Explicit canary: if someone adds a new UI emission (extending the
     // system_event branch of UI_COVERAGE) without updating this test, the
     // count will drift and flag for docs reconciliation.
@@ -445,10 +472,14 @@ describe('UI ↔ V5 system event parity', () => {
     // reachable affordances — the control is still gated by
     // `CANONICAL_EDIT_AUTHORITY.modelOptionIntervention`, and that gate is
     // asserted by the Model tab's own specs rather than by this count.
+    // 0.50.0's `structural_add_edge` grew it to 13 on 2026-09-11, and unlike the
+    // 0.43.0 addition this one IS wired: its CEE writer landed first (reader-first
+    // is satisfied), and it is the member that makes four canvas gestures durable
+    // rather than one — draw-a-link, "Add connected …", duplicate and paste.
     const uiEmittedCount = Object.values(UI_COVERAGE).filter(
       (c) => c.kind === 'system_event',
     ).length
-    expect(uiEmittedCount).toBe(12)
+    expect(uiEmittedCount).toBe(13)
     expect(V5_EVENT_KINDS).toHaveLength(17)
   })
 })

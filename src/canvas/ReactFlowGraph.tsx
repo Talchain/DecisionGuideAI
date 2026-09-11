@@ -128,6 +128,7 @@ import { PanelApplyDrainHost } from './conversation/PanelApplyDrainHost'
 import { StructuralDeleteDrainHost } from './conversation/StructuralDeleteDrainHost'
 import { StructuralRenameDrainHost } from './conversation/StructuralRenameDrainHost'
 import { StructuralAddDrainHost } from './conversation/StructuralAddDrainHost'
+import { StructuralAddEdgeDrainHost } from './conversation/StructuralAddEdgeDrainHost'
 import { GuidanceInvalidationHost } from './conversation/GuidanceInvalidationHost'
 import { FloatingOlumiPanel } from './components/FloatingOlumiPanel'
 import {
@@ -3084,6 +3085,7 @@ export function MaybeConversationProvider({ children }: { children: import('reac
             as the two hosts above: aiPanelV2 is ON for every fresh user, so a
             drain hosted only in DraftChat is a drain that never runs. */}
         <StructuralAddDrainHost />
+        <StructuralAddEdgeDrainHost />
         {/* N-23 — guidance invalidation's flag-ON host. `clearGuidanceItems()`
             had one production caller, inside `useGraphEditEvents`, whose only
             host is DraftChat (mounted only when aiPanelV2 is OFF). With the flag

@@ -52,6 +52,15 @@ import {
   WIRE_ADDABLE_NODE_KINDS,
   type StructuralAddWireEvent,
 } from '../canvas/mutations/structuralAdd'
+// ⚠ THE EDGE MEMBER USES THE **OPEN** ENDPOINT PREDICATE, not the narrow
+// new-node one imported above. `structural_add_edge` addresses two EXISTING
+// nodes by `(from, to)` — `EdgeV3Schema` declares no `id` at all — so it shares
+// `structural_delete`'s endpoint rule rather than the add member's minted-id
+// rule. Same distinction the comment above draws, one level along.
+import {
+  buildStructuralAddEdgeEvent,
+  type StructuralAddEdgeWireEvent,
+} from '../canvas/mutations/structuralAddEdge'
 // VALUE import, and deliberately so: the selection this module puts on the wire
 // must be the one the canvas holds AT SEND TIME, read at the moment the payload
 // is built. Passing it in from useConversation would be purer, but the store is
@@ -445,6 +454,11 @@ function systemEventToPayload(args: {
     }
     case 'structural_add': {
       const event = adaptStructuralAdd(eventPayload)
+      if (event === null) return null
+      return { ...base, event }
+    }
+    case 'structural_add_edge': {
+      const event = adaptStructuralAddEdge(eventPayload)
       if (event === null) return null
       return { ...base, event }
     }
@@ -1411,4 +1425,25 @@ function adaptStructuralAdd(
     label,
     base_graph_hash,
   } as StructuralAddWireEvent
+}
+
+/**
+ * `structural_add_edge` (0.50.0) — a NEW causal edge between two EXISTING nodes.
+ *
+ * ⚠ IT DELEGATES RATHER THAN RE-VALIDATING. Every field rule lives in
+ * `buildStructuralAddEdgeEvent`, so this module holds no second copy of the
+ * contract's domain bounds — the same division `adaptEdgeStrengthEdit` follows.
+ * Re-checking here would be two spellings of one rule, and the copy that drifts
+ * is always the one nobody is looking at.
+ */
+function adaptStructuralAddEdge(
+  eventPayload: Record<string, unknown> | undefined,
+): StructuralAddEdgeWireEvent | null {
+  return buildStructuralAddEdgeEvent({
+    from: eventPayload?.from,
+    to: eventPayload?.to,
+    magnitude: eventPayload?.magnitude,
+    direction: eventPayload?.effect_direction,
+    baseGraphHash: eventPayload?.base_graph_hash,
+  })
 }

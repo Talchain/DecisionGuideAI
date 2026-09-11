@@ -62,6 +62,16 @@ import {
   type StructuralAddTerminalStatus,
 } from './mutations/structuralAdd'
 import {
+  captureStructuralAddEdge,
+  STRUCTURAL_ADD_EDGE_DEFERRED_NOTICE,
+  STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE,
+  type StructuralAddEdgeIntent,
+} from './mutations/structuralAddEdge'
+import {
+  resolveEdgeSignedStrengthDisplay,
+  resolveEdgeDirectionDisplay,
+} from './domain/edgeValueProvenance'
+import {
   EMPTY_DURABLE_DELETION_RECORD,
   addDurableDeletion,
   buildDurableDeletionNotice,
@@ -1035,6 +1045,16 @@ interface CanvasState {
    */
   pendingStructuralAdds: StructuralAddIntent[]
   /**
+   * 0.50.0 — captured canvas EDGE adds awaiting a turn.
+   *
+   * ⚠ ONLY EDGES WHOSE STRENGTH AND DIRECTION SOMEBODY SET reach this queue.
+   * A freshly drawn link carries `USER_EDGE_DEFAULTS` with no provenance, and
+   * sending its 0.3 would assert a strength the user never stated — see
+   * `captureStructuralAddEdge`'s header for why that gesture has no wire form
+   * at all under the current contract.
+   */
+  pendingStructuralAddEdges: StructuralAddEdgeIntent[]
+  /**
    * 0.50.0 — ATTEMPT AND COMPLETION AUTHORITY FOR EVERY ADD PUT ON THE WIRE.
    *
    * ⚠ THE QUEUE ABOVE IS NOT ENOUGH, and the gap is the same measured one the
@@ -1590,6 +1610,8 @@ interface CanvasState {
   takePendingStructuralRenames: () => StructuralRenameIntent[]
   /** 0.50.0: the add twin — one atomic read-and-clear. */
   takePendingStructuralAdds: () => StructuralAddIntent[]
+  /** Drain the captured edge adds. Same contract as the node sibling above. */
+  takePendingStructuralAddEdges: () => StructuralAddEdgeIntent[]
   /**
    * 0.50.0: move the HEAD of the add queue into the lifecycle as `in_flight`, in
    * ONE `set()`, and return it. Null when the queue is empty.
@@ -2149,6 +2171,7 @@ const DECISION_CONTEXT_CLEAR = {
   // graph; replayed against a replaced context it would assert a node the user
   // never created there.
   pendingStructuralAdds: [] as StructuralAddIntent[],
+  pendingStructuralAddEdges: [] as StructuralAddEdgeIntent[],
   // 0.50.0: and the same for its verdict record, for the same reason as the
   // rename's — a late settle must not write a verdict about a graph this canvas
   // is no longer showing.
@@ -2542,6 +2565,76 @@ function recordStructuralRenameIntent(
  * a second authority arguing with the first — and here it would mint a duplicate
  * id, the one collision `base_graph_hash` provably cannot catch.
  */
+/**
+ * Capture a canvas edge add as a durable intent, or say why not.
+ *
+ * ⭐ THE PROVENANCE GATE IS INJECTED, NEVER RE-DERIVED. `resolveEdgeSignedStrengthDisplay`
+ * and `resolveEdgeDirectionDisplay` are the estate's owners of "did anybody SET
+ * this?", and they are the same functions `StyledEdge` paints from. Asking them
+ * rather than reading `edge.data.weight` is what stops `USER_EDGE_DEFAULTS.weight`
+ * (0.3, no provenance) reaching the wire as a strength the user never stated.
+ *
+ * Returns the stand-down reason as well as the patch, because the caller owes
+ * the user a different sentence for "not saved yet" than for "cannot be saved
+ * until you set a strength".
+ */
+function planStructuralAddEdgeIntent(
+  state: CanvasState,
+  edgesAfter: ReadonlyArray<{ id: string; source: string; target: string; data?: unknown }>,
+  edgeId: string,
+): { patch: Partial<CanvasState>; deferred: boolean; needsStrength: boolean } {
+  const result = captureStructuralAddEdge({
+    edgesAfter,
+    edgeId,
+    baseGraphHash: state.lastServerGraphHash,
+    externalMutationActive: state._externalMutationActive > 0,
+    resolveSignedStrength: (data) =>
+      resolveEdgeSignedStrengthDisplay(data as Record<string, unknown> | undefined),
+    resolveDirection: (data) =>
+      resolveEdgeDirectionDisplay(data as Record<string, unknown> | undefined),
+    makeId: () =>
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `sae-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  })
+  if (!result.ok) {
+    return { patch: {}, deferred: false, needsStrength: result.reason === 'strength_not_stated' }
+  }
+  return {
+    patch: { pendingStructuralAddEdges: [...state.pendingStructuralAddEdges, result.intent] },
+    deferred: result.deferred,
+    needsStrength: false,
+  }
+}
+
+/**
+ * Tell the user where a drawn connection stands.
+ *
+ * ⚠ FIRED AFTER THE `set()`, NEVER INSIDE IT — a side effect in a store updater
+ * can re-enter, and the updater must stay a pure function of state.
+ *
+ * ⚠ ONLY WHERE THERE IS A MODEL TO FALL BEHIND, the same predicate the node
+ * sibling uses: a scratch graph with no scenario has no saved model, so there is
+ * nothing to disclose and a notice would be noise.
+ */
+function announceStructuralAddEdgeState(
+  state: CanvasState,
+  kind: 'deferred' | 'needs_strength',
+): void {
+  const ownsServerGraph = state.currentScenarioId != null || state.lastAuthoritativeGraph != null
+  if (!ownsServerGraph) return
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('topbar:show-toast', {
+    detail: {
+      message:
+        kind === 'deferred'
+          ? STRUCTURAL_ADD_EDGE_DEFERRED_NOTICE
+          : STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE,
+      level: 'warning',
+    },
+  }))
+}
+
 function planStructuralAddIntent(
   state: CanvasState,
   nodesAfter: Node[],
@@ -2981,6 +3074,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // 0.50.0: no add has been attempted at cold start — an empty lifecycle is
   // "nothing attempted", never "all fine".
   structuralAddLifecycle: [],
+  pendingStructuralAddEdges: [],
   // 0.48.0: no deletion has been proven durable yet, so undo is unconstrained.
   durablyDeletedElements: EMPTY_DURABLE_DELETION_RECORD,
   durableDeletionNotice: null,
@@ -3702,6 +3796,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     pushToHistory(get, set, `Connected ${sourceLabel} \u2192 ${targetLabel}`)
     invalidateAnalysisReady(get, set, `add_edge (${edge.source} → ${edge.target})`)
     const id = get().createEdgeId()
+    // ⭐ CAPTURED AGAINST THE POST-ADD EDGES, inside the same `set()`, exactly as
+    // `addNode` captures its own. The intent must describe the graph the gesture
+    // produced, not the one before it.
+    let edgeAddOutcome: { deferred: boolean; needsStrength: boolean } = {
+      deferred: false,
+      needsStrength: false,
+    }
     set((s) => {
       const touchedNodeIds = new Set(s.touchedNodeIds)
 
@@ -3710,11 +3811,19 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         touchedNodeIds.add(edge.source)
       }
 
+      const edgesAfter = [...s.edges, { id, ...edge }]
+      const plan = planStructuralAddEdgeIntent(s, edgesAfter, id)
+      edgeAddOutcome = { deferred: plan.deferred, needsStrength: plan.needsStrength }
+
       return {
-        edges: [...s.edges, { id, ...edge }],
-        touchedNodeIds
+        edges: edgesAfter,
+        touchedNodeIds,
+        ...plan.patch,
       }
     })
+    // ⚠ AFTER the set, never inside it — see `announceStructuralAddEdgeState`.
+    if (edgeAddOutcome.deferred) announceStructuralAddEdgeState(get(), 'deferred')
+    else if (edgeAddOutcome.needsStrength) announceStructuralAddEdgeState(get(), 'needs_strength')
     return { created: true }
   },
 
@@ -6593,6 +6702,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const queued = get().pendingStructuralAdds
     if (queued.length === 0) return []
     set({ pendingStructuralAdds: [] })
+    return queued
+  },
+
+  takePendingStructuralAddEdges: () => {
+    const queued = get().pendingStructuralAddEdges
+    if (queued.length === 0) return []
+    set({ pendingStructuralAddEdges: [] })
     return queued
   },
 
