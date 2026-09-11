@@ -268,7 +268,7 @@ export interface V5ApplicatorStore {
    */
   resultsWithholdLeaderClaim?: (reason: LeaderClaimWithholdingReason) => void
   /** Step 5c — clears a withholding when the producer positively permits. */
-  resultsRestoreLeaderClaim?: (verdict: unknown) => void
+  resultsRestoreLeaderClaim?: (verdict: unknown) => boolean
 }
 
 /**
@@ -2318,7 +2318,28 @@ export function applyV5State(
   // === null` is the only arm this can reach. Stating the order rather than
   // relying on it.
   if (withholdingReason === null && turnVerdict !== null) {
-    store.resultsRestoreLeaderClaim?.(turnVerdict)
+    // ⚠ THE LEDGER RECORDS THE CLEAR, NOT THE CALL. The action returns whether
+    // it actually removed a stamp; most permitting turns hold none and are a
+    // no-op, so pushing on every call would produce a trace that says the same
+    // thing on turns that differ (CLAUDE.md trap 20 — a probe returning one
+    // answer for every input is reporting on itself). Step 5b below is
+    // unconditional because its own action is idempotent by re-stamping; this
+    // one is genuinely conditional.
+    const restored = store.resultsRestoreLeaderClaim?.(turnVerdict)
+    if (restored === true) {
+      applied.push('leader_claim:restored')
+      logV5StateStep({
+        step_number: 5,
+        step_name: 'leader_claim_restore',
+        input_keys: [
+          'analysis_state.leader_claim',
+          'analysis_state.requires_rerun',
+          'analysis_state.blocked_unusable',
+        ],
+        output_keys: ['results.report.producer_leader_permission'],
+        applied: true,
+      })
+    }
   }
 
   if (withholdingReason !== null) {

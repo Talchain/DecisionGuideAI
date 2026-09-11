@@ -25,6 +25,48 @@ import { policyToPreset, policyToSpacing } from './layout/adapters'
 import { getInvalidNodes as getInvalidNodesUtil, getNextInvalidNode as getNextInvalidNodeUtil, type InvalidNodeInfo } from './utils/validateOutgoing'
 import type { ReportV1 } from '../adapters/plot/types'
 import type { LeaderClaimWithholdingReason } from './hydrate/applyScenarioAnalysisRead'
+
+/**
+ * ⭐ THE RUN STATES ON WHICH A PRODUCER'S PERMISSION MAY CLEAR A WITHHOLDING.
+ *
+ * ⛔ DELIBERATELY NOT `READ_TERMINAL_RUN_STATE_KINDS`, WHICH LOOKS LIKE THE SAME
+ * LIST AND IS NOT. That set answers "may the boot leg restore a verdict from
+ * this state?" and includes `blocked` and `refused`, correctly — a blocked
+ * analysis is a finished fact worth rehydrating. THIS set answers "does this
+ * state license NAMING A LEADING OPTION over the held report?", and a blocked or
+ * refused run licenses nothing at all.
+ *
+ * Two questions under one plausible name is CLAUDE.md trap 21; the fix is to
+ * name them apart, not to align them. (I wrote the reuse first, and it would
+ * have opened exactly the hole the review asked about.)
+ *
+ * ⚠ COMPLETENESS IS NOT SELF-CERTIFIED. The union of this set and
+ * `LEADER_UNCLAIMABLE_RUN_STATE_KINDS` is asserted EQUAL to the contract's own
+ * `ANALYSIS_RUN_STATE_KINDS` in
+ * `__tests__/leaderClaimableRunStatePartition.spec.ts`, so a contract that gains
+ * a kind REDs that spec instead of falling silently into the deny default here.
+ * The default is the safe direction, but a silent one — and silence is how a new
+ * state stops being noticed (trap 12d: derivation proves agreement, a partition
+ * proves completeness).
+ */
+export const LEADER_CLAIMABLE_RUN_STATE_KINDS = ['complete_current', 'complete_stale'] as const
+
+/**
+ * The twin: kinds consciously refused. Not used for control flow — the `includes`
+ * above is the only predicate — it exists so "every kind is classified" is a
+ * checkable claim rather than an assumption.
+ *
+ * `complete_stale` sits in the CLAIMABLE set rather than here because staleness
+ * is already answered one seam earlier, by the `requires_rerun` conjunct: a
+ * permission about a moved model is rejected before this gate is reached.
+ */
+export const LEADER_UNCLAIMABLE_RUN_STATE_KINDS = [
+  'never_run',
+  'running',
+  'blocked',
+  'refused',
+  'unknown_degraded',
+] as const
 import type { V2RunResponse } from '../adapters/plot/v2/types'
 import type { PLoTEnrichment } from '../adapters/plot/enrichment'
 import {
@@ -1459,8 +1501,14 @@ interface CanvasState {
    * only on a strict `leader_claim.permitted === true` the producer sent on a
    * turn it chose to restate — and `applyV5State` clears `analysis_state` on
    * every turn that does not restate it, so silence cannot reach here.
+   *
+   * ⚠ RETURNS WHETHER IT ACTUALLY CLEARED A STAMP, so the applicator's ledger
+   * can record a turn that changed what the canvas designates WITHOUT claiming
+   * one on every permitting turn. Most permitting turns hold no withholding and
+   * this is a no-op; a ledger entry on those would be a trace that cannot
+   * discriminate (CLAUDE.md trap 20).
    */
-  resultsRestoreLeaderClaim: (verdict: unknown) => void
+  resultsRestoreLeaderClaim: (verdict: unknown) => boolean
   resultsError: (params: { code: string; message: string; retryAfter?: number; request_id?: string; canRetry?: boolean; affectedOptions?: Array<{ id: string; label: string }> }) => void
   /** Capture detailed error information for Debug Panel */
   captureErrorDetail: (detail: ErrorDetail) => void
@@ -5439,7 +5487,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   resultsRestoreLeaderClaim: (verdict) => {
     // ⚠ STRUCTURAL, UNKNOWN-SAFE READ. This is handed a producer payload, so a
     // non-object, a null and a missing member must all mean "said nothing".
-    if (verdict === null || typeof verdict !== 'object') return
+    // Every refusal below returns `false` — "nothing was cleared" — which is
+    // what the applicator's ledger reads.
+    if (verdict === null || typeof verdict !== 'object') return false
     const v = verdict as {
       leader_claim?: { permitted?: unknown }
       requires_rerun?: unknown
@@ -5449,23 +5499,81 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // `producerWithholdsLeaderClaim` applies to the refusing direction. Anything
     // else on this seam is a producer we cannot read, and an unreadable producer
     // has granted nothing.
-    if (v.leader_claim?.permitted !== true) return
+    if (v.leader_claim?.permitted !== true) return false
     // ⚠ THE MODEL MUST NOT HAVE MOVED. `requires_rerun` is deliberately excluded
     // from the WITHHOLDING predicates because it means "the graph changed since
     // the run"; here it earns its keep in the opposite direction, because a
     // permission about a moved model is not a permission about the held report.
-    if (v.requires_rerun === true) return
+    if (v.requires_rerun === true) return false
     // A producer calling its own analysis unusable cannot license a claim over it.
-    if (v.blocked_unusable === true) return
+    if (v.blocked_unusable === true) return false
+    // ⛔⛔ THE RUN-STATE GATE, AND IT IS *NOT* INHERITED FROM THE WITHHOLDING
+    // SIDE. The boot leg states "NO RUN-STATE GATE, and that is the point …
+    // the withholding is monotone under every kind" — true of a REFUSAL, which
+    // only ever removes a claim, and FALSE of a grant.
+    //
+    // ⚠ THIS GATE EXISTS BECAUSE THE ALTERNATIVE COULD NOT BE DERIVED. A review
+    // asked which producer fact makes it unnecessary — that CEE never emits
+    // `permitted: true` alongside a non-finished kind. I could not derive CEE's
+    // composer from this repo, and the fetch returned an EMPTY file, which is
+    // UNMEASURED, not zero (CLAUDE.md trap 13e). Asserting a producer's
+    // behaviour from an unmeasured read is the confident sentence this estate
+    // pays for, so the client gates rather than claims.
+    //
+    // ⛔⛔ AND IT DOES *NOT* REUSE `isReadTerminalRunState`, THOUGH THE NAME FITS
+    // AND I FIRST WROTE IT THAT WAY. That predicate answers "may the BOOT LEG
+    // restore a verdict from this state?", and its set includes `blocked` and
+    // `refused` — legitimately, because a blocked analysis is a finished fact
+    // worth rehydrating. THIS asks "does this state license NAMING A LEADING
+    // OPTION over the held report?", and a blocked or refused run licenses
+    // nothing. Two questions under one plausible name is CLAUDE.md trap 21, and
+    // reusing it would have opened precisely the hole the review asked about.
+    // Named apart, and the partition is asserted against the contract's own
+    // vocabulary in `__tests__/` so a new kind cannot land here unclassified.
+    const runStateKind = (v as { run_state?: { kind?: unknown } }).run_state?.kind
+    if (typeof runStateKind !== 'string') return false
+    if (!(LEADER_CLAIMABLE_RUN_STATE_KINDS as readonly string[]).includes(runStateKind)) return false
 
     const held = get().results.report
-    if (!held) return
+    if (!held) return false
     // ⛔ IT REMOVES, IT NEVER ADDS. With no stamp there is nothing to clear, and
     // writing a permission here would be the client authoring an entitlement.
-    if (!held.producer_leader_permission) return
+    if (!held.producer_leader_permission) return false
 
     const { producer_leader_permission: _cleared, ...withoutStamp } = held
     set(s => ({ results: { ...s.results, report: withoutStamp as typeof held } }))
+
+    // ⭐ PERSISTED, FOR THE EXACT REASON ITS SIBLING BELOW PERSISTS — and the
+    // omission of this block was the blocking finding on this PR, reproduced
+    // independently by two seats. `useAutosave`'s dirty check is
+    // `computeGraphHash(nodes, edges)` — GRAPH ONLY — and clearing a stamp
+    // changes no node and no edge, so the 30s timer's early-return would skip
+    // this write. Without it the restore was LIVE-ONLY: measured
+    // `live = true` / `after reload = false`, i.e. the producer's newer
+    // permission was transient while its older refusal was durable.
+    //
+    // ⚠ THAT ASYMMETRY IS THE HARM, not merely an unpersisted nicety. Whether
+    // the leading option survived a page load depended on whether the user
+    // happened to edit the graph first — an unrelated interaction deciding
+    // whether a designation returns.
+    //
+    // ⛔ THE DIRECTION STILL ONLY EVER SUBTRACTS. What is persisted here is the
+    // report with the stamp REMOVED; absence is "the producer has not spoken"
+    // (`adapters/plot/types.ts`), and the reader is fail-open by construction.
+    // This writes no entitlement — it records that a refusal is no longer held.
+    //
+    // Sourced from the POST-`set()` state (Zustand's `set` is synchronous), so
+    // the record written is exactly the one this restore produced.
+    try {
+      scenarios.saveAutosave(projectAutosaveData(autosaveSourceFromStore(get())))
+    } catch (err) {
+      // Never let a persistence failure take down the restore — the claim is
+      // already back on screen, which is the part that matters. Mirrors the
+      // sibling's stance for the same reason.
+      console.warn('[resultsRestoreLeaderClaim] Failed to persist restore to autosave', err)
+    }
+
+    return true
   },
 
   resultsWithholdLeaderClaim: (reason) => {

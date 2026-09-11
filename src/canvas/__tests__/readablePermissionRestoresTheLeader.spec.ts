@@ -53,6 +53,22 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useCanvasStore } from '../store'
+import { loadAutosave } from '../store/scenarios'
+import { restoreAnalysisFromAutosave } from '../store/restoreAnalysisFromAutosave'
+
+/**
+ * ⚠ EVERY PERMITTING FIXTURE NOW CARRIES A `run_state`, AND THAT IS A REAL
+ * CONTRACT CHANGE, not test housekeeping. The gate added in response to the
+ * review rejects a verdict whose run state does not license a leading option, so
+ * a fixture without one is refused — which is the intended fail-closed shape.
+ */
+const settled = (over: Record<string, unknown> = {}) => ({
+  leader_claim: { permitted: true },
+  requires_rerun: false,
+  blocked_unusable: false,
+  run_state: { kind: 'complete_current' },
+  ...over,
+})
 
 const REPORT = { summary: 'held report', options: [] } as never
 
@@ -84,11 +100,88 @@ describe('a readable permitting verdict restores what an unreadable one withdrew
 
   it('clears the withholding when the producer positively permits on a settled model', () => {
     seedHeldReportWithWithholding()
-    useCanvasStore.getState().resultsRestoreLeaderClaim({
-      leader_claim: { permitted: true },
-      requires_rerun: false,
-      blocked_unusable: false,
-    } as never)
+    useCanvasStore.getState().resultsRestoreLeaderClaim(settled() as never)
+    expect(permissionNow()).toBeNull()
+  })
+})
+
+describe('the restore reaches the PERSISTED record — the blocking finding on this PR', () => {
+  /**
+   * ⛔ THE DEFECT THIS PINS, reproduced independently by two review seats:
+   *   live after the restore   = true   (the fix worked)
+   *   after reload             = false  (it did not survive a page load)
+   *
+   * `useAutosave`'s dirty check is `computeGraphHash(nodes, edges)` — GRAPH ONLY
+   * — and clearing a stamp changes no node and no edge, so the 30s timer's
+   * early-return skipped the write entirely. The producer's newer PERMISSION was
+   * transient while its older REFUSAL was durable, and whether a user kept their
+   * leading option depended on whether they happened to edit the graph first.
+   *
+   * ⚠ BOUND TO THE ARTEFACT BY IDENTITY — read out of the autosave slot itself,
+   * exactly as `withheldLeaderClaimSurvivesReload.spec.ts` binds its twin. A
+   * slice-only write cannot satisfy this.
+   */
+  it('the cleared stamp reaches the autosave slot, not just the in-memory slice', () => {
+    seedHeldReportWithWithholding()
+    // PRECONDITION PIN: the withholding is genuinely IN the persisted record
+    // first, or "absent afterwards" would hold for the wrong reason.
+    expect(loadAutosave()?.analysis?.report?.producer_leader_permission).toEqual({
+      permitted: false,
+      withheld_reason: 'leader_claim_withheld',
+    })
+
+    useCanvasStore.getState().resultsRestoreLeaderClaim(settled() as never)
+
+    expect(loadAutosave()?.analysis?.report?.producer_leader_permission).toBeUndefined()
+  })
+
+  it('and the designation survives a reload — the user-visible half', () => {
+    seedHeldReportWithWithholding()
+    useCanvasStore.getState().resultsRestoreLeaderClaim(settled() as never)
+
+    // Drive the real boot path rather than asserting the slot again, so this
+    // fails if the restore persists but the rehydrator drops it.
+    useCanvasStore.setState({ results: { status: 'idle', progress: 0 } as never })
+    restoreAnalysisFromAutosave(loadAutosave(), useCanvasStore.getState().resultsLoadHistorical)
+
+    expect(permissionNow()).toBeNull()
+  })
+})
+
+describe('the run-state gate — a grant is NOT monotone the way a refusal is', () => {
+  /**
+   * ⛔ A review asked which producer fact makes a run-state gate unnecessary.
+   * It could not be derived — the CEE composer fetch returned an EMPTY file,
+   * which is UNMEASURED, not zero — so the client gates rather than claims.
+   *
+   * ⛔⛔ AND THE OBVIOUS PREDICATE IS THE WRONG ONE. `isReadTerminalRunState`
+   * includes `blocked` and `refused`, because a blocked analysis is a finished
+   * fact worth REHYDRATING. It does not follow that it licenses NAMING A LEADER.
+   * These two rows are the ones that would have passed under that reuse.
+   */
+  it.each([
+    ['a run that is blocked', 'blocked'],
+    ['a run the producer refused', 'refused'],
+    ['a run still in flight', 'running'],
+    ['a run that never happened', 'never_run'],
+    ['a run whose state cannot be read', 'unknown_degraded'],
+  ])('refuses to clear on %s', (_why, kind) => {
+    seedHeldReportWithWithholding()
+    const before = permissionNow()
+    useCanvasStore.getState().resultsRestoreLeaderClaim(settled({ run_state: { kind } }) as never)
+    expect(permissionNow()).toEqual(before)
+  })
+
+  it('refuses when the producer sends no run_state at all', () => {
+    seedHeldReportWithWithholding()
+    const { run_state: _omitted, ...noRunState } = settled()
+    useCanvasStore.getState().resultsRestoreLeaderClaim(noRunState as never)
+    expect(permissionNow()).toEqual({ permitted: false, withheld_reason: 'leader_claim_withheld' })
+  })
+
+  it('CONTRAST CONTROL: a claimable kind DOES clear, so the rows above are not all passing vacuously', () => {
+    seedHeldReportWithWithholding()
+    useCanvasStore.getState().resultsRestoreLeaderClaim(settled({ run_state: { kind: 'complete_stale' } }) as never)
     expect(permissionNow()).toBeNull()
   })
 })
@@ -172,5 +265,46 @@ describe('the turn path actually calls it', () => {
     )
 
     expect(permissionNow()).toBeNull()
+  })
+
+  /**
+   * ⛔ THE LEDGER ENTRY IS PINNED, because an unpinned one is the same dark-ship
+   * shape the review found on step 5c itself: the applicator changed what the
+   * canvas designates and its own trace said nothing.
+   *
+   * ⚠ AND IT IS ASSERTED IN BOTH DIRECTIONS. The entry must appear when a stamp
+   * is actually cleared and must NOT appear when the turn permits but nothing is
+   * held — otherwise the ledger says the same thing on turns that differ, which
+   * is a trace that cannot discriminate (CLAUDE.md trap 20).
+   */
+  it('the applied ledger records the restore — and only when something was cleared', async () => {
+    const { applyV5State } = await import('../../v5/applyV5State')
+    const store = useCanvasStore.getState()
+    const permittingTurn = {
+      blocks: [],
+      analysis_state: {
+        run_state: { kind: 'complete_current', computed_at: '2026-09-11T10:00:00Z' },
+        readiness: { status: 'ready', blockers: [] },
+        leader_claim: { permitted: true },
+        robustness: {},
+        usable_for_prose: true,
+        usable_for_chips: true,
+        usable_for_followup: true,
+        requires_rerun: false,
+        blocked_unusable: false,
+        contradictions: [],
+      },
+    }
+
+    seedHeldReportWithWithholding()
+    const cleared = applyV5State(permittingTurn as never, { ...store } as never)
+    expect(cleared.applied).toContain('leader_claim:restored')
+
+    // The other direction: same turn, nothing withheld to clear.
+    useCanvasStore.setState({
+      results: { status: 'complete', progress: 100, report: REPORT } as never,
+    })
+    const noop = applyV5State(permittingTurn as never, { ...store } as never)
+    expect(noop.applied).not.toContain('leader_claim:restored')
   })
 })
