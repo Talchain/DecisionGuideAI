@@ -1339,12 +1339,25 @@ export function AnalysisNewTabBody({
             is today for a reader who opened this section themselves. The
             collapsed IA is unchanged for everyone who lands on a completed run,
             which is the state its 1,584px measurement was taken in. */}
+        {/* ⭐⭐ THE CONSIDER-THE-OPPOSITE ACT IS FED THE RUN'S OWN REVERSAL
+            CONDITION, and it is the SAME object the glance renders as "Could
+            change if …" — not a second derivation of it. `glanceCondition`
+            already chose which producer flip row is the one; a mount that
+            picked its own would be the two-choosers defect `selectFlipRisk`'s
+            header exists to end, and the two surfaces could then disagree about
+            which factor the run said turns the ordering.
+
+            ⚠ `vm.atAGlance.condition` IS NULL PRE-RUN (the pre-run arm nulls
+            every glance field), so the act cannot appear before there is a run
+            to be about. That is the correct gate and it is inherited rather
+            than restated here. */}
         <StrengthenTheReasoning
           interventions={alsoWorthDoing}
           scienceGrounding={vm.strengthen.scienceGrounding}
           preview={ANALYSIS_NEW_LIMITS.STRENGTHEN_PREVIEW}
           analysisHash={responseHash ?? null}
           defaultOpen={vm.status.isPreRun && alsoWorthDoing.length > 0}
+          changeYourMind={vm.atAGlance.condition}
           icon={Wrench}
         />
 

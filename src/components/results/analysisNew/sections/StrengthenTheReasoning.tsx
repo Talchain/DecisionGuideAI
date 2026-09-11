@@ -61,7 +61,8 @@ import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import { SEVERITY_BADGE_CLASS, NOTICE_MS } from '../../strengthen/StrengthenPanel'
 import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
-import type { ScienceGrounding } from '../analysisNewTypes'
+import type { GlanceCondition, ScienceGrounding } from '../analysisNewTypes'
+import { WhatWouldChangeYourMind } from './WhatWouldChangeYourMind'
 import { methodForRecommendation } from '../recommendationMethod'
 import { NodeMark, markKindForTarget } from '../nodeMarks'
 import { planPreview } from '../previewComposition'
@@ -125,6 +126,25 @@ export interface StrengthenTheReasoningProps {
    * `AnalysisNewTabBody.tsx`.
    */
   defaultOpen?: boolean
+  /**
+   * ⭐⭐ THE RUN'S CALCULATED REVERSAL CONDITION, for the consider-the-opposite
+   * act. `null` (the default) renders NO act at all.
+   *
+   * ⚠ WHY IT ARRIVES HERE RATHER THAN BEING RENDERED WHERE THE CONDITION IS.
+   * The condition's own home is the glance ("Could change if …"), which is
+   * where an act beside it would ideally sit. That component is held by another
+   * live seat, so this change may not put anything in it. This section is the
+   * tab's designated CHALLENGE surface and already owns every other act the
+   * reader has on a finding, so the act is mounted here and the grounded form
+   * QUOTES the condition's factor and threshold — the reader does not have to
+   * scroll back up to know what it is about. The placement is a constraint, not
+   * a preference, and it is recorded as owed rather than silently taken.
+   *
+   * ⚠ PASSED WHOLE, never pre-decided by the caller. Which of the two honest
+   * claims this run entitles is `buildChangeYourMindAsk`'s question and no
+   * mount's.
+   */
+  changeYourMind?: GlanceCondition | null
   testId?: string
 }
 
@@ -149,6 +169,7 @@ export function StrengthenTheReasoning({
   analysisHash = null,
   icon,
   defaultOpen = false,
+  changeYourMind = null,
   testId = 'analysis-new-strengthen',
 }: StrengthenTheReasoningProps) {
   /**
@@ -636,7 +657,17 @@ export function StrengthenTheReasoning({
           </div>
         )
       ) : (
-        <ul className="space-y-3 list-none p-0 m-0" id={`${testId}-list`}>
+        <>
+          {/* ⭐ THE ACT LEADS THE FINDINGS. It is rendered only inside the
+              non-empty branch, so it never appears above an empty state or a
+              completed one: an act to challenge a finding needs a finding. It
+              renders nothing of its own when the run produced no reversal
+              condition. */}
+          <WhatWouldChangeYourMind
+            condition={changeYourMind}
+            testId={`${testId}-change-your-mind`}
+          />
+          <ul className="space-y-3 list-none p-0 m-0" id={`${testId}-list`}>
           {visible.map((rec) => {
             const grounding = scienceGrounding[rec.id]
             // `null` for most findings, and that is correct — see
@@ -1062,7 +1093,8 @@ export function StrengthenTheReasoning({
               </li>
             )
           })}
-        </ul>
+          </ul>
+        </>
       )}
 
       {/* ⭐ THE TAIL IS REACHABLE, AND IT SAYS HOW LONG IT IS. Same control,

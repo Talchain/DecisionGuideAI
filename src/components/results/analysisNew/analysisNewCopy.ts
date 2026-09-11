@@ -544,6 +544,91 @@ export const ANALYSIS_NEW_COPY = {
   },
 
   /**
+   * ⭐⭐ "What would change your mind?" — the consider-the-opposite act.
+   *
+   * The move is the best-evidenced debiasing intervention in the literature
+   * (Lord, Lepper & Preston 1984; Hirt & Markman on alternative explanations),
+   * and the product already NAMES it: `METHOD_CATALOGUE`'s `consider_opposite`
+   * carries the accepted CEE intent `challenge_assumption`. What it has never
+   * done is ask it against the run's OWN arithmetic.
+   *
+   * ⚠⚠ THE ONE RULE THIS BLOCK EXISTS TO HOLD, AND IT IS THE WHOLE POINT.
+   * Where a reversal condition was actually CALCULATED, the question is built
+   * from it and names the producer's own quantity and threshold. Where none
+   * was, the act presents itself as a REASONING TECHNIQUE and may not imply the
+   * system computed anything. Two acts, named apart, never one sentence that
+   * blurs them (CLAUDE.md trap 21 — two questions under one name, where the
+   * honest answer differs).
+   *
+   * A blurred version is worse than a missing one: a thinking prompt dressed as
+   * a finding is the fabricated-scientific-label defect this tab was built to
+   * avoid, and it is the exact shape of the `/v1/counterfactual` placeholder
+   * arithmetic wrapped in a real model card.
+   *
+   * ⚠ THE CATALOGUE'S OWN PROMPT IS NOT REUSED VERBATIM, AND THAT IS DELIBERATE
+   * RATHER THAN AN OVERSIGHT. `consider_opposite.prompt` reads "build the
+   * strongest honest case AGAINST the option that scored highest" — a RANK
+   * POSITION as its subject. `recommendationMethod.ts:74-82` already records
+   * that as a known, unfixed instance of the referent defect, unrepairable
+   * there because `METHOD_CATALOGUE` is STATIC and has no run to name anything
+   * from. This act HAS a run, so it names the producer's factor instead of a
+   * placing. The technique IDENTITY is still the catalogue's — the ask carries
+   * `method_id: 'consider_opposite'` and the same intent — so no second
+   * consider-the-opposite is minted.
+   */
+  changeYourMind: {
+    /** The act. One control, one question, on both arms. */
+    actLabel: 'What would change your mind?',
+    /**
+     * GROUNDED. Both substitutions are the PRODUCER'S: `factorLabel` is
+     * `flip_thresholds[].label` and `thresholdText` is its `flip_value`
+     * formatted by the builder that already renders it in "Could change if".
+     * The run is named as the author of the figure, because it is.
+     */
+    groundedLead: (factorLabel: string, thresholdText: string) =>
+      `This run put the point where the ordering changes at ${thresholdText} for ${factorLabel}. What would tell you where ${factorLabel} actually sits?`,
+    /** GROUNDED — the question that goes to Olumi. It asks; it never edits. */
+    groundedDraft: (factorLabel: string, thresholdText: string) =>
+      `This analysis puts the point where the ordering changes at ${thresholdText} for ${factorLabel}. Take the opposite side: what evidence or reasoning would put ${factorLabel} on the other side of that figure, and what would I need to see before I believed it?`,
+    /**
+     * TECHNIQUE. Reached when the run DID find a reversal condition but could
+     * not place it on a scale the reader can read (`glanceCondition`'s third
+     * arm, where neither a printable unit nor a `current_value` survived and
+     * the number is dropped). It says what it is. It claims no computation,
+     * no detected bias, no computed importance and no optimal experiment.
+     */
+    techniqueLead:
+      'This run has no figure for where that would change, so this is a reasoning technique rather than a finding: make the strongest case against your current thinking and see what it would take to convince you.',
+    /** TECHNIQUE — the question that goes to Olumi. No invented quantity. */
+    techniqueDraft:
+      'Take the opposite side of my current thinking on this decision. What evidence or reasoning would change my mind, and what would I need to see before I believed it?',
+    /**
+     * ⚠ A BAN LIST QUOTES THE BANNED CLAIM, IT DOES NOT MAKE ONE. Named with
+     * BANNED so `noWinnerVocabulary.spec.ts`'s `banListsBlanked` treats it as
+     * quotation rather than as user-facing copy, exactly as it does for
+     * `ANALYSIS_HERO_BANNED_TERMS`.
+     *
+     * These are the four claim shapes the brief forbids the technique arm from
+     * making: computed importance, a detected bias, an optimal experiment, and
+     * oracle framing. The guard is a HAND-WRITTEN CORPUS on purpose — a derived
+     * one could only agree with the sentence it was derived from (trap 12d:
+     * derivation proves agreement and can never prove completeness).
+     */
+    COMPUTATION_CLAIMS_BANNED_IN_TECHNIQUE: [
+      'we calculated',
+      'we computed',
+      'we worked out',
+      'we found',
+      'we detected',
+      'most important',
+      'optimal',
+      'the data says',
+      'the result shows',
+      'the analysis shows',
+    ] as readonly string[],
+  },
+
+  /**
    * "Your model so far" — the per-node detail.
    *
    * ⚠ EVERY STRING HERE IS FURNITURE OR AN ABSENCE, AND THERE IS NO THIRD KIND.

@@ -907,6 +907,40 @@ export interface GlanceDriver {
 export interface GlanceCondition {
   text: string
   targetId: string | null
+  /**
+   * ⭐⭐ THE PRODUCER'S OWN QUANTITY BEHIND `text`, PRESENT ONLY WHEN A NUMBER
+   * ACTUALLY SURVIVED INTO IT.
+   *
+   * `text` has THREE forms and only two of them carry a figure: "{label} passes
+   * {flip}", "{label} moves from {current} to {flip}", and — when neither a
+   * printable unit nor a `current_value` exists — "{label} changes materially",
+   * where the producer's number is DROPPED because the reader has nothing to
+   * place it against.
+   *
+   * ⚠⚠ THAT THIRD ARM IS WHY THIS FIELD IS NOT JUST A REPHRASING OF `text != null`.
+   * A consumer asking "did this run calculate a reversal condition I may quote
+   * a figure from?" cannot answer it from `text`, because all three arms are
+   * non-empty strings and only prose tells them apart. Reading the question off
+   * the sentence would be exactly the prose-matching this view model forbids.
+   * So the discriminator is carried as STRUCTURE: present ⇔ a figure is quotable.
+   *
+   * ⚠ IT INVENTS NOTHING AND IT CHOOSES NOTHING. Both strings are lifted from
+   * the SAME producer row `glanceCondition` already selected, formatted by the
+   * SAME formatter that composed `text`. There is no second chooser here — a
+   * consumer re-deriving "which flip row is the one" would be the two-choosers
+   * defect `selectFlipRisk`'s header exists to end.
+   *
+   * `null` (or absent) means: no figure may be quoted for this condition.
+   */
+  quantity?: GlanceConditionQuantity | null
+}
+
+/** The two producer strings a grounded question may name. Both verbatim. */
+export interface GlanceConditionQuantity {
+  /** `flip_thresholds[].label` — the factor the run named. */
+  factorLabel: string
+  /** `flip_value`, formatted exactly as `text` renders it. Never re-rounded. */
+  thresholdText: string
 }
 
 /**
