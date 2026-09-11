@@ -138,6 +138,21 @@ const KIND_DESCRIPTIONS: Record<ModelBuildingNoticeKind, string> = {
  * `alternative_consolidated` disposes of MODEL-emitted content rather than
  * anything "from your brief".
  *
+ * ⚠⚠ HOW BIG IS THE OVER-COUNT? UNMEASURED ON THE WITNESSED DRAFT, AND THE ONE
+ * BANKED FIGURE SAYS **SMALL** — recorded here so nobody inherits the opposite.
+ * On both real banked B3 captures the projector produced 56 disclosures and the
+ * DOMINANT CLASS was `unconnected_to_goal` at 51 of 56 (`transforms/schema-v3.ts:1831`),
+ * which is `detail_not_connected` and IS genuinely absent. On that corpus this
+ * change moves the headline 56 -> ~51, not 56 -> 5. The 14 witnessed on 11 Sep
+ * has never been broken down, and a capture is the only thing that would.
+ *
+ * ⭐ SO THE COUNT IS NOT THE BIGGEST LIE ON THIS SURFACE — THE ROW COPY WAS.
+ * At 51 of 56, the modal row said "Details you mentioned that aren't LINKED to
+ * anything else yet", which tells the user the detail is on the graph and merely
+ * unattached. The producer WITHDRAWS it. Nine in ten disclosures were describing
+ * a deletion as a loose end. That is fixed in `KIND_DESCRIPTIONS` above, and it
+ * is the change on this surface most likely to matter to a real user.
+ *
  * ── THE RULE, AND WHY IT IS THE ONLY ONE THE WIRE SUPPORTS ──────────────────
  * A kind is `absent` only when EVERY producer reason mapped to it puts the
  * content outside the graph. The wire carries the KIND and not the reason, so a
