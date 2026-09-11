@@ -88,6 +88,30 @@ const sentenceCase = (s: string): string =>
   s === '' ? s : `${s.charAt(0).toUpperCase()}${s.slice(1)}`
 
 /**
+ * The exact inverse: lowers a leading letter so a label written to OPEN
+ * something can be spliced mid-sentence.
+ *
+ * `ZERO_REASON_BADGE_LABELS` is a map of BADGE labels, so every value opens
+ * with a capital and is right to. Spliced after a colon by `coverage.notRanked`
+ * and `empty.noneRanked` the capital reads as a sentence fragment — witnessed
+ * by Paul on deployed `b93904c9`: "4 factors are not ranked here: Controlled by
+ * your options."
+ *
+ * ⚠ HERE RATHER THAN AT THE CALL SITE, AND THE PRECEDENT IS EXPLICIT.
+ * `goalAnchorCopy.ts:276` states it: "The register owns casing; call sites
+ * never do it" — written after two call sites did `phrase(x).charAt(0)
+ * .toLowerCase()` inline and a third did NOT, shipping "Option A Supported in
+ * 71% of simulated scenarios" with a capital mid-sentence. BOTH composers below
+ * call this, so the two cannot drift into two casings of one producer stamp.
+ *
+ * Only the first character is touched, so `ZERO_REASON_BADGE_LABELS` stays the
+ * single owner of what each reason is CALLED and no label is duplicated here in
+ * a different case.
+ */
+const clauseCase = (s: string): string =>
+  s === '' ? s : `${s.charAt(0).toLowerCase()}${s.slice(1)}`
+
+/**
  * The coverage warning with no names in it. Held as a const because
  * `provisionalNaming` falls back to it: the guarantee "an empty list never
  * emits a sentence fragment" then belongs to the STRING, not to its one
@@ -374,7 +398,7 @@ export const ANALYSIS_NEW_COPY = {
      * run did not return factor influence at all.
      */
     noneRanked: (n: number, reasons: readonly string[]) =>
-      `No factor is ranked in this run. ${n === 1 ? '1 factor was' : `${n} factors were`} returned and set aside: ${reasons.join('; ')}.`,
+      `No factor is ranked in this run. ${n === 1 ? '1 factor was' : `${n} factors were`} returned and set aside: ${reasons.map(clauseCase).join('; ')}.`,
     /**
      * ⚠ FAIL-CLOSED SIBLING. `suppressedZeroCount` and `suppressedZeroReasons`
      * move together by construction, but the count is not what a sentence
@@ -1668,7 +1692,7 @@ export const ANALYSIS_NEW_COPY = {
      * the analysis, and the narrower claim is the true one.
      */
     notRanked: (n: number, reasons: readonly string[]) =>
-      `${n} ${n === 1 ? 'factor is' : 'factors are'} not ranked here: ${reasons.join('; ')}.`,
+      `${n} ${n === 1 ? 'factor is' : 'factors are'} not ranked here: ${reasons.map(clauseCase).join('; ')}.`,
     /**
      * ⛔ UNREACHABLE SINCE #1228, AND THAT IS A REPORTED FINDING RATHER THAN A
      * DECISION THIS FIX MADE. `driversCaveat` reaches this arm only when
