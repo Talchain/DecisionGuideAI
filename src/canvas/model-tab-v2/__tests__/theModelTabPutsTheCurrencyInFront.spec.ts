@@ -122,13 +122,33 @@ const CORPUS: ReadonlyArray<{
   // ── percent: MUST NOT MOVE. The Model tab echoes the producer's spelling. ──
   { unit: '%', raw: 20, expected: '20 %', unchangedByThisFix: true },
   { unit: 'percent', raw: 20, expected: '20 percent', unchangedByThisFix: true },
-  // ── placeholder: MUST NOT MOVE. `formatValueWithUnit` would DROP "scale". ──
-  { unit: 'scale', raw: 8, expected: '8 scale', unchangedByThisFix: true },
-  { unit: 'index', raw: 8, expected: '8 index', unchangedByThisFix: true },
-  // ── other: real units, and CEE's 'count' placeholder. MUST NOT MOVE. ───────
+  /**
+   * ── placeholder: MOVED BY ROADMAP 2.315(c) LIMB (c), 11 Sep 2026. ─────────
+   *
+   * ⚠ THESE TWO ROWS USED TO READ `'8 scale'` / `'8 index'`, PINNED AS "MUST
+   * NOT MOVE". That pin was correct for THIS fix — a wholesale swap to
+   * `formatValueWithUnit` would have moved a second unit class as a side
+   * effect of a currency change, which is what it was written to prevent. It
+   * was never a ruling that the word belongs on screen. Limb (c) then measured
+   * the same shape on `count` ("800,000 count") and fixed the CLASS through
+   * `unitIsDisplayable`, which suppresses every unit naming no real scale.
+   * Six surfaces already did — `computeSuccessState`, `goalConstraintText`,
+   * `flipThresholdDisplay`, `FactorsSection`, `AllImprovements`,
+   * `ScientificEditor` — so this row was the outlier.
+   */
+  { unit: 'scale', raw: 8, expected: '8', unchangedByThisFix: true },
+  { unit: 'index', raw: 8, expected: '8', unchangedByThisFix: true },
+  // ── other: real units. MUST NOT MOVE. ─────────────────────────────────────
   { unit: 'months', raw: 9, expected: '9 months', unchangedByThisFix: true },
   { unit: 'customers', raw: 500, expected: '500 customers', unchangedByThisFix: true },
-  { unit: 'count', raw: 250000, expected: '250,000 count', unchangedByThisFix: true },
+  /**
+   * ⚠ WAS `'250,000 count'` — THE DEFECT, PINNED. `count` is CEE's sentinel
+   * for "a plain number of things" and names no scale; limb (c) suppresses it.
+   * It stays in this corpus because the coverage assertion above needs a
+   * member of the `other` class that is NOT displayable, which is exactly the
+   * distinction `unitIsDisplayable` draws and `classifyUnit` does not.
+   */
+  { unit: 'count', raw: 250000, expected: '250,000', unchangedByThisFix: true },
   // ── none: no unit at all. MUST NOT MOVE. ──────────────────────────────────
   { unit: undefined, raw: 250000, expected: '250,000', unchangedByThisFix: true },
 ]
@@ -152,9 +172,19 @@ describe('⭐ the Model tab renders a prefix currency in front of the number', (
     },
   )
 
-  // ── THE OTHER HALF: everything that must NOT move ─────────────────────────
+  /**
+   * ── THE OTHER HALF: everything the CURRENCY fix must not move ─────────────
+   *
+   * ⚠ THE TITLE USED TO SAY "is untouched", AND THAT WENT FALSE ON 11 Sep 2026.
+   * `unchangedByThisFix` records whether the CURRENCY fix moved the row, which
+   * is what makes the mutant table readable and is still accurate history. It
+   * is NOT a claim that the row has never moved since: ROADMAP 2.315(c) limb
+   * (c) deliberately changed `scale`, `index` and `count`. Renamed rather than
+   * left standing, because a label that quietly stops being true is how this
+   * estate teaches itself to stop looking.
+   */
   it.each(CORPUS.filter(c => c.unchangedByThisFix))(
-    'non-currency unit $unit is untouched — $raw still renders as "$expected"',
+    'non-currency unit $unit — $raw renders as "$expected"',
     ({ unit, raw, expected }) => {
       expect(targetTextFor(goalWithTarget(raw, unit))).toBe(expected)
     },
