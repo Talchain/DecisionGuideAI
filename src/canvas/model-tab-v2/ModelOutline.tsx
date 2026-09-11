@@ -31,7 +31,7 @@
  * so the user never has to wonder whether a group disappeared or never existed.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { classifyValueProvenance } from '../domain/valueProvenance'
 import { typography } from '../../styles/typography'
 import { ModelRowView } from './ModelRowView'
@@ -137,8 +137,46 @@ export function outlineLayout(
    * the pure-function tests are unchanged.
    */
   searchClosed: ReadonlySet<ModelGroupId> = new Set(),
+  /**
+   * ⭐ THE HEADING CLAUSE THE READER PRESSED — ONE GROUP, ONE BUCKET.
+   *
+   * ⚠ IT NAMES ITS GROUP, AND THAT CONJUNCT IS LOAD-BEARING. Without it, a
+   * press on the Factors heading would narrow Outcomes & risks and Goal too —
+   * every group loses the rows that clause does not count, including rows that
+   * are perfectly well stated. `theCountIsTheWayIn.spec`'s `(d)` block is the
+   * red that catches it.
+   *
+   * ⚠ AND IT FILTERS BY THE SAME FUNCTION THE HEADING COUNTS WITH
+   * (`unsetBucketOf`), never by a second reading of "which rows did that clause
+   * mean". A clause and the rows it reveals cannot disagree, because there is
+   * one predicate, not two spellings of one (trap 12).
+   *
+   * Optional, so every existing caller and every pure-function test is
+   * unchanged.
+   */
+  bucketFilter: { group: ModelGroupId; bucket: UnsetBucket } | null = null,
 ): {
-  groups: readonly { id: ModelGroupId; open: boolean; rows: readonly ModelRow[] }[]
+  groups: readonly {
+    id: ModelGroupId
+    open: boolean
+    rows: readonly ModelRow[]
+    /**
+     * ⭐⭐ WHAT THE HEADING COUNTS — the group's rows AFTER the search needle and
+     * BEFORE the pressed clause.
+     *
+     * ⚠ WITHOUT THIS FIELD THE HEADING EATS ITSELF. `rows` is what the outline
+     * RENDERS, so once a clause narrows the group, a heading computed from
+     * `rows` would re-count the narrowed list: "Factors 5 · 3 with no value yet
+     * · 2 estimated by Olumi" collapses to "Factors 3 · 3 with no value yet" the
+     * instant the first clause is pressed — the other clause disappears, which
+     * is both a changed count and the removal of the reader's way back.
+     *
+     * ⚠ THE NEEDLE IS STILL HONOURED, DELIBERATELY. A search genuinely changes
+     * what is in the group, and the heading has always followed it. A pressed
+     * clause does not: it is a lens over a group whose contents have not moved.
+     */
+    headingRows: readonly ModelRow[]
+  }[]
   unknownGroupRowIds: readonly string[]
 } {
   const needle = filter.trim().toLowerCase()
@@ -172,8 +210,58 @@ export function outlineLayout(
 
   return {
     groups: MODEL_GROUP_IDS.map(id => {
-      // `filter` preserves the caller's order by construction.
-      const groupRows = rows.filter(r => r.group === id && matches(r))
+      /**
+       * `filter` preserves the caller's order by construction.
+       *
+       * ⚠ THE BUCKET CLAUSE IS ANDed WITH THE SEARCH, NOT SUBSTITUTED FOR IT.
+       * Two narrowings the reader asked for separately both apply; a clause that
+       * silently discarded the needle would show rows the search box says are
+       * hidden.
+       */
+      const inPressedBucket = (r: ModelRow) =>
+        bucketFilter === null ||
+        bucketFilter.group !== id ||
+        unsetBucketOf(r) === bucketFilter.bucket
+      const headingRows = rows.filter(r => r.group === id && matches(r))
+      const narrowed = headingRows.filter(inPressedBucket)
+      /**
+       * ⭐⭐ A LENS THAT NAMES NOTHING IS NOT APPLIED — THE FILTER SUSPENDS
+       * ITSELF THE MOMENT ITS BUCKET EMPTIES.
+       *
+       * ⚠ THE CONDITION IS EXACTLY "THE PRESSED CLAUSE IS NO LONGER ON SCREEN",
+       * and that equivalence is the whole argument rather than a coincidence.
+       * `unsetClauses` emits a clause only where `unsetBucketOf` puts at least
+       * one of `headingRows` in that bucket; `narrowed` is those same rows read
+       * through the same function. So `narrowed.length === 0` for the pressed
+       * group holds if and only if the clause is not rendered — one predicate,
+       * asked twice, never two spellings of it (trap 12).
+       *
+       * ⚠ WITHOUT THIS THE FEATURE'S OWN SUCCESS PATH ENDS IN A TRAP. The reader
+       * presses `1 with no value yet`, supplies the value — which is precisely
+       * what the clause invited — and the bucket empties. The clause stops being
+       * emitted, so the control that lifts the filter disappears while the filter
+       * stays: heading `Factors, 3 elements, 2 estimated by Olumi` over a body
+       * reading `Nothing in this group yet`, 0 rows, `aria-expanded` still true.
+       * A reader may reasonably read that as their own edit having removed the
+       * rows. Recovery took two chevron presses and nothing on screen said so.
+       * This file's own rule — *a filter with no way back is a trap, and the
+       * pressed control is the way back* — was true at render time and false over
+       * time, and the defect sat exactly where the confidence was.
+       *
+       * ⚠ SCOPED TO THE PRESSED GROUP BY CONSTRUCTION, AND THAT MATTERS. For
+       * every other group `inPressedBucket` is already total, so `narrowed` IS
+       * `headingRows` and this line changes nothing — a group the search
+       * genuinely emptied still renders `No matches in this group` rather than
+       * having its rows dumped back. The repair is "release a lens that selects
+       * nothing", never "never show an empty group".
+       *
+       * ⚠ SUSPENDED, NOT DISCARDED. `pressedClause` is untouched, so a needle
+       * that hides the bucket and is then cleared returns the reader to the
+       * narrowing they asked for — with its clause back on screen. The state is
+       * never applied while the control that lifts it is absent, which is the
+       * invariant, stated as a property rather than as the failure mode.
+       */
+      const groupRows = narrowed.length === 0 ? headingRows : narrowed
       return {
         id,
         /**
@@ -204,10 +292,19 @@ export function outlineLayout(
          * every group is open by default — while production passes them all
          * as closed. It never exercised the closed-and-searching case at all.
          */
+        /*
+         * ⚠ READ FROM `headingRows`, SO A PRESSED CLAUSE CANNOT CHANGE WHETHER A
+         * GROUP IS OPEN. The clause press opens the group through the same
+         * `closed`/`searchClosed` sets the chevron writes; leaving `open` a
+         * function of the needle alone keeps this decision byte-for-byte what it
+         * was before the clause existed, and keeps the chevron able to collapse
+         * a narrowed group.
+         */
         open: searching
-          ? (openGroups.has(id) || groupRows.length > 0) && !searchClosed.has(id)
+          ? (openGroups.has(id) || headingRows.length > 0) && !searchClosed.has(id)
           : openGroups.has(id),
         rows: groupRows,
+        headingRows,
       }
     }),
     unknownGroupRowIds,
@@ -294,74 +391,89 @@ function SectionWriterNotice({
  * `null` renders nothing: a group where every row is set states nothing rather
  * than announcing a zero.
  */
-function unsetSummary(rows: readonly ModelRow[]): string | null {
+/**
+ * ⭐⭐ THE THREE DISJOINT POPULATIONS THE HEADING NAMES — ONE FUNCTION, READ BY
+ * BOTH THE COUNT AND THE FILTER.
+ *
+ * ⚠ IT IS AN EXTRACTION, NOT A NEW RULE. Every limb below was already inside
+ * `unsetSummary`, in this order, and the order is the rule: `yours` first,
+ * `from-olumi` second, and `no-value` as the RESIDUAL — which is exactly how the
+ * sentence computed `nothing = unset − yours − fromOlumi`. Pulling it out is
+ * what lets the clause the reader presses and the rows they then see be the SAME
+ * question rather than two spellings of it (trap 12).
+ *
+ * `null` means "not in any unset bucket", which for a row that HAS a value is
+ * the whole answer: the heading never counted it and the clause never reveals it.
+ */
+export type UnsetBucket = 'no-value' | 'from-olumi' | 'yours'
+
+export function unsetBucketOf(row: ModelRow): UnsetBucket | null {
   // `primaryValue === null` is the projection's OWN definition of "nothing is
-  // stated" (`types.ts`: *"`null` means nothing is stated — which is a fact to
-  // render, never a zero to invent"*). Reading that same field is what keeps
-  // this heading and the value cells from drifting apart — the reason the count
-  // itself is untouched.
-  const unset = rows.filter(r => r.primaryValue === null)
-  if (unset.length === 0) return null
+  // stated". A row with a value is in no bucket at all.
+  if (row.primaryValue !== null) return null
+  if (classifyValueProvenance(row.provenanceSource)?.userOwned === true) return 'yours'
+  // ⚠ TWO FACTS, ONE QUESTION — read from their existing owners, never
+  // re-derived. `estimateText` is the field the CELL renders;
+  // `unconfirmed-estimate` is `factorIsConfirmable`, surfaced as an attention
+  // reason. A row may carry either without the other, and their UNION is the one
+  // question this clause asks. See the block on `unsetSummary` below.
+  if (
+    row.estimateText !== undefined ||
+    (Array.isArray(row.attention) && row.attention.includes('unconfirmed-estimate'))
+  ) {
+    return 'from-olumi'
+  }
+  return 'no-value'
+}
 
-  // Read from the SHARED predicate (`factorIsConfirmable`, surfaced as this
-  // attention reason) — never a second local answer to "has Olumi estimated
-  // this?", which is how the confirm chip went wrong.
+/**
+ * The clauses the heading renders, IN ORDER, each with the bucket it counts.
+ *
+ * ⚠ THE STRINGS ARE UNTOUCHED and the joined result is byte-identical to what
+ * `unsetSummary` returned before this became a list — `rowShowsOlumisEstimate`
+ * and `modelOutlineNamesTheRightAxis` both pin the exact sentence, so a stray
+ * space here REDs rather than drifting.
+ */
+interface UnsetClause {
+  bucket: UnsetBucket
+  text: string
+}
 
-  // ⛔⛔ NO UMBRELLA CLAIM — THE FOURTH ATTEMPT, AND THE FIRST THAT IS NOT AN
-  // ADJECTIVE. Three previous heads each characterised the whole `unset`
-  // population, and each was FALSE for a class the corpus behind it excluded:
+function unsetClauses(rows: readonly ModelRow[]): readonly UnsetClause[] {
+  const counts: Record<UnsetBucket, number> = { 'no-value': 0, 'from-olumi': 0, yours: 0 }
+  for (const row of rows) {
+    const bucket = unsetBucketOf(row)
+    if (bucket !== null) counts[bucket] += 1
+  }
+  const clauses: UnsetClause[] = []
+  if (counts['no-value'] > 0) {
+    clauses.push({ bucket: 'no-value', text: `${counts['no-value']} with no value yet` })
+  }
+  if (counts['from-olumi'] > 0) {
+    clauses.push({ bucket: 'from-olumi', text: `${counts['from-olumi']} estimated by Olumi` })
+  }
+  if (counts.yours > 0) clauses.push({ bucket: 'yours', text: `you set ${counts.yours}` })
+  return clauses
+}
+
+function unsetSummary(clauses: readonly UnsetClause[]): string | null {
+  // ⚠ IT NOW TAKES THE CLAUSES RATHER THAN THE ROWS, AND THE NAME IS KEPT ON
+  // PURPOSE: three files outside this directory cite `ModelOutline.unsetSummary`
+  // by symbol when they explain why they draw the same line, and a rename would
+  // silently strand all three (`buildModelStrip.ts`, `analysisNewCopy.ts`,
+  // `ModelHealthSection.tsx` — comments only, none edited here).
   //
-  //   "have no value yet"        FALSE for a band  (cell shows "Olumi: 0.25 to 0.75")
-  //   "not set by your team"     FALSE for a user-set factor with no `raw_value`
-  //                              (measured: typing 0.8 persists {value, source:'user'})
-  //   "without a figure"         FALSE for a numeric estimate — `estimateText` is
-  //                              CEE's `display_value` with only an EMPTINESS check,
-  //                              and the estate's fixtures carry '£20,000' (11×),
-  //                              '£30k', '£49', '3 months', '20%', '0.7'. A row can
-  //                              render "Olumi: £20,000" under a heading calling it
-  //                              figureless.
+  // The counting, the bucket definitions and the clause order live in
+  // `unsetClauses`, because the heading's CLAUSES are also the outline's FILTER
+  // and the two must be one function rather than two agreeing copies (trap 12).
+  // The buckets, the wording and the ' · ' join are unchanged; the derivation of
+  // why the wording is what it is sits on `unsetBucketOf` above, beside the
+  // predicate it justifies.
   //
-  // ⚠ THE POPULATION IS HETEROGENEOUS, SO NO ADJECTIVE CAN BE TRUE OF IT. Three
-  // rounds is past the point where one more wording is a fix rather than the
-  // next refutation, so this states the COMPOSITION instead of characterising it:
-  // three DISJOINT buckets, each clause independently true, and nothing asserted
-  // about the whole.
-  //
-  // ⚠ AND THE BUCKETS READ WHAT THE CELL READS. "Olumi has something here" is
-  // answered by `estimateText` — the very field `ModelRowView` renders — NOT by a
-  // second predicate over the same question. `factorIsConfirmable` answers a
-  // different one ("is there a value to RATIFY?"), which is why a band satisfies
-  // this and not that. The heading's job is to be consistent with the cell beside
-  // it, so it reads the cell's own field.
-  const yours = unset.filter(
-    r => classifyValueProvenance(r.provenanceSource)?.userOwned === true,
-  ).length
-  // ⚠ TWO FACTS, ONE QUESTION — NOT TWO PREDICATES OVER IT. Olumi can have
-  // something here in two independently-owned ways, and a row may carry either
-  // without the other:
-  //   · `estimateText`         — CEE sent display text, and the CELL RENDERS IT.
-  //   · `unconfirmed-estimate` — `factorIsConfirmable`: a numeric value to
-  //                              RATIFY, which a band does not satisfy and a
-  //                              text-less numeric estimate does.
-  // Bucketing on only the first calls a ratifiable estimate "no value yet";
-  // only the second calls a band that. Neither fact is re-derived here — both
-  // are read from their existing owners, and their union is the one question
-  // this clause asks.
-  const fromOlumi = unset.filter(
-    r =>
-      classifyValueProvenance(r.provenanceSource)?.userOwned !== true &&
-      (r.estimateText !== undefined ||
-        (Array.isArray(r.attention) && r.attention.includes('unconfirmed-estimate'))),
-  ).length
-  const nothing = unset.length - yours - fromOlumi
-
-  const clauses = [
-    nothing > 0 ? `${nothing} with no value yet` : null,
-    fromOlumi > 0 ? `${fromOlumi} estimated by Olumi` : null,
-    yours > 0 ? `you set ${yours}` : null,
-  ].filter((c): c is string => c !== null)
-
-  return clauses.join(' · ')
+  // `null` renders nothing: a group where every row is set states nothing rather
+  // than announcing a zero.
+  if (clauses.length === 0) return null
+  return clauses.map(c => c.text).join(' · ')
 }
 
 export function ModelOutline({
@@ -391,6 +503,20 @@ export function ModelOutline({
   /** Closes made BY HAND during the current search. Cleared when it ends. */
   const [searchClosed, setSearchClosed] = useState<ReadonlySet<ModelGroupId>>(() => new Set())
   const searching = filter.trim() !== ''
+  /**
+   * ⭐ THE HEADING CLAUSE THE READER IS CURRENTLY STANDING IN — at most one,
+   * across the whole outline.
+   *
+   * ⚠ ONE, NOT ONE PER GROUP, AND THAT IS A CHOICE RATHER THAN A SHORTCUT. Two
+   * groups each showing a different slice of themselves is a state the heading
+   * cannot describe: each group's own clause is pressed, and nothing on screen
+   * says the outline as a whole is in two narrowings at once. One at a time is a
+   * state the reader can always read off the heading in front of them.
+   */
+  const [pressedClause, setPressedClause] = useState<{
+    group: ModelGroupId
+    bucket: UnsetBucket
+  } | null>(null)
 
   // Search-scoped closes belong to ONE search. Leaving them behind would make
   // the next search start with groups the reader shut during the last one.
@@ -451,11 +577,50 @@ export function ModelOutline({
       }
       if (searching) setSearchClosed(flip)
       else setClosed(flip)
+      /*
+       * ⚠ THE CHEVRON CLEARS THIS GROUP'S CLAUSE. A group that collapsed while
+       * narrowed and then re-opened SHORT would be showing a filtered list with
+       * nothing on screen explaining why — the reader's last gesture was
+       * "open this group", and the honest answer to that gesture is the group.
+       * Scoped to `id`, so another group's pressed clause is untouched.
+       */
+      setPressedClause(prev => (prev === null || prev.group !== id ? prev : null))
     },
     [searching],
   )
 
-  const { groups } = outlineLayout(rows, filter, openGroups, searchClosed)
+  /**
+   * ⭐ THE CLAUSE PRESS: OPEN THE GROUP, NARROW IT TO WHAT THE CLAUSE COUNTS.
+   *
+   * ⚠ IT OPENS THROUGH THE SAME TWO SETS THE CHEVRON USES rather than forcing
+   * `open` in the layout. A layout that forced a narrowed group open would make
+   * the chevron INERT on exactly that group — `aria-expanded` saying "expanded"
+   * over a control that cannot collapse it — which is the defect this file's own
+   * `outlineLayout` comment records being caught on merged staging. The reader
+   * keeps both gestures.
+   *
+   * Pressing the SAME clause again clears it. A filter with no way back is a
+   * trap, and the pressed control is the way back, so it is where the reader is
+   * already looking.
+   */
+  const pressClause = useCallback(
+    (id: ModelGroupId, bucket: UnsetBucket) => {
+      const open = (prev: ReadonlySet<ModelGroupId>) => {
+        if (!prev.has(id)) return prev
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      }
+      setClosed(open)
+      setSearchClosed(open)
+      setPressedClause(prev =>
+        prev !== null && prev.group === id && prev.bucket === bucket ? null : { group: id, bucket },
+      )
+    },
+    [],
+  )
+
+  const { groups } = outlineLayout(rows, filter, openGroups, searchClosed, pressedClause)
 
   return (
     <div data-testid="model-outline-v2" data-tier={tier} className="flex flex-col">
@@ -464,13 +629,48 @@ export function ModelOutline({
            render and once to render — so the heading asked the same question of
            the same rows twice per paint, and any future impurity in it would
            show as a heading disagreeing with itself. */
-        const unset = unsetSummary(group.rows)
+        const clauses = unsetClauses(group.headingRows)
+        const unset = unsetSummary(clauses)
         return (
         <section
           key={group.id}
           data-testid={`model-group-v2-${group.id}`}
           data-open={group.open}
         >
+          {/*
+            ⭐⭐ THE HEADING IS A ROW, NOT A SINGLE BUTTON, AND IT HAD TO BECOME
+            ONE. The unset summary used to live INSIDE the toggle. Making its
+            clauses pressable therefore meant interactive content inside a
+            `<button>` — invalid HTML, and unreachable by keyboard in the order a
+            reader expects. The clauses are siblings of the toggle now, inside a
+            header container that keeps the identity assertion honest: the
+            summary still belongs to THIS group's heading, by containment.
+
+            ⚠ THE PADDING IS SPLIT, AND THE VERTICAL HALF STAYS ON THE CONTROLS.
+            `px-2` is the ROW's inset and belongs to the container; `py-1.5` is
+            what gives each control its height and belongs to the control. An
+            earlier head of this change moved BOTH to the container, and measured
+            in real Chrome against this repo's own compiled stylesheet that took
+            the toggle's own border box from **31.25px to 19.25px** — under the
+            **24px** of WCAG 2.2 AA 2.5.8, the bar this estate already holds on
+            the canvas (`MIN_TARGET_RENDERED_PX`, `canvasGlyphScale.ts`). With
+            `items-baseline` the baseline sits the same distance from the row's
+            top either way, so the split restores the target without moving a
+            single glyph: measured 31.25 -> 19.25 -> 31.25, row height 31.25
+            throughout. `theCountIsTheWayIn.spec`'s `(g)` block REDs on a
+            regression.
+
+            ⚠ WHAT GENUINELY CHANGED, and the PR body understated it in two ways
+            before a review corrected them. The loss is HORIZONTAL only: the
+            toggle's hit area is its own text rather than the full panel width.
+            And those pixels were not empty — the summary span was INSIDE the
+            toggle at base, so they have not been vacated, they have changed
+            MEANING, from open-the-group to filter-the-group.
+          */}
+          <div
+            data-testid={`model-group-heading-v2-${group.id}`}
+            className="flex w-full items-baseline px-2"
+          >
           <button
             type="button"
             data-testid={`model-group-v2-${group.id}-toggle`}
@@ -497,15 +697,27 @@ export function ModelOutline({
                span renders, quoted — never a second phrasing of it. That
                sentence took four attempts to get true (see `unsetSummary`), and
                a paraphrase here would be a fifth, unreviewed. */
-            aria-label={`${GROUP_TITLE[group.id]}, ${group.rows.length} ${
-              group.rows.length === 1 ? 'element' : 'elements'
+            /* ⚠ `headingRows`, NOT `rows`. Under a pressed clause `rows` is the
+               NARROWED list, so a name built from it would announce "Factors, 3
+               elements" about a group that has five — the press is a lens, not a
+               change to the model. `headingRows` still follows the search
+               needle, which genuinely does change what is in the group. */
+            aria-label={`${GROUP_TITLE[group.id]}, ${group.headingRows.length} ${
+              group.headingRows.length === 1 ? 'element' : 'elements'
             }${unset === null ? '' : `, ${unset}`}`}
-            className={`${typography.panelHeader} text-text-header w-full text-left px-2 py-1.5`}
+            /* ⚠ `py-1.5` IS THE TARGET, NOT DECORATION. A button's hit area is
+               its own border box, so this 6px each side is what takes the
+               control from a 19.25px line box to 31.25px — over 2.5.8's 24px.
+               It used to sit on this element as part of `w-full px-2 py-1.5`
+               and must not drift back to the container. */
+            className={`${typography.panelHeader} text-text-header text-left py-1.5`}
           >
             {group.open ? '▾' : '▸'} {GROUP_TITLE[group.id]}
             <span className={`${typography.panelMeta} text-text-light ml-2`}>
-              {group.rows.length}
+              {group.headingRows.length}
             </span>
+          </button>
+
             {/*
               The unknown summary — ONE sentence in place of N identical "Not
               set" strings down the rows (see `ModelRowView`'s value cell).
@@ -517,6 +729,27 @@ export function ModelOutline({
               ⚠ RENDERED ONLY WHEN THERE ARE UNKNOWNS. A permanent "0 of 4"
               would be its own wall — chrome that always renders states nothing
               about the data.
+
+              ⭐⭐ AND EACH CLAUSE IS NOW THE WAY INTO WHAT IT COUNTS. Every one
+              of these clauses names a specific, actionable subset — "3 with no
+              value yet", "4 estimated by Olumi" — and on the deployed build none
+              of them was an act: the reader was told what needed their input and
+              handed a chevron to the whole list, at which point the subset the
+              heading had just named was gone again.
+
+              ⚠ THE WORDS ARE UNTOUCHED. `unsetClauses` produces exactly the
+              strings this span already rendered, in the same order, joined by
+              the same ' · '. The span's `textContent` is therefore byte-identical
+              to before, which is what keeps the toggle's `aria-label` quoting it
+              rather than paraphrasing it — and `rowShowsOlumisEstimate` and
+              `modelOutlineNamesTheRightAxis` both pin that string exactly, so a
+              stray space here REDs.
+
+              ⚠ EVERY CLAUSE CAN ACT, BY CONSTRUCTION. `unsetClauses` emits a
+              clause only where its bucket has at least one row, and the filter
+              reads THE SAME `unsetBucketOf`, so a rendered clause always reveals
+              a non-empty list. There is no disabled arm here because there is no
+              state in which one would be needed.
             */}
             {unset !== null && (
               <span
@@ -550,10 +783,53 @@ export function ModelOutline({
                    deliberate a11y retint (see `brand.css:66-80`). */
                 className={`${typography.panelMeta} text-text-light ml-2`}
               >
-                {unset}
+                {clauses.map((clause, index) => (
+                  <Fragment key={clause.bucket}>
+                    {/* ⚠ THE SEPARATOR IS A TEXT NODE BETWEEN THE CONTROLS, not
+                        padding and not a pseudo-element, so the span's
+                        `textContent` still reads exactly `… · …`. That string is
+                        what the toggle's `aria-label` quotes. */}
+                    {index === 0 ? null : ' · '}
+                    <button
+                      type="button"
+                      data-testid={`model-group-v2-${group.id}-clause-${clause.bucket}`}
+                      aria-pressed={
+                        pressedClause !== null &&
+                        pressedClause.group === group.id &&
+                        pressedClause.bucket === clause.bucket
+                      }
+                      onClick={() => pressClause(group.id, clause.bucket)}
+                      /* ⚠ NO TINT, AND THAT IS THE SAME RULING AS THE BLOCK
+                         ABOVE. A same-hue tint moves the ground TOWARDS the text
+                         and the ratio falls monotonically with alpha, so a
+                         pressed state painted as a pill would take this 11px
+                         text below SC 1.4.3. The affordance is an underline and
+                         the pressed state is a ring — neither touches the
+                         ground, and `text-text-light` stays at its measured
+                         5.23:1 on `--bg-panel` / 5.04:1 on `--bg-panel-hover`. */
+                      /* ⚠ `py-1.5` FOR THE SAME REASON AS THE TOGGLE, and taken
+                         rather than argued. These clauses sit in a sentence, so
+                         they could plausibly claim 2.5.8's INLINE exception —
+                         but the exception is a defence, not a target, and 11px
+                         text gives a 15.125px box. 6px each side makes it
+                         27.125px and the question does not arise. The padding is
+                         on an inline-block, so it extends the box above and
+                         below the baseline without moving the text. */
+                      className={`${typography.panelMeta} text-text-light underline underline-offset-2 rounded-sm py-1.5${
+                        pressedClause !== null &&
+                        pressedClause.group === group.id &&
+                        pressedClause.bucket === clause.bucket
+                          ? ' ring-1 ring-panel-border'
+                          : ''
+                      }`}
+                    >
+                      {clause.text}
+                    </button>
+                  </Fragment>
+                ))}
               </span>
             )}
-          </button>
+          </div>
 
           {group.open && (
             <>
