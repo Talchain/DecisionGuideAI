@@ -24,6 +24,7 @@ import { usePopoverHover } from '../hooks/usePopoverHover'
 import { NodeChip, BriefIcon, NodePopover, ScienceIcon } from './shared'
 import { openNodeInspector } from './shared/openNodeInspector'
 import { leaderRobustnessGrade } from './shared/leaderRobustnessGrade'
+import { labelNeedsName } from '../domain/labelNeedsName'
 import {
   selectGoalProbability,
   basisWithholdsPossessive,
@@ -292,8 +293,25 @@ function computeAllDifferentiators(
     // logic is the drift this estate pays for most often, and the two
     // sentences must stay identical apart from the label token or the hover
     // stops recovering the very thing it is hovering over.
+    // ⭐⭐ THE MOST DAMAGING INSTANCE OF THE UNNAMED-FACTOR DEFECT.
+    //
+    // When the differentiating factor's label is a whole sentence, the footer
+    // reads "Finance disagrees and says we will need the second site is the key
+    // difference" — the product asserting that a colleague's stated opinion IS
+    // the causal variable separating two options. The sentence is grammatically
+    // an entity claim, and it is false.
+    //
+    // Only the LEADING TOKEN changes, deliberately: every branch below keeps
+    // its own shape, so the shared-factor branches still print their value (the
+    // file's standing "label truncates, value NEVER truncates" rule) and there
+    // is still ONE code path evaluated twice rather than a second hand-kept
+    // copy of the sentence logic. See `domain/labelNeedsName`.
+    const factorNeedsName = labelNeedsName(factorNode?.data)
+
     const buildSentence = (labelToken: string): string => {
-      const leading = `${labelToken.charAt(0).toUpperCase()}${labelToken.slice(1)}`
+      const leading = factorNeedsName
+        ? `Unnamed factor “${labelToken}”`
+        : `${labelToken.charAt(0).toUpperCase()}${labelToken.slice(1)}`
 
       if ((factorClaimCount.get(factorId) ?? 0) <= 1) {
         // Unique factor — simple sentence
