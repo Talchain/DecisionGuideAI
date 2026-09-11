@@ -1680,9 +1680,27 @@ function glanceCondition(data: ResultsSectionDataReturn): GlanceCondition | null
     : current
       ? `${usable.label} moves from ${current} to ${flip}`
       : `${usable.label} changes materially`
+  /**
+   * ⭐ THE FIGURE, CARRIED AS STRUCTURE, ON EXACTLY THE TWO ARMS THAT PRINT ONE.
+   *
+   * Gated on the SAME `unit || current` the sentence above is gated on, and
+   * from the same variables — so the structure cannot claim a quotable figure
+   * on a run whose sentence dropped it. Writing the condition twice in two
+   * spellings is the hand-maintained mirror this file keeps paying for, which
+   * is why the ternary and this gate read the same two locals rather than
+   * re-deriving the producer row.
+   *
+   * `flip` is reused verbatim rather than re-formatted: a second call to `fmt`
+   * would be a second formatter in waiting, and a consumer quoting a figure
+   * that differs in the last decimal from the one beside it is the same
+   * one-threshold-two-renderings defect `flipThresholdDisplay`'s header names.
+   */
+  const quantity =
+    unit || current ? { factorLabel: usable.label, thresholdText: flip } : null
   return {
     text,
     targetId: typeof usable.node_id === 'string' && usable.node_id.length > 0 ? usable.node_id : null,
+    quantity,
   }
 }
 
