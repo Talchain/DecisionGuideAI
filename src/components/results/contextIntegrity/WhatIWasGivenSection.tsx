@@ -47,14 +47,12 @@
  * binding it to the arm the deployed flags switch off (CLAUDE.md trap 3b).
  */
 
-import { useId, useState } from 'react'
-import { ChevronDown, Pencil } from 'lucide-react'
+import { useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../../canvas/store'
 import { useContextIntegrityStore } from '../../../canvas/stores/contextIntegrityStore'
-import { useOptionalConversationContext } from '../../../canvas/conversation/ConversationContext'
-import { useShowToastSafe } from '../../../canvas/ToastContext'
 import type { InferredFactor, NotModelledItem } from '../../../adapters/cee/notModelled'
 import { ClampToggle } from '../ClampToggle'
 import { figureTallySubtitle } from './figureTallySubtitle'
@@ -79,12 +77,6 @@ import { surface } from '../analysisNew/panelSurfaces'
  * (CLAUDE.md trap 12/21).
  */
 import { FactorValueControl } from '../analysisNew/FactorValueControl'
-/**
- * The control's words are the model strip's words, imported rather than
- * re-typed. One act, one vocabulary: a second set of strings for "change this
- * value" would drift from the first the day either is adjusted.
- */
-import { ANALYSIS_NEW_COPY } from '../analysisNew/analysisNewCopy'
 
 /** Rows shown per group before "show all". Keeps the open state scannable. */
 const VISIBLE_ROWS = 6
