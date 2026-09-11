@@ -84,6 +84,31 @@ describe('CanvasOverlayBand — one slot, one occupant', () => {
    * thing a user is not told — and, above, what they can no longer do.
    */
   const EXPECTED_BOTTOM_CENTRE = [
+    /**
+     * ⭐ ADDED ABOVE THE CONTROL, AND THE RULE ABOVE IS NOT BEING BENT — IT IS
+     * BEING SATISFIED BY A FACT THAT CAN BE EXECUTED RATHER THAN ARGUED.
+     *
+     * "A control outranks a disclosure" exists to stop a disclosure COSTING A
+     * CAPABILITY: the earlier ordering made "Show whole model" unreachable on
+     * every fresh draft. `canvas-drawing-notice` cannot cost it. It renders only
+     * while `pendingLayout || layoutInProgress`, and `ModelExtentNotice`
+     * SUPPRESSES ITSELF on that same boolean — its header says why, in its own
+     * words: the count is "arithmetically correct about a camera that is briefly
+     * nonsense". The two are exact complements, so the window in which this one
+     * wins is precisely the window in which there is no control to outrank.
+     *
+     * ⚠ THAT IS AN ASSERTION, NOT A CLAIM MADE HERE IN PROSE.
+     * `canvasDrawingNotice.spec.tsx` renders BOTH components together in BOTH
+     * layout states and pins each one's presence AND the other's absence. If
+     * they ever did contend, that pair REDs — which is the evidence this entry
+     * rests on.
+     *
+     * What it displaces are disclosures, each of which returns the moment this
+     * one yields — and each of whose sentences is, in this window, about a model
+     * the user cannot see: React Flow holds every node at `visibility: hidden`
+     * until the layout settles.
+     */
+    'canvas-drawing-notice',
     'starter-provenance-banner',
     'model-extent-notice',
     'first-model-notice',

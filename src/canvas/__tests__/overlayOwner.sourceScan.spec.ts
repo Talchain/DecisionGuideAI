@@ -35,6 +35,7 @@ const COMPONENTS = resolve(__dirname, '../components')
 
 /** Every file migrated onto the band. */
 const MIGRATED = [
+  'CanvasDrawingNotice.tsx',
   'CanvasLodNotice.tsx',
   'ModelExtentNotice.tsx',
   'FirstModelNotice.tsx',

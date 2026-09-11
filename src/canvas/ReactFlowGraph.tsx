@@ -52,6 +52,7 @@ import { LeftSidebar } from '../components/layout/LeftSidebar'
 import { CanvasViewportControls } from '../components/layout/CanvasViewportControls'
 import { FirstModelNotice } from './components/FirstModelNotice'
 import { ModelExtentNotice } from './components/ModelExtentNotice'
+import { CanvasDrawingNotice } from './components/CanvasDrawingNotice'
 import { OlumiAttentionCard } from './components/OlumiAttentionCard'
 import { RightPanel } from '../components/layout/RightPanel'
 import { AlignmentGuides } from './components/AlignmentGuides'
@@ -2784,6 +2785,15 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           blind to completeness. The mount-completeness assertion added to that
           spec is the half that was missing. */}
       <ModelExtentNotice />
+      {/* ⭐ MOUNTED BESIDE ITS COMPLEMENT, NOT SOMEWHERE TIDIER. The two speak
+          on opposite signs of ONE boolean (`pendingLayout || layoutInProgress`),
+          so a reader who finds either finds the other in the same glance — and
+          the mount-completeness assertion in `overlayOwner.sourceScan.spec.ts`
+          requires a claimant of `OVERLAY_PRIORITY` to have a real mount site,
+          not merely a `useOverlayCell` call. That assertion exists because the
+          table and the call sites once agreed perfectly about a component no
+          user could see. */}
+      <CanvasDrawingNotice />
       <CanvasViewportControls
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}

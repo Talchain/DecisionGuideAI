@@ -119,6 +119,29 @@ export type OverlayCell = 'bottom-left' | 'bottom-centre' | 'bottom-right'
 export const OVERLAY_PRIORITY: Record<OverlayCell, readonly string[]> = {
   'bottom-left': ['lens-info-panel'],
   'bottom-centre': [
+    /**
+     * ⭐⭐ FIRST, AND THE ARGUMENT IS NOT "IT IS MORE IMPORTANT" — IT IS THAT
+     * EVERY OTHER OCCUPANT'S SENTENCE IS ABOUT CONTENT THE USER CANNOT SEE.
+     *
+     * `canvas-drawing-notice` renders ONLY while `pendingLayout ||
+     * layoutInProgress`, which is exactly the window in which React Flow holds
+     * every node at `visibility: hidden` and the canvas is blank (measured
+     * 18/18 runs, 1.05s-17.0s — see `ModelExtentNotice.tsx`). A provenance
+     * banner describing a saved example, or a first-model notice about the
+     * model, is true in that window and useless in it: there is no model on
+     * screen to describe. The only sentence that helps is the one that explains
+     * the blankness.
+     *
+     * ⚠ IT COSTS THE LOSERS NOTHING, and that is what makes this ordering safe
+     * under this table's own rule ("suppressing a sentence costs a sentence;
+     * suppressing this costs a capability"). Every occupant below is a
+     * DISCLOSURE, and each returns the moment this one yields — which is the
+     * same moment its own sentence becomes worth reading. Nothing is being
+     * ranked above a CONTROL: the one control in this cell
+     * (`model-extent-notice`) is suppressed by its OWN predicate in precisely
+     * this window, so the two can never contend.
+     */
+    'canvas-drawing-notice',
     'starter-provenance-banner',
     'model-extent-notice',
     'first-model-notice',
