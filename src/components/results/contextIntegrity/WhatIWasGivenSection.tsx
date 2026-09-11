@@ -95,7 +95,13 @@ const COPY = {
   notYetHeading: 'Not modelled yet',
   notYetLead: 'These are in your brief but not in the model. Ask about any that matter.',
   consideredLead: 'I also considered these and left them out:',
-  caveatLead: 'This covers figures you mentioned. It does not yet track:',
+  // ⚠ SAME POPULATION CORRECTION AS THE SUBTITLE (ROADMAP 2.1000, 11 Sep 2026).
+  // This read "This covers figures you mentioned", which attributes the lists
+  // below to the user's own words. They are what CEE's quantity extractor found
+  // in the brief, and it misses forms it was never written for. A caveat whose
+  // whole job is to say "these lists are not exhaustive" may not open by
+  // misdescribing what they are lists OF. See `figureTallySubtitle.ts`.
+  caveatLead: 'This covers the figures I found in your brief. It does not yet track:',
   unknown:
     "I can't show this yet for this decision — so please don't read the absence as everything having made it in.",
   noBrief: "I don't have your original wording saved for this decision.",
