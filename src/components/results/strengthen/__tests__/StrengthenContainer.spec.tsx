@@ -183,7 +183,24 @@ describe('StrengthenContainer — work-through prefills the Ask-Olumi drawer', (
     fireEvent.click(screen.getByRole('button', { name: 'Define success' }))
     const drawer = useAskOlumiStore.getState()
     expect(drawer.isOpen).toBe(true)
-    expect(drawer.draft).toBe('Help me work through: Define what success looks like')
+    /* ⚠ THIS ASSERTION MOVED, AND THE MOVE IS THE POINT. It pinned the generic
+       work-through draft ("Help me work through: Define what success looks
+       like"), which asks for a CONVERSATION about setting a target rather than
+       for the target. Measured on staging 2026-09-11, following it cost four
+       turns and ended in "I could not apply that constraint…" with the goal
+       node still reading "Target not captured". The primary now sends the
+       card's OWN apply-able `action.prompt`.
+
+       Read from the record by ID rather than re-spelled here: the copy lives in
+       `buildRecommendations.ts` and this spec must not become a second place to
+       remember to update it. The ✦ ask route above still pins
+       `workThroughDraft` and is deliberately untouched — the two routes ask
+       different questions. */
+    const successRec = useStrengthenStore.getState().records[
+      recordKey(SPEC_DECISION, 'strengthen:success-measure')
+    ]!.snapshot
+    expect(drawer.draft).toBe(successRec.action.prompt)
+    expect(drawer.draft).not.toBe('Help me work through: Define what success looks like')
     expect(drawer.source).toBe('chip')
     expect(useSuccessMeasureStore.getState().isOpen).toBe(false)
     expect(dispatch).not.toHaveBeenCalled()
