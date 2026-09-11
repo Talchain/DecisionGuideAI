@@ -88,6 +88,30 @@ const sentenceCase = (s: string): string =>
   s === '' ? s : `${s.charAt(0).toUpperCase()}${s.slice(1)}`
 
 /**
+ * The exact inverse: lowers a leading letter so a label written to OPEN
+ * something can be spliced mid-sentence.
+ *
+ * `ZERO_REASON_BADGE_LABELS` is a map of BADGE labels, so every value opens
+ * with a capital and is right to. Spliced after a colon by `coverage.notRanked`
+ * and `empty.noneRanked` the capital reads as a sentence fragment — witnessed
+ * by Paul on deployed `b93904c9`: "4 factors are not ranked here: Controlled by
+ * your options."
+ *
+ * ⚠ HERE RATHER THAN AT THE CALL SITE, AND THE PRECEDENT IS EXPLICIT.
+ * `goalAnchorCopy.ts:276` states it: "The register owns casing; call sites
+ * never do it" — written after two call sites did `phrase(x).charAt(0)
+ * .toLowerCase()` inline and a third did NOT, shipping "Option A Supported in
+ * 71% of simulated scenarios" with a capital mid-sentence. BOTH composers below
+ * call this, so the two cannot drift into two casings of one producer stamp.
+ *
+ * Only the first character is touched, so `ZERO_REASON_BADGE_LABELS` stays the
+ * single owner of what each reason is CALLED and no label is duplicated here in
+ * a different case.
+ */
+const clauseCase = (s: string): string =>
+  s === '' ? s : `${s.charAt(0).toLowerCase()}${s.slice(1)}`
+
+/**
  * The coverage warning with no names in it. Held as a const because
  * `provisionalNaming` falls back to it: the guarantee "an empty list never
  * emits a sentence fragment" then belongs to the STRING, not to its one
@@ -374,7 +398,7 @@ export const ANALYSIS_NEW_COPY = {
      * run did not return factor influence at all.
      */
     noneRanked: (n: number, reasons: readonly string[]) =>
-      `No factor is ranked in this run. ${n === 1 ? '1 factor was' : `${n} factors were`} returned and set aside: ${reasons.join('; ')}.`,
+      `No factor is ranked in this run. ${n === 1 ? '1 factor was' : `${n} factors were`} returned and set aside: ${reasons.map(clauseCase).join('; ')}.`,
     /**
      * ⚠ FAIL-CLOSED SIBLING. `suppressedZeroCount` and `suppressedZeroReasons`
      * move together by construction, but the count is not what a sentence
@@ -407,13 +431,110 @@ export const ANALYSIS_NEW_COPY = {
   dissent: {
     open: 'I disagree',
     edit: 'Edit what you said',
-    /** Placed on the textarea. States what happens, so saving is not a guess. */
+    /**
+     * Placed on the textarea. States what happens, so saving is not a guess.
+     *
+     * ⚠⚠ APPENDED, NOT REWRITTEN: THIS IS NOW HALF OF A PAIR, AND FOR A WHOLE
+     * SESSION IT WAS THE ONLY HALF. The sentence above is the original and it
+     * is still exactly right — for the state where nothing is sent. What made
+     * it a privacy falsehood was shipping `finding_dissent` beneath it: the
+     * user composed their words under an explicit promise of locality and the
+     * words then went to the server, with the only sentence saying so rendering
+     * AFTER the send. Consent that arrives after the fact is not consent, and a
+     * deliberate widening the user is not told about at the moment of decision
+     * is indistinguishable, from their side, from a leak.
+     *
+     * ⚠ SO THIS ONE IS NOW SCOPED RATHER THAN CHANGED. It renders when the send
+     * will NOT happen, where it remains true and must stay: no dispatcher
+     * mounted (the intermediate deploy state, and any route without a
+     * `ConversationProvider`), no run identity yet, or a failed run whose hash
+     * is the literal 'error'.
+     */
     prompt: 'Why? This stays on the card in this browser.',
+    /**
+     * ⭐⭐ THE SAME PROMPT, FOR THE STATE WHERE THE WORDS WILL TRAVEL. It is the
+     * disclosure, and it is the ONLY one the user gets before they type.
+     *
+     * ⚠⚠ WHICH OF THE TWO RENDERS IS DECIDED BY `isSendableAddress` — THE SEND'S
+     * OWN PREDICATE, IMPORTED, NOT A COPY OF IT. A second predicate written
+     * beside the first is how this sentence would quietly become false again:
+     * it would agree on the day it was written and drift. `findingDissent.ts`
+     * owns the question and `buildFindingDissentEvent` consumes the same call.
+     *
+     * ⚠ IT STATES THE ACTION, NOT THE STORAGE, which is `guestStorageClaims.ts`'s
+     * own standing rule and not a house style: every positive claim about where
+     * a user's work lives has eventually been found false in this estate. "Sent
+     * to Olumi" is what the product does and is observable; "no longer only in
+     * this browser" is a claim about storage the client cannot check.
+     *
+     * ⚠ AND IT PROMISES NOTHING FURTHER — not that the team can read it, not
+     * that it changes the finding, not that anything improves. The register is
+     * `targetOutcome.dispatched` and `modelStrip.valueDispatched`, whose shared
+     * first sentence is exactly 'Sent to Olumi.'; their SECOND sentence is not
+     * borrowed, because "the shared model updates when it answers" is a promise
+     * this surface has not measured.
+     *
+     * ⚠ IT IS ALLOWED TO OVER-WARN AND IT CANNOT UNDER-WARN, by construction:
+     * the address is a strictly WIDER condition than the send (see
+     * `isSendableAddress`). A blank or over-long statement, a board with no
+     * persisted identity, or a decision switched mid-compose all leave the words
+     * local after this sentence has warned they would travel. That direction is
+     * the safe one and is pinned in `dissentReachesTheModel.spec.tsx`.
+     */
+    promptSendsToOlumi: 'Why? This stays on the card and is sent to Olumi.',
     notSaved: 'Not saved for next time. Your words are still here. Retry, or copy them before leaving.',
     sessionOnly: 'Kept in this tab only.',
     scenarioChanged: 'The model on screen changed. Your words have not been saved to it. Copy them or return to the original model before retrying.',
     save: 'Record this',
     cancel: 'Cancel',
+    /**
+     * ⭐⭐ THE ONLY SENTENCE ON THIS SURFACE THAT MAY CLAIM THE WORDS LEFT THE
+     * BROWSER, AND IT RENDERS ONLY AFTER A SEND HAS ACTUALLY RESOLVED.
+     *
+     * ⚠⚠ THE TWO HALVES DEPLOY INDEPENDENTLY, so this copy has to be true at
+     * every intermediate state — including UI-live-but-CEE-not-yet, where the
+     * `finding_dissent` reader does not exist and no send can succeed. That is
+     * why the claim is bound to the OUTCOME rather than to the attempt: no
+     * dispatcher mounted, no real analysis id, a refused build, a rejected
+     * turn, or a reload all leave `sessionOnly` standing. A UI asserting a
+     * server capability that is dark is the defect class this estate keeps
+     * shipping, and the fix is not a better sentence, it is a later one.
+     *
+     * ⚠ IT DOES NOT SAY "SAVED", following `targetOutcome.dispatched` and
+     * `modelStrip.valueDispatched` verbatim in register, and for the reason
+     * their own comments give: "Saved" reports an outcome the client did not
+     * observe. What IS observed at the moment this renders is narrower and
+     * exactly stated — the turn was sent and Olumi answered without refusing
+     * it, so these words are no longer only in this browser.
+     *
+     * ⚠ AND IT PROMISES NOTHING FURTHER. Not that the team can see it yet, not
+     * that it changes the finding, not that anything improves. The dissent is
+     * a record of what a human said; claiming more would be inventing a fact on
+     * the one surface whose whole job is not to.
+     *
+     * ⚠⚠ THE SECOND CLAUSE IS GONE, AND THE RECORD OF WHAT IT SAID STAYS ABOVE.
+     * As first shipped this read 'Sent to Olumi, so this is no longer only in
+     * this browser.' and it turned `Full Test Suite (shard 4/4)` RED at
+     * 374a40ff: `guestStorageClaims.spec.ts` sweeps every tracked non-test file
+     * under `src/` and bans the phrase outright, so the offender was this file.
+     *
+     * ⚠ AND THE BAN IS RIGHT HERE EVEN THOUGH THE CLAUSE WAS NOT FALSE. The
+     * pattern is direction-blind — it cannot tell a locality claim from its
+     * negation — but the remedy is the one that guard's own header prescribes,
+     * "state the action, not the storage", and NOT an entry in
+     * `GUEST_STORAGE_CLAIM_ADJUDICATED`: adjudicating would exempt this entire
+     * 1,600-line copy table from the estate's only locality guard to protect one
+     * sentence, so every future false claim on this tab would pass unseen. The
+     * clause was also the weaker half of the sentence: 'Sent to Olumi' is an
+     * observed action, and 'no longer only in this browser' is a claim about
+     * server-side storage this client never checked.
+     *
+     * ⚠ NOTHING IS LOST BY DROPPING IT, because the disclosure moved to where it
+     * belongs. `promptSendsToOlumi` now tells the user the words will travel
+     * BEFORE they type them, which is the moment that decides anything; this
+     * sentence only has to report the outcome.
+     */
+    sentToOlumi: 'Sent to Olumi.',
     /** Prefix on the standing objection. The user's own words follow. */
     standing: 'You disagreed',
     /**
@@ -1229,7 +1350,17 @@ export const ANALYSIS_NEW_COPY = {
     eyebrowWhyWithheld: 'What this run may not conclude',
     /**
      * The MOVE that answers the refusal sentence above it. FURNITURE ONLY — it
-     * names a destination, and it makes no claim about the run.
+     * names an ACT, and it makes no claim about the run.
+     *
+     * ⚠ AMENDED 11 Sep 2026 — THIS SAID "it names a destination", AND THE
+     * WORDS ARE WHY NOTHING HERE HAD TO CHANGE WHEN THE DESTINATION DID. On
+     * 10 Sep the only place to set an estimate was the Model tab; the next
+     * morning the value control on "what I estimated" put the same act on the
+     * Reasoning tab itself, and `AnalysisNewTabBody` now serves it in page
+     * where it exists and routes to the Model tab where it does not. "Review
+     * or set an estimate" is true of BOTH, because it names the two things the
+     * reader may do and not the surface they land on — a label that had said
+     * "on the Model tab" would have become a lie overnight. Keep it that way.
      *
      * ⛔⛔ IT MAY NOT PROMISE A BETTER ANSWER, AND THAT IS A MEASUREMENT, NOT
      * TASTE. Measured on the live wire: ONE user-stated value out of twenty
@@ -1252,6 +1383,34 @@ export const ANALYSIS_NEW_COPY = {
      * control proving each can fail on the sentence it forbids.
      */
     reviewEstimates: 'Review or set an estimate',
+    /**
+     * WHICH parameters the refusal is about, as a LEAD-IN to the names.
+     *
+     * ⛔ IT NAMES A SET AND PRESCRIBES NOTHING. The producer publishes these in
+     * GRAPH ORDER and ranks nothing, so any wording implying a first, a
+     * biggest, or a place to start would be a claim nobody computed. "Start
+     * with", "the main one" and "most important" are all forbidden here for
+     * that reason, not for tone.
+     *
+     * ⛔ AND IT MAY NOT RESTATE THE REFUSAL. The producer's own sentence sits
+     * directly above and already says every estimate is Olumi's; repeating the
+     * complaint would put one producer sentence on screen twice, which
+     * `firstViewportCensus.spec.tsx` forbids. This adds only the NAMES.
+     *
+     * ⚠ "in this comparison" is load-bearing, not filler. The set is the
+     * comparison's own causal substrate — the parameters a leader claim rests
+     * on — and NOT every estimate in the model. Without that clause the line
+     * would overstate its own population, and a reader who set a value on some
+     * other Olumi estimate would correctly expect the refusal to lift.
+     */
+    withheldParametersLeadIn: 'Still Olumi’s in this comparison:',
+    /**
+     * The cap disclosure. A capped list the reader cannot detect is an
+     * understatement they cannot question — the same defect this estate closed
+     * on the producer side of the evidence gaps. The CONSUMER may cap, because
+     * the consumer can say so; the producer may not, because it cannot.
+     */
+    withheldParametersMore: (n: number): string => `and ${n} more`,
     /**
      * ⚠ STILL LIVE, AND ITS ONLY CONSUMER IS NOW `ModelStrip`'s per-node chip —
      * a standalone claim that the run ranked this node among its top drivers.
@@ -1533,7 +1692,7 @@ export const ANALYSIS_NEW_COPY = {
      * the analysis, and the narrower claim is the true one.
      */
     notRanked: (n: number, reasons: readonly string[]) =>
-      `${n} ${n === 1 ? 'factor is' : 'factors are'} not ranked here: ${reasons.join('; ')}.`,
+      `${n} ${n === 1 ? 'factor is' : 'factors are'} not ranked here: ${reasons.map(clauseCase).join('; ')}.`,
     /**
      * ⛔ UNREACHABLE SINCE #1228, AND THAT IS A REPORTED FINDING RATHER THAN A
      * DECISION THIS FIX MADE. `driversCaveat` reaches this arm only when

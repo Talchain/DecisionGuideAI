@@ -85,6 +85,7 @@ import { formatGoalProbability } from '../utils/displayFloors'
 import { formatThreshold } from '../RangeVisualization'
 import { safeInterpolatedLabel } from '../utils/glossaryCheck'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
+import { namedMaterialParametersAwaitingUser } from './materialParametersAwaitingUser'
 import {
   ANALYSIS_NEW_COPY as COPY,
   ANALYSIS_NEW_LABEL_FALLBACK,
@@ -1116,9 +1117,9 @@ function buildUncertainty(
         // already has reaches the site that lacked it.
         ? `The ordering changes around ${formatThresholdValue(u.threshold.value)}${
             u.threshold.direction === 'positive'
-              ? ' — above it, the ordering differs'
+              ? '. Above it, the ordering differs'
               : u.threshold.direction === 'negative'
-                ? ' — below it, the ordering differs'
+                ? '. Below it, the ordering differs'
                 : ''
           }.`
         : undefined,
@@ -1713,6 +1714,7 @@ function glanceCondition(data: ResultsSectionDataReturn): GlanceCondition | null
 function buildAtAGlance(
   data: ResultsSectionDataReturn,
   nodeValueSources?: ReadonlyMap<string, string>,
+  nodeLabels?: ReadonlyMap<string, string>,
 ): AtAGlance {
   const rec = data.recommendation
   const { drivers, setRelative } = glanceDrivers(data)
@@ -1829,6 +1831,26 @@ function buildAtAGlance(
     ESTIMATE_REMEDY_ADMISSION_CAUSES.has(designationWithheldConjunct.code)
       ? 'estimate'
       : null
+
+  // ── WHICH PARAMETERS THE REFUSAL IS ABOUT ─────────────────────────────────
+  //
+  // ⛔ GATED ON THE REMEDY, NOT ON THE REASON, and that is the same conjunct the
+  // button reads rather than a second one. Only the causes whose own words ask
+  // for an estimate can be answered by naming parameters; under "Name at least
+  // two different options you are weighing" a list of factors is a futile
+  // instruction under a true sentence. One predicate, one question (trap 21).
+  //
+  // ⚠ THE HEADER IN `AtAGlance.tsx` SAID NO FACTOR IS NAMED, AND HALF OF IT
+  // STILL BINDS. Its first clause — "there is no particular estimate to point
+  // at" — was measured before CEE published
+  // `semantic_signals.material_parameters_awaiting_user_node_ids`, and is what
+  // this supersedes. Its second — "inventing one would be a deep link to an
+  // arbitrary row dressed as the answer" — is honoured: the whole set is named
+  // and no member is selected, because the producer ranks nothing.
+  const designationWithheldParameters =
+    designationWithheldRemedy === 'estimate'
+      ? namedMaterialParametersAwaitingUser(rec.analysisAdmission, nodeLabels)
+      : []
 
   // ── SCOPE: what does the win share range over? ────────────────────────────
   //
@@ -2015,6 +2037,7 @@ function buildAtAGlance(
     headline,
     designationWithheldReason,
     designationWithheldRemedy,
+    designationWithheldParameters,
     leaderLabel: headline && leader ? leader.label : null,
     winShare,
     winFraction,
@@ -2405,15 +2428,27 @@ function buildOptionsComparison(
     if (label === null) continue
 
     if (o.notAnalysed === true) {
+      // ⭐ RESOLVED ONCE, READ TWICE. The sentence the row renders and the
+      // ground the act beside it switches on are now the SAME value, so they
+      // cannot disagree about why this option was left out. Two `??` defaults
+      // at two call sites is how one surface comes to say "you have not set
+      // this up" while the control beside it asks about a run that never saw
+      // the option (CLAUDE.md trap 21, built out of one repeated expression).
+      //
+      // `not_returned` is the same default `buildAtAGlance` applies, and it is
+      // the weaker of the two claims: it reports that the analysis came back
+      // with nothing, and prescribes no action the user cannot take. It is
+      // UNREACHABLE from the live producer — `useResultsSectionData.ts:2227`
+      // sets `notAnalysed` and `notAnalysedReason` in one object literal — and
+      // stays here only because the field is optional on `OptionResult`.
+      const reason = o.notAnalysedReason ?? 'not_returned'
       rows.push({
         kind: 'not_analysed',
         id: o.id,
         label,
         // The SANCTIONED sentence, resolved here so no component re-words it.
-        // `not_returned` is the same default `buildAtAGlance` applies, and it
-        // is the weaker of the two claims: it reports that the analysis came
-        // back with nothing, and prescribes no action the user cannot take.
-        reasonCopy: notAnalysedReasonCopy(o.notAnalysedReason ?? 'not_returned'),
+        reasonCopy: notAnalysedReasonCopy(reason),
+        reason,
       })
       continue
     }
@@ -2799,7 +2834,7 @@ export function buildAnalysisNewViewModel(
   inputs: AnalysisNewViewModelInputs,
 ): AnalysisNewViewModel {
   const { data, recommendations, isStale, nodeValueSources } = inputs
-  const glance = buildAtAGlance(data, nodeValueSources)
+  const glance = buildAtAGlance(data, nodeValueSources, inputs.nodeLabels)
 
   /**
    * ⚠⚠ NO RUN, NOTHING DERIVED FROM A RUN — the same rule `buildDeeper` applies,
@@ -2839,7 +2874,7 @@ export function buildAnalysisNewViewModel(
      */
     leaderClaimPermitted: preRun ? false : leaderDesignationPermitted(data.recommendation) === true,
     atAGlance: preRun
-      ? { headline: null, designationWithheldReason: null, designationWithheldRemedy: null, leaderLabel: null, winShare: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, inputProvenance: null }
+      ? { headline: null, designationWithheldReason: null, designationWithheldRemedy: null, designationWithheldParameters: [], leaderLabel: null, winShare: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, inputProvenance: null }
       : glance,
     // ⚠ GATED PRE-RUN LIKE EVERY OTHER RUN-DERIVED SECTION. The option NODES
     // exist before any analysis, but "how the options compare" is a reading OF

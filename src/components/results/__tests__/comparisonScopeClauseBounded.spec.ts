@@ -61,9 +61,12 @@ const scope = (
  * A helper that checks an invariant must not be looser than the invariant.
  */
 function accountedFor(s: ComparisonScope, clause: string): number {
-  // A count-only clause ("30 were left out") names none and counts all.
-  const bare = /^(\d+) (?:was|were) left out$/.exec(clause)
-  if (bare) return Number(bare[1])
+  // A count-only clause ("The other 30 were left out") names none and counts
+  // all. The singular drops the numeral entirely ("The other was left out"),
+  // because the clause now OPENS a sentence and a sentence may not open with a
+  // digit — so the count is optional here and absent means exactly one.
+  const bare = /^The other (?:(\d+) )?(?:was|were) left out$/.exec(clause)
+  if (bare) return bare[1] === undefined ? 1 : Number(bare[1])
 
   const named = s.excludedLabels
     .slice(0, EXCLUDED_LABEL_NAME_CAP)
@@ -96,7 +99,7 @@ describe('excludedClause is bounded and never reads as complete when partial', (
     const clause = COMPARISON_SCOPE_COPY.excludedClause(s)
 
     expect(accountedFor(s, clause)).toBe(30)
-    expect(clause).toBe('30 were left out')
+    expect(clause).toBe('The other 30 were left out')
   })
 
   it('stays exact — no "others" — when the names are complete', () => {
@@ -112,7 +115,7 @@ describe('excludedClause is bounded and never reads as complete when partial', (
     expect(COMPARISON_SCOPE_COPY.excludedClause(scope(3, 4, ['Alpha']))).toBe(
       'Alpha was left out',
     )
-    expect(COMPARISON_SCOPE_COPY.excludedClause(scope(3, 4, []))).toBe('1 was left out')
+    expect(COMPARISON_SCOPE_COPY.excludedClause(scope(3, 4, []))).toBe('The other was left out')
   })
 
   it('joins a SINGLE name to the remainder without a stray comma', () => {

@@ -698,7 +698,15 @@ describe('the drivers section declares what it left out', () => {
     expect(caveat).toContain('1')
     // The producer's own words for WHY, bound to the shared map by identity
     // rather than to a string typed here.
-    expect(caveat).toContain(ZERO_REASON_BADGE_LABELS.intervention_override)
+    /* ⚠ CASE-INSENSITIVE, DELIBERATELY. The map holds BADGE labels, which open
+       with a capital; `coverage.notRanked` splices them mid-sentence and lowers
+       the first character (`clauseCase`). Comparing rendered text against the
+       map constant is a guard agreeing with itself about casing anyway — both
+       sides move together — so this asserts the property it was written for
+       (the reason reaches the reader) and leaves the casing to
+       `zeroReasonClauseJoin.spec.tsx`, which pins it with literals. */
+    expect(caveat.toLowerCase())
+      .toContain(ZERO_REASON_BADGE_LABELS.intervention_override.toLowerCase())
   })
 
   it('TWIN: says nothing about exclusions when it excluded nothing', () => {
@@ -708,7 +716,12 @@ describe('the drivers section declares what it left out', () => {
     renderBody(openStrategicChallenge())
     openDrivers()
     const caveat = screen.queryByTestId('analysis-new-drivers-caveat')?.textContent ?? ''
-    expect(caveat).not.toContain(ZERO_REASON_BADGE_LABELS.intervention_override)
+    /* ⚠ ALSO CASE-INSENSITIVE, AND FOR A SHARPER REASON THAN ITS TWIN ABOVE. A
+       case-SENSITIVE negative here would pass against a caveat that had come
+       back carrying the CLAUSE form, so the discriminating half would have gone
+       blind at exactly the moment the composer started lowercasing. */
+    expect(caveat.toLowerCase())
+      .not.toContain(ZERO_REASON_BADGE_LABELS.intervention_override.toLowerCase())
     expect(caveat).not.toMatch(/not ranked/i)
   })
 
@@ -911,9 +924,14 @@ describe('theBasisLineHasNoReferentWithoutBars', () => {
     ).toBe(true)
 
     /* The reasons are still owed, and still reach the reader. */
-    const label = ZERO_REASON_BADGE_LABELS.intervention_override
+    /* ⚠ LOWERCASED ON BOTH SIDES. `empty.noneRanked` splices these BADGE labels
+       mid-sentence and lowers the first character (`clauseCase`), so a
+       case-sensitive compare against the map constant asserts a casing this
+       sentence deliberately does not use. The count below is what makes this a
+       duplication pin, and it needs the same treatment or it counts zero. */
+    const label = ZERO_REASON_BADGE_LABELS.intervention_override.toLowerCase()
     expect(
-      screen.getByTestId('analysis-new-drivers-empty').textContent,
+      screen.getByTestId('analysis-new-drivers-empty').textContent?.toLowerCase(),
       'the empty message must name the producer reason',
     ).toContain(label)
 
@@ -921,7 +939,7 @@ describe('theBasisLineHasNoReferentWithoutBars', () => {
        this a duplication pin rather than a presence check: a caveat that also
        named the reason would push this to 2 and RED, which is exactly the
        regression the merge could have shipped. */
-    const occurrences = (section.textContent ?? '').split(label).length - 1
+    const occurrences = (section.textContent ?? '').toLowerCase().split(label).length - 1
     expect(occurrences, `"${label}" must appear exactly once in the section`).toBe(1)
 
     /* And no basis sentence, on a run that drew nothing — the gate's own claim. */

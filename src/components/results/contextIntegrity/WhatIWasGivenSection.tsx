@@ -47,7 +47,7 @@
  * binding it to the arm the deployed flags switch off (CLAUDE.md trap 3b).
  */
 
-import { useState } from 'react'
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 
 import { typography } from '../../../styles/typography'
@@ -76,7 +76,10 @@ import { surface } from '../analysisNew/panelSurfaces'
  * copy of the control, is how two authorities under one name get created
  * (CLAUDE.md trap 12/21).
  */
-import { FactorValueControl } from '../analysisNew/FactorValueControl'
+import {
+  FactorValueControl,
+  useAnyFactorValueControlOffered,
+} from '../analysisNew/FactorValueControl'
 
 /** Rows shown per group before "show all". Keeps the open state scannable. */
 const VISIBLE_ROWS = 6
@@ -122,8 +125,14 @@ const COPY = {
   // whole job is to say "these lists are not exhaustive" may not open by
   // misdescribing what they are lists OF. See `figureTallySubtitle.ts`.
   caveatLead: 'This covers the figures I found in your brief. It does not yet track:',
+  /**
+   * ⚠ THE "so" IS LOAD-BEARING AND WAS BRIEFLY LOST (11 Sep 2026). Splitting
+   * the em dash out of this sentence first produced two flat statements, which
+   * dropped the causal link: the reason not to read the silence as completeness
+   * IS that we cannot show it. A comma plus "so" carries that without a dash.
+   */
   unknown:
-    "I can't show this yet for this decision — so please don't read the absence as everything having made it in.",
+    "I can't show this yet for this decision, so please don't read the absence as everything having made it in.",
   noBrief: "I don't have your original wording saved for this decision.",
   /**
    * ⚠ THIS LABEL SAID "Add this", AND THE PRODUCT COULD NOT DO IT. Derived
@@ -301,7 +310,7 @@ export function composeNotModelledQuestion(item: NotModelledItem, briefText: str
   // a neighbouring string, so the product now sends the string that was measured.
   const opening = `My brief mentions ${item.literal}, which is not in the model yet.`
   const context = sentence ? ` The brief says: "${sentence}"` : ''
-  return `${opening}${context} What could this figure influence in this decision, and where would it belong? Don't change the model yet — tell me the options first.`
+  return `${opening}${context} What could this figure influence in this decision, and where would it belong? Don't change the model yet. Tell me the options first.`
 }
 
 /**
@@ -560,16 +569,127 @@ export interface WhatIWasGivenSectionProps {
   offerEstimatedValueControl?: boolean
 }
 
-export function WhatIWasGivenSection({
-  onSendMessage,
-  useSurfaceGrammar = false,
-  offerEstimatedValueControl = false,
-}: WhatIWasGivenSectionProps = {}) {
+/**
+ * ⭐⭐ THE ONE ANSWER TO "CAN AN ESTIMATE BE CORRECTED ON THIS PANEL RIGHT NOW?"
+ *
+ * Read by this section (to decide whether it has an act to lend) and by
+ * `AnalysisNewTabBody` (to decide whether the withheld-designation refusal can
+ * be answered in page instead of on the Model tab). ONE hook, because a second
+ * derivation would let the refusal advertise an act this register declines to
+ * offer — and the two surfaces are two sections apart, so nobody would see it.
+ *
+ * ⚠ THE ACTIONABILITY CONJUNCTS ARE NOT RE-SPELLED HERE. They are
+ * `FactorValueControl`'s own rule, asked through `useAnyFactorValueControlOffered`.
+ * This hook adds only the thing the CONTROL cannot know: whether this manifest
+ * describes the decision currently on screen.
+ *
+ * ⚠ AND IT IS NOT THE SECTION'S RENDER GATE. That asks *"may I SHOW this
+ * decision's content?"* and is satisfied in plenty of states where no row is
+ * actionable — a manifest with no inferred factors, a refused merge, no
+ * carrier. Two questions, named apart (trap 21); they share one conjunct and
+ * that conjunct has one home.
+ */
+export function useEstimatedValueActIsAvailable(enabled: boolean): boolean {
+  const recordedScenarioId = useContextIntegrityStore((s) => s.scenarioId)
+  const manifest = useContextIntegrityStore((s) => s.manifest)
+  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+  const estimatedRows = useMemo(
+    () => (manifest?.inferredFactors.items ?? []).map((f) => ({ nodeId: f.nodeId, label: f.label })),
+    [manifest],
+  )
+  const anyRowIsActionable = useAnyFactorValueControlOffered(estimatedRows, enabled)
+  return (
+    anyRowIsActionable &&
+    typeof recordedScenarioId === 'string' &&
+    recordedScenarioId === currentScenarioId
+  )
+}
+
+/**
+ * What a host may ask this panel to do.
+ *
+ * ⚠ THE SHAPE IS `focusModelTarget`'s, DELIBERATELY — a resolver that REPORTS
+ * WHETHER IT RESOLVED, which `AnalysisNewTabBody` already honours at its
+ * `focusTarget` call site. A void reveal would leave the caller unable to tell
+ * "revealed" from "there was nothing to reveal", and its fallback would have to
+ * guess.
+ */
+export interface WhatIWasGivenSectionHandle {
+  /**
+   * Open the register at "What I estimated" and put the act in view.
+   *
+   * @returns whether an act was actually revealed. `false` means this panel is
+   * offering none right now — the caller must fall back rather than leave the
+   * reader pressing a control that did nothing.
+   */
+  revealEstimatedValueAct: () => boolean
+}
+
+export const WhatIWasGivenSection = forwardRef<
+  WhatIWasGivenSectionHandle,
+  WhatIWasGivenSectionProps
+>(function WhatIWasGivenSection(
+  { onSendMessage, useSurfaceGrammar = false, offerEstimatedValueControl = false },
+  ref,
+) {
   const [open, setOpen] = useState(false)
   const recordedScenarioId = useContextIntegrityStore((s) => s.scenarioId)
   const briefText = useContextIntegrityStore((s) => s.briefText)
   const manifest = useContextIntegrityStore((s) => s.manifest)
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+
+  /**
+   * ⭐⭐ THE ACT THIS PANEL LENDS TO THE REFUSAL ABOVE IT — 11 Sep 2026.
+   *
+   * `AtAGlance` renders CEE's withheld-designation refusal, whose sentence names
+   * its own remedy ("until you have set at least one of them"), and the act
+   * beside it routed the reader to the MODEL TAB because on 10 Sep the estimates
+   * could be reached from nowhere else. The next morning this register acquired
+   * the same act, two sections below that button. `AnalysisNewTabBody` composes
+   * the two; this is the half the register owns.
+   *
+   * ⚠ THE AVAILABILITY QUESTION IS `FactorValueControl`'S OWN, ASKED THROUGH ITS
+   * OWN RULE — never a predicate re-spelled here. If the control would decline
+   * to render for every row, this panel has no act to lend and says so.
+   *
+   * ⚠ IT IS NOT THIS SECTION'S RENDER GATE, AND THE TWO MUST NOT BE FOLDED.
+   * `isForCurrentDecision` below answers *"may I SHOW this decision's
+   * content?"*; this answers *"is there an ACT here to send a reader to?"*. The
+   * register renders truthfully and usefully in plenty of states where no row is
+   * actionable — a manifest with no inferred factors, a refused merge, no
+   * carrier. One predicate where two belong is trap 21.
+   *
+   * ⚠ DECLARED BEFORE THE EARLY RETURNS, because hooks must be. A section that
+   * gates itself out still registers a handle, and that handle answers `false`
+   * — which is exactly right: the caller learns there is nothing here and falls
+   * back, rather than pressing a control that does nothing.
+   */
+  const scenarioMatches =
+    typeof recordedScenarioId === 'string' && recordedScenarioId === currentScenarioId
+  const estimatedActIsAvailable = useEstimatedValueActIsAvailable(offerEstimatedValueControl)
+  const estimatedBlockRef = useRef<HTMLDivElement>(null)
+  useImperativeHandle(
+    ref,
+    () => ({
+      revealEstimatedValueAct: () => {
+        if (!estimatedActIsAvailable) return false
+        // The whole register is behind the disclosure, so revealing the act
+        // means opening it. Setting it open when it already is, is a no-op.
+        setOpen(true)
+        // ⚠ AFTER THE DISCLOSURE HAS RENDERED — the block is not in the DOM on
+        // the frame the press happens. Optional at both hops: `scrollIntoView`
+        // is unimplemented in jsdom, and a reveal that cannot scroll has still
+        // revealed.
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(() => {
+            estimatedBlockRef.current?.scrollIntoView?.({ block: 'nearest' })
+          })
+        }
+        return true
+      },
+    }),
+    [estimatedActIsAvailable],
+  )
 
   // ── THE IDENTITY GATE — read the store's header before touching this ───────
   //
@@ -592,8 +712,13 @@ export function WhatIWasGivenSection({
   // and the draft turn records a fresh decision's brief — neither is this
   // component's), and inventing one here would race the boot path. Silence is
   // the honest answer; the previous decision's brief never is.
-  const isForCurrentDecision =
-    typeof recordedScenarioId === 'string' && recordedScenarioId === currentScenarioId
+  // ⚠ BOUND ONCE, AS `scenarioMatches` ABOVE — 11 Sep 2026.
+  // `useEstimatedValueActIsAvailable` applies the same conjunct for the ACT it
+  // lends to the refusal two sections up, and two spellings of "is this content
+  // for the decision on screen?" is how a panel comes to gate its RENDER on one
+  // answer and its ACT on another (trap 12). The two QUESTIONS stay distinct —
+  // see that hook's header — but this conjunct is one conjunct.
+  const isForCurrentDecision = scenarioMatches
   if (!isForCurrentDecision) return null
 
   if (briefText === null && manifest === null) return null
@@ -729,7 +854,10 @@ export function WhatIWasGivenSection({
 
           {/* ── 3. What I estimated — the trust-critical one ── */}
           {estimated.length > 0 && (
-            <div>
+            /* ⭐ THE SCROLL ANCHOR for `revealEstimatedValueAct`: a reader sent
+               here from the refusal above lands on the heading, not on the top
+               of a register they then have to search. */
+            <div ref={estimatedBlockRef}>
               <h4 className={`${typography.panelHeader} text-text-header`}>
                 {COPY.estimatedHeading}
               </h4>
@@ -779,4 +907,4 @@ export function WhatIWasGivenSection({
       )}
     </section>
   )
-}
+})

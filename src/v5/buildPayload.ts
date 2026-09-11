@@ -34,6 +34,11 @@ import type {
 import { ActionType, Intent } from '@talchain/schemas/boundary'
 
 import type { SystemEvent } from '../canvas/conversation/types'
+import {
+  isSendableAnalysisId,
+  isSendableFindingId,
+  isSendableStatement,
+} from '../canvas/conversation/findingDissent'
 // The endpoint-id rules are the CONTRACT's, defined once beside the capture
 // that produces them — restating them here would be a mirror, and a drifted
 // copy would put a 422-shaped id on the wire.
@@ -52,6 +57,15 @@ import {
   WIRE_ADDABLE_NODE_KINDS,
   type StructuralAddWireEvent,
 } from '../canvas/mutations/structuralAdd'
+// ⚠ THE EDGE MEMBER USES THE **OPEN** ENDPOINT PREDICATE, not the narrow
+// new-node one imported above. `structural_add_edge` addresses two EXISTING
+// nodes by `(from, to)` — `EdgeV3Schema` declares no `id` at all — so it shares
+// `structural_delete`'s endpoint rule rather than the add member's minted-id
+// rule. Same distinction the comment above draws, one level along.
+import {
+  buildStructuralAddEdgeEvent,
+  type StructuralAddEdgeWireEvent,
+} from '../canvas/mutations/structuralAddEdge'
 // VALUE import, and deliberately so: the selection this module puts on the wire
 // must be the one the canvas holds AT SEND TIME, read at the moment the payload
 // is built. Passing it in from useConversation would be purer, but the store is
@@ -448,6 +462,11 @@ function systemEventToPayload(args: {
       if (event === null) return null
       return { ...base, event }
     }
+    case 'structural_add_edge': {
+      const event = adaptStructuralAddEdge(eventPayload)
+      if (event === null) return null
+      return { ...base, event }
+    }
     case 'edge_strength_edit': {
       const event = adaptEdgeStrengthEdit(eventPayload)
       if (event === null) return null
@@ -457,6 +476,35 @@ function systemEventToPayload(args: {
       const event = adaptOptionInterventionEdit(eventPayload)
       if (event === null) return null
       return { ...base, event }
+    }
+    case 'finding_dissent': {
+      // schemas 0.55.0. The user's stated reason for disagreeing with a
+      // finding, carried VERBATIM.
+      //
+      // ⚠ FAIL-CLOSED, AND THE `null` IS LOAD-BEARING. It routes to
+      // `unsupported_system_event`, i.e. NO TURN AT ALL — which is the correct
+      // outcome for every refusal here, because each one means the event would
+      // have been rejected by CEE's `.strict()` member and taken the whole turn
+      // (422) with it. The surface has already kept the user's words locally by
+      // the time this runs, so a refusal costs a send and nothing else.
+      //
+      // ⚠ THE PREDICATES ARE IMPORTED, NOT RESPELLED. `commitDispute` asks the
+      // same three questions to decide whether it may show the stronger copy.
+      // Two hand-kept copies of one predicate is how a surface ends up
+      // promising something the wire refused — see `findingDissent.ts`.
+      const finding_id = stringField(eventPayload, 'finding_id')
+      const analysis_id = stringField(eventPayload, 'analysis_id')
+      const statement = stringField(eventPayload, 'statement')
+      if (!isSendableFindingId(finding_id)) return null
+      // ⚠ `''` before a run and the literal `'error'` on a failed one are both
+      // real values of the hash this id is taken from. Neither is an analysis
+      // id, and a placeholder here would commit a dangling reference to a
+      // long-lived fact row.
+      if (!isSendableAnalysisId(analysis_id)) return null
+      // ⚠ NOT TRIMMED. The words are the record; the predicate asks its
+      // question of a trimmed copy and this sends the original.
+      if (!isSendableStatement(statement)) return null
+      return { ...base, event: { kind: 'finding_dissent', finding_id, analysis_id, statement } }
     }
     case 'feedback_submitted': {
       // F7 (feedback thumbs = wire): map the UI's optimistic thumbs event onto
@@ -1411,4 +1459,25 @@ function adaptStructuralAdd(
     label,
     base_graph_hash,
   } as StructuralAddWireEvent
+}
+
+/**
+ * `structural_add_edge` (0.50.0) — a NEW causal edge between two EXISTING nodes.
+ *
+ * ⚠ IT DELEGATES RATHER THAN RE-VALIDATING. Every field rule lives in
+ * `buildStructuralAddEdgeEvent`, so this module holds no second copy of the
+ * contract's domain bounds — the same division `adaptEdgeStrengthEdit` follows.
+ * Re-checking here would be two spellings of one rule, and the copy that drifts
+ * is always the one nobody is looking at.
+ */
+function adaptStructuralAddEdge(
+  eventPayload: Record<string, unknown> | undefined,
+): StructuralAddEdgeWireEvent | null {
+  return buildStructuralAddEdgeEvent({
+    from: eventPayload?.from,
+    to: eventPayload?.to,
+    magnitude: eventPayload?.magnitude,
+    direction: eventPayload?.effect_direction,
+    baseGraphHash: eventPayload?.base_graph_hash,
+  })
 }

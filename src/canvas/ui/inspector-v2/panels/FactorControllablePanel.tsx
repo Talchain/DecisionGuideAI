@@ -705,9 +705,18 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
             </div>
           )}
           {/* ⭐ THE NUMBER THE ENGINE CANNOT PLACE, SAID ON THE FACTOR ITSELF.
-              A factor with no cap and no unit holds `value` AS the model scale
-              (CEE persists `raw_value = value` on that shape), so a recorded
-              `70` is a model-scale quantity with nothing saying seventy of what.
+              A factor with no cap, no unit AND NO FRAME RECOVERABLE FROM ITS
+              `{value, raw_value}` PAIR holds `value` AS the model scale, so a
+              recorded `70` beside `raw_value: 70` is a model-scale quantity
+              with nothing saying seventy of what.
+
+              ⚠⚠ THE PAIR CLAUSE WAS MISSING, and this comment carried the
+              premise that made it missing: *"CEE persists `raw_value = value`
+              on that shape"*. FALSE — corrected in place, not deleted (trap
+              14). CEE writes magnitude-scaled factors as CAPLESS FRAMED PAIRS,
+              so capless is exactly where the pair carries the frame. The panel
+              was warning about factors whose scale CEE's run gate had already
+              resolved, and sending the user to a remedy Olumi refuses.
               `buildFactorValueEditEvent` already refuses to SEND such a commit;
               until now nothing SAID so on the surface where the number lives,
               and an analysis could refuse for this reason while the factor

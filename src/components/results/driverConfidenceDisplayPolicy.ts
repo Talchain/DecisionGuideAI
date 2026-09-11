@@ -165,13 +165,35 @@ export function resolveFactorConfidenceDisplay(
  * only holds if the disclosure is one function rather than one component's
  * private array. Returns `null` when there is nothing to disclose.
  */
+/**
+ * ⚠ TWO HAND-COPIED SIBLINGS OF THIS MARKER STILL CARRY AN EM DASH, AND THEY
+ * ARE OUT OF THIS LANE'S SCOPE — recorded here rather than left to be
+ * rediscovered (11 Sep 2026).
+ *
+ * Paul's 10 Sep ruling removed the em dash from the string below. The same
+ * sentence is hand-written in two other places, NEITHER of which is
+ * import-reachable from the Reasoning tab, so the guard that caught this one
+ * (`noEmDashesInRenderedCopy.spec.ts`) cannot see either:
+ *
+ *   · `DriversSection.tsx:623,626` — an `aria-label` and an SVG `<title>`, on
+ *     the Analysis tab. The `<title>` is JSX TEXT, which no extractor in this
+ *     repo reads at all.
+ *   · `canvas/nodes/shared/MetricPills.tsx:53` — the canvas factor pill.
+ *
+ * They were left alone deliberately: both sit on surfaces this lane was not
+ * briefed for, and "while we're here" edits across a live estate are how two
+ * seats collide. The consequence is real and should be closed by whoever owns
+ * those surfaces — the same marker now reads two ways depending on where you
+ * meet it. The durable fix is for all three to read THIS function rather than
+ * re-spell it (CLAUDE.md trap 12: derive, do not mirror).
+ */
 export function factorConfidenceDisclosure(input: {
   isDefaulted?: boolean
   isProvisional?: boolean
 }): string | null {
   return (
     [
-      input.isDefaulted === true ? 'Default estimate — not yet validated with evidence' : null,
+      input.isDefaulted === true ? 'Default estimate. Not yet validated with evidence' : null,
       input.isProvisional === true ? 'Calibration is provisional' : null,
     ]
       .filter((q): q is string => q !== null)

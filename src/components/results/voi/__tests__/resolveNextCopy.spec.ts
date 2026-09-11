@@ -211,24 +211,70 @@ describe('register hygiene', () => {
   })
 
   /**
-   * ⚠ THE ONE DELIBERATE EXCEPTION TO THE HERO DECK'S STYLE RULES, STATED.
+   * ⭐⭐ THE EXCEPTION IS CLOSED — REPAIRED 11 Sep 2026, NOT DELETED.
    *
-   * `heroCopy.ts` bans em dashes and `copyHygiene.spec.tsx` enforces it over
-   * `HERO_COPY`. Four of these sentences contain one, because they were ratified
-   * for the V7 host first and `v7LensCopy.ts` already recorded the same
-   * judgement for the same strings: "the wording is ratified elsewhere and
-   * mirroring it inexactly is worse".
+   * ── WHAT THIS ASSERTION USED TO SAY, AND WHY ───────────────────────────────
+   * It pinned FOUR names as carrying a deliberate em dash:
+   * `decisionNotZero`, `decisionZero`, `noneAboveResolution`, `note`. The
+   * recorded reasoning was that `heroCopy.ts` bans em dashes and
+   * `copyHygiene.spec.tsx` enforces that over `HERO_COPY`, but these four were
+   * ratified for the V7 host first, and `v7LensCopy.ts` had already recorded the
+   * same judgement for the same strings: "the wording is ratified elsewhere and
+   * mirroring it inexactly is worse". Pinning the exception to the EXACT strings
+   * was what stopped it creeping.
    *
-   * That is why the hero component reads this register DIRECTLY instead of
-   * re-exporting it through `HERO_COPY`: routing ratified shared copy through the
-   * hero's own deck would either misfile it as hero-authored or force a carve-out
-   * in a general style guard — and a style guard with a carve-out is a guard that
-   * widens. The exception is pinned to the EXACT strings here, so it cannot creep.
+   * That is kept above rather than paraphrased away, because it is the record of
+   * a decision someone made for a real reason.
+   *
+   * ── WHY IT NO LONGER HOLDS, ON TWO INDEPENDENT GROUNDS ─────────────────────
+   * 1. Paul's ruling, 10 Sep 2026: NO em dashes in product content, full stop.
+   *    That is a product-wide ruling and it outranks a per-register carve-out.
+   * 2. The carve-out's own premise has expired: `v7LensCopy.ts` DOES NOT EXIST
+   *    in the tree any more (derived, not assumed — `find src -iname
+   *    '*v7LensCopy*'` returns nothing at `18d681c2`). The sibling whose wording
+   *    these four were being kept consistent WITH is gone, so "mirroring it
+   *    inexactly is worse" no longer describes anything. An exception outliving
+   *    the thing it was an exception for is the hand-maintained mirror this
+   *    estate keeps paying for (CLAUDE.md trap 12).
+   *
+   * All four sentences were split into two sentences on 11 Sep. Every clause
+   * survived: the estimand scope ("for the decision as a whole"), the
+   * not-the-same-as distinction, and the no-amounts disclosure are each still
+   * asserted by their own tests above and below this one.
+   *
+   * ── AND THE ASSERTION IS NOW STRICTLY STRONGER, NOT ABSENT ─────────────────
+   * It pins the EMPTY set. Deleting the test would have left the register free
+   * to reacquire a dash with no red anywhere, which is the failure mode the
+   * original pin existed to prevent — so the pin stays and simply records that
+   * the exception is now empty. The contrast half below keeps it from passing
+   * vacuously, per trap 13: an `ALL_STRINGS` that had collapsed to nothing would
+   * satisfy "no em dashes" perfectly.
    */
-  it('the em dash exception is pinned to exactly these sentences', () => {
+  it('the em dash exception is CLOSED — no sentence in this register carries one', () => {
     const withEmDash = ALL_STRINGS.filter(([, copy]) => copy.includes('—')).map(([name]) => name)
-    expect(withEmDash.sort()).toEqual(
-      ['decisionNotZero', 'decisionZero', 'noneAboveResolution', 'note'].sort(),
-    )
+    expect(
+      withEmDash.sort(),
+      'an em dash is back in the VOI register. Paul, 10 Sep 2026: split it into ' +
+        'two sentences or cut it. Do not re-open the exception.',
+    ).toEqual([])
+
+    // CONTRAST CONTROL: the sweep above is an ABSENCE claim, so it is worth
+    // nothing unless this register really is being read (trap 13).
+    expect(ALL_STRINGS.length, 'the register collapsed — the sweep is vacuous').toBeGreaterThan(8)
+    expect(
+      ALL_STRINGS.some(([, copy]) => copy.includes('.')),
+      'no sentence-ending punctuation anywhere: suspect the fixture, not the copy',
+    ).toBe(true)
+  })
+
+  it('and the four repaired sentences kept the clauses the dash used to join', () => {
+    // ⭐ THE HALF A DASH HUNT CAN SILENTLY DESTROY. Splitting is only correct if
+    // BOTH sides survive; deleting the trailing clause would satisfy the pin
+    // above perfectly and lose the meaning. Each fragment below sat AFTER the
+    // removed dash, so this reds if a future tidy-up drops one.
+    expect(R.note).toContain('what a run says it is worth learning before deciding')
+    expect(R.noneAboveResolution).toContain('does not have the precision to tell these unknowns apart')
+    expect(R.decisionNotZero).toContain('is not the same as')
+    expect(R.decisionZero).toContain('would leave the same choice')
   })
 })

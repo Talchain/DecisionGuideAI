@@ -117,6 +117,7 @@ import { appendThreadEntries } from '../../services/threadService'
 import type { ThreadEntry } from '../journey/threadTypes'
 import { useGuidanceStore, type GuidanceItem } from '../stores/guidanceStore'
 import { serializeSystemEvent } from './systemEvents'
+import { redactStatedReason } from './findingDissent'
 import type {
   ConversationMessage,
   ConversationBlock,
@@ -5977,7 +5978,25 @@ export function useConversation(): UseConversationReturn {
       recordCrossSurfaceEvent({
         eventType: event.type,
         summary: typeof event.payload?.summary === 'string' ? event.payload.summary : event.type,
-        payloadSummary: event.payload,
+        // ⚠⚠ THE USER'S STATED REASON NEVER ENTERS DEBUG STATE.
+        //
+        // schemas 0.55.0 widened R-004 to permit PERSISTING a stated reason as
+        // authored user content. Its changelog is explicit that the widening
+        // "does not license re-emitting the text into telemetry or logs, which
+        // is the half of R-004 that still stands" — so `statement`, which may
+        // contain PII, is dropped here while the event's IDENTITY is kept.
+        //
+        // ⚠ WHY IT IS REDACTED THOUGH `crossSurfaceEvents` HAS NO READER TODAY.
+        // Derived, with a contrast control, at this tip: `getCrossSurfaceEvents`
+        // occurs exactly ONCE in the tree — its own definition — so the list is
+        // write-only. Its SIBLING `getUserActions`, declared eleven lines above
+        // it in the same module, is read by `debug/utils/exportBundle.ts` and
+        // ships in a bundle a user can download and send on. The distance
+        // between "no reader" and "in a downloadable artefact" is one import in
+        // a module where that import already exists for the neighbouring API.
+        // Relying on the absence of a reader is relying on a fact nothing
+        // enforces; dropping the field is enforced by construction.
+        payloadSummary: redactStatedReason(event.payload),
       })
 
       // Return the outcome so a caller can distinguish DISPATCHED from

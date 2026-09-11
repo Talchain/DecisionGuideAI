@@ -232,7 +232,7 @@ const PRIORITY = {
  * defaulted row must not imply an ordering the producer never sent. */
 const PHASE3_SOURCE_RANKED = 'Source: Olumi model review.'
 const PHASE3_SOURCE_UNRANKED =
-  'Source: Olumi model review (not ranked — shown in the order received).'
+  'Source: Olumi model review (not ranked, shown in the order received).'
 
 /** Text normalisation for the UI-SEM-075 dedupe keys (case/whitespace only). */
 function normaliseText(text: string): string {

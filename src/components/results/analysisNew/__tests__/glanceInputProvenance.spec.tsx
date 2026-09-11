@@ -254,6 +254,9 @@ const glanceModel = (
   // Same run, same reason: nothing was withheld here, so no remedy is prescribed
   // and no act may be offered. `null` is the fail-closed value, not "unknown".
   designationWithheldRemedy: null,
+  // Same reason as the two above: a run that licensed a designation has no
+  // refusal, so there are no parameters to name.
+  designationWithheldParameters: [],
   leaderLabel: 'Raise price',
   winShare: 'Ahead in 68% of simulated futures',
   winFraction: 0.68,

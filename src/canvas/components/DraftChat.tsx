@@ -29,6 +29,7 @@ import { useGraphEditEvents } from '../conversation/useGraphEditEvents'
 import { useStructuralDeleteEvents } from '../conversation/useStructuralDeleteEvents'
 import { useStructuralRenameEvents } from '../conversation/useStructuralRenameEvents'
 import { useStructuralAddEvents } from '../conversation/useStructuralAddEvents'
+import { useStructuralAddEdgeEvents } from '../conversation/useStructuralAddEdgeEvents'
 import { usePanelApplyDrain } from '../conversation/usePanelApplyDrain'
 import { useAnalysisCompleteEvent } from '../conversation/useAnalysisCompleteEvent'
 // useSessionResumeEvent disabled — session_resume not in CEE v3 schema
@@ -164,6 +165,27 @@ export function DraftChat() {
   useStructuralRenameEvents(conversation.sendSystemEvent)
   // 0.50.0 — the durable NODE writer's drain, flag-off host.
   useStructuralAddEvents(conversation.sendSystemEvent)
+  // 0.54.0 — the durable EDGE writer's drain, flag-off host. Its flag-ON twin is
+  // `StructuralAddEdgeDrainHost`, mounted in `MaybeConversationProvider`.
+  //
+  // ⚠ THIS LINE WAS MISSING WHEN #1478 MERGED, AND ITS OWN HEADER SAID OTHERWISE.
+  // `StructuralAddEdgeDrainHost` opens "⚠⚠ BOTH HOSTS FROM THE START, because a
+  // sibling's capability shipped DARK once already" — and then shipped one host.
+  // Caught post-merge by an independent review (#1478 verdict), reproduced here
+  // with the two contrast controls in the same sweep: `useStructuralAddEvents`
+  // read 5 files and `useStructuralDeleteEvents` 7, both present in THIS file,
+  // while the edge drain read 2 and was absent.
+  //
+  // WHY IT MATTERS EVEN THOUGH THE POSTURE IS PROBABLY UNREACHABLE TODAY
+  // (`netlify.toml:75` bakes `VITE_FEATURE_AI_PANEL_V2 = "true"`): CAPTURE lives
+  // in the store and is posture-INDEPENDENT, so an add-edge intent queues either
+  // way and only the DRAIN is gated. With the flag off, intents would queue and
+  // never send — the connection lost on reload, AFTER the deferred notice told
+  // the user it would be saved with their next message. Correcting the header
+  // instead would have made the weaker implementation the documented intent, and
+  // a header asserting what the diff does not contain becomes the next session's
+  // premise.
+  useStructuralAddEdgeEvents(conversation.sendSystemEvent)
   useAnalysisCompleteEvent()
   // COLLAB 0.40.0 — drain a panel-apply intent recorded on `/scenario/:id/panel`.
   // It is hosted HERE, beside its two sibling system-event hooks, because this is
