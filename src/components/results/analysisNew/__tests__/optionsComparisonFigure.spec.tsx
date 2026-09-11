@@ -181,6 +181,42 @@ const NONE_RUN = () => dataFor(fourOptions(), { leaderDesignationPermitted: fals
 const NONE_RUN_NUMBERLESS = () =>
   dataFor(fourOptionsNumberless(), { leaderDesignationPermitted: false })
 
+/**
+ * The producer row `atAGlance.spec.tsx` and `conditionCarriesItsScope.spec.tsx`
+ * both already pin as yielding the no-unit, paired-with-baseline form. Reused so
+ * the fixture is one this repo has measured rather than one composed here.
+ */
+const FLIP_ROW = { label: 'Two-month timeframe', node_id: 'n_time', current_value: 2, flip_value: 3 }
+
+/**
+ * ⭐⭐⭐ `'condition'` — THE FOURTH STATE, AND IT DID NOT EXIST WHEN THIS FILE
+ * WAS WRITTEN. It arrived on `staging` in #1482 while this branch was open.
+ *
+ * ── WHY THIS FIXTURE EXISTS AT ALL ────────────────────────────────────────
+ *
+ * This file's enumeration said "the three states" because
+ * `GlanceComparativeClaim` had three members that licensed anything. #1482
+ * added a FOURTH — a flip condition is derived by ISL over the candidate set,
+ * so it is a set-dependent claim and must carry its scope. Both changes are
+ * correct alone. The question neither PR's own tests could ask is what the
+ * FIGURE does on a run that reaches the new member, because #1483 gates the
+ * bars on a value of this very union and #1482 widened the union underneath it
+ * (CLAUDE.md trap 21 — two correct changes, one shared concept).
+ *
+ * ⚠ THE RUN CARRIES SHARES ON EVERY ROW. Withheld leader, no verdict word, no
+ * headline — and four real magnitudes in the data. So the flip condition is the
+ * ONLY claim the glance is entitled to make, and any absence of bars below is
+ * attributable to the licence and not to missing numbers.
+ */
+const CONDITION_RUN = () =>
+  dataFor(fourOptions(), {
+    leaderDesignationPermitted: false,
+    robustnessVerdict: undefined,
+    robustnessVerdictReason: undefined,
+    flipThresholdsStatus: 'computed',
+    flipThresholds: [FLIP_ROW],
+  })
+
 function renderRun(data: ResultsSectionDataReturn) {
   const vm = buildAnalysisNewViewModel({
     data,
@@ -221,7 +257,7 @@ function rowsWithAShare(vm: ReturnType<typeof buildAnalysisNewViewModel>): numbe
 
 // ═══════════════════════════════════════════════════════════════════════════
 describe('the licence is the glance’s, and there is only one of it', () => {
-  it('carries the SAME value the glance publishes, in every one of the three states', () => {
+  it('carries the SAME value the glance publishes, in every one of the FOUR states', () => {
     // ⭐ THE GUARD AGAINST A SECOND AUTHORITY. If a later edit computes a
     // licence inside `buildOptionsComparison` — from the rows, from the leader,
     // from anything — the two answers can diverge on some run and this REDs.
@@ -231,6 +267,10 @@ describe('the licence is the glance’s, and there is only one of it', () => {
       ['order', ORDER_RUN()],
       ['none', NONE_RUN()],
       ['none/numberless', NONE_RUN_NUMBERLESS()],
+      // ⚠ ADDED WITH #1482's FOURTH UNION MEMBER. The one-authority guard has
+      // to span every state the union can reach, or the state it omits is
+      // exactly where a second authority could appear unobserved.
+      ['condition', CONDITION_RUN()],
     ] as const) {
       const vm = buildAnalysisNewViewModel({
         data,
@@ -246,7 +286,7 @@ describe('the licence is the glance’s, and there is only one of it', () => {
     }
   })
 
-  it('CONTROL: the three fixtures really do reach three DIFFERENT states', () => {
+  it('CONTROL: the four fixtures really do reach four DIFFERENT states', () => {
     // ⭐ THE DISCRIMINATION CONTROL. Without this, three fixtures that all
     // landed on `'none'` would satisfy every suppression test below and the
     // `'value'` test would be the only real one — and a blind instrument that
@@ -264,6 +304,7 @@ describe('the licence is the glance’s, and there is only one of it', () => {
     expect(claim(VALUE_RUN())).toBe('value')
     expect(claim(ORDER_RUN())).toBe('order')
     expect(claim(NONE_RUN())).toBe('none')
+    expect(claim(CONDITION_RUN())).toBe('condition')
   })
 })
 
@@ -369,6 +410,110 @@ describe("'order' — an ordering is licensed, a magnitude is not", () => {
     for (const li of screen.getAllByTestId(`${TESTID}-row`)) {
       expect(li.textContent ?? '').not.toMatch(/(^|\s)#?[1-4](st|nd|rd|th)\b/i)
     }
+  })
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * ⭐⭐⭐ THE COMPOSITION CASE — A CONDITION IS NOT A LICENCE FOR A MAGNITUDE.
+ *
+ * This whole block exists because of an interaction, not because of either
+ * change on its own, and it is the case neither PR could have written:
+ *
+ *  · #1483 (this branch) gates the drawn bars on `comparativeClaim === 'value'`.
+ *  · #1482 (landed on `staging` underneath it) added `'condition'` to that very
+ *    union, so a run whose only claim is a flip threshold now resolves to a
+ *    LICENSED member where it previously resolved to `'none'`.
+ *
+ * A flip threshold is a statement about WHEN an ordering would change. It puts
+ * no percentage and no rank on screen — #1482's own type comment says exactly
+ * that, which is why a condition takes `ComparisonScopeNote`'s neutral sentence
+ * and not its `detail` line. So a condition licenses a SENTENCE and never a
+ * magnitude, and the bars must stay withheld.
+ *
+ * ⚠⚠ AND THE GATE'S SHAPE IS WHAT MAKES THIS SAFE — `=== 'value'`, NOT
+ * `!== 'none'`. The component's header already argued the two are different
+ * gates, on the `'order'` state. #1482 turned that argument into a load-bearing
+ * one: under `!== 'none'` a condition-only run would have flipped from drawing
+ * NOTHING to drawing four measurable bars the moment #1482 merged — a
+ * comparative magnitude on a run whose only claim is a threshold, reintroduced
+ * by a neighbour, invisible to both PRs' suites because each is correct alone.
+ * The mutant pair in `the gate's SHAPE is load-bearing` below proves that is a
+ * real counterfactual and not a rhetorical one.
+ */
+describe("'condition' — a flip threshold licenses a sentence, never a magnitude", () => {
+  it('draws NO bar, on a run whose rows DO have shares to draw', () => {
+    const { vm } = renderRun(CONDITION_RUN())
+
+    // ⭐ PIN THE PRECONDITION. Without this the test could silently be another
+    // `'none'` case — and a fixture that stopped reaching the new state would
+    // keep passing while testing nothing (CLAUDE.md trap 13b).
+    expect(vm.optionsComparison.comparativeClaim, 'precondition').toBe('condition')
+
+    // ⭐⭐ AND THE CONDITION IS GENUINELY ON SCREEN'S WORTH OF CONTENT. If
+    // `glanceCondition` returned null the run would be `'none'` and this whole
+    // block would be a duplicate of its neighbour.
+    expect(vm.atAGlance.condition, 'the claim under test must exist').not.toBeNull()
+
+    // ⭐⭐ THE PRECONDITION THAT MAKES THE ABSENCE MEAN SOMETHING — four
+    // magnitudes in the data, and the section declines to draw them.
+    expect(
+      rowsWithAShare(vm),
+      'no shares in the data — the suppression below would be vacuous',
+    ).toBeGreaterThan(1)
+
+    expect(bars()).toHaveLength(0)
+
+    // CONTRAST CONTROL, same render: the section mounted and is naming rows, so
+    // this is a discrimination rather than a blank tree.
+    expect(screen.getAllByTestId(`${TESTID}-row`)).toHaveLength(4)
+    expect(within(row('opt_segment')).getByTestId(`${TESTID}-label`)).toHaveTextContent('Segment')
+  })
+
+  /**
+   * ⭐⭐⭐ THE GATE'S SHAPE IS LOAD-BEARING, AND THIS IS THE PROOF.
+   *
+   * A DISCRIMINATING PAIR (CLAUDE.md trap 19). The first assertion is the gate
+   * as written; the second is the gate a reasonable edit might substitute,
+   * evaluated over the same four states. They must DISAGREE, and they must
+   * disagree on exactly one state: `'condition'`.
+   *
+   * This is what stops a future reader "simplifying" `=== 'value'` into
+   * `!== 'none'` — the two are not equivalent, they differ on a state that is
+   * live on `staging` today, and the difference is a fabricated magnitude.
+   */
+  it("the gate's SHAPE is load-bearing: `!== 'none'` would draw here and `=== 'value'` does not", () => {
+    const states = [
+      ['value', VALUE_RUN()],
+      ['order', ORDER_RUN()],
+      ['none', NONE_RUN()],
+      ['condition', CONDITION_RUN()],
+    ] as const
+
+    const asWritten: string[] = []
+    const asWidened: string[] = []
+    for (const [name, data] of states) {
+      const vm = buildAnalysisNewViewModel({
+        data,
+        recommendations: [],
+        isPreRun: false,
+        isRunning: false,
+        isStale: false,
+      })
+      const claim = vm.optionsComparison.comparativeClaim
+      if (claim === 'value') asWritten.push(name)
+      if (claim !== 'none') asWidened.push(name)
+    }
+
+    // The gate as shipped licenses a magnitude on exactly one state.
+    expect(asWritten).toEqual(['value'])
+
+    // The widened gate would license three — and `'condition'` is among them.
+    expect(asWidened).toEqual(['value', 'order', 'condition'])
+
+    // ⚠ THE DISCRIMINATION, STATED AS AN ASSERTION RATHER THAN LEFT TO A READER.
+    expect(asWidened).toContain('condition')
+    expect(asWritten).not.toContain('condition')
   })
 })
 
