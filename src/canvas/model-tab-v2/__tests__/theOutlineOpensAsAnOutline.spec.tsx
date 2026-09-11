@@ -92,14 +92,30 @@ describe('the Model outline opens as an outline', () => {
 
   it('HALF TWO: the closed header still carries the COUNT and the unknown summary', () => {
     renderPanel()
-    const header = screen.getByTestId('model-group-v2-factors-toggle')
+    const toggle = screen.getByTestId('model-group-v2-factors-toggle')
     // Closed, and still saying what is inside.
-    expect(header.getAttribute('aria-expanded')).toBe('false')
-    expect(header.textContent).toContain('2') // both factors counted
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(toggle.textContent).toContain('2') // both factors counted
     const summary = screen.getByTestId('model-group-v2-factors-unknown-summary')
     expect(summary.textContent?.trim().length).toBeGreaterThan(0)
-    // IDENTITY, not proximity: the summary belongs to THIS group's header.
-    expect(header.contains(summary)).toBe(true)
+    /*
+     * IDENTITY, not proximity: the summary belongs to THIS group's header.
+     *
+     * ⚠ THE ANCHOR MOVED FROM THE TOGGLE TO THE HEADING CONTAINER, and the claim
+     * is unchanged. `theCountIsTheWayIn` made each clause of this summary a
+     * control, which cannot live inside a `<button>` — interactive content
+     * nested in a button is invalid and unreachable in the keyboard order a
+     * reader expects. The toggle and the summary are now siblings inside
+     * `model-group-heading-v2-factors`, so the containment that carries the
+     * IDENTITY claim is asserted there. Both halves are still pinned: the
+     * summary is inside this group's heading, and the toggle is the same
+     * heading's control.
+     */
+    const heading = screen.getByTestId('model-group-heading-v2-factors')
+    expect(heading.contains(summary)).toBe(true)
+    expect(heading.contains(toggle)).toBe(true)
+    // And it is the FACTORS heading, not a neighbour's that happens to match.
+    expect(screen.getByTestId('model-group-v2-factors').contains(heading)).toBe(true)
   })
 
   it('the rows are genuinely hidden while closed — this is disclosure, not a style change', () => {
