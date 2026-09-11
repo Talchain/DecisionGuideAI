@@ -1,4 +1,5 @@
 import { useLayoutProgressStore } from '../layoutProgressStore'
+import { logCanvasBreadcrumb, describeError } from '../utils/canvasBreadcrumb'
 
 /**
  * What a layout attempt reports back. `laidOut: false` means the call RESOLVED
@@ -45,6 +46,12 @@ export function handleLayoutWithRecovery(
       // `undefined` is the legacy void contract and means success. Only an
       // explicit `laidOut: false` is treated as "nothing happened".
       if (result && result.laidOut === false) {
+        // ⚠ THE SECOND FAILURE PATH, AND IT HAD NO DIAGNOSTIC AT ALL — not even
+        // a DEV one. It produces the SAME banner as a rejection while meaning
+        // something quite different: the attempt resolved and declined to lay
+        // anything out (a superseded request, or a caller opting out). Reading
+        // one as the other is how an investigation looks in the wrong place.
+        logCanvasBreadcrumb('layout:failed', { phase: 'declined', laidOut: false })
         failWithRetry()
         return
       }
@@ -52,6 +59,18 @@ export function handleLayoutWithRecovery(
       options?.onSuccess?.()
     })
     .catch((err: unknown) => {
+      // ⭐⭐ THE LINE THAT MAKES THE NEXT OCCURRENCE DIAGNOSABLE.
+      //
+      // This was `if (import.meta.env.DEV) console.warn(...)`. The incident
+      // happens on STAGING, which is a production build, so the rejection that
+      // could name the cause was discarded every time it occurred — and
+      // `layoutFailureIsSurvivable.spec.ts` records the consequence in terms:
+      // "IT DOES NOT PIN WHY ELK THREW. That cause is open and may stay open."
+      //
+      // It is open because nobody has ever held the error. The breadcrumb ring
+      // survives a production build and outlives the console, so the evidence
+      // is still on the page when someone thinks to look.
+      logCanvasBreadcrumb('layout:failed', { phase: 'rejected', err: describeError(err) })
       if (import.meta.env.DEV) {
         console.warn('[layout] failure:', err)
       }
