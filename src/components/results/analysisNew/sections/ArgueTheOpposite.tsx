@@ -1,5 +1,5 @@
 /**
- * "What would change your mind?" — the consider-the-opposite ACT.
+ * "Argue the opposite" — the consider-the-opposite ACT.
  *
  * ⭐⭐ WHAT THIS IS FOR. The standing objection to this tab is that it is a big
  * lump of text rather than a tool for enhancing critical and creative thinking.
@@ -7,15 +7,15 @@
  * best-evidenced debiasing move in the literature against the run's own
  * arithmetic, and brings back an answer the reader can act on.
  *
- * ⚠⚠ IT RENDERS TWO DIFFERENT CLAIMS AND NEVER BLENDS THEM. `buildChangeYourMindAsk`
+ * ⚠⚠ IT RENDERS TWO DIFFERENT CLAIMS AND NEVER BLENDS THEM. `buildArgueTheOppositeAsk`
  * owns the rule; this file renders whichever it returns and nothing else. The
- * form is stamped on the control as `data-change-your-mind-form` so the
+ * form is stamped on the control as `data-argue-the-opposite-form` so the
  * distinction is observable from outside the copy — a test that could only
  * check the sentence would have to match prose, and would stop discriminating
  * the first time a word changed (trap 13b: a guard whose discrimination depends
  * on something nothing pins).
  *
- * ⚠ NOTHING RENDERS WHEN THERE IS NOTHING TO ASK ABOUT. `buildChangeYourMindAsk`
+ * ⚠ NOTHING RENDERS WHEN THERE IS NOTHING TO ASK ABOUT. `buildArgueTheOppositeAsk`
  * returns `null` for a run with no reversal finding, and `null` renders no
  * control at all — not a disabled one, not a tooltip explaining why it is
  * unavailable. That rule is enforced elsewhere in this codebase and the greyed,
@@ -32,10 +32,10 @@
 import { Lightbulb } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { openAskOlumi } from '../../coaching/askOlumiStore'
-import { buildChangeYourMindAsk } from '../considerTheOppositeAsk'
+import { buildArgueTheOppositeAsk } from '../considerTheOppositeAsk'
 import type { GlanceCondition } from '../analysisNewTypes'
 
-export interface WhatWouldChangeYourMindProps {
+export interface ArgueTheOppositeProps {
   /**
    * The run's calculated reversal condition, or `null` when it produced none.
    *
@@ -48,11 +48,11 @@ export interface WhatWouldChangeYourMindProps {
   testId?: string
 }
 
-export function WhatWouldChangeYourMind({
+export function ArgueTheOpposite({
   condition,
-  testId = 'analysis-new-strengthen-change-your-mind',
-}: WhatWouldChangeYourMindProps) {
-  const ask = buildChangeYourMindAsk(condition)
+  testId = 'analysis-new-strengthen-argue-the-opposite',
+}: ArgueTheOppositeProps) {
+  const ask = buildArgueTheOppositeAsk(condition)
   if (!ask) return null
 
   return (
@@ -90,7 +90,7 @@ export function WhatWouldChangeYourMind({
         /* ⚠ THE FORM IS ON THE CONTROL, NOT INFERRED FROM THE COPY. It is what
            lets the honesty rule be asserted by identity rather than by reading
            the sentence back. */
-        data-change-your-mind-form={ask.form}
+        data-argue-the-opposite-form={ask.form}
       >
         <Lightbulb className="w-3 h-3" aria-hidden={true} />
         {ask.label}

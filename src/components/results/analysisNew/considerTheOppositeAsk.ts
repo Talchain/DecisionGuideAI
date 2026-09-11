@@ -1,7 +1,7 @@
 /**
- * considerTheOppositeAsk — ONE place that decides whether "What would change
- * your mind?" may speak as a FINDING or only as a TECHNIQUE, and composes the
- * ask either way.
+ * considerTheOppositeAsk — ONE place that decides whether the "Argue the
+ * opposite" act may speak as a FINDING or only as a TECHNIQUE, and composes
+ * the ask either way.
  *
  * ⭐⭐ WHY IT IS A MODULE AND NOT A TERNARY IN THE COMPONENT.
  *
@@ -64,10 +64,10 @@ import type { GlanceCondition } from './analysisNewTypes'
 const CONSIDER_OPPOSITE_ID = 'consider_opposite'
 
 /** Which of the two honest claims this act is entitled to make. */
-export type ChangeYourMindForm = 'grounded' | 'technique'
+export type ArgueTheOppositeForm = 'grounded' | 'technique'
 
-export interface ChangeYourMindAsk {
-  form: ChangeYourMindForm
+export interface ArgueTheOppositeAsk {
+  form: ArgueTheOppositeForm
   /** The sentence rendered beside the control. */
   lead: string
   /** The drawer's context line. Same sentence; the drawer states its own basis. */
@@ -90,13 +90,13 @@ export interface ChangeYourMindAsk {
  * ⚠ RETURNS `null` RATHER THAN A DISABLED SHAPE. The caller renders nothing at
  * all for `null`; there is no third "offered but inert" state to get wrong.
  */
-export function buildChangeYourMindAsk(
+export function buildArgueTheOppositeAsk(
   condition: GlanceCondition | null | undefined,
-): ChangeYourMindAsk | null {
+): ArgueTheOppositeAsk | null {
   if (!condition) return null
 
   const entry = METHOD_CATALOGUE.find((m) => m.id === CONSIDER_OPPOSITE_ID)
-  const copy = ANALYSIS_NEW_COPY.changeYourMind
+  const copy = ANALYSIS_NEW_COPY.argueTheOpposite
   const targetId =
     typeof condition.targetId === 'string' && condition.targetId.length > 0
       ? condition.targetId

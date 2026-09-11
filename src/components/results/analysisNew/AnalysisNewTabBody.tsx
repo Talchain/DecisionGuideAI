@@ -1357,7 +1357,7 @@ export function AnalysisNewTabBody({
           preview={ANALYSIS_NEW_LIMITS.STRENGTHEN_PREVIEW}
           analysisHash={responseHash ?? null}
           defaultOpen={vm.status.isPreRun && alsoWorthDoing.length > 0}
-          changeYourMind={vm.atAGlance.condition}
+          argueTheOpposite={vm.atAGlance.condition}
           icon={Wrench}
         />
 

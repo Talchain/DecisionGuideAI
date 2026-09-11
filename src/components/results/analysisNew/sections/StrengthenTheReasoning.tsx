@@ -62,7 +62,7 @@ import { SEVERITY_BADGE_CLASS, NOTICE_MS } from '../../strengthen/StrengthenPane
 import { STRENGTHEN_COPY } from '../../strengthen/strengthenCopy'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
 import type { GlanceCondition, ScienceGrounding } from '../analysisNewTypes'
-import { WhatWouldChangeYourMind } from './WhatWouldChangeYourMind'
+import { ArgueTheOpposite } from './ArgueTheOpposite'
 import { methodForRecommendation } from '../recommendationMethod'
 import { NodeMark, markKindForTarget } from '../nodeMarks'
 import { planPreview } from '../previewComposition'
@@ -141,10 +141,10 @@ export interface StrengthenTheReasoningProps {
    * a preference, and it is recorded as owed rather than silently taken.
    *
    * ⚠ PASSED WHOLE, never pre-decided by the caller. Which of the two honest
-   * claims this run entitles is `buildChangeYourMindAsk`'s question and no
+   * claims this run entitles is `buildArgueTheOppositeAsk`'s question and no
    * mount's.
    */
-  changeYourMind?: GlanceCondition | null
+  argueTheOpposite?: GlanceCondition | null
   testId?: string
 }
 
@@ -169,7 +169,7 @@ export function StrengthenTheReasoning({
   analysisHash = null,
   icon,
   defaultOpen = false,
-  changeYourMind = null,
+  argueTheOpposite = null,
   testId = 'analysis-new-strengthen',
 }: StrengthenTheReasoningProps) {
   /**
@@ -663,9 +663,9 @@ export function StrengthenTheReasoning({
               completed one: an act to challenge a finding needs a finding. It
               renders nothing of its own when the run produced no reversal
               condition. */}
-          <WhatWouldChangeYourMind
-            condition={changeYourMind}
-            testId={`${testId}-change-your-mind`}
+          <ArgueTheOpposite
+            condition={argueTheOpposite}
+            testId={`${testId}-argue-the-opposite`}
           />
           <ul className="space-y-3 list-none p-0 m-0" id={`${testId}-list`}>
           {visible.map((rec) => {

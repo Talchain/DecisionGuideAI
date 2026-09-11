@@ -203,6 +203,13 @@ describe('could change if — a tipping point, gated on the honesty field', () =
     expect(withFlip('computed', { ...ROW, unit: '%' })).toEqual({
       text: 'Two-month timeframe passes 3%',
       targetId: 'n_time',
+      // ⭐ THE STRUCTURED FIGURE, CARRIED ALONGSIDE THE SENTENCE. A consumer
+      // asking "may I quote a number for this condition?" cannot read that off
+      // `text` — all three arms below are non-empty strings and only prose
+      // tells them apart. `quantity` is that question's structured answer, set
+      // by the same branch that composed the sentence and from the same two
+      // locals, so it can never claim a figure the sentence dropped.
+      quantity: { factorLabel: 'Two-month timeframe', thresholdText: '3%' },
     })
   })
 
@@ -219,6 +226,28 @@ describe('could change if — a tipping point, gated on the honesty field', () =
     expect(withFlip('computed', { ...ROW, current_value: null })!.text).toBe(
       'Two-month timeframe changes materially',
     )
+  })
+
+  /**
+   * ⭐⭐ AND NO FIGURE MAY BE QUOTED ON THAT ARM EITHER. This is the builder
+   * half of the consider-the-opposite honesty rule: `quantity` present means a
+   * consumer may name the producer's threshold, absent means it may not. The
+   * arm above is the one where the number was dropped, so the structure has to
+   * drop it too, or a consumer would speak as though the run had placed a
+   * figure it explicitly could not place.
+   *
+   * ⚠ PINNED AS A PAIR WITH THE UNIT CASE ABOVE. Either assertion alone would
+   * stay green if `quantity` were set unconditionally or never set at all;
+   * together they pin that it DISCRIMINATES.
+   */
+  it('carries NO quotable figure on the arm where the number was dropped', () => {
+    expect(withFlip('computed', { ...ROW, current_value: null })!.quantity).toBeNull()
+    // The contrast, in the same test, so a run that stopped discriminating is
+    // visible here and not only in the case above.
+    expect(withFlip('computed', { ...ROW, unit: '%' })!.quantity).toEqual({
+      factorLabel: 'Two-month timeframe',
+      thresholdText: '3%',
+    })
   })
 
   it('renders NOTHING when the producer could not determine a flip', () => {

@@ -1,7 +1,11 @@
 /**
- * Analysis (New) — "What would change your mind about this?", the consider-the-
- * opposite act, and THE HONESTY RULE THAT MAKES IT SCIENCE RATHER THAN
- * ENCOURAGEMENT.
+ * Analysis (New) — "Argue the opposite", the consider-the-opposite act, and
+ * THE HONESTY RULE THAT MAKES IT SCIENCE RATHER THAN ENCOURAGEMENT.
+ *
+ * ⚠ THE ACT IS NOT LABELLED "What would change your mind?" — those exact words
+ * are ALREADY `COPY.sections.sensitivity`, the heading over this same tab's
+ * sensitivity findings. Two different things under one name on one surface is
+ * trap 21, so the control names the MOVE. The collision is pinned below.
  *
  * ⭐⭐ THE RULE UNDER TEST, STATED AS TWO CLAIMS THAT MAY NEVER BLUR:
  *
@@ -39,7 +43,38 @@ vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusModelTarget: vi.f
 
 import { openAskOlumi } from '../../coaching/askOlumiStore'
 
-const ACT = 'analysis-new-strengthen-change-your-mind'
+/**
+ * ⭐⭐ THE CORPUS LIVES HERE, NOT IN THE COPY REGISTER, AND THAT IS DELIBERATE
+ * ON TWO COUNTS.
+ *
+ *  1. A corpus is what notices a list is SHORT, and it can only do that from
+ *     outside the thing it judges (CLAUDE.md trap 12d: derivation proves
+ *     agreement and can never prove completeness). A product file carrying its
+ *     own exam paper lets one edit change the copy and the standard together.
+ *  2. MEASURED, not supposed. Held as an object property inside
+ *     `ANALYSIS_NEW_COPY` these phrases were read as USER-FACING COPY by
+ *     `noWinnerVocabulary.spec.ts` and correctly failed its oracle guard:
+ *     that spec's `banListsBlanked` only blanks an ASSIGNMENT
+ *     (`NAME = [...]`), and an object property (`NAME: [...]`) has no `=`.
+ *     The guard was right; the ban list was in the wrong file.
+ *
+ * These are the four claim shapes the technique arm may never make: computed
+ * importance, a detected bias, an optimal experiment, and oracle framing.
+ */
+const COMPUTATION_CLAIMS_BANNED_IN_TECHNIQUE: readonly string[] = [
+  'we calculated',
+  'we computed',
+  'we worked out',
+  'we found',
+  'we detected',
+  'most important',
+  'optimal',
+  'the data says',
+  'the result shows',
+  'the analysis shows',
+]
+
+const ACT = 'analysis-new-strengthen-argue-the-opposite'
 const LEAD = `${ACT}-lead`
 
 /**
@@ -84,7 +119,7 @@ const UNPLACEABLE: GlanceCondition = {
 
 const renderOpen = (condition: GlanceCondition | null) => {
   const result = render(
-    <StrengthenTheReasoning interventions={findings} changeYourMind={condition} />,
+    <StrengthenTheReasoning interventions={findings} argueTheOpposite={condition} />,
   )
   fireEvent.click(screen.getByTestId('analysis-new-strengthen-toggle'))
   return result
@@ -99,7 +134,7 @@ describe('the act exists at all', () => {
     renderOpen(GROUNDED)
     expect(screen.getAllByTestId(ACT)).toHaveLength(1)
     expect(screen.getByTestId(ACT)).toHaveTextContent(
-      ANALYSIS_NEW_COPY.changeYourMind.actLabel,
+      ANALYSIS_NEW_COPY.argueTheOpposite.actLabel,
     )
   })
 
@@ -124,7 +159,7 @@ describe('⭐ the honesty rule — the grounded arm names the producer’s own f
     // producer's own two strings. A substring match on "12.5%" alone would be
     // satisfied by any figure the card happens to carry.
     expect(lead).toHaveTextContent(
-      ANALYSIS_NEW_COPY.changeYourMind.groundedLead('Customer demand', '12.5%'),
+      ANALYSIS_NEW_COPY.argueTheOpposite.groundedLead('Customer demand', '12.5%'),
     )
     // And the decoy on the same card is NOT what it bound to.
     expect(lead).not.toHaveTextContent('41%')
@@ -133,7 +168,7 @@ describe('⭐ the honesty rule — the grounded arm names the producer’s own f
 
   it('states the figure is the run’s own, and marks the act grounded', () => {
     renderOpen(GROUNDED)
-    expect(screen.getByTestId(ACT)).toHaveAttribute('data-change-your-mind-form', 'grounded')
+    expect(screen.getByTestId(ACT)).toHaveAttribute('data-argue-the-opposite-form', 'grounded')
   })
 
   it('sends a question carrying the producer’s quantity and threshold verbatim', () => {
@@ -142,7 +177,7 @@ describe('⭐ the honesty rule — the grounded arm names the producer’s own f
     expect(openAskOlumi).toHaveBeenCalledTimes(1)
     const payload = vi.mocked(openAskOlumi).mock.calls[0][0]
     expect(payload.draft).toBe(
-      ANALYSIS_NEW_COPY.changeYourMind.groundedDraft('Customer demand', '12.5%'),
+      ANALYSIS_NEW_COPY.argueTheOpposite.groundedDraft('Customer demand', '12.5%'),
     )
     expect(payload.draft).toContain('Customer demand')
     expect(payload.draft).toContain('12.5%')
@@ -159,9 +194,9 @@ describe('⭐ the honesty rule — the grounded arm names the producer’s own f
 describe('⭐ the honesty rule — the technique arm may not imply computation', () => {
   it('declares itself a reasoning technique', () => {
     renderOpen(UNPLACEABLE)
-    expect(screen.getByTestId(ACT)).toHaveAttribute('data-change-your-mind-form', 'technique')
+    expect(screen.getByTestId(ACT)).toHaveAttribute('data-argue-the-opposite-form', 'technique')
     expect(screen.getByTestId(LEAD)).toHaveTextContent(
-      ANALYSIS_NEW_COPY.changeYourMind.techniqueLead,
+      ANALYSIS_NEW_COPY.argueTheOpposite.techniqueLead,
     )
   })
 
@@ -176,7 +211,10 @@ describe('⭐ the honesty rule — the technique arm may not imply computation',
     renderOpen(UNPLACEABLE)
     const lead = screen.getByTestId(LEAD)
     expect(lead).toBeInTheDocument()
-    for (const claim of ANALYSIS_NEW_COPY.changeYourMind.COMPUTATION_CLAIMS_BANNED_IN_TECHNIQUE) {
+    // Precondition: the corpus is non-empty, so the loop cannot pass by
+    // iterating nothing (trap 13 — an absence probe needs a positive control).
+    expect(COMPUTATION_CLAIMS_BANNED_IN_TECHNIQUE.length).toBe(10)
+    for (const claim of COMPUTATION_CLAIMS_BANNED_IN_TECHNIQUE) {
       expect(lead.textContent?.toLowerCase()).not.toContain(claim)
     }
   })
@@ -185,11 +223,11 @@ describe('⭐ the honesty rule — the technique arm may not imply computation',
     renderOpen(UNPLACEABLE)
     fireEvent.click(screen.getByTestId(ACT))
     const payload = vi.mocked(openAskOlumi).mock.calls[0][0]
-    expect(payload.draft).toBe(ANALYSIS_NEW_COPY.changeYourMind.techniqueDraft)
+    expect(payload.draft).toBe(ANALYSIS_NEW_COPY.argueTheOpposite.techniqueDraft)
     // The unplaceable condition's own prose must not be laundered into a figure.
     expect(payload.draft).not.toContain('12.5%')
     expect(payload.draft).not.toContain('changes materially')
-    expect(payload.context).toBe(ANALYSIS_NEW_COPY.changeYourMind.techniqueLead)
+    expect(payload.context).toBe(ANALYSIS_NEW_COPY.argueTheOpposite.techniqueLead)
   })
 })
 
@@ -204,14 +242,14 @@ describe('⭐ the two arms are DIFFERENT — the pair, not one mutant', () => {
    */
   it('the grounded lead and the technique lead are not the same sentence', () => {
     const a = render(
-      <StrengthenTheReasoning interventions={findings} changeYourMind={GROUNDED} />,
+      <StrengthenTheReasoning interventions={findings} argueTheOpposite={GROUNDED} />,
     )
     fireEvent.click(within(a.container).getByTestId('analysis-new-strengthen-toggle'))
     const groundedLead = within(a.container).getByTestId(LEAD).textContent
     a.unmount()
 
     const b = render(
-      <StrengthenTheReasoning interventions={findings} changeYourMind={UNPLACEABLE} />,
+      <StrengthenTheReasoning interventions={findings} argueTheOpposite={UNPLACEABLE} />,
     )
     fireEvent.click(within(b.container).getByTestId('analysis-new-strengthen-toggle'))
     const techniqueLead = within(b.container).getByTestId(LEAD).textContent
@@ -226,14 +264,39 @@ describe('⭐ the two arms are DIFFERENT — the pair, not one mutant', () => {
   })
 })
 
+describe('⭐ the act does not collide with a heading already on this tab', () => {
+  /**
+   * ⭐⭐ MEASURED, NOT SUPPOSED. `COPY.sections.sensitivity` is the string
+   * 'What would change your mind' — the heading over this tab's sensitivity
+   * findings, named that on purpose ("the reader's question, not the
+   * producer's category"). The obvious label for this act is those same words,
+   * and using them would put a SECTION listing what the run found and a CONTROL
+   * that asks Olumi to argue against it under one name, on one surface.
+   *
+   * ⚠ BOUND TO BOTH STRINGS BY IDENTITY, so it fails loud from EITHER side: if
+   * someone renames the act back, or renames the section onto the act. A test
+   * that only hardcoded the act's current words would not notice the second.
+   */
+  it('is not the sensitivity section’s heading, in either direction', () => {
+    const act = ANALYSIS_NEW_COPY.argueTheOpposite.actLabel
+    const heading = ANALYSIS_NEW_COPY.sections.sensitivity
+    // Precondition: both strings are real and non-trivial, so the inequality
+    // below cannot pass by comparing two empty or undefined values.
+    expect(act.length).toBeGreaterThan(3)
+    expect(heading).toBe('What would change your mind')
+    const norm = (v: string) => v.trim().toLowerCase().replace(/[?.!]+$/, '')
+    expect(norm(act)).not.toBe(norm(heading))
+  })
+})
+
 describe('copy discipline', () => {
   it('uses no em dashes and no race framing in any string this act can render', () => {
     const strings = [
-      ANALYSIS_NEW_COPY.changeYourMind.actLabel,
-      ANALYSIS_NEW_COPY.changeYourMind.techniqueLead,
-      ANALYSIS_NEW_COPY.changeYourMind.techniqueDraft,
-      ANALYSIS_NEW_COPY.changeYourMind.groundedLead('Customer demand', '12.5%'),
-      ANALYSIS_NEW_COPY.changeYourMind.groundedDraft('Customer demand', '12.5%'),
+      ANALYSIS_NEW_COPY.argueTheOpposite.actLabel,
+      ANALYSIS_NEW_COPY.argueTheOpposite.techniqueLead,
+      ANALYSIS_NEW_COPY.argueTheOpposite.techniqueDraft,
+      ANALYSIS_NEW_COPY.argueTheOpposite.groundedLead('Customer demand', '12.5%'),
+      ANALYSIS_NEW_COPY.argueTheOpposite.groundedDraft('Customer demand', '12.5%'),
     ]
     expect(strings.length).toBe(5)
     for (const s of strings) {

@@ -544,7 +544,7 @@ export const ANALYSIS_NEW_COPY = {
   },
 
   /**
-   * ⭐⭐ "What would change your mind?" — the consider-the-opposite act.
+   * ⭐⭐ "Argue the opposite" — the consider-the-opposite act.
    *
    * The move is the best-evidenced debiasing intervention in the literature
    * (Lord, Lepper & Preston 1984; Hirt & Markman on alternative explanations),
@@ -576,9 +576,25 @@ export const ANALYSIS_NEW_COPY = {
    * `method_id: 'consider_opposite'` and the same intent — so no second
    * consider-the-opposite is minted.
    */
-  changeYourMind: {
-    /** The act. One control, one question, on both arms. */
-    actLabel: 'What would change your mind?',
+  argueTheOpposite: {
+    /**
+     * The act. One control, one move, on both arms.
+     *
+     * ⚠⚠ IT IS NOT CALLED "What would change your mind?", AND THE REASON IS A
+     * COLLISION MEASURED ON THIS VERY TAB. `COPY.sections.sensitivity` IS
+     * 'What would change your mind' — the heading over the sensitivity
+     * findings, named that deliberately because it is "the reader's question,
+     * not the producer's category". A button carrying the same words two
+     * sections below it would put TWO DIFFERENT THINGS UNDER ONE NAME on one
+     * surface: a section listing what the run found, and a control that asks
+     * Olumi to argue against it. That is trap 21 in the copy layer, and it is
+     * the defect this estate pays for most often.
+     *
+     * So the control names the MOVE instead. "Argue the opposite" is the
+     * imperative form of the catalogue's own `consider_opposite`, which is the
+     * technique this act invokes and whose identity it carries on the wire.
+     */
+    actLabel: 'Argue the opposite',
     /**
      * GROUNDED. Both substitutions are the PRODUCER'S: `factorLabel` is
      * `flip_thresholds[].label` and `thresholdText` is its `flip_value`
@@ -602,30 +618,6 @@ export const ANALYSIS_NEW_COPY = {
     /** TECHNIQUE — the question that goes to Olumi. No invented quantity. */
     techniqueDraft:
       'Take the opposite side of my current thinking on this decision. What evidence or reasoning would change my mind, and what would I need to see before I believed it?',
-    /**
-     * ⚠ A BAN LIST QUOTES THE BANNED CLAIM, IT DOES NOT MAKE ONE. Named with
-     * BANNED so `noWinnerVocabulary.spec.ts`'s `banListsBlanked` treats it as
-     * quotation rather than as user-facing copy, exactly as it does for
-     * `ANALYSIS_HERO_BANNED_TERMS`.
-     *
-     * These are the four claim shapes the brief forbids the technique arm from
-     * making: computed importance, a detected bias, an optimal experiment, and
-     * oracle framing. The guard is a HAND-WRITTEN CORPUS on purpose — a derived
-     * one could only agree with the sentence it was derived from (trap 12d:
-     * derivation proves agreement and can never prove completeness).
-     */
-    COMPUTATION_CLAIMS_BANNED_IN_TECHNIQUE: [
-      'we calculated',
-      'we computed',
-      'we worked out',
-      'we found',
-      'we detected',
-      'most important',
-      'optimal',
-      'the data says',
-      'the result shows',
-      'the analysis shows',
-    ] as readonly string[],
   },
 
   /**
