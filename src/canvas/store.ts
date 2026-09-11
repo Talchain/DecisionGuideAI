@@ -1439,6 +1439,28 @@ interface CanvasState {
    * — never by a client deciding the producer has changed its mind.
    */
   resultsWithholdLeaderClaim: (reason: LeaderClaimWithholdingReason) => void
+  /**
+   * ⭐ THE RECOVERY HALF — a later turn on which the producer POSITIVELY
+   * PERMITS clears a withholding, instead of the user needing a whole new run.
+   *
+   * `resultsWithholdLeaderClaim` above records that it "subtracts and never
+   * adds", and that was too strong in ONE direction: CEE withholds both for
+   * *we looked and declined* and for *we could not read the separation*
+   * (`analysis-state-v1.ts:189-215`), and an ordinary follow-up question could
+   * therefore cost a user their leading option permanently.
+   *
+   * ⛔ NOT FIXED BY REFUSING TO WITHHOLD. That was tried and closed (#1512):
+   * `withheldLeaderClaimSurvivesReload.spec.ts` exists because on exactly that
+   * payload a reload once brought "Most supported" back while the refusal
+   * vanished, measured on deployed staging. The withholding STAYS; only the
+   * route back changes.
+   *
+   * ⛔ THE CLIENT STILL NEVER DECIDES THE PRODUCER CHANGED ITS MIND. This acts
+   * only on a strict `leader_claim.permitted === true` the producer sent on a
+   * turn it chose to restate — and `applyV5State` clears `analysis_state` on
+   * every turn that does not restate it, so silence cannot reach here.
+   */
+  resultsRestoreLeaderClaim: (verdict: unknown) => void
   resultsError: (params: { code: string; message: string; retryAfter?: number; request_id?: string; canRetry?: boolean; affectedOptions?: Array<{ id: string; label: string }> }) => void
   /** Capture detailed error information for Debug Panel */
   captureErrorDetail: (detail: ErrorDetail) => void
@@ -5410,6 +5432,42 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
    * See the declaration on `CanvasState` for the harm and the design. The
    * implementation notes below are about the three ways it could go wrong.
    */
+  /**
+   * See the declaration on `CanvasState`. Fail-closed in every arm: it may only
+   * ever REMOVE a stamp the client itself wrote, and never write a permission.
+   */
+  resultsRestoreLeaderClaim: (verdict) => {
+    // ⚠ STRUCTURAL, UNKNOWN-SAFE READ. This is handed a producer payload, so a
+    // non-object, a null and a missing member must all mean "said nothing".
+    if (verdict === null || typeof verdict !== 'object') return
+    const v = verdict as {
+      leader_claim?: { permitted?: unknown }
+      requires_rerun?: unknown
+      blocked_unusable?: unknown
+    }
+    // ⛔ STRICT `true`, never falsiness — the same rule
+    // `producerWithholdsLeaderClaim` applies to the refusing direction. Anything
+    // else on this seam is a producer we cannot read, and an unreadable producer
+    // has granted nothing.
+    if (v.leader_claim?.permitted !== true) return
+    // ⚠ THE MODEL MUST NOT HAVE MOVED. `requires_rerun` is deliberately excluded
+    // from the WITHHOLDING predicates because it means "the graph changed since
+    // the run"; here it earns its keep in the opposite direction, because a
+    // permission about a moved model is not a permission about the held report.
+    if (v.requires_rerun === true) return
+    // A producer calling its own analysis unusable cannot license a claim over it.
+    if (v.blocked_unusable === true) return
+
+    const held = get().results.report
+    if (!held) return
+    // ⛔ IT REMOVES, IT NEVER ADDS. With no stamp there is nothing to clear, and
+    // writing a permission here would be the client authoring an entitlement.
+    if (!held.producer_leader_permission) return
+
+    const { producer_leader_permission: _cleared, ...withoutStamp } = held
+    set(s => ({ results: { ...s.results, report: withoutStamp as typeof held } }))
+  },
+
   resultsWithholdLeaderClaim: (reason) => {
     const held = get().results.report
     // ⚠ NOTHING HELD, NOTHING TO WITHDRAW — and NOTHING is the operative word,

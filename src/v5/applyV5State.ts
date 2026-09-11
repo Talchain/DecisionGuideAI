@@ -267,6 +267,8 @@ export interface V5ApplicatorStore {
    * ⚠ IT MARKS, IT DOES NOT DELETE. The user's numbers stay; the CLAIM goes.
    */
   resultsWithholdLeaderClaim?: (reason: LeaderClaimWithholdingReason) => void
+  /** Step 5c — clears a withholding when the producer positively permits. */
+  resultsRestoreLeaderClaim?: (verdict: unknown) => void
 }
 
 /**
@@ -2296,6 +2298,29 @@ export function applyV5State(
   // rather than three spellings of it (CLAUDE.md trap 12).
   const withholdingReason =
     turnVerdict !== null ? leaderClaimWithholdingReason(turnVerdict) : null
+
+  // ── ⭐ STEP 5c — AND THE ROUTE BACK, WHICH DID NOT EXIST ──────────────────
+  //
+  // Step 5b's own note says it "subtracts and never adds", and that was too
+  // strong in one direction. CEE withholds both for *we looked and declined*
+  // and for *we could not read the separation*
+  // (`analysis-state-v1.ts:189-215`), so an ordinary follow-up question could
+  // cost a user their leading option until they re-ran the whole analysis.
+  //
+  // ⛔ NOT FIXED BY REFUSING TO WITHHOLD — that was tried and closed (#1512).
+  // `canvas/__tests__/withheldLeaderClaimSurvivesReload.spec.ts` exists because
+  // on exactly that payload a reload once brought "Most supported" back while
+  // the refusal vanished, measured on deployed staging `113375a1`. The
+  // withholding STAYS; only the route back changes.
+  //
+  // ⚠ ORDERED AFTER 5b AND MUTUALLY EXCLUSIVE WITH IT BY CONSTRUCTION: a
+  // verdict cannot both withhold and positively permit, so `withholdingReason
+  // === null` is the only arm this can reach. Stating the order rather than
+  // relying on it.
+  if (withholdingReason === null && turnVerdict !== null) {
+    store.resultsRestoreLeaderClaim?.(turnVerdict)
+  }
+
   if (withholdingReason !== null) {
     store.resultsWithholdLeaderClaim?.(withholdingReason)
     applied.push(`leader_claim:withheld:${withholdingReason}`)
