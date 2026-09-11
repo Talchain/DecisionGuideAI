@@ -47,15 +47,36 @@ describe('the connector explains its uncertainty', () => {
     expect(tooltip).toMatch(/Weight:\s*−?0\.50\s*±\s*0\.15/)
   })
 
-  it('⛔ STANDS DOWN on an unset std — the reason it was removed before', () => {
-    // Bound to the REAL constant. `USER_EDGE_DEFAULTS` pins strengthStd at 0.15
-    // with NO source stamp, so a hand-drawn edge must explain nothing. If someone
-    // adds a stamp to that constant, this REDs — which is exactly the change that
-    // would start printing a default as a measurement again.
+  it('⛔ STANDS DOWN on an unset std — ISOLATED, so the std gate is what does it', () => {
+    /**
+     * ⚠ THE FIRST VERSION OF THIS CASE PASSED FOR THE WRONG REASON, and a
+     * mutation caught it. It used a bare `USER_EDGE_DEFAULTS`, whose WEIGHT is
+     * also unstamped — so `absWeight` was null and the `&&` short-circuited
+     * before the std gate was ever consulted. Bypassing the provenance gate
+     * entirely left all six cases GREEN: the suite could not observe the thing
+     * it was written to guard (CLAUDE.md trap 13b).
+     *
+     * This fixture STAMPS THE WEIGHT and leaves ONLY the std unstamped, so the
+     * std's own gate is the single thing that can suppress the spread.
+     */
     expect(USER_EDGE_DEFAULTS.strengthStd).toBe(0.15)
-    const drawn = { ...USER_EDGE_DEFAULTS } as unknown as Record<string, unknown>
-    expect(resolveEdgeValueDisplay(drawn, 'strengthStd')).toEqual({ show: false, reason: 'not_set' })
-    expect(labelFor(drawn, 'numeric').tooltip).not.toContain('±')
+
+    const weightStatedStdNot = {
+      weight: 0.5, weightSource: 'cee',
+      direction: 'negative', directionSource: 'cee',
+      beliefExists: 0.9, beliefExistsSource: 'cee',
+      // The raw default is PRESENT, exactly as a hand-drawn edge carries it…
+      strengthStd: USER_EDGE_DEFAULTS.strengthStd,
+      // …and NOTHING stamps it.
+    } as Record<string, unknown>
+
+    // PRECONDITION — the weight IS speakable, so a suppressed spread cannot be
+    // explained by the weight arm.
+    expect(labelFor(weightStatedStdNot, 'numeric').tooltip).toMatch(/Weight:\s*−?0\.50/)
+    expect(resolveEdgeValueDisplay(weightStatedStdNot, 'strengthStd'))
+      .toEqual({ show: false, reason: 'not_set' })
+
+    expect(labelFor(weightStatedStdNot, 'numeric').tooltip).not.toContain('±')
   })
 
   it('⛔ says nothing about spread when there is no weight to qualify', () => {
