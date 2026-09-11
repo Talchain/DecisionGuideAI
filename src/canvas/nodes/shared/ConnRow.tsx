@@ -47,18 +47,26 @@
  *     because a `title` is unreachable by keyboard on a non-focusable row and
  *     ABSENT ON TOUCH.
  *
- * So for a touch reader this cell's meaning now lives entirely in a carrier
- * they cannot reach: a bare name has become a bare glyph — visible, and still
- * undecodable. Raised in review of #1495 and deliberately NOT made a change
- * request there, because it is a conflict between two rulings rather than a
- * defect in the change, and it is strictly better than the silence it replaced.
+ * ⭐ AND THE RESIDUAL IS SMALLER THAN IT FIRST LOOKED — DERIVED, because the
+ * first version of this note overstated it and a note that overstates a problem
+ * is the same defect as one that hides it.
  *
- * ⛔ WHAT WOULD SETTLE IT IS A DENSITY DECISION, NOT A CODE ONE — whether a
- * confidence cell may spend visible characters on "not set" in the narrowest
- * column on screen. That is Paul's call and it is open. Do not resolve it by
- * quietly adding the words back (the census REDs, correctly) or by deleting
- * this note. The `aria-label` already serves screen readers; the unserved
- * reader is specifically the sighted touch user.
+ *   · KEYBOARD IS SERVED. `NodeMetricRow`'s rule names a `title` unreachable
+ *     "on a NON-FOCUSABLE row". This row is focusable — `role="button"`,
+ *     `tabIndex={0}`, and an Enter/Space handler — so that rule's stated
+ *     premise is not met here.
+ *   · SCREEN READERS ARE SERVED by the `aria-label`.
+ *   · TOUCH IS SERVED BY THE TAP, which is the natural gesture: the row opens
+ *     the edge inspector (`openEdgeStrengthEditor`), and that panel says it in
+ *     plain words — `coachingConfig.ts:133`, "Nobody has said how likely this
+ *     connection is to exist yet." — with the existence slider rendering an
+ *     `unset` band and NO track fill rather than a colour nobody chose.
+ *
+ * So the glyph is a SIGNPOST, not the only carrier of the meaning. What remains
+ * is that it is not instantly legible at rest; every reader has a route to the
+ * answer. Recorded so nobody re-opens this as an accessibility gap, and so
+ * nobody resolves it by quietly adding the words back — the census REDs,
+ * correctly, and that red is an adjudication rather than a fixture bump.
  *
  * ⛔ AND IT MUST NOT BORROW THE STRENGTH WORDING FOR A SECOND REASON: these are
  * two number families (P0-4 above). "Link strength not set" on a confidence cell
