@@ -133,15 +133,32 @@
  *
  * `HANDED_OFF` is a different object and answers a different question (trap 21):
  * not "may this sentence keep its dash?" but "who is holding this file right
- * now?". `AtAGlance.tsx:992` renders `{' — '}` between an option's label and its
- * not-analysed badge. It is a real live defect. It was NOT fixed here because a
- * concurrent seat is editing that file for a suppressed scope note, and two
- * lanes editing one file is how the estate loses work.
- *
- * It is asserted EXACTLY — the verdict REDs if the set GROWS (new drift) and
- * REDs if it SHRINKS (the other seat landed; delete the row). That is the
+ * now?". It is asserted EXACTLY — the verdict REDs if the set GROWS (new drift)
+ * and REDs if it SHRINKS (the owning seat landed; delete the row). That is the
  * honest way to ship a known gap (CLAUDE.md trap 22f), and it is the opposite
  * of an exemption list, which fails in neither direction.
+ *
+ * ── ⭐ AND THE SET IS NOW EMPTY — CLOSED 11 Sep 2026 ──────────────────────
+ * It carried exactly one row. `AtAGlance.tsx` rendered `{' — '}` between an
+ * excluded option's label and its not-analysed badge — a real live defect,
+ * deferred only because a concurrent seat held that file for a suppressed scope
+ * note. That seat landed, the dash is now a full stop, and the row is deleted.
+ *
+ * ⚠ AN EMPTY SET MAKES THE SHRINK CHECK VACUOUS, AND THAT IS PINNED RATHER THAN
+ * LEFT. With no rows, `stillPresent` and `HANDED_OFF` are both `[]`, so that
+ * assertion passes without testing anything — and a check that cannot fail is
+ * the ignore list this set exists to prevent (CLAUDE.md trap 13). The matcher it
+ * runs on is therefore exercised separately, against a SYNTHETIC corpus, in both
+ * directions. That control neither decays while the set is empty nor weakens
+ * when a row is added back.
+ *
+ * ⚠ AND NO ROW RECORDS A LINE NUMBER, HERE OR IN `why`. The deleted row cited
+ * `AtAGlance.tsx:992`, and that number was 40 lines out by the time this seat
+ * measured it: derived at `af0ac49e`, the slot sat at :1032. A hand-maintained
+ * line reference is the defect class this estate pays for repeatedly (CLAUDE.md
+ * trap 12), and the fix is not a fresher number — it is no number. The file
+ * path and the exact offending text locate the string, and neither drifts when
+ * the file moves.
  *
  * ── THE HALF THIS GUARD DOES NOT OWN ───────────────────────────────────────
  * A dash hunt can be satisfied by DELETING a clause rather than resplitting
@@ -161,9 +178,11 @@
  *
  * ⚠ JSX TEXT REMAINS INVISIBLE TO THIS EXTRACTOR, AND IS NOT CLAIMED.
  * A dash written as bare JSX text (`<span>a — b</span>`) is a `JsxText` node,
- * not a string literal, and nothing below sees it. `AtAGlance.tsx:992` is
- * caught only because it is written `{' — '}`, an expression container holding
- * a real literal. This is a stated limit of the claim, not a silent one: the
+ * not a string literal, and nothing below sees it. The `AtAGlance.tsx` row this
+ * spec used to hand off was caught ONLY because it was written `{' — '}`, an
+ * expression container holding a real literal; the identical characters one node
+ * over would have been invisible, and its fix would have had no guard behind it.
+ * This is a stated limit of the claim, not a silent one: the
  * verdict below is about STRING LITERALS reachable from this tab, and a JSX-text
  * arm is separate, measured work.
  *
@@ -232,21 +251,33 @@ const MUST_NOT_BE_IN_SCOPE = [
   'src/components/results/modals/HowComputedModal.tsx',
 ] as const
 
+/** One em-dash string literal, located by the two things that do not drift. */
+type Offender = { file: string; text: string }
+
+/** A live offender whose file a NAMED seat is holding, with the reason. */
+type HandOff = Offender & { why: string }
+
 /**
- * A live defect held by another seat. NOT an exemption — see the header.
+ * Live defects held by another seat. NOT an exemption — see the header.
  * Asserted exactly: this REDs if it grows AND if it shrinks.
+ *
+ * ⭐ EMPTY SINCE 11 Sep 2026, AND EMPTY IS THE CORRECT RESTING STATE. A row
+ * belongs here only while a named seat holds the file; it is deleted the moment
+ * that seat lands. A row carries NO line number — `file` and the exact `text`
+ * locate the string and survive the file moving underneath them.
  */
-const HANDED_OFF: ReadonlyArray<{ file: string; text: string; why: string }> = [
-  {
-    file: 'src/components/results/analysisNew/sections/AtAGlance.tsx',
-    text: ' — ',
-    why:
-      'Renders between an option label and its not-analysed badge (AtAGlance.tsx:992). ' +
-      'A concurrent seat holds this file for a suppressed scope note; two lanes in one ' +
-      'file is how work gets lost. Fix it there, then DELETE this row — leaving it will ' +
-      'RED this guard.',
-  },
-]
+const HANDED_OFF: ReadonlyArray<HandOff> = []
+
+/**
+ * Is this row still matched by a live offender, by file AND exact text?
+ *
+ * ⭐ NAMED AND SHARED ON PURPOSE. Both verdicts below run on this predicate and
+ * so does the control that exercises it, so the control cannot end up proving
+ * that a COPY of the expression works while the real one has stopped
+ * discriminating (CLAUDE.md trap 13b).
+ */
+const rowIsLive = (row: Offender, corpus: readonly Offender[]): boolean =>
+  corpus.some(o => o.file === row.file && o.text === row.text)
 
 /** True when this literal sits inside a `console.X(...)` call. */
 const isConsoleCall = (n: ts.Node): boolean =>
@@ -435,9 +466,7 @@ describe('rendered product copy carries no em dashes', () => {
     )
 
     it('NO user-facing string carries an em dash, except the rows explicitly handed off', () => {
-      const unexpected = found.filter(
-        o => !HANDED_OFF.some(h => h.file === o.file && h.text === o.text),
-      )
+      const unexpected = found.filter(o => !rowIsLive(o, HANDED_OFF))
       expect(
         unexpected.map(o => `${o.file}: ${JSON.stringify(o.text)}`),
         'em dashes in rendered copy:\n  ' +
@@ -450,15 +479,55 @@ describe('rendered product copy carries no em dashes', () => {
       // ⭐ The half that stops `HANDED_OFF` decaying into an ignore list. A row
       // whose defect has been fixed makes this red just as loudly as a new
       // offender does, so the list cannot outlive its reason.
-      const stillPresent = HANDED_OFF.filter(h =>
-        found.some(o => o.file === h.file && o.text === h.text),
-      )
+      const stillPresent = HANDED_OFF.filter(h => rowIsLive(h, found))
       expect(
         stillPresent.map(h => `${h.file}: ${JSON.stringify(h.text)}`),
         'a handed-off row no longer matches a live offender. If the owning seat fixed it, ' +
           'DELETE the row from HANDED_OFF:\n  ' +
           HANDED_OFF.map(h => `${h.file}: ${JSON.stringify(h.text)}\n    ${h.why}`).join('\n  '),
       ).toEqual(HANDED_OFF.map(h => `${h.file}: ${JSON.stringify(h.text)}`))
+    })
+
+    it('PRECONDITION: an EMPTY hand-off set has NOT made the row check vacuous', () => {
+      // ⭐⭐ THE HALF THE EMPTY SET WOULD OTHERWISE REMOVE. While
+      // `HANDED_OFF` is empty the assertion above is `[] toEqual []` — it passes
+      // without testing anything, and a check that cannot fail is precisely the
+      // ignore list this set was written to prevent (CLAUDE.md trap 13). Two
+      // things are pinned in its place, and neither decays when the set is empty
+      // nor weakens when a row is added back.
+
+      // 1 · THE SET IS EMPTY. Stated, so a row reappearing is a deliberate and
+      //     visible act rather than something that accumulated unread.
+      expect(
+        HANDED_OFF.map(h => `${h.file}: ${JSON.stringify(h.text)}`),
+        'a hand-off row exists again. That is allowed — but only while a NAMED ' +
+          'seat holds that file, and it must be deleted the moment that seat lands.',
+      ).toEqual([])
+
+      // 2 · THE MATCHER STILL DISCRIMINATES, on a SYNTHETIC corpus so the proof
+      //     does not depend on the live one carrying anything. Opposite
+      //     directions on different fields: a row that matches must read live,
+      //     and a row differing in EITHER field must not. The positive case
+      //     alone would pass on a matcher that returned `true` for everything;
+      //     the negative cases alone would pass on one that returned `false`.
+      const corpus: readonly Offender[] = [
+        { file: 'src/components/results/synthetic.ts', text: `left ${EM_DASH} right` },
+      ]
+      const row = { file: 'src/components/results/synthetic.ts', text: `left ${EM_DASH} right` }
+
+      expect(rowIsLive(row, corpus), 'the matcher cannot see a row that IS live').toBe(true)
+      expect(
+        rowIsLive({ ...row, text: `left ${EM_DASH} WRONG` }, corpus),
+        'the matcher ignores `text`: a row whose dash was FIXED would still read live',
+      ).toBe(false)
+      expect(
+        rowIsLive({ ...row, file: 'src/components/results/other.ts' }, corpus),
+        'the matcher ignores `file`: a row would match another file\'s offender',
+      ).toBe(false)
+      expect(
+        rowIsLive(row, []),
+        'the matcher reports a row live against an EMPTY corpus',
+      ).toBe(false)
     })
   })
 })
