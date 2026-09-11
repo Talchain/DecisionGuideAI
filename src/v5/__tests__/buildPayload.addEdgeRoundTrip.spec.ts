@@ -46,7 +46,10 @@ function send(payload: Record<string, unknown>) {
     turnClass: 'edit_graph',
     mode: 'system',
     systemEvent: { type: 'structural_add_edge', payload },
-  } as Parameters<typeof buildV5Payload>[0])
+    // `as never` matches `buildPayload.structuralAdd.spec.ts`'s own call — the
+    // input type is a discriminated union the literal cannot narrow to, and a
+    // structural cast reads as "these overlap" when they do not (TS2352).
+  } as never)
 }
 
 describe('structural_add_edge — the builder output survives the adapter', () => {
