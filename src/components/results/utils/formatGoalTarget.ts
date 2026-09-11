@@ -49,18 +49,28 @@
  * `'count'` IS SUPPRESSED, AND THAT IS THE ESTATE'S EXISTING RULE
  * --------------------------------------------------------------
  * The digit-string brief form mints `goal_threshold_unit: "count"` (the wire
- * type documents it: `adapters/cee/types.ts`, "e.g. \"count\", \"USD\""). It
- * is a placeholder on no real-world scale, and it is in neither COUNT_UNITS
+ * type documents it: `adapters/cee/types.ts:587`, "e.g. \"count\", \"USD\"").
+ * It is a placeholder on no real-world scale, and it is in neither COUNT_UNITS
  * (which is about whole-number ROUNDING of headcounts) nor
- * GENERIC_PLACEHOLDER_UNITS. Three existing authorities already drop it —
- * GoalNode (`u === 'count'`), NodeInspector (`unitStr !== 'count'`) and
- * `formatTargetValue`'s own 'count' kind, which decorates nothing. Inspector
- * v2 was the one surface printing it. This function makes the rule shared
- * rather than triplicated; it deliberately does NOT add 'count' to
- * GENERIC_PLACEHOLDER_UNITS, which would silently change factor and
- * intervention rendering estate-wide.
+ * GENERIC_PLACEHOLDER_UNITS.
+ *
+ * ⚠ THIS PARAGRAPH USED TO SAY THE RULE WAS "SHARED RATHER THAN TRIPLICATED",
+ * AND IT WAS NOT. What this function shared was the rule's EFFECT; the rule
+ * itself stayed hand-written here as `trimmed.toLowerCase() === 'count'`, so
+ * the copies went on multiplying — `goalConstraintText.ts:24`
+ * (`!== 'count'`) and `NodeInspector.tsx:463` (`!== 'count'`) still carry
+ * theirs, and the Model tab outline carried none at all and printed
+ * "800,000 count" at a reader (ROADMAP 2.315(c) limb (c)). The question now
+ * has ONE implementation — `unitIsDisplayable` in `utils/unitClassifier` —
+ * and this function consumes it rather than restating it.
+ *
+ * The paragraph's other claim still holds and is the reason the predicate is
+ * separate from the set: 'count' is deliberately NOT added to
+ * GENERIC_PLACEHOLDER_UNITS, whose ~20 consumers read it for the DIFFERENT
+ * question "is this value on a normalised scale?". Joining it would make a
+ * 0.8 count render as "very high".
  */
-import { classifyUnit } from '../../../utils/unitClassifier'
+import { classifyUnit, unitIsDisplayable } from '../../../utils/unitClassifier'
 import { formatTargetValue } from './formatTargetValue'
 
 /**
@@ -79,13 +89,29 @@ export function formatGoalTarget(value: number, unit: string | null | undefined)
   // Percent: rounded to whole percentage points, as the canvas card does.
   if (kind === 'percent') return formatTargetValue(Math.round(value), 'percent')
 
-  // No unit, or the 'count' placeholder — render the bare magnitude.
-  const trimmed = typeof unit === 'string' ? unit.trim() : ''
-  if (kind === 'none' || trimmed.toLowerCase() === 'count') return formatTargetValue(value)
+  /**
+   * A unit that names no real-world scale — render the bare magnitude.
+   *
+   * ⚠ THIS LINE USED TO BE `kind === 'none' || trimmed.toLowerCase() ===
+   * 'count'`, and the hand-written literal was the whole problem: it made this
+   * function the second of FOUR independent copies of one question, and the
+   * Model tab outline — which had no copy — printed "800,000 count" at a real
+   * reader. `unitIsDisplayable` is now the single implementation.
+   *
+   * ⭐ IT ALSO BRINGS THE `placeholder` CLASS INTO LINE, WHICH IS A REAL
+   * BEHAVIOUR CHANGE ON THIS PATH. A `scale` / `index` / `score` target used to
+   * fall through to the suffix tail below and render "8 scale"; it now renders
+   * "8". That was never pinned here, and it made this function the OUTLIER:
+   * `computeSuccessState`, `goalConstraintText`, `flipThresholdDisplay`,
+   * `canvas/utils/formatValueWithUnit`, `FactorsSection`, `AllImprovements` and
+   * `ScientificEditor` all already drop a placeholder unit. Reached by
+   * GoalNode, GoalPanel and SuccessTargetLine, and pinned in the spec.
+   */
+  if (!unitIsDisplayable(unit)) return formatTargetValue(value)
 
   // Currency, symbol or ISO code, prefixed.
   if (kind === 'symbol' || kind === 'iso') return formatTargetValue(value, 'currency', canonical)
 
-  // A real unit ('months', 'users', …) or a generic placeholder — suffixed.
+  // A real unit ('months', 'users', …) — suffixed.
   return `${value.toLocaleString()} ${canonical}`
 }

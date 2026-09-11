@@ -144,6 +144,10 @@ import { getPrimaryValue, formatSmartNumber } from '../components/model-tab/util
 // re-expressed — see the goal branch below for why a fourth copy of "which
 // currencies go in front" is the defect and not the fix.
 import { formatValueWithUnit, isCurrencyUnit } from '../components/model-tab/utils'
+// THE ONE answer to "does this unit contribute a word the reader should see?".
+// Pure function, no hook — see the boundary scan. The goal branch below is the
+// surface that had no answer at all and appended every unit verbatim.
+import { unitIsDisplayable } from '../../utils/unitClassifier'
 // THE ONE raw-source → human-label policy, the same one `SourceProvenancePill`
 // renders. Imported, never re-expressed: a second copy is how the pill and the
 // outline start disagreeing about what `cee_inference` is called.
@@ -662,10 +666,38 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
        * that arm is defensive rather than user-visible — and it is pinned too,
        * to keep this change's blast radius provable.
        */
+      /**
+       * ⭐⭐ AND THE SUFFIX ARM ASKS WHETHER THE UNIT IS A WORD WORTH SHOWING.
+       *
+       * ROADMAP 2.315(c) limb (c). The ternary's tail was `target.unit ? `
+       * ${target.unit}` : ''` — present-and-non-empty, which is a question
+       * about the FIELD, not about the unit. So CEE's `goal_threshold_unit:
+       * "count"` — the sentinel its digit-string brief form mints for "a plain
+       * number of things", documented at `adapters/cee/types.ts:587` — reached
+       * the reader as:
+       *
+       *     800,000 count
+       *
+       * `unitIsDisplayable` is that question, and it is the ONLY copy of it.
+       * It suppresses the whole class, not one spelling: `count`, and the
+       * generic placeholders `scale` / `index` / `score` / `norm` /
+       * `normalised` / `unit` / `units`, which this arm printed just as
+       * verbatim ("8 scale"). Six surfaces already dropped a placeholder unit
+       * — `computeSuccessState`, `goalConstraintText`, `flipThresholdDisplay`,
+       * `FactorsSection`, `AllImprovements`, `ScientificEditor` — so this row
+       * was the outlier, not the rule.
+       *
+       * ⚠ ONLY THE UNIT DECISION IS SHARED. The number still goes through
+       * `formatSmartNumber` and the currency still goes through
+       * `formatValueWithUnit`, so the 10 Sep prefix fix and the percent
+       * spelling this tab echoes ("20 percent", not "20%") are untouched.
+       * Routing wholesale through `formatGoalTarget` instead would have undone
+       * both, and `Math.round`ed a fractional percent away.
+       */
       const targetText = target
         ? typeof target.raw === 'number' && target.unit && isCurrencyUnit(target.unit)
           ? formatValueWithUnit(target.raw, target.unit)
-          : `${typeof target.raw === 'number' ? formatSmartNumber(target.raw) : target.raw}${target.unit ? ` ${target.unit}` : ''}`
+          : `${typeof target.raw === 'number' ? formatSmartNumber(target.raw) : target.raw}${unitIsDisplayable(target.unit) ? ` ${target.unit}` : ''}`
         : input.goalThreshold === null ? null : formatSmartNumber(input.goalThreshold)
       rows.push({
         id: node.id,
