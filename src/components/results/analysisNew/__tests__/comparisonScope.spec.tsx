@@ -145,6 +145,63 @@ describe('1 · a subset run shows the share WITH its scope, and names who was le
     expect(rows[0]).toHaveTextContent(notAnalysedReasonCopy('not_returned'))
   })
 
+  it('the row separates label from badge with a FULL STOP, and no em dash reaches the DOM', () => {
+    /**
+     * ⭐⭐ THE PUNCTUATION IS ASSERTED AS RENDERED TEXT, NOT AS A CONSTANT.
+     *
+     * Paul, 10 Sep 2026: no em dashes in product content. This slot rendered
+     * `{' — '}` between the label and the badge and was the last one on the
+     * Reasoning tab, carried as the only `HANDED_OFF` row in
+     * `noEmDashesInRenderedCopy.spec.ts`. That guard reads STRING LITERALS in
+     * source; this one reads the DOM, and the two answer different questions
+     * (CLAUDE.md trap 21) — a literal can be clean while the rendered run-on
+     * still reads wrongly, and JSX text is invisible to the other guard
+     * entirely.
+     *
+     * ⚠ THE EXPECTATION IS SPELLED OUT, NOT COMPOSED FROM `NOT_ANALYSED_BADGE`
+     * AND `notAnalysedReasonCopy`. Building it from the same constants the
+     * component emits would make the assertion agree with itself: the separator
+     * could become anything at all and a constant-built expectation would
+     * follow it. The strings below are typed out so that a change to the
+     * punctuation REDs here and has to be argued for.
+     *
+     * ⚠ AND IT IS THE FULL CONCATENATION, BECAUSE THAT IS WHAT IS READ ALOUD.
+     * `textContent` includes the adjacent `sr-only` span (it is `innerText`
+     * that drops it), and that span opens with its own `. `. So this string is
+     * what an assistive technology receives: three complete statements, no
+     * doubled full stop, no stranded fragment.
+     */
+    render(<AtAGlance
+  isRunning={false} reanalyseBlocked={false}
+  reanalyseBlockedReason={null} glance={glanceOf(withOptions(THREE_OPTIONS_TWO_ANALYSED))} />)
+
+    // Bound by IDENTITY (the option's id), never by a value another row could satisfy.
+    const row = screen.getAllByTestId('analysis-new-glance-excluded-option')
+      .find((el) => el.dataset.optionId === 'o_hybrid')!
+    expect(row, 'no row for o_hybrid: this assertion would be vacuous').toBeTruthy()
+
+    expect(row.textContent).toBe(
+      'Hybrid: In-house core plus 3PL overflow. Not analysed. ' +
+        'The analysis returned no result for this option, so it has no rank and no probability.',
+    )
+
+    // The dash check, and the control that stops it passing on an empty row.
+    expect(row.textContent ?? '', 'an em dash reached the rendered DOM').not.toContain('—')
+    expect(
+      row.textContent ?? '',
+      'the row rendered empty — the dash check above would be vacuous',
+    ).toContain('Hybrid: In-house core plus 3PL overflow')
+
+    // ⛔ BOTH HALVES SURVIVE. The dash sat between them, and a split that drops
+    // either one satisfies a dash hunt while losing the disclosure.
+    expect(row.textContent ?? '', 'the option label was lost with the dash').toContain(
+      'Hybrid: In-house core plus 3PL overflow',
+    )
+    expect(row.textContent ?? '', 'the not-analysed badge was lost with the dash').toContain(
+      'Not analysed',
+    )
+  })
+
   it('scope and number are in ONE region, so neither can be read alone', () => {
     // The defect was not "the scope is missing from the panel" — it was that a
     // reader of the number never reaches the scope. Adjacency IS the fix, so it

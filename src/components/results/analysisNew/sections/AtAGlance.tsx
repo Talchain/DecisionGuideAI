@@ -1029,7 +1029,25 @@ export function AtAGlance({
                 <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-text-light" aria-hidden="true" />
                 <span className="min-w-0 flex-1">
                   <span className="text-text-body">{o.label}</span>
-                  {' — '}
+                  {/* ⭐ A FULL STOP, NOT A DASH. Paul, 10 Sep 2026: no em dashes in
+                      product content. This slot held `{' — '}` and was the last one
+                      on this tab, carried as a HANDED_OFF row in
+                      `noEmDashesInRenderedCopy.spec.ts` while another seat held the
+                      file. That row is now deleted; leaving it would RED the guard.
+
+                      ⚠ THE STOP IS CHOSEN FOR THE CONCATENATION, NOT FOR THE LINE.
+                      The `sr-only` span below opens with its own `. `, so an
+                      assistive technology reads the three parts as three complete
+                      statements:
+
+                        "<label>. Not analysed. The analysis returned no result …"
+
+                      `NOT_ANALYSED_BADGE` is the constant 'Not analysed' and carries
+                      no terminal punctuation, so nothing here doubles a full stop and
+                      no fragment is left stranded. An en dash was NOT an option: it
+                      is the same hedge in a narrower glyph. The two halves both
+                      survive — the label and the badge are untouched. */}
+                  {'. '}
                   {NOT_ANALYSED_BADGE}
                   <span className="sr-only">{`. ${o.reasonCopy}`}</span>
                 </span>
