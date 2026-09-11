@@ -17,7 +17,7 @@
  *      Defect at tip: `fe.switch_probability ?? fe.marginal_switch_probability`
  *      renders a percentage for a marginal-only edge.
  *   B. StrengthenContainer fragileEdges mapping → buildRecommendations flip
- *      trigger "NN% chance the result flips…" + the action wire param
+ *      trigger "NN% chance {alt} scores highest instead…" + the action wire param
  *      literally named `switch_probability`. Defect at tip: the mapping
  *      PREFERRED marginal over a PRESENT measured switch_probability.
  *
@@ -227,7 +227,7 @@ describe('chain B — Strengthen flip trigger presence-branches on switch_probab
     )
     const flip = findFlipRec()
     expect(flip).toBeDefined()
-    expect(flip!.snapshot.signal).toContain('20% chance the result flips to Plan B')
+    expect(flip!.snapshot.signal).toContain('20% chance Plan B scores highest instead')
     expect(flip!.snapshot.signal).not.toContain('60%')
     // The wire param named switch_probability must carry the measured value.
     expect((flip!.snapshot.action as any).parameters.switch_probability).toBe(0.2)
@@ -235,7 +235,7 @@ describe('chain B — Strengthen flip trigger presence-branches on switch_probab
     // panel's "Show N more" fold — expand before asserting).
     const showMore = screen.queryByText(/Show \d+ more/)
     if (showMore) fireEvent.click(showMore)
-    expect(screen.getByText(/20% chance the result flips to Plan B/)).toBeTruthy()
+    expect(screen.getByText(/20% chance Plan B scores highest instead/)).toBeTruthy()
   })
 
   it('PIN: an edge WITHOUT a measured switch_probability produces NO flip recommendation (absence renders nothing)', () => {
@@ -271,7 +271,7 @@ describe('chain B — Strengthen flip trigger presence-branches on switch_probab
     )
     const flip = findFlipRec()
     expect(flip).toBeDefined()
-    expect(flip!.snapshot.signal).toContain('45% chance the result flips to Plan B')
+    expect(flip!.snapshot.signal).toContain('45% chance Plan B scores highest instead')
   })
 
   it('CONTROL: a measured switch_probability of 0 still renders (0% is a measurement, not absence)', () => {
@@ -290,7 +290,7 @@ describe('chain B — Strengthen flip trigger presence-branches on switch_probab
     )
     const flip = findFlipRec()
     expect(flip).toBeDefined()
-    expect(flip!.snapshot.signal).toContain('0% chance the result flips to Plan B')
+    expect(flip!.snapshot.signal).toContain('0% chance Plan B scores highest instead')
   })
 })
 

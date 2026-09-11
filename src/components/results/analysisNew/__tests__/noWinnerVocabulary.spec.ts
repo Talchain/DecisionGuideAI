@@ -566,22 +566,26 @@ describe('no contest framing in ANY copy the Reasoning tab renders', () => {
  * survive. A guard that pushed an author to weaken these would be worse than no
  * guard at all.
  *
- * ── SCOPE, STATED, AND IT IS NARROWER THAN THE SWEEP ABOVE ─────────────────
- * ONE FILE: `analysisNewCopy.ts`. Not the derived 91-file closure the previous
- * describe walks, and the difference is MEASURED rather than assumed: that
- * corpus carries 14 occurrences of `the result`, and only 2 of them live here.
- * The other 12 sit in five files this lane was not briefed to touch
- * (`buildAnalysisNewViewModel.ts`, `strengthen/buildRecommendations.ts`,
- * `useResultsSectionData.ts`, `utils/evidenceGapConfidenceDisplay.ts`,
- * `utils/fragileEdgeCopy.ts`), and several are a different construction
- * ("chance the result flips", "could tip the result") that needs a judgement
- * about the copy rather than a substitution.
+ * ── SCOPE ─────────────────────────────────────────────────────────────────
+ * ⚠⚠ SUPERSEDED 11 Sep 2026 — the paragraph that stood here said this guard
+ * pinned ONE FILE (`analysisNewCopy.ts`), that the derived corpus carried 14
+ * occurrences of `the result` with only 2 of them in that file, and that
+ * widening was "a measured piece of work with 12 known strings in it". It is
+ * kept rather than deleted because it correctly PRICED the work, and the price
+ * was right: the widening lands here, and the 12 were the 12.
  *
- * ⚠⚠ SO READ THIS GUARD AS WHAT IT IS: it pins ONE FILE, and it is NOT an
- * all-clear for the tab. Widening it is a measured piece of work with 12 known
- * strings in it, and widening it WITHOUT doing that work would simply red the
- * build. Recorded here rather than in a note nobody greps, because a scope a
- * reader has to infer is the one that gets over-read.
+ * THE SCOPE IS NOW `REACHED_COPY_FILES` — the same DERIVED import closure the
+ * contest sweep above walks, from the tab's mounted render root. Measured at
+ * the time of writing: 93 files, 2,014 literals. There is no second scope to
+ * keep in step with the first, and a new copy file joining the surface is
+ * swept the moment it is imported.
+ *
+ * ⚠ THE CLAIM TYPE IS UNCHANGED AND IS STILL A SUPERSET: this is
+ * IMPORT-reachable copy, not RENDER-reachable copy. Two of the 12 were traced
+ * to surfaces this tab does not itself render (`fragileEdgeCopy` renders in
+ * `FragileEdgeGroupCard` on the Analysis tab). They are swept anyway, because
+ * excluding a file needs positive proof it never renders and the dangerous
+ * direction for a guard is the one that looks clean because it stopped looking.
  */
 const ORACLE_FRAMING = /\bthe results?\b/i
 
@@ -596,16 +600,48 @@ describe('the Reasoning tab does not speak as an oracle', () => {
     expect(strings.some(s => /analysis/i.test(s)), 'the scan found no copy at all').toBe(true)
   })
 
-  it('POSITIVE CONTROL: the pipeline flags the two strings this ruling actually removed', () => {
+  it('PRECONDITION: the widened scope is the SAME derived closure, not a second list', () => {
+    // ⚠ THE FAILURE THIS EXISTS FOR is a scope that drifts apart from the one
+    // above. There is exactly one derivation and both describes consume it, so
+    // this asserts identity rather than agreement between two lists.
+    expect(REACHED_COPY_FILES.length).toBeGreaterThan(40)
+    expect(REACHED_COPY_FILES).toContain(COPY_FILE.replace(process.cwd() + '/', ''))
+    // The five files this widening actually had to repair — a POSITIVE CONTROL
+    // on the walk, not the scope. If the derivation stops reaching one of them
+    // it has gone blind, and a blind walker returns a clean sweep of nothing.
+    for (const repaired of [
+      'src/components/results/analysisNew/buildAnalysisNewViewModel.ts',
+      'src/components/results/strengthen/buildRecommendations.ts',
+      'src/components/results/useResultsSectionData.ts',
+      'src/components/results/utils/evidenceGapConfidenceDisplay.ts',
+      'src/components/results/utils/fragileEdgeCopy.ts',
+    ]) {
+      expect(REACHED_COPY_FILES, `${repaired} is no longer reached — the walk went blind`).toContain(repaired)
+    }
+  })
+
+  it('POSITIVE CONTROL: the pipeline flags every string this ruling has removed', () => {
     // ⭐ THE LOAD-BEARING CONTROL, and it is fed the REAL sentences rather than
     // a fabricated one. The verdict below is an ABSENCE claim, worth nothing
     // until the probe has been shown detecting a PRESENCE, and the presence it
     // must detect is the one that shipped. Both go through the whole pipeline
     // (strip -> ban-lists -> extract -> NOT_COPY -> match), so a break anywhere
     // reds here instead of quietly manufacturing a clean sweep.
+    //
+    // ⚠ APPEND-ONLY. These are sentences the product ACTUALLY EMITTED on dated
+    // builds (trap 14b). Rewriting one would falsify the record it holds; a
+    // later removal adds a row and never edits one.
     const WITHDRAWN = [
+      // 10 Sep 2026 — analysisNewCopy.ts
       'This run did not test how the result behaves when the assumptions change, so nothing here says it would hold.',
       'No robustness verdict came back with this run, so the result has not been shown to survive a change in the assumptions.',
+      // 11 Sep 2026 — the widening
+      'Chance the result flips',
+      'This relationship is one the result is sensitive to.',
+      'The result held up under stress-testing.',
+      'Improving this factor could change the result.',
+      'Add the missing elements below before relying on the result.',
+      'Are these 2 relationships that could flip the result to Plan B reliable?',
     ] as const
     for (const sentence of WITHDRAWN) {
       const seen = literals(readableCopy(`const a = '${sentence}'`)).filter(s => !NOT_COPY.test(s))
@@ -628,16 +664,67 @@ describe('the Reasoning tab does not speak as an oracle', () => {
     expect(ORACLE_FRAMING.test('so the result has not been shown')).toBe(true)
     expect(ORACLE_FRAMING.test('The results are in')).toBe(true)
     // The replacements themselves must be legal, or the fix cannot land.
-    expect(
-      ORACLE_FRAMING.test(
-        'This run did not test how these numbers behave when the assumptions change, so nothing here says they would hold.',
-      ),
-    ).toBe(false)
-    expect(
-      ORACLE_FRAMING.test(
-        'No robustness verdict came back with this run, so nothing here has been shown to survive a change in the assumptions.',
-      ),
-    ).toBe(false)
+    for (const replacement of [
+      'This run did not test how these numbers behave when the assumptions change, so nothing here says they would hold.',
+      'No robustness verdict came back with this run, so nothing here has been shown to survive a change in the assumptions.',
+      'Chance the answer changes',
+      'These numbers are sensitive to this relationship.',
+      'On the data so far, these numbers held up under stress-testing.',
+      'Improving this factor could change the answer.',
+      'Add the missing elements below before relying on the analysis.',
+      'Are these 2 relationships that could flip the answer to Plan B reliable?',
+    ]) {
+      expect(ORACLE_FRAMING.test(replacement), replacement).toBe(false)
+    }
+  })
+
+  /**
+   * ⭐⭐ THE EXTRACTOR'S OWN BLIND SPOT, PINNED RATHER THAN LEFT INVISIBLE.
+   *
+   * MEASURED 11 Sep 2026, and it is worse than "escaped literals are skipped".
+   * `literals()` excludes a backslash from every literal body, so on
+   *
+   *   'The breakdown of which causal pathways drive the result didn\'t run. …'
+   *
+   * the regex fails at the escape, RESYNCHRONISES on the `'` inside `\'`, and
+   * returns a misaligned fragment beginning `"t run. …"`. The leading half —
+   * the half carrying "the result" — is dropped silently, and the surviving
+   * fragment says "Your results", which this matcher correctly does not flag.
+   * So the sweep reads CLEAN on a file that violates the ruling.
+   *
+   * ⚠ THE LIVE INSTANCE: `src/components/results/utils/humaniseCritique.ts:513`
+   * is in `REACHED_COPY_FILES` and carries exactly this shape.
+   *
+   * It is not fixed here because when this lane started that file was owned by
+   * another lane; #1472 has since landed and removed its em dash, leaving BOTH
+   * the bare "the result" and the escaped `didn\'t` in place. Re-derived after
+   * that merge, so this is measured at the current tip and not inherited.
+   *
+   * ⭐ SO THE GAP IS PINNED AS A GAP: this test asserts the blindness EXACTLY as
+   * measured. It goes RED the moment someone repairs the extractor — which is
+   * the point. Whoever repairs it must repair `humaniseCritique.ts:513` in the
+   * same change, and this test is what tells them so. A gap recorded in the
+   * suite is honest; a gap invisible to it is how it survives another month.
+   *
+   * ⭐ AND THE FOLLOW-UP IS PRICED: an escape-safe tokenizer run over all 93
+   * closure files, no length floor, surfaces EXACTLY ONE offender — that string.
+   * So the repair is the extractor plus one sentence, with no other fallout.
+   */
+  it('KNOWN GAP: an escaped quote misaligns the extractor and hides the string after it', () => {
+    const escaped = String.raw`const a = 'drive the result didn\'t run. Your results stand.'`
+    const seen = literals(readableCopy(escaped))
+    // PRECONDITION PINNED IN-TEST: the extractor really did return something,
+    // so a pass below is the MISALIGNMENT and not an extractor that saw nothing.
+    expect(seen.length, 'the extractor returned nothing at all — this gap has changed shape').toBe(1)
+    expect(seen[0], 'the extractor no longer resynchronises after the escape').toBe(
+      't run. Your results stand.',
+    )
+    // The half that carried the violation is gone, so the sweep reads clean.
+    expect(seen.some(s => ORACLE_FRAMING.test(s))).toBe(false)
+    // ⚠ AND THE UNESCAPED TWIN MUST STILL BE CAUGHT, or this test would be
+    // describing a matcher that never worked rather than an extractor gap.
+    const plain = literals(readableCopy(`const a = 'drive the result and stop'`))
+    expect(plain.some(s => ORACLE_FRAMING.test(s))).toBe(true)
   })
 
   it('and the reframe kept the HONESTY: these rows still refuse to read as an all-clear', () => {
@@ -652,10 +739,8 @@ describe('the Reasoning tab does not speak as an oracle', () => {
     expect(notAssessed, 'the row stopped refusing to vouch for what is on screen').toMatch(/nothing here/i)
     expect(unknown, 'the row stopped saying no verdict came back').toMatch(/no robustness verdict came back/i)
     // ⚠ THE NEGATION IS CARRIED BY "nothing here", NOT BY A "not" ON THE VERB.
-    // Pinned as written rather than as assumed: my first attempt asserted
-    // /has not been shown/ and this test went RED on correct copy. The row
-    // says nothing on screen has been shown to survive, which is the same
-    // refusal in the register the sibling rows already use.
+    // Pinned as written rather than as assumed: a first attempt asserted
+    // /has not been shown/ and this test went RED on correct copy.
     expect(unknown, 'the row stopped refusing to vouch for what is on screen').toMatch(
       /nothing here has been shown/i,
     )
@@ -664,11 +749,13 @@ describe('the Reasoning tab does not speak as an oracle', () => {
     expect(ORACLE_FRAMING.test(unknown)).toBe(false)
   })
 
-  it('NO user-facing string in this file speaks as an oracle', () => {
-    const offenders = strings.filter(s => ORACLE_FRAMING.test(s))
+  it.each(REACHED_COPY_FILES)('%s does not speak as an oracle', (rel) => {
+    const found = literals(readableCopy(readFileSync(resolve(process.cwd(), rel), 'utf8')))
+      .filter(s => !NOT_COPY.test(s))
+    const offenders = found.filter(s => ORACLE_FRAMING.test(s))
     expect(
       offenders,
-      `oracle framing in user-facing copy:\n  ${offenders.join('\n  ')}\n` +
+      `oracle framing in ${rel}:\n  ${offenders.join('\n  ')}\n` +
         'Condition on the data and on what this run did. Do not add an exemption.',
     ).toEqual([])
   })

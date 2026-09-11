@@ -5,6 +5,7 @@ import Tooltip from '../../components/Tooltip'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
+import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbsent'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
@@ -411,6 +412,7 @@ interface StructuredDelta {
 export const OptionNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.option
   const displayMetadata = useNodeDisplayMetadata(props.id, 'option')
+  const supportShareRunWideAbsent = useSupportShareRunWideAbsent()
   const scienceIcons = useScienceIcons(props.id, 'option')
 
   const nodes = useCanvasStore(state => state.nodes)
@@ -1865,14 +1867,47 @@ export const OptionNode = memo((props: NodeProps) => {
 
         {/* Missing win share is distinct from measured zero and a reported
             failure. Outcome ranges may still exist: name only the missing
-            percentage, without claiming the whole result is unavailable. */}
+            percentage, without claiming the whole result is unavailable.
+
+            ⭐⭐ AND IT IS ALSO DISTINCT FROM *EVERY* OPTION MISSING ONE, which is
+            what this gate adds. Measured on the deployed build `08a3724d`
+            (`staging--olumi.netlify.app`): a three-option model rendered
+            "Support percentage unavailable" on all three cards, identically, in
+            the position where the comparison belongs. Stated three times it is
+            not three facts about three options. It is one fact about the RUN,
+            and repeating it per card tells the reader nothing while occupying
+            the row they came to compare.
+
+            `supportShareRunWideAbsent` separates the two:
+
+              - PARTIAL (some cards resolved a share, this one did not) → the
+                line renders, and now EARNS its place: it is the only thing
+                telling the reader why this card differs from its siblings.
+                PLoT's `IDENTICAL_OPTIONS_DEDUPED` produces exactly this shape.
+
+              - RUN-WIDE (no card resolved one) → the cards YIELD this position.
+                The Question node states it ONCE instead (`DecisionNode`), which
+                is where a fact about the whole run belongs.
+
+            ⚠ YIELDING IS NOT SILENCE, AND THAT DISTINCTION IS LOAD-BEARING —
+            the sibling `n_valid === 0` block twenty lines above argues,
+            correctly, that "silence in a row of bars reads as a rendering gap".
+            It is not silenced here; it is MOVED to the one surface that can say
+            it once. Delete the DecisionNode statement and this becomes the
+            rendering gap that comment warns about.
+
+            ⛔ The copy no longer opens with the missing quantity's name. It
+            conditions on the data ("On the data so far…"), because what this
+            run produced is a fact about this run and not a property of the
+            option. */}
         {displayMetadata.isResultsMode && displayMetadata.winRate === null &&
-          displayMetadata.winComputationFailed !== true && (
+          displayMetadata.winComputationFailed !== true &&
+          !supportShareRunWideAbsent && (
           <p
             className={`${typography.edgeLabel} text-text-light mt-1.5 mb-1`}
             data-testid={`option-result-unavailable-${props.id}`}
           >
-            {METRIC_NOUN.support} percentage unavailable
+            On the data so far, no {METRIC_NOUN.support.toLowerCase()} percentage for this option
           </p>
         )}
 

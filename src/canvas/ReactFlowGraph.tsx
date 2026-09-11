@@ -14,6 +14,8 @@ import { commitGraphMutation } from './mutations/commitGraphMutation'
 import { useComparisonStore } from './stores/comparisonStore'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS } from './domain/edges'
 import { edgeValueSourcePatch } from './domain/edgeValueProvenance'
+import { withEdgeAccessibleNames } from './domain/edgeAccessibleName'
+import { useEdgeLabelMode } from './store/edgeLabelMode'
 import { parseRunHash } from './utils/shareLink'
 import { useInitialLayoutGuard } from './hooks/useInitialLayoutGuard'
 import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion'
@@ -926,10 +928,38 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       return true
     })
   }, [nodesWithGhost])
-  // Deduplicate edges by ID similarly
+  /**
+   * ⭐ EVERY EDGE IS NAMED HERE, AND ONLY HERE.
+   *
+   * React Flow names an unnamed edge `Edge from ${source} to ${target}` — our
+   * internal ids. Measured on staging `e5a62322`: 21 of 21 connections spoke
+   * hex to assistive technology. `StyledEdge` composes a good name, but onto an
+   * element that exists only while the edge's label is visible, so at ordinary
+   * zoom the document held none at all (`edgesWithInnerAria: 0`).
+   *
+   * ⚠ APPLIED AT THE SEAM, NOT AT THE CONSTRUCTION SITES. `type: 'styled'`
+   * edges are built in at least three places; naming them there is the
+   * hand-maintained mirror (trap 12) — the next site added ships hex again
+   * under a green suite. This is the one place every edge passes through on its
+   * way to `<ReactFlow>`.
+   *
+   * ⛔ AND IT ADDS NO HOOK, DELIBERATELY. This component carries a
+   * rules-of-hooks exception for 117 EXISTING violations, and the ratchet's
+   * wording is not decoration — "each one is a render-time crash". An earlier
+   * draft of this took a `useEdgeLabelMode` subscription plus its own `useMemo`
+   * and pushed the file to 119; CI caught it. The label map is built inside the
+   * memo that already exists, and the mode is read from the store imperatively.
+   *
+   * ⚠ THE PRICE OF THAT, STATED RATHER THAN HIDDEN: the mode is read at memo
+   * time, not subscribed. Toggling human/numeric repaints the visible label
+   * immediately (`StyledEdge` does subscribe) but leaves this name describing
+   * the previous mode until the next graph change. That is a stale *description
+   * clause* on an already-correct name, never a wrong one — and the alternative
+   * was a hook in a file where hooks crash.
+   */
   const memoizedEdges = useMemo(() => {
     const seen = new Set<string>()
-    return edges.filter((edge) => {
+    const unique = edges.filter((edge) => {
       if (seen.has(edge.id)) {
         if (import.meta.env.DEV) {
           console.warn(`[ReactFlowGraph] Duplicate edge ID filtered: ${edge.id}`)
@@ -939,7 +969,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       seen.add(edge.id)
       return true
     })
-  }, [edges])
+    const nodeLabelById = new Map<string, string>()
+    for (const node of memoizedNodes) {
+      const label = (node.data as { label?: unknown } | undefined)?.label
+      if (typeof label === 'string') nodeLabelById.set(node.id, label)
+    }
+    return withEdgeAccessibleNames(unique, nodeLabelById, useEdgeLabelMode.getState().mode)
+  }, [edges, memoizedNodes])
 
   // Actions are stable references - don't need shallow comparison
   const createNodeId = useCanvasStore(s => s.createNodeId)

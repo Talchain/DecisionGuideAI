@@ -162,6 +162,12 @@ const DESIGNATING_FORMS: ReadonlyArray<readonly [string, RegExp]> = [
   // pair makes one describe over.
   ['the designated option BY NAME', new RegExp(`\\b${LEADER_LABEL}\\b`)],
   ['flips to <option>', /\bflips to\b/i],
+  // ⭐ THE SAME CLAIM, IN THE WORDS THE COPY NOW USES (11 Sep 2026, oracle
+  // referent fix). "flips to {alt}" became "{alt} scores highest instead":
+  // same designation, different verb. ADDED, not swapped — the row above is
+  // kept so a return to the retired wording is still red, which is the same
+  // union rule `FRAGILE_CLAIM_RE` states in `withheldProse.spec.tsx:255-258`.
+  ['<option> scores highest instead', /\bscores highest instead\b/i],
   ['topic: challenge_leader', /challenge_leader/],
 ]
 
@@ -200,7 +206,13 @@ const PERMITTED_DESIGNATING_FORMS: ReadonlyArray<readonly [string, RegExp]> = [
   // power. Narrowing a control further than the change requires is the quiet way
   // a guard stops proving anything — the reviewer proved 27/27 with it present.
   ['the ranking', /\bthe ranking\b/i],
-  ['flips to <option>', /\bflips to\b/i],
+  // ⚠ RE-POINTED, NOT DROPPED (11 Sep 2026). The permitted flip signal read
+  // "NN% chance the result flips to {alt}" and now reads "NN% chance {alt}
+  // scores highest instead" — the oracle referent went, the designation did
+  // not. Deleting this row instead of re-pointing it would leave the withheld
+  // sweep unable to prove it can SEE a presence, which this file's own header
+  // calls the real hazard.
+  ['<option> scores highest instead', /\bscores highest instead\b/i],
   ['topic: challenge_leader', /challenge_leader/],
 ]
 
