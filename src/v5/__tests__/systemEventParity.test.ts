@@ -54,6 +54,19 @@ const UI_WIRE_EVENT_TYPES = [
   // catch — it is ONE-DIRECTIONAL and proves only that listed members are real.
   'option_intervention_edit',
   'structural_add_edge',
+  // schemas 0.55.0 — the user's STATED REASON for disagreeing with a finding,
+  // carried verbatim. It is listed here because this PR WIRES THE EMITTER: a
+  // dissent typed on the Reasoning tab used to terminate at
+  // `localStorage.setItem`, so it never reached the shared model at all.
+  //
+  // ⚠ SAME HALF-UPDATE HAZARD AS THE 0.54.0 MEMBER ABOVE, and it is worth
+  // reading that note rather than repeating it: this array is the KEY UNION for
+  // the `UI_COVERAGE` Record, not merely an iteration source, so adding the
+  // coverage entry WITHOUT adding it here is a TS2353 excess property and a
+  // failing totality assertion — and the `satisfies` cannot catch it, because
+  // it proves only that listed members are real, never that real members are
+  // listed. The other direction is closed by the runtime assertion below.
+  'finding_dissent',
 ] as const satisfies readonly WireSystemEventType[]
 
 // The `satisfies` above is ONE-DIRECTIONAL: it proves every listed member is a
@@ -306,6 +319,42 @@ const UI_COVERAGE: Record<
       base_graph_hash: 'f3d31f75957c5cb5',
     },
   },
+  // 0.55.0 — the FIRST wire shape for a human's STATED REASON, emitted from the
+  // Reasoning tab's dissent commit via `conversation/findingDissent.ts`.
+  //
+  // ⚠ IT IS `system_event` AND NOT `ui_deferred`, AND THAT IS THE WHOLE POINT OF
+  // THE PR THIS ENTRY ARRIVES WITH. Parking it in `knownDeferred` would have
+  // cleared the same three reds while recording a rationale that is FALSE — the
+  // emitter exists, is exercised, and is what the lane was built to ship.
+  //
+  // ⚠ ID-ADDRESSED ON BOTH HALVES, and `analysis_id` is not context. A
+  // recommendation id is PER-RUN, so the pair is the subject's full address;
+  // without the run a dissent could be shown beside a LATER analysis, which
+  // would be a claim the user never made.
+  //
+  // ⚠ NO `base_graph_hash`, AND ITS ABSENCE IS THE CONTRACT'S DECISION RATHER
+  // THAN AN OMISSION TO CORRECT. The five members that carry one use it as a
+  // STALE GATE whose rule is "CEE MUST refuse on divergence"; applying it here
+  // would refuse a TRUE STATEMENT OF WHAT A HUMAN SAID because the graph had
+  // moved underneath it. A fifth key is a `.strict()` violation, not a nicety.
+  //
+  // ⚠ THE BUILDER IS FAIL-CLOSED, not merely typed: a blank or whitespace-only
+  // `statement`, or an `analysis_id` of `''` or the literal `'error'` (both real
+  // values of the hash the id is taken from), returns `null` →
+  // `unsupported_system_event` → NO TURN AT ALL. Those REFUSALS are asserted by
+  // `canvas/conversation/__tests__/findingDissent.spec.ts`; this entry asserts
+  // the SENDABLE case reaches V5 as the declared kind, which is the half that
+  // belongs in a parity table.
+  finding_dissent: {
+    kind: 'system_event',
+    eventKind: 'finding_dissent',
+    payload: {
+      finding_id: 'rec_hold_price',
+      analysis_id: 'f3d31f75957c5cb5',
+      statement:
+        'Our enterprise renewals are annual, so a price move cannot reach churn inside the quarter this run assumes.',
+    },
+  },
 }
 
 describe('UI ↔ V5 system event parity', () => {
@@ -421,6 +470,13 @@ describe('UI ↔ V5 system event parity', () => {
       //     nothing else — and worse, pairing it with `structural_add` would
       //     durably save a node while silently dropping its edge.
       'structural_add_edge',
+      // ⚠ `finding_dissent` (0.55.0) DOES NOT BELONG HERE AND MUST NOT BE ADDED.
+      // It is UI-EMITTED — see its `UI_COVERAGE` entry above. It is called out
+      // by name because parking it in this set is the cheapest way to clear the
+      // red it caused when the union grew 17 -> 18, and it would be a FALSE
+      // RATIONALE: this set means "no emission site exists yet", and for this
+      // member one does. A deferral recorded here is read by later sessions as
+      // a product decision, not as a placeholder.
     ])
 
     for (const kind of V5_EVENT_KINDS) {
@@ -434,7 +490,7 @@ describe('UI ↔ V5 system event parity', () => {
     }
   })
 
-  it('locks UI emission count at 13 of 17 V5 SystemEventKind values', () => {
+  it('locks UI emission count at 14 of 18 V5 SystemEventKind values', () => {
     // Explicit canary: if someone adds a new UI emission (extending the
     // system_event branch of UI_COVERAGE) without updating this test, the
     // count will drift and flag for docs reconciliation.
@@ -476,10 +532,32 @@ describe('UI ↔ V5 system event parity', () => {
     // 0.43.0 addition this one IS wired: its CEE writer landed first (reader-first
     // is satisfied), and it is the member that makes four canvas gestures durable
     // rather than one — draw-a-link, "Add connected …", duplicate and paste.
+    //
+    // 2026-09-11: 0.55.0 grows the union to 18 and the emitter count to 14 with
+    // `finding_dissent` — the first member that carries a human's OWN WORDS
+    // rather than a value, an id or a verdict. Unlike the 0.43.0 addition it is
+    // wired on arrival, because a reader-only adoption would leave the defect it
+    // exists to close wide open: the dissent terminates at `localStorage` and is
+    // invisible to the team, lost on a browser clear, and absent from the model
+    // the team is supposed to be reasoning over together.
+    //
+    // ⚠ BOTH SIDES OF EACH ASSERTION BELOW ARE DELIBERATELY UNLIKE. The count is
+    // DERIVED from `UI_COVERAGE` and the length is DERIVED from the contract
+    // enum, and each is compared to a STATED literal — that asymmetry IS the
+    // canary. Deriving the expectation too (e.g. from `V5_EVENT_KINDS.length`,
+    // or from a second filter over the same table) would make each line agree
+    // with itself and the guard would stop discriminating entirely.
+    //
+    // ⚠ REBASE NOTE (2026-09-11): `structural_add_edge` (#1478) and
+    // `finding_dissent` (#1493) landed independently and EACH stated the emitter
+    // count as 13, because each counted only its own addition against a shared
+    // base of 12. Taking either side of this conflict wholesale would have
+    // silently dropped the other lane's emission from the count while the suite
+    // stayed green. The merged value is DERIVED: 12 + 2 = 14.
     const uiEmittedCount = Object.values(UI_COVERAGE).filter(
       (c) => c.kind === 'system_event',
     ).length
-    expect(uiEmittedCount).toBe(13)
-    expect(V5_EVENT_KINDS).toHaveLength(17)
+    expect(uiEmittedCount).toBe(14)
+    expect(V5_EVENT_KINDS).toHaveLength(18)
   })
 })
