@@ -140,13 +140,38 @@ describe('the act is mounted, not merely defined', () => {
   const dock = readFileSync(DOCK, 'utf8')
   const tabBody = readFileSync(TAB_BODY, 'utf8')
 
+  /**
+   * ⚠⚠ COMMENTS ARE STRIPPED BEFORE MATCHING, AND THIS IS NOT TIDINESS — 11 Sep
+   * 2026. A source scan cannot tell a binding from a sentence ABOUT a binding.
+   * When the Reasoning tab stopped passing the dock's handler straight through,
+   * the amending comment quoted the literal this file looks for, and the
+   * assertion below passed GREEN on the quotation while the code beside it did
+   * something else. The guard was agreeing with a comment (CLAUDE.md trap 13b).
+   *
+   * Both halves were fixed — the comment no longer carries the string, AND this
+   * scan no longer reads comments — because either alone leaves the hole open
+   * for the next file. `a quoted binding cannot satisfy these scans` below is
+   * the positive control that proves the stripping actually bites.
+   */
+  const withoutComments = (s: string): string =>
+    s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ')
+
   /** The `<AnalysisNewTabBody …>` opening tag in the dock, and nothing else. */
   const mount = (): string => {
     const i = dock.indexOf('<AnalysisNewTabBody')
     expect(i, 'AnalysisNewTabBody is not mounted in OutputsDock').toBeGreaterThan(-1)
     const end = dock.indexOf('/>', i)
     expect(end, 'unterminated AnalysisNewTabBody mount').toBeGreaterThan(i)
-    return dock.slice(i, end)
+    return withoutComments(dock.slice(i, end))
+  }
+
+  /** The `<AtAGlance …>` opening tag in the tab body, and nothing else. */
+  const glanceMount = (): string => {
+    const i = tabBody.indexOf('<AtAGlance')
+    expect(i, 'AtAGlance is not mounted in AnalysisNewTabBody').toBeGreaterThan(-1)
+    const end = tabBody.indexOf('/>', i)
+    expect(end).toBeGreaterThan(i)
+    return withoutComments(tabBody.slice(i, end))
   }
 
   it('the dock passes the handler to the Reasoning tab at the mount', () => {
@@ -158,15 +183,57 @@ describe('the act is mounted, not merely defined', () => {
     ).toMatch(/onReviewEstimates=\{handleReviewEstimates\}/)
   })
 
-  it('the tab body forwards it to AtAGlance rather than swallowing it', () => {
-    const i = tabBody.indexOf('<AtAGlance')
-    expect(i, 'AtAGlance is not mounted in AnalysisNewTabBody').toBeGreaterThan(-1)
-    const end = tabBody.indexOf('/>', i)
-    expect(end).toBeGreaterThan(i)
+  /**
+   * ⭐⭐ AMENDED 11 Sep 2026 — THE PROP IS NO LONGER PASSED THROUGH, AND MUST
+   * NOT BE. It read `the tab body forwards it to AtAGlance rather than
+   * swallowing it`, and asserted a straight pass-through, because on 10 Sep the
+   * Model tab was the only place an estimate could be set. `#1491` put the same
+   * act on the Reasoning tab itself the next morning, so a pass-through now
+   * sends a reader to another surface to do something available where they are.
+   *
+   * The thing that must not happen is unchanged — the prop arriving at the tab
+   * and stopping there — so this asserts the composed act reaches `AtAGlance`
+   * AND that the composition really is built from the dock's handler, rather
+   * than a rename that quietly drops it. The behavioural pair (in page when
+   * there is an act here, the dock's route when there is not) is in
+   * `refusalActStaysOnTheTab.spec.tsx`; neither half implies the other.
+   */
+  it('the tab body threads it into the act it composes, rather than swallowing it', () => {
     expect(
-      tabBody.slice(i, end),
-      'AnalysisNewTabBody accepts onReviewEstimates but does not thread it to ' +
-        'AtAGlance — the prop arrives at the tab and stops there.',
-    ).toMatch(/onReviewEstimates=\{onReviewEstimates\}/)
+      glanceMount(),
+      'AnalysisNewTabBody does not give AtAGlance the composed act — the ' +
+        'refusal either gets nothing or gets a raw route past the in-page act.',
+    ).toMatch(/onReviewEstimates=\{reviewEstimates\}/)
+
+    const body = withoutComments(tabBody)
+    expect(
+      body,
+      'the composed act never consults this tab’s own register, so the ' +
+        'in-page act cannot be reached and the composition is a rename.',
+    ).toMatch(/revealEstimatedValueAct\(\)/)
+    expect(
+      body,
+      'the composed act never falls back to the dock’s route, so a reader ' +
+        'with no in-page act is left pressing a control that does nothing.',
+    ).toMatch(/onReviewEstimates\?\.\(\)/)
+  })
+
+  /**
+   * ⭐ THE POSITIVE CONTROL FOR THE STRIPPING ITSELF (CLAUDE.md trap 13 — an
+   * absence assertion with no demonstrated presence asserts nothing). The raw
+   * text of the tab body DOES contain a JSX-looking binding inside a comment;
+   * the stripped text must not. Without this, a `withoutComments` that silently
+   * stopped stripping would leave every scan above readable by prose again, and
+   * nothing would RED.
+   */
+  it('a quoted binding cannot satisfy these scans (positive control)', () => {
+    const quoted = 'onReviewEstimates={handleReviewEstimates}'
+    const withComment = `<AtAGlance /* was ${quoted} */ onReviewEstimates={reviewEstimates}`
+    expect(withComment, 'the control fixture must contain the string').toContain(quoted)
+    expect(
+      withoutComments(withComment),
+      'withoutComments no longer strips — every scan in this file is readable ' +
+        'by prose and proves nothing',
+    ).not.toContain(quoted)
   })
 })
