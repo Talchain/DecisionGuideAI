@@ -39,8 +39,17 @@ const OPT = (id: string, label: string, winReadout: string | null) => ({
   notAnalysedReason: null,
 })
 
+/**
+ * ⚠ THE LICENCE IS STATED RATHER THAN LEFT UNDEFINED. The figure is gated on
+ * `comparativeClaim` (`OptionsComparison.tsx`'s `mayDrawMagnitude`), and this
+ * helper casts through `never` — so an omitted field would reach the component
+ * as `undefined` and suppress the bars by accident. This file's subject is the
+ * CAVEAT, which has its own authority (`noneNumbered`) and does not move with
+ * the licence; declaring `'value'` keeps the caveat tests running against a run
+ * that is otherwise fully able to draw, which is the harder case for them.
+ */
 const model = (rows: ReturnType<typeof OPT>[]) =>
-  ({ rows, totalCount: rows.length }) as never
+  ({ rows, totalCount: rows.length, comparativeClaim: 'value' }) as never
 
 function renderComparison(rows: ReturnType<typeof OPT>[]) {
   cleanup()

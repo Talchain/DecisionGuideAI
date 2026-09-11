@@ -130,8 +130,22 @@ function buildRows(options: OptionResult[]): ComparisonOption[] {
   }).optionsComparison.rows
 }
 
+/**
+ * ⚠ `comparativeClaim: 'value'` IS THE SUBJECT-PRESERVING CHOICE, NOT A
+ * CONVENIENCE. These tests are about WHICH NUMBERLESS STATE a row is in, and
+ * their positive controls are "the healthy sibling DOES have a bar". The figure
+ * is now gated on the run licensing a comparative magnitude
+ * (`OptionsComparison.tsx`'s `mayDrawMagnitude`), so a section built without a
+ * licence renders no bars at all and those controls would pass for the wrong
+ * reason — the bar would be absent because nothing may be drawn, not because the
+ * row has no share. Declaring the licensed state keeps every assertion here
+ * pointed at the discrimination it was written for.
+ *
+ * The gate itself is covered where it belongs, across all three of its states:
+ * `optionsComparisonFigure.spec.tsx`.
+ */
 function section(rows: ComparisonOption[]): OptionsComparisonSection {
-  return { rows, totalCount: rows.length }
+  return { rows, totalCount: rows.length, comparativeClaim: 'value' }
 }
 
 /**

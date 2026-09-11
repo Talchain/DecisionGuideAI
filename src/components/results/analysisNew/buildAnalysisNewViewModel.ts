@@ -2299,7 +2299,19 @@ function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication
     : { kind: 'diverged', outcome, goal }
 }
 
-function buildOptionsComparison(data: ResultsSectionDataReturn): OptionsComparisonSection {
+/**
+ * ⚠ RETURNS THE SECTION MINUS ITS FIGURE LICENCE, AND THE `Omit` IS THE POINT.
+ *
+ * `comparativeClaim` is the GLANCE's answer and is attached at the assembly
+ * below, where `glance` is in scope and the shared value is visible in one
+ * expression. Typing this builder as the whole section would let a future edit
+ * satisfy the compiler by computing a licence HERE, from the rows — a second
+ * authority on one question, which is the #709/#737 shape (CLAUDE.md trap 21).
+ * The `Omit` makes that edit fail to typecheck instead of passing quietly.
+ */
+function buildOptionsComparison(
+  data: ResultsSectionDataReturn,
+): Omit<OptionsComparisonSection, 'comparativeClaim'> {
   const allOptions = data.recommendation.allOptions ?? []
 
   /**
@@ -2780,9 +2792,25 @@ export function buildAnalysisNewViewModel(
      * data to produce the right answer by accident.
      */
     modelImplication: preRun ? { kind: 'none' } : buildModelImplication(data),
+    /**
+     * ⭐⭐ THE FIGURE'S LICENCE IS THE GLANCE'S, SPREAD IN HERE — one value, two
+     * readers, and no arithmetic between them.
+     *
+     * `glance.comparativeClaim` is the authority on whether this run licenses a
+     * comparative magnitude at all, and it is already published on `atAGlance`
+     * twelve lines up. `OptionsComparison` draws a magnitude, so it needs that
+     * same answer; computing one here from the ROWS would be a second authority
+     * on one question, which is the #709/#737 shape this surface has already
+     * shipped once (CLAUDE.md trap 21). Assigned in this one expression so a
+     * reader can SEE it is the same value rather than a matching one.
+     *
+     * ⚠ PRE-RUN IS `'none'`, matching the `atAGlance` literal above rather than
+     * being reasoned about separately: before a run nothing comparative exists
+     * to draw, and the two literals must not be able to disagree.
+     */
     optionsComparison: preRun
-      ? { rows: [], totalCount: 0 }
-      : buildOptionsComparison(data),
+      ? { rows: [], totalCount: 0, comparativeClaim: 'none' as const }
+      : { ...buildOptionsComparison(data), comparativeClaim: glance.comparativeClaim },
     keyInsights: preRun
       ? { insights: [], candidateCount: 0 }
       : dedupeAgainstGlance(buildKeyInsights(data, recommendations, isStale), glance),
