@@ -1253,6 +1253,34 @@ export const ANALYSIS_NEW_COPY = {
      */
     reviewEstimates: 'Review or set an estimate',
     /**
+     * WHICH parameters the refusal is about, as a LEAD-IN to the names.
+     *
+     * ⛔ IT NAMES A SET AND PRESCRIBES NOTHING. The producer publishes these in
+     * GRAPH ORDER and ranks nothing, so any wording implying a first, a
+     * biggest, or a place to start would be a claim nobody computed. "Start
+     * with", "the main one" and "most important" are all forbidden here for
+     * that reason, not for tone.
+     *
+     * ⛔ AND IT MAY NOT RESTATE THE REFUSAL. The producer's own sentence sits
+     * directly above and already says every estimate is Olumi's; repeating the
+     * complaint would put one producer sentence on screen twice, which
+     * `firstViewportCensus.spec.tsx` forbids. This adds only the NAMES.
+     *
+     * ⚠ "in this comparison" is load-bearing, not filler. The set is the
+     * comparison's own causal substrate — the parameters a leader claim rests
+     * on — and NOT every estimate in the model. Without that clause the line
+     * would overstate its own population, and a reader who set a value on some
+     * other Olumi estimate would correctly expect the refusal to lift.
+     */
+    withheldParametersLeadIn: 'Still Olumi’s in this comparison:',
+    /**
+     * The cap disclosure. A capped list the reader cannot detect is an
+     * understatement they cannot question — the same defect this estate closed
+     * on the producer side of the evidence gaps. The CONSUMER may cap, because
+     * the consumer can say so; the producer may not, because it cannot.
+     */
+    withheldParametersMore: (n: number): string => `and ${n} more`,
+    /**
      * ⚠ STILL LIVE, AND ITS ONLY CONSUMER IS NOW `ModelStrip`'s per-node chip —
      * a standalone claim that the run ranked this node among its top drivers.
      * The glance's own driver LIST, which this used to head, was removed at

@@ -85,6 +85,7 @@ import { formatGoalProbability } from '../utils/displayFloors'
 import { formatThreshold } from '../RangeVisualization'
 import { safeInterpolatedLabel } from '../utils/glossaryCheck'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
+import { namedMaterialParametersAwaitingUser } from './materialParametersAwaitingUser'
 import {
   ANALYSIS_NEW_COPY as COPY,
   ANALYSIS_NEW_LABEL_FALLBACK,
@@ -1713,6 +1714,7 @@ function glanceCondition(data: ResultsSectionDataReturn): GlanceCondition | null
 function buildAtAGlance(
   data: ResultsSectionDataReturn,
   nodeValueSources?: ReadonlyMap<string, string>,
+  nodeLabels?: ReadonlyMap<string, string>,
 ): AtAGlance {
   const rec = data.recommendation
   const { drivers, setRelative } = glanceDrivers(data)
@@ -1829,6 +1831,26 @@ function buildAtAGlance(
     ESTIMATE_REMEDY_ADMISSION_CAUSES.has(designationWithheldConjunct.code)
       ? 'estimate'
       : null
+
+  // ── WHICH PARAMETERS THE REFUSAL IS ABOUT ─────────────────────────────────
+  //
+  // ⛔ GATED ON THE REMEDY, NOT ON THE REASON, and that is the same conjunct the
+  // button reads rather than a second one. Only the causes whose own words ask
+  // for an estimate can be answered by naming parameters; under "Name at least
+  // two different options you are weighing" a list of factors is a futile
+  // instruction under a true sentence. One predicate, one question (trap 21).
+  //
+  // ⚠ THE HEADER IN `AtAGlance.tsx` SAID NO FACTOR IS NAMED, AND HALF OF IT
+  // STILL BINDS. Its first clause — "there is no particular estimate to point
+  // at" — was measured before CEE published
+  // `semantic_signals.material_parameters_awaiting_user_node_ids`, and is what
+  // this supersedes. Its second — "inventing one would be a deep link to an
+  // arbitrary row dressed as the answer" — is honoured: the whole set is named
+  // and no member is selected, because the producer ranks nothing.
+  const designationWithheldParameters =
+    designationWithheldRemedy === 'estimate'
+      ? namedMaterialParametersAwaitingUser(rec.analysisAdmission, nodeLabels)
+      : []
 
   // ── SCOPE: what does the win share range over? ────────────────────────────
   //
@@ -2015,6 +2037,7 @@ function buildAtAGlance(
     headline,
     designationWithheldReason,
     designationWithheldRemedy,
+    designationWithheldParameters,
     leaderLabel: headline && leader ? leader.label : null,
     winShare,
     winFraction,
@@ -2799,7 +2822,7 @@ export function buildAnalysisNewViewModel(
   inputs: AnalysisNewViewModelInputs,
 ): AnalysisNewViewModel {
   const { data, recommendations, isStale, nodeValueSources } = inputs
-  const glance = buildAtAGlance(data, nodeValueSources)
+  const glance = buildAtAGlance(data, nodeValueSources, inputs.nodeLabels)
 
   /**
    * ⚠⚠ NO RUN, NOTHING DERIVED FROM A RUN — the same rule `buildDeeper` applies,
@@ -2839,7 +2862,7 @@ export function buildAnalysisNewViewModel(
      */
     leaderClaimPermitted: preRun ? false : leaderDesignationPermitted(data.recommendation) === true,
     atAGlance: preRun
-      ? { headline: null, designationWithheldReason: null, designationWithheldRemedy: null, leaderLabel: null, winShare: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, inputProvenance: null }
+      ? { headline: null, designationWithheldReason: null, designationWithheldRemedy: null, designationWithheldParameters: [], leaderLabel: null, winShare: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, inputProvenance: null }
       : glance,
     // ⚠ GATED PRE-RUN LIKE EVERY OTHER RUN-DERIVED SECTION. The option NODES
     // exist before any analysis, but "how the options compare" is a reading OF
