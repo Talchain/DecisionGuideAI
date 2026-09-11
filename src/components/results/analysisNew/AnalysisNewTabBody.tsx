@@ -1241,7 +1241,19 @@ export function AnalysisNewTabBody({
             the PARKED Analysis tab mounts the same component and keeps its
             existing rendering — see the prop's declaration for why the default
             may not move. */}
-        <WhatIWasGivenSection onSendMessage={onSendMessage} useSurfaceGrammar={true} />
+        {/* ⭐ AND THIS TAB IS THE ONE THAT OPTS IN TO THE VALUE CONTROL on
+            "what I estimated". The register stated "The numbers behind these
+            are mine, not yours. If you have better ones, tell me and I'll use
+            them." over a list with no way to tell it — an invitation with no
+            means of accepting it. The control is the proven factor-value edit
+            (`useFactorValueCommit`), bound to each row by the `node_id` CEE
+            itself supplies. It is opt-in so the PARKED Analysis tab does not
+            acquire a writer — see the prop's declaration. */}
+        <WhatIWasGivenSection
+          onSendMessage={onSendMessage}
+          useSurfaceGrammar={true}
+          offerEstimatedValueControl={true}
+        />
 
         {/* ⚠ THE PROMOTED RECOMMENDATION IS NOT EXCLUDED, AND THAT IS A KNOWN
             DUPLICATION rather than an oversight — recorded here because the
