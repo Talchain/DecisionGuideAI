@@ -15,7 +15,7 @@
  * - negative: Red stroke (increase → decrease)
  */
 
-import { memo, useMemo, useState, useRef, useEffect } from 'react'
+import { memo, useMemo, useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useReactFlow, useStore } from '@xyflow/react'
 import { Lightbulb, AlertTriangle, Flag } from 'lucide-react'
 import { NodeChip } from '../nodes/shared'
@@ -1008,6 +1008,53 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
    * (ΔE2000 11.7 vs 28.3 under deuteranopia): the SHAPE, not the colour, is
    * what carries polarity for a red-green dichromat here.
    */
+  /**
+   * ⭐⭐ DOES THE LABEL ACTUALLY PAINT THE DIRECTION IT CLAIMS TO?
+   *
+   * `labelCarriesDirection` answers that about the STRING. At the whole-model
+   * zoom the string is not what a reader sees: the chip is capped at
+   * `LABEL_HALF_WIDTH * 2` GRAPH units while the font counter-scales UP for
+   * legibility, so the text ellipsises. Measured on deployed `e5a62322`:
+   * `Moderate boost` needs 151px and gets 103px, `Moderate drag` needs 141px —
+   * and BOTH paint `Moderat…`. `distinctPainted` across three chips was exactly
+   * ONE string. Two opposite causal claims, identical on screen.
+   *
+   * ⛔ AND THE GLYPH THAT WOULD TELL THEM APART IS SUPPRESSED *BECAUSE OF* THAT
+   * LABEL. `directionStroke.ts:23-32` measured this palette as separating WORSE
+   * for a dichromat than the green/red it replaced (ΔE2000 11.7 vs 28.3 under
+   * deuteranopia), which is why the block below says the shape "IS NEVER
+   * DELETED" — yet on a truncated label polarity falls back to hue alone,
+   * exactly the state that file forbids.
+   *
+   * ⚠ THIS FILE HAS ALREADY FIXED THIS SHAPE ONCE. The numeric arm of
+   * `labelCarriesDirection` carries a clause added because "the predicate
+   * asserted its own name rather than checking it". Truncation is the same
+   * defect through a different door, and it is why this asks the PAINT rather
+   * than widening the predicate again.
+   *
+   * ⭐ IT STARTS `true` — GLYPH SHOWN — AND THAT DIRECTION IS DELIBERATE. The
+   * measurement can only run once the chip is in the document, so the first
+   * frame has no answer. Assuming "not truncated" would suppress the glyph on a
+   * guess; assuming truncated shows a redundant mark for one frame. Only one of
+   * those two errors loses a channel a dichromat depends on.
+   */
+  const strengthLabelRef = useRef<HTMLSpanElement | null>(null)
+  const [strengthLabelTruncated, setStrengthLabelTruncated] = useState(true)
+  useLayoutEffect(() => {
+    // No dependency array, deliberately: the overflow changes with ZOOM, which
+    // moves the counter-scaled font size without changing any prop, any state or
+    // the element's own box. A dep list keyed on the label text would go stale
+    // the moment the user zoomed — which is the only time this matters.
+    const el = strengthLabelRef.current
+    // No element means no chip on screen; hold the fail-safe value rather than
+    // reporting "not truncated" about something that is not rendered.
+    if (!el) return
+    const truncated = el.scrollWidth > el.clientWidth + 1
+    // Guarded: an unconditional setState in an effect with no deps re-renders
+    // for ever.
+    setStrengthLabelTruncated((prev) => (prev === truncated ? prev : truncated))
+  })
+
   const strengthRowCarriesDirection =
     showLabel &&
     isTopStrengthEdge &&
@@ -1018,7 +1065,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     // what `directionStroke.ts:23-32` forbids on a measurement. Asked of
     // `edgeLabels.ts`, which owns both emitters, rather than re-derived from
     // `labelMode` here.
-    labelCarriesDirection(edgeSignedStrength, directionDisplay, labelMode)
+    labelCarriesDirection(edgeSignedStrength, directionDisplay, labelMode) &&
+    // ⛔ AND IT MUST ACTUALLY BE LEGIBLE. See `strengthLabelTruncated`: a label
+    // ellipsised to `Moderat…` states no direction to a reader, whatever the
+    // string says.
+    !strengthLabelTruncated
 
   /**
    * ⭐⭐ WHERE THE POLARITY GLYPH SITS — P0, AND THE ONE STATE THIS COMPONENT
@@ -1757,6 +1808,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                       .react-flow__node — inside a node card the
                       no-clipped-text visual gate requires shortening in JS. */}
                   <span
+                    ref={strengthLabelRef}
                     data-testid="edge-influence-label-text"
                     style={{
                       minWidth: 0,
