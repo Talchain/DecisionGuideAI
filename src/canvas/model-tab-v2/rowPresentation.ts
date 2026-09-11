@@ -264,6 +264,6 @@ export const ATTENTION_LABEL: Record<AttentionReason, string> = {
   // being copied.
   'unconfirmed-estimate': UNCONFIRMED_ESTIMATE_LABEL,
   contested: 'Two passes disagree',
-  fragile: 'Could flip the result',
+  fragile: 'Could flip the answer',
   'missing-intervention': 'No target value for this option',
 }

@@ -449,7 +449,7 @@ function buildKeyInsights(
       groundedIn: 'the fragile-relationship analysis',
       marker: staleMarker,
       targetId: hinge.fromId,
-      inspect: rows(row('Chance the result flips', pctOrNull(hinge.switchProbability))),
+      inspect: rows(row('Chance the answer changes', pctOrNull(hinge.switchProbability))),
       intervention: interventionFor(recommendations, hinge.fromId),
     })
   }
@@ -584,7 +584,7 @@ function driverFinding(
         : `Relative influence ${pct(influence)}.`,
     detail:
       d.fragileEdgeInfo?.switchProbability != null
-        ? `This relationship is one the result is sensitive to.`
+        ? `These numbers are sensitive to this relationship.`
         : undefined,
     /* ⚠ THE GROUNDING IS A DIFFERENT QUESTION FROM THE SCALE, and it was
        riding the same flag. Now that the scale answer is the same for both
@@ -626,7 +626,7 @@ function driverFinding(
       // ⚠ ONLY `true` RENDERS. `false` is "no contested edge found", which is
       // not a finding, and printing it would fill every row with a negative.
       row('Contested evidence', d.hasContestedEdge === true ? 'yes' : null),
-      row('Chance the result flips', pctOrNull(d.fragileEdgeInfo?.switchProbability)),
+      row('Chance the answer changes', pctOrNull(d.fragileEdgeInfo?.switchProbability)),
     ),
     intervention: interventionFor(recommendations, target),
   }
@@ -1038,7 +1038,7 @@ function buildUncertainty(
      */
     const labelLength = truncateAtWordBoundary(text, 80)
     const headlineText = u.threshold
-      ? `${u.threshold.variable} could tip the result`
+      ? `${u.threshold.variable} could change the answer`
       : labelLength === text
         ? text
         : ''

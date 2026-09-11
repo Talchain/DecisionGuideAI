@@ -62,8 +62,8 @@ describe('FragileEdgeGroupCard — Brief 5.2 Task 6 fragile-row layout', () => {
     const altWinner = screen.getByTestId('fragile-alt-winner')
     expect(altWinner.textContent).toBe('Option B')
     expect(altWinner.className).toContain('font-semibold')
-    // Header reads: "Result could flip to Option B"
-    expect(document.body.textContent).toContain('Result could flip to')
+    // Header reads: "The answer could flip to Option B"
+    expect(document.body.textContent).toContain('The answer could flip to')
     expect(document.body.textContent).toContain('Option B')
     expect(document.body.textContent).not.toContain('could win')
   })

@@ -582,8 +582,8 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       // restating the selection rule; now it states the subject.
       title: `Test the assumption about ${top.factorLabel}`,
       signal: alt
-        ? `${pct(top.switchProbability)} chance the result flips to ${alt} if ${top.factorLabel} shifts.`
-        : `${pct(top.switchProbability)} chance the result flips if ${top.factorLabel} shifts.`,
+        ? `${pct(top.switchProbability)} chance ${alt} scores highest instead if ${top.factorLabel} shifts.`
+        : `${pct(top.switchProbability)} chance a different option scores highest if ${top.factorLabel} shifts.`,
       whyNow: 'This single relationship carries the most decision risk right now.',
       tryThis: 'Plan one check that would confirm or correct this assumption before you rely on the ranking.',
       sourceLine: 'Source: robustness analysis (fragile relationships).',
@@ -756,7 +756,7 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
       id: 'strengthen:commit',
       helpType: 'commit',
       title: 'Record the decision and what would trigger a rethink',
-      signal: 'The result held up under stress-testing.',
+      signal: 'On the data so far, these numbers held up under stress-testing.',
       whyNow: 'Capturing the decision and its revisit triggers now preserves the reasoning while it is fresh.',
       tryThis: 'Note the chosen option, the key assumptions, and the one change that would reopen this.',
       sourceLine: 'Source: robustness analysis (result stable).',

@@ -88,7 +88,7 @@ const PROBE_A = read(
 )
 
 /** The presupposing claims — each asserts the LEADER could change. */
-const FLIP_CLAIM_RE = /could flip the result to|which option is most likely to hit your goal/
+const FLIP_CLAIM_RE = /could flip the result to|could flip the answer to|which option is most likely to hit your goal/
 
 // ── the two captures, read exactly as the wire delivered them ──────────────
 const walkAEnrichment = WALK_A.blocks[0].enrichment
@@ -200,7 +200,7 @@ describe('OPPOSITE DIRECTION — a genuinely fragile result must still say so', 
     })
     expect(h.kind).toBe('altWinner')
     if (h.kind !== 'altWinner') return
-    expect(h.lead).toContain('could flip the result to')
+    expect(h.lead).toContain('could flip the answer to')
     expect(h.altWinnerLabel).toBe(PROBE_ALT)
   })
 

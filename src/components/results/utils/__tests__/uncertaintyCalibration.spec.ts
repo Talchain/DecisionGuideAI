@@ -39,7 +39,7 @@ describe('calibrateUncertaintyCopy', () => {
     })
     expect(result).toEqual({
       tier: 'moderate',
-      text: "It appears the result holds, though there's meaningful uncertainty in the estimate.",
+      text: "This result appears to hold, though there's meaningful uncertainty in the estimate.",
     })
   })
 
@@ -51,7 +51,7 @@ describe('calibrateUncertaintyCopy', () => {
     })
     expect(result).toEqual({
       tier: 'moderate',
-      text: "It appears the result holds, though there's meaningful uncertainty in the estimate.",
+      text: "This result appears to hold, though there's meaningful uncertainty in the estimate.",
     })
   })
 
