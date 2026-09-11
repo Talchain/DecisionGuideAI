@@ -35,22 +35,9 @@
  * visibility or above-the-fold claim.
  */
 
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect } from 'vitest'
 import type { Node } from '@xyflow/react'
 import { buildGoalFitRows } from '../buildGoalFitRows'
-
-vi.mock('../../../store', () => ({
-  useCanvasStore: vi.fn((selector: (s: unknown) => unknown) =>
-    selector({ setGoalThresholdAndUpdateNode: vi.fn() }),
-  ),
-}))
-vi.mock('../../../utils/focusHelpers', () => ({ focusNodeById: vi.fn() }))
-vi.mock('../../GraphTextView', () => ({
-  SectionErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}))
-
-const { GoalSection } = await import('../GoalSection')
 
 /** The walk's measured quintet, in producer order, with its sample count. */
 const WALK_QUINTET = [0.0007, 0.0001, 0.0004, 0, 0.0002] as const
@@ -90,18 +77,12 @@ function walkReport(nValid: number | null = WALK_N) {
   )
 }
 
-function goalNodeWithTarget(): Node {
-  return {
-    id: 'goal-1',
-    type: 'goal',
-    position: { x: 0, y: 0 },
-    data: {
-      label: 'Grow annual revenue',
-      success_threshold: 0.75,
-      threshold_source: 'user',
-    },
-  }
-}
+/*
+ * ⚠ `goalNodeWithTarget()` REMOVED 2026-09-11. It supplied the goal node to the
+ * deleted `GoalSection` render cases; the builder cases below take options and a
+ * producer map, not a goal node. An unused fixture is the next session's false
+ * map of what this file still covers.
+ */
 
 describe('buildGoalFitRows — carries the wire sample count (ROADMAP 2.334)', () => {
   it('positive control: the builder resolves the walk fixture to five complete rows', () => {
@@ -138,76 +119,30 @@ describe('buildGoalFitRows — carries the wire sample count (ROADMAP 2.334)', (
   })
 })
 
-describe('T-2334-1 — GoalSection renders the ordering it was always given', () => {
-  it('positive control: a mid-range row renders its own percentage', () => {
-    render(
-      <GoalSection
-        goalNode={goalNodeWithTarget()}
-        goalFitRows={buildGoalFitRows(optionNodes(1), { opt_0: producerEntry(0.34) })}
-      />,
-    )
-    expect(screen.getByTestId('goal-fit-parity').textContent).toContain('34%')
-  })
-
-  it('renders FIVE DISTINCT readouts for the walk quintet', () => {
-    render(
-      <GoalSection
-        goalNode={goalNodeWithTarget()}
-        goalFitRows={buildGoalFitRows(optionNodes(5), walkReport())}
-      />,
-    )
-    const block = screen.getByTestId('goal-fit-parity')
-    const text = block.textContent ?? ''
-
-    // Executed against the real formatter at this tip, producer order.
-    for (const expected of ['0.1%', '0.01%', '0.04%', '<0.01%', '0.02%']) {
-      expect(text).toContain(expected)
-    }
-    // The defect's signature: five identical floor strings.
-    expect(text.match(/< 1%/g) ?? []).toHaveLength(0)
-  })
-
-  it('makes the value ORDER legible in the rendered strings', () => {
-    // PC4's actual claim. Rows are in producer order; sorting the rendered
-    // readouts by their underlying value must produce a strictly descending
-    // sequence of DISTINCT strings — which is only possible if the readouts
-    // discriminate the values at all.
-    render(
-      <GoalSection
-        goalNode={goalNodeWithTarget()}
-        goalFitRows={buildGoalFitRows(optionNodes(5), walkReport())}
-      />,
-    )
-    const rowEls = Array.from(
-      screen.getByTestId('goal-fit-parity').querySelectorAll('div'),
-    ).filter((el) => /Option \d/.test(el.textContent ?? ''))
-
-    const byValueDesc = [...WALK_QUINTET]
-      .map((p, i) => ({ p, i }))
-      .sort((a, b) => b.p - a.p)
-      .map(({ i }) => rowEls.find((el) => (el.textContent ?? '').startsWith(`Option ${i}`)))
-      .map((el) => (el?.textContent ?? '').replace(/^Option \d+ — /, ''))
-
-    expect(byValueDesc.map((s) => s.split(' ')[0])).toEqual([
-      '0.1%',
-      '0.04%',
-      '0.02%',
-      '0.01%',
-      '<0.01%',
-    ])
-    expect(new Set(byValueDesc).size).toBe(WALK_QUINTET.length)
-  })
-
-  it('falls back to the register floor when the run carries no sample count', () => {
-    // The no-overclaim pin: without a wire resolution the rows must NOT
-    // invent one — they collapse to the floor exactly as they do today.
-    render(
-      <GoalSection
-        goalNode={goalNodeWithTarget()}
-        goalFitRows={buildGoalFitRows(optionNodes(5), walkReport(null))}
-      />,
-    )
-    const text = screen.getByTestId('goal-fit-parity').textContent ?? ''
-    expect(text.match(/< 1%/g) ?? []).toHaveLength(5)
-  })
-})
+/**
+ * ⚠⚠ NARROWED 2026-09-11 — THE RENDER HALF'S SUBJECT WAS DELETED.
+ *
+ * `describe('T-2334-1 — GoalSection renders the ordering it was always given')`
+ * was here, with five cases driving `GoalSection` through
+ * `const { GoalSection } = await import('../GoalSection')`. `GoalSection.tsx` was
+ * deleted with the v1 Model stack (Paul's ruling): it rendered only inside
+ * `ModelTabBody`'s `LEGACY_DETAILED_EDITOR_MOUNTED = false` gate and had no other
+ * production importer.
+ *
+ * ⭐ THE BUILDER HALF ABOVE IS UNCHANGED AND IS THE HALF THAT STILL GUARDS A LIVE
+ * PATH. `buildGoalFitRows.ts` survives — `ModelTabBody` imports it and feeds the
+ * v2 outline — so the wire-count carriage this file was written to pin (ROADMAP
+ * 2.334) is still pinned, on the producer rather than on a deleted renderer.
+ *
+ * ⚠ WHAT IS GENUINELY NO LONGER COVERED, NAMED RATHER THAN IMPLIED CLOSED: that
+ * the five distinct percentages are legible ON SCREEN. The builder cases prove
+ * the numbers reach the rows; nothing here now proves a renderer prints them
+ * distinctly. If the v2 outline's goal rows regress to a floor-only formatter,
+ * this file will not see it. That is a real coverage gap in `model-tab-v2`, not
+ * a v1 one, and it belongs to whoever owns those rows.
+ *
+ * ⚠ AND A METHOD NOTE WORTH KEEPING. This importer was invisible to a
+ * `from '...'` regex sweep because it is a DYNAMIC `await import()`. It was caught
+ * by the typecheck gate, not by the manifest. Any future importer sweep in this
+ * estate must cover `import()`, `require()` and `vi.mock()`, not just `from`.
+ */

@@ -5,10 +5,25 @@
  * See that file's header for the live measurement that refutes the number.
  *
  * Covers the canvas surfaces the original brief did not name:
+ *   · compare-tab Hero  — "resolving could improve confidence by {X}pp"
+ *
+ * ⚠⚠ NARROWED 2026-09-11 — THE SUBJECTS WERE DELETED, THE RULE WAS NOT RELAXED.
+ * This file also pinned three surfaces that no longer exist in any form:
  *   · FactorsSection    — the "Worth Xpp if resolved" chip AND the `EVPI  Xpp` row
  *   · FactorsSection    — the factor-list ORDER, which was EVPI-ranked
  *   · StatusBar         — the `"{X}pp via EVPI"` chip (a SUM of three refuted numbers)
- *   · compare-tab Hero  — "resolving could improve confidence by {X}pp"
+ * `FactorsSection.tsx` and `StatusBar.tsx` were removed with the v1 Model stack
+ * (Paul's ruling, 2026-09-11): they sat inside `ModelTabBody`'s
+ * `LEGACY_DETAILED_EDITOR_MOUNTED = false` gate and had no other importer. Their
+ * cases are gone because the components are gone — a test of a deleted module
+ * cannot run, and keeping a stub would be a guard agreeing with itself.
+ *
+ * ⭐ THE RECORD IS KEPT DELIBERATELY (trap 14b). The figures those cases pinned
+ * were REAL: they are what the product once rendered, and the refutation that
+ * removed them stands. If an EVPI percentage-point claim is ever reintroduced on
+ * a canvas surface, it must come back through a NEW component, and this header
+ * is the reason someone will know it was refused once already. The live
+ * `compare-tab Hero` case below is unchanged and still pins the same rule.
  *
  * The order and label cases matter because #477 — the commit immediately
  * preceding this one — exists to close "the NON-TEXT channels — order, bar,
@@ -19,12 +34,8 @@
  * NOT a visibility claim.
  */
 
-import React from 'react'
 import { describe, it, expect, vi, beforeAll } from 'vitest'
-import { render, screen, within, fireEvent } from '@testing-library/react'
-import type { Node } from '@xyflow/react'
-import { FactorsSection } from '../FactorsSection'
-import { StatusBar } from '../StatusBar'
+import { render } from '@testing-library/react'
 import { Hero } from '../../../compare-tab/Hero'
 import type { AnalysisSnapshot } from '../../../compare-tab/types'
 
@@ -51,167 +62,6 @@ vi.stubGlobal('sessionStorage', {
 })
 
 const PP_TOKEN = /\d+(\.\d+)?\s*pp\b/i
-
-/**
- * Inject a prop the component no longer declares.
- *
- * The removal is only meaningful if a caller that STILL supplies the old prop
- * gets nothing rendered — a test that merely omits it would also pass against a
- * component that still reads it. The cast is deliberate and local to this file.
- */
-function withRemovedProp<P>(props: P, removed: Record<string, unknown>): P {
-  return { ...props, ...removed } as P
-}
-
-function factorNode(id: string, label: string): Node {
-  return {
-    id,
-    type: 'factor',
-    position: { x: 0, y: 0 },
-    data: {
-      label,
-      kind: 'factor',
-      category: 'observable',
-      observedState: { value: 0.5, source: 'user' },
-    },
-  } as unknown as Node
-}
-
-// Live `a4b32ee2` factors, with the exact refuted figures PLoT publishes.
-const NODES = [
-  factorNode('fac_salary_cost', 'Annual Salary Cost'),
-  factorNode('fac_team_experience', 'Existing Team Experience Level'),
-]
-const LIVE_EVPI = new Map([['fac_team_experience', 10.2], ['fac_salary_cost', 6.6]])
-
-describe('FactorsSection — no EVPI text and no EVPI ordering', () => {
-  it('POSITIVE CONTROL: both factor cards render', () => {
-    render(<FactorsSection factorNodes={NODES} hasAnalysisData isExpanded />)
-    expect(screen.getByText('Annual Salary Cost')).toBeInTheDocument()
-    expect(screen.getByText('Existing Team Experience Level')).toBeInTheDocument()
-  })
-
-  it('renders neither the "Worth Xpp" chip nor the EVPI row, even when handed an evpiMap', () => {
-    const { container } = render(
-      <FactorsSection
-        {...withRemovedProp(
-          {
-            factorNodes: NODES,
-            hasAnalysisData: true,
-            isExpanded: true,
-            factorInfluence: new Map([['fac_salary_cost', 0.9], ['fac_team_experience', 0.1]]),
-          },
-          { evpiMap: LIVE_EVPI },
-        )}
-      />,
-    )
-
-    // ⚠ The chip and the metric row are BOTH gated on per-card expansion
-    // (`cardExpanded`), which only a click sets. An earlier version of this
-    // spec asserted their absence WITHOUT clicking — and a mutant that
-    // restored the chip verbatim still passed, because the card was collapsed
-    // and nothing could have rendered. Expand first, then assert.
-    for (const node of NODES) {
-      fireEvent.click(screen.getByTestId(`factor-card-${node.id}`))
-    }
-
-    // POSITIVE CONTROL for the expansion itself: content that appears ONLY on
-    // an expanded post-analysis card must now be present. Without this, the
-    // absence assertions below are unfalsifiable again.
-    expect(screen.getAllByText('Influence').length).toBeGreaterThan(0)
-
-    const text = container.textContent ?? ''
-    expect(text).not.toMatch(/worth\s+\d/i)
-    expect(text).not.toMatch(/would improve confidence by/i)
-    expect(text).not.toMatch(/\bEVPI\b/)
-    expect(text).not.toMatch(PP_TOKEN)
-    expect(text).not.toContain('10.2')
-    expect(text).not.toContain('6.6')
-    expect(container.querySelector('[data-testid$="-evpi"]')).toBeNull()
-  })
-
-  it('orders by influence, not by EVPI, when analysis data is present', () => {
-    // EVPI would rank team_experience (10.2) above salary_cost (6.6).
-    // Influence here deliberately DISAGREES: salary_cost leads. If the EVPI
-    // sort branch were still live, this assertion would invert.
-    const { container } = render(
-      <FactorsSection
-        {...withRemovedProp(
-          {
-            factorNodes: NODES,
-            hasAnalysisData: true,
-            isExpanded: true,
-            factorInfluence: new Map([['fac_salary_cost', 0.9], ['fac_team_experience', 0.1]]),
-          },
-          { evpiMap: LIVE_EVPI },
-        )}
-      />,
-    )
-    const text = container.textContent ?? ''
-    const iSalary = text.indexOf('Annual Salary Cost')
-    const iTeam = text.indexOf('Existing Team Experience Level')
-    expect(iSalary).toBeGreaterThanOrEqual(0)
-    expect(iTeam).toBeGreaterThanOrEqual(0)
-    expect(iSalary).toBeLessThan(iTeam)
-  })
-})
-
-describe('StatusBar — no "Xpp via EVPI" chip', () => {
-  /**
-   * ⚠ `recommendationStability` REMOVED FROM THIS FIXTURE (ROADMAP 2.1273).
-   *
-   * The prop no longer exists on `StatusBarProps`: PLoT withholds
-   * `robustness.recommendation_stability` (the leading option's
-   * `win_probability` relabelled), so the `"{N}% stability"` segment was
-   * deleted alongside the `"{X}pp via EVPI"` segment this file pins — same
-   * defect class, same file, one row apart.
-   *
-   * ⚠⚠ AND NOTE HOW THIS SURFACED, because it is the lesson: the positive
-   * control below used to assert `text).toContain('stability')` as its proof
-   * that the bar was not empty. Removing the segment made that control FAIL —
-   * correctly. But the TYPECHECK GATE COULD NOT SEE THE STALE PROP, because
-   * `BASE` is a `const` that is SPREAD (`{...BASE}`), and TypeScript's
-   * excess-property check does not apply to a spread of a variable — only to a
-   * fresh object literal. So `pnpm run typecheck` passed clean while a removed
-   * prop was still being supplied, and only the runtime assertion caught it.
-   * A green typecheck says nothing about props delivered through a spread.
-   */
-  const BASE = {
-    factorsToVerify: 2,
-    fragileEdgeCount: 0,
-    contestedCount: 3,
-    hasAnalysisData: true,
-  }
-
-  it('POSITIVE CONTROL: the bar still renders its other post-analysis segments', () => {
-    render(<StatusBar {...BASE} />)
-    const text = screen.getByTestId('model-status-bar').textContent ?? ''
-    // Two SURVIVING segments, so this control still proves the bar rendered
-    // content — it must never again be anchored to a segment under removal.
-    expect(text).toContain('contested')
-    expect(text).toContain('to verify')
-    // And the withdrawn one is gone (pinned in full, with the prop INJECTED, in
-    // `withheldStabilitySurfaces.honesty.spec.tsx`).
-    expect(text).not.toContain('stability')
-  })
-
-  it('never sums percentage points into a headline figure', () => {
-    render(
-      <StatusBar
-        {...withRemovedProp(BASE, {
-          evpiMap: new Map([['a', 12.3], ['b', 10.2], ['c', 6.6]]),
-        })}
-      />,
-    )
-    const bar = screen.getByTestId('model-status-bar')
-    const text = bar.textContent ?? ''
-    expect(text).not.toMatch(/via EVPI/i)
-    expect(text).not.toMatch(PP_TOKEN)
-    // 12.3 + 10.2 + 6.6 = 29.1 → the old chip read "29pp via EVPI".
-    expect(text).not.toContain('29')
-    expect(within(bar).queryByTestId('status-evpi')).toBeNull()
-  })
-})
 
 describe('compare-tab Hero — no pp claim, and the CTA still targets a factor', () => {
   function snapshot(): AnalysisSnapshot {

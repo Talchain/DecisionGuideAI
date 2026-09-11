@@ -80,9 +80,31 @@ function productFiles(dir: string, acc: string[] = []): string[] {
 
 const FILES = productFiles(SRC)
 
-/** Files importing the NAMED binding `symbol` from a `GraphTextView` module. */
-function productImportersOf(symbol: string): string[] {
-  const re = new RegExp(`import\\s*\\{[^}]*\\b${symbol}\\b[^}]*\\}\\s*from\\s*'[^']*GraphTextView'`)
+/**
+ * Files importing the NAMED binding `symbol` from `module`.
+ *
+ * ⚠⚠ `module` IS NOW A PARAMETER, AND THAT IS A REPAIR, NOT A GENERALISATION
+ * (2026-09-11). This function was hardcoded to `GraphTextView`, and the contrast
+ * control below asserted that `ModelTabBody.tsx` imported `SectionErrorBoundary`
+ * from it — which was true, and is the ONLY reason the door's zero meant
+ * anything.
+ *
+ * The v1 Model-stack removal took that anchor away in two moves: `ModelTabBody`'s
+ * `SectionErrorBoundary` import was dead (imported, never used) and was deleted,
+ * and the five `model-tab/` sections that imported the same symbol were deleted
+ * with it. `ModelHealthSection` — the one live importer left — was REPOINTED to
+ * `canvas/components/SectionErrorBoundary.tsx`, the twin that actually reports to
+ * monitoring. So after that change NO product file imports ANY symbol from
+ * `GraphTextView`, and a contrast control aimed at that module can no longer
+ * distinguish "nothing imports it" from "the probe is blind".
+ *
+ * ⭐ THE SPEC'S OWN RULE, APPLIED TO ITSELF: *a control only validates the probe
+ * it shares a COMMAND SHAPE with.* So the control now calls THIS function, with
+ * the same regex, against a module that really is statically imported by product
+ * files — rot the regex and the control REDs before either door is consulted.
+ */
+function productImportersOf(symbol: string, module = 'GraphTextView'): string[] {
+  const re = new RegExp(`import\\s*\\{[^}]*\\b${symbol}\\b[^}]*\\}\\s*from\\s*'[^']*${module}'`)
   return FILES.filter((f) => re.test(readFileSync(f, 'utf8'))).map((f) => f.slice(SRC.length + 1))
 }
 
@@ -109,12 +131,31 @@ describe('GraphTextView is not mounted in the product — derived, not asserted'
     expect(FILES.length).toBeGreaterThan(500)
   })
 
-  it('CONTRAST CONTROL: the same probe DOES find product importers of the module', () => {
-    // Proves the regex and the traversal work on this exact module path. Without
-    // this, "zero GraphTextView importers" could mean "the probe matches nothing".
-    const boundary = productImportersOf('SectionErrorBoundary')
+  it('CONTRAST CONTROL: the same probe DOES find product importers, on a live module', () => {
+    // Proves the regex and the traversal work. Without this, "zero GraphTextView
+    // importers" could mean "the probe matches nothing".
+    //
+    // ⚠ RE-ANCHORED 2026-09-11. This used to point at `SectionErrorBoundary`
+    // imported FROM `GraphTextView`, with `ModelTabBody.tsx` as the named hit.
+    // Both halves went away with the v1 Model-stack removal — see the header on
+    // `productImportersOf`. It now points at the SURVIVING boundary module, which
+    // has five live product importers.
+    const boundary = productImportersOf('SectionErrorBoundary', 'SectionErrorBoundary')
     expect(boundary.length).toBeGreaterThan(0)
-    expect(boundary).toContain('canvas/components/ModelTabBody.tsx')
+
+    // ⭐ NAMED, NOT JUST COUNTED — and this particular name is load-bearing.
+    // `ModelHealthSection` is the mounted Model card; it was importing the
+    // console-only twin, so its render errors reported to nothing. If this line
+    // REDs, that repoint has been reverted.
+    expect(boundary).toContain('canvas/components/model-tab/ModelHealthSection.tsx')
+    expect(boundary).toContain('canvas/components/OutputsDock.tsx')
+  })
+
+  it('⭐ THE TRIPWIRE, THIRD DOOR: no product file imports the console-only twin', () => {
+    // The v1 removal emptied `GraphTextView`'s importer list entirely. Pin that:
+    // a new import of its `SectionErrorBoundary` is a silent downgrade from the
+    // reporting boundary to a `console.error`, and nothing else would catch it.
+    expect(productImportersOf('SectionErrorBoundary')).toEqual([])
   })
 
   it('⭐ THE TRIPWIRE: no product file imports the GraphTextView COMPONENT', () => {

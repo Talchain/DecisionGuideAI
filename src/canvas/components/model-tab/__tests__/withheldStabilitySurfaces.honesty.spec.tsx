@@ -14,10 +14,19 @@
  * time under a name that implies an independent robustness measurement.
  *
  * Three surfaces rendered that percentage and are removed here:
- *   · StatusBar          — the `status-stability` segment, `"{N}% stability"`
  *   · ModelHealthSection — the collapsed header summary half, `"{N}% stability"`
  *   · ModelHealthSection — the expanded audit-trail `Stability  {N}%` row
  *   · TrajectorySection  — the expert table's `Stability %` column
+ *
+ * ⚠ NARROWED 2026-09-11 — ONE SUBJECT WAS DELETED, NOT EXCUSED. A fourth
+ * surface, `StatusBar`'s `status-stability` segment, was pinned here too.
+ * `StatusBar.tsx` was removed with the v1 Model stack (Paul's ruling,
+ * 2026-09-11): it sat inside `ModelTabBody`'s `LEGACY_DETAILED_EDITOR_MOUNTED =
+ * false` gate and `ModelTabBody` was its only importer. Its case is gone because
+ * the component is gone. The record of what it rendered, and why that was
+ * dishonest, is retained in this header on purpose (trap 14b) — the two
+ * `ModelHealthSection` cases and the `TrajectorySection` case below are
+ * unchanged and still carry the rule for the surfaces that survive.
  * (plus a dead read in `OutputsDock` → `derivePostFooterMeta`, whose own F7
  * pins live in `canvas/components/utils/__tests__/postAnalysisFooter.spec.ts`,
  * and a fully dead `components/results/TrustOneLiner.tsx`, deleted.)
@@ -51,7 +60,6 @@
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { StatusBar } from '../StatusBar'
 import { ModelHealthSection } from '../ModelHealthSection'
 import type { AuditTrailData } from '../ModelHealthSection'
 import { DetailToggleContext } from '../DetailToggleContext'
@@ -152,68 +160,6 @@ function snapshot(overrides: Partial<AnalysisSnapshot> = {}): AnalysisSnapshot {
     ...overrides,
   } as AnalysisSnapshot
 }
-
-// ───────────────────────────────────────────────────────────────────────────
-describe('StatusBar — the "{N}% stability" segment cannot render', () => {
-  it('POSITIVE CONTROL: the bar renders its surviving post-analysis segments', () => {
-    render(
-      <StatusBar
-        factorsToVerify={2}
-        fragileEdgeCount={4}
-        contestedCount={1}
-        hasAnalysisData
-      />,
-    )
-    // Without these, every absence assertion below would be unfalsifiable — a
-    // bar that rendered nothing at all also contains no percentage.
-    expect(screen.getByTestId('status-verify')).toHaveTextContent('2 to verify')
-    expect(screen.getByTestId('status-fragile')).toHaveTextContent('4 fragile')
-    expect(screen.getByTestId('status-contested')).toHaveTextContent('1 contested')
-  })
-
-  it('renders no stability segment even when handed a legacy recommendationStability', () => {
-    const { container } = render(
-      <StatusBar
-        {...withRemoved(
-          {
-            factorsToVerify: 2,
-            fragileEdgeCount: 4,
-            contestedCount: 1,
-            hasAnalysisData: true,
-          },
-          { recommendationStability: LEGACY_STABILITY },
-        )}
-      />,
-    )
-
-    // Bound by IDENTITY (the segment's own testid), not by a text predicate
-    // another segment could satisfy.
-    expect(screen.queryByTestId('status-stability')).not.toBeInTheDocument()
-    expect(container.textContent ?? '').not.toMatch(PCT_STABILITY)
-    expect(container.textContent ?? '').not.toContain(`${LEGACY_PCT}%`)
-  })
-
-  it('renders no stability segment for a legacy value that would round to a DIFFERENT figure', () => {
-    // A second value guards against a test that only ever proved "71" absent
-    // (e.g. because 71 never appeared for an unrelated reason).
-    const { container } = render(
-      <StatusBar
-        {...withRemoved(
-          {
-            factorsToVerify: 0,
-            fragileEdgeCount: 0,
-            contestedCount: 3,
-            hasAnalysisData: true,
-          },
-          { recommendationStability: 0.42 },
-        )}
-      />,
-    )
-    expect(screen.getByTestId('status-contested')).toHaveTextContent('3 contested')
-    expect(screen.queryByTestId('status-stability')).not.toBeInTheDocument()
-    expect(container.textContent ?? '').not.toContain('42%')
-  })
-})
 
 // ───────────────────────────────────────────────────────────────────────────
 describe('ModelHealthSection — neither header nor audit row can render a stability %', () => {

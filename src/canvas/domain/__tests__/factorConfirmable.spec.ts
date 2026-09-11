@@ -292,11 +292,16 @@ describe('⭐ ONE definition, and no surface re-expresses the conjunction', () =
     expect(DEFINITION.test(domain)).toBe(true)
     expect(VALUE_GUARD.test(domain)).toBe(true)
 
+    // ⚠ `canvas/components/model-tab/FactorsSection.tsx` WAS IN THIS LIST and was
+    // deleted with the v1 Model stack (2026-09-11). It is removed rather than
+    // stubbed: `read()` would throw ENOENT on it, and a file that does not exist
+    // cannot re-express the conjunction. The surviving surfaces below are
+    // unchanged, and the positive control above still proves the matcher sees a
+    // real definition — so this list has not gone quietly blind.
     for (const rel of [
       'canvas/model-tab-v2/adapters.ts',
       'canvas/model-tab-v2/ModelRowView.tsx',
       'canvas/components/model-tab/utils.ts',
-      'canvas/components/model-tab/FactorsSection.tsx',
       'canvas/hooks/useModelEditAuthority.ts',
     ]) {
       const src = read(rel)
@@ -333,11 +338,12 @@ describe('⭐ ONE definition, and no surface re-expresses the conjunction', () =
         /filter\(n => factorNeedsVerification\(n\.data\)\)/,
         /factorIsConfirmable\(/,
       ],
-      [
-        'canvas/components/model-tab/FactorsSection.tsx',
-        /primaryValue\s*!==\s*null\s*\|\|\s*normalisedValue\s*!==\s*null/,
-        /factorIsConfirmable\(/,
-      ],
+      // ⚠ A FOURTH ROW WAS HERE — `canvas/components/model-tab/FactorsSection.tsx`,
+      // competitor `primaryValue !== null || normalisedValue !== null`. The file
+      // was deleted with the v1 Model stack (2026-09-11), so the competitor shape
+      // it carried cannot exist. Dropping the row is the honest move: `read()`
+      // throws on a missing path, and keeping it would have made this loop fail
+      // for a reason that has nothing to do with the rule it enforces.
     ]
 
     for (const [rel, competitor, contrast] of COMPETITORS) {

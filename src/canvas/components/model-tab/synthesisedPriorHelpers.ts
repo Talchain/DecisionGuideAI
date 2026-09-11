@@ -6,7 +6,21 @@
  */
 
 import type { Node } from '@xyflow/react'
-import type { SynthesisedPrior } from './FactorsSection'
+
+/**
+ * The prior bounds this module produces.
+ *
+ * ⚠ RE-HOMED 2026-09-11. This interface used to live in
+ * `model-tab/FactorsSection.tsx` and was imported from here by type only —
+ * which made a ~40KB dead component the declaration site for a type used by
+ * LIVE code. `FactorsSection` was deleted with the rest of the v1 Model stack
+ * (Paul's ruling, 2026-09-11); the type moved here, to the module that builds
+ * the values, rather than the removal being blocked by it.
+ */
+export interface SynthesisedPrior {
+  rangeMin: number
+  rangeMax: number
+}
 
 export function buildSynthesisedPriorMap(
   ceePipelineTrace: unknown,

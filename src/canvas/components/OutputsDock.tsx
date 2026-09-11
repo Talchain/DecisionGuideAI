@@ -104,7 +104,7 @@ import {
 import { scrollAnalysisResultIntoView } from './scrollAnalysisResultIntoView'
 import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { focusFloating } from '../hooks/useFloatingFocus'
-import { countFactorsToVerify, deriveFactorInfluenceMap } from './model-tab/utils'
+import { countFactorsToVerify } from './model-tab/utils'
 import { getGoalDirection } from '../utils/getObjectiveText'
 import { useDebugShortcut } from '../hooks/useDebugShortcut'
 import { IdentifiabilityBadge, normalizeIdentifiabilityTag } from './IdentifiabilityBadge'
@@ -1971,10 +1971,30 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
 
   const ceeQuality = useCanvasStore(s => s.ceeQuality)
 
-  // ROADMAP 1.7: influence_score (producer-owned, ISL/PLoT) takes priority
-  // over elasticity/sensitivity_score/importance_score — see
-  // deriveFactorInfluenceMap doctrine comment (model-tab/utils.ts).
-  const factorInfluenceMap = useMemo(() => deriveFactorInfluenceMap(report), [report])
+  /**
+   * ⚠ REMOVED 2026-09-11 (v1 Model-stack removal).
+   *
+   * (The ROADMAP 1.7 note that stood here — influence_score takes priority over
+   * elasticity/sensitivity_score/importance_score — still holds and still lives
+   * where it is enforced: the `deriveFactorInfluenceMap` doctrine comment in
+   * `model-tab/utils.ts`. It is not lost, only no longer duplicated at a call
+   * site that no longer exists.)
+   *
+   * `const factorInfluenceMap = useMemo(() => deriveFactorInfluenceMap(report), [report])`
+   * was here. Its ONLY consumer was `<ModelTabBody factorInfluence={...}>`, and
+   * inside `ModelTabBody` the value reached only `<FactorsSection>` — which sat
+   * behind `LEGACY_DETAILED_EDITOR_MOUNTED = false` and was deleted. So this
+   * derivation ran on every report and fed a component no user could see.
+   *
+   * ⚠ NO USER-VISIBLE CHANGE, and the distinction matters: the influence figures
+   * were already unreachable — the gate was `false`, not merely collapsed. What
+   * this removes is the computation, not a surface.
+   *
+   * `deriveFactorInfluenceMap` (`model-tab/utils.ts`) is KEPT with its spec: it is
+   * a pure, tested helper the v2 outline may consume when it surfaces influence.
+   * It now has NO production caller — recorded here so that is a known fact
+   * rather than a discovery.
+   */
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -3931,7 +3951,6 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 nodes={nodes}
                 edges={edges}
                 robustness={mappedRobustness}
-                factorInfluence={factorInfluenceMap}
                 ceeQuality={ceeQuality}
                 expertMode={expertMode}
                 // 2.581's convergence, now applied to the Model tab. The
