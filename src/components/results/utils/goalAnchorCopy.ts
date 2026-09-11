@@ -604,8 +604,20 @@ export const COMPARISON_SCOPE_COPY = {
    * THE disclosure sentence — scope and names in one line, for rendering
    * directly beneath a headline or a chart heading.
    */
+  /**
+   * ⚠ TWO SENTENCES, NOT ONE JOINED BY A DASH (11 Sep 2026). Paul's ruling:
+   * no em dashes in product content — it is where a hedge gets bolted on.
+   * The shipped sentence was
+   *   "Comparing 4 of your 8 options — Buy an AI Triage Tool, Hire Six More
+   *    Agents and 2 others were left out."
+   * Both halves carry information the user needs and BOTH SURVIVE the split:
+   * the scope arithmetic in the first, the named-and-counted exclusions in the
+   * second. Nothing was cut, and no other dash was substituted for the one
+   * removed — a full stop is the ruled remedy, an en dash would be the same
+   * hedge wearing different clothes.
+   */
   sentence: (scope: ComparisonScope): string =>
-    `${COMPARISON_SCOPE_COPY.phrase(scope)} — ${COMPARISON_SCOPE_COPY.excludedClause(scope)}.`,
+    `${COMPARISON_SCOPE_COPY.phrase(scope)}. ${COMPARISON_SCOPE_COPY.excludedClause(scope)}.`,
 
   /**
    * The consequence, for surfaces with room for a second line. States what the

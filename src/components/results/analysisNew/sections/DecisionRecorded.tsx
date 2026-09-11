@@ -161,7 +161,7 @@ export function formatRecordedOn(savedAt: number): string | null {
 export function recordedOptionText(record: DecisionRecord): string {
   const label = record.optionLabel?.trim()
   const named = label && label !== '' ? label : record.optionId
-  return record.optionNumber != null ? `Option ${record.optionNumber} — ${named}` : named
+  return record.optionNumber != null ? `Option ${record.optionNumber}: ${named}` : named
 }
 
 /**

@@ -57,6 +57,7 @@ import { describe, it, expect } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { OptionCards } from '../OptionCards'
 import { WinGauge } from '../WinGauge'
+import { ComparisonScopeNote } from '../ComparisonScopeNote'
 import { COMPARISON_SCOPE_COPY, deriveComparisonScope } from '../utils/goalAnchorCopy'
 import type { OptionResult } from '../types'
 
@@ -262,7 +263,7 @@ describe('comparison-scope disclosure — a subset result says which options it 
 
     it('composes the draw-10 shape verbatim', () => {
       expect(COMPARISON_SCOPE_COPY.sentence(scope)).toBe(
-        'Comparing 3 of your 4 options — Hybrid Phased Approach was left out.',
+        'Comparing 3 of your 4 options. Hybrid Phased Approach was left out.',
       )
       expect(COMPARISON_SCOPE_COPY.detail(scope)).toBe(
         'Ranks and comparative percentages describe those 3 only.',
@@ -272,7 +273,7 @@ describe('comparison-scope disclosure — a subset result says which options it 
     it('joins two excluded options in British house style (no serial comma)', () => {
       const two = deriveComparisonScope([...subsetOptions(), excluded(DROPPED_TWO, DROPPED_TWO_LABEL)])!
       expect(COMPARISON_SCOPE_COPY.sentence(two)).toBe(
-        'Comparing 3 of your 5 options — Hybrid Phased Approach and Rip and Replace were left out.',
+        'Comparing 3 of your 5 options. Hybrid Phased Approach and Rip and Replace were left out.',
       )
     })
 
@@ -282,8 +283,56 @@ describe('comparison-scope disclosure — a subset result says which options it 
         { label: '   ', notAnalysed: true },
       ])!
       expect(COMPARISON_SCOPE_COPY.sentence(unnamed)).toBe(
-        'Comparing 1 of your 2 options — 1 was left out.',
+        'Comparing 1 of your 2 options. 1 was left out.',
       )
+    })
+
+    /**
+     * ⭐⭐ THE SENTENCE AS A USER READS IT OFF THE DOM, NOT AS THE REGISTER
+     * COMPOSES IT (added 11 Sep 2026, with the em-dash split).
+     *
+     * Every other pin in this describe calls `COMPARISON_SCOPE_COPY.sentence`
+     * and compares it to itself, so all of them would have stayed GREEN while
+     * the Reasoning tab served
+     *
+     *     "Comparing 4 of your 8 options — Buy an AI Triage Tool, Hire Six
+     *      More Agents and 2 others were left out."
+     *
+     * and they did: that sentence shipped on `18d681c2` under a full suite. A
+     * constant asserted against itself is a tautology however carefully it is
+     * written (trap 13b), and the only thing that is not is RENDERING the
+     * component and reading the text back.
+     *
+     * `ComparisonScopeNote` is rendered directly rather than through a parent
+     * surface: it owns the `comparison-scope-note-*` testid, so this binds to
+     * the node the user actually reads by IDENTITY (trap 19) without reaching
+     * into a section another lane may be editing.
+     */
+    it('renders the sentence VERBATIM on the analysisNew surface, with no em dash in the DOM', () => {
+      render(<ComparisonScopeNote scope={scope} surface="analysisNew" />)
+      const note = screen.getByTestId('comparison-scope-note-analysisNew')
+
+      // The literal a user reads, re-typed on purpose. If the register changes
+      // this sentence, this pin reds and the change becomes a decision someone
+      // made rather than one that happened.
+      expect(note.textContent).toBe(
+        'Comparing 3 of your 4 options. Hybrid Phased Approach was left out.',
+      )
+
+      // Paul's ruling, asserted where it is actually observable. The CONTRAST
+      // half matters as much as the ban: a note that rendered nothing at all
+      // would satisfy "no em dash" perfectly.
+      expect(note.textContent, 'an em dash reached the rendered DOM').not.toContain('—')
+      expect(note.textContent, 'an en dash was substituted for the em dash').not.toContain('–')
+      expect(note.textContent, 'the note rendered empty — the dash check is vacuous').toContain(
+        'Hybrid Phased Approach',
+      )
+
+      // BOTH HALVES SURVIVED THE SPLIT. The scope arithmetic and the exclusion
+      // are the two things the sentence exists to carry; a dash hunt satisfied
+      // by deleting a clause would pass every assertion above.
+      expect(note.textContent).toContain('Comparing 3 of your 4 options')
+      expect(note.textContent).toContain('was left out')
     })
 
     // ⚠ NEUTRALITY. The excluded option was never scored, so nothing here may
@@ -334,7 +383,7 @@ describe('comparison-scope disclosure — a subset result says which options it 
       ])
       expect(scope).toEqual({ analysed: 1, total: 2, excludedLabels: [] })
       expect(COMPARISON_SCOPE_COPY.sentence(scope!)).toBe(
-        'Comparing 1 of your 2 options — 1 was left out.',
+        'Comparing 1 of your 2 options. 1 was left out.',
       )
       expect(COMPARISON_SCOPE_COPY.sentence(scope!)).not.toContain('79b5d7c0')
     })

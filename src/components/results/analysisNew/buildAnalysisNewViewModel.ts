@@ -1116,9 +1116,9 @@ function buildUncertainty(
         // already has reaches the site that lacked it.
         ? `The ordering changes around ${formatThresholdValue(u.threshold.value)}${
             u.threshold.direction === 'positive'
-              ? ' — above it, the ordering differs'
+              ? '. Above it, the ordering differs'
               : u.threshold.direction === 'negative'
-                ? ' — below it, the ordering differs'
+                ? '. Below it, the ordering differs'
                 : ''
           }.`
         : undefined,
