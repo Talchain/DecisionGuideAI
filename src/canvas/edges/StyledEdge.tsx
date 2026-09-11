@@ -659,9 +659,21 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // accessible name is built from it: `aria-label` REPLACES descendant text for
   // assistive tech, so a name that omitted the description announced something
   // different from what was on screen.
+  /**
+   * The producer's stated spread on the weight, read through the SAME gate as
+   * every other edge number. `resolveEdgeValueDisplay` cannot hand back a value
+   * without naming its source, so an unset `strengthStd` — which
+   * `USER_EDGE_DEFAULTS` pins at 0.15 for a hand-drawn edge — resolves
+   * `{ show: false, reason: 'not_set' }` and explains nothing. That is the
+   * whole safety argument for putting it back on this surface at all.
+   */
+  const edgeUncertainty = useMemo(
+    () => resolveEdgeValueDisplay(edgeData as Record<string, unknown> | undefined, 'strengthStd'),
+    [edgeData],
+  )
   const edgeDescription = useMemo(
-    () => getEdgeLabel(edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode),
-    [edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode],
+    () => getEdgeLabel(edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode, edgeUncertainty),
+    [edgeSignedStrength, edgeLikelihood, directionDisplay, labelMode, edgeUncertainty],
   )
   /**
    * ⛔⛔ AND THE DISCLOSURE TOO — `aria-label` REPLACES DESCENDANT TEXT, SO THE

@@ -273,6 +273,7 @@ export function describeEdge(
   strength: EdgeValueDisplay,
   likelihood: EdgeValueDisplay,
   direction: EdgeDirectionDisplay,
+  uncertainty?: EdgeValueDisplay,
 ): EdgeDescription {
   // The magnitude this label is entitled to speak about — null when nothing
   // proves anyone set a strength. See the header: the display's value is used
@@ -296,7 +297,7 @@ export function describeEdge(
     if (!likelihood.show) {
       return {
         label: 'Strength and likelihood not set',
-        tooltip: buildWeightTooltip(null, likelihood, direction),
+        tooltip: buildWeightTooltip(null, likelihood, direction, uncertainty),
       }
     }
     // A known likelihood, but nothing stated about the effect itself: say only
@@ -322,7 +323,7 @@ export function describeEdge(
     label = claim
   }
 
-  return { label, tooltip: buildWeightTooltip(absWeight, likelihood, direction) }
+  return { label, tooltip: buildWeightTooltip(absWeight, likelihood, direction, uncertainty) }
 }
 
 /**
@@ -339,11 +340,43 @@ function buildWeightTooltip(
   absWeight: number | null,
   likelihood: EdgeValueDisplay,
   direction: EdgeDirectionDisplay,
+  uncertainty?: EdgeValueDisplay,
 ): string {
   const beliefText = likelihood.show ? `${Math.round(likelihood.value * 100)}%` : 'not set'
   const weightText =
     absWeight !== null ? `${signPrefix(direction)}${absWeight.toFixed(2)}` : 'not set'
-  return `Weight: ${weightText}, Belief: ${beliefText}`
+  /**
+   * ⭐ THE UNCERTAINTY ON THE WEIGHT, WHICH REACHED NO CANVAS SURFACE AT ALL.
+   *
+   * Measured on deployed staging: all 31 edges of a drafted model carry
+   * `strengthStd` WITH a `strengthStdSource: 'cee'` stamp — the producer states
+   * it on every connection — and `strengthStd` appears in `src/canvas/edges/`
+   * only inside a TEST file. Not `StyledEdge`, not this module. A user could
+   * read it in the Model tab or the inspector and nowhere on the graph.
+   *
+   * ⚠ WHY IT WAS ABSENT, AND WHY THAT REASON NO LONGER HOLDS. The causal lens
+   * once printed it — `StyledEdge.causalLens.2954.spec.tsx` records that the
+   * lens "previously printed ALL FOUR as measurements", including
+   * `USER_EDGE_DEFAULTS.strengthStd = 0.15`, a constant nobody chose. The fix
+   * then was to stop printing it. The fix now is the PROVENANCE GATE: this
+   * takes an `EdgeValueDisplay`, which cannot carry a value without a source,
+   * so an unset std still prints nothing. That spec's own assertion —
+   * `resolveEdgeValueDisplay(USER_DATA, 'strengthStd')` is
+   * `{ show: false, reason: 'not_set' }` — is what makes this safe.
+   *
+   * ⛔ IT RIDES THE TOOLTIP, NOT THE LABEL. The label is the narrowest text on
+   * the board and Paul's standing ruling is that repeated card copy belongs in
+   * a hover. This adds no painted characters and moves no figure; it changes
+   * only what hovering explains.
+   *
+   * ⛔ AND ONLY WHERE THERE IS A WEIGHT TO QUALIFY. "± 0.15" beside "not set"
+   * would be an uncertainty about nothing.
+   */
+  const spread =
+    absWeight !== null && uncertainty?.show
+      ? ` ± ${Math.abs(uncertainty.value).toFixed(2)}`
+      : ''
+  return `Weight: ${weightText}${spread}, Belief: ${beliefText}`
 }
 
 /** '−' (U+2212 MINUS SIGN) only for a STATED negative direction; '' otherwise. */
@@ -430,6 +463,12 @@ export function getEdgeLabel(
   likelihood: EdgeValueDisplay,
   direction: EdgeDirectionDisplay,
   mode?: EdgeLabelMode,
+  /**
+   * The producer's stated spread on the weight. OPTIONAL so every existing
+   * caller compiles unchanged and simply explains one thing less — a new
+   * parameter must not be able to make an existing surface wrong.
+   */
+  uncertainty?: EdgeValueDisplay,
 ): EdgeDescription {
   const actualMode = mode ?? getEdgeLabelMode()
 
@@ -458,9 +497,10 @@ export function getEdgeLabel(
         strength.show ? Math.abs(strength.value) : null,
         likelihood,
         direction,
+        uncertainty,
       ),
     }
   }
 
-  return describeEdge(strength, likelihood, direction)
+  return describeEdge(strength, likelihood, direction, uncertainty)
 }
