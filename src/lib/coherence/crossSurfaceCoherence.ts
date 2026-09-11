@@ -127,6 +127,7 @@ import {
 } from '@talchain/schemas/boundary'
 
 import { ANALYSIS_READY_STATUSES } from '../../adapters/cee/types'
+import { reasonMeansNotEvaluated } from './leaderClaimReasonKind'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The two withholding predicates — EXPORTED, because they now have an ENFORCER
@@ -174,7 +175,25 @@ import { ANALYSIS_READY_STATUSES } from '../../adapters/cee/types'
 export function producerWithholdsLeaderClaim(
   state: Pick<AnalysisStateV1, 'leader_claim'> | null | undefined,
 ): boolean {
-  return state?.leader_claim?.permitted === false
+  if (state?.leader_claim?.permitted !== false) return false
+  // ⛔ AND THE REASON DECIDES WHICH FACT THIS IS. `permitted: false` carries two
+  // different producer statements under one boolean — "we looked and declined"
+  // and "we could not read the separation at all" — and CEE distinguishes them
+  // in its own source while the classification does not cross the wire. Reading
+  // the boolean alone turned an unreadable turn into a DURABLE refusal: the
+  // consumer of this predicate stamps the withholding onto the held report and
+  // persists it, and nothing grants permission back short of a whole new run.
+  //
+  // ⚠ THE RELAXATION IS THE NARROW ARM, NOT THE DEFAULT. Only a positively
+  // recognised "did not look" code returns false here; an unknown code, an
+  // absent reason and a non-string all keep withholding. See
+  // `leaderClaimReasonKind.ts` for why this mirror can only ever go short, and
+  // why going short is the safe direction.
+  //
+  // ⚠ Q3 IS UNTOUCHED. `producerMarksAnalysisUnusable` still withdraws the
+  // designation on its own account, so a producer that calls its analysis
+  // unusable is unaffected by anything here.
+  return !reasonMeansNotEvaluated(state.leader_claim.withheld_reason)
 }
 
 /**

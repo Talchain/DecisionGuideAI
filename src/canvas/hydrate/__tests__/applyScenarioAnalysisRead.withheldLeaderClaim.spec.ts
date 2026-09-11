@@ -107,6 +107,24 @@ function makeStore(overrides: Partial<ScenarioAnalysisApplyStore> = {}): {
 }
 
 describe('applyScenarioAnalysisRead — a withheld payload marks the held report', () => {
+  it('⛔ an UNREADABLE separation, on an otherwise usable analysis, withholds NOTHING', () => {
+    // The case this applier used to make DURABLE. `separation_unavailable`
+    // means the producer could not read the separation half — an absence of
+    // evidence, not a verdict — and with `blocked_unusable: false` there is no
+    // Q3 claim either. Stamping a refusal here cost the user their leading
+    // option until a whole new run, because nothing grants permission back.
+    const { store, withhold } = makeStore()
+    applyScenarioAnalysisRead({
+      analysisState: verdict({
+        blocked_unusable: false,
+        leader_claim: { permitted: false, withheld_reason: 'separation_unavailable' },
+      }),
+      analysisResult: null,
+      store,
+    })
+    expect(withhold).not.toHaveBeenCalled()
+  })
+
   it('DEFECT SIGNATURE: a refusal carrying NO analysis block withdraws the held claim', () => {
     // The exact witnessed shape: refused, blocked_unusable, leader withheld,
     // and no block — the branch that had no else.
@@ -118,7 +136,18 @@ describe('applyScenarioAnalysisRead — a withheld payload marks the held report
   it('the reason names WHICH question withheld, so the two cannot be relaxed together', () => {
     const q1Only = makeStore()
     applyScenarioAnalysisRead({
-      analysisState: verdict({ blocked_unusable: false }),
+      // ⚠ `options_do_not_separate`, NOT the fixture's default. Q1 is "the
+      // producer REFUSED", and only a code meaning *we looked and declined*
+      // expresses it. The default `separation_unavailable` means *we did not
+      // look* (CEE `analysis-state-v1.ts:189-215` classifies it
+      // `not_evaluated`), so using it here would test Q1 with a payload that
+      // makes no Q1 claim — and it did, until `leaderClaimReasonKind` made the
+      // distinction readable. The SUBJECT of this test — that Q1 and Q3 are
+      // separate and cannot be relaxed together — is unchanged.
+      analysisState: verdict({
+        blocked_unusable: false,
+        leader_claim: { permitted: false, withheld_reason: 'options_do_not_separate' },
+      }),
       analysisResult: null,
       store: q1Only.store,
     })

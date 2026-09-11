@@ -61,6 +61,22 @@ function verdict(overrides: Partial<AnalysisStateV1> = {}): AnalysisStateV1 {
 }
 
 describe('applyBootLeaderClaimWithholding — a refusal outlives the reload', () => {
+  it('⛔ an unreadable separation does NOT outlive the reload as a refusal', () => {
+    // The twin of the case above: no Q3 claim either, so there is nothing to
+    // restore. A boot that re-applied this would make "we could not look" a
+    // permanent property of the saved decision.
+    const resultsWithholdLeaderClaim = vi.fn()
+    const outcome = applyBootLeaderClaimWithholding({
+      analysisState: verdict({
+        blocked_unusable: false,
+        leader_claim: { permitted: false, withheld_reason: 'separation_unavailable' },
+      }),
+      store: { resultsWithholdLeaderClaim },
+    })
+    expect(resultsWithholdLeaderClaim).not.toHaveBeenCalled()
+    expect(outcome).not.toEqual({ outcome: 'withheld', reason: 'leader_claim_withheld' })
+  })
+
   it('DEFECT SIGNATURE: a boot verdict that withholds re-applies the withholding', () => {
     const resultsWithholdLeaderClaim = vi.fn()
     const outcome = applyBootLeaderClaimWithholding({
@@ -68,7 +84,14 @@ describe('applyBootLeaderClaimWithholding — a refusal outlives the reload', ()
       store: { resultsWithholdLeaderClaim },
     })
     expect(resultsWithholdLeaderClaim).toHaveBeenCalledTimes(1)
-    expect(outcome).toEqual({ outcome: 'withheld', reason: 'leader_claim_withheld' })
+    // ⚠ `analysis_unusable`, and the change is an IMPROVEMENT in the reason
+    // rather than a relaxation of the outcome. This fixture carries
+    // `blocked_unusable: true` AND `withheld_reason: 'separation_unavailable'`.
+    // The latter means *we did not look*, so Q1 makes no claim; Q3 does, and it
+    // is the question that actually withheld. The withholding still survives
+    // the reload — `toHaveBeenCalledTimes(1)` above is the subject of this test
+    // and is unchanged — it is now attributed to the right half.
+    expect(outcome).toEqual({ outcome: 'withheld', reason: 'analysis_unusable' })
   })
 
   it.each([
