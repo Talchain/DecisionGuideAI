@@ -23,11 +23,19 @@
  */
 import { describe, it, expect } from 'vitest'
 import { layoutGraph } from '../utils/layout'
-import { LAYOUT_PADDING_Y } from '../utils/nodeLayoutConstants'
+import { LAYOUT_PADDING_Y, LAYOUT_LAYER_GAP, LAYOUT_NODE_GAP } from '../utils/nodeLayoutConstants'
 import type { Node, Edge } from '@xyflow/react'
 
-/** Default `layerSpacing` when the caller passes none: `max(30, 15 * 1.5)`. */
-const EFFECTIVE_LAYER_SPACING = 30
+/**
+ * Default `layerSpacing` when the caller passes none.
+ *
+ * ⚠ WAS A HAND-COPIED `30` (the old `max(30, 15 * 1.5)`), which is the
+ * hand-maintained mirror this estate pays for repeatedly: raising the floor in
+ * `layout.ts` left this file asserting a gap the product no longer produces, and
+ * it RED-ed with a bare `expected 88 to be 46` that says nothing about why.
+ * Derived from the same two constants `layout.ts` uses, so it cannot drift.
+ */
+const EFFECTIVE_LAYER_SPACING = Math.max(LAYOUT_LAYER_GAP, LAYOUT_NODE_GAP * 1.5)
 
 /** A node carrying the height it renders at ONE PARTICULAR zoom. */
 function nodeAt(id: string, type: string, measuredHeight: number): Node {

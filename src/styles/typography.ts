@@ -113,9 +113,43 @@ export const typography = {
    * title from a metric value once both are near the floor size; dropping it to
    * 400 would buy no space and cost the hierarchy.
    */
-  nodeTitle: 'text-[length:calc(12px*var(--canvas-label-scale,1))] font-medium font-sans leading-tight',
-  nodeLabel: 'text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-tight',
-  edgeLabel: 'text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans leading-tight',
+  /**
+   * ⭐⭐ RAISED TO THE DESIGN SYSTEM'S OWN FLOOR (12 Sep 2026) — 14/12/11, and
+   * every one of the three is now an EXISTING token's size rather than a
+   * bespoke canvas number: 14 = `label`/`bodySmall` (this file's stated
+   * "14px minimum"), 12 = `caption`, 11 = `panelMeta`. The canvas was the only
+   * surface in the product rendering below its own declared floor, and it did
+   * so at three sizes that existed nowhere else.
+   *
+   * ⚠⚠ THE 12px ABOVE WAS A COMPENSATION, NOT A PREFERENCE — read the history
+   * above before reverting this. A lane measured titles CLIPPING at 13px in a
+   * 288px card and concluded "the card was not too small; the type was too big
+   * for it". That was true GIVEN THE CARD IT HAD. The card could not grow
+   * because its width is bounded by `CANONICAL_LAYOUT_WIDTH`, which was sized
+   * for a screen the camera could not fill — `AUTO_FIT_MAX_ZOOM = 1` forbade
+   * the product's own fit from scaling a valid model up to the pane.
+   *
+   * This change lands WITH that chain repaired: the fit may now fill a valid
+   * box, the canonical budget is 1482, and `NODE_CARD_MAX_W` is 400. At the
+   * counter-scale the layout solves against (2), a 400-unit card holds ~24
+   * characters a line at 14px against ~22 at 12px in a 320 — so titles get
+   * MORE room, not less, and the clipping defect is not reintroduced.
+   *
+   * ⛔ RAISING THIS WITHOUT THE CARD WIDTH REPRODUCES THAT DEFECT EXACTLY:
+   * 14px in a 320-unit card is ~19 characters a line, against the ~18 that
+   * caused it. The two constants are one decision.
+   *
+   * ⭐ AND IT IS SAFER BELOW THE LEGIBILITY FLOOR, which is the band the 12px
+   * argument turned on. Rendered = declared x 2 x zoom; at zoom 0.45,
+   * 14 x 2 x 0.45 = 12.6px against Design System v5 §2.4's 10px floor, where
+   * 12px gave 10.8px. `zoomLegibility.counterScale.spec.ts` pins that band.
+   *
+   * ⚠ WEIGHT STILL 500, for the reason the previous note gives: it is the only
+   * thing separating a title from a metric value, and size alone no longer is.
+   */
+  nodeTitle: 'text-[length:calc(14px*var(--canvas-label-scale,1))] font-medium font-sans leading-snug',
+  nodeLabel: 'text-[length:calc(12px*var(--canvas-label-scale,1))] font-sans leading-snug',
+  edgeLabel: 'text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-snug',
 
   // Results Panel — strict 3-size system (Brief 5.5 §2.1 lock)
   // Only these three tokens should be used inside src/components/results/

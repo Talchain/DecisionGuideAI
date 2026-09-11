@@ -52,6 +52,8 @@ import {
   CANONICAL_LAYOUT_WIDTH,
   CANVAS_MARGIN,
   TIER_BY_KIND,
+  LAYOUT_NODE_GAP,
+  LAYOUT_LAYER_GAP,
 } from './nodeLayoutConstants'
 
 interface LayoutOptions {
@@ -202,21 +204,42 @@ export async function layoutGraph(
 ): Promise<{ nodes: Node[]; edges: Edge[]; layoutNodeWidth: number }> {
   const {
     direction = 'DOWN',
-    // Default horizontal node-node spacing. Reduction chain 60 → 30 → 20 → 15.
-    // The Math.max(20, …) floor on line 64 is deliberately retained, so the
-    // rendered gap is still 20 px — `spacing=15` documents the intended value
-    // but is clamped at runtime. To genuinely render at 15, a future change
-    // would need to lower both that floor AND `COLLISION_GAP` (currently 20).
-    // 4-node max-width row at NODE_CARD_MAX_W=320: 1556 → 1466 → 1436 → 1436
-    // (no change in rendered width at gap=15 because of the floor).
-    spacing = 15,
+    // ⭐⭐ DEFAULT HORIZONTAL NODE-NODE SPACING — 15 → 32 (12 Sep 2026).
+    //
+    // The old chain read 60 → 30 → 20 → 15, every step a REDUCTION, and its own
+    // note conceded the rendered gap never actually moved below the Math.max
+    // floor of 20. That chain was driven by the same pressure as the 12px type:
+    // squeeze the model so a camera capped at 100% would appear to fill the
+    // pane. With the fit now able to scale a valid box, spacing is free to be a
+    // design decision again.
+    //
+    // 32 is 4 units of the 8pt grid the rest of the product uses, and it is the
+    // first value at which two max-width cards read as separate objects rather
+    // than a seam. Both the value and the floor move together so the constant
+    // and the rendered gap cannot disagree the way they did before.
+    spacing = LAYOUT_NODE_GAP,
     layerSpacing,
     preserveLocked = true,
     heightAtLabelBound,
   } = options
 
-  const effectiveNodeSpacing = Math.max(20, spacing)
-  const effectiveLayerSpacing = Math.max(30, layerSpacing ?? spacing * 1.5)
+  /**
+   * ⭐⭐ FLOORS RAISED WITH THE DEFAULTS (12 Sep 2026): 20 → 32 and 30 → 72.
+   *
+   * The 30px layer floor was the single biggest contributor to the "squashed"
+   * reading — tiers sat 30 units apart while the cards between them were up to
+   * 320 wide, so the graph had no vertical rhythm at all and every edge ran a
+   * near-vertical 30px hop. 72 is 9 units of the 8pt grid and gives a tier
+   * separation proportionate to the cards, which is what makes the causal
+   * direction legible at a glance rather than something you trace.
+   *
+   * ⚠ THE FLOORS ARE KEPT, NOT REMOVED. They are what stop a caller passing a
+   * value that collapses the graph; `COLLISION_GAP` (20) still governs overlap
+   * repair independently, and is deliberately left below the node floor so it
+   * remains a last-resort separation rather than a second spacing authority.
+   */
+  const effectiveNodeSpacing = Math.max(LAYOUT_NODE_GAP, spacing)
+  const effectiveLayerSpacing = Math.max(LAYOUT_LAYER_GAP, layerSpacing ?? spacing * 1.5)
 
   const unlocked = preserveLocked ? nodes.filter(isUnlocked) : nodes
 

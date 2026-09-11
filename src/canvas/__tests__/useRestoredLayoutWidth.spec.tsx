@@ -75,8 +75,16 @@ describe('useRestoredLayoutWidth', () => {
   })
 
   // ── FIRES: state class = SAVED SCENARIO, RELOADED ────────────────────────
-  it('[saved reload] derives the compressed width for a restored 7-wide model', () => {
-    const { nodes, edges } = restoredGraph(7)
+  /**
+   * ⚠ THE FIXTURE WIDTH MOVED 7 → 9 (12 Sep 2026), and the tests are about the
+   * COMPRESSED branch, not about the number seven. `CANONICAL_LAYOUT_WIDTH`
+   * went 1185 → 1482 so that seven- and eight-wide tiers single-row, so a
+   * seven-wide fixture now lands on the FULL-width branch — which would have
+   * left these assertions checking the opposite of what they are named for,
+   * silently. Nine is the smallest tier that still splits at the new budget.
+   */
+  it('[saved reload] derives the compressed width for a restored 9-wide model', () => {
+    const { nodes, edges } = restoredGraph(9)
     seed({ nodes, edges, currentScenarioId: 'scA' })
     expect(useLayoutStore.getState().layoutNodeWidth).toBeNull()
 
@@ -101,7 +109,7 @@ describe('useRestoredLayoutWidth', () => {
   })
 
   it('[saved reload] fires once, and re-arms on a scenario SWITCH', () => {
-    const wide = restoredGraph(7)
+    const wide = restoredGraph(9)
     seed({ nodes: wide.nodes, edges: wide.edges, currentScenarioId: 'scA' })
     const { rerender } = renderHook(() => useRestoredLayoutWidth())
     expect(useLayoutStore.getState().layoutNodeWidth).toBe(NODE_LAYOUT_MIN_W)
@@ -127,7 +135,7 @@ describe('useRestoredLayoutWidth', () => {
     // and no re-layout runs. The positions on screen are STILL on the 320
     // stride, so re-deriving to NODE_LAYOUT_MIN_W would be wrong — and a hook
     // without this guard would do exactly that.
-    const grown = restoredGraph(7)
+    const grown = restoredGraph(9)
     seed({ nodes: grown.nodes, edges: grown.edges, layoutVersion: 3, currentScenarioId: 'scA' })
     act(() => {
       useLayoutStore.getState().setLayoutNodeWidth(NODE_CARD_MAX_W)
@@ -157,8 +165,8 @@ describe('useRestoredLayoutWidth', () => {
     const { rerender } = renderHook(() => useRestoredLayoutWidth())
     expect(useLayoutStore.getState().layoutNodeWidth).toBe(NODE_CARD_MAX_W)
 
-    const seven = restoredGraph(7)
-    seed({ nodes: seven.nodes, edges: seven.edges, currentScenarioId: 'scA', layoutVersion: 0 })
+    const nine = restoredGraph(9)
+    seed({ nodes: nine.nodes, edges: nine.edges, currentScenarioId: 'scA', layoutVersion: 0 })
     rerender()
 
     expect(useCanvasStore.getState().layoutVersion).toBe(0)
@@ -182,7 +190,7 @@ describe('useRestoredLayoutWidth', () => {
   })
 
   it('[fresh draft] is inert while a layout is pending or in progress', () => {
-    const { nodes, edges } = restoredGraph(7)
+    const { nodes, edges } = restoredGraph(9)
     for (const phase of [{ pendingLayout: true }, { layoutInProgress: true }]) {
       act(() => {
         useLayoutStore.setState({ layoutNodeWidth: null } as never)

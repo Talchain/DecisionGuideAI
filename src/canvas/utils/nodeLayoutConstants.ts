@@ -109,7 +109,18 @@ export const NODE_HEADER_RESERVE_PX = 0
  * this bound in a real browser and REDs if a word arrives that exceeds it — so
  * this derivation is checked against the live font rather than trusted.
  */
-export const NODE_TITLE_WIDEST_WORD_PX = 93
+/**
+ * ⭐ RE-DERIVED AT 14px (12 Sep 2026), from the ORIGINAL measurement rather than
+ * the rounded constant, exactly as the 12px derivation above insists:
+ * "Cannibalization" measured 97.77px @13px, so 97.77 x 14/13 = 105.29px @14px.
+ * Rounded up to 108, preserving the same ~2.7px headroom the 93 carried — and
+ * deliberately no more, because every pixel here is doubled by the counter-scale.
+ *
+ * `e2e/visual/nodeLabelFit.visual.spec.ts` measures the real corpus against this
+ * bound in a real browser and REDs if a word exceeds it, so this is checked
+ * against the live font rather than trusted.
+ */
+export const NODE_TITLE_WIDEST_WORD_PX = 108
 
 /**
  * Minimum horizontal measure (px) reserved for a node's TITLE, at the largest
@@ -183,7 +194,23 @@ export const NODE_LAYOUT_MIN_W =
   NODE_TITLE_MIN_MEASURE_PX + NODE_HEADER_RESERVE_PX + NODE_CARD_PADDING_X
 
 /** Maximum rendered card width. Used by BaseNode and as the ELK pinned width. */
-export const NODE_CARD_MAX_W = 320
+/**
+ * ⭐⭐ 320 -> 400 (12 Sep 2026). Maximum rendered card width; also the ELK pinned
+ * width.
+ *
+ * ⚠ THIS IS ONE DECISION WITH THE 14px TYPE RAMP, not an independent tidy-up.
+ * The layout solves text at `MAX_LABEL_COUNTER_SCALE` (2), so a card's character
+ * measure is `(W - NODE_CARD_PADDING_X) / (charWidth x 2)`. At 12px/320 that is
+ * ~22 characters a line; at 14px/320 it would be ~19 — below the ~18 that
+ * produced the measured clipping defect this file's history records. At 14px/400
+ * it is ~24, which is MORE room than the product has today.
+ *
+ * 400 is on the 8pt grid and leaves 376px of text measure. It is affordable
+ * because `CANONICAL_LAYOUT_WIDTH` moved with it; at the old 1185 budget a
+ * three-wide tier of 400s (1336 units) would have split to two rows and made
+ * the graph taller, which is the defect from the other end.
+ */
+export const NODE_CARD_MAX_W = 400
 
 /**
  * Fair share of a row, per node in the widest tier, below which `layout.ts`
@@ -239,6 +266,53 @@ export const NODE_CARD_MAX_W = 320
  * prescribed mutant ("disable the guard for one row → must RED") CANNOT BITE,
  * because removing an inert call changes nothing. Pin the PROPERTY and the
  * AUTHORITY instead — which is what `layout.sameRowGap.spec.ts` does.
+ */
+/**
+ * ⛔⛔ 140 STANDS, AND I TRIED TO DERIVE IT AWAY. THE RETRACTION IS THE COMMENT.
+ *
+ * On 12 Sep 2026 this was changed to `NODE_LAYOUT_MIN_W` on the reasoning that a
+ * second hand-tuned number beside a derived one is the estate's hand-maintained
+ * mirror (CLAUDE.md trap 12). **That reasoning was wrong here, and `layout.ts`
+ * said so in the branch itself before the edit was made:**
+ *
+ * > "WHEN the tier splits is a row-packing policy and is deliberately NOT the
+ * > (label-scale-derived) card floor... Fusing the two moved tiers between
+ * > branches when the label scale changed, which dragged the pre-existing
+ * > multi-row overlap defect onto graphs that did not have it."
+ *
+ * The two constants answer DIFFERENT QUESTIONS (CLAUDE.md trap 21), which is
+ * exactly why they must not share a value:
+ *
+ *   NODE_LAYOUT_MIN_W            "how narrow may a CARD be and still hold its
+ *                                 title?"   -> a RENDERING floor, and it MUST
+ *                                 track the type ramp.
+ *   NODE_SINGLE_ROW_FAIR_SHARE_W "is this tier worth trying on ONE ROW?"
+ *                                 -> a PACKING policy, and it MUST NOT track
+ *                                 the type ramp, or raising the font silently
+ *                                 re-shapes every shared model.
+ *
+ * ⛔ AND THE MEASUREMENT THAT JUSTIFIED THE CHANGE WAS A MISREADING OF THE
+ * BRANCH. The retracted comment claimed a seven-wide tier "packed into a SINGLE
+ * ROW of ~168-unit cards - about nine characters a line". `planLayoutBox` never
+ * lays a card out at the fair share: on the single-row branch it returns
+ * `NODE_CARD_MAX_W + LAYOUT_PADDING_X`, full width. The fair share is a GATE,
+ * never a width. No card was ever going to render at 168.
+ *
+ * WHAT THE PAIR ACTUALLY DID, derived over T = 2..12:
+ *
+ *   1185 / 140  (this file, before and after)  single-row to T=6, widest row 2544u
+ *   1920 / 260  (the 12 Sep pair)              single-row to T=6, widest row 2544u
+ *   1920 / 140  (budget raised, fair share not) single-row to T=10, widest row 4240u
+ *
+ * The first two rows are IDENTICAL in every output. Raising the budget pushes
+ * the cliff out; raising the fair share pulls it back; together they cancel. The
+ * third row is why they had to be changed together: 4240u needs zoom 0.41 to fit
+ * a 1730px pane, under `LABEL_LEGIBLE_ZOOM`. So the pair bought no behaviour at
+ * all and cost a documented decoupling - both halves are reverted.
+ *
+ * ⭐ The cards still got wider. That came from `NODE_CARD_MAX_W` (320 -> 400)
+ * and `NODE_LAYOUT_MIN_W` (230 -> 260), which is where card width is actually
+ * decided. The budget only ever chose the BRANCH.
  */
 export const NODE_SINGLE_ROW_FAIR_SHARE_W = 140
 
@@ -345,9 +419,101 @@ export const NODE_SINGLE_ROW_FAIR_SHARE_W = 140
  * and a per-screen rendering of one. Enforced at the bytes by
  * `layoutViewportIndependence.guard.spec.ts`.
  */
-export const CANONICAL_LAYOUT_WIDTH = 1185
+/**
+ * ⭐⭐ 1185 → 1482 (12 Sep 2026), AND THIS IS THE CONSTANT THAT WAS CAUSING THE
+ * SQUASH. Founder Ruling R1 is untouched: it is still a CONSTANT, still
+ * viewport-independent, and still enforced by
+ * `layoutViewportIndependence.guard.spec.ts`. Only the VALUE moved.
+ *
+ * ⛔ THE DEFECT, MEASURED ON THE FIVE SHIPPED STARTERS RATHER THAN REASONED
+ * ABOUT. At 1185 an eight-wide tier does not clear the single-row gate, so it
+ * splits — and three of the five starters came out PORTRAIT in a LANDSCAPE
+ * viewport:
+ *
+ *                          at 1185            at 1482          aspect
+ *   vendor-selection     1142 x 1937   ->   3592 x 1811     0.59 -> 1.98
+ *   market-entry         1142 x 1959   ->   3592 x 1825     0.58 -> 1.97
+ *   build-vs-buy         1142 x 2653   ->   3592 x 2411     0.43 -> 1.49
+ *   headcount-allocation 1776 x 1377   ->   2224 x 1587     1.29 -> 1.40
+ *   pricing-model        1776 x 1440   ->   2224 x 1650     1.23 -> 1.35
+ *
+ * A canvas pane is landscape (roughly 1.9:1). A model at 0.43 in a pane at 1.9
+ * is fitted on its HEIGHT, so the camera is forced down and the horizontal
+ * space is simply dead — the model used about 30% of the available width. That
+ * is the reported symptom, and no camera change can repair it, because the
+ * camera is already doing the only thing it can with a portrait box.
+ *
+ * ⭐ HOW 1482 WAS DERIVED — by this file's own rule, not by taste. Every cliff
+ * within reach, enumerated from the constants rather than recalled:
+ *
+ *     1232   split tiers reach 4 per row
+ *     1238   7-wide tier starts single-rowing
+ *     1417   8-wide tier starts single-rowing      <- lower bound
+ *     1548   split tiers reach 5 per row           <- upper bound
+ *     1596   9-wide tier starts single-rowing
+ *
+ * `[1417, 1548)` is the interval over which behaviour is constant — every tier
+ * up to eight on one row, and anything wider splitting four to a row. 1482 is
+ * its midpoint: 65 units above one cliff and 66 below the other, the furthest
+ * any value can sit from both. This file's standing rule is that "a constant
+ * sitting on a cliff edge is a defect waiting for a rounding change", and 1482
+ * is the value that rule selects.
+ *
+ * ⚠ TWO EARLIER ATTEMPTS AT THIS SAME LINE WERE WRONG, recorded so the reasoning
+ * is not repeated:
+ *
+ *   · 1920 PAIRED WITH A DERIVED `NODE_SINGLE_ROW_FAIR_SHARE_W`. The pair was
+ *     INERT — raising the budget pushes the cliff out and raising the fair share
+ *     pulls it back by the same amount, so the packing table was byte-identical
+ *     to 1185/140. It also reversed a decision `layout.ts` states in the branch
+ *     itself (the fair share must NOT track the type ramp). Both halves reverted.
+ *
+ *   · 1440 "REFUTED BY THE GEOMETRY GUARD". That refutation was measured with
+ *     the fair share at 260 and does not survive its revert: at a fair share of
+ *     140 the boundary at 1440 is 8/9, not 4/5. A measurement is only valid
+ *     under the constants it was taken at (CLAUDE.md trap 16 — a capture proves
+ *     what it was pointed at). 1440 is in fact inside the chosen band; 1482 is
+ *     preferred only because it is the midpoint and 1440 sits 23 units off a
+ *     cliff.
+ *
+ * ⚠ WHAT THIS DOES NOT FIX, and it is the honest half. `build-vs-buy` is still
+ * fitted on its height and still clamps at `LABEL_LEGIBLE_ZOOM`; it is 9%
+ * shorter and 3.1x wider than before, not made to fit. R1 rules that the answer
+ * to a constrained screen is "readable subset + explicit 'showing X of Y' +
+ * obvious whole-model access" — a PRESENTATION change — never a re-pack. Do not
+ * fix it here.
+ *
+ * ⚠⚠ FORBIDDEN, and this is the whole point of the constant: nothing may make
+ * this budget a function of anything that varies at runtime — not the viewport,
+ * not the pane rect, not the fit box, not panel state, not zoom, not node count.
+ * That is not a stylistic preference: it is the difference between a shared
+ * model and a per-screen rendering of one.
+ */
+export const CANONICAL_LAYOUT_WIDTH = 1482
 
 /** Horizontal padding added around the rendered card to form the ELK box. */
+/**
+ * ⭐⭐ THE TWO SPACING FLOORS, NAMED HERE SO THERE IS ONE SOURCE (12 Sep 2026).
+ *
+ * They were literals inside `layout.ts` (`Math.max(20, …)` and `Math.max(30, …)`)
+ * and `layoutViewportIndependence.guard.spec.ts` mirrored the 20 BY HAND in its
+ * own packing derivation. That is the hand-maintained mirror this estate pays
+ * for repeatedly: raising the floor in `layout.ts` left the guard computing a
+ * band from the old gap, so the guard would have certified a packing table the
+ * product no longer produces.
+ *
+ * `LAYOUT_NODE_GAP` is the horizontal gap between siblings in a row;
+ * `LAYOUT_LAYER_GAP` is the vertical gap between tiers. Both are multiples of
+ * the 8pt grid the rest of the product uses.
+ *
+ * ⚠ `COLLISION_GAP` (20) is deliberately LEFT BELOW `LAYOUT_NODE_GAP`. It is the
+ * last-resort overlap repair, not a spacing preference — keeping it lower means
+ * it still only fires when something has genuinely gone wrong, rather than
+ * becoming a second spacing authority that competes with this one.
+ */
+export const LAYOUT_NODE_GAP = 32
+export const LAYOUT_LAYER_GAP = 72
+
 export const LAYOUT_PADDING_X = 24
 
 /** Vertical padding added around the rendered card to form the ELK box. */

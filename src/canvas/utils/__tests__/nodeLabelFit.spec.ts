@@ -193,23 +193,28 @@ describe('the twin: nothing was widened by hand, and the layout policy did not m
     // one of the two would let the width silently leave the card altogether.
     const measureAt1x = NODE_TITLE_WIDEST_WORD_PX * 1 + NODE_TITLE_RECLAIMED_PX
     const cardAt1x = measureAt1x + NODE_HEADER_RESERVE_PX + NODE_CARD_PADDING_X
-    // ⚠ THE BAND MOVED WITH THE FONT, AND IT HAD TO. It was [140, 145] — the
-    // pre-#758 geometry at a DECLARED 13px title. The title is now 11px, so a
-    // card built for it is legitimately narrower and holding the old band would
-    // assert that a smaller font must produce the same card, which is the whole
-    // change denied. Re-derived at the same ratio the type moved by:
+    // ⚠ THE BAND MOVES WITH THE FONT, AND IT HAS TO — TWICE NOW. It was
+    // [140, 145], the pre-#758 geometry at a DECLARED 13px title; #758 took the
+    // title to 12px and the band came down with it; on 12 Sep 2026 the canvas
+    // ramp was raised to the design system's own stated 14px floor and the band
+    // goes back UP by the same rule. Holding a band across a font change asserts
+    // that a different font must produce the same card, which is the change
+    // denied. Re-derived at the same ratio the type moved by:
     // the card does NOT scale uniformly, because only part of it is text:
     // 44px of it (20 reclaimed chrome + 24 padding) is fixed, so 144 → 137 is
     // the text half moving 100 → 93 with the chrome standing still. Asserting a
     // scaled version of the OLD CARD band would have been wrong arithmetic
     // dressed as a derivation — I wrote that first and it failed here, which is
     // the guard doing its job on the person changing it.
-    // The TEXT half tracks the font: 100px @13px × 12/13 = 92.3, shipped at 93.
+    // The TEXT half tracks the font: 100px @13px × 14/13 = 107.7, shipped at 108.
+    // (At the 12px ramp this read × 12/13 = 92.3, shipped at 93. Same rule, and
+    // the ONLY thing that changed is the numerator, which is the point: the
+    // guard follows the declared size rather than being re-tuned to it.)
     // Stated as a band around the derivation so a hand-tuned value cannot creep
     // back in, and deliberately NOT as `toBe(85)`, which would agree with any
     // number this file and the source happen to share.
     const textHalfAt1x = NODE_TITLE_WIDEST_WORD_PX
-    const derivedTextHalf = 100 * (12 / 13)
+    const derivedTextHalf = 100 * (14 / 13)
     expect(textHalfAt1x).toBeGreaterThanOrEqual(derivedTextHalf)
     expect(textHalfAt1x).toBeLessThanOrEqual(derivedTextHalf + 3)
     expect(cardAt1x).toBe(
@@ -232,14 +237,28 @@ describe('the twin: nothing was widened by hand, and the layout policy did not m
     // express. The whole promise of moving the glyph is that the card does not
     // change size — so the number is pinned from BEFORE the move, and if the
     // card ever legitimately resizes this fails and someone states why.
-    // ⚠ 244 → 214. The pin is re-stated, not removed: its job is to make a card
-    // resize a DELIBERATE act that someone has to come here and defend, and
-    // that job is done by it going red — which is exactly what happened when
-    // the type scale changed. 214 = 85 (widest word @11px, rounded) × 2
-    // (counter-scale) + 20 (chrome the glyph vacated) + 24 (card padding).
-    // The card is 14px narrower, which is the point: more cards fit a row, so
-    // the graph is shorter and more of it fits a laptop screen.
-    expect(NODE_LAYOUT_MIN_W).toBe(230)
+    // ⚠ 244 → 214 → 230 → 260. The pin is re-stated, not removed: its job is to
+    // make a card resize a DELIBERATE act that someone has to come here and
+    // defend, and that job is done by it going red — which is exactly what
+    // happened when the type scale changed, twice.
+    //
+    //   260 = 108 (widest title word @14px) × 2 (counter-scale)
+    //       +  20 (chrome the glyph vacated)
+    //       +  24 (card padding)
+    //
+    // ⭐ THE DEFENCE, 12 Sep 2026, and it is the opposite of the last one. The
+    // previous re-statement argued a NARROWER card: "more cards fit a row, so
+    // the graph is shorter". That was true and it was bought by putting the
+    // canvas below the design system's own 14px minimum — the canvas was the
+    // only surface in the product doing so. Paul's ruling is to raise it to the
+    // floor, so the card grows with it.
+    //
+    // ⚠ The cost is paid in HEIGHT and is recorded rather than hidden: a split
+    // tier now fits THREE cards per row where it fit four, so a seven-wide tier
+    // is three rows instead of two. Attributed by contrast control in
+    // `layoutViewportIndependence.guard.spec.ts` — the 14px ramp does it, not
+    // the spacing change that landed alongside it.
+    expect(NODE_LAYOUT_MIN_W).toBe(260)
     expect(MAX_LABEL_COUNTER_SCALE).toBeGreaterThan(1)
 
     // …and only the TEXT measure carries the scale. The icon, its gap and the
