@@ -29,11 +29,16 @@
  */
 import { useId, useState } from 'react'
 import { Pencil } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../../canvas/store'
+import {
+  factorDeclaresNoRange,
+  factorValueAdmissionRefusal,
+  resolveFactorValueAdmission,
+} from '../../../canvas/conversation/factorValueEdit'
 import { useOptionalConversationContext } from '../../../canvas/conversation/ConversationContext'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
-import { factorDeclaresNoRange } from '../../../canvas/conversation/factorValueEdit'
 import { useFactorValueCommit } from './useFactorValueCommit'
 import { ANALYSIS_NEW_COPY } from './analysisNewCopy'
 
@@ -261,7 +266,7 @@ export function FactorValueControl({
    * of a node whose `prior` is absent; a node that is not in the graph at all is
    * a different question, and claiming an absence about it would be an assertion
    * we cannot support. It fails open into silence, in the same direction as the
-   * predicate itself. `offer` already requires `isInGraph`, so this branch is
+   * predicate itself. `offer` already requires the node to be in the graph, so this branch is
    * unreachable at render — it is written this way so the FACT is derived
    * honestly rather than relying on a neighbouring guard to hide it.
    */
@@ -269,6 +274,58 @@ export function FactorValueControl({
     const node = Array.isArray(s.nodes) ? s.nodes.find((n) => n.id === nodeId) : undefined
     return node === undefined ? false : factorDeclaresNoRange(node.data)
   })
+
+  /**
+   * ⭐⭐ WHAT THIS FACTOR'S OWN PRIOR ADMITS — the scale this control was
+   * shipped without.
+   *
+   * ⚠⚠ THE DEFECT THIS CLOSES, WITNESSED ON THE DEPLOYED BUILD. The number
+   * behind these rows is NORMALISED: the receipt read "Updated Capital
+   * Borrowing Level from 0.3 to 250,000". A bare `type="number"` field beside a
+   * factor named like a real-world quantity invites a real-world figure, and two
+   * sessions independently entered `7` and `250000`. Every later analysis then
+   * refused. The control offered no scale, no unit and no range, so there was
+   * nothing on screen that could have told either reader otherwise.
+   *
+   * ⚠ THE PREDICATE AND THE SENTENCE ARE IMPORTED, NEVER REIMPLEMENTED. This is
+   * #1428's guard, already live on the Model tab's row editor against the same
+   * `factor_value_edit` event through the same authority. A second range parser
+   * here would be the twin defect this estate is named for (trap 12), and it
+   * would be the worse kind: two surfaces disagreeing about whether one commit
+   * on one factor is admissible (trap 21).
+   *
+   * ⚠ IT IS THE SIBLING OF #1507'S `declaresNoRange`, NOT ITS NEGATION. That
+   * one answers *"has anyone recorded a range?"* and prints a fact. This one
+   * answers *"does this prior's support admit the number being typed?"* The two
+   * cannot both fire: an admission needs both range ends, which is exactly what
+   * `factorDeclaresNoRange` reports the absence of. They are separately derived
+   * so neither can be read as the other's inverse.
+   *
+   * ⚠ `useShallow`, BECAUSE THIS SELECTOR RETURNS AN OBJECT. Every sibling
+   * selector in this component returns a primitive deliberately — an object
+   * selector allocates a new reference on every store update and would
+   * re-render this control on every unrelated node change.
+   * `FactorValueAdmission` is four primitives, so a shallow compare restores
+   * the same by-value behaviour.
+   *
+   * ⚠ AMENDED ON THE REBASE ONTO #1507/#1513: this paragraph read *"the three
+   * selectors above"*. There are two above it now — #1507 removed `isInGraph`
+   * and folded node presence into `factorValueControlOffers`, which reads the
+   * store BELOW this line. The count is dropped rather than re-pinned; a number
+   * of neighbours is a hand-maintained mirror (trap 12) and the reason does not
+   * depend on how many there are.
+   *
+   * ⚠ NODE NOT FOUND RETURNS `null`, which is the producer's own
+   * "refuse nothing" answer. `offer` already requires the node to be in the graph, so this
+   * branch is unreachable at render; it is written this way so the fact is
+   * derived honestly rather than relying on a neighbouring guard to hide it.
+   */
+  const admission = useCanvasStore(
+    useShallow((s) => {
+      const node = Array.isArray(s.nodes) ? s.nodes.find((n) => n.id === nodeId) : undefined
+      return node === undefined ? null : resolveFactorValueAdmission(node.data)
+    }),
+  )
 
   /**
    * ⚠ NO CARRIER, NO CONTROL — and NOT a disabled one. A disabled button still
@@ -306,7 +363,39 @@ export function FactorValueControl({
    * different truths. On `not_encodable` the editor STAYS OPEN — nothing was
    * written anywhere, so closing it would look like a success.
    */
+  /**
+   * ⭐⭐ WHY THE DRAFT IS OUTSIDE THE FACTOR'S OWN DECLARED RANGE, or `null`.
+   *
+   * ⚠ THE ACT IS NAMED FOR THIS SURFACE. `factorValueAdmissionRefusal` owns the
+   * bound, the scale transform and the verdict; its third parameter names only
+   * the button the reader is being sent to. The Model tab advances through
+   * `Review change` and takes the default; this control advances through
+   * `Save`, and telling this reader to "review" would name an act their panel
+   * does not have.
+   *
+   * ⚠ COMPUTED ON EVERY RENDER, NOT MEMOISED. It is a parse and two
+   * comparisons, and a `useMemo` keyed on the draft would cost more than it
+   * saves while adding a cache that can go stale.
+   *
+   * ⚠ AN EMPTY FIELD IS NOT A REFUSAL. `parseFloat('')` is `NaN` and the
+   * producer returns `null` for it, so the editor opens silent — it does not
+   * greet the reader with a complaint about a number they have not typed.
+   */
+  const offScaleReason = factorValueAdmissionRefusal(admission, draft, 'save this change')
+  const reasonId = `${inputId}-reason`
+
   const commitValue = () => {
+    /*
+     * ⛔ IT REFUSES; IT DOES NOT CLAMP. Rewriting the reader's number into range
+     * would leave the product showing a figure they never entered, which is a
+     * worse lie than declining it. This is the same ruling #1428 records on the
+     * Model tab, and the same shape as `buildEdgeStrengthEditEvent` refusing a
+     * magnitude above 1 rather than trimming it.
+     *
+     * ⚠ THE KEYBOARD PATH IS GUARDED HERE, NOT AT THE HANDLER, so Enter and the
+     * `Save` button cannot diverge. A disabled button stops one route only.
+     */
+    if (offScaleReason !== null) return
     const outcome = commit(draft)
     showToast(
       outcome === 'dispatched'
@@ -334,6 +423,12 @@ export function FactorValueControl({
           autoFocus={true}
           data-testid={`${testIdPrefix}-value-input`}
           data-node-id={nodeId}
+          /* ⚠ ASSOCIATED, NOT DUPLICATED. A screen reader reaching this field is
+             told the bound by the same sentence a sighted reader sees, so the
+             two cannot drift. `undefined` when admissible keeps the attribute
+             off the element entirely rather than pointing at an absent id. */
+          aria-invalid={offScaleReason !== null}
+          aria-describedby={offScaleReason === null ? undefined : reasonId}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
@@ -351,7 +446,20 @@ export function FactorValueControl({
           onClick={commitValue}
           data-testid={`${testIdPrefix}-value-save`}
           data-node-id={nodeId}
-          className={`${typography.panelMeta} inline-flex items-center rounded-full border border-info/40 px-2 py-0.5 text-info hover:border-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+          aria-describedby={offScaleReason === null ? undefined : reasonId}
+          disabled={offScaleReason !== null}
+          /* ⚠ THE DISABLED PALETTE IS THE MODEL TAB'S, TOKEN FOR TOKEN
+             (`ModelRowView`'s `Review change`): `text-text-light` on
+             `border-panel-border`. No new token is minted, and
+             `text-text-light` is already measured against SC 1.4.3 on both
+             panel grounds for this directory. The hover promise is dropped with
+             the affordance — a control that still lights up under the pointer
+             while refusing is the advertisement this whole change removes. */
+          className={`${typography.panelMeta} inline-flex items-center rounded-full border px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+            offScaleReason === null
+              ? 'border-info/40 text-info hover:border-info'
+              : 'border-panel-border text-text-light'
+          }`}
         >
           {ANALYSIS_NEW_COPY.modelStrip.saveValue}
         </button>
@@ -368,53 +476,92 @@ export function FactorValueControl({
     )
 
     /**
-     * ⚠ NOTHING TO WARN ABOUT, NOTHING RENDERED — AND NOT EVEN A WRAPPER. On a
-     * factor that records a range this returns the byte-identical element
-     * #1491/#1496 shipped, so the common case gains no DOM and no layout risk.
-     * A warning on a row with nothing to warn about is the same defect as a
-     * control that does nothing, inverted.
-     */
-    if (!declaresNoRange) return controls
-
-    /**
-     * ⚠ RENDERED FIRST, so it is read BEFORE the route forward rather than
-     * after it, and BEFORE the commit rather than in response to one. This is
-     * the only beat at which the user can still avoid the trap: the collapsed
-     * button beat has no pending amount to qualify, and by the `Save` beat the
-     * event is already on the wire.
+     * ⭐⭐ THE WRAPPER IS UNCONDITIONAL, AND THAT IS A CORRECTNESS REQUIREMENT
+     * RATHER THAN A STYLE CHOICE. IT WAS CAUGHT BY A RED TEST, NOT BY REVIEW.
      *
-     * ⚠ NOT A LIVE REGION, for #1451's reason: this subtree re-renders on every
-     * keystroke and `role="status"` would announce a running commentary on
-     * typing. It is plain text in the reading order immediately above the
-     * controls it qualifies.
+     * ⚠⚠ THE FIRST VERSION OF THIS RETURNED `controls` BARE WHEN THE DRAFT WAS
+     * ADMISSIBLE AND WRAPPED IT WHEN IT WAS NOT — which is exactly what #1507
+     * does for its own notice, so it looked like the established pattern. It is
+     * not, and the difference is the one that matters: #1507's `declaresNoRange`
+     * is a FACT ABOUT THE NODE and cannot change while the reader types, so its
+     * tree shape is stable for the whole edit. This verdict is a RESPONSE TO THE
+     * DRAFT and flips on a keystroke — `0` admissible, `02` not — so a
+     * conditional wrapper changes the input's position in the React tree
+     * mid-word. React then UNMOUNTS AND REMOUNTS the field: the caret is lost
+     * and focus is dropped on the exact keystroke that takes the value off
+     * scale. The reader would be thrown out of the field for typing.
      *
-     * ⚠ COLUMN WRAPPER, `items-start`: the sentence is long and both call sites
-     * place this control inside a wrapping flex row (`WhatIWasGivenSection`'s
-     * `<li>`, `DeeperAnalysis`'s `<dd>`). Stacking keeps the input line intact
-     * instead of stretching it, and `min-w-0` lets the text wrap rather than
-     * overflow its container.
+     * The spec caught it as a stale DOM node (`toHaveValue` read `null` off a
+     * detached input) — the remount is not otherwise visible in jsdom, and no
+     * amount of reading the JSX would have shown it.
      *
-     * ⚠ `text-text-light` ON THE BARE PANEL GROUND, NO TINT. Measured on this
-     * palette: 5.23:1 on `--bg-panel` and 5.04:1 on `--bg-panel-alt`, against SC
-     * 1.4.3's 4.5:1. A same-hue tint moves the ground TOWARDS the text and the
-     * ratio falls monotonically with alpha, which is how `text-info` became a
-     * live violation at six sites, so there is none here. This file sits inside
+     * ⛔⛔ SO THIS REVISES #1507'S "NOT EVEN A WRAPPER" DECISION, IN ONE
+     * DIRECTION AND ON PURPOSE — said here because a silent reversal of a
+     * documented ruling is how this estate loses one. #1507 returned `controls`
+     * bare on a factor that records a range, so the common case gained no DOM;
+     * that early return is REMOVED and both sentences now render inside this
+     * wrapper. Its own reasoning is untouched by the change: its notice cannot
+     * flip mid-edit, so it loses nothing by riding a wrapper that is always
+     * present, and the editor keeps ONE tree shape instead of two that differ by
+     * which sentence happens to be live. What #1507 could not know is that a
+     * SECOND sentence would arrive whose verdict does flip on a keystroke, and
+     * the conditional wrapper it chose is a remount for that one.
+     *
+     * ⚠ THE COST IS ONE SPAN ON THE PATH WHERE NEITHER SENTENCE FIRES, and it
+     * buys a caret that survives typing. That is the trade, stated plainly.
+     * `flex-col items-start min-w-0`: the sentence is longer than the input line
+     * and both call sites place this control inside a wrapping flex row
+     * (`WhatIWasGivenSection`'s `<li>`, `DeeperAnalysis`'s `<dd>`), so stacking
+     * keeps the input line intact instead of stretching it and `min-w-0` lets
+     * the text wrap rather than overflow.
+     *
+     * ⚠ RENDERED AFTER THE CONTROLS, WHICH IS THE MODEL TAB'S ORDER AND THE
+     * OPPOSITE OF #1507'S. The order follows the KIND of sentence, not a house
+     * style: #1507's notice is true before anyone types, so it is read BEFORE
+     * the route forward; this one answers a number already in the field, so it
+     * belongs under the field the reader just typed into, exactly where
+     * `ModelRowView` puts its own.
+     *
+     * ⚠ NOT A LIVE REGION, for #1451's and #1507's reason: this subtree
+     * re-renders on every keystroke and `role="status"` would announce a running
+     * commentary on typing. The field and `Save` both carry `aria-describedby`,
+     * so the sentence is announced when either is reached.
+     *
+     * ⚠ `text-text-light` ON THE BARE PANEL GROUND, NO TINT — measured for this
+     * directory at 5.23:1 on `--bg-panel` and 5.04:1 on `--bg-panel-alt` against
+     * SC 1.4.3's 4.5:1, and BOTH spans inside this wrapper carry it, so #1507's
+     * notice keeps the guarantee it shipped with. This file is inside
      * `reasoning-model-text-contrast-per-site.spec.ts`'s scanned set
-     * (`src/components/results/analysisNew`), so the claim is CI-measured for
-     * BOTH surfaces — which is the quiet dividend of #1496 having moved the
-     * control out of `contextIntegrity/`, where that guard cannot see.
+     * (`src/components/results/analysisNew`), so the claim is CI-measured.
      * NOTHING IS ADDED TO THAT GUARD'S PINNED SET.
      */
     return (
       <span className="flex min-w-0 flex-col items-start gap-1">
-        <span
-          data-testid={`${testIdPrefix}-value-no-range`}
-          data-node-id={nodeId}
-          className={`${typography.panelMeta} text-text-light`}
-        >
-          {NO_RANGE_NOTICE}
-        </span>
+        {/* #1507's FACT ABOUT THE NODE, true before anyone types — so it is read
+            BEFORE the route forward. Gated on its own selector alone, never on
+            the admission: the two answer different questions. */}
+        {declaresNoRange && (
+          <span
+            data-testid={`${testIdPrefix}-value-no-range`}
+            data-node-id={nodeId}
+            className={`${typography.panelMeta} text-text-light`}
+          >
+            {NO_RANGE_NOTICE}
+          </span>
+        )}
         {controls}
+        {/* This change's RESPONSE TO THE DRAFT — so it sits under the field the
+            reader just typed into, which is `ModelRowView`'s order. */}
+        {offScaleReason !== null && (
+          <span
+            id={reasonId}
+            data-testid={`${testIdPrefix}-value-off-scale`}
+            data-node-id={nodeId}
+            className={`${typography.panelMeta} text-text-light`}
+          >
+            {offScaleReason}
+          </span>
+        )}
       </span>
     )
   }
