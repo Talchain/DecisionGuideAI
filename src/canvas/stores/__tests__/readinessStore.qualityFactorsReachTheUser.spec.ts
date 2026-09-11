@@ -165,6 +165,17 @@ describe("the producer's quality factors reach the user", () => {
     expect(improvements[0].action).toBe('The richer shape')
   })
 
+  it('an EMPTY improvements array does not beat a populated quality_factors', async () => {
+    // Found by review of this PR. `Array.isArray([])` is true, so the first
+    // arm would have won and published `[]` — the exact state this fix exists
+    // to end, reached through the other door. Unreachable on today's producer
+    // (it sends no `improvements` key at all), which is why this is a guard
+    // rather than a repair: a producer that starts sending an empty array
+    // would otherwise silently reinstate the defect.
+    const improvements = await drive({ improvements: [], quality_factors: WIRE_QUALITY_FACTORS })
+    expect(improvements).toHaveLength(3)
+  })
+
   it('CONTROL — neither field present still publishes an empty list', async () => {
     // Anti-vacuity: the fetch DID settle (the store holds a verdict), and only
     // then is the empty list meaningful rather than a sign nothing ran.

@@ -948,7 +948,14 @@ async function fetchReadiness(): Promise<void> {
          * present under the other name.
          */
         improvements: (() => {
-          const raw: unknown = Array.isArray(data.improvements)
+          // ⚠ `.length > 0`, NOT `Array.isArray` — an EMPTY `improvements`
+          // array beside a populated `quality_factors` would otherwise win and
+          // publish `[]`: the exact state this exists to end, reached by the
+          // other door. Unreachable on today's producer, which sends no
+          // `improvements` key at all; guarded because a producer that starts
+          // sending an empty one would silently reinstate the defect.
+          const fromImprovements = Array.isArray(data.improvements) && data.improvements.length > 0
+          const raw: unknown = fromImprovements
             ? data.improvements
             : Array.isArray(data.quality_factors)
               ? data.quality_factors
