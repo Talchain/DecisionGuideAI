@@ -62,11 +62,13 @@
  * (`pendingLayout || layoutInProgress`) rather than re-derived, so there is no
  * second rule to keep in step — a change to one is a change to both.
  *
- * That gives the guard something real to bind to, which a caveat of this kind
- * usually cannot offer: on a non-empty model, **exactly one of the two speaks
- * in every layout state**. The spec pins both directions, because a guard that
- * only proves this one appears would pass just as happily if the extent notice
- * had started appearing beside it.
+ * ⚠ THE PROPERTY IS **AT MOST ONE**, NOT "EXACTLY ONE" — corrected after review.
+ * A settled layout with nothing off-frame leaves BOTH silent, which is correct
+ * and which "exactly one" would forbid. The assertions were always right; the
+ * NAME overclaimed, and a name that promises more than its assertions check is
+ * the next reader's false confidence. The spec pins both directions, because a
+ * guard that only proves this one appears would pass just as happily if the
+ * extent notice had started appearing beside it.
  *
  * ⚠ THE NON-EMPTY GATE IS NOT DEFENSIVE DECORATION. A genuinely empty canvas
  * has nothing to draw, and telling a user their nothing is being drawn is a
@@ -76,6 +78,7 @@
  * scaffolding, not the user's model, and they are excluded by that helper.
  */
 import { useCanvasStore } from '../store'
+import { useLayoutProgressStore } from '../layoutProgressStore'
 import { excludeNonModelNodes } from '../utils/fitTargets'
 import { typography } from '../../styles/typography'
 import { useOverlayCell } from './CanvasOverlayBand'
@@ -105,7 +108,40 @@ export function CanvasDrawingNotice() {
    */
   const hasModel = useCanvasStore((s) => excludeNonModelNodes(s.nodes ?? []).length > 0)
 
-  const wants = layoutUnsettled && hasModel
+  /**
+   * ⛔⛔ SILENT WHENEVER `LayoutProgressBanner` IS SPEAKING — the blocking finding
+   * from github-3e's review, and the predicate is deliberately BROADER than the
+   * one it proposed.
+   *
+   * That banner is NOT a band occupant. It renders `fixed top-4 left-1/2
+   * z-[3000]` from `ReactFlowGraph.tsx`, 45 lines below this notice's own mount
+   * and outside `OVERLAY_PRIORITY`, so the band's one-slot-one-occupant rule
+   * never reaches it. My completeness claim was derived against a TWO-element
+   * enumeration and the domain has three surfaces in it.
+   *
+   * ⚠ THE REVIEW ASKED FOR `!layoutFailed`. THAT CLOSES THE CONTRADICTION AND
+   * LEAVES THE DUPLICATION OPEN. The store is `'idle' | 'loading' | 'error'`,
+   * and the banner renders on BOTH non-idle states:
+   *
+   *   · `error`   — "Layout failed. Please try again." + Retry. This notice
+   *                 saying "Drawing your model…" beside it asserts failure and
+   *                 reassurance in the same moment, which is the harm.
+   *   · `loading` — "Loading layout engine and applying layout..." + spinner.
+   *                 Not a contradiction, but the SAME SENTENCE twice, in two
+   *                 places, one of which also carries Retry and Cancel.
+   *
+   * So the honest rule is not "unless it failed" but **"only when nothing else
+   * is speaking"** — which is this notice's whole charter. It exists to explain
+   * a blank canvas that nothing else explains; wherever a better-equipped
+   * surface is already explaining it, this one has nothing to add.
+   *
+   * `succeed()` returns the store to `'idle'`, so the common path — a layout
+   * that runs and finishes without ever arming the banner — is unaffected and
+   * this notice still covers it.
+   */
+  const layoutBannerSpeaking = useLayoutProgressStore((s) => s.status !== 'idle')
+
+  const wants = layoutUnsettled && hasModel && !layoutBannerSpeaking
   const { granted, target } = useOverlayCell('bottom-centre', 'canvas-drawing-notice', wants)
 
   if (!wants || !granted) return null

@@ -57,6 +57,7 @@ import { ModelExtentNotice } from '../components/ModelExtentNotice'
 import { OVERLAY_PRIORITY } from '../components/CanvasOverlayBand'
 import { GHOST_ID_PREFIX } from '../utils/fitTargets'
 import { useCanvasStore } from '../store'
+import { useLayoutProgressStore } from '../layoutProgressStore'
 
 interface DOMRectLike { left: number; top: number; right: number; bottom: number }
 const stub = (el: HTMLElement, r: DOMRectLike) => {
@@ -116,6 +117,7 @@ const SETTLED = { pendingLayout: false, layoutInProgress: false }
 beforeEach(() => {
   document.body.innerHTML = ''
   mountChrome()
+  useLayoutProgressStore.setState({ status: 'idle', message: null, canRetry: false, retry: null })
 })
 afterEach(() => {
   document.body.innerHTML = ''
@@ -198,11 +200,64 @@ describe('CanvasDrawingNotice — the blank window explains itself', () => {
   })
 })
 
-describe('THE INVARIANT: exactly one of the pair speaks, in every layout state', () => {
+describe("⛔ SILENT WHENEVER `LayoutProgressBanner` IS SPEAKING — the third surface", () => {
+  /**
+   * ⭐⭐ THE BLOCKING FINDING FROM REVIEW, AND MY COMPLETENESS CLAIM WAS THE BUG.
+   *
+   * I asserted "the two can never contend" in four places, derived against a
+   * TWO-element enumeration. `LayoutProgressBanner` is a third surface: it
+   * renders `fixed top-4 left-1/2 z-[3000]` from `ReactFlowGraph.tsx` — 45 lines
+   * below this notice's own mount, inside the same provider, and NOT in
+   * `OVERLAY_PRIORITY`, so the band's one-slot-one-occupant rule never reaches
+   * it. An enumeration that stops at the surfaces you happen to know about is
+   * not a completeness proof (CLAUDE.md trap 20).
+   *
+   * ⚠ Both non-idle states are pinned, not just the failing one. The review
+   * asked for `!layoutFailed`; that closes the contradiction and leaves the
+   * duplication open. These two cases are why the predicate is `status ===
+   * 'idle'` instead.
+   */
+  it('⛔ a FAILED layout: the product must not reassure while it is asserting failure', () => {
+    setCanvas(NODES, { pendingLayout: true, layoutInProgress: false })
+    useLayoutProgressStore.setState({ status: 'error', message: 'Layout failed. Please try again.', canRetry: true })
+    render(<CanvasDrawingNotice />)
+
+    expect(screen.queryByTestId('canvas-drawing-notice')).toBeNull()
+  })
+
+  it('a LOADING layout: the banner already says it, and says it with Retry and Cancel', () => {
+    setCanvas(NODES, { pendingLayout: false, layoutInProgress: true })
+    useLayoutProgressStore.setState({ status: 'loading', message: 'Loading layout engine and applying layout...' })
+    render(<CanvasDrawingNotice />)
+
+    expect(screen.queryByTestId('canvas-drawing-notice')).toBeNull()
+  })
+
+  it('CONTRAST CONTROL: the SAME canvas state with an idle banner DOES speak', () => {
+    /**
+     * ⭐ Without this the two cases above would pass on a notice that had
+     * stopped rendering for any reason at all. The canvas state is identical to
+     * the failed case; only the banner's status differs, so the suppression is
+     * provably the banner's doing (CLAUDE.md trap 13b).
+     */
+    setCanvas(NODES, { pendingLayout: true, layoutInProgress: false })
+    useLayoutProgressStore.setState({ status: 'idle', message: null })
+    render(<CanvasDrawingNotice />)
+
+    expect(screen.getByTestId('canvas-drawing-notice')).toBeInTheDocument()
+  })
+})
+
+describe('THE INVARIANT: AT MOST ONE of the pair speaks, in every layout state', () => {
   /**
    * ⭐⭐ THE PROPERTY, NOT THE SYMPTOM. Both components are rendered together in
    * both states, and each state asserts the presence of one AND the absence of
-   * the other. Asserting only presence would leave the estate's actual failure
+   * the other.
+   *
+   * ⚠ RENAMED FROM "exactly one" AFTER REVIEW. A settled layout with nothing
+   * off-frame leaves BOTH silent — correct behaviour that "exactly one" would
+   * forbid. The assertions below were always right; the NAME promised more than
+   * they check, which is the next reader's false confidence. Asserting only presence would leave the estate's actual failure
    * mode — two notices claiming the same cell, which is the defect
    * `CanvasOverlayBand` was built after — entirely unobserved.
    */
