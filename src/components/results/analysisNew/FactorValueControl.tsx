@@ -36,6 +36,34 @@ import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { useFactorValueCommit } from './useFactorValueCommit'
 import { ANALYSIS_NEW_COPY } from './analysisNewCopy'
 
+/**
+ * ⚠⚠ THE PILL LOST ITS TINT, AND THAT IS A REPAIR THIS MOVE *REVEALED* RATHER
+ * THAN CAUSED.
+ *
+ * As authored in #1491 both buttons were `bg-info/10 … text-info
+ * hover:bg-info/20`. `reasoning-model-text-contrast-per-site.spec.ts` scans
+ * `analysisNew/`, `model-tab-v2/` and `model-tab/` — and NOT
+ * `contextIntegrity/`, where the control was written. So it was never measured,
+ * and it ships today at **3.56:1** against SC 1.4.3's 4.5:1 on the "What I
+ * estimated" list. Moving the file one directory brought it into scope and the
+ * guard caught it on the first run.
+ *
+ * That is the guard's own stated failure mode, playing out again: a surface
+ * that renders into the Reasoning tab escaped a Reasoning-tab guard by living
+ * next door. The finding is the directory scope, not this control.
+ *
+ * A same-hue tint moves the GROUND TOWARDS the text, so the ratio falls
+ * monotonically with alpha — `text-info` is 4.78:1 on a bare panel ground,
+ * 4.05:1 inside `bg-info/10` and 3.56:1 inside `bg-info/20`. There is no
+ * darker info token to reach for, so the tint had to go; a border carries the
+ * affordance instead and leaves the ground alone. Both panel grounds clear
+ * 4.5:1 for `text-info`, which is why this passes rather than being pinned.
+ *
+ * ⭐ IT IS FIXED HERE, ONCE, SO BOTH SURFACES GET IT. Repairing only the new
+ * caller would have left the older one failing under a guard that still cannot
+ * see it.
+ */
+
 export interface FactorValueControlProps {
   /**
    * The factor whose value this control writes.
@@ -176,7 +204,7 @@ export function FactorValueControl({
           onClick={commitValue}
           data-testid={`${testIdPrefix}-value-save`}
           data-node-id={nodeId}
-          className={`${typography.panelMeta} inline-flex items-center rounded-full bg-info/10 px-2 py-0.5 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+          className={`${typography.panelMeta} inline-flex items-center rounded-full border border-info/40 px-2 py-0.5 text-info hover:border-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
         >
           {ANALYSIS_NEW_COPY.modelStrip.saveValue}
         </button>
@@ -208,7 +236,7 @@ export function FactorValueControl({
       }}
       data-testid={`${testIdPrefix}-value-edit`}
       data-node-id={nodeId}
-      className={`${typography.panelMeta} inline-flex flex-none items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+      className={`${typography.panelMeta} inline-flex flex-none items-center gap-1 rounded-full border border-info/40 px-2 py-0.5 text-info hover:border-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
     >
       <Pencil className="h-3 w-3" aria-hidden={true} />
       {ANALYSIS_NEW_COPY.modelStrip.changeValue}
