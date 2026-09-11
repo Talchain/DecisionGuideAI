@@ -141,9 +141,14 @@ describe('ModelBuildingNoticesNotice — ⭐ identity binding (DISCRIMINATING PA
   })
 
   it('singular copy at exactly one omission', () => {
+    // ⚠ `relationship_not_used`, NOT `other`. The headline counts only kinds
+    // whose every producer reason leaves the content off the graph, and `other`
+    // is MIXED — it can no longer produce an omission sentence at all. Using it
+    // here would have made this test assert singular agreement on a string the
+    // product never emits. See `modelBuildingNotices.ts` § KIND_OUTCOME.
     const one = toModelBuildingNoticesView({
       total_count: 1,
-      groups: [{ kind: 'other', count: 1 }],
+      groups: [{ kind: 'relationship_not_used', count: 1 }],
       details_redacted: true,
     })
     render(
@@ -241,9 +246,14 @@ describe('ModelBuildingNoticesNotice — ⭐ row copy reads correctly at EVERY c
     // The two surfaces sit one line apart, so a mismatch is conspicuous. This
     // pins them TOGETHER — the assertion the kit was missing when the headline
     // was guarded alone.
+    // ⚠ AN ABSENT KIND, because only those produce the omission headline at
+    // all. `alternative_consolidated` is `present_changed` — every producer
+    // reason under it leaves the content on the graph — so it now renders
+    // "Olumi made 1 modelling choice worth checking" and this test would have
+    // been pinning singular agreement on the wrong sentence.
     const one = toModelBuildingNoticesView({
       total_count: 1,
-      groups: [{ kind: 'alternative_consolidated', count: 1 }],
+      groups: [{ kind: 'relationship_not_used', count: 1 }],
       details_redacted: true,
     })
     const rows = await expandRows(one)

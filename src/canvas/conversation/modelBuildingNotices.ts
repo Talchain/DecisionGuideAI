@@ -71,11 +71,34 @@ export interface ModelBuildingNoticesView {
 }
 
 /**
- * kind -> ONE plain-English noun phrase naming WHAT WAS LEFT OUT.
+ * kind -> ONE plain-English noun phrase naming WHAT HAPPENED TO IT.
  *
- * Written as things the USER recognises from their own brief, never as
- * descriptions of the model-builder's internal decision. Each is a noun phrase
- * so it reads correctly under the headline without a verb of its own.
+ * ⭐⭐ REWRITTEN 11 Sep 2026. THREE OF THE SIX WERE FALSE AGAINST THE PRODUCER.
+ * Each phrase must be true of EVERY producer reason mapped to its kind — the
+ * wire carries the kind, never the reason, so a phrase true of only one reason
+ * under it is a lie on the others. Derived at `projector.ts:352-615` and CEE's
+ * `NOTICE_KIND_BY_REASON`; the corpus and the quotes are in
+ * `modelBuildingNotices.whatIsActuallyMissing.spec.tsx`.
+ *
+ *   detail_not_connected   was "aren't LINKED to anything else yet", which says
+ *                          the detail is on the graph. Both its reasons
+ *                          WITHDRAW the node ("projected as a node and then
+ *                          withdrawn"). It is not unlinked; it is gone.
+ *   alternative_consolidated  was "Alternatives that were merged", which reads
+ *                          as the USER's choice set. All three reasons dispose
+ *                          of MODEL-emitted options ("a STATED option is NEVER
+ *                          demoted"). Naming them as the user's is the exact
+ *                          mis-attribution the producer refuses to make.
+ *   conflict_resolved_conservatively  was "your brief conflicted with itself",
+ *                          false for `constraint_direction_unstated`, where
+ *                          nothing conflicted — a direction was simply unstated.
+ *   target_not_modelled_as_threshold  was "Targets KEPT as plain values", false
+ *                          for `stated_target_value_dropped`, where "that number
+ *                          reached the graph NOWHERE".
+ *   other                  was "didn't FIT the model", false for
+ *                          `claim_label_not_a_name` ("the node IS on the graph
+ *                          ... nothing was dropped") and for
+ *                          `factor_merged_into_stated_cause`.
  *
  * ⚠ NO KIND GETS A SENTENCE THAT CLAIMS MORE THAN THE COUNT SUPPORTS. The
  * producer sends a count and a kind — not which factor, not which sentence of
@@ -83,14 +106,126 @@ export interface ModelBuildingNoticesView {
  * would fabricate detail the wire explicitly redacted (`details_redacted`).
  */
 const KIND_DESCRIPTIONS: Record<ModelBuildingNoticeKind, string> = {
-  detail_not_connected: "Details you mentioned that aren't linked to anything else yet",
+  detail_not_connected: "Details you mentioned that nothing connected to your goal",
   relationship_not_used: "Relationships you described that the model doesn't use",
-  alternative_consolidated: 'Alternatives that were merged into a single option',
+  alternative_consolidated: 'Overlapping alternatives folded into one option',
   conflict_resolved_conservatively:
-    'Points where your brief conflicted with itself, settled the cautious way',
-  target_not_modelled_as_threshold:
-    'Targets kept as plain values rather than pass/fail thresholds',
-  other: "Other details that didn't fit the model",
+    "Points Olumi couldn't settle from your brief, so it took the cautious reading",
+  target_not_modelled_as_threshold: "Targets you set that the model doesn't test against",
+  other: 'Other choices Olumi made while building the model',
+}
+
+/**
+ * ⭐⭐ WHAT THE COUNT IS ALLOWED TO CLAIM — THE FIX FOR A HEADLINE THAT COUNTED
+ * THINGS STILL IN THE MODEL.
+ *
+ * Deployed on 11 Sep 2026, on a ~60-word brief: *"Olumi left 14 things from
+ * your brief out of this model"*. Derived at the producer, NINE of the twenty
+ * reasons CEE maps onto these six kinds describe content that IS IN THE GRAPH,
+ * and two whole kinds are unanimous about it. In the producer's own words:
+ *
+ *   constraint_direction_unstated  "The node keeps the user's words; the
+ *                                   THRESHOLD is withheld ... THIS IS THE ASK,
+ *                                   NOT A LOSS."
+ *   claim_label_not_a_name         "The node IS on the graph ... Nothing was
+ *                                   dropped, refused or shortened."
+ *   refinement_merged_into_stated_option  "The projector BINDS IT TO THE
+ *                                   PARENT'S NODE."
+ *
+ * So the headline was making a false claim about the user's own words on the
+ * one channel whose entire purpose is telling them the truth about what was
+ * lost — and a second one beside it, because every reason under
+ * `alternative_consolidated` disposes of MODEL-emitted content rather than
+ * anything "from your brief".
+ *
+ * ⚠⚠ HOW BIG IS THE OVER-COUNT? UNMEASURED ON THE WITNESSED DRAFT, AND THE ONE
+ * BANKED FIGURE SAYS **SMALL** — recorded here so nobody inherits the opposite.
+ * On both real banked B3 captures the projector produced 56 disclosures and the
+ * DOMINANT CLASS was `unconnected_to_goal` at 51 of 56 (`transforms/schema-v3.ts:1831`),
+ * which is `detail_not_connected` and IS genuinely absent. On that corpus this
+ * change moves the headline 56 -> ~51, not 56 -> 5. The 14 witnessed on 11 Sep
+ * has never been broken down, and a capture is the only thing that would.
+ *
+ * ⭐ SO THE COUNT IS NOT THE BIGGEST LIE ON THIS SURFACE — THE ROW COPY WAS.
+ * At 51 of 56, the modal row said "Details you mentioned that aren't LINKED to
+ * anything else yet", which tells the user the detail is on the graph and merely
+ * unattached. The producer WITHDRAWS it. Nine in ten disclosures were describing
+ * a deletion as a loose end. That is fixed in `KIND_DESCRIPTIONS` above, and it
+ * is the change on this surface most likely to matter to a real user.
+ *
+ * ── THE RULE, AND WHY IT IS THE ONLY ONE THE WIRE SUPPORTS ──────────────────
+ * A kind is `absent` only when EVERY producer reason mapped to it puts the
+ * content outside the graph. The wire carries the KIND and not the reason, so a
+ * kind with even one in-model reason cannot support an omission claim for the
+ * items it counts. That leaves `relationship_not_used` and
+ * `detail_not_connected` and nothing else.
+ *
+ * The two MIXED kinds are NOT forced into the nearest bucket. That is the
+ * producer's own ruling, applied one level up: *"a coarse-but-true bucket beats
+ * a specific-but-false one on a channel whose purpose is telling the truth
+ * about what was lost"*. They render under their own heading, claiming neither.
+ *
+ * ⚠ COMPLETENESS IS COMPILE-TIME (trap 12). `Record<ModelBuildingNoticeKind, …>`
+ * means a seventh enum member FAILS TYPECHECK here rather than silently
+ * defaulting into `absent` and inflating the omission count — which is the
+ * direction that would hurt, and exactly what a `default:` arm would do.
+ */
+export type ModelBuildingNoticeOutcome = 'absent' | 'present_changed' | 'other_notes'
+
+const KIND_OUTCOME: Record<ModelBuildingNoticeKind, ModelBuildingNoticeOutcome> = {
+  // Both reasons withdraw the record from the graph.
+  detail_not_connected: 'absent',
+  // All eight reasons leave the LINK unmade.
+  relationship_not_used: 'absent',
+  // All three fold MODEL-emitted content into a node that survives.
+  alternative_consolidated: 'present_changed',
+  // All three choose canonically and keep the user's words.
+  conflict_resolved_conservatively: 'present_changed',
+  // `stated_target_not_represented_as_threshold` is on the graph;
+  // `stated_target_value_dropped` reached it "NOWHERE". Mixed — claim neither.
+  target_not_modelled_as_threshold: 'other_notes',
+  // `claim_label_not_a_name` and `factor_merged_into_stated_cause` are on the
+  // graph; `option_budget_exceeded` was "left OFF". Mixed — claim neither.
+  other: 'other_notes',
+}
+
+/** The ONLY kind -> outcome path. Unknown kinds claim nothing. */
+export function modelBuildingNoticeOutcome(kind: string): ModelBuildingNoticeOutcome {
+  return Object.prototype.hasOwnProperty.call(KIND_OUTCOME, kind)
+    ? KIND_OUTCOME[kind as ModelBuildingNoticeKind]
+    : 'other_notes'
+}
+
+/** The order the groups render in. The loss the user can act on comes first. */
+export const OUTCOME_ORDER: readonly ModelBuildingNoticeOutcome[] = [
+  'absent',
+  'present_changed',
+  'other_notes',
+]
+
+/**
+ * The heading above each group. These are the sentences that make the rows
+ * legible, so they carry the in/out claim the headline no longer over-states.
+ */
+export const OUTCOME_HEADINGS: Record<ModelBuildingNoticeOutcome, string> = {
+  absent: 'Not in this model',
+  present_changed: 'In the model, handled differently',
+  other_notes: 'Also noted',
+}
+
+/**
+ * How many of the rendered rows the product can HONESTLY call missing.
+ *
+ * ⚠ DERIVED FROM `rows`, NOT FROM `groups`, AND THAT IS FAIL-CLOSED ON PURPOSE.
+ * A kind this UI cannot name is absent from `rows`, so it cannot be counted as
+ * an omission — we do not know what a future kind means, and guessing `absent`
+ * would inflate the one number a user is most likely to act on.
+ */
+export function absentCountOf(rows: readonly ModelBuildingNoticeRow[]): number {
+  return rows.reduce(
+    (sum, row) => (modelBuildingNoticeOutcome(row.kind) === 'absent' ? sum + row.count : sum),
+    0,
+  )
 }
 
 /**
@@ -107,13 +242,34 @@ export function describeModelBuildingNoticeKind(kind: string): string | null {
  * The collapsed summary line. Count-led and past tense: it states what happened
  * to the model the user is looking at, and nothing about why.
  *
+ * ⭐⭐ IT COUNTS `absentCountOf(rows)`, NEVER `totalCount`. The two are
+ * different quantities and the deployed build rendered the wrong one — see
+ * `KIND_OUTCOME` for the derivation and the measured sentence. `totalCount`
+ * remains the producer's and is still rendered in full in the breakdown; what
+ * changes is that the OMISSION CLAIM is scoped to the rows that support it.
+ *
+ * ⚠ THE ZERO-ABSENT ARM IS NOT A REASSURANCE, AND MUST NEVER BECOME ONE. When
+ * nothing is unanimously missing the line says what Olumi DID, not that the
+ * brief survived intact — a completeness claim here would be built on kinds
+ * that are MIXED, i.e. on items that may well be missing. It also may not mint
+ * "left 0 things out": the file's two standing fabrication bans apply to this
+ * arm exactly as they apply to an absent payload.
+ *
  * Mirrors the established receipt phrasing ("Olumi made N adjustments to keep
  * the model valid") so the two disclosures read as one voice.
  */
-export function modelBuildingNoticesSummary(totalCount: number): string {
-  return totalCount === 1
-    ? 'Olumi left 1 thing from your brief out of this model'
-    : `Olumi left ${totalCount} things from your brief out of this model`
+export function modelBuildingNoticesSummary(view: ModelBuildingNoticesView): string {
+  const absent = absentCountOf(view.rows)
+
+  if (absent > 0) {
+    return absent === 1
+      ? 'Olumi left 1 thing from your brief out of this model'
+      : `Olumi left ${absent} things from your brief out of this model`
+  }
+
+  return view.totalCount === 1
+    ? 'Olumi made 1 modelling choice worth checking'
+    : `Olumi made ${view.totalCount} modelling choices worth checking`
 }
 
 /**
