@@ -35,6 +35,31 @@
  * across would advertise an action the product cannot perform — the precise
  * defect #1473 removed. So this states the gap and stops.
  *
+ * ⚠⚠ THE RESIDUAL THIS CHOICE LEAVES, RECORDED RATHER THAN DISCOVERED LATER.
+ * Two estate rulings meet here and they pull opposite ways, so the next reader
+ * should not have to re-derive that tension or conclude one was overlooked:
+ *
+ *   · Paul, 31 Aug, quoted in `cardCopyCensus.canvas.spec.tsx`: byte-identical
+ *     card copy "is a waste of space… should be a hover-over". That is why the
+ *     words became a glyph.
+ *   · `NodeMetricRow`'s header, two sentences later in that SAME census file:
+ *     "THE CAPTION IS VISIBLE TEXT, NEVER A `title`" — for UI-SEM-089, and
+ *     because a `title` is unreachable by keyboard on a non-focusable row and
+ *     ABSENT ON TOUCH.
+ *
+ * So for a touch reader this cell's meaning now lives entirely in a carrier
+ * they cannot reach: a bare name has become a bare glyph — visible, and still
+ * undecodable. Raised in review of #1495 and deliberately NOT made a change
+ * request there, because it is a conflict between two rulings rather than a
+ * defect in the change, and it is strictly better than the silence it replaced.
+ *
+ * ⛔ WHAT WOULD SETTLE IT IS A DENSITY DECISION, NOT A CODE ONE — whether a
+ * confidence cell may spend visible characters on "not set" in the narrowest
+ * column on screen. That is Paul's call and it is open. Do not resolve it by
+ * quietly adding the words back (the census REDs, correctly) or by deleting
+ * this note. The `aria-label` already serves screen readers; the unserved
+ * reader is specifically the sighted touch user.
+ *
  * ⛔ AND IT MUST NOT BORROW THE STRENGTH WORDING FOR A SECOND REASON: these are
  * two number families (P0-4 above). "Link strength not set" on a confidence cell
  * would re-conflate them in the one state where no figure is present to
