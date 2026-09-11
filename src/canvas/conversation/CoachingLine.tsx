@@ -43,6 +43,28 @@
  * turns, this change gets MORE useful, not less — which is an argument that
  * needs no measurement of mine.
  *
+ * ## The line is an INDEX ENTRY, and is weighted as one
+ *
+ * ⚠ IT SHIPPED AT THE PANEL'S LARGEST WEIGHT, WHICH IS WHY IT READ AS A WALL
+ * OF ITS OWN. The title used `typography.panelHeader` — 14px SEMIBOLD, the
+ * token documented for "section titles, winner name, key emphasis" — and the
+ * icon used `ICON_STATUS` (14). A row whose whole job is to let someone scan
+ * past it is none of those things, and at 14px semibold a real producer title
+ * ("Include new subscriber acquisition as a pathway to MRR", 52 chars) wraps
+ * to two lines at the 416px dock, so three "single lines" were six.
+ *
+ * Now: title `panelBody` (12px regular), icon `ICON_DENSE` (12 — the token's
+ * own docstring says "dense rows, inline chips"), chip padding `px-1.5` and
+ * `text-text-light`. Every value is an existing token; the panel's
+ * three-size census (14/12/11) is untouched, and nothing here invents a scale.
+ *
+ * ⛔ THE CATEGORY CHIP STAYS, and it is worth saying why it survived a
+ * "use icons instead" pass. `guidanceCategoryIcon` is BINARY — danger tone
+ * gets `AlertTriangle`, everything else gets `Lightbulb` — so the icon cannot
+ * separate `could_fix` from `technique`. Dropping the chip would leave that
+ * four-value distinction carried by tint alone, which is WCAG 1.4.1 (Use of
+ * Colour) failing at Level A. It is lighter, not gone.
+ *
  * ## ⚠⚠ THE LINE IS PRODUCER COPY, VERBATIM, OR THERE IS NO LINE
  *
  * `block.title` is rendered character-for-character. It is never summarised,
@@ -91,8 +113,14 @@ import { typography } from '../../styles/typography'
 import { guidanceCategoryIcon } from '../stores/guidanceStore'
 import { STRENGTHEN_COPY } from '../../components/results/strengthen/strengthenCopy'
 import { isPinnedBlock, isPointCandidate } from './messageComposition'
-import { ICON_STATUS } from './panelIcons'
-import { reviewSeverityVisual, type Severity } from '../../v5/blocks/severityChannel'
+import { ICON_DENSE } from './panelIcons'
+import { evidenceBlockTitle } from '../../v5/blocks/V5EvidenceBlock'
+import type { V5EvidenceBlock as V5EvidenceBlockType } from './types'
+import {
+  evidenceSeverityVisual,
+  reviewSeverityVisual,
+  type Severity,
+} from '../../v5/blocks/severityChannel'
 import type { ConversationBlock } from './types'
 import styles from './Conversation.module.css'
 
@@ -113,10 +141,31 @@ const CHIP_CLASS: Record<CoachingCategory, string> = {
 
 /** The producer's own title, or null when it did not send a usable one. */
 export function collapsibleTitle(block: ConversationBlock): string | null {
-  const title = (block as { title?: unknown }).title
-  if (typeof title !== 'string') return null
-  const trimmed = title.trim()
-  return trimmed.length > 0 ? trimmed : null
+  const direct = (block as { title?: unknown }).title
+  if (typeof direct === 'string' && direct.trim().length > 0) return direct.trim()
+
+  /*
+    ⭐ EVIDENCE BLOCKS CARRY `factor_label`, NOT `title` — and without this
+    fallback they were the one point-candidate family that could never
+    collapse. Witnessed on deployed staging: a turn whose coaching blocks
+    rendered as compact lines while its evidence blocks rendered as full
+    bordered walls, two of them filling the panel above "Show 11 more". The
+    list read as working on one reply and broken on the next, which is exactly
+    how it was reported.
+
+    ⚠ THIS IS NOT A SYNTHESISED TITLE, AND IT ASKS THE ONE AUTHORITY.
+    `evidenceBlockTitle` is the card's own §1.3 resolution — the primary
+    `target_refs` factor entry, with `factor_label` only as the
+    backward-compatibility fallback. Reading `factor_label` directly here
+    would have been the shorter fix and the wrong one: the two fields differ
+    on conflict, so the line and the card would have put different names on
+    one block. The UI composes nothing and shortens nothing.
+  */
+  if ((block as { type?: unknown }).type === 'v5_evidence') {
+    const resolved = evidenceBlockTitle(block as unknown as V5EvidenceBlockType)
+    return typeof resolved === 'string' && resolved.trim().length > 0 ? resolved.trim() : null
+  }
+  return null
 }
 
 /** The producer's category, where this block type carries one at all. */
@@ -138,7 +187,8 @@ function blockCategory(block: ConversationBlock): CoachingCategory | null {
  * channel the block actually carries.
  */
 function blockReviewSeverity(block: ConversationBlock): Severity | null {
-  if ((block as { type?: unknown }).type !== 'v5_review_card') return null
+  const type = (block as { type?: unknown }).type
+  if (type !== 'v5_review_card' && type !== 'v5_evidence') return null
   const severity = (block as { severity?: unknown }).severity
   return severity === 'info' || severity === 'warning' || severity === 'critical'
     ? severity
@@ -174,8 +224,18 @@ export function CoachingLine({ block, children }: CoachingLineProps) {
   // `reviewSeverityVisual` for a review card's severity. Re-deriving either
   // here would be a second mirror to keep; reading only one of them is the
   // #1450 defect this replaces.
+  /*
+    ⛔ THE FAMILY DESCRIPTOR IS CHOSEN BY BLOCK TYPE, NOT BY "has a severity".
+    An evidence block's glyph is `Search` — an evidence gap is something to go
+    and look at — and routing it through `reviewSeverityVisual` would hand back
+    `Lightbulb`, which is #1450 exactly: one family's glyph rule silently
+    applied to another's blocks. Making evidence collapsible WITHOUT this line
+    would have reintroduced the defect the compact line exists to fix, on the
+    very turn that made the gap visible.
+  */
+  const isEvidence = (block as { type?: unknown }).type === 'v5_evidence'
   const { Icon, tintClass } = severity
-    ? reviewSeverityVisual(severity)
+    ? (isEvidence ? evidenceSeverityVisual(severity) : reviewSeverityVisual(severity))
     : guidanceCategoryIcon(category ?? undefined)
 
   // Fail closed: no usable producer title, no line. The caller renders the
@@ -205,14 +265,14 @@ export function CoachingLine({ block, children }: CoachingLineProps) {
         data-testid={`coaching-line-summary-${blockId}`}
       >
         <Icon
-          size={ICON_STATUS}
+          size={ICON_DENSE}
           className={`flex-none ${tintClass}`}
           aria-hidden="true"
         />
         {category && (
           <span
             className={[
-              'inline-flex flex-none items-center rounded-full px-2 border bg-transparent text-text-body',
+              'inline-flex flex-none items-center rounded-full px-1.5 border bg-transparent text-text-light',
               CHIP_CLASS[category],
               typography.panelMeta,
             ].join(' ')}
@@ -222,7 +282,7 @@ export function CoachingLine({ block, children }: CoachingLineProps) {
           </span>
         )}
         {/* The producer's title, verbatim. No clamp, no ellipsis, no clip. */}
-        <span className={typography.panelHeader}>{title}</span>
+        <span className={typography.panelBody}>{title}</span>
       </summary>
       <div className={styles.coachingLineBody}>{children}</div>
     </details>

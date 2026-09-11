@@ -146,7 +146,7 @@ function reviewCard(n: number): V5ReviewCardBlock {
 }
 
 /** Carries NO `title` field at all — the live fail-closed instance. */
-function evidence(n: number): V5EvidenceBlock {
+function evidence(n: number, over: Partial<Record<string, unknown>> = {}): V5EvidenceBlock {
   return {
     type: 'v5_evidence',
     block_id: `ev_${n}`,
@@ -159,6 +159,7 @@ function evidence(n: number): V5EvidenceBlock {
     target_refs: [],
     priority_rank: n,
     freshness: 'fresh',
+    ...over,
   } as unknown as V5EvidenceBlock
 }
 
@@ -276,10 +277,34 @@ describe('fail closed — a block with no title is never reduced to a blank line
     expect(screen.getByText('BLANK TITLE BODY')).toBeVisible()
   })
 
-  it('v5_evidence carries no title field at all, so it renders expanded', () => {
+  /**
+   * ⛔ THIS ARM PINNED THE DEFECT, AND IS CORRECTED RATHER THAN DELETED.
+   *
+   * It read "v5_evidence carries no title field at all, so it renders
+   * expanded" and passed for exactly the reason the feature was broken:
+   * evidence blocks carry `factor_label`, not `title`, so they were the one
+   * point-candidate family that could never collapse. Witnessed on deployed
+   * staging — a turn whose coaching blocks were compact lines while two
+   * evidence blocks rendered as full bordered walls above "Show 11 more", so
+   * the list looked like it worked on one reply and not the next.
+   *
+   * A spec can encode a defect as an expectation, and this one did. What the
+   * rule is actually FOR is that no block is ever reduced to a BLANK line;
+   * that is pinned below, on a block carrying neither field.
+   */
+  it('v5_evidence collapses on its producer `factor_label`', () => {
     renderBlocks([evidence(1)])
-    expect(lineFor('ev_1')).toBeNull()
-    expect(screen.getByText(/Evidence factor 1/)).toBeVisible()
+    const line = lineFor('ev_1')
+    expect(line, 'evidence must collapse like every other point candidate').not.toBeNull()
+    expect(within(line!).getByText('Evidence factor 1')).toBeVisible()
+  })
+
+  it('a block carrying neither title nor factor_label still renders expanded', () => {
+    renderBlocks([
+      evidence(2, { block_id: 'ev_nolabel', factor_label: '   ', evidence_gap: 'NO LABEL BODY' }),
+    ])
+    expect(lineFor('ev_nolabel'), 'nothing usable to title a line with').toBeNull()
+    expect(screen.getByText(/NO LABEL BODY/)).toBeVisible()
   })
 })
 
