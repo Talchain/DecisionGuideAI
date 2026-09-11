@@ -965,6 +965,20 @@ export type GlanceComparativeClaim =
   | 'value'
   /** A superlative or an ordering verdict renders, but no percentage. Sentence only. */
   | 'order'
+  /**
+   * A FLIP CONDITION renders and nothing else does. Sentence only.
+   *
+   * ⚠ ADDED 11 Sep 2026, ROADMAP 2.1340 row F — the FOURTH member of this list
+   * found by a review round, which is the finding. ISL derives the flip
+   * thresholds OVER THE CANDIDATE SET, exactly as it does `win_probability`
+   * and `rank`, so "Could change if X moves from 2 to 3" is a claim about the
+   * compared subset and reads as a claim about the user's whole option set.
+   *
+   * It takes the neutral sentence and NOT `detail`: a threshold puts no rank
+   * and no percentage on screen, so "ranks and comparative percentages
+   * describe those N only" would describe magnitudes that are not there.
+   */
+  | 'condition'
   /** Nothing set-dependent is on screen. Qualify nothing. */
   | 'none'
 
