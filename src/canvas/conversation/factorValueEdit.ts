@@ -327,6 +327,55 @@ export function factorValueAdmissionRefusal(
 }
 
 /**
+ * ⭐⭐ THE FRAME A `{value, raw_value}` PAIR ENCODES — A DELIBERATE CROSS-REPO
+ * MIRROR OF CEE's `recoverScaleFrame`, AND IT IS DECLARED AS ONE.
+ *
+ * ⚠⚠ THIS IS A DUPLICATED RULE, which is this estate's dominant defect class
+ * (CLAUDE.md trap 12). It is duplicated because it CANNOT be imported: the
+ * owning function lives in another service and no shared package carries it
+ * (swept at UI `b93904c9`, `src`: `recoverScaleFrame|scale_frame|scaleFrame` =
+ * 0 files, against a contrast control of `raw_value` = 188 files, so the
+ * absence is real rather than instrument blindness). The duplication is
+ * therefore made LOUD instead of implicit, and pinned by
+ * `__tests__/factorValueScaleFrameAgreement.spec.ts`, whose expectations are
+ * CEE's own executed output rather than this file's opinion.
+ *
+ * ── THE OWNER, AND THE BYTES THIS MIRRORS ──────────────────────────────────
+ * `recoverScaleFrame` —
+ * `olumi-assistants-service` `staging` @ `c6c16885`,
+ * `src/orchestrator-v5/tools/handlers/d1-shared/scale-frame.ts:39-52`.
+ * Its four preconditions, in its order and with its strictness:
+ *   `value` a finite number · `raw` a finite number · `value > 0` ·
+ *   `raw > value` · quotient finite and `> 1`.
+ * The run gate `findScaleIncoherentBaselineFactorIds`
+ * (`plot-intervention-scale.ts:813`) EXEMPTS a factor whenever that call
+ * returns a frame, which is why this question decides the disclosure.
+ *
+ * ── WHAT WOULD MAKE THE TWO DRIFT ──────────────────────────────────────────
+ * A change to any precondition above, or to the gate's decision to consult it.
+ * Nothing enforces the coupling at build time; the agreement spec is the whole
+ * of it, and it fails HERE rather than as a user-visible contradiction.
+ *
+ * ⚠ READS THE STORED FIELDS RAW, exactly as CEE does — no `readNumber`
+ * unwrapping. A shape CEE cannot read must not yield a frame here either;
+ * declining leaves the disclosure ON, which is the conservative direction.
+ *
+ * Pure, total, no I/O.
+ */
+export function recoverScaleFrameFromPair(
+  value: unknown,
+  rawValue: unknown,
+): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined
+  if (typeof rawValue !== 'number' || !Number.isFinite(rawValue)) return undefined
+  if (!(value > 0)) return undefined
+  if (!(rawValue > value)) return undefined
+  const frame = rawValue / value
+  if (!Number.isFinite(frame) || frame <= 1) return undefined
+  return frame
+}
+
+/**
  * ⭐ IS THIS NUMBER ONE THE ENGINE CANNOT PLACE?
  *
  * ⚠ TWO QUESTIONS, NAMED APART — NOT AN INCONSISTENCY TO RECONCILE (trap 21).
@@ -340,11 +389,27 @@ export function factorValueAdmissionRefusal(
  * support of that `value`) and is exactly the shape this one exists to disclose.
  * Collapsing them into one predicate would make the disclosure dark.
  *
- * True for a factor that carries NO cap and NO unit — the shape where CEE
- * persists `raw_value = value`, so `value` IS the model scale — while holding a
- * finite `value` OUTSIDE [0,1]. On that shape a bare `70` asserts a model-scale
- * quantity seventy times the top of the scale, and there is nothing recorded
- * saying seventy of what.
+ * ⚠⚠ THE PREMISE THIS PARAGRAPH USED TO STATE WAS FALSE, and it is corrected
+ * in place rather than deleted. It said: *"true for a factor that carries NO cap
+ * and NO unit — THE SHAPE WHERE CEE PERSISTS `raw_value = value`, so `value` IS
+ * the model scale."* **Capless does NOT imply `raw_value === value`.** CEE's
+ * records projector (pass 3d) writes magnitude-scaled factors as CAPLESS FRAMED
+ * PAIRS — `value` is the level (raw ÷ frame), `raw_value` is the user's
+ * magnitude — and deliberately does NOT persist the frame as a `cap`, because a
+ * stored cap would flip every later edit to cap-normalised writes. Capless is
+ * therefore precisely where the pair CARRIES the frame.
+ * (`olumi-assistants-service` `staging` @ `c6c16885`,
+ * `src/orchestrator-v5/tools/handlers/d1-shared/scale-frame.ts:1-38`.)
+ *
+ * The cost of that premise was a false alarm that dead-ends: the panel told the
+ * user a framed factor had "no scale recorded" and prescribed *"Ask Olumi to set
+ * the range it can move between"* — which Olumi then refuses, because it cannot
+ * store a range. A warning the product declines to act on is worse than silence.
+ *
+ * So the predicate is now: NO cap, NO unit, a finite `value` OUTSIDE [0,1],
+ * **AND no frame recoverable from the `{value, raw_value}` pair.** On that
+ * shape a bare `70` asserts a model-scale quantity seventy times the top of the
+ * scale, and there is nothing recorded saying seventy of what.
  *
  * ⚠ THIS IS THE SAME RULE THE BUILDER ALREADY ENFORCES, NOT A SECOND ONE.
  * `buildFactorValueEditEvent` refuses a `model_scale` commit with
@@ -373,7 +438,18 @@ export function factorValueHasNoUsableScale(nodeData: unknown): boolean {
   if (typeof value !== 'number' || !Number.isFinite(value)) return false
   // In [0,1] the number is a coherent model-scale belief; only outside it is
   // there a quantity with nothing to measure it against.
-  return value < 0 || value > 1
+  if (value >= 0 && value <= 1) return false
+  // ⭐ A PAIR-ENCODED FRAME IS A RESOLVED SCALE, NOT AN UNRESOLVED ONE — the
+  // clause that was missing, and the one the engine has always applied. A
+  // capless `{value: 7, raw_value: 70}` states its own frame (10) exactly, and
+  // CEE's run gate exempts it; saying "no scale recorded" about it was a false
+  // alarm whose prescribed remedy the product then refuses.
+  //
+  // ⛔ THIS IS A POSITIVE DETERMINATION, NOT A WIDENED WINDOW. It fires only
+  // where a frame is genuinely RECOVERABLE, so every unresolvable shape still
+  // discloses: a bare raw baseline (`raw === value`), an inverted pair, a
+  // negative pair, and a level with no magnitude beside it.
+  return recoverScaleFrameFromPair(obs.value, obs.raw_value) === undefined
 }
 
 export interface FactorValueEditInput {
