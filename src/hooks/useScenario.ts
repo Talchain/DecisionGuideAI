@@ -39,6 +39,7 @@ import { shouldPersistGraphForScenario } from '../canvas/stores/draftStore'
 // so the specs that pin the write MECHANISM can lift the policy and keep proving
 // the plumbing. See that file's header for the whole derivation.
 import { clientCanWriteReadableGraph } from '../lib/clientGraphWritePolicy'
+import { logCanvasBreadcrumb, describeError } from '../canvas/utils/canvasBreadcrumb'
 
 export type SaveStatus = 'saved' | 'saving' | 'error'
 
@@ -269,6 +270,19 @@ export async function flushPendingGraphSave(isPersistenceActive: boolean): Promi
   const p = persistGraphNow(sid)
   trackInFlightGraphSave(p)
   await p
+}
+
+/**
+ * Put a scenario-load problem on screen through the canvas's canonical toast
+ * bridge — the same channel the store's delete refusal and the undo notice use,
+ * listened to in `ReactFlowGraph`. Kept as one function so the two call sites
+ * above cannot drift apart in level or transport.
+ */
+function notifyScenarioLoadProblem(message: string): void {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('topbar:show-toast', {
+    detail: { message, level: 'error' },
+  }))
 }
 
 export function useScenario(): UseScenarioReturn {
@@ -718,11 +732,57 @@ export function useScenario(): UseScenarioReturn {
     async (id: string): Promise<void> => {
       if (!isPersistenceActive) return
 
-      const row = await scenarioService.loadScenario(id)
+      /**
+       * ⛔ A MODEL THAT WILL NOT LOAD MUST SAY SO — ON A PRODUCTION BUILD.
+       *
+       * Both arms below used to end in a bare `return` whose only trace was a
+       * `console.warn` behind `import.meta.env.DEV`. Staging IS a production
+       * build, so on the one environment where this is witnessed the trace was
+       * compiled out and the user was left on an EMPTY CANVAS with nothing said
+       * and nothing in the console — indistinguishable from a model that is
+       * genuinely empty. Paul hit exactly this, signed in, on 11 Sep.
+       *
+       * Same defect and same repair as the layout failure (`#1479`): the reason
+       * goes to the breadcrumb ring, which survives a production build and
+       * outlives the console, because nobody has devtools open when it happens.
+       *
+       * ⚠ TWO REASONS, NAMED APART — they are different questions and a single
+       * message for both would be a false claim half the time (trap 21):
+       *   · `not_found` — `scenarioService.loadScenario` returns null ONLY for
+       *     PGRST116, "no rows returned". For a signed-in user that also covers
+       *     a row hidden by row-level security, which is NOT the same as a row
+       *     that was deleted — so the copy says what is true of both without
+       *     asserting either.
+       *   · `load_failed` — every other Supabase error THROWS
+       *     `ScenarioPersistenceError`. That rejection was previously unhandled
+       *     here, so it escaped to the caller and still painted a blank canvas.
+       *
+       * It does NOT invent a recovery. Whether the model can be re-fetched is
+       * not knowable here, so the notice reports and stops rather than promising
+       * a retry this function cannot perform.
+       */
+      let row: Awaited<ReturnType<typeof scenarioService.loadScenario>>
+      try {
+        row = await scenarioService.loadScenario(id)
+      } catch (err) {
+        logCanvasBreadcrumb('scenario:load:failed', {
+          phase: 'rejected',
+          scenarioId: id,
+          err: describeError(err),
+        })
+        notifyScenarioLoadProblem(
+          'Your model could not be loaded. It has not been changed — try reloading the page.',
+        )
+        return
+      }
       if (!row) {
-        if (import.meta.env.DEV) {
-          console.warn('[useScenario] Scenario not found:', id)
-        }
+        logCanvasBreadcrumb('scenario:load:failed', {
+          phase: 'not_found',
+          scenarioId: id,
+        })
+        notifyScenarioLoadProblem(
+          'This model could not be opened. It may have been removed, or you may not have access to it.',
+        )
         return
       }
 
