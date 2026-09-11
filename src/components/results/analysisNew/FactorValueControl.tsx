@@ -33,8 +33,65 @@ import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../../canvas/store'
 import { useOptionalConversationContext } from '../../../canvas/conversation/ConversationContext'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
+import { factorDeclaresNoRange } from '../../../canvas/conversation/factorValueEdit'
 import { useFactorValueCommit } from './useFactorValueCommit'
 import { ANALYSIS_NEW_COPY } from './analysisNewCopy'
+
+/**
+ * ⭐⭐ #1451'S PREVENTION, CARRIED TO THE REASONING TAB — NOT A SECOND ONE, AND
+ * NOT THE FIX FOR THE REFUSAL LOOP.
+ *
+ * #1451 ("Say when a factor records no range, before the user commits a bare
+ * amount") shipped this on the Model tab's row editor: it derives
+ * `factorDeclaresNoRange` off the node's own `prior`, carries it to
+ * `ModelRowView` as `ModelRow.declaresNoRange`, and prints one sentence at the
+ * `editing` beat. The two Reasoning-tab controls merged today (#1491's "What I
+ * estimated" edit, #1496's "Add its current value." rows) write the SAME wire
+ * event through the SAME authority and had none of it.
+ *
+ * ⭐ THERE IS ONE IMPLEMENTATION BECAUSE THERE IS ONE CONTROL. #1496 already
+ * extracted both surfaces into this component, so wiring the prevention here
+ * reaches both without a second copy to keep in step (trap 12). Nothing was
+ * added to `WhatIWasGivenSection` or `DeeperAnalysis`.
+ *
+ * ⚠ THE PREDICATE IS IMPORTED, NEVER REIMPLEMENTED. `factorDeclaresNoRange` is
+ * #1451's, unchanged: a presence test on `data.prior.{range_min, range_max}`
+ * with no ordering, cap, scale or unit rule, failing OPEN into silence on every
+ * shape it cannot read. A second range parser here would be the twin defect this
+ * estate is named for.
+ *
+ * ⚠ EVERY CLAUSE IS TRUE AT THIS CALL SITE, WHICH IS WHY THE SENTENCE IS REUSED
+ * RATHER THAN REWRITTEN. Clause 3 ("once applied it cannot be removed") is a
+ * property of the WIRE CONTRACT, not of the Model tab: this control commits
+ * `useFactorValueCommit` -> `useModelEditAuthority.proposeFactorValue` ->
+ * `buildFactorValueEditEvent` -> `sendSystemEvent`, which is the same
+ * `factor_value_edit` member whose `value` is a required `z.number().finite()`
+ * inside a `.strict()` object. #1451 established by EXECUTION against the
+ * vendored `@talchain/schemas@0.54.0` that `null`, omission, `undefined`, `NaN`
+ * and an extra `clear` key are all refused at parse. Traced at this tip:
+ * `useModelEditAuthority.ts:457`, and `model-tab-v2/contracts.ts:68` records the
+ * same mapping in its own words.
+ *
+ * ⛔⛔ IT STATES A FACT. IT DOES NOT REFUSE, AND IT INVENTS NO BOUND. The input,
+ * `Save` and `Cancel` are untouched; no range is synthesised, defaulted or
+ * inferred anywhere; the user may still have a good reason to set the value and
+ * this does not stop them. A refusal here would be strictly worse than the trap,
+ * because the repair route it would demand does not exist in the product
+ * (#1451 measured all four non-test `prior_range_edit` mount paths dead).
+ *
+ * ⚠ NOT CEE'S SENTENCE, AND NOT A COPY OF IT. CEE's analyse-time refusal is
+ * CEE-owned, good, and untouched here. This is the client saying what it can see
+ * about the node in front of it, at a beat CEE never reaches.
+ *
+ * ⚠ THE CONSTANT IS DELIBERATELY NOT EXPORTED, exactly as #1451's is, so no spec
+ * can assert the render against the constant it renders (trap 13b). The spec
+ * spells the sentence out, and pins the non-export structurally. A separate
+ * assertion reads `ModelRowView.tsx`'s SOURCE and fails if the two wordings
+ * diverge — the honest substitute for a shared reference, which #1451's own
+ * non-export assertion forbids.
+ */
+const NO_RANGE_NOTICE =
+  'This factor records no range. An amount entered here has nothing to measure it against, and once applied it cannot be removed.'
 
 /**
  * ⚠⚠ THE PILL LOST ITS TINT, AND THAT IS A REPAIR THIS MOVE *REVEALED* RATHER
@@ -135,6 +192,26 @@ export function FactorValueControl({
   const name = label ?? storeLabel
 
   /**
+   * ⚠ A THIRD PRIMITIVE SELECTOR, for the reason stated on `storeLabel`: a
+   * selector returning the node object allocates a new reference on every store
+   * update and would re-render this control on every unrelated node change.
+   * `factorDeclaresNoRange` returns a boolean, which compares by value.
+   *
+   * ⚠ NODE NOT FOUND RETURNS `false`, NOT THE PREDICATE'S `true`. The predicate
+   * reads `undefined` as "no range recorded" because that is the witnessed shape
+   * of a node whose `prior` is absent; a node that is not in the graph at all is
+   * a different question, and claiming an absence about it would be an assertion
+   * we cannot support. It fails open into silence, in the same direction as the
+   * predicate itself. `offer` already requires `isInGraph`, so this branch is
+   * unreachable at render — it is written this way so the FACT is derived
+   * honestly rather than relying on a neighbouring guard to hide it.
+   */
+  const declaresNoRange = useCanvasStore((s) => {
+    const node = Array.isArray(s.nodes) ? s.nodes.find((n) => n.id === nodeId) : undefined
+    return node === undefined ? false : factorDeclaresNoRange(node.data)
+  })
+
+  /**
    * ⚠ NO CARRIER, NO CONTROL — and NOT a disabled one. A disabled button still
    * advertises the action, which is the defect this control exists to close,
    * inverted. Without a conversation the commit could only write locally, and a
@@ -174,7 +251,7 @@ export function FactorValueControl({
   if (!offer) return null
 
   if (editing) {
-    return (
+    const controls = (
       <span className="flex flex-none flex-wrap items-center gap-1">
         <label className="sr-only" htmlFor={inputId}>
           {ANALYSIS_NEW_COPY.modelStrip.valueInputLabel(name ?? '')}
@@ -217,6 +294,57 @@ export function FactorValueControl({
         >
           {ANALYSIS_NEW_COPY.modelStrip.cancelValue}
         </button>
+      </span>
+    )
+
+    /**
+     * ⚠ NOTHING TO WARN ABOUT, NOTHING RENDERED — AND NOT EVEN A WRAPPER. On a
+     * factor that records a range this returns the byte-identical element
+     * #1491/#1496 shipped, so the common case gains no DOM and no layout risk.
+     * A warning on a row with nothing to warn about is the same defect as a
+     * control that does nothing, inverted.
+     */
+    if (!declaresNoRange) return controls
+
+    /**
+     * ⚠ RENDERED FIRST, so it is read BEFORE the route forward rather than
+     * after it, and BEFORE the commit rather than in response to one. This is
+     * the only beat at which the user can still avoid the trap: the collapsed
+     * button beat has no pending amount to qualify, and by the `Save` beat the
+     * event is already on the wire.
+     *
+     * ⚠ NOT A LIVE REGION, for #1451's reason: this subtree re-renders on every
+     * keystroke and `role="status"` would announce a running commentary on
+     * typing. It is plain text in the reading order immediately above the
+     * controls it qualifies.
+     *
+     * ⚠ COLUMN WRAPPER, `items-start`: the sentence is long and both call sites
+     * place this control inside a wrapping flex row (`WhatIWasGivenSection`'s
+     * `<li>`, `DeeperAnalysis`'s `<dd>`). Stacking keeps the input line intact
+     * instead of stretching it, and `min-w-0` lets the text wrap rather than
+     * overflow its container.
+     *
+     * ⚠ `text-text-light` ON THE BARE PANEL GROUND, NO TINT. Measured on this
+     * palette: 5.23:1 on `--bg-panel` and 5.04:1 on `--bg-panel-alt`, against SC
+     * 1.4.3's 4.5:1. A same-hue tint moves the ground TOWARDS the text and the
+     * ratio falls monotonically with alpha, which is how `text-info` became a
+     * live violation at six sites, so there is none here. This file sits inside
+     * `reasoning-model-text-contrast-per-site.spec.ts`'s scanned set
+     * (`src/components/results/analysisNew`), so the claim is CI-measured for
+     * BOTH surfaces — which is the quiet dividend of #1496 having moved the
+     * control out of `contextIntegrity/`, where that guard cannot see.
+     * NOTHING IS ADDED TO THAT GUARD'S PINNED SET.
+     */
+    return (
+      <span className="flex min-w-0 flex-col items-start gap-1">
+        <span
+          data-testid={`${testIdPrefix}-value-no-range`}
+          data-node-id={nodeId}
+          className={`${typography.panelMeta} text-text-light`}
+        >
+          {NO_RANGE_NOTICE}
+        </span>
+        {controls}
       </span>
     )
   }
