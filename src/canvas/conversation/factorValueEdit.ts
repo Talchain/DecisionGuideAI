@@ -308,10 +308,25 @@ function boundAsTyped(bound: number, { cap, inUserUnits }: FactorValueAdmission)
  *
  * An unparseable draft returns `null` here on purpose: it is already refused,
  * by name, one arm earlier. Two vocabularies for one question is the drift.
+ *
+ * ⭐ `act` NAMES THE SURFACE'S OWN ADVANCE CONTROL, AND IT EXISTS SO THERE STAYS
+ * ONE SENTENCE RATHER THAN TWO. The bound, the scale transform and the verdict
+ * are what is dangerous to re-derive; the trailing act is the one clause that is
+ * genuinely different per surface, because the surfaces press different buttons.
+ * The Model tab's row editor advances through `Review change`, so it takes the
+ * default and its rendered bytes are UNCHANGED by this parameter. The Reasoning
+ * tab's `FactorValueControl` advances through `Save`, and a sentence telling
+ * that reader to "review" an act their panel does not offer would be an
+ * instruction they cannot follow.
+ *
+ * ⚠ IT CANNOT REACH A VERDICT. `act` is appended AFTER every comparison has
+ * returned, so no caller can widen or narrow what is admitted by choosing a
+ * word — the same discipline `boundAsTyped` already follows.
  */
 export function factorValueAdmissionRefusal(
   admission: FactorValueAdmission | null | undefined,
   draft: string,
+  act: string = 'review this change',
 ): string | null {
   if (!admission) return null
   const typed = parseFloat(draft)
@@ -323,7 +338,7 @@ export function factorValueAdmissionRefusal(
     : typed
   if (!Number.isFinite(value)) return null
   if (value >= admission.priorMin && value <= admission.priorMax) return null
-  return `Enter a value between ${boundAsTyped(admission.priorMin, admission)} and ${boundAsTyped(admission.priorMax, admission)} to review this change`
+  return `Enter a value between ${boundAsTyped(admission.priorMin, admission)} and ${boundAsTyped(admission.priorMax, admission)} to ${act}`
 }
 
 /**
