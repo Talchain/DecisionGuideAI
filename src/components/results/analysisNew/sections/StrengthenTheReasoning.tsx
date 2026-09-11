@@ -66,7 +66,12 @@ import { ArgueTheOpposite } from './ArgueTheOpposite'
 import { methodForRecommendation } from '../recommendationMethod'
 import { NodeMark, markKindForTarget } from '../nodeMarks'
 import { planPreview } from '../previewComposition'
-import { useStrengthenStore, selectHistory, recordKey } from '../../../../canvas/stores/strengthenStore'
+import {
+  useStrengthenStore,
+  selectHistory,
+  recordKey,
+  type RecordKey,
+} from '../../../../canvas/stores/strengthenStore'
 import { recordDissent, readDissent, dissentCurrency } from '../../../../canvas/stores/dissentStore'
 import { useOptionalConversationContext } from '../../../../canvas/conversation/ConversationContext'
 import { buildFindingDissentEvent } from '../../../../canvas/conversation/findingDissent'
@@ -300,17 +305,28 @@ export function StrengthenTheReasoning({
    */
   const sendSystemEvent = useOptionalConversationContext()?.sendSystemEvent
   /**
-   * ⭐⭐ THE SET OF FINDINGS WHOSE DISSENT THIS SESSION ACTUALLY GOT ONTO THE
-   * WIRE — the ONLY thing that licenses the stronger sentence.
+   * ⭐⭐ THE SET OF DISSENTS THIS SESSION ACTUALLY GOT ONTO THE WIRE — the ONLY
+   * thing that licenses the stronger sentence.
    *
-   * ⚠⚠ IT IS KEYED BY RECOMMENDATION ID AND IT IS DELIBERATELY NOT PERSISTED,
-   * AND BOTH HALVES ARE THE HONESTY.
+   * ⚠⚠ IT IS KEYED BY `recordKey(decision, finding)` AND IT IS DELIBERATELY NOT
+   * PERSISTED, AND BOTH HALVES ARE THE HONESTY.
    *
-   *   · KEYED BY ID, because a boolean would let a successful send on one
-   *     finding label a DIFFERENT finding's local-only dissent as sent. Binding
-   *     by identity is the rule this estate has paid to learn; a value predicate
-   *     another object could satisfy is how a test — and a sentence — ends up
-   *     true of the wrong thing.
+   *   · KEYED BY THE PAIR, because this surface's identity IS the pair. A
+   *     boolean would let a successful send on one finding label a DIFFERENT
+   *     finding's local-only dissent as sent — and a BARE FINDING ID does the
+   *     same thing one axis over, across DECISIONS. Recommendation ids are
+   *     deterministic and scenario-agnostic (`strengthen:robustness` is a fixed
+   *     literal in every decision), so a bare-id key collides as the NORMAL
+   *     case: send in one decision, switch to another — `activeScenarioId` is a
+   *     live subscription, so that re-renders this surface WITHOUT unmounting it
+   *     and the set survives — and the second decision's browser-local words
+   *     would be labelled as having reached the shared model. That is this
+   *     feature's own honesty defect pointed at a user, and it is the reason the
+   *     set holds `RecordKey`s: the brand makes `.has(rec.id)` a COMPILE ERROR
+   *     rather than a thing a later reader has to notice. Every other identity
+   *     in this component already composes the same key, and the rendered
+   *     dissent is scenario-scoped via `readDissent(activeScenarioId)`; this was
+   *     the one read that disagreed with all of them.
    *   · NOT PERSISTED, because on the next mount we know only that a local
    *     record exists; we do NOT know that any server still holds it, and there
    *     is no read-back to ask. Re-asserting "sent" from a remembered flag would
@@ -318,7 +334,7 @@ export function StrengthenTheReasoning({
    *     since. After a reload the honest sentence is the local one, so that is
    *     what renders.
    */
-  const [sentFindingIds, setSentFindingIds] = useState<ReadonlySet<string>>(() => new Set())
+  const [sentRecordKeys, setSentRecordKeys] = useState<ReadonlySet<RecordKey>>(() => new Set())
   /**
    * ⚠⚠ THE SCENARIO ID IS A DEPENDENCY, AND LEAVING IT OUT WAS A REAL BUG.
    *
@@ -565,7 +581,19 @@ export function StrengthenTheReasoning({
         statement: draft,
       })
       if (sendSystemEvent && event) {
-        const findingId = rec.id
+        /**
+         * ⚠⚠ THE KEY IS COMPOSED HERE, FROM THE DECISION THIS SEND BELONGS TO,
+         * and it is captured rather than read later. By the time the promise
+         * settles the user may be looking at a different decision; a key read at
+         * that moment would mark whichever decision happened to be on screen.
+         *
+         * `activeScenarioId` is the decision this card was rendered and clicked
+         * under, and `commitDispute` has already asserted it is the live one
+         * (`context.scenarioId !== …currentScenarioId` returns above). It is the
+         * same key `dispute(...)` wrote the local record under, so the marker
+         * and the record cannot disagree about which decision they describe.
+         */
+        const sentKey = recordKey(activeScenarioId, rec.id)
         void Promise.resolve(sendSystemEvent(event))
           .then((outcome) => {
             /**
@@ -587,9 +615,9 @@ export function StrengthenTheReasoning({
              * failure nobody named; asserting the success value admits none.
              */
             if (outcome !== undefined) return
-            setSentFindingIds((prev) => {
+            setSentRecordKeys((prev) => {
               const next = new Set(prev)
-              next.add(findingId)
+              next.add(sentKey)
               return next
             })
           })
@@ -1181,20 +1209,28 @@ export function StrengthenTheReasoning({
                     {/* ⭐⭐ ONE SENTENCE ABOUT WHERE THESE WORDS LIVE, AND THE
                         STRONGER ONE IS EARNED RATHER THAN ASSUMED.
 
-                        `sentFindingIds` holds only findings whose send this
-                        session actually resolved as dispatched, keyed by the
-                        finding's own id. So the stronger sentence cannot appear
-                        because a SIBLING card's send succeeded, because a
-                        dispatcher happens to be mounted, or because the attempt
-                        was made — only because this finding's dissent reached
-                        Olumi and Olumi did not refuse it.
+                        `sentRecordKeys` holds only dissents whose send this
+                        session actually resolved as dispatched, keyed by
+                        (DECISION, finding) — the same key everything else on
+                        this surface composes. So the stronger sentence cannot
+                        appear because a SIBLING card's send succeeded, because
+                        the SAME finding's send succeeded IN A DIFFERENT
+                        DECISION, because a dispatcher happens to be mounted, or
+                        because the attempt was made — only because this card's
+                        dissent reached Olumi and Olumi did not refuse it.
+
+                        ⚠ THE DECISION HALF IS NOT DECORATION. Recommendation ids
+                        are fixed literals repeated in every decision, so a
+                        bare-id lookup here claimed "sent to Olumi" over another
+                        decision's browser-local words — measured on the DOM with
+                        one send ever dispatched.
 
                         ⚠ THE TWO HALVES DEPLOY INDEPENDENTLY. Until CEE's
                         `finding_dissent` reader is live no send can succeed, so
                         every card here keeps the local wording — which is what
                         makes this copy true at the intermediate deploy state as
                         well as the final one. */}
-                    {sentFindingIds.has(rec.id) ? (
+                    {sentRecordKeys.has(recordKey(activeScenarioId, rec.id)) ? (
                       <span
                         className={`${typography.panelMeta} text-text-light ml-1`}
                         data-testid={`${testId}-disagreement-sent`}

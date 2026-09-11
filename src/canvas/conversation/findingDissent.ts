@@ -36,20 +36,55 @@
  * strictly better than a rejected turn, because the local record survives
  * either way and only one of the two costs the user a turn.
  *
- * ⚠ THE BOUND IS A MIRROR OF THE CONTRACT'S `MAX_STATED_REASON` AND CANNOT BE
- * DERIVED FROM IT AT THIS PIN. The UI vendors `@talchain/schemas` 0.54.0, which
- * predates this member; the constant is exported from 0.55.0's
- * `boundary/turn-payload.ts` and binds the persistence side by construction
- * there. Until the UI re-vendors 0.55.0 this literal is a hand-maintained
- * mirror, which is a defect class this estate pays for, so it is declared as
- * one rather than left to look derived. `findingDissent.contract.spec.ts` pins
- * the value with the reason, and the re-vendor should replace this with the
- * import.
+ * ⚠ THE LITERAL BELOW MIRRORS THE CONTRACT'S `MAX_STATED_REASON`, AND THE
+ * CONSTANT ITSELF IS UNREACHABLE FROM HERE. The reason is PACKAGING, not the
+ * pin — derived at the vendored 0.55.0 bytes rather than assumed:
+ *
+ *   · The constant IS in the shipped dist, unminified and exported:
+ *     `dist/boundary/turn-payload.js` has `const MAX_STATED_REASON = 2000` and
+ *     `export { MAX_STATED_REASON }`, and `dist/boundary/turn-payload.d.ts`
+ *     declares it. So "the dist dropped it" is NOT what is happening.
+ *   · But the public `./boundary` barrel does not RE-EXPORT it
+ *     (`dist/boundary/index.d.ts` enumerates its re-exports; this is absent —
+ *     probed at run time: `'MAX_STATED_REASON' in await import(
+ *     '@talchain/schemas/boundary')` is `false`, while the contrast control
+ *     `'SystemEventSchema' in …` is `true`, so the probe is not simply blind).
+ *   · And the deep path is CLOSED by the package's `exports` map, which lists
+ *     `.`, `./boundary`, `./orchestrator`, `./fixtures` and two JSON globs with
+ *     no wildcard: importing `@talchain/schemas/boundary/turn-payload.js`
+ *     throws `ERR_PACKAGE_PATH_NOT_EXPORTED`. The file ships; the path is not
+ *     addressable.
+ *
+ * ⭐⭐ SO "RE-VENDOR AND IMPORT IT" IS NOT THE FIX, AND WHAT DOES KEEP THE
+ * MIRROR HONEST IS A DERIVATION, NOT A PROMISE. A mirror with no derivation is
+ * this estate's dominant defect, and a note saying "someone should fix this
+ * later" is how one survives indefinitely. Two things, and the second is here
+ * TODAY:
+ *
+ *   1. UPSTREAM, ONE LINE: add `MAX_STATED_REASON` to the `./boundary` barrel's
+ *      re-export list in `olumi-schemas`. Then this literal becomes an import
+ *      and the mirror stops existing. That is a schemas change, not a UI one.
+ *   2. MEANWHILE, DERIVE THE BOUND BEHAVIOURALLY FROM THE SCHEMA THE BARREL
+ *      DOES EXPORT. `SystemEventSchema` installs `.max(MAX_STATED_REASON)` on
+ *      this member, so the bound is observable without the constant: a
+ *      statement of exactly `MAX_DISSENT_STATEMENT` characters must parse and
+ *      one character more must not. That probes the CONTRACT rather than a
+ *      remembered number, and it REDs if either side moves — which is the only
+ *      property a mirror can actually be given. It is the same instrument
+ *      schemas uses on its own two halves ("derived from both schemas at run
+ *      time — belt and braces, because equal-by-construction stops being true
+ *      the moment someone hardcodes a number on either side").
+ *
+ * `findingDissent.spec.ts` carries both the literal pin and that derivation.
  */
 
 import type { WireSystemEvent } from './types'
 
-/** schemas 0.55.0 `MAX_STATED_REASON`. Mirrored, not derived — see the header. */
+/**
+ * schemas 0.55.0 `MAX_STATED_REASON`. Mirrored because the constant is not
+ * importable (packaging, not the pin — see the header), and CHECKED against the
+ * live schema in `findingDissent.spec.ts` rather than left on trust.
+ */
 export const MAX_DISSENT_STATEMENT = 2000
 
 /**

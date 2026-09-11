@@ -42,13 +42,32 @@ vi.mock('../nodeMarks', async (orig) => ({
  * The dispatcher is mocked at the OPTIONAL context, which is how the component
  * reaches it. `sendSystemEvent` is re-pointed per test so each case controls
  * exactly one variable.
+ *
+ * ⚠⚠ AND THE CONTEXT ITSELF IS A VARIABLE, NOT A CONSTANT. It used to return a
+ * dispatcher unconditionally, which made the no-dispatcher state — the
+ * intermediate deploy state this file exists to pin — INEXPRESSIBLE in the
+ * fixture. A case named for that state could only assert things that are true
+ * of every state, and one did. A fixture in which the wrong answer cannot be
+ * written is not a weak test, it is an absent one.
  */
 const sendSystemEvent = vi.fn()
+let dispatcherMounted = true
 vi.mock('../../../../canvas/conversation/ConversationContext', () => ({
-  useOptionalConversationContext: () => ({ sendSystemEvent }),
+  useOptionalConversationContext: () => (dispatcherMounted ? { sendSystemEvent } : undefined),
 }))
 
 const SCENARIO = 'scenario-A'
+/**
+ * ⚠⚠ THE SECOND DECISION, AND WITHOUT IT THIS FILE CANNOT SEE ITS OWN DEFECT.
+ *
+ * Every case here used to pin ONE scenario constant, so "the claim is scoped to
+ * the decision on screen" was not a question the fixture could ask. Recommendation
+ * ids are deterministic and scenario-agnostic — `strengthen:robustness` is a
+ * fixed literal in every decision — so a set keyed on the bare id collides across
+ * scenarios as the NORMAL case, and a single-scenario fixture reports green about
+ * it forever.
+ */
+const SCENARIO_B = 'scenario-B'
 const REAL_HASH = 'sha256:realrun'
 const ID = 'strengthen:robustness'
 const OTHER_ID = 'strengthen:broaden'
@@ -72,10 +91,27 @@ beforeEach(() => {
   useStrengthenStore.getState()._reset()
   useCanvasStore.setState({ currentScenarioId: SCENARIO })
   setCurrentScenarioId(SCENARIO)
+  dispatcherMounted = true
   sendSystemEvent.mockReset()
   // `undefined` is the ONLY dispatched outcome — the producer's own rule.
   sendSystemEvent.mockResolvedValue(undefined)
 })
+
+/**
+ * Switch the decision on screen, the way the product does.
+ *
+ * ⚠ NO UNMOUNT. `activeScenarioId` is a live store subscription, so a scenario
+ * change re-renders this surface in place and the component's session state —
+ * including the set that licenses the stronger sentence — SURVIVES it. That
+ * survival is exactly what makes the key shape load-bearing, so the test must
+ * switch the same way the product does rather than re-rendering a fresh tree.
+ */
+function switchScenario(id: string) {
+  act(() => {
+    useCanvasStore.setState({ currentScenarioId: id })
+    setCurrentScenarioId(id)
+  })
+}
 
 function openCard(items: Recommendation[] = [item], analysisHash: string | null = REAL_HASH) {
   const view = render(
@@ -208,15 +244,42 @@ describe('the copy may claim the words left the browser ONLY after a dispatched 
   })
 
   it('⭐⭐ THE INTERMEDIATE DEPLOY STATE: no dispatcher mounted, no claim, words kept', async () => {
-    // This is UI-live-but-CEE-not-yet in miniature, and the state a guest hits
-    // on any route without a ConversationProvider. The card must go on saying
-    // the local truth rather than a promise nothing can keep.
+    /**
+     * This is UI-live-but-CEE-not-yet in miniature, and the state a guest hits
+     * on any route without a `ConversationProvider`. The card must go on saying
+     * the local truth rather than a promise nothing can keep.
+     *
+     * ⚠⚠ AN EARLIER CUT OF THIS CASE ASSERTED NEITHER HALF OF ITS OWN NAME. It
+     * rendered WITH a dispatcher — the mock returned one unconditionally — and
+     * then asserted that two copy CONSTANTS differ and that a third contains a
+     * phrase. Every one of those is true of the built module in every state,
+     * including one that claims "sent to Olumi" on every card. Proven by
+     * mutation: making the claim render unconditionally REDs four cases in this
+     * file and left this one GREEN. It was not a weak test of the deploy state;
+     * it was a test of the copy table wearing this one's name.
+     */
+    dispatcherMounted = false
     openCard([item], REAL_HASH)
-    // Re-render with the dispatcher absent by pointing the mock at undefined.
-    expect(ANALYSIS_NEW_COPY.dissent.sentToOlumi).not.toBe(
-      ANALYSIS_NEW_COPY.dissent.sessionOnly,
+    await disagree('Our Q1 capacity assumption is wrong.')
+
+    // ⚠ THE PRECONDITION, PINNED IN-TEST: nothing was offered to a dispatcher at
+    // all, so a claim on this card could only have been invented. Without this
+    // the absence below would also hold for a mounted dispatcher that refused,
+    // which is a DIFFERENT case (asserted above) and not the one named here.
+    expect(sendSystemEvent, 'no dispatcher is mounted, so nothing may be sent').not.toHaveBeenCalled()
+
+    // The words are kept — on screen…
+    expect(screen.getByTestId('analysis-new-strengthen-disagreement')).toHaveTextContent(
+      'Our Q1 capacity assumption is wrong.',
     )
-    expect(ANALYSIS_NEW_COPY.dissent.prompt).toContain('in this browser')
+    // …and durably, which is the half a lost POST must never cost the user.
+    expect(readDissent(SCENARIO)[ID].reason).toBe('Our Q1 capacity assumption is wrong.')
+
+    // And THE CLAIM IS ABSENT. This is the assertion the old case never made.
+    expect(
+      screen.queryByTestId('analysis-new-strengthen-disagreement-sent'),
+      'no dispatcher can have dispatched anything',
+    ).toBeNull()
   })
 
   it('⭐⭐ BOUND BY IDENTITY: a sibling finding\'s successful send does NOT label this one', async () => {
@@ -228,7 +291,7 @@ describe('the copy may claim the words left the browser ONLY after a dispatched 
      * DEFECT, AND AN EARLIER CUT OF IT DID NOT. It dissented on the sibling
      * alone, so the first card rendered no dissent paragraph at all and
      * therefore no marker either way — the count was 1 under the correct code
-     * AND under a `sentFindingIds.size > 0` mutant. The mutant SURVIVED, and it
+     * AND under a `…size > 0` mutant on the sent set. The mutant SURVIVED, and it
      * survived silently: a green assertion about an element that was never in
      * the DOM. The fix is not a sharper assertion, it is a fixture in which the
      * wrong answer is expressible.
@@ -257,5 +320,98 @@ describe('the copy may claim the words left the browser ONLY after a dispatched 
     expect(claims).toHaveLength(1)
     const carrier = claims[0].closest('[data-recommendation-id]')
     expect(carrier?.getAttribute('data-recommendation-id')).toBe(OTHER_ID)
+  })
+})
+
+/**
+ * ⭐⭐ THE CLAIM IS SCOPED TO THE DECISION ON SCREEN, AND THE FINDING ID ALONE
+ * CANNOT SCOPE IT.
+ *
+ * ⚠⚠ THIS SURFACE'S IDENTITY IS THE PAIR `(scenarioId, rec.id)`, NOT `rec.id`.
+ * Every other identity in the component composes it through the store's own
+ * `recordKey(activeScenarioId, rec.id)`, and the rendered dissent itself is
+ * scenario-scoped via `readDissent(activeScenarioId)`. A set keyed on the bare
+ * id is the one read that disagreed with all of them.
+ *
+ * ⚠⚠ AND THE COLLISION IS THE NORMAL CASE, NOT AN EDGE. Recommendation ids are
+ * deterministic and scenario-agnostic — `strengthen:robustness` is a fixed
+ * literal, identical in every decision — so ANY two decisions showing the same
+ * finding collide. `activeScenarioId` is a live store subscription, so switching
+ * decisions re-renders this surface WITHOUT unmounting it and the session set
+ * survives the switch. Switching decisions is an ordinary in-session affordance.
+ *
+ * The harm is this feature's own honesty defect one axis over: the product tells
+ * a user their words reached the shared model when those words never left the
+ * browser. It is worse than the local-only wording it replaced, because a person
+ * who believes their objection is on the record stops repeating it.
+ *
+ * ⚠ THE TWO CASES ARE A DISCRIMINATING PAIR AND NEITHER MEANS ANYTHING ALONE.
+ * Revert the key to the bare id and the CROSS-decision case REDs while the
+ * WITHIN-decision case stays GREEN. One case failing would only show the marker
+ * is sensitive to something; the pair shows it is bound to the named object.
+ */
+describe('the claim is scoped to the DECISION on screen, not to the finding id alone', () => {
+  /** Send once for real in A, then refuse everything after it. */
+  function dispatchInAOnly() {
+    sendSystemEvent.mockResolvedValueOnce(undefined)
+    sendSystemEvent.mockResolvedValue('send_blocked')
+  }
+
+  it('⭐ RED-FIRST: a dispatched send in decision A does NOT claim in decision B — same finding id', async () => {
+    dispatchInAOnly()
+    openCard([item], REAL_HASH)
+    await disagree('Scenario A words, genuinely sent.')
+
+    // ⚠ PRECONDITION ONE, pinned IN-TEST: A really did earn the claim. Without
+    // it the absence below would also hold for a build that never claims at all,
+    // and the case would pass for the wrong reason.
+    expect(
+      screen.getByTestId('analysis-new-strengthen-disagreement-sent'),
+      'scenario A dispatched, so it must carry the claim',
+    ).toHaveTextContent(ANALYSIS_NEW_COPY.dissent.sentToOlumi)
+
+    switchScenario(SCENARIO_B)
+    await disagree('Scenario B words, NEVER sent anywhere.')
+
+    // ⚠ PRECONDITION TWO: B's card really is rendering B's own words, so a
+    // marker here would sit on the WRONG DECISION rather than on nothing at all.
+    // This is the fixture half the sibling-finding case had to learn: an
+    // assertion about an element that never renders is green about nothing.
+    expect(screen.getByTestId('analysis-new-strengthen-disagreement')).toHaveTextContent(
+      'Scenario B words, NEVER sent anywhere.',
+    )
+    // ⚠ PRECONDITION THREE: both decisions ATTEMPTED a send under the same
+    // finding id — which is what makes the ids collide — and exactly one of them
+    // was dispatched. A fixture where B never attempted would not reproduce it.
+    expect(dissentEventsFor(ID), 'both decisions attempted, under one finding id').toHaveLength(2)
+
+    expect(
+      screen.queryByTestId('analysis-new-strengthen-disagreement-sent'),
+      "scenario B's words never left the browser, so its card may claim nothing",
+    ).toBeNull()
+  })
+
+  it('⭐ THE TWIN: returning to decision A keeps A\'s claim — the marker is scoped, not erased', async () => {
+    // The GREEN half of the pair. A fix that simply stopped claiming — or that
+    // cleared the set on every scenario change — would satisfy the case above
+    // and fail this one. The marker must be SCOPED, not suppressed.
+    dispatchInAOnly()
+    openCard([item], REAL_HASH)
+    await disagree('Scenario A words, genuinely sent.')
+
+    switchScenario(SCENARIO_B)
+    await disagree('Scenario B words, NEVER sent anywhere.')
+    switchScenario(SCENARIO)
+
+    // A's own words are back on screen…
+    expect(screen.getByTestId('analysis-new-strengthen-disagreement')).toHaveTextContent(
+      'Scenario A words, genuinely sent.',
+    )
+    // …and so is the claim A actually earned. The set is session state and a
+    // decision switch is not an unmount, so nothing here was re-sent.
+    expect(screen.getByTestId('analysis-new-strengthen-disagreement-sent')).toHaveTextContent(
+      ANALYSIS_NEW_COPY.dissent.sentToOlumi,
+    )
+    expect(dissentEventsFor(ID), 'no third send was made by navigating').toHaveLength(2)
   })
 })

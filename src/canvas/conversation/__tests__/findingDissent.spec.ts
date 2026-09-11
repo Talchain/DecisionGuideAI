@@ -15,6 +15,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { SystemEventSchema } from '@talchain/schemas/boundary'
 import {
   MAX_DISSENT_STATEMENT,
   buildFindingDissentEvent,
@@ -103,6 +104,65 @@ describe('findingDissent — the words are the record', () => {
     expect(isSendableStatement('   ')).toBe(false)
     expect(isSendableStatement('\n\t ')).toBe(false)
     expect(buildFindingDissentEvent({ ...OK, statement: '   ' })).toBeNull()
+  })
+
+  /**
+   * ⭐⭐ THE BOUND IS CHECKED AGAINST THE CONTRACT, NOT AGAINST A MEMORY.
+   *
+   * `MAX_DISSENT_STATEMENT` mirrors the contract's `MAX_STATED_REASON`, and the
+   * constant itself cannot be imported: it ships in the dist and is exported
+   * from `boundary/turn-payload.js`, but the `./boundary` barrel does not
+   * re-export it and the package's `exports` map has no deep path, so the import
+   * throws `ERR_PACKAGE_PATH_NOT_EXPORTED`. A mirror with nothing deriving it is
+   * this estate's dominant defect, and "the re-vendor will fix it" was a promise
+   * that could never come true.
+   *
+   * ⚠ SO THE BOUND IS OBSERVED RATHER THAN THE CONSTANT READ. `SystemEventSchema`
+   * IS exported from the barrel and installs `.max(MAX_STATED_REASON)` on this
+   * member, so the number is measurable through a public export. If either side
+   * moves — schemas raises the bound, or someone edits the literal here — these
+   * disagree and RED.
+   */
+  describe('the bound is DERIVED from the live contract, not remembered', () => {
+    /** The member as it goes on the wire: flat, discriminated on `kind`. */
+    const wire = (statement: string) => ({
+      kind: 'finding_dissent' as const,
+      finding_id: 'strengthen:robustness',
+      analysis_id: 'sha256:abc123',
+      statement,
+    })
+    const accepts = (statement: string) => SystemEventSchema.safeParse(wire(statement)).success
+
+    it('POSITIVE CONTROL: the probe really does reach this member of the union', () => {
+      // ⚠ WITHOUT THIS THE DERIVATION BELOW IS VACUOUS. A misspelled key or a
+      // member the vendored pin does not carry makes EVERY parse fail, and
+      // "N+1 is refused" would then be true of a probe that refuses everything
+      // — an absence proved by an instrument that cannot see a presence.
+      expect(accepts('a short, ordinary objection'), 'the probe cannot parse this member').toBe(true)
+    })
+
+    it('⭐ the contract accepts exactly MAX_DISSENT_STATEMENT and refuses one more', () => {
+      expect(accepts('x'.repeat(MAX_DISSENT_STATEMENT))).toBe(true)
+      expect(accepts('x'.repeat(MAX_DISSENT_STATEMENT + 1))).toBe(false)
+    })
+
+    it('⭐ and the local predicate agrees with it at the boundary, both ways', () => {
+      // The pair is what makes this a derivation rather than two numbers that
+      // happen to match today: the local predicate and the contract are asked
+      // the same question at the same two lengths.
+      const atBound = 'x'.repeat(MAX_DISSENT_STATEMENT)
+      const overBound = 'x'.repeat(MAX_DISSENT_STATEMENT + 1)
+      expect(isSendableStatement(atBound)).toBe(accepts(atBound))
+      expect(isSendableStatement(overBound)).toBe(accepts(overBound))
+    })
+
+    it('the contract refuses a whitespace-only statement too — the local refusal is not stricter', () => {
+      // `.min(1)` alone would admit " ", so the contract carries its own
+      // non-blank refine. Pinning it here proves the surface's refusal matches
+      // the wire's rather than inventing a rule of its own.
+      expect(accepts('   ')).toBe(false)
+      expect(isSendableStatement('   ')).toBe(false)
+    })
   })
 
   it('ACCEPTS exactly the bound and REFUSES one character past it', () => {
