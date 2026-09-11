@@ -85,7 +85,23 @@ export function ArgueTheOpposite({
             ...(ask.targetId ? { targetId: ask.targetId } : {}),
           })
         }
-        className={`${typography.panelBody} mt-2 inline-flex items-center gap-1 rounded-md bg-info/10 px-2 py-1 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+        /* ⚠⚠ NO INFO TINT, AND THAT IS AN ACCESSIBILITY CONSTRAINT RATHER THAN A
+           STYLE CHOICE — do not "restore" the pill. `--info` (#277A9D) is one of
+           only three tokens in brand.css that clear SC 1.4.3's 4.5:1 as TEXT, and
+           it clears it by 0.10 on the ground that binds here: this control sits in
+           a `bg-panel-hover` card, and brand.css names #FEF9F3 "the binding ground"
+           at 4.60:1. A same-hue tint moves the GROUND TOWARDS the text, so it only
+           ever makes that worse — `bg-info/10` drops it to 4.05:1 and `bg-info/20`
+           to 3.56:1, both illegal. The tint cannot be rescued by a smaller alpha
+           either: the ratio falls monotonically in alpha.
+           This is not hypothetical: the two tinted `bg-info/10 ... hover:bg-info/20`
+           controls at `StrengthenTheReasoning.tsx:843` and `:921` are pinned in
+           `tests/ci-guards/reasoning-model-text-contrast-per-site.spec.ts` as
+           KNOWN_UNREPAIRED at 3.56:1. This control is deliberately built on that
+           file's OTHER, compliant sibling pattern (`:595`, `:651`, `:951`, `:1044`,
+           `:1192`): bare `text-info` with `hover:underline` carrying the hover
+           affordance, which costs no contrast at all. */
+        className={`${typography.panelBody} mt-2 inline-flex items-center gap-1 rounded-md px-2 py-1 text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
         data-testid={testId}
         /* ⚠ THE FORM IS ON THE CONTROL, NOT INFERRED FROM THE COPY. It is what
            lets the honesty rule be asserted by identity rather than by reading
