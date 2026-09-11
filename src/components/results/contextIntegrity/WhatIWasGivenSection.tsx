@@ -122,8 +122,14 @@ const COPY = {
   // whole job is to say "these lists are not exhaustive" may not open by
   // misdescribing what they are lists OF. See `figureTallySubtitle.ts`.
   caveatLead: 'This covers the figures I found in your brief. It does not yet track:',
+  /**
+   * ⚠ THE "so" IS LOAD-BEARING AND WAS BRIEFLY LOST (11 Sep 2026). Splitting
+   * the em dash out of this sentence first produced two flat statements, which
+   * dropped the causal link: the reason not to read the silence as completeness
+   * IS that we cannot show it. A comma plus "so" carries that without a dash.
+   */
   unknown:
-    "I can't show this yet for this decision — so please don't read the absence as everything having made it in.",
+    "I can't show this yet for this decision, so please don't read the absence as everything having made it in.",
   noBrief: "I don't have your original wording saved for this decision.",
   /**
    * ⚠ THIS LABEL SAID "Add this", AND THE PRODUCT COULD NOT DO IT. Derived
@@ -301,7 +307,7 @@ export function composeNotModelledQuestion(item: NotModelledItem, briefText: str
   // a neighbouring string, so the product now sends the string that was measured.
   const opening = `My brief mentions ${item.literal}, which is not in the model yet.`
   const context = sentence ? ` The brief says: "${sentence}"` : ''
-  return `${opening}${context} What could this figure influence in this decision, and where would it belong? Don't change the model yet — tell me the options first.`
+  return `${opening}${context} What could this figure influence in this decision, and where would it belong? Don't change the model yet. Tell me the options first.`
 }
 
 /**

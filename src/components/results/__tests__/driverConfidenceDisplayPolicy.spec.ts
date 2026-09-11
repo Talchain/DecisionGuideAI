@@ -149,7 +149,7 @@ describe('resolveFactorConfidenceDisplay — rejects values it cannot trust', ()
 describe('factorConfidenceDisclosure — one derivation for every surface (F9)', () => {
   it('discloses a defaulted estimate', () => {
     expect(factorConfidenceDisclosure({ isDefaulted: true })).toBe(
-      'Default estimate — not yet validated with evidence',
+      'Default estimate. Not yet validated with evidence',
     )
   })
 
@@ -159,7 +159,7 @@ describe('factorConfidenceDisclosure — one derivation for every surface (F9)',
 
   it('joins both when both apply', () => {
     expect(factorConfidenceDisclosure({ isDefaulted: true, isProvisional: true })).toBe(
-      'Default estimate — not yet validated with evidence. Calibration is provisional',
+      'Default estimate. Not yet validated with evidence. Calibration is provisional',
     )
   })
 
@@ -180,7 +180,7 @@ describe('factorConfidenceDisclosure — one derivation for every surface (F9)',
     expect(shown.show).toBe(true)
     if (!shown.show) throw new Error('unreachable — asserted above')
     expect(factorConfidenceDisclosure(shown)).toBe(
-      'Default estimate — not yet validated with evidence. Calibration is provisional',
+      'Default estimate. Not yet validated with evidence. Calibration is provisional',
     )
   })
 })

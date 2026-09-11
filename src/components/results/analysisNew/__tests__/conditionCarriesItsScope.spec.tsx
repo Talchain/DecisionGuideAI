@@ -118,8 +118,24 @@ const mount = (glance: ReturnType<typeof glanceWith>) =>
     />,
   )
 
-/** The sanctioned sentence for this exact set, spelled out rather than recomputed. */
-const SCOPE_SENTENCE = 'Comparing 1 of your 2 options — Beta was left out.'
+/**
+ * The sanctioned sentence for this exact set, spelled out rather than recomputed.
+ *
+ * ⚠ SPELLED OUT ON PURPOSE, AND IT MUST STAY THAT WAY. Recomputing it through
+ * `COMPARISON_SCOPE_COPY.sentence(scope)` would make this a tautology — the
+ * assertion would agree with whatever the producer emits, including a producer
+ * that had stopped emitting the exclusions at all. A literal is what gives the
+ * pin its bite.
+ *
+ * ⚠ TWO SENTENCES SINCE 11 Sep 2026. It read
+ *   "Comparing 1 of your 2 options — Beta was left out."
+ * until `COMPARISON_SCOPE_COPY.sentence` split the dash out under Paul's
+ * no-em-dashes-in-product-copy ruling. BOTH HALVES SURVIVED the split — the
+ * scope arithmetic from `phrase()`, the named exclusion from
+ * `excludedClause()` — so this constant gains a full stop and loses nothing.
+ * Anything shorter than both halves is a regression, not a re-wording.
+ */
+const SCOPE_SENTENCE = 'Comparing 1 of your 2 options. Beta was left out.'
 const DETAIL_SENTENCE = 'Ranks and comparative percentages describe those 1 only.'
 const CONDITION_SENTENCE = 'Could change if Two-month timeframe moves from 2 to 3'
 
