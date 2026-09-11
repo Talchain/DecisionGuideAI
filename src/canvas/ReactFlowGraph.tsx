@@ -2730,6 +2730,15 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         onRedoClick={CANVAS_SEMANTIC_MUTATIONS_CONNECTED ? redo : () => {}}
         canUndo={CANVAS_SEMANTIC_MUTATIONS_CONNECTED && canUndo()}
         canRedo={CANVAS_SEMANTIC_MUTATIONS_CONNECTED && canRedo()}
+        /* The greyed button was the last surface still declining to say that
+           the canvas has no undo. It now answers the gesture the way the
+           keyboard already does — see the reasoning at the buttons in
+           `LeftSidebar`. This is the ONE place the authority is read: the
+           sidebar is handed a plain fact and never consults the flag itself,
+           so the day this constant folds true, both props go false, the
+           notice branch retires and the real `undo`/`redo` above take over. */
+        undoUnavailable={!CANVAS_SEMANTIC_MUTATIONS_CONNECTED}
+        redoUnavailable={!CANVAS_SEMANTIC_MUTATIONS_CONNECTED}
       />
       {/* ⚠ SCREEN SPACE, NOT FLOW SPACE — and the counter-scale census is what
           caught this — and it also flags the mention, so this note describes

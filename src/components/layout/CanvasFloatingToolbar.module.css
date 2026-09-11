@@ -131,6 +131,35 @@
   pointer-events: none;
 }
 
+/**
+ * Present, not operable — and it must not read as a button that acts.
+ *
+ * Borrowed wholesale from `:disabled` directly above rather than invented:
+ * same opacity, same cursor, so a control that explains a limitation is
+ * visually indistinguishable from one that is simply unavailable. The single
+ * difference is the one the behaviour needs — `pointer-events` stays live, so
+ * the click that surfaces the explanation can land. `:disabled` cannot be
+ * reused as-is for that reason, and a native `disabled` attribute would also
+ * take the control out of the tab order.
+ *
+ * ⚠ Placed AFTER `:disabled` deliberately: the two selectors have equal
+ * specificity, so source order is what settles `pointer-events` if a button
+ * ever carries both.
+ */
+.iconButton[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: auto;
+}
+
+/* Hover must not suggest an action either — hold the resting surface. */
+.iconButton[aria-disabled='true']:hover {
+  background: white;
+  border-color: var(--border-default);
+  transform: none;
+  box-shadow: none;
+}
+
 .iconButton:focus-visible,
 .iconButtonActive:focus-visible {
   outline: 2px solid var(--info);

@@ -262,6 +262,33 @@ export function canvasUndoUnavailableNotice(): string {
 }
 
 /**
+ * Put that sentence on screen — ONE implementation, two callers.
+ *
+ * The keyboard answers ⌘Z/⌘⇧Z/⌘Y through here, and `LeftSidebar`'s Undo and
+ * Redo buttons answer the same gesture through the same function, so the
+ * event name, the level and the branch cannot drift apart between the two
+ * surfaces. A second copy in the sidebar would be the estate's hand-maintained
+ * mirror: it would keep reading `true` long after this one changed.
+ *
+ * ⚠ IT READS NO AUTHORITY, DELIBERATELY. *Whether* the gesture should be
+ * answered at all is the CALLER's question — the key checks
+ * `canMutateSharedModel`, the button is handed `undoUnavailable` — and keeping
+ * that decision out of here is what stops a future flag move turning a
+ * caller's click into a live undo by way of this function.
+ */
+export function showCanvasUndoUnavailableNotice(): void {
+  if (typeof window === 'undefined') return
+  // The canvas's canonical toast bridge — the same one the store's delete
+  // refusal uses, listened to in ReactFlowGraph.
+  window.dispatchEvent(new CustomEvent('topbar:show-toast', {
+    // Selected at CALL TIME, never bound at module scope: sign-in and the
+    // scenario id both change during a session, and a constant captured once
+    // would go stale into a false promise.
+    detail: { message: canvasUndoUnavailableNotice(), level: 'info' },
+  }))
+}
+
+/**
  * True for the gestures a user makes when they mean "put that back":
  * Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z and Cmd/Ctrl+Y.
  *
@@ -346,16 +373,7 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
         event.preventDefault()
         if (!event.repeat && Date.now() - lastUndoNoticeAtRef.current > UNDO_NOTICE_QUIET_MS) {
           lastUndoNoticeAtRef.current = Date.now()
-          if (typeof window !== 'undefined') {
-            // The canvas's canonical toast bridge — the same one the store's
-            // delete refusal uses, listened to in ReactFlowGraph.
-            window.dispatchEvent(new CustomEvent('topbar:show-toast', {
-              // Selected at PRESS TIME, never bound at module scope: sign-in
-              // and the scenario id both change during a session, and a
-              // constant captured once would go stale into a false promise.
-              detail: { message: canvasUndoUnavailableNotice(), level: 'info' },
-            }))
-          }
+          showCanvasUndoUnavailableNotice()
         }
         return
       }
