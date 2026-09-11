@@ -120,6 +120,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
 import { typography } from '../../styles/typography'
+import { ModelQuestionLine } from './ModelQuestionLine'
 import type { EdgeData } from '../domain/edges'
 import { focusEdgeById, focusNodeById } from '../utils/focusHelpers'
 import { resolveValueInputSeed } from '../conversation/factorValueEdit'
@@ -1233,6 +1234,24 @@ export function ModelTabV2Panel({
           </button>
         </div>
       </header>
+
+      {/*
+        WHAT QUESTION IS THIS MODEL ABOUT — the tab's opening line, and the
+        first content beneath the chrome.
+
+        Closes the 29 Jul design's sharpest criticism (§2): "Nothing on the tab
+        says what this decision is." The question DOES reach the outline as a
+        row — `adapters.ts` files a `decision` node into the `goal` group — but
+        `initiallyClosedGroups={MODEL_GROUP_IDS}` below means every group
+        arrives CLOSED, so on open the reader meets five collapsed headers and
+        learns nothing about what is being worked out.
+
+        ⚠ IT IS FED THE SAME `nodes` THE OUTLINE PROJECTS ITS ROWS FROM, and
+        resolves kind and label through the same two policies those rows use. A
+        line that sourced either differently could name the question one thing
+        here and another in the row directly below it.
+      */}
+      <ModelQuestionLine nodes={nodes} />
 
       {/*
         THE ATTENTION CHIP — the first time "N to verify" is a control.
