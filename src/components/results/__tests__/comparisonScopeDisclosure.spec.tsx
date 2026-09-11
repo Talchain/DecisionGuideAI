@@ -283,7 +283,7 @@ describe('comparison-scope disclosure — a subset result says which options it 
         { label: '   ', notAnalysed: true },
       ])!
       expect(COMPARISON_SCOPE_COPY.sentence(unnamed)).toBe(
-        'Comparing 1 of your 2 options. 1 was left out.',
+        'Comparing 1 of your 2 options. The other was left out.',
       )
     })
 
@@ -383,7 +383,7 @@ describe('comparison-scope disclosure — a subset result says which options it 
       ])
       expect(scope).toEqual({ analysed: 1, total: 2, excludedLabels: [] })
       expect(COMPARISON_SCOPE_COPY.sentence(scope!)).toBe(
-        'Comparing 1 of your 2 options. 1 was left out.',
+        'Comparing 1 of your 2 options. The other was left out.',
       )
       expect(COMPARISON_SCOPE_COPY.sentence(scope!)).not.toContain('79b5d7c0')
     })

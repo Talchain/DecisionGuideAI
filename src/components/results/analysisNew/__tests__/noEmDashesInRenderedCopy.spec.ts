@@ -46,10 +46,22 @@
  * Fed that exact file, the unchanged extractor returns the offending span.
  *
  * The gap was SCOPE, and only scope: `goalAnchorCopy.ts` was not one of the two
- * names. Derived at the same commit, the tab's import closure reaches **93**
+ * names. Derived at the same commit, the tab's import closure reaches **94**
  * copy files carrying **16** em-dash offenders in **10** files. The hand-list
  * saw 0 of the 16. A guard can be correct, controlled, and pointed at the wrong
  * bytes (CLAUDE.md trap 22).
+ *
+ * ⚠ THAT FIGURE READ **93** UNTIL THE WALK WAS CORRECTED, AND THE OFFENDER
+ * COUNTS DID NOT MOVE WITH IT. The first version of the walk marked a file seen
+ * on pop and then used the barrel name set it was popped with, so the second of
+ * five arrivals at the `../modals` barrel was discarded unread and
+ * `modals/analysedOptions.ts` — a DIRECT dependency of the render root — was
+ * never swept. Re-derived at the same commit with the union-corrected walk: 94
+ * files, still 16 offenders in 10 files, because the dropped file happens to
+ * carry none. That is exactly why nothing here could see it, and it is the
+ * reason the walk now has a guard of its own at
+ * `src/test/helpers/__tests__/reasoningTabCopyScope.spec.ts`, bound by file
+ * identity to a module reachable only through a second visit to a barrel.
  *
  * So the scope is now DERIVED, by `src/test/helpers/reasoningTabCopyScope.ts`,
  * from the tab's mounted render root. A new copy file imported by this tab is
@@ -154,6 +166,29 @@
  * a real literal. This is a stated limit of the claim, not a silent one: the
  * verdict below is about STRING LITERALS reachable from this tab, and a JSX-text
  * arm is separate, measured work.
+ *
+ * ── ⚠⚠ AND THE LARGER LIMIT: THE VERDICT COVERS ONE DIRECTORY, NOT THE WALK ─
+ * STATED HERE ON PURPOSE. It was previously written only in the helper, and a
+ * limit that lives in the helper is inherited silently by whoever reads THIS
+ * file's verdict — which is the sentence a reviewer believes.
+ *
+ * The walk reaches far more than this guard sweeps. `COPY_SCOPE_PREFIX` keeps
+ * only `src/components/results/`; everything else is reached, resolved, and
+ * then DISCARDED before a single literal is read. Measured at `f6f960b6`: the
+ * walk reaches **350** non-test files, sweeps the **94** under that prefix, and
+ * drops **256**. Those 256 carry **84 em-dash string literals across 24 files**,
+ * and they are not all developer trivia — `v5/failureTypeRetryability.ts`
+ * carries user-facing error sentences and `lib/mappers/constants.ts` carries
+ * result strings, both with dashes.
+ *
+ * ⚠ WHAT IS AND IS NOT CLAIMED ABOUT THOSE 84. Whether any of them renders on
+ * THIS tab is a SEPARATE question that nothing here has measured, in either
+ * direction. So this file's verdict is not "the Reasoning tab has no em dashes";
+ * it is "no string literal under `src/components/results/` reachable from this
+ * tab has one". The two are different sentences and only the second is
+ * evidenced. Widening the prefix is real, separate work: it would need each new
+ * directory's render-reachability established rather than assumed, and a guard
+ * that is widened faster than it is understood is how an ignore list gets born.
  */
 import { describe, it, expect } from 'vitest'
 import { readFileSync, existsSync } from 'node:fs'
@@ -347,9 +382,13 @@ describe('rendered product copy carries no em dashes', () => {
     })
 
     it('PRECONDITION: the walk reaches a real corpus, not a handful of files', () => {
-      // 93 at the time of writing, against a hand-list of 2. The floor is well
+      // 94 at the time of writing, against a hand-list of 2. The floor is well
       // below it: this guards against a walker that stopped, not against the
-      // surface shrinking.
+      // surface shrinking. ⚠ It is also why the walk needs its OWN guard: a
+      // floor of 50 is satisfied by 93 and by 94 alike, so this assertion was
+      // fully green while a direct dependency of the render root sat outside
+      // the corpus. See `test/helpers/__tests__/reasoningTabCopyScope.spec.ts`,
+      // which binds by file identity instead of by a count.
       expect(COVERED_FILES.length, 'the import walk collapsed').toBeGreaterThan(50)
     })
 

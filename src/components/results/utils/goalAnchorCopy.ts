@@ -576,8 +576,17 @@ export const COMPARISON_SCOPE_COPY = {
     const nameable = Math.max(0, Math.min(EXCLUDED_LABEL_NAME_CAP, missing))
     const named = scope.excludedLabels.slice(0, nameable)
 
+    // ⚠ THE COUNT-ONLY CLAUSE MAY NOT OPEN WITH A NUMERAL (11 Sep 2026). It
+    // used to read "1 was left out", which was unremarkable mid-sentence after
+    // a dash. Splitting the dash out made it the START of a sentence, and
+    // "Comparing 1 of your 2 options. 1 was left out." opens one with a digit.
+    // "The other" is exact rather than decorative: `missing` is
+    // `total - analysed`, and `deriveComparisonScope` returns null when
+    // `analysed === 0`, so there is always a compared set for these to be the
+    // others of. The named branches below need no equivalent: they open with an
+    // option's own label.
     if (named.length === 0) {
-      return missing === 1 ? '1 was left out' : `${missing} were left out`
+      return missing === 1 ? 'The other was left out' : `The other ${missing} were left out`
     }
 
     // ⚠ CLAMPED AT ZERO, NOT ASSUMED NON-NEGATIVE. `ComparisonScope` is an
