@@ -405,12 +405,14 @@ describe('a review card is a line too — the mechanism is not coaching-only', (
 /**
  * ⚠ THIS BLOCK EXISTS BECAUSE A REVIEWER PROVED IT WAS MISSING, and the PR body
  * had claimed the opposite. The claim was "the glyph ... is pinned by a test".
- * It was pinned on the CARD — `evidenceSeverityGlyph.spec.tsx` asserts 13 glyph
- * classes, every one of them through `render(<V5EvidenceBlock …>)`. Nothing
- * asserted the glyph the collapsed LINE draws, so deleting the `isEvidence ?`
- * ternary at `CoachingLine.tsx` would have silently given every evidence line
- * the review card's `Lightbulb` — #1450 returning by a different door — with a
- * green suite.
+ * It was pinned on the CARD. `evidenceSeverityGlyph.spec.tsx` asserts the glyph
+ * on THREE source lines (66, 81, 88), reaching it through
+ * `render(<V5EvidenceBlock …>)`; the rest of that file asserts tint, border, and
+ * `severityChannel(severity)` as a PURE FUNCTION needing no render at all.
+ * Nothing there asserted the glyph the collapsed LINE draws, so deleting the
+ * `isEvidence ?` ternary at `CoachingLine.tsx` would have silently given every
+ * evidence line the review card's `Lightbulb` — #1450 returning by a different
+ * door — with a green suite.
  *
  * ⭐ THE DISCRIMINATOR IS SAME-SEVERITY, DIFFERENT-FAMILY, not a literal glyph
  * name. Both fixtures below are `severity: 'info'`, so the ONLY thing that can
@@ -418,6 +420,20 @@ describe('a review card is a line too — the mechanism is not coaching-only', (
  * checked "evidence draws Search" would still pass if the branch were replaced
  * by something that happened to return Search for everything; the paired
  * negative on each side is what makes the mutation observable.
+ *
+ * ⛔ AND THE SENTENCE ABOVE WAS ITSELF WRONG ON ITS FIRST WRITING — corrected
+ * here after a second reviewer counted it. It said this file's card-side twin
+ * "asserts 13 glyph classes, every one of them through `render(...)`". BOTH
+ * halves were false: 13 was that file's TOTAL executed assertion count, not its
+ * glyph count, and the `severityChannel` assertions are pure-function calls that
+ * render nothing. The number was inherited from an earlier review — where it
+ * meant that file's share of the 26 repo-wide specs asserting lucide glyphs —
+ * and restated here with a DIFFERENT meaning, without being counted.
+ *
+ * ⭐ That is the same defect this block exists to fix, committed in the header
+ * that fixes it. A figure quoted from another document is not evidence until
+ * you have counted it yourself; the substantive claim (all that file's coverage
+ * goes through the CARD, so nothing pinned the LINE) was true and survives.
  *
  * ⛔ ALL svgs in the summary are collected, not `querySelector('svg')`. That
  * returns the FIRST svg only, so a negative assertion written against it can
