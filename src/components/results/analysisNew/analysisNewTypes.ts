@@ -23,6 +23,7 @@ import type { DriversSectionData, InferenceWarning, ZeroReasonCode } from '../ty
 import type { CritiqueWarningEntry } from '../CritiqueWarningStrip'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import type { ComparisonScope } from '../utils/goalAnchorCopy'
+import type { NotAnalysedReason } from '../utils/notAnalysedOptions'
 import type { NamedMaterialParameter } from './materialParametersAwaitingUser'
 
 /**
@@ -498,6 +499,28 @@ export type ComparisonOption =
        * `not_returned`) cannot silently collapse into one at a new call site.
        */
       reasonCopy: string
+      /**
+       * ⭐ THE GROUND ITSELF, beside the resolved sentence and never instead of
+       * it. `reasonCopy` answers *"what does the row SAY?"*; this answers
+       * *"which ground did the run state?"*, and only the second can be
+       * switched on.
+       *
+       * It exists because the act beside this row has to compose a QUESTION
+       * whose truth depends on the ground: `no_interventions` means nothing was
+       * ever computed about this option, `not_returned` means it was submitted
+       * and the run returned nothing. A question written from `reasonCopy`
+       * would have to re-parse a sentence to recover a fact the producer
+       * already stated — the re-derivation this estate keeps paying for.
+       *
+       * ⚠ REQUIRED, NOT OPTIONAL, AND THAT IS A CLAIM ABOUT THE PRODUCER.
+       * `deriveNotAnalysedReason` is total over the two-value union and
+       * `useResultsSectionData.ts:2227` sets the flag and the reason in one
+       * object literal, so a not-analysed option always carries its ground.
+       * Making this optional would invite a `?? 'not_returned'` at every new
+       * consumer, i.e. a surface silently asserting the analysis returned
+       * nothing for an option it may never have submitted.
+       */
+      reason: NotAnalysedReason
     }
   | {
       /**

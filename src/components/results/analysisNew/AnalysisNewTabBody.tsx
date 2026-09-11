@@ -1456,7 +1456,13 @@ export function AnalysisNewTabBody({
           targetAskedElsewhere={stripOffersTarget}
         />
 
-        <OptionsComparison options={vm.optionsComparison} />
+        <OptionsComparison
+          options={vm.optionsComparison}
+          /* The SAME writer this body already hands `WhatIWasGivenSection` for
+             its own ask (:1253). One composer, one validation, one policy — a
+             second route to the chat would be a second thing to keep honest. */
+          onSendMessage={onSendMessage}
+        />
 
         {/* ── KEY INSIGHTS ────────────────────────────────────────────────── */}
         <AnalysisNewSection
