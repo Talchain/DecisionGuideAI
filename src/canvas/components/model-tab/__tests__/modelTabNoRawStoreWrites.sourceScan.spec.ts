@@ -107,10 +107,21 @@ describe('Model-tab sections never write the canvas store directly (2.121 slice 
     expect(files.length).toBeGreaterThan(15)
     const names = files.map(f => basename(f))
     for (const required of [
-      'FactorsSection.tsx',
-      'GoalSection.tsx',
-      'OptionsSection.tsx',
-      'RelationshipsSection.tsx',
+      // ⚠ RE-POINTED 11 Sep 2026 BY THE v1 MODEL-TAB REMOVAL. These four read
+      // `FactorsSection.tsx`, `GoalSection.tsx`, `OptionsSection.tsx` and
+      // `RelationshipsSection.tsx` — every one of them deleted with the v1
+      // stack, so this test went red on a PR that never touched this file.
+      //
+      // They are RE-POINTED, not dropped. The v2 names below cannot carry the
+      // claim on their own: they live under `model-tab-v2/`, so a walk that
+      // silently stopped covering `model-tab/` — the directory whose sections
+      // this guard is named for — would still satisfy every remaining entry
+      // and the NO-CALL claim below would then pass over an unscanned tree.
+      // At least one anchor per root is what makes the scope assertion real.
+      'ModelHealthSection.tsx',
+      'GoalConstraintsSection.tsx',
+      'ModelAdjustments.tsx',
+      'ContestedEdgeCard.tsx',
       // The mounted v2 surface — its container and its render components are
       // in scope from the day of the mount, per §9.1's widening obligation.
       'ModelTabV2Panel.tsx',
