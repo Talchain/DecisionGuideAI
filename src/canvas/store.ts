@@ -5862,6 +5862,40 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       currentScenarioLastResultHash: scenario.last_result_hash ?? null,
       currentScenarioLastRunAt: scenario.last_run_at ?? null,
       currentScenarioLastRunSeed: scenario.last_run_seed ?? null,
+      // ⛔ THE PREVIOUS SCENARIO'S CEE PAYLOADS GO WITH ITS REPORT.
+      //
+      // `runMeta` holds the per-run CEE metadata — the 0.30 decision review,
+      // the coaching, the evidence assessment, the trace. Every one of them
+      // describes ONE analysis of ONE model, and NOTHING downstream re-checks
+      // which scenario produced them: `KeyQuestionCard`
+      // (`analysis-hero/KeyQuestionCard.tsx:51`) reads
+      // `runMeta.decisionReview030.decision_quality_prompts` and renders the
+      // question with no scenario gate and no status gate. So without this,
+      // after A -> B the product asks CEE's key question about A under B's
+      // heading — on a model B that may never have been analysed at all. It is
+      // the same harm `previousReport` above names ("left the previous
+      // decision's completed report on screen, attributed to the one just
+      // opened"), on the metadata half.
+      //
+      // ⭐ NOT A NEW RULE — COMPLETING AN EXISTING ONE. The store already
+      // names its boundary set at `:1452`: session-scoped state is cleared "at
+      // every scenario boundary (loadScenario, hydrateGraphSlice, resetCanvas,
+      // importCanvas)". `runMeta` was cleared at only two of the four
+      // (`importCanvas` `:4142`, `resetCanvas` `:4602`, plus `resultsReset`
+      // `:5673` — whose comment states the intent outright). The two it was
+      // missing from are the two a user actually walks.
+      //
+      // ⚠ THE RESTORE PATH IS NOT A DEFENCE. `resultsHydrateFromSupabase`
+      // merges `hydrateAnalysis`'s keys by SPREAD and only runs when the
+      // incoming scenario HAS a restorable report, so a switch to a
+      // never-analysed scenario leaves the previous payloads untouched.
+      //
+      // ⚠ GATED ON THE ID ACTUALLY CHANGING, not merely being present. The
+      // harm is cross-scenario ATTRIBUTION; a re-load of the scenario already
+      // on the canvas (`ReactFlowGraph.tsx:2062` does exactly this on boot)
+      // cannot mis-attribute anything, and clearing there would discard live
+      // data for no reader's benefit.
+      ...(id !== get().currentScenarioId ? { runMeta: {} } : {}),
       previousReport: null, // A1: Clear stale deltas on scenario switch
       // The previous scenario's REPORT goes with its deltas. Without this, a
       // switch to a scenario that has never been analysed — or whose run this
@@ -7803,6 +7837,19 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Wave F-A: option ordinals are per-scenario continuity — a hydrated
       // scenario starts a fresh numbering history.
       updates.optionNumbering = {}
+      // The same scenario boundary as `loadScenario` above, on the
+      // Supabase/autosave leg (`useScenario.ts:817` passes the row id). Per-run
+      // CEE metadata belongs to the scenario that produced it — see the full
+      // argument at `loadScenario`.
+      //
+      // ⚠ Bound to the id CHANGING, and bound to the id being present at all:
+      // the two boot callers that hydrate a graph WITHOUT a scenario id
+      // (`ReactFlowGraph.tsx:1956`, `:2103`) are deliberately untouched — the
+      // latter's own comment is "use hydrateGraphSlice to avoid clobbering
+      // panels/results", and clearing there would be that clobbering.
+      if (loaded.currentScenarioId !== get().currentScenarioId) {
+        updates.runMeta = {}
+      }
     }
 
     // Reset history and selection for clean state
