@@ -52,6 +52,7 @@ import { SEND_BLOCKED } from '../../../conversation/useConversation'
 import {
   acceptsElicitedBelief,
   buildFactorValueEditEvent,
+  factorValueHasNoUsableScale,
   resolveValueInputSeed,
   type ValueInputSeedBasis,
 } from '../../../conversation/factorValueEdit'
@@ -702,6 +703,34 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
                 </span>
               ))}
             </div>
+          )}
+          {/* ⭐ THE NUMBER THE ENGINE CANNOT PLACE, SAID ON THE FACTOR ITSELF.
+              A factor with no cap and no unit holds `value` AS the model scale
+              (CEE persists `raw_value = value` on that shape), so a recorded
+              `70` is a model-scale quantity with nothing saying seventy of what.
+              `buildFactorValueEditEvent` already refuses to SEND such a commit;
+              until now nothing SAID so on the surface where the number lives,
+              and an analysis could refuse for this reason while the factor
+              carrying it looked ordinary.
+
+              ⛔ THE PREDICATE IS IMPORTED, NEVER RE-TYPED. A range test written
+              here would be a second scale authority, which is the mirror this
+              estate keeps paying for (trap 12).
+
+              ⚠ AND IT CLAIMS NO CAUSE. It does not say this is why any analysis
+              refused: refusal codes are produced server-side from the whole
+              graph, and asserting the link from here would be a claim this
+              panel cannot see. It states what is true of this one number, and
+              routes to the writer that can actually change it — the
+              conversational path, which persists, rather than a local control
+              that would be destroyed by the next rehydrate. */}
+          {factorValueHasNoUsableScale(node?.data) && (
+            <p
+              className={`${typography.panelMeta} text-text-light mt-1.5`}
+              data-testid="factor-value-no-scale"
+            >
+              This value has no scale recorded, so nothing states what it is measured against. Ask Olumi to set the range it can move between.
+            </p>
           )}
         </PrimaryControlCard>
 

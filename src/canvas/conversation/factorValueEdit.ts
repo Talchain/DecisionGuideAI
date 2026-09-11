@@ -326,6 +326,56 @@ export function factorValueAdmissionRefusal(
   return `Enter a value between ${boundAsTyped(admission.priorMin, admission)} and ${boundAsTyped(admission.priorMax, admission)} to review this change`
 }
 
+/**
+ * ⭐ IS THIS NUMBER ONE THE ENGINE CANNOT PLACE?
+ *
+ * ⚠ TWO QUESTIONS, NAMED APART — NOT AN INCONSISTENCY TO RECONCILE (trap 21).
+ * `factorValueAdmissionRefusal` above answers *"would the number this user is
+ * TYPING fall outside the prior's declared support?"* — a refusal on an edit in
+ * flight, and it needs a draft to have an answer at all. This answers *"does the
+ * value this factor ALREADY HOLDS have any scale to be read against?"* — a
+ * disclosure about recorded state, true before anyone types anything.
+ * They overlap on the magnitude-scaled shape and disagree nowhere: a factor with
+ * no cap and no unit yields NO admission for the first (its prior is not the
+ * support of that `value`) and is exactly the shape this one exists to disclose.
+ * Collapsing them into one predicate would make the disclosure dark.
+ *
+ * True for a factor that carries NO cap and NO unit — the shape where CEE
+ * persists `raw_value = value`, so `value` IS the model scale — while holding a
+ * finite `value` OUTSIDE [0,1]. On that shape a bare `70` asserts a model-scale
+ * quantity seventy times the top of the scale, and there is nothing recorded
+ * saying seventy of what.
+ *
+ * ⚠ THIS IS THE SAME RULE THE BUILDER ALREADY ENFORCES, NOT A SECOND ONE.
+ * `buildFactorValueEditEvent` refuses a `model_scale` commit with
+ * `typedValue < 0 || typedValue > 1` (see the structural refusals above), so a
+ * value in this shape is one this module would decline to send. Asking the
+ * question here rather than re-deriving it in a panel is what keeps one scale
+ * authority (CLAUDE.md trap 12): a panel with its own range test would be the
+ * mirror that drifts.
+ *
+ * ⛔ WHAT IT DOES NOT CLAIM. It says nothing about why any particular analysis
+ * refused. The engine's own refusal codes (`baseline_scale_unresolved` and its
+ * siblings) are produced server-side from the whole graph, and binding this
+ * local predicate to one of them would assert a causal link this module cannot
+ * see. It answers one narrow question about ONE factor's recorded number.
+ */
+export function factorValueHasNoUsableScale(nodeData: unknown): boolean {
+  const obs = getObservedState(nodeData)
+  const cap = readNumber(obs.cap)
+  // A positive cap IS the scale. Nothing to disclose.
+  if (typeof cap === 'number' && Number.isFinite(cap) && cap > 0) return false
+  // A unit makes the magnitude readable even without a cap ("£40,000"), and
+  // `isMagnitudeScaledFactor` already treats that shape as scaled.
+  const unit = typeof obs.unit === 'string' ? obs.unit.trim() : ''
+  if (unit.length > 0) return false
+  const value = readNumber(obs.value)
+  if (typeof value !== 'number' || !Number.isFinite(value)) return false
+  // In [0,1] the number is a coherent model-scale belief; only outside it is
+  // there a quantity with nothing to measure it against.
+  return value < 0 || value > 1
+}
+
 export interface FactorValueEditInput {
   /** The factor node's id. ID-ADDRESSED — a label would retarget on a rename. */
   nodeId: string
