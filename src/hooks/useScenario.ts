@@ -40,6 +40,7 @@ import { shouldPersistGraphForScenario } from '../canvas/stores/draftStore'
 // the plumbing. See that file's header for the whole derivation.
 import { clientCanWriteReadableGraph } from '../lib/clientGraphWritePolicy'
 import { logCanvasBreadcrumb, describeError } from '../canvas/utils/canvasBreadcrumb'
+import { deriveModelNameFromGoal } from '../canvas/domain/modelDisplayName'
 
 export type SaveStatus = 'saved' | 'saving' | 'error'
 
@@ -625,9 +626,10 @@ export function useScenario(): UseScenarioReturn {
       const goal = framingObj?.goal
       if (!goal || typeof goal !== 'string') return
 
-      const autoTitle = goal.length > 60
-        ? goal.substring(0, 57) + '...'
-        : goal
+      // Same derivation the display fallback uses, so the name a guest sees and
+      // the name that is eventually persisted cannot drift apart.
+      const autoTitle = deriveModelNameFromGoal(goal)
+      if (!autoTitle) return
 
       titleAutoSetForScenarioRef.current = sid
       scenarioService.saveTitle(sid, autoTitle).catch((err) => {
