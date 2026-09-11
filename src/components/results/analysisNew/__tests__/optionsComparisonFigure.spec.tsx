@@ -473,14 +473,28 @@ describe("'condition' — a flip threshold licenses a sentence, never a magnitud
   /**
    * ⭐⭐⭐ THE GATE'S SHAPE IS LOAD-BEARING, AND THIS IS THE PROOF.
    *
-   * A DISCRIMINATING PAIR (CLAUDE.md trap 19). The first assertion is the gate
-   * as written; the second is the gate a reasonable edit might substitute,
-   * evaluated over the same four states. They must DISAGREE, and they must
-   * disagree on exactly one state: `'condition'`.
+   * The first list is the gate as written; the second is the gate a reasonable
+   * edit might substitute, evaluated over the same four states. They must
+   * DISAGREE, and they must disagree on exactly one state: `'condition'`.
    *
    * This is what stops a future reader "simplifying" `=== 'value'` into
    * `!== 'none'` — the two are not equivalent, they differ on a state that is
    * live on `staging` today, and the difference is a fabricated magnitude.
+   *
+   * ⚠⚠ WHAT THIS TEST DOES **NOT** GUARD, STATED BECAUSE IT SURVIVED THE
+   * MUTANTS THAT PROVED IT. This test reads the VIEW MODEL and computes both
+   * candidate gates here; it never renders. So it is a proof about the STATES —
+   * that the four fixtures really do separate, and that the two gate shapes
+   * really do disagree on `'condition'` — and it stayed GREEN under all three
+   * mutations of the component's own `mayDrawMagnitude`. It is NOT a guard on
+   * the component.
+   *
+   * The component-level guard is its sibling above ('draws NO bar'), which was
+   * measured to RED under `!== 'none'` and under `=== 'value' || ===
+   * 'condition'`, and to stay GREEN under `=== 'value' || === 'order'` — a
+   * discriminating pair (CLAUDE.md trap 19), so it binds to THIS state rather
+   * than being sensitive to any loosening at all. Read as a pair the two cover
+   * the interaction; read alone, neither does.
    */
   it("the gate's SHAPE is load-bearing: `!== 'none'` would draw here and `=== 'value'` does not", () => {
     const states = [
