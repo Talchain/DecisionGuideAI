@@ -124,18 +124,62 @@ import { typography } from '../../../../styles/typography'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
 import { clearHighlight, highlightNode } from '../../../../canvas/utils/highlightHelpers'
-import { NOT_ANALYSED_BADGE, NOT_COMPUTED_BADGE } from '../../utils/notAnalysedCopy'
+import {
+  BRING_INTO_COMPARISON_LABEL,
+  bringIntoComparisonQuestion,
+  NOT_ANALYSED_BADGE,
+  NOT_COMPUTED_BADGE,
+} from '../../utils/notAnalysedCopy'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
 import type { OptionsComparisonSection } from '../analysisNewTypes'
 import { SectionShell } from './SectionShell'
 
 export interface OptionsComparisonProps {
   options: OptionsComparisonSection
+  /**
+   * Send a message as the user, on the surface's EXISTING writer.
+   *
+   * ⚠ OPTIONAL, AND ITS ABSENCE IS THE GATE, not a detail. A host with no
+   * composer renders no act at all — never a control that does nothing. This is
+   * the same shape and the same handler `WhatIWasGivenSection` already uses for
+   * its own ask on this tab (`AnalysisNewTabBody.tsx:200`, supplied from
+   * `OutputsDock.tsx:3899`), so this section joins the writer the product has
+   * rather than minting a second one with its own validation and policy.
+   */
+  onSendMessage?: (message: string) => void
+  /**
+   * ⭐⭐ OPEN ON MOUNT — AND THE CALLER DECIDES, BECAUSE THE CALLER IS THE ONLY
+   * ONE WHO CAN SEE THE QUESTION.
+   *
+   * `SectionShell`'s rule is that a section may open by default only when
+   * something ABOVE it depends on the content being visible. Whether that
+   * holds is a fact about the GLANCE and this section together, and this
+   * component is handed only the second — so deriving it here would mean
+   * re-deriving the glance from the rows, which is the re-derivation this
+   * directory keeps paying for. `AnalysisNewTabBody.tsx` holds both and states
+   * the condition there, exactly as it already does for
+   * `StrengthenTheReasoning`.
+   *
+   * ⚠ A DEFAULT, NOT A LOCK, AND READ EXACTLY ONCE. `SectionShell` seeds
+   * `useState(defaultOpen)`, so from the first render of this instance the
+   * open state belongs to the toggle. A later `false` is not re-read and the
+   * section stays where the reader left it — the same semantics, and the same
+   * deliberate choice, recorded at `StrengthenTheReasoning.tsx:114`.
+   *
+   * ⛔ IT MOVES NOTHING BUT VISIBILITY. Every entitlement rule in this file's
+   * header is evaluated the same way open or closed: no ordinal is printed,
+   * no leader is marked, and `mayDrawMagnitude` reads `comparativeClaim`,
+   * which is computed upstream in the view model and cannot be influenced by a
+   * disclosure state that does not exist until render.
+   */
+  defaultOpen?: boolean
   testId?: string
 }
 
 export function OptionsComparison({
   options,
+  onSendMessage,
+  defaultOpen = false,
   testId = 'analysis-new-options',
 }: OptionsComparisonProps) {
   const showToast = useShowToastSafe()
@@ -268,6 +312,7 @@ export function OptionsComparison({
       // of them — named rows plus the unnamed disclosure. A collapsed row is a
       // promise about what is behind it.
       count={options.totalCount}
+      defaultOpen={defaultOpen}
       testId={testId}
     >
       {/* ⚠ THE SENTENCE IS `checks.leaderMeaning`, NOT A NEW ONE. It already
@@ -490,6 +535,42 @@ export function OptionsComparison({
               >
                 {o.reasonCopy}
               </p>
+            ) : null}
+
+            {/* ⭐ THE ACT — and it ASKS. It sends a question naming this option
+                and the run's own stated ground for leaving it out, and that is
+                ALL it does: no add, no value change, no re-run. The adjacent
+                receipt's `addAction` records why (15 arms over 5 rounds against
+                the live CEE router: every add phrasing refused, every ask
+                phrasing answered), and the acceptance condition for an add is
+                knowledge this surface does not have. Whatever the user does
+                with the answer is a later turn through the existing writers.
+                Two honest steps beat one false promise.
+
+                ⛔ NOT ON `not_computed`. That option WAS in the comparison and
+                the computation failed, so there is nothing to bring in and the
+                question would misdescribe the run (CLAUDE.md trap 21 — the two
+                numberless rows are not two spellings of one state).
+
+                ⚠ GATED ON THE WRITER, so a host with no composer renders
+                nothing rather than a control that cannot act. */}
+            {o.kind === 'not_analysed' && onSendMessage ? (
+              <button
+                type="button"
+                data-testid={`${testId}-bring-in-${o.id}`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  /* BOUND BY IDENTITY. The question is composed from THIS row's
+                     own label and THIS row's own ground, both carried on the
+                     row object — never read back off the rendered sentence and
+                     never looked up by label, which another option could
+                     share. */
+                  onSendMessage(bringIntoComparisonQuestion(o.label, o.reason))
+                }}
+                className={`${typography.panelMeta} mt-1 inline-flex items-center rounded text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              >
+                {BRING_INTO_COMPARISON_LABEL}
+              </button>
             ) : null}
 
             {/* WHY the computation produced no number, as opposed to why the

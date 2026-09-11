@@ -2428,15 +2428,27 @@ function buildOptionsComparison(
     if (label === null) continue
 
     if (o.notAnalysed === true) {
+      // ⭐ RESOLVED ONCE, READ TWICE. The sentence the row renders and the
+      // ground the act beside it switches on are now the SAME value, so they
+      // cannot disagree about why this option was left out. Two `??` defaults
+      // at two call sites is how one surface comes to say "you have not set
+      // this up" while the control beside it asks about a run that never saw
+      // the option (CLAUDE.md trap 21, built out of one repeated expression).
+      //
+      // `not_returned` is the same default `buildAtAGlance` applies, and it is
+      // the weaker of the two claims: it reports that the analysis came back
+      // with nothing, and prescribes no action the user cannot take. It is
+      // UNREACHABLE from the live producer — `useResultsSectionData.ts:2227`
+      // sets `notAnalysed` and `notAnalysedReason` in one object literal — and
+      // stays here only because the field is optional on `OptionResult`.
+      const reason = o.notAnalysedReason ?? 'not_returned'
       rows.push({
         kind: 'not_analysed',
         id: o.id,
         label,
         // The SANCTIONED sentence, resolved here so no component re-words it.
-        // `not_returned` is the same default `buildAtAGlance` applies, and it
-        // is the weaker of the two claims: it reports that the analysis came
-        // back with nothing, and prescribes no action the user cannot take.
-        reasonCopy: notAnalysedReasonCopy(o.notAnalysedReason ?? 'not_returned'),
+        reasonCopy: notAnalysedReasonCopy(reason),
+        reason,
       })
       continue
     }

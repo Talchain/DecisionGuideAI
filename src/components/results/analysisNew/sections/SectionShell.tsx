@@ -55,7 +55,27 @@ export interface SectionShellProps {
   /**
    * Open on mount. Default CLOSED — that is the whole point of the row.
    * A section may open by default only when something above it depends on the
-   * content being visible, and no section currently does.
+   * content being visible.
+   *
+   * ⚠ THE SECOND HALF OF THIS SENTENCE USED TO READ "and no section currently
+   * does", AND IT WAS ALREADY FALSE WHEN READ — a hand-maintained mirror
+   * (CLAUDE.md trap 12) inside the docblock that states the rule. Derive the
+   * callers, never this comment: `grep -rn 'defaultOpen' src`. At the time of
+   * writing three sections pass it, and each states its own licence at its own
+   * call site, which is where the condition is legible:
+   *
+   *   · `AnalysisNewSection.tsx:144` — a single finding, where the count on the
+   *     row and the one row behind it carry the same information.
+   *   · `AnalysisNewTabBody.tsx:1359` — Strengthen, pre-run, when it is the
+   *     only content the panel has.
+   *   · `AnalysisNewTabBody.tsx` (OptionsComparison) — a run whose glance shows
+   *     no reading at all, where the figures below are the reader's only
+   *     account of the field.
+   *
+   * ⚠ IT IS READ EXACTLY ONCE. `useState(defaultOpen)` seeds the state, so from
+   * the first render of an instance the open state belongs to the toggle; a
+   * later `false` is not re-read. Forcing a re-read means remounting, which was
+   * tried and reverted (it discards unsaved composer text).
    */
   defaultOpen?: boolean
   children: ReactNode

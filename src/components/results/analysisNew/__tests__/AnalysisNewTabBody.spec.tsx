@@ -161,12 +161,55 @@ describe('F · the three scenario classes (§24F)', () => {
     )
   })
 
+  /**
+   * ⚠⚠ REBOUND, NOT RELAXED — AND THE MEASUREMENT THAT FORCED IT.
+   *
+   * This case asserted `body.textContent).not.toContain('Raise price')`. That
+   * string is the OPTION'S LABEL, and "How the options compare" prints it as a
+   * plain row — so the assertion was satisfied by the section being CLOSED, not
+   * by the product withholding anything.
+   *
+   * Measured at the tip before this change, on this very fixture, with the
+   * suite's own `openAllSections()`:
+   *
+   *     closed   'Raise price' false   'Hold price' false
+   *     opened   'Raise price' TRUE    'Hold price' TRUE
+   *     'currently scores higher'  absent in BOTH states
+   *
+   * Two things follow. The assertion was ALREADY false of the product one click
+   * away — every neighbour in this file calls `openAllSections()` and this was
+   * the only one that did not. And it is SYMMETRIC: the losing option's label
+   * appears too, so it was never discriminating a leader DESIGNATION from a
+   * list of options — it was a value-predicate another object satisfies, which
+   * is the binding defect CLAUDE.md trap 19 exists for.
+   *
+   * The claim in this test's NAME — "says nothing about a leader" — is kept and
+   * made STRONGER: the leader-naming SENTENCE is still forbidden everywhere,
+   * the designation surfaces must not exist, and the option's name may not
+   * appear ANYWHERE OUTSIDE the comparison list that is entitled to print it.
+   * That last assertion is the one the old string could not make, and it now
+   * fails loud if a designation reappears anywhere on the tab.
+   */
   it('LEADER WITHHELD — the same fixture with one boolean flipped says nothing about a leader', () => {
     // The discriminating twin of the case above.
     renderBody(decisionWithLeaderWithheld())
     const body = screen.getByTestId('analysis-new-tab-body')
     expect(body.textContent).not.toContain('currently scores higher')
-    expect(body.textContent).not.toContain('Raise price')
+
+    // No designation surface exists on this run.
+    expect(screen.queryByTestId('analysis-new-glance-headline')).toBeNull()
+    expect(screen.getByTestId('analysis-new-glance').textContent).not.toContain('Raise price')
+
+    // …and the name appears NOWHERE outside the comparison list, which is the
+    // one place licensed to print every option's own label.
+    const options = screen.queryByTestId('analysis-new-options')
+    // PRECONDITION, PINNED IN-TEST: this case is only meaningful while the
+    // comparison is the licensed printer. If it stops rendering, the subtraction
+    // below silently becomes `body.textContent` and the case changes meaning.
+    expect(options, 'the comparison must render, or this assertion is a different one').not.toBeNull()
+    expect(options!.textContent).toContain('Raise price')
+    const elsewhere = (body.textContent ?? '').split(options!.textContent ?? '\u0000').join('')
+    expect(elsewhere).not.toContain('Raise price')
   })
 
   /**
