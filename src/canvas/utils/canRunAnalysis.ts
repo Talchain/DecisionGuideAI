@@ -44,6 +44,7 @@ import {
   analysisBlockedItems,
   composeReadinessBlockedReason,
   readinessAuthoredRefusalItems,
+  readinessAuthoredImprovementItems,
   type GateBlockedItem,
   type OptionNeedingValues,
 } from './composeBlockedReason'
@@ -1008,7 +1009,32 @@ export function canRunAnalysis(params: CanRunAnalysisParams): CanRunAnalysisResu
       producerBlockers.length === 0 &&
       readiness?.can_run_analysis === false &&
       !readinessStale
-        ? readinessAuthoredRefusalItems(readiness)
+        ? // ⭐ AND WHEN THE SIDE-CAR HAS NO REFUSAL TO QUOTE, IT MAY STILL HAVE
+          // THE REMEDIES. `readinessAuthoredRefusalItems` returns null on a
+          // branch this file already derives at CEE `3575b189` — `may_run`
+          // true beside `can_run_analysis` false, where quoting `blocker_reason`
+          // would print "This model can be analysed now" as the reason it
+          // cannot. That guard is right and stays; it was also the door to the
+          // non-committal floor. `readiness.improvements` carries the
+          // producer's own named repairs on exactly those turns (since #1503,
+          // from `quality_factors` filtered on a non-empty `recommendation`),
+          // and until now NO arm of this expression read them: the user was
+          // sent to the chat while the answer sat in the store.
+          //
+          // ⚠ ORDER, AND IT IS NOT INTERCHANGEABLE. The refusal wins. Owed
+          // repairs and CEE's adjudicated headline are the side-car's REFUSAL;
+          // improvements are its COACHING, and the step before giving up. Same
+          // order `composeReadinessBlockedReason` keeps between rung 0 and
+          // rung 4 — one rule, applied on both arms, rather than a second.
+          //
+          // ⚠ IT INHERITS THIS GATE UNCHANGED — producer itemised nothing, the
+          // side-car itself refusing, verdict not stale. The side-car may
+          // CORROBORATE a refusal the producer made; it may never author one,
+          // and coaching is not a weaker warrant for speaking than a refusal
+          // is. `readinessObjectsToRun` is untouched: what changes is the
+          // EXPLANATION, never WHETHER the run is refused.
+          (readinessAuthoredRefusalItems(readiness) ??
+          readinessAuthoredImprovementItems(readiness))
         : null
     const composedItems: readonly GateBlockedItem[] =
       producerBlockers !== null
