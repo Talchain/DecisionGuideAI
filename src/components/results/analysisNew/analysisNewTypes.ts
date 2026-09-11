@@ -557,6 +557,31 @@ export interface OptionsComparisonSection {
    * difference as a plain count rather than silently shortening the list.
    */
   totalCount: number
+  /**
+   * ⭐⭐ MAY THIS SECTION DRAW A COMPARATIVE MAGNITUDE? — and it is THE GLANCE'S
+   * ANSWER, carried here, never a second one computed from the rows.
+   *
+   * ⚠ THE SAME VALUE, NOT AN AGREEING ONE. `buildAnalysisNewViewModel` assigns
+   * this from the very `glance.comparativeClaim` it puts on `atAGlance`, in one
+   * expression, so the two are the same value by construction rather than by two
+   * derivations happening to land together. That is the whole point: a second
+   * predicate over the same rows would be a SECOND AUTHORITY on whether a
+   * magnitude is licensed, and this estate has already paid for exactly that
+   * shape — #709 opened a permission channel and #737 gave the same question a
+   * second, display-scoped conjunct, after which the confirmation withheld a
+   * leader while the sentence beneath it named one (CLAUDE.md trap 21).
+   *
+   * ⚠⚠ AND IT IS THE SAME NAME ON PURPOSE. Renaming it here would read as a
+   * different question with a different answer, which is the drift the trap
+   * describes. One question, one name, one value.
+   *
+   * ⚠ WHAT IT DOES **NOT** GATE, stated so a later reader does not widen it. The
+   * per-option win READOUT, the badges, the producer's per-option sentence and
+   * the withheld-comparison sentence are all OWN-OPTION statements or copy with
+   * their own authorities, and none of them moves with this field. It governs
+   * the drawn FIGURE and nothing else.
+   */
+  comparativeClaim: GlanceComparativeClaim
 }
 
 /**
