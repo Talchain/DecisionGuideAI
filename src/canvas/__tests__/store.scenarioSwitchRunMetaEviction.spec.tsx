@@ -57,15 +57,21 @@
  *
  * ## Scope of the claim (CLAUDE.md trap 3)
  *
- * Store-level state assertions plus one jsdom render. They prove the EVICTION
- * and the card's disappearance. They do not prove layout, and they say nothing
- * about any surface other than `KeyQuestionCard`.
+ * Store-level state assertions only. They prove the EVICTION.
+ *
+ * ⚠ THE USER-VISIBLE HALF LIVES ELSEWHERE, AND DELIBERATELY SO. The render that
+ * proves A's key question paints on B is
+ * `components/results/analysis-hero/__tests__/keyQuestionIsPerScenario.spec.tsx`
+ * — INSIDE the hero module, because `analysis-hero/__tests__/inertness.spec.ts`
+ * forbids any file outside that module importing it, and a spec here importing
+ * `KeyQuestionCard` was a real offender against that guard (measured: it was the
+ * sole entry in the offender list). That guard is the trap-3b defence — a second
+ * importer is a potential second mount path — so the repair is to put the render
+ * with the component, NOT to widen the allow-list for a test's convenience.
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
 import { useCanvasStore } from '../store'
 import { createScenario } from '../store/scenarios'
-import { KeyQuestionCard } from '../../components/results/analysis-hero/KeyQuestionCard'
 import type { DecisionReview030 } from '../../v5/decisionReviewAdapter'
 
 const LS_KEYS = [
@@ -159,23 +165,6 @@ describe('store.loadScenario — per-run CEE metadata is evicted at the boundary
     expect(useCanvasStore.getState().runMeta.decisionReview030 ?? null).toBeNull()
   })
 
-  it("stops rendering A's key question once B is on the canvas", () => {
-    const a = makeScenario('Scenario A', 'A revenue')
-    const b = makeScenario('Scenario B', 'B revenue')
-
-    useCanvasStore.getState().loadScenario(a.id)
-    seedAnalysisOfA()
-
-    const first = render(<KeyQuestionCard />)
-    // PRECONDITION: the card genuinely renders A's question first.
-    expect(screen.getByTestId('key-question-text').textContent).toContain(A_QUESTION)
-    first.unmount()
-
-    useCanvasStore.getState().loadScenario(b.id)
-
-    render(<KeyQuestionCard />)
-    expect(screen.queryByTestId('key-question-card')).toBeNull()
-  })
 })
 
 describe('store.hydrateGraphSlice — the same boundary, the Supabase/autosave leg', () => {
