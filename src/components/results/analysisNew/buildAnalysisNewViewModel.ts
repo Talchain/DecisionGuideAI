@@ -1941,11 +1941,52 @@ function buildAtAGlance(
   // claims and both need the scope disclosure. Gating on the share alone
   // suppressed it on exactly those runs.
   const shareOnScreen = Boolean(verdictBlock && winShare)
-  const comparativeClaim: GlanceComparativeClaim = shareOnScreen
+
+  // ⚠⚠ HOISTED, AND THE HOIST IS THE FIX (ROADMAP 2.1340 row F).
+  // `condition` used to be computed in the returned object literal BELOW this
+  // point, so the enumeration could not consult it even in principle: the two
+  // values were built in two places and the render path recombined them. A
+  // flip condition is candidate-set-dependent, so a run whose only claim was a
+  // condition resolved to `'none'` and `AtAGlance` suppressed the scope note —
+  // printing a threshold derived from 1 of 2 options with nothing saying so.
+  const condition = glanceCondition(data)
+
+  /**
+   * ⭐⭐ EVERY SET-DEPENDENT CLAIM THIS PANEL CAN MAKE, IN ONE PLACE, AND THE
+   * COMPILER OWNS THE LIST.
+   *
+   * Three review rounds of #921 each found ONE more member of this enumeration
+   * (the expected-outcome superlative, the robustness verdict, and now the
+   * flip condition) and nothing failed loud when the next was added — CLAUDE.md
+   * trap 12, the hand-maintained mirror, in the gate that exists to stop an
+   * unqualified number reaching a reader.
+   *
+   * The `Record<Exclude<GlanceComparativeClaim, 'none'>, boolean>` annotation
+   * is the mechanism that replaces remembering: adding a member to
+   * `GlanceComparativeClaim` is a TYPE ERROR here until that member is given a
+   * truth condition, so a fifth claim cannot be minted without deciding
+   * whether it needs the scope beside it. `'none'` is then the residue —
+   * provably "no claim was made" rather than "no claim was listed".
+   */
+  const setDependentClaims: Record<Exclude<GlanceComparativeClaim, 'none'>, boolean> = {
+    /** The win share, as RENDERED — `AtAGlance` draws it inside the verdict block. */
+    value: shareOnScreen,
+    /** The headline superlative, or the robustness ordering verdict. */
+    order: Boolean(headline || verdictBlock),
+    /** A flip threshold, which ISL derives over the candidate set. */
+    condition: condition !== null,
+  }
+
+  // Precedence is the amount of the register each claim licenses, widest
+  // first: a run carrying a share is a `'value'` claim whatever else is on
+  // screen, and `'condition'` is reached only when nothing louder was said.
+  const comparativeClaim: GlanceComparativeClaim = setDependentClaims.value
     ? 'value'
-    : headline || verdictBlock
+    : setDependentClaims.order
       ? 'order'
-      : 'none'
+      : setDependentClaims.condition
+        ? 'condition'
+        : 'none'
 
   return {
     headline,
@@ -1959,7 +2000,7 @@ function buildAtAGlance(
     verdict: verdictBlock,
     drivers,
     influenceIsSetRelative: setRelative,
-    condition: glanceCondition(data),
+    condition,
     inputProvenance: glanceInputProvenance(data, nodeValueSources),
   }
 }

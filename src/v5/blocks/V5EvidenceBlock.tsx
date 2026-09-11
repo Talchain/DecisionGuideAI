@@ -27,7 +27,7 @@
  *     follow-up from slice 1.
  */
 import { type ReactElement } from 'react'
-import { AlertTriangle, Search } from 'lucide-react'
+import { evidenceSeverityVisual } from './severityChannel'
 import { typography } from '../../styles/typography'
 import { TargetRefPill } from '../../canvas/conversation/components/TargetRefPill'
 import { resolveFreshnessNotice } from './coachingCurrency'
@@ -38,20 +38,21 @@ export interface V5EvidenceBlockProps {
   block: V5EvidenceBlockType
 }
 
-const SEVERITY_BORDER: Record<V5EvidenceBlockType['severity'], string> = {
-  info: 'border-info/30',
-  warning: 'border-warning/30',
-  critical: 'border-danger/30',
-}
-
-const SEVERITY_ICON_COLOUR: Record<V5EvidenceBlockType['severity'], string> = {
-  info: 'text-info',
-  warning: 'text-warning',
-  critical: 'text-danger',
-}
+// ⚠ THIS BLOCK HELD ITS OWN COPIES OF THE SEVERITY→COLOUR MAPS, byte-identical
+// to the review card's, until `./severityChannel` became the single authority.
+// It was the THIRD hand-maintained mirror of one mapping, and the review-card
+// pair had already drifted once (a collapsed review card drew the same
+// `text-info` for every severity, flattening a warning into routine).
+//
+// ⛔ AND THE GLYPH RULE MOVED WITH THEM, rather than staying a ternary here.
+// `reviewSeverityVisual` hands back `Lightbulb` for `info` where this family
+// draws `Search`, so the two families need separate descriptors — but a rule
+// living inside ONE component is the altitude that produced #1450 in the first
+// place, and `v5_evidence` is already a point candidate. See
+// `evidenceSeverityVisual`.
 
 export function V5EvidenceBlock({ block }: V5EvidenceBlockProps): ReactElement {
-  const Icon = block.severity === 'info' ? Search : AlertTriangle
+  const { Icon, tintClass, borderClass } = evidenceSeverityVisual(block.severity)
   // §1.3: the primary factor entry in target_refs is canonical; the
   // top-level factor_label is a backward-compatibility convenience.
   const primaryFactor = block.target_refs.find((ref) => ref.kind === 'factor')
@@ -71,12 +72,12 @@ export function V5EvidenceBlock({ block }: V5EvidenceBlockProps): ReactElement {
       data-severity={block.severity}
       data-freshness={block.freshness}
       data-currency={currency}
-      className={`rounded-md border ${SEVERITY_BORDER[block.severity]} bg-panel p-4 space-y-2`}
+      className={`rounded-md border ${borderClass} bg-panel p-4 space-y-2`}
     >
       <div className="flex items-start gap-2">
         <Icon
           size={16}
-          className={`flex-none mt-0.5 ${SEVERITY_ICON_COLOUR[block.severity]}`}
+          className={`flex-none mt-0.5 ${tintClass}`}
           aria-hidden="true"
         />
         <h3 className={typography.panelHeader} data-testid="v5-evidence-title">
