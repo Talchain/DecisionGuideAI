@@ -170,9 +170,53 @@ export function redactStatedReason(
   return { ...rest, statement_present: typeof statement === 'string' && statement.length > 0 }
 }
 
-export interface FindingDissentInput {
+/**
+ * WHERE a dissent would be addressed: the finding, and the run it was read on.
+ *
+ * Named apart from `FindingDissentInput` because the two answer different
+ * questions. The address is knowable the moment the composer opens; the
+ * statement is the thing the user has not written yet.
+ */
+export interface FindingDissentAddress {
   findingId: string | null | undefined
   analysisId: string | null | undefined
+}
+
+/**
+ * ⭐⭐ IS THERE SOMEWHERE TO SEND THIS — asked WITHOUT the statement, so the
+ * surface can ask it BEFORE the user has typed one.
+ *
+ * ⚠⚠ THIS EXISTS BECAUSE THE COPY ON THE TEXTAREA IS A PRIVACY DISCLOSURE, AND
+ * A DISCLOSURE THAT ARRIVES AFTER THE FACT IS NOT ONE. The prompt is read while
+ * the user decides what to type, so it has to say whether those words will leave
+ * the browser — and the only sentence that can be trusted to say so is one
+ * derived from the SEND'S OWN TEST. A second predicate written beside the first
+ * is this estate's signature defect: it agrees on the day it is written and
+ * drifts into stating something false. So `buildFindingDissentEvent` CONSUMES
+ * this rather than repeating it, and a later clause added to the address has
+ * exactly one place to go.
+ *
+ * ⚠ THE STATEMENT CLAUSE IS DELIBERATELY OUTSIDE IT, and leaving it in would
+ * have recreated the defect. An empty draft is not sendable, so a prompt keyed
+ * on the whole of `buildFindingDissentEvent` would read "this stays in this
+ * browser" at exactly the moment the textarea is blank — which is the moment
+ * the user is deciding what to type. The address is a fact about the world; the
+ * statement is a fact about the words that do not exist yet.
+ *
+ * ⚠ SO THE COPY CAN ONLY ERR TOWARDS DISCLOSURE, AND THAT IS THE SAFE ERROR.
+ * Sending is strictly NARROWER than this: a blank or over-long statement, a
+ * board with no persisted identity, a decision switched mid-compose, or a failed
+ * durable write each leave the words local while the prompt has already warned
+ * they would travel. Over-warning costs the user nothing. Under-warning is the
+ * defect.
+ */
+export function isSendableAddress<T extends FindingDissentAddress>(
+  address: T,
+): address is T & { findingId: string; analysisId: string } {
+  return isSendableAnalysisId(address.analysisId) && isSendableFindingId(address.findingId)
+}
+
+export interface FindingDissentInput extends FindingDissentAddress {
   /** The user's words. Passed through VERBATIM when sendable. */
   statement: string | null | undefined
 }
@@ -186,9 +230,10 @@ export interface FindingDissentInput {
  * be routed around by substituting a placeholder.
  */
 export function buildFindingDissentEvent(input: FindingDissentInput): WireSystemEvent | null {
+  // ⚠ THE ADDRESS TEST IS NOT INLINED HERE. It is the same call the textarea's
+  // copy makes, so the sentence the user reads cannot drift from what this does.
+  if (!isSendableAddress(input)) return null
   const { findingId, analysisId, statement } = input
-  if (!isSendableFindingId(findingId)) return null
-  if (!isSendableAnalysisId(analysisId)) return null
   if (!isSendableStatement(statement)) return null
   return {
     type: 'finding_dissent',

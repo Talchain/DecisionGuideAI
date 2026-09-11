@@ -22,13 +22,14 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { StrengthenTheReasoning } from '../sections/StrengthenTheReasoning'
 import { useCanvasStore } from '../../../../canvas/store'
 import { setCurrentScenarioId } from '../../../../canvas/store/scenarios'
 import { readDissent } from '../../../../canvas/stores/dissentStore'
 import { useStrengthenStore } from '../../../../canvas/stores/strengthenStore'
 import { ANALYSIS_NEW_COPY } from '../analysisNewCopy'
+import { MAX_DISSENT_STATEMENT } from '../../../../canvas/conversation/findingDissent'
 import type { Recommendation } from '../../strengthen/strengthenTypes'
 
 vi.mock('../../coaching/askOlumiStore', () => ({ openAskOlumi: vi.fn() }))
@@ -413,5 +414,182 @@ describe('the claim is scoped to the DECISION on screen, not to the finding id a
       ANALYSIS_NEW_COPY.dissent.sentToOlumi,
     )
     expect(dissentEventsFor(ID), 'no third send was made by navigating').toHaveLength(2)
+  })
+})
+
+/**
+ * ⭐⭐⭐ THE SENTENCE THE USER READS BEFORE TYPING IS TRUE ABOUT WHERE THE WORDS GO.
+ *
+ * ⚠⚠ WHAT THIS CLOSES, AND WHY IT IS NOT A COPY NIT. `dissent.prompt` sits ON
+ * the textarea and its own comment says it exists "so saving is not a guess".
+ * Shipping `finding_dissent` beneath it made it false: the user composed under
+ * an explicit promise of locality and the words then went to the server, with
+ * the only sentence saying so rendering AFTER the send. Standing rule R-004
+ * keeps user free text out of persistence and Paul widened it deliberately on
+ * 2026-09-11 for stated reasoning about a finding — but a widening the user is
+ * not told about at the moment of decision is indistinguishable, from their
+ * side, from a leak. Consent that arrives after the fact is not consent.
+ *
+ * ⚠⚠ EVERY CASE READS THE PROMPT WITH THE TEXTAREA STILL EMPTY. That is the
+ * moment the sentence has to be true, and it is also the moment a prompt keyed
+ * on the WHOLE of `buildFindingDissentEvent` would get wrong: an empty draft is
+ * not a sendable statement, so such a prompt would promise locality at exactly
+ * the moment the user is deciding whether to type at all.
+ *
+ * ⚠ AND NOTHING HERE IS BOUND TO A FIXTURE FLAG. `dispatcherMounted` and the
+ * hash are INPUTS; every case asserts the prompt against what then reached the
+ * WIRE, so a copy predicate that drifted from the send predicate REDs. That
+ * drift is the whole defect, and a test bound to the fixture could not see it.
+ */
+describe('the prompt is true at the moment it is read', () => {
+  /** Open the composer and hand back its label. Nothing is typed. */
+  function openComposer(analysisHash: string | null = REAL_HASH) {
+    openCard([item], analysisHash)
+    fireEvent.click(screen.getAllByTestId('analysis-new-strengthen-disagree')[0])
+    return screen.getByTestId('analysis-new-strengthen-disagree-prompt')
+  }
+
+  async function typeAndSave(words: string) {
+    fireEvent.change(screen.getAllByTestId('analysis-new-strengthen-disagree-input')[0], {
+      target: { value: words },
+    })
+    await act(async () => {
+      fireEvent.click(screen.getAllByTestId('analysis-new-strengthen-disagree-save')[0])
+    })
+  }
+
+  it('⭐ RED-FIRST: when the send WILL happen, the prompt says so before a word is typed', async () => {
+    /**
+     * The signature that fails at 374a40ff: the label reads "This stays on the
+     * card in this browser." while the very next click puts those words on the
+     * wire. It REDs on the first expectation below.
+     */
+    const prompt = openComposer(REAL_HASH)
+
+    // ⚠ THE PRECONDITION, PINNED IN-TEST: the box really is empty, so this is
+    // the deciding moment and not a post-hoc reading.
+    expect(screen.getByTestId('analysis-new-strengthen-disagree-input')).toHaveValue('')
+
+    expect(prompt).toHaveTextContent(ANALYSIS_NEW_COPY.dissent.promptSendsToOlumi)
+    expect(
+      prompt,
+      'the locality sentence must not be what a user reads before a send',
+    ).not.toHaveTextContent(ANALYSIS_NEW_COPY.dissent.prompt)
+
+    // …and the sentence was not a guess: the words do leave the browser.
+    await typeAndSave('Our Q1 capacity assumption is wrong.')
+    expect(sentEvent(), 'the prompt promised a send, so one must have happened').toBeDefined()
+  })
+
+  it("⭐ THE TWIN: a FAILED run's hash is 'error', nothing is sent, and the LOCAL wording stands", async () => {
+    /**
+     * The opposite direction, and it is the case that proves the copy consults
+     * `isSendableAddress` rather than a hand-rolled truthiness test: `'error'`
+     * is a NON-BLANK string, so `Boolean(hash)` would call this state sendable
+     * and show the stronger sentence over words that never travel.
+     */
+    const prompt = openComposer('error')
+    expect(screen.getByTestId('analysis-new-strengthen-disagree-input')).toHaveValue('')
+
+    expect(prompt).toHaveTextContent(ANALYSIS_NEW_COPY.dissent.prompt)
+    expect(
+      prompt,
+      "nothing can be sent against 'error', so nothing may be promised",
+    ).not.toHaveTextContent(ANALYSIS_NEW_COPY.dissent.promptSendsToOlumi)
+
+    await typeAndSave('This finding is wrong.')
+    expect(sentEvent(), 'the prompt promised locality, so nothing may be sent').toBeUndefined()
+  })
+
+  it('⭐⭐ THE INTERMEDIATE DEPLOY STATE: no dispatcher, so the local wording is the true one', async () => {
+    // UI live, CEE reader not yet — and any route with no `ConversationProvider`.
+    dispatcherMounted = false
+    const prompt = openComposer(REAL_HASH)
+
+    expect(prompt).toHaveTextContent(ANALYSIS_NEW_COPY.dissent.prompt)
+    expect(prompt).not.toHaveTextContent(ANALYSIS_NEW_COPY.dissent.promptSendsToOlumi)
+
+    await typeAndSave('This finding is wrong.')
+    expect(sendSystemEvent, 'no dispatcher is mounted, so nothing may be sent').not.toHaveBeenCalled()
+  })
+
+  it('a PRE-RUN card has no run identity, and the local wording stands', async () => {
+    const prompt = openComposer(null)
+    expect(prompt).toHaveTextContent(ANALYSIS_NEW_COPY.dissent.prompt)
+    expect(prompt).not.toHaveTextContent(ANALYSIS_NEW_COPY.dissent.promptSendsToOlumi)
+    await typeAndSave('This finding is wrong.')
+    expect(sentEvent()).toBeUndefined()
+  })
+
+  it('⭐⭐ BOUND TO THE WIRE, NOT TO THE FIXTURE: prompt and send agree in every state', async () => {
+    /**
+     * ⭐ THE LOAD-BEARING CASE. The cases above each pin one state, which a copy
+     * predicate hand-written to match them would also satisfy. This one asks the
+     * question the defect is actually about: does what the user was TOLD match
+     * what then happened on the wire? A second predicate that drifts from
+     * `isSendableAddress` REDs here whichever direction it drifts in.
+     */
+    const STATES = [
+      { name: 'dispatcher mounted, real run', mounted: true, hash: REAL_HASH as string | null },
+      { name: 'dispatcher mounted, failed run', mounted: true, hash: 'error' as string | null },
+      { name: 'dispatcher mounted, pre-run', mounted: true, hash: null as string | null },
+      { name: 'no dispatcher, real run', mounted: false, hash: REAL_HASH as string | null },
+    ]
+    const observed: Array<{ name: string; promised: boolean; sent: boolean }> = []
+
+    for (const state of STATES) {
+      cleanup()
+      localStorage.clear()
+      sessionStorage.clear()
+      useStrengthenStore.getState()._reset()
+      useCanvasStore.setState({ currentScenarioId: SCENARIO })
+      setCurrentScenarioId(SCENARIO)
+      sendSystemEvent.mockReset()
+      sendSystemEvent.mockResolvedValue(undefined)
+      dispatcherMounted = state.mounted
+
+      const prompt = openComposer(state.hash)
+      const promised = (prompt.textContent ?? '').includes(
+        ANALYSIS_NEW_COPY.dissent.promptSendsToOlumi,
+      )
+      await typeAndSave('Words that decide nothing on their own.')
+      observed.push({ name: state.name, promised, sent: sentEvent() !== undefined })
+    }
+
+    // ⚠ VACUITY FIRST. An invariant over four states that all answer the same
+    // way is satisfied by a build that never sends and never promises. Both
+    // answers must occur, or everything below is agreement about nothing.
+    expect(observed.filter((o) => o.sent).map((o) => o.name)).toEqual([
+      'dispatcher mounted, real run',
+    ])
+    expect(observed.filter((o) => !o.sent)).toHaveLength(3)
+
+    for (const o of observed) {
+      expect(
+        o.promised,
+        `${o.name}: the prompt said ${o.promised ? 'SENT' : 'LOCAL'} and the wire did ${o.sent ? 'SEND' : 'NOT send'}`,
+      ).toBe(o.sent)
+    }
+  })
+
+  it('⭐ THE RESIDUE IS PINNED, AND IT CAN ONLY EVER OVER-WARN', async () => {
+    /**
+     * The address is deliberately a WIDER condition than the send, so states
+     * exist where the prompt warns and nothing travels. This is one of them: a
+     * statement over the contract bound is refused by the builder.
+     *
+     * ⚠ THE DIRECTION IS THE POINT AND IT IS ASSERTED, NOT ASSUMED. Warning
+     * about words that then stay put costs the user nothing; staying silent
+     * about words that travel is the defect this file repairs. A change that
+     * traded one for the other would RED here.
+     */
+    const prompt = openComposer(REAL_HASH)
+    expect(prompt).toHaveTextContent(ANALYSIS_NEW_COPY.dissent.promptSendsToOlumi)
+
+    await typeAndSave('x'.repeat(MAX_DISSENT_STATEMENT + 1))
+    expect(
+      sentEvent(),
+      'over the contract bound: refused, so the warning over-stated and nothing travelled',
+    ).toBeUndefined()
   })
 })

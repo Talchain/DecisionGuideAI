@@ -74,7 +74,7 @@ import {
 } from '../../../../canvas/stores/strengthenStore'
 import { recordDissent, readDissent, dissentCurrency } from '../../../../canvas/stores/dissentStore'
 import { useOptionalConversationContext } from '../../../../canvas/conversation/ConversationContext'
-import { buildFindingDissentEvent } from '../../../../canvas/conversation/findingDissent'
+import { buildFindingDissentEvent, isSendableAddress } from '../../../../canvas/conversation/findingDissent'
 import { useCanvasStore } from '../../../../canvas/store'
 
 export interface StrengthenTheReasoningProps {
@@ -335,6 +335,39 @@ export function StrengthenTheReasoning({
    *     what renders.
    */
   const [sentRecordKeys, setSentRecordKeys] = useState<ReadonlySet<RecordKey>>(() => new Set())
+  /**
+   * ⭐⭐ WILL THIS CARD'S WORDS LEAVE THE BROWSER — ASKED WHILE THE USER IS STILL
+   * DECIDING WHAT TO TYPE, which is the only moment a privacy disclosure counts.
+   *
+   * ⚠⚠ IT IS THE SEND'S OWN PREDICATE, IMPORTED, NOT A SECOND ONE. The gate
+   * below is `if (sendSystemEvent && event)`, and `event` is null exactly when
+   * `isSendableAddress` is false or the statement is not sendable. This asks the
+   * same two questions the same way, from the same module, so the sentence on
+   * the textarea cannot drift from what the button does. Writing the condition
+   * out again here is precisely how the falsehood this repairs would return.
+   *
+   * ⚠ THE STATEMENT CLAUSE IS LEFT OUT ON PURPOSE, and including it would have
+   * reproduced the defect exactly: the draft is EMPTY while the prompt is being
+   * read, so a prompt keyed on the full builder would promise locality at the
+   * one moment the user is deciding whether to type at all, then flip after the
+   * words exist. The address is knowable now; the words are not. See
+   * `isSendableAddress` for why the residue can only over-warn.
+   *
+   * ⚠⚠ AND IT READS THE SNAPSHOT, NOT THE LIVE PROP. `commitDispute` addresses
+   * the send with `disputeContext.current.analysisHash`, captured when the
+   * composer opened. Reading the live `analysisHash` here would let a run
+   * settling mid-compose move the copy while the send kept the old hash — the
+   * two would then be answering about different runs, which is the drift in
+   * miniature. `openDispute` writes the ref before it sets `disputingId`, and
+   * this label only renders while that id is set, so the snapshot is always
+   * present by the time this is asked.
+   */
+  const dissentWillSend = (findingId: string): boolean =>
+    Boolean(sendSystemEvent) &&
+    isSendableAddress({
+      findingId,
+      analysisId: disputeContext.current?.analysisHash ?? null,
+    })
   /**
    * ⚠⚠ THE SCENARIO ID IS A DEPENDENCY, AND LEAVING IT OUT WAS A REAL BUG.
    *
@@ -1156,11 +1189,27 @@ export function StrengthenTheReasoning({
                     id={`${testId}-disagree-form-${rec.id}`}
                     data-testid={`${testId}-disagree-form`}
                   >
+                    {/* ⭐⭐ THE DISCLOSURE, AND IT IS READ BEFORE A SINGLE WORD
+                        IS TYPED. Standing rule R-004 keeps user free text out of
+                        persistence; Paul widened it on 2026-09-11 for stated
+                        reasoning about a finding, which is what this composer
+                        produces. A widening the user is not told about at the
+                        moment of decision is indistinguishable, from their side,
+                        from a leak, so the sentence beside the box has to say
+                        where the words are going while they are still deciding
+                        what to put in it.
+
+                        `dissentWillSend` is the SEND'S OWN predicate rather than
+                        a copy of it — see its comment. The local sentence is not
+                        retired: it is the true one whenever no send can happen,
+                        which is every route without a dispatcher and every run
+                        with no real hash. */}
                     <label
                       className={`${typography.panelMeta} block text-text-light mb-1`}
                       htmlFor={`${testId}-disagree-input-${rec.id}`}
+                      data-testid={`${testId}-disagree-prompt`}
                     >
-                      {COPY.dissent.prompt}
+                      {dissentWillSend(rec.id) ? COPY.dissent.promptSendsToOlumi : COPY.dissent.prompt}
                     </label>
                     <textarea
                       ref={disputeInputRef}
