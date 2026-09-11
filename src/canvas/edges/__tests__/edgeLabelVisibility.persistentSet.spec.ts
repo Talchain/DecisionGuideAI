@@ -30,7 +30,24 @@ import {
   type RankedCausalEdge,
 } from '../edgeLabelVisibility'
 
-const e = (id: string, target: string): RankedCausalEdge => ({ id, target })
+/**
+ * Every edge in THIS suite has a SOURCED strength. That is deliberate and it is
+ * a precondition, not a detail: the per-target cap is what this file measures,
+ * and the provenance gate added for P2 (a pinned label must speak a strength —
+ * see `edgeLabelVisibility.persistentLabelSpeaksAStrength.spec.ts`) would
+ * otherwise empty every expectation here and the suite would pass by testing
+ * nothing. `strengthIsSet: true` keeps these cases reaching the cap logic.
+ */
+const e = (id: string, target: string): RankedCausalEdge => ({
+  id,
+  target,
+  strengthIsSet: true,
+  // These cases are about the CAP, not the provenance gate. A sourced strength
+  // that also claimed to state nothing would be incoherent, so this is `false`
+  // — and the field is REQUIRED precisely so a new axis cannot be added to the
+  // selector without every ranking site answering for it.
+  nothingIsStated: false,
+})
 
 describe('selectPersistentStrengthIds — one label per target, then the top N', () => {
   it('THE DEFECT: three edges converging on ONE target pin exactly one label', () => {

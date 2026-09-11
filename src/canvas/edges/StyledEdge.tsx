@@ -59,7 +59,7 @@ import {
   type CausalLensEdgeParams,
 } from '../domain/edgeValueProvenance'
 import { useIsDark } from '../hooks/useTheme'
-import { getEdgeLabel, labelCarriesDirection } from '../domain/edgeLabels'
+import { getEdgeLabel, labelCarriesDirection, nothingIsStated } from '../domain/edgeLabels'
 import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { useCanvasStore } from '../store'
 import { isGraphLensEnabled } from '../../flags'
@@ -143,10 +143,47 @@ function compareEdgesByLabelStrength(
   )
 }
 
-/** Narrow a ranked edge to what the per-target cap needs. */
-const toRanked = (e: { id: string; target: string }): RankedCausalEdge => ({
+/**
+ * Narrow a ranked edge to what the persistent-label selector needs.
+ *
+ * The strength provenance comes from `resolveEdgeSignedStrengthDisplay` — the
+ * ONE OWNER of "may this surface speak a strength?", already consulted by the
+ * stroke width and by the label's band adjective. Asking it here rather than
+ * reading `e.data.weight` is the whole point: `DEFAULT_EDGE_DATA.weight = 0.5`
+ * exists on every edge, so a raw number cannot tell a set strength from an
+ * unset one.
+ */
+/**
+ * The two provenance answers the persistent-label selector needs, resolved
+ * ONCE and in one place.
+ *
+ * ⛔ THREE CALL SITES RANK EDGES INTO THAT SELECTOR and each used to build the
+ * fields inline. Adding a second axis inline three times is how the first
+ * version of this gate ended up applied in one branch and not the other two —
+ * so the answer is computed here and the branches spread it.
+ */
+const rankedProvenance = (
+  data: Record<string, unknown> | undefined,
+): { strengthIsSet: boolean; nothingIsStated: boolean } => {
+  const strength = resolveEdgeSignedStrengthDisplay(data)
+  return {
+    strengthIsSet: strength.show,
+    nothingIsStated: nothingIsStated(
+      strength,
+      resolveEdgeValueDisplay(data, 'beliefExists'),
+      resolveEdgeDirectionDisplay(data),
+    ),
+  }
+}
+
+const toRanked = (e: {
+  id: string
+  target: string
+  data?: Record<string, unknown> | undefined
+}): RankedCausalEdge => ({
   id: e.id,
   target: e.target,
+  ...rankedProvenance(e.data),
 })
 
 export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data }: EdgeProps<EdgeData>) => {
@@ -797,16 +834,26 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     // EVERY branch below, this one included — and this branch is the founder's
     // screenshot: three edges converging on one goal card took the "3 or
     // fewer, label them all" path and pinned all three into a space that fits
-    // two. Eligibility here is deliberately UNCHANGED (no provenance gate on
-    // this branch); the sort only decides WHICH edge wins a shared target, so
-    // a graph whose targets are all distinct keeps exactly the set it had.
+    // two. The sort only decides WHICH edge wins a shared target, so a graph
+    // whose targets are all distinct keeps exactly the set it had.
+    //
+    // ⚠ THIS COMMENT USED TO SAY "no provenance gate on this branch", AND THAT
+    // WAS THE DEFECT, NOT AN ASIDE. A graph with three or fewer causal edges
+    // labelled all of them — including edges whose strength nobody set, which
+    // then pinned "Boost, strength not set" to the map. `toRanked` now asks
+    // `resolveEdgeSignedStrengthDisplay` for every branch, so an unset edge is
+    // refused here exactly as it always was in the pre-analysis ranker below.
     if (causalEdges.length <= 3) {
       const ordered = [...causalEdges].sort(
         (a, b) =>
           compareEdgesByLabelStrength(a.data as Record<string, unknown> | undefined, b.data as Record<string, unknown> | undefined) ||
           a.id.localeCompare(b.id),
       )
-      return selectPersistentStrengthIds(ordered.map(toRanked))
+      return selectPersistentStrengthIds(
+        ordered.map(e =>
+          toRanked({ id: e.id, target: e.target, data: e.data as Record<string, unknown> | undefined }),
+        ),
+      )
     }
 
     if (isResultsMode && report) {
@@ -822,6 +869,13 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           id: e.id,
           target: e.target,
           score: calculateEdgeImportance(ed?.beliefExists, ed?.weight ?? 0.5, goalSens),
+          // ⛔ THE SCORE ABOVE CANNOT ANSWER THIS QUESTION, WHICH IS WHY IT IS
+          // ASKED SEPARATELY. `ed?.weight ?? 0.5` deliberately defaults, so an
+          // edge nobody characterised still ranks — and used to WIN a slot and
+          // pin "Boost, strength not set". Importance decides the ORDER;
+          // provenance decides ELIGIBILITY. Two questions, two answers
+          // (CLAUDE.md trap 21) — do not fold one into the other.
+          ...rankedProvenance(e.data as Record<string, unknown> | undefined),
         }
       })
       // Tie-break by id so a tie cannot be resolved by iteration order —
@@ -841,11 +895,29 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     // unset sorts last and is then dropped, so when fewer than three edges
     // have a sourced strength fewer than three labels are pinned — rather
     // than filling the quota from edges we know nothing about.
-    const strengths: Array<{ id: string; target: string; magnitude: EdgeValueDisplay }> = []
+    //
+    // ⭐ THE `continue` THAT USED TO LIVE HERE HAS MOVED INTO THE SELECTOR, and
+    // the behaviour of THIS branch is unchanged: `compareEdgeValueDisplays`
+    // already sorts `show: false` last, so an unset edge arrives at the end of
+    // the list and is refused there. This branch was the only one of the three
+    // that applied the rule; keeping a second copy of it here after the
+    // selector learned it would be two spellings of one question — the defect
+    // the move exists to close.
+    const strengths: Array<{
+      id: string
+      target: string
+      magnitude: EdgeValueDisplay
+      strengthIsSet: boolean
+      nothingIsStated: boolean
+    }> = []
     for (const e of causalEdges) {
       const display = resolveEdgeSignedStrengthDisplay(e.data as Record<string, unknown> | undefined)
-      if (!display.show) continue
-      strengths.push({ id: e.id, target: e.target, magnitude: { ...display, value: Math.abs(display.value) } })
+      strengths.push({
+        id: e.id,
+        target: e.target,
+        magnitude: display.show ? { ...display, value: Math.abs(display.value) } : display,
+        ...rankedProvenance(e.data as Record<string, unknown> | undefined),
+      })
     }
     strengths.sort(
       (a, b) =>
