@@ -368,27 +368,31 @@ const KNOWN_UNDEFINED_CSS_PALETTE = [
  * authorities are bound together by the derived block at the foot of this file.
  */
 const KNOWN_FALLBACK_DRIFT = [
+  // ⭐ 11 Sep 2026 — SIX ENTRIES REMOVED, AND THIS ONE GENUINELY IS A REPAIR, not
+  // the scope shrink its sibling guard took the same day. `--danger|#ef4444`,
+  // `--factor|#6b7280`, `--goal|#f59e0b`, `--info|#3b82f6`, `--option|#8b5cf6`
+  // and `--success|#10b981` all lived on SIX LINES OF ONE FILE,
+  // `canvas/components/model-tab/EntityBar.tsx`, deleted with the v1 Model stack.
+  // This census walks the whole tracked tree rather than an import closure, so a
+  // deleted file really does take its drift out of the world: re-measured at the
+  // head, each of the six returns 0 occurrences repo-wide, with `--option|#7BAD55`
+  // (1), `--semantic-danger|#ef4444` (4) and `--text-body|#404040` (1) returning
+  // non-zero in the SAME sweep — so the zeros are measured, not blindness.
   '--bg-panel|#FEF9F3',
   '--bg-panel|#FFFDF7',
   '--bg-panel-hover|#F5EEE0',
   '--bg-panel-hover|rgba(0,0,0,0.02)',
   '--bottombar-h|0',
   '--bottombar-h|0px',
-  '--danger|#ef4444',
-  '--factor|#6b7280',
   '--factor-light|rgba(176,168,153,0.3)',
-  '--goal|#f59e0b',
-  '--info|#3b82f6',
   '--info-hover|#2B7FA2',
   '--leftsidebar-w|52px',
   '--option|#7BAD55',
-  '--option|#8b5cf6',
   '--semantic-danger|#ef4444',
   '--semantic-info|#3b82f6',
   '--semantic-success|#22c55e',
   '--semantic-warning|#eab308',
   '--shadow-2|0 4px 12px rgba(0,0,0,0.08)',
-  '--success|#10b981',
   '--success-light|rgba(103,200,158,0.3)',
   '--surface-card|#FEF9F3',
   '--text-body|#262626',
