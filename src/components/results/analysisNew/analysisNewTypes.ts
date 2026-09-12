@@ -25,6 +25,7 @@ import type { Recommendation } from '../strengthen/strengthenTypes'
 import type { ComparisonScope } from '../utils/goalAnchorCopy'
 import type { NotAnalysedReason } from '../utils/notAnalysedOptions'
 import type { NamedMaterialParameter } from './materialParametersAwaitingUser'
+import type { OptionOrigin } from './optionOriginDisclosure'
 
 /**
  * How confident the SURFACE is entitled to sound — never an "AI confidence".
@@ -1247,6 +1248,26 @@ export interface AtAGlance {
    * the other.
    */
   inputProvenance: GlanceInputProvenance | null
+  /**
+   * ⭐⭐ WHOSE OPTION IS WINNING — and it is a THIRD axis, named apart from the
+   * two above on purpose (CLAUDE.md trap 21).
+   *
+   * `condition` is the TIPPING POINT. `inputProvenance` is WHOSE FIGURES the run
+   * used, per FACTOR. This is WHOSE IDEA THE WINNER WAS, about one ELEMENT.
+   * Three producers, three questions; the product announced an option it had
+   * invented as the answer at 73% and none of the other two could say so.
+   *
+   * ⚠ IT IS NOT A SEVENTH `GlanceInputProvenance` KIND, AND THAT WAS THE
+   * TEMPTING WRONG MOVE. `inputProvenance` is ONE value rendered in ONE `<p>`,
+   * so a seventh kind is mutually exclusive with the other six: on exactly the
+   * runs where the leader was invented, the surface would STOP saying what the
+   * figures rested on. A separate field ADDS; a seventh kind DISPLACES.
+   *
+   * `null` means say nothing, and it is the common answer — the user's own
+   * option, an ambiguous stamp, an unstamped node, or no leader named at all.
+   * See `optionOriginDisclosure.ts` for the predicate and why it is CEE's.
+   */
+  optionOrigin: OptionOrigin | null
 }
 
 /**

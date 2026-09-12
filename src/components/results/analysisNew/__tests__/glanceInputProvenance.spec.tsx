@@ -267,6 +267,12 @@ const glanceModel = (
   influenceIsSetRelative: false,
   condition: null,
   inputProvenance,
+  // Same reason as the three above, and it is a DIFFERENT question from the
+  // line this file tests: `inputProvenance` is whose FIGURES the run used;
+  // `optionOrigin` is whose IDEA the option on screen was. This factory models
+  // a run saying nothing about the second, so the panel renders nothing for it
+  // and these arms measure the condition line alone.
+  optionOrigin: null,
   ...overrides,
 })
 
