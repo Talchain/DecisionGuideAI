@@ -13,6 +13,21 @@
  * undocumented literal beside a documented decision is the tell. No spec pinned
  * it either — checked before removing it.
  *
+ * ⚠⚠ SCOPE OF THE IMPACT, STATED BECAUSE THE OBVIOUS FIGURE OVERSTATES IT.
+ * 43 of the 87 node labels across the five shipped starters (49%) are longer
+ * than 30 characters, so 49% is the share of LABELS the cut would truncate
+ * WHENEVER A ROW RENDERS ONE. It is NOT the share of canvas text a user sees
+ * cut: `useNodeConnections.ts:35` returns `[]` unless
+ * `results.status === 'complete'`, so ConnRow does not mount at all before an
+ * analysis, and each host caps the list at 3 rows. Derived, not assumed — a
+ * browser probe against a seeded pre-analysis starter found ZERO ConnRows, and
+ * a zero from a probe is "unmeasured" until you know why.
+ *
+ * That is CLAUDE.md trap 16's inverse: reachability inside a component is not
+ * reachability in the product. The defect is real and the fix is right; the
+ * population it bites is post-analysis connection rows, and saying so is the
+ * difference between a measurement and a claim.
+ *
  * ⭐ WHY THIS IS NOT "just delete a line": removing a truncation is exactly the
  * change that can leak an unbounded string into a fixed-width card. So this
  * pins BOTH halves — the text is whole in the DOM, and the element still
