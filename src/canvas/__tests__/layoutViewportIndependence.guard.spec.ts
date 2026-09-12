@@ -506,10 +506,22 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1920'
    * copied out of the failure output.
    *
    * What changed, and why each is intended:
-   *   · card width  230 → 260 (minimum) and 320 → 400 (maximum), carrying the
-   *     14px type ramp. A card at the old 320 would hold ~19 characters a line
-   *     at 14px — below the ~18 that produced this file's recorded clipping
-   *     defect.
+   *   · card width  230 → 260 (minimum) and 320 → 336 (maximum), carrying the
+   *     14px type ramp.
+   *
+   *     ⛔ 400 WAS TRIED AND `e2e/visual/firstViewFraming.visual.spec.ts` REFUTED
+   *     IT — 4 of the 5 starters failed, with an option sitting under the
+   *     Outputs dock at 1280x800. That spec pins a ratified requirement from
+   *     30 Aug 2026: the first view must contain the decision and EVERY option,
+   *     because "the decision and the options are what a decision model IS".
+   *     The options row is laid on the global stride, so widening the card
+   *     widens it, and at 1280 the visible box cannot take four cards at 400.
+   *     Bounded empirically rather than argued: 336 passes, 360 fails.
+   *
+   *     ⭐ The budget change is INDEPENDENT of this and is where the reported
+   *     defect is actually fixed — 320 with the 1482 budget already passes
+   *     first-view framing. Card width is the smaller half of this change and
+   *     was the half that had to give.
    *   · tier stride ~146 → ~188, from `LAYOUT_LAYER_GAP` 30 → 72.
    *   · the single-row/multi-row boundary moves 6/7 → 8/9, from
    *     `CANONICAL_LAYOUT_WIDTH` 1185 → 1482. THIS IS THE CHANGE, not a side
@@ -530,11 +542,11 @@ describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1920'
    * hand-maintained mirror inside the comment that records a measurement).
    */
   const CANONICAL_SHAPE: Record<StarterId, { digest: string; nodes: number }> = {
-    'vendor-selection': { digest: '9653dc88c7f52913', nodes: 19 },
-    'market-entry': { digest: 'b60381677e84f5cd', nodes: 18 },
-    'build-vs-buy': { digest: '5c9388f3a2daaf84', nodes: 19 },
-    'headcount-allocation': { digest: 'fe1e7250cd2ae780', nodes: 16 },
-    'pricing-model': { digest: '7873d38f7251d14d', nodes: 15 },
+    'vendor-selection': { digest: '17c90f9897b1b054', nodes: 19 },
+    'market-entry': { digest: '68465e602f15a13f', nodes: 18 },
+    'build-vs-buy': { digest: '513e90db8833eed8', nodes: 19 },
+    'headcount-allocation': { digest: '0860f3f449568e6a', nodes: 16 },
+    'pricing-model': { digest: '75d1c7dd98e975c3', nodes: 15 },
   }
 
   it.each(Object.keys(STARTERS) as StarterId[])(

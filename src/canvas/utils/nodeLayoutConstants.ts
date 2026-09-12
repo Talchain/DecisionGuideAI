@@ -210,7 +210,7 @@ export const NODE_LAYOUT_MIN_W =
  * three-wide tier of 400s (1336 units) would have split to two rows and made
  * the graph taller, which is the defect from the other end.
  */
-export const NODE_CARD_MAX_W = 400
+export const NODE_CARD_MAX_W = 336
 
 /**
  * Fair share of a row, per node in the widest tier, below which `layout.ts`
@@ -430,12 +430,18 @@ export const NODE_SINGLE_ROW_FAIR_SHARE_W = 140
  * splits — and three of the five starters came out PORTRAIT in a LANDSCAPE
  * viewport:
  *
- *                          at 1185            at 1482          aspect
- *   vendor-selection     1142 x 1937   ->   3592 x 1811     0.59 -> 1.98
- *   market-entry         1142 x 1959   ->   3592 x 1825     0.58 -> 1.97
- *   build-vs-buy         1142 x 2653   ->   3592 x 2411     0.43 -> 1.49
- *   headcount-allocation 1776 x 1377   ->   2224 x 1587     1.29 -> 1.40
- *   pricing-model        1776 x 1440   ->   2224 x 1650     1.23 -> 1.35
+ *                          BEFORE             AFTER          aspect
+ *   vendor-selection     1142 x 1937   ->   3080 x 1811     0.59 -> 1.70
+ *   market-entry         1142 x 1959   ->   3080 x 1825     0.58 -> 1.69
+ *   build-vs-buy         1142 x 2653   ->   3080 x 2411     0.43 -> 1.28
+ *   headcount-allocation 1776 x 1377   ->   1904 x 1587     1.29 -> 1.20
+ *   pricing-model        1776 x 1440   ->   1904 x 1650     1.23 -> 1.15
+ *
+ * ⚠ Read the FIRST THREE ROWS as the result. Those are the starters with an
+ * eight-wide tier, and they are the ones that were portrait. The last two were
+ * already landscape and already single-row at 1185; they get slightly taller
+ * from the wider gaps and the 14px ramp, which is a cost, not a win. Reporting
+ * the mean across all five would flatter this change.
  *
  * A canvas pane is landscape (roughly 1.9:1). A model at 0.43 in a pane at 1.9
  * is fitted on its HEIGHT, so the camera is forced down and the horizontal

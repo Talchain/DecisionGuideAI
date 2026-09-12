@@ -129,15 +129,27 @@ export const typography = {
    * for a screen the camera could not fill — `AUTO_FIT_MAX_ZOOM = 1` forbade
    * the product's own fit from scaling a valid model up to the pane.
    *
-   * This change lands WITH that chain repaired: the fit may now fill a valid
-   * box, the canonical budget is 1482, and `NODE_CARD_MAX_W` is 400. At the
-   * counter-scale the layout solves against (2), a 400-unit card holds ~24
-   * characters a line at 14px against ~22 at 12px in a 320 — so titles get
-   * MORE room, not less, and the clipping defect is not reintroduced.
+   * This change lands WITH that chain repaired: `CANONICAL_LAYOUT_WIDTH` is
+   * 1482 and `NODE_CARD_MAX_W` is 336.
    *
-   * ⛔ RAISING THIS WITHOUT THE CARD WIDTH REPRODUCES THAT DEFECT EXACTLY:
-   * 14px in a 320-unit card is ~19 characters a line, against the ~18 that
-   * caused it. The two constants are one decision.
+   * ⭐ AND THE CLIPPING CLAIM IS MEASURED IN A REAL BROWSER, not counted in
+   * characters. `e2e/visual/nodeLabelFit.visual.spec.ts` at the 14px ramp:
+   *
+   *   compressed-branch measure 236px vs the widest of 194 corpus words
+   *   ("Cannibalization") needing 203.12px at max scale — 32.88px of margin
+   *
+   * An earlier version of this note estimated "~24 characters a line" and
+   * reasoned from it. That was the wrong instrument twice over: character count
+   * is not width (the spec's own negative control measured a 16-letter word
+   * NARROWER than a 13-letter one), and the bound that matters is the widest
+   * UNBREAKABLE RUN at max counter-scale, which no character estimate reaches.
+   *
+   * ⛔ RAISING THIS WITHOUT THE CARD WIDTH IS STILL THE THING NOT TO DO — the
+   * two constants are one decision — but the card could NOT go as wide as the
+   * type wanted. 400 was tried and `firstViewFraming.visual.spec.ts` refuted
+   * it: the options row rides the same stride, and at 1280x800 an option
+   * landed under the Outputs dock on 4 of the 5 starters. 336 passes, 360
+   * fails. The margin above is what makes 14px safe at 336 anyway.
    *
    * ⭐ AND IT IS SAFER BELOW THE LEGIBILITY FLOOR, which is the band the 12px
    * argument turned on. Rendered = declared x 2 x zoom; at zoom 0.45,

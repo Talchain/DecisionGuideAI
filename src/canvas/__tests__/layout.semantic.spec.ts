@@ -547,13 +547,15 @@ describe('constants contract', () => {
   })
 
   it('NODE_CARD_MAX_W is 320; NODE_LAYOUT_MIN_W is the label-scale-derived floor', () => {
-    // ⚠ 320 → 400 (12 Sep 2026). The maximum a card may take on the single-row
+    // ⚠ 320 → 336 (12 Sep 2026). The maximum a card may take on the single-row
     // branch, and the only place card width is actually decided — the canonical
-    // budget never set it (see `CANONICAL_LAYOUT_WIDTH`'s retraction note).
+    // budget never set it (see `CANONICAL_LAYOUT_WIDTH`'s derivation note).
     // Raised because the canvas type ramp moved to the design system's own
-    // stated 14px minimum and a card built for 12px holds ~4 characters fewer
-    // per line at the same width.
-    expect(NODE_CARD_MAX_W).toBe(400)
+    // stated 14px minimum; BOUNDED at 336 because the options row is laid on
+    // the same stride, and `e2e/visual/firstViewFraming.visual.spec.ts` REDs at
+    // 360 with an option under the Outputs dock at 1280x800. Measured, not
+    // argued: 336 passes, 360 fails, 400 fails on 4 of 5 starters.
+    expect(NODE_CARD_MAX_W).toBe(336)
 
     // ⚠ WAS `toBe(140)` (17 Aug 2026). `NODE_LAYOUT_MIN_W` is no longer a
     // number anyone may state: canvas label text is counter-scaled, and a card
