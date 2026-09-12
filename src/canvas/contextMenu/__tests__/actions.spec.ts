@@ -378,8 +378,12 @@ describe('askAI', () => {
       // Exhaust all 20 polling attempts (50ms × 20 = 1000ms)
       vi.advanceTimersByTime(1100)
 
+      // ⚠ COPY FOLLOWS BEHAVIOUR. `askAI` no longer sends — it stages through
+      // `requestAsk` — so "could not send" would describe an action this path
+      // no longer takes. The toast fires on the same exhausted-poll branch;
+      // only what it claims has changed.
       expect(showToast).toHaveBeenCalledWith(
-        'Could not send message — try typing your question directly.',
+        'Could not open a draft — try typing your question directly.',
         'warning',
       )
 
