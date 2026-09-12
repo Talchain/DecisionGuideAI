@@ -140,6 +140,10 @@ export interface ContextIntegrityState {
    * this scenario already exists (the cold read's copy, or an earlier call),
    * when the brief is blank, or when the id is not a non-empty string: content
    * this store cannot attribute to a decision must never be stored.
+   *
+   * ⚠ WHEN IT WRITES, THE DECISION HAS CHANGED, so it clears
+   * `modelBuildingNotices` for the same reason `setContextIntegrity` does —
+   * the attestation belongs to the scenario, not to the writer.
    */
   recordBriefForFreshDraft: (input: { scenarioId: string; briefText: string }) => boolean
   /**
@@ -205,7 +209,29 @@ export const useContextIntegrityStore = create<ContextIntegrityState>((set, get)
     // A record for this scenario already stands — the cold read's (with its
     // manifest) or an earlier draft turn's. Never displace it.
     if (get().scenarioId === scenarioId) return false
-    set({ scenarioId, briefText, manifest: null })
+    /**
+     * ⚠⚠ THE SECOND DOOR. `setContextIntegrity` is not the only action that
+     * moves `scenarioId`, and the notices belong to the SCENARIO rather than to
+     * the writer (see that action's note) — so the same rule has to hold here.
+     *
+     * This line is reached ONLY when the decision differs: the refusal above
+     * returns first for the same id. So the clear is unconditional here and
+     * still means exactly what the conditional one above means — a different
+     * decision keeps nothing. Leaving it out left decision A's omission counts
+     * standing under decision B's brief, with the re-scoped refusal's *"What I
+     * can show is below"* pointing at them: this file's own P0, wearing a new
+     * field, and NOT catchable at the render gate, because after this write the
+     * store genuinely IS describing B.
+     *
+     * ⚠ IT CANNOT CLOBBER THE NEW DECISION'S OWN ATTESTATION. `useConversation`
+     * records the brief BEFORE the notices on the same turn, and
+     * `recordModelBuildingNotices` fails closed unless this store is already
+     * describing that scenario — so this write is what LETS the new one land.
+     * The opposite-direction twin (a refused re-record keeping the
+     * attestation) is pinned beside the tests for this one, because a clear
+     * written without it would blink the capability out on the second turn.
+     */
+    set({ scenarioId, briefText, manifest: null, modelBuildingNotices: null })
     return true
   },
   recordModelBuildingNotices: ({ scenarioId, notices }) => {

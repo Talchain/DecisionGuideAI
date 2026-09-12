@@ -153,6 +153,51 @@ describe('contextIntegrityStore carries the draft turn model-building notices', 
   })
 
   /**
+   * ⭐⭐ THE SAME PAIR AT THE OTHER WRITER — and it is a pair, not a repeat.
+   * `setContextIntegrity` is not the only action that moves `scenarioId`;
+   * `recordBriefForFreshDraft` reaches its `set` ONLY when the decision
+   * differs, so every write it makes is a decision change. Watching one door
+   * and leaving the one beside it open is trap 22b, and the harm here is the
+   * store header's own P0 in a new field: decision A's omission counts standing
+   * under decision B's brief, which the render gate cannot catch because after
+   * this write the store genuinely IS describing B.
+   */
+  it('drops notices when a FRESH DRAFT describes a DIFFERENT decision', () => {
+    const store = useContextIntegrityStore.getState()
+    store.recordBriefForFreshDraft({ scenarioId: SCENARIO_A, briefText: 'Our runway is 8 months.' })
+    store.recordModelBuildingNotices({ scenarioId: SCENARIO_A, notices: NOTICES })
+
+    expect(
+      useContextIntegrityStore
+        .getState()
+        .recordBriefForFreshDraft({ scenarioId: SCENARIO_B, briefText: 'Should we open in Berlin?' }),
+    ).toBe(true)
+
+    expect(useContextIntegrityStore.getState().modelBuildingNotices).toBeNull()
+  })
+
+  /**
+   * ⭐⭐ AND ITS OPPOSITE-DIRECTION TWIN. Dropping on a different decision is
+   * only safe because a refused record — the same decision, a later turn —
+   * leaves the attestation standing. A clear written at this writer without
+   * this half would take the capability down on the second turn of every
+   * session, which is the mirror of the harm above and would look like a fix.
+   */
+  it('keeps notices when a fresh-draft record is REFUSED for the same decision', () => {
+    const store = useContextIntegrityStore.getState()
+    store.recordBriefForFreshDraft({ scenarioId: SCENARIO_A, briefText: 'Our runway is 8 months.' })
+    store.recordModelBuildingNotices({ scenarioId: SCENARIO_A, notices: NOTICES })
+
+    expect(
+      useContextIntegrityStore
+        .getState()
+        .recordBriefForFreshDraft({ scenarioId: SCENARIO_A, briefText: 'Our runway is 8 months.' }),
+    ).toBe(false)
+
+    expect(useContextIntegrityStore.getState().modelBuildingNotices).toEqual(NOTICES)
+  })
+
+  /**
    * A LATER draft turn on the same decision replaces the attestation, rather
    * than being refused the way the BRIEF record is. The brief is the user's and
    * does not change; the notices describe THE MODEL CURRENTLY ON SCREEN, and a

@@ -71,6 +71,9 @@ import { NOT_MODELLED_NOTICES_COPY, notModelledNoticeRows } from '../notModelled
 const LIVE_SCENARIO_ID = '11111111-1111-4111-8111-111111111111'
 const OTHER_SCENARIO_ID = '22222222-2222-4222-8222-222222222222'
 const BRIEF = 'We have 8 months of runway and our NRR is 112%. Should we raise now?'
+/** A SECOND decision's brief. A test that reuses one brief cannot tell which
+ *  decision is on screen (trap 19). */
+const BRIEF_B = 'Should we open a Berlin office next year?'
 
 const LIST_TID = 'what-i-was-given-notyet-notices'
 const ROW_TID = `${LIST_TID}-row`
@@ -257,6 +260,84 @@ describe('"Not modelled yet" answers from the draft turn when the manifest canno
     open()
 
     expect(screen.queryByTestId(LIST_TID)).not.toBeInTheDocument()
+  })
+
+  /**
+   * ⭐⭐ THE OTHER DOOR, AND THE ONE THE IDENTITY GATE CANNOT WATCH — the twin
+   * of the cold-read case pinned in `contextIntegrityStore.modelBuildingNotices
+   * .spec.ts` ("drops notices when a cold read describes a DIFFERENT
+   * decision"), reproduced HERE AT THE RENDER because the harm is a sentence on
+   * screen, not a store field.
+   *
+   * ⚠ THE GATE PASSES IN THIS STATE, CORRECTLY. Two writers move `scenarioId`,
+   * and the gate only asks whether the store's id equals the live one — which,
+   * after a fresh draft for decision B, it DOES. The store genuinely says it is
+   * describing B; what it is holding underneath is A's attestation. So the
+   * whole section renders, the brief on screen is B's, and A's counts sit under
+   * it with the re-scoped refusal's *"What I can show is below"* pointing at
+   * them. That is a false statement about the decision on screen, on the one
+   * surface whose entire job is saying what reached the model — this store's
+   * own P0 (a PREVIOUS decision's brief, rendered verbatim) wearing a new
+   * field, and milder only in degree.
+   *
+   * ⚠ REACHABLE WITH NO PAGE RELOAD. Nothing in product code clears this store;
+   * `resetCanvas` sets `currentScenarioId: null` and the next draft turn mints
+   * a fresh id in-session (`useConversation.ts:4021`), setting it on the canvas
+   * store BEFORE `scenarioIdAtDispatch` is captured. `model_building_notices`
+   * is `.optional()` and the record sits behind `if (draftNotices)`, so a
+   * second decision whose draft carries no attestation overwrites nothing.
+   */
+  it('never shows a previous decision’s omissions once a fresh draft moves the register on', () => {
+    // Decision A: its brief is recorded by `beforeEach`; its draft attested 12.
+    // ⚠ ANCHOR — the seed must have LANDED, or the absence below is vacuous.
+    expect(recordNotices(MIXED_NOTICES)).toBe(true)
+
+    // ── Decision B, through the REAL writers, in the real order ──
+    useCanvasStore.setState({ currentScenarioId: OTHER_SCENARIO_ID } as never)
+    expect(
+      useContextIntegrityStore
+        .getState()
+        .recordBriefForFreshDraft({ scenarioId: OTHER_SCENARIO_ID, briefText: BRIEF_B }),
+    ).toBe(true)
+
+    open()
+
+    // ⚠ POSITIVE CONTROL (trap 13): the section IS on screen and IS describing
+    // B. Without this the absences below would pass on a render of nothing.
+    expect(screen.getByTestId('what-i-was-given-brief').textContent).toBe(BRIEF_B)
+
+    expect(rowFor('detail_not_connected')).toBeUndefined()
+    expect(screen.queryByTestId(LIST_TID)).not.toBeInTheDocument()
+    // And the refusal is the unqualified one: there is nothing below to point at.
+    expect(screen.getByTestId('what-i-was-given-unknown').textContent).toBe(
+      NOT_MODELLED_NOTICES_COPY.unknown,
+    )
+  })
+
+  /**
+   * ⭐⭐ AND THE OPPOSITE-DIRECTION TWIN (trap 22b — one predicate, two harms,
+   * so both doors get watched at BOTH writers). Dropping on a different
+   * decision is only safe if the SAME decision keeps what its draft attested. A
+   * later turn on the same decision re-offers the brief, the record is refused
+   * as already standing, and the attestation must survive that refusal — a
+   * clear written without this half would blink the capability out on the
+   * second turn of every session.
+   */
+  it('keeps the attestation when a later turn re-records the SAME decision’s brief', () => {
+    expect(recordNotices(MIXED_NOTICES)).toBe(true)
+
+    expect(
+      useContextIntegrityStore
+        .getState()
+        .recordBriefForFreshDraft({ scenarioId: LIVE_SCENARIO_ID, briefText: BRIEF }),
+    ).toBe(false)
+
+    open()
+
+    expect(screen.getByTestId('what-i-was-given-brief').textContent).toBe(BRIEF)
+    const row = rowFor('detail_not_connected')
+    expect(row).toBeInTheDocument()
+    expect(row?.textContent).toBe('Details that nothing connected to your goal (12)')
   })
 
   /** And the whole section stays gated when the canvas moves to another decision. */
