@@ -200,8 +200,13 @@ export function formatInterventionTargetText(chip: InterventionValueInput): stri
   // number CEE puts in its own parentheses. Reaching this branch means no
   // unit survived, so there is no real-world quantity to print instead.
   if (isTierLabel(fallback)) {
-    // ≤2dp, the same float-artefact cleaning used for rawValue above.
-    return `${fallback} (${Math.round(chip.value * 100) / 100})`
+    // ⚠ `parseFloat(v.toFixed(2))` DELIBERATELY, byte-for-byte with CEE's
+    // `display-value.ts` priority-6 branch. The obvious `Math.round(v*100)/100`
+    // is NOT equivalent: the two disagree on 44 values in [0,1] at half-cent
+    // boundaries (e.g. 0.155 → CEE "0.15", rounding "0.16"), which would put
+    // the two services back into exactly the contradiction this module exists
+    // to prevent. Measured, not assumed.
+    return `${fallback} (${parseFloat(chip.value.toFixed(2))})`
   }
   // Raw normalised number (no unit, value in [0,1] like "0.15") → percentage
   if (!effectiveUnit && chip.value >= 0 && chip.value <= 1 && /^0\.\d+$/.test(fallback)) {
