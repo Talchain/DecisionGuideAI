@@ -267,6 +267,8 @@ export interface V5ApplicatorStore {
    * ⚠ IT MARKS, IT DOES NOT DELETE. The user's numbers stay; the CLAIM goes.
    */
   resultsWithholdLeaderClaim?: (reason: LeaderClaimWithholdingReason) => void
+  /** Step 5c — clears a withholding when the producer positively permits. */
+  resultsRestoreLeaderClaim?: (verdict: unknown) => boolean
 }
 
 /**
@@ -2296,6 +2298,50 @@ export function applyV5State(
   // rather than three spellings of it (CLAUDE.md trap 12).
   const withholdingReason =
     turnVerdict !== null ? leaderClaimWithholdingReason(turnVerdict) : null
+
+  // ── ⭐ STEP 5c — AND THE ROUTE BACK, WHICH DID NOT EXIST ──────────────────
+  //
+  // Step 5b's own note says it "subtracts and never adds", and that was too
+  // strong in one direction. CEE withholds both for *we looked and declined*
+  // and for *we could not read the separation*
+  // (`analysis-state-v1.ts:189-215`), so an ordinary follow-up question could
+  // cost a user their leading option until they re-ran the whole analysis.
+  //
+  // ⛔ NOT FIXED BY REFUSING TO WITHHOLD — that was tried and closed (#1512).
+  // `canvas/__tests__/withheldLeaderClaimSurvivesReload.spec.ts` exists because
+  // on exactly that payload a reload once brought "Most supported" back while
+  // the refusal vanished, measured on deployed staging `113375a1`. The
+  // withholding STAYS; only the route back changes.
+  //
+  // ⚠ ORDERED AFTER 5b AND MUTUALLY EXCLUSIVE WITH IT BY CONSTRUCTION: a
+  // verdict cannot both withhold and positively permit, so `withholdingReason
+  // === null` is the only arm this can reach. Stating the order rather than
+  // relying on it.
+  if (withholdingReason === null && turnVerdict !== null) {
+    // ⚠ THE LEDGER RECORDS THE CLEAR, NOT THE CALL. The action returns whether
+    // it actually removed a stamp; most permitting turns hold none and are a
+    // no-op, so pushing on every call would produce a trace that says the same
+    // thing on turns that differ (CLAUDE.md trap 20 — a probe returning one
+    // answer for every input is reporting on itself). Step 5b below is
+    // unconditional because its own action is idempotent by re-stamping; this
+    // one is genuinely conditional.
+    const restored = store.resultsRestoreLeaderClaim?.(turnVerdict)
+    if (restored === true) {
+      applied.push('leader_claim:restored')
+      logV5StateStep({
+        step_number: 5,
+        step_name: 'leader_claim_restore',
+        input_keys: [
+          'analysis_state.leader_claim',
+          'analysis_state.requires_rerun',
+          'analysis_state.blocked_unusable',
+        ],
+        output_keys: ['results.report.producer_leader_permission'],
+        applied: true,
+      })
+    }
+  }
+
   if (withholdingReason !== null) {
     store.resultsWithholdLeaderClaim?.(withholdingReason)
     applied.push(`leader_claim:withheld:${withholdingReason}`)
