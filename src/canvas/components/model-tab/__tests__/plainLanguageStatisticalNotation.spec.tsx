@@ -22,8 +22,15 @@
  * Assertions bind by `data-testid` IDENTITY, never by a value predicate another
  * element could satisfy — `(normalised)` appears on several rows at once, so
  * `getByText` would silently pass on a sibling. `describe` blocks drive the REAL
- * `DetailToggleContext` — the same provider `ModelTabHeader` uses — rather than
+ * `DetailToggleContext` — the same provider `ModelTabBody` supplies — rather than
  * a local stub, so a fix that invents a second gate cannot make these pass.
+ *
+ * ⚠ NARROWED 2026-09-11 (v1 Model-stack removal). Three of the original five
+ * render sites — two in `FactorsSection`, one in `OptionsSection` — were deleted
+ * with the v1 stack, along with `ModelTabHeader`. Their cases are gone because
+ * their SUBJECTS are gone, not because the rule relaxed: the derived scan in
+ * section 7 still bans the tokens across the whole surviving directory, so a
+ * reintroduction anywhere in `model-tab/` REDs without needing a named case.
  */
 
 import { describe, it, expect, vi, beforeAll } from 'vitest'
@@ -32,10 +39,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join, dirname, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Node, Edge } from '@xyflow/react'
-import { FactorsSection } from '../FactorsSection'
-import { OptionsSection } from '../OptionsSection'
 import { ContestedEdgeCard } from '../ContestedEdgeCard'
-import { ModelTabHeader } from '../ModelTabHeader'
 import { DetailToggleContext } from '../DetailToggleContext'
 import {
   normalisedScaleSuffix,
@@ -43,7 +47,6 @@ import {
   estimateGapText,
 } from '../statisticalNotation'
 import type { ValidationMetadata } from '../../../domain/validation'
-import { useContext } from 'react'
 
 beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn()
@@ -97,41 +100,13 @@ function withDetail(showDetail: boolean, ui: React.ReactNode) {
   )
 }
 
-/** Observable factor whose value exists ONLY in model space (no raw_value/unit). */
-function normalisedFactor(id: string, label: string): Node {
-  return {
-    id, type: 'factor', position: { x: 0, y: 0 },
-    data: {
-      label, kind: 'factor', category: 'observable',
-      observedState: { value: 0.5, source: 'cee_inference' },
-    },
-  }
-}
-
-/** External factor carrying a prior range and NO unit. */
-function externalFactorWithPrior(id: string, label: string): Node {
-  return {
-    id, type: 'factor', position: { x: 0, y: 0 },
-    data: {
-      label, kind: 'factor', category: 'external',
-      prior: { range_min: 0.2, range_max: 0.8 },
-      observedState: { source: 'cee_inference' },
-    },
-  }
-}
-
-function optionWithNormalisedIntervention(): { option: Node; factor: Node } {
-  const factor: Node = {
-    id: 'f1', type: 'factor', position: { x: 0, y: 0 },
-    data: { label: 'Ad spend', observedState: { raw_value: 10000, unit: '£', value: 100 } },
-  }
-  const option: Node = {
-    id: 'opt1', type: 'option', position: { x: 0, y: 0 },
-    data: { label: 'Campaign', interventions: { f1: 0.8 } },
-  }
-  return { option, factor }
-}
-
+/*
+ * ⚠ THREE FIXTURES REMOVED 2026-09-11 — `normalisedFactor`,
+ * `externalFactorWithPrior` and `optionWithNormalisedIntervention`. They existed
+ * only to drive `FactorsSection` and `OptionsSection`, both deleted with the v1
+ * Model stack. They are not retained as dead helpers: an unused fixture is the
+ * next session's false map of what this file still covers.
+ */
 function contestedFixture() {
   const validation: ValidationMetadata = {
     status: 'contested',
@@ -190,89 +165,6 @@ describe('the wording table says the same thing in two registers', () => {
   })
 })
 
-// ── 2. FactorsSection — (normalised) on a model-space value ─────────────────
-
-describe('FactorsSection: a model-space value names its scale in words by default', () => {
-  it('expert OFF — the suffix is plain English and does NOT say (normalised)', () => {
-    withDetail(false, <FactorsSection factorNodes={[normalisedFactor('f1', 'Score')]} />)
-    const el = screen.getByTestId('factor-f1-normalised-label')
-    expect(el).toHaveTextContent(normalisedScaleSuffix(false))
-    expect(el.textContent).not.toMatch(/normalised/i)
-  })
-
-  it('expert ON — the technical term is RESTORED, not deleted', () => {
-    withDetail(true, <FactorsSection factorNodes={[normalisedFactor('f1', 'Score')]} />)
-    expect(screen.getByTestId('factor-f1-normalised-label')).toHaveTextContent('(normalised)')
-  })
-
-  it('the quantity itself survives in BOTH registers — the number is never hidden', () => {
-    const { unmount } = withDetail(false, <FactorsSection factorNodes={[normalisedFactor('f1', 'Score')]} />)
-    expect(screen.getByTestId('factor-f1-value-display')).toBeInTheDocument()
-    unmount()
-    withDetail(true, <FactorsSection factorNodes={[normalisedFactor('f1', 'Score')]} />)
-    expect(screen.getByTestId('factor-f1-value-display')).toBeInTheDocument()
-  })
-})
-
-// ── 3. FactorsSection — Prior label + prior-range (normalised) ──────────────
-
-describe('FactorsSection: a prior is named as the starting estimate by default', () => {
-  it('expert OFF — the label is plain and the word "Prior" is absent from the row', () => {
-    withDetail(false, <FactorsSection factorNodes={[externalFactorWithPrior('x1', 'Market growth')]} />)
-    const el = screen.getByTestId('factor-x1-prior-label')
-    expect(el).toHaveTextContent(priorRangeLabel(false))
-    expect(el.textContent).not.toMatch(/\bPrior\b/)
-  })
-
-  it('expert ON — "Prior" is RESTORED', () => {
-    withDetail(true, <FactorsSection factorNodes={[externalFactorWithPrior('x1', 'Market growth')]} />)
-    expect(screen.getByTestId('factor-x1-prior-label')).toHaveTextContent('Prior')
-  })
-
-  it('expert OFF — the prior RANGE suffix is plain English', () => {
-    withDetail(false, <FactorsSection factorNodes={[externalFactorWithPrior('x1', 'Market growth')]} />)
-    const el = screen.getByTestId('factor-x1-normalised-range')
-    expect(el).toHaveTextContent(normalisedScaleSuffix(false))
-    expect(el.textContent).not.toMatch(/normalised/i)
-  })
-
-  it('expert ON — the prior RANGE suffix restores (normalised)', () => {
-    withDetail(true, <FactorsSection factorNodes={[externalFactorWithPrior('x1', 'Market growth')]} />)
-    expect(screen.getByTestId('factor-x1-normalised-range')).toHaveTextContent('(normalised)')
-  })
-
-  it('the range bounds themselves survive in BOTH registers', () => {
-    const { unmount } = withDetail(false, <FactorsSection factorNodes={[externalFactorWithPrior('x1', 'M')]} />)
-    expect(screen.getByTestId('factor-x1-prior-min-display')).toBeInTheDocument()
-    expect(screen.getByTestId('factor-x1-prior-max-display')).toBeInTheDocument()
-    unmount()
-    withDetail(true, <FactorsSection factorNodes={[externalFactorWithPrior('x1', 'M')]} />)
-    expect(screen.getByTestId('factor-x1-prior-min-display')).toBeInTheDocument()
-    expect(screen.getByTestId('factor-x1-prior-max-display')).toBeInTheDocument()
-  })
-})
-
-// ── 4. OptionsSection — normalised intervention target ──────────────────────
-
-describe('OptionsSection: a normalised intervention target names its scale in words', () => {
-  it('expert OFF — the target reads plainly and does NOT say (normalised)', () => {
-    const { option, factor } = optionWithNormalisedIntervention()
-    withDetail(false, <OptionsSection optionNodes={[option]} allNodes={[factor]} />)
-    const el = screen.getByTestId('intervention-opt1-f1-display')
-    expect(el).toHaveTextContent('0.80')
-    expect(el).toHaveTextContent(normalisedScaleSuffix(false))
-    expect(el.textContent).not.toMatch(/normalised/i)
-  })
-
-  it('expert ON — (normalised) is RESTORED alongside the same number', () => {
-    const { option, factor } = optionWithNormalisedIntervention()
-    withDetail(true, <OptionsSection optionNodes={[option]} allNodes={[factor]} />)
-    const el = screen.getByTestId('intervention-opt1-f1-display')
-    expect(el).toHaveTextContent('0.80')
-    expect(el).toHaveTextContent('(normalised)')
-  })
-})
-
 // ── 5. ContestedEdgeCard — the Δ glyph ──────────────────────────────────────
 
 describe('ContestedEdgeCard: the estimate gap is described in words by default', () => {
@@ -306,21 +198,11 @@ describe('ContestedEdgeCard: the estimate gap is described in words by default',
 // ── 6. THE MOUNT PATH — bind to the gate that actually ships ────────────────
 
 describe('the gate these sections read is the one the deployed flag feeds', () => {
-  function Probe() {
-    const { showDetail } = useContext(DetailToggleContext)
-    return <span data-testid="probe">{String(showDetail)}</span>
-  }
-
-  it('ModelTabHeader is the provider, and it forwards its showDetail prop verbatim', () => {
-    const { unmount } = render(
-      <ModelTabHeader factorCount={1} edgeCount={1} showDetail={false}><Probe /></ModelTabHeader>,
-    )
-    expect(screen.getByTestId('probe')).toHaveTextContent('false')
-    unmount()
-    render(<ModelTabHeader factorCount={1} edgeCount={1} showDetail><Probe /></ModelTabHeader>)
-    expect(screen.getByTestId('probe')).toHaveTextContent('true')
-  })
-
+  // ⚠ NARROWED 2026-09-11. This block also rendered `ModelTabHeader` with a
+  // context `Probe` to prove it forwarded `showDetail` verbatim. `ModelTabHeader`
+  // was deleted with the v1 Model stack, and `ModelTabBody` now provides
+  // `DetailToggleContext` itself. The remaining case is the one that still
+  // guards a live path: the binding from the persisted flag to that provider.
   it('ModelTabBody binds that prop to expertMode — fails loud if the flag path moves', () => {
     // The estate has twice shipped a feature dark because tests targeted a
     // component the deployed posture does not render. This asserts the LINK
@@ -328,7 +210,22 @@ describe('the gate these sections read is the one the deployed flag feeds', () =
     // so moving the flag REDs here instead of silently un-gating the copy.
     const here = dirname(fileURLToPath(import.meta.url))
     const body = readFileSync(join(here, '..', '..', 'ModelTabBody.tsx'), 'utf8')
-    expect(body).toMatch(/showDetail=\{\s*expertMode\s*\?\?\s*false\s*\}/)
+
+    // ⚠ PATTERN UPDATED 2026-09-11, and the SHAPE of the binding changed, not the
+    // fact of it. It used to match the JSX attribute `showDetail={expertMode ??
+    // false}` that `ModelTabBody` passed to `ModelTabHeader`, which was the
+    // provider. `ModelTabHeader` was deleted with the v1 Model stack and
+    // `ModelTabBody` now supplies `DetailToggleContext` directly, so the same
+    // link is expressed as the provider's value.
+    expect(
+      body,
+      '\nThe persisted expert flag no longer reaches DetailToggleContext.\n' +
+        'Moving that link silently un-gates the technical notation this file bans.\n',
+    ).toMatch(/<DetailToggleContext\.Provider\s+value=\{\{\s*showDetail:\s*expertMode\s*\?\?\s*false\s*\}\}/)
+
+    // Precondition, in-test: the file really was read. A path slip would make the
+    // regex above fail for the wrong reason, or an empty read pass a negation.
+    expect(body.length, 'ModelTabBody.tsx read as empty — this assertion is void').toBeGreaterThan(1000)
   })
 })
 
@@ -366,9 +263,13 @@ describe('the notation lives in ONE place, derived rather than mirrored', () => 
     // An empty or mis-filtered directory would make the absence below vacuous.
     const names = sourceFiles().map(f => basename(f))
     expect(names.length).toBeGreaterThan(5)
-    expect(names).toContain('FactorsSection.tsx')
-    expect(names).toContain('OptionsSection.tsx')
+    // ⚠ NAMES UPDATED 2026-09-11. This list used to name `FactorsSection.tsx`
+    // and `OptionsSection.tsx`; both were deleted with the v1 Model stack. The
+    // surviving named anchors are the card still under test and the wording
+    // table that owns the tokens — the point of the case is unchanged: the scan
+    // must be looking at a real corpus that contains its own subjects.
     expect(names).toContain('ContestedEdgeCard.tsx')
+    expect(names).toContain('ModelHealthSection.tsx')
     expect(names).toContain(OWNER)
   })
 

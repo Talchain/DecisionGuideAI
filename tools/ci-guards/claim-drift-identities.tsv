@@ -29,8 +29,8 @@
 # the same PR with `node tools/ci-guards/update-claim-drift-baseline.mjs` and say so in the PR body.
 #
 # Format: <count><TAB><family><TAB><path><TAB><field><TAB><canonicalised source line>
-# count=80
-# identities=74
+# count=79
+# identities=73
 1	elasticity	src/adapters/driversAdapter.ts	sensitivity_score	? driver.sensitivity_score >= 0 ? 'positive' : 'negative'
 1	elasticity	src/adapters/driversAdapter.ts	sensitivity_score	? normalizeImpact(driver.sensitivity_score)
 1	elasticity	src/adapters/driversAdapter.ts	sensitivity_score	const impact = driver.sensitivity_score !== undefined
@@ -66,7 +66,6 @@
 1	elasticity	src/canvas/analysis/assembleAnalysisInputsSummary.ts	elasticity	if (typeof fs.elasticity === 'number') return fs.elasticity
 1	elasticity	src/canvas/analysis/assembleAnalysisInputsSummary.ts	sensitivity_score	if (typeof fs.sensitivity_score === 'number') return fs.sensitivity_score
 1	elasticity	src/canvas/compare-tab/deriveTransitions.ts	elasticity	return f.elasticity
-1	elasticity	src/canvas/components/ModelTabBody.tsx	elasticity	if (typeof f?.elasticity === 'number') elasticity.set(id, f.elasticity)
 1	elasticity	src/canvas/edges/StyledEdge.tsx	elasticity	const goalSens = src ? Math.abs(src.elasticity ?? src.sensitivity_score ?? src.importance_score ?? 0) : 1.0
 1	elasticity	src/canvas/hooks/useLensFilter.ts	elasticity	return f.elasticity ?? f.sensitivity_score ?? f.sensitivity ?? f.importance_score ?? 0
 1	elasticity	src/canvas/stores/analysisSnapshotFactory.ts	elasticity	const stated = f.elasticity

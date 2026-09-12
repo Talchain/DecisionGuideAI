@@ -26,7 +26,27 @@
 import { useContext, useMemo } from 'react'
 import { AlertTriangle, MessageCircle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
-import { SectionErrorBoundary } from '../GraphTextView'
+/**
+ * ⭐ REPOINTED 2026-09-11 — THIS FIXED A LIVE DEFECT, IT IS NOT A TIDY-UP.
+ *
+ * There are two `SectionErrorBoundary` twins in this tree:
+ *   · `canvas/components/GraphTextView.tsx`     — `console.error` ONLY.
+ *     `captureError` 0 occurrences, `componentStack` 0.
+ *   · `canvas/components/SectionErrorBoundary.tsx` — reports to monitoring.
+ *     `captureError` 2, `componentStack` 11; also renders technical detail
+ *     under `?diag`.
+ *
+ * `ModelHealthSection` is the Model card and IS mounted (`ModelTabBody`, outside
+ * the v1 gate that was deleted on 2026-09-11). It was importing the FIRST twin,
+ * so a render error inside the live Model card reached NOTHING — no monitoring
+ * event, no component stack, just a console line in a browser nobody is
+ * watching. The other live consumers of the reporting twin — `OutputsDock`,
+ * `ResultsBody`, `PreAnalysisPanel`, `WhatOlumiAddedSection` — already had it.
+ *
+ * The props are identical (`{ children, section }`), so this is a pure repoint.
+ * Pinned by `__tests__/modelHealthSectionReportsRenderErrors.spec.tsx`.
+ */
+import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import type { HandOffToOlumi } from '../../conversation/olumiHandOff'
 import { Accordion } from '../../../components/results/Accordion'
 import type { CeeQualityDimensions } from '../../store'

@@ -7,14 +7,19 @@
  * **"Settle these in the model tab"**. The Model tab cannot settle them. The
  * only control that has ever offered the four adjudication verdicts (accept the
  * first look, accept the review, enter your own, dismiss) is
- * `ContestedEdgeCard`, and NEITHER of its two product render sites is mounted:
+ * `ContestedEdgeCard`, and its ONE remaining product render site is not mounted:
  *
- *   1. `model-tab/RelationshipsSection.tsx` — hosted ONLY at
- *      `ModelTabBody.tsx`, INSIDE `{LEGACY_DETAILED_EDITOR_MOUNTED && (…)}`,
- *      and that constant is `false`. esbuild folds it; the stack is not merely
- *      hidden, it is not shipped.
- *   2. `pre-analysis/AllImprovements.tsx` — exported from the
- *      `pre-analysis/index.ts` barrel and imported by NO product file.
+ *   · `pre-analysis/AllImprovements.tsx` — exported from the
+ *     `pre-analysis/index.ts` barrel and imported by NO product file.
+ *
+ * ⚠ UPDATED 2026-09-11. There used to be a second site,
+ * `model-tab/RelationshipsSection.tsx`, hosted ONLY at `ModelTabBody.tsx` INSIDE
+ * `{LEGACY_DETAILED_EDITOR_MOUNTED && (…)}` with that constant `false` — esbuild
+ * folded it, so the stack was not merely hidden, it was not shipped. It was
+ * DELETED with the v1 Model stack (Paul's ruling). The claim this file makes is
+ * unchanged in substance and simpler to state: adjudication has no live route.
+ * It got weaker in one respect worth naming — there is now one host rather than
+ * two, so reviving the capability is a build rather than a mount.
  *
  * `ModelTabV2Panel`'s own `MountedQueueId` says the same thing from the other
  * side: it is `Extract<RepairQueue['id'], 'confirm-estimates'>` deliberately,
@@ -148,49 +153,44 @@ describe('§1 the Model tab has no mounted contested-adjudication control', () =
     ).toBe(false)
   })
 
-  it('the card has exactly two product render sites, and this is the whole manifest', () => {
+  it('the card has exactly ONE product render site, and this is the whole manifest', () => {
     // EXACT equality in both directions. Growth is a new host (the copy may
     // then be strengthened); shrinkage is a removal landing, and it must red
     // too so the removing commit has to come here and say so.
+    //
+    // ⭐ A REMOVAL LANDED, AND THIS IS THE COMMIT COMING HERE TO SAY SO
+    // (2026-09-11, Paul's ruling on the v1 Model-stack removal). The manifest was
+    // two entries; `canvas/components/model-tab/RelationshipsSection.tsx` was
+    // DELETED. It rendered inside `ModelTabBody`'s `LEGACY_DETAILED_EDITOR_MOUNTED
+    // = false` gate and `ModelTabBody` was its only importer, so it was already
+    // unreachable — the removal cost no user anything it could reach.
+    //
+    // ⚠ WHAT THE REMOVAL DID COST, stated plainly rather than implied: this card
+    // now has exactly one host, and that host (`AllImprovements`) is ITSELF
+    // unmounted — see the next case, which pins that and is unchanged. So
+    // contested-edge adjudication has no live route at all, and reviving it is now
+    // a build, not a flag flip. `ContestedEdgeCard.tsx` and `AllImprovements.tsx`
+    // were both KEPT deliberately: the card still has a host, so it is not dead by
+    // manifest, and removing the pair is a product decision about a capability,
+    // not a tidy-up that belongs in a dead-code removal.
     expect(renderersOf('ContestedEdgeCard')).toEqual([
-      'canvas/components/model-tab/RelationshipsSection.tsx',
       'canvas/components/pre-analysis/AllImprovements.tsx',
     ])
   })
 
-  it('host 1: RelationshipsSection is rendered ONLY inside the dead legacy block', () => {
-    const body = SOURCES.get('canvas/components/ModelTabBody.tsx')!
-
-    expect(
-      body.includes('const LEGACY_DETAILED_EDITOR_MOUNTED = false'),
-      'the guard constant must still be false — if it is true, the card is live again',
-    ).toBe(true)
-
-    const open = body.indexOf('{LEGACY_DETAILED_EDITOR_MOUNTED && (')
-    expect(open, 'the guarded block must be findable').toBeGreaterThan(-1)
-    const close = body.indexOf('\n      )}', open)
-    expect(close, 'the guarded block must close').toBeGreaterThan(open)
-
-    const inBlock = (marker: string) => {
-      const at = body.indexOf(marker)
-      expect(at, `${marker} must be present`).toBeGreaterThan(-1)
-      return at > open && at < close
-    }
-
-    // ⚠ CONTRAST CONTROL, IN THE SAME SCAN. `ModelHealthSection` is rendered by
-    // the same file and IS mounted. Without it, an extraction that had silently
-    // captured the whole file would answer "inside the block" for everything
-    // and this test could not tell a dead host from a live one.
-    expect(inBlock('<ModelHealthSection'), 'CONTRAST: a mounted sibling is OUTSIDE').toBe(false)
-    expect(inBlock('<RelationshipsSection'), 'the adjudication host is INSIDE').toBe(true)
-
-    // …and no second host resurrects it elsewhere.
-    expect(renderersOf('RelationshipsSection')).toEqual([
-      'canvas/components/ModelTabBody.tsx',
-      'canvas/components/model-tab/RelationshipsSection.tsx', // its own memo wrapper
-    ])
-  })
-
+  /**
+   * ⚠ 'host 1' WAS HERE AND IS DELETED (2026-09-11). It proved that
+   * `RelationshipsSection` was rendered ONLY inside `ModelTabBody`'s
+   * `{LEGACY_DETAILED_EDITOR_MOUNTED && (` block — with a contrast control in the
+   * same scan showing `<ModelHealthSection>` OUTSIDE it, so the probe could tell a
+   * dead host from a live one.
+   *
+   * That case cannot run: the gate, the block and `RelationshipsSection.tsx` were
+   * all deleted with the v1 Model stack (Paul's ruling). Its conclusion is now a
+   * stronger fact recorded in the manifest above — the host does not exist, which
+   * needs no containment argument. `host 2` below is unchanged and still carries
+   * the live half of the claim: the surviving host is itself unmounted.
+   */
   it('host 2: AllImprovements is exported by the barrel and imported by nothing', () => {
     const importers = [...SOURCES.entries()]
       .filter(([path]) => path !== 'canvas/components/pre-analysis/AllImprovements.tsx')

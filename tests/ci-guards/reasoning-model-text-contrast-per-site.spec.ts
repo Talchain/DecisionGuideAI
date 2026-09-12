@@ -104,7 +104,18 @@ const SCOPE = [
   'src/components/results/analysisNew',
   // Model tab — the v2 surface, where #1348's defect shipped.
   'src/canvas/model-tab-v2',
-  // Model tab — the v1 surface still mounted beside it.
+  // Model tab shared components. ⚠ This entry's comment used to read "the v1
+  // surface still mounted beside it"; the v1 stack is DELETED and that is no
+  // longer true. The DIRECTORY stays in scope and is not a dead path — but it
+  // is no longer ONE surface, which is why the old one-line description is
+  // replaced rather than patched. Derived at the deletion head, its surviving
+  // pinned components are reached from three different hosts, none of them
+  // `model-tab-v2`:
+  //   ModelHealthSection.tsx  <- canvas/components/ModelTabBody.tsx
+  //   ReanalyseBar.tsx        <- canvas/components/OutputsDock.tsx
+  //   ContestedEdgeCard.tsx   <- canvas/components/pre-analysis/AllImprovements.tsx
+  // Seven pinned sites remain across them plus `utils.ts`, so this scope entry
+  // still measures live surfaces rather than an empty tree.
   'src/canvas/components/model-tab',
 ] as const
 
@@ -134,21 +145,26 @@ const SCOPE = [
  * changes. A guard that cries wolf gets relaxed.
  */
 const KNOWN_UNREPAIRED: Record<string, number> = {
+  // ⚠ TEN ENTRIES REMOVED BY THE v1 MODEL-TAB REMOVAL — five files, all DELETED:
+  //    FactorsSection · GoalSection · ModelTabHeader · OptionsSection ·
+  //    RelationshipsSection. This pin REDs on SHRINK by design, and that is
+  //    correct behaviour protecting against silent coverage loss, not a bug to
+  //    route around. The pin is being updated DELIBERATELY, and the reason is
+  //    recorded here because "why did this number go down" is the question the
+  //    RED is asking: these ten sites are gone because their FILES are gone,
+  //    NOT because the contrast rule relaxed and NOT because anything was
+  //    repaired. No token was retinted; no floor moved; the ✅ branch of the
+  //    failure message above ("you repaired a site — thank you") does NOT
+  //    apply. Had these been repairs they would have been banked as such.
+  //    The guard's scope over `src/canvas/components/model-tab` does NOT go to
+  //    zero: seven entries remain there (ContestedEdgeCard ×2,
+  //    ModelHealthSection ×2, ReanalyseBar ×1, utils.ts ×2), so the SCOPE
+  //    entry below still measures a live surface rather than an empty tree.
   'src/canvas/components/model-tab/ContestedEdgeCard.tsx text-success text': 2,
   'src/canvas/components/model-tab/ContestedEdgeCard.tsx text-warning text': 2,
-  'src/canvas/components/model-tab/FactorsSection.tsx text-success text': 2,
-  'src/canvas/components/model-tab/GoalSection.tsx text-danger icon': 1,
-  'src/canvas/components/model-tab/GoalSection.tsx text-danger text': 1,
   'src/canvas/components/model-tab/ModelHealthSection.tsx text-danger icon': 1,
   'src/canvas/components/model-tab/ModelHealthSection.tsx text-danger text': 1,
-  'src/canvas/components/model-tab/ModelTabHeader.tsx text-warning text': 1,
-  'src/canvas/components/model-tab/OptionsSection.tsx text-danger text': 1,
-  'src/canvas/components/model-tab/OptionsSection.tsx text-success text': 1,
-  'src/canvas/components/model-tab/OptionsSection.tsx text-warning text': 1,
   'src/canvas/components/model-tab/ReanalyseBar.tsx text-text-light/80 text': 1,
-  'src/canvas/components/model-tab/RelationshipsSection.tsx text-danger text': 1,
-  'src/canvas/components/model-tab/RelationshipsSection.tsx text-success text': 1,
-  'src/canvas/components/model-tab/RelationshipsSection.tsx text-text-light text': 2,
   'src/canvas/components/model-tab/utils.ts text-danger text': 1,
   'src/canvas/components/model-tab/utils.ts text-success text': 1,
   'src/canvas/model-tab-v2/ModelDetailRegion.tsx text-danger text': 1,
@@ -258,10 +274,34 @@ describe('Reasoning + Model surfaces: per-site text and icon contrast', () => {
     //    the pinned set by accident; a guard that flagged none would too. Both
     //    populations must be large.
     expect(sites.length, 'the scan must be finding sites at all').toBeGreaterThan(400)
+    // ⚠ THRESHOLD RE-CALIBRATED BY THE v1 MODEL-TAB REMOVAL — and this is a
+    // SCALE control, not the pin above, so it is worth saying why separately.
+    // These constants were calibrated against a tree that still held the v1
+    // Model-tab stack. Deleting those files removed PASSING sites as well as
+    // failing ones, so the absolute population fell and this bound stopped
+    // fitting a tree that is no less well measured than before.
+    //
+    // Measured either side of the deletion (base 18d681c2 vs the deletion head):
+    //     sites.length  573 -> 409   (-164)
+    //     ok (passing)  526 -> 374   (-152)
+    //     violations     47 ->  35    (-12)
+    // The -12 is the arithmetic check that this is deletion and not relaxation:
+    // the ten pinned keys removed above carry exactly twelve sites between them
+    // (2+1+1+1+1+1+1+1+1+2), so the violation delta is fully accounted for by
+    // files leaving the tree, with no site silently repaired or re-floored.
+    //
+    // The control's ACTUAL claim — "most sites pass, so the guard is measuring
+    // rather than condemning" — is unchanged and still comfortably true: the
+    // pass ratio moves 91.8% -> 91.4%. Only the absolute number moved.
+    // ⚠ FOLLOW-UP, deliberately NOT done here: both of these bounds (and the
+    // `> 400` above, which now clears by only 9) are absolute constants standing
+    // in for a ratio, so every future deletion re-reds them. Expressing them as
+    // a fraction of `sites.length` would make them self-maintaining. That is a
+    // change to how the control works and does not belong in a deletion PR.
     expect(
       sites.filter((s) => s.ok).length,
       'most sites must PASS — a guard that condemns everything is not measuring',
-    ).toBeGreaterThan(400)
+    ).toBeGreaterThan(350)
     expect(violations.length, 'and it must still be finding the failures').toBeGreaterThan(20)
 
     // 8. The scan sees BOTH roles and resolves grounds both ways, or a whole

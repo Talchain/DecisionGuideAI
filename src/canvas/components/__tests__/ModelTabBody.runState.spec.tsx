@@ -33,18 +33,11 @@ vi.mock('../GraphTextView', () => ({
 }))
 // Stub the retired heavy section tree. Assertions bind the retained model to
 // the connected v2 panel, so this file cannot pass against the hidden v1 body.
-vi.mock('../model-tab/ModelTabHeader', () => ({
-  ModelTabHeader: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="model-content">{children}</div>
-  ),
-}))
-vi.mock('../model-tab/StatusBar', () => ({ StatusBar: () => null }))
-vi.mock('../model-tab/EntityBar', () => ({ EntityBar: () => null }))
-vi.mock('../model-tab/GoalSection', () => ({ GoalSection: () => null }))
-vi.mock('../model-tab/OptionsSection', () => ({ OptionsSection: () => null }))
-vi.mock('../model-tab/FactorsSection', () => ({ FactorsSection: () => null }))
-vi.mock('../model-tab/RelationshipsSection', () => ({ RelationshipsSection: () => null }))
-vi.mock('../model-tab/RisksSection', () => ({ RisksSection: () => null }))
+// ⚠ MOCKS REMOVED 2026-09-11. This block also stubbed StatusBar, EntityBar,
+// GoalSection, OptionsSection, FactorsSection, RelationshipsSection, RisksSection
+// and ModelTabHeader. All eight were deleted with the v1 Model stack (Paul's
+// ruling), so `vi.mock` on those paths would now fail to resolve. The surviving
+// mocks below are unchanged.
 vi.mock('../model-tab/ModelAdjustments', () => ({ ModelAdjustments: () => null }))
 vi.mock('../model-tab/ModelHealthSection', () => ({ ModelHealthSection: () => null }))
 vi.mock('../model-tab/StreamingDiagnostics', () => ({ StreamingDiagnostics: () => null }))
