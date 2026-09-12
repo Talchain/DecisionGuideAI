@@ -1650,9 +1650,63 @@ export const ANALYSIS_NEW_COPY = {
      * screen on this tab at all. Now that it does, the sentence is imported
      * from its owner and rendered verbatim, so there is one spelling again.
      */
-    /** Influence figures are set-relative, not a causal share of the outcome. */
+    /**
+     * Influence figures are set-relative, not a causal share of the outcome —
+     * and the leader's 100% is GUARANTEED, which this sentence now says.
+     *
+     * ⭐⭐ WHY THE SECOND CLAUSE EXISTS (ROADMAP 2.1376). Witnessed on deployed
+     * `ce4769a1`, one fresh guest journey, a few hundred pixels apart:
+     *
+     *   Key insights          "…is the hinge. Its effect on Infrastructure
+     *                          Stack Fragmentation is the relationship most
+     *                          able to change the outcome."
+     *   Drivers and dynamics  "…three divergent stacks within a year — 100% —
+     *                          Top driver"
+     *
+     * Two sections naming a different "most important" thing. ⛔⛔ THEY ARE NOT
+     * IN CONFLICT AND MUST NOT BE RECONCILED (CLAUDE.md trap 21): the hinge is
+     * an EDGE ranked by `switchProbability`; a driver is a NODE ranked by
+     * `displayInfluence`. Different objects, different quantities, different
+     * normalisations, both separately grounded. ⛔ The precedent a session would
+     * reach for — `driversSeamSaysOneThing` — resolved ITS pair by DELETING the
+     * duplicate. Deleting or suppressing either section here would destroy a
+     * real reading.
+     *
+     * ⭐ THE RIVALRY IS MANUFACTURED BY THE NUMBER, NOT BY THE COPY. This row
+     * never claims to be most important. `buildDrivers` renders every bar as
+     * `magnitude(d) / strongest` with `strongest = Math.max(...live.map(
+     * magnitude), 0)`, so the leader's fraction is EXACTLY 1 in every run
+     * regardless of strength, and `driverFinding`'s implication prints
+     * "Relative influence 100%." beside it. A 100% that cannot be anything else
+     * reads as a rival claim to "the hinge" — so the honest move is to disclose
+     * that it is guaranteed, not to quieten the neighbour.
+     *
+     * ⭐ THE SENTENCE IS NOT NEW AND IS NOT MINE. It is the estate's ratified
+     * wording, already SHIPPING on the Analysis tab as
+     * `influenceScaleCopy.INFLUENCE_SCALE_CAPTION` ("Influence is relative to
+     * the strongest factor. The top driver always shows 100%."). This tab was
+     * rendering the weaker sibling, which denies the wrong reading without
+     * disclosing that the 100% is guaranteed.
+     *
+     * ⚠ NOT IMPORTED FROM `influenceScaleCopy`, DELIBERATELY. That module is
+     * the home for the DISPLAY MODEL's influence wording, keyed on
+     * `DriverDisplayProvenance` per surface; this is a SECTION caveat on a
+     * different tab whose own gate (`influenceIsSetRelative`) is
+     * `drivers.length > 0`. Binding them would couple two sentences that are
+     * free to diverge on scope, and `driversSeamSaysOneThing` already rules
+     * this surface's caveat must answer the SCALE question only. The words are
+     * pinned as a typed literal by
+     * `driversScaleDisclosesTheGuaranteed100.spec.tsx` instead, which is the
+     * corpus half of CLAUDE.md trap 12d.
+     *
+     * ⚠ "relative to the OTHER factors" became "relative to the STRONGEST
+     * factor" in the same edit, and that is a precision fix, not a reword:
+     * `magnitude / strongest` is a ratio to one factor, not a comparison
+     * against the set. It is also what makes the second clause follow rather
+     * than arrive as an unexplained assertion.
+     */
     setRelativeInfluence:
-      'Influence is relative to the other factors in this run, not a share of the outcome.',
+      'Influence is relative to the strongest factor in this run, not a share of the outcome. The top driver always shows 100%.',
     /**
      * ⛔⛔ THIS SENTENCE REACHES NO SCREEN, DELIBERATELY, AND THE SUITE PINS
      * THAT — `theBasisLineHasNoReferentWithoutBars` in
