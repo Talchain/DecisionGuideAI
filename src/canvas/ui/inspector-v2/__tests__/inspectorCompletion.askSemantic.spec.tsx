@@ -35,6 +35,10 @@ import { requestAsk, ASK_SEMANTIC } from '../askSemantic'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore, type GuidanceItem } from '../../../stores/guidanceStore'
 import { useAskOlumiStore } from '../../../../components/results/coaching/askOlumiStore'
+import {
+  publishSelectionReferent,
+  resetSelectionReferentForTest,
+} from '../../../conversation/selectionReferent'
 
 vi.mock('@xyflow/react', () => ({
   useViewport: () => ({ x: 0, y: 0, zoom: 1 }),
@@ -54,7 +58,18 @@ const coachingProps = {
   labelContext: { label: 'Marketing Budget' },
 }
 
-const EXPECTED_QUESTION = 'How important is Marketing Budget to the outcome?'
+// ⭐ The question drops the element's label WHILE SOMETHING ON SCREEN IS NAMING
+// IT. The inspector opens on the single canvas selection, so the element rides
+// the turn as `selected_elements`, and `SelectionPill` shows its name — but the
+// pill has one mount site behind `{aiPanelV2On && effectiveIsOpen}`, so a
+// collapsed dock with a floating composer hosting has no referent at all. The
+// tests below therefore PUBLISH the referent through the same channel the pill
+// uses before asserting this string; the pill-less arm lives in
+// `askCopy.selectionReferent.spec.tsx`. Do not 'restore' the label
+// unconditionally here — see ASK_TEMPLATES.
+const EXPECTED_QUESTION = 'How important is this to the outcome?'
+/** The element every coaching/quick-action fixture below is open on. */
+const REFERENT_ID = 'node-1'
 
 function makeGuidanceItem(overrides: Partial<GuidanceItem> = {}): GuidanceItem {
   return {
@@ -73,6 +88,7 @@ function makeGuidanceItem(overrides: Partial<GuidanceItem> = {}): GuidanceItem {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  resetSelectionReferentForTest()
   useAskOlumiStore.getState().close()
   useAskOlumiStore.setState({ draft: '', context: '', label: '' } as never)
   useGuidanceStore.setState({
@@ -153,6 +169,7 @@ describe('one ask semantic · the module declares it and never dispatches', () =
 
 describe('one ask semantic · InspectorCoaching no longer auto-sends', () => {
   it('"Ask about this" prefills and does NOT call _sendMessage', () => {
+    publishSelectionReferent(REFERENT_ID)
     const prefill = vi.fn()
     const send = vi.fn()
     useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send } as never)
@@ -340,6 +357,9 @@ describe('R5 · quick actions sit at the top of the inspector', () => {
   })
 
   it('the quick ask runs the ONE semantic — prefill, never send', () => {
+    // `InspectorRouter` opens on node `f1` here, so that is the element the
+    // on-screen referent must be naming for the pronoun register to be correct.
+    publishSelectionReferent('f1')
     const prefill = vi.fn()
     const send = vi.fn()
     useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send } as never)
@@ -348,7 +368,15 @@ describe('R5 · quick actions sit at the top of the inspector', () => {
     fireEvent.click(screen.getByTestId('inspector-quick-ask'))
     expect(send).not.toHaveBeenCalled()
     expect(prefill).toHaveBeenCalledTimes(1)
-    expect(String(prefill.mock.calls[0][0])).toContain('Marketing Budget')
+    expect(String(prefill.mock.calls[0][0])).toBe(EXPECTED_QUESTION)
+    // ⭐ AND THE NEGATIVE ARM, which is the point of the change: while the name
+    // IS on screen, the prefill must not spell it into the user's own words —
+    // the identity travels as `selected_elements` and the reader already has
+    // the name. If this starts containing the label again with a referent
+    // published, the product has gone back to typing titles on the user's
+    // behalf. The opposite arm — no referent, so the name IS spelled — is
+    // pinned in `askCopy.selectionReferent.spec.tsx`.
+    expect(String(prefill.mock.calls[0][0])).not.toContain('Marketing Budget')
   })
 
   it('hides the quick ask when no conversation surface exists — no dead button', () => {

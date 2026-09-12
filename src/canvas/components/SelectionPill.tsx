@@ -3,14 +3,25 @@ import { MessageCircleQuestion } from 'lucide-react'
 import { typo } from '../../styles/typography'
 import { CHIP_CLASS } from '../../v5/blocks/chipClass'
 import { useGuidanceStore } from '../stores/guidanceStore'
-import { useSelectionContext } from '../hooks/useSelectionContext'
+import { useSelectionContext, useSelectionCarriage } from '../hooks/useSelectionContext'
+import { usePublishSelectionReferent } from '../conversation/selectionReferent'
 
 /**
  * SelectionPill — the canvas selection's conversation affordance.
  *
- * Renders directly above the persistent input strip whenever exactly ONE canvas
- * element is selected. Hidden when nothing (or more than one element) is
- * selected.
+ * Renders directly above the persistent input strip. WHAT it renders is decided
+ * by `describeSelectionCarriage` — the same rule that decides what the turn
+ * carries — and NOT by how many elements are selected:
+ *
+ *   · a carried single element the pill can name → "Selected: <name>" plus the
+ *     ask controls;
+ *   · a WITHHELD selection (over the contract cap, or resolving to nothing
+ *     truthful) → the notice below, whatever the selected count is. 21 elements
+ *     selected RENDERS here; it does not hide.
+ *   · anything else → nothing: nothing selected, a CARRIED multi-element
+ *     selection this single-element grammar cannot describe, or a carried single
+ *     element the pill has no truthful name for (a node carrying a kind but no
+ *     label — `useSelectionContext` returns null there rather than show its id).
  *
  * ── L-17: WHY THIS IS NO LONGER A LABEL ────────────────────────────────────
  * Selecting a connector used to produce two pieces of GREY TEXT and no way to
@@ -53,6 +64,7 @@ const REFIRE_GUARD_MS = 500
 
 export const SelectionPill = memo(function SelectionPill() {
   const selection = useSelectionContext()
+  const carriage = useSelectionCarriage()
   // Subscribed, not read imperatively: the controls must appear the moment a
   // conversation host registers, without waiting for an unrelated re-render.
   const sendChip = useGuidanceStore((s) => s._sendChip)
@@ -69,6 +81,24 @@ export const SelectionPill = memo(function SelectionPill() {
   const sentRef = useRef<{ id: string; at: number } | null>(null)
 
   const label = selection?.label ?? ''
+  /**
+   * ⭐ THIS PILL IS THE REFERENT THE INSPECTOR'S PRONOUN DEPENDS ON, so it says
+   * so rather than letting another surface model when it is on screen.
+   *
+   * `ASK_TEMPLATES` de-labels its questions ("How important is this to the
+   * outcome?") on the argument that the name is visible HERE. That argument is
+   * false wherever this component does not mount — a collapsed dock, with
+   * `revealOlumiSurface()` leaving it collapsed while a floating composer is
+   * hosting. Publishing from inside the component that draws the name is the
+   * only version of the claim that cannot go stale; see
+   * `conversation/selectionReferent.ts` for why this is a registration and not
+   * a second copy of the dock's mount rule.
+   *
+   * Published only when there is a name: `useSelectionContext` already returns
+   * null for a withheld or unnameable selection, and the notice branch below
+   * renders no element name at all.
+   */
+  usePublishSelectionReferent(selection?.id ?? null)
   /**
    * ONE dispatch for both controls.
    *
@@ -87,7 +117,44 @@ export const SelectionPill = memo(function SelectionPill() {
     sendChip(`Ask about ${label}`, `Ask about ${label}.`)
   }, [sendChip, label, selectionId])
 
-  if (!selection) return null
+  if (!selection) {
+    /**
+     * ⭐ A WITHHELD SELECTION IS NOT THE SAME AS NO SELECTION, and going quiet
+     * on it is a false statement by omission.
+     *
+     * `useSelectionContext` returns null for FOUR different situations. Three of
+     * them are silent here — nothing selected; a multi-element selection this
+     * single-element pill was never meant to describe; and a CARRIED single
+     * element the pill has no truthful name for (a node carrying a kind but no
+     * label). The fourth is the user pointing at something the turn will NOT
+     * carry: an over-cap selection, or one that no longer resolves. There the
+     * user believes their question is grounded and it is not, so the pill says
+     * so and says what to do about it.
+     *
+     * Note the deliberate silence on a carried MULTI-element selection: the
+     * wire does carry it, so there is no falsehood to correct, and this pill's
+     * whole grammar ("Selected: <name>") is single-element. Speaking there
+     * would need a different surface, not a different sentence here.
+     */
+    if (carriage.kind === 'withheld_over_cap' || carriage.kind === 'withheld_unresolvable') {
+      return (
+        <div
+          className="px-3 py-1 flex items-center gap-1.5 flex-wrap"
+          data-testid="ai-panel-selection-pill"
+          data-selection-carriage={carriage.kind}
+          role="status"
+          aria-live="polite"
+        >
+          <span className={typo('panelMeta', 'text-text-light')}>
+            {carriage.kind === 'withheld_over_cap'
+              ? `${carriage.selectedCount} selected \u2014 too many to ask about. Narrow it to ${carriage.cap} or fewer.`
+              : 'That selection is no longer in the model, so a question won\u2019t carry it.'}
+          </span>
+        </div>
+      )
+    }
+    return null
+  }
 
   const canAsk = Boolean(sendChip)
 
@@ -96,6 +163,7 @@ export const SelectionPill = memo(function SelectionPill() {
       className="px-3 py-1 flex items-center gap-1.5 flex-wrap"
       data-testid="ai-panel-selection-pill"
       data-selection-kind={selection.kind}
+      data-selection-carriage={carriage.kind}
       data-selection-actionable={canAsk ? 'true' : 'false'}
     >
       <span className={typo('panelMeta', 'text-text-light')}>Selected:</span>

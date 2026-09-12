@@ -13,7 +13,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook } from '@testing-library/react'
 
 const selectionRef: { value: { id: string; label: string; kind: 'node' | 'edge' } | null } = { value: null }
-vi.mock('../useSelectionContext', () => ({
+// ⚠ SPREAD THE REAL MODULE: a `vi.mock` factory REPLACES it, so any export added
+// later is silently absent and this file dies at collection. That fired on
+// `useSelectionCarriage`; `importOriginal` means the override below only has to
+// name what is genuinely being stubbed.
+vi.mock('../useSelectionContext', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../useSelectionContext')>()),
   useSelectionContext: () => selectionRef.value,
 }))
 
