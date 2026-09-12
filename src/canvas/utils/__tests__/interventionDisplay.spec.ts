@@ -198,6 +198,30 @@ describe('formatInterventionTargetText', () => {
     expect(at049).not.toBe(at059)
   })
 
+  // ⭐ CROSS-SERVICE PARITY GUARD. The parenthesised value must be formatted
+  // the way CEE formats it, or the two services print different numbers for
+  // one intervention — the contradiction this module exists to prevent.
+  //
+  // CEE (`display-value.ts`, priority-6 qualitative band) does:
+  //     const displayValue = parseFloat(value.toFixed(2))
+  //     result = `${band} (${displayValue})`
+  //
+  // The obvious `Math.round(v * 100) / 100` is NOT equivalent — the two
+  // disagree on 44 values in [0,1] at half-cent boundaries. 0.155 is one of
+  // them and is pinned here BY VALUE, so swapping the formatter REDs.
+  it('formats the value byte-for-byte with CEE (half-cent boundary)', () => {
+    const ceeFormat = (v: number) => parseFloat(v.toFixed(2))
+    for (const v of [0.155, 0.015, 0.045, 0.075, 0.105, 0.235]) {
+      const text = formatInterventionTargetText({ label: 'Quality', value: v, factorType: 'quality' })
+      const shown = text.slice(text.indexOf('(') + 1, text.lastIndexOf(')'))
+      expect(shown).toBe(String(ceeFormat(v)))
+      // …and specifically NOT what naive rounding would have produced.
+      if (ceeFormat(v) !== Math.round(v * 100) / 100) {
+        expect(shown).not.toBe(String(Math.round(v * 100) / 100))
+      }
+    }
+  })
+
   // Guard the specific witnessed shape: a COUNT factor carrying no frame must
   // never render as a percentage of anything.
   it('renders an unframed count factor as level words, not a percentage', () => {
