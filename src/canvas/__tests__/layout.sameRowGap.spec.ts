@@ -44,7 +44,15 @@
 
 import { describe, it, expect } from 'vitest'
 import { layoutGraph } from '../utils/layout'
-import { COLLISION_GAP, LAYOUT_PADDING_X } from '../utils/nodeLayoutConstants'
+import {
+  COLLISION_GAP,
+  LAYOUT_PADDING_X,
+  LAYOUT_NODE_GAP,
+  CANONICAL_LAYOUT_WIDTH,
+  MIN_GAP,
+  NODE_SINGLE_ROW_FAIR_SHARE_W,
+  NODE_CARD_MAX_W,
+} from '../utils/nodeLayoutConstants'
 import type { Node, Edge } from '@xyflow/react'
 
 import capture from './__fixtures__/starter-node-heights.browser-capture-2026-08-18.json'
@@ -77,9 +85,20 @@ const HEIGHTS = (capture as { heights: Record<string, Record<string, number>> })
  * takes a canvas: the budget is `CANONICAL_LAYOUT_WIDTH`, so the branch is
  * selected by the widest tier's node count alone.
  *
- * The corpus straddles both branches on its own — the shipped starters carry
- * widest tiers of 5 (single-row) and 8 (multi-row) — which is strictly better
- * evidence than a synthetic width, because these are the shapes that ship.
+ * ⚠⚠ THE CORPUS NO LONGER STRADDLES BOTH BRANCHES, AND THAT IS A CONSEQUENCE
+ * WORTH STATING RATHER THAN PAPERING OVER (12 Sep 2026). This header used to
+ * read "the shipped starters carry widest tiers of 5 (single-row) and 8
+ * (multi-row), which is strictly better evidence than a synthetic width". The
+ * canonical budget moved 1185 -> 1482 so that an eight-wide tier stops
+ * splitting — the fix for models coming out portrait in a landscape pane — and
+ * the consequence is that ALL FIVE shipped starters are now single-row.
+ *
+ * That is good for users and bad for this corpus: the multi-row branch is still
+ * reachable in production (any tier of nine or more) and no shipped shape
+ * exercises it any more. So the multi-row arm is now SYNTHETIC, and the loss of
+ * evidence quality is recorded here rather than hidden by a table that still
+ * says "multi-row" somewhere.
+ *
  * `BRANCH_OF` records which starter exercises which, and the `describe` block
  * below proves each one really is on the branch claimed, BY NODE IDENTITY.
  * Recorded rather than derived from the layout, deliberately: a table derived
@@ -87,11 +106,34 @@ const HEIGHTS = (capture as { heights: Record<string, Record<string, number>> })
  */
 type Branch = 'single-row' | 'multi-row'
 const BRANCH_OF: Record<StarterId, Branch> = {
-  'vendor-selection': 'multi-row',
-  'market-entry': 'multi-row',
-  'build-vs-buy': 'multi-row',
+  'vendor-selection': 'single-row',
+  'market-entry': 'single-row',
+  'build-vs-buy': 'single-row',
   'headcount-allocation': 'single-row',
   'pricing-model': 'single-row',
+}
+
+/** The widest tier that still single-rows, derived rather than recalled. */
+const SINGLE_ROW_CAP = Math.floor(
+  (CANONICAL_LAYOUT_WIDTH + MIN_GAP) / (NODE_SINGLE_ROW_FAIR_SHARE_W + LAYOUT_PADDING_X + MIN_GAP),
+)
+
+/**
+ * A synthetic tier of `n` same-tier factors — the multi-row arm, now that no
+ * shipped starter reaches it. Heights are uniform because this graph is about
+ * the HORIZONTAL gap only; the starter corpus above carries the real heights.
+ */
+function syntheticTier(n: number): { nodes: Node[]; edges: Edge[] } {
+  const nodes: Node[] = [
+    { id: 'dec', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'Decision', kind: 'decision' }, measured: { width: NODE_CARD_MAX_W, height: 120 } },
+    { id: 'opt', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option', kind: 'option' }, measured: { width: NODE_CARD_MAX_W, height: 120 } },
+  ] as unknown as Node[]
+  const edges: Edge[] = [{ id: 'e-d-o', source: 'dec', target: 'opt' }]
+  for (let i = 0; i < n; i++) {
+    nodes.push({ id: `fac_${i}`, type: 'factor', position: { x: 0, y: 0 }, data: { label: `Factor ${i}`, kind: 'factor' }, measured: { width: NODE_CARD_MAX_W, height: 120 } } as unknown as Node)
+    edges.push({ id: `e-o-${i}`, source: 'opt', target: `fac_${i}` })
+  }
+  return { nodes, edges }
 }
 
 interface Rect { id: string; x: number; y: number; w: number; h: number }
@@ -163,9 +205,45 @@ describe('same-row gap holds at BOTH packing branches, for every shipped starter
   // The corpus must actually contain both branches, or "BOTH" in this
   // describe's name is a claim nothing checks (trap 13: an absence/coverage
   // claim needs a control).
-  it('the shipped corpus covers both packing branches', () => {
+  it('⚠ the shipped corpus is ENTIRELY single-row, and the multi-row arm is synthetic', async () => {
+    /**
+     * "BOTH" in this describe's name is a claim, so it is checked (trap 13: a
+     * coverage claim needs a control). It used to be satisfied by the starters
+     * alone; since the budget move it is not, and the honest form of that is to
+     * assert the new fact rather than to keep a table that claims otherwise.
+     */
     const covered = new Set(Object.values(BRANCH_OF))
-    expect([...covered].sort()).toEqual(['multi-row', 'single-row'])
+    expect([...covered]).toEqual(['single-row'])
+
+    // …so the multi-row branch is reached synthetically, and it is REACHED —
+    // asserted here rather than assumed, because a synthetic that quietly
+    // single-rows would leave the branch untested with nothing going red.
+    const { nodes, edges } = syntheticTier(SINGLE_ROW_CAP + 1)
+    const out = await layoutGraph(nodes, edges, {})
+    const ys = new Set(out.nodes.filter(n => n.id.startsWith('fac_')).map(n => n.position.y))
+    expect(ys.size, 'the synthetic multi-row arm did not split').toBeGreaterThan(1)
+
+    // CONTRAST CONTROL: one fewer factor and it does NOT split. Without this,
+    // the assertion above would pass on a layout that split everything.
+    const atCap = await layoutGraph(...(({ nodes: n2, edges: e2 }) => [n2, e2, {}] as const)(syntheticTier(SINGLE_ROW_CAP)))
+    expect(new Set(atCap.nodes.filter(n => n.id.startsWith('fac_')).map(n => n.position.y)).size).toBe(1)
+  })
+
+  it('every same-row neighbour pair of the SYNTHETIC multi-row tier clears COLLISION_GAP', async () => {
+    const { nodes, edges } = syntheticTier(SINGLE_ROW_CAP + 1)
+    const out = await layoutGraph(nodes, edges, {})
+    const rects: Rect[] = out.nodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y, w: out.layoutNodeWidth, h: 120 }))
+    const rows = rowsOf(rects)
+    const multiNodeRows = [...rows.values()].filter(r => r.length >= 2)
+    expect(multiNodeRows.length, 'the gap assertion would be vacuous').toBeGreaterThan(0)
+    let pairsChecked = 0
+    for (const row of rows.values()) {
+      for (let i = 1; i < row.length; i++) {
+        expect(row[i].x - (row[i - 1].x + row[i - 1].w)).toBeGreaterThanOrEqual(COLLISION_GAP)
+        pairsChecked++
+      }
+    }
+    expect(pairsChecked).toBeGreaterThan(0)
   })
 
   {
@@ -242,13 +320,23 @@ describe('the branches this suite claims to straddle are the branches it exercis
     expect(BRANCH_OF['headcount-allocation']).toBe('single-row')
   })
 
-  it('vendor-selection (8-wide tier) splits its factor tier across MORE THAN ONE row', async () => {
+  it('⭐ vendor-selection (8-wide tier) now holds its factor tier on ONE row', async () => {
+    /**
+     * ⚠ THIS ASSERTION IS INVERTED FROM WHAT IT WAS, AND THE INVERSION IS THE
+     * DELIVERABLE. It read `toBeGreaterThan(1)` — an eight-wide tier splitting
+     * across rows, which made this starter 1142 x 1937: a PORTRAIT model in a
+     * LANDSCAPE pane, fitted on its height and using about 30% of the available
+     * width. At the 1482 budget it is 3592 x 1811 and the tier is one row.
+     *
+     * Kept pointed at the same eight node ids so the claim is still bound by
+     * IDENTITY rather than by a count that some other tier could satisfy.
+     */
     const rects = await layOut('vendor-selection')
     const ys = new Set(
       FACTOR_TIER_OF_VENDOR_SELECTION.map((nid) => rects.find((r) => r.id === nid)!.y),
     )
-    expect(ys.size, 'expected the multi-row branch').toBeGreaterThan(1)
-    expect(BRANCH_OF['vendor-selection']).toBe('multi-row')
+    expect(ys.size, 'expected the single-row branch').toBe(1)
+    expect(BRANCH_OF['vendor-selection']).toBe('single-row')
   })
 })
 
@@ -268,10 +356,15 @@ describe('WHERE THE GAP COMES FROM — and it is not applyCollisionGuard', () =>
    * STRIDE's, not the guard's — which is what stops a later reader citing a
    * green suite as evidence that the guard protects the corpus.
    */
-  const EXPECTED_STRIDE_GAP = LAYOUT_PADDING_X + 20 // effectiveNodeSpacing floor: Math.max(20, spacing)
+  // ⚠ WAS `LAYOUT_PADDING_X + 20`, with the 20 hand-copied from the old
+  // `Math.max(20, spacing)` literal in `layout.ts`. That floor is now the named
+  // `LAYOUT_NODE_GAP`, so this reads it rather than restating it — the mirror
+  // is what made five cases RED with a bare `expected 56 to be 44` when the
+  // floor was raised (CLAUDE.md trap 12).
+  const EXPECTED_STRIDE_GAP = LAYOUT_PADDING_X + LAYOUT_NODE_GAP
 
   it.each(Object.keys(STARTERS) as StarterId[])(
-    '%s: the minimum same-row gap is the STRIDE (44px), strictly above COLLISION_GAP',
+    '%s: the minimum same-row gap is the STRIDE, strictly above COLLISION_GAP',
     async (id) => {
       let min = Number.POSITIVE_INFINITY
       const rows = rowsOf(await layOut(id))

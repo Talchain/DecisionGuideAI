@@ -16,7 +16,7 @@
  *   2. a `>`-closed `<textarea>` with a raw `text-xs`            → GREEN
  *   3. a below-minimum control in a SUBDIRECTORY                 → GREEN
  *   4. DELETING the element-boundary line entirely               → GREEN
- *   5. an input on `nodeLabel` (11px, `calc` shape)              → GREEN
+ *   5. an input on `nodeLabel` (12px, `calc` shape)              → GREEN
  *   6. an input on `screenReaderOnly` (no size class at all)     → GREEN
  *
  * Routes 1-4 were a line-walk that could not terminate on the element's own line
@@ -185,12 +185,33 @@ describe('Model tab text-entry controls hold the 14px minimum', () => {
     })
 
     it('A7 the calc shape the old regex could not read resolves, and bites', () => {
+      // ⚠ 11px → 12px (12 Sep 2026). `typography.nodeLabel` moved with the
+      // canvas ramp. The MAGNITUDE is pinned deliberately — this file's own
+      // rule is "pinned by reason AND magnitude, not by location alone", so a
+      // token drifting to a different below-minimum size must still RED here
+      // rather than pass on a stale expectation.
       const out = judgeControls(
         scanSource(`<input className={typography.nodeLabel} />`, 'f.tsx'),
         typography as Record<string, string>,
       )
       expect(out.map(o => o.kind)).toEqual(['below-minimum'])
-      expect(out[0].detail).toMatch(/11px/)
+      expect(out[0].detail).toMatch(/12px/)
+    })
+
+    it('⭐ A7b THE CANVAS TITLE IS NO LONGER BELOW THE MINIMUM, which is the point of the ramp', () => {
+      /**
+       * ⭐⭐ THE OPPOSITE-DIRECTION TWIN, and the reason A7 alone is not enough.
+       * A7 shows the scanner can resolve a `calc` shape and call it too small.
+       * It would read identically if the scanner called EVERY token too small.
+       * `typography.nodeTitle` is now 14px — exactly the minimum — so it must
+       * come back CLEAN through the same code path, on the same day the canvas
+       * stopped being the one surface below its own declared floor.
+       */
+      const out = judgeControls(
+        scanSource(`<input className={typography.nodeTitle} />`, 'f.tsx'),
+        typography as Record<string, string>,
+      )
+      expect(out).toEqual([])
     })
 
     it('A9 a VARIANT-PREFIXED or !important below-minimum size is caught', () => {

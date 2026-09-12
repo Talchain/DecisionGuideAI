@@ -653,10 +653,18 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
       // preserved in the arithmetic block above; this is the current one.
       //   3 x 40px + 2 x 12px          = 144 CSS px  (the spec's own §556 figure)
       //   6 (inset) + 144 + 4 (slop)   = 154 CSS px
-      //   154 / 230                    = 67.0%
+      //   154 / 260                    = 59.2%
+      //
+      // ⭐ RE-DECIDED AGAIN, AND IN THE GOOD DIRECTION (2026-09-12). The
+      // footprint is UNCHANGED at 154 — the control row did not move. What
+      // changed is the card underneath it: the canvas type ramp went to the
+      // design system's stated 14px minimum, so `NODE_LAYOUT_MIN_W` went
+      // 230 -> 260 and the SAME row now occupies a smaller share of the
+      // narrowest card. 67.0% -> 59.2% is a bound getting looser because the
+      // card grew, not a trade being retuned to fit a regression.
       expect(visual, 'the row visual width moved').toBe(144)
       expect(occupied, 'the row footprint moved').toBe(154)
-      expect(NODE_LAYOUT_MIN_W, 'the narrowest card moved').toBe(230)
+      expect(NODE_LAYOUT_MIN_W, 'the narrowest card moved').toBe(260)
 
       // …and the RELATIONSHIP, which is the thing that actually matters and the
       // thing a change to either side would break silently.
@@ -664,7 +672,7 @@ describe('canvas glyphs and targets survive the viewport transform', () => {
       expect(
         Math.round((occupied / NODE_LAYOUT_MIN_W) * 1000) / 10,
         'the row footprint as a % of the narrowest card is the accepted trade — re-decide it, do not retune it',
-      ).toBe(67)
+      ).toBe(59.2)
     })
   })
 })

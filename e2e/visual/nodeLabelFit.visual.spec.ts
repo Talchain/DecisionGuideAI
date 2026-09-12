@@ -212,7 +212,33 @@ test.describe('the widest-word bound covers the product’s own content', () => 
     // that the review measured as WIDER than the bound. If these came back
     // under it, this test could not distinguish a safe corpus from an unsafe
     // one, and its pass would mean nothing.
-    const control = ['Commoditisation', 'Recommendation', 'Communications', 'Mismanagement', 'Accommodation']
+    //
+    // ⚠⚠ THE CONTROL HAS TO MOVE WITH THE BOUND, AND THIS TEST CAUGHT ITSELF
+    // GOING BLUNT (12 Sep 2026). The canvas type ramp went 12px → 14px, so
+    // `NODE_TITLE_WIDEST_WORD_PX` went 93 → 108 — and at the new size
+    // 'Accommodation' measures 107.45px, i.e. UNDER the bound it is supposed to
+    // exceed. The test failed with its own message: "this test can no longer
+    // tell a safe corpus from an unsafe one". Nothing about the corpus had
+    // changed; the control had simply been overtaken.
+    //
+    // That is CLAUDE.md trap 12b — a control whose reference is "whatever the
+    // constant is now" has an expiry date nobody wrote down. The two shortest
+    // members (13 letters) are replaced with longer ordinary business words, and
+    // the assertion below re-proves the property rather than trusting the list.
+    // ⭐ Note the direction: a control going blunt FAILS LOUD here only because
+    // the spec asserts the control exceeds the bound. Without that assertion the
+    // list would have gone quietly non-discriminating and the corpus check would
+    // have kept passing on nothing.
+    // MEASURED at the 14px ramp, in this browser, by this spec (px at max scale):
+    //   Recommendations  122.77   Commoditisations 119.56   Recommendation  115.39
+    //   Accommodations   114.83   Commoditisation  112.19
+    // Deliberately NOT the previous list's two shortest members — 'Communications'
+    // (110.91) and 'Mismanagement' (109.39) clear 108 by under 3px, and a control
+    // that barely clears its bound is one type change away from going blunt again.
+    // ⚠ LETTER COUNT IS A USELESS PROXY and picking by it wasted a run:
+    // 'Interoperability' is 16 letters and measures 100.39px, NARROWER than the
+    // 13-letter 'Accommodation'. Wide glyphs (m, o, a, d) decide this, not length.
+    const control = ['Commoditisation', 'Recommendation', 'Accommodations', 'Recommendations', 'Commoditisations']
 
     const result = await page.evaluate(measureWords, { words, control })
     expect(result, 'no mounted node title to take the live font from').not.toBeNull()

@@ -10,6 +10,7 @@ import {
   CANONICAL_LAYOUT_WIDTH,
   NODE_SINGLE_ROW_FAIR_SHARE_W,
   MIN_GAP,
+  LAYOUT_NODE_GAP,
 } from '../utils/nodeLayoutConstants'
 import type { Node, Edge } from '@xyflow/react'
 
@@ -336,7 +337,10 @@ describe('ELK Layout', () => {
       makeEdge('e4', 'o1', 'f3'), makeEdge('e5', 'o1', 'f4'),
     ]
     const SPACING = 15
-    const EFFECTIVE_SPACING = Math.max(20, SPACING)
+    // ⚠ The floor was a hand-copied literal `20`. `layout.ts` now names it
+    // `LAYOUT_NODE_GAP`, so read it — a mirror here RED-ed with a bare
+    // `expected 1792 to be 1756` when the floor was raised (CLAUDE.md trap 12).
+    const EFFECTIVE_SPACING = Math.max(LAYOUT_NODE_GAP, SPACING)
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(
       nodes,
       edges,
@@ -387,10 +391,17 @@ describe('ELK Layout', () => {
         (CANONICAL_LAYOUT_WIDTH + minGap) /
           (NODE_SINGLE_ROW_FAIR_SHARE_W + LAYOUT_PADDING_X + minGap),
       )
-    expect(singleRowCap(MIN_GAP)).toBe(6)
+    // ⚠ 6 → 8 (12 Sep 2026): `CANONICAL_LAYOUT_WIDTH` 1185 → 1482, so a seven-
+    // and an eight-wide tier now single-row. That is the change, not a side
+    // effect — see the extent table on the constant.
+    expect(singleRowCap(MIN_GAP)).toBe(8)
     // The derivation DISCRIMINATES — without this the assertion above could be
-    // satisfied by a formula that ignores MIN_GAP entirely (trap 20).
-    expect(singleRowCap(60)).toBe(5)
+    // satisfied by a formula that ignores MIN_GAP entirely (trap 20). Widening
+    // the gap must REDUCE the cap, and it must do so monotonically rather than
+    // merely differ at one point.
+    expect(singleRowCap(60)).toBe(6)
+    expect(singleRowCap(100)).toBe(5)
+    expect(singleRowCap(100)).toBeLessThan(singleRowCap(60))
     expect(singleRowCap(60)).not.toBe(singleRowCap(MIN_GAP))
     const nodes: Node[] = [
       makeNode('d', 'decision'),
@@ -404,7 +415,10 @@ describe('ELK Layout', () => {
       makeEdge('e5', 'o1', 'f4'), makeEdge('e6', 'o1', 'f5'), makeEdge('e7', 'o1', 'f6'),
     ]
     const SPACING = 15
-    const EFFECTIVE_SPACING = Math.max(20, SPACING)
+    // ⚠ The floor was a hand-copied literal `20`. `layout.ts` now names it
+    // `LAYOUT_NODE_GAP`, so read it — a mirror here RED-ed with a bare
+    // `expected 1792 to be 1756` when the floor was raised (CLAUDE.md trap 12).
+    const EFFECTIVE_SPACING = Math.max(LAYOUT_NODE_GAP, SPACING)
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(
       nodes,
       edges,
@@ -420,7 +434,8 @@ describe('ELK Layout', () => {
       .sort((a, b) => a.position.x - b.position.x)
     expect(factors).toHaveLength(6)
 
-    // Single-row placement formula: rightEdge = 24 + 5 * (320+24+20) + 320 = 2164.
+    // Single-row placement formula, derived below rather than restated:
+    //   rightEdge = CANVAS_MARGIN + 5 * (cardMax + padX + gap) + cardMax.
     const lastVisibleRightEdge = factors[5].position.x + NODE_CARD_MAX_W
     expect(lastVisibleRightEdge).toBe(
       CANVAS_MARGIN + 5 * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + EFFECTIVE_SPACING) + NODE_CARD_MAX_W,
@@ -521,15 +536,23 @@ describe('ELK Layout', () => {
   })
 
   it('nodeW is clamped to NODE_LAYOUT_MIN_W when the widest tier cannot take its fair share', async () => {
-    // 14-node graph: 7 factors in tier 2. Against the canonical budget,
-    // floor((1105 - 6*MIN_GAP)/7) = 145 < 164, so multi-row fires and
+    // 16-node graph: 9 factors in tier 2. Against the canonical budget,
+    // floor((1482 - 8*MIN_GAP)/9) = 151 < 164, so multi-row fires and
     // layoutNodeWidth must equal NODE_LAYOUT_MIN_W. ⚠ The branch is selected by
-    // the TIER COUNT, not by a canvas: 7 is the smallest tier that splits.
+    // the TIER COUNT, not by a canvas: 9 is the smallest tier that splits.
+    //
+    // ⚠ WAS SEVEN. `CANONICAL_LAYOUT_WIDTH` moved 1185 → 1482 so that seven-
+    // and eight-wide tiers single-row (the portrait-model fix), which means a
+    // seven-factor fixture no longer reaches the branch this test is named for.
+    // A test whose fixture stops reaching its branch does not fail loudly — it
+    // asserts something else and stays green — so the fixture moves with the
+    // constant.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
       makeNode('f1', 'factor'), makeNode('f2', 'factor'), makeNode('f3', 'factor'),
       makeNode('f4', 'factor'), makeNode('f5', 'factor'), makeNode('f6', 'factor'), makeNode('f7', 'factor'),
+      makeNode('f8', 'factor'), makeNode('f9', 'factor'),
       makeNode('out', 'outcome'),
       makeNode('r1', 'risk'),
       makeNode('g', 'goal'),
@@ -538,7 +561,7 @@ describe('ELK Layout', () => {
       makeEdge('e1', 'd', 'o1'), makeEdge('e2', 'd', 'o2'), makeEdge('e3', 'd', 'o3'),
       makeEdge('e4', 'o1', 'f1'), makeEdge('e5', 'o1', 'f2'), makeEdge('e6', 'o2', 'f3'),
       makeEdge('e7', 'o2', 'f4'), makeEdge('e8', 'o3', 'f5'), makeEdge('e9', 'o3', 'f6'),
-      makeEdge('e10', 'o3', 'f7'),
+      makeEdge('e10', 'o3', 'f7'), makeEdge('e10b', 'o3', 'f8'), makeEdge('e10c', 'o3', 'f9'),
       makeEdge('e11', 'f1', 'out'), makeEdge('e12', 'f2', 'out'),
       makeEdge('e13', 'out', 'r1'), makeEdge('e14', 'r1', 'g'),
     ]
@@ -551,13 +574,14 @@ describe('ELK Layout', () => {
     })
   })
 
-  it('multi-row splitting produces no overlapping nodes for a 7-factor tier', async () => {
-    // Same 14-node graph as above, verify non-overlap using NODE_LAYOUT_MIN_W box
+  it('multi-row splitting produces no overlapping nodes for a 9-factor tier', async () => {
+    // Same 16-node graph as above, verify non-overlap using NODE_LAYOUT_MIN_W box
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
       makeNode('f1', 'factor'), makeNode('f2', 'factor'), makeNode('f3', 'factor'),
       makeNode('f4', 'factor'), makeNode('f5', 'factor'), makeNode('f6', 'factor'), makeNode('f7', 'factor'),
+      makeNode('f8', 'factor'), makeNode('f9', 'factor'),
       makeNode('out', 'outcome'),
       makeNode('r1', 'risk'),
       makeNode('g', 'goal'),
@@ -566,7 +590,7 @@ describe('ELK Layout', () => {
       makeEdge('e1', 'd', 'o1'), makeEdge('e2', 'd', 'o2'), makeEdge('e3', 'd', 'o3'),
       makeEdge('e4', 'o1', 'f1'), makeEdge('e5', 'o1', 'f2'), makeEdge('e6', 'o2', 'f3'),
       makeEdge('e7', 'o2', 'f4'), makeEdge('e8', 'o3', 'f5'), makeEdge('e9', 'o3', 'f6'),
-      makeEdge('e10', 'o3', 'f7'),
+      makeEdge('e10', 'o3', 'f7'), makeEdge('e10b', 'o3', 'f8'), makeEdge('e10c', 'o3', 'f9'),
       makeEdge('e11', 'f1', 'out'), makeEdge('e12', 'f2', 'out'),
       makeEdge('e13', 'out', 'r1'), makeEdge('e14', 'r1', 'g'),
     ]
