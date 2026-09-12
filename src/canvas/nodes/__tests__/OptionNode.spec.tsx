@@ -832,7 +832,10 @@ describe('OptionNode', () => {
     // v1.1". That ban is what produced "Development headcount 0% → 40%" on the
     // live hiring graph: a 'quality' factor with no unit/cap/raw has no scale,
     // so the percentage was invented. 0.7 → 'High' per qualitativeTierLabel.
-    expect(screen.getByText('High')).toBeDefined()
+    // ⚠ RE-PINNED AGAIN (band-keeps-its-number): the bare tier word collapsed
+    // different values inside one band to the same string, so the band now
+    // carries its value. The invented percentage is still banned (below).
+    expect(screen.getByText('High (0.7)')).toBeDefined()
     expect(screen.queryByText('70%')).toBeNull()
   })
 
@@ -1609,8 +1612,12 @@ describe('OptionNode — QA Brief C-series', () => {
     // ⚠ RE-PINNED 14 Aug — same reversal as the 'quality' test above. "No unit,
     // no scale" is precisely the condition under which a percentage cannot be
     // honest; the tier word is what the factor actually supports.
+    // ⚠ RE-PINNED AGAIN (band-keeps-its-number): the tier word still carries
+    // the frame, but it now keeps its value so two values inside one band
+    // cannot render identically. Still no percentage.
     // Arrow separator is present between label and value (not a delta indicator)
-    expect(screen.getByText('High')).toBeDefined()
+    expect(screen.getByText('High (0.7)')).toBeDefined()
+    expect(screen.queryByText('70%')).toBeNull()
   })
 
   // C5: Near-zero baseline — no spurious percentage (guard: abs(denormedBaseline) <= 0.01)
