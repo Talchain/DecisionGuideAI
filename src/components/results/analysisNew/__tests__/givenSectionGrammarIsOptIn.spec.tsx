@@ -37,9 +37,27 @@ import { render, screen } from '@testing-library/react'
 vi.mock('../../../../canvas/store', () => ({
   useCanvasStore: (sel: (s: unknown) => unknown) => sel({ currentScenarioId: 'scn-1' }),
 }))
+/**
+ * ⚠ A `vi.mock` FACTORY REPLACES THE MODULE, SO THIS OBJECT IS A HAND-MAINTAINED
+ * MIRROR OF THE STORE'S SHAPE (CLAUDE.md trap 12, in its original form) — a
+ * field added to the store later reads `undefined` here, and a consumer that
+ * dereferences it throws inside a suite about container geometry. That is
+ * exactly what happened when `modelBuildingNotices` arrived (ROADMAP 2.1379):
+ * five tests below RED on a null-guard two panes away.
+ *
+ * It is listed here because this suite's whole subject is the CONTAINER, and it
+ * needs the section to render at all. The consumer was also hardened so an
+ * absent field can never throw again — this mirror is the second line, not the
+ * first.
+ */
 vi.mock('../../../../canvas/stores/contextIntegrityStore', () => ({
   useContextIntegrityStore: (sel: (s: unknown) => unknown) =>
-    sel({ scenarioId: 'scn-1', briefText: 'a brief', manifest: null }),
+    sel({
+      scenarioId: 'scn-1',
+      briefText: 'a brief',
+      manifest: null,
+      modelBuildingNotices: null,
+    }),
 }))
 
 import { WhatIWasGivenSection } from '../../contextIntegrity/WhatIWasGivenSection'
