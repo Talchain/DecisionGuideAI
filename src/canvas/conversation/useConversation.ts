@@ -4999,6 +4999,36 @@ export function useConversation(): UseConversationReturn {
                   scenarioId: scenarioIdAtDispatch,
                   briefText: message,
                 })
+                // ── What this draft had to leave out, kept where the register
+                // ── can read it — ROADMAP 2.1379.
+                //
+                // `model_building_notices` rides this same response and is
+                // already rendered on the bubble below. The REGISTER could not
+                // see it, so on a first session it refused ("I can't show this
+                // yet for this decision") while the chat two panels away
+                // displayed a count — one screen, two answers to one question.
+                // It cannot be closed by filling the manifest instead: at the
+                // pinned contract (0.55.0) `not_modelled` is not a declared key
+                // at all, and the manifest arrives only on the cold read, which
+                // answers `absent` for a decision this fresh.
+                //
+                // ⚠ THE SAME EXTRACTOR THE BUBBLE USES, not a second read of
+                // the field. One authority, asked twice (trap 12).
+                //
+                // ⚠ FAIL-CLOSED AT BOTH HOPS: the extractor returns null on an
+                // absent or malformed field and the spread below attaches
+                // nothing; the store refuses any write it cannot attribute to
+                // the decision it is already describing. Absence of the field
+                // means NO ATTESTATION WAS SUPPLIED — never "this draft left
+                // nothing out" — so nothing is written and the register keeps
+                // its unqualified refusal.
+                const draftNotices = extractModelBuildingNoticesSidecar(target.response)
+                if (draftNotices) {
+                  useContextIntegrityStore.getState().recordModelBuildingNotices({
+                    scenarioId: scenarioIdAtDispatch,
+                    notices: draftNotices,
+                  })
+                }
               }
               if (import.meta.env.DEV) {
                 console.log('[sendTurn V5] graph applied from inline response:', inlineNodeCount, 'nodes')

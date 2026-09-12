@@ -58,9 +58,28 @@ import {
 } from '../../../canvas/conversation/factorValueEdit'
 import { useContextIntegrityStore } from '../../../canvas/stores/contextIntegrityStore'
 import type { InferredFactor, NotModelledItem } from '../../../adapters/cee/notModelled'
+import type { ModelBuildingNoticeRow } from '../../../canvas/conversation/modelBuildingNotices'
 import { ClampToggle } from '../ClampToggle'
 import { figureTallySubtitle } from './figureTallySubtitle'
 import { surface } from '../analysisNew/panelSurfaces'
+/**
+ * ⭐⭐ THE "Not modelled yet" PANE'S COPY AND ITS ONE ADMISSION RULE, IMPORTED.
+ *
+ * ROADMAP 2.1379. On a FIRST session this section has `manifest === null` and
+ * says so — correctly, and incompletely, because the same turn's chat bubble is
+ * already displaying *"Olumi left N things out of this model"* two panels away.
+ * The draft turn's own attestation now feeds this pane; the refusal stays and
+ * is re-scoped to the thing that genuinely cannot be shown.
+ *
+ * ⛔ WHICH kinds may appear under that heading is `KIND_OUTCOME`'s ruling,
+ * ASKED through `notModelledNoticeRows` and never re-spelled here. A predicate
+ * written at this call site would be a second answer, on one screen, to the
+ * question the bubble above already answers (trap 12).
+ */
+import {
+  NOT_MODELLED_NOTICES_COPY,
+  notModelledNoticeRows,
+} from './notModelledNotices'
 /**
  * ⭐⭐ THE ONE CONTROL FOR THIS ACT, IMPORTED — NOT A SECOND ONE WRITTEN HERE.
  *
@@ -131,8 +150,15 @@ const COPY = {
    * is that it reads as prose.
    */
   estimatedValuePrefix: 'Current value: ',
-  notYetHeading: 'Not modelled yet',
-  notYetLead: 'These are in your brief but not in the model. Ask about any that matter.',
+  /**
+   * ⚠ THE "Not modelled yet" HEADING AND ITS TWO LEADS MOVED TO
+   * `notModelledNotices.ts` (ROADMAP 2.1379) AND ARE NOT RE-SPELLED HERE. The
+   * pane now has TWO sources — the manifest and the draft turn's attestation —
+   * whose leads differ on exactly one thing, ATTRIBUTION, and that difference
+   * is a ruling (#1524: the notices wire carries no per-item provenance). Two
+   * leads for one pane kept in two files is how the ruling gets edited out of
+   * one of them.
+   */
   consideredLead: 'I also considered these and left them out:',
   // ⚠ SAME POPULATION CORRECTION AS THE SUBTITLE (ROADMAP 2.1000, 11 Sep 2026).
   // This read "This covers figures you mentioned", which attributes the lists
@@ -141,14 +167,6 @@ const COPY = {
   // whole job is to say "these lists are not exhaustive" may not open by
   // misdescribing what they are lists OF. See `figureTallySubtitle.ts`.
   caveatLead: 'This covers the figures I found in your brief. It does not yet track:',
-  /**
-   * ⚠ THE "so" IS LOAD-BEARING AND WAS BRIEFLY LOST (11 Sep 2026). Splitting
-   * the em dash out of this sentence first produced two flat statements, which
-   * dropped the causal link: the reason not to read the silence as completeness
-   * IS that we cannot show it. A comma plus "so" carries that without a dash.
-   */
-  unknown:
-    "I can't show this yet for this decision, so please don't read the absence as everything having made it in.",
   noBrief: "I don't have your original wording saved for this decision.",
   /**
    * ⚠ THIS LABEL SAID "Add this", AND THE PRODUCT COULD NOT DO IT. Derived
@@ -376,6 +394,50 @@ function TextRowList({ rows, testId }: { rows: readonly TextRow[]; testId: strin
       {rows.map((row) => (
         <li key={row.key} data-testid={`${testId}-row`} {...row.attrs} className={TEXT_ROW_CLASS}>
           {row.label}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** The notices-fed rows, addressed by this prefix + their producer kind. */
+const NOTICES_TEST_ID = 'what-i-was-given-notyet-notices'
+
+/**
+ * The draft turn's attested omissions, as kinds and counts — ROADMAP 2.1379.
+ *
+ * ⛔ IT IS INERT, AND THE INERTNESS IS THE RULING, NOT A SIMPLIFICATION.
+ * `details_redacted` is a literal `true`: the producer sends aggregate counts
+ * per kind and nothing else. There is no literal, no char offset and no node
+ * id, so `composeNotModelledQuestion` has nothing to compose and a "Where does
+ * this fit?" button here would be a control that cannot do anything. This
+ * panel's standing rule is that we never render one. `TextRowList` is not
+ * reused because its rows carry a `label` and these carry a label AND a
+ * quantity — and because that component's own header records why a list which
+ * must never acquire an action is kept apart from one that has one.
+ *
+ * ⚠ THE COUNT IS A TRAILING PARENTHETICAL, matching the chat bubble on the same
+ * payload. The reason is recorded there: a leading numeral reads "1 Details
+ * that nothing connected to your goal" whenever a group holds one item, and
+ * `total_count: 1` is the most likely draft of all. The description is a
+ * CATEGORY LABEL with fixed grammatical number, so nothing prefixed to it can
+ * agree at both 1 and n.
+ *
+ * ⚠ THE KIND RIDES A `data-` ATTRIBUTE AND IS NEVER RENDERED AS TEXT — the
+ * same posture as `ModelBuildingNoticesNotice`, and what lets a test bind a row
+ * to its subject BY IDENTITY rather than by a string another row could produce.
+ */
+function NoticeRowList({ rows }: { rows: readonly ModelBuildingNoticeRow[] }) {
+  return (
+    <ul className={LIST_CLASS} data-testid={NOTICES_TEST_ID}>
+      {rows.map((row) => (
+        <li
+          key={row.kind}
+          data-testid={`${NOTICES_TEST_ID}-row`}
+          data-notice-kind={row.kind}
+          className={TEXT_ROW_CLASS}
+        >
+          {row.description} <span className="text-text-body">({row.count})</span>
         </li>
       ))}
     </ul>
@@ -705,6 +767,13 @@ export const WhatIWasGivenSection = forwardRef<
   const recordedScenarioId = useContextIntegrityStore((s) => s.scenarioId)
   const briefText = useContextIntegrityStore((s) => s.briefText)
   const manifest = useContextIntegrityStore((s) => s.manifest)
+  /**
+   * ⭐ THE DRAFT TURN'S OWN ATTESTATION — the only answer this pane has on a
+   * first session, and the one the chat bubble two panels up is already
+   * rendering. `null` means no attestation was supplied, NEVER "nothing was
+   * left out": the producer's contract cannot encode zero.
+   */
+  const draftNotices = useContextIntegrityStore((s) => s.modelBuildingNotices)
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
 
   /**
@@ -829,6 +898,18 @@ export const WhatIWasGivenSection = forwardRef<
    */
   const subtitle = figureTallySubtitle(tally)
 
+  /**
+   * ⭐⭐ WHAT "Not modelled yet" CAN SAY WHEN THE MANIFEST SAYS NOTHING.
+   *
+   * ⚠ ONE CONDITION, ASKED ONCE, AND THAT IS WHAT MAKES THE RE-SCOPED REFUSAL'S
+   * CLOSING POINTER TRUE BY CONSTRUCTION. `notModelledNoticeRows` applies
+   * `KIND_OUTCOME` — so an attestation whose every kind is still IN the model
+   * yields zero rows, and this pane behaves exactly as if none had arrived. A
+   * flag keyed on "did a payload arrive?" instead would point the reader at an
+   * empty space (trap 13b: a guard whose precondition nothing pins).
+   */
+  const noticeRows = notModelledNoticeRows(draftNotices)
+
   const addMessage = (item: NotModelledItem) =>
     onSendMessage?.(composeNotModelledQuestion(item, briefText))
 
@@ -886,12 +967,49 @@ export const WhatIWasGivenSection = forwardRef<
           </div>
 
           {tally === null ? (
-            <p
-              data-testid="what-i-was-given-unknown"
-              className={`${typography.panelBody} text-text-light`}
-            >
-              {COPY.unknown}
-            </p>
+            <>
+              {/* ⛔ THE REFUSAL IS KEPT. IT IS NOT DELETED AND IT DOES NOT FALL
+                  SILENT — this file's header rules that `manifest === null`
+                  must refuse EXPLICITLY, "never an empty list, and never
+                  silence", because both read as "everything made it in".
+
+                  ⭐ WHAT CHANGED IS ITS SCOPE. The unqualified sentence claims
+                  we can show nothing, and on a fresh draft that was false: the
+                  chat bubble two panels above is already displaying this same
+                  turn's omission count. The re-scoped twin refuses exactly what
+                  the manifest would have answered — which of the reader's own
+                  figures reached the model — and then points at what is there.
+                  Both strings live in `notModelledNotices.ts` and are asserted
+                  whole, because a refusal replaced by `''` passes every
+                  `not.toMatch` written about it. */}
+              <p
+                data-testid="what-i-was-given-unknown"
+                className={`${typography.panelBody} text-text-light`}
+              >
+                {noticeRows.length > 0
+                  ? NOT_MODELLED_NOTICES_COPY.unknownWithNotices
+                  : NOT_MODELLED_NOTICES_COPY.unknown}
+              </p>
+
+              {/* ── 4. Not modelled yet, from the draft turn's own attestation ──
+                  The ONLY answer a first session has. No act: the producer
+                  redacted the items, so there is nothing to name and nothing
+                  to compose a question about — see `NoticeRowList`. */}
+              {noticeRows.length > 0 && (
+                <div>
+                  <h4 className={`${typography.panelHeader} text-text-header`}>
+                    {NOT_MODELLED_NOTICES_COPY.heading}
+                  </h4>
+                  <p
+                    data-testid={`${NOTICES_TEST_ID}-lead`}
+                    className={`${typography.panelMeta} text-text-light`}
+                  >
+                    {NOT_MODELLED_NOTICES_COPY.noticesLead}
+                  </p>
+                  <NoticeRowList rows={noticeRows} />
+                </div>
+              )}
+            </>
           ) : (
             <>
               {/* ── 2. What I used ── */}
@@ -908,9 +1026,15 @@ export const WhatIWasGivenSection = forwardRef<
               {notYet.length > 0 && (
                 <div>
                   <h4 className={`${typography.panelHeader} text-text-header`}>
-                    {COPY.notYetHeading}
+                    {NOT_MODELLED_NOTICES_COPY.heading}
                   </h4>
-                  <p className={`${typography.panelMeta} text-text-light`}>{COPY.notYetLead}</p>
+                  {/* ⚠ THE MANIFEST-FED LEAD, WHOSE POSSESSION CLAIM IS EARNED:
+                      these rows ARE figures found in the reader's brief. The
+                      notices-fed twin above is not entitled to it — see
+                      `notModelledNotices.ts`. Two leads, one pane, one file. */}
+                  <p className={`${typography.panelMeta} text-text-light`}>
+                    {NOT_MODELLED_NOTICES_COPY.manifestLead}
+                  </p>
                   <Rows
                     items={notYet}
                     testId="what-i-was-given-notyet"
