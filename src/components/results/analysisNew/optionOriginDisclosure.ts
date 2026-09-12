@@ -72,12 +72,15 @@
  * interest, and it is the only direction the founder's question asks about.
  * A later lane may widen this; it must do so with its own evidence.
  *
- * ⛔ NO COUNT, NO PROPORTION, NO SECOND CLASSIFIER. This reads one closed
- * vocabulary string (via `classifyNodeProvenance`, the estate's ONE owner of
- * what these literals mean) and one field's presence. Nothing else.
+ * ⛔ NO COUNT, NO PROPORTION, NO SECOND CLASSIFIER. One closed vocabulary string
+ * and one field's presence, nothing else — and since 12 Sep 2026 both are read
+ * by `canvas/domain/olumiAuthorshipClaim`, the shared owner, which asks
+ * `classifyNodeProvenance` (the estate's ONE owner of what these literals mean).
+ * The rules below are unchanged; they simply are no longer this module's
+ * private copy of them.
  */
 
-import { classifyNodeProvenance } from '../../../canvas/domain/valueProvenance'
+import { mayClaimOlumiAuthorship } from '../../../canvas/domain/olumiAuthorshipClaim'
 
 /**
  * The only thing this axis can say.
@@ -109,59 +112,28 @@ export const OPTION_ORIGIN_COPY: Record<OptionOrigin, string> = {
   ai_suggested: 'Olumi suggested this option, you did not name it',
 }
 
-/** One node's raw `provenance` literal, or undefined. */
-function rawProvenance(node: unknown): string | undefined {
-  const n = node as Record<string, unknown> | null | undefined
-  if (!n || typeof n !== 'object') return undefined
-  // ⚠ BOTH SHAPES. A React Flow node keeps its payload on `node.data`; a wire
-  // node carries the field at top level, and this repo's fixtures hold both.
-  // `driverValueProvenance.nodeValueSource` takes the same precaution for the
-  // same reason — reading one under-counts.
-  const top = n.provenance
-  if (typeof top === 'string') return top
-  const data = n.data as Record<string, unknown> | null | undefined
-  const nested = data && typeof data === 'object' ? data.provenance : undefined
-  return typeof nested === 'string' ? nested : undefined
-}
-
-/**
- * Was a `source_quote` RECORDED on this node, in any readable or unreadable
- * form? Presence is the question, never content — see the header.
- */
-function quoteRecorded(node: unknown): boolean {
-  const n = node as Record<string, unknown> | null | undefined
-  if (!n || typeof n !== 'object') return false
-  const data = n.data as Record<string, unknown> | null | undefined
-  const holders: Array<Record<string, unknown> | null | undefined> = [n, data]
-  for (const holder of holders) {
-    if (!holder || typeof holder !== 'object') continue
-    // Both spellings: the CEE/PLoT wire uses `source_quote`; a canvas-normalised
-    // node may carry `sourceQuote`.
-    if (holder.source_quote !== undefined && holder.source_quote !== null) return true
-    if (holder.sourceQuote !== undefined && holder.sourceQuote !== null) return true
-  }
-  return false
-}
-
 /**
  * Whose option is this? `null` means SAY NOTHING, and it is the common answer.
  *
- * ⚠ NOTHING IS CLASSIFIED HERE. `classifyNodeProvenance` remains the one
- * authority on what a literal means; this asks it, then applies CEE's
+ * ⚠⚠ THE PREDICATE MOVED OUT; THE GATE DID NOT WEAKEN. This module's own
+ * `rawProvenance` + `quoteRecorded` + the `ai`-and-no-quote test now live in
+ * `canvas/domain/olumiAuthorshipClaim`, BYTE-FOR-BYTE THE SAME RULES, because
+ * two OTHER readers of this one field were answering the same question
+ * differently: the canvas card and the panel row both said "Olumi suggested
+ * this" on the ambiguous class this module already declined. Copying this
+ * module's gate into them would have made three hand-maintained copies of one
+ * predicate (trap 12) — the very shape that let them drift apart. So this
+ * surface keeps its gate by ASKING the owner, and the three can no longer
+ * disagree about one node.
+ *
+ * ⚠ NOTHING IS CLASSIFIED HERE, STILL. `classifyNodeProvenance` remains the one
+ * authority on what a literal means; the owner asks it and applies CEE's
  * ambiguity gate on top. An unknown literal returns `null` from the classifier
- * and is a FINDING, not a patch site — widening the vocabulary here would blind
+ * and is a FINDING, not a patch site — widening the vocabulary there would blind
  * the guard that owns it.
  */
 export function optionOriginFromNode(node: unknown): OptionOrigin | null {
-  const classified = classifyNodeProvenance(rawProvenance(node))
-  if (classified === null) return null
-  // The user's element. Silent by design, not by omission.
-  if (classified.kind !== 'ai') return null
-  // ⛔ THE AMBIGUITY GATE. `ai_inferred` beside a recorded quote means the user
-  // DID state something the brief check could not confirm. Neither "ours" nor
-  // "yours" is safe, so we say nothing.
-  if (quoteRecorded(node)) return null
-  return 'ai_suggested'
+  return mayClaimOlumiAuthorship(node) ? 'ai_suggested' : null
 }
 
 /**
