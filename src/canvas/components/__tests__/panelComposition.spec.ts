@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
+import { CANONICAL_LAYOUT_WIDTH } from '../../utils/nodeLayoutConstants'
 import {
+  FLOATING_OLUMI_SIDE_TAB_WIDTH,
   MIN_USABLE_MODEL_VIEWPORT_WIDTH,
   listenForFloatingOlumiRequests,
   needsSingleExpandedPanel,
@@ -78,6 +80,51 @@ describe('panel composition usable-canvas contract', () => {
     // (trap 13b) — and this pin is the ONLY thing in the suite that noticed the
     // threshold had moved at all.
     expect(MIN_USABLE_MODEL_VIEWPORT_WIDTH).toBe(789)
+  })
+
+  it('⛔⛔ THE TRADE IS UNAVOIDABLE — NO BUDGET BOTH FIXES THE PORTRAIT LAYOUT AND KEEPS 1600', () => {
+    /**
+     * ⭐⭐ THE ASSERTION THAT TURNS THIS FROM A TUNING QUESTION INTO A RULING.
+     *
+     * The obvious reviewer question is "could a smaller budget have avoided the
+     * 1600 cost?" — so it is answered by derivation rather than by opinion, and
+     * pinned here so nobody has to re-derive it or, worse, re-litigate it from
+     * memory. The two requirements are:
+     *
+     *   TO FIX THE PORTRAIT LAYOUT, an eight-wide tier must single-row:
+     *       B >= (FAIR + PAD + MIN_GAP) * 8 - MIN_GAP  =  1417
+     *
+     *   TO KEEP A 1600 VIEWPORT HOLDING BOTH PANELS:
+     *       ceil(B * LABEL_LEGIBLE_ZOOM) + 2*CANVAS_MARGIN <= usable(1600) = 720
+     *       B <= 1344
+     *
+     * 1417 > 1344, so the intersection is EMPTY. Whatever the budget is set to,
+     * the product either leaves three shipped starters laying out portrait in a
+     * landscape pane, or it costs a 1600-1668 viewport its second panel. It
+     * cannot do neither.
+     *
+     * ⚠ THIS TEST DOES NOT SAY THE CHOSEN SIDE IS RIGHT. It says the choice is
+     * real and forced. If a future change makes it unforced — by decoupling
+     * this threshold from the packing budget, which the note above argues it
+     * should be — this test SHOULD go red, and that red is the good news.
+     */
+    const CANVAS_MARGIN = 24
+    const LABEL_LEGIBLE_ZOOM_LOCAL = 0.5
+    const usableAt1600 = 1600 - 428 - 400 - FLOATING_OLUMI_SIDE_TAB_WIDTH - 16
+
+    const budgetNeededForLandscape = (140 + 24 + 15) * 8 - 15
+    const budgetAffordableAt1600 =
+      2 * (usableAt1600 - 2 * CANVAS_MARGIN) / (2 * LABEL_LEGIBLE_ZOOM_LOCAL)
+
+    expect(budgetNeededForLandscape).toBe(1417)
+    expect(budgetAffordableAt1600).toBe(1344)
+    expect(
+      budgetNeededForLandscape,
+      'a budget satisfying both appeared — the trade is no longer forced, so re-open the decision',
+    ).toBeGreaterThan(budgetAffordableAt1600)
+
+    // …and the shipped budget is on the landscape side of it, deliberately.
+    expect(CANONICAL_LAYOUT_WIDTH).toBeGreaterThanOrEqual(budgetNeededForLandscape)
   })
 
   it('⛔ THE NEWLY-CONSTRAINED BAND IS BOUNDED, so the cost is a range and not a vibe', () => {
