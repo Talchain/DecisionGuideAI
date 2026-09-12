@@ -23,10 +23,21 @@
  * browser probe against a seeded pre-analysis starter found ZERO ConnRows, and
  * a zero from a probe is "unmeasured" until you know why.
  *
+ * ⛔ NARROWER STILL, DERIVED AFTER THE ABOVE WAS WRITTEN. A ConnRow needs BOTH
+ * a completed analysis AND EXPERT VIEW MODE: the block sits in
+ * `postAnalysisLayer2`, rendered at `FactorNode.tsx:931` as
+ * `{isDetailed && layer2Content}`, where `isDetailed = viewMode === 'expert'`
+ * (`:57`). `viewMode` defaults to `'standard'`. So the reach of this fix is
+ * expert-mode users after a run — real, and narrow.
+ *
+ * ⚠ The block's own comment says "max 3 whole rows in BOTH views" and that
+ * means the two PHASE views, not compact/detailed. Misreading it cost a ROADMAP
+ * row that had to be withdrawn the same night (2.1396). Recorded here because
+ * the next person will read the same sentence.
+ *
  * That is CLAUDE.md trap 16's inverse: reachability inside a component is not
- * reachability in the product. The defect is real and the fix is right; the
- * population it bites is post-analysis connection rows, and saying so is the
- * difference between a measurement and a claim.
+ * reachability in the product. The defect is real and the fix is right; saying
+ * exactly who sees it is the difference between a measurement and a claim.
  *
  * ⭐ WHY THIS IS NOT "just delete a line": removing a truncation is exactly the
  * change that can leak an unbounded string into a fixed-width card. So this
