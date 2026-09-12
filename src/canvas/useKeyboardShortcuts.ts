@@ -3,7 +3,11 @@
 
 import { useEffect, useRef } from 'react'
 import { useCanvasStore } from './store'
-import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from './mutations/mutationAuthority'
+import {
+  CANONICAL_EDIT_AUTHORITY,
+  hasServerGraphAuthority,
+  CANVAS_STRUCTURAL_EDIT_NOTICE,
+} from './mutations/mutationAuthority'
 import { canRestoreSharedVersions } from './versions/sharedVersionsAvailability'
 import { isPersistenceSessionActive } from '../lib/persistenceSession'
 
@@ -302,8 +306,42 @@ export function isUndoRedoGesture(key: string, cmdOrCtrl: boolean): boolean {
   return lowered === 'z' || lowered === 'y'
 }
 
+/**
+ * True for the clipboard gestures that MUTATE and are permanently inert:
+ * Cmd/Ctrl+X (cut) and Cmd/Ctrl+V (paste).
+ *
+ * ⚠⚠ TWO KEYS ARE DELIBERATELY OUTSIDE THIS PREDICATE, both measured before it
+ * was written, because answering either would be a FALSE notice:
+ *
+ *   · ⌘C — NOT gated. `if (cmdOrCtrl && event.key === 'c')` below carries no
+ *     authority conjunct and calls `state.copySelected()`, which really does
+ *     fill `state.clipboard`. Copy does what it says; only the paste half is
+ *     the lie, and that is the half answered here.
+ *   · ⌘D — NOT inert. This module has a gated-off `duplicateSelected` on ⌘D,
+ *     but `hooks/useCanvasKeyboardShortcuts.ts:201` ALSO binds ⌘D, ungated, to
+ *     `onToggleDocuments` — wired live at `ReactFlowGraph.tsx:1587`. Pressing
+ *     ⌘D opens the Documents drawer. Announcing "duplicate is unavailable"
+ *     over a keystroke that just opened a drawer is one gesture answered two
+ *     ways by two handlers, which is a worse defect than the silence.
+ *
+ * `alt` is refused because `Alt+V` cycles validation errors in that same
+ * sibling hook; a bare `v`/`x` is refused because `v` is the Select tool.
+ */
+export function isClipboardMutationGesture(
+  key: string,
+  cmdOrCtrl: boolean,
+  alt: boolean,
+): boolean {
+  if (!cmdOrCtrl || alt) return false
+  const lowered = key.toLowerCase()
+  return lowered === 'x' || lowered === 'v'
+}
+
 /** Repeat window, so holding ⌘Z does not stack a column of identical toasts. */
 const UNDO_NOTICE_QUIET_MS = 3000
+
+/** Repeat window for the cut/paste notice. */
+const CLIPBOARD_NOTICE_QUIET_MS = 3000
 
 interface KeyboardShortcutOptions {
   /** Callback to set interaction mode (select/hand) for V/H shortcuts */
@@ -323,6 +361,10 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
   // Last time the "undo isn't available" notice was emitted, so a held or
   // repeatedly-pressed ⌘Z produces one message rather than a column of them.
   const lastUndoNoticeAtRef = useRef(0)
+  // Same, for the cut/paste notice. A SEPARATE window from the undo one: they
+  // are different sentences answering different gestures, and sharing a window
+  // would let one gesture silence the other.
+  const lastClipboardNoticeAtRef = useRef(0)
   // Fix: Use getState() inside handler to avoid dependency array issues.
   // Previously, all 12 action functions were in the dependency array, but
   // Zustand selectors return new function references on every render,
@@ -374,6 +416,23 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
         if (!event.repeat && Date.now() - lastUndoNoticeAtRef.current > UNDO_NOTICE_QUIET_MS) {
           lastUndoNoticeAtRef.current = Date.now()
           showCanvasUndoUnavailableNotice()
+        }
+        return
+      }
+
+      // Answer the cut/paste gestures rather than swallowing them. Runs BEFORE
+      // the gated branches below and fires only while they are inert, so the
+      // day `canvasSemanticMutations` becomes `'server_graph'` this stands down
+      // on its own — no second place to remember to update.
+      if (!canMutateSharedModel && isClipboardMutationGesture(event.key, cmdOrCtrl, event.altKey)) {
+        event.preventDefault()
+        if (!event.repeat && Date.now() - lastClipboardNoticeAtRef.current > CLIPBOARD_NOTICE_QUIET_MS) {
+          lastClipboardNoticeAtRef.current = Date.now()
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('topbar:show-toast', {
+              detail: { message: CANVAS_STRUCTURAL_EDIT_NOTICE, level: 'info' },
+            }))
+          }
         }
         return
       }
