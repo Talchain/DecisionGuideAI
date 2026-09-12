@@ -52,6 +52,10 @@ import { ChevronDown } from 'lucide-react'
 
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../../canvas/store'
+import {
+  factorValueAsTyped,
+  resolveValueInputSeed,
+} from '../../../canvas/conversation/factorValueEdit'
 import { useContextIntegrityStore } from '../../../canvas/stores/contextIntegrityStore'
 import type { InferredFactor, NotModelledItem } from '../../../adapters/cee/notModelled'
 import { ClampToggle } from '../ClampToggle'
@@ -115,6 +119,18 @@ const COPY = {
   // only what the derivation actually establishes: these numbers are ours.
   estimatedLead:
     "The numbers behind these are mine, not yours. If you have better ones, tell me and I'll use them.",
+  /**
+   * ⭐ THE SENTENCE ABOVE LICENSES A COMPARISON — THIS IS THE HALF THE READER
+   * WAS NEVER SHOWN. "If you have better ones" is unanswerable while the row
+   * states only a name, so the number goes in the row.
+   *
+   * ⚠ SCREEN-READER ONLY. A sighted reader has the column, the lead sentence
+   * and the `Change this value` button beside it; a bare "8" announced after a
+   * factor's name has none of that. The visible text is the number alone, which
+   * is what keeps a four-row list scannable — this surface's standing complaint
+   * is that it reads as prose.
+   */
+  estimatedValuePrefix: 'Current value: ',
   notYetHeading: 'Not modelled yet',
   notYetLead: 'These are in your brief but not in the model. Ask about any that matter.',
   consideredLead: 'I also considered these and left them out:',
@@ -405,13 +421,66 @@ const ESTIMATED_TEST_ID = 'what-i-was-given-estimated'
  * made and the reader is entitled to see it; only the action goes.
  */
 function EstimatedFactorRow({ factor }: { factor: InferredFactor }) {
+  /**
+   * ⭐⭐ THE NUMBER THIS ROW IS ASKING THE READER TO BETTER.
+   *
+   * ⚠⚠ THE SCALE RULE IS IMPORTED, NEVER RE-DERIVED. `resolveValueInputSeed`
+   * is the module's own "single definition of what the value input shows and
+   * what scale that number is in", already the authority for four surfaces. A
+   * `raw_value ?? value` written here would be a fifth spelling of the scale
+   * contract (CLAUDE.md trap 12) — and the dangerous kind, because the number
+   * in the row would disagree with the field one element to its right.
+   *
+   * ⛔ THIS IS THE ROW, NOT THE FIELD, AND THE DISTINCTION IS A RULING.
+   * `FactorValueControl` opens its input EMPTY on purpose: *"seeding would
+   * invite the reader to nudge OUR number rather than state THEIRS, which is
+   * the whole point of the act."* That ruling governs the reader's STATEMENT.
+   * This governs the product's DISCLOSURE — the thing "if you have better
+   * ones" is measured against. Two questions, named apart, not aligned
+   * (CLAUDE.md trap 21). `estimatedCurrentValue.spec.tsx` pins BOTH halves, so
+   * a later seat reading this as licence to seed the field turns it RED.
+   *
+   * ⛔ AND IT IS NOT A RANGE. `factorPriorRange.ts` suppresses the printed
+   * range on an ignorance prior, quoting CEE: *"instead of printing a bare
+   * `Range: 0 to 1`"* — and every factor in a drafted model carries exactly
+   * that prior. A value is not a range and asserts nothing about one.
+   *
+   * ⚠ A PRIMITIVE SELECTOR. It returns a `string | undefined`, which compares
+   * by value; a selector returning the node or the seed OBJECT would allocate a
+   * new reference on every store update and re-render this row on every
+   * unrelated canvas change. `FactorValueControl` states the same rule for its
+   * own three selectors.
+   */
+  const currentValue = useCanvasStore((s) => {
+    const node = Array.isArray(s.nodes) ? s.nodes.find((n) => n.id === factor.nodeId) : undefined
+    if (node === undefined) return undefined
+    const { seed } = resolveValueInputSeed(node.data)
+    return seed === undefined || !Number.isFinite(seed) ? undefined : factorValueAsTyped(seed)
+  })
   return (
     <li
       data-testid={`${ESTIMATED_TEST_ID}-row`}
       data-node-id={factor.nodeId}
       className={ACTION_ROW_CLASS}
     >
-      <span className={`${typography.panelBody} text-text-body`}>{factor.label}</span>
+      <span className="flex min-w-0 items-baseline gap-2">
+        <span className={`${typography.panelBody} text-text-body`}>{factor.label}</span>
+        {/* ⭐⭐ THE NUMBER THE LEAD SENTENCE IS TALKING ABOUT.
+            ⚠ ABSENT MEANS ABSENT. No `0`, no dash, no empty element — the
+            manifest is a COLD-READ SNAPSHOT and can list a factor the canvas
+            does not hold, and stating a figure for one of those would be a
+            claim we cannot support. */}
+        {currentValue !== undefined && (
+          <span
+            data-testid={`${ESTIMATED_TEST_ID}-current-value`}
+            data-node-id={factor.nodeId}
+            className={`${typography.panelMeta} flex-none text-text-light`}
+          >
+            <span className="sr-only">{COPY.estimatedValuePrefix}</span>
+            {currentValue}
+          </span>
+        )}
+      </span>
       {/* ⭐ THE CONTROL MOVED OUT AND NOTHING ABOUT IT CHANGED. It is the same
           component the Reasoning tab's gap rows now use — the node resolution,
           the conversation gate, the three-outcome mapping and the

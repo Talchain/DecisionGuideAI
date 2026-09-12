@@ -287,7 +287,28 @@ export function resolveFactorValueAdmission(nodeData: unknown): FactorValueAdmis
  */
 function boundAsTyped(bound: number, { cap, inUserUnits }: FactorValueAdmission): string {
   const shown = inUserUnits && cap !== null && cap > 0 ? bound * cap : bound
-  return String(Number(shown.toPrecision(12)))
+  return factorValueAsTyped(shown)
+}
+
+/**
+ * A factor's number AS A PERSON WOULD TYPE IT. Display only.
+ *
+ * `toPrecision` trims the float noise a multiplication leaves (`0.3 x 7` reads
+ * `2.0999999999999996`) so a rendered number is one a reader could enter into
+ * the field beside it.
+ *
+ * ⚠ EXTRACTED FROM `boundAsTyped`, NOT WRITTEN BESIDE IT. The refusal
+ * sentence and any surface disclosing a current value are rendering the same
+ * kind of quantity into the same field's vocabulary; two spellings of that
+ * would drift the day either is adjusted (CLAUDE.md trap 12), and the drift
+ * would be a row and its own error message disagreeing about a number.
+ *
+ * ⚠ IT CANNOT REACH A VERDICT, exactly as `boundAsTyped` cannot: no caller
+ * compares against this, so no rounding here can widen or narrow what is
+ * admitted.
+ */
+export function factorValueAsTyped(value: number): string {
+  return String(Number(value.toPrecision(12)))
 }
 
 /**
