@@ -95,8 +95,26 @@ export function ConnRow({ edgeId, nodeKind, label, confidencePct }: ConnRowProps
     openEdgeStrengthEditor(edgeId)
   }, [edgeId])
 
-  const truncated = label.length > 30 ? `${label.slice(0, 30)}...` : label
-
+  /**
+   * ⛔ NO JS TRUNCATION HERE — IT WAS CUTTING BY CHARACTER COUNT INSIDE A CARD
+   * WHOSE WIDTH VARIES (12 Sep 2026).
+   *
+   * This read `label.length > 30 ? label.slice(0, 30) + '...' : label`, and the
+   * span below ALREADY carries Tailwind's `truncate` (overflow-hidden +
+   * text-overflow-ellipsis). Two truncations on one string, and the JS one ran
+   * first — so it cut at 30 characters no matter how much room the card had,
+   * and widening the card could never reveal another character. Observed after
+   * #1527 took `NODE_CARD_MAX_W` 320 -> 336 and these labels went on ending in
+   * "...", which is what sent someone looking.
+   *
+   * The CSS clip is the correct one: it is bound to the rendered width, it
+   * yields a single ellipsis rather than a doubled one, and `title={label}`
+   * keeps the whole string reachable. Pinned by
+   * `__tests__/ConnRow.widthNotCharCount.spec.tsx`, which asserts BOTH that the
+   * label is whole in the DOM and that the width-bound clip survives — a bare
+   * deletion would satisfy the first and lose the second, pushing the
+   * confidence figure off the card.
+   */
   return (
     <div
       role="button"
@@ -108,7 +126,7 @@ export function ConnRow({ edgeId, nodeKind, label, confidencePct }: ConnRowProps
     >
       <NodeShapeIndicator nodeKind={nodeKind} size={9} className="flex-shrink-0" />
       <span className={`${typography.edgeLabel} text-info underline flex-1 truncate`} title={label}>
-        {truncated}
+        {label}
       </span>
       {confidencePct != null ? (
         <span
