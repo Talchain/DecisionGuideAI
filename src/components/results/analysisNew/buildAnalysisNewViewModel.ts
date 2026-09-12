@@ -86,6 +86,7 @@ import { formatThreshold } from '../RangeVisualization'
 import { safeInterpolatedLabel } from '../utils/glossaryCheck'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
 import { namedMaterialParametersAwaitingUser } from './materialParametersAwaitingUser'
+import type { LeaderOrigin } from './leaderOriginDisclosure'
 import {
   ANALYSIS_NEW_COPY as COPY,
   ANALYSIS_NEW_LABEL_FALLBACK,
@@ -226,6 +227,19 @@ export interface AnalysisNewViewModelInputs {
    * Optional by design: without it every sentence is exactly what it was.
    */
   nodeLabels?: ReadonlyMap<string, string>
+  /**
+   * Node id → whose IDEA that element was, built by the store-aware hook from
+   * the same `nodes` slice as `nodeValueSources`. SPARSE: a node absent from the
+   * map has nothing honest to say about its origin, which is most of them.
+   *
+   * ⚠ A DIFFERENT QUESTION FROM `nodeValueSources`, ON A DIFFERENT FIELD. That
+   * map carries `observed_state.source` — who authored a factor's NUMBER. This
+   * carries `provenance` — who put the ELEMENT on the board. The analysis result
+   * carries neither, which is why both come from canvas state.
+   *
+   * Absent (older callers/tests) the panel is exactly what it was.
+   */
+  nodeOrigins?: ReadonlyMap<string, LeaderOrigin>
 }
 
 // ── formatting helpers (display only — none of these decide anything) ────────
@@ -1715,6 +1729,7 @@ function buildAtAGlance(
   data: ResultsSectionDataReturn,
   nodeValueSources?: ReadonlyMap<string, string>,
   nodeLabels?: ReadonlyMap<string, string>,
+  nodeOrigins?: ReadonlyMap<string, LeaderOrigin>,
 ): AtAGlance {
   const rec = data.recommendation
   const { drivers, setRelative } = glanceDrivers(data)
@@ -2048,6 +2063,21 @@ function buildAtAGlance(
     influenceIsSetRelative: setRelative,
     condition,
     inputProvenance: glanceInputProvenance(data, nodeValueSources),
+    /**
+     * ⭐⭐ GATED ON `headline && leader`, WHICH IS THE ENTITLEMENT ITSELF, NOT A
+     * SECOND COPY OF IT. `headline` is non-null only where
+     * `leaderDesignationPermitted(rec) === true`, so this sentence is reachable
+     * only on runs the product has ALREADY decided it may name a leader on.
+     * It cannot create a designation, cannot restore a withheld one, and cannot
+     * suppress or re-rank anything — it can only add a disclosure beside a name
+     * that is going on screen regardless.
+     *
+     * ⚠ JOINED BY ID, NEVER BY LABEL (CLAUDE.md trap 19). Two options can share
+     * a label; `leader.id` is the graph node's own identity. A join on label
+     * would attach one option's origin to another's name — the precise class of
+     * error this disclosure exists to correct.
+     */
+    leaderOrigin: headline && leader ? (nodeOrigins?.get(leader.id) ?? null) : null,
   }
 }
 
@@ -2834,7 +2864,7 @@ export function buildAnalysisNewViewModel(
   inputs: AnalysisNewViewModelInputs,
 ): AnalysisNewViewModel {
   const { data, recommendations, isStale, nodeValueSources } = inputs
-  const glance = buildAtAGlance(data, nodeValueSources, inputs.nodeLabels)
+  const glance = buildAtAGlance(data, nodeValueSources, inputs.nodeLabels, inputs.nodeOrigins)
 
   /**
    * ⚠⚠ NO RUN, NOTHING DERIVED FROM A RUN — the same rule `buildDeeper` applies,
@@ -2874,7 +2904,7 @@ export function buildAnalysisNewViewModel(
      */
     leaderClaimPermitted: preRun ? false : leaderDesignationPermitted(data.recommendation) === true,
     atAGlance: preRun
-      ? { headline: null, designationWithheldReason: null, designationWithheldRemedy: null, designationWithheldParameters: [], leaderLabel: null, winShare: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, inputProvenance: null }
+      ? { headline: null, designationWithheldReason: null, designationWithheldRemedy: null, designationWithheldParameters: [], leaderLabel: null, winShare: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, inputProvenance: null, leaderOrigin: null }
       : glance,
     // ⚠ GATED PRE-RUN LIKE EVERY OTHER RUN-DERIVED SECTION. The option NODES
     // exist before any analysis, but "how the options compare" is a reading OF

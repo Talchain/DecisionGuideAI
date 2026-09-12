@@ -22,6 +22,7 @@ import { useCanvasStore } from '../../../canvas/store'
 import { deriveGuidanceDskProvenance, useGuidanceStore } from '../../../canvas/stores/guidanceStore'
 import { useStrengthenStore, recordKey} from '../../../canvas/stores/strengthenStore'
 import { buildNodeValueSourceMap } from '../driverValueProvenance'
+import { buildNodeOriginMap } from './leaderOriginDisclosure'
 import { buildRecommendations } from '../strengthen/buildRecommendations'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
@@ -66,6 +67,15 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
    */
   const nodes = useCanvasStore((s) => s.nodes)
   const nodeValueSources = useMemo(() => buildNodeValueSourceMap(nodes), [nodes])
+  /**
+   * ⭐ WHOSE IDEA EACH ELEMENT WAS — the SAME `nodes` slice, a DIFFERENT field.
+   * `buildNodeValueSourceMap` reads `observed_state.source` (who authored a
+   * NUMBER); this reads `provenance` (who put the ELEMENT on the board). The
+   * analysis result carries neither, so both must come from canvas state, and
+   * deriving them from one subscription is what stops this surface and the
+   * canvas card disagreeing about the same node.
+   */
+  const nodeOrigins = useMemo(() => buildNodeOriginMap(nodes), [nodes])
   /**
    * ⭐ Node id → label, so a producer gap can name the factor it is about.
    * Derived from the same `nodes` the sibling map above uses — one store read,
@@ -146,6 +156,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
         scienceGrounding,
         nodeValueSources,
         nodeLabels,
+        nodeOrigins,
       }),
     /**
      * ⚠⚠ EVERY DECLARED INPUT, AND `staleReason` WAS THE ONE MISSING.
@@ -183,6 +194,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
       scienceGrounding,
       nodeValueSources,
       nodeLabels,
+      nodeOrigins,
     ],
   )
 }

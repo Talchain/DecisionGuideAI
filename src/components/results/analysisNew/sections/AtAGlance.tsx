@@ -41,6 +41,7 @@ import { EXCLUDED_LABEL_NAME_CAP } from '../../utils/goalAnchorCopy'
 import { NOT_ANALYSED_BADGE } from '../../utils/notAnalysedCopy'
 import { ANALYSIS_NEW_COPY as COPY, formatConjunctionList } from '../analysisNewCopy'
 import { GLANCE_PROVENANCE_COPY } from '../glanceProvenanceCopy'
+import { LEADER_ORIGIN_COPY } from '../leaderOriginDisclosure'
 import { methodForRecommendation } from '../recommendationMethod'
 import type { AtAGlance as AtAGlanceModel } from '../analysisNewTypes'
 import { inset, PANEL_INSET_ACTION } from '../panelSurfaces'
@@ -729,6 +730,33 @@ export function AtAGlance({
           >
             {glance.leaderLabel ?? glance.headline}
           </p>
+          {/* ── ⭐⭐ WHOSE IDEA THIS WAS ────────────────────────────────────
+              IMMEDIATELY BENEATH THE NAME, NOT IN A DISCLOSURE AND NOT AT THE
+              FOOT OF THE PANEL — the same rule the scope note and the condition
+              line follow: it changes what the line above MEANS, so a reader who
+              sees one must see the other. A founder read "Raise Price to £54
+              (Soft Increase)" as the answer at 73% and had no way to learn that
+              the £54 was ours and not his.
+
+              ⛔ IT NEVER SUPPRESSES THE NAME. The leading option is still the
+              only large type on the surface; this adds a line, removes nothing,
+              and re-ranks nothing. Olumi inventing options is the product
+              working — the defect was the silence about it, not the invention.
+
+              ⚠ SILENT UNLESS THE CLAIM IS WARRANTED. `leaderOrigin` is null for
+              the user's own option, for CEE's ambiguous `ai_inferred`-with-a-
+              quote case, for an unstamped node, and wherever no leader is named
+              at all. There is no fallback wording, because every other wording
+              attributes the idea to somebody. */}
+          {glance.leaderOrigin ? (
+            <p
+              className={`${typography.panelMeta} text-text-light m-0 mt-1`}
+              data-testid={`${testId}-leader-origin`}
+              data-leader-origin={glance.leaderOrigin}
+            >
+              {LEADER_ORIGIN_COPY[glance.leaderOrigin]}
+            </p>
+          ) : null}
         </div>
       ) : glance.designationWithheldReason ? (
         /* ── WHY THERE IS NO ANSWER ────────────────────────────────────────
