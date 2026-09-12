@@ -1,5 +1,10 @@
 /**
- * "SHOW WHOLE MODEL" REACHES THE COMPUTED FIT — AND IS STILL THERE A SECOND LATER.
+ * A FIT THE USER ASKS FOR REACHES THE COMPUTED FIT — AND IS STILL THERE A
+ * SECOND LATER.
+ *
+ * ⚠ Titled *"SHOW WHOLE MODEL" REACHES THE COMPUTED FIT* until 9 Sep 2026, when
+ * that control was removed with the extent banner and its arm turned out to be a
+ * duplicate of one below. See the block where it stood.
  *
  * WHY THIS EXISTS, AND WHY IT IS NOT A DUPLICATE OF `modelExtent.visual.spec.ts`.
  * That spec asserts the OUTCOME a user sees ("every node is inside the pane").
@@ -212,63 +217,28 @@ async function readCamera(page: Page): Promise<CameraReading> {
 }
 
 test.describe('the overview the user asks for is the overview they keep', () => {
-  test('build-vs-buy: "Show whole model" reaches the derived fit and stays there', async ({ page }) => {
-    await preparePage(page, VIEWPORTS[0])
-    await openCanvas(page)
-    await seedStarterDraft(page, 'build-vs-buy')
-    await clearNotifications(page)
-    await freezeMotion(page)
-    await waitForVisualQuiescence(page)
-    await waitForExtentsSettled(page, GHOST_ID_PREFIX)
-
-    // ENVIRONMENT AND PRECONDITIONS, PINNED IN-TEST — every number below is void
-    // without them (a hidden tab measures 0x0; an unmeasured node is silently
-    // dropped from xyflow's own bounds).
-    const before = await readCamera(page)
-    expect(before.ok, `the reading is not trustworthy: ${before.why}`).toBe(true)
-    expect(before.hidden, 'document.hidden — a hidden tab measures nothing').toBe(false)
-    expect(before.unmeasured, 'unmeasured nodes are dropped from the fit bounds').toBe(0)
-    expect(before.modelNodes, 'no model nodes').toBeGreaterThan(0)
-
-    // THE PRECONDITION THIS SPEC EXISTS FOR: this model needs to be zoomed OUT
-    // to be seen whole. Without it the assertions below could pass on a model
-    // that was already framed, which is the tautology the twin below guards.
-    expect(
-      before.derivedFit,
-      `build-vs-buy is expected to need zooming out; derived fit was ${before.derivedFit}`,
-    ).toBeLessThan(1)
-    expect(
-      before.scale,
-      `the camera is already at the whole-model fit before the click (${before.scale}); nothing would be tested`,
-    ).toBeGreaterThan(before.derivedFit * (1 + FIT_TOLERANCE))
-
-    await page.getByTestId('model-extent-show-all').click()
-    await waitForCameraSettled(page)
-
-    const after = await readCamera(page)
-    expect(after.ok, after.why).toBe(true)
-    expect(
-      Math.abs(after.scale - after.derivedFit) / after.derivedFit,
-      `"Show whole model" left the camera at ${after.scale} when the model's own extents ` +
-      `need ${after.derivedFit} — ${after.modelNodes - after.fullyVisible} of ${after.modelNodes} ` +
-      `elements are outside the pane`,
-    ).toBeLessThanOrEqual(FIT_TOLERANCE)
-    expect(after.fullyVisible, 'the derived fit was reached but elements are still outside the pane').toBe(after.modelNodes)
-
-    // ⭐ AND IT IS STILL THERE. This is the half that fails at pristine: the fit
-    // above lands correctly and the product's own re-fit overwrites it ~155ms
-    // later. A single sample taken at the right instant reports a working button.
-    await page.waitForTimeout(1500)
-    const settled = await readCamera(page)
-    expect(settled.ok, settled.why).toBe(true)
-    expect(
-      Math.abs(settled.scale - settled.derivedFit) / settled.derivedFit,
-      `the camera was moved OFF the user's overview after the fact: ${after.scale} -> ${settled.scale} ` +
-      `(derived fit ${settled.derivedFit}); ${settled.modelNodes - settled.fullyVisible} of ` +
-      `${settled.modelNodes} elements are outside the pane again`,
-    ).toBeLessThanOrEqual(FIT_TOLERANCE)
-    expect(settled.fullyVisible, 'elements left the pane again after the overview').toBe(settled.modelNodes)
-  })
+  /*
+   * ⛔ THE `"Show whole model" reaches the derived fit and stays there` ARM WAS
+   * REMOVED HERE ON 9 Sep 2026 — SUPERSEDED, not abandoned.
+   *
+   * It drove `model-extent-show-all`, which #1340 deleted with the extent
+   * banner. The obvious repair was to re-point it at "Fit to view", and that
+   * would have been wrong: `the left-rail "Fit to view" reaches the model's own
+   * fit, not the floor` (below) ALREADY drives that control on the SAME starter,
+   * waits 1500 ms so it covers the same persistence, and asserts one thing more
+   * — that the camera did not stop exactly at the legibility floor. Two arms
+   * failing together on one property is wall clock with no safety, which this
+   * directory's gate registry names as the thing it refuses to admit.
+   *
+   * So the property moved on 31 Aug when the unfloored ruling landed, and this
+   * arm has been a second copy of it ever since — invisible, because its trigger
+   * differed. The trigger is gone; the property is still guarded.
+   *
+   * ⚠ IF A DISCLOSURE CONTROL IS EVER RESTORED — see `modelExtent.visual.spec.ts`,
+   * where the live framing defect is recorded and parked for Paul's ruling — it
+   * needs its OWN arm proving THAT control reaches the fit. The arm below does
+   * not cover a button that does not exist yet.
+   */
 
   test('a model that already fits is neither zoomed away from nor re-framed', async ({ page }) => {
     // ⭐ THE DISCRIMINATING TWIN, and it fails on a different assertion from the
