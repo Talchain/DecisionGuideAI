@@ -56,6 +56,17 @@
  *
  * ⛔ NO SECOND CLASSIFIER. `classifyNodeProvenance` remains the ONE authority on
  * what a literal means; this asks it and applies one field's presence on top.
+ *
+ * ── WHO ASKS, AND WHEN THEY JOINED ─────────────────────────────────────────
+ * #1535 wired the canvas card and made the glance delegate; the panel row was
+ * left on its own `provenance === 'ai_inferred'` and kept putting an `[Olumi]`
+ * pill on a node the canvas card beside it already left unmarked. #1537 wired
+ * `projectAuthoredEntities`, closing the table above, and widened the glance's
+ * fact from the LEADING option to every row of "How the options compare" —
+ * where an invention that ranks third had gone unremarked because the only
+ * channel that asked this question asked it about one node.
+ * `__tests__/thePanelDoesNotClaimYourOwnOption.spec.ts` pins the two ends of
+ * the estate to one answer per node.
  */
 import { classifyNodeProvenance } from './valueProvenance'
 
