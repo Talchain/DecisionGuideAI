@@ -224,10 +224,31 @@ const FP_EPSILON = 1e-9
  * durable). Bound to the report, it lives exactly as long as the thing it is
  * about, and rides the autosave record home.
  *
- * ⚠ IT IS THE PRODUCER'S LEAF, CARRIED — NOT A SECOND AUTHORITY. Exactly one
- * writer (`canvas/store.ts`'s `resultsWithholdLeaderClaim`) and exactly one
- * reader (`readProducerLeaderPermission`, below). It is never re-derived from
- * anything the client can compute.
+ * ⚠ IT IS THE PRODUCER'S LEAF, CARRIED — NOT A SECOND AUTHORITY. Three
+ * participants, and the asymmetry between them is the whole guarantee:
+ *
+ *   · ONE WRITER OF A VALUE — `canvas/store.ts`'s `resultsWithholdLeaderClaim`
+ *     (`store.ts:5753`), which writes `{ permitted: false, withheld_reason }`.
+ *   · ONE CLEARER — `resultsRestoreLeaderClaim` (`store.ts:5698`), which
+ *     DELETES the key and can never write one. It destructures the field out
+ *     (`{ producer_leader_permission: _cleared, ...withoutStamp }`) and returns
+ *     `false` when there is nothing to clear (`:5696`).
+ *   · ONE READER — `readProducerLeaderPermission`, below.
+ *
+ * ⭐ SO THE HEADER'S ACTUAL CLAIM SURVIVES THE THIRD PARTICIPANT, and it is
+ * worth stating why rather than just amending the count: **no client path can
+ * mint a permission.** The only value ever written is a WITHHOLDING; the
+ * restore's sole power is to remove a withholding the producer has itself
+ * positively permitted. It is never re-derived from anything the client can
+ * compute.
+ *
+ * ⚠⚠ THIS COUNT WAS STALE FOR ONE MERGE, AND IT IS WORTH RECORDING HOW.
+ * #1519 added the clearer and correctly updated the OTHER map of this seam
+ * (`adapters/plot/types.ts:156`) — and not this one. **One of two mirrors
+ * moved** (CLAUDE.md trap 12), inside a header whose entire subject is how many
+ * authorities a trust seam has. Found by a peer diffing a discarded repair
+ * against the merged code, not by any guard. If a fourth participant ever
+ * arrives, both mirrors move in the same commit or neither does.
  */
 export interface ProducerLeaderPermission {
   /** The producer's `leader_claim.permitted`, verbatim. */
