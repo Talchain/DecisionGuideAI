@@ -125,6 +125,56 @@ describe('⛔ a user-stated option is never claimed as Olumi\'s', () => {
   })
 })
 
+describe('⚠ the gate stops at the STRUCTURAL claim, and that boundary is guarded', () => {
+  /**
+   * ⛔ THIS BLOCK EXISTS BECAUSE A MUTANT SURVIVED WITHOUT IT. Widening the gate
+   * to `claim !== 'none'` — so it also silenced the VALUE claim — left the whole
+   * suite green, which means the most reasoned part of the design was resting on
+   * a comment. It is NOT an equivalent mutant: a user-stated factor that carries
+   * a number and an unconfirmed brief binding arrives as `ai_inferred` + a quote
+   * + a value, because `schema-v3.ts:1190` lifts `source_quote` for ANY typed
+   * record, not only for options.
+   *
+   * The boundary is derived, not chosen: `source_quote` speaks to who authored
+   * the ELEMENT, which is what the structural vocabulary claims. The value
+   * vocabulary ("AI estimate") claims something about a NUMBER, and a quote
+   * about the element is silent on that. Reading one field as though it answered
+   * both questions is the conflation `nodeProvenanceClaim` exists to end.
+   */
+  const valuedFactorWithAmbiguousPair = {
+    id: 'f1',
+    kind: 'factor',
+    label: 'Churn rate',
+    provenance: 'ai_inferred',
+    source_quote: 'churn is running around 4% a month',
+    observed_state: { value: 0.04 },
+  }
+
+  it('a VALUED factor still makes its value claim despite the ambiguous pair', () => {
+    const { data } = mapDraftNodeToCanvas(valuedFactorWithAmbiguousPair)
+    // Precondition pinned in-test: the pair really is present and the value
+    // really did survive ingestion, so a pass here cannot be the fixture's doing.
+    expect(data.provenance).toBe('ai_inferred')
+    expect(data.source_quote).toBeDefined()
+    expect(data.observedState).toEqual({ value: 0.04 })
+
+    render(<NodeProvenanceMark nodeType="factor" data={data} />)
+    const el = screen.queryByTestId('node-provenance-mark')
+    expect(el).not.toBeNull()
+    // The VALUE vocabulary, not the structural one, and not silence.
+    expect(el!.getAttribute('aria-label')).not.toBe(OLUMI_CLAIM)
+  })
+
+  it('the same factor WITHOUT a value falls to structural, and is then gated', () => {
+    // The twin that proves the discriminator above is about the CLAIM, not the
+    // kind: strip the number and the very same node goes silent.
+    const { observed_state: _omitted, ...valueless } = valuedFactorWithAmbiguousPair
+    const { data } = mapDraftNodeToCanvas(valueless)
+    render(<NodeProvenanceMark nodeType="factor" data={data} />)
+    expect(screen.queryByTestId('node-provenance-mark')).toBeNull()
+  })
+})
+
 describe('⭐ and it still says so about Olumi\'s genuine inventions', () => {
   /**
    * ⛔ THE OVER-SUPPRESSION GUARD. A gate that simply went quiet on every
