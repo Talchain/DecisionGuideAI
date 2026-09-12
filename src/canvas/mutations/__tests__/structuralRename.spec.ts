@@ -70,6 +70,12 @@ function capture(input: Partial<Parameters<typeof captureStructuralRename>[0]> =
     label: NEW,
     baseGraphHash: HASH,
     externalMutationActive: false,
+    // Both fixture nodes are ones CEE has acknowledged — the default every test
+    // in this file already assumed, made explicit when `authoritativeNodeIds`
+    // arrived. These cases are about labels, hashes and producer writes; a
+    // fixture whose node the server had never seen would stand them all down on
+    // `node_not_server_held` and prove nothing about what they were written for.
+    authoritativeNodeIds: [NODE_ID, SIBLING_ID],
     makeId: () => 'sr-1',
     ...input,
   })
