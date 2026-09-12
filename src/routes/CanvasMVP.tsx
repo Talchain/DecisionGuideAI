@@ -27,6 +27,7 @@ import { useProvisionalAnalysisDelivery } from '../canvas/hooks/useProvisionalAn
 import { useImportRegistration } from '../canvas/registration/useImportRegistration'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../canvas/mutations/mutationAuthority'
 import { resolveModelDisplayName } from '../canvas/domain/modelDisplayName'
+import { resolveNodeTypeLiteral } from '../canvas/domain/nodes'
 
 const TEMPLATE_GRAPH_MUTATIONS_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations,
@@ -170,6 +171,42 @@ export default function CanvasMVP() {
   const renameCurrentScenario = useCanvasStore(state => state.renameCurrentScenario)
   const updateScenarioFraming = useCanvasStore(state => state.updateScenarioFraming)
 
+  /**
+   * ⭐⭐ THE GOAL THE MODEL IS ABOUT, WHEREVER IT ACTUALLY IS — and on a restored
+   * session that is the GOAL NODE, not the framing.
+   *
+   * ⛔ MEASURED ON THE DEPLOYED BUILD `c5b5e86a` — the merge of #1502 itself, so
+   * this is that fix failing to reach a real user rather than a theory:
+   *
+   *     currentScenarioFraming   null
+   *     goal nodes               1  ("NRR back above 115% within four quarters
+   *                                   without burning more than £600k")
+   *     top bar showed           "Untitled model"
+   *
+   * `loadScenario` writes `scenario.framing ?? null` (`store.ts:5861`), so a
+   * scenario persisted without framing restores with none — and #1502's
+   * derivation then receives `undefined` for BOTH arguments and correctly
+   * returns its fallback. The rule was right; the place it looked was empty.
+   *
+   * ⚠ THE NODE IS A FALLBACK, NEVER AN OVERRIDE. It is consulted only when the
+   * framing carries no goal, so an author's stored name and a framing goal both
+   * still win, in that order. Adding a source to the ladder must not reorder it.
+   *
+   * ⚠ `resolveNodeTypeLiteral` IS THE ONE OWNER of "is this a goal node" (12
+   * non-test callers, including `resolveGoalNodeId` and `useModelEditAuthority`).
+   * A second inline `type === 'goal'` test here would be the twin this estate is
+   * named for.
+   *
+   * ⚠ STILL DISPLAY ONLY. Nothing is written; this does not name the scenario,
+   * it only stops the product calling a model "Untitled" while the thing it is
+   * about is rendered on the canvas behind the label.
+   */
+  const goalNodeLabel = useCanvasStore(state => {
+    const goal = (state.nodes ?? []).find(n => resolveNodeTypeLiteral(n) === 'goal')
+    const label = (goal?.data as { label?: unknown } | undefined)?.label
+    return typeof label === 'string' && label.trim().length > 0 ? label : null
+  })
+
   const scenarioTitle = (() => {
     if (currentScenarioId) {
       const scenario = getScenario(currentScenarioId)
@@ -177,7 +214,8 @@ export default function CanvasMVP() {
     }
     // A model with no stored title is named after the goal it is about — see
     // `canvas/domain/modelDisplayName`. Display only; nothing is written here.
-    return resolveModelDisplayName(framing?.title, (framing as Record<string, unknown> | null)?.goal)
+    const framingGoal = (framing as Record<string, unknown> | null)?.goal
+    return resolveModelDisplayName(framing?.title, framingGoal ?? goalNodeLabel)
   })()
 
   const lastSaved = lastSavedAt ? new Date(lastSavedAt) : null

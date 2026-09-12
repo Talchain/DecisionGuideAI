@@ -76,7 +76,7 @@ const lastTitle = () => topBarProps[topBarProps.length - 1]?.scenarioTitle
 
 beforeEach(() => {
   topBarProps.length = 0
-  useCanvasStore.setState({ currentScenarioId: null, currentScenarioFraming: null })
+  useCanvasStore.setState({ currentScenarioId: null, currentScenarioFraming: null, nodes: [] as never })
 })
 
 describe('CanvasMVP names a model after what it is about — at the CALL SITE', () => {
@@ -106,6 +106,60 @@ describe('CanvasMVP names a model after what it is about — at the CALL SITE', 
      */
     expect(lastTitle()).not.toBe(UNNAMED_MODEL_FALLBACK)
     expect(lastTitle()).toBe(deriveModelNameFromGoal(GOAL))
+  })
+
+  it('⛔ THE MEASURED CASE: framing is NULL and the goal is on the GOAL NODE', () => {
+    /**
+     * ⭐⭐ MEASURED ON THE DEPLOYED BUILD `c5b5e86a` — the merge of #1502 itself:
+     * `currentScenarioFraming: null`, one goal node carrying the real sentence,
+     * and the top bar reading "Untitled model". `loadScenario` writes
+     * `scenario.framing ?? null`, so a scenario persisted without framing
+     * restores with none and the derivation received `undefined` for BOTH
+     * arguments.
+     *
+     * This is the case that makes the shipped rule reach a real user.
+     */
+    useCanvasStore.setState({
+      currentScenarioId: null,
+      currentScenarioFraming: null,
+      nodes: [{ id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { kind: 'goal', label: GOAL } }] as never,
+    })
+    render(<CanvasMVP />)
+
+    expect(lastTitle()).not.toBe(UNNAMED_MODEL_FALLBACK)
+    expect(lastTitle()).toBe(deriveModelNameFromGoal(GOAL))
+  })
+
+  it('⚠ the goal NODE is a fallback, never an override — a framing goal still wins', () => {
+    /**
+     * ⚠ Adding a source to the ladder must not reorder it. The two strings are
+     * deliberately DIFFERENT so the assertion can tell which one was consulted;
+     * with equal strings this would pass whichever source won (trap 19).
+     */
+    useCanvasStore.setState({
+      currentScenarioId: null,
+      currentScenarioFraming: { title: undefined, goal: GOAL } as never,
+      nodes: [{ id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { kind: 'goal', label: 'A DIFFERENT GOAL ENTIRELY' } }] as never,
+    })
+    render(<CanvasMVP />)
+
+    expect(lastTitle()).toBe(deriveModelNameFromGoal(GOAL))
+  })
+
+  it('a canvas with NO goal node still reaches the fallback', () => {
+    /**
+     * ⚠ THE CONTRAST CONTROL FOR THE NODE ARM. Without it, a selector that
+     * returned the label of ANY node would satisfy the case above, and a model
+     * with no goal at all would be named after whatever happened to be first.
+     */
+    useCanvasStore.setState({
+      currentScenarioId: null,
+      currentScenarioFraming: null,
+      nodes: [{ id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { kind: 'factor', label: 'Cash Burn Rate' } }] as never,
+    })
+    render(<CanvasMVP />)
+
+    expect(lastTitle()).toBe(UNNAMED_MODEL_FALLBACK)
   })
 
   it('a framing TITLE still wins over the goal — the derivation never overrides an author', () => {
