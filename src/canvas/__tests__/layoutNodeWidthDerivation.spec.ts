@@ -25,7 +25,34 @@
 import { describe, it, expect } from 'vitest'
 import type { Node, Edge } from '@xyflow/react'
 import { layoutGraph, solveLayoutNodeWidth } from '../utils/layout'
-import { NODE_CARD_MAX_W, NODE_LAYOUT_MIN_W } from '../utils/nodeLayoutConstants'
+import {
+  NODE_CARD_MAX_W,
+  NODE_LAYOUT_MIN_W,
+  CANONICAL_LAYOUT_WIDTH,
+  NODE_SINGLE_ROW_FAIR_SHARE_W,
+  LAYOUT_PADDING_X,
+  MIN_GAP,
+} from '../utils/nodeLayoutConstants'
+
+/**
+ * ⭐ THE WIDEST TIER THAT STILL SINGLE-ROWS, DERIVED (12 Sep 2026).
+ *
+ * ⚠ WAS IMPLICIT IN TWO HAND-WRITTEN FIXTURES (8-with-3-locked, and the 6/7
+ * cliff below), and when `CANONICAL_LAYOUT_WIDTH` moved 1185 → 1482 the cap
+ * went 6 → 8 and BOTH went quiet in different ways. The 6/7 pair simply RED-ed
+ * — fine, that is a corpus doing its job. The `preserveLocked` case did
+ * something worse: its two arms both landed on the single-row branch, so its
+ * `not.toBe` assertion compared MAX with MAX and its DISCRIMINATION COLLAPSED.
+ * Its own comment says "the two must differ, or this test cannot observe the
+ * parameter at all" — which by then it could not.
+ *
+ * So the cap is derived here and the fixtures are expressed RELATIVE to it: a
+ * future constants move changes what these tests exercise instead of quietly
+ * stopping them exercising anything.
+ */
+const SINGLE_ROW_CAP = Math.floor(
+  (CANONICAL_LAYOUT_WIDTH + MIN_GAP) / (NODE_SINGLE_ROW_FAIR_SHARE_W + LAYOUT_PADDING_X + MIN_GAP),
+)
 
 type Dir = 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'
 const DIRS: Dir[] = ['DOWN', 'RIGHT', 'UP', 'LEFT']
@@ -98,13 +125,19 @@ describe('solveLayoutNodeWidth is exact', () => {
   }, 300_000)
 
   it('honours preserveLocked the same way layoutGraph does', async () => {
-    // 8 factors, 3 locked. With preserveLocked the widest UNLOCKED tier is 5
-    // (single-row, MAX); without it, 8 (split, MIN). The two must differ, or
-    // this test cannot observe the parameter at all.
-    const { nodes, edges } = graph(8, { lockedFactors: 3 })
+    // `SINGLE_ROW_CAP + 3` factors, 3 locked. With preserveLocked the widest
+    // UNLOCKED tier is exactly the cap (single-row, MAX); without it, three
+    // more than the cap (split, MIN). The two must differ, or this test cannot
+    // observe the parameter at all — so that precondition is ASSERTED below
+    // rather than left to a fixture that a constants move can quietly blunt.
+    const { nodes, edges } = graph(SINGLE_ROW_CAP + 3, { lockedFactors: 3 })
     const withLock = await layoutGraph(nodes, edges, { direction: 'DOWN', preserveLocked: true })
     const withoutLock = await layoutGraph(nodes, edges, { direction: 'DOWN', preserveLocked: false })
 
+    // PIN THE PRECONDITION IN-TEST. Without this the `not.toBe` below passes
+    // vacuously the day both arms land on the same branch (CLAUDE.md trap 13b).
+    expect(withLock.layoutNodeWidth, 'the locked arm must be on the single-row branch').toBe(NODE_CARD_MAX_W)
+    expect(withoutLock.layoutNodeWidth, 'the unlocked arm must be on the split branch').toBe(NODE_LAYOUT_MIN_W)
     expect(withLock.layoutNodeWidth).not.toBe(withoutLock.layoutNodeWidth)
     expect(solveLayoutNodeWidth(nodes, { direction: 'DOWN', preserveLocked: true })).toBe(
       withLock.layoutNodeWidth,
@@ -118,9 +151,11 @@ describe('solveLayoutNodeWidth is exact', () => {
     const down = new Set<number>()
     for (let f = 1; f <= 12; f++) down.add(solveLayoutNodeWidth(graph(f).nodes, { direction: 'DOWN' }))
     expect([...down].sort((a, b) => a - b)).toEqual([NODE_LAYOUT_MIN_W, NODE_CARD_MAX_W])
-    // The DOWN cliff: a widest tier of 6 stays at max, 7 compresses.
-    expect(solveLayoutNodeWidth(graph(6).nodes, { direction: 'DOWN' })).toBe(NODE_CARD_MAX_W)
-    expect(solveLayoutNodeWidth(graph(7).nodes, { direction: 'DOWN' })).toBe(NODE_LAYOUT_MIN_W)
+    // The DOWN cliff, expressed at the derived cap rather than at a literal:
+    // a widest tier AT the cap stays at max, one above it compresses.
+    // (⚠ Was a hard-coded 6/7 and RED-ed when the budget moved the cap to 8.)
+    expect(solveLayoutNodeWidth(graph(SINGLE_ROW_CAP).nodes, { direction: 'DOWN' })).toBe(NODE_CARD_MAX_W)
+    expect(solveLayoutNodeWidth(graph(SINGLE_ROW_CAP + 1).nodes, { direction: 'DOWN' })).toBe(NODE_LAYOUT_MIN_W)
   })
 
   it('returns the max width for an empty / fully locked graph', () => {

@@ -124,13 +124,26 @@ export const typography = {
    * ⚠⚠ THE 12px ABOVE WAS A COMPENSATION, NOT A PREFERENCE — read the history
    * above before reverting this. A lane measured titles CLIPPING at 13px in a
    * 288px card and concluded "the card was not too small; the type was too big
-   * for it". That was true GIVEN THE CARD IT HAD. The card could not grow
-   * because its width is bounded by `CANONICAL_LAYOUT_WIDTH`, which was sized
-   * for a screen the camera could not fill — `AUTO_FIT_MAX_ZOOM = 1` forbade
-   * the product's own fit from scaling a valid model up to the pane.
+   * for it". That was true GIVEN THE CARD IT HAD.
    *
-   * This change lands WITH that chain repaired: `CANONICAL_LAYOUT_WIDTH` is
-   * 1482 and `NODE_CARD_MAX_W` is 336.
+   * ⛔ AND THE CAUSAL STORY THIS NOTE FIRST GAVE FOR *WHY* THE CARD COULD NOT
+   * GROW IS WITHDRAWN. It said the budget "was sized for a screen the camera
+   * could not fill", blaming `AUTO_FIT_MAX_ZOOM = 1`, and that this change
+   * "lands WITH that chain repaired". Both halves are wrong:
+   *
+   *   · the fit ceiling is UNCHANGED in behaviour. The mechanism that would
+   *     discriminate a degenerate box from a valid one is landed DORMANT and
+   *     fails closed — see `zoomLegibility.ts`. Nothing about the camera was
+   *     repaired here, and a note claiming otherwise would send the next reader
+   *     looking for a behaviour that does not exist.
+   *   · the budget was never a camera problem. It sat below the width at which
+   *     an eight-wide tier stops splitting, so three shipped starters laid out
+   *     PORTRAIT in a LANDSCAPE pane and were fitted on their HEIGHT. No camera
+   *     change can repair a portrait box.
+   *
+   * What actually moved: `CANONICAL_LAYOUT_WIDTH` 1185 -> 1482 (the packing
+   * cliff) and `NODE_CARD_MAX_W` 320 -> 336 (bounded by the first-view guard,
+   * not by the budget).
    *
    * ⭐ AND THE CLIPPING CLAIM IS MEASURED IN A REAL BROWSER, not counted in
    * characters. `e2e/visual/nodeLabelFit.visual.spec.ts` at the 14px ramp:

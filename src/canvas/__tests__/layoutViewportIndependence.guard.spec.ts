@@ -399,8 +399,23 @@ describe('R1 (structural) — no runtime dimension can reach the canonical layou
   })
 })
 
-describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1920', () => {
-  const WIDTH_SWEEP = [1280, 1440, 1512, 1920] as const
+describe('R1 (acceptance) — one canonical layout at 1280 / 1440 / 1512 / 1600 / 1668 / 1920', () => {
+  /**
+   * ⚠ 1600 AND 1668 ADDED 12 Sep 2026, and the reason is a finding against this
+   * very guard. It swept 1280/1440/1512/1920 and contained 1600 NOWHERE — while
+   * 1600 is exactly the width at which `needsSingleExpandedPanel` flips when
+   * `CANONICAL_LAYOUT_WIDTH` moves. This guard was offered as proof that "only
+   * the value moved" and was pointed at a width set that skips the width where
+   * the behaviour turns. A capture proves what it was pointed at.
+   *
+   * The two new members are not arbitrary: 1600 is the low edge of the band the
+   * budget change newly constrains and 1668 is its high edge (see
+   * `components/__tests__/panelComposition.spec.ts`). R1's claim is that the
+   * LAYOUT is identical at every width — so these must produce the same digest
+   * as the rest, and if they ever do not, the panel-composition flip has leaked
+   * into the canonical geometry, which is precisely what R1 forbids.
+   */
+  const WIDTH_SWEEP = [1280, 1440, 1512, 1600, 1668, 1920] as const
 
   /**
    * Make the swept width genuinely OBSERVABLE to the module under test, and

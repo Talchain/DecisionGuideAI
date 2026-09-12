@@ -143,6 +143,28 @@ export function layoutBoxIsDegenerate(
 }
 
 /**
+ * ⛔ RE-SURFACE TRIGGER — so this does not become built-and-unplugged.
+ *
+ * This mechanism is DORMANT by deliberate choice, and a dormant mechanism with
+ * no named trigger is how this estate loses work (CLAUDE.md chronic failure 2:
+ * "we lose schedulers, not records"). The trigger is a DEPENDENCY, not a date:
+ *
+ *   WHEN the ReactFlow element's own bare `fitView` prop (`maxZoom={4}` on the
+ *   `<ReactFlow>` element) is repaired so it cannot fire against a degenerate
+ *   box, THEN pass the verdict at the single call site in
+ *   `useFitViewOnLayoutVersion.ts` and this turns on in one line.
+ *
+ * Until then the blanket cap is doing TWO jobs and one of them is load-bearing:
+ * it is also the net under that element-level fit. Removing it removes the net.
+ *
+ * ⭐ ITS INERTNESS IS FAIL-LOUD, NOT MERELY FAIL-CLOSED — measured by an
+ * adversarial reviewer (github-a4, 12 Sep 2026) rather than claimed by the
+ * author: flipping the default `true -> false` REDs 7 tests across 4 files
+ * (`useFitViewOnLayoutVersion`, `ReactFlowGraph.layoutLifecycle.integration`,
+ * `autoFitLegibility`, `fitDegeneracyDiscrimination`), three of which were not
+ * written for this change. So it cannot turn itself on quietly.
+ */
+/**
  * ⭐⭐ THE CEILING NOW ANSWERS ONE QUESTION, NOT TWO (12 Sep 2026).
  *
  * `AUTO_FIT_MAX_ZOOM` was a blanket cap on every product fit, and it was doing
