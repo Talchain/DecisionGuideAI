@@ -685,8 +685,16 @@ export const FactorNode = memo((props: NodeProps) => {
           ) : confidenceRow)}
         </div>
       )}
-      {/* ConnRows — max 3 whole rows in both views, remainder disclosed via
-          "+N more in inspector" (audit §8 P0-5 containment). */}
+      {/* ConnRows — max 3 whole rows in both PHASE views, remainder disclosed
+          via "+N more in inspector" (audit §8 P0-5 containment).
+
+              ⚠ "BOTH VIEWS" MEANS THE TWO PHASE VIEWS (pre- and post-analysis), NOT
+              standard/detailed. This block only renders in DETAILED view: it sits in
+              `postAnalysisLayer2`, rendered as `{isDetailed && layer2Content}` where
+              `isDetailed = viewMode === 'expert'`. On 12 Sep 2026 the other reading
+              cost a wrong derivation ("not view-gated") and a ROADMAP row that had to
+              be withdrawn the same night. Reachable via the left sidebar's eye button
+              ("Detailed view"), so this is P5 progressive disclosure, not a dark surface. */}
       {outboundConnections.length > 0 && (
         <>
           <Sep />
