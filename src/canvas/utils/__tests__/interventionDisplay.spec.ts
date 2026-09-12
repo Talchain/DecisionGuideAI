@@ -57,21 +57,26 @@ describe('formatInterventionChange — no-change semantics', () => {
     expect(change.changed).toBe(true)
     expect(change.arrow).toBe('up')
     expect(change.text).not.toMatch(/does not change/i)
-    // ⚠ KNOWN COARSENING, pinned deliberately so it REDs if it changes.
-    // These three previously asserted '60%' / '50%' / 'Team seniority → 60%'.
-    // That percentage was fabricated: a unitless qualitative factor has no
-    // scale, so 0.6 is an ordinal position, not 60% of anything.
-    // Rendering the honest tier word costs resolution — 0.5 and 0.6 both sit in
-    // qualitativeTierLabel's `<= 0.6` Medium band, so the change now reads
-    // "Medium → Medium". The DIRECTION is not lost: `changed` and `arrow` above
-    // are derived from the raw values and still assert up-movement, which is
-    // why those assertions are the load-bearing ones in this test.
-    // Trade-off accepted: a coarse-but-true label over a precise-but-invented
-    // unit. If sub-tier resolution is wanted here, the fix is a real scale on
-    // the factor, not a reinstated percentage.
-    expect(change.targetText).toBe('Medium')
-    expect(change.baselineText).toBe('Medium')
-    expect(change.text).toBe('Team seniority → Medium')
+    // ⚠ RE-PINNED (band-keeps-its-number). This block previously asserted the
+    // BARE tier words 'Medium' / 'Medium' / 'Team seniority → Medium', pinning
+    // a real defect: 0.5 and 0.6 both sit in qualitativeTierLabel's `<= 0.6`
+    // Medium band (labelUtils.ts:262), so a genuine change COLLAPSED to
+    // "Medium → Medium" — visually identical to a no-op. Witnessed on the
+    // founder's pricing graph: "£49 → £59" (value 0.49 → 0.59, factor_type
+    // 'other', no unit) rendered "Medium → Medium".
+    //
+    // The earlier fix was right that inventing a '60%' is worse — that stays
+    // banned (asserted below). The band now KEEPS ITS NUMBER instead, matching
+    // the shape CEE already emits for the same concept ("Moderate (0.49)",
+    // `display-value.ts`), so the two services cannot contradict each other.
+    //
+    // The `changed`/`arrow` assertions above remain load-bearing; these three
+    // now additionally pin that the change is VISIBLE.
+    expect(change.targetText).toBe('Medium (0.6)')
+    expect(change.baselineText).toBe('Medium (0.5)')
+    expect(change.text).toBe('Team seniority → Medium (0.6)')
+    // The banned percentage must NOT come back.
+    expect(change.targetText).not.toMatch(/%/)
   })
 
   it('small placeholder-scale shifts (old ±0.1 epsilon bug) count as change', () => {
@@ -167,10 +172,30 @@ describe('formatInterventionTargetText', () => {
   // no unit, no cap and no raw anchor has an ordinal 0–1 value, not a
   // proportion, so rendering it as a percentage invents a frame. Witnessed on
   // the 14 Aug hiring graph as "Development headcount 0% → 40%".
-  it('keeps tier-label fallbacks as tier words (never invents a percentage)', () => {
+  it('keeps tier-label fallbacks as tier words AND keeps the number', () => {
     // 0.6 → 'Medium' per qualitativeTierLabel's `value <= 0.6` band
     // (labelUtils.ts:262) — derived from the producer, not guessed.
-    expect(formatInterventionTargetText({ label: 'Quality', value: 0.6, factorType: 'quality' })).toBe('Medium')
+    // The parenthesised value is what stops two different values inside one
+    // band rendering as the same string; the tier word is still the frame.
+    const text = formatInterventionTargetText({ label: 'Quality', value: 0.6, factorType: 'quality' })
+    expect(text).toBe('Medium (0.6)')
+    expect(text).not.toMatch(/%/)
+  })
+
+  // ⭐ THE DEFECT THIS BRANCH EXISTS TO KILL. Both values band to 'Medium',
+  // so before this change a real £49→£59 price move and a genuine no-op
+  // produced byte-identical text. Bound by identity to the founder's factor.
+  it('distinguishes two values that fall inside the SAME band', () => {
+    const ctx = { label: 'Pro Plan Monthly Price', factorType: 'other' }
+    const at049 = formatInterventionTargetText({ ...ctx, value: 0.49 })
+    const at059 = formatInterventionTargetText({ ...ctx, value: 0.59 })
+    // Both are still honestly 'Medium' — the band vocabulary is untouched.
+    expect(at049).toMatch(/^Medium /)
+    expect(at059).toMatch(/^Medium /)
+    // …but they are no longer the same string.
+    expect(at049).toBe('Medium (0.49)')
+    expect(at059).toBe('Medium (0.59)')
+    expect(at049).not.toBe(at059)
   })
 
   // Guard the specific witnessed shape: a COUNT factor carrying no frame must
@@ -182,7 +207,7 @@ describe('formatInterventionTargetText', () => {
       factorType: 'quality',
     })
     expect(text).not.toMatch(/%/)
-    expect(text).toBe('Low')
+    expect(text).toBe('Low (0.4)')
   })
 
   // The legitimate percentage path must survive: a factor that genuinely
