@@ -25,7 +25,7 @@ import type { Recommendation } from '../strengthen/strengthenTypes'
 import type { ComparisonScope } from '../utils/goalAnchorCopy'
 import type { NotAnalysedReason } from '../utils/notAnalysedOptions'
 import type { NamedMaterialParameter } from './materialParametersAwaitingUser'
-import type { LeaderOrigin } from './leaderOriginDisclosure'
+import type { OptionOrigin } from './optionOriginDisclosure'
 
 /**
  * How confident the SURFACE is entitled to sound — never an "AI confidence".
@@ -1265,9 +1265,9 @@ export interface AtAGlance {
    *
    * `null` means say nothing, and it is the common answer — the user's own
    * option, an ambiguous stamp, an unstamped node, or no leader named at all.
-   * See `leaderOriginDisclosure.ts` for the predicate and why it is CEE's.
+   * See `optionOriginDisclosure.ts` for the predicate and why it is CEE's.
    */
-  leaderOrigin: LeaderOrigin | null
+  optionOrigin: OptionOrigin | null
 }
 
 /**

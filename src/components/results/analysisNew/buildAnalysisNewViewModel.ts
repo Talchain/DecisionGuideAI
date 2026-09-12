@@ -86,7 +86,7 @@ import { formatThreshold } from '../RangeVisualization'
 import { safeInterpolatedLabel } from '../utils/glossaryCheck'
 import { isDirectionalFactor } from '../../../lib/factorDirection'
 import { namedMaterialParametersAwaitingUser } from './materialParametersAwaitingUser'
-import type { LeaderOrigin } from './leaderOriginDisclosure'
+import type { OptionOrigin } from './optionOriginDisclosure'
 import {
   ANALYSIS_NEW_COPY as COPY,
   ANALYSIS_NEW_LABEL_FALLBACK,
@@ -239,7 +239,7 @@ export interface AnalysisNewViewModelInputs {
    *
    * Absent (older callers/tests) the panel is exactly what it was.
    */
-  nodeOrigins?: ReadonlyMap<string, LeaderOrigin>
+  nodeOrigins?: ReadonlyMap<string, OptionOrigin>
 }
 
 // ── formatting helpers (display only — none of these decide anything) ────────
@@ -1729,7 +1729,7 @@ function buildAtAGlance(
   data: ResultsSectionDataReturn,
   nodeValueSources?: ReadonlyMap<string, string>,
   nodeLabels?: ReadonlyMap<string, string>,
-  nodeOrigins?: ReadonlyMap<string, LeaderOrigin>,
+  nodeOrigins?: ReadonlyMap<string, OptionOrigin>,
 ): AtAGlance {
   const rec = data.recommendation
   const { drivers, setRelative } = glanceDrivers(data)
@@ -2077,7 +2077,7 @@ function buildAtAGlance(
      * would attach one option's origin to another's name — the precise class of
      * error this disclosure exists to correct.
      */
-    leaderOrigin: headline && leader ? (nodeOrigins?.get(leader.id) ?? null) : null,
+    optionOrigin: headline && leader ? (nodeOrigins?.get(leader.id) ?? null) : null,
   }
 }
 
@@ -2904,7 +2904,7 @@ export function buildAnalysisNewViewModel(
      */
     leaderClaimPermitted: preRun ? false : leaderDesignationPermitted(data.recommendation) === true,
     atAGlance: preRun
-      ? { headline: null, designationWithheldReason: null, designationWithheldRemedy: null, designationWithheldParameters: [], leaderLabel: null, winShare: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, inputProvenance: null, leaderOrigin: null }
+      ? { headline: null, designationWithheldReason: null, designationWithheldRemedy: null, designationWithheldParameters: [], leaderLabel: null, winShare: null, winFraction: null, comparisonScope: { kind: 'unresolved' as const }, comparativeClaim: 'none' as const, verdict: null, drivers: [], influenceIsSetRelative: false, condition: null, inputProvenance: null, optionOrigin: null }
       : glance,
     // ⚠ GATED PRE-RUN LIKE EVERY OTHER RUN-DERIVED SECTION. The option NODES
     // exist before any analysis, but "how the options compare" is a reading OF

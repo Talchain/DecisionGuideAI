@@ -87,7 +87,7 @@ import { classifyNodeProvenance } from '../../../canvas/domain/valueProvenance'
  * surface renders as nothing at all. A second member may be added only with
  * evidence for the claim it makes; see "WHY SILENCE" above.
  */
-export type LeaderOrigin = 'ai_suggested'
+export type OptionOrigin = 'ai_suggested'
 
 /**
  * The sentence, and it is the whole sentence.
@@ -105,7 +105,7 @@ export type LeaderOrigin = 'ai_suggested'
  * for this same fact already says "Olumi suggested this"
  * (`STRUCTURAL_PROVENANCE_LABEL.ai`). British English; no em dashes.
  */
-export const LEADER_ORIGIN_COPY: Record<LeaderOrigin, string> = {
+export const OPTION_ORIGIN_COPY: Record<OptionOrigin, string> = {
   ai_suggested: 'Olumi suggested this option, you did not name it',
 }
 
@@ -152,7 +152,7 @@ function quoteRecorded(node: unknown): boolean {
  * and is a FINDING, not a patch site — widening the vocabulary here would blind
  * the guard that owns it.
  */
-export function leaderOriginFromNode(node: unknown): LeaderOrigin | null {
+export function optionOriginFromNode(node: unknown): OptionOrigin | null {
   const classified = classifyNodeProvenance(rawProvenance(node))
   if (classified === null) return null
   // The user's element. Silent by design, not by omission.
@@ -175,13 +175,13 @@ export function leaderOriginFromNode(node: unknown): LeaderOrigin | null {
  */
 export function buildNodeOriginMap(
   nodes: ReadonlyArray<unknown> | null | undefined,
-): ReadonlyMap<string, LeaderOrigin> {
-  const map = new Map<string, LeaderOrigin>()
+): ReadonlyMap<string, OptionOrigin> {
+  const map = new Map<string, OptionOrigin>()
   for (const node of nodes ?? []) {
     const n = node as Record<string, unknown> | null | undefined
     const id = n?.id
     if (typeof id !== 'string' || id.length === 0) continue
-    const origin = leaderOriginFromNode(node)
+    const origin = optionOriginFromNode(node)
     if (origin !== null) map.set(id, origin)
   }
   return map

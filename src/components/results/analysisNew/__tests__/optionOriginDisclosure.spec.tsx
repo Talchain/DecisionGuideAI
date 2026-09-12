@@ -22,10 +22,10 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
 import { AtAGlance } from '../sections/AtAGlance'
 import {
-  LEADER_ORIGIN_COPY,
+  OPTION_ORIGIN_COPY,
   buildNodeOriginMap,
-  leaderOriginFromNode,
-} from '../leaderOriginDisclosure'
+  optionOriginFromNode,
+} from '../optionOriginDisclosure'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import { decisionWithLeaderWithheld, genuineDecision } from './analysisNewFixtures'
 
@@ -36,7 +36,7 @@ const LEADER_ID = 'opt_b'
 /** The other option in the same fixture — the identity contrast. */
 const OTHER_ID = 'opt_a'
 
-const SENTENCE = LEADER_ORIGIN_COPY.ai_suggested
+const SENTENCE = OPTION_ORIGIN_COPY.ai_suggested
 
 const node = (id: string, provenance: string, extra: Record<string, unknown> = {}) => ({
   id,
@@ -54,13 +54,20 @@ const glanceOf = (data: ResultsSectionDataReturn, nodes: ReadonlyArray<unknown>)
   }).atAGlance
 
 const renderGlance = (data: ResultsSectionDataReturn, nodes: ReadonlyArray<unknown>) =>
-  render(<AtAGlance glance={glanceOf(data, nodes)} />)
+  render(
+    <AtAGlance
+      isRunning={false}
+      reanalyseBlocked={false}
+      reanalyseBlockedReason={null}
+      glance={glanceOf(data, nodes)}
+    />,
+  )
 
 // ── the predicate, at the node ──────────────────────────────────────────────
 
-describe('leaderOriginFromNode — CEE’s predicate, inherited not re-decided', () => {
+describe('optionOriginFromNode — CEE’s predicate, inherited not re-decided', () => {
   it('ai_inferred with NO recorded quote is Olumi’s', () => {
-    expect(leaderOriginFromNode(node(LEADER_ID, 'ai_inferred'))).toBe('ai_suggested')
+    expect(optionOriginFromNode(node(LEADER_ID, 'ai_inferred'))).toBe('ai_suggested')
   })
 
   /**
@@ -71,7 +78,7 @@ describe('leaderOriginFromNode — CEE’s predicate, inherited not re-decided',
    */
   it('ai_inferred BESIDE a recorded quote declines — neither ours nor theirs is safe', () => {
     expect(
-      leaderOriginFromNode(node(LEADER_ID, 'ai_inferred', { source_quote: 'raise it to 59' })),
+      optionOriginFromNode(node(LEADER_ID, 'ai_inferred', { source_quote: 'raise it to 59' })),
     ).toBeNull()
   })
 
@@ -82,21 +89,21 @@ describe('leaderOriginFromNode — CEE’s predicate, inherited not re-decided',
    * and the user is told their own words were ours. Presence alone must close it.
    */
   it('an UNREADABLE recorded quote still declines (fail-closed)', () => {
-    expect(leaderOriginFromNode(node(LEADER_ID, 'ai_inferred', { source_quote: 99 }))).toBeNull()
+    expect(optionOriginFromNode(node(LEADER_ID, 'ai_inferred', { source_quote: 99 }))).toBeNull()
   })
 
   it.each([['from_brief'], ['user_set']])('%s is the user’s — silent', (p) => {
-    expect(leaderOriginFromNode(node(LEADER_ID, p))).toBeNull()
+    expect(optionOriginFromNode(node(LEADER_ID, p))).toBeNull()
   })
 
   it('an absent, unknown or object-shaped provenance is silent, never a guess', () => {
-    expect(leaderOriginFromNode({ id: LEADER_ID, data: { type: 'option' } })).toBeNull()
-    expect(leaderOriginFromNode(node(LEADER_ID, 'something_new'))).toBeNull()
-    expect(leaderOriginFromNode({ id: LEADER_ID, data: { provenance: { source: 'x' } } })).toBeNull()
+    expect(optionOriginFromNode({ id: LEADER_ID, data: { type: 'option' } })).toBeNull()
+    expect(optionOriginFromNode(node(LEADER_ID, 'something_new'))).toBeNull()
+    expect(optionOriginFromNode({ id: LEADER_ID, data: { provenance: { source: 'x' } } })).toBeNull()
   })
 
   it('reads the top-level wire shape as well as node.data', () => {
-    expect(leaderOriginFromNode({ id: LEADER_ID, provenance: 'ai_inferred' })).toBe('ai_suggested')
+    expect(optionOriginFromNode({ id: LEADER_ID, provenance: 'ai_inferred' })).toBe('ai_suggested')
   })
 })
 
@@ -108,7 +115,7 @@ describe('At a glance — the disclosure lands where the leader is named', () =>
 
     // ⭐ DISCLOSURE, NOT EXCLUSION — the leader is still the answer on screen.
     expect(screen.getByTestId('analysis-new-glance-headline')).toHaveTextContent('Raise price')
-    expect(screen.getByTestId('analysis-new-glance-leader-origin')).toHaveTextContent(SENTENCE)
+    expect(screen.getByTestId('analysis-new-glance-option-origin')).toHaveTextContent(SENTENCE)
   })
 
   /**
@@ -124,19 +131,19 @@ describe('At a glance — the disclosure lands where the leader is named', () =>
     ])
 
     expect(screen.getByTestId('analysis-new-glance-headline')).toHaveTextContent('Raise price')
-    expect(screen.queryByTestId('analysis-new-glance-leader-origin')).toBeNull()
+    expect(screen.queryByTestId('analysis-new-glance-option-origin')).toBeNull()
   })
 
   it('is SILENT when the leading option came from the user’s own brief', () => {
     renderGlance(genuineDecision(), [node(LEADER_ID, 'from_brief')])
-    expect(screen.queryByTestId('analysis-new-glance-leader-origin')).toBeNull()
+    expect(screen.queryByTestId('analysis-new-glance-option-origin')).toBeNull()
   })
 
   it('is SILENT on the ambiguous case, on the surface as well as at the node', () => {
     renderGlance(genuineDecision(), [
       node(LEADER_ID, 'ai_inferred', { source_quote: 'raise it to 59' }),
     ])
-    expect(screen.queryByTestId('analysis-new-glance-leader-origin')).toBeNull()
+    expect(screen.queryByTestId('analysis-new-glance-option-origin')).toBeNull()
   })
 
   /**
@@ -151,7 +158,7 @@ describe('At a glance — the disclosure lands where the leader is named', () =>
 
     expect(glanceOf(withheld, [node(LEADER_ID, 'ai_inferred')]).headline,
       'precondition: this fixture must withhold, or the arm tests nothing').toBeNull()
-    expect(screen.queryByTestId('analysis-new-glance-leader-origin')).toBeNull()
+    expect(screen.queryByTestId('analysis-new-glance-option-origin')).toBeNull()
   })
 
   /**
@@ -162,6 +169,6 @@ describe('At a glance — the disclosure lands where the leader is named', () =>
   it('with no graph nodes at all the panel is unchanged', () => {
     renderGlance(genuineDecision(), [])
     expect(screen.getByTestId('analysis-new-glance-headline')).toHaveTextContent('Raise price')
-    expect(screen.queryByTestId('analysis-new-glance-leader-origin')).toBeNull()
+    expect(screen.queryByTestId('analysis-new-glance-option-origin')).toBeNull()
   })
 })
