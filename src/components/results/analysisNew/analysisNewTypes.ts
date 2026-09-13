@@ -117,6 +117,21 @@ export interface AnalysisNewFinding {
   marker?: ProvisionalMarker
   /** Canvas focus target, when the producer named one. */
   targetId?: string
+  /**
+   * The exact model element this row's own sentence tells the reader to CHANGE,
+   * present only when the destination can actually serve that act.
+   *
+   * ⚠ DELIBERATELY NOT `targetId`, and they are not interchangeable. `targetId`
+   * moves the CAMERA and answers "where is this thing"; this answers "where do
+   * I go to change it", which is a different surface with its own eligibility.
+   * A row is routinely showable and not editable — folding the two would make
+   * every focusable row advertise an editor, which is the failure this field
+   * exists to avoid.
+   *
+   * Absent ⇒ no act renders. Never a disabled one: a control that cannot act is
+   * an advertisement, and the reader is better served by the sentence alone.
+   */
+  reviewTargetId?: string
   /** Level 3 — inspect. Empty array renders no inspect affordance. */
   inspect: InspectRow[]
   intervention?: ContextualIntervention

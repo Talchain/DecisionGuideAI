@@ -908,6 +908,28 @@ function buildUncertainty(
    * a button that no-ops. A control that cannot act is an advertisement, not an
    * affordance. The edge is reachable via canvas focus below; wiring the ask is
    * a separate, honest step.
+   *
+   * ⭐⭐ THAT SEPARATE STEP IS `reviewTargetId`, AND IT IS A DIFFERENT ACT FROM
+   * THE ONE REFUSED ABOVE — 13 Sep 2026. The refusal stands, unamended, for the
+   * INTERVENTION: asking Olumi still needs a recommendation id this surface
+   * cannot mint. What is attached instead routes the reader to the editor for
+   * this exact edge, and needs no recommendation at all — only the edge id this
+   * finding already carries. The two are not the same button wearing different
+   * words: one asks the engine to act, the other lets the PERSON act, and this
+   * product's premise is that the person is the author.
+   *
+   * ⚠ AND IT IS GATED ON THE DESTINATION, NOT ON THIS ROW'S OWN CONFIDENCE.
+   * `strengthEditReachable` is the Model tab's own eligibility, answered by its
+   * own authorities (`getCausalEdges` for row existence, and the wire builder
+   * via `edgeStrengthEditIsAssertable`). Where it is false the sentence renders
+   * with no act, which is the honest state — the card's value is the naming,
+   * and the naming survives a missing route.
+   *
+   * ⛔ THE COPY AND THE ACT MOVE TOGETHER OR NOT AT ALL. `assumedStrengthAsk`
+   * prescribes what the reader should do; if it ever prescribes an act this
+   * gate withholds, the product is back to instructing people to press a
+   * control that is not there. `assumedStrengthCopy.claims.spec.ts` holds that
+   * pairing, not this comment.
    */
   const assumed = data.assumedStrength?.selected ?? null
   if (assumed) {
@@ -925,6 +947,9 @@ function buildUncertainty(
       // `focusModelTarget` resolves against nodes AND edges, so an edge id is a
       // live target here — verified at `focusHelpers.ts:183-205`.
       targetId: assumed.edgeId,
+      // Present only where the Model tab can serve the editor. Same id, second
+      // question — see the block comment above for why these are two fields.
+      ...(assumed.strengthEditReachable ? { reviewTargetId: assumed.edgeId } : {}),
       inspect: [],
     })
   }

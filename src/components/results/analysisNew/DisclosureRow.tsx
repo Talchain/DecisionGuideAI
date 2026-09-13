@@ -50,6 +50,11 @@ export interface DisclosureRowProps {
   finding: AnalysisNewFinding
   /** Canvas focus. Absent when the producer named no target. */
   onFocusTarget?: (targetId: string) => void
+  /**
+   * Routes to the editor for this row's subject. Absent here, or
+   * `finding.reviewTargetId` absent, renders NO act — never a disabled one.
+   */
+  onReviewTarget?: (targetId: string) => void
   /** Runs the row's reasoning intervention through an EXISTING action route. */
   onRunIntervention?: (recommendationId: string) => void
   /** Stable prefix so two sections cannot mint the same testid. */
@@ -59,6 +64,7 @@ export interface DisclosureRowProps {
 export function DisclosureRow({
   finding,
   onFocusTarget,
+  onReviewTarget,
   onRunIntervention,
   testIdPrefix,
   defaultOpen = false,
@@ -153,6 +159,26 @@ export function DisclosureRow({
                 data-testid={`${testIdPrefix}-focus`}
               >
                 Show on canvas
+              </button>
+            ) : null}
+
+            {/* ⭐ THE ACT THE ROW'S OWN SENTENCE ASKS FOR. Rendered only where
+                the view model established the destination can serve it, so the
+                two cannot disagree: there is no arm here that offers a route
+                the Model tab would not honour, and none that renders disabled.
+
+                ⚠ IT SITS BESIDE "Show on canvas", NOT INSTEAD OF IT. They
+                answer different questions — where is this thing, versus where
+                do I change it — and a reader who wants to see the relationship
+                before touching it is the ordinary case, not an edge one. */}
+            {finding.reviewTargetId && onReviewTarget ? (
+              <button
+                type="button"
+                onClick={() => onReviewTarget(finding.reviewTargetId!)}
+                className={`${typography.panelMeta} text-info underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                data-testid={`${testIdPrefix}-review`}
+              >
+                {COPY.disclosure.reviewTarget}
               </button>
             ) : null}
 
