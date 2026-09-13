@@ -21,6 +21,7 @@ import type { ContextTarget, MenuEntry } from './types'
 import { isDivider } from './types'
 import type { NodeType } from '../domain/nodes'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../mutations/mutationAuthority'
+import { WIRE_ADDABLE_NODE_KINDS } from '../mutations/structuralAdd'
 import {
   deleteAction,
   addNodeAction,
@@ -78,13 +79,104 @@ function getNodeRange(node: any): { min: number; max: number } | null {
 const DIV: MenuEntry = { type: 'divider' }
 
 /**
+ * ⭐⭐ THE PANE NODE-ADD IS JUDGED BY ITS OWN CARRIER, AND THAT IS WHY IT IS NOT
+ * IN THE SET BELOW (2026-09-13).
+ *
+ * `add-node` sat in `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` until the durable writer
+ * landed, and nobody moved it afterwards. The result was the estate's chronic
+ * failure #1 in its purest form: `store.addNode` names itself "THE CHOKEPOINT
+ * FOR EVERY GESTURE THAT REACHES `addNode`: the pane context menu, the six
+ * Command Palette 'Add …' commands, the pre-analysis AddRow and the hero goal
+ * field" — three of those four reach a user, and the pane context menu's item
+ * was stripped before it ever rendered. The pre-analysis `AddRow` is live on
+ * exactly this carrier (`preAnalysisV3StructuralAdd`, flipped for the same
+ * reason), and the Command Palette has no opener at all
+ * (`setShowCommandPalette` is never called true — pinned in
+ * `help/__tests__/KeyboardLegend.dom.spec.tsx`). So the canvas was the only
+ * reachable door left, and one stale set entry held it shut.
+ *
+ * ⚠⚠ THIS IS CLAUDE.md TRAP 21 — TWO KEYS FOR ONE CONCEPT. The authority table
+ * ALREADY says this gesture is `server_graph`, in a key whose own comment names
+ * this surface: `canvasNodeAddWithServerHash` — "the canvas/palette/context-menu
+ * node add … a receipt-bearing GraphV3 carrier (`structural_add`), a
+ * server-side write to `scenarios.graph`, and a committed `edit_graph` fact".
+ * Meanwhile the menu consulted `canvasSemanticMutations`, which is `'disabled'`.
+ * Both keys were correct answers to DIFFERENT questions, and the fix is to name
+ * them apart rather than to align the defaults: each menu id is now judged by
+ * the authority of the carrier IT uses.
+ *
+ * ⚠ THE REST OF THE SET STAYS, AND THE REASONS ARE DERIVED, NOT ASSUMED.
+ * `add-connected-*` and `insert-factor-between` route through
+ * `store.addNodeWithEdge`, and `duplicate`/`paste` through `duplicateSelected`/
+ * `pasteClipboard` — all three capture NOTHING, deliberately, because
+ * `structural_add_edge` is `'reader_only_refusal'` in CEE (re-derived at CEE
+ * `staging` `3575b189`; see the `pendingStructuralAdds` note in `store.ts`).
+ * Emitting a durable add for those would save the nodes and silently DROP the
+ * topology. A door that loses half the gesture is worse than no door.
+ */
+/**
+ * ⛔⛔ KINDS THE PRODUCT READS WITH `.find()` — A SECOND ONE PERSISTS AND IS
+ * THEN IGNORED, WHICH IS WORSE THAN A DOOR THAT REFUSES (13 Sep 2026).
+ *
+ * Found by an independent review seat on #1538, applying this PR's own standard
+ * to this PR: *"a door that works for five kinds and quietly fails for the
+ * sixth is worse than five doors."* It was four and two.
+ *
+ * ⚠ WIRE-PERSISTABILITY WAS THE RIGHT QUESTION FOR `option` AND IS NOT THE
+ * WHOLE QUESTION HERE. A second goal persists perfectly well. It simply does
+ * nothing — because every production consumer takes the FIRST match and a new
+ * node is APPENDED:
+ *
+ *   goal      `adapters/islRequestAdapter.ts:498` — THE ANALYSIS REQUEST ·
+ *             `conversation/utils/applyPatch.ts:544` ·
+ *             `nodes/OptionNode.tsx:1147` · `nodes/OutcomeNode.tsx:51` ·
+ *             `nodes/RiskNode.tsx:59`
+ *   decision  `components/FloatingOlumiPanel.tsx:638` ·
+ *             `hooks/useAddBaseline.ts:68` · `utils/generateScenarios.ts:87`
+ *
+ * ⭐ THE CONTRAST IS WHAT MAKES THIS A DERIVATION RATHER THAN A JUDGEMENT, and
+ * it was run in the same sweep: `factor` and `option` are read with `.filter()`
+ * (`islRequestAdapter.ts:343`, `ReactFlowGraph.tsx:771`, `FactorNode.tsx:77`,
+ * `OptionPanel.tsx:111`, `GoalPanel.tsx:249`). **The codebase already says
+ * which kinds may be plural, in the verb it chose.** This set reads that answer
+ * rather than re-deciding it.
+ *
+ * So the user would add a Goal, watch it persist, watch it render — and the
+ * analysis would go on optimising the other one, with nothing refusing it and
+ * nothing saying so. That is the silent-loss class this whole PR exists to
+ * close, which is why four durable kinds shipping is the win and six is not.
+ *
+ * ⚠ NOT A PERMANENT RULING. The honest alternative is to offer these kinds only
+ * when NONE exists yet, which is a real capability for a graph that has no goal.
+ * It needs its own review and its own emptiness derivation, so it is a row
+ * rather than a widening smuggled into this PR.
+ */
+const SINGULAR_NODE_KINDS: ReadonlySet<string> = new Set<string>(['goal', 'decision'])
+
+/**
+ * The kinds this door may offer: wire-persistable AND safe to have more than
+ * one of. ⭐ ONE list, consumed by BOTH the submenu and the authority set below
+ * — the first cut had the same filter written twice, which is the
+ * hand-maintained mirror this estate keeps paying for (CLAUDE.md trap 12).
+ * Build the door and judge the door from one derivation, or they drift apart
+ * silently and the drift reads as green.
+ */
+const ADDABLE_NODE_TYPE_ITEMS = NODE_TYPE_ITEMS.filter(
+  (nt) => WIRE_ADDABLE_NODE_KINDS.has(nt.type) && !SINGULAR_NODE_KINDS.has(nt.type),
+)
+
+const DURABLE_NODE_ADD_MENU_IDS: ReadonlySet<string> = new Set<string>([
+  'add-node',
+  ...ADDABLE_NODE_TYPE_ITEMS.map((nt) => `add-node-${nt.type}`),
+])
+
+/**
  * Local React-Flow mutations that look like shared-model edits. Delete is not
  * in this set: it has its own server-hash/CAS authority gate in the store.
  * Copy, layout, selection, lenses and AI questions are presentation/read-only
  * actions and remain available.
  */
 export const LOCAL_SEMANTIC_CONTEXT_MENU_IDS = new Set([
-  'add-node',
   'undo',
   'redo',
   'paste',
@@ -109,11 +201,28 @@ function compactDividers(entries: MenuEntry[]): MenuEntry[] {
   return compacted
 }
 
+/**
+ * One menu id, judged by the authority of the carrier IT uses.
+ *
+ * ⚠ An id in NEITHER set is authorised: this filter subtracts, it does not
+ * admit. Copy, layout, selection, lens and "Ask AI" items reach a user because
+ * nothing here claims them, which is why adding a genuinely local mutation
+ * needs an entry in `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` rather than silence.
+ */
+function menuIdIsAuthorised(id: string): boolean {
+  if (DURABLE_NODE_ADD_MENU_IDS.has(id)) {
+    return hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash)
+  }
+  if (LOCAL_SEMANTIC_CONTEXT_MENU_IDS.has(id)) {
+    return hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations)
+  }
+  return true
+}
+
 export function applyContextMenuMutationAuthority(entries: MenuEntry[]): MenuEntry[] {
-  if (hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations)) return entries
   const filtered = entries.flatMap<MenuEntry>((entry) => {
     if (isDivider(entry)) return [entry]
-    if (LOCAL_SEMANTIC_CONTEXT_MENU_IDS.has(entry.id)) return []
+    if (!menuIdIsAuthorised(entry.id)) return []
     const submenuItems = entry.submenuItems
       ? applyContextMenuMutationAuthority(entry.submenuItems)
       : undefined
@@ -182,7 +291,9 @@ function buildPaneMenu(
 ): MenuEntry[] {
   const flowPos = screenToFlowPosition(target.screenPos)
 
-  const addNodeSubmenu: MenuEntry[] = NODE_TYPE_ITEMS.map((nt) => ({
+  // ⚠ ONE DERIVATION, SHARED WITH THE AUTHORITY SET — see
+  // `ADDABLE_NODE_TYPE_ITEMS`.
+  const addNodeSubmenu: MenuEntry[] = ADDABLE_NODE_TYPE_ITEMS.map((nt) => ({
     id: `add-node-${nt.type}`,
     label: nt.label,
     ...(nt.glyph ? { glyph: nt.glyph } : {}),

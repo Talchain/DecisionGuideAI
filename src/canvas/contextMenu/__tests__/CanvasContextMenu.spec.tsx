@@ -51,8 +51,13 @@ vi.mock('../../stores/guidanceStore', () => ({
 const onClose = vi.fn()
 const screenToFlowPosition = vi.fn((pos: any) => pos)
 
+/**
+ * ⚠ 'Add node' LEFT THIS LIST ON 13 Sep 2026 and is asserted PRESENT instead.
+ * Every label that remains reaches a writer capturing no `structural_add`;
+ * `Add node` reaches `store.addNode`, which does. Rationale and the full
+ * replacement corpus: `paneAddNodeDurableDoor.spec.tsx`.
+ */
 const RETIRED_LOCAL_ACTIONS = [
-  'Add node',
   'Paste',
   'Undo',
   'Redo',
@@ -93,6 +98,9 @@ describe('CanvasContextMenu — shared-model authority', () => {
     expect(screen.getByText('Ask AI')).toBeInTheDocument()
     expect(screen.getByText('Auto-arrange')).toBeInTheDocument()
     expect(screen.getByText('Switch to Detailed')).toBeInTheDocument()
+    // The one local-looking edit that is NOT local: a durable carrier backs it,
+    // so it renders. This is the DOM-level witness that a human has a door.
+    expect(screen.getByText('Add node')).toBeInTheDocument()
     expectLocalSemanticActionsAbsent()
     expect(storeSpies.undo).not.toHaveBeenCalled()
     expect(storeSpies.redo).not.toHaveBeenCalled()
