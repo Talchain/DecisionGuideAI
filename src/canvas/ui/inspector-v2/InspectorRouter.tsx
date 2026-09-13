@@ -311,7 +311,16 @@ export const InspectorRouter = memo(function InspectorRouter({
             fences the strength control too on any edge whose strength cannot be
             asserted. The boundary did not disappear; it moved to the question
             that decides it. */}
+          {/* ⭐ KEYED ON THE EDGE, exactly as the node panels below are keyed on
+              `nodeId` (`:533`, `:541`). Without it, selecting a different edge
+              REUSES this component instance, so every `useState(...)` initialiser
+              keeps its first value and the panel goes on reporting the edge you
+              LEFT — measured: a fresh mount of an 0.85 edge reads "Very strong",
+              but switching 0.30 → 0.85 without unmount stays "Moderate 0.30".
+              The asymmetry with the node branch was the whole defect: one
+              branch remounts per subject and the other does not. */}
           <EdgePanel
+            key={edgeId}
             edgeId={edgeId}
             techMode={techMode}
             onClose={onClose}
