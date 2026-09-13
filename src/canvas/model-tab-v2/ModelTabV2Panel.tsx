@@ -262,6 +262,9 @@ type MountedQueueId = Extract<RepairQueue['id'], 'confirm-estimates'>
 const FACTOR_CONFIRMATION_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.modelFactorConfirmation,
 )
+const EDGE_CONFIRMATION_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.modelEdgeStrengthConfirmation,
+)
 const OPTION_INTERVENTION_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.modelOptionIntervention,
 )
@@ -586,13 +589,38 @@ export function ModelTabV2Panel({
    * node it could borrow. Hooks cannot be called per row, so the host tracks the
    * row whose confirmation is pending and dispatches on the next render.
    */
-  const [pendingConfirmId, setPendingConfirmId] = useState<string | null>(null)
-  const confirmAuthority = useModelEditAuthority(pendingConfirmId)
+  /**
+   * ⭐⭐ TWO KINDS OF RATIFICATION, ONE CHIP, AND THE KIND DECIDES THE CARRIER.
+   *
+   * A factor confirmation is a LOCAL provenance stamp (`proposeFactorConfirmation`
+   * → `setObservedSource('user_confirmed')`, which the server's own enum cannot
+   * carry). A relationship confirmation is a WIRE act: CEE owns edge provenance
+   * and `confirm_current` is *"permission to stamp exactly two provenance
+   * fields"*. So they are not one gesture with a switch inside — they are two
+   * acts the same chip can start, and the row's KIND is what picks.
+   *
+   * ⚠ THE ID SPACES DIFFER, AS `edit.rowId`'s note above says: a factor row's id
+   * is a NODE id and a relationship row's is an EDGE id. `useModelEditAuthority`
+   * takes them in different slots, so the kind must travel WITH the id or the
+   * edge id arrives in the node slot and the authority silently addresses
+   * nothing.
+   */
+  const [pendingConfirm, setPendingConfirm] = useState<
+    { id: string; kind: 'node' | 'edge' } | null
+  >(null)
+  const confirmAuthority = useModelEditAuthority(
+    pendingConfirm?.kind === 'node' ? pendingConfirm.id : null,
+    pendingConfirm?.kind === 'edge' ? pendingConfirm.id : null,
+  )
   useEffect(() => {
-    if (pendingConfirmId === null) return
-    confirmAuthority.proposeFactorConfirmation()
-    setPendingConfirmId(null)
-  }, [pendingConfirmId, confirmAuthority])
+    if (pendingConfirm === null) return
+    if (pendingConfirm.kind === 'edge') {
+      confirmAuthority.proposeEdgeStrengthConfirmation(pendingConfirm.id)
+    } else {
+      confirmAuthority.proposeFactorConfirmation()
+    }
+    setPendingConfirm(null)
+  }, [pendingConfirm, confirmAuthority])
 
   /**
    * ⚠ F8 — RESOLVING THE LAST ITEM RETURNS YOU TO THE OUTLINE.
@@ -891,8 +919,12 @@ export function ModelTabV2Panel({
   const confirmValueAsIs = useCallback((rowId: string) => {
     setEdit(null)
     setInterventionEdit(null)
-    setPendingConfirmId(rowId)
-  }, [])
+    // The kind is read from the ROWS, not guessed from the id's shape — an edge
+    // id and a node id are both opaque strings and a shape test would be a
+    // fourth place that decides what kind of thing an id names.
+    const kind = rows.find(r => r.id === rowId)?.kind === 'relationship' ? 'edge' : 'node'
+    setPendingConfirm({ id: rowId, kind })
+  }, [rows])
 
   const beginInterventionEdit = useCallback(
     (factorId: string, seed: string) => {
@@ -1329,7 +1361,16 @@ export function ModelTabV2Panel({
         onProposeEdit={proposeEdit}
         onDiscardEdit={discardEdit}
         onConfirmEdit={confirmEdit}
+        /* ⚠ TWO RATIFICATIONS, TWO GATES, AND NEITHER BORROWS THE OTHER'S.
+           The factor stamp stays withheld under the B3 policy because it is a
+           local-only write. The relationship stamp is the receipt-bearing
+           `confirm_current` act, so it is gated on its own authority key and is
+           live. Connectivity is decided HERE, as it already was; the row still
+           decides applicability by its attention reason alone. */
         onConfirmValueAsIs={FACTOR_CONFIRMATION_CONNECTED ? confirmValueAsIs : undefined}
+        onConfirmRelationshipAsIs={
+          EDGE_CONFIRMATION_CONNECTED ? confirmValueAsIs : undefined
+        }
         onRenameRow={onRenameRow}
         onGroupAction={onHandOffToOlumi ? handleGroupAction : undefined}
         groupActionContext={groupActionContext}

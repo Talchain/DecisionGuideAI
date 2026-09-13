@@ -125,7 +125,7 @@ import {
   type EdgeStrengthCommitOutcome,
 } from '../ui/inspector-v2/useInspectorMutations'
 import { buildFactorValueEditEvent } from '../conversation/factorValueEdit'
-import { buildEdgeStrengthEditEvent } from '../conversation/edgeStrengthEdit'
+import { buildEdgeStrengthEditEvent, buildEdgeStrengthConfirmEvent } from '../conversation/edgeStrengthEdit'
 import { captureOptimisticFactorEdit } from '../conversation/optimisticFactorEdit'
 import {
   buildManualGoalTarget,
@@ -341,6 +341,20 @@ export type OptionInterventionSendSettlement =
  */
 export type EdgeStrengthProposalOutcome = EdgeStrengthCommitOutcome | 'refused_unassertable'
 
+/**
+ * The outcome of ratifying a strength the server already holds.
+ *
+ * ⚠ NAMED APART FROM `EdgeStrengthProposalOutcome`, AND THE SPLIT IS THE POINT.
+ * That one answers *"will the server accept this NUMBER?"*; this answers *"did a
+ * statement of agreement leave?"* — and crucially it has NO `committed` member,
+ * because nothing is committed locally. See `proposeEdgeStrengthConfirmation`.
+ */
+export type EdgeStrengthConfirmationOutcome =
+  | 'dispatched'
+  | 'refused_unassertable'
+  | 'no_carrier'
+  | 'not_encodable'
+
 export interface ModelEditAuthorityLive {
   goalTargetDispatchAvailable: boolean
   /** The host captures identity without gaining a separate store access path. */
@@ -395,6 +409,11 @@ export interface ModelEditAuthorityLive {
    * ⚠ `directionStated` IS THE CALLER'S CLAIM ABOUT ITS OWN CONTROL and must
    * never be derived from `signedMean`'s sign. See the implementation.
    */
+  /**
+   * Ratify the strength the server already holds for this edge.
+   * Returns what happened to the STATEMENT, never a claim about the model.
+   */
+  proposeEdgeStrengthConfirmation: (edgeId: string) => EdgeStrengthConfirmationOutcome
   proposeEdgeStrength: (
     edgeId: string,
     signedMean: number,
@@ -759,6 +778,55 @@ export function useModelEditAuthority(
     [activeEdgeId, edgeMutations],
   )
 
+  /**
+   * ⭐⭐ "I AGREE WITH THIS ESTIMATE" — a first-class reasoning act, and until now
+   * one the product asked for and could not perform.
+   *
+   * ⛔⛔ IT WRITES NOTHING LOCALLY, AND THAT IS THE LOAD-BEARING DECISION.
+   * `proposeFactorConfirmation` above stamps `user_confirmed` on the store and
+   * returns `committed`. This must not, and the reason is exactly the one
+   * `ModelTabV2Panel`'s own header gives for rendering no `applied` phase: *"a
+   * row that showed 'applied' from its own echo would be an optimistic write
+   * wearing a confirmation."* Here that would be literal — the thing being
+   * claimed IS a confirmation, so stamping it before the server agrees would
+   * make the product assert that a person ratified a value on a turn that may
+   * still be refused. CEE owns this provenance (`confirm_current` is
+   * *"permission to stamp exactly two provenance fields"*); the canvas learns it
+   * from the response, or does not claim it.
+   *
+   * ⚠ SO `dispatched` MEANS A STATEMENT LEFT, NOT THAT IT LANDED, and no caller
+   * may render it as agreement recorded. That gap is real and it is increment
+   * 2's subject — the row cannot yet distinguish accepted from refused. Naming
+   * the outcome `dispatched` rather than `committed` is what keeps the gap
+   * VISIBLE instead of quietly closed by a hopeful word.
+   *
+   * ⚠ THE REFUSAL ASKS THE BUILDER, as `proposeEdgeStrength` does. An edge whose
+   * strength nothing proves the server stated cannot be confirmed — there is no
+   * `expected` tuple to ratify — and that is `refused_unassertable`, distinct
+   * from `no_carrier` (no conversation to send through) which is a fact about
+   * the session rather than about the edge.
+   */
+  const proposeEdgeStrengthConfirmation = useCallback(
+    (edgeId: string): EdgeStrengthConfirmationOutcome => {
+      // Keyed to ONE edge, same fail-closed rule as `proposeEdgeStrength`: an id
+      // that is not the active edge is a caller holding the wrong authority.
+      if (activeEdgeId === null || edgeId !== activeEdgeId) return 'not_encodable'
+      const edge = useCanvasStore.getState().edges.find(e => e.id === edgeId)
+      if (!edge) return 'not_encodable'
+
+      const event = buildEdgeStrengthConfirmEvent({ edge })
+      if (!event) return 'refused_unassertable'
+      if (!sendSystemEvent) return 'no_carrier'
+
+      void Promise.resolve(sendSystemEvent(event)).catch(() => {
+        /* Swallowed HERE and resolved centrally, as the factor edit's send is.
+           Nothing local was written, so there is nothing to revert. */
+      })
+      return 'dispatched'
+    },
+    [activeEdgeId, sendSystemEvent],
+  )
+
   return {
     goalTargetDispatchAvailable: typeof dispatchAction === 'function',
     captureScenarioId: () => useCanvasStore.getState().currentScenarioId ?? null,
@@ -767,5 +835,6 @@ export function useModelEditAuthority(
     proposeOptionIntervention,
     proposeFactorConfirmation,
     proposeEdgeStrength,
+    proposeEdgeStrengthConfirmation,
   }
 }

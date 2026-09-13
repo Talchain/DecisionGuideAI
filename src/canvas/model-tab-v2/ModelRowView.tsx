@@ -136,6 +136,12 @@ export interface ModelRowViewProps {
    */
   onConfirmValueAsIs?: (id: string) => void
   /**
+   * Ratify a RELATIONSHIP's strength — the `confirm_current` wire act. Separate
+   * from `onConfirmValueAsIs` because the two ratifications have different
+   * carriers and different authorities; absent means the host withholds it.
+   */
+  onConfirmRelationshipAsIs?: (id: string) => void
+  /**
    * ⭐ Rename this element. ABSENT MEANS NO AFFORDANCE — see `renameAvailable`.
    *
    * The write lands on `store.updateNodeLabel`, which its own header calls "THE
@@ -291,6 +297,40 @@ export function valueMayShrink(display: string | null): boolean {
   return text.length > 12
 }
 
+/**
+ * ⛔⛔ THE ACCESSIBLE NAME OF A CONFIRMATION IS A CLAIM, AND ON A RELATIONSHIP
+ * THE OLD ONE WAS THE WRONG CLAIM — 13 Sep 2026.
+ *
+ * The chip read `Confirm <label> is correct`. For a factor value that is at
+ * least arguable. For a relationship strength it is not: the act stamps
+ * PROVENANCE and changes no number, so what the person is doing is adopting
+ * Olumi's estimate as their own judgement — not certifying that it is right.
+ * CEE, which owns the write, says exactly that and says it better: its guard
+ * admits the write only when strength and direction are deep-equal to before
+ * and `provenance.source` becomes `user_specified`, and its refusal for the
+ * wrong intent tells the caller to *"adopt the existing value"*.
+ *
+ * ⚠ AND THIS PR IS WHAT MADE IT LOAD-BEARING. The strings are older than this
+ * change; routing relationship rows through them is not. Shipping that would
+ * have re-opened, one aria-label wide, the same wound the canvas provenance
+ * fixes just closed: the product asserting something untrue about whose
+ * judgement a number carries. A confirmation that records agreement must not
+ * read as a validation — this file's own ruling, applied to this file.
+ *
+ * The number stays Olumi's. The judgement becomes the user's. That is the
+ * whole act and the name now says it.
+ */
+const CONFIRM_AS_IS_COPY = {
+  value: {
+    title: 'Confirm this value is correct',
+    label: (rowLabel: string) => `Confirm ${rowLabel} is correct`,
+  },
+  relationship: {
+    title: 'Adopt this estimate as your own judgement',
+    label: (rowLabel: string) => `Adopt Olumi’s estimate for ${rowLabel} as your own judgement`,
+  },
+} as const
+
 export function ModelRowView({
   row,
   tier,
@@ -305,6 +345,7 @@ export function ModelRowView({
   onDiscardEdit,
   onConfirmEdit,
   onConfirmValueAsIs,
+  onConfirmRelationshipAsIs,
   onRenameRow,
 }: ModelRowViewProps) {
   const phase = commit?.phase ?? 'idle'
@@ -430,8 +471,26 @@ export function ModelRowView({
    * in `adapters.ts`), so there is exactly one predicate and this surface reads
    * it rather than re-deriving half of it.
    */
+  /**
+   * ⚠ ONE CHIP, TWO ACTS, SO TWO HANDLERS — AND THE ROW STILL DECIDES BY THE
+   * ATTENTION REASON ALONE. Ratifying a FACTOR's value is a local-only write
+   * (`disabled` under the B3 policy); ratifying a RELATIONSHIP's strength is the
+   * receipt-bearing `confirm_current` wire act (`server_graph`). They need
+   * different connectivity answers, and this file is not where connectivity is
+   * decided — the HOST decides it by passing a handler or not, exactly as it
+   * already did for factors.
+   *
+   * ⛔ AN EARLIER CUT READ THE AUTHORITY TABLE HERE INSTEAD, AND TWO SPECS
+   * CAUGHT IT — including one whose whole subject is that this chip is offered
+   * *"by the ATTENTION REASON alone"*. It was written after a mutant that bit
+   * only a source scan. Re-deriving connectivity in the row is the same defect
+   * as re-deriving the value guard: a second place answering a question that
+   * already has an owner.
+   */
+  const confirmHandler =
+    row.kind === 'relationship' ? onConfirmRelationshipAsIs : onConfirmValueAsIs
   const canConfirmAsIs =
-    typeof onConfirmValueAsIs === 'function' &&
+    typeof confirmHandler === 'function' &&
     row.attention.includes('unconfirmed-estimate')
 
   return (
@@ -1030,12 +1089,12 @@ export function ModelRowView({
         <button
           type="button"
           data-testid={`model-row-v2-${row.id}-confirm-as-is`}
-          title="Confirm this value is correct"
-          aria-label={`Confirm ${row.label} is correct`}
+          title={CONFIRM_AS_IS_COPY[row.kind === 'relationship' ? 'relationship' : 'value'].title}
+          aria-label={CONFIRM_AS_IS_COPY[row.kind === 'relationship' ? 'relationship' : 'value'].label(row.label)}
           className={`${typography.buttonSmall} text-info underline decoration-dotted shrink-0 whitespace-nowrap`}
           onClick={e => {
             e.stopPropagation()
-            onConfirmValueAsIs?.(row.id)
+            confirmHandler?.(row.id)
           }}
         >
           Confirm
