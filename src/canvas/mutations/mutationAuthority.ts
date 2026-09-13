@@ -69,6 +69,31 @@ export const CANONICAL_EDIT_AUTHORITY = {
   // and the user is told the model does not hold it yet. The key names that
   // precondition rather than implying the write is unconditional.
   canvasNodeAddWithServerHash: 'server_graph',
+  // schemas 0.50.0 — THE CANVAS EDGE ADD. `server_graph` because it now has
+  // exactly what that value requires and nothing weaker: a receipt-bearing
+  // GraphV3 carrier (`structural_add_edge`), a server-side writer, and a
+  // committed `edit_graph` fact.
+  //
+  // ⭐ IT WAS CORRECTLY SHUT UNTIL 13 Sep 2026. CEE held `structural_add_edge`
+  // at `'reader_only_refusal'` — no writer — so a durable emit would have saved
+  // nothing. CEE #1443 promoted it to `'mutating'` (`dispatch.ts:373`) and
+  // shipped the dedicated writer, which is what makes this key honest today.
+  //
+  // ⛔ AND IT IS A SIBLING RATHER THAN A FLIP OF `canvasSemanticMutations` FOR A
+  // MEASURED REASON. That blanket key also gates undo, redo, paste, the
+  // blueprint insert and the whole `add-` palette: witnessed live on `a518dca8`,
+  // `buildPaneMenu` emits SEVEN top-level entries and the served menu shows
+  // FOUR, with undo/redo/paste filtered out in front of a user. Flipping it
+  // would open five gestures that still have no durable carrier. Two questions
+  // under one name; this names them apart, exactly as
+  // `canvasNodeAddWithServerHash` did for the node add.
+  //
+  // ⚠ THIS KEY GATES THE GESTURE, NOT ITS DURABILITY. A bare drag still stands
+  // down at `captureStructuralAddEdge` with `strength_not_stated`, deliberately:
+  // `USER_EDGE_DEFAULTS.weight = 0.3` carries no provenance and sending it would
+  // assert a strength the user never stated. The user is told so —
+  // `STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE`, via `topbar:show-toast`.
+  canvasEdgeAddWithServerHash: 'server_graph',
   priorRangeJudgement: 'disabled',
   canvasSelectionAndLayout: 'local_presentation',
   modelOptionIntervention: 'server_graph',
