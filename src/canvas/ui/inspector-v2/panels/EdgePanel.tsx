@@ -40,6 +40,7 @@ import {
   edgeValueBand,
   edgeValueSource,
   resolveEdgeValueDisplay,
+  resolveEdgeSignedStrengthDisplay,
   withLiveEdgeValue,
   type EdgeValueBand,
 } from '../../../domain/edgeValueProvenance'
@@ -339,6 +340,49 @@ export const EdgePanel = memo(function EdgePanel({
    */
   const strengthReachesTheModel = edgeStrengthEditIsAssertable(edge)
 
+  /**
+   * ⭐⭐ A DIFFERENT QUESTION FROM THE ONE ABOVE, AND THAT IS THE WHOLE DESIGN.
+   *
+   * `strengthReachesTheModel` asks *"can I build an EDIT event for this edge?"*
+   * and rightly answers no for a link the user just drew — `edge_strength_edit`
+   * EDITS an edge the server already holds, and the server has never received
+   * this one. **That fence is correct and is deliberately left alone.**
+   *
+   * This asks *"did this link stand down for want of a stated strength?"* — and
+   * if so the user has never been offered a way to state one. The answer rides
+   * `structural_add_edge`, which ADDS the link WITH the magnitude the person
+   * supplies. Two populations, two carriers, two controls (CLAUDE.md trap 21);
+   * giving them one control is what made the old copy impossible to write
+   * honestly.
+   *
+   * ⛔ NOTHING HERE INVENTS A MAGNITUDE. Until the person picks one the link
+   * stays on the canvas and says so.
+   */
+  // `edge` is narrowed a few lines below, not here — optional access, because the
+  // repo's typecheck GATE flags what a bare `tsc --noEmit` let through.
+  const awaitingStatedStrength =
+    (edge?.data as { structuralAddStandDown?: string } | undefined)?.structuralAddStandDown ===
+    'strength_not_stated'
+
+  /**
+   * States the strength for a link that has never reached the model, with the
+   * provenance stamps that make it a CLAIM rather than a default. The store's
+   * `updateEdge` sees a recorded stand-down plus a now-stated strength and
+   * re-runs the capture exactly once — see `retryStructuralAddEdgeCapture`.
+   */
+  const handleStateStrengthForSave = useCallback(
+    (v: number) => {
+      if (!edgeId) return
+      useCanvasStore.getState().updateEdgeData(edgeId, {
+        weight: Math.abs(v),
+        weightSource: 'user',
+        direction: v >= 0 ? 'positive' : 'negative',
+        directionSource: 'user',
+      } as never)
+    },
+    [edgeId],
+  )
+
   if (!edgeId || !edge) return null
 
   // ─── Render ──────────────────────────────────────────────────────
@@ -402,6 +446,31 @@ export const EdgePanel = memo(function EdgePanel({
                 same mechanism `InspectorRouter` used to apply to the whole
                 panel — kept, but pointed at the question that actually decides
                 it: can THIS edge's strength be asserted? */}
+            {awaitingStatedStrength ? (
+              /* ⭐ THE ADD CONTROL. Rendered INSTEAD of the edit fieldset, never
+                 beside it: two strength controls on one edge would be two
+                 answers to one question, which is the defect this panel already
+                 carries a trap-21 note about one fence down. */
+              <PrimaryControlCard>
+                <p
+                  className={`${typography.panelBody} text-text-body mb-1.5`}
+                  data-testid="edge-state-strength-for-save"
+                >
+                  {INLINE_LABELS.strengthQuestionForSave}
+                </p>
+                {/* ⛔ `unset` DERIVED FROM THE PROVENANCE GATE, never from the
+                    branch we are already inside. Asking the gate keeps this
+                    honest if the branch's condition ever changes: it is the same
+                    reader `captureStructuralAddEdge` is handed, so the control
+                    can only ever highlight a number that reader calls SET. */}
+                <StrengthBandButtons
+                  value={localStrength}
+                  onChange={handleStateStrengthForSave}
+                  unset={!resolveEdgeSignedStrengthDisplay(edge?.data as Record<string, unknown> | undefined).show}
+                />
+              </PrimaryControlCard>
+            ) : (
+            <>
             {/* ⚠ MARKED `no-strength-basis`, NOT `disabled`, AND THE NAME IS THE
                 POINT. Two fences now live in this panel and they answer
                 DIFFERENT questions (CLAUDE.md trap 21): the one below asks
@@ -467,6 +536,8 @@ export const EdgePanel = memo(function EdgePanel({
               </details>
             </PrimaryControlCard>
             </fieldset>
+            </>
+            )}
 
             {/* ⛔ EVERYTHING BELOW WRITES NOTHING TO THE SHARED MODEL.
                 `setExistsProbability` and `setStd` each perform ONE local

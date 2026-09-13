@@ -10,7 +10,7 @@ import { InspectorShell } from './InspectorShell'
 import { ConfidenceBadge } from './shared/ConfidenceBadge'
 import { TechnicalDisclosure } from './shared/TechnicalDisclosure'
 import { useTechToggle } from './useTechToggle'
-import { INSPECTOR_EDGE_REASON, INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON, INSPECTOR_READ_ONLY_REASON, INSPECTOR_OPTION_READ_ONLY_REASON, INSPECTOR_FACTOR_CONTROLLABLE_REASON, INSPECTOR_FACTOR_EXTERNAL_REASON } from './useInspectorMutations'
+import { INSPECTOR_EDGE_REASON, INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON, INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON, INSPECTOR_READ_ONLY_REASON, INSPECTOR_OPTION_READ_ONLY_REASON, INSPECTOR_FACTOR_CONTROLLABLE_REASON, INSPECTOR_FACTOR_EXTERNAL_REASON } from './useInspectorMutations'
 import { getTypeLabel, EDGE_TYPE_LABEL } from './inspectorStrings'
 import { resolveEdgeValueDisplay } from '../../domain/edgeValueProvenance'
 import type { EdgeValueSource } from '../../domain/edgeValueProvenance'
@@ -219,6 +219,22 @@ export const InspectorRouter = memo(function InspectorRouter({
      * — one derivation with two readers, not two rules kept in step by hand.
      */
     const edgeStrengthReaches = edgeStrengthEditIsAssertable(edge)
+    /**
+     * ⛔ THE THIRD CASE, AND WITHOUT IT THIS PANEL WOULD CONTRADICT ITSELF.
+     *
+     * `INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON` tells the reader to *"Ask Olumi
+     * to set its strength"*. That is sound for a link the SERVER HOLDS with no
+     * stated strength. It is WRONG for a link the user has just drawn, because
+     * `EdgePanel` now offers them a control that states it themselves — and a
+     * notice telling you to delegate an action the surface beside it is offering
+     * is the same defect UI #1540 shipped and then corrected.
+     *
+     * Two populations, one sentence — CLAUDE.md trap 21, and this is the branch
+     * that names them apart.
+     */
+    const edgeAwaitingStatedStrength =
+      (edge.data as { structuralAddStandDown?: string } | undefined)?.structuralAddStandDown ===
+      'strength_not_stated'
 
     return (
       <InspectorShell
@@ -251,7 +267,11 @@ export const InspectorRouter = memo(function InspectorRouter({
           data-testid="inspector-authority-notice"
           className={`rounded border border-panel-border bg-panel-hover px-3 py-2 ${typography.panelBody} text-text-body`}
         >
-          {edgeStrengthReaches ? INSPECTOR_EDGE_REASON : INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON}
+          {edgeStrengthReaches
+            ? INSPECTOR_EDGE_REASON
+            : edgeAwaitingStatedStrength
+              ? INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON
+              : INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON}
         </div>
         {/* ⭐ OUTSIDE THE FENCE, DELIBERATELY, AND THE PLACEMENT IS THE FIX.
             This toggle first shipped INSIDE `EdgePanel`, whose only mount is the

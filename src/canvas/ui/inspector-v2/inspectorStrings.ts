@@ -422,6 +422,20 @@ export const INLINE_LABELS = {
   sensitiveAssumption: 'Sensitive assumption',
   flipRisk:     '{pct}% flip risk',
   strengthQuestion: 'How strong is this effect?',
+  /**
+   * ⭐ THE DRAWN-LINK VARIANT. It STATES THE PRECONDITION AND PROMISES NO
+   * OUTCOME, which is the register UI #1540 arrived at after three drafts: the
+   * sender has no revert lifecycle, so "the edge is SENT" is honest and "the
+   * edge is SAVED" is not. Naming what the link NEEDS is true whatever the
+   * transport then does.
+   */
+  strengthQuestionForSave:
+    'How strong is this effect? This connection needs one before it can be sent to the model.',
+  // ⛔ "SENT", NOT "REACH". A draft said "reach the model" — and reaching is
+  // ARRIVAL, not dispatch, which is the same overclaim this file's sibling
+  // comment refuses ("the edge is SENT, never SAVED"). It is also precisely what
+  // the open acceptance test exists to decide, so asserting it here would be
+  // claiming the result in advance. "Sent" is true under BOTH outcomes.
   existenceQuestion: 'Does this connection exist?',
   strengthUncertainty: 'Strength uncertainty',
   contributesToGoal: 'Contributes to your goal',
