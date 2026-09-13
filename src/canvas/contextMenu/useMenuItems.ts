@@ -215,12 +215,16 @@ function compactDividers(entries: MenuEntry[]): MenuEntry[] {
  * nothing here claims them, which is why adding a genuinely local mutation
  * needs an entry in `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` rather than silence.
  */
-function menuIdIsAuthorised(id: string): boolean {
+function menuIdIsAuthorised(id: string, connected: boolean): boolean {
   if (DURABLE_NODE_ADD_MENU_IDS.has(id)) {
     return hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash)
   }
   if (LOCAL_SEMANTIC_CONTEXT_MENU_IDS.has(id)) {
-    return hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations)
+    // ⭐ THE INJECTED VALUE DRIVES THE PER-ID JUDGEMENT, and that is the whole
+    // point of threading it. It defaults to the same expression this line used
+    // to read directly, so today's behaviour is unchanged — what changes is that
+    // a caller passing `connected` can no longer bypass the per-carrier split.
+    return connected
   }
   return true
 }
@@ -236,11 +240,14 @@ function menuIdIsAuthorised(id: string): boolean {
  * disabled row. They compose: the per-id test below chooses the unauthorised
  * set, and #1304's rendering decides what the user sees of it.
  *
- * ⚠ #1304's global `if (connected) return entries` early-return is DELIBERATELY
- * NOT reinstated inside the walk: it answers "is the semantic authority live?"
- * for the whole menu, which is exactly the conflation #1538 removed. The
- * `opts.connected` parameter is kept because it is the specs' seam, and an
- * authorised id now short-circuits per id instead.
+ * ⛔ CORRECTED 13 Sep 2026. This comment previously read "#1304's global
+ * `if (connected) return entries` early-return is DELIBERATELY NOT reinstated
+ * INSIDE THE WALK". That was literally true and materially misleading: the
+ * early-return was RELOCATED, not removed — it sat above the walk and bypassed
+ * the whole split whenever `connected` was true. I wrote a narrow sentence and
+ * it was read, reasonably, as "removed", including by me when I reported it.
+ * ⭐ It is now genuinely GONE: `connected` is threaded into
+ * `menuIdIsAuthorised` so the injected value drives per-id judgement.
  */
 
 /**
@@ -308,13 +315,27 @@ export function applyContextMenuMutationAuthority(
 ): MenuEntry[] {
   const connected = opts?.connected
     ?? hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations)
-  if (connected) return entries
+  // ⛔⛔ NO GLOBAL EARLY-RETURN. `if (connected) return entries` stood here until
+  // 13 Sep 2026 and it DEFEATED THE PER-CARRIER SPLIT: `menuIdIsAuthorised` reads
+  // the constants itself and never saw this value, so the only thing the injected
+  // parameter could do was return the whole menu UNFILTERED. Two consequences,
+  // both found by the reviewing seat on this PR:
+  //   · every spec passing `connected: true` exercised the wholesale path and
+  //     could not discriminate per-id behaviour in the connected state AT ALL —
+  //     a seam with one possible answer;
+  //   · the day `canvasSemanticMutations` moves toward `server_graph`, FIVE
+  //     CARRIERLESS IDS would have opened silently (paste, undo, redo, cut,
+  //     duplicate) along with add-connected-*, insert-factor-between,
+  //     mark-assumption and reverse-edge.
+  // That is precisely the conflation the per-id split exists to remove, retained
+  // as the sole function of the injected parameter. `connected` is now threaded
+  // into the judgement instead, so the seam survives and becomes assertable.
 
   let hidMenuOnlyGesture = false
 
   const walk = (list: MenuEntry[]): MenuEntry[] => list.flatMap<MenuEntry>((entry) => {
     if (isDivider(entry)) return [entry]
-    if (!menuIdIsAuthorised(entry.id)) {
+    if (!menuIdIsAuthorised(entry.id, connected)) {
       if (!KEYBOARD_REACHABLE_SEMANTIC_IDS.has(entry.id)) {
         hidMenuOnlyGesture = true
         return []
