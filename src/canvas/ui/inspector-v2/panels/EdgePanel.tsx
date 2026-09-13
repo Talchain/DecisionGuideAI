@@ -17,7 +17,7 @@ import type { NodeType } from '../../../domain/nodes'
 import { SignedStrengthSlider } from '../../inspector/SignedStrengthSlider'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
-import { useEdgeMutations } from '../useInspectorMutations'
+import { useEdgeMutations, type EdgeStrengthConfirmOutcome } from '../useInspectorMutations'
 import {
   GROUP_LABELS,
   INLINE_LABELS,
@@ -50,6 +50,7 @@ import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
 import { EdgeReviewDisagreement } from '../shared/EdgeReviewDisagreement'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable } from '../../../conversation/edgeStrengthEdit'
+import { serverStatedStrengthOf } from '../../../conversation/edgeServerStatedStrength'
 
 // ─── Slider component for confidence and uncertainty ───────────────
 function InspectorSlider({
@@ -201,10 +202,44 @@ export const EdgePanel = memo(function EdgePanel({
   // UI default has no source and is not an estimate the user can honestly
   // confirm. Keep the exact store number visible beside the action so consent
   // covers the number that will receive the user provenance stamp.
+  /**
+   * ⛔⛔ GATED ON THE AUTHORITY THE ACT ACTUALLY REQUIRES, NOT ON A SECOND
+   * FUNCTION THAT AGREES WITH IT TODAY.
+   *
+   * This asked only `edgeValueSource(data,'weight') === 'cee'` — *"did a producer
+   * originate this number?"* — while `confirmCurrentStrength` succeeds only when
+   * `serverStatedStrengthOf(data)` returns a tuple — *"does the SERVER hold this
+   * number?"*. Different questions over different fields, and
+   * `edgeServerStatedStrength.ts` exists precisely because they were conflated
+   * once before: `'cee'` is stamped by paths that write a producer's number
+   * locally BEFORE any server write exists. An edge in that state satisfied the
+   * render and failed the act, so the person read *"Olumi's current estimate is
+   * 0.3. Confirm this estimate"*, clicked, and nothing happened anywhere.
+   *
+   * ⭐ MEASURED, since the divergence was decidable and the frequency was not:
+   * on a real drafted graph (29 edges, served `afcb2e2b`, scenario `52cf4a0c`)
+   * **29/29 carry `serverStrength` and 0/29 are in the divergent class.** So this
+   * is a latent seam rather than a live defect — which is exactly why it is worth
+   * closing by CONSTRUCTION now rather than by a frequency argument that the next
+   * ingestion path could falsify.
+   *
+   * ⚠ THE SECOND CONJUNCT, NOT A REPLACEMENT, AND THE CHOICE IS DELIBERATE.
+   * Deriving the magnitude itself from `serverStatedStrengthOf` also closes the
+   * divergence, but it silently changes WHICH NUMBER IS SHOWN — from the live
+   * `weight` to the server's last stated mean. Those differ exactly when a store
+   * refresh has moved `weight`, and a sibling spec pins the control reading the
+   * LIVE value. Closing a gate divergence must not quietly re-point a display.
+   * ⚠ RESIDUAL, NAMED NOT FIXED: the number shown is `weight`, the number
+   * confirmed is `expected.mean`. They agree on every real edge measured above;
+   * where a refresh moves one and not the other they would not, and that is a
+   * DISPLAY honesty question with its own answer, not this gate's job.
+   */
   const currentEstimatedWeight = useMemo(() => {
     const data = edge?.data as Record<string, unknown> | undefined
     const value = data?.weight
     return edgeValueSource(data, 'weight') === 'cee' &&
+      // the act's own authority — one function, both readers
+      serverStatedStrengthOf(data) !== null &&
       typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
       ? value
       : null
@@ -222,7 +257,8 @@ export const EdgePanel = memo(function EdgePanel({
   // Kept OUT of `useEditConfirmation` on purpose: that hook's `lastConfirmed`
   // is what gates `InlineRerunPrompt`, and a confirmation changes no value, so
   // it must not invite a re-run.
-  const [strengthConfirmSentAt, setStrengthConfirmSentAt] = useState<number | null>(null)
+  const [strengthConfirm, setStrengthConfirm] =
+    useState<{ ts: number; outcome: EdgeStrengthConfirmOutcome } | null>(null)
   const [localBelief, setLocalBelief] = useState(beliefExists)
   const [localStd, setLocalStd] = useState(strengthStd)
 
@@ -339,11 +375,13 @@ export const EdgePanel = memo(function EdgePanel({
    */
   const handleConfirmCurrentStrength = useCallback(() => {
     if (currentEstimatedWeight === null) return
-    const outcome = mutations.confirmCurrentStrength()
-    // ⛔ ONLY `dispatched` earns a notice, and even that says SENT, never saved.
-    // Every other outcome means no statement left this client, so claiming one
-    // did would be the same lie one step quieter.
-    setStrengthConfirmSentAt(outcome === 'dispatched' ? Date.now() : null)
+    // ⛔ EVERY OUTCOME IS NAMED, AND THE SILENT ONE IS WHY. `dispatched` says
+    // SENT, never saved. Anything else means NO statement left this client, and
+    // the person still pressed a button — so it says so rather than doing
+    // nothing. `no_carrier` in particular is a fact about the render context
+    // (no conversation to send through), NOT about the edge, so the render gate
+    // above cannot eliminate it: silence there would be permanent, not transient.
+    setStrengthConfirm({ ts: Date.now(), outcome: mutations.confirmCurrentStrength() })
   }, [currentEstimatedWeight, mutations])
 
   const handleBeliefChange = useCallback((v: number) => {
@@ -572,11 +610,17 @@ export const EdgePanel = memo(function EdgePanel({
               )}
               {/* Confirmation feedback — SENT, not saved, and no re-run prompt:
                   ratifying the existing estimate changes no value. */}
-              {strengthConfirmSentAt !== null && (
-                <div className="flex items-center gap-2 mt-1" data-testid="edge-strength-confirm-sent">
+              {strengthConfirm !== null && (
+                <div
+                  className="flex items-center gap-2 mt-1"
+                  data-testid="edge-strength-confirm-sent"
+                  data-outcome={strengthConfirm.outcome}
+                >
                   <EditConfirmation
-                    trigger={strengthConfirmSentAt}
-                    label={ACTION_LABELS.strengthConfirmSent}
+                    trigger={strengthConfirm.ts}
+                    label={strengthConfirm.outcome === 'dispatched'
+                      ? ACTION_LABELS.strengthConfirmSent
+                      : ACTION_LABELS.strengthConfirmNotSent}
                     tone="pending"
                   />
                 </div>

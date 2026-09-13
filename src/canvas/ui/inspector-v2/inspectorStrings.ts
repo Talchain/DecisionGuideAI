@@ -542,6 +542,14 @@ export const ACTION_LABELS = {
    * being refused. This says exactly what is true at that moment.
    */
   strengthConfirmSent: 'Sent to Olumi',
+  /**
+   * ⛔ THE STATE THAT WAS SILENT. `no_carrier` means this session has no
+   * conversation to send through — a fact about the RENDER CONTEXT, not about the
+   * edge, so no gate over edge data can eliminate it. Saying nothing there is
+   * PERMANENT silence at a control the person just pressed. Wording follows
+   * `FactorControllablePanel:840-846`, which already states all three outcomes.
+   */
+  strengthConfirmNotSent: 'Not sent to Olumi',
 } as const
 
 // ─── Empty description placeholders ───────────────────────────────

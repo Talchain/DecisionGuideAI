@@ -350,17 +350,6 @@ export type EdgeStrengthProposalOutcome = EdgeStrengthCommitOutcome | 'refused_u
  * statement of agreement leave?"* — and crucially it has NO `committed` member,
  * because nothing is committed locally. See `proposeEdgeStrengthConfirmation`.
  */
-/**
- * ⚠ NOW AN ALIAS, NOT A SECOND UNION. This was declared here and a
- * structurally identical union then had to exist beside `useEdgeMutations` for
- * the inspector's confirm. Two same-shaped types under two names is this
- * estate's chronic twins defect (CLAUDE.md trap 21 / the two `generateGraphHash`
- * twins), so the members are declared ONCE where every other outcome token in
- * this family already lives — `useInspectorMutations` — and this name is kept
- * so no existing consumer changes.
- */
-export type EdgeStrengthConfirmationOutcome = EdgeStrengthConfirmOutcome
-
 export interface ModelEditAuthorityLive {
   goalTargetDispatchAvailable: boolean
   /** The host captures identity without gaining a separate store access path. */
@@ -419,7 +408,7 @@ export interface ModelEditAuthorityLive {
    * Ratify the strength the server already holds for this edge.
    * Returns what happened to the STATEMENT, never a claim about the model.
    */
-  proposeEdgeStrengthConfirmation: (edgeId: string) => EdgeStrengthConfirmationOutcome
+  proposeEdgeStrengthConfirmation: (edgeId: string) => EdgeStrengthConfirmOutcome
   proposeEdgeStrength: (
     edgeId: string,
     signedMean: number,
@@ -813,7 +802,7 @@ export function useModelEditAuthority(
    * the session rather than about the edge.
    */
   const proposeEdgeStrengthConfirmation = useCallback(
-    (edgeId: string): EdgeStrengthConfirmationOutcome => {
+    (edgeId: string): EdgeStrengthConfirmOutcome => {
       // Keyed to ONE edge, same fail-closed rule as `proposeEdgeStrength`: an id
       // that is not the active edge is a caller holding the wrong authority.
       if (activeEdgeId === null || edgeId !== activeEdgeId) return 'not_encodable'

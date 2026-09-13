@@ -70,6 +70,18 @@ const draftedEdge = (): ElicitationCanvasEdge => ({
     directionSource: 'cee',
     provenanceDisplay: 'ai_inferred',
     origin: 'ai',
+    /**
+     * ⚠ ADDED — THE FIXTURE WAS DESCRIBING AN EDGE THE PRODUCER DOES NOT EMIT.
+     * `weightSource: 'cee'` says *a producer originated this number*;
+     * `serverStrength` says *the server HOLDS it*, and only ingestion can answer
+     * the second (`edgeServerStatedStrength.ts`). A confirm needs the second,
+     * because `expected` is an assertion about the server's own tuple.
+     * Measured on a real drafted graph (29 edges, served `afcb2e2b`):
+     * **29/29 carry `serverStrength`; 0/29 were in the shape this fixture had.**
+     * CLAUDE.md trap 16 — a fixture you wrote yourself is not evidence about the
+     * wire, and this one encoded a state the wire does not produce.
+     */
+    serverStrength: { mean: -0.52, effect_direction: 'negative' },
   },
 })
 
@@ -253,7 +265,35 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
     expect(request.graph.edges[0].strength.mean).toBe(-0.85)
   })
 
-  it('MOUNTED — confirm-current uses the exact live estimate, preserves direction, persists, and does not false-stale', () => {
+  /**
+   * ⛔⛔ RENAMED, AND THE OLD NAME IS THE FINDING. It read
+   * *"…uses the exact live estimate, preserves direction, PERSISTS, and does not
+   * false-stale"* and asserted, in one breath, after a click in a render with NO
+   * ConversationContext:
+   *
+   *     data.weightSource      === 'user'          // the client claims the person authored it
+   *     data.provenanceDisplay === 'ai_inferred'   // while the display still credits Olumi
+   *     screen.getByText('Updated')                // announced as done
+   *
+   * **Those cannot all be true of an honest product.** Wire-witnessed on served
+   * `1d0306a0`: that click sent `intent:'set'` at the magnitude already
+   * persisted, and CEE refused it — *"That link already has exactly that strength
+   * and direction, so I haven't recorded it as your judgement."* `graph_hash`
+   * unchanged, `weightSource` still `cee` at the server. So what the old title
+   * called "persists" was **a local write the server never honoured**, and
+   * "Updated" announced it.
+   *
+   * Two properties lived under one name and one of them was the bug (CLAUDE.md
+   * trap 21, in a test title). The valuable half is kept and is what this name
+   * now describes: the act reads the LIVE estimate `0.6147`, not the first-render
+   * closure, not a rounded display value, and not the active band's `0.55`
+   * midpoint; direction is preserved; freshness is not falsely dirtied.
+   *
+   * The honesty half is split out below under its own name rather than repaired
+   * in place — a renamed test carries the correction to the next reader, an
+   * edited assertion under the old title hides it.
+   */
+  it('MOUNTED — confirm-current uses the exact live estimate, preserves direction, and does not false-stale', () => {
     const first = draftedEdge()
     const second: ElicitationCanvasEdge = {
       id: 'e_cost_rev',
@@ -338,27 +378,79 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
     const data = confirmed.edges.find((edge) => edge.id === first.id)?.data as Record<string, unknown>
     expect(data.weight).toBe(0.6147)
     expect(data.weight).not.toBe(0.55)
-    expect(data.weightSource).toBe('user')
     expect(data.direction).toBe('negative')
     expect(data.directionSource).toBe('cee')
     expect(data.provenanceDisplay).toBe('ai_inferred')
     expect(data.origin).toBe('ai')
     expect(confirmed.analysisFreshnessDirty).toBe(false)
-    expect(screen.getByText('Updated')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Confirm this estimate' })).toBeNull()
+
+    /**
+     * ⛔ THIS RENDER HAS NO `ConversationContext` — zero references in this file,
+     * against a contrast of nine `useCanvasStore`. So there is nothing to send
+     * through, `confirmCurrentStrength` returns `no_carrier`, and **nothing is
+     * recorded anywhere.** The product now SAYS so.
+     *
+     * The two assertions this replaces required the opposite: that the click
+     * stamped `weightSource: 'user'` locally and that the Confirm button then
+     * VANISHED. Both were consequences of the optimistic local write — the
+     * button disappeared because the stamp made `edgeValueSource` stop reading
+     * `'cee'`. With nothing written, the act is still genuinely available and
+     * the control correctly remains. An act that did not happen must not look
+     * like one that did, in either direction.
+     */
+    const notice = screen.getByTestId('edge-strength-confirm-sent')
+    expect(notice).toHaveAttribute('data-outcome', 'no_carrier')
+    expect(notice).toHaveTextContent('Not sent to Olumi')
+    expect(screen.queryByText('Updated')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Confirm this estimate' })).toBeInTheDocument()
+
+    /**
+     * ⭐ THE SERVER'S ACKNOWLEDGEMENT, SIMULATED — because that is where the
+     * provenance flip actually comes from, and this render has no carrier to
+     * receive one.
+     *
+     * `confirm_current` is *"permission to stamp exactly two provenance
+     * fields"*; CEE owns that stamp and the canvas learns it from the response's
+     * `draft_graph`. Wire-witnessed on served `1d0306a0`: the Model-tab confirm
+     * returned 200 and the edge moved `weightSource cee → user`,
+     * `provenanceDisplay ai_inferred → user_set`, **weight unchanged**.
+     *
+     * The loop-closure assertions below are a property of the ACKNOWLEDGED
+     * state, so the acknowledgement is applied here explicitly rather than
+     * being supplied for free by an optimistic local write — the same
+     * "controlled server/store refresh" idiom this test already uses for
+     * `weight` above, and for the same reason: to prove the chain advances on
+     * the real cause rather than on a client-side guess.
+     */
+    act(() => {
+      useCanvasStore.setState({
+        edges: useCanvasStore.getState().edges.map((edge) => edge.id === first.id
+          ? { ...edge, data: { ...edge.data, weightSource: 'user', provenanceDisplay: 'user_set' } }
+          : edge),
+      } as never)
+    })
     expect(screen.queryByRole('button', { name: 'Re-run the analysis' })).toBeNull()
 
+    /**
+     * ⚠ RE-READ AFTER THE ACKNOWLEDGEMENT, NOT THE SNAPSHOT TAKEN BEFORE IT.
+     * `confirmed` was captured at the moment of the click, which is the right
+     * state for the assertions above and the WRONG state for the loop, because
+     * the provenance flip now arrives from the server rather than from an
+     * optimistic local write. Reading the stale snapshot here would assert the
+     * loop advances on a state that no longer exists.
+     */
+    const acknowledged = useCanvasStore.getState()
     const next = selectAssumedStrengthToResolve({
       fragileEdges: ranked,
-      edges: confirmed.edges as ElicitationCanvasEdge[],
+      edges: acknowledged.edges as ElicitationCanvasEdge[],
       nodeLabels: labels,
     })
     expect(next.selected?.edgeId).toBe(second.id)
 
     saveAutosave(projectAutosaveData({
-      nodes: confirmed.nodes,
-      edges: confirmed.edges,
-      scenarioId: confirmed.currentScenarioId,
+      nodes: acknowledged.nodes,
+      edges: acknowledged.edges,
+      scenarioId: acknowledged.currentScenarioId,
       ceeAnalysisReady: validAnalysisReady,
       selectedGoalNode: 'n_rev',
       analysis: null,
