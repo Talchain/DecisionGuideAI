@@ -140,6 +140,31 @@ import {
 const CANVAS_SEMANTIC_MUTATIONS_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations,
 )
+
+/**
+ * ⭐⭐ THE EDGE-DRAW GATE, JUDGED BY ITS OWN CARRIER.
+ *
+ * Four sites answer "may a human draw a link on their own model": the handles
+ * (`nodesConnectable`), the drag validator (`isValidConnection`), the drop
+ * handler (`onConnect`) and the nearby-node confirm (`handleConfirmConnect`).
+ * All four are carried by `structural_add_edge`, which CEE gained a writer for
+ * on 13 Sep 2026 — so they are judged by `canvasEdgeAddWithServerHash` and NOT
+ * by the blanket `canvasSemanticMutations` above.
+ *
+ * ⛔ DO NOT COLLAPSE THESE TWO CONSTANTS. The blanket key still gates undo,
+ * redo, paste and the blueprint insert, none of which has a durable carrier.
+ * Witnessed live before this change: the served pane menu showed FOUR of the
+ * SEVEN entries `buildPaneMenu` emits, with undo/redo/paste filtered out.
+ *
+ * ⭐ AND OPENING THIS IS WHAT MAKES THE HONEST SENTENCE REACHABLE. With
+ * `nodesConnectable` false, `onConnect` never ran — so `store.addEdge`'s
+ * `needs_strength` announcement could never fire either. Before this change the
+ * drag was INERT: no connection line, edge count unchanged at 15s, zero turn
+ * calls. The gesture was not refused with a reason; it silently did nothing.
+ */
+const CANVAS_EDGE_ADD_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.canvasEdgeAddWithServerHash,
+)
 import { FirstUseComposer } from './components/FirstUseComposer'
 import { StarterProvenanceBanner } from './components/StarterProvenanceBanner'
 import { useFloatingPanelState } from './hooks/useFloatingPanelState'
@@ -1629,7 +1654,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // P0-8: Confirm connection to nearby node
   const handleConfirmConnect = useCallback(() => {
-    if (!CANVAS_SEMANTIC_MUTATIONS_CONNECTED) {
+    if (!CANVAS_EDGE_ADD_CONNECTED) {
       showToast(SHARED_MODEL_AUTHORITY_COPY, 'info')
       setConnectPrompt(null)
       return
@@ -2243,7 +2268,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }, [])
 
   const onConnect = useCallback((connection: Connection) => {
-    if (!CANVAS_SEMANTIC_MUTATIONS_CONNECTED) {
+    if (!CANVAS_EDGE_ADD_CONNECTED) {
       showToast(SHARED_MODEL_AUTHORITY_COPY, 'info')
       return
     }
@@ -2263,7 +2288,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Graph Editing Experience Task 2c: Validate connections during drag
   const isValidConnection = useCallback((connection: Connection) => {
-    if (!CANVAS_SEMANTIC_MUTATIONS_CONNECTED) return false
+    if (!CANVAS_EDGE_ADD_CONNECTED) return false
     if (!connection.source || !connection.target) return false
     if (isSelfLoop(connection.source, connection.target)) return false
     const { nodes, edges, engineLimits } = useCanvasStore.getState()
@@ -2659,7 +2684,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             multiSelectionKeyCode={['Meta', 'Control']}
             panOnDrag={effectiveMode === 'hand' ? true : SELECT_MODE_PAN_BUTTONS}
             nodesDraggable={effectiveMode === 'select'}
-            nodesConnectable={CANVAS_SEMANTIC_MUTATIONS_CONNECTED}
+            nodesConnectable={CANVAS_EDGE_ADD_CONNECTED}
             nodeClickDistance={NODE_CLICK_DISTANCE}
             paneClickDistance={PANE_CLICK_DISTANCE}
             nodeDragThreshold={NODE_DRAG_THRESHOLD}

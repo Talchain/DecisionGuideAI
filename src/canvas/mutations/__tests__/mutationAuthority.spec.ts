@@ -118,6 +118,12 @@ const EXPECTED_MOUNTED_AUTHORITY = {
     requiredEvidence:
       'inline Add rows mount and each add emits ONE structural_add carrying no value, resolved against the server receipt',
   },
+  canvasEdgeAddWithServerHash: {
+    authority: 'server_graph',
+    entrySurfaces: ['canvas connection drag', 'canvas nearby-node confirm'],
+    requiredEvidence:
+      'CEE holds structural_add_edge at mutating with a dedicated writer (#1443); a drag with no stated strength stands down at captureStructuralAddEdge and the user is told via STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE ONLY WHERE THE CANVAS OWNS A SERVER GRAPH — announceStructuralAddEdgeState early-returns on !ownsServerGraph (store.ts:2707), so with currentScenarioId and lastAuthoritativeGraph both null the stand-down is SILENT; measured on a518dca8, a node added to a blank canvas produced toast: null and no structural_add on the wire',
+  },
   canvasNodeAddWithServerHash: {
     authority: 'server_graph',
     entrySurfaces: ['canvas pane context menu', 'command palette', 'pre-analysis v3 add rows', 'pre-analysis v3 hero goal'],
@@ -212,6 +218,11 @@ describe('mutation authority is exhaustive and fail-closed', () => {
       // here. ⚠ THIS LIST IS SORTED, so the new members land first rather than
       // beside their delete sibling; that is the sort's doing, not a claim about
       // ordering.
+      // 13 Sep 2026 — the EDGE add joins on its siblings' terms, and not before:
+      // CEE held `structural_add_edge` at `reader_only_refusal` until #1443
+      // shipped the writer, so a durable emit would have saved nothing. Sorted
+      // first by the list's own ordering, not by precedence.
+      'canvasEdgeAddWithServerHash',
       'canvasNodeAddWithServerHash',
       'canvasNodeRenameWithServerHash',
       'modelFactorValue',
