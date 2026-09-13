@@ -1323,3 +1323,48 @@ export function validateNoisyAndNotUsage(
 export function formRequiresBinaryValidation(form: EdgeFunctionType): boolean {
   return form === 'noisy_and_not' || form === 'noisy_or'
 }
+
+/**
+ * Who authored the STRENGTH and DIRECTION this wire edge carries.
+ *
+ * ⭐ WHY THIS EXISTS. All three ingestion hops derive their `weightSource` stamp
+ * from *"did the wire carry a strength?"* (`wireSuppliedStrength`) — a question
+ * about PRESENCE. Since GraphV3 makes `strength` REQUIRED, that predicate is
+ * effectively a constant `true` for any conforming edge, so the stamp could never
+ * be withheld and every edge read as Olumi's. The question the stamp is supposed
+ * to answer is *"WHOSE strength is it?"*, and CEE has been answering it per edge
+ * all along in `provenance.source`. Two questions under one predicate —
+ * CLAUDE.md trap 21, and this reader is what names them apart.
+ *
+ * MEASURED on served `e6d7971b`: a link the user drew and gave a strength came
+ * back from the turn as `provenance: { source: 'user_specified' }`, and a drafted
+ * edge in the SAME payload came back `{ source: 'cee_hypothesis', reasoning: … }`.
+ * The canvas stamped both `'cee'`, and the panel then told the reader *"Olumi's
+ * current estimate is 0.85"* about their own number.
+ *
+ * ⛔ ABSENCE IS NEVER PROMOTED TO THE USER, and that is the contract's own rule:
+ * *"a consumer MUST NOT read absence as any [particular provenance]"*. An edge
+ * with no `provenance` returns `undefined` and the caller keeps its existing
+ * behaviour. The failure mode of this reader is therefore an edge that stays
+ * attributed to Olumi — never one that falsely claims the user wrote it.
+ *
+ * ⚠ `user_specified` IS NOT IN THE UI'S PINNED CONTRACT. `@talchain/schemas`
+ * 0.55.0 — which is also the latest published tag — contains the literal ZERO
+ * times; the field rides `EdgeV3Schema`'s passthrough. So this reads the open bag
+ * at runtime exactly as its siblings `readValidationMetadata` and
+ * `readServerStatedStrength` do, rather than through a type that cannot see it.
+ *
+ * ⚠ SCOPE — strength and direction ONLY. `std` and `exists_probability` stay
+ * CEE's even on a user-specified edge, because CEE's own `structural_add_edge`
+ * handler builds them from server constants (`DEFAULT_STD`,
+ * `DEFAULT_EXISTS_PROBABILITY`) and its header forbids stamping user provenance
+ * on them. Derived from the producer, not assumed by symmetry.
+ */
+export function readWireEdgeStrengthAuthor(
+  wireEdge: Record<string, unknown> | undefined | null,
+): 'user' | undefined {
+  if (!wireEdge) return undefined
+  const provenance = wireEdge.provenance as Record<string, unknown> | undefined | null
+  if (!provenance || typeof provenance !== 'object') return undefined
+  return provenance.source === 'user_specified' ? 'user' : undefined
+}

@@ -13,7 +13,7 @@
 
 import { useCanvasStore } from '../store'
 import { captureBeforeIngest } from '../versions/autoCapture'
-import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength } from '../domain/edges'
+import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../domain/edges'
 import { edgeValueSourcePatch } from '../domain/edgeValueProvenance'
 import { readCeeQualityDimensions } from './ceeQualityDimensions'
 import { saveAutosave } from '../store/scenarios'
@@ -140,6 +140,7 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
   // DEFAULT_EDGE_DATA it depends on, in domain/edges.ts. Read it there.
   const validation = readValidationMetadata(e.validation)
   const serverStrength = readServerStatedStrength(e as Record<string, unknown>)
+  const strengthAuthor = readWireEdgeStrengthAuthor(e as Record<string, unknown>)
 
   return {
     id,
@@ -172,9 +173,9 @@ export function mapDraftEdgeToCanvas(e: any, i: number): any {
       // See the twin site in `DraftChat`.
       ...edgeValueSourcePatch({
         beliefExists: beliefExists !== undefined ? 'cee' : undefined,
-        weight: wireSuppliedStrength ? 'cee' : undefined,
+        weight: wireSuppliedStrength ? (strengthAuthor ?? 'cee') : undefined,
         strengthStd: strengthStd !== undefined ? 'cee' : undefined,
-        direction: directionFromEdge !== undefined ? 'cee' : undefined,
+        direction: directionFromEdge !== undefined ? (strengthAuthor ?? 'cee') : undefined,
       }),
       // CEE display provenance (snake_case → camelCase). Distinct from `provenance_source`.
       ...edgeProvenanceDisplayPatch(e),
