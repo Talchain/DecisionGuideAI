@@ -122,7 +122,7 @@ const EXPECTED_MOUNTED_AUTHORITY = {
     authority: 'server_graph',
     entrySurfaces: ['canvas connection drag', 'canvas nearby-node confirm'],
     requiredEvidence:
-      'CEE holds structural_add_edge at mutating with a dedicated writer (#1443); a drag with no stated strength stands down at captureStructuralAddEdge and the user is TOLD via STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE rather than left with a silent no-op',
+      'CEE holds structural_add_edge at mutating with a dedicated writer (#1443); a drag with no stated strength stands down at captureStructuralAddEdge and the user is told via STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE ONLY WHERE THE CANVAS OWNS A SERVER GRAPH — announceStructuralAddEdgeState early-returns on !ownsServerGraph (store.ts:2707), so with currentScenarioId and lastAuthoritativeGraph both null the stand-down is SILENT; measured on a518dca8, a node added to a blank canvas produced toast: null and no structural_add on the wire',
   },
   canvasNodeAddWithServerHash: {
     authority: 'server_graph',
