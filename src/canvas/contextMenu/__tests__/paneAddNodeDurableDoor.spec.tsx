@@ -67,6 +67,21 @@ function allIds(items: MenuEntry[]): string[] {
   })
 }
 
+/** The pane menu's ENTRIES, not just their ids — needed to assert a row is
+ *  surfaced AND inert AND carries a reason, which an id set cannot express. */
+function paneMenuEntries(): MenuItemDef[] {
+  const { result } = renderHook(() =>
+    useMenuItems({ target: PANE, showToast, screenToFlowPosition, onClose }),
+  )
+  const flat = (list: readonly unknown[]): MenuItemDef[] =>
+    list.flatMap(entry => {
+      if (entry && typeof entry === 'object' && 'type' in (entry as object)) return []
+      const e = entry as MenuItemDef
+      return [e, ...flat((e.submenuItems ?? []) as readonly unknown[])]
+    })
+  return flat(result.current as readonly unknown[])
+}
+
 function paneMenuIds(): Set<string> {
   const { result } = renderHook(() =>
     useMenuItems({ target: PANE, showToast, screenToFlowPosition, onClose }),
@@ -159,22 +174,51 @@ describe('the carrierless neighbours stay shut', () => {
    * `'reader_only_refusal'` in CEE, so a durable emit would save the nodes and
    * silently DROP the topology.
    */
+  /**
+   * ⚠ SPLIT ON REBASE, 13 Sep 2026 — INVERTED, NOT DELETED, so the overturned
+   * claim stays visible. This list held `paste`, `undo` and `redo` asserting
+   * ABSENCE. #1304 changed the policy for keyboard-reachable gestures from
+   * REMOVAL to a disabled row carrying an honest reason, so for those three the
+   * true property is now "not ACTIONABLE", not "not PRESENT".
+   *
+   * ⭐ Keeping both fixes required this split. Asserting absence would have
+   * forced #1304's surfacing back out; dropping the assertion entirely would
+   * have lost #1538's guarantee that no carrierless gesture becomes actionable.
+   * The menu-only ids below are unaffected — they are still hidden and folded
+   * into the grouped note.
+   */
   it.each([
     'add-connected-factor',
     'add-connected-outcome',
     'add-connected-risk',
     'insert-factor-between',
     'duplicate',
-    'paste',
     'cut',
-    'undo',
-    'redo',
     'set-value',
     'mark-assumption',
     'reverse-edge',
   ])('does not offer %s anywhere on the pane menu', id => {
     expect(paneMenuIds().has(id)).toBe(false)
   })
+
+  /**
+   * The three keyboard-reachable gestures the pane menu does offer: SURFACED so
+   * the row can say why before the user presses the key, and INERT so nothing
+   * carrierless becomes actionable. Both halves asserted — presence alone would
+   * pass on a re-enabled gesture.
+   */
+  it.each(['paste', 'undo', 'redo'])(
+    'offers %s as a disabled row with a reason, never as an actionable one',
+    id => {
+      const entry = paneMenuEntries().find(e => e.id === id)
+      expect(entry, `${id} should be surfaced, not hidden`).toBeDefined()
+      expect(entry?.enabled ?? false, `${id} actionable`).toBe(false)
+      expect(
+        String(entry?.tooltip ?? entry?.disabledReason ?? '').length,
+        `${id} carries a reason`,
+      ).toBeGreaterThan(0)
+    },
+  )
 
   /**
    * ⚠ THE CONTRAST CONTROL. Without it this whole describe block would pass on
