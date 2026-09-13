@@ -205,6 +205,23 @@ export interface AnalysisNewTabBodyProps {
    */
   onReviewEstimates?: () => void
   /**
+   * Routes a finding's subject to its editor on the Model tab.
+   *
+   * ⚠ THE DOCK OWNS THE DESTINATION, NOT THIS FILE — the same rule, and the
+   * same reason, as `onReviewEstimates` above: the destination is the outputs
+   * dock's own active tab plus the Model tab's pending section, both
+   * `useUIStore` state the dock already holds. `useUIStore` is imported NOWHERE
+   * under `components/results/analysisNew/`, and threading the handler is what
+   * keeps it that way.
+   *
+   * ⚠ AND IT IS A DIFFERENT DESTINATION FROM `onReviewEstimates`, not a
+   * generalisation of it. That one lands on the FACTORS section because the
+   * refusal it answers names no particular estimate; this one carries an edge
+   * id the finding already holds, so it lands on the exact row. Folding them
+   * would lose the targeting that is the whole value of this act.
+   */
+  onReviewTarget?: (targetId: string) => void
+  /**
    * ⭐⭐ THE DOCK'S RUN GATE — `runGateResult.allowed`, which `OutputsDock`
    * binds as `canRunAnalysis` and passes unchanged to `AnalysisReadinessBar`'s
    * `canRun`, to `PreAnalysisPanelV3`'s `canRun`, and to this prop. (It has
@@ -532,6 +549,7 @@ export function AnalysisNewTabBody({
   onFocusNode,
   onReanalyse,
   onReviewEstimates,
+  onReviewTarget,
   canRunAnalysis = null,
   runBlockedReason = null,
   onSendMessage,
@@ -1738,6 +1756,7 @@ export function AnalysisNewTabBody({
                 : COPY.empty.uncertaintyUnassessed
           }
           onFocusTarget={focusTarget}
+          onReviewTarget={onReviewTarget}
           onRunIntervention={runIntervention}
           icon={AlertTriangle}
           testId="analysis-new-uncertainty"

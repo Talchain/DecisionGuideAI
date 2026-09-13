@@ -97,10 +97,42 @@ export function assumedStrengthWhy(s: AssumedStrengthSelection): string {
   return `${measured} Of the unconfirmed relationship strengths you can resolve here, this had the highest such rate in this run.`
 }
 
-/** The ask. An invitation to supply judgement, never an instruction to agree. */
-export function assumedStrengthAsk(s: AssumedStrengthSelection): string {
+/**
+ * The ask. An invitation to supply judgement, never an instruction to agree.
+ *
+ * ⛔⛔ IT PRESCRIBES ONLY WHAT THE SURFACE CAN SERVE — 13 Sep 2026, and BOTH
+ * halves of that were violated by the sentence this replaces.
+ *
+ * 1. IT SAID "CONFIRM OLUMI'S ESTIMATE", AND CONFIRMING IS A DIFFERENT ACT THE
+ *    ROUTE CANNOT PERFORM. The editor commits through `edge_strength_edit` with
+ *    `intent: 'set'` (`canvas/conversation/edgeStrengthEdit.ts`), and CEE
+ *    REFUSES a `set` that resolves to the strength and direction already
+ *    persisted — `set_target_unchanged`, whose own text says *"Confirm the
+ *    current strength explicitly if you want to adopt the existing value."*
+ *    Ratifying an existing number is `intent: 'confirm_current'`, a
+ *    provenance-only act no UI builder emits today. So a reader who AGREED with
+ *    Olumi — the single most likely response to "we estimated this, you have
+ *    not confirmed it" — would have followed the instruction and been refused.
+ *    "Review" is what the route delivers, so "review" is what this says.
+ *
+ * 2. IT INSTRUCTED EVEN WHERE NO CONTROL EXISTS. The act renders only where the
+ *    Model tab established it can serve this edge (`strengthEditReachable`).
+ *    Where it cannot, an imperative is an instruction to press something that
+ *    is not there — and the honest response is to stop instructing, NOT to
+ *    invent a different move or to claim no move exists anywhere. The naming,
+ *    the measured rate and the falsification framing are this card's value and
+ *    they survive a missing route untouched.
+ *
+ * ⚠ `null`, NOT A SUBSTITUTE SENTENCE. This surface does not know WHY the
+ * destination declined — no causal row, or a strength nothing proves — and it
+ * does not know whether some other surface could serve it. A sentence
+ * explaining an absence it cannot characterise would be a new claim, which is
+ * the thing this module exists not to make.
+ */
+export function assumedStrengthAsk(s: AssumedStrengthSelection): string | null {
+  if (!s.strengthEditReachable) return null
   return s.strengthProvenance === 'ai_inferred'
-    ? 'Confirm Olumi’s estimate or change it to what your team believes. If the value changes, re-run to see whether it changes the answer.'
+    ? 'Review Olumi’s estimate or change it to what your team believes. If the value changes, re-run to see whether it changes the answer.'
     : 'Set it to what your team believes, then re-run to see whether it changes the answer.'
 }
 

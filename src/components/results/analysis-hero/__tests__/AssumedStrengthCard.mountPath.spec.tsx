@@ -51,6 +51,7 @@ const SELECTED: AssumedStrengthDecision = {
     switchProbability: 0.35,
     alternativeWinnerLabel: 'Consolidate',
     strengthProvenance: 'ai_inferred',
+    strengthEditReachable: true,
   },
   refusalReason: null,
   assumedFragileCount: 3,

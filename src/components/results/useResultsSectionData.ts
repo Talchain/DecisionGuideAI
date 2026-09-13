@@ -99,6 +99,7 @@ import {
   selectAssumedStrengthToResolve,
   type AssumedStrengthDecision,
 } from './strengthElicitation/selectAssumedStrengthToResolve'
+import { reviewableStrengthEdgeIds } from './strengthElicitation/reviewableEdges'
 
 // =============================================================================
 // Winner Selection Helper
@@ -1813,6 +1814,17 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
    * producer's fragile-edge rows, the canvas edges (which carry the provenance
    * stamps this join reads), and the label map.
    */
+  /**
+   * Which edges the Model tab can serve a strength editor for. Every judgement
+   * lives in `strengthElicitation/reviewableEdges` (pure, unit-pinned, and
+   * composed only of the destination's own authorities). This memo supplies the
+   * two inputs and nothing else.
+   */
+  const reviewableEdgeIds = useMemo(
+    () => reviewableStrengthEdgeIds(nodes, edges as Parameters<typeof reviewableStrengthEdgeIds>[1]),
+    [nodes, edges],
+  )
+
   const assumedStrength = useMemo(
     () =>
       selectAssumedStrengthToResolve({
@@ -1824,8 +1836,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           data: e.data as Record<string, unknown> | undefined,
         })),
         nodeLabels: nodeLabelMap,
+        reviewableEdgeIds,
       }),
-    [report, edges, nodeLabelMap],
+    [report, edges, nodeLabelMap, reviewableEdgeIds],
   )
 
   /**

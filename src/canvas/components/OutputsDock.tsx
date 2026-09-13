@@ -134,7 +134,7 @@ import { DegradedStateBanner } from './DegradedStateBanner'
 // only the goal-node resolver is still used (the atomic target commit).
 import { resolveActiveGoalNodeId } from '../hooks/goalThresholdResolvers'
 import { useScenario } from '../../hooks/useScenario'
-import { focusExistingTarget } from '../utils/focusHelpers'
+import { focusExistingTarget, focusModelTarget } from '../utils/focusHelpers'
 import { ModelTabBody } from './ModelTabBody'
 import { ReanalyseBar } from './model-tab/ReanalyseBar'
 import { AnalysisReadinessBar } from './workspaceShell/AnalysisReadinessBar'
@@ -1746,6 +1746,44 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const handleReviewEstimates = useCallback(() => {
     useUIStore.getState().setActiveOutputTab('diagnostics')
     useUIStore.getState().requestModelTabSection('factors')
+  }, [])
+
+  /**
+   * ⭐⭐ THE ROUTE TO ONE NAMED RELATIONSHIP — the act beside "One assumption
+   * worth pinning down", whose sentence tells the reader to change a strength
+   * and, until now, offered only a camera move.
+   *
+   * ⚠ THIS IS `handleReviewEstimates`'S SIBLING, NOT ITS GENERALISATION, and
+   * the difference is the third call. That handler deliberately makes only two
+   * calls because the refusal it answers names no particular estimate — it says
+   * "at least one of them" — and passing an id chosen by the dock would be a
+   * deep link to an arbitrary row dressed as the model's answer. This act DOES
+   * have a subject: the view model carries the edge id the producer named, and
+   * it only carries it where the Model tab established it can serve the editor.
+   * So here the third call is not merely permitted, it is the point.
+   *
+   * ⚠ ORDER IS LOAD-BEARING, AND IT IS THE ORDER BOTH PRECEDENTS USE. Tab
+   * first: setting a pending section without switching points a surface nobody
+   * is on. Section before focus: the group arrives COLLAPSED by design, and
+   * `focusModelTarget` scrolling to a row inside a shut group lands the reader
+   * on a closed header — the same harm the group default exists to avoid,
+   * one component along.
+   *
+   * ⚠ THE FOCUS CALL'S RETURN IS DELIBERATELY UNREAD HERE, AND THAT IS A
+   * WEAKER POSITION THAN ITS SIBLING IN `AnalysisNewTabBody`, WHICH TOASTS ON
+   * FALSE. It is acceptable only because of the order above: the tab and the
+   * section have already moved, so a stale id costs the reader a scroll rather
+   * than a dead press — they land on the Relationships group with their row
+   * somewhere in it. It would be actively wrong to read the boolean and say
+   * nothing, or to say something here that the view model has already made
+   * unreachable: `reviewTargetId` is present only where the destination
+   * established it can serve this edge, so a resolve failure means the canvas
+   * moved underneath the reader, not that the act was mis-offered.
+   */
+  const handleReviewTarget = useCallback((targetId: string) => {
+    useUIStore.getState().setActiveOutputTab('diagnostics')
+    useUIStore.getState().requestModelTabSection('relationships')
+    focusModelTarget(targetId)
   }, [])
 
   const strengthCorrectionsForRun = useMemo(() => getStrengthCorrections(), [report])
@@ -3925,6 +3963,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                      comment: nothing else in the tree would RED if it went
                      missing. */
                   onReviewEstimates={handleReviewEstimates}
+                  onReviewTarget={handleReviewTarget}
                   /* ⭐⭐ THE GATE'S OWN TWO EXPRESSIONS, THREADED. These are
                      the identifiers `canRunAnalysis` and `runBlockedTooltip`
                      bound above off the one `runGateResult` — the same two

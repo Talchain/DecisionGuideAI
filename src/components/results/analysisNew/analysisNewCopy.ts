@@ -563,6 +563,21 @@ export const ANALYSIS_NEW_COPY = {
     inspect: 'Inspect',
     /** Level-2 grounding prefix. Always followed by the producer signal name. */
     groundedIn: 'Grounded in',
+    /**
+     * The act on a row whose own sentence asks the reader to change something.
+     *
+     * ⛔ "REVIEW OR CHANGE", NEVER "CONFIRM", AND THE OMISSION IS THE POINT.
+     * This routes to the editor, which commits through `edge_strength_edit`
+     * with `intent: 'set'`. CEE refuses a `set` that resolves to the strength
+     * and direction already persisted (`set_target_unchanged`) — deliberately,
+     * because ratifying an existing number is a DIFFERENT act with its own
+     * intent (`confirm_current`) and its own provenance-only write. So a reader
+     * who agrees with Olumi's number and presses a button labelled "Confirm"
+     * would be refused by the producer. Until the confirmation intent is
+     * wired, this label promises exactly what the route can deliver and no
+     * more.
+     */
+    reviewTarget: 'Review or change',
     moreDrivers: (n: number) => `Show ${n} more`,
     /**
      * ⚠ NAMED APART, for the reason the note below `moreUncertainty` gives.
