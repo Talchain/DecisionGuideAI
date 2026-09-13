@@ -373,6 +373,16 @@ export const EdgePanel = memo(function EdgePanel({
   const handleStateStrengthForSave = useCallback(
     (v: number) => {
       if (!edgeId) return
+      // ⭐ THE PANEL'S OWN STATE, NOT JUST THE STORE'S. `localStrength` is
+      // `useState(signedValue)` — its initialiser runs ONCE, at mount, and
+      // nothing resyncs it from the store. Writing only to the store left the
+      // band derived from the mount-time value, so a person who chose "Strong"
+      // watched "Moderate 0.30" light up: the FABRICATED DEFAULT this panel
+      // already refuses to propose BEFORE a save, reappearing after it.
+      // Measured on served `e6d7971b` — stated 0.55 showed 0.30, stated 0.85
+      // showed 0.30, both saved correctly. The model was right; the screen was
+      // wrong about the user's own choice.
+      setLocalStrength(v)
       useCanvasStore.getState().updateEdgeData(edgeId, {
         weight: Math.abs(v),
         weightSource: 'user',
