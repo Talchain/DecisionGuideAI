@@ -21,6 +21,10 @@ import type { Node, Edge } from '@xyflow/react'
 
 import { useCanvasStore } from '../../store'
 import type { EdgeData } from '../../domain/edges'
+import {
+  resolveStructuralAddEdgeBase,
+  buildStructuralAddEdgeWirePayload,
+} from '../../mutations/structuralAddEdge'
 
 /** Canonical 8-hex endpoint ids — `isCanonicalEndpointId` rejects anything else. */
 const A = '2891dabb'
@@ -126,5 +130,53 @@ describe('an edge with no recorded stand-down is never retried', () => {
     } as never)
     useCanvasStore.getState().updateEdgeData('e-seeded', statedStrength as never)
     expect(queue()).toHaveLength(0)
+  })
+})
+
+/**
+ * ⭐⭐ CAPTURE → WIRE PAYLOAD, END TO END THROUGH THE REAL BUILDERS.
+ *
+ * The store half is only worth anything if what it queues is something the
+ * sender can actually put on the wire. This drives the whole chain a human
+ * gesture drives — draw, state a strength, drain, resolve the base, build the
+ * payload — and asserts the CONTRACT's field names and the USER'S number.
+ *
+ * ⚠ WHAT IT IS NOT: this is not a wire witness. It proves the payload is built
+ * and well-formed, never that an HTTP request carried it. **No run has yet shown
+ * `structural_add_edge` on the wire from any human gesture**, and that remains
+ * this work's open acceptance condition — it needs the deployed build, not a
+ * unit test. Naming the gap here so a green suite is not read as closing it.
+ */
+describe('what the gesture queues is what the sender would send', () => {
+  beforeEach(seed)
+
+  it('a drawn link, given a stated strength, produces a contract-shaped payload carrying the USER\'s magnitude', () => {
+    useCanvasStore.getState().addEdge({ source: A, target: B, data: { weight: 0.3 } } as never)
+    const id = drawnEdgeId()
+    useCanvasStore.getState().updateEdgeData(id, statedStrength as never)
+
+    // Drain exactly as `useStructuralAddEdgeEvents` does.
+    const queued = useCanvasStore.getState().takePendingStructuralAddEdges()
+    expect(queued).toHaveLength(1)
+
+    const resolved = resolveStructuralAddEdgeBase(queued[0]!, 'srv-hash-1')
+    expect(resolved).not.toBeNull()
+
+    const payload = buildStructuralAddEdgeWirePayload(resolved!)
+    expect(payload).toEqual({
+      from: A,
+      to: B,
+      // ⭐ THE USER'S 0.4 — never `USER_EDGE_DEFAULTS.weight`, never a clamp of
+      // something nobody supplied. If this ever reads 0.3 the fix has started
+      // fabricating the number it exists to refuse.
+      magnitude: 0.4,
+      effect_direction: 'positive',
+      base_graph_hash: 'srv-hash-1',
+    })
+  })
+
+  it('a link nobody valued never reaches a payload at all', () => {
+    useCanvasStore.getState().addEdge({ source: A, target: B, data: { weight: 0.3 } } as never)
+    expect(useCanvasStore.getState().takePendingStructuralAddEdges()).toHaveLength(0)
   })
 })
