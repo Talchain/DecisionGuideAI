@@ -77,4 +77,20 @@ describe('STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE instructs nothing the produc
   it('and it must still say where the link actually is, so the user is not left guessing', () => {
     expect(STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE).toMatch(/canvas only/i)
   })
+
+  /**
+   * ⚠ THE ROUTE IT NAMES SITS AT **CODE EXISTS + PROMPT-SANCTIONED**, NOT
+   * WIRE-WITNESSED. CEE `staging` d1fb9d4 carries `add_edge` in the LLM tool
+   * enum and a prompt that permits it exactly when the user asks — and the
+   * estate's one witness of that tool returned ZERO ops. A sentence may name a
+   * route at that rung; it may NOT promise the outcome. This pins the
+   * difference, so the day somebody upgrades the wording they must first
+   * upgrade the evidence.
+   */
+  it('names the route without promising the outcome, because the route is not wire-witnessed', () => {
+    expect(STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE).toMatch(/ask olumi/i)
+    expect(STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE).not.toMatch(
+      /will be saved|and it will|saves it|then it('s| is) saved/i,
+    )
+  })
 })

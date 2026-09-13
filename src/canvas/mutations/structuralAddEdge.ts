@@ -314,11 +314,34 @@ export const STRUCTURAL_ADD_EDGE_UNCONFIRMED_TOAST =
  * are two different properties of one string**, and only the first had a test.
  * `structuralAddEdge.needsStrengthNoticeIsExecutable.spec.ts` pins the second.
  *
- * ⛔ WHY THIS VERSION OFFERS NO MOVE, DELIBERATELY. There is no way for a user
- * to make this link durable today — the CONTRACT gap this file's header records,
- * not a UI omission. Manufacturing a move is how the last version got here.
- * "Ask Olumi" is NOT offered either: Olumi cannot set the strength of a link it
- * was never sent, which is the same circularity one step further out.
+ * ⛔ THE MOVE IT NAMES, AND THE ONE IT REFUSES TO NAME — THEY ARE NOT THE SAME
+ * ACTION, AND THAT DISTINCTION IS THE WHOLE FIX.
+ *
+ * It does NOT say "set its strength", and it does NOT say "ask Olumi to set its
+ * strength": both instruct an act upon an edge THE SERVER DOES NOT HAVE, which
+ * is the defect this sentence is being rewritten to end. (⚠ The inspector's
+ * `INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON` does say the latter. It is sound for
+ * ITS population — a server-held link with no stated strength — and suspect for
+ * this one. Two populations, one sentence; reported, not changed here.)
+ *
+ * It DOES say "ask Olumi to add this connection", because that is a DIFFERENT
+ * act with its own evidence, derived at CEE `staging` d1fb9d4:
+ *   · `add_edge` is a member of the LLM tool enum
+ *     (`orchestrator/tools/anthropic-edit-graph-schema.ts:52`)
+ *   · the prompt permits it EXACTLY in this case —
+ *     *"Do not add_node, remove_node, add_edge, or remove_edge unless the user
+ *     explicitly asked for a topology change"* (`edit-graph.ts:723`, `:731`)
+ *   · and `add_edge` carries its own edge normalisation (`:1376`)
+ *
+ * ⚠ LADDER RUNG, STATED SO NOBODY INHERITS IT AS MORE: **CODE EXISTS +
+ * PROMPT-SANCTIONED. NOT wire-witnessed for this request shape**, and the
+ * estate's one witness of the structural edit tool returned ZERO ops. The copy
+ * therefore names the route and promises no outcome — "if you want it in the
+ * model", never "and it will be saved".
+ *
+ * ⭐ AND THE ASYMMETRY THIS EXPOSES, WHICH IS BIGGER THAN THE COPY: **CEE can
+ * add an edge WITH a strength to its own canonical graph from a chat turn; the
+ * human canvas cannot.** The AI can do what the human cannot.
  */
 export const STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE =
-  "Connection drawn — it stays on your canvas only. Olumi can't save a link that has no strength, and the strength control only works on links Olumi already holds."
+  "Connection drawn — it stays on your canvas only. Olumi can't save a link that has no strength. Ask Olumi to add this connection if you want it in the model."
