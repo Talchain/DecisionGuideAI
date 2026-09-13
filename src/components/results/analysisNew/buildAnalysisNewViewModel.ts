@@ -1112,6 +1112,38 @@ function buildUncertainty(
     // Absent is the same answer as "the destination cannot serve this edge",
     // which is the safe direction and the one the rest of this design takes.
     const rowEdgeId = rowEdgeKey ? data.sensitivityReviewTargets?.get(rowEdgeKey) : undefined
+    /**
+     * ⛔⛔ THREE FIELDS, THREE QUESTIONS — DO NOT COLLAPSE THEM AGAIN.
+     *
+     * The first draft of this change pointed `targetId` at the EDGE, because
+     * "Show on canvas" was framing the SOURCE NODE of a sentence whose subject
+     * is a RELATIONSHIP. That reasoning was right about the camera and wrong
+     * about the field: `targetId` has a SECOND reader with a different need.
+     *
+     * `nodeInsights.buildNodeInsights` keys mentions by `targetId` into a
+     * NODE-KEYED map (`:289-293`) that `ModelStrip` reads as
+     * `insights.get(active.id)`. An edge id there is a key no node lookup can
+     * ever hit, so the row's mention vanishes from the strip — MEASURED by the
+     * reviewer: baseline keys `["fac_demand"]`, changed keys `["e-7"]`. And
+     * because the repoint is conditional on `reviewableEdgeIds`, the rows that
+     * went quiet were THE MOST ACTIONABLE ONES.
+     *
+     * So (CLAUDE.md trap 21): write down the question each reader asks.
+     *   `targetId`       — *which NODE does this finding join to?*  identity
+     *                      join, unchanged meaning, unchanged readers.
+     *   `focusTargetId`  — *what should the camera FRAME?*  the edge when one
+     *                      resolves, because the sentence is about a
+     *                      relationship. Falls back to `targetId`.
+     *   `reviewTargetId` — *which edge can the Model tab SERVE an editor for?*
+     *                      the act, and the only one the dedup suppresses.
+     *
+     * ⚠ THE CAMERA IS NOT DEDUPED AND THAT IS DELIBERATE. The dedup exists so
+     * one edge is not OFFERED TWICE; showing the reader where the relationship
+     * is was never the duplicated thing. A one-token `targetId: rowEdgeId ??
+     * …` would have fixed the camera on deduped rows and re-broken the strip —
+     * the two repairs are in tension only while one field answers both.
+     */
+    const focusTarget = rowEdgeId ?? undefined
     const reviewTarget = rowEdgeId && rowEdgeId !== assumed?.edgeId ? rowEdgeId : undefined
     bucket.push({
       id: uncertaintyKey(u, i),
@@ -1197,9 +1229,10 @@ function buildUncertainty(
        * node remains the fallback, so a row whose edge we cannot name keeps the
        * behaviour it had.
        */
-      targetId: reviewTarget ?? u.affectedNodes?.[0],
+      targetId: u.affectedNodes?.[0],
       // Present only where the Model tab can serve the editor for that exact
       // edge. Same id, second question — see `analysisNewTypes.ts`.
+      ...(focusTarget ? { focusTargetId: focusTarget } : {}),
       ...(reviewTarget ? { reviewTargetId: reviewTarget } : {}),
       inspect: rows(
         row('Severity', u.severity),

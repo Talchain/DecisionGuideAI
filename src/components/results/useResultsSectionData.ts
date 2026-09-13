@@ -4263,13 +4263,26 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
    *
    * "What would change your mind" and the assumed-strength card read the SAME
    * producer array (`robustness.fragile_edges`). The card additionally requires a
-   * canvas edge it can name, and is therefore RARE — measured 3/3 non-render on
-   * the served build. The sensitivity rows survive without that join, which is
-   * why they render on ordinary runs and why the act belongs on them too.
+   * canvas edge it can name; the sensitivity rows do not, which is why they
+   * render on ordinary runs and why the act belongs on them too.
    *
-   * ⚠ MATCHED BY ENDPOINTS, NEVER BY `edge_id`. ISL emits `"<from>-><to>"` and
-   * the canvas holds `e-0`/`e-1`; measured on a committed capture, 0/9 match by
-   * id and 9/9 by from/to. An id-first lookup would read a clean zero.
+   * ⚠ NO CLAIM IS MADE HERE ABOUT HOW OFTEN THE CARD RENDERS, and an earlier
+   * version of this comment made one it could not support ("never seen by a
+   * user", from three captures, with no artefact cited). `selectAssumedStrengthToResolve`
+   * is TOTAL and returns a named `refusalReason` for every null —
+   * `no_robustness_data` / `all_strengths_set` / `no_edge_identity`. That datum
+   * says WHY, it is cheap to read on any ordinary run, and until someone reads
+   * it the cause is unmeasured. `all_strengths_set` would mean the card is
+   * simply correct. The structural argument for this map does not need the
+   * frequency claim and is not resting on it.
+   *
+   * ⚠ MATCHED BY ENDPOINTS. ISL emits `"<from>-><to>"` and the canvas holds
+   * `e-0`/`e-1`; measured on a committed capture, 0/9 match by id and 9/9 by
+   * from/to, so an endpoint map is what this needs.
+   * (NOT "an id-first lookup would read a clean zero" — that was refuted at the
+   * bytes: `matchCanvasEdge` is DUAL-FORMAT, `edge_id` first with a
+   * `from_id`/`to_id` fallback, so it is a SUPERSET of this endpoint-only
+   * match.)
    *
    * ⚠ AND THE GATE IS THE DESTINATION'S, reused rather than restated:
    * `reviewableEdgeIds` is the two-conjunct set (a causal row exists AND the

@@ -859,12 +859,23 @@ export interface UncertaintyItem {
   /**
    * The producer's endpoint ids for a fragile-relationship row.
    *
-   * ⚠ NOT DERIVABLE FROM `affectedNodes`, THOUGH IT LOOKS IT. That field is
-   * built as `[fromId, toId].filter(Boolean)` — so its order is an accident of
-   * construction and its length changes when either id is absent. Reading
-   * `affectedNodes[0]` as "the source" is a value-position predicate, which is
-   * exactly what this panel's assertions are forbidden to bind on. These two
-   * name which end is which, and stay absent when the producer did not say.
+   * ⚠ NOT *SAFELY* DERIVABLE FROM `affectedNodes` — and the precise version
+   * matters, because the loose one was wrong. The sole non-test producer builds
+   * that field as `[fromId, toId].filter(Boolean)`, so the order IS
+   * deterministic `[from, to]`, and in the case this code requires — both ids
+   * present — `[0]`/`[1]` would work today. These fields are STRICTLY REDUNDANT
+   * AT THIS TIP.
+   *
+   * They earn their place on the `.filter(Boolean)`: the moment either id is
+   * absent, position stops meaning anything and `affectedNodes[0]` silently
+   * becomes "whichever end survived". That is a value-position predicate, which
+   * this panel's assertions are forbidden to bind on — so the fields name which
+   * end is which, and stay absent when the producer did not say.
+   *
+   * (An earlier version of this comment said "not derivable, its order is an
+   * accident of construction". A reviewer refuted it at the producer's bytes.
+   * Same conclusion, true reason — and the reason is what the next reader
+   * inherits.)
    */
   edgeFromId?: string
   edgeToId?: string
