@@ -333,11 +333,32 @@ export const STRUCTURAL_ADD_EDGE_UNCONFIRMED_TOAST =
  *     explicitly asked for a topology change"* (`edit-graph.ts:723`, `:731`)
  *   · and `add_edge` carries its own edge normalisation (`:1376`)
  *
- * ⚠ LADDER RUNG, STATED SO NOBODY INHERITS IT AS MORE: **CODE EXISTS +
- * PROMPT-SANCTIONED. NOT wire-witnessed for this request shape**, and the
- * estate's one witness of the structural edit tool returned ZERO ops. The copy
- * therefore names the route and promises no outcome — "if you want it in the
+ * ⭐ LADDER RUNG: **WIRE-WITNESSED.** Driven at the wire on the deployed build,
+ * guest, fresh scenario, a pair chosen BY KIND and PINNED UNCONNECTED FIRST:
+ * the request HELD rather than acting (`blocks: ["error","held_proposal"]`,
+ * *"Nothing in the model moves until you confirm"*), one `"Yes"` confirmed it,
+ * and a COLD RE-READ went **17 -> 18 edges** carrying
+ * `{ strength: { mean: 0.3, std: 0.1 }, effect_direction: "positive" }`.
+ *
+ * ⚠ n=1 — ONE pair, ONE phrasing, factor->factor, guest, ONE build. **It proves
+ * the route EXISTS AND PERSISTS. It does not measure RELIABILITY**, and a
+ * separate lane's witness of a different request shape landed 1 of 4. **So the
+ * copy still names the route and promises no outcome** — "if you want it in the
  * model", never "and it will be saved".
+ *
+ * ⛔ THIS ENTRY PREVIOUSLY READ "CODE EXISTS + PROMPT-SANCTIONED, NOT
+ * wire-witnessed … the estate's one witness returned ZERO ops." **Both clauses
+ * were superseded by the measurement above.** Kept struck rather than deleted
+ * because the zero-ops citation is still in circulation: ~~"the structural edit
+ * tool returned zero ops, so this route is unproven"~~ — that was an **add-RISK**
+ * request; this is a **connect-two-existing-factors** request. **Two n=1
+ * experiments of DIFFERENT SHAPES are not a disagreement**, and retiring the old
+ * one as "wrong" would be as careless as inheriting it.
+ *
+ * ⭐ AND THE NUMBER CEE WROTE IS THE POINT OF THE WHOLE ASYMMETRY: `mean 0.3` —
+ * the EXACT value this capture refuses to send. **CEE is entitled to ESTIMATE
+ * and stamps it as its own; the canvas is not entitled to FABRICATE.** This
+ * sentence sits precisely on that line.
  *
  * ⭐ AND THE ASYMMETRY THIS EXPOSES, WHICH IS BIGGER THAN THE COPY: **CEE can
  * add an edge WITH a strength to its own canonical graph from a chat turn; the

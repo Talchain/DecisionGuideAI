@@ -122,15 +122,21 @@ describe('STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE instructs nothing the produc
   })
 
   /**
-   * ⚠ THE ROUTE IT NAMES SITS AT **CODE EXISTS + PROMPT-SANCTIONED**, NOT
-   * WIRE-WITNESSED. CEE `staging` d1fb9d4 carries `add_edge` in the LLM tool
-   * enum and a prompt that permits it exactly when the user asks — and the
-   * estate's one witness of that tool returned ZERO ops. A sentence may name a
-   * route at that rung; it may NOT promise the outcome. This pins the
-   * difference, so the day somebody upgrades the wording they must first
-   * upgrade the evidence.
+   * ⭐ THE ROUTE IT NAMES IS **WIRE-WITNESSED** — held, confirmed, applied, and
+   * a cold re-read at 17 -> 18 edges on the deployed build.
+   *
+   * ⚠ BUT THE ASSERTION BELOW IS UNCHANGED, AND THE REASON IT SURVIVES IS THE
+   * WHOLE POINT: the witness is **n=1** — one pair, one phrasing, one build —
+   * and a second lane's run of a different request shape landed **1 of 4**.
+   * **Existence is witnessed; RELIABILITY is unmeasured.** A sentence may name a
+   * route it can reach and still must not promise an outcome it cannot rate.
+   *
+   * ⛔ THIS COMMENT AND THIS TEST'S NAME PREVIOUSLY SAID THE ROUTE WAS "NOT
+   * WIRE-WITNESSED" AND CITED A ZERO-OPS RUN. **Both were superseded.** Fixed
+   * here rather than at merge because a PR written to stop false statements
+   * shipping must not ship a false rung in its own comments.
    */
-  it('names the route without promising the outcome, because the route is not wire-witnessed', () => {
+  it('names the route without promising the outcome, because reliability is unmeasured', () => {
     expect(STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE).toMatch(/ask olumi/i)
     expect(STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE).not.toMatch(
       /will be saved|and it will|saves it|then it('s| is) saved/i,
