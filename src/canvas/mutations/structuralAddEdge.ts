@@ -289,8 +289,36 @@ export const STRUCTURAL_ADD_EDGE_UNCONFIRMED_TOAST =
  *
  * Not a failure message, because nothing failed: they drew a connection and have
  * not said how strong it is, and the model has no way to hold "connected, but
- * unknown". Naming the ONE thing that makes it durable is the whole job of this
- * sentence — a generic "couldn't save" would leave them with no move.
+ * unknown".
+ *
+ * ⛔⛔ THE FIRST VERSION OF THIS SENTENCE INSTRUCTED A GESTURE THE PRODUCT
+ * REFUSES. ITS REASONING IS KEPT HERE STRUCK RATHER THAN DELETED, BECAUSE THE
+ * REASONING IS WHAT WOULD BRING IT BACK:
+ *
+ * ~~"Set its strength to save it to the model — until then it stays on your
+ * canvas only." Naming the ONE thing that makes it durable is the whole job of
+ * this sentence — a generic "couldn't save" would leave them with no move.~~
+ *
+ * The instinct is right; the instruction was not executable. The ONLY writer of
+ * `weight`/`weightSource` is `EdgePanel.setStrength`, and `EdgePanel` renders
+ * that control `disabled` unless `edgeStrengthEditIsAssertable` holds — which
+ * asks `buildEdgeStrengthEditEvent` for a strength **the server holds**, the one
+ * thing a freshly drawn link has not got. So the very condition that fires this
+ * notice also greys the control it pointed at, while the inspector beside it
+ * says *"no strength on record … Ask Olumi to set its strength."* Both sentences
+ * shipped in one bundle at `5978e8f4`.
+ *
+ * ⭐⭐ THE REVIEW LESSON, WHICH IS THE TRANSFERABLE PART: that sentence was
+ * checked for being TRUTHFUL ABOUT A STATE, and witnessed on a real build. It
+ * was never checked for the EXECUTABILITY OF THE ACTION IT INSTRUCTS. **Those
+ * are two different properties of one string**, and only the first had a test.
+ * `structuralAddEdge.needsStrengthNoticeIsExecutable.spec.ts` pins the second.
+ *
+ * ⛔ WHY THIS VERSION OFFERS NO MOVE, DELIBERATELY. There is no way for a user
+ * to make this link durable today — the CONTRACT gap this file's header records,
+ * not a UI omission. Manufacturing a move is how the last version got here.
+ * "Ask Olumi" is NOT offered either: Olumi cannot set the strength of a link it
+ * was never sent, which is the same circularity one step further out.
  */
 export const STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE =
-  "Connection drawn. Set its strength to save it to the model — until then it stays on your canvas only."
+  "Connection drawn — it stays on your canvas only. Olumi can't save a link that has no strength, and the strength control only works on links Olumi already holds."
