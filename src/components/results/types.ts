@@ -856,6 +856,18 @@ export interface UncertaintyItem {
   displayText?: string
   suggestion?: string
   affectedNodes?: string[]
+  /**
+   * The producer's endpoint ids for a fragile-relationship row.
+   *
+   * ⚠ NOT DERIVABLE FROM `affectedNodes`, THOUGH IT LOOKS IT. That field is
+   * built as `[fromId, toId].filter(Boolean)` — so its order is an accident of
+   * construction and its length changes when either id is absent. Reading
+   * `affectedNodes[0]` as "the source" is a value-position predicate, which is
+   * exactly what this panel's assertions are forbidden to bind on. These two
+   * name which end is which, and stay absent when the producer did not say.
+   */
+  edgeFromId?: string
+  edgeToId?: string
   /** Severity level for visual styling - defaults to 'warning' if not specified */
   severity?: CritiqueSeverity
   /** Factor confidence (0-1) for confidence pill display. Derived from edge exists_probability. */

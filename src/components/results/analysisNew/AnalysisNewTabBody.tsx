@@ -1318,6 +1318,7 @@ export function AnalysisNewTabBody({
           preview={ANALYSIS_NEW_LIMITS.UNCERTAINTY_PREVIEW}
           emptyMessage={null}
           onFocusTarget={focusTarget}
+          onReviewTarget={onReviewTarget}
           onRunIntervention={runIntervention}
           icon={GitBranch}
           testId="analysis-new-sensitivity"

@@ -1089,6 +1089,30 @@ function buildUncertainty(
      * SENTENCE, and that sentence is the producer's to reword.
      */
     const bucket = u.code === 'SENSITIVE_ASSUMPTION' ? sensitivityFindings : findings
+    /**
+     * ⭐⭐ THE ACT, ON THE ROWS THAT ACTUALLY RENDER.
+     *
+     * "What would change your mind" and the assumed-strength card read the SAME
+     * producer array. The card additionally needs a canvas edge it can NAME, and
+     * is therefore rare — 3/3 non-render on the served build. These rows survive
+     * without that join, which is why they render on ordinary runs. Attaching the
+     * same act here is what moves it from a sentence almost nobody meets to one
+     * they do.
+     *
+     * ⛔ AND IT IS DEDUPED AGAINST THE CARD BY EDGE IDENTITY, NOT BY POSITION.
+     * Both selections are built in this function. Where the card has claimed an
+     * edge, the row for that same edge carries NO act — the mount's own rule is
+     * that "a reader meeting one sentence in two sections is a defect this panel
+     * has already shipped", and two doors to one place is the same defect wearing
+     * an affordance.
+     */
+    const rowEdgeKey = u.edgeFromId && u.edgeToId ? `${u.edgeFromId}->${u.edgeToId}` : null
+    // ⚠ OPTIONAL READ, FAIL-CLOSED. A consumer that predates this field — or a
+    // fixture whose cast return omits it — yields NO ACT rather than a throw.
+    // Absent is the same answer as "the destination cannot serve this edge",
+    // which is the safe direction and the one the rest of this design takes.
+    const rowEdgeId = rowEdgeKey ? data.sensitivityReviewTargets?.get(rowEdgeKey) : undefined
+    const reviewTarget = rowEdgeId && rowEdgeId !== assumed?.edgeId ? rowEdgeId : undefined
     bucket.push({
       id: uncertaintyKey(u, i),
       // ⚠⚠ A HEADLINE IS A LABEL; THE FINDING IS THE SENTENCE — AND NEITHER MAY
@@ -1163,7 +1187,20 @@ function buildUncertainty(
           }.`
         : undefined,
       groundedIn: 'the sensitivity and critique analysis',
-      targetId: u.affectedNodes?.[0],
+      /**
+       * ⚠ THE CAMERA TARGET IS THE EDGE WHERE ONE RESOLVES, NOT THE SOURCE NODE.
+       * This read `u.affectedNodes?.[0]` — the FROM node — on a row whose whole
+       * sentence is about a RELATIONSHIP, so "Show on canvas" framed one end of
+       * the thing being discussed. Where the endpoints resolve to a canvas edge
+       * the row now points at the edge, which is what the assumed-strength card
+       * already does for the same population (`targetId: assumed.edgeId`). The
+       * node remains the fallback, so a row whose edge we cannot name keeps the
+       * behaviour it had.
+       */
+      targetId: reviewTarget ?? u.affectedNodes?.[0],
+      // Present only where the Model tab can serve the editor for that exact
+      // edge. Same id, second question — see `analysisNewTypes.ts`.
+      ...(reviewTarget ? { reviewTargetId: reviewTarget } : {}),
       inspect: rows(
         row('Severity', u.severity),
         row('E-value', u.eValue != null ? String(u.eValue) : null),
