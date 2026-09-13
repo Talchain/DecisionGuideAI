@@ -175,7 +175,13 @@ describe('the removed gestures are surfaced with a reason, not deleted', () => {
     expect(item!.disabledReason).toBeTruthy()
   })
 
-  it.each(['cut', 'duplicate'])('factor node menu shows %s as present-but-disabled', id => {
+  /**
+   * ⛔ `duplicate` REMOVED FROM THIS LIST 13 Sep 2026 — inverted below, not
+   * deleted. It failed both clauses of KEYBOARD_REACHABLE_SEMANTIC_IDS's own
+   * criterion: ⌘D reaches the Documents drawer, not duplicate, and
+   * `isClipboardMutationGesture` raises no toast for a row to agree with.
+   */
+  it.each(['cut'])('factor node menu shows %s as present-but-disabled', id => {
     const menu = items(FACTOR_NODE)
     expectMenuRendered(menu, 'delete')
     const item = findItem(menu, id)
@@ -184,12 +190,17 @@ describe('the removed gestures are surfaced with a reason, not deleted', () => {
     expect(item!.disabledReason).toBeTruthy()
   })
 
-  it('cut/duplicate carry the structural notice as their tooltip, by identity', () => {
+  it('cut carries the structural notice as its tooltip, and duplicate is not a row', () => {
     const menu = items(FACTOR_NODE)
     expectMenuRendered(menu, 'delete')
-    for (const id of ['cut', 'duplicate']) {
+    for (const id of ['cut']) {
       expect(findItem(menu, id)!.tooltip).toBe(CANVAS_STRUCTURAL_EDIT_NOTICE)
     }
+    // ⛔ AND `duplicate` MUST NOT BE A ROW AT ALL. Asserting its absence here,
+    // beside its surviving sibling, is what stops it being quietly re-added:
+    // a row saying "duplicate is unavailable" over a ⌘D that opened a drawer is
+    // the defect `isClipboardMutationGesture`'s header already refused.
+    expect(findItem(menu, 'duplicate'), 'duplicate must be menu-only').toBeUndefined()
   })
 
   it('undo/redo do NOT claim the structural notice — they point at Version history', () => {
@@ -223,13 +234,23 @@ describe('the removed gestures are surfaced with a reason, not deleted', () => {
     }
   })
 
-  it('TWIN: the multi menu hides no menu-only gesture, so it gets NO note', () => {
-    // Its only removals (cut, duplicate) are surfaced as disabled rows, so a
-    // note would be redundant furniture. This is the case that REDs if the note
-    // is appended unconditionally.
+  it('TWIN, PREMISE OVERTURNED: the multi menu now hides one, so it DOES get a note', () => {
+    // ⚠ INVERTED 13 Sep 2026, not deleted. This read "hides no menu-only
+    // gesture, so it gets NO note", on the reasoning that its only removals
+    // (cut, duplicate) were both surfaced as disabled rows. Moving `duplicate`
+    // to menu-only makes that false: the multi menu now hides exactly one, so
+    // the self-retiring note correctly appears.
+    //
+    // ⭐ THE PROPERTY THIS CASE EXISTS TO PIN IS UNCHANGED and is asserted by
+    // the PANE case above, which now hides nothing and grows no note: the note
+    // is appended only where something was actually hidden. The two menus have
+    // simply swapped sides of that test, which is stronger evidence than either
+    // alone — it could not be satisfied by a note that is always or never added.
     const menu = items(MULTI)
     expectMenuRendered(menu, 'delete')
-    expect(findItem(menu, STRUCTURAL_EDITS_NOTE_ID)).toBeUndefined()
+    expect(findItem(menu, STRUCTURAL_EDITS_NOTE_ID), 'duplicate is now hidden here').toBeDefined()
+    expect(findItem(menu, 'cut'), 'cut is still surfaced').toBeDefined()
+    expect(findItem(menu, 'duplicate'), 'duplicate is menu-only').toBeUndefined()
   })
 })
 
@@ -324,7 +345,10 @@ describe('menu density — the measurement that chose the policy', () => {
     // the rebase. Re-pinning the tuples keeps the record honest without letting
     // the test agree with whatever the code happens to produce.
     expect(a).toEqual({ rows: 12, inert: 7, pct: 58 })
-    expect(shipped).toEqual({ rows: 8, inert: 3, pct: 38 })
+    // ⚠ RE-MEASURED 13 Sep 2026: 8/3/38 -> 7/2/29, because `duplicate` moved
+    // from a disabled row to the grouped note. The shipped policy got LESS grey,
+    // which is the direction this measurement exists to track.
+    expect(shipped).toEqual({ rows: 7, inert: 2, pct: 29 })
     expect(shipped.inert).toBeLessThan(a.inert)
     expect(shipped.rows).toBeLessThan(a.rows)
   })

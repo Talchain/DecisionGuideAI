@@ -274,7 +274,29 @@ export const KEYBOARD_REACHABLE_SEMANTIC_IDS = new Set([
   'redo',
   'paste',
   'cut',
-  'duplicate',
+  // ⛔ `duplicate` REMOVED 13 Sep 2026 — it FAILED BOTH CLAUSES of this set's own
+  // stated criterion, and the contradiction was already written down fifteen
+  // lines into a sibling module before this set was authored.
+  //
+  //   · ⌘D does NOT reach duplicate. `useKeyboardShortcuts.ts:457` gates
+  //     `duplicateSelected()` on `canMutateSharedModel`, which is false; and
+  //     `hooks/useCanvasKeyboardShortcuts.ts:201` ALSO binds ⌘D, UNGATED, to
+  //     `onToggleDocuments` — wired live at `ReactFlowGraph.tsx:1587`. Pressing
+  //     ⌘D opens the Documents drawer.
+  //   · `isClipboardMutationGesture` admits only `x` and `v`
+  //     (`useKeyboardShortcuts.ts:337`), so ⌘D raises no toast for a row to
+  //     agree with.
+  //
+  // ⭐ AND THE RULING ALREADY EXISTED. `isClipboardMutationGesture`'s own header
+  // excludes ⌘D for precisely this reason: "Announcing 'duplicate is
+  // unavailable' over a keystroke that just opened a drawer is one gesture
+  // answered two ways by two handlers, which is a WORSE DEFECT THAN THE
+  // SILENCE." A disabled row here would have re-committed the defect that
+  // predicate was written to refuse.
+  //
+  // ⇒ `duplicate` is therefore MENU-ONLY: hidden, and folded into the grouped
+  // note like its carrierless siblings. That is not a downgrade — it is the
+  // only answer that does not make the menu and the keyboard disagree.
 ])
 
 /** Stable id for the grouped note. ID-addressed, never label-derived. */
