@@ -12,7 +12,7 @@ import { CEEError } from '../../adapters/cee/client'
 import { DraftGuidancePanel } from './DraftGuidancePanel'
 import { RateLimitNotice } from './RateLimitNotice'
 import { ThinkingModePopover } from './ThinkingModePopover'
-import { DEFAULT_EDGE_DATA, trimProvenance, readServerStatedStrength } from '../domain/edges'
+import { DEFAULT_EDGE_DATA, trimProvenance, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../domain/edges'
 import { edgeValueSourcePatch, stripEdgeValueSourceKeys } from '../domain/edgeValueProvenance'
 import { saveAutosave } from '../store/scenarios'
 import { projectAutosaveData, autosaveSourceFromStore } from '../store/autosaveProjection'
@@ -674,6 +674,7 @@ export function DraftChat() {
       }
 
       const serverStrength = readServerStatedStrength(e as Record<string, unknown>)
+      const strengthAuthor = readWireEdgeStrengthAuthor(e as Record<string, unknown>)
 
       return {
         id,
@@ -708,9 +709,9 @@ export function DraftChat() {
           // gate and not an ingestion rewrite.
           ...edgeValueSourcePatch({
             beliefExists: (beliefExistsValue ?? confidence) !== undefined ? 'cee' : undefined,
-            weight: weightSource !== 'default' ? 'cee' : undefined,
+            weight: weightSource !== 'default' ? (strengthAuthor ?? 'cee') : undefined,
             strengthStd: strengthStd !== undefined ? 'cee' : undefined,
-            direction: directionFromEdge !== undefined ? 'cee' : undefined,
+            direction: directionFromEdge !== undefined ? (strengthAuthor ?? 'cee') : undefined,
           }),
           // What the SERVER stated — HOP 3 OF 3, the same one reader as the
           // other two. It reads the RAW wire edge `e`, deliberately not the

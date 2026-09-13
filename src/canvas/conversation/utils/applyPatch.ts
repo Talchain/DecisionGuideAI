@@ -7,7 +7,7 @@
  */
 
 import { useCanvasStore } from '../../store'
-import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength } from '../../domain/edges'
+import { DEFAULT_EDGE_DATA, readValidationMetadata, readServerStatedStrength, readWireEdgeStrengthAuthor } from '../../domain/edges'
 import { edgeValueSourcePatch } from '../../domain/edgeValueProvenance'
 import { edgeProvenanceDisplayPatch } from '../../utils/draftIngestion'
 import { saveAutosave } from '../../store/scenarios'
@@ -162,6 +162,7 @@ function buildEdge(op: PatchOperation) {
   // are still extracted twice.
   const validation = readValidationMetadata(d.validation)
   const serverStrength = readServerStatedStrength(d as Record<string, unknown>)
+  const strengthAuthor = readWireEdgeStrengthAuthor(d as Record<string, unknown>)
 
   return {
     id: op.target_id,
@@ -209,9 +210,9 @@ function buildEdge(op: PatchOperation) {
       // `src/lib/factorDirection.ts`'s own rule 5 warns about.
       ...edgeValueSourcePatch({
         beliefExists: beliefExists !== undefined ? 'cee' : undefined,
-        weight: wireSuppliedStrength ? 'cee' : undefined,
+        weight: wireSuppliedStrength ? (strengthAuthor ?? 'cee') : undefined,
         strengthStd: strengthStd !== undefined ? 'cee' : undefined,
-        direction: directionFromData !== undefined ? 'cee' : undefined,
+        direction: directionFromData !== undefined ? (strengthAuthor ?? 'cee') : undefined,
       }),
       // CEE display provenance (snake_case → camelCase). Distinct from
       // `provenance_source` above.
