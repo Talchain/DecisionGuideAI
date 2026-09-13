@@ -131,6 +131,16 @@ export interface AnalysisNewFinding {
    * Absent ⇒ no act renders. Never a disabled one: a control that cannot act is
    * an advertisement, and the reader is better served by the sentence alone.
    */
+  /**
+   * What the camera should FRAME — the edge, when one resolves, because a
+   * sensitivity sentence's subject is a RELATIONSHIP and `targetId` names only
+   * one of its endpoints. Absent ⇒ the camera falls back to `targetId`.
+   *
+   * ⛔ SEPARATE FROM `targetId` ON PURPOSE. `targetId` is a NODE-identity join
+   * read by `buildNodeInsights` into a node-keyed map; an edge id there is a
+   * key no node lookup can hit. One field cannot answer both questions.
+   */
+  focusTargetId?: string
   reviewTargetId?: string
   /** Level 3 — inspect. Empty array renders no inspect affordance. */
   inspect: InspectRow[]

@@ -151,10 +151,14 @@ export function DisclosureRow({
           </p>
 
           <div className="flex flex-wrap gap-3">
-            {finding.targetId && onFocusTarget ? (
+            {/* The camera frames the EDGE when one resolved, else the node.
+                `targetId` stays the node-identity join `buildNodeInsights`
+                reads — see `focusTargetId`'s declaration for why these are two
+                fields and not one. */}
+            {(finding.focusTargetId ?? finding.targetId) && onFocusTarget ? (
               <button
                 type="button"
-                onClick={() => onFocusTarget(finding.targetId!)}
+                onClick={() => onFocusTarget((finding.focusTargetId ?? finding.targetId)!)}
                 className={`${typography.panelMeta} text-info underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                 data-testid={`${testIdPrefix}-focus`}
               >
