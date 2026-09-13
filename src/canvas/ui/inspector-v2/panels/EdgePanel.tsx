@@ -40,6 +40,7 @@ import {
   edgeValueBand,
   edgeValueSource,
   resolveEdgeValueDisplay,
+  resolveEdgeSignedStrengthDisplay,
   withLiveEdgeValue,
   type EdgeValueBand,
 } from '../../../domain/edgeValueProvenance'
@@ -457,7 +458,16 @@ export const EdgePanel = memo(function EdgePanel({
                 >
                   {INLINE_LABELS.strengthQuestionForSave}
                 </p>
-                <StrengthBandButtons value={localStrength} onChange={handleStateStrengthForSave} />
+                {/* ⛔ `unset` DERIVED FROM THE PROVENANCE GATE, never from the
+                    branch we are already inside. Asking the gate keeps this
+                    honest if the branch's condition ever changes: it is the same
+                    reader `captureStructuralAddEdge` is handed, so the control
+                    can only ever highlight a number that reader calls SET. */}
+                <StrengthBandButtons
+                  value={localStrength}
+                  onChange={handleStateStrengthForSave}
+                  unset={!resolveEdgeSignedStrengthDisplay(edge?.data as Record<string, unknown> | undefined).show}
+                />
               </PrimaryControlCard>
             ) : (
             <>

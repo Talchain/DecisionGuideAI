@@ -430,7 +430,12 @@ export const INLINE_LABELS = {
    * transport then does.
    */
   strengthQuestionForSave:
-    'How strong is this effect? This connection needs one before it can reach the model.',
+    'How strong is this effect? This connection needs one before it can be sent to the model.',
+  // ⛔ "SENT", NOT "REACH". A draft said "reach the model" — and reaching is
+  // ARRIVAL, not dispatch, which is the same overclaim this file's sibling
+  // comment refuses ("the edge is SENT, never SAVED"). It is also precisely what
+  // the open acceptance test exists to decide, so asserting it here would be
+  // claiming the result in advance. "Sent" is true under BOTH outcomes.
   existenceQuestion: 'Does this connection exist?',
   strengthUncertainty: 'Strength uncertainty',
   contributesToGoal: 'Contributes to your goal',
