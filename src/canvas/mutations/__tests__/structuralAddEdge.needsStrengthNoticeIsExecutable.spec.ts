@@ -6,6 +6,7 @@ import {
   resolveEdgeDirectionDisplay,
 } from '../../domain/edgeValueProvenance'
 import { edgeStrengthEditIsAssertable } from '../../conversation/edgeStrengthEdit'
+import { CANONICAL_EDIT_AUTHORITY } from '../mutationAuthority'
 import {
   STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE,
   captureStructuralAddEdge,
@@ -61,6 +62,48 @@ describe('STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE instructs nothing the produc
     // Bound by IDENTITY of the reason, never by "some refusal happened": a
     // different stand-down would be a different notice.
     expect(result.ok === false && result.reason).toBe('strength_not_stated')
+  })
+
+  /**
+   * ⛔⛔ PRECONDITION 2b — THE SECOND WRITER, FOUND BY THE REVIEWER WHEN I ASKED
+   * THEM TO ATTACK MY "ONLY WRITER" CLAIM. IT WAS FALSE AS I WORDED IT.
+   *
+   * `PreAnalysisPanel.tsx:1279` ALSO writes `weight`/`weightSource: 'user'` —
+   * the KeyRelationships Weakly/Moderately/Strongly picker, whose own comment
+   * says it *"Mirrors `useInspectorMutations.setStrength`"*. It carries no
+   * `edgeStrengthEditIsAssertable`, no `hasServerGraphAuthority` and no
+   * `disabled`, and its "top 3 edges by connectivity" selection makes a freshly
+   * drawn edge eligible BY CONSTRUCTION — a new edge adds degree to both
+   * endpoints.
+   *
+   * It writes nothing today for an entirely different reason:
+   * `PreAnalysisPanel.tsx:676` gates the handler on
+   * `hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.preAnalysisEdgeStrength)`,
+   * and that key reads `'disabled'`, so `onUpdateEdgeStrength` is `undefined`
+   * and the picker receives no handler at all.
+   *
+   * ⭐ SO THE PREMISE HOLDS BY **REACHABILITY**, NEVER BY **UNIQUENESS** — and
+   * the original PR proved it by the wrong route (an `rg` sweep plus a file's
+   * own claim about itself). The answer was in the authority table. This is
+   * recorded in the test rather than only in prose because the next person
+   * greps, finds two writers, and must be able to tell whether I knew.
+   *
+   * ⭐ AND THE TWO GATES ANSWER DIFFERENT QUESTIONS (trap 21, one surface over):
+   * `EdgePanel`'s is PER-EDGE — *does the server hold a strength for THIS
+   * link?* — while this one is PER-CARRIER — *does this canvas own a server
+   * graph at all?* Precondition 2 binds the first and is structurally blind to
+   * the second, which is exactly why this assertion is separate.
+   *
+   * ⚠ WHAT IT DOES AND DOES NOT GUARD, STATED SO IT IS NOT READ AS MORE.
+   * Flipping this key would NOT falsify the notice's conclusion: a
+   * KeyRelationships write is a LOCAL `updateEdgeData`, and capture happens only
+   * inside `addEdge`, so the link still never reaches the model. **It falsifies
+   * the REASON** — "a link that has no strength" stops being true of a drawn
+   * link while "Olumi can't save it" stays true. A true sentence with a dead
+   * reason is the failure mode this whole spec exists to catch.
+   */
+  it('PRECONDITION 2b — and no SECOND strength writer is live on that link either', () => {
+    expect(CANONICAL_EDIT_AUTHORITY.preAnalysisEdgeStrength).toBe('disabled')
   })
 
   it('PRECONDITION 2 — and that same link cannot reach the strength control at all', () => {
