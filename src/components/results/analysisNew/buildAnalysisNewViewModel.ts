@@ -1093,11 +1093,13 @@ function buildUncertainty(
      * ⭐⭐ THE ACT, ON THE ROWS THAT ACTUALLY RENDER.
      *
      * "What would change your mind" and the assumed-strength card read the SAME
-     * producer array. The card additionally needs a canvas edge it can NAME, and
-     * is therefore rare — 3/3 non-render on the served build. These rows survive
-     * without that join, which is why they render on ordinary runs. Attaching the
-     * same act here is what moves it from a sentence almost nobody meets to one
-     * they do.
+     * producer array. The card additionally needs a canvas edge it can NAME;
+     * these rows do not, which is why they render on ordinary runs. Attaching
+     * the same act here reaches them.
+     *
+     * ⚠ NO FREQUENCY CLAIM. "3/3 non-render on the served build" was retracted —
+     * a sample presented as a population, cause never measured. See
+     * `useResultsSectionData`'s `sensitivityReviewTargets` header.
      *
      * ⛔ AND IT IS DEDUPED AGAINST THE CARD BY EDGE IDENTITY, NOT BY POSITION.
      * Both selections are built in this function. Where the card has claimed an

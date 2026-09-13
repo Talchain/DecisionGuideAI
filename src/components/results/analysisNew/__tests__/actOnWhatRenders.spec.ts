@@ -3,11 +3,17 @@
  *
  * ⛔ WHY THIS EXISTS. "One assumption worth pinning down" and "What would change
  * your mind" read the SAME producer array (`robustness.fragile_edges`). The card
- * additionally needs a canvas edge it can NAME and is therefore rare — measured
- * 3/3 non-render on the served build, so the act shipped in #1542 has never been
- * seen by a user. The sensitivity rows survive without that join, which is why
- * they render on ordinary runs. This pins the act onto them WITHOUT loosening
- * the gate that decides whether the destination can serve it.
+ * additionally needs a canvas edge it can NAME; these rows do not. That is a
+ * STRUCTURAL difference and it is the whole argument — attaching the act here
+ * reaches the rows an ordinary run renders, WITHOUT loosening the gate that
+ * decides whether the destination can serve it.
+ *
+ * ⚠ NO FREQUENCY CLAIM IS MADE. An earlier version of this header said the card
+ * was "rare — 3/3 non-render" and that #1542's act "has never been seen by a
+ * user". That was a SAMPLE PRESENTED AS A POPULATION, with no artefact cited,
+ * and it was retracted. `selectAssumedStrengthToResolve` returns a named
+ * `refusalReason` for every null; nobody has read one. The argument above does
+ * not need the frequency and does not rest on it.
  */
 import { describe, expect, it } from 'vitest'
 import { buildAnalysisNewViewModel } from '../buildAnalysisNewViewModel'
