@@ -21,6 +21,7 @@ import type { ContextTarget, MenuEntry } from './types'
 import { isDivider } from './types'
 import type { NodeType } from '../domain/nodes'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../mutations/mutationAuthority'
+import { WIRE_ADDABLE_NODE_KINDS } from '../mutations/structuralAdd'
 import {
   deleteAction,
   addNodeAction,
@@ -78,13 +79,58 @@ function getNodeRange(node: any): { min: number; max: number } | null {
 const DIV: MenuEntry = { type: 'divider' }
 
 /**
+ * ⭐⭐ THE PANE NODE-ADD IS JUDGED BY ITS OWN CARRIER, AND THAT IS WHY IT IS NOT
+ * IN THE SET BELOW (2026-09-13).
+ *
+ * `add-node` sat in `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` until the durable writer
+ * landed, and nobody moved it afterwards. The result was the estate's chronic
+ * failure #1 in its purest form: `store.addNode` names itself "THE CHOKEPOINT
+ * FOR EVERY GESTURE THAT REACHES `addNode`: the pane context menu, the six
+ * Command Palette 'Add …' commands, the pre-analysis AddRow and the hero goal
+ * field" — three of those four reach a user, and the pane context menu's item
+ * was stripped before it ever rendered. The pre-analysis `AddRow` is live on
+ * exactly this carrier (`preAnalysisV3StructuralAdd`, flipped for the same
+ * reason), and the Command Palette has no opener at all
+ * (`setShowCommandPalette` is never called true — pinned in
+ * `help/__tests__/KeyboardLegend.dom.spec.tsx`). So the canvas was the only
+ * reachable door left, and one stale set entry held it shut.
+ *
+ * ⚠⚠ THIS IS CLAUDE.md TRAP 21 — TWO KEYS FOR ONE CONCEPT. The authority table
+ * ALREADY says this gesture is `server_graph`, in a key whose own comment names
+ * this surface: `canvasNodeAddWithServerHash` — "the canvas/palette/context-menu
+ * node add … a receipt-bearing GraphV3 carrier (`structural_add`), a
+ * server-side write to `scenarios.graph`, and a committed `edit_graph` fact".
+ * Meanwhile the menu consulted `canvasSemanticMutations`, which is `'disabled'`.
+ * Both keys were correct answers to DIFFERENT questions, and the fix is to name
+ * them apart rather than to align the defaults: each menu id is now judged by
+ * the authority of the carrier IT uses.
+ *
+ * ⚠ THE REST OF THE SET STAYS, AND THE REASONS ARE DERIVED, NOT ASSUMED.
+ * `add-connected-*` and `insert-factor-between` route through
+ * `store.addNodeWithEdge`, and `duplicate`/`paste` through `duplicateSelected`/
+ * `pasteClipboard` — all three capture NOTHING, deliberately, because
+ * `structural_add_edge` is `'reader_only_refusal'` in CEE (re-derived at CEE
+ * `staging` `3575b189`; see the `pendingStructuralAdds` note in `store.ts`).
+ * Emitting a durable add for those would save the nodes and silently DROP the
+ * topology. A door that loses half the gesture is worse than no door.
+ */
+const DURABLE_NODE_ADD_MENU_IDS: ReadonlySet<string> = new Set<string>([
+  'add-node',
+  // Derived from the same list the submenu is built from, filtered by the
+  // contract's own persistable set — a kind CEE cannot hold gains no door here
+  // with no edit, and a kind the contract adds gains one the same way.
+  ...NODE_TYPE_ITEMS.filter((nt) => WIRE_ADDABLE_NODE_KINDS.has(nt.type)).map(
+    (nt) => `add-node-${nt.type}`,
+  ),
+])
+
+/**
  * Local React-Flow mutations that look like shared-model edits. Delete is not
  * in this set: it has its own server-hash/CAS authority gate in the store.
  * Copy, layout, selection, lenses and AI questions are presentation/read-only
  * actions and remain available.
  */
 export const LOCAL_SEMANTIC_CONTEXT_MENU_IDS = new Set([
-  'add-node',
   'undo',
   'redo',
   'paste',
@@ -109,11 +155,28 @@ function compactDividers(entries: MenuEntry[]): MenuEntry[] {
   return compacted
 }
 
+/**
+ * One menu id, judged by the authority of the carrier IT uses.
+ *
+ * ⚠ An id in NEITHER set is authorised: this filter subtracts, it does not
+ * admit. Copy, layout, selection, lens and "Ask AI" items reach a user because
+ * nothing here claims them, which is why adding a genuinely local mutation
+ * needs an entry in `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` rather than silence.
+ */
+function menuIdIsAuthorised(id: string): boolean {
+  if (DURABLE_NODE_ADD_MENU_IDS.has(id)) {
+    return hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash)
+  }
+  if (LOCAL_SEMANTIC_CONTEXT_MENU_IDS.has(id)) {
+    return hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations)
+  }
+  return true
+}
+
 export function applyContextMenuMutationAuthority(entries: MenuEntry[]): MenuEntry[] {
-  if (hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations)) return entries
   const filtered = entries.flatMap<MenuEntry>((entry) => {
     if (isDivider(entry)) return [entry]
-    if (LOCAL_SEMANTIC_CONTEXT_MENU_IDS.has(entry.id)) return []
+    if (!menuIdIsAuthorised(entry.id)) return []
     const submenuItems = entry.submenuItems
       ? applyContextMenuMutationAuthority(entry.submenuItems)
       : undefined
@@ -182,7 +245,12 @@ function buildPaneMenu(
 ): MenuEntry[] {
   const flowPos = screenToFlowPosition(target.screenPos)
 
-  const addNodeSubmenu: MenuEntry[] = NODE_TYPE_ITEMS.map((nt) => ({
+  // ⚠ FILTERED BY THE CONTRACT, NOT BY HAND, and filtered in the SAME place the
+  // authority set derives from — build the door and judge the door off one list
+  // or they drift apart silently (CLAUDE.md trap 12).
+  const addNodeSubmenu: MenuEntry[] = NODE_TYPE_ITEMS.filter((nt) =>
+    WIRE_ADDABLE_NODE_KINDS.has(nt.type),
+  ).map((nt) => ({
     id: `add-node-${nt.type}`,
     label: nt.label,
     ...(nt.glyph ? { glyph: nt.glyph } : {}),

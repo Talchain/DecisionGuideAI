@@ -118,7 +118,12 @@ describe('pane menu', () => {
     expect(ids).toContain('ask-ai-pane')
     expect(ids).toContain('auto-arrange')
     expect(ids).toContain('toggle-view-mode')
-    expect(ids).not.toContain('add-node')
+    // ⚠ `add-node` MOVED OUT OF THIS LIST ON 13 Sep 2026 and is now asserted
+    // PRESENT below — it is not a "local semantic write" any more. Its writer
+    // (`store.addNode`) captures a durable `structural_add`, which is why
+    // `CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash` is `server_graph`.
+    // `paste`/`undo`/`redo` genuinely still capture nothing and stay.
+    expect(ids).toContain('add-node')
     expect(ids).not.toContain('paste')
     expect(ids).not.toContain('undo')
     expect(ids).not.toContain('redo')
@@ -132,12 +137,26 @@ describe('pane menu', () => {
     expect(paste).toBeUndefined()
   })
 
-  it('does not leak any nested add-node actions', () => {
+  /**
+   * ⚠⚠ THIS TEST USED TO ASSERT THE OPPOSITE, AND THE REVERSAL IS DELIBERATE.
+   * It read "does not leak any nested add-node actions" and pinned BOTH the
+   * parent and every `add-node-*` child as absent. That was a correct pin on a
+   * gesture with no durable carrier, and it silently became the thing keeping a
+   * built capability dark once `structural_add` landed: a user could delete,
+   * copy and rename their own model and could not add anything to it
+   * (deployed `fec043bf`, 13 Sep 2026, seven probes).
+   *
+   * The claim is inverted rather than deleted, so the overturned assertion is
+   * visible to whoever reads this next. Its full replacement — the six kinds by
+   * name, the wire-persistability derivation, the carrierless neighbours, and
+   * the contrast control — is `paneAddNodeDurableDoor.spec.tsx`.
+   */
+  it('mounts the nested add-node actions, because their carrier is durable', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
-    expect(getAllItemIds(result.current)).not.toContain('add-node')
-    expect(getAllItemIds(result.current).some(id => id.startsWith('add-node-'))).toBe(false)
+    expect(getAllItemIds(result.current)).toContain('add-node')
+    expect(getAllItemIds(result.current).some(id => id.startsWith('add-node-'))).toBe(true)
   })
 })
 
