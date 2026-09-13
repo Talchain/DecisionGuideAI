@@ -232,15 +232,92 @@ export function buildEdgeStrengthEditEvent({
       magnitude,
       direction_intent,
       expected: { mean: expected.mean, effect_direction: expected.effect_direction },
-      // ⚠ ALWAYS `'set'`, AND THE OMISSION IS DELIBERATE RATHER THAN AN
-      // OVERSIGHT. `'confirm_current'` is a PROVENANCE-ONLY act with its own
-      // cross-field rules (it requires `direction_intent: 'preserve'` and
-      // `magnitude === abs(expected.mean)` exactly) and its own product
-      // meaning — "I ratify the number that is already there". The only
-      // gesture that means it is `EdgePanel.handleConfirmCurrentStrength`, and
-      // giving it its own intent is a separate, separately-reviewed change.
-      // Sending `'set'` for it is not a lie: the user did choose that number.
+      // ⚠ ALWAYS `'set'` ON THIS BUILDER. `'confirm_current'` is a
+      // PROVENANCE-ONLY act with its own cross-field rules and its own product
+      // meaning — "I ratify the number that is already there" — so it has its
+      // own builder below (`buildEdgeStrengthConfirmEvent`) rather than a flag
+      // here. Two acts, two builders, neither able to emit the other's shape.
+      //
+      // ⛔⛔ AMENDED 13 Sep 2026, AND THE SENTENCE THIS REPLACES WAS REFUTED AT
+      // THE WIRE. It read: *"Sending `'set'` for it is not a lie: the user did
+      // choose that number."* True about honesty, and beside the point — the
+      // act CANNOT SUCCEED. CEE refuses a `set` that resolves to the strength
+      // and direction already persisted (`set_target_unchanged`,
+      // `system-events/edge-strength-edit.ts`), and its refusal text says
+      // *"Confirm the current strength explicitly if you want to adopt the
+      // existing value."* Witnessed on served `e6d7971b`: a user who agreed
+      // with Olumi's estimate pressed Confirm, sent `intent:'set'` with
+      // `magnitude` equal to `expected.mean`, and was refused.
+      //
+      // So the reasoning was about the wrong property. A label is not a lie
+      // only if the thing it names can happen.
       intent: 'set',
+    },
+  }
+}
+
+/**
+ * ⭐⭐ RATIFY THE STRENGTH THAT IS ALREADY THERE — the act the product has been
+ * prescribing and unable to perform.
+ *
+ * "I agree with this estimate" is a DIFFERENT ACT from "change it to X", not a
+ * degenerate case of it, and the producer treats it that way: a `set` resolving
+ * to the persisted tuple is refused as `set_target_unchanged`, while
+ * `confirm_current` is *"permission to stamp exactly two provenance fields"*.
+ * Conflating them is what made the existing Confirm control unable to land.
+ *
+ * ⚠ EVERY FIELD IS DERIVED FROM THE SERVER-STATED TUPLE, AND THAT IS WHAT MAKES
+ * THE CROSS-FIELD RULES UNBREAKABLE RATHER THAN MERELY OBSERVED. The contract
+ * requires `direction_intent: 'preserve'` and `magnitude === abs(expected.mean)`
+ * EXACTLY (`refineEdgeStrengthEdit` rule 2, mirrored at `v5/buildPayload.ts`).
+ * Both are computed here from the same `expected` in the same expression, so
+ * there is no arrangement of inputs that produces a payload violating them — as
+ * opposed to a caller passing a magnitude that happens to match today.
+ *
+ * ⛔ THERE IS NO `requestedMean` PARAMETER, DELIBERATELY. A confirmation that
+ * accepted a number could be handed one that differs from the persisted value,
+ * and would then be a silent `set` wearing a confirmation's name — the mirror
+ * image of the defect this closes. The only number it can send is the one the
+ * server already holds.
+ *
+ * ⚠ AND CONFIRMING IS NOT VALIDATING. This records that a person agreed with an
+ * estimate. It does not make the estimate correct, evidenced, or scientifically
+ * supported, and no surface may present a confirmed strength as more than
+ * "someone with judgement looked at this and did not change it".
+ *
+ * Returns `null` when nothing proves what the server holds — the same
+ * `serverStatedStrengthOf` refusal the edit builder makes, for the same reason:
+ * an `expected` tuple built from a number only this client has seen produces
+ * `edge_expected_tuple_mismatch`, a concurrent modification by nobody.
+ */
+export function buildEdgeStrengthConfirmEvent({
+  edge,
+}: {
+  edge: Edge | undefined | null
+}): WireSystemEvent | null {
+  if (!edge) return null
+  const from = edge.source
+  const to = edge.target
+  if (!isCanonicalEndpointId(from) || !isCanonicalEndpointId(to)) return null
+
+  const expected = serverStatedStrengthOf(edge.data as Record<string, unknown> | undefined)
+  if (!expected) return null
+
+  // Same `[0, 1]` contract bound the edit builder refuses rather than clamps.
+  // Unreachable through a well-formed server tuple; asserted anyway, because
+  // "unreachable" is a claim about today's producer.
+  const magnitude = Math.abs(expected.mean)
+  if (!Number.isFinite(magnitude) || magnitude > 1) return null
+
+  return {
+    type: 'edge_strength_edit',
+    payload: {
+      from,
+      to,
+      magnitude,
+      direction_intent: 'preserve',
+      expected: { mean: expected.mean, effect_direction: expected.effect_direction },
+      intent: 'confirm_current',
     },
   }
 }

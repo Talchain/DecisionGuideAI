@@ -136,6 +136,12 @@ export interface ModelRowViewProps {
    */
   onConfirmValueAsIs?: (id: string) => void
   /**
+   * Ratify a RELATIONSHIP's strength — the `confirm_current` wire act. Separate
+   * from `onConfirmValueAsIs` because the two ratifications have different
+   * carriers and different authorities; absent means the host withholds it.
+   */
+  onConfirmRelationshipAsIs?: (id: string) => void
+  /**
    * ⭐ Rename this element. ABSENT MEANS NO AFFORDANCE — see `renameAvailable`.
    *
    * The write lands on `store.updateNodeLabel`, which its own header calls "THE
@@ -305,6 +311,7 @@ export function ModelRowView({
   onDiscardEdit,
   onConfirmEdit,
   onConfirmValueAsIs,
+  onConfirmRelationshipAsIs,
   onRenameRow,
 }: ModelRowViewProps) {
   const phase = commit?.phase ?? 'idle'
@@ -430,8 +437,26 @@ export function ModelRowView({
    * in `adapters.ts`), so there is exactly one predicate and this surface reads
    * it rather than re-deriving half of it.
    */
+  /**
+   * ⚠ ONE CHIP, TWO ACTS, SO TWO HANDLERS — AND THE ROW STILL DECIDES BY THE
+   * ATTENTION REASON ALONE. Ratifying a FACTOR's value is a local-only write
+   * (`disabled` under the B3 policy); ratifying a RELATIONSHIP's strength is the
+   * receipt-bearing `confirm_current` wire act (`server_graph`). They need
+   * different connectivity answers, and this file is not where connectivity is
+   * decided — the HOST decides it by passing a handler or not, exactly as it
+   * already did for factors.
+   *
+   * ⛔ AN EARLIER CUT READ THE AUTHORITY TABLE HERE INSTEAD, AND TWO SPECS
+   * CAUGHT IT — including one whose whole subject is that this chip is offered
+   * *"by the ATTENTION REASON alone"*. It was written after a mutant that bit
+   * only a source scan. Re-deriving connectivity in the row is the same defect
+   * as re-deriving the value guard: a second place answering a question that
+   * already has an owner.
+   */
+  const confirmHandler =
+    row.kind === 'relationship' ? onConfirmRelationshipAsIs : onConfirmValueAsIs
   const canConfirmAsIs =
-    typeof onConfirmValueAsIs === 'function' &&
+    typeof confirmHandler === 'function' &&
     row.attention.includes('unconfirmed-estimate')
 
   return (
@@ -1035,7 +1060,7 @@ export function ModelRowView({
           className={`${typography.buttonSmall} text-info underline decoration-dotted shrink-0 whitespace-nowrap`}
           onClick={e => {
             e.stopPropagation()
-            onConfirmValueAsIs?.(row.id)
+            confirmHandler?.(row.id)
           }}
         >
           Confirm
