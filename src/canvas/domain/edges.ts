@@ -294,6 +294,33 @@ export const EdgeDataSchema = z.object({
    */
   directionSource: EdgeValueSourceEnum.optional(),
 
+  /**
+   * ⭐⭐ THE STAND-DOWN RECEIPT — set when `captureStructuralAddEdge` DECLINED
+   * for this edge and it has therefore never reached the shared model.
+   *
+   * WHY IT EXISTS. `planStructuralAddEdgeIntent` is a PURE function of
+   * `(state, edgesAfter, edgeId)` and can be re-run on any edge at any moment —
+   * so the capture was never the obstacle. The obstacle was that its OUTCOME
+   * was a local variable in `addEdge`, consumed by the toast and DISCARDED, so
+   * nothing downstream could tell a link that stood down from a link that was
+   * never a candidate. Re-running the capture on every strength write without
+   * this marker would RE-QUEUE AN EDGE ALREADY SENT — a double-send.
+   *
+   * ⛔ IT IS A RECORD OF WHAT HAPPENED, NEVER AN INSTRUCTION ABOUT WHAT SHOULD.
+   * It carries the stand-down REASON rather than a boolean, so a future
+   * stand-down of a different kind cannot silently inherit this one's
+   * behaviour — bound by identity, not by "some refusal happened".
+   *
+   * ⚠ ABSENT ⇒ NO STAND-DOWN IS ON RECORD. That covers both "captured
+   * successfully" and "drawn before this field existed", and both are correct
+   * as a refusal to act: the failure mode of forgetting to stamp is that a link
+   * stays unsaved, never that one is sent on a strength nobody stated.
+   *
+   * CLEARED on successful capture — that clearing is what makes a repeat
+   * confirmation unable to duplicate the edge.
+   */
+  structuralAddStandDown: z.literal('strength_not_stated').optional(),
+
   // Phase 3: Non-linear edge functions
   functionType: EdgeFunctionTypeEnum.default('linear'),   // How input transforms to output
   functionParams: EdgeFunctionParamsSchema.optional(),    // Parameters for non-linear functions

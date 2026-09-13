@@ -2691,6 +2691,55 @@ function planStructuralAddEdgeIntent(
 }
 
 /**
+ * ⭐⭐ THE SECOND CALLER. Re-run the capture for an edge that STOOD DOWN, now
+ * that something may have changed its answer.
+ *
+ * `planStructuralAddEdgeIntent` is a PURE function of `(state, edgesAfter,
+ * edgeId)` — it never depended on being inside `addEdge`. The capture was never
+ * the obstacle; the absence of a second caller was.
+ *
+ * ⛔ GATED ON THE RECORDED STAND-DOWN, AND THAT GATE IS THE DOUBLE-SEND GUARD.
+ * Only an edge carrying `structuralAddStandDown` is a candidate, and a
+ * successful capture CLEARS it in the same patch that queues the intent. So a
+ * second strength write on the same edge finds no marker and does nothing —
+ * which is exactly the acceptance condition "repeat confirmation cannot
+ * duplicate it". Re-running unconditionally would re-queue an edge already sent.
+ *
+ * ⛔ IT NEVER SUPPLIES A MAGNITUDE. If nothing has stated one the capture stands
+ * down again and the receipt is LEFT IN PLACE — the edge stays unsaved and
+ * honest. Inventing a magnitude here to force a receipt would assert a strength
+ * the user never gave, which is the defect this whole carrier exists to refuse.
+ *
+ * Returns `null` when there is nothing to do, so the caller can skip the write
+ * entirely rather than setting state on every edge update.
+ */
+function retryStructuralAddEdgeCapture(
+  state: CanvasState,
+  edgeId: string,
+): (Partial<CanvasState> & { deferredCapture?: boolean }) | null {
+  const edge = state.edges.find((e) => e.id === edgeId)
+  if (!edge) return null
+  const data = edge.data as EdgeData | undefined
+  // Bound by IDENTITY of the recorded reason, never "some marker is present".
+  if (data?.structuralAddStandDown !== 'strength_not_stated') return null
+
+  const plan = planStructuralAddEdgeIntent(state, state.edges, edgeId)
+  // Nothing captured — still no stated strength, or a different stand-down.
+  // Leave the receipt exactly as it was.
+  if (!plan.patch.pendingStructuralAddEdges) return null
+
+  const edges = state.edges.map((e) => {
+    if (e.id !== edgeId) return e
+    const nextData = { ...(e.data as EdgeData) }
+    delete (nextData as { structuralAddStandDown?: unknown }).structuralAddStandDown
+    return { ...e, data: nextData }
+  })
+  // `deferredCapture` is read by the caller and never written to the store —
+  // `set()` ignores unknown keys, but the caller strips it for clarity.
+  return { ...plan.patch, edges, deferredCapture: plan.deferred }
+}
+
+/**
  * Tell the user where a drawn connection stands.
  *
  * ⚠ FIRED AFTER THE `set()`, NEVER INSIDE IT — a side effect in a store updater
@@ -3532,6 +3581,31 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       return { edges, touchedNodeIds }
     })
 
+    // ⭐ THE SECOND CALLER, FIRED AFTER THE `set()` AND NEVER INSIDE IT — the
+    // same discipline `announceStructuralAddEdgeState` records: a side effect in
+    // a store updater can re-enter, and the updater must stay a pure function.
+    // A strength the user has just stated may have turned a stood-down link into
+    // a sendable one; `retryStructuralAddEdgeCapture` returns `null` unless it
+    // genuinely has, so the common update path pays one `find` and stops.
+    const retry = retryStructuralAddEdgeCapture(get(), id)
+    if (retry) {
+      // ⛔ STRIP the caller-only flag before writing: `deferredCapture` describes
+      // the capture, not the canvas, and zustand's `set` would merge it straight
+      // into the store as a stray key that nothing declares and nothing clears.
+      const { deferredCapture, ...patch } = retry
+      set(patch)
+      // ⛔ NO NEW USER-FACING COPY IN THIS INCREMENT, DELIBERATELY. The only
+      // notice fired here is the EXISTING, already-reviewed deferred one, and
+      // only where it is literally true. A "your connection is on its way"
+      // confirmation would be a FOURTH draft of this surface's copy in one day,
+      // and it cannot be written honestly without deciding what to say when
+      // `isOrchestratorV2Enabled()` is false — in which case
+      // `useStructuralAddEdgeEvents` DRAINS AND DISCARDS the queue, so
+      // "it is being sent" is false. That is a copy question with its own
+      // review, not a rider on a mechanism change. Rowed, not papered over.
+      if (deferredCapture) announceStructuralAddEdgeState(get(), 'deferred')
+    }
+
     if (oldEdge && hasAnalyticalEdgeChange(oldEdge, updates)) {
       invalidateAnalysisReady(get, set, `update_edge analytical field (${id})`)
     }
@@ -3898,8 +3972,22 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       const plan = planStructuralAddEdgeIntent(s, edgesAfter, id)
       edgeAddOutcome = { deferred: plan.deferred, needsStrength: plan.needsStrength }
 
+      // ⭐ RECORD THE STAND-DOWN ON THE EDGE, not just in the toast. Until this
+      // existed the outcome was a local consumed by `announceStructuralAddEdgeState`
+      // and then discarded, so nothing downstream could tell a link that stood
+      // down at `strength_not_stated` from one that was never a candidate — and
+      // a later capture re-run could not distinguish "never sent" from "already
+      // sent". See `EdgeData.structuralAddStandDown`.
+      const edgesWithReceipt = plan.needsStrength
+        ? edgesAfter.map((e) =>
+            e.id === id
+              ? { ...e, data: { ...(e.data as EdgeData), structuralAddStandDown: 'strength_not_stated' as const } }
+              : e,
+          )
+        : edgesAfter
+
       return {
-        edges: edgesAfter,
+        edges: edgesWithReceipt,
         touchedNodeIds,
         ...plan.patch,
       }

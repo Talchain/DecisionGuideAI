@@ -328,6 +328,24 @@ export const INSPECTOR_EDGE_REASON =
  * whole change exists to end, and it would be worse for having a fresh coat of
  * paint on it.
  */
+/**
+ * ⭐ THE DRAWN-LINK POPULATION — a link the SERVER HAS NEVER RECEIVED.
+ *
+ * Its sibling below says *"Ask Olumi to set its strength"*, which is sound for a
+ * server-held link and wrong here: `EdgePanel` offers this reader a control that
+ * states it directly. It promises no outcome — the sender has no revert
+ * lifecycle, so "sent" is honest and "saved" is not.
+ */
+export const INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON =
+  'This connection is on your canvas only. Set its strength here to send it to the model. Labels, details and coaching still work.'
+// ⛔ "SEND", NOT "SAVE", AND NOT "WITH YOUR NEXT MESSAGE" — both were in a draft
+// of this line and both were false. `useStructuralAddEdgeEvents` is NOT
+// debounced: it drains the queue as its own turn rather than riding the user's
+// next message, so the deferred sibling's wording does not apply here. And that
+// hook's own header is explicit that it has no revert lifecycle — "a refused
+// edge stays on the canvas and the user learns of the refusal only from CEE's
+// own sentence" — so the honest reading is "the edge is SENT", never "SAVED".
+
 export const INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON =
   'This connection has no strength on record for the model to check a change against, so edits here are not sent yet. Ask Olumi to set its strength. Labels, details and coaching still work.'
 
