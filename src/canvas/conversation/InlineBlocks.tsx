@@ -67,7 +67,7 @@ import { ArtefactBlock as ArtefactBlockComponent } from '../../components/chat/A
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import { GraphPatchBlockRenderer, ProposalBlockRenderer } from './blocks/GraphPatchBlockRenderer'
 import { isPhase3CardBlock, isBiasSignalCoachingBlock } from './phase3Pacing'
-import { CoachingLine, isCollapsibleCardBlock } from './CoachingLine'
+import { CoachingLine, isCollapsibleCardBlock, planCoachingLines } from './CoachingLine'
 import {
   collectBlockProseSurface,
   composeMessage,
@@ -113,14 +113,20 @@ const artefactNoop = () => { /* intentionally empty */ }
 function MaybeCoachingLine({
   block,
   asLine,
+  disambiguator,
   children,
 }: {
   block: ConversationBlock
   asLine: boolean
+  disambiguator: string | null
   children: ReactNode
 }) {
   if (!asLine) return <>{children}</>
-  return <CoachingLine block={block}>{children}</CoachingLine>
+  return (
+    <CoachingLine block={block} disambiguator={disambiguator}>
+      {children}
+    </CoachingLine>
+  )
 }
 
 /** Dedup guard: fire unknown-block telemetry once per block_type per session */
@@ -466,6 +472,18 @@ export const InlineBlocks = memo(function InlineBlocks({
    * demotion guarantee: a block does not change when it moves tier, only where
    * it sits. Two render paths here would be two places for them to drift.
    */
+  /*
+   * The list-level line plan. Built from the RESOLVED blocks — the same
+   * `proseOverriddenBlocks.get(index) ?? blocks[index]` each entry renders — so
+   * a title the override changed is the title the plan groups on. Keyed by
+   * object identity, which is why the resolved list is materialised once here
+   * rather than recomputed per entry.
+   */
+  const linePlan = useMemo(() => {
+    const resolved = blocks.map((b, i) => proseOverriddenBlocks.get(i) ?? b)
+    return planCoachingLines(resolved)
+  }, [blocks, proseOverriddenBlocks])
+
   const renderEntry = (index: number) => {
     const block = proseOverriddenBlocks.get(index) ?? blocks[index]
     const badgeDotClass = showBadgeDots ? resolveBlockBadgeDotClass(block) : null
@@ -483,7 +501,15 @@ export const InlineBlocks = memo(function InlineBlocks({
      * only the top-level entries would leave "Show N more" opening onto the
      * same wall it opens onto today.
      */
-    const asLine = isCompactCoachingLinesEnabled() && isCollapsibleCardBlock(block)
+    /*
+     * ⚠ THE PLAN IS COMPUTED OVER THE WHOLE LIST, NOT PER BLOCK, because the
+     * thing it guards against is invisible from inside one block: two producer
+     * blocks can carry the SAME title, and as title-only lines they become one
+     * affordance the user cannot aim. See `planCoachingLines`.
+     */
+    const plan = linePlan.get(block)
+    const asLine =
+      isCompactCoachingLinesEnabled() && isCollapsibleCardBlock(block) && plan?.collapsible !== false
     return (
       // data-citation-target is 1-based on the ORIGINAL index; CitationRef.index
       // matches this, so a citation still resolves after demotion.
@@ -495,7 +521,7 @@ export const InlineBlocks = memo(function InlineBlocks({
         {...(block.type === 'graph_patch' ? { 'data-patch-id': block.patch_id } : {})}
       >
         {badgeDotClass && <span className={badgeDotClass} data-testid="block-badge-dot" aria-hidden="true" />}
-        <MaybeCoachingLine block={block} asLine={asLine}>
+        <MaybeCoachingLine block={block} asLine={asLine} disambiguator={plan?.disambiguator ?? null}>
         <BlockRenderer
           block={block}
           suppressHeader={asLine}
