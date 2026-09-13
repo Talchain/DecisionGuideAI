@@ -242,6 +242,8 @@ function menuIdIsAuthorised(id: string): boolean {
  * `opts.connected` parameter is kept because it is the specs' seam, and an
  * authorised id now short-circuits per id instead.
  */
+
+/**
  * The gestures a user can ALSO reach by keyboard, so the menu row and the key
  * must answer identically.
  *

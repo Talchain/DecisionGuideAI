@@ -207,7 +207,13 @@ describe('the removed gestures are surfaced with a reason, not deleted', () => {
   })
 
   it('the note names Olumi and appears on menus that still hide menu-only gestures', () => {
-    for (const [target, anchor] of [[PANE, 'ask-ai-pane'], [FACTOR_NODE, 'delete'], [CAUSAL_EDGE, 'delete']] as const) {
+    // ⚠ PANE DROPPED ON REBASE, 13 Sep 2026, and it is the note working as
+    // designed rather than a regression. The note is SELF-RETIRING: appended
+    // only where a menu-only gesture was actually hidden. `add-node` was the
+    // pane's only such casualty, and #1538 authorised it, so the pane now hides
+    // nothing and correctly grows no note — the same property the MULTI twin
+    // below exists to pin. The pane has joined that twin's case.
+    for (const [target, anchor] of [[FACTOR_NODE, 'delete'], [CAUSAL_EDGE, 'delete']] as const) {
       const menu = items(target)
       expectMenuRendered(menu, anchor)
       const note = findItem(menu, STRUCTURAL_EDITS_NOTE_ID)
@@ -310,24 +316,40 @@ describe('menu density — the measurement that chose the policy', () => {
     const a = density(policyAllDisabled(base))
     const shipped = density(items(FACTOR_NODE))
 
-    // Policy A leaves two thirds of the menu greyed out — the wall of grey.
-    expect(a).toEqual({ rows: 11, inert: 7, pct: 64 })
-    // The shipped policy surfaces the keyboard-reachable pair and folds the
-    // five menu-only gestures into one note.
-    expect(shipped).toEqual({ rows: 7, inert: 3, pct: 43 })
+    // ⚠ TUPLES RE-MEASURED ON REBASE, 13 Sep 2026. They moved because #1538
+    // moved `add-node` out of `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` and into its own
+    // per-id authority, so one row that policy A counted as inert is now simply
+    // enabled. ⭐ The ABSOLUTE numbers are the measurement of the day; the
+    // LOAD-BEARING claims are the two relations below, and they are unchanged by
+    // the rebase. Re-pinning the tuples keeps the record honest without letting
+    // the test agree with whatever the code happens to produce.
+    expect(a).toEqual({ rows: 12, inert: 7, pct: 58 })
+    expect(shipped).toEqual({ rows: 8, inert: 3, pct: 38 })
     expect(shipped.inert).toBeLessThan(a.inert)
     expect(shipped.rows).toBeLessThan(a.rows)
   })
 
   it('the pane menu: the two policies TIE, and that is worth recording', () => {
-    // Its only menu-only casualty is `add-node`, which the note replaces one
-    // for one — so the pane cannot discriminate between the policies. Recorded
-    // rather than omitted: a measurement that only reports the case that
-    // favours the shipped choice is not a measurement.
+    // ⚠ TUPLES RE-MEASURED ON REBASE, 13 Sep 2026. The CONCLUSION is unchanged:
+    // the pane still cannot discriminate between the policies. Both moved from
+    // 4 inert to 3 for the same reason — #1538 took `add-node` out of
+    // `LOCAL_SEMANTIC_CONTEXT_MENU_IDS`, so NEITHER policy disables it any more.
+    //
+    // ⛔ The rebasing seat first wrote this up as "the tie is BROKEN", having
+    // seen the shipped side move from 4 inert to 3 and not re-measured policy A.
+    // One side of a comparison moving is not a change in the comparison. Left
+    // recorded because the error is cheaper to read than to repeat.
+    //
+    // ⭐ The original note's honest half stands and is why this case is kept at
+    // all: a measurement that only reports the case favouring the shipped
+    // choice is not a measurement.
     const base = pristine(PANE)
     expectMenuRendered(base, 'ask-ai-pane')
-    expect(density(policyAllDisabled(base))).toEqual({ rows: 7, inert: 4, pct: 57 })
-    expect(density(items(PANE))).toEqual({ rows: 7, inert: 4, pct: 57 })
+    const a = density(policyAllDisabled(base))
+    const shipped = density(items(PANE))
+    expect(a).toEqual({ rows: 7, inert: 3, pct: 43 })
+    expect(shipped).toEqual({ rows: 7, inert: 3, pct: 43 })
+    expect(shipped).toEqual(a) // the tie, asserted as a relation rather than twice by value
   })
 
   it('no menu exceeds 60% inert rows under the shipped policy', () => {
