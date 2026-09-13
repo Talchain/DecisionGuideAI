@@ -383,6 +383,24 @@ export const EdgePanel = memo(function EdgePanel({
       // showed 0.30, both saved correctly. The model was right; the screen was
       // wrong about the user's own choice.
       setLocalStrength(v)
+      // ⭐ AND THE PREVIEW BASELINE, which both siblings already maintain —
+      // `handleStrengthBlur` (:290) and `handleStrengthPresetChange` (:305).
+      // `origStrengthRef` is what every impact delta is measured from
+      // (`previewEdit(edgeId, v - origStrengthRef.current)`), and it is seeded at
+      // MOUNT. Leaving it behind here meant the first fine-tune after a save
+      // measured from the fabricated 0.3 default instead of the strength the
+      // person actually stated.
+      //
+      // ⛔ THE ERROR INVERTS THE SIGN, it does not merely shift it. Stating 0.85
+      // then easing to 0.55 is a WEAKENING of −0.30; against the stale baseline
+      // it previews as +0.25 — the product showing the user the opposite of the
+      // adjustment they just made. Measured, not reasoned.
+      //
+      // ⚠ NOT closed by #1546's `key={edgeId}`: a key only remounts when the key
+      // CHANGES. Switching edges re-seeds this ref and is fixed there; staying on
+      // the SAME edge across a save never remounts, which is exactly where the
+      // save happens.
+      origStrengthRef.current = v
       useCanvasStore.getState().updateEdgeData(edgeId, {
         weight: Math.abs(v),
         weightSource: 'user',
