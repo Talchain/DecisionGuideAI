@@ -131,6 +131,11 @@ import {
   NOT_COMPUTED_BADGE,
 } from '../../utils/notAnalysedCopy'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
+// ⚠ THE GLANCE'S OWN COPY CONSTANT, imported rather than re-typed. `AtAGlance`
+// renders the identical string for the identical fact about the leading option;
+// two spellings of one claim on one screen is how a reader learns to distrust
+// both, and a local literal here could drift from it silently.
+import { OPTION_ORIGIN_COPY } from '../optionOriginDisclosure'
 import type { OptionsComparisonSection } from '../analysisNewTypes'
 import { SectionShell } from './SectionShell'
 
@@ -506,6 +511,45 @@ export function OptionsComparison({
                   }}
                 />
               </span>
+            ) : null}
+
+            {/* ⭐⭐ WHOSE IDEA THIS OPTION WAS — ON EVERY ROW, NOT JUST THE
+                LEADER'S.
+
+                The measured defect: the product invented a hybrid option the
+                user never named, it ranked THIRD of four, and nothing on the
+                surface marked it as ours. The glance carries this sentence for
+                the LEADING option only, and on that run the leader was the
+                user's own — so the one honest channel correctly said nothing,
+                and the invention two rows down went unremarked.
+
+                ⛔ IT NEVER SUPPRESSES, RE-RANKS OR RE-WORDS ANYTHING. It adds a
+                line under a name that is on screen regardless. Olumi inventing
+                options is the product working — 10 syntheses, 3 status-quo
+                baselines and 2 novel moves across the measured corpus — and the
+                defect was the silence about it, not the invention.
+
+                ⚠ SILENT UNLESS THE CLAIM IS WARRANTED, and `null` is the common
+                answer: the user's own option, CEE's ambiguous
+                `ai_inferred`-with-a-quote case, an unstamped node, and any host
+                that passes no origin map all render nothing. There is no
+                fallback wording, because every other wording attributes the
+                idea to somebody.
+
+                ⚠ THE SAME COPY CONSTANT THE GLANCE RENDERS, not a second
+                phrasing of one fact — two wordings of one claim on one screen
+                is how a reader learns to distrust both. */}
+            {o.origin !== null ? (
+              <p
+                className={`${typography.panelMeta} text-text-light mt-0.5 mb-0`}
+                /* BOUND BY THIS ROW'S OWN ID. A shared testid would let a spec
+                   find another option's sentence and pass — the trap-19 defect
+                   this disclosure exists to correct, reproduced in its guard. */
+                data-testid={`${testId}-option-origin-${o.id}`}
+                data-option-origin={o.origin}
+              >
+                {OPTION_ORIGIN_COPY[o.origin]}
+              </p>
             ) : null}
 
             {/* ⭐ THE PRODUCER'S OWN SENTENCE ABOUT THIS OPTION, VERBATIM.

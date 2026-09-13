@@ -2428,6 +2428,15 @@ function buildModelImplication(data: ResultsSectionDataReturn): ModelImplication
  */
 function buildOptionsComparison(
   data: ResultsSectionDataReturn,
+  /**
+   * ⭐ THE GLANCE'S OWN MAP, PASSED IN — never rebuilt here. `buildAtAGlance`
+   * receives the identical reference from the identical caller, so the leader
+   * sentence and every row below it read one map by one join and cannot
+   * disagree about a node. Optional, matching the hook's own input: an absent
+   * map means "nothing known about authorship", which must render as silence
+   * rather than as a claim.
+   */
+  nodeOrigins?: ReadonlyMap<string, OptionOrigin>,
 ): Omit<OptionsComparisonSection, 'comparativeClaim'> {
   const allOptions = data.recommendation.allOptions ?? []
 
@@ -2457,6 +2466,21 @@ function buildOptionsComparison(
     const label = usableOptionLabel(o)
     if (label === null) continue
 
+    /**
+     * ⭐ RESOLVED ONCE, ABOVE THE FORKS, READ BY ALL THREE. Whose idea an option
+     * was does not depend on whether the run compared it, so asking the map
+     * inside each branch would be three expressions answering one question —
+     * the shape that lets two rows come to disagree about one node
+     * (CLAUDE.md trap 21, and the `reason` default two lines below is here for
+     * exactly the same reason).
+     *
+     * ⚠ JOINED BY `o.id`, the graph node's own identity — the same join
+     * `buildAtAGlance` makes on `leader.id`, and `recommendedOption` is an
+     * element OF `allOptions` (`useResultsSectionData.ts:2404`), so the leader
+     * sentence and this row are keyed into one map by one id space.
+     */
+    const origin = nodeOrigins?.get(o.id) ?? null
+
     if (o.notAnalysed === true) {
       // ⭐ RESOLVED ONCE, READ TWICE. The sentence the row renders and the
       // ground the act beside it switches on are now the SAME value, so they
@@ -2476,6 +2500,7 @@ function buildOptionsComparison(
         kind: 'not_analysed',
         id: o.id,
         label,
+        origin,
         // The SANCTIONED sentence, resolved here so no component re-words it.
         reasonCopy: notAnalysedReasonCopy(reason),
         reason,
@@ -2510,6 +2535,7 @@ function buildOptionsComparison(
         kind: 'not_computed',
         id: o.id,
         label,
+        origin,
         reasonCopy: notComputedReasonCopy(o.computeStatusReason),
       })
       continue
@@ -2533,6 +2559,7 @@ function buildOptionsComparison(
       kind: 'analysed',
       id: o.id,
       label,
+      origin,
       // The display-honesty authority, given the SAME arguments `OptionCards`
       // gives it, so the two tabs cannot print two different readouts of one
       // probability on one run. A measured-but-tiny share renders "<0.01%",
@@ -2939,7 +2966,14 @@ export function buildAnalysisNewViewModel(
      */
     optionsComparison: preRun
       ? { rows: [], totalCount: 0, comparativeClaim: 'none' as const }
-      : { ...buildOptionsComparison(data), comparativeClaim: glance.comparativeClaim },
+      : {
+          // ⚠ `inputs.nodeOrigins` — THE SAME REFERENCE `buildAtAGlance` was
+          // handed at the top of this function, so the leader's disclosure and
+          // the rows' cannot be derived from two different readings of the
+          // canvas.
+          ...buildOptionsComparison(data, inputs.nodeOrigins),
+          comparativeClaim: glance.comparativeClaim,
+        },
     keyInsights: preRun
       ? { insights: [], candidateCount: 0 }
       : dedupeAgainstGlance(buildKeyInsights(data, recommendations, isStale), glance),

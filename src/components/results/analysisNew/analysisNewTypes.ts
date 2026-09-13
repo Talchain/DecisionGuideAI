@@ -447,6 +447,42 @@ export type ComparisonOption =
       /** `OptionResult.label`, verbatim. Never re-worded, never truncated here. */
       label: string
       /**
+       * ⭐⭐ WHOSE IDEA THIS OPTION WAS — and it is on EVERY member of the union,
+       * on purpose.
+       *
+       * ── THE DEFECT IT CLOSES (deployed build, measured) ────────────────
+       * The product invented a hybrid option the user never named. It ranked
+       * THIRD of four and nothing on the surface marked it as ours. The
+       * disclosure existed and was correct; it was computed for the LEADER
+       * ALONE (`buildAtAGlance`'s `optionOrigin`). On that run the leader was
+       * the user's own option, so the one channel that gets this right
+       * correctly answered "say nothing" — and every other row went unasked.
+       *
+       * ── IT IS THE GLANCE'S ANSWER, NOT A SECOND ONE ────────────────────
+       * Read from the SAME `nodeOrigins` map `buildAtAGlance` reads, by the
+       * same `id` join, in the same builder. A second derivation over the same
+       * nodes would be a SECOND AUTHORITY on one question, and this estate has
+       * already paid for that shape — #709 opened a permission channel and
+       * #737 gave the same question a second conjunct, after which the
+       * confirmation withheld a leader while the sentence beneath it named one
+       * (CLAUDE.md trap 21). One map, one join, two placements.
+       *
+       * ⚠ JOINED BY ID, NEVER BY LABEL (CLAUDE.md trap 19). Two options can
+       * share a label; a label join would attach one option's origin to
+       * another's name — the precise class of error this disclosure corrects.
+       *
+       * ⚠ REQUIRED, NOT OPTIONAL, for the reason `reason` is required below: an
+       * optional field invites a `?? null` at every new consumer, i.e. a
+       * surface quietly asserting nobody authored an option it never asked
+       * about. `null` here is a MEASURED silence — the common and correct
+       * answer — and the compiler makes a new reader say which it means.
+       *
+       * ⛔ NOTHING IS CLASSIFIED HERE. `canvas/domain/olumiAuthorshipClaim`
+       * owns "may the product claim this element as its own?", and the map is
+       * built from it. Do not re-express the predicate at this layer.
+       */
+      origin: OptionOrigin | null
+      /**
        * `formatProbabilityWithResolution(winProbability, nValidSamples)` — the
        * estate's display-honesty authority, NOT a local `Math.round`.
        *
@@ -492,6 +528,17 @@ export type ComparisonOption =
       kind: 'not_analysed'
       id: string
       label: string
+      /**
+       * Whose idea this option was — see the `'analysed'` member for the rule.
+       *
+       * ⚠ ON THIS MEMBER TOO, DELIBERATELY. Authorship is a fact about the
+       * OPTION; whether the run compared it is a fact about the RUN, and the
+       * two are independent. An option Olumi invented and the analysis left out
+       * is still Olumi's invention, and it is the row a reader is most likely
+       * to be puzzled by. Omitting the field here would have made the union's
+       * shape encode a dependency that does not exist.
+       */
+      origin: OptionOrigin | null
       /**
        * `notAnalysedReasonCopy(reason)`, verbatim — the estate's single source
        * for what the results panel says about an unanalysed option. Carried as
@@ -548,6 +595,11 @@ export type ComparisonOption =
       kind: 'not_computed'
       id: string
       label: string
+      /**
+       * Whose idea this option was — see the `'analysed'` member for the rule,
+       * and the `'not_analysed'` member for why a numberless row carries it.
+       */
+      origin: OptionOrigin | null
       /**
        * `notComputedReasonCopy(producerReason)`, verbatim — resolved here for
        * the same reason `'not_analysed'`'s is: so no component can re-word it,
