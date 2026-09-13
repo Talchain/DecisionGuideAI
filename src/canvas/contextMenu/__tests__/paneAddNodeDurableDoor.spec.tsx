@@ -40,9 +40,13 @@ vi.mock('../../store', () => {
     setViewMode: vi.fn(),
     applyLayout: vi.fn(),
   }
-  const mockStore = vi.fn((selector: any) => selector(mockState))
-  mockStore.getState = () => mockState
-  mockStore.setState = (_partial: any) => {}
+  // `Object.assign` rather than property writes: a bare `vi.fn()` has no
+  // `getState`/`setState` in its type, and assigning them is a TS2339 the
+  // typecheck ratchet REDs on. Same store double, typed.
+  const mockStore = Object.assign(vi.fn((selector: any) => selector(mockState)), {
+    getState: () => mockState,
+    setState: (_partial: any) => {},
+  })
   return {
     useCanvasStore: mockStore,
     selectResultsStatus: (state: any) => state.results.status,
