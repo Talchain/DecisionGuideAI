@@ -36,6 +36,7 @@ import { THRESHOLDS } from '../../../../lib/mappers/constants'
 import { edgeValueSource } from '../../../../canvas/domain/edgeValueProvenance'
 import { AssumedStrengthCard } from '../AssumedStrengthCard'
 import { openEdgeStrengthEditor } from '../../../../canvas/utils/openEdgeStrengthEditor'
+import { serverStatedStrengthOf } from '../../../../canvas/conversation/edgeServerStatedStrength'
 import { useCanvasStore } from '../../../../canvas/store'
 import { InspectorModal } from '../../../../canvas/components/InspectorModal'
 import { buildV2RequestFromAnalysisReady } from '../../../../adapters/plot/v2/adapter'
@@ -488,6 +489,80 @@ describe('P4 chain: elicitation → resolve → stale → rerun → loop closed'
     ))
     expect(screen.queryByRole('button', { name: 'Confirm this estimate' })).toBeNull()
     expect(screen.queryByText(/Olumi’s current estimate is/)).toBeNull()
+  })
+
+  /**
+   * ⛔⛔ THE DIVERGENT CLASS — the one input that reaches the render gate's SECOND
+   * conjunct, and the only thing in the tree that pins it.
+   *
+   * `EdgePanel`'s gate asks TWO questions, and they are different functions over
+   * different fields:
+   *   1. `edgeValueSource(data,'weight') === 'cee'`  — *did a PRODUCER originate
+   *      this number?*  (reads `weightSource`, or raw `strength_mean`)
+   *   2. `serverStatedStrengthOf(data) !== null`     — *does the SERVER HOLD it?*
+   *      (reads the `serverStrength` tuple, or raw `strength_mean` +
+   *      `effect_direction`)
+   *
+   * The act — `confirmCurrentStrength` → `buildEdgeStrengthConfirmEvent` — needs
+   * (2). Before the second conjunct existed, an edge satisfying (1) and failing
+   * (2) rendered *"Olumi's current estimate is …  Confirm this estimate"*, and
+   * the click did **nothing anywhere**.
+   *
+   * ⚠ THE EDGE BELOW IS THE ONLY ONE IN THE SUITE THAT REACHES CONJUNCT 2.
+   * The `MUTANT CONTROL` above fails conjunct 1 and never gets there; this
+   * file's chain fixture and `agreeingIsAnActThatLands` both carry
+   * `serverStrength`, so they satisfy both. **Deleting the second conjunct left
+   * every one of them green** — measured, in a throwaway tree, restored from a
+   * pristine archive.
+   *
+   * ⭐ AND THE WAY IT WENT DARK IS THE LESSON. Adding `serverStrength` to this
+   * file's fixture was CORRECT — the producer emits it on 29/29 real edges — and
+   * it is also what removed the last input that could exercise the guard. **A
+   * right fixture fix and a guard going dark in one change, neither visible from
+   * the other.**
+   *
+   * ⚠ 29/29 DOES NOT RESCUE THIS. The class is empty on today's real graphs, and
+   * that is precisely why it is pinned here: nothing in the suite would notice a
+   * future ingestion path making it non-empty.
+   */
+  it('MUTANT CONTROL — a producer number the SERVER does not hold has no confirm action', () => {
+    const data = {
+      ...DEFAULT_EDGE_DATA,
+      weight: 0.42,
+      // conjunct 1 PASSES: a producer originated this number…
+      weightSource: 'cee',
+      direction: 'positive',
+      // …and conjunct 2 FAILS: nothing proves the server holds it. No
+      // `serverStrength` tuple, and no raw `strength_mean` + `effect_direction`
+      // pair either — `direction` is a different key and does not satisfy it.
+    } as Record<string, unknown>
+    const edge: ElicitationCanvasEdge = {
+      id: 'e_demand_rev',
+      source: 'n_demand',
+      target: 'n_rev',
+      data,
+    }
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'n_demand', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Customer demand' } },
+        { id: 'n_rev', type: 'outcome', position: { x: 200, y: 0 }, data: { label: 'Revenue growth' } },
+      ] as never,
+      edges: [edge] as never,
+      analysisFreshness: { freshness: 'fresh' },
+      analysisFreshnessDirty: false,
+    })
+    // PRECONDITION pinned in-test: conjunct 1 really does pass, so a green
+    // result cannot come from the edge failing at the first gate instead.
+    expect(edgeValueSource(data, 'weight')).toBe('cee')
+    expect(serverStatedStrengthOf(data)).toBeNull()
+
+    render(createElement(
+      ReactFlowProvider,
+      null,
+      createElement(InspectorModal, { nodeId: null, edgeId: edge.id, onClose: () => {} }),
+    ))
+    expect(screen.queryByText(/Olumi’s current estimate is/)).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Confirm this estimate' })).toBeNull()
   })
 
   it('HONESTY — confirming an AI estimate AS-IS is not an analytical change, so no rerun is promised', () => {
