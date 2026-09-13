@@ -87,10 +87,35 @@ describe('the pane context menu offers a durable node add', () => {
    * ⚠ BOUND BY IDENTITY, NEVER BY COUNT (CLAUDE.md trap 19). A `length` check
    * passes on any six ids; these are the six the product promises, each named.
    */
-  it.each(['factor', 'risk', 'outcome', 'option', 'goal', 'decision'])(
+  it.each(['factor', 'risk', 'outcome', 'option'])(
     'offers %s as a thing the user may add',
     kind => {
       expect(paneMenuIds().has(`add-node-${kind}`)).toBe(true)
+    },
+  )
+
+  /**
+   * ⛔⛔ THIS LIST WAS SIX KINDS UNTIL 13 Sep 2026 AND INCLUDED `goal` AND
+   * `decision`. Inverted, not deleted, so the overturned claim stays visible.
+   *
+   * ⚠ WIRE-PERSISTABILITY WAS THE WRONG QUESTION FOR THESE TWO, and the test
+   * above (`offers no kind the wire cannot persist`) would have passed them
+   * forever: a second goal persists perfectly well. It simply does nothing,
+   * because every production consumer takes the FIRST match while a new node is
+   * APPENDED — `islRequestAdapter.ts:498` is THE ANALYSIS REQUEST. The user
+   * would add a Goal, watch it persist and render, and the analysis would go on
+   * optimising the other one.
+   *
+   * ⭐ Bound to the two kinds BY NAME rather than left to the derivation,
+   * deliberately. `ADDABLE_NODE_TYPE_ITEMS` filters them out, so a test that
+   * merely re-read that filter would agree with it by construction and could
+   * never notice the exclusion being dropped — a guard agreeing with itself
+   * (CLAUDE.md trap 12d). This is the hand-written half.
+   */
+  it.each(['goal', 'decision'])(
+    'does NOT offer %s — the product reads it with .find(), so a second one is inert',
+    kind => {
+      expect(paneMenuIds().has(`add-node-${kind}`)).toBe(false)
     },
   )
 

@@ -114,14 +114,60 @@ const DIV: MenuEntry = { type: 'divider' }
  * Emitting a durable add for those would save the nodes and silently DROP the
  * topology. A door that loses half the gesture is worse than no door.
  */
+/**
+ * ⛔⛔ KINDS THE PRODUCT READS WITH `.find()` — A SECOND ONE PERSISTS AND IS
+ * THEN IGNORED, WHICH IS WORSE THAN A DOOR THAT REFUSES (13 Sep 2026).
+ *
+ * Found by an independent review seat on #1538, applying this PR's own standard
+ * to this PR: *"a door that works for five kinds and quietly fails for the
+ * sixth is worse than five doors."* It was four and two.
+ *
+ * ⚠ WIRE-PERSISTABILITY WAS THE RIGHT QUESTION FOR `option` AND IS NOT THE
+ * WHOLE QUESTION HERE. A second goal persists perfectly well. It simply does
+ * nothing — because every production consumer takes the FIRST match and a new
+ * node is APPENDED:
+ *
+ *   goal      `adapters/islRequestAdapter.ts:498` — THE ANALYSIS REQUEST ·
+ *             `conversation/utils/applyPatch.ts:544` ·
+ *             `nodes/OptionNode.tsx:1147` · `nodes/OutcomeNode.tsx:51` ·
+ *             `nodes/RiskNode.tsx:59`
+ *   decision  `components/FloatingOlumiPanel.tsx:638` ·
+ *             `hooks/useAddBaseline.ts:68` · `utils/generateScenarios.ts:87`
+ *
+ * ⭐ THE CONTRAST IS WHAT MAKES THIS A DERIVATION RATHER THAN A JUDGEMENT, and
+ * it was run in the same sweep: `factor` and `option` are read with `.filter()`
+ * (`islRequestAdapter.ts:343`, `ReactFlowGraph.tsx:771`, `FactorNode.tsx:77`,
+ * `OptionPanel.tsx:111`, `GoalPanel.tsx:249`). **The codebase already says
+ * which kinds may be plural, in the verb it chose.** This set reads that answer
+ * rather than re-deciding it.
+ *
+ * So the user would add a Goal, watch it persist, watch it render — and the
+ * analysis would go on optimising the other one, with nothing refusing it and
+ * nothing saying so. That is the silent-loss class this whole PR exists to
+ * close, which is why four durable kinds shipping is the win and six is not.
+ *
+ * ⚠ NOT A PERMANENT RULING. The honest alternative is to offer these kinds only
+ * when NONE exists yet, which is a real capability for a graph that has no goal.
+ * It needs its own review and its own emptiness derivation, so it is a row
+ * rather than a widening smuggled into this PR.
+ */
+const SINGULAR_NODE_KINDS: ReadonlySet<string> = new Set<string>(['goal', 'decision'])
+
+/**
+ * The kinds this door may offer: wire-persistable AND safe to have more than
+ * one of. ⭐ ONE list, consumed by BOTH the submenu and the authority set below
+ * — the first cut had the same filter written twice, which is the
+ * hand-maintained mirror this estate keeps paying for (CLAUDE.md trap 12).
+ * Build the door and judge the door from one derivation, or they drift apart
+ * silently and the drift reads as green.
+ */
+const ADDABLE_NODE_TYPE_ITEMS = NODE_TYPE_ITEMS.filter(
+  (nt) => WIRE_ADDABLE_NODE_KINDS.has(nt.type) && !SINGULAR_NODE_KINDS.has(nt.type),
+)
+
 const DURABLE_NODE_ADD_MENU_IDS: ReadonlySet<string> = new Set<string>([
   'add-node',
-  // Derived from the same list the submenu is built from, filtered by the
-  // contract's own persistable set — a kind CEE cannot hold gains no door here
-  // with no edit, and a kind the contract adds gains one the same way.
-  ...NODE_TYPE_ITEMS.filter((nt) => WIRE_ADDABLE_NODE_KINDS.has(nt.type)).map(
-    (nt) => `add-node-${nt.type}`,
-  ),
+  ...ADDABLE_NODE_TYPE_ITEMS.map((nt) => `add-node-${nt.type}`),
 ])
 
 /**
@@ -245,12 +291,9 @@ function buildPaneMenu(
 ): MenuEntry[] {
   const flowPos = screenToFlowPosition(target.screenPos)
 
-  // ⚠ FILTERED BY THE CONTRACT, NOT BY HAND, and filtered in the SAME place the
-  // authority set derives from — build the door and judge the door off one list
-  // or they drift apart silently (CLAUDE.md trap 12).
-  const addNodeSubmenu: MenuEntry[] = NODE_TYPE_ITEMS.filter((nt) =>
-    WIRE_ADDABLE_NODE_KINDS.has(nt.type),
-  ).map((nt) => ({
+  // ⚠ ONE DERIVATION, SHARED WITH THE AUTHORITY SET — see
+  // `ADDABLE_NODE_TYPE_ITEMS`.
+  const addNodeSubmenu: MenuEntry[] = ADDABLE_NODE_TYPE_ITEMS.map((nt) => ({
     id: `add-node-${nt.type}`,
     label: nt.label,
     ...(nt.glyph ? { glyph: nt.glyph } : {}),
