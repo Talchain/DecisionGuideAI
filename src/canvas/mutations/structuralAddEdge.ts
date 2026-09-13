@@ -289,8 +289,80 @@ export const STRUCTURAL_ADD_EDGE_UNCONFIRMED_TOAST =
  *
  * Not a failure message, because nothing failed: they drew a connection and have
  * not said how strong it is, and the model has no way to hold "connected, but
- * unknown". Naming the ONE thing that makes it durable is the whole job of this
- * sentence — a generic "couldn't save" would leave them with no move.
+ * unknown".
+ *
+ * ⛔⛔ THE FIRST VERSION OF THIS SENTENCE INSTRUCTED A GESTURE THE PRODUCT
+ * REFUSES. ITS REASONING IS KEPT HERE STRUCK RATHER THAN DELETED, BECAUSE THE
+ * REASONING IS WHAT WOULD BRING IT BACK:
+ *
+ * ~~"Set its strength to save it to the model — until then it stays on your
+ * canvas only." Naming the ONE thing that makes it durable is the whole job of
+ * this sentence — a generic "couldn't save" would leave them with no move.~~
+ *
+ * The instinct is right; the instruction was not executable. The ONLY writer of
+ * `weight`/`weightSource` is `EdgePanel.setStrength`, and `EdgePanel` renders
+ * that control `disabled` unless `edgeStrengthEditIsAssertable` holds — which
+ * asks `buildEdgeStrengthEditEvent` for a strength **the server holds**, the one
+ * thing a freshly drawn link has not got. So the very condition that fires this
+ * notice also greys the control it pointed at, while the inspector beside it
+ * says *"no strength on record … Ask Olumi to set its strength."* Both sentences
+ * shipped in one bundle at `5978e8f4`.
+ *
+ * ⭐⭐ THE REVIEW LESSON, WHICH IS THE TRANSFERABLE PART: that sentence was
+ * checked for being TRUTHFUL ABOUT A STATE, and witnessed on a real build. It
+ * was never checked for the EXECUTABILITY OF THE ACTION IT INSTRUCTS. **Those
+ * are two different properties of one string**, and only the first had a test.
+ * `structuralAddEdge.needsStrengthNoticeIsExecutable.spec.ts` pins the second.
+ *
+ * ⛔ THE MOVE IT NAMES, AND THE ONE IT REFUSES TO NAME — THEY ARE NOT THE SAME
+ * ACTION, AND THAT DISTINCTION IS THE WHOLE FIX.
+ *
+ * It does NOT say "set its strength", and it does NOT say "ask Olumi to set its
+ * strength": both instruct an act upon an edge THE SERVER DOES NOT HAVE, which
+ * is the defect this sentence is being rewritten to end. (⚠ The inspector's
+ * `INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON` does say the latter. It is sound for
+ * ITS population — a server-held link with no stated strength — and suspect for
+ * this one. Two populations, one sentence; reported, not changed here.)
+ *
+ * It DOES say "ask Olumi to add this connection", because that is a DIFFERENT
+ * act with its own evidence, derived at CEE `staging` d1fb9d4:
+ *   · `add_edge` is a member of the LLM tool enum
+ *     (`orchestrator/tools/anthropic-edit-graph-schema.ts:52`)
+ *   · the prompt permits it EXACTLY in this case —
+ *     *"Do not add_node, remove_node, add_edge, or remove_edge unless the user
+ *     explicitly asked for a topology change"* (`edit-graph.ts:723`, `:731`)
+ *   · and `add_edge` carries its own edge normalisation (`:1376`)
+ *
+ * ⭐ LADDER RUNG: **WIRE-WITNESSED.** Driven at the wire on the deployed build,
+ * guest, fresh scenario, a pair chosen BY KIND and PINNED UNCONNECTED FIRST:
+ * the request HELD rather than acting (`blocks: ["error","held_proposal"]`,
+ * *"Nothing in the model moves until you confirm"*), one `"Yes"` confirmed it,
+ * and a COLD RE-READ went **17 -> 18 edges** carrying
+ * `{ strength: { mean: 0.3, std: 0.1 }, effect_direction: "positive" }`.
+ *
+ * ⚠ n=1 — ONE pair, ONE phrasing, factor->factor, guest, ONE build. **It proves
+ * the route EXISTS AND PERSISTS. It does not measure RELIABILITY**, and a
+ * separate lane's witness of a different request shape landed 1 of 4. **So the
+ * copy still names the route and promises no outcome** — "if you want it in the
+ * model", never "and it will be saved".
+ *
+ * ⛔ THIS ENTRY PREVIOUSLY READ "CODE EXISTS + PROMPT-SANCTIONED, NOT
+ * wire-witnessed … the estate's one witness returned ZERO ops." **Both clauses
+ * were superseded by the measurement above.** Kept struck rather than deleted
+ * because the zero-ops citation is still in circulation: ~~"the structural edit
+ * tool returned zero ops, so this route is unproven"~~ — that was an **add-RISK**
+ * request; this is a **connect-two-existing-factors** request. **Two n=1
+ * experiments of DIFFERENT SHAPES are not a disagreement**, and retiring the old
+ * one as "wrong" would be as careless as inheriting it.
+ *
+ * ⭐ AND THE NUMBER CEE WROTE IS THE POINT OF THE WHOLE ASYMMETRY: `mean 0.3` —
+ * the EXACT value this capture refuses to send. **CEE is entitled to ESTIMATE
+ * and stamps it as its own; the canvas is not entitled to FABRICATE.** This
+ * sentence sits precisely on that line.
+ *
+ * ⭐ AND THE ASYMMETRY THIS EXPOSES, WHICH IS BIGGER THAN THE COPY: **CEE can
+ * add an edge WITH a strength to its own canonical graph from a chat turn; the
+ * human canvas cannot.** The AI can do what the human cannot.
  */
 export const STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE =
-  "Connection drawn. Set its strength to save it to the model — until then it stays on your canvas only."
+  "Connection drawn — it stays on your canvas only. Olumi can't save a link that has no strength. Ask Olumi to add this connection if you want it in the model."
