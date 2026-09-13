@@ -535,6 +535,13 @@ export const ACTION_LABELS = {
   seeAllDrivers: 'See all drivers',
   compareOptions: 'Compare all options',
   confirmCurrentStrength: 'Confirm this estimate',
+  /**
+   * ⛔ DELIBERATELY NOT "Updated" AND DELIBERATELY NOT A TICK. Confirming sends
+   * a statement; only CEE can record it. The previous copy claimed the act had
+   * landed at the instant of the click, on the one path where it was in fact
+   * being refused. This says exactly what is true at that moment.
+   */
+  strengthConfirmSent: 'Sent to Olumi',
 } as const
 
 // ─── Empty description placeholders ───────────────────────────────

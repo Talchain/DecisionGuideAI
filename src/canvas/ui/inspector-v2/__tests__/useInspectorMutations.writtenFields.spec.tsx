@@ -79,6 +79,22 @@ const EDGE_SETTER_ARGS: Record<string, unknown[]> = {
   setDirection: ['positive'],
 }
 
+/**
+ * Members of `useEdgeMutations` that are NOT setters — they write no `data`
+ * field at all.
+ *
+ * ⛔ THIS LIST IS NOT AN EXEMPTION, AND THE DIFFERENCE IS THE WHOLE POINT. A
+ * name here is a CLAIM that the member writes nothing, and the test below
+ * DRIVES it and proves that claim. An exemption would let a real setter hide by
+ * being listed; a driven claim cannot. `EDGE_SETTER_FIELDS` deliberately has no
+ * row for these: every name in that map must have a row in `@talchain/schemas`'
+ * EDITABLE FIELD table (`editableFieldTable.pinAndParity.spec.ts`), and
+ * confirming the server's own estimate edits no field.
+ */
+const EDGE_NON_WRITERS: Record<string, unknown[]> = {
+  confirmCurrentStrength: [],
+}
+
 /** Drive one setter and return the top-level data keys it wrote. */
 function keysWrittenBy(fn: (...a: unknown[]) => void, args: unknown[], spy: typeof updateNode): string[] {
   spy.mockClear()
@@ -104,7 +120,13 @@ describe('useInspectorMutations — EDITOR_WRITTEN_FIELDS cannot drift from the 
   it('EDGE: the setter names the hook returns equal the manifest keys', () => {
     const { result } = renderHook(() => useEdgeMutations('e1'))
     const returned = Object.keys(result.current).sort()
-    const declared = Object.keys(EDGE_SETTER_FIELDS).sort()
+    // Every returned member must be CLASSIFIED — a setter with declared fields,
+    // or a proven non-writer. A new member can be neither, which is what keeps
+    // this guard exhaustive over the surface rather than over one half of it.
+    const declared = [
+      ...Object.keys(EDGE_SETTER_FIELDS),
+      ...Object.keys(EDGE_NON_WRITERS),
+    ].sort()
     expect(returned).toEqual(declared)
   })
 
@@ -123,6 +145,58 @@ describe('useInspectorMutations — EDITOR_WRITTEN_FIELDS cannot drift from the 
     for (const [name, expected] of Object.entries(EDGE_SETTER_FIELDS)) {
       const written = keysWrittenBy(setters[name], EDGE_SETTER_ARGS[name], updateEdge).sort()
       expect(written, `setter '${name}' wrote unexpected data fields`).toEqual([...expected].sort())
+    }
+  })
+
+  /**
+   * ⛔⛔ `EDGE_NON_WRITERS` IS AN EXEMPTION, NOT MERELY A CLASSIFICATION, AND THAT
+   * IS WHY IT NEEDS THREE GUARDS RATHER THAN ONE.
+   *
+   * `editableFieldTable.pinAndParity.spec.ts` asserts that every name in
+   * `EDGE_SETTER_FIELDS` has a row in `@talchain/schemas`' EDITABLE FIELD table.
+   * **Moving a member OUT of that map removes it from that assertion's domain.**
+   * So a name listed below has been excused from an external authority, and the
+   * only thing standing in its place is this file. The three guards are what
+   * make that trade honest:
+   *
+   *   · DRIVEN — the claim is executed, not read (below). A list that is only
+   *     read is a hand-maintained mirror agreeing with itself, which is exactly
+   *     what the union assertion exists to prevent.
+   *   · NON-VACUOUS — a quantified assertion over an empty list passes by
+   *     testing nothing (CLAUDE.md trap 13).
+   *   · DISJOINT — *"in at least one list"* and *"in exactly one list"* are
+   *     DIFFERENT assertions. A member in BOTH would satisfy the exhaustiveness
+   *     check WHILE ALSO taking the exemption. The keys test happens to catch
+   *     that today, because a duplicate makes `declared` longer than `returned`
+   *     — but that is emergent, and one `new Set(...)` tidy-up deletes it with
+   *     no red anywhere. Stated explicitly here so it cannot be tidied away.
+   *
+   * Each of the three was mutant-checked when written: a real setter moved into
+   * the list REDs the driven check; an emptied list REDs the precondition; a
+   * name in both lists REDs the disjointness assertion.
+   */
+  it('PRECONDITION: the collections under test are non-empty', () => {
+    // Without this, every quantified assertion below passes on an empty set.
+    // Shape copied from `editableFieldTable.pinAndParity.spec.ts:74-79`, which
+    // states the same discipline for the collections it quantifies over.
+    expect(Object.keys(NODE_SETTER_FIELDS).length).toBeGreaterThan(0)
+    expect(Object.keys(EDGE_SETTER_FIELDS).length).toBeGreaterThan(0)
+    expect(Object.keys(EDGE_NON_WRITERS).length).toBeGreaterThan(0)
+  })
+
+  it('EDGE: the non-writer exemption is DISJOINT from the setters', () => {
+    const setters = new Set(Object.keys(EDGE_SETTER_FIELDS))
+    const both = Object.keys(EDGE_NON_WRITERS).filter((n) => setters.has(n)).sort()
+    // Named, not counted: the next lane needs to know WHICH member is doubled.
+    expect(both, 'member(s) declared BOTH a setter and a non-writer').toEqual([])
+  })
+
+  it('EDGE: every declared non-writer really writes NOTHING (the claim is driven, not trusted)', () => {
+    const { result } = renderHook(() => useEdgeMutations('e1'))
+    const members = result.current as unknown as Record<string, (...a: unknown[]) => void>
+    for (const [name, args] of Object.entries(EDGE_NON_WRITERS)) {
+      const written = keysWrittenBy(members[name], args, updateEdge)
+      expect(written, `'${name}' is declared a non-writer but wrote data fields`).toEqual([])
     }
   })
 

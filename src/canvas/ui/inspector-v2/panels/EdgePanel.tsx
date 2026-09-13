@@ -219,6 +219,10 @@ export const EdgePanel = memo(function EdgePanel({
 
   // Local slider state
   const [localStrength, setLocalStrength] = useState(signedValue)
+  // Kept OUT of `useEditConfirmation` on purpose: that hook's `lastConfirmed`
+  // is what gates `InlineRerunPrompt`, and a confirmation changes no value, so
+  // it must not invite a re-run.
+  const [strengthConfirmSentAt, setStrengthConfirmSentAt] = useState<number | null>(null)
   const [localBelief, setLocalBelief] = useState(beliefExists)
   const [localStd, setLocalStd] = useState(strengthStd)
 
@@ -306,13 +310,41 @@ export const EdgePanel = memo(function EdgePanel({
     confirmEdit('strength')
   }, [mutations, clearPreview, confirmEdit])
 
+  /**
+   * ⛔⛔ THIS HANDLER SENT AN ACT THE SERVER REFUSES AND THEN REPORTED SUCCESS.
+   * Wire-witnessed on served `1d0306a0`, scenario `52cf4a0c`, not reasoned:
+   *
+   *   - it called `setStrength(currentEstimatedWeight)`, which emits
+   *     `intent: 'set'` at a magnitude EQUAL to the persisted value — the exact
+   *     `set_target_unchanged` case. CEE answered *"That link already has
+   *     exactly that strength and direction, so I haven't recorded it as your
+   *     judgement."* `blocks: []`, `graph_hash` unchanged, `weightSource` still
+   *     `cee`. Nothing was recorded.
+   *   - it then called `confirmEdit('strength')` UNCONDITIONALLY, which rendered
+   *     `EditConfirmation` at its defaults — **"Updated" in success green** —
+   *     and, 2s later, `InlineRerunPrompt`: *"Re-run to see how this affects the
+   *     results."* So the person was told their agreement was saved and invited
+   *     to spend an analysis on a change that did not exist.
+   *
+   * ⚠ NOT A DEAD BUTTON — A BUTTON THAT REPORTED THE OPPOSITE OF WHAT HAPPENED.
+   * The truthful sentence went to the Olumi conversation, a surface the person
+   * must open deliberately; it appeared NOWHERE in the canvas view.
+   *
+   * Both halves are closed here. The act now rides `confirm_current`, the only
+   * carrier that can land it. And the feedback is kept SEPARATE from
+   * `confirmEdit`: a confirmation changes no value, so it must not mark the
+   * panel edited — that is what raised the re-run prompt. `EditConfirmation`'s
+   * own header supplied `label`/`tone` for exactly this caller and warned that
+   * *"it stops being harmless the moment a pane unfences."* It unfenced.
+   */
   const handleConfirmCurrentStrength = useCallback(() => {
     if (currentEstimatedWeight === null) return
-    // Confirm the exact live canonical magnitude, not a band midpoint or local
-    // slider draft. Magnitude confirmation says nothing about causal direction.
-    mutations.setStrength(currentEstimatedWeight, { preserveDirection: true })
-    confirmEdit('strength')
-  }, [currentEstimatedWeight, mutations, confirmEdit])
+    const outcome = mutations.confirmCurrentStrength()
+    // ⛔ ONLY `dispatched` earns a notice, and even that says SENT, never saved.
+    // Every other outcome means no statement left this client, so claiming one
+    // did would be the same lie one step quieter.
+    setStrengthConfirmSentAt(outcome === 'dispatched' ? Date.now() : null)
+  }, [currentEstimatedWeight, mutations])
 
   const handleBeliefChange = useCallback((v: number) => {
     setLocalBelief(v)
@@ -536,6 +568,17 @@ export const EdgePanel = memo(function EdgePanel({
                   >
                     {ACTION_LABELS.confirmCurrentStrength}
                   </button>
+                </div>
+              )}
+              {/* Confirmation feedback — SENT, not saved, and no re-run prompt:
+                  ratifying the existing estimate changes no value. */}
+              {strengthConfirmSentAt !== null && (
+                <div className="flex items-center gap-2 mt-1" data-testid="edge-strength-confirm-sent">
+                  <EditConfirmation
+                    trigger={strengthConfirmSentAt}
+                    label={ACTION_LABELS.strengthConfirmSent}
+                    tone="pending"
+                  />
                 </div>
               )}
               {/* Edit feedback */}

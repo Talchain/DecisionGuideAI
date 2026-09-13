@@ -121,6 +121,7 @@ import { factorHasConfirmableValue } from '../domain/valueProvenance'
 import { useOptionalConversationContext } from '../conversation/ConversationContext'
 import {
   useEdgeMutations,
+  type EdgeStrengthConfirmOutcome,
   useNodeMutations,
   type EdgeStrengthCommitOutcome,
 } from '../ui/inspector-v2/useInspectorMutations'
@@ -349,11 +350,16 @@ export type EdgeStrengthProposalOutcome = EdgeStrengthCommitOutcome | 'refused_u
  * statement of agreement leave?"* — and crucially it has NO `committed` member,
  * because nothing is committed locally. See `proposeEdgeStrengthConfirmation`.
  */
-export type EdgeStrengthConfirmationOutcome =
-  | 'dispatched'
-  | 'refused_unassertable'
-  | 'no_carrier'
-  | 'not_encodable'
+/**
+ * ⚠ NOW AN ALIAS, NOT A SECOND UNION. This was declared here and a
+ * structurally identical union then had to exist beside `useEdgeMutations` for
+ * the inspector's confirm. Two same-shaped types under two names is this
+ * estate's chronic twins defect (CLAUDE.md trap 21 / the two `generateGraphHash`
+ * twins), so the members are declared ONCE where every other outcome token in
+ * this family already lives — `useInspectorMutations` — and this name is kept
+ * so no existing consumer changes.
+ */
+export type EdgeStrengthConfirmationOutcome = EdgeStrengthConfirmOutcome
 
 export interface ModelEditAuthorityLive {
   goalTargetDispatchAvailable: boolean
