@@ -161,6 +161,24 @@ export type EditCommitState =
   | { phase: 'applied'; value: string; provenanceSource: string }
   /** The authority declined. `reason` is user-facing prose, not a code. */
   | { phase: 'refused'; from: string; attempted: string; reason: string }
+  /**
+   * ⭐⭐ A CONFIRMATION DID NOT LAND. A SEPARATE PHASE, NOT `refused` REUSED.
+   *
+   * `refused` carries `from` and `attempted` because a value edit PROPOSED A
+   * DIFFERENT NUMBER and the row must show what was reverted to. A confirmation
+   * proposes NO new value — the whole act is "the number you already have is
+   * right" — so `from` and `attempted` would be the same string and the cell
+   * would read `0.4 → 0.4`, inventing a change the user never made. Two acts,
+   * two vocabularies; collapsing them is this estate's trap 21.
+   *
+   * ⛔ AND THERE IS DELIBERATELY NO `confirmed` TWIN. CEE owns edge provenance;
+   * the canvas learns that the agreement was recorded from the response, or
+   * does not claim it. A phase meaning "your agreement is on file" would be an
+   * optimistic write wearing a receipt — literally so here, since the thing
+   * being asserted IS a confirmation. Only the ways the act FAILED are
+   * renderable from this seam.
+   */
+  | { phase: 'confirm_unsettled'; reason: string }
 
 // ── Rows ─────────────────────────────────────────────────────────────────────
 

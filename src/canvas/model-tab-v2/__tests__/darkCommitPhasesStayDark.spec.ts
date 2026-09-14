@@ -39,17 +39,38 @@ const V2_DIR = join(dirname(fileURLToPath(import.meta.url)), '..')
 const PRODUCER = join(V2_DIR, 'ModelTabV2Panel.tsx')
 
 /**
- * The phases the producer can currently emit, DERIVED from its own type rather
- * than copied. A hand-listed set here would be the mirror this estate keeps
- * paying for: it would agree with itself forever.
+ * The phases the producer can currently emit, DERIVED from its own source
+ * rather than copied. A hand-listed set here would be the mirror this estate
+ * keeps paying for: it would agree with itself forever.
+ *
+ * ⛔⛔ WIDENED 14 Sep 2026, AND THE REASON IS THAT THIS GUARD HAD JUST STOPPED
+ * DISCRIMINATING — silently, in the way it exists to prevent.
+ *
+ * It used to read `interface ActiveEdit`'s `phase` union, on the premise stated
+ * in this file's header: *"the sole live writer of `commit` is `ModelOutline`
+ * ← `ModelTabV2Panel`'s `ActiveEdit`"*. The confirmation-settlement change added
+ * a SECOND writer — `confirmNotice`, which reaches `commitByRowId` without
+ * passing through `ActiveEdit` at all. **From that commit the guard would have
+ * read `['editing','proposed']` forever while the producer's real union grew**,
+ * and it would have kept passing, and its contrast control would have kept
+ * agreeing, because the control was pinned to the same narrowed source.
+ *
+ * ⭐ So it now reads the PRODUCER'S OWN OUTPUT — every `phase:` literal
+ * constructed inside `commitByRowId`, which is the one function whose return
+ * type IS `Map<string, EditCommitState>`. A third writer has to go through there
+ * too, or it never reaches a row.
+ *
+ * This is the same lesson the file already teaches, arriving one level up: a
+ * guard derived from a list proves AGREEMENT, never COMPLETENESS, and when the
+ * thing it derives from stops being the whole story it fails open.
  */
 function producerPhases(source: string): string[] {
-  // `interface ActiveEdit { … phase: 'editing' | 'proposed' … }`
-  const iface = source.match(/interface\s+ActiveEdit\s*\{([\s\S]*?)\n\}/)
-  if (!iface) return []
-  const line = iface[1].match(/\bphase\s*:\s*([^\n]+)/)
-  if (!line) return []
-  return [...line[1].matchAll(/'([a-zA-Z_]+)'/g)].map(m => m[1]).sort()
+  // The memo whose declared return type is `Map<string, EditCommitState>` —
+  // i.e. everything a row can be told, regardless of which state it came from.
+  const memo = source.match(/const commitByRowId = useMemo\(\(\) => \{([\s\S]*?)\n  \}, \[/)
+  if (!memo) return []
+  const seen = [...memo[1].matchAll(/\bphase:\s*'([a-zA-Z_]+)'/g)].map(m => m[1])
+  return [...new Set(seen)].sort()
 }
 
 /**
@@ -68,12 +89,18 @@ describe('the dark commit phases stay dark, or someone deals with the shrink con
     // trusted. A parser that returns `[]` for everything would make the
     // absence assertion below pass forever, on any source, including a file
     // that had been deleted. So: it must find the phases that ARE emitted.
-    expect(phases).toEqual(['editing', 'proposed'])
+    //
+    // ⚠ `confirm_unsettled` IS IN THIS LIST ON PURPOSE. It is emitted, it is
+    // NOT in `UNBOUNDED_ARMS`, and those are different claims — the arm takes
+    // `proposed`'s `flex-wrap` shape, so it grows the row in height rather than
+    // taking width out of the label. The second test below measures that rather
+    // than trusting this sentence.
+    expect(phases).toEqual(['confirm_unsettled', 'editing', 'proposed'])
 
-    // And it must return nothing for a source that has no such interface —
-    // proving the match is real rather than a default.
+    // And it must return nothing for a source that has no such memo — proving
+    // the match is real rather than a default.
     expect(producerPhases('export const x = 1')).toEqual([])
-    expect(producerPhases('interface Other { phase: "applied" }')).toEqual([])
+    expect(producerPhases("const other = useMemo(() => { phase: 'applied' })")).toEqual([])
   })
 
   it('⭐ no unbounded arm has been wired into the producer', () => {
@@ -102,14 +129,25 @@ describe('the dark commit phases stay dark, or someone deals with the shrink con
   it('the guard would fire — proven on a mutated source, not asserted', () => {
     // The discriminating pair. Without this, "no unbounded arm is wired" is a
     // claim about a predicate nobody has watched fail.
-    const wiredSource = `interface ActiveEdit {\n  rowId: string\n  phase: 'editing' | 'proposed' | 'applied'\n  draft: string\n}`
+    const memo = (body: string) =>
+      `const commitByRowId = useMemo(() => {\n${body}\n  }, [edit])`
+
+    const wiredSource = memo("    return new Map([[id, { phase: 'applied', value: v }]])")
     const phases = producerPhases(wiredSource)
     expect(phases).toContain('applied')
     expect(UNBOUNDED_ARMS.filter(a => phases.includes(a))).toEqual(['applied'])
 
     // …and the twin: a producer that gains a BOUNDED phase must NOT fire, or
     // the guard is a tripwire on any change rather than on the hazard.
-    const benign = `interface ActiveEdit {\n  rowId: string\n  phase: 'editing' | 'proposed' | 'reviewing'\n  draft: string\n}`
+    const benign = memo("    return new Map([[id, { phase: 'reviewing' }]])")
+    expect(producerPhases(benign)).toEqual(['reviewing'])
     expect(UNBOUNDED_ARMS.filter(a => producerPhases(benign).includes(a))).toEqual([])
+
+    // ⭐ AND THE MUTANT THAT PROVES THE WIDENING BIT. A phase emitted OUTSIDE
+    // `ActiveEdit` — exactly the shape the confirmation change introduced — must
+    // now be seen. Under the old `interface ActiveEdit` parser this returned [].
+    expect(producerPhases(memo("    return new Map([[id, { phase: 'inflight', to: t }]])"))).toEqual(
+      ['inflight'],
+    )
   })
 })

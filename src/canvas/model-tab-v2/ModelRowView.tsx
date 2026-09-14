@@ -2132,6 +2132,37 @@ function ValueCell({
             {commit.value}
           </span>
         )
+      /*
+        ⭐ SHAPED ON `proposed`, NOT ON `refused`, AND THE REASON IS LAYOUT AS
+        MUCH AS MEANING. This file's own note records that `inflight`,
+        `applied` and `refused` carry no width class at all, leaving
+        `min-width: auto` — "a LOADED GUN for the arms that are dark today".
+        `proposed` is the arm that already solved it: `flex-wrap` lets the cell
+        grow in HEIGHT instead of pushing the column out, and the ruling beside
+        it is explicit that the taller row is deliberate and transient. A
+        settlement notice is a sentence, so it would have fired that gun; it
+        takes `proposed`'s shape and fires nothing.
+
+        `role="alert"` for the same reason `proposed` uses it: this text appears
+        in response to the user's own act and says the act did not land, which
+        is the one thing on this row a screen reader must not have to go
+        looking for.
+      */
+      case 'confirm_unsettled':
+        return (
+          <span
+            data-testid={testid}
+            className={`${typography.panelTabular} min-w-0 flex flex-wrap items-baseline`}
+          >
+            <span
+              role="alert"
+              data-testid={`${testid}-confirm-unsettled`}
+              className={`${typography.panelBody} text-danger min-w-0`}
+            >
+              {commit.reason}
+            </span>
+          </span>
+        )
       case 'refused':
         return (
           <span data-testid={testid} className={typography.panelTabular}>
