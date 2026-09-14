@@ -66,10 +66,15 @@ describe('the row arm', () => {
         commit={{ phase: 'confirm_unsettled', reason: 'Not recorded.' }}
       />,
     )
+    // ⚠ POSITIVE ANCHOR FIRST. `queryByTestId(...).toBeNull()` passes just as
+    // happily against a row that never rendered at all, so the absence claim is
+    // only worth anything once presence is pinned. Swept after M5 survived.
+    const cell = screen.getByTestId('model-row-v2-e-1-value')
+    expect(cell).toHaveTextContent('Not recorded.')
     // `from → to` would invent a change the user never made: the act's whole
     // content is "the number you already have is right".
     expect(screen.queryByTestId('model-row-v2-e-1-value-from')).toBeNull()
-    expect(screen.getByTestId('model-row-v2-e-1-value').textContent).not.toContain('→')
+    expect(cell.textContent).not.toContain('→')
   })
 
   /**
@@ -105,7 +110,14 @@ describe('the row arm', () => {
         commit={{ phase: 'refused', from: '0.4', attempted: '0.9', reason: 'no' }}
       />,
     )
-    expect(screen.getByTestId('model-row-v2-e-2-value').className).not.toMatch(/\bflex-wrap\b/)
+    // ⚠ AND ITS OWN POSITIVE ANCHOR: `not.toMatch` passes against an element
+    // with no className whatsoever, which is exactly what a broken render gives.
+    const refusedCell = screen.getByTestId('model-row-v2-e-2-value')
+    // `typography.panelTabular` resolves to Tailwind utilities, so the anchor is
+    // that the arm rendered its OWN content — not a guess at its class string.
+    expect(refusedCell.className.trim().length).toBeGreaterThan(0)
+    expect(screen.getByTestId('model-row-v2-e-2-value-refusal')).toHaveTextContent('no')
+    expect(refusedCell.className).not.toMatch(/\bflex-wrap\b/)
   })
 })
 
@@ -184,6 +196,8 @@ describe('the host reports what happened to the statement', () => {
     renderPanel()
     agree()
     await waitFor(() => expect(sendSystemEvent).toHaveBeenCalled())
+    // ⚠ The row must still BE there for its silence to mean anything.
+    expect(screen.getByTestId(`model-row-v2-${EDGE}`)).toBeInTheDocument()
     expect(screen.queryByTestId(`model-row-v2-${EDGE}-value-confirm-unsettled`)).toBeNull()
   })
 

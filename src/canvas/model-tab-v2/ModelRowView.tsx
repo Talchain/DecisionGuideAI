@@ -2154,10 +2154,31 @@ function ValueCell({
             data-testid={testid}
             className={`${typography.panelTabular} min-w-0 flex flex-wrap items-baseline`}
           >
+            {/*
+              ⛔⛔ `text-text-header`, NOT `text-danger`, AND A GUARD CAUGHT ME.
+              `reasoning-model-text-contrast-per-site` reddened on this exact
+              line: text-danger (#EA7B4B) on --bg-panel-hover is **2.70:1**
+              where SC 1.4.3 needs 4.5:1. **A notice the reader cannot see is
+              the same silent failure this whole change exists to remove**, one
+              level down, committed inside the fix for it.
+
+              Its own remedy list forecloses the obvious escapes: of the 21
+              semantic tokens, only --text-header, --text-light and --info clear
+              4.5:1 on both panel grounds, and NOT ONE semantic colour clears
+              even 3:1 — so there is no darker red to reach for. A tinted pill
+              makes it worse, because bg-<c>/NN moves the ground TOWARDS the
+              text.
+
+              ⭐ Nothing is lost, because colour was never carrying the meaning
+              here: the sentence does ("Not sent — …", "Not recorded — …",
+              "Olumi may not have recorded this"), and `role="alert"` carries it
+              for assistive tech. Severity by word, per the guard's own
+              instruction.
+            */}
             <span
               role="alert"
               data-testid={`${testid}-confirm-unsettled`}
-              className={`${typography.panelBody} text-danger min-w-0`}
+              className={`${typography.panelBody} text-text-header min-w-0`}
             >
               {commit.reason}
             </span>
