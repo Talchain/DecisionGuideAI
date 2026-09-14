@@ -10,6 +10,7 @@ import {
   buildAtStart,
   EXPECTED_CORE_SPECS,
   readManifest,
+  readSkipped,
 } from './lib/manifest'
 
 export default async function globalTeardown(): Promise<void> {
@@ -40,5 +41,6 @@ export default async function globalTeardown(): Promise<void> {
     [...EXPECTED_CORE_SPECS],
     readManifest(),
     process.env.CORE_PARTIAL === '1',
+    readSkipped(),
   )
 }

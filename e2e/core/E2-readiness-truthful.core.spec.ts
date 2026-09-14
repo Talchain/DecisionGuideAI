@@ -49,7 +49,7 @@ import {
   readinessVerdict, BLOCKING_VOCAB,
   openDockTab,
 } from './lib/harness'
-import { recordSpecRan } from './lib/manifest'
+import { recordSpecRan, recordSpecSkipped } from './lib/manifest'
 
 test.beforeAll(() => recordSpecRan('E2-readiness-truthful'))
 
@@ -185,9 +185,73 @@ test.describe('E2 · readiness guidance is truthful, not decorative', () => {
     // failures with different causes, and collapsing them is what produced the
     // six-week misreading — an unmounted footer and a silent product are
     // indistinguishable once you only look at string length.
-    const footerNodes = await page
-      .locator('[data-testid="pre-analysis-v3-footer-headline"]')
-      .count()
+    // ---- RACE THE TWO OUTCOMES; NEVER INSPECT THE AFTERMATH ---------------------
+    //
+    // ⛔⛔ THE FIRST VERSION OF THIS BLOCK WAS STRICTLY WORSE THAN THE PERMANENT RED
+    // IT REPLACED, and Panel blocked it. It read an END STATE — footer absent AND an
+    // analysis-started marker present — and **two histories share that end state**:
+    //
+    //   A  footer mounted while pre-run -> analysis started -> it unmounted   SKIP is right
+    //   B  footer NEVER mounted while pre-run -> analysis started             FAIL is right
+    //
+    // At the moment of the check these are the same page. Nothing in that condition
+    // observed whether the footer was EVER mounted — only that it is absent NOW and
+    // something else is also true NOW. **And the three causes B hides are the three
+    // this spec's own failure message lists**: the panel no longer hosting the footer,
+    // the flag off, the tab no longer owning the panel. A sanctioned skip is DESIGNED
+    // to stop people looking, so hiding a live defect behind one is the exact decay
+    // this PR exists to prevent, arriving through the remedy instead of through the
+    // word "advisory".
+    //
+    // ⭐ SO OBSERVE THE TRANSITION, NOT THE RESIDUE — the same move `openDockTab`
+    // makes. Poll while the product is still PRE-RUN and let the first of two things
+    // settle it:
+    //   · the footer appears while pre-run          -> proceed and assert normally
+    //   · we observe PRE-RUN with the footer ABSENT -> that IS the defect; hard fail
+    //   · an analysis had ALREADY started at the first look -> we never saw the
+    //     pre-run window at all. Undecidable, and a HARNESS fault rather than a
+    //     product one, so it skips — with its OWN reason string, because
+    //     "the window closed before I looked" and "the window closed while I was
+    //     looking" are different facts and only one licenses a claim about ordering.
+    const analysisStarted = () =>
+      page.getByText(/analysis started|analysing|running analysis/i).count().catch(() => 0)
+    const footerCount = () =>
+      page.locator('[data-testid="pre-analysis-v3-footer-headline"]').count()
+
+    let sawPreRunWithoutFooter = false
+    let footerNodes = await footerCount()
+    if (footerNodes === 0) {
+      const startedAtFirstLook = (await analysisStarted()) > 0
+      if (startedAtFirstLook) {
+        const reason =
+          'an analysis had ALREADY started at the first look, so the pre-run window was ' +
+          'never observed. PreAnalysisPanelV3 is gated on isPreRun and unmounts once a run ' +
+          'begins. This is a HARNESS ordering fault, not a product fault — and it licenses ' +
+          'NOTHING about readiness guidance, including that the footer was ever mounted.'
+        recordSpecSkipped('E2-readiness-truthful', reason)
+        test.skip(true, `[E2] ${reason}`)
+      }
+      // Still pre-run. The footer is allowed to be slow, not allowed to be absent.
+      for (let i = 0; i < 20 && footerNodes === 0; i++) {
+        await page.waitForTimeout(500)
+        footerNodes = await footerCount()
+        if (footerNodes > 0) break
+        if ((await analysisStarted()) === 0) sawPreRunWithoutFooter = true
+      }
+    }
+
+    // ⚠ PINNED SO THE BRANCH CANNOT GO VACUOUS: if we fell through with no footer, we
+    // must have positively observed the pre-run state without one. Otherwise this
+    // assertion would be firing on an aftermath again, which is the defect above.
+    if (footerNodes === 0) {
+      expect(
+        sawPreRunWithoutFooter,
+        '[E2] fell through with no footer and without ever observing the pre-run state — ' +
+        'the discriminator did not run. This assertion would be reading an aftermath, which ' +
+        'is exactly the defect this block was rewritten to remove.',
+      ).toBe(true)
+    }
+
     expect(
       footerNodes,
       '[E2] the readiness footer is NOT MOUNTED after opening the Analysis tab that owns it. ' +
