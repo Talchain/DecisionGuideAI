@@ -944,6 +944,137 @@ export function AnalysisNewTabBody({
     [vm.strengthen.interventions, glancePrimary],
   )
 
+  /**
+   * ⭐⭐ THE GLANCE ANSWERED NOTHING, SO THE FIGURES COME UP TO FILL THE GAP.
+   *
+   * ⚠ THIS DOES NOT OVERTURN THE ORDERING RULING, AND THE DISTINCTION IS THE
+   * WHOLE JUSTIFICATION. `the coaching sits directly under the reading it
+   * responds to` (AnalysisNewTabBody.spec) pins `glance -> strengthen ->
+   * detail` as "WHAT HAPPENED -> WHAT TO DO ABOUT IT -> THE DETAIL", and calls
+   * burying Strengthen below the detail the defect it exists to prevent. That
+   * stays. Its UNSTATED PRECONDITION is that the glance answered.
+   *
+   * ⛔ WITNESSED BY PAUL ON A RUN WHERE IT DID NOT. When the verdict withholds
+   * the leader, `AtAGlance` renders no reading at all — so "what happened" is
+   * empty, the coaching beneath has no subject, and the only figures the run
+   * produced sit ELEVEN sections lower. His screenshot carries "Most likely
+   * option not confirmed" and a 72% / 16% / 2% comparison, in that order, a
+   * whole scroll apart.
+   *
+   * ⭐ THE PREDICATE IS NOT NEW — IT IS HOISTED. `OptionsComparison` already
+   * computed exactly this for `defaultOpen`, and its docblock states the
+   * consequence in terms: "on a WITHHELD run the glance renders NO reading at
+   * all, and then a closed row means a collaborator sees no numbers anywhere —
+   * from an analysis that computed them and is licensed to show them." The
+   * component had diagnosed its own burial and could only open itself IN
+   * PLACE. Hoisting lets the same fact move it.
+   *
+   * ⚠ BOTH CONJUNCTS ARE LOAD-BEARING. `headline === null` alone would promote
+   * an empty section on a run that returned no figures either — a heading over
+   * nothing, which is exactly what `AnalysisNewSection` refuses to do
+   * elsewhere. The second conjunct is the estate's own "absence is not zero"
+   * rule: promote only when there is something to promote.
+   *
+   * ⚠ NOT `comparativeClaim`. That answers "may a MAGNITUDE be drawn" and is
+   * gated separately inside the section. Two shares, named apart (trap 21).
+   */
+  const glanceWithheldFigures =
+    vm.atAGlance.headline === null &&
+    vm.optionsComparison.rows.some((r) => r.kind === 'analysed' && r.winReadout !== null)
+
+  /**
+   * ⭐⭐ THE ANSWER AND ITS CAPTION ARE ONE BLOCK, DEFINED ONCE.
+   *
+   * ⛔ WHY A FRAGMENT AND NOT TWO RENDER SITES. My first attempt promoted
+   * `OptionsComparison` alone and left `ModelImplication` in place — and
+   * `whatYourModelImpliesReachesTheScreen` caught it within the same run:
+   * "the implication must precede the option rows", because that sentence is
+   * what says WHAT THE ROWS MEAN. Separating them put the caption below the
+   * thing it captions on exactly the runs this change exists to serve.
+   *
+   * ⭐ That is this plan's own governing rule, broken by its first increment:
+   * EVERY CLAIM MOVES WITH ITS ENTITLEMENT, OR IT DOES NOT MOVE. Binding them
+   * into one node makes the rule structural rather than remembered — they
+   * cannot be separated by a later edit without deleting this fragment, and
+   * there is exactly one `<ModelImplication>` and one `<OptionsComparison>` in
+   * this file, so the source-position guard reads the real order.
+   */
+  const answerBlock = (
+    <>
+      <ModelImplication
+        implication={vm.modelImplication}
+        isStale={vm.status.isStale}
+        targetAskedElsewhere={stripOffersTarget}
+      />
+      <OptionsComparison
+        options={vm.optionsComparison}
+        /* The SAME writer this body already hands `WhatIWasGivenSection` for
+           its own ask (:1253). One composer, one validation, one policy — a
+           second route to the chat would be a second thing to keep honest. */
+        onSendMessage={onSendMessage}
+        /* ⭐⭐ THE ONE STATE WHERE THE READER IS LEFT WITH NOTHING, AND IT IS
+           THE STATE THIS SECTION EXISTS FOR.
+
+           Measured, jsdom, on `decisionWithLeaderWithheld()` against its
+           permitted twin `genuineDecision()` — the two fixtures differ in one
+           boolean:
+
+             win readouts       collapsed   opened
+             withheld run       []          ['31%', '69%']
+             permitted run      []          ['31%', '69%']
+
+           The per-option figures ALREADY render on a withheld run, in
+           canonical order, with no ordinal and no leader marker — exactly
+           what ROADMAP 1.267 commissions. They were invisible only because
+           the row was closed.
+
+           On a PERMITTED run that costs the reader nothing: the glance above
+           has already named the leading option and its share, so the panel
+           has answered before this row is reached. On a WITHHELD run the
+           glance renders NO reading at all, and then a closed row means a
+           collaborator sees no numbers anywhere — from an analysis that
+           computed them and is licensed to show them.
+
+           That is `SectionShell`'s own licensing rule, met: something above
+           depends on the content being visible, because the thing above is
+           empty.
+
+           ⚠ `headline` IS THE GLANCE'S OWN WITHHOLD AUTHORITY, CONSUMED, NOT
+           RE-DERIVED. `AtAGlance.tsx:568-572` derives it: `winShare`,
+           `winFraction` and `leaderLabel` are each non-null only where
+           `headline` is. So "the glance is showing no reading" has exactly
+           one spelling and this is it.
+
+           ⛔ AND IT IS NOT `comparativeClaim`. That is a DIFFERENT question —
+           may a comparative MAGNITUDE be drawn — with its own three-plus-one
+           valued authority, and the bars are gated on it inside the section.
+           Two shares, named apart (CLAUDE.md trap 21): the glance's
+           LEADER-share, which is what `headline` governs, and this section's
+           PER-OPTION shares, which it does not. Keying the disclosure on the
+           magnitude licence would quietly make one of them stand for the
+           other, and the next change would read them as one concept.
+
+           ⚠ THE SECOND CONJUNCT IS NOT DECORATION. Opening a row with no
+           figures behind it supplies nothing the glance withheld, and spends
+           the collapsed IA — 1,584px against a 769px viewport — for it. The
+           licence is "the content below answers what is missing above", so
+           the content has to exist.
+
+           ⚠ A DEFAULT, NOT A LOCK: `SectionShell` seeds `useState`, so the
+           state belongs to the toggle from the first render on, and a reader
+           who closes it keeps it closed. The collapsed IA is UNCHANGED on
+           every run that names a leader, which is the state its measurement
+           was taken in. */
+        defaultOpen={
+          vm.atAGlance.headline === null &&
+          vm.optionsComparison.rows.some(
+            (r) => r.kind === 'analysed' && r.winReadout !== null,
+          )
+        }
+      />
+    </>
+  )
+
   const runIntervention = (recommendationId: string) => {
     const rec = vm.strengthen.interventions.find((r) => r.id === recommendationId)
     if (!rec) return
@@ -1241,6 +1372,8 @@ export function AnalysisNewTabBody({
 
             It renders on re-runs only: the producer emits no delta on a first
             run, and absence renders nothing at all. */}
+        {glanceWithheldFigures ? answerBlock : null}
+
         <WhatsChanged view={vm.whatsChanged} />
 
         <RobustnessCaveat
@@ -1618,78 +1751,9 @@ export function AnalysisNewTabBody({
             run whose verdict withholds the leader claim — in which case this
             renders nothing at all. Mounting a component is exactly the change
             that could put a withheld claim on screen, so that is pinned. */}
-        <ModelImplication
-          implication={vm.modelImplication}
-          isStale={vm.status.isStale}
-          targetAskedElsewhere={stripOffersTarget}
-        />
+        {glanceWithheldFigures ? null : answerBlock}
 
-        <OptionsComparison
-          options={vm.optionsComparison}
-          /* The SAME writer this body already hands `WhatIWasGivenSection` for
-             its own ask (:1253). One composer, one validation, one policy — a
-             second route to the chat would be a second thing to keep honest. */
-          onSendMessage={onSendMessage}
-          /* ⭐⭐ THE ONE STATE WHERE THE READER IS LEFT WITH NOTHING, AND IT IS
-             THE STATE THIS SECTION EXISTS FOR.
 
-             Measured, jsdom, on `decisionWithLeaderWithheld()` against its
-             permitted twin `genuineDecision()` — the two fixtures differ in one
-             boolean:
-
-               win readouts       collapsed   opened
-               withheld run       []          ['31%', '69%']
-               permitted run      []          ['31%', '69%']
-
-             The per-option figures ALREADY render on a withheld run, in
-             canonical order, with no ordinal and no leader marker — exactly
-             what ROADMAP 1.267 commissions. They were invisible only because
-             the row was closed.
-
-             On a PERMITTED run that costs the reader nothing: the glance above
-             has already named the leading option and its share, so the panel
-             has answered before this row is reached. On a WITHHELD run the
-             glance renders NO reading at all, and then a closed row means a
-             collaborator sees no numbers anywhere — from an analysis that
-             computed them and is licensed to show them.
-
-             That is `SectionShell`'s own licensing rule, met: something above
-             depends on the content being visible, because the thing above is
-             empty.
-
-             ⚠ `headline` IS THE GLANCE'S OWN WITHHOLD AUTHORITY, CONSUMED, NOT
-             RE-DERIVED. `AtAGlance.tsx:568-572` derives it: `winShare`,
-             `winFraction` and `leaderLabel` are each non-null only where
-             `headline` is. So "the glance is showing no reading" has exactly
-             one spelling and this is it.
-
-             ⛔ AND IT IS NOT `comparativeClaim`. That is a DIFFERENT question —
-             may a comparative MAGNITUDE be drawn — with its own three-plus-one
-             valued authority, and the bars are gated on it inside the section.
-             Two shares, named apart (CLAUDE.md trap 21): the glance's
-             LEADER-share, which is what `headline` governs, and this section's
-             PER-OPTION shares, which it does not. Keying the disclosure on the
-             magnitude licence would quietly make one of them stand for the
-             other, and the next change would read them as one concept.
-
-             ⚠ THE SECOND CONJUNCT IS NOT DECORATION. Opening a row with no
-             figures behind it supplies nothing the glance withheld, and spends
-             the collapsed IA — 1,584px against a 769px viewport — for it. The
-             licence is "the content below answers what is missing above", so
-             the content has to exist.
-
-             ⚠ A DEFAULT, NOT A LOCK: `SectionShell` seeds `useState`, so the
-             state belongs to the toggle from the first render on, and a reader
-             who closes it keeps it closed. The collapsed IA is UNCHANGED on
-             every run that names a leader, which is the state its measurement
-             was taken in. */
-          defaultOpen={
-            vm.atAGlance.headline === null &&
-            vm.optionsComparison.rows.some(
-              (r) => r.kind === 'analysed' && r.winReadout !== null,
-            )
-          }
-        />
 
         {/* ── KEY INSIGHTS ────────────────────────────────────────────────── */}
         <AnalysisNewSection
