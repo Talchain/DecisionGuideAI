@@ -2029,6 +2029,16 @@ function ValueCell({
                       recorded at `manualGoalTarget.ts:70-81` as correct and NOT
                       to be "fixed" here. The copy claims only what is true of
                       both: a recorded limit. */}
+                  {/* ⛔ THE WIDTHS ARE A MEASURED BUDGET, NOT A STYLE CHOICE.
+                      Adding a THIRD control to this row at the inherited `w-24`
+                      made it wrap at a 280px dock, and the wrap cost exactly one
+                      row: `Canvas Browser Gate` measured the goal form at
+                      186.25px against a budget of 158px (form 88 + disclosure
+                      70) — overshoot 28.25px. Value stays `w-24`; the two
+                      additions are narrowed so three fit where two did.
+                      ⚠ Caught on an ADVISORY check I nearly merged past. The
+                      tier is a label, not a diagnosis — this one was a real
+                      defect in this very change. */}
                   <label className="flex flex-col gap-0.5">
                     Limit
                     <select
@@ -2038,7 +2048,7 @@ function ValueCell({
                       onChange={e =>
                         onDraftChange(row.id, commit.draft, commit.unit, e.target.value as ConstraintType)
                       }
-                      className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
+                      className={`${typography.tabular} w-20 bg-panel-hover border border-panel-border rounded px-1`}
                     >
                       <option value="at_least">at least</option>
                       <option value="at_most">at most</option>
@@ -2056,7 +2066,7 @@ function ValueCell({
                         if (e.key === 'Enter') { e.preventDefault(); onProposeEdit(row.id) }
                         if (e.key === 'Escape') { e.preventDefault(); onDiscardEdit(row.id) }
                       }}
-                      className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
+                      className={`${typography.tabular} w-16 bg-panel-hover border border-panel-border rounded px-1`}
                     />
                   </label>
                 </span>
