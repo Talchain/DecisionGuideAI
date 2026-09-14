@@ -225,9 +225,21 @@ describe('the seam between this module and the type tokens', () => {
   it.each(Object.entries(DECLARED))(
     '%s carries the counter-scale at its declared %ipx, spelling the exact property name',
     (token, declared) => {
+      // ⚠ THE SEARCH IS SCOPED TO THE CLASS-STRING LINE, AND IT HAS TO BE.
+      // On 14 Sep 2026 `typography.ts` gained a `CANVAS_TYPE_PX` block that
+      // declares the SAME KEYS as numbers (`nodeTitle: 14,`) ABOVE the class
+      // strings — deliberately, so the geometry that reserves space for a label
+      // derives from the same number the label renders at. A bare
+      // `^\s{2}nodeTitle:` then matched the NUMERIC line first and this guard
+      // went red against a file that was entirely correct.
+      // ⛔ This is a DISAMBIGUATION, not a relaxation: requiring `text-[length:`
+      // names the line the guard was always about, and the numeric block is
+      // independently pinned to these same class strings by
+      // `tests/ci-guards/canvasTypeGeometryAgrees.spec.ts`. Two guards, two
+      // questions — the pair is stronger than the ambiguous single.
       const line = tokenSource
         .split('\n')
-        .find(l => new RegExp(`^\\s{2}${token}:`).test(l))
+        .find(l => new RegExp(`^\\s{2}${token}:\\s*'text-\\[length:`).test(l))
       expect(line, `token ${token} not found in typography.ts`).toBeDefined()
       expect(line).toMatch(expectedFontSize(declared))
     },

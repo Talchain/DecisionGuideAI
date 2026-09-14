@@ -14,7 +14,7 @@
  *  - n1 (source) card at (−400,−40) 200×80 → centre (−300, 0)
  *  - n2 (target) card at ( 200,−40) 200×80 → centre ( 300, 0)
  *  - label anchor basis = midpoint of node centres = (0, 0); the 160×34 label
- *    box (±80, ±17) is clear of both endpoint cards.
+ *    box (±88, ±18) is clear of both endpoint cards.
  *  - blocker card at (−100,−40) 200×80 spans x −100..100, y −40..40 — dead on
  *    the anchor. Clearing its bottom edge needs dy ≥ 57.
  *  - the mocked path functions put the RENDERED anchor at (50, 50).
@@ -184,7 +184,7 @@ const labelClearOfRect = (
   cy: number,
   r: { x: number; y: number; width: number; height: number },
 ) =>
-  cx + 80 <= r.x || cx - 80 >= r.x + r.width || cy + 17 <= r.y || cy - 17 >= r.y + r.height
+  cx + 88 <= r.x || cx - 88 >= r.x + r.width || cy + 18 <= r.y || cy - 18 >= r.y + r.height
 
 const edgeProps = {
   id: 'e1',
@@ -336,11 +336,15 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
       // pin. StyledEdge now DERIVES its cap from LABEL_HALF_WIDTH, so an
       // assertion phrased as `LABEL_HALF_WIDTH * 2` would read the same
       // constant as the code and could never fail — a guard agreeing with
-      // itself. 160 is the rendered cap; 80 is the half-extent the resolver
+      // itself. 176 is the rendered cap; 88 is the half-extent the resolver
       // clears. Changing the geometry REDs here, where the coupling is
       // explained, rather than passing silently.
-      expect(style.maxWidth).toBe('160px')
-      expect(LABEL_HALF_WIDTH).toBe(80)
+      // ⛔ CO-DRIFT TRIPWIRE, moved 14 Sep 2026 WITH its reason: edgeLabel went
+      // 10px → 11px, so the box the resolver clears is 176 wide, not 160. These
+      // are deliberately INDEPENDENT literals — if they are ever updated without
+      // the rendered cap moving too, the resolver clears a box the label exceeds.
+      expect(style.maxWidth).toBe('176px')
+      expect(LABEL_HALF_WIDTH).toBe(88)
       // The row is a flex line that may not wrap — this is what holds the
       // ±LABEL_HALF_HEIGHT (single-line) half of the assumption now that
       // white-space no longer sits here — and anything past the cap is
@@ -389,7 +393,7 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
       )
       // Same cap regardless of text length: jsdom does not lay text out, so
       // the enforceable invariant is the cap itself, not a measured width.
-      expect(labelStyle(container).maxWidth).toBe('160px') // independent literal, as above
+      expect(labelStyle(container).maxWidth).toBe('176px') // independent literal, as above
       // …and at that length the shortening machinery is still on the text,
       // so the extra characters ellipsise rather than widen the row.
       expect(labelTextStyle(container).textOverflow).toBe('ellipsis')
@@ -400,7 +404,9 @@ describe('StyledEdge — E3 part 2: persistent label dodges node cards', () => {
       // zoom, and is largest at exactly the zoom the product's auto-fit parks
       // at. The constant is now derived from that scale; this remains an
       // INDEPENDENT literal so the derivation cannot silently drift.
-      expect(LABEL_HALF_HEIGHT).toBe(17)
+      // ⚠ AND 17 UNTIL 14 Sep 2026, when edgeLabel moved 10px → 11px and the
+      // derived height followed it to 18. Still an INDEPENDENT literal.
+      expect(LABEL_HALF_HEIGHT).toBe(18)
     })
   })
 
