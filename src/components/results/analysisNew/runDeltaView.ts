@@ -119,7 +119,17 @@ export interface RunDeltaView {
   readonly movements: readonly RunDeltaMovement[]
   /** True when the producer sent no comparable pair for ANY option. */
   readonly movementsUnavailable: boolean
-  readonly leader: RunDeltaLeaderLine | null
+  /**
+   * ⛔ NOT NULLABLE, AND THE `| null` THAT WAS HERE MADE A TAUTOLOGY DOWNSTREAM.
+   * `leader` is REQUIRED on the producer's block — proven by execution against
+   * the vendored 0.55.0 with a must-pass control: the same block PARSES with it
+   * and fails `leader Required` without it. This builder therefore returns it
+   * unconditionally, so `view.leader?.changed` in the section was an optional
+   * chain on a value that is never absent: always true, well typed, and reading
+   * exactly like a safety check. Absence is expressed INSIDE the line —
+   * `changed: false` renders nothing, and `mayName: false` withholds the names.
+   */
+  readonly leader: RunDeltaLeaderLine
 }
 
 /**
@@ -175,6 +185,9 @@ const COMPARABILITY: Record<RunDelta['attribution_case'], string> = {
  * claim. C0 states a proven negative. C2/C3/C4 REFUSE TO ATTRIBUTE, which is the
  * honest shape of "we cannot tell from this pair".
  */
+const CANNOT_ESTABLISH =
+  'Whether a change to the model explains anything below cannot be established from this pair.'
+
 const ATTRIBUTION_LIMIT: Record<RunDelta['attribution_case'], string | null> = {
   // Part A already says the only difference is a change to the model. A rider
   // would either repeat it or weaken it.
@@ -186,12 +199,15 @@ const ATTRIBUTION_LIMIT: Record<RunDelta['attribution_case'], string | null> = {
   // ⛔ REFUSAL TO ATTRIBUTE, NOT DENIAL. C2 is decided on the seed alone; the hash
   // is never consulted, so a change to the model may well be the cause and this
   // pair simply cannot show it.
-  C2_unpaired:
-    'Whether a change to the model explains anything below cannot be established from this pair.',
-  C3_engine_drift:
-    'Whether a change to the model explains anything below cannot be established from this pair.',
-  C4_budget_drift:
-    'Whether a change to the model explains anything below cannot be established from this pair.',
+  // ⚠ ONE LITERAL, THREE ARMS. These were three byte-identical copies — a
+  // hand-maintained mirror at three lines' distance, which is close enough to
+  // look deliberate and far enough to drift. They agree BECAUSE the claim is the
+  // same claim: the case says nothing about the hash, so no model change can be
+  // established or ruled out. If one of them ever needs different words, that is
+  // a signal the case means something different, not a reason to copy the string.
+  C2_unpaired: CANNOT_ESTABLISH,
+  C3_engine_drift: CANNOT_ESTABLISH,
+  C4_budget_drift: CANNOT_ESTABLISH,
 }
 
 function directionOf(prior: number, current: number): MovementDirection {

@@ -31,10 +31,15 @@
  * answering one question (CLAUDE.md trap 21), and the one that drifted would
  * be this one, because nothing else would read it.
  *
- * Cases 2 and 3 are handled by the WRITE side rather than here: the writer is
- * called on every turn that lands a NEW analysis, with `null` when that turn
- * carried no delta — so a replacement analysis evicts by construction instead
- * of by anyone remembering to clear.
+ * Cases 2 and 3 are ATTEMPTED by the write side and finished here. The writer
+ * evicts when a genuinely new analysis lands carrying no delta — but eviction
+ * is gated on the analysis CONTENT hash moving, and a content hash is not a run
+ * identity, so it cannot catch a new run whose content collides with the
+ * displayed one.
+ *
+ * ⭐ WHICH IS WHY THIS PREDICATE IS THE LOAD-BEARING GUARD, not a second line of
+ * defence. It fails closed on every absence, and it is what makes a superseded
+ * delta invisible in the cases the writer cannot see.
  */
 
 import type { RunDelta } from '@talchain/schemas/boundary'
