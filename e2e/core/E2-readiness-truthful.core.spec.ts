@@ -47,6 +47,7 @@ import { test, expect } from '@playwright/test'
 import {
   draftAsGuest, owningNodeIds, textOf, measureControl, footerCopy, literalRe,
   readinessVerdict, BLOCKING_VOCAB,
+  openDockTab,
 } from './lib/harness'
 import { recordSpecRan } from './lib/manifest'
 
@@ -137,6 +138,65 @@ test.describe('E2 · readiness guidance is truthful, not decorative', () => {
     // single-sentence branch (`PanelFooter.tsx`) carried NO testid, so on precisely
     // the honest arm above, the only surface bearing the truth was invisible here.
     // Reading just the headline is what made the old assertion look reasonable.
+    // ---- OPEN THE TAB THAT OWNS THIS SURFACE --------------------------------
+    //
+    // ⛔⛔ THIS SPEC FAILED 6/6 ACROSS SIX STAGING COMMITS BECAUSE IT READ A
+    // SURFACE IT NEVER NAVIGATED TO, AND ITS FAILURE MESSAGE DESCRIBED THE
+    // PRODUCT INSTEAD OF THE DOM.
+    //
+    // `PreAnalysisPanelV3` is *"mounted by OutputsDock in the Analysis tab"*
+    // (`PreAnalysisPanelV3.tsx:5`). The default dock tab is Olumi, and neither
+    // this spec nor `draftAsGuest` selected Analysis. `textOf` returns `[]` for
+    // an absent testid, so `headline.length` was 0 and the assertion below read
+    // "the readiness footer says nothing at all" — a PRODUCT claim produced by
+    // an ABSENT ELEMENT. Two sessions independently read that red as the product
+    // being silent about a real gap, and escalated it as a truthfulness defect.
+    //
+    // MEASURED on the served build, one session, one model, both tabs:
+    //   Olumi     headline []
+    //   Analysis  headline ["Not ready for analysis yet"]
+    //             subline  ["Your model is still being drafted — its values are
+    //                       still settling. Run analysis once drafting finishes."]
+    // The gap markers read 1 on BOTH tabs, so the contrast isolates the TAB and
+    // not the model state.
+    await openDockTab(page, 'Analysis')
+
+    // ⚠⚠ OPENING THE TAB IS NECESSARY AND NOT SUFFICIENT, AND THIS IS WHERE THE
+    // SPEC STILL FAILS. Derived at `OutputsDock.tsx:3484`, the panel's real gate is
+    //
+    //     isPreRun && nodes.length > 0 && isPreAnalysisV3Enabled()
+    //
+    // so the readiness footer is a PRE-RUN panel: once an analysis starts,
+    // `isPreRun` goes false and the whole panel unmounts. A run where an analysis
+    // has begun by the time we read will find NO footer on the correct tab — the
+    // snapshot of the failing run carries `status: "Analysis started."` beside an
+    // absent footer, and an earlier run that read BEFORE the start found the
+    // footer populated ("Analysis available").
+    //
+    // ⛔ SO THE REMAINING WORK IS TO PIN THE PRE-RUN STATE, NOT TO ADD ANOTHER
+    // SELECTOR. Asserting the gap is announced is only meaningful while the
+    // product is still offering to run; after the run the question is a different
+    // one with a different surface. Whoever takes this must decide whether
+    // `draftAsGuest` can guarantee a stable pre-run window, or whether E2 should
+    // assert the pre-run state as its own precondition and skip loudly otherwise.
+
+    // NON-VACUITY, one level above the subline guard below: assert the footer is
+    // MOUNTED, not merely that its text is non-empty. Those are different
+    // failures with different causes, and collapsing them is what produced the
+    // six-week misreading — an unmounted footer and a silent product are
+    // indistinguishable once you only look at string length.
+    const footerNodes = await page
+      .locator('[data-testid="pre-analysis-v3-footer-headline"]')
+      .count()
+    expect(
+      footerNodes,
+      '[E2] the readiness footer is NOT MOUNTED after opening the Analysis tab that owns it. ' +
+      'This is a MOUNT failure, not a silent product: check whether PreAnalysisPanelV3 still ' +
+      'hosts the footer, whether the `preAnalysisV3` flag is on in this build, and whether the ' +
+      'dock tab named "Analysis" still owns that panel. Do NOT read this as the product ' +
+      'failing to announce a gap — that is the misdiagnosis this guard exists to prevent.',
+    ).toBeGreaterThan(0)
+
     const headline = (await textOf(page, 'pre-analysis-v3-footer-headline')).join(' ')
     const subline = [
       ...(await textOf(page, 'pre-analysis-v3-footer-subline')),

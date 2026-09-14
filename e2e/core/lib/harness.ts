@@ -1204,6 +1204,43 @@ export const owningNodeIds = (page: Page, testid: string): Promise<(string | nul
       return n ? (n.getAttribute('data-testid') ?? '').replace('rf__node-', '') : null
     }), testid)
 
+/**
+ * ⭐⭐ OPEN THE DOCK TAB THAT OWNS A SURFACE, AND PIN THAT IT OPENED.
+ *
+ * ⛔ WHY THIS EXISTS. `E2-readiness-truthful` read
+ * `pre-analysis-v3-footer-headline` and failed 6/6 across six staging commits on
+ * `[E2] a gap exists and the readiness footer says nothing at all`. **The footer
+ * was not saying nothing. It was not MOUNTED.** `PreAnalysisPanelV3` is
+ * *"mounted by OutputsDock in the Analysis tab"* (`PreAnalysisPanelV3.tsx:5`),
+ * the default dock tab is Olumi, and neither the spec nor `draftAsGuest` ever
+ * selected Analysis. `textOf` returns `[]` for an absent testid, `[].join(' ')`
+ * is `''`, and `''.length` is `0` — the exact assertion that failed.
+ *
+ * MEASURED on the served build, one session, one model, both tabs:
+ *   Olumi    headline []                          subline []
+ *   Analysis headline ["Not ready for analysis yet"]
+ *            subline  ["Your model is still being drafted — its values are
+ *                      still settling. Run analysis once drafting finishes."]
+ * The gap markers (`overlay-missing-threshold-node`, `needs-input-pill`) read 1
+ * on BOTH, so the contrast isolates the tab and not the model state.
+ *
+ * ⚠ A FAILURE MESSAGE THAT NAMES A PRODUCT BEHAVIOUR ("says nothing at all")
+ * WHEN THE CAUSE IS DOM ABSENCE IS HOW THIS BECAME A REPORTED PRODUCT DEFECT.
+ * Two sessions independently read that red as the product being silent. It is
+ * not. Prefer "not mounted" to "says nothing" wherever the two differ.
+ *
+ * ⭐ IT ASSERTS ITS OWN POSTCONDITION rather than trusting the click. A click
+ * that silently misses leaves the caller reading the previous tab and getting
+ * the SAME empty result this helper exists to prevent — the failure would simply
+ * move, and look identical.
+ */
+export async function openDockTab(page: Page, name: 'Olumi' | 'Analysis' | 'Reasoning' | 'Model'): Promise<void> {
+  const tab = page.getByRole('tab', { name: new RegExp(`^${name}$`) }).first()
+  await tab.click()
+  await expect(tab, `[core] the ${name} dock tab did not become selected after a click`)
+    .toHaveAttribute('aria-selected', 'true', { timeout: 10_000 })
+}
+
 export const textOf = (page: Page, testid: string): Promise<string[]> =>
   page.evaluate((id) =>
     [...document.querySelectorAll(`[data-testid="${id}"]`)].map((e) => (e.textContent ?? '').trim()), testid)
