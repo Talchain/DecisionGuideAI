@@ -510,6 +510,30 @@ export const InlineBlocks = memo(function InlineBlocks({
     const plan = linePlan.get(block)
     const asLine =
       isCompactCoachingLinesEnabled() && isCollapsibleCardBlock(block) && plan?.collapsible !== false
+    /*
+     * ⭐ THE BADGE DOT IS A CARD'S, SO A LINE DOES NOT GET ONE. DS v5 §21.2
+     * defines it as one limb of the BLOCK treatment — "Base block: `bg-panel`,
+     * `rounded-[20px]`, 24px padding, `shadow-1`. Type-specific top borders
+     * (3px). Block type badges are small coloured dots (8px diameter, main
+     * colour fill) top-left." A collapsed line has none of the others; the dot
+     * survived only because it is painted HERE, by the parent, where the card's
+     * own `suppressHeader` could not reach it.
+     *
+     * ⛔ AND IT WAS COLLIDING, NOT MERELY DUPLICATING. `.blockBadgeDot` is
+     * `position:absolute; top:8px; left:8px`, and its clearance comes from
+     * `.blockWithBadge > div { padding-left: 24px }` — a CHILD selector that
+     * matches a `div` only. As a line the child is `<details>`, so the selector
+     * silently stopped matching, nothing reserved the gutter, and the dot
+     * landed on the summary's own first item at the same 8px. Photographed on
+     * deployed staging b7c8c74e: a blue dot sitting on the glyph. A CSS
+     * selector that stops matching raises nothing and fails no test, which is
+     * why this is gated in TS where a spec can bind to it.
+     *
+     * The wrapper class goes with it: `position:relative` exists only to
+     * position the dot, and leaving it would keep a containing block for no
+     * descendant.
+     */
+    const showBadgeDot = badgeDotClass !== null && !asLine
     return (
       // data-citation-target is 1-based on the ORIGINAL index; CitationRef.index
       // matches this, so a citation still resolves after demotion.
@@ -517,10 +541,10 @@ export const InlineBlocks = memo(function InlineBlocks({
       <div
         key={index}
         data-citation-target={index + 1}
-        className={badgeDotClass ? styles.blockWithBadge : undefined}
+        className={showBadgeDot ? styles.blockWithBadge : undefined}
         {...(block.type === 'graph_patch' ? { 'data-patch-id': block.patch_id } : {})}
       >
-        {badgeDotClass && <span className={badgeDotClass} data-testid="block-badge-dot" aria-hidden="true" />}
+        {showBadgeDot && <span className={badgeDotClass} data-testid="block-badge-dot" aria-hidden="true" />}
         <MaybeCoachingLine block={block} asLine={asLine} disambiguator={plan?.disambiguator ?? null}>
         <BlockRenderer
           block={block}

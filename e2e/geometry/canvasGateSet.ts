@@ -503,6 +503,26 @@ export const DELIBERATE_EXCLUSIONS: readonly DeliberateExclusion[] = [
       'about the element. A reading no assertion should ever be built on.',
   },
   {
+    what: 'coachingLineLook.measure.ts + evidenceLook.measure.ts (5 cells, ~80s) — PHOTOGRAPHS of the coaching list',
+    why:
+      'Same claim-type test: neither asserts anything a product change can redden — the second ' +
+      'carries one `expect` and it is a PRECONDITION on the fixture (the capture must contain a ' +
+      'v5_evidence block at all), not a claim about the product. They exist because NOTHING in ' +
+      'this repo had ever LOOKED at a rendered assistant turn: `e2e/visual/` contains zero ' +
+      'occurrences of assistant/coaching/v5_evidence/review_card, so the visual suite cannot ' +
+      'reach this surface, and both defects in the #1450 lane were caught by a human\'s ' +
+      'screenshot rather than by CI. ⭐ WHAT ONLY THESE CAN DO: they found that two producer ' +
+      'blocks sharing a title ("A load-bearing assumption" x2 in the walkA capture) become ' +
+      'INDISTINGUISHABLE once compressed to a title-only line, where as full cards their ' +
+      'differing bodies told them apart. No assertion in the suite can see that, because it is ' +
+      'not a property of one block — it is a property of the LIST. ' +
+      '⛔ DELIBERATELY NOT GATED, and not promotable to pixel references: the pinned Playwright ' +
+      'build has no browser in this image, so they launch the installed 1194 chrome via ' +
+      '`executablePath`. That is a different renderer build, and `playwright.visual.config.ts` ' +
+      'records a measured 6.157% divergence from a single font substitution. These are for ' +
+      'ADJUDICATING layout and tone by eye, never for diffing.',
+  },
+  {
     what: 'canonicalGeometry.measure.ts (15 cells, 44.8s), overlapSequence.measure.ts, threadAutoScroll.measure.ts, nodeMarkCensus.measure.ts (31.7s)',
     why:
       'Same claim-type test. Each says so in its own header — "a MEASUREMENT instrument, not a ' +

@@ -17,7 +17,7 @@ import type { NodeType } from '../../../domain/nodes'
 import { SignedStrengthSlider } from '../../inspector/SignedStrengthSlider'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
-import { useEdgeMutations } from '../useInspectorMutations'
+import { useEdgeMutations, type EdgeStrengthConfirmOutcome } from '../useInspectorMutations'
 import {
   GROUP_LABELS,
   INLINE_LABELS,
@@ -50,6 +50,7 @@ import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
 import { EdgeReviewDisagreement } from '../shared/EdgeReviewDisagreement'
 import { resolveElementLabel } from '../../../domain/elementLabel'
 import { edgeStrengthEditIsAssertable } from '../../../conversation/edgeStrengthEdit'
+import { serverStatedStrengthOf } from '../../../conversation/edgeServerStatedStrength'
 
 // ─── Slider component for confidence and uncertainty ───────────────
 function InspectorSlider({
@@ -201,10 +202,44 @@ export const EdgePanel = memo(function EdgePanel({
   // UI default has no source and is not an estimate the user can honestly
   // confirm. Keep the exact store number visible beside the action so consent
   // covers the number that will receive the user provenance stamp.
+  /**
+   * ⛔⛔ GATED ON THE AUTHORITY THE ACT ACTUALLY REQUIRES, NOT ON A SECOND
+   * FUNCTION THAT AGREES WITH IT TODAY.
+   *
+   * This asked only `edgeValueSource(data,'weight') === 'cee'` — *"did a producer
+   * originate this number?"* — while `confirmCurrentStrength` succeeds only when
+   * `serverStatedStrengthOf(data)` returns a tuple — *"does the SERVER hold this
+   * number?"*. Different questions over different fields, and
+   * `edgeServerStatedStrength.ts` exists precisely because they were conflated
+   * once before: `'cee'` is stamped by paths that write a producer's number
+   * locally BEFORE any server write exists. An edge in that state satisfied the
+   * render and failed the act, so the person read *"Olumi's current estimate is
+   * 0.3. Confirm this estimate"*, clicked, and nothing happened anywhere.
+   *
+   * ⭐ MEASURED, since the divergence was decidable and the frequency was not:
+   * on a real drafted graph (29 edges, served `afcb2e2b`, scenario `52cf4a0c`)
+   * **29/29 carry `serverStrength` and 0/29 are in the divergent class.** So this
+   * is a latent seam rather than a live defect — which is exactly why it is worth
+   * closing by CONSTRUCTION now rather than by a frequency argument that the next
+   * ingestion path could falsify.
+   *
+   * ⚠ THE SECOND CONJUNCT, NOT A REPLACEMENT, AND THE CHOICE IS DELIBERATE.
+   * Deriving the magnitude itself from `serverStatedStrengthOf` also closes the
+   * divergence, but it silently changes WHICH NUMBER IS SHOWN — from the live
+   * `weight` to the server's last stated mean. Those differ exactly when a store
+   * refresh has moved `weight`, and a sibling spec pins the control reading the
+   * LIVE value. Closing a gate divergence must not quietly re-point a display.
+   * ⚠ RESIDUAL, NAMED NOT FIXED: the number shown is `weight`, the number
+   * confirmed is `expected.mean`. They agree on every real edge measured above;
+   * where a refresh moves one and not the other they would not, and that is a
+   * DISPLAY honesty question with its own answer, not this gate's job.
+   */
   const currentEstimatedWeight = useMemo(() => {
     const data = edge?.data as Record<string, unknown> | undefined
     const value = data?.weight
     return edgeValueSource(data, 'weight') === 'cee' &&
+      // the act's own authority — one function, both readers
+      serverStatedStrengthOf(data) !== null &&
       typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
       ? value
       : null
@@ -219,6 +254,11 @@ export const EdgePanel = memo(function EdgePanel({
 
   // Local slider state
   const [localStrength, setLocalStrength] = useState(signedValue)
+  // Kept OUT of `useEditConfirmation` on purpose: that hook's `lastConfirmed`
+  // is what gates `InlineRerunPrompt`, and a confirmation changes no value, so
+  // it must not invite a re-run.
+  const [strengthConfirm, setStrengthConfirm] =
+    useState<{ ts: number; outcome: EdgeStrengthConfirmOutcome } | null>(null)
   const [localBelief, setLocalBelief] = useState(beliefExists)
   const [localStd, setLocalStd] = useState(strengthStd)
 
@@ -306,13 +346,43 @@ export const EdgePanel = memo(function EdgePanel({
     confirmEdit('strength')
   }, [mutations, clearPreview, confirmEdit])
 
+  /**
+   * ⛔⛔ THIS HANDLER SENT AN ACT THE SERVER REFUSES AND THEN REPORTED SUCCESS.
+   * Wire-witnessed on served `1d0306a0`, scenario `52cf4a0c`, not reasoned:
+   *
+   *   - it called `setStrength(currentEstimatedWeight)`, which emits
+   *     `intent: 'set'` at a magnitude EQUAL to the persisted value — the exact
+   *     `set_target_unchanged` case. CEE answered *"That link already has
+   *     exactly that strength and direction, so I haven't recorded it as your
+   *     judgement."* `blocks: []`, `graph_hash` unchanged, `weightSource` still
+   *     `cee`. Nothing was recorded.
+   *   - it then called `confirmEdit('strength')` UNCONDITIONALLY, which rendered
+   *     `EditConfirmation` at its defaults — **"Updated" in success green** —
+   *     and, 2s later, `InlineRerunPrompt`: *"Re-run to see how this affects the
+   *     results."* So the person was told their agreement was saved and invited
+   *     to spend an analysis on a change that did not exist.
+   *
+   * ⚠ NOT A DEAD BUTTON — A BUTTON THAT REPORTED THE OPPOSITE OF WHAT HAPPENED.
+   * The truthful sentence went to the Olumi conversation, a surface the person
+   * must open deliberately; it appeared NOWHERE in the canvas view.
+   *
+   * Both halves are closed here. The act now rides `confirm_current`, the only
+   * carrier that can land it. And the feedback is kept SEPARATE from
+   * `confirmEdit`: a confirmation changes no value, so it must not mark the
+   * panel edited — that is what raised the re-run prompt. `EditConfirmation`'s
+   * own header supplied `label`/`tone` for exactly this caller and warned that
+   * *"it stops being harmless the moment a pane unfences."* It unfenced.
+   */
   const handleConfirmCurrentStrength = useCallback(() => {
     if (currentEstimatedWeight === null) return
-    // Confirm the exact live canonical magnitude, not a band midpoint or local
-    // slider draft. Magnitude confirmation says nothing about causal direction.
-    mutations.setStrength(currentEstimatedWeight, { preserveDirection: true })
-    confirmEdit('strength')
-  }, [currentEstimatedWeight, mutations, confirmEdit])
+    // ⛔ EVERY OUTCOME IS NAMED, AND THE SILENT ONE IS WHY. `dispatched` says
+    // SENT, never saved. Anything else means NO statement left this client, and
+    // the person still pressed a button — so it says so rather than doing
+    // nothing. `no_carrier` in particular is a fact about the render context
+    // (no conversation to send through), NOT about the edge, so the render gate
+    // above cannot eliminate it: silence there would be permanent, not transient.
+    setStrengthConfirm({ ts: Date.now(), outcome: mutations.confirmCurrentStrength() })
+  }, [currentEstimatedWeight, mutations])
 
   const handleBeliefChange = useCallback((v: number) => {
     setLocalBelief(v)
@@ -383,6 +453,24 @@ export const EdgePanel = memo(function EdgePanel({
       // showed 0.30, both saved correctly. The model was right; the screen was
       // wrong about the user's own choice.
       setLocalStrength(v)
+      // ⭐ AND THE PREVIEW BASELINE, which both siblings already maintain —
+      // `handleStrengthBlur` (:290) and `handleStrengthPresetChange` (:305).
+      // `origStrengthRef` is what every impact delta is measured from
+      // (`previewEdit(edgeId, v - origStrengthRef.current)`), and it is seeded at
+      // MOUNT. Leaving it behind here meant the first fine-tune after a save
+      // measured from the fabricated 0.3 default instead of the strength the
+      // person actually stated.
+      //
+      // ⛔ THE ERROR INVERTS THE SIGN, it does not merely shift it. Stating 0.85
+      // then easing to 0.55 is a WEAKENING of −0.30; against the stale baseline
+      // it previews as +0.25 — the product showing the user the opposite of the
+      // adjustment they just made. Measured, not reasoned.
+      //
+      // ⚠ NOT closed by #1546's `key={edgeId}`: a key only remounts when the key
+      // CHANGES. Switching edges re-seeds this ref and is fixed there; staying on
+      // the SAME edge across a save never remounts, which is exactly where the
+      // save happens.
+      origStrengthRef.current = v
       useCanvasStore.getState().updateEdgeData(edgeId, {
         weight: Math.abs(v),
         weightSource: 'user',
@@ -518,6 +606,23 @@ export const EdgePanel = memo(function EdgePanel({
                   >
                     {ACTION_LABELS.confirmCurrentStrength}
                   </button>
+                </div>
+              )}
+              {/* Confirmation feedback — SENT, not saved, and no re-run prompt:
+                  ratifying the existing estimate changes no value. */}
+              {strengthConfirm !== null && (
+                <div
+                  className="flex items-center gap-2 mt-1"
+                  data-testid="edge-strength-confirm-sent"
+                  data-outcome={strengthConfirm.outcome}
+                >
+                  <EditConfirmation
+                    trigger={strengthConfirm.ts}
+                    label={strengthConfirm.outcome === 'dispatched'
+                      ? ACTION_LABELS.strengthConfirmSent
+                      : ACTION_LABELS.strengthConfirmNotSent}
+                    tone="pending"
+                  />
                 </div>
               )}
               {/* Edit feedback */}

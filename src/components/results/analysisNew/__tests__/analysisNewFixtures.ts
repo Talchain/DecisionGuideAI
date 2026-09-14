@@ -75,6 +75,7 @@ export interface MakeDataOptions {
    * ignores the same thing.
    */
   assumedStrength?: ResultsSectionDataReturn['assumedStrength']
+  sensitivityReviewTargets?: ResultsSectionDataReturn['sensitivityReviewTargets']
 }
 
 export function makeData(opts: MakeDataOptions = {}): ResultsSectionDataReturn {
@@ -129,6 +130,15 @@ export function makeData(opts: MakeDataOptions = {}): ResultsSectionDataReturn {
     voiRanking: opts.voiRanking ?? null,
     decisionVoi: opts.decisionVoi ?? 'not_computed',
     assumedStrength: opts.assumedStrength ?? { selected: null, refusalReason: null, assumedFragileCount: 0 },
+    /**
+     * ⚠ SUPPLIED BECAUSE THE RETURN IS CAST. `as ResultsSectionDataReturn`
+     * means adding a REQUIRED field to that type does not red this file — the
+     * fixture keeps compiling and hands every builder test `undefined`, which
+     * then throws at the first read. Typecheck cannot see it; only running the
+     * tests can. Same shape as the `assumedStrength` note above, which was
+     * added for the same reason.
+     */
+    sensitivityReviewTargets: opts.sensitivityReviewTargets ?? new Map<string, string>(),
   } as ResultsSectionDataReturn
 }
 

@@ -57,16 +57,33 @@
  * to two lines at the 416px dock, so three "single lines" were six.
  *
  * Now: title `panelBody` (12px regular), icon `ICON_DENSE` (12 — the token's
- * own docstring says "dense rows, inline chips"), chip padding `px-1.5` and
- * `text-text-light`. Every value is an existing token; the panel's
- * three-size census (14/12/11) is untouched, and nothing here invents a scale.
+ * own docstring says "dense rows, inline chips"). Every value is an existing
+ * token; the panel's three-size census (14/12/11) is untouched, and nothing
+ * here invents a scale.
  *
- * ⛔ THE CATEGORY CHIP STAYS, and it is worth saying why it survived a
- * "use icons instead" pass. `guidanceCategoryIcon` is BINARY — danger tone
- * gets `AlertTriangle`, everything else gets `Lightbulb` — so the icon cannot
- * separate `could_fix` from `technique`. Dropping the chip would leave that
- * four-value distinction carried by tint alone, which is WCAG 1.4.1 (Use of
- * Colour) failing at Level A. It is lighter, not gone.
+ * ## ⭐ ONE CHANNEL PER MEANING — the row was saying the same thing three times
+ *
+ * Photographed on deployed staging (b7c8c74e), a live row carried a blue DOT,
+ * a lightbulb GLYPH drawn on top of it, and a "Could fix" PILL, before a single
+ * word of the producer's title — in a 416px dock.
+ *
+ * ⛔ AN EARLIER REVISION OF THIS HEADER SAID "THE CATEGORY CHIP STAYS", and
+ * argued it: `guidanceCategoryIcon` was BINARY, so the glyph could not separate
+ * `could_fix` from `technique`, and dropping the chip would have left a
+ * four-value distinction carried by tint alone — WCAG 1.4.1 (Use of Colour) at
+ * Level A. That reasoning was SOUND and the conclusion drawn from it was
+ * WRONG: the answer to "the glyph cannot carry four values" is to make the
+ * glyph carry four values, not to keep a second element that can. The glyph is
+ * now four distinct SHAPES (`guidanceCategoryIcon`), shape being a non-colour
+ * channel, and the chip is retired as the duplicate it had become.
+ *
+ * ⛔ THE BADGE DOT IS NOT DRAWN HERE AND NEVER WAS — it is painted by
+ * `InlineBlocks`, which is why `suppressHeader` could not reach it and why it
+ * outlived every other limb of the card treatment. It is gated there now.
+ *
+ * ⚠⚠ THE PILL WAS ALSO THIS ROW'S ONLY ACCESSIBLE NAME for the category, the
+ * glyph having shipped `aria-hidden`. The name moved to the glyph rather than
+ * being dropped with it; see the summary below.
  *
  * ## ⚠⚠ THE LINE IS PRODUCER COPY, VERBATIM, OR THERE IS NO LINE
  *
@@ -78,10 +95,10 @@
  * too long to scan, that is a finding to report to the CEE lane — not a
  * substring to take here.
  *
- * The category chip is the same producer four-value class the full card shows,
- * through the same `STRENGTHEN_COPY.severityLabel` map, and the icon is the
- * same `guidanceCategoryIcon` the full card calls. Nothing on this line is
- * derived; it is the card's own top two rows, and no more.
+ * The glyph is the same `guidanceCategoryIcon` the full card calls, and its
+ * accessible name is the same `STRENGTHEN_COPY.severityLabel` string the card's
+ * badge renders. Nothing on this line is derived — the line shows fewer of the
+ * card's elements than it did, never different ones.
  *
  * ## Fail closed
  *
@@ -130,23 +147,15 @@ import styles from './Conversation.module.css'
 /** The producer's four-value severity class, where the block carries one. */
 type CoachingCategory = keyof typeof STRENGTHEN_COPY.severityLabel
 
-/**
- * Outlined chip recipe, matching `V5CoachingBlock`'s own category badge.
- * DS v5: pills are outlined only — never filled, and the text is never the
- * tone colour.
- *
- * ⚠ ON THE LINE THE TEXT IS `text-text-light`, NOT `text-text-body` — this
- * comment claimed "always text-text-body" while the element below it set
- * `text-text-light`. The lighter tone is deliberate: the chip is secondary to
- * the producer's title on a row built to be scanned past. Contrast is not the
- * trade — `#6E6B6B` on `--bg-panel` measures 5.23:1, above the 4.5:1 floor.
+/*
+ * ⛔ `CHIP_CLASS` LIVED HERE AND IS GONE WITH THE PILL IT STYLED. Its four
+ * border tints were the row's only four-value channel while the glyph was
+ * binary; now `guidanceCategoryIcon` returns four distinct SHAPES, the chip
+ * is a second channel saying what the glyph already says, and the estate's
+ * own rule is that no channel duplicates another. The category badge on the
+ * full CARD (`V5CoachingBlock`) is untouched — a card has the room, and this
+ * change is about the LINE.
  */
-const CHIP_CLASS: Record<CoachingCategory, string> = {
-  must_fix: 'border-danger/60',
-  should_fix: 'border-danger/50',
-  could_fix: 'border-info/50',
-  technique: 'border-panel-border',
-}
 
 /** The producer's own title, or null when it did not send a usable one. */
 export function collapsibleTitle(block: ConversationBlock): string | null {
@@ -363,23 +372,36 @@ export function CoachingLine({ block, children, disambiguator = null }: Coaching
         className={styles.coachingLineSummary}
         data-testid={`coaching-line-summary-${blockId}`}
       >
+        {/*
+          ⭐ THE GLYPH CARRIES THE CATEGORY NOW, so the pill beside it is gone.
+          It was not removable before: `guidanceCategoryIcon` was binary, so
+          `could_fix` and `technique` drew the SAME Lightbulb and only the pill
+          said which a row was. Dropping it then would have left a four-value
+          distinction carried by tint alone — WCAG 1.4.1 (Use of Colour) at
+          Level A. Four shapes is what makes the pill redundant rather than
+          merely unfashionable.
+
+          ⚠⚠ AND THE PILL WAS THIS ROW'S ONLY ACCESSIBLE NAME FOR THE CATEGORY.
+          The glyph shipped `aria-hidden`, so deleting the pill without naming
+          the glyph would have removed the category from assistive technology
+          altogether — a visual defect traded for an accessibility one. The
+          name moves to the glyph, from the SAME `STRENGTHEN_COPY` map the pill
+          rendered, so the screen and the screen reader cannot drift.
+
+          ⚠ Only the coaching family carries a `category`. Review-card and
+          evidence lines have none and never had a pill, so their glyph stays
+          `aria-hidden` exactly as before — their meaning is in the title beside
+          it. That those families convey SEVERITY through glyph and tint with
+          no text equivalent is a real and PRE-EXISTING gap; it is reported,
+          not silently widened or quietly fixed from this lane.
+        */}
         <Icon
           size={ICON_DENSE}
           className={`flex-none ${tintClass}`}
-          aria-hidden="true"
+          {...(category
+            ? { role: 'img', 'aria-label': STRENGTHEN_COPY.severityLabel[category] }
+            : { 'aria-hidden': true })}
         />
-        {category && (
-          <span
-            className={[
-              'inline-flex flex-none items-center rounded-full px-1.5 border bg-transparent text-text-light',
-              CHIP_CLASS[category],
-              typography.panelMeta,
-            ].join(' ')}
-            data-testid={`coaching-line-category-${blockId}`}
-          >
-            {STRENGTHEN_COPY.severityLabel[category]}
-          </span>
-        )}
         {/*
           ⚠ ONE FLEX ITEM, TWO SPANS — and the nesting is the fix, not tidiness.
           As SIBLING flex items the ref is pinned by `flex-none` and the title

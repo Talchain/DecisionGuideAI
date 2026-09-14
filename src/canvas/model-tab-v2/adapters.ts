@@ -137,6 +137,7 @@ import type { ObservedState } from '../domain/nodes'
 import type { ObservedState as ModelTabObservedState } from '../components/model-tab/types'
 import type { ValidationMetadata } from '../domain/validation'
 import { getCausalEdges } from '../domain/edgeUtils'
+import { edgeStrengthEditIsAssertable } from '../conversation/edgeStrengthEdit'
 import { resolveEdgeDirectionDisplay, resolveEdgeValueDisplay } from '../domain/edgeValueProvenance'
 import { getDirectionalStrengthLabel } from '../components/model-tab/strengthBands'
 import { getPrimaryValue, formatSmartNumber } from '../components/model-tab/utils'
@@ -753,6 +754,32 @@ export function toModelRows(input: ModelProjectionInput): ModelRow[] {
     const attention: AttentionReason[] = []
     if (edgeIsContested(data)) attention.push('contested')
     if (input.fragileEdgeIds?.has(getDisplayEdgeId(edge))) attention.push('fragile')
+    /**
+     * ⭐ AN ESTIMATE NOBODY HAS RATIFIED — the same reason a factor carries, now
+     * available on the relationship whose strength Olumi guessed. It is what
+     * offers the row's existing Confirm chip; there is no new control here.
+     *
+     * ⛔⛔ GATED ON `provenanceDisplay`, NOT ON `weightSource`, AND THE FIELD
+     * CHOICE IS MEASURED RATHER THAN STYLISTIC. Driven on served `e6d7971b`,
+     * three runs, three edges: after a user states a strength the server records
+     * `provenance.source: 'user_specified'` and the canvas updates
+     * `provenanceDisplay` to `'user_set'` and `directionSource` to `'user'` —
+     * but `weightSource` STAYS `'cee'`, and survives a cold reload. Gating on
+     * `weightSource` would therefore keep offering "confirm this estimate" on a
+     * value the user had already set, forever. (`provenanceSource` on the row
+     * below reads that same stale field and is a known defect, owned elsewhere;
+     * this predicate deliberately does not inherit it.)
+     *
+     * ⚠ AND IT REQUIRES AN ASSERTABLE STRENGTH, asked of the builder rather than
+     * restated: with no server-stated tuple there is no `expected` to ratify, so
+     * the confirmation cannot be built and the chip would be an advertisement.
+     */
+    if (
+      (data as { provenanceDisplay?: unknown } | undefined)?.provenanceDisplay === 'ai_inferred' &&
+      edgeStrengthEditIsAssertable(edge)
+    ) {
+      attention.push('unconfirmed-estimate')
+    }
 
     rows.push({
       id: edge.id,

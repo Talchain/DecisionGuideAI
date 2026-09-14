@@ -49,6 +49,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
 import { EDIT_RESERVED_HEIGHT_CLASS } from './valueCellMetrics'
 import {
@@ -135,6 +136,12 @@ export interface ModelRowViewProps {
    * cannot honour it.
    */
   onConfirmValueAsIs?: (id: string) => void
+  /**
+   * Ratify a RELATIONSHIP's strength — the `confirm_current` wire act. Separate
+   * from `onConfirmValueAsIs` because the two ratifications have different
+   * carriers and different authorities; absent means the host withholds it.
+   */
+  onConfirmRelationshipAsIs?: (id: string) => void
   /**
    * ⭐ Rename this element. ABSENT MEANS NO AFFORDANCE — see `renameAvailable`.
    *
@@ -291,6 +298,40 @@ export function valueMayShrink(display: string | null): boolean {
   return text.length > 12
 }
 
+/**
+ * ⛔⛔ THE ACCESSIBLE NAME OF A CONFIRMATION IS A CLAIM, AND ON A RELATIONSHIP
+ * THE OLD ONE WAS THE WRONG CLAIM — 13 Sep 2026.
+ *
+ * The chip read `Confirm <label> is correct`. For a factor value that is at
+ * least arguable. For a relationship strength it is not: the act stamps
+ * PROVENANCE and changes no number, so what the person is doing is adopting
+ * Olumi's estimate as their own judgement — not certifying that it is right.
+ * CEE, which owns the write, says exactly that and says it better: its guard
+ * admits the write only when strength and direction are deep-equal to before
+ * and `provenance.source` becomes `user_specified`, and its refusal for the
+ * wrong intent tells the caller to *"adopt the existing value"*.
+ *
+ * ⚠ AND THIS PR IS WHAT MADE IT LOAD-BEARING. The strings are older than this
+ * change; routing relationship rows through them is not. Shipping that would
+ * have re-opened, one aria-label wide, the same wound the canvas provenance
+ * fixes just closed: the product asserting something untrue about whose
+ * judgement a number carries. A confirmation that records agreement must not
+ * read as a validation — this file's own ruling, applied to this file.
+ *
+ * The number stays Olumi's. The judgement becomes the user's. That is the
+ * whole act and the name now says it.
+ */
+const CONFIRM_AS_IS_COPY = {
+  value: {
+    title: 'Confirm this value is correct',
+    label: (rowLabel: string) => `Confirm ${rowLabel} is correct`,
+  },
+  relationship: {
+    title: 'Adopt this estimate as your own judgement',
+    label: (rowLabel: string) => `Adopt Olumi’s estimate for ${rowLabel} as your own judgement`,
+  },
+} as const
+
 export function ModelRowView({
   row,
   tier,
@@ -305,6 +346,7 @@ export function ModelRowView({
   onDiscardEdit,
   onConfirmEdit,
   onConfirmValueAsIs,
+  onConfirmRelationshipAsIs,
   onRenameRow,
 }: ModelRowViewProps) {
   const phase = commit?.phase ?? 'idle'
@@ -430,8 +472,26 @@ export function ModelRowView({
    * in `adapters.ts`), so there is exactly one predicate and this surface reads
    * it rather than re-deriving half of it.
    */
+  /**
+   * ⚠ ONE CHIP, TWO ACTS, SO TWO HANDLERS — AND THE ROW STILL DECIDES BY THE
+   * ATTENTION REASON ALONE. Ratifying a FACTOR's value is a local-only write
+   * (`disabled` under the B3 policy); ratifying a RELATIONSHIP's strength is the
+   * receipt-bearing `confirm_current` wire act (`server_graph`). They need
+   * different connectivity answers, and this file is not where connectivity is
+   * decided — the HOST decides it by passing a handler or not, exactly as it
+   * already did for factors.
+   *
+   * ⛔ AN EARLIER CUT READ THE AUTHORITY TABLE HERE INSTEAD, AND TWO SPECS
+   * CAUGHT IT — including one whose whole subject is that this chip is offered
+   * *"by the ATTENTION REASON alone"*. It was written after a mutant that bit
+   * only a source scan. Re-deriving connectivity in the row is the same defect
+   * as re-deriving the value guard: a second place answering a question that
+   * already has an owner.
+   */
+  const confirmHandler =
+    row.kind === 'relationship' ? onConfirmRelationshipAsIs : onConfirmValueAsIs
   const canConfirmAsIs =
-    typeof onConfirmValueAsIs === 'function' &&
+    typeof confirmHandler === 'function' &&
     row.attention.includes('unconfirmed-estimate')
 
   return (
@@ -479,13 +539,45 @@ export function ModelRowView({
       }`}
       onClick={() => onSelect?.(row.id)}
     >
+      {/* ── CELL 1 · KIND — THE CANONICAL SHAPE, NOT A LOCAL CHARACTER.
+          ⛔ THIS RENDERED A MONOCHROME UNICODE GLYPH FROM A MAP PRIVATE TO THIS
+          TAB, AND THE MAP CONTRADICTED THE PRODUCT. `NodeShapeIndicator` is the
+          Design System v4 shape channel — coloured SVG, all eight kinds — and
+          SIXTEEN files use it: the canvas nodes, the inspector, the coaching
+          panel, the pre-analysis hero, the legend popover. The Model tab used
+          ZERO, so the one surface that lists the model by name was the only one
+          not speaking its visual language.
+
+          ⚠ AND IT WAS NOT MERELY COLOURLESS — IT WAS WRONG. `option` is a
+          SQUARE in `NodeShapeIndicator` and was `'○'`, a CIRCLE, here; `factor`
+          is a circle in both. So the two most numerous kinds differed only by
+          FILL in this outline while being circle-vs-square everywhere else, and
+          a reader could not carry one surface's vocabulary to the other. The
+          comment above `KIND_GLYPH` claimed it "names the same kinds the same
+          way" as the canvas; that was false for `option`, and its cited
+          authority (`EntityBar`) is itself Model-tab-local.
+
+          `relationship` keeps a glyph deliberately: it is an EDGE, it has no
+          node shape, and inventing one would assert a kind the domain does not
+          have.
+
+          ⛔ DO NOT PUT `data-kind` ON THIS SPAN. `data-kind` is the ROW-vs-ATOM
+          DISCRIMINATOR: `ModelOutline.spec` and `rowAtomsAlignToOneGrid.spec`
+          both select `[data-testid^="model-row-v2-"]` and then keep only the
+          elements CARRYING it — "`data-kind` excludes the atoms underneath
+          them", in the second file's own words. A first draft of this change
+          added it here as a convenience and broke seven assertions across two
+          specs, because an attribute is not neutral when something else uses
+          its PRESENCE as an identity predicate. */}
       <span
         aria-label={KIND_LABEL[row.kind]}
         title={KIND_LABEL[row.kind]}
         data-testid={`model-row-v2-${row.id}-glyph`}
-        className="text-text-light select-none"
+        className="flex items-center justify-center text-text-light select-none"
       >
-        {KIND_GLYPH[row.kind]}
+        {row.kind === 'relationship'
+          ? KIND_GLYPH.relationship
+          : <NodeShapeIndicator nodeKind={row.kind} size={11} />}
       </span>
 
       {/* ── CELL 2 · IDENTITY — the flexible track. `min-w-0` is required or
@@ -1030,12 +1122,12 @@ export function ModelRowView({
         <button
           type="button"
           data-testid={`model-row-v2-${row.id}-confirm-as-is`}
-          title="Confirm this value is correct"
-          aria-label={`Confirm ${row.label} is correct`}
+          title={CONFIRM_AS_IS_COPY[row.kind === 'relationship' ? 'relationship' : 'value'].title}
+          aria-label={CONFIRM_AS_IS_COPY[row.kind === 'relationship' ? 'relationship' : 'value'].label(row.label)}
           className={`${typography.buttonSmall} text-info underline decoration-dotted shrink-0 whitespace-nowrap`}
           onClick={e => {
             e.stopPropagation()
-            onConfirmValueAsIs?.(row.id)
+            confirmHandler?.(row.id)
           }}
         >
           Confirm
@@ -2038,6 +2130,58 @@ function ValueCell({
         return (
           <span data-testid={testid} className={typography.panelTabular}>
             {commit.value}
+          </span>
+        )
+      /*
+        ⭐ SHAPED ON `proposed`, NOT ON `refused`, AND THE REASON IS LAYOUT AS
+        MUCH AS MEANING. This file's own note records that `inflight`,
+        `applied` and `refused` carry no width class at all, leaving
+        `min-width: auto` — "a LOADED GUN for the arms that are dark today".
+        `proposed` is the arm that already solved it: `flex-wrap` lets the cell
+        grow in HEIGHT instead of pushing the column out, and the ruling beside
+        it is explicit that the taller row is deliberate and transient. A
+        settlement notice is a sentence, so it would have fired that gun; it
+        takes `proposed`'s shape and fires nothing.
+
+        `role="alert"` for the same reason `proposed` uses it: this text appears
+        in response to the user's own act and says the act did not land, which
+        is the one thing on this row a screen reader must not have to go
+        looking for.
+      */
+      case 'confirm_unsettled':
+        return (
+          <span
+            data-testid={testid}
+            className={`${typography.panelTabular} min-w-0 flex flex-wrap items-baseline`}
+          >
+            {/*
+              ⛔⛔ `text-text-header`, NOT `text-danger`, AND A GUARD CAUGHT ME.
+              `reasoning-model-text-contrast-per-site` reddened on this exact
+              line: text-danger (#EA7B4B) on --bg-panel-hover is **2.70:1**
+              where SC 1.4.3 needs 4.5:1. **A notice the reader cannot see is
+              the same silent failure this whole change exists to remove**, one
+              level down, committed inside the fix for it.
+
+              Its own remedy list forecloses the obvious escapes: of the 21
+              semantic tokens, only --text-header, --text-light and --info clear
+              4.5:1 on both panel grounds, and NOT ONE semantic colour clears
+              even 3:1 — so there is no darker red to reach for. A tinted pill
+              makes it worse, because bg-<c>/NN moves the ground TOWARDS the
+              text.
+
+              ⭐ Nothing is lost, because colour was never carrying the meaning
+              here: the sentence does ("Not sent — …", "Not recorded — …",
+              "Olumi may not have recorded this"), and `role="alert"` carries it
+              for assistive tech. Severity by word, per the guard's own
+              instruction.
+            */}
+            <span
+              role="alert"
+              data-testid={`${testid}-confirm-unsettled`}
+              className={`${typography.panelBody} text-text-header min-w-0`}
+            >
+              {commit.reason}
+            </span>
           </span>
         )
       case 'refused':

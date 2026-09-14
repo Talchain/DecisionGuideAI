@@ -1089,6 +1089,64 @@ function buildUncertainty(
      * SENTENCE, and that sentence is the producer's to reword.
      */
     const bucket = u.code === 'SENSITIVE_ASSUMPTION' ? sensitivityFindings : findings
+    /**
+     * ⭐⭐ THE ACT, ON THE ROWS THAT ACTUALLY RENDER.
+     *
+     * "What would change your mind" and the assumed-strength card read the SAME
+     * producer array. The card additionally needs a canvas edge it can NAME;
+     * these rows do not, which is why they render on ordinary runs. Attaching
+     * the same act here reaches them.
+     *
+     * ⚠ NO FREQUENCY CLAIM. "3/3 non-render on the served build" was retracted —
+     * a sample presented as a population, cause never measured. See
+     * `useResultsSectionData`'s `sensitivityReviewTargets` header.
+     *
+     * ⛔ AND IT IS DEDUPED AGAINST THE CARD BY EDGE IDENTITY, NOT BY POSITION.
+     * Both selections are built in this function. Where the card has claimed an
+     * edge, the row for that same edge carries NO act — the mount's own rule is
+     * that "a reader meeting one sentence in two sections is a defect this panel
+     * has already shipped", and two doors to one place is the same defect wearing
+     * an affordance.
+     */
+    const rowEdgeKey = u.edgeFromId && u.edgeToId ? `${u.edgeFromId}->${u.edgeToId}` : null
+    // ⚠ OPTIONAL READ, FAIL-CLOSED. A consumer that predates this field — or a
+    // fixture whose cast return omits it — yields NO ACT rather than a throw.
+    // Absent is the same answer as "the destination cannot serve this edge",
+    // which is the safe direction and the one the rest of this design takes.
+    const rowEdgeId = rowEdgeKey ? data.sensitivityReviewTargets?.get(rowEdgeKey) : undefined
+    /**
+     * ⛔⛔ THREE FIELDS, THREE QUESTIONS — DO NOT COLLAPSE THEM AGAIN.
+     *
+     * The first draft of this change pointed `targetId` at the EDGE, because
+     * "Show on canvas" was framing the SOURCE NODE of a sentence whose subject
+     * is a RELATIONSHIP. That reasoning was right about the camera and wrong
+     * about the field: `targetId` has a SECOND reader with a different need.
+     *
+     * `nodeInsights.buildNodeInsights` keys mentions by `targetId` into a
+     * NODE-KEYED map (`:289-293`) that `ModelStrip` reads as
+     * `insights.get(active.id)`. An edge id there is a key no node lookup can
+     * ever hit, so the row's mention vanishes from the strip — MEASURED by the
+     * reviewer: baseline keys `["fac_demand"]`, changed keys `["e-7"]`. And
+     * because the repoint is conditional on `reviewableEdgeIds`, the rows that
+     * went quiet were THE MOST ACTIONABLE ONES.
+     *
+     * So (CLAUDE.md trap 21): write down the question each reader asks.
+     *   `targetId`       — *which NODE does this finding join to?*  identity
+     *                      join, unchanged meaning, unchanged readers.
+     *   `focusTargetId`  — *what should the camera FRAME?*  the edge when one
+     *                      resolves, because the sentence is about a
+     *                      relationship. Falls back to `targetId`.
+     *   `reviewTargetId` — *which edge can the Model tab SERVE an editor for?*
+     *                      the act, and the only one the dedup suppresses.
+     *
+     * ⚠ THE CAMERA IS NOT DEDUPED AND THAT IS DELIBERATE. The dedup exists so
+     * one edge is not OFFERED TWICE; showing the reader where the relationship
+     * is was never the duplicated thing. A one-token `targetId: rowEdgeId ??
+     * …` would have fixed the camera on deduped rows and re-broken the strip —
+     * the two repairs are in tension only while one field answers both.
+     */
+    const focusTarget = rowEdgeId ?? undefined
+    const reviewTarget = rowEdgeId && rowEdgeId !== assumed?.edgeId ? rowEdgeId : undefined
     bucket.push({
       id: uncertaintyKey(u, i),
       // ⚠⚠ A HEADLINE IS A LABEL; THE FINDING IS THE SENTENCE — AND NEITHER MAY
@@ -1163,7 +1221,21 @@ function buildUncertainty(
           }.`
         : undefined,
       groundedIn: 'the sensitivity and critique analysis',
+      /**
+       * ⚠ THE CAMERA TARGET IS THE EDGE WHERE ONE RESOLVES, NOT THE SOURCE NODE.
+       * This read `u.affectedNodes?.[0]` — the FROM node — on a row whose whole
+       * sentence is about a RELATIONSHIP, so "Show on canvas" framed one end of
+       * the thing being discussed. Where the endpoints resolve to a canvas edge
+       * the row now points at the edge, which is what the assumed-strength card
+       * already does for the same population (`targetId: assumed.edgeId`). The
+       * node remains the fallback, so a row whose edge we cannot name keeps the
+       * behaviour it had.
+       */
       targetId: u.affectedNodes?.[0],
+      // Present only where the Model tab can serve the editor for that exact
+      // edge. Same id, second question — see `analysisNewTypes.ts`.
+      ...(focusTarget ? { focusTargetId: focusTarget } : {}),
+      ...(reviewTarget ? { reviewTargetId: reviewTarget } : {}),
       inspect: rows(
         row('Severity', u.severity),
         row('E-value', u.eValue != null ? String(u.eValue) : null),

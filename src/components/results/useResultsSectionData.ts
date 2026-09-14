@@ -1300,6 +1300,17 @@ export interface ResultsSectionDataReturn {
    * as the most important thing to resolve. See the selector's header.
    */
   assumedStrength: AssumedStrengthDecision
+  /**
+   * `"<fromId>-><toId>"` → the canvas edge id, for fragile-relationship rows the
+   * Model tab can serve an editor for. Absent key = no act on that row.
+   *
+   * OPTIONAL ON PURPOSE, and do not tighten it: six fixtures across the results
+   * suites construct this return shape for unrelated questions, and making this
+   * required turns every one of them into a TS2739 the count-based typecheck
+   * ratchet nets to zero against unrelated churn. Every consumer reads it
+   * fail-closed (`?.`), so absent means "no act offered", never a crash.
+   */
+  sensitivityReviewTargets?: ReadonlyMap<string, string>
 }
 
 export function useResultsSectionData(): ResultsSectionDataReturn {
@@ -3601,6 +3612,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         displayText: saDisplayText,
         suggestion: 'Review this assumption',
         affectedNodes: [fromId, toId].filter(Boolean),
+        // Which end is which — `affectedNodes` above cannot say, and a consumer
+        // reading its positions would be binding by order rather than identity.
+        ...(fromId ? { edgeFromId: fromId } : {}),
+        ...(toId ? { edgeToId: toId } : {}),
         severity,
         factorConfidence,
         eValue: rawEValue,
@@ -4243,6 +4258,50 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // computed from the previous run's flip evidence.
   }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap, runMeta?.ceeReviewV1, recommendation])
 
+  /**
+   * ⭐⭐ WHICH SENSITIVITY ROWS NAME A RELATIONSHIP THE READER CAN GO AND CHANGE.
+   *
+   * "What would change your mind" and the assumed-strength card read the SAME
+   * producer array (`robustness.fragile_edges`). The card additionally requires a
+   * canvas edge it can name; the sensitivity rows do not, which is why they
+   * render on ordinary runs and why the act belongs on them too.
+   *
+   * ⚠ NO CLAIM IS MADE HERE ABOUT HOW OFTEN THE CARD RENDERS, and an earlier
+   * version of this comment made one it could not support ("never seen by a
+   * user", from three captures, with no artefact cited). `selectAssumedStrengthToResolve`
+   * is TOTAL and returns a named `refusalReason` for every null —
+   * `no_robustness_data` / `all_strengths_set` / `no_edge_identity`. That datum
+   * says WHY, it is cheap to read on any ordinary run, and until someone reads
+   * it the cause is unmeasured. `all_strengths_set` would mean the card is
+   * simply correct. The structural argument for this map does not need the
+   * frequency claim and is not resting on it.
+   *
+   * ⚠ MATCHED BY ENDPOINTS. ISL emits `"<from>-><to>"` and the canvas holds
+   * `e-0`/`e-1`; measured on a committed capture, 0/9 match by id and 9/9 by
+   * from/to, so an endpoint map is what this needs.
+   * (NOT "an id-first lookup would read a clean zero" — that was refuted at the
+   * bytes: `matchCanvasEdge` is DUAL-FORMAT, `edge_id` first with a
+   * `from_id`/`to_id` fallback, so it is a SUPERSET of this endpoint-only
+   * match.)
+   *
+   * ⚠ AND THE GATE IS THE DESTINATION'S, reused rather than restated:
+   * `reviewableEdgeIds` is the two-conjunct set (a causal row exists AND the
+   * strength is assertable). A row whose edge is not in it carries no act.
+   */
+  const sensitivityReviewTargets = useMemo(() => {
+    const byEndpoints = new Map<string, string>()
+    for (const e of edges) byEndpoints.set(`${e.source}->${e.target}`, e.id)
+    const out = new Map<string, string>()
+    for (const u of confidence.uncertainties ?? []) {
+      if (u.code !== 'SENSITIVE_ASSUMPTION') continue
+      if (!u.edgeFromId || !u.edgeToId) continue
+      const edgeId = byEndpoints.get(`${u.edgeFromId}->${u.edgeToId}`)
+      if (edgeId && reviewableEdgeIds.has(edgeId)) out.set(`${u.edgeFromId}->${u.edgeToId}`, edgeId)
+    }
+    return out as ReadonlyMap<string, string>
+  }, [confidence, edges, reviewableEdgeIds])
+
+
   // ==========================================================================
   // Improvements Section Data (Legacy - now merged into confidence)
   // ==========================================================================
@@ -4387,6 +4446,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       decisionVoi,
       attributionSuppression,
       assumedStrength,
+      sensitivityReviewTargets,
     }),
     [
       recommendation,
@@ -4404,6 +4464,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       decisionVoi,
       attributionSuppression,
       assumedStrength,
+      sensitivityReviewTargets,
     ],
   )
 }

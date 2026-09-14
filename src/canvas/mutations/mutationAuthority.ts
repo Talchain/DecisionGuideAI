@@ -98,6 +98,26 @@ export const CANONICAL_EDIT_AUTHORITY = {
   canvasSelectionAndLayout: 'local_presentation',
   modelOptionIntervention: 'server_graph',
   modelFactorConfirmation: 'disabled',
+  /**
+   * Ratifying the strength the SERVER already holds for a relationship.
+   *
+   * ⭐ `server_graph` WHERE ITS FACTOR SIBLING IS `disabled`, AND THE DIFFERENCE
+   * IS THE B3 TEST ITSELF RATHER THAN AN EXCEPTION TO IT. That policy admits
+   * *"only receipt-bearing GraphV3 edits"*. `modelFactorConfirmation` is
+   * `disabled` because it is a LOCAL write — `setObservedSource('user_confirmed')`
+   * — that the server's own enum cannot carry. This one is the opposite in every
+   * respect the policy names: it travels as `edge_strength_edit` with
+   * `intent: 'confirm_current'`, CEE owns the write (*"permission to stamp
+   * exactly two provenance fields"*, guarded by a provenance-only full-graph
+   * diff), and it returns an applied `graph_patch` receipt — the same carrier and
+   * the same receipt an ordinary strength edit uses, which is already
+   * `server_graph` by this table's own reckoning.
+   *
+   * ⚠ SO THE TWO CONFIRMATIONS MUST NOT SHARE A GATE. They are one gesture in
+   * the UI and two different acts underneath, and gating the edge on the factor's
+   * key would withhold a server-owned write because a local-only one is dark.
+   */
+  modelEdgeStrengthConfirmation: 'server_graph',
   postRunFactorValue: 'disabled',
   postRunFactorConfirmation: 'disabled',
   postRunAutoFix: 'disabled',

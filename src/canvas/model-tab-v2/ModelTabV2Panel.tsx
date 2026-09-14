@@ -149,6 +149,50 @@ import {
 } from './adapters'
 import { MODEL_GROUP_IDS, type ModelGroupId } from './types'
 import type { DetailTier, EditCommitState, RepairQueue } from './types'
+import type { SystemEventSendSettlement } from '../conversation/settleSystemEventSend'
+import type { EdgeStrengthConfirmOutcome } from '../ui/inspector-v2/useInspectorMutations'
+
+/**
+ * ⭐⭐ WHAT THE ROW SAYS WHEN AGREEING WITH AN ESTIMATE DOES NOT LAND.
+ *
+ * ⛔ Until now it said NOTHING. `proposeEdgeStrengthConfirmation`'s send was
+ * swallowed and its synchronous refusals were dropped on the floor here, so a
+ * person pressed "this is correct", CEE answered no, and the surface that made
+ * the statement never heard. On the one act whose entire point is that the
+ * SERVER records it.
+ *
+ * ⛔ THERE IS NO SUCCESS LINE, DELIBERATELY. `'sent'` means a POST left, not
+ * that the agreement is on file — CEE owns edge provenance and the canvas
+ * learns it from the response. A row that said "recorded" on `'sent'` would be
+ * the optimistic write this surface exists to remove. Only failure is
+ * renderable from this seam; the affirmative half needs the receipt.
+ */
+const CONFIRM_SEND_NOTICE: Readonly<
+  Record<Exclude<SystemEventSendSettlement, 'sent'>, string>
+> = {
+  // ⚠ Unreachable while the carrier passes `deferIfBusy: false` — and mapped
+  // anyway, because "unreachable" is a claim about today's carrier and a
+  // settlement with no sentence would render an empty alert.
+  queued: 'Not recorded yet — this is waiting behind another change.',
+  blocked: 'Not sent — another change is still in flight. Try again in a moment.',
+  refused:
+    'Not recorded — the model moved on while this was in flight. ' +
+    'Ask Olumi about this link, then agree again.',
+  // ⚠ THE CAUTIOUS HALF, AND IT IS THE DANGEROUS ONE. Answering "not sent" to
+  // a failure that MAY have written invites the user to re-send something the
+  // model already holds. The uncertainty is stated, not resolved.
+  unverified: 'Olumi may not have recorded this. Check the conversation before agreeing again.',
+}
+
+/** The refusals that happen BEFORE any send, and were equally silent. */
+const CONFIRM_REFUSAL_NOTICE: Readonly<
+  Record<Exclude<EdgeStrengthConfirmOutcome, 'dispatched'>, string>
+> = {
+  refused_unassertable:
+    'Olumi has not stated a strength for this link, so there is nothing to agree with yet.',
+  no_carrier: 'Not sent — this decision has no open conversation to record it in.',
+  not_encodable: 'Not sent — this link could not be identified.',
+}
 
 export interface ModelTabV2PanelProps {
   nodes: Node[]
@@ -261,6 +305,9 @@ type MountedQueueId = Extract<RepairQueue['id'], 'confirm-estimates'>
 // can invoke it now.
 const FACTOR_CONFIRMATION_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.modelFactorConfirmation,
+)
+const EDGE_CONFIRMATION_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.modelEdgeStrengthConfirmation,
 )
 const OPTION_INTERVENTION_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.modelOptionIntervention,
@@ -586,13 +633,67 @@ export function ModelTabV2Panel({
    * node it could borrow. Hooks cannot be called per row, so the host tracks the
    * row whose confirmation is pending and dispatches on the next render.
    */
-  const [pendingConfirmId, setPendingConfirmId] = useState<string | null>(null)
-  const confirmAuthority = useModelEditAuthority(pendingConfirmId)
+  /**
+   * ⭐⭐ TWO KINDS OF RATIFICATION, ONE CHIP, AND THE KIND DECIDES THE CARRIER.
+   *
+   * A factor confirmation is a LOCAL provenance stamp (`proposeFactorConfirmation`
+   * → `setObservedSource('user_confirmed')`, which the server's own enum cannot
+   * carry). A relationship confirmation is a WIRE act: CEE owns edge provenance
+   * and `confirm_current` is *"permission to stamp exactly two provenance
+   * fields"*. So they are not one gesture with a switch inside — they are two
+   * acts the same chip can start, and the row's KIND is what picks.
+   *
+   * ⚠ THE ID SPACES DIFFER, AS `edit.rowId`'s note above says: a factor row's id
+   * is a NODE id and a relationship row's is an EDGE id. `useModelEditAuthority`
+   * takes them in different slots, so the kind must travel WITH the id or the
+   * edge id arrives in the node slot and the authority silently addresses
+   * nothing.
+   */
+  /** Keyed to the row it is about; one at a time, like every other commit state. */
+  const [confirmNotice, setConfirmNotice] = useState<{ rowId: string; reason: string } | null>(
+    null,
+  )
+  const confirmAttemptRef = useRef(0)
+
+  const [pendingConfirm, setPendingConfirm] = useState<
+    { id: string; kind: 'node' | 'edge' } | null
+  >(null)
+  const confirmAuthority = useModelEditAuthority(
+    pendingConfirm?.kind === 'node' ? pendingConfirm.id : null,
+    pendingConfirm?.kind === 'edge' ? pendingConfirm.id : null,
+  )
   useEffect(() => {
-    if (pendingConfirmId === null) return
-    confirmAuthority.proposeFactorConfirmation()
-    setPendingConfirmId(null)
-  }, [pendingConfirmId, confirmAuthority])
+    if (pendingConfirm === null) return
+    const rowId = pendingConfirm.id
+    // ⭐ FENCED BY THE ATTEMPT, minted per confirmation and never reused. A late
+    // settlement for a row the user has since left must not relabel whatever
+    // they confirmed next — the sibling's intervention seam proved that hole
+    // reachable, so it is closed here by construction rather than by argument.
+    const attempt = ++confirmAttemptRef.current
+    const say = (reason: string) =>
+      setConfirmNotice(prev => (confirmAttemptRef.current === attempt ? { rowId, reason } : prev))
+
+    if (pendingConfirm.kind === 'edge') {
+      const outcome = confirmAuthority.proposeEdgeStrengthConfirmation(rowId, {
+        onSendSettled: settlement => {
+          if (settlement === 'sent') return
+          say(CONFIRM_SEND_NOTICE[settlement])
+        },
+      })
+      // The synchronous half. These return BEFORE any send, so no settlement
+      // will ever arrive for them and a caller that waited would wait forever.
+      if (outcome !== 'dispatched') say(CONFIRM_REFUSAL_NOTICE[outcome])
+    } else {
+      // ⚠ NOT SWEPT HERE, AND NAMED RATHER THAN SKIPPED SILENTLY.
+      // `proposeFactorConfirmation` is a LOCAL provenance stamp with no carrier
+      // — `LocalCommitOutcome` is `'committed' | 'not_encodable'` — so it has no
+      // settlement to report and its one refusal is a different gap with a
+      // different remedy. Reporting it through this sentence set would be the
+      // justification-by-sibling that produced the defect above.
+      confirmAuthority.proposeFactorConfirmation()
+    }
+    setPendingConfirm(null)
+  }, [pendingConfirm, confirmAuthority])
 
   /**
    * ⚠ F8 — RESOLVING THE LAST ITEM RETURNS YOU TO THE OUTLINE.
@@ -621,7 +722,20 @@ export function ModelTabV2Panel({
   )
 
   const commitByRowId = useMemo(() => {
-    if (edit === null) return undefined
+    /**
+     * ⚠ ONE ENTRY, STILL. `ModelRowView`'s `proposed` arm rests on it in prose —
+     * "one row at a time can hold a commit state (`commitByRowId` is a one-entry
+     * map)" — and that is what licenses the taller row there. An open edit WINS
+     * over a stale confirmation verdict: they are two states of one interaction
+     * and the user has visibly moved on from the second.
+     */
+    if (edit === null) {
+      return confirmNotice
+        ? new Map<string, EditCommitState>([
+            [confirmNotice.rowId, { phase: 'confirm_unsettled', reason: confirmNotice.reason }],
+          ])
+        : undefined
+    }
     const state: EditCommitState =
       edit.phase === 'editing'
         ? { phase: 'editing', draft: edit.draft, ...(edit.unit !== undefined ? { unit: edit.unit } : {}) }
@@ -629,7 +743,7 @@ export function ModelTabV2Panel({
             ...(edit.notice ? { notice: edit.notice } : {}),
             to: edit.unit !== undefined ? `At least ${edit.draft} ${edit.unit} (absolute level)` : edit.draft }
     return new Map<string, EditCommitState>([[edit.rowId, state]])
-  }, [edit])
+  }, [edit, confirmNotice])
 
   /**
    * ⚠ SELECTING A DIFFERENT ROW ABANDONS AN OPEN INTERVENTION DRAFT. See
@@ -891,8 +1005,14 @@ export function ModelTabV2Panel({
   const confirmValueAsIs = useCallback((rowId: string) => {
     setEdit(null)
     setInterventionEdit(null)
-    setPendingConfirmId(rowId)
-  }, [])
+    // A fresh attempt replaces the last one's verdict rather than sitting under it.
+    setConfirmNotice(null)
+    // The kind is read from the ROWS, not guessed from the id's shape — an edge
+    // id and a node id are both opaque strings and a shape test would be a
+    // fourth place that decides what kind of thing an id names.
+    const kind = rows.find(r => r.id === rowId)?.kind === 'relationship' ? 'edge' : 'node'
+    setPendingConfirm({ id: rowId, kind })
+  }, [rows])
 
   const beginInterventionEdit = useCallback(
     (factorId: string, seed: string) => {
@@ -1329,7 +1449,16 @@ export function ModelTabV2Panel({
         onProposeEdit={proposeEdit}
         onDiscardEdit={discardEdit}
         onConfirmEdit={confirmEdit}
+        /* ⚠ TWO RATIFICATIONS, TWO GATES, AND NEITHER BORROWS THE OTHER'S.
+           The factor stamp stays withheld under the B3 policy because it is a
+           local-only write. The relationship stamp is the receipt-bearing
+           `confirm_current` act, so it is gated on its own authority key and is
+           live. Connectivity is decided HERE, as it already was; the row still
+           decides applicability by its attention reason alone. */
         onConfirmValueAsIs={FACTOR_CONFIRMATION_CONNECTED ? confirmValueAsIs : undefined}
+        onConfirmRelationshipAsIs={
+          EDGE_CONFIRMATION_CONNECTED ? confirmValueAsIs : undefined
+        }
         onRenameRow={onRenameRow}
         onGroupAction={onHandOffToOlumi ? handleGroupAction : undefined}
         groupActionContext={groupActionContext}

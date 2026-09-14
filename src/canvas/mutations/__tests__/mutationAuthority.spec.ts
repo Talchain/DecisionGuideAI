@@ -23,6 +23,31 @@ const EXPECTED_MOUNTED_AUTHORITY = {
     entrySurfaces: ['Model factor row'],
     requiredEvidence: 'accepted factor_value_edit plus GraphV3 readback',
   },
+  // 13 Sep 2026 — RATIFYING a strength the server already holds. It qualifies on
+  // its siblings' terms and on no weaker ones: the SAME receipt-bearing carrier
+  // as an ordinary strength edit (`edge_strength_edit`), a server-side write to
+  // `scenarios.graph`, and CEE's own implementation rather than a stub — an
+  // explicit `confirm_current` branch scoped to "permission to stamp exactly two
+  // provenance fields", guarded by a full-graph provenance-only diff with its own
+  // refusal arm (`confirmation_would_change_non_provenance_state`).
+  //
+  // ⚠ ITS FACTOR SIBLING IS `disabled` AND THAT IS NOT AN INCONSISTENCY — it is
+  // this table's test applied to two different acts. `modelFactorConfirmation`
+  // stays local-only because the server enum cannot carry a user stamp; this one
+  // is the server's write by construction. Same gesture in the UI, two carriers.
+  //
+  // ⛔ THE EVIDENCE LINE IS WHAT IS REQUIRED, NOT WHAT IS WITNESSED. The `set`
+  // arm of this carrier IS wire-witnessed (applied `graph_patch` receipt,
+  // `operation: 'adjust_edge_strength'`, served `e6d7971b`, 3/3). The
+  // `confirm_current` arm is SOURCE-DERIVED at CEE `0321e22e` and has no driven
+  // witness yet. Stated here so the next reader inherits the gap rather than the
+  // impression it was closed.
+  modelEdgeStrengthConfirmation: {
+    authority: 'server_graph',
+    entrySurfaces: ['Model relationship row confirm chip'],
+    requiredEvidence:
+      'accepted edge_strength_edit with intent confirm_current, and an applied graph_patch receipt for that exact edge',
+  },
   structuralDeleteWithServerHash: {
     authority: 'server_graph',
     entrySurfaces: ['canvas pointer', 'canvas keyboard', 'canvas change events'],
@@ -225,6 +250,7 @@ describe('mutation authority is exhaustive and fail-closed', () => {
       'canvasEdgeAddWithServerHash',
       'canvasNodeAddWithServerHash',
       'canvasNodeRenameWithServerHash',
+      'modelEdgeStrengthConfirmation',
       'modelFactorValue',
       'modelGoalMinimumTarget',
       // 0.54.0 — the option-effect edit joins on the same terms as its
