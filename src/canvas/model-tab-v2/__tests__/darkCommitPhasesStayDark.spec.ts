@@ -67,7 +67,9 @@ const PRODUCER = join(V2_DIR, 'ModelTabV2Panel.tsx')
 function producerPhases(source: string): string[] {
   // The memo whose declared return type is `Map<string, EditCommitState>` —
   // i.e. everything a row can be told, regardless of which state it came from.
-  const memo = source.match(/const commitByRowId = useMemo\(\(\) => \{([\s\S]*?)\n  \}, \[/)
+  // ⚠ ` {2}` rather than two literal spaces: `no-regex-spaces` is an ERROR in
+  // this repo's lint, which runs BEFORE the tests in CI and gates all of them.
+  const memo = source.match(/const commitByRowId = useMemo\(\(\) => \{([\s\S]*?)\n {2}\}, \[/)
   if (!memo) return []
   const seen = [...memo[1].matchAll(/\bphase:\s*'([a-zA-Z_]+)'/g)].map(m => m[1])
   return [...new Set(seen)].sort()
