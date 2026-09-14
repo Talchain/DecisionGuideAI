@@ -19,9 +19,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 
 const sendSystemEvent = vi.fn()
+/**
+ * ⚠ MUTABLE ON PURPOSE. `no_carrier` is the one synchronous refusal that is
+ * reachable WITH the chip on screen — the chip's gate asks whether the edge is
+ * assertable and says nothing about whether a conversation exists — so the
+ * absence of a carrier has to be expressible per test.
+ */
+let carrier: { sendSystemEvent?: unknown } = { sendSystemEvent }
 vi.mock('../../conversation/ConversationContext', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>()
-  return { ...actual, useOptionalConversationContext: () => ({ sendSystemEvent }) }
+  return { ...actual, useOptionalConversationContext: () => carrier }
 })
 
 import { ModelRowView } from '../ModelRowView'
@@ -147,7 +154,7 @@ function agree() {
   fireEvent.click(chip)
 }
 
-beforeEach(() => { vi.clearAllMocks() })
+beforeEach(() => { vi.clearAllMocks(); carrier = { sendSystemEvent } })
 afterEach(() => cleanup())
 
 describe('the host reports what happened to the statement', () => {
@@ -180,35 +187,26 @@ describe('the host reports what happened to the statement', () => {
     expect(screen.queryByTestId(`model-row-v2-${EDGE}-value-confirm-unsettled`)).toBeNull()
   })
 
-  it('⛔ the synchronous refusals were equally silent, and are not any more', async () => {
-    // No server-stated tuple ⇒ the builder refuses and NOTHING is sent, so no
-    // settlement will ever arrive. A surface waiting on one would wait forever.
-    useCanvasStore.setState(
-      { nodes: NODES, edges: [{ id: EDGE, source: 'fac_demand', target: 'out_rev', data: {} }] } as never,
-      false,
-    )
-    sendSystemEvent.mockResolvedValue(undefined)
-    render(
-      <ModelTabV2Panel
-        nodes={NODES as never}
-        edges={[{ id: EDGE, source: 'fac_demand', target: 'out_rev', data: {} }] as never}
-        goalThreshold={null}
-      />,
-    )
-    for (const b of screen.queryAllByRole('button')) {
-      if (/elements/i.test(b.textContent ?? '')) fireEvent.click(b)
-    }
-    const chip = screen.queryByTestId(`model-row-v2-${EDGE}-confirm-as-is`)
-    // The chip is offered only where the write can reach the server (design §2
-    // F6), so this row should not offer it at all. Pinned as the precondition:
-    // if it ever IS offered, the assertion below is what must catch the silence.
-    if (chip) {
-      fireEvent.click(chip)
-      const el = await screen.findByTestId(`model-row-v2-${EDGE}-value-confirm-unsettled`)
-      expect(el.textContent).toMatch(/nothing to agree with/i)
-      expect(sendSystemEvent).not.toHaveBeenCalled()
-    } else {
-      expect(sendSystemEvent).not.toHaveBeenCalled()
-    }
+  /**
+   * ⛔⛔ THIS TEST REPLACES ONE THAT COULD NOT FAIL, AND THE REPLACEMENT IS THE
+   * POINT. Its first version wrapped the assertions in `if (chip) { … } else { … }`
+   * and took the `else`, so it asserted nothing about the refusal channel — a
+   * mutant that deleted that channel entirely SURVIVED it (applied=1, failed=0).
+   * Vacuity found by the mutant, not by reading it.
+   *
+   * `no_carrier` is the reachable case: the chip's gate asks whether the EDGE is
+   * assertable and says nothing about whether a conversation exists, so a person
+   * on a decision with no open conversation is offered the act and — until now —
+   * got silence when it went nowhere.
+   */
+  it('⛔ a refusal that happens BEFORE any send is reported too, not just the wire ones', async () => {
+    carrier = {} // no `sendSystemEvent` — the carrier the act needs is absent
+    renderPanel()
+    agree()
+    const el = await screen.findByTestId(`model-row-v2-${EDGE}-value-confirm-unsettled`)
+    expect(el.textContent).toMatch(/no open conversation/i)
+    // Nothing was sent, so no settlement will ever arrive: a surface waiting on
+    // one would wait forever. This is the state that has no other way to end.
+    expect(sendSystemEvent).not.toHaveBeenCalled()
   })
 })
