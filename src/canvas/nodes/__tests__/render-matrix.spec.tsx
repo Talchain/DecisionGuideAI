@@ -1349,12 +1349,32 @@ describe('N1 — per-type selection ring', () => {
     vi.mocked(useCanvasStore).mockImplementation((sel: any) =>
       sel({ ...nodeState([]), lodRung: 'line' }),
     )
-    render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
+    // ⚠ THE FIXTURE GAINED A STATED VALUE ON 14 Sep 2026, AND THAT IS THE POINT.
+    // It was `{ label: 'Capacity' }` — a factor with no value, no `external`
+    // category and no prior, so `lodBodyLine` resolves to NULL for it. The body
+    // no longer blanks in that case (a card's content is never removed without
+    // something put in its place), so the old fixture stopped exercising the
+    // branch this test names. A value keeps the discriminating half real.
+    render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity', observedState: { raw_value: 0.62, unit: null } }} /></ReactFlowProvider>)
     const title = screen.getAllByTestId('node-title')[0]
     expect(title).not.toHaveStyle({ visibility: 'hidden' })
     // The discriminating half: the body IS still hidden, so this test cannot
     // pass on a build that simply removed level-of-detail altogether.
     expect(document.querySelector('[data-lod-hidden="true"]')).not.toBeNull()
+  })
+
+  it('D2 TWIN: a card with NO reduced line to show does NOT blank its body', () => {
+    // ⭐ THE PAIR IS WHAT BINDS THE PROPERTY. The case above proves the body
+    // still hides when there IS a replacement; this proves it does NOT hide
+    // when there is none. Keeping only the first leaves a test that cannot see
+    // the change — it would pass equally on a build that blanks every card.
+    vi.mocked(useCanvasStore).mockImplementation((sel: any) =>
+      sel({ ...nodeState([]), lodRung: 'line' }),
+    )
+    render(<ReactFlowProvider><FactorNode {...selProps} selected={false} data={{ label: 'Capacity' }} /></ReactFlowProvider>)
+    expect(screen.getAllByTestId('node-title')[0]).not.toHaveStyle({ visibility: 'hidden' })
+    expect(screen.queryByTestId('node-lod-line')).toBeNull()   // precondition: there is genuinely no replacement
+    expect(document.querySelector('[data-lod-hidden="true"]')).toBeNull()
   })
 
   it('D2: at LOD zoom a goal node keeps a boosted, visible title', () => {

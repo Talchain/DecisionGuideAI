@@ -348,6 +348,36 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     })
   }, [lodBodyHidden, lodMetric, nodeType, data, label, displayMetadata, lodFacts])
 
+  /**
+   * ⛔ A CARD'S CONTENT IS NEVER REMOVED WITHOUT SOMETHING PUT IN ITS PLACE.
+   *
+   * `lodBodyHidden` answers "is the canvas at the line rung?" — unchanged, and
+   * still what the kind tint, the quick actions and the reduced line itself
+   * read. THIS answers the narrower question "may the body actually blank?",
+   * and the answer is no unless a reduced line exists to take its place.
+   *
+   * ⭐ WHY A BOUND RATHER THAN A SIXTH ARM. Five rounds have each shipped one
+   * more `lodBodyLine` resolver arm — #1069 the factor value, #1074 the
+   * risk/outcome owner lines, #1085 goal/decision, the 1 Sep pre-analysis arms,
+   * Z2 the action line — and `lodMetricLine.ts`'s own header records the defect
+   * "REOPENED ANYWAY" after three of them. Every round needed a real browser to
+   * discover the NEXT blank class and none of them bounded the class. That is
+   * CLAUDE.md trap 22f: when the rounds oscillate, stop writing the next rule
+   * and change the shape.
+   *
+   * ⭐⭐ AND THE RULING IS ALREADY IN THIS FILE, one level up. The founder ruled
+   * the TITLE back on at the line rung on 30 Aug (:206-222): "Small text you can
+   * squint at is strictly better than a box that says nothing, and a blank card
+   * is indistinguishable from a broken render." This is that ruling applied to
+   * the BODY, and only where there is no replacement to show.
+   *
+   * Reachable null arms at this tip, so this is not hypothetical: an external
+   * factor on an ignorance prior (`factorPriorRange.ts` "if (isUnquantifiedPrior(prior)) return null"),
+   * any factor that is not `external`, and an option whose intervention count is
+   * unknown.
+   */
+  const lodBodyBlanked = lodBodyHidden && lodBodyLine !== null
+
   const isIncomplete = (() => {
     /* ⭐ GATED ON THE GAP, NOT THE PHASE — for the two node types whose predicate
        is phase-independent BY CONSTRUCTION.
@@ -1474,7 +1504,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           wrapper contributes no height and the line is absolutely positioned,
           so admitting it with no children changes no geometry. */}
       {!isCausalLens && !isEvidenceLens && (children || lodBodyLine) ? (
-        <div className="relative text-left" style={lodBodyHidden ? { visibility: 'hidden' } : undefined} data-lod-hidden={lodBodyHidden || undefined}>
+        <div className="relative text-left" style={lodBodyBlanked ? { visibility: 'hidden' } : undefined} data-lod-hidden={lodBodyBlanked || undefined}>
           {children as ReactNode}
           {/* The reduced line (see `lodBodyLine` above for what it is and why
               the scope is what it is).
