@@ -136,11 +136,24 @@ export type ModelElementKind =
  * reverted. A refusal that looks like nothing happened is the same defect as a
  * silent local write, one step later.
  */
+import type { ConstraintType } from '../../v5/chipParameters'
+
 export type EditCommitState =
   /** No edit in progress; the row shows the model's value. */
   | { phase: 'idle' }
   /** The user is typing. Nothing has been stated yet. */
-  | { phase: 'editing'; draft: string; unit?: string }
+  /**
+   * ⭐ `direction` TRAVELS WITH `unit`, AND THAT PAIRING IS THE POINT.
+   * A goal target is a number, a unit AND a bound. Carrying the first two while
+   * the call site hardcoded the third is how this surface could only ever
+   * record a floor — and the founder's own brief said "keeping monthly churn
+   * under 4%", a CEILING, with no way to say it.
+   *
+   * ⚠ OPTIONAL BECAUSE ONLY THE GOAL ROW HAS A BOUND. A factor value edit and
+   * a relationship strength edit are single numbers; giving them a direction
+   * field would invite a call site to set one that nothing reads.
+   */
+  | { phase: 'editing'; draft: string; unit?: string; direction?: ConstraintType }
   /**
    * The user has stated an intent. THE MODEL IS UNCHANGED and the previous
    * value stays visible beside the proposed one until it is confirmed.
