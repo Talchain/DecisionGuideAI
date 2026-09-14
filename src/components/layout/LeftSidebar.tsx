@@ -3,6 +3,7 @@ import {
   Eye,
   Hand,
   Layers,
+  Plus,
   Undo2,
   Redo2,
   MousePointer2,
@@ -41,6 +42,23 @@ interface LeftSidebarProps {
    */
   undoUnavailable?: boolean
   redoUnavailable?: boolean
+  /**
+   * ⭐⭐ THE ONLY VISIBLE DOOR TO AUTHORING YOUR OWN MODEL.
+   *
+   * Omitted, no button renders — the caller decides whether this build has a
+   * durable node-add carrier, and it decides by reading
+   * `CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash`, NOT the blanket
+   * `canvasSemanticMutations` that gates undo/redo above. Those are two
+   * different questions (CLAUDE.md trap 21) and `contextMenu/useMenuItems.ts`
+   * already separated them for this exact gesture on 13 Sep 2026. This surface
+   * had not been given the same treatment because it had no add control at all.
+   *
+   * ⚠ NO KEYBOARD SHORTCUT IS ADVERTISED, for the reason recorded at the undo
+   * button: the Command Palette's `setShowCommandPalette` is never called
+   * true, so there is no shortcut to name and naming one would be a live
+   * promise of a key that does nothing.
+   */
+  onAddToModelClick?: (anchor: { x: number; y: number }) => void
 }
 
 export function LeftSidebar({
@@ -53,9 +71,27 @@ export function LeftSidebar({
   canRedo = true,
   undoUnavailable = false,
   redoUnavailable = false,
+  onAddToModelClick,
 }: LeftSidebarProps) {
   const [lensOpen, setLensOpen] = useState(false)
   const viewBtnRef = useRef<HTMLButtonElement | null>(null)
+  const addBtnRef = useRef<HTMLButtonElement | null>(null)
+
+  /**
+   * ⭐ THE ANCHOR IS THE BUTTON'S OWN RECT, so the menu opens where the user
+   * clicked rather than at a guessed point. Falls back to the sidebar's known
+   * left edge if the ref has not attached (it always has by click time; the
+   * fallback exists so the handler is total rather than conditional).
+   */
+  const handleAddClick = useCallback(() => {
+    if (!onAddToModelClick) return
+    const rect = addBtnRef.current?.getBoundingClientRect()
+    onAddToModelClick(
+      rect
+        ? { x: Math.round(rect.right + 8), y: Math.round(rect.top) }
+        : { x: 72, y: 120 },
+    )
+  }, [onAddToModelClick])
 
   // Standard/Detailed view toggle
   const viewMode = useCanvasStore(s => s.viewMode)
@@ -103,6 +139,50 @@ export function LeftSidebar({
       className={styles.sidebar}
       aria-label="Canvas tools"
     >
+      {/* ⭐⭐ AUTHORING GROUP — THE ONLY VISIBLE DOOR TO ADDING SOMETHING YOURSELF.
+          It leads the toolbar because it is the only control here that changes
+          the MODEL; everything below changes the VIEW of it.
+
+          ⛔ WHY IT DID NOT EXIST, MEASURED. A founder session on 2026-09-14
+          (debug export `44e349fa`, UI `ab6ae8a6`) ran 30 minutes and 18 turns
+          and used ZERO canvas affordances — every action in its log is a chat
+          message or a chip. The durable node-add was authorised and reachable
+          the whole time: `canvasNodeAddWithServerHash` is `'server_graph'`, the
+          pane context menu's `add-node` items were unblocked on 13 Sep, and the
+          CEE-stamped `graph_hash` the carrier requires was on his wire
+          (`40fe96a9…`). It was reachable ONLY by right-clicking empty canvas,
+          which is to say it was reachable only by someone who already knew.
+          His two attempts to author went through chat and both returned CEE's
+          catch-all refusal.
+
+          ⭐ A DOOR NOBODY CAN SEE IS NOT A DOOR. This is the same gesture, the
+          same action and the same authority as the context-menu item — it is
+          standing chrome rather than a menu you must first think to open.
+
+          ⚠ IT OPENS THE EXISTING MENU RATHER THAN ADDING DIRECTLY, deliberately.
+          The kinds on offer are derived in `contextMenu/useMenuItems.ts` from
+          `WIRE_ADDABLE_NODE_KINDS` minus `SINGULAR_NODE_KINDS`, and re-deciding
+          that list here would be a second derivation of one fact — the
+          hand-maintained mirror this estate keeps paying for (trap 12). One
+          menu, one authority, two ways in. */}
+      {onAddToModelClick && (
+        <div className={styles.group}>
+          <Tooltip content="Add to model">
+            <button
+              ref={addBtnRef}
+              type="button"
+              className={styles.iconButton}
+              aria-label="Add to model"
+              aria-haspopup="menu"
+              data-testid="canvas-add-to-model"
+              onClick={handleAddClick}
+            >
+              <Plus className={styles.icon} aria-hidden="true" />
+            </button>
+          </Tooltip>
+        </div>
+      )}
+
       {/* Manipulation group: Select, Undo, Redo */}
       <div className={styles.group}>
         <Tooltip content={interactionMode === 'select' ? 'Hand mode (H)' : 'Select mode (V)'}>
