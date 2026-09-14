@@ -7,11 +7,15 @@ async function snapshot(page: Page) {
     const viewport = document.querySelector<HTMLElement>('.react-flow__viewport')!
     const matrix = new DOMMatrixReadOnly(getComputedStyle(viewport).transform)
     const nodes = [...document.querySelectorAll<HTMLElement>('.react-flow__node')]
+    const state = (window as unknown as {
+      useCanvasStore?: { getState: () => { nodes: { id: string; position: { x: number; y: number } }[] } }
+    }).useCanvasStore?.getState()
     return {
       x: matrix.e, y: matrix.f,
       selected: nodes.filter(node => node.classList.contains('selected'))
         .map(node => node.dataset.id!).sort(),
       positions: Object.fromEntries(nodes.map(node => [node.dataset.id!, node.style.transform])),
+      canonicalPositions: state ? Object.fromEntries(state.nodes.map(node => [node.id, node.position])) : null,
     }
   })
 }
@@ -79,12 +83,38 @@ for (const ids of [['dec_cdp'], ['opt_segment', 'opt_rudderstack']]) {
     }, start)
     expect(hit).toEqual({ cursor: 'grab', onSelectionOverlay: false })
     const before = await snapshot(page)
+    expect(before.canonicalPositions).not.toBeNull()
+    await page.mouse.move(start.x, start.y)
+    if (ids.length > 1) {
+      const annotations = page.getByTestId('factor-hover-intervention')
+      await expect(annotations).toHaveCount(6)
+      await expect(annotations.first()).toBeVisible()
+      const disclosures = await annotations.evaluateAll(elements => elements.map(element => {
+        const rect = element.getBoundingClientRect()
+        const card = element.closest('.react-flow__node')!.getBoundingClientRect()
+        const style = getComputedStyle(element)
+        return {
+          outsideCard: rect.bottom <= card.top,
+          hasText: (element.textContent?.trim().length ?? 0) > 1,
+          position: style.position, pointerEvents: style.pointerEvents,
+        }
+      }))
+      for (const disclosure of disclosures) expect(disclosure).toEqual({
+        outsideCard: true, hasText: true, position: 'absolute', pointerEvents: 'none',
+      })
+    }
+    // Observe hover BEFORE mousedown. The old in-flow annotation resized
+    // factors and committed a measured layout during this interval.
+    await page.waitForTimeout(500)
+    const hovered = await snapshot(page)
+    expect(hovered).toEqual(before)
     await drag(page, start.x, start.y, 80, 40)
     await expect.poll(async () => (await snapshot(page)).x - before.x).toBeCloseTo(80, 0)
     const panned = await snapshot(page)
     expect(panned.y - before.y).toBeCloseTo(40, 0)
     expect(panned.selected).toEqual(selected)
     expect(panned.positions).toEqual(before.positions)
+    expect(panned.canonicalPositions).toEqual(before.canonicalPositions)
 
     await page.getByRole('button', { name: 'Switch to Select mode', exact: true }).click()
     const restoredBox = (await overlay.boundingBox())!
@@ -104,13 +134,14 @@ for (const ids of [['dec_cdp'], ['opt_segment', 'opt_rudderstack']]) {
     await page.keyboard.press('Escape')
     const escaped = await snapshot(page)
     expect(escaped.positions).toEqual(moved.positions)
+    expect(escaped.canonicalPositions).toEqual(moved.canonicalPositions)
     expect(escaped.x).toBe(moved.x)
     expect(escaped.y).toBe(moved.y)
     // Focus is on the selection rectangle after group dragging, rather than
     // an individual node. Escape therefore keeps this selection intact.
     expect(escaped.selected).toEqual(moved.selected)
     await testInfo.attach('selection-pan-and-drag', {
-      body: JSON.stringify({ before, panned, moved, escaped }), contentType: 'application/json',
+      body: JSON.stringify({ before, hovered, panned, moved, escaped }), contentType: 'application/json',
     })
   })
 }
