@@ -695,13 +695,25 @@ export const HEIGHT_GROWTH_TOLERANCE_PX = 4
  * THING, and it does not merge the kinds, the colours or the copy. It places
  * them on one row because that is where the causal graph puts them.
  *
- * ⚠ AND THE ONE THING THAT WOULD MAKE IT WRONG, checked rather than assumed: a
- * `risk→outcome` edge would become an intra-row edge, which reads badly. Zero
- * exist in the shipped starters, and nothing in the product forbids one — the
- * drag validator blocks self-loops, duplicates, cycles and limits, and has NO
- * kind-pair rule at all. The only such edge in the repository is a synthetic
- * fixture inside `layout.semantic.spec.ts`. If that class ever becomes real,
- * this is the line to revisit.
+ * ⚠ AND THE ONE THING THAT WOULD MAKE IT WRONG, checked rather than assumed: an
+ * `outcome→risk` edge would become an intra-row edge, which reads badly. ZERO
+ * exist in the five shipped starters (87 nodes, 163 edges, swept at the bytes),
+ * and nothing in the product forbids one — the drag validator blocks self-loops,
+ * duplicates, cycles and limits, and has NO kind-pair rule at all.
+ *
+ * ⛔ AN EARLIER VERSION OF THIS PARAGRAPH SAID "the only such edge in the
+ * repository is a synthetic fixture inside `layout.semantic.spec.ts`". THAT WAS
+ * FALSE and is corrected here rather than quietly rewritten, because a confident
+ * count in a comment is exactly the kind of claim nobody re-checks. Swept with
+ * `rg -a` against a contrast control (`makeEdge(` = 63 in one of the same
+ * files, so the probe plainly sees edges): there are FIVE, across TWO files —
+ * `layout.spec.ts:566,595,650` and `layout.semantic.spec.ts:302,619`.
+ *
+ * ⭐ ALL FIVE STILL PASS ON THE MERGED TIER, which is the fact that matters and
+ * was measured rather than hoped: the full affected suite is green, and those
+ * three `layout.spec.ts` cases are overlap guards that care about spacing rather
+ * than row ORDER. So the intra-row case is exercised today and handled. If it
+ * ever becomes real in a SHIPPED model, this is still the line to revisit.
  *
  * ⚠ TIER 4 IS NOW EMPTY AND THAT COSTS NOTHING — verified, not assumed.
  * `normaliseTierRows` iterates `[...tierAssignments.keys()]`, i.e. OCCUPIED
