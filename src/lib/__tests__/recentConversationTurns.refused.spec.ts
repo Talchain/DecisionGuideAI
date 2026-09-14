@@ -51,7 +51,15 @@ function rec(
   }
 }
 
-/** The exact wire block CEE's `buildBoundaryBlocks` ships for a refused edit. */
+/**
+ * The exact wire block CEE's `buildBoundaryBlocks` ships for a refused edit.
+ * Copied from a REAL staging response body (scenario 95c3dcdc-…, 2026-09-14):
+ *   {"type":"error","error_code":"INTERNAL_ERROR","severity":"warn",
+ *    "details":{"source":"edit_graph","rejection_code":"ORPHAN_NODE",
+ *               "failure_branch":"graph_structure_invalid",
+ *               "violation_codes":["ORPHAN_NODE"]}}
+ * The two `details` keys omitted here are ones the reader does not consult.
+ */
 function errorBlock(rejectionCode: string | null) {
   return {
     type: 'error',
@@ -64,7 +72,19 @@ function errorBlock(rejectionCode: string | null) {
   }
 }
 
-/** Turns 13 and 14 of the 44e349fa export — the two that read `answered`. */
+/**
+ * Turns 13 and 14 of the 44e349fa export — the two that read `answered`.
+ *
+ * ⚠ PROVENANCE, EXACTLY (a capture proves what it was pointed at). The
+ * `assistant_text` below is VERBATIM from that export. The `blocks` array is
+ * NOT — the export projects its turn records and does not carry their response
+ * bodies, so no capture of those two bodies exists. It is a RECONSTRUCTION from
+ * two things that are measured: CEE logged `failure_code: "OPERATION_DID_NOT_LAND"`
+ * for both turns, and `buildBoundaryBlocks` maps exactly that to the error block
+ * spelled here — a shape independently confirmed on the live wire (see
+ * `errorBlock`'s own fixtures, driven on staging). Faithful, but derived; do not
+ * cite this as "the export contained these blocks".
+ */
 const REFUSAL_TEXT =
   "I couldn't complete that change, and nothing in your model has changed. "
   + 'Try again in a moment, or describe the change a different way.'
