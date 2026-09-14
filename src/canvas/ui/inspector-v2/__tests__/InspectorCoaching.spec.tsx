@@ -15,6 +15,7 @@ import { join } from 'node:path'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useGuidanceStore, type GuidanceItem } from '../../../stores/guidanceStore'
+import { resolveAskTemplate } from '../inspectorStrings'
 
 function makeGuidanceItem(overrides: Partial<GuidanceItem> = {}): GuidanceItem {
   return {
@@ -37,6 +38,20 @@ const defaultProps = {
   fallbackText: 'Static coaching fallback text',
   labelContext: { label: 'Marketing Budget' },
 }
+
+/**
+ * ⚠ DERIVED FROM THE REGISTER, NOT COPIED FROM IT (trap 12). This used to be the
+ * literal 'How important is Marketing Budget to the outcome?' in two places — a
+ * hand-maintained mirror of `ASK_TEMPLATES['factor-controllable']` that went
+ * stale the moment that copy changed. What these two tests are actually about is
+ * the CARRIER (prefill, never send), so the question text is resolved from the
+ * same register the component reads. The COPY itself is pinned as a property in
+ * `askTemplatesHandJudgementBack.spec.ts`.
+ */
+const EXPECTED_QUESTION = resolveAskTemplate(
+  defaultProps.panelType,
+  defaultProps.labelContext,
+) as string
 
 beforeEach(() => {
   useGuidanceStore.setState({
@@ -122,7 +137,7 @@ describe('InspectorCoaching', () => {
 
     expect(send).not.toHaveBeenCalled()
     expect(prefill).toHaveBeenCalledTimes(1)
-    expect(prefill).toHaveBeenCalledWith('How important is Marketing Budget to the outcome?')
+    expect(prefill).toHaveBeenCalledWith(EXPECTED_QUESTION)
   })
 
   it('still lands the draft when only _prefillChat is registered', () => {
@@ -134,7 +149,7 @@ describe('InspectorCoaching', () => {
     fireEvent.click(button)
 
     expect(prefill).toHaveBeenCalledTimes(1)
-    expect(prefill).toHaveBeenCalledWith('How important is Marketing Budget to the outcome?')
+    expect(prefill).toHaveBeenCalledWith(EXPECTED_QUESTION)
   })
 
   it('hides action button when both _prefillChat and _sendMessage are null', () => {
