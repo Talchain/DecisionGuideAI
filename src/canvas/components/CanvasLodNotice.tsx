@@ -45,12 +45,12 @@
  * the FIRST, because its copy is a claim about the cards. Reading the rung and
  * testing it here would be a second predicate wearing the same name (trap 21).
  */
-import { ZoomIn } from 'lucide-react'
+import { ZoomIn, Focus } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { useReactFlow } from '@xyflow/react'
 import { useOverlayCell } from './CanvasOverlayBand'
 import { useCanvasStore } from '../store'
-import { LABEL_LEGIBLE_ZOOM, selectLodBodyHidden } from '../utils/zoomLegibility'
+import { LABEL_LEGIBLE_ZOOM, selectLodBodyHidden, selectLensDetailActive } from '../utils/zoomLegibility'
 import { cameraDuration } from '../utils/cameraMotion'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { typography } from '../../styles/typography'
@@ -89,8 +89,32 @@ export const CANVAS_LOD_NOTICE_TESTID = 'canvas-lod-notice'
 export const CANVAS_LOD_NOTICE_COPY = 'Zoomed out — showing less on each card'
 export const CANVAS_LOD_NOTICE_ACTION = 'Zoom in for detail'
 
+/**
+ * ⭐ THE SECOND CAUSE, AND IT NEEDED ITS OWN SENTENCE RATHER THAN A SHARED ONE.
+ *
+ * At the `quiet` rung a card the active lens set aside now shows less
+ * (`selectLensDetailActive`). The user has NOT zoomed out — they asked a
+ * question — so the existing sentence would be false about the cause and the
+ * existing button would be false about the remedy.
+ *
+ * ⛔ AND THE BUTTON IS DELIBERATELY ABSENT HERE, not restyled. Its handler
+ * early-returns on `vp.zoom >= LABEL_LEGIBLE_ZOOM`, which is ALWAYS true at
+ * `quiet` — so offering it would be a control that is truthful about the state
+ * and cannot execute, which this estate has already shipped once. The cause is
+ * named instead, because the remedy (clear or change the lens) lives on the lens
+ * control, not here.
+ */
+export const CANVAS_LENS_DETAIL_NOTICE_COPY = 'Showing less on cards this lens set aside'
+
 export function CanvasLodNotice() {
   const lodBodyHidden = useCanvasStore(selectLodBodyHidden)
+  /**
+   * ⚠ THE SAME SHARED SELECTOR `BaseNode` CONSUMES — never a second reading of
+   * the rung or of the lens. A notice with its own predicate can claim a state
+   * the nodes are not in; that is why `selectLodBodyHidden` exists as a function
+   * and why this one does too.
+   */
+  const lensDetailActive = useCanvasStore(selectLensDetailActive)
   const { getViewport, setViewport } = useReactFlow()
   const prefersReducedMotion = usePrefersReducedMotion()
   // The cell decides WHERE this draws and whether it draws at all when a
@@ -99,9 +123,14 @@ export function CanvasLodNotice() {
   // `lodRung` (#1159), NOT a second reading of the rung — and it is passed as
   // `wants` rather than returned on early, so a notice with nothing to say
   // never holds the slot shut against one that has.
-  const { granted, target } = useOverlayCell('bottom-centre', CANVAS_LOD_NOTICE_TESTID, lodBodyHidden)
+  const wants = lodBodyHidden || lensDetailActive
+  const { granted, target } = useOverlayCell('bottom-centre', CANVAS_LOD_NOTICE_TESTID, wants)
 
-  if (!lodBodyHidden || !granted) return null
+  if (!wants || !granted) return null
+
+  // `lodBodyHidden` wins when both hold: below the floor EVERY card is reduced,
+  // which is the larger, truer statement, and zooming in is then a real remedy.
+  const lensCause = !lodBodyHidden && lensDetailActive
 
   const body = (
     <div
@@ -110,9 +139,16 @@ export function CanvasLodNotice() {
       aria-live="polite"
       className="pointer-events-auto flex items-center gap-2 rounded-full border border-panel-border bg-panel px-3 py-1.5 shadow-sm"
     >
-      <ZoomIn className="h-3.5 w-3.5 flex-none text-text-light" aria-hidden="true" />
-      <span className={`${typography.panelMeta} text-text-body`}>{CANVAS_LOD_NOTICE_COPY}</span>
-      <button
+      {/* ⚠ THE ICON IS PART OF THE SENTENCE. A magnifier beside "this lens set
+          aside" would name zoom as the cause, which is the same false claim the
+          copy above avoids — one channel, two meanings. */}
+      {lensCause
+        ? <Focus className="h-3.5 w-3.5 flex-none text-text-light" aria-hidden="true" />
+        : <ZoomIn className="h-3.5 w-3.5 flex-none text-text-light" aria-hidden="true" />}
+      <span className={`${typography.panelMeta} text-text-body`}>
+        {lensCause ? CANVAS_LENS_DETAIL_NOTICE_COPY : CANVAS_LOD_NOTICE_COPY}
+      </span>
+      {lensCause ? null : <button
         type="button"
         data-testid={`${CANVAS_LOD_NOTICE_TESTID}-action`}
         onClick={() => {
@@ -138,7 +174,7 @@ export function CanvasLodNotice() {
         className={`${typography.panelMeta} rounded text-info underline hover:text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
       >
         {CANVAS_LOD_NOTICE_ACTION}
-      </button>
+      </button>}
     </div>
   )
 

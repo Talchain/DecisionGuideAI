@@ -512,6 +512,71 @@ export function selectLodBodyHidden(state: { lodRung?: LodRung }): boolean {
 }
 
 /**
+ * ⭐⭐⭐ THE `quiet` RUNG, SPENT AT LAST — and what it buys is the reason this
+ * graph reads as soup on the camera the product itself parks at.
+ *
+ * ## The measured chain (staging `c4ffd477`, 15 Sep 2026)
+ *
+ * 1. The ladder has three rungs. **Only `line` spent anything**: `lodBodyHiddenAt`
+ *    is true at `line` alone, and `zoomLadder.spec.ts` says so in writing —
+ *    *"an enum that makes a middle rung EXIST. It does not yet spend it."*
+ * 2. `line` requires `zoom < LABEL_LEGIBLE_ZOOM`, i.e. **below 0.5**.
+ * 3. `useFitViewOnLayoutVersion` passes `minZoom: LABEL_LEGIBLE_ZOOM`, and
+ *    xyflow's `getViewportForBounds` does `clamp(zoom, minZoom, maxZoom)`.
+ *    **The auto-fit therefore floors at exactly 0.5.**
+ * 4. `quiet` is `[0.5, ICON_LEGIBLE_ZOOM)` = `[0.5, 0.714)`.
+ *
+ * ⇒ **The product's own default camera parks squarely inside the one rung that
+ * changed nothing.** Every card rendered its full body, always. Neither half was
+ * wrong — the LOD is correct, and the 0.5 floor is correct because it is what
+ * keeps text legible. They were built by different lanes answering different
+ * questions, and nothing connected them. That is trap 21 at the scale of the
+ * whole visual system.
+ *
+ * ## Why the LENS is the right thing to spend it on
+ *
+ * Detail was a function of PIXEL SCALE. It should be a function of **relevance
+ * to the question being asked**, and a lens IS a declared question — the user
+ * picked it. So at `quiet`, a card the active lens has already set aside drops
+ * its body and keeps its name.
+ *
+ * ⛔ **THE TITLE NEVER GOES.** Paul, on the deployed build, 30 Aug 2026: *"when I
+ * zoom out of the graph, the content in it shouldn't disappear — it's a terrible
+ * user experience."* That ruling is about ANONYMITY, and it stands: this hides a
+ * body on a card the reader has deliberately de-emphasised, never a name. See
+ * `BaseNode`'s `lodHideTitle = false` for the same ruling, applied there.
+ *
+ * ⚠ AND IT IS DELIBERATELY NOT A SECOND WAY TO BLANK A CARD. `CanvasLodNotice`
+ * tells the user the cards are showing less and `BaseNode` is what makes that
+ * true; those two are bound to ONE shared thing on purpose, because a notice
+ * with its own predicate can claim a state the nodes are not in. This selector
+ * is that one shared thing for the lens case, and both surfaces consume it.
+ */
+export function lensDetailSpentAt(rung: LodRung): boolean {
+  return rung === 'quiet'
+}
+
+/**
+ * Whether the active lens is currently standing in for zoom as the arbiter of
+ * detail — true only at `quiet`, and only when the lens has actually set some
+ * cards aside.
+ *
+ * ⚠ IT READS `_dimmedNodeIds.size`, NOT THE FLAG. With the Graph Lens off,
+ * nothing populates that set, so the answer is false for the right reason. That
+ * is a PRECONDITION rather than an assumption, and
+ * `theLensSpendsTheQuietRung.spec.ts` pins it directly — if a future change ever
+ * populates the set with the lens disabled, that spec REDs instead of this
+ * silently switching on.
+ */
+export function selectLensDetailActive(state: {
+  lodRung?: LodRung
+  lens?: { _dimmedNodeIds?: ReadonlySet<string> } | null
+}): boolean {
+  if (!lensDetailSpentAt(state.lodRung ?? 'full')) return false
+  return (state.lens?._dimmedNodeIds?.size ?? 0) > 0
+}
+
+/**
  * Whether a card shows its in-card controls at this rung.
  *
  * ⛔⛔ DECLARED, AND MOUNTED BY NOTHING AT THIS TIP. This is the named place the
