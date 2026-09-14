@@ -25,8 +25,27 @@ import {
 } from '../graphDisplayCalculations'
 import { LABEL_LEGIBLE_ZOOM } from '../zoomLegibility'
 
-/** One device pixel on a 2x display. */
-const MIN_SEPARATION_CSS_PX = 0.5
+/**
+ * ⭐ THE DISPLAY THIS PROPERTY IS ASSERTED AT, NAMED RATHER THAN ASSUMED.
+ *
+ * ⚠ The header above says both terms are IMPORTED, never restated. That was true
+ * of the threshold and the zoom and FALSE of the device-pixel ratio, which sat
+ * below as a bare `0.5` — the DPR-2 assumption written as a literal in a file
+ * banning exactly that. Raised in review by Core and fixed here rather than
+ * argued away: at DPR 1 this ladder renders 0.5 / 1 / 1.5 / 2 DEVICE px — the
+ * thinnest rung sub-pixel and adjacent pairs half a device pixel apart — and
+ * this spec is FULLY GREEN. So the property is asserted at DPR 2 and is silent
+ * about DPR 1, and a reader is entitled to know which.
+ *
+ * ⛔ NOT WIDENED TO SATISFY DPR 1, DELIBERATELY. Doing so doubles every band
+ * (2/4/6/8) to serve a display class this product is not designed on, and a
+ * 8px stroke at reading zoom is a different visual decision that nobody has
+ * made. The honest move is to state the assumption, not to quietly harden
+ * against a case we have not measured a user on.
+ */
+const ASSERTED_DEVICE_PIXEL_RATIO = 2
+/** One device pixel on the display this property is asserted at. */
+const MIN_SEPARATION_CSS_PX = 1 / ASSERTED_DEVICE_PIXEL_RATIO
 
 describe('the width channel survives the zoom the product renders at', () => {
   it('PRECONDITION: the ladder is the unset floor followed by every measured band, ascending', () => {
@@ -44,7 +63,7 @@ describe('the width channel survives the zoom the product renders at', () => {
     for (let i = 1; i < ladder.length; i++) {
       const onScreen = (ladder[i] - ladder[i - 1]) * LABEL_LEGIBLE_ZOOM
       if (onScreen < MIN_SEPARATION_CSS_PX) {
-        tooClose.push(`${ladder[i - 1]}->${ladder[i]} = ${onScreen}px at zoom ${LABEL_LEGIBLE_ZOOM}`)
+        tooClose.push(`${ladder[i - 1]}->${ladder[i]} = ${onScreen}px at zoom ${LABEL_LEGIBLE_ZOOM} (DPR ${ASSERTED_DEVICE_PIXEL_RATIO})`)
       }
     }
     expect(tooClose).toEqual([])
