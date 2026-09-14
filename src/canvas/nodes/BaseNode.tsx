@@ -700,6 +700,35 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
    * still LOSE the dash, and the external factor must still KEEP it, in one file,
    * so a change that flattened any of those channels cannot pass.
    */
+  /**
+   * ⭐⭐ THE COLOURED SHAPE THE LEVEL-OF-DETAIL DESIGN ALWAYS PROMISED.
+   *
+   * The body comment below this component's children says a node at the LOD rung
+   * "reads as its COLOURED SHAPE, PLUS the one reduced line". The box half was
+   * built — the body hides via `visibility` so it keeps the dimensions ELK and
+   * the edge anchors depend on — and the COLOUR half never was: the card painted
+   * `var(--bg-panel)` at every rung, so a zoomed-out node was a WHITE box whose
+   * interior is blank by construction. Measured on `b7c8c74e`: an option card at
+   * scale 0.27 carried content across the top ~45% and nothing below.
+   *
+   * ⭐ NOTHING NEW IS INVENTED. `colors.bg` has sat beside `colors.border` in
+   * `nodes/colors.ts` since it was written, resolving to a real `--*-light-rgb`
+   * token. It was authored for this and never applied.
+   *
+   * ⛔ THE EVIDENCE LENS KEEPS THE CARD. `evidenceBgStyle` is a DATA channel; a
+   * lens colouring by evidence must not be overpainted by kind, so this stands
+   * down whenever that is present — the same precedence the inline paint already
+   * had. Causal/evidence lenses render their own reduced card and are excluded
+   * for the same reason.
+   *
+   * ⚠ LINE RUNG ONLY, deliberately. Tinting at reading zoom is a different
+   * product decision and is not ruled on here.
+   * Pinned by `BaseNode.lodShapeReadsAsItsKind.spec.tsx` as a RUNG PAIR: a
+   * presence-only test would pass if this tinted at every rung.
+   */
+  const lodKindFillClass =
+    lodBodyHidden && !isCausalLens && !isEvidenceLens && !evidenceBgStyle ? colors.bg : ''
+
   const borderColourClass = isCausalLens
     ? (causalBorderClass ?? '')
     : isIncomplete
@@ -718,6 +747,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       className={`
         group relative rounded-lg ${isCausalLens ? 'border' : isIncomplete ? 'border-2' : borderWidth} shadow-1
         ${borderColourClass}
+        ${lodKindFillClass}
         transition-all duration-200
         cursor-default
         ${selected && !isHighlighted ? `${colors.selected} ring-offset-2` : ''}
@@ -734,7 +764,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         // state token. Animates via the div's transition-all.
         outline: isAnalysisDriver ? '2px solid var(--semantic-info)' : undefined,
         outlineOffset: isAnalysisDriver ? '3px' : undefined,
-        backgroundColor: evidenceBgStyle ?? 'var(--bg-panel)',
+        // ⚠ THE INLINE PAINT MUST STAND DOWN WHERE THE KIND FILL APPLIES, or the
+        // class below is overridden by specificity and the fix is invisible.
+        backgroundColor: evidenceBgStyle ?? (lodKindFillClass === '' ? 'var(--bg-panel)' : undefined),
         // ⚠ THIS IS A DISJUNCTION, AND THE COMMENT THAT USED TO SIT HERE
         // DENIED IT. It said the reservation "follows the SAME condition rather
         // than a hand-listed pair of node types". It does not: `4a337f70` OR'd
