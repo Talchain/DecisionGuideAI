@@ -74,6 +74,36 @@
   # adding to `[build.environment]` ONLY after sign-off.
   VITE_FEATURE_AI_PANEL_V2 = "true"
 
+  # ⭐ GRAPH LENS — six post-analysis canvas modes, built and never reachable.
+  #
+  # `graphLens` has an `envKey` and a `storageKey` and NO `defaultValue`
+  # (src/flags.ts, FLAGS_CONFIG.graphLens), and this key was absent from this
+  # file — so `isGraphLensEnabled()` has resolved false on every staging build
+  # since the feature landed. Ten production call sites read it; the contrast
+  # control in the same sweep is `isAiPanelV2Enabled` (15 sites, key set on the
+  # line above), so the absence was in the POSTURE, not in the probe.
+  #
+  # What was dark, precisely:
+  #   · LensDropdown's six modes — "Causal graph / Pure causal structure",
+  #     "Evidence quality / What's grounded vs assumed", "Robustness / Where the
+  #     result is vulnerable", plus Sensitivity, fragile-edge isolation and
+  #     per-option path isolation (components/LensDropdown.tsx).
+  #   · StyledEdge.tsx:208-216 — `if (!lensEnabled)` forces `lensMode: 'full'`
+  #     and NULLS `causalEdgeParams`. That is the `+0.50 (80%)` edge label, i.e.
+  #     signed strength and existence confidence per relationship. It was
+  #     described as "a mode the user must find"; it had no door at all.
+  #   · BaseNode.tsx:248-258 — lens dimming and the app's ONLY node-hiding path.
+  #   · The `L` shortcut and ←/→ option cycling (useCanvasKeyboardShortcuts).
+  #   · Two node-menu items: "Isolate this option's paths", "Show all fragile
+  #     edges" (contextMenu/useMenuItems.ts:771, :911).
+  #
+  # ⚠ STAGING ONLY, DELIBERATELY. This sits in the staging context, not
+  # `[build.environment]`, so production does not inherit it — the same
+  # promote-after-sign-off rule the aiPanelV2 comment above states. The flag has
+  # never been exercised in a served posture, and LensDropdown disables three of
+  # the six on `!hasResults`, so it wants a real journey before promotion.
+  VITE_FEATURE_GRAPH_LENS = "true"
+
   # Debug panel + payload-trace-store env gate (PR #156 follow-up).
   # `VITE_APP_ENV=staging` makes:
   #   1. `<DebugPanel />` (mounted in AppPoC) eligible when the user
