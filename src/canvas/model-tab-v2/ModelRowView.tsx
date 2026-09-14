@@ -2132,6 +2132,58 @@ function ValueCell({
             {commit.value}
           </span>
         )
+      /*
+        ⭐ SHAPED ON `proposed`, NOT ON `refused`, AND THE REASON IS LAYOUT AS
+        MUCH AS MEANING. This file's own note records that `inflight`,
+        `applied` and `refused` carry no width class at all, leaving
+        `min-width: auto` — "a LOADED GUN for the arms that are dark today".
+        `proposed` is the arm that already solved it: `flex-wrap` lets the cell
+        grow in HEIGHT instead of pushing the column out, and the ruling beside
+        it is explicit that the taller row is deliberate and transient. A
+        settlement notice is a sentence, so it would have fired that gun; it
+        takes `proposed`'s shape and fires nothing.
+
+        `role="alert"` for the same reason `proposed` uses it: this text appears
+        in response to the user's own act and says the act did not land, which
+        is the one thing on this row a screen reader must not have to go
+        looking for.
+      */
+      case 'confirm_unsettled':
+        return (
+          <span
+            data-testid={testid}
+            className={`${typography.panelTabular} min-w-0 flex flex-wrap items-baseline`}
+          >
+            {/*
+              ⛔⛔ `text-text-header`, NOT `text-danger`, AND A GUARD CAUGHT ME.
+              `reasoning-model-text-contrast-per-site` reddened on this exact
+              line: text-danger (#EA7B4B) on --bg-panel-hover is **2.70:1**
+              where SC 1.4.3 needs 4.5:1. **A notice the reader cannot see is
+              the same silent failure this whole change exists to remove**, one
+              level down, committed inside the fix for it.
+
+              Its own remedy list forecloses the obvious escapes: of the 21
+              semantic tokens, only --text-header, --text-light and --info clear
+              4.5:1 on both panel grounds, and NOT ONE semantic colour clears
+              even 3:1 — so there is no darker red to reach for. A tinted pill
+              makes it worse, because bg-<c>/NN moves the ground TOWARDS the
+              text.
+
+              ⭐ Nothing is lost, because colour was never carrying the meaning
+              here: the sentence does ("Not sent — …", "Not recorded — …",
+              "Olumi may not have recorded this"), and `role="alert"` carries it
+              for assistive tech. Severity by word, per the guard's own
+              instruction.
+            */}
+            <span
+              role="alert"
+              data-testid={`${testid}-confirm-unsettled`}
+              className={`${typography.panelBody} text-text-header min-w-0`}
+            >
+              {commit.reason}
+            </span>
+          </span>
+        )
       case 'refused':
         return (
           <span data-testid={testid} className={typography.panelTabular}>
