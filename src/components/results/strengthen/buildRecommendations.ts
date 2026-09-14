@@ -809,5 +809,44 @@ export function buildRecommendations(inputs: StrengthenInputs): Recommendation[]
     const existing = byIdentity.get(key)
     if (!existing || rec.priority < existing.priority) byIdentity.set(key, rec)
   }
-  return boosted.filter((rec) => byIdentity.get(dedupeKey(rec.title, rec.signal)) === rec)
+  /**
+   * ⭐⭐ ORDERED BY THE FIELD THIS FUNCTION SPENDS ITS WHOLE LENGTH COMPUTING.
+   *
+   * ⛔ WITHOUT THIS THE ADAPTIVE BOOST WAS INERT, AND MEASURED SO:
+   *
+   *     adaptivePriority: 'evaluate'
+   *     RETURNED ["strengthen:success-measure@0", "strengthen:flip:e1@-9900"]
+   *
+   * `ADAPTIVE_MATCH_BOOST` had subtracted 10,000 from the matching rec —
+   * overwhelmingly the highest priority in the set — and it still came back at
+   * index 1. `priority` was consumed ONLY by the dedupe above (keep the lowest
+   * number of a duplicate identity); the array itself came back in builder push
+   * order. The comment on the boost says matching recs "float above every other
+   * band". They floated nowhere.
+   *
+   * ⚠ IT WORKED ON ONE SURFACE AND NOT THE OTHER, WHICH IS WHY NOBODY SAW IT.
+   * The Analysis tab reads through `strengthenStore`, which sorts on the way in
+   * (`strengthenStore.ts:397`). The Reasoning tab renders the return value
+   * directly — `useAnalysisNewViewModel.ts:134`, `buildRecommendations(inputs)
+   * .filter(...)`, no sort — and `AnalysisNewTabBody`'s `glancePrimary` takes
+   * `interventions[0]` as THE ONE ACT the panel promotes. So the producer's
+   * stage signal steered the tab Paul's scope ruling excludes, and was inert on
+   * the tab he uses.
+   *
+   * ⚠⚠ AND THE GUARD COULD NOT SEE IT. `buildRecommendations.spec.ts:459`
+   * asserts the boost by calling `.sort((a, b) => a.priority - b.priority)` ON
+   * THE RESULT first. That proves the NUMBER changed and is structurally blind
+   * to whether the ORDER did — the test supplied the very step the consumer was
+   * missing. Same shape as the drivers caveat fixed earlier today: the guard
+   * anchored on the quantity that moves, not the one the user sees
+   * (CLAUDE.md trap 13d).
+   *
+   * ⚠ STABLE, AND THAT IS LOAD-BEARING. `Array.prototype.sort` is stable, so
+   * equal priorities keep builder order — which is what `adaptive priority
+   * preserves relative order WITHIN the matching group` asserts, and what the
+   * producer-ranked phase-3 band (sorted into `priority` at :417) depends on.
+   */
+  return boosted
+    .filter((rec) => byIdentity.get(dedupeKey(rec.title, rec.signal)) === rec)
+    .sort((a, b) => a.priority - b.priority)
 }
