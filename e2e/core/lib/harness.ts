@@ -1233,6 +1233,20 @@ export const owningNodeIds = (page: Page, testid: string): Promise<(string | nul
  * that silently misses leaves the caller reading the previous tab and getting
  * the SAME empty result this helper exists to prevent — the failure would simply
  * move, and look identical.
+ *
+ * ⛔ AND WHAT IT DOES **NOT** PROVE, stated so the next caller cannot inherit a
+ * stronger reading than the assertion supports: `aria-selected === 'true'` says
+ * THE RAIL MOVED. It does not say the panel mounted, and it certainly does not
+ * say the content you are about to read exists. Those are separate claims and
+ * they need separate assertions AT THE CALL SITE — see the mount guard in
+ * `E2-readiness-truthful`, which is what actually licences reading that footer.
+ *
+ * ⚠ A live example of the gap, measured on `af403cc4` and NOT a hypothetical:
+ * the Model tab's outline mounts its panel and then renders its groups
+ * COLLAPSED by design, so `model-row-v2-*` matches ZERO immediately after this
+ * helper succeeds. A probe that treated a green `openDockTab` as permission to
+ * read rows would report an empty model. The rail had moved; the rows had not
+ * arrived; both facts are true at once.
  */
 export async function openDockTab(page: Page, name: 'Olumi' | 'Analysis' | 'Reasoning' | 'Model'): Promise<void> {
   const tab = page.getByRole('tab', { name: new RegExp(`^${name}$`) }).first()
