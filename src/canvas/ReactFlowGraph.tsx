@@ -51,7 +51,6 @@ import type { NodeType } from './domain/nodes'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
 import { CanvasViewportControls } from '../components/layout/CanvasViewportControls'
 import { FirstModelNotice } from './components/FirstModelNotice'
-import { ModelExtentNotice } from './components/ModelExtentNotice'
 import { OlumiAttentionCard } from './components/OlumiAttentionCard'
 import { RightPanel } from '../components/layout/RightPanel'
 import { AlignmentGuides } from './components/AlignmentGuides'
@@ -2793,22 +2792,30 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       <AssistantFocusChip />
       <FocusModeChip />
       <FirstModelNotice />
-      {/* ⛔ THIS MOUNT WAS MISSING, AND EVERY COMMENT AROUND IT ASSUMED IT WAS
-          NOT. The band migration moved four components here and left
-          `ModelExtentNotice` behind; the vacated-top-centre note below still
-          reasons FROM its presence ("because `ModelExtentNotice` owns that
-          position"), and the note above cites it as the precedent for mounting
-          `CanvasLodNotice` at this level. So the only surface that tells a
-          person PART OF THEIR MODEL IS OFF-SCREEN has not rendered since.
+      {/* ⛔⛔ `ModelExtentNotice` IS DELIBERATELY NOT MOUNTED. ITS ABSENCE IS THE
+          RULING, NOT A DEFECT — DO NOT RESTORE IT.
 
-          `overlayOwner.sourceScan.spec.ts` could not see it: its claim scan
-          reads `useOverlayCell` CALL SITES, and `ModelExtentNotice.tsx:234`
-          has one. A component that is never mounted never runs that call, so
-          the table and the call sites agreed perfectly about a component no
-          user could see — a derived guard proving agreement and structurally
-          blind to completeness. The mount-completeness assertion added to that
-          spec is the half that was missing. */}
-      <ModelExtentNotice />
+          The founder asked for the bottom-of-canvas "Showing N of M elements /
+          Show whole model" panel to be removed. It was removed. A later session
+          then found no mount, read that as an accident of the band migration,
+          and restored it with a long note about a guard being blind to the gap.
+          The founder's words on finding it back: "I'm sure I've requested this
+          before, so I don't know why it's back, but just get rid of it
+          completely." (14 Sep 2026.)
+
+          ⭐ SO THE LESSON IS THE ONE THAT KEEPS COSTING US: an absence that
+          someone DECIDED looks exactly like an absence that someone MISSED, and
+          a mount-completeness guard cannot tell them apart. `overlayOwner
+          .sourceScan.spec.ts` now pins this component as INTENTIONALLY
+          unmounted, so the next completeness sweep reds if it comes back rather
+          than reporting it as a repair.
+
+          ⚠ AND THE HONEST CAVEAT, because removing a disclosure is not free:
+          this was the only surface telling a person part of their model is
+          off-screen. The real repair is that the model should FIT — the layout
+          is height-bound and wastes ~33% of the pane width (measured on the
+          deployed build, 14 Sep: graph 1076 wide in a 1600 pane, overflowing
+          height by 15%). Fix the aspect and this notice has nothing to say. */}
       <CanvasViewportControls
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}

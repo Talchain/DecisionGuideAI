@@ -246,6 +246,13 @@ describe('overlay ownership — derived from the migrated components’ bytes', 
     // list would make every assertion below pass by looking at nothing.
     expect(files.length, 'the source walk found no .tsx files — every assertion below is vacuous').toBeGreaterThan(50)
 
+    // ⛔ INTENTIONALLY UNMOUNTED — the founder ruled this panel off the canvas
+    // (14 Sep 2026), and a previous session restored it BECAUSE this very
+    // completeness check reported its absence as a gap. An absence that was
+    // DECIDED and an absence that was MISSED read identically to a derived
+    // guard, so the decision has to be stated here or the guard keeps undoing
+    // it. If a mount reappears for one of these, THAT is the regression.
+    const INTENTIONALLY_UNMOUNTED = new Set(['ModelExtentNotice'])
     const unmounted: string[] = []
     const mountCounts: Record<string, number> = {}
     for (const file of MIGRATED) {
@@ -254,7 +261,7 @@ describe('overlay ownership — derived from the migrated components’ bytes', 
       const mountRe = new RegExp(`<${name}[\\s/>]`)
       const sites = files.filter(f => f !== ownPath && mountRe.test(stripComments(readFileSync(f, 'utf8'))))
       mountCounts[name] = sites.length
-      if (sites.length === 0) unmounted.push(name)
+      if (sites.length === 0 && !INTENTIONALLY_UNMOUNTED.has(name)) unmounted.push(name)
     }
 
     // CONTRAST CONTROL: the probe discriminates. If it returned the same answer
@@ -271,6 +278,15 @@ describe('overlay ownership — derived from the migrated components’ bytes', 
       unmounted,
       `declared band occupant(s) with no JSX mount — they claim a cell that never renders: ${unmounted.join(', ')}`,
     ).toEqual([])
+
+    // The other direction, and it is the one that bit us: a ruled-off component
+    // coming BACK reads as a repair to everyone except the person who ruled.
+    for (const name of INTENTIONALLY_UNMOUNTED) {
+      expect(
+        mountCounts[name],
+        `${name} is mounted again. Its absence is a FOUNDER RULING, not a gap — read the note at its old mount site in ReactFlowGraph.tsx before changing this.`,
+      ).toBe(0)
+    }
 
     /*
      * ⛔ THE STRIPPER IS LOAD-BEARING HERE, AND THIS IS THE PAIR THAT PROVES IT.
