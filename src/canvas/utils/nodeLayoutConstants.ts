@@ -661,8 +661,54 @@ export const HEIGHT_GROWTH_TOLERANCE_PX = 4
  * Canonical tier assignment for Olumi decision graphs.
  *
  * Y position is determined by tier order, not by ELK's longest-path DAG
- * traversal. Outcomes, risks, and goals occupy distinct tiers so they
- * never share a row.
+ * traversal.
+ *
+ * ⭐⭐⭐ RISKS AND OUTCOMES SHARE TIER 3 — THE CONSEQUENCE LAYER.
+ *
+ * Ruled by the founder, 14 Sep 2026, on a causal argument rather than a spatial
+ * one. This table previously read `outcome: 3, risk: 4` under the comment
+ * *"Outcomes, risks, and goals occupy distinct tiers so they never share a
+ * row"* — which restates the decision instead of giving a reason for it. It
+ * arrived 7 May as a line item in the commit that replaced ELK's Y assignment,
+ * and no product argument for the separation is recorded anywhere.
+ *
+ * ⭐ THE ARGUMENT FOR MERGING IS THAT `risk` IS NOT A CAUSAL CLASS.
+ *
+ * In decision analysis there are decisions, chance nodes, consequences and a
+ * utility. "Risk" is not one of them — it is one of three other things: an
+ * uncertain EVENT (which belongs upstream, with the factors, because it CAUSES
+ * consequences), an adverse CONSEQUENCE (which belongs here), or the adverse
+ * TAIL of a consequence's distribution (which is computed, not authored).
+ *
+ * Measured across all five committed starters — 87 nodes, 163 edges — risks and
+ * outcomes have IDENTICAL STRUCTURAL SIGNATURES: both are fed only by factors,
+ * both feed only the goal, and `risk→outcome` and `outcome→risk` are **0 and
+ * 0**. The complete edge grammar is six kind-pairs: decision→option 19,
+ * option→factor 58, factor→risk 33, factor→outcome 29, risk→goal 14,
+ * outcome→goal 10. They are one layer wearing two labels, and the label carries
+ * VALENCE — which the per-kind card fills already show — not causal position.
+ *
+ * ⭐ SHARING A TIER WAS ALREADY NORMAL: `factor`, `action` and `constraint` have
+ * always shared tier 2. Distinctness was never the table's rule.
+ *
+ * ⚠ WHAT THIS IS NOT. It is not a claim that risks and outcomes are the same
+ * THING, and it does not merge the kinds, the colours or the copy. It places
+ * them on one row because that is where the causal graph puts them.
+ *
+ * ⚠ AND THE ONE THING THAT WOULD MAKE IT WRONG, checked rather than assumed: a
+ * `risk→outcome` edge would become an intra-row edge, which reads badly. Zero
+ * exist in the shipped starters, and nothing in the product forbids one — the
+ * drag validator blocks self-loops, duplicates, cycles and limits, and has NO
+ * kind-pair rule at all. The only such edge in the repository is a synthetic
+ * fixture inside `layout.semantic.spec.ts`. If that class ever becomes real,
+ * this is the line to revisit.
+ *
+ * ⚠ TIER 4 IS NOW EMPTY AND THAT COSTS NOTHING — verified, not assumed.
+ * `normaliseTierRows` iterates `[...tierAssignments.keys()]`, i.e. OCCUPIED
+ * tiers only, and accumulates Y across them, so a gap produces no phantom row.
+ * `layout.semantic.spec.ts` pins exactly that ("skips empty tiers — no phantom
+ * gap"). `goal` therefore stays at 5 rather than being renumbered, which keeps
+ * the diff to the one line that carries the decision.
  */
 export const TIER_BY_KIND: Record<string, number> = {
   decision:   0,
@@ -670,7 +716,8 @@ export const TIER_BY_KIND: Record<string, number> = {
   factor:     2,
   action:     2,
   constraint: 2,
+  // ── tier 3: THE CONSEQUENCE LAYER. Valence differs; causal position does not.
   outcome:    3,
-  risk:       4,
+  risk:       3,
   goal:       5,
 }

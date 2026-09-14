@@ -306,11 +306,40 @@ describe('normaliseTierRows — canonical tier Y (D3)', () => {
     expect(tierY(medium.nodes, 'd')).toBeLessThan(tierY(medium.nodes, 'o1'))
     expect(tierY(medium.nodes, 'o1')).toBeLessThan(tierY(medium.nodes, 'f1'))
     expect(tierY(medium.nodes, 'f1')).toBeLessThan(tierY(medium.nodes, 'out'))
-    expect(tierY(medium.nodes, 'out')).toBeLessThan(tierY(medium.nodes, 'r'))
+    // ⭐ OUTCOME AND RISK ARE ONE TIER NOW (ruled 14 Sep 2026) — see
+    // `TIER_BY_KIND`. This asserted `out < r`; strict monotonicity across the
+    // CONSEQUENCE layer is exactly what the ruling removes, so the assertion
+    // becomes equality rather than being deleted. Monotonicity across the tiers
+    // that ARE distinct is untouched, above and below.
+    expect(tierY(medium.nodes, 'out')).toBe(tierY(medium.nodes, 'r'))
     expect(tierY(medium.nodes, 'r')).toBeLessThan(tierY(medium.nodes, 'g'))
   })
 
-  it('outcomes and risks no longer share a Y row', async () => {
+  /**
+   * ⭐⭐⭐ REVERSED BY FOUNDER RULING, 14 Sep 2026 — and inverted rather than
+   * deleted, because the property is still worth pinning; only its direction
+   * changed.
+   *
+   * This test was named "outcomes and risks no longer share a Y row" and
+   * asserted `outY < rY`. It arrived 7 May as a line item in the commit that
+   * replaced ELK's Y assignment, and the only reason recorded anywhere for the
+   * separation restates the decision: *"Outcomes, risks, and goals occupy
+   * distinct tiers so they never share a row."*
+   *
+   * The ruling is on a CAUSAL argument, not a spatial one: `risk` is not a
+   * causal class. Measured across all five committed starters — 87 nodes, 163
+   * edges — risks and outcomes have identical structural signatures, both fed
+   * only by factors and both feeding only the goal, with `risk→outcome` and
+   * `outcome→risk` at **0 and 0**. One layer, two labels, the label carrying
+   * valence rather than causal position. `TIER_BY_KIND` carries the full record.
+   *
+   * ⚠ NOTE WHAT THIS FIXTURE CONTAINS, because it is the one thing that would
+   * make the merge wrong: the `medium` fixture above has an `out → r` edge, and
+   * it is the ONLY `outcome → risk` edge anywhere in this repository. If that
+   * class ever becomes real in a shipped model it would render as an intra-row
+   * edge, and `TIER_BY_KIND` is the line to revisit.
+   */
+  it('outcomes and risks share one consequence row', async () => {
     const { nodes: laid } = await layoutGraph(
       [
         n('d', 'decision'),
@@ -327,8 +356,13 @@ describe('normaliseTierRows — canonical tier Y (D3)', () => {
     )
     const outY = tierY(laid, 'out')
     const rY = tierY(laid, 'r')
-    expect(outY).toBeLessThan(rY)
-    expect(Math.abs(outY - rY)).toBeGreaterThan(10)
+    // Exactly equal, not merely close: a tolerance would pass on a near-miss
+    // produced by a sub-row split, which is a different layout and not this one.
+    expect(outY).toBe(rY)
+    // …and the row is still a real row between the option and the goal, so a
+    // mutant that collapsed every tier to one Y is visible here.
+    expect(tierY(laid, 'o')).toBeLessThan(outY)
+    expect(outY).toBeLessThan(tierY(laid, 'g'))
   })
 
   it('two factors fed directly from decision share a Y row', async () => {
@@ -527,13 +561,33 @@ describe('spine centring', () => {
 })
 
 describe('TIER_BY_KIND values', () => {
-  it('tiers separate outcome (3), risk (4), goal (5)', () => {
+  it('outcome and risk share tier 3 — the consequence layer (ruled 14 Sep 2026)', () => {
     expect(TIER_BY_KIND.decision).toBe(0)
     expect(TIER_BY_KIND.option).toBe(1)
     expect(TIER_BY_KIND.factor).toBe(2)
     expect(TIER_BY_KIND.outcome).toBe(3)
-    expect(TIER_BY_KIND.risk).toBe(4)
+    expect(TIER_BY_KIND.risk).toBe(3)
     expect(TIER_BY_KIND.goal).toBe(5)
+  })
+
+  it('the consequence kinds share a tier BY IDENTITY, not by both being 3', () => {
+    // The assertion above would pass if someone set BOTH to 4, or to 2 — it
+    // pins values, not the relationship the ruling is about. This pins the
+    // relationship, so the two cannot be separated again without a red.
+    expect(TIER_BY_KIND.risk).toBe(TIER_BY_KIND.outcome)
+    // …and they are genuinely a layer of their own, between the drivers and the
+    // goal. Without this a mutant merging consequences INTO the factor tier
+    // would satisfy the equality above.
+    expect(TIER_BY_KIND.outcome).toBeGreaterThan(TIER_BY_KIND.factor)
+    expect(TIER_BY_KIND.outcome).toBeLessThan(TIER_BY_KIND.goal)
+  })
+
+  it('tier 4 is empty, and that is deliberate rather than an oversight', () => {
+    // `goal` stays at 5 rather than being renumbered to 4, so the diff carrying
+    // the ruling is the one line that states it. `normaliseTierRows` iterates
+    // OCCUPIED tiers and accumulates Y across them, so the gap produces no
+    // phantom row — pinned by "skips empty tiers — no phantom gap" above.
+    expect(Object.values(TIER_BY_KIND)).not.toContain(4)
   })
 })
 
