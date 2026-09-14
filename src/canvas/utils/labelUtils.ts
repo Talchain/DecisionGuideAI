@@ -143,12 +143,27 @@ const COMPACT_LABEL_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|R
  */
 export function sentenceCaseFactorLabel(label: string): string {
   if (!label) return label
-  return (
-    label.charAt(0).toUpperCase() +
-    label.slice(1).replace(/\b([A-Za-z]+)\b/g, (word) =>
-      /^[A-Z]{2,}$/.test(word) ? word : word.toLowerCase(),
-    )
+  // ⛔ CASE THE WHOLE STRING FIRST, THEN CAPITALISE — never the other way round.
+  //
+  // The first version split `charAt(0)` off and cased only the REMAINDER, which
+  // tears the leading word in half: "UK Financial Services" became
+  // "K Financial Services" for the purposes of the rule, and "K" alone is one
+  // capital, so it failed the acronym test and lowercased. The card rendered
+  // **"Uk financial services"** — the rule inventing a word, which is the exact
+  // harm the acronym exemption exists to prevent.
+  //
+  // Found by MEASUREMENT, not by review: sweeping all 34 factor labels across
+  // the five starters for truncation behaviour printed "Uk financial service…"
+  // in the output. The unit test did not catch it because its fixture,
+  // "NRR Above Target", has a THREE-letter acronym — `slice(1)` leaves "RR",
+  // which still passes `/^[A-Z]{2,}$/`. A two-letter acronym is the only case
+  // that breaks, and it was the one case the corpus did not contain
+  // (CLAUDE.md trap 22: a corpus from the author's head cannot see the class
+  // the author did not imagine).
+  const cased = label.replace(/\b([A-Za-z]+)\b/g, (word) =>
+    /^[A-Z]{2,}$/.test(word) ? word : word.toLowerCase(),
   )
+  return cased.charAt(0).toUpperCase() + cased.slice(1)
 }
 
 /**

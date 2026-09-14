@@ -181,6 +181,58 @@ describe('OptionNode — one factor, one name', () => {
     expect(sentenceCaseFactorLabel('NRR Above Target')).toBe('NRR above target')
     expect(sentenceCaseFactorLabel('Impact on GDPR Compliance')).toBe('Impact on GDPR compliance')
     expect(sentenceCaseFactorLabel('')).toBe('')
+
+    // ⛔ THE TWO-LETTER ACRONYM IS THE CASE THAT BROKE, and it is here because
+    // it was NOT in the first version of this corpus. The original
+    // implementation cased `slice(1)` only, so a leading "UK" was seen as "K" —
+    // one capital, not two — and was lowercased into a word: "Uk financial
+    // services". "NRR" hid the bug, because `slice(1)` leaves "RR", which still
+    // passes the acronym test. Found by sweeping all 34 starter factor labels,
+    // never by reading the function (CLAUDE.md trap 22).
+    expect(sentenceCaseFactorLabel('UK Financial Services')).toBe('UK financial services')
+    expect(sentenceCaseFactorLabel('EU data residency')).toBe('EU data residency')
+  })
+
+  /**
+   * ⭐ BINDS THE CALL SITE, NOT THE CONSTANT.
+   *
+   * `rowLabelBudgetDerived.spec.ts` proves the budget is derived correctly. It
+   * cannot prove `OptionNode` USES it — the constant could be perfect while the
+   * card still cut at a hand-set 20, and every test would stay green. This
+   * renders a real card and reads what the user gets.
+   *
+   * Measured on the shipped starters: "In-house build approach" is 23
+   * characters, so it was cut to "In-house build…" by the old 20-char
+   * differentiator budget and renders WHOLE at the derived 25. It is one of
+   * seven starter labels that go from truncated to complete.
+   */
+  it('a 23-character factor name renders whole, not cut at the old hand-set budget', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        ceeAnalysisReady: {
+          options: [
+            { id: 'option-1', interventions: { 'factor-build': 0.9 } },
+            { id: 'option-3', interventions: { 'factor-other': 0.9 } },
+          ],
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { label: 'Build In-House', type: 'option' } },
+          { id: 'option-3', type: 'option', data: { label: 'Buy Vendor Solution', type: 'option' } },
+          { id: 'factor-build', type: 'factor', data: { label: 'In-house build approach', observedState: { unit: 'scale', value: 0.0 } } },
+          { id: 'factor-other', type: 'factor', data: { label: 'Vendor licensing cost', observedState: { unit: 'scale', value: 0.0 } } },
+        ],
+        viewMode: 'standard',
+      }) as never),
+    )
+    renderOption({ label: 'Build In-House' })
+
+    const p = screen.getByText(/is the key difference/i)
+    expect(p.textContent).toBe('In-house build approach is the key difference')
+    // The whole point: no ellipsis where the name used to be cut.
+    expect(p.textContent).not.toContain('…')
+    // Precondition pinned in-test — the old budget really did cut this label,
+    // so the assertion above is about the change and not about a short string.
+    expect('In-house build approach'.length).toBeGreaterThan(20)
   })
 
   it('the "→ value" branch carries the same casing', () => {

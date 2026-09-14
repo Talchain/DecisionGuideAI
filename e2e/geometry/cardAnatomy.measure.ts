@@ -25,7 +25,7 @@ import {
   type StarterId,
 } from '../visual/harness'
 
-const STARTERS: StarterId[] = ['vendor-selection', 'pricing-model']
+const STARTERS: StarterId[] = ['vendor-selection', 'pricing-model', 'build-vs-buy']
 const VP = { width: 1600, height: 1000 }
 
 for (const id of STARTERS) {
@@ -37,17 +37,29 @@ for (const id of STARTERS) {
     await minimiseFloatingOlumiPanel(page)
     await waitForVisualQuiescence(page)
 
-    // Reading zoom. The LOD rung must be 'full' or the body is blanked and the
-    // census would be measuring the reduced line instead of the card.
-    await page.evaluate(() => {
-      const w = window as unknown as { __rfSetViewport?: (v: unknown) => void }
-      void w
-    })
-    // Zoom in via the store's own camera, twice, then settle.
-    for (let i = 0; i < 6; i++) {
-      await page.keyboard.press('Equal').catch(() => {})
-    }
-    await page.waitForTimeout(600)
+    // ⭐ TWO RUNGS, AND THE FIRST ONE IS THE ONE THAT MATTERS.
+    //
+    // `DEFAULT` is the camera the product parks at with no user gesture — on
+    // three of the five starters that is fitZoom 0.3506, permanently below the
+    // 0.5 legibility floor, so the level-of-detail system blanks card bodies.
+    // THAT is the state a founder opening the app actually looks at, and it is
+    // the state this census exists to record. Measuring only at reading zoom
+    // describes a card almost nobody sees on those starters.
+    //
+    // `READING` is reached by six zoom-in gestures and shows the full body.
+    const rungs: { name: string; enter: () => Promise<void> }[] = [
+      { name: 'DEFAULT', enter: async () => {} },
+      {
+        name: 'READING',
+        enter: async () => {
+          for (let i = 0; i < 6; i++) await page.keyboard.press('Equal').catch(() => {})
+          await page.waitForTimeout(600)
+        },
+      },
+    ]
+
+    for (const rung of rungs) {
+    await rung.enter()
 
     const rows = await page.evaluate(() => {
       const out: unknown[] = []
@@ -99,6 +111,12 @@ for (const id of STARTERS) {
       return out
     })
 
-    for (const r of rows) console.log('ANATOMY ' + JSON.stringify(r))
+    const zoom = await page.evaluate(() => {
+      const el = document.querySelector('.react-flow__viewport') as HTMLElement | null
+      const m = el?.style.transform.match(/scale\(([\d.]+)\)/)
+      return m ? Number(m[1]) : null
+    })
+    for (const r of rows) console.log(`ANATOMY ${rung.name} zoom=${zoom} ` + JSON.stringify(r))
+    }
   })
 }

@@ -14,6 +14,7 @@ import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } fro
 import { typography } from '../../styles/typography'
 import { METRIC_NOUN, optionOrdinalBadgeAccessibleName } from './shared/metricVocabulary'
 import { cleanFactorLabel, compactFactorLabel, sentenceCaseFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, classifyUnit, formatWinProbability, isTierLabel } from '../utils/labelUtils'
+import { NODE_ROW_LABEL_MAX_CHARS } from '../utils/nodeLayoutConstants'
 import {
   describeInterventionDirection,
   formatInterventionChange,
@@ -295,7 +296,11 @@ function computeAllDifferentiators(
     // both indifferent to. Compacting first would hand this a string that has
     // already lost the words the lookup matches on.
     const fullFactorLabel = sentenceCaseFactorLabel(cleanFactorLabel(rawLabel))
-    const compactLabel = compactFactorLabel(fullFactorLabel, 20)
+    // ⭐ DERIVED, not a hand-set 20. Measured in real Chromium: the row holds 25
+    // characters at the worst-case counter-scale, and this sentence was cutting
+    // at 20 — five characters of the factor's name thrown away on every option
+    // card. `NODE_ROW_LABEL_MAX_CHARS` carries the derivation and the evidence.
+    const compactLabel = compactFactorLabel(fullFactorLabel, NODE_ROW_LABEL_MAX_CHARS)
 
     // ⭐ ONE code path, evaluated TWICE — once with the compacted label token
     // and once with the untruncated one. The branches below are deliberately
@@ -740,11 +745,13 @@ export const OptionNode = memo((props: NodeProps) => {
       .map(c => {
         const reference = baselineOptionReference?.values[c.factorId]
         const baseline = reference?.value ?? undefined
-        // Graph v1.1 Task 6: compaction for pre-analysis pills. Bumped from 15
-        // to 22 so multi-word factor labels (e.g. "Senior technical leadership")
-        // read more meaningfully before truncation. Sized against the NODE_CARD_MAX_W
-        // card; revisit if the card width changes materially.
-        const shortLabel = compactFactorLabel(c.label, 22)
+        // Graph v1.1 Task 6: compaction for pre-analysis pills, originally 15,
+        // then a hand-set 22 whose own comment said "revisit if the card width
+        // changes materially". The card width DID change — `NODE_CARD_MAX_W`
+        // 320 -> 336 at #1527 — and nobody revisited, which is precisely what a
+        // hand-maintained mirror does. It is now derived from the card and the
+        // type, so the next width change moves it without anyone remembering.
+        const shortLabel = compactFactorLabel(c.label, NODE_ROW_LABEL_MAX_CHARS)
 
         // The compact card only shows a before/after pair for a declared
         // reference. Target-only details remain in the preview and inspector.

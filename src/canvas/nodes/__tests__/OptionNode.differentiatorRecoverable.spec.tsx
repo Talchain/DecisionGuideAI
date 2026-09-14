@@ -179,7 +179,7 @@ describe('OptionNode differentiator — elided text is recoverable', () => {
           {
             id: 'factor-ae',
             type: 'factor',
-            data: { label: 'Account Executives hired', observedState: { unit: 'scale', value: 0.1 } },
+            data: { label: 'Account Executives hired in region', observedState: { unit: 'scale', value: 0.1 } },
           },
           {
             id: 'factor-budget',
@@ -201,8 +201,15 @@ describe('OptionNode differentiator — elided text is recoverable', () => {
     // named one factor two ways (measured on the `pricing-model` starter —
     // `OptionNode.oneFactorOneName.spec.tsx`). Both carriers now delegate to
     // `sentenceCaseFactorLabel`. The TRUNCATION under test here is unchanged.
-    expect(p.textContent).toBe('Account executives… is the key difference')
-    assertRecoverable(p, 'Account executives hired is the key difference')
+    // ⚠ FIXTURE LENGTHENED WITH ITS REASON, never silently. The row-label budget
+    // is now DERIVED from the card width and the counter-scale
+    // (`NODE_ROW_LABEL_MAX_CHARS`, measured at 25 against a hand-set 20), and at
+    // 25 the old fixture "Account Executives hired" is 24 characters — it
+    // renders WHOLE, so this test's subject stopped existing. A test for
+    // recoverable ELISION needs a label that is still elided. The recovery
+    // standard below is untouched; only the fixture is longer.
+    expect(p.textContent).toBe('Account executives hired… is the key difference')
+    assertRecoverable(p, 'Account executives hired in region is the key difference')
   })
 
   // Witnessed shape 2: "Platform Engineer… → Low (0)".
@@ -221,7 +228,7 @@ describe('OptionNode differentiator — elided text is recoverable', () => {
           {
             id: 'factor-pe',
             type: 'factor',
-            data: { label: 'Platform Engineers hired', observedState: { unit: 'scale', value: 0.5 } },
+            data: { label: 'Platform Engineers hired onto the team', observedState: { unit: 'scale', value: 0.5 } },
           },
         ],
         viewMode: 'standard',
@@ -230,9 +237,10 @@ describe('OptionNode differentiator — elided text is recoverable', () => {
     renderOption({ label: 'Hire Three Account Executives' })
 
     // Same casing change as above; the recovery standard is what this asserts.
-    const p = screen.getByText(/Platform engineers… → Low \(0\)/)
+    // Same fixture lengthening as above, same reason.
+    const p = screen.getByText(/Platform engineers hired… → Low \(0\)/)
     expect(p.tagName).toBe('P')
-    assertRecoverable(p, 'Platform engineers hired → Low (0)')
+    assertRecoverable(p, 'Platform engineers hired onto the team → Low (0)')
   })
 
   // NEGATIVE CONTROL — nothing elided, so hover must NOT repeat the visible
