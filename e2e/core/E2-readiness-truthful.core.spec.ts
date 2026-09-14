@@ -191,10 +191,16 @@ test.describe('E2 · readiness guidance is truthful, not decorative', () => {
     expect(
       footerNodes,
       '[E2] the readiness footer is NOT MOUNTED after opening the Analysis tab that owns it. ' +
-      'This is a MOUNT failure, not a silent product: check whether PreAnalysisPanelV3 still ' +
-      'hosts the footer, whether the `preAnalysisV3` flag is on in this build, and whether the ' +
-      'dock tab named "Analysis" still owns that panel. Do NOT read this as the product ' +
-      'failing to announce a gap — that is the misdiagnosis this guard exists to prevent.',
+      'MOST LIKELY CAUSE, and check it FIRST: the panel is gated on `isPreRun` ' +
+      '(OutputsDock: isPreRun && nodes.length > 0 && isPreAnalysisV3Enabled()), so it ' +
+      'UNMOUNTS as soon as an analysis starts. Look for "Analysis started." in the page ' +
+      'snapshot beside the absent footer — that is this failure, and it is a RACE in the ' +
+      'preamble, not a product fault. ' +
+      'Only if the run is genuinely still pre-run, check: PreAnalysisPanelV3 still hosts the ' +
+      'footer, the `preAnalysisV3` flag is on in this build, and the dock tab named ' +
+      '"Analysis" still owns that panel. ' +
+      'Do NOT read this as the product failing to announce a gap — that is the misdiagnosis ' +
+      'this guard exists to prevent.',
     ).toBeGreaterThan(0)
 
     const headline = (await textOf(page, 'pre-analysis-v3-footer-headline')).join(' ')
