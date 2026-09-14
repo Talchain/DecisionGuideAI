@@ -213,6 +213,70 @@ export const NODE_LAYOUT_MIN_W =
 export const NODE_CARD_MAX_W = 336
 
 /**
+ * ⭐⭐ HOW MANY CHARACTERS OF A FACTOR NAME FIT ON ONE ROW — DERIVED, NOT GUESSED.
+ *
+ * Three places on this canvas cut text by CHARACTER COUNT inside a card sized in
+ * PIXELS, and every one of them was a hand-set number chosen against a card
+ * width that has since moved (`NODE_CARD_MAX_W` 320 -> 336 at #1527):
+ *
+ *     ConnRow                   30 chars   -> replaced by CSS width (#1531)
+ *     edge-label half-width     80 px      -> derived from type (#1560)
+ *     compactFactorLabel        22 / 20    -> THIS
+ *
+ * ⚠ THE COUNT IS NOT CONSTANT ACROSS ZOOM, which is the part a hand-set number
+ * cannot express. The card is sized in LAYOUT px and does not change; the type
+ * is counter-scaled, so at the legibility floor an 12px label renders at 24px
+ * and the SAME row holds half as many characters. `MAX_LABEL_COUNTER_SCALE` is
+ * the ceiling of that scale, so sizing against it is the WORST CASE and the
+ * result is safe at every zoom the product can reach.
+ *
+ * ⭐ MEASURED, in real Chromium, at 1600x1000 on the `pricing-model` starter
+ * (`e2e/geometry/labelBudget.measure.ts`, which stays in the tree so this can be
+ * re-derived rather than re-argued):
+ *
+ *     card layout width   336 px          (NODE_CARD_MAX_W, confirmed)
+ *     row text block      296 px          (the min-w-0 flex child)
+ *     rendered type        24 px          (12 declared x counter-scale 2)
+ *     capacity            25 characters
+ *     rendered            "Usage-based pricing…"   <- cut at 22
+ *
+ * So the option row threw away 3 characters of every long label and the
+ * differentiator threw away 5 — on a canvas whose owner had asked why content
+ * is lost inside the nodes.
+ *
+ * ⚠ `getBoundingClientRect()` WOULD HAVE GIVEN 168 AND 68, because it applies
+ * the canvas transform. The first run of that probe did exactly that and
+ * reported a row a quarter of its real width. `offsetWidth` is the layout box,
+ * which is the frame this budget is spent in.
+ *
+ * ⛔ WHY NOT CSS WIDTH TRUNCATION, WHICH IS WHAT #1531 CORRECTLY DID FOR
+ * `ConnRow`: a CSS ellipsis inside a canvas node REDs
+ * `nodeTextClipping.visual.spec.ts`, which exempts JS-shortened strings BY
+ * DESIGN. So this budget stays a character count; what changes is that it can
+ * no longer go stale, because it now moves with the card and the type.
+ *
+ * ⚠ CONSERVATIVE ON PURPOSE. A character budget can never be exactly right —
+ * "Illinois" and "WWWWWWWW" are the same count and not the same width, and that
+ * imprecision IS the defect class. `AVG_CHAR_EM` is taken from the measured
+ * capacity rather than from a font table, so it already carries the real
+ * mixed-case width of this typeface; rounding DOWN keeps a long label on one
+ * line, because a wrap costs a whole row of card height.
+ */
+const ROW_LABEL_INSET_PX = NODE_CARD_MAX_W - 296
+
+/** Measured: 296px of 24px type held 25 characters of a real mixed-case label. */
+const AVG_CHAR_EM = 296 / 25 / 24
+
+/** The declared size of `typography.nodeLabel`, which these rows use. */
+const ROW_LABEL_DECLARED_PX = 12
+
+export const NODE_ROW_LABEL_MAX_CHARS = Math.floor(
+  (NODE_CARD_MAX_W - ROW_LABEL_INSET_PX) /
+    (ROW_LABEL_DECLARED_PX * MAX_LABEL_COUNTER_SCALE * AVG_CHAR_EM),
+)
+
+
+/**
  * Fair share of a row, per node in the widest tier, below which `layout.ts`
  * abandons the single-row plan and splits the tier across multiple rows.
  *

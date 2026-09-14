@@ -117,6 +117,56 @@ const COMPACT_LABEL_LOOKUP: ReadonlyArray<readonly [RegExp, string]> = [
 const COMPACT_LABEL_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
 
 /**
+ * ⭐ THE ONE SENTENCE-CASE RULE FOR A FACTOR NAME ON A CARD.
+ *
+ * A factor's stored label is Title Case as the producer wrote it ("Usage-Based
+ * Pricing Exposure"). A card states a factor name in more than one place, and
+ * until this was extracted only ONE of those places normalised it — so a single
+ * option card named the same factor twice, in two different casings:
+ *
+ *     intervention row    "Usage-based pricing…"     (normalised)
+ *     differentiator      "Usage-Based Pricing…"     (raw)
+ *
+ * Measured on a real render of the `pricing-model` starter at 1600×1000
+ * (`e2e/geometry/cardAnatomy.measure.ts`), on all three non-baseline options.
+ * It reads as two different factors to anyone who is not holding the model in
+ * their head, which is everyone the canvas exists for.
+ *
+ * ⚠ ACRONYMS SURVIVE. "NRR", "ARR", "GDPR" are words a reader recognises by
+ * their shape; lowercasing them destroys the recognition and invents a word.
+ * Any run of two or more capitals is left exactly as written.
+ *
+ * ⛔ THIS IS NOT A TRUNCATION AND NOT A LOOKUP. `compactFactorLabel` owns how
+ * short a name gets; this owns only its casing. Apply this FIRST, then compact
+ * — that is the order the intervention-chip path already used, and
+ * `COMPACT_LABEL_SUFFIXES` is `/i` so the suffix strip is unaffected by it.
+ */
+export function sentenceCaseFactorLabel(label: string): string {
+  if (!label) return label
+  // ⛔ CASE THE WHOLE STRING FIRST, THEN CAPITALISE — never the other way round.
+  //
+  // The first version split `charAt(0)` off and cased only the REMAINDER, which
+  // tears the leading word in half: "UK Financial Services" became
+  // "K Financial Services" for the purposes of the rule, and "K" alone is one
+  // capital, so it failed the acronym test and lowercased. The card rendered
+  // **"Uk financial services"** — the rule inventing a word, which is the exact
+  // harm the acronym exemption exists to prevent.
+  //
+  // Found by MEASUREMENT, not by review: sweeping all 34 factor labels across
+  // the five starters for truncation behaviour printed "Uk financial service…"
+  // in the output. The unit test did not catch it because its fixture,
+  // "NRR Above Target", has a THREE-letter acronym — `slice(1)` leaves "RR",
+  // which still passes `/^[A-Z]{2,}$/`. A two-letter acronym is the only case
+  // that breaks, and it was the one case the corpus did not contain
+  // (CLAUDE.md trap 22: a corpus from the author's head cannot see the class
+  // the author did not imagine).
+  const cased = label.replace(/\b([A-Za-z]+)\b/g, (word) =>
+    /^[A-Z]{2,}$/.test(word) ? word : word.toLowerCase(),
+  )
+  return cased.charAt(0).toUpperCase() + cased.slice(1)
+}
+
+/**
  * Truncate at word boundary, ellipsising the tail. Used for label compaction
  * so we never cut a word in half.
  */

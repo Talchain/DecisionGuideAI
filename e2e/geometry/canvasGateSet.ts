@@ -470,6 +470,40 @@ export const DELIBERATE_EXCLUSIONS: readonly DeliberateExclusion[] = [
    * instrument broke.
    */
   {
+    what: 'cardAnatomy.measure.ts (6 cells) — the per-kind slot census of a real card',
+    why:
+      'Same claim-type test: `grep -c \'expect(\' ` returns 0. It walks every visible leaf of ' +
+      'every card on a seeded starter at two camera rungs and emits one `ANATOMY {...}` line ' +
+      'per node. It asserts nothing about them, so gating it would add an arm that cannot go ' +
+      'red for a product reason. ⭐ WHAT ONLY THIS CAN DO: source reading cannot answer "what ' +
+      'is actually on this card, in order", because every slot is gated by store state, ' +
+      'analysis presence, view mode and level-of-detail rung — a slot present in the file is ' +
+      'not a slot on the card. It found an option card naming one factor TWICE in two ' +
+      'different casings (fixed, one-factor-one-name), and it settled by measurement that the ' +
+      'product camera parks at the 0.5 legibility FLOOR rather than at the graph\'s true fit, ' +
+      'so nothing is blanked at rest — refuting a diagnosis that had already been written ' +
+      'down. ⚠ ITS SECOND ARM IS KNOWN-WEAK: the READING rung is entered by pressing Equal six ' +
+      'times and the camera did not move, so both rungs currently report the same zoom. The ' +
+      'DEFAULT arm is the one that matters and is sound; do not build on the second until it ' +
+      'is shown to discriminate.',
+  },
+  {
+    what: 'labelBudget.measure.ts (1 cell) — how many characters actually fit on a card row',
+    why:
+      'Same claim-type test: it emits one `BUDGET {...}` line and asserts nothing about it. ⭐ ' +
+      'IT EXISTS SO A CHARACTER BUDGET CAN BE RE-DERIVED RATHER THAN RE-ARGUED. This canvas has ' +
+      'shipped the same defect three times — text cut by CHARACTER COUNT inside a box measured ' +
+      'in PIXELS, sized once and never revisited when the card moved (ConnRow 30 chars, the ' +
+      'edge-label 80px half-width, compactFactorLabel 22/20). It measured the row text block at ' +
+      '296px holding 25 characters at the worst-case counter-scale, which is what ' +
+      '`NODE_ROW_LABEL_MAX_CHARS` is derived against. ⚠ AND IT CARRIES ITS OWN CAUTIONARY ' +
+      'READING: its first version used `getBoundingClientRect()`, which APPLIES the canvas ' +
+      'transform, and reported a 68px row on a 336px card — a number about the camera, not the ' +
+      'card. It uses `offsetWidth` now, and the comment saying why is the point of keeping the ' +
+      'file. The DERIVATION it feeds is gated in the main suite by ' +
+      '`rowLabelBudgetDerived.spec.ts`; this measures the world the derivation describes.',
+  },
+  {
     what: 'edgeLabelOverlap.measure.ts (5 cells, 17.7s darwin) — the P0 glyph-on-glyph defect',
     why:
       '⚠ THE MOST PAINFUL EXCLUSION HERE, AND IT IS NOT ABOUT COST — at 3.5s a cell it is the ' +
