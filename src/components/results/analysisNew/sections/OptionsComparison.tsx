@@ -611,7 +611,7 @@ export function OptionsComparison({
                      share. */
                   onSendMessage(bringIntoComparisonQuestion(o.label, o.reason))
                 }}
-                className={`${typography.panelMeta} mt-1 inline-flex items-center rounded text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`${typography.panelMeta} mt-1 inline-flex items-center rounded text-info underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               >
                 {BRING_INTO_COMPARISON_LABEL}
               </button>

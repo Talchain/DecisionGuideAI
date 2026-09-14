@@ -765,7 +765,7 @@ export function StrengthenTheReasoning({
               restoreDismissed(recordKey(undoable.scenarioId, undoable.id))
               clearUndo()
             }}
-            className="rounded text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+            className="rounded text-info underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
             data-testid={`${testId}-dismissed-undo`}
           >
             {STRENGTHEN_COPY.undo}
@@ -821,7 +821,7 @@ export function StrengthenTheReasoning({
                   intent: 'challenge_assumption',
                 })
               }
-              className={`${typography.panelMeta} mt-2 inline-flex items-center gap-1 rounded text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              className={`${typography.panelMeta} mt-2 inline-flex items-center gap-1 rounded text-info underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               data-testid={`${testId}-completed-challenge`}
             >
               {STRENGTHEN_COPY.completedChallenge}
@@ -1230,7 +1230,7 @@ export function StrengthenTheReasoning({
                       <button
                         type="button"
                         onClick={() => commitDispute(rec)}
-                        className={`${typography.panelMeta} rounded text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                        className={`${typography.panelMeta} rounded text-info underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                         data-testid={`${testId}-disagree-save`}
                       >
                         {COPY.dissent.save}
@@ -1409,7 +1409,7 @@ export function StrengthenTheReasoning({
                       <button
                         type="button"
                         onClick={() => restoreDismissed(recordKey(record.scenarioId, record.id))}
-                        className={`${typography.panelMeta} flex-none text-info hover:underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                        className={`${typography.panelMeta} flex-none text-info underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
                         data-testid={`${testId}-history-restore`}
                       >
                         {STRENGTHEN_COPY.undo}
