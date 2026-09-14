@@ -164,6 +164,27 @@ const CANVAS_SEMANTIC_MUTATIONS_CONNECTED = hasServerGraphAuthority(
 const CANVAS_EDGE_ADD_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.canvasEdgeAddWithServerHash,
 )
+
+/**
+ * ⭐⭐ THE NODE-ADD GATE FOR STANDING CHROME — third carrier, third constant,
+ * and the same argument as the two above rather than a new one.
+ *
+ * `canvasNodeAddWithServerHash` is `'server_graph'`: a receipt-bearing
+ * `structural_add`, a server-side write to `scenarios.graph`, a committed
+ * `edit_graph` fact. `contextMenu/useMenuItems.ts` moved the pane menu's
+ * `add-node` items onto it on 13 Sep 2026, out from under the blanket key. The
+ * TOOLBAR was not moved with them, because the toolbar had no add control to
+ * move — so the gesture was authorised and had exactly one entry point: a
+ * right-click on empty canvas.
+ *
+ * ⛔ STILL NOT THE BLANKET KEY. `canvasSemanticMutations` continues to gate
+ * undo, redo, paste and the blueprint insert, none of which has a durable
+ * carrier, and the LeftSidebar's undo/redo buttons above go on reading it.
+ * Two questions, two constants, named apart (CLAUDE.md trap 21).
+ */
+const CANVAS_NODE_ADD_CONNECTED = hasServerGraphAuthority(
+  CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash,
+)
 import { FirstUseComposer } from './components/FirstUseComposer'
 import { StarterProvenanceBanner } from './components/StarterProvenanceBanner'
 import { useFloatingPanelState } from './hooks/useFloatingPanelState'
@@ -2743,6 +2764,16 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       {reconnecting && <ReconnectBanner />}
 
       <LeftSidebar
+        /* ⭐ THE ONE VISIBLE DOOR TO AUTHORING. Passed only when the durable
+           carrier is live, so the control cannot exist while the gesture would
+           save nothing — and it opens the SAME pane menu the right-click opens,
+           at the button's own rect, so there is one kind list and one
+           authority. See the authoring-group comment in `LeftSidebar`. */
+        onAddToModelClick={
+          CANVAS_NODE_ADD_CONNECTED
+            ? (screenPos) => setContextMenuTarget({ kind: 'pane', screenPos })
+            : undefined
+        }
         interactionMode={effectiveMode}
         /* A-1: the button must toggle off the SAME value it displays. It read
            `effectiveMode` for its icon and label but toggled off the RAW mode,
