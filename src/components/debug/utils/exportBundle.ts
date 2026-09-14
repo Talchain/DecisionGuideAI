@@ -3630,6 +3630,7 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
       user_authored_count: 0,
       turn_record_count: 0,
       answered_count: 0,
+      refused_count: 0,
       no_text_count: 0,
       failed_count: 0,
       unsettled_count: 0,

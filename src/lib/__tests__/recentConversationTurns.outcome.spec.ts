@@ -202,6 +202,7 @@ describe('the counts a bundle reader actually needs', () => {
     const r = selectRecentConversationTurns(SESSION)
     const summed =
       r.answered_count +
+      r.refused_count +
       r.no_text_count +
       r.failed_count +
       r.unsettled_count +
