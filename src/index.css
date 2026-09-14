@@ -847,6 +847,13 @@
   cursor: grabbing;
 }
 
+/* A marquee selection sits inside React Flow's nopan container. In Hand
+   mode, let the pointer reach the canvas without clearing that selection.
+   Select mode keeps the overlay's normal group-drag hit target. */
+.canvas-mode-hand .react-flow__nodesselection-rect {
+  pointer-events: none;
+}
+
 /* Olumi attention — a HELD mark, not the 2s applied-edit acknowledgement.
    It does not pulse: a sustained ring is a place to look at while reading,
    and a repeating animation under a paragraph of text is an irritation
