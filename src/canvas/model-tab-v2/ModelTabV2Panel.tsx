@@ -149,6 +149,8 @@ import {
 } from './adapters'
 import { MODEL_GROUP_IDS, type ModelGroupId } from './types'
 import type { DetailTier, EditCommitState, RepairQueue } from './types'
+import { goalTargetBoundPhrase } from '../conversation/manualGoalTarget'
+import type { ConstraintType } from '../../v5/chipParameters'
 import type { SystemEventSendSettlement } from '../conversation/settleSystemEventSend'
 import type { EdgeStrengthConfirmOutcome } from '../ui/inspector-v2/useInspectorMutations'
 
@@ -309,6 +311,17 @@ const FACTOR_CONFIRMATION_CONNECTED = hasServerGraphAuthority(
 const EDGE_CONFIRMATION_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.modelEdgeStrengthConfirmation,
 )
+/**
+ * Sentence-case a bound phrase for the head of the review line.
+ *
+ * ⚠ IT UPPERCASES AND DOES NOT TRANSLATE. `goalTargetBoundPhrase` owns the
+ * words; this owns one capital letter. Two functions rather than a second map,
+ * so what the reader sees and what the wire carries cannot drift.
+ */
+function capitaliseFirst(phrase: string): string {
+  return phrase.charAt(0).toUpperCase() + phrase.slice(1)
+}
+
 const OPTION_INTERVENTION_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.modelOptionIntervention,
 )
@@ -319,6 +332,15 @@ interface ActiveEdit {
   phase: 'editing' | 'proposed'
   draft: string
   unit?: string
+  /**
+   * ⭐ THE BOUND THE READER CHOSE. Seeded EXPLICITLY at `beginEdit`, never
+   * defaulted at the dispatch — `buildManualGoalTarget` refuses a default
+   * parameter for exactly this reason: "a defaulted parameter would let a new
+   * call site inherit a floor without saying so". Seeding it here means the
+   * control always SHOWS which bound is selected, which is what that doctrine
+   * asks for: the direction stated to the person it is recorded for.
+   */
+  direction?: ConstraintType
   scenarioId?: string | null
   notice?: string
   /** What the row displayed when the edit began — the `from` of the proposal. */
@@ -738,10 +760,19 @@ export function ModelTabV2Panel({
     }
     const state: EditCommitState =
       edit.phase === 'editing'
-        ? { phase: 'editing', draft: edit.draft, ...(edit.unit !== undefined ? { unit: edit.unit } : {}) }
+        ? { phase: 'editing', draft: edit.draft,
+            ...(edit.unit !== undefined ? { unit: edit.unit } : {}),
+            ...(edit.direction !== undefined ? { direction: edit.direction } : {}) }
         : { phase: 'proposed', from: edit.from,
             ...(edit.notice ? { notice: edit.notice } : {}),
-            to: edit.unit !== undefined ? `At least ${edit.draft} ${edit.unit} (absolute level)` : edit.draft }
+            // ⭐ THIS READ "At least …" WHATEVER WAS ABOUT TO BE SENT, and was
+            // right only because the dispatch was hardcoded to match it. Now
+            // the reader chooses, so the sentence is derived from the choice —
+            // through `goalTargetBoundPhrase`, sibling of the map CEE's
+            // operator comes from, so the words and the wire cannot part.
+            to: edit.unit !== undefined
+              ? `${capitaliseFirst(goalTargetBoundPhrase(edit.direction ?? 'at_least'))} ${edit.draft} ${edit.unit} (absolute level)`
+              : edit.draft }
     return new Map<string, EditCommitState>([[edit.rowId, state]])
   }, [edit, confirmNotice])
 
@@ -825,7 +856,13 @@ export function ModelTabV2Panel({
       if (row.kind === 'goal') {
         const target = resolveGoalTarget(node.data)
         setEdit({ rowId, phase: 'editing', draft: target ? String(target.raw) : '',
-          unit: target?.unit ?? '', scenarioId: authority.captureScenarioId(),
+          unit: target?.unit ?? '',
+          // Seeded, not defaulted. `at_least` is the bound this surface has
+          // always recorded, so opening the editor changes nothing until the
+          // reader says otherwise; what changes is that they can now SEE which
+          // one it is, and pick the other.
+          direction: 'at_least',
+          scenarioId: authority.captureScenarioId(),
           from: target ? `${target.raw}${target.unit ? ` ${target.unit}` : ''}` : 'Not set' })
         return
       }
@@ -844,8 +881,15 @@ export function ModelTabV2Panel({
     [rows, nodes, edges, authority, selectRow],
   )
 
-  const changeDraft = useCallback((rowId: string, draft: string, unit?: string) => {
-    setEdit(prev => (prev && prev.rowId === rowId ? { ...prev, draft, ...(unit !== undefined ? { unit } : {}) } : prev))
+  const changeDraft = useCallback((rowId: string, draft: string, unit?: string, direction?: ConstraintType) => {
+    // ⚠ OMITTED MEANS UNCHANGED, FOR BOTH FIELDS. The unit input and the bound
+    // select each send only their own field, so a caller that omits one must
+    // not clear it — the spread discipline the `unit` arm already used.
+    setEdit(prev => (prev && prev.rowId === rowId
+      ? { ...prev, draft,
+          ...(unit !== undefined ? { unit } : {}),
+          ...(direction !== undefined ? { direction } : {}) }
+      : prev))
   }, [])
 
   const proposeEdit = useCallback((rowId: string) => {
@@ -882,15 +926,20 @@ export function ModelTabV2Panel({
       if (!edit || edit.rowId !== rowId || edit.phase !== 'proposed') return
       if (edit.unit !== undefined) {
         /*
-         * ⚠ `'at_least'` IS STATED, NOT INHERITED — and it is deliberately
-         * UNCHANGED behaviour for this surface. The Model tab's review line
-         * reads "At least {draft} {unit} (absolute level)" (`:629`), so a
-         * floor is what this tab shows and a floor is what it must record.
-         * Offering the choice here is the same capability one surface over and
-         * is NOT in this change's scope; the parameter is required precisely so
-         * that this call site has to say which bound it means.
+         * ⭐ THE BOUND IS NOW THE READER'S. The comment that stood here stated
+         * its own SCOPE, not a ruling: a floor "is what this tab shows and a
+         * floor is what it must record", and this call site must "say which
+         * bound it means" — both still true. It also said offering the choice
+         * was out of THAT change's scope. This is that change.
+         *
+         * `?? 'at_least'` narrows a type, it does not default a decision:
+         * `beginEdit` seeds `direction` on every goal edit, so the nullish arm
+         * is unreachable in the product. It is written rather than asserted
+         * because a crash here costs the user their draft — and the fallback is
+         * the bound this surface has always recorded, never a guess at the
+         * other one.
          */
-        if (authority.proposeGoalTarget(edit.draft, edit.unit, edit.scenarioId ?? null, 'at_least') === 'dispatched') setEdit(null)
+        if (authority.proposeGoalTarget(edit.draft, edit.unit, edit.scenarioId ?? null, edit.direction ?? 'at_least') === 'dispatched') setEdit(null)
         else setEdit({ ...edit, notice: 'Target not sent. Reopen the target in the current model; your proposed value is shown here.' })
         return
       }

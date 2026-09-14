@@ -78,6 +78,7 @@ import { statedTargetNumber } from '../domain/goalTarget'
 import type { EditCommitState, DetailTier, ModelRow } from './types'
 import { splitEffectLabel } from './effectDirection'
 import { directionToneClass } from '../components/model-tab/utils'
+import type { ConstraintType } from '../../v5/chipParameters'
 
 export interface ModelRowViewProps {
   row: ModelRow
@@ -111,7 +112,7 @@ export interface ModelRowViewProps {
    */
   editConnected?: boolean
   /** Live-edit callbacks (the three-beat). Absent ⇒ the static renders below. */
-  onDraftChange?: (id: string, draft: string, unit?: string) => void
+  onDraftChange?: (id: string, draft: string, unit?: string, direction?: ConstraintType) => void
   /** Commit intent: editing → proposed. */
   onProposeEdit?: (id: string) => void
   /** Abandon the edit from either the input (Escape) or the proposal chip. */
@@ -1434,7 +1435,7 @@ function EditorActionLine({
   onDiscardEdit,
 }: {
   row: ModelRow
-  commit: { phase: 'editing'; draft: string; unit?: string }
+  commit: { phase: 'editing'; draft: string; unit?: string; direction?: ConstraintType }
   onProposeEdit: (id: string) => void
   onDiscardEdit: (id: string) => void
 }) {
@@ -1743,8 +1744,8 @@ function RelationshipBandLine({
   onDraftChange,
 }: {
   row: ModelRow
-  commit: { phase: 'editing'; draft: string; unit?: string }
-  onDraftChange: (id: string, draft: string, unit?: string) => void
+  commit: { phase: 'editing'; draft: string; unit?: string; direction?: ConstraintType }
+  onDraftChange: (id: string, draft: string, unit?: string, direction?: ConstraintType) => void
 }) {
   const testid = `model-row-v2-${row.id}-value`
 
@@ -1950,7 +1951,7 @@ function ValueCell({
   commit?: EditCommitState
   editorAvailable: boolean
   onBeginEdit?: (id: string) => void
-  onDraftChange?: (id: string, draft: string, unit?: string) => void
+  onDraftChange?: (id: string, draft: string, unit?: string, direction?: ConstraintType) => void
   onProposeEdit?: (id: string) => void
   onDiscardEdit?: (id: string) => void
   onConfirmEdit?: (id: string) => void
@@ -2011,6 +2012,38 @@ function ValueCell({
                   {/* Two fields need a second line, not paragraphs wrapped in
                       the narrow value column. The review phase states the
                       minimum/absolute-level meaning before Confirm can send. */}
+                  {/* ⭐⭐ THE BOUND — the founder could not say "under 4%".
+                      This surface sent `'at_least'` unconditionally beneath a
+                      review line reading "At least …", so the two agreed and
+                      both were wrong for a ceiling. Both values are first-class
+                      at CEE: `AddConstraintTypeSchema` is
+                      `z.enum(['at_least','at_most'])` and the operator comes
+                      from a MAP — measured by execution against the real
+                      `add_constraint` handler, with `'exactly'` refused as a
+                      negative control (`manualGoalTarget.ts:56-67`).
+
+                      ⚠ THE TWO BOUNDS DIVERGE DOWNSTREAM, DELIBERATELY.
+                      `at_least` also stamps the goal's success threshold,
+                      because ISL computes `P(samples >= threshold)`; `at_most`
+                      lands a constraint row and no threshold. That asymmetry is
+                      recorded at `manualGoalTarget.ts:70-81` as correct and NOT
+                      to be "fixed" here. The copy claims only what is true of
+                      both: a recorded limit. */}
+                  <label className="flex flex-col gap-0.5">
+                    Limit
+                    <select
+                      aria-label={`Target bound for ${row.label}`}
+                      value={commit.direction ?? 'at_least'}
+                      onClick={e => e.stopPropagation()}
+                      onChange={e =>
+                        onDraftChange(row.id, commit.draft, commit.unit, e.target.value as ConstraintType)
+                      }
+                      className={`${typography.tabular} w-24 bg-panel-hover border border-panel-border rounded px-1`}
+                    >
+                      <option value="at_least">at least</option>
+                      <option value="at_most">at most</option>
+                    </select>
+                  </label>
                   <label className="flex flex-col gap-0.5">
                     Unit
                     <input
@@ -2018,7 +2051,7 @@ function ValueCell({
                       value={commit.unit ?? ''}
                       placeholder="£, %, points"
                       onClick={e => e.stopPropagation()}
-                      onChange={e => onDraftChange(row.id, commit.draft, e.target.value)}
+                      onChange={e => onDraftChange(row.id, commit.draft, e.target.value, commit.direction)}
                       onKeyDown={e => {
                         if (e.key === 'Enter') { e.preventDefault(); onProposeEdit(row.id) }
                         if (e.key === 'Escape') { e.preventDefault(); onDiscardEdit(row.id) }
