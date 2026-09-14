@@ -126,11 +126,18 @@ export interface V5ApplicatorStore {
    * Write (or evict) the run-over-run consequence for the analysis this turn
    * landed. Optional so fixture and legacy hosts are unaffected.
    *
-   * ⭐ CALLED ONLY BESIDE A NEW ANALYSIS, and called with `null` when that turn
-   * carried no delta — so a replacement analysis evicts a superseded one BY
-   * CONSTRUCTION. Every other turn leaves the slice alone, which is what lets
-   * the explanation survive ordinary conversation without surviving the run it
-   * describes.
+   * ⭐ TWO DIFFERENT CONDITIONS, AND THEY ARE NOT THE SAME ONE. A delta is
+   * WRITTEN whenever a turn carries one, regardless of whether the analysis
+   * content hash moved — because CEE re-emits a byte-identical
+   * `analysis_result` on follow-up turns, so an arriving delta on a
+   * duplicate-hash turn is real and must not be dropped. A delta is EVICTED
+   * only when a genuinely new analysis lands carrying none.
+   *
+   * ⚠ Eviction is therefore NOT "by construction" on every replacement. The
+   * hash is a CONTENT hash, not a run identity, so a new run whose content
+   * collides with the displayed one evicts nothing. That is a known, bounded
+   * limit — see the write site and `runDeltaEvictionHoldsOnEcho.spec.ts`,
+   * which pins both directions.
    */
   setRunDelta?: (stored: StoredRunDelta | null) => void
   /**
@@ -2205,20 +2212,6 @@ export function applyV5State(
         })
         applied.push('analysis_result:results_hydrated')
 
-        // ── "What's changed" — the run-over-run consequence ─────────────────
-        //
-        // ⭐ THIS IS THE ONLY WRITE SITE, AND ITS POSITION IS THE DESIGN. We are
-        // inside `hash !== prevHash`, i.e. a GENUINELY NEW analysis has landed —
-        // not a re-delivered echo. Writing here means the delta is stamped with
-        // the identity of the analysis it arrived beside, and means a new
-        // analysis that carries NO delta evicts the previous one rather than
-        // leaving it to sit under fresh numbers.
-        //
-        // ⚠ `?? null` IS AN EVICTION, NOT A DEFAULT. The contract's absence
-        // semantics are explicit — "absent on every non-rerun turn … never
-        // defaulted, and a consumer renders NO delta card on absence" — and the
-        // several producer-side refusals all arrive here as the same silence.
-        // The UI cannot tell them apart and must not try.
         // Reliable run identity: a NEW analysis_result response_hash (hash !==
         // prevHash) means a genuinely new analysis completed — not a re-delivered
         // analysis_ready echo. Clear the local dirty overlay so a real rerun

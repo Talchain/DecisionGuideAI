@@ -186,7 +186,7 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
         claim on that side — never that no such option existed — and that a
         consumer must not name one.
       */}
-      {view.leader?.changed ? (
+      {view.leader.changed ? (
         <p
           className={`${typography.panelMeta} text-text-light mt-2 mb-0`}
           data-testid={`${WHATS_CHANGED_TESTID}-highest-scoring`}

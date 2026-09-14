@@ -1641,11 +1641,17 @@ interface CanvasState {
   /**
    * Write (or evict) the run-over-run consequence.
    *
-   * ⭐ CALLED ON EVERY TURN THAT LANDS A NEW ANALYSIS — with `null` when that
-   * turn carried no delta. That is what makes a superseded delta impossible
-   * rather than merely unlikely: a replacement analysis evicts BY CONSTRUCTION,
-   * so no one has to remember to clear it, and CEE stripping the block (it does
-   * so on a withheld run identity) evicts through the same path.
+   * ⭐ WRITTEN whenever a turn carries a delta; EVICTED (`null`) only when a
+   * genuinely new analysis lands without one. The two are deliberately
+   * different conditions — see `applyV5State`'s write site.
+   *
+   * ⛔ A SUPERSEDED DELTA IS UNLIKELY, NOT IMPOSSIBLE, and an earlier version of
+   * this note said otherwise. Eviction is gated on the analysis CONTENT hash
+   * moving, so it does not fire when a new run's content collides with the
+   * displayed one — and it does not fire when CEE strips the block on a
+   * withheld run identity if that turn's content hash is unchanged. The read
+   * side (`runDeltaDescribesDisplayedAnalysis`) is the load-bearing guard, not
+   * this one.
    */
   setRunDelta: (stored: StoredRunDelta | null) => void
   /**
