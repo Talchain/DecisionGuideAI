@@ -299,11 +299,26 @@ describe('adaptCEEBlock — review_card tone mapping', () => {
 // We test the component by importing InlineBlocks and rendering a single commentary block.
 // Flag mocking: vi.mock the flags module.
 
+/*
+ * ⚠ COMPACT LINES ARE HELD OFF FOR THE BADGE-DOT SECTIONS, and the reason
+ * matters for §15 below. `review_card` is a point candidate, so at the compact
+ * flag's product default (ON) those blocks render as LINES, and a line is not a
+ * card — DS v5 §21.2's badge belongs to the card treatment (panel, radius,
+ * padding, top border, dot) and is dropped with the rest of it.
+ *
+ * ⛔ THAT IS NOT THE RE-GATING §15 GUARDS AGAINST. §15 pins that the badge is
+ * no longer conditioned on `isOrchestratorRenderingV2Enabled` — a flag about
+ * which RENDERER runs. This is a different question: whether the thing being
+ * rendered is a card at all. §15's guard is intact and still asserted below.
+ */
+const compactLines = { enabled: false }
+
 vi.mock('../../../flags', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../flags')>()
   return {
     ...actual,
     isOrchestratorRenderingV2Enabled: vi.fn().mockReturnValue(true),
+    isCompactCoachingLinesEnabled: () => compactLines.enabled,
   }
 })
 
