@@ -32,6 +32,7 @@ import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { InspectorRouter } from '../InspectorRouter'
 import { DiscussWithAiButton } from '../../../components/pre-analysis/DiscussWithAiButton'
 import { requestAsk, ASK_SEMANTIC } from '../askSemantic'
+import { resolveAskTemplate } from '../inspectorStrings'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore, type GuidanceItem } from '../../../stores/guidanceStore'
 import { useAskOlumiStore } from '../../../../components/results/coaching/askOlumiStore'
@@ -54,7 +55,18 @@ const coachingProps = {
   labelContext: { label: 'Marketing Budget' },
 }
 
-const EXPECTED_QUESTION = 'How important is Marketing Budget to the outcome?'
+/**
+ * ⚠ DERIVED FROM THE REGISTER, NOT COPIED FROM IT (trap 12). This was the literal
+ * 'How important is Marketing Budget to the outcome?' — a hand-maintained mirror
+ * of `ASK_TEMPLATES['factor-controllable']`, which went stale the moment that copy
+ * changed. This test is about the CARRIER (prefill, never send), so the question
+ * is resolved from the same register the component reads. The COPY is pinned as a
+ * property in `askTemplatesHandJudgementBack.spec.ts`.
+ */
+const EXPECTED_QUESTION = resolveAskTemplate(
+  coachingProps.panelType,
+  coachingProps.labelContext,
+) as string
 
 function makeGuidanceItem(overrides: Partial<GuidanceItem> = {}): GuidanceItem {
   return {
