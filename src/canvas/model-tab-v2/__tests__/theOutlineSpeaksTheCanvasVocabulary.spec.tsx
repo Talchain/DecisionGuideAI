@@ -46,8 +46,23 @@ describe('the Model outline speaks the canvas vocabulary', () => {
     for (let i = 0; i < NODE_KINDS.length; i++) {
       const cell = glyphCell(`r${i}`)
       expect(cell.querySelector('svg'), `${NODE_KINDS[i]} must render an SVG shape in the row`).not.toBeNull()
-      // Colour comes from the entity token. A grey character carries none.
-      expect(cell.innerHTML, `${NODE_KINDS[i]} must carry an entity colour token`).toContain('var(--')
+      /**
+       * Colour comes from the entity token. A grey character carries none.
+       *
+       * ⛔ READ THE ATTRIBUTE, DO NOT SEARCH THE HTML FOR THE TOKEN PREFIX. A
+       * first draft asserted `toContain('var(' + '--')` on `innerHTML`, and that
+       * BARE LITERAL tripped `tests/ci-guards/css-var-resolution.spec.ts`, which
+       * scans TS/TSX for custom-property references and correctly read my
+       * assertion string as a malformed one. The guard was right: a test's
+       * string literals are part of the corpus it polices. Reading the real
+       * `fill` attribute is both a stronger assertion and honest about what it
+       * inspects.
+       */
+      // ⚠ THE SHAPE, NOT THE SVG. `NodeShapeIndicator` renders `<svg fill="none">`
+      // around the shape, so `[fill]` matches the WRAPPER first and reads 'none'.
+      const shape = cell.querySelector('circle, rect, polygon, path, ellipse')
+      const fill = shape?.getAttribute('fill') ?? ''
+      expect(fill, `${NODE_KINDS[i]} must carry an entity colour token`).toMatch(/^var\(/)
       // And the old character must be gone from the cell.
       expect(cell.textContent ?? '').not.toContain(KIND_GLYPH[NODE_KINDS[i]])
     }
