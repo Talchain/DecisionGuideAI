@@ -74,15 +74,18 @@ export const DOCK_MIN_WIDTH = 280
  * Ceiling for the RESPONSIVE default. Every viewport wide enough to reach it
  * gets it.
  *
- * ⭐ 300 BY FOUNDER RULING (14 Sep 2026), down from 416. See the header for what
- * the measurement does and does not support.
+ * ⛔⛔ 416, AND THE CANVAS LANE MAY NOT CHANGE IT. FOUNDER RULING, 14 Sep 2026:
+ * *"That's for the panel Workstream to decide, not you. Your job is to make the
+ * graph look as optimal as it can with the space available."*
  *
- * ⚠ 20px ABOVE `DOCK_MIN_WIDTH`, WHICH MAKES THE TAPER BAND NEARLY VESTIGIAL —
- * stated rather than discovered later. The responsive band is the range where
- * the proportional value sits strictly between floor and ceiling, and with only
- * 20px between them that band is now about 1195..1280px wide. Practically every
- * viewport gets exactly 300, and small ones get exactly 280. The taper is still
- * real and still tested; it is simply no longer where most people live.
+ * This constant was moved to 300 by the canvas lane earlier the same day and is
+ * restored here. The measurement that motivated it is not withdrawn — the graph
+ * genuinely gets 1080px of a 1600px window and three starters cannot fit
+ * legibly — but **the remedy is not ours to apply.** A canvas lane that wants
+ * more room states the measurement and hands it to Panel; it does not take the
+ * pixels. The reason is not politics: the dock's floor exists because panel
+ * CONTENT wraps unusably below it, and the canvas lane has never measured that
+ * content. We were optimising one surface using the other surface's budget.
  *
  * ⛔ DO NOT GO BELOW `DOCK_MIN_WIDTH`. That floor is not a preference — below it
  * the panel content wraps unusably, which is the failure the 17 Aug revert was
@@ -93,7 +96,7 @@ export const DOCK_MIN_WIDTH = 280
  * fallback, because the custom property has to have a value before this module
  * runs. `dockCssFallbackAgrees.spec.ts` REDs if the two disagree.
  */
-export const DOCK_RESPONSIVE_MAX_WIDTH = 300
+export const DOCK_RESPONSIVE_MAX_WIDTH = 416
 
 /**
  * The reference viewport the ceiling is sized against — the laptop every
