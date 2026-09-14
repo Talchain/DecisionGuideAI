@@ -163,6 +163,18 @@ export type ConversationTurnTransportKind =
  * of the two questions unanswerable.
  *
  *   `answered`      — settled 2xx carrying assistant text.
+ *   `refused`       — settled 2xx carrying assistant text that DECLINES: the
+ *                     turn shipped a wire failure block, so the user was told
+ *                     the thing they asked for did not happen. ⭐ ADDED
+ *                     2026-09-14 BECAUSE THESE WERE BEING COUNTED `answered`.
+ *                     Measured on a real export (44e349fa, scenario
+ *                     9677de7d-…): `captured 18 | failed 0 | answered 17`,
+ *                     while two of those turns read *"I couldn't complete that
+ *                     change, and nothing in your model has changed"*. Both
+ *                     were `status: 200`, `completed: true`. A refusal is
+ *                     neither a success nor a transport error, and while it
+ *                     was spelled as one the product's own instruments
+ *                     reported that session as flawless.
  *   `no_text`       — settled 2xx carrying NO assistant text. **Not a failure.**
  *                     CEE's own commit path documents the legitimate case: "the
  *                     draft_graph path whose provisional response carries empty
@@ -179,6 +191,7 @@ export type ConversationTurnTransportKind =
  */
 export type ConversationTurnOutcome =
   | 'answered'
+  | 'refused'
   | 'no_text'
   | 'failed'
   | 'unsettled'
@@ -332,10 +345,17 @@ export interface RecentConversationTurnsResult {
    * posture.
    */
   user_message_omitted_reason?: string
-  /** Turn records (`transport_kind: 'buffered_turn'`) — the denominator for the four counts below. */
+  /** Turn records (`transport_kind: 'buffered_turn'`) — the denominator for the five counts below. */
   turn_record_count: number
   /** `outcome: 'answered'`. */
   answered_count: number
+  /**
+   * `outcome: 'refused'` — settled 2xx whose reply DECLINED. Neither a success
+   * nor a transport error, and counted separately from both so that "did this
+   * land?" can be asked of a session at all. Non-zero here with
+   * `failed_count: 0` is the shape the 44e349fa export had and could not show.
+   */
+  refused_count: number
   /** `outcome: 'no_text'` — settled 2xx with no assistant text. Not failures. */
   no_text_count: number
   /** `outcome: 'failed'`. */
@@ -355,6 +375,49 @@ function readAssistantText(p: ConversationTurnSourcePayload): string | null {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return null
   const text = (body as Record<string, unknown>).assistant_text
   return typeof text === 'string' && text.length > 0 ? text : null
+}
+
+/**
+ * Did this turn ship a wire failure block — i.e. did the user get told the
+ * thing they asked for did not happen?
+ *
+ * ⭐ THE MARKER IS THE PRODUCER'S, NOT AN INFERENCE FROM PROSE. CEE's
+ * `buildBoundaryBlocks` returns `[]` outright unless the edit was rejected,
+ * and ships `{ type: 'error', … }` when it was; the validator-failure composer
+ * does the same. So `type === 'error'` is a claim CEE made, not one this
+ * module derived. Reading refusal out of `assistant_text` would be exactly the
+ * fabrication `readAssistantText` above is written to prevent ("passthrough
+ * only — never re-derived or summarised").
+ *
+ * Returns the producer's own `details.rejection_code` when it stated one (e.g.
+ * `OPERATION_DID_NOT_LAND`), else the boundary `error_code`, so
+ * `outcome_reason` carries a cause rather than a bare label. Null means "not a
+ * refusal" — never "a refusal with no cause".
+ *
+ * ⚠ SCOPE. This sees refusals MARKED ON THE WIRE. CEE's recoverable composers
+ * deliberately ship `blocks: []`, so a refusal recovered that way is
+ * indistinguishable from an answer HERE and stays `answered`. That is a real
+ * residual undercount, recorded rather than papered over; closing it needs a
+ * new CEE wire signal, not more UI inference.
+ */
+function readRefusalCode(p: ConversationTurnSourcePayload): string | null {
+  const body = p.response?.body
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return null
+  const blocks = (body as Record<string, unknown>).blocks
+  if (!Array.isArray(blocks)) return null
+  for (const raw of blocks) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue
+    const block = raw as Record<string, unknown>
+    if (block.type !== 'error') continue
+    const details = block.details
+    if (details && typeof details === 'object' && !Array.isArray(details)) {
+      const code = (details as Record<string, unknown>).rejection_code
+      if (typeof code === 'string' && code.length > 0) return code
+    }
+    const errorCode = block.error_code
+    return typeof errorCode === 'string' && errorCode.length > 0 ? errorCode : 'unspecified'
+  }
+  return null
 }
 
 /**
@@ -476,8 +539,10 @@ function deriveOutcome(args: {
   hasAssistantText: boolean
   failureSource: string | null
   errorName: string | null
+  refusalCode: string | null
 }): { outcome: ConversationTurnOutcome; reason: string | null } {
-  const { transportKind, completed, status, hasAssistantText, failureSource, errorName } = args
+  const { transportKind, completed, status, hasAssistantText, failureSource, errorName, refusalCode } =
+    args
   if (transportKind !== 'buffered_turn') {
     return { outcome: 'transport_leg', reason: transportKind }
   }
@@ -499,6 +564,16 @@ function deriveOutcome(args: {
   }
   if (!hasAssistantText) {
     return { outcome: 'no_text', reason: 'no_assistant_text_on_2xx' }
+  }
+  // ⭐ ORDER IS THE WHOLE POINT, AND IT SITS HERE DELIBERATELY. A refusal is a
+  // settled 2xx carrying assistant text, so it satisfies every condition
+  // `answered` tests — which is exactly how two refusals were counted as
+  // answers. It must be asked BEFORE `answered`, and AFTER `failed`, because a
+  // transport failure is not a refusal: the user got no considered reply at
+  // all. Moving this below `answered` makes it unreachable and silently
+  // restores the defect.
+  if (refusalCode !== null) {
+    return { outcome: 'refused', reason: refusalCode }
   }
   return { outcome: 'answered', reason: null }
 }
@@ -541,6 +616,7 @@ export function selectRecentConversationTurns(
       hasAssistantText: assistantText !== null,
       failureSource,
       errorName,
+      refusalCode: readRefusalCode(p),
     })
     return {
       trace_id: typeof p.id === 'string' ? p.id : null,
@@ -583,6 +659,7 @@ export function selectRecentConversationTurns(
       : { user_message_omitted_reason: USER_AUTHORED_TEXT_OMITTED_REASON }),
     turn_record_count: turns.filter((t) => t.transport_kind === 'buffered_turn').length,
     answered_count: countOf('answered'),
+    refused_count: countOf('refused'),
     no_text_count: countOf('no_text'),
     failed_count: countOf('failed'),
     unsettled_count: countOf('unsettled'),
