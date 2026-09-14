@@ -99,7 +99,14 @@ describe('resolveLabelCollisionOffsets — E3 part 2: node cards as fixed obstac
       [
         { id: 'far', x: 400, y: 300 },
         { id: 'below', x: 0, y: 60 }, // label top edge 43 > card bottom 40
-        { id: 'beside', x: 200, y: 0 }, // label left edge 120 > card right 100
+        // ⛔ RE-SITED 14 Sep 2026 (was x: 200, "label left edge 120 > card
+        // right 100"). LABEL_HALF_WIDTH now carries MAX_LABEL_COUNTER_SCALE —
+        // the resolver clears the box at the zoom the product parks at — so the
+        // half-extent is 176, not 88, and a label at 200 OVERLAPS the card it
+        // was written to be clear of. The fixture had stopped exercising its
+        // own branch: it would have asserted "unmoved" about a label the
+        // resolver correctly moves. 300 − 176 = 124 > 100, clear as intended.
+        { id: 'beside', x: 300, y: 0 },
       ],
       [CARD],
     )
@@ -195,15 +202,20 @@ describe('resolveLabelCollisionOffsets — 31 Aug 2026 label-overlap defects', (
     // eagerly" passes by displacing everything, and a threshold of any size
     // would look correct.
     //
-    // ⛔ RE-SITED 14 Sep 2026, and the expectation deliberately did NOT change.
-    // x was 170, chosen when the box was 160 wide ("170 > 160"). The box now
-    // renders 176 wide (edgeLabel 10px → 11px) and X_THRESHOLD is 178, so 170
-    // sits INSIDE the threshold and this control had stopped discriminating —
-    // it would have passed only by asserting the displacement it exists to
-    // forbid. 190 > 178 → the boxes genuinely do not meet, as before.
+    // ⛔ RE-SITED TWICE, 14 Sep 2026, and the expectation deliberately did NOT
+    // change either time. This fixture is the estate's clearest example of a
+    // control that decays when the thing it is written against moves:
+    //   x: 170 — chosen when the box was 160 wide ("170 > 160")
+    //   x: 190 — after edgeLabel 10px → 11px made X_THRESHOLD 178
+    //   x: 370 — now LABEL_HALF_WIDTH carries MAX_LABEL_COUNTER_SCALE, so the
+    //            resolver clears 352 and X_THRESHOLD is 354
+    // At each stale value the control sat INSIDE the threshold and could only
+    // have passed by asserting the displacement it exists to forbid — i.e. it
+    // stops being a contrast control and becomes a second copy of its own twin,
+    // silently. 370 > 354 → the boxes genuinely do not meet, as before.
     const out = resolveLabelCollisionOffsets([
       { id: 'left', x: 0, y: 0 },
-      { id: 'right', x: 190, y: 0 },
+      { id: 'right', x: 370, y: 0 },
     ])
     expect(out.get('left')).toEqual({ dx: 0, dy: 0 })
     expect(out.get('right')).toEqual({ dx: 0, dy: 0 })

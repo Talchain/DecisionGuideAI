@@ -25,7 +25,8 @@
  */
 import { describe, it, expect } from 'vitest'
 import { typography, CANVAS_TYPE_PX } from '../../src/styles/typography'
-import { LABEL_HALF_WIDTH } from '../../src/canvas/edges/edgeLabelCollision'
+import { LABEL_HALF_WIDTH, LABEL_DECLARED_HALF_WIDTH } from '../../src/canvas/edges/edgeLabelCollision'
+import { MAX_LABEL_COUNTER_SCALE } from '../../src/canvas/utils/zoomLegibility'
 
 /** The px a canvas type token actually declares, read out of the class string. */
 const declaredPx = (cls: string): number | null => {
@@ -57,12 +58,42 @@ describe('canvas type and the geometry that clears it cannot drift apart', () =>
 
   it('⭐ the edge-label BOX scales with the edge-label FONT — the exact #1527 regression', () => {
     // 80 half-width was chosen at a 10px font. The box must hold that ratio.
+    // ⚠ ASSERTED ON THE *DECLARED* HALF-WIDTH SINCE 14 Sep 2026. This test's
+    // claim is about the FONT RATIO and it is unchanged; what changed is that
+    // the quantity holding the ratio was renamed when the counter-scale was
+    // added to the resolver's box (below). Pointing it at `LABEL_HALF_WIDTH`
+    // would now be asserting the font ratio against a number that also carries
+    // the zoom bound — two facts under one assertion.
     const expected = Math.ceil(80 * (CANVAS_TYPE_PX.edgeLabel / 10))
     expect(
-      LABEL_HALF_WIDTH,
-      `LABEL_HALF_WIDTH is ${LABEL_HALF_WIDTH} for a ${CANVAS_TYPE_PX.edgeLabel}px font. At ` +
-      `10px it was 80. A font that grows inside a box that does not is what truncates a label.`,
+      LABEL_DECLARED_HALF_WIDTH,
+      `LABEL_DECLARED_HALF_WIDTH is ${LABEL_DECLARED_HALF_WIDTH} for a ` +
+      `${CANVAS_TYPE_PX.edgeLabel}px font. At 10px it was 80. A font that grows inside a box ` +
+      `that does not is what truncates a label.`,
     ).toBe(expected)
+  })
+
+  it('⭐⭐ the RESOLVER clears the counter-scaled box, as the HEIGHT already did', () => {
+    // #1560 fixed the 10% font gap and left a 100% zoom gap underneath it: the
+    // text counter-scales up to MAX_LABEL_COUNTER_SCALE at the zoom the product
+    // parks at, and the resolver's width did not. `LABEL_BOX_HEIGHT` beside it
+    // has multiplied by the same constant all along — this pins that the two
+    // axes now agree, so the width cannot drift back out of step on its own.
+    expect(
+      LABEL_HALF_WIDTH,
+      `The resolver must clear the WORST-CASE width. ${LABEL_DECLARED_HALF_WIDTH} declared ` +
+      `x ${MAX_LABEL_COUNTER_SCALE} counter-scale. Without this the chip holds half the ` +
+      `characters it was sized for at exactly the zoom a fresh model lands at.`,
+    ).toBe(Math.ceil(LABEL_DECLARED_HALF_WIDTH * MAX_LABEL_COUNTER_SCALE))
+  })
+
+  it('⛔ DISCRIMINATING: the two widths are NOT the same number', () => {
+    // If someone "tidies" the rename away by collapsing the two constants, one
+    // of the two defects re-opens: either the chip stops following its text, or
+    // the resolver under-clears at the parked zoom. MAX_LABEL_COUNTER_SCALE is
+    // 2, so they must differ — and this states that as a behaviour, not a note.
+    expect(MAX_LABEL_COUNTER_SCALE).toBeGreaterThan(1)
+    expect(LABEL_HALF_WIDTH).not.toBe(LABEL_DECLARED_HALF_WIDTH)
   })
 
   it('⛔ DISCRIMINATING: the box would NOT satisfy the ratio at the pre-#1527 font', () => {
