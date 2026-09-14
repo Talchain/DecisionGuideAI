@@ -9,6 +9,38 @@
  * <h2 className={typography.h2}>Heading</h2>
  */
 
+/**
+ * ⭐⭐ THE CANVAS TYPE SIZES, AS NUMBERS, BECAUSE GEOMETRY HAS TO READ THEM.
+ *
+ * ⛔ WHY THIS EXISTS — a dated, measured regression rather than a tidy-up.
+ * #1527 (12 Sep 2026) raised canvas type: nodeTitle 12 -> 14, nodeLabel 11 -> 12,
+ * **edgeLabel 10 -> 11**. The geometry that clears space for that text did NOT
+ * move with it, because it could not see it: `edgeLabelCollision.ts` carried
+ * `const LABEL_DECLARED_FONT_PX = 10 // typography.edgeLabel` — a HAND-COPY with
+ * a comment asserting the very mirror that had gone stale (CLAUDE.md trap 12).
+ *
+ * The consequences were both live on staging for two days:
+ *  · the label BOX stayed 160 graph units while its text grew 10%, so strength
+ *    labels truncated — the founder's report was *"Moder… est."*, where his own
+ *    captures from before #1527 read *"Moderate boost (uncertain)"* in full
+ *  · the box's HEIGHT reservation was computed from a 10px font, so the collision
+ *    resolver under-cleared every dodge by the same 10%
+ *
+ * ⇒ **Geometry now DERIVES from these numbers, and a guard REDs if they stop
+ * agreeing with the class strings below.**
+ *
+ * ⚠ THE CLASS STRINGS CANNOT DERIVE FROM THESE, AND I TRIED. Tailwind's scanner
+ * reads SOURCE TEXT: an arbitrary-value class built by template interpolation is
+ * invisible to it, the rule is never generated, and the size silently falls back
+ * to inherited. **The fix would have shipped dark.** So this is doctrine's other
+ * half — derive where you can, and where you cannot, MAKE THE MIRROR FAIL LOUD.
+ */
+export const CANVAS_TYPE_PX = {
+  nodeTitle: 14,
+  nodeLabel: 12,
+  edgeLabel: 11,
+} as const
+
 export const typography = {
   // Display (Hero)
   display: 'text-5xl font-bold font-sans leading-tight tracking-tight',
@@ -172,6 +204,11 @@ export const typography = {
    * ⚠ WEIGHT STILL 500, for the reason the previous note gives: it is the only
    * thing separating a title from a metric value, and size alone no longer is.
    */
+  // ⛔ THESE STAY LITERAL STRINGS. Tailwind's scanner reads SOURCE TEXT, so an
+  // arbitrary-value class built by template interpolation is INVISIBLE to it and
+  // the rule is never generated — the size would silently fall back to inherited
+  // and the fix would ship dark. `CANVAS_TYPE_PX` above is the number these must
+  // agree with, and `canvasTypeGeometryAgrees.spec.ts` REDs if they drift.
   nodeTitle: 'text-[length:calc(14px*var(--canvas-label-scale,1))] font-medium font-sans leading-snug',
   nodeLabel: 'text-[length:calc(12px*var(--canvas-label-scale,1))] font-sans leading-snug',
   edgeLabel: 'text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-snug',

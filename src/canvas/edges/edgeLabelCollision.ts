@@ -70,6 +70,7 @@
  *    the counter-scale, the way node geometry already is.
  */
 import { MAX_LABEL_COUNTER_SCALE } from '../utils/zoomLegibility'
+import { CANVAS_TYPE_PX } from '../../styles/typography'
 
 export interface LabelPoint {
   id: string
@@ -112,7 +113,34 @@ export interface NodeRect {
 //
 // WIDTH is a fixed inline `maxWidth: 160px` on the label container. Inline px
 // on a React Flow child ARE graph units, so it does not move with zoom.
-export const LABEL_HALF_WIDTH = 80
+/**
+ * ⛔ WAS `= 10 // typography.edgeLabel` — A HAND-COPY CARRYING A COMMENT THAT
+ * ASSERTED THE VERY MIRROR IT HAD STOPPED BEING. #1527 moved the real token to
+ * 11px on 12 Sep 2026 and this stayed 10, so every height reservation below was
+ * computed from a font size that had not been true for two days, and the
+ * resolver under-cleared every dodge by 10%. Now IMPORTED (CLAUDE.md trap 12).
+ */
+const LABEL_DECLARED_FONT_PX = CANVAS_TYPE_PX.edgeLabel
+
+/**
+ * ⭐⭐ THE BOX FOLLOWS ITS TEXT. It did not, for two days, and that was the
+ * founder's *"Moder… est."*.
+ *
+ * ⛔ #1527 (12 Sep 2026) raised `typography.edgeLabel` 10px -> 11px. **This
+ * constant stayed 80.** So the label text grew 10% inside a container that did
+ * not, and strength labels truncated — where the founder's own captures from
+ * before #1527 read *"Moderate boost (uncertain)"* in full.
+ *
+ * The base pair below is a HISTORICAL ANCHOR, not a mirror: 80 units was the
+ * half-width chosen when the font was 10px. Scaling by the ratio reproduces 80
+ * at 10px exactly and moves automatically if the font moves again — so the two
+ * cannot part company the way they just did.
+ */
+const LABEL_BASE_HALF_WIDTH = 80
+const LABEL_BASE_FONT_PX = 10
+export const LABEL_HALF_WIDTH = Math.ceil(
+  LABEL_BASE_HALF_WIDTH * (LABEL_DECLARED_FONT_PX / LABEL_BASE_FONT_PX),
+)
 
 // HEIGHT is content-driven and therefore DOES move with zoom, which is the
 // whole reason this is derived rather than written down. StyledEdge's label
@@ -129,7 +157,6 @@ export const LABEL_HALF_WIDTH = 80
 // drift for node titles: scale the font, forget the geometry, and the two
 // part company in one deploy. Half-extents round UP, so the box is never
 // under-stated.
-const LABEL_DECLARED_FONT_PX = 10 // typography.edgeLabel
 const LABEL_LINE_HEIGHT_RATIO = 1.25 // Tailwind `leading-tight`
 const LABEL_VERTICAL_CHROME_PX = 8 // 3px padding + 1px border, top and bottom
 /** Measured in Chromium at zoom 0.5 across all five starters: 33.0. */
@@ -174,7 +201,7 @@ const LABEL_GUTTER = 2
 // was 90 for a box 160 wide (56%), and y was 24 for a box that renders 33
 // tall (73%). Two labels inside either gap scored clear and painted on top of
 // each other. Deriving them removes the mirror rather than re-copying it.
-const X_THRESHOLD = LABEL_HALF_WIDTH * 2 + LABEL_GUTTER // 162
+const X_THRESHOLD = LABEL_HALF_WIDTH * 2 + LABEL_GUTTER // derived; do not restate the number
 const Y_THRESHOLD = LABEL_HALF_HEIGHT * 2 + LABEL_GUTTER // 36
 
 // One step must CLEAR a coincident pair, or the search burns two steps to do
