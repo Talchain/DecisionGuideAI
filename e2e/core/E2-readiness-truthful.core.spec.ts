@@ -49,7 +49,7 @@ import {
   readinessVerdict, BLOCKING_VOCAB,
   openDockTab,
 } from './lib/harness'
-import { recordSpecRan } from './lib/manifest'
+import { recordSpecRan, recordSpecSkipped } from './lib/manifest'
 
 test.beforeAll(() => recordSpecRan('E2-readiness-truthful'))
 
@@ -188,6 +188,43 @@ test.describe('E2 · readiness guidance is truthful, not decorative', () => {
     const footerNodes = await page
       .locator('[data-testid="pre-analysis-v3-footer-headline"]')
       .count()
+
+    // ---- SKIP LOUDLY IF THE PRE-RUN WINDOW HAS CLOSED --------------------------
+    //
+    // ⭐ THE PANEL IS GATED ON `isPreRun` (OutputsDock: `isPreRun && nodes.length > 0
+    // && isPreAnalysisV3Enabled()`), so it UNMOUNTS the moment an analysis starts.
+    // That is a RACE IN THE PREAMBLE, not a product fault, and this spec cannot
+    // assert anything about readiness guidance once the product has stopped
+    // offering to run.
+    //
+    // ⛔ THE SKIP IS DISCRIMINATING, AND THAT IS THE WHOLE DESIGN. A blanket "skip
+    // when the footer is absent" would swallow the REAL failure this spec exists to
+    // catch — an unmounted footer while the product IS still pre-run. So the skip
+    // fires only when the KNOWN CAUSE is positively present: an analysis-started
+    // announcement on the page. Absent that, a missing footer is a hard failure and
+    // stays one.
+    //
+    // ⚠ WHY SKIP RATHER THAN FAIL ACCURATELY, which is what this PR's predecessor
+    // chose. A failure that is correct and PERMANENT is what taught every lane to
+    // skip this check on the word "advisory" — one account did so four times in a
+    // single night, in writing, inside merge arguments. "Fails accurately" decays
+    // into the same blindness within a fortnight. A loud skip, pinned to a named set
+    // so a second joiner REDs, keeps the gap in the suite instead of in a comment.
+    if (footerNodes === 0) {
+      const analysisStarted = await page
+        .getByText(/analysis started|analysing|running analysis/i)
+        .count()
+        .catch(() => 0)
+      if (analysisStarted > 0) {
+        const reason =
+          'the pre-run window closed before the footer could be read — an analysis had ' +
+          'started, and PreAnalysisPanelV3 is gated on isPreRun so it unmounts. A race in ' +
+          'the preamble, not a product fault. THIS RUN LICENCES NOTHING ABOUT READINESS ' +
+          'GUIDANCE.'
+        recordSpecSkipped('E2-readiness-truthful', reason)
+        test.skip(true, `[E2] ${reason}`)
+      }
+    }
     expect(
       footerNodes,
       '[E2] the readiness footer is NOT MOUNTED after opening the Analysis tab that owns it. ' +
