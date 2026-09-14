@@ -151,6 +151,7 @@ import { useCanvasResultsSync } from '../../components/results/useCanvasResultsS
 import { ResultsBody } from '../../components/results/ResultsBody'
 import { staleReasonFromTrustSemantic } from '../../components/results/analysisNew/staleReason'
 import { AnalysisNewTabBody } from '../../components/results/analysisNew/AnalysisNewTabBody'
+import { ViewComparisonPointer } from './model-tab/ViewComparisonPointer'
 import { SectionErrorBoundary } from './SectionErrorBoundary'
 import { useGuidanceStore, withOlumiReveal } from '../stores/guidanceStore'
 import { useDraftStore, draftStreamPhaseFor } from '../stores/draftStore'
@@ -4042,6 +4043,17 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 onSendMessage={sendMessage}
               />
             )}
+            {/* ── "What's changed" POINTER ──────────────────────────────────
+                A person can edit and re-run without leaving this tab, and the
+                explanation lives on Reasoning. Navigation only — the wording
+                claims nothing, because on four of the producer's five cases
+                there is no cause to review.
+
+                ⚠ MOUNTED HERE, NOT INSIDE `model-tab-v2/`. That directory is
+                under a boundary guard that forbids importing any store module,
+                and this needs three store reads. Putting it in the dock keeps
+                the guard intact instead of arguing with it. */}
+            {effectiveActiveTab === 'diagnostics' && <ViewComparisonPointer />}
             {effectiveActiveTab === 'journey' && (
               <JourneyTabBody />
             )}

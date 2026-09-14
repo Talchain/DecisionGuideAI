@@ -53,6 +53,7 @@ import {
 } from '../strengthElicitation/assumedStrengthCopy'
 import { formatProbabilityWithResolution } from '../../../utils/formatPercent'
 import { driverValueProvenance } from '../driverValueProvenance'
+import type { RunDeltaView } from './runDeltaView'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import { deriveComparisonScope } from '../utils/goalAnchorCopy'
 import { notAnalysedReasonCopy, notComputedReasonCopy } from '../utils/notAnalysedCopy'
@@ -208,6 +209,8 @@ export interface AnalysisNewViewModelInputs {
   seedUsed?: number | string
   /** Response hash — the run identity both tabs share. */
   responseHash?: string
+  /** Already resolved by the hook; this builder never derives it. */
+  whatsChanged?: RunDeltaView | null
   /**
    * Producer DSK attestation keyed by recommendation id, joined by the hook.
    * Sparse: an absent key means the producer attested nothing. Never defaulted.
@@ -3074,6 +3077,7 @@ export function buildAnalysisNewViewModel(
     keyInsights: preRun
       ? { insights: [], candidateCount: 0 }
       : dedupeAgainstGlance(buildKeyInsights(data, recommendations, isStale), glance),
+    whatsChanged: inputs.whatsChanged ?? null,
     strengthen: {
       // The FULL ordered list. The preview length is applied at the mount so
       // the section can disclose, and reach, its own tail.

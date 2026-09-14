@@ -45,6 +45,8 @@
  * mutations are property assignments keyed by target_id.
  */
 import type { OlumiResponse, StageType, AnalysisStateV1 } from '@talchain/schemas/boundary'
+import type { StoredRunDelta } from '../canvas/state/storedRunDelta'
+import type { RunDelta } from '@talchain/schemas/boundary'
 import { readEvidenceAssessment, type EvidenceAssessment } from './evidenceAssessment'
 import { AnalysisStateV1Schema, Stage } from '@talchain/schemas/boundary'
 import type { Edge, Node } from '@xyflow/react'
@@ -120,6 +122,17 @@ export interface V5ApplicatorStore {
   }) => void
   /** Write (or clear) the CEE analysis_ready payload that gates the run. */
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
+  /**
+   * Write (or evict) the run-over-run consequence for the analysis this turn
+   * landed. Optional so fixture and legacy hosts are unaffected.
+   *
+   * ⭐ CALLED ONLY BESIDE A NEW ANALYSIS, and called with `null` when that turn
+   * carried no delta — so a replacement analysis evicts a superseded one BY
+   * CONSTRUCTION. Every other turn leaves the slice alone, which is what lets
+   * the explanation survive ordinary conversation without surviving the run it
+   * describes.
+   */
+  setRunDelta?: (stored: StoredRunDelta | null) => void
   /**
    * Optional: write goal_constraints (ROADMAP 1.22). On the V5 path this
    * applicator writes via `add_constraint` graph_patch blocks only, UPSERTING
@@ -2191,6 +2204,27 @@ export function applyV5State(
           v5Enrichment: analysisBlock.enrichment ?? null,
         })
         applied.push('analysis_result:results_hydrated')
+
+        // ── "What's changed" — the run-over-run consequence ─────────────────
+        //
+        // ⭐ THIS IS THE ONLY WRITE SITE, AND ITS POSITION IS THE DESIGN. We are
+        // inside `hash !== prevHash`, i.e. a GENUINELY NEW analysis has landed —
+        // not a re-delivered echo. Writing here means the delta is stamped with
+        // the identity of the analysis it arrived beside, and means a new
+        // analysis that carries NO delta evicts the previous one rather than
+        // leaving it to sit under fresh numbers.
+        //
+        // ⚠ `?? null` IS AN EVICTION, NOT A DEFAULT. The contract's absence
+        // semantics are explicit — "absent on every non-rerun turn … never
+        // defaulted, and a consumer renders NO delta card on absence" — and the
+        // several producer-side refusals all arrive here as the same silence.
+        // The UI cannot tell them apart and must not try.
+        const turnRunDelta = (response as { run_delta?: RunDelta }).run_delta
+        store.setRunDelta?.(
+          turnRunDelta
+            ? { delta: turnRunDelta, analysisHash: hash, scenarioId: store.currentScenarioId ?? null }
+            : null,
+        )
         // Reliable run identity: a NEW analysis_result response_hash (hash !==
         // prevHash) means a genuinely new analysis completed — not a re-delivered
         // analysis_ready echo. Clear the local dirty overlay so a real rerun

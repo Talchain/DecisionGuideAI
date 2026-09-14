@@ -19,6 +19,7 @@
  * property that makes a wrong row diagnosable rather than merely wrong.
  */
 
+import type { RunDeltaView } from './runDeltaView'
 import type { DriversSectionData, InferenceWarning, ZeroReasonCode } from '../types'
 import type { CritiqueWarningEntry } from '../CritiqueWarningStrip'
 import type { Recommendation } from '../strengthen/strengthenTypes'
@@ -810,6 +811,17 @@ export interface SensitivitySection {
 }
 
 export interface AnalysisNewViewModel {
+  /**
+   * "What's changed" — the producer's run-over-run consequence for the analysis
+   * on screen, or `null` when there is none to show.
+   *
+   * ⚠ `null` COVERS TWO DIFFERENT THINGS AND MUST NOT BE READ AS EITHER: the
+   * producer sent no delta, or it sent one about a different analysis. Both
+   * render nothing, because the client cannot tell CEE's several withholding
+   * reasons apart and must not guess.
+   */
+  whatsChanged: RunDeltaView | null
+
   status: AnalysisNewStatus
   /**
    * ⭐⭐ MAY THIS RUN'S RANKING BE SPOKEN ABOUT AT ALL? `leaderDesignationPermitted
