@@ -13,7 +13,7 @@ import { focusExistingTarget } from '../utils/focusHelpers'
 import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
 import { typography } from '../../styles/typography'
 import { METRIC_NOUN, optionOrdinalBadgeAccessibleName } from './shared/metricVocabulary'
-import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, classifyUnit, formatWinProbability, isTierLabel } from '../utils/labelUtils'
+import { cleanFactorLabel, compactFactorLabel, sentenceCaseFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, classifyUnit, formatWinProbability, isTierLabel } from '../utils/labelUtils'
 import {
   describeInterventionDirection,
   formatInterventionChange,
@@ -283,7 +283,18 @@ function computeAllDifferentiators(
   for (const [optionId, { factorId, myValue, myDisplayValue }] of bestFactors.entries()) {
     const factorNode = nodes.find(n => n.id === factorId)
     const rawLabel = (factorNode?.data?.label as string | undefined) ?? factorId
-    const fullFactorLabel = cleanFactorLabel(rawLabel)
+    // ⭐ THE SAME CASING RULE THE INTERVENTION ROWS USE, and it was missing
+    // here. Measured on the `pricing-model` starter at 1600×1000: every
+    // non-baseline option card named one factor twice — "Usage-based pricing…"
+    // in its row and "Usage-Based Pricing…" in this sentence, three lines
+    // apart. Paul's 10 Sep ruling is that both carriers stay; a reader can only
+    // benefit from both if they agree on what the factor is called.
+    //
+    // ⚠ NORMALISE, THEN COMPACT — the chip path's order, and the one
+    // `COMPACT_LABEL_SUFFIXES` (`/i`) and `COMPACT_LABEL_LOOKUP` (`/i`) are
+    // both indifferent to. Compacting first would hand this a string that has
+    // already lost the words the lookup matches on.
+    const fullFactorLabel = sentenceCaseFactorLabel(cleanFactorLabel(rawLabel))
     const compactLabel = compactFactorLabel(fullFactorLabel, 20)
 
     // ⭐ ONE code path, evaluated TWICE — once with the compacted label token
@@ -639,12 +650,11 @@ export const OptionNode = memo((props: NodeProps) => {
         // presence") to look up wireframe v4 short forms. Each render path
         // applies its own truncation.
         const cleaned = cleanFactorLabel(rawLabel)
-        const cleanedLabel = cleaned.length > 0
-          ? cleaned.charAt(0).toUpperCase() +
-            cleaned.slice(1).replace(/\b([A-Za-z]+)\b/g, (word) =>
-              /^[A-Z]{2,}$/.test(word) ? word : word.toLowerCase()
-            )
-          : cleaned
+        // ⭐ ONE OWNER for the casing rule. This block used to hold the only
+        // copy of it, which is why the differentiator sentence below — the
+        // other place this card names a factor — rendered a different casing
+        // for the same factor. See `sentenceCaseFactorLabel`.
+        const cleanedLabel = sentenceCaseFactorLabel(cleaned)
         const observedState = factorNode?.data?.observedState as {
           unit?: string; factor_type?: string; cap?: number; value?: number; raw_value?: string | number
         } | undefined

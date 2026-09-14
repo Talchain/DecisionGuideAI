@@ -195,8 +195,14 @@ describe('OptionNode differentiator — elided text is recoverable', () => {
     // IDENTITY binding: the sentence for THIS option's own top factor.
     const p = screen.getByText(/is the key difference/i)
     expect(p.tagName).toBe('P')
-    expect(p.textContent).toBe('Account Executives… is the key difference')
-    assertRecoverable(p, 'Account Executives hired is the key difference')
+    // ⚠ CASING UPDATED WITH ITS REASON, never silently. The producer wrote
+    // "Account Executives hired"; the card's intervention row has always
+    // sentence-cased a factor name and this sentence did not, so one card
+    // named one factor two ways (measured on the `pricing-model` starter —
+    // `OptionNode.oneFactorOneName.spec.tsx`). Both carriers now delegate to
+    // `sentenceCaseFactorLabel`. The TRUNCATION under test here is unchanged.
+    expect(p.textContent).toBe('Account executives… is the key difference')
+    assertRecoverable(p, 'Account executives hired is the key difference')
   })
 
   // Witnessed shape 2: "Platform Engineer… → Low (0)".
@@ -223,9 +229,10 @@ describe('OptionNode differentiator — elided text is recoverable', () => {
     )
     renderOption({ label: 'Hire Three Account Executives' })
 
-    const p = screen.getByText(/Platform Engineers… → Low \(0\)/)
+    // Same casing change as above; the recovery standard is what this asserts.
+    const p = screen.getByText(/Platform engineers… → Low \(0\)/)
     expect(p.tagName).toBe('P')
-    assertRecoverable(p, 'Platform Engineers hired → Low (0)')
+    assertRecoverable(p, 'Platform engineers hired → Low (0)')
   })
 
   // NEGATIVE CONTROL — nothing elided, so hover must NOT repeat the visible

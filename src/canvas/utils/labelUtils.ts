@@ -117,6 +117,41 @@ const COMPACT_LABEL_LOOKUP: ReadonlyArray<readonly [RegExp, string]> = [
 const COMPACT_LABEL_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
 
 /**
+ * ⭐ THE ONE SENTENCE-CASE RULE FOR A FACTOR NAME ON A CARD.
+ *
+ * A factor's stored label is Title Case as the producer wrote it ("Usage-Based
+ * Pricing Exposure"). A card states a factor name in more than one place, and
+ * until this was extracted only ONE of those places normalised it — so a single
+ * option card named the same factor twice, in two different casings:
+ *
+ *     intervention row    "Usage-based pricing…"     (normalised)
+ *     differentiator      "Usage-Based Pricing…"     (raw)
+ *
+ * Measured on a real render of the `pricing-model` starter at 1600×1000
+ * (`e2e/geometry/cardAnatomy.measure.ts`), on all three non-baseline options.
+ * It reads as two different factors to anyone who is not holding the model in
+ * their head, which is everyone the canvas exists for.
+ *
+ * ⚠ ACRONYMS SURVIVE. "NRR", "ARR", "GDPR" are words a reader recognises by
+ * their shape; lowercasing them destroys the recognition and invents a word.
+ * Any run of two or more capitals is left exactly as written.
+ *
+ * ⛔ THIS IS NOT A TRUNCATION AND NOT A LOOKUP. `compactFactorLabel` owns how
+ * short a name gets; this owns only its casing. Apply this FIRST, then compact
+ * — that is the order the intervention-chip path already used, and
+ * `COMPACT_LABEL_SUFFIXES` is `/i` so the suffix strip is unaffected by it.
+ */
+export function sentenceCaseFactorLabel(label: string): string {
+  if (!label) return label
+  return (
+    label.charAt(0).toUpperCase() +
+    label.slice(1).replace(/\b([A-Za-z]+)\b/g, (word) =>
+      /^[A-Z]{2,}$/.test(word) ? word : word.toLowerCase(),
+    )
+  )
+}
+
+/**
  * Truncate at word boundary, ellipsising the tail. Used for label compaction
  * so we never cut a word in half.
  */
