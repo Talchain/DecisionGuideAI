@@ -30,10 +30,25 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { cleanup, render, renderHook, screen } from '@testing-library/react'
 import type { OlumiResponse, RunDelta } from '@talchain/schemas/boundary'
 import { applyV5State } from '../../../../v5/applyV5State'
+import { applyScenarioAnalysisRead } from '../../../../canvas/hydrate/applyScenarioAnalysisRead'
+import { readProvisionalApplyStore } from '../../../../canvas/hooks/useProvisionalAnalysisDelivery'
 import { useCanvasStore } from '../../../../canvas/store'
 import { useAnalysisNewViewModel } from '../useAnalysisNewViewModel'
 import { WhatsChanged, WHATS_CHANGED_TESTID } from '../sections/WhatsChanged'
 import { makeData } from './analysisNewFixtures'
+
+const VALID_VERDICT = {
+  run_state: { kind: 'complete_current', computed_at: '2026-08-16T10:00:00.000Z' },
+  readiness: { status: 'ready', blockers: [] },
+  leader_claim: { permitted: true },
+  robustness: {},
+  usable_for_prose: true,
+  usable_for_chips: true,
+  usable_for_followup: true,
+  requires_rerun: false,
+  blocked_unusable: false,
+  contradictions: [],
+} as const
 
 const analysisBlock = {
   type: 'analysis_result' as const,
@@ -159,5 +174,53 @@ describe('⛔ the negative arms — each would otherwise render silently and wro
     applyV5State(wireResponse({ run_delta: RUN_DELTA }), productionApplicatorStore())
     const { result } = renderChain(undefined)
     expect(result.current.whatsChanged).toBeNull()
+  })
+})
+
+describe('⛔⛔ THE SECOND WRITER, against the real read leg', () => {
+  /**
+   * ⭐⭐ THE CASE THE REST OF THIS FILE CANNOT REACH — and the one that was
+   * actually broken.
+   *
+   * Every other test here has the TURN leg write `results.hash` first. But
+   * `results.hash` has a SECOND writer: the provisional analysis read leg, live
+   * and unflagged on the primary canvas route (`routes/CanvasMVP.tsx:106` calls
+   * `useProvisionalAnalysisDelivery`). It derives its hash through the SAME
+   * `mapV5AnalysisToReport(block)`, so the two collide BY CONSTRUCTION — and its
+   * store type has NO `setRunDelta` member, because a delta rides a TOP-LEVEL
+   * response key and that leg is handed only a block.
+   *
+   * When the read leg gets there first, the turn carrying the delta used to hit
+   * the duplicate-hash skip and DISCARD it — silently, forever, indistinguishable
+   * from the producer sending nothing.
+   *
+   * ⚠ NO DOUBLE ANYWHERE IN THIS TEST. Both legs run for real, against the real
+   * canvas store, through the real production store constructions.
+   */
+  it('a delta survives an analysis the READ LEG hydrated first', () => {
+    // Leg 1 — the read. It writes results.hash and cannot carry a delta.
+    const outcome = applyScenarioAnalysisRead({
+      // The read leg declines without a verdict ("notYet"/"no_verdict"), so a
+      // real one is required or this test would pass vacuously — which the
+      // precondition below caught on the first run.
+      analysisState: VALID_VERDICT as never,
+      analysisResult: analysisBlock,
+      store: readProvisionalApplyStore(),
+    })
+    const hydratedHash = useCanvasStore.getState().results?.hash
+    expect(hydratedHash, `the read leg did not hydrate (outcome: ${JSON.stringify(outcome)}) — this test would pass vacuously`).toBeTruthy()
+    expect(useCanvasStore.getState().runDelta, 'the read leg cannot carry a delta, by construction').toBeNull()
+
+    // Leg 2 — the turn, carrying the SAME analysis plus its run_delta.
+    applyV5State(wireResponse({ run_delta: RUN_DELTA }), productionApplicatorStore())
+
+    expect(useCanvasStore.getState().runDelta, 'the delta was discarded because the read leg had already hydrated this analysis').not.toBeNull()
+    expect(useCanvasStore.getState().runDelta?.analysisHash).toBe(hydratedHash)
+
+    // ...and it reaches the screen.
+    const { result } = renderChain(hydratedHash)
+    expect(result.current.whatsChanged).not.toBeNull()
+    render(<WhatsChanged view={result.current.whatsChanged} />)
+    expect(screen.getByTestId(WHATS_CHANGED_TESTID)).toBeTruthy()
   })
 })

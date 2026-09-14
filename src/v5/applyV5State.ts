@@ -2219,12 +2219,6 @@ export function applyV5State(
         // defaulted, and a consumer renders NO delta card on absence" — and the
         // several producer-side refusals all arrive here as the same silence.
         // The UI cannot tell them apart and must not try.
-        const turnRunDelta = (response as { run_delta?: RunDelta }).run_delta
-        store.setRunDelta?.(
-          turnRunDelta
-            ? { delta: turnRunDelta, analysisHash: hash, scenarioId: store.currentScenarioId ?? null }
-            : null,
-        )
         // Reliable run identity: a NEW analysis_result response_hash (hash !==
         // prevHash) means a genuinely new analysis completed — not a re-delivered
         // analysis_ready echo. Clear the local dirty overlay so a real rerun
@@ -2276,6 +2270,49 @@ export function applyV5State(
           applied: false,
           skip_reason: 'duplicate_hash',
         })
+      }
+
+      // ── "What's changed" — the run-over-run consequence ───────────────────
+      //
+      // ⭐⭐ DELIBERATELY OUTSIDE THE `hash !== prevHash` GATE, AND THAT IS THE
+      // WHOLE POINT. It used to live inside it, and that fused TWO QUESTIONS
+      // under one condition:
+      //
+      //     "is this analysis already displayed?"      — the dedupe's question
+      //     "is there nothing new to store?"           — this write's question
+      //
+      // Only the second licenses dropping a delta, and they come apart because
+      // `results.hash` HAS A SECOND WRITER. `canvas/hydrate/applyScenarioAnalysisRead.ts`
+      // (the provisional read leg, live and unflagged — `routes/CanvasMVP.tsx:106`)
+      // derives its hash through the SAME `mapV5AnalysisToReport(block)` on the
+      // same block, so the hashes COLLIDE BY CONSTRUCTION — its own comment says
+      // "The SAME hash dedupe the turn applier uses". And its store type
+      // `ScenarioAnalysisApplyStore` has NO `setRunDelta` member (0 occurrences
+      // in that file against 5 for `resultsComplete`): absent by construction,
+      // not by omission, because a delta rides a TOP-LEVEL response key and that
+      // leg is handed only a block.
+      //
+      // ⇒ Read leg first ⇒ the turn carrying the delta sees `hash === prevHash`,
+      // took the skip above, and the delta was DISCARDED — silently, no error, no
+      // red, section empty forever, indistinguishable from "the producer sent
+      // nothing". `__tests__/applyV5State.runDeltaBindsAndEvicts.spec.ts` pins it.
+      //
+      // ⚠ EVICTION STILL BELONGS TO THE NEW-ANALYSIS CASE ONLY. A re-delivered
+      // echo carrying no delta must NOT clear a delta that is still about the
+      // analysis on screen — that would reintroduce the same defect pointing the
+      // other way.
+      const turnRunDelta = (response as { run_delta?: RunDelta }).run_delta
+      if (turnRunDelta) {
+        store.setRunDelta?.({
+          delta: turnRunDelta,
+          analysisHash: hash,
+          scenarioId: store.currentScenarioId ?? null,
+        })
+      } else if (hash !== prevHash) {
+        // ⚠ AN EVICTION, NOT A DEFAULT. A genuinely new analysis that carries no
+        // delta supersedes the old one; the producer's several refusals all reach
+        // us as this same silence and the UI must not try to tell them apart.
+        store.setRunDelta?.(null)
       }
     } else {
       deferred.push({

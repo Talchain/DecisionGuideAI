@@ -59,6 +59,16 @@ function makeStore(over: Partial<V5ApplicatorStore> = {}): V5ApplicatorStore & {
   } as never
 }
 
+
+/** The hash the applicator WILL derive for a block — by running it, never a literal. */
+function hashOf(block: typeof analysisBlock): string {
+  const probe = makeStore()
+  applyV5State(baseResponse({ blocks: [block] }), probe)
+  const h = (probe.resultsComplete as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]?.hash
+  if (typeof h !== 'string') throw new Error('probe captured no hash — the harness is blind')
+  return h
+}
+
 const lastStored = (store: { setRunDelta: ReturnType<typeof vi.fn> }): StoredRunDelta | null =>
   store.setRunDelta.mock.calls.at(-1)?.[0] ?? null
 
@@ -99,16 +109,53 @@ describe('⛔ eviction — the silent failures', () => {
     expect(store.setRunDelta).not.toHaveBeenCalled()
   })
 
-  it('a RE-DELIVERED analysis (same hash) does not rewrite the slice', () => {
-    // First, learn the hash this block derives.
-    const probe = makeStore()
-    applyV5State(baseResponse({ blocks: [analysisBlock], run_delta: DELTA }), probe)
-    const hash = (probe.resultsComplete as ReturnType<typeof vi.fn>).mock.calls[0]?.[0].hash as string
-
-    // Now replay it as an echo: `currentResultsHash` already holds that hash.
-    const store = makeStore({ currentResultsHash: hash })
-    applyV5State(baseResponse({ blocks: [analysisBlock], run_delta: DELTA }), store)
+  it('a re-delivered analysis carrying NO delta does not evict', () => {
+    const store = makeStore({ currentResultsHash: hashOf(analysisBlock) })
+    applyV5State(baseResponse({ blocks: [analysisBlock] }), store)
     expect(store.setRunDelta).not.toHaveBeenCalled()
+  })
+})
+
+describe('⛔⛔ THE SECOND WRITER — a delta must survive an analysis hydrated by the READ LEG', () => {
+  /**
+   * ⭐⭐ THE DEFECT THIS FILE ONCE PINNED AS CORRECT.
+   *
+   * `results.hash` has TWO writers. The turn leg is this file. The other is the
+   * PROVISIONAL ANALYSIS READ LEG — `canvas/hydrate/applyScenarioAnalysisRead.ts`,
+   * live and unflagged on the primary canvas route (`routes/CanvasMVP.tsx:106`
+   * calls `useProvisionalAnalysisDelivery`). It derives its hash through the SAME
+   * `mapV5AnalysisToReport(block).model_card.response_hash`, on the same block, so
+   * the two hashes COLLIDE BY CONSTRUCTION — its own comment says so: "The SAME
+   * hash dedupe the turn applier uses".
+   *
+   * And its store type `ScenarioAnalysisApplyStore` has NO `setRunDelta` member —
+   * absent BY CONSTRUCTION, not by omission (0 occurrences in that file, against
+   * 5 for `resultsComplete`). A delta rides a TOP-LEVEL response key; the read leg
+   * receives only a block. So that leg can move the join key and can never carry
+   * a delta.
+   *
+   * ⇒ If the read leg hydrates run N first, the turn carrying run N's `run_delta`
+   * finds `hash === prevHash`, takes the duplicate-hash skip, and the delta is
+   * DISCARDED — silently, with no error and no red. The section then renders
+   * nothing forever, which is indistinguishable from "the producer sent nothing".
+   *
+   * ⛔ AND THIS SPEC USED TO ASSERT THAT DROP WAS CORRECT. Its previous case said
+   * `expect(store.setRunDelta).not.toHaveBeenCalled()` on exactly this input — a
+   * guard agreeing with the defect (CLAUDE.md trap 13b), written by the same hand
+   * that wrote the bug. The two causes were fused under one condition: "this
+   * analysis is already displayed" and "there is nothing new to store" are
+   * DIFFERENT questions, and only the second licenses dropping a delta.
+   */
+  it('stores the delta when the analysis was ALREADY hydrated by the other writer', () => {
+    // The read leg got there first: results.hash already holds this analysis.
+    const store = makeStore({ currentResultsHash: hashOf(analysisBlock) })
+    // The turn then arrives carrying the SAME analysis plus its run_delta.
+    applyV5State(baseResponse({ blocks: [analysisBlock], run_delta: DELTA }), store)
+
+    expect(store.setRunDelta, 'the delta was dropped because another writer had already hydrated this analysis').toHaveBeenCalledTimes(1)
+    expect(lastStored(store)?.delta).toBe(DELTA)
+    // ⭐ Bound by IDENTITY to the analysis on screen, not to a literal.
+    expect(lastStored(store)?.analysisHash).toBe(hashOf(analysisBlock))
   })
 })
 
