@@ -45,6 +45,8 @@
  * mutations are property assignments keyed by target_id.
  */
 import type { OlumiResponse, StageType, AnalysisStateV1 } from '@talchain/schemas/boundary'
+import type { StoredRunDelta } from '../canvas/state/storedRunDelta'
+import type { RunDelta } from '@talchain/schemas/boundary'
 import { readEvidenceAssessment, type EvidenceAssessment } from './evidenceAssessment'
 import { AnalysisStateV1Schema, Stage } from '@talchain/schemas/boundary'
 import type { Edge, Node } from '@xyflow/react'
@@ -120,6 +122,17 @@ export interface V5ApplicatorStore {
   }) => void
   /** Write (or clear) the CEE analysis_ready payload that gates the run. */
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
+  /**
+   * Write (or evict) the run-over-run consequence for the analysis this turn
+   * landed. Optional so fixture and legacy hosts are unaffected.
+   *
+   * ⭐ CALLED ONLY BESIDE A NEW ANALYSIS, and called with `null` when that turn
+   * carried no delta — so a replacement analysis evicts a superseded one BY
+   * CONSTRUCTION. Every other turn leaves the slice alone, which is what lets
+   * the explanation survive ordinary conversation without surviving the run it
+   * describes.
+   */
+  setRunDelta?: (stored: StoredRunDelta | null) => void
   /**
    * Optional: write goal_constraints (ROADMAP 1.22). On the V5 path this
    * applicator writes via `add_constraint` graph_patch blocks only, UPSERTING
@@ -2191,6 +2204,21 @@ export function applyV5State(
           v5Enrichment: analysisBlock.enrichment ?? null,
         })
         applied.push('analysis_result:results_hydrated')
+
+        // ── "What's changed" — the run-over-run consequence ─────────────────
+        //
+        // ⭐ THIS IS THE ONLY WRITE SITE, AND ITS POSITION IS THE DESIGN. We are
+        // inside `hash !== prevHash`, i.e. a GENUINELY NEW analysis has landed —
+        // not a re-delivered echo. Writing here means the delta is stamped with
+        // the identity of the analysis it arrived beside, and means a new
+        // analysis that carries NO delta evicts the previous one rather than
+        // leaving it to sit under fresh numbers.
+        //
+        // ⚠ `?? null` IS AN EVICTION, NOT A DEFAULT. The contract's absence
+        // semantics are explicit — "absent on every non-rerun turn … never
+        // defaulted, and a consumer renders NO delta card on absence" — and the
+        // several producer-side refusals all arrive here as the same silence.
+        // The UI cannot tell them apart and must not try.
         // Reliable run identity: a NEW analysis_result response_hash (hash !==
         // prevHash) means a genuinely new analysis completed — not a re-delivered
         // analysis_ready echo. Clear the local dirty overlay so a real rerun
@@ -2242,6 +2270,91 @@ export function applyV5State(
           applied: false,
           skip_reason: 'duplicate_hash',
         })
+      }
+
+      // ── "What's changed" — the run-over-run consequence ───────────────────
+      //
+      // ⭐⭐ DELIBERATELY OUTSIDE THE `hash !== prevHash` GATE, AND THAT IS THE
+      // WHOLE POINT. It used to live inside it, and that fused TWO QUESTIONS
+      // under one condition:
+      //
+      //     "is this analysis already displayed?"      — the dedupe's question
+      //     "is there nothing new to store?"           — this write's question
+      //
+      // Only the second licenses dropping a delta, and they come apart because
+      // `results.hash` HAS A SECOND WRITER. `canvas/hydrate/applyScenarioAnalysisRead.ts`
+      // (the provisional read leg, live and unflagged — `routes/CanvasMVP.tsx:106`)
+      // derives its hash through the SAME `mapV5AnalysisToReport(block)` on the
+      // same block, so the hashes COLLIDE BY CONSTRUCTION — its own comment says
+      // "The SAME hash dedupe the turn applier uses". And its store type
+      // `ScenarioAnalysisApplyStore` has NO `setRunDelta` member (0 occurrences
+      // in that file against 5 for `resultsComplete`): absent by construction,
+      // not by omission, because a delta rides a TOP-LEVEL response key and that
+      // leg is handed only a block.
+      //
+      // ⇒ Read leg first ⇒ the turn carrying the delta sees `hash === prevHash`,
+      // took the skip above, and the delta was DISCARDED — silently, no error, no
+      // red, section empty forever, indistinguishable from "the producer sent
+      // nothing". `__tests__/applyV5State.runDeltaBindsAndEvicts.spec.ts` pins it.
+      //
+      // ⚠ EVICTION STILL BELONGS TO THE NEW-ANALYSIS CASE ONLY. A re-delivered
+      // echo carrying no delta must NOT clear a delta that is still about the
+      // analysis on screen — that would reintroduce the same defect pointing the
+      // other way.
+      const turnRunDelta = (response as { run_delta?: RunDelta }).run_delta
+      if (turnRunDelta) {
+        store.setRunDelta?.({
+          delta: turnRunDelta,
+          analysisHash: hash,
+          scenarioId: store.currentScenarioId ?? null,
+        })
+      } else if (hash !== prevHash) {
+        // ⚠ AN EVICTION, NOT A DEFAULT. A genuinely new analysis that carries no
+        // delta supersedes the old one; the producer's several refusals all reach
+        // us as this same silence and the UI must not try to tell them apart.
+        //
+        // ⭐⭐ WHY THE EVICTION STAYS GATED ON THE HASH WHILE THE WRITE ABOVE DOES
+        // NOT — asked in review, and the answer is a measurement, not a taste.
+        //
+        // The objection is sound as far as it goes: `hash` is a CONTENT hash
+        // (`mapV5AnalysisToReport.ts:1459`, derived from summary +
+        // leading_option_id + win_probabilities + full enrichment), not a run
+        // identity. So a genuinely new analysis whose content collides with the
+        // displayed one evicts nothing, and a stored delta outlives the pair it
+        // describes. That is real.
+        //
+        // ⛔ BUT THE IMPLIED FIX — EVICT WHENEVER AN ANALYSIS ARRIVES WITHOUT A
+        // DELTA — IS WORSE THAN THE DEFECT, AND CEE'S BYTES SAY SO. CEE re-emits
+        // a BYTE-IDENTICAL `analysis_result` block on ordinary follow-up turns:
+        // `compose.ts:1766` calls `buildAnalysisResultBlock(priorFact)` on the
+        // FRESH lifecycle branch, and the builder's own note (`compose.ts:1155`)
+        // says it is "used by BOTH the current-turn run_analysis block and the
+        // REUSED prior-fact FRESH lifecycle branch, so both turns emit an
+        // IDENTICAL block for a given analysis — keeping DGAI's content-hash
+        // dedupe and Results-panel hydration consistent across the run_analysis
+        // turn and any follow-up explain / what_would_flip turn."
+        //
+        // ⇒ Unconditional eviction blanks "What's changed" on the person's very
+        // NEXT QUESTION. That is the routine path. The collision it would close
+        // needs a new run whose summary, leading option, win probabilities AND
+        // full Monte Carlo enrichment are byte-identical, while ALSO carrying no
+        // delta. High-frequency loss of a true explanation, traded for a
+        // low-frequency wrong one.
+        //
+        // ⚠ NEITHER IS THE RIGHT ANSWER, AND THE RIGHT ANSWER IS NOT OURS. There
+        // is NO run identity on the deployed V5 path — `store.ts:5482` records it,
+        // live-confirmed 25 Jul 2026: `seed_used` appears nowhere in the envelope,
+        // `rawV2Response` is null, `results.seed` is undefined. That note's own
+        // conclusion applies unchanged here: reviving run identity "needs a
+        // producer-boundary decision, not a UI change".
+        //
+        // So this is a KNOWN, BOUNDED LIMIT held deliberately, not an oversight.
+        // RE-SURFACE TRIGGER: the first turn envelope to carry a run id or a
+        // seed echo. On that day, bind the stored delta to it and this whole
+        // branch becomes unconditional. `runDeltaEvictionHoldsOnEcho.spec.ts`
+        // pins the behaviour in both directions so the trade is visible rather
+        // than inherited.
+        store.setRunDelta?.(null)
       }
     } else {
       deferred.push({

@@ -1,0 +1,303 @@
+/**
+ * "What's changed" — the comparability case and the movement are TWO CLAIMS,
+ * and this file exists because an earlier draft fused them.
+ *
+ * The three fixtures at the top are not hypothetical. All three PARSE against
+ * the installed 0.55.0 schema, because `refineRunDelta` constrains
+ * `pair_provenance` and says nothing about `win_probabilities`. A surface that
+ * derives "nothing moved" or "this differs" from the case enum is therefore
+ * making a claim the producer never made.
+ */
+import { describe, it, expect } from 'vitest'
+import type { RunDelta } from '@talchain/schemas/boundary'
+import { RunDeltaSchema } from '@talchain/schemas/boundary'
+import { buildRunDeltaView } from '../runDeltaView'
+import { ANALYSIS_HERO_BANNED_TERMS } from '../../utils/glossaryCheck'
+
+const LABELS: Record<string, string> = { opt_a: 'Raise the price', opt_b: 'Hold the price' }
+const labelFor = (id: string): string | null => LABELS[id] ?? null
+
+function delta(over: Partial<RunDelta> = {}): RunDelta {
+  return {
+    attribution_case: 'C1_attributable',
+    pair_provenance: { seed_equal: true, hash_equal: false, builds_equal: 'equal', n_equal: true },
+    leader: { changed: false, noise_verdict: 'signal', prior_leading_option_id: 'opt_a', current_leading_option_id: 'opt_a' },
+    win_probabilities: [
+      { option_id: 'opt_a', prior: 0.6, current: 0.7, noise_verdict: 'signal' },
+    ],
+    flip_thresholds: [],
+    ...over,
+  } as RunDelta
+}
+
+describe('the comparability line never speaks about movement', () => {
+  it('C0_identical WITH differing probabilities does not claim nothing moved', () => {
+    const v = buildRunDeltaView(delta({
+      attribution_case: 'C0_identical',
+      pair_provenance: { seed_equal: true, hash_equal: true, builds_equal: 'equal', n_equal: true },
+      win_probabilities: [{ option_id: 'opt_a', prior: 0.10, current: 0.90, noise_verdict: 'signal' }],
+    }), labelFor)
+    expect(v.comparability).not.toMatch(/nothing moved|no change|identical results|unchanged/i)
+    // and the movement it DOES carry is reported, not suppressed by the case
+    expect(v.movements).toHaveLength(1)
+    expect(v.movements[0].prior).toBe(0.10)
+    expect(v.movements[0].current).toBe(0.90)
+    expect(v.movements[0].direction).toBe('up')
+  })
+
+  it('C1_attributable WITH no movement does not claim something moved', () => {
+    const v = buildRunDeltaView(delta({ win_probabilities: [] }), labelFor)
+    expect(v.comparability).not.toMatch(/differs|moved|changed to|higher|lower/i)
+    expect(v.attributable).toBe(true)
+    expect(v.movementsUnavailable).toBe(true)
+    expect(v.movements).toHaveLength(0)
+  })
+
+  it('C2_unpaired WITH identical probabilities still refuses attribution', () => {
+    const v = buildRunDeltaView(delta({
+      attribution_case: 'C2_unpaired',
+      pair_provenance: { seed_equal: false, hash_equal: false, builds_equal: 'equal', n_equal: true },
+      win_probabilities: [{ option_id: 'opt_a', prior: 0.5, current: 0.5, noise_verdict: 'within_noise' }],
+    }), labelFor)
+    expect(v.attributable).toBe(false)
+    expect(v.attributionLimit).toBeTruthy()
+    expect(v.comparability).not.toMatch(/differs|moved/i)
+    expect(v.movements[0].direction).toBe('level')
+  })
+})
+
+describe('only C1_attributable licenses a causal reading', () => {
+  const cases: Array<RunDelta['attribution_case']> = [
+    'C0_identical', 'C2_unpaired', 'C3_engine_drift', 'C4_budget_drift',
+  ]
+  it.each(cases)('%s is not attributable and carries a rider', (c) => {
+    const v = buildRunDeltaView(delta({ attribution_case: c }), labelFor)
+    expect(v.attributable).toBe(false)
+    expect(v.attributionLimit).toBeTruthy()
+  })
+
+  /**
+   * ⛔⛔ THIS BLOCK PREVIOUSLY REQUIRED ALL FOUR NON-C1 CASES TO DENY THE CAUSE
+   * ("cannot be put down to a change in the model"), which is the defect, not
+   * the guard. It is the VIEW-MODEL twin of the same assertion in
+   * `whatsChangedRendersOnlyTheEntitledClaim.spec.tsx` — and it survived the
+   * first pass of this repair, which is the pattern worth naming: the remedy was
+   * scoped to the instance that was found, and nothing swept its sibling. The
+   * sibling was caught by running the FULL consuming set, not by reading.
+   */
+  it('⛔ C2/C3/C4 REFUSE to attribute — they never deny the cause', () => {
+    for (const c of ['C2_unpaired', 'C3_engine_drift', 'C4_budget_drift'] as const) {
+      const limit = buildRunDeltaView(delta({ attribution_case: c }), labelFor).attributionLimit ?? ''
+      expect(limit).toMatch(/cannot be established/i)
+      // CEE decides C2 on `!seed_equal` and never consults the hash, while a
+      // factor-value edit moves both — so a model change may well BE the cause.
+      expect(limit).not.toMatch(/cannot be put down to|is not (the )?(cause|explanation)/i)
+    }
+  })
+
+  it('⭐ C0 alone states a PROVEN negative — hash_equal is true by the case', () => {
+    const limit = buildRunDeltaView(delta({ attribution_case: 'C0_identical' }), labelFor).attributionLimit ?? ''
+    expect(limit).toMatch(/did not change/i)
+    expect(limit).not.toMatch(/cannot be established/i)
+  })
+
+  it('⛔ the rider is selected per case, not by a binary on `attributable`', () => {
+    const read = (c: RunDelta['attribution_case']): string | null =>
+      buildRunDeltaView(delta({ attribution_case: c }), labelFor).attributionLimit
+    expect(read('C0_identical')).not.toBe(read('C2_unpaired'))
+    expect(read('C1_attributable')).toBeNull()
+  })
+
+  it('C1_attributable is attributable and carries NO limit rider', () => {
+    const v = buildRunDeltaView(delta(), labelFor)
+    expect(v.attributable).toBe(true)
+    expect(v.attributionLimit).toBeNull()
+  })
+
+  it('every case produces a DISTINCT comparability sentence', () => {
+    const all: Array<RunDelta['attribution_case']> = [
+      'C0_identical', 'C1_attributable', 'C2_unpaired', 'C3_engine_drift', 'C4_budget_drift',
+    ]
+    const seen = all.map((c) => buildRunDeltaView(delta({ attribution_case: c }), labelFor).comparability)
+    expect(new Set(seen).size).toBe(all.length)
+  })
+})
+
+describe('the noise tag is producer-owned and never collapsed', () => {
+  it('carries all three states through verbatim', () => {
+    const v = buildRunDeltaView(delta({
+      win_probabilities: [
+        { option_id: 'opt_a', prior: 0.1, current: 0.2, noise_verdict: 'signal' },
+        { option_id: 'opt_b', prior: 0.3, current: 0.4, noise_verdict: 'within_noise' },
+        { option_id: 'opt_c', prior: 0.5, current: 0.6, noise_verdict: 'not_noise_qualified' },
+      ],
+    }), labelFor)
+    expect(v.movements.map((m) => m.noiseVerdict))
+      .toEqual(['signal', 'within_noise', 'not_noise_qualified'])
+  })
+
+  it('not_noise_qualified is direction ONLY — magnitude is withheld', () => {
+    const v = buildRunDeltaView(delta({
+      win_probabilities: [{ option_id: 'opt_a', prior: 0.2, current: 0.8, noise_verdict: 'not_noise_qualified' }],
+    }), labelFor)
+    expect(v.movements[0].mayShowMagnitude).toBe(false)
+    expect(v.movements[0].direction).toBe('up')
+  })
+
+  it('signal and within_noise both MAY show magnitude — the distinction is the tag, not the numbers', () => {
+    const v = buildRunDeltaView(delta({
+      win_probabilities: [
+        { option_id: 'opt_a', prior: 0.2, current: 0.8, noise_verdict: 'signal' },
+        { option_id: 'opt_b', prior: 0.2, current: 0.8, noise_verdict: 'within_noise' },
+      ],
+    }), labelFor)
+    expect(v.movements.map((m) => m.mayShowMagnitude)).toEqual([true, true])
+  })
+})
+
+describe('an absent leader id is never named', () => {
+  it('withholds naming when the prior id is absent', () => {
+    const v = buildRunDeltaView(delta({
+      leader: { changed: true, noise_verdict: 'signal', current_leading_option_id: 'opt_b' },
+    }), labelFor)
+    expect(v.leader?.mayName).toBe(false)
+    expect(v.leader?.priorLabel).toBeNull()
+    expect(v.leader?.currentLabel).toBeNull()
+    expect(v.leader?.changed).toBe(true)
+  })
+
+  it('withholds naming when the current id is absent', () => {
+    const v = buildRunDeltaView(delta({
+      leader: { changed: true, noise_verdict: 'signal', prior_leading_option_id: 'opt_a' },
+    }), labelFor)
+    expect(v.leader?.mayName).toBe(false)
+    expect(v.leader?.currentLabel).toBeNull()
+  })
+
+  it('names both only when BOTH ids are present', () => {
+    const v = buildRunDeltaView(delta({
+      leader: { changed: true, noise_verdict: 'signal', prior_leading_option_id: 'opt_a', current_leading_option_id: 'opt_b' },
+    }), labelFor)
+    expect(v.leader?.mayName).toBe(true)
+    expect(v.leader?.priorLabel).toBe('Raise the price')
+    expect(v.leader?.currentLabel).toBe('Hold the price')
+  })
+})
+
+describe('an option id binds by identity, never by position', () => {
+  it('an unresolvable id yields a null label rather than a neighbour\'s', () => {
+    const v = buildRunDeltaView(delta({
+      win_probabilities: [{ option_id: 'opt_unknown', prior: 0.1, current: 0.2, noise_verdict: 'signal' }],
+    }), labelFor)
+    expect(v.movements[0].optionId).toBe('opt_unknown')
+    expect(v.movements[0].label).toBeNull()
+  })
+})
+
+describe('withheld producer fields are not read', () => {
+  it('a populated flip_thresholds changes NOTHING in the view model', () => {
+    const bare = buildRunDeltaView(delta(), labelFor)
+    const withFlips = buildRunDeltaView(delta({
+      flip_thresholds: [
+        { factor_id: 'fac_x', band_verdict: 'bands_disjoint', prior_median: 1, current_median: 2 },
+      ],
+    } as Partial<RunDelta>), labelFor)
+    expect(withFlips).toEqual(bare)
+  })
+
+  it('an edit_list changes NOTHING in the view model (Core has not shipped it)', () => {
+    const bare = buildRunDeltaView(delta(), labelFor)
+    const withEdits = buildRunDeltaView(delta({ edit_list: ['nodes.fac_x.value'] } as Partial<RunDelta>), labelFor)
+    expect(withEdits).toEqual(bare)
+  })
+})
+
+describe('the copy clears the estate vocabulary guard', () => {
+  it('no comparability sentence or rider contains a banned term', () => {
+    const all: Array<RunDelta['attribution_case']> = [
+      'C0_identical', 'C1_attributable', 'C2_unpaired', 'C3_engine_drift', 'C4_budget_drift',
+    ]
+    const strings = all.flatMap((c) => {
+      const v = buildRunDeltaView(delta({ attribution_case: c }), labelFor)
+      return [v.comparability, v.attributionLimit ?? '']
+    })
+    for (const s of strings) {
+      for (const term of ANALYSIS_HERO_BANNED_TERMS) {
+        expect(s.toLowerCase(), `"${s}" contains banned term "${term}"`).not.toContain(term.toLowerCase())
+      }
+    }
+  })
+})
+
+describe('⛔ no sentence attributes AUTHORSHIP the producer never sent', () => {
+  /**
+   * `C1_attributable` is `seed_equal && !hash_equal && builds_equal='equal' &&
+   * n_equal`. That establishes THE MODEL CHANGED. It carries nothing about WHO
+   * changed it — and Olumi's own graph_patch path moves the same hash — so a
+   * sentence saying "your change" is entitled by the pair's comparability and
+   * unentitled by what the product knows.
+   *
+   * This is the guard for the defect one level up in the prose: the data
+   * separation can be perfect and the SENTENCE still over-claim.
+   */
+  const AUTHORSHIP = /\byour change\b|\byou changed\b|\bbecause of you\b|\bcaused by your\b|\byou made\b|\byour edit\b/i
+
+  const ALL: Array<RunDelta['attribution_case']> = [
+    'C0_identical', 'C1_attributable', 'C2_unpaired', 'C3_engine_drift', 'C4_budget_drift',
+  ]
+
+  it.each(ALL)('%s claims no authorship', (c) => {
+    const v = buildRunDeltaView(delta({ attribution_case: c }), labelFor)
+    expect(v.comparability).not.toMatch(AUTHORSHIP)
+    expect(v.attributionLimit ?? '').not.toMatch(AUTHORSHIP)
+  })
+
+  it('the guard can SEE authorship when it is present (positive control)', () => {
+    expect('Your change is the only difference.').toMatch(AUTHORSHIP)
+    expect('The only difference is a change to the model.').not.toMatch(AUTHORSHIP)
+  })
+})
+
+describe('⛔ THE PRECONDITION THE C0 SENTENCE RESTS ON — pinned, not assumed', () => {
+  /**
+   * The C0 rider says the model ITSELF DID NOT CHANGE. That is a stronger claim
+   * than any other arm makes, and it is only true because the installed schema
+   * REFUSES `C0_identical` unless all four pair equalities hold — `hash_equal`
+   * among them. If that refinement ever weakened, the sentence would quietly
+   * become a fabrication with no test anywhere going red.
+   *
+   * ⚠ SO THE GUARD PINS ITS OWN PRECONDITION rather than trusting it. Asserting
+   * the sentence alone would be a tautology about a string; asserting the
+   * schema's refusal is what makes the sentence checkable.
+   *
+   * Proven by execution against the vendored 0.55.0, both directions.
+   */
+  const pp = (over: Record<string, unknown> = {}) =>
+    ({ seed_equal: true, hash_equal: true, builds_equal: 'equal', n_equal: true, ...over })
+  const block = (c: string, provenance: Record<string, unknown>) => ({
+    attribution_case: c,
+    pair_provenance: provenance,
+    win_probabilities: [],
+    leader: { changed: false, noise_verdict: 'not_noise_qualified' },
+    flip_thresholds: [],
+  })
+
+  it('C0 is REFUSED when the hashes differ — so "did not change" is proven, not assumed', () => {
+    expect(RunDeltaSchema.safeParse(block('C0_identical', pp({ hash_equal: false }))).success).toBe(false)
+  })
+
+  it('⭐ control — C0 with all four equal PARSES, so the case above is a refusal and not a broken fixture', () => {
+    expect(RunDeltaSchema.safeParse(block('C0_identical', pp())).success).toBe(true)
+  })
+
+  it('⛔ C2 is UNCONSTRAINED on the hash — which is why its rider may not deny a model change', () => {
+    // Both parse. The case carries no information about the hash at all, so a
+    // model change may well be the cause and this pair cannot show it.
+    expect(RunDeltaSchema.safeParse(block('C2_unpaired', pp({ hash_equal: false }))).success).toBe(true)
+    expect(RunDeltaSchema.safeParse(block('C2_unpaired', pp({ hash_equal: true }))).success).toBe(true)
+  })
+
+  it('C1 is refused when the hashes are EQUAL — the causal arm needs a changed model', () => {
+    expect(RunDeltaSchema.safeParse(block('C1_attributable', pp())).success).toBe(false)
+  })
+})

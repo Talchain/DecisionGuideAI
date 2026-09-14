@@ -28,6 +28,8 @@ import type { Recommendation } from '../strengthen/strengthenTypes'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import { buildStrengthenInputsForAnalysisNew } from './buildStrengthenInputsForAnalysisNew'
 import { buildAnalysisNewViewModel } from './buildAnalysisNewViewModel'
+import { buildRunDeltaView } from './runDeltaView'
+import { runDeltaDescribesDisplayedAnalysis } from '../../../canvas/state/storedRunDelta'
 import type { AnalysisNewViewModel } from './analysisNewTypes'
 
 /**
@@ -101,6 +103,23 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
      derived sweep in `oneRecordKeyPerRead.spec.ts`, not by reading the code. */
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
 
+  /**
+   * ⭐ THE RUN-OVER-RUN CONSEQUENCE, GATED ON BEING ABOUT *THIS* ANALYSIS.
+   *
+   * `responseHash` is `results?.hash` — the same value `resultsComplete` records
+   * and the same one the applicator stamped onto the stored delta. Comparing
+   * them is how a delta about a superseded run, or about another scenario,
+   * becomes invisible rather than merely unlikely. Fail-closed: any absence on
+   * either side renders nothing.
+   */
+  const storedRunDelta = useCanvasStore((s) => s.runDelta)
+  const whatsChanged = useMemo(() => {
+    if (!runDeltaDescribesDisplayedAnalysis(storedRunDelta, responseHash, currentScenarioId)) return null
+    // Labels come from the SAME node map the rest of this surface uses, so the
+    // section cannot call an option something the tab above it does not.
+    return buildRunDeltaView(storedRunDelta!.delta, (id) => nodeLabels.get(id) ?? null)
+  }, [storedRunDelta, responseHash, currentScenarioId, nodeLabels])
+
   const recommendations: Recommendation[] = useMemo(() => {
     const inputs = buildStrengthenInputsForAnalysisNew({
       data,
@@ -154,6 +173,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
         seedUsed,
         responseHash,
         scienceGrounding,
+        whatsChanged,
         nodeValueSources,
         nodeLabels,
         nodeOrigins,
@@ -192,6 +212,7 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
       seedUsed,
       responseHash,
       scienceGrounding,
+      whatsChanged,
       nodeValueSources,
       nodeLabels,
       nodeOrigins,

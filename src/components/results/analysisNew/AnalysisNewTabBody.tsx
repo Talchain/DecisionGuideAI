@@ -69,6 +69,7 @@ import {
 } from '../contextIntegrity/WhatIWasGivenSection'
 import type { WhatIWasGivenSectionHandle } from '../contextIntegrity/WhatIWasGivenSection'
 import { ModelStrip } from './sections/ModelStrip'
+import { WhatsChanged } from './sections/WhatsChanged'
 import { AtAGlance } from './sections/AtAGlance'
 import { ModelHeldUp } from './sections/ModelHeldUp'
 import { RobustnessCaveat } from './sections/RobustnessCaveat'
@@ -1212,6 +1213,18 @@ export function AnalysisNewTabBody({
             the same thing twice — the defect `ModelHeldUp` records having shipped
             when it quoted `display_verdict_reason` beside a glance that already
             did. Different wire fields, but the reader sees only the words. */}
+        {/* ── WHAT'S CHANGED ────────────────────────────────────────────────
+            ⭐ DIRECTLY UNDER THE GLANCE, BECAUSE IT QUALIFIES THE READING THE
+            GLANCE JUST GAVE. A person who changed something and re-ran arrives
+            asking "did that do anything?", and the glance answers a different
+            question — it describes THIS result, not its relationship to the last
+            one. Put below the fold this would be a footnote on a reading already
+            made (the placement rule this file states at the warning strips).
+
+            It renders on re-runs only: the producer emits no delta on a first
+            run, and absence renders nothing at all. */}
+        <WhatsChanged view={vm.whatsChanged} />
+
         <RobustnessCaveat
           leaderClaimPermitted={vm.leaderClaimPermitted}
           verdictReason={vm.atAGlance.verdict?.reason ?? null}

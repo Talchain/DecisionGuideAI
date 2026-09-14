@@ -190,6 +190,7 @@ import { useDraftStore } from './stores/draftStore'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
 import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
+import type { StoredRunDelta } from './state/storedRunDelta'
 import { recordCrossSurfaceEvent, recordUserAction } from '../lib/debug-state'
 import {
   isSelfLoop,
@@ -677,6 +678,15 @@ interface CanvasState {
   // CEE V3: analysis_ready payload from last draft
   // Used by useV2Run to build requests with resolved interventions
   ceeAnalysisReady: CEEAnalysisReady | null
+  /**
+   * The run-over-run consequence for the analysis currently displayed, or null.
+   *
+   * ⚠ WRITTEN ONLY BESIDE A NEW ANALYSIS, never on an ordinary turn. It carries
+   * the identity of the analysis it describes so a reader can tell "this is
+   * about what you are looking at" from "this is about a run you have left" —
+   * `runDeltaDescribesDisplayedAnalysis` is the one predicate that decides.
+   */
+  runDelta: StoredRunDelta | null
   /**
    * THE PRODUCER'S LAST ADMISSION, RETAINED ACROSS INVALIDATION AS UNCONFIRMED.
    *
@@ -1629,6 +1639,16 @@ interface CanvasState {
   undoDraft: () => void
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
   /**
+   * Write (or evict) the run-over-run consequence.
+   *
+   * ⭐ CALLED ON EVERY TURN THAT LANDS A NEW ANALYSIS — with `null` when that
+   * turn carried no delta. That is what makes a superseded delta impossible
+   * rather than merely unlikely: a replacement analysis evicts BY CONSTRUCTION,
+   * so no one has to remember to clear it, and CEE stripping the block (it does
+   * so on a withheld run identity) evicts through the same path.
+   */
+  setRunDelta: (stored: StoredRunDelta | null) => void
+  /**
    * Write the V5 analysis-fact slice. Pass null to clear (e.g. on scenario
    * switch). Do NOT clear on every conversational turn — per
    * v5-canonical-analysis brief correction 4, only clear on explicit
@@ -2201,6 +2221,12 @@ const DECISION_CONTEXT_CLEAR = {
   goalThreshold: null,
   goalThresholdRepresentation: null,
   ceeAnalysisReady: null,
+  // ⭐ A DIFFERENT DECISION CANNOT INHERIT THE LAST ONE'S COMPARISON. The read
+  // predicate already refuses a delta whose scenario does not match, so this is
+  // the second of two independent guards rather than the only one — deliberately,
+  // because this failure is silent and a reader would see a real, producer-
+  // computed comparison sitting under a model it was never about.
+  runDelta: null,
   // The retained admission is scoped to ONE decision. A full-context replacement
   // brings a different graph, so the previous decision's licence (or refusal)
   // must not govern edits made to this one — the same hazard as the stale
@@ -3160,6 +3186,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
   // CEE V3: analysis_ready payload
   ceeAnalysisReady: null,
+  // No run has completed, so there is no run-over-run consequence to describe.
+  runDelta: null,
   // No producer has spoken at cold start, so absence genuinely means "no
   // authority" and `licensesComparativeLeaderClaim` keeps its `true` arm.
   retainedAnalysisAdmission: null,
@@ -6669,6 +6697,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // REPLACED the periodic autosave with one that had lost the scenario id
     // and the goal selection.
     scenarios.saveAutosave(projectAutosaveData(autosaveSourceFromStore(get())))
+  },
+
+  setRunDelta: (stored: StoredRunDelta | null) => {
+    set({ runDelta: stored })
   },
 
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => {
