@@ -43,6 +43,9 @@ for (const ids of [['dec_cdp'], ['opt_segment', 'opt_rudderstack']]) {
     await expect(page.locator('[data-id="dec_cdp"]')).toBeVisible()
     await page.getByRole('button', { name: 'Collapse outputs dock', exact: true }).click()
     await fit(page)
+    // Keep the target below the local offline-engine notice, when present.
+    // This is ordinary Hand panning; no UI or model state is injected.
+    await drag(page, 1000, 180, 0, 160)
     await page.getByRole('button', { name: 'Switch to Select mode', exact: true }).click()
 
     const boxes = await Promise.all(ids.map(id => page.locator(`[data-id="${id}"]`).boundingBox()))
@@ -61,6 +64,11 @@ for (const ids of [['dec_cdp'], ['opt_segment', 'opt_rudderstack']]) {
     const start = { x: box.x + 12, y: box.y + 12 }
     await page.getByRole('button', { name: 'Switch to Hand mode', exact: true }).click()
     await expect(page.locator('.canvas-mode-hand')).toBeVisible()
+    const hit = await page.evaluate(({ x, y }) => {
+      const element = document.elementFromPoint(x, y)!
+      return { cursor: getComputedStyle(element).cursor, onSelectionOverlay: !!element.closest('.react-flow__nodesselection') }
+    }, start)
+    expect(hit).toEqual({ cursor: 'grab', onSelectionOverlay: false })
     const before = await snapshot(page)
     await drag(page, start.x, start.y, 80, 40)
     await expect.poll(async () => (await snapshot(page)).x - before.x).toBeCloseTo(80, 0)
@@ -69,8 +77,6 @@ for (const ids of [['dec_cdp'], ['opt_segment', 'opt_rudderstack']]) {
     expect(panned.selected).toEqual(selected)
     expect(panned.positions).toEqual(before.positions)
 
-    await page.keyboard.press('Escape')
-    expect(await snapshot(page)).toEqual(panned)
     await page.getByRole('button', { name: 'Switch to Select mode', exact: true }).click()
     const restoredBox = (await overlay.boundingBox())!
     await drag(page, restoredBox.x + 12, restoredBox.y + 12, 40, 20)
@@ -84,8 +90,18 @@ for (const ids of [['dec_cdp'], ['opt_segment', 'opt_rudderstack']]) {
     for (const id of Object.keys(moved.positions).filter(id => !ids.includes(id))) {
       expect(moved.positions[id]).toBe(panned.positions[id])
     }
+    // Escape retains its existing focused-node/selection cancellation semantics.
+    // It must not pan or mutate model positions, and is never needed to switch tools.
+    await page.keyboard.press('Escape')
+    const escaped = await snapshot(page)
+    expect(escaped.positions).toEqual(moved.positions)
+    expect(escaped.x).toBe(moved.x)
+    expect(escaped.y).toBe(moved.y)
+    // Focus is on the selection rectangle after group dragging, rather than
+    // an individual node. Escape therefore keeps this selection intact.
+    expect(escaped.selected).toEqual(moved.selected)
     await testInfo.attach('selection-pan-and-drag', {
-      body: JSON.stringify({ before, panned, moved }), contentType: 'application/json',
+      body: JSON.stringify({ before, panned, moved, escaped }), contentType: 'application/json',
     })
   })
 }
