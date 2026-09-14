@@ -1,6 +1,7 @@
 /**
- * ⭐⭐⭐ TWO CARDS OFFERED "Run analysis". THEY DISAGREED ABOUT WHETHER THE MODEL
- * WAS READY, AND THE ONE THAT SAID YES WAS THE ONE THAT WAS WRONG.
+ * ⛔⛔ TWO CARDS OFFER "Run analysis" ON DIFFERENT PREDICATES. THE DEFECT IS
+ * REAL, THE FIRST FIX FOR IT WAS WRONG, AND THIS FILE NOW PINS THE GAP RATHER
+ * THAN A REPAIR.
  *
  * MEASURED on a real render, not read from source. `cardAnatomy.measure.ts`
  * walks every visible leaf of every card on a seeded starter at 1600x1000. On
@@ -99,7 +100,9 @@ vi.mock('../../ui/inspector-v2/useAnalysisResults', async (importOriginal) => ({
 }))
 
 import { useCanvasStore } from '../../store'
+import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
 import { GoalNode } from '../GoalNode'
+import { useModelReadiness } from '../../hooks/useModelReadiness'
 
 const goalProps = {
   id: GOAL_ID, type: 'goal', position: { x: 0, y: 0 }, selected: false,
@@ -131,42 +134,53 @@ const runAnalysisChips = (c: HTMLElement) =>
   Array.from(c.querySelectorAll('button, [role="button"]'))
     .filter(el => (el.textContent ?? '').trim() === 'Run analysis')
 
-describe('"Run analysis" — one readiness authority across the cards that offer it', () => {
-  beforeEach(() => { vi.clearAllMocks() })
+describe('"Run analysis" — the two cards, and the authority neither of them reads', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(useCanvasStore).mockImplementation((selector) => selector(makeStoreState() as never))
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null, influence: null, confidence: null,
+      inSensitivityAnalysis: false, achievementProbability: null,
+      stabilityPercentage: null, winRate: null, isResultsMode: false,
+      predictedOutcome: null, valueOfInformation: null, voiRank: null,
+    } as never)
+  })
   afterEach(() => cleanup())
 
-  it('the goal card WITHHOLDS the action while a factor is still missing its value', () => {
+  /**
+   * ⛔ THIS ASSERTS THE DEFECT, DELIBERATELY, AND IT IS NOT A REGRESSION TEST
+   * FOR A FIX — there is no fix yet.
+   *
+   * A first repair gated this chip on the decision card's own predicate. An
+   * independent review refuted it: `canRunAnalysis.ts` is the authority (13
+   * consumers) and weighs graph health, `analysisReadiness`, the producer's
+   * `mayRun`, blockers and held states — several of which admit a run that a
+   * bare missing-factor count refuses. Gating here on the narrower predicate
+   * trades a false YES for a false NO.
+   *
+   * ⭐ SO THE GAP IS PINNED INSTEAD. A defect recorded in the suite is honest; a
+   * defect invisible to it is how it survives. When both cards are moved onto
+   * `canRunAnalysis`, this test REDs by design and is replaced by one asserting
+   * the agreement — which is exactly the signal wanted at that moment.
+   */
+  it('KNOWN GAP: the goal card offers the action while a factor is still missing its value', () => {
     const { container } = renderGoalWith([READY_FACTOR, MISSING_FACTOR])
-
-    // PRECONDITIONS pinned in-test. A zero below must be the READINESS gate's
-    // doing, so both of the OTHER conditions in the chip's expression are
-    // asserted to hold first:
-    //   1. the card mounted at all
-    //   2. the goal carries a stated target (`hasThreshold`) — the product
-    //      reads `goal_threshold_raw`, NOT the store scalar `goalThreshold`,
-    //      and a fixture using the wrong key would make this pass for the
-    //      wrong reason. The ready case below proves the key is right.
     expect(container.textContent).toContain('Reach 110% NRR')
-
-    expect(runAnalysisChips(container)).toHaveLength(0)
+    // The decision card would withhold here. This card does not.
+    expect(runAnalysisChips(container)).toHaveLength(1)
   })
 
-  it('…and OFFERS it once every factor has a value — the fix is not "hide the chip"', () => {
+  it('…and offers it when everything IS present, so the gap is asymmetry not noise', () => {
     const { container } = renderGoalWith([READY_FACTOR])
-    expect(container.textContent).toContain('Reach 110% NRR')
     expect(runAnalysisChips(container)).toHaveLength(1)
   })
 
-  it('an EXTERNAL factor with no value does not block — it is not a gap anyone can fill', () => {
-    // Binds the readiness rule's own semantics rather than "any factor without
-    // a value". `useModelReadiness` counts external factors separately and they
-    // never reach `missingCount`; asserting otherwise would pin a rule the
-    // product does not have.
-    const EXTERNAL = {
-      id: 'f-ext', type: 'factor', position: { x: 0, y: 0 },
-      data: { label: 'Competitive pressure', category: 'external' },
-    }
-    const { container } = renderGoalWith([READY_FACTOR, EXTERNAL])
-    expect(runAnalysisChips(container)).toHaveLength(1)
+  it('the readiness hook is whole-graph and takes no node id', () => {
+    // What DOES survive from the withdrawn change, and the reason it is worth
+    // landing on its own: `useModelReadiness` moved out of `DecisionNode` and
+    // lost a `decisionId` parameter that appeared exactly twice — the signature
+    // and the dependency array — and never in the body. A parameter nothing
+    // reads is a claim about scope the code does not make.
+    expect(useModelReadiness.length).toBe(0)
   })
 })

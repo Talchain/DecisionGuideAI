@@ -31,7 +31,6 @@ import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
-import { useModelReadiness } from '../hooks/useModelReadiness'
 import { typography } from '../../styles/typography'
 import { METRIC_NOUN } from './shared/metricVocabulary'
 import { formatGoalTarget } from '../../components/results/utils/formatGoalTarget'
@@ -282,31 +281,34 @@ export const GoalNode = memo((props: NodeProps) => {
   const canCaptureTarget = canCaptureGoalTarget(props.data as GoalTargetSource)
   const hasThreshold = !canCaptureTarget
 
-  // ⭐⭐ THE SAME READINESS AUTHORITY THE DECISION CARD USES, and it was missing.
+  // ⛔⛔ A READINESS GATE ON THIS CHIP WAS WRITTEN AND WITHDRAWN, 14 Sep 2026.
   //
-  // This card's "Run analysis" chip was gated on `hasThreshold` alone — a target
-  // EXISTS — while the decision card's identical chip is gated on
-  // `allFactorsPresent && goalDefined`. MEASURED on a real render
-  // (`e2e/geometry/cardAnatomy.measure.ts`, `pricing-model` at 1600x1000): both
-  // cards carry the chip, same label, same message, same `actionType`.
+  // THE DEFECT IS REAL AND STILL OPEN. This card and the decision card both
+  // offer an identical `actionType="run_analysis"` chip — same label, same
+  // message, confirmed as exactly two by a whole-tree sweep and measured on a
+  // real render of `pricing-model` at 1600x1000. Their gates differ:
   //
-  // ⛔ SO ON A MODEL WITH A TARGET AND A FACTOR STILL MISSING ITS VALUE, THE TWO
-  // CARDS DISAGREED — the decision card correctly withheld the action and named
-  // the gap, and this card offered it anyway. Not merely a duplicate primary
-  // action: the one that said yes was the one that was wrong.
+  //     decision   allFactorsPresent && goalDefined
+  //     goal       hasThreshold && !isPostAnalysis
   //
-  // One authority, two consumers (CLAUDE.md trap 21's prescribed repair).
-  // Checked rather than assumed that they answer the SAME question and not two
-  // similar ones: both gate the identical `actionType="run_analysis"` chip with
-  // the identical message. Where the questions genuinely differ the repair is
-  // the opposite — name them apart — and that is not this.
-  const readiness = useModelReadiness()
-  // ⚠ ONLY THE FACTOR HALF IS NEEDED HERE, and that is not a shortcut. The
-  // decision card's gate is `allFactorsPresent && goalDefined`; the `&&
-  // hasThreshold` already in this chip's condition IS the goalDefined half, on
-  // this card's own authority for its own target. Restating it would be a
-  // second predicate for one fact — the defect this change removes.
-  const modelIsReady = readiness.missingCount === 0
+  // So on a model with a target and a factor still missing its value, the
+  // decision card withholds the action and names the gap while this card offers
+  // it. Two surfaces, one question, opposite answers.
+  //
+  // ⛔ WHY THE OBVIOUS FIX WAS WRONG. I gated this chip on the decision card's
+  // predicate. An independent review refuted it: a bare missing-count is a
+  // THIRD predicate, not the authority. `utils/canRunAnalysis.ts` is the
+  // authority — 13 consumers — and it weighs graph health, `analysisReadiness`,
+  // the producer's own `mayRun`, blockers and held states, several of which
+  // admit a run that a bare missing-count refuses. Gating here on the narrower
+  // predicate would trade a false YES for a false NO, which is the harm the
+  // spec for that change warned about in its own header.
+  //
+  // ⭐ SO THE HONEST STATE IS: NEITHER CARD CONSUMES THE AUTHORITY. The decision
+  // card's predicate is as home-made as the one withdrawn here. Making both read
+  // `canRunAnalysis` is the actual repair, and it is a consequence-class change
+  // across two components and 13 existing consumers — not a line in this file.
+  // Recorded here rather than left as a silent asymmetry.
 
   const stabilityClassification = useMemo(() =>
     getStabilityClassification(robustnessData?.stability),
@@ -935,7 +937,7 @@ export const GoalNode = memo((props: NodeProps) => {
             because it's a primary action button rather than coaching — moving
             it to a hover popover would make it nearly undiscoverable for
             first-time users. */}
-        {hasThreshold && !isPostAnalysis && modelIsReady && (
+        {hasThreshold && !isPostAnalysis && (
           <div className="mt-1.5">
             <NodeChip chipId="goal_run_analysis" actionType="run_analysis" label="Run analysis" message="Run the analysis now" />
           </div>
