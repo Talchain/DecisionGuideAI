@@ -30,11 +30,39 @@
  * contrast test asserts the other value is handed out on the other choice. One
  * alone would pass on a component that emits a constant.
  */
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import type { Node } from '@xyflow/react'
+
+/**
+ * ⚠ THIS FILE CARRIES ITS OWN MOCK, AND THAT IS THE POINT RATHER THAN A
+ * DUPLICATION. `ModelTabV2Panel.spec.tsx` deliberately supplies only
+ * `sendSystemEvent`, so `goalTargetDispatchAvailable` — which is literally
+ * `typeof dispatchAction === 'function'` (`useModelEditAuthority.ts:814`) — is
+ * false there and the goal row has no editor at all. Adding `dispatchAction` to
+ * that shared mock would change the world 19 existing tests are asserting
+ * against. A goal-target editor needs a dispatcher; this file gives it one.
+ */
+const dispatchAction = vi.fn(() => true)
+const sendSystemEvent = vi.fn()
+vi.mock('../../conversation/ConversationContext', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return { ...actual, useOptionalConversationContext: () => ({ sendSystemEvent, dispatchAction }) }
+})
+vi.mock('../../utils/focusHelpers', () => ({ focusNodeById: vi.fn(), focusEdgeById: vi.fn() }))
+
 import { ModelRowView } from '../ModelRowView'
+import { ModelTabV2Panel } from '../ModelTabV2Panel'
+import { useCanvasStore } from '../../store'
+import { openOutlineGroups } from './openOutlineGroups'
 import type { ModelRow } from '../types'
 import { goalTargetBoundPhrase } from '../../conversation/manualGoalTarget'
+
+const GOAL_ID = 'goal_arr'
+function goalNode(): Node {
+  return { id: GOAL_ID, type: 'goal', position: { x: 0, y: 0 },
+    data: { label: 'Hit ARR target', kind: 'goal' } } as unknown as Node
+}
 
 function goalRow(over: Partial<ModelRow> = {}): ModelRow {
   return {
@@ -121,5 +149,56 @@ describe('the goal target can carry a CEILING, not only a floor', () => {
   it('names the bounds with the producer’s own vocabulary', () => {
     expect(goalTargetBoundPhrase('at_least')).toBe('at least')
     expect(goalTargetBoundPhrase('at_most')).toBe('at most')
+  })
+})
+
+
+/**
+ * ⭐⭐ THE HOST MUST CARRY THE BOUND THE ROW HANDED IT.
+ *
+ * The row tests above pin that the select offers both bounds and emits the
+ * chosen one. A mutant that made `changeDraft` DROP `direction` survived every
+ * one of them: the row emits `at_most`, the host keeps `at_least`, and the
+ * reader's ceiling silently becomes a floor. That is precisely the defect this
+ * change exists to remove, so it is pinned here, at the host, where the review
+ * line is composed.
+ *
+ * ⚠ IT ASSERTS THE REVIEW LINE, NOT THE STATE. The sentence is what the reader
+ * sees before Confirm, and it is derived from `edit.direction` through
+ * `goalTargetBoundPhrase` — the same map CEE's operator comes from. Asserting
+ * the rendered words proves the derivation end to end; asserting a state field
+ * would prove only that something was stored.
+ */
+describe('the chosen bound survives the host, not just the row', () => {
+  beforeEach(() => {
+    dispatchAction.mockClear()
+    useCanvasStore.setState({ nodes: [goalNode()], edges: [] } as never, false)
+  })
+
+  function openGoalEditor() {
+    render(<ModelTabV2Panel nodes={[goalNode()]} edges={[]} goalThreshold={null} />)
+    openOutlineGroups()
+    fireEvent.click(screen.getByTestId(`model-row-v2-${GOAL_ID}-value`))
+    fireEvent.change(screen.getByLabelText('Target unit for Hit ARR target'), { target: { value: '%' } })
+    fireEvent.change(screen.getByTestId(`model-row-v2-${GOAL_ID}-value-input`), { target: { value: '4' } })
+  }
+
+  it('⭐ a CEILING reaches the review line — it is not silently re-floored', () => {
+    openGoalEditor()
+    fireEvent.change(screen.getByLabelText('Target bound for Hit ARR target'), { target: { value: 'at_most' } })
+    fireEvent.keyDown(screen.getByTestId(`model-row-v2-${GOAL_ID}-value-input`), { key: 'Enter' })
+    const row = screen.getByTestId(`model-row-v2-${GOAL_ID}`)
+    expect(row).toHaveTextContent('At most 4 % (absolute level)')
+    // ⛔ The discriminating half: a line printing both phrases, or one ignoring
+    // the choice that happened to contain the substring, would otherwise pass.
+    expect(row).not.toHaveTextContent('At least 4 %')
+  })
+
+  it('⛔ CONTRAST: a FLOOR still reads as a floor — the default did not move', () => {
+    openGoalEditor()
+    // No bound chosen. `beginEdit` seeded `at_least`, and this surface has
+    // always recorded a floor; opening the choice must not change that.
+    fireEvent.keyDown(screen.getByTestId(`model-row-v2-${GOAL_ID}-value-input`), { key: 'Enter' })
+    expect(screen.getByTestId(`model-row-v2-${GOAL_ID}`)).toHaveTextContent('At least 4 % (absolute level)')
   })
 })
