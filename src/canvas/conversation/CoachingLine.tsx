@@ -221,6 +221,90 @@ function blockReviewSeverity(block: ConversationBlock): Severity | null {
  * family the cap already treats as a point candidate, and it carries a usable
  * title of its own. Nothing is inferred from the body, the turn, or the count.
  */
+/**
+ * The producer's own distinguishing reference for a block, or null.
+ *
+ * The FIRST `target_refs` entry's label, verbatim. Producer data, never authored
+ * and never derived from prose — reading the leading noun phrase out of a body
+ * to label a row would be summarising producer copy at the render boundary,
+ * which is the one thing this surface may not do.
+ */
+function primaryRefLabel(block: ConversationBlock): string | null {
+  const refs = (block as { target_refs?: unknown }).target_refs
+  if (!Array.isArray(refs)) return null
+  for (const ref of refs) {
+    const label = (ref as { label?: unknown } | null)?.label
+    if (typeof label === 'string' && label.trim().length > 0) return label.trim()
+  }
+  return null
+}
+
+/** What the list decided about one block: how it may appear, and what it says. */
+export interface LinePlan {
+  /** A producer ref shown beside the title, because a twin shares that title. */
+  disambiguator: string | null
+  /** False when NO line could honestly tell this block from its twin. */
+  collapsible: boolean
+}
+
+/**
+ * TWO LINES THAT READ THE SAME ARE ONE AFFORDANCE THE USER CANNOT AIM.
+ *
+ * ⚠ MEASURED, NOT HYPOTHETICAL. The dated walkA capture carries two blocks
+ * titled "A load-bearing assumption" and two titled "An assumption to check".
+ * As full cards their differing bodies told them apart; compressed to a
+ * title-only line they are indistinguishable, and the list's whole job is to
+ * let someone choose what to open. Found by PHOTOGRAPHING the list
+ * (`e2e/geometry/evidenceLook.measure.ts`) — no per-block assertion can see it,
+ * because it is a property of the LIST, not of any block.
+ *
+ * ⛔ AND THE OBVIOUS FIX ONLY COVERS HALF THE CASES, which is why this is a
+ * two-tier rule rather than "append the ref". In that same capture the coaching
+ * pair carries distinct refs (`Competitive Intensity` / `Current ARR`) but the
+ * review-card pair carries `target_refs: []` on BOTH. Only their prose differs,
+ * and the UI may not summarise prose. So when the producer gives us nothing to
+ * distinguish them with, the honest move is to stop pretending a line can:
+ * those blocks fall back to their full cards, exactly as before the compaction.
+ * Same doctrine as the blank-title rule — never reduce a block to a row that
+ * cannot be acted on.
+ *
+ * ⭐ DEDUPING IS NOT ON THE TABLE. Collapsing two blocks into one would hide a
+ * block the producer sent, which is a content decision this lane does not own.
+ */
+export function planCoachingLines(
+  blocks: readonly ConversationBlock[],
+): Map<ConversationBlock, LinePlan> {
+  const plan = new Map<ConversationBlock, LinePlan>()
+  const byTitle = new Map<string, ConversationBlock[]>()
+
+  for (const block of blocks) {
+    if (!isCollapsibleCardBlock(block)) continue
+    const title = collapsibleTitle(block)
+    if (!title) continue
+    const group = byTitle.get(title)
+    if (group) group.push(block)
+    else byTitle.set(title, [block])
+  }
+
+  for (const group of byTitle.values()) {
+    if (group.length === 1) {
+      plan.set(group[0], { disambiguator: null, collapsible: true })
+      continue
+    }
+    const labels = group.map(primaryRefLabel)
+    const allPresent = labels.every((l): l is string => l !== null)
+    const allDistinct = new Set(labels).size === labels.length
+    if (allPresent && allDistinct) {
+      group.forEach((block, i) => plan.set(block, { disambiguator: labels[i], collapsible: true }))
+    } else {
+      // No honest way to tell these apart on one line — show the cards.
+      for (const block of group) plan.set(block, { disambiguator: null, collapsible: false })
+    }
+  }
+
+  return plan
+}
+
 export function isCollapsibleCardBlock(block: ConversationBlock): boolean {
   if (isPinnedBlock(block)) return false
   if (!isPointCandidate(block)) return false
@@ -228,12 +312,18 @@ export function isCollapsibleCardBlock(block: ConversationBlock): boolean {
 }
 
 export interface CoachingLineProps {
+  /**
+   * A producer ref rendered beside the title because another block in the same
+   * list shares it. Never concatenated INTO the title — the two are separate
+   * spans so the producer's own string stays verbatim and addressable.
+   */
+  disambiguator?: string | null
   block: ConversationBlock
   /** The block's OWN renderer, unchanged — mounted inside the disclosure. */
   children: ReactNode
 }
 
-export function CoachingLine({ block, children }: CoachingLineProps) {
+export function CoachingLine({ block, children, disambiguator = null }: CoachingLineProps) {
   const title = collapsibleTitle(block)
   const category = blockCategory(block)
   const severity = blockReviewSeverity(block)
@@ -312,8 +402,30 @@ export function CoachingLine({ block, children }: CoachingLineProps) {
             ? { role: 'img', 'aria-label': STRENGTHEN_COPY.severityLabel[category] }
             : { 'aria-hidden': true })}
         />
-        {/* The producer's title, verbatim. No clamp, no ellipsis, no clip. */}
-        <span className={typography.panelBody}>{title}</span>
+        {/*
+          ⚠ ONE FLEX ITEM, TWO SPANS — and the nesting is the fix, not tidiness.
+          As SIBLING flex items the ref is pinned by `flex-none` and the title
+          wraps AROUND it, stranding the secondary text beside the title's first
+          line. Photographed. `flex-wrap` on the row fixes that one case and
+          breaks another — it drops a long title entirely below its own chip.
+          Nested, the two flow as inline content and wrap together.
+
+          The title keeps its own span, so the producer's string stays verbatim
+          and separately addressable; `ml-2` matches the row's 8px rhythm. No
+          joining punctuation — a separator would be UI copy inserted between
+          two producer strings.
+        */}
+        <span className="min-w-0">
+          <span className={typography.panelBody}>{title}</span>
+          {disambiguator && (
+            <span
+              className={`${typography.panelMeta} text-text-light ml-2`}
+              data-testid={`coaching-line-ref-${blockId}`}
+            >
+              {disambiguator}
+            </span>
+          )}
+        </span>
       </summary>
       <div className={styles.coachingLineBody}>{children}</div>
     </details>

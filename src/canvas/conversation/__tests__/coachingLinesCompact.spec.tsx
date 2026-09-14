@@ -508,3 +508,92 @@ describe('the collapsed LINE draws its own family’s glyph, not the other famil
     },
   )
 })
+
+/**
+ * ⚠ TWO LINES THAT READ THE SAME ARE ONE AFFORDANCE THE USER CANNOT AIM.
+ *
+ * Found by PHOTOGRAPHING the list, not by reasoning about it: the dated walkA
+ * capture carries two blocks titled "A load-bearing assumption" and two titled
+ * "An assumption to check". As full cards their differing bodies told them
+ * apart; compressed to a title-only line they are indistinguishable, and
+ * choosing what to open is the list's entire job.
+ *
+ * ⛔ NO PER-BLOCK ASSERTION CAN REACH THIS. It is a property of the LIST — each
+ * block is individually perfect. That is why it survived a green suite, a
+ * mutation-proven glyph guard and two independent reviews, and was only caught
+ * by looking at `e2e/geometry/evidenceLook.measure.ts`'s capture.
+ *
+ * The rule has TWO tiers because the producer only sometimes gives us something
+ * honest to disambiguate with — in that same capture the coaching pair carries
+ * distinct refs while the review-card pair carries `target_refs: []` on BOTH.
+ */
+describe('two blocks that share a title are never two identical lines', () => {
+  const twin = (n: number, title: string, refs: unknown[]) =>
+    ({
+      type: 'v5_coaching',
+      block_id: `tw_${n}`,
+      title,
+      body: `Body ${n}`,
+      coaching_kind: 'assumption_check',
+      source: 'decision_review',
+      category: 'could_fix',
+      target_refs: refs,
+      priority_rank: n,
+      freshness: 'fresh',
+    }) as unknown as ConversationBlock
+
+  it('shows the producer’s distinguishing ref beside each colliding title', () => {
+    renderBlocks([
+      twin(1, 'An assumption to check', [{ id: 'f1', kind: 'factor', label: 'Competitive Intensity' }]),
+      twin(2, 'An assumption to check', [{ id: 'f2', kind: 'factor', label: 'Current ARR' }]),
+    ])
+    expect(lineFor('tw_1'), 'a distinguishable pair still collapses').not.toBeNull()
+    expect(screen.getByTestId('coaching-line-ref-tw_1')).toHaveTextContent('Competitive Intensity')
+    expect(screen.getByTestId('coaching-line-ref-tw_2')).toHaveTextContent('Current ARR')
+  })
+
+  it('keeps the producer title verbatim — the ref is a SEPARATE span, not appended to it', () => {
+    renderBlocks([
+      twin(1, 'An assumption to check', [{ id: 'f1', kind: 'factor', label: 'Competitive Intensity' }]),
+      twin(2, 'An assumption to check', [{ id: 'f2', kind: 'factor', label: 'Current ARR' }]),
+    ])
+    // The title span must still carry the producer string ALONE.
+    const summary = screen.getByTestId('coaching-line-summary-tw_1')
+    const titleSpan = [...summary.querySelectorAll('span')].find(
+      (el) => el.textContent === 'An assumption to check',
+    )
+    expect(titleSpan, 'the title is not concatenated with the ref').toBeTruthy()
+  })
+
+  it('falls back to the full card when the producer gives nothing to tell them apart', () => {
+    renderBlocks([
+      twin(1, 'A load-bearing assumption', []),
+      twin(2, 'A load-bearing assumption', []),
+    ])
+    expect(lineFor('tw_1'), 'a line cannot honestly distinguish these').toBeNull()
+    expect(lineFor('tw_2')).toBeNull()
+    // ⭐ And nothing is hidden: both bodies are on screen, as they were before
+    // the compaction. Deduping would have removed a block the producer sent.
+    expect(screen.getByText('Body 1')).toBeVisible()
+    expect(screen.getByText('Body 2')).toBeVisible()
+  })
+
+  it('CONTROL — a unique title is untouched: still a line, and no ref span', () => {
+    renderBlocks([
+      twin(1, 'A unique title', [{ id: 'f1', kind: 'factor', label: 'Competitive Intensity' }]),
+    ])
+    expect(lineFor('tw_1')).not.toBeNull()
+    expect(
+      screen.queryByTestId('coaching-line-ref-tw_1'),
+      'a ref must not appear when there is no collision to resolve',
+    ).toBeNull()
+  })
+
+  it('CONTROL — refs that are present but IDENTICAL still fall back to cards', () => {
+    renderBlocks([
+      twin(1, 'Same title', [{ id: 'f1', kind: 'factor', label: 'Churn Trend' }]),
+      twin(2, 'Same title', [{ id: 'f1', kind: 'factor', label: 'Churn Trend' }]),
+    ])
+    expect(lineFor('tw_1'), 'present-but-equal refs distinguish nothing').toBeNull()
+  })
+})
