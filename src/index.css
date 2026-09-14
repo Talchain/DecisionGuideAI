@@ -834,12 +834,13 @@
 }
 
 /* Canvas interaction mode cursors — specificity must beat @xyflow's
-   .react-flow__pane.draggable and .react-flow__node.draggable rules */
+   draggable/selectable rules even when its stylesheet loads later. */
 .canvas-mode-select .react-flow__pane,
 .canvas-mode-select .react-flow__pane.draggable {
   cursor: default;
 }
 .canvas-mode-hand .react-flow__node,
+.canvas-mode-hand .react-flow__node.selectable,
 .canvas-mode-hand .react-flow__node.draggable {
   cursor: grab;
 }
