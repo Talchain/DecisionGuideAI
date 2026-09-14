@@ -129,7 +129,31 @@ export function existenceCertaintyToLineStyle(
  * saying they "mirror weightMagnitudeToStrokeWidth()", which is the
  * hand-maintained mirror CLAUDE.md trap 12 exists to abolish.
  */
-export const EDGE_STROKE_WIDTH_BANDS = { weak: 1.5, moderate: 2, strong: 3 } as const
+/**
+ * ⭐⭐ 1.5/2/3 -> 2/3/4 (14 Sep 2026), AND THE REASON IS THE ZOOM THE PRODUCT
+ * ITSELF CHOOSES, not taste.
+ *
+ * MEASURED on the served build `b7c8c74e` (1680x1050, own model, isolated
+ * context, settled camera transform read rather than derived): the graph is
+ * height-bound, so the fit clamps onto `LABEL_LEGIBLE_ZOOM` and the settled
+ * scale was **0.5000**. At that scale these three bands drew at **0.75px / 1px /
+ * 1.5px**, and the DOM carried only **two distinct stroke widths across 14
+ * edges**. The founder's report was *"why are all the connectors the same
+ * width"*. They were 0.25px apart, which is the same thing to an eye.
+ *
+ * The ladder including the unset floor is now `1 / 2 / 3 / 4`, so at the fit
+ * zoom it renders `0.5 / 1 / 1.5 / 2` CSS px — exactly **1, 2, 3 and 4 device
+ * pixels on a 2x display**, a whole device pixel between every rung.
+ * `strokeBandsAreLegibleAtFitZoom.spec.ts` pins the PROPERTY (separable at
+ * `LABEL_LEGIBLE_ZOOM`, threshold and zoom both IMPORTED), not these numbers —
+ * so they may move again as long as the channel still carries information. A
+ * snapshot of the old triple would have been green throughout the defect.
+ *
+ * ⚠ `UNSET_EDGE_STROKE_WIDTH` stays 1 and stays STRICTLY below the thinnest
+ * measured band — the 8 Sep 2026 invariant below is untouched, and widening the
+ * bands strengthens it: unset was 0.5px from `weak`, it is now 1px from it.
+ */
+export const EDGE_STROKE_WIDTH_BANDS = { weak: 2, moderate: 3, strong: 4 } as const
 
 /**
  * The thinnest width a MEASUREMENT can produce, DERIVED from the bands above.
