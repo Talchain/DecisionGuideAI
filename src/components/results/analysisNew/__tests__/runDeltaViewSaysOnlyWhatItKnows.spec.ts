@@ -10,6 +10,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import type { RunDelta } from '@talchain/schemas/boundary'
+import { RunDeltaSchema } from '@talchain/schemas/boundary'
 import { buildRunDeltaView } from '../runDeltaView'
 import { ANALYSIS_HERO_BANNED_TERMS } from '../../utils/glossaryCheck'
 
@@ -254,5 +255,49 @@ describe('⛔ no sentence attributes AUTHORSHIP the producer never sent', () => 
   it('the guard can SEE authorship when it is present (positive control)', () => {
     expect('Your change is the only difference.').toMatch(AUTHORSHIP)
     expect('The only difference is a change to the model.').not.toMatch(AUTHORSHIP)
+  })
+})
+
+describe('⛔ THE PRECONDITION THE C0 SENTENCE RESTS ON — pinned, not assumed', () => {
+  /**
+   * The C0 rider says the model ITSELF DID NOT CHANGE. That is a stronger claim
+   * than any other arm makes, and it is only true because the installed schema
+   * REFUSES `C0_identical` unless all four pair equalities hold — `hash_equal`
+   * among them. If that refinement ever weakened, the sentence would quietly
+   * become a fabrication with no test anywhere going red.
+   *
+   * ⚠ SO THE GUARD PINS ITS OWN PRECONDITION rather than trusting it. Asserting
+   * the sentence alone would be a tautology about a string; asserting the
+   * schema's refusal is what makes the sentence checkable.
+   *
+   * Proven by execution against the vendored 0.55.0, both directions.
+   */
+  const pp = (over: Record<string, unknown> = {}) =>
+    ({ seed_equal: true, hash_equal: true, builds_equal: 'equal', n_equal: true, ...over })
+  const block = (c: string, provenance: Record<string, unknown>) => ({
+    attribution_case: c,
+    pair_provenance: provenance,
+    win_probabilities: [],
+    leader: { changed: false, noise_verdict: 'not_noise_qualified' },
+    flip_thresholds: [],
+  })
+
+  it('C0 is REFUSED when the hashes differ — so "did not change" is proven, not assumed', () => {
+    expect(RunDeltaSchema.safeParse(block('C0_identical', pp({ hash_equal: false }))).success).toBe(false)
+  })
+
+  it('⭐ control — C0 with all four equal PARSES, so the case above is a refusal and not a broken fixture', () => {
+    expect(RunDeltaSchema.safeParse(block('C0_identical', pp())).success).toBe(true)
+  })
+
+  it('⛔ C2 is UNCONSTRAINED on the hash — which is why its rider may not deny a model change', () => {
+    // Both parse. The case carries no information about the hash at all, so a
+    // model change may well be the cause and this pair cannot show it.
+    expect(RunDeltaSchema.safeParse(block('C2_unpaired', pp({ hash_equal: false }))).success).toBe(true)
+    expect(RunDeltaSchema.safeParse(block('C2_unpaired', pp({ hash_equal: true }))).success).toBe(true)
+  })
+
+  it('C1 is refused when the hashes are EQUAL — the causal arm needs a changed model', () => {
+    expect(RunDeltaSchema.safeParse(block('C1_attributable', pp())).success).toBe(false)
   })
 })
