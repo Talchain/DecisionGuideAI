@@ -70,6 +70,29 @@ export const EXPECTED_CORE_SPECS = [
  *
  * ⛔ NOT A PLACE TO PARK A FAILING SPEC. Adding a name here is a claim that the
  * spec cannot ASSERT anything in that state, never that it is inconvenient.
+ *
+ * ⭐⭐ THERE IS A SIBLING GUARD IN CEE AND THEY MUST NOT BE CONSOLIDATED.
+ *
+ * `olumi-assistants-service` runs `Test-skip inventory (AST, ratcheted)` — verified
+ * at the bytes, `completed/failure` at `ac917507`, with a positive control of 22
+ * checks at that SHA so the read is not silence. It is RED there for exactly the
+ * condition this set makes a hard failure: a skip with no inventory entry.
+ *
+ * ⛔ THE TWO ANSWER DIFFERENT QUESTIONS AND NEITHER SUBSUMES THE OTHER. CEE's is
+ * AST-DERIVED: it reads the SOURCE and sees a `.skip()` that EXISTS, whether or not
+ * it ever runs. This one is RUNTIME-RECORDED: `recordSpecSkipped` fires when a skip
+ * ACTUALLY HAPPENS, and captures the reason the condition was true at that moment.
+ *
+ * **The blind spots are opposite.** An AST guard cannot see a CONDITIONAL skip that
+ * fires at runtime on a measured page state — which is precisely E2, whose
+ * `test.skip(true, …)` is called inside the body. A runtime manifest cannot see a
+ * skip that is DECLARED AND NEVER REACHED, so a dead `.skip()` sitting in a file is
+ * invisible to it forever. And a reason string captured at the moment the condition
+ * held is **not derivable from source at all**.
+ *
+ * ⚠ So this estate's chronic move — notice two guards answering similar questions
+ * and align them — would delete half the coverage here. **Name them apart (trap 21);
+ * do not reconcile them.** Ship both.
  */
 export const KNOWN_SKIPPABLE_CORE_SPECS = [
   'E2-readiness-truthful',
