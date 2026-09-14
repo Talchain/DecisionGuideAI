@@ -151,6 +151,47 @@ describe('every send settles exactly once, and both carriers agree', () => {
   }
 })
 
+describe('⛔ EXACTLY ONCE — the title above claimed it and nothing tested it', () => {
+  /**
+   * Raised by an independent review seat. `.catch()` is chained AFTER `.then()`,
+   * so it catches a rejection of the send AND anything the SUCCESS callback
+   * throws — and the success callback is the CALLER's. A consumer whose handler
+   * threw was told `'sent'` and then immediately `'unverified'`: a row that had
+   * correctly cleared would relabel itself "Olumi may not have recorded this",
+   * about a send that demonstrably left.
+   *
+   * ⚠ AND THE SPEC WAS ALREADY CLAIMING THE PROPERTY. The describe block above
+   * reads "every send settles exactly once" while every case asserted only the
+   * VALUE — `seen` held the last settlement, so a second one was invisible by
+   * construction. A title stronger than its assertions is the defect this whole
+   * change exists to remove, committed in the test that polices it.
+   */
+  it('a caller whose handler THROWS is not settled a second time', async () => {
+    sendSystemEvent.mockResolvedValue(undefined)
+    const { result } = renderHook(() => useModelEditAuthority(null, EDGE))
+    const seen: SystemEventSendSettlement[] = []
+    expect(
+      result.current.proposeEdgeStrengthConfirmation(EDGE, {
+        onSendSettled: s => { seen.push(s); throw new Error('a consumer that throws') },
+      }),
+    ).toBe('dispatched')
+    await vi.waitFor(() => expect(seen.length).toBeGreaterThan(0))
+    await Promise.resolve(); await Promise.resolve()
+    // ⭐ THE COUNT is the assertion, not the value. Before the latch this was
+    // ['sent', 'unverified'] — the second one a lie about a send that left.
+    expect(seen).toEqual(['sent'])
+  })
+
+  it('⭐ DISCRIMINATING TWIN: a well-behaved caller still settles, so the latch is not a mute', async () => {
+    // Without this, "never settles twice" would be satisfied by never settling.
+    sendSystemEvent.mockResolvedValue(undefined)
+    const { result } = renderHook(() => useModelEditAuthority(null, EDGE))
+    const seen: SystemEventSendSettlement[] = []
+    result.current.proposeEdgeStrengthConfirmation(EDGE, { onSendSettled: s => seen.push(s) })
+    await vi.waitFor(() => expect(seen).toEqual(['sent']))
+  })
+})
+
 describe('the confirmation opts out of the sender hidden queue, as its sibling does', () => {
   /**
    * ⭐ THE MECHANISM IS DERIVED AT THIS EVENT'S OWN BYTES, NOT BORROWED.

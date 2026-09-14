@@ -68,11 +68,36 @@ export function settleSystemEventSend(
   send: Promise<SendTurnOutcome> | SendTurnOutcome,
   onSettled?: (settlement: SystemEventSendSettlement) => void,
 ): void {
+  /**
+   * ⛔⛔ FIRE ONCE, AND THE CHAIN BELOW IS WHY IT HAS TO BE ENFORCED HERE RATHER
+   * THAN ASSUMED. `.catch()` is chained AFTER `.then()`, so it catches a
+   * rejection of `send` **and also anything the SUCCESS callback throws** — and
+   * the success callback is `onSettled`, supplied by the caller. A consumer
+   * whose handler threw would be told `'sent'` and then, immediately,
+   * `'unverified'`: a row that had correctly cleared would relabel itself as
+   * "Olumi may not have recorded this", about a send that demonstrably left.
+   *
+   * ⚠ FOUND BY AN INDEPENDENT REVIEW SEAT, AND THE SPEC ABOVE IT WAS ALREADY
+   * CLAIMING THE PROPERTY: its describe block reads *"every send settles exactly
+   * once"* while no case asserted the count. A title stronger than its
+   * assertions is the defect this module exists to remove, one level up — so the
+   * guard and the test that bites it landed together.
+   *
+   * Reordering to `.then(ok, err)` would fix the crosstalk too and is the more
+   * elegant change; a latch is chosen because it holds for EVERY future path
+   * through this function, including ones that do not exist yet.
+   */
+  let done = false
+  const settleOnce = (s: SystemEventSendSettlement) => {
+    if (done) return
+    done = true
+    onSettled?.(s)
+  }
   void Promise.resolve(send)
     .then(outcome => {
-      if (outcome === SEND_DEFERRED) return onSettled?.('queued')
-      if (outcome === SEND_BLOCKED) return onSettled?.('blocked')
-      return onSettled?.('sent')
+      if (outcome === SEND_DEFERRED) return settleOnce('queued')
+      if (outcome === SEND_BLOCKED) return settleOnce('blocked')
+      return settleOnce('sent')
     })
     .catch((err: unknown) => {
       if (err instanceof SystemEventSendError) {
@@ -81,16 +106,16 @@ export function settleSystemEventSend(
         // it", and `conflictCategory` is carried precisely because 'server' is
         // too coarse to decide what a surface may claim.
         if (err.kind === 'server') {
-          return onSettled?.(
+          return settleOnce(
             isProvenNoWriteConflict(err.conflictCategory) ? 'refused' : 'unverified',
           )
         }
-        return onSettled?.('unverified')
+        return settleOnce('unverified')
       }
       // A rejection shape this seam does not recognise. It cannot prove
       // non-delivery, so it must not claim it: the cannot-confirm line, not the
       // confident one. The conversation's own failure channel still records the
       // error; this only decides what the CALLER says.
-      onSettled?.('unverified')
+      settleOnce('unverified')
     })
 }
