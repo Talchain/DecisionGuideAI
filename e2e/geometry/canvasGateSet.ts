@@ -517,6 +517,19 @@ export const DELIBERATE_EXCLUSIONS: readonly DeliberateExclusion[] = [
       '`rowLabelBudgetDerived.spec.ts`; this measures the world the derivation describes.',
   },
   {
+    what: 'panelOcclusion.measure.ts — does the chat input panel cover model content?',
+    why:
+      "Same claim-type test: `grep -c 'expect('` returns 0. It emits an occlusion report per " +
+      'viewport and asserts nothing about it, so gating it would add a green arm that cannot go ' +
+      'red for a product reason. ⭐ WHAT ONLY IT CAN DO: it measures the overlap BY AREA against ' +
+      'every rendered node, so one run answers both "does it overlap" and "how much" — and it can ' +
+      'be pointed at TWO TREES to attribute the defect rather than assume it, which is the thing ' +
+      'a single-tree assertion structurally cannot do. ⚠ Its readings NAME THE VIEWPORT every ' +
+      'time, deliberately: a geometry claim at an unnamed width would be conflated with the live ' +
+      '1600-1668 panel-composition ruling, and two numbers about different panes reading as one ' +
+      'is how this estate produces a confident wrong answer.',
+  },
+  {
     what: 'edgeLabelOverlap.measure.ts (5 cells, 17.7s darwin) — the P0 glyph-on-glyph defect',
     why:
       '⚠ THE MOST PAINFUL EXCLUSION HERE, AND IT IS NOT ABOUT COST — at 3.5s a cell it is the ' +
