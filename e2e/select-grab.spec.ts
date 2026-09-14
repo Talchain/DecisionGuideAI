@@ -28,6 +28,17 @@ async function drag(page: Page, x: number, y: number, dx: number, dy: number) {
 }
 
 async function fit(page: Page) {
+  const initial = await snapshot(page)
+  await expect.poll(() => page.evaluate(() => {
+    const state = (window as unknown as {
+      useCanvasStore?: { getState: () => {
+        nodes: unknown[]; layoutVersion: number; pendingLayout: boolean; layoutInProgress: boolean
+      } }
+    }).useCanvasStore?.getState()
+    return !!state && state.nodes.length === 19 && state.layoutVersion > 0
+      && !state.pendingLayout && !state.layoutInProgress
+  }), { timeout: 15000 }).toBe(true)
+  const ready = await snapshot(page)
   await page.getByRole('button', { name: 'Fit to view', exact: true }).click()
   await page.evaluate(async () => {
     await document.fonts.ready
@@ -47,6 +58,7 @@ async function fit(page: Page) {
       previous = current
     }
   })
+  return { initial, ready, fitted: await snapshot(page) }
 }
 
 for (const ids of [['dec_cdp'], ['opt_segment', 'opt_rudderstack']]) {
@@ -55,10 +67,25 @@ for (const ids of [['dec_cdp'], ['opt_segment', 'opt_rudderstack']]) {
     await page.getByRole('button', { name: /Customer Data Platform Selection Replace CDP/ }).click()
     await expect(page.locator('[data-id="dec_cdp"]')).toBeVisible()
     await page.getByRole('button', { name: 'Collapse outputs dock', exact: true }).click()
-    await fit(page)
+    const framing = await fit(page)
     // Keep the target below the local offline-engine notice, when present.
     // This is ordinary Hand panning; no UI or model state is injected.
-    await drag(page, 1000, 180, 0, 160)
+    const panStart = await page.evaluate(() => {
+      for (const [x, y] of [[1000, 180], [100, 180], [1100, 300], [100, 300]]) {
+        const hit = document.elementFromPoint(x, y)
+        if (hit?.classList.contains('react-flow__pane')) return { x, y, hitClass: hit.className }
+      }
+      return null
+    })
+    expect(panStart).not.toBeNull()
+    await drag(page, panStart!.x, panStart!.y, 0, 160)
+    await testInfo.attach('fixture-framing', {
+      body: JSON.stringify({ ...framing, panStart, panned: await snapshot(page),
+        measured: await page.locator('.react-flow__node').evaluateAll(nodes => nodes.map(node => ({
+          id: node.getAttribute('data-id'), rect: node.getBoundingClientRect().toJSON(),
+        }))),
+      }), contentType: 'application/json',
+    })
     await page.getByRole('button', { name: 'Switch to Select mode', exact: true }).click()
 
     const boxes = await Promise.all(ids.map(id => page.locator(`[data-id="${id}"]`).boundingBox()))
