@@ -16,6 +16,7 @@
  * zero `.message` access and need no defence-in-depth exemption.
  */
 import { humaniseCritique } from './humaniseCritique'
+import type { HumanisedCritique } from './humaniseCritique'
 import type { UncertaintyItem } from '../types'
 
 /** The minimal warning shape both surfaces share. AdvancedSection passes the
@@ -148,16 +149,25 @@ export function buildInferenceWarningLabelMap(
   return map.size > 0 ? map : undefined
 }
 
-/** Humanised, user-safe headline for an inference warning — the same
- *  code-keyed template path every other critique surface uses. Never echoes
- *  the raw `message`; unmapped codes fall through to humaniseCritique's safe
- *  generic copy. */
-export function humaniseInferenceWarningTitle(
+/**
+ * The FULL humanised view of an inference warning — title, description and
+ * suggestion — through the same code-keyed template path every other critique
+ * surface uses. Never echoes the raw `message`.
+ *
+ * ⚠ WHY THIS EXISTS AND `humaniseInferenceWarningTitle` NOW DELEGATES TO IT.
+ * The canvas needs the SUGGESTION as well as the title: a Question card that
+ * says a recommendation was withheld and does not say what to do about it has
+ * moved the dead end, not removed it. Building the `UncertaintyItem` a second
+ * time at that call site would be a second authority on one question (trap 21)
+ * and would drift from the `??`-vs-empty-array correction recorded below. So
+ * there is ONE construction and two projections of it.
+ */
+export function humaniseInferenceWarning(
   w: HumanisableInferenceWarning,
   /** Node id → label, from the graph store. Optional: without it the copy is
    *  exactly what it has always been. */
   nodeLabels?: ReadonlyMap<string, string>,
-): string {
+): HumanisedCritique {
   const fromField = nodeIdFromField(w.field)
   const item: UncertaintyItem = {
     code: w.code,
@@ -178,7 +188,20 @@ export function humaniseInferenceWarningTitle(
           ? [fromField]
           : undefined,
   }
-  return humaniseCritique(item, buildInferenceWarningLabelMap(w) ?? nodeLabels).title
+  return humaniseCritique(item, buildInferenceWarningLabelMap(w) ?? nodeLabels)
+}
+
+/** Humanised, user-safe headline for an inference warning — the same
+ *  code-keyed template path every other critique surface uses. Never echoes
+ *  the raw `message`; unmapped codes fall through to humaniseCritique's safe
+ *  generic copy. */
+export function humaniseInferenceWarningTitle(
+  w: HumanisableInferenceWarning,
+  /** Node id → label, from the graph store. Optional: without it the copy is
+   *  exactly what it has always been. */
+  nodeLabels?: ReadonlyMap<string, string>,
+): string {
+  return humaniseInferenceWarning(w, nodeLabels).title
 }
 
 // `selectHumanisedInferenceWarnings` — the UNFILTERED selector — was DELETED on
