@@ -135,6 +135,29 @@ export default defineConfig({
       VITE_SUPABASE_URL: 'http://localhost:54321',
       VITE_SUPABASE_ANON_KEY: 'test_anon_key',
       VITE_FEATURE_SSE: '0',
+      // ⛔⛔ THE DEPLOYED POSTURE, NOT THE DEFAULT — AND ITS ABSENCE MADE THIS
+      // SUITE MEASURE A SURFACE NO USER SEES (CLAUDE.md trap 3b, third instance).
+      //
+      // `makeFlag` defaults to `defaultValue = false` and `preAnalysisV3`
+      // declares no default, so an unset env var resolves the flag OFF. The dock's
+      // pre-run branch is `isPreAnalysisV3Enabled() ? <V3> : <legacy>`, and every
+      // state this suite captures is seeded PRE-RUN — so all of them rendered the
+      // LEGACY pre-analysis panel while `netlify.toml:179` ships
+      // `VITE_FEATURE_PRE_ANALYSIS_V3 = "1"` to staging.
+      //
+      // Two consequences, and the second is the expensive one:
+      //   1. `blocked-provisional` (x2) could never capture at all — its anchor
+      //      `[data-testid="pre-analysis-v3"]` never becomes visible, `captureState`
+      //      throws, and the completeness guard has read `8/10` at every head.
+      //   2. ⛔ The four states that DID capture were references for a posture
+      //      staging does not serve. The right-hand panel's visual coverage has
+      //      been measuring the wrong component.
+      //
+      // ⚠ A re-bless is REQUIRED after this lands — the captures legitimately
+      // change. It will NOT make the job green on its own: the self-test asserts
+      // drift < 0.00005 (64.8px) while the achievable floor immediately after a
+      // bless is ~5,262px. See output/visreg-diagnosis-20260914/.
+      VITE_FEATURE_PRE_ANALYSIS_V3: '1',
       TZ: 'UTC',
     },
   },
