@@ -202,7 +202,7 @@ const LABEL_GUTTER = 2
 // tall (73%). Two labels inside either gap scored clear and painted on top of
 // each other. Deriving them removes the mirror rather than re-copying it.
 const X_THRESHOLD = LABEL_HALF_WIDTH * 2 + LABEL_GUTTER // derived; do not restate the number
-const Y_THRESHOLD = LABEL_HALF_HEIGHT * 2 + LABEL_GUTTER // 36
+const Y_THRESHOLD = LABEL_HALF_HEIGHT * 2 + LABEL_GUTTER // derived; do not restate the number
 
 // One step must CLEAR a coincident pair, or the search burns two steps to do
 // what one should — which is how displacements reached three figures. Derived
