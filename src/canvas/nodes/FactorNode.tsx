@@ -735,6 +735,17 @@ export const FactorNode = memo((props: NodeProps) => {
           style={{ boxShadow: '0 0 12px var(--info)' }}
         />
       )}
+      {/* Keep the transient option setting outside the measured card body:
+          hovering an option must not resize factors and relayout the model.
+          The annotation remains readable without covering card controls. */}
+      {isAffectedByHover && (
+        <div
+          data-testid="factor-hover-intervention"
+          className={`${typography.nodeTitle} absolute bottom-full left-0 right-0 z-30 pointer-events-none text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}
+        >
+          → {interventionDisplayValue}
+        </div>
+      )}
       <BaseNode
         {...props}
         data={{ ...cleanedData, controllability }}
@@ -773,12 +784,6 @@ export const FactorNode = memo((props: NodeProps) => {
             "Does not change …" fires ONLY on exact baseline equality (the old
             ±0.1 epsilon produced the live 0.5→0.6 contradiction). Never
             renders a bare arrow with no trailing text. */}
-        {isAffectedByHover && (
-          <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
-            → {interventionDisplayValue}
-          </div>
-        )}
-
         {/* ===== LAYER 1: Standard body ===== */}
 
         {/* Value display (contextual) — null for needs-input and empty externals.
