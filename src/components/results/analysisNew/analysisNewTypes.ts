@@ -297,6 +297,19 @@ export interface DriversSection {
    * magnitudes are flat, because the SIDES still carry information.
    */
   influenceRows: DriverInfluenceRow[]
+  /**
+   * The percentage the TOP DISPLAYED ROW renders — `null` when it carries no
+   * figure (a basis other than `influence_score` shows a rank claim instead).
+   *
+   * ⚠ THIS IS NOT `influenceRows[0].fraction` AND THE DIFFERENCE IS THE POINT
+   * (CLAUDE.md trap 21). `fraction` is the BAR: `magnitude / strongest` over
+   * the rows that survived filtering, so it is 1 for the leader by
+   * construction. This is the FIGURE: the producer's own `displayInfluence`,
+   * never rescaled. They diverge exactly when a stronger row was filtered out,
+   * and the drivers caveat's "the top driver always shows 100%" is a claim
+   * about THIS one.
+   */
+  topRowFigurePercent: number | null
   /** The option sensitivities were computed against, when disclosed. */
   referenceOptionLabel: string | null
   totalCount: number

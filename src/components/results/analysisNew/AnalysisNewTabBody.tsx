@@ -490,8 +490,26 @@ function driversCaveat(vm: AnalysisNewViewModel): string | null {
    * `records that two basis arms are now unreachable` is the case that keeps it
    * from being closed by accident.
    */
+  /**
+   * ⭐ THE SCALE CLAUSE AND THE "ALWAYS 100%" CLAUSE ARE TWO STATEMENTS, AND
+   * ONLY THE FIRST IS UNCONDITIONALLY TRUE (CLAUDE.md trap 21 — two claims
+   * fused under one constant).
+   *
+   * The first denies a reading ("not a share of the outcome"). The second
+   * asserts a FACT about the top row's FIGURE — and that fact fails whenever
+   * `buildDrivers` drops the producer's strongest row, because the bars
+   * rescale to the survivors and the figures do not. The composition, not the
+   * constant, is where the condition belongs: the sentence has one owner
+   * (`analysisNewCopy`) and `driversSeamSaysOneThing.theCaveatHasOneSourceOfTruth`
+   * bans a second spelling here.
+   */
   const basis = vm.drivers.influenceIsSetRelative
-    ? COPY.coverage.setRelativeInfluence
+    ? [
+        COPY.coverage.setRelativeInfluence,
+        COPY.coverage.guaranteedHundredClause(vm.drivers.topRowFigurePercent),
+      ]
+        .filter((c): c is string => c !== null)
+        .join(' ')
     : vm.drivers.referenceOptionLabel
       ? `${COPY.coverage.referencePrefix} ${vm.drivers.referenceOptionLabel}.`
       : COPY.coverage.structuralInfluence

@@ -721,9 +721,59 @@ function buildDrivers(
       targetId: d.canFocus ? (d.matchedNodeId ?? d.factorKey) : null,
     }))
 
+  /**
+   * ⭐⭐ THE PERCENTAGE THE READER SEES, FOR THE TOP DISPLAYED ROW — `null`
+   * when that row carries no figure at all.
+   *
+   * ⛔ WHY THIS EXISTS, AND WHY IT IS NOT `fraction`. The caveat above the
+   * chart promises "The top driver always shows 100%". That is a claim about
+   * the FIGURE in `driverFinding.implication`, which is `pct(displayInfluence)`
+   * — the PRODUCER's value, deliberately never rescaled here. The BAR is a
+   * different quantity: `magnitude / strongest` over the rows that SURVIVED
+   * filtering, so the leader's fraction is 1 by construction whatever its
+   * strength.
+   *
+   * The two coincide only when no stronger row was filtered out. MEASURED on a
+   * run with one suppressed row at 1.0 and survivors at 0.67 / 0.33:
+   *
+   *     implications  ["Relative influence 67%.", "Relative influence 33%."]
+   *     fractions     [1, 0.49]
+   *
+   * — a full-width bar, labelled 67%, under a sentence promising 100%. Three
+   * statements, no two of which agree. Witnessed by Paul on the deployed build
+   * (Reasoning tab, "2 factors are not ranked here: controlled by your
+   * options").
+   *
+   * ⚠⚠ AND THE GUARD COULD NOT SEE IT. `driversScaleDisclosesTheGuaranteed100`
+   * anchors on `rows[0].fraction === 1` — the one quantity that is true by
+   * construction and can therefore never fail. An invariant written with the
+   * same asymmetry as the code it tests is a guard agreeing with itself
+   * (CLAUDE.md trap 13d), and it passed on every run this defect reached.
+   *
+   * ⛔ THE FIX IS NOT TO RESCALE THE FIGURE. Re-normalising `displayInfluence`
+   * over the surviving set would make the top row read 100% and turn every
+   * figure into a share of the DISPLAYED rows — the exact reading the caveat's
+   * first clause exists to deny, and what `analysisMetricPercent` means by
+   * "without rescaling its value". The number is the producer's and stays; the
+   * SENTENCE stops promising something the display does not hold.
+   *
+   * ⚠ ROUNDED, NEVER THE RAW VALUE. The claim is about what is on screen, so
+   * 0.997 counts as 100 exactly as the row renders it. Comparing the raw float
+   * would withhold the clause on a run whose top row visibly reads "100%".
+   */
+  const topRow = influenceRows[0]
+  const topDriver = topRow != null ? live.find((d) => d.factorKey === topRow.id) : undefined
+  const topRowFigurePercent =
+    topDriver != null &&
+    topDriver.displayInfluence != null &&
+    topDriver.displayProvenance === 'influence_score'
+      ? Math.round(topDriver.displayInfluence * 100)
+      : null
+
   return {
     findings,
     influenceRows,
+    topRowFigurePercent,
     influenceIsSetRelative,
     referenceOptionLabel: data.sensitivityReference?.optionLabel ?? null,
     totalCount: findings.length,
@@ -3088,6 +3138,9 @@ export function buildAnalysisNewViewModel(
       ? {
           findings: [],
           influenceRows: [],
+          // No rows, so no figure on screen — `null` is the only honest value,
+          // and it withholds the clause rather than defaulting it to a claim.
+          topRowFigurePercent: null,
           totalCount: 0,
           influenceIsSetRelative: false,
           referenceOptionLabel: null,
