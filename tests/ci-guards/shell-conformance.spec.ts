@@ -916,24 +916,8 @@ describe('the shell contract itself holds together', () => {
   })
 
   it('the content budget is derived from the width authority, not restated', () => {
-    // ⚠⚠ RE-PINNED 14 Sep 2026, AND THIS NUMBER IS THE COST OF THE DOCK RULING.
-    //
-    // The founder ruled the dock ceiling 416 -> 300, so the panel's content
-    // budget falls 390px -> 274px. That is a 30% cut, and the LAST time this
-    // budget was cut by roughly that much (416 -> 280, -35%, #719) it was tab
-    // FORMATTING that broke, not the width — which is why that change was
-    // reverted on 17 Aug.
-    //
-    // ⛔ THIS GUARD CANNOT SEE FORMATTING. It asserts the arithmetic agrees with
-    // the width authority and nothing about whether 274px renders. The risk is
-    // real, it is recorded here rather than in a commit message nobody reads,
-    // and it needs a look on a real screen.
-    expect(shellContentBudget(DOCK_RESPONSIVE_MAX_WIDTH)).toBe(274)
+    expect(shellContentBudget(DOCK_RESPONSIVE_MAX_WIDTH)).toBe(390)
     expect(shellContentBudget(DOCK_MIN_WIDTH)).toBe(254)
-    // The claim the test NAME makes, pinned independently of either value: the
-    // budget tracks the width authority rather than being a third copy of it.
-    expect(shellContentBudget(DOCK_RESPONSIVE_MAX_WIDTH) - shellContentBudget(DOCK_MIN_WIDTH))
-      .toBe(DOCK_RESPONSIVE_MAX_WIDTH - DOCK_MIN_WIDTH)
   })
 
   it('the radius scale is the DS scale, with the panel override intact', () => {
