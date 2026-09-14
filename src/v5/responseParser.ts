@@ -48,6 +48,7 @@ import {
   BoundaryErrorSchema,
   AnalysisStateV1Schema,
   ModelBuildingNoticesSchema,
+  RunDeltaSchema,
   type OlumiResponse,
   type BoundaryError,
 } from '@talchain/schemas/boundary';
@@ -258,12 +259,32 @@ const KNOWN_OLUMI_TOP_LEVEL_KEYS: ReadonlySet<string> = new Set(
  * reason. `analysis_ready` DOES NOT — it carries the turn's substance, and
  * proceeding without it would render a turn that misrepresents the server.
  *
+ * ⭐ `run_delta` QUALIFIES, and its criteria were checked rather than assumed:
+ * (1) the contract states its own absence semantics — *"absent on every
+ * non-rerun turn ... never defaulted, and a consumer renders NO delta card on
+ * absence"* — so a turn is meaningful without it; (2) it has NO consumers at
+ * all today (measured: 0 non-test files), and the contract's prescribed
+ * behaviour on absence IS the fallback every future consumer must implement.
+ *
+ * ⚠ AND IT IS THE MEMBER WITH A REACHABLE TRIGGER, which is why it is here.
+ * `RunDeltaSchema`'s refinement rejects `C0_identical` and `C1_attributable`
+ * unless `pair_provenance.builds_equal === 'equal'` — and `builds_equal` is a
+ * function of a PLoT ENVIRONMENT FLAG ON ANOTHER SERVICE (`_meta.builds` rides
+ * `UI_CANONICAL_META`). Turning that flag off flips it to 'unknown' at runtime
+ * with no deploy of CEE or the UI. CEE's classifier withholds correctly in that
+ * state today, so the ONLY thing standing between that flag and a lost turn is
+ * one service's care, with no defence in depth here. A cross-service runtime
+ * flag must not decide whether a third service can parse a response.
+ * Pinned in `responseParser.runDeltaTolerance.spec.ts`, which drives the
+ * contract's OWN `maximalOlumiResponse` fixture rather than a local shape.
+ *
  * `responseParser.analysisStateTolerance.spec.ts` pins both directions: the
  * quarantined keys survive a garbage value, and `analysis_ready` stays fatal.
  */
 const QUARANTINABLE_ADDITIVE_KEYS: ReadonlyArray<readonly [string, z.ZodTypeAny]> = [
   ['analysis_state', AnalysisStateV1Schema],
   ['model_building_notices', ModelBuildingNoticesSchema],
+  ['run_delta', RunDeltaSchema],
 ];
 
 /**

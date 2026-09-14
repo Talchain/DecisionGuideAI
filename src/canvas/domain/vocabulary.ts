@@ -86,3 +86,124 @@ export const UNCONFIRMED_ESTIMATE_LABEL = 'Estimate not yet confirmed'
  * reader does not add a fourth loose literal.
  */
 export const GOAL_NODE_LABEL = 'Goal'
+
+/**
+ * ⭐⭐ HOW A FACTOR'S CATEGORY READS — the ONE spelling, for the same reason
+ * this file exists.
+ *
+ * CEE stamps each factor `controllable` | `observable` | `external`. It is the
+ * distinction between *what this team can act on* and *what it must plan
+ * around*, which is the pivot from analysing a model to doing something about
+ * it — and it is one of the few producer facts that is genuinely about the
+ * THINKING rather than about the numbers.
+ *
+ * ⚠ IT WAS ALREADY SPELLED TWICE. `CATEGORY_OPTIONS` in
+ * `inspector-v2/editors/FactorControllableEditor.tsx` carried these three
+ * words, and `CATEGORY_STYLES` in `components/model-tab/FactorsSection.tsx`
+ * carries them a second time (`:44-48`, paired with border classes). Adding a
+ * THIRD copy for the Model tab is precisely the hand-maintained mirror this
+ * module was created to abolish — in a product noun, again — so the editor now
+ * derives its options from here.
+ *
+ * ⚠ `CATEGORY_STYLES` IS NOT CONVERTED HERE, and this note exists so the count
+ * is not inherited wrong: it sits behind a mounted-false legacy block, so there
+ * is no user impact, but it is a live copy and converting it is a separate
+ * change with its own review.
+ *
+ * ⚠ THE WIRE VALUES ARE UNCHANGED and must stay so: `category` is a CEE field
+ * and a key in the inspector's mutation union. This is the DISPLAY word only.
+ */
+export const FACTOR_CATEGORY_LABEL = {
+  controllable: 'Controllable',
+  observable: 'Observable',
+  external: 'External',
+} as const
+
+export type FactorCategoryValue = keyof typeof FACTOR_CATEGORY_LABEL
+
+/**
+ * The display word for a stamp, or `null` for anything this vocabulary does not
+ * recognise — INCLUDING absence.
+ *
+ * ⚠⚠ `null`, NEVER A DEFAULT, AND THIS IS THE WHOLE POINT. The inspector editor
+ * renders `(data?.category as string) ?? 'controllable'`, so a factor CEE never
+ * classified is shown to the user as *Controllable* — a classification nobody
+ * made, on the surface that then offers to "change" it. That is an invented
+ * fact wearing an editor's clothes, and it is exactly the defect class this
+ * estate keeps paying for.
+ *
+ * A reader of the Model tab must be able to tell "this model says external"
+ * from "nothing here says", so an unstamped factor gets NO line rather than a
+ * guessed one. (The editor's default is a separate, pre-existing question about
+ * a different surface; it is reported, not silently changed here.)
+ *
+ * ⚠ THIS FUNCTION ALONE DOES NOT DELIVER THAT DISTINCTION, and a reading
+ * surface must not call it directly. Absence is not the only unstated case —
+ * the CEE ingestion adapter fills an omitted `category` with its own edge-shape
+ * guess, so the field is populated for factors nobody classified.
+ * `statedFactorCategoryLabel` below is the reader that closes that door.
+ */
+export function factorCategoryLabel(category: unknown): string | null {
+  if (typeof category !== 'string') return null
+  /* ⚠ NORMALISED, BECAUSE THE ESTATE ALREADY PAID TO LEARN THIS INPUT DOMAIN.
+     `graphDisplayCalculations.ts` carries a shipped P1 hotfix whose comment
+     names the real arrivals: `"External"`, `"external "`, `"CONTROLLABLE"`.
+     That is recorded producer behaviour, not a hypothetical. A reader stricter
+     than its writers turns a stated stamp into `null`, and `null` here MEANS
+     the producer said nothing, so the strictness would invert the one
+     distinction this vocabulary exists to protect. */
+  const normalised = category.trim().toLowerCase()
+  /* ⚠ AN OWN-KEY CHECK, NOT `?? null`. An unguarded index reaches the prototype
+     chain, and `??` falls back on null/undefined only, so `"toString"` returned
+     a FUNCTION and the surface rendered its native-code source text. The
+     signature promises `null` for anything unrecognised; this is what delivers
+     it over the whole `unknown` domain.
+
+     ⚠ `hasOwnProperty.call`, NOT `Object.hasOwn` — that is ES2022 and
+     `tsconfig.app.json` stops at `lib: ["ES2020", …]`. The identical pair of
+     notes sits on `plainStatus` in
+     `components/results/analysisNew/buildAnalysisNewViewModel.ts`, where the
+     same defect and the same lib gap were met before; raising `lib` is a
+     repo-wide config change and stays rowed rather than taken here. */
+  return Object.prototype.hasOwnProperty.call(FACTOR_CATEGORY_LABEL, normalised)
+    ? (FACTOR_CATEGORY_LABEL as Record<string, string>)[normalised]
+    : null
+}
+
+/**
+ * ⭐⭐⭐ WHAT A READING SURFACE MAY STATE AS THE MODEL'S OWN CLASSIFICATION —
+ * `null` whenever this UI is the only thing that said it.
+ *
+ * ⚠⚠ NAMED APART FROM `factorCategoryLabel` ON PURPOSE. They answer DIFFERENT
+ * QUESTIONS and collapsing them is the estate's trap 21. `factorCategoryLabel`
+ * answers *how does this value read?* — a pure word lookup, correct for an
+ * editor that is about to offer a change. This one answers *may a surface
+ * present this as the model's classification?*, which is a question about
+ * PROVENANCE, and only a surface built for READING needs to ask it.
+ *
+ * ⚠⚠ WHY IT EXISTS. `adapters/cee/client.ts` runs `inferMissingCategories` on
+ * every draft/graph ingestion path: when CEE omits `category`, the UI writes
+ * `controllable` or `observable` from edge shape, into the SAME field, with no
+ * hedge. By the time the store sees it the field is not absent, so a reader
+ * checking only for absence cannot tell the guess from the stamp, and prints
+ * one as the other. That inference marks itself with `categoryInferredByUi`;
+ * this function is the consumer of that marker.
+ *
+ * ⚠ THE SILENCE IS THE POINT, and it is the same rule as the fail-closed
+ * `null` above. A visible, honest nothing beats a confident guess: the human
+ * is the author here, and a classification presented as the model's when
+ * nobody made it is exactly the confident wrongness this surface must not
+ * produce. The unstated case still renders the kind line, so the absence is
+ * of the qualifier only.
+ *
+ * ⚠ THE ABSENCE OF THE MARKER IS A NARROW CLAIM — *the ingestion inference did
+ * not write this value* — and NOT a positive attestation that CEE stamped it.
+ * A value a human set through the inspector is legitimately shown; a value
+ * arriving by some path that neither stamps nor marks would also be shown,
+ * which is the pre-existing behaviour rather than a new one. Say what is
+ * measured, not what would be convenient.
+ */
+export function statedFactorCategoryLabel(category: unknown, inferredByUi: unknown): string | null {
+  if (inferredByUi === true) return null
+  return factorCategoryLabel(category)
+}

@@ -85,20 +85,18 @@ function isNonEmptyString(v: unknown): v is string {
  */
 const UNMAPPABLE_SENTINEL = '__OLUMI_AUDIT_UNMAPPED_SENTINEL__'
 
-/** Two labels that differ, used only to detect label dependence. */
+/** A node id the graph store can never resolve, used only to ask whether a
+ *  template interpolates a label it cannot identify. */
 const PROBE_NODE = '__OLUMI_AUDIT_LABEL_PROBE__'
-const PROBE_LABEL_A = 'PROBE_LABEL_ALPHA'
-const PROBE_LABEL_B = 'PROBE_LABEL_BETA'
 
 function titleFor(code: string): string {
   return humaniseCritique({ code, message: '' }).title
 }
 
-function titleUnderLabel(code: string, label: string): string {
-  return humaniseCritique(
-    { code, message: '', affectedNodes: [PROBE_NODE] },
-    new Map([[PROBE_NODE, label]]),
-  ).title
+/** The same code resolved for a node the surface CANNOT name — no map entry,
+ *  so `humaniseCritique` falls back to its id-derived label. */
+function titleUnderUnresolvableLabel(code: string): string {
+  return humaniseCritique({ code, message: '', affectedNodes: [PROBE_NODE] }).title
 }
 
 /**
@@ -113,7 +111,28 @@ function titleUnderLabel(code: string, label: string): string {
  * the same sentence both times; a label-interpolating one cannot.
  */
 function dependsOnAFactorLabel(code: string): boolean {
-  return titleUnderLabel(code, PROBE_LABEL_A) !== titleUnderLabel(code, PROBE_LABEL_B)
+  // ⚠⚠ THE QUESTION CHANGED BECAUSE A TEMPLATE CAN NOW ANSWER "ONLY WHEN I KNOW
+  // THE NAME". Asking "could this copy ever use a label?" (resolve twice under
+  // two RESOLVED labels) was the same question as "would this copy render a
+  // placeholder here?" only while every template interpolated unconditionally.
+  // `ROOT_NODE_DEFAULT_VALUE` and `GOAL_ANCESTOR_DATA_GAP` are now gated on
+  // `labelIsGenuine`, so they name a factor where one is known and fall back to
+  // the byte-identical label-free sentence where one is not — safe here, yet
+  // the old probe classified them as label-dependent and withheld their
+  // specific copy in favour of the generic one. That is a REGRESSION on this
+  // surface caused by an improvement on another.
+  //
+  // This asks the module's OWN stated rule instead: *"a sentence built around a
+  // factor the surface cannot identify is not an explanation."* So resolve the
+  // way this surface actually renders — with NO label available — and compare
+  // against a node whose label is equally unresolvable. A template that
+  // interpolates regardless will differ (it prints the id-derived pseudo-label);
+  // one that is label-free, or gated, returns the same sentence both times.
+  //
+  // ⭐ STILL DERIVED, NOT MIRRORED: it never names `humaniseCritique`'s private
+  // unresolved-label constant, which is why the original probe was written this
+  // way and why that property is kept.
+  return titleFor(code) !== titleUnderUnresolvableLabel(code)
 }
 
 /**

@@ -42,7 +42,7 @@
  * elements per screen. The outer panel is unchanged.
  */
 
-import { useMemo } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import { AlertTriangle, Wrench, Star, TrendingUp, GitBranch } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { focusModelTarget } from '../../../canvas/utils/focusHelpers'
@@ -55,7 +55,7 @@ import { ANALYSIS_NEW_COPY as COPY } from './analysisNewCopy'
 import { ANALYSIS_NEW_LIMITS } from './buildAnalysisNewViewModel'
 import type { AnalysisNewViewModel } from './analysisNewTypes'
 import { useAnalysisNewViewModel } from './useAnalysisNewViewModel'
-import { buildNodeInsights } from './nodeInsights'
+import { buildNodeInsights, mentionSectionsFrom } from './nodeInsights'
 import { buildModelStrip, stripRendersTargetAffordance } from './buildModelStrip'
 import { useCanvasStore } from '../../../canvas/store'
 import { SUCCESS_MEASURE_RECOMMENDATION_ID } from '../strengthen/buildRecommendations'
@@ -63,19 +63,42 @@ import { WhyNoAnalysisYet } from './sections/WhyNoAnalysisYet'
 import type { GateBlockedListing } from '../../../canvas/utils/canRunAnalysis'
 import { AnalysisNewSection } from './sections/AnalysisNewSection'
 import { DriverInfluenceChart } from './sections/DriverInfluenceChart'
-import { WhatIWasGivenSection } from '../contextIntegrity/WhatIWasGivenSection'
+import {
+  WhatIWasGivenSection,
+  useEstimatedValueActIsAvailable,
+} from '../contextIntegrity/WhatIWasGivenSection'
+import type { WhatIWasGivenSectionHandle } from '../contextIntegrity/WhatIWasGivenSection'
 import { ModelStrip } from './sections/ModelStrip'
 import { AtAGlance } from './sections/AtAGlance'
 import { ModelHeldUp } from './sections/ModelHeldUp'
+import { RobustnessCaveat } from './sections/RobustnessCaveat'
 import { DecisionRecorded } from './sections/DecisionRecorded'
 import { WhatWeChecked } from './sections/WhatWeChecked'
+import { BiasGrounding } from './sections/BiasGrounding'
 import { OptionsComparison } from './sections/OptionsComparison'
 import { ModelImplication } from './sections/ModelImplication'
 import { StrengthenTheReasoning } from './sections/StrengthenTheReasoning'
+import { buildBiasGrounding } from './biasGrounding'
 import { ZERO_REASON_BADGE_LABELS } from '../influenceScaleCopy'
 import { CritiqueWarningStrip } from '../CritiqueWarningStrip'
 import { InferenceWarningStrip } from '../InferenceWarningStrip'
 import { DeeperAnalysis } from './sections/DeeperAnalysis'
+
+/**
+ * ⭐ THIS TAB OPTS IN TO CORRECTING AN ESTIMATE WHERE IT IS STATED, and says so
+ * ONCE. Two surfaces read it: the `WhatIWasGivenSection` mount, which turns the
+ * per-row control on, and `useEstimatedValueActIsAvailable`, which tells the
+ * withheld-designation act whether there is anything here to reveal. A second
+ * literal would let those two disagree, and the disagreement would present as a
+ * control that routes nowhere.
+ *
+ * ⚠ IT IS NOT A FLAG AND MUST NOT BECOME ONE. `offerEstimatedValueControl`
+ * defaults to `false` so the PARKED Analysis tab (`ResultsBody`) does not
+ * acquire a writer; this constant is the Reasoning tab's answer to that
+ * default, pinned by `WhatIWasGivenSection.estimatedValueControl.spec.tsx`
+ * at the mount.
+ */
+const REASONING_TAB_EDITS_ESTIMATES = true
 
 export interface AnalysisNewTabBodyProps {
   /**
@@ -133,6 +156,71 @@ export interface AnalysisNewTabBodyProps {
    * control, which is the honest render — never a dead button.
    */
   onReanalyse?: () => void
+  /**
+   * ⭐⭐ THE DOCK'S ROUTE TO THE ESTIMATES — the FALLBACK half of the act that
+   * answers a withheld leader designation. `AtAGlance` renders the producer's
+   * refusal sentence, whose words name their own remedy ("until you have set at
+   * least one of them"); this prop is where a reader goes when they cannot set
+   * one where they already are.
+   *
+   * ⚠⚠ AMENDED 11 Sep 2026 — THIS SAID the sentence "names its remedy in words
+   * and can reach it from nowhere; this is the move that goes there", i.e. that
+   * this prop was the ONLY way to reach an estimate. True the day it was written
+   * and false the next morning: the value control on "what I estimated" shipped
+   * onto THIS tab, about two sections below that button, so the remedy is now
+   * reachable in page. `reviewEstimates` in the body composes the two and tries
+   * the in-page act FIRST — its derivation is there, beside the composition.
+   * Left standing, this rationale would have taught the next reader the exact
+   * mental model that produced the defect this change exists to close
+   * (CLAUDE.md trap 21).
+   *
+   * ⚠ THE DOCK OWNS IT, NOT THIS FILE, AND THAT IS THE POINT — UNMOVED BY THE
+   * AMENDMENT ABOVE. The destination is the outputs dock's own active tab plus
+   * the Model tab's pending section — both `useUIStore` state that `OutputsDock`
+   * already holds and already writes for its sibling handlers. `useUIStore` is
+   * imported NOWHERE under `components/results/analysisNew/`; threading the
+   * handler keeps it that way, so the tab that renders the sentence does not
+   * also become an authority on where the dock is pointing. Same shape as
+   * `onReanalyse` and `onSendMessage` directly above and below.
+   *
+   * ⚠ AMENDED 11 Sep 2026 — THIS SAID "Absent = `AtAGlance` renders the refusal
+   * sentence with no control", AND THAT IS NO LONGER WHAT ABSENCE MEANS. This
+   * prop's absence now decides nothing on its own: the body hands `AtAGlance`
+   * its own `reviewEstimatesHere` whenever this tab holds an act, so with this
+   * prop absent and `estimatedActIsAvailable` true the control RENDERS and the
+   * press is served in page. That is the case `refusalActStaysOnTheTab.spec.tsx`
+   * pins as `offers the act even where the host has no route at all`.
+   *
+   * The sentence renders alone only where there is NEITHER an in-page act NOR
+   * this prop. The in-page act is absent in three separately-pinned states: the
+   * canvas no longer holds the node the manifest names; the manifest was never
+   * written (it is a cold-read snapshot — `serverGraphHydration` reaches
+   * `setContextIntegrity` only on `status === 'graph'` — so a freshly-drafted
+   * decision lists no estimated factors at all); or there is no conversation to
+   * carry the edit. The neither-state is pinned beside them as `renders the
+   * sentence alone when there is neither an act here nor a route`. Note that
+   * `AtAGlance` also renders no control unless `designationWithheldRemedy ===
+   * 'estimate'` — that is its gate on the CAUSE, not this prop's. Still
+   * fail-closed, still never a dead button.
+   */
+  onReviewEstimates?: () => void
+  /**
+   * Routes a finding's subject to its editor on the Model tab.
+   *
+   * ⚠ THE DOCK OWNS THE DESTINATION, NOT THIS FILE — the same rule, and the
+   * same reason, as `onReviewEstimates` above: the destination is the outputs
+   * dock's own active tab plus the Model tab's pending section, both
+   * `useUIStore` state the dock already holds. `useUIStore` is imported NOWHERE
+   * under `components/results/analysisNew/`, and threading the handler is what
+   * keeps it that way.
+   *
+   * ⚠ AND IT IS A DIFFERENT DESTINATION FROM `onReviewEstimates`, not a
+   * generalisation of it. That one lands on the FACTORS section because the
+   * refusal it answers names no particular estimate; this one carries an edge
+   * id the finding already holds, so it lands on the exact row. Folding them
+   * would lose the targeting that is the whole value of this act.
+   */
+  onReviewTarget?: (targetId: string) => void
   /**
    * ⭐⭐ THE DOCK'S RUN GATE — `runGateResult.allowed`, which `OutputsDock`
    * binds as `canRunAnalysis` and passes unchanged to `AnalysisReadinessBar`'s
@@ -257,21 +345,64 @@ export function selectAlsoWorthDoing<T extends { id: string }>(
  * figure is a run output and a re-run can move it. So the two branches get two
  * sentences and neither can reach the run it would lie about.
  *
- * ⚠ THE STRUCTURAL BRANCH HAD NO VISIBLE ANSWER BEFORE. It was disclosed only by
- * the glance's basis caption, through a `title` tooltip — which a touch reader
- * cannot open — and that list has been removed. This is that disclosure, made
- * visible, in the section that still renders the bars.
+ * ⚠⚠ CORRECTED 7 Sep 2026 — THE PARAGRAPH ABOVE DESCRIBES A BRANCHING THIS
+ * FUNCTION NO LONGER PERFORMS, AND THE TWO THAT USED TO STAND HERE WERE FALSE.
+ * They read "THE STRUCTURAL BRANCH HAD NO VISIBLE ANSWER BEFORE … This is that
+ * disclosure, made visible, in the section that still renders the bars" and
+ * "THE REFERENCE-OPTION LINE KEEPS ITS PRECEDENCE OVER THE STRUCTURAL ONE".
+ * Since #1228 made `influenceIsSetRelative` equal `drivers.length > 0`, neither
+ * lower arm can reach a run that renders bars — see the unreachability note on
+ * the ternary below, and `theBasisLineHasNoReferentWithoutBars`.
  *
- * ⚠ THE REFERENCE-OPTION LINE KEEPS ITS PRECEDENCE OVER THE STRUCTURAL ONE. It
- * names the option sensitivities were measured against, which is a stronger and
- * more specific qualifier than the basis noun; where the producer disclosed one,
- * that is the sentence worth the line.
+ * ⭐⭐ NO BARS, NO BASIS LINE — AND THIS IS THE DEFECT THIS GATE CLOSES.
+ * MEASURED at staging `f4966c20` and reproduced through this component at
+ * `cdd2f9d8`: with `drivers: []` the section rendered
+ *   "Each bar shows Olumi's structural influence score, scaled against the
+ *    strongest factor in this run."
+ * directly above "This run did not return factor influence.", with ZERO bars —
+ * `AnalysisNewSection` early-returns only when `findings.length === 0 &&
+ * !emptyMessage`, and `driversEmptyMessage` is non-null post-run, so the
+ * section renders and the caveat renders with it. Two more shapes did the same
+ * thing on the OTHER two arms: with a disclosed `sensitivityReference` it said
+ * "Sensitivities are measured / against <option>." over the same empty state,
+ * and on an all-suppressed run it said "Influence is relative to the other
+ * factors in this run…" over "…every factor came back at zero." All three arms,
+ * over nothing.
+ *
+ * A caveat exists to explain how to read something. With nothing on display it
+ * has no referent, and the empty message already states what happened — so the
+ * basis line is withheld entirely rather than reworded. Rewording it would
+ * leave a sentence with no job, and it would have to be true both when bars
+ * exist and when they do not, which makes it vaguer in the case that matters.
+ *
+ * ⚠ GATED ON WHAT IS ON DISPLAY, NOT ON `influenceIsSetRelative`. That flag
+ * answers the SCALE question ("is this figure a share of the outcome?"); "is
+ * there anything here to qualify?" is a different question, and using the flag
+ * as a proxy for it is the substitution `panelCopyNamesOlumiNotTheProducer`
+ * already had to correct once (CLAUDE.md trap 21). ⚠ AMENDED AT THE #1262
+ * MERGE, 8 Sep 2026: ~~the disjunction is deliberate~~ — #1260 gated on
+ * `influenceRows.length > 0 || findings.length > 0`, and the merged gate is
+ * `influenceRows` alone. The two CANNOT DISAGREE on any view model the builder
+ * can produce, derived at the bytes rather than inherited:
+ * `live = drivers.filter((d) => d.zeroReason == null)`,
+ * `findings = live.map(...)`, and `influenceRows` is `live.slice().sort()
+ * .map(...)` with NO filter, so the three lengths are equal by construction.
+ * #1262's binding argument decides it: `influenceRows` is what the chart draws
+ * and what the word "bar" refers to, so the gate binds to the thing the
+ * sentence describes rather than to a sibling that moves with it (trap 19).
  *
  * ⚠⚠ THE EXCLUSION LINE IS ADDITIVE, NEVER A REPLACEMENT. It answers a different
  * question from the basis (CLAUDE.md trap 21) — "what scale are these on" versus
  * "what is missing from them" — and a run can owe the reader both. Suppressed
  * rows reached the DOM through `driversEmptyMessage` alone, which renders only
  * when there are NO findings, so a partial suppression said nothing at all.
+ *
+ * ⚠ AND THAT SENTENCE IS EXACTLY WHY THE GATE COSTS NOTHING. Partial
+ * suppression is the state the exclusion clause was written for, and it is the
+ * state where `findings.length > 0`, so the empty message does not render and
+ * `influenceRows` is non-empty — the gate does not fire and the clause is
+ * appended as before. Where the gate DOES fire, every row was suppressed, and
+ * `empty.noneRanked` names the count and the reasons in one sentence.
  */
 function driversCaveat(vm: AnalysisNewViewModel): string | null {
   /**
@@ -286,8 +417,10 @@ function driversCaveat(vm: AnalysisNewViewModel): string | null {
    *    strongest factor in this run."
    *   "This run did not return factor influence."
    *
-   * There are no bars, and `strongest` is 0. The set-relative arm fails the
-   * same way ("relative to the other factors in this run" — there are none).
+   * There are no bars, and `strongest` is 0 — `buildDrivers` computes it as
+   * `Math.max(...live.map(magnitude), 0)`, which is 0 on an empty `live`. The
+   * set-relative arm fails the same way ("relative to the other factors in this
+   * run" — there are none).
    *
    * ⚠ THE ROOT CAUSE IS ONE NAME ANSWERING TWO QUESTIONS (CLAUDE.md trap 21).
    * `influenceIsSetRelative` is `drivers.length > 0` — "did the producer send
@@ -298,9 +431,64 @@ function driversCaveat(vm: AnalysisNewViewModel): string | null {
    * ⚠ NOT `findings.length`: `influenceRows` is what the chart draws and what
    * the word "bar" refers to, so the gate binds to the thing the sentence
    * describes rather than to a sibling that happens to move with it.
+   *
+   * ⚠⚠ TWO INDEPENDENT FIXES FOR THIS DEFECT MET AT THIS MERGE (8 Sep 2026),
+   * AND THE OTHER ONE'S EXTRA BRANCH IS WITHDRAWN ON EVIDENCE, NOT ON TASTE.
+   * #1260 gated the BASIS ALONE and let the exclusion clause through on an
+   * all-suppressed run (`return basis === null ? excluded : ...`), for a reason
+   * that was true against ITS base: the empty message there was
+   * `empty.driversAllZero` — "every factor came back at zero" — which stated
+   * the OUTCOME and never named the reasons, so without that branch the reasons
+   * reached no surface at all.
+   *
+   * ⚠ THAT PREMISE IS DEAD, KILLED BY THE OTHER HALF OF #1262 IN THIS SAME
+   * MERGE. `driversAllZero` is gone; `driversEmptyMessage` now returns
+   * `empty.noneRanked(count, reasons)` — "No factor is ranked in this run. N
+   * factors were returned and set aside: <reasons>." — which names the count
+   * AND the reason labels, from the same `ZERO_REASON_BADGE_LABELS` map
+   * `coverage.notRanked` uses. Keeping both would print one fact twice, in two
+   * adjacent paragraphs, on the tab #1243 had just stopped printing a paragraph
+   * twice on. Derived at the bytes, not inherited: `AnalysisNewSection` renders
+   * `emptyMessage` only when `findings.length === 0`, and renders the caveat
+   * directly above it (`:148` and `:160`).
+   *
+   * ⚠ NOTHING IS LOST BY WITHDRAWING IT, AND THAT IS THE LOAD-BEARING CHECK.
+   * The exclusion clause exists for PARTIAL suppression — rows survive, some
+   * were set aside, and the empty message does NOT render because
+   * `findings.length > 0`. In that state `influenceRows` is non-empty, so this
+   * gate does not fire and the clause is appended exactly as before. The gate
+   * removes the clause only where `noneRanked` has already said it.
    */
   if (vm.drivers.influenceRows.length === 0) return null
 
+  /**
+   * ⚠⚠ THE TWO LOWER ARMS ARE UNREACHABLE FROM ANY RUN THE BUILDER CAN PRODUCE,
+   * AND THEY ARE KEPT DELIBERATELY. `buildDrivers` filters `live` OUT OF
+   * `drivers`, so a non-empty `influenceRows` implies a non-empty `drivers`
+   * implies `influenceIsSetRelative` — and the gate above means the ternary is
+   * only evaluated when `influenceRows` is non-empty. So the first arm always
+   * wins. That composition is pinned, on builder-produced view models rather
+   * than fabricated ones, by `theBasisLineHasNoReferentWithoutBars`.
+   *
+   * ⭐ WHY NOT DELETE THEM. `coverage.referencePrefix` names the option the
+   * producer says sensitivities were measured against — a real disclosure that
+   * #1228 starved as a side effect, not one this fix decided to drop. Deleting
+   * the arm would ratify that loss silently and erase the evidence of the open
+   * question (should the reference line be ADDITIVE alongside the scale line,
+   * the way `notRanked` is?). `coverage.structuralInfluence` is retained for a
+   * second, independent reason: it is the single spelling of the grounding noun
+   * that `driverFinding.groundedIn` — which IS rendered, per row — is bound to
+   * in `driversSeamSaysOneThing`. Deleting it would force that assertion to
+   * retype the sentence, which is the hand-maintained mirror the same file
+   * exists to forbid (CLAUDE.md trap 12).
+   *
+   * ⚠ #1262 REACHED THE SAME "KEEP THEM" CONCLUSION BY ITS OWN ROUTE and left
+   * the decision with the basis-branch owner: whether to delete them, or to
+   * re-gate the reference line on something other than `!influenceIsSetRelative`
+   * so it can be said ALONGSIDE a ranking. That question is still open, and
+   * `records that two basis arms are now unreachable` is the case that keeps it
+   * from being closed by accident.
+   */
   const basis = vm.drivers.influenceIsSetRelative
     ? COPY.coverage.setRelativeInfluence
     : vm.drivers.referenceOptionLabel
@@ -318,6 +506,10 @@ function driversCaveat(vm: AnalysisNewViewModel): string | null {
     vm.drivers.suppressedZeroCount,
     reasons.map((code) => ZERO_REASON_BADGE_LABELS[code]),
   )
+  /* ⚠ THE EXCLUSION CLAUSE IS APPENDED, NEVER ALONE. `basis` cannot be null
+     past the gate above, and the state where it once could — every row
+     suppressed — is now carried in one sentence by `empty.noneRanked`. See the
+     withdrawal note on the gate. */
   return `${basis} ${excluded}`
 }
 
@@ -356,6 +548,8 @@ export function AnalysisNewTabBody({
   responseHash,
   onFocusNode,
   onReanalyse,
+  onReviewEstimates,
+  onReviewTarget,
   canRunAnalysis = null,
   runBlockedReason = null,
   onSendMessage,
@@ -375,6 +569,31 @@ export function AnalysisNewTabBody({
    * the verdict.
    */
   const reanalyseBlocked = !canRunAnalysis && !isRunning
+  /**
+   * ⭐⭐ THE COMPOSED RUN AUTHORITY, RESOLVED ONCE AND READ TWICE — never two
+   * predicates that happen to agree (CLAUDE.md trap 21).
+   *
+   * `isBusy` is `composedAnalysisState.trust.isRunning` (`localRunning ||
+   * wireRunning`), the value `AnalysisRunStateCover` and `AnalysisRunAnnouncer`
+   * read; `isRunning` is the dock's LOCAL flag. This prop's own note records
+   * what happens when a reader takes the narrower one: on a wire-asserted run
+   * the user was told an analysis was running and this content was NOT marked
+   * (`cover=present`, `isRunning_prop=false`, `aria-busy=null`).
+   *
+   * `??`, NOT `||`: an explicit `isBusy={false}` is a host ANSWERING "not
+   * running", and must outrank a stale local true. The fallback is for a caller
+   * that has not been given the composed value at all — the prop's documented
+   * behaviour, unchanged.
+   *
+   * ⚠ `aria-busy` below and the pre-run sentence read THIS const, so the panel
+   * cannot end up marked busy while denying that a run has started.
+   *
+   * ⚠ IT IS DELIBERATELY NOT USED FOR `reanalyseBlocked` ABOVE. That predicate
+   * pairs the gate's verdict with the flag the GATE consumed, which is the
+   * local one; swapping it would test a different run than the one that
+   * produced the verdict. Two questions, two flags — see that comment.
+   */
+  const isBusyNow = isBusy ?? isRunning
   /**
    * The fail-closed notice channel for canvas focus. `Safe` because this
    * surface renders inside the dock in tests without a ToastProvider, and a
@@ -456,6 +675,63 @@ export function AnalysisNewTabBody({
   }
 
   /**
+   * ⭐⭐ THE REFUSAL'S ACT, SERVED IN PAGE WHERE THIS TAB HOLDS ONE — 11 Sep 2026.
+   *
+   * ⚠⚠ WHY THIS IS COMPOSED HERE AND NO LONGER PASSED THROUGH. `AtAGlance`
+   * renders CEE's withheld-designation refusal, whose sentence names its own
+   * remedy ("until you have set at least one of them"), and the act beside it
+   * routed to the MODEL TAB. On 10 Sep that was the only place an estimate
+   * could be set. The next morning the value control on "what I estimated"
+   * shipped — the SAME act, on THIS tab, about two sections below that button —
+   * and the product began sending a reader to another surface to do something
+   * available where they already were. Neither change was wrong and neither
+   * change's tests could see it: each is correct in isolation, and the
+   * rationale went stale underneath a control that still looked right
+   * (CLAUDE.md trap 21).
+   *
+   * ⚠ THIS FILE IS THE ONLY ONE THAT CAN SEE BOTH HALVES, which is why the
+   * composition belongs here and nowhere else. `AtAGlance` is presentational
+   * and must not learn where the dock points; `OutputsDock` owns the Model-tab
+   * route and cannot see this tab's own sections. The question this body
+   * answers is a third one — *"is there an act on THIS tab?"* — and it is the
+   * only surface that mounts both the refusal and the register.
+   *
+   * ⚠ THE MODEL-TAB ROUTE IS NOT REPLACED, IT IS THE FALLBACK, and it is
+   * genuinely reachable rather than defensive. The manifest that feeds "what I
+   * estimated" is written ONLY on the cold read
+   * (`serverGraphHydration` → `setContextIntegrity`, reached only on
+   * `status === 'graph'`); a freshly-drafted decision records its brief with
+   * `manifest: null`, so the register renders and lists NO estimated factors at
+   * all. The in-page act also goes when the canvas no longer holds the node the
+   * manifest names, and when there is no conversation to carry the edit. In
+   * every one of those states the Model tab remains the honest destination.
+   *
+   * ⚠ TWO ANSWERS, ON PURPOSE — do not fold them. `estimatedActIsAvailable` is
+   * read at RENDER and answers *"is there an act to offer at all?"*, which is
+   * what decides whether a control appears when the dock supplied no route.
+   * `revealEstimatedValueAct()` answers at the PRESS, and reports whether the
+   * panel actually revealed one — the section can unmount or gate itself out in
+   * between. Disagreement resolves toward the fallback, never toward a control
+   * that does nothing.
+   */
+  const whatIWasGivenRef = useRef<WhatIWasGivenSectionHandle>(null)
+  const estimatedActIsAvailable = useEstimatedValueActIsAvailable(REASONING_TAB_EDITS_ESTIMATES)
+  const reviewEstimatesHere = useCallback(() => {
+    if (whatIWasGivenRef.current?.revealEstimatedValueAct()) return
+    onReviewEstimates?.()
+  }, [onReviewEstimates])
+  /**
+   * ⚠ FAIL-CLOSED, UNCHANGED. `AtAGlance` renders the refusal sentence alone
+   * when this is `undefined`, and a refusal with a dead control beside it is
+   * worse than the refusal alone. It stays `undefined` when there is NEITHER an
+   * in-page act NOR a route — which is exactly the state
+   * `withheldReasonHasAMove.spec.tsx`'s "renders the sentence alone through the
+   * tab body when no handler is given" pins.
+   */
+  const reviewEstimates =
+    estimatedActIsAvailable || onReviewEstimates ? reviewEstimatesHere : undefined
+
+  /**
    * A contextual intervention runs through the SAME non-mutating route as the
    * Strengthen section's primary CTA — the Ask-Olumi drawer, prefilled and
    * never auto-sent. The recommendation is found by id, so the drawer is
@@ -475,8 +751,55 @@ export function AnalysisNewTabBody({
       buildNodeInsights({
         interventions: vm.strengthen.interventions,
         drivers: vm.atAGlance.drivers,
+        /*
+         * ⭐ THE REST OF THE PANEL. The strip's empty state claims *"nothing
+         * else on this panel refers to this node"* — a claim about the WHOLE
+         * panel — and it was answered from two sections only. Witnessed on
+         * deployed `d82e81f0`: "Platform Capability Fit is the hinge" was on
+         * screen while the card said nothing referred to it.
+         *
+         * ⚠⚠ AND THE FIRST FIX WAS SHORT IN THE SAME WAY, UNDER A COMMENT HERE
+         * CLAIMING IT COVERED "every other section". It listed `keyInsights`
+         * and `sensitivity`; the panel renders FOUR sections of
+         * `AnalysisNewFinding[]`, and `drivers`/`uncertainty` both carry real
+         * node `targetId`s. The drivers omission is reachable on an ordinary
+         * run: `GLANCE_DRIVER_COUNT` caps `vm.atAGlance.drivers` at three while
+         * the Drivers section renders every live driver, so on any run with four
+         * or more drivers the rank-4 node had a null `driverLabel`, no
+         * intervention, no mention — and was told nothing referred to it while
+         * the Drivers section named it on screen.
+         *
+         * ⭐ SO THE LIST IS NO LONGER WRITTEN HERE. `mentionSectionsFrom` takes
+         * an exhaustive `Record` keyed by `AnalysisNewFindingSectionKey`, which
+         * is DERIVED from the view model's type: omitting a section is a
+         * compile error, and a new finding-bearing section REDs this call until
+         * it is covered. A comment promising completeness is what shipped the
+         * gap twice; the compiler is what closes it.
+         *
+         * ⚠ KEY ORDER IS THE READER'S READING ORDER, top to bottom down the
+         * panel: "What would change your mind" mounts above "Key insights",
+         * which mounts above "Drivers and dynamics" and "Uncertainty and gaps".
+         * A pointer list in DOM order is walkable; an arbitrary one is not.
+         */
+        mentionSections: mentionSectionsFrom({
+          sensitivity: vm.sensitivity.findings,
+          keyInsights: vm.keyInsights.insights,
+          drivers: vm.drivers.findings,
+          uncertainty: vm.uncertainty.findings,
+          // "How the options compare" cannot appear in this Record at all —
+          // `rows: ComparisonOption[]` is a different shape with no
+          // `AnalysisNewFinding` join, so it is outside the derived union.
+          // See `BuildNodeInsightsInput.mentionSections`.
+        }),
       }),
-    [vm.strengthen.interventions, vm.atAGlance.drivers],
+    [
+      vm.strengthen.interventions,
+      vm.atAGlance.drivers,
+      vm.sensitivity.findings,
+      vm.keyInsights.insights,
+      vm.drivers.findings,
+      vm.uncertainty.findings,
+    ],
   )
 
   /**
@@ -525,6 +848,25 @@ export function AnalysisNewTabBody({
    */
   const currentScenarioId = useCanvasStore((state) => state.currentScenarioId)
   const decisionRecord = useDecisionRecordForScenario(currentScenarioId)
+  /**
+   * ⭐ THE PRODUCER'S BIAS FINDINGS, READ STRAIGHT OFF THE STORE — the ONLY new
+   * data this section needs, and a read like every other read on this tab.
+   *
+   * ⚠ NOT ROUTED THROUGH `useAnalysisNewViewModel`. That hook's load-bearing
+   * property is that it is READ-ONLY over the analysis instance `OutputsDock`
+   * hands both tabs; `ceeAnalysisReady` is not part of that instance, it is
+   * canvas-store state with its own lifecycle (`setCeeAnalysisReady`,
+   * `invalidateAnalysisReady`). Threading it through the view model would put
+   * a second, differently-invalidated source inside a structure whose whole
+   * point is that both tabs read one. Subscribed rather than read once, so a
+   * fresh run's findings appear without a tab switch.
+   *
+   * ⚠ THE SELECTOR TAKES THE ARRAY, NOT THE OBJECT. `ceeAnalysisReady` is
+   * replaced wholesale on every readiness write, so subscribing to the object
+   * re-renders this tab on changes to fields it does not read.
+   */
+  const biasFindings = useCanvasStore((state) => state.ceeAnalysisReady?.bias_findings)
+  const biasGroundingItems = useMemo(() => buildBiasGrounding(biasFindings), [biasFindings])
   /**
    * ⚠⚠ THE DOOR'S GATE IS THE CAPTURE MODAL'S OWN PREDICATE, DERIVED — NOT
    * RESTATED. `hasAnalysedOptions` is the function `DecisionRecordModal`
@@ -629,7 +971,7 @@ export function AnalysisNewTabBody({
          ⚠ `isBusy`, NOT `isRunning`: the marker answers the same question the
          cover and the announcer answer, and must read the same authority they
          read. See the prop's own note for the divergence this closes. */
-      aria-busy={(isBusy ?? isRunning) || undefined}
+      aria-busy={isBusyNow || undefined}
     >
       {/* The narrower measure (§11): wider gutters and a capped line length
           inside the unchanged 416px dock. */}
@@ -658,16 +1000,55 @@ export function AnalysisNewTabBody({
             offers a route forward. Witnessed on the deployed build at
             `a9fc1564`. This says what the panel is WITHOUT asserting a run, so
             the original defect stays closed. */}
+        {/* ⚠⚠ AND A FIRST RUN IN FLIGHT IS STATED, NOT DENIED — the third
+            instance of this panel's own contradiction shape, after the intro
+            and after staleness.
+
+            `isPreRun` means "no COMPLETED analysis is being displayed", so on a
+            model's FIRST run it is true AT THE SAME TIME as the run flags.
+            Measured at this render path on `staging` `3b2df4ce`: the panel said
+            "No analysis has run yet for this model." on an element it had
+            itself marked `aria-busy="true"`, beneath the shell's in-flight
+            treatment — which pre-run is `AnalysisRunSkeleton`, because
+            `OutputsDock` passes `contentRetained={!isPreRun}`. A skeleton
+            carries no words. So the only SENTENCE on screen during a first run
+            said nothing was happening.
+
+            ⭐ THE SENTENCE FOR IT WAS ALREADY WRITTEN AND HAD NO READER.
+            `COPY.status.running` is declared and documented and had ZERO
+            production references repo-wide, while `vm.status.isRunning` was
+            computed and read by nothing on this surface. This plugs it in
+            rather than authoring a second one.
+
+            ⚠ THE ORIENTATION LINE STAYS IN BOTH STATES. It asserts no run
+            ("When one has, this panel reads it back…"), so it is true while one
+            is in flight and it is the only thing telling a first-time reader
+            what is about to appear.
+
+            ⚠ AND THE REFUSAL IS SUPPRESSED WHILE BUSY — stated honestly as
+            HARDENING, not as a witnessed fix. `canRunAnalysis` returns EARLY on
+            `isRunning` and that early return publishes NO `blockedListing`
+            (`canRunAnalysis.ts:782-787`; the comment above it says the early
+            returns deliberately publish none), so the box is already absent
+            during a run in production. This makes that a property of THIS code
+            rather than of the gate's current behaviour — the move
+            `buildAnalysisNewViewModel`'s header argues for its own pre-run
+            gates: "Gating here makes it a property of the code." A refusal has
+            no subject while the thing it refuses is happening. */}
         {vm.status.isPreRun ? (
           <div className="space-y-1" data-testid="analysis-new-status-pre-run">
-            <p className={`${typography.panelBody} text-text-body`}>{COPY.status.preRun}</p>
+            <p className={`${typography.panelBody} text-text-body`}>
+              {isBusyNow ? COPY.status.running : COPY.status.preRun}
+            </p>
             <p className={`${typography.panelMeta} text-text-light`}>{COPY.status.preRunWhatThisIs}</p>
             {/* ⭐⭐ AND WHY IT HAS NOT — the half this state was missing. The two
                 sentences above orient a reader who has not run one yet; neither
                 says anything to the reader who TRIED and was refused, which on
                 a saved model is the common case. Every line below is the run
                 gate's own; see `WhyNoAnalysisYet`. */}
-            <WhyNoAnalysisYet listing={blockedListing} onFocusTarget={focusTarget} />
+            {isBusyNow ? null : (
+              <WhyNoAnalysisYet listing={blockedListing} onFocusTarget={focusTarget} />
+            )}
           </div>
         ) : null}
         {/* ⚠⚠ AND STALENESS IS SUPPRESSED PRE-RUN — THE SAME CONTRADICTION AS
@@ -747,6 +1128,19 @@ export function AnalysisNewTabBody({
         <AtAGlance
           glance={vm.atAGlance}
           onFocusTarget={focusTarget}
+          /* ⭐⭐ THE ACT THAT ANSWERS THE REFUSAL — IN PAGE FIRST, THE DOCK'S
+             ROUTE AS THE FALLBACK. ⚠ AMENDED 11 Sep 2026: this read
+             `onReviewEstimates={onReviewEstimates}`, a straight pass-through,
+             on the stated rationale that "the estimates live on the Model tab".
+             That was true when it was written and false the next morning — see
+             `reviewEstimates` above for the derivation and for why this body,
+             and only this body, can compose the two.
+
+             `AtAGlance` is still fail-closed and still not told where anything
+             lives: it receives one handler or `undefined`, exactly as before,
+             and `reviewEstimates` is `undefined` when there is neither an
+             in-page act nor a route. */
+          onReviewEstimates={reviewEstimates}
           isStale={vm.status.isStale && !vm.status.isPreRun}
           staleKind={vm.status.staleKind}
           isProvisional={vm.status.isProvisional}
@@ -791,6 +1185,9 @@ export function AnalysisNewTabBody({
                      Guarded by `theFocusCardReferencesRatherThanReprints`. */
                   title: glancePrimary.title,
                   signalCode: glancePrimary.signalCode,
+                  /* The producer's own bias on a bias-signal finding, so this
+                     card names the SAME technique as the row it promotes. */
+                  biasCode: glancePrimary.biasCode,
                   /* ⚠ The CATALOGUE path renders this and the phase-3 path does
                      not — see `AtAGlance`'s `signal` prop. Passed for both
                      because the card, not the caller, owns which kind it is. */
@@ -799,6 +1196,25 @@ export function AnalysisNewTabBody({
               : null
           }
           onRunIntervention={runIntervention}
+        />
+        {/* ⭐⭐ THE PRODUCER'S OWN SENTENCE ABOUT HOW FAR THE RANKING HELD —
+            reachable on this tab for the first time. `robustness_caveat` rides
+            `results.report.decision_brief`, which the browser already holds; it
+            had exactly one consumer estate-wide and that consumer mounts only on
+            the parked tab.
+
+            ⚠⚠ GATED ON THE LEADER AUTHORITY, REQUIRED AND NEVER DEFAULTED. It is
+            a LEADER-RANKING member: CEE strips it on a withheld turn, so its
+            presence must never be read as licence to speak about a ranking. The
+            value is quoted from the view model's single call, not re-derived.
+
+            ⚠ AND HANDED THE VERDICT SENTENCE ALREADY ON SCREEN, so it cannot say
+            the same thing twice — the defect `ModelHeldUp` records having shipped
+            when it quoted `display_verdict_reason` beside a glance that already
+            did. Different wire fields, but the reader sees only the words. */}
+        <RobustnessCaveat
+          leaderClaimPermitted={vm.leaderClaimPermitted}
+          verdictReason={vm.atAGlance.verdict?.reason ?? null}
         />
 
         {/* ── THE MODEL HELD UP ─────────────────────────────────────────────
@@ -902,6 +1318,7 @@ export function AnalysisNewTabBody({
           preview={ANALYSIS_NEW_LIMITS.UNCERTAINTY_PREVIEW}
           emptyMessage={null}
           onFocusTarget={focusTarget}
+          onReviewTarget={onReviewTarget}
           onRunIntervention={runIntervention}
           icon={GitBranch}
           testId="analysis-new-sensitivity"
@@ -952,7 +1369,28 @@ export function AnalysisNewTabBody({
             it under the strip would have pushed the answer below the fold, and
             the reading order this panel restored is WHAT HAPPENED → WHAT TO DO
             ABOUT IT → THE DETAIL. */}
-        <WhatIWasGivenSection onSendMessage={onSendMessage} />
+        {/* ⭐ THE GRAMMAR IS OPT-IN AND ONLY THIS TAB OPTS IN. `ResultsBody` on
+            the PARKED Analysis tab mounts the same component and keeps its
+            existing rendering — see the prop's declaration for why the default
+            may not move. */}
+        {/* ⭐ AND THIS TAB IS THE ONE THAT OPTS IN TO THE VALUE CONTROL on
+            "what I estimated". The register stated "The numbers behind these
+            are mine, not yours. If you have better ones, tell me and I'll use
+            them." over a list with no way to tell it — an invitation with no
+            means of accepting it. The control is the proven factor-value edit
+            (`useFactorValueCommit`), bound to each row by the `node_id` CEE
+            itself supplies. It is opt-in so the PARKED Analysis tab does not
+            acquire a writer — see the prop's declaration. */}
+        <WhatIWasGivenSection
+          ref={whatIWasGivenRef}
+          onSendMessage={onSendMessage}
+          useSurfaceGrammar={true}
+          /* ⚠ THE SAME CONSTANT THE AVAILABILITY READ ABOVE USES, not a second
+             `true`. Two literals for one opt-in would let the refusal's act
+             believe this register offers an edit on a build where it does not
+             (CLAUDE.md trap 12). */
+          offerEstimatedValueControl={REASONING_TAB_EDITS_ESTIMATES}
+        />
 
         {/* ⚠ THE PROMOTED RECOMMENDATION IS NOT EXCLUDED, AND THAT IS A KNOWN
             DUPLICATION rather than an oversight — recorded here because the
@@ -989,11 +1427,86 @@ export function AnalysisNewTabBody({
             has to decide what the glance card owns versus what this list owns,
             which is an IA decision for the design pack
             (`2-consolidation-map.html` slot "Focus now"), not a filter. */}
+        {/* ⭐⭐ PRE-RUN THIS SECTION OPENS, AND IT IS THE ONLY ONE THAT DOES.
+            Derived at this render path on `staging` `3b2df4ce`: pre-run the
+            panel's entire text ended "…Pick a mark to show that part of the
+            model on the canvas. Strengthen the reasoning1" — a collapsed row,
+            a bare count, and not one word of the finding behind it.
+
+            What is behind it is the thing the reader needs most in that state.
+
+            ⚠ NOT "EXACTLY ONE" — that is what this comment used to claim, and
+            it is refuted twice in this repo. The pre-run list is SHORT, not
+            single-item: `strengthen:broaden` is gated on
+            `inputs.biasFindingTypes` and NOT on `analysisComplete`
+            (`buildRecommendations.ts:629`), and the producer's own coaching
+            blocks are promoted onto the same list — both fed from the
+            draft-coaching and phase-3 channels, which carry before any run
+            (`biasTypesFromGuidance.ts`). `strengthenOpensPreRun.spec.tsx`
+            measures the pre-run count at 2 with one producer block seeded.
+
+            The count is not what carries the argument; UNIQUENESS is. The
+            success-measure recommendation is the one the engine grounds from
+            the MODEL rather than from a run (`buildRecommendations.ts`, and
+            `StrengthenTheReasoningProps.analysisHash` already documents the
+            state), it is present pre-run whenever the target is unset, and it
+            is the ONLY surface on this tab that says what the gap COSTS:
+            "Without a target the analysis cannot say how likely each option is
+            to succeed, only how they compare with one another."
+            `successTargetAskedOnce.spec.tsx` argues exactly that when it keeps
+            this row while removing the glance's. The strip's "Set a target"
+            control states the gap; only this says why it matters. It was built,
+            grounded, counted — and put behind a click nothing gave the reader a
+            reason to make. Everything else the pre-run list can carry is
+            additional reason to open it, never a substitute for that row.
+
+            ⚠ SCOPED THREE WAYS, because the collapsed IA is a MEASURED budget
+            (`SectionShell`'s header: 1,584px against a 769px viewport) and not
+            a default nobody thought about:
+              · pre-run only — a displayed run is unchanged;
+              · only when there is a finding — a forced-open empty state spends
+                a viewport on an absence the collapsed row already states;
+              · a DEFAULT, not a lock — the toggle owns the state afterwards.
+
+            ⚠⚠ AND IT IS A DEFAULT ONLY — THE SECTION IS NOT FORCED SHUT AGAIN
+            WHEN THE RUN LANDS. An earlier cut of this change re-keyed the
+            component on `isPreRun` so `SectionShell` would re-read the default
+            and collapse. That was measured and REVERTED, because it discarded
+            the reader's work: `SectionShell` unmounts a closed region, and this
+            section's "I disagree" composer holds UNSAVED text. Driven at this
+            render path — open the composer pre-run, type, complete a run — the
+            keyed version lost the draft while pristine kept it.
+
+            It was also INCONSISTENT. A section the reader opened BY HAND
+            already survives that transition, because nothing remounts; the key
+            would have made a section opened by DEFAULT behave differently from
+            the identical section opened by the identical toggle. One control,
+            two behaviours.
+
+            So the state belongs to the toggle after mount, which is
+            `SectionShell`'s own rule, and the post-run panel is exactly what it
+            is today for a reader who opened this section themselves. The
+            collapsed IA is unchanged for everyone who lands on a completed run,
+            which is the state its 1,584px measurement was taken in. */}
+        {/* ⭐⭐ THE CONSIDER-THE-OPPOSITE ACT IS FED THE RUN'S OWN REVERSAL
+            CONDITION, and it is the SAME object the glance renders as "Could
+            change if …" — not a second derivation of it. `glanceCondition`
+            already chose which producer flip row is the one; a mount that
+            picked its own would be the two-choosers defect `selectFlipRisk`'s
+            header exists to end, and the two surfaces could then disagree about
+            which factor the run said turns the ordering.
+
+            ⚠ `vm.atAGlance.condition` IS NULL PRE-RUN (the pre-run arm nulls
+            every glance field), so the act cannot appear before there is a run
+            to be about. That is the correct gate and it is inherited rather
+            than restated here. */}
         <StrengthenTheReasoning
           interventions={alsoWorthDoing}
           scienceGrounding={vm.strengthen.scienceGrounding}
           preview={ANALYSIS_NEW_LIMITS.STRENGTHEN_PREVIEW}
           analysisHash={responseHash ?? null}
+          defaultOpen={vm.status.isPreRun && alsoWorthDoing.length > 0}
+          argueTheOpposite={vm.atAGlance.condition}
           icon={Wrench}
         />
 
@@ -1015,6 +1528,32 @@ export function AnalysisNewTabBody({
             (`vm.checks` is `{ items: [] }`, which the component returns null
             for) — so a heading never appears without something under it. */}
         <WhatWeChecked checks={vm.checks} />
+
+        {/* ── WHERE THESE CHECKS COME FROM ─────────────────────────────────
+            ⭐⭐ THE MOST SCIENCE-GROUNDED PAYLOAD THE PRODUCER SENDS, AND IT HAD
+            NO RENDERER ANYWHERE. `analysis_ready.bias_findings[]` carries a
+            `mechanism`, a `citation` and a costed `micro_intervention`; derived
+            at `08a3724d` with contrast controls, `mechanism` had zero product
+            renderers, `citation` had zero readers of any kind, and
+            `estimated_minutes` had none either. The transport drops nothing:
+            `client.ts:302` assigns `analysis_ready` wholesale with no zod and
+            no key allowlist, `bias_findings` is absent from the pinned contract
+            entirely, and `store.ts:6095` stores the object as it arrived.
+
+            ⚠ IT SITS DIRECTLY UNDER "WHAT WE CHECKED" BECAUSE IT ANSWERS THE
+            NEXT QUESTION. That section says what the run looked at; this says
+            what the looking rests on, and the pairing is the reason a reader
+            can check the science instead of trusting it.
+
+            ⛔ IT NEVER NAMES A BIAS. The producer's `code` is read for nothing:
+            the mechanism, the technique and the paper are the product, and a
+            classification handed back to the reader is a diagnosis of them
+            (#1438's register, which this matches).
+
+            Renders NOTHING when the producer sent no grounding — pre-run,
+            on a run with no findings, and on findings that carried none of the
+            three fields. Absence produces silence, never a placeholder. */}
+        <BiasGrounding items={biasGroundingItems} />
 
         {/* ── HOW THE OPTIONS COMPARE ──────────────────────────────────────
             ⭐ THE GLANCE'S OWN MISSING HALF. On a real completed run with four
@@ -1054,7 +1593,72 @@ export function AnalysisNewTabBody({
           targetAskedElsewhere={stripOffersTarget}
         />
 
-        <OptionsComparison options={vm.optionsComparison} />
+        <OptionsComparison
+          options={vm.optionsComparison}
+          /* The SAME writer this body already hands `WhatIWasGivenSection` for
+             its own ask (:1253). One composer, one validation, one policy — a
+             second route to the chat would be a second thing to keep honest. */
+          onSendMessage={onSendMessage}
+          /* ⭐⭐ THE ONE STATE WHERE THE READER IS LEFT WITH NOTHING, AND IT IS
+             THE STATE THIS SECTION EXISTS FOR.
+
+             Measured, jsdom, on `decisionWithLeaderWithheld()` against its
+             permitted twin `genuineDecision()` — the two fixtures differ in one
+             boolean:
+
+               win readouts       collapsed   opened
+               withheld run       []          ['31%', '69%']
+               permitted run      []          ['31%', '69%']
+
+             The per-option figures ALREADY render on a withheld run, in
+             canonical order, with no ordinal and no leader marker — exactly
+             what ROADMAP 1.267 commissions. They were invisible only because
+             the row was closed.
+
+             On a PERMITTED run that costs the reader nothing: the glance above
+             has already named the leading option and its share, so the panel
+             has answered before this row is reached. On a WITHHELD run the
+             glance renders NO reading at all, and then a closed row means a
+             collaborator sees no numbers anywhere — from an analysis that
+             computed them and is licensed to show them.
+
+             That is `SectionShell`'s own licensing rule, met: something above
+             depends on the content being visible, because the thing above is
+             empty.
+
+             ⚠ `headline` IS THE GLANCE'S OWN WITHHOLD AUTHORITY, CONSUMED, NOT
+             RE-DERIVED. `AtAGlance.tsx:568-572` derives it: `winShare`,
+             `winFraction` and `leaderLabel` are each non-null only where
+             `headline` is. So "the glance is showing no reading" has exactly
+             one spelling and this is it.
+
+             ⛔ AND IT IS NOT `comparativeClaim`. That is a DIFFERENT question —
+             may a comparative MAGNITUDE be drawn — with its own three-plus-one
+             valued authority, and the bars are gated on it inside the section.
+             Two shares, named apart (CLAUDE.md trap 21): the glance's
+             LEADER-share, which is what `headline` governs, and this section's
+             PER-OPTION shares, which it does not. Keying the disclosure on the
+             magnitude licence would quietly make one of them stand for the
+             other, and the next change would read them as one concept.
+
+             ⚠ THE SECOND CONJUNCT IS NOT DECORATION. Opening a row with no
+             figures behind it supplies nothing the glance withheld, and spends
+             the collapsed IA — 1,584px against a 769px viewport — for it. The
+             licence is "the content below answers what is missing above", so
+             the content has to exist.
+
+             ⚠ A DEFAULT, NOT A LOCK: `SectionShell` seeds `useState`, so the
+             state belongs to the toggle from the first render on, and a reader
+             who closes it keeps it closed. The collapsed IA is UNCHANGED on
+             every run that names a leader, which is the state its measurement
+             was taken in. */
+          defaultOpen={
+            vm.atAGlance.headline === null &&
+            vm.optionsComparison.rows.some(
+              (r) => r.kind === 'analysed' && r.winReadout !== null,
+            )
+          }
+        />
 
         {/* ── KEY INSIGHTS ────────────────────────────────────────────────── */}
         <AnalysisNewSection
@@ -1153,6 +1757,7 @@ export function AnalysisNewTabBody({
                 : COPY.empty.uncertaintyUnassessed
           }
           onFocusTarget={focusTarget}
+          onReviewTarget={onReviewTarget}
           onRunIntervention={runIntervention}
           icon={AlertTriangle}
           testId="analysis-new-uncertainty"
@@ -1209,7 +1814,7 @@ export function AnalysisNewTabBody({
         ) : null}
 
         {/* ── LEVEL 3 ─────────────────────────────────────────────────────── */}
-        <DeeperAnalysis deeper={vm.deeper} />
+        <DeeperAnalysis deeper={vm.deeper} offerFactorValueControl={true} />
       </div>
     </div>
   )

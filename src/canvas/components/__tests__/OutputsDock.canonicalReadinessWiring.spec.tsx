@@ -49,6 +49,7 @@ import { useReadinessStore } from '../../stores/readinessStore'
 import { clearInflightCache } from '../../hooks/useGraphReadiness'
 import { BLOCKED_REASON_COPY } from '../../utils/composeBlockedReason'
 import { FOOTER_COPY } from '../pre-analysis-v3/constants'
+import { seedDockOnAnalysisTab } from './helpers/dockTabFixture'
 
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
@@ -213,6 +214,12 @@ beforeAll(async () => {
 beforeEach(() => {
   ensureMatchMedia()
   try { sessionStorage.clear() } catch { /* jsdom quirk */ }
+  // ⚠ THE TAB THIS SPEC HAS ALWAYS MEASURED, NOW STATED (default-tab ruling,
+  // 9 Sep 2026). Every Analysis-surface testid queried below used to be
+  // reached for free because the dock OPENED on Analysis; it now opens on
+  // Reasoning. Fixture only — no assertion here is relaxed. Must follow the
+  // clear above. See the helper's header.
+  seedDockOnAnalysisTab()
   seedObjectingSideCar()
 })
 

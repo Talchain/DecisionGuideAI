@@ -86,6 +86,29 @@ function dataWith(
   })
 }
 
+/**
+ * ⚠ THE RUN LICENSES A COMPARATIVE MAGNITUDE — spread into the fixtures whose
+ * assertions are ABOUT THE BAR.
+ *
+ * The figure is gated on `comparativeClaim === 'value'`
+ * (`OptionsComparison.tsx`'s `mayDrawMagnitude`), and `makeData`'s defaults
+ * carry neither a leader entitlement nor a robustness verdict — so they resolve
+ * to `'none'`, where nothing comparative may be drawn. Tests here whose subject
+ * is the ROW'S OWN SHAPE ("an unanalysed option gets no bar", with an analysed
+ * sibling as the positive control) need a run that is otherwise able to draw, or
+ * their control passes because the whole figure is suppressed rather than
+ * because the section is discriminating between kinds.
+ *
+ * ⚠ APPLIED NARROWLY, AND NOT TO THIS FILE'S OTHER TESTS. Licensing every
+ * fixture would silently change what the rest of this corpus is measuring. The
+ * gate's own three states are covered in `optionsComparisonFigure.spec.tsx`.
+ */
+const MAGNITUDE_LICENSED: Partial<ResultsSectionDataReturn['recommendation']> = {
+  leaderDesignationPermitted: true,
+  robustnessVerdict: 'robust',
+  robustnessVerdictReason: 'The ordering held across the simulated range.',
+}
+
 /** Mount the section for a run. Sections open on click — that is the idiom. */
 function renderSection(data: ResultsSectionDataReturn, { isPreRun = false } = {}) {
   const vm = buildAnalysisNewViewModel({
@@ -181,15 +204,18 @@ describe('ABSENCE IS NOT ZERO', () => {
    */
   it('an unanalysed option renders NO number and NO bar', () => {
     renderSection(
-      dataWith([
-        makeOption({ id: 'opt_segment', label: 'Segment', winProbability: 0.89, nValidSamples: 10000 }),
-        makeOption({
-          id: 'opt_hybrid',
-          label: 'Hybrid: in-house core with 3PL overflow',
-          notAnalysed: true,
-          notAnalysedReason: 'no_interventions',
-        }),
-      ]),
+      dataWith(
+        [
+          makeOption({ id: 'opt_segment', label: 'Segment', winProbability: 0.89, nValidSamples: 10000, isRecommended: true }),
+          makeOption({
+            id: 'opt_hybrid',
+            label: 'Hybrid: in-house core with 3PL overflow',
+            notAnalysed: true,
+            notAnalysedReason: 'no_interventions',
+          }),
+        ],
+        MAGNITUDE_LICENSED,
+      ),
     )
     open()
 
@@ -236,11 +262,14 @@ describe('ABSENCE IS NOT ZERO', () => {
 
   it('an ANALYSED option whose producer sent no win probability shows no number and no bar', () => {
     renderSection(
-      dataWith([
-        makeOption({ id: 'opt_a', label: 'Alpha', winProbability: 0.6, nValidSamples: 10000 }),
-        // In the analysis, but the producer returned no comparative figure.
-        makeOption({ id: 'opt_b', label: 'Bravo' }),
-      ]),
+      dataWith(
+        [
+          makeOption({ id: 'opt_a', label: 'Alpha', winProbability: 0.6, nValidSamples: 10000, isRecommended: true }),
+          // In the analysis, but the producer returned no comparative figure.
+          makeOption({ id: 'opt_b', label: 'Bravo' }),
+        ],
+        MAGNITUDE_LICENSED,
+      ),
     )
     open()
 
@@ -417,6 +446,15 @@ describe('the section adds up, and disappears when it has nothing', () => {
    * live proof stays in the PR body where it belongs. Do not upgrade these into
    * a claim about pixels (trap 3).
    */
+  /**
+   * ⚠ EVERY RUN IN THIS BLOCK IS `MAGNITUDE_LICENSED`, and it has to be. These
+   * tests are about the FILL's geometry, and the fill now renders only where the
+   * run licenses a comparative magnitude (`OptionsComparison.tsx`'s
+   * `mayDrawMagnitude`). Without the licence `fillStyle` finds no element and
+   * throws — which is how this block surfaced the requirement rather than
+   * passing vacuously, and is why the licence is declared per fixture instead of
+   * being defaulted into `dataWith` where it would have gone unnoticed.
+   */
   describe('the bar cannot contradict the number beside it', () => {
     /** The style the component put on the fill, for a row bound by identity. */
     function fillStyle(optionId: string): CSSStyleDeclaration {
@@ -430,7 +468,7 @@ describe('the section adds up, and disappears when it has nothing', () => {
       // shipped code collapsed. The readout for this row is floored, so the
       // bar must be too.
       renderSection(
-        dataWith(fourOptionRun([{}, {}, {}, { winProbability: 0.0004, nValidSamples: 10000 }])),
+        dataWith(fourOptionRun([{}, {}, {}, { winProbability: 0.0004, nValidSamples: 10000 }]), MAGNITUDE_LICENSED),
       )
       open()
 
@@ -453,7 +491,7 @@ describe('the section adds up, and disappears when it has nothing', () => {
      */
     it('leaves a genuine measured zero with no fill at all', () => {
       renderSection(
-        dataWith(fourOptionRun([{}, {}, {}, { winProbability: 0, nValidSamples: 10000 }])),
+        dataWith(fourOptionRun([{}, {}, {}, { winProbability: 0, nValidSamples: 10000 }]), MAGNITUDE_LICENSED),
       )
       open()
 
@@ -464,7 +502,7 @@ describe('the section adds up, and disappears when it has nothing', () => {
 
     it('does not round a small share up to a neighbour\'s width', () => {
       renderSection(
-        dataWith(fourOptionRun([{}, {}, {}, { winProbability: 0.004, nValidSamples: 10000 }])),
+        dataWith(fourOptionRun([{}, {}, {}, { winProbability: 0.004, nValidSamples: 10000 }]), MAGNITUDE_LICENSED),
       )
       open()
       // 0.4%, not rounded to 0% and not inflated to 1%.

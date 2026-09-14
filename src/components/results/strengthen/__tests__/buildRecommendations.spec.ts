@@ -399,17 +399,20 @@ describe('buildRecommendations — trigger grounding (§8.6)', () => {
     const input: StrengthenInputs = {
       ...base,
       // Emits the UI-generated robustness rec, whose visible identity is
-      // ('Pressure-test the option that scored highest', sharedSignal).
+      // ('Pressure-test Adopt Segment', sharedSignal). ⚠ The title is now BOUND
+      // TO THE DESIGNATED OPTION'S NAME rather than to a rank description, so
+      // the fixture must supply the identity for the dedupe key to exist at all.
+      leadingOptionLabel: 'Adopt Segment',
       robustness: { status: 'computed', level: 'low' },
       phase3Items: [
         // Identical visible identity from the producer side (case/space variant).
-        { id: 'b1', title: 'Pressure-test the option that scored highest', body: ' this result does not hold up strongly under  stress-testing. ', targetIds: [], priorityRank: 1 },
+        { id: 'b1', title: 'Pressure-test Adopt Segment', body: ' this result does not hold up strongly under  stress-testing. ', targetIds: [], priorityRank: 1 },
         // Same headline, DISTINCT body — the widened key must keep it.
-        { id: 'b2', title: 'Pressure-test the option that scored highest', body: 'A different, distinct producer finding under the same headline.', targetIds: [], priorityRank: 2 },
+        { id: 'b2', title: 'Pressure-test Adopt Segment', body: 'A different, distinct producer finding under the same headline.', targetIds: [], priorityRank: 2 },
       ],
     }
     const recs = buildRecommendations(input)
-    const sameTitle = recs.filter((r) => r.title === 'Pressure-test the option that scored highest')
+    const sameTitle = recs.filter((r) => r.title === 'Pressure-test Adopt Segment')
     // Widened key: the distinct-body row survives alongside — 2 rows, not 1.
     expect(sameTitle).toHaveLength(2)
     // The identical-identity pair collapsed to the higher-priority instance

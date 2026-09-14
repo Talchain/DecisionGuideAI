@@ -71,14 +71,90 @@ import path from 'node:path'
 const ROOT = path.resolve(__dirname, '../../..')
 
 /**
- * The swept surface. `src/canvas` is the board Paul tested; the two registers
- * are included because `METRIC_NOUN`/`COMPARATIVE_COPY` are where the card
+ * The swept surface. `src/canvas` is the board Paul tested; the registers are
+ * included because `METRIC_NOUN`/`COMPARATIVE_COPY` are where the card
  * captions physically live.
+ *
+ * ⚠⚠ `winnerChipCopy.ts` ADDED 8 Sep 2026, AND ITS ABSENCE IS WHY THIS GUARD
+ * WENT GREEN OVER TWO LIVE OFFENCES FOR A DAY.
+ *
+ * #1281 extended into that file and said so in its own commit message —
+ * "the chip register moved with the canvas. Its two long-form prompts moved
+ * with it" — but never added it here. So the extension was made by hand and
+ * left unguarded, and the hand missed two of the six strings:
+ *
+ *     'What makes this lead?'                        (the DEFINITIVE arm)
+ *     `What would make "${label}" lead instead? …`   (the PROMPT)
+ *
+ * Both were live at `8a4f5156` with this file reporting 45/45 green.
+ *
+ * ⭐ THE POINT IS NOT THE TWO STRINGS, IT IS THE SHAPE. A file edited under a
+ * ruling but left outside the ruling's guard is a hand-maintained mirror
+ * (CLAUDE.md trap 12) — and this one drifted inside twenty-four hours, which
+ * is faster than any of the estate's other mirrors have managed. The chip
+ * register is in scope for the same reason the two caption registers are:
+ * a phrase banned on the option card but permitted in the register the card's
+ * sibling chip is read from is no ban at all. #1281's own justification for
+ * touching it was that leaving the two divergent "would have put two different
+ * vocabularies on one journey"; that argument is what puts it in scope here.
  */
-const SCOPE_DIRS = ['src/canvas']
+const SCOPE_DIRS = [
+  'src/canvas',
+  // ⭐ ADDED after #1310. `src/v5/blocks` renders the conversation's cards and
+  // was OUTSIDE this sweep, so a contest phrase could live there indefinitely
+  // with the canvas guard green. Measured before adding: 22 ban-list hits in
+  // the directory, ALL of them either comment prose (already skipped) or
+  // `go-ahead`, which is a pinned survivor. Adding it introduced ZERO new
+  // offences — the widening is a floor being raised, not a defect being fixed.
+  'src/v5/blocks',
+]
 const SCOPE_FILES = [
+  // ⭐ ADDED 9 Sep 2026, and the reason is the INVERSE of #1310's. There the
+  // vocabulary was short; here it was RIGHT and the SCOPE was short: `came out
+  // ahead` is entry 6 below, and three live strings sat in these two files
+  // because nothing opened them. Named individually rather than adding
+  // `src/components/results` to SCOPE_DIRS — a directory widening would sweep
+  // files other lanes are actively holding, and this guard's job is not to
+  // arbitrate their copy mid-flight.
+  'src/components/results/modals/HowComputedModal.tsx',
+  'src/components/results/WinGauge.tsx',
   'src/components/results/utils/goalAnchorCopy.ts',
   'src/canvas/nodes/shared/metricVocabulary.ts',
+  'src/components/results/utils/winnerChipCopy.ts',
+  /*
+   * ⚠⚠ WHAT THIS LIST DOES **NOT** COVER — stated because "both holes closed"
+   * will otherwise read as closing the CLASS, and it closes the INSTANCES.
+   *
+   * DERIVED 9 Sep 2026, not estimated: `src/components/results` holds **187**
+   * non-test `.ts`/`.tsx` files (`git ls-files` under that path, minus
+   * `__tests__`/`.spec.`/`.test.`). FOUR of them are named above. So roughly
+   * **183 remain unswept**, and this guard is silent about every one.
+   *
+   * ⚠ THE REASON IS SCHEDULING, NOT SAFETY. A `SCOPE_DIRS` widening would sweep
+   * files other lanes are actively holding and make this guard arbitrate their
+   * copy mid-flight. That is a fair trade today and it is NOT evidence the
+   * residual is clean — a two-file sample found no user-facing offence, which is
+   * weak evidence of safety and not proof of it.
+   *
+   * ⭐ WIDENING TRIGGER — when the lanes holding `src/components/results` land,
+   * move it from this list into `SCOPE_DIRS` and delete these four entries.
+   * Do it the way `src/v5/blocks` was done above: **enumerate the hits BEFORE
+   * adding** (that widening measured 22, all comment prose or the pinned
+   * `go-ahead` survivor, and introduced zero new offences). A widening whose
+   * hit count was not measured first is a widening that will be reverted.
+   *
+   * ⚠ AND THE TRAP THAT WIDENING WILL SPRING, so it is not re-learned: a RAW
+   * grep over an unswept file OVER-reports this class badly. `OptionCards.tsx`
+   * reads `winner` x57 and `Win probability` x6 — every one inside a comment
+   * this guard strips, or an identifier `IDENTIFIER_SHAPES` excludes. Check
+   * whether a hit is a LITERAL before believing it.
+   *
+   * ⚠ AND WHAT THIS GUARD CANNOT DO AT ALL: it BANS phrases; it does not
+   * ENFORCE the ratified positive form. `noWinnerVocabulary.spec.ts` rules
+   * "say 'scored highest in N% of runs' — never a placing", and a BARE placing
+   * ("Scored highest" alone) passes every entry below completely clean. Green
+   * here is not evidence of compliance with that ruling.
+   */
 ]
 
 /**
@@ -90,6 +166,20 @@ const CONTEST_FRAMES: ReadonlyArray<{ readonly name: string; readonly re: RegExp
   { name: 'winner', re: /\bwinners?\b/i },
   { name: 'loser', re: /\blosers?\b/i },
   { name: 'wins', re: /\bwins\b/i },
+  /*
+   * ⭐ THE NOUN PHRASE, ADDED 9 Sep 2026 — `wins` above could not see it.
+   * `NodeInspector.tsx:639` rendered `Win probability` inside a SWEPT directory
+   * with this gate green, because `/\bwins\b/i` does not match the singular
+   * `Win` and no entry named the metric.
+   *
+   * ⚠ ENUMERATED BEFORE IT WAS ADDED, not reasoned about. Across this guard's
+   * entire scope it produces EXACTLY ONE hit — the label it was written for.
+   * The SPACED form is deliberate and load-bearing: `win_probability` is a
+   * FOUR-SERVICE CONTRACT (UI · CEE · PLoT · ISL) and must not be forced. It is
+   * unreachable from here twice over — the space cannot match the underscore,
+   * and snake_case is excluded by IDENTIFIER_SHAPES regardless.
+   */
+  { name: 'win probability', re: /\bwin probabilit(?:y|ies)\b/i },
   { name: 'beats', re: /\bbeats?\b|\bbeaten\b/i },
   { name: 'came out ahead', re: /\bcame out ahead\b/i },
   // `go-ahead` is ordinary English for consent and is a live survivor.
@@ -123,9 +213,45 @@ const CONTEST_FRAMES: ReadonlyArray<{ readonly name: string; readonly re: RegExp
   // at all: `lead` is a live copy KEY on every pre-analysis signal row
   // ("lead"/"emphasis") and "lead-in" is ordinary English. A fourth
   // competitive construction would pass, and that is a known, stated gap.
+  //
+  // ⭐⭐ THE FOURTH AND FIFTH ARRIVED, 8 Sep 2026 — EXACTLY AS THE PARAGRAPH
+  // ABOVE PREDICTED, AND WITHIN A DAY OF IT BEING WRITTEN.
+  //
+  //     'What makes this lead?'                       → `makeS`, not `make`
+  //     `What would make "${label}" lead instead? …`  → object is a LABEL,
+  //                                                     not `this`/`it`
+  //
+  // Both were live in `winnerChipCopy.ts`. Measured at `8a4f5156`: this entry
+  // caught NEITHER, while its own positive control ("What would make this
+  // lead?") was caught — so the miss was the enumeration's, not the sweep's.
+  //
+  // ⚠ THE TWO MISSES ARE DIFFERENT SHAPES, WHICH IS THE USEFUL PART. The first
+  // is an INFLECTION the enumeration simply did not spell (`makes?` now does).
+  // The second is a construction whose OBJECT is an interpolated option label,
+  // so no `(?:this|it)` alternation could ever have reached it — the enumerated
+  // shapes were all written against the canvas, where the chips address the
+  // card they sit on and therefore always say "this". A register consumed by a
+  // LIST addresses options by name. Enumerating from one surface's grammar and
+  // sweeping a second surface is how the gap opened.
+  //
+  // ⛔ `\blead instead\b` IS DELIBERATELY NARROW — not `\blead\b` near a label.
+  // "instead" is what makes the construction comparative; without it, "lead"
+  // beside a quoted name is as likely to be causal ("what would make X lead to
+  // a better outcome"). The survivor controls below pin that distinction, and
+  // trap 22f applies unchanged: this is still an enumeration, a sixth
+  // construction would still pass, and the honest move remains to say so.
+  //
+  // ⚠⚠ THE CAUSAL LOOKAHEAD IS CARRIED ONTO THE NEW LIMB, AND IT IS NOT
+  // DECORATION — the first draft of this widening omitted it and was measured
+  // firing on "What makes this lead to a better outcome?", which is the exact
+  // causal sense the outcome-node door uses. That is the SAME over-widening
+  // #1281 recorded making and reverting one limb earlier ("the first fix was
+  // too wide"), reproduced by the next hand to touch the entry. Running the
+  // obvious next tweak and checking what it breaks costs one probe (trap 22f);
+  // the survivor row below is that probe, made permanent.
   {
     name: 'lead (verb)',
-    re: /\bto lead\b(?!\s+(?:to|into|toward))|\bleads? over\b|\bmake (?:this|it) lead\b/i,
+    re: /\bto lead\b(?!\s+(?:to|into|toward))|\bleads? over\b|\bmakes? (?:this|it) lead\b(?!\s+(?:to|into|toward))|\blead instead\b/i,
   },
   { name: 'runner-up', re: /\brunner[- ]?up\b/i },
   { name: 'front-runner', re: /\bfront[- ]?runner\b/i },
@@ -321,6 +447,12 @@ describe('the canvas never frames a decision as a contest', () => {
     ['No clear leading option', 'leading option'],
     ['Segment leads in 48% of scenarios', 'leads'],
     ['What would make this lead?', 'lead (verb)'],
+    // ⭐ THE TWO CONSTRUCTIONS THIS GUARD MISSED WHILE THEY WERE LIVE. Kept as
+    // separate rows from the `make this lead` case above, because they failed
+    // for two DIFFERENT reasons (inflection; interpolated object) and a single
+    // row would let one regression hide behind the other.
+    ['What makes this lead?', 'lead (verb)'],
+    ['What would make "Option B" lead instead? What changes would be needed?', 'lead (verb)'],
     ['Close race vs the runner-up', 'runner-up'],
     ['the front-runner on this run', 'front-runner'],
   ])('detects contest framing in %j', (sentence, expectedFrame) => {
@@ -343,9 +475,29 @@ describe('the canvas never frames a decision as a contest', () => {
     // ⛔ The outcome-node door. CAUSAL, and the first draft of the
     // `lead (verb)` entry broke it — pinned so a re-widening REDs here.
     'Where else could this lead?',
+    // ⛔ THE SAME DOOR, IN THE INFLECTION THE 8 Sep WIDENING ADDED. "Where else
+    // could this lead?" does NOT exercise the new `makes? (?:this|it) lead`
+    // limb — no "makes" — so it could not have caught that limb's causal
+    // over-fire. A survivor control only covers the limb it actually reaches
+    // (CLAUDE.md trap 13: a control proves the instrument sees what it is
+    // POINTED AT), which is why this row exists rather than relying on its
+    // neighbour.
+    'What makes this lead to a better outcome?',
     'The numbers behind these are mine, not yours.',
     'This reshapes your model, so it needs your go-ahead before it is applied.',
     'text-gray-400 hover:text-gray-600 text-2xl leading-none',
+    // ⛔ Bare `highest` survives, and this is now load-bearing rather than
+    // incidental. A `scored highest` ban was proposed here and WITHDRAWN on
+    // root's ruling: the metric's own semantics are "the relative frequency of
+    // scoring highest among the simulated runs", so the phrase can describe a
+    // truthful PER-RUN event as easily as it can assert a placing, and a
+    // line-based regex cannot tell those apart (CLAUDE.md trap 22f — when a
+    // predicate over natural language cannot separate two meanings, do not
+    // guess). Absence of a phrase from today's source is not authority to
+    // suppress a legitimate future statistic. These pins keep ordinary English
+    // safe if the question is reopened.
+    'the highest-severity item sets the tone',
+    'Get next fixable issue (highest impact first)',
   ])('leaves ordinary English alone: %j', (sentence) => {
     expect(matchContest(sentence.replace(TAILWIND_LEADING, ' '))).toEqual([])
   })
@@ -388,6 +540,8 @@ describe('the canvas never frames a decision as a contest', () => {
     'Close call with the leading option',
     'Ahead',
     'Behind: fewer key changes',
+    // A caption that reaches assistive tech is copy, not an identifier.
+    'Leader by a narrow margin',
   ])('treats %j as copy, not an identifier', (run) => {
     expect(isIdentifier(run)).toBe(false)
   })
@@ -399,7 +553,17 @@ describe('the canvas never frames a decision as a contest', () => {
     // one (CLAUDE.md trap 13e).
     expect(files.length).toBeGreaterThan(300)
     expect(files.some((f) => f.endsWith('src/canvas/nodes/OptionNode.tsx'))).toBe(true)
+    // The widened scope must actually be walked — a scope entry that resolves
+    // to nothing reads exactly like a clean sweep (CLAUDE.md trap 13e).
+    expect(files.some((f) => f.includes('src/v5/blocks/'))).toBe(true)
     expect(files.some((f) => f.endsWith('src/components/results/utils/goalAnchorCopy.ts'))).toBe(
+      true,
+    )
+    // ⭐ Each SCOPE_FILES entry is asserted BY NAME, not by counting the list.
+    // A count would stay green if an entry were swapped for another; this is
+    // the file whose omission let two live offences sit under a green sweep,
+    // so its membership is pinned rather than inferred.
+    expect(files.some((f) => f.endsWith('src/components/results/utils/winnerChipCopy.ts'))).toBe(
       true,
     )
   })

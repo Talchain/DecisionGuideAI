@@ -79,7 +79,7 @@ describe('FactorControllablePanel — intervention unwrap regression', () => {
 
     seedStore([factor, option], [edge])
 
-    const { container } = render(
+    const { container, getByRole } = render(
       <FactorControllablePanel
         nodeId="factor-1"
         techMode={false}
@@ -93,11 +93,12 @@ describe('FactorControllablePanel — intervention unwrap regression', () => {
     expect(container.textContent).not.toContain('[object Object]')
     expect(container.textContent).not.toContain('NaN')
 
-    // The connections section renders the source option label.
-    expect(container.textContent).toContain('Hire a Tech Lead')
-    // And renders the unit-prefixed value (£0.5 — the existing template
-    // is `${unit}${value.toLocaleString()}`).
-    expect(container.textContent).toContain('\u00A30.5')
+    // The badge belongs to this option, and uses the factor's raw-value anchor:
+    // £5,000 × (0.5 / 0.1) = £25,000. Prefixing the model value with £ would
+    // misstate its coordinate frame; the cap-only path would also differ.
+    const optionRow = getByRole('button', { name: /Hire a Tech Lead/ })
+    expect(optionRow.textContent).toContain('\u00A325,000')
+    expect(optionRow.textContent).not.toContain('\u00A30.5')
   })
 
   it('still renders the badge when interventions are stored as plain numbers (legacy)', () => {

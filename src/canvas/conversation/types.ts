@@ -1058,6 +1058,17 @@ export const WIRE_SYSTEM_EVENT_TYPES = [
   // (`system-events/dispatch.ts:315`), with the writer at
   // `system-events/structural-add.ts`.
   'structural_add',
+  // 0.50.0 — the edge half of the canvas's structural vocabulary, and the member
+  // that makes four gestures durable rather than one: draw-a-link, the five
+  // "Add connected …" affordances, duplicate and paste. `structural_add` covers
+  // the NODES those gestures create; without this the EDGES were dropped, so a
+  // duplicated subgraph came back on the next reload having lost its structure.
+  //
+  // ⚠ READER-FIRST IS SATISFIED: CEE's writer landed before this member joined
+  // the UI's vocabulary (PR #1443), so no build can receive a kind it cannot
+  // handle. Every `SystemEventSchema` member is `.strict()` and the union is
+  // discriminated on `kind`, so the reverse order rejects the whole turn.
+  'structural_add_edge',
   // schemas 0.42.0 — the value-carrying EDGE edit, and the close of "I moved the
   // strength slider and it went back". Addressed by the canonical GraphV3
   // identity `(from, to)`, never by the client edge id CEE has never seen.
@@ -1113,6 +1124,29 @@ export const WIRE_SYSTEM_EVENT_TYPES = [
   // DISCRIMINATOR and rejects the WHOLE turn (422). CEE's reader and its route
   // arm must serve before this emitter ships.
   'option_intervention_edit',
+  // schemas 0.55.0 — the FIRST wire shape for a human's STATED REASON, and the
+  // close of "I told the system it was wrong and my words died in my browser".
+  // A dissent typed on the Reasoning tab terminates at `localStorage.setItem`
+  // today: invisible to the team, lost on a browser clear, and absent from the
+  // model the team is supposed to be reasoning over together.
+  //
+  // ⚠ IT IS NOT A GRAPH MUTATION, and the omission of `base_graph_hash` from
+  // the contract member is the point rather than an oversight. Five members
+  // carry that field as a STALE GATE whose rule is "CEE MUST refuse on
+  // divergence"; applying it here would refuse a TRUE STATEMENT OF WHAT A HUMAN
+  // SAID because the graph had moved underneath it. So this member is HELD-OUT
+  // of `MODEL_CHANGING_SYSTEM_EVENT_TYPES` below — it writes no graph, and
+  // holding the freshness overlay on it would fabricate "Model changed since
+  // this analysis" over a run that genuinely is current.
+  //
+  // ⚠⚠ READER-FIRST IS MANDATORY HERE AND IT IS NOT A PREFERENCE. Every member
+  // of this union is `.strict()` inside a `discriminatedUnion` on `kind`, so a
+  // CEE pinned ≤0.54.0 that receives this member fails the DISCRIMINATOR and
+  // rejects the WHOLE TURN (422) — not just this field. The contract states the
+  // order in terms: publish 0.55.0 → CEE re-vendors and deploys a reader → only
+  // then the UI emitter ships. CEE's reader is `olumi-assistants-service` #1445,
+  // OPEN at the time of writing. **This PR must not merge before it deploys.**
+  'finding_dissent',
 ] as const
 
 /** Event types accepted by CEE's v3 Zod schema — safe to send over the wire. */
@@ -1177,6 +1211,15 @@ export type WireSystemEventType = (typeof WIRE_SYSTEM_EVENT_TYPES)[number]
 export const MODEL_CHANGING_SYSTEM_EVENT_TYPES = [
   'factor_value_edit',
   'structural_add',
+  // 0.50.0 member, writer landed 2026-09-11 (CEE PR #1443). MODEL-CHANGING
+  // because it writes `scenarios.graph`: CEE declares it `'mutating'` and its
+  // writer commits the graph plus an `edit_graph` fact atomically.
+  //
+  // ⚠ UNLIKE `edge_strength_edit` THIS ONE IS UNCONDITIONAL. That member's
+  // classification is gated on `graphCas.rpcEnforce`; `structural_add_edge` is
+  // declared `'mutating'` outright, on the same footing as `structural_add`
+  // above, so no posture caveat applies to it.
+  'structural_add_edge',
   'structural_delete',
   'structural_rename',
   // Joined the wire vocabulary 2026-09-07 with its emitter. HELD, because CEE

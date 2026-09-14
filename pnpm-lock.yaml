@@ -6,7 +6,7 @@ settings:
 
 overrides:
   protobufjs@>=7.5.0 <7.6.5: ^7.6.5
-  fast-uri@<3.1.5: ^3.1.5
+  fast-uri@<3.1.6: ^3.1.6
   form-data@>=4.0.0 <4.0.6: ^4.0.6
   ws@>=8.0.0 <8.21.0: ^8.21.0
   dompurify@<3.4.11: ^3.4.11
@@ -36,8 +36,8 @@ importers:
         specifier: 2.39.7
         version: 2.39.7
       '@talchain/schemas':
-        specifier: file:./vendor/talchain-schemas-0.54.0.tgz
-        version: file:vendor/talchain-schemas-0.54.0.tgz
+        specifier: file:./vendor/talchain-schemas-0.55.0.tgz
+        version: file:vendor/talchain-schemas-0.55.0.tgz
       '@tanstack/react-query':
         specifier: ^5.90.2
         version: 5.99.0(react@18.3.1)
@@ -1404,9 +1404,9 @@ packages:
   '@supabase/supabase-js@2.39.7':
     resolution: {integrity: sha512-1vxsX10Uhc2b+Dv9pRjBjHfqmw2N2h1PyTg9LEfICR3x2xwE24By1MGCjDZuzDKH5OeHCsf4it6K8KRluAAEXA==}
 
-  '@talchain/schemas@file:vendor/talchain-schemas-0.54.0.tgz':
-    resolution: {integrity: sha512-c/2IvSiRhZS3qcOiEhQReSzGjaivbqJUs7PFsLgFXA5LLlGDILPeKbglk2xY1PyqC7ETLO+xNZMDAXtvryEEIA==, tarball: file:vendor/talchain-schemas-0.54.0.tgz}
-    version: 0.54.0
+  '@talchain/schemas@file:vendor/talchain-schemas-0.55.0.tgz':
+    resolution: {integrity: sha512-pCfgES4b58MqILdMD8KIkdZ1uzeRz0FHGZuvENDfNyfHzPDBR+SE6fPg8cbywe3XwrDvn2geA0tpZ9PavGY7oQ==, tarball: file:vendor/talchain-schemas-0.55.0.tgz}
+    version: 0.55.0
     engines: {node: '>=18.0.0'}
 
   '@tanstack/query-core@5.99.0':
@@ -2545,8 +2545,8 @@ packages:
   fast-string-width@3.0.2:
     resolution: {integrity: sha512-gX8LrtNEI5hq8DVUfRQMbr5lpaS4nMIWV+7XEbXk2b8kiQIizgnlr12B4dA3ZEx3308ze0O4Q1R+cHts8kyUJg==}
 
-  fast-uri@3.1.5:
-    resolution: {integrity: sha512-gHwA1O9LDIcKunMKhObS/HimwtehO1nPUECKAu5TpKgaO19fcWEl4bliWe1jWxVFvIXztJjjQ4L8XQ1EU9f7Jw==}
+  fast-uri@3.1.7:
+    resolution: {integrity: sha512-dOvZVzjdZdz7phd9v6jCbwxrBW3fK6n8Rc0CtdmM4bumzMnxywBYhuph6J819RRw/ku+rLbelwfMunktuzVVHg==}
 
   fast-wrap-ansi@0.2.0:
     resolution: {integrity: sha512-rLV8JHxTyhVmFYhBJuMujcrHqOT2cnO5Zxj37qROj23CP39GXubJRBUFF0z8KFK77Uc0SukZUf7JZhsVEQ6n8w==}
@@ -5482,7 +5482,7 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@talchain/schemas@file:vendor/talchain-schemas-0.54.0.tgz':
+  '@talchain/schemas@file:vendor/talchain-schemas-0.55.0.tgz':
     dependencies:
       zod: 3.25.76
 
@@ -5954,7 +5954,7 @@ snapshots:
   ajv@8.18.0:
     dependencies:
       fast-deep-equal: 3.1.3
-      fast-uri: 3.1.5
+      fast-uri: 3.1.7
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
@@ -6892,7 +6892,7 @@ snapshots:
     dependencies:
       fast-string-truncated-width: 3.0.3
 
-  fast-uri@3.1.5: {}
+  fast-uri@3.1.7: {}
 
   fast-wrap-ansi@0.2.0:
     dependencies:

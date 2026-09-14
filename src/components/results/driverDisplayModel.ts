@@ -650,6 +650,26 @@ export function hasClearInfluenceLeader(
  * A rank with no runner-up beneath it is trivially clear. An empty set has no
  * determined rank at all.
  */
+/**
+ * The deepest ordinal the canvas badge is willing to print ("Key driver #N").
+ *
+ * Exported so the gate that decides WHETHER a rank is determined and the cap
+ * that decides HOW MANY get badged are one number. They were two — a gate
+ * about rank 1 and a literal `rank <= 3` — and the gap between them is exactly
+ * how `#2` and `#3` came to be handed out on alphabetical order.
+ *
+ * ⚠ IT LIVES HERE, BESIDE `determinedRankDepth`, AND IS RE-EXPORTED FROM
+ * `canvas/hooks/useNodeDisplayMetadata.ts` WHERE IT USED TO BE DECLARED. It
+ * moved because a THIRD consumer arrived — the factor row ordering
+ * (`canvas/utils/factorRowOrder.ts`, seated from
+ * `components/results/useResultsSectionData.ts`) — and that file is what the
+ * hook imports its feed FROM, so importing the constant back out of the hook
+ * would have closed a module cycle. This module is a leaf: it imports one type
+ * and nothing else. The re-export keeps every existing importer, and the spec
+ * that pins the value, working against the name they already use.
+ */
+export const MAX_BADGED_RANK = 3
+
 export function determinedRankDepth(
   entries: ReadonlyArray<{ id: string; value: number }>,
   maxDepth: number,

@@ -1753,7 +1753,7 @@
   font-size: var(--conv-type-size-body);
   color: var(--warning, #FFA656);
   margin-top: 4px;
-  padding: 6px 8px;
+  padding: 4px 8px;
   border-radius: 6px;
   background: transparent;
   border: 1px solid color-mix(in srgb, var(--warning, #FFA656) 30%, transparent);
@@ -2123,3 +2123,58 @@
 
 /* Focus-visible for these toggles lives in the shared "Toggles and
  * details" group above (review-folds R4: one outline recipe, one place). */
+
+/* ---------------------------------------------------------------------------
+ * Compact coaching lines (CoachingLine.tsx)
+ *
+ * The turn's coaching/review cards as ONE producer-titled row each, expandable
+ * to the card itself. Sized for the 8-14 cards an analysis turn actually
+ * carries, not for the three a draft turn shows.
+ *
+ * ⚠ NO NEW TOKENS AND NO NEW SIZES. Spacing is the DS v5 §4.1 scale (4/8/12px),
+ * type comes from the panel scale via `typography.*` in the component, and the
+ * colours are the same CSS vars the sibling rules in this file already use. The
+ * closed row is deliberately BORDERLESS — a border per row would rebuild the
+ * stack of panels this replaces, and DS v5's complete-border rule governs
+ * content CARDS, which the expanded body still is.
+ * ---------------------------------------------------------------------------*/
+
+.coachingLine {
+  border-radius: var(--radius-sm, 8px);
+}
+
+.coachingLineSummary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: var(--radius-sm, 8px);
+  /* The native marker is replaced by the severity icon already in the row.
+     `list-style` covers Firefox/Chrome; the -webkit rule covers Safari, which
+     `list-none` alone does NOT suppress. */
+  list-style: none;
+}
+.coachingLineSummary::-webkit-details-marker {
+  display: none;
+}
+
+.coachingLineSummary:hover {
+  background: var(--bg-panel-hover, #FEF9F3);
+}
+
+.coachingLineSummary:focus-visible {
+  outline: 2px solid var(--info, #277A9D);
+  outline-offset: 2px;
+}
+
+/* The title takes the remaining width and wraps rather than clipping: the
+   producer's copy is rendered verbatim, so a long title gets a second line —
+   it is never ellipsised or clamped. */
+.coachingLineSummary > span:last-child {
+  min-width: 0;
+}
+
+.coachingLineBody {
+  padding-top: 4px;
+}

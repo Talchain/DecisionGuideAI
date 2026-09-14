@@ -51,6 +51,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AnalysisStateV1 } from '@talchain/schemas/boundary'
 import { OutputsDock } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
+import { seedDockOnAnalysisTab } from './helpers/dockTabFixture'
 
 const { mockIsV5CanonicalAnalysisEnabled } = vi.hoisted(() => ({
   mockIsV5CanonicalAnalysisEnabled: vi.fn(() => false),
@@ -211,6 +212,12 @@ describe('OutputsDock — the Rerun affordance states the staleness verdict', ()
     ensureMatchMedia()
     try {
       sessionStorage.clear()
+      // ⚠ THE TAB THIS SPEC HAS ALWAYS MEASURED, NOW STATED (default-tab ruling,
+      // 9 Sep 2026). Every Analysis-surface testid queried below used to be
+      // reached for free because the dock OPENED on Analysis; it now opens on
+      // Reasoning. Fixture only — no assertion here is relaxed. Must follow the
+      // clear above. See the helper's header.
+      seedDockOnAnalysisTab()
     } catch {
       /* jsdom quirk — never block the suite */
     }

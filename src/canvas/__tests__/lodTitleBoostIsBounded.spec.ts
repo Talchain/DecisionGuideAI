@@ -340,10 +340,15 @@ describe('LOD title boost is bounded BY THE RESERVED HEIGHT, not merely small', 
     // Without this, a guard whose extraction silently returned '' would agree
     // forever (trap 13b — a guard agreeing with itself). And since the shipped
     // boost now resolves to the same token as the reserve, the live comparison
-    // is 24 <= 24 and CANNOT fail — so the pricer's discrimination has to be
-    // proven on synthetic inputs or it is proven nowhere.
+    // is `reserved <= reserved` and CANNOT fail — so the pricer's discrimination
+    // has to be proven on synthetic inputs or it is proven nowhere.
+    //
+    // ⚠ 24 → 28 (12 Sep 2026): the declared title moved 12px → 14px and the
+    // reserve is `declared × MAX_LABEL_COUNTER_SCALE`, so it tracks. The pin
+    // stays a literal on purpose — deriving it from the same expression the
+    // assertion uses would be the guard agreeing with itself (trap 13b).
     const reservedPx = declaredNodeTitlePx() * MAX_LABEL_COUNTER_SCALE
-    expect(reservedPx).toBe(24)
+    expect(reservedPx).toBe(28)
 
     // FIXED mechanism — the original control, unchanged.
     expect(priceBoostSize('text-lg foo')).toEqual({ px: 18, mechanism: 'fixed', spelling: 'text-lg' })

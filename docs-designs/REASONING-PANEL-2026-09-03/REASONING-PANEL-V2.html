@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<!-- Provenance: a browser "Save Page As" of the approved v2 prototype. The original save comment carried a session token and an external asset URL, and the head inlined a ~14 KB artifact runtime; all three were stripped on 8 Sep 2026 before this file entered staging. The 276-byte toggle script near the end is the prototype's OWN demo code and is deliberately kept — removing it would break the thing this file exists to show. -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!-- frame-runtime --><!-- /frame-runtime --><meta name="viewport" content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style></head><body data-new-gr-c-s-check-loaded="14.1326.0" data-gr-ext-installed="">
+<div style="background:#FEF3C7;border:1px solid #F59E0B;padding:12px 16px;margin:0 0 16px;font:14px/1.5 system-ui,-apple-system,sans-serif;color:#78350F"><strong>⚠ This is a dated record of the approved v2 prototype, not current copy.</strong> It was captured on 3 September 2026 and still renders phrases such as &ldquo;Has a leading option&rdquo;. On 7 September 2026 the product owner retired <em>all</em> race framing &mdash; no &ldquo;winner&rdquo;, &ldquo;leads&rdquo;, &ldquo;ahead&rdquo; or &ldquo;leading option&rdquo; &mdash; in favour of three questions: what is the most likely outcome, what would change it, and what should we do next. <strong>The prose below is deliberately NOT rewritten</strong>: it is evidence of what was approved on the day, and editing a dated capture to match today&rsquo;s ruling would falsify the record. Read it as history; do not copy its wording forward.</div>
+
+<title>Reasoning Panel v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com/">
+<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
+<link rel="stylesheet" href="./css2">
+
+<style>
+  /* ── Olumi DS v5 tokens — taken verbatim from the approved prototype ────── */
+  :root{
+    --canvas:#F4F0EA; --panel:#FEFEFE; --panel-hover:#FEF9F3; --border:#EEE6D8; --soft:#F4EFE7;
+    --text:#3F3F3E; --strong:#262626; --muted:#908D8D; --on:#FFFFFF;
+    --primary:#2F7FA6; --primary-h:#286F91; --info:#63ADCF; --info-soft:#EAF4F9; --info-ink:#256B8C;
+    --success:#67C89E; --succ-soft:#EAF7F0; --succ-ink:#2F6B52;
+    --warning:#FFA656; --warn-soft:#FFF3E8; --amber-ink:#8A5A16;
+    --danger:#EA7B4B;
+    --goal:#F5C433; --factor:#B0A899; --option:#7B77CC; --option-soft:#E4E1F3; --risk:#EA7B4B; --outcome:#67C89E;
+    --track:#ECE5D8; --r-card:16px; --r-row:12px; --pill:999px;
+    --sh:0 1px 2px rgba(38,38,38,.05),0 5px 18px rgba(38,38,38,.05);
+    --doc-bg:#EFEAE1;
+    --lost:#C2603C; --lost-soft:#FBEDE6; --kept:#2F6B52;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --canvas:#1A1917; --panel:#232220; --panel-hover:#2B2926; --border:#35322D; --soft:#2B2926;
+    --text:#DCD9D4; --strong:#F2EFEA; --muted:#9B9691;
+    --primary:#6FB0CE; --primary-h:#8AC0D9; --info:#7CC0DE; --info-soft:#1E2E36; --info-ink:#9AD1EA;
+    --success:#6FCFA6; --succ-soft:#183027; --succ-ink:#8BDCBB;
+    --warning:#E9A968; --warn-soft:#33261A; --amber-ink:#E0AE72;
+    --goal:#E0B84A; --factor:#9C948A; --option:#9D99DD; --option-soft:#2A2740; --risk:#E08A5F; --outcome:#6FCFA6;
+    --track:#35322D; --doc-bg:#141312;
+    --lost:#E08A5F; --lost-soft:#33241E; --kept:#8BDCBB;
+    --sh:0 1px 2px rgba(0,0,0,.3),0 5px 18px rgba(0,0,0,.32);}}
+  :root[data-theme="dark"]{
+    --canvas:#1A1917; --panel:#232220; --panel-hover:#2B2926; --border:#35322D; --soft:#2B2926;
+    --text:#DCD9D4; --strong:#F2EFEA; --muted:#9B9691;
+    --primary:#6FB0CE; --primary-h:#8AC0D9; --info:#7CC0DE; --info-soft:#1E2E36; --info-ink:#9AD1EA;
+    --success:#6FCFA6; --succ-soft:#183027; --succ-ink:#8BDCBB;
+    --warning:#E9A968; --warn-soft:#33261A; --amber-ink:#E0AE72;
+    --goal:#E0B84A; --factor:#9C948A; --option:#9D99DD; --option-soft:#2A2740; --risk:#E08A5F; --outcome:#6FCFA6;
+    --track:#35322D; --doc-bg:#141312;
+    --lost:#E08A5F; --lost-soft:#33241E; --kept:#8BDCBB;
+    --sh:0 1px 2px rgba(0,0,0,.3),0 5px 18px rgba(0,0,0,.32);}
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--doc-bg);color:var(--text);padding:44px 22px 90px;
+    font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;
+    font-size:15px;line-height:1.6}
+  svg{display:block}
+  .wrap{max-width:1160px;margin:0 auto;display:flex;flex-direction:column;gap:54px}
+  h1{font-family:"Instrument Serif",Georgia,serif;font-weight:400;font-size:45px;line-height:1.08;
+     color:var(--strong);margin-bottom:12px;letter-spacing:-.01em;text-wrap:balance}
+  h2{font-family:"Instrument Serif",Georgia,serif;font-weight:400;font-size:27px;color:var(--strong);
+     margin-bottom:8px;letter-spacing:-.01em}
+  .kicker{font-size:11px;font-weight:600;letter-spacing:.11em;color:var(--muted);margin-bottom:14px}
+  .lede{font-size:17px;color:var(--text);max-width:68ch}
+  .note{font-size:13.5px;color:var(--muted);max-width:76ch;margin-top:9px}
+  code{font-family:ui-monospace,Menlo,monospace;font-size:.86em;background:var(--soft);padding:1px 5px;border-radius:4px}
+  strong{font-weight:600;color:var(--strong)} em{font-style:italic}
+
+  /* ── scorecard ── */
+  table.sc{width:100%;border-collapse:collapse;margin-top:20px;font-size:13.5px}
+  table.sc th{text-align:left;font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--muted);
+    padding:0 12px 9px 0;border-bottom:1px solid var(--border)}
+  table.sc td{padding:13px 12px 13px 0;border-bottom:1px solid var(--border);vertical-align:top}
+  table.sc td:first-child{font-weight:600;color:var(--strong);width:26%}
+  .tag{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:var(--pill);white-space:nowrap}
+  .tag.lost{background:var(--lost-soft);color:var(--lost)}
+  .tag.kept{background:var(--succ-soft);color:var(--kept)}
+  .tag.new{background:var(--info-soft);color:var(--info-ink)}
+
+  /* ── the panel (prototype chrome, unchanged) ── */
+  .stage{display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap;margin-top:24px}
+  .col{display:flex;flex-direction:column;gap:10px}
+  .cap{font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--muted)}
+  .P{width:420px;max-width:100%;background:var(--panel);border:1px solid var(--border);
+     border-radius:var(--r-card);box-shadow:var(--sh);padding:15px 16px}
+  .P.sm{width:280px}
+  @media(max-width:920px){.P,.P.sm{width:100%;max-width:420px}}
+
+  /* DS v5 panel scope: exactly three sizes. 14 / 12 / 11. */
+  .t14{font-size:14px;line-height:1.34;font-weight:600;color:var(--strong)}
+  .t12{font-size:12px;line-height:1.5;color:var(--text)}
+  .t11{font-size:11px;line-height:1.45;color:var(--muted)}
+
+  .zone{font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--muted);
+        display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px}
+  .rule{height:1px;background:var(--border);margin:14px -16px}
+
+  .row{display:grid;grid-template-columns:14px 54px 1fr auto;gap:8px;align-items:center;height:20px;
+       border-radius:7px;margin:0 -5px;padding:0 5px}
+  .row:hover{background:var(--panel-hover)}
+  .mk{width:11px;height:11px}
+  .dots{display:flex;gap:3px}
+  .d{width:8px;height:8px;border-radius:50%;flex:none}
+  .d.on{background:currentColor}
+  .d.off{box-shadow:inset 0 0 0 1.5px currentColor;opacity:.42}
+  .d.half{background:linear-gradient(90deg,currentColor 50%,transparent 50%);box-shadow:inset 0 0 0 1.5px currentColor}
+  .g-goal{color:var(--goal)}.g-opt{color:var(--option)}.g-fac{color:var(--factor)}
+  .g-risk{color:var(--risk)}.g-out{color:var(--outcome)}
+  .tally{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .tally.act{color:var(--info-ink);font-weight:600}
+  .key{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:8px}
+  .key i{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px;color:var(--factor)}
+
+  .card{background:var(--panel-hover);border-radius:var(--r-row);padding:12px 13px}
+  .card + .card{margin-top:8px}
+  .card.lead{background:var(--warn-soft)}
+  .meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .method{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;letter-spacing:.04em;
+          padding:3px 9px;border-radius:var(--pill);background:var(--panel);color:var(--amber-ink)}
+  .method.calm{color:var(--info-ink)}
+  .sev{font-size:11px;padding:3px 8px;border-radius:var(--pill);background:var(--panel);color:var(--muted)}
+  .q{font-size:14px;line-height:1.32;font-weight:600;color:var(--strong);margin-top:9px;text-wrap:balance}
+  .why{font-size:12px;line-height:1.5;color:var(--text);margin-top:5px}
+  .acts{display:flex;gap:7px;align-items:center;margin-top:11px;flex-wrap:wrap}
+  .btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+       padding:8px 13px;border-radius:var(--pill);background:var(--primary);color:var(--on);border:0;cursor:pointer}
+  .btn:hover{background:var(--primary-h)}
+  .icb{width:30px;height:30px;border-radius:var(--pill);border:1px solid var(--border);background:var(--panel);
+       color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
+  .icb:hover{background:var(--panel-hover);color:var(--text)}
+  .icb.s{width:26px;height:26px}
+  .disc{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin-top:10px;cursor:pointer}
+  .mv{display:grid;grid-template-columns:14px 1fr auto;gap:9px;align-items:start}
+  .mv-t{font-size:12px;font-weight:600;color:var(--strong);line-height:1.35;display:block}
+  .mv-s{font-size:11px;color:var(--muted);margin-top:2px;display:block}
+  .mv-a{display:flex;gap:5px;flex:none}
+
+  .lens{display:flex;gap:3px;border:1px solid var(--border);border-radius:var(--pill);padding:3px;margin-bottom:11px}
+  .lens span{flex:1;text-align:center;font-size:11px;font-weight:600;padding:6px 4px;border-radius:var(--pill);color:var(--muted)}
+  .lens span.on{background:var(--primary);color:var(--on)}
+  .lens span.off{opacity:.42}
+  .orow{display:grid;grid-template-columns:14px 1fr 76px 40px;gap:8px;align-items:center;padding:4px 0}
+  .oname{font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .orow.lead .oname{font-weight:600;color:var(--strong)}
+  .bar{height:7px;border-radius:var(--pill);background:var(--track);overflow:hidden}
+  .bar i{display:block;height:100%;border-radius:var(--pill);background:var(--option-soft)}
+  .orow.lead .bar i{background:var(--info)}
+  .oval{font-size:11px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+  .orow.lead .oval{color:var(--strong);font-weight:600}
+  .onot{display:grid;grid-template-columns:14px 1fr auto;gap:8px;align-items:center;padding:4px 0}
+  .onot .oname{color:var(--muted)}
+  .nb{font-size:11px;color:var(--muted)}
+  .diverge{display:flex;gap:8px;align-items:flex-start;font-size:12px;line-height:1.5;color:var(--strong);
+           background:var(--info-soft);border-radius:var(--r-row);padding:10px 11px;margin-top:11px}
+  .diverge svg{flex:none;margin-top:2px;color:var(--info-ink)}
+  .checked{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:11px}
+  .ok{color:var(--succ-ink)}.no{color:var(--amber-ink)}
+  .ground{margin-top:11px}
+  .gbar{display:flex;height:7px;border-radius:var(--pill);background:var(--track);overflow:hidden}
+  .gbar i{display:block;height:100%}
+  .gbar i.mine{background:var(--success)}
+  .gbar i.theirs{background:repeating-linear-gradient(45deg,var(--muted),var(--muted) 2px,transparent 2px,transparent 5px)}
+  .glab{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:6px}
+
+  .crow{display:grid;grid-template-columns:14px 1fr auto 12px;gap:9px;align-items:center;padding:10px 0;cursor:pointer}
+  .crow + .crow{border-top:1px solid var(--border)}
+  .crow:hover{background:var(--panel-hover)}
+  .crow-t{font-size:12px;font-weight:600;color:var(--strong)}
+  .crow-s{font-size:11px;color:var(--muted)}
+  .crow-c{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .crow .chev{transition:transform .16s}
+  .sect.open .chev{transform:rotate(90deg)}
+  .sbody{display:none;padding:2px 0 14px}
+  .sect.open .sbody{display:block}
+  @media (prefers-reduced-motion:reduce){.chev{transition:none}}
+
+  .drow{display:grid;grid-template-columns:14px 1fr 68px 38px;gap:8px;align-items:center;
+        border-radius:7px;margin:0 -5px;padding:5px}
+  .drow:hover{background:var(--panel-hover)}
+  .dname{font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dbar{height:6px;border-radius:var(--pill);background:var(--track);overflow:hidden}
+  .dbar i{display:block;height:100%;border-radius:var(--pill);background:var(--factor)}
+  .dval{font-size:11px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+  .frag{background:var(--warn-soft);border-radius:var(--r-row);padding:11px;margin-top:8px}
+  .frag-t{font-size:12px;font-weight:600;color:var(--strong)}
+  .frag-i{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;
+          color:var(--text);padding:7px 0}
+  .frag-i + .frag-i{border-top:1px solid rgba(0,0,0,.06)}
+  .sbtn{font-size:11px;font-weight:600;color:var(--info-ink);background:var(--panel);border:1px solid var(--border);
+        border-radius:var(--pill);padding:5px 10px;cursor:pointer;white-space:nowrap}
+
+  /* ── name / claim treatment ── */
+  .nm{display:block;font-size:12px;font-weight:600;color:var(--strong);line-height:1.35}
+  .cl{display:block;font-size:11px;color:var(--muted);line-height:1.45;margin-top:2px}
+  .more{font-size:11px;color:var(--info-ink);cursor:pointer;font-weight:600}
+
+  /* ── doc bits ── */
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-top:20px}
+  .box{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-row);padding:18px}
+  .box h3{font-size:14px;font-weight:600;color:var(--strong);margin-bottom:6px}
+  .box p{font-size:13.5px;color:var(--text)}
+  .ba{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}
+  @media(max-width:760px){.ba{grid-template-columns:1fr}}
+  .bx{border-radius:var(--r-row);padding:14px 15px;font-size:12.5px;line-height:1.55}
+  .bx.now{background:var(--lost-soft)}
+  .bx.next{background:var(--succ-soft)}
+  .bx .h{font-size:11px;font-weight:600;letter-spacing:.08em;margin-bottom:8px}
+  .bx.now .h{color:var(--lost)} .bx.next .h{color:var(--kept)}
+  .bx b{color:var(--strong)}
+  .rule-row{display:grid;grid-template-columns:170px 1fr;gap:14px;padding:12px 0;border-bottom:1px solid var(--border);font-size:13px}
+  .rule-row b{font-size:12px}
+  .ask{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-row);padding:20px;margin-top:20px}
+  .ask .q2{padding:14px 0;border-bottom:1px solid var(--border)}
+  .ask .q2:last-child{border-bottom:none}
+  .ask h3{font-size:14px;font-weight:600;color:var(--strong);margin-bottom:5px}
+  .rec{color:var(--succ-ink);font-size:13.5px;margin-top:7px}
+
+  /* ── option strips ── */
+  .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:14px}
+  .opt{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-row);padding:14px}
+  .ol{font-size:12px;font-weight:600;color:var(--strong);margin-bottom:10px;display:flex;
+      align-items:center;gap:7px;flex-wrap:wrap}
+  .pick{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+        background:var(--succ-soft);color:var(--kept);padding:2px 7px;border-radius:var(--pill)}
+  .mini{background:var(--canvas);border-radius:9px;padding:11px;min-height:74px}
+  .on2{font-size:11.5px;line-height:1.5;color:var(--muted);margin-top:10px}
+  .mrow{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--strong);font-weight:600;
+        padding:6px 8px;border-radius:8px}
+  .mrow.tint{background:var(--info-soft);border-radius:8px 8px 0 0}
+  .mchev{color:var(--muted);font-weight:400}
+  .mc{margin-left:auto;font-size:11px;color:var(--muted);font-weight:400}
+  .tintbody{background:var(--info-soft);border-radius:0 0 8px 8px;padding:2px 8px 9px}
+  .lrule{border-left:2px solid var(--info);padding:4px 0 4px 9px;margin-left:8px}
+  .b2s{font-size:12px;font-weight:500;padding:8px 12px;border-radius:var(--pill);
+       background:var(--panel);border:1px solid var(--border);color:var(--text);cursor:pointer}
+  .dname.clamp{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+               overflow:hidden;line-height:1.35}
+  .icb.s{font-size:12px}
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="kicker">OLUMI · REASONING PANEL · V2</p>
+  <h1>Three of the prototype's rules ask for data that does not exist — and my first draft of this page put them back</h1>
+  <p class="lede">A reassessment against the approved prototype, checked <em>at the code</em> rather than
+    from screenshots. My first version of this page claimed nine of eleven rules had regressed. That was
+    wrong. Four of those nine are not regressions at all — two are <strong>deliberate, reasoned refusals to
+    render metrics the wire does not license</strong>, one is implemented, one is a coverage gap. The build
+    was right and the prototype was fabricating.</p>
+  <div class="bx now" style="margin-top:18px;max-width:76ch">
+    <p class="h">CORRECTION — 3 SEP, AFTER PUBLISHING</p>
+    <p>I derived the first scorecard from Paul's screenshots and never opened the code. Then I designed a
+      panel that <b>reproduced the two fabrications</b>: provenance dots with a legend, and a
+      “2 of 16 inputs are yours” bar. Both are removed below. <b>The estate had already caught three
+      invented metrics on this surface</b>, and I was proposing a fourth and fifth on the strength of a
+      mockup. The corrected panel is what the data actually supports.</p>
+  </div>
+</header>
+
+<!-- ══════════ SCORECARD ══════════ -->
+<section>
+  <h2>Where we are against the prototype</h2>
+  <p class="note">Assessed rule by rule against the approved design, not against my own taste.</p>
+
+  <table class="sc">
+    <thead><tr><th>Prototype rule</th><th>What shipped</th><th style="width:96px">Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>Exactly three type sizes — 14 / 12 / 11, no arbitrary values</td>
+          <td>Six treatments inside one card; section headers, card titles and provenance all differ again.</td>
+          <td><span class="tag lost">Lost</span></td></tr>
+      <tr><td>One named method per finding — a <code>Pre-mortem</code> pill with its icon</td>
+          <td><b>Built and wired</b> (<code>recommendationMethod.ts</code>), mapping three codes:
+            <code>PRE_MORTEM</code>, <code>COGNITIVE_BIAS</code>, <code>LOW_OPTION_COUNT</code>. None of the
+            codes on Paul's run is among them, so no pill fired. <b>A coverage gap upstream, not a
+            regression</b> — and the file explicitly refuses to map codes that are not techniques.</td>
+          <td><span class="tag new">Gap, not loss</span></td></tr>
+      <tr><td>The largest type is a <b>question</b>; <code>heroDisplay</code> deliberately unused to avoid anchoring</td>
+          <td>The largest type is a raw node label. No questions anywhere on the panel.</td>
+          <td><span class="tag lost">Lost</span></td></tr>
+      <tr><td>Containment is filled surface + full radius; rules run edge to edge; <b>no one-sided borders</b></td>
+          <td>A 2px teal border box on four sections — reads as focus or error, and frames the least useful content.</td>
+          <td><span class="tag lost">Lost</span></td></tr>
+      <tr><td>One primary button, then icon buttons</td>
+          <td>Eight button-and-link styles; two of three card actions don't look clickable.</td>
+          <td><span class="tag lost">Lost</span></td></tr>
+      <tr><td>“Absence is not zero” — unanalysed options get no bar and no number</td>
+          <td><b>Implemented, and structural.</b> <code>analysisNewTypes.ts:368</code> makes it a type-level
+            rule, with <code>notAnalysedCopy.ts</code> as the single source of the wording and a spec holding it.
+            The <code>&lt; 1%</code> row I flagged from the screenshot is an option that <em>was</em> analysed
+            and scored low — the render is correct.</td>
+          <td><span class="tag kept">I was wrong</span></td></tr>
+      <tr><td>Strip dots encode provenance — filled = yours, hollow = Olumi's, half = proposed</td>
+          <td><b>Deliberately refused, and the reasoning is sound.</b> <code>ModelStrip.tsx:56</code>:
+            <em>“the filled-vs-hollow distinction the design draws needs per-value provenance the estate does
+            not have, and a fill this data cannot justify is the defect the strip exists to expose.”</em>
+            The legend went with it — <em>“furniture bought entirely by the fill.”</em></td>
+          <td><span class="tag kept">Prototype wrong</span></td></tr>
+      <tr><td>Grounding bar — “4 of 17 inputs are yours / 13 still Olumi's”</td>
+          <td><b>Deliberately refused.</b> <code>glanceProvenanceCopy.ts:31</code>: <em>“NO NUMBER AND NO
+            COUNT, DELIBERATELY. The producer supplies a per-factor provenance flag, not a proportion.
+            ‘Six of nine inputs were estimated’ is a quantity nothing on the wire licenses, and this surface
+            has already had three invented metrics caught on it.”</em></td>
+          <td><span class="tag kept">Prototype wrong</span></td></tr>
+      <tr><td>Shape = what it is · colour = how it's doing · icon = what you can do</td>
+          <td>Amber now carries staleness, sensitivity, verification counts and severity at once.</td>
+          <td><span class="tag lost">Lost</span></td></tr>
+      <tr><td>Depth collapsed into a few rows, out of the resting experience</td>
+          <td>Held — sections collapse, counts in headers, chevrons.</td>
+          <td><span class="tag kept">Kept</span></td></tr>
+      <tr><td>Explicit “evidence not assessed” disclaimer</td>
+          <td>Held, and improved: <em>“an empty list here is not an all-clear.”</em></td>
+          <td><span class="tag kept">Kept</span></td></tr>
+      <tr><td>—</td>
+          <td>Real provenance per claim (<em>“Grounded in the producer influence score”</em>), canvas links, honest empty states. <b>Genuinely better than the prototype.</b></td>
+          <td><span class="tag new">Gained</span></td></tr>
+      <tr><td>— <b>not addressed by the prototype</b></td>
+          <td>Node labels are raw brief prose. The prototype assumed short names and never tested one.</td>
+          <td><span class="tag new">New</span></td></tr>
+    </tbody>
+  </table>
+
+  <p class="note" style="margin-top:18px"><strong>Corrected count: five genuine regressions, not nine.</strong>
+    All five are <em>discipline</em> — type scale, borders, action tiers, colour semantics, question-first.
+    They are real, they are cheap to reverse, and a CI guard can hold them.</p>
+  <p class="note"><strong>The other four were me reading pixels instead of code.</strong> Two of them are the
+    important ones, and they point the same way as the naming problem: <em>the prototype specifies three things
+    the data cannot support</em> — short names, per-value provenance, and an inputs proportion. The build
+    discovered all three the expensive way and refused each in writing. <strong>So the prototype is not a target
+    we can simply return to.</strong></p>
+</section>
+
+<!-- ══════════ WHERE THE PROTOTYPE IS WRONG ══════════ -->
+<section>
+  <h2>Where the prototype is undeliverable</h2>
+  <p class="note">Not a criticism of the design — a mockup is allowed to assume its data. But it means
+    “restore the prototype” is the wrong instruction, and I gave it before checking.</p>
+
+  <div class="grid">
+    <div class="box">
+      <h3>Short node names</h3>
+      <p>Assumed. Every name in the prototype was hand-written; real labels are brief prose. This is the
+        contract now routed to the CEE extractor — <b>the display layer cannot be correct in any design
+        without it, including this one.</b></p>
+    </div>
+    <div class="box">
+      <h3>Per-value provenance</h3>
+      <p>Assumed. The filled/hollow/half dots need to know whose each value is. No carrier supplies it, so the
+        strip renders every mark identically and drops the legend. <b>A fill the data cannot justify is the
+        defect the strip exists to expose.</b></p>
+    </div>
+    <div class="box">
+      <h3>“4 of 17 inputs are yours”</h3>
+      <p>Assumed. The producer sends a per-factor flag, not a proportion — so the count is a number nothing on
+        the wire licenses. The build says a stated condition instead: <em>“Partly on inputs Olumi
+        estimated.”</em> <b>Weaker-looking, and the only honest reading.</b></p>
+    </div>
+  </div>
+
+  <p class="note" style="margin-top:18px"><strong>The pattern is one thing, three times: the design asks the
+    render layer for a claim the data does not carry.</strong> Naming is the same defect — it is simply the
+    one nobody caught, because prose in a heading still renders, where a fabricated proportion gets challenged.
+    That is why it survived into production and the other two did not.</p>
+</section>
+
+<!-- ══════════ THE NEW THING ══════════ -->
+<section>
+  <h2>The one problem the prototype cannot solve</h2>
+  <p class="note">Every node name in the approved prototype was hand-written and short — “Warm Network
+    Activation”, “Time Pressure”. Real labels are brief prose. Feed the real data into the prototype and
+    <code>.oname</code>, <code>.dname</code> and <code>.fnode</code> all break the same way the build does,
+    because they are <code>white-space:nowrap; text-overflow:ellipsis</code> on a string that was never meant
+    to be a name.</p>
+
+  <div class="ba">
+    <div class="bx now">
+      <p class="h">SHIPPED — one string doing four jobs</p>
+      <p><b>Heading:</b> “We've heard from three churned customers that they left because of missing
+        integrations, not price — so we think product gaps mediate the relationship between customer
+        satisfaction and churn”</p>
+      <p style="margin-top:9px"><b>Chart axis:</b> “We've heard from three churned custome…”</p>
+      <p style="margin-top:9px"><b>Inside a sentence:</b> If "We've heard from three churned customers that
+        they left because of missing integrations, not price — so we think product gaps mediate the
+        relationship between customer satisfaction and churn → Churn Rate Deterioration" changes
+        significantly…</p>
+    </div>
+    <div class="bx next">
+      <p class="h">PROPOSED — name and claim are different fields</p>
+      <p><b>name</b> — ≤42 chars, noun phrase. Headings, axes, chips, sentences.<br>
+         <b>claim</b> — the full prose. Shown on expand, and nowhere else.</p>
+      <p style="margin-top:9px"><b>When CEE supplies a name:</b><br>
+         Heading → “Product gaps drive churn, not price”<br>
+         Sentence → If <b>Product gaps → churn</b> shifts, <b>Hire a Sales Team</b> may lead</p>
+      <p style="margin-top:9px"><b>When it does not — today:</b> the UI truncates at a <em>word</em> boundary
+        and never invents words →<br>“We've heard from three churned…” with the claim one tap away.</p>
+    </div>
+  </div>
+
+  <p class="note" style="margin-top:16px"><strong>The UI half must never rewrite.</strong> Shortening prose
+    into a name is a judgement about meaning; a render layer that guesses it will eventually put a sentence on
+    screen that the model does not support. So the fallback truncates and discloses — visibly worse than a real
+    name, which is the correct incentive, and strictly better than mid-word.</p>
+</section>
+
+<!-- ══════════ THE PANEL ══════════ -->
+<section>
+  <h2>The panel, rebuilt</h2>
+  <p class="note">420px dock and the 280px floor. DS v5 tokens throughout, three type sizes, one primary
+    action per card. <strong>Every string below is real</strong> — from Paul's 3 Sep test on build
+    <code>86786efb</code>, including the messy ones, so the layout is tested against the data rather than
+    against a tidy mock.</p>
+
+  <div class="stage">
+    <div class="col">
+      <span class="cap">420 PX</span>
+      <div class="P">
+
+        <!-- 1 · MODEL STRIP -->
+        <p class="zone"><span>YOUR MODEL SO FAR</span><span style="font-weight:400;letter-spacing:0">1 to verify</span></p>
+        <!-- ⚠ EVERY MARK IS IDENTICAL, AND THERE IS NO LEGEND. The prototype's
+             filled/hollow/half dots need per-value provenance no carrier supplies.
+             A fill this data cannot justify is the defect the strip exists to
+             expose; the legend was furniture bought entirely by the fill. -->
+        <div class="row g-goal">
+          <svg class="mk" viewBox="0 0 14 14"><polygon points="7,1 12.5,7 7,13 1.5,7" fill="currentColor"></polygon></svg>
+          <span class="t11" style="color:var(--muted)">Goal</span>
+          <span class="dots"><i class="d on"></i></span>
+          <span class="tally act">set target ›</span>
+        </div>
+        <div class="row g-opt">
+          <svg class="mk" viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" rx="2.5" fill="currentColor"></rect></svg>
+          <span class="t11" style="color:var(--muted)">Options</span>
+          <span class="dots"><i class="d on"></i><i class="d on"></i><i class="d on"></i></span>
+          <span class="tally">3</span>
+        </div>
+        <div class="row g-fac">
+          <svg class="mk" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4.5" fill="currentColor"></circle></svg>
+          <span class="t11" style="color:var(--muted)">Factors</span>
+          <span class="dots"><i class="d on"></i><i class="d on"></i><i class="d on"></i><i class="d on"></i><i class="d on"></i><i class="d on"></i></span>
+          <span class="tally">6</span>
+        </div>
+        <div class="row g-risk">
+          <svg class="mk" viewBox="0 0 12 12"><polygon points="6,1 11,11 1,11" fill="currentColor"></polygon></svg>
+          <span class="t11" style="color:var(--muted)">Risks</span>
+          <span class="dots"><i class="d on"></i><i class="d on"></i><i class="d on"></i></span>
+          <span class="tally">3</span>
+        </div>
+        <div class="row g-out">
+          <svg class="mk" viewBox="0 0 12 12"><polygon points="6,1 10.5,3.5 10.5,8.5 6,11 1.5,8.5 1.5,3.5" fill="currentColor"></polygon></svg>
+          <span class="t11" style="color:var(--muted)">Outcomes</span>
+          <span class="dots"><i class="d on"></i><i class="d on"></i></span>
+          <span class="tally">2</span>
+        </div>
+
+        <div class="rule"></div>
+
+        <!-- 2 · FOCUS NOW — method restored -->
+        <p class="zone">FOCUS NOW</p>
+        <div class="card lead">
+          <div class="meta">
+            <span class="method">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5"></path><path d="M12 16h.01"></path></svg>
+              Define success
+            </span>
+            <span class="sev">Must fix</span>
+          </div>
+          <p class="q">What number would make this a win, and by when?</p>
+          <p class="why">Your goal reads <strong>“Reach £30k MRR Within 18 Months”</strong> but carries no
+            target, so Olumi can only say which option scores higher — not whether any of them gets you there.</p>
+          <div class="acts">
+            <button class="btn">Set the target</button>
+            <span class="icb" title="Ask Olumi">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            </span>
+            <span class="icb" title="Show in model">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3"></path></svg>
+            </span>
+          </div>
+          <p class="disc">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"></path></svg>
+            Why this first · what it unlocks
+          </p>
+        </div>
+
+        <!-- 3 · ALSO -->
+        <p class="zone" style="margin-top:15px">ALSO WORTH DOING</p>
+        <div class="card">
+          <div class="mv">
+            <svg class="mk g-fac" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4.5" fill="currentColor"></circle></svg>
+            <span>
+              <span class="mv-t">Would you argue ICP Clarity the other way?</span>
+              <span class="mv-s">Consider the opposite · it carries the most influence and is still Olumi's estimate</span>
+            </span>
+            <span class="mv-a">
+              <span class="icb s"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></span>
+              <span class="icb s"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3"></path></svg></span>
+            </span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="mv">
+            <svg class="mk g-risk" viewBox="0 0 12 12"><polygon points="6,1 11,11 1,11" fill="currentColor"></polygon></svg>
+            <span>
+              <span class="mv-t">Assume the hire failed. Where did it break?</span>
+              <span class="mv-s">Pre-mortem · the ordering flips if sales spend and runway move together</span>
+            </span>
+            <span class="mv-a">
+              <span class="icb s"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></span>
+              <span class="icb s"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3"></path></svg></span>
+            </span>
+          </div>
+        </div>
+
+        <div class="rule"></div>
+
+        <!-- 4 · IMPLIES -->
+        <p class="zone">WHAT YOUR MODEL IMPLIES</p>
+        <div class="lens"><span class="off">Goal fit</span><span class="on">Likely outcome</span></div>
+
+        <div class="orow lead">
+          <svg class="mk g-opt" viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" rx="2.5" fill="currentColor"></rect></svg>
+          <span class="oname">Continue With Founder-Led Sales</span>
+          <span class="bar"><i style="width:62%"></i></span><span class="oval">62%</span>
+        </div>
+        <div class="orow">
+          <svg class="mk g-opt" viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" rx="2.5" fill="currentColor" opacity=".55"></rect></svg>
+          <span class="oname">Hire a Dedicated Sales Team</span>
+          <span class="bar"><i style="width:38%"></i></span><span class="oval">38%</span>
+        </div>
+        <div class="onot">
+          <svg class="mk g-opt" viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"></rect></svg>
+          <span class="oname" title="hiring a part-time SDR (£40k) to handle top-of-funnel while the founder stays on closing">Part-time SDR for top-of-funnel</span>
+          <span class="nb">not analysed</span>
+        </div>
+
+        <p class="t11" style="margin-top:9px">Ordering holds in about 62% of variations — treat it as unsettled.</p>
+
+        <div class="diverge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+          <span><strong>Set a success target</strong> and Olumi can also tell you which option is most likely
+            to reach it — not just which scores highest.</span>
+        </div>
+
+        <div class="checked">
+          <span class="ok"><b>✓</b> Has a leading option</span>
+          <span class="no"><b>✗</b> Sensitive to assumptions</span>
+          <span><b>?</b> Evidence not assessed</span>
+        </div>
+
+        <!-- ⚠ NO PROPORTION BAR. The producer sends a per-factor provenance FLAG,
+             not a ratio, so "2 of 16 inputs are yours" is a quantity nothing on
+             the wire licenses. A stated condition is what the evidence supports. -->
+        <p class="t11" style="margin-top:10px">Partly on inputs Olumi estimated.
+          <span class="more">Which ones ›</span></p>
+
+        <div class="rule"></div>
+
+        <!-- 5 · DEPTH -->
+        <div class="sect open" data-sect="">
+          <div class="crow" data-toggle="">
+            <svg class="mk g-fac" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4.5" fill="currentColor"></circle></svg>
+            <span><span class="crow-t">Drivers and dynamics</span><br><span class="crow-s">What moves the outcome, and through what</span></span>
+            <span class="crow-c">4</span>
+            <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--muted)"><path d="m9 18 6-6-6-6"></path></svg>
+          </div>
+          <div class="sbody">
+            <p class="t11" style="margin-bottom:7px">Ranked against the strongest factor in this run — a
+              comparison between these factors, not a share of the outcome.</p>
+
+            <div class="drow g-fac">
+              <svg class="mk" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4.5" fill="currentColor"></circle></svg>
+              <span class="dname">ICP Clarity</span>
+              <span class="dbar"><i style="width:100%"></i></span><span class="dval">100%</span>
+            </div>
+            <div class="drow g-fac">
+              <svg class="mk" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4.5" fill="currentColor"></circle></svg>
+              <span class="dname" title="We&#39;ve heard from three churned customers that they left because of missing integrations, not price — so we think product gaps mediate the relationship between customer satisfaction and churn">We've heard from three churned…</span>
+              <span class="dbar"><i style="width:73%"></i></span><span class="dval">73%</span>
+            </div>
+            <div class="drow g-fac">
+              <svg class="mk" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4.5" fill="currentColor"></circle></svg>
+              <span class="dname" title="which we believe is partly driven by product quality and partly by how much attention each trial gets from the founder">which we believe is partly…</span>
+              <span class="dbar"><i style="width:47%"></i></span><span class="dval">47%</span>
+            </div>
+            <div class="drow g-fac">
+              <svg class="mk" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4.5" fill="currentColor"></circle></svg>
+              <span class="dname">Competitive Pressure</span>
+              <span class="dbar"><i style="width:28%"></i></span><span class="dval">28%</span>
+            </div>
+            <p class="t11" style="margin-top:9px">Two names are still raw text from your brief.
+              <span class="more">Give them short names ›</span></p>
+          </div>
+        </div>
+
+        <div class="sect" data-sect="">
+          <div class="crow" data-toggle="">
+            <svg class="mk g-risk" viewBox="0 0 12 12"><polygon points="6,1 11,11 1,11" fill="currentColor"></polygon></svg>
+            <span><span class="crow-t">Uncertainty and gaps</span><br><span class="crow-s">What this run could not settle</span></span>
+            <span class="crow-c">2</span>
+            <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--muted)"><path d="m9 18 6-6-6-6"></path></svg>
+          </div>
+          <div class="sbody">
+            <div class="frag">
+              <p class="frag-t">Two relationships could flip the result to Hire a Dedicated Sales Team</p>
+              <div class="frag-i"><span>If <strong>Sales Headcount → Runway Risk</strong> shifts</span><button class="sbtn">Review</button></div>
+              <div class="frag-i"><span>If <strong>Sales Headcount → Acquisition Cost</strong> shifts</span><button class="sbtn">Review</button></div>
+            </div>
+            <p class="t11" style="margin-top:11px"><strong style="color:var(--amber-ink)">Evidence not
+              assessed.</strong> This run did not evaluate how well-supported the relationships are, so an
+              absence of evidence gaps here is not a finding.</p>
+          </div>
+        </div>
+
+        <div class="sect" data-sect="">
+          <div class="crow" data-toggle="">
+            <svg class="mk" viewBox="0 0 12 12" style="color:var(--muted)"><circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" stroke-width="1.5"></circle><path d="M6 3.5v3l2 1.2" stroke="currentColor" stroke-width="1.3" fill="none"></path></svg>
+            <span><span class="crow-t">Run details</span><br><span class="crow-s">Method, provenance and receipts</span></span>
+            <span class="crow-c"></span>
+            <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="color:var(--muted)"><path d="m9 18 6-6-6-6"></path></svg>
+          </div>
+          <div class="sbody">
+            <p class="t11">This analysis uses a simplified structural causal model. Some uncertainty
+              sources — intercepts and node-level noise — are not yet captured.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 280 floor -->
+    <div class="col">
+      <span class="cap">280 PX — THE FLOOR</span>
+      <div class="P sm">
+        <p class="zone"><span>YOUR MODEL SO FAR</span><span style="font-weight:400;letter-spacing:0">1 to verify</span></p>
+        <div class="row g-goal"><svg class="mk" viewBox="0 0 14 14"><polygon points="7,1 12.5,7 7,13 1.5,7" fill="currentColor"></polygon></svg><span class="t11" style="color:var(--muted)">Goal</span><span class="dots"><i class="d on"></i></span><span class="tally act">set ›</span></div>
+        <div class="row g-opt"><svg class="mk" viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" rx="2.5" fill="currentColor"></rect></svg><span class="t11" style="color:var(--muted)">Options</span><span class="dots"><i class="d on"></i><i class="d on"></i><i class="d on"></i></span><span class="tally">3</span></div>
+        <div class="row g-fac"><svg class="mk" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4.5" fill="currentColor"></circle></svg><span class="t11" style="color:var(--muted)">Factors</span><span class="dots"><i class="d on"></i><i class="d on"></i><i class="d on"></i><i class="d on"></i><i class="d on"></i><i class="d on"></i></span><span class="tally">6</span></div>
+        <div class="row g-risk"><svg class="mk" viewBox="0 0 12 12"><polygon points="6,1 11,11 1,11" fill="currentColor"></polygon></svg><span class="t11" style="color:var(--muted)">Risks</span><span class="dots"><i class="d on"></i><i class="d on"></i><i class="d on"></i></span><span class="tally">3</span></div>
+        <div class="row g-out"><svg class="mk" viewBox="0 0 12 12"><polygon points="6,1 10.5,3.5 10.5,8.5 6,11 1.5,8.5 1.5,3.5" fill="currentColor"></polygon></svg><span class="t11" style="color:var(--muted)">Outcomes</span><span class="dots"><i class="d on"></i><i class="d on"></i></span><span class="tally">2</span></div>
+
+        <div class="rule"></div>
+        <p class="zone">FOCUS NOW</p>
+        <div class="card lead">
+          <div class="meta"><span class="method"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v5"></path><path d="M12 16h.01"></path></svg>Define success</span></div>
+          <p class="q">What number would make this a win?</p>
+          <p class="why">Your goal carries no target, so Olumi can only compare options — not tell you if any reaches it.</p>
+          <div class="acts">
+            <button class="btn">Set the target</button>
+            <span class="icb"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3"></path></svg></span>
+          </div>
+        </div>
+
+        <div class="rule"></div>
+        <p class="zone">WHAT YOUR MODEL IMPLIES</p>
+        <div class="lens"><span class="off">Goal fit</span><span class="on">Likely outcome</span></div>
+        <div class="orow lead"><svg class="mk g-opt" viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" rx="2.5" fill="currentColor"></rect></svg><span class="oname">Founder-Led Sales</span><span class="bar"><i style="width:62%"></i></span><span class="oval">62%</span></div>
+        <div class="orow"><svg class="mk g-opt" viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" rx="2.5" fill="currentColor" opacity=".55"></rect></svg><span class="oname">Dedicated Sales Team</span><span class="bar"><i style="width:38%"></i></span><span class="oval">38%</span></div>
+        <div class="onot"><svg class="mk g-opt" viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"></rect></svg><span class="oname">Part-time SDR</span><span class="nb">not analysed</span></div>
+        <p class="t11" style="margin-top:10px">Partly on inputs Olumi estimated.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ WHAT CHANGED ══════════ -->
+<section>
+  <h2>What I changed from the approved prototype, and why</h2>
+  <p class="note">Everything else is the prototype, restored. These are the only deliberate departures.</p>
+
+  <div class="rule-row"><b>Method pills are now truthful, or absent</b>
+    <span>The prototype shows <code>Pre-mortem</code>. Today the producer emits codes our technique catalogue
+      has no member for, so a pill would be a fabricated scientific label. <b>Rule: show the method only when
+      the finding maps to a real technique</b>; otherwise the card keeps its question and its one action, and
+      says nothing it cannot support. This is the CEE ask, not a UI fix.</span></div>
+
+  <div class="rule-row"><b>Names truncate; they never rewrite</b>
+    <span>Two driver rows carry raw brief prose, cut at a <em>word</em> boundary with the full claim on hover
+      and expand — plus an explicit prompt to name them. Visibly worse than a real name, deliberately, so the
+      gap creates pressure rather than hiding.</span></div>
+
+  <div class="rule-row"><b>One staleness signal</b>
+    <span>The build fires three at once. One banner, one action, at the panel edge.</span></div>
+
+  <div class="rule-row"><b>The tornado chart is gone</b>
+    <span>It had no zero axis and its own list sat beneath it with the same four items plus exact
+      percentages. The list is the better instrument; the chart was the redundant one.</span></div>
+
+  <div class="rule-row"><b>“Focus now” leads with the target, not the hinge</b>
+    <span>The strongest available move on this model is the missing success target — it unlocks goal-fit,
+      which is the locked lens. The prototype's own logic, applied to this data.</span></div>
+
+  <div class="rule-row"><b>The strip's dots are all identical, and there is no legend</b>
+    <span><em>Reversing my own first draft.</em> Filled/hollow/half needs per-value provenance nothing
+      supplies. Every mark now means exactly “a node of this kind exists”, and the legend goes with the fill
+      it existed to explain. The <code>N to verify</code> count stays — that one <b>is</b> carried.</span></div>
+
+  <div class="rule-row" style="border-bottom:none"><b>No inputs-proportion bar</b>
+    <span><em>Also reversing my own first draft.</em> A per-factor flag is not a ratio, so the bar was an
+      invented metric. Replaced with the stated condition the build already ships — <em>“Partly on inputs
+      Olumi estimated”</em> — plus a route to <em>which ones</em>, which is answerable.</span></div>
+</section>
+
+<!-- ══════════ OPTIONS TO PICK ══════════ -->
+<section>
+  <h2>Three choices, before I encode them</h2>
+  <p class="note">Each is a real fork with no obviously right answer, and each is about to be written into
+    every card on the panel. My pick is marked, but the point is that you can hold the delivered build against
+    these three strips and see whether what shipped is what was chosen.</p>
+
+  <!-- ── A · section emphasis ── -->
+  <p class="zone" style="margin:26px 0 10px">A · WHAT REPLACES THE 2PX BORDER</p>
+  <div class="opts">
+    <div class="opt">
+      <p class="ol">A1 · Nothing but the chevron</p>
+      <div class="mini">
+        <div class="mrow open"><span class="mchev">⌄</span><b>Key insights</b><span class="mc">1</span></div>
+        <p class="t11" style="margin:7px 0 0">Sales Headcount is the hinge</p>
+      </div>
+      <p class="on2">Quietest. Open state reads from the content being there — which is how a disclosure
+        normally works.</p>
+    </div>
+    <div class="opt">
+      <p class="ol">A2 · Tinted surface <span class="pick">my pick</span></p>
+      <div class="mini">
+        <div class="mrow open tint"><span class="mchev">⌄</span><b>Key insights</b><span class="mc">1</span></div>
+        <div class="tintbody"><p class="t11" style="margin:0">Sales Headcount is the hinge</p></div>
+      </div>
+      <p class="on2">Containment by fill and radius — the prototype's own rule. Groups the section without
+        drawing a box, and survives two sections being open at once.</p>
+    </div>
+    <div class="opt">
+      <p class="ol">A3 · Left rule</p>
+      <div class="mini">
+        <div class="mrow open"><span class="mchev">⌄</span><b>Key insights</b><span class="mc">1</span></div>
+        <div class="lrule"><p class="t11" style="margin:0">Sales Headcount is the hinge</p></div>
+      </div>
+      <p class="on2">Cheapest to implement, but it is a one-sided border — the exact thing the prototype
+        bans. Included because it is what most teams reach for.</p>
+    </div>
+  </div>
+
+  <!-- ── B · card actions ── -->
+  <p class="zone" style="margin:30px 0 10px">B · THE CARD ACTION ROW</p>
+  <div class="opts">
+    <div class="opt">
+      <p class="ol">B1 · Primary + icons <span class="pick">my pick</span></p>
+      <div class="mini">
+        <div class="acts" style="margin:0"><button class="btn">Set the target</button>
+          <span class="icb s">✦</span><span class="icb s">◎</span></div>
+      </div>
+      <p class="on2">The prototype's row. One thing to do; the rest are affordances, not choices. Survives
+        280px because icons do not wrap.</p>
+    </div>
+    <div class="opt">
+      <p class="ol">B2 · Primary + named secondaries</p>
+      <div class="mini">
+        <div class="acts" style="margin:0"><button class="btn">Set the target</button>
+          <button class="b2s">Ask Olumi</button><button class="b2s">Show</button></div>
+      </div>
+      <p class="on2">More discoverable, and what the build drifted toward. But three labelled controls per
+        card × six cards is where “nothing reads as primary” came from.</p>
+    </div>
+    <div class="opt">
+      <p class="ol">B3 · Primary + overflow</p>
+      <div class="mini">
+        <div class="acts" style="margin:0"><button class="btn">Set the target</button>
+          <span class="icb s">···</span></div>
+      </div>
+      <p class="on2">Tidiest at the floor, but hides “Show on canvas”, which is the link back to the model and
+        the one people use most.</p>
+    </div>
+  </div>
+
+  <!-- ── C · truncated names ── -->
+  <p class="zone" style="margin:30px 0 10px">C · A NAME THAT IS STILL RAW BRIEF PROSE</p>
+  <div class="opts">
+    <div class="opt">
+      <p class="ol">C1 · Truncate + hover</p>
+      <div class="mini">
+        <div class="drow g-fac" style="margin:0">
+          <svg class="mk" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4.5" fill="currentColor"></circle></svg>
+          <span class="dname" title="full claim on hover">We've heard from three churned…</span>
+          <span class="dbar"><i style="width:73%"></i></span><span class="dval">73%</span>
+        </div>
+      </div>
+      <p class="on2">Holds the row rhythm exactly. But hover does not exist on touch, so the claim is
+        unreachable for some readers.</p>
+    </div>
+    <div class="opt">
+      <p class="ol">C2 · Truncate + expand <span class="pick">my pick</span></p>
+      <div class="mini">
+        <div class="drow g-fac" style="margin:0">
+          <svg class="mk" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4.5" fill="currentColor"></circle></svg>
+          <span class="dname">We've heard from three churned…</span>
+          <span class="dbar"><i style="width:73%"></i></span><span class="dval">73%</span>
+        </div>
+        <p class="t11" style="margin:5px 0 0 23px"><span class="more">show the full claim ›</span></p>
+      </div>
+      <p class="on2">Reachable everywhere, and the affordance is itself the signal that this name is not a
+        name yet. Costs one line per unnamed node — visible pressure, which is the point.</p>
+    </div>
+    <div class="opt">
+      <p class="ol">C3 · Two-line clamp</p>
+      <div class="mini">
+        <div class="drow g-fac" style="margin:0;align-items:start">
+          <svg class="mk" viewBox="0 0 10 10" style="margin-top:3px"><circle cx="5" cy="5" r="4.5" fill="currentColor"></circle></svg>
+          <span class="dname clamp">We've heard from three churned customers that they left because of missing integrations, not price</span>
+          <span class="dbar" style="margin-top:3px"><i style="width:73%"></i></span><span class="dval" style="margin-top:3px">73%</span>
+        </div>
+      </div>
+      <p class="on2">Most information, worst rhythm — rows become 34px and 52px alternating, which is the
+        raggedness Paul photographed. Rejected for that reason.</p>
+    </div>
+  </div>
+
+  <p class="note" style="margin-top:22px"><strong>How to hold the build against this:</strong> A2 + B1 + C2 is
+    what I am implementing. If the delivered panel shows a box instead of a tint, three labelled buttons
+    instead of one, or a hover-only claim, then what shipped is not what was chosen — and that gap is the thing
+    worth telling me about, more than any individual pixel.</p>
+</section>
+
+<!-- ══════════ ASK ══════════ -->
+<section>
+  <h2>What I need from you</h2>
+  <div class="ask">
+    <div class="q2">
+      <h3>1 · Is this the panel?</h3>
+      <p class="note" style="margin-top:4px">It is your prototype with <b>five</b> genuine regressions
+        reversed, the two undeliverable metrics left out, and the name/claim treatment added — tested on real
+        strings rather than tidy ones.</p>
+      <p class="rec"><strong>My recommendation:</strong> adopt it as the target, and let me convert the five
+        regressions into CI guards. <b>A type-scale guard and an action-tier guard would have caught four of
+        the five before they shipped</b> — that is the durable fix, not another manual pass.</p>
+      <p class="note" style="margin-top:8px">⚠ And note what a guard would <em>not</em> have caught: the two
+        fabricated metrics. Those were stopped by someone reading the wire and refusing. <b>No lint rule
+        substitutes for that.</b></p>
+    </div>
+    <div class="q2">
+      <h3>2 · Method pills — hold or ship without?</h3>
+      <p class="rec"><strong>My recommendation:</strong> ship without, and open the CEE ask now. A card with a
+        question and one honest action is already far better than what is deployed; waiting on the catalogue
+        would hold the whole panel for a cross-service change.</p>
+    </div>
+    <div class="q2">
+      <h3>3 · Do the two in-flight PRs still land?</h3>
+      <p class="rec"><strong>My recommendation:</strong> yes — #1138 and #1139 are finished, gated, and fix
+        real truncation and wrapping that this panel also depends on. But they are not progress against this
+        target, and I will not report them as such.</p>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<script>
+  document.querySelectorAll('[data-toggle]').forEach(function (t) {
+    t.addEventListener('click', function () {
+      t.closest('[data-sect]').classList.toggle('open')
+    })
+  })
+  var first = document.querySelector('[data-sect]')
+  if (first) first.classList.add('open')
+</script>
+
+</body><grammarly-desktop-integration data-grammarly-shadow-root="true" style="visibility: visible !important;"><template shadowrootmode="open"><style>
+      div.grammarly-desktop-integration {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+        -moz-user-select: none;
+        -webkit-user-select: none;
+        -ms-user-select:none;
+        user-select:none;
+      }
+
+      div.grammarly-desktop-integration:before {
+        content: attr(data-content);
+      }
+    </style><div aria-label="grammarly-integration" role="group" tabindex="-1" class="grammarly-desktop-integration" data-content="{&quot;mode&quot;:&quot;full&quot;,&quot;isActive&quot;:true,&quot;isUserDisabled&quot;:false}"></div></template></grammarly-desktop-integration></html>

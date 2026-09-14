@@ -285,7 +285,7 @@ describe('the undispatched-edit hold covers EVERY model-changing system event', 
  * stated on the test itself.
  */
 describe('what actually pins the model-changing set', () => {
-  it('names exactly the six mutating wire members', () => {
+  it('names exactly the seven mutating wire members', () => {
     // 2026-09-08 (schemas 0.54.0): `option_intervention_edit` joins, and it is
     // HELD for the sharpest version of the reason the others are. An option's
     // effect value is INSIDE CEE's analysis-affecting hash projection — the
@@ -293,11 +293,19 @@ describe('what actually pins the model-changing set', () => {
     // on both the node and the option carrier — so an undispatched one means a
     // freshness verdict computed about a graph the user has already changed.
     // CEE declares the kind `'mutating'`.
+    // 2026-09-11 (schemas 0.50.0 member, writer landed now): `structural_add_edge`
+    // joins, and it is HELD for the plainest version of the reason: a new causal
+    // edge is INSIDE the analysis-affecting hash projection — the published
+    // projection names `from`, `to`, `edge_type`, `exists_probability`,
+    // `effect_direction` and strength `mean`/`std` — so an undispatched one means
+    // a freshness verdict computed about a graph the user has already changed.
+    // CEE declares the kind `'mutating'`, unconditionally.
     expect([...MODEL_CHANGING_SYSTEM_EVENT_TYPES].sort()).toEqual([
       'edge_strength_edit',
       'factor_value_edit',
       'option_intervention_edit',
       'structural_add',
+      'structural_add_edge',
       'structural_delete',
       'structural_rename',
     ])
@@ -311,7 +319,7 @@ describe('what actually pins the model-changing set', () => {
     expect(
       WIRE_SYSTEM_EVENT_TYPES.filter((t) => held.has(t)).length,
       'contrast control — the partition can see the held members',
-    ).toBe(6)
+    ).toBe(7)
 
     expect(
       WIRE_SYSTEM_EVENT_TYPES.filter((t) => !held.has(t))
@@ -323,6 +331,24 @@ describe('what actually pins the model-changing set', () => {
       'direct_graph_edit',
       'edge_adjudication',
       'feedback_submitted',
+      // ⭐ THE GUARD FIRED AGAIN (2026-09-11, schemas 0.55.0) AND THIS IS THE
+      // ADJUDICATION IT DEMANDED: HELD-OUT, and pinned positively here so a
+      // later regression to held fails rather than passing quietly.
+      //
+      // A `finding_dissent` is a record of WHAT A HUMAN SAID. It writes no
+      // graph — the contract member carries no `base_graph_hash` at all, and
+      // its own comment gives the reason: five members carry that field as a
+      // STALE GATE whose rule is "CEE MUST refuse on divergence", and applying
+      // it to a dissent would refuse a true statement of what a person said
+      // because the graph had moved underneath it.
+      //
+      // ⚠ SO HOLDING WOULD BE THE LIE HERE, not the safe direction. The hold
+      // exists because a verdict computed without a pending GRAPH CHANGE is a
+      // statement about a different graph. Nothing about a dissent changes the
+      // graph, so holding on one would fabricate "Model changed since this
+      // analysis" over a run that genuinely is current — the same lie the
+      // hold exists to prevent, pointing the other way.
+      'finding_dissent',
       'patch_accepted',
       'patch_dismissed',
       'prior_range_edit',

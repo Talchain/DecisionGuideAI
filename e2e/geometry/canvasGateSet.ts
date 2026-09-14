@@ -113,6 +113,31 @@ export interface GatedTest {
  */
 export const GATED_TESTS: readonly GatedTest[] = [
   {
+    file: 'nodeControlOcclusion.measure.ts',
+    suite: 'in-node control occlusion',
+    title: 'CONTROLS DO NOT COVER CARD CONTENT @vendor-selection 1440x900',
+    catches:
+      'THE HALF `#1274` MOVED WITHOUT ITS PAIR. `BaseNode` reserves the quick-action band by hand '
+      + "— `padding: '12px 12px 24px 12px'` — and that `24` is a MIRROR of `NodeQuickActions`' own "
+      + '`bottom-1.5` + `h-5`, with nothing deriving one from the other (CLAUDE.md trap 12). '
+      + '`#1274` counter-scaled the row so its targets reach 24 RENDERED px at the parked zoom, '
+      + 'correctly fixing 80 of 117 unclickable controls — and the reservation stayed a literal 24 '
+      + 'while the row became `6 + (20 + 2) x 2 = 50` — the box and the hit slop carry the '
+      + 'counter-scale, the INSET deliberately does not, and the slop is in the sum because it '
+      + 'intercepts the click even though it paints nothing. The row then sat 26px inside the '
+      + 'card\'s own content box, covering the value a user hovers the card in order to act on. '
+      + '⭐ AND IT IS IN THE GATE BECAUSE THE GATE WAS GREEN ON THE DEFECT: `#1274`\'s head passed '
+      + '`Canvas Browser Gate` with this live. jsdom cannot see it at all (no layout: every rect is '
+      + '0x0 and an overlap of zeroes is zero), and `Visual Regression` is red estate-wide and '
+      + 'discriminates nothing — so a browser-level overlap assertion was the only instrument that '
+      + 'could. It carries a CONTRAST CONTROL whose expected answer DIFFERS (the same intersector '
+      + 'must return NON-ZERO for the row against its own card), a two-limbed NON-VACUITY floor '
+      + '(rows AND text had to exist to collide), a zoom-held assertion (the worst case is the '
+      + 'parked zoom and a drifted camera under-reports), and a NO-JUMP assertion, because a '
+      + 'reservation that appeared only on hover would clear the occlusion by moving the target '
+      + 'away from the cursor.',
+  },
+  {
     file: 'modelRowEditReflow.measure.ts',
     suite: 'model row edit reflow',
     title: 'MODEL ROW EDIT REFLOW @dock 280px',
@@ -152,6 +177,31 @@ export const GATED_TESTS: readonly GatedTest[] = [
       + '⭐ AND IT IS IN THE GATE BECAUSE ITS SOURCE COMMENT CLAIMED IT WAS — the file ran in zero '
       + 'CI jobs while `valueCellMetrics.ts` told the next lane a browser test had them covered.',
   },
+  ...([280, 416] as const).map((width) => ({
+    file: 'modelRowEditReflow.measure.ts',
+    suite: 'model row edit reflow',
+    title: `MODEL RELATIONSHIP BAND REFLOW @dock ${width}px`,
+    catches:
+      'THE THIRD EDITOR, WHICH THE TWO ARMS ABOVE WERE STRUCTURALLY BLIND TO — and the product '
+      + 'source said so before this was closed. They take `buttons[0]` under `[data-kind="factor"]`, '
+      + 'and four node groups render before `relationships`, so the relationship editor\'s quick-set '
+      + 'strength pills were measured by NOTHING: derived at `9574b5c4`, `relationship` appears in '
+      + '0 files under `e2e/geometry/` while the contrast control `factor` appears in 12. '
+      + 'MEASURED BEFORE THE FIX: entering edit grew the row +80.0px at 280 AND at 416, against the '
+      + 'factor arm\'s 50.5px bound — 54px of it three 14px pills stacked onto THREE lines '
+      + '(`distinctTops: 3`) inside an 80px block, because three pills need 178.6px and grid track 3 '
+      + 'is `fit-content(5.5rem)` = 88px. '
+      + '⭐⭐ AND IT REFUTES THE INFERENCE THE FACTOR ARM\'S COMMENT INVITED. That comment read '
+      + 'width-independence as proof of disclosure rather than wrapping; this defect is WRAPPING and '
+      + 'its cost is identical at both widths, because track 3\'s width does not follow the dock '
+      + '(measured templates differ only in track 2). So the wrap is asserted DIRECTLY — '
+      + '`distinctTops === 1`, plus a per-pill client-rect count, because three pills on one line '
+      + 'whose labels wrap inside their own borders is a SECOND harm a height bound cannot '
+      + 'distinguish (trap 22b). '
+      + '⚠ AND IT HAS A FLOOR BOUND BY IDENTITY: each pill is asserted visible by its own testid, '
+      + 'because the cheapest way to make any height bound green is to delete the controls — and '
+      + 'the controls are the capability Paul ruled "really simple, quick, and easy clickable".',
+  })),
   {
     file: 'nodeKeyboardBleed.measure.ts',
     suite: 'in-node keyboard bleed',
@@ -435,6 +485,44 @@ export const DELIBERATE_EXCLUSIONS: readonly DeliberateExclusion[] = [
       '(CLAUDE.md trap 13c). Rowed in the PR.',
   },
   {
+    what: 'coachingLineDensity.measure.ts (3 cells, ~43s) — the compact coaching line (#1450)',
+    why:
+      'Same claim-type test: `grep -c \'expect(\' ` returns 0. It emits two `COACHJSON {...}` ' +
+      'lines and two photographs and asserts nothing about them, so gating it would add an arm ' +
+      'that cannot go red for a product reason. ⭐ ITS FINDINGS ARE GATED ELSEWHERE, WHICH IS WHY ' +
+      'EXCLUDING IT COSTS NOTHING: the defect it caught — a `v5_review_card` collapsing to the ' +
+      'same `Lightbulb`/`text-info` as every other severity, because the line read `category` ' +
+      'and a review card carries `severity` — is pinned by ' +
+      '`coachingLineSeverityChannel.spec.tsx` in the main suite, built from the same dated ' +
+      'capture through the same shipped adapter. What only this file can do is the part jsdom ' +
+      'cannot: report that three top-level points cost 476px as cards and 101px as lines, that ' +
+      'no title clips at the real 416px dock width, and — by PHOTOGRAPH — that no disclosure ' +
+      'triangle is drawn. That last one is why the photo exists: ' +
+      '`getComputedStyle(summary, \'::-webkit-details-marker\')` reported a marker on all three ' +
+      'lines, and it is a legacy pseudo this engine does not implement, so the query answered ' +
+      'about the element. A reading no assertion should ever be built on.',
+  },
+  {
+    what: 'coachingLineLook.measure.ts + evidenceLook.measure.ts (5 cells, ~80s) — PHOTOGRAPHS of the coaching list',
+    why:
+      'Same claim-type test: neither asserts anything a product change can redden — the second ' +
+      'carries one `expect` and it is a PRECONDITION on the fixture (the capture must contain a ' +
+      'v5_evidence block at all), not a claim about the product. They exist because NOTHING in ' +
+      'this repo had ever LOOKED at a rendered assistant turn: `e2e/visual/` contains zero ' +
+      'occurrences of assistant/coaching/v5_evidence/review_card, so the visual suite cannot ' +
+      'reach this surface, and both defects in the #1450 lane were caught by a human\'s ' +
+      'screenshot rather than by CI. ⭐ WHAT ONLY THESE CAN DO: they found that two producer ' +
+      'blocks sharing a title ("A load-bearing assumption" x2 in the walkA capture) become ' +
+      'INDISTINGUISHABLE once compressed to a title-only line, where as full cards their ' +
+      'differing bodies told them apart. No assertion in the suite can see that, because it is ' +
+      'not a property of one block — it is a property of the LIST. ' +
+      '⛔ DELIBERATELY NOT GATED, and not promotable to pixel references: the pinned Playwright ' +
+      'build has no browser in this image, so they launch the installed 1194 chrome via ' +
+      '`executablePath`. That is a different renderer build, and `playwright.visual.config.ts` ' +
+      'records a measured 6.157% divergence from a single font substitution. These are for ' +
+      'ADJUDICATING layout and tone by eye, never for diffing.',
+  },
+  {
     what: 'canonicalGeometry.measure.ts (15 cells, 44.8s), overlapSequence.measure.ts, threadAutoScroll.measure.ts, nodeMarkCensus.measure.ts (31.7s)',
     why:
       'Same claim-type test. Each says so in its own header — "a MEASUREMENT instrument, not a ' +
@@ -622,6 +710,22 @@ export const DELIBERATE_EXCLUSIONS: readonly DeliberateExclusion[] = [
    * ⚠ ubuntu RUNS ~1.9x DARWIN ON THIS SUITE, derived from the three arms
    * measured on both (41.2 -> 78s, 6.2 -> 9.3s, 6.9 -> 8.7s) and applied at the
    * WORST of those ratios. Do not convert darwin numbers with a friendlier one.
+   *
+   * ⭐ 25 -> 27 ARMS: the two `MODEL RELATIONSHIP BAND REFLOW` arms measured
+   * **5.4s and 5.5s darwin** in a clean run (6.7s / 10.7s in a contended one), so
+   * ~21s darwin at the worst reading and **~40s ubuntu** at the 1.9x multiplier.
+   * Against the ~441s the 25-arm job implies (back-derived from this section's own
+   * "admitting draftFitCameraOwnership takes the job to ~544s" with its 103s), the
+   * job lands near **481s against the 600s budget**, ~119s of headroom. The named
+   * next admission is unaffected: 481 + 103 = 584s still fits, barely, and the
+   * warning about runner variance still applies to it.
+   *
+   * ⚠ AND WHAT IS *NOT* A MEASUREMENT HERE, because this section is exactly where
+   * such a number would be inherited: a whole-gate run on this lane read **5.5m
+   * darwin for 27 arms**, but a typecheck gate was running concurrently on the same
+   * machine. That reading is CONTENDED and is NOT evidence about the job's cost. It
+   * is recorded only so nobody re-derives 5.5m x 1.9 = 627s and concludes the
+   * budget is blown. The per-arm figures above are from uncontended runs.
    */
   {
     what: 'draftFitCameraOwnership.measure.ts (5 arms, 54.4s darwin ≈ 103s ubuntu) — green at the base, genuinely assertive',

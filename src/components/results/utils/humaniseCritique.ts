@@ -68,7 +68,18 @@ export const CEE_OWNED_CRITIQUE_CODES: ReadonlySet<string> = new Set([
 
 // ─── Code → template map ─────────────────────────────────────────────────────
 
-type TemplateFactory = (factorLabel: string) => Omit<HumanisedCritique, 'factorId' | 'displayText'>
+/**
+ * ⚠ `labelIsGenuine` IS NOT OPTIONAL INFORMATION — IT IS THE WHOLE GUARD.
+ * `resolveFactorLabel` returns a label in every case: a real one from the
+ * store, else `factorIdToLabel(nodeId)` — which for `c591da5e` is the string
+ * "C591da5e" — else "This factor". Only the first is safe to print. A template
+ * that interpolates `factorLabel` without checking this flag will publish an
+ * engine identifier as prose, which is the defect this module exists to stop.
+ */
+type TemplateFactory = (
+  factorLabel: string,
+  labelIsGenuine: boolean,
+) => Omit<HumanisedCritique, 'factorId' | 'displayText'>
 
 const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   MISSING_OBSERVED_STATE: (label) => ({
@@ -182,7 +193,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // the withheld number itself.
   CONSTRAINT_TARGET_UNRELIABLE: (label) => ({
     title: `${label}'s success target can't be evaluated reliably`,
-    description: 'The value needed to assess this target is missing or unscaled, so goal-fit results were withheld for this run rather than shown as a meaningless number.',
+    description: 'The value needed to assess this target is missing or unscaled, so the probability of reaching it was withheld for this run rather than shown as a meaningless number.',
     suggestion: `Set a value or range for ${label}`,
   }),
   // 1.52 follow-up — producer WARNING-severity codes (PLoT constraint
@@ -250,14 +261,179 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // The fix is deliberately the smallest one that closes it — the ratified
   // title and the ratified suggestion, both VERBATIM, joined so the remedy is
   // on the surface that renders. No approved wording is rewritten here.
+  //
+  // ⚠⚠ AND THAT REMEDY WAS A FALSE PRESCRIPTION — INSTRUCTION REMOVED, and the
+  // two paragraphs above are left as said because they record why it was put
+  // there. "State the current level for your goal" told the user to do
+  // something the product gives them NO WAY TO DO. Measured at UI `staging`
+  // 67b04e5b: `GoalPanel.tsx` (881 lines) holds ZERO `observed_state`
+  // references — contrast control in the same sweep, 31 hits for `target`, so
+  // the zero is real absence and not a blind instrument — and
+  // `GoalThresholdEditor.tsx` (105 lines) holds zero too, contrast 6: it is a
+  // TARGET editor only. The canvas projection's one `observed_state` writer
+  // (`readinessStore.ts:379`) is gated `nodeKind === 'factor'` and emits
+  // `value`/`raw_value`, never `baseline` and never for the goal. Worse, the
+  // starter drafts' own `fix_hint` points at the goal node's
+  // `observed_state.value` — precisely the field ISL refuses, on the stated
+  // grounds that repurposing "the current observed value" would be a second
+  // unattested frame assumption.
+  //
+  // ⭐ THE TWO FACTS STAY; THE INSTRUCTION GOES. The old wording also invited
+  // the WRONG reading — "we could not find your target" — when ISL's resolver
+  // is fail-closed (`if threshold is None: return None, None`), so NO threshold
+  // means SILENCE, not this warning. This warning firing is positive evidence
+  // the target DID arrive. So the copy now states the capture as a fact and the
+  // withhold as a fact, and prescribes nothing: an instruction that cannot be
+  // followed is worse than no instruction, and inventing a different one would
+  // just move the lie.
+  //
+  // ⭐ WIRE-WITNESSED on staging--olumi.netlify.app at 67b04e5b (fresh guest,
+  // 8 keys cleared from /version.json; draft 200 in 54.9s, deliberate rerun 200
+  // in 12.1s; two independent captures carried byte-identical arrays). The run
+  // emitted, verbatim:
+  //   code:    GOAL_THRESHOLD_NOT_CONVERTIBLE
+  //   field:   nodes[b4014d90].observed_state.baseline
+  //   message: "A 'level' frame requires goal node 'b4014d90' to carry
+  //             observed_state.baseline to convert the level into the samples'
+  //             frame, but it carries no observed_state at all."
+  // So the reason IS the missing goal baseline, and the engine is blunter than
+  // the old copy was: the goal node carries NO observed_state AT ALL, while the
+  // copy asked only for "the current level". The same run also confirms the
+  // target arrived — the goal node read "Target: 12 months / Target set."
+  //
+  // ⚠ SCOPE OF ONE ABSENCE, STATED NARROWLY (trap 20). The token
+  // `missing_goal_baseline` named in the paragraph above does NOT appear in any
+  // of the 13 captured payloads — the warning object's keys are exactly
+  // {code, message, severity, field}, with no reason/enum field — while two
+  // contrast controls in the same sweep (`GOAL_THRESHOLD_NOT_CONVERTIBLE`,
+  // `observed_state.baseline`) both fired, so that zero is real absence and not
+  // a blind probe. That refutes only the claim that the token reaches the WIRE.
+  // It says nothing about ISL's internal `refuse()` reason names, which is what
+  // the paragraph was describing and which this capture was not pointed at.
+  //
+  // → ROADMAP 2.281 is the missing producer: nothing writes the goal node's
+  //   `observed_state.baseline`. WHEN 2.281 LANDS AND A GOAL CURRENT-LEVEL
+  //   EDITOR EXISTS, THE INSTRUCTION BECOMES LEGITIMATE AND SHOULD COME BACK.
+  //   `goalThresholdNoUnreachableInstruction.spec.ts` pins the absence TO ITS
+  //   REASON rather than to a literal, so it REDs the day a goal editor gains
+  //   an `observed_state` writer — that red is the signal to restore it, not a
+  //   regression. No flag, no second code path, and the withhold gate itself is
+  //   untouched.
+  //
+  // ══════════════════════════════════════════════════════════════════════════
+  // ⚠⚠ AND THE SENTENCE ALSO BLAMED THE TARGET, ON THE SAME SCREEN THAT WAS
+  // DISPLAYING IT. Second measurement, independent of the one above: Netlify
+  // deploy `6aa1fdec0d71200008252154` (UI `9eb30b54`) at 2026-09-10T02:05:56Z,
+  // fresh guest, Reasoning tab rendered within three lines of each other:
+  //
+  //   "Your goal's target couldn't be measured for this run. State the
+  //    current level for your goal."          <- this template's old title
+  //   grow monthly recurring revenue to at least £250k by March
+  //   Options 3 · Factors 3 · Risks 1 · Outcomes 1
+  //   "Target £250,000 · From brief · Change"  <- the same tab, same screen
+  //
+  // The same turn's wire carried `goal_threshold_raw: 250000`,
+  // `goal_threshold_unit: "£"` and `goal_target_stated: true`. A reader
+  // scanning this concluded their number had not been captured, while the tab
+  // displayed it. So there were TWO harms in one string: a false ATTRIBUTION
+  // and a false PRESCRIPTION. They are closed together here.
+  //
+  // ⭐ WHY THE FALSE ATTRIBUTION IS FALSE ON THE WHOLE DOMAIN, NOT JUST ON
+  // THAT RUN. Derived at ISL `staging` 7781ca4f (2026-09-01),
+  // `robustness_analyzer_v2.py`: the nine `refuse()` sites of the shared
+  // engine `_resolve_threshold_in_sample_frame` (:3818) are the complete
+  // range - `missing_goal_baseline` (:3970, the common one, and the one the
+  // capture above witnessed), `goal_pinned_by_intervention` (:3932),
+  // `root_goal` (:3944), `goal_parameter_uncertainty_shifts_base` (:3956),
+  // `goal_values_outside_normalised_domain` (:4027),
+  // `epsilon_breaks_status_quo_reference` (:4076),
+  // `auto_scaled_noise_breaks_status_quo_reference` (:2218, flag-off), plus
+  // `goal_node_missing` (:3922) and `non_finite_conversion_input` (:3995),
+  // both API-unreachable by the producer's own validators.
+  // NOT ONE OF THEM MEANS THE TARGET WAS NOT CAPTURED, and the producer makes
+  // that structural: `if threshold is None: return None, None` (:3745-3749),
+  // so a missing target discloses NOTHING (pinned producer-side by
+  // `test_no_threshold_requested_is_silent`). Every refusal fires with the
+  // user's number in hand and echoes it in `detail["goal_threshold"]`.
+  //
+  // ⭐ SO THERE IS NOTHING TO NAME APART HERE (trap 21). "Can this also fire
+  // when there genuinely is no target?" is answered NO by construction, so the
+  // copy may presuppose a target: that presupposition holds on every path.
+  // The separate `Target not captured` chip (`GoalNode.GOAL_NO_TARGET_STATE`)
+  // owns the genuinely-absent case and is a different surface with a different
+  // trigger; it did not render on this run because a target existed.
+  //
+  // ⭐ WHY THE TITLE NOW NAMES THE COMPARISON AND NOT MERELY "fit". The eight
+  // reachable reasons are indistinguishable on this side of the wire - the
+  // UI's `InferenceWarning` (`types.ts:985-1000`) carries no `detail`, so no
+  // `reason` - so one sentence has to be true of all eight. What all eight
+  // share is that the number arrived and could not be placed against where the
+  // goal stands today. "couldn't measure fit against it" is true but names no
+  // missing quantity, which leaves the reader nothing to understand; naming
+  // the comparison is the most the wire supports without inventing a cause.
+  // `CONSTRAINT_NOT_CONVERTIBLE`'s title (:409) already said exactly this for
+  // the per-constraint twin, on the SAME producer rules, so this mints no new
+  // vocabulary: the two family members now read as one.
+  //
+  // ⛔ AND THE INSTRUCTION STAYS OUT, on the evidence in the block above. A
+  // separate check of the Reasoning tab's model strip found a goal editor that
+  // does exist - `SuccessTargetLine.tsx` writes `success_threshold` through
+  // `setGoalThresholdAndUpdateNode` - but that writes the TARGET, not the
+  // current level, and `clientCanWriteReadableGraph()` returns a hardcoded
+  // `false` (`src/lib/clientGraphWritePolicy.ts:55`) so the edit does not
+  // survive a reload. Neither fact makes "state the current level" reachable.
+  // A remedy pointing at a control whose effect evaporates on reopen is worse
+  // than none, because the user believes it worked.
+  // ══════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════
+  // ⭐⭐ WHY THIS NAMES A QUANTITY AND NOT "goal-fit results" (trap 21).
+  // WITNESSED on served `475ee1c7`, Reasoning tab, one screen: this template's
+  // title rendered "…so goal-fit results were withheld rather than guessed"
+  // directly above "Most likely to serve your goal / Extend Shift Hours at the
+  // Existing Site / Scored highest in 48% of simulated futures". The same
+  // turn's `analysis_result` carried `leading_option_id` and `win_probabilities`
+  // with `permitted_analysis_mode: comparative_leader`.
+  //
+  // BOTH STATEMENTS WERE TRUE. They answer different questions: the absolute
+  // probability of REACHING THE TARGET (genuinely withheld here) and the
+  // COMPARATIVE RANKING (genuinely produced, licensed by a separate gate).
+  // "goal-fit results" is broad enough to cover the second, so the sentence
+  // over-claimed the scope of its own withhold and the panel read as
+  // self-contradicting on its primary surface.
+  //
+  // ⛔ THE FIX IS THE NAME, NOT THE GATE. Nothing here suppresses the ranking
+  // and nothing deletes the notice; "rather than guessed" stays because the
+  // sentence's job is to say the silence is DELIBERATE.
+  //
+  // ⚠ "probability" ALONE WOULD NOT HAVE SEPARATED THEM — "Scored highest in
+  // 48% of simulated futures" is also a probability. The discriminator is what
+  // it is a probability OF, so the copy names the target.
+  //
+  // ⭐ THE ESTATE ALREADY RATIFIED THIS NAMING ON THE CANVAS: ROADMAP 2.275
+  // closed the identical shape on `GoalNode` (`GoalNode.tsx:744-761`), where a
+  // node denied a goal probability while per-option goal-fit figures rendered
+  // from the same report. Same resolution, reused rather than re-minted.
+  //
+  // DERIVED, NOT ASSUMED: `licensesComparativeLeaderClaim`
+  // (`canvas/hooks/useAnalysisReady.ts:170-174`) reads ONLY
+  // `admission.permitted_analysis_mode` and never `inference_warnings`, so a
+  // goal-threshold refusal cannot withdraw the comparative claim. The
+  // co-render is reachable BY CONSTRUCTION, not a one-off capture, and it is
+  // true of ALL of this code's reachable refusal reasons (enumerated above):
+  // every one of them fails to resolve the threshold into the samples' frame,
+  // and not one of them touches the ranking.
+  // `analysisNew/__tests__/goalWithholdNamesTheQuantity.spec.tsx` pins it.
+  // ══════════════════════════════════════════════════════════════════════════
   GOAL_THRESHOLD_NOT_CONVERTIBLE: () => ({
-    title: "Your goal's target couldn't be measured for this run. State the current level for your goal.",
-    description: 'The target couldn\'t be compared with where the goal stands today — for example when no current level is recorded for it — so goal-fit results were withheld rather than guessed.',
-    suggestion: 'State the current level for your goal',
+    title:
+      "Your goal's target was recorded, but it couldn't be compared with where the goal stands today, so the probability of reaching it was withheld rather than guessed.",
+    description:
+      "Your target was captured. What this run couldn't do is compare it with where the goal stands today, for example when no current level is recorded for the goal. The probability of reaching your target was withheld rather than guessed.",
+    // No suggestion: there is no action the user can take until ROADMAP 2.281.
   }),
   GOAL_THRESHOLD_FRAME_UNSPECIFIED: () => ({
     title: "Your goal's target could mean a level or a change. Restate the target as a level to reach or a change from your current level.",
-    description: "The target doesn't say whether it's a level to reach or a change from today, so goal-fit results were withheld for this run rather than guessed.",
+    description: "The target doesn't say whether it's a level to reach or a change from today, so the probability of reaching it was withheld for this run rather than guessed.",
     suggestion: 'Restate the target as a level to reach or a change from your current level',
   }),
 
@@ -306,7 +482,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // Reasons: request_budget_exhausted | e_value_budget_exceeded.
   E_VALUES_UNAVAILABLE: () => ({
     title:
-      'The check on how wrong your assumptions could be before the recommendation changes didn\'t run — the analysis hit its time limit. Your results stand; re-run to add it.',
+      'The check on how wrong your assumptions could be before the recommendation changes didn\'t run. The analysis hit its time limit. Your results stand; re-run to add it.',
     description:
       'E-value analysis was skipped for time. It does not affect the recommendation, the probabilities, or anything else already shown.',
   }),
@@ -317,7 +493,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // unavailable" is still a budget story, never a model one.
   STABILITY_BANDS_UNAVAILABLE: () => ({
     title:
-      'The confidence bands around the tipping points didn\'t run — the analysis hit its time limit. Your results stand; re-run to add them.',
+      'The confidence bands around the tipping points didn\'t run. The analysis hit its time limit. Your results stand; re-run to add them.',
     description:
       'Flip-stability bands ride on the E-value sweep, which the request budget could not fund. Nothing else shown is affected.',
   }),
@@ -326,7 +502,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // All-or-nothing at the producer, so this is never a partial set.
   FACTOR_FLIPS_UNAVAILABLE: () => ({
     title:
-      'How far each factor would have to move to change the recommendation wasn\'t computed — the analysis hit its time limit. Your results stand; re-run to add it.',
+      'How far each factor would have to move to change the recommendation wasn\'t computed. The analysis hit its time limit. Your results stand; re-run to add it.',
     description:
       'Factor-flip analysis was omitted whole rather than part-computed. Nothing else shown is affected.',
   }),
@@ -334,7 +510,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // Reasons: request_budget_exhausted | path_decomposition_budget_exceeded.
   PATH_DECOMPOSITION_UNAVAILABLE: () => ({
     title:
-      'The breakdown of which causal pathways drive the result didn\'t run — the analysis hit its time limit. Your results stand; re-run to add it.',
+      'The breakdown of which causal pathways drive the result didn\'t run. The analysis hit its time limit. Your results stand; re-run to add it.',
     description:
       'Path decomposition was omitted whole rather than part-computed. Nothing else shown is affected.',
   }),
@@ -353,7 +529,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     title:
       'Which unknowns most affect each option\'s chance of hitting your goal wasn\'t computed. Your results stand; re-run, and if it repeats check each success target says whether it\'s a level or a change.',
     description:
-      'Win-probability sensitivity was skipped — either the request budget ran out, or a goal constraint could not be resolved into its target\'s frame. The rest of the analysis is unaffected.',
+      'Win-probability sensitivity was skipped. Either the request budget ran out, or a goal constraint could not be resolved into its target\'s frame. The rest of the analysis is unaffected.',
   }),
 
   // Reason: estimator_error. NOT a budget case — re-running an identical model
@@ -361,7 +537,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // will work.
   FACTOR_EVPPI_UNAVAILABLE: () => ({
     title:
-      'Olumi couldn\'t rank what\'s most worth learning next for this run. Your results stand; re-run — if it repeats, this ranking can\'t be produced for this model.',
+      'Olumi couldn\'t rank what\'s most worth learning next for this run. Your results stand; re-run. If it repeats, this ranking can\'t be produced for this model.',
     description:
       'The per-factor value-of-information estimator failed and the ranking was omitted rather than shown with unreliable ordering.',
   }),
@@ -380,7 +556,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // Reason: compute_error. Same posture as FACTOR_EVPPI_UNAVAILABLE.
   FACTOR_EVPC_UNAVAILABLE: () => ({
     title:
-      'How much it would be worth being able to control each factor wasn\'t computed. Your results stand; re-run — if it repeats, this model can\'t produce it.',
+      'How much it would be worth being able to control each factor wasn\'t computed. Your results stand; re-run. If it repeats, this model can\'t produce it.',
     description:
       'Value-of-control estimation failed and was omitted rather than shown as an unreliable number.',
   }),
@@ -398,7 +574,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
     title:
       'One of your success targets couldn\'t be compared with where its factor stands today, so its goal-fit was withheld rather than guessed. State that factor\'s current level.',
     description:
-      'The target could not be resolved into its factor\'s measurement frame — for example when no current level is recorded for it.',
+      'The target could not be resolved into its factor\'s measurement frame, for example when no current level is recorded for it.',
     suggestion: 'State the current level for that factor',
   }),
   CONSTRAINT_FRAME_UNSPECIFIED: () => ({
@@ -413,9 +589,15 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // defaulted to 0.0, so "goal-level probabilities partially rest on
   // placeholder zeros". PARTIALLY is load-bearing — the result is degraded,
   // not void.
-  GOAL_ANCESTOR_DATA_GAP: () => ({
-    title:
-      'Some starting factors feeding your goal have no value recorded, so part of your goal\'s probability rests on placeholder zeros. Add current values for those factors.',
+  // ⚠ `field` NAMES THE GOAL, NOT THE ANCESTORS. The producer's message quotes
+  // the root ancestor ids in prose; those stay unread — parsing them would be
+  // the banned route, and they are the ids of nodes this sentence is not about.
+  // What the structured field carries is the GOAL node, so that is what gets
+  // named, and the sentence keeps saying "some starting factors" for the rest.
+  GOAL_ANCESTOR_DATA_GAP: (label, genuine) => ({
+    title: genuine
+      ? `Some starting factors feeding ${label} have no value recorded, so part of its probability rests on placeholder zeros. Add current values for those factors.`
+      : 'Some starting factors feeding your goal have no value recorded, so part of your goal\'s probability rests on placeholder zeros. Add current values for those factors.',
     description:
       'The goal is still scored from its forward-propagated distribution, but some of what feeds it is a placeholder rather than a measurement.',
     suggestion: 'Add current values for the starting factors that feed your goal',
@@ -442,41 +624,41 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
 
   RANGE_OPEN_ENDED: () => ({
     title:
-      'A range you stated has only one end, which doesn\'t pin down a distribution — the value is still used as you confirmed it. State both ends.',
+      'A range you stated has only one end, which doesn\'t pin down a distribution. The value is still used as you confirmed it. State both ends.',
     description:
       'Open-ended statements ("at least X" / "no more than X") plus a coverage do not determine a distribution, so no distribution was fitted.',
     suggestion: 'State both ends of the range',
   }),
   RANGE_INVALID_ORDER: () => ({
     title:
-      'A range you stated runs from high to low, so it wasn\'t used — the value is still used as you confirmed it. Restate it lowest first.',
+      'A range you stated runs from high to low, so it wasn\'t used. The value is still used as you confirmed it. Restate it lowest first.',
     description:
       'The bounds are never silently swapped: order is part of what was said, and an inverted range is more likely a slip worth seeing than a convention to normalise.',
     suggestion: 'Restate the range with the lower bound first',
   }),
   RANGE_ZERO_WIDTH: () => ({
     title:
-      'A range you stated has the same number at both ends, so there\'s no uncertainty to fit — the value is still used as you confirmed it. Give it some width, or leave it as a single value.',
+      'A range you stated has the same number at both ends, so there\'s no uncertainty to fit. The value is still used as you confirmed it. Give it some width, or leave it as a single value.',
     description:
       'A zero-width range asserts a certainty this method cannot represent; a single confirmed value is the way to express that.',
     suggestion: 'Give the range some width, or leave the value as confirmed',
   }),
   RANGE_NON_FINITE: () => ({
     title:
-      'A range you stated isn\'t a pair of finite numbers, so it wasn\'t used — the value is still used as you confirmed it. Restate it with two numbers.',
+      'A range you stated isn\'t a pair of finite numbers, so it wasn\'t used. The value is still used as you confirmed it. Restate it with two numbers.',
     description: 'Range bounds must both be finite numbers; they are never silently skipped.',
     suggestion: 'Restate the range with two finite numbers',
   }),
   RANGE_OUT_OF_DOMAIN: () => ({
     title:
-      'A range you stated falls outside what that quantity can be, so it wasn\'t used — the value is still used as you confirmed it. Restate it within the factor\'s range.',
+      'A range you stated falls outside what that quantity can be, so it wasn\'t used. The value is still used as you confirmed it. Restate it within the factor\'s range.',
     description:
       'The stated bounds lie outside the quantity\'s declared domain. They are never clamped, because clamping would invent a different range from the one you stated.',
     suggestion: 'Restate the range within the quantity\'s domain',
   }),
   RANGE_AT_DOMAIN_EDGE: () => ({
     title:
-      'A range you stated sits exactly on the edge of what that quantity can be, which no distribution can fit — the value is still used as you confirmed it. Move the bound just inside.',
+      'A range you stated sits exactly on the edge of what that quantity can be, which no distribution can fit. The value is still used as you confirmed it. Move the bound just inside.',
     description:
       'No distribution in this family can place a quartile exactly at the edge of its support. Bounds very close to the edge are legitimate and are fitted normally.',
     suggestion: 'Move the bound just inside the edge',
@@ -485,7 +667,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // user stated, so the route is about the range, not about re-running.
   RANGE_FIT_NONCONVERGENT: () => ({
     title:
-      'Olumi couldn\'t fit a distribution to one of the ranges you stated — the value is still used as you confirmed it. Try slightly wider bounds.',
+      'Olumi couldn\'t fit a distribution to one of the ranges you stated. The value is still used as you confirmed it. Try slightly wider bounds.',
     description:
       'The fit did not converge for this range. No fallback distribution is invented, because a minted distribution wearing real provenance would be worse than none.',
     suggestion: 'Try slightly wider bounds',
@@ -495,12 +677,22 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // A value was defaulted, or a modelling rule applied. These are info-severity
   // at the producer and surface in the Advanced list, not the top strip.
 
-  ROOT_NODE_DEFAULT_VALUE: () => ({
-    title:
-      'A starting factor has no current value recorded, so zero was assumed — anything downstream of it may be unreliable. Add its current value.',
+  // ⭐ NAMED WHEN THE STORE KNOWS THE NAME, UNCHANGED OTHERWISE.
+  // A run raises this once PER ROOT, so a model with two unset roots printed
+  // this sentence twice, word for word — the reader could see that something
+  // was wrong and not which factor, which is the one thing that would let them
+  // fix it. The id arrives on `field` (`nodes[<id>].observed_state.value`,
+  // measured DISTINCT on 6/6 captured entries); `nodeIdFromField` reads it and
+  // the store resolves the name. Unresolved, this is byte-identical to before.
+  ROOT_NODE_DEFAULT_VALUE: (label, genuine) => ({
+    title: genuine
+      ? `${label} has no current value recorded, so zero was assumed. Anything downstream of it may be unreliable. Add its current value.`
+      : 'A starting factor has no current value recorded, so zero was assumed. Anything downstream of it may be unreliable. Add its current value.',
     description:
       'The producer defaults an unspecified root value to 0.0 and says so rather than hiding it. Results for downstream factors inherit that assumption.',
-    suggestion: 'Add the current value for that starting factor',
+    suggestion: genuine
+      ? `Add the current value for ${label}`
+      : 'Add the current value for that starting factor',
   }),
   CONSTRAINT_NODE_DEFAULT_BASE: () => ({
     title:
@@ -513,7 +705,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // still a route: it tells the reader what to do with what they are seeing.
   CONSTRAINT_SAMPLES_UNNOISED: () => ({
     title:
-      'Some success-target factors didn\'t get the extra real-world variation applied to your goal, so their probabilities reflect model variation only — read them as more confident than they are.',
+      'Some success-target factors didn\'t get the extra real-world variation applied to your goal, so their probabilities reflect model variation only. Read them as more confident than they are.',
     description:
       'Auto-scaled noise was applied to the goal samples but not to these constraint samples, so the two are not on the same footing.',
   }),
@@ -528,7 +720,7 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // reader to stop looking for something to fix.
   GOAL_PU_BASE_ADDITIVE: () => ({
     title:
-      'Your goal\'s own uncertainty is added on top of what the factors feeding it contribute, rather than replacing it — this is how its range is built, and no action is needed.',
+      'Your goal\'s own uncertainty is added on top of what the factors feeding it contribute, rather than replacing it. This is how its range is built, and no action is needed.',
     description:
       'Each sample draws a base from the goal\'s own distribution and adds the parents\' propagated contribution. The goal is shifted by that base, not pinned to it.',
   }),
@@ -637,18 +829,19 @@ function factorIdToLabel(factorId: string): string {
  */
 function resolveFactorLabel(
   item: UncertaintyItem,
-  nodeLabels?: Map<string, string>,
-): { label: string; factorId?: string } {
+  nodeLabels?: ReadonlyMap<string, string>,
+): { label: string; factorId?: string; genuine: boolean } {
   const nodeId = item.affectedNodes?.[0]
   if (nodeId && nodeLabels?.has(nodeId)) {
-    return { label: nodeLabels.get(nodeId)!, factorId: nodeId }
+    // The ONLY branch that yields a name a user wrote or recognises.
+    return { label: nodeLabels.get(nodeId)!, factorId: nodeId, genuine: true }
   }
   if (nodeId) {
     // V12.2: Derive label from ID instead of generic fallback
-    return { label: factorIdToLabel(nodeId), factorId: nodeId }
+    return { label: factorIdToLabel(nodeId), factorId: nodeId, genuine: false }
   }
 
-  return { label: FALLBACK_LABEL }
+  return { label: FALLBACK_LABEL, genuine: false }
 }
 
 // ─── Main function ───────────────────────────────────────────────────────────
@@ -662,9 +855,9 @@ function resolveFactorLabel(
  */
 export function humaniseCritique(
   item: UncertaintyItem,
-  nodeLabels?: Map<string, string>,
+  nodeLabels?: ReadonlyMap<string, string>,
 ): HumanisedCritique {
-  const { label: factorLabel, factorId } = resolveFactorLabel(item, nodeLabels)
+  const { label: factorLabel, factorId, genuine: labelIsGenuine } = resolveFactorLabel(item, nodeLabels)
 
   // Lane 3 (ROADMAP 2.358): for the codes whose display copy is OWNED by
   // CEE's critique pipeline, a clean `userMessage` wins over any UI template.
@@ -699,7 +892,7 @@ export function humaniseCritique(
   // Try mapped template
   const template = CODE_TEMPLATES[item.code]
   if (template) {
-    const result = template(factorLabel)
+    const result = template(factorLabel, labelIsGenuine)
     const displayText = INTERNAL_TOKEN_REGEX.test(result.title) ? null : result.title
     return { ...result, displayText, factorId }
   }
@@ -719,7 +912,7 @@ export function humaniseCritique(
   // net for a mis-coded one, and it now lands on the same sentence that row
   // would have got.
   if (/no derivable range/i.test(item.message)) {
-    const result = CODE_TEMPLATES.CONSTRAINT_MISSING_RANGE(factorLabel)
+    const result = CODE_TEMPLATES.CONSTRAINT_MISSING_RANGE(factorLabel, labelIsGenuine)
     const displayText = INTERNAL_TOKEN_REGEX.test(result.title) ? null : result.title
     return { ...result, displayText, factorId }
   }
@@ -777,7 +970,7 @@ export function humaniseCritique(
   return {
     title: 'Part of this analysis was limited',
     description:
-      'Olumi\'s engine reported a condition this version has no wording for yet. Nothing has been hidden — the raw code is listed in the run\'s audit details.',
+      'Olumi\'s engine reported a condition this version has no wording for yet. Nothing has been hidden. The raw code is listed in the run\'s audit details.',
     displayText: null,
     factorId,
   }

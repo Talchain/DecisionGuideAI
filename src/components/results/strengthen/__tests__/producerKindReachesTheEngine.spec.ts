@@ -146,7 +146,7 @@ describe('kind of thinking, taken from the producer rather than defaulted', () =
 describe('a producer finding can now name its technique', () => {
   it('PRE_MORTEM attaches the pre-mortem method', () => {
     const rec = recFor('PRE_MORTEM')
-    expect(methodForRecommendation(rec.id, rec.signalCode)?.id).toBe('pre_mortem')
+    expect(methodForRecommendation(rec.id, rec.signalCode, rec.biasCode)?.id).toBe('pre_mortem')
   })
 
   /**
@@ -154,15 +154,28 @@ describe('a producer finding can now name its technique', () => {
    * anywhere in the product — reachable only from a menu you had to already
    * know you wanted, which is the opposite of science guiding attention. This
    * is its first.
+   *
+   * ⚠ AND ITS POPULATION IS NOW NARROWER THAN THE TITLE SUGGESTS, WHICH IS
+   * WHY THE CALL BELOW PASSES ALL THREE ARGUMENTS. `recFor` titles its card
+   * 'A producer finding', which names no bias the registry knows, so the row
+   * carries NO `biasCode` and the generic map is genuinely the only answer.
+   * A card the producer titled 'Anchoring' now resolves to the corrective for
+   * THAT bias instead — pinned by name in
+   * `biasMethodReachesTheProducersBias.spec.ts`. Calling with two arguments
+   * here would have described a call the product no longer makes, and the
+   * narrowing would have been invisible.
    */
-  it('COGNITIVE_BIAS unlocks review_bias, which no finding could reach before', () => {
+  it('COGNITIVE_BIAS unlocks review_bias on a card naming no bias the registry knows', () => {
     const rec = recFor('COGNITIVE_BIAS')
-    expect(methodForRecommendation(rec.id, rec.signalCode)?.id).toBe('review_bias')
+    // Pins the precondition in-test: the generic answer below is the right one
+    // BECAUSE no bias code rides this row, not because the finer map is absent.
+    expect(rec.biasCode).toBeUndefined()
+    expect(methodForRecommendation(rec.id, rec.signalCode, rec.biasCode)?.id).toBe('review_bias')
   })
 
   it('LOW_OPTION_COUNT attaches the same method as the engine’s own broaden trigger', () => {
     const rec = recFor('LOW_OPTION_COUNT')
-    expect(methodForRecommendation(rec.id, rec.signalCode)?.id).toBe('different_option')
+    expect(methodForRecommendation(rec.id, rec.signalCode, rec.biasCode)?.id).toBe('different_option')
   })
 
   /**
@@ -174,12 +187,12 @@ describe('a producer finding can now name its technique', () => {
   it('FRAGILE_RESULT is a challenge but names NO technique', () => {
     const rec = recFor('FRAGILE_RESULT')
     expect(rec.helpType).toBe('challenge')
-    expect(methodForRecommendation(rec.id, rec.signalCode)).toBeNull()
+    expect(methodForRecommendation(rec.id, rec.signalCode, rec.biasCode)).toBeNull()
   })
 
   it('an unmapped code names no technique rather than a default one', () => {
     const rec = recFor('ASSUMPTION_CHECK')
-    expect(methodForRecommendation(rec.id, rec.signalCode)).toBeNull()
+    expect(methodForRecommendation(rec.id, rec.signalCode, rec.biasCode)).toBeNull()
   })
 
   /**

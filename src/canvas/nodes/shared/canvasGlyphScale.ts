@@ -52,6 +52,8 @@
  * plain declared px and is untouched by this file.
  */
 
+import { MAX_LABEL_COUNTER_SCALE } from '../../utils/zoomLegibility'
+
 /**
  * The px sizes the canvas node surfaces actually use. A size that is not here
  * is a TYPE ERROR at the call site rather than a silently missing class — which
@@ -121,6 +123,90 @@ export const CANVAS_CORNER_OFFSET_CLASSES: Readonly<Record<6 | 12, string>> = Ob
   6: 'bottom-[calc(-6px*var(--canvas-label-scale,1))] right-[calc(-6px*var(--canvas-label-scale,1))]',
   12: 'bottom-[calc(-12px*var(--canvas-label-scale,1))] right-[calc(-12px*var(--canvas-label-scale,1))]',
 })
+
+/**
+ * Positive `bottom`/`right` insets for a control pinned inside a card corner.
+ *
+ * ⚠ THESE DO **NOT** CARRY THE COUNTER-SCALE, AND THAT ASYMMETRY IS THE POINT.
+ * Everything else in this file scales because it is a THING THE USER MUST SEE
+ * OR HIT at a declared size. An inset is neither: it is the breathing room
+ * between a control and the card edge, and at the settle zoom a scaled 6px
+ * would render at 6 px while the unscaled one renders at 3 px — a difference
+ * nobody is trying to make, bought with model-space height on every card.
+ *
+ * It is a keyed map rather than the bare Tailwind `bottom-1.5` it replaces so
+ * that the px is a NUMBER the band reservation below can be derived from. The
+ * literal `6` used to live only as a Tailwind fraction in `NodeQuickActions`,
+ * where `NODE_QUICK_ACTION_BAND_PX` could not read it — which is precisely how
+ * a reservation and the thing it reserves for drift apart.
+ */
+export const CANVAS_CORNER_INSET_CLASSES: Readonly<Record<6, string>> = Object.freeze({
+  6: 'bottom-[6px] right-[6px]',
+})
+
+/**
+ * ⭐⭐ THE QUICK-ACTION ROW'S GEOMETRY, AS NUMBERS — so the card that must make
+ * room for it can DERIVE that room instead of restating it.
+ *
+ * These three are not documentation. Each is USED at the row's own call site
+ * (`NodeQuickActions.tsx`) to index the class maps above, and used again by
+ * `NODE_QUICK_ACTION_BAND_PX` below. A mirror needs two independent copies of a
+ * fact; there is one copy here, read twice.
+ */
+export const CANVAS_QUICK_ACTION_BOX_PX = 20 as const
+export const CANVAS_QUICK_ACTION_INSET_PX = 6 as const
+export const CANVAS_QUICK_ACTION_SLOP_PX = 2 as const
+
+/**
+ * ⭐⭐⭐ THE BOTTOM BAND A CARD MUST RESERVE SO ITS OWN CONTROLS NEVER COVER ITS
+ * OWN CONTENT.
+ *
+ * ─── THE DEFECT THIS REPLACES ────────────────────────────────────────────────
+ *
+ * `BaseNode` reserved this band with a LITERAL: `padding: '12px 12px 24px 12px'`.
+ * That `24` was a hand-copy of `bottom-1.5 + h-5` (6 + 20 = 26, so it was
+ * already 2px short), and nothing derived one from the other or went red when
+ * they disagreed — the hand-maintained mirror this estate keeps paying for.
+ *
+ * Counter-scaling the row (#1274) moved one half of that pair. The row's box
+ * became `20 x scale` and its hit slop `2 x scale`, so at the settle zoom the
+ * row occupied 6 + (20 + 2) x 2 = 50px while the reservation stayed 24 — and
+ * the controls sat 26px INSIDE the content box, over the value a user hovers
+ * the card in order to act on. Measured in a real browser, `vendor-selection`
+ * at 1440x900, zoom 0.5000.
+ *
+ * ─── WHY IT IS SIZED AT THE BOUND AND IS NOT ITSELF A `calc(... * var(...))` ──
+ *
+ * The obvious repair is to make the reservation track the live scale, exactly
+ * as the row does. **That is measurably wrong here, and the measurement already
+ * exists in this repo.**
+ *
+ * Card height in MODEL px is what the layout reserves rows against, and
+ * `zoomLegibility.ts` states the rule outright: *"Geometry cannot simply track
+ * `labelCounterScale(zoom)` … Sizing for the BOUND is stable, needs no
+ * relayout, and is correct at the only zoom the product ever chooses for the
+ * user."* `measureNodeHeightsAtLabelBound.ts` carries what happens when
+ * geometry ignores that — a layout run at one zoom and viewed at another goes
+ * to **13 overlapping node pairs, constant across 20 samples over 30 s and
+ * surviving a reload**, because the stride carries no zoom term. A reservation
+ * that grew by 26px as the user zoomed out would add exactly that class of
+ * drift to every card, to save a band nobody sees.
+ *
+ * So this is a CONSTANT, at `MAX_LABEL_COUNTER_SCALE` — the worst case, reached
+ * at precisely the zoom a post-draft auto-fit parks at. It is correct where the
+ * product puts the user, stable everywhere else, and invisible to the layout's
+ * zoom-invariance because it does not move.
+ *
+ * ─── WHY THE SLOP IS IN THE SUM ─────────────────────────────────────────────
+ *
+ * The `::before` hit slop is not painted, so it covers nothing a user can SEE.
+ * It does intercept the CLICK, which is the same harm one layer down: a
+ * user aiming at a value and hitting "Open details" instead. Reserving for the
+ * hit area rather than the visual box costs 4px at the bound and closes both.
+ */
+export const NODE_QUICK_ACTION_BAND_PX =
+  CANVAS_QUICK_ACTION_INSET_PX +
+  (CANVAS_QUICK_ACTION_BOX_PX + CANVAS_QUICK_ACTION_SLOP_PX) * MAX_LABEL_COUNTER_SCALE
 
 /**
  * WCAG 2.2 AA 2.5.8's minimum target, in the px a user actually gets.

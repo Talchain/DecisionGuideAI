@@ -81,6 +81,7 @@ import { OutputsDock } from '../OutputsDock'
 import { ToastProvider } from '../../ToastContext'
 import { ConversationProvider } from '../../conversation/ConversationContext'
 import { useCanvasStore } from '../../store'
+import { seedDockOnAnalysisTab } from './helpers/dockTabFixture'
 
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
@@ -297,6 +298,11 @@ function seedFailureAfterColdScenarioLoad(code: string, message: string) {
 }
 
 function renderDock() {
+  // ⚠ THE TAB THIS SPEC HAS ALWAYS MEASURED, NOW STATED (default-tab ruling,
+  // 9 Sep 2026). Every Analysis-surface testid queried below used to be reached
+  // for free because the dock OPENED on Analysis; it now opens on Reasoning.
+  // Fixture only — no assertion here is relaxed. See the helper's header.
+  seedDockOnAnalysisTab()
   return render(
     <ToastProvider>
       <ConversationProvider>

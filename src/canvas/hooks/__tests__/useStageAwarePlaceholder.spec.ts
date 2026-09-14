@@ -34,7 +34,22 @@ beforeEach(() => {
   })
 })
 
-const complete = () => useCanvasStore.setState({ results: { status: 'complete' } as never })
+/**
+ * ⚠ IT SETS `hasCompletedFirstRun` TOO, BECAUSE THAT IS WHAT COMPLETING A RUN
+ * DOES. This helper writes the slice directly rather than going through the
+ * store action, so it was an INCOMPLETE MIRROR of production: every real
+ * completion path sets both (`stores/resultsStore.ts:168`, `store.ts:4791`,
+ * `:5250`, `:5321`), and this reproduced only `results.status`.
+ *
+ * It went unnoticed while nothing read the second field. It stops being
+ * harmless the moment something does: the cases below name "a completed run",
+ * and a fixture that does not reproduce the state it names passes or fails for
+ * the wrong reason (trap 13b). Building the state THE WAY THE PRODUCT BUILDS IT
+ * is the fix; narrowing the assertion would have hidden a real defect behind a
+ * fixture gap.
+ */
+const complete = () =>
+  useCanvasStore.setState({ results: { status: 'complete' } as never, hasCompletedFirstRun: true })
 const setFresh = () => useCanvasStore.getState().setAnalysisFreshness({ freshness: 'fresh', freshness_reason: 'graph_hash_match' })
 
 describe('useStageAwarePlaceholder', () => {

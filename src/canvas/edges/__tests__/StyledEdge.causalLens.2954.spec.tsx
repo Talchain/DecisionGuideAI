@@ -75,7 +75,7 @@ import {
   resolveCausalLensEdgeParams,
 } from '../../domain/edgeValueProvenance'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS } from '../../domain/edges'
-import { UNSET_EDGE_STROKE_WIDTH, weightMagnitudeToStrokeWidth } from '../../utils/graphDisplayCalculations'
+import { UNSET_EDGE_STROKE_WIDTH, weightMagnitudeToStrokeWidth, EDGE_STROKE_WIDTH_BANDS } from '../../utils/graphDisplayCalculations'
 import { useEdgeLabelMode } from '../../store/edgeLabelMode'
 
 const nodeKinds: Record<string, string> = {}
@@ -213,7 +213,7 @@ function ingest(wire: WireEdge): Record<string, unknown> {
 /** Same real negative edge the #627/#629 templates pinned: mean −0.3504, stated negative. */
 const SET_WIRE = findEdge('pricing-model.draft.json', 'fac_adoption_friction', 'out_bottom_up_growth')
 
-/** A stated edge whose |mean| (0.5) sits in the 2px band — width discrimination. */
+/** A stated edge whose |mean| (0.5) sits in the MODERATE band — width discrimination. */
 const STRONG_WIRE = findEdge('pricing-model.draft.json', 'fac_enterprise_revenue_risk', 'out_nrr')
 
 /**
@@ -314,11 +314,20 @@ describe('StyledEdge causal lens — provenance-gated params (ROADMAP 2.954, #62
       )
     })
 
-    it('STRONG: |mean| = 0.5 sits in the 2px width band — discriminating from the 1.5 unset floor', () => {
+    it('STRONG: |mean| = 0.5 sits in the MODERATE width band — discriminating from the unset floor', () => {
       expect((STRONG_WIRE as any).strength.mean).toBe(-0.5)
       expect((STRONG_WIRE as any).exists_probability).toBe(0.92)
-      expect(weightMagnitudeToStrokeWidth(0.5)).toBe(2)
-      expect(UNSET_EDGE_STROKE_WIDTH).toBe(1.5)
+      expect(weightMagnitudeToStrokeWidth(0.5)).toBe(EDGE_STROKE_WIDTH_BANDS.moderate)
+      // ⭐ WAS `expect(UNSET_EDGE_STROKE_WIDTH).toBe(1.5)` UNTIL 8 Sep 2026, when
+      // the unset floor moved strictly below every measured band (it used to
+      // EQUAL the weakest one, so "nobody has said" and "we set this to weak"
+      // drew identically). Pinning the literal would re-pin that collision the
+      // next time either number moves; the load-bearing property was always the
+      // ORDERING, so assert that instead and let it survive the change.
+      expect(
+        UNSET_EDGE_STROKE_WIDTH,
+        'the unset floor is not below the 0.5 measured band — an unset strength is being drawn as a measurement',
+      ).toBeLessThan(weightMagnitudeToStrokeWidth(0.5))
       expect(resolveEdgeDirectionDisplay(STRONG_DATA)).toEqual(
         expect.objectContaining({ show: true, direction: 'negative' }),
       )
@@ -497,9 +506,9 @@ describe('StyledEdge causal lens — provenance-gated params (ROADMAP 2.954, #62
   })
 
   describe('the stroke width channel (thickness = a strength measurement)', () => {
-    it('STRONG (|mean| 0.5): width reads the magnitude band (2px), sign irrelevant', () => {
+    it('STRONG (|mean| 0.5): width reads the magnitude band, sign irrelevant', () => {
       const { container } = renderCausal(STRONG_DATA)
-      expect(baseEdgeAttr(container, 'data-stroke-width')).toBe('2')
+      expect(baseEdgeAttr(container, 'data-stroke-width')).toBe(String(EDGE_STROKE_WIDTH_BANDS.moderate))
     })
 
     it('NO strength: width sits at the UNSET floor, never a band derived from the default [ROADMAP 2.954]', () => {

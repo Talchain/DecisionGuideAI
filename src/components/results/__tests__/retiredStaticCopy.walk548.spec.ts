@@ -56,22 +56,56 @@ function renderedCopy(relativePath: string): string {
 const F2_RETIRED = 'Fragile relationships could change the recommendation.'
 const F4_RETIRED = '>wins<'
 
-const RELATIONSHIPS = 'src/canvas/components/model-tab/RelationshipsSection.tsx'
+/**
+ * ⚠ RE-POINTED BY THE v1 MODEL-TAB REMOVAL, on the same reasoning the F4 block
+ * below records for its own re-point, and stated rather than slipped in.
+ *
+ * F2 was witnessed on `canvas/components/model-tab/RelationshipsSection.tsx`,
+ * which rendered "Fragile relationships could change which option the data
+ * supports. Review the strongest ones first." That file is DELETED with the v1
+ * Model-tab stack, so a pin against it would read GREEN forever by reading
+ * nothing — and the over-suppression control below, which is this block's
+ * actual teeth, would have been the half that silently stopped testing.
+ *
+ * The rule is re-pointed at `utils/fragileEdgeCopy.ts` — the surviving module
+ * that decides this exact sentence for the results panel's fragility card, and
+ * which carries the SAME re-anchoring: its own header lists `the recommendation
+ * could change` among the strings it retired, and it renders the re-anchored
+ * object instead. Measured before re-pointing: no existing fragile-edge spec
+ * asserts the recommendation-naming ban (`fragileRows`, `distinguishableRows`
+ * and `flipEvidenceScope` return zero hits for "the recommendation" against a
+ * non-zero "fragile" contrast control), so this is added coverage, not a
+ * duplicate.
+ *
+ * ⚠ What this now guarantees is NARROWER in one respect and LIVE in the one
+ * that matters: the witnessed SURFACE is gone, so this is a regression pin on
+ * the copy module a user actually loads rather than a re-assertion about the
+ * retired Model-tab pixels. The exact retired sentence F2_RETIRED is kept
+ * pinned by value and permanently (trap 12b) — it is a historical record of a
+ * string the product once shipped, and is not edited to match the new site.
+ */
+const FRAGILE_COPY = 'src/components/results/utils/fragileEdgeCopy.ts'
 const WIN_GAUGE = 'src/components/results/WinGauge.tsx'
 
-describe('F2 — the Model tab does not name "the recommendation" (ROADMAP 2.213)', () => {
+describe('F2 — the fragility copy does not name "the recommendation" (ROADMAP 2.213)', () => {
   it('the retired sentence is gone from the rendered copy', () => {
-    expect(renderedCopy(RELATIONSHIPS)).not.toContain(F2_RETIRED)
-    expect(renderedCopy(RELATIONSHIPS)).not.toContain('could change the recommendation')
+    expect(renderedCopy(FRAGILE_COPY)).not.toContain(F2_RETIRED)
+    expect(renderedCopy(FRAGILE_COPY)).not.toContain('could change the recommendation')
+    // The retired noun is named in this module's own header docblock, where it
+    // records what it removed. That is the reason comments are stripped — and
+    // the reason the stripper gets its own control below.
+    expect(renderedCopy(FRAGILE_COPY)).not.toContain('the recommendation')
   })
 
   it('the coaching line still EXISTS — this was a re-anchoring, not a deletion', () => {
     // Over-suppression control: silencing the sentence would cost the user a
     // true and useful statement about fragility. The fact must survive; only
     // the retired noun goes.
-    const copy = renderedCopy(RELATIONSHIPS)
-    expect(copy).toContain('Fragile relationships could change')
-    expect(copy).toContain('Review the strongest ones first.')
+    const copy = renderedCopy(FRAGILE_COPY)
+    expect(copy).toContain('could change')
+    expect(copy).toContain('which option is most likely to hit your goal could change')
+    // The neutral object the module substitutes for the retired noun.
+    expect(copy).toContain('the comparison')
   })
 
   it('POSITIVE CONTROL — the rule fires on the exact historical sentence', () => {

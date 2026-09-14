@@ -47,7 +47,7 @@ const withFlip: Pick<StrengthenInputs, 'fragileEdges'> = {
   fragileEdges: [{ edgeId: 'e1', factorLabel: 'Salary cost', switchProbability: 0.62 }],
 }
 
-const UNRANKED_LINE = 'Source: Olumi model review (not ranked — shown in the order received).'
+const UNRANKED_LINE = 'Source: Olumi model review (not ranked, shown in the order received).'
 const RANKED_LINE = 'Source: Olumi model review.'
 
 // ─── Leg 1: the single defaulting site discloses provenance honestly ───────

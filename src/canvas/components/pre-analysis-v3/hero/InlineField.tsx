@@ -137,11 +137,19 @@ export const InlineField = memo(function InlineField({
             `title`, and `role="textbox"` without `tabIndex` is not focusable,
             so the full text had no hover, keyboard OR touch route. The editable
             branch below uses a real `<input>`, which scrolls and is
-            caret-recoverable — but this branch is the one that ships:
-            `readOnly` is `!GOAL_SUCCESS_EDIT_CONNECTED`, and
-            `mutations/mutationAuthority.ts` declares
-            `goalSuccessTarget: 'disabled'`, so `hasServerGraphAuthority` is
-            false and the truncating branch was unconditional.
+            caret-recoverable.
+
+            ⚠ THE SENTENCE THAT USED TO CLOSE THIS PARAGRAPH IS WITHDRAWN
+            (2026-09-10). It read: *"this branch is the one that ships:
+            `readOnly` is `!GOAL_SUCCESS_EDIT_CONNECTED` … so the truncating
+            branch was unconditional."* True when written, and no longer:
+            `HeroSection` now gates its two fields on two SEPARATE keys, and the
+            GOAL field reads `canvasNodeRenameWithServerHash` +
+            `preAnalysisV3StructuralAdd`, both `'server_graph'`. So the goal
+            takes the editable branch and only the SUCCESS field reaches this
+            one. Reading the wrapping fix as goal-specific would be wrong twice
+            over: it was argued at both sites and it is the success VALUE that
+            must never ellipsise mid-magnitude.
 
             The remedy is the one `nodes/OptionNode.tsx` already ratified for a
             value that will not fit: the value "keeps as many lines as it needs".

@@ -73,6 +73,83 @@ export function resolveOptionPrompt(optionLabel: string): string {
   return `Help me configure ${optionLabel}.`
 }
 
+// ─── EXPLORE AN ALTERNATIVE — the act beside an option the run left out ───
+
+/**
+ * The label on the act beside an option the run left out of the comparison.
+ *
+ * ## It is a QUESTION, because the act is a question
+ *
+ * The label says what the button does and promises nothing else. Compare
+ * `contextIntegrity/WhatIWasGivenSection.tsx`'s `addAction` — *"Where does this
+ * fit?"* — the sanctioned shape for an ask on this same tab, adopted here
+ * rather than re-invented. That label started life as *"Add this"*, and the
+ * product could not do it; the comment above it records 15 arms over 5 rounds
+ * against the live CEE router in which every ADD phrasing was refused
+ * (`ORPHAN_NODE`, `NO_PATH_TO_GOAL`, `PIPELINE_OWNED_FIELD`) and every ASK
+ * phrasing was answered. The same evidence governs this act, so the same
+ * conclusion does: it asks.
+ *
+ * ⛔ NOT *"Bring this into the comparison"*. That names an outcome this act
+ * cannot deliver — nothing here mutates the graph, re-runs anything, or can
+ * promise the option will be analysable. A label naming an outcome the click
+ * does not produce is the permanently-greyed control one level up: it works,
+ * and it still lies.
+ *
+ * ⚠ CHECKED AGAINST THE WHOLE TAB BEFORE IT WAS CHOSEN, because two things
+ * under one name is this estate's signature defect. `StrengthenTheReasoning`
+ * renders *"Ask what this analysis might be missing"* on THIS tab, which is
+ * why this is not an *"Ask what…"* label; `decision-overview` owns the stem
+ * *"What would it take to …?"*; `OptionCards` (Analysis tab) owns *"Explore a
+ * different approach"* and the catalogue owns *"Explore trade-offs"*, which is
+ * why it is not an *"Explore…"* label either. Measured at this tip: this exact
+ * string occurs nowhere else in `src/`.
+ */
+export const BRING_INTO_COMPARISON_LABEL = 'What would bring this in?'
+
+/**
+ * The question the act sends: the option, the run's OWN stated ground for
+ * leaving it out, and the ask.
+ *
+ * ## THE GROUND IS SWITCHED ON, NEVER AVERAGED
+ *
+ * The two reasons are not two spellings of one state, and the difference is
+ * exactly the honesty rule this act has to satisfy:
+ *
+ *   · `no_interventions` — NOTHING WAS COMPUTED ABOUT THIS OPTION. It was never
+ *     submitted, because there was nothing to submit. A question that said the
+ *     analysis returned nothing for it would assert a computation that never
+ *     happened, on the one card whose whole subject is a missing computation.
+ *   · `not_returned` — it WAS submitted and the run came back with nothing for
+ *     it. Here naming the run is the true thing to say, and saying "you have
+ *     not set this up" instead would blame the user for an engine outcome.
+ *
+ * Each arm states only what its own ground licenses. Neither implies the option
+ * was scored, compared, or found wanting, and neither promises that answering
+ * will get it into the comparison — the engine may well reply that it cannot.
+ *
+ * ⚠ THE GROUNDS ARE BOTH STATED, AND THERE IS NO THIRD "no reason known" ARM,
+ * because at this tip there is no such run. `deriveNotAnalysedReason`
+ * (`utils/notAnalysedOptions.ts`) is TOTAL over the two-value union and the
+ * single live producer (`useResultsSectionData.ts:2227`) sets `notAnalysed` and
+ * `notAnalysedReason` in one object literal, so an option cannot reach a
+ * surface marked not-analysed with the reason missing. A technique arm would be
+ * unreachable code dressed as an honesty guarantee.
+ *
+ * The label is interpolated bare, exactly as {@link resolveOptionPrompt} does
+ * it, so the assistant receives the option's own name in the slot it expects.
+ */
+export function bringIntoComparisonQuestion(
+  optionLabel: string,
+  reason: NotAnalysedReason,
+): string {
+  const ground =
+    reason === 'no_interventions'
+      ? `${optionLabel} has no values set yet, so it was left out of the comparison.`
+      : `The analysis returned no result for ${optionLabel}, so it was left out of the comparison.`
+  return `${ground} What would it take to bring it in?`
+}
+
 // ─── NOT COMPUTED — a DIFFERENT state, beside "not analysed", never merged ───
 
 /**

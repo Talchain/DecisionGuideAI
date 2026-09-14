@@ -1,5 +1,6 @@
 // Hardened store with timer cleanup, ID reseeding, edge debouncing
 import { create } from 'zustand'
+import type { EvidenceAssessment } from '../v5/evidenceAssessment'
 import { provenanceAfterHumanAuthoredLabel } from './domain/goalLabelProvenance'
 import { statedTargetNumber } from './domain/goalTarget'
 import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from '@xyflow/react'
@@ -7,6 +8,7 @@ import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportC
 import { setsEqual, mapsEqual } from './store/utils'
 import type { LodRung } from './utils/zoomLegibility'
 import { assignStableOptionNumbers, orderOptionIdsByCanvasPosition } from './store/stableOptionNumbers'
+import { seatNodesIntoRankedSlots } from './utils/factorRowOrder'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS, type EdgeData } from './domain/edges'
 import { edgeValueSourcePatch, type CausalLensEdgeParams } from './domain/edgeValueProvenance'
 import {
@@ -16,12 +18,68 @@ import {
   type NodeData,
 } from './domain/nodes'
 import { hasAnalyticalNodeChange, hasAnalyticalEdgeChange } from './domain/analyticalChange'
+import { countOptionNodes } from './domain/optionCount'
 import { applyLayout, applyLayoutWithPolicy } from './layout'
 import { mergePolicy } from './layout/policy'
 import { policyToPreset, policyToSpacing } from './layout/adapters'
 import { getInvalidNodes as getInvalidNodesUtil, getNextInvalidNode as getNextInvalidNodeUtil, type InvalidNodeInfo } from './utils/validateOutgoing'
 import type { ReportV1 } from '../adapters/plot/types'
 import type { LeaderClaimWithholdingReason } from './hydrate/applyScenarioAnalysisRead'
+
+/**
+ * ⭐ THE RUN STATES ON WHICH A PRODUCER'S PERMISSION MAY CLEAR A WITHHOLDING.
+ *
+ * ⛔ DELIBERATELY NOT `READ_TERMINAL_RUN_STATE_KINDS`, WHICH LOOKS LIKE THE SAME
+ * LIST AND IS NOT. That set answers "may the boot leg restore a verdict from
+ * this state?" and includes `blocked` and `refused`, correctly — a blocked
+ * analysis is a finished fact worth rehydrating. THIS set answers "does this
+ * state license NAMING A LEADING OPTION over the held report?", and a blocked or
+ * refused run licenses nothing at all.
+ *
+ * Two questions under one plausible name is CLAUDE.md trap 21; the fix is to
+ * name them apart, not to align them. (I wrote the reuse first, and it would
+ * have opened exactly the hole the review asked about.)
+ *
+ * ⚠ COMPLETENESS IS NOT SELF-CERTIFIED. The union of this set and
+ * `LEADER_UNCLAIMABLE_RUN_STATE_KINDS` is asserted EQUAL to the contract's own
+ * `ANALYSIS_RUN_STATE_KINDS` in
+ * `__tests__/leaderClaimableRunStatePartition.spec.ts`, so a contract that gains
+ * a kind REDs that spec instead of falling silently into the deny default here.
+ * The default is the safe direction, but a silent one — and silence is how a new
+ * state stops being noticed (trap 12d: derivation proves agreement, a partition
+ * proves completeness).
+ */
+export const LEADER_CLAIMABLE_RUN_STATE_KINDS = ['complete_current', 'complete_stale'] as const
+
+/**
+ * The twin: kinds consciously refused. Not used for control flow — the `includes`
+ * above is the only predicate — it exists so "every kind is classified" is a
+ * checkable claim rather than an assumption.
+ *
+ * ⚠ `complete_stale` SITS IN THE CLAIMABLE SET, AND THE REASON FIRST WRITTEN HERE
+ * WAS WRONG. It said staleness "is already answered one seam earlier, by the
+ * `requires_rerun` conjunct". **That premise does not hold**, and a review
+ * challenged exactly it: `requires_rerun` is the PRODUCER's statement about its
+ * OWN persisted graph. `AnalysisStateV1` carries no graph hashes
+ * (`applyScenarioAnalysisRead.ts:570-578`), and the canvas is a merge containing
+ * local-only content the client cannot prove equal — so, in
+ * `analysisStateSelector.ts:564-570`'s words, an edit the producer has not been
+ * told about is "THE ONE THING THE PRODUCER CANNOT KNOW… a producer cannot
+ * contradict it, because it has not been shown it."
+ *
+ * So staleness is answered by TWO separate facts, not one: `requires_rerun` for
+ * the graph the producer knows it moved, and `analysisFreshnessDirty` for the
+ * edit it has never seen. The second is enforced in `resultsRestoreLeaderClaim`
+ * as a fourth conjunct; `complete_stale` is admissible here only because BOTH
+ * are checked before this set is consulted.
+ */
+export const LEADER_UNCLAIMABLE_RUN_STATE_KINDS = [
+  'never_run',
+  'running',
+  'blocked',
+  'refused',
+  'unknown_degraded',
+] as const
 import type { V2RunResponse } from '../adapters/plot/v2/types'
 import type { PLoTEnrichment } from '../adapters/plot/enrichment'
 import {
@@ -59,6 +117,16 @@ import {
   type StructuralAddTerminalStatus,
 } from './mutations/structuralAdd'
 import {
+  captureStructuralAddEdge,
+  STRUCTURAL_ADD_EDGE_DEFERRED_NOTICE,
+  STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE,
+  type StructuralAddEdgeIntent,
+} from './mutations/structuralAddEdge'
+import {
+  resolveEdgeSignedStrengthDisplay,
+  resolveEdgeDirectionDisplay,
+} from './domain/edgeValueProvenance'
+import {
   EMPTY_DURABLE_DELETION_RECORD,
   addDurableDeletion,
   buildDurableDeletionNotice,
@@ -94,6 +162,7 @@ import type {
   CEEInterventionHint,
   PreAnalysisSensitivity,
   CEEDraftCoaching,
+  AnalysisAdmissionV1,
 } from '../adapters/cee/types'
 import type { LimitsV1 } from '../adapters/plot/types'
 import type { ScenarioStage, ScenarioEvent } from '../types/scenario'
@@ -447,6 +516,25 @@ export type RunMetaState = {
   m1Review?: M1Review | null
   // M1 Coaching - deterministic coaching fields from /v2/run (not LLM-generated)
   m1Coaching?: M1Coaching | null
+  /**
+   * The evidence assessment, projected past CEE's Tier-3 transport ban and
+   * read off the LIVE analysis turn.
+   *
+   * ⚠ NAMED APART FROM `m1Coaching`, DELIBERATELY. They answer the same
+   * question from two different routes: `m1Coaching` is written only by
+   * `hydrateAnalysis`, the restore-from-Supabase path, while this is written by
+   * `applyV5State` on every V5 analysis turn.
+   *
+   * ⚠ An earlier version of this note also named "the direct `/v2/run` path" as
+   * a writer. Re-derived: no such writer exists. Corrected rather than deleted
+   * so the next reader knows the claim was checked.
+   * Folding them into one field would put two producers behind one name and
+   * make it impossible to tell a restored answer from a live one.
+   *
+   * Written on every analysis turn — value or null, never left stale, the
+   * same discipline as `decisionReview030` above.
+   */
+  evidenceAssessment?: EvidenceAssessment | null
   // V12: PLoT review_status — gates M2 progressive enrichment ('complete' enables M2 data)
   reviewStatus?: string
   // M1 Review assumptions + pre-mortem from PLoT /v2/run (V12: widened for M2 fields)
@@ -589,6 +677,113 @@ interface CanvasState {
   // CEE V3: analysis_ready payload from last draft
   // Used by useV2Run to build requests with resolved interventions
   ceeAnalysisReady: CEEAnalysisReady | null
+  /**
+   * THE PRODUCER'S LAST ADMISSION, RETAINED ACROSS INVALIDATION AS UNCONFIRMED.
+   *
+   * ⭐⭐ WHY THIS FIELD EXISTS, and it is one question, not two.
+   * `analysis_admission` lives only inside `ceeAnalysisReady`, which
+   * `invalidateAnalysisReady` nulls on every analytical edit. Its consumer
+   * (`licensesComparativeLeaderClaim`) reads absence as `true` — correct, and
+   * deliberately so, for "THE PRODUCER NEVER SPOKE" (an older CEE). But after a
+   * local edit the absence is OUR OWN doing, and reading it as a licence makes
+   * the product assert exactly the claim the producer refused.
+   *
+   * MEASURED on staging build 9eb30b54 (2026-09-10): a `quantified_provisional`
+   * run rendered "What this run may not conclude" and, 59ms after one factor
+   * value was edited, rendered "Most likely to serve your goal / Double Down on
+   * SMB" in the same slot — the refusal's own remedy half-satisfied and the
+   * designation made anyway.
+   *
+   * So this field separates two questions that shared one name:
+   *   never spoken  -> stays `null` -> absence still means "no authority"  (unchanged)
+   *   spoke, then self-nulled -> holds what was said -> the refusal survives the edit
+   *
+   * ⚠ IT IS DOWNGRADE-ONLY BY CONSTRUCTION, not by a rule someone must remember:
+   * the only value it can ever hold is a value the producer itself sent, so it
+   * cannot license anything CEE did not license. A live admission always wins
+   * over it (`resolveEffectiveAdmission`), so a genuinely new verdict — in either
+   * direction — replaces it immediately.
+   *
+   * ⚠⚠ AND THE FALLBACK KEYS ON THE ABSENT **ADMISSION**, NOT ON AN ABSENT
+   * PAYLOAD. An earlier draft of this field said it would be consulted only when
+   * `ceeAnalysisReady` is null; that was wrong, and wrong in the permissive
+   * direction. `reselectGoalNode` CONSTRUCTS a readiness stub
+   * (`{ status: undefined, goal_node_id, options: [] }`, store.ts — the `else`
+   * arm) that carries no admission and is not an older producer. Keying on the
+   * payload would let that stub re-license the claim after an edit had already
+   * invalidated it, which is this very defect reached by a second route.
+   *
+   * Captured at the CLEAR sites (`readinessClearFields`) rather than at the
+   * arrival sites, deliberately: it reads `get().ceeAnalysisReady` at the moment
+   * of clearing, so it is correct however readiness arrived, and there is no list
+   * of producers to keep in sync. Cleared by `DECISION_CONTEXT_CLEAR`, or a
+   * previous decision's admission would govern the next one's edits.
+   */
+  retainedAnalysisAdmission: AnalysisAdmissionV1 | null
+  /**
+   * THE PRODUCER'S LAST COACHING, RETAINED ACROSS INVALIDATION — THE SAME
+   * MECHANISM AS `retainedAnalysisAdmission` ABOVE, ONE FIELD ALONG.
+   *
+   * `draftCoaching` is a member of `READINESS_CLEAR_FIELDS`, so every analytical
+   * edit nulls it. The user-facing consequence is the inverse of a stale claim:
+   * the moment the user ACTS ON the coaching, the coaching that asked for the act
+   * disappears, and does not return until the next server turn.
+   *
+   * ⚠ WHY ONLY THIS ONE OF THE TEN CLEARED FIELDS. The other nine are either a
+   * NUMERIC CLAIM ABOUT THE GRAPH THAT JUST CHANGED (`ceeQuality`,
+   * `preAnalysisSensitivity`, `ceeModelQualityFactors`), a STRUCTURAL verdict the
+   * triggering edit can invalidate directly (`ceeGoalConnectivity`,
+   * `ceeExtendedWarnings`), or an INPUT TO A RUN REQUEST rather than a display
+   * (`ceeAnalysisReady` incl. its resolved `options[].interventions`,
+   * `goalConstraints`, `ceeAnalysisReadyNodeIds`), or PRODUCER METADATA KEYED BY
+   * NODE ID (`ceeInterventionHints`) — the one member that is brief-derived and
+   * so reads closest in character to this field, and the reason it is still
+   * refused is that its KEYS are node ids and its only consumer
+   * (`detectSameLever`, `hooks/usePreAnalysisData.ts`) joins it against the LIVE
+   * `nodes`: a retained hint map would pair pre-edit hints with a post-edit graph
+   * and answer about nodes that no longer exist. Retaining any of those would
+   * either present a figure about a superseded graph or change what goes on the
+   * wire. Coaching is the one member that is PROSE THE PRODUCER AUTHORED — and
+   * prose about the brief and the framing, not a measurement of the graph.
+   *
+   * ⚠⚠ DOWNGRADE-ONLY, AND STRUCTURALLY SO — THE RETAINED TEXT CANNOT SUMMON A
+   * ROW. Its one wired consumer is `sig_option_breadth`'s `ceeOverride`
+   * (`pre-analysis-v3/signals/registry.ts`), and that signal's FIRING CONDITION is
+   * re-derived live from the graph (`input.optionCount >= 3` returns null). So the
+   * retained value can only ever change the WORDING of a row the live graph has
+   * independently decided to show; widen the options and the row goes, whatever is
+   * retained. Exactly as with the admission, the only value it can hold is a value
+   * the producer itself sent, and a live payload always wins.
+   *
+   * ⚠ DELIBERATELY NOT WIRED TO THE HERO COACHING SLOT. That slot
+   * (`usePreAnalysisModel`'s `coaching`, rendered by `hero/CoachingSlot.tsx`) is
+   * UNGATED — it renders whenever text exists — so a retained summary could assert
+   * a framing problem the user's edit has just fixed, unmarked, beside live
+   * numbers. Retaining it honestly needs a visible pre-edit mark on the slot; that
+   * is a copy change, not this one.
+   *
+   * Captured at the CLEAR sites (`readinessClearFields`) and cleared by
+   * `DECISION_CONTEXT_CLEAR`, for the same two reasons given for the admission.
+   * Session-local, never persisted — the same rule `draftCoaching` already keeps.
+   */
+  retainedDraftCoaching: CEEDraftCoaching | null
+  /**
+   * THE OPTION COUNT `retainedDraftCoaching` WAS AUTHORED AGAINST — the second
+   * parameter of a predicate that was guarding two opposite harms with one
+   * threshold (review ground, 2026-09-10).
+   *
+   * `sig_option_breadth`'s live gate (`optionCount >= 3`) removes the row when the
+   * user WIDENS. Narrowing is the other direction and the gate is silent there:
+   * coached at two options, delete one, and the retained sentence asserts a
+   * two-option frame over a one-option graph while REPLACING `optionBreadthOne`,
+   * which is the accurate line. Harvested in lockstep with the coaching itself and
+   * compared by `resolveEffectiveDraftCoaching`; any mismatch refuses the retained
+   * value and the deterministic copy returns.
+   *
+   * Session-local and cleared exactly where the coaching is, so the two can never
+   * describe different graphs.
+   */
+  retainedDraftCoachingOptionCount: number | null
   // Analysis freshness verdict from CEE analysis_ready.freshness — retained
   // across turns; sourced independently of ceeAnalysisReady / v5AnalysisFact.
   analysisFreshness: AnalysisFreshnessState | null
@@ -904,6 +1099,16 @@ interface CanvasState {
    * ─────────────────────────────────────────────────────────────────────────
    */
   pendingStructuralAdds: StructuralAddIntent[]
+  /**
+   * 0.50.0 — captured canvas EDGE adds awaiting a turn.
+   *
+   * ⚠ ONLY EDGES WHOSE STRENGTH AND DIRECTION SOMEBODY SET reach this queue.
+   * A freshly drawn link carries `USER_EDGE_DEFAULTS` with no provenance, and
+   * sending its 0.3 would assert a strength the user never stated — see
+   * `captureStructuralAddEdge`'s header for why that gesture has no wire form
+   * at all under the current contract.
+   */
+  pendingStructuralAddEdges: StructuralAddEdgeIntent[]
   /**
    * 0.50.0 — ATTEMPT AND COMPLETION AUTHORITY FOR EVERY ADD PUT ON THE WIRE.
    *
@@ -1309,6 +1514,34 @@ interface CanvasState {
    * — never by a client deciding the producer has changed its mind.
    */
   resultsWithholdLeaderClaim: (reason: LeaderClaimWithholdingReason) => void
+  /**
+   * ⭐ THE RECOVERY HALF — a later turn on which the producer POSITIVELY
+   * PERMITS clears a withholding, instead of the user needing a whole new run.
+   *
+   * `resultsWithholdLeaderClaim` above records that it "subtracts and never
+   * adds", and that was too strong in ONE direction: CEE withholds both for
+   * *we looked and declined* and for *we could not read the separation*
+   * (`analysis-state-v1.ts:189-215`), and an ordinary follow-up question could
+   * therefore cost a user their leading option permanently.
+   *
+   * ⛔ NOT FIXED BY REFUSING TO WITHHOLD. That was tried and closed (#1512):
+   * `withheldLeaderClaimSurvivesReload.spec.ts` exists because on exactly that
+   * payload a reload once brought "Most supported" back while the refusal
+   * vanished, measured on deployed staging. The withholding STAYS; only the
+   * route back changes.
+   *
+   * ⛔ THE CLIENT STILL NEVER DECIDES THE PRODUCER CHANGED ITS MIND. This acts
+   * only on a strict `leader_claim.permitted === true` the producer sent on a
+   * turn it chose to restate — and `applyV5State` clears `analysis_state` on
+   * every turn that does not restate it, so silence cannot reach here.
+   *
+   * ⚠ RETURNS WHETHER IT ACTUALLY CLEARED A STAMP, so the applicator's ledger
+   * can record a turn that changed what the canvas designates WITHOUT claiming
+   * one on every permitting turn. Most permitting turns hold no withholding and
+   * this is a no-op; a ledger entry on those would be a trace that cannot
+   * discriminate (CLAUDE.md trap 20).
+   */
+  resultsRestoreLeaderClaim: (verdict: unknown) => boolean
   resultsError: (params: { code: string; message: string; retryAfter?: number; request_id?: string; canRetry?: boolean; affectedOptions?: Array<{ id: string; label: string }> }) => void
   /** Capture detailed error information for Debug Panel */
   captureErrorDetail: (detail: ErrorDetail) => void
@@ -1323,6 +1556,21 @@ interface CanvasState {
    * importCanvas). Read outside React via getAnalysisDisplaySnapshot(). */
   optionNumbering: Record<string, number>
   registerOptionNumbering: (optionIds: readonly string[]) => void
+  /**
+   * Seat the factor cards whose influence ordinal is DETERMINED into canvas
+   * reading order, so the row reads in the order its `#N` badges claim.
+   *
+   * Caller owns the ORDER (it holds the ranking authority — see
+   * `utils/factorRowOrder.ts`); this action owns the GEOMETRY rule, which is
+   * that the move is a permutation of slots those same nodes already occupy.
+   * A caller therefore cannot make the graph grow, re-pack or collide by
+   * passing a longer list — the worst it can do is claim an order it should
+   * have withheld, and that is a question `deriveDeterminedFactorOrder`
+   * answers at the badge's own owner.
+   *
+   * Idempotent: once the row is seated the call is a no-op and writes nothing.
+   */
+  orderFactorRowByInfluence: (orderedFactorIds: readonly string[]) => void
   /** 1.16i: authoritative analysing state for the live V5 run turn — sets
    * 'preparing' at dispatch while preserving the prior report/hash/seed/
    * drivers (unlike resultsStart, no seed is known yet). */
@@ -1445,6 +1693,8 @@ interface CanvasState {
   takePendingStructuralRenames: () => StructuralRenameIntent[]
   /** 0.50.0: the add twin — one atomic read-and-clear. */
   takePendingStructuralAdds: () => StructuralAddIntent[]
+  /** Drain the captured edge adds. Same contract as the node sibling above. */
+  takePendingStructuralAddEdges: () => StructuralAddEdgeIntent[]
   /**
    * 0.50.0: move the HEAD of the add queue into the lifecycle as `in_flight`, in
    * ONE `set()`, and return it. Null when the queue is empty.
@@ -1904,6 +2154,39 @@ const READINESS_CLEAR_FIELDS = {
 } as const
 
 /**
+ * THE READINESS CLEAR, PLUS THE PRODUCER'S ADMISSION RETAINED AS UNCONFIRMED.
+ *
+ * ⚠ A FUNCTION, NOT A SECOND CONSTANT, AND THAT IS THE POINT. The retained value
+ * has to be read out of live state at the moment of clearing, so it cannot live
+ * in a frozen object — and making every clear site pass `get` means a site that
+ * forgets does not compile. The alternative (recording the admission at each
+ * ARRIVAL site) is a hand-maintained list of producers: three exist today, and
+ * the next one to be added would silently reopen this defect.
+ *
+ * `?? get().retainedAnalysisAdmission` keeps the last thing the producer actually
+ * said when the payload being cleared carried no admission of its own. Once CEE
+ * has spoken for this decision, a later absence is never again "an older
+ * producer" — and only `DECISION_CONTEXT_CLEAR` resets that.
+ */
+function readinessClearFields(get: () => CanvasState) {
+  return {
+    ...READINESS_CLEAR_FIELDS,
+    retainedAnalysisAdmission:
+      get().ceeAnalysisReady?.analysis_admission ?? get().retainedAnalysisAdmission,
+    // Same harvest, same reason, one field along: read out of live state at the
+    // moment of clearing, so it is correct however the coaching arrived and there
+    // is no list of producers to keep in sync.
+    retainedDraftCoaching: get().draftCoaching ?? get().retainedDraftCoaching,
+    // Harvested from the SAME branch, so the count always describes the graph the
+    // retained prose was authored against. A `??` on the count alone would drift:
+    // it would keep an older count beside a newer sentence.
+    retainedDraftCoachingOptionCount: get().draftCoaching
+      ? countOptionNodes(get().nodes)
+      : get().retainedDraftCoachingOptionCount,
+  }
+}
+
+/**
  * Lane 5 (Codex P0-2): the per-decision "goal context" — target, its
  * representation, the CEE readiness payload, and the outcome-node selection.
  * ANY full-context replacement (new scenario load, canvas import, reset)
@@ -1918,6 +2201,17 @@ const DECISION_CONTEXT_CLEAR = {
   goalThreshold: null,
   goalThresholdRepresentation: null,
   ceeAnalysisReady: null,
+  // The retained admission is scoped to ONE decision. A full-context replacement
+  // brings a different graph, so the previous decision's licence (or refusal)
+  // must not govern edits made to this one — the same hazard as the stale
+  // goalThreshold two lines above.
+  retainedAnalysisAdmission: null,
+  // The retained coaching is scoped to ONE decision for the same reason: it is
+  // prose CEE authored about THIS brief and THIS framing, so carrying it into the
+  // next decision would re-word that decision's signals with the previous one's
+  // guidance.
+  retainedDraftCoaching: null,
+  retainedDraftCoachingOptionCount: null,
   ceeAnalysisReadyNodeIds: null,
   outcomeNodeId: null,
   // B3 (Codex deep review, 2026-07-18): goalConstraints was the ONE member of
@@ -1960,6 +2254,7 @@ const DECISION_CONTEXT_CLEAR = {
   // graph; replayed against a replaced context it would assert a node the user
   // never created there.
   pendingStructuralAdds: [] as StructuralAddIntent[],
+  pendingStructuralAddEdges: [] as StructuralAddEdgeIntent[],
   // 0.50.0: and the same for its verdict record, for the same reason as the
   // rename's — a late settle must not write a verdict about a graph this canvas
   // is no longer showing.
@@ -2353,6 +2648,125 @@ function recordStructuralRenameIntent(
  * a second authority arguing with the first — and here it would mint a duplicate
  * id, the one collision `base_graph_hash` provably cannot catch.
  */
+/**
+ * Capture a canvas edge add as a durable intent, or say why not.
+ *
+ * ⭐ THE PROVENANCE GATE IS INJECTED, NEVER RE-DERIVED. `resolveEdgeSignedStrengthDisplay`
+ * and `resolveEdgeDirectionDisplay` are the estate's owners of "did anybody SET
+ * this?", and they are the same functions `StyledEdge` paints from. Asking them
+ * rather than reading `edge.data.weight` is what stops `USER_EDGE_DEFAULTS.weight`
+ * (0.3, no provenance) reaching the wire as a strength the user never stated.
+ *
+ * Returns the stand-down reason as well as the patch, because the caller owes
+ * the user a different sentence for "not saved yet" than for "cannot be saved
+ * until you set a strength".
+ */
+function planStructuralAddEdgeIntent(
+  state: CanvasState,
+  edgesAfter: ReadonlyArray<{ id: string; source: string; target: string; data?: unknown }>,
+  edgeId: string,
+): { patch: Partial<CanvasState>; deferred: boolean; needsStrength: boolean } {
+  const result = captureStructuralAddEdge({
+    edgesAfter,
+    edgeId,
+    baseGraphHash: state.lastServerGraphHash,
+    externalMutationActive: state._externalMutationActive > 0,
+    resolveSignedStrength: (data) =>
+      resolveEdgeSignedStrengthDisplay(data as Record<string, unknown> | undefined),
+    resolveDirection: (data) =>
+      resolveEdgeDirectionDisplay(data as Record<string, unknown> | undefined),
+    makeId: () =>
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `sae-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  })
+  if (!result.ok) {
+    return { patch: {}, deferred: false, needsStrength: result.reason === 'strength_not_stated' }
+  }
+  return {
+    patch: { pendingStructuralAddEdges: [...state.pendingStructuralAddEdges, result.intent] },
+    deferred: result.deferred,
+    needsStrength: false,
+  }
+}
+
+/**
+ * ⭐⭐ THE SECOND CALLER. Re-run the capture for an edge that STOOD DOWN, now
+ * that something may have changed its answer.
+ *
+ * `planStructuralAddEdgeIntent` is a PURE function of `(state, edgesAfter,
+ * edgeId)` — it never depended on being inside `addEdge`. The capture was never
+ * the obstacle; the absence of a second caller was.
+ *
+ * ⛔ GATED ON THE RECORDED STAND-DOWN, AND THAT GATE IS THE DOUBLE-SEND GUARD.
+ * Only an edge carrying `structuralAddStandDown` is a candidate, and a
+ * successful capture CLEARS it in the same patch that queues the intent. So a
+ * second strength write on the same edge finds no marker and does nothing —
+ * which is exactly the acceptance condition "repeat confirmation cannot
+ * duplicate it". Re-running unconditionally would re-queue an edge already sent.
+ *
+ * ⛔ IT NEVER SUPPLIES A MAGNITUDE. If nothing has stated one the capture stands
+ * down again and the receipt is LEFT IN PLACE — the edge stays unsaved and
+ * honest. Inventing a magnitude here to force a receipt would assert a strength
+ * the user never gave, which is the defect this whole carrier exists to refuse.
+ *
+ * Returns `null` when there is nothing to do, so the caller can skip the write
+ * entirely rather than setting state on every edge update.
+ */
+function retryStructuralAddEdgeCapture(
+  state: CanvasState,
+  edgeId: string,
+): (Partial<CanvasState> & { deferredCapture?: boolean }) | null {
+  const edge = state.edges.find((e) => e.id === edgeId)
+  if (!edge) return null
+  const data = edge.data as EdgeData | undefined
+  // Bound by IDENTITY of the recorded reason, never "some marker is present".
+  if (data?.structuralAddStandDown !== 'strength_not_stated') return null
+
+  const plan = planStructuralAddEdgeIntent(state, state.edges, edgeId)
+  // Nothing captured — still no stated strength, or a different stand-down.
+  // Leave the receipt exactly as it was.
+  if (!plan.patch.pendingStructuralAddEdges) return null
+
+  const edges = state.edges.map((e) => {
+    if (e.id !== edgeId) return e
+    const nextData = { ...(e.data as EdgeData) }
+    delete (nextData as { structuralAddStandDown?: unknown }).structuralAddStandDown
+    return { ...e, data: nextData }
+  })
+  // `deferredCapture` is read by the caller and never written to the store —
+  // `set()` ignores unknown keys, but the caller strips it for clarity.
+  return { ...plan.patch, edges, deferredCapture: plan.deferred }
+}
+
+/**
+ * Tell the user where a drawn connection stands.
+ *
+ * ⚠ FIRED AFTER THE `set()`, NEVER INSIDE IT — a side effect in a store updater
+ * can re-enter, and the updater must stay a pure function of state.
+ *
+ * ⚠ ONLY WHERE THERE IS A MODEL TO FALL BEHIND, the same predicate the node
+ * sibling uses: a scratch graph with no scenario has no saved model, so there is
+ * nothing to disclose and a notice would be noise.
+ */
+function announceStructuralAddEdgeState(
+  state: CanvasState,
+  kind: 'deferred' | 'needs_strength',
+): void {
+  const ownsServerGraph = state.currentScenarioId != null || state.lastAuthoritativeGraph != null
+  if (!ownsServerGraph) return
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('topbar:show-toast', {
+    detail: {
+      message:
+        kind === 'deferred'
+          ? STRUCTURAL_ADD_EDGE_DEFERRED_NOTICE
+          : STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE,
+      level: 'warning',
+    },
+  }))
+}
+
 function planStructuralAddIntent(
   state: CanvasState,
   nodesAfter: Node[],
@@ -2446,7 +2860,7 @@ function invalidateAnalysisReady(
       console.trace('[Canvas] invalidateAnalysisReady call stack')
     }
     logConstraintClearIfPresent(get, `invalidateAnalysisReady:${reason ?? 'unspecified'}`)
-    set(() => ({ ...READINESS_CLEAR_FIELDS }))
+    set(() => ({ ...readinessClearFields(get) }))
   }
 }
 
@@ -2746,6 +3160,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
   // CEE V3: analysis_ready payload
   ceeAnalysisReady: null,
+  // No producer has spoken at cold start, so absence genuinely means "no
+  // authority" and `licensesComparativeLeaderClaim` keeps its `true` arm.
+  retainedAnalysisAdmission: null,
   // Freshness verdict — null until CEE emits analysis_ready (UI shows nothing).
   analysisFreshness: null,
   // Local dirty overlay — false at cold start (no edits to invalidate a verdict).
@@ -2764,6 +3181,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   v5AnalysisFact: null,
   // CEE coaching payload (session-local; never persisted)
   draftCoaching: null,
+  // No producer has coached at cold start, so there is nothing to retain and the
+  // live-absent branch stays absent.
+  retainedDraftCoaching: null,
+  retainedDraftCoachingOptionCount: null,
   // CEE goal constraints from draft-graph response root
   goalConstraints: null,
   // B2: no authoritative graph seen yet — reconciler removes nothing.
@@ -2785,6 +3206,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // 0.50.0: no add has been attempted at cold start — an empty lifecycle is
   // "nothing attempted", never "all fine".
   structuralAddLifecycle: [],
+  pendingStructuralAddEdges: [],
   // 0.48.0: no deletion has been proven durable yet, so undo is unconstrained.
   durablyDeletedElements: EMPTY_DURABLE_DELETION_RECORD,
   durableDeletionNotice: null,
@@ -3159,6 +3581,31 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       return { edges, touchedNodeIds }
     })
 
+    // ⭐ THE SECOND CALLER, FIRED AFTER THE `set()` AND NEVER INSIDE IT — the
+    // same discipline `announceStructuralAddEdgeState` records: a side effect in
+    // a store updater can re-enter, and the updater must stay a pure function.
+    // A strength the user has just stated may have turned a stood-down link into
+    // a sendable one; `retryStructuralAddEdgeCapture` returns `null` unless it
+    // genuinely has, so the common update path pays one `find` and stops.
+    const retry = retryStructuralAddEdgeCapture(get(), id)
+    if (retry) {
+      // ⛔ STRIP the caller-only flag before writing: `deferredCapture` describes
+      // the capture, not the canvas, and zustand's `set` would merge it straight
+      // into the store as a stray key that nothing declares and nothing clears.
+      const { deferredCapture, ...patch } = retry
+      set(patch)
+      // ⛔ NO NEW USER-FACING COPY IN THIS INCREMENT, DELIBERATELY. The only
+      // notice fired here is the EXISTING, already-reviewed deferred one, and
+      // only where it is literally true. A "your connection is on its way"
+      // confirmation would be a FOURTH draft of this surface's copy in one day,
+      // and it cannot be written honestly without deciding what to say when
+      // `isOrchestratorV2Enabled()` is false — in which case
+      // `useStructuralAddEdgeEvents` DRAINS AND DISCARDS the queue, so
+      // "it is being sent" is false. That is a copy question with its own
+      // review, not a rider on a mechanism change. Rowed, not papered over.
+      if (deferredCapture) announceStructuralAddEdgeState(get(), 'deferred')
+    }
+
     if (oldEdge && hasAnalyticalEdgeChange(oldEdge, updates)) {
       invalidateAnalysisReady(get, set, `update_edge analytical field (${id})`)
     }
@@ -3506,6 +3953,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     pushToHistory(get, set, `Connected ${sourceLabel} \u2192 ${targetLabel}`)
     invalidateAnalysisReady(get, set, `add_edge (${edge.source} → ${edge.target})`)
     const id = get().createEdgeId()
+    // ⭐ CAPTURED AGAINST THE POST-ADD EDGES, inside the same `set()`, exactly as
+    // `addNode` captures its own. The intent must describe the graph the gesture
+    // produced, not the one before it.
+    let edgeAddOutcome: { deferred: boolean; needsStrength: boolean } = {
+      deferred: false,
+      needsStrength: false,
+    }
     set((s) => {
       const touchedNodeIds = new Set(s.touchedNodeIds)
 
@@ -3514,11 +3968,33 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         touchedNodeIds.add(edge.source)
       }
 
+      const edgesAfter = [...s.edges, { id, ...edge }]
+      const plan = planStructuralAddEdgeIntent(s, edgesAfter, id)
+      edgeAddOutcome = { deferred: plan.deferred, needsStrength: plan.needsStrength }
+
+      // ⭐ RECORD THE STAND-DOWN ON THE EDGE, not just in the toast. Until this
+      // existed the outcome was a local consumed by `announceStructuralAddEdgeState`
+      // and then discarded, so nothing downstream could tell a link that stood
+      // down at `strength_not_stated` from one that was never a candidate — and
+      // a later capture re-run could not distinguish "never sent" from "already
+      // sent". See `EdgeData.structuralAddStandDown`.
+      const edgesWithReceipt = plan.needsStrength
+        ? edgesAfter.map((e) =>
+            e.id === id
+              ? { ...e, data: { ...(e.data as EdgeData), structuralAddStandDown: 'strength_not_stated' as const } }
+              : e,
+          )
+        : edgesAfter
+
       return {
-        edges: [...s.edges, { id, ...edge }],
-        touchedNodeIds
+        edges: edgesWithReceipt,
+        touchedNodeIds,
+        ...plan.patch,
       }
     })
+    // ⚠ AFTER the set, never inside it — see `announceStructuralAddEdgeState`.
+    if (edgeAddOutcome.deferred) announceStructuralAddEdgeState(get(), 'deferred')
+    else if (edgeAddOutcome.needsStrength) announceStructuralAddEdgeState(get(), 'needs_strength')
     return { created: true }
   },
 
@@ -3556,7 +4032,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // whenever nothing has been proven deleted, which is the common case.
     const guarded = withholdDurableDeletions(prev, get().durablyDeletedElements, { nodes, edges })
     const notice = buildDurableDeletionNotice('withheld', guarded, prev, nextDurableNoticeSeq())
-    set({ nodes: guarded.nodes, edges: guarded.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, ...deriveGoalThresholdFromNode(guarded.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: createDefaultLensState(), durableDeletionNotice: notice })
+    set({ nodes: guarded.nodes, edges: guarded.edges, history: { past, future }, ...readinessClearFields(get), ...deriveGoalThresholdFromNode(guarded.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: createDefaultLensState(), durableDeletionNotice: notice })
     // Reset hash after undo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -3581,7 +4057,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // defect on the other side.
     const guarded = withholdDurableDeletions(next, get().durablyDeletedElements, { nodes, edges })
     const notice = buildDurableDeletionNotice('withheld', guarded, next, nextDurableNoticeSeq())
-    set({ nodes: guarded.nodes, edges: guarded.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, ...deriveGoalThresholdFromNode(guarded.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: createDefaultLensState(), durableDeletionNotice: notice })
+    set({ nodes: guarded.nodes, edges: guarded.edges, history: { past, future }, ...readinessClearFields(get), ...deriveGoalThresholdFromNode(guarded.nodes, get().outcomeNodeId), analysisFreshnessDirty: true, lens: createDefaultLensState(), durableDeletionNotice: notice })
     // Reset hash after redo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -4605,6 +5081,74 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   setGoalThreshold: (threshold, opts) => {
+    /**
+     * ⭐⭐ THE SAME BOUND AS THE SIBLING WRITER — because it is the same field.
+     *
+     * `setGoalThresholdAndUpdateNode` (below) declares finiteness on
+     * `goalThreshold`. This action writes THE SAME SCALAR, and declaring the
+     * bound on only one of two writers is the exact defect this PR's own
+     * header describes one level down: `AdvancedField.tsx` guarded
+     * `goal_threshold_raw` and concluded it had covered "every reachable
+     * source of a non-finite magnitude in the model", while
+     * `success_threshold` reached the model through a different writer.
+     * Guarding one sibling and leaving the other open reproduces that.
+     *
+     * ⚠ NOT A LIVE DEFECT — DEFENCE IN DEPTH, AND SAID PLAINLY.
+     * The complete writer set was enumerated from this interface, not from a
+     * literal grep: six non-test call sites reach this action, and NONE of
+     * them can deliver a non-finite value today. Three are gated by an
+     * explicit `Number.isFinite` — `v5/applyV5State.ts:1033` (via `:611`),
+     * `store.ts` CEE sync (via `domain/goalTarget.ts:137,142`) and
+     * `results/modals/DefineSuccessModal.tsx:205` (via `:158` + the `:178`
+     * early return). Three are unreachable by BRANCH rather than by value:
+     * `ui/inspector/GoalThresholdEditor.tsx:66` (every render site passes a
+     * truthy `nodeId`), `components/pre-analysis/PreAnalysisPanel.tsx:1105`
+     * and `components/OutputsDock.tsx:1561` — the last two because
+     * `CANONICAL_EDIT_AUTHORITY.goalSuccessTarget` is the `as const` literal
+     * `'disabled'` (`canvas/mutations/mutationAuthority.ts:127`, pinned by
+     * `mutationAuthority.spec.ts:249`), so `hasServerGraphAuthority` is a
+     * compile-time `false` and `results/ResultsBody.tsx:487` passes
+     * `onApplyTarget={undefined}`.
+     *
+     * ⚠ AN EARLIER REVISION OF THIS COMMENT CLAIMED OutputsDock's `else`
+     * BRANCH WAS LIVE, citing `results/SuccessTargetRow.tsx:167`'s
+     * `!isNaN(parsed)` as its producer. WITHDRAWN — measured: the `else` is
+     * reachable only WITHIN a handler that cannot fire, and
+     * `<SuccessTargetRow` has ZERO non-test render sites (contrast control in
+     * the same sweep: `<AnalysisHeroContainer` → 1). Structural reachability
+     * inside a function is not reachability of the function.
+     *
+     * The bound is declared here anyway because the three branch-unreachable
+     * sites are safe by WIRING, not by value: each is one prop default or one
+     * authority flip from delivering `parseFloat('1e400')` to this writer, and
+     * their own producers still use `!isNaN`, which admits `Infinity`. This is
+     * the "two writers, one field, one bound declared" shape recorded on the
+     * sibling below — closed at the field, not at the caller.
+     *
+     * ⚠ FINITENESS, NOT A RANGE — derived at the CONSUMER, not assumed.
+     * `normaliseGoalThresholdForRequest` (`hooks/goalThresholdResolvers.ts:37`)
+     * tests `Number.isFinite` against the RAW scalar, and applies its
+     * `normalised < 0 || normalised > 1` test only AFTER dividing by the cap.
+     * The `[0,1]` bound therefore governs a DIFFERENT quantity — the
+     * post-normalisation wire value — and imposing it here would refuse an
+     * ordinary 60% target (cap 100 → 0.6) or an 800000 currency target. The
+     * spec-shaped invariant for this field is finiteness alone, and it is
+     * sign-symmetric by construction: `Number.isFinite` refuses `+Infinity`
+     * and `-Infinity` alike while accepting zero and negatives, matching the
+     * unit contract on the field's own declaration.
+     *
+     * ⚠ REFUSE, DO NOT CLEAR, AND REFUSE BEFORE THE WRITE. The early return
+     * leaves any existing good target in place and — because it precedes both
+     * the `set` and `markAnalysisFreshnessDirty` — does not mark the analysis
+     * stale for a value the model never accepted.
+     */
+    if (threshold != null && !Number.isFinite(threshold)) {
+      console.warn(
+        '[store] setGoalThreshold: refusing a non-finite success target — the value must be a finite number; existing target left unchanged',
+        { threshold },
+      )
+      return
+    }
     // The goal threshold is sent to PLoT, so a user change is analysis-affecting
     // → dirty the freshness overlay on a real change. The CEE-sync caller inside
     // setCeeAnalysisReady passes { fromCeeSync: true } so an ingestion write does
@@ -4621,6 +5165,48 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   setGoalThresholdAndUpdateNode: (goalNodeId, value, opts) => {
+    /**
+     * ⭐⭐ FINITENESS — THE ONE BOUND THIS VALUE HAS, PREVIOUSLY DECLARED ON THE
+     * SIBLING WRITER ONLY.
+     *
+     * `AdvancedField.tsx` records the defect measured by DRIVING it (3 Sep
+     * 2026): `Infinity`, `-Infinity`, `1e400` and `9e999` all committed,
+     * because `parseFloat` returns `±Infinity` for each and `isNaN(Infinity)`
+     * is `false`. It fixed its own path with `Number.isFinite` and concluded
+     * that predicate was "the reachable source of every non-finite magnitude in
+     * the model".
+     *
+     * ⚠ THAT CONCLUSION WAS INCOMPLETE, WHICH IS WHY THIS GUARD EXISTS.
+     * `AdvancedField` guards `goal_threshold_raw`. `success_threshold` reaches
+     * the model through THIS action, which had no finiteness check — and its
+     * live caller on the Model tab validates with `!isNaN(n) && n >= 0`
+     * (`components/model-tab/GoalSection.tsx`), which admits `Infinity`. The
+     * value then rides the node-data passthrough to PLoT
+     * (`V2_NODE_BLOCKLIST`) and to CEE (`CANVAS_ONLY_NODE_KEYS`), neither of
+     * which lists it. Two writers, one field, one bound declared — the sibling
+     * pattern this estate keeps paying for.
+     *
+     * ⚠ FINITENESS, NOT A RANGE. Under `threshold_source: 'user'` this is RAW
+     * USER UNITS by design, so a `[0,1]` bound would be wrong and no range
+     * bound is declared for it anywhere. A target of 0, or a negative one
+     * ("reduce churn to -2%"), is legitimate and must still commit — the guard
+     * deliberately does NOT inherit the Model tab's `>= 0`.
+     *
+     * ⚠ REFUSE, DO NOT CLEAR. Returning early leaves any existing good target
+     * in place; writing `null` here would turn a rejected keystroke into silent
+     * data loss. `null` itself remains the honest way to clear a target.
+     *
+     * Guarded here rather than at the callers because seven product call sites
+     * across four areas funnel through this one action; a per-caller check
+     * would be a hand-maintained mirror.
+     */
+    if (value != null && !Number.isFinite(value)) {
+      console.warn(
+        '[store] setGoalThresholdAndUpdateNode: refusing a non-finite success target — the value must be a finite number; existing target left unchanged',
+        { goalNodeId, value },
+      )
+      return
+    }
     // User commit → raw user units (Lane 5).
     set({ goalThreshold: value, goalThresholdRepresentation: value == null ? null : 'raw' })
     pushToHistory(get, set)
@@ -5080,10 +5666,159 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set({ optionNumbering: next })
   },
 
+  orderFactorRowByInfluence: (orderedFactorIds) => {
+    if (orderedFactorIds.length < 2) return
+    // ⭐ THE STORE OWNS GEOMETRY; THE CALLER OWNS THE ORDER — the same division
+    // as `registerOptionNumbering` above, and for the same reason: a future
+    // registration site must not be able to reintroduce the defect by passing
+    // a differently-sorted array. What it CAN change is which cards are
+    // claimed; what it cannot change is that the move is a permutation of the
+    // slots those cards already occupy.
+    //
+    // ⚠ AND IT IS THE OPPOSITE REMEDY TO THE ONE ABOVE, DELIBERATELY. Options
+    // moved the NUMBER to the position because `Option N` asserts nothing.
+    // `#N` on a factor is a guarded measurement, so the POSITION moves to the
+    // number. `utils/factorRowOrder.ts` carries the derivation.
+    const seated = seatNodesIntoRankedSlots(get().nodes, orderedFactorIds)
+    // Reference-equal ⇒ nothing moved. Skip the write so a results tick cannot
+    // re-render the canvas for a row that is already in order.
+    if (seated === get().nodes) return
+    set({ nodes: seated })
+  },
+
   /**
    * See the declaration on `CanvasState` for the harm and the design. The
    * implementation notes below are about the three ways it could go wrong.
    */
+  /**
+   * See the declaration on `CanvasState`. Fail-closed in every arm: it may only
+   * ever REMOVE a stamp the client itself wrote, and never write a permission.
+   */
+  resultsRestoreLeaderClaim: (verdict) => {
+    // ⚠ STRUCTURAL, UNKNOWN-SAFE READ. This is handed a producer payload, so a
+    // non-object, a null and a missing member must all mean "said nothing".
+    // Every refusal below returns `false` — "nothing was cleared" — which is
+    // what the applicator's ledger reads.
+    if (verdict === null || typeof verdict !== 'object') return false
+    const v = verdict as {
+      leader_claim?: { permitted?: unknown }
+      requires_rerun?: unknown
+      blocked_unusable?: unknown
+    }
+    // ⛔ STRICT `true`, never falsiness — the same rule
+    // `producerWithholdsLeaderClaim` applies to the refusing direction. Anything
+    // else on this seam is a producer we cannot read, and an unreadable producer
+    // has granted nothing.
+    if (v.leader_claim?.permitted !== true) return false
+    // ⚠ THE MODEL MUST NOT HAVE MOVED. `requires_rerun` is deliberately excluded
+    // from the WITHHOLDING predicates because it means "the graph changed since
+    // the run"; here it earns its keep in the opposite direction, because a
+    // permission about a moved model is not a permission about the held report.
+    if (v.requires_rerun === true) return false
+    // A producer calling its own analysis unusable cannot license a claim over it.
+    if (v.blocked_unusable === true) return false
+    // ⛔⛔ THE RUN-STATE GATE, AND IT IS *NOT* INHERITED FROM THE WITHHOLDING
+    // SIDE. The boot leg states "NO RUN-STATE GATE, and that is the point …
+    // the withholding is monotone under every kind" — true of a REFUSAL, which
+    // only ever removes a claim, and FALSE of a grant.
+    //
+    // ⚠ THIS GATE EXISTS BECAUSE THE ALTERNATIVE COULD NOT BE DERIVED. A review
+    // asked which producer fact makes it unnecessary — that CEE never emits
+    // `permitted: true` alongside a non-finished kind. I could not derive CEE's
+    // composer from this repo, and the fetch returned an EMPTY file, which is
+    // UNMEASURED, not zero (CLAUDE.md trap 13e). Asserting a producer's
+    // behaviour from an unmeasured read is the confident sentence this estate
+    // pays for, so the client gates rather than claims.
+    //
+    // ⛔⛔ AND IT DOES *NOT* REUSE `isReadTerminalRunState`, THOUGH THE NAME FITS
+    // AND I FIRST WROTE IT THAT WAY. That predicate answers "may the BOOT LEG
+    // restore a verdict from this state?", and its set includes `blocked` and
+    // `refused` — legitimately, because a blocked analysis is a finished fact
+    // worth rehydrating. THIS asks "does this state license NAMING A LEADING
+    // OPTION over the held report?", and a blocked or refused run licenses
+    // nothing. Two questions under one plausible name is CLAUDE.md trap 21, and
+    // reusing it would have opened precisely the hole the review asked about.
+    // Named apart, and the partition is asserted against the contract's own
+    // vocabulary in `__tests__/` so a new kind cannot land here unclassified.
+    const runStateKind = (v as { run_state?: { kind?: unknown } }).run_state?.kind
+    if (typeof runStateKind !== 'string') return false
+    if (!(LEADER_CLAIMABLE_RUN_STATE_KINDS as readonly string[]).includes(runStateKind)) return false
+
+    // ⛔⛔ THE LOCAL-EDIT WINDOW — BLOCKING 2 FROM REVIEW, AND THE PRECONDITION IS
+    // WITNESSED ON THE DEPLOYED BUILD, NOT MERELY DERIVED.
+    //
+    // THE FAILURE IT CLOSES: CEE withholds; the stamp is applied. The user edits
+    // a factor value, so `analysisFreshnessDirty` goes true and CEE has NOT
+    // ingested it. The user asks an ordinary follow-up. CEE composes
+    // `analysis_state` from ITS OWN PRE-EDIT GRAPH, reads the separation fine,
+    // and legitimately sends `permitted: true, requires_rerun: false,
+    // blocked_unusable: false` — all three guards above pass, honestly. Step 5c
+    // would clear the stamp and `OptionNode` would crown a leader computed on
+    // numbers the user has since changed, WHILE THE FRESHNESS STRIP ON THE SAME
+    // SCREEN REPORTS THE RUN AS STALE. Two surfaces, one screen, opposite claims.
+    //
+    // ⭐ THE PRECONDITION IS NOT HYPOTHETICAL. Measured on deployed `c5b5e86a`:
+    // setting ONE factor value through the Model tab's Review-change → Confirm
+    // flow left `analysisFreshnessDirty: true`. That is the single act the
+    // product's own refusal copy instructs the user to perform ("no option can
+    // be called the leader until you have set at least one of them"), so the
+    // dirty window sits directly on the path this whole change exists to serve.
+    //
+    // ⚠ `requires_rerun` DOES NOT COVER THIS. That is the PRODUCER's statement
+    // about its own graph; this is the CLIENT's knowledge of an edit the
+    // producer has not seen. A producer cannot report staleness it is unaware
+    // of — which is precisely why the client half is the one that must gate.
+    //
+    // ⚠ READ, NEVER RE-DERIVED. `analysisFreshnessDirty` is the store's own
+    // overlay and the shared authority; `v5/blocks/coachingCurrency.ts` takes
+    // the same field as data for this same question and its header forbids
+    // recomputing it. Read here through `get()` rather than from the applicator's
+    // spread snapshot, so the value is the one live AT THE MOMENT OF THE
+    // DECISION, and so every caller of this action is gated — not only step 5c.
+    if (get().analysisFreshnessDirty === true) return false
+
+    const held = get().results.report
+    if (!held) return false
+    // ⛔ IT REMOVES, IT NEVER ADDS. With no stamp there is nothing to clear, and
+    // writing a permission here would be the client authoring an entitlement.
+    if (!held.producer_leader_permission) return false
+
+    const { producer_leader_permission: _cleared, ...withoutStamp } = held
+    set(s => ({ results: { ...s.results, report: withoutStamp as typeof held } }))
+
+    // ⭐ PERSISTED, FOR THE EXACT REASON ITS SIBLING BELOW PERSISTS — and the
+    // omission of this block was the blocking finding on this PR, reproduced
+    // independently by two seats. `useAutosave`'s dirty check is
+    // `computeGraphHash(nodes, edges)` — GRAPH ONLY — and clearing a stamp
+    // changes no node and no edge, so the 30s timer's early-return would skip
+    // this write. Without it the restore was LIVE-ONLY: measured
+    // `live = true` / `after reload = false`, i.e. the producer's newer
+    // permission was transient while its older refusal was durable.
+    //
+    // ⚠ THAT ASYMMETRY IS THE HARM, not merely an unpersisted nicety. Whether
+    // the leading option survived a page load depended on whether the user
+    // happened to edit the graph first — an unrelated interaction deciding
+    // whether a designation returns.
+    //
+    // ⛔ THE DIRECTION STILL ONLY EVER SUBTRACTS. What is persisted here is the
+    // report with the stamp REMOVED; absence is "the producer has not spoken"
+    // (`adapters/plot/types.ts`), and the reader is fail-open by construction.
+    // This writes no entitlement — it records that a refusal is no longer held.
+    //
+    // Sourced from the POST-`set()` state (Zustand's `set` is synchronous), so
+    // the record written is exactly the one this restore produced.
+    try {
+      scenarios.saveAutosave(projectAutosaveData(autosaveSourceFromStore(get())))
+    } catch (err) {
+      // Never let a persistence failure take down the restore — the claim is
+      // already back on screen, which is the part that matters. Mirrors the
+      // sibling's stance for the same reason.
+      console.warn('[resultsRestoreLeaderClaim] Failed to persist restore to autosave', err)
+    }
+
+    return true
+  },
+
   resultsWithholdLeaderClaim: (reason) => {
     const held = get().results.report
     // ⚠ NOTHING HELD, NOTHING TO WITHDRAW — and NOTHING is the operative word,
@@ -5427,6 +6162,40 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       currentScenarioLastResultHash: scenario.last_result_hash ?? null,
       currentScenarioLastRunAt: scenario.last_run_at ?? null,
       currentScenarioLastRunSeed: scenario.last_run_seed ?? null,
+      // ⛔ THE PREVIOUS SCENARIO'S CEE PAYLOADS GO WITH ITS REPORT.
+      //
+      // `runMeta` holds the per-run CEE metadata — the 0.30 decision review,
+      // the coaching, the evidence assessment, the trace. Every one of them
+      // describes ONE analysis of ONE model, and NOTHING downstream re-checks
+      // which scenario produced them: `KeyQuestionCard`
+      // (`analysis-hero/KeyQuestionCard.tsx:51`) reads
+      // `runMeta.decisionReview030.decision_quality_prompts` and renders the
+      // question with no scenario gate and no status gate. So without this,
+      // after A -> B the product asks CEE's key question about A under B's
+      // heading — on a model B that may never have been analysed at all. It is
+      // the same harm `previousReport` above names ("left the previous
+      // decision's completed report on screen, attributed to the one just
+      // opened"), on the metadata half.
+      //
+      // ⭐ NOT A NEW RULE — COMPLETING AN EXISTING ONE. The store already
+      // names its boundary set at `:1452`: session-scoped state is cleared "at
+      // every scenario boundary (loadScenario, hydrateGraphSlice, resetCanvas,
+      // importCanvas)". `runMeta` was cleared at only two of the four
+      // (`importCanvas` `:4142`, `resetCanvas` `:4602`, plus `resultsReset`
+      // `:5673` — whose comment states the intent outright). The two it was
+      // missing from are the two a user actually walks.
+      //
+      // ⚠ THE RESTORE PATH IS NOT A DEFENCE. `resultsHydrateFromSupabase`
+      // merges `hydrateAnalysis`'s keys by SPREAD and only runs when the
+      // incoming scenario HAS a restorable report, so a switch to a
+      // never-analysed scenario leaves the previous payloads untouched.
+      //
+      // ⚠ GATED ON THE ID ACTUALLY CHANGING, not merely being present. The
+      // harm is cross-scenario ATTRIBUTION; a re-load of the scenario already
+      // on the canvas (`ReactFlowGraph.tsx:2062` does exactly this on boot)
+      // cannot mis-attribute anything, and clearing there would discard live
+      // data for no reader's benefit.
+      ...(id !== get().currentScenarioId ? { runMeta: {} } : {}),
       previousReport: null, // A1: Clear stale deltas on scenario switch
       // The previous scenario's REPORT goes with its deltas. Without this, a
       // switch to a scenario that has never been analysed — or whose run this
@@ -5857,7 +6626,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       edges: draftChatPreDraftSnapshot.edges,
       draftChatPreDraftSnapshot: null,
       // Clear full readiness bundle + pipeline trace on draft undo
-      ...READINESS_CLEAR_FIELDS,
+      // ⚠ STATED DECISION, NOT AN ACCIDENT (review note). This harvest also
+      // retains the coaching of the draft the user has just reverted, and that
+      // retained sentence then survives to re-word the option-breadth row on the
+      // PRE-DRAFT graph. It is allowed because the retained detail is producer
+      // prose ABOUT THE BRIEF (all four starter captures quote the brief's own
+      // words) and the brief is unchanged by an undo, and because the row it can
+      // re-word re-derives its own firing condition from the live graph. If a
+      // retained field is ever added that measures the GRAPH, this call site is
+      // the one to exclude first.
+      ...readinessClearFields(get),
       // Lane 5 (review fold): undo reverts to the pre-draft graph — the
       // drafted decision's target must not survive onto it. Clear the
       // threshold pair (consistent with clearing readiness above) and
@@ -6052,7 +6830,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       } catch {}
     } else {
       logConstraintClearIfPresent(get, 'setCeeAnalysisReady(null)')
-      set(READINESS_CLEAR_FIELDS)
+      set(readinessClearFields(get))
       try {
         sessionStorage.removeItem('olumi-cee-analysis-ready')
         sessionStorage.removeItem('olumi-cee-analysis-ready-node-ids')
@@ -6258,6 +7036,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const queued = get().pendingStructuralAdds
     if (queued.length === 0) return []
     set({ pendingStructuralAdds: [] })
+    return queued
+  },
+
+  takePendingStructuralAddEdges: () => {
+    const queued = get().pendingStructuralAddEdges
+    if (queued.length === 0) return []
+    set({ pendingStructuralAddEdges: [] })
     return queued
   },
 
@@ -7352,6 +8137,19 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Wave F-A: option ordinals are per-scenario continuity — a hydrated
       // scenario starts a fresh numbering history.
       updates.optionNumbering = {}
+      // The same scenario boundary as `loadScenario` above, on the
+      // Supabase/autosave leg (`useScenario.ts:817` passes the row id). Per-run
+      // CEE metadata belongs to the scenario that produced it — see the full
+      // argument at `loadScenario`.
+      //
+      // ⚠ Bound to the id CHANGING, and bound to the id being present at all:
+      // the two boot callers that hydrate a graph WITHOUT a scenario id
+      // (`ReactFlowGraph.tsx:1956`, `:2103`) are deliberately untouched — the
+      // latter's own comment is "use hydrateGraphSlice to avoid clobbering
+      // panels/results", and clearing there would be that clobbering.
+      if (loaded.currentScenarioId !== get().currentScenarioId) {
+        updates.runMeta = {}
+      }
     }
 
     // Reset history and selection for clean state

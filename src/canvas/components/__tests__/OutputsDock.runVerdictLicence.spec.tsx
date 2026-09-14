@@ -68,9 +68,9 @@ vi.mock('../../../flags', async (importOriginal) => {
 // so a permitted run took the DIRECT `/v2/run` fallback and produced an
 // observable local outcome (`status: 'v2'`) instead of a fire-and-forget V5
 // stream. That fallback is retired, so the observable terminal outcome is now
-// the canonical dispatch itself: `runCanonicalAnalysis` calls the guidance
-// store's `_dispatchAction` synchronously and returns `{ status: 'dispatched' }`.
-// Registering a mock dispatcher gives exactly the same observability the old
+// the canonical dispatch itself: `runCanonicalAnalysis` calls the host
+// conversation's `dispatchAction` and returns `{ status: 'dispatched' }`.
+// Observing that host dispatcher gives exactly the same observability the old
 // `runV2Analysis` spy did — the PROPERTY under test (a run is bound to the
 // verdict that licensed it) is unchanged.
 const dispatchAction = vi.fn()
@@ -100,6 +100,7 @@ vi.mock('../../conversation/useConversation', () => ({
     isThinking: false,
     longRunningHint: null,
     sendMessage: vi.fn(),
+    dispatchAction,
     sendSystemEvent: vi.fn(),
     sendChip: vi.fn(),
     retryLast: vi.fn(),
@@ -223,6 +224,8 @@ async function mountDockAndTakeRunner() {
     </ToastProvider>,
   )
   await waitFor(() => expect(getCanonicalRunner()).not.toBeNull(), { timeout: 20_000 })
+  // The transcript's registration must not be needed to dispatch a licensed run.
+  useGuidanceStore.setState({ _dispatchAction: null })
   return getCanonicalRunner()!
 }
 
@@ -233,7 +236,7 @@ beforeAll(async () => {
 beforeEach(() => {
   ensureMatchMedia()
   dispatchAction.mockClear()
-  useGuidanceStore.setState({ _dispatchAction: dispatchAction })
+  useGuidanceStore.setState({ _dispatchAction: null })
   flushBehaviour = () => {}
   try {
     sessionStorage.clear()

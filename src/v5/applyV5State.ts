@@ -45,16 +45,25 @@
  * mutations are property assignments keyed by target_id.
  */
 import type { OlumiResponse, StageType, AnalysisStateV1 } from '@talchain/schemas/boundary'
+import { readEvidenceAssessment, type EvidenceAssessment } from './evidenceAssessment'
 import { AnalysisStateV1Schema, Stage } from '@talchain/schemas/boundary'
 import type { Edge, Node } from '@xyflow/react'
 
 import type { ReportV1 } from '../adapters/plot/types'
-import type { CEEAnalysisReady, CEEGoalConstraint } from '../adapters/cee/types'
+import type {
+  AnalysisAdmissionV1,
+  CEEAnalysisReady,
+  CEEGoalConstraint,
+} from '../adapters/cee/types'
 import type { CeeDecisionReviewPayloadV1 } from '../types/cee'
 import type { ScenarioStage } from '../types/scenario'
 import { logV5StateStep } from './debugLog'
 import { pulseAppliedTargets } from '../canvas/utils/appliedEditPulse'
-import { requestOlumiAttention, type OlumiAttentionNote } from '../canvas/utils/olumiAttention'
+import {
+  requestOlumiAttention,
+  type OlumiAttentionCaveat,
+  type OlumiAttentionNote,
+} from '../canvas/utils/olumiAttention'
 import { focusAssistantTarget } from '../canvas/utils/assistantFocusCamera'
 import {
   useUIStore,
@@ -66,7 +75,9 @@ import {
   readDecisionReviewWireState,
   type DecisionReview030,
 } from './decisionReviewAdapter'
-import { mapV5AnalysisToReport } from './mapV5AnalysisToReport'
+import { mapV5AnalysisToReport, buildV5VerdictReportLike } from './mapV5AnalysisToReport'
+import { deriveDecisionVerdict } from '../lib/decisionVerdict'
+import { licensesComparativeLeaderClaim } from '../canvas/hooks/useAnalysisReady'
 import { v5StageToScenarioStage } from './stageMapper'
 import {
   deriveAnalysisRefusalNoticeUpdate,
@@ -96,9 +107,16 @@ export interface V5ApplicatorStore {
   currentScenarioId?: string | null
   /** Partial merge into runMeta — only provided fields are updated. */
   setRunMeta: (meta: {
-    ceeReviewV1: CeeDecisionReviewPayloadV1 | null
+    ceeReviewV1?: CeeDecisionReviewPayloadV1 | null
     /** ROADMAP 2.154 — the 0.30 review view-model, or null to evict. */
-    decisionReview030: DecisionReview030 | null
+    decisionReview030?: DecisionReview030 | null
+    /**
+     * The evidence assessment read off this turn, or null to evict a previous
+     * run's. Optional like its siblings because this is a PARTIAL merge: a
+     * caller writing one field must not be forced to restate the others, which
+     * is how a write site ends up clearing something it never meant to touch.
+     */
+    evidenceAssessment?: EvidenceAssessment | null
   }) => void
   /** Write (or clear) the CEE analysis_ready payload that gates the run. */
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
@@ -191,15 +209,42 @@ export interface V5ApplicatorStore {
    *
    * The real canvas store's resultsComplete accepts a wider params shape
    * (drivers, cee*, rawV2Response); the V5 path only uses the narrow
-   * subset declared here. TypeScript's structural subtyping accepts the
-   * wider real implementation in this slot.
+   * subset declared here.
+   *
+   * ⚠ `enrichment` AND `rawV2Response` ARE TYPED `null`, NOT `unknown`, AND
+   * THAT IS LOAD-BEARING — do not "widen" them back.
+   *
+   * The comment above used to say structural subtyping accepts the wider real
+   * implementation in this slot. It does not, and had not for as long as the
+   * typecheck baseline goes back. A setter slot is a PROPERTY, so under
+   * `strictFunctionTypes` its parameters are CONTRAVARIANT: for the real store
+   * to be assignable here, THIS declaration's params must be assignable to the
+   * store's. The store declares `enrichment?: PLoTEnrichment | null` and
+   * `rawV2Response?: V2RunResponse | null`; `unknown` is assignable to neither,
+   * so `useCanvasStore.getState()` failed to satisfy `V5ApplicatorStore` at
+   * useConversation.ts:4774 (TS2345) — a long-standing entry in
+   * scripts/ci/typecheck-baseline-identities.txt.
+   *
+   * `null` is the honest type, not a workaround: the single production call
+   * site passes literal `null` for both, on purpose, to CLEAR the store's
+   * V2-shaped slots (see the comment at that call). Nothing has ever passed
+   * anything else. Widening them again re-opens the diagnostic, and because its
+   * rendered message embeds an elided "… N more …" property count over the
+   * whole canvas store, any later PR that adds a store member then moves that
+   * text and trips `Typecheck Gate Self-Test` scenario 1 for reasons that have
+   * nothing to do with that PR. (That is exactly how PR #1424 went red: it adds
+   * one store member, 282 → 283.) If a future V5 path genuinely needs to write
+   * a real enrichment here, import the store's own types and declare them —
+   * do not reach for `unknown`.
    */
   resultsComplete?: (params: {
     report: ReportV1
     hash: string
     resultsSource?: 'direct' | 'conversation'
-    enrichment?: unknown
-    rawV2Response?: unknown
+    /** Always `null` on this path — see the ⚠ note above. */
+    enrichment?: null
+    /** Always `null` on this path — see the ⚠ note above. */
+    rawV2Response?: null
     /** ROADMAP 2.350: the analysis_result block's own enrichment, for the
      *  Compare tab's in-session snapshot capture. NOT the V2-shaped
      *  `enrichment` slot above, which this path clears. */
@@ -222,6 +267,8 @@ export interface V5ApplicatorStore {
    * ⚠ IT MARKS, IT DOES NOT DELETE. The user's numbers stay; the CLAIM goes.
    */
   resultsWithholdLeaderClaim?: (reason: LeaderClaimWithholdingReason) => void
+  /** Step 5c — clears a withholding when the producer positively permits. */
+  resultsRestoreLeaderClaim?: (verdict: unknown) => boolean
 }
 
 /**
@@ -844,6 +891,22 @@ function strengthAcknowledgementData(
     serverStrength,
   }
 }
+/**
+ * ⭐ THE ONE SENTENCE THIS FILE AUTHORS, AND WHY IT IS ALLOWED TO.
+ *
+ * It says nothing about the model and nothing about the user's decision. It
+ * says what the MARK ON SCREEN means — the same class of statement as the
+ * attention card's staleness notice, and the opposite of composing coaching
+ * beside a producer's finding.
+ *
+ * ⚠ VOCABULARY IS RULED, NOT STYLISTIC (Paul, repeatedly, most recently 8 Sep
+ * 2026). There is no race here: no winner, no leader, no lead, no leading
+ * option. The product reports A FREQUENCY — "scored highest" — and says plainly
+ * that scoring highest is not the same as being put forward.
+ */
+const LEADER_DESIGNATION_CAVEAT =
+  'Marked because it scored highest so far — not because Olumi is putting it ' +
+  'forward. This analysis cannot yet single out an option.'
 
 export function applyV5State(
   response: OlumiResponse,
@@ -917,6 +980,7 @@ export function applyV5State(
   const attentionNodeIds: string[] = []
   const attentionEdgeIds: string[] = []
   let pendingAttentionNote: OlumiAttentionNote | null = null
+  let pendingAttentionCaveat: OlumiAttentionCaveat | null = null
   const pulsedEdgeIds: string[] = []
   // add_constraint patches are collected here and flushed to
   // setGoalConstraints ONCE after the loop: the store snapshot's
@@ -1242,6 +1306,134 @@ export function applyV5State(
               })()
             : null
 
+        /*
+         * ═════════════════════════════════════════════════════════════════
+         * ⛔ P0 — A DIRECTIVE MAY NOT MAKE A SILENT VISUAL CLAIM THE
+         *    MODEL IS NOT ENTITLED TO MAKE.
+         * ─────────────────────────────────────────────────────────────────
+         * ⭐ RULED 8 Sep 2026 (Paul): KEEP THE HIGHLIGHT, ADD A VISIBLE
+         * CAVEAT. This gate no longer suppresses the mark — it QUALIFIES it.
+         * See the caveat arm below for the reasoning; the derivation of WHO
+         * the front-runner is, and of whether the model is entitled to say
+         * so, is unchanged and is documented here.
+         * ═════════════════════════════════════════════════════════════════
+         * Measured on deployed staging: inside ONE HTTP 200 the assistant
+         * text said "No single option can be put forward yet" (twice) while
+         * a `ui_directive` highlighted the leading option, and the canvas
+         * obeyed. Every TEXTUAL designation already withholds correctly —
+         * the "Leading option" pill, the robustness badge, "Leads via",
+         * "Behind:", the close-call marker, the decision headline and bar.
+         * The highlight was the one un-ruled hole, and it is the worst kind:
+         * A SILENT VISUAL CLAIM, because nothing on screen admits that a
+         * claim is being made. Note the precise defect — SILENT, not
+         * VISUAL. That is why the ruled fix is to make it speak rather than
+         * to take it away.
+         *
+         * ─────────────────────────────────────────────────────────────────
+         * WHICH QUESTION THIS GATE ANSWERS (trap 21 is live in this seam —
+         * two PRs a day apart once closed this harm and reopened it because
+         * each answered a different question under a similar name):
+         *
+         *   ⭐ "MAY THIS TURN VISUALLY SINGLE OUT THE HIGHEST-SCORING OPTION
+         *      ON THE CANVAS WITHOUT QUALIFICATION?"
+         *
+         * That is Q1 — the MODEL'S LICENCE — applied to the IDENTITY case.
+         * NOT Q2 ("did this run separate the arms?"), and NOT the panel's
+         * composition of both.
+         *
+         * ⚠ Q2 IS DELIBERATELY ABSENT FROM THE CONDITION, and that is the
+         * load-bearing decision. `decisionVerdict.ts` states the rule this
+         * follows: *"a non-null `leaderId` does NOT license the phrase
+         * 'leading option' — identity and entitlement are different
+         * questions."* So `leaderId` is consulted for IDENTITY ONLY, which
+         * is precisely its documented purpose. Conjoining
+         * `hasLeadingOption` here would REOPEN the P0 through the other
+         * door: on a run that did not separate the arms Q2 is false, the
+         * gate would not fire, and the front-runner would still be pulsed
+         * while the panel withheld every designation.
+         *
+         * ─────────────────────────────────────────────────────────────────
+         * ONE READER, IMPORTED — never re-spelled.
+         * `licensesComparativeLeaderClaim` is the codebase's single answer
+         * to Q1 and every textual surface reads it. A second local
+         * expression of the same question is how two authorities drift
+         * apart, which is the defect this estate keeps paying for.
+         *
+         * ABSENCE ARM PRESERVED: `licensesComparativeLeaderClaim(undefined)`
+         * is `true` ON PURPOSE — a pre-admission CEE has not spoken, so the
+         * UI behaves exactly as it did before and the two services stay free
+         * to deploy in either order. A missing carrier must never become a
+         * silent suppression.
+         *
+         * ─────────────────────────────────────────────────────────────────
+         * ⚠ BOTH INPUTS COME FROM THIS ENVELOPE, AND THEY MUST.
+         * This arm runs in STEP 2 (the block loop). `ceeAnalysisReady` is
+         * written in STEP 4 and `results.report` in STEP 5 — BOTH AFTER — so
+         * reading the store here would gate on the PREVIOUS turn's
+         * admission, which answers a different question again.
+         * `V5ApplicatorStore` also exposes only WRITES for those slices.
+         * KNOWN, DELIBERATE GAP (pinned by a test, not hidden): a turn
+         * carrying a highlight but no `analysis_result` block has no
+         * in-envelope leader identity, so nothing is gated.
+         */
+        const envelopeAdmission = (
+          response as { analysis_ready?: { analysis_admission?: AnalysisAdmissionV1 } }
+        ).analysis_ready?.analysis_admission
+        const modelLicensesComparativeClaim =
+          licensesComparativeLeaderClaim(envelopeAdmission)
+        /*
+         * The producer's OWN sentence for why it refused, rendered verbatim
+         * beneath the caveat — and reading it here means the UI never has to
+         * invent one.
+         *
+         * ⚠⚠ SELECTED BY `field`, NEVER BY POSITION, AND "THE FIRST NON-EMPTY
+         * MESSAGE" IS A POSITIONAL READ WEARING A PREDICATE. Every entry in
+         * `reasons` carries a non-empty message, so that find matched
+         * `reasons[0]` on every live payload — and on the wire `reasons[0]` is
+         * the AFFIRMATIVE `structurally_analysable` conjunct. A slot whose only
+         * job is to say why we withheld was rendering "Analysis can run on this
+         * model as it stands." Panel witnessed exactly that on the served build
+         * through the sibling hero slot, which shares this selector's shape.
+         *
+         * ⚠ `field` is a CLOSED UNION of four values, derived at the producer
+         * (`orchestrator-v5/admission/analysis-admission.ts:411`):
+         * `structurally_analysable` · `missing_important_inputs` ·
+         * `semantic_quality_sufficient` · `permitted_analysis_mode`. Only the
+         * last answers "may this run name a leader", which is the question the
+         * caveat above is apologising for.
+         *
+         * ⚠ AND NOT BY MESSAGE TEXT EITHER: on the captured payload
+         * `reasons[1]` and `reasons[2]` carry the IDENTICAL string, so a
+         * message-based assertion passes on the wrong object (trap 19).
+         *
+         * `undefined` when the producer named no mode reason — and the fallback
+         * is deliberately silence, never another reason. The caveat standing on
+         * its own is honest; the caveat contradicted by an affirmative
+         * underneath it is the defect being removed.
+         *
+         * ⚠ THE OLD COMMENT CLAIMED `reasons` "is contractually never empty on
+         * a refusal". That came from `types.ts:456`, a CONSUMER-side doc
+         * comment reading "which conjunct refused". The producer's own wording
+         * is weaker — "which field of the result a reason EXPLAINS" — and
+         * explaining a field is not refusing it. I refuted this brief from that
+         * comment once and was wrong; the two docs disagree about one field and
+         * `types.ts` is the one that needs correcting.
+         */
+        const admissionReasonLine = envelopeAdmission?.reasons?.find(
+          (r): r is { field: string; message: string } =>
+            r?.field === 'permitted_analysis_mode' &&
+            typeof r?.message === 'string' &&
+            r.message.trim().length > 0,
+        )?.message.trim()
+        const envelopeAnalysisBlock = response.blocks.find(
+          (b): b is Extract<V5Block, { type: 'analysis_result' }> =>
+            b.type === 'analysis_result',
+        )
+        const frontRunnerOptionId =
+          envelopeAnalysisBlock === undefined
+            ? null
+            : deriveDecisionVerdict(buildV5VerdictReportLike(envelopeAnalysisBlock)).leaderId
+
         let singleTargetActioned = false
         for (const t of targets) {
           if (!t?.id) continue
@@ -1258,6 +1450,74 @@ export function applyV5State(
             continue
           }
           if (verb === 'highlight') {
+            /*
+             * ⛔ THE DESIGNATION GATE. Placed BEFORE the note/pulse fork so
+             * it covers BOTH highlight sub-paths: the 2s ring AND the held
+             * attention channel. The attention channel is the more prominent
+             * of the two (a persistent marker, not a fading pulse), so
+             * gating one and not the other would leave the louder half open.
+             *
+             * SCOPED PRECISELY — this is a DESIGNATION, not navigation:
+             *   · `highlight` only. `focus` and `open_inspector` take the
+             *     user somewhere; they assert no ranking. Over-gating them
+             *     would break legitimate assistant behaviour, which is a
+             *     worse defect than the one being closed.
+             *   · The FRONT-RUNNER only. Any other option, and any factor,
+             *     still highlights normally under the same refusal.
+             *   · NODES only. `!isEdge` is explicit: a leading option is an
+             *     option node, and an edge id must never be compared into
+             *     the option identity space.
+             *
+             * DEFERRED WITH A STATED REASON rather than dropped silently, so
+             * `applied[]` stays truthful and the withholding is visible to
+             * anyone reading the applicator's result.
+             */
+            if (
+              !modelLicensesComparativeClaim &&
+              !isEdge &&
+              frontRunnerOptionId !== null &&
+              t.id === frontRunnerOptionId
+            ) {
+              /*
+               * ⭐ PAUL'S RULING, 8 Sep 2026: KEEP THE HIGHLIGHT, ADD A VISIBLE
+               * CAVEAT. The first build of this gate SUPPRESSED the mark. That
+               * closed the silent-visual-claim defect by removing the signal
+               * altogether, and lost the useful half with it — the user could
+               * no longer see which option the numbers currently favour.
+               *
+               * The harm was never the mark. It was that the mark made a claim
+               * NOTHING ON SCREEN ADMITTED TO. So the fix is to make the claim
+               * speak: the highlight stays exactly as it was (the pulse still
+               * fires, below), and the same target is ALSO held with a caveat
+               * card that says what the mark does and does not mean.
+               *
+               * ⚠ THE CAVEAT IS NOT A `note`. `note` is the producer's own
+               * coaching, rendered verbatim; a UI-authored sentence in that
+               * channel is the fabricated-coaching defect. `caveat` is a
+               * separate field for exactly this — a disclosure about the MARK,
+               * in the UI's voice, the same class as the card's existing
+               * staleness notice. The WHY beneath it is the producer's own
+               * `reasons` sentence, verbatim.
+               *
+               * ⚠ AND BOTH CHANNELS, DELIBERATELY. The node goes to held
+               * attention (so the card has an anchor and persists while the
+               * user reads it) AND to the pulse (so the highlight the producer
+               * asked for is unchanged). `olumiAttention.ts` states that a node
+               * may legitimately be in both at once; this is that case.
+               */
+              pendingAttentionCaveat = {
+                text: LEADER_DESIGNATION_CAVEAT,
+                ...(admissionReasonLine === undefined
+                  ? {}
+                  : { sourceLine: admissionReasonLine }),
+              }
+              attentionNodeIds.push(t.id)
+              if (attentionNote) pendingAttentionNote = attentionNote
+              pulsedNodeIds.push(t.id)
+              applied.push(`ui_directive:highlight:${t.id}`)
+              applied.push(`ui_directive:leader_designation_caveated:${t.id}`)
+              continue
+            }
             /*
              * ⭐ A HIGHLIGHT THAT CARRIES A NOTE IS ATTENTION, NOT AN
              * ACKNOWLEDGEMENT — and the two have different lifetimes.
@@ -1342,6 +1602,21 @@ export function applyV5State(
       // response carries no valid decision_review. The top-level fallback
       // below may still overwrite null if top-level enrichment is present.
       const blockEnrichment = block.enrichment
+      /**
+       * ⭐ THE EVIDENCE ASSESSMENT, WRITTEN ON EVERY ANALYSIS TURN.
+       *
+       * Value or null, never left stale — the same discipline the decision
+       * review below follows, and for the same reason: a stale assessment from
+       * a previous run would answer a question about THIS run.
+       *
+       * ⚠ THIS IS THE WRITE THAT WAS MISSING. `runMeta.m1Coaching` — the only
+       * thing that ever answered the evidence check — is written solely by
+       * `hydrateAnalysis`, the restore-from-Supabase path. Nothing wrote it on
+       * a live turn, so the check rendered "Evidence not assessed" on every
+       * real journey. Reading a narrow projected block here is what makes the
+       * question answerable at all.
+       */
+      store.setRunMeta({ evidenceAssessment: readEvidenceAssessment(blockEnrichment) })
       const appliedFromBlock = applyDecisionReviewToRunMeta(blockEnrichment, store, 'block')
       if (appliedFromBlock) {
         applied.push('analysis_result:decision_review:block')
@@ -1373,6 +1648,7 @@ export function applyV5State(
       nodeIds: attentionNodeIds,
       edgeIds: attentionEdgeIds,
       note: pendingAttentionNote,
+      caveat: pendingAttentionCaveat,
     })
   }
   // Flush any add_constraint patches in ONE setGoalConstraints write (see
@@ -2022,6 +2298,50 @@ export function applyV5State(
   // rather than three spellings of it (CLAUDE.md trap 12).
   const withholdingReason =
     turnVerdict !== null ? leaderClaimWithholdingReason(turnVerdict) : null
+
+  // ── ⭐ STEP 5c — AND THE ROUTE BACK, WHICH DID NOT EXIST ──────────────────
+  //
+  // Step 5b's own note says it "subtracts and never adds", and that was too
+  // strong in one direction. CEE withholds both for *we looked and declined*
+  // and for *we could not read the separation*
+  // (`analysis-state-v1.ts:189-215`), so an ordinary follow-up question could
+  // cost a user their leading option until they re-ran the whole analysis.
+  //
+  // ⛔ NOT FIXED BY REFUSING TO WITHHOLD — that was tried and closed (#1512).
+  // `canvas/__tests__/withheldLeaderClaimSurvivesReload.spec.ts` exists because
+  // on exactly that payload a reload once brought "Most supported" back while
+  // the refusal vanished, measured on deployed staging `113375a1`. The
+  // withholding STAYS; only the route back changes.
+  //
+  // ⚠ ORDERED AFTER 5b AND MUTUALLY EXCLUSIVE WITH IT BY CONSTRUCTION: a
+  // verdict cannot both withhold and positively permit, so `withholdingReason
+  // === null` is the only arm this can reach. Stating the order rather than
+  // relying on it.
+  if (withholdingReason === null && turnVerdict !== null) {
+    // ⚠ THE LEDGER RECORDS THE CLEAR, NOT THE CALL. The action returns whether
+    // it actually removed a stamp; most permitting turns hold none and are a
+    // no-op, so pushing on every call would produce a trace that says the same
+    // thing on turns that differ (CLAUDE.md trap 20 — a probe returning one
+    // answer for every input is reporting on itself). Step 5b below is
+    // unconditional because its own action is idempotent by re-stamping; this
+    // one is genuinely conditional.
+    const restored = store.resultsRestoreLeaderClaim?.(turnVerdict)
+    if (restored === true) {
+      applied.push('leader_claim:restored')
+      logV5StateStep({
+        step_number: 5,
+        step_name: 'leader_claim_restore',
+        input_keys: [
+          'analysis_state.leader_claim',
+          'analysis_state.requires_rerun',
+          'analysis_state.blocked_unusable',
+        ],
+        output_keys: ['results.report.producer_leader_permission'],
+        applied: true,
+      })
+    }
+  }
+
   if (withholdingReason !== null) {
     store.resultsWithholdLeaderClaim?.(withholdingReason)
     applied.push(`leader_claim:withheld:${withholdingReason}`)

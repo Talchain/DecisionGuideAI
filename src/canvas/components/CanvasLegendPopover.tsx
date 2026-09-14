@@ -44,6 +44,7 @@ import { STRUCTURAL_PROVENANCE_LABEL } from '../domain/nodeProvenanceClaim'
 import { VALUE_PROVENANCE_ICON } from '../domain/valueProvenanceIcon'
 import { METRIC_LEGEND_ROWS, METRIC_NOUN, METRIC_UNSET, type MetricLegendRow } from '../nodes/shared/metricVocabulary'
 import { useCanvasStore } from '../store'
+import { EDGE_STROKE_WIDTH_BANDS, UNSET_EDGE_STROKE_WIDTH } from '../utils/graphDisplayCalculations'
 
 interface LegendRow {
   label: string
@@ -127,11 +128,13 @@ const COLOUR_ROWS: LegendRow[] = [
 
 function ThicknessSwatch({ width, stroke = 'var(--text-body)', testId }: {
   width: number
-  /** Stroke colour. The "no strength suggested" row NEEDS this: at 1.5px it is
-   *  the same width as "Weak effect", so colour is its only discriminator — a
-   *  swatch that hard-coded the body colour rendered the two rows
-   *  pixel-identical and the row's own caption ("thin and grey") was false
-   *  about itself. */
+  /** Stroke colour. The "no strength suggested" row still NEEDS this even now
+   *  that its width differs (`UNSET_EDGE_STROKE_WIDTH` is strictly below every
+   *  measured band as of 8 Sep 2026): the row's caption says "thin AND grey",
+   *  and the canvas draws that edge grey via `computeDirectionStroke`'s neutral
+   *  return. A swatch that hard-coded the body colour once rendered this row
+   *  pixel-identical to "Weak effect" and made its own caption false — the two
+   *  now differ on BOTH channels, which is the point. */
   stroke?: string
   testId?: string
 }) {
@@ -155,20 +158,33 @@ function ThicknessSwatch({ width, stroke = 'var(--text-body)', testId }: {
 
 // Thickness = effect strength (weight magnitude), the same meaning in both
 // phases (P2.9 — thickness no longer switches to composite importance after a
-// run). Stroke widths mirror weightMagnitudeToStrokeWidth() in
-// graphDisplayCalculations.ts: |mean| < 0.4 → 1.5, ≥ 0.4 → 2, ≥ 0.7 → 3.
+// run).
+//
+// ⚠ THE WIDTHS ARE IMPORTED, NOT RESTATED. This block used to carry its own
+// `1.5 / 2 / 3` literals under a comment saying they "mirror
+// weightMagnitudeToStrokeWidth()" — which is the hand-maintained mirror
+// CLAUDE.md trap 12 exists to abolish: a legend that restates the canvas's
+// widths will eventually teach a width the canvas no longer draws, and the
+// drift reads green. They now come from the same constant the edge does.
 // Folded in from the former standalone EdgeThicknessLegend so the two
 // bottom-left legends are now one key.
 const THICKNESS_ROWS: LegendRow[] = [
-  { label: 'Weak effect', swatch: <ThicknessSwatch width={1.5} testId="legend-thickness-weak" /> },
-  { label: 'Moderate effect', swatch: <ThicknessSwatch width={2} /> },
-  { label: 'Strong effect', swatch: <ThicknessSwatch width={3} /> },
-  // Honesty row: an unset strength draws at the SAME width as a weak effect
-  // (UNSET_EDGE_STROKE_WIDTH is 1.5), so without this the key actively teaches
-  // the reader to mistake a blank for a finding. Thickness alone cannot tell
-  // them apart — the colour does, which is why this swatch MUST carry the grey
-  // stroke. It shipped without one for a review cycle and rendered identical to
-  // the row above it, i.e. the caption said "grey" beside a body-coloured line.
+  { label: 'Weak effect', swatch: <ThicknessSwatch width={EDGE_STROKE_WIDTH_BANDS.weak} testId="legend-thickness-weak" /> },
+  { label: 'Moderate effect', swatch: <ThicknessSwatch width={EDGE_STROKE_WIDTH_BANDS.moderate} /> },
+  { label: 'Strong effect', swatch: <ThicknessSwatch width={EDGE_STROKE_WIDTH_BANDS.strong} /> },
+  // Honesty row: an edge nobody has given a strength still has to be drawn, and
+  // without this row the key teaches the reader to mistake a blank for a
+  // finding.
+  //
+  // ⭐ UPDATED 8 Sep 2026. This row used to read: "an unset strength draws at
+  // the SAME width as a weak effect (UNSET_EDGE_STROKE_WIDTH is 1.5) …
+  // Thickness alone cannot tell them apart — the colour does." That collision
+  // is now FIXED at source: `UNSET_EDGE_STROKE_WIDTH` is strictly below every
+  // measured band, so thickness DOES tell them apart, and this key teaches a
+  // width the canvas actually draws. The grey stroke stays — the row claims
+  // "thin AND grey" and both halves must be true of the swatch — and it is
+  // still load-bearing in the causal lens, where the stroke rule reads
+  // `direction` alone and colour cannot discriminate at all.
   //
   // ⛔ THIS ROW USED TO BE LABELLED "Not set yet", AND THAT COLLIDED THE MOMENT
   // THE CARDS STARTED PRINTING THAT EXACT STRING. Two rows in ONE popover, the
@@ -191,7 +207,7 @@ const THICKNESS_ROWS: LegendRow[] = [
   // disclosure (`metricVocabulary.ts`, `METRIC_UNSET.standalone`).
   {
     label: 'No strength suggested: thin and grey',
-    swatch: <ThicknessSwatch width={1.5} stroke="var(--edge-neutral)" testId="legend-thickness-unset" />,
+    swatch: <ThicknessSwatch width={UNSET_EDGE_STROKE_WIDTH} stroke="var(--edge-neutral)" testId="legend-thickness-unset" />,
   },
 ]
 

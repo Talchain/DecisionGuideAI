@@ -30,6 +30,32 @@ on:
     branches: [ staging ]
   pull_request:
     branches: [ staging ]
+  # ⭐ MERGE QUEUE PREREQUISITE (10 Sep 2026). `strict: true` went live on
+  # `staging` and serialised merging: every merge makes every other open PR
+  # stale, so a 26-PR queue costs one full ~13-minute suite per PR, in sequence.
+  # A merge queue is the fix, and THIS TRIGGER IS ITS PRECONDITION — GitHub
+  # dispatches required checks for a queued batch against a `merge_group` ref,
+  # and a queue enabled without this trigger waits forever for a "Staging Gate"
+  # that is never dispatched. Landing the trigger BEFORE enabling the queue is
+  # the entire ordering requirement, and getting it backwards stalls all merges.
+  #
+  # Checked at the bytes against this workflow's own shape, because a trigger
+  # that dispatches a run in which the required job is SKIPPED is worse than no
+  # trigger — a skipped required check reads as pending forever:
+  #   · `gate` (the sole required context) is `if: always()` and carries no
+  #     event conditional, so a merge_group run produces it like any other.
+  #   · The only two `github.event_name` references in this file are in the
+  #     ADVISORY Core E2E job's `CORE_EXPECT_COMMIT`, which resolves to the
+  #     empty string here — advisory, and already its behaviour on PR runs.
+  #   · `concurrency` keys on `github.ref`. Each queue entry gets its own
+  #     `refs/heads/gh-readonly-queue/...` ref, so entries cannot cancel each
+  #     other. NOTE the contrast: pushes to `staging` DO share a ref, so
+  #     `cancel-in-progress: true` cancels the previous run on every merge —
+  #     which is why four consecutive staging commits read RED this morning
+  #     when only one had a genuine failure. A cancelled required check is
+  #     byte-identical to a failed one at the Gate level. Not changed here
+  #     (out of scope for this PR); rowed separately.
+  merge_group:
   # Manual runs, so System E can be pointed at an immutable SHA-pinned deploy URL
   # rather than the mutable staging alias when a verdict has to be attributable.
   workflow_dispatch:

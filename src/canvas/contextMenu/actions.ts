@@ -162,29 +162,35 @@ export async function addNodeAction(
 ): Promise<void> {
   const store = useCanvasStore.getState()
 
-  // Task 6b: Auto-connect option to decision node
-  if (type === 'option') {
-    const decisionNode = store.nodes.find(n => n.type === 'decision')
-    if (decisionNode) {
-      const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 1, store.engineLimits)
-      if (limitKind) {
-        showToast(limitExceededMessage(limitKind, limitKind === 'node_limit' ? store.nodes.length : store.edges.length), 'warning')
-        return
-      }
-      const nodeId = store.createNodeId()
-      const edgeId = store.createEdgeId()
-      const ops: PatchOperation[] = [
-        { op: 'add_node', target_id: nodeId, data: { kind: 'option', label: 'New option' } },
-        { op: 'add_edge', target_id: edgeId, data: { from: decisionNode.id, to: nodeId } },
-      ]
-      await commitValidatedMutation(
-        ops,
-        () => store.addNodeWithEdge(flowPos, 'option', decisionNode.id, 'from-target'),
-        showToast,
-      )
-      return
-    }
-  }
+  // ⭐⭐ THE OPTION AUTO-CONNECT IS GONE, AND DROPPING IT IS WHAT MAKES THIS
+  // GESTURE HONEST (2026-09-13).
+  //
+  // It read: if the kind is `option` and a decision node exists, route through
+  // `store.addNodeWithEdge` so the option arrives already joined to the
+  // decision. Convenient, and NOT DURABLE: `addNodeWithEdge` captures no
+  // `structural_add`, deliberately, because `structural_add_edge` is
+  // `'reader_only_refusal'` in CEE — no writer (re-derived at CEE `staging`
+  // `3575b189`; the reasoning is on `pendingStructuralAdds` in `store.ts`).
+  // So five of the six kinds reached the durable chokepoint and `option` — on
+  // any graph that has a decision, i.e. every real one — silently did not.
+  //
+  // ⚠ THE ASYMMETRY IS THE WHOLE POINT. While this menu was stripped it cost
+  // nothing; the moment the item renders, one kind in six would save nothing
+  // and say nothing, which is exactly the class of lie
+  // `CANONICAL_EDIT_AUTHORITY` exists to forbid. A door that works for five
+  // kinds and quietly fails for the sixth is worse than five doors.
+  //
+  // ⭐ AND THE CONTRACT AGREES, so this is alignment rather than a sacrifice: a
+  // `structural_add` node "has no incident edges by construction", and
+  // "drawing a node and then an edge is two gestures and two turns"
+  // (`boundary/turn-payload` `StructuralAddEvent`). An added option with no
+  // edge is the contract's own model of an add, not a degraded one.
+  //
+  // ⚠ NO USER LOSES ANYTHING BY THIS. `addNodeAction` has exactly one caller
+  // (`useMenuItems.ts`, the pane submenu) and that submenu has never rendered
+  // — it was stripped by `applyContextMenuMutationAuthority` from the day it
+  // was written. There is no established behaviour here to preserve; this
+  // chooses the shape at which the door opens.
 
   // PRD guardrail: check node limit before creating
   const limitKind = wouldExceedLimits(store.nodes.length, store.edges.length, 1, 0, store.engineLimits)

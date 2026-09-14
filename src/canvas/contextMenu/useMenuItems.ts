@@ -20,7 +20,14 @@ import { isEdgeFragile as isEdgeFragileFn } from '../utils/fragileEdgeMatch'
 import type { ContextTarget, MenuEntry } from './types'
 import { isDivider } from './types'
 import type { NodeType } from '../domain/nodes'
-import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../mutations/mutationAuthority'
+import {
+  CANONICAL_EDIT_AUTHORITY,
+  hasServerGraphAuthority,
+  CANVAS_STRUCTURAL_EDIT_NOTICE,
+  CANVAS_STRUCTURAL_EDIT_SHORT_REASON,
+} from '../mutations/mutationAuthority'
+import { WIRE_ADDABLE_NODE_KINDS } from '../mutations/structuralAdd'
+import { canvasUndoUnavailableNotice } from '../useKeyboardShortcuts'
 import {
   deleteAction,
   addNodeAction,
@@ -78,13 +85,104 @@ function getNodeRange(node: any): { min: number; max: number } | null {
 const DIV: MenuEntry = { type: 'divider' }
 
 /**
+ * ⭐⭐ THE PANE NODE-ADD IS JUDGED BY ITS OWN CARRIER, AND THAT IS WHY IT IS NOT
+ * IN THE SET BELOW (2026-09-13).
+ *
+ * `add-node` sat in `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` until the durable writer
+ * landed, and nobody moved it afterwards. The result was the estate's chronic
+ * failure #1 in its purest form: `store.addNode` names itself "THE CHOKEPOINT
+ * FOR EVERY GESTURE THAT REACHES `addNode`: the pane context menu, the six
+ * Command Palette 'Add …' commands, the pre-analysis AddRow and the hero goal
+ * field" — three of those four reach a user, and the pane context menu's item
+ * was stripped before it ever rendered. The pre-analysis `AddRow` is live on
+ * exactly this carrier (`preAnalysisV3StructuralAdd`, flipped for the same
+ * reason), and the Command Palette has no opener at all
+ * (`setShowCommandPalette` is never called true — pinned in
+ * `help/__tests__/KeyboardLegend.dom.spec.tsx`). So the canvas was the only
+ * reachable door left, and one stale set entry held it shut.
+ *
+ * ⚠⚠ THIS IS CLAUDE.md TRAP 21 — TWO KEYS FOR ONE CONCEPT. The authority table
+ * ALREADY says this gesture is `server_graph`, in a key whose own comment names
+ * this surface: `canvasNodeAddWithServerHash` — "the canvas/palette/context-menu
+ * node add … a receipt-bearing GraphV3 carrier (`structural_add`), a
+ * server-side write to `scenarios.graph`, and a committed `edit_graph` fact".
+ * Meanwhile the menu consulted `canvasSemanticMutations`, which is `'disabled'`.
+ * Both keys were correct answers to DIFFERENT questions, and the fix is to name
+ * them apart rather than to align the defaults: each menu id is now judged by
+ * the authority of the carrier IT uses.
+ *
+ * ⚠ THE REST OF THE SET STAYS, AND THE REASONS ARE DERIVED, NOT ASSUMED.
+ * `add-connected-*` and `insert-factor-between` route through
+ * `store.addNodeWithEdge`, and `duplicate`/`paste` through `duplicateSelected`/
+ * `pasteClipboard` — all three capture NOTHING, deliberately, because
+ * `structural_add_edge` is `'reader_only_refusal'` in CEE (re-derived at CEE
+ * `staging` `3575b189`; see the `pendingStructuralAdds` note in `store.ts`).
+ * Emitting a durable add for those would save the nodes and silently DROP the
+ * topology. A door that loses half the gesture is worse than no door.
+ */
+/**
+ * ⛔⛔ KINDS THE PRODUCT READS WITH `.find()` — A SECOND ONE PERSISTS AND IS
+ * THEN IGNORED, WHICH IS WORSE THAN A DOOR THAT REFUSES (13 Sep 2026).
+ *
+ * Found by an independent review seat on #1538, applying this PR's own standard
+ * to this PR: *"a door that works for five kinds and quietly fails for the
+ * sixth is worse than five doors."* It was four and two.
+ *
+ * ⚠ WIRE-PERSISTABILITY WAS THE RIGHT QUESTION FOR `option` AND IS NOT THE
+ * WHOLE QUESTION HERE. A second goal persists perfectly well. It simply does
+ * nothing — because every production consumer takes the FIRST match and a new
+ * node is APPENDED:
+ *
+ *   goal      `adapters/islRequestAdapter.ts:498` — THE ANALYSIS REQUEST ·
+ *             `conversation/utils/applyPatch.ts:544` ·
+ *             `nodes/OptionNode.tsx:1147` · `nodes/OutcomeNode.tsx:51` ·
+ *             `nodes/RiskNode.tsx:59`
+ *   decision  `components/FloatingOlumiPanel.tsx:638` ·
+ *             `hooks/useAddBaseline.ts:68` · `utils/generateScenarios.ts:87`
+ *
+ * ⭐ THE CONTRAST IS WHAT MAKES THIS A DERIVATION RATHER THAN A JUDGEMENT, and
+ * it was run in the same sweep: `factor` and `option` are read with `.filter()`
+ * (`islRequestAdapter.ts:343`, `ReactFlowGraph.tsx:771`, `FactorNode.tsx:77`,
+ * `OptionPanel.tsx:111`, `GoalPanel.tsx:249`). **The codebase already says
+ * which kinds may be plural, in the verb it chose.** This set reads that answer
+ * rather than re-deciding it.
+ *
+ * So the user would add a Goal, watch it persist, watch it render — and the
+ * analysis would go on optimising the other one, with nothing refusing it and
+ * nothing saying so. That is the silent-loss class this whole PR exists to
+ * close, which is why four durable kinds shipping is the win and six is not.
+ *
+ * ⚠ NOT A PERMANENT RULING. The honest alternative is to offer these kinds only
+ * when NONE exists yet, which is a real capability for a graph that has no goal.
+ * It needs its own review and its own emptiness derivation, so it is a row
+ * rather than a widening smuggled into this PR.
+ */
+const SINGULAR_NODE_KINDS: ReadonlySet<string> = new Set<string>(['goal', 'decision'])
+
+/**
+ * The kinds this door may offer: wire-persistable AND safe to have more than
+ * one of. ⭐ ONE list, consumed by BOTH the submenu and the authority set below
+ * — the first cut had the same filter written twice, which is the
+ * hand-maintained mirror this estate keeps paying for (CLAUDE.md trap 12).
+ * Build the door and judge the door from one derivation, or they drift apart
+ * silently and the drift reads as green.
+ */
+const ADDABLE_NODE_TYPE_ITEMS = NODE_TYPE_ITEMS.filter(
+  (nt) => WIRE_ADDABLE_NODE_KINDS.has(nt.type) && !SINGULAR_NODE_KINDS.has(nt.type),
+)
+
+const DURABLE_NODE_ADD_MENU_IDS: ReadonlySet<string> = new Set<string>([
+  'add-node',
+  ...ADDABLE_NODE_TYPE_ITEMS.map((nt) => `add-node-${nt.type}`),
+])
+
+/**
  * Local React-Flow mutations that look like shared-model edits. Delete is not
  * in this set: it has its own server-hash/CAS authority gate in the store.
  * Copy, layout, selection, lenses and AI questions are presentation/read-only
  * actions and remain available.
  */
 export const LOCAL_SEMANTIC_CONTEXT_MENU_IDS = new Set([
-  'add-node',
   'undo',
   'redo',
   'paste',
@@ -109,18 +207,191 @@ function compactDividers(entries: MenuEntry[]): MenuEntry[] {
   return compacted
 }
 
-export function applyContextMenuMutationAuthority(entries: MenuEntry[]): MenuEntry[] {
-  if (hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations)) return entries
-  const filtered = entries.flatMap<MenuEntry>((entry) => {
+/**
+ * One menu id, judged by the authority of the carrier IT uses.
+ *
+ * ⚠ An id in NEITHER set is authorised: this filter subtracts, it does not
+ * admit. Copy, layout, selection, lens and "Ask AI" items reach a user because
+ * nothing here claims them, which is why adding a genuinely local mutation
+ * needs an entry in `LOCAL_SEMANTIC_CONTEXT_MENU_IDS` rather than silence.
+ */
+function menuIdIsAuthorised(id: string, connected: boolean): boolean {
+  if (DURABLE_NODE_ADD_MENU_IDS.has(id)) {
+    return hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeAddWithServerHash)
+  }
+  if (LOCAL_SEMANTIC_CONTEXT_MENU_IDS.has(id)) {
+    // ⭐ THE INJECTED VALUE DRIVES THE PER-ID JUDGEMENT, and that is the whole
+    // point of threading it. It defaults to the same expression this line used
+    // to read directly, so today's behaviour is unchanged — what changes is that
+    // a caller passing `connected` can no longer bypass the per-carrier split.
+    return connected
+  }
+  return true
+}
+
+/**
+ * ⭐⭐ BOTH FIXES KEPT — #1538 decides WHAT is unauthorised, #1304 decides HOW to
+ * show it. Rebased 13 Sep 2026; neither side taken wholesale.
+ *
+ * #1538 replaced a single global authority check with PER-ID judgement, because
+ * `add-node` is judged by `canvasNodeAddWithServerHash` and the rest by
+ * `canvasSemanticMutations` — two questions under one name, and collapsing them
+ * is what kept the add door shut. #1304 replaced REMOVAL with an honest
+ * disabled row. They compose: the per-id test below chooses the unauthorised
+ * set, and #1304's rendering decides what the user sees of it.
+ *
+ * ⛔ CORRECTED 13 Sep 2026. This comment previously read "#1304's global
+ * `if (connected) return entries` early-return is DELIBERATELY NOT reinstated
+ * INSIDE THE WALK". That was literally true and materially misleading: the
+ * early-return was RELOCATED, not removed — it sat above the walk and bypassed
+ * the whole split whenever `connected` was true. I wrote a narrow sentence and
+ * it was read, reasonably, as "removed", including by me when I reported it.
+ * ⭐ It is now genuinely GONE: `connected` is threaded into
+ * `menuIdIsAuthorised` so the injected value drives per-id judgement.
+ */
+
+/**
+ * The gestures a user can ALSO reach by keyboard, so the menu row and the key
+ * must answer identically.
+ *
+ * ⭐ WHY THIS SUBSET AND NOT ALL THIRTEEN — THE DENSITY MEASUREMENT.
+ * Rendering every removed id as a disabled row turns the factor-node menu into
+ * 11 rows with 7 greyed out (64%), which is its own defect: a wall of grey
+ * teaches the user to stop reading the menu. Hiding all thirteen — the
+ * behaviour this replaces — is the defect being fixed. The split shipped here
+ * is measured in `menuSaysWhyUnavailable.spec.ts` §"menu density", which builds
+ * both policies from the SAME pristine entry list.
+ *
+ * The line is drawn at KEYBOARD REACHABILITY because that is where silence
+ * actually hurts: a user who presses ⌘V gets nothing and no explanation, so the
+ * row must exist to say why before they press it, and to agree with the toast
+ * when they do. The remaining eight are menu-only — a user cannot invoke them
+ * without seeing the menu first — so one note serves them all without eight
+ * rows of grey.
+ */
+export const KEYBOARD_REACHABLE_SEMANTIC_IDS = new Set([
+  'undo',
+  'redo',
+  'paste',
+  'cut',
+  // ⛔ `duplicate` REMOVED 13 Sep 2026 — it FAILED BOTH CLAUSES of this set's own
+  // stated criterion, and the contradiction was already written down fifteen
+  // lines into a sibling module before this set was authored.
+  //
+  //   · ⌘D does NOT reach duplicate. `useKeyboardShortcuts.ts:457` gates
+  //     `duplicateSelected()` on `canMutateSharedModel`, which is false; and
+  //     `hooks/useCanvasKeyboardShortcuts.ts:201` ALSO binds ⌘D, UNGATED, to
+  //     `onToggleDocuments` — wired live at `ReactFlowGraph.tsx:1587`. Pressing
+  //     ⌘D opens the Documents drawer.
+  //   · `isClipboardMutationGesture` admits only `x` and `v`
+  //     (`useKeyboardShortcuts.ts:337`), so ⌘D raises no toast for a row to
+  //     agree with.
+  //
+  // ⭐ AND THE RULING ALREADY EXISTED. `isClipboardMutationGesture`'s own header
+  // excludes ⌘D for precisely this reason: "Announcing 'duplicate is
+  // unavailable' over a keystroke that just opened a drawer is one gesture
+  // answered two ways by two handlers, which is a WORSE DEFECT THAN THE
+  // SILENCE." A disabled row here would have re-committed the defect that
+  // predicate was written to refuse.
+  //
+  // ⇒ `duplicate` is therefore MENU-ONLY: hidden, and folded into the grouped
+  // note like its carrierless siblings. That is not a downgrade — it is the
+  // only answer that does not make the menu and the keyboard disagree.
+])
+
+/** Stable id for the grouped note. ID-addressed, never label-derived. */
+export const STRUCTURAL_EDITS_NOTE_ID = 'structural-edits-note'
+
+/**
+ * Which sentence is TRUE for this row.
+ *
+ * ⚠ UNDO/REDO ARE NOT STRUCTURAL EDITS AND MUST NOT CLAIM THE STRUCTURAL
+ * SENTENCE. ⌘Z is already answered by `canvasUndoUnavailableNotice()`, which
+ * names Version history. If this row said "ask Olumi" the key and the menu
+ * would answer one question two different ways — the estate's signature defect.
+ * Reading the same function the key reads is what keeps them from disagreeing.
+ */
+function unavailableReason(id: string): { tooltip: string; disabledReason: string } {
+  if (id === 'undo' || id === 'redo') {
+    return { tooltip: canvasUndoUnavailableNotice(), disabledReason: 'not available here' }
+  }
+  return {
+    tooltip: CANVAS_STRUCTURAL_EDIT_NOTICE,
+    disabledReason: CANVAS_STRUCTURAL_EDIT_SHORT_REASON,
+  }
+}
+
+/**
+ * Applies the presentation authority to a built menu.
+ *
+ * ⭐ THIS IS A PRESENTATION AUTHORITY (see `mutationAuthority.ts`): its job is
+ * to decide what to RENDER, and "render it disabled with an honest reason" is
+ * the option it was written for. Nothing here gates a write — every surfaced
+ * row is `enabled: false`, so no gesture becomes actionable that was not
+ * actionable before. Flipping the authority literal is explicitly NOT what this
+ * does; the constraint is made legible, not absent.
+ */
+export function applyContextMenuMutationAuthority(
+  entries: MenuEntry[],
+  opts?: { connected?: boolean },
+): MenuEntry[] {
+  const connected = opts?.connected
+    ?? hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasSemanticMutations)
+  // ⛔⛔ NO GLOBAL EARLY-RETURN. `if (connected) return entries` stood here until
+  // 13 Sep 2026 and it DEFEATED THE PER-CARRIER SPLIT: `menuIdIsAuthorised` reads
+  // the constants itself and never saw this value, so the only thing the injected
+  // parameter could do was return the whole menu UNFILTERED. Two consequences,
+  // both found by the reviewing seat on this PR:
+  //   · every spec passing `connected: true` exercised the wholesale path and
+  //     could not discriminate per-id behaviour in the connected state AT ALL —
+  //     a seam with one possible answer;
+  //   · the day `canvasSemanticMutations` moves toward `server_graph`, FIVE
+  //     CARRIERLESS IDS would have opened silently (paste, undo, redo, cut,
+  //     duplicate) along with add-connected-*, insert-factor-between,
+  //     mark-assumption and reverse-edge.
+  // That is precisely the conflation the per-id split exists to remove, retained
+  // as the sole function of the injected parameter. `connected` is now threaded
+  // into the judgement instead, so the seam survives and becomes assertable.
+
+  let hidMenuOnlyGesture = false
+
+  const walk = (list: MenuEntry[]): MenuEntry[] => list.flatMap<MenuEntry>((entry) => {
     if (isDivider(entry)) return [entry]
-    if (LOCAL_SEMANTIC_CONTEXT_MENU_IDS.has(entry.id)) return []
-    const submenuItems = entry.submenuItems
-      ? applyContextMenuMutationAuthority(entry.submenuItems)
-      : undefined
+    if (!menuIdIsAuthorised(entry.id, connected)) {
+      if (!KEYBOARD_REACHABLE_SEMANTIC_IDS.has(entry.id)) {
+        hidMenuOnlyGesture = true
+        return []
+      }
+      // Surfaced, never actionable: the reason replaces the disappearance.
+      const { tooltip, disabledReason } = unavailableReason(entry.id)
+      const { submenuItems: _drop, hasSubmenu: _drop2, ...rest } = entry
+      return [{ ...rest, enabled: false, tooltip, disabledReason }]
+    }
+    const submenuItems = entry.submenuItems ? walk(entry.submenuItems) : undefined
     if (entry.hasSubmenu && submenuItems?.length === 0) return []
     return [{ ...entry, ...(submenuItems ? { submenuItems } : {}) }]
   })
-  return compactDividers(filtered)
+
+  const filtered = compactDividers(walk(entries))
+  if (!hidMenuOnlyGesture) return filtered
+
+  // One grouped line for everything that stayed hidden, rather than eight rows
+  // of grey. Self-retiring: it is appended only when something was actually
+  // hidden on THIS menu, so the multi-select menu (whose only removals are
+  // surfaced above) never grows one.
+  return [
+    ...filtered,
+    DIV,
+    {
+      id: STRUCTURAL_EDITS_NOTE_ID,
+      label: 'Other model edits: ask Olumi',
+      // No icon on purpose: every other row's icon marks something you can DO,
+      // and this row is a sentence, not an action.
+      tooltip: CANVAS_STRUCTURAL_EDIT_NOTICE,
+      enabled: false,
+      action: () => {},
+    },
+  ]
 }
 
 // ---------------------------------------------------------------------------
@@ -182,7 +453,9 @@ function buildPaneMenu(
 ): MenuEntry[] {
   const flowPos = screenToFlowPosition(target.screenPos)
 
-  const addNodeSubmenu: MenuEntry[] = NODE_TYPE_ITEMS.map((nt) => ({
+  // ⚠ ONE DERIVATION, SHARED WITH THE AUTHORITY SET — see
+  // `ADDABLE_NODE_TYPE_ITEMS`.
+  const addNodeSubmenu: MenuEntry[] = ADDABLE_NODE_TYPE_ITEMS.map((nt) => ({
     id: `add-node-${nt.type}`,
     label: nt.label,
     ...(nt.glyph ? { glyph: nt.glyph } : {}),

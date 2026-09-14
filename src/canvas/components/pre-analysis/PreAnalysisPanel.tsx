@@ -1287,7 +1287,32 @@ export function PreAnalysisPanel({
   // as the legacy bias trigger render.
   const t1Handlers = useMemo<T1Handlers>(() => ({
     onConfirm: PRE_ANALYSIS_FACTOR_CONFIRMATION_CONNECTED ? handleConfirm : undefined,
-    onEdit: PRE_ANALYSIS_FACTOR_VALUE_CONNECTED ? handleSetValueForGap : undefined,
+    /**
+     * ⭐ NAVIGATION IS NOT A MUTATION — so it is not governed by
+     * `CANONICAL_EDIT_AUTHORITY`, and gating it here hid the one affordance a
+     * user with an unfilled gap actually needs.
+     *
+     * `handleSetValueForGap` is `openNodeInspector(factorId)` and nothing else.
+     * It writes no model value. It was gated on `preAnalysisFactorValue`, a
+     * MUTATION-authority key, so a gap row offered no way to act on the grounds
+     * that an edit could not be saved — by a handler that does not edit.
+     *
+     * ⚠ THE PRECEDENT IS ALREADY IN THE TREE, on the sibling surface.
+     * `TriageActionCardsBody.tsx:316` fixed exactly this for the POST-RUN card
+     * and recorded the rule: *"Navigation is not a mutation, so this is not
+     * governed by `CANONICAL_EDIT_AUTHORITY` at all — the same reason the
+     * resolve-next act consults no key."* This applies it to the pre-analysis
+     * surface, which the same reasoning always covered.
+     *
+     * ⛔ AND THE KEY STAYS `'disabled'`, DELIBERATELY. The fix is NOT a flag
+     * flip: `preAnalysisFactorValue` governs the INLINE editor below
+     * (`handleInlineEditValue`), which does one local `updateNode` and emits
+     * nothing, so that gate is correct and is untouched. Flipping the key would
+     * assert a capability this surface does not have. Only the destination
+     * changes — and the destination now works, because the inspector's factor
+     * panels own their own authority and reach `factor_value_edit`.
+     */
+    onEdit: handleSetValueForGap,
     onUpdateEdgeStrength: PRE_ANALYSIS_EDGE_STRENGTH_CONNECTED
       ? handleUpdateEdgeStrength
       : undefined,

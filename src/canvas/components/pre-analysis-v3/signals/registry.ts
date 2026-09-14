@@ -13,6 +13,7 @@
 
 import { SIGNAL_COPY, SPARK_PROMPTS } from '../constants'
 import type { StructuralAbsence } from '../selectors/computeStructuralAbsence'
+import type { OptionDifferentiation } from '../selectors/computeOptionDifferentiation'
 import type { PanelSignalId, SignalDetection } from '../types'
 
 export interface SignalDetectionInput {
@@ -47,6 +48,19 @@ export interface SignalDetectionInput {
    * "we did not look" into "we looked and found nothing" at the next call site.
    */
   structuralAbsence: StructuralAbsence | null
+  /**
+   * Whether the options state the same VALUES for the factors they share, or
+   * null when no comparison could honestly run (fewer than two comparable
+   * options, no shared factor, nothing identical). Computed by
+   * `selectors/computeOptionDifferentiation.ts` from the producer's own
+   * `analysis_ready.options`, never a canvas-side re-derivation.
+   *
+   * Required, not optional: this claims something about what the user's options
+   * SAY, and an omitted field defaulting to `null` would silently turn "we did
+   * not look" into "we looked and found nothing" at the next call site — the
+   * same rule `structuralAbsence` above is held to.
+   */
+  optionDifferentiation: OptionDifferentiation | null
 }
 
 export type SignalSurface = 'hero' | 'sharpen'
@@ -162,6 +176,43 @@ export const SIGNAL_REGISTRY: ReadonlyArray<SignalDef> = [
             action: { type: 'send_prompt', spark: SPARK_PROMPTS.pressureTestFrame },
             spark: SPARK_PROMPTS.pressureTestFrame,
           }
+      }
+    },
+  },
+  {
+    signal_id: 'sig_option_differentiation',
+    surface: 'sharpen',
+    entityKind: 'option',
+    // ⚠ DELIBERATELY NULL, for the same reason as the structural row above.
+    // `computeOptionDifferentiation` returns null BOTH when the options are
+    // well differentiated AND when no comparison could honestly run (one
+    // option, no shared factor, no resolved values yet). A confirmation line
+    // cannot tell those apart, so "Options differentiated." would assert a pass
+    // that was never measured every time a precondition simply stopped holding
+    // — and a re-draft clearing the payload would fire it every time.
+    resolvedCopy: null,
+    detect: input => {
+      const finding = input.optionDifferentiation
+      if (!finding) return null
+      // ⚠ ONE ANSWER PER QUESTION AT THE SURFACE. When the structural row is
+      // live it has already told the user their options are not really
+      // alternatives, and it outranks (registry order). Adding "and they also
+      // state the same values" underneath would read as two findings about one
+      // problem. The selectors stay separate — this is a RENDER precedence
+      // rule, not a merge of the two questions.
+      if (input.structuralAbsence?.kind === 'shared_mechanism') return null
+      const copy = SIGNAL_COPY.optionDifferentiation(
+        finding.identicalCount,
+        finding.sharedCount,
+        finding.optionCount,
+      )
+      return {
+        signal_id: 'sig_option_differentiation',
+        copy: { lead: copy.lead, emphasis: copy.emphasis },
+        rationale: SIGNAL_COPY.optionDifferentiationRationale,
+        entityKind: 'option',
+        action: { type: 'send_prompt', spark: SPARK_PROMPTS.widenOptions },
+        spark: SPARK_PROMPTS.widenOptions,
       }
     },
   },

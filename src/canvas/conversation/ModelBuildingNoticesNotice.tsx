@@ -35,6 +35,12 @@
  *   cannot name is dropped from the rows while `total_count` stays the
  *   producer's, so the two quantities can legitimately differ; the copy is
  *   written so neither is stated in terms of the other.
+ * · ⭐⭐ Never that everything it counts is MISSING. The headline counts only
+ *   the kinds whose every producer reason leaves the content off the graph
+ *   (`KIND_OUTCOME`); the breakdown groups the rest under headings that say
+ *   what actually happened to them. The deployed build said "Olumi left 14
+ *   things from your brief out of this model" over a set in which two whole
+ *   kinds are still in the model — see `modelBuildingNotices.ts`.
  * · Never a specific example. `details_redacted: true` means the producer sent
  *   counts and nothing else — naming an item would be invention.
  * · Never anything at all when the field is absent. No zero, no empty panel.
@@ -44,6 +50,9 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import {
   MODEL_BUILDING_NOTICES_POINTER,
+  OUTCOME_HEADINGS,
+  OUTCOME_ORDER,
+  modelBuildingNoticeOutcome,
   modelBuildingNoticesSummary,
   type ModelBuildingNoticesView,
 } from './modelBuildingNotices'
@@ -79,42 +88,65 @@ export const ModelBuildingNoticesNotice = memo(function ModelBuildingNoticesNoti
         data-testid="model-building-notices-toggle"
         className={`${typography.panelMeta} text-text-light inline-flex items-center gap-1 hover:text-text-body transition-colors`}
       >
-        {modelBuildingNoticesSummary(notices.totalCount)}
+        {modelBuildingNoticesSummary(notices)}
         {expanded
           ? <ChevronDown className="w-3 h-3" aria-hidden="true" />
           : <ChevronRight className="w-3 h-3" aria-hidden="true" />}
       </button>
 
       {expanded && (
-        <div id="model-building-notices-detail" className="mt-1 pl-4 space-y-1">
-          <ul className={PANEL_LIST_STACK} role="list">
-            {notices.rows.map((row) => (
-              <li
-                key={row.kind}
-                // Provenance for tests/debug — binds a row to its producer kind
-                // BY IDENTITY. Never rendered as text.
-                data-notice-kind={row.kind}
-                className={`${typography.panelMeta} text-text-light`}
-              >
-                {/* ⚠ THE COUNT IS A TRAILING QUANTITY, NOT A LEADING NUMERAL.
-                    A leading count reads "1 Alternatives that were merged into a
-                    single option" whenever a group holds one item — and
-                    `total_count: 1` is the most likely draft of all. The
-                    description is a CATEGORY LABEL with fixed grammatical
-                    number, so nothing prefixed to it can agree at both 1 and n;
-                    parenthesising the quantity sidesteps agreement entirely and
-                    reads correctly at every count, without a second copy field
-                    per kind.
+        <div id="model-building-notices-detail" className="mt-1 pl-4 space-y-2">
+          {/* ⭐⭐ GROUPED BY WHAT ACTUALLY HAPPENED, LOSS FIRST.
+              A flat list under a count made every row look like an omission —
+              including "folded into one option" and "took the cautious
+              reading", which the producer says leave the content on the graph.
+              The user cannot act on fourteen undifferentiated items; they can
+              act on the ones under "Not in this model".
 
-                    Emphasis by COLOUR, never by a raw font weight: DS v5 §2.4
-                    bans raw sizes and weights in panel scope and this file sits
-                    in the dock closure, so the darker body token carries the
-                    quantity on its own. */}
-                {row.description}{' '}
-                <span className="text-text-body">({row.count})</span>
-              </li>
-            ))}
-          </ul>
+              An EMPTY GROUP IS NEVER RENDERED: a heading with no rows beneath
+              it asserts a category this payload does not have. */}
+          {OUTCOME_ORDER.map((outcome) => {
+            const rows = notices.rows.filter(
+              (row) => modelBuildingNoticeOutcome(row.kind) === outcome,
+            )
+            if (rows.length === 0) return null
+            return (
+              <div key={outcome} data-notice-outcome={outcome}>
+                <p className={`${typography.panelMeta} text-text-body`}>
+                  {OUTCOME_HEADINGS[outcome]}
+                </p>
+                <ul className={PANEL_LIST_STACK} role="list">
+                  {rows.map((row) => (
+                    <li
+                      key={row.kind}
+                      // Provenance for tests/debug — binds a row to its producer
+                      // kind BY IDENTITY. Never rendered as text.
+                      data-notice-kind={row.kind}
+                      className={`${typography.panelMeta} text-text-light`}
+                    >
+                      {/* ⚠ THE COUNT IS A TRAILING QUANTITY, NOT A LEADING
+                          NUMERAL. A leading count reads "1 Overlapping
+                          alternatives folded into one option" whenever a group
+                          holds one item — and `total_count: 1` is the most
+                          likely draft of all. The description is a CATEGORY
+                          LABEL with fixed grammatical number, so nothing
+                          prefixed to it can agree at both 1 and n;
+                          parenthesising the quantity sidesteps agreement
+                          entirely and reads correctly at every count, without a
+                          second copy field per kind.
+
+                          Emphasis by COLOUR, never by a raw font weight: DS v5
+                          §2.4 bans raw sizes and weights in panel scope and this
+                          file sits in the dock closure, so the darker body token
+                          carries the quantity on its own. */}
+                      {row.description}{' '}
+                      <span className="text-text-body">({row.count})</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )
+          })}
           <p
             data-testid="model-building-notices-pointer"
             className={`${typography.panelMeta} text-text-light`}

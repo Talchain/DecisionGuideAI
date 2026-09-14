@@ -27,7 +27,18 @@ import { PanelFooter } from './footer/PanelFooter'
 import type { LadderStep, SignalView } from './types'
 import { CANONICAL_EDIT_AUTHORITY, hasServerGraphAuthority } from '../../mutations/mutationAuthority'
 
-const GOAL_SUCCESS_EDIT_CONNECTED = hasServerGraphAuthority(
+/**
+ * ⚠ TWO KEYS, BECAUSE THE TWO FIELDS THESE ROUTES POINT AT ANSWER TO DIFFERENT
+ * AUTHORITIES — see the long note on `HeroSection.GOAL_LABEL_EDIT_CONNECTED`.
+ * These constants must stay in step with the hero's, because a route that
+ * focuses a field the hero renders read-only puts the caret in a `<span>` and
+ * nothing happens; the specs assert focus, so a divergence REDs.
+ */
+const GOAL_LABEL_EDIT_CONNECTED =
+  hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.canvasNodeRenameWithServerHash) &&
+  hasServerGraphAuthority(CANONICAL_EDIT_AUTHORITY.preAnalysisV3StructuralAdd)
+
+const SUCCESS_TARGET_EDIT_CONNECTED = hasServerGraphAuthority(
   CANONICAL_EDIT_AUTHORITY.goalSuccessTarget,
 )
 
@@ -73,11 +84,11 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason, blockedListi
     (step: LadderStep) => {
       switch (step.kind) {
         case 'set_goal':
-          if (GOAL_SUCCESS_EDIT_CONNECTED) document.getElementById(GOAL_INPUT_ID)?.focus()
+          if (GOAL_LABEL_EDIT_CONNECTED) document.getElementById(GOAL_INPUT_ID)?.focus()
           else sendPrompt(SPARK_PROMPTS.pressureTestFrame)
           break
         case 'set_success':
-          if (GOAL_SUCCESS_EDIT_CONNECTED) document.getElementById(SUCCESS_INPUT_ID)?.focus()
+          if (SUCCESS_TARGET_EDIT_CONNECTED) document.getElementById(SUCCESS_INPUT_ID)?.focus()
           else sendPrompt(SPARK_PROMPTS.defineSuccess)
           break
         case 'calibrate_top':
@@ -102,11 +113,11 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason, blockedListi
       if (!action) return
       switch (action.type) {
         case 'focus_goal_field':
-          if (GOAL_SUCCESS_EDIT_CONNECTED) document.getElementById(GOAL_INPUT_ID)?.focus()
+          if (GOAL_LABEL_EDIT_CONNECTED) document.getElementById(GOAL_INPUT_ID)?.focus()
           else sendPrompt(SPARK_PROMPTS.pressureTestFrame)
           break
         case 'focus_success_field':
-          if (GOAL_SUCCESS_EDIT_CONNECTED) document.getElementById(SUCCESS_INPUT_ID)?.focus()
+          if (SUCCESS_TARGET_EDIT_CONNECTED) document.getElementById(SUCCESS_INPUT_ID)?.focus()
           else sendPrompt(SPARK_PROMPTS.defineSuccess)
           break
         case 'open_estimates':
@@ -147,7 +158,7 @@ function PanelBody({ onAnalyse, isAnalysing, canRun, blockedReason, blockedListi
             hasGoalNode={model.hero.goal != null}
             hasSuccessTarget={model.hero.success.isSet}
             onSetTarget={() => {
-              if (GOAL_SUCCESS_EDIT_CONNECTED) document.getElementById(SUCCESS_INPUT_ID)?.focus()
+              if (SUCCESS_TARGET_EDIT_CONNECTED) document.getElementById(SUCCESS_INPUT_ID)?.focus()
               else sendPrompt(SPARK_PROMPTS.defineSuccess)
             }}
           />

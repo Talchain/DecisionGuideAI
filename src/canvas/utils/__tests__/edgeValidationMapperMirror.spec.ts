@@ -298,6 +298,57 @@ describe('edge data — the two hand-mirrored mappers build the SAME bag', () =>
     expect(stale).toEqual([])
   })
 
+  /**
+   * ⭐ THE AUTHORSHIP STAMP AGREES AT BOTH HOPS — and without this the repair it
+   * guards could be two-thirds reverted under a fully green suite.
+   *
+   * MEASURED before adding it: reverting the fix in hop 2 or hop 3 left
+   * 2486/2486 passing across 140 spec files. The lockstep mechanism above
+   * already existed; its CORPUS simply had no user-authored edge in it, so every
+   * hop took the `'cee'` fallback and agreed for the wrong reason. That is the
+   * same shape as the defect the repair closed — a guard that cannot fail.
+   *
+   * ⛔ A DEDICATED FIXTURE, NOT AN EDIT TO `WIRE_EDGE_FULL`. Putting
+   * `user_specified` on the shared fixture was the obvious one-line move and it
+   * BROKE A POSITIVE CONTROL: the `effect_direction: 'unknown'` arm asserts a
+   * producer-stated direction stamps `'cee'`, which is exactly what a
+   * user-authored fixture stops being true. Overwriting that expectation would
+   * have falsified a control to fit a fixture — measured, not theorised.
+   *
+   * ⚠ SCOPE: hops 1 and 2. **Hop 3 (`DraftChat`) is not covered by this suite at
+   * all** — it has no arm here — so it remains unguarded and is named rather
+   * than implied.
+   */
+  it('a user-authored edge stamps the SAME author at hop 1 and hop 2', () => {
+    const WIRE_USER_AUTHORED = { ...WIRE_EDGE_FULL, provenance: { source: 'user_specified' } }
+    const drafted = mapDraftEdgeToCanvas({ ...WIRE_USER_AUTHORED }, 0)
+    applyAutoApplyPatch(addEdgePatch({ ...WIRE_USER_AUTHORED }) as any)
+    const patched = storeEdges[0]
+
+    // FLOOR, same reason the comparison above carries one: an empty bag would
+    // satisfy every assertion below vacuously.
+    expect(Object.keys(drafted.data).length).toBeGreaterThan(10)
+    expect(Object.keys(patched.data).length).toBeGreaterThan(10)
+
+    expect(drafted.data.weightSource).toBe('user')
+    expect(drafted.data.directionSource).toBe('user')
+    expect(patched.data.weightSource).toBe('user')
+    expect(patched.data.directionSource).toBe('user')
+  })
+
+  /**
+   * THE CONTRAST, and it is what stops the arm above passing for "always user".
+   * An edge Olumi inferred must still read `'cee'` at both hops.
+   */
+  it('an Olumi-inferred edge still stamps "cee" at hop 1 and hop 2', () => {
+    const WIRE_CEE = { ...WIRE_EDGE_FULL, provenance: { source: 'cee_hypothesis' } }
+    const drafted = mapDraftEdgeToCanvas({ ...WIRE_CEE }, 0)
+    applyAutoApplyPatch(addEdgePatch({ ...WIRE_CEE }) as any)
+    const patched = storeEdges[0]
+    expect(drafted.data.weightSource).toBe('cee')
+    expect(patched.data.weightSource).toBe('cee')
+  })
+
   it('the recorded divergences are exactly the ones listed', () => {
     // Pinned separately so the SIZE of the exception set is itself visible in a
     // diff. Growing it is a decision someone has to make on purpose. It is EMPTY:

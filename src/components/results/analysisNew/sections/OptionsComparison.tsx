@@ -35,6 +35,14 @@
  *    one, since `isRecommended` is set from the winner selection rather than
  *    from the leader VERDICT.
  *
+ *  · NO COMPARATIVE MAGNITUDE THE RUN HAS NOT LICENSED. The bars are a drawn
+ *    comparative claim, so they render only where `comparativeClaim` is
+ *    `'value'` — the glance's own three-valued answer, carried on this section
+ *    and consumed rather than re-derived. The gate and its three states are set
+ *    out at `mayDrawMagnitude` below; the short version is that the figure
+ *    became a claim when it became legible, and a claim needs the licence that
+ *    governs claims of that kind.
+ *
  *  · NO AUTHORED SENTENCES. Every string a reader meets here is either a label
  *    the producer sent, a number the estate's own formatter produced, or one of
  *    the sanctioned constants in `utils/notAnalysedCopy.ts` — the single source
@@ -116,18 +124,67 @@ import { typography } from '../../../../styles/typography'
 import { useShowToastSafe } from '../../../../canvas/ToastContext'
 import { focusModelTarget } from '../../../../canvas/utils/focusHelpers'
 import { clearHighlight, highlightNode } from '../../../../canvas/utils/highlightHelpers'
-import { NOT_ANALYSED_BADGE, NOT_COMPUTED_BADGE } from '../../utils/notAnalysedCopy'
+import {
+  BRING_INTO_COMPARISON_LABEL,
+  bringIntoComparisonQuestion,
+  NOT_ANALYSED_BADGE,
+  NOT_COMPUTED_BADGE,
+} from '../../utils/notAnalysedCopy'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
+// ⚠ THE GLANCE'S OWN COPY CONSTANT, imported rather than re-typed. `AtAGlance`
+// renders the identical string for the identical fact about the leading option;
+// two spellings of one claim on one screen is how a reader learns to distrust
+// both, and a local literal here could drift from it silently.
+import { OPTION_ORIGIN_COPY } from '../optionOriginDisclosure'
 import type { OptionsComparisonSection } from '../analysisNewTypes'
 import { SectionShell } from './SectionShell'
 
 export interface OptionsComparisonProps {
   options: OptionsComparisonSection
+  /**
+   * Send a message as the user, on the surface's EXISTING writer.
+   *
+   * ⚠ OPTIONAL, AND ITS ABSENCE IS THE GATE, not a detail. A host with no
+   * composer renders no act at all — never a control that does nothing. This is
+   * the same shape and the same handler `WhatIWasGivenSection` already uses for
+   * its own ask on this tab (`AnalysisNewTabBody.tsx:200`, supplied from
+   * `OutputsDock.tsx:3899`), so this section joins the writer the product has
+   * rather than minting a second one with its own validation and policy.
+   */
+  onSendMessage?: (message: string) => void
+  /**
+   * ⭐⭐ OPEN ON MOUNT — AND THE CALLER DECIDES, BECAUSE THE CALLER IS THE ONLY
+   * ONE WHO CAN SEE THE QUESTION.
+   *
+   * `SectionShell`'s rule is that a section may open by default only when
+   * something ABOVE it depends on the content being visible. Whether that
+   * holds is a fact about the GLANCE and this section together, and this
+   * component is handed only the second — so deriving it here would mean
+   * re-deriving the glance from the rows, which is the re-derivation this
+   * directory keeps paying for. `AnalysisNewTabBody.tsx` holds both and states
+   * the condition there, exactly as it already does for
+   * `StrengthenTheReasoning`.
+   *
+   * ⚠ A DEFAULT, NOT A LOCK, AND READ EXACTLY ONCE. `SectionShell` seeds
+   * `useState(defaultOpen)`, so from the first render of this instance the
+   * open state belongs to the toggle. A later `false` is not re-read and the
+   * section stays where the reader left it — the same semantics, and the same
+   * deliberate choice, recorded at `StrengthenTheReasoning.tsx:114`.
+   *
+   * ⛔ IT MOVES NOTHING BUT VISIBILITY. Every entitlement rule in this file's
+   * header is evaluated the same way open or closed: no ordinal is printed,
+   * no leader is marked, and `mayDrawMagnitude` reads `comparativeClaim`,
+   * which is computed upstream in the view model and cannot be influenced by a
+   * disclosure state that does not exist until render.
+   */
+  defaultOpen?: boolean
   testId?: string
 }
 
 export function OptionsComparison({
   options,
+  onSendMessage,
+  defaultOpen = false,
   testId = 'analysis-new-options',
 }: OptionsComparisonProps) {
   const showToast = useShowToastSafe()
@@ -198,6 +255,60 @@ export function OptionsComparison({
     options.rows.length > 0 &&
     options.rows.every((o) => o.kind !== 'analysed' || o.winReadout === null)
 
+  /**
+   * ⭐⭐⭐ MAY A COMPARATIVE MAGNITUDE BE DRAWN ON THIS RUN — THE GLANCE'S
+   * ANSWER, CONSUMED. Not re-derived, not widened, not combined with anything.
+   *
+   * ── WHY THIS GATE ONLY BECAME NECESSARY WITH THE SIZE CHANGE ──────────────
+   *
+   * The track below was `h-1`: a 4px hairline. Paul's reading of the deployed
+   * tab is that this section shows *"three plain option names with no comparison
+   * of any kind"*, and at 4px that is very nearly a literal description of the
+   * figure. A hairline is decoration, and decoration makes no claim.
+   *
+   * At a size a reader can actually measure — which is the whole point of the
+   * change — four bars on a shared baseline are READ COMPARATIVELY, whatever the
+   * author intended each one to mean on its own. So the figure starts making a
+   * comparative claim at exactly the moment it becomes legible, and a claim needs
+   * the licence that governs claims of that kind. **The gate is required BY the
+   * size change; it is not an unrelated tightening shipped alongside one.**
+   *
+   * ── THE THREE STATES, EACH HANDLED, NONE COLLAPSED ────────────────────────
+   *
+   *  · `'value'` — the run's comparative MAGNITUDE is on screen and licensed
+   *    (`AtAGlance` is printing "Scored highest in N% of simulated futures").
+   *    The bars draw. This is the state the size change exists for.
+   *
+   *  · `'order'` — a superlative or an ordering verdict is licensed, but no
+   *    percentage is. What is licensed is the ORDER, and the order is ALREADY on
+   *    screen: it is the array order, authored once upstream by
+   *    `sortOptionsForDisplay` and withheld there when the verdict withholds
+   *    (ROADMAP 1.267). So the licensed material renders and no magnitude does,
+   *    and this component adds nothing — printing `rank` here would be the
+   *    ordinal this file's header bans in its first rule.
+   *
+   *  · `'none'` — nothing set-dependent is licensed. Nothing comparative is
+   *    drawn. The withheld-comparison sentence above is untouched by this gate
+   *    and keeps its own authority (`noneNumbered`), because "did any row come
+   *    back with a number?" and "may a magnitude be claimed?" are different
+   *    questions and must not acquire one name between them.
+   *
+   * ⚠ `=== 'value'` AND NOT `!== 'none'`. The two are different gates and only
+   * one of them is this one: `!== 'none'` would draw a magnitude at `'order'`,
+   * which is precisely the state whose definition is "an ordering renders, but
+   * no percentage". A three-valued authority read as a boolean loses the middle
+   * state silently, and the middle state is the one that licenses the LEAST.
+   *
+   * ⚠ IT GATES THE FIGURE AND NOTHING ELSE. The win READOUT beside each name is
+   * an own-probability statement with its own shape rule (a `null` readout and a
+   * `null` fraction arrive together), the badges answer "why is there no
+   * number", and the producer's per-option sentence is the producer's. None of
+   * them is a comparative magnitude and none of them moves with this gate —
+   * widening it to cover them would delete licensed material, which is the
+   * opposite harm and cannot share this parameter (CLAUDE.md trap 22b).
+   */
+  const mayDrawMagnitude = options.comparativeClaim === 'value'
+
   return (
     <SectionShell
       title={COPY.sections.options}
@@ -206,6 +317,7 @@ export function OptionsComparison({
       // of them — named rows plus the unnamed disclosure. A collapsed row is a
       // promise about what is behind it.
       count={options.totalCount}
+      defaultOpen={defaultOpen}
       testId={testId}
     >
       {/* ⚠ THE SENTENCE IS `checks.leaderMeaning`, NOT A NEW ONE. It already
@@ -313,10 +425,55 @@ export function OptionsComparison({
             {/* The bar exists ONLY for a measured share. An option with no
                 probability — analysed or not — gets no track and no fill:
                 an empty track reads as a measured zero, which is the precise
-                claim absence does not license. */}
-            {o.kind === 'analysed' && o.winFraction !== null ? (
+                claim absence does not license.
+
+                ⭐ AND ONLY WHEN THE RUN LICENSES A COMPARATIVE MAGNITUDE AT ALL
+                (`mayDrawMagnitude`, derived at the top of this component from
+                the glance's own answer). The two conditions are conjoined and
+                answer different questions: `winFraction !== null` asks whether
+                THIS OPTION has a share to draw, and the licence asks whether
+                THIS RUN may put a comparative magnitude on screen. Either one
+                alone would be the wrong gate. */}
+            {mayDrawMagnitude && o.kind === 'analysed' && o.winFraction !== null ? (
               <span
-                className="mt-1 block h-1 w-full rounded-full bg-panel-hover overflow-hidden"
+                /**
+                 * ⭐⭐ 8px, NOT 4px — AND THE HEIGHT IS THE DEFECT, NOT A TASTE.
+                 *
+                 * This was `h-1`. Four pixels of track behind a fill the same
+                 * colour weight as the panel's furniture is not a figure a
+                 * reader can measure; it is a rule with a tint on it. Paul,
+                 * 2026-09-11, on the deployed tab: the lower half is *"just a
+                 * big lump of text"* and *"not an actual tool for enhancing
+                 * critical creative thinking or visualising information"* — and
+                 * for this section that is a geometry finding, because the
+                 * comparison it is named for WAS being drawn, at a size that
+                 * reads as absent.
+                 *
+                 * ⚠⚠ `h-2` IS DERIVED FROM THIS SURFACE, NOT IMPORTED FROM THE
+                 * OTHER TAB. `DriverInfluenceChart.tsx:227` is the Reasoning
+                 * tab's own bar figure and it is `h-2`; it mounts in this very
+                 * body (`AnalysisNewTabBody.tsx:1493`), one section away. So the
+                 * two bar figures on one surface now agree, and the number came
+                 * from a sibling rather than from preference.
+                 *
+                 * ⛔ THE ANALYSIS TAB'S TREATMENT WAS DELIBERATELY NOT COPIED.
+                 * `WinGauge` is the reference for the SHAPE — a proportional
+                 * fill on a shared baseline — and its radii, paddings and
+                 * container styling stay where they are. #1346 removed seven
+                 * container treatments that carried one meaning between them and
+                 * ruled GEOMETRY IS GRAMMAR AND IS FIXED, TONE IS MEANING AND
+                 * VARIES (`panelSurfaces.ts:23`); importing a second tab's
+                 * geometry to fix a figure would re-open that drift two days
+                 * after it was closed. The shape is borrowed, the grammar is
+                 * this surface's.
+                 *
+                 * ⚠ NOT TALLER THAN THE SIBLING, EITHER. A bar bigger than the
+                 * driver chart's would make this section the loudest thing on
+                 * the panel, and the file header's own rule is that the NAME
+                 * leads and the share qualifies it — the same anchoring argument
+                 * that keeps the readout at `panelMeta`.
+                 */
+                className="mt-1 block h-2 w-full rounded-full bg-panel-hover overflow-hidden"
                 aria-hidden="true"
                 data-testid={`${testId}-bar`}
               >
@@ -356,6 +513,45 @@ export function OptionsComparison({
               </span>
             ) : null}
 
+            {/* ⭐⭐ WHOSE IDEA THIS OPTION WAS — ON EVERY ROW, NOT JUST THE
+                LEADER'S.
+
+                The measured defect: the product invented a hybrid option the
+                user never named, it ranked THIRD of four, and nothing on the
+                surface marked it as ours. The glance carries this sentence for
+                the LEADING option only, and on that run the leader was the
+                user's own — so the one honest channel correctly said nothing,
+                and the invention two rows down went unremarked.
+
+                ⛔ IT NEVER SUPPRESSES, RE-RANKS OR RE-WORDS ANYTHING. It adds a
+                line under a name that is on screen regardless. Olumi inventing
+                options is the product working — 10 syntheses, 3 status-quo
+                baselines and 2 novel moves across the measured corpus — and the
+                defect was the silence about it, not the invention.
+
+                ⚠ SILENT UNLESS THE CLAIM IS WARRANTED, and `null` is the common
+                answer: the user's own option, CEE's ambiguous
+                `ai_inferred`-with-a-quote case, an unstamped node, and any host
+                that passes no origin map all render nothing. There is no
+                fallback wording, because every other wording attributes the
+                idea to somebody.
+
+                ⚠ THE SAME COPY CONSTANT THE GLANCE RENDERS, not a second
+                phrasing of one fact — two wordings of one claim on one screen
+                is how a reader learns to distrust both. */}
+            {o.origin !== null ? (
+              <p
+                className={`${typography.panelMeta} text-text-light mt-0.5 mb-0`}
+                /* BOUND BY THIS ROW'S OWN ID. A shared testid would let a spec
+                   find another option's sentence and pass — the trap-19 defect
+                   this disclosure exists to correct, reproduced in its guard. */
+                data-testid={`${testId}-option-origin-${o.id}`}
+                data-option-origin={o.origin}
+              >
+                {OPTION_ORIGIN_COPY[o.origin]}
+              </p>
+            ) : null}
+
             {/* ⭐ THE PRODUCER'S OWN SENTENCE ABOUT THIS OPTION, VERBATIM.
                 `story_headlines[optionId]` carries one for NON-LEADING options
                 too, which is exactly the material this section existed to be
@@ -383,6 +579,42 @@ export function OptionsComparison({
               >
                 {o.reasonCopy}
               </p>
+            ) : null}
+
+            {/* ⭐ THE ACT — and it ASKS. It sends a question naming this option
+                and the run's own stated ground for leaving it out, and that is
+                ALL it does: no add, no value change, no re-run. The adjacent
+                receipt's `addAction` records why (15 arms over 5 rounds against
+                the live CEE router: every add phrasing refused, every ask
+                phrasing answered), and the acceptance condition for an add is
+                knowledge this surface does not have. Whatever the user does
+                with the answer is a later turn through the existing writers.
+                Two honest steps beat one false promise.
+
+                ⛔ NOT ON `not_computed`. That option WAS in the comparison and
+                the computation failed, so there is nothing to bring in and the
+                question would misdescribe the run (CLAUDE.md trap 21 — the two
+                numberless rows are not two spellings of one state).
+
+                ⚠ GATED ON THE WRITER, so a host with no composer renders
+                nothing rather than a control that cannot act. */}
+            {o.kind === 'not_analysed' && onSendMessage ? (
+              <button
+                type="button"
+                data-testid={`${testId}-bring-in-${o.id}`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  /* BOUND BY IDENTITY. The question is composed from THIS row's
+                     own label and THIS row's own ground, both carried on the
+                     row object — never read back off the rendered sentence and
+                     never looked up by label, which another option could
+                     share. */
+                  onSendMessage(bringIntoComparisonQuestion(o.label, o.reason))
+                }}
+                className={`${typography.panelMeta} mt-1 inline-flex items-center rounded text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+              >
+                {BRING_INTO_COMPARISON_LABEL}
+              </button>
             ) : null}
 
             {/* WHY the computation produced no number, as opposed to why the

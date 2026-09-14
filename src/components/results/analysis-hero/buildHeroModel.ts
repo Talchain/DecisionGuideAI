@@ -917,10 +917,30 @@ export function buildHeroModel(
   // at all; `?? null` keeps the panel's markup identical to its pre-field
   // markup rather than substituting a placeholder the producer never wrote.
   //
-  // ONLY `reasons[0]` reaches this slot. The hero shows one sentence under
-  // one headline; any further reasons are not rendered on this surface. They
-  // are untouched on `recommendation.analysisAdmission` for any consumer that
-  // wants them.
+  // ⚠⚠ SELECTED BY `field`, NEVER BY POSITION — AND THIS LINE USED TO READ
+  // `reasons?.[0]`, which printed the OPPOSITE of the truth in the one slot
+  // whose only job is to make a refusal legible.
+  //
+  // `analysis_admission.reasons` is an array of CONJUNCTS and the order is the
+  // PRODUCER'S. On the live wire `reasons[0]` is the AFFIRMATIVE
+  // `structurally_analysable` / `READY_TO_COMPARE` — "Analysis can run on this
+  // model as it stands" — and the sentence a reader needs sits at [1]/[2]. So
+  // the positional read rendered that affirmative sentence under a headline
+  // about what the run may NOT conclude. Wire-witnessed on
+  // `staging--olumi.netlify.app` as a fresh guest, read out of
+  // `[data-testid="hero-designation-withheld-reason"]`.
+  //
+  // ⛔ AND THE FALLBACK IS `null`, NEVER ANOTHER REASON. When the
+  // `permitted_analysis_mode` conjunct is absent the array may still hold
+  // renderable sentences, one of them affirmative; reaching for any of them
+  // re-opens the same misstatement. Silence is correct there.
+  //
+  // The shape is COPIED from `buildAnalysisNewViewModel.ts:1700` (#1404), which
+  // already serves it — one selector for one question, not two expressions of it.
+  //
+  // The hero shows one sentence under one headline; any further reasons are not
+  // rendered on this surface. They are untouched on
+  // `recommendation.analysisAdmission` for any consumer that wants them.
   //
   // ⚠⚠ GATED ON THE Q1 REFUSAL, NOT ON `designationsWithheld` ALONE — this is
   // the fix for two questions under one name.
@@ -949,7 +969,9 @@ export function buildHeroModel(
     licensesComparativeLeaderClaim(recommendation.analysisAdmission) === false
   const designationWithheldReason =
     designationsWithheld && modelRefusedComparativeClaim
-      ? recommendation.analysisAdmission?.reasons?.[0]?.message?.trim() || null
+      ? recommendation.analysisAdmission?.reasons?.find(
+          (r) => r?.field === 'permitted_analysis_mode',
+        )?.message?.trim() || null
       : null
 
   // Tension subline: the headlined leader vs the strongest expected outcome.

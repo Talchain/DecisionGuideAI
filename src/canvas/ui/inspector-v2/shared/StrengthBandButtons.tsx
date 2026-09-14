@@ -34,11 +34,29 @@ interface StrengthBandButtonsProps {
   value: number
   /** Callback with new signed strength value (band midpoint with current sign preserved) */
   onChange: (signedValue: number) => void
+  /**
+   * ⛔ NOBODY HAS STATED A STRENGTH — LIGHT NOTHING.
+   *
+   * Without this the component highlights a band derived from `value`, and for a
+   * link the user just drew that value is `USER_EDGE_DEFAULTS.weight` (0.3) —
+   * so the UI would PROPOSE a number nobody supplied, with `aria-pressed="true"`
+   * on it. Accepting the highlighted band would then stamp `weightSource: 'user'`
+   * and turn a fabricated default into a stated fact.
+   *
+   * `captureStructuralAddEdge`'s header calls putting that exact constant on the
+   * wire *"a fabricated number reaching the model through the one door this
+   * estate guards hardest"*. The wire guard holds; this is the same defect
+   * arriving through the pixels, and this flag is where it is refused.
+   *
+   * DISPLAY-LEVEL ONLY — there is deliberately no second store field.
+   */
+  unset?: boolean
 }
 
 export const StrengthBandButtons = memo(function StrengthBandButtons({
   value,
   onChange,
+  unset = false,
 }: StrengthBandButtonsProps) {
   const absMagnitude = Math.abs(value)
   const isNegative = value < 0
@@ -60,7 +78,8 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
   return (
     <div className="flex gap-1 mb-2" role="group" aria-label="Strength presets">
       {BANDS.map((band, i) => {
-        const isActive = activeBandIndex === i
+        // `unset` wins over any derived band — see the prop's note.
+        const isActive = !unset && activeBandIndex === i
         return (
           <button
             key={band.label}

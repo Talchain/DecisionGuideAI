@@ -59,6 +59,41 @@
  *  4. PLAIN TALLY — claims nothing about the remainder. Reached only when the
  *     numbers do not add up, and true however they fail to, including the
  *     over-count (`inModel > total`) that pass 3 got wrong.
+ *
+ * ── ⭐⭐ THE POPULATION, CHANGED 11 Sep 2026 (ROADMAP 2.1000) ────────────────
+ * THE SENTENCE USED TO QUANTIFY OVER A SET IT CANNOT ENUMERATE. Every arm read
+ * "… figures YOU MENTIONED …", which attributes the count to the user's own
+ * words. Witnessed on the deployed Reasoning tab:
+ *
+ *     "All 5 figures you mentioned are in the model"
+ *
+ * `total` is not the number of figures the user wrote. It is the number CEE's
+ * quantity extractor FOUND in `brief_text`, and that extractor misses forms it
+ * was never written for (`4.20 pounds` among them). So a brief stating six
+ * figures of which the extractor sees five renders an all-clear over five: true
+ * of the five it found, and a false assurance about the sixth. "All" turns a
+ * LOWER BOUND into a guarantee, and it does it in the COLLAPSED state, which is
+ * the one place `COPY.caveatLead` ("this covers … it does not yet track") can
+ * never reach.
+ *
+ * ⚠ THE FIX IS NOT A WIDER EXTRACTOR. A wider regex still is not proof of
+ * completeness; it moves the boundary and leaves the claim type untouched. The
+ * repair is to quantify over the set the panel CAN enumerate, which is also
+ * exactly the set it lists below: the figures it found. "All 5 figures I found
+ * in your brief are in the model" is true, keeps the count, keeps the
+ * reassurance proportional, and makes the number the panel's own claim rather
+ * than an assertion about the reader's memory. A user who wrote six now sees a
+ * five that is attributed, and the mismatch is theirs to notice; the human
+ * remains the author.
+ *
+ * ⚠ EVERY ARM MOVED, NOT ONLY THE ALL-CLEAR. The defect is the POPULATION, not
+ * the quantifier, and it sits in the same noun phrase in every arm. Leaving
+ * "you mentioned" on the shortfall arms would give one quantity two names on
+ * one surface, which is trap 21 in miniature and is how the twins get built.
+ *
+ * ⚠ NOT WIDENED FURTHER. The verbs, the numbers, the arm order and the "N of M"
+ * wording are untouched. This is one noun phrase, and the header above records
+ * what happens here when a fix carries unreviewed phrasing along with it.
  */
 
 /** Just the four counts; the component owns everything else. */
@@ -71,37 +106,46 @@ export interface FigureTally {
 
 const figures = (n: number): string => `figure${n === 1 ? '' : 's'}`
 
+/**
+ * WHOSE FIGURES THESE ARE, stated once so no arm can drift off it.
+ *
+ * Named rather than inlined nine times: nine copies of one noun phrase is the
+ * hand-maintained mirror (trap 12), and the drift would be silent because every
+ * arm reads correctly on its own.
+ */
+const FOUND = 'I found in your brief'
+
 export function figureTallySubtitle(tally: FigureTally | null): string {
   if (tally === null) return "I can't show this yet"
 
   const notYet = tally.absent + tally.proseOnly
 
   if (tally.total === 0 && tally.inModel === 0 && notYet === 0) {
-    return 'No figures to track from your brief yet'
+    return 'I found no figures in your brief'
   }
 
   if (notYet > 0) {
-    if (tally.total === 1 && notYet === 1) return "The figure you mentioned isn't in the model yet"
+    if (tally.total === 1 && notYet === 1) return `The figure ${FOUND} isn't in the model yet`
     const verb = notYet === 1 ? "isn't" : "aren't"
     return tally.total > 0 && notYet <= tally.total
-      ? `${notYet} of ${tally.total} ${figures(tally.total)} you mentioned ${verb} in the model yet`
-      : `${notYet} ${figures(notYet)} you mentioned ${verb} in the model yet`
+      ? `${notYet} of ${tally.total} ${figures(tally.total)} ${FOUND} ${verb} in the model yet`
+      : `${notYet} ${figures(notYet)} ${FOUND} ${verb} in the model yet`
   }
 
   if (tally.inModel === tally.total) {
     return tally.total === 1
-      ? 'The figure you mentioned is in the model'
-      : `All ${tally.total} figures you mentioned are in the model`
+      ? `The figure ${FOUND} is in the model`
+      : `All ${tally.total} figures ${FOUND} are in the model`
   }
 
   if (tally.inModel === 0) {
-    return `None of the ${tally.total} ${figures(tally.total)} you mentioned ${
+    return `None of the ${tally.total} ${figures(tally.total)} ${FOUND} ${
       tally.total === 1 ? 'is' : 'are'
     } in the model`
   }
 
   const verb = tally.inModel === 1 ? 'is' : 'are'
   return tally.inModel <= tally.total
-    ? `${tally.inModel} of ${tally.total} ${figures(tally.total)} you mentioned ${verb} in the model`
-    : `${tally.inModel} ${figures(tally.inModel)} you mentioned ${verb} in the model`
+    ? `${tally.inModel} of ${tally.total} ${figures(tally.total)} ${FOUND} ${verb} in the model`
+    : `${tally.inModel} ${figures(tally.inModel)} ${FOUND} ${verb} in the model`
 }

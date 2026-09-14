@@ -9,7 +9,11 @@ import { useCallback } from 'react'
 import { useCanvasStore } from '../../store'
 import type { RiskImpact } from '../../domain/nodes'
 import { useOptionalConversationContext } from '../../conversation/ConversationContext'
-import { buildEdgeStrengthEditEvent } from '../../conversation/edgeStrengthEdit'
+import {
+  buildEdgeStrengthEditEvent,
+  buildEdgeDirectionEditEvent,
+  buildEdgeStrengthConfirmEvent,
+} from '../../conversation/edgeStrengthEdit'
 
 // ─── Editor-written-field manifest (single source of truth) ────────────
 //
@@ -60,7 +64,13 @@ export const NODE_SETTER_FIELDS = {
   setObservedBaseline: ['observedState'],
   setObservedStd: ['observedState'],
   setObservedSource: ['observedState'],
-  setCategory: ['category'],
+  // `categoryInferredByUi` rides with the value on the same `*Source` pattern
+  // as the edge markers above: a human picking a category is the one thing
+  // that turns the ingestion adapter's edge-shape guess into a stated fact, so
+  // the admission is cleared in the SAME update as the value and can never lag
+  // behind it. Absent it, the Model tab would keep withholding a
+  // classification the user had just authored.
+  setCategory: ['category', 'categoryInferredByUi'],
   setExtractionType: ['extractionType'],
   setFactorType: ['factor_type'],
   setStateSpaceRange: ['state_space'],
@@ -70,7 +80,18 @@ export const NODE_SETTER_FIELDS = {
   setImpact: ['impact'],
 } as const satisfies Record<string, readonly string[]>
 
-/** edge setter name → the top-level `data` field(s) that setter writes. */
+/**
+ * edge setter name → the top-level `data` field(s) that setter writes.
+ *
+ * ⛔ SETTERS ONLY. `confirmCurrentStrength` is deliberately ABSENT: it writes no
+ * `data` field at all, so it is not a setter, and a row here would be a claim
+ * that a user edits a field through it. The shared contract agrees and enforces
+ * it — `editableFieldTable.pinAndParity.spec.ts` requires every name in this map
+ * to have a row in `@talchain/schemas`' EDITABLE FIELD table, and confirming
+ * edits nothing. A member that writes nothing is classified in the spec's
+ * `EDGE_NON_WRITERS` list instead, where the claim is DRIVEN rather than
+ * declared.
+ */
 export const EDGE_SETTER_FIELDS = {
   // The `*Source` markers ride along with the value each setter writes: a
   // user moving the slider is the ONLY thing that turns a defaulted number
@@ -216,6 +237,129 @@ export const INSPECTOR_READ_ONLY_REASON =
  */
 export const INSPECTOR_OPTION_READ_ONLY_REASON =
   'The name saves. Other fields here are read-only for now — links, details and coaching still work.'
+
+/**
+ * ⭐⭐ THE FACTOR PANE, AND IT IS THE FIRST NOTICE HERE THAT ANNOUNCES A SAVE
+ * RATHER THAN EXPLAINING A REFUSAL.
+ *
+ * The controllable-factor VALUE has a durable carrier (`factor_value_edit`),
+ * so on this pane it genuinely saves. Reusing either string above would have
+ * been a lie in the expensive direction: both say the non-name fields cannot
+ * be saved, and a user who believed that would route a change they had just
+ * successfully made through the Model tab instead.
+ *
+ * ⚠ AND IT NAMES WHAT STILL DOES NOT SAVE. `setDescription` has no carrier and
+ * stays fenced. A notice that only advertised the win would leave the reader to
+ * discover the exception by losing a description to the next rehydrate.
+ */
+export const INSPECTOR_FACTOR_CONTROLLABLE_REASON =
+  // ⚠ TWO CORRECTIONS LIVE IN THIS ONE SENTENCE.
+  //
+  // (1) DELIBERATELY NOT A CLOSED CLAIM. An earlier wording named description as
+  // THE exception; the panel also fences its advanced editor (14 writers with no
+  // carrier), so "description is the one read-only thing" was false the moment it
+  // was written. This says what saves and leaves the complement open — it stays
+  // true as carriers are added, and a reader is never told a control saves when
+  // it does not.
+  //
+  // (2) IT STATES THE ACTION, NEVER THE STORAGE. My first rewrite said the other
+  // edits "stay on this device" — caught by `guestStorageClaims.spec.ts`, and
+  // caught correctly: A GUEST'S GRAPH ALSO EXISTS SERVER-SIDE, so any "only on
+  // this device" claim is simply false, however reassuring it sounds. What is
+  // true is that these edits are not SENT, which is a claim about this app's
+  // behaviour rather than about where bytes live.
+  'The name and the value save to the shared model. Other edits here are not sent yet — links, details and coaching still work.'
+
+/**
+ * ⭐ THE EXTERNAL-FACTOR PANE, AND IT EXISTS SO THE THIRD PANEL CANNOT INHERIT
+ * THE SECOND'S SENTENCE.
+ *
+ * `InspectorRouter`'s own comment demanded this: the notice is keyed by panel
+ * type "so adding a third cannot silently inherit a sentence written about
+ * another surface", and the ternary there fell through to the OPTION string for
+ * any authority-owning pane that was not `factor-controllable`. A third panel
+ * added without this constant would have told the reader "the name saves" while
+ * the range saved too.
+ *
+ * What saves here: the name, and the prior RANGE. `setPriorRange` writes
+ * `data.prior` through `updateNode` (round trip pinned in
+ * `useAutosave.analysisFieldPersist.spec.ts`) and emits `prior_range_edit`.
+ *
+ * ⚠ IT CLAIMS NO EFFECT ON RESULTS, DELIBERATELY. PLoT's prior pass is gated
+ * four ways and one gate is silent: an `observed_state.value` present skips the
+ * prior with no warning, as do a non-external category, a non-uniform
+ * distribution and a degenerate range. "Your results will change" would be a
+ * third false sentence in a slot that has already shipped two, failing in
+ * opposite directions. This states the ROLE and the SAVE, never a per-run
+ * outcome.
+ *
+ * ⚠ AND IT LEAVES THE COMPLEMENT OPEN, for the same reason the controllable
+ * string does: `setDescription` has no carrier and stays fenced, and naming it
+ * as THE exception would be false the moment another fence is added.
+ */
+export const INSPECTOR_FACTOR_EXTERNAL_REASON =
+  'The name and the range save to the shared model. Other edits here are not sent yet. Links, details and coaching still work.'
+
+/**
+ * ⭐⭐ THE EDGE PANEL, once the blanket fence came off it.
+ *
+ * What saves here: the LINK STRENGTH. `setStrength` emits `edge_strength_edit`,
+ * the contract member CEE has consumed since schemas 0.42.0, dispatched at
+ * `system-events/dispatch.ts` and routed through the canonical
+ * `adjust_edge_strength` handler. The direction rides with it when the user
+ * drags the SIGNED slider, because stating a sign IS stating a direction.
+ *
+ * ⚠ IT NAMES THE STRENGTH AND NOTHING ELSE, DELIBERATELY. `setExistsProbability`
+ * and `setStd` perform a local `updateEdge` and emit nothing at all, and
+ * `setLabel` likewise — all three stay fenced inside the panel. Naming them as
+ * THE exceptions would be false the moment a fourth is added, which is the same
+ * reasoning the external-factor string above records.
+ *
+ * ⚠ AND IT PROMISES NO PER-RUN OUTCOME. Whether CEE's `graphCas.rpcEnforce`
+ * posture lets the write land in `scenarios.graph` or answers a typed
+ * `edge_strength_edit_reader_only` refusal is, in CEE's own words, "UNOBSERVABLE
+ * FROM ANY CLIENT by construction". Under BOTH postures this sentence is true:
+ * the edit is sent, and a refusal arrives as a message the user can read rather
+ * than as silence. What was false before was the control moving with nothing
+ * leaving the browser at all.
+ */
+export const INSPECTOR_EDGE_REASON =
+  'The link strength saves to the shared model. Other edits here are not sent yet. Labels, details and coaching still work.'
+
+/**
+ * ⛔ THE SAME PANEL, FOR AN EDGE WHOSE STRENGTH CANNOT BE ASSERTED.
+ *
+ * `buildEdgeStrengthEditEvent` refuses to build an event for an edge with no
+ * strength anybody set: the wire event carries an `expected` tuple, and there is
+ * nothing truthful to put in it. `edgeStrengthEditIsAssertable` asks the builder
+ * that question rather than re-deriving it, and it FAILS CLOSED.
+ *
+ * On those edges the strength control stays fenced and this sentence explains
+ * why, rather than the panel offering a slider whose write returns
+ * `not_wire_encodable` and stops before the wire — which is the silent lie this
+ * whole change exists to end, and it would be worse for having a fresh coat of
+ * paint on it.
+ */
+/**
+ * ⭐ THE DRAWN-LINK POPULATION — a link the SERVER HAS NEVER RECEIVED.
+ *
+ * Its sibling below says *"Ask Olumi to set its strength"*, which is sound for a
+ * server-held link and wrong here: `EdgePanel` offers this reader a control that
+ * states it directly. It promises no outcome — the sender has no revert
+ * lifecycle, so "sent" is honest and "saved" is not.
+ */
+export const INSPECTOR_EDGE_AWAITING_STATED_STRENGTH_REASON =
+  'This connection is on your canvas only. Set its strength here to send it to the model. Labels, details and coaching still work.'
+// ⛔ "SEND", NOT "SAVE", AND NOT "WITH YOUR NEXT MESSAGE" — both were in a draft
+// of this line and both were false. `useStructuralAddEdgeEvents` is NOT
+// debounced: it drains the queue as its own turn rather than riding the user's
+// next message, so the deferred sibling's wording does not apply here. And that
+// hook's own header is explicit that it has no revert lifecycle — "a refused
+// edge stays on the canvas and the user learns of the refusal only from CEE's
+// own sentence" — so the honest reading is "the edge is SENT", never "SAVED".
+
+export const INSPECTOR_EDGE_NO_STRENGTH_BASIS_REASON =
+  'This connection has no strength on record for the model to check a change against, so edits here are not sent yet. Ask Olumi to set its strength. Labels, details and coaching still work.'
 
 // ─── Node mutations ────────────────────────────────────────────────
 export function useNodeMutations(nodeId: string) {
@@ -402,7 +546,9 @@ export function useNodeMutations(nodeId: string) {
   const setCategory = useCallback((category: 'controllable' | 'observable' | 'external') => {
     const node = getNode()
     if (!node) return
-    updateNode(nodeId, { data: { ...node.data, category } })
+    // `false`, not a delete: the user stated this, and an explicit denial is
+    // readable by a surface that only ever asks `=== true`.
+    updateNode(nodeId, { data: { ...node.data, category, categoryInferredByUi: false } })
   }, [nodeId, updateNode, getNode])
 
   const setExtractionType = useCallback((extractionType: 'explicit' | 'inferred') => {
@@ -523,6 +669,25 @@ export type EdgeStrengthCommitOutcome =
   | 'not_wire_encodable'
   | 'not_encodable'
 
+/**
+ * The outcome of RATIFYING a strength the server already holds.
+ *
+ * ⚠ NAMED APART FROM `EdgeStrengthCommitOutcome`, AND THE SPLIT IS TRAP 21.
+ * That one answers *"will the server accept this NUMBER?"*; this answers *"did a
+ * statement of agreement leave?"* — and it deliberately has NO member meaning
+ * "committed", because confirming writes NOTHING locally.
+ *
+ * ⛔ `dispatched` MEANS A STATEMENT LEFT, NOT THAT IT LANDED. No caller may
+ * render it as agreement recorded. That is `proposeEdgeStrengthConfirmation`'s
+ * own ruling and it is repeated here because the caller this type exists for is
+ * the one that broke it.
+ */
+export type EdgeStrengthConfirmOutcome =
+  | 'dispatched'
+  | 'refused_unassertable'
+  | 'no_carrier'
+  | 'not_encodable'
+
 // ─── Edge mutations ────────────────────────────────────────────────
 export function useEdgeMutations(edgeId: string) {
   const updateEdge = useCanvasStore(s => s.updateEdge)
@@ -640,13 +805,151 @@ export function useEdgeMutations(edgeId: string) {
     updateEdge(edgeId, { data: { ...edge.data, label: value || undefined } })
   }, [edgeId, updateEdge, getEdge])
 
-  const setDirection = useCallback((direction: 'positive' | 'negative') => {
+  /**
+   * ⭐ THE DEFECT THIS CLOSES, as the user experiences it: picking "helps" or
+   * "hurts" changed the line, stamped `directionSource: 'user'` — and told the
+   * server nothing. The claim survived until the next reload and then silently
+   * vanished, which is the harm CEE's own dispatch table names in terms ("a lie
+   * told by omission"). Direction is the most load-bearing fact in a causal
+   * model, so an analysis re-run after the fix silently used the OLD sign.
+   *
+   * ⚠ THE LOCAL WRITE IS UNCONDITIONAL, AND IT IS THE SAME DECISION `setStrength`
+   * MAKES AND DOCUMENTS ABOVE — read that note rather than re-deriving this one.
+   * An edge with no server-stated `expected` tuple has nothing truthful to
+   * assert, so failing closed would make the control do NOTHING for a whole
+   * class of edges: a disclosed gap traded for a silently dead affordance, the
+   * worse of the two.
+   *
+   * ⛔ CORRECTED FORWARD, 10 Sep 2026 (independent review) — THE TWO CLAIMS THAT
+   * USED TO CLOSE THIS PARAGRAPH EACH ASSERTED A BEHAVIOUR NOTHING PERFORMS.
+   * They are corrected rather than deleted so they are not re-derived.
+   *
+   *   · IT READ *"The outcome token is how the gap is disclosed instead"*.
+   *     NOTHING IS DISCLOSED TO A USER TODAY. Both `setDirection` call sites
+   *     DISCARD the return — `EdgeAdvancedEditor.tsx:127` and
+   *     `RelationshipsSection.tsx:284`, neither assigns it — and the token's own
+   *     note at `:516` above says so in terms: "NO CALLER READS THIS TOKEN YET,
+   *     and that is recorded rather than hidden." Citing that honest disclosure
+   *     and then stating its opposite is the defect, not a wording slip. What
+   *     the token actually does is make the states NAMEABLE and testable AT THE
+   *     SEAM. On an edge with no server-stated tuple the user still gets a local
+   *     write, no event and no message of any kind, and the edit still vanishes
+   *     on reload, silently. That is a gap this lane does not close and does not
+   *     regress; giving each outcome a user-visible sentence is a copy change a
+   *     sibling lane owns.
+   *   · IT READ *"`edgeDirectionEditIsAssertable` is how a surface gates the
+   *     affordance PER EDGE before offering it"*. IT HAS ZERO PRODUCT
+   *     CONSUMERS: one definition (`edgeStrengthEdit.ts:373`), six spec
+   *     references and four comments, and no import anywhere outside its own
+   *     module. Contrast control from the same sweep, so this is a real absence
+   *     and not a blind probe: `edgeStrengthEditIsAssertable` IS consumed —
+   *     imported at `ModelTabV2Panel.tsx:85`, used at `:519`. The gate is real,
+   *     correct and tested; it is what a surface WOULD ask per edge before
+   *     offering the affordance. Restore the present tense when a caller asks
+   *     it.
+   *
+   * ⛔ CORRECTED FORWARD, 9 Sep 2026 (independent review) — DO NOT ACT ON THE
+   * PARAGRAPH BELOW AS CURRENT. It was honest when written and is now false in
+   * both limbs, and it is kept rather than deleted because it is the record of
+   * why CEE #1393 happened.
+   *
+   *   · THE POSTURE IS `enforce` ON THE DEPLOYED BUILD — measured, not read off
+   *     a config default. So the demotion described below DOES NOT FIRE, and the
+   *     "user who changed direction is told about strength" case is not
+   *     reachable on staging.
+   *   · THE COPY NO LONGER EXISTS. CEE `083e0da` replaced it, live 12:35:24Z on
+   *     9 Sep, citing this review. So the closing instruction — "THE FIX IS ONE
+   *     STRING IN THE OTHER REPO, deliberately not made here" — would now send a
+   *     reader to make a fix that is already deployed.
+   *
+   * The lesson worth keeping is the one this block now demonstrates twice: a
+   * posture inferred from a config file is not the deployed posture, and a
+   * disclosed gap goes stale exactly like any other hand-maintained claim.
+   *
+   * ─── THE ORIGINAL DISCLOSURE, HISTORIC ───
+   *
+   * ⚠⚠ THE ONE KNOWN IMPRECISION THIS OPENS, DISCLOSED RATHER THAN LEFT TO BE
+   * DISCOVERED — and it is the first thing to attack in review. CEE demotes
+   * `edge_strength_edit` to a typed refusal while `config.features.graphCas
+   * .rpcEnforce !== true`, which is the DEFAULT-SHADOW posture, and its
+   * per-kind refusal copy reads *"I can't apply this link-strength change in
+   * this version"*. A user who changed DIRECTION is then told about STRENGTH.
+   * CEE's own dispatch table states the standard this falls short of, in terms:
+   * *"a refusal that names the wrong gesture is worse than a generic one,
+   * because it tells the user something false about their own action"*
+   * (`system-events/dispatch.ts`, above `READER_ONLY_REFUSAL_COPY`).
+   *
+   * WHY IT IS SHIPPED ANYWAY, stated so the trade is reviewable rather than
+   * assumed: before this change the same gesture produced SILENCE and an edit
+   * that vanished on reload, which is strictly worse than an imprecise but
+   * non-fabricated refusal. Under `ENFORCE` the write lands and no refusal is
+   * emitted at all.
+   *
+   * THE FIX IS ONE STRING IN THE OTHER REPO, deliberately not made here: that
+   * copy is CEE-owned and its entry now serves two gestures, so it should read
+   * neutrally about which half changed (the table's own header notes an
+   * unlisted kind falls back to *"I can't apply this change"*, which "can never
+   * produce a FALSE sentence"). Scope-expansion rule: named at the boundary,
+   * not crossed.
+   */
+  const setDirection = useCallback((
+    direction: 'positive' | 'negative',
+  ): EdgeStrengthCommitOutcome => {
     const edge = getEdge()
-    if (!edge) return
+    if (!edge) return 'not_encodable'
+    // Built from the edge as it was BEFORE the local write — `expected` is an
+    // assertion about the PAST, and the same read feeds both halves so the wire
+    // event and the store update can never describe different edges.
+    const event = buildEdgeDirectionEditEvent({ edge, direction })
     // The user picking +/− is the ONLY thing that turns the defaulted
     // `direction: 'positive'` into a stated one (ROADMAP 2.263).
     updateEdge(edgeId, { data: { ...edge.data, direction, directionSource: 'user' } })
-  }, [edgeId, updateEdge, getEdge])
+    if (!event) return 'not_wire_encodable'
+    if (!sendSystemEvent) return 'local_only'
+    void Promise.resolve(sendSystemEvent(event)).catch(() => {
+      // Swallowed deliberately, exactly as `setStrength` does: a genuine send
+      // failure is recorded by the conversation's own failure channel, and a
+      // server REFUSAL is not a failure — the promise resolves normally.
+    })
+    return 'dispatched'
+  }, [edgeId, updateEdge, getEdge, sendSystemEvent])
 
-  return { setStrength, setStd, setExistsProbability, setLabel, setDirection }
+  /**
+   * ⭐⭐ "I AGREE WITH THIS ESTIMATE", SENT AS THE ACT IT IS.
+   *
+   * ⛔⛔ THE DEFECT THIS CLOSES WAS WIRE-WITNESSED ON SERVED `1d0306a0`, not
+   * reasoned. The inspector's Confirm routed through `setStrength`, which emits
+   * `intent: 'set'` at a magnitude EQUAL to the persisted value — precisely the
+   * case CEE refuses as `set_target_unchanged`. Captured response, verbatim:
+   * *"That link already has exactly that strength and direction, so I haven't
+   * recorded it as your judgement. Confirm the current strength explicitly if
+   * you want to adopt the existing value."* `blocks: []`, `graph_hash`
+   * UNCHANGED, `weightSource` still `cee`. The person's agreement went nowhere.
+   *
+   * `buildEdgeStrengthConfirmEvent` is the carrier that CAN land it. It takes no
+   * requested value, so this cannot become a silent `set` wearing a
+   * confirmation's name.
+   *
+   * ⛔ IT WRITES NOTHING LOCALLY — the same load-bearing decision
+   * `proposeEdgeStrengthConfirmation` documents at length: stamping provenance
+   * before the server agrees would make the product assert that a person
+   * ratified a value on a turn that may still be refused. CEE owns this
+   * provenance; the canvas learns it from the response, or does not claim it.
+   */
+  const confirmCurrentStrength = useCallback((): EdgeStrengthConfirmOutcome => {
+    const edge = getEdge()
+    if (!edge) return 'not_encodable'
+    // Asks the BUILDER, never a local re-derivation: an edge whose strength
+    // nothing proves the server stated has no `expected` tuple to ratify.
+    const event = buildEdgeStrengthConfirmEvent({ edge })
+    if (!event) return 'refused_unassertable'
+    if (!sendSystemEvent) return 'no_carrier'
+    void Promise.resolve(sendSystemEvent(event)).catch(() => {
+      /* Swallowed as every sibling send is. Nothing local was written, so there
+         is nothing to revert. */
+    })
+    return 'dispatched'
+  }, [getEdge, sendSystemEvent])
+
+  return { setStrength, setStd, setExistsProbability, setLabel, setDirection, confirmCurrentStrength }
 }

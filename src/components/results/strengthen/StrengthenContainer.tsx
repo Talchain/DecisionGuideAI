@@ -129,6 +129,18 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
       // Undefined when a legacy caller supplies no verdict; the engine's read
       // is strict (`=== false`), so only an explicit withheld claim suppresses.
       hasLeadingOption: leaderDesignationPermitted(data.recommendation),
+      // ⭐ IDENTITY, BESIDE THE PERMISSION ABOVE — two questions, two fields.
+      // The line above says a leader MAY be designated on this run; this says
+      // what that option is CALLED, so a permitted trigger names it rather than
+      // writing its subject as a rank position ("the option that scored
+      // highest"), which is true of one option, false of the rest, and names
+      // none. See `buildRecommendations.ts`'s `permittedLeadingOptionName`.
+      //
+      // ⚠ MIRRORED IN `analysisNew/buildStrengthenInputsForAnalysisNew.ts` AND
+      // PINNED BY `strengthenInputsMirror.drift.spec.tsx`, which deep-equals
+      // the two objects. Adding this key to one builder only goes RED there and
+      // names the diverging key; do not "fix" that by loosening the spec.
+      leadingOptionLabel: data.recommendation.recommendedOption?.label ?? null,
       // Presence branch (schemas 0.30.0; UI half of plot-lite-service#294):
       // only a MEASURED switch_probability may feed the engine's rendered
       // "% chance the result flips" claim and the switch_probability wire
@@ -289,9 +301,27 @@ export function StrengthenContainer({ data }: StrengthenContainerProps) {
           // Keep the coaching action useful without opening the local-only
           // success editor: hand the user into an editable Olumi draft. No
           // graph claim or mutation happens until they explicitly send it.
+          //
+          // ⭐ THE CARD'S OWN PROMPT, NOT THE GENERIC WORK-THROUGH DRAFT. This
+          // arm sent `workThroughDraft(rec.title)` — "Help me work through:
+          // Define what success looks like" — which asks for a CONVERSATION
+          // about setting a target rather than for the target itself. Measured
+          // on staging 2026-09-11: following it cost four turns and ended in
+          // "I could not apply that constraint…", with the goal node still
+          // reading "Target not captured". The recommendation already carries
+          // an apply-able instruction in `action.prompt` (see
+          // `buildRecommendations.ts`, which documents why each of its clauses
+          // exists), and the analysisNew surface
+          // (`sections/StrengthenTheReasoning.tsx`) already prefers it — so the
+          // two surfaces now read ONE string from ONE authority instead of
+          // disagreeing about what this CTA asks for.
+          //
+          // `??` keeps every other `open-modal` route on exactly its previous
+          // behaviour: `prompt` is optional, and a card without one still gets
+          // the generic draft.
           openAskOlumi({
             context: rec.whyNow,
-            draft: COPY.workThroughDraft(rec.title),
+            draft: rec.action.prompt ?? COPY.workThroughDraft(rec.title),
             label: rec.title,
             targetId: rec.targetId ?? undefined,
             parameters: rec.action.parameters,

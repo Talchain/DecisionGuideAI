@@ -27,9 +27,17 @@
  * entry, asserted for EXACT EQUALITY IN BOTH DIRECTIONS. Growth is a new leak.
  * SHRINKAGE is the removal landing, and it must red too, so the follow-up commit
  * has to come here and say so rather than quietly satisfying a `<=`.
+ *
+ * ⚠ AMENDED 11 Sep 2026 — THE REMOVAL HAS LANDED, AND THE SHRINKAGE DID RED.
+ * All five pinned files were deleted with the v1 Model-tab stack; this spec was
+ * never touched by that PR and went red on three assertions, of which TWO were
+ * CONTRAST CONTROLS reading a deleted anchor. `V1_PINNED` is re-derived at `{}`
+ * — not relaxed — and both controls are RE-POINTED rather than dropped, because
+ * a control deleted to restore green is how a guard starts certifying nothing.
+ * The paragraph above is kept verbatim: it is the instruction this commit obeyed.
  */
 import { describe, it, expect } from 'vitest'
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join, dirname, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { blankNonCode, stripComments } from '../../../../../tests/helpers/stripSourceComments'
@@ -192,7 +200,44 @@ function tsFiles(dir: string): string[] {
 
 /** Both shapes, unioned — the CLASS, not whichever spelling was fixed last. */
 function fallbacksIn(file: string): number {
-  return countIn(readFileSync(file, 'utf8'), file)
+  return countIn(readAnchor(file), file)
+}
+
+/**
+ * ⚠ THE ANCHOR IS ASSERTED, NOT ASSUMED — 11 Sep 2026, the v1 removal.
+ *
+ * Anchor reads used to be bare `readFileSync` calls. When the removal deleted
+ * `GoalSection.tsx`, the anchors pointing at it threw `ENOENT` out of the
+ * standard library: a stack trace that names a syscall and says nothing about
+ * the property under test, so the failure read as a broken harness rather than
+ * as "your anchor is gone, re-point it". A guard that DIES instead of FAILING
+ * tells the next deletion nothing.
+ *
+ * Both conditions are asserted rather than one, because a file that exists and
+ * is EMPTY scans clean — the scan-of-nothing that trap 13 is about — and an
+ * emptied anchor would otherwise certify every absence it is used to support.
+ * They red on DIFFERENT assertions, so a deleted anchor and a hollowed one are
+ * distinguishable from the failure message alone.
+ *
+ * ⚠ AND IT IS EXTRACTED, NOT INLINED IN `fallbacksIn`, BECAUSE A MUTANT CAUGHT
+ * THE FIRST CUT REINTRODUCING THE DEFECT IT WAS FIXING. With the assertion in
+ * `fallbacksIn` only, deleting the anchor STILL produced a raw `ENOENT`: the
+ * two re-pointed controls need the anchor's TEXT, not just its count, so each
+ * carried its own `readFileSync` straight past the new guard. One read site is
+ * what makes the fix hold for every caller rather than for the one in hand.
+ */
+function readAnchor(file: string): string {
+  const where = relative(REPO, file)
+  expect(
+    existsSync(file),
+    `scan anchor is missing — it was deleted or moved, re-point it: ${where}`,
+  ).toBe(true)
+  const src = readFileSync(file, 'utf8')
+  expect(
+    src.length,
+    `scan anchor is empty — a scan of nothing certifies nothing: ${where}`,
+  ).toBeGreaterThan(0)
+  return src
 }
 
 function countIn(src: string, file = 'x.ts'): number {
@@ -215,30 +260,33 @@ function scan(dir: string): Record<string, number> {
 }
 
 /**
- * The v1 residual, PINNED WITH A REASON EACH.
+ * The v1 residual — NOW EMPTY, AND THAT IS THE REMOVAL LANDING (11 Sep 2026).
  *
- * Every entry here is a file the removal commit deletes. They are not fixed in
- * place because churning code that is about to be deleted buys nothing and
- * touches files the DS raw-typography ratchet pins by exact count; they are
- * PINNED rather than ignored so a NEW leak in the interim cannot hide among them.
+ * ## What was here, and where it went
  *
- * ⚠ `FactorsSection.tsx`'s two are SORT COMPARATOR keys (`:690-691`), not display
- * — an id used to order a list never reaches the screen. They are counted here
- * anyway rather than excused by a narrower pattern, because a scan that decides
- * which matches "don't count" is a scan that can be argued with.
+ * Five entries, pinned with a reason each: `OptionsSection.tsx` 2,
+ * `RisksSection.tsx` 2, `GoalSection.tsx` 1, `FactorsSection.tsx` 3,
+ * `RelationshipsSection.tsx` 2. They were pinned rather than fixed because
+ * churning code that is about to be deleted buys nothing, and pinned rather
+ * than ignored so a NEW leak in the interim could not hide among them.
+ *
+ * The header above promised “SHRINKAGE is the removal landing, and it must red
+ * too, so the follow-up commit has to come here and say so rather than quietly
+ * satisfying a `<=`”. **This is that commit saying so.** All five files are
+ * deleted by the v1 Model-tab removal; the residual is re-derived at EMPTY, not
+ * relaxed. The remaining seventeen files in this directory each scan ZERO.
+ *
+ * ## ⚠ AN EMPTY PIN IS THE EASIEST KIND TO MAKE VACUOUS
+ *
+ * `toEqual({})` still REDs on GROWTH — a new leak in any surviving file appears
+ * as a key. It does NOT, on its own, red on BLINDNESS: a renamed directory, a
+ * broken extension filter or a lost recursion all return `{}` too, and an empty
+ * result is indistinguishable from a clean one (trap 13). So the pin carries its
+ * own precondition in-test, below: the corpus is asserted non-empty AND asserted
+ * to contain two surviving files BY NAME. Growth reds the pin; blindness reds
+ * the precondition; they fail on different assertions.
  */
-const V1_PINNED: Record<string, number> = {
-  // 2 — option card label, and the unmapped-coaching list's per-option label.
-  'src/canvas/components/model-tab/OptionsSection.tsx': 2,
-  // 2 — risk row label, and its trigger-factor list.
-  'src/canvas/components/model-tab/RisksSection.tsx': 2,
-  // 1 — goal heading label.
-  'src/canvas/components/model-tab/GoalSection.tsx': 1,
-  // 3 — factor card label (:180) + two sort comparator keys (:690-691).
-  'src/canvas/components/model-tab/FactorsSection.tsx': 3,
-  // 2 — edge endpoint labels (:149-150), the `from → to` string on screen.
-  'src/canvas/components/model-tab/RelationshipsSection.tsx': 2,
-}
+const V1_PINNED: Record<string, number> = {}
 
 /**
  * ⚠ THE CONTAINER'S RESIDUAL — the two `sortedFactors` comparator TIEBREAKS
@@ -336,6 +384,18 @@ describe('the CANONICAL editor never falls back to a wire id', () => {
 
 describe('the DUPLICATE stack’s residual is bounded and named', () => {
   it('matches the pinned set EXACTLY — growth is a leak, shrinkage is the removal', () => {
+    // ⭐ THE PIN'S OWN PRECONDITION, IN-TEST. `V1_PINNED` is `{}` since the v1
+    // removal, and an empty expectation is satisfied by a scan that read
+    // NOTHING exactly as well as by a directory that is genuinely clean. These
+    // two assertions are what makes the empty pin able to fail: a directory
+    // that vanished, a filter that stopped matching `.tsx`, or a recursion
+    // that was “simplified” away all red HERE, on a different assertion from
+    // the equality below, which reds on growth.
+    const corpus = tsFiles(V1_DIR).map(f => relative(REPO, f))
+    expect(corpus.length).toBeGreaterThan(5)
+    expect(corpus).toContain('src/canvas/components/model-tab/ContestedEdgeCard.tsx')
+    expect(corpus).toContain('src/canvas/components/model-tab/ModelHealthSection.tsx')
+
     expect(scan(V1_DIR)).toEqual(V1_PINNED)
   })
 
@@ -343,11 +403,35 @@ describe('the DUPLICATE stack’s residual is bounded and named', () => {
     // Design §7.4 E keeps this card wholesale, so its two endpoint fallbacks
     // would have become permanent rather than swept up by the delete. They were
     // fixed in place for exactly that reason, and this pins the distinction.
+    const card = join(V1_DIR, 'ContestedEdgeCard.tsx')
+    const cardKey = relative(REPO, card)
+    // Precondition: the walk REACHED this file. Without it the `undefined`
+    // below is satisfied by a scan that never looked.
+    expect(tsFiles(V1_DIR).map(f => relative(REPO, f))).toContain(cardKey)
+
     const v1 = scan(V1_DIR)
-    expect(v1['src/canvas/components/model-tab/ContestedEdgeCard.tsx']).toBeUndefined()
-    // Contrast control: a file that IS in the residual reads non-zero, so the
-    // absence above is a fact about this card and not a dead scan.
-    expect(v1['src/canvas/components/model-tab/GoalSection.tsx']).toBe(1)
+    expect(v1[cardKey]).toBeUndefined()
+
+    // ⭐ CONTRAST CONTROL, RE-POINTED ONTO THE CARD ITSELF (11 Sep 2026).
+    //
+    // This read `GoalSection.tsx`, pinned at 1 — a file the v1 removal DELETED,
+    // which is why this assertion went red on a PR that never touched this
+    // spec. The residual is now EMPTY, so “a file that IS in the residual reads
+    // non-zero” has no surviving successor and the control cannot simply be
+    // re-pointed at another file in the list: there is no list.
+    //
+    // It is re-pointed onto THIS CARD'S OWN BYTES instead, which is stronger
+    // than what it replaces — the old control discriminated using a DIFFERENT
+    // file, so a scan blind to `ContestedEdgeCard.tsx` specifically would have
+    // passed both halves. Deleting it, rather than re-pointing it, would leave
+    // `toBeUndefined()` asserting nothing at all.
+    const cardSrc = readAnchor(card)
+    expect(cardSrc.length).toBeGreaterThan(1000)
+    expect(countIn(cardSrc, card)).toBe(0)
+    // …and the instrument DOES fire on this file's text: one banned endpoint
+    // fallback, injected into the real source, is seen. So the zero above is a
+    // fact about the card and not a dead scan.
+    expect(countIn(`${cardSrc}\nconst l = e?.label ?? edge.source\n`, card)).toBe(1)
   })
 })
 
@@ -355,7 +439,7 @@ describe('the CONTAINER — which outlives the removal — leaks nothing to the 
   it('the file is where this scan thinks it is', () => {
     // Without this, a moved or renamed container makes every claim below vacuous
     // by reading an empty string (trap 13).
-    expect(readFileSync(CONTAINER, 'utf8').length).toBeGreaterThan(1000)
+    expect(readAnchor(CONTAINER).length).toBeGreaterThan(1000)
   })
 
   it('matches the pinned residual EXACTLY — and every entry is an ORDERING key', () => {
@@ -365,10 +449,24 @@ describe('the CONTAINER — which outlives the removal — leaks nothing to the 
   })
 
   it('CONTRAST CONTROL: the instrument reads this file, and it discriminates', () => {
-    // A magnitude check against a known non-zero, so "2" above cannot be the
-    // output of a scan that silently read nothing. `GoalSection` is pinned at 1
-    // in the residual above and must still read 1 through the same helper.
-    expect(fallbacksIn(join(V1_DIR, 'GoalSection.tsx'))).toBe(1)
+    // ⭐ RE-POINTED 11 Sep 2026. This read `GoalSection.tsx`, pinned at 1 — and
+    // the v1 removal deleted it, so the helper threw ENOENT here rather than
+    // failing an assertion. The anchor moves to `ModelHealthSection.tsx`: the
+    // largest file that SURVIVES in this directory, with live importers, so a
+    // future deletion of the anchor is a visible product decision rather than a
+    // silent one.
+    //
+    // ⚠ The re-point costs the old control its non-zero half — every surviving
+    // file in the duplicate stack scans ZERO now — and “2 above cannot be the
+    // output of a scan that silently read nothing” is exactly the claim a pair
+    // of zeroes cannot support. The magnitude check is therefore rebuilt on the
+    // anchor's OWN bytes: it reads real content, it reads clean, and one banned
+    // fallback injected into that same content IS seen.
+    const anchor = join(V1_DIR, 'ModelHealthSection.tsx')
+    const anchorSrc = readAnchor(anchor)
+    expect(anchorSrc.length).toBeGreaterThan(1000)
+    expect(fallbacksIn(anchor)).toBe(0)
+    expect(countIn(`${anchorSrc}\nconst l = d?.label ?? node.id\n`, anchor)).toBe(1)
     expect(fallbacksIn(join(V2_DIR, 'adapters.ts'))).toBe(0)
   })
 })

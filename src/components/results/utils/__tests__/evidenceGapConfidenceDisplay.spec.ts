@@ -37,7 +37,7 @@ describe('resolveEvidenceGapConfidenceDisplay', () => {
 describe('evidenceGapGenericText — the sentence F6 was about', () => {
   it('POSITIVE CONTROL: states the figure when there is one', () => {
     const text = evidenceGapGenericText(resolveEvidenceGapConfidenceDisplay(35))
-    expect(text).toBe('This factor has 35% confidence. Improving it could change the result.')
+    expect(text).toBe('This factor has 35% confidence. Improving it could change the answer.')
   })
 
   it('DROPS the confidence clause when the producer sent nothing — never prints 0%', () => {
@@ -46,13 +46,13 @@ describe('evidenceGapGenericText — the sentence F6 was about', () => {
     expect(text).not.toContain('confidence')
     // NON-VACUOUS: the row keeps a real sentence — the gap itself is a genuine
     // producer finding, only the number is missing.
-    expect(text).toBe('Improving this factor could change the result.')
+    expect(text).toBe('Improving this factor could change the answer.')
   })
 
   it('a real 0 and a missing value produce DIFFERENT sentences (the whole point)', () => {
     const realZero = evidenceGapGenericText(resolveEvidenceGapConfidenceDisplay(0))
     const missing = evidenceGapGenericText(resolveEvidenceGapConfidenceDisplay(null))
-    expect(realZero).toBe('This factor has 0% confidence. Improving it could change the result.')
+    expect(realZero).toBe('This factor has 0% confidence. Improving it could change the answer.')
     expect(realZero).not.toBe(missing)
   })
 })

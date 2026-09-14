@@ -224,10 +224,31 @@ const FP_EPSILON = 1e-9
  * durable). Bound to the report, it lives exactly as long as the thing it is
  * about, and rides the autosave record home.
  *
- * ⚠ IT IS THE PRODUCER'S LEAF, CARRIED — NOT A SECOND AUTHORITY. Exactly one
- * writer (`canvas/store.ts`'s `resultsWithholdLeaderClaim`) and exactly one
- * reader (`readProducerLeaderPermission`, below). It is never re-derived from
- * anything the client can compute.
+ * ⚠ IT IS THE PRODUCER'S LEAF, CARRIED — NOT A SECOND AUTHORITY. Three
+ * participants, and the asymmetry between them is the whole guarantee:
+ *
+ *   · ONE WRITER OF A VALUE — `canvas/store.ts`'s `resultsWithholdLeaderClaim`
+ *     (`store.ts:5753`), which writes `{ permitted: false, withheld_reason }`.
+ *   · ONE CLEARER — `resultsRestoreLeaderClaim` (`store.ts:5698`), which
+ *     DELETES the key and can never write one. It destructures the field out
+ *     (`{ producer_leader_permission: _cleared, ...withoutStamp }`) and returns
+ *     `false` when there is nothing to clear (`:5696`).
+ *   · ONE READER — `readProducerLeaderPermission`, below.
+ *
+ * ⭐ SO THE HEADER'S ACTUAL CLAIM SURVIVES THE THIRD PARTICIPANT, and it is
+ * worth stating why rather than just amending the count: **no client path can
+ * mint a permission.** The only value ever written is a WITHHOLDING; the
+ * restore's sole power is to remove a withholding the producer has itself
+ * positively permitted. It is never re-derived from anything the client can
+ * compute.
+ *
+ * ⚠⚠ THIS COUNT WAS STALE FOR ONE MERGE, AND IT IS WORTH RECORDING HOW.
+ * #1519 added the clearer and correctly updated the OTHER map of this seam
+ * (`adapters/plot/types.ts:156`) — and not this one. **One of two mirrors
+ * moved** (CLAUDE.md trap 12), inside a header whose entire subject is how many
+ * authorities a trust seam has. Found by a peer diffing a discarded repair
+ * against the merged code, not by any guard. If a fourth participant ever
+ * arrives, both mirrors move in the same commit or neither does.
  */
 export interface ProducerLeaderPermission {
   /** The producer's `leader_claim.permitted`, verbatim. */
@@ -351,6 +372,42 @@ const BAND_TO_SEPARATION: Record<HeadlineBanded['band'], LeaderSeparation> = {
 }
 
 /**
+ * ⭐⭐ THE OPTIONS A REPORT ACTUALLY COMPARED — one implementation, two questions.
+ *
+ * Pass `visibleOptionIds` and you get "what can be compared ON THE CANVAS NOW",
+ * which is what `deriveDecisionVerdict` needs. Omit it and you get the RUN'S OWN
+ * comparison population: every option this report scored, whatever has since been
+ * added or deleted.
+ *
+ * ⚠⚠ EXTRACTED RATHER THAN COPIED, AND THAT IS THE WHOLE POINT. A consumer that
+ * needed the unfiltered population was about to hand-write this loop a second
+ * time, and the copy that drifts is the one that decides whether a withheld
+ * ranking can be spoken about (trap 12: derive, never mirror). `option_probabilities`
+ * keyed by option id, with a FINITE `win_probability`, is the single definition of
+ * "comparable", and it now lives here once.
+ *
+ * ⚠ THE TWO ANSWERS ARE DIFFERENT QUESTIONS, NOT AN INCONSISTENCY TO RECONCILE
+ * (trap 21). "Is there a leading option on screen?" is about the current graph and
+ * must follow deletions. "Did this RUN rank anything?" is a fact about the report
+ * and CANNOT change because a node was removed — a report does not un-rank itself
+ * when the user tidies the canvas.
+ */
+export function comparableOptions(
+  report: DecisionVerdictReportLike | null | undefined,
+  visibleOptionIds?: ReadonlySet<string>,
+): Array<{ id: string; win: number }> {
+  if (!report) return []
+  const probs = report.option_probabilities ?? {}
+  const comparable: Array<{ id: string; win: number }> = []
+  for (const [id, entry] of Object.entries(probs)) {
+    if (visibleOptionIds && !visibleOptionIds.has(id)) continue
+    const win = entry?.win_probability
+    if (typeof win === 'number' && Number.isFinite(win)) comparable.push({ id, win })
+  }
+  return comparable
+}
+
+/**
  * Derive the one verdict every surface quotes.
  *
  * Pure and total: any malformed / absent input yields the `unknown` verdict,
@@ -363,16 +420,7 @@ export function deriveDecisionVerdict(
   if (!report) return UNKNOWN_VERDICT
 
   const { visibleOptionIds, rawHeadlineBanded } = options
-  const probs = report.option_probabilities ?? {}
-
-  // Comparable options: those with a finite win probability that are still on
-  // the canvas (when a visibility set is supplied).
-  const comparable: Array<{ id: string; win: number }> = []
-  for (const [id, entry] of Object.entries(probs)) {
-    if (visibleOptionIds && !visibleOptionIds.has(id)) continue
-    const win = entry?.win_probability
-    if (typeof win === 'number' && Number.isFinite(win)) comparable.push({ id, win })
-  }
+  const comparable = comparableOptions(report, visibleOptionIds)
 
   // Fewer than two comparable options: "leading" has no meaning. This is a
   // REACHABLE state, not a defensive branch — single-option runs exist (the

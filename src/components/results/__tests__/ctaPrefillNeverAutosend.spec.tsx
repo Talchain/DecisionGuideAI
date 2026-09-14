@@ -81,7 +81,7 @@ beforeEach(() => {
 })
 
 describe('OptionCards winner chip — prefill, never auto-send', () => {
-  it('clicking "What makes this lead?" opens the drawer prefilled and dispatches nothing', () => {
+  it('clicking "What makes this the best-supported option?" opens the drawer prefilled and dispatches nothing', () => {
     const onSendMessage = vi.fn()
     render(
       <>
@@ -91,7 +91,7 @@ describe('OptionCards winner chip — prefill, never auto-send', () => {
     )
 
     // The winner chip on Option A.
-    fireEvent.click(screen.getByText('What makes this lead?'))
+    fireEvent.click(screen.getByText('What makes this the best-supported option?'))
 
     // No auto-send: the threaded send path is never touched.
     expect(onSendMessage).not.toHaveBeenCalled()
@@ -117,7 +117,7 @@ describe('OptionCards winner chip — prefill, never auto-send', () => {
       </>,
     )
 
-    fireEvent.click(screen.getByText('What makes this lead?'))
+    fireEvent.click(screen.getByText('What makes this the best-supported option?'))
     expect(send).not.toHaveBeenCalled() // nothing sent on prefill
 
     const drawer = screen.getByTestId('ask-olumi-drawer')

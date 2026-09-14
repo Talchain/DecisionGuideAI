@@ -5,7 +5,14 @@
  * and tracks the currently focused item across the strip, inspector, and canvas.
  */
 import { create } from 'zustand'
-import { AlertTriangle, Lightbulb, type LucideIcon } from 'lucide-react'
+import {
+  AlertCircle,
+  AlertTriangle,
+  GraduationCap,
+  Lightbulb,
+  Wrench,
+  type LucideIcon,
+} from 'lucide-react'
 import { revealOlumiSurface } from '../conversation/revealOlumi'
 
 // ---------------------------------------------------------------------------
@@ -207,12 +214,15 @@ export function deriveGuidanceDskProvenance(
  * the reveal itself is best-effort: it must never turn a delivered message into
  * a thrown error, so it is caught and logged.
  *
+ * OutputsDock also wraps its host-owned analysis dispatcher here: an empty
+ * transcript does not register callbacks, but analysis must still reveal Olumi.
+ *
  * Not every callback is wrapped — see the notes at each field in
  * `registerConversationCallbacks`. Identity: the wrapper is a new function
  * object, so ownership must be compared by `_registrationToken` (which it
  * already is, deliberately, for the singleton-host reason documented there).
  */
-function withOlumiReveal<Args extends unknown[]>(
+export function withOlumiReveal<Args extends unknown[]>(
   fn: ((...args: Args) => void) | null,
 ): ((...args: Args) => void) | null {
   if (!fn) return null
@@ -866,19 +876,54 @@ export function guidanceCategoryTone(cat: GuidanceItem['category']): GuidanceTon
  * Every surface that shows a guidance icon — the inspector card
  * (`InspectorGuidanceSection`) and the on-canvas node coaching marker
  * (`NodeCoachingMarker`) — derives from THIS, so the marker's icon always
- * matches the card it opens (derive, don't mirror). Tone decides both: the
- * danger channel (must_fix / should_fix) shows AlertTriangle in `text-danger`;
- * the info channel (could_fix, technique, and items the producer never
- * categorised) shows Lightbulb in `text-info`. An uncategorised item therefore
- * shows the info Lightbulb EVERYWHERE — honest absence → info, never a missing
- * icon and never a synthesised severity.
+ * matches the card it opens (derive, don't mirror).
+ *
+ * ⭐ THE TWO CHANNELS ANSWER DIFFERENT QUESTIONS, which is why they no longer
+ * share a switch. SHAPE says WHICH of the four producer categories this is;
+ * COLOUR (still `guidanceCategoryTone`, untouched) says how urgent it is. That
+ * is the estate's three-channel rule — shape = what it is, colour = how it's
+ * doing — and it is the reason the glyph can now carry the category on its own.
+ *
+ * ⛔ IT USED TO BE BINARY, AND THAT WAS A LIVE DEFECT. The glyph was chosen
+ * from the TONE, so `could_fix` and `technique` both drew `Lightbulb`/
+ * `text-info` and `must_fix`/`should_fix` both drew `AlertTriangle`. On the
+ * compact coaching line — photographed on deployed staging b7c8c74e — the
+ * glyph therefore separated nothing, and a category pill had to be carried
+ * beside it purely to say which of the four a row was. Four shapes retire that
+ * pill: a four-value distinction carried by tint alone would be WCAG 1.4.1
+ * (Use of Colour) failing at Level A, and shape is a non-colour channel.
+ *
+ * ⚠ ABSENCE IS NOT A FIFTH CATEGORY. An item the producer never categorised
+ * keeps the info `Lightbulb` EVERYWHERE — honest absence → info, never a
+ * missing icon and never a synthesised severity. It is deliberately the one
+ * glyph no category now uses, so "uncategorised" cannot be mistaken for a
+ * category the producer actually sent.
  */
+const CATEGORY_GLYPH: Record<GuidanceCategory, LucideIcon> = {
+  must_fix: AlertTriangle,
+  should_fix: AlertCircle,
+  could_fix: Wrench,
+  technique: GraduationCap,
+}
+
 export function guidanceCategoryIcon(
   cat: GuidanceItem['category'],
 ): { Icon: LucideIcon; tintClass: string } {
-  return guidanceCategoryTone(cat) === 'danger'
-    ? { Icon: AlertTriangle, tintClass: 'text-danger' }
-    : { Icon: Lightbulb, tintClass: 'text-info' }
+  const tintClass = guidanceCategoryTone(cat) === 'danger' ? 'text-danger' : 'text-info'
+  /*
+   * Absence is NOT a fifth category and is never dressed as one of the four:
+   * an item the producer never categorised keeps the info Lightbulb it has
+   * always had, everywhere.
+   *
+   * ⚠ THE LOOKUP MISS IS THE FALLBACK, deliberately — not a truthiness test on
+   * `cat`. An UNRECOGNISED category (a value the producer adds tomorrow, or a
+   * blank string) misses this table exactly as `undefined` does and lands on
+   * the same honest Lightbulb. Written `cat && CATEGORY_GLYPH[cat]` it would
+   * not: `??` catches only null and undefined, so a `''` category would have
+   * been returned AS the icon and rendered nothing at all.
+   */
+  const Icon = CATEGORY_GLYPH[cat as GuidanceCategory] ?? Lightbulb
+  return { Icon, tintClass }
 }
 
 /**

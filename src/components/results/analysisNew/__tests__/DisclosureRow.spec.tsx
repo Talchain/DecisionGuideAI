@@ -19,7 +19,7 @@ const rich: AnalysisNewFinding = {
   id: 'driver:f_adopt',
   headline: 'Customer adoption',
   implication: 'Among the strongest influences in this run; raises the outcome.',
-  detail: 'This relationship is one the result is sensitive to.',
+  detail: 'These numbers are sensitive to this relationship.',
   groundedIn: 'factor sensitivity, ranked within this run',
   marker: 'not_assessed',
   targetId: 'f_adopt',

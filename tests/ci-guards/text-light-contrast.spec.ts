@@ -41,6 +41,16 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { resolveTokenHex } from '../../src/styles/channelTriple.mjs'
+/**
+ * The contrast maths now comes from the SHARED helper rather than a local copy.
+ * This file's own header asked for exactly that — "so both a11y guards measure
+ * with ONE implementation, not two that can drift" — and then satisfied it by
+ * COPYING, which is the hand-maintained mirror at the top of CLAUDE.md. The
+ * per-site guard would have been a fourth copy. Nothing below is relaxed: the
+ * positive control still pins #908D8D at 3.26 / 2.90 and --text-body at 10.45,
+ * so a shared implementation that measured differently REDs here immediately.
+ */
+import { luminance, contrast } from '../helpers/wcagContrast'
 
 /** SC 1.4.3 — normal-size text. Large text (>=24px / >=18.66px bold) may use 3:1. */
 const WCAG_TEXT_MIN = 4.5
@@ -55,26 +65,6 @@ const WCAG_TEXT_MARGIN = 4.6
 
 const BRAND_CSS_PATH = join(__dirname, '../../src/styles/brand.css')
 const brandCss = readFileSync(BRAND_CSS_PATH, 'utf-8')
-
-/**
- * WCAG 2.x relative luminance + contrast ratio.
- * Lifted verbatim from src/canvas/nodes/__tests__/GhostOptionNode.contrast.spec.ts
- * so both a11y guards measure with ONE implementation, not two that can drift.
- */
-function luminance(hex: string): number {
-  const h = hex.replace('#', '')
-  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h
-  const [r, g, b] = [0, 2, 4].map((i) => {
-    const v = parseInt(full.slice(i, i + 2), 16) / 255
-    return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)
-  })
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b
-}
-
-function contrast(a: string, b: string): number {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
-  return (hi + 0.05) / (lo + 0.05)
-}
 
 /**
  * Declared colour of a `--token` at :root in brand.css. Throws rather than

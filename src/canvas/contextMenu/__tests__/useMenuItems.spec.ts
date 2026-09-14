@@ -118,26 +118,54 @@ describe('pane menu', () => {
     expect(ids).toContain('ask-ai-pane')
     expect(ids).toContain('auto-arrange')
     expect(ids).toContain('toggle-view-mode')
-    expect(ids).not.toContain('add-node')
-    expect(ids).not.toContain('paste')
-    expect(ids).not.toContain('undo')
-    expect(ids).not.toContain('redo')
+    // ⭐⭐ BOTH FIXES KEPT (rebase, 13 Sep 2026).
+    // #1538: `add-node` is NOT a local semantic write — its writer captures a
+    // durable `structural_add`, so `canvasNodeAddWithServerHash` is
+    // `server_graph` and the door RENDERS. #1304: the keyboard-reachable
+    // gestures are SURFACED AS DISABLED ROWS WITH A REASON rather than deleted,
+    // so the property for those is "not actionable", not "not present".
+    // Taking either side wholesale loses the other: #1304 alone re-hides the
+    // door, #1538 alone restores the silence.
+    expect(ids).toContain('add-node')
+    for (const id of ['paste', 'undo', 'redo']) {
+      expect(findItem(result.current, id)?.enabled ?? false, `${id} actionable`).toBe(false)
+    }
   })
 
-  it('does not mount paste even when the clipboard state would disable it', () => {
+  it('mounts paste as disabled-with-a-reason rather than deleting it', () => {
+    // The clipboard is null in this fixture, so paste would be disabled anyway.
+    // What matters is that the row EXISTS and carries a reason: a user who
+    // pressed ⌘C then found no Paste at all could not tell "constrained" from
+    // "broken", which is the defect this replaced.
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
     const paste = findItem(result.current, 'paste')
-    expect(paste).toBeUndefined()
+    expect(paste).toBeDefined()
+    expect(paste!.enabled).toBe(false)
+    expect(paste!.disabledReason).toBeTruthy()
   })
 
-  it('does not leak any nested add-node actions', () => {
+  /**
+   * ⚠⚠ THIS TEST USED TO ASSERT THE OPPOSITE, AND THE REVERSAL IS DELIBERATE.
+   * It read "does not leak any nested add-node actions" and pinned BOTH the
+   * parent and every `add-node-*` child as absent. That was a correct pin on a
+   * gesture with no durable carrier, and it silently became the thing keeping a
+   * built capability dark once `structural_add` landed: a user could delete,
+   * copy and rename their own model and could not add anything to it
+   * (deployed `fec043bf`, 13 Sep 2026, seven probes).
+   *
+   * The claim is inverted rather than deleted, so the overturned assertion is
+   * visible to whoever reads this next. Its full replacement — the six kinds by
+   * name, the wire-persistability derivation, the carrierless neighbours, and
+   * the contrast control — is `paneAddNodeDurableDoor.spec.tsx`.
+   */
+  it('mounts the nested add-node actions, because their carrier is durable', () => {
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
-    expect(getAllItemIds(result.current)).not.toContain('add-node')
-    expect(getAllItemIds(result.current).some(id => id.startsWith('add-node-'))).toBe(false)
+    expect(getAllItemIds(result.current)).toContain('add-node')
+    expect(getAllItemIds(result.current).some(id => id.startsWith('add-node-'))).toBe(true)
   })
 })
 
@@ -163,11 +191,16 @@ describe('factor node menu (full)', () => {
     expect(ids).toContain('explore')
     expect(ids).toContain('copy')
     expect(ids).toContain('delete')
+    // ⚠ SHAPE CHANGED 7 Sep 2026: the keyboard-reachable gestures are now
+    // SURFACED as disabled rows with a reason instead of deleted, so the
+    // property asserted here is "not actionable", not "not present". Which ids
+    // are surfaced vs hidden is pinned in `menuSaysWhyUnavailable.spec.ts`.
     expect(ids).not.toContain('set-value')
     expect(ids).not.toContain('add-connected-factor')
     expect(ids).not.toContain('mark-assumption')
-    expect(ids).not.toContain('cut')
-    expect(ids).not.toContain('duplicate')
+    for (const id of ['cut', 'duplicate']) {
+      expect(findItem(result.current, id)?.enabled ?? false, `${id} actionable`).toBe(false)
+    }
   })
 
   it('Ask AI has Explain and Challenge submenu items', () => {
@@ -507,8 +540,13 @@ describe('multi-select menu', () => {
     expect(ids).toContain('ask-ai')
     expect(ids).toContain('copy')
     expect(ids).toContain('delete')
-    expect(ids).not.toContain('cut')
-    expect(ids).not.toContain('duplicate')
+    // ⚠ SHAPE CHANGED 7 Sep 2026: the keyboard-reachable gestures are now
+    // SURFACED as disabled rows with a reason instead of deleted, so the
+    // property asserted here is "not actionable", not "not present". Which ids
+    // are surfaced vs hidden is pinned in `menuSaysWhyUnavailable.spec.ts`.
+    for (const id of ['cut', 'duplicate']) {
+      expect(findItem(result.current, id)?.enabled ?? false, `${id} actionable`).toBe(false)
+    }
   })
 })
 
@@ -596,13 +634,21 @@ describe('central context-menu authority audit', () => {
       edge: { id: 'e1', source: 'f1', target: 'g1', data: {} } as Edge<EdgeData>,
     } as EdgeTarget,
     { kind: 'multi', nodeIds: ['f1'], edgeIds: [], screenPos: { x: 1, y: 2 } } as MultiTarget,
-  ])('recursively excludes every local semantic action for $kind targets', target => {
+  ])('never makes a local semantic action ACTIONABLE for $kind targets', target => {
+    // ⚠ THIS ASSERTION CHANGED SHAPE ON PURPOSE (7 Sep 2026). It used to demand
+    // every local-semantic id be ABSENT. Absence was never the property worth
+    // guarding — it is what made the canvas look broken rather than
+    // constrained. The property that actually matters is that none of them is
+    // ACTIONABLE, which is what a missing writer requires, and which holds
+    // whether the id is hidden or surfaced as a disabled row.
+    // Which ids are surfaced vs hidden is pinned in `menuSaysWhyUnavailable.spec.ts`.
     const { result } = renderHook(() =>
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
     const mounted = new Set(getAllItemIds(result.current))
     for (const forbidden of LOCAL_SEMANTIC_CONTEXT_MENU_IDS) {
-      expect(mounted.has(forbidden), `${forbidden} mounted for ${target.kind}`).toBe(false)
+      const item = findItem(result.current, forbidden)
+      expect(item?.enabled ?? false, `${forbidden} is actionable for ${target.kind}`).toBe(false)
     }
     expect(mounted.has('delete')).toBe(target.kind !== 'pane')
   })

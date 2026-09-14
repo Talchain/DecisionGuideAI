@@ -13,38 +13,17 @@ import {
   detectService,
   type ContractValidationResult,
 } from './contract-validators'
-import { redactPayload, DEBUG_BUNDLE_REDACTION_OPTIONS } from '../utils/payloadRedaction'
+import {
+  redactPayload,
+  DEBUG_BUNDLE_REDACTION_OPTIONS,
+  scrubSecretsInString,
+} from '../utils/payloadRedaction'
 
-/**
- * Scrub secret-shaped substrings from a free-form string. The repo's
- * structural redactor (`redactPayload`) operates on KEYS — for free-form
- * captures like `Error.cause` snippets we need a substring-level scrub
- * before the value lands in the diagnostic bundle.
- *
- * Patterns covered (ordered by length so longer overlapping patterns
- * match first):
- *   - JWT-shape three-segment base64 (`eyJ...`).
- *   - `bearer <token>` (case-insensitive, captures up to whitespace).
- *   - `(api[_-]?key|token|secret|password|authorization)[\s=:]+<value>`.
- *
- * Replacement is a fixed `[REDACTED:<reason>]` so reviewers can see the
- * value WAS redacted without inferring the original content. The function
- * is local to payload-trace-store because it is the only current consumer
- * — any future caller should consider promoting this to a shared util.
- */
-function scrubSecretsInString(input: string): string {
-  let out = input;
-  // JWT — three base64-segment shape.
-  out = out.replace(/eyJ[\w-]+\.[\w-]+\.[\w-]+/g, '[REDACTED:JWT]');
-  // Bearer + opaque token.
-  out = out.replace(/\bbearer\s+\S+/gi, 'bearer [REDACTED]');
-  // Sensitive-key=value / sensitive-key: value pairs.
-  out = out.replace(
-    /\b(api[_-]?key|token|secret|password|authorization)\s*[:=]\s*\S+/gi,
-    '$1=[REDACTED]',
-  );
-  return out;
-}
+// `scrubSecretsInString` was defined here until 2026-09-05 and is now the
+// shared util in `utils/payloadRedaction` (imported above), exactly as the
+// note that used to sit here proposed once a second consumer appeared.
+// The second consumer is the debug bundle's user-message capture, which
+// scrubs a free-form VALUE with no key to match on. One copy, deliberately.
 
 // Use shared debug-bundle redaction options for consistency across all capture paths.
 // Includes neverRedactKeys for constraint_analysis, observed_state, goal_constraints.

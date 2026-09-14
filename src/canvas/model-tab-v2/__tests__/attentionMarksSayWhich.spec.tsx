@@ -108,7 +108,7 @@ describe('an attention mark says WHICH', () => {
     }
   })
 
-  it('COLOUR carries severity: only "could flip the result" is a warning', () => {
+  it('COLOUR carries severity: only "could flip the answer" is a warning', () => {
     // ⚠ UNPINNED UNTIL REVIEW CAUGHT IT. Half of this change is "shape says
     // which, colour says how bad" — and the suite asserted only the shape, so
     // adding `contested` to the severe set, or reverting all five to

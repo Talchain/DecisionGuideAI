@@ -25,7 +25,7 @@
  * documentation gets the documentation removed, not the defect.
  */
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { OVERLAY_PRIORITY, OVERLAY_BAND_PILL_GUTTER, type OverlayCell } from '../components/CanvasOverlayBand'
 import { CANVAS_LOD_NOTICE_TESTID } from '../components/CanvasLodNotice'
@@ -205,6 +205,108 @@ describe('overlay ownership — derived from the migrated components’ bytes', 
         ).toBe(true)
       }
     }
+  })
+
+  /**
+   * ⛔ THE ASSERTION THAT WAS MISSING, AND THE DEFECT IT LET THROUGH.
+   *
+   * Every claim above compares `useOverlayCell` CALL SITES with
+   * `OVERLAY_PRIORITY`. `ModelExtentNotice.tsx` has such a call site, so both
+   * directions agreed — while the component had NO JSX MOUNT ANYWHERE and had
+   * not rendered since the band migration. A component that is never mounted
+   * never runs its `useOverlayCell` call, so the table and the call sites can
+   * agree perfectly about a surface no user can see.
+   *
+   * That is trap 12d in one guard: a derived check proves AGREEMENT between two
+   * lists and is structurally blind to whether either describes something real.
+   * The list here is not the risk — the risk is that nothing asked whether the
+   * thing it names is on screen.
+   *
+   * The mount site is derived, not listed: for each migrated file the component
+   * name IS the filename, and a mount is `<Name` in any non-test source file
+   * other than its own. So a component renamed, moved or dropped fails this by
+   * construction rather than by anyone remembering to update a table.
+   */
+  it('every migrated component is actually MOUNTED — a claim is not a render', () => {
+    const SRC = resolve(__dirname, '../..')
+    const SKIP = new Set(['node_modules', '__tests__', 'dist', '.git'])
+
+    function sourceFiles(dir: string, out: string[] = []): string[] {
+      for (const entry of readdirSync(dir)) {
+        if (SKIP.has(entry)) continue
+        const full = resolve(dir, entry)
+        if (statSync(full).isDirectory()) sourceFiles(full, out)
+        else if (/\.tsx$/.test(entry) && !/\.spec\.|\.stories\./.test(entry)) out.push(full)
+      }
+      return out
+    }
+
+    const files = sourceFiles(SRC)
+    // POSITIVE CONTROL: the walk reached real code. Without this, an empty file
+    // list would make every assertion below pass by looking at nothing.
+    expect(files.length, 'the source walk found no .tsx files — every assertion below is vacuous').toBeGreaterThan(50)
+
+    const unmounted: string[] = []
+    const mountCounts: Record<string, number> = {}
+    for (const file of MIGRATED) {
+      const name = file.replace(/\.tsx$/, '')
+      const ownPath = resolve(COMPONENTS, file)
+      const mountRe = new RegExp(`<${name}[\\s/>]`)
+      const sites = files.filter(f => f !== ownPath && mountRe.test(stripComments(readFileSync(f, 'utf8'))))
+      mountCounts[name] = sites.length
+      if (sites.length === 0) unmounted.push(name)
+    }
+
+    // CONTRAST CONTROL: the probe discriminates. If it returned the same answer
+    // for every component it would be reporting on itself, not on the code —
+    // uniformity across inputs that ought to differ is evidence about the
+    // instrument (this exact scan first ran under zsh array-subscript parsing
+    // and returned 0 for all seven, including components visibly mounted).
+    expect(
+      Object.values(mountCounts).some(n => n > 0),
+      `the mount probe found zero mounts for EVERY component — it is blind, not the code: ${JSON.stringify(mountCounts)}`,
+    ).toBe(true)
+
+    expect(
+      unmounted,
+      `declared band occupant(s) with no JSX mount — they claim a cell that never renders: ${unmounted.join(', ')}`,
+    ).toEqual([])
+
+    /*
+     * ⛔ THE STRIPPER IS LOAD-BEARING HERE, AND THIS IS THE PAIR THAT PROVES IT.
+     *
+     * This scan originally read RAW BYTES while every other scan in this file
+     * strips first — and the file's own header already says stripping is
+     * "load-bearing rather than tidiness", because these components quote JSX
+     * in their prose. Found by an independent seat, not by me.
+     *
+     * Commenting a mount out in place is the ORDINARY way a developer disables
+     * one, and it is ONE KEYSTROKE from the defect this whole assertion exists
+     * to catch: wrapping the mount in a JSX block comment left the assertion
+     * GREEN. (The literal sequence is built in code below rather than quoted
+     * here, because writing it in prose would close this very comment.) It
+     * matters more than usual because this is the only NON-ADVISORY guard on
+     * the property — the e2e arm that asserts the notice is visible runs in
+     * `Visual Regression (advisory)` under `continue-on-error`, which is why it
+     * never caught the original unmount. And this assertion is slated for
+     * copying across the estate, so the hole would have propagated with it.
+     *
+     * A synthetic source is used rather than poisoning the real file, so the
+     * case cannot silently stop discriminating if `ReactFlowGraph.tsx` is
+     * reformatted. Both directions are asserted: raw bytes MUST match (proving
+     * the hole was real and this case is not vacuous) and the stripped form
+     * MUST NOT (proving it is closed).
+     */
+    const mountedInAComment = 'const X = () => (<div>{/* <ModelExtentNotice /> *' + '/}</div>)'
+    const extentRe = new RegExp('<ModelExtentNotice[\\s/>]')
+    expect(
+      extentRe.test(mountedInAComment),
+      'the raw-byte scan no longer sees a commented mount — this case has stopped discriminating',
+    ).toBe(true)
+    expect(
+      extentRe.test(stripComments(mountedInAComment)),
+      'a commented-out mount still counts as a mount — the scan is reading raw bytes',
+    ).toBe(false)
   })
 
   it('no migrated component positions itself any more', () => {

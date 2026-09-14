@@ -203,6 +203,146 @@ describe('the technique chip', () => {
 })
 
 /**
+ * ⭐⭐⭐ THE PRODUCER'S OWN BIAS, DRIVEN THROUGH THE COMPONENT.
+ *
+ * ⚠⚠ WHY THIS BLOCK EXISTS AT RENDER LEVEL WHEN A UNIT SPEC ALREADY COVERS THE
+ * MAPPING. `biasMethodReachesTheProducersBias.spec.ts` is thorough about
+ * `methodForRecommendation`, but it reaches that function through a helper of
+ * its own that RE-IMPLEMENTS the call — it passes the three arguments itself
+ * rather than letting the component pass them. So the argument the whole
+ * change turns on was load-bearing in the spec and free in the product:
+ * deleting `rec.biasCode` from the `methodForRecommendation` call in this
+ * component reverted the capability to the generic chip with the entire suite
+ * GREEN. A test that cannot see the thing it exists to protect is not a test.
+ *
+ * ⭐ THE DISCRIMINATING PAIR, and neither half proves anything alone. Dropping
+ * the third argument at the call site must turn the two bias cases RED (the
+ * chip falls back to the generic `review_bias` its `signal_code` earns); the
+ * id-map case below must stay GREEN through the same mutation, because it
+ * never consulted the bias code. One mutant shows sensitivity to SOMETHING;
+ * the pair shows sensitivity to the NAMED argument. A test that REDs on both
+ * has merely become brittle.
+ *
+ * ⚠ BOUND BY IDENTITY, NEVER BY A NAME QUERY. `getByRole('button', { name })`
+ * does NOT discriminate an accessible name from a `title`, and this chip
+ * carries `title={method.description}` — an assertion written that way passes
+ * with the label deleted. `data-testid` plus `data-method-id` are the product's
+ * own attributes and both PREDATE this change, so the evidence comes from the
+ * surface rather than from anything shipped alongside it.
+ */
+describe('a named bias reaches the reader as the corrective for THAT bias', () => {
+  /**
+   * A producer bias card as the engine mints one: a `strengthen:phase3:` id no
+   * prefix matches, and `signalCode: 'COGNITIVE_BIAS'`, which every bias card
+   * carries. Both maps therefore answer on these rows, which is what makes the
+   * precedence question real rather than hypothetical.
+   */
+  const biasCard = (over: Partial<Recommendation> & { id: string }): Recommendation =>
+    rec({
+      title: 'A bias the producer named',
+      whyNow: 'The estimate started from a number already in the brief.',
+      signalCode: 'COGNITIVE_BIAS',
+      ...over,
+    })
+
+  const chip = () => screen.getByTestId('analysis-new-strengthen-method')
+
+  it('an Anchoring card renders the outside view, as a control that dispatches its prompt', () => {
+    renderOpen(
+      <StrengthenTheReasoning
+        interventions={[biasCard({ id: 'strengthen:phase3:blk-anchoring', biasCode: 'anchoring' })]}
+      />,
+    )
+
+    const el = chip()
+    expect(el).toHaveAttribute('data-method-id', 'outside_view')
+    expect(el).toHaveTextContent('Apply the outside view')
+    // A CONTROL, not a label. The point of attaching a technique to its
+    // trigger is that invoking it is one click, so a `<span>` here would be
+    // the capability shipped inert.
+    expect(el.tagName).toBe('BUTTON')
+
+    fireEvent.click(el)
+    expect(openAskOlumi).toHaveBeenCalledWith(
+      expect.objectContaining({
+        label: 'Apply the outside view',
+        // The METHOD'S prompt, so the technique arrives already written.
+        draft: expect.stringContaining('reference class'),
+        // Identity rides the dispatch, or CEE never learns which technique the
+        // reader invoked and the chip is decoration.
+        parameters: { method_id: 'outside_view' },
+        source: 'chip',
+        // The FINDING is the context, not the method's own description.
+        context: 'The estimate started from a number already in the brief.',
+      }),
+    )
+  })
+
+  it('an Overconfidence card renders the pre-mortem, as a control that dispatches its prompt', () => {
+    renderOpen(
+      <StrengthenTheReasoning
+        interventions={[
+          biasCard({ id: 'strengthen:phase3:blk-overconfidence', biasCode: 'overconfidence' }),
+        ]}
+      />,
+    )
+
+    const el = chip()
+    expect(el).toHaveAttribute('data-method-id', 'pre_mortem')
+    expect(el).toHaveTextContent('Run a pre-mortem')
+    expect(el.tagName).toBe('BUTTON')
+
+    fireEvent.click(el)
+    expect(openAskOlumi).toHaveBeenCalledWith(
+      expect.objectContaining({
+        label: 'Run a pre-mortem',
+        draft: expect.stringContaining('imagine this decision failed'),
+        parameters: { method_id: 'pre_mortem' },
+        source: 'chip',
+      }),
+    )
+  })
+
+  /**
+   * ⚠⚠ THIS PINS THE TWO ABOVE, AND WITHOUT IT THEY COULD BOTH BE PASSING FOR
+   * THE WRONG REASON. If the fixture's `signalCode` were ever dropped, the two
+   * cases above would still go green — the generic map would simply have
+   * nothing to say — and the precedence they exist to prove would be untested
+   * while reading as covered (trap 13b: a discriminator whose discrimination
+   * depends on a fixture nothing pins). This asserts that the SAME card, minus
+   * only the producer's bias code, genuinely does earn the generic chip. So
+   * the difference between the two renders is the bias code and nothing else.
+   */
+  it('the same card WITHOUT the producer’s bias code earns only the generic chip', () => {
+    renderOpen(
+      <StrengthenTheReasoning
+        interventions={[biasCard({ id: 'strengthen:phase3:blk-anchoring' })]}
+      />,
+    )
+    expect(chip()).toHaveAttribute('data-method-id', 'review_bias')
+  })
+
+  /**
+   * ⭐ THE GREEN HALF OF THE PAIR. A UI-triggered finding resolves by id, which
+   * outranks both codes, so dropping the bias argument at the call site cannot
+   * change it — that is precisely what makes it the control. It is not inert:
+   * reordering precedence to consult the bias code first would turn this RED,
+   * which is the change that would make `METHOD_BY_BIAS_CODE` outrank a trigger
+   * the product already ships.
+   */
+  it('a UI-triggered finding still resolves by id, even carrying a bias code', () => {
+    renderOpen(
+      <StrengthenTheReasoning
+        interventions={[
+          rec({ id: 'strengthen:robustness', biasCode: 'anchoring', signalCode: 'COGNITIVE_BIAS' }),
+        ]}
+      />,
+    )
+    expect(chip()).toHaveAttribute('data-method-id', 'pre_mortem')
+  })
+})
+
+/**
  * ⭐⭐ THE TAIL. Measured on the deployed build `d658698a`: a real run put
  * EIGHT active recommendations in the lifecycle store, the section header read
  * its true count, and the list rendered three. The other five were not

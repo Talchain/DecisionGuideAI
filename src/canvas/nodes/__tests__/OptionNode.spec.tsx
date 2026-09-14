@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { OptionNode } from '../OptionNode'
+import { optionOrdinalBadgeAccessibleName } from '../shared/metricVocabulary'
 // The tie fixtures are pinned against the SHARED policy the component uses, so
 // the precondition cannot silently stop reproducing the condition under test.
 import {
@@ -831,7 +832,10 @@ describe('OptionNode', () => {
     // v1.1". That ban is what produced "Development headcount 0% → 40%" on the
     // live hiring graph: a 'quality' factor with no unit/cap/raw has no scale,
     // so the percentage was invented. 0.7 → 'High' per qualitativeTierLabel.
-    expect(screen.getByText('High')).toBeDefined()
+    // ⚠ RE-PINNED AGAIN (band-keeps-its-number): the bare tier word collapsed
+    // different values inside one band to the same string, so the band now
+    // carries its value. The invented percentage is still banned (below).
+    expect(screen.getByText('High (0.7)')).toBeDefined()
     expect(screen.queryByText('70%')).toBeNull()
   })
 
@@ -1284,9 +1288,12 @@ describe('OptionNode', () => {
     // No relative percentage is inferred from the normalised values.
     renderOption({ label: 'Raise price' })
     // The pair is bound to the named option, not the observed factor record.
-    expect(screen.getByText(/£49/)).toBeDefined()
-    expect(screen.getByText(/£59/)).toBeDefined()
-    expect(screen.getByText('Reference: Keep current pricing')).toBeDefined()
+    // ⚠ getAllByText, not getByText. RULING 10 Sep 2026 (Paul): BOTH STAY — the
+    // values now appear in the chip AND the differentiator footer, so a
+    // single-match query throws on the duplicate.
+    expect(screen.getAllByText(/£49/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/£59/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Reference: Keep current pricing').length).toBeGreaterThan(0)
     expect(screen.queryByText(/\+20\.4%/)).toBeNull()
   })
 
@@ -1605,8 +1612,12 @@ describe('OptionNode — QA Brief C-series', () => {
     // ⚠ RE-PINNED 14 Aug — same reversal as the 'quality' test above. "No unit,
     // no scale" is precisely the condition under which a percentage cannot be
     // honest; the tier word is what the factor actually supports.
+    // ⚠ RE-PINNED AGAIN (band-keeps-its-number): the tier word still carries
+    // the frame, but it now keeps its value so two values inside one band
+    // cannot render identically. Still no percentage.
     // Arrow separator is present between label and value (not a delta indicator)
-    expect(screen.getByText('High')).toBeDefined()
+    expect(screen.getByText('High (0.7)')).toBeDefined()
+    expect(screen.queryByText('70%')).toBeNull()
   })
 
   // C5: Near-zero baseline — no spurious percentage (guard: abs(denormedBaseline) <= 0.01)
@@ -1905,11 +1916,14 @@ describe('OptionNode — QA Brief C-series', () => {
       // the from→to chip already shows that value (e.g. "50% → 90%"), so the
       // duplicate differentiator footer is dropped — the disambiguating value
       // lives in the chip, not a repeated <p>.
-      const valueChip = screen.getByText((t: string) => t.includes('90%') && t.includes('→'))
-      expect(valueChip).toBeDefined()
-      // No separate differentiator <p> repeating the same value.
+      // getAllByText: BOTH STAY, so the chip ("50% → 90%") and the footer
+      // ("Tech Lead Hired → 90%") both match this predicate.
+      const valueChips = screen.getAllByText((t: string) => t.includes('90%') && t.includes('→'))
+      expect(valueChips.length).toBeGreaterThan(1)
+      // ⚠ WAS toBeUndefined(). RULING 10 Sep 2026 (Paul): BOTH STAY — the
+      // footer is no longer dropped when the chip carries the same value.
       const matches = screen.getAllByText(/tech lead hired/i)
-      expect(matches.find(el => el.tagName === 'P')).toBeUndefined()
+      expect(matches.find(el => el.tagName === 'P')).toBeDefined()
     })
 
     it('suppresses differentiator when two options share same factor with identical values', () => {
@@ -2383,7 +2397,22 @@ describe('OptionNode — display coherence (audit §8)', () => {
     renderOption()
     const badge = screen.getByTestId('option-stable-number-option-1')
     expect(badge).toHaveTextContent('2')
-    expect(badge).toHaveAttribute('aria-label', 'Option 2')
+    // ⚠ WAS the bare 'Option 2'. The name now says what the number MEANS, so a
+    // screen-reader user can tell it from the factor ranking badge — see
+    // OptionNode's aria-label comment and metricVocabulary.ts:373.
+    expect(badge).toHaveAttribute('aria-label', 'Option 2 — the order the options were first laid out in, not a ranking')
+
+    /**
+     * ⭐⭐ THE OTHER HALF OF THE COUPLING, AND NOT REDUNDANT WITH THE LITERAL
+     * ABOVE. `metricVocabulary.spec.ts` proves the builder AGREES with the
+     * legend row; it cannot see this component dropping the builder and
+     * re-typing the sentence, which is how the defect arrived (a comment
+     * claiming a derivation with no import behind it). This binds the RENDERED
+     * name to the builder's output for THIS number, so a re-inlined literal
+     * REDs here while the register guard stays green. The literal stays — it is
+     * the corpus that notices a wrong sentence (CLAUDE.md trap 12d).
+     */
+    expect(badge).toHaveAccessibleName(optionOrdinalBadgeAccessibleName(2))
   })
 
   it('renders no stable-number badge before the option is registered', () => {

@@ -3,8 +3,12 @@
  *
  * Round-3 UX correction: the post-graph behaviour is now REPOSITION (not
  * close). The floating panel stays open, slides to a bottom-right anchor
- * near the Analysis dock, and the Analysis tab activates so the user can
- * see AI and analysis side by side.
+ * near the dock, and a dock tab activates.
+ *
+ * ⚠ WHICH TAB CHANGED ON 10 Sep 2026: it is now **'olumi'** (the chat), not
+ * 'results' (Analysis) — Paul: "on initial model generation, the AI chat panel
+ * should be displayed first." The measured defect it fixes, and the assertions
+ * that pin the new surface, live in `FirstUseComposer.chatFirstOnDraft.spec.tsx`.
  *
  *   1. The auto-reposition effect MUST trigger the "Model drafted. Review
  *      readiness." receipt via useTransitionReceipt.show.
@@ -203,12 +207,17 @@ describe('FirstUseComposer — auto-reposition fires the transition receipt (gap
 
     // All four side effects now committed:
     //   - receipt fired
-    //   - Analysis tab activated (forceActivateOutputTab → version++)
+    //   - OLUMI (chat) tab activated (forceActivateOutputTab → version++)
     //   - floating panel stays OPEN, position set to a bottom-right anchor
     //   - isAutoRepositioning has been owner-cleared after the slide window
     expect(useTransitionReceipt.getState().receipt).toBe('model-drafted')
     expect(useFloatingPanelState.getState().isOpen).toBe(true)
-    expect(useUIStore.getState().activeOutputTab).toBe('results')
+    // ⭐ 'olumi', not 'results' (Paul, 10 Sep 2026: "on initial model
+    // generation, the AI chat panel should be displayed first"). This assertion
+    // pinned the OLD behaviour and was updated in the same commit that changed
+    // it — see FirstUseComposer.chatFirstOnDraft.spec.tsx for the full record
+    // and the measured geometry that motivated it.
+    expect(useUIStore.getState().activeOutputTab).toBe('olumi')
     expect(useUIStore.getState().activeOutputTabVersion).toBe(1)
     expect(useFloatingPanelState.getState().isAutoRepositioning).toBe(false)
     // Position is now set (was null before) and exactly equals the
@@ -273,11 +282,14 @@ describe('FirstUseComposer — reduced motion (gap #3)', () => {
     rerender(<FirstUseComposer />)
 
     // No setTimeout means all side effects commit synchronously: receipt
-    // shows, Analysis tab activated, floating panel stays open and is
+    // shows, OLUMI (chat) tab activated, floating panel stays open and is
     // repositioned to bottom-right.
     expect(useTransitionReceipt.getState().receipt).toBe('model-drafted')
     expect(useFloatingPanelState.getState().isOpen).toBe(true)
-    expect(useUIStore.getState().activeOutputTab).toBe('results')
+    // ⭐ 'olumi', not 'results' — see the note on the non-reduced-motion case
+    // above. The reduced-motion path takes the same synchronous branch, so it
+    // must land on the same surface.
+    expect(useUIStore.getState().activeOutputTab).toBe('olumi')
     expect(useUIStore.getState().activeOutputTabVersion).toBe(1)
     expect(useFloatingPanelState.getState().position).not.toBeNull()
   })

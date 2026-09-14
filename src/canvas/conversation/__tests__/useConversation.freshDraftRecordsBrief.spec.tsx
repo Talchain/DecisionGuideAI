@@ -97,11 +97,22 @@ function frame(obj: Record<string, unknown>): string {
   return `event: stage\ndata: ${JSON.stringify(obj)}\n\n`
 }
 
-/** A complete stream, pre-enqueued: DRAFTING then COMPLETE carrying the terminal body. */
-function completedStream(): Response {
+/**
+ * A complete stream, pre-enqueued: DRAFTING then COMPLETE carrying the terminal
+ * body.
+ *
+ * ⚠ A VARIANT IS COMPOSED AT THE CALL SITE, NEVER WRITTEN INTO THE FIXTURE.
+ * `cee-draft-goal-constraints-wire.json` is a RECORD OF A REAL TURN, and a
+ * fixture that pins what the product once received is evidence rather than a
+ * convenience to keep current (CLAUDE.md trap 14b). So the notices case below
+ * spreads an extra field over a copy and the file on disk is untouched — which
+ * also means the UNMODIFIED fixture stays available as that case's contrast
+ * control.
+ */
+function completedStream(payload: Record<string, unknown> = TERMINAL_BODY): Response {
   const text =
     frame({ stage: 'DRAFTING', seq: 0, status: 'in_progress' }) +
-    frame({ stage: 'COMPLETE', seq: 4, status: 'complete', status_code: 200, payload: TERMINAL_BODY })
+    frame({ stage: 'COMPLETE', seq: 4, status: 'complete', status_code: 200, payload })
   const body = new ReadableStream<Uint8Array>({
     start(c) {
       c.enqueue(new TextEncoder().encode(text))
@@ -128,8 +139,11 @@ function resetCanvasToNoDecision() {
   } as never)
 }
 
-async function sendBrief(text: string, opts: { hidden?: boolean } = {}) {
-  mockOpenStream.mockResolvedValue(completedStream())
+async function sendBrief(
+  text: string,
+  opts: { hidden?: boolean; body?: Record<string, unknown> } = {},
+) {
+  mockOpenStream.mockResolvedValue(completedStream(opts.body))
   const { result } = renderHook(() => useConversation())
   await act(async () => {
     await (result.current.sendMessage(text, {
@@ -192,6 +206,62 @@ describe('the draft turn records the brief for the decision it drafted', () => {
     expect(recorded.scenarioId).toBe(minted)
     expect(recorded.briefText).toBe(BRIEF)
     expect(recorded.briefText).not.toContain('tech lead')
+  })
+
+  /**
+   * ⭐⭐ THE DRAFT TURN'S OWN ATTESTATION REACHES THE STORE — ROADMAP 2.1379.
+   *
+   * `model_building_notices` rode this response all along and the register
+   * could not see it, so on a first session the panel refused ("I can't show
+   * this yet for this decision") while the bubble two panels away displayed the
+   * count. This is the wire hop that closes it, driven through the real
+   * `sendTurn` rather than by seeding the store — a render test alone would
+   * pass on a build where nothing ever writes the field.
+   *
+   * ⚠ THE FIXTURE IS NOT EDITED. This body is a COPY carrying one extra field;
+   * the recorded turn on disk is untouched (trap 14b).
+   */
+  it('the draft turn’s model-building notices are recorded under the MINTED id', async () => {
+    await sendBrief(BRIEF, {
+      body: {
+        ...TERMINAL_BODY,
+        model_building_notices: {
+          total_count: 15,
+          groups: [
+            { kind: 'detail_not_connected', count: 12 },
+            { kind: 'alternative_consolidated', count: 3 },
+          ],
+          details_redacted: true,
+        },
+      },
+    })
+    const minted = assertDraftLanded()
+
+    const recorded = useContextIntegrityStore.getState()
+    expect(recorded.scenarioId).toBe(minted)
+    // The producer's own count, carried verbatim — never re-derived from rows.
+    expect(recorded.modelBuildingNotices?.totalCount).toBe(15)
+    expect(recorded.modelBuildingNotices?.rows.map((r) => r.kind)).toEqual([
+      'detail_not_connected',
+      'alternative_consolidated',
+    ])
+  })
+
+  /**
+   * ⚠ THE CONTRAST CONTROL, IN THE SAME SUITE AND ON THE SAME SEAM (trap 13e).
+   * The test above proves the extractor can see a payload; only this one proves
+   * it is seeing THAT payload rather than writing something unconditionally.
+   * The unmodified fixture carries no `model_building_notices`, and absence
+   * means NO ATTESTATION WAS SUPPLIED — never "this draft left nothing out" —
+   * so the store must stay `null` and the panel keeps its unqualified refusal.
+   */
+  it('a draft turn with no attestation records no notices at all', async () => {
+    await sendBrief(BRIEF)
+    assertDraftLanded()
+
+    // Precondition: the seam DID run — the brief landed on this same turn.
+    expect(useContextIntegrityStore.getState().briefText).toBe(BRIEF)
+    expect(useContextIntegrityStore.getState().modelBuildingNotices).toBeNull()
   })
 
   it('a HIDDEN turn that lands a graph records nothing — machine text is not "what you gave me"', async () => {

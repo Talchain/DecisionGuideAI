@@ -179,6 +179,21 @@ export function hydrateAnalysisFromV2Response(
       ceeErrorV1: null,
       m1Review: m1Review ?? null,
       m1Coaching: m1Coaching ?? null,
+      /**
+       * ⛔ EVICTED, NOT OMITTED, AND THIS IS A CROSS-SCENARIO LEAK GUARD.
+       *
+       * `resultsHydrateFromSupabase` merges this object into `runMeta` by SPREAD,
+       * and the scenario-switch reset clears `results` but never `runMeta`. So a
+       * key this object does not mention SURVIVES the switch. `evidenceAssessment`
+       * is written by the LIVE turn path and read in preference to `m1Coaching`,
+       * so omitting it here would carry scenario A's evidence gaps onto scenario
+       * B's Reasoning tab and name them as B's.
+       *
+       * A persisted V2 response carries no assessment — the block rides a live
+       * turn — so `null` is the honest value, not a placeholder. Same reason
+       * `m1Coaching` above is written unconditionally rather than conditionally.
+       */
+      evidenceAssessment: null,
       m1ReviewAssumptions,
       reviewStatus: v2Response.review_status,
     },

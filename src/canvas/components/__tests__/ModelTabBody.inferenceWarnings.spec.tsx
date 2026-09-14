@@ -45,13 +45,11 @@ vi.mock('../GraphTextView', () => ({
 // Stub the heavy section tree. ModelTabHeader stays REAL (it provides
 // DetailToggleContext, which gates the audit row under test) and
 // ModelHealthSection stays REAL (it renders both surfaces under test).
-vi.mock('../model-tab/StatusBar', () => ({ StatusBar: () => null }))
-vi.mock('../model-tab/EntityBar', () => ({ EntityBar: () => null }))
-vi.mock('../model-tab/GoalSection', () => ({ GoalSection: () => null }))
-vi.mock('../model-tab/OptionsSection', () => ({ OptionsSection: () => null }))
-vi.mock('../model-tab/FactorsSection', () => ({ FactorsSection: () => null }))
-vi.mock('../model-tab/RelationshipsSection', () => ({ RelationshipsSection: () => null }))
-vi.mock('../model-tab/RisksSection', () => ({ RisksSection: () => null }))
+// ⚠ MOCKS REMOVED 2026-09-11. This block also stubbed StatusBar, EntityBar,
+// GoalSection, OptionsSection, FactorsSection, RelationshipsSection, RisksSection
+// and ModelTabHeader. All eight were deleted with the v1 Model stack (Paul's
+// ruling), so `vi.mock` on those paths would now fail to resolve. The surviving
+// mocks below are unchanged.
 vi.mock('../model-tab/ModelAdjustments', () => ({ ModelAdjustments: () => null }))
 vi.mock('../model-tab/StreamingDiagnostics', () => ({ StreamingDiagnostics: () => null }))
 vi.mock('../model-tab/ReanalyseBar', () => ({ ReanalyseBar: () => null }))

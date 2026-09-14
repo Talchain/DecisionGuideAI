@@ -21,13 +21,17 @@
  * the body the low-zoom line would disagree with is HIDDEN, so nothing on
  * screen could ever show the disagreement.
  *
- * Behaviour is byte-for-byte what `FactorNode` shipped; only the location
- * changed. The dedupe arm still takes the caller's own `valueDisplay`, because
+ * The extraction was byte-for-byte what `FactorNode` shipped. ⚠ ONE behaviour
+ * change has landed since, and it is the only one: the dedupe arm now also
+ * declines when the caller's value line CONTRADICTS the scale the normalised
+ * range would print on (see `displayedValueIsOffTheNormalisedScale`, and the
+ * journey witness quoted there). The dedupe arm still takes the caller's own
+ * `valueDisplay`, because
  * the two callers legitimately resolve that string by different entry points
  * (the card via `formatFactorDisplayValue`, the reduced line via
  * `factorDisplayText`) and neither may be assumed for the other.
  */
-import { isUnquantifiedPrior } from '../../domain/nodes'
+import { isUnquantifiedPrior, priorEndpointsAreNormalised } from '../../domain/nodes'
 import { classifyUnit, formatRawValueWithUnit, isSuppressedUnit } from '../../utils/labelUtils'
 
 /**
@@ -69,6 +73,149 @@ function bareNumericRangeMatchesPrior(
     return true
   }
   return false
+}
+
+/**
+ * Every numeric token in a display string. Comma-thousands are one token
+ * ("40,000"), a decimal point does not split ("0.28").
+ */
+const NUMERIC_TOKEN = /-?\d[\d,]*(?:\.\d+)?/g
+
+/**
+ * The magnitude of a display string that shows EXACTLY ONE number — the
+ * observed point, however it is dressed ("18 month", "£40,000", "CHF 500",
+ * "26,000", "0.5"). Returns null for everything else, and the exclusions are
+ * the guard, not an oversight:
+ *   · no number at all ("Moderate", "No dedicated supplier") — nothing to
+ *     compare scales with;
+ *   · two or more numbers ("3 to 5", "0.2 to 0.8") — that describes a prior,
+ *     not an observed point, and judging it would need a vocabulary over
+ *     natural language.
+ * Deliberately narrow: everything it declines to parse keeps today's
+ * behaviour byte-for-byte.
+ */
+function parseSingleDisplayedMagnitude(text: string): number | null {
+  const tokens = text.match(NUMERIC_TOKEN)
+  if (tokens == null || tokens.length !== 1) return null
+  const n = Number(tokens[0].replace(/,/g, ''))
+  return Number.isFinite(n) ? n : null
+}
+
+/** The ceiling of the normalised scale. It is a property of the SCALE, and it
+ *  is never derived from the data — see the correction in the header below. */
+const NORMALISED_SCALE_CEILING = 1
+
+/**
+ * ⭐⭐ THE VALUE LINE IS NOT ON THE SCALE THIS RANGE WOULD PRINT ON.
+ *
+ * Journey-witnessed on the deployed product, one card, together and unflagged:
+ *
+ *     Sales Payback Period        18 month
+ *     Range: 0.08 to 0.28
+ *
+ * A value SIXTY TIMES outside its own displayed range — and the editor then
+ * rejects `0.2` as "a proportion rather than a value in month", so the node's
+ * displayed range is a set of values its own editor refuses.
+ *
+ * ⭐ THE REFUSAL TO CALIBRATE ABOVE IS CORRECT AND STAYS. `month` is a real
+ * unit, a capless deterministic draft cannot be denormalised, and inventing a
+ * cap would fake a measurement. The defect is that having declined to put the
+ * range on the shown scale, this path printed the range anyway.
+ *
+ * ⛔ SO THIS DECLINES, IT NEVER COMPUTES. It answers only "can I POSITIVELY
+ * establish that the value on screen is NOT on the normalised scale this range
+ * would print on?" — never "does this range look right?".
+ *
+ * ⛔⛔ AND IT IS A MEMBERSHIP TEST, NOT A COMPARISON WITH THE DATA. THIS IS THE
+ * CORRECTION, and it is the whole point of the function.
+ *
+ * The first version derived its bound from the endpoints —
+ * `Math.max(1, |rangeMin|, |rangeMax|)` — reasoning that a prior which exceeds
+ * the contract should be "judged against what is actually on screen". Deriving
+ * it is what broke it. Once the endpoints are themselves on a real scale,
+ * `magnitude > bound` stops asking *"is this value on a different scale?"* and
+ * starts asking *"is this value above the range?"* — which is an ordinary, and
+ * highly decision-relevant, thing for an observation to be.
+ *
+ * ⭐ THE ASYMMETRY WAS THE PROOF. Driven through the real entry point against
+ * a witnessed out-of-scale prior (`fac_price {range_min: 10, range_max: 30}`):
+ *
+ *     £31  (one ABOVE the range)  ->  the range line was REMOVED
+ *     £9   (BELOW the same range) ->  the range line was KEPT
+ *
+ * Nothing about SCALE is asymmetric. A predicate that answers differently for a
+ * value below its range and a value above it is not testing scale, whatever its
+ * name says. It removed information exactly when the observation had exceeded
+ * expectation, which is the case a reader most needs to see. (CLAUDE.md trap
+ * 13d: the invariant had inherited the asymmetry of the failure mode in hand,
+ * because the witnessed value happened to sit far above its range.)
+ *
+ * ⭐ SO THE GATE COMES FIRST, AND IT IS THE SIBLING SURFACE'S OWN PREDICATE.
+ * The unitless line this function guards prints a claim on the 0–1 scale ONLY
+ * when both endpoints sit inside 0–1. `priorEndpointsAreNormalised` answers
+ * that, and `NodeInspector.describePrior` — which renders the same prior and
+ * whose ruling on out-of-scale endpoints is "caveat, never hide" — now reads
+ * the same function rather than its own copy. Two surfaces, one answer.
+ *
+ * With the gate in place the bound is the SCALE's ceiling, fixed at 1 and never
+ * touched by the data, so "above the bound" means "not a member of 0–1" and
+ * nothing else.
+ *
+ * ⚠ KNOWN LIMIT, stated rather than hidden: a real-scale value that happens to
+ * sit at or below 1 ("0.5 month", "£0.5k") is indistinguishable from a
+ * normalised one here, so it is not contradicted and the range still renders.
+ * That fails in the safe direction — it keeps information rather than removing
+ * it — and the cap is what would settle it, which is upstream and out of scope.
+ *
+ * ⚠ A WIDER PREDICATE WAS CONSIDERED AND DECLINED, so nobody re-proposes it as
+ * an obvious improvement. Inside this arm a REAL unit always means
+ * `canCalibrate === false`, so one could suppress on the unit alone — "a real
+ * unit beside a unitless normalised range is a scale mismatch by construction",
+ * which is direction-free and would also close the known limit above. It is
+ * declined because it cannot see its own counterexample: a prior authored on a
+ * REAL scale whose endpoints happen to land inside 0–1 (a defect rate of 0.08
+ * to 0.28 per unit) is byte-identical to a normalised one, and suppressing it
+ * would REMOVE a true line. Trading a false line that is kept for a true line
+ * that is hidden is the wrong direction, and it is the same "a range is not
+ * self-describing" principle `isUnquantifiedPrior` is built on.
+ */
+function displayedValueIsOffTheNormalisedScale(
+  text: string,
+  rangeMin: number,
+  rangeMax: number,
+): boolean {
+  // ⛔ THE GATE. If the endpoints are not inside 0–1 then this line is not
+  // printing a normalised claim, there is no normalised scale to be off, and
+  // no comparison with the displayed value can establish a contradiction.
+  if (!priorEndpointsAreNormalised(rangeMin, rangeMax)) return false
+  const shown = parseSingleDisplayedMagnitude(text)
+  if (shown == null) return false
+  const magnitude = Math.abs(shown)
+  return (
+    magnitude > NORMALISED_SCALE_CEILING
+    && !nearlyEqual(magnitude, NORMALISED_SCALE_CEILING)
+  )
+}
+
+/**
+ * The one suppression decision for the uncalibrated range line, with its two
+ * arms named: the value line already SHOWS this range (dedupe, lane C3), or the
+ * value line CONTRADICTS the scale this range would print on (the witness
+ * above). Extended rather than duplicated on purpose — two suppression
+ * mechanisms a caller must remember to consult in the right order is this
+ * estate's dominant defect, and both arms answer one question at one call site:
+ * is there anything true left for this line to say?
+ */
+function normalisedRangeHasNothingTrueToSayBeside(
+  text: string,
+  rangeMin: number,
+  rangeMax: number,
+  cap: number | null | undefined,
+): boolean {
+  return (
+    bareNumericRangeMatchesPrior(text, rangeMin, rangeMax, cap)
+    || displayedValueIsOffTheNormalisedScale(text, rangeMin, rangeMax)
+  )
 }
 
 /** Normalised (0–1) range end for unitless display: ≤2 dp, trailing zeros trimmed. */
@@ -162,7 +309,19 @@ export function resolveFactorPriorRange({
     // A real unit WITHOUT a usable cap lands here too: prefixing a
     // normalised 0–1 endpoint with "£" fakes calibration exactly like a
     // placeholder unit would (and Math.round would grind it to "£0 to £1").
-    if (valueDisplay != null && bareNumericRangeMatchesPrior(valueDisplay, rangeMin, rangeMax, cap)) {
+    // ⛔ AND IT IS SUPPRESSED, NEVER SUBSTITUTED. Silence is the honest
+    // outcome here and a replacement sentence would be a new claim: a range IS
+    // recorded, so "no range recorded" would be false, and what is actually
+    // missing is the cap that would put it on the shown scale — which is
+    // upstream, not this surface's to state. Nor does silence leave a gap: this
+    // arm is only reachable when `valueDisplay` is non-null, so the card keeps
+    // its figure, and the reduced low-zoom line passes `valueDisplay: null` and
+    // is therefore untouched (the blank-box regression this module exists to
+    // prevent cannot recur through here).
+    if (
+      valueDisplay != null
+      && normalisedRangeHasNothingTrueToSayBeside(valueDisplay, rangeMin, rangeMax, cap)
+    ) {
       return null
     }
     return `Range: ${formatNormalisedRangeEnd(rangeMin)} to ${formatNormalisedRangeEnd(rangeMax)}`

@@ -5,13 +5,14 @@ import Tooltip from '../../components/Tooltip'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
+import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbsent'
 import { useAnalysisTrust } from '../hooks/useAnalysisTrust'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { focusExistingTarget } from '../utils/focusHelpers'
 import { selectDriverDisplayModel, compareByDisplayModel, extractPolicyRow } from '../../components/results/driverDisplayModel'
 import { typography } from '../../styles/typography'
-import { METRIC_NOUN } from './shared/metricVocabulary'
+import { METRIC_NOUN, optionOrdinalBadgeAccessibleName } from './shared/metricVocabulary'
 import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, classifyUnit, formatWinProbability, isTierLabel } from '../utils/labelUtils'
 import {
   describeInterventionDirection,
@@ -411,6 +412,7 @@ interface StructuredDelta {
 export const OptionNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.option
   const displayMetadata = useNodeDisplayMetadata(props.id, 'option')
+  const supportShareRunWideAbsent = useSupportShareRunWideAbsent()
   const scienceIcons = useScienceIcons(props.id, 'option')
 
   const nodes = useCanvasStore(state => state.nodes)
@@ -842,22 +844,57 @@ export const OptionNode = memo((props: NodeProps) => {
    * same error as gating on a re-derived condition instead of the real render
    * one — which is precisely what the Behind-line gate below gets right.
    */
+  /**
+   * ⭐⭐ THE RUN NO LONGER DELETES WHAT EACH OPTION CHANGES.
+   *
+   * This read `!isPostAnalysis && …`, so the moment results arrived the
+   * "£49 → £54" / "Low → High" chips vanished from the card. **Measured on a
+   * real user's model** (served `fdbaa4e4`): pre-analysis the option cards
+   * carried their interventions and their baseline reference; post-analysis
+   * they carried "Support percentage unavailable" and nothing else.
+   *
+   * ⚠ THE DATA WAS NEVER LOST — ONLY THE RENDER. The same session's debug
+   * bundle still holds every one of them post-analysis
+   * (`cee_options[].intervention_details[].display_value` = `"£54"`,
+   * `"High (0.75)"`), and `full_graph.options[].interventions[]` carries a
+   * RICHER form than the card ever showed, with per-intervention provenance.
+   * So this deletes a suppression; it adds no new claim and needs no new data.
+   *
+   * ⭐ AND THE FILE ALREADY ARGUES IT, twenty lines above, for the neighbouring
+   * differentiator line: *"derived from … the MODEL, not the result. A run does
+   * not change which factor differentiates an option."* An intervention is the
+   * same kind of fact — it is what the user asked the analysis to consider, not
+   * something the analysis produced. It is also what makes the result legible:
+   * "ranked #3" says little; "£49 → £54, against Status Quo, ranked #3" is a
+   * reasoning artefact.
+   *
+   * `!isBaselineOption` stays: the baseline states no delta because it IS the
+   * reference, which the line below now says on the card in both phases.
+   */
   const structuredDeltaChipsRender =
-    !isPostAnalysis && !isBaselineOption && structuredDeltas.length > 0
+    !isBaselineOption && structuredDeltas.length > 0
 
-  // Brief scope 7: drop the differentiator footer only when it repeats a value
-  // already shown in a VISIBLE from→to chip — same factor AND the same value
-  // text. A differentiator carrying a value the chip doesn't show (e.g. a CEE
-  // display_value where the chip fell back to "%") is kept, so no info is lost.
-  const differentiatorDuplicatesChip = structuredDeltaChipsRender
-    && !!differentiator
-    && differentiator.label.includes('→')
-    && structuredDeltas.some(d => {
-      if (d.factorId !== differentiator.factorId) return false
-      const diffValue = (differentiator.label.split('→')[1] ?? '').trim()
-      return diffValue.length > 0 && d.fromTo.includes(diffValue)
-    })
-
+  /**
+   * ⭐⭐ THE DIFFERENTIATOR DE-DUPLICATION IS RETIRED — Paul, 10 Sep 2026:
+   * "both stay".
+   *
+   * Brief scope 7 dropped the differentiator footer when it repeated a value
+   * already shown in a VISIBLE from-to chip. That rule was written when the
+   * chip was PRE-ANALYSIS ONLY, so it only ever fired before a run — and the
+   * moment the chip was restored post-analysis (this change) it began eating
+   * the sentence #1247 exists to guarantee.
+   *
+   * ⚠ THE RULING IS PHASE-FREE AND SO IS THIS. Suppressing post-analysis and
+   * not pre- would have left a third `isPostAnalysis` conditional on this card,
+   * which is the defect class this change removes. Both elements render in both
+   * phases: the chip states the CHANGE ("49 to 59"), the footer states the
+   * REASON it matters (which factor differentiates this option).
+   *
+   * The predicate itself is deleted rather than left unused — an unread
+   * constant is a claim nothing checks. Density is a STYLE question and Paul
+   * has it flagged for a user-experience pass; if it comes back it comes back
+   * as a rendering decision, not as a silent suppression.
+   */
   const handleMouseEnter = useMemo(() => () => {
     if (hasInterventions) setHoveredOption(props.id)
   }, [props.id, hasInterventions, setHoveredOption])
@@ -1609,7 +1646,43 @@ export const OptionNode = memo((props: NodeProps) => {
             {stableOptionNumber != null && (
               <span
                 data-testid={`option-stable-number-${props.id}`}
-                aria-label={`Option ${stableOptionNumber}`}
+                /* ⚠ WAS `Option N`, WHICH READS AS A RANK. Two numbering
+                   systems share this canvas — `#1/#2/#3` on factors IS an
+                   ordering (by sensitivity), and this one is NOT. A bare
+                   "Option 3" is indistinguishable from the ranking badge to
+                   anyone using a screen reader, and that is the confusion the
+                   legend exists to prevent.
+
+                   Wording DERIVED from the legend's own gloss
+                   (`metricVocabulary.ts:373`) rather than written afresh, so the
+                   two cannot drift into saying different things about the same
+                   badge.
+
+                   ⚠⚠ THE SENTENCE ABOVE WAS FALSE WHEN IT WAS WRITTEN, AND IS
+                   KEPT RATHER THAN OVERWRITTEN BECAUSE IT IS THE RECORD OF HOW
+                   THIS SHIPPED. There was no import: the `aria-label` was a
+                   template literal that merely REPEATED the legend's wording,
+                   and this comment asserted the derivation that would have made
+                   that safe. A claim in a comment is not a coupling — it is the
+                   hand-maintained mirror this estate keeps paying for
+                   (CLAUDE.md trap 12), wearing the language of the fix.
+
+                   Nothing could have caught it: `ORDINAL_ROW_MUST_STATE_MINT`
+                   is applied only to `row.gloss`, so a legend rewrite would
+                   keep the mint guard green, leave this badge on the old
+                   words, and tell a screen-reader user something different
+                   from what a sighted reader sees in the popover.
+
+                   ⭐ IT IS TRUE NOW, AND BY IMPORT: the name comes from
+                   `optionOrdinalBadgeAccessibleName`, which is built from
+                   `ORDINAL_MINT_CLAUSE` — the same constant the legend row is
+                   built from. Two guards hold it, and they are not redundant:
+                   `metricVocabulary.spec.ts` asserts the builder's output
+                   carries the legend row's own clause (agreement), and the
+                   render specs assert THIS element's accessible name equals
+                   the builder's output (so re-inlining a literal here REDs).
+                   The rendered string is unchanged. */
+                aria-label={optionOrdinalBadgeAccessibleName(stableOptionNumber)}
                 className={`${typography.nodeLabel} inline-flex h-4 min-w-[16px] items-center justify-center rounded border border-panel-border px-1 text-text-light`}
               >
                 {stableOptionNumber}
@@ -1794,14 +1867,47 @@ export const OptionNode = memo((props: NodeProps) => {
 
         {/* Missing win share is distinct from measured zero and a reported
             failure. Outcome ranges may still exist: name only the missing
-            percentage, without claiming the whole result is unavailable. */}
+            percentage, without claiming the whole result is unavailable.
+
+            ⭐⭐ AND IT IS ALSO DISTINCT FROM *EVERY* OPTION MISSING ONE, which is
+            what this gate adds. Measured on the deployed build `08a3724d`
+            (`staging--olumi.netlify.app`): a three-option model rendered
+            "Support percentage unavailable" on all three cards, identically, in
+            the position where the comparison belongs. Stated three times it is
+            not three facts about three options. It is one fact about the RUN,
+            and repeating it per card tells the reader nothing while occupying
+            the row they came to compare.
+
+            `supportShareRunWideAbsent` separates the two:
+
+              - PARTIAL (some cards resolved a share, this one did not) → the
+                line renders, and now EARNS its place: it is the only thing
+                telling the reader why this card differs from its siblings.
+                PLoT's `IDENTICAL_OPTIONS_DEDUPED` produces exactly this shape.
+
+              - RUN-WIDE (no card resolved one) → the cards YIELD this position.
+                The Question node states it ONCE instead (`DecisionNode`), which
+                is where a fact about the whole run belongs.
+
+            ⚠ YIELDING IS NOT SILENCE, AND THAT DISTINCTION IS LOAD-BEARING —
+            the sibling `n_valid === 0` block twenty lines above argues,
+            correctly, that "silence in a row of bars reads as a rendering gap".
+            It is not silenced here; it is MOVED to the one surface that can say
+            it once. Delete the DecisionNode statement and this becomes the
+            rendering gap that comment warns about.
+
+            ⛔ The copy no longer opens with the missing quantity's name. It
+            conditions on the data ("On the data so far…"), because what this
+            run produced is a fact about this run and not a property of the
+            option. */}
         {displayMetadata.isResultsMode && displayMetadata.winRate === null &&
-          displayMetadata.winComputationFailed !== true && (
+          displayMetadata.winComputationFailed !== true &&
+          !supportShareRunWideAbsent && (
           <p
             className={`${typography.edgeLabel} text-text-light mt-1.5 mb-1`}
             data-testid={`option-result-unavailable-${props.id}`}
           >
-            {METRIC_NOUN.support} percentage unavailable
+            On the data so far, no {METRIC_NOUN.support.toLowerCase()} percentage for this option
           </p>
         )}
 
@@ -1941,7 +2047,8 @@ export const OptionNode = memo((props: NodeProps) => {
             universal quantifier was doing rhetorical work the code does not
             do. */}
         {!isBaselineOption && !isDetailed && differentiator
-          && !differentiatorDuplicatesChip
+          /* Paul's ruling 10 Sep 2026 — "both stay". Was
+             `&& !differentiatorDuplicatesChip`. See the predicate's header. */
           && !(isPostAnalysis && !isRecommended && behindReason) && (
           <p
             className={`${typography.edgeLabel} text-text-light mt-1 m-0`}
@@ -1962,8 +2069,14 @@ export const OptionNode = memo((props: NodeProps) => {
           </p>
         )}
 
-        {/* Reference identity; values remain recoverable in preview and inspector. */}
-        {!isPostAnalysis && isBaselineOption && (
+        {/* Reference identity; values remain recoverable in preview and inspector.
+            ⚠ WAS `!isPostAnalysis && …`. Which option is the comparison basis is
+            a property of the MODEL, not of the result — the run does not choose
+            it and cannot change it. Hiding it once results arrive removed the
+            one label that makes every other option's delta mean anything, at
+            exactly the moment a reader starts comparing them. `is_baseline` is
+            still true in the post-analysis payload. */}
+        {isBaselineOption && (
           <div className={`${typography.edgeLabel} mt-1 text-text-light`}>
             Baseline option
           </div>

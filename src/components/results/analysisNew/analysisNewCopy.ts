@@ -75,12 +75,49 @@ export function formatConjunctionList(items: readonly string[]): string {
 const MISSING_LIST = { format: (items: readonly string[]) => getConjunctionList().format(items) }
 
 /**
+ * Capitalises a leading letter so a list can OPEN a sentence.
+ *
+ * `missingResultLabels` are written lowercase because they were composed
+ * mid-sentence, behind a dash. Splitting the ribbon into two sentences (no em
+ * dashes in product content, Paul, 10 Sep 2026) moves them to the front of the
+ * second one. Only the first character is touched, so `missingResultLabels`
+ * stays the single owner of what each result is CALLED and no label is
+ * duplicated here in a different case.
+ */
+const sentenceCase = (s: string): string =>
+  s === '' ? s : `${s.charAt(0).toUpperCase()}${s.slice(1)}`
+
+/**
+ * The exact inverse: lowers a leading letter so a label written to OPEN
+ * something can be spliced mid-sentence.
+ *
+ * `ZERO_REASON_BADGE_LABELS` is a map of BADGE labels, so every value opens
+ * with a capital and is right to. Spliced after a colon by `coverage.notRanked`
+ * and `empty.noneRanked` the capital reads as a sentence fragment — witnessed
+ * by Paul on deployed `b93904c9`: "4 factors are not ranked here: Controlled by
+ * your options."
+ *
+ * ⚠ HERE RATHER THAN AT THE CALL SITE, AND THE PRECEDENT IS EXPLICIT.
+ * `goalAnchorCopy.ts:276` states it: "The register owns casing; call sites
+ * never do it" — written after two call sites did `phrase(x).charAt(0)
+ * .toLowerCase()` inline and a third did NOT, shipping "Option A Supported in
+ * 71% of simulated scenarios" with a capital mid-sentence. BOTH composers below
+ * call this, so the two cannot drift into two casings of one producer stamp.
+ *
+ * Only the first character is touched, so `ZERO_REASON_BADGE_LABELS` stays the
+ * single owner of what each reason is CALLED and no label is duplicated here in
+ * a different case.
+ */
+const clauseCase = (s: string): string =>
+  s === '' ? s : `${s.charAt(0).toLowerCase()}${s.slice(1)}`
+
+/**
  * The coverage warning with no names in it. Held as a const because
  * `provisionalNaming` falls back to it: the guarantee "an empty list never
  * emits a sentence fragment" then belongs to the STRING, not to its one
  * call site, and survives a second caller.
  */
-const PROVISIONAL_UNNAMED = 'This analysis is partial — some results are missing.'
+const PROVISIONAL_UNNAMED = 'This analysis is partial. Some results are missing.'
 
 export const ANALYSIS_NEW_LABEL_FALLBACK = 'This option'
 
@@ -135,6 +172,33 @@ export const ANALYSIS_NEW_COPY = {
      * mean different things by it.
      */
     checks: 'What we checked',
+    /**
+     * ⭐ NAMES THE PROVENANCE, MAKES NO CLAIM ABOUT THE READER. "Where these
+     * checks come from" answers the question a sceptic asks of a bias check
+     * ("says who?") and answers it with the producer's own literature. It
+     * deliberately does NOT name a bias, promise an improvement, or imply the
+     * reader exhibits anything: the section under it renders the mechanism, the
+     * technique and the citation, and never the classification.
+     *
+     * ⚠ SIBLING TO `checks`, AND THE PAIRING IS THE POINT. "What we checked"
+     * says what was looked at; this says what the looking rests on. Two
+     * questions, named apart (CLAUDE.md trap 21) — collapsing them into one
+     * heading would lose the only part a reader can independently verify.
+     */
+    biasGrounding: 'Where these checks come from',
+  },
+
+  /**
+   * Labels for the bias-grounding readout. Furniture only: every claim-bearing
+   * string on that surface is the producer's, rendered verbatim.
+   *
+   * ⚠ `tryThis` IS AN OFFER, NOT A PRESCRIPTION, AND NOT A PROMISE. "Try this"
+   * says here is a technique; it does not say it will improve the decision,
+   * because nothing here licenses that. The human is the author.
+   */
+  biasGrounding: {
+    tryThis: 'Try this',
+    sourcePrefix: 'Source: ',
   },
 
   /**
@@ -231,7 +295,7 @@ export const ANALYSIS_NEW_COPY = {
      */
     needsTargetLead: 'Only one reading of this run is available.',
     needsTargetUnlock:
-      'Set a success target and the same run also answers which option is most likely to hit it — a second reading that can disagree with this one.',
+      'Set a success target and the same run also answers which option is most likely to hit it. That second reading can disagree with this one.',
 
     /**
      * READING ONE — the highest expected outcome.
@@ -334,7 +398,7 @@ export const ANALYSIS_NEW_COPY = {
      * run did not return factor influence at all.
      */
     noneRanked: (n: number, reasons: readonly string[]) =>
-      `No factor is ranked in this run. ${n === 1 ? '1 factor was' : `${n} factors were`} returned and set aside: ${reasons.join('; ')}.`,
+      `No factor is ranked in this run. ${n === 1 ? '1 factor was' : `${n} factors were`} returned and set aside: ${reasons.map(clauseCase).join('; ')}.`,
     /**
      * ⚠ FAIL-CLOSED SIBLING. `suppressedZeroCount` and `suppressedZeroReasons`
      * move together by construction, but the count is not what a sentence
@@ -367,13 +431,110 @@ export const ANALYSIS_NEW_COPY = {
   dissent: {
     open: 'I disagree',
     edit: 'Edit what you said',
-    /** Placed on the textarea. States what happens, so saving is not a guess. */
+    /**
+     * Placed on the textarea. States what happens, so saving is not a guess.
+     *
+     * ⚠⚠ APPENDED, NOT REWRITTEN: THIS IS NOW HALF OF A PAIR, AND FOR A WHOLE
+     * SESSION IT WAS THE ONLY HALF. The sentence above is the original and it
+     * is still exactly right — for the state where nothing is sent. What made
+     * it a privacy falsehood was shipping `finding_dissent` beneath it: the
+     * user composed their words under an explicit promise of locality and the
+     * words then went to the server, with the only sentence saying so rendering
+     * AFTER the send. Consent that arrives after the fact is not consent, and a
+     * deliberate widening the user is not told about at the moment of decision
+     * is indistinguishable, from their side, from a leak.
+     *
+     * ⚠ SO THIS ONE IS NOW SCOPED RATHER THAN CHANGED. It renders when the send
+     * will NOT happen, where it remains true and must stay: no dispatcher
+     * mounted (the intermediate deploy state, and any route without a
+     * `ConversationProvider`), no run identity yet, or a failed run whose hash
+     * is the literal 'error'.
+     */
     prompt: 'Why? This stays on the card in this browser.',
-    notSaved: 'Not saved for next time. Your words are still here — retry, or copy them before leaving.',
+    /**
+     * ⭐⭐ THE SAME PROMPT, FOR THE STATE WHERE THE WORDS WILL TRAVEL. It is the
+     * disclosure, and it is the ONLY one the user gets before they type.
+     *
+     * ⚠⚠ WHICH OF THE TWO RENDERS IS DECIDED BY `isSendableAddress` — THE SEND'S
+     * OWN PREDICATE, IMPORTED, NOT A COPY OF IT. A second predicate written
+     * beside the first is how this sentence would quietly become false again:
+     * it would agree on the day it was written and drift. `findingDissent.ts`
+     * owns the question and `buildFindingDissentEvent` consumes the same call.
+     *
+     * ⚠ IT STATES THE ACTION, NOT THE STORAGE, which is `guestStorageClaims.ts`'s
+     * own standing rule and not a house style: every positive claim about where
+     * a user's work lives has eventually been found false in this estate. "Sent
+     * to Olumi" is what the product does and is observable; "no longer only in
+     * this browser" is a claim about storage the client cannot check.
+     *
+     * ⚠ AND IT PROMISES NOTHING FURTHER — not that the team can read it, not
+     * that it changes the finding, not that anything improves. The register is
+     * `targetOutcome.dispatched` and `modelStrip.valueDispatched`, whose shared
+     * first sentence is exactly 'Sent to Olumi.'; their SECOND sentence is not
+     * borrowed, because "the shared model updates when it answers" is a promise
+     * this surface has not measured.
+     *
+     * ⚠ IT IS ALLOWED TO OVER-WARN AND IT CANNOT UNDER-WARN, by construction:
+     * the address is a strictly WIDER condition than the send (see
+     * `isSendableAddress`). A blank or over-long statement, a board with no
+     * persisted identity, or a decision switched mid-compose all leave the words
+     * local after this sentence has warned they would travel. That direction is
+     * the safe one and is pinned in `dissentReachesTheModel.spec.tsx`.
+     */
+    promptSendsToOlumi: 'Why? This stays on the card and is sent to Olumi.',
+    notSaved: 'Not saved for next time. Your words are still here. Retry, or copy them before leaving.',
     sessionOnly: 'Kept in this tab only.',
     scenarioChanged: 'The model on screen changed. Your words have not been saved to it. Copy them or return to the original model before retrying.',
     save: 'Record this',
     cancel: 'Cancel',
+    /**
+     * ⭐⭐ THE ONLY SENTENCE ON THIS SURFACE THAT MAY CLAIM THE WORDS LEFT THE
+     * BROWSER, AND IT RENDERS ONLY AFTER A SEND HAS ACTUALLY RESOLVED.
+     *
+     * ⚠⚠ THE TWO HALVES DEPLOY INDEPENDENTLY, so this copy has to be true at
+     * every intermediate state — including UI-live-but-CEE-not-yet, where the
+     * `finding_dissent` reader does not exist and no send can succeed. That is
+     * why the claim is bound to the OUTCOME rather than to the attempt: no
+     * dispatcher mounted, no real analysis id, a refused build, a rejected
+     * turn, or a reload all leave `sessionOnly` standing. A UI asserting a
+     * server capability that is dark is the defect class this estate keeps
+     * shipping, and the fix is not a better sentence, it is a later one.
+     *
+     * ⚠ IT DOES NOT SAY "SAVED", following `targetOutcome.dispatched` and
+     * `modelStrip.valueDispatched` verbatim in register, and for the reason
+     * their own comments give: "Saved" reports an outcome the client did not
+     * observe. What IS observed at the moment this renders is narrower and
+     * exactly stated — the turn was sent and Olumi answered without refusing
+     * it, so these words are no longer only in this browser.
+     *
+     * ⚠ AND IT PROMISES NOTHING FURTHER. Not that the team can see it yet, not
+     * that it changes the finding, not that anything improves. The dissent is
+     * a record of what a human said; claiming more would be inventing a fact on
+     * the one surface whose whole job is not to.
+     *
+     * ⚠⚠ THE SECOND CLAUSE IS GONE, AND THE RECORD OF WHAT IT SAID STAYS ABOVE.
+     * As first shipped this read 'Sent to Olumi, so this is no longer only in
+     * this browser.' and it turned `Full Test Suite (shard 4/4)` RED at
+     * 374a40ff: `guestStorageClaims.spec.ts` sweeps every tracked non-test file
+     * under `src/` and bans the phrase outright, so the offender was this file.
+     *
+     * ⚠ AND THE BAN IS RIGHT HERE EVEN THOUGH THE CLAUSE WAS NOT FALSE. The
+     * pattern is direction-blind — it cannot tell a locality claim from its
+     * negation — but the remedy is the one that guard's own header prescribes,
+     * "state the action, not the storage", and NOT an entry in
+     * `GUEST_STORAGE_CLAIM_ADJUDICATED`: adjudicating would exempt this entire
+     * 1,600-line copy table from the estate's only locality guard to protect one
+     * sentence, so every future false claim on this tab would pass unseen. The
+     * clause was also the weaker half of the sentence: 'Sent to Olumi' is an
+     * observed action, and 'no longer only in this browser' is a claim about
+     * server-side storage this client never checked.
+     *
+     * ⚠ NOTHING IS LOST BY DROPPING IT, because the disclosure moved to where it
+     * belongs. `promptSendsToOlumi` now tells the user the words will travel
+     * BEFORE they type them, which is the moment that decides anything; this
+     * sentence only has to report the outcome.
+     */
+    sentToOlumi: 'Sent to Olumi.',
     /** Prefix on the standing objection. The user's own words follow. */
     standing: 'You disagreed',
     /**
@@ -402,6 +563,21 @@ export const ANALYSIS_NEW_COPY = {
     inspect: 'Inspect',
     /** Level-2 grounding prefix. Always followed by the producer signal name. */
     groundedIn: 'Grounded in',
+    /**
+     * The act on a row whose own sentence asks the reader to change something.
+     *
+     * ⛔ "REVIEW OR CHANGE", NEVER "CONFIRM", AND THE OMISSION IS THE POINT.
+     * This routes to the editor, which commits through `edge_strength_edit`
+     * with `intent: 'set'`. CEE refuses a `set` that resolves to the strength
+     * and direction already persisted (`set_target_unchanged`) — deliberately,
+     * because ratifying an existing number is a DIFFERENT act with its own
+     * intent (`confirm_current`) and its own provenance-only write. So a reader
+     * who agrees with Olumi's number and presses a button labelled "Confirm"
+     * would be refused by the producer. Until the confirmation intent is
+     * wired, this label promises exactly what the route can deliver and no
+     * more.
+     */
+    reviewTarget: 'Review or change',
     moreDrivers: (n: number) => `Show ${n} more`,
     /**
      * ⚠ NAMED APART, for the reason the note below `moreUncertainty` gives.
@@ -501,6 +677,83 @@ export const ANALYSIS_NEW_COPY = {
   strengthen: {
     /** Chip text when the producer attested grounding but named no strength. */
     groundedChip: 'Decision science',
+  },
+
+  /**
+   * ⭐⭐ "Argue the opposite" — the consider-the-opposite act.
+   *
+   * The move is the best-evidenced debiasing intervention in the literature
+   * (Lord, Lepper & Preston 1984; Hirt & Markman on alternative explanations),
+   * and the product already NAMES it: `METHOD_CATALOGUE`'s `consider_opposite`
+   * carries the accepted CEE intent `challenge_assumption`. What it has never
+   * done is ask it against the run's OWN arithmetic.
+   *
+   * ⚠⚠ THE ONE RULE THIS BLOCK EXISTS TO HOLD, AND IT IS THE WHOLE POINT.
+   * Where a reversal condition was actually CALCULATED, the question is built
+   * from it and names the producer's own quantity and threshold. Where none
+   * was, the act presents itself as a REASONING TECHNIQUE and may not imply the
+   * system computed anything. Two acts, named apart, never one sentence that
+   * blurs them (CLAUDE.md trap 21 — two questions under one name, where the
+   * honest answer differs).
+   *
+   * A blurred version is worse than a missing one: a thinking prompt dressed as
+   * a finding is the fabricated-scientific-label defect this tab was built to
+   * avoid, and it is the exact shape of the `/v1/counterfactual` placeholder
+   * arithmetic wrapped in a real model card.
+   *
+   * ⚠ THE CATALOGUE'S OWN PROMPT IS NOT REUSED VERBATIM, AND THAT IS DELIBERATE
+   * RATHER THAN AN OVERSIGHT. `consider_opposite.prompt` reads "build the
+   * strongest honest case AGAINST the option that scored highest" — a RANK
+   * POSITION as its subject. `recommendationMethod.ts:74-82` already records
+   * that as a known, unfixed instance of the referent defect, unrepairable
+   * there because `METHOD_CATALOGUE` is STATIC and has no run to name anything
+   * from. This act HAS a run, so it names the producer's factor instead of a
+   * placing. The technique IDENTITY is still the catalogue's — the ask carries
+   * `method_id: 'consider_opposite'` and the same intent — so no second
+   * consider-the-opposite is minted.
+   */
+  argueTheOpposite: {
+    /**
+     * The act. One control, one move, on both arms.
+     *
+     * ⚠⚠ IT IS NOT CALLED "What would change your mind?", AND THE REASON IS A
+     * COLLISION MEASURED ON THIS VERY TAB. `COPY.sections.sensitivity` IS
+     * 'What would change your mind' — the heading over the sensitivity
+     * findings, named that deliberately because it is "the reader's question,
+     * not the producer's category". A button carrying the same words two
+     * sections below it would put TWO DIFFERENT THINGS UNDER ONE NAME on one
+     * surface: a section listing what the run found, and a control that asks
+     * Olumi to argue against it. That is trap 21 in the copy layer, and it is
+     * the defect this estate pays for most often.
+     *
+     * So the control names the MOVE instead. "Argue the opposite" is the
+     * imperative form of the catalogue's own `consider_opposite`, which is the
+     * technique this act invokes and whose identity it carries on the wire.
+     */
+    actLabel: 'Argue the opposite',
+    /**
+     * GROUNDED. Both substitutions are the PRODUCER'S: `factorLabel` is
+     * `flip_thresholds[].label` and `thresholdText` is its `flip_value`
+     * formatted by the builder that already renders it in "Could change if".
+     * The run is named as the author of the figure, because it is.
+     */
+    groundedLead: (factorLabel: string, thresholdText: string) =>
+      `This run put the point where the ordering changes at ${thresholdText} for ${factorLabel}. What would tell you where ${factorLabel} actually sits?`,
+    /** GROUNDED — the question that goes to Olumi. It asks; it never edits. */
+    groundedDraft: (factorLabel: string, thresholdText: string) =>
+      `This analysis puts the point where the ordering changes at ${thresholdText} for ${factorLabel}. Take the opposite side: what evidence or reasoning would put ${factorLabel} on the other side of that figure, and what would I need to see before I believed it?`,
+    /**
+     * TECHNIQUE. Reached when the run DID find a reversal condition but could
+     * not place it on a scale the reader can read (`glanceCondition`'s third
+     * arm, where neither a printable unit nor a `current_value` survived and
+     * the number is dropped). It says what it is. It claims no computation,
+     * no detected bias, no computed importance and no optimal experiment.
+     */
+    techniqueLead:
+      'This run has no figure for where that would change, so this is a reasoning technique rather than a finding: make the strongest case against your current thinking and see what it would take to convince you.',
+    /** TECHNIQUE — the question that goes to Olumi. No invented quantity. */
+    techniqueDraft:
+      'Take the opposite side of my current thinking on this decision. What evidence or reasoning would change my mind, and what would I need to see before I believed it?',
   },
 
   /**
@@ -777,15 +1030,87 @@ export const ANALYSIS_NEW_COPY = {
     change: 'Change',
     inputLabel: 'Success target for this goal',
     /**
-     * ⚠⚠ `local_only` IS THE ONLY OUTCOME THIS CONTROL CAN REPORT, and the copy
-     * says what that means rather than implying a save. There is no server
-     * carrier for a goal threshold — `CANONICAL_EDIT_AUTHORITY.goalSuccessTarget`
-     * is `'disabled'`, and the four that exist are `factor_value_edit`,
-     * `prior_range_edit`, `edge_adjudication`, `structural_delete`. Borrowing
-     * the strip editor's "sent" sentence would claim an acceptance nothing gave.
+     * ⭐⭐⭐ WHICH WAY THE TARGET IS READ — THE THING THIS CONTROL RECORDED AND
+     * NEVER SAID.
+     *
+     * ⚠⚠ MEASURED ON SERVED `475ee1c7` (10 Sep 2026). A guest opened a goal
+     * reading *"95% Next-Day Delivery Within 12 Months"*, strip
+     * *"Target: 12 months"*, pressed Change, typed `9`, saved. The wire carried
+     * `constraint_type: "at_least"` and the message *"This goal must be at
+     * least 9 months."* The goal is a DEADLINE. The reader meant sooner. The
+     * model recorded a floor, which is close to the opposite.
+     *
+     * ⚠⚠⚠ THE WRITER WAS NOT BUGGY AND THE DEFAULT DOES NOT MOVE. Recovering a
+     * direction from the words of a goal label is CLAUDE.md trap 22f's
+     * unwinnable predicate; and readers have already set targets under the
+     * shipped behaviour, so silently re-reading those as ceilings would be a
+     * worse harm than the gap. `at_least` stays the default. What changes is
+     * that the direction is now VISIBLE and CHANGEABLE, which is trap 22f's own
+     * sanctioned exit: where direction cannot be derived, ask.
+     *
+     * ⚠ PLAIN WORDS, NOT THE WIRE'S TOKENS. The reader picks from these; CEE
+     * reads its own grammar in `manualGoalTarget.ts`. They coincide today and
+     * they answer different questions, so they are named apart rather than
+     * shared (trap 21). The direction-pair test is what binds them, by driving
+     * this selector and asserting the dispatch it produces.
      */
-    savedLocally: 'Target set on your model. It will be used the next time you analyse.',
+    directionLabel: 'How this target should be read',
+    directionAtLeast: 'at least',
+    directionAtMost: 'at most',
+    /**
+     * ⭐⭐⭐ THREE OUTCOMES, THREE SENTENCES. THE ONE THAT USED TO BE HERE WAS
+     * FALSE, AND IT WAS THE ONLY FALSE OUTCOME SENTENCE ON THIS PANEL.
+     *
+     * ⚠⚠ WHAT SHIPPED, AND WHY IT LIED. This block said `local_only` was the
+     * only outcome the control could report, on the premise that
+     * `CANONICAL_EDIT_AUTHORITY.goalSuccessTarget` is `'disabled'` and no
+     * server carrier for a goal threshold exists. The KEY was wrong, not the
+     * value: `goalSuccessTarget` is about a local threshold editor and a local
+     * Define-success modal; the typed `add_constraint` carrier this control now
+     * uses answers to `modelGoalMinimumTarget`, which is `'server_graph'` and
+     * live on the Model tab. See `SuccessTargetLine.tsx`'s header for the full
+     * derivation and for the identical misread `HeroSection.tsx` already fixed.
+     *
+     * Off that false premise the surface then rendered:
+     *
+     *   ~~'Target set on your model. It will be used the next time you analyse.'~~
+     *
+     * Measured on the served build (10 Sep 2026): both halves false. The write
+     * was store-only, so a reload reverted the target to its brief value and
+     * the provenance label from "Set by you" back to "From brief"; and
+     * `success_threshold`/`goalThreshold` reach `src/v5/buildPayload.ts` ZERO
+     * times, so no analysis was ever going to see it.
+     */
+    /**
+     * ⚠ `dispatched` DOES NOT SAY "SAVED", for the reason
+     * `modelStrip.valueDispatched` does not: the turn has been sent and the
+     * authority answers asynchronously. What is true at the moment this renders
+     * is that Olumi has been asked.
+     */
+    dispatched: 'Sent to Olumi. The shared model updates when it answers.',
+    /**
+     * ⚠ THE KEY IS NO LONGER CALLED `savedLocally`. "Saved" was half the claim
+     * that was wrong, and a key name is read by every later author as a
+     * statement about what the sentence may assert. This path is reached only
+     * when no dispatcher is mounted, and it now says exactly that.
+     */
+    changedLocally:
+      'Changed on this screen only. Olumi has not been told, so this target is not part of the shared model.',
     notEncodable: 'That target could not be applied, so nothing changed.',
+  },
+  /**
+   * ⭐ TWO UI-AUTHORED STRINGS, AND BOTH ARE HERE — a heading, and the label that
+   * introduces the producer's basis. The caveat sentence and the basis VALUE are
+   * the producer's and are rendered verbatim; nothing here summarises, truncates
+   * or qualifies them.
+   *
+   * ⚠ This said "UI-AUTHORED HEADING ONLY" until review counted the second
+   * string. An inventory of authored copy that is short by one is the same defect
+   * as a stale one, and this block exists precisely to be that inventory.
+   */
+  robustnessCaveat: {
+    title: 'How far this held',
+    basisPrefix: 'Tested against: ',
   },
   modelStrip: {
     /**
@@ -848,18 +1173,60 @@ export const ANALYSIS_NEW_COPY = {
      * it refuses. "Sent to Olumi" is what is true at the moment the sentence
      * is rendered.
      */
-    valueDispatched: 'Sent to Olumi — the shared model updates when it answers.',
+    valueDispatched: 'Sent to Olumi. The shared model updates when it answers.',
     valueLocalOnly: 'Changed here only. Olumi has not been told, so the shared model still has the old value.',
     valueNotEncodable: 'That value could not be applied, so nothing changed.',
     /**
-     * ⚠ SCOPED TO THIS PANEL, AND THE SCOPE IS THE HONESTY. The index behind
-     * the detail is built from exactly two lists — the glance's drivers and the
-     * engine's interventions — so "this panel" is the largest true subject.
-     * "No finding names this node" would be a claim about the RUN, and the run
-     * holds findings this panel has already filtered (dismissed ones) and
-     * capped.
+     * ⚠ SCOPED TO THIS PANEL, AND THE SCOPE IS THE HONESTY. "No finding names
+     * this node" would be a claim about the RUN, and the run holds findings
+     * this panel has already filtered (dismissed ones) and capped.
+     *
+     * ⚠⚠ THIS COMMENT SAID THE INDEX WAS "built from exactly two lists — the
+     * glance's drivers and the engine's interventions", AND THAT IS WHY THE
+     * SENTENCE WAS FALSE ON SCREEN. Two lists cannot answer a question about
+     * the whole panel, and the panel was visibly naming nodes the index had
+     * never heard of. The index now also reads every section that renders
+     * `AnalysisNewFinding[]` — all four of them, enumerated by the compiler
+     * rather than by this comment (`AnalysisNewFindingSectionKey`). Do not
+     * restate the source list here: a hand-maintained count of the index's
+     * inputs is what made this sentence a lie, twice.
      */
     noInsight: 'Nothing else on this panel refers to this node.',
+    /*
+     * ⭐ NAMES THE SECTION, SO THE POINTER IS ACTIONABLE.
+     *
+     * "Also in Key insights: Platform Capability Fit is the hinge" tells the
+     * reader WHERE to look. A bare headline would make the reader hunt for a
+     * sentence they have just been shown out of context.
+     *
+     * ⚠ THE HEADLINE ITSELF IS NEVER AUTHORED HERE — it is the finding's own,
+     * verbatim. This function supplies only the frame around the section name.
+     *
+     * ⚠⚠ IT TAKES THE TITLE, NOT THE SECTION KEY, AND THAT IS THE FIX TO A
+     * MIRROR. It used to branch on the key and RETYPE the headings — 'Also in
+     * Key insights:' beside `sections.keyInsights`, two copies of one string
+     * (CLAUDE.md trap 12). A heading edit would have moved the section and left
+     * the pointer naming a heading that no longer exists, silently. The caller
+     * now indexes `ANALYSIS_NEW_COPY.sections` by the section key, so the
+     * pointer names the heading the reader will actually be looking for, and a
+     * finding-bearing section with no title is a compile error at the call site
+     * rather than a wrong sentence on screen.
+     *
+     * ⚠⚠ THE EMPTY HEADLINE IS A REAL PRODUCER STATE, NOT A DEFENSIVE BRANCH.
+     * `buildAnalysisNewViewModel` sets `headline: ''` on a LONG non-threshold
+     * uncertainty or sensitivity row and carries the sentence in `implication`
+     * instead, deliberately, so the row does not say itself twice. A pointer
+     * built from `headline` alone therefore renders on those rows as a label
+     * with a dangling colon and nothing after it. The section name ALONE is
+     * still a true and useful pointer, so that is what it renders.
+     *
+     * ⛔ AND IT MUST NOT FALL BACK TO `implication`. That field is the finding's
+     * whole sentence, and reprinting it here would make this a SECOND RENDERING
+     * of a card already on screen — the restatement defect this panel has
+     * shipped three times, and the one thing this pointer was built not to be.
+     */
+    mention: (sectionTitle: string, headline: string): string =>
+      headline ? `Also in ${sectionTitle}: ${headline}` : `Also in ${sectionTitle}`,
     /**
      * ⚠⚠ THE SAME ABSENCE, WITH THE REASON THE READER ACTUALLY NEEDS. Before a
      * run `noInsight` above is TRUE and still tells the wrong story: it reads
@@ -892,7 +1259,7 @@ export const ANALYSIS_NEW_COPY = {
      * screen-reader user the count and not what pressing it does.
      */
     toVerifyToggleName: (n: number) =>
-      `${n === 1 ? '1 to verify' : `${n} to verify`} — show only these factors`,
+      `${n === 1 ? '1 to verify' : `${n} to verify`}. Show only these factors`,
     /**
      * ⚠ A VISIBLE EXPLANATION, NOT A `title`. The criterion behind the filter
      * is not self-evident from a count, and a tooltip is unreachable on touch
@@ -927,7 +1294,7 @@ export const ANALYSIS_NEW_COPY = {
       n === 1 ? '1 with no value yet' : `${n} with no value yet`,
     /** Label-in-name, exactly as `toVerifyToggleName`. */
     noValueToggleName: (n: number) =>
-      `${n === 1 ? '1 with no value yet' : `${n} with no value yet`} — show only these factors`,
+      `${n === 1 ? '1 with no value yet' : `${n} with no value yet`}. Show only these factors`,
     noValueNarrowed: 'Showing only factors that carry no value at all.',
     /** A row is a filter. Accessible name; the row's own word is the visible half. */
     onlyKind: (label: string) => `Show only ${label}`,
@@ -985,6 +1352,102 @@ export const ANALYSIS_NEW_COPY = {
      */
     eyebrowLeading: 'Most likely to serve your goal',
     /**
+     * The label above the producer's own refusal sentence. FURNITURE ONLY —
+     * this surface naming its own slot. The claim itself is never authored
+     * here: it arrives on `analysis_admission.reasons[]` and is rendered
+     * unparaphrased, so the product cannot soften or overstate what the model
+     * actually refused.
+     *
+     * ⚠ NOT "why there is no leading option" — `noWinnerVocabulary.spec.ts`
+     * bans that phrase and is RIGHT to: the panel does not report a contest.
+     * What the admission governs is which CONCLUSIONS this run permits.
+     */
+    eyebrowWhyWithheld: 'What this run may not conclude',
+    /**
+     * The MOVE that answers the refusal sentence above it. FURNITURE ONLY — it
+     * names an ACT, and it makes no claim about the run.
+     *
+     * ⚠ AMENDED 11 Sep 2026 — THIS SAID "it names a destination", AND THE
+     * WORDS ARE WHY NOTHING HERE HAD TO CHANGE WHEN THE DESTINATION DID. On
+     * 10 Sep the only place to set an estimate was the Model tab; the next
+     * morning the value control on "what I estimated" put the same act on the
+     * Reasoning tab itself, and `AnalysisNewTabBody` now serves it in page
+     * where it exists and routes to the Model tab where it does not. "Review
+     * or set an estimate" is true of BOTH, because it names the two things the
+     * reader may do and not the surface they land on — a label that had said
+     * "on the Model tab" would have become a lie overnight. Keep it that way.
+     *
+     * ⛔⛔ IT MAY NOT PROMISE A BETTER ANSWER, AND THAT IS A MEASUREMENT, NOT
+     * TASTE. Measured on the live wire: ONE user-stated value out of twenty
+     * flips CEE from `quantified_provisional` to `comparative_leader` while the
+     * other nineteen estimates remain Olumi's own. So "set a value for a more
+     * confident answer" would describe a real transition and still lie about
+     * what it means — the model licenses the CLAIM because a human has entered
+     * the loop, not because the evidence got stronger. The producer's own
+     * sentence is careful about exactly this ("no option CAN BE CALLED the
+     * leader … until you have set at least one of them"), and a caption that
+     * oversold it would undo the honesty the slot exists to carry.
+     *
+     * ⛔ AND IT MAY NOT COACH A RUBBER-STAMP. "Confirm these figures", on a
+     * panel whose whole complaint is that the figures are Olumi's own, is an
+     * instruction to launder a machine estimate into a user-stated one — which
+     * would satisfy the gate and mean nothing. Hence REVIEW OR SET: the two
+     * things the destination actually does, and neither of them an outcome.
+     *
+     * `withheldReasonHasAMove.spec.tsx` holds both ceilings, with a positive
+     * control proving each can fail on the sentence it forbids.
+     */
+    reviewEstimates: 'Review or set an estimate',
+    /**
+     * WHICH parameters the refusal is about, as a LEAD-IN to the names.
+     *
+     * ⛔ IT NAMES A SET AND PRESCRIBES NOTHING. The producer publishes these in
+     * GRAPH ORDER and ranks nothing, so any wording implying a first, a
+     * biggest, or a place to start would be a claim nobody computed. "Start
+     * with", "the main one" and "most important" are all forbidden here for
+     * that reason, not for tone.
+     *
+     * ⛔ AND IT MAY NOT RESTATE THE REFUSAL. The producer's own sentence sits
+     * directly above and already says every estimate is Olumi's; repeating the
+     * complaint would put one producer sentence on screen twice, which
+     * `firstViewportCensus.spec.tsx` forbids. This adds only the NAMES.
+     *
+     * ⚠ "in this comparison" is load-bearing, not filler. The set is the
+     * comparison's own causal substrate — the parameters a leader claim rests
+     * on — and NOT every estimate in the model. Without that clause the line
+     * would overstate its own population, and a reader who set a value on some
+     * other Olumi estimate would correctly expect the refusal to lift.
+     */
+    withheldParametersLeadIn: 'Still Olumi’s in this comparison:',
+    /**
+     * The cap disclosure. A capped list the reader cannot detect is an
+     * understatement they cannot question — the same defect this estate closed
+     * on the producer side of the evidence gaps. The CONSUMER may cap, because
+     * the consumer can say so; the producer may not, because it cannot.
+     *
+     * ⛔ NO LEADING "and", AND THAT IS NOT A STYLE CHOICE. This phrase occupies
+     * the FINAL SLOT of `formatConjunctionList`, which is `Intl.ListFormat`
+     * with `type: 'conjunction'` and therefore supplies the "and" itself. It
+     * read `and ${n} more` until 2026-09-12 and rendered, on a refusal
+     * witnessed on deployed staging with eight parameters:
+     *
+     *   *"… Customer and Staff Engagement **and and** 4 more"*
+     *
+     * — a grammatical stumble inside the sentence that tells a collaborator
+     * which estimates are still Olumi's rather than theirs, which is the one
+     * place in this panel that can least afford one.
+     *
+     * ⚠ THE CALL SITE AGREES BY CONSTRUCTION, and the agreement is the thing to
+     * preserve: the list the joiner receives is the capped LABELS plus this
+     * phrase, so restoring the "and" here without also lifting the phrase out
+     * of that array puts the defect straight back. `AtAGlance.tsx` carries the
+     * other half of this note; `withheldParametersReadAsOneSentence.spec.tsx`
+     * pins the rendered English in BOTH branches by exact equality, and is
+     * written out literally rather than recomposed from this constant, so it
+     * can actually see a change to it.
+     */
+    withheldParametersMore: (n: number): string => `${n} more`,
+    /**
      * ⚠ STILL LIVE, AND ITS ONLY CONSUMER IS NOW `ModelStrip`'s per-node chip —
      * a standalone claim that the run ranked this node among its top drivers.
      * The glance's own driver LIST, which this used to head, was removed at
@@ -998,13 +1461,18 @@ export const ANALYSIS_NEW_COPY = {
      * `basisRelativeExplain` DELETED with the glance's driver list — they were
      * that list's cap disclosure and its basis caption, and nothing else read
      * them. `basisAbsoluteExplain`'s SENTENCE survives, relocated verbatim to
-     * `coverage.structuralInfluence`, because the claim it makes is still owed
-     * to the reader; it is now a visible caveat on the drivers section rather
-     * than a `title` tooltip the touch reader could never open.
+     * `coverage.structuralInfluence`. ⚠⚠ THIS USED TO END "because the claim it
+     * makes is still owed to the reader; it is now a visible caveat on the
+     * drivers section rather than a `title` tooltip the touch reader could
+     * never open" — FALSE since #1228 and corrected 7 Sep 2026. The relocated
+     * sentence reached only runs with no bars, and `driversCaveat` now withholds
+     * the basis line there; see that constant's own block for where the claim
+     * IS still made (per row, on `driverFinding.groundedIn`).
      *
-     * The set-relative half of that caption is not lost either: the drivers
-     * section has always carried `coverage.setRelativeInfluence`, which is the
-     * same claim in the place the bars now live.
+     * The set-relative half of that caption is not lost: the drivers section
+     * carries `coverage.setRelativeInfluence` wherever bars are drawn, which is
+     * the same claim in the place the bars now live. Since #1228 it is the ONLY
+     * basis sentence this panel renders.
      */
   },
 
@@ -1117,7 +1585,7 @@ export const ANALYSIS_NEW_COPY = {
     provisionalNaming: (missing: readonly string[]) =>
       missing.length === 0
         ? PROVISIONAL_UNNAMED
-        : `This analysis is partial — ${MISSING_LIST.format(missing as string[])} did not come back.`,
+        : `This analysis is partial. ${sentenceCase(MISSING_LIST.format(missing as string[]))} did not come back.`,
     /**
      * Field names as THIS surface says them. Furniture: naming our own fields,
      * never a statement about the run. Keys are the producer's own vocabulary.
@@ -1197,28 +1665,96 @@ export const ANALYSIS_NEW_COPY = {
      * screen on this tab at all. Now that it does, the sentence is imported
      * from its owner and rendered verbatim, so there is one spelling again.
      */
-    /** Influence figures are set-relative, not a causal share of the outcome. */
-    setRelativeInfluence:
-      'Influence is relative to the other factors in this run, not a share of the outcome.',
     /**
-     * ⭐ THE OTHER BRANCH OF THE SAME QUESTION, AND IT HAD NO VISIBLE ANSWER.
-     * `setRelativeInfluence` fires when any row is `normalised_elasticity`; a
-     * run where EVERY row is `influence_score` got no basis line at all on this
-     * tab. The only place that said so was the glance's basis caption, whose
-     * explanation was a `title` tooltip — unreachable on touch — and the glance
-     * driver list has now been removed. This is that disclosure, made visible
-     * and moved to the section that still renders the bars.
+     * Influence figures are set-relative, not a causal share of the outcome —
+     * and the leader's 100% is GUARANTEED, which this sentence now says.
      *
-     * ⚠⚠ THE SENTENCE IS CONDITIONAL AND MUST STAY SO. It is TRUE only where
-     * `influenceIsSetRelative` is false. A brief for this work proposed stating
-     * in the section SUBTITLE that the figure is structural and that a re-run
-     * never moves it; that is false on the elasticity branch, where the figure
-     * IS a run output, and an unconditional subtitle cannot tell the two apart.
-     * `driversSeamSaysOneThing.spec.tsx` holds the pair.
+     * ⭐⭐ WHY THE SECOND CLAUSE EXISTS (ROADMAP 2.1376). Witnessed on deployed
+     * `ce4769a1`, one fresh guest journey, a few hundred pixels apart:
      *
-     * ⚠ NOT RESPELLED. This is `glance.basisAbsoluteExplain`'s sentence,
-     * relocated verbatim with its render; `panelCopyNamesOlumiNotTheProducer`
-     * follows it here.
+     *   Key insights          "…is the hinge. Its effect on Infrastructure
+     *                          Stack Fragmentation is the relationship most
+     *                          able to change the outcome."
+     *   Drivers and dynamics  "…three divergent stacks within a year — 100% —
+     *                          Top driver"
+     *
+     * Two sections naming a different "most important" thing. ⛔⛔ THEY ARE NOT
+     * IN CONFLICT AND MUST NOT BE RECONCILED (CLAUDE.md trap 21): the hinge is
+     * an EDGE ranked by `switchProbability`; a driver is a NODE ranked by
+     * `displayInfluence`. Different objects, different quantities, different
+     * normalisations, both separately grounded. ⛔ The precedent a session would
+     * reach for — `driversSeamSaysOneThing` — resolved ITS pair by DELETING the
+     * duplicate. Deleting or suppressing either section here would destroy a
+     * real reading.
+     *
+     * ⭐ THE RIVALRY IS MANUFACTURED BY THE NUMBER, NOT BY THE COPY. This row
+     * never claims to be most important. `buildDrivers` renders every bar as
+     * `magnitude(d) / strongest` with `strongest = Math.max(...live.map(
+     * magnitude), 0)`, so the leader's fraction is EXACTLY 1 in every run
+     * regardless of strength, and `driverFinding`'s implication prints
+     * "Relative influence 100%." beside it. A 100% that cannot be anything else
+     * reads as a rival claim to "the hinge" — so the honest move is to disclose
+     * that it is guaranteed, not to quieten the neighbour.
+     *
+     * ⭐ THE SENTENCE IS NOT NEW AND IS NOT MINE. It is the estate's ratified
+     * wording, already SHIPPING on the Analysis tab as
+     * `influenceScaleCopy.INFLUENCE_SCALE_CAPTION` ("Influence is relative to
+     * the strongest factor. The top driver always shows 100%."). This tab was
+     * rendering the weaker sibling, which denies the wrong reading without
+     * disclosing that the 100% is guaranteed.
+     *
+     * ⚠ NOT IMPORTED FROM `influenceScaleCopy`, DELIBERATELY. That module is
+     * the home for the DISPLAY MODEL's influence wording, keyed on
+     * `DriverDisplayProvenance` per surface; this is a SECTION caveat on a
+     * different tab whose own gate (`influenceIsSetRelative`) is
+     * `drivers.length > 0`. Binding them would couple two sentences that are
+     * free to diverge on scope, and `driversSeamSaysOneThing` already rules
+     * this surface's caveat must answer the SCALE question only. The words are
+     * pinned as a typed literal by
+     * `driversScaleDisclosesTheGuaranteed100.spec.tsx` instead, which is the
+     * corpus half of CLAUDE.md trap 12d.
+     *
+     * ⚠ "relative to the OTHER factors" became "relative to the STRONGEST
+     * factor" in the same edit, and that is a precision fix, not a reword:
+     * `magnitude / strongest` is a ratio to one factor, not a comparison
+     * against the set. It is also what makes the second clause follow rather
+     * than arrive as an unexplained assertion.
+     */
+    setRelativeInfluence:
+      'Influence is relative to the strongest factor in this run, not a share of the outcome. The top driver always shows 100%.',
+    /**
+     * ⛔⛔ THIS SENTENCE REACHES NO SCREEN, DELIBERATELY, AND THE SUITE PINS
+     * THAT — `theBasisLineHasNoReferentWithoutBars` in
+     * `driversSeamSaysOneThing.spec.tsx` REDs the day it renders again.
+     *
+     * ⚠⚠ THE DOCBLOCK THAT STOOD HERE WAS FALSE, AND IT IS THE REASON THE
+     * SENTENCE SHIPPED OVER AN EMPTY STATE. It opened "`setRelativeInfluence`
+     * fires when any row is `normalised_elasticity`; a run where EVERY row is
+     * `influence_score` got no basis line at all on this tab." That was true
+     * until #1228, which measured that `influence_score` is the producer's
+     * normalisation against `max|influence|` and made `influenceIsSetRelative`
+     * equal `drivers.length > 0`. From that commit on, this arm was reachable
+     * ONLY on a run with ZERO driver rows — where its own first two words,
+     * "Each bar", refer to bars that were never drawn.
+     *
+     * MEASURED at `cdd2f9d8`, rendering `AnalysisNewTabBody` with `drivers: []`:
+     * this sentence rendered directly above "This run did not return factor
+     * influence.", with no chart. `driversCaveat` now withholds the whole basis
+     * line when nothing is on display, which is what makes this arm unreachable.
+     *
+     * ⭐ RETAINED ON PURPOSE, NOT LEFT BEHIND. The noun it carries — "Olumi's
+     * structural influence score" — IS rendered, per row, by
+     * `driverFinding.groundedIn` and its `Basis` inspect row, and
+     * `driversSeamSaysOneThing` binds that row's noun to THIS constant so the
+     * two cannot drift into two spellings of one quantity (CLAUDE.md trap 12).
+     * `panelCopyNamesOlumiNotTheProducer` pins the same words here. Deleting the
+     * constant would force both to retype the sentence and rebuild the mirror.
+     *
+     * ⚠ IF YOU MAKE IT REACHABLE AGAIN, REWRITE IT FIRST. As a section caveat
+     * it answers the QUANTITY question, which this surface must not answer —
+     * `driversSeamSaysOneThing` asserts the caveat names neither quantity, on
+     * either basis, because a caveat that names one is false for the run
+     * stamped the other.
      */
     structuralInfluence:
       "Each bar shows Olumi's structural influence score, scaled against the strongest factor in this run.",
@@ -1246,7 +1782,27 @@ export const ANALYSIS_NEW_COPY = {
      * the analysis, and the narrower claim is the true one.
      */
     notRanked: (n: number, reasons: readonly string[]) =>
-      `${n} ${n === 1 ? 'factor is' : 'factors are'} not ranked here: ${reasons.join('; ')}.`,
+      `${n} ${n === 1 ? 'factor is' : 'factors are'} not ranked here: ${reasons.map(clauseCase).join('; ')}.`,
+    /**
+     * ⛔ UNREACHABLE SINCE #1228, AND THAT IS A REPORTED FINDING RATHER THAN A
+     * DECISION THIS FIX MADE. `driversCaveat` reaches this arm only when
+     * `influenceIsSetRelative` is false, i.e. only on a run with no driver rows
+     * — and the basis line is now withheld entirely on such a run, because
+     * this sentence followed by an option label, sitting over "This run did not
+     * return factor influence.", was the same defect as the structural arm's
+     * (both reproduced at `cdd2f9d8`).
+     *
+     * ⚠ THE DISCLOSURE IS REAL AND IS NOW OWED NOWHERE. `data.sensitivityReference
+     * .optionLabel` is the producer naming the option sensitivities were measured
+     * against; it was designed to take PRECEDENCE over the structural basis noun,
+     * which stopped meaning anything when the scale sentence became unconditional.
+     * Whether it should instead be ADDITIVE alongside the scale line — the way
+     * `notRanked` is, since it answers a different question (trap 21) — is a
+     * product decision, deliberately NOT taken here.
+     *
+     * Kept, with `theBasisLineHasNoReferentWithoutBars` asserting the
+     * unreachability, so restoring it is a conscious act rather than a silent one.
+     */
     referencePrefix: 'Sensitivities are measured against',
   },
 
@@ -1346,14 +1902,50 @@ export const ANALYSIS_NEW_COPY = {
      */
     leader_tied: { label: 'No option is clearly most likely' },
     leader_not_assessed: {
-      label: 'Which option is most likely — not assessed',
       /**
-       * ⚠ THE SENTENCE MUST BLOCK BOTH MISREADINGS, not just one. "Not
-       * assessed" can be read as "they are level" (the tie this verdict is
-       * explicitly NOT entitled to claim) or as "it is fine". It says neither.
+       * ⚠⚠ "NOT ASSESSED" WAS FALSE ON A RUN THAT ASSESSED IT — WITNESSED, NOT
+       * REASONED ABOUT. Deployed `3b2df4ce`, guest, saved example, completed
+       * run. The producer returned:
+       *     option_comparison_status: 'computed'
+       *     leading_option_id:        'opt_rudderstack'
+       *     win probabilities         55.1% · 36.0% · 3.0% · 5.9%
+       * and the CANVAS was rendering those very percentages on the option nodes
+       * — while this row told the reader the comparison was "not assessed" and
+       * that "this run returned no comparison verdict".
+       *
+       * ⭐ THE MECHANISM IS RIGHT AND IS NOT CHANGED. `leader_not_assessed` is
+       * the deliberate third state (`buildAnalysisNewViewModel.ts:2410-2417`):
+       * `leaderDesignationPermitted` did not return true and `separation` was
+       * not `'tied'`, so the panel declines to name a leader. Declining is
+       * correct — we never name a leader we are not entitled to name.
+       *
+       * ⛔ WHAT WAS WRONG IS THE WORDS. WITHHELD IS NOT UNASSESSED — one name
+       * for two questions, this estate's signature defect. "Did Olumi assess
+       * it?" and "may this surface state the answer?" are different questions,
+       * and the copy answered the second by asserting a falsehood about the
+       * first. A reader who sees "no comparison verdict" beside four rendered
+       * percentages learns that the panel does not know what the engine did.
+       *
+       * ⚠ THE REPLACEMENT MUST BE TRUE IN BOTH POPULATIONS this state covers —
+       * a run that genuinely assessed nothing, AND a run that assessed and was
+       * withheld. "Not confirmed" holds for both; "not assessed" holds only for
+       * the first. Both misreadings the original sentence was written to block
+       * are still blocked: it is not a claim of a tie, and not an all-clear.
+       *
+       * ⚠ THE EM DASH CAME OUT AND THE LABEL BECAME A NOUN PHRASE (10 Sep 2026,
+       * witnessed on the served build). The ruling is no em dashes in product
+       * content. A label is not a sentence, so the fix was not to split it: it
+       * now takes the shape every sibling in this map already has
+       * (`Robustness not assessed`, `Evidence not assessed`), and in particular
+       * the shape of its OWN positive twin, `leader_present: 'Most likely
+       * option identified'`. Same claim, and the pair now reads as a pair.
+       *
+       * ⚠ "not confirmed" IS THE LOAD-BEARING HALF and may not be dropped to
+       * shorten this. Without it the row reads as an all-clear.
        */
+      label: 'Most likely option not confirmed',
       meaning:
-        'This run returned no comparison verdict, so any ordering you see is unconfirmed — it is not a finding that the options are level.',
+        'Olumi could not confirm which option is most likely on this run, so any ordering you see is unconfirmed. It is not a finding that the options are level.',
     },
     robustness_robust: { label: 'Robust' },
     /**
@@ -1363,10 +1955,23 @@ export const ANALYSIS_NEW_COPY = {
      * exactly as the old tab does; the degree is the glance's to state.
      */
     robustness_sensitive: { label: 'Sensitive to assumptions' },
+    /**
+     * ⚠ "the result" CAME OUT OF BOTH MEANINGS (10 Sep 2026). Paul's ruling:
+     * the analysis is a THINKING TOOL, NOT AN ORACLE, so copy conditions on the
+     * data available rather than naming a verdict to accept. The human is the
+     * author and the decision-maker.
+     *
+     * ⚠⚠ AND THE HONESTY IS THE POINT OF THESE TWO ROWS, so the referent was
+     * swapped and NOTHING ELSE. Both still say the run did not establish
+     * robustness, and both still refuse to read as an all-clear: "did not test"
+     * and "nothing here" are load-bearing and may not be dropped to shorten
+     * them. Pinned by `noWinnerVocabulary.spec.ts`, which also guards the
+     * referent against coming back.
+     */
     robustness_not_assessed: {
       label: 'Robustness not assessed',
       meaning:
-        'This run did not test how the result behaves when the assumptions change, so nothing here says it would hold.',
+        'This run did not test how these numbers behave when the assumptions change, so nothing here says they would hold.',
     },
     /**
      * ⚠ A DIFFERENT STATE FROM THE ONE ABOVE, AND THE OLD TAB IS RIGHT TO
@@ -1378,7 +1983,7 @@ export const ANALYSIS_NEW_COPY = {
     robustness_unknown: {
       label: 'Robustness unknown',
       meaning:
-        'No robustness verdict came back with this run, so the result has not been shown to survive a change in the assumptions.',
+        'No robustness verdict came back with this run, so nothing here has been shown to survive a change in the assumptions.',
     },
     evidence_all_addressed: { label: 'Evidence covered' },
     evidence_gaps: { label: 'Evidence gaps' },

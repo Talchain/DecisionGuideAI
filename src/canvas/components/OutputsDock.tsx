@@ -23,7 +23,7 @@
  * - Slow-run feedback messages (20s/40s thresholds)
  */
 
-import { useEffect, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
+import { useEffect, useLayoutEffect, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
 import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, HelpCircle, MessageCircle, MessageSquare, CheckCircle, FlaskConical } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
@@ -43,6 +43,7 @@ import { getScenario } from '../store/scenarios'
 // child surface may never set; read that file before changing width, tabs,
 // scroll regions, the footer region or the type/spacing/radius scales here.
 import {
+  DEFAULT_WORKSPACE_SURFACE,
   SHELL_CONTAINER_NAME,
   SHELL_RADIUS_PX,
   presentedSurfaces,
@@ -103,7 +104,7 @@ import {
 import { scrollAnalysisResultIntoView } from './scrollAnalysisResultIntoView'
 import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { focusFloating } from '../hooks/useFloatingFocus'
-import { countFactorsToVerify, deriveFactorInfluenceMap } from './model-tab/utils'
+import { countFactorsToVerify } from './model-tab/utils'
 import { getGoalDirection } from '../utils/getObjectiveText'
 import { useDebugShortcut } from '../hooks/useDebugShortcut'
 import { IdentifiabilityBadge, normalizeIdentifiabilityTag } from './IdentifiabilityBadge'
@@ -115,7 +116,7 @@ import {
 } from './pre-analysis-v3/selectors/computeInfluenceCoverage'
 // Lazy: flag-off users never pay the v3 bundle cost.
 const PreAnalysisPanelV3 = lazy(() => import('./pre-analysis-v3'))
-import { useConversation } from '../conversation/useConversation'
+import { useConversation, type UseConversationReturn } from '../conversation/useConversation'
 import {
   canRunAnalysis as canRunAnalysisUtil,
   getRunButtonTooltip,
@@ -133,7 +134,7 @@ import { DegradedStateBanner } from './DegradedStateBanner'
 // only the goal-node resolver is still used (the atomic target commit).
 import { resolveActiveGoalNodeId } from '../hooks/goalThresholdResolvers'
 import { useScenario } from '../../hooks/useScenario'
-import { focusExistingTarget } from '../utils/focusHelpers'
+import { focusExistingTarget, focusModelTarget } from '../utils/focusHelpers'
 import { ModelTabBody } from './ModelTabBody'
 import { ReanalyseBar } from './model-tab/ReanalyseBar'
 import { AnalysisReadinessBar } from './workspaceShell/AnalysisReadinessBar'
@@ -151,7 +152,7 @@ import { ResultsBody } from '../../components/results/ResultsBody'
 import { staleReasonFromTrustSemantic } from '../../components/results/analysisNew/staleReason'
 import { AnalysisNewTabBody } from '../../components/results/analysisNew/AnalysisNewTabBody'
 import { SectionErrorBoundary } from './SectionErrorBoundary'
-import { useGuidanceStore } from '../stores/guidanceStore'
+import { useGuidanceStore, withOlumiReveal } from '../stores/guidanceStore'
 import { useDraftStore, draftStreamPhaseFor } from '../stores/draftStore'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
 import { getStrengthCorrections } from '../../adapters/plot/v2/adapter'
@@ -177,6 +178,7 @@ import {
   derivePostFooterMeta,
   deriveRerunActionLabel,
 } from './utils/postAnalysisFooter'
+import { rankingWasWithheld } from '../../components/results/leaderDesignation'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
 import {
   selectAnalysisReadinessAuthority,
@@ -230,9 +232,18 @@ const STORAGE_KEY = OUTPUTS_DOCK_STORAGE_KEY
  * before the E1 sync effect copies the persisted state into useUIStore.
  *
  * Without this, OutputsDock can restore `state.activeTab='olumi'` from
- * sessionStorage while `useUIStore.activeOutputTab` is still the default
+ * sessionStorage while `useUIStore.activeOutputTab` is still its own initial
  * 'results', and both surfaces would paint for one frame before the post-
  * paint effect reconciles them.
+ *
+ * ⚠ THE TWO DEFAULTS ARE DELIBERATELY DIFFERENT AND THIS IS NOT A BUG TO FIX.
+ * Since 9 Sep 2026 the dock's own default is `DEFAULT_WORKSPACE_SURFACE`
+ * ('analysisNew'); `useUIStore`'s stays 'results' because it is a GLOBAL with
+ * consumers outside this dock. On a fresh session (nothing persisted) this
+ * returns `null` and the yield gate falls back to the global — which is safe
+ * because that gate asks only "is the effective tab `olumi`?", and both
+ * candidates answer no. Derive before adding a consumer that needs to tell
+ * `results` and `analysisNew` apart.
  *
  * Returns `null` when sessionStorage is unavailable or the persisted
  * payload is missing/invalid (consumer falls back to useUIStore).
@@ -509,8 +520,8 @@ export function OutputsDock() {
  * FF-on).
  */
 function OutputsDockProviderHost() {
-  const { sendMessage } = useConversationContext()
-  return <OutputsDockBody sendMessage={sendMessage} />
+  const { sendMessage, dispatchAction } = useConversationContext()
+  return <OutputsDockBody sendMessage={sendMessage} dispatchAction={dispatchAction} />
 }
 
 /**
@@ -518,36 +529,58 @@ function OutputsDockProviderHost() {
  * matches origin/staging behaviour before the floating-first port).
  */
 function OutputsDockLegacyHost() {
-  const { sendMessage } = useConversation()
-  return <OutputsDockBody sendMessage={sendMessage} />
+  const { sendMessage, dispatchAction } = useConversation()
+  return <OutputsDockBody sendMessage={sendMessage} dispatchAction={dispatchAction} />
 }
 
 interface OutputsDockBodyProps {
   sendMessage: (text: string) => Promise<void> | void
+  dispatchAction: UseConversationReturn['dispatchAction']
 }
 
-function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
+function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) {
   const prefersReducedMotion = usePrefersReducedMotion()
+  // ⭐ THE DEFAULT TAB, AND THE ONLY SITE THAT DECIDES WHERE A FRESH SESSION
+  // LANDS. `useDockState` reaches for this default ONLY when sessionStorage
+  // holds nothing valid for this key — a restored session wins outright — so
+  // this is exactly "the tab when nobody has chosen". Ruling and the three
+  // things it is not: `DEFAULT_WORKSPACE_SURFACE` in the shell contract.
   const [state, setState] = useDockState<OutputsDockState>(STORAGE_KEY, {
     isOpen: true,
-    activeTab: 'results',
+    activeTab: DEFAULT_WORKSPACE_SURFACE,
   })
-  // sendMessage comes from props so the OutputsDock function above is
+  // Conversation callbacks come from props so the OutputsDock function above is
   // the single useConversation() host; OutputsDockBody never calls it
   // directly. Under the aiPanelV2 floating-first UX, the canvas-root
   // ConversationProvider becomes the singleton instead — see
   // ReactFlowGraph.tsx.
+  // An empty thread has no ConversationPanel to register guidance callbacks.
+  // Analysis belongs to the existing conversation host, independently of the
+  // transcript lifecycle. Keep the same reveal behaviour as registered actions.
+  const dispatchCanonicalAction = useMemo(() => withOlumiReveal(dispatchAction), [dispatchAction])
+  const dispatchCanonicalActionRef = useRef<typeof dispatchCanonicalAction>(null)
+  // Save can yield across a host update or unmount. Only the committed, mounted
+  // host may dispatch its pending run; a replacement host owns a separate ref.
+  useLayoutEffect(() => {
+    dispatchCanonicalActionRef.current = dispatchCanonicalAction
+    return () => { dispatchCanonicalActionRef.current = null }
+  }, [dispatchCanonicalAction])
 
-  // Tab guards: if persisted tab references a disabled flag, reset to 'results'
+  // Tab guards: a persisted tab whose flag is off cannot be honoured, so the
+  // choice is void and the session falls back to the DEFAULT. Not an override —
+  // there is nothing left to override, because the surface the user chose does
+  // not exist under this flag posture. `DEFAULT_WORKSPACE_SURFACE` is always a
+  // safe landing: `analysisNew` is unflagged by ruling (see its row in
+  // `shellContract.ts`), so this fallback can never itself be flagged off.
   useEffect(() => {
     if (state.activeTab === 'journey' && !isJourneyTabEnabled()) {
-      setState(prev => ({ ...prev, activeTab: 'results' }))
+      setState(prev => ({ ...prev, activeTab: DEFAULT_WORKSPACE_SURFACE }))
     }
     if (state.activeTab === 'compare' && !isCompareTabEnabled()) {
-      setState(prev => ({ ...prev, activeTab: 'results' }))
+      setState(prev => ({ ...prev, activeTab: DEFAULT_WORKSPACE_SURFACE }))
     }
     if (state.activeTab === 'olumi' && !isAiPanelV2Enabled()) {
-      setState(prev => ({ ...prev, activeTab: 'results' }))
+      setState(prev => ({ ...prev, activeTab: DEFAULT_WORKSPACE_SURFACE }))
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- one-time init guard
 
@@ -603,11 +636,19 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     if (versionChanged) {
       useUIStore.getState().openRightPanel('results')
     }
-    // Validate the requested tab is enabled before navigating
+    // Validate the requested tab is enabled before navigating.
+    //
+    // ⚠ THE FALLBACK MOVED; THE PASS-THROUGH DID NOT. An explicit request for
+    // `'results'` still resolves to `'results'` — this branch only fires when
+    // the requested surface is FLAGGED OFF and there is nothing to honour, so
+    // it is a default, not an override. That distinction is load-bearing: the
+    // 0.32.0 panel verbs (`open_panel` / `open_section`) ride this path via
+    // `forceActivateOutputTab`, and remapping a live request here would make
+    // the assistant open a surface it did not name.
     const resolvedTab = (externalTab === 'compare' && !isCompareTabEnabled())
       || (externalTab === 'journey' && !isJourneyTabEnabled())
       || (externalTab === 'olumi' && !isAiPanelV2Enabled())
-      ? 'results'
+      ? DEFAULT_WORKSPACE_SURFACE
       : externalTab
     // A forced activation OF THE OLUMI TAB must also clear the FIRST-USE RAIL,
     // for the same reason `versionChanged` clears an overlay panel above. Since
@@ -622,18 +663,42 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     // ⚠ SCOPED TO 'olumi' DELIBERATELY, and the wider version cost a measured
     // regression. Clearing the rail on ANY forced activation looks equivalent —
     // both are "programmatic navigation that has decided to front the dock" —
-    // but `FirstUseComposer` calls `forceActivateOutputTab('results')` on the
-    // 0→N draft transition, which bumps the same counter. The rail was
-    // therefore cleared by the draft itself, the dock re-claimed its full width
-    // with no analysis in it, and the post-draft fit went straight back to the
-    // clamped 843px this lane exists to fix — the class-8 change silently
-    // undoing the coexistence change, on the one journey both were written for.
-    // Caught only by re-running the browser measurement on the final tip.
+    // but a forced 'results' activation on the 0→N draft transition bumps the
+    // same counter. The rail would therefore be cleared by the draft itself, the
+    // dock would re-claim its full width with no analysis in it, and the
+    // post-draft fit went straight back to the clamped 843px that lane existed
+    // to fix — the class-8 change silently undoing the coexistence change, on
+    // the one journey both were written for. Caught only by re-running the
+    // browser measurement on the final tip.
+    //
+    // ⚠⚠ AND THAT `forceActivateOutputTab('results')` IS THE ONE SITE THE 9 Sep
+    // 2026 DEFAULT-TAB RULING DOES NOT REACH FROM THIS FILE. It lives in
+    // `FirstUseComposer.tsx:219`, outside this lane's ownership, and it fires on
+    // the 0→N draft transition — so a fresh individual who types a brief is
+    // still put on Analysis by it, whatever `DEFAULT_WORKSPACE_SURFACE` says.
+    // It is deliberately NOT worked around here: remapping a live, explicit
+    // request inside this sync effect would also remap the assistant's
+    // `open_panel` verb, which is the defect above in a new coat. The smallest
+    // enabling change is that one literal in its own file, by its own owner.
     //
     // The two are different questions (trap 21): "reveal the Olumi thread"
     // legitimately claims the dock; "the draft landed, front Analysis" does not.
     // A run start clears the rail through its own effect, so nothing else needs
     // this.
+    //
+    // ⚠⚠ THE EXAMPLE ABOVE IS NOW HISTORICAL — UPDATED 10 Sep 2026, IN THE SAME
+    // COMMIT THAT CHANGED IT. This comment used to assert, in the present tense,
+    // that "`FirstUseComposer` calls `forceActivateOutputTab('results')` on the
+    // 0→N draft transition". IT NO LONGER DOES: per Paul ("on initial model
+    // generation, the AI chat panel should be displayed first") that transition
+    // now forces **'olumi'**, so it takes the rail-ending branch below BY
+    // DESIGN — it is the "reveal the Olumi thread" case, not the "front
+    // Analysis" case. The scoping rule and its reasoning are UNCHANGED and
+    // still load-bearing; only the cited caller moved. Left in place rather
+    // than deleted because the 843px regression is real and the next lane
+    // widening this predicate needs to know why it is narrow — but a comment
+    // left asserting the old call site in the present tense is exactly how that
+    // call site gets re-introduced.
     if (forcedActivationEndsRail(versionChanged, resolvedTab)) {
       userExplicitlyOpenedRailRef.current = true
     }
@@ -781,11 +846,35 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // surface invariant ("never both at once") still holds.
   const effectiveActiveTab = state.activeTab
 
+  /**
+   * ⭐⭐ ONE DERIVATION OF "THIS RUN START WILL FRONT THE ANALYSIS TAB", read by
+   * BOTH the merged auto-switch effect below and the run announcer's yield rule.
+   *
+   * It lived inside the effect until 10 Sep 2026, and the announcer could only
+   * see the CONSEQUENCE of it — `state.activeTab` — which is one commit behind
+   * at a run start because the effect that moves the tab runs in the same flush.
+   * So the announcer announced a start that the banner was about to announce
+   * again, and the predicate's two attempted fixes each closed one direction and
+   * opened the other. Hoisted rather than recomputed at the call site: a second
+   * `Boolean(showResultsPanel)` would be a hand-maintained mirror of this one
+   * (trap 12), and a mirror of the navigation decision is exactly what the yield
+   * rule must not have.
+   *
+   * Read the full four-cell domain at `runAnnouncementForTransition`'s START arm
+   * in `analysisRunStatus.ts`.
+   */
+  const navigatesToAnalysisTab = Boolean(showResultsPanel)
+
   // Track the last non-Olumi tab the user was on so the docked-Olumi
-  // float-out path can return them to that context (Analysis / Compare /
-  // Model / Journey) rather than always defaulting to Analysis.
+  // float-out path can return them to that context (Reasoning / Analysis /
+  // Compare / Model / Journey) rather than always landing on one surface.
+  //
+  // The `DEFAULT_WORKSPACE_SURFACE` arm is reached only when the session
+  // RESTORED straight into the Olumi tab, so no non-Olumi tab was ever
+  // recorded: there is no choice to honour and this is the default, not an
+  // override of one.
   const lastNonOlumiTabRef = useRef<OutputsDockTab>(
-    state.activeTab !== 'olumi' ? state.activeTab : 'results',
+    state.activeTab !== 'olumi' ? state.activeTab : DEFAULT_WORKSPACE_SURFACE,
   )
   useEffect(() => {
     if (state.activeTab !== 'olumi') lastNonOlumiTabRef.current = state.activeTab
@@ -1468,10 +1557,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     // `runV2Analysis()`: a DIRECT browser->PLoT `/v2/run` call that bypassed
     // the CEE orchestration seam entirely. That seam is retired, so there is
     // no second path for a flag to choose between and the gate is gone with
-    // it. The dispatcher-missing refusal below is unchanged — it is the same
-    // honest failure #723 introduced when it deleted the silent fallback.
+    // it. The host supplies the same singleton dispatcher even before a
+    // transcript exists. A missing host callback still refuses without fallback.
     {
-      const dispatch = useGuidanceStore.getState()._dispatchAction
+      const dispatch = dispatchCanonicalActionRef.current
       if (dispatch) {
         // ROADMAP 2.109 — the `goal_threshold` CHIP PARAMETER IS RETIRED.
         // This block used to re-attach the store threshold to every plain run.
@@ -1520,10 +1609,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       // silently ran a different, unorchestrated analysis path and presented
       // the result as if it were the canonical one.
       //
-      // The dispatcher not being registered means the run genuinely cannot
+      // The host not supplying a dispatcher means the run genuinely cannot
       // proceed. Say so, and run nothing.
       console.error(
-        '[OutputsDock] canonical run dispatcher (_dispatchAction) is not registered; refusing to run.',
+        '[OutputsDock] canonical run dispatcher is unavailable from the conversation host; refusing to run.',
       )
       return { status: 'unavailable', reason: RUN_DISPATCHER_UNAVAILABLE_REASON }
     }
@@ -1597,6 +1686,106 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     setHighlightedNodes([nodeId])
     setTimeout(() => setHighlightedNodes([]), 3000)
   }, [setHighlightedNodes])
+  /**
+   * ⭐⭐ THE ROUTE TO THE ESTIMATES FOR A READER WHO CANNOT SET ONE WHERE THEY
+   * ARE — the FALLBACK half of the act beside the Reasoning tab's refusal.
+   *
+   * When CEE withholds a leader designation it says why, and the reason names
+   * its own remedy: "no option can be called the leader … until you have set at
+   * least one of them". `AtAGlance` renders that sentence unparaphrased.
+   *
+   * ⚠⚠ AMENDED 11 Sep 2026 — THIS WAS THE ONLY DESTINATION AND IS NOW THE
+   * SECOND ONE. It was written on 10 Sep with the rationale that "the reader
+   * could reach the estimates from nowhere on that panel", which was true that
+   * day. The next morning the value control on "what I estimated" shipped: the
+   * SAME act, on the Reasoning tab itself, about two sections below that
+   * button. For as long as both stood, the product sent a reader to another
+   * tab to do something available where they already were — neither change
+   * wrong, neither change's tests able to see it (CLAUDE.md trap 21).
+   * `AnalysisNewTabBody` now tries the in-page act first and calls this when
+   * there is none.
+   *
+   * ⚠ AND THERE GENUINELY IS NONE, OFTEN. The manifest behind "what I
+   * estimated" is written only on the COLD READ (`serverGraphHydration` reaches
+   * `setContextIntegrity` only on `status === 'graph'`), so a freshly-drafted
+   * decision lists no estimated factors at all; the in-page act also goes when
+   * the canvas no longer holds the node the manifest names, or when there is no
+   * conversation to carry the edit. This route is the honest destination in
+   * every one of those states, which is why it stays.
+   *
+   * ⚠ THE ROUTE IS THE SHIPPED ONE, NOT A NEW ONE. Two precedents already deep-
+   * link results surfaces into Model tab v2 — `TriageActionCardsBody.tsx`'s
+   * `openValueEditor` and `AnalysisHeroContainer.tsx`'s `onReviewValue` — and
+   * both carry the same two confessions in their own comments. Reused verbatim.
+   *
+   * ⚠ PASS THE KEY, NOT THE TESTID. `MODEL_SECTION_TARGET`
+   * (`ModelTabBody.tsx`) maps section NAMES to testids and its consumer does
+   * `MODEL_SECTION_TARGET[pending] ?? 'model-tab-v2-panel'`, so a testid misses
+   * the lookup and the `??` SILENTLY lands the user at the panel top with
+   * nothing selected — the exact failure the call exists to fix, shipped that
+   * way twice before. `reviewEstimatesRoutesToFactors.spec.ts` asserts the
+   * argument is a member of the DERIVED key set rather than equal to a string,
+   * because a rename would satisfy equality while pointing nowhere.
+   *
+   * ⚠ THE TAB SWITCH COMES FIRST. The user is looking at Reasoning when they
+   * press this; setting a pending section without switching points a surface
+   * nobody is on. Both precedents order it this way and say so.
+   *
+   * ⛔ AND THERE IS NO THIRD CALL, DELIBERATELY — this is where this handler
+   * DIFFERS from its two precedents and the difference is load-bearing. Both of
+   * them end in `focusModelTarget(<id>)` because both are acting on ONE named
+   * factor: a triage row, a resolve-next row. This act has no such subject.
+   * Measured on the live wire, the refusal carries `missing_important_inputs:
+   * []` and its sentence says "at least ONE of them" — the model names no
+   * particular estimate, and there is no per-row targeting mechanism in the
+   * product to name one with (`requestModelTabSection` has 17 callers;
+   * `requestModelTabRow` / `selectModelRow` / `focusModelRow` have none). So the
+   * destination is the factors SECTION, and passing an id chosen here would be
+   * a deep link to an arbitrary row dressed as the model's answer.
+   */
+  const handleReviewEstimates = useCallback(() => {
+    useUIStore.getState().setActiveOutputTab('diagnostics')
+    useUIStore.getState().requestModelTabSection('factors')
+  }, [])
+
+  /**
+   * ⭐⭐ THE ROUTE TO ONE NAMED RELATIONSHIP — the act beside "One assumption
+   * worth pinning down", whose sentence tells the reader to change a strength
+   * and, until now, offered only a camera move.
+   *
+   * ⚠ THIS IS `handleReviewEstimates`'S SIBLING, NOT ITS GENERALISATION, and
+   * the difference is the third call. That handler deliberately makes only two
+   * calls because the refusal it answers names no particular estimate — it says
+   * "at least one of them" — and passing an id chosen by the dock would be a
+   * deep link to an arbitrary row dressed as the model's answer. This act DOES
+   * have a subject: the view model carries the edge id the producer named, and
+   * it only carries it where the Model tab established it can serve the editor.
+   * So here the third call is not merely permitted, it is the point.
+   *
+   * ⚠ ORDER IS LOAD-BEARING, AND IT IS THE ORDER BOTH PRECEDENTS USE. Tab
+   * first: setting a pending section without switching points a surface nobody
+   * is on. Section before focus: the group arrives COLLAPSED by design, and
+   * `focusModelTarget` scrolling to a row inside a shut group lands the reader
+   * on a closed header — the same harm the group default exists to avoid,
+   * one component along.
+   *
+   * ⚠ THE FOCUS CALL'S RETURN IS DELIBERATELY UNREAD HERE, AND THAT IS A
+   * WEAKER POSITION THAN ITS SIBLING IN `AnalysisNewTabBody`, WHICH TOASTS ON
+   * FALSE. It is acceptable only because of the order above: the tab and the
+   * section have already moved, so a stale id costs the reader a scroll rather
+   * than a dead press — they land on the Relationships group with their row
+   * somewhere in it. It would be actively wrong to read the boolean and say
+   * nothing, or to say something here that the view model has already made
+   * unreachable: `reviewTargetId` is present only where the destination
+   * established it can serve this edge, so a resolve failure means the canvas
+   * moved underneath the reader, not that the act was mis-offered.
+   */
+  const handleReviewTarget = useCallback((targetId: string) => {
+    useUIStore.getState().setActiveOutputTab('diagnostics')
+    useUIStore.getState().requestModelTabSection('relationships')
+    focusModelTarget(targetId)
+  }, [])
+
   const strengthCorrectionsForRun = useMemo(() => getStrengthCorrections(), [report])
 
   // Handle auto-fix for validation issues
@@ -1747,9 +1936,27 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     // whose number was the leader's win probability rather than a robustness
     // verdict) is preserved in `./utils/postAnalysisFooter.ts`'s header.
     robustnessVerdict: resultsSectionData.recommendation.robustnessVerdict,
-    // Producer-owned reason phrase, rendered verbatim as the leading meta
-    // segment (never authored in the UI).
-    robustnessVerdictReason: resultsSectionData.recommendation.robustnessVerdictReason,
+    /**
+     * Producer-owned reason phrase, rendered verbatim as the leading meta
+     * segment (never authored in the UI).
+     *
+     * ⚠⚠ WITHHELD WHEN THE RUN WITHHELD ITS RANKING — the SECOND of three render
+     * sites for this sentence, and the reason the panel fix alone did not close
+     * the defect. Measured on deployed `73825428`: the producer said
+     * `producer_leader_permission: { permitted: false }` and this footer still
+     * read "…changed WHICH OPTION LEADS on its own", three sections below a
+     * panel that correctly said the leader was not assessed.
+     *
+     * ⚠ ONE PREDICATE, IMPORTED — never a second expression of it here. The
+     * glance gates on the same `rankingWasWithheld`, so the two cannot drift
+     * (the #709/#737 shape: two surfaces, one harm, a day apart).
+     *
+     * The third site is `TriageActionCardsBody.tsx:763`, on the PARKED Analysis
+     * tab, and is deliberately NOT changed here — reported rather than fixed.
+     */
+    robustnessVerdictReason: rankingWasWithheld(resultsSectionData.recommendation)
+      ? null
+      : resultsSectionData.recommendation.robustnessVerdictReason,
     reviewCards: resultsSectionData.confidence.topEvidenceGaps ?? resultsSectionData.confidence.evidenceGaps ?? [],
     // Only while the footer's Rerun is actually unpressable. While a run is in
     // flight the control is disabled for an obvious reason the label already
@@ -1820,10 +2027,42 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
 
   const ceeQuality = useCanvasStore(s => s.ceeQuality)
 
-  // ROADMAP 1.7: influence_score (producer-owned, ISL/PLoT) takes priority
-  // over elasticity/sensitivity_score/importance_score — see
-  // deriveFactorInfluenceMap doctrine comment (model-tab/utils.ts).
-  const factorInfluenceMap = useMemo(() => deriveFactorInfluenceMap(report), [report])
+  /**
+   * ⚠ REMOVED 2026-09-11 (v1 Model-stack removal).
+   *
+   * (The ROADMAP 1.7 note that stood here — influence_score takes priority over
+   * elasticity/sensitivity_score/importance_score — still holds and still lives
+   * where it is enforced: the `deriveFactorInfluenceMap` doctrine comment in
+   * `model-tab/utils.ts`. It is not lost, only no longer duplicated at a call
+   * site that no longer exists.)
+   *
+   * `const factorInfluenceMap = useMemo(() => deriveFactorInfluenceMap(report), [report])`
+   * was here. Its ONLY consumer was the `factorInfluence` prop on the
+   * `ModelTabBody` element below, and inside `ModelTabBody` the value reached
+   * only the `FactorsSection` child — which sat behind
+   * `LEGACY_DETAILED_EDITOR_MOUNTED = false` and was deleted. So this derivation
+   * ran on every report and fed a component no user could see.
+   *
+   * ⛔ DO NOT WRITE THE JSX OPENING-TAG FORM OF EITHER COMPONENT IN THIS FILE'S
+   * PROSE — i.e. never spell an angle bracket immediately followed by
+   * `ModelTabBody` anywhere above the real element near the foot of this file.
+   * `oneExpertSwitchReachesTheDock.sourceScan.spec.ts` locates that element by
+   * `indexOf` on exactly that string and takes the FIRST occurrence, so a comment
+   * written in tag form becomes the "element" it scans and its POSITIVE CONTROL
+   * reds. The first draft of this comment did it, and so did the first draft of
+   * THIS warning about it. The guard fails LOUD rather than silently — which is
+   * why this is a note and not a defect — but the next author gets to skip the
+   * diagnosis.
+   *
+   * ⚠ NO USER-VISIBLE CHANGE, and the distinction matters: the influence figures
+   * were already unreachable — the gate was `false`, not merely collapsed. What
+   * this removes is the computation, not a surface.
+   *
+   * `deriveFactorInfluenceMap` (`model-tab/utils.ts`) is KEPT with its spec: it is
+   * a pure, tested helper the v2 outline may consume when it surfaces influence.
+   * It now has NO production caller — recorded here so that is a known fact
+   * rather than a discovery.
+   */
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -1907,11 +2146,53 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       resultsStatus === 'complete' ||
       resultsStatus === 'error'
 
-    // Auto-switch to Results tab only when:
+    // Reveal the dock when:
     // 1. Status transitions from idle/cancelled → active (user started a run)
     // 2. showResultsPanel flag is explicitly set (external trigger)
     const statusTransitioned = wasInactive && isNowActive
     if (!statusTransitioned && !showResultsPanel) return
+
+    // ⭐⭐ TWO QUESTIONS UNDER ONE EFFECT, NOW NAMED APART (trap 21).
+    //
+    // This effect used to answer both with one line — `activeTab: 'results'` —
+    // and that made a RUN START a navigation command. Under the 9 Sep 2026
+    // ruling (`DEFAULT_WORKSPACE_SURFACE`) that is exactly wrong on the journey
+    // the ruling is about: a fresh user lands on Reasoning, presses Run, and is
+    // yanked to the Analysis tab the ruling put them somewhere else to avoid.
+    //
+    //   REVEAL  — "outputs are coming, make the dock visible". Fires for BOTH
+    //             triggers, unchanged: rail lock dropped, overlay panels closed,
+    //             `isOpen: true`, `outputs-dock-opened` dispatched.
+    //   NAVIGATE — "front the Analysis tab". Fires ONLY for trigger 2.
+    //
+    // WHY A RUN START MAKES NO TAB CLAIM AT ALL, rather than being re-pointed at
+    // the new default:
+    //   (a) Re-pointing it at `analysisNew` would yank a user who explicitly
+    //       chose Analysis. Default ≠ override, in both directions.
+    //   (b) A RE-RUN already makes no claim — `wasInactive` is false from
+    //       'complete', so the product has behaved this way for every run after
+    //       the first, and UI #1198's suite pins it. Dropping the claim makes
+    //       the first run behave like every other run instead of being the one
+    //       exception.
+    //   (c) It is not a claim anyone needs. Every dock surface shows a run in
+    //       flight: Analysis has its own banner, and Reasoning, Model, Compare
+    //       and the coaching panel all mount `AnalysisRunStateCover` (#1198).
+    //       Moving the user was buying visibility that already exists.
+    //   (d) A rule with no condition cannot drift. The alternative — "navigate
+    //       unless the user has chosen" — needs a second record of what counts
+    //       as choosing, kept in step with the tab-click path, the `?tab=` path
+    //       and the restore path. That is a hand-maintained mirror (trap 12).
+    //
+    // Trigger 2 KEEPS its claim, and keeps `'results'` deliberately: it is
+    // raised by affordances that name Analysis — the palette's `action:results`,
+    // ⌘/Ctrl+3 "ensure Results are visible", a `?run=` share link, template
+    // insert — and by the REHYDRATION of the persisted `ui.showResultsPanel`
+    // preference, which is maintained as "the dock was open AND Analysis was
+    // fronted" (see the two `setShowResultsPanel(tab === 'results')` sites
+    // below). Both are choices to honour, not defaults to override.
+    // Derived ONCE at component scope (see its docblock): the announcer's yield
+    // rule reads the same value, so "we will navigate" and "the tab will speak"
+    // cannot drift into disagreeing.
 
     // Debounce: prevent rapid updates within 50ms (React #185 fix)
     const now = Date.now()
@@ -1934,9 +2215,18 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     // because `resultsSettle` lands a reportless run on 'idle'
     // (store.ts:3359-3365), which makes the next run's `wasInactive` true.
     // Assigning both ways means the record always describes THIS run.
+    //
+    // ⚠ DERIVED FROM THE NAVIGATION THIS EFFECT WILL PERFORM, not from a second
+    // copy of the target literal. It was `activeTabRef.current !== 'results'`,
+    // which was a mirror of the (then unconditional) switch below; now that the
+    // switch is conditional, that mirror would claim a move on every run start
+    // and 2.204 would return a user who was never taken anywhere. The record
+    // says "we moved them" only when both halves are true: a navigation
+    // happened, AND it landed somewhere they were not already.
     if (statusTransitioned) {
       userInteractedSinceRunRef.current = false
-      runAutoSwitchedToAnalysisRef.current = activeTabRef.current !== 'results'
+      runAutoSwitchedToAnalysisRef.current =
+        navigatesToAnalysisTab && activeTabRef.current !== 'results'
     }
 
     // Drop the first-use rail lock. Since 16 Aug the rail persists until an
@@ -1950,19 +2240,23 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     // chevron-expand and the collapsed-response signal already use.
     userExplicitlyOpenedRailRef.current = true
 
-    // Task F: Auto-open results — close overlay panels so OutputsDock becomes visible
+    // Task F: Auto-open results — close overlay panels so OutputsDock becomes
+    // visible. ⚠ `'results'` here is a `RightPanelMode` (`uiStore.ts:39`), NOT a
+    // dock tab id — that union has no `analysisNew` member. It means "the dock
+    // owns the right slot", and is untouched by the default-tab ruling.
     useUIStore.getState().openRightPanel('results')
 
     setState(prev => {
+      const nextTab = navigatesToAnalysisTab ? 'results' : prev.activeTab
       // Guard: only update if state actually needs to change
-      if (prev.isOpen && prev.activeTab === 'results') {
+      if (prev.isOpen && prev.activeTab === nextTab) {
         return prev // No change needed
       }
       // Mutual exclusion: close inspector when dock auto-opens
       if (!prev.isOpen) {
         window.dispatchEvent(new Event('outputs-dock-opened'))
       }
-      return { ...prev, isOpen: true, activeTab: 'results' }
+      return { ...prev, isOpen: true, activeTab: nextTab }
     })
     // We intentionally depend on both triggers. setState from useDockState is stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2009,8 +2303,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     // It was briefly a second predicate that widened the tab clause to admit
     // `dockTab === 'olumi'`. That widening was withdrawn: derived at the bytes,
     // the we-moved-them record has exactly ONE raise (the merged auto-switch
-    // effect above, which in the same breath schedules `activeTab: 'results'`),
-    // and every other write clears or spends it. So "record true AND tab already
+    // effect above, which raises it only when it is in the same breath
+    // scheduling `activeTab: 'results'` — since 9 Sep 2026 the two are derived
+    // from one `navigatesToAnalysisTab`, so they cannot disagree), and every
+    // other write clears or spends it. So "record true AND tab already
     // Olumi" is reachable only through a stale render closure — the batched
     // flush pinned by this file's ADV-3 spec — where it is harmful, not
     // beneficial. There is no shape in which the widened clause helps, so there
@@ -2412,10 +2708,21 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       trackCompareOpened()
     }
 
+    // `?tab=` names the surface WHEN IT IS NOT THE DEFAULT; the default needs no
+    // param. So the deleted-param case follows `DEFAULT_WORKSPACE_SURFACE`
+    // rather than staying pinned to `'results'`.
+    //
+    // ⚠ THIS IS A CORRECTION, NOT TIDINESS, AND ITS ABSENCE WOULD BE A SILENT
+    // LOSS OF INTENT. The reader above returns `null` for a bare URL and leaves
+    // the tab alone, so absence resolves to whatever the session defaults to.
+    // Leaving the delete on `'results'` would therefore make a link copied from
+    // the Analysis tab open on REASONING for the recipient — the sender's
+    // explicit choice discarded by the address bar. With this, Analysis is
+    // carried as `?tab=results` and reproduces itself.
     if (typeof window !== 'undefined') {
       try {
         const url = new URL(window.location.href)
-        if (tab === 'results') {
+        if (tab === DEFAULT_WORKSPACE_SURFACE) {
           url.searchParams.delete('tab')
         } else {
           url.searchParams.set('tab', tab)
@@ -2595,6 +2902,11 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
           analysisRunStatus.ts. */}
       <AnalysisRunAnnouncer
         analysisTabFronted={effectiveIsOpen && effectiveActiveTab === 'results'}
+        // ⭐ The PENDING half. `analysisTabFronted` above is one commit stale at
+        // a run start — the merged effect schedules the tab move in the same
+        // flush — so without this the announcer speaks and then the banner it
+        // just caused to mount speaks again. Same value the effect navigates on.
+        willFrontAnalysisTab={navigatesToAnalysisTab}
       />
     <aside
       ref={shellRef}
@@ -3629,6 +3941,29 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   isStale={analysisNotConfirmedFresh}
                   staleReason={analysisStaleReason}
                   onReanalyse={handleRunAnalysis}
+                  /* ⭐⭐ THE FALLBACK BESIDE THE REFUSAL SENTENCE. `AtAGlance`
+                     renders CEE's withheld-designation reason, which names its
+                     own remedy; this routes to the Model tab's factors section,
+                     where an estimate can be reviewed or set.
+
+                     ⚠ AMENDED 11 Sep 2026 — IT IS NO LONGER THE FIRST CHOICE.
+                     The tab body now serves the act IN PAGE when its own "what
+                     I estimated" register offers one, and calls this when it
+                     does not; see `handleReviewEstimates` above for why the
+                     rationale this comment used to carry went stale, and
+                     `AnalysisNewTabBody`'s `reviewEstimates` for the
+                     composition. The dock is still the only authority on where
+                     the DOCK points — that has not moved.
+
+                     Fail-closed all the way down — the tab body threads it,
+                     `AtAGlance` renders the sentence alone without it, so an
+                     unmounted prop is silent rather than a dead button. Which
+                     is exactly why `reviewEstimatesRoutesToFactors.spec.ts`
+                     pins THIS binding at THIS mount rather than trusting this
+                     comment: nothing else in the tree would RED if it went
+                     missing. */
+                  onReviewEstimates={handleReviewEstimates}
+                  onReviewTarget={handleReviewTarget}
                   /* ⭐⭐ THE GATE'S OWN TWO EXPRESSIONS, THREADED. These are
                      the identifiers `canRunAnalysis` and `runBlockedTooltip`
                      bound above off the one `runGateResult` — the same two
@@ -3695,9 +4030,15 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 nodes={nodes}
                 edges={edges}
                 robustness={mappedRobustness}
-                factorInfluence={factorInfluenceMap}
                 ceeQuality={ceeQuality}
                 expertMode={expertMode}
+                // 2.581's convergence, now applied to the Model tab. The
+                // outline's Plain/Advanced control used to drive a private
+                // `useState` that this tab's own transparency block could not
+                // see and that was discarded on every tab switch (this render is
+                // conditional, so `ModelTabBody` unmounts). It now writes the
+                // one preference, exactly as the Compare pill above does.
+                onToggleExpert={setExpertMode}
                 onSendMessage={sendMessage}
               />
             )}

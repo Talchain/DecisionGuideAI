@@ -7,10 +7,11 @@
  * is fronted (before F9, those runs were silent AND invisible). The
  * per-surface treatments (AnalysisRunStateCover) are visual only.
  *
- * While the Analysis tab is fronted the announcer yields, because that
- * tab's own furniture already announces: the running banner's narration div
- * at start (announcing on top of it is the #329 double-announce trap) and
- * the completion toast / error alert at settle. Exception (review-folds
+ * While the Analysis tab is fronted — OR is about to be fronted by this very
+ * run start, which is a different question and needs its own signal — the
+ * announcer yields, because that tab's own furniture already announces: the
+ * running banner's narration div at start (announcing on top of it is the #329
+ * double-announce trap) and the completion toast / error alert at settle. Exception (review-folds
  * C6): a FIRST-run settle does not yield — the toast only fires on reruns,
  * so nothing else announces it. That yield rule is the pure
  * `runAnnouncementForTransition` in analysisRunStatus.ts, next to the
@@ -32,9 +33,30 @@ import { selectHasRenderableAnalysisResult } from '../ui/inspector-v2/useAnalysi
 export interface AnalysisRunAnnouncerProps {
   /** The Analysis tab is fronted (dock open, results tab active). */
   analysisTabFronted: boolean
+  /**
+   * ⭐ The dock's PENDING navigation intent — "will this run start front the
+   * Analysis tab?". Passed from the dock's own `navigatesToAnalysisTab`, the
+   * single derivation its auto-switch uses, so the yield rule and the
+   * navigation cannot disagree.
+   *
+   * ⚠ `analysisTabFronted` cannot stand in for this. It is committed React
+   * state, and the dock schedules the tab move inside the same effect flush
+   * this component's effect runs in — as a child, ours runs FIRST — so at a
+   * run start it reads the PRE-navigation value. Our effect does re-run when
+   * the prop lands one commit later, but hits the `isRunning ===
+   * wasRunningRef.current` early return below and never re-evaluates: the
+   * stale reading is the only reading the rule ever gets.
+   *
+   * Optional and DEFAULTS FALSE — an uninformed caller must fall back to
+   * speaking, never to silence.
+   */
+  willFrontAnalysisTab?: boolean
 }
 
-export function AnalysisRunAnnouncer({ analysisTabFronted }: AnalysisRunAnnouncerProps) {
+export function AnalysisRunAnnouncer({
+  analysisTabFronted,
+  willFrontAnalysisTab = false,
+}: AnalysisRunAnnouncerProps) {
   const { isRunning } = useAnalysisTrust()
   const resultsStatus = useCanvasStore((s) => s.results?.status ?? null)
   // C2: a settle that restored the OLD report (abort/timeout) must announce
@@ -76,6 +98,7 @@ export function AnalysisRunAnnouncer({ analysisTabFronted }: AnalysisRunAnnounce
       settledStatus: resultsStatus,
       preRunStatus: preRunStatusRef.current,
       analysisTabFronted,
+      willFrontAnalysisTab,
       settledWithoutNewReport,
       hasRenderableResult,
     })
@@ -83,7 +106,14 @@ export function AnalysisRunAnnouncer({ analysisTabFronted }: AnalysisRunAnnounce
     // A yielded transition clears the region (an empty string announces
     // nothing) rather than holding stale text into the next transition.
     setMessage(announcement ?? '')
-  }, [isRunning, resultsStatus, analysisTabFronted, settledWithoutNewReport, hasRenderableResult])
+  }, [
+    isRunning,
+    resultsStatus,
+    analysisTabFronted,
+    willFrontAnalysisTab,
+    settledWithoutNewReport,
+    hasRenderableResult,
+  ])
 
   return (
     <div

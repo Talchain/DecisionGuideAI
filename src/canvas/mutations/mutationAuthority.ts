@@ -69,10 +69,55 @@ export const CANONICAL_EDIT_AUTHORITY = {
   // and the user is told the model does not hold it yet. The key names that
   // precondition rather than implying the write is unconditional.
   canvasNodeAddWithServerHash: 'server_graph',
+  // schemas 0.50.0 — THE CANVAS EDGE ADD. `server_graph` because it now has
+  // exactly what that value requires and nothing weaker: a receipt-bearing
+  // GraphV3 carrier (`structural_add_edge`), a server-side writer, and a
+  // committed `edit_graph` fact.
+  //
+  // ⭐ IT WAS CORRECTLY SHUT UNTIL 13 Sep 2026. CEE held `structural_add_edge`
+  // at `'reader_only_refusal'` — no writer — so a durable emit would have saved
+  // nothing. CEE #1443 promoted it to `'mutating'` (`dispatch.ts:373`) and
+  // shipped the dedicated writer, which is what makes this key honest today.
+  //
+  // ⛔ AND IT IS A SIBLING RATHER THAN A FLIP OF `canvasSemanticMutations` FOR A
+  // MEASURED REASON. That blanket key also gates undo, redo, paste, the
+  // blueprint insert and the whole `add-` palette: witnessed live on `a518dca8`,
+  // `buildPaneMenu` emits SEVEN top-level entries and the served menu shows
+  // FOUR, with undo/redo/paste filtered out in front of a user. Flipping it
+  // would open five gestures that still have no durable carrier. Two questions
+  // under one name; this names them apart, exactly as
+  // `canvasNodeAddWithServerHash` did for the node add.
+  //
+  // ⚠ THIS KEY GATES THE GESTURE, NOT ITS DURABILITY. A bare drag still stands
+  // down at `captureStructuralAddEdge` with `strength_not_stated`, deliberately:
+  // `USER_EDGE_DEFAULTS.weight = 0.3` carries no provenance and sending it would
+  // assert a strength the user never stated. The user is told so —
+  // `STRUCTURAL_ADD_EDGE_NEEDS_STRENGTH_NOTICE`, via `topbar:show-toast`.
+  canvasEdgeAddWithServerHash: 'server_graph',
   priorRangeJudgement: 'disabled',
   canvasSelectionAndLayout: 'local_presentation',
   modelOptionIntervention: 'server_graph',
   modelFactorConfirmation: 'disabled',
+  /**
+   * Ratifying the strength the SERVER already holds for a relationship.
+   *
+   * ⭐ `server_graph` WHERE ITS FACTOR SIBLING IS `disabled`, AND THE DIFFERENCE
+   * IS THE B3 TEST ITSELF RATHER THAN AN EXCEPTION TO IT. That policy admits
+   * *"only receipt-bearing GraphV3 edits"*. `modelFactorConfirmation` is
+   * `disabled` because it is a LOCAL write — `setObservedSource('user_confirmed')`
+   * — that the server's own enum cannot carry. This one is the opposite in every
+   * respect the policy names: it travels as `edge_strength_edit` with
+   * `intent: 'confirm_current'`, CEE owns the write (*"permission to stamp
+   * exactly two provenance fields"*, guarded by a provenance-only full-graph
+   * diff), and it returns an applied `graph_patch` receipt — the same carrier and
+   * the same receipt an ordinary strength edit uses, which is already
+   * `server_graph` by this table's own reckoning.
+   *
+   * ⚠ SO THE TWO CONFIRMATIONS MUST NOT SHARE A GATE. They are one gesture in
+   * the UI and two different acts underneath, and gating the edge on the factor's
+   * key would withhold a server-owned write because a local-only one is dark.
+   */
+  modelEdgeStrengthConfirmation: 'server_graph',
   postRunFactorValue: 'disabled',
   postRunFactorConfirmation: 'disabled',
   postRunAutoFix: 'disabled',
@@ -107,10 +152,21 @@ export const CANONICAL_EDIT_AUTHORITY = {
   //     Flipping this key would license the label to present ITSELF as a saved
   //     shared-model edit, which the lane did not make true (trap 21: write down
   //     the question each authority answers before reconciling them).
-  //  2. THE PANEL IS INERT ANYWAY. `InspectorRouter` wraps every panel,
-  //     `EdgePanel` included, in an UNCONDITIONAL `<fieldset disabled>`. The
-  //     user-reachable strength editor today is the Model tab's weight chip
-  //     (`model-tab/RelationshipsSection.tsx`), not the inspector's slider.
+  //  2. ⚠⚠ THIS REASON HAS EXPIRED — KEPT, STRUCK, AND NOT QUIETLY DELETED.
+  //     It read: "THE PANEL IS INERT ANYWAY. `InspectorRouter` wraps every
+  //     panel, `EdgePanel` included, in an UNCONDITIONAL `<fieldset disabled>`.
+  //     The user-reachable strength editor today is the Model tab's weight chip
+  //     (`model-tab/RelationshipsSection.tsx`), not the inspector's slider."
+  //     That was true when written and is FALSE now: the edge branch hands the
+  //     panel its own authority, and the inspector's strength control is
+  //     operable on any edge whose strength the server has stated. A reason
+  //     that has stopped holding is struck where the next reader will see it,
+  //     because a deleted one leaves a conclusion standing on evidence nobody
+  //     can check.
+  //     ⭐ THE CONCLUSION IS UNCHANGED, and that is the point of writing three
+  //     reasons rather than one: 1 and 3 are untouched, and either alone is
+  //     sufficient. This key names the canvas edge LABEL, which still writes
+  //     nothing, and no code reads this key.
   //  3. THIS TABLE HAS NO CODE CONSUMER FOR THIS KEY. Swept 2026-09-07: outside
   //     its own definition, `canvasEdgeStrength` appears only in
   //     `__tests__/mutationAuthority.spec.ts` (contrast control:
@@ -131,6 +187,42 @@ export const CANONICAL_EDIT_AUTHORITY = {
 
 export const SHARED_MODEL_AUTHORITY_COPY =
   'Change this through the Model tab or ask Olumi so the shared model stays in sync.'
+
+/**
+ * The sentence for a canvas gesture that changes the model's STRUCTURE —
+ * adding, removing, rewiring or duplicating an element.
+ *
+ * ⚠⚠ DELIBERATELY NOT `SHARED_MODEL_AUTHORITY_COPY`, AND THE REASON IS
+ * MEASURED, NOT STYLISTIC. That constant names TWO destinations, and only one
+ * of them is true for a structural edit:
+ *
+ *   · "the Model tab" — FALSE here. `ModelTabV2Panel.tsx:235` builds
+ *     `editConnectedIds` as `nodeKind(node) === 'factor'` and nothing else,
+ *     under its own comment "the rows whose edit has a canonical transaction
+ *     at this tip: factors". A sweep of `model-tab-v2/` for structural
+ *     add/delete controls returns ZERO against a firing contrast control
+ *     (`editConnectedIds`, 16 hits) — so the sweep can see that directory, and
+ *     what it sees is a surface that edits factor VALUES and cannot add,
+ *     remove or rewire anything.
+ *   · "ask Olumi" — TRUE. `structural_add` is a real receipt-bearing carrier
+ *     (`canvasNodeAddWithServerHash`, `preAnalysisV3StructuralAdd`, both
+ *     `'server_graph'`), and `YourDecisionSection` renders live add rows on it.
+ *
+ * So `SHARED_MODEL_AUTHORITY_COPY` stays correct where it already ships — the
+ * factor-value surfaces, which is exactly the scope `sectionWriterNotice.ts`
+ * calls "correct on the canvas" — and structural gestures get this sentence
+ * instead. A plausible-but-wrong destination is worse than no reason at all:
+ * it sends the user to a tab that cannot do the thing, and they learn the
+ * product lies rather than that it is constrained.
+ *
+ * ⚠ IT DOES NOT PROMISE A CANVAS CONTROL. It names the writer that exists, in
+ * the same voice as the rest of the estate, and stops there.
+ */
+export const CANVAS_STRUCTURAL_EDIT_NOTICE =
+  "The canvas can't save this to the shared model — ask Olumi to make the change."
+
+/** The short form for an inline menu row, where the full sentence will not fit. */
+export const CANVAS_STRUCTURAL_EDIT_SHORT_REASON = 'ask Olumi'
 
 export function hasServerGraphAuthority(authority: MutationAuthority): boolean {
   return authority === 'server_graph'

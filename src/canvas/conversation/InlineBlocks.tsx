@@ -33,7 +33,7 @@
  */
 
 import { useState, useCallback, useMemo, memo, useRef } from 'react'
-import type { RefObject } from 'react'
+import type { RefObject, ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 import { Lightbulb, AlertTriangle, ChevronDown, ChevronUp, ExternalLink, Wand2 } from 'lucide-react'
 import { typography } from '../../styles/typography'
@@ -53,7 +53,7 @@ import type {
   ProposalReviewItem,
   RelatedElementRef,
 } from './types'
-import { isPreAnalysisEnrichedEnabled, isDeterministicCeeEnabled } from '../../flags'
+import { isPreAnalysisEnrichedEnabled, isDeterministicCeeEnabled, isCompactCoachingLinesEnabled } from '../../flags'
 import { trackEvent } from '../../lib/posthog'
 import type {
   ComparisonBlock as ComparisonBlockType,
@@ -67,6 +67,7 @@ import { ArtefactBlock as ArtefactBlockComponent } from '../../components/chat/A
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import { GraphPatchBlockRenderer, ProposalBlockRenderer } from './blocks/GraphPatchBlockRenderer'
 import { isPhase3CardBlock, isBiasSignalCoachingBlock } from './phase3Pacing'
+import { CoachingLine, isCollapsibleCardBlock, planCoachingLines } from './CoachingLine'
 import {
   collectBlockProseSurface,
   composeMessage,
@@ -99,6 +100,34 @@ import { ICON_DENSE } from './panelIcons'
 // ---------------------------------------------------------------------------
 
 const artefactNoop = () => { /* intentionally empty */ }
+
+/**
+ * Wrap a block's renderer in a compact line, or pass it through untouched.
+ *
+ * A tiny component rather than a branch inside `renderEntry` so there is still
+ * exactly ONE render path for a block: the same `<BlockRenderer/>` element is
+ * constructed either way and only its wrapper differs. Two branches each
+ * building their own renderer is how the top-level and demoted paths would
+ * drift, which is the hazard `renderEntry`'s own comment names.
+ */
+function MaybeCoachingLine({
+  block,
+  asLine,
+  disambiguator,
+  children,
+}: {
+  block: ConversationBlock
+  asLine: boolean
+  disambiguator: string | null
+  children: ReactNode
+}) {
+  if (!asLine) return <>{children}</>
+  return (
+    <CoachingLine block={block} disambiguator={disambiguator}>
+      {children}
+    </CoachingLine>
+  )
+}
 
 /** Dedup guard: fire unknown-block telemetry once per block_type per session */
 const _trackedUnknownBlockTypes = new Set<string>()
@@ -443,9 +472,68 @@ export const InlineBlocks = memo(function InlineBlocks({
    * demotion guarantee: a block does not change when it moves tier, only where
    * it sits. Two render paths here would be two places for them to drift.
    */
+  /*
+   * The list-level line plan. Built from the RESOLVED blocks — the same
+   * `proseOverriddenBlocks.get(index) ?? blocks[index]` each entry renders — so
+   * a title the override changed is the title the plan groups on. Keyed by
+   * object identity, which is why the resolved list is materialised once here
+   * rather than recomputed per entry.
+   */
+  const linePlan = useMemo(() => {
+    const resolved = blocks.map((b, i) => proseOverriddenBlocks.get(i) ?? b)
+    return planCoachingLines(resolved)
+  }, [blocks, proseOverriddenBlocks])
+
   const renderEntry = (index: number) => {
     const block = proseOverriddenBlocks.get(index) ?? blocks[index]
     const badgeDotClass = showBadgeDots ? resolveBlockBadgeDotClass(block) : null
+    /**
+     * COMPACT LINE. The block's own renderer is unchanged and simply moves
+     * inside a native disclosure whose summary is the producer's own title —
+     * so a turn's coaching reads as a scannable list rather than a stack of
+     * bordered panels. See CoachingLine.tsx for what may and may not collapse:
+     * pinned consent affordances never do, and a block with no usable producer
+     * title falls through to its full card.
+     *
+     * ⚠ APPLIED HERE, IN THE ONE SHARED RENDER PATH, SO IT REACHES THE DEMOTED
+     * TIER TOO. That is the point rather than a side effect: `MAX_POINTS` keeps
+     * 3 cards top-level and demotes 5-11 on a real analysis turn, so collapsing
+     * only the top-level entries would leave "Show N more" opening onto the
+     * same wall it opens onto today.
+     */
+    /*
+     * ⚠ THE PLAN IS COMPUTED OVER THE WHOLE LIST, NOT PER BLOCK, because the
+     * thing it guards against is invisible from inside one block: two producer
+     * blocks can carry the SAME title, and as title-only lines they become one
+     * affordance the user cannot aim. See `planCoachingLines`.
+     */
+    const plan = linePlan.get(block)
+    const asLine =
+      isCompactCoachingLinesEnabled() && isCollapsibleCardBlock(block) && plan?.collapsible !== false
+    /*
+     * ⭐ THE BADGE DOT IS A CARD'S, SO A LINE DOES NOT GET ONE. DS v5 §21.2
+     * defines it as one limb of the BLOCK treatment — "Base block: `bg-panel`,
+     * `rounded-[20px]`, 24px padding, `shadow-1`. Type-specific top borders
+     * (3px). Block type badges are small coloured dots (8px diameter, main
+     * colour fill) top-left." A collapsed line has none of the others; the dot
+     * survived only because it is painted HERE, by the parent, where the card's
+     * own `suppressHeader` could not reach it.
+     *
+     * ⛔ AND IT WAS COLLIDING, NOT MERELY DUPLICATING. `.blockBadgeDot` is
+     * `position:absolute; top:8px; left:8px`, and its clearance comes from
+     * `.blockWithBadge > div { padding-left: 24px }` — a CHILD selector that
+     * matches a `div` only. As a line the child is `<details>`, so the selector
+     * silently stopped matching, nothing reserved the gutter, and the dot
+     * landed on the summary's own first item at the same 8px. Photographed on
+     * deployed staging b7c8c74e: a blue dot sitting on the glyph. A CSS
+     * selector that stops matching raises nothing and fails no test, which is
+     * why this is gated in TS where a spec can bind to it.
+     *
+     * The wrapper class goes with it: `position:relative` exists only to
+     * position the dot, and leaving it would keep a containing block for no
+     * descendant.
+     */
+    const showBadgeDot = badgeDotClass !== null && !asLine
     return (
       // data-citation-target is 1-based on the ORIGINAL index; CitationRef.index
       // matches this, so a citation still resolves after demotion.
@@ -453,12 +541,14 @@ export const InlineBlocks = memo(function InlineBlocks({
       <div
         key={index}
         data-citation-target={index + 1}
-        className={badgeDotClass ? styles.blockWithBadge : undefined}
+        className={showBadgeDot ? styles.blockWithBadge : undefined}
         {...(block.type === 'graph_patch' ? { 'data-patch-id': block.patch_id } : {})}
       >
-        {badgeDotClass && <span className={badgeDotClass} data-testid="block-badge-dot" aria-hidden="true" />}
+        {showBadgeDot && <span className={badgeDotClass} data-testid="block-badge-dot" aria-hidden="true" />}
+        <MaybeCoachingLine block={block} asLine={asLine} disambiguator={plan?.disambiguator ?? null}>
         <BlockRenderer
           block={block}
+          suppressHeader={asLine}
           turnId={turnId}
           patchBlockStates={patchBlockStates}
           patchRejections={patchRejections}
@@ -474,6 +564,7 @@ export const InlineBlocks = memo(function InlineBlocks({
           onRevealHiddenBlocks={hasCollapsedContent ? revealHiddenBlocks : undefined}
           blockContainerRef={blockContainerRef}
         />
+        </MaybeCoachingLine>
       </div>
     )
   }
@@ -536,6 +627,12 @@ export const InlineBlocks = memo(function InlineBlocks({
 
 interface BlockRendererProps {
   block: ConversationBlock
+  /**
+   * True when this block is rendered INSIDE a `CoachingLine`, whose summary
+   * already carries the block's category chip and title. The card omits its own
+   * copy of them so an open line does not show the title twice.
+   */
+  suppressHeader?: boolean
   turnId?: string
   patchBlockStates?: Map<string, PatchBlockState>
   patchRejections?: Map<string, PatchRejectionInfo>
@@ -577,6 +674,7 @@ interface BlockRendererProps {
 
 function BlockRenderer({
   block,
+  suppressHeader = false,
   turnId,
   patchBlockStates,
   patchRejections,
@@ -608,6 +706,7 @@ function BlockRenderer({
       return (
         <ReviewCardBlockRenderer
           block={block}
+          suppressHeader={suppressHeader}
           data-testid={`block-review-${block.variant}`}
         />
       )
@@ -701,7 +800,7 @@ function BlockRenderer({
     // Track C slice 1 (D-5): 0.13.x-typed Phase 3 blocks. All copy is
     // producer-owned and rendered verbatim (provisional_doctrine_v0).
     case 'v5_review_card':
-      return <V5ReviewCardBlock block={block} />
+      return <V5ReviewCardBlock block={block} suppressHeader={suppressHeader} />
 
     case 'v5_coaching':
       // Leg 3 (bias coaching): bias-signal coaching renders through the
@@ -713,13 +812,14 @@ function BlockRenderer({
         <V5CoachingBlock
           block={block}
           variant={isBiasSignalCoachingBlock(block) ? 'bias_signal' : 'default'}
+          suppressHeader={suppressHeader}
         />
       )
 
     // Track C slice 2 (Lane UI-W4 C): 0.13.1-typed evidence + exercise.
     // Same doctrine — producer copy verbatim, enum tokens data-* only.
     case 'v5_evidence':
-      return <V5EvidenceBlock block={block} />
+      return <V5EvidenceBlock block={block} suppressHeader={suppressHeader} />
 
     case 'v5_exercise':
       return <V5ExerciseBlock block={block} />
@@ -956,9 +1056,12 @@ function CitationLegend({
 
 const ReviewCardBlockRenderer = memo(function ReviewCardBlockRenderer({
   block,
+  suppressHeader = false,
   ...rest
 }: {
   block: ReviewCardBlockType
+  /** See `V5CoachingBlockProps.suppressHeader`. */
+  suppressHeader?: boolean
   'data-testid'?: string
 }) {
   const renderingV2 = isOrchestratorRenderingV2Enabled()
@@ -993,7 +1096,13 @@ const ReviewCardBlockRenderer = memo(function ReviewCardBlockRenderer({
       )}
       <div className={styles.reviewCardContent}>
         <div className={styles.reviewCardBadgeRow}>
-          <div className={`${typography.panelHeader} ${styles.reviewCardTitle}`}>{block.title}</div>
+          {/* The TITLE only. The priority badge below is NOT suppressed: the
+              line's summary carries the title but not the priority, so hiding
+              the badge here would lose a producer fact rather than de-duplicate
+              one. */}
+          {!suppressHeader && (
+            <div className={`${typography.panelHeader} ${styles.reviewCardTitle}`}>{block.title}</div>
+          )}
           {priorityClass && priorityLabel && (
             <span className={priorityClass} data-testid={`priority-badge-${block.priority}`}>
               {priorityLabel}

@@ -109,15 +109,72 @@ describe('figureTallySubtitle — properties over the whole quantity domain', ()
     expect(bad, `numerator exceeds denominator:\n${bad.join('\n')}`).toEqual([])
   })
 
+  /**
+   * ⚠ THE MATCHER IS DERIVED, NOT SPELLED (11 Sep 2026). This read
+   * `/No figures to track/`, so it watched a STRING rather than the ARM: move
+   * the wording and the property keeps passing over a defect it can no longer
+   * see. The nothing-recorded sentence is now taken FROM the function, at the
+   * all-zeros cell, so a rewording carries the guard with it and only the named
+   * state below has to change (CLAUDE.md trap 12: derive, do not mirror).
+   */
   it('never says there is nothing to track while any count is non-zero', () => {
+    const NOTHING_RECORDED = figureTallySubtitle({ total: 0, inModel: 0, proseOnly: 0, absent: 0 })
     const bad = domain()
       .filter(
         (t) =>
-          /No figures to track/.test(figureTallySubtitle(t)) &&
+          figureTallySubtitle(t) === NOTHING_RECORDED &&
           t.total + t.inModel + t.proseOnly + t.absent > 0,
       )
       .map((t) => JSON.stringify(t))
     expect(bad, `an all-clear over a payload that names missing figures:\n${bad.join('\n')}`).toEqual([])
+  })
+
+  /**
+   * ⭐⭐ ROADMAP 2.1000 — NO ARM MAY QUANTIFY OVER THE USER'S OWN WORDS.
+   *
+   * Every arm used to read "… figures YOU MENTIONED …". `total` is not what the
+   * user wrote; it is what CEE's extractor FOUND in `brief_text`, and that
+   * extractor misses figures inside its own declared search scope (measured on
+   * real deployed bytes in `theTallyDoesNotClaimCompleteness.spec.tsx`). So the
+   * sentence asserted completeness over a set it cannot enumerate, and the
+   * all-clear arm turned a LOWER BOUND into a guarantee.
+   *
+   * This is asserted as a PROPERTY over the whole box rather than as eleven
+   * expected strings, for the reason this file exists: a per-case table only
+   * ever holds the arms someone remembered, and the twelfth arm would
+   * reintroduce the claim with no red anywhere.
+   */
+  it("no arm attributes its count to the user's own words", () => {
+    // `your brief` is deliberately NOT caught: the repair keeps the brief as the
+    // source and moves only who did the counting.
+    const USER = /\byou (?:mentioned|gave|wrote|said|told|listed)\b/i
+    const bad = domain()
+      .map(figureTallySubtitle)
+      .filter(s => USER.test(s))
+    expect([...new Set(bad)], `a count attributed to the user's own words:\n${bad.join('\n')}`).toEqual([])
+  })
+
+  it('every arm that reports a count says WHOSE count it is', () => {
+    // The other half, and without it the property above is satisfied by
+    // deleting the attribution entirely — a sentence made true by saying less.
+    const bad = domain()
+      .map(figureTallySubtitle)
+      .filter(s => /\d|^All |^None /.test(s) && !s.includes('I found in your brief'))
+    expect([...new Set(bad)], `a count with no attribution:\n${bad.join('\n')}`).toEqual([])
+  })
+
+  it('the attribution properties CAN fire — checked against the sentence that shipped', () => {
+    // ⭐ Both are ABSENCE claims and worth nothing until shown detecting a
+    // PRESENCE, and the presence is the sentence witnessed on the deployed
+    // Reasoning tab. ⚠ Fed as a literal here, never by rewriting the arms.
+    const SHIPPED = 'All 5 figures you mentioned are in the model'
+    expect(/\byou (?:mentioned|gave|wrote|said|told|listed)\b/i.test(SHIPPED)).toBe(true)
+    expect(SHIPPED.includes('I found in your brief')).toBe(false)
+    // And the second property is not vacuous either. It fires on a counted
+    // sentence that names no owner for the count, which is what a tidy-up
+    // deleting the attribution would produce.
+    const STRIPPED = 'All 5 figures are in the model'
+    expect(/\d|^All |^None /.test(STRIPPED) && !STRIPPED.includes('I found in your brief')).toBe(true)
   })
 
   /**
@@ -144,24 +201,24 @@ describe('figureTallySubtitle — properties over the whole quantity domain', ()
  */
 describe('figureTallySubtitle — the named states, by exact sentence', () => {
   it.each([
-    ['nothing recorded', { total: 0, inModel: 0, proseOnly: 0, absent: 0 }, 'No figures to track from your brief yet'],
-    ['one figure, it landed', { total: 1, inModel: 1, proseOnly: 0, absent: 0 }, 'The figure you mentioned is in the model'],
-    ['one figure, it did not', { total: 1, inModel: 0, proseOnly: 0, absent: 1 }, "The figure you mentioned isn't in the model yet"],
-    ['all of many landed', { total: 5, inModel: 5, proseOnly: 0, absent: 0 }, 'All 5 figures you mentioned are in the model'],
-    ['one of many missing', { total: 4, inModel: 3, proseOnly: 0, absent: 1 }, "1 of 4 figures you mentioned isn't in the model yet"],
-    ['several missing', { total: 4, inModel: 2, proseOnly: 1, absent: 1 }, "2 of 4 figures you mentioned aren't in the model yet"],
+    ['nothing recorded', { total: 0, inModel: 0, proseOnly: 0, absent: 0 }, 'I found no figures in your brief'],
+    ['one figure, it landed', { total: 1, inModel: 1, proseOnly: 0, absent: 0 }, 'The figure I found in your brief is in the model'],
+    ['one figure, it did not', { total: 1, inModel: 0, proseOnly: 0, absent: 1 }, "The figure I found in your brief isn't in the model yet"],
+    ['all of many landed', { total: 5, inModel: 5, proseOnly: 0, absent: 0 }, 'All 5 figures I found in your brief are in the model'],
+    ['one of many missing', { total: 4, inModel: 3, proseOnly: 0, absent: 1 }, "1 of 4 figures I found in your brief isn't in the model yet"],
+    ['several missing', { total: 4, inModel: 2, proseOnly: 1, absent: 1 }, "2 of 4 figures I found in your brief aren't in the model yet"],
     // The finding-5 state: notYetCount is 0 and inModel < total, so an
     // all-clear would be false and the shortfall sentence would be too.
-    ['unreconciled, some in the model', { total: 5, inModel: 3, proseOnly: 0, absent: 0 }, '3 of 5 figures you mentioned are in the model'],
+    ['unreconciled, some in the model', { total: 5, inModel: 3, proseOnly: 0, absent: 0 }, '3 of 5 figures I found in your brief are in the model'],
     // The finding-1 state — the one the previous pass rendered as
     // "0 of 1 figures you mentioned are in the model".
-    ['unreconciled, none in the model, n = 1', { total: 1, inModel: 0, proseOnly: 0, absent: 0 }, 'None of the 1 figure you mentioned is in the model'],
-    ['unreconciled, none in the model, n > 1', { total: 3, inModel: 0, proseOnly: 0, absent: 0 }, 'None of the 3 figures you mentioned are in the model'],
+    ['unreconciled, none in the model, n = 1', { total: 1, inModel: 0, proseOnly: 0, absent: 0 }, 'None of the 1 figure I found in your brief is in the model'],
+    ['unreconciled, none in the model, n > 1', { total: 3, inModel: 0, proseOnly: 0, absent: 0 }, 'None of the 3 figures I found in your brief are in the model'],
     // The finding-3 state: `total === 0` must not pre-empt a real shortfall.
-    ['no total, but figures marked absent', { total: 0, inModel: 0, proseOnly: 0, absent: 2 }, "2 figures you mentioned aren't in the model yet"],
+    ['no total, but figures marked absent', { total: 0, inModel: 0, proseOnly: 0, absent: 2 }, "2 figures I found in your brief aren't in the model yet"],
     // Over-count — admitted by the parser, and the draft rendered
     // "2 of the 1 figure … are".
-    ['over-count', { total: 1, inModel: 2, proseOnly: 0, absent: 0 }, '2 figures you mentioned are in the model'],
+    ['over-count', { total: 1, inModel: 2, proseOnly: 0, absent: 0 }, '2 figures I found in your brief are in the model'],
     ['no manifest at all', null, "I can't show this yet"],
   ])('%s', (_name, tally, expected) => {
     expect(figureTallySubtitle(tally as FigureTally | null)).toBe(expected)

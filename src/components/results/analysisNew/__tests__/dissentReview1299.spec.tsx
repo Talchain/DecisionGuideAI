@@ -101,7 +101,12 @@ describe('independent PR 1299 acceptance counterexamples', () => {
     enterAndSave('My first objection')
     expect(readDissent(A)).toEqual({})
     expect(screen.getByTestId('analysis-new-strengthen-disagree-input')).toHaveValue('My first objection')
-    expect(screen.getByRole('alert')).toHaveTextContent('retry')
+    // The property is that the failure notice names retry as a way forward.
+    // Case is not part of that property: it follows sentence position, and the
+    // notice now opens its second sentence with the word. Matched case-insensitively
+    // so a legitimate rewording cannot red this, while a notice that stops offering
+    // retry still does.
+    expect(screen.getByRole('alert')).toHaveTextContent(/retry/i)
     vi.restoreAllMocks()
     fireEvent.click(screen.getByTestId('analysis-new-strengthen-disagree-save'))
     expect(readDissent(A)[ID].reason).toBe('My first objection')

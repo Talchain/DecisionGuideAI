@@ -58,6 +58,7 @@ import {
   classifyFreshnessForDisplay,
   type AnalysisFreshnessState,
 } from '../../../canvas/store/analysisFreshness'
+import type { FreshnessDisplaySemantic } from '../../../canvas/store/analysisFreshness'
 import {
   adaptTypedReviewCardBlock,
   adaptTypedEvidenceBlock,
@@ -174,7 +175,7 @@ function setCeeCurrentGraphHash(currentGraphHash: string | undefined): void {
 function installDirtyWindow(
   state: AnalysisFreshnessState | null,
   opts: { dirty: boolean } = { dirty: true },
-): 'current' | 'changed' | 'cannot_confirm' | 'none' {
+): FreshnessDisplaySemantic {
   useCanvasStore.setState({
     analysisFreshness: state,
     analysisFreshnessDirty: opts.dirty,

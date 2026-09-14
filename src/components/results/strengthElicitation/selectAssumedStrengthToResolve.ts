@@ -173,6 +173,21 @@ export interface AssumedStrengthSelection {
   readonly alternativeWinnerLabel: string | null
   /** Existing graph provenance, reduced only to the two unresolved copy cases. */
   readonly strengthProvenance: 'ai_inferred' | 'missing'
+  /**
+   * Can the Model tab actually serve an editor for THIS edge?
+   *
+   * ⚠ SUPPLIED BY THE CALLER, NEVER DECIDED HERE, and that is the whole point.
+   * The destination's eligibility is a conjunction owned by two authorities the
+   * caller can reach and this pure selector cannot — the row must exist at all
+   * (`getCausalEdges`, or the outline builds no row) AND the strength must be
+   * assertable (`edgeStrengthEditIsAssertable`, which asks the wire builder
+   * whether it would build). Restating either here would be a second copy of
+   * someone else's rule, drifting the first time either moves.
+   *
+   * `false` when the caller supplied no set at all: a surface that cannot
+   * establish the destination is eligible must not offer to route there.
+   */
+  readonly strengthEditReachable: boolean
 }
 
 export interface AssumedStrengthDecision {
@@ -194,6 +209,15 @@ export interface SelectAssumedStrengthInput {
   edges: readonly ElicitationCanvasEdge[]
   /** Node id → label. A node we cannot name yields a skipped row. */
   nodeLabels: ReadonlyMap<string, string>
+  /**
+   * Edge ids the Model tab can serve a strength editor for — the destination's
+   * COMPLETE eligibility, asked of its own authorities by the caller.
+   *
+   * ⚠ Absent is not "unknown, assume yes": it resolves to `false`, so a caller
+   * that has not established eligibility offers no route. An act that lands on
+   * a row with no control is the defect this field exists to make unreachable.
+   */
+  reviewableEdgeIds?: ReadonlySet<string>
 }
 
 function readRecord(value: unknown): Record<string, unknown> | null {
@@ -270,6 +294,7 @@ export function selectAssumedStrengthToResolve({
   fragileEdges,
   edges,
   nodeLabels,
+  reviewableEdgeIds,
 }: SelectAssumedStrengthInput): AssumedStrengthDecision {
   if (!Array.isArray(fragileEdges) || fragileEdges.length === 0) {
     return { selected: null, refusalReason: 'no_robustness_data', assumedFragileCount: 0 }
@@ -349,6 +374,7 @@ export function selectAssumedStrengthToResolve({
       alternativeWinnerLabel:
         nonEmptyString(row.alternative_winner_label) ?? nonEmptyString(row.alternativeWinnerLabel),
       strengthProvenance,
+      strengthEditReachable: reviewableEdgeIds?.has(edge.id) ?? false,
     }
     if (
       selected === null ||

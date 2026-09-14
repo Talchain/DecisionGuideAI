@@ -22,6 +22,7 @@ import { useCanvasStore } from '../../../canvas/store'
 import { deriveGuidanceDskProvenance, useGuidanceStore } from '../../../canvas/stores/guidanceStore'
 import { useStrengthenStore, recordKey} from '../../../canvas/stores/strengthenStore'
 import { buildNodeValueSourceMap } from '../driverValueProvenance'
+import { buildNodeOriginMap } from './optionOriginDisclosure'
 import { buildRecommendations } from '../strengthen/buildRecommendations'
 import type { Recommendation } from '../strengthen/strengthenTypes'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
@@ -66,6 +67,28 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
    */
   const nodes = useCanvasStore((s) => s.nodes)
   const nodeValueSources = useMemo(() => buildNodeValueSourceMap(nodes), [nodes])
+  /**
+   * ⭐ WHOSE IDEA EACH ELEMENT WAS — the SAME `nodes` slice, a DIFFERENT field.
+   * `buildNodeValueSourceMap` reads `observed_state.source` (who authored a
+   * NUMBER); this reads `provenance` (who put the ELEMENT on the board). The
+   * analysis result carries neither, so both must come from canvas state, and
+   * deriving them from one subscription is what stops this surface and the
+   * canvas card disagreeing about the same node.
+   */
+  const nodeOrigins = useMemo(() => buildNodeOriginMap(nodes), [nodes])
+  /**
+   * ⭐ Node id → label, so a producer gap can name the factor it is about.
+   * Derived from the same `nodes` the sibling map above uses — one store read,
+   * not a second subscription. Labels only; nothing else about a node is read.
+   */
+  const nodeLabels = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const n of nodes ?? []) {
+      const label = (n?.data as { label?: unknown } | undefined)?.label
+      if (typeof label === 'string' && label.trim().length > 0) m.set(n.id, label)
+    }
+    return m
+  }, [nodes])
   const biasSignals = useCanvasStore((s) => s.draftCoaching?.biasSignals ?? null)
   const guidanceItems = useGuidanceStore((s) => s.guidanceItems)
   const strengthenRecords = useStrengthenStore((s) => s.records)
@@ -132,18 +155,46 @@ export function useAnalysisNewViewModel(args: UseAnalysisNewViewModelArgs): Anal
         responseHash,
         scienceGrounding,
         nodeValueSources,
+        nodeLabels,
+        nodeOrigins,
       }),
+    /**
+     * ⚠⚠ EVERY DECLARED INPUT, AND `staleReason` WAS THE ONE MISSING.
+     *
+     * `buildAnalysisNewViewModel` derives `status.staleKind` from it, so
+     * without it here the panel kept the PREVIOUS staleness sentence when the
+     * reason flipped — measured at this hook: 'unconfirmed' → 'changed' with
+     * every other input identical returned 'unconfirmed'.
+     *
+     * That is not cosmetic. `staleReason.ts` exists because one boolean was
+     * answering two questions — 'changed' is a claim about the WORLD,
+     * 'unconfirmed' a claim about our EVIDENCE — and the dock computes the two
+     * flags from two genuinely different authorities (`displayedFreshness` for
+     * `isStale`, `composedAnalysisState.trust.semantic` for this), so they move
+     * independently by construction. Omitting it made the correction
+     * conditional on some OTHER input happening to move in the same render.
+     *
+     * `__tests__/viewModelHonoursEveryInput.spec.tsx` exercises each scalar
+     * input rather than pinning this one. ⚠ Its `SCALAR_INPUTS` is HAND-WRITTEN
+     * and exhaustive against this interface only at this tip — it is not derived
+     * from it. Add an input here and you must add a row there, or the new input
+     * is unguarded and nothing goes red (CLAUDE.md trap 12 — that file is an
+     * instance of the mirror, not a cure for it).
+     */
     [
       data,
       recommendations,
       isPreRun,
       isRunning,
       isStale,
+      staleReason,
       nSamples,
       seedUsed,
       responseHash,
       scienceGrounding,
       nodeValueSources,
+      nodeLabels,
+      nodeOrigins,
     ],
   )
 }

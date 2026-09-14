@@ -217,7 +217,7 @@ const NO_SUBJECT_LABEL = 'Your model so far'
 const NO_INSIGHTS: NodeInsightIndex = new Map()
 
 /** What a node's detail has to say when the run named it nowhere. */
-const EMPTY_INSIGHT: NodeInsight = { driverLabel: null, findings: [], withheldFindings: 0 }
+const EMPTY_INSIGHT: NodeInsight = { mentions: [], driverLabel: null, findings: [], withheldFindings: 0 }
 
 /**
  * Ring several nodes at once on the canvas.
@@ -719,7 +719,12 @@ export function ModelStrip({
   }
   const activeInsight = (active && insights.get(active.id)) || EMPTY_INSIGHT
   const activeHasNothing =
-    activeInsight.driverLabel === null && activeInsight.findings.length === 0
+    activeInsight.driverLabel === null &&
+    activeInsight.findings.length === 0 &&
+    // ⚠ AND NOTHING ELSE ON THE PANEL NAMES IT. Without this conjunct the
+    // sentence below claims the whole panel is silent while the panel is
+    // visibly talking about the node — witnessed on deployed `d82e81f0`.
+    activeInsight.mentions.length === 0
 
   return (
     /* ⚠ A LABELLED LANDMARK, NAMED BY ITS OWN SUBJECT. A `section` is a
@@ -826,15 +831,22 @@ export function ModelStrip({
           hidden behind a disclosure is a target nobody sets. */}
       <SuccessTargetLine
         goalNodeId={strip.goalNodeId}
-        /* ⚠⚠ TWO OUTCOMES, NOT THREE, AND NEVER "sent". There is no server
-           carrier for a goal threshold, so this control cannot dispatch. The
-           factor editor above answers to a real authority and says so; this one
-           must not borrow its sentence. */
+        /* ⚠⚠ THREE OUTCOMES, AND THE SENTENCE IS THE ONE THE AUTHORITY EARNED.
+           This read TWO, on the premise that no server carrier for a goal
+           threshold exists, and told every reader "It will be used the next time
+           you analyse" over a store-only write that reverted on reload. The
+           typed `add_constraint` carrier is live (`modelGoalMinimumTarget`), so
+           the control can now dispatch and must report which of the three
+           things happened - exactly as the factor editor twenty lines above
+           already does. Collapsing any two of these is the estate's signature
+           defect, an affordance reporting an outcome it never observed. */
         onCommitOutcome={(outcome) =>
           showToast(
-            outcome === 'local_only'
-              ? COPY.successTarget.savedLocally
-              : COPY.successTarget.notEncodable,
+            outcome === 'dispatched'
+              ? COPY.successTarget.dispatched
+              : outcome === 'local_only'
+                ? COPY.successTarget.changedLocally
+                : COPY.successTarget.notEncodable,
           )
         }
         testId={`${testId}-target`}
@@ -851,6 +863,25 @@ export function ModelStrip({
             applies the same rule to the same number, and its reason is this
             file's own: a control that cannot change anything is furniture
             wearing an affordance. */}
+        {/* ⭐ ONE ROW, ONE GAP — NOT TWO ELEMENTS EACH REMEMBERING THEIR OWN
+            MARGIN. The chips carried `mb-1` and the second also `ml-1`, so the
+            gap between them lived on the SECOND chip. On a model where nothing
+            is confirmable — `factorIsConfirmable` REQUIRES a value, so a model
+            whose factors have none scores `needsCheckTotal === 0` — the first
+            chip does not render and the second one keeps its `ml-1`, drawing
+            itself 4px in from everything else in the strip.
+
+            That misalignment fires on exactly the models this second worklist
+            was BUILT for, which is why it survived: the case that exposes it is
+            the case nobody had when the first chip was written. Spacing between
+            siblings belongs to the container (CLAUDE.md's own rule about
+            per-element margins that collapse or double), so it moves here.
+
+            ⚠ THE WRAPPER IS CONDITIONAL. An unconditional flex row renders an
+            empty 4px-tall box on every model with no worklist at all — trading
+            a visible misalignment for an invisible one. */}
+        {strip.needsCheckTotal > 0 || strip.noValueTotal > 0 ? (
+          <div className="flex flex-wrap items-center gap-1 mb-1">
         {strip.needsCheckTotal > 0 ? (
           <button
             type="button"
@@ -860,7 +891,7 @@ export function ModelStrip({
                "3 to verify" alone announces a count and not what pressing it
                does. */
             aria-label={COPY.modelStrip.toVerifyToggleName(strip.needsCheckTotal)}
-            className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full px-2 py-0.5 mb-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+            className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
               /* ⚠ PRESSED IS A RING, NOT A HOTTER AMBER. Solid `bg-warning`
                  made amber carry TWO questions at once: "how urgent is this?"
                  and "is this filter on?" — so switching a filter ON made the
@@ -901,7 +932,7 @@ export function ModelStrip({
             onClick={toggleNoValue}
             aria-pressed={noValueActive}
             aria-label={COPY.modelStrip.noValueToggleName(strip.noValueTotal)}
-            className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full px-2 py-0.5 mb-1 ml-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
+            className={`${typography.panelMeta} inline-flex items-center gap-1 rounded-full px-2 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${
               noValueActive
                 ? 'bg-warning/20 text-warning ring-1 ring-warning'
                 : 'bg-warning/10 text-warning hover:bg-warning/20'
@@ -911,6 +942,8 @@ export function ModelStrip({
             <NoValueMark className="w-3 h-3" aria-hidden={true} />
             {COPY.modelStrip.noValueCount(strip.noValueTotal)}
           </button>
+        ) : null}
+          </div>
         ) : null}
 
         {/* ⚠ THE CRITERION, VISIBLE AND ONLY WHILE IT APPLIES. "3 to verify"
@@ -1458,6 +1491,81 @@ export function ModelStrip({
             {/* ⚠ THE ABSENCE IS THE RESULT, AND IT IS RENDERED. Silence here
                 would be indistinguishable from a broken control, and a
                 reassurance would be a claim nothing measured. */}
+            {/* ⭐ POINTERS, NOT A SECOND RENDERING. Each line names a section
+                that is already on screen saying its own thing, so the reader
+                can get there — and so the empty state below can only appear
+                when the panel really is silent about this node. */}
+            {activeInsight.mentions.length > 0 ? (
+              <ul
+                className="list-none p-0 m-0 space-y-0.5"
+                data-testid={`${testId}-detail-mentions`}
+              >
+                {activeInsight.mentions.map(m => (
+                  <li
+                    key={m.id}
+                    className={`${typography.panelMeta} text-text-light m-0`}
+                    data-testid={`${testId}-detail-mention`}
+                    data-mention-id={m.id}
+                    data-mention-section={m.section}
+                  >
+                    {/* ⚠ THE SECTION'S OWN HEADING, INDEXED — never a second
+                        spelling of it. The pointer must name the heading the
+                        reader will scroll to, and `m.section` is the view
+                        model's own key, so a section with no title cannot
+                        compile.
+
+                        ⚠ THE WHOLE LINE IS COMPOSED IN THE COPY MODULE, because
+                        a finding may legitimately carry an EMPTY headline (a
+                        long uncertainty or sensitivity row keeps its sentence
+                        in `implication` so it does not say itself twice) and
+                        the line must then read as a section name rather than a
+                        label with nothing after its colon. */}
+                    {/* ⛔ A POINTER MAY NOT RESTATE THE MARK'S OWN NAME,
+                        AND THE DRIVERS SECTION IS THE ONE PLACE IT WOULD.
+                        `driverFinding` sets a Drivers row's `headline` to
+                        `d.factorLabel` — the NODE'S OWN LABEL, by
+                        construction, never a sentence. So the composed line
+                        read "Also in Drivers and dynamics: Supplier lead time"
+                        directly beneath a `detail-title` carrying "Supplier
+                        lead time", and on any node the glance ALSO named, a
+                        `detail-driver` chip sat between the two. One name,
+                        three renderings, on the commonest node on the panel.
+
+                        ⚠⚠ THIS IS THE DEFECT PAUL MEASURED ON DEPLOYED
+                        `19fe87`, RECORDED IN THIS FILE'S OWN HEADER: on the
+                        richest case available, "Two of those three lines
+                        restate what the mark already carries: the name is the
+                        mark's own label". This line would have made it a
+                        fourth. It also contradicted this seam's own stated
+                        rule, written in four places, that a mention is a
+                        POINTER and never a second rendering.
+
+                        ⭐ THE SECTION NAME ALONE IS A TRUE AND COMPLETE
+                        POINTER, and it is the shape `mention()` ALREADY
+                        renders for an empty headline — reused, not invented.
+                        The reader already has the node's name directly above;
+                        what they lack is WHERE to go, and that is the section.
+
+                        ⛔ SCOPED TO `drivers` DELIBERATELY, AND THE PREMISE
+                        IS PINNED RATHER THAN ASSUMED. The other three
+                        finding-bearing sections carry producer SENTENCES about
+                        the node, which the title cannot restate, so dropping
+                        their payload would delete real information.
+                        `theStripReachesEveryFindingSection.spec.tsx` asserts
+                        that a Drivers headline IS the node's own label at the
+                        real view model, so this suppression REDs if
+                        `driverFinding` ever starts composing a sentence
+                        (CLAUDE.md trap 13b — a guard whose discrimination
+                        depends on something nothing pins). */}
+                    {COPY.modelStrip.mention(
+                      COPY.sections[m.section],
+                      m.section === 'drivers' ? '' : m.headline,
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
             {activeHasNothing ? (
               <p
                 className={`${typography.panelMeta} text-text-light m-0`}

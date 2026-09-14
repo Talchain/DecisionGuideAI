@@ -465,7 +465,7 @@ describe('the panel reads a saved record back', () => {
     })
     renderPanel(genuineDecision())
     expect(screen.getByTestId(`${SECTION}-option`)).toHaveTextContent(
-      'Option 2 — Phase the rollout by segment',
+      'Option 2: Phase the rollout by segment',
     )
     expect(screen.queryByTestId(DOOR), 'the door is replaced by the read-back').toBeNull()
   })

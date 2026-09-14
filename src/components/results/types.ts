@@ -463,6 +463,29 @@ export interface DecisionResultData {
    */
   leaderDesignationPermitted?: boolean
   /**
+   * ⭐⭐ HOW MANY OPTIONS THE RUN ITSELF COMPARED — a fact about the REPORT, not
+   * about the canvas now.
+   *
+   * ⚠⚠ IT EXISTS BECAUSE `allOptions` AND `verdict` CANNOT ANSWER IT. Both are
+   * rebuilt from the CURRENT option nodes on every render, and
+   * `deriveDecisionVerdict` filters the report's probabilities by the visible ids
+   * and returns the no-claim verdict below two — BEFORE it reads the producer's
+   * leader permission. So deleting one option from a completed two-option run
+   * makes `allOptions.length === 1` and `verdict.leaderId === null` while the
+   * retained report still carries its ranking and its explicit
+   * `producer_leader_permission: { permitted: false }`. A consumer asking "did
+   * this run rank anything?" of the projection gets "no", and an explicitly
+   * withheld ranking becomes speakable because a node disappeared.
+   *
+   * Derived through `comparableOptions(report)` with NO visibility filter — the
+   * same single definition of "comparable" that `deriveDecisionVerdict` applies
+   * WITH one, so the two cannot drift (trap 12).
+   *
+   * `undefined` ⇒ the hook did not supply it (a legacy fixture), never "zero".
+   * Consumers must treat absence as "unknown", not as "this run was unranked".
+   */
+  rankedComparisonPopulation?: number
+  /**
    * CEE's raw admission for this turn — the source of the "what would change it"
    * copy (`reasons[]`) and of `missing_important_inputs[]`.
    * `undefined` ⇒ a pre-admission CEE, never a refusal.
@@ -833,6 +856,29 @@ export interface UncertaintyItem {
   displayText?: string
   suggestion?: string
   affectedNodes?: string[]
+  /**
+   * The producer's endpoint ids for a fragile-relationship row.
+   *
+   * ⚠ NOT *SAFELY* DERIVABLE FROM `affectedNodes` — and the precise version
+   * matters, because the loose one was wrong. The sole non-test producer builds
+   * that field as `[fromId, toId].filter(Boolean)`, so the order IS
+   * deterministic `[from, to]`, and in the case this code requires — both ids
+   * present — `[0]`/`[1]` would work today. These fields are STRICTLY REDUNDANT
+   * AT THIS TIP.
+   *
+   * They earn their place on the `.filter(Boolean)`: the moment either id is
+   * absent, position stops meaning anything and `affectedNodes[0]` silently
+   * becomes "whichever end survived". That is a value-position predicate, which
+   * this panel's assertions are forbidden to bind on — so the fields name which
+   * end is which, and stay absent when the producer did not say.
+   *
+   * (An earlier version of this comment said "not derivable, its order is an
+   * accident of construction". A reviewer refuted it at the producer's bytes.
+   * Same conclusion, true reason — and the reason is what the next reader
+   * inherits.)
+   */
+  edgeFromId?: string
+  edgeToId?: string
   /** Severity level for visual styling - defaults to 'warning' if not specified */
   severity?: CritiqueSeverity
   /** Factor confidence (0-1) for confidence pill display. Derived from edge exists_probability. */
@@ -985,6 +1031,15 @@ export interface ConditionalWinner {
 export interface InferenceWarning {
   /** Warning code (e.g. 'MISSING_ROOT_VALUE') */
   code: string
+  /**
+   * Producer field path, e.g. `nodes[c591da5e].observed_state.value`.
+   * ⚠ THE ONLY IDENTITY CARRIER THE PRODUCER ACTUALLY POPULATES for the
+   * defaulting family. ISL sets it per defaulted root; PLoT forwards the
+   * string verbatim. `affected_nodes` is empty for these codes, so dropping
+   * `field` in the adapter left the Reasoning tab unable to tell two
+   * same-code warnings apart.
+   */
+  field?: string
   /** Affected node IDs */
   affected_nodes: string[]
   /** Affected node labels (resolved from canvas) */

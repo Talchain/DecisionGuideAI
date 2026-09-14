@@ -92,6 +92,11 @@ function seedGraph(opts: { successSet?: boolean; reviewedAll?: boolean } = {}) {
     preAnalysisSensitivity: SENSITIVITY,
     ceeAnalysisReady: null,
     draftCoaching: null,
+    // Reset with its live twin: without this a retained value set by one arm
+    // rides into every later test in the file and the failure looks like the
+    // panel's, not the seed's.
+    retainedDraftCoaching: null,
+    retainedDraftCoachingOptionCount: null,
     currentBriefText: null,
     goalThreshold: null,
     goalConstraints: null,
@@ -150,8 +155,18 @@ describe('setup state', () => {
   it('renders the decision title, goal and the four bars', () => {
     renderPanel()
     expect(screen.getByText('Hire a tech lead or two developers?')).toBeInTheDocument()
-    expect(screen.getByLabelText('Goal')).toHaveTextContent('Increase delivery output')
-    expect(screen.getByLabelText('Goal')).toHaveAttribute('aria-readonly', 'true')
+    /*
+     * ⚠ THIS ASSERTED `aria-readonly="true"` ON THE GOAL FIELD UNTIL 2026-09-10,
+     * AND IT WAS PINNING A DEFECT. The notice rendered directly beneath this
+     * field says "Edit it to say what you want to achieve", so a read-only goal
+     * was the product issuing an imperative it could not honour. The field now
+     * reads the authority for the operation it actually performs — the rename
+     * and named-add keys, both `'server_graph'` — rather than
+     * `goalSuccessTarget`, which governs the success threshold.
+     * `theGoalFieldCanHonourItsOwnImperative.spec.tsx` owns the property; this
+     * line stays only as the basics-render check it was always part of.
+     */
+    expect(screen.getByLabelText('Goal')).toHaveValue('Increase delivery output')
     for (const key of ['frame', 'options', 'risks', 'estimates']) {
       expect(screen.getByTestId(`pre-analysis-v3-bar-${key}`)).toBeInTheDocument()
     }
@@ -350,6 +365,147 @@ describe('render-if-live coaching', () => {
   })
 })
 
+/**
+ * ⭐⭐ THE RETENTION IS BOUND AT THE CALL SITE, NOT AT THE PURE FUNCTION.
+ *
+ * `usePreAnalysisModel.ts` reaches the user through exactly one line:
+ *
+ *   resolveEffectiveDraftCoaching(draftCoaching, retainedDraftCoaching)
+ *
+ * The review measured two mutants there that survived the whole kit, lint and
+ * typecheck, because every existing arm sets `draftCoaching` live with the
+ * retained field null - and `live ?? null` and `null ?? live` return the same
+ * object, so no fixture could tell them apart:
+ *
+ *   M1  resolveEffectiveDraftCoaching(draftCoaching, null)
+ *       The retained value has no reachable reader. The store holds it, every
+ *       test is green, and the change ships DARK.
+ *   M2  resolveEffectiveDraftCoaching(retainedDraftCoaching, draftCoaching)
+ *       Arguments swapped. Retained prose then outranks a live turn, so the row
+ *       is pinned to the first narrow-framing sentence CEE ever sent for this
+ *       decision. `domain/effectiveDraftCoaching.ts` says that inversion "must
+ *       fail on its own signature"; at the call site it failed nowhere.
+ *
+ * The two arms below are on the RENDERED row, so they bind the wiring rather
+ * than the pure function's parameter order, and they fail on DIFFERENT
+ * assertions: M1 reds the first (nothing to show), M2 reds the second (the
+ * wrong sentence shown). Each pins its own precondition, so neither can pass by
+ * the fixture quietly failing to reach the signal.
+ *
+ * The third arm is the safety property the whole retention rests on: retained
+ * text may RE-WORD a row the live graph has decided to show, never SUMMON one.
+ */
+describe('retained coaching across readiness invalidation', () => {
+  const RETAINED_DETAIL = 'The brief frames this as tech lead against two developers only.'
+  const LIVE_DETAIL = 'Both options keep the work in-house.'
+
+  function coaching(detail: string) {
+    return {
+      summary: null,
+      strengthenItems: [],
+      wideningLog: [],
+      biasSignals: [{ type: 'narrow_framing', detail }],
+    }
+  }
+
+  it('kills M1: the RETAINED detail reaches the row once an analytical edit has nulled the live one', () => {
+    // Precondition, bound by identity: the two strings must be distinguishable,
+    // or "shows the retained one" is not an observation.
+    expect(RETAINED_DETAIL).not.toEqual(LIVE_DETAIL)
+
+    useCanvasStore.setState({
+      draftCoaching: null,
+      retainedDraftCoaching: coaching(RETAINED_DETAIL) as never,
+      // The seed graph has two options and the coaching was authored against two,
+      // so the freshness gate admits it. That is the arm's precondition.
+      retainedDraftCoachingOptionCount: 2,
+    })
+    renderPanel()
+
+    const row = screen.getByTestId('pre-analysis-v3-signal-sig_option_breadth')
+    expect(row).toHaveTextContent('Olumi noticed')
+    expect(row).toHaveTextContent(RETAINED_DETAIL)
+  })
+
+  it('kills M2: a LIVE detail outranks the retained one, so retained prose cannot pin the row', () => {
+    useCanvasStore.setState({
+      draftCoaching: coaching(LIVE_DETAIL) as never,
+      retainedDraftCoaching: coaching(RETAINED_DETAIL) as never,
+      retainedDraftCoachingOptionCount: 2,
+    })
+    renderPanel()
+
+    const row = screen.getByTestId('pre-analysis-v3-signal-sig_option_breadth')
+    // Precondition: the row is the CEE-overridden one, not the deterministic
+    // copy. Without this the assertions below would also hold on a row that
+    // never read either coaching value.
+    expect(row).toHaveTextContent('Olumi noticed')
+    expect(row).toHaveTextContent(LIVE_DETAIL)
+    expect(row).not.toHaveTextContent(RETAINED_DETAIL)
+  })
+
+  it('retained text can re-word a row, never summon one: three options and the row is gone', () => {
+    useCanvasStore.setState({
+      nodes: [
+        ...useCanvasStore.getState().nodes,
+        node('o3', 'option', 'Hire a contract team'),
+      ],
+      draftCoaching: null,
+      retainedDraftCoaching: coaching(RETAINED_DETAIL) as never,
+      // Matched to the WIDENED count on purpose: the freshness gate admits the
+      // retained value here, so the row's absence is attributable to the live gate
+      // alone rather than to retention having been refused upstream of it.
+      retainedDraftCoachingOptionCount: 3,
+    })
+    renderPanel()
+
+    // The signal re-derives its own firing condition from the live graph, so
+    // widening the options removes the row whatever is retained. This is the
+    // property that makes retention honest here and nowhere else.
+    expect(screen.queryByTestId('pre-analysis-v3-signal-sig_option_breadth')).not.toBeInTheDocument()
+    expect(screen.queryByText(RETAINED_DETAIL)).not.toBeInTheDocument()
+  })
+
+  /**
+   * ⭐⭐ THE NARROWING TWIN — the direction the live gate does not bound.
+   *
+   * `optionCount >= 3` removes the row when the user WIDENS. Delete an option
+   * instead and the row still fires, at a count the retained sentence is now wrong
+   * about; and because `ceeOverride` REPLACES `copy.lead`/`copy.emphasis` rather
+   * than annotating them (`SignalRow.tsx`), the stale sentence would also suppress
+   * `optionBreadthOne`, which is the accurate line. This is the arm the widening
+   * twin above could not observe.
+   */
+  it('the retained sentence is refused once the user narrows, and the accurate live copy returns', () => {
+    useCanvasStore.setState({
+      nodes: useCanvasStore.getState().nodes.filter(n => n.id !== 'o2'),
+      draftCoaching: null,
+      retainedDraftCoaching: coaching(RETAINED_DETAIL) as never,
+      // Authored against TWO options; the graph now holds one.
+      retainedDraftCoachingOptionCount: 2,
+    })
+    // Preconditions, in-test: the graph really did narrow, and the two counts
+    // really do differ. Without these the arm would also pass on a graph that
+    // never changed, or on a fixture that failed to reach the panel at all.
+    expect(useCanvasStore.getState().nodes.filter(n => n.type === 'option')).toHaveLength(1)
+    expect(useCanvasStore.getState().retainedDraftCoachingOptionCount).toBe(2)
+    renderPanel()
+
+    const row = screen.getByTestId('pre-analysis-v3-signal-sig_option_breadth')
+    expect(
+      row,
+      'the frozen sentence asserts a two-option frame over a one-option graph',
+    ).not.toHaveTextContent(RETAINED_DETAIL)
+    expect(row, 'no CEE attribution, because no CEE text is being shown').not.toHaveTextContent(
+      'Olumi noticed',
+    )
+    expect(
+      row,
+      'the deterministic one-option copy is the accurate line and must not be suppressed',
+    ).toHaveTextContent('Only one option so far.')
+  })
+})
+
 describe('signal resolution', () => {
   it('a seen estimates signal resolves to a quiet confirmation when all are reviewed', () => {
     useSignalSessionStore.getState().markSeen(['sig_estimates'], 1)
@@ -513,8 +669,14 @@ describe('no silent failures (diagnose-and-fix pass)', () => {
   it('shows one visible shared-model authority explanation instead of a dead Save affordance', () => {
     renderPanel()
     expect(screen.getAllByTestId('pre-analysis-v3-authority-note')).toHaveLength(1)
+    /*
+     * The sentence names its subject as of 2026-09-10. It was
+     * `SHARED_MODEL_AUTHORITY_COPY`, which opens "Change this" — unambiguous
+     * while both hero fields were read-only, and newly false about the goal
+     * field once that field writes.
+     */
     expect(screen.getByTestId('pre-analysis-v3-authority-note')).toHaveTextContent(
-      'Change this through the Model tab or ask Olumi so the shared model stays in sync.',
+      'Set the success measure through the Model tab, or ask Olumi, so the shared model stays in sync.',
     )
     expect(screen.queryByRole('button', { name: 'Save success' })).not.toBeInTheDocument()
   })
@@ -975,6 +1137,96 @@ describe('Success-target nudge (V3)', () => {
     expect(sendChip).toHaveBeenCalledWith(
       'Define success with Olumi',
       'Help me define a measurable success target for this goal.',
+    )
+  })
+})
+
+/**
+ * ⭐ THE MOUNTED PROOF FOR `sig_option_differentiation`.
+ *
+ * The registry and selector suites prove the signal DETECTS. Neither proves it
+ * REACHES A USER: a row can be correct in the registry and never render,
+ * which is exactly the state this signal was written to fix (the pre-run
+ * validator's `IDENTICAL_OPTIONS_SUSPECTED` is computed and has no consumer on
+ * any live surface). So this asserts the sentence in the DOM of the real
+ * panel, seeded through the real store — not a detection object.
+ */
+describe('option differentiation reaches the mounted panel', () => {
+  /**
+   * ⚠⚠ SEEDED IN THE **FLAT** WIRE SHAPE, DELIBERATELY. THIS TEST ONCE SEEDED
+   * THE NESTED ONE AND THEREFORE COULD NOT SEE THE DEFECT IT WAS WRITTEN TO
+   * CATCH.
+   *
+   * `analysis_ready.options[].interventions` reaches this store as
+   * `Record<nodeId, number>` on every real CEE turn:
+   * `normaliseV5AnalysisReady` (`v5/applyV5State.ts:268-274`) maps `option_id`
+   * to `id` and passes `interventions` through UNCHANGED, unwrapping nothing.
+   * Measured 6/6 on the option-carrying live captures in
+   * `lib/coherence/__tests__/fixtures/captures/` and 7/7 in
+   * `v5/__tests__/fixtures/`. The nested `{ value }` form is real too, but it
+   * is the SAVED STARTER shape (5/5 in `docs/evidence/starters/raw/`).
+   *
+   * Seeding nested here meant the mounted proof exercised the starter path
+   * only, so the signal could be, and was, dark for every live user while this
+   * test stayed green. The flat arm below is the one that binds to the wire;
+   * the nested arm keeps the starter path pinned.
+   */
+  const flatOption = (id: string, label: string, values: Record<string, number>) => ({
+    id,
+    label,
+    status: 'ready' as const,
+    interventions: { ...values },
+  })
+
+  const nestedOption = (id: string, label: string, values: Record<string, number>) => ({
+    id,
+    label,
+    status: 'ready' as const,
+    interventions: Object.fromEntries(
+      Object.entries(values).map(([k, v]) => [k, { value: v, source: 'brief_extraction' }]),
+    ),
+  })
+
+  /** The shape measured on deployed staging: identical on all but one axis. */
+  const undifferentiated = (
+    make: (id: string, label: string, values: Record<string, number>) => unknown,
+  ) => [
+    make('o1', 'Hire a tech lead', { f1: 30, f2: 60, f3: 10, f4: 1 }),
+    make('o2', 'Hire two developers', { f1: 30, f2: 60, f3: 10, f4: 2 }),
+    make('o3', 'Hire a contractor', { f1: 30, f2: 60, f3: 10, f4: 3 }),
+    make('o4', 'Do nothing new', { f1: 30, f2: 60, f3: 10, f4: 4 }),
+  ]
+
+  const seed = (options: unknown[]) =>
+    useCanvasStore.setState({ ceeAnalysisReady: { options } } as never)
+
+  const SHAPE_ARMS: ReadonlyArray<
+    [string, (id: string, label: string, values: Record<string, number>) => unknown]
+  > = [
+    ['FLAT Record<nodeId, number> (live CEE turn)', flatOption],
+    ['NESTED Record<nodeId, {value}> (saved starter)', nestedOption],
+  ]
+
+  it.each(SHAPE_ARMS)('renders the finding on the %s payload, naming how many factors carry one value', (_name, make) => {
+    seed(undifferentiated(make))
+    renderPanel()
+    fireEvent.click(screen.getByTestId('pre-analysis-v3-sharpen-reveal'))
+    expect(screen.getByTestId('pre-analysis-v3-sharpen')).toHaveTextContent(
+      'Four of your options set the same value for 3 of the 4 factors they share.',
+    )
+  })
+
+  it('renders nothing about differentiation when the options genuinely differ', () => {
+    // The negative twin. Without it the assertion above could pass on a row
+    // that renders unconditionally. Flat shape, same as the live wire.
+    seed([
+      flatOption('o1', 'Hire a tech lead', { f1: 30, f2: 60 }),
+      flatOption('o2', 'Hire two developers', { f1: 55, f2: 20 }),
+    ])
+    renderPanel()
+    fireEvent.click(screen.getByTestId('pre-analysis-v3-sharpen-reveal'))
+    expect(screen.getByTestId('pre-analysis-v3-sharpen')).not.toHaveTextContent(
+      'set the same value for',
     )
   })
 })

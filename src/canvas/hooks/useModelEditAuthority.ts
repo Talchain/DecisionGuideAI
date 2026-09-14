@@ -121,23 +121,27 @@ import { factorHasConfirmableValue } from '../domain/valueProvenance'
 import { useOptionalConversationContext } from '../conversation/ConversationContext'
 import {
   useEdgeMutations,
+  type EdgeStrengthConfirmOutcome,
   useNodeMutations,
   type EdgeStrengthCommitOutcome,
 } from '../ui/inspector-v2/useInspectorMutations'
 import { buildFactorValueEditEvent } from '../conversation/factorValueEdit'
-import { buildEdgeStrengthEditEvent } from '../conversation/edgeStrengthEdit'
+import { buildEdgeStrengthEditEvent, buildEdgeStrengthConfirmEvent } from '../conversation/edgeStrengthEdit'
 import { captureOptimisticFactorEdit } from '../conversation/optimisticFactorEdit'
-import { buildManualGoalTarget, manualGoalTargetMessage } from '../conversation/manualGoalTarget'
+import {
+  buildManualGoalTarget,
+  goalTargetBoundPhrase,
+  manualGoalTargetMessage,
+} from '../conversation/manualGoalTarget'
+import type { ConstraintType } from '../../v5/chipParameters'
 import {
   buildOptionInterventionEditEvent,
   type OptionInterventionEditRefusal,
 } from '../conversation/optionInterventionEdit'
 import {
-  SEND_BLOCKED,
-  SEND_DEFERRED,
-  SystemEventSendError,
-} from '../conversation/useConversation'
-import { isProvenNoWriteConflict } from '../../v5/provenNoWriteConflict'
+  settleSystemEventSend,
+  type SystemEventSendSettlement,
+} from '../conversation/settleSystemEventSend'
 
 /**
  * How a proposal left this seam.
@@ -283,12 +287,14 @@ export type OptionInterventionProposalOutcome = 'dispatched' | OptionInterventio
  * written is the more dangerous half, because the user re-sends a number the
  * model might already hold.
  */
-export type OptionInterventionSendSettlement =
-  | 'sent'
-  | 'queued'
-  | 'blocked'
-  | 'refused'
-  | 'unverified'
+/**
+ * ⭐ RE-EXPORTED, NOT RE-SPELLED. The five members and the reasoning behind the
+ * `refused`/`unverified` split now live at `settleSystemEventSend`, because this
+ * is not a fact about option interventions — it is a fact about every
+ * `sendSystemEvent`. The old name is kept so no consumer has to move; new
+ * callers should import `SystemEventSendSettlement` directly.
+ */
+export type OptionInterventionSendSettlement = SystemEventSendSettlement
 
 /**
  * How an EDGE STRENGTH proposal left this seam.
@@ -336,12 +342,32 @@ export type OptionInterventionSendSettlement =
  */
 export type EdgeStrengthProposalOutcome = EdgeStrengthCommitOutcome | 'refused_unassertable'
 
+/**
+ * The outcome of ratifying a strength the server already holds.
+ *
+ * ⚠ NAMED APART FROM `EdgeStrengthProposalOutcome`, AND THE SPLIT IS THE POINT.
+ * That one answers *"will the server accept this NUMBER?"*; this answers *"did a
+ * statement of agreement leave?"* — and crucially it has NO `committed` member,
+ * because nothing is committed locally. See `proposeEdgeStrengthConfirmation`.
+ */
 export interface ModelEditAuthorityLive {
   goalTargetDispatchAvailable: boolean
   /** The host captures identity without gaining a separate store access path. */
   captureScenarioId: () => string | null
   /** Dispatch only: the central typed-action receipt owns the eventual write. */
-  proposeGoalTarget: (draft: string, unit: string, scenarioId: string | null) => 'dispatched' | 'not_encodable'
+  /**
+   * ⚠⚠ `direction` IS REQUIRED AND HAS NO DEFAULT. Which way a target is read
+   * is part of WHAT IS RECORDED, and a defaulted parameter would let a surface
+   * record a floor over a deadline-shaped goal without ever saying so — the
+   * defect measured on served `475ee1c7`. Every caller states its direction in
+   * its own source, where a reviewer can see it.
+   */
+  proposeGoalTarget: (
+    draft: string,
+    unit: string,
+    scenarioId: string | null,
+    direction: ConstraintType,
+  ) => 'dispatched' | 'not_encodable'
   proposeFactorValue: (typedValue: number) => FactorValueProposalOutcome
   /**
    * Set the ACTIVE OPTION's target value for one factor.
@@ -378,6 +404,14 @@ export interface ModelEditAuthorityLive {
    * ⚠ `directionStated` IS THE CALLER'S CLAIM ABOUT ITS OWN CONTROL and must
    * never be derived from `signedMean`'s sign. See the implementation.
    */
+  /**
+   * Ratify the strength the server already holds for this edge.
+   * Returns what happened to the STATEMENT, never a claim about the model.
+   */
+  proposeEdgeStrengthConfirmation: (
+    edgeId: string,
+    opts?: { onSendSettled?: (settlement: SystemEventSendSettlement) => void },
+  ) => EdgeStrengthConfirmOutcome
   proposeEdgeStrength: (
     edgeId: string,
     signedMean: number,
@@ -410,20 +444,29 @@ export function useModelEditAuthority(
   const sendSystemEvent = conversation?.sendSystemEvent
   const dispatchAction = conversation?.dispatchAction
 
-  const proposeGoalTarget = useCallback((draft: string, unit: string, scenarioId: string | null) => {
+  const proposeGoalTarget = useCallback((
+    draft: string, unit: string, scenarioId: string | null, direction: ConstraintType,
+  ) => {
     const state = useCanvasStore.getState()
     const node = state.nodes.find(n => n.id === activeNodeId)
     if (!node || resolveNodeTypeLiteral(node) !== 'goal' || !dispatchAction ||
         !scenarioId || state.currentScenarioId !== scenarioId) return 'not_encodable' as const
-    const parameters = buildManualGoalTarget(node.id, draft, unit)
+    const parameters = buildManualGoalTarget(node.id, draft, unit, direction)
     if (!parameters) return 'not_encodable' as const
     // Do not echo the draft into the store or claim saved on promise resolution.
     // Typed add_constraint uses CEE's existing validated proposal/commit path;
     // central response application owns both acceptance and refusal.
+    //
+    // ⚠⚠ THE LABEL SAID "minimum" WHILE THE DIRECTION WAS A PARAMETER NOBODY
+    // COULD SEE. It read `Set minimum target: …` unconditionally — the ONE
+    // place the word appeared outside the authority key's own name, and it is
+    // an action label, so it never reached a screen at all. It now names the
+    // bound it is actually recording, from the same `direction` the parameters
+    // and the message are built from: three expressions, one fact.
     void Promise.resolve(dispatchAction({
       action_type: 'add_constraint', parameters, source: 'inspector',
-      label: `Set minimum target: ${parameters.value} ${parameters.unit}`,
-      message: manualGoalTargetMessage(parameters.value, parameters.unit),
+      label: `Set target: ${goalTargetBoundPhrase(direction)} ${parameters.value} ${parameters.unit}`,
+      message: manualGoalTargetMessage(parameters.value, parameters.unit, direction),
     })).catch(() => { /* The conversation's existing failure channel owns this. */ })
     return 'dispatched' as const
   }, [activeNodeId, dispatchAction])
@@ -571,50 +614,7 @@ export function useModelEditAuthority(
       // Same reasoning, same option, as `usePanelApplyDrain` — "opting out of
       // the singleton sender's hidden queue means SEND_BLOCKED is returned while
       // a turn is busy, so there can never be a queued copy plus a later retry".
-      void Promise.resolve(sendSystemEvent(event, { deferIfBusy: false }))
-        .then(outcome => {
-          if (outcome === SEND_DEFERRED) return opts?.onSendSettled?.('queued')
-          if (outcome === SEND_BLOCKED) return opts?.onSendSettled?.('blocked')
-          return opts?.onSendSettled?.('sent')
-        })
-        .catch((err: unknown) => {
-          // ⚠ THE REJECTION IS READ, NOT ASSUMED. This reported `blocked` for
-          // every rejection on the reasoning that "a rejected send is a POST
-          // that failed" — true of a transport error and FALSE of everything
-          // else that lands here. `sendSystemEvent` rejects for BOTH, and the
-          // error it rejects with already distinguishes them: `kind` separates
-          // "nothing reached the server" from "the server received the turn and
-          // failed it", and `conflictCategory` is carried precisely because
-          // 'server' is too coarse to decide what a surface may claim.
-          //
-          // ⭐ AND THE NO-WRITE QUESTION IS ASKED BY THE ONE AUTHORITY THAT OWNS
-          // IT. `isProvenNoWriteConflict` is where this estate keeps "did the
-          // producer state it wrote nothing?", derived per category from the
-          // producer's own line. Re-deriving it here — from the status code,
-          // from `retryable: false`, or from what a category name suggests —
-          // is the twins defect that module was written to end, and its header
-          // names `INGRESS_CONTRACT_VIOLATION` as the exact trap.
-          if (err instanceof SystemEventSendError) {
-            if (err.kind === 'server') {
-              return opts?.onSendSettled?.(
-                isProvenNoWriteConflict(err.conflictCategory) ? 'refused' : 'unverified',
-              )
-            }
-            // ⚠ TRANSPORT DOES NOT PROVE NON-DELIVERY, EITHER HALF. `v5Adapter`
-            // catches any fetch rejection without observing whether the server
-            // accepted, and `responseRouter` derives `network` from a MISSING
-            // `http_status` — so a commit whose response is lost before headers
-            // reach the browser is indistinguishable from being offline. The
-            // uncertainty is retained rather than resolved by the absence of a
-            // bit nobody derived.
-            return opts?.onSendSettled?.('unverified')
-          }
-          // A rejection shape this seam does not recognise. It cannot prove
-          // non-delivery, so it must not claim it: the cannot-confirm line, not
-          // the confident one. The conversation's own failure channel still
-          // records the error; this only decides what the ROW says.
-          opts?.onSendSettled?.('unverified')
-        })
+      settleSystemEventSend(sendSystemEvent(event, { deferIfBusy: false }), opts?.onSendSettled)
       return 'dispatched'
     },
     [activeNodeId, sendSystemEvent],
@@ -733,6 +733,83 @@ export function useModelEditAuthority(
     [activeEdgeId, edgeMutations],
   )
 
+  /**
+   * ⭐⭐ "I AGREE WITH THIS ESTIMATE" — a first-class reasoning act, and until now
+   * one the product asked for and could not perform.
+   *
+   * ⛔⛔ IT WRITES NOTHING LOCALLY, AND THAT IS THE LOAD-BEARING DECISION.
+   * `proposeFactorConfirmation` above stamps `user_confirmed` on the store and
+   * returns `committed`. This must not, and the reason is exactly the one
+   * `ModelTabV2Panel`'s own header gives for rendering no `applied` phase: *"a
+   * row that showed 'applied' from its own echo would be an optimistic write
+   * wearing a confirmation."* Here that would be literal — the thing being
+   * claimed IS a confirmation, so stamping it before the server agrees would
+   * make the product assert that a person ratified a value on a turn that may
+   * still be refused. CEE owns this provenance (`confirm_current` is
+   * *"permission to stamp exactly two provenance fields"*); the canvas learns it
+   * from the response, or does not claim it.
+   *
+   * ⚠ SO `dispatched` MEANS A STATEMENT LEFT, NOT THAT IT LANDED, and no caller
+   * may render it as agreement recorded. That gap is real and it is increment
+   * 2's subject — the row cannot yet distinguish accepted from refused. Naming
+   * the outcome `dispatched` rather than `committed` is what keeps the gap
+   * VISIBLE instead of quietly closed by a hopeful word.
+   *
+   * ⚠ THE REFUSAL ASKS THE BUILDER, as `proposeEdgeStrength` does. An edge whose
+   * strength nothing proves the server stated cannot be confirmed — there is no
+   * `expected` tuple to ratify — and that is `refused_unassertable`, distinct
+   * from `no_carrier` (no conversation to send through) which is a fact about
+   * the session rather than about the edge.
+   */
+  const proposeEdgeStrengthConfirmation = useCallback(
+    (
+      edgeId: string,
+      opts?: {
+        /**
+         * Called once when the SENDER settles. Optional so existing call sites
+         * are unchanged; a caller that renders a pending state must pass it, or
+         * that state has no way to end.
+         */
+        onSendSettled?: (settlement: SystemEventSendSettlement) => void
+      },
+    ): EdgeStrengthConfirmOutcome => {
+      // Keyed to ONE edge, same fail-closed rule as `proposeEdgeStrength`: an id
+      // that is not the active edge is a caller holding the wrong authority.
+      if (activeEdgeId === null || edgeId !== activeEdgeId) return 'not_encodable'
+      const edge = useCanvasStore.getState().edges.find(e => e.id === edgeId)
+      if (!edge) return 'not_encodable'
+
+      const event = buildEdgeStrengthConfirmEvent({ edge })
+      if (!event) return 'refused_unassertable'
+      if (!sendSystemEvent) return 'no_carrier'
+
+      // ⛔⛔ THIS SEND USED TO BE SWALLOWED, AND THE COMMENT SAYING SO WAS WRONG
+      // IN THE ONE WAY THAT MATTERED. It read "swallowed HERE and resolved
+      // centrally, as the factor edit's send is" — true of the REVERT (there is
+      // nothing local to revert, which is still correct) and false as a claim
+      // about the USER BEING TOLD. Nothing central reports a refusal back to the
+      // surface that made the statement, so a server answer of "no" to the one
+      // act whose entire point is that the SERVER records it arrived nowhere.
+      //
+      // ⭐ OPTED OUT OF THE SENDER'S HIDDEN QUEUE, and the mechanism is derived
+      // at THIS event's bytes rather than borrowed from the sibling. The option
+      // carrier's reason is that a buffered copy keeps the `base_graph_hash`
+      // read at enqueue; `buildEdgeStrengthConfirmEvent` emits NO
+      // `base_graph_hash`, so that sentence does not transfer. What this event
+      // does carry is `expected`, read from the store at enqueue — so a deferred
+      // confirmation ratifies a value the model may no longer hold, and CEE
+      // refuses it as `edge_expected_tuple_mismatch`. Same conclusion, its own
+      // fence.
+      //
+      // And the half that holds for both regardless of mechanism: `SEND_DEFERRED`
+      // resolves BEFORE the turn exists, so `onSendSettled` would fire 'queued'
+      // for the last time and a row that entered it could never leave.
+      settleSystemEventSend(sendSystemEvent(event, { deferIfBusy: false }), opts?.onSendSettled)
+      return 'dispatched'
+    },
+    [activeEdgeId, sendSystemEvent],
+  )
+
   return {
     goalTargetDispatchAvailable: typeof dispatchAction === 'function',
     captureScenarioId: () => useCanvasStore.getState().currentScenarioId ?? null,
@@ -741,5 +818,6 @@ export function useModelEditAuthority(
     proposeOptionIntervention,
     proposeFactorConfirmation,
     proposeEdgeStrength,
+    proposeEdgeStrengthConfirmation,
   }
 }

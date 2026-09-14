@@ -113,9 +113,68 @@ export const typography = {
    * title from a metric value once both are near the floor size; dropping it to
    * 400 would buy no space and cost the hierarchy.
    */
-  nodeTitle: 'text-[length:calc(12px*var(--canvas-label-scale,1))] font-medium font-sans leading-tight',
-  nodeLabel: 'text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-tight',
-  edgeLabel: 'text-[length:calc(10px*var(--canvas-label-scale,1))] font-sans leading-tight',
+  /**
+   * ⭐⭐ RAISED TO THE DESIGN SYSTEM'S OWN FLOOR (12 Sep 2026) — 14/12/11, and
+   * every one of the three is now an EXISTING token's size rather than a
+   * bespoke canvas number: 14 = `label`/`bodySmall` (this file's stated
+   * "14px minimum"), 12 = `caption`, 11 = `panelMeta`. The canvas was the only
+   * surface in the product rendering below its own declared floor, and it did
+   * so at three sizes that existed nowhere else.
+   *
+   * ⚠⚠ THE 12px ABOVE WAS A COMPENSATION, NOT A PREFERENCE — read the history
+   * above before reverting this. A lane measured titles CLIPPING at 13px in a
+   * 288px card and concluded "the card was not too small; the type was too big
+   * for it". That was true GIVEN THE CARD IT HAD.
+   *
+   * ⛔ AND THE CAUSAL STORY THIS NOTE FIRST GAVE FOR *WHY* THE CARD COULD NOT
+   * GROW IS WITHDRAWN. It said the budget "was sized for a screen the camera
+   * could not fill", blaming `AUTO_FIT_MAX_ZOOM = 1`, and that this change
+   * "lands WITH that chain repaired". Both halves are wrong:
+   *
+   *   · the fit ceiling is UNCHANGED in behaviour. The mechanism that would
+   *     discriminate a degenerate box from a valid one is landed DORMANT and
+   *     fails closed — see `zoomLegibility.ts`. Nothing about the camera was
+   *     repaired here, and a note claiming otherwise would send the next reader
+   *     looking for a behaviour that does not exist.
+   *   · the budget was never a camera problem. It sat below the width at which
+   *     an eight-wide tier stops splitting, so three shipped starters laid out
+   *     PORTRAIT in a LANDSCAPE pane and were fitted on their HEIGHT. No camera
+   *     change can repair a portrait box.
+   *
+   * What actually moved: `CANONICAL_LAYOUT_WIDTH` 1185 -> 1482 (the packing
+   * cliff) and `NODE_CARD_MAX_W` 320 -> 336 (bounded by the first-view guard,
+   * not by the budget).
+   *
+   * ⭐ AND THE CLIPPING CLAIM IS MEASURED IN A REAL BROWSER, not counted in
+   * characters. `e2e/visual/nodeLabelFit.visual.spec.ts` at the 14px ramp:
+   *
+   *   compressed-branch measure 236px vs the widest of 194 corpus words
+   *   ("Cannibalization") needing 203.12px at max scale — 32.88px of margin
+   *
+   * An earlier version of this note estimated "~24 characters a line" and
+   * reasoned from it. That was the wrong instrument twice over: character count
+   * is not width (the spec's own negative control measured a 16-letter word
+   * NARROWER than a 13-letter one), and the bound that matters is the widest
+   * UNBREAKABLE RUN at max counter-scale, which no character estimate reaches.
+   *
+   * ⛔ RAISING THIS WITHOUT THE CARD WIDTH IS STILL THE THING NOT TO DO — the
+   * two constants are one decision — but the card could NOT go as wide as the
+   * type wanted. 400 was tried and `firstViewFraming.visual.spec.ts` refuted
+   * it: the options row rides the same stride, and at 1280x800 an option
+   * landed under the Outputs dock on 4 of the 5 starters. 336 passes, 360
+   * fails. The margin above is what makes 14px safe at 336 anyway.
+   *
+   * ⭐ AND IT IS SAFER BELOW THE LEGIBILITY FLOOR, which is the band the 12px
+   * argument turned on. Rendered = declared x 2 x zoom; at zoom 0.45,
+   * 14 x 2 x 0.45 = 12.6px against Design System v5 §2.4's 10px floor, where
+   * 12px gave 10.8px. `zoomLegibility.counterScale.spec.ts` pins that band.
+   *
+   * ⚠ WEIGHT STILL 500, for the reason the previous note gives: it is the only
+   * thing separating a title from a metric value, and size alone no longer is.
+   */
+  nodeTitle: 'text-[length:calc(14px*var(--canvas-label-scale,1))] font-medium font-sans leading-snug',
+  nodeLabel: 'text-[length:calc(12px*var(--canvas-label-scale,1))] font-sans leading-snug',
+  edgeLabel: 'text-[length:calc(11px*var(--canvas-label-scale,1))] font-sans leading-snug',
 
   // Results Panel — strict 3-size system (Brief 5.5 §2.1 lock)
   // Only these three tokens should be used inside src/components/results/

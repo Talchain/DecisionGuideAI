@@ -180,11 +180,18 @@ describe('drivers: presence licenses a claim, absence licenses nothing', () => {
     })
     expect(index.get('f9')!.driverLabel).toBeNull()
     // The shape offers no way to assert "not a driver" — the cap forbids it.
+    // ⚠ `mentions` ADDED, not loosened: this pin exists to REDs when the shape
+    // grows, and it did its job. The new field is the other sections of the
+    // panel that name this node (see `NodeInsight.mentions`); it is `[]` here
+    // because this fixture passes no `mentionSections`, which is the same
+    // "absence licenses nothing" rule the rest of this case is about.
     expect(Object.keys(index.get('f9')!).sort()).toEqual([
       'driverLabel',
       'findings',
+      'mentions',
       'withheldFindings',
     ])
+    expect(index.get('f9')!.mentions).toEqual([])
   })
 
   it('a driver the producer gave no target joins nothing rather than guessing', () => {

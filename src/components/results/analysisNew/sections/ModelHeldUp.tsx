@@ -36,6 +36,7 @@
 import { CheckCircle2 } from 'lucide-react'
 import { typography } from '../../../../styles/typography'
 import { ANALYSIS_NEW_COPY as COPY } from '../analysisNewCopy'
+import { surface } from '../panelSurfaces'
 
 export interface ModelHeldUpProps {
   /** The producer's robustness tone. */
@@ -130,7 +131,7 @@ export function ModelHeldUp({
 
   return (
     <section
-      className="rounded-lg border border-success/30 bg-success/[0.05] px-3 py-2.5"
+      className={surface('success')}
       data-testid={testId}
       aria-label={COPY.heldUp.title}
     >

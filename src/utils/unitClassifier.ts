@@ -144,6 +144,67 @@ export function classifyUnit(unit: string | null | undefined): { kind: UnitClass
 }
 
 /**
+ * ⭐⭐ UNIT SPELLINGS THAT STAND IN FOR "NO UNIT" WITHOUT BEING A SCALE.
+ *
+ * CEE's digit-string brief form mints `goal_threshold_unit: "count"` when the
+ * target is a plain number of things with no named unit — the wire type
+ * documents it (`adapters/cee/types.ts:587`, `e.g. "count", "USD"`). It is a
+ * sentinel, not a scale, and printing it gives the reader "800,000 count".
+ *
+ * ⚠ WHY THIS IS NOT A MEMBER OF `GENERIC_PLACEHOLDER_UNITS`, WHICH IS WHERE IT
+ * FIRST LOOKS LIKE IT BELONGS. That set answers a DIFFERENT question — "is this
+ * value on a normalised / qualitative scale?" — and roughly twenty consumers
+ * read it for that: the ×100 percent scaling, the qualitative-word branch in
+ * `canvas/utils/formatValueWithUnit` (which turns a 0-1 magnitude into "very
+ * high"), `usePreAnalysisData`'s `hasMeaningfulUnit`, `resolveEditorRawValue`'s
+ * seeding of an edit field, `OptionNode`'s directional label and
+ * `factorPriorRange`'s calibration gate. A `count` target of 800,000 IS a real
+ * magnitude on a real scale, so joining that set would flip semantics on those
+ * surfaces — a 0.8 count would start reading as "very high". Two questions
+ * under one name is this estate's trap 21; they are named apart instead.
+ *
+ * Only `count` is listed. `counts` is NOT included, deliberately: it has never
+ * appeared on the wire and would be a guess — the same rule
+ * `PERCENT_UNIT_SPELLINGS` states for `'per cent'`. A new spelling joins this
+ * set; it does not earn a new branch in a formatter.
+ */
+export const BARE_MAGNITUDE_UNITS: ReadonlySet<string> = new Set(['count'])
+
+/**
+ * ⭐⭐ THE ONE ANSWER TO "DOES THIS UNIT CONTRIBUTE A WORD THE READER SHOULD SEE?"
+ *
+ * False when the unit names no real-world scale, so the magnitude renders bare:
+ * no unit at all (`kind: 'none'`), a generic placeholder (`scale`, `index`,
+ * `score`, `norm`, `normalised`, `unit`, `units`), or a bare-magnitude sentinel
+ * (`count`). True for a currency symbol, an ISO code, percent, and every real
+ * unit (`months`, `customers`, `FTE`).
+ *
+ * ⚠ IT DECIDES WHETHER THE WORD APPEARS, NEVER HOW. Placement and number
+ * formatting stay with each surface's own composer, which is why the Model tab
+ * can keep echoing the producer's percent spelling ("20 percent") while
+ * `formatGoalTarget` renders the canonical glyph ("20%"). Converging the
+ * grammar as well would regress the ISO spacing fixed on 10 Sep 2026 and would
+ * round a fractional percent away.
+ *
+ * ⚠ `'count'` IS A SAME-NAMED TWIN IN THIS CODEBASE. `formatTargetValue`,
+ * `TornadoChart`, `baselineComparison` and `confidenceRangeLabels` compare a
+ * STRUCTURED unit KIND against `'count'` (`'currency' | 'percent' | 'count'`).
+ * That is a different value space from the unit STRING this function reads, and
+ * a grep for `'count'` hits both. Nothing here touches the kind.
+ *
+ * Before this existed the question was answered four times over, each by hand:
+ * `formatGoalTarget` (`=== 'count'`), `goalConstraintText` (`!== 'count'`),
+ * `NodeInspector` (`!== 'count'`), and `canvas/components/model-tab/utils`
+ * (`GENERIC_PLACEHOLDER_UNITS`, which omits `count`) — while the Model tab
+ * outline answered it not at all and appended every unit verbatim.
+ */
+export function unitIsDisplayable(unit: string | null | undefined): boolean {
+  const { kind } = classifyUnit(unit)
+  if (kind === 'none' || kind === 'placeholder') return false
+  return !BARE_MAGNITUDE_UNITS.has((unit ?? '').trim().toLowerCase())
+}
+
+/**
  * Count / headcount units — whole, countable things (developers, engineers,
  * people, …). Display formatters round these to whole numbers so a denormalised
  * value × cap (which can carry float-precision noise, e.g. 16.080000000000002)

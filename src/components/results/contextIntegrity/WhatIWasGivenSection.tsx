@@ -47,15 +47,62 @@
  * binding it to the arm the deployed flags switch off (CLAUDE.md trap 3b).
  */
 
-import { useState } from 'react'
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../../canvas/store'
+import {
+  factorValueAsTyped,
+  resolveValueInputSeed,
+} from '../../../canvas/conversation/factorValueEdit'
 import { useContextIntegrityStore } from '../../../canvas/stores/contextIntegrityStore'
-import type { NotModelledItem } from '../../../adapters/cee/notModelled'
+import type { InferredFactor, NotModelledItem } from '../../../adapters/cee/notModelled'
+import type { ModelBuildingNoticeRow } from '../../../canvas/conversation/modelBuildingNotices'
 import { ClampToggle } from '../ClampToggle'
 import { figureTallySubtitle } from './figureTallySubtitle'
+import { surface } from '../analysisNew/panelSurfaces'
+/**
+ * ⭐⭐ THE "Not modelled yet" PANE'S COPY AND ITS ONE ADMISSION RULE, IMPORTED.
+ *
+ * ROADMAP 2.1379. On a FIRST session this section has `manifest === null` and
+ * says so — correctly, and incompletely, because the same turn's chat bubble is
+ * already displaying *"Olumi left N things out of this model"* two panels away.
+ * The draft turn's own attestation now feeds this pane; the refusal stays and
+ * is re-scoped to the thing that genuinely cannot be shown.
+ *
+ * ⛔ WHICH kinds may appear under that heading is `KIND_OUTCOME`'s ruling,
+ * ASKED through `notModelledNoticeRows` and never re-spelled here. A predicate
+ * written at this call site would be a second answer, on one screen, to the
+ * question the bubble above already answers (trap 12).
+ */
+import {
+  NOT_MODELLED_NOTICES_COPY,
+  notModelledNoticeRows,
+} from './notModelledNotices'
+/**
+ * ⭐⭐ THE ONE CONTROL FOR THIS ACT, IMPORTED — NOT A SECOND ONE WRITTEN HERE.
+ *
+ * This control was authored inline in this file. It moved to
+ * `FactorValueControl` the moment a SECOND surface needed the same act (the
+ * Reasoning tab's "Model gaps the analysis worked around" rows, whose sentences
+ * end "Add its current value." and offered nothing to press). Nothing about its
+ * behaviour changed in the move: the positive node resolution, the
+ * no-carrier-no-control rule, the three-outcome mapping and the
+ * stays-open-on-refusal rule all travelled with it.
+ *
+ * Underneath, it still commits through `useFactorValueCommit` — the same hook
+ * the model strip and the driver influence chart use — which owns the parse
+ * rule and delegates to `useModelEditAuthority.proposeFactorValue`, which owns
+ * the SCALE contract, the optimistic local write and the undo. This surface
+ * supplies an identity and decides nothing else. A parallel writer, or a second
+ * copy of the control, is how two authorities under one name get created
+ * (CLAUDE.md trap 12/21).
+ */
+import {
+  FactorValueControl,
+  useAnyFactorValueControlOffered,
+} from '../analysisNew/FactorValueControl'
 
 /** Rows shown per group before "show all". Keeps the open state scannable. */
 const VISIBLE_ROWS = 6
@@ -91,12 +138,35 @@ const COPY = {
   // only what the derivation actually establishes: these numbers are ours.
   estimatedLead:
     "The numbers behind these are mine, not yours. If you have better ones, tell me and I'll use them.",
-  notYetHeading: 'Not modelled yet',
-  notYetLead: 'These are in your brief but not in the model. Ask about any that matter.',
+  /**
+   * ⭐ THE SENTENCE ABOVE LICENSES A COMPARISON — THIS IS THE HALF THE READER
+   * WAS NEVER SHOWN. "If you have better ones" is unanswerable while the row
+   * states only a name, so the number goes in the row.
+   *
+   * ⚠ SCREEN-READER ONLY. A sighted reader has the column, the lead sentence
+   * and the `Change this value` button beside it; a bare "8" announced after a
+   * factor's name has none of that. The visible text is the number alone, which
+   * is what keeps a four-row list scannable — this surface's standing complaint
+   * is that it reads as prose.
+   */
+  estimatedValuePrefix: 'Current value: ',
+  /**
+   * ⚠ THE "Not modelled yet" HEADING AND ITS TWO LEADS MOVED TO
+   * `notModelledNotices.ts` (ROADMAP 2.1379) AND ARE NOT RE-SPELLED HERE. The
+   * pane now has TWO sources — the manifest and the draft turn's attestation —
+   * whose leads differ on exactly one thing, ATTRIBUTION, and that difference
+   * is a ruling (#1524: the notices wire carries no per-item provenance). Two
+   * leads for one pane kept in two files is how the ruling gets edited out of
+   * one of them.
+   */
   consideredLead: 'I also considered these and left them out:',
-  caveatLead: 'This covers figures you mentioned. It does not yet track:',
-  unknown:
-    "I can't show this yet for this decision — so please don't read the absence as everything having made it in.",
+  // ⚠ SAME POPULATION CORRECTION AS THE SUBTITLE (ROADMAP 2.1000, 11 Sep 2026).
+  // This read "This covers figures you mentioned", which attributes the lists
+  // below to the user's own words. They are what CEE's quantity extractor found
+  // in the brief, and it misses forms it was never written for. A caveat whose
+  // whole job is to say "these lists are not exhaustive" may not open by
+  // misdescribing what they are lists OF. See `figureTallySubtitle.ts`.
+  caveatLead: 'This covers the figures I found in your brief. It does not yet track:',
   noBrief: "I don't have your original wording saved for this decision.",
   /**
    * ⚠ THIS LABEL SAID "Add this", AND THE PRODUCT COULD NOT DO IT. Derived
@@ -274,7 +344,7 @@ export function composeNotModelledQuestion(item: NotModelledItem, briefText: str
   // a neighbouring string, so the product now sends the string that was measured.
   const opening = `My brief mentions ${item.literal}, which is not in the model yet.`
   const context = sentence ? ` The brief says: "${sentence}"` : ''
-  return `${opening}${context} What could this figure influence in this decision, and where would it belong? Don't change the model yet — tell me the options first.`
+  return `${opening}${context} What could this figure influence in this decision, and where would it belong? Don't change the model yet. Tell me the options first.`
 }
 
 /**
@@ -290,9 +360,27 @@ interface TextRow {
 }
 
 /**
- * The unclamped text list — "what I estimated" and "I also considered these".
- * The two were byte-identical apart from their key, their testid and one
- * `data-` attribute, so they are one component parameterised by exactly those.
+ * The unclamped text list.
+ *
+ * ⚠⚠ IT USED TO SERVE BOTH "what I estimated" AND "I also considered these",
+ * AND THE TWO HAVE NOW DIVERGED ON PURPOSE. Superseded text: ~~The two were
+ * byte-identical apart from their key, their testid and one `data-` attribute,
+ * so they are one component parameterised by exactly those.~~
+ *
+ * "What I estimated" has its own component below because it carries an ACTION
+ * and this list must never acquire one. That is not a styling preference; it is
+ * the add ruling recorded in `COPY.addAction` — 15 arms over 5 rounds in which
+ * every add phrasing was refused by the live router. A "considered" item is one
+ * of the drafting model's OWN SENTENCES about what it set aside, not a node: it
+ * has no identity to bind an edit to and no value to set, so a control here
+ * would be the product inventing causality on the user's behalf.
+ *
+ * ⭐ SO THE DIVERGENCE IS THE SAFER SHAPE, not a duplication to be folded back.
+ * Keeping one parameterised component would have put an `onEdit?` prop on the
+ * list that renders the considered items — one flag away from the exact harm
+ * the ruling exists to prevent. Two components cannot be switched into each
+ * other's job by a truthy prop. A spec pins the inertness so this cannot drift
+ * back silently.
  *
  * `<ul>`/`<li>` rather than `<div>`: each block is a list of discrete facts and
  * that is what lets assistive tech announce how many there are. The
@@ -307,6 +395,181 @@ function TextRowList({ rows, testId }: { rows: readonly TextRow[]; testId: strin
         <li key={row.key} data-testid={`${testId}-row`} {...row.attrs} className={TEXT_ROW_CLASS}>
           {row.label}
         </li>
+      ))}
+    </ul>
+  )
+}
+
+/** The notices-fed rows, addressed by this prefix + their producer kind. */
+const NOTICES_TEST_ID = 'what-i-was-given-notyet-notices'
+
+/**
+ * The draft turn's attested omissions, as kinds and counts — ROADMAP 2.1379.
+ *
+ * ⛔ IT IS INERT, AND THE INERTNESS IS THE RULING, NOT A SIMPLIFICATION.
+ * `details_redacted` is a literal `true`: the producer sends aggregate counts
+ * per kind and nothing else. There is no literal, no char offset and no node
+ * id, so `composeNotModelledQuestion` has nothing to compose and a "Where does
+ * this fit?" button here would be a control that cannot do anything. This
+ * panel's standing rule is that we never render one. `TextRowList` is not
+ * reused because its rows carry a `label` and these carry a label AND a
+ * quantity — and because that component's own header records why a list which
+ * must never acquire an action is kept apart from one that has one.
+ *
+ * ⚠ THE COUNT IS A TRAILING PARENTHETICAL, matching the chat bubble on the same
+ * payload. The reason is recorded there: a leading numeral reads "1 Details
+ * that nothing connected to your goal" whenever a group holds one item, and
+ * `total_count: 1` is the most likely draft of all. The description is a
+ * CATEGORY LABEL with fixed grammatical number, so nothing prefixed to it can
+ * agree at both 1 and n.
+ *
+ * ⚠ THE KIND RIDES A `data-` ATTRIBUTE AND IS NEVER RENDERED AS TEXT — the
+ * same posture as `ModelBuildingNoticesNotice`, and what lets a test bind a row
+ * to its subject BY IDENTITY rather than by a string another row could produce.
+ */
+function NoticeRowList({ rows }: { rows: readonly ModelBuildingNoticeRow[] }) {
+  return (
+    <ul className={LIST_CLASS} data-testid={NOTICES_TEST_ID}>
+      {rows.map((row) => (
+        <li
+          key={row.kind}
+          data-testid={`${NOTICES_TEST_ID}-row`}
+          data-notice-kind={row.kind}
+          className={TEXT_ROW_CLASS}
+        >
+          {row.description} <span className="text-text-body">({row.count})</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** Every control in the estimated list is addressed by this prefix + node id. */
+const ESTIMATED_TEST_ID = 'what-i-was-given-estimated'
+
+/**
+ * One "what I estimated" row: the factor's name, and — where it would actually
+ * do something — a control that sets its value.
+ *
+ * ── WHY THIS IS AN EDIT AND NOT THE REFUSED ADD ────────────────────────────
+ * `COPY.addAction` records that every ADD phrasing was refused by the live
+ * router, and that the CONTROL which applied was *"the estate's proven edit
+ * grammar ('Change X to Y.', target derived from THIS run's graph by
+ * identity)"*. An estimated factor is already a node: CEE sends its `node_id`
+ * in the manifest, so the target is derived by identity and nothing is guessed.
+ * This is that control, not that refusal.
+ *
+ * ── ⚠ WHY PRESENCE IN THE GRAPH IS CHECKED AND NOT ASSUMED ─────────────────
+ * The manifest is a COLD-READ SNAPSHOT. `serverGraphHydration` writes it BEFORE
+ * it merges the server graph onto the canvas, and the hydration "attempts ONCE
+ * PER SCENARIO ID, so it never self-corrects". Three reachable schedules leave
+ * it describing nodes the canvas does not hold — a REFUSED merge (`zeroOverlap`
+ * proves the two id sets disjoint), a structural delete (every `deleteNodeById`
+ * filters `nodes` and touches no manifest), and the `unchanged` short-circuit
+ * after a local edit. All three sit INSIDE one scenario, so the section's
+ * scenario-identity gate passes straight through them: matching the decision
+ * does not imply matching the node.
+ *
+ * ⭐ THE ID IS STILL SAFE TO BIND BY, and the reason is the SHAPE of the lookup
+ * rather than the reliability of the id: `proposeFactorValue` resolves with an
+ * EXACT `nodes.find(n => n.id === activeNodeId)` and answers `not_encodable` on
+ * a miss. There is no fuzzy match, so a divergent id cannot address a DIFFERENT
+ * factor — the failure mode is "nothing happens", never "the wrong number was
+ * overwritten". What it would leave behind is a button that does nothing, and
+ * this component's rule is that we never render one. Hence a POSITIVE
+ * resolution, the same shape as the section's own identity gate.
+ *
+ * The ROW still renders when the node is missing. The estimate was genuinely
+ * made and the reader is entitled to see it; only the action goes.
+ */
+function EstimatedFactorRow({ factor }: { factor: InferredFactor }) {
+  /**
+   * ⭐⭐ THE NUMBER THIS ROW IS ASKING THE READER TO BETTER.
+   *
+   * ⚠⚠ THE SCALE RULE IS IMPORTED, NEVER RE-DERIVED. `resolveValueInputSeed`
+   * is the module's own "single definition of what the value input shows and
+   * what scale that number is in", already the authority for four surfaces. A
+   * `raw_value ?? value` written here would be a fifth spelling of the scale
+   * contract (CLAUDE.md trap 12) — and the dangerous kind, because the number
+   * in the row would disagree with the field one element to its right.
+   *
+   * ⛔ THIS IS THE ROW, NOT THE FIELD, AND THE DISTINCTION IS A RULING.
+   * `FactorValueControl` opens its input EMPTY on purpose: *"seeding would
+   * invite the reader to nudge OUR number rather than state THEIRS, which is
+   * the whole point of the act."* That ruling governs the reader's STATEMENT.
+   * This governs the product's DISCLOSURE — the thing "if you have better
+   * ones" is measured against. Two questions, named apart, not aligned
+   * (CLAUDE.md trap 21). `estimatedCurrentValue.spec.tsx` pins BOTH halves, so
+   * a later seat reading this as licence to seed the field turns it RED.
+   *
+   * ⛔ AND IT IS NOT A RANGE. `factorPriorRange.ts` suppresses the printed
+   * range on an ignorance prior, quoting CEE: *"instead of printing a bare
+   * `Range: 0 to 1`"* — and every factor in a drafted model carries exactly
+   * that prior. A value is not a range and asserts nothing about one.
+   *
+   * ⚠ A PRIMITIVE SELECTOR. It returns a `string | undefined`, which compares
+   * by value; a selector returning the node or the seed OBJECT would allocate a
+   * new reference on every store update and re-render this row on every
+   * unrelated canvas change. `FactorValueControl` states the same rule for its
+   * own three selectors.
+   */
+  const currentValue = useCanvasStore((s) => {
+    const node = Array.isArray(s.nodes) ? s.nodes.find((n) => n.id === factor.nodeId) : undefined
+    if (node === undefined) return undefined
+    const { seed } = resolveValueInputSeed(node.data)
+    return seed === undefined || !Number.isFinite(seed) ? undefined : factorValueAsTyped(seed)
+  })
+  return (
+    <li
+      data-testid={`${ESTIMATED_TEST_ID}-row`}
+      data-node-id={factor.nodeId}
+      className={ACTION_ROW_CLASS}
+    >
+      <span className="flex min-w-0 items-baseline gap-2">
+        <span className={`${typography.panelBody} text-text-body`}>{factor.label}</span>
+        {/* ⭐⭐ THE NUMBER THE LEAD SENTENCE IS TALKING ABOUT.
+            ⚠ ABSENT MEANS ABSENT. No `0`, no dash, no empty element — the
+            manifest is a COLD-READ SNAPSHOT and can list a factor the canvas
+            does not hold, and stating a figure for one of those would be a
+            claim we cannot support. */}
+        {currentValue !== undefined && (
+          <span
+            data-testid={`${ESTIMATED_TEST_ID}-current-value`}
+            data-node-id={factor.nodeId}
+            className={`${typography.panelMeta} flex-none text-text-light`}
+          >
+            <span className="sr-only">{COPY.estimatedValuePrefix}</span>
+            {currentValue}
+          </span>
+        )}
+      </span>
+      {/* ⭐ THE CONTROL MOVED OUT AND NOTHING ABOUT IT CHANGED. It is the same
+          component the Reasoning tab's gap rows now use — the node resolution,
+          the conversation gate, the three-outcome mapping and the
+          stays-open-on-refusal rule all travelled with it. Keeping a second
+          copy here once a second surface needed the same act is how one act
+          becomes two spellings (trap 12). */}
+      <FactorValueControl
+        nodeId={factor.nodeId}
+        label={factor.label}
+        testIdPrefix={ESTIMATED_TEST_ID}
+      />
+    </li>
+  )
+}
+
+/**
+ * "What I estimated" — the one list on this panel that carries an action.
+ *
+ * Keyed by `nodeId`: CEE's own identity for the factor, never the label. Two
+ * factors can share a label; they cannot share a node id, and the id is what
+ * the edit is addressed to.
+ */
+function EstimatedFactorList({ items }: { items: readonly InferredFactor[] }) {
+  return (
+    <ul className={LIST_CLASS} data-testid={ESTIMATED_TEST_ID}>
+      {items.map((factor) => (
+        <EstimatedFactorRow key={factor.nodeId} factor={factor} />
       ))}
     </ul>
   )
@@ -381,14 +644,190 @@ export interface WhatIWasGivenSectionProps {
   /** Starts the conversation to add an unmodelled figure. When absent, no
    *  action is offered — we never render a button that does nothing. */
   onSendMessage?: (text: string) => void
+  /**
+   * ⭐⭐ OPT IN TO THE ANALYSIS (NEW) CONTAINER GRAMMAR. **Default `false`, and
+   * the default is the whole design of this prop.**
+   *
+   * This component has TWO consumers: `AnalysisNewTabBody` (the Reasoning tab)
+   * and `ResultsBody` (the **PARKED** Analysis tab). Paul's scope ruling puts
+   * the Analysis tab out of bounds, so this may not change how that surface
+   * renders — not "probably won't", *may not*. An unflagged change here would
+   * be a change to a parked surface wearing a Reasoning-tab commit message.
+   *
+   * ── WHY IT IS WORTH A PROP AT ALL ──────────────────────────────────────
+   * Seen on the deployed Reasoning tab, this section is the single most jarring
+   * instance of the inconsistency Paul named. Three sections sit at the same
+   * level and one of them wears a box:
+   *
+   *     What would change your mind        3  ›     ← borderless row
+   *     ┌────────────────────────────────────┐
+   *     │ What you gave me, and what I did … │      ← BOXED
+   *     └────────────────────────────────────┘
+   *     Strengthen the reasoning           1  ›     ← borderless row
+   *
+   * A measurement said it was a fourth container treatment (14px radius,
+   * `6px 12px` padding, against the boxes' 14px/`10px 12px` and the ribbon's
+   * 12px/`6px 8px`). LOOKING said it was the worst one — because its two
+   * NEIGHBOURS are the thing it disagrees with, and neighbours are what a
+   * reader compares.
+   */
+  useSurfaceGrammar?: boolean
+  /**
+   * ⭐⭐ OFFER THE INLINE VALUE CONTROL ON "what I estimated". **Default
+   * `false`, and the default is deliberate, for the same reason
+   * `useSurfaceGrammar`'s is.**
+   *
+   * This component has TWO consumers: `AnalysisNewTabBody` (the Reasoning tab)
+   * and `ResultsBody` (the **PARKED** Analysis tab). Paul's scope ruling is
+   * Reasoning and Model ONLY, so an unflagged change here would put a new
+   * writer on a parked surface wearing a Reasoning-tab commit message.
+   *
+   * ⚠ IT IS A SEPARATE PROP FROM `useSurfaceGrammar` ON PURPOSE. That one
+   * answers *"which container grammar does this section wear?"*; this one
+   * answers *"may this surface offer a shared-model edit?"*. Two questions
+   * under one name is this estate's signature defect (CLAUDE.md trap 21), and
+   * folding the second into the first would mean a future grammar change
+   * silently switched a writer on.
+   *
+   * ── WHY AN ACTION IS HONEST HERE AT ALL ────────────────────────────────
+   * The header above says none is offered in "what I estimated", and for an
+   * ADD that ruling stands — `COPY.addAction` records 15 refused arms. This is
+   * not an add. These factors are already nodes, CEE sends their `node_id`, and
+   * a value edit on an identified node is the ruling's own working CONTROL. The
+   * row-level component states the full derivation, including the premise that
+   * did NOT hold and what is checked instead.
+   */
+  offerEstimatedValueControl?: boolean
 }
 
-export function WhatIWasGivenSection({ onSendMessage }: WhatIWasGivenSectionProps = {}) {
+/**
+ * ⭐⭐ THE ONE ANSWER TO "CAN AN ESTIMATE BE CORRECTED ON THIS PANEL RIGHT NOW?"
+ *
+ * Read by this section (to decide whether it has an act to lend) and by
+ * `AnalysisNewTabBody` (to decide whether the withheld-designation refusal can
+ * be answered in page instead of on the Model tab). ONE hook, because a second
+ * derivation would let the refusal advertise an act this register declines to
+ * offer — and the two surfaces are two sections apart, so nobody would see it.
+ *
+ * ⚠ THE ACTIONABILITY CONJUNCTS ARE NOT RE-SPELLED HERE. They are
+ * `FactorValueControl`'s own rule, asked through `useAnyFactorValueControlOffered`.
+ * This hook adds only the thing the CONTROL cannot know: whether this manifest
+ * describes the decision currently on screen.
+ *
+ * ⚠ AND IT IS NOT THE SECTION'S RENDER GATE. That asks *"may I SHOW this
+ * decision's content?"* and is satisfied in plenty of states where no row is
+ * actionable — a manifest with no inferred factors, a refused merge, no
+ * carrier. Two questions, named apart (trap 21); they share one conjunct and
+ * that conjunct has one home.
+ */
+export function useEstimatedValueActIsAvailable(enabled: boolean): boolean {
+  const recordedScenarioId = useContextIntegrityStore((s) => s.scenarioId)
+  const manifest = useContextIntegrityStore((s) => s.manifest)
+  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+  const estimatedRows = useMemo(
+    () => (manifest?.inferredFactors.items ?? []).map((f) => ({ nodeId: f.nodeId, label: f.label })),
+    [manifest],
+  )
+  const anyRowIsActionable = useAnyFactorValueControlOffered(estimatedRows, enabled)
+  return (
+    anyRowIsActionable &&
+    typeof recordedScenarioId === 'string' &&
+    recordedScenarioId === currentScenarioId
+  )
+}
+
+/**
+ * What a host may ask this panel to do.
+ *
+ * ⚠ THE SHAPE IS `focusModelTarget`'s, DELIBERATELY — a resolver that REPORTS
+ * WHETHER IT RESOLVED, which `AnalysisNewTabBody` already honours at its
+ * `focusTarget` call site. A void reveal would leave the caller unable to tell
+ * "revealed" from "there was nothing to reveal", and its fallback would have to
+ * guess.
+ */
+export interface WhatIWasGivenSectionHandle {
+  /**
+   * Open the register at "What I estimated" and put the act in view.
+   *
+   * @returns whether an act was actually revealed. `false` means this panel is
+   * offering none right now — the caller must fall back rather than leave the
+   * reader pressing a control that did nothing.
+   */
+  revealEstimatedValueAct: () => boolean
+}
+
+export const WhatIWasGivenSection = forwardRef<
+  WhatIWasGivenSectionHandle,
+  WhatIWasGivenSectionProps
+>(function WhatIWasGivenSection(
+  { onSendMessage, useSurfaceGrammar = false, offerEstimatedValueControl = false },
+  ref,
+) {
   const [open, setOpen] = useState(false)
   const recordedScenarioId = useContextIntegrityStore((s) => s.scenarioId)
   const briefText = useContextIntegrityStore((s) => s.briefText)
   const manifest = useContextIntegrityStore((s) => s.manifest)
+  /**
+   * ⭐ THE DRAFT TURN'S OWN ATTESTATION — the only answer this pane has on a
+   * first session, and the one the chat bubble two panels up is already
+   * rendering. `null` means no attestation was supplied, NEVER "nothing was
+   * left out": the producer's contract cannot encode zero.
+   */
+  const draftNotices = useContextIntegrityStore((s) => s.modelBuildingNotices)
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
+
+  /**
+   * ⭐⭐ THE ACT THIS PANEL LENDS TO THE REFUSAL ABOVE IT — 11 Sep 2026.
+   *
+   * `AtAGlance` renders CEE's withheld-designation refusal, whose sentence names
+   * its own remedy ("until you have set at least one of them"), and the act
+   * beside it routed the reader to the MODEL TAB because on 10 Sep the estimates
+   * could be reached from nowhere else. The next morning this register acquired
+   * the same act, two sections below that button. `AnalysisNewTabBody` composes
+   * the two; this is the half the register owns.
+   *
+   * ⚠ THE AVAILABILITY QUESTION IS `FactorValueControl`'S OWN, ASKED THROUGH ITS
+   * OWN RULE — never a predicate re-spelled here. If the control would decline
+   * to render for every row, this panel has no act to lend and says so.
+   *
+   * ⚠ IT IS NOT THIS SECTION'S RENDER GATE, AND THE TWO MUST NOT BE FOLDED.
+   * `isForCurrentDecision` below answers *"may I SHOW this decision's
+   * content?"*; this answers *"is there an ACT here to send a reader to?"*. The
+   * register renders truthfully and usefully in plenty of states where no row is
+   * actionable — a manifest with no inferred factors, a refused merge, no
+   * carrier. One predicate where two belong is trap 21.
+   *
+   * ⚠ DECLARED BEFORE THE EARLY RETURNS, because hooks must be. A section that
+   * gates itself out still registers a handle, and that handle answers `false`
+   * — which is exactly right: the caller learns there is nothing here and falls
+   * back, rather than pressing a control that does nothing.
+   */
+  const scenarioMatches =
+    typeof recordedScenarioId === 'string' && recordedScenarioId === currentScenarioId
+  const estimatedActIsAvailable = useEstimatedValueActIsAvailable(offerEstimatedValueControl)
+  const estimatedBlockRef = useRef<HTMLDivElement>(null)
+  useImperativeHandle(
+    ref,
+    () => ({
+      revealEstimatedValueAct: () => {
+        if (!estimatedActIsAvailable) return false
+        // The whole register is behind the disclosure, so revealing the act
+        // means opening it. Setting it open when it already is, is a no-op.
+        setOpen(true)
+        // ⚠ AFTER THE DISCLOSURE HAS RENDERED — the block is not in the DOM on
+        // the frame the press happens. Optional at both hops: `scrollIntoView`
+        // is unimplemented in jsdom, and a reveal that cannot scroll has still
+        // revealed.
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(() => {
+            estimatedBlockRef.current?.scrollIntoView?.({ block: 'nearest' })
+          })
+        }
+        return true
+      },
+    }),
+    [estimatedActIsAvailable],
+  )
 
   // ── THE IDENTITY GATE — read the store's header before touching this ───────
   //
@@ -411,8 +850,13 @@ export function WhatIWasGivenSection({ onSendMessage }: WhatIWasGivenSectionProp
   // and the draft turn records a fresh decision's brief — neither is this
   // component's), and inventing one here would race the boot path. Silence is
   // the honest answer; the previous decision's brief never is.
-  const isForCurrentDecision =
-    typeof recordedScenarioId === 'string' && recordedScenarioId === currentScenarioId
+  // ⚠ BOUND ONCE, AS `scenarioMatches` ABOVE — 11 Sep 2026.
+  // `useEstimatedValueActIsAvailable` applies the same conjunct for the ACT it
+  // lends to the refusal two sections up, and two spellings of "is this content
+  // for the decision on screen?" is how a panel comes to gate its RENDER on one
+  // answer and its ACT on another (trap 12). The two QUESTIONS stay distinct —
+  // see that hook's header — but this conjunct is one conjunct.
+  const isForCurrentDecision = scenarioMatches
   if (!isForCurrentDecision) return null
 
   if (briefText === null && manifest === null) return null
@@ -454,13 +898,33 @@ export function WhatIWasGivenSection({ onSendMessage }: WhatIWasGivenSectionProp
    */
   const subtitle = figureTallySubtitle(tally)
 
+  /**
+   * ⭐⭐ WHAT "Not modelled yet" CAN SAY WHEN THE MANIFEST SAYS NOTHING.
+   *
+   * ⚠ ONE CONDITION, ASKED ONCE, AND THAT IS WHAT MAKES THE RE-SCOPED REFUSAL'S
+   * CLOSING POINTER TRUE BY CONSTRUCTION. `notModelledNoticeRows` applies
+   * `KIND_OUTCOME` — so an attestation whose every kind is still IN the model
+   * yields zero rows, and this pane behaves exactly as if none had arrived. A
+   * flag keyed on "did a payload arrive?" instead would point the reader at an
+   * empty space (trap 13b: a guard whose precondition nothing pins).
+   */
+  const noticeRows = notModelledNoticeRows(draftNotices)
+
   const addMessage = (item: NotModelledItem) =>
     onSendMessage?.(composeNotModelledQuestion(item, briefText))
 
   return (
     <section
       data-testid="what-i-was-given-section"
-      className="rounded-lg border border-panel-border bg-panel px-3 py-1.5"
+      /* ⚠ THE FILL IS KEPT IN BOTH MODES. `surface('neutral')` carries no fill,
+         and this section sits directly on the panel — without `bg-panel` the
+         open state shows the page through it. The grammar governs GEOMETRY;
+         the fill is this section's own and is unaffected by the choice. */
+      className={
+        useSurfaceGrammar
+          ? `${surface('neutral')} bg-panel`
+          : 'rounded-lg border border-panel-border bg-panel px-3 py-1.5'
+      }
     >
       <button
         type="button"
@@ -503,12 +967,49 @@ export function WhatIWasGivenSection({ onSendMessage }: WhatIWasGivenSectionProp
           </div>
 
           {tally === null ? (
-            <p
-              data-testid="what-i-was-given-unknown"
-              className={`${typography.panelBody} text-text-light`}
-            >
-              {COPY.unknown}
-            </p>
+            <>
+              {/* ⛔ THE REFUSAL IS KEPT. IT IS NOT DELETED AND IT DOES NOT FALL
+                  SILENT — this file's header rules that `manifest === null`
+                  must refuse EXPLICITLY, "never an empty list, and never
+                  silence", because both read as "everything made it in".
+
+                  ⭐ WHAT CHANGED IS ITS SCOPE. The unqualified sentence claims
+                  we can show nothing, and on a fresh draft that was false: the
+                  chat bubble two panels above is already displaying this same
+                  turn's omission count. The re-scoped twin refuses exactly what
+                  the manifest would have answered — which of the reader's own
+                  figures reached the model — and then points at what is there.
+                  Both strings live in `notModelledNotices.ts` and are asserted
+                  whole, because a refusal replaced by `''` passes every
+                  `not.toMatch` written about it. */}
+              <p
+                data-testid="what-i-was-given-unknown"
+                className={`${typography.panelBody} text-text-light`}
+              >
+                {noticeRows.length > 0
+                  ? NOT_MODELLED_NOTICES_COPY.unknownWithNotices
+                  : NOT_MODELLED_NOTICES_COPY.unknown}
+              </p>
+
+              {/* ── 4. Not modelled yet, from the draft turn's own attestation ──
+                  The ONLY answer a first session has. No act: the producer
+                  redacted the items, so there is nothing to name and nothing
+                  to compose a question about — see `NoticeRowList`. */}
+              {noticeRows.length > 0 && (
+                <div>
+                  <h4 className={`${typography.panelHeader} text-text-header`}>
+                    {NOT_MODELLED_NOTICES_COPY.heading}
+                  </h4>
+                  <p
+                    data-testid={`${NOTICES_TEST_ID}-lead`}
+                    className={`${typography.panelMeta} text-text-light`}
+                  >
+                    {NOT_MODELLED_NOTICES_COPY.noticesLead}
+                  </p>
+                  <NoticeRowList rows={noticeRows} />
+                </div>
+              )}
+            </>
           ) : (
             <>
               {/* ── 2. What I used ── */}
@@ -525,9 +1026,15 @@ export function WhatIWasGivenSection({ onSendMessage }: WhatIWasGivenSectionProp
               {notYet.length > 0 && (
                 <div>
                   <h4 className={`${typography.panelHeader} text-text-header`}>
-                    {COPY.notYetHeading}
+                    {NOT_MODELLED_NOTICES_COPY.heading}
                   </h4>
-                  <p className={`${typography.panelMeta} text-text-light`}>{COPY.notYetLead}</p>
+                  {/* ⚠ THE MANIFEST-FED LEAD, WHOSE POSSESSION CLAIM IS EARNED:
+                      these rows ARE figures found in the reader's brief. The
+                      notices-fed twin above is not entitled to it — see
+                      `notModelledNotices.ts`. Two leads, one pane, one file. */}
+                  <p className={`${typography.panelMeta} text-text-light`}>
+                    {NOT_MODELLED_NOTICES_COPY.manifestLead}
+                  </p>
                   <Rows
                     items={notYet}
                     testId="what-i-was-given-notyet"
@@ -540,19 +1047,30 @@ export function WhatIWasGivenSection({ onSendMessage }: WhatIWasGivenSectionProp
 
           {/* ── 3. What I estimated — the trust-critical one ── */}
           {estimated.length > 0 && (
-            <div>
+            /* ⭐ THE SCROLL ANCHOR for `revealEstimatedValueAct`: a reader sent
+               here from the refusal above lands on the heading, not on the top
+               of a register they then have to search. */
+            <div ref={estimatedBlockRef}>
               <h4 className={`${typography.panelHeader} text-text-header`}>
                 {COPY.estimatedHeading}
               </h4>
               <p className={`${typography.panelMeta} text-text-light`}>{COPY.estimatedLead}</p>
-              <TextRowList
-                testId="what-i-was-given-estimated"
-                rows={estimated.map((f) => ({
-                  key: f.nodeId,
-                  label: f.label,
-                  attrs: { 'data-node-id': f.nodeId },
-                }))}
-              />
+              {/* ⭐ THE ACTION IS OPT-IN AND ONLY THE REASONING TAB OPTS IN —
+                  see the prop's declaration. `ResultsBody` (the PARKED Analysis
+                  tab) mounts the same component and keeps the inert list it
+                  has. */}
+              {offerEstimatedValueControl ? (
+                <EstimatedFactorList items={estimated} />
+              ) : (
+                <TextRowList
+                  testId={ESTIMATED_TEST_ID}
+                  rows={estimated.map((f) => ({
+                    key: f.nodeId,
+                    label: f.label,
+                    attrs: { 'data-node-id': f.nodeId },
+                  }))}
+                />
+              )}
             </div>
           )}
 
@@ -582,4 +1100,4 @@ export function WhatIWasGivenSection({ onSendMessage }: WhatIWasGivenSectionProp
       )}
     </section>
   )
-}
+})

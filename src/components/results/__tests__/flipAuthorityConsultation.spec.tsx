@@ -150,7 +150,7 @@ describe('SURFACE 2 — the Strengthen flip rec consults the flip authority', ()
   it('ANTI-VACUITY: with flip-bearing evidence the rec IS produced, carrying the claim', () => {
     const r = flipRec({ ...strengthenBase, flipThresholds: FLIPPING_ROWS, hasLeadingOption: true })
     expect(r).toBeDefined()
-    expect(r!.signal).toContain('chance the result flips to')
+    expect(r!.signal).toContain('scores highest instead')
     expect(r!.signal).toContain(ALT)
   })
 

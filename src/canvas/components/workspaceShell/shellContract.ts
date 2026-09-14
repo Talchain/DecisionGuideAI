@@ -370,7 +370,13 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
    * reasoning-led IA (Key insights · Strengthen the reasoning · Drivers and
    * dynamics · Uncertainty and gaps), so the existing Analysis surface and this
    * one can be compared directly on one scenario. `results` above is UNCHANGED
-   * and stays the default tab; this row is purely additive.
+   * as a SURFACE; this row was purely additive.
+   *
+   * ⚠ ITS DEFAULT-TAB CLAUSE IS SUPERSEDED (Paul, 9 Sep 2026). This header used
+   * to end *"`results` … stays the default tab"*, which was true when written
+   * and is now false: `DEFAULT_WORKSPACE_SURFACE` below is `analysisNew`. The
+   * sentence is corrected rather than deleted, because a reader who remembers
+   * the old rule needs to see that it moved and when.
    *
    * Sits directly after `results` so the two surfaces under comparison are
    * adjacent in the strip — the same placement rule the retired 'Alt view'
@@ -494,6 +500,40 @@ export const WORKSPACE_SURFACE_ORDER: readonly OutputTab[] = [
   'diagnostics',
   'journey',
 ]
+
+/**
+ * THE SURFACE A SESSION OPENS ON WHEN NOBODY HAS CHOSEN ONE.
+ *
+ * RULING (Paul, 9 Sep 2026): a fresh, unchosen session lands on **Reasoning**.
+ * It previously landed on Analysis — measured on the deployed build, where
+ * `outputs-dock-tab-results` carried `aria-selected="true"` for a fresh
+ * individual — and Analysis is the surface ruled OUT of scope for this work.
+ *
+ * ⚠⚠ READ THE THREE THINGS THIS IS NOT, BECAUSE THE DOCK HELD **EIGHT**
+ * `'results'` LITERALS AND ONLY SOME OF THEM MEANT "the default".
+ *
+ *  1. NOT `useUIStore.activeOutputTab`'s initial value (`uiStore.ts`), which is
+ *     still `'results'` and is deliberately untouched: it is a GLOBAL consumed
+ *     by `FloatingOlumiPanel`'s yield gate and `CompareTabBody`, and neither of
+ *     those distinguishes `results` from `analysisNew` — both ask only whether
+ *     the tab is `olumi` / `compare`. On a fresh mount the dock therefore paints
+ *     `analysisNew` while that global still reads `results`. That divergence is
+ *     harmless BY DERIVATION, not by luck; re-derive it before adding a
+ *     consumer that cares which of the two Analysis surfaces is fronted.
+ *  2. NOT `RightPanelMode` (`uiStore.ts:39`), whose `'results'` names the
+ *     PERSISTENT RIGHT-SIDE REGION — a different union that has no
+ *     `analysisNew` member at all. `openRightPanel('results')` means "the dock
+ *     owns the slot", never "front the Analysis tab", and the two calls in
+ *     `OutputsDock` that use it are untouched for that reason.
+ *  3. NOT an override. A restored tab, an explicit click, a `?tab=` deep link
+ *     and a deliberate `forceActivateOutputTab` all outrank this constant.
+ *     Default ≠ override — that clause is the ruling's second half.
+ *
+ * A DECLARATION, NOT A MIRROR: `OutputsDock` imports this rather than repeating
+ * a literal, so the sites that genuinely mean "the default" move together and a
+ * mutant here bites all of them at once.
+ */
+export const DEFAULT_WORKSPACE_SURFACE: OutputTab = 'analysisNew'
 
 /**
  * The number of tabs the strip is currently asked to lay out.

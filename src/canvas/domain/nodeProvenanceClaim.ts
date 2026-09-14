@@ -92,6 +92,7 @@ import {
   GOAL_LABEL_FROM_BRIEF_COPY,
   goalLabelIsUnconfirmedBriefExtract,
 } from './goalLabelProvenance'
+import { olumiAuthorshipIsAmbiguous } from './olumiAuthorshipClaim'
 
 /** Which vocabulary, if any, may describe `data.provenance` on this card. */
 export type NodeProvenanceClaim = 'value' | 'structural' | 'none'
@@ -209,10 +210,15 @@ function carriesDeclaredValue(nodeType: NodeType, data: unknown): boolean {
 }
 
 /**
- * Which claim this card may make. Takes the kind AND the node's `data`, because
- * for the optional-value kinds the schema alone cannot answer it.
+ * The kind-and-carrier answer, BEFORE the authorship gate below.
+ *
+ * ⚠ SPLIT OUT SO THE SWITCH STAYS EXHAUSTIVE WITH NO `default`. That is the
+ * compiler alarm described in the header — adding a member to `NodeTypeEnum`
+ * must fail the typecheck until someone answers this question for it — and
+ * folding a gate into the switch arms would have meant either a `default` or
+ * the same two lines repeated in four places.
  */
-export function nodeProvenanceClaim(nodeType: NodeType, data: unknown): NodeProvenanceClaim {
+function claimFromKindAndCarrier(nodeType: NodeType, data: unknown): NodeProvenanceClaim {
   switch (nodeType) {
     /**
      * ⛔ SILENT ONLY WHERE THE GOAL CARD IS ALREADY SPEAKING — and this is
@@ -255,6 +261,37 @@ export function nodeProvenanceClaim(nodeType: NodeType, data: unknown): NodeProv
     case 'action':
       return 'structural'
   }
+}
+
+/**
+ * Which claim this card may make. Takes the kind AND the node's `data`, because
+ * for the optional-value kinds the schema alone cannot answer it.
+ *
+ * ⛔⛔ THE AUTHORSHIP GATE, AND IT IS THE SHARED OWNER'S, NOT A COPY.
+ * Without it this card said **"Olumi suggested this"** about an option the user
+ * stated in their own brief — the product taking credit for the user's thinking,
+ * on the surface every user meets first. `olumiAuthorshipClaim` carries the
+ * derivation; the short version is that `ai_inferred` is the producer's
+ * catch-all and a retained `source_quote` is what distinguishes *"we invented
+ * it"* from *"you said it and the brief check could not confirm it"*.
+ *
+ * ⚠ IT GATES THE **STRUCTURAL** CLAIM AND NOTHING ELSE, and that boundary is
+ * derived rather than chosen. The structural vocabulary makes a claim about WHO
+ * AUTHORED THE ELEMENT, which is exactly what `source_quote` bears on. The value
+ * vocabulary ("AI estimate") makes a claim about a NUMBER, which a quote about
+ * the element says nothing about — reading one field as though it answered both
+ * questions is the conflation this module was written to end (trap 21). So a
+ * valued factor is untouched here.
+ *
+ * ⚠ AND IT IS NOT KEYED ON KIND. A hand-listed set of kinds would be the mirror
+ * this estate keeps paying for; the gate fires on a property of the RECORD, so
+ * it reaches a risk or an outcome carrying the same ambiguous pair without
+ * anyone having to remember to add it.
+ */
+export function nodeProvenanceClaim(nodeType: NodeType, data: unknown): NodeProvenanceClaim {
+  const claim = claimFromKindAndCarrier(nodeType, data)
+  if (claim === 'structural' && olumiAuthorshipIsAmbiguous(data)) return 'none'
+  return claim
 }
 
 /**

@@ -151,10 +151,22 @@ export interface ReportV1 {
 
   /**
    * The PRODUCER'S PERMISSION to name a leading option, bound to the report it
-   * was uttered about. Declared, read and written in exactly three places:
-   *   WRITTEN  `canvas/store.ts` → `resultsWithholdLeaderClaim`
+   * was uttered about. Declared, read and written in exactly these places:
+   *   WRITTEN  `canvas/store.ts` → `resultsWithholdLeaderClaim`   (stamps it)
+   *   WRITTEN  `canvas/store.ts` → `resultsRestoreLeaderClaim`    (clears it)
    *   READ     `lib/decisionVerdict.ts` → `readProducerLeaderPermission`
    *   SOURCED  CEE's `analysis_state.leader_claim`, carried verbatim
+   *
+   * ⚠ THE SECOND WRITER WAS ADDED 11 Sep 2026 AND THIS LIST SAID "exactly three
+   * places / WRITTEN one" UNTIL THEN. A count kept by hand inside the doc
+   * comment that OWNS the field is the hand-maintained mirror this estate pays
+   * for repeatedly (CLAUDE.md trap 12) — corrected here, at the definition
+   * site, rather than at a consumer.
+   *
+   * ⛔ BOTH WRITERS ONLY EVER SUBTRACT FROM WHAT IS CLAIMED. One stamps a
+   * refusal; the other REMOVES a refusal it finds, and removal means "the
+   * producer has not spoken" (below), which the reader treats as fail-open.
+   * Neither writes `permitted: true` — the client never authors an entitlement.
    *
    * ⭐ IT LIVES ON THE REPORT BECAUSE THE CLAIM DOES. On the wire the fact rides
    * `analysis_state`, which `applyV5State` clears on every turn that does not

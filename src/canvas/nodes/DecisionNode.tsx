@@ -25,6 +25,8 @@ import type { DecisionNodeData } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
+import { useSupportShareRunWideAbsent } from '../hooks/useSupportShareRunWideAbsent'
+import { METRIC_NOUN } from './shared/metricVocabulary'
 import { typography } from '../../styles/typography'
 import { NodeChip, NodePopover } from './shared'
 import { isGoalDefined } from '../../utils/isGoalDefined'
@@ -251,6 +253,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
 
   const isPostAnalysis = resultsStatus === 'complete'
   const isDetailed = viewMode === 'expert'
+  const supportShareRunWideAbsent = useSupportShareRunWideAbsent()
 
   const readiness = useModelReadiness(id)
   const { showPopover, nodeHandlers, popoverHandlers, nodeElRef } = usePopoverHover()
@@ -492,15 +495,55 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // not there.
   const hasPostAnalysisPopover = isPostAnalysis && !isDetailed
   const showStabilityLine = isDetailed && Boolean(stabilityDisplay)
-  // ⚠ POST-ANALYSIS CHIPS STAY DETAILED-ONLY, and that is a boundary, not an
-  // oversight. "Challenge this result" deserves the same treatment as the
-  // pre-analysis pair below and I tried it — but the post-analysis Standard
-  // body is the exact surface another lane's HONEST RESTING STATE occupies
-  // (`DecisionNode.restingState.spec.tsx`), and filling it with chips suppresses
-  // that copy: four of their tests go red. Two lanes, one surface, and their
-  // design has a measured defect behind it. Left alone pending a decision that
-  // covers both.
-  const showPostAnalysisChips = isDetailed
+  /**
+   * ⭐⭐ PAUL'S RULING, 9 Sep 2026: "Do the DecisionNode chips, keep the resting
+   * state copy too." BOTH, on one surface. What stood here recorded the
+   * deadlock and parked it:
+   *
+   *   "POST-ANALYSIS CHIPS STAY DETAILED-ONLY… the post-analysis Standard body
+   *    is the exact surface another lane's HONEST RESTING STATE occupies… four
+   *    of their tests go red. Left alone pending a decision that covers both."
+   *
+   * ⭐ THE DEADLOCK WAS ONE PREDICATE DOING TWO JOBS — trap 21, and naming the
+   * two questions apart dissolves it rather than picking a winner:
+   *
+   *   · the CHIPS are INVITATIONS — "you may challenge this"
+   *   · the RESTING COPY reports the ABSENCE OF A FINDING — "this node holds
+   *     no verdict of its own"
+   *
+   * Both were routed through `bodyHasContent`, so an invitation counted as a
+   * finding and suppressed a statement about what the node does not hold. They
+   * are not alternatives and never were. `bodyHasContent`'s post arm is now
+   * `showStabilityLine` — the presence of an actual FINDING — so the chips can
+   * render without silencing the copy.
+   *
+   * The other lane's contract survives intact, which is the test:
+   *   · Standard completed run → resting copy renders (their `:508` arm, whose
+   *     whole point is that a verdict no longer holds it shut)
+   *   · Detailed WITH stability → resting copy stays shut (their `:555` TWIN,
+   *     which exists to stop "renders on a completed run" degrading into
+   *     "always renders"). `showStabilityLine` is `isDetailed && stability`, so
+   *     that arm is unmoved.
+   *
+   * MEASURED, which is why this was worth Paul's ruling: on deployed
+   * `9748b336`, Standard, post-analysis, resting state, `Challenge this result`
+   * and `Compare options` both read **0** — they were in a hover popover, and
+   * `NodePopover.tsx:129` is `if (!visible) return null`. Contrast controls in
+   * the same probe: 71 `react-flow__node`, 26 `Influence`.
+   */
+  // ⚠ THE BODY AND THE POPOVER MUST BE MUTUALLY EXCLUSIVE, and my first cut was
+  // not: with `true` here, a run with no stability rendered the chips in BOTH —
+  // the popover carries them as its no-stability fallback (see the popover
+  // below for why removing them outright makes `completedRunLine` or
+  // `emptyLine` false). My own coexistence test caught it with "Found multiple
+  // elements with the text: Challenge this result", which is the test doing its
+  // job on the author.
+  //
+  // So: the body shows the chips whenever the popover is NOT carrying them —
+  // i.e. in Detailed (no popover at all), and in Standard whenever stability
+  // gives the popover its own content. The two predicates are complements of
+  // one expression, so they cannot drift into overlapping or into a gap.
+  const showPostAnalysisChips = isDetailed || Boolean(stabilityDisplay)
   const showTriageLine = Boolean(triageLine)
 
   /**
@@ -545,8 +588,42 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   // out which one was load-bearing.
   const showPreAnalysisInvitations = isPreAnalysisBranch
 
+  // ⭐ POST ARM IS THE PRESENCE OF A FINDING, NOT OF ANY CHILD. See
+  // `showPostAnalysisChips` above: chips are invitations and must not be
+  // counted as content that silences the resting copy.
+  /**
+   * ⭐ ONE FACT ABOUT THE RUN, STATED ONCE, ON THE NODE THAT FRAMES THE
+   * COMPARISON. When NO option resolved a support percentage, the option cards
+   * yield that position (`OptionNode`, `supportShareRunWideAbsent`) instead of
+   * repeating one absence per card. Something has to say it, or the cards'
+   * silence reads as a rendering gap — the argument the `n_valid === 0` block
+   * in `OptionNode` already makes for its own copy.
+   *
+   * ⚠ THIS IS A READINESS-CLASS FACT ABOUT THE RUN, NOT A COMPARATIVE CLAIM,
+   * and that is why it may sit here at all. The tombstones above record that
+   * the leader sentence, its bar and its caveat were all removed from this node
+   * because it was answering the question it exists to ask, in the option
+   * cards' own words. This states what the run PRODUCED. It names no option,
+   * ranks nothing, and cannot become a designation: it renders only when there
+   * is no share anywhere to designate from.
+   *
+   * Standard AND Detailed, unlike `showStabilityLine`. A reader who cannot see
+   * why the comparison is missing is not helped by the explanation being
+   * expert-only.
+   */
+  const showSupportShareAbsent = isPostAnalysisBranch && supportShareRunWideAbsent
+
+  // ⛔ `showSupportShareAbsent` IS DELIBERATELY NOT A CONJUNCT HERE, AND IT WAS
+  // ONCE. `bodyHasContent` gates `{!bodyHasContent && bodyFallback}` and
+  // `bodyFallback` IS the resting state, so adding it displaced that block in
+  // Standard post-analysis — in exactly the case the sentence exists to
+  // improve, and the tombstone above warns about this mechanism already. The
+  // sentence and the resting block are SIBLING JSX nodes, each independently
+  // conditional, so the sentence never needed the rider to render: it was not a
+  // trade-off between them. Pinned both ways in
+  // `DecisionNode.restingState.spec.tsx`.
   const bodyHasContent = isPostAnalysisBranch
-    ? (showStabilityLine || showPostAnalysisChips)
+    ? showStabilityLine
     : isPreAnalysisBranch
       ? (showTriageLine || showRunAnalysis || showPreAnalysisInvitations)
       : false
@@ -867,6 +944,15 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
             {/* Post-analysis Detailed only: stability + chips inline in body
                 (Detailed has no popover). Standard surfaces both via the
                 popover below. */}
+            {showSupportShareAbsent && (
+              <div
+                className={`${typography.edgeLabel} text-text-body mt-1`}
+                data-testid="decision-support-share-absent"
+              >
+                On the data so far, this run produced no {METRIC_NOUN.support.toLowerCase()} percentages
+                for the options. Compare them on what each one changes.
+              </div>
+            )}
             {showStabilityLine && stabilityDisplay && (
               <div
                 className={`${typography.edgeLabel} text-text-light mt-1`}
@@ -1001,7 +1087,20 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               <div className="text-text-light">{stabilityDisplay.tier}</div>
             </div>
           )}
-          {postAnalysisCoachingChips}
+          {/* ⭐ CHIPS ARE THE POPOVER'S FALLBACK ONLY, now that the body shows
+              them. Rendering them in both places put the same two invitations
+              on screen twice on hover.
+
+              ⛔ AND THIS MAY NOT BECOME AN UNCONDITIONAL REMOVAL. The popover's
+              existence is what makes `completedRunLine` ("Hover for this node's
+              detail") true — `resting` selects that line on `hasPostAnalysisPopover`.
+              Drop the chips outright and a run with no stability leaves an EMPTY
+              popover under a line promising detail; gate the popover on stability
+              instead and the same run falls through to `emptyLine` ("Nothing to
+              show on this node") while the chips are plainly showing — false on a
+              reachable path either way. Keeping them as the no-stability fallback
+              is what holds both statements honest. */}
+          {!stabilityDisplay && postAnalysisCoachingChips}
         </NodePopover>
       )}
     </div>

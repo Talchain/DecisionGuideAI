@@ -139,7 +139,15 @@ describe('a run with nothing ranked says what happened, and claims no zero it di
   it('names the producer\'s actual reason instead', () => {
     renderBody(pinnedFactorsOnly())
     openAllSections()
-    expect(sectionText()).toContain(ZERO_REASON_BADGE_LABELS.intervention_override)
+    /* ⚠ CASE-INSENSITIVE ON BOTH SIDES. The map holds BADGE labels, which open
+       with a capital because a badge opens its own element. Spliced into a
+       sentence by `empty.noneRanked` the first character is lowered
+       (`clauseCase`), so a case-sensitive compare against the map constant
+       asserts a casing the sentence deliberately does not use. Identity binding
+       to the shared map is what this case is for and is unchanged; the casing
+       is pinned with literals in `zeroReasonClauseJoin.spec.tsx`. */
+    expect(sectionText().toLowerCase())
+      .toContain(ZERO_REASON_BADGE_LABELS.intervention_override.toLowerCase())
   })
 
   it('says no basis sentence about a ranking that has no members', () => {
@@ -172,7 +180,9 @@ describe('a run with nothing ranked says what happened, and claims no zero it di
     const text = sectionText()
     expect(text).toContain(COPY.coverage.setRelativeInfluence)
     expect(text).toContain('not ranked here')
-    expect(text).toContain(ZERO_REASON_BADGE_LABELS.zero_outcome_diff)
+    /* Case-insensitive for the same reason as above: `coverage.notRanked`
+       splices the badge label mid-sentence in clause case. */
+    expect(text.toLowerCase()).toContain(ZERO_REASON_BADGE_LABELS.zero_outcome_diff.toLowerCase())
   })
 
   /**
@@ -185,7 +195,7 @@ describe('a run with nothing ranked says what happened, and claims no zero it di
     openAllSections()
     const drivers = screen.getByTestId('analysis-new-drivers')
     expect(within(drivers).getByTestId('analysis-new-drivers-empty')).toBeInTheDocument()
-    expect(within(drivers).getByTestId('analysis-new-drivers-empty').textContent)
-      .toContain(ZERO_REASON_BADGE_LABELS.intervention_override)
+    expect(within(drivers).getByTestId('analysis-new-drivers-empty').textContent?.toLowerCase())
+      .toContain(ZERO_REASON_BADGE_LABELS.intervention_override.toLowerCase())
   })
 })

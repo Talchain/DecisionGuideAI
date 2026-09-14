@@ -32,10 +32,26 @@ export interface MethodEntry {
    * exactly as it does today. A technique is mapped only where an accepted
    * intent names the SAME move — never by rough resemblance, which would ask
    * CEE to run the wrong protocol under a science label. Note that acceptance
-   * is NOT the whole reason absence is common here: `outside_view` and
-   * `pre_mortem` ARE accepted and are STILL unmapped, as a held scope boundary
-   * between this surface and the pre-analysis sparks (see
-   * `techniquesInvokeDecisionScience.spec.ts`).
+   * is NOT the whole reason absence is common here: `outside_view` is accepted
+   * by CEE and is STILL unmapped, as a held scope boundary — see below.
+   *
+   * ⚠⚠ THIS CATALOGUE FEEDS TWO SURFACES, AND THAT IS WHY THE BOUNDARY IS NOT
+   * ONE RULE. `ActionsMenu` renders it on the **Analysis** tab (code id
+   * `results`); `recommendationMethod.ts` attaches entries to findings on the
+   * **Reasoning** tab (code id `analysisNew` —
+   * `WORKSPACE_SURFACES.analysisNew.label === 'Reasoning'`). A technique can
+   * therefore be trigger-attached on one surface and menu-only on the other, and
+   * the two cases earn different answers:
+   *   · `pre_mortem` is attached to TWO Reasoning-tab triggers
+   *     (`recommendationMethod.ts:54` and `:97`, the latter the producer's own
+   *     `PRE_MORTEM` signal code), each with a written justification. Mapped.
+   *   · `outside_view` has ZERO Reasoning-tab consumers (measured with a
+   *     `pre_mortem` contrast control in the same sweep: 0 vs 8 hits under
+   *     `analysisNew/`). Its only surface is the Analysis tab, so mapping it
+   *     would change a surface that is out of scope under Paul's standing
+   *     Reasoning+Model ruling, on a surface-equivalence question nobody has
+   *     adjudicated. The held boundary stands for it, now for a MEASURED reason
+   *     rather than an inherited one.
    */
   intent?: string
 }
@@ -111,6 +127,30 @@ export const METHOD_CATALOGUE: MethodEntry[] = [
     title: 'Run a pre-mortem',
     description: 'Imagine failure and capture plausible causes.',
     prompt: 'Run a pre-mortem with me: imagine this decision failed a year from now. What plausibly went wrong, and which risks should we add to the model?',
+    // A pre-mortem IS `pre_mortem` — name-identical, and CEE's coaching arm
+    // routes the token (`ROUTED_COACHING_INTENTS`). This is not rough
+    // resemblance: `recommendationMethod.ts` already attaches this technique to
+    // the producer's OWN `PRE_MORTEM` signal code, so upstream named the move
+    // first.
+    //
+    // ⚠⚠ WHAT THIS DOES NOT DO, AND THE NEXT READER WILL ASSUME IT DOES.
+    // Sending this intent does NOT make CEE build its `exercise`
+    // block with `exercise_kind: 'pre_mortem'`. Those are two different enums
+    // that happen to share this one spelling, with no mapping layer between
+    // them, so "the intent triggers the exercise" looks true from a grep and is
+    // false at the bytes. Derived at CEE `8449e54e`:
+    //   · the intent reaches `resolveCoachingIntent` →
+    //     `buildCoachingMethodDirective` (`orchestrator-v5/coaching/typed-intent-directive.ts:219`),
+    //     which appends a METHOD DIRECTIVE to the routing turn so the coach
+    //     authors the answer with the pre-mortem method in front of it. That is
+    //     the whole win here, and it is the same mechanism the three techniques
+    //     above already use.
+    //   · the EXERCISE block (`compose/phase3-blocks.ts:2535`) is gated on
+    //     `selection.lens` from `evaluatePreMortem` — analysis signals only.
+    //     `lens-selector.ts` contains ZERO references to `chip.intent`.
+    // Do not write "runs the pre-mortem exercise" anywhere on the strength of
+    // this field.
+    intent: 'pre_mortem',
   },
   {
     id: 'explore_tradeoffs',

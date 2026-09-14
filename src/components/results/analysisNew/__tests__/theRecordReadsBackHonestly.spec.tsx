@@ -94,14 +94,14 @@ describe('THE OPTION LINE IS BOUND TO THE OPTION', () => {
   it('prints the recorded option, exactly, at the option row', () => {
     draw()
     expect(screen.getByTestId(`${T}-option`)).toHaveTextContent(
-      /^Option 2 — Phase the rollout by segment$/,
+      /^Option 2: Phase the rollout by segment$/,
     )
   })
 
   /** The twin: a different record must produce a different line. */
   it('prints a DIFFERENT record’s option, not a remembered one', () => {
     withRecord({ optionNumber: 5, optionLabel: 'Hold the current plan' })
-    expect(screen.getByTestId(`${T}-option`)).toHaveTextContent(/^Option 5 — Hold the current plan$/)
+    expect(screen.getByTestId(`${T}-option`)).toHaveTextContent(/^Option 5: Hold the current plan$/)
   })
 
   /**
@@ -227,7 +227,7 @@ describe('the confidence keeps the unit it was captured in', () => {
   it('a record with an unreadable confidence still reads back everything else', () => {
     withRecord({ confidence: Number.NaN })
     expect(screen.getByTestId(`${T}-option`)).toHaveTextContent(
-      /^Option 2 — Phase the rollout by segment$/,
+      /^Option 2: Phase the rollout by segment$/,
     )
     expect(screen.getByTestId(`${T}-title`)).toBeInTheDocument()
   })

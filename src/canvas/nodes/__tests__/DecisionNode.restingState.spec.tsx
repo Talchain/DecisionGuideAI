@@ -479,7 +479,19 @@ describe('DecisionNode — honest resting state', () => {
     const popover = screen.getByTestId('decision-node-popover')
     expect(within(popover).getByText(/62%/)).toBeDefined()
     expect(within(popover).getByText(/sensitive/i)).toBeDefined()
-    expect(within(popover).getByText('Challenge this result')).toBeDefined()
+    // ⭐ UPDATED for Paul's ruling of 9 Sep 2026 ("do the DecisionNode chips,
+    // keep the resting state copy too"). This asserted `Challenge this result`
+    // INSIDE the popover; the chips now render on the CARD, and the popover
+    // keeps them only as its no-stability fallback (this fixture HAS stability,
+    // so they are correctly absent from it here).
+    //
+    // The assertion's PURPOSE is untouched and is the reason it was written —
+    // "the copy points at the popover, so the popover must actually hold
+    // something". The two assertions above still discharge that in full. What
+    // is added is the other half of the ruling: the chip is now reachable
+    // WITHOUT a hover, on the same render.
+    expect(within(popover).queryByText('Challenge this result')).toBeNull()
+    expect(screen.getByText('Challenge this result')).toBeDefined()
 
     expect(within(resting).getByText(DECISION_RESTING_COPY.completedRunLine)).toBeDefined()
     // "yet" would assert that nothing has happened. A run had.
@@ -552,6 +564,77 @@ describe('DecisionNode — honest resting state', () => {
     }
   })
 
+  /**
+   * ⭐⭐ PAUL'S RULING, 9 Sep 2026, pinned: "Do the DecisionNode chips, keep the
+   * resting state copy too."
+   *
+   * This is the arm that would have caught the deadlock being resolved. Before
+   * it, the two designs shared `bodyHasContent`, so each ONE could only be
+   * present when the other was absent — and either lane's suite could be fully
+   * green while the surface carried only its own half. Nothing asserted that
+   * they COEXIST, which is exactly why it read as a choice between two lanes
+   * rather than as one predicate answering two questions (trap 21).
+   *
+   * The discriminator is that BOTH are asserted in ONE render. Split across two
+   * cases this would pass against either half alone.
+   */
+  it('Standard completed run: the chips AND the resting copy are BOTH on the card', () => {
+    const factorNodes = [
+      { id: 'f-explicit', type: 'factor', data: { type: 'factor', label: 'Salary budget', category: 'controllable', observedState: { value: 42 } } },
+      { id: 'f-missing', type: 'factor', data: { type: 'factor', label: 'Attrition', category: 'controllable' } },
+    ]
+    setStore({
+      nodes: [decisionNode, ...optionNodes, ...factorNodes],
+      edges: optionEdges,
+      results: { status: 'complete', report: WITHHELD_REPORT_WITH_STABILITY },
+      viewMode: 'standard',
+    })
+    renderDecision()
+
+    // The invitations — reachable with no hover, which is the change.
+    // ⭐ EXACTLY ONE EACH. `getByText` throws on duplicates, and that is load
+    // bearing here: the popover carries these same chips as its no-stability
+    // fallback, so a body/popover predicate that overlaps renders them twice.
+    // This assertion caught precisely that in the first cut.
+    expect(screen.getByText('Challenge this result')).toBeDefined()
+    expect(screen.getByText('Compare options')).toBeDefined()
+
+    // …and the honest resting copy is NOT suppressed by them.
+    const resting = screen.getByTestId(RESTING)
+    expect(within(resting).getByTestId('decision-node-readiness-summary')).toBeDefined()
+
+    // The copy still may not explain the analysis, chips or no chips.
+    expect(visibleText(resting)).not.toMatch(/\byet\b/i)
+  })
+
+  /**
+   * ⭐ TWIN — the no-stability arm, which is where the two surfaces could
+   * overlap. With no stability the popover has no content of its own, so it
+   * carries the chips instead; the body must then NOT also carry them. The
+   * resting copy still renders, so Paul's ruling holds in both arms.
+   */
+  it('Standard completed run with NO stability: chips live in the popover, resting copy still renders, nothing doubled', () => {
+    const factorNodes = [
+      { id: 'f-explicit', type: 'factor', data: { type: 'factor', label: 'Salary budget', category: 'controllable', observedState: { value: 42 } } },
+      { id: 'f-missing', type: 'factor', data: { type: 'factor', label: 'Attrition', category: 'controllable' } },
+    ]
+    setStore({
+      nodes: [decisionNode, ...optionNodes, ...factorNodes],
+      edges: optionEdges,
+      results: { status: 'complete', report: WITHHELD_REPORT },
+      viewMode: 'standard',
+    })
+    renderDecision()
+
+    // Exactly one — `getByText` throws on a duplicate, which is the property.
+    const popover = screen.getByTestId('decision-node-popover')
+    expect(within(popover).getByText('Challenge this result')).toBeDefined()
+
+    // …and the resting copy is present alongside, per the ruling.
+    const resting = screen.getByTestId(RESTING)
+    expect(within(resting).getByTestId('decision-node-readiness-summary')).toBeDefined()
+  })
+
   it('⭐ TWIN — in DETAILED the branch has content, so this state stays shut', () => {
     // Without this, "the resting state renders on a completed run" could have
     // been implemented as "always renders", and the arm above would still pass
@@ -610,5 +693,110 @@ describe('DecisionNode — honest resting state', () => {
     // generic match — a bare /Stability: / would pass on any number, including
     // one carried over from the wrong option.
     expect(screen.getByText(/Stability: 62%/i)).toBeDefined()
+  })
+})
+
+/**
+ * ⭐⭐ THE RUN-WIDE SUPPORT-SHARE SENTENCE AND THE RESTING STATE ARE SIBLINGS,
+ * NOT ALTERNATIVES — and this file is where that has to be pinned, because it
+ * is the file that owns `decision-node-resting-state`.
+ *
+ * The sentence shipped with a rider on `bodyHasContent`
+ * (`? showStabilityLine` became `? (showStabilityLine || showSupportShareAbsent)`).
+ * `bodyHasContent` gates `{!bodyHasContent && bodyFallback}` and `bodyFallback`
+ * IS the resting state, so in Standard post-analysis the rider DISPLACED the
+ * resting block in exactly the case the sentence exists to improve — the one
+ * state where a reader most needs to know which parts of their model are unset.
+ * The tombstone directly above the insertion point warns about this mechanism
+ * in the author's own words: an earlier attempt "made `bodyHasContent` true on
+ * every completed run and SUPPRESSED that resting state".
+ *
+ * ⭐ IT WAS NEVER A TRADE-OFF, AND THAT IS THE POINT. The sentence and the
+ * resting block are SIBLING JSX nodes under one container, each independently
+ * conditional. The sentence renders on `showSupportShareAbsent` alone and never
+ * consulted `bodyHasContent` at all, so removing the rider costs it nothing.
+ * Measured both ways below rather than argued.
+ *
+ * ⚠ NO EXISTING SPEC COULD SEE THIS. Every test here that asserts
+ * `decision-node-resting-state` on a completed run drives it from
+ * `WITHHELD_REPORT`, whose two options carry shares of 0.55 and 0.45 — so the
+ * run-wide hook returns false in all of them and none could go red. The
+ * fixture below is the missing class, and the CONTROL beneath it fires in the
+ * opposite direction so a green result here can never be a dead fixture.
+ */
+describe('DecisionNode — the run-wide absence sentence does not displace the resting state', () => {
+  beforeEach(() => { setStore() })
+  afterEach(() => { vi.clearAllMocks() })
+
+  const SUPPORT_ABSENT = 'decision-support-share-absent'
+
+  /**
+   * The producer shape this targets: `status: 'computed'` with the
+   * `win_probability` key ABSENT. The token says computed while the number does
+   * not exist. `mapV5AnalysisToReport` writes the field as
+   * `...(winProb !== undefined ? { win_probability: winProb } : {})`, so
+   * absent-in produces key-absent-out by construction.
+   */
+  const RUN_WIDE_ABSENT_REPORT = {
+    option_probabilities: {
+      'option-1': { status: 'computed' },
+      'option-2': { status: 'computed' },
+    },
+    robustness: {},
+  }
+
+  const completedRun = (report: unknown) => ({
+    nodes: [decisionNode, ...optionNodes],
+    edges: optionEdges,
+    results: { status: 'complete', report },
+    viewMode: 'standard',
+  })
+
+  it('run-wide absence in STANDARD: the sentence renders AND the resting state survives', () => {
+    setStore(completedRun(RUN_WIDE_ABSENT_REPORT))
+    renderDecision()
+    // Both, on one node, at the deployed default view mode.
+    expect(screen.getByTestId(SUPPORT_ABSENT)).toBeDefined()
+    expect(screen.getByTestId(RESTING)).toBeDefined()
+  })
+
+  it('CONTROL — shares present: the sentence does not render and the resting state still does', () => {
+    // Fires in the OPPOSITE direction, so the test above cannot be passing on a
+    // fixture that reproduces nothing (CLAUDE.md trap 13b: a discriminator must
+    // pin its own precondition).
+    setStore(completedRun(WITHHELD_REPORT))
+    renderDecision()
+    expect(screen.queryByTestId(SUPPORT_ABSENT)).toBeNull()
+    expect(screen.getByTestId(RESTING)).toBeDefined()
+  })
+
+  /**
+   * ⚠ EVERY OPTION `failed` — a class the contract admits and the corpus
+   * excluded, pinned here as MEASURED BEHAVIOUR rather than changed.
+   *
+   * `optionComputationProducedResult('failed')` is false, so a failed option is
+   * skipped rather than counted. Correct for the PARTIAL case, where the card
+   * carries its own distinct notice. But when EVERY option failed,
+   * `resolvedShares === 0` and `optionNodes > 0`, so the hook returns true and
+   * the sentence renders.
+   *
+   * ⭐ THE SENTENCE IS TRUE THERE — the run did produce no support percentages
+   * for the options — so this pin records the behaviour rather than suppressing
+   * it, and the PR description's table has been corrected to match. It is
+   * pinned because it was invisible: the covering spec mounts only OptionNodes
+   * and could not observe this node in either direction. It now REDs if the
+   * behaviour changes in either direction.
+   */
+  it('every option failed: the sentence renders, and the resting state still survives', () => {
+    setStore(completedRun({
+      option_probabilities: {
+        'option-1': { status: 'failed' },
+        'option-2': { status: 'failed' },
+      },
+      robustness: {},
+    }))
+    renderDecision()
+    expect(screen.getByTestId(SUPPORT_ABSENT)).toBeDefined()
+    expect(screen.getByTestId(RESTING)).toBeDefined()
   })
 })

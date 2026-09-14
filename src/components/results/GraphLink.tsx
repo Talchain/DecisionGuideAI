@@ -86,7 +86,12 @@ export function GraphLink({
       type="button"
       onClick={handleClick}
       className={`text-info hover:text-info-hover hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2 rounded ${className}`}
-      aria-label={`Focus on ${label ?? 'element'} in model`}
+      // ⚠ `??` GUARDS NULLISH, NOT EMPTY. Callers pass `label={x ?? ''}` (e.g.
+      // `compare-tab/DotProgression.tsx` for a runner-up with no label), and an
+      // empty string sails past `??` — producing the announced text
+      // "Focus on  in model", with a doubled space and no subject. Screen
+      // readers get a control that names nothing. Trimmed-empty falls back too.
+      aria-label={`Focus on ${label?.trim() ? label : 'element'} in model`}
       title={label}
     >
       {displayContent}

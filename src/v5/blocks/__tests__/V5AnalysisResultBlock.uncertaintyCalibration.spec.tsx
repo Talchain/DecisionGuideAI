@@ -60,7 +60,7 @@ describe('V5AnalysisResultBlock — Sci-4B verbal uncertainty calibration', () =
   it('renders "meaningful uncertainty" copy for moderate robustness', () => {
     render(<V5AnalysisResultBlock block={makeBlock({ robustnessLevel: 'moderate' })} />)
     expect(screen.getByTestId('v5-analysis-result-uncertainty-copy')).toHaveTextContent(
-      "It appears the result holds, though there's meaningful uncertainty in the estimate.",
+      "This result appears to hold, though there's meaningful uncertainty in the estimate.",
     )
   })
 
@@ -74,7 +74,7 @@ describe('V5AnalysisResultBlock — Sci-4B verbal uncertainty calibration', () =
   it('downgrades "high" band to moderate framing when the interval straddles zero', () => {
     render(<V5AnalysisResultBlock block={makeBlock({ robustnessLevel: 'high', p10: -0.03, p90: 0.48 })} />)
     expect(screen.getByTestId('v5-analysis-result-uncertainty-copy')).toHaveTextContent(
-      "It appears the result holds, though there's meaningful uncertainty in the estimate.",
+      "This result appears to hold, though there's meaningful uncertainty in the estimate.",
     )
   })
 
