@@ -215,18 +215,48 @@ describe('the compact line is the producer’s own title, verbatim', () => {
     expect(summary.textContent).not.toContain('...')
   })
 
-  it('shows the producer’s category chip when it sent one, and no chip when it did not', () => {
+  it('conveys the producer’s category through the GLYPH, and fabricates no tier when it sent none', () => {
+    /*
+     * ⛔ THIS ARM USED TO ASSERT A CATEGORY CHIP AND IT IS INVERTED ON PURPOSE.
+     * The chip is gone from the line: `guidanceCategoryIcon` now returns four
+     * distinct SHAPES, so the glyph carries the category on its own and the
+     * chip had become a second channel saying the same thing (the row also
+     * carried a badge dot — three ornaments, one meaning, photographed on
+     * staging b7c8c74e).
+     *
+     * ⭐ THE PROPERTY THAT MATTERS IS UNCHANGED AND IS THE REASON THIS ARM
+     * SURVIVES REWORDING RATHER THAN DELETION: no tier is FABRICATED for a
+     * block the producer left uncategorised. Only the channel it is asserted
+     * in has moved — from chip text to glyph shape plus the glyph's accessible
+     * name. The uncategorised block must still name no tier ANYWHERE, visibly
+     * or to assistive technology, and must not borrow another row's shape.
+     */
     renderBlocks([
       coaching(1, { block_id: 'co_withcat', category: 'should_fix' }),
       coaching(2, { block_id: 'co_nocat' }),
     ])
-    expect(screen.getByTestId('coaching-line-summary-co_withcat')).toHaveTextContent('Should fix')
-    // No fabricated tier for a block the producer left uncategorised.
-    expect(screen.queryByTestId('coaching-line-category-co_nocat')).toBeNull()
+
+    const categorised = screen.getByTestId('coaching-line-summary-co_withcat')
+    expect(within(categorised).getByLabelText('Should fix')).toBeInTheDocument()
+    expect(
+      categorised.querySelector('svg')?.getAttribute('class') ?? '',
+      'should_fix has its own shape, not the binary tone glyph',
+    ).toContain('lucide-alert-circle')
+    // The chip itself is gone — the glyph is the whole channel now.
+    expect(screen.queryByTestId('coaching-line-category-co_withcat')).toBeNull()
+
     const uncategorised = screen.getByTestId('coaching-line-summary-co_nocat')
     for (const label of ['Must fix', 'Should fix', 'Could fix', 'Technique']) {
-      expect(uncategorised).not.toHaveTextContent(label)
+      expect(uncategorised, 'no visible tier').not.toHaveTextContent(label)
+      expect(
+        within(uncategorised).queryByLabelText(label),
+        'and none announced to assistive technology either',
+      ).toBeNull()
     }
+    expect(
+      uncategorised.querySelector('svg')?.getAttribute('class') ?? '',
+      'honest absence keeps the Lightbulb no category uses',
+    ).toContain('lucide-lightbulb')
   })
 })
 
