@@ -12,6 +12,7 @@ import { useOptionalConversationContext } from '../../conversation/ConversationC
 import {
   buildEdgeStrengthEditEvent,
   buildEdgeDirectionEditEvent,
+  buildEdgeStrengthConfirmEvent,
 } from '../../conversation/edgeStrengthEdit'
 
 // ─── Editor-written-field manifest (single source of truth) ────────────
@@ -79,7 +80,18 @@ export const NODE_SETTER_FIELDS = {
   setImpact: ['impact'],
 } as const satisfies Record<string, readonly string[]>
 
-/** edge setter name → the top-level `data` field(s) that setter writes. */
+/**
+ * edge setter name → the top-level `data` field(s) that setter writes.
+ *
+ * ⛔ SETTERS ONLY. `confirmCurrentStrength` is deliberately ABSENT: it writes no
+ * `data` field at all, so it is not a setter, and a row here would be a claim
+ * that a user edits a field through it. The shared contract agrees and enforces
+ * it — `editableFieldTable.pinAndParity.spec.ts` requires every name in this map
+ * to have a row in `@talchain/schemas`' EDITABLE FIELD table, and confirming
+ * edits nothing. A member that writes nothing is classified in the spec's
+ * `EDGE_NON_WRITERS` list instead, where the claim is DRIVEN rather than
+ * declared.
+ */
 export const EDGE_SETTER_FIELDS = {
   // The `*Source` markers ride along with the value each setter writes: a
   // user moving the slider is the ONLY thing that turns a defaulted number
@@ -657,6 +669,25 @@ export type EdgeStrengthCommitOutcome =
   | 'not_wire_encodable'
   | 'not_encodable'
 
+/**
+ * The outcome of RATIFYING a strength the server already holds.
+ *
+ * ⚠ NAMED APART FROM `EdgeStrengthCommitOutcome`, AND THE SPLIT IS TRAP 21.
+ * That one answers *"will the server accept this NUMBER?"*; this answers *"did a
+ * statement of agreement leave?"* — and it deliberately has NO member meaning
+ * "committed", because confirming writes NOTHING locally.
+ *
+ * ⛔ `dispatched` MEANS A STATEMENT LEFT, NOT THAT IT LANDED. No caller may
+ * render it as agreement recorded. That is `proposeEdgeStrengthConfirmation`'s
+ * own ruling and it is repeated here because the caller this type exists for is
+ * the one that broke it.
+ */
+export type EdgeStrengthConfirmOutcome =
+  | 'dispatched'
+  | 'refused_unassertable'
+  | 'no_carrier'
+  | 'not_encodable'
+
 // ─── Edge mutations ────────────────────────────────────────────────
 export function useEdgeMutations(edgeId: string) {
   const updateEdge = useCanvasStore(s => s.updateEdge)
@@ -883,5 +914,42 @@ export function useEdgeMutations(edgeId: string) {
     return 'dispatched'
   }, [edgeId, updateEdge, getEdge, sendSystemEvent])
 
-  return { setStrength, setStd, setExistsProbability, setLabel, setDirection }
+  /**
+   * ⭐⭐ "I AGREE WITH THIS ESTIMATE", SENT AS THE ACT IT IS.
+   *
+   * ⛔⛔ THE DEFECT THIS CLOSES WAS WIRE-WITNESSED ON SERVED `1d0306a0`, not
+   * reasoned. The inspector's Confirm routed through `setStrength`, which emits
+   * `intent: 'set'` at a magnitude EQUAL to the persisted value — precisely the
+   * case CEE refuses as `set_target_unchanged`. Captured response, verbatim:
+   * *"That link already has exactly that strength and direction, so I haven't
+   * recorded it as your judgement. Confirm the current strength explicitly if
+   * you want to adopt the existing value."* `blocks: []`, `graph_hash`
+   * UNCHANGED, `weightSource` still `cee`. The person's agreement went nowhere.
+   *
+   * `buildEdgeStrengthConfirmEvent` is the carrier that CAN land it. It takes no
+   * requested value, so this cannot become a silent `set` wearing a
+   * confirmation's name.
+   *
+   * ⛔ IT WRITES NOTHING LOCALLY — the same load-bearing decision
+   * `proposeEdgeStrengthConfirmation` documents at length: stamping provenance
+   * before the server agrees would make the product assert that a person
+   * ratified a value on a turn that may still be refused. CEE owns this
+   * provenance; the canvas learns it from the response, or does not claim it.
+   */
+  const confirmCurrentStrength = useCallback((): EdgeStrengthConfirmOutcome => {
+    const edge = getEdge()
+    if (!edge) return 'not_encodable'
+    // Asks the BUILDER, never a local re-derivation: an edge whose strength
+    // nothing proves the server stated has no `expected` tuple to ratify.
+    const event = buildEdgeStrengthConfirmEvent({ edge })
+    if (!event) return 'refused_unassertable'
+    if (!sendSystemEvent) return 'no_carrier'
+    void Promise.resolve(sendSystemEvent(event)).catch(() => {
+      /* Swallowed as every sibling send is. Nothing local was written, so there
+         is nothing to revert. */
+    })
+    return 'dispatched'
+  }, [getEdge, sendSystemEvent])
+
+  return { setStrength, setStd, setExistsProbability, setLabel, setDirection, confirmCurrentStrength }
 }

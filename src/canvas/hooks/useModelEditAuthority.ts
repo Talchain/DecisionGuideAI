@@ -121,6 +121,7 @@ import { factorHasConfirmableValue } from '../domain/valueProvenance'
 import { useOptionalConversationContext } from '../conversation/ConversationContext'
 import {
   useEdgeMutations,
+  type EdgeStrengthConfirmOutcome,
   useNodeMutations,
   type EdgeStrengthCommitOutcome,
 } from '../ui/inspector-v2/useInspectorMutations'
@@ -349,12 +350,6 @@ export type EdgeStrengthProposalOutcome = EdgeStrengthCommitOutcome | 'refused_u
  * statement of agreement leave?"* — and crucially it has NO `committed` member,
  * because nothing is committed locally. See `proposeEdgeStrengthConfirmation`.
  */
-export type EdgeStrengthConfirmationOutcome =
-  | 'dispatched'
-  | 'refused_unassertable'
-  | 'no_carrier'
-  | 'not_encodable'
-
 export interface ModelEditAuthorityLive {
   goalTargetDispatchAvailable: boolean
   /** The host captures identity without gaining a separate store access path. */
@@ -413,7 +408,7 @@ export interface ModelEditAuthorityLive {
    * Ratify the strength the server already holds for this edge.
    * Returns what happened to the STATEMENT, never a claim about the model.
    */
-  proposeEdgeStrengthConfirmation: (edgeId: string) => EdgeStrengthConfirmationOutcome
+  proposeEdgeStrengthConfirmation: (edgeId: string) => EdgeStrengthConfirmOutcome
   proposeEdgeStrength: (
     edgeId: string,
     signedMean: number,
@@ -807,7 +802,7 @@ export function useModelEditAuthority(
    * the session rather than about the edge.
    */
   const proposeEdgeStrengthConfirmation = useCallback(
-    (edgeId: string): EdgeStrengthConfirmationOutcome => {
+    (edgeId: string): EdgeStrengthConfirmOutcome => {
       // Keyed to ONE edge, same fail-closed rule as `proposeEdgeStrength`: an id
       // that is not the active edge is a caller holding the wrong authority.
       if (activeEdgeId === null || edgeId !== activeEdgeId) return 'not_encodable'
