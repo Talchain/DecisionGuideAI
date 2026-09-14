@@ -26,11 +26,20 @@ async function drag(page: Page, x: number, y: number, dx: number, dy: number) {
 async function fit(page: Page) {
   await page.getByRole('button', { name: 'Fit to view', exact: true }).click()
   await page.evaluate(async () => {
-    let previous = '', stable = 0
-    while (stable < 8) {
+    await document.fonts.ready
+    let previous = '', stableSince = performance.now()
+    // Initial measured-card layout is debounced after fit/LOD changes. Wait
+    // for its actual geometry, not only the faster viewport animation.
+    while (performance.now() - stableSince < 1000) {
       await new Promise(requestAnimationFrame)
-      const current = document.querySelector<HTMLElement>('.react-flow__viewport')!.style.transform
-      stable = current === previous ? stable + 1 : 0
+      const current = JSON.stringify([
+        document.querySelector<HTMLElement>('.react-flow__viewport')!.style.transform,
+        ...[...document.querySelectorAll<HTMLElement>('.react-flow__node')].map(node => {
+          const box = node.getBoundingClientRect()
+          return [node.style.transform, box.width, box.height]
+        }),
+      ])
+      if (current !== previous) stableSince = performance.now()
       previous = current
     }
   })
