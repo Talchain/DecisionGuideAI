@@ -2312,6 +2312,48 @@ export function applyV5State(
         // ⚠ AN EVICTION, NOT A DEFAULT. A genuinely new analysis that carries no
         // delta supersedes the old one; the producer's several refusals all reach
         // us as this same silence and the UI must not try to tell them apart.
+        //
+        // ⭐⭐ WHY THE EVICTION STAYS GATED ON THE HASH WHILE THE WRITE ABOVE DOES
+        // NOT — asked in review, and the answer is a measurement, not a taste.
+        //
+        // The objection is sound as far as it goes: `hash` is a CONTENT hash
+        // (`mapV5AnalysisToReport.ts:1459`, derived from summary +
+        // leading_option_id + win_probabilities + full enrichment), not a run
+        // identity. So a genuinely new analysis whose content collides with the
+        // displayed one evicts nothing, and a stored delta outlives the pair it
+        // describes. That is real.
+        //
+        // ⛔ BUT THE IMPLIED FIX — EVICT WHENEVER AN ANALYSIS ARRIVES WITHOUT A
+        // DELTA — IS WORSE THAN THE DEFECT, AND CEE'S BYTES SAY SO. CEE re-emits
+        // a BYTE-IDENTICAL `analysis_result` block on ordinary follow-up turns:
+        // `compose.ts:1766` calls `buildAnalysisResultBlock(priorFact)` on the
+        // FRESH lifecycle branch, and the builder's own note (`compose.ts:1155`)
+        // says it is "used by BOTH the current-turn run_analysis block and the
+        // REUSED prior-fact FRESH lifecycle branch, so both turns emit an
+        // IDENTICAL block for a given analysis — keeping DGAI's content-hash
+        // dedupe and Results-panel hydration consistent across the run_analysis
+        // turn and any follow-up explain / what_would_flip turn."
+        //
+        // ⇒ Unconditional eviction blanks "What's changed" on the person's very
+        // NEXT QUESTION. That is the routine path. The collision it would close
+        // needs a new run whose summary, leading option, win probabilities AND
+        // full Monte Carlo enrichment are byte-identical, while ALSO carrying no
+        // delta. High-frequency loss of a true explanation, traded for a
+        // low-frequency wrong one.
+        //
+        // ⚠ NEITHER IS THE RIGHT ANSWER, AND THE RIGHT ANSWER IS NOT OURS. There
+        // is NO run identity on the deployed V5 path — `store.ts:5482` records it,
+        // live-confirmed 25 Jul 2026: `seed_used` appears nowhere in the envelope,
+        // `rawV2Response` is null, `results.seed` is undefined. That note's own
+        // conclusion applies unchanged here: reviving run identity "needs a
+        // producer-boundary decision, not a UI change".
+        //
+        // So this is a KNOWN, BOUNDED LIMIT held deliberately, not an oversight.
+        // RE-SURFACE TRIGGER: the first turn envelope to carry a run id or a
+        // seed echo. On that day, bind the stored delta to it and this whole
+        // branch becomes unconditional. `runDeltaEvictionHoldsOnEcho.spec.ts`
+        // pins the behaviour in both directions so the trade is visible rather
+        // than inherited.
         store.setRunDelta?.(null)
       }
     } else {

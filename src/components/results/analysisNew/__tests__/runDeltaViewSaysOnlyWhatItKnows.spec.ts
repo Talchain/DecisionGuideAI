@@ -69,10 +69,42 @@ describe('only C1_attributable licenses a causal reading', () => {
   const cases: Array<RunDelta['attribution_case']> = [
     'C0_identical', 'C2_unpaired', 'C3_engine_drift', 'C4_budget_drift',
   ]
-  it.each(cases)('%s is not attributable and carries the limit', (c) => {
+  it.each(cases)('%s is not attributable and carries a rider', (c) => {
     const v = buildRunDeltaView(delta({ attribution_case: c }), labelFor)
     expect(v.attributable).toBe(false)
-    expect(v.attributionLimit).toMatch(/cannot be put down to a change in the model/i)
+    expect(v.attributionLimit).toBeTruthy()
+  })
+
+  /**
+   * ⛔⛔ THIS BLOCK PREVIOUSLY REQUIRED ALL FOUR NON-C1 CASES TO DENY THE CAUSE
+   * ("cannot be put down to a change in the model"), which is the defect, not
+   * the guard. It is the VIEW-MODEL twin of the same assertion in
+   * `whatsChangedRendersOnlyTheEntitledClaim.spec.tsx` — and it survived the
+   * first pass of this repair, which is the pattern worth naming: the remedy was
+   * scoped to the instance that was found, and nothing swept its sibling. The
+   * sibling was caught by running the FULL consuming set, not by reading.
+   */
+  it('⛔ C2/C3/C4 REFUSE to attribute — they never deny the cause', () => {
+    for (const c of ['C2_unpaired', 'C3_engine_drift', 'C4_budget_drift'] as const) {
+      const limit = buildRunDeltaView(delta({ attribution_case: c }), labelFor).attributionLimit ?? ''
+      expect(limit).toMatch(/cannot be established/i)
+      // CEE decides C2 on `!seed_equal` and never consults the hash, while a
+      // factor-value edit moves both — so a model change may well BE the cause.
+      expect(limit).not.toMatch(/cannot be put down to|is not (the )?(cause|explanation)/i)
+    }
+  })
+
+  it('⭐ C0 alone states a PROVEN negative — hash_equal is true by the case', () => {
+    const limit = buildRunDeltaView(delta({ attribution_case: 'C0_identical' }), labelFor).attributionLimit ?? ''
+    expect(limit).toMatch(/did not change/i)
+    expect(limit).not.toMatch(/cannot be established/i)
+  })
+
+  it('⛔ the rider is selected per case, not by a binary on `attributable`', () => {
+    const read = (c: RunDelta['attribution_case']): string | null =>
+      buildRunDeltaView(delta({ attribution_case: c }), labelFor).attributionLimit
+    expect(read('C0_identical')).not.toBe(read('C2_unpaired'))
+    expect(read('C1_attributable')).toBeNull()
   })
 
   it('C1_attributable is attributable and carries NO limit rider', () => {

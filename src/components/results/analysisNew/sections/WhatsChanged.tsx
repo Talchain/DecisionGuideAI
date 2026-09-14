@@ -22,7 +22,7 @@
 
 import { typography } from '../../../../styles/typography'
 import { surface } from '../panelSurfaces'
-import type { RunDeltaMovement, RunDeltaView } from '../runDeltaView'
+import type { NoiseVerdict, RunDeltaMovement, RunDeltaView } from '../runDeltaView'
 
 export const WHATS_CHANGED_TESTID = 'analysis-new-whats-changed'
 
@@ -35,6 +35,30 @@ export const WHATS_CHANGED_TESTID = 'analysis-new-whats-changed'
  */
 const pct = (v: number): string => `${Math.round(v * 100)}%`
 
+/**
+ * ⭐⭐ THE NOISE TAG, TURNED INTO WORDS — ONE FUNCTION, BECAUSE THERE ARE TWO
+ * SENTENCE SITES AND THE SECOND ONE SHIPPED WITHOUT IT.
+ *
+ * `MovementLine` read `noise_verdict` correctly from the first draft. The LEADER
+ * line, three elements further down, was gated on `changed` ALONE and never read
+ * the verdict at all — so it stated a definite change of the highest-scoring
+ * option as fact. That is not a corner case: CEE hardcodes `not_noise_qualified`
+ * as the leader's verdict at its only assignment (`build-run-delta.ts:508`), with
+ * its own note that this state means "no honest band exists for this quantity on
+ * this pair, rendered as direction only". So on 100% OF EMISSIONS TODAY the
+ * product asserted a leadership change the producer had explicitly declined to
+ * qualify.
+ *
+ * ⚠ The three states are "deliberately never collapsible — a consumer renders the
+ * tag verbatim". Keeping the mapping in ONE place is what stops a third sentence
+ * site being added later without it.
+ */
+export function noiseQualifier(v: NoiseVerdict): string | null {
+  if (v === 'within_noise') return 'Too small to tell apart from ordinary run-to-run movement.'
+  if (v === 'not_noise_qualified') return 'This pair gives no basis for saying whether that is a real difference.'
+  return null
+}
+
 /** What a person is told about ONE option's movement. */
 function MovementLine({ m }: { m: RunDeltaMovement }): JSX.Element {
   const name = m.label ?? 'An option this run does not name'
@@ -46,12 +70,7 @@ function MovementLine({ m }: { m: RunDeltaMovement }): JSX.Element {
     ? `${name}: ${pct(m.prior)} → ${pct(m.current)}`
     : `${name}: ${m.direction === 'up' ? 'scored higher' : m.direction === 'down' ? 'scored lower' : 'scored the same'} than last time`
 
-  const qualifier =
-    m.noiseVerdict === 'within_noise'
-      ? 'Too small to tell apart from ordinary run-to-run movement.'
-      : m.noiseVerdict === 'not_noise_qualified'
-        ? 'This pair gives no basis for saying whether that is a real difference.'
-        : null
+  const qualifier = noiseQualifier(m.noiseVerdict)
 
   return (
     <li
@@ -78,7 +97,23 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
 
   return (
     <section
-      className={surface(view.attributable ? 'info' : 'neutral')}
+      /*
+        ⛔⛔ A CONSTANT TONE, AND THE REASON IS THE SEPARATION THIS FILE EXISTS FOR.
+        This was `surface(view.attributable ? 'info' : 'neutral')` — PART A
+        choosing the tone of the container that ENCLOSES PART B. This repo's own
+        dictionary makes that a claim: `panelSurfaces.ts` defines `neutral` as
+        "No claim. The default for a box that groups without judging." and `info`
+        as "Worth stopping on."
+
+        So `C2_unpaired` carrying three producer-certified `signal` movements was
+        framed "no claim", and `C1_attributable` with an empty movement list was
+        framed "worth stopping on". The prose kept the two statements apart and
+        the STYLING fused them — the one channel a prose guard cannot see.
+
+        `neutral` is correct here on its own terms: this box groups two
+        independent statements and judges neither.
+      */
+      className={surface('neutral')}
       data-testid={WHATS_CHANGED_TESTID}
       data-attributable={view.attributable ? 'true' : 'false'}
       role="status"
@@ -122,6 +157,30 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
       )}
 
       {/*
+        ⛔ A PARTIAL LIST READ AS A COMPLETE ONE IS A CLAIM ABOUT THE OPTIONS THAT
+        ARE NOT IN IT. The producer builds `win_probabilities` from options it
+        could match across BOTH runs, so an option that exists in only one of them
+        is absent BY CONSTRUCTION — and the surface previously represented
+        "movement unknown" only at whole-array grain (`movements.length === 0`).
+        A list of two options out of three therefore said nothing about the third
+        while looking exhaustive.
+
+        ⚠ This line states the SCOPE rather than counting the gap. Naming which
+        options are missing needs the current option set, which this module is
+        deliberately not given — and a count derived here would be the
+        client-side computation the contract forbids. The scope is always true
+        and removes the false implication without inventing a number.
+      */}
+      {view.movements.length > 0 ? (
+        <p
+          className={`${typography.panelMeta} text-text-light mt-1.5 mb-0`}
+          data-testid={`${WHATS_CHANGED_TESTID}-movement-scope`}
+        >
+          Only options that appear in both analyses are listed here.
+        </p>
+      ) : null}
+
+      {/*
         ⛔ THIS LINE NAMES NOBODY UNLESS BOTH IDS ARRIVED. The contract is
         explicit that an absent id means the producer is not entitled to make a
         claim on that side — never that no such option existed — and that a
@@ -132,10 +191,21 @@ export function WhatsChanged({ view }: { view: RunDeltaView | null }): JSX.Eleme
           className={`${typography.panelMeta} text-text-light mt-2 mb-0`}
           data-testid={`${WHATS_CHANGED_TESTID}-highest-scoring`}
           data-may-name={view.leader.mayName ? 'true' : 'false'}
+          data-noise-verdict={view.leader.noiseVerdict}
         >
           {view.leader.mayName && view.leader.priorLabel && view.leader.currentLabel
             ? `The option scoring highest moved from ${view.leader.priorLabel} to ${view.leader.currentLabel}.`
             : 'The option scoring highest is not the same one as last time.'}
+          {/*
+            ⛔ THE QUALIFIER IS NOT OPTIONAL DECORATION — IT IS WHAT MAKES THE
+            SENTENCE ABOVE TRUE. Without it this states a leadership change as
+            settled fact on every emission CEE produces today.
+          */}
+          {noiseQualifier(view.leader.noiseVerdict) ? (
+            <span className={`${typography.panelMeta} text-text-light block`}>
+              {noiseQualifier(view.leader.noiseVerdict)}
+            </span>
+          ) : null}
         </p>
       ) : null}
     </section>

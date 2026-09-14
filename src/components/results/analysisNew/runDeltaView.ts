@@ -39,10 +39,26 @@
  * `RUN_DELTA_FLIP_THRESHOLDS_NOT_COMPUTED`) because, in its own words, "the join
  * is deferred and we never looked". Its own comment names the hazard: "an empty
  * array read naively ASSERTS there are no flip thresholds, which is a claim we
- * have not earned". Unlike `edit_list` it carries no `.min(1)`, so absence and
- * emptiness are indistinguishable — there is no honest sentence to build from it
- * until Core computes it. Rendering anything from it would be the one fabrication
- * the contract's refinements cannot refuse.
+ * have not earned". That ground alone settles it: there is no honest sentence to
+ * build from a value the producer has not earned.
+ *
+ * ⚠⚠ CORRECTED — an earlier draft of this note gave a SECOND reason that is
+ * false, and the true version is a hazard rather than a nuance. It said absence
+ * and emptiness are "indistinguishable" here. They are MAXIMALLY distinguishable:
+ * `flip_thresholds: z.array(...)` carries NO `.optional()` (target 0 against a
+ * contrast of 5 `.optional()` in the same file, `edit_list` among them), so it is
+ * REQUIRED. Proven by execution against the vendored 0.55.0 with a must-pass
+ * control: the same block PARSES with the field and fails `flip_thresholds
+ * Required` without it.
+ *
+ * ⛔ AND THE FAILURE IS SILENT AND TOTAL. `run_delta` sits in
+ * `QUARANTINABLE_ADDITIVE_KEYS` (`responseParser.ts:284`), so a parse failure
+ * lifts THE WHOLE KEY out and the turn survives without it — no error, no red,
+ * and a section that renders nothing, which is indistinguishable from this
+ * feature's own legitimate default. If CEE ever stops emitting the field, the
+ * capability goes dark exactly the way the two-writer defect made it dark.
+ * Reported to Core; nothing the consumer can guard, because the block is gone
+ * before any consumer sees it.
  *
  * ⛔ `edit_list` IS NOT READ EITHER — it is declared in 0.55.0 and emitted
  * nowhere (verified at CEE `78515b95` with a contrast control). When Core ships
@@ -93,7 +109,11 @@ export interface RunDeltaView {
   readonly comparability: string
   /** True ONLY for `C1_attributable`. Nothing else licenses a causal reading. */
   readonly attributable: boolean
-  /** The rider that follows a non-attributable case. `null` on C1. */
+  /**
+   * The cause rider, SELECTED BY CASE. `null` on C1 only. ⛔ Not a binary on
+   * `attributable`: C0 proves a model change did not happen, while C2/C3/C4
+   * merely cannot establish one — opposite claims that a binary fused.
+   */
   readonly attributionLimit: string | null
   /** PART B. Empty array + `movementsUnavailable` are different states. */
   readonly movements: readonly RunDeltaMovement[]
@@ -131,12 +151,48 @@ const COMPARABILITY: Record<RunDelta['attribution_case'], string> = {
 }
 
 /**
- * The rider. One sentence, and the same one for all three non-attributable
- * cases — they differ in WHY the pair is not comparable (part A says so) and
- * agree exactly on what the reader may not conclude.
+ * THE RIDER — what the reader may and may not conclude about CAUSE.
+ *
+ * ⛔⛔ BY CASE, NEVER BINARY, AND THE DIFFERENCE IS A FALSE STATEMENT. An earlier
+ * draft was `attributable ? null : ONE_SENTENCE`, i.e. a binary over a FIVE-value
+ * enum, and the one sentence DENIED a model change: "any difference below cannot
+ * be put down to a change in the model". Two separate defects fell out of that:
+ *
+ *   ⛔ ON `C2_unpaired` IT DENIES THE CAUSE THAT IS ROUTINELY THE REAL ONE. CEE
+ *     emits C2 on `!seed_equal` WITHOUT CONSULTING THE HASH, and its own producer
+ *     note (`build-run-delta.ts:332-335`) says a factor-value edit moves
+ *     `observed_state.value` — which sits in BOTH the seed inputs AND the hash.
+ *     So the likeliest edit a person makes lands in C2, and the card told them
+ *     their change could not explain what they were looking at. "Not established"
+ *     and "not the cause" are different claims; only the first is ours to make.
+ *
+ *   ⛔ ON `C0_identical` IT FIRED AS A LIMIT WHERE THE PAIR IS AT ITS STRONGEST.
+ *     C0 requires `hash_equal === true` (`refineRunDelta` demands all four
+ *     echoes), so "the model did not change" is PROVEN, not merely unestablished.
+ *     Printing a not-comparable rider there mislabels a certainty as a gap.
+ *
+ * ⇒ Three distinct riders. C1 needs none — part A already carries the whole
+ * claim. C0 states a proven negative. C2/C3/C4 REFUSE TO ATTRIBUTE, which is the
+ * honest shape of "we cannot tell from this pair".
  */
-const ATTRIBUTION_LIMIT =
-  'Any difference below cannot be put down to a change in the model.'
+const ATTRIBUTION_LIMIT: Record<RunDelta['attribution_case'], string | null> = {
+  // Part A already says the only difference is a change to the model. A rider
+  // would either repeat it or weaken it.
+  C1_attributable: null,
+  // ⭐ PROVEN, NOT UNKNOWN. `hash_equal` is true by the case's own preconditions,
+  // so this is the one arm entitled to say a model change is NOT the explanation.
+  C0_identical:
+    'The model itself did not change between these two, so nothing below can be explained by an edit to it.',
+  // ⛔ REFUSAL TO ATTRIBUTE, NOT DENIAL. C2 is decided on the seed alone; the hash
+  // is never consulted, so a change to the model may well be the cause and this
+  // pair simply cannot show it.
+  C2_unpaired:
+    'Whether a change to the model explains anything below cannot be established from this pair.',
+  C3_engine_drift:
+    'Whether a change to the model explains anything below cannot be established from this pair.',
+  C4_budget_drift:
+    'Whether a change to the model explains anything below cannot be established from this pair.',
+}
 
 function directionOf(prior: number, current: number): MovementDirection {
   if (current > prior) return 'up'
@@ -176,7 +232,7 @@ export function buildRunDeltaView(
   return {
     comparability: COMPARABILITY[delta.attribution_case],
     attributable,
-    attributionLimit: attributable ? null : ATTRIBUTION_LIMIT,
+    attributionLimit: ATTRIBUTION_LIMIT[delta.attribution_case],
     movements,
     // ⚠ AN EMPTY LIST IS "NO OPTION HAD A COMPARABLE PAIR", NEVER "NOTHING
     // MOVED". The contract permits an empty array on a pair where no option

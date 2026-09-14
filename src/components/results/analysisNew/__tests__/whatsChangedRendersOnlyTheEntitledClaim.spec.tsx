@@ -42,13 +42,48 @@ describe('only C1 reads as caused by the person', () => {
     expect(screen.queryByTestId(`${WHATS_CHANGED_TESTID}-attribution-limit`)).toBeNull()
   })
 
-  it.each(['C0_identical', 'C2_unpaired', 'C3_engine_drift', 'C4_budget_drift'] as const)(
-    '%s renders the limit and is not attributable', (c) => {
+  /**
+   * ⛔⛔ THIS BLOCK PREVIOUSLY ASSERTED THE DEFECT. It required all four
+   * non-C1 cases to say "cannot be put down to a change in the model" — a
+   * DENIAL of cause. On `C2_unpaired` that is false: CEE decides C2 on
+   * `!seed_equal` without ever consulting the hash, and the commonest edit a
+   * person makes (a factor value) moves `observed_state.value`, which sits in
+   * both. So the card denied the cause that was routinely the real one, and
+   * this spec held it in place. A guard agreeing with the defect.
+   */
+  it.each(['C2_unpaired', 'C3_engine_drift', 'C4_budget_drift'] as const)(
+    '%s REFUSES to attribute — and never denies the cause', (c) => {
       render(<WhatsChanged view={view({ attribution_case: c })} />)
       expect(screen.getByTestId(WHATS_CHANGED_TESTID)).toHaveAttribute('data-attributable', 'false')
-      expect(screen.getByTestId(`${WHATS_CHANGED_TESTID}-attribution-limit`).textContent)
-        .toMatch(/cannot be put down to a change in the model/i)
+      const limit = screen.getByTestId(`${WHATS_CHANGED_TESTID}-attribution-limit`).textContent ?? ''
+      expect(limit).toMatch(/cannot be established/i)
+      // ⛔ THE DISCRIMINATOR. "Not established" and "not the cause" are
+      // different claims and only the first is ours; a rider that denies is
+      // the defect this case exists to keep out.
+      expect(limit).not.toMatch(/cannot be put down to|is not (the )?(cause|explanation)|did not cause/i)
     })
+
+  it('⭐ C0 states a PROVEN negative, not an unestablished one — hash_equal is true by the case', () => {
+    render(<WhatsChanged view={view({
+      attribution_case: 'C0_identical',
+      pair_provenance: { seed_equal: true, hash_equal: true, builds_equal: 'equal', n_equal: true },
+    })} />)
+    const limit = screen.getByTestId(`${WHATS_CHANGED_TESTID}-attribution-limit`).textContent ?? ''
+    expect(limit).toMatch(/did not change/i)
+    // C0 is the one arm entitled to rule an edit out. It must NOT be worded as
+    // a gap in what we can establish.
+    expect(limit).not.toMatch(/cannot be established/i)
+  })
+
+  it('⛔ the rider is per-case, not a binary — C0 and C2 must NOT share a sentence', () => {
+    const read = (c: RunDelta['attribution_case']): string => {
+      const { unmount } = render(<WhatsChanged view={view({ attribution_case: c })} />)
+      const t = screen.getByTestId(`${WHATS_CHANGED_TESTID}-attribution-limit`).textContent ?? ''
+      unmount()
+      return t
+    }
+    expect(read('C0_identical')).not.toBe(read('C2_unpaired'))
+  })
 })
 
 describe('an unmatched pair is never rendered as stillness', () => {

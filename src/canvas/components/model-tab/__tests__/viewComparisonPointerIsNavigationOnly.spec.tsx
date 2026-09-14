@@ -78,3 +78,40 @@ describe('it actually navigates', () => {
     expect(spy).toHaveBeenCalledWith('analysisNew')
   })
 })
+
+describe('⛔ the pointer and the section must not be able to disagree', () => {
+  /**
+   * They share the predicate `runDeltaDescribesDisplayedAnalysis` but NOT its
+   * arguments. The pointer reads `results.hash` off the store itself; the
+   * Reasoning tab is handed `responseHash` as a prop by `OutputsDock`. Today
+   * those are the same value only because the dock happens to pass the same
+   * store read — and nothing pinned it, so a future edit that sourced the prop
+   * from anywhere else would leave one surface offering a comparison the other
+   * refuses to show, with no red.
+   *
+   * ⚠ SOURCE-LEVEL, DELIBERATELY. The divergence is in an ARGUMENT at a call
+   * site, not in behaviour reachable from either component alone; a render test
+   * of both cannot observe it, because both would be fed the same fixture.
+   */
+  const readSrc = (rel: string): string => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { readFileSync } = require('node:fs') as typeof import('node:fs')
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { resolve } = require('node:path') as typeof import('node:path')
+    const text = readFileSync(resolve(__dirname, rel), 'utf8')
+    expect(text.length).toBeGreaterThan(1000) // the read is not silently empty
+    return text
+  }
+
+  it('the dock feeds the Reasoning tab from the SAME store read the pointer uses', () => {
+    expect(readSrc('../../OutputsDock.tsx')).toMatch(/responseHash=\{results\?\.hash\}/)
+  })
+
+  it('and the pointer reads that same field, not a second notion of freshness', () => {
+    expect(readSrc('../ViewComparisonPointer.tsx')).toMatch(/useCanvasStore\(\(s\) => s\.results\?\.hash\)/)
+  })
+
+  it('contrast — the probe can tell a present binding from an absent one', () => {
+    expect(readSrc('../ViewComparisonPointer.tsx')).not.toMatch(/s\.someOtherHashThatDoesNotExist/)
+  })
+})
