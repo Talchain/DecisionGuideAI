@@ -392,6 +392,32 @@ export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<strin
   // ISL influence_score (0-1) - structural causal influence
   const influenceScore = typeof typed.influence_score === 'number' ? typed.influence_score : undefined
 
+  // The producer's OWN declaration of the basis behind the importance/influence
+  // family. Until 7 Sep 2026 this field was stamped on every recent capture and
+  // read by ZERO lines of code under `src/` — a declared semantics the UI had
+  // never consulted while naming the quantity "structural" on its own authority.
+  //
+  // ⚠⚠ DELIBERATELY TYPED AS A RAW `string`, NOT NARROWED TO THE KNOWN VALUE,
+  // AND THAT IS THE WHOLE POINT OF THE FIELD. The obvious read here is
+  //   `typed.importance_basis === 'graph_structural' ? 'graph_structural' : undefined`
+  // and it would DESTROY the signal this lane exists to carry: a narrowing read
+  // collapses "the producer stamped something we do not handle" into "the
+  // producer stamped nothing", which are the two states the fail-closed rule in
+  // `influenceScaleCopy.ts` has to tell apart. Absent means we learn nothing and
+  // the pre-existing wording stands; unrecognised means our noun is falsified
+  // and must be withheld. Narrow at the POLICY, never at the read.
+  //
+  // STRICT, snake_case ONLY (same rule as influence_score above: the panel
+  // never reads camelCase, so accepting it here would let one surface disclose
+  // a basis another surface cannot see). Absence and an empty string both fail
+  // closed to undefined. [Rationale carried over from #1225, whose equivalent
+  // inline read in the return object below this one replaced — the two
+  // computed the identical value; kept as a named const so the "never narrow"
+  // note above stays attached to the read it governs.]
+  const importanceBasis = typeof typed.importance_basis === 'string' && typed.importance_basis.length > 0
+    ? typed.importance_basis
+    : undefined
+
   // Producer influence_rank (1 = most influential). Additive passthrough;
   // roadmap 1.7 (provisional_doctrine_v0: influence ≠ sensitivity).
   const influenceRank = typeof typed.influence_rank === 'number' ? typed.influence_rank : undefined
@@ -458,15 +484,8 @@ export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<strin
     direction,
     confidence,
     importanceRank: typeof typed.importance_rank === 'number' ? typed.importance_rank : 0,
-    // Producer basis stamp — STRICT read, snake_case only (same rule as
-    // influence_score above: the panel never reads camelCase, so accepting it
-    // here would let one surface disclose a basis another surface cannot see).
-    // Absence and an empty string both fail closed to undefined.
-    importanceBasis:
-      typeof typed.importance_basis === 'string' && typed.importance_basis.length > 0
-        ? typed.importance_basis
-        : undefined,
     influenceScore,
+    importanceBasis,
     influenceRank,
     zeroReason,
     valueOfInformation,
@@ -3053,6 +3072,14 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           // `useNodeDisplayMetadata`; it was the MetricPills pill until #1277
           // deleted that branch) — so the panel and the canvas cannot answer
           // "what is this figure derived from" differently for one report.
+          //
+          // Strict passthrough, and NOT combined with displayProvenance above,
+          // which answers a different question (see DriverItem.importanceBasis).
+          // This replaced a second, panel-only read of `f.raw.importanceBasis`:
+          // both resolve to the same `normalizeFactorSensitivity` value (the
+          // feed's keys are identical to this panel's, see the displayModel
+          // comment above), and the shared-entry route is the one the canvas
+          // reads too, so the two surfaces cannot fork.
           importanceBasis: displayModel.get(f.key)?.importanceBasis ?? undefined,
           // Producer influence_rank passthrough (roadmap 1.7, provisional_doctrine_v0)
           influenceRank: f.raw.influenceRank,
