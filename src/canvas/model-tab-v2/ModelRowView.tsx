@@ -49,6 +49,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import { typography } from '../../styles/typography'
 import { EDIT_RESERVED_HEIGHT_CLASS } from './valueCellMetrics'
 import {
@@ -538,13 +539,45 @@ export function ModelRowView({
       }`}
       onClick={() => onSelect?.(row.id)}
     >
+      {/* ── CELL 1 · KIND — THE CANONICAL SHAPE, NOT A LOCAL CHARACTER.
+          ⛔ THIS RENDERED A MONOCHROME UNICODE GLYPH FROM A MAP PRIVATE TO THIS
+          TAB, AND THE MAP CONTRADICTED THE PRODUCT. `NodeShapeIndicator` is the
+          Design System v4 shape channel — coloured SVG, all eight kinds — and
+          SIXTEEN files use it: the canvas nodes, the inspector, the coaching
+          panel, the pre-analysis hero, the legend popover. The Model tab used
+          ZERO, so the one surface that lists the model by name was the only one
+          not speaking its visual language.
+
+          ⚠ AND IT WAS NOT MERELY COLOURLESS — IT WAS WRONG. `option` is a
+          SQUARE in `NodeShapeIndicator` and was `'○'`, a CIRCLE, here; `factor`
+          is a circle in both. So the two most numerous kinds differed only by
+          FILL in this outline while being circle-vs-square everywhere else, and
+          a reader could not carry one surface's vocabulary to the other. The
+          comment above `KIND_GLYPH` claimed it "names the same kinds the same
+          way" as the canvas; that was false for `option`, and its cited
+          authority (`EntityBar`) is itself Model-tab-local.
+
+          `relationship` keeps a glyph deliberately: it is an EDGE, it has no
+          node shape, and inventing one would assert a kind the domain does not
+          have.
+
+          ⛔ DO NOT PUT `data-kind` ON THIS SPAN. `data-kind` is the ROW-vs-ATOM
+          DISCRIMINATOR: `ModelOutline.spec` and `rowAtomsAlignToOneGrid.spec`
+          both select `[data-testid^="model-row-v2-"]` and then keep only the
+          elements CARRYING it — "`data-kind` excludes the atoms underneath
+          them", in the second file's own words. A first draft of this change
+          added it here as a convenience and broke seven assertions across two
+          specs, because an attribute is not neutral when something else uses
+          its PRESENCE as an identity predicate. */}
       <span
         aria-label={KIND_LABEL[row.kind]}
         title={KIND_LABEL[row.kind]}
         data-testid={`model-row-v2-${row.id}-glyph`}
-        className="text-text-light select-none"
+        className="flex items-center justify-center text-text-light select-none"
       >
-        {KIND_GLYPH[row.kind]}
+        {row.kind === 'relationship'
+          ? KIND_GLYPH.relationship
+          : <NodeShapeIndicator nodeKind={row.kind} size={11} />}
       </span>
 
       {/* ── CELL 2 · IDENTITY — the flexible track. `min-w-0` is required or
